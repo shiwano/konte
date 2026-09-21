@@ -1,0 +1,30 @@
+developer_instructions = """
+When reading SKILL.md files or documents they reference through code-mode,
+read each file in a separate exec call. If a file's output is truncated,
+retrieve the missing sections through separate exec calls.
+
+When exec_command returns a session_id, keep calling write_stdin with that
+session_id until the command exits, reading its output. For long-running
+commands, use yield_time_ms: 120000. In code mode, if
+functions.exec yields a cell_id, resume it with functions.wait first; a
+cell_id is not a shell session_id. Use commentary for progress updates.
+Keep the turn active until generation/review waits finish and their results
+are read; do not send final while either is pending unless the user stops
+or pauses the task.
+
+On "Unknown process id", rerun the lost wait: `konte job wait`, or
+the same `konte review wait`.
+
+When a skill says to spawn a subagent fresh or never as a fork, name the
+agent in the request and carry no history (`fork_turns: "none"`).
+"""
+
+default_permissions = ":workspace"
+approval_policy = "on-request"
+approvals_reviewer = "auto_review"
+
+[shell_environment_policy.set]
+
+[mcp_servers.konte]
+command = "konte"
+args = ["mcp", "serve"]

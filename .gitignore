@@ -1,0 +1,10 @@
+node_modules/
+dist/
+vendor/
+.konte/
+*.tsbuildinfo
+src/review-ui/dist/
+src/core/generated/
+
+.direnv/
+.envrc

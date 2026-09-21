@@ -1,0 +1,114 @@
+{
+  "95": {
+    "class_type": "SaveImageAdvanced",
+    "inputs": {
+      "filename_prefix": "Z_image_base",
+      "format": "png",
+      "format.bit_depth": "8-bit",
+      "format.input_color_space": "sRGB",
+      "images": [
+        "100",
+        0
+      ]
+    }
+  },
+  "96": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "A fashion photography work full of surreal romanticism, using a low-angle upward shooting composition, with a clear light blue sky as the background, and the visual focus concentrated on the fantasy blue vegetation and the model walking through it.\n\nThe vegetation in the picture is processed into varying shades of blue, from light ice blue to deep cobalt blue. The textures of the leaves and branches are delicate and realistic. The warm brown tree trunks form a sharp contrast with the cool blue leaves, resembling a dreamy forest from another world. An African-American model wearing a yellow and white vertical striped long dress walks slowly on the sand. The warm tones of the dress echo with the surrounding cool blue vegetation. The noon sun casts clear shadows on the sand, enhancing the sense of space and reality in the picture.\n\nThe entire scene, with its clean and transparent colors and fantasy settings, not only exudes the vastness of the natural wilderness but also presents a quiet and poetic high-fashion sense due to the surreal vegetation.",
+      "clip": [
+        "99",
+        0
+      ]
+    }
+  },
+  "97": {
+    "class_type": "EmptySD3LatentImage",
+    "inputs": {
+      "batch_size": 1,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "98": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "99": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "lumina2",
+      "device": "default"
+    }
+  },
+  "100": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "104",
+        0
+      ],
+      "vae": [
+        "98",
+        0
+      ]
+    }
+  },
+  "101": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "shift": 3,
+      "model": [
+        "102",
+        0
+      ]
+    }
+  },
+  "102": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "z_image_bf16.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "103": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "",
+      "clip": [
+        "99",
+        0
+      ]
+    }
+  },
+  "104": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 677498465340151,
+      "steps": 25,
+      "cfg": 4,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "101",
+        0
+      ],
+      "positive": [
+        "96",
+        0
+      ],
+      "negative": [
+        "103",
+        0
+      ],
+      "latent_image": [
+        "97",
+        0
+      ]
+    }
+  }
+}

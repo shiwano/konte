@@ -1,0 +1,22 @@
+{
+  "name": "konte-lsp",
+  "description": "TypeScript language server for konte projects.",
+  "lspServers": {
+    "typescript": {
+      "command": "konte",
+      "args": [
+        "lsp"
+      ],
+      "extensionToLanguage": {
+        ".ts": "typescript",
+        ".tsx": "typescriptreact",
+        ".js": "javascript",
+        ".jsx": "javascriptreact",
+        ".mts": "typescript",
+        ".cts": "typescript",
+        ".mjs": "javascript",
+        ".cjs": "javascript"
+      }
+    }
+  }
+}

@@ -1,0 +1,5748 @@
+:root {
+  --bg-app: #0b0c0f;
+  --bg-panel: #15161d;
+  --bg-elevated: #1d1f29;
+  --bg-hover: #282b38;
+  --bg-input: #0f1014;
+  --border: #2b2d3b;
+  --border-strong: #414557;
+  --text-primary: #f0f1f7;
+  --text-secondary: #b3b8c9;
+  --text-muted: #9299ae;
+  --accent: #6e62f5;
+  --accent-hover: #a99fff;
+  --accent-soft: rgba(110, 98, 245, 0.15);
+  --green: #30c98e;
+  --green-soft: rgba(48, 201, 142, 0.14);
+  --red: #f25c5c;
+  --red-soft: rgba(242, 92, 92, 0.14);
+  --orange: #f59e4b;
+  --orange-soft: rgba(245, 158, 75, 0.14);
+  --yellow: #e8c558;
+  --yellow-soft: rgba(232, 197, 88, 0.14);
+  --purple: #b07ef0;
+  --purple-soft: rgba(176, 126, 240, 0.14);
+  --header-h: 52px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-card: 0 4px 18px rgba(0, 0, 0, 0.18);
+  --shadow-pop: 0 16px 48px rgba(0, 0, 0, 0.55);
+  --font:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  --scrollbar-w: 10px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+::-webkit-scrollbar {
+  width: var(--scrollbar-w);
+  height: var(--scrollbar-w);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* The inset is a transparent border, not the app background, so the thumb reads the same
+   inside a panel card as it does on the page. */
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+:where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-hover);
+  outline-offset: 3px;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 5px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font-family: var(--font);
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Header */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: var(--header-h);
+  background: rgba(11, 12, 15, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Centre the header content to the same 1600px column as <main>. */
+.header-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.header-logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.header-brand {
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: -0.04em;
+}
+
+.header-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-strong);
+}
+
+.header-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+/* Per-view controls portaled into the header (e.g. Hide-stale + Shortcuts). */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Main Content */
+.main-content {
+  flex: 1;
+  padding: 1rem 1.25rem;
+  max-width: 1600px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 5rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.loading::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-message {
+  padding: 0.75rem 1rem;
+  background: var(--red-soft);
+  border: 1px solid rgba(242, 92, 92, 0.4);
+  border-radius: var(--radius-md);
+  color: var(--red);
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+/* Dismissible error banner: surfaces failures without unmounting the review UI */
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.75rem;
+  background: var(--red-soft);
+  border: 1px solid rgba(242, 92, 92, 0.4);
+  border-radius: var(--radius-md);
+  color: var(--red);
+  font-size: 0.85rem;
+  animation: banner-slide-in 0.2s ease-out;
+}
+
+.error-banner-dismiss {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+  border-radius: var(--radius-sm);
+}
+
+.error-banner-dismiss:hover {
+  opacity: 1;
+  background: rgba(242, 92, 92, 0.15);
+}
+
+/* Video Preview Layout — columns grow to their natural height; the whole page scrolls as
+   one (a single scrollbar), with the header sticky. No per-column scroll regions. */
+.video-preview-video {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  /* The widest the frame may be drawn, given the height the window has left for it: the header
+     and the page's padding above it, the controls and the timeline's first tracks below. A
+     landscape piece never reaches it; a vertical one is what it holds back. */
+  --frame-max-w: calc(max(320px, 100dvh - 240px) * (var(--video-aspect)));
+}
+
+.vp-col {
+  min-width: 0;
+}
+
+/* The two panel columns, grouped so the full-screen review can move them as one band. Every other
+   layout places the columns themselves, so the group has to leave the flow entirely. */
+.vp-side {
+  display: contents;
+}
+
+/* A wrap point the narrow layout turns on; everywhere else the bar is one row and this is nothing. */
+.header-actions-break {
+  display: none;
+}
+
+/* Phone width: the bar is wider than the screen, so it wraps, and a wrapped bar has no fixed
+   height to pin under. The page becomes a frame instead — the bar above a scrolling <main>, as the
+   full-screen video and animatic reviews are built. Nothing overlaps, so `--header-h` is 0 and the
+   section headlines pin to the top of the scroll region. */
+@media (max-width: 640px) {
+  :root {
+    --header-h: 0px;
+  }
+
+  .app {
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  .header {
+    position: static;
+    height: auto;
+    flex: 0 0 auto;
+  }
+
+  /* No top padding: a scroll container's padding scrolls away with its content, and a headline
+     pinned below it would leave a band of rows showing over the top of it. */
+  .main-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 0.75rem;
+  }
+
+  .main-content > :first-child {
+    margin-top: 0.75rem;
+  }
+
+  .header-left {
+    display: none;
+  }
+
+  .header-inner {
+    flex-wrap: wrap;
+    padding: 0.45rem 0.75rem;
+    gap: 0.4rem 0.75rem;
+  }
+
+  .header-info {
+    flex: 1 1 100%;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 0.4rem 0.6rem;
+  }
+
+  .header-actions-break {
+    display: block;
+    flex-basis: 100%;
+    height: 0;
+  }
+}
+
+.vp-col-video {
+  flex: 2.4 1 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.vp-col-notes {
+  flex: 1.3 1 0;
+  min-width: 270px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Sticky, and never taller than the space between the sticky header and the floating Submit
+   button — a long shot list scrolls inside its own card instead of running under Submit. The
+   bottom reserve must clear the FAB at its tallest: bottom:24px + button + gap + the two-line
+   disabled hint stacked above it (~130px), so the last shot's Accept never hides behind Submit. */
+.vp-col-shots {
+  position: sticky;
+  top: 64px;
+  flex: 0.75 1 0;
+  min-width: 194px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: calc(100vh - 64px - 180px);
+}
+
+/* Panel-card layout is shared via the .shot-list/.video-preview-focused group below. */
+.vp-soundtrack-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.vp-pending-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 8%;
+  text-align: center;
+  background: #0a0a0a;
+}
+
+/* Sits over the playing frame, not across it: a provisional shot is watched, so the label has to
+   stay out of the picture while remaining unmissable. Above the asset layer, never clickable — the
+   pin-placement handler underneath must still get the click. */
+.vp-animatic-label {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 4;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgb(160, 152, 240);
+  background: rgba(20, 18, 34, 0.82);
+  pointer-events: none;
+}
+
+.vp-pending-overlay-caption {
+  margin: 0;
+  max-width: 80%;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* Theater mode — the video review fills the whole window (and the browser's fullscreen, where it
+   grants it). The header and the multi-track timeline are what it hands to the frame; the three
+   columns stay put, so a note is still written where it always was. The header's toggles and
+   actions move into .vp-theater-actions, a bar across the feedback and shots columns, and the
+   timeline into the slim .theater-scrubber under the frame. Below the Submit button (z 100) and
+   the gallery/confirmation overlays (z 1000), which stay reachable. */
+body.theater-mode {
+  overflow: hidden;
+}
+
+body.theater-mode .header {
+  display: none;
+}
+
+/* A grid, not the row of columns: the actions bar spans the feedback and shots columns, which
+   the flex layout has no way to express. The video column owns the full height beside them. */
+body.theater-mode .video-preview-video {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  /* Not 100vh: a phone's collapsing address bar is inside vh but not dvh, and what would sit
+     under it is the bottom of the layout. */
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px 224px;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--bg-app);
+}
+
+body.theater-mode .vp-col-video {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  min-height: 0;
+}
+
+/* Takes the height the seek bar and the controls leave (see boxHeight, which measures it). */
+body.theater-mode .vp-video-viewport {
+  flex: 1 1 auto;
+  min-height: 160px;
+  /* Handed a height by the column, the frame letterboxes into the box rather than sizing it. */
+  max-width: none;
+}
+
+body.theater-mode .vp-theater-actions {
+  grid-column: 2 / span 2;
+  grid-row: 1;
+}
+
+body.theater-mode .vp-col-notes {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 0;
+}
+
+body.theater-mode .comments-panel {
+  min-height: 0;
+  max-height: 100%;
+}
+
+body.theater-mode .comments-panel-list {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Static — the page behind it no longer scrolls, so there is nothing to stick to. The bottom
+   reserve clears the floating Submit button, which now overlaps this column. */
+body.theater-mode .vp-col-shots {
+  grid-column: 3;
+  grid-row: 2;
+  position: static;
+  max-height: none;
+  padding-bottom: 150px;
+}
+
+/* The banner is inside the (now covered) page flow, so it is lifted over the theater layer —
+   a failed submit must not be reported behind the video. */
+body.theater-mode .error-banner {
+  position: fixed;
+  top: 0.75rem;
+  left: 1.25rem;
+  right: 1.25rem;
+  z-index: 45;
+}
+
+/* The header's contents, rehoused: one bar over the two right-hand columns. */
+.vp-theater-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* The columns run the full window rather than the 1600px content column, so Submit follows
+   them out to the window's right edge. */
+body.theater-mode .fab-submit-wrap {
+  right: 1.25rem;
+  width: 224px;
+}
+
+/* Full-screen review — a phone, or any window too small for the three columns to stand in. The
+   frame takes what it can and the panels take the band it leaves. Which edge that band sits on is
+   the two aspects' business rather than the orientation's, so a vertical piece on a portrait phone
+   still puts its panels below (see useFillLayout). It shares theater's fixed layer and hidden
+   header; what it cannot share is the grid, which wants width these viewports do not have. */
+body.fill-mode .video-preview-video {
+  display: flex;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  /* What the band is owed. The frame is what gives way for it — see the band-below rules. */
+  --band-floor: max(200px, 28dvh);
+}
+
+body.fill-mode .vp-col-video {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The band. Its own scroll region: the frame beside or above it must not leave the screen. */
+body.fill-mode .vp-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 0;
+  /* The band is the only thing that scrolls, so it is what has to clear the Submit button. */
+  padding: 0 0.5rem 84px;
+  overflow-y: auto;
+}
+
+body.fill-mode .vp-col-notes,
+body.fill-mode .vp-col-shots {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-height: none;
+  /* The desktop column pins itself beside a scrolling page; here the band is what scrolls. */
+  position: static;
+}
+
+body.fill-mode .ts-shot-id {
+  display: none;
+}
+
+/* Held upright there is no width for one row, and a verdict button landing beside the toggles by
+   chance is one a thumb hits meaning the other — so the break is taken rather than left to the
+   text's length. Turned on its side the bar is the long edge and holds them all, where a break
+   would only cost the frame a row. The negative margin is the gap this element would otherwise
+   add a second time: the row sits one gap from the row above it, as a plain wrap would leave it. */
+@media (orientation: portrait) {
+  /* The break is a row of its own, so the bar's row gap lands twice — once above it and once
+     below. Half the gap on either side leaves the rows a whole one apart, as a plain wrap would.
+     A negative margin cannot do this: the row it sits in floors at zero and eats it. */
+  body.fill-mode .vp-theater-actions {
+    row-gap: 0.375rem;
+  }
+
+  body.fill-mode .header-actions-break {
+    display: block;
+    flex-basis: 100%;
+    height: 0;
+  }
+}
+
+/* The verdict on what is on screen, at the end of the bar — the far corner a thumb reaches
+   without crossing the others. */
+body.fill-mode .vp-accept-current {
+  margin-left: auto;
+}
+
+body.fill-mode .player-controls {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 0.25rem;
+}
+
+/* Band below. The frame's slot hugs the picture's own shape while there is room and shrinks past
+   it once the band claims its floor — the picture letterboxes inside the slot rather than the band
+   giving way. This is where a vertical piece narrows on screen to make room. */
+body.fill-mode .video-preview-video.vp-fill--band-bottom {
+  flex-direction: column;
+}
+
+body.fill-mode .vp-fill--band-bottom .vp-col-video {
+  flex: 0 1 auto;
+  min-height: 0;
+  padding: 0 0.5rem;
+}
+
+body.fill-mode .vp-fill--band-bottom .vp-video-viewport {
+  flex: 0 1 auto;
+  width: 100%;
+  aspect-ratio: var(--video-aspect);
+  min-height: 0;
+}
+
+body.fill-mode .vp-fill--band-bottom .vp-side {
+  flex: 1 0 var(--band-floor);
+  min-height: 0;
+}
+
+/* Band beside. A grid rather than the row, for the same reason theater is one: the actions bar
+   spans both columns. The frame letterboxes into the width the band leaves — hugging its shape
+   here would need the frame's height before the row it sits in has been laid out. */
+body.fill-mode .video-preview-video.vp-fill--band-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(240px, 38vw, 340px);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+body.fill-mode .vp-fill--band-side .vp-theater-actions {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+body.fill-mode .vp-fill--band-side .vp-col-video {
+  grid-column: 1;
+  grid-row: 2;
+  padding: 0 0 0 0.5rem;
+}
+
+body.fill-mode .vp-fill--band-side .vp-side {
+  grid-column: 2;
+  grid-row: 2;
+  padding-top: 0.5rem;
+}
+
+body.fill-mode .vp-fill--band-side .vp-video-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The fill layout cuts the frame's slot from the screen itself (see the band rules), which is
+   the cap's own job done better. */
+body.fill-mode .vp-video-viewport {
+  max-width: none;
+}
+
+/* The frame runs to the screen's edges, so the card border and radius have nothing to sit on. */
+body.fill-mode .vp-video-viewport,
+body.fill-mode .vp-theater-actions {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+
+body.fill-mode .vp-theater-actions {
+  flex: 0 0 auto;
+  border-top: none;
+}
+
+/* No column to track out here — the button sits in the screen's corner. */
+body.fill-mode .fab-submit-wrap {
+  right: 12px;
+  bottom: 12px;
+  width: auto;
+}
+
+/* Touch: a note marker is drawn small so it does not cover the segments under it, which a finger
+   has no use for. Grow the hit area alone and leave the drawing where it is. The segments need
+   nothing — seeking is the whole bar's, not theirs. */
+@media (pointer: coarse) {
+  .rt-note-marker::before {
+    content: "";
+    position: absolute;
+    inset: -11px;
+  }
+}
+
+/* The theater's seek bar, standing in for the timeline directly under the frame: the shots as
+   segments, the timeline's own note markers and playhead on them. Click or drag anywhere to
+   seek — a drag raises the timeline's thumbnail preview. */
+.theater-scrubber {
+  position: relative;
+  flex-shrink: 0;
+  height: 26px;
+  /* Matches .player-controls' top padding, so the bar sits as far below the frame as the
+     controls sit below it. */
+  margin-top: 0.6rem;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+/* The timeline's shot track, laid out in percentages: the same inset, border and outer focus
+   ring, so a segment reads as the same clip in either layout. Nothing here is clipped — the bar,
+   like .rt-track, doesn't hide its overflow, so a ring on the first or last shot stays whole. */
+.ts-shot {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+}
+
+.ts-shot--accepted {
+  background: var(--green-soft);
+}
+
+.ts-shot--pending {
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+/* A `join: "continuous"` seam, as the shot track draws it. */
+.ts-shot--continues {
+  border-left-color: color-mix(in srgb, var(--border-strong) 35%, transparent);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.ts-shot--continued {
+  border-right: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.ts-shot--focused {
+  box-shadow: 0 0 0 2px var(--accent);
+  /* Above the adjacent segment so the focus ring isn't overdrawn by its neighbour's edge. */
+  z-index: 2;
+}
+
+.ts-shot-id {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+/* The timeline's note marker, re-seated: this bar is one row, not a ruler with tracks under it,
+   so a comment sits in the middle of it — and a size up from the ruler's, being the only thing
+   on the bar that says where the notes are. */
+.theater-scrubber .rt-note-marker {
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  margin: -5.5px 0 0 -5.5px;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* Review toolbar (shared by both previews) */
+.review-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.review-toggle:hover {
+  color: var(--text-primary);
+}
+
+/* Checkbox styled as a switch */
+.review-toggle input {
+  appearance: none;
+  width: 30px;
+  height: 17px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.review-toggle input::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transition:
+    transform 0.15s,
+    background 0.15s;
+}
+
+.review-toggle input:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.review-toggle input:checked::after {
+  transform: translateX(13px);
+  background: #fff;
+}
+
+.review-shortcuts-wrap {
+  position: relative;
+}
+
+/* No keyboard to press, so the panel listing what the keys do leads nowhere. */
+@media (pointer: coarse) {
+  .review-shortcuts-wrap {
+    display: none;
+  }
+}
+
+/* Shortcuts popover opened from the toolbar button. */
+.shortcuts-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 240px;
+  padding: 10px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.shortcuts-panel-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.shortcuts-panel-note {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.shortcut-keys {
+  display: inline-flex;
+  gap: 4px;
+  flex: none;
+}
+
+.shortcut-desc {
+  text-align: right;
+}
+
+/* Player */
+.player-wrapper {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.player-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* The box is cut from the column's width on the picture's own shape, so a vertical piece would
+   stand taller than the window and push its own controls and timeline off the bottom. The cap is
+   what stops it: the frame narrows and centres over them, and they keep the column's width. */
+.vp-video-viewport {
+  position: relative;
+  width: 100%;
+  max-width: var(--frame-max-w);
+  margin-inline: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.player-stage {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem;
+  margin-top: 0.65rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  flex-wrap: wrap;
+}
+
+.ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 34px;
+  min-width: 34px;
+  padding: 0 10px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.ctrl-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Square icon-only control (e.g. the ? shortcuts toggle). */
+.ctrl-btn--icon {
+  padding: 0;
+  width: 34px;
+}
+
+.ctrl-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ctrl-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  min-width: 44px;
+}
+
+.ctrl-btn--primary:hover {
+  background: #7b6ef9;
+  border-color: #7b6ef9;
+  color: #fff;
+}
+
+.ctrl-btn--active {
+  background: var(--accent-soft);
+  border-color: rgba(110, 98, 245, 0.45);
+  color: var(--accent-hover);
+}
+
+/* Reached its goal state (e.g. Accept all, once everything is marked) rather than toggled on. */
+.ctrl-btn--accepted {
+  background: var(--green-soft);
+  border-color: rgba(48, 201, 142, 0.45);
+  color: var(--green);
+}
+
+.player-time {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.player-time-total {
+  color: var(--text-muted);
+}
+
+.ctrl-speed {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ctrl-speed-select {
+  height: 34px;
+  padding: 0 8px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctrl-speed-select:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Shot-list bulk actions */
+.vp-shots-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0 0 0.6rem;
+}
+
+.vp-shots-action {
+  height: 30px;
+  font-size: 0.76rem;
+}
+
+.vp-shots-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.vp-shots-action-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 5px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.vp-shots-filter {
+  margin-left: auto;
+}
+
+/* Review timeline — one zoomable, scrollable multi-track NLE (video + audio lanes) */
+.review-timeline {
+  --rt-label-w: 84px;
+  position: relative;
+  /* Matches .player-controls' top padding, so the timeline sits as far below the controls
+     as the controls sit below the player. */
+  margin-top: 0.6rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* Zoom controls float over the tracks' bottom-right corner — there is no header bar to
+   hold them, and the right end of the timeline is where empty track usually is. */
+.rt-zoom {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 5;
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
+  backdrop-filter: blur(3px);
+  box-shadow: var(--shadow-card);
+}
+
+.rt-zoom .ctrl-btn {
+  height: 26px;
+  min-width: 28px;
+  padding: 0 8px;
+}
+
+.rt-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  padding: 6px 0 8px;
+  /* Panning is by drag (and wheel/zoom) — hide the scrollbar. */
+  scrollbar-width: none;
+}
+
+.rt-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.rt-content {
+  position: relative;
+  /* No vertical padding: the rows (with their sticky labels) must reach the top/bottom edges,
+     or the playhead would peek through the uncovered gutter strips. Breathing room is on the
+     scroll container instead. */
+  padding: 0;
+}
+
+.rt-row {
+  display: flex;
+  align-items: stretch;
+  min-height: 22px;
+}
+
+/* Inter-track spacing lives on the track (not the row) so the sticky label column stays
+   contiguous — otherwise the playhead peeks through the gaps between labels. */
+.rt-track {
+  margin-top: 4px;
+}
+
+.rt-label {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  flex: 0 0 var(--rt-label-w);
+  width: var(--rt-label-w);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.rt-label--ruler {
+  border-right-color: transparent;
+}
+
+.rt-label-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ruler — styled as a draggable scrub bar so it clearly affords seeking. */
+.rt-ruler {
+  position: relative;
+  height: 24px;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+  background: var(--bg-elevated);
+  transition: background 0.12s;
+}
+
+.rt-ruler:hover {
+  background: var(--bg-hover);
+}
+
+/* A grip line at the bottom of the scrub bar hints "drag me". */
+.rt-ruler::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--border-strong);
+  border-radius: 2px;
+}
+
+.rt-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--border);
+}
+
+.rt-tick-label {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.rt-note-marker {
+  position: absolute;
+  /* Sit at the top of the scrub bar (playhead-knob height), small enough not to cover the
+     timecodes below. */
+  top: 1px;
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  padding: 0;
+  border-radius: 2px;
+  background: var(--yellow);
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  transform: rotate(45deg);
+  cursor: pointer;
+  z-index: 2;
+}
+
+.rt-note-marker:hover {
+  transform: rotate(45deg) scale(1.35);
+}
+
+/* Stale note pins (shown only when hide-stale is off) read as faded. */
+.rt-note-marker--stale {
+  opacity: 0.4;
+}
+
+/* Track lanes — 30px unless a clip track sets its height inline to fit a stack. */
+.rt-track {
+  position: relative;
+  height: 30px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  /* Drag empty track space to pan the timeline. */
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+/* Shot track — the review-unit region (id, accept, status) */
+.rt-shot {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-hover);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+/* Accepted reads as a green fill, as it does on the theater seek bar — no accept affordance
+   lives on the timeline. */
+.rt-shot--accepted {
+  background: var(--green-soft);
+}
+
+/* An undeveloped shot (pendingShot) has no composition — a dashed placeholder block, matching
+   the dashed "not ready" clips. */
+.rt-shot--pending {
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+/* A `join: "continuous"` seam. */
+.rt-shot--continues {
+  border-left-color: color-mix(in srgb, var(--border-strong) 35%, transparent);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.rt-shot--continued {
+  border-right: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.rt-shot--focused {
+  box-shadow: 0 0 0 2px var(--accent);
+  /* Above the adjacent region so the focus ring isn't clipped by its neighbor's edge. */
+  z-index: 2;
+}
+
+.rt-shot-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+}
+
+.rt-shot-id {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* The shot's duration — the direction's pacing source of truth, read here against the ruler. */
+.rt-shot-duration {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Video/Image track — one positioned clip per layer (name + variant button). Its top/height
+   are set inline, stacking a shot's layers only where they cover the same span. Per-track
+   colours below. */
+.rt-video-clip {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 4px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-hover);
+  box-sizing: border-box;
+}
+
+/* One hue per media kind, shared with the audio clips below: motion blue, stills yellow,
+   sound red. A track is identifiable by colour alone, before its label is read. */
+.rt-row--video .rt-video-clip {
+  border-color: rgba(88, 166, 232, 0.5);
+  background: rgba(88, 166, 232, 0.16);
+}
+
+.rt-row--image .rt-video-clip {
+  border-color: rgba(232, 197, 88, 0.5);
+  background: rgba(232, 197, 88, 0.16);
+}
+
+/* Focus mirrors the shot region; accepted state is shown on the Shot track, not here. */
+.rt-video-clip.rt-video-clip--focused {
+  box-shadow: 0 0 0 2px var(--accent);
+  z-index: 2;
+}
+
+/* No resolved variant yet (never generated / still generating) — a dashed, muted placeholder,
+   flagged inline with a "Not ready" badge instead of a global banner. */
+.rt-video-clip--not-ready,
+.rt-audio-clip--not-ready {
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+/* The variant-gallery trigger inside a clip — shared by the video and audio tracks so
+   both open variants the same way. It carries the animatic's variant annotation
+   (count / accepted / stale), compacted to icons; the asset name sits to its
+   left, outside the button, and is what gives way first when the clip is narrow. */
+.rt-clip-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.rt-clip-open:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.rt-clip-open .variant-summary-tag {
+  font-size: 0.62rem;
+  gap: 2px;
+}
+
+.rt-clip-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+}
+
+.rt-clip-name > svg {
+  flex-shrink: 0;
+}
+
+/* Audio track — cues. top/height are set inline: a lane stacks overlapping cues into
+   sub-rows, and the track grows to fit them. */
+.rt-audio-clip {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  overflow: hidden;
+  border: 1px solid rgba(242, 92, 92, 0.5);
+  border-radius: 4px;
+  background: rgba(242, 92, 92, 0.16);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.rt-audio-clip:hover {
+  border-color: var(--accent);
+}
+
+/* Timeline soundtrack (bed) — the same red family as a cue (it is audio), one step deeper
+   and warmer so it still reads apart from per-shot cues without needing a "BGM" tag. */
+.rt-audio-clip--soundtrack {
+  border-color: rgba(214, 116, 74, 0.55);
+  background: rgba(214, 116, 74, 0.14);
+}
+
+/* The focused shot's audio, highlighted exactly like its video region. */
+.rt-audio-clip--focused {
+  box-shadow: 0 0 0 2px var(--accent);
+  z-index: 2;
+}
+
+.rt-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #fff;
+  border-radius: 1px;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+  /* Below the sticky labels (z-index 4) so it slides under them instead of over the
+     gutter when the timeline is scrolled; still above the track clips. */
+  z-index: 3;
+}
+
+/* A handle at the top of the playhead (over the scrub bar) — signals it's draggable. Kept
+   within the bar (top: 1px) so it never pokes into the padding above the label gutter. */
+.rt-playhead::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translateX(-50%);
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* YouTube-style thumbnail preview shown while scrubbing — floats just above the cursor
+   (portaled to <body>, positioned by the pointer's viewport coords). */
+.rt-scrub-preview {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 3px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  box-shadow: var(--shadow-card);
+  pointer-events: none;
+}
+
+.rt-scrub-thumb {
+  display: block;
+  width: 132px;
+  height: auto;
+  border-radius: 3px;
+}
+
+.rt-scrub-time {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Panel cards (shot list, focused shot) */
+.shot-list,
+.video-preview-focused,
+.vp-soundtrack-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.85rem;
+  box-shadow: var(--shadow-card);
+}
+
+/* Selectable like a shot card, and focused the same way — it points the feedback panel at
+   the soundtrack. */
+.vp-soundtrack-box {
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.vp-soundtrack-box:hover {
+  border-color: var(--border-strong);
+}
+
+.vp-soundtrack-box--focused {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.vp-soundtrack-box .panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.panel-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* A qualifier on the heading itself ("Feedback · Shot 01"), so the panel spends one line
+   on its label instead of two. */
+.panel-title-sub {
+  margin-left: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border-strong);
+}
+
+/* A panel heading with a right-aligned action (e.g. Shot List + Next). */
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+
+.panel-title-row .panel-title {
+  margin-bottom: 0;
+}
+
+.vp-next-unreviewed {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  font-size: 0.72rem;
+}
+
+.shot-list-progress {
+  padding: 0 0 0.85rem;
+  margin-right: var(--scrollbar-w);
+}
+
+.shot-list-progress-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  margin-bottom: 0.4rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.shot-list-progress progress {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 4px;
+  border: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-hover);
+  accent-color: var(--green);
+}
+
+.shot-list-progress progress::-webkit-progress-bar {
+  background: var(--bg-hover);
+}
+
+.shot-list-progress progress::-webkit-progress-value {
+  background: var(--green);
+  border-radius: 4px;
+}
+
+.shot-list-progress progress::-moz-progress-bar {
+  background: var(--green);
+}
+
+.shot-list-empty {
+  padding: 1rem 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+/* The card owns the height cap; only its item list scrolls, so the title row and its
+   "Next" action stay pinned. */
+.vp-col-shots .shot-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* The item list reserves its scrollbar gutter always (below), so the card gives that
+     gutter back out of its own right padding and the title row pads by the same amount:
+     the rows and the "Next" action keep one right edge whether the list scrolls or not. */
+  padding-right: calc(0.85rem - var(--scrollbar-w));
+}
+
+.vp-col-shots .panel-title-row {
+  padding-right: var(--scrollbar-w);
+}
+
+.vp-col-shots .vp-soundtrack-box {
+  flex-shrink: 0;
+}
+
+.shot-list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+/* Two-row shot rows (video preview ShotList) */
+.vp-shot-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0.75rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  font: inherit;
+  color: inherit;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.vp-shot-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.vp-shot-item--focused {
+  border-color: var(--accent-hover);
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent-hover);
+}
+
+.vp-shot-item--accepted .shot-list-item-id::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.vp-shot-action {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.vp-shot-item-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.vp-shot-item-notes {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.vp-shot-item-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.vp-shot-item-bottom > button {
+  margin-left: auto;
+}
+
+.shot-list-item-id {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/* Focused shot panel (variant selection + feedback) */
+.video-preview-variants {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.video-preview-variant-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.video-preview-variant-label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Feedback panel — the video review's sidebar: the focused shot's notes in time order,
+   with its synopsis/handoff pinned on top and an "Add note" composer at the bottom. */
+.comments-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.85rem;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.comments-panel-count {
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.comments-panel-context {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.comments-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.comments-panel-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+/* Where the accept control would be on a panel the board takes no verdict on. */
+.accept-locked {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* 34px, matching the header's own action buttons (.ctrl-btn). */
+.accept-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 5px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 600;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.accept-btn:hover:not(:disabled) {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.accept-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.accept-btn.accept-btn--active {
+  background: var(--green);
+  color: #08130e;
+  border-color: var(--green);
+}
+
+.accept-btn--overridden {
+  border-style: dashed;
+}
+
+/* Status Badge */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.status-badge--ok,
+.status-badge--accepted {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.status-badge--needs_revision {
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+
+.status-badge--stale {
+  background: var(--yellow-soft);
+  color: var(--yellow);
+}
+
+.status-badge--pinned {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.status-badge--none {
+  background: rgba(154, 160, 172, 0.14);
+  color: var(--text-secondary);
+}
+
+.status-badge--changed {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+.status-badge--new {
+  background: var(--yellow-soft);
+  color: var(--yellow);
+}
+
+.status-badge--pending {
+  background: rgba(210, 168, 88, 0.16);
+  color: rgb(210, 168, 88);
+}
+
+.status-badge--not-ready {
+  background: rgba(88, 166, 232, 0.16);
+  color: rgb(88, 166, 232);
+}
+
+/* A shot showing its animatic, not its finished picture. Reads as a state, not a fault — the
+   provisional pass is where it should be — so it borrows the informational blue, not the warning. */
+.status-badge--animatic {
+  background: rgba(140, 132, 232, 0.18);
+  color: rgb(160, 152, 240);
+}
+
+.status-badge--regenerate {
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+
+/* A badge that does something on click: a Regenerate mark taken back with its x, or a follow's
+   mark jumping to the row it follows. Same shape as the static badge, with a hand and a hover. */
+.status-badge--action {
+  gap: 4px;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.status-badge--action:hover {
+  filter: brightness(1.25);
+}
+
+/* Variant gallery modal */
+.variant-modal-backdrop,
+.submit-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 6, 8, 0.7);
+  backdrop-filter: blur(6px);
+  animation: fade-in 0.15s ease-out;
+}
+
+/* The submit dialog — every submit passes through it: the undecided targets, the overall comment,
+   and the reason a review carrying nothing cannot be sent. */
+.submit-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  width: min(480px, 90vw);
+  max-height: 90vh;
+  padding: 1.1rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* The backdrop centres the box, so a dialog taller than the window is clipped at BOTH edges with
+   no way to scroll back — the actions row goes out of reach. Everything but the target list holds
+   its height, and the list gives way, so the comment field and both buttons stay on screen however
+   many targets were left undecided and however short the window is. */
+.submit-dialog > * {
+  flex-shrink: 0;
+}
+
+.submit-dialog-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.submit-dialog-note {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.submit-dialog-regenerate {
+  display: flex;
+  flex-direction: column;
+}
+
+.submit-dialog-with {
+  padding-left: 1rem;
+  color: var(--text-secondary);
+}
+
+.submit-dialog-detail {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.submit-dialog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-height: 3rem;
+  /* Six rows and a sliver of the seventh, so a long list reads as scrollable. */
+  max-height: 8.5rem;
+  overflow-y: auto;
+  padding: 0.5rem 0.7rem;
+  list-style: none;
+  font-size: 0.8rem;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+}
+
+.submit-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.submit-dialog-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.submit-dialog-textarea {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.submit-dialog-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Why the dialog's Submit is disabled — an empty review is not a review, and the field above is
+   one of the three ways out of it. */
+.submit-dialog-blocked {
+  padding: 0.5rem 0.7rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.submit-dialog-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* One pair of equal buttons — the two actions differ in fill, not in weight, so neither reads
+   as the one you are supposed to take. Both are shared classes sized for elsewhere (a 34px
+   header control, a full-width FAB), so the row restates the box for both. */
+.submit-dialog-actions > button {
+  flex: 1 1 0;
+  height: auto;
+  padding: 12px 22px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The transparent border above equalizes the heights (the FAB has none); the secondary keeps
+   its outline. */
+.submit-dialog-actions .ctrl-btn {
+  border-color: var(--border);
+}
+
+.submit-dialog-actions .fab-submit {
+  width: auto;
+  box-shadow: none;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.variant-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: min(720px, 90vw);
+  max-height: 90vh;
+  padding: 1.1rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+}
+
+.variant-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.variant-modal-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.variant-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.variant-modal-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.variant-gallery {
+  width: min(1100px, 95vw);
+}
+
+.variant-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+  overflow-y: auto;
+  padding: 0.25rem;
+}
+
+.variant-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 4px;
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s;
+}
+
+.variant-tile:hover {
+  border-color: var(--border-strong);
+}
+
+.variant-tile--selected,
+.variant-tile--selected:hover {
+  border-color: var(--accent);
+}
+
+.variant-tile--deemphasized {
+  opacity: 0.45;
+}
+
+.variant-tile--deemphasized:hover {
+  opacity: 0.85;
+}
+
+.variant-tile-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: #000;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.variant-tile-img,
+.variant-tile-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.variant-tile-video {
+  position: absolute;
+  inset: 0;
+}
+
+.variant-tile-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--text-muted);
+}
+
+.variant-tile-media--audio {
+  background: var(--bg-elevated);
+}
+
+.variant-tile-audio-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--text-secondary);
+}
+
+.variant-tile-audio {
+  width: 100%;
+  height: 32px;
+}
+
+.variant-tile-using {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  border-radius: 999px;
+}
+
+.variant-tile-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+}
+
+.variant-tile-id {
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: copy;
+}
+
+.variant-tile-id:hover {
+  color: var(--text-primary);
+}
+
+.variant-tile-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  background: var(--bg-elevated);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.variant-tile-info:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.variant-tile-before {
+  flex: 0 0 auto;
+  padding: 0 0.4rem;
+  height: 24px;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  background: var(--bg-elevated);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.variant-tile-before:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.variant-tile-before--on {
+  border-color: rgba(178, 132, 240, 0.5);
+  background: rgba(178, 132, 240, 0.16);
+  color: var(--text-primary);
+}
+
+/* The tile's own "Use" — the pick, kept off the media click so opening a take is never a
+   decision. */
+.variant-tile-use {
+  flex: 0 0 auto;
+  height: 24px;
+  padding: 0 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: var(--bg-elevated);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.variant-tile-use:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.variant-tile-use--on,
+.variant-tile-use--on:hover {
+  background: var(--accent-soft);
+  border-color: rgba(110, 98, 245, 0.45);
+  color: var(--accent-hover);
+  cursor: default;
+}
+
+.variant-gallery-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Variant detail — one take at full size over the gallery, under native transport controls. */
+.variant-detail {
+  width: min(1100px, 95vw);
+}
+
+.variant-detail-id {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.variant-detail-badge {
+  margin-left: 0.4rem;
+  padding: 1px 7px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.variant-detail-badge--accepted {
+  background: rgba(48, 201, 142, 0.9);
+  color: #08130e;
+}
+
+.variant-detail-badge--stale {
+  background: rgba(232, 197, 88, 0.9);
+  color: #1f1a08;
+}
+
+.variant-detail-badge--before,
+.variant-detail-badge--patched {
+  background: rgba(178, 132, 240, 0.9);
+  color: #150a1f;
+}
+
+.variant-detail-media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  background: #000;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.variant-detail-media video,
+.variant-detail-media img {
+  display: block;
+  width: 100%;
+  max-height: 76vh;
+  object-fit: contain;
+}
+
+.variant-detail-media--audio {
+  background: var(--bg-elevated);
+}
+
+.variant-detail-audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 2rem 1.5rem;
+}
+
+.variant-detail-audio-glyph {
+  color: var(--text-secondary);
+}
+
+.variant-detail-audio audio {
+  width: 100%;
+  max-width: 560px;
+}
+
+.variant-detail-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 200px;
+  color: var(--text-muted);
+}
+
+.variant-summary-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.variant-summary-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.variant-summary-tag--accepted {
+  color: var(--green);
+}
+
+.variant-summary-tag--stale {
+  color: var(--yellow);
+}
+
+.variant-summary-tag--new {
+  color: var(--green);
+  font-weight: 600;
+}
+
+/* Variant status badges (reused by the gallery tiles) */
+.animatic-variant-thumb-badge {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1px 2px;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #fff;
+}
+
+.animatic-variant-thumb-badge--accepted {
+  background: rgba(48, 201, 142, 0.9);
+  color: #08130e;
+}
+
+.animatic-variant-thumb-badge--stale {
+  background: rgba(232, 197, 88, 0.9);
+  color: #1f1a08;
+}
+
+.animatic-variant-thumb-badge--new {
+  background: rgba(88, 166, 232, 0.92);
+  color: #06121f;
+}
+
+.animatic-variant-thumb-badge--patched {
+  background: rgba(178, 132, 240, 0.92);
+  color: #120a1f;
+}
+
+.animatic-variant-thumb-badge--before {
+  background: rgba(140, 140, 150, 0.92);
+  color: #0d0d10;
+}
+
+.animatic-variant-thumb-badge--dismissed {
+  background: rgba(110, 112, 126, 0.92);
+  color: #0d0d10;
+}
+
+/* Submit success */
+.submit-success {
+  text-align: center;
+  padding: 5rem 2rem;
+}
+
+.submit-success h2 {
+  margin-bottom: 0.5rem;
+  color: var(--green);
+  font-size: 1.3rem;
+}
+
+.submit-success p {
+  color: var(--text-secondary);
+}
+
+.submit-skipped {
+  max-width: 48rem;
+  margin: 1rem auto;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.85rem;
+  background: var(--orange-soft);
+  border: 1px solid rgba(245, 158, 75, 0.4);
+  border-radius: var(--radius-sm);
+}
+
+.btn-cancel {
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.78rem;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.btn-cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Note Input */
+.note-input {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+  padding: 0.35rem 0;
+  width: 100%;
+}
+
+.note-input textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  max-height: 40vh;
+  padding: 7px 11px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  resize: none;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  scrollbar-width: none;
+}
+
+.note-input textarea::-webkit-scrollbar {
+  display: none;
+}
+
+.note-input textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.note-input textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* iOS zooms the page in when a field it focuses sets its text under 16px, and leaves it there —
+   so every field a reviewer types into states 16px on a touch device. Must follow both base rules:
+   it carries their specificity and wins on order alone. */
+@media (pointer: coarse) {
+  .note-input textarea,
+  .submit-dialog-textarea {
+    font-size: 16px;
+  }
+}
+
+.note-input-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.note-input-btn--save {
+  color: var(--green);
+  border-color: rgba(48, 201, 142, 0.5);
+}
+
+.note-input-btn--save:hover:not(:disabled) {
+  background: var(--green-soft);
+}
+
+.note-input-btn--cancel {
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+}
+
+.note-input-btn--cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.note-input-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Frame Annotation Overlay */
+.frame-annotation-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.frame-annotation-overlay--adding {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+/* Hot Reload Banner */
+.hot-reload-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+  animation: banner-slide-in 0.2s ease-out;
+}
+
+.hot-reload-banner--reload {
+  background: var(--green-soft);
+  border: 1px solid rgba(48, 201, 142, 0.4);
+  color: var(--green);
+}
+
+.hot-reload-banner--error {
+  background: var(--red-soft);
+  border: 1px solid rgba(242, 92, 92, 0.4);
+  color: var(--red);
+}
+
+.hot-reload-banner--ended {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.hot-reload-banner--update {
+  background: var(--accent-soft);
+  border: 1px solid rgba(110, 98, 245, 0.4);
+  color: var(--accent-hover);
+}
+
+.hot-reload-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hot-reload-banner-action {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  cursor: pointer;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.hot-reload-banner-action:hover {
+  background: var(--accent-hover);
+}
+
+.hot-reload-banner-dismiss {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.hot-reload-banner-dismiss:hover {
+  opacity: 1;
+}
+
+@keyframes banner-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Review Table UI — shared by the animatic and reference reviews, both of which read as a
+   media / feedback / accept grid with the decision in its own column. */
+/* padding-bottom clears the fixed .fab-submit-wrap (24px off the bottom, 44px tall) plus the same
+   24px above it, so the last row's Accept never hides behind Submit at max scroll. */
+.review-table {
+  width: 100%;
+  margin: 0 auto;
+  padding-bottom: 92px;
+}
+
+.review-table-element {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.review-table-element thead th {
+  padding: 0.6rem 0.9rem;
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+
+.review-table-element td {
+  padding: 0.9rem;
+  vertical-align: top;
+}
+
+.review-col-feedback {
+  width: auto;
+}
+
+/* The accept decision, in its own column so it reads like the video review's shot list rather
+   than as a chrome badge floating on the art. */
+.review-col-accept {
+  width: 132px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Block-level, so a "Changed" badge above it keeps its own line instead of sharing one and
+   shoving the button past the column's edge. */
+.review-col-accept .accept-btn {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.review-col-accept .status-badge {
+  margin-bottom: 6px;
+}
+
+.review-row {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.review-row td {
+  border-bottom: 1px solid var(--border);
+}
+
+.review-row:hover {
+  background: rgba(110, 98, 245, 0.04);
+}
+
+.review-row--focused {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* A full-width banner row spanning every column (the direction shot behind an animatic shot): context, not a
+   reviewable target. */
+.review-row--band,
+.review-row--band:hover {
+  cursor: default;
+  background: none;
+}
+
+/* Animatic Table UI */
+.animatic-col-panel {
+  width: 40%;
+}
+
+/* The board is one <table> per shot stacked inside a single card, so each shot's band row is
+   sticky within its own table and the next shot's band pushes it out (Chromium constrains a
+   sticky row to its table, never to its <tbody>). The card lives here rather than on the tables;
+   `clip` rounds the corners without making this a scroll container, which would trap the bands. */
+.animatic-table-stack {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: clip;
+  box-shadow: var(--shadow-card);
+}
+
+/* Widths come from the shared <colgroup>, so every shot's table lines up with the head's. */
+.review-table-element.animatic-table {
+  table-layout: fixed;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  box-shadow: none;
+}
+
+/* Pinned under the app header for as long as its own shot is on screen, so the shot the panels
+   below are judged against stays readable. Sticky sits on the ROW, not the cell: a sticky cell is
+   constrained by the whole table (every band would stack at the top), a sticky row by its own
+   <tbody> — which animatic-shot-row.tsx gives each shot, so the next band pushes this one out. */
+.review-row--band.animatic-row--shot-first {
+  position: sticky;
+  top: var(--header-h);
+  /* Above everything a panel floats over its own art (asset label 5, frame actions 6, pin markers
+     10-12) so those scroll under the band, and below the app header (50). */
+  z-index: 15;
+}
+
+/* Opaque, not the band's translucent accent: panels must not show through while scrolling under. */
+.review-table-element td.animatic-synopsis-cell {
+  padding: 0.65rem 0.9rem;
+  background: #22213c;
+  border-bottom: 1px solid var(--border-strong);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.animatic-synopsis-text {
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.animatic-row--shot-first td {
+  border-top: 1px solid var(--border-strong);
+}
+
+.animatic-row--shot-first:first-child td {
+  border-top: none;
+}
+
+/* Shot ID, timecode and duration — inline at the head of the shot's action band. */
+.animatic-shot-id {
+  margin-right: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.animatic-time-code {
+  margin-right: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.animatic-shot-duration {
+  margin-right: 12px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The shot's dramatic function, ahead of the action it names. */
+.animatic-beat-function {
+  margin-right: 10px;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+/* Size and place, trailing the action — the pair a reviewer scans down the column for cadence and
+   continuity, so it is set quietly and never wraps away from the prose it belongs to. */
+.animatic-shot-space {
+  margin-left: 8px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* The shot's unspoken on-screen text, bracketed so it never reads as a spoken line. */
+.animatic-shot-telop {
+  margin-left: 8px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+.animatic-shot-telop::before {
+  content: "［";
+}
+.animatic-shot-telop::after {
+  content: "］";
+}
+
+/* Frame Image */
+.animatic-frame-img-wrapper {
+  margin-bottom: 0;
+}
+
+.animatic-frame-img-container {
+  position: relative;
+  background: #000;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.animatic-frame-img {
+  /* Fit within the column width and a height cap while preserving aspect ratio. A landscape
+     panel hits max-width first (fills the column); a portrait panel hits max-height first, so
+     it stays narrow and centred instead of stretching the row absurdly tall. Using auto
+     width/height (not width:100%) is what keeps the ratio intact when the height cap bites. */
+  max-width: 100%;
+  max-height: 460px;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  display: block;
+  object-fit: contain;
+}
+
+/* In the detail modal the panel is the whole stage, so the row's height cap is lifted. */
+.animatic-frame-img-container--large {
+  width: 100%;
+}
+
+.animatic-frame-img--large {
+  max-height: 74vh;
+}
+
+.animatic-frame-img-placeholder {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.animatic-frame-img-container--pending {
+  cursor: default;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px 16px;
+  background: radial-gradient(ellipse at center, rgba(110, 98, 245, 0.06), transparent 70%), #000;
+}
+
+.animatic-frame-pending-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.animatic-frame-pending-script {
+  margin-top: 0.5rem;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.95rem;
+  font-style: italic;
+  line-height: 1.3;
+  text-align: center;
+  word-break: break-word;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.animatic-notes-pending {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* Asset Name Overlay */
+.review-frame-asset-overlay {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 9px;
+  background: rgba(8, 9, 12, 0.7);
+  backdrop-filter: blur(4px);
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.5;
+  border-radius: 999px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* Script Overlay */
+.animatic-frame-script-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 10px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  /* Display-only caption bar — never intercept clicks meant for the frame or its buttons. */
+  pointer-events: none;
+}
+
+/* One spoken/narrated line inside the overlay or the pending tile's script block. */
+.animatic-frame-script-line {
+  word-break: break-word;
+}
+.animatic-frame-script-line + .animatic-frame-script-line {
+  margin-top: 2px;
+}
+.animatic-frame-script-speaker {
+  font-weight: 600;
+  opacity: 0.85;
+}
+.animatic-frame-script-speaker::after {
+  content: ": ";
+}
+
+/* Telop on the same tile: bracketed so it reads as text laid over the picture, not a spoken line. */
+.animatic-frame-telop-line {
+  opacity: 0.8;
+}
+.animatic-frame-telop-line .animatic-frame-script-text::before {
+  content: "［";
+}
+.animatic-frame-telop-line .animatic-frame-script-text::after {
+  content: "］";
+}
+
+/* Pin markers — frame.io-style numbered annotation dots anchored on the frame. The
+   comment text lives in the comment list; here it only surfaces as a hover tip. */
+.pin-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: none;
+  z-index: 6;
+  cursor: pointer;
+}
+
+.pin-marker-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px 999px 999px 3px;
+  background: var(--yellow);
+  color: #1f1a08;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border: 2px solid rgba(0, 0, 0, 0.55);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  transition: transform 0.12s;
+}
+
+.pin-marker:hover {
+  z-index: 10;
+}
+
+.pin-marker:hover .pin-marker-dot {
+  transform: scale(1.15);
+}
+
+.pin-marker--pending .pin-marker-dot {
+  background: var(--orange);
+  animation: pin-marker-blink 1.5s ease-in-out infinite;
+}
+
+.pin-marker--stale .pin-marker-dot {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  border-color: var(--border-strong);
+}
+
+.pin-marker--highlighted {
+  z-index: 11;
+}
+
+.pin-marker--highlighted .pin-marker-dot {
+  transform: scale(1.25);
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+
+/* Hover tip: the comment's text, floated beside the dot. Also shown while highlighted. */
+.pin-marker-tip {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 7px);
+  transform: translateX(-50%);
+  min-width: 90px;
+  max-width: 220px;
+  width: max-content;
+  padding: 5px 9px;
+  background: rgba(10, 11, 14, 0.94);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  z-index: 12;
+}
+
+.pin-marker:hover .pin-marker-tip,
+.pin-marker--highlighted .pin-marker-tip {
+  opacity: 1;
+}
+
+@keyframes pin-marker-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.timed-subtitle-stack {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 80%;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.timed-subtitle {
+  max-width: 100%;
+  padding: 5px 14px;
+  /* Same yellow as a pinned sticky note, so a coordinate-less note reads the same way. */
+  background: rgba(232, 197, 88, 0.95);
+  color: #1f1a08;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  border: none;
+  border-radius: 999px;
+  text-align: center;
+  cursor: pointer;
+  word-break: break-word;
+  pointer-events: auto;
+}
+
+.timed-subtitle--highlighted {
+  outline: 2px solid var(--yellow);
+}
+
+/* Comment cards — one shared card for every voice in a review: the reviewer's saved
+   comments and drafts, the agent's handoff, and the read-only shot it is reviewed against. */
+.comment-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.comment-thread-empty {
+  margin: 2px 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.comment-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 7px 9px;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  background: var(--bg-elevated);
+  border: 1px solid transparent;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.comment-card:hover {
+  background: var(--bg-hover);
+}
+
+.comment-card--highlighted {
+  border-color: var(--yellow);
+  background: var(--yellow-soft);
+}
+
+.comment-card--stale {
+  opacity: 0.45;
+}
+
+.comment-card--stale .comment-card-body {
+  text-decoration: line-through;
+}
+
+.comment-card--pending {
+  border: 1px dashed rgba(232, 197, 88, 0.55);
+  background: var(--yellow-soft);
+}
+
+.comment-card--pending:hover {
+  background: rgba(232, 197, 88, 0.2);
+}
+
+/* Agent handoff (AI -> reviewer) — read-only context, accent-tinted. */
+.comment-card--agent {
+  background: var(--accent-soft);
+  border: 1px solid rgba(110, 98, 245, 0.3);
+  cursor: default;
+  align-items: flex-start;
+  line-height: 1.4;
+}
+
+.comment-card--agent:hover {
+  background: rgba(110, 98, 245, 0.2);
+}
+
+.comment-card--agent .comment-card-icon {
+  color: var(--accent-hover);
+  padding-top: 2px;
+}
+
+/* The context cards — read-only, pinned above all comments. */
+.comment-card--move {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  cursor: default;
+  align-items: flex-start;
+  line-height: 1.4;
+}
+
+.comment-card--move:hover {
+  background: var(--bg-elevated);
+}
+
+.comment-card--move .comment-card-icon {
+  color: var(--text-secondary);
+  padding-top: 2px;
+}
+
+.comment-card--move .comment-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  text-align: left;
+}
+
+.comment-move-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Fixed label column so the two rows' prose starts at the same x and reads as one block. */
+.comment-move-label {
+  flex: none;
+  width: 4.2rem;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.comment-move-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A spoken line in the shot's context card: `speaker: text`. */
+.comment-script-line {
+  overflow-wrap: anywhere;
+}
+
+.comment-script-speaker {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.comment-script-speaker::after {
+  content: ": ";
+}
+
+/* The line's acting note beside the words, quieter — direction for the take, not part of it. */
+.comment-script-acting {
+  margin-left: 0.4rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.comment-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  line-height: 1.4;
+}
+
+/* Left column of a comment: pin number / icon on top, chips beneath. */
+.comment-card-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  padding-top: 1px;
+}
+
+.comment-card-pin-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px 999px 999px 3px;
+  background: var(--yellow);
+  color: #1f1a08;
+  font-size: 0.64rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.comment-card--pending .comment-card-pin-badge {
+  background: var(--orange);
+}
+
+.comment-card-body {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.comment-card-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.comment-card--pending .comment-card-icon {
+  color: var(--yellow);
+}
+
+.comment-card-time {
+  display: inline-block;
+  flex-shrink: 0;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.7rem;
+  line-height: 1.6;
+}
+
+.comment-card-actions {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.comment-card:hover .comment-card-actions,
+.comment-card:focus-within .comment-card-actions {
+  opacity: 1;
+}
+
+.note-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.note-action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.note-action-btn--danger:hover {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.comment-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+
+.comment-add-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+}
+
+/* FAB Submit — the wrapper is what floats. It tracks the shots column: same right edge, same
+   width. That width is the column's flex share (0.75 of 2.4 + 1.3 + 0.75) of the centred
+   content box, which is `min(100vw, 1600px)` less .main-content's 1.25rem side padding and the
+   two 1rem gaps between columns. The floor matches .vp-col-shots' own min-width. */
+.fab-submit-wrap {
+  position: fixed;
+  bottom: 24px;
+  right: max(1.25rem, calc((100vw - 1600px) / 2 + 1.25rem));
+  width: max(194px, calc((min(100vw, 1600px) - 2.5rem - 2rem) * 0.75 / 4.45));
+  min-width: max-content;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  z-index: 100;
+}
+
+.fab-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  gap: 0.6rem;
+  padding: 12px 22px;
+  background: linear-gradient(135deg, var(--accent), #8d5cf5);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow:
+    0 8px 24px rgba(110, 98, 245, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s,
+    opacity 0.15s;
+}
+
+.fab-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 12px 32px rgba(110, 98, 245, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.fab-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fab-submit kbd {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* No keyboard to press it on. */
+@media (pointer: coarse) {
+  .fab-submit kbd,
+  .submit-dialog-actions kbd {
+    display: none;
+  }
+}
+
+/* The dialog this raises still names the review in full. */
+@media (max-width: 640px) {
+  .fab-submit-word {
+    display: none;
+  }
+
+  /* The shortcut chip was what gave the button its height; hiding it took the touch target with
+     it. */
+  .fab-submit {
+    min-height: 44px;
+  }
+
+  /* The default width tracks a column this layout does not have. */
+  .fab-submit-wrap {
+    width: auto;
+  }
+}
+
+/* Icon-only action buttons (variant list, enlarge) overlaid in the frame's top-right — clear of
+   the script bar along the bottom, and of a video's native control bar. */
+.review-frame-actions {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  display: flex;
+  gap: 6px;
+  /* Above the asset (z 5) and script overlays so clicks land on the buttons, not the
+     full-width script bar underneath (which would bubble to the pin-placement handler). */
+  z-index: 6;
+}
+
+.review-frame-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: rgba(10, 12, 16, 0.6);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0.7;
+  backdrop-filter: blur(2px);
+  transition:
+    opacity 0.15s,
+    background 0.15s,
+    color 0.15s;
+}
+
+/* Fully opaque and brighter on frame hover or keyboard focus. */
+.animatic-frame-img-container:hover .review-frame-action,
+.reference-card-media:hover .review-frame-action,
+.review-frame-action:hover,
+.review-frame-action:focus-visible {
+  opacity: 1;
+  background: rgba(10, 12, 16, 0.85);
+  color: #fff;
+}
+
+/* Variant-list trigger carries the summary label (count + accepted/new/stale), so it
+   auto-sizes to its content instead of the square icon footprint. */
+.review-frame-action--variants {
+  width: auto;
+  padding: 0 9px;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* Image lightbox — reuses the .variant-modal backdrop/shell, just a large image body. */
+/* Animatic panel detail — the frame enlarged and still pinnable, beside its notes. */
+.animatic-detail {
+  width: min(1200px, 95vw);
+}
+
+.animatic-detail-body {
+  display: flex;
+  gap: 1rem;
+  min-height: 0;
+}
+
+.animatic-detail-stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.animatic-detail-stage .animatic-frame-img-wrapper {
+  width: 100%;
+}
+
+.animatic-detail-notes {
+  width: 320px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  max-height: 74vh;
+}
+
+@media (max-width: 800px) {
+  .animatic-detail-body {
+    flex-direction: column;
+  }
+
+  .animatic-detail-notes {
+    width: auto;
+  }
+}
+
+/* Agent changes banner */
+.handoff-banner {
+  /* Matches .main-content's top padding, so the banner sits evenly between header and content. */
+  margin-bottom: 1rem;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+}
+
+.handoff-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+.handoff-summary:last-child {
+  margin-bottom: 0;
+}
+
+.handoff-icon {
+  display: inline-flex;
+  align-self: center;
+  flex-shrink: 0;
+  color: var(--accent-hover);
+}
+
+/* A note this page has no panel to draw beside. The address carries it instead. */
+.handoff-unrouted-address {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+/* Reference preview — one labelled review table per media kind, since a reference asset has no
+   shot to band it under the way an animatic panel has. */
+/* padding-bottom clears the fixed .fab-submit-wrap, as .review-table does. */
+.reference-preview {
+  width: 100%;
+  margin: 0 auto;
+  padding-bottom: 92px;
+}
+
+.reference-group + .reference-group {
+  margin-top: 1.6rem;
+}
+
+.reference-group-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin: 0 0 0.7rem;
+}
+
+.reference-col-media {
+  width: 40%;
+}
+
+/* Phone width: three columns leave the sheet itself too little to review, so the row stacks, as
+   the direction tables do. `order` puts the art first, the verdict under it, the thread last. */
+@media (max-width: 640px) {
+  .review-table-element,
+  .review-table-element tbody,
+  .review-table-element td {
+    display: block;
+  }
+
+  /* The headers name columns that no longer exist. */
+  .review-table-element thead {
+    display: none;
+  }
+
+  /* The row draws the rule now — a `td` border would stop at the cell's own content. */
+  .review-table-element tr {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0.8rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .review-table-element tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .review-table-element td,
+  .review-row td {
+    padding: 0;
+    border-bottom: none;
+  }
+
+  .review-table-element td.reference-col-media {
+    order: 0;
+    width: auto;
+    flex: 1 1 100%;
+  }
+
+  /* Left: there is no column to sit at the end of. */
+  .review-table-element td.review-col-accept {
+    order: 1;
+    width: auto;
+    flex: 1 1 100%;
+    margin-top: 0.7rem;
+    text-align: left;
+  }
+
+  .review-col-accept .accept-btn {
+    width: auto;
+    min-width: 132px;
+  }
+
+  .review-table-element td.review-col-feedback {
+    order: 2;
+    flex: 1 1 100%;
+    margin-top: 0.7rem;
+  }
+}
+
+.reference-card-media {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.reference-card-media--audio {
+  flex-direction: column;
+  gap: 8px;
+  aspect-ratio: auto;
+  /* Clears the name badge and the action buttons, both pinned to the frame's top edge. */
+  padding: 46px 12px 16px;
+}
+
+/* An image frame hugs its art rather than letterboxing it into a fixed ratio, so a pin's
+   normalized coords land where the reviewer clicked. */
+.reference-card-media--pinnable {
+  cursor: crosshair;
+  display: block;
+  aspect-ratio: auto;
+}
+
+.reference-card-media--pinnable .reference-card-img {
+  max-width: 100%;
+  max-height: 460px;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  display: block;
+}
+
+.reference-card-audio-glyph {
+  color: var(--text-muted);
+}
+
+.reference-card-audio {
+  width: 100%;
+  height: 34px;
+}
+
+.reference-card-img,
+.reference-card-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.reference-card-empty {
+  display: block;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.reference-accept {
+  margin-left: auto;
+}
+
+.reference-accept--on {
+  background: var(--green-soft);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+/* Enlarged detail modal: media stage + a notes side panel. */
+.reference-detail {
+  width: min(1200px, 95vw);
+}
+
+.reference-detail-body {
+  display: flex;
+  gap: 1rem;
+  min-height: 0;
+}
+
+.reference-detail-stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.reference-detail-image {
+  aspect-ratio: auto;
+  width: 100%;
+  max-height: 74vh;
+}
+
+.reference-detail-image .reference-card-img {
+  max-height: 74vh;
+  object-fit: contain;
+}
+
+.reference-detail-video {
+  max-width: 100%;
+  max-height: 74vh;
+  border-radius: 8px;
+  background: #000;
+}
+
+.reference-detail-audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 2.5rem 2rem;
+  color: var(--text-muted);
+}
+
+.reference-detail-audio-player {
+  width: min(420px, 70vw);
+}
+
+.reference-detail-notes {
+  width: 320px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  max-height: 74vh;
+}
+
+/* The direction roster entry a reference card reviews, pinned above its comment thread — a sibling
+   of the thread rather than a member, so it needs the gap the thread applies internally. */
+.review-col-feedback > .comment-card,
+.reference-detail-notes > .comment-card {
+  margin-bottom: 4px;
+}
+
+/* The entry's prose is stale: accepting this image is what signs the rewording off. */
+.comment-roster-flag {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--yellow-soft);
+  color: var(--yellow);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+  .reference-detail-body {
+    flex-direction: column;
+  }
+
+  .reference-detail-notes {
+    width: auto;
+  }
+
+  .video-preview-video {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .vp-col {
+    overflow-y: visible;
+  }
+
+  /* Too narrow for the actions bar to span anything: back to one stacked column, scrolling as
+     a whole, with the actions on top of it. A phone is narrower still and has its own layout,
+     which places these same columns — so this stacking has to stand aside for it. */
+  body.theater-mode:not(.fill-mode) .video-preview-video {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  body.theater-mode:not(.fill-mode) .vp-col-video,
+  body.theater-mode:not(.fill-mode) .vp-col-notes,
+  body.theater-mode:not(.fill-mode) .vp-col-shots {
+    flex: 0 0 auto;
+  }
+
+  /* Nothing hands the viewport a height in a stacked, scrolling column, so it takes the box off
+     its own width again — as it does outside theater, and on the picture's own shape. */
+  body.theater-mode:not(.fill-mode) .vp-video-viewport {
+    flex: 0 0 auto;
+    aspect-ratio: var(--video-aspect);
+    max-width: var(--frame-max-w);
+  }
+}
+
+/* Direction preview — a media-less review (arc, shots, characters, findings). */
+/* Full width of <main>'s column, so the body, the header bar and the decision bar all share one
+   set of edges. */
+/* padding-bottom clears the fixed .fab-submit-wrap, as .review-table does. */
+.direction-preview {
+  width: 100%;
+  padding-bottom: 92px;
+  /* The headline's own height, pinned rather than derived: the column headers stick directly under
+     it, so the two offsets have to agree exactly or the rows show through the seam. */
+  --dir-head-h: 44px;
+}
+
+.direction-section-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* One reviewable box: heading, Accept, and the rows they are a verdict about, drawn as a single
+   card. The heading and the rows have to read as one thing — the Accept at the top signs off what
+   is below it, and a bare heading floating over an unrelated table leaves the reviewer to infer
+   that. The card is also what makes a focus ring legible: there is an edge to draw it on. */
+.direction-section {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.7rem 0.8rem 0.8rem;
+  scroll-margin: 1rem;
+  transition: border-color 0.12s;
+  /* The card rounds its own corners, so the square-cornered sticky headline can run edge to edge
+     wherever it comes to rest. `clip`, never `hidden`: `hidden` would make this card a scroll
+     container, and the headline would then stick to the card instead of to the page. */
+  overflow: clip;
+}
+
+/* Clicking a card focuses it, so an unfocused one answers the pointer — otherwise the only hint
+   that a click does anything is the highlight that appears after you take the chance. */
+.direction-section:not(.direction-section--focused):hover {
+  border-color: var(--border-strong);
+}
+
+/* The box J/K/A/N act on — the whole card, since the whole card is what the next keystroke decides.
+   The accent edge mirrors `.review-row--focused` on the other pages; the tint stays off the body so
+   a table of prose does not sit behind a wash of colour. */
+.direction-section--focused {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft);
+}
+
+/* Layered over the panel colour rather than replacing it: the headline is sticky, so a translucent
+   tint alone would let the rows scrolling underneath read through it. */
+.direction-section--focused .direction-section-headline {
+  background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--bg-panel);
+}
+
+/* The verdict stays with the box it settles: the headline pins under the app header for as long as
+   its card is on screen, so a reviewer partway down the shot table still has that section's Accept
+   in reach — and crossing into the next card hands the slot to the next headline. Full-bleed to the
+   card edges like .direction-section-body, and opaque, because rows now scroll beneath it. Square
+   corners: a rounded top reads as the head of a card, and once this one has slid down to the middle
+   of its own card the rows pass through the corners. The card clips them at rest instead. */
+.direction-section-headline {
+  position: sticky;
+  top: var(--header-h);
+  z-index: 3;
+  height: var(--dir-head-h);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: -0.7rem -0.8rem 0.6rem;
+  /* Trimmed to hold a 34px Accept: this bar's height is pinned, so the room comes from inside. */
+  padding: 0.25rem 1.2rem;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Rows inside the card own the card's horizontal padding: a table flush to the card edge reads as
+   the card's content rather than as a second box laid inside it.
+
+   `clip` on the x axis, never `auto`: `auto` makes this a scroll container on BOTH axes, and the
+   column headers inside would then stick to a box that never scrolls vertically — that is, to
+   nothing. `clip` leaves the y axis visible, so they pin to the page instead. Nothing overflows at
+   this width (the widest table's min-content is ~640px); the narrow case takes the scrollbar back
+   below. */
+.direction-section-body {
+  margin: 0 -0.8rem -0.8rem;
+  padding: 0 0.8rem 0.8rem;
+  overflow-x: clip;
+}
+
+/* Pushes the accept control to the right edge, so every box's button lands on the same column and
+   the page reads as a checklist of decisions rather than a stack of unrelated widgets. */
+.direction-section-accept {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 34px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  /* The same corner the header's buttons turn, a row above. */
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    color 0.12s,
+    border-color 0.12s,
+    background 0.12s;
+}
+
+.direction-section-accept:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+/* An accepted box states it in the affirmative colour — scanning the page for what is left to do
+   is the reviewer's main loop, so "done" has to be legible without reading the label. */
+.direction-section-accept--on {
+  color: var(--green);
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+/* The one piece of controlled vocabulary the page spends in full — the feeling the piece chases
+   is the only such word a reviewer can take a position on. */
+.direction-pleasure {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0 0 0.6rem;
+}
+
+.direction-pleasure-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.direction-pleasure-gloss {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+
+/* An act that names its own aim, beside its synopsis on the sequence row. */
+/* An act that keeps the feeling of the act above it: stated, but quiet — it is context. */
+.dir-seq-pleasure {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* An act that turns the feeling: the one claim on this row a reviewer is likely to argue with. */
+.dir-seq-pleasure--shift {
+  color: var(--accent-hover);
+}
+
+.dir-seq-pleasure-gloss {
+  color: var(--text-muted);
+}
+
+/* A section whose table needs a sentence of framing before the reader meets the rows. Indented to
+   the headline's text, so it reads as that heading's sentence rather than as the table's caption. */
+.direction-section-lede {
+  margin: 0 0 0.7rem 0.4rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  max-width: 88ch;
+}
+
+/* The body of a box whose content was cut since it was accepted — the reviewer is here to settle
+   the removal, so the note reads as a statement about the change, not as an empty state. */
+.direction-section-cut {
+  margin: 0.2rem 0.4rem 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.direction-brief-list {
+  margin: 0;
+  padding-left: 1.1em;
+  line-height: 1.5;
+}
+
+/* An empty list field's stand-in value — dimmer than the cell it sits in (which is already
+   `--text-secondary`), so the row reads as a state to argue with rather than as text the author
+   wrote. */
+.direction-brief-empty {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.direction-section + .direction-section {
+  margin-top: 1.6rem;
+}
+
+/* The reviewer-facing meaning of a policy value ("any backend allowed") — trails the value, dimmed,
+   so the bare token reads first and the gloss explains it. */
+.direction-policy-gloss {
+  margin-left: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+/* The direction as a script page, not a stack of cards: one labelled column per field, so a shot is
+   read across and the whole direction is read down. The Notes column carries each part's live thread,
+   so what has been said (and where nothing has) is legible without unfolding anything. */
+/* Border-less: the section card around it already draws the box. */
+.dir-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  margin-top: 1.5rem;
+}
+
+/* Pinned under the section headline for as long as its own table is on screen, so a reviewer partway
+   down a long shot list still reads each cell against the column it is in. Below the headline (3) so
+   the two do not fight over the slot, and opaque because rows scroll beneath it.
+
+   The rule under it is an inset shadow rather than a border: this table collapses its borders, and a
+   collapsed border belongs to the table's own border grid, which does not travel with a sticky
+   cell. */
+.dir-table th {
+  position: sticky;
+  top: calc(var(--header-h) + var(--dir-head-h));
+  z-index: 2;
+  padding: 0.45rem 0.7rem;
+  background: var(--bg-elevated);
+  box-shadow: inset 0 -1px 0 var(--border);
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.dir-table td {
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+/* The row rules separate rows from each other; the card's own edge closes the last one. */
+.dir-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Baseline-align the one-line cells with the first line of the prose beside them. */
+.dir-table td.dir-col-id,
+.dir-table td.dir-col-role,
+.dir-table td.dir-col-name,
+.dir-table td.dir-col-frame,
+.dir-table td.dir-col-holds,
+.dir-table td.dir-col-where,
+.dir-table td.dir-col-lineup,
+.dir-table td.dir-col-dur,
+.dir-table td.dir-col-syn {
+  padding-top: 0.62rem;
+}
+
+.dir-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dir-row--focused > td {
+  background: var(--accent-soft);
+}
+
+/* An act row bands the shots under it. A nested act reads as a lighter band inside the one above:
+   the top-level acts carry the piece's shape, the rest divide it. */
+.dir-row-seq > td {
+  background: var(--bg-elevated);
+}
+
+.dir-row-seq--nested > td {
+  background: var(--bg-panel);
+}
+
+.dir-seq-cell {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.dir-seq-lens {
+  font-size: 0.78rem;
+  color: var(--accent-hover);
+  white-space: nowrap;
+}
+
+.dir-inline-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.dir-col-id {
+  width: 1%;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent-hover);
+  white-space: nowrap;
+}
+
+/* Indented by the row's own level in the arc tree (`--dir-depth`, set per row), so an act reads as
+   sitting inside its parent and a shot under the act that holds it, however deep the tree nests.
+   Qualified by `td` to outrank the `.dir-table td` padding shorthand. */
+.dir-table td.dir-col-id {
+  padding-left: calc(0.7rem + var(--dir-depth, 0) * 1.25rem);
+}
+
+.dir-col-name {
+  width: 1%;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* A character and the voice cast for them are one entry over two rows: drop the rule between them
+   and tighten the gap, so the roster reads as a list of people rather than of twice as many rows. */
+.dir-row--voiced > td {
+  border-bottom: none;
+  padding-bottom: 0.15rem;
+}
+
+/* Two classes deep so it outranks the baseline-align padding above. */
+.dir-table .dir-row--voice > td {
+  padding-top: 0.25rem;
+}
+
+/* Set against the description it labels, quieter and lowercase — a facet of the entry above, not a
+   second entry. Right-aligned rather than indented so it reads off the prose, not off the name. */
+.dir-table td.dir-voice-label {
+  text-align: right;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* A location bands the frames taken in it, the way an act row bands its shots — the group heading is
+   a row of the table rather than a heading above one, so the place keeps its own note and its own
+   description in the same columns as the setups under it. */
+.dir-row--place > td {
+  background: var(--bg-elevated);
+}
+
+/* A frame set nowhere the roster declares (`setup-unknown-location`). Grouped like a location so its
+   setups stay reachable, but never dressed as one — there is nothing here to review. */
+.dir-row--place-unknown > td.dir-col-syn {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* The place chip is the group's disclosure, so it carries the caret and, folded, the count of what
+   it is holding back. The button wraps the whole label — the caret is a marker, not the target — and
+   the negative margin pulls its padding back out so the row keeps the height it has without the
+   button. The chip inside keeps the row's own look. */
+.dir-place-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: -6px -8px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.dir-place-toggle:hover {
+  background: var(--bg-hover);
+}
+
+/* Fixed width so the chip starts at the same x whichever way the caret points. */
+.dir-place-caret {
+  width: 0.8rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.dir-place-toggle:hover .dir-place-caret {
+  color: var(--text-primary);
+}
+
+.dir-place-count {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Indented and quieter than the chip above it, so a set's frames read as a list under the place
+   rather than as roster entries beside it. */
+.dir-table .dir-row--setup > td.dir-col-name {
+  padding-left: 1.95rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Holds one badge: what this shot does ("rising", "payoff"). Never the craft role. */
+.dir-col-role {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.dir-col-syn {
+  color: var(--text-secondary);
+  white-space: normal;
+}
+
+.dir-col-frame {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* The framing chip: a neutral, size-only badge — deliberately NOT colored by dramatic function like
+   the role badge, so the eye reads the size cadence down the column without reading it as the arc. */
+.dir-framing {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* The wider frame a setup is a window of, under its size chip. Muted and on its own line: the size
+   is what the cadence is read against, the axis is what the plates are cut against. */
+.dir-within {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+}
+
+.dir-col-where {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* The location chip: a place badge read down the space column so a run of the same location on
+   adjacent rows reads as one continuous set and a change reads as a scene cut. Tinted with the
+   accent (unlike the neutral framing chip) so the two cadences — size and space — do not blur into
+   one column of grey badges. */
+.dir-location {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border: 1px solid var(--border);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* A raw `location` id no roster entry answers to (`setup-unknown-location`). It stands where a place
+   chip stands so the frames under it stay reachable, but drops the accent and reads as the key it is
+   — nothing here is a set the reviewer can take a position on. */
+.dir-location--unknown {
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* The size and the setup it comes from, on one line under the place. The framing chip leads, at the
+   cell's own left edge, so the size cadence still reads straight down the column with no column of
+   its own — a chip that narrow does not earn the header and the padding a column costs. The setup
+   name trails it as plain muted type: the coverage question ("which shots share this frame") is
+   asked inside a set, so it belongs under the set, not beside it. */
+.dir-setup-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.dir-setup {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* What only a place has, listed under its description. Reviewed with the place, so the list is part
+   of the location's own cell rather than a row per landmark. */
+.dir-landmarks {
+  margin: 0.35rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.dir-landmark-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* What a frame carries of its set, left to right — its own column beside the size, since both are
+   properties of where the camera stands rather than of the prose. */
+.dir-col-holds {
+  width: 1%;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.dir-holds-none {
+  opacity: 0.5;
+}
+
+.dir-col-dur {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* A shot's spoken/narrated lines, listed under its action. */
+.dir-script {
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+.dir-script-line {
+  color: var(--text-secondary);
+}
+.dir-script-line--narration {
+  font-style: italic;
+  color: var(--text-muted);
+}
+.dir-script-speaker {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.dir-script-speaker::after {
+  content: "：";
+}
+
+/* The acting note, under the words it is said with. Quieter and set in italic: it is direction for
+   the performance, not part of the line, and a reader skimming the dialogue must not read it as
+   something anyone says out loud. */
+.dir-script-acting {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.74rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+.dir-script-acting::before {
+  content: "▸ ";
+}
+
+/* The lineup column: the frame's own left-to-right order, and the order the shot leaves behind.
+   Held narrow so it never crowds the action beside it, and wrapping inside that width — a frame of
+   four is a list of names, and a column that refuses to break would push the prose off the page. */
+.dir-col-lineup {
+  width: 1%;
+  min-width: 8.5rem;
+  max-width: 12rem;
+  white-space: normal;
+  font-size: 0.72rem;
+}
+.dir-lineup {
+  display: block;
+  color: var(--text-secondary);
+}
+/* Each name is one unbreakable unit carrying its own separator, so a frame too wide for the column
+   breaks BETWEEN names rather than through one — and never starts a line with the slash. */
+.dir-lineup-name {
+  display: inline-block;
+  white-space: nowrap;
+}
+.dir-lineup-name:not(:last-child)::after {
+  content: " /";
+  color: var(--text-muted);
+}
+.dir-lineup-name + .dir-lineup-name {
+  margin-left: 0.35em;
+}
+/* Marked as the exit order rather than a second list: the arrow is what says the frame changed
+   inside the shot. */
+.dir-lineup--to {
+  color: var(--accent-hover);
+}
+/* On the first name rather than the block, so a list that wraps never leaves the arrow alone on a
+   line of its own. */
+.dir-lineup--to .dir-lineup-name:first-child::before {
+  content: "→ ";
+  color: var(--text-muted);
+}
+
+/* What the boundary between two shots is, drawn between the rows it separates — it is about the
+   boundary, so it reads as a rule across the table rather than as a cell of the shot below it. */
+.dir-row-jump td {
+  padding: 0.15rem 0 0.15rem 0;
+  border-bottom: none;
+}
+.dir-jump {
+  display: block;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-top: 1px dashed var(--border);
+  padding-top: 0.2rem;
+}
+/* A `join: "continuous"` boundary is the row rule above the shot. */
+.dir-table tr:has(+ .dir-row--continues) > td {
+  border-bottom-color: color-mix(in srgb, var(--border) 35%, transparent);
+}
+
+/* Telop under the same action, set apart from the spoken lines: bracketed and quieter, so a title
+   card is never mistaken for a line someone says. */
+.dir-telop-line {
+  color: var(--text-muted);
+}
+.dir-telop-line .dir-script-text::before {
+  content: "［";
+}
+.dir-telop-line .dir-script-text::after {
+  content: "］";
+}
+
+/* The machine contract, demoted: a reader never needs it, a bug report always does. */
+.dir-waiver-code {
+  display: block;
+  margin-top: 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* Wide enough for a comment to read as a comment, fixed so the prose columns keep the rest. */
+.dir-table td.dir-col-notes,
+.dir-table th.dir-col-notes {
+  width: 340px;
+  padding-top: 0.35rem;
+}
+
+/* A role is named in the same color language as its dramatic function on the direction map. */
+.dir-role {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--fn-soft, var(--bg-elevated));
+  color: var(--text-primary);
+  border: 1px solid var(--fn-color, var(--border));
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.dir-role--seq {
+  --fn-color: var(--border-strong);
+  --fn-soft: var(--bg-panel);
+}
+
+/* An aside carries no dramatic function, so it takes no function color — muted, to read as outside
+   the arc the rows around it form. */
+/* The wipe over a shot, set under the shot's own frame in the same cell. */
+.dir-cutin {
+  display: block;
+  margin-top: 0.35rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--border);
+}
+.dir-cutin-label {
+  display: block;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dir-framing--graphic {
+  border-style: dashed;
+  color: var(--text-muted);
+}
+
+.dir-role--aside {
+  --fn-color: var(--border);
+  --fn-soft: transparent;
+  color: var(--text-muted);
+}
+
+.dir-empty {
+  color: var(--text-muted);
+}
+
+/* The decision bar — pinned to the right edge of the same column the body and header share. */
+.decision-bar {
+  position: fixed;
+  bottom: 24px;
+  right: max(1.25rem, calc((100vw - 1600px) / 2 + 1.25rem));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+  padding: 0.7rem 0.9rem;
+  background: rgba(10, 11, 14, 0.88);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  z-index: 100;
+}
+
+.decision-bar-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.decision-btn kbd {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.decision-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    opacity 0.15s;
+}
+
+.decision-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.decision-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.decision-btn--accept {
+  background: linear-gradient(135deg, var(--accent), #8d5cf5);
+  color: white;
+  box-shadow: 0 6px 18px rgba(110, 98, 245, 0.35);
+}
+
+/* Sending the direction back with notes is the review loop working, not an alarm — a red button
+   makes a reviewer hesitate over the ordinary outcome. Only Accept, which commits spend, carries
+   weight here. */
+.decision-btn--reject {
+  background: var(--bg-elevated);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.decision-btn--reject:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.decision-bar-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 800px) {
+  .dir-table td.dir-col-id {
+    padding-left: calc(0.7rem + var(--dir-depth, 0) * 0.7rem);
+  }
+
+  /* Narrow enough for a table to outgrow the card: reaching the columns that ran off the edge beats
+     pinning the header of the ones that did not. Restores the scroll container, which is what the
+     sticky headers above give up. */
+  .direction-section-body {
+    overflow-x: auto;
+  }
+
+  .dir-table th {
+    position: static;
+  }
+}
+
+/* Phone width: the widest table's min-content outruns the screen, so the row stops being a row.
+   The chips — id, role, frame, place, lineup, duration — hold one line; the prose and the thread
+   take the width under them. The column headers go with the columns they named. */
+@media (max-width: 640px) {
+  .dir-table,
+  .dir-table thead,
+  .dir-table tbody,
+  .dir-table td {
+    display: block;
+  }
+
+  .dir-table thead {
+    display: none;
+  }
+
+  /* The margin was the column headers' room. */
+  .dir-table {
+    margin-top: 0.4rem;
+  }
+
+  /* The row draws its own rule and band: a `td` background stops at the cell's content, and a
+     collapsed border does not survive the table formatting going away. Indented by arc depth, so a
+     nested shot's whole block sits inside its act. */
+  .dir-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.15rem 0.85rem;
+    padding: 0.55rem 0.2rem 0.55rem calc(0.2rem + var(--dir-depth, 0) * 0.7rem);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dir-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .dir-table td,
+  .dir-table td.dir-col-id,
+  .dir-table td.dir-col-role,
+  .dir-table td.dir-col-name,
+  .dir-table td.dir-col-frame,
+  .dir-table td.dir-col-holds,
+  .dir-table td.dir-col-where,
+  .dir-table td.dir-col-lineup,
+  .dir-table td.dir-col-dur,
+  .dir-table td.dir-col-syn,
+  .dir-table td.dir-col-notes,
+  .dir-table .dir-row--voice > td,
+  .dir-table .dir-row--setup > td.dir-col-name {
+    width: auto;
+    padding: 0;
+    border-bottom: none;
+  }
+
+  .dir-table td.dir-col-lineup {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .dir-table td.dir-col-dur {
+    margin-left: auto;
+  }
+
+  /* The place and the frame taken in it read across, wrapping once a long setup name asks. */
+  .dir-table td.dir-col-where {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.45rem;
+  }
+
+  .dir-col-where .dir-setup-line {
+    margin-top: 0;
+  }
+
+  /* A cell holding nothing would still cost the line a gap. */
+  .dir-table td:empty {
+    display: none;
+  }
+
+  /* Prose, and any cell that spanned the table (an act's synopsis, a time jump), run the full
+     width. `order` keeps the duration up on the id and role's line; the rest falls below them. */
+  .dir-table td.dir-col-syn,
+  .dir-table td:not([class]) {
+    order: 1;
+    flex: 1 1 100%;
+  }
+
+  .dir-table td.dir-col-where {
+    order: 2;
+  }
+
+  .dir-table td.dir-col-lineup {
+    order: 3;
+  }
+
+  .dir-table td.dir-col-notes {
+    order: 4;
+    flex: 1 1 100%;
+    margin-top: 0.35rem;
+  }
+
+  /* Bands, moved off the cells onto the row. */
+  .dir-row-seq > td,
+  .dir-row--place > td,
+  .dir-row--focused > td {
+    background: none;
+  }
+
+  .dir-row-seq,
+  .dir-row--place {
+    background: var(--bg-elevated);
+  }
+
+  .dir-row-seq--nested {
+    background: var(--bg-panel);
+  }
+
+  .dir-row--focused {
+    background: var(--accent-soft);
+  }
+
+  /* A character and the voice cast for them stay one entry over two rows. */
+  .dir-row--voiced {
+    border-bottom: none;
+    padding-bottom: 0.15rem;
+  }
+
+  .dir-table .dir-row--voice {
+    padding-top: 0.15rem;
+  }
+
+  /* The frames under a set, indented as a group. */
+  .dir-table .dir-row--setup {
+    padding-left: 1.5rem;
+  }
+
+  /* No table left to rule across: a line of its own between the two shots. */
+  .dir-table .dir-row-jump {
+    padding: 0.15rem 0;
+    border-bottom: none;
+  }
+}
+
+/* Variant age chips (gallery tiles, variant detail). */
+.variant-tile-age,
+.variant-detail-age {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.variant-detail-age {
+  margin-left: 0.45rem;
+}
+
+.variant-tile-draft {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 0.25rem;
+  white-space: nowrap;
+}
+
+/* Direction map — the direction as a picture: a duration-proportional pacing strip
+   colored by each role's dramatic function, with the arc those functions trace above it. */
+.direction-map {
+  --sm-label-w: 76px;
+  position: relative;
+  /* Confines the zoom overlay's z-index to this box, so it cannot rise over the sticky section
+     headline and cover that section's Accept. */
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0.4rem 0 0.8rem;
+  padding: 0.7rem 0.8rem 0.8rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* The five dramatic functions share one color language across the legend, the arc
+   dots, and the strip segments. */
+.direction-fn--ground {
+  --fn-color: #8a93a6;
+  --fn-soft: rgba(138, 147, 166, 0.16);
+}
+
+.direction-fn--build {
+  --fn-color: var(--accent-hover);
+  --fn-soft: rgba(110, 98, 245, 0.18);
+}
+
+.direction-fn--turn {
+  --fn-color: var(--orange);
+  --fn-soft: rgba(245, 158, 75, 0.18);
+}
+
+.direction-fn--payoff {
+  --fn-color: var(--green);
+  --fn-soft: rgba(48, 201, 142, 0.18);
+}
+
+.direction-fn--settle {
+  --fn-color: #4fb8c9;
+  --fn-soft: rgba(79, 184, 201, 0.16);
+}
+
+/* Wraps: a legend that overflows takes the strip's own scroll region with it. */
+.direction-map-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.7rem;
+  margin-bottom: 2px;
+}
+
+.direction-map-title {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.direction-map-total {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.direction-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  margin-left: auto;
+}
+
+.direction-map-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+
+.direction-map-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--fn-color);
+}
+
+/* The zoomable track: every row is one time-proportional lane behind a sticky label gutter, the
+   same shape the video review's timeline draws. Panning is by drag and the wheel zooms, so the
+   scrollbar is hidden — as it is there. */
+.direction-map-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  /* Clearance for the floating zoom chip, so it never covers the last shot's comment count. */
+  padding-bottom: 26px;
+}
+
+.direction-map-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.direction-map-content {
+  position: relative;
+}
+
+.direction-map-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.direction-map-label {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  flex: 0 0 var(--sm-label-w);
+  width: var(--sm-label-w);
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 0;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.direction-map-label--ruler {
+  align-items: flex-end;
+}
+
+.direction-map-label-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A passive scale: the direction page has nothing to play, so the ruler places the piece's shots
+   in time rather than affording a seek. */
+.direction-map-ruler {
+  position: relative;
+  height: 18px;
+}
+
+.direction-map-tick {
+  position: absolute;
+  top: 6px;
+  bottom: 0;
+  border-left: 1px solid var(--border);
+}
+
+.direction-map-tick-label {
+  position: absolute;
+  top: -6px;
+  left: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Long-form only: the act tree as nested boxes over the shots. An act is a container open at the
+   bottom — its children (or, at the deepest level, its shots) close it — so the block reads as
+   "these shots are inside this act" rather than as two lanes that happen to line up. */
+.direction-map-acts {
+  position: relative;
+}
+
+.direction-map-seq {
+  position: absolute;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 6px 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.direction-map-seq-id {
+  font-weight: 700;
+}
+
+.direction-map-seq-role {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.direction-map-arc {
+  display: block;
+}
+
+.direction-map-arc-line {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.direction-map-arc-dot {
+  fill: var(--fn-color);
+  stroke: var(--bg-elevated);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.direction-map-track {
+  position: relative;
+  height: 42px;
+}
+
+/* Under an act, a shot is what closes its container: square the shared edge so the act and the
+   shots it holds read as one column rather than two stacked cards. */
+.direction-map-track--under-acts .direction-map-shot {
+  border-radius: 0 0 6px 6px;
+}
+
+/* An aside takes no function color — it is not on the arc the track draws, so it reads as a gap in
+   the run of shots rather than as one of them. */
+.direction-map-shot--aside {
+  --fn-color: var(--border);
+  --fn-soft: var(--bg-panel);
+  opacity: 0.6;
+}
+
+.direction-map-shot {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 5px 7px 4px;
+  background: var(--fn-soft);
+  border: 1px solid transparent;
+  border-top: 2px solid var(--fn-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.direction-map-shot:hover {
+  border-color: var(--fn-color);
+}
+
+.direction-map-shot--focused {
+  border-color: var(--fn-color);
+  outline: 1px solid var(--fn-color);
+}
+
+/* A shot's identity reads as one line — "01 method" — not as two stacked labels. */
+.direction-map-shot-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.direction-map-shot-id {
+  font-size: 0.78rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.direction-map-shot-dur {
+  font-size: 0.64rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.direction-map-shot-flags {
+  position: absolute;
+  right: 5px;
+  bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.direction-map-shot-comments {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+}
+
+.direction-map-zoom {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 5;
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
+  backdrop-filter: blur(3px);
+  box-shadow: var(--shadow-card);
+}
+
+.direction-map-zoom .ctrl-btn {
+  height: 24px;
+  min-width: 26px;
+  padding: 0 7px;
+}
+
+/* The shot card a direction-map click jumps to. */
+.direction-shot--focused {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Asset info panel — the read-only declaration behind one asset (backend, prompt, inputs),
+   on the shared .variant-modal shell. */
+.asset-info {
+  width: min(860px, 92vw);
+}
+
+.asset-info-address {
+  margin-left: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.asset-info-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.asset-info-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.asset-info-backend {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.asset-info-backend--local,
+.asset-info-backend--file {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.asset-info-ref-id {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.asset-info-flag {
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+}
+
+.asset-info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.asset-info-heading {
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.asset-info-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+}
+
+/* The two prompt halves read as opposites, so the border says which one this is before the label
+   does — the exclusion half is the one a reviewer misreads as the prompt. */
+.asset-info-field--prompt {
+  border-left: 2px solid var(--accent);
+}
+
+.asset-info-field--negative {
+  border-left: 2px solid var(--red);
+}
+
+.asset-info-field--spoken {
+  border-left: 2px solid var(--green);
+}
+
+.asset-info-field-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.asset-info-kind {
+  padding: 0 6px;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.asset-info-kind--negative {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.asset-info-kind--spoken {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.asset-info-name {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.asset-info-copy {
+  margin-left: auto;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  cursor: pointer;
+}
+
+.asset-info-copy:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.asset-info-value {
+  max-height: 40vh;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  line-height: 1.55;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.asset-info-more {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-hover);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+/* A short scalar, or a lone reference, on one line with its name. */
+.asset-info-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.24rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Fixed, so the value column lines up down the list however long a name runs. */
+.asset-info-row .asset-info-name {
+  flex: 0 0 15rem;
+  overflow-wrap: anywhere;
+}
+
+.asset-info-row .asset-info-refs {
+  margin-top: 0;
+}
+
+.asset-info-scalar {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.asset-info-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+}
+
+.asset-info-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 2px 7px 2px 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-panel);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+}
+
+.asset-info-ref-open {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  cursor: zoom-in;
+}
+
+.asset-info-ref-open:hover .asset-info-ref-thumb {
+  outline: 1px solid var(--accent);
+}
+
+.asset-info-ref-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+/* A consumed address's still enlarged over the asset info panel. */
+.asset-info-image {
+  width: min(1100px, 95vw);
+}
+
+.asset-info-image .asset-info-address {
+  margin-left: 0;
+}
+
+.asset-info-empty {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+/* Icon-only twin of the clip's variant trigger — same chrome, square footprint. */
+.rt-clip-info {
+  padding: 1px 4px;
+}
+
+/* Keep-or-regenerate: the one question an accept that moves an upstream asks, one row per unit. */
+.keep-modal {
+  width: min(600px, 92vw);
+}
+
+.keep-modal-note {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.keep-modal-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-height: 50vh;
+  overflow-y: auto;
+  list-style: none;
+  font-size: 0.8rem;
+}
+
+.keep-modal-stage-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
+/* A section head, in the panel-title voice, so a stage reads as a heading and not as a row. */
+.keep-modal-stage {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Per-stage bulk answers sit at the far end of the head, plain text so the rows stay the answer. */
+.keep-modal-bulk {
+  display: flex;
+  gap: 0.8rem;
+  margin-left: auto;
+}
+
+.keep-modal-bulk-btn {
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.keep-modal-bulk-btn:hover {
+  color: var(--text-primary);
+}
+
+.keep-modal-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  list-style: none;
+}
+
+.keep-modal-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border-left: 3px solid transparent;
+}
+
+/* The row's edge carries its answer in the color of the badge it leaves: accepted green, Regenerate
+   orange. Scanning the edges reads the whole answer at once. */
+.keep-modal-row--keep {
+  border-left-color: var(--green);
+}
+
+.keep-modal-row--regenerate {
+  border-left-color: var(--orange);
+}
+
+.keep-modal-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.keep-modal-row-label {
+  font-weight: 600;
+}
+
+.keep-modal-row-takes {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.keep-modal-row-note {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+/* Keep | Regenerate as one two-way switch per row: the chosen side is filled in its color, the other
+   stays quiet, so the answer reads without a checkmark. */
+.keep-seg {
+  display: inline-flex;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.keep-seg-btn {
+  height: 28px;
+  padding: 0 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.keep-seg-btn + .keep-seg-btn {
+  border-left: 1px solid var(--border);
+}
+
+.keep-seg-btn:hover {
+  color: var(--text-primary);
+}
+
+.keep-seg-btn--keep.keep-seg-btn--on {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.keep-seg-btn--regenerate.keep-seg-btn--on {
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+
+.keep-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.keep-modal-tally {
+  margin-right: auto;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}

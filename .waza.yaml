@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/waza/main/schemas/config.schema.json
+
+paths:
+  skills: src/cli/templates/workspace/dot.agents/skills/
+
+tokens:
+  # Best-practice budgets — set to the ideal, NOT reverse-fit to current sizes.
+  # Skills above these are a known refactor backlog, not a reason to raise the limit.
+  # Grounded in:
+  #   - Agent Skills spec: SKILL.md body ceiling ~5000 tokens, dir < 500 lines.
+  #   - Empirical median skill body ~1,400 tokens (Bosch/CMU, 40k+ skills, 2026).
+  #   - Progressive disclosure: a lean SKILL.md routes detail into references/
+  #     (konte-comfy-workflow is the model — a lean SKILL.md + focused references/*.md).
+  # konte enforces progressive disclosure EARLIER than the 5k spec ceiling: a SKILL.md
+  # over the 2000-token budget is inlining what belongs in references/.
+  warningThreshold: 2000
+  fallbackLimit: 3000
+  limits:
+    defaults:
+      "**/SKILL.md": 3000
+      "**/references/*.md": 1500
+      "src/cli/templates/agents/*.md": 3000

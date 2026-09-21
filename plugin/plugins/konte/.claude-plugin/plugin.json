@@ -1,0 +1,15 @@
+{
+  "name": "konte",
+  "version": "0.1.1",
+  "description": "Setup and upgrade konte, the agent-operated AI video production tool",
+  "author": {
+    "name": "shiwano"
+  },
+  "homepage": "https://github.com/shiwano/konte",
+  "repository": "https://github.com/shiwano/konte",
+  "keywords": [
+    "konte",
+    "video",
+    "installer"
+  ]
+}

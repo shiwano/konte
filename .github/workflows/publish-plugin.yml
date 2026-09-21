@@ -1,0 +1,37 @@
+name: publish-plugin
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "plugin/**"
+      - ".github/workflows/publish-plugin.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-plugin
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Push plugin/ to the plugin branch
+        run: |
+          set -euo pipefail
+          staged=$(mktemp -d)
+          cp -a plugin/. "$staged"/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan publish
+          git rm -rq --cached .
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "$staged"/. .
+          git add -A
+          git commit -m "Publish plugin from ${GITHUB_SHA:0:7}"
+          git push -f origin publish:plugin

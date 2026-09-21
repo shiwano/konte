@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "verbatimModuleSyntax": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "types": ["bun"],
+    "paths": {
+      "@hyperframes/engine": ["./node_modules/@hyperframes/engine/dist/index.d.ts"],
+      "@hyperframes/engine/*": ["./node_modules/@hyperframes/engine/dist/*"]
+    }
+  },
+  "include": ["src", "scripts", "vitest.config.ts", "vitest.setup.ts"],
+  "exclude": ["src/cli/templates"]
+}

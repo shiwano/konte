@@ -1,0 +1,9 @@
+{
+  "comfyui": {
+    "url": "http://127.0.0.1:8000",
+    "autoInstallModels": true,
+    "autoInstallNodes": true,
+    "autoRebootAfterNodeInstall": true,
+    "unreachableTimeoutMinutes": 15
+  }
+}

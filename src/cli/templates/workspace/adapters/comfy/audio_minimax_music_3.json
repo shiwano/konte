@@ -1,0 +1,150 @@
+{
+  "35": {
+    "class_type": "SaveAudioAdvanced",
+    "inputs": {
+      "filename_prefix": "audio/audio_minimax_music3",
+      "format": "mp3",
+      "format.quality": "V0",
+      "audio": [
+        "54",
+        0
+      ]
+    }
+  },
+  "44": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_music3_dit_fp16.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "45": {
+    "class_type": "MiniMaxMusic3TextEncode",
+    "inputs": {
+      "caption": "",
+      "lyrics": "",
+      "max_duration": 60,
+      "cfg_scale": 1.7,
+      "top_k": 50,
+      "clip": [
+        "46",
+        0
+      ],
+      "seed": [
+        "52",
+        0
+      ]
+    }
+  },
+  "46": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "minimax_music3_text_encoder_pruned_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    }
+  },
+  "47": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_music3_dav.safetensors"
+    }
+  },
+  "48": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "45",
+        0
+      ]
+    }
+  },
+  "49": {
+    "class_type": "EmptyMiniMaxMusic3LatentAudio",
+    "inputs": {
+      "batch_size": 1,
+      "seconds": [
+        "45",
+        1
+      ]
+    }
+  },
+  "50": {
+    "class_type": "KSampler",
+    "inputs": {
+      "steps": 30,
+      "cfg": 1.7,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "44",
+        0
+      ],
+      "positive": [
+        "45",
+        0
+      ],
+      "negative": [
+        "48",
+        0
+      ],
+      "latent_image": [
+        "49",
+        0
+      ],
+      "seed": [
+        "52",
+        0
+      ]
+    }
+  },
+  "51": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "50",
+        0
+      ],
+      "vae": [
+        "47",
+        0
+      ]
+    }
+  },
+  "52": {
+    "class_type": "SeedNode",
+    "inputs": {
+      "seed": 0
+    }
+  },
+  "53": {
+    "class_type": "VAEDecodeAudioTiled",
+    "inputs": {
+      "tile_size": 1536,
+      "overlap": 64,
+      "samples": [
+        "50",
+        0
+      ],
+      "vae": [
+        "47",
+        0
+      ]
+    }
+  },
+  "54": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "switch": false,
+      "on_false": [
+        "51",
+        0
+      ],
+      "on_true": [
+        "53",
+        0
+      ]
+    }
+  }
+}

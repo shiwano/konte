@@ -1,0 +1,617 @@
+{
+  "461": {
+    "class_type": "SaveImageAdvanced",
+    "inputs": {
+      "filename_prefix": "Qwen_image_2.1",
+      "format": "png",
+      "format.bit_depth": "8-bit",
+      "format.input_color_space": "sRGB",
+      "images": [
+        "520",
+        0
+      ]
+    }
+  },
+  "470": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "portrait_model_denim.png"
+    }
+  },
+  "475": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "clothing_light_blue_denim_shirt.png"
+    }
+  },
+  "477": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "478": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    }
+  },
+  "479": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+    }
+  },
+  "481": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "482",
+        0
+      ],
+      "vae": [
+        "479",
+        0
+      ]
+    }
+  },
+  "482": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 25,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "484",
+        0
+      ],
+      "positive": [
+        "485",
+        0
+      ],
+      "negative": [
+        "485",
+        1
+      ],
+      "latent_image": [
+        "518",
+        0
+      ]
+    }
+  },
+  "484": {
+    "class_type": "QwenImage21Cache",
+    "inputs": {
+      "device": "auto",
+      "dtype": "default",
+      "model": [
+        "477",
+        0
+      ]
+    }
+  },
+  "485": {
+    "class_type": "TextEncodeQwenImage21",
+    "inputs": {
+      "prompt": "",
+      "negative_prompt": "",
+      "resolution": 0,
+      "clip": [
+        "478",
+        0
+      ],
+      "images.image_1": [
+        "517",
+        0
+      ],
+      "vae": [
+        "479",
+        0
+      ],
+      "images.image_2": [
+        "475",
+        0
+      ],
+      "images.image_3": [
+        "486",
+        0
+      ]
+    }
+  },
+  "486": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "example.png"
+    }
+  },
+  "487": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "517",
+        0
+      ],
+      "vae": [
+        "479",
+        0
+      ]
+    }
+  },
+  "488": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": [
+        "470",
+        0
+      ]
+    }
+  },
+  "489": {
+    "class_type": "PrimitiveFloat",
+    "inputs": {
+      "value": 0.25
+    }
+  },
+  "490": {
+    "class_type": "PrimitiveFloat",
+    "inputs": {
+      "value": 0.25
+    }
+  },
+  "491": {
+    "class_type": "PrimitiveFloat",
+    "inputs": {
+      "value": 0.75
+    }
+  },
+  "492": {
+    "class_type": "PrimitiveFloat",
+    "inputs": {
+      "value": 0.75
+    }
+  },
+  "493": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "round(a * e)",
+      "values.a": [
+        "489",
+        0
+      ],
+      "values.e": [
+        "488",
+        0
+      ]
+    }
+  },
+  "494": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "round(a * e)",
+      "values.a": [
+        "490",
+        0
+      ],
+      "values.e": [
+        "488",
+        1
+      ]
+    }
+  },
+  "495": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "max(1, round(b * e) - round(a * e))",
+      "values.a": [
+        "489",
+        0
+      ],
+      "values.b": [
+        "491",
+        0
+      ],
+      "values.e": [
+        "488",
+        0
+      ]
+    }
+  },
+  "496": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "max(1, round(b * e) - round(a * e))",
+      "values.a": [
+        "490",
+        0
+      ],
+      "values.b": [
+        "492",
+        0
+      ],
+      "values.e": [
+        "488",
+        1
+      ]
+    }
+  },
+  "497": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "max(16, ceil(min(a, b) * 0.12))",
+      "values.a": [
+        "495",
+        1
+      ],
+      "values.b": [
+        "496",
+        1
+      ]
+    }
+  },
+  "498": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "max(0, a - m)",
+      "values.a": [
+        "493",
+        1
+      ],
+      "values.m": [
+        "497",
+        1
+      ]
+    }
+  },
+  "499": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "max(0, a - m)",
+      "values.a": [
+        "494",
+        1
+      ],
+      "values.m": [
+        "497",
+        1
+      ]
+    }
+  },
+  "500": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "min(e, a + c + m) - max(0, a - m)",
+      "values.a": [
+        "493",
+        1
+      ],
+      "values.c": [
+        "495",
+        1
+      ],
+      "values.e": [
+        "488",
+        0
+      ],
+      "values.m": [
+        "497",
+        1
+      ]
+    }
+  },
+  "501": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "min(e, a + c + m) - max(0, a - m)",
+      "values.a": [
+        "494",
+        1
+      ],
+      "values.c": [
+        "496",
+        1
+      ],
+      "values.e": [
+        "488",
+        1
+      ],
+      "values.m": [
+        "497",
+        1
+      ]
+    }
+  },
+  "502": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "max(1, min(10, a / 3.5))",
+      "values.a": [
+        "497",
+        1
+      ]
+    }
+  },
+  "503": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "round(a * sqrt(1048576 / (a * b)) / 32) * 32",
+      "values.a": [
+        "500",
+        1
+      ],
+      "values.b": [
+        "501",
+        1
+      ]
+    }
+  },
+  "504": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "round(b * sqrt(1048576 / (a * b)) / 32) * 32",
+      "values.a": [
+        "500",
+        1
+      ],
+      "values.b": [
+        "501",
+        1
+      ]
+    }
+  },
+  "505": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "a - b",
+      "values.a": [
+        "493",
+        1
+      ],
+      "values.b": [
+        "498",
+        1
+      ]
+    }
+  },
+  "506": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "a - b",
+      "values.a": [
+        "494",
+        1
+      ],
+      "values.b": [
+        "499",
+        1
+      ]
+    }
+  },
+  "507": {
+    "class_type": "SolidMask",
+    "inputs": {
+      "value": 0,
+      "width": [
+        "500",
+        1
+      ],
+      "height": [
+        "501",
+        1
+      ]
+    }
+  },
+  "508": {
+    "class_type": "SolidMask",
+    "inputs": {
+      "value": 1,
+      "width": [
+        "495",
+        1
+      ],
+      "height": [
+        "496",
+        1
+      ]
+    }
+  },
+  "509": {
+    "class_type": "MaskComposite",
+    "inputs": {
+      "destination": [
+        "507",
+        0
+      ],
+      "source": [
+        "508",
+        0
+      ],
+      "x": [
+        "505",
+        1
+      ],
+      "y": [
+        "506",
+        1
+      ],
+      "operation": "add"
+    }
+  },
+  "510": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "ceil(a)",
+      "values.a": [
+        "502",
+        0
+      ]
+    }
+  },
+  "511": {
+    "class_type": "GrowMask",
+    "inputs": {
+      "mask": [
+        "509",
+        0
+      ],
+      "expand": [
+        "510",
+        1
+      ],
+      "tapered_corners": true
+    }
+  },
+  "512": {
+    "class_type": "MaskToImage",
+    "inputs": {
+      "mask": [
+        "511",
+        0
+      ]
+    }
+  },
+  "513": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "min(31, ceil(a * 3))",
+      "values.a": [
+        "502",
+        0
+      ]
+    }
+  },
+  "514": {
+    "class_type": "ImageBlur",
+    "inputs": {
+      "image": [
+        "512",
+        0
+      ],
+      "blur_radius": [
+        "513",
+        1
+      ],
+      "sigma": [
+        "502",
+        0
+      ]
+    }
+  },
+  "515": {
+    "class_type": "ImageToMask",
+    "inputs": {
+      "image": [
+        "514",
+        0
+      ],
+      "channel": "red"
+    }
+  },
+  "516": {
+    "class_type": "ImageCrop",
+    "inputs": {
+      "image": [
+        "470",
+        0
+      ],
+      "width": [
+        "500",
+        1
+      ],
+      "height": [
+        "501",
+        1
+      ],
+      "x": [
+        "498",
+        1
+      ],
+      "y": [
+        "499",
+        1
+      ]
+    }
+  },
+  "517": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "516",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "width": [
+        "503",
+        1
+      ],
+      "height": [
+        "504",
+        1
+      ],
+      "crop": "disabled"
+    }
+  },
+  "518": {
+    "class_type": "SetLatentNoiseMask",
+    "inputs": {
+      "samples": [
+        "487",
+        0
+      ],
+      "mask": [
+        "515",
+        0
+      ]
+    }
+  },
+  "519": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "481",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "width": [
+        "500",
+        1
+      ],
+      "height": [
+        "501",
+        1
+      ],
+      "crop": "disabled"
+    }
+  },
+  "520": {
+    "class_type": "ImageCompositeMasked",
+    "inputs": {
+      "destination": [
+        "470",
+        0
+      ],
+      "source": [
+        "519",
+        0
+      ],
+      "x": [
+        "498",
+        1
+      ],
+      "y": [
+        "499",
+        1
+      ],
+      "resize_source": false,
+      "mask": [
+        "515",
+        0
+      ]
+    }
+  }
+}

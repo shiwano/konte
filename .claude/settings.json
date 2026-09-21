@@ -1,0 +1,5 @@
+{
+  "claudeMdExcludes": [
+    "**/src/cli/templates/**"
+  ]
+}

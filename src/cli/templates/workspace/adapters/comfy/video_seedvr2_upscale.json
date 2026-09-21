@@ -1,0 +1,128 @@
+{
+  "16": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "bit_depth": 8,
+      "images": [
+        "26",
+        0
+      ],
+      "audio": [
+        "19",
+        1
+      ],
+      "fps": [
+        "19",
+        2
+      ]
+    }
+  },
+  "17": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "filename_prefix": "video/SeedVR2",
+      "format": "auto",
+      "format.codec": "auto",
+      "video": [
+        "16",
+        0
+      ]
+    }
+  },
+  "18": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "file": "input_3d.mp4"
+    }
+  },
+  "19": {
+    "class_type": "GetVideoComponents",
+    "inputs": {
+      "video": [
+        "18",
+        0
+      ]
+    }
+  },
+  "20": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "upscale_method": "lanczos",
+      "width": 1280,
+      "height": 720,
+      "crop": "center",
+      "image": [
+        "22",
+        0
+      ]
+    }
+  },
+  "22": {
+    "class_type": "ImageFromBatch",
+    "inputs": {
+      "batch_index": 0,
+      "length": 96,
+      "image": [
+        "19",
+        0
+      ]
+    }
+  },
+  "25": {
+    "class_type": "SeedVR2LoadDiTModel",
+    "inputs": {
+      "model": "seedvr2_ema_7b_fp16.safetensors",
+      "device": "cuda:0",
+      "blocks_to_swap": 0,
+      "swap_io_components": false,
+      "offload_device": "none",
+      "cache_model": false,
+      "attention_mode": "sdpa"
+    }
+  },
+  "26": {
+    "class_type": "SeedVR2VideoUpscaler",
+    "inputs": {
+      "seed": 825616700,
+      "resolution": 1080,
+      "max_resolution": 0,
+      "batch_size": 5,
+      "uniform_batch_size": false,
+      "color_correction": "lab",
+      "temporal_overlap": 0,
+      "prepend_frames": 0,
+      "input_noise_scale": 0,
+      "latent_noise_scale": 0,
+      "offload_device": "cpu",
+      "enable_debug": false,
+      "image": [
+        "20",
+        0
+      ],
+      "dit": [
+        "25",
+        0
+      ],
+      "vae": [
+        "27",
+        0
+      ]
+    }
+  },
+  "27": {
+    "class_type": "SeedVR2LoadVAEModel",
+    "inputs": {
+      "model": "ema_vae_fp16.safetensors",
+      "device": "cuda:0",
+      "encode_tiled": false,
+      "encode_tile_size": 1024,
+      "encode_tile_overlap": 128,
+      "decode_tiled": false,
+      "decode_tile_size": 1024,
+      "decode_tile_overlap": 128,
+      "tile_debug": "false",
+      "offload_device": "none",
+      "cache_model": false
+    }
+  }
+}

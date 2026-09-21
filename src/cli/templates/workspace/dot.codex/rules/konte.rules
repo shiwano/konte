@@ -1,0 +1,5 @@
+prefix_rule(
+    pattern = [["konte", "konte.exe"]],
+    decision = "allow",
+    justification = "konte is this project's trusted CLI",
+)

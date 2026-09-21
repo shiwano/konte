@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "verbatimModuleSyntax": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "konte": ["./dot.konte/mod.ts"],
+      "react/jsx-runtime": ["./dot.konte/mod.ts"],
+      "konte/workspace/*": ["./*"]
+    }
+  },
+  "include": [
+    "adapters/**/*.ts",
+    "videos/*/direction.ts",
+    "videos/*/animatic.tsx",
+    "videos/*/video.tsx",
+    "videos/*/reference.tsx",
+    "videos/*/patches/*.ts"
+  ]
+}

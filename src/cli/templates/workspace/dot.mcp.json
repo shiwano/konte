@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "konte": {
+      "type": "stdio",
+      "command": "konte",
+      "args": [
+        "mcp",
+        "serve"
+      ]
+    }
+  }
+}

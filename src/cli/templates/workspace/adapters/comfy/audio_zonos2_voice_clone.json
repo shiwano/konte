@@ -1,0 +1,66 @@
+{
+  "1": {
+    "class_type": "Zonos2EmotionModelLoader",
+    "inputs": {
+      "model": "ZONOS2 BF16 - drbaph/ZONOS2-BF16",
+      "dtype": "auto",
+      "attention": "auto",
+      "download_if_missing": true
+    }
+  },
+  "2": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "example.mp3"
+    }
+  },
+  "3": {
+    "class_type": "Zonos2EmotionVoiceClone",
+    "inputs": {
+      "text": "Hello, this is a cloned voice.",
+      "clean_speaker_background": false,
+      "accurate_mode": true,
+      "max_new_tokens": 1024,
+      "temperature": 1.15,
+      "top_k": 106,
+      "top_p": 0,
+      "min_p": 0.18,
+      "repetition_window": 50,
+      "repetition_penalty": 1.2,
+      "repetition_codebooks": 8,
+      "speaking_rate": "default",
+      "loudness_lufs": "default",
+      "estimated_snr": "default",
+      "maximum_pause": "default",
+      "estimated_bandlimit_hz": "default",
+      "leading_silence": "default",
+      "trailing_silence": "3: 0.25-0.5",
+      "seed": 0,
+      "emotion": "none",
+      "emotion_strength": 1,
+      "emotion_valence": 0,
+      "emotion_arousal": 0,
+      "emotion_cfg_scale": 1,
+      "zonos2_model": [
+        "1",
+        0
+      ],
+      "reference_audio": [
+        "2",
+        0
+      ]
+    }
+  },
+  "4": {
+    "class_type": "SaveAudioAdvanced",
+    "inputs": {
+      "filename_prefix": "audio/ComfyUI",
+      "format": "mp3",
+      "format.quality": "V0",
+      "audio": [
+        "3",
+        0
+      ]
+    }
+  }
+}

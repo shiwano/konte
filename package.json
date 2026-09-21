@@ -1,0 +1,56 @@
+{
+  "name": "konte",
+  "version": "0.1.1",
+  "license": "MIT",
+  "bin": {
+    "konte": "./src/cli/index.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "konte": "bun run src/cli/index.ts",
+    "check": "bun run typecheck && bun run check:templates && bun run check:plugin && bun run skills:check && oxlint . && oxfmt --check .",
+    "check:fix": "oxlint --fix . && oxfmt --write .",
+    "check:templates": "bun run build:generate-template-mod && bun run scripts/check-templates.ts",
+    "check:plugin": "bun run scripts/check-plugin.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun --bun vitest",
+    "test:run": "bun --bun vitest run",
+    "skills:check": "waza --no-update-check tokens count src/cli/templates/workspace/dot.agents/skills/ src/cli/templates/agents/ .claude/skills/ plugin/plugins/konte/skills/ && bun run scripts/check-journeys.ts",
+    "build": "bun run build:embeds && bun run typecheck && bun run scripts/compile-binary.ts",
+    "build:embeds": "bun run build:ui:preview && bun run build:ui:settings && bun run build:embed-hyperframes && bun run build:embed-ui && bun run build:generate-template-mod && bun run build:embed-templates && bun run build:third-party-licenses",
+    "build:ui:preview": "bun build src/pages/preview/index.tsx --outdir src/pages/preview/dist --minify --splitting && cp src/pages/preview/index.html src/pages/preview/dist/index.html && cp src/pages/preview/styles/index.css src/pages/preview/dist/index.css",
+    "build:ui:settings": "bun build src/pages/settings/index.tsx --outdir src/pages/settings/dist --minify --splitting && cp src/pages/settings/index.html src/pages/settings/dist/index.html && cp src/pages/settings/styles/index.css src/pages/settings/dist/index.css",
+    "build:generate-template-mod": "bun run scripts/generate-template-mod.ts",
+    "build:generate-findings-doc": "bun run scripts/generate-findings-doc.ts",
+    "build:generate-seam-doc": "bun run scripts/generate-seam-doc.ts",
+    "build:embed-templates": "bun run scripts/embed-templates.ts",
+    "build:embed-ui": "bun run scripts/embed-ui.ts",
+    "build:third-party-licenses": "bun run scripts/generate-third-party-licenses.ts",
+    "build:embed-hyperframes": "bun run scripts/embed-hyperframes.ts",
+    "sync:comfy-adapters": "bun run scripts/sync-comfy-adapters.ts",
+    "check:comfy-templates": "bun run scripts/check-comfy-templates.ts",
+    "update:tool-checksums": "bun run scripts/update-tool-checksums.ts"
+  },
+  "dependencies": {
+    "@hyperframes/producer": "^0.8",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@puppeteer/browsers": "^3.1.0",
+    "commander": "^13",
+    "proxy-agent": "^8.0.2",
+    "tailwindcss": "^4.3.3",
+    "zod": "^3"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "25.6.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dts-bundle-generator": "^9.5.1",
+    "oxfmt": "^0.47.0",
+    "oxlint": "^1.62.0",
+    "react": "^19",
+    "react-dom": "^19",
+    "typescript": "^7.0.2",
+    "vitest": "^3"
+  }
+}

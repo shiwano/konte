@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+use flake
+
+# Used only by `bun run sync:comfy-adapters`. Ignore it if you don't run it.
+export COMFYUI_URL="http://127.0.0.1:8000"
+export HF_TOKEN=""
