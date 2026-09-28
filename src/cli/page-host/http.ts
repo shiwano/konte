@@ -243,18 +243,25 @@ function admitOrigin(
  * A same-origin GET carries no `Origin`, so its absence is only fatal on a state-changing method.
  *
  * An admitted request also reports how it arrived, from the same pass that admitted it.
- * `peerAddress` is the connection's real remote address, and only loopback needs it.
+ * `peerAddress` is the connection's real remote address, and only loopback needs it. With no
+ * `policy` the server is loopback-only by construction, and a refused host names no setting.
  */
 export function checkRequestOrigin(
   req: Pick<Request, "method"> & { headers: Headers },
   port: number,
-  policy: AccessPolicy = LOOPBACK_ONLY,
+  policy?: AccessPolicy,
   peerAddress: string | null = null,
 ): OriginCheck {
   const rawHost = req.headers.get("host");
   const host = rawHost === null ? null : parseHostHeader(rawHost);
-  const admission = host === null ? null : admitHost(host, port, policy);
-  if (host === null || admission === null) return refuse("Forbidden host");
+  const admission = host === null ? null : admitHost(host, port, policy ?? LOOPBACK_ONLY);
+  if (host === null) return refuse("Forbidden host");
+  if (admission === null) {
+    if (policy && req.headers.get("accept")?.includes("text/html")) {
+      return { ok: false, response: forbiddenHostPage(host.name) };
+    }
+    return refuse(`Forbidden host "${host.name}"`);
+  }
 
   // `loopback` is the one route that goes ungated, so every signal has to agree. cloudflared
   // connects from loopback carrying the tunnel's name, so the peer alone is not enough; a LAN
@@ -271,6 +278,20 @@ export function checkRequestOrigin(
   }
   if (!admitOrigin(origin, host, admission)) return refuse("Forbidden origin");
   return { ok: true, via };
+}
+
+// Read by the human who opened the URL in a browser, not by the agent.
+function forbiddenHostPage(name: string): Response {
+  const lines = [
+    `This review page does not open under "${name}".`,
+    "",
+    `To open it under "${name}", ask your agent:`,
+    `  Add "${name}" to preview.allowedHosts in konte.config.json`,
+  ];
+  return new NativeResponse(`${lines.join("\n")}\n`, {
+    status: 403,
+    headers: { "Content-Type": "text/plain; charset=utf-8", "X-Content-Type-Options": "nosniff" },
+  });
 }
 
 function refuse(reason: string): OriginCheck {
@@ -335,10 +356,15 @@ export function describeExposure(
   const lines: string[] = [];
   if (!isLoopbackBind(policy.host)) {
     const urls = localNetworkUrls(policy.host, port);
+    const bind = policy.host.includes(":") ? `[${policy.host}]` : policy.host;
     lines.push(
       urls.length > 0
-        ? `Give the human this URL: ${urls.join(" or ")}`
-        : `Listening on ${policy.host}, with no private address to name`,
+        ? `Listening on ${bind}:${port} (this machine's private addresses: ${urls.join(", ")})`
+        : `Listening on ${bind}:${port}, with no private address to name`,
+      "Inside a container or VM, the human reaches it at the host's address and forwarded port instead",
+    );
+    lines.push(
+      "Any other host name (e.g. a .local name) is refused until it is added to preview.allowedHosts in konte.config.json",
     );
   }
   // The tunnel's own host name is in `allowedHosts` too; name it once, by the URL that reaches it.

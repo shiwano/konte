@@ -64,6 +64,26 @@ describe("checkRequestOrigin", () => {
     ).toBe(403);
   });
 
+  it("tells a browser on a refused host what to ask the agent", async () => {
+    const res = checkRequestOrigin(
+      req("GET", { host: `nas.local:${PORT}`, accept: "text/html,application/xhtml+xml" }),
+      PORT,
+      { host: "192.168.1.5", allowedHosts: [] },
+    );
+    expect(res?.status).toBe(403);
+    const text = (await res?.text()) ?? "";
+    expect(text).toContain('Add "nas.local" to preview.allowedHosts in konte.config.json');
+    expect(text).not.toContain("\u2014");
+  });
+
+  it("names no setting when the server has no access policy", async () => {
+    const res = checkRequestOrigin(
+      req("GET", { host: `nas.local:${PORT}`, accept: "text/html" }),
+      PORT,
+    );
+    expect(await res?.json()).toMatchObject({ error: 'Forbidden host "nas.local"' });
+  });
+
   it("allows the bare loopback host on :80, where browsers omit the default port", () => {
     expect(
       checkRequestOrigin(req("POST", { host: "127.0.0.1", origin: "http://127.0.0.1" }), 80),
@@ -368,15 +388,16 @@ describe("describeExposure", () => {
     expect(describeExposure({ host: "127.0.0.1", allowedHosts: [] }, PORT)).toBeNull();
   });
 
-  it("tells the reader which URL to pass on, not just that the bind widened", () => {
+  it("names this machine's private URLs without promising the human can reach them", () => {
     const text = describeExposure({ host: "192.168.1.5", allowedHosts: [] }, PORT) ?? "";
     expect(text).toContain(`http://192.168.1.5:${PORT}`);
-    expect(text).toContain("Give the human this URL");
+    expect(text).toContain("Inside a container or VM");
+    expect(text).toContain("preview.allowedHosts");
   });
 
   it("names no URL for a bind whose address the policy would refuse anyway", () => {
     const text = describeExposure({ host: "93.184.216.34", allowedHosts: [] }, PORT) ?? "";
-    expect(text).not.toContain("93.184.216.34:");
+    expect(text).not.toContain("http://93.184.216.34");
     expect(text).toContain("no private address");
   });
 
