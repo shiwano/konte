@@ -350,6 +350,38 @@ function comboChoices(
   return choices as string[];
 }
 
+// Keeps only the nodes an output node depends on — what ComfyUI executes. A workflow with
+// no recognized output node is returned as is.
+export function pruneUnreachableNodes(
+  data: unknown,
+  objectInfo?: Record<string, ComfyUINodeDefinition>,
+): unknown {
+  if (!isApiFormat(data)) return data;
+  const workflow = data as WorkflowData;
+  const pending = Object.keys(workflow).filter((id) => {
+    const classType = workflow[id]!.class_type;
+    return (
+      SAVE_IMAGE_CLASSES.has(classType) ||
+      SAVE_VIDEO_CLASSES.has(classType) ||
+      SAVE_AUDIO_CLASSES.has(classType) ||
+      objectInfo?.[classType]?.output_node === true
+    );
+  });
+  if (pending.length === 0) return data;
+
+  const reached = new Set<string>();
+  while (pending.length > 0) {
+    const id = pending.pop()!;
+    if (reached.has(id) || !workflow[id]) continue;
+    reached.add(id);
+    for (const value of Object.values(workflow[id].inputs)) {
+      if (isLink(value)) pending.push((value as [string, number])[0]);
+    }
+  }
+  if (reached.size === Object.keys(workflow).length) return data;
+  return Object.fromEntries(Object.entries(workflow).filter(([id]) => reached.has(id)));
+}
+
 export function analyzeWorkflow(
   data: unknown,
   subgraphMeta?: SubgraphMeta,
@@ -957,6 +989,12 @@ export function registerComfyCommand(program: Command): void {
       } else {
         apiWorkflow = data;
         workflowJson = rawJson;
+      }
+
+      const pruned = pruneUnreachableNodes(apiWorkflow, objectInfo);
+      if (pruned !== apiWorkflow) {
+        apiWorkflow = pruned;
+        workflowJson = `${JSON.stringify(pruned, null, 2)}\n`;
       }
 
       const analysis = opts.adapter

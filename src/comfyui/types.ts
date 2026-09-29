@@ -141,6 +141,7 @@ const ComfyUINodeDefinitionSchema = z.object({
   // Source module of the node. Core nodes report "nodes" / "comfy_extras.*" /
   // "comfy_api_nodes.*"; custom nodes report "custom_nodes.<pack>".
   python_module: z.string().optional(),
+  output_node: z.boolean().optional(),
 });
 export type ComfyUINodeDefinition = z.infer<typeof ComfyUINodeDefinitionSchema>;
 

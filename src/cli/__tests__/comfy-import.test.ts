@@ -5,6 +5,7 @@ import {
   analyzeWorkflow,
   extractHiddenSubgraphInputs,
   generateAdapterCode,
+  pruneUnreachableNodes,
 } from "../commands/comfy.js";
 
 describe("analyzeWorkflow()", () => {
@@ -702,6 +703,42 @@ describe("analyzeWorkflow() semantic flag", () => {
     const prim = Object.values(result.inputs).find((i) => i.nodeId === "188");
     expect(prim).toMatchObject({ field: "value" });
     expect(prim!.semantic).toBeUndefined();
+  });
+});
+
+describe("pruneUnreachableNodes()", () => {
+  const workflow = {
+    "1": { class_type: "CLIPTextEncode", inputs: { text: "a cat", clip: ["4", 0] } },
+    "2": { class_type: "CLIPTextEncode", inputs: { text: "unused", clip: ["4", 0] } },
+    "3": { class_type: "SaveImage", inputs: { images: ["1", 0] } },
+    "4": { class_type: "CLIPLoader", inputs: { clip_name: "clip.safetensors" } },
+    "5": { class_type: "ShowText", inputs: { text: "note" } },
+  };
+
+  it("keeps only the nodes an output node depends on", () => {
+    expect(Object.keys(pruneUnreachableNodes(workflow) as object)).toEqual(["1", "3", "4"]);
+  });
+
+  it("treats a node object_info declares as an output node as a root", () => {
+    const objectInfo: Record<string, ComfyUINodeDefinition> = {
+      ShowText: { input: {}, output_node: true },
+    };
+    expect(Object.keys(pruneUnreachableNodes(workflow, objectInfo) as object)).toEqual([
+      "1",
+      "3",
+      "4",
+      "5",
+    ]);
+  });
+
+  it("returns a workflow with no output node as is", () => {
+    const noOutput = { "1": workflow["1"], "4": workflow["4"] };
+    expect(pruneUnreachableNodes(noOutput)).toBe(noOutput);
+  });
+
+  it("returns a fully reachable workflow as is", () => {
+    const reachable = { "1": workflow["1"], "3": workflow["3"], "4": workflow["4"] };
+    expect(pruneUnreachableNodes(reachable)).toBe(reachable);
   });
 });
 
