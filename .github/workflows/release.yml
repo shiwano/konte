@@ -154,7 +154,8 @@ jobs:
         working-directory: dist-assets
         run: sha256sum konte-* > SHA256SUMS
 
-      # --generate-notes lists pull requests only, and most commits reach main without one.
+      # --generate-notes lists pull requests only, and most commits reach main without one. The
+      # notes hold the commits that touch what ships.
       - name: Release notes
         env:
           TAG: ${{ github.ref_name }}
@@ -165,7 +166,9 @@ jobs:
           if previous=$(git describe --tags --abbrev=0 --match 'v*' "$TAG^" 2>/dev/null); then
             range="$previous..$TAG"
           fi
-          git log --format='- %s (%h)' --invert-grep --grep='^🎬' "$range" > notes.md
+          git log --format='- %s (%h)' --invert-grep --grep='^🎬' "$range" -- \
+            src plugin setup.sh setup.ps1 package.json bun.lock \
+            ':(exclude,glob)src/**/__tests__/**' > notes.md
           if [ -n "${previous:-}" ]; then
             printf '\n**Full Changelog**: https://github.com/%s/compare/%s...%s\n' \
               "$REPO" "$previous" "$TAG" >> notes.md

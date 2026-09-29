@@ -17,7 +17,7 @@ A release is one commit that moves `package.json`'s `version`, tagged `v<version
 6. **Wait for `release.yml`** — `gh run watch` on the run `gh run list --workflow release.yml --limit 1` names. The release is created as a draft and flipped to published only after every asset is up.
 7. **Report the release URL.**
 
-The notes are the subjects of the commits since the previous tag, the release commit left out.
+The notes are the subjects of the commits since the previous tag that touch what ships — `src/` outside its tests, `plugin/`, the setup scripts, the dependencies.
 
 ## Don't
 
