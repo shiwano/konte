@@ -636,6 +636,88 @@ describe("convertLitegraphToApi", () => {
     expect(Object.keys(result)).toHaveLength(0);
   });
 
+  it("skips muted nodes", () => {
+    const workflow: LitegraphWorkflow = {
+      last_node_id: 1,
+      last_link_id: 0,
+      nodes: [{ id: 1, type: "LoadImage", mode: 2, widgets_values: ["img.png", "image"] }],
+      links: [],
+    };
+
+    const { workflow: result } = convertLitegraphToApi(workflow, objectInfo);
+    expect(Object.keys(result)).toHaveLength(0);
+  });
+
+  describe("a link from an inactive node", () => {
+    const objectInfoWithBlur: Record<string, ComfyUINodeDefinition> = {
+      ...objectInfo,
+      ImageBlur: makeNodeDef({ strength: ["FLOAT"], mask: ["MASK"], image: ["IMAGE"] }),
+    };
+
+    function chain(
+      blurMode: number,
+      blurInputs: { name: string; type: string; link: number | null }[],
+    ): LitegraphWorkflow {
+      return {
+        last_node_id: 3,
+        last_link_id: 2,
+        nodes: [
+          { id: 1, type: "LoadImage", widgets_values: ["photo.png", "image"] },
+          {
+            id: 2,
+            type: "ImageBlur",
+            mode: blurMode,
+            inputs: blurInputs,
+            outputs: [{ name: "IMAGE", type: "IMAGE", links: [2] }],
+            widgets_values: [0.5],
+          },
+          {
+            id: 3,
+            type: "SaveImage",
+            inputs: [{ name: "images", type: "IMAGE", link: 2 }],
+            widgets_values: ["output"],
+          },
+        ],
+        links: [
+          [1, 1, 0, 2, blurInputs.findIndex((i) => i.link === 1), "IMAGE"],
+          [2, 2, 0, 3, 0, "IMAGE"],
+        ],
+      };
+    }
+
+    it("passes a bypassed node's input of the link's type through", () => {
+      const workflow = chain(4, [
+        { name: "mask", type: "MASK", link: null },
+        { name: "image", type: "IMAGE", link: 1 },
+      ]);
+
+      const { workflow: result } = convertLitegraphToApi(workflow, objectInfoWithBlur);
+      expect(result["2"]).toBeUndefined();
+      expect(result["3"]!.inputs.images).toEqual(["1", 0]);
+    });
+
+    it("leaves the input unset when the bypassed node has no linked input of that type", () => {
+      const workflow = chain(4, [
+        { name: "mask", type: "MASK", link: 1 },
+        { name: "image", type: "IMAGE", link: null },
+      ]);
+
+      const { workflow: result } = convertLitegraphToApi(workflow, objectInfoWithBlur);
+      expect(result["3"]!.inputs).toEqual({ filename_prefix: "output" });
+    });
+
+    it("leaves the input unset when the source is muted", () => {
+      const workflow = chain(2, [
+        { name: "mask", type: "MASK", link: null },
+        { name: "image", type: "IMAGE", link: 1 },
+      ]);
+
+      const { workflow: result } = convertLitegraphToApi(workflow, objectInfoWithBlur);
+      expect(result["2"]).toBeUndefined();
+      expect(result["3"]!.inputs).toEqual({ filename_prefix: "output" });
+    });
+  });
+
   it("resolves Reroute node references to the actual source", () => {
     const workflow: LitegraphWorkflow = {
       last_node_id: 4,

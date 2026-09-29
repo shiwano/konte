@@ -67,7 +67,12 @@ const SKIP_NODE_TYPES = new Set([
   "SetNode",
   "GetNode",
 ]);
+const MUTED_MODE = 2;
 const BYPASSED_MODE = 4;
+
+function isInactive(node: LitegraphNode): boolean {
+  return node.mode === MUTED_MODE || node.mode === BYPASSED_MODE;
+}
 
 export function flattenSubgraphs(workflow: LitegraphWorkflow): {
   workflow: LitegraphWorkflow;
@@ -290,7 +295,7 @@ export function findUnknownNodeTypes(
   return [
     ...new Set(
       flat.nodes
-        .filter((n) => !SKIP_NODE_TYPES.has(n.type) && n.mode !== BYPASSED_MODE)
+        .filter((n) => !SKIP_NODE_TYPES.has(n.type) && !isInactive(n))
         .map((n) => n.type)
         .filter((type) => !objectInfo[type]),
     ),
@@ -331,12 +336,30 @@ export function convertLitegraphToApi(
     }
   }
 
+  const nodeById = new Map(flat.nodes.map((n) => [n.id, n]));
+
+  // A muted node feeds nothing. A bypassed node passes through the input of the
+  // link's type, preferring the one at the output's slot index — ComfyUI's rule.
   function resolveSource(
     nodeId: number,
     slotIndex: number,
+    type: string,
     seen: Set<number> = new Set(),
-  ): [number, number] {
+  ): [number, number] | null {
     if (seen.has(nodeId)) return [nodeId, slotIndex];
+
+    const source = nodeById.get(nodeId);
+    if (source?.mode === MUTED_MODE) return null;
+    if (source?.mode === BYPASSED_MODE) {
+      seen.add(nodeId);
+      const inputs = source.inputs ?? [];
+      const passthrough =
+        inputs[slotIndex]?.type === type ? inputs[slotIndex] : inputs.find((i) => i.type === type);
+      if (passthrough?.link == null) return null;
+      const link = linkMap.get(passthrough.link);
+      if (!link) return null;
+      return resolveSource(link[1], link[2], type, seen);
+    }
 
     if (rerouteInputLinks.has(nodeId)) {
       seen.add(nodeId);
@@ -344,7 +367,7 @@ export function convertLitegraphToApi(
       if (inputLinkId == null) return [nodeId, slotIndex];
       const link = linkMap.get(inputLinkId);
       if (!link) return [nodeId, slotIndex];
-      return resolveSource(link[1], link[2], seen);
+      return resolveSource(link[1], link[2], type, seen);
     }
 
     const getName = getNodeNamesById.get(nodeId);
@@ -354,7 +377,7 @@ export function convertLitegraphToApi(
       if (setLinkId == null) return [nodeId, slotIndex];
       const link = linkMap.get(setLinkId);
       if (!link) return [nodeId, slotIndex];
-      return resolveSource(link[1], link[2], seen);
+      return resolveSource(link[1], link[2], type, seen);
     }
 
     return [nodeId, slotIndex];
@@ -378,7 +401,7 @@ export function convertLitegraphToApi(
 
   for (const node of flat.nodes) {
     if (SKIP_NODE_TYPES.has(node.type)) continue;
-    if (node.mode === BYPASSED_MODE) continue;
+    if (isInactive(node)) continue;
 
     const nodeDef = objectInfo[node.type]!;
 
@@ -498,7 +521,9 @@ export function convertLitegraphToApi(
         if (input.link == null) continue;
         const link = linkMap.get(input.link);
         if (!link) continue;
-        const [resolvedNodeId, resolvedSlot] = resolveSource(link[1], link[2]);
+        const resolved = resolveSource(link[1], link[2], link[5]);
+        if (!resolved) continue;
+        const [resolvedNodeId, resolvedSlot] = resolved;
         if (primitiveValues.has(resolvedNodeId)) {
           const value = primitiveValues.get(resolvedNodeId);
           if (value !== undefined) {
