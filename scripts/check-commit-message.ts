@@ -24,16 +24,17 @@ function versionAt(revision: string): string | undefined {
   }
 }
 
-function check(label: string, message: string, version: string | undefined): void {
-  for (const error of checkCommitMessage(message, { version })) {
+// `at` is the tree the commit holds, `before` the one it builds on.
+function check(label: string, message: string, at: string, before: string): void {
+  const options = { version: versionAt(at), previousVersion: versionAt(before) };
+  for (const error of checkCommitMessage(message, options)) {
     errors.push(label === "" ? error : `${label}: ${error}`);
   }
 }
 
 const [mode, value] = process.argv.slice(2);
 if (mode === "--file" && value !== undefined) {
-  // The index is what the commit will hold.
-  check("", stripGitComments(fs.readFileSync(value, "utf8")), versionAt(""));
+  check("", stripGitComments(fs.readFileSync(value, "utf8")), "", "HEAD");
 } else if (mode === "--range" && value !== undefined) {
   const revisions = git("log", "--format=%H", value);
   if (revisions === null) {
@@ -42,12 +43,13 @@ if (mode === "--file" && value !== undefined) {
   }
   for (const revision of revisions.split("\n").filter(Boolean)) {
     const message = git("show", "-s", "--format=%B", revision) ?? "";
-    check(revision.slice(0, 7), message, versionAt(revision));
+    check(revision.slice(0, 7), message, revision, `${revision}^`);
   }
 } else if (mode === "--pull-request") {
   const title = process.env.PR_TITLE ?? "";
   const body = (process.env.PR_BODY ?? "").trim();
-  check("", body === "" ? title : `${title}\n\n${body}`, versionAt("HEAD"));
+  // The checkout is the pull request merged into its base, so the base is HEAD^1.
+  check("", body === "" ? title : `${title}\n\n${body}`, "HEAD", "HEAD^1");
 } else {
   console.error("usage: check-commit-message (--file <path> | --range <range> | --pull-request)");
   process.exit(2);

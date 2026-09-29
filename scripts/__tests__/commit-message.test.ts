@@ -68,6 +68,17 @@ describe("checkCommitMessage", () => {
       expect(checkCommitMessage("🎬 Cut v0.1.2")).toEqual([]);
     });
 
+    it("is the commit that moves the version", () => {
+      const moved = { version: "0.1.2", previousVersion: "0.1.1" };
+      expect(checkCommitMessage("🎬 Cut v0.1.2", moved)).toEqual([]);
+      expect(checkCommitMessage("Bump the version to 0.1.2", moved)).toEqual([
+        `package.json moves to v0.1.2 — the subject is "🎬 Cut v0.1.2", with no body`,
+      ]);
+      const held = { version: "0.1.2", previousVersion: "0.1.2" };
+      expect(checkCommitMessage("🎬 Cut v0.1.2", held)).toHaveLength(1);
+      expect(checkCommitMessage("Bump nothing", held)).toEqual([]);
+    });
+
     it.each([
       ["another version", "🎬 Cut v0.1.3"],
       ["another subject", "🎬 The second cut"],

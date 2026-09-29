@@ -1,6 +1,8 @@
 export type CommitMessageOptions = {
   /** `package.json`'s version at the commit — the one a release subject has to name. */
   version?: string;
+  /** The version before the commit; moving it makes the commit a release. */
+  previousVersion?: string;
 };
 
 const SUBJECT_MAX = 72;
@@ -39,7 +41,16 @@ export function checkCommitMessage(message: string, options: CommitMessageOption
 
   if (subject === "") return ["the subject is empty"];
   if (GIT_AUTHORED.test(subject)) return [];
-  if (subject.startsWith(RELEASE_MARK)) return checkRelease(subject, body, options);
+  const moves =
+    options.version !== undefined &&
+    options.previousVersion !== undefined &&
+    options.version !== options.previousVersion;
+  if (subject.startsWith(RELEASE_MARK)) return checkRelease(subject, body, options, moves);
+  if (moves) {
+    return [
+      `package.json moves to v${options.version} — the subject is "${RELEASE_MARK} Cut v${options.version}", with no body`,
+    ];
+  }
 
   const errors: string[] = [];
   const length = [...subject].length;
@@ -70,8 +81,16 @@ export function checkCommitMessage(message: string, options: CommitMessageOption
   return errors;
 }
 
-function checkRelease(subject: string, body: string[], options: CommitMessageOptions): string[] {
+function checkRelease(
+  subject: string,
+  body: string[],
+  options: CommitMessageOptions,
+  moves: boolean,
+): string[] {
   const errors: string[] = [];
+  if (options.previousVersion !== undefined && !moves) {
+    errors.push("a release commit moves package.json's version");
+  }
   const version = RELEASE.exec(subject)?.[1];
   if (version === undefined) {
     errors.push(`a release subject is "${RELEASE_MARK} Cut v<version>"`);
