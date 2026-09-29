@@ -117,7 +117,7 @@ describe("analyzeWorkflow()", () => {
     expect(textInput!.type).toBe("string");
   });
 
-  it("uses node title for CLIPTextEncode input name", () => {
+  it("names an unwired CLIPTextEncode input by its node title", () => {
     const data = {
       "3": {
         class_type: "CLIPTextEncode",
@@ -129,6 +129,44 @@ describe("analyzeWorkflow()", () => {
     const result = analyzeWorkflow(data);
     const keys = Object.keys(result.inputs);
     expect(keys.some((k) => k.startsWith("positive_prompt"))).toBe(true);
+  });
+
+  it("names a text encode by the sampler input it reaches, not its title or node order", () => {
+    const encode = (text: string) => ({
+      class_type: "CLIPTextEncode",
+      inputs: { text, clip: ["1", 0] },
+      _meta: { title: "CLIP Text Encode (Prompt)" },
+    });
+    const data = {
+      "2": encode("blurry"),
+      "3": encode("a cat"),
+      "4": {
+        class_type: "ControlNetApplyAdvanced",
+        inputs: { positive: ["6", 0], negative: ["2", 0], strength: 1 },
+      },
+      "5": {
+        class_type: "KSampler",
+        inputs: { seed: 1, positive: ["4", 0], negative: ["4", 1] },
+      },
+      "6": { class_type: "FluxGuidance", inputs: { conditioning: ["3", 0], guidance: 3.5 } },
+    };
+
+    const result = analyzeWorkflow(data);
+    expect(result.inputs.prompt).toMatchObject({ nodeId: "3", field: "text" });
+    expect(result.inputs.negative_prompt).toMatchObject({ nodeId: "2", field: "text" });
+  });
+
+  it("names a text encode feeding both polarities by its node title", () => {
+    const data = {
+      "3": {
+        class_type: "CLIPTextEncode",
+        inputs: { text: "", clip: ["1", 0] },
+        _meta: { title: "Shared" },
+      },
+      "5": { class_type: "KSampler", inputs: { positive: ["3", 0], negative: ["3", 0] } },
+    };
+
+    expect(Object.keys(analyzeWorkflow(data).inputs)).toContain("shared");
   });
 
   it("detects TextEncodeQwenImageEditPlus prompt inputs as semantic", () => {

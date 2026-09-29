@@ -76,6 +76,7 @@ interface InputCandidate {
 }
 
 interface LinkTarget {
+  nodeId: string;
   classType: string;
   field: string;
   title?: string;
@@ -118,12 +119,12 @@ function asPrimitive(value: unknown): string | number | boolean | undefined {
 
 function buildReverseLinkMap(workflow: WorkflowData): Map<string, LinkTarget[]> {
   const map = new Map<string, LinkTarget[]>();
-  for (const [, node] of Object.entries(workflow)) {
+  for (const [nodeId, node] of Object.entries(workflow)) {
     for (const [field, value] of Object.entries(node.inputs)) {
       if (!isLink(value)) continue;
       const [srcId] = value as [string, number];
       const targets = map.get(srcId) ?? [];
-      targets.push({ classType: node.class_type, field, title: node._meta?.title });
+      targets.push({ nodeId, classType: node.class_type, field, title: node._meta?.title });
       map.set(srcId, targets);
     }
   }
@@ -190,6 +191,29 @@ const SAMPLER_CLASSES = new Set([
 // field differs by class (`text` vs `prompt`), so PROMPT_FIELDS lists both.
 const PROMPT_ENCODE_CLASSES = new Set(["CLIPTextEncode", "TextEncodeQwenImageEditPlus"]);
 const PROMPT_FIELDS = new Set(["text", "prompt"]);
+
+// The conditioning input a text encode reaches first, following its links downstream: a
+// sampler's or guider's `positive` / `negative`. Undefined when it reaches neither or both.
+function conditioningPolarity(
+  nodeId: string,
+  reverseLinkMap: Map<string, LinkTarget[]>,
+): "positive" | "negative" | undefined {
+  const found = new Set<"positive" | "negative">();
+  const seen = new Set<string>();
+  const pending = [nodeId];
+  while (pending.length > 0) {
+    const id = pending.pop()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    for (const target of reverseLinkMap.get(id) ?? []) {
+      if (target.field === "positive" || target.field === "negative") found.add(target.field);
+      else pending.push(target.nodeId);
+    }
+  }
+  return found.size === 1 ? [...found][0] : undefined;
+}
+
+const PROMPT_NAME_BY_POLARITY = { positive: "prompt", negative: "negative_prompt" } as const;
 
 const SAVE_IMAGE_CLASSES = new Set([
   "SaveImage",
@@ -473,12 +497,15 @@ export function analyzeWorkflow(
     }
 
     if (PROMPT_ENCODE_CLASSES.has(classType)) {
+      const polarity = conditioningPolarity(nodeId, reverseLinkMap);
       for (const [field, value] of Object.entries(node.inputs)) {
         if (isLink(value)) continue;
         if (PROMPT_FIELDS.has(field)) {
-          const title = node._meta?.title?.toLowerCase().replace(/\s+/g, "_") ?? "prompt";
+          const name = polarity
+            ? PROMPT_NAME_BY_POLARITY[polarity]
+            : (node._meta?.title?.toLowerCase().replace(/\s+/g, "_") ?? "prompt");
           candidates.push({
-            name: title,
+            name,
             nodeId,
             field,
             type: "string",
