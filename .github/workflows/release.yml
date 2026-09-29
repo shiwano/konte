@@ -140,6 +140,10 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag'
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: konte-*
@@ -150,6 +154,23 @@ jobs:
         working-directory: dist-assets
         run: sha256sum konte-* > SHA256SUMS
 
+      # --generate-notes lists pull requests only, and most commits reach main without one.
+      - name: Release notes
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          range="$TAG"
+          if previous=$(git describe --tags --abbrev=0 --match 'v*' "$TAG^" 2>/dev/null); then
+            range="$previous..$TAG"
+          fi
+          git log --format='- %s (%h)' --invert-grep --grep='^🎬' "$range" > notes.md
+          if [ -n "${previous:-}" ]; then
+            printf '\n**Full Changelog**: https://github.com/%s/compare/%s...%s\n' \
+              "$REPO" "$previous" "$TAG" >> notes.md
+          fi
+
       # Create as draft and flip to published only after every asset is up, so
       # `releases/latest/download/...` never resolves to a half-uploaded release.
       - name: Publish release
@@ -159,7 +180,7 @@ jobs:
           gh release create "${{ github.ref_name }}" \
             --repo "${{ github.repository }}" \
             --title "${{ github.ref_name }}" \
-            --generate-notes \
+            --notes-file notes.md \
             --draft \
             dist-assets/*
           gh release edit "${{ github.ref_name }}" \

@@ -17,10 +17,10 @@ A release is one commit that moves `package.json`'s `version`, tagged `v<version
 6. **Wait for `release.yml`** — `gh run watch` on the run `gh run list --workflow release.yml --limit 1` names. The release is created as a draft and flipped to published only after every asset is up.
 7. **Report the release URL.**
 
-The notes are `--generate-notes`: the pull requests merged since the previous tag. A commit pushed straight to `main` is not in them.
+The notes are the subjects of the commits since the previous tag, the release commit left out.
 
 ## Don't
 
 - Don't tag a commit that is not the version commit, and don't tag before the push of `main` — the tag's commit has to be on `main` when the workflow runs.
-- Don't edit the release notes in the commit; the commit has no body.
+- Don't write release notes — `release.yml` builds them from the commit subjects.
 - Don't re-tag. A wrong release is a new version.
