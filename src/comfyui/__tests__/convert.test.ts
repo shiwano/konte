@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { ComfyUINodeDefinition } from "../types.js";
+import type { ComfyUIInputSpec, ComfyUINodeDefinition } from "../types.js";
 import { convertLitegraphToApi, flattenSubgraphs, type LitegraphWorkflow } from "../convert.js";
 
 function makeNodeDef(
-  required: Record<string, [string, ...unknown[]]> = {},
-  optional: Record<string, [string, ...unknown[]]> = {},
+  required: Record<string, ComfyUIInputSpec> = {},
+  optional: Record<string, ComfyUIInputSpec> = {},
 ): ComfyUINodeDefinition {
   return { input: { required, optional } };
 }
@@ -1164,6 +1164,98 @@ describe("convertLitegraphToApi", () => {
 
     expect(thrown(() => convertLitegraphToApi(workflow, info))).toMatchObject({
       code: "WORKFLOW_IMPORT_FAILED",
+    });
+  });
+
+  describe("a widget the node pack has since removed", () => {
+    const info: Record<string, ComfyUINodeDefinition> = {
+      MiniMaxFlashSRAudio: makeNodeDef({
+        audio: ["AUDIO"],
+        lowpass_input: ["BOOLEAN", { default: false }],
+        output_sr: [["48000", "44100", "96000"], { default: "48000" }],
+      }),
+    };
+    const workflowWith = (
+      inputs: NonNullable<LitegraphWorkflow["nodes"][number]["inputs"]>,
+      widgets_values: unknown[],
+    ): LitegraphWorkflow => ({
+      last_node_id: 1,
+      last_link_id: 0,
+      nodes: [{ id: 1, type: "MiniMaxFlashSRAudio", inputs, widgets_values }],
+      links: [],
+    });
+    const widget = (name: string, type: string) => ({
+      name,
+      type,
+      link: null,
+      widget: { name },
+    });
+    const audio = { name: "audio", type: "AUDIO", link: null };
+
+    it("drops it when it trails every declared widget", () => {
+      const workflow = workflowWith(
+        [
+          audio,
+          widget("lowpass_input", "BOOLEAN"),
+          widget("output_sr", "COMBO"),
+          widget("auto_download", "BOOLEAN"),
+        ],
+        [true, "96000", true],
+      );
+
+      expect(convertLitegraphToApi(workflow, info).workflow["1"]?.inputs).toEqual({
+        lowpass_input: true,
+        output_sr: "96000",
+      });
+    });
+
+    it("throws when a declared widget follows it", () => {
+      const workflow = workflowWith(
+        [
+          audio,
+          widget("lowpass_input", "BOOLEAN"),
+          widget("auto_download", "BOOLEAN"),
+          widget("output_sr", "COMBO"),
+        ],
+        [true, true, "96000"],
+      );
+
+      expect(thrown(() => convertLitegraphToApi(workflow, info))).toMatchObject({
+        code: "WORKFLOW_IMPORT_FAILED",
+      });
+    });
+
+    it("throws when an upload widget follows it", () => {
+      const workflow: LitegraphWorkflow = {
+        last_node_id: 1,
+        last_link_id: 0,
+        nodes: [
+          {
+            id: 1,
+            type: "LoadImage",
+            inputs: [widget("removed", "BOOLEAN"), widget("image", "COMBO")],
+            widgets_values: [true, "photo.png", "image"],
+          },
+        ],
+        links: [],
+      };
+
+      expect(
+        thrown(() =>
+          convertLitegraphToApi(workflow, { LoadImage: makeNodeDef({ image: ["IMAGEUPLOAD"] }) }),
+        ),
+      ).toMatchObject({ code: "WORKFLOW_IMPORT_FAILED" });
+    });
+
+    it("throws when a declared widget is missing from inputs", () => {
+      const workflow = workflowWith(
+        [audio, widget("lowpass_input", "BOOLEAN"), widget("auto_download", "BOOLEAN")],
+        [true, "96000", true],
+      );
+
+      expect(thrown(() => convertLitegraphToApi(workflow, info))).toMatchObject({
+        code: "WORKFLOW_IMPORT_FAILED",
+      });
     });
   });
 

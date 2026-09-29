@@ -404,6 +404,7 @@ export function convertLitegraphToApi(
         // The frontend's upload button, serialized as a widget input by newer frontends.
         if (input.type.endsWith("UPLOAD")) continue;
         const dotIdx = input.name.lastIndexOf(".");
+        if (dotIdx < 0 && isTrailingRemovedWidget(node.inputs, input, inputDefs)) continue;
         if (dotIdx < 0) {
           throw new KonteError(
             "WORKFLOW_IMPORT_FAILED",
@@ -589,6 +590,25 @@ function isWidgetSpec(def: ComfyUIInputSpec): boolean {
     if ((config as Record<string, unknown>).forceInput === true) return false;
   }
   return Array.isArray(type) || (typeof type === "string" && WIDGET_TYPES.has(type));
+}
+
+// A widget the node pack has since removed, saved by a frontend that lists every widget in
+// `inputs` and listed after all the declared ones: its `widgets_values` slot is past every
+// declared slot, so dropping it shifts nothing.
+function isTrailingRemovedWidget(
+  inputs: NonNullable<LitegraphNode["inputs"]>,
+  removed: NonNullable<LitegraphNode["inputs"]>[number],
+  inputDefs: Map<string, ComfyUIInputSpec>,
+): boolean {
+  if (removed.link != null) return false;
+  const removedIdx = inputs.indexOf(removed);
+  for (const [name, def] of inputDefs) {
+    if (def[0] === "COMFY_AUTOGROW_V3") continue;
+    const idx = inputs.findIndex((input) => input.name === name);
+    if (idx >= 0 && inputs[idx]!.widget == null) continue;
+    if (idx < 0 || idx > removedIdx) return false;
+  }
+  return true;
 }
 
 // Widgets the frontend appends after an upload combo: an upload button, plus an audio preview
