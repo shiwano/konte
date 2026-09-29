@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import * as path from "node:path";
 import type { Command } from "commander";
 import {
   getAssetEntry,
@@ -192,7 +194,8 @@ export function registerStatusCommand(program: Command): void {
       // The cast gate: a character's look, plus every cast voice sample (the video stage's own
       // gate — surfaced here too, or Next steps would keep offering a `generate video` that aborts).
       // A `file` reference is satisfied by its media landing on disk, never by generating it, so
-      // carry the declared path along for the step that says where to put it.
+      // carry the declared path along for the step that says where to put it. One already on disk
+      // was synced above and waits only on its accept, like a generated one with output.
       const unacceptedCast = [
         ...(await unsatisfiedCharacters({ videoRoot, manager, direction, reference })).map((c) => ({
           id: c.id,
@@ -207,7 +210,11 @@ export function registerStatusCommand(program: Command): void {
         .filter((c, i, all) => all.findIndex((o) => o.id === c.id) === i)
         .map(({ id, blocks }) => {
           const entry = reference?.topLevelAssets?.[id];
-          return { id, blocks, missingFile: entry?.kind === "file" ? entry.path : null };
+          const missingFile =
+            entry?.kind === "file" && !existsSync(path.resolve(videoRoot, entry.path))
+              ? entry.path
+              : null;
+          return { id, blocks, missingFile };
         });
 
       // Undeveloped shots carry no address, so their stage would otherwise vanish from Progress —

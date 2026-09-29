@@ -47,6 +47,20 @@ describe("status command", () => {
     expect(stdout).not.toContain("shot.01.motion");
   });
 
+  it("sends a file cast already on disk to review, not to provide the file", async () => {
+    await acceptDirection(projectDir);
+    const { stdout } = await run(["status"], projectDir);
+    expect(stdout).toContain("konte preview reference");
+    expect(stdout).not.toContain("Provide the missing cast file(s)");
+  });
+
+  it("asks for a file cast whose file is absent", async () => {
+    await acceptDirection(projectDir);
+    await fs.rm(path.join(projectDir, "assets", "files", "character.png"));
+    const { stdout } = await run(["status"], projectDir);
+    expect(stdout).toContain("Provide the missing cast file(s): assets/files/character.png");
+  });
+
   // What the human wrote in the review is the input Next steps had no way to see. It points at the
   // words and stops: which fix a comment needs is not something the fact of one can decide.
   it("points a standing comment at the listing, and names no fix for it", async () => {
