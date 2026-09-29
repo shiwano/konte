@@ -18,6 +18,7 @@ export function mcpLogPath(workspaceRoot: string): string {
  * so the pid alone can collide.
  */
 export class McpLog {
+  readonly instanceId = crypto.randomBytes(3).toString("hex");
   private readonly logPath: string;
   private readonly maxBytes: number;
   private readonly prefix: string;
@@ -26,7 +27,7 @@ export class McpLog {
   constructor(workspaceRoot: string, options: { maxBytes?: number } = {}) {
     this.logPath = mcpLogPath(workspaceRoot);
     this.maxBytes = options.maxBytes ?? MAX_LOG_BYTES;
-    this.prefix = `${crypto.randomBytes(3).toString("hex")} pid=${process.pid}`;
+    this.prefix = `${this.instanceId} pid=${process.pid}`;
   }
 
   write(level: McpLogLevel, data: object): void {

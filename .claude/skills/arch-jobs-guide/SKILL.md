@@ -33,7 +33,7 @@ Transient result-fetch and download-stream failures retry against the existing b
 
 `konte mcp serve` runs per workspace: a `VideoRegistry` (`src/mcp/video-registry.ts`) keeps a `JobWatcher` per video under `videos/`, following videos as they appear and disappear (`fs.watch` plus a 5s reconcile poll, since `fs.watch` drops events under WSL2). Credentials are re-applied each tick, dropping stale-keyed backends. `konte workspace new` configures it in `.mcp.json` (Claude Code) and `.codex/config.toml` (Codex).
 
-It registers **no tool, resource or prompt**. Outcomes come from `konte job wait`, which drives the same cascade itself and so works with the daemon down.
+Its one MCP tool, `status`, returns the daemon's version, instance id, pid, start time and watched videos. Job outcomes come from `konte job wait`, which drives the same cascade itself and so works with the daemon down.
 
 Every daemon of the workspace appends to `.konte/logs/mcp.log` (`src/mcp/mcp-log.ts`): its start and stop, the videos it watches, and each info-or-above event it sends its client, tagged with a per-daemon instance id and URLs redacted. Past 5 MB the file moves to `mcp.log.1`.
 

@@ -3,11 +3,12 @@ import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { expect, it } from "vitest";
+import pkg from "../../../package.json" with { type: "json" };
 import { makeWorkspace } from "../../core/__tests__/helpers/workspace.js";
 import { mcpLogPath } from "../mcp-log.js";
 
-it("initializes over stdio and returns empty discovery lists", async () => {
-  const ws = await makeWorkspace();
+it("initializes over stdio and reports its status", async () => {
+  const ws = await makeWorkspace({ videos: ["main"] });
   const client = new Client({ name: "konte-test", version: "1.0.0" });
   const transport = new StdioClientTransport({
     command: process.execPath,
@@ -25,15 +26,20 @@ it("initializes over stdio and returns empty discovery lists", async () => {
 
   try {
     await client.connect(transport);
-    expect(await client.listTools()).toEqual({ tools: [] });
-    expect(await client.listResources()).toEqual({ resources: [] });
-    expect(await client.listResourceTemplates()).toEqual({ resourceTemplates: [] });
-    expect(await client.listPrompts()).toEqual({ prompts: [] });
     expect(client.getServerCapabilities()).toEqual({
       logging: {},
-      tools: {},
-      resources: {},
-      prompts: {},
+      tools: { listChanged: true },
+    });
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name)).toEqual(["status"]);
+    const result = await client.callTool({ name: "status" });
+    const [content] = result.content as { type: string; text: string }[];
+    expect(JSON.parse(content?.text ?? "")).toEqual({
+      version: pkg.version,
+      instanceId: expect.stringMatching(/^[0-9a-f]{6}$/),
+      pid: expect.any(Number),
+      startedAt: expect.any(String),
+      videos: ["main"],
     });
     expect(await client.ping()).toEqual({});
     expect(await fs.readFile(mcpLogPath(ws.root), "utf-8")).toContain('"event":"daemon_started"');

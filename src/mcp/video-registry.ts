@@ -67,6 +67,10 @@ export class VideoRegistry {
     }, this.reconcileIntervalMs);
   }
 
+  videos(): string[] {
+    return [...this.watchers.keys()].sort();
+  }
+
   stop(): void {
     this.stopped = true;
     this.videosWatcher?.close();
