@@ -33,6 +33,7 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - dev-release (new, 3,700): cutting a release.
 // - every dev journey +200 (agreed by a human): AGENTS.md's Commits — the commit message format.
 // - video 42,850 → 37,000 (agreed by a human): cut to the measured load (36,935).
 // - dev-render 10,050 → 10,150 (agreed by a human): source gain adjustments in arch-audio-guide;
@@ -221,6 +222,13 @@ const DEV_JOURNEYS = [
     name: "dev-cli",
     budget: 4_600,
     files: [...DEV_ALWAYS, `${DEV}/arch-cli-guide/SKILL.md`],
+  },
+  // Cutting a release: the version commit, its tag, and the workflow that
+  // publishes from it.
+  {
+    name: "dev-release",
+    budget: 3_700,
+    files: [...DEV_ALWAYS, `${DEV}/konte-release/SKILL.md`],
   },
 ];
 
