@@ -754,7 +754,11 @@ describe("pruneUnreachableNodes()", () => {
   };
 
   it("keeps only the nodes an output node depends on", () => {
-    expect(Object.keys(pruneUnreachableNodes(workflow) as object)).toEqual(["1", "3", "4"]);
+    expect(Object.keys(pruneUnreachableNodes(workflow, {}) as object)).toEqual(["1", "3", "4"]);
+  });
+
+  it("returns the workflow as is without object_info", () => {
+    expect(pruneUnreachableNodes(workflow, undefined)).toBe(workflow);
   });
 
   it("treats a node object_info declares as an output node as a root", () => {
@@ -771,12 +775,12 @@ describe("pruneUnreachableNodes()", () => {
 
   it("returns a workflow with no output node as is", () => {
     const noOutput = { "1": workflow["1"], "4": workflow["4"] };
-    expect(pruneUnreachableNodes(noOutput)).toBe(noOutput);
+    expect(pruneUnreachableNodes(noOutput, {})).toBe(noOutput);
   });
 
   it("returns a fully reachable workflow as is", () => {
     const reachable = { "1": workflow["1"], "3": workflow["3"], "4": workflow["4"] };
-    expect(pruneUnreachableNodes(reachable)).toBe(reachable);
+    expect(pruneUnreachableNodes(reachable, {})).toBe(reachable);
   });
 });
 

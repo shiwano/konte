@@ -374,13 +374,14 @@ function comboChoices(
   return choices as string[];
 }
 
-// Keeps only the nodes an output node depends on — what ComfyUI executes. A workflow with
-// no recognized output node is returned as is.
+// Keeps only the nodes an output node depends on — what ComfyUI executes. Without object_info
+// an unrecognized output node can't be told from a dead end, so the workflow is returned as is,
+// as is one with no output node.
 export function pruneUnreachableNodes(
   data: unknown,
-  objectInfo?: Record<string, ComfyUINodeDefinition>,
+  objectInfo: Record<string, ComfyUINodeDefinition> | undefined,
 ): unknown {
-  if (!isApiFormat(data)) return data;
+  if (!objectInfo || !isApiFormat(data)) return data;
   const workflow = data as WorkflowData;
   const pending = Object.keys(workflow).filter((id) => {
     const classType = workflow[id]!.class_type;
@@ -388,7 +389,7 @@ export function pruneUnreachableNodes(
       SAVE_IMAGE_CLASSES.has(classType) ||
       SAVE_VIDEO_CLASSES.has(classType) ||
       SAVE_AUDIO_CLASSES.has(classType) ||
-      objectInfo?.[classType]?.output_node === true
+      objectInfo[classType]?.output_node === true
     );
   });
   if (pending.length === 0) return data;
