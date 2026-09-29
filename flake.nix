@@ -53,6 +53,11 @@
             pkgs.cloudflared
             waza
           ];
+          shellHook = ''
+            if git rev-parse --git-dir >/dev/null 2>&1; then
+              git config --local core.hooksPath scripts/git-hooks
+            fi
+          '';
         };
 
         # What CI builds, checks and tests with, minus the dev-only extras.

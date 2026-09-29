@@ -29,6 +29,23 @@ jobs:
 
       - run: bun run check
 
+  # A commit pushed straight to main never met pr-message, and the commit-msg hook is only
+  # installed by the dev shell.
+  commits:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: nix develop .#ci --command bash -e {0}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      - run: bun scripts/check-commit-message.ts --range "$RANGE"
+        env:
+          RANGE: ${{ github.event.before }}..${{ github.sha }}
+
   test:
     runs-on: ubuntu-latest
     # The suite drives the real ffmpeg pipeline off PATH (vitest.setup.ts); the flake's CI

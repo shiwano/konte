@@ -1,0 +1,6 @@
+#!/bin/sh
+command -v bun >/dev/null 2>&1 || {
+	echo "commit-msg: bun is not on PATH — commit from the dev shell (nix develop)" >&2
+	exit 1
+}
+exec bun scripts/check-commit-message.ts --file "$1"

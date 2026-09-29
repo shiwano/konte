@@ -16,6 +16,12 @@
 
 **Never persist resolved secrets.** Values from expanding `${VAR}` placeholders (auth tokens, API keys, credentialed URLs) must not be written to any on-disk artifact (state, job files, logs). Store the unresolved placeholder and resolve it at use time; redact secrets in logs.
 
+## Commits
+
+A commit is one change, and its message is where the reason lives — comments and docs carry none. The subject is an imperative sentence, capitalized, at most 72 characters, with no type prefix, emoji or period, naming what changed in konte's own vocabulary (`Name the refused host and preview.allowedHosts on a Forbidden host`). The body is prose wrapped at 80: what holds after the change, in the present tense, then what made it necessary when that is not evident. It never lists files, narrates the work, or carries an attribution trailer.
+
+A pull request is squash-merged, so its title and description are written as that subject and body.
+
 ## Common Commands
 
 ```sh

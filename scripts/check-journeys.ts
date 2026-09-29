@@ -33,6 +33,7 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - every dev journey +200 (agreed by a human): AGENTS.md's Commits — the commit message format.
 // - video 42,850 → 37,000 (agreed by a human): cut to the measured load (36,935).
 // - dev-render 10,050 → 10,150 (agreed by a human): source gain adjustments in arch-audio-guide;
 //   submission uncertainty and resumable result retrieval in arch-jobs-guide.
@@ -121,7 +122,7 @@ const DEV_JOURNEYS = [
   // model's prompt guide and input descriptions that ship with it.
   {
     name: "dev-adapter",
-    budget: 7_350,
+    budget: 7_550,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/adapter-authoring/SKILL.md`,
@@ -132,7 +133,7 @@ const DEV_JOURNEYS = [
   // one whole, so the template SKILL.md and both its references are charged here.
   {
     name: "dev-comfy",
-    budget: 9_950,
+    budget: 10_150,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/konte-comfy-workflow/SKILL.md`,
@@ -146,7 +147,7 @@ const DEV_JOURNEYS = [
   // part hashes, so the review guide comes along.
   {
     name: "dev-direction",
-    budget: 16_400,
+    budget: 16_600,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-direction-guide/SKILL.md`,
@@ -160,7 +161,7 @@ const DEV_JOURNEYS = [
   // the same render plan chooses between per shot.
   {
     name: "dev-render",
-    budget: 10_150,
+    budget: 10_350,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-delivery-guide/SKILL.md`,
@@ -174,7 +175,7 @@ const DEV_JOURNEYS = [
   // and the session evidence that says whether a guide is really being read.
   {
     name: "dev-skills",
-    budget: 11_900,
+    budget: 12_100,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/agents-md-guide/SKILL.md`,
@@ -189,7 +190,7 @@ const DEV_JOURNEYS = [
   // skills that ship inside it.
   {
     name: "dev-templates",
-    budget: 6_000,
+    budget: 6_200,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-template-system-guide/SKILL.md`,
@@ -200,7 +201,7 @@ const DEV_JOURNEYS = [
   // review model comes along.
   {
     name: "dev-patch",
-    budget: 8_550,
+    budget: 8_750,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-patch-guide/SKILL.md`,
@@ -211,14 +212,14 @@ const DEV_JOURNEYS = [
   // of what a review actually stores.
   {
     name: "dev-ui",
-    budget: 7_900,
+    budget: 8_100,
     files: [...DEV_ALWAYS, `${DEV}/konte-run/SKILL.md`, `${DEV}/arch-review-system-guide/SKILL.md`],
   },
   // Adding or changing a command: scope and root resolution, and the output
   // conventions an agent acts on.
   {
     name: "dev-cli",
-    budget: 4_400,
+    budget: 4_600,
     files: [...DEV_ALWAYS, `${DEV}/arch-cli-guide/SKILL.md`],
   },
 ];
