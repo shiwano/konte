@@ -24,7 +24,7 @@ One still frame decoded from a short burst.
 - **A plate passed `fully_preserved` locks `shots[1]`'s framing as it does `shots[0]`'s** — a closer view the plate does not hold takes `attribute_transfer`.
 - **`fully_preserved` on a face carries the sheet's expression too** — a cast sheet is a calm or cheerful face and comes back that way on a shot written as terror. Keep the bone structure, hair and clothing, and say in the same line that the expression is remade as the description writes it, overriding the sheet's.
 - **Strain vocabulary ages a face** — `deep creases`, `tendons standing out` come back as a person twenty years older. Write the expression as movement (brows dragged high, eyes stretched wide, jaw clenched, mouth open) and restate the age in the same sentence.
-- **Leave the set to the plate's picture** — `shots[1]` carries the figures and the movement.
+- **Leave the set to the plate's picture** — `shots[1]` carries the figures, where each sits and faces in the frame, and the movement.
 - **Settle a panel before cutting the next one out of it** — re-accepting an upstream panel makes every panel cut from it input-stale, one level per regeneration.
 
 ## Plates

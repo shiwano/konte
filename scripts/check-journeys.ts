@@ -63,6 +63,9 @@ import { execFileSync } from "node:child_process";
 //   `lineup` line, the occupied plate, the declared set.
 // - konte-animatic-critic (new, 3,300) → 3,450: a viewer's read of one board sequence; the declared
 //   set.
+// - konte-staging-critic (new, 2,450): how one staging pass's panel prompts compose their frames.
+// - video 37,600 → 37,750, music-video 38,650 → 38,700: the panel prompt composes the frame the plate
+//   only places, and the staging pass with its critic.
 
 const WORKSPACE = "src/cli/templates/workspace";
 const SKILLS = `${WORKSPACE}/dot.agents/skills`;
@@ -90,8 +93,13 @@ const SHIPPED_JOURNEYS = [
     files: [...ALWAYS, `${AGENTS}/konte-animatic-critic.md`],
   },
   {
+    name: "konte-staging-critic",
+    budget: 2_450,
+    files: [...ALWAYS, `${AGENTS}/konte-staging-critic.md`],
+  },
+  {
     name: "video",
-    budget: 37_600,
+    budget: 37_750,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
@@ -126,7 +134,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "music-video",
-    budget: 38_650,
+    budget: 38_700,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
