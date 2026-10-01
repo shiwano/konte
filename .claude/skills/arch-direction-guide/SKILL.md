@@ -130,7 +130,7 @@ A shot's words split by whether anyone says them. `telop` is unspoken text over 
 
 `lyrics` (`[{ label, singer, lines }]`) is what the song sings. `singer` is a character id or list; a line is text or `{ text, singer }`. Structural: `lyrics-without-clock`, `lyrics-singer-unknown`, `lyrics-singer-empty`, `lyrics-empty-line`. `direction:lyrics` is one part with its own section, and piece-wide: a lyric edit holds a spend after `whole`.
 
-`placeDirectionLyrics` puts each line on the take's clock — where a person placed it on the take (`SongAnalysis.lines`), else `placeLyricLines` (`song-lyrics.ts`) over the take's sung stretches, which leaves a line unplaced where a reading with it elsewhere costs nearly as little. `lyricsInSpan` hands a shot or an overlay the lines under its span as `ctx.lyrics`, frame-rounded so an unmoved placement hashes the same. The definition loader injects each video's song take (`withSongTakes`, under the definition import's lock), and `definition-source.ts` folds that take's reading into the source fingerprint.
+`placeDirectionLyrics` puts each line on the take's clock — where a person placed it on the take (`SongAnalysis.lines`), else `placeLyricLines` (`song-lyrics.ts`), which matches the lyrics against the words heard, leaving a line unplaced where its opening is not heard. `lyricsInSpan` hands a shot or an overlay the lines under its span as `ctx.lyrics`, frame-rounded so an unmoved placement hashes the same. The definition loader injects each video's song take (`withSongTakes`, under the definition import's lock), and `definition-source.ts` folds that take's reading into the source fingerprint.
 
 The `song` class reads the take the piece is cut against (`resolveSongTake`: the accepted take, else the newest analyzed one not dismissed; staleness is not asked), passed as `SongTakeState` (`loadSongTakeState`) on `animaticSetups`' contract, never deferred.
 
@@ -141,7 +141,7 @@ The `song` class reads the take the piece is cut against (`resolveSongTake`: the
 
 The first two are fixed in the reference stage (`findingFixStage`).
 
-A take is read by a `song-analysis` job into the variant's `song`, once per bytes and declared clock: its clock off the mix, its sung stretches off the vocal track sherpa-onnx separates. A generated take is queued as it lands; `konte song analyze` reads the current take and every unread one in place. `song set --downbeat` corrects a reading.
+A take is read by a `song-analysis` job into the variant's `song`, once per bytes, declared clock and `policy.lang`: its clock off the mix, its sung stretches and words off the vocal track sherpa-onnx separates. A generated take is queued as it lands; `konte song analyze` reads the current take and every unread one in place. `song set --downbeat` corrects a reading.
 
 ## Casting voices
 

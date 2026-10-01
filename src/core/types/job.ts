@@ -184,6 +184,8 @@ export const SongAnalysisJobSchema = JobRecordBaseSchema.extend({
   // and bar heads counted in `beatsPerBar`.
   bpm: z.number().positive(),
   beatsPerBar: z.number().int().positive(),
+  // The language the direction declared (`policy.lang`): what the vocal track is heard as.
+  lang: z.string(),
 });
 
 export const JobRecordSchema = z.discriminatedUnion("kind", [

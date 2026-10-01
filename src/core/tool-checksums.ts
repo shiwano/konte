@@ -31,6 +31,8 @@ export const TOOL_CHECKSUMS: Readonly<Record<string, string>> = {
     "8923876afa8db5585022d7860ec7e589af192f441c56793971276d450ed3bbfa",
   "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-darwin-arm64.gz":
     "d986a8ec7b030899fe66a8a288ed809a3543338705a3ce178cfb85869c5d80be",
+  "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09.tar.bz2":
+    "7305f7905bfcf77fa0b39388a313f3da35c68d971661a65475b56fb2162c8e63",
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/sherpa-onnx-spleeter-2stems-fp16.tar.bz2":
     "d54561979bd2e08a51e7dbd99ac36bb47564e089eefd403636dbca93e811bba2",
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-v1.13.8-linux-aarch64-shared-cpu.tar.bz2":

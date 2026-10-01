@@ -192,7 +192,8 @@ function printSong(
   }
 }
 
-// The reading's clock against the declared one, its section candidates and where it is sung.
+// The reading's clock against the declared one, its section candidates, where it is sung and what it
+// is heard to sing.
 export function printSongReading(
   song: SongAnalysis,
   clock: { bpm: number; beatsPerBar: number },
@@ -214,6 +215,15 @@ export function printSongReading(
       .map((p) => `${fmtOnset(p.startSec)}–${fmtOnset(p.endSec)}`)
       .join(", ");
     console.log(`  sung      ${song.phrases.length} stretch(es): ${listed || "none"}`);
+  }
+  if (song.heard === null) {
+    console.log("  heard     unknown — the vocal track could not be recognized");
+  } else {
+    const words = song.heard
+      .map((t) => t.text)
+      .join("")
+      .trim();
+    console.log(`  heard     ${words ? `"${words}"` : "nothing"}`);
   }
 }
 

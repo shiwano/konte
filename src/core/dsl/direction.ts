@@ -1809,11 +1809,8 @@ export function placeDirectionLyrics(
   const onTimeline = (sec: number) => (leadFrames + Math.round((sec - downbeat) * fps)) / fps;
   const placements = placeLyricLines({
     lines: lines.map((line) => ({ text: line.text, ...(line.set ? { set: line.set } : {}) })),
+    heard: take?.analysis.heard ?? null,
     phrases: take?.analysis.phrases ?? null,
-    bpm: take?.analysis.bpm ?? clock.bpm,
-    beatsPerBar: clock.beatsPerBar,
-    downbeatSec: downbeat,
-    lang: direction.policy.lang,
   });
   return lines.map((line, i): LyricPlacementEntry => {
     const placed = placements[i] ?? null;

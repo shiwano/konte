@@ -67,11 +67,13 @@ export async function runSongAnalysisJob(
             file: path.resolve(videoRoot, take.file),
             bpm: job.bpm,
             beatsPerBar: job.beatsPerBar,
+            lang: job.lang,
             // One directory per run: a run superseded by `song analyze` may still be reading.
             workDir: path.join(videoRoot, ".konte", "cache", "song", id, workerId),
             log: (line) => jobManager.appendLog(id, line),
           })),
           clock: { bpm: job.bpm, beatsPerBar: job.beatsPerBar },
+          lang: job.lang,
         });
         // Under the state lock: the reading is saved first, then the job completes, so a job seen
         // completed has its reading on disk. A job cancelled or reclaimed meanwhile (`job cancel`,

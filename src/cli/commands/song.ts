@@ -194,6 +194,7 @@ Examples:
           outputHash: target.outputHash,
           bpm: clock.bpm,
           beatsPerBar: clock.beatsPerBar,
+          lang: direction.policy.lang,
           again: true,
         });
         console.log(`Reading ${songAddress} ${target.variantId}...`);

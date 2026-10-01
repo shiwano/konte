@@ -352,6 +352,7 @@ export class JobManager {
     outputHash: string | null;
     bpm: number;
     beatsPerBar: number;
+    lang: string;
     again?: boolean;
   }): Promise<SongAnalysisJob> {
     await this.ensureDirs();
@@ -365,7 +366,8 @@ export class JobManager {
         !opts.again &&
         existing.outputHash === opts.outputHash &&
         existing.bpm === opts.bpm &&
-        existing.beatsPerBar === opts.beatsPerBar
+        existing.beatsPerBar === opts.beatsPerBar &&
+        existing.lang === opts.lang
       ) {
         return existing;
       }
@@ -380,6 +382,7 @@ export class JobManager {
         outputHash: opts.outputHash,
         bpm: opts.bpm,
         beatsPerBar: opts.beatsPerBar,
+        lang: opts.lang,
         dependsOnJobs: [],
         lease: null,
         sourceFingerprint: null,

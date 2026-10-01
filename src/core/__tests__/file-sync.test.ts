@@ -163,7 +163,9 @@ describe("syncFileAssets (reference stage)", () => {
       downbeatSec: 0.5,
       sectionSecs: [],
       phrases: null,
+      heard: null,
       analyzedAt: "2026-09-30T00:00:00.000Z",
+      lang: "en",
     };
 
     await writeAsset(tmpDir, "assets/files/song.mp3", "v2");

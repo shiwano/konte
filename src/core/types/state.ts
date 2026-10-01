@@ -60,8 +60,10 @@ export type VariantMedia = z.infer<typeof VariantMediaSchema>;
 
 // What konte read off a take of the song `policy.clock` counts on, recorded when the take lands:
 // the tempo it plays at, the take-second its first beat falls on, the bar heads its texture changes
-// most at, and where it is sung. `phrases` is null where no vocal track could be separated. `clock`
-// is the declared tempo and meter it was read against; a reading against another is outdated.
+// most at, where it is sung, and what its vocal track is heard to sing, token by token. `phrases`
+// and `heard` are null where no vocal track could be separated, `heard` also where it could not be
+// recognized. `clock` and `lang` are the declared tempo, meter and language it was read against; a
+// reading against another is outdated.
 // `downbeatSetAt` marks a downbeat a person corrected (`konte song set`). `lines` are the lyric
 // lines a person placed on the take, keyed `<section>.<line>`, each with the words it was placed
 // as: a line whose words have changed since is read off the take again.
@@ -70,10 +72,12 @@ export const SongAnalysisSchema = z.object({
   downbeatSec: z.number().nonnegative(),
   sectionSecs: z.array(z.number()),
   phrases: z.array(z.object({ startSec: z.number(), endSec: z.number() })).nullable(),
+  heard: z.array(z.object({ text: z.string(), startSec: z.number() })).nullable(),
   analyzedAt: z.string(),
   clock: z
     .object({ bpm: z.number().positive(), beatsPerBar: z.number().int().positive() })
     .optional(),
+  lang: z.string(),
   downbeatSetAt: z.string().optional(),
   lines: z
     .record(

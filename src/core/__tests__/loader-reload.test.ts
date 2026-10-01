@@ -139,7 +139,7 @@ describe("a definition cached under one reading of the song", () => {
           const id = existing ? Object.keys(existing.variants)[0] : m.reserveVariantId(address);
           const v = m.getAssetState(address).variants[id];
           v.file = "assets/song.mp3";
-          v.song = { bpm: 120, downbeatSec, sectionSecs: [], phrases: null, analyzedAt: "2026-09-30T00:00:00.000Z" };
+          v.song = { bpm: 120, downbeatSec, sectionSecs: [], phrases: null, heard: null, analyzedAt: "2026-09-30T00:00:00.000Z", lang: "en" };
           m.setAccepted(address, id);
         });
       };

@@ -182,7 +182,9 @@ describe("the song take", () => {
         downbeatSec: 0.5,
         sectionSecs: [],
         phrases: phrases?.map(([startSec, endSec]) => ({ startSec, endSec })) ?? null,
+        heard: null,
         analyzedAt: "2026-09-30T00:00:00.000Z",
+        lang: "en",
       },
     },
     durationSec: null,
@@ -314,7 +316,9 @@ describe("a lyric line placed on a take by hand", () => {
     downbeatSec: 0.5,
     sectionSecs: [],
     phrases: null,
+    heard: null,
     analyzedAt: "2026-09-30T00:00:00.000Z",
+    lang: "en",
   };
   const lines = [
     { key: "1.1", text: "a" },

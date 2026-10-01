@@ -97,7 +97,9 @@ describe("resolveDirectionTimeline", () => {
         downbeatSec,
         sectionSecs: [],
         phrases: null,
+        heard: null,
         analyzedAt: "2026-09-30T00:00:00.000Z",
+        lang: "en",
       },
     });
     const timings = (downbeatSec: number) =>
@@ -287,7 +289,23 @@ describe("ctx.lyrics", () => {
           { startSec: 0.5, endSec: 2.2 },
           { startSec: 2.5, endSec: 4.3 },
         ],
+        heard: [
+          { text: " HIT", startSec: 0.5 },
+          { text: " THE", startSec: 0.8 },
+          { text: " LIGHT", startSec: 1 },
+          { text: " WATCH", startSec: 1.4 },
+          { text: " ME", startSec: 1.7 },
+          { text: " MOVE", startSec: 1.9 },
+          { text: " SNAP", startSec: 2.5 },
+          { text: " ON", startSec: 2.8 },
+          { text: " THE", startSec: 3 },
+          { text: " BEAT", startSec: 3.2 },
+          { text: " IN", startSec: 3.4 },
+          { text: " THE", startSec: 3.6 },
+          { text: " GROOVE", startSec: 3.8 },
+        ],
         analyzedAt: "2026-09-30T00:00:00.000Z",
+        lang: "en",
       },
     };
     let heard: readonly { text: string; singer: readonly string[]; start: number; end: number }[] =
@@ -382,6 +400,18 @@ describe("a build that reads ctx.lyrics", () => {
     });
     return prompt;
   };
+  // "Hit the light, watch me move", sung from `sec` to `sec` + 1.7.
+  const sungAt = (sec: number) => ({
+    phrases: [{ startSec: sec, endSec: sec + 1.7 }],
+    heard: [
+      { text: " HIT", startSec: sec },
+      { text: " THE", startSec: sec + 0.3 },
+      { text: " LIGHT", startSec: sec + 0.5 },
+      { text: " WATCH", startSec: sec + 0.9 },
+      { text: " ME", startSec: sec + 1.2 },
+      { text: " MOVE", startSec: sec + 1.4 },
+    ],
+  });
   const take = (variantId: string, downbeatSec: number, sectionSecs: number[]) => () => ({
     address: "reference:song",
     variantId,
@@ -389,8 +419,9 @@ describe("a build that reads ctx.lyrics", () => {
       bpm: 120,
       downbeatSec,
       sectionSecs,
-      phrases: [{ startSec: downbeatSec + 2.5, endSec: downbeatSec + 4.2 }],
+      ...sungAt(downbeatSec + 2.5),
       analyzedAt: "2026-09-30T00:00:00.000Z",
+      lang: "en",
     },
   });
 
@@ -407,7 +438,7 @@ describe("a build that reads ctx.lyrics", () => {
   it("moves with a take that sings a line elsewhere", async () => {
     const moved = await promptOf(() => ({
       ...take("v-c", 0.5, [])(),
-      analysis: { ...take("v-c", 0.5, [])().analysis, phrases: [{ startSec: 3.5, endSec: 5.2 }] },
+      analysis: { ...take("v-c", 0.5, [])().analysis, ...sungAt(3.5) },
     }));
     expect(moved).toBe(`Hit the light, watch me move@1-${65 / 24}`);
   });
