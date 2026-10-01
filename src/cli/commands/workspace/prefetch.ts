@@ -1,5 +1,4 @@
 import { ensureChromium } from "../../../core/chromium.js";
-import { cloudflaredBin } from "../../../core/cloudflared-binary.js";
 import { ffmpegBin, ffprobeBin } from "../../../core/ffmpeg-binary.js";
 import { ensureHyperFramesEnv } from "../../../core/hyperframes-env.js";
 import { ensureTsc } from "../../../core/tsc.js";
@@ -23,7 +22,6 @@ export async function prefetchManagedRuntimes(): Promise<void> {
   });
   await step("tsc", () => ensureTsc());
   await step("chromium", () => ensureChromium());
-  await step("cloudflared", () => cloudflaredBin());
 }
 
 async function step(label: string, run: () => Promise<unknown>): Promise<void> {

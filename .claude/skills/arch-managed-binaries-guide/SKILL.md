@@ -10,7 +10,7 @@ The tools: **ffmpeg/ffprobe** (local media ops, rendering, audio muxing), **Chro
 
 - **ffmpeg/ffprobe** default to the managed build; override with `KONTE_FFMPEG_PATH` / `KONTE_FFPROBE_PATH`, or `local.ffmpegPath` / `local.ffprobePath` in `konte.config.json` (an override is version-checked; there is no automatic PATH fallback).
   - konte's own calls spawn the absolute path, but HyperFrames hardcodes `spawn("ffmpeg")` with no path option, so `ensureHyperFrames` calls `leadPathWithFfmpeg()` to put the resolved binaries' directory at the head of `PATH`. It skips an override a PATH lookup cannot honor (a bare name is already one; a renamed `ffmpeg-7` is not a name to look up), so `vitest.setup.ts`'s bare-name override leaves `PATH` untouched.
-- **cloudflared** defaults to the managed build; override with `KONTE_CLOUDFLARED_PATH` (not version-checked).
+- **cloudflared** defaults to the managed build, fetched on the first tunnel; override with `KONTE_CLOUDFLARED_PATH` (not version-checked).
 - **tsc** defaults to the managed build; override with `KONTE_TSC_PATH` (not version-checked). The type-check passes `--noEmit --pretty` (which the JS `tsc` also accepts, so the test suite pins the override at the repo's `tsc` to keep a cold cache offline); `konte lsp` passes `--lsp -stdio`, which only the native build takes.
 - **sherpa-onnx** and its models: fetched on first analysis; override `KONTE_SHERPA_SEPARATION_PATH` / `KONTE_SHERPA_RECOGNIZER_PATH` / `KONTE_SPLEETER_MODEL_DIR` / `KONTE_SENSE_VOICE_MODEL_DIR`.
 - **Chromium** defaults to the managed `chrome-headless-shell`, installed by `@puppeteer/browsers` into `chromium-<buildId>/`; override with `KONTE_CHROMIUM_PATH` (not version-checked). The build id is pinned to puppeteer's own `PUPPETEER_REVISIONS`, since HyperFrames drives the shell over CDP through its bundled puppeteer.
@@ -40,4 +40,4 @@ The workspace root comes from `workspaceRootOrNull()` (`src/core/workspace-conte
 
 Each directory name pins the identity of what it holds — `ffmpeg-<version>`, `tsc-<version>`, `chromium-<version>`, `hyperframes-<contentHash>`. hyperframes is keyed by content hash. It is written out of the binary rather than downloaded, so it is the one runtime with nothing to pin, and the one whose resolver still goes by the files existing.
 
-`konte workspace new` prefetches ffmpeg, tsc, Chromium and cloudflared (sequentially — parallel progress lines interleave into noise). A prefetch failure warns and continues.
+`konte workspace new` prefetches ffmpeg, tsc and Chromium (sequentially — parallel progress lines interleave into noise). A prefetch failure warns and continues.
