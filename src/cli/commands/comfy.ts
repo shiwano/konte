@@ -4,11 +4,14 @@ import type { Command } from "commander";
 import { resolveComfyUIConfig } from "../../comfyui/config.js";
 import {
   convertLitegraphToApi,
+  templateModels,
   type LitegraphWorkflow,
   type SubgraphMeta,
+  type TemplateModel,
 } from "../../comfyui/convert.js";
 import { ComfyUIHttpClient } from "../../comfyui/http-client.js";
 import { ComfyUIManagerClient } from "../../comfyui/manager-client.js";
+import { modelTypeForDir } from "../../comfyui/model-destination.js";
 import type { ComfyUINodeDefinition } from "../../comfyui/types.js";
 import { KonteError } from "../../core/errors.js";
 import { requireWorkspaceRoot } from "../context.js";
@@ -46,6 +49,8 @@ interface AnalyzedModel {
   type: string;
   nodeId: string;
   field: string;
+  url?: string;
+  savePath?: string;
 }
 
 interface AnalysisResult {
@@ -320,6 +325,22 @@ function detectModels(workflow: WorkflowData): AnalyzedModel[] {
     }
   }
   return results;
+}
+
+// A model the template records a download for gets its URL, and the folder the template names:
+// as the `type` the Manager files there, else as a `savePath`.
+export function attachTemplateModels(
+  models: AnalyzedModel[],
+  sources: Map<string, TemplateModel>,
+): void {
+  for (const model of models) {
+    const source = sources.get(model.filename);
+    if (!source) continue;
+    model.url = source.url;
+    const type = modelTypeForDir(source.directory);
+    if (type) model.type = type;
+    else model.savePath = source.directory;
+  }
 }
 
 // A value that selects a key into a `JsonExtractString`'s embedded JSON map is an enum
@@ -717,7 +738,9 @@ export function collectClassTypes(
 function renderModelsScaffold(models: AnalyzedModel[]): string[] {
   const lines: string[] = [];
   lines.push(`  // -------------------------------------------------------------------------`);
-  lines.push(`  // models: Auto-detected model dependencies. Uncomment and fill in \`url\``);
+  lines.push(
+    `  // models: Auto-detected model dependencies. Uncomment and fill in any empty \`url\``,
+  );
   lines.push(`  // for each model you want konte to install automatically via ComfyUI-Manager`);
   lines.push(`  // before running this workflow. Models already present on the ComfyUI server`);
   lines.push(`  // are skipped. Leave commented-out to install them manually.`);
@@ -746,9 +769,11 @@ function renderModelsScaffold(models: AnalyzedModel[]): string[] {
   lines.push(`  // -------------------------------------------------------------------------`);
   lines.push(`  // models: [`);
   for (const m of models) {
-    const typeLiteral = JSON.stringify(m.type);
-    const filenameLiteral = JSON.stringify(m.filename);
-    lines.push(`  //   { filename: ${filenameLiteral}, type: ${typeLiteral}, url: "" },`);
+    const savePathPart =
+      m.savePath !== undefined ? `, savePath: ${JSON.stringify(m.savePath)}` : "";
+    lines.push(
+      `  //   { filename: ${JSON.stringify(m.filename)}, type: ${JSON.stringify(m.type)}${savePathPart}, url: ${JSON.stringify(m.url ?? "")} },`,
+    );
   }
   lines.push(`  // ],`);
   return lines;
@@ -1028,6 +1053,7 @@ export function registerComfyCommand(program: Command): void {
       // is reachable. (A `JsonExtractString`-selected enum is the exception: those choices
       // are in the workflow JSON, so `analyzeWorkflow` recovers them on either path.)
       let objectInfo: Record<string, ComfyUINodeDefinition> | undefined;
+      let modelSources = new Map<string, TemplateModel>();
 
       if (isLitegraphFormat(data)) {
         const config = await resolveComfyUIConfig(workspaceRoot);
@@ -1044,6 +1070,7 @@ export function registerComfyCommand(program: Command): void {
         const converted = convertLitegraphToApi(data as LitegraphWorkflow, objectInfo);
         apiWorkflow = converted.workflow;
         subgraphMeta = converted.subgraphMeta;
+        modelSources = templateModels(data as LitegraphWorkflow);
         workflowJson = `${JSON.stringify(converted.workflow, null, 2)}\n`;
 
         try {
@@ -1069,6 +1096,7 @@ export function registerComfyCommand(program: Command): void {
       const analysis = opts.adapter
         ? analyzeWorkflow(apiWorkflow, subgraphMeta ?? undefined, objectInfo)
         : undefined;
+      if (analysis) attachTemplateModels(analysis.models, modelSources);
       if (analysis && Object.keys(analysis.outputs).length === 0) {
         throw new KonteError(
           "WORKFLOW_IMPORT_FAILED",

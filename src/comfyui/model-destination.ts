@@ -20,6 +20,13 @@ const MODEL_DIR_NAME_MAP: Record<ComfyModelType, string> = {
   unet: "diffusion_models",
 };
 
+// The `type` the Manager files into `dir`, the first listed where two share one.
+export function modelTypeForDir(dir: string): ComfyModelType | undefined {
+  return (Object.keys(MODEL_DIR_NAME_MAP) as ComfyModelType[]).find(
+    (type) => MODEL_DIR_NAME_MAP[type] === dir,
+  );
+}
+
 // A `filename` is a leaf, never a path.
 const FILENAME_REJECTED_CHARS = ["/", "\\", ":"];
 // Left through, these resolve to a directory that already exists, which the downloader reads as

@@ -3,6 +3,7 @@ import type { ComfyUINodeDefinition } from "../../comfyui/types.js";
 import { KonteError } from "../../core/errors.js";
 import {
   analyzeWorkflow,
+  attachTemplateModels,
   extractHiddenSubgraphInputs,
   generateAdapterCode,
   pruneUnreachableNodes,
@@ -1129,6 +1130,44 @@ describe("generateAdapterCode() model scaffold", () => {
     expect(code).toContain("HF_TOKEN");
     expect(code).not.toContain("${HF_TOKEN}");
     expect(code).toContain("${CIVITAI_TOKEN}");
+  });
+
+  it("fills the download and folder a template records for a model", () => {
+    const models = [
+      { filename: "yue2.safetensors", type: "checkpoint", nodeId: "41", field: "ckpt_name" },
+      { filename: "te.safetensors", type: "checkpoint", nodeId: "42", field: "clip_name" },
+      {
+        filename: "ss2.safetensors",
+        type: "checkpoint",
+        nodeId: "56",
+        field: "audio_encoder_name",
+      },
+      { filename: "other.safetensors", type: "VAE", nodeId: "57", field: "vae_name" },
+    ];
+    attachTemplateModels(
+      models,
+      new Map([
+        ["yue2.safetensors", { url: "https://h.example/yue2", directory: "checkpoints" }],
+        ["te.safetensors", { url: "https://h.example/te", directory: "text_encoders" }],
+        ["ss2.safetensors", { url: "https://h.example/ss2", directory: "audio_encoders" }],
+      ]),
+    );
+    const code = generateAdapterCode("foo", "foo.json", {
+      inputs: {},
+      outputs: { audio: { nodeId: "10", type: "audio" } },
+      models,
+    });
+
+    expect(code).toContain(
+      '//   { filename: "yue2.safetensors", type: "checkpoint", url: "https://h.example/yue2" },',
+    );
+    expect(code).toContain(
+      '//   { filename: "te.safetensors", type: "clip", url: "https://h.example/te" },',
+    );
+    expect(code).toContain(
+      '//   { filename: "ss2.safetensors", type: "checkpoint", savePath: "audio_encoders", url: "https://h.example/ss2" },',
+    );
+    expect(code).toContain('//   { filename: "other.safetensors", type: "VAE", url: "" },');
   });
 
   it("does not emit a models block when no models are detected", () => {

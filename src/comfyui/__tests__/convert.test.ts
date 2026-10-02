@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { ComfyUIInputSpec, ComfyUINodeDefinition } from "../types.js";
-import { convertLitegraphToApi, flattenSubgraphs, type LitegraphWorkflow } from "../convert.js";
+import {
+  convertLitegraphToApi,
+  flattenSubgraphs,
+  templateModels,
+  type LitegraphWorkflow,
+} from "../convert.js";
 
 function makeNodeDef(
   required: Record<string, ComfyUIInputSpec> = {},
@@ -1700,5 +1705,53 @@ describe("convertLitegraphToApi", () => {
     expect(node.inputs.audio_vae).toEqual(["2", 0]);
     expect(node.inputs.frames_number).toEqual(["3", 0]);
     expect(node.inputs.frame_rate).toEqual(["4", 0]);
+  });
+});
+
+describe("templateModels", () => {
+  it("reads the models a template records on its loaders, subgraph ones included", () => {
+    const workflow: LitegraphWorkflow = {
+      last_node_id: 2,
+      last_link_id: 0,
+      nodes: [
+        {
+          id: 1,
+          type: "VAELoader",
+          properties: {
+            models: [{ name: "v.safetensors", url: "https://h.example/v", directory: "vae" }],
+          },
+        },
+        { id: 2, type: "sg", properties: { models: [{ name: "broken.safetensors" }] } },
+      ],
+      links: [],
+      definitions: {
+        subgraphs: [
+          {
+            id: "sg",
+            inputNode: { id: -10 },
+            outputNode: { id: -20 },
+            inputs: [],
+            outputs: [],
+            nodes: [
+              {
+                id: 10,
+                type: "CheckpointLoaderSimple",
+                properties: {
+                  models: [
+                    { name: "c.safetensors", url: "https://h.example/c", directory: "checkpoints" },
+                  ],
+                },
+              },
+            ],
+            links: [],
+          },
+        ],
+      },
+    };
+
+    expect([...templateModels(workflow)]).toEqual([
+      ["v.safetensors", { url: "https://h.example/v", directory: "vae" }],
+      ["c.safetensors", { url: "https://h.example/c", directory: "checkpoints" }],
+    ]);
   });
 });

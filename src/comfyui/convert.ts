@@ -78,6 +78,29 @@ function isInactive(node: LitegraphNode): boolean {
   return node.mode === MUTED_MODE || node.mode === BYPASSED_MODE;
 }
 
+export type TemplateModel = { url: string; directory: string };
+
+// The download a template records for each model file, by filename, on its loader node's
+// `properties.models`.
+export function templateModels(workflow: LitegraphWorkflow): Map<string, TemplateModel> {
+  const result = new Map<string, TemplateModel>();
+  const nodes = [
+    ...workflow.nodes,
+    ...(workflow.definitions?.subgraphs ?? []).flatMap((sg) => sg.nodes),
+  ];
+  for (const node of nodes) {
+    const models = node.properties?.models;
+    if (!Array.isArray(models)) continue;
+    for (const model of models as Record<string, unknown>[]) {
+      const { name, url, directory } = model ?? {};
+      if (typeof name === "string" && typeof url === "string" && typeof directory === "string") {
+        result.set(name, { url, directory });
+      }
+    }
+  }
+  return result;
+}
+
 export function flattenSubgraphs(workflow: LitegraphWorkflow): {
   workflow: LitegraphWorkflow;
   subgraphMeta: SubgraphMeta;
