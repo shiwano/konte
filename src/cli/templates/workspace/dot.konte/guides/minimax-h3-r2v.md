@@ -81,7 +81,7 @@ The camera holds a static shot as the runner exits the frame.
 ## Clip Length
 
 - **Omit `length`** — it defaults to the shot's `duration × 24`, snapped up to the model's grid (one frame more with `endImage`).
-- **The rungs are `17k + 5`** — a value between them rounds up. The trained floor is 124 (≈5s).
+- **The rungs are `17k + 5`** — a value between them rounds up.
 - **The clock is 24fps** whatever the project's rate — moving `fps` off it without `length` rescales the motion and slips the audio.
 
 ## Cost ladder

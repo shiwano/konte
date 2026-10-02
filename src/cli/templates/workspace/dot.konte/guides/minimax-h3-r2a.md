@@ -44,7 +44,7 @@ prompt: {
 
 - **Omit `length`** — set it by hand only after hearing a take.
 - **Never give a line the shot's `length`** — a 1.5s line handed five seconds comes back said two or three times over. One rung long stretches the read instead: the same words slower, playing whole on their own and cut mid-word by the `<Audio>` window in the composition.
-- **The rungs are `17k + 5` frames on a 24fps clock** — a value between them rounds up. The trained floor of 124 (≈5s) is the video range — a line reads below it.
+- **The rungs are `17k + 5` frames on a 24fps clock** — a value between them rounds up.
 
 ## Cost ladder
 
