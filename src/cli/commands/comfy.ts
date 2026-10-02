@@ -376,6 +376,21 @@ function comboChoices(
   return choices as string[];
 }
 
+// A seed outside a sampler (a `SeedNode` feeding several) is known by its field name, or by the
+// `control_after_generate` its object_info spec carries.
+function isSeedField(
+  objectInfo: Record<string, ComfyUINodeDefinition> | undefined,
+  classType: string,
+  field: string,
+): boolean {
+  if (field === "seed" || field === "noise_seed") return true;
+  const def = objectInfo?.[classType];
+  const spec = def?.input.required?.[field] ?? def?.input.optional?.[field];
+  return (
+    (spec?.[1] as { control_after_generate?: unknown } | undefined)?.control_after_generate === true
+  );
+}
+
 // Keeps only the nodes an output node depends on — what ComfyUI executes. Without object_info
 // an unrecognized output node can't be told from a dead end, so the workflow is returned as is,
 // as is one with no output node.
@@ -595,6 +610,18 @@ export function analyzeWorkflow(
       if (isLink(value)) continue;
       if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
         const isFps = primitiveFeedsFps || FRAME_RATE_FIELDS.has(field);
+        if (typeof value === "number" && isSeedField(objectInfo, classType, field)) {
+          candidates.push({
+            name: "seed",
+            nodeId,
+            field,
+            type: "seed",
+            default: value,
+            comment,
+            semantic: true,
+          });
+          continue;
+        }
         const values =
           typeof value === "string"
             ? (comboChoices(objectInfo, classType, field) ??

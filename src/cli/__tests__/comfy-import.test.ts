@@ -56,6 +56,23 @@ describe("analyzeWorkflow()", () => {
     expect(seedInput!.type).toBe("seed");
   });
 
+  it("types a seed outside a sampler as a seed", () => {
+    const data = {
+      "53": { class_type: "SeedNode", inputs: { seed: 0 } },
+      "60": { class_type: "RandomNoise", inputs: { noise_value: 7 } },
+    };
+    const objectInfo: Record<string, ComfyUINodeDefinition> = {
+      RandomNoise: {
+        input: { required: { noise_value: ["INT", { control_after_generate: true }] } },
+      },
+    };
+    const result = analyzeWorkflow(data, undefined, objectInfo);
+    expect(Object.values(result.inputs).map((i) => [i.nodeId, i.type])).toEqual([
+      ["53", "seed"],
+      ["60", "seed"],
+    ]);
+  });
+
   it("detects KSampler numeric inputs (steps, cfg, denoise)", () => {
     const data = {
       "5": {
