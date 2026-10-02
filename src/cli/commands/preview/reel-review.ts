@@ -83,6 +83,7 @@ import {
   type RenderPlan,
   type ShotRenderPlan,
   buildStageReviewPlan,
+  shotSpans,
 } from "../../../core/render-plan.js";
 import { resolveSoundtrackSpan } from "../../../core/timeline-audio.js";
 import { type ReviewRecord, saveReviewRecord } from "../../../core/review-record.js";
@@ -651,10 +652,9 @@ export async function handleGetReelState(
   // Isolate per shot: one shot's resolution failing (e.g. a composition hash that
   // evaluates a shotFn referencing an ungenerated upstream) must not blank the whole
   // timeline. The shot still appears, just without its assets/feedback overlay.
-  let nextStartTime = 0;
-  const shots = plan.shots.map((s) => {
-    const startTime = nextStartTime;
-    nextStartTime += s.duration;
+  const timing = shotSpans(plan.shots, plan.fps);
+  const shots = plan.shots.map((s, shotIdx) => {
+    const { start: startTime, duration } = timing.spans[shotIdx]!;
     const shot = shotById(video.shots, s.shotId);
     const notReady = shotNotReady(manager, stage, s, shot);
     try {
@@ -761,7 +761,7 @@ export async function handleGetReelState(
       return {
         shotId: s.shotId,
         startTime,
-        duration: s.duration,
+        duration,
         action: shot?.action ?? "",
         script: directionShotById.get(s.shotId)?.script ?? [],
         join: directionShotById.get(s.shotId)?.join ?? null,
@@ -793,7 +793,7 @@ export async function handleGetReelState(
       return {
         shotId: s.shotId,
         startTime,
-        duration: s.duration,
+        duration,
         action: shot?.action ?? "",
         script: directionShotById.get(s.shotId)?.script ?? [],
         join: directionShotById.get(s.shotId)?.join ?? null,
@@ -822,7 +822,7 @@ export async function handleGetReelState(
     }
   });
 
-  const totalDuration = plan.shots.reduce((acc, s) => acc + s.duration, 0);
+  const totalDuration = timing.total;
 
   // The audio track: every audio placement on the timeline, in absolute seconds, grouped by
   // the asset that owns it. Per-shot `<Audio>`/`<Sound>` cues come from the already-built

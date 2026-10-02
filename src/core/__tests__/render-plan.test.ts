@@ -8,7 +8,7 @@ import { Composition } from "../dsl/composition/composition.js";
 import { pendingShot, shot, videoTimeline } from "./helpers/shot.js";
 import { testDirection } from "./helpers/direction.js";
 import { KonteError } from "../errors.js";
-import { buildRenderPlan, buildStageReviewPlan } from "../render-plan.js";
+import { buildRenderPlan, buildStageReviewPlan, shotSpans } from "../render-plan.js";
 import { StateManager } from "../state/index.js";
 
 function el(): React.ReactElement {
@@ -655,5 +655,30 @@ describe("buildStageReviewPlan", () => {
 
     expect(plan.shots[0]!.unacceptedAssets).toContain("video:shot.01.motion");
     expect(plan.shots[0]!.resolvedFiles.motion).toContain("output/motion.mp4");
+  });
+});
+
+describe("shotSpans", () => {
+  it.each([
+    [
+      "a float sum of durations",
+      [
+        76, 125, 62, 94, 63, 31, 63, 94, 31, 63, 62, 47, 79, 62, 47, 78, 94, 94, 94, 31, 79, 47, 62,
+        94, 94, 63, 47, 78, 94, 62, 94, 63,
+      ],
+    ],
+    ["an end minus start", [37, 55, 7, 109]],
+  ])("puts every 30fps player frame in one shot where %s would not", (_, frames) => {
+    const { spans, total } = shotSpans(
+      frames.map((f) => ({ duration: f / 24 })),
+      24,
+    );
+
+    expect(total).toBe(frames.reduce((a, b) => a + b, 0) / 24);
+    for (let frame = 0; frame / 30 < total; frame++) {
+      const t = frame / 30;
+      const holding = spans.filter((s) => t >= s.start && t < s.start + s.duration);
+      expect(holding, `frame ${frame}`).toHaveLength(1);
+    }
   });
 });

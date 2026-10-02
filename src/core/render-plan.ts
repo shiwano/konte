@@ -124,6 +124,27 @@ export interface BuildRenderPlanOptions {
   pinnedStandInShotIds?: ReadonlySet<string>;
 }
 
+// Each shot's window on the timeline, counted in frames. A player draws a window while
+// `start <= t < start + duration`; a float sum of durations drifts off the frame it lands on, so a
+// boundary frame would draw the shot before. Each duration is trimmed until its end does not pass
+// the next start.
+export function shotSpans(
+  shots: readonly { duration: number }[],
+  fps: number,
+): { spans: Array<{ start: number; duration: number }>; total: number } {
+  const spans: Array<{ start: number; duration: number }> = [];
+  let frames = 0;
+  for (const s of shots) {
+    const start = frames / fps;
+    frames += Math.round(s.duration * fps);
+    const end = frames / fps;
+    let duration = end - start;
+    while (start + duration > end) duration -= duration * Number.EPSILON;
+    spans.push({ start, duration });
+  }
+  return { spans, total: frames / fps };
+}
+
 // The strict resolver's verdict, for the reason `hasReadyVariant` is: an accept alone is not what
 // strict resolution takes. It rejects an accepted take with no file, and one konte accepted itself
 // that has since gone stale (`generate` re-bakes that).

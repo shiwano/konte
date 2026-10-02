@@ -7,6 +7,12 @@ import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "r
 // or the timeline playhead drifts out of sync with playback.
 const RUNTIME_FPS = 30;
 
+// The first runtime frame at or after `time`. Rounding could land a frame before it — on the
+// previous shot, when `time` is a shot start off the 30fps grid (8.375s at 24fps).
+function frameAtOrAfter(time: number): number {
+  return Math.max(0, Math.ceil(time * RUNTIME_FPS - 1e-6));
+}
+
 export interface HyperFramesPlayerRef {
   play(): void;
   pause(): void;
@@ -78,7 +84,7 @@ export function HyperFramesPlayerWrapper({
         sendMessage("pause");
       },
       seek(time: number) {
-        const frame = Math.round(time * RUNTIME_FPS);
+        const frame = frameAtOrAfter(time);
         sendMessage("seek", { frame, seekMode: "commit" });
       },
       stepFrame(delta: number) {
@@ -107,7 +113,7 @@ export function HyperFramesPlayerWrapper({
         if (readyWindowRef.current !== event.source) {
           readyWindowRef.current = event.source;
           setIsReady(true);
-          const frame = Math.max(0, Math.round((getStartTime?.() ?? 0) * RUNTIME_FPS));
+          const frame = frameAtOrAfter(getStartTime?.() ?? 0);
           resumeFrameRef.current = frame;
           sendMessage("seek", { frame, seekMode: "commit" });
           onReady?.();

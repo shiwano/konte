@@ -33,7 +33,6 @@ import { jsx } from "react/jsx-runtime";
 import { Composition } from "./dsl/composition/composition.js";
 import { injectOverlay, OVERLAY_COMPOSITION_ID, renderOverlayBody } from "./overlay-render.js";
 import { resolveCompositionRef, substituteAssetPlaceholders } from "./composition-refs.js";
-import { computeBedLevels } from "./render-plan.js";
 import {
   parsePlaceholder,
   runInDiscoveryMode,
@@ -46,7 +45,13 @@ import { KonteError } from "./errors.js";
 import { HYPERFRAME_RUNTIME } from "./generated/hyperframes-assets.js";
 import { type HostVisitor, type RenderContext, renderToHtml } from "./jsx-html.js";
 import { fontFamilyStack, googleFontsHref } from "./typography.js";
-import { buildRenderPlan, type RenderPlan, type ShotRenderPlan } from "./render-plan.js";
+import {
+  buildRenderPlan,
+  computeBedLevels,
+  type RenderPlan,
+  type ShotRenderPlan,
+  shotSpans,
+} from "./render-plan.js";
 import { shotById } from "./shot-index.js";
 import { assertTailwindClasses, type ClassSubject } from "./tailwind-classes.js";
 import { TAILWIND_BROWSER_SRC } from "./tailwind-version.js";
@@ -1056,9 +1061,10 @@ export async function buildFullCompositionHtml(
   const shotTemplates: string[] = [];
   const embeddedAudio: string[] = [];
   const classSubjects: ClassSubject[] = [];
-  let cumulativeTime = 0;
+  const timing = shotSpans(plan.shots, plan.fps);
 
-  for (const shotPlan of plan.shots) {
+  for (const [shotIdx, shotPlan] of plan.shots.entries()) {
+    const span = timing.spans[shotIdx]!;
     let resolvedFiles = shotPlan.resolvedFiles;
     let resolvedVariants = shotPlan.resolvedVariants;
     for (const { parsed, variantId } of parsedOverrides) {
@@ -1108,30 +1114,28 @@ export async function buildFullCompositionHtml(
       // stacking all shots at the start. Offset each clip's data-start by the shot's absolute
       // start so its window lands in the shot's slot. (This is attribute-only; gsap timeline
       // positions are not data-start attributes and the runtime already offsets them.)
-      const offset = offsetClipStarts(templateBody, cumulativeTime);
+      const offset = offsetClipStarts(templateBody, span.start);
       embeddedAudio.push(...buildEmbeddedAudioTags(offset));
       const body = injectBaseTimeline(offset, shotPlan.shotId, shotPlan.duration);
       shotTemplates.push(`<template id="shot-${shotPlan.shotId}-template">${body}</template>`);
       stageFragments.push(
-        `<div data-composition-id="shot-${shotPlan.shotId}" data-start="${cumulativeTime}" data-duration="${shotPlan.duration}" data-width="${plan.size.width}" data-height="${plan.size.height}" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>`,
+        `<div data-composition-id="shot-${shotPlan.shotId}" data-start="${span.start}" data-duration="${span.duration}" data-width="${plan.size.width}" data-height="${plan.size.height}" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>`,
       );
     }
 
     shotInfos.push({
       shotId: shotPlan.shotId,
-      startTime: cumulativeTime,
+      startTime: span.start,
       duration: shotPlan.duration,
       resolvedVariants,
       unacceptedAssets: shotPlan.unacceptedAssets,
     });
-
-    cumulativeTime += shotPlan.duration;
   }
 
   await assertTailwindClasses(classSubjects);
 
   const { width, height } = plan.size;
-  const totalDuration = cumulativeTime;
+  const totalDuration = timing.total;
 
   // Inject timeline-level soundtracks (beds/music) as <audio> elements that span the whole
   // composition, so HyperFrames mixes them live — matching the final mux. Same element shape as a
