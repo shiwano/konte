@@ -839,6 +839,86 @@ describe("fixed inputs", () => {
   });
 });
 
+describe("derived comfy inputs", () => {
+  const burst = defineComfyAsset({
+    workflow: "burst.json",
+    description: "test adapter",
+    inputs: {
+      prompt: { nodeId: "1", field: "text", type: "prompt", required: true },
+      length: {
+        nodeId: "2",
+        field: "length",
+        type: "number",
+        also: [{ nodeId: "3", field: "frames" }],
+      },
+    },
+    outputs: { image: { nodeId: "9", type: "image" } },
+    derive: { length: ({ prompt }) => (prompt.includes("cut") ? 22 : 5) },
+  });
+
+  it("fills the input from the others, resolved", () => {
+    const still = burst.createDefinition({ prompt: "a cat" }) as ComfyAssetDefinition;
+    expect(still.inputs).toMatchObject({ "2.length": 5, "3.frames": 5 });
+    const cut = burst.createDefinition({ prompt: "a cut" }) as ComfyAssetDefinition;
+    expect(cut.inputs).toMatchObject({ "2.length": 22, "3.frames": 22 });
+    expect(cut.inputLabels?.["2.length"]).toBe("length");
+  });
+
+  it("leaves a derived input out of the call options and the reported surface", () => {
+    expect(Object.keys(burst.meta.inputs)).toEqual(["prompt"]);
+    // @ts-expect-error — konte sets a derived input; a stage file cannot.
+    expect(() => burst.createDefinition({ prompt: "a cat", length: 39 })).toThrowError(
+      /set by konte from the adapter's other inputs/,
+    );
+  });
+
+  it("rejects a derived input that also takes a value of its own", () => {
+    const declare = (length: Record<string, unknown>, derive: Record<string, unknown>) => () =>
+      defineComfyAsset({
+        workflow: "burst.json",
+        description: "test adapter",
+        inputs: { length } as never,
+        outputs: { image: { nodeId: "9", type: "image" } },
+        derive: derive as never,
+      });
+    const length = () => 5;
+
+    expect(declare({ nodeId: "2", field: "f", type: "number" }, { frames: length })).toThrowError(
+      /does not declare/,
+    );
+    expect(declare({ nodeId: "2", field: "f", type: "image" }, { length })).toThrowError(
+      /must be a string, number or boolean/,
+    );
+    expect(
+      declare({ nodeId: "2", field: "f", type: "number", default: 5 }, { length }),
+    ).toThrowError(/cannot also be required, defaulted or turbo/);
+  });
+
+  it("types what derive reads and returns", () => {
+    defineComfyAsset({
+      workflow: "burst.json",
+      description: "test adapter",
+      inputs: {
+        prompt: { nodeId: "1", field: "text", type: "prompt", required: true },
+        steps: { nodeId: "4", field: "steps", type: "number" },
+        length: { nodeId: "2", field: "length", type: "number" },
+        frameIndex: { nodeId: "3", field: "index", type: "number" },
+      },
+      outputs: { image: { nodeId: "9", type: "image" } },
+      derive: {
+        length: (inputs) => {
+          const steps: number | undefined = inputs.steps;
+          // @ts-expect-error — a derived input is not among what another derives from.
+          void inputs.frameIndex;
+          return steps ?? inputs.prompt.length;
+        },
+        // @ts-expect-error — a number input derives a number.
+        frameIndex: () => "0",
+      },
+    });
+  });
+});
+
 describe("format-derived comfy inputs (width/height/fps)", () => {
   const sizedAdapter = defineComfyAsset({
     workflow: "sized.json",

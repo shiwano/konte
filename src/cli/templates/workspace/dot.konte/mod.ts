@@ -7851,7 +7851,6 @@ export interface MinimaxH3PromptSpec {
   prompt?: string;
   length?: string;
   references?: readonly string[];
-  frameIndex?: string;
 }
 /**
  * The model reads six named fields (three on a bare R2A) and everything else as prose. Written for
@@ -8028,6 +8027,38 @@ export interface ComfyAssetConfig<
   readsPrevPanel?: true;
   turbo?: ComfyTurbo<TInputs>;
 }
+export type ComfyDerive<
+  TInputs extends Record<string, AdapterInputDef>,
+  TKeys extends keyof TInputs,
+> = {
+  [K in TKeys]: (inputs: Omit<ComfyResolvedInputs<TInputs>, TKeys>) => InputTSType<TInputs[K]>;
+};
+export type ComfyScalarKey<TInputs extends Record<string, AdapterInputDef>> = {
+  [K in keyof TInputs]: TInputs[K] extends {
+    type: "string" | "number" | "boolean";
+  }
+    ? K
+    : never;
+}[keyof TInputs];
+export type ResolvedTSType<T extends AdapterInputDef> = T extends {
+  type: "image" | "video" | "audio" | "prompt";
+}
+  ? string
+  : InputTSType<T>;
+export type ComfyResolvedInputs<TInputs extends Record<string, AdapterInputDef>> = {
+  [K in keyof TInputs]: TInputs[K] extends
+    | {
+        required: true;
+      }
+    | {
+        default: {};
+      }
+    | {
+        type: "seed";
+      }
+    ? ResolvedTSType<TInputs[K]>
+    : ResolvedTSType<TInputs[K]> | undefined;
+};
 export type ComfyTurbo<TInputs extends Record<string, AdapterInputDef>> = {
   [K in keyof TInputs as TInputs[K] extends {
     type: "string" | "number" | "boolean";
@@ -8104,12 +8135,17 @@ export declare function defineComfyAsset<
   const TOutputs extends Record<string, AdapterOutputDef>,
   TPrimary extends (keyof TOutputs & string) | undefined = undefined,
   const TTurbo extends ComfyTurbo<TInputs> = {},
+  TDerived extends ComfyScalarKey<TInputs> = never,
 >(
   config: ComfyAssetConfig<TInputs, TOutputs> & {
     primary?: TPrimary;
     turbo?: TTurbo;
+    derive?: ComfyDerive<TInputs, TDerived>;
   },
-): AssetAdapter<ComfyCallOptions<TInputs, keyof TTurbo>, PrimaryOutputKind<TOutputs, TPrimary>>;
+): AssetAdapter<
+  ComfyCallOptions<TInputs, keyof TTurbo | TDerived>,
+  PrimaryOutputKind<TOutputs, TPrimary>
+>;
 /**
  * `"prompt"` and `"negativePrompt"` are the two halves of the conditioning the prompt check reads,
  * each on its own polarity; see AdapterInputType.

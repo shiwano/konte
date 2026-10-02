@@ -27,7 +27,6 @@ const ASSETS = `
   const still = asset("still", imageMinimaxH3R2i, {
     image1: character,
     image2: character,
-    frameIndex: 20,
     prompt: {
       subjectDefinitions: ["<Subject 1> is the creator in <Picture 1>.", "<Picture 2> is the frame this take cuts from."],
       summary: { tasks: ["reference generation", "keyframe completion"], text: "She looks up." },
@@ -37,8 +36,17 @@ const ASSETS = `
       ],
       detailedDescription: {
         style: "2D-animated.",
-        shots: ["The frame of <Picture 2>.", { at: 0.2, text: "the camera cuts in to her face." }],
+        shots: ["The frame of <Picture 2>.", "the camera cuts in to her face."],
       },
+    },
+  });
+  const instant = asset("instant", imageMinimaxH3R2i, {
+    image1: character,
+    prompt: {
+      subjectDefinitions: ["<Subject 1> is the creator in <Picture 1>."],
+      summary: { tasks: ["reference generation"], text: "She looks up." },
+      retentionAnalysis: ["<Subject 1> (appears in [Shot 1]): fully_preserved - her face and dress."],
+      detailedDescription: { style: "2D-animated.", shots: ["She looks up."] },
     },
   });
   const motion = asset("motion", videoMinimaxH3R2v, {
@@ -79,7 +87,7 @@ const ASSETS = `
       nonDiegeticMusic: "N/A",
     },
   });
-  return { character, bgm, still, motion, cast, line };`;
+  return { character, bgm, still, instant, motion, cast, line };`;
 
 async function promptOf(videoRoot: string, name: string): Promise<ComfyAssetDefinition> {
   const address = `reference:${name}`;
@@ -97,11 +105,16 @@ describe("shipped MiniMax H3 prompts", () => {
         "subject_definitions: <Subject 1> is the creator in <Picture 1>.\n<Picture 2> is the frame this take cuts from.",
         "summary: [reference generation + keyframe completion] She looks up.",
         "retention_analysis: <Subject 1> (appears in [Shot 2]): fully_preserved - her face and dress.\n<Picture 2> ([Shot 1] frame): fully_preserved - the frame it cuts from.",
-        "detailed_description: 2D-animated. [Shot 1] The frame of <Picture 2>. [Shot 2] At 00:00.200, the camera cuts in to her face.",
+        "detailed_description: 2D-animated. [Shot 1] The frame of <Picture 2>. [Shot 2] At 00:00.500, the camera cuts in to her face.",
         "overall_soundscape: N/A",
         "non_diegetic_music: N/A",
       ].join("\n\n"),
     );
+
+    const still = (await promptOf(video, "still")).inputs;
+    expect([still["10.length"], still["17.batch_index"]]).toEqual([22, 17]);
+    const instant = (await promptOf(video, "instant")).inputs;
+    expect([instant["10.length"], instant["17.batch_index"]]).toEqual([5, 0]);
 
     expect((await promptOf(video, "motion")).inputs["136.prompt"]).toBe(
       [
@@ -168,7 +181,11 @@ describe("shipped MiniMax H3 prompts", () => {
       path.join(video, "reference.tsx"),
       REFERENCE_TSX(`
   // @ts-expect-error R2I keeps one cut at most
-  asset("a", imageMinimaxH3R2i, { image1: character, prompt: { ${ok}, summary: { tasks: ["reference generation"], text: "x" }, detailedDescription: { style: "s", shots: ["a", { at: 1, text: "b" }, { at: 2, text: "c" }] } } });
+  asset("a", imageMinimaxH3R2i, { image1: character, prompt: { ${ok}, summary: { tasks: ["reference generation"], text: "x" }, detailedDescription: { style: "s", shots: ["a", "b", "c"] } } });
+  // @ts-expect-error konte sets R2I's cut time
+  asset("h", imageMinimaxH3R2i, { image1: character, prompt: { ${ok}, summary: { tasks: ["reference generation"], text: "x" }, detailedDescription: { style: "s", shots: ["a", { at: 1, text: "b" }] } } });
+  // @ts-expect-error konte sets R2I's burst
+  asset("i", imageMinimaxH3R2i, { image1: character, length: 22, prompt: { ${ok}, summary: { tasks: ["reference generation"], text: "x" }, detailedDescription: { style: "s", shots: ["a"] } } });
   // @ts-expect-error R2I takes no audio task
   asset("b", imageMinimaxH3R2i, { image1: character, prompt: { ${ok}, summary: { tasks: ["audio reuse"], text: "x" }, detailedDescription: { style: "s", shots: ["a"] } } });
   // @ts-expect-error R2I writes its own sound sections

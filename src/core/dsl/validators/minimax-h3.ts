@@ -17,9 +17,6 @@ export interface MinimaxH3PromptSpec {
   length?: string;
   // Every reference slot, for R2A to tell which of its two shapes applies. Ignored on the others.
   references?: readonly string[];
-  // The input holding which frame of the burst is decoded, read at 24fps. R2I only: naming it is
-  // what lets a description carry a cut.
-  frameIndex?: string;
 }
 
 const SIX_SECTIONS = [
@@ -110,11 +107,9 @@ export function minimaxH3Prompt(spec: MinimaxH3PromptSpec): AdapterValidator {
     }
 
     const shots = checkShots(
-      spec,
       description,
       sections.filter((s) => s.name !== descriptionName),
       frameCount(spec, inputs),
-      inputs,
     );
     if (shots) return shots;
 
@@ -125,7 +120,6 @@ export function minimaxH3Prompt(spec: MinimaxH3PromptSpec): AdapterValidator {
     ...new Set([
       ...(spec.prompt ? [spec.prompt] : []),
       ...(spec.length ? [spec.length] : []),
-      ...(spec.frameIndex ? [spec.frameIndex] : []),
       ...(spec.mode === "r2a" ? (spec.references ?? []) : []),
     ]),
   ];
@@ -441,11 +435,9 @@ const SHOT_MARKER = /\[Shot (\d+)\]\s*(At (\d+):(\d{2})\.(\d{3}),)?/g;
 const SHOT_REFERENCE = /\[Shot (\d+)\]/g;
 
 function checkShots(
-  spec: MinimaxH3PromptSpec,
   description: string,
   otherSections: readonly Section[],
   frames: number | undefined,
-  inputs: Readonly<Record<string, unknown>>,
 ): string | undefined {
   const shots = [...description.matchAll(SHOT_MARKER)].map((m) => ({
     number: Number(m[1]),
@@ -491,57 +483,6 @@ function checkShots(
       );
     }
   }
-
-  if (spec.mode === "r2i" && shots.length > 1)
-    return checkKeptFrameIsPastCut(spec, previous, frames, inputs);
-}
-
-/**
- * R2I decodes the whole burst and keeps one frame of it, so a description that carries a cut is
- * only meaningful when the kept frame lands past the last one.
- */
-function checkKeptFrameIsPastCut(
-  spec: MinimaxH3PromptSpec,
-  lastCut: number,
-  frames: number | undefined,
-  inputs: Readonly<Record<string, unknown>>,
-): string | undefined {
-  if (!spec.frameIndex) {
-    return (
-      `The description carries a cut, and R2I keeps one frame of the burst — so which frame that ` +
-      `is has to be checked against the cut, and this adapter names no frame input. Declare it — ` +
-      `\`minimaxH3Prompt({ frameIndex: "<input>", … })\` — or write the instant as a single \`[Shot 1]\`.`
-    );
-  }
-  const value = inputs[spec.frameIndex];
-  if (typeof value !== "number" || !Number.isFinite(value)) return;
-  // The index is clamped to the burst's last frame, so an index past the end keeps a frame EARLIER
-  // than the one asked for — reading the request rather than the clamp would pass a cut nothing
-  // lands after.
-  const last = frames === undefined ? undefined : frames - 1;
-  const kept = last === undefined ? value : Math.min(value, last);
-  if (kept / 24 > lastCut) return;
-
-  const asked = kept === value ? "" : ` (\`${spec.frameIndex}: ${value}\` clamps to it)`;
-  if (last !== undefined && last / 24 <= lastCut) {
-    return (
-      `The last cut is at ${formatCutTime(lastCut)}, and this take's last frame is ${last} ` +
-      `(${formatCutTime(last / 24)}) — no frame of the burst lands after that cut. Move the cut ` +
-      `earlier, or take the next \`length\` rung up.`
-    );
-  }
-  // The first frame the cut has passed. A 22-frame burst also names where to land; on any other
-  // length the author picks.
-  const first = Math.floor(lastCut * 24) + 1;
-  const take =
-    frames === 22 && first < 20
-      ? `Take \`${spec.frameIndex}: 20\`, or any frame from ${first} up`
-      : `Take a frame from ${first} up`;
-  return (
-    `\`${spec.frameIndex}\` keeps frame ${kept}${asked} (${formatCutTime(kept / 24)}), and the last ` +
-    `cut is at ${formatCutTime(lastCut)} — that frame is still in the shot the take cuts away from. ` +
-    `${take}.`
-  );
 }
 
 const DIALOGUE = /<d>([\s\S]*?)<\/d>/g;

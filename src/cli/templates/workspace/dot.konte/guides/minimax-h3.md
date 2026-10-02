@@ -23,7 +23,7 @@ prompt: {
 - **An unused sound field takes `N/A`, never an empty string.**
 - **`style` is one or two sentences.** Name it from `Cinematic`, `live-action`, `2D-animated`, `3D CG`, `claymation`, `watercolor`, `vintage film` — derived from the reference image wherever a frame or a sheet is passed, and from the shot's own text where none is.
 - **English is the body language.** Only dialogue, lyrics and text visible in frame keep their source language.
-- **`shots[0]` is `[Shot 1]`; every later shot is `{ at, text }`** — `at` the cut time in seconds, strictly increasing and inside the take's duration.
+- **`shots[0]` is `[Shot 1]`; every later shot is `{ at, text }`** — `at` the cut time in seconds, strictly increasing and inside the take's duration. A decode whose guide says the adapter sets the cut time takes each shot as its text alone.
 - **Refer back in words (`the previous shot`), never with `[Shot N]` inside a shot's text.** Other fields cite a shot as `[Shot N]`, N its position in `shots`.
 
 ## References

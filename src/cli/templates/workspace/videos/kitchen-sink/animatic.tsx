@@ -30,8 +30,8 @@ type Still = {
 };
 
 const still = ({ task, defines, retains, summary, described, cutFrom }: Still) => {
-  const shots: [string] | [string, { at: number; text: string }] = cutFrom
-    ? [cutFrom, { at: 0.2, text: `the camera cuts to ${described}` }]
+  const shots: [string] | [string, string] = cutFrom
+    ? [cutFrom, `the camera cuts to ${described}`]
     : [described];
   return {
     subjectDefinitions: [...defines],

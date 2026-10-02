@@ -164,6 +164,31 @@ export interface ComfyAssetConfig<
   turbo?: ComfyTurbo<TInputs>;
 }
 
+// konte fills each named input from the others, resolved and pruned; a stage file never passes it.
+export type ComfyDerive<
+  TInputs extends Record<string, AdapterInputDef>,
+  TKeys extends keyof TInputs,
+> = {
+  [K in TKeys]: (inputs: Omit<ComfyResolvedInputs<TInputs>, TKeys>) => InputTSType<TInputs[K]>;
+};
+
+type ComfyScalarKey<TInputs extends Record<string, AdapterInputDef>> = {
+  [K in keyof TInputs]: TInputs[K] extends { type: "string" | "number" | "boolean" } ? K : never;
+}[keyof TInputs];
+
+// A media input resolves to its src, a structured prompt to the string it assembles into.
+type ResolvedTSType<T extends AdapterInputDef> = T extends {
+  type: "image" | "video" | "audio" | "prompt";
+}
+  ? string
+  : InputTSType<T>;
+
+type ComfyResolvedInputs<TInputs extends Record<string, AdapterInputDef>> = {
+  [K in keyof TInputs]: TInputs[K] extends { required: true } | { default: {} } | { type: "seed" }
+    ? ResolvedTSType<TInputs[K]>
+    : ResolvedTSType<TInputs[K]> | undefined;
+};
+
 // See `AdapterMeta.turbo`.
 export type ComfyTurbo<TInputs extends Record<string, AdapterInputDef>> = {
   [K in keyof TInputs as TInputs[K] extends { type: "string" | "number" | "boolean" }
@@ -330,10 +355,23 @@ export function defineComfyAsset<
   const TOutputs extends Record<string, AdapterOutputDef>,
   TPrimary extends (keyof TOutputs & string) | undefined = undefined,
   const TTurbo extends ComfyTurbo<TInputs> = {},
+  TDerived extends ComfyScalarKey<TInputs> = never,
 >(
-  config: ComfyAssetConfig<TInputs, TOutputs> & { primary?: TPrimary; turbo?: TTurbo },
-): AssetAdapter<ComfyCallOptions<TInputs, keyof TTurbo>, PrimaryOutputKind<TOutputs, TPrimary>> {
+  config: ComfyAssetConfig<TInputs, TOutputs> & {
+    primary?: TPrimary;
+    turbo?: TTurbo;
+    derive?: ComfyDerive<TInputs, TDerived>;
+  },
+): AssetAdapter<
+  ComfyCallOptions<TInputs, keyof TTurbo | TDerived>,
+  PrimaryOutputKind<TOutputs, TPrimary>
+> {
+  const derive = (config.derive ?? {}) as Record<
+    string,
+    (inputs: Record<string, unknown>) => unknown
+  >;
   assertComfyInputs(config.inputs);
+  assertDerivedInputs(derive, config.inputs, config.turbo);
   assertTurboInputs(config.turbo, config.inputs);
   assertPinInputs(config.inputs);
   assertSpeechFill(config);
@@ -349,7 +387,10 @@ export function defineComfyAsset<
       mediaType: outputKind,
       description: config.description,
       ref: config.workflow,
-      inputs: buildMetaInputs(config.inputs, config.turbo),
+      inputs: buildMetaInputs(
+        Object.fromEntries(Object.entries(config.inputs).filter(([key]) => !(key in derive))),
+        config.turbo,
+      ),
       ...(config.guide ? { guide: config.guide } : {}),
       ...(config.promptExemptions ? { promptExemptions: config.promptExemptions } : {}),
       ...(config.spokenTextPattern ? { spokenTextPattern: config.spokenTextPattern } : {}),
@@ -357,7 +398,9 @@ export function defineComfyAsset<
       ...(config.readsPrevPanel ? { readsPrevPanel: true } : {}),
       ...(config.turbo ? { turbo: config.turbo as Record<string, string | number | boolean> } : {}),
     },
-    createDefinition(userInputs: ComfyCallOptions<TInputs, keyof TTurbo>): ComfyAssetDefinition {
+    createDefinition(
+      userInputs: ComfyCallOptions<TInputs, keyof TTurbo | TDerived>,
+    ): ComfyAssetDefinition {
       const turbo: Record<string, unknown> = config.turbo ?? {};
       const inputs: Record<string, unknown> = {};
       const inputLabels: Record<string, string> = {};
@@ -386,6 +429,15 @@ export function defineComfyAsset<
 
       for (const [key, def] of Object.entries(config.inputs) as [string, AdapterInputDef][]) {
         const userValue = key in turbo ? undefined : (userInputs as Record<string, unknown>)[key];
+        if (key in derive) {
+          if (userValue !== undefined) {
+            throw new KonteError(
+              "INVALID_ADAPTER_INPUT",
+              `Input "${key}" is set by konte from the adapter's other inputs, so it takes no value`,
+            );
+          }
+          continue;
+        }
         const isMedia = def.type === "image" || def.type === "video" || def.type === "audio";
 
         let value: unknown;
@@ -490,6 +542,19 @@ export function defineComfyAsset<
       // …and out of what `validators` see, so they judge the definition that will be submitted.
       for (const key of Object.keys(resolved)) {
         if (pruned.has(config.inputs[key]!.nodeId)) delete resolved[key];
+      }
+
+      const underived = { ...resolved };
+      for (const [key, fill] of Object.entries(derive)) {
+        const def = config.inputs[key]!;
+        if (pruned.has(def.nodeId)) continue;
+        const value = fill(underived);
+        resolved[key] = value;
+        for (const t of [def, ...(def.also ?? [])]) {
+          if (pruned.has(t.nodeId)) continue;
+          inputs[`${t.nodeId}.${t.field}`] = value;
+          inputLabels[`${t.nodeId}.${t.field}`] = key;
+        }
       }
 
       // After pruning, so a ceiling on an input aimed at a dropped branch judges a value that is
@@ -597,6 +662,25 @@ export function defineComfyAsset<
       return result;
     },
   };
+}
+
+function assertDerivedInputs(
+  derive: Record<string, unknown>,
+  inputs: Record<string, AdapterInputDef>,
+  turbo: Record<string, unknown> | undefined,
+): void {
+  for (const key of Object.keys(derive)) {
+    const def = inputs[key];
+    if (!def) throw new Error(`Derive names input "${key}", which the adapter does not declare`);
+    if (def.type !== "string" && def.type !== "number" && def.type !== "boolean") {
+      throw new Error(
+        `Derived input "${key}" must be a string, number or boolean, not "${def.type}"`,
+      );
+    }
+    if (def.required || def.default !== undefined || (turbo && key in turbo)) {
+      throw new Error(`Derived input "${key}" cannot also be required, defaulted or turbo`);
+    }
+  }
 }
 
 // Up, never down: a take under the canvas is enlarged when it is composed, and that costs detail

@@ -9,18 +9,18 @@ import {
 } from "konte";
 
 type Task = "keyframe completion" | "reference generation";
-type Cut = { at: number; text: string };
 
 const labelLines = (header: string) => (lines: string[]) =>
   `${header}: ${lines.length > 0 ? lines.join("\n") : "N/A"}`;
 
-const shotsText = (shots: readonly (string | Cut)[]) =>
+const shotsText = (shots: readonly string[]) =>
   shots
-    .map((shot, i) =>
-      typeof shot === "string"
-        ? `[Shot ${i + 1}] ${shot}`
-        : `[Shot ${i + 1}] At ${formatCutTime(shot.at)}, ${shot.text}`,
-    )
+    .map((shot, i) => {
+      if (typeof shot !== "string") {
+        throw new Error(`[Shot ${i + 1}] is its text alone — konte sets the cut time`);
+      }
+      return i === 0 ? `[Shot 1] ${shot}` : `[Shot ${i + 1}] At ${formatCutTime(0.5)}, ${shot}`;
+    })
     .join(" ");
 
 export const imageMinimaxH3R2i = defineComfyAsset({
@@ -99,8 +99,8 @@ export const imageMinimaxH3R2i = defineComfyAsset({
           },
           detailedDescription: {
             required: true,
-            description: "shots: [Shot 1] as a string, [Shot 2] as { at: seconds, text }",
-            render: (d: { style: string; shots: [string] | [string, Cut] }) =>
+            description: "shots: [Shot 1], and [Shot 2] for a cut — each its text alone",
+            render: (d: { style: string; shots: [string] | [string, string] }) =>
               `detailed_description: ${d.style} ${shotsText(d.shots)}`,
           },
           overallSoundscape: { render: () => "overall_soundscape: N/A" },
@@ -131,18 +131,12 @@ export const imageMinimaxH3R2i = defineComfyAsset({
       nodeId: "10",
       field: "length",
       type: "number",
-      default: 22,
-      description:
-        "Frames the model settles over — only the rungs 5, 22, 39, 56, 73, 90, 107, 124 land, a value between rounds up. A description carrying a cut takes 22 or more.",
     },
     // ImageFromBatch → SaveImage.images
     frameIndex: {
       nodeId: "17",
       field: "batch_index",
       type: "number",
-      default: 8,
-      description:
-        "Which frame of the burst is kept: 0-based, clamped to the last. On a description that carries a cut it lands past the last one.",
     },
     // UNETLoader → BasicScheduler.model, BasicGuider.model
     unetName: {
@@ -176,8 +170,14 @@ export const imageMinimaxH3R2i = defineComfyAsset({
   outputs: {
     image: { nodeId: "18", type: "image" },
   },
+  // The latent packs frames (1, 4, 4, 4, 4) per slot, repeating every 17; a frame kept from inside
+  // a four-frame slot comes back smeared. Frame 17 is past the cut at frame 12.
+  derive: {
+    length: ({ prompt }) => (minimaxH3CutSource(prompt) === undefined ? 5 : 22),
+    frameIndex: ({ prompt }) => (minimaxH3CutSource(prompt) === undefined ? 0 : 17),
+  },
   validators: [
-    minimaxH3Prompt({ mode: "r2i", length: "length", frameIndex: "frameIndex" }),
+    minimaxH3Prompt({ mode: "r2i", length: "length" }),
     promptReferenceTags({
       tags: {
         Picture: [

@@ -87,6 +87,7 @@ Optional `validators` reject an input combination the model forbids but each inp
 - **An input the model won't read in this configuration** — `inertInputs({ inputs: { negativePrompt: [" ", ""] }, when: { useLightning: true }, reason, fix })`, each input mapped to the value that means "not set". `whenNot` states the condition as an absence.
 - **A group where at least one must be set** — `requireOneOf({ inputs: { instruct: "", character: "Auto" }, reason })`.
 - **A negation this model is meant to be written with** — `promptExemptions: [/…/]`, beside `validators`. Every span one matches is cut out of a checked value before the prompt check reads it, so H3's freeze clause passes while every other exclusion is still refused. Leave it off a model with none.
+- **An input whose value follows from the others** — `derive: { <input>: (inputs) => … }` beside `validators`, the input declared with no `default`. `inputs` are the others resolved, a structured prompt assembled. konte fills it, and it leaves the call options and `adapter show`.
 - **An edit model** — uncomment `allowedIn` and name the sites it may be declared in.
 - **Anything else**: a pure function of the resolved inputs that returns why it rejects them, or nothing when they pass, reading only which are present.
 

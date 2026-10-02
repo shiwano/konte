@@ -3,12 +3,6 @@ import { minimaxH3CutSource, minimaxH3Prompt } from "../dsl/validators/minimax-h
 import { LANGUAGE_NAMES } from "../typography.js";
 
 const r2i = minimaxH3Prompt({ mode: "r2i", prompt: "prompt", length: "length" });
-const r2iCut = minimaxH3Prompt({
-  mode: "r2i",
-  prompt: "prompt",
-  length: "length",
-  frameIndex: "frameIndex",
-});
 const r2a = minimaxH3Prompt({
   mode: "r2a",
   prompt: "prompt",
@@ -259,14 +253,6 @@ describe("minimaxH3Prompt() — the reuse/reference choice", () => {
 });
 
 describe("minimaxH3Prompt() — shots", () => {
-  it("refuses a cut on a still whose adapter names no frame input", () => {
-    const prompt = six({
-      description:
-        "watercolor. [Shot 1] She stands. [Shot 2] At 00:01.000, the camera cuts to her hands.",
-    });
-    expect(r2i({ prompt, length: 42 }, ctx)).toContain("names no frame input");
-  });
-
   it("takes three shots on a video take", () => {
     const prompt = six({
       description:
@@ -276,63 +262,12 @@ describe("minimaxH3Prompt() — shots", () => {
     expect(r2v({ prompt, length: 124 }, ctx)).toBeUndefined();
   });
 
-  it("takes a cut on a still whose kept frame lands past it", () => {
+  it("takes a cut on a still", () => {
     const prompt = six({
       description:
-        "watercolor. [Shot 1] She stands. [Shot 2] At 00:01.000, the camera cuts to her hands.",
+        "watercolor. [Shot 1] She stands. [Shot 2] At 00:00.500, the camera cuts to her hands.",
     });
-    expect(r2iCut({ prompt, length: 42, frameIndex: 38 }, ctx)).toBeUndefined();
-  });
-
-  // The workflow clamps the index to the burst's last frame, so an index past the end keeps an
-  // EARLIER frame than the one asked for.
-  it("reads the clamped frame, not the index asked for", () => {
-    const prompt = six({
-      description:
-        "watercolor. [Shot 1] She stands. [Shot 2] At 00:00.900, the camera cuts to her hands.",
-    });
-    // 22/24 is past 00:00.900, but a 22-frame burst ends at frame 21 (00:00.875), which is not.
-    const message = r2iCut({ prompt, length: 22, frameIndex: 22 }, ctx);
-    expect(message).toContain("no frame of the burst lands after that cut");
-  });
-
-  it("passes a clamped index that still lands past the cut", () => {
-    const prompt = six({
-      description:
-        "watercolor. [Shot 1] She stands. [Shot 2] At 00:00.400, the camera cuts to her hands.",
-    });
-    const message = r2iCut({ prompt, length: 22, frameIndex: 30 }, ctx);
-    expect(message).toBeUndefined();
-  });
-
-  it("rejects a kept frame that is still before the cut", () => {
-    const prompt = six({
-      description:
-        "watercolor. [Shot 1] She stands. [Shot 2] At 00:01.000, the camera cuts to her hands.",
-    });
-    const message = r2iCut({ prompt, length: 42, frameIndex: 12 }, ctx);
-    expect(message).toContain("keeps frame 12");
-    expect(message).toContain("cuts away from");
-  });
-
-  it("names where to land on the one burst length that has been measured", () => {
-    const prompt = six({
-      description:
-        "watercolor. [Shot 1] She stands. [Shot 2] At 00:00.400, the camera cuts to her hands.",
-    });
-    const message = r2iCut({ prompt, length: 22, frameIndex: 8 }, ctx);
-    expect(message).toContain("`frameIndex: 20`");
-    expect(message).toContain("from 10 up");
-  });
-
-  it("names only the floor on a burst length that has not been", () => {
-    const prompt = six({
-      description:
-        "watercolor. [Shot 1] She stands. [Shot 2] At 00:00.400, the camera cuts to her hands.",
-    });
-    const message = r2iCut({ prompt, length: 39, frameIndex: 8 }, ctx);
-    expect(message).toContain("a frame from 10 up");
-    expect(message).not.toContain("Take `frameIndex:");
+    expect(r2i({ prompt, length: 22 }, ctx)).toBeUndefined();
   });
 
   it("blames a repeated shot number on the back-reference that caused it", () => {
@@ -340,9 +275,7 @@ describe("minimaxH3Prompt() — shots", () => {
       description:
         "watercolor. [Shot 1] She stands. [Shot 2] At 00:01.000, the camera cuts in, as pale as [Shot 1].",
     });
-    expect(r2iCut({ prompt, length: 42, frameIndex: 38 }, ctx)).toContain(
-      "name it in words instead",
-    );
+    expect(r2i({ prompt, length: 42 }, ctx)).toContain("name it in words instead");
   });
 
   it("rejects cut times that do not rise", () => {
