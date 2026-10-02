@@ -13,15 +13,14 @@ The song take is accepted before any shot is written. Fields → `direction-guid
 
 ```tsx
 const clock = direction.policy.clock!;
-const song = asset(clock.song, audioAceStep15XlTurbo, {
-  tags: "Synth pop, bright female vocal, driving four-on-the-floor",
+const song = asset(clock.song, audioYue2, {
+  style: `English, synth pop, bright female vocal, ${clock.bpm} BPM, ${clock.beatsPerBar}/4, four-on-the-floor kick`,
   bpm: clock.bpm,
-  timeSignature: String(clock.beatsPerBar),
   lyrics: direction
     .lyrics!.map(
       (s) => `[${s.label}]\n${s.lines.map((l) => (typeof l === "string" ? l : l.text)).join("\n")}`,
     )
-    .join("\n"),
+    .join("\n\n"),
 });
 ```
 

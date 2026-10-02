@@ -55,7 +55,7 @@ const GIT_SOURCES: ReadonlyArray<GitSource> = [
       "templates/utility_seedvr2_video_upscale.json": "video_seedvr2_upscale",
       "templates/audio_ace_step1_5_xl_turbo.json": "audio_ace_step1_5_xl_turbo",
       "templates/audio_stable_audio_3_medium.json": "audio_stable_audio_3_medium",
-      "templates/audio_minimax_music_3.json": "audio_minimax_music_3",
+      "templates/audio_yue2_text2music.json": "audio_yue2",
     },
   },
 ];
@@ -113,10 +113,16 @@ const PATCHES: Record<string, (workflow: ComfyUIWorkflow) => void> = {
     useLiteralInputs(workflow, "TextEncodeQwenImage21", { prompt: "" });
     pruneUnreachable(workflow);
   },
-  // Tiled decoding is the guide's out-of-memory remedy, off by default for its seam risk.
-  audio_minimax_music_3: (workflow) => {
-    useLiteralInputs(workflow, "MiniMaxMusic3TextEncode", { caption: "", lyrics: "" });
-    useLiteralInputs(workflow, "ComfySwitchNode", { switch: false });
+  // YuE2 plays its ABC score at the score's Q: tempo and takes no bpm of its own, so the score is
+  // always planned and its Q: line rewritten to the adapter's bpm; the template's switch to skip
+  // planning would drop that. The template's 120-second ceiling cuts most planned songs short.
+  audio_yue2: (workflow) => {
+    useScoreTempo(workflow);
+    useLiteralInputs(workflow, "YuE2GenerateMusic", { max_duration: 360 });
+    for (const node of Object.values(workflow)) {
+      if (node.class_type === "PrimitiveStringMultiline") node.inputs.value = "";
+    }
+    pruneUnreachable(workflow);
   }, // The template sizes the latent from a ResolutionSelector (aspect ratio + megapixels); konte
   // renders at the video's canvas, so drive width/height directly instead.
   image_z_image_base: (workflow) => {
@@ -255,6 +261,39 @@ function useLiteralInputs(
     }
     nodes[0]!.inputs[field] = value;
   }
+}
+
+// Feed YuE2GenerateMusic the planned score with its Q: line set from a PrimitiveInt, the adapter's
+// bpm input.
+function useScoreTempo(workflow: ComfyUIWorkflow, bpm = 120): void {
+  const find = (classType: string): string => {
+    const ids = Object.keys(workflow).filter((id) => workflow[id]!.class_type === classType);
+    if (ids.length !== 1) throw new Error(`Expected exactly one ${classType}, found ${ids.length}`);
+    return ids[0]!;
+  };
+  const planner = find("YuE2GenerateABC");
+  const music = workflow[find("YuE2GenerateMusic")]!;
+  const tempo = freeNodeId(workflow);
+  workflow[tempo] = { class_type: "PrimitiveInt", inputs: { value: bpm } };
+  const line = freeNodeId(workflow);
+  workflow[line] = {
+    class_type: "StringFormat",
+    inputs: { f_string: "Q:1/4={a}", "values.a": [tempo, 0] },
+  };
+  const score = freeNodeId(workflow);
+  workflow[score] = {
+    class_type: "RegexReplace",
+    inputs: {
+      string: [planner, 0],
+      regex_pattern: "^Q:.*$",
+      replace: [line, 0],
+      case_insensitive: false,
+      multiline: true,
+      dotall: false,
+      count: 0,
+    },
+  };
+  music.inputs.abc = [score, 0];
 }
 
 // Retype every linked width/height in the graph to literals, for a template that sizes more than

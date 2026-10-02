@@ -1,0 +1,192 @@
+{
+  "10": {
+    "class_type": "SaveAudioAdvanced",
+    "inputs": {
+      "filename_prefix": "audio/YuE2",
+      "format": "flac",
+      "audio": [
+        "52",
+        0
+      ]
+    }
+  },
+  "41": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "yue2_3b_int8_convrot.safetensors"
+    }
+  },
+  "42": {
+    "class_type": "YuE2GenerateABC",
+    "inputs": {
+      "max_abc_tokens": 8192,
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "top_k": 30,
+      "repetition_penalty": 1.005,
+      "penalty_window": 100,
+      "clip": [
+        "41",
+        1
+      ],
+      "style": [
+        "54",
+        0
+      ],
+      "lyrics": [
+        "55",
+        0
+      ],
+      "seed": [
+        "53",
+        0
+      ],
+      "mode": "full"
+    }
+  },
+  "46": {
+    "class_type": "YuE2GenerateMusic",
+    "inputs": {
+      "temperature": 1,
+      "top_p": 0.95,
+      "top_k": 100,
+      "repetition_penalty": 1.2,
+      "clip": [
+        "41",
+        1
+      ],
+      "style": [
+        "54",
+        0
+      ],
+      "lyrics": [
+        "55",
+        0
+      ],
+      "abc": [
+        "58",
+        0
+      ],
+      "seed": [
+        "53",
+        0
+      ],
+      "mode": "full",
+      "max_duration": 360
+    }
+  },
+  "48": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "46",
+        0
+      ]
+    }
+  },
+  "50": {
+    "class_type": "KSampler",
+    "inputs": {
+      "steps": 32,
+      "cfg": 1,
+      "sampler_name": "dpm_2",
+      "scheduler": "sgm_uniform",
+      "denoise": 1,
+      "model": [
+        "41",
+        0
+      ],
+      "positive": [
+        "46",
+        0
+      ],
+      "negative": [
+        "48",
+        0
+      ],
+      "latent_image": [
+        "51",
+        0
+      ],
+      "seed": [
+        "53",
+        0
+      ]
+    }
+  },
+  "51": {
+    "class_type": "EmptyYuE2LatentAudio",
+    "inputs": {
+      "batch_size": 1,
+      "seconds": [
+        "46",
+        1
+      ]
+    }
+  },
+  "52": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "50",
+        0
+      ],
+      "vae": [
+        "41",
+        2
+      ]
+    }
+  },
+  "53": {
+    "class_type": "SeedNode",
+    "inputs": {
+      "seed": 0
+    }
+  },
+  "54": {
+    "class_type": "PrimitiveStringMultiline",
+    "inputs": {
+      "value": ""
+    }
+  },
+  "55": {
+    "class_type": "PrimitiveStringMultiline",
+    "inputs": {
+      "value": ""
+    }
+  },
+  "56": {
+    "class_type": "PrimitiveInt",
+    "inputs": {
+      "value": 120
+    }
+  },
+  "57": {
+    "class_type": "StringFormat",
+    "inputs": {
+      "f_string": "Q:1/4={a}",
+      "values.a": [
+        "56",
+        0
+      ]
+    }
+  },
+  "58": {
+    "class_type": "RegexReplace",
+    "inputs": {
+      "string": [
+        "42",
+        0
+      ],
+      "regex_pattern": "^Q:.*$",
+      "replace": [
+        "57",
+        0
+      ],
+      "case_insensitive": false,
+      "multiline": true,
+      "dotall": false,
+      "count": 0
+    }
+  }
+}
