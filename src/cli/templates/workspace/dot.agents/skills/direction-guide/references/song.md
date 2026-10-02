@@ -16,5 +16,5 @@ lyrics: [
 - **Every span is `beats`, a positive whole number; `duration` is a type error** — the first shot also holds the take's intro before its first bar.
 - **A half-beat cut is `beats: 1.5 as number`** — the literal is refused; waive `off-grid-duration_<shotId>` with the reason.
 - **Cutting on the beat inside one setup** — each consecutive pair on it declares a `join` (`join-undeclared`), per [lineup.md](lineup.md).
-- **`lyrics` is the song's sections in order** — `singer` a `characters` id, or several singing together, on the section and overridden per line; a singer needs no voice.
+- **`lyrics` is the song's sections in order** — `singer` a `characters` id, or several singing together, on the section and overridden per line; a singer needs no voice, and no reference unless a `lineup` holds them.
 - **Never write a line's time** — where the take sings it is read off the take and corrected on the song's review page.

@@ -43,7 +43,7 @@ A `cutin` is a second camera frame over an arc shot, so **the camera readers tak
 
 `characters` (required), `props` (optional) and `locations` (required, non-empty) are `Record<id, { name, description }>`, each id anchored to a `reference:<id>` asset. A character adds a required `promptDepiction` and an optional `voice` (see **Casting voices**); a location a required, non-empty `landmarks` roster (see **The fourth roster**). One generalized helper, `checkAnchoredEntities` (`direction-check.ts`), sits behind the thin `checkCharacters` / `checkProps` / `checkLocations` wrappers, producing two exact-match findings per roster:
 
-- `<noun>-unreferenced` — the `id` has no matching exposed `reference:<id>` asset.
+- `<noun>-unreferenced` — the `id` has no matching exposed `reference:<id>` asset. A character only off screen (in no `lineup` / `lineupTo`) owes none.
 - `unused-<noun>` — the entity is used by no shot. What "used" means splits the rosters:
   - **character / prop** — the `name` is a literal substring of some shot `action`. One-directional: the reverse (a prose noun with no declared entity) needs NL parsing to catch. A character with a `{ character }` script line is exempt (passed as the "always used" set); a prop never speaks, so it gets an empty set.
   - **location** — a shot reaches its location through its `setup`, and "used" is exact id membership in the set of locations the used setups are set in (passed as the always-used set, with an empty `actions` list).

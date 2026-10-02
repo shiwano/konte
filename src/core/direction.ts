@@ -487,6 +487,12 @@ function collectActions(direction: Direction): string[] {
   return collectArcShots(direction).map((s) => s.action);
 }
 
+function collectFramedCharacterIds(direction: Direction): Set<string> {
+  return new Set(
+    collectShotFrames(direction).flatMap((f) => [...(f.lineup ?? []), ...(f.lineupTo ?? [])]),
+  );
+}
+
 // The set of setup ids the frames point at — the `unused-setup` check's "used" signal (exact id
 // membership, since a frame is named by id in `shot.setup`, not in the action prose).
 function collectUsedSetupIds(direction: Direction): Set<string> {
@@ -2278,6 +2284,7 @@ export function checkDirection(
       options.referenceAssetNames ?? [],
       collectActions(direction),
       alwaysUsed,
+      collectFramedCharacterIds(direction),
     );
     // The voice checks share the characters class and the root bag, so they fold with the look
     // findings as one group — the cast is one thing the reviewer signs off on.

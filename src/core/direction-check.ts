@@ -528,11 +528,13 @@ function checkAnchoredEntities(
   return findings;
 }
 
+// A character no frame's lineup holds is never on screen, so owes no reference.
 export function checkCharacters(
   characters: readonly CharacterRef[],
   referenceAssetNames: readonly string[],
   actions: readonly string[],
   scriptCharacterIds: ReadonlySet<string>,
+  framedCharacterIds: ReadonlySet<string>,
 ): DirectionFinding[] {
   return checkAnchoredEntities(
     characters,
@@ -545,7 +547,7 @@ export function checkCharacters(
       usedBy: "never named in any shot action",
     },
     "character",
-  );
+  ).filter((f) => f.code !== "character-unreferenced" || framedCharacterIds.has(f.subject ?? ""));
 }
 
 // Props are anchored like the characters but never speak, so there is no script signal — a prop is "used"

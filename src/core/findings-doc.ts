@@ -90,7 +90,7 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     subject: "line (`<section>.<line>`, from 1)",
   },
   "character-unreferenced": {
-    flags: "A character has no `reference:<id>` asset.",
+    flags: "A character a frame's lineup holds has no `reference:<id>` asset.",
     subject: "character id",
   },
   "unused-character": {

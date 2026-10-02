@@ -176,7 +176,7 @@ const cat: Character = { name: "the cat", promptDepiction: "cat", description: "
 const withCat: Direction = leaf({
   characters: { cat },
   shots: [
-    shot("01", "ordinary", 3, "the cat wakes on the sill"),
+    { ...shot("01", "ordinary", 3, "the cat wakes on the sill"), lineup: ["cat"] },
     shot("02", "disruption", 2),
     shot("03", "pressure"),
     shot("04", "hero", 4),
@@ -1053,13 +1053,31 @@ describe("checkCharacters", () => {
       [],
       ["黒猫 stretches"],
       new Set(),
+      new Set(["cat"]),
     );
     expect(findings.map((f) => f.code)).toContain("character-unreferenced");
   });
 
+  it("asks no reference of a character no lineup holds", () => {
+    const findings = checkCharacters(
+      [{ id: "singer", name: "歌い手" }],
+      [],
+      ["a quiet room"],
+      new Set(["singer"]),
+      new Set(),
+    );
+    expect(findings).toEqual([]);
+  });
+
   it("passes a character exposed in the pool and named in an action", () => {
     expect(
-      checkCharacters([{ id: "cat", name: "黒猫" }], ["cat"], ["黒猫 stretches"], new Set()),
+      checkCharacters(
+        [{ id: "cat", name: "黒猫" }],
+        ["cat"],
+        ["黒猫 stretches"],
+        new Set(),
+        new Set(["cat"]),
+      ),
     ).toEqual([]);
   });
 
@@ -1069,6 +1087,7 @@ describe("checkCharacters", () => {
       ["cat"],
       ["a quiet room"],
       new Set(),
+      new Set(["cat"]),
     );
     const unused = findings.find((f) => f.code === "unused-character");
     expect(unused?.subject).toBe("cat");
@@ -1079,6 +1098,7 @@ describe("checkCharacters", () => {
       [{ id: "cat", name: "黒猫" }],
       ["cat"],
       ["a quiet room"],
+      new Set(["cat"]),
       new Set(["cat"]),
     );
     expect(findings.map((f) => f.code)).not.toContain("unused-character");
@@ -1821,7 +1841,7 @@ describe("checkDirection characters", () => {
           lens: "mini-drama",
           pleasure: "cute",
           shots: [
-            shot("01", "ordinary", 3, "the cat wakes"),
+            { ...shot("01", "ordinary", 3, "the cat wakes"), lineup: ["cat"] },
             shot("02", "disruption", 2),
             shot("03", "pressure"),
             shot("04", "hero", 4),

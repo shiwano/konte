@@ -63,16 +63,16 @@ Gates: `export` (video).
 
 Gates: every spend. Deferred.
 
-| Code                           | Flags                                                      | Waiver subject | Notes                  |
-| ------------------------------ | ---------------------------------------------------------- | -------------- | ---------------------- |
-| `character-unreferenced`       | A character has no `reference:<id>` asset.                 | character id   | Fix in `reference.tsx` |
-| `unused-character`             | A character is named in no shot action and speaks no line. | character id   | —                      |
-| `character-voice-missing`      | A character speaks but casts no `voice`.                   | character id   | —                      |
-| `character-voice-unreferenced` | A character's voice has no `reference:<id>` sample.        | character id   | Fix in `reference.tsx` |
-| `unused-character-voice`       | A character has a voice but no script line.                | character id   | —                      |
-| `narrator-missing`             | The direction has narration lines but casts no `narrator`. | —              | —                      |
-| `narrator-unreferenced`        | The narrator's voice has no `reference:<id>` sample.       | —              | Fix in `reference.tsx` |
-| `unused-narrator`              | A narrator is cast but no shot declares a narration line.  | —              | —                      |
+| Code                           | Flags                                                             | Waiver subject | Notes                  |
+| ------------------------------ | ----------------------------------------------------------------- | -------------- | ---------------------- |
+| `character-unreferenced`       | A character a frame's lineup holds has no `reference:<id>` asset. | character id   | Fix in `reference.tsx` |
+| `unused-character`             | A character is named in no shot action and speaks no line.        | character id   | —                      |
+| `character-voice-missing`      | A character speaks but casts no `voice`.                          | character id   | —                      |
+| `character-voice-unreferenced` | A character's voice has no `reference:<id>` sample.               | character id   | Fix in `reference.tsx` |
+| `unused-character-voice`       | A character has a voice but no script line.                       | character id   | —                      |
+| `narrator-missing`             | The direction has narration lines but casts no `narrator`.        | —              | —                      |
+| `narrator-unreferenced`        | The narrator's voice has no `reference:<id>` sample.              | —              | Fix in `reference.tsx` |
+| `unused-narrator`              | A narrator is cast but no shot declares a narration line.         | —              | —                      |
 
 ### props (2)
 
