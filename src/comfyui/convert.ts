@@ -16,6 +16,8 @@ type LitegraphNode = {
   inputs?: { name: string; type: string; link: number | null; label?: string; widget?: unknown }[];
   outputs?: { name: string; type: string; links: number[] | null }[];
   widgets_values?: unknown[] | Record<string, unknown>;
+  // A subgraph instance's promoted widget values, keyed by subgraph input name.
+  widgets_values_named?: Record<string, unknown>;
   mode?: number;
   properties?: Record<string, unknown>;
 };
@@ -33,7 +35,7 @@ type SubgraphDefinition = {
   id: string;
   inputNode: { id: number };
   outputNode: { id: number };
-  inputs: { name: string; type: string; linkIds: number[] }[];
+  inputs: { name: string; type: string; linkIds: number[]; label?: string }[];
   outputs: { name: string; type: string; linkIds: number[] }[];
   nodes: LitegraphNode[];
   links: SubgraphLink[];
@@ -177,6 +179,11 @@ function expandSubgraphNodes(
       }
     }
 
+    // A promoted widget the instance sets feeds its targets the way a PrimitiveNode would, so
+    // each becomes one, shared by every internal input the subgraph input reaches.
+    const instanceValues = subgraphInstanceValues(sgNode, sgDef);
+    const primitiveIdByInput = new Map<string, number>();
+
     const copiedNodes = new Map<number, LitegraphNode>();
     for (const internalNode of sgDef.nodes) {
       const newId = nodeIdMap.get(internalNode.id)!;
@@ -225,6 +232,28 @@ function expandSubgraphNodes(
             iLink.type,
           ]);
           if (targetInputEntry) targetInputEntry.link = newLinkId;
+        } else if (sgInput && targetInputEntry && instanceValues.has(sgInput.name)) {
+          let primitiveId = primitiveIdByInput.get(sgInput.name);
+          if (primitiveId === undefined) {
+            primitiveId = nextNodeId++;
+            primitiveIdByInput.set(sgInput.name, primitiveId);
+            allExpandedNodes.push({
+              id: primitiveId,
+              type: "PrimitiveNode",
+              outputs: [{ name: sgInput.type, type: sgInput.type, links: [] }],
+              widgets_values: [instanceValues.get(sgInput.name)],
+            });
+          }
+          const newLinkId = nextLinkId++;
+          allExpandedLinks.push([
+            newLinkId,
+            primitiveId,
+            0,
+            remappedTargetId,
+            iLink.target_slot,
+            iLink.type,
+          ]);
+          targetInputEntry.link = newLinkId;
         } else {
           if (targetInputEntry) targetInputEntry.link = null;
         }
@@ -285,6 +314,20 @@ function expandSubgraphNodes(
     lastLinkId: nextLinkId - 1,
     expandedNodeIds,
   };
+}
+
+// The values a subgraph instance sets on its promoted widgets, by subgraph input name. A frontend
+// that predates `widgets_values_named` saves them in `widgets_values`, one per widget-typed
+// subgraph input in declaration order; a count that disagrees is not trusted.
+function subgraphInstanceValues(
+  sgNode: LitegraphNode,
+  sgDef: SubgraphDefinition,
+): Map<string, unknown> {
+  if (sgNode.widgets_values_named) return new Map(Object.entries(sgNode.widgets_values_named));
+  const values = sgNode.widgets_values;
+  const widgetInputs = sgDef.inputs.filter((input) => WIDGET_TYPES.has(input.type));
+  if (!Array.isArray(values) || values.length !== widgetInputs.length) return new Map();
+  return new Map(widgetInputs.map((input, i) => [input.name, values[i]]));
 }
 
 // Node types a flattened workflow runs that the ComfyUI server does not serve.

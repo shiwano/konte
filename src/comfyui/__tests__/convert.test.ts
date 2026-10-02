@@ -1372,6 +1372,148 @@ describe("convertLitegraphToApi", () => {
     });
   });
 
+  describe("a subgraph instance's promoted widget values", () => {
+    const info: Record<string, ComfyUINodeDefinition> = {
+      Gen: makeNodeDef({ mode: [["full", "melody"]], seed: ["INT", { max: 0xffff_ffff_ffff }] }),
+      Plan: makeNodeDef({ mode: [["full", "melody"]] }),
+      SaveAudio: makeNodeDef({ audio: ["AUDIO"] }),
+    };
+
+    function instanceWorkflow(instance: {
+      widgets_values?: unknown[];
+      widgets_values_named?: Record<string, unknown>;
+    }): LitegraphWorkflow {
+      return {
+        last_node_id: 2,
+        last_link_id: 1,
+        nodes: [
+          {
+            id: 1,
+            type: "sg",
+            inputs: [{ name: "mode", type: "COMBO", link: null, widget: { name: "mode" } }],
+            outputs: [{ name: "AUDIO", type: "AUDIO", links: [1] }],
+            ...instance,
+          },
+          { id: 2, type: "SaveAudio", inputs: [{ name: "audio", type: "AUDIO", link: 1 }] },
+        ],
+        links: [[1, 1, 0, 2, 0, "AUDIO"]],
+        definitions: {
+          subgraphs: [
+            {
+              id: "sg",
+              inputNode: { id: -10 },
+              outputNode: { id: -20 },
+              inputs: [
+                { name: "mode", type: "COMBO", linkIds: [100, 101] },
+                { name: "seed", type: "INT", linkIds: [102] },
+              ],
+              outputs: [{ name: "AUDIO", type: "AUDIO", linkIds: [103] }],
+              nodes: [
+                {
+                  id: 10,
+                  type: "Gen",
+                  inputs: [
+                    { name: "mode", type: "COMBO", link: 100, widget: { name: "mode" } },
+                    { name: "seed", type: "INT", link: 102, widget: { name: "seed" } },
+                  ],
+                  outputs: [{ name: "AUDIO", type: "AUDIO", links: [103] }],
+                  widgets_values: ["full", 0, "fixed"],
+                },
+                {
+                  id: 11,
+                  type: "Plan",
+                  inputs: [{ name: "mode", type: "COMBO", link: 101, widget: { name: "mode" } }],
+                  widgets_values: ["full"],
+                },
+              ],
+              links: [
+                {
+                  id: 100,
+                  origin_id: -10,
+                  origin_slot: 0,
+                  target_id: 10,
+                  target_slot: 0,
+                  type: "COMBO",
+                },
+                {
+                  id: 101,
+                  origin_id: -10,
+                  origin_slot: 0,
+                  target_id: 11,
+                  target_slot: 0,
+                  type: "COMBO",
+                },
+                {
+                  id: 102,
+                  origin_id: -10,
+                  origin_slot: 1,
+                  target_id: 10,
+                  target_slot: 1,
+                  type: "INT",
+                },
+                {
+                  id: 103,
+                  origin_id: 10,
+                  origin_slot: 0,
+                  target_id: -20,
+                  target_slot: 0,
+                  type: "AUDIO",
+                },
+              ],
+            },
+          ],
+        },
+      };
+    }
+
+    function byClass(
+      workflow: Record<string, { class_type: string; inputs: Record<string, unknown> }>,
+    ) {
+      return Object.fromEntries(
+        Object.entries(workflow).map(([id, node]) => [
+          node.class_type,
+          { id, inputs: node.inputs },
+        ]),
+      );
+    }
+
+    it("feeds a named value to every internal input it reaches, as one shared knob", () => {
+      const { workflow, subgraphMeta } = convertLitegraphToApi(
+        instanceWorkflow({ widgets_values_named: { mode: "melody", seed: 42 } }),
+        info,
+      );
+      const { Gen, Plan } = byClass(workflow);
+      expect(Gen!.inputs).toMatchObject({ mode: "melody", seed: 42 });
+      expect(Plan!.inputs.mode).toBe("melody");
+      expect(subgraphMeta.sharedPrimitiveGroups).toEqual([
+        [
+          { nodeId: Gen!.id, field: "mode" },
+          { nodeId: Plan!.id, field: "mode" },
+        ],
+      ]);
+    });
+
+    it("reads positional values in the order of the widget-typed subgraph inputs", () => {
+      const { workflow } = convertLitegraphToApi(
+        instanceWorkflow({ widgets_values: ["melody", 42] }),
+        info,
+      );
+      const { Gen, Plan } = byClass(workflow);
+      expect(Gen!.inputs).toMatchObject({ mode: "melody", seed: 42 });
+      expect(Plan!.inputs.mode).toBe("melody");
+    });
+
+    it("keeps the internal values when the positional count disagrees", () => {
+      const { workflow } = convertLitegraphToApi(
+        instanceWorkflow({ widgets_values: ["melody"] }),
+        info,
+      );
+      const { Gen, Plan } = byClass(workflow);
+      expect(Gen!.inputs).toMatchObject({ mode: "full", seed: 0 });
+      expect(Plan!.inputs.mode).toBe("full");
+    });
+  });
+
   it("converts a workflow with subgraphs end-to-end", () => {
     const workflow: LitegraphWorkflow = {
       last_node_id: 10,
