@@ -499,11 +499,11 @@ export function ReviewTimeline({
                       left: shot.startTime * effectivePxPerSec,
                       width: shot.duration * effectivePxPerSec,
                     }}
-                    title={`Shot ${shot.shotId}: ${shot.duration}s`}
+                    title={`Shot ${shot.shotId}: ${shot.duration.toFixed(1)}s`}
                   >
                     <div className="rt-shot-head">
                       <span className="rt-shot-id">{shot.shotId}</span>
-                      <span className="rt-shot-duration">{shot.duration}s</span>
+                      <span className="rt-shot-duration">{shot.duration.toFixed(1)}s</span>
                       {shot.pending && <StatusBadge status="pending" label="Pending" />}
                       {shot.notReady && !shot.showingStandIn && (
                         <StatusBadge status="not-ready" label="Not ready" />

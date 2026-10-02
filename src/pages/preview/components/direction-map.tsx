@@ -410,7 +410,7 @@ export function DirectionMap({
                       left: start * effectivePxPerSec,
                       width: Math.max(shot.duration * effectivePxPerSec, 8),
                     }}
-                    title={`${shot.id}${shot.aside ? " · aside" : shot.roleFunctionLabel ? ` · ${shot.roleFunctionLabel}` : ""} · ${shot.duration}s: ${shot.action}`}
+                    title={`${shot.id}${shot.aside ? " · aside" : shot.roleFunctionLabel ? ` · ${shot.roleFunctionLabel}` : ""} · ${shot.duration.toFixed(1)}s: ${shot.action}`}
                     // A drag across the track pans it, so a pointer click that moved is the tail of
                     // that pan, not a pick. `detail === 0` is an activation with no pointer behind it
                     // (Enter/Space on the focused shot) — there was no drag to be the tail of, and
@@ -426,7 +426,7 @@ export function DirectionMap({
                     <span className="direction-map-shot-head">
                       <span className="direction-map-shot-id">{shot.id}</span>
                     </span>
-                    <span className="direction-map-shot-dur">{shot.duration}s</span>
+                    <span className="direction-map-shot-dur">{shot.duration.toFixed(1)}s</span>
                     <span className="direction-map-shot-flags">
                       {commentCount > 0 && (
                         <span className="direction-map-shot-comments">
