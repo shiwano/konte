@@ -217,6 +217,7 @@ describe("flattenSubgraphs", () => {
     expect(emptyLatent.widgets_values).toEqual([512, 512]);
     expect(subgraphMeta.internalNodeIds).toContain(String(emptyLatent.id));
     expect(subgraphMeta.inputTargetKeys).toContain(`${emptyLatent.id}:width`);
+    expect(subgraphMeta.inputLabels.size).toBe(0);
   });
 
   it("handles fan-out inputs (one subgraph input → multiple internal targets)", () => {
@@ -1404,7 +1405,7 @@ describe("convertLitegraphToApi", () => {
               inputNode: { id: -10 },
               outputNode: { id: -20 },
               inputs: [
-                { name: "mode", type: "COMBO", linkIds: [100, 101] },
+                { name: "mode", type: "COMBO", linkIds: [100, 101], label: "Planning mode" },
                 { name: "seed", type: "INT", linkIds: [102] },
               ],
               outputs: [{ name: "AUDIO", type: "AUDIO", linkIds: [103] }],
@@ -1490,6 +1491,15 @@ describe("convertLitegraphToApi", () => {
           { nodeId: Gen!.id, field: "mode" },
           { nodeId: Plan!.id, field: "mode" },
         ],
+      ]);
+    });
+
+    it("records the label of the subgraph input feeding each internal input", () => {
+      const { workflow, subgraphMeta } = convertLitegraphToApi(instanceWorkflow({}), info);
+      const { Gen, Plan } = byClass(workflow);
+      expect([...subgraphMeta.inputLabels]).toEqual([
+        [`${Gen!.id}:mode`, "Planning mode"],
+        [`${Plan!.id}:mode`, "Planning mode"],
       ]);
     });
 

@@ -409,6 +409,16 @@ export function pruneUnreachableNodes(
   return Object.fromEntries(Object.entries(workflow).filter(([id]) => reached.has(id)));
 }
 
+// A subgraph input's label names the knob its author exposed, where the internal field is
+// often a generic `value`.
+function labelName(label: string | undefined): string | undefined {
+  const name = label
+    ?.toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return name && /^[a-z]/.test(name) ? name : undefined;
+}
+
 export function analyzeWorkflow(
   data: unknown,
   subgraphMeta?: SubgraphMeta,
@@ -591,7 +601,9 @@ export function analyzeWorkflow(
               jsonExtractKeyChoices(workflow, nodeId, value))
             : undefined;
         candidates.push({
-          name: isFps ? FPS_KNOB_NAME : field,
+          name: isFps
+            ? FPS_KNOB_NAME
+            : (labelName(subgraphMeta?.inputLabels.get(`${nodeId}:${field}`)) ?? field),
           nodeId,
           field,
           type: typeof value as "string" | "number" | "boolean",

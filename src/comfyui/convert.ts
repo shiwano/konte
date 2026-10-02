@@ -59,6 +59,8 @@ export type SubgraphMeta = {
   // consumer, so these inputs must move together — the adapter generator collapses
   // each group into one input (with the rest as `also` targets).
   sharedPrimitiveGroups: { nodeId: string; field: string }[][];
+  // The label a subgraph author gave the input feeding an internal `${nodeId}:${field}`.
+  inputLabels: Map<string, string>;
 };
 
 const SKIP_NODE_TYPES = new Set([
@@ -85,6 +87,7 @@ export function flattenSubgraphs(workflow: LitegraphWorkflow): {
     internalNodeIds: new Set(),
     inputTargetKeys: new Set(),
     sharedPrimitiveGroups: [],
+    inputLabels: new Map(),
   };
   if (!subgraphs?.length) return { workflow, subgraphMeta: meta };
 
@@ -217,7 +220,9 @@ function expandSubgraphNodes(
         if (inputTargetMeta && sgInput && targetInputEntry) {
           const origNode = sgDef.nodes.find((n) => n.id === iLink.target_id);
           if (origNode && !subgraphMap.has(origNode.type)) {
-            inputTargetMeta.inputTargetKeys.add(`${remappedTargetId}:${targetInputEntry.name}`);
+            const key = `${remappedTargetId}:${targetInputEntry.name}`;
+            inputTargetMeta.inputTargetKeys.add(key);
+            if (sgInput.label) inputTargetMeta.inputLabels.set(key, sgInput.label);
           }
         }
 

@@ -757,6 +757,44 @@ describe("analyzeWorkflow() semantic flag", () => {
   });
 });
 
+describe("analyzeWorkflow() subgraph input labels", () => {
+  const data = {
+    "54": { class_type: "PrimitiveStringMultiline", inputs: { value: "indie pop" } },
+    "47": { class_type: "PrimitiveBoolean", inputs: { value: true } },
+    "46": { class_type: "YuE2GenerateMusic", inputs: { style: ["54", 0], max_duration: 120 } },
+    "10": { class_type: "SaveAudio", inputs: { audio: ["46", 0] } },
+  };
+  const meta = (inputLabels: Map<string, string>) => ({
+    internalNodeIds: new Set(["54", "47", "46"]),
+    inputTargetKeys: new Set(["54:value", "47:value", "46:max_duration"]),
+    sharedPrimitiveGroups: [],
+    inputLabels,
+  });
+
+  it("names an input by the label on the subgraph input that feeds it", () => {
+    const result = analyzeWorkflow(
+      data,
+      meta(
+        new Map([
+          ["54:value", "Style"],
+          ["47:value", "ABC_planning"],
+        ]),
+      ),
+    );
+    expect(result.inputs.style).toMatchObject({ nodeId: "54", field: "value" });
+    expect(result.inputs.abc_planning).toMatchObject({ nodeId: "47", field: "value" });
+    expect(result.inputs.max_duration).toMatchObject({ nodeId: "46" });
+  });
+
+  it("keeps the field name for a label that makes no identifier", () => {
+    const result = analyzeWorkflow(data, meta(new Map([["47:value", "2nd pass"]])));
+    expect(Object.values(result.inputs).find((i) => i.nodeId === "47")).toMatchObject({
+      field: "value",
+    });
+    expect(Object.keys(result.inputs)).not.toContain("2nd_pass");
+  });
+});
+
 describe("pruneUnreachableNodes()", () => {
   const workflow = {
     "1": { class_type: "CLIPTextEncode", inputs: { text: "a cat", clip: ["4", 0] } },
@@ -813,6 +851,7 @@ describe("extractHiddenSubgraphInputs()", () => {
       internalNodeIds: new Set(["10", "20"]),
       inputTargetKeys: new Set(["10:text"]),
       sharedPrimitiveGroups: [],
+      inputLabels: new Map(),
     });
 
     expect(analysis.inputs.topLevelPrompt).toBeDefined(); // not internal
@@ -832,6 +871,7 @@ describe("extractHiddenSubgraphInputs()", () => {
       internalNodeIds: new Set<string>(),
       inputTargetKeys: new Set<string>(),
       sharedPrimitiveGroups: [],
+      inputLabels: new Map(),
     });
     expect(hidden).toEqual({});
     expect(analysis.inputs.a).toBeDefined();
@@ -867,6 +907,7 @@ describe("analyzeWorkflow() shared-primitive collapse", () => {
           { nodeId: "4", field: "seed" },
         ],
       ],
+      inputLabels: new Map(),
     });
 
     // Single `seed` knob (seed-typed primary), no seed0/seed1 split.
@@ -888,6 +929,7 @@ describe("analyzeWorkflow() shared-primitive collapse", () => {
           { nodeId: "5", field: "seconds" },
         ],
       ],
+      inputLabels: new Map(),
     });
 
     expect(result.inputs.duration).toBeDefined();
