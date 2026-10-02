@@ -102,12 +102,21 @@ const PATCHES: Record<string, (workflow: ComfyUIWorkflow) => void> = {
     const samplers = Object.values(workflow).filter((node) => node.class_type === "KSampler");
     if (samplers.length !== 1) throw new Error("Expected one KSampler");
     samplers[0]!.inputs.latent_image = [latent[0], 0];
+    // The template's resolution 0 feeds each reference at its own size, and a `file` reference
+    // can be a 4K still; 1024 bounds every one near the canvas.
+    useLiteralInputs(workflow, "TextEncodeQwenImage21", { prompt: "", resolution: 1024 });
     pruneUnreachable(workflow);
   },
   image_qwen_image_edit_2_1_inpaint: (workflow) => {
     addQwenImage21Reference(workflow);
     useInpaintCropAndStitch(workflow);
+    useLiteralInputs(workflow, "TextEncodeQwenImage21", { prompt: "" });
     pruneUnreachable(workflow);
+  },
+  // Tiled decoding is the guide's out-of-memory remedy, off by default for its seam risk.
+  audio_minimax_music_3: (workflow) => {
+    useLiteralInputs(workflow, "MiniMaxMusic3TextEncode", { caption: "", lyrics: "" });
+    useLiteralInputs(workflow, "ComfySwitchNode", { switch: false });
   }, // The template sizes the latent from a ResolutionSelector (aspect ratio + megapixels); konte
   // renders at the video's canvas, so drive width/height directly instead.
   image_z_image_base: (workflow) => {
@@ -227,6 +236,25 @@ function useLiteralPromptText(
     throw new Error(`Expected exactly one linked-${field} ${classType}, found ${encoders.length}`);
   }
   encoders[0]!.inputs[field] = "";
+}
+
+// Set widget values on the one `classType` node — a template's sample prompt, left as an adapter
+// default, is what an omitted prompt would silently generate.
+function useLiteralInputs(
+  workflow: ComfyUIWorkflow,
+  classType: string,
+  inputs: Record<string, string | number | boolean>,
+): void {
+  const nodes = Object.values(workflow).filter((node) => node.class_type === classType);
+  if (nodes.length !== 1) {
+    throw new Error(`Expected exactly one ${classType}, found ${nodes.length}`);
+  }
+  for (const [field, value] of Object.entries(inputs)) {
+    if (!(field in nodes[0]!.inputs) || Array.isArray(nodes[0]!.inputs[field])) {
+      throw new Error(`${classType}.${field} is not a widget value`);
+    }
+    nodes[0]!.inputs[field] = value;
+  }
 }
 
 // Retype every linked width/height in the graph to literals, for a template that sizes more than
