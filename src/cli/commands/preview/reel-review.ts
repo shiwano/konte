@@ -14,6 +14,11 @@ import {
   formatTimelineStemAddress,
   isStemAddress,
   listCompositionAddresses,
+  listOverlayAddresses,
+  isMaterializedLeafAddress,
+  isOverlayAddress,
+  formatTimelineOverlayAddress,
+  tryParseAddress,
   listStemAddresses,
   parseAddress,
   parseAddressStream,
@@ -38,6 +43,8 @@ import {
   unresolvedLeafRefs,
   type UnresolvedLeafRef,
   materializeCompositionVariant,
+  materializeOverlayVariant,
+  shotAcceptsStand,
   materializedLeafContentHash,
   commitShotStem,
   discardPreparedStem,
@@ -280,6 +287,37 @@ export function timelineStemVerdict(
         decision === "accepted"
           ? unlandedLeafReason(manager, video, { address, what: "the timeline audio stem" })
           : "the timeline audio stem is still accepted — the release did not take",
+    },
+  };
+}
+
+/**
+ * The overlay decision's read-back, as `timelineStemVerdict` reads the beds'. An overlay removed
+ * from the definition mid-review is no outcome.
+ */
+export function overlayVerdict(
+  manager: StateManager,
+  video: StageDefinition,
+  decision: "accepted" | "none",
+): {
+  landed: "accepted" | "none" | undefined;
+  skipped: { address: string; reason: string } | null;
+} {
+  if (!video.overlay) return { landed: undefined, skipped: null };
+  const address = formatTimelineOverlayAddress(video.stage);
+  const settled =
+    decision === "accepted"
+      ? leafLanded(manager, video, address)
+      : manager.getAcceptedVariant(address) === null;
+  if (settled) return { landed: decision, skipped: null };
+  return {
+    landed: undefined,
+    skipped: {
+      address,
+      reason:
+        decision === "accepted"
+          ? unlandedLeafReason(manager, video, { address, what: "the overlay" })
+          : "the overlay is still accepted — the release did not take",
     },
   };
 }
@@ -824,6 +862,27 @@ export async function handleGetReelState(
         })()
       : null;
 
+  // The overlay is signed off by the shot accepts under it; the page offers it on its own only once
+  // they all stand and it still needs review — an overlay changed after them.
+  const overlay = video.overlay
+    ? (() => {
+        const address = formatTimelineOverlayAddress(stage);
+        const definitionHash = definitionHashForAddress(video, address);
+        const status = materializedLeafReviewStatus(manager, address, definitionHash);
+        return {
+          address,
+          duration: video.overlay.duration,
+          definitionHash,
+          ...status,
+          offered: status.needsReview && shotAcceptsStand(manager, video),
+          feedback: buildAddressFeedback(feedbackMgr, manager.getState(), address, {
+            cache: manager.stalenessCache(),
+            definitionHashes: definitionHash ? new Map([[address, definitionHash]]) : new Map(),
+          }),
+        };
+      })()
+    : null;
+
   return jsonResponse({
     mode: stage === "animatic" ? "animatic-preview" : "video-preview",
     fps: plan.fps,
@@ -833,6 +892,7 @@ export async function handleGetReelState(
     audioAssets,
     compositionRefVariants: compositionRefVariantsOf(manager, video, animatic),
     ...(timelineStem ? { timelineStem } : {}),
+    ...(overlay ? { overlay } : {}),
     keep: reelKeepGraph(manager, video, animatic, reference, downstreamVideo),
     ...(handoff?.summary ? { handoffSummary: handoff.summary } : {}),
   });
@@ -1062,6 +1122,7 @@ function compositionRefVariantsOf(
     if (!def) continue;
     for (const shot of def.shots) for (const ref of shot.compositionRefs ?? []) resolve(ref);
     for (const ref of timelineStemRefs(def)) resolve(ref);
+    for (const ref of def.overlay?.compositionRefs ?? []) resolve(ref);
   }
   return out;
 }
@@ -1102,8 +1163,9 @@ function withCommentSubjects<T extends { address: string }>(
       // A composition's accepted take is what the page drew, so it stands in the subject. A stem's
       // is not: the preview mixes one live from the definition, so pointing at the accepted take
       // would age the comment out the moment that take read definition-stale — which is exactly
-      // when the audio changed and someone had reason to comment.
-      if (!isStemAddress(address)) {
+      // when the audio changed and someone had reason to comment. An overlay is drawn live the
+      // same way.
+      if (!isStemAddress(address) && !isOverlayAddress(address)) {
         const variantId = displayedVariants[address];
         if (variantId) variants[address] = variantId;
       }
@@ -1199,6 +1261,7 @@ export async function handleReelSubmit(
     // accept (which finalizes that shot's stem); the beds — spanning the whole video — are signed
     // off here, via `timeline#stem`.
     timelineStemDecision?: unknown;
+    overlayDecision?: unknown;
     notes?: ReviewRecord["notes"];
     addedFeedback?: Array<{
       address: string;
@@ -1231,6 +1294,7 @@ export async function handleReelSubmit(
   // read path (which would drop the whole review).
   const submittedDecisions = payload.data.decisions ?? undefined;
   const timelineStemDecision = payload.data.timelineStemDecision;
+  const submittedOverlayDecision = payload.data.overlayDecision;
 
   const manager = await StateManager.load(videoRoot);
   const video = await reload();
@@ -1299,9 +1363,9 @@ export async function handleReelSubmit(
       })),
       // Stage-level timeline assets — recorded at the variant the reviewer saw, like the shots
       // above: a bed switched in the gallery, or a reroll that landed mid-review, must not make
-      // the record name a variant nobody reviewed. Non-audio beds/overlays are accepted through
-      // the compositions that consume them; audio beds (BGM) are accepted via
-      // `timelineStemDecision` on `timeline#stem`.
+      // the record name a variant nobody reviewed. Non-audio timeline assets (images, logos) are
+      // accepted through the compositions that consume them; audio beds (BGM) are accepted via
+      // `timelineStemDecision` on `timeline#stem`, and the overlay via `overlayDecision`.
       timeline: displayedByAsset(plan.timelineResolvedVariants, (name) =>
         formatTimelineAddress(stage, name),
       ),
@@ -1697,6 +1761,107 @@ export async function handleReelSubmit(
   );
   if (timelineVerdict.skipped) skippedDecisions.push(timelineVerdict.skipped);
 
+  // The overlay is signed off by the shot accepts under it: accepted with the review that leaves
+  // every shot accept standing, or on its own toggle, offered once they all do. Accepting
+  // materializes it and cascades onto what it shows; "none" releases it. Read back the same way as
+  // the beds.
+  let overlayLanded: "accepted" | "none" | undefined;
+  const overlayAddress = formatTimelineOverlayAddress(stage);
+  const overlayDecision =
+    submittedOverlayDecision ??
+    (video.overlay &&
+    Object.values(submittedDecisions ?? {}).includes("accepted") &&
+    shotAcceptsStand(await StateManager.load(videoRoot), video) &&
+    materializedLeafReviewStatus(
+      await StateManager.load(videoRoot),
+      overlayAddress,
+      definitionHashForAddress(video, overlayAddress),
+    ).needsReview
+      ? "accepted"
+      : undefined);
+  if (video.overlay && overlayDecision) {
+    const overlayDef = video.overlay;
+    // What the overlay shows from outside its timeline whose take moved since the page loaded: it
+    // is not accepted here, so the overlay would be built over a picture nobody saw.
+    const moved: string[] = [];
+    await StateManager.withLock(videoRoot, async (mgr) => {
+      try {
+        if (overlayDecision === "accepted") {
+          // The timeline takes the overlay was seen over, accepted first so it is built from them
+          // rather than from a take that landed mid-review. What it shows from another stage is
+          // reached by the cascade below, under the exclusions a shot's out-of-shot refs get.
+          const refs = overlayDef.compositionRefs;
+          const timelineRefs = refs.filter((ref) => {
+            const parsed = tryParseAddress(ref);
+            return (
+              parsed?.stage === stage &&
+              parsed.kind === "timeline" &&
+              !parsed.delivery &&
+              !isMaterializedLeafAddress(ref)
+            );
+          });
+          for (const ref of refs) {
+            if (timelineRefs.includes(ref) || !displayed[ref]) continue;
+            const now = resolveCompositionRef(mgr, ref, { includeStale: true })?.variantId;
+            if (now !== displayed[ref]) moved.push(ref);
+          }
+          if (moved.length > 0) return;
+          for (const ref of timelineRefs) {
+            const sel = displayed[ref];
+            if (!sel) continue;
+            const previousRef = mgr.getAcceptedVariant(ref);
+            mgr.setAccepted(ref, sel, { dismiss: candidates[ref] ?? [] });
+            if (previousRef === sel) continue;
+            acceptedAssets.push(ref);
+            const cascadedRef = await cascadeAcceptConsumedDeps(mgr, jobManager, ref, sel, {
+              video,
+              animatic,
+            });
+            acceptedAssets.push(...cascadedRef);
+            cascadeAccepted.push(
+              ...[ref, ...cascadedRef].map((dep) => ({ address: dep, via: overlayAddress })),
+            );
+          }
+          if (!leafReadyForReview(mgr, video, overlayAddress)) return;
+          const variantId = await materializeOverlayVariant({ manager: mgr, video });
+          if (!variantId) return;
+          const previous = mgr.getAcceptedVariant(overlayAddress);
+          mgr.setAccepted(overlayAddress, variantId);
+          if (previous !== variantId) acceptedAssets.push(overlayAddress);
+          const cascaded = await cascadeAcceptConsumedDeps(
+            mgr,
+            jobManager,
+            overlayAddress,
+            variantId,
+            { video, animatic },
+          );
+          acceptedAssets.push(...cascaded);
+          cascadeAccepted.push(...cascaded.map((dep) => ({ address: dep, via: overlayAddress })));
+        } else {
+          const acceptedId = mgr.getAcceptedVariant(overlayAddress);
+          if (acceptedId) {
+            mgr.setUnaccepted(overlayAddress, acceptedId);
+            unacceptedAssets.push(overlayAddress);
+          }
+        }
+      } catch {
+        // an overlay that will not render is reported by its read-back below
+      }
+    });
+    if (moved.length > 0) {
+      skippedDecisions.push({
+        address: overlayAddress,
+        reason:
+          `the overlay shows ${moved.join(", ")}, whose take changed while the page was open — ` +
+          "reload the review and accept it again",
+      });
+    } else {
+      const verdict = overlayVerdict(await StateManager.load(videoRoot), video, overlayDecision);
+      if (verdict.skipped) skippedDecisions.push(verdict.skipped);
+      overlayLanded = verdict.landed;
+    }
+  }
+
   // After every accept above, so each take is kept against the upstream this review settled.
   const kept: string[] = [];
   const regenerate: string[] = [];
@@ -1719,6 +1884,7 @@ export async function handleReelSubmit(
   };
   if (timelineVerdict.landed) record.timelineStemDecision = timelineVerdict.landed;
   else delete record.timelineStemDecision;
+  if (overlayLanded) record.overlayDecision = overlayLanded;
   if (skippedDecisions.length > 0) record.skippedDecisions = skippedDecisions;
 
   if ((body.addedFeedback?.length ?? 0) > 0 || (body.feedbackPatches?.length ?? 0) > 0) {
@@ -1765,7 +1931,11 @@ export async function handleReelSubmit(
   {
     const postAccept = await StateManager.load(videoRoot);
     const contentHashes: Record<string, string> = {};
-    for (const addr of [...listCompositionAddresses(video), ...listStemAddresses(video)]) {
+    for (const addr of [
+      ...listCompositionAddresses(video),
+      ...listStemAddresses(video),
+      ...listOverlayAddresses(video),
+    ]) {
       const hash = materializedLeafContentHash(postAccept, video, addr);
       if (hash != null) contentHashes[addr] = hash;
     }

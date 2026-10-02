@@ -9,8 +9,7 @@ import {
   assetNameOf,
 } from "./address.js";
 import { computeDefinitionHash } from "./definition-hash.js";
-import { collectShots } from "./direction.js";
-import { resolveDirectionFormat } from "./dsl/direction.js";
+import { resolveDirectionFormat, resolveDirectionTimeline } from "./dsl/direction.js";
 import type { PatchBuild } from "./dsl/patch.js";
 import type { BuildFormat } from "./dsl/shot-context.js";
 import { KonteError, type KonteErrorCode, errorMessage } from "./errors.js";
@@ -392,7 +391,9 @@ async function loadDirectionCanvas(
     : undefined;
   // Every shot, aside included: a patch corrects a take at an address, and an aside has assets to
   // correct like any other video shot.
-  const durations = new Map(collectShots(direction).map((s) => [s.id, s.duration]));
+  const durations = new Map(
+    [...resolveDirectionTimeline(direction).timings].map(([id, t]) => [id, t.duration]),
+  );
   return (sourceAddress) => {
     const parsed = parseAddress(sourceAddress);
     const shotId = parsed.kind === "shot" ? parsed.shotId : null;

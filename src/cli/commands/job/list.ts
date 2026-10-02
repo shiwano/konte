@@ -32,6 +32,8 @@ export function jobTarget(job: JobRecord): string {
       return `node reboot (${job.cnrIds.length})`;
     case "export":
       return "video";
+    case "song-analysis":
+      return `song ${job.address}`;
   }
 }
 

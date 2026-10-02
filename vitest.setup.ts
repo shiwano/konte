@@ -32,6 +32,14 @@ if (!process.env.KONTE_UPDATE_CHECK) process.env.KONTE_UPDATE_CHECK = "0";
 // reachable from workspace setup — pin the override so a stray call can never pull ~150 MB.
 if (!process.env.KONTE_CHROMIUM_PATH) process.env.KONTE_CHROMIUM_PATH = "chrome-headless-shell";
 if (!process.env.KONTE_CLOUDFLARED_PATH) process.env.KONTE_CLOUDFLARED_PATH = "cloudflared";
+// A song take's analysis separates its vocals; pin both halves so no test pulls ~60 MB, and the
+// separation fails into the no-vocals reading instead.
+if (!process.env.KONTE_SHERPA_SEPARATION_PATH) {
+  process.env.KONTE_SHERPA_SEPARATION_PATH = "sherpa-onnx-offline-source-separation";
+}
+if (!process.env.KONTE_SPLEETER_MODEL_DIR) {
+  process.env.KONTE_SPLEETER_MODEL_DIR = path.join(os.tmpdir(), "konte-no-spleeter");
+}
 
 // The e2e suite spawns the real CLI, whose preAction type-checks the scaffolded project — on a
 // cold cache that downloads the managed native tsc from npm. The JS `tsc` takes the same

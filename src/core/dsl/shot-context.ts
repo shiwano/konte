@@ -7,6 +7,7 @@ import {
 } from "../address.js";
 import type { AssetDefinition, Typography } from "../types/index.js";
 import type { MediaKind } from "./builders.js";
+import type { SongSpan } from "./song-window.js";
 
 export type ShotFunction = () => React.ReactElement;
 
@@ -35,6 +36,8 @@ interface ShotContext {
   // Each asset's declared output kind, taken from its adapter. An AssetDefinition does not carry
   // one (a comfy definition names only its workflow), so `shot`'s kind check reads this instead.
   assetKinds: Map<string, MediaKind>;
+  // Each asset built on a stem holding the song, and where on the song that take starts.
+  songSpans: Map<string, SongSpan>;
   resolvedFiles: Map<string, string>;
   absolutePaths: Map<string, string>;
   format?: BuildFormat;
@@ -221,6 +224,7 @@ export function collectPlaceholderRefs(node: unknown): string[] {
 export interface DiscoveryResult {
   assets: Record<string, AssetDefinition>;
   assetKinds: Map<string, MediaKind>;
+  songSpans: Map<string, SongSpan>;
   element: React.ReactElement;
 }
 
@@ -294,6 +298,7 @@ export function runInDiscoveryMode(
     shotId,
     assets: new Map(),
     assetKinds: new Map(),
+    songSpans: new Map(),
     resolvedFiles: new Map(),
     absolutePaths: new Map(),
     format,
@@ -314,7 +319,7 @@ export function runInDiscoveryMode(
     for (const [name, def] of ctx.assets) {
       assets[name] = def;
     }
-    return { assets, assetKinds: ctx.assetKinds, element };
+    return { assets, assetKinds: ctx.assetKinds, songSpans: ctx.songSpans, element };
   } finally {
     currentContext = prev;
     currentTimelineContext = prevTimeline;
@@ -393,6 +398,7 @@ export function runInRenderMode(
     shotId,
     assets: new Map(),
     assetKinds: new Map(),
+    songSpans: new Map(),
     resolvedFiles: new Map(Object.entries(resolvedFiles)),
     absolutePaths: new Map(Object.entries(absolutePaths ?? {})),
   };

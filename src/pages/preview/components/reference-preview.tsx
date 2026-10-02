@@ -38,9 +38,12 @@ import type {
   ReferenceAssetInfo,
   ReferencePreviewState,
   VariantStatus,
+  SongLineEdit,
+  SongReadingInfo,
 } from "../types.js";
 import { AcceptButton } from "./accept-button.js";
 import { CheckIcon, GridIcon, VolumeIcon } from "./icons.js";
+import { SongLineEditsContext, SongSummary, SongTrack, unplacedLineCount } from "./song-track.js";
 import {
   buildPinIndex,
   CommentThread,
@@ -119,6 +122,16 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
     reset: resetKeep,
   } = useKeepChoices();
   const keepGraph = state.keep ?? EMPTY_KEEP_GRAPH;
+  const [songLines, setSongLines] = useState<SongLineEdit[]>([]);
+  const songLineEdits = useMemo(() => {
+    const others = (variantId: string, key: string) =>
+      songLines.filter((e) => e.variantId !== variantId || e.key !== key);
+    return {
+      edits: songLines,
+      place: (edit: SongLineEdit) => setSongLines([...others(edit.variantId, edit.key), edit]),
+      discard: (variantId: string, key: string) => setSongLines(others(variantId, key)),
+    };
+  }, [songLines]);
 
   // Every asset in the order the tables render them — the sequence J/K/N walk.
   const orderedAssets = useMemo(
@@ -149,8 +162,21 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
     return out;
   }, [statusOverrides, state.assets]);
 
+  // Why the take shown at an asset cannot be accepted: a take of the song with a lyric line nobody
+  // placed on it, as this review would leave it.
+  const acceptBlockedOf = useCallback(
+    (asset: ReferenceAssetInfo, variantId: string | null): string | null => {
+      const song = asset.variants.find((v) => v.variantId === variantId)?.song;
+      const unplaced = song ? unplacedLineCount(song, songLines) : 0;
+      return unplaced > 0
+        ? `${unplaced} lyric line(s) are not placed — open the song and drag them onto the track`
+        : null;
+    },
+    [songLines],
+  );
+
   const session = useReviewSession({
-    hasExtraChanges: pendingDecisions.length > 0 || keepChoices.length > 0,
+    hasExtraChanges: pendingDecisions.length > 0 || keepChoices.length > 0 || songLines.length > 0,
   });
   const effectiveVariants = useEffectiveVariants(state.assets, session.selectedVariants);
   const pin = usePendingPin(session);
@@ -184,6 +210,7 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
     (asset: ReferenceAssetInfo, selected: string) => {
       const next: VariantStatus =
         getEffectiveStatus(asset, selected) === "accepted" ? "none" : "accepted";
+      if (next === "accepted" && acceptBlockedOf(asset, selected)) return;
       const mark = { variantId: selected, status: next };
       const apply = () => setStatusOverrides((prev) => ({ ...prev, [asset.address]: mark }));
       if (next === "none") {
@@ -200,7 +227,15 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
       );
       requestKeep(entries, apply, [asset.address]);
     },
-    [getEffectiveStatus, dropKeepUnits, keepContextFor, statusOverrides, keepChoices, requestKeep],
+    [
+      getEffectiveStatus,
+      acceptBlockedOf,
+      dropKeepUnits,
+      keepContextFor,
+      statusOverrides,
+      keepChoices,
+      requestKeep,
+    ],
   );
 
   const regenerateMarks = useMemo(() => {
@@ -232,7 +267,13 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
   // Nothing persists until Submit, so no confirm dialog — each mark stays individually reversible.
   // Every asset it accepts asks through one prompt.
   const handleAcceptAll = useCallback(() => {
-    const next = acceptAll(statusOverrides);
+    const next = { ...acceptAll(statusOverrides) };
+    for (const a of state.assets) {
+      const mark = next[a.address];
+      if (mark?.status !== "accepted" || !acceptBlockedOf(a, mark.variantId)) continue;
+      if (statusOverrides[a.address]) next[a.address] = statusOverrides[a.address]!;
+      else delete next[a.address];
+    }
     const origins = state.assets
       .filter((a) => {
         const shown = effectiveVariants[a.address] ?? a.variantId;
@@ -248,6 +289,7 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
     requestKeep(entries, () => setStatusOverrides(next), units);
   }, [
     acceptAll,
+    acceptBlockedOf,
     statusOverrides,
     state.assets,
     effectiveVariants,
@@ -321,9 +363,10 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
         ...(keepChoices.length > 0
           ? { keep: keepDecisions(keepChoices), regenerate: regenerateDecisions(keepChoices) }
           : {}),
+        ...(songLines.length > 0 ? { songLines } : {}),
       });
     },
-    [pendingDecisions, state.assets, effectiveVariants, keepChoices],
+    [pendingDecisions, state.assets, effectiveVariants, keepChoices, songLines],
   );
   const handleSubmit = session.openSubmit;
 
@@ -389,6 +432,7 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
             disabled: !session.hasPendingChanges,
             onClick: () => {
               setStatusOverrides({});
+              setSongLines([]);
               resetKeep();
               pin.cancelPin();
               setHighlightedFeedbackId(null);
@@ -415,150 +459,156 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
       onConfirmSubmit={() => void session.confirmSubmit(submitReview)}
       onCancelSubmit={session.cancelSubmit}
     >
-      <div className="reference-preview" ref={containerRef}>
-        {GROUPS.map(({ kind, title }) => {
-          const assets = orderedAssets.filter(
-            (a) =>
-              a.mediaKind === kind &&
-              (!session.showChangedOnly || unacceptedAddresses.has(a.address)),
-          );
-          if (assets.length === 0) return null;
-          return (
-            <section key={kind} className="reference-group">
-              <h2 className="reference-group-title">{title}</h2>
-              <table className="review-table-element">
-                <thead>
-                  <tr>
-                    <th className="reference-col-media">Asset</th>
-                    <th className="review-col-feedback">Feedback</th>
-                    <th className="review-col-accept">Accept</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {assets.map((asset) => {
-                    const selectedVariantId = effectiveVariants[asset.address] ?? asset.variantId;
-                    const effectiveStatus = getEffectiveStatus(asset, selectedVariantId);
-                    return (
-                      <ReferenceRow
-                        key={asset.address}
-                        asset={asset}
-                        selectedVariantId={selectedVariantId}
-                        effectiveStatus={effectiveStatus}
-                        focused={focusedAddress === asset.address}
-                        hasOverride={asset.address in statusOverrides}
-                        regenerate={regenerateMarks.get(asset.address)}
-                        onKeepAfterAll={() => keepUnitAfterAll(asset.address)}
-                        onJumpToUnit={scrollToAsset}
-                        pendingFeedback={session.pendingFeedback[asset.address] ?? []}
-                        pendingPin={pin.pinFor(asset.address)}
-                        hideStale={session.hideStale}
-                        deletedFeedbackIds={session.deletedFeedbackIds}
-                        editedTextById={session.editedTextById}
-                        highlightedFeedbackId={highlightedFeedbackId}
-                        onFocus={() => setFocusIdx(orderedAssets.indexOf(asset))}
-                        onHighlightPin={setHighlightedFeedbackId}
-                        onOpenGallery={() => session.setGallery({ address: asset.address })}
-                        onOpenInfo={
-                          selectedVariantId && takeInfo(asset.variants, selectedVariantId)
-                            ? () =>
-                                setInfoTake({
-                                  address: asset.address,
-                                  variantId: selectedVariantId,
-                                })
-                            : undefined
-                        }
-                        onOpenDetail={() => setDetail({ address: asset.address })}
-                        onAccept={(variantId) => handleAcceptRow(asset, variantId)}
-                        onAddPending={(text) => pin.addPending(asset.address, text)}
-                        onRemovePending={(id) => session.removePending(asset.address, id)}
-                        onEditPending={(id, text) => session.editPending(asset.address, id, text)}
-                        onEditExisting={(id, text) => session.editExisting(id, asset.address, text)}
-                        onDeleteExisting={(id) => session.deleteExisting(id, asset.address)}
-                        onPinPlace={(x, y) => pin.placePin(asset.address, x, y)}
-                        onCancelPin={pin.cancelPin}
-                      />
-                    );
-                  })}
-                </tbody>
-              </table>
-            </section>
-          );
-        })}
-
-        {galleryAsset && (
-          <VariantGallery
-            label={galleryAsset.assetName}
-            kind={galleryAsset.mediaKind}
-            variants={galleryAsset.variants}
-            selectedVariantId={effectiveVariants[galleryAsset.address] ?? galleryAsset.variantId}
-            onUse={(variantId) => handleUseVariant(galleryAsset.address, variantId)}
-            onOpenInfo={(variantId) => setInfoTake({ address: galleryAsset.address, variantId })}
-            infoOpen={infoTake !== null}
-            onClose={() => session.setGallery(null)}
-          />
-        )}
-
-        {detailAsset &&
-          !session.gallery &&
-          (() => {
-            const selectedVariantId =
-              effectiveVariants[detailAsset.address] ?? detailAsset.variantId;
-            const effectiveStatus = getEffectiveStatus(detailAsset, selectedVariantId);
-            return (
-              <ReferenceDetailModal
-                asset={detailAsset}
-                selectedVariantId={selectedVariantId}
-                effectiveStatus={effectiveStatus}
-                needsReviewNow={referenceNeedsReview(
-                  detailAsset,
-                  selectedVariantId,
-                  effectiveStatus,
-                )}
-                pendingFeedback={session.pendingFeedback[detailAsset.address] ?? []}
-                pendingPin={pin.pinFor(detailAsset.address)}
-                hideStale={session.hideStale}
-                deletedFeedbackIds={session.deletedFeedbackIds}
-                editedTextById={session.editedTextById}
-                highlightedFeedbackId={highlightedFeedbackId}
-                onHighlightPin={setHighlightedFeedbackId}
-                onClose={() => setDetail(null)}
-                onOpenGallery={() => session.setGallery({ address: detailAsset.address })}
-                onAccept={(variantId) => handleAcceptRow(detailAsset, variantId)}
-                onAddPending={(text) => pin.addPending(detailAsset.address, text)}
-                onRemovePending={(id) => session.removePending(detailAsset.address, id)}
-                onEditPending={(id, text) => session.editPending(detailAsset.address, id, text)}
-                onEditExisting={(id, text) => session.editExisting(id, detailAsset.address, text)}
-                onDeleteExisting={(id) => session.deleteExisting(id, detailAsset.address)}
-                onPinPlace={(x, y) => pin.placePin(detailAsset.address, x, y)}
-                onCancelPin={pin.cancelPin}
-              />
+      <SongLineEditsContext.Provider value={songLineEdits}>
+        <div className="reference-preview" ref={containerRef}>
+          {GROUPS.map(({ kind, title }) => {
+            const assets = orderedAssets.filter(
+              (a) =>
+                a.mediaKind === kind &&
+                (!session.showChangedOnly || unacceptedAddresses.has(a.address)),
             );
-          })()}
-
-        {keepAsking && (
-          <KeepOrRegenerateModal
-            prompt={keepPrompt(keepGraph, keepAsking.entries, "reference")}
-            accepting={keepAsking.origins.length}
-            onAnswer={answerKeep}
-          />
-        )}
-
-        {infoTake &&
-          (() => {
-            const asset = state.assets.find((a) => a.address === infoTake.address);
-            const info = asset && takeInfo(asset.variants, infoTake.variantId);
-            if (!asset || !info) return null;
+            if (assets.length === 0) return null;
             return (
-              <AssetInfoPanel
-                assetName={asset.assetName}
-                address={asset.address}
-                variantId={infoTake.variantId}
-                info={info}
-                onClose={() => setInfoTake(null)}
-              />
+              <section key={kind} className="reference-group">
+                <h2 className="reference-group-title">{title}</h2>
+                <table className="review-table-element">
+                  <thead>
+                    <tr>
+                      <th className="reference-col-media">Asset</th>
+                      <th className="review-col-feedback">Feedback</th>
+                      <th className="review-col-accept">Accept</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assets.map((asset) => {
+                      const selectedVariantId = effectiveVariants[asset.address] ?? asset.variantId;
+                      const effectiveStatus = getEffectiveStatus(asset, selectedVariantId);
+                      return (
+                        <ReferenceRow
+                          key={asset.address}
+                          asset={asset}
+                          selectedVariantId={selectedVariantId}
+                          effectiveStatus={effectiveStatus}
+                          focused={focusedAddress === asset.address}
+                          hasOverride={asset.address in statusOverrides}
+                          regenerate={regenerateMarks.get(asset.address)}
+                          onKeepAfterAll={() => keepUnitAfterAll(asset.address)}
+                          onJumpToUnit={scrollToAsset}
+                          pendingFeedback={session.pendingFeedback[asset.address] ?? []}
+                          pendingPin={pin.pinFor(asset.address)}
+                          hideStale={session.hideStale}
+                          deletedFeedbackIds={session.deletedFeedbackIds}
+                          editedTextById={session.editedTextById}
+                          highlightedFeedbackId={highlightedFeedbackId}
+                          onFocus={() => setFocusIdx(orderedAssets.indexOf(asset))}
+                          onHighlightPin={setHighlightedFeedbackId}
+                          onOpenGallery={() => session.setGallery({ address: asset.address })}
+                          onOpenInfo={
+                            selectedVariantId && takeInfo(asset.variants, selectedVariantId)
+                              ? () =>
+                                  setInfoTake({
+                                    address: asset.address,
+                                    variantId: selectedVariantId,
+                                  })
+                              : undefined
+                          }
+                          onOpenDetail={() => setDetail({ address: asset.address })}
+                          acceptBlocked={acceptBlockedOf(asset, selectedVariantId)}
+                          onAccept={(variantId) => handleAcceptRow(asset, variantId)}
+                          onAddPending={(text) => pin.addPending(asset.address, text)}
+                          onRemovePending={(id) => session.removePending(asset.address, id)}
+                          onEditPending={(id, text) => session.editPending(asset.address, id, text)}
+                          onEditExisting={(id, text) =>
+                            session.editExisting(id, asset.address, text)
+                          }
+                          onDeleteExisting={(id) => session.deleteExisting(id, asset.address)}
+                          onPinPlace={(x, y) => pin.placePin(asset.address, x, y)}
+                          onCancelPin={pin.cancelPin}
+                        />
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </section>
             );
-          })()}
-      </div>
+          })}
+
+          {galleryAsset && (
+            <VariantGallery
+              label={galleryAsset.assetName}
+              kind={galleryAsset.mediaKind}
+              variants={galleryAsset.variants}
+              selectedVariantId={effectiveVariants[galleryAsset.address] ?? galleryAsset.variantId}
+              onUse={(variantId) => handleUseVariant(galleryAsset.address, variantId)}
+              onOpenInfo={(variantId) => setInfoTake({ address: galleryAsset.address, variantId })}
+              infoOpen={infoTake !== null}
+              onClose={() => session.setGallery(null)}
+            />
+          )}
+
+          {detailAsset &&
+            !session.gallery &&
+            (() => {
+              const selectedVariantId =
+                effectiveVariants[detailAsset.address] ?? detailAsset.variantId;
+              const effectiveStatus = getEffectiveStatus(detailAsset, selectedVariantId);
+              return (
+                <ReferenceDetailModal
+                  asset={detailAsset}
+                  selectedVariantId={selectedVariantId}
+                  effectiveStatus={effectiveStatus}
+                  needsReviewNow={referenceNeedsReview(
+                    detailAsset,
+                    selectedVariantId,
+                    effectiveStatus,
+                  )}
+                  pendingFeedback={session.pendingFeedback[detailAsset.address] ?? []}
+                  pendingPin={pin.pinFor(detailAsset.address)}
+                  hideStale={session.hideStale}
+                  deletedFeedbackIds={session.deletedFeedbackIds}
+                  editedTextById={session.editedTextById}
+                  highlightedFeedbackId={highlightedFeedbackId}
+                  onHighlightPin={setHighlightedFeedbackId}
+                  onClose={() => setDetail(null)}
+                  onOpenGallery={() => session.setGallery({ address: detailAsset.address })}
+                  acceptBlocked={acceptBlockedOf(detailAsset, selectedVariantId)}
+                  onAccept={(variantId) => handleAcceptRow(detailAsset, variantId)}
+                  onAddPending={(text) => pin.addPending(detailAsset.address, text)}
+                  onRemovePending={(id) => session.removePending(detailAsset.address, id)}
+                  onEditPending={(id, text) => session.editPending(detailAsset.address, id, text)}
+                  onEditExisting={(id, text) => session.editExisting(id, detailAsset.address, text)}
+                  onDeleteExisting={(id) => session.deleteExisting(id, detailAsset.address)}
+                  onPinPlace={(x, y) => pin.placePin(detailAsset.address, x, y)}
+                  onCancelPin={pin.cancelPin}
+                />
+              );
+            })()}
+
+          {keepAsking && (
+            <KeepOrRegenerateModal
+              prompt={keepPrompt(keepGraph, keepAsking.entries, "reference")}
+              accepting={keepAsking.origins.length}
+              onAnswer={answerKeep}
+            />
+          )}
+
+          {infoTake &&
+            (() => {
+              const asset = state.assets.find((a) => a.address === infoTake.address);
+              const info = asset && takeInfo(asset.variants, infoTake.variantId);
+              if (!asset || !info) return null;
+              return (
+                <AssetInfoPanel
+                  assetName={asset.assetName}
+                  address={asset.address}
+                  variantId={infoTake.variantId}
+                  info={info}
+                  onClose={() => setInfoTake(null)}
+                />
+              );
+            })()}
+        </div>
+      </SongLineEditsContext.Provider>
     </ReviewShell>
   );
 }
@@ -640,11 +690,23 @@ function ReferenceMedia({
   asset,
   variant,
   overlay,
+  onOpenDetail,
 }: {
   asset: ReferenceAssetInfo;
-  variant: { imageUrl: string | null; fileUrl?: string | null };
+  variant: { imageUrl: string | null; fileUrl?: string | null; song?: SongReadingInfo };
   overlay?: React.ReactNode;
+  onOpenDetail: () => void;
 }): React.ReactElement {
+  // A take of the song plays only in its track, under the grid and lines it was read as — what
+  // accepting it signs off.
+  if (asset.mediaKind === "audio" && variant.fileUrl && variant.song) {
+    return (
+      <div className="reference-card-media reference-card-media--audio">
+        <SongSummary song={variant.song} onOpen={onOpenDetail} />
+        {overlay}
+      </div>
+    );
+  }
   if (asset.mediaKind === "audio") {
     return (
       <div className="reference-card-media reference-card-media--audio">
@@ -706,6 +768,7 @@ function ReferenceRow({
   onOpenGallery,
   onOpenInfo,
   onOpenDetail,
+  acceptBlocked,
   onAccept,
   pendingPin,
   onAddPending,
@@ -736,6 +799,8 @@ function ReferenceRow({
   onOpenGallery: () => void;
   onOpenInfo?: () => void;
   onOpenDetail: () => void;
+  // Why the shown take cannot be accepted, or null.
+  acceptBlocked: string | null;
   onAccept: (variantId: string) => void;
   onAddPending: (text: string) => void;
   onRemovePending: (id: string) => void;
@@ -748,9 +813,11 @@ function ReferenceRow({
   // The shown media follows the gallery selection (override), else the resolved variant.
   const shown =
     asset.variants.find((v) => v.variantId === selectedVariantId) ??
+    asset.variants.find((v) => v.variantId === asset.variantId) ??
     ({ imageUrl: asset.imageUrl, fileUrl: asset.fileUrl ?? null } as {
       imageUrl: string | null;
       fileUrl?: string | null;
+      song?: SongReadingInfo;
     });
 
   const isImage = asset.mediaKind === "image";
@@ -798,7 +865,12 @@ function ReferenceRow({
             onPinClick={onHighlightPin}
           />
         ) : (
-          <ReferenceMedia asset={asset} variant={shown} overlay={overlay} />
+          <ReferenceMedia
+            asset={asset}
+            variant={shown}
+            overlay={overlay}
+            onOpenDetail={onOpenDetail}
+          />
         )}
       </td>
 
@@ -852,7 +924,12 @@ function ReferenceRow({
           <AcceptButton
             accepted={effectiveStatus === "accepted"}
             overridden={hasOverride}
-            title={effectiveStatus === "accepted" ? "Click to unaccept" : "Accept this variant"}
+            disabled={effectiveStatus !== "accepted" && acceptBlocked !== null}
+            title={
+              effectiveStatus === "accepted"
+                ? "Click to unaccept"
+                : (acceptBlocked ?? "Accept this variant")
+            }
             onClick={() => onAccept(selectedVariantId)}
           />
         )}
@@ -878,6 +955,7 @@ function ReferenceDetailModal({
   onHighlightPin,
   onClose,
   onOpenGallery,
+  acceptBlocked,
   onAccept,
   onAddPending,
   onRemovePending,
@@ -900,6 +978,7 @@ function ReferenceDetailModal({
   onHighlightPin: (id: string) => void;
   onClose: () => void;
   onOpenGallery: () => void;
+  acceptBlocked: string | null;
   onAccept: (variantId: string) => void;
   onAddPending: (text: string) => void;
   onRemovePending: (id: string) => void;
@@ -911,9 +990,11 @@ function ReferenceDetailModal({
 }): React.ReactElement {
   const shown =
     asset.variants.find((v) => v.variantId === selectedVariantId) ??
+    asset.variants.find((v) => v.variantId === asset.variantId) ??
     ({ imageUrl: asset.imageUrl, fileUrl: asset.fileUrl ?? null } as {
       imageUrl: string | null;
       fileUrl?: string | null;
+      song?: SongReadingInfo;
     });
 
   const pinIndexById = buildPinIndex(asset.feedback, pendingFeedback, {
@@ -923,7 +1004,7 @@ function ReferenceDetailModal({
 
   return (
     <Modal
-      className="reference-detail"
+      className={`reference-detail${asset.mediaKind === "audio" && shown.song ? " reference-detail--song" : ""}`}
       escape="unless-typing"
       onClose={onClose}
       title={
@@ -940,6 +1021,8 @@ function ReferenceDetailModal({
               className={`ctrl-btn reference-accept${
                 effectiveStatus === "accepted" && !needsReviewNow ? " reference-accept--on" : ""
               }`}
+              disabled={effectiveStatus !== "accepted" && acceptBlocked !== null}
+              title={effectiveStatus !== "accepted" ? (acceptBlocked ?? undefined) : undefined}
               onClick={() => onAccept(selectedVariantId)}
             >
               <CheckIcon size={13} /> {effectiveStatus === "accepted" ? "Accepted" : "Accept"}
@@ -972,6 +1055,8 @@ function ReferenceDetailModal({
             />
           ) : !shown.fileUrl ? (
             <span className="reference-card-empty">No media</span>
+          ) : asset.mediaKind === "audio" && shown.song ? (
+            <SongTrack fileUrl={shown.fileUrl} song={shown.song} />
           ) : asset.mediaKind === "audio" ? (
             <div className="reference-detail-audio">
               <span className="reference-card-audio-glyph">

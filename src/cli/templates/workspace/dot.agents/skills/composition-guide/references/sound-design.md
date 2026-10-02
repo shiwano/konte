@@ -9,10 +9,11 @@
 
 ## Where music enters and leaves
 
-- **Enter on a beat, never at frame zero by default** — the lens's turn (`disruption` / `violation` / `solution`) or the first shot of a build; opening on ambience alone makes the entrance an event.
+- **A piece cut to a song skips this section** → [song.md](song.md).
+- **Enter on a turn, never at frame zero by default** — the lens's turn (`disruption` / `violation` / `solution`) or the first shot of a build; opening on ambience alone makes the entrance an event.
 - **Change on the hinge** — the payoff gets its own cue or a lift (a second bed, a stronger section via `mediaStart`).
 - **Resolve on the last cut or after it** — a bed that runs to the last frame and stops mid-phrase reads as a broken file; `fadeOut` of a second or more, or end it on the last cut and let ambience carry the final image.
-- **Silence is a cue** — pulling every bed out for one beat (before the hit, on the reveal) lands harder than any swell. Once per piece.
+- **Silence is a cue** — pulling every bed out for a moment (before the hit, on the reveal) lands harder than any swell. Once per piece.
 - **One score identity** — every cue from one adapter and one prompt lineage (`prompt-guide`); a second style is a second piece.
 
 ## Under dialogue
@@ -28,7 +29,7 @@ soundtracks: [
 
 - **It is only audible on the reel** — a bed is in no shot's `#stem`, so the duck shows in `konte preview` and `konte probe reel-audio`, not in a shot's own review.
 - **Ambience never drops** — it is the floor; a floor that moves with the lines is heard as a pump. Write `duck: false` for it.
-- **No SE on a line's syllables** — unless the action is the line's point; shift the cue to the breath before or the beat after.
+- **No SE on a line's syllables** — unless the action is the line's point; shift the cue to the breath before or the pause after.
 
 ## Across cuts
 
@@ -45,4 +46,4 @@ soundtracks: [
 
 ## Verify
 
-- `konte probe reel-audio video` — no ⚠ silence at the head or the tail; every SE inside its shot's window on the frame it names; beds entering and leaving on the beats chosen; the floor present under every shot.
+- `konte probe reel-audio video` — no ⚠ silence at the head or the tail; every SE inside its shot's window on the frame it names; beds entering and leaving on the moments chosen; the floor present under every shot.

@@ -105,7 +105,7 @@ export default defineDirection({
       },
     ],
     waivers: {
-      "missing-beat_before": "The piece opens at planning, with no prior state to show.",
+      "missing-role_before": "The piece opens at planning, with no prior state to show.",
       "too-few-consecutive_rhythm": "A compressed three-shot showcase.",
       // The board is anchored on a blank latent, not on the studio reference. Wiring it instead would
       // put a studio asset in the reference stage of every suite that swaps this one out — and those

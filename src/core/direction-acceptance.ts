@@ -41,7 +41,12 @@ export type DirectionSectionStatus = DirectionPartStatus;
 // frame; `policy.format` is the size and fps, where a mistake is expensive. Everything else — the
 // shots, the arc, the rosters — reaches a human as a panel, a shot or a `reference:<id>` image, so
 // once the piece has been signed off whole, the reviews of that media are the reading that counts.
-const PIECE_WIDE_SECTIONS: ReadonlySet<DirectionSection> = new Set(["brief", "policy", "waivers"]);
+const PIECE_WIDE_SECTIONS: ReadonlySet<DirectionSection> = new Set([
+  "brief",
+  "policy",
+  "lyrics",
+  "waivers",
+]);
 
 // A deleted waiver owes no reader: removing one only puts its finding back in front of the machine
 // check, so its orphaned sign-off neither blocks nor is kept.

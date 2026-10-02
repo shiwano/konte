@@ -2,6 +2,8 @@ import type { MediaAsset, NarrationStem } from "../builders.js";
 import { assertAudioGain } from "../../audio-gain.js";
 import { applyLevelGain } from "../../audio-level.js";
 import { getRenderContext } from "../../jsx-html.js";
+import { KonteError } from "../../errors.js";
+import { songSpanOf } from "../song-window.js";
 
 type AudioElementProps = React.ComponentPropsWithoutRef<"audio">;
 
@@ -58,6 +60,14 @@ export function Audio({
   // The ceiling is checked against what the AUTHOR declared, never the levelled result.
   assertAudioGain(gain, `Shot "${getRenderContext().shotId}" <Audio${id ? ` id="${id}"` : ""}>`);
   const levelled = applyLevelGain(src.src, gain);
+  if (songSpanOf(src)) {
+    throw new KonteError(
+      "SONG_DOUBLED",
+      `Shot "${getRenderContext().shotId}" <Audio${id ? ` id="${id}"` : ""}> plays a stem or ` +
+        `take holding the song, which the song bed already plays. Place the shot's lines ` +
+        `themselves: <Audio src={animatic.shot(id).audio("<name>")}>.`,
+    );
+  }
 
   return (
     <audio

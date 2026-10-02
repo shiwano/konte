@@ -474,6 +474,7 @@ describe("cutin and graphic hashes", () => {
       id: "02",
       role: "ordinary",
       duration: 4,
+      beats: null,
       action: "screen 02",
       script: [],
       telop: [],

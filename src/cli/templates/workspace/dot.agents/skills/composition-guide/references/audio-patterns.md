@@ -32,6 +32,8 @@ soundtracks: [
 
 ## The spoken lines live on the animatic
 
+**On a piece cut to a song, the video places them again** → [song.md](song.md).
+
 **A shot the direction gives `script` lines must sound them there** (`SCRIPT_UNVOICED` at load otherwise) — an `<Audio>` per line in that shot's `animatic.tsx` composition. konte mixes the shot's cues, narration apart, into `animatic:shot.<id>#stem` — the one audio file an audio-driven model takes; play its take with `<Video hasAudio>`.
 
 - **Leave a line take's clip length unset** — konte sizes it from the words and holds it inside the window the `<Audio>` plays in. Set it by hand only after hearing a take that came back rushed or padded.

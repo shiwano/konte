@@ -1,6 +1,7 @@
 import { ratioOf } from "../../../core/aspect.js";
 import {
   DIRECTION_BRIEF_FIELDS,
+  DIRECTION_LYRICS_ADDRESS,
   DIRECTION_NARRATOR_ADDRESS,
   DIRECTION_ROOT_PATH,
   type DirectionSection,
@@ -18,14 +19,18 @@ import {
   isDirectionBriefListField,
 } from "../../../core/address.js";
 import { errorResponse, jsonResponse, parseJsonBody } from "../../page-host/http.js";
-import { loadAnimaticSetupState, loadStagingStageState } from "../../load-definition.js";
+import {
+  loadAnimaticSetupState,
+  loadStagingStageState,
+  loadSongTakeState,
+} from "../../load-definition.js";
 import {
   checkDirection,
   directionWaiverEntries,
   directionWaiverKey,
   resolveLens,
 } from "../../../core/direction.js";
-import { BEAT_FUNCTION_LABEL, PLEASURE_GLOSS } from "../../../core/lenses.js";
+import { ROLE_FUNCTION_LABEL, PLEASURE_GLOSS } from "../../../core/lenses.js";
 import { directionHash, directionPartHashes } from "../../../core/direction-hash.js";
 import {
   type DirectionAcceptanceSummary,
@@ -43,10 +48,18 @@ import type {
   Pleasure,
   Shot,
 } from "../../../core/dsl/direction.js";
-import { isAsideShot, isGraphicShot, resolveDirectionFormat } from "../../../core/dsl/direction.js";
-import type { BeatFunction } from "../../../core/direction-check.js";
+import {
+  isAsideShot,
+  isGraphicShot,
+  lyricText,
+  resolveDirectionFormat,
+  resolveDirectionTimeline,
+  singersOf,
+} from "../../../core/dsl/direction.js";
+import type { RoleFunction } from "../../../core/direction-check.js";
 import type {
   DirectionPolicyFieldInfo,
+  DirectionLyricsInfo,
   DirectionSequenceInfo,
   DirectionVoiceInfo,
 } from "../../../pages/preview/types.js";
@@ -93,6 +106,7 @@ export async function handleGetDirectionState(
     referenceAssetNames: reference?.exposedAssetNames ?? [],
     animaticSetups: await loadAnimaticSetupState(videoRoot, direction),
     stagingStage: await loadStagingStageState(videoRoot, direction),
+    songTake: await loadSongTakeState(videoRoot, direction),
   });
   const currentHash = directionHash(direction);
   const acceptanceView = directionAcceptanceView(direction, manager.getDirectionAcceptance());
@@ -117,8 +131,15 @@ export async function handleGetDirectionState(
   // The shot table's frame and space columns are read through the shot's setup — the reviewer reads
   // the size cadence down one and the space cadence down the other, and neither is declared per shot.
   const frameOf = shotFrameResolver(direction);
-  const beatFunctionOf = (lensName: string, role: string): BeatFunction | null =>
-    resolveLens(lensName, direction.lenses)?.beats.find((b) => b.role === role)?.fn ?? null;
+  const roleFunctionOf = (lensName: string, role: string): RoleFunction | null =>
+    resolveLens(lensName, direction.lenses)?.roles.find((b) => b.role === role)?.fn ?? null;
+
+  const clock = direction.policy.clock ?? null;
+  const timings = resolveDirectionTimeline(direction).timings;
+  const spanOf = (s: Shot) => ({
+    duration: timings.get(s.id)?.duration ?? 0,
+    beats: clock ? (s.beats ?? null) : null,
+  });
 
   // `nodePath` is the field path of the node the shot sits in — a shot is reviewed where it is
   // declared, so its address hangs off its owner rather than off the root.
@@ -131,7 +152,7 @@ export async function handleGetDirectionState(
         aside: true,
         graphic: false,
         beatFunction: null,
-        beatFunctionLabel: null,
+        roleFunctionLabel: null,
         action: s.label,
         setup: null,
         framing: null,
@@ -142,11 +163,11 @@ export async function handleGetDirectionState(
         join: null,
         cutin: null,
         telop: [...(s.telop ?? [])],
-        duration: s.duration,
+        ...spanOf(s),
         ...partView(formatDirectionShotAddress(nodePath, s.id)),
       };
     }
-    const fn = beatFunctionOf(lensName, s.role);
+    const fn = roleFunctionOf(lensName, s.role);
     const own = isGraphicShot(s) ? null : s;
     const cutin = s.cutin
       ? {
@@ -164,7 +185,7 @@ export async function handleGetDirectionState(
       graphic: own === null,
       // Drives the direction map's colors and the arc line's height.
       beatFunction: fn,
-      beatFunctionLabel: fn ? BEAT_FUNCTION_LABEL[fn] : null,
+      roleFunctionLabel: fn ? ROLE_FUNCTION_LABEL[fn] : null,
       action: s.action,
       setup: own ? frameOf(own.setup).setupName : null,
       framing: own ? frameOf(own.setup).framing : null,
@@ -179,14 +200,14 @@ export async function handleGetDirectionState(
       cutin,
       // The shot's unspoken on-screen text. Bare strings — telop carries no speaker to resolve.
       telop: [...(s.telop ?? [])],
-      duration: s.duration,
+      ...spanOf(s),
       ...partView(formatDirectionShotAddress(nodePath, s.id)),
     };
   };
 
   const pleasureView = (name: Pleasure) => ({ name, gloss: PLEASURE_GLOSS[name] });
 
-  // A child node's view: its own beat function (read off its PARENT's lens, which orders it),
+  // A child node's view: its own role function (read off its PARENT's lens, which orders it),
   // pleasure, and body — its shots (checked against this node's lens) or its child sequences
   // (recursively). Exactly one body is present, mirroring the DirectionNode it comes from.
   const mapChildNode = (
@@ -194,12 +215,12 @@ export async function handleGetDirectionState(
     parentLens: string,
     parentPath: readonly string[],
   ): DirectionSequenceInfo => {
-    const fn = node.role ? beatFunctionOf(parentLens, node.role) : null;
+    const fn = node.role ? roleFunctionOf(parentLens, node.role) : null;
     const nodePath = directionChildNodePath(parentPath, node.id ?? "");
     return {
       id: node.id ?? "",
       beatFunction: fn,
-      beatFunctionLabel: fn ? BEAT_FUNCTION_LABEL[fn] : null,
+      roleFunctionLabel: fn ? ROLE_FUNCTION_LABEL[fn] : null,
       synopsis: node.synopsis ?? "",
       pleasure: pleasureView(node.pleasure),
       ...partView(formatDirectionSequenceAddress(nodePath)),
@@ -253,6 +274,17 @@ export async function handleGetDirectionState(
       speech: direction.policy.speech,
       ...partView(formatDirectionPolicyAddress("speech")),
     },
+    ...(clock
+      ? [
+          {
+            field: "clock" as const,
+            song: clock.song,
+            bpm: clock.bpm,
+            beatsPerBar: clock.beatsPerBar,
+            ...partView(formatDirectionPolicyAddress("clock")),
+          },
+        ]
+      : []),
   ];
 
   // Only waived findings reach the page. An unwaived finding — or a structure error — blocks
@@ -293,6 +325,25 @@ export async function handleGetDirectionState(
     gatingSections: directionGatingSections(manager.getDirectionAcceptance()),
     brief: briefFields(direction.brief ?? {}),
     policy: policyFields,
+    beatsPerBar: clock?.beatsPerBar ?? null,
+    ...(direction.lyrics
+      ? {
+          lyrics: {
+            sections: direction.lyrics.map((section) => ({
+              label: section.label,
+              singer: singersOf(section.singer).map((id) => characterNameById.get(id) ?? id),
+              lines: section.lines.map((line) => ({
+                text: lyricText(line),
+                singer:
+                  typeof line === "string"
+                    ? null
+                    : singersOf(line.singer).map((id) => characterNameById.get(id) ?? id),
+              })),
+            })),
+            ...partView(DIRECTION_LYRICS_ADDRESS),
+          } satisfies DirectionLyricsInfo,
+        }
+      : {}),
     sequence: partView(formatDirectionSequenceAddress(DIRECTION_ROOT_PATH)),
     characters: Object.entries(direction.characters ?? {}).map(([id, c]) => ({
       id,

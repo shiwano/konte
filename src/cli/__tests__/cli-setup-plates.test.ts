@@ -29,7 +29,7 @@ export default defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioWindow"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } } }, lang: "en", speech: "free" },
-  lenses: [defineLens({ name: "two-beat", payoff: "beat", beats: [{ role: "beat" }, { role: "beat" }] })],
+  lenses: [defineLens({ name: "two-beat", payoff: "beat", roles: [{ role: "beat" }, { role: "beat" }] })],
   sequence: {
     lens: "two-beat",
     pleasure: "cute",
@@ -220,7 +220,7 @@ export default defineDirection({
     side: { name: "s", description: "from the side", location: "studio", framing: "wide", holds: ["studioDoor"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } } }, lang: "en", speech: "free" },
-  lenses: [defineLens({ name: "four", payoff: "beat", beats: [{ role: "beat" }, { role: "beat" }, { role: "beat" }, { role: "beat" }] })],
+  lenses: [defineLens({ name: "four", payoff: "beat", roles: [{ role: "beat" }, { role: "beat" }, { role: "beat" }, { role: "beat" }] })],
   sequence: {
     lens: "four",
     pleasure: "cute",

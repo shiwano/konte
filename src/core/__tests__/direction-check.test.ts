@@ -45,7 +45,7 @@ describe("checkArc", () => {
 
   it("flags a missing required beat", () => {
     const items = [shot("01", "ordinary", 3), shot("03", "pressure", 3), shot("04", "hero", 4)];
-    const finding = checkArc(miniDrama, items).find((f) => f.code === "missing-beat");
+    const finding = checkArc(miniDrama, items).find((f) => f.code === "missing-role");
     expect(finding?.subject).toBe("disruption");
   });
 
@@ -65,7 +65,7 @@ describe("checkArc", () => {
       shot("03", "hero", 4),
       shot("04", "pressure", 3),
     ];
-    const finding = checkArc(miniDrama, items).find((f) => f.code === "beat-out-of-order");
+    const finding = checkArc(miniDrama, items).find((f) => f.code === "role-out-of-order");
     expect(finding?.subject).toBe("hero");
   });
 
@@ -282,7 +282,7 @@ describe("checkArc at the sequence scale (meta arc)", () => {
   it("weaves the noun into messages so a sequence arc reads as one", () => {
     const items = [seq("act1", "setup-act", 10), seq("act3", "climax-act", 10)];
     const finding = checkArc(threeAct, items, { noun: "sequence" }).find(
-      (f) => f.code === "missing-beat",
+      (f) => f.code === "missing-role",
     );
     expect(finding?.message).toContain("confrontation-act sequence");
     expect(finding?.message).not.toContain("shot");
@@ -320,7 +320,7 @@ describe("the built-in lens catalog", () => {
   it.each(BUILTIN_LENSES.map((l) => [l.name, l] as const))(
     "%s declares a payoff beat that performs the payoff function",
     (_name, lens) => {
-      const payoffBeat = lens.beats.find((b) => b.role === lens.payoff);
+      const payoffBeat = lens.roles.find((b) => b.role === lens.payoff);
       expect(payoffBeat).toBeDefined();
       expect(payoffBeat?.fn).toBe("payoff");
     },
@@ -329,9 +329,9 @@ describe("the built-in lens catalog", () => {
   it.each(BUILTIN_LENSES.map((l) => [l.name, l] as const))(
     "%s earns its payoff — something grounds, turns, or builds before it",
     (_name, lens) => {
-      const before = lens.beats.slice(
+      const before = lens.roles.slice(
         0,
-        lens.beats.findIndex((b) => b.role === lens.payoff),
+        lens.roles.findIndex((b) => b.role === lens.payoff),
       );
       expect(before.some((b) => b.fn === "ground" || b.fn === "turn" || b.fn === "build")).toBe(
         true,
@@ -342,7 +342,7 @@ describe("the built-in lens catalog", () => {
   it.each(BUILTIN_LENSES.map((l) => [l.name, l] as const))(
     "%s declares a function on every beat — a lens of container beats is a lens with no rules",
     (_name, lens) => {
-      expect(lens.beats.filter((b) => b.fn === undefined)).toEqual([]);
+      expect(lens.roles.filter((b) => b.fn === undefined)).toEqual([]);
     },
   );
 });
@@ -355,7 +355,7 @@ describe("checkArc act-ratio pacing (share)", () => {
       seq("act3", "climax-act", 6), // 6 / 56 ≈ 11% < 15%
     ];
     const finding = checkArc(threeAct, items, { noun: "sequence" }).find(
-      (f) => f.code === "beat-underweight",
+      (f) => f.code === "role-underweight",
     );
     expect(finding?.subject).toBe("climax-act");
   });
@@ -367,7 +367,7 @@ describe("checkArc act-ratio pacing (share)", () => {
       seq("act3", "climax-act", 20),
     ];
     const finding = checkArc(threeAct, items, { noun: "sequence" }).find(
-      (f) => f.code === "beat-overweight",
+      (f) => f.code === "role-overweight",
     );
     expect(finding?.subject).toBe("setup-act");
   });
@@ -377,10 +377,10 @@ describe("checkArc act-ratio pacing (share)", () => {
     const lens: LensSpec<string> = {
       name: "l",
       payoff: "hero",
-      beats: [{ role: "setup", maxShare: 0.4 }],
+      roles: [{ role: "setup", maxShare: 0.4 }],
     };
     const items = [shot("01", "setup", 2), shot("02", "setup", 2), shot("03", "hero", 1)];
-    const finding = checkArc(lens, items).find((f) => f.code === "beat-overweight");
+    const finding = checkArc(lens, items).find((f) => f.code === "role-overweight");
     expect(finding?.subject).toBe("setup");
   });
 });
@@ -401,7 +401,7 @@ describe("checkArc function checks (per-lens beat fn)", () => {
     const hollow: LensSpec<string> = {
       name: "hollow",
       payoff: "peak",
-      beats: [{ role: "peak", fn: "payoff" }],
+      roles: [{ role: "peak", fn: "payoff" }],
     };
     const items = [shot("01", "peak", 3)];
     const finding = checkArc(hollow, items).find((f) => f.code === "unearned-payoff");
@@ -412,7 +412,7 @@ describe("checkArc function checks (per-lens beat fn)", () => {
     const twoBeat: LensSpec<string> = {
       name: "two-beat",
       payoff: "peak",
-      beats: [
+      roles: [
         { role: "atmosphere", fn: "ground" },
         { role: "peak", fn: "payoff" },
       ],
@@ -425,7 +425,7 @@ describe("checkArc function checks (per-lens beat fn)", () => {
     const container: LensSpec<string> = {
       name: "one-act",
       payoff: "whole",
-      beats: [{ role: "whole" }],
+      roles: [{ role: "whole" }],
     };
     const items = [seq("act1", "whole", 20)];
     expect(checkArc(container, items, { noun: "sequence" })).toEqual([]);
@@ -435,7 +435,7 @@ describe("checkArc function checks (per-lens beat fn)", () => {
     const hollow: LensSpec<string> = {
       name: "hollow",
       payoff: "peak",
-      beats: [{ role: "peak" }],
+      roles: [{ role: "peak" }],
     };
     expect(checkArc(hollow, [shot("01", "peak", 3)])).toEqual([]);
   });

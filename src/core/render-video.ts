@@ -1,3 +1,4 @@
+import { mixedSoundtracks } from "./song-bed.js";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 
@@ -13,6 +14,7 @@ import {
 } from "./address.js";
 import { asideSlugHtml } from "./aside-slug.js";
 import { injectBaseTimeline } from "./composition-builder.js";
+import { injectOverlay, renderOverlayBody } from "./overlay-render.js";
 import { resolveCompositionRef, substituteAssetPlaceholders } from "./composition-refs.js";
 import { planShotById } from "./shot-index.js";
 import { assertTailwindClasses } from "./tailwind-classes.js";
@@ -45,8 +47,8 @@ import {
 } from "./ffmpeg.js";
 import { loadReferenceDefinition, loadAnimaticDefinition } from "./loader.js";
 import { compositeWithHyperFrames, ensureHyperFrames } from "./hyperframes.js";
-import { renderToHtml } from "./jsx-html.js";
-import type { Typography } from "./types/definition.js";
+import { escapeHtml, renderToHtml } from "./jsx-html.js";
+import type { OverlayDefinition, StageDefinition, Typography } from "./types/definition.js";
 import { inferMediaType } from "./media-type.js";
 import { buildRenderPlan, type RenderPlan, type ShotRenderPlan } from "./render-plan.js";
 import { Semaphore } from "./semaphore.js";
@@ -290,9 +292,9 @@ export async function renderVideoToFile(opts: {
     );
   }
 
-  // An audio source may still be a placeholder at the mux — a `<Soundtrack src={reference.bgm}/>`
-  // bed, a `<Sound src={reference.sfx}/>` cue pulled in by closure, or a `<Video src={shot(…).x}
-  // hasAudio>` stem. Only a shot's own assets are resolved by the render pass; resolve the rest
+  // An audio source may still be a placeholder at the mux — a `soundtrack("bgm", reference.bgm)`
+  // bed, the song bed, an `<Audio src={reference.sfx}>` cue pulled in by closure, or a
+  // `<Video src={shot(…).x} hasAudio>` stem. Only a shot's own assets are resolved by the render pass; resolve the rest
   // from state here. A src that is not a placeholder (a real file path) is returned untouched.
   const resolveAssetSrc = (src: string): string => {
     const assetPath = parsePlaceholder(src);
@@ -443,7 +445,7 @@ export async function renderVideoToFile(opts: {
       plan,
       size: plan.size,
       renderShotInputs: frameTimelineRun?.shots ?? null,
-      soundtracks: frameTimelineRun?.soundtracks ?? null,
+      soundtracks: mixedSoundtracks(video, frameTimelineRun?.soundtracks),
       originalShotFiles,
       shotFileById: frameShotFileById,
       finalOutput,
@@ -515,6 +517,7 @@ export async function renderVideoToFile(opts: {
       )
     : null;
   const renderShotInputs = timelineRun?.shots ?? null;
+  const overlay = renderOverlayOf(video, timelineRun);
 
   // Shot renders are independent — each writes its own shots/<id>.mp4 from a fresh render
   // workspace — so a small pool keeps a few Chromium captures in flight instead of paying
@@ -540,6 +543,8 @@ export async function renderVideoToFile(opts: {
           renderShotInputs,
           manager,
           shots: plan.shots,
+          ...(overlay ? { overlay } : {}),
+          timelineFiles: plan.timelineResolvedFiles,
         });
 
         return { shotOutputFile, warnings: [...shotPlan.warnings, ...renderWarnings] };
@@ -563,7 +568,7 @@ export async function renderVideoToFile(opts: {
     plan,
     size: plan.size,
     renderShotInputs,
-    soundtracks: timelineRun?.soundtracks ?? null,
+    soundtracks: mixedSoundtracks(video, timelineRun?.soundtracks),
     originalShotFiles,
     shotFileById: new Map(plan.shots.map((s, i) => [s.shotId, shotOutputFiles[i]!] as const)),
     finalOutput,
@@ -600,7 +605,7 @@ export async function renderVideoToFile(opts: {
   return { outputFile: finalOutput, warnings: allWarnings };
 }
 
-// Lay the composition's standalone audio (`<Soundtrack>`/`<Sound>`/`<Video hasAudio>`) over the
+// Lay the composition's standalone audio (the beds, `<Audio>`, `<Video hasAudio>`) over the
 // concatenated picture in a single mux pass, replacing `finalOutput` in place. Audio is never
 // baked per shot, so this is what gives the final video its sound — seam-free and upscale-safe.
 // No-op when the composition has no audio.
@@ -608,7 +613,7 @@ async function applyTimelineAudio(opts: {
   plan: RenderPlan;
   size: { width: number; height: number };
   renderShotInputs: Array<{ id: string; fn: () => React.ReactElement }> | null;
-  soundtracks: ReadonlyArray<SoundtrackEntry> | null;
+  soundtracks: ReadonlyArray<SoundtrackEntry>;
   originalShotFiles: Map<
     string,
     { resolvedFiles: Record<string, string>; fallbackFile: string | null }
@@ -634,7 +639,7 @@ async function applyTimelineAudio(opts: {
   // asset (`reference.bgm`) it is still a `__konte:reference:…__` placeholder here, so resolve it to
   // its on-disk file before the mux; from/until anchors resolve to absolute time in
   // buildTimelineTracks against the ffprobed shot durations.
-  const resolvedSoundtracks: ResolvedSoundtrack[] = (soundtracks ?? []).map((st) => ({
+  const resolvedSoundtracks: ResolvedSoundtrack[] = soundtracks.map((st) => ({
     id: st.id,
     file: resolveAssetSrc(st.src.src),
     from: st.options.from,
@@ -774,14 +779,15 @@ export async function renderShotCompositeToFile(opts: {
   await ensureHyperFrames();
   await ensureFfmpeg();
 
-  const renderShotInputs = plan.timelineFn
+  const timelineRun = plan.timelineFn
     ? runTimelineInRenderMode(
         "video",
         () => plan.timelineFn!({ format: { size: plan.size, fps: plan.fps } }),
         plan.timelineResolvedFiles,
         plan.timelineResolvedFiles,
-      ).shots
+      )
     : null;
+  const overlay = renderOverlayOf(video, timelineRun);
 
   const fs = await import("node:fs/promises");
   await fs.mkdir(path.dirname(outputFile), { recursive: true });
@@ -791,9 +797,11 @@ export async function renderShotCompositeToFile(opts: {
     size: plan.size, // working size — no delivery applied
     typography: plan.typography,
     videoRoot,
-    renderShotInputs,
+    renderShotInputs: timelineRun?.shots ?? null,
     manager,
     shots: plan.shots,
+    ...(overlay ? { overlay } : {}),
+    timelineFiles: plan.timelineResolvedFiles,
   });
 }
 
@@ -880,6 +888,11 @@ export function buildShotRenderInputs(
     renderShotInputs: Array<{ id: string; fn: () => React.ReactElement }> | null;
     // Every shot of the render plan, delivery substitutions already applied. See siblingShotFile.
     shots: readonly ShotRenderPlan[];
+    // The timeline's overlay, and its build as the render-mode timeline run hands it back.
+    overlay?: RenderOverlay;
+    // The timeline's own assets by name. The timeline runs in render mode with their absolute paths,
+    // so a layer showing one carries that path until it is staged here.
+    timelineFiles?: Record<string, string>;
   },
 ): ShotRenderInputs {
   const { size, crop, typography, manager, renderShotInputs, shots } = options;
@@ -906,7 +919,54 @@ export function buildShotRenderInputs(
     typography,
     ...(crop ? { crop } : {}),
   });
-  compositionHtml = substituteAssetPlaceholders(compositionHtml, (assetPath) => {
+  compositionHtml = layOverlaysAndStage(compositionHtml, shotPlan, assetFiles, {
+    size,
+    typography,
+    manager,
+    shots,
+    ...(options.overlay ? { overlay: options.overlay } : {}),
+    ...(options.timelineFiles ? { timelineFiles: options.timelineFiles } : {}),
+  });
+  // Register a base gsap timeline so the capture engine's sub-composition
+  // handshake resolves immediately for compositions without an <Animate>.
+  compositionHtml = injectBaseTimeline(compositionHtml, shotPlan.shotId, shotPlan.duration);
+
+  return { compositionHtml, assetFiles };
+}
+
+// The overlay over a shot's span, laid over its picture before any placeholder is substituted, so
+// a reference the overlay shows is staged like the shot's own; then every file the document names is
+// staged into `assetFiles` under the name it is served by.
+function layOverlaysAndStage(
+  compositionHtml: string,
+  shotPlan: ShotRenderPlan,
+  assetFiles: Record<string, string>,
+  options: {
+    size: { width: number; height: number };
+    typography: Typography;
+    manager: StateManager;
+    shots: readonly ShotRenderPlan[];
+    overlay?: RenderOverlay;
+    timelineFiles?: Record<string, string>;
+  },
+): string {
+  const { size, typography, manager, shots, overlay } = options;
+  let html = compositionHtml;
+  if (overlay) {
+    html = injectOverlay(html, {
+      body: renderOverlayBody({
+        stage: shotPlan.stage,
+        overlay: overlay.definition,
+        fn: overlay.fn,
+        size,
+        typography,
+        resolvedFiles: {},
+      }),
+      shotStart: overlay.shotStarts.get(shotPlan.shotId) ?? 0,
+      shotDuration: shotPlan.duration,
+    });
+  }
+  html = substituteAssetPlaceholders(html, (assetPath) => {
     const file =
       siblingShotFile(shots, assetPath) ?? resolveCompositionRef(manager, assetPath)?.file;
     if (!file) return null;
@@ -914,11 +974,14 @@ export function buildShotRenderInputs(
     assetFiles[name] = file;
     return name;
   });
-  // Register a base gsap timeline so the capture engine's sub-composition
-  // handshake resolves immediately for compositions without an <Animate>.
-  compositionHtml = injectBaseTimeline(compositionHtml, shotPlan.shotId, shotPlan.duration);
-
-  return { compositionHtml, assetFiles };
+  for (const [assetName, file] of Object.entries(options.timelineFiles ?? {})) {
+    const attr = `="${escapeHtml(file)}"`;
+    if (!html.includes(attr)) continue;
+    const name = refFileName(formatTimelineAddress(shotPlan.stage, assetName), file);
+    html = html.replaceAll(attr, `="${name}"`);
+    assetFiles[name] = file;
+  }
+  return html;
 }
 
 async function renderShotPlan(
@@ -934,6 +997,8 @@ async function renderShotPlan(
     renderShotInputs: Array<{ id: string; fn: () => React.ReactElement }> | null;
     manager: StateManager;
     shots: readonly ShotRenderPlan[];
+    overlay?: RenderOverlay;
+    timelineFiles?: Record<string, string>;
   },
 ): Promise<string[]> {
   const { outputFile, fps, size, crop, typography, videoRoot, manager, renderShotInputs, shots } =
@@ -942,7 +1007,16 @@ async function renderShotPlan(
   if (shotPlan.shotFn) {
     const { compositionHtml, assetFiles } = buildShotRenderInputs(
       shotPlan as ShotRenderPlan & { shotFn: ShotFunction },
-      { size, crop, typography, manager, renderShotInputs, shots },
+      {
+        size,
+        crop,
+        typography,
+        manager,
+        renderShotInputs,
+        shots,
+        ...(options.overlay ? { overlay: options.overlay } : {}),
+        ...(options.timelineFiles ? { timelineFiles: options.timelineFiles } : {}),
+      },
     );
     await assertTailwindClasses([
       { label: formatCompositionAddress(shotPlan.stage, shotPlan.shotId), html: compositionHtml },
@@ -980,21 +1054,31 @@ async function renderShotPlan(
     }
   } else if (shotPlan.aside) {
     // An aside on the stage that does not board it. The span is real and has to be filled, so konte
-    // renders its own labelled slug through the same capture path a shot takes.
+    // renders its own labelled slug through the same capture path a shot takes, under the overlay.
+    const assetFiles: Record<string, string> = {};
+    const slug = layOverlaysAndStage(
+      asideSlugHtml({
+        shotId: shotPlan.shotId,
+        label: shotPlan.action,
+        duration: shotPlan.duration,
+        size,
+        typography,
+      }),
+      shotPlan,
+      assetFiles,
+      {
+        size,
+        typography,
+        manager,
+        shots,
+        ...(options.overlay ? { overlay: options.overlay } : {}),
+        ...(options.timelineFiles ? { timelineFiles: options.timelineFiles } : {}),
+      },
+    );
     return await compositeWithHyperFrames({
       onLog: options.onLog,
-      compositionHtml: injectBaseTimeline(
-        asideSlugHtml({
-          shotId: shotPlan.shotId,
-          label: shotPlan.action,
-          duration: shotPlan.duration,
-          size,
-          typography,
-        }),
-        shotPlan.shotId,
-        shotPlan.duration,
-      ),
-      assetFiles: {},
+      compositionHtml: injectBaseTimeline(slug, shotPlan.shotId, shotPlan.duration),
+      assetFiles,
       outputFile,
       videoRoot,
       fps,
@@ -1119,5 +1203,30 @@ export function buildManifest(
       warnings: shotPlan.warnings,
     })),
     warnings: allWarnings,
+  };
+}
+
+// The timeline's overlay and its render-mode build, for the shots it is laid over.
+type RenderOverlay = {
+  definition: OverlayDefinition;
+  fn: ShotFunction;
+  // Each shot's start on the whole timeline: a plan scoped to one shot does not carry it.
+  shotStarts: ReadonlyMap<string, number>;
+};
+
+function renderOverlayOf(
+  video: StageDefinition,
+  timelineRun: { overlay?: ShotFunction } | null,
+): RenderOverlay | undefined {
+  if (!video.overlay) return undefined;
+  return {
+    definition: video.overlay,
+    fn: timelineRun?.overlay ?? video.overlay.fn,
+    shotStarts: new Map(
+      video.shots.map((shot, i) => [
+        shot.id,
+        video.shots.slice(0, i).reduce((sum, s) => sum + s.duration, 0),
+      ]),
+    ),
   };
 }

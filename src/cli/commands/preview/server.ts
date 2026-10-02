@@ -18,7 +18,8 @@ import {
 } from "../../page-host/http.js";
 import { findLatestHandoff, loadHandoff } from "../../../core/loader.js";
 import { loadPreviewDefinitions, reloadStageDefinition } from "./load-definitions.js";
-import type { Handoff } from "../../../core/types/index.js";
+import { KonteStateSchema, type Handoff } from "../../../core/types/index.js";
+import { songReadingsOf } from "../../../core/song-take.js";
 import { REVIEW_DIR } from "../../../core/review-record.js";
 import { StateManager } from "../../../core/state/index.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
@@ -449,6 +450,9 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
 
   // A formatter hook or a checkout rewrites the file without changing the state in it.
   let stateSignature = await readStateSignature(videoRoot);
+  // The song a definition places its cuts and lyrics by: a state write that moves it is a
+  // definition change.
+  let songReading = await readSongReading(videoRoot);
 
   const watcher = fs.watch(videoRoot, { recursive: true }, (_event, filename) => {
     if (!filename) return;
@@ -465,6 +469,12 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
         const signature = await readStateSignature(videoRoot);
         if (signature === null || signature === stateSignature) return;
         stateSignature = signature;
+        const reading = await readSongReading(videoRoot);
+        if (reading !== songReading) {
+          songReading = reading;
+          await reloadDefinitions();
+          return;
+        }
         broadcastWs({ type: "state-changed" });
       }, STATE_DEBOUNCE_MS);
       return;
@@ -481,29 +491,31 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
     }
 
     if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(async () => {
-      try {
-        ({ reference, animatic, direction, video } = await loadPreviewDefinitions({
-          videoRoot,
-          videoPath,
-          mode,
-          reload: true,
-        }));
-        if (handoffPath) {
-          try {
-            handoff = await loadHandoff(handoffPath);
-          } catch {
-            // keep previous notes if the file is mid-edit / invalid
-          }
-        }
-        broadcastWs({ type: "reload" });
-      } catch (err) {
-        const message = errorMessage(err);
-        broadcastWs({ type: "error", payload: { error: message } });
-        console.error("Reload failed:", message);
-      }
-    }, DEBOUNCE_MS);
+    debounceTimer = setTimeout(() => void reloadDefinitions(), DEBOUNCE_MS);
   });
+
+  async function reloadDefinitions(): Promise<void> {
+    try {
+      ({ reference, animatic, direction, video } = await loadPreviewDefinitions({
+        videoRoot,
+        videoPath,
+        mode,
+        reload: true,
+      }));
+      if (handoffPath) {
+        try {
+          handoff = await loadHandoff(handoffPath);
+        } catch {
+          // keep previous notes if the file is mid-edit / invalid
+        }
+      }
+      broadcastWs({ type: "reload" });
+    } catch (err) {
+      const message = errorMessage(err);
+      broadcastWs({ type: "error", payload: { error: message } });
+      console.error("Reload failed:", message);
+    }
+  }
 
   const origShutdown = shutdown;
   const wrappedShutdown = origShutdown.then((result) => {
@@ -514,6 +526,16 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
   });
 
   return { server, shutdown: wrappedShutdown, triggerShutdown };
+}
+
+async function readSongReading(videoRoot: string): Promise<string> {
+  try {
+    const raw = await fs.promises.readFile(path.join(videoRoot, "konte.state.json"), "utf-8");
+    const parsed = KonteStateSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? songReadingsOf(parsed.data) : "";
+  } catch {
+    return "";
+  }
 }
 
 // Null while the file is absent or half-written in place; the write's next event settles it.

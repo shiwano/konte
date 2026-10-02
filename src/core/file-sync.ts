@@ -109,6 +109,7 @@ async function syncFileAssetsForDefinition(
         variant.decidedAt = null;
         // Whatever was recorded described the bytes that just got swapped out.
         await measure(variant);
+        delete variant.song;
         changed.push(address);
       } else if (measureMedia && !variant.media) {
         // Same bytes, never measured — synced by a read-only command. Fill it in now.

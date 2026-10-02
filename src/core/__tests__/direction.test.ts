@@ -122,7 +122,7 @@ function leaf(opts: {
 // A one-act container lens. No built-in declares a function-less beat — opting out of the arc
 // engine is a project's own `defineLens` call — so a test that wants a branch root wrapping a single
 // act brings its own.
-const ONE_ACT = defineLens({ name: "one-act", payoff: "whole", beats: [{ role: "whole" }] });
+const ONE_ACT = defineLens({ name: "one-act", payoff: "whole", roles: [{ role: "whole" }] });
 
 // Build a branch-root direction (a meta lens over child act nodes).
 function branch(opts: {
@@ -233,9 +233,9 @@ describe("validateDirectionStructure", () => {
     const dir = leaf({
       lens: "broken",
       shots: [shot("01", "hero")],
-      lenses: [{ name: "broken", payoff: "release", beats: [{ role: "hero" }] }],
+      lenses: [{ name: "broken", payoff: "release", roles: [{ role: "hero" }] }],
     });
-    expect(validateDirectionStructure(dir).map((e) => e.code)).toContain("payoff-not-in-beats");
+    expect(validateDirectionStructure(dir).map((e) => e.code)).toContain("payoff-not-in-roles");
   });
 
   it("flags a custom lens whose declared payoff is not a payoff-function role", () => {
@@ -245,7 +245,7 @@ describe("validateDirectionStructure", () => {
       lens: "vibes",
       shots: [shot("01", "atmosphere")],
       lenses: [
-        { name: "vibes", payoff: "atmosphere", beats: [{ role: "atmosphere", fn: "ground" }] },
+        { name: "vibes", payoff: "atmosphere", roles: [{ role: "atmosphere", fn: "ground" }] },
       ],
     });
     const err = validateDirectionStructure(dir).find((e) => e.code === "payoff-function-mismatch");
@@ -608,18 +608,18 @@ describe("checkDirection waivers", () => {
   it("moves a waived finding out of active and into waived", () => {
     const dir = leaf({
       shots: [shot("01", "ordinary"), shot("03", "pressure"), shot("04", "hero")],
-      waivers: { "missing-beat_disruption": "intentional unbroken loop" },
+      waivers: { "missing-role_disruption": "intentional unbroken loop" },
     });
     const { active, waived } = checkDirection(dir);
-    expect(active.map((f) => f.code)).not.toContain("missing-beat");
-    expect(waived.map(directionWaiverKey)).toContain("missing-beat_disruption");
+    expect(active.map((f) => f.code)).not.toContain("missing-role");
+    expect(waived.map(directionWaiverKey)).toContain("missing-role_disruption");
   });
 
   it("flags a waiver whose finding is gone as stale", () => {
     const dir = withWaivers(completeMiniDrama, {
-      "missing-beat_disruption": "stale — disruption now exists",
+      "missing-role_disruption": "stale — disruption now exists",
     });
-    expect(checkDirection(dir).staleWaivers.map((w) => w.key)).toContain("missing-beat_disruption");
+    expect(checkDirection(dir).staleWaivers.map((w) => w.key)).toContain("missing-role_disruption");
   });
 
   it("does not flag a completeness waiver stale on a direction-only pass", () => {
@@ -630,17 +630,17 @@ describe("checkDirection waivers", () => {
   });
 
   it("fails a waiver key whose code is written with underscores, naming the key meant", () => {
-    const dir = withWaivers(completeMiniDrama, { beat_overweight_problem: "deliberate overrun" });
+    const dir = withWaivers(completeMiniDrama, { role_overweight_problem: "deliberate overrun" });
     const errors = validateDirectionStructure(dir).filter((e) => e.code === "waiver-unknown-code");
     expect(errors).toHaveLength(1);
-    expect(errors[0]?.subject).toBe("beat_overweight_problem");
-    expect(errors[0]?.message).toContain('"beat-overweight_problem"');
+    expect(errors[0]?.subject).toBe("role_overweight_problem");
+    expect(errors[0]?.message).toContain('"role-overweight_problem"');
   });
 
   it("passes a correctly keyed waiver, subject-less or with a subject", () => {
     const dir = withWaivers(completeMiniDrama, {
       "no-payoff": "cold open",
-      "missing-beat_disruption": "intentional unbroken loop",
+      "missing-role_disruption": "intentional unbroken loop",
     });
     expect(validateDirectionStructure(dir).filter((e) => e.code === "waiver-unknown-code")).toEqual(
       [],
@@ -662,7 +662,7 @@ describe("defineLens (custom lenses)", () => {
     const tutorial = defineLens({
       name: "tutorial",
       payoff: "completion",
-      beats: [
+      roles: [
         { role: "before", fn: "ground" },
         { role: "method", fn: "build" },
         { role: "completion", fn: "payoff" },
@@ -682,7 +682,7 @@ describe("defineLens (custom lenses)", () => {
     const tutorial = defineLens({
       name: "tutorial",
       payoff: "completion",
-      beats: [
+      roles: [
         { role: "before", fn: "ground" },
         { role: "method", fn: "build" },
         { role: "completion", fn: "payoff" },
@@ -694,14 +694,14 @@ describe("defineLens (custom lenses)", () => {
       shots: [shot("01", "before", 3), shot("03", "completion", 4)],
       lenses: [tutorial],
     });
-    expect(checkDirection(dir).active.map((f) => f.code)).toContain("missing-beat");
+    expect(checkDirection(dir).active.map((f) => f.code)).toContain("missing-role");
   });
 
   it("registers a custom lens resolved at the meta (sequence) scale", () => {
     const twoAct = defineLens({
       name: "two-act",
       payoff: "climax-act",
-      beats: [
+      roles: [
         { role: "setup-act", fn: "ground" },
         { role: "climax-act", fn: "payoff" },
       ],
@@ -727,7 +727,7 @@ describe("defineLens (custom lenses)", () => {
     const bad = defineLens({
       name: "bad",
       payoff: "hero",
-      beats: [{ role: "hero", maxShare: 1.5 }],
+      roles: [{ role: "hero", maxShare: 1.5 }],
     });
     const dir = leaf({ lens: "bad", shots: [shot("01", "hero")], lenses: [bad] });
     expect(validateDirectionStructure(dir).map((e) => e.code)).toContain("invalid-share");
@@ -737,7 +737,7 @@ describe("defineLens (custom lenses)", () => {
     const bad = defineLens({
       name: "bad",
       payoff: "hero",
-      beats: [{ role: "hero", minShare: 0.8, maxShare: 0.2 }],
+      roles: [{ role: "hero", minShare: 0.8, maxShare: 0.2 }],
     });
     const dir = leaf({ lens: "bad", shots: [shot("01", "hero")], lenses: [bad] });
     expect(validateDirectionStructure(dir).map((e) => e.code)).toContain("invalid-share");
@@ -751,13 +751,13 @@ describe("assertDirectionGate", () => {
     });
     expect(() =>
       assertDirectionGate(dir, { command: "generate", stage: "video", directionAccepted: true }),
-    ).toThrow(/missing-beat_disruption/);
+    ).toThrow(/missing-role_disruption/);
   });
 
   it("passes once the arc hole is waived", () => {
     const dir = leaf({
       shots: [shot("01", "ordinary", 3), shot("03", "pressure", 2), shot("04", "hero", 4)],
-      waivers: { "missing-beat_disruption": "ok" },
+      waivers: { "missing-role_disruption": "ok" },
     });
     expect(() =>
       assertDirectionGate(dir, { command: "generate", stage: "video", directionAccepted: true }),
@@ -902,7 +902,7 @@ describe("checkDirection meta arc (sequenced)", () => {
       seq("act3", "climax-act", "c", 1),
     ]);
     const finding = checkDirection(dir).active.find(
-      (f) => f.code === "missing-beat" && f.subject === "confrontation-act",
+      (f) => f.code === "missing-role" && f.subject === "confrontation-act",
     );
     // The meta arc is the root node, so its findings carry the root's field path — a child node's
     // would read ["sequence", "sequences", "act1"].
@@ -912,11 +912,11 @@ describe("checkDirection meta arc (sequenced)", () => {
   it("waives a meta-arc finding via the root waivers", () => {
     const dir = threeActDirection(
       [seq("act1", "setup-act", "a", 1), seq("act3", "climax-act", "c", 1)],
-      { "missing-beat_confrontation-act": "folded into act1" },
+      { "missing-role_confrontation-act": "folded into act1" },
     );
     const res = checkDirection(dir);
     expect(res.active.map((f) => f.subject)).not.toContain("confrontation-act");
-    expect(res.waived.map(directionWaiverKey)).toContain("missing-beat_confrontation-act");
+    expect(res.waived.map(directionWaiverKey)).toContain("missing-role_confrontation-act");
   });
 
   it("flags a thin payoff act from derived durations (act-ratio)", () => {
@@ -927,27 +927,27 @@ describe("checkDirection meta arc (sequenced)", () => {
     ]);
     expect(
       checkDirection(dir).active.some(
-        (f) => f.code === "beat-underweight" && f.subject === "climax-act",
+        (f) => f.code === "role-underweight" && f.subject === "climax-act",
       ),
     ).toBe(true);
   });
 
   it("does not flag a valid meta-arc waiver stale on a direction-only pass", () => {
     const dir = threeActDirection(balancedSequences, {
-      "missing-beat_confrontation-act": "stale?",
+      "missing-role_confrontation-act": "stale?",
     });
     // balanced HAS confrontation-act, so this waiver has no finding — it is genuinely stale, and a
     // direction-only pass evaluates the arc class, so it must be reported (the guard is for classes NOT run).
     expect(checkDirection(dir).staleWaivers.map((w) => w.key)).toContain(
-      "missing-beat_confrontation-act",
+      "missing-role_confrontation-act",
     );
   });
 
   it("reports an unknown-code node waiver as a structural error, not as stale", () => {
-    const dir = threeActDirection(balancedSequences, { "missing-beats_x": "typo" });
+    const dir = threeActDirection(balancedSequences, { "missing-roles_x": "typo" });
     const { structureErrors, staleWaivers } = checkDirection(dir, { referenceAssetNames: [] });
     expect(structureErrors.filter((e) => e.code === "waiver-unknown-code")).toHaveLength(1);
-    expect(staleWaivers.map((w) => w.key)).not.toContain("missing-beats_x");
+    expect(staleWaivers.map((w) => w.key)).not.toContain("missing-roles_x");
   });
 });
 
@@ -956,7 +956,7 @@ describe("checkDirection function checks", () => {
     const hollow = defineLens({
       name: "hollow",
       payoff: "peak",
-      beats: [{ role: "peak", fn: "payoff" }],
+      roles: [{ role: "peak", fn: "payoff" }],
     });
     const dir = leaf({
       lens: "hollow",
@@ -1912,9 +1912,9 @@ describe("reportableDirectionFindings", () => {
 
 describe("classifyDirectionFinding", () => {
   it("maps codes to their classes", () => {
-    expect(classifyDirectionFinding("missing-beat")).toBe("arc");
+    expect(classifyDirectionFinding("missing-role")).toBe("arc");
     expect(classifyDirectionFinding("unearned-payoff")).toBe("arc");
-    expect(classifyDirectionFinding("beat-overweight")).toBe("pacing");
+    expect(classifyDirectionFinding("role-overweight")).toBe("pacing");
     expect(classifyDirectionFinding("stage-order-mismatch")).toBe("stage");
     expect(classifyDirectionFinding("unrealized")).toBe("completeness");
     expect(classifyDirectionFinding("character-unreferenced")).toBe("characters");

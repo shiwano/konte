@@ -1342,7 +1342,7 @@ describe("the shot a direction declares", () => {
     defineDirection({
       ...directionDefaults,
       lenses: [
-        defineLens({ name: "mini-drama", payoff: "peak", beats: [{ role: "peak", fn: "payoff" }] }),
+        defineLens({ name: "mini-drama", payoff: "peak", roles: [{ role: "peak", fn: "payoff" }] }),
       ],
       sequence: {
         lens: "mini-drama",

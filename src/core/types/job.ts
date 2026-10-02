@@ -57,12 +57,16 @@ export type VendorBackendKind = z.infer<typeof VendorBackendKindSchema>;
 //   to a delivered MP4. It is the leaf of the dependency graph — nothing
 //   depends on its output — so it needs no address; it consumes the resolved layer
 //   and #delivery assets it depends on. Run by `run-export-job`, like a model download.
+// - "song-analysis": a standalone job that reads one take of the song `policy.clock` counts on —
+//   its tempo, bar heads, section boundaries and sung stretches — and records them on that
+//   variant (`song`). Queued when the take lands; run by `run-song-analysis-job`.
 export const JobKindSchema = z.enum([
   "generation",
   "comfy-model-download",
   "comfy-node-install",
   "comfy-node-activate",
   "export",
+  "song-analysis",
 ]);
 export type JobKind = z.infer<typeof JobKindSchema>;
 
@@ -169,12 +173,26 @@ export const ExportJobSchema = JobRecordBaseSchema.extend({
   planDigest: z.string().nullable().default(null),
 });
 
+export const SongAnalysisJobSchema = JobRecordBaseSchema.extend({
+  kind: z.literal("song-analysis"),
+  // The take it reads, where it lives, and the bytes it was queued for: a take whose file was
+  // replaced in place is read again.
+  address: z.string(),
+  variantId: JobIdSchema,
+  outputHash: z.string().nullable().default(null),
+  // The clock the direction declared when the job was queued: the tempo is searched near `bpm`,
+  // and bar heads counted in `beatsPerBar`.
+  bpm: z.number().positive(),
+  beatsPerBar: z.number().int().positive(),
+});
+
 export const JobRecordSchema = z.discriminatedUnion("kind", [
   GenerationJobSchema,
   ComfyModelDownloadJobSchema,
   ComfyNodeInstallJobSchema,
   ComfyNodeActivateJobSchema,
   ExportJobSchema,
+  SongAnalysisJobSchema,
 ]);
 
 export type GenerationJob = z.infer<typeof GenerationJobSchema>;
@@ -182,5 +200,6 @@ export type ComfyModelDownloadJob = z.infer<typeof ComfyModelDownloadJobSchema>;
 export type ComfyNodeInstallJob = z.infer<typeof ComfyNodeInstallJobSchema>;
 export type ComfyNodeActivateJob = z.infer<typeof ComfyNodeActivateJobSchema>;
 export type ExportJob = z.infer<typeof ExportJobSchema>;
+export type SongAnalysisJob = z.infer<typeof SongAnalysisJobSchema>;
 export type JobRecord = z.infer<typeof JobRecordSchema>;
 export type JobRecordInput = z.input<typeof JobRecordSchema>;

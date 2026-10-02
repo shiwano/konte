@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { Command } from "commander";
-import { collectShots } from "../../core/direction.js";
+import { resolveDirectionTimeline } from "../../core/dsl/direction.js";
 import { KonteError } from "../../core/errors.js";
 import { formatRelativeTime } from "../../core/format-timestamp.js";
 import {
@@ -78,7 +78,7 @@ async function buildDigest(videoRoot: string, name: string): Promise<VideoDigest
   const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
   // Every shot, aside included — this is the clock, and it has to agree with what `konte export`
   // reports for the same piece.
-  const shots = direction ? collectShots(direction) : [];
+  const timings = direction ? [...resolveDirectionTimeline(direction).timings.values()] : [];
 
   const review = await loadLatestReviewRecord(videoRoot);
   const exports = (await new JobManager(videoRoot).listJobs({ status: "completed" })).filter(
@@ -90,8 +90,8 @@ async function buildDigest(videoRoot: string, name: string): Promise<VideoDigest
     video: name,
     state: "selected",
     logline: direction?.brief.logline ?? null,
-    shots: shots.length,
-    runtimeSeconds: shots.reduce((total, shot) => total + shot.duration, 0),
+    shots: timings.length,
+    runtimeSeconds: timings.reduce((total, shot) => total + shot.duration, 0),
     lastReview: review ? { scope: reviewStage(review), at: review.createdAt } : null,
     lastExport: lastExport
       ? { scope: "video", at: lastExport.completedAt ?? lastExport.createdAt }

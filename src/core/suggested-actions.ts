@@ -215,14 +215,13 @@ function suggestStaleRefresh(
   staleAddresses: string[],
   deterministicStaleAddresses: string[],
   spendBlocked: (address: string) => boolean,
+  isLeaf: (address: string) => boolean,
 ): void {
   // Only an address a command can name. Every real stage is, so this catches nothing but an
   // address that will not parse.
   const refreshable = staleAddresses.filter((addr) => stageScope(addr) !== null);
-  const compositions = refreshable.filter(isMaterializedLeafAddress);
-  const assets = refreshable
-    .filter((addr) => !isMaterializedLeafAddress(addr))
-    .filter((addr) => !spendBlocked(addr));
+  const compositions = refreshable.filter(isLeaf);
+  const assets = refreshable.filter((addr) => !isLeaf(addr)).filter((addr) => !spendBlocked(addr));
 
   suggestCompositionReReview(actions, compositions);
 
@@ -241,18 +240,31 @@ function suggestStaleRefresh(
 // `directionReviewNeeded` is the caller's (status) `gateSatisfied`, not `complete`: a part that
 // changed after the piece was accepted whole is shown on the review page but is not a step, and
 // offering one would send the reviewer to re-read what the stage reel already showed them.
+//
+// A piece cut to a song is written after it: while the song has no accepted take, an empty direction
+// is not the next thing to write — the song is the next thing to make and hear.
 function prependDirectionReview(
   actions: SuggestedAction[],
   needed: boolean | undefined,
   empty: boolean | undefined,
+  song: SongPending | undefined,
 ): void {
   if (!needed) return;
   if (empty) {
     actions.unshift({
       command: null,
       label: "edit",
-      details: ["Write your direction in direction.ts"],
+      details: [
+        song
+          ? `Write the shots in direction.ts, each counted in beats, once ${song.address} is accepted`
+          : "Write your direction in direction.ts",
+      ],
     });
+    if (song) {
+      actions.unshift({
+        command: song.hasTake ? "konte preview reference" : "konte generate reference",
+      });
+    }
     return;
   }
   actions.unshift({ command: "konte preview direction" });
@@ -546,6 +558,12 @@ interface SuggestStatusInput {
   unacceptedCast?: readonly UnacceptedCastRef[];
   /** True when the direction declares no shots yet — the step points at authoring, not reviewing. */
   directionEmpty?: boolean;
+  /** The song `policy.clock` counts on, while no take of it is accepted. */
+  songPending?: SongPending;
+  /** Takes of the song waiting to be read — their analysis jobs run under `konte job wait`. */
+  songReadingsPending?: boolean;
+  /** Takes of the song no job is reading — `konte song analyze` reads them. */
+  songUnread?: boolean;
   /** Stages whose spend the upstream-acceptance gate would refuse — a board or a sheet they consume lacks an accepted variant. */
   upstreamReviewBlockedStages?: readonly string[];
   /** Stages whose spend the prompt gate would refuse, each with the file holding its prompts. */
@@ -560,6 +578,12 @@ interface SuggestStatusInput {
    */
   feedbackAddresses?: readonly string[];
 }
+
+export type SongPending = {
+  address: string;
+  // Whether a take exists to hear — otherwise the song is still to be generated.
+  hasTake: boolean;
+};
 
 export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   const { state } = input;
@@ -620,6 +644,7 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
     [...(input.staleAddresses ?? [])],
     [...(input.deterministicStaleAddresses ?? [])],
     addressBlocked,
+    isMaterializedLeafAddress,
   );
 
   // A pending patch is unrealized declared work, so it is offered like a generate — and gated the
@@ -645,7 +670,16 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   // shot is judged against.
   prependAnimaticRetimes(actions, input.animaticOverflows ?? []);
   prependCastGate(actions, state, input.unacceptedCast);
-  prependDirectionReview(actions, input.directionReviewNeeded, input.directionEmpty);
+  prependDirectionReview(
+    actions,
+    input.directionReviewNeeded,
+    input.directionEmpty,
+    input.songPending,
+  );
+  // Ahead of the song's review: the review page lays the take's beats and lines over it, and a
+  // take not read yet has neither.
+  if (input.songReadingsPending) actions.unshift({ command: "konte job wait" });
+  if (input.songUnread) actions.unshift({ command: "konte song analyze" });
   prependDirectionFindings(actions, input.directionBlock, input.directionEmpty);
   prependPromptFindings(actions, input.promptBlockedStages ?? []);
   return dedupeCommands(actions);

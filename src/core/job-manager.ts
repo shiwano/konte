@@ -14,6 +14,7 @@ import {
   type ComfyNodeDeclaration,
   type ComfyNodeInstallJob,
   type ExportJob,
+  type SongAnalysisJob,
   type GenerationJob,
   type JobRecord,
   type JobRecordInput,
@@ -338,6 +339,64 @@ export class JobManager {
     };
     this.write(job);
     return job;
+  }
+
+  /**
+   * Ensure the analysis job for one take of the song exists. Keyed by the variant, so a take is
+   * read once whoever asks: an existing job is left as it is, whatever its status — a failed one
+   * says so in its log, and reading it again is `konte song analyze`'s, which passes `again`.
+   */
+  async ensureSongAnalysisJob(opts: {
+    address: string;
+    variantId: string;
+    outputHash: string | null;
+    bpm: number;
+    beatsPerBar: number;
+    again?: boolean;
+  }): Promise<SongAnalysisJob> {
+    await this.ensureDirs();
+    const id = `song-${opts.variantId}`;
+    // Read and write in one transaction: two callers queueing the same take converge on one job
+    // rather than one resetting the job the other already started.
+    return this.transaction(() => {
+      const existing = this.read(id);
+      if (
+        existing?.kind === "song-analysis" &&
+        !opts.again &&
+        existing.outputHash === opts.outputHash &&
+        existing.bpm === opts.bpm &&
+        existing.beatsPerBar === opts.beatsPerBar
+      ) {
+        return existing;
+      }
+      const now = new Date().toISOString();
+      const job: SongAnalysisJob = {
+        kind: "song-analysis",
+        id,
+        status: "pending",
+        backendKind: "local",
+        address: opts.address,
+        variantId: opts.variantId,
+        outputHash: opts.outputHash,
+        bpm: opts.bpm,
+        beatsPerBar: opts.beatsPerBar,
+        dependsOnJobs: [],
+        lease: null,
+        sourceFingerprint: null,
+        staleReleases: 0,
+        progress: null,
+        error: null,
+        metadata: {},
+        createdAt: now,
+        startedAt: null,
+        processingStartedAt: null,
+        updatedAt: now,
+        completedAt: null,
+        unconfirmedSince: null,
+      };
+      this.write(job);
+      return job;
+    });
   }
 
   /**

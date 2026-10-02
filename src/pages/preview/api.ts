@@ -1,5 +1,5 @@
 import type { KeepEntry, KeepTake } from "./review/keep-or-regenerate.js";
-import type { DirectionSection, PreviewState } from "./types.js";
+import type { DirectionSection, PreviewState, SongLineEdit } from "./types.js";
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options);
@@ -62,6 +62,7 @@ export function submitReview(
   // a caller that omits the whole object would compile and then 400.
   extra: {
     timelineStemDecision?: "accepted" | "none";
+    overlayDecision?: "accepted" | "none";
     // Where each comment was written, and nothing about what it was written against: the endpoint
     // derives the subject from the definition and the whole-view snapshots below, so a page cannot
     // narrow it to the assets one of its own arrays happens to hold.
@@ -186,6 +187,8 @@ export function submitReferenceReview(payload: {
   overallComment?: string;
   keep?: KeepEntry[];
   regenerate?: KeepTake[];
+  // Lyric lines placed on a take of the song, or left to the reading again (`span` null).
+  songLines?: SongLineEdit[];
 }): Promise<{ saved: boolean }> {
   return request<{
     saved: boolean;

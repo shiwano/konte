@@ -185,8 +185,8 @@ describe("directionHash", () => {
         return {
           ...base,
           lenses: [
-            { name: "a", payoff: "hero", beats: [{ role: "ordinary" }, { role: "hero" }] },
-            { name: "b", payoff: "hero", beats: [{ role: "hero" }] },
+            { name: "a", payoff: "hero", roles: [{ role: "ordinary" }, { role: "hero" }] },
+            { name: "b", payoff: "hero", roles: [{ role: "hero" }] },
           ],
           sequence: { ...base.sequence, lens: "a" },
         } as Direction;
@@ -198,12 +198,12 @@ describe("directionHash", () => {
   });
 
   // The node still names lens "a", but "a" is a different arc now. The name is not the shape.
-  it("reacts to a custom lens's beats being rewritten under an unchanged name", () => {
-    const withLens = (beats: unknown[]) => {
+  it("reacts to a custom lens's roles being rewritten under an unchanged name", () => {
+    const withLens = (roles: unknown[]) => {
       const base = flat();
       return {
         ...base,
-        lenses: [{ name: "a", payoff: "hero", beats }],
+        lenses: [{ name: "a", payoff: "hero", roles }],
         sequence: { ...base.sequence, lens: "a" },
       } as Direction;
     };

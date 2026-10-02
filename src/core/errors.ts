@@ -116,6 +116,17 @@ export type KonteErrorCode =
   | "INVALID_PLATE"
   // A `respell()` that names no line the direction wrote, or that hands over a blank spelling.
   | "INVALID_RESPELL"
+  // A lyric line the song asset's words do not carry, in the direction's spelling or a respell().
+  | "LYRICS_NOT_SUNG"
+  // An accept of a song take with a lyric line placed neither by the reading nor by a person.
+  | "SONG_LINES_UNPLACED"
+  // The song `policy.clock` counts on played a second time over the bed konte lays: a soundtrack
+  // of it, a board stem holding it placed with `<Audio>`, or a take cut to it placed with
+  // `<Audio>` or `<Video hasAudio>`.
+  | "SONG_DOUBLED"
+  // A `<Video>` of a take cut to the song whose window konte cannot fill: a `mediaStart` written
+  // on it, or a place on the song before the take starts.
+  | "SONG_WINDOW_INVALID"
   // A shot the direction gives spoken lines to whose animatic shot plays no audio. Without a voice
   // take the piece comes out silent, with no failure until it is watched.
   | "DUCK_INVALID"
@@ -197,6 +208,8 @@ export type KonteErrorCode =
   | "INVALID_OPTION"
   | "PORT_IN_USE"
   | "CLOUDFLARED_SETUP_FAILED"
+  // The managed sherpa-onnx source separator or its spleeter model could not be provisioned.
+  | "SHERPA_SETUP_FAILED"
   | "TUNNEL_FAILED"
   | "CREDENTIALS_UNREADABLE"
   | "CONFIRMATION_REQUIRED"

@@ -528,3 +528,177 @@ describe("handleReelSubmit — keep or regenerate", () => {
     expect(record.regenerate).toEqual([SHOT_01_MOTION]);
   });
 });
+
+// An overlay over a timeline asset with two takes: the reviewer saw the first, and the second landed
+// while the page was open.
+const VIDEO_OVERLAY_TSX = `import { Composition, Image, Video, defineVideo, defineComfyAsset, asset } from "konte";
+import direction from "./direction";
+
+const animate = defineComfyAsset({
+  workflow: "animate.json",
+  description: "test adapter",
+  inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },
+  outputs: { result: { nodeId: "9", type: "video" } },
+});
+
+const still = defineComfyAsset({
+  workflow: "image.json",
+  description: "test adapter",
+  inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },
+  outputs: { result: { nodeId: "9", type: "image" } },
+});
+
+export default defineVideo(direction, {
+  timeline: ({ shot }) => {
+    const logo = asset("logo", still, { prompt: "a logo" });
+    return {
+      shots: shot("01", () => {
+        const motion = asset("motion", animate, { prompt: "she opens the door" });
+        return <Composition><Video src={motion} /></Composition>;
+      }).nextShot("02", () => {
+        const motion = asset("motion", animate, { prompt: "she steps through" });
+        return <Composition><Video src={motion} /></Composition>;
+      }),
+      overlay: () => <Composition><Image src={logo} fill /></Composition>,
+    };
+  },
+});
+`;
+
+describe("handleReelSubmit — an overlay accept", () => {
+  it("builds the overlay from the take the reviewer saw, not one that landed mid-review", async () => {
+    const { videoRoot } = await project(VIDEO_OVERLAY_TSX);
+    const logo = "video:timeline.logo";
+    const sm = await StateManager.load(videoRoot);
+    const seen = sm.reserveVariantId(logo);
+    sm.getAssetState(logo).variants![seen]!.file = "assets/logo-a.png";
+    const landed = sm.reserveVariantId(logo);
+    sm.getAssetState(logo).variants![landed]!.file = "assets/logo-b.png";
+    await sm.save();
+
+    const { res } = await submit(videoRoot, {
+      stage: "video",
+      overlayDecision: "accepted",
+      displayedVariants: { [logo]: seen },
+      displayedStandInShotIds: [],
+    });
+    expect(res.status).toBe(200);
+
+    const after = await StateManager.load(videoRoot);
+    expect(after.getAcceptedVariant(logo)).toBe(seen);
+    const overlayId = after.getAcceptedVariant("video:timeline#overlay");
+    expect(overlayId).not.toBeNull();
+    const html = await fs.readFile(
+      path.join(
+        videoRoot,
+        after.getAssetState("video:timeline#overlay").variants![overlayId!]!.file!,
+      ),
+      "utf-8",
+    );
+    expect(html).toContain("logo-a.png");
+    expect(html).not.toContain("logo-b.png");
+  });
+});
+
+const REFERENCE_LOGO_TS = `import { defineReference, defineComfyAsset, asset } from "konte";
+import direction from "./direction";
+
+const still = defineComfyAsset({
+  workflow: "image.json",
+  description: "test adapter",
+  inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },
+  outputs: { result: { nodeId: "9", type: "image" } },
+});
+
+export default defineReference(direction, () => {
+  const logo = asset("logo", still, { prompt: "a logo" });
+  return { logo };
+});
+`;
+
+const VIDEO_REFERENCE_OVERLAY_TSX = VIDEO_TSX.replace(
+  'import direction from "./direction";',
+  'import direction from "./direction";\nimport reference from "./reference";\nimport { Image } from "konte";',
+).replace(
+  "timeline: ({ shot }) => ({",
+  "timeline: ({ shot }) => ({\n    overlay: () => <Composition><Image src={reference.logo} fill /></Composition>,",
+);
+
+describe("handleReelSubmit — an overlay over another stage's take", () => {
+  it("holds the accept when that take moved while the page was open", async () => {
+    const { videoRoot } = await project(VIDEO_REFERENCE_OVERLAY_TSX);
+    await fs.writeFile(path.join(videoRoot, "reference.tsx"), REFERENCE_LOGO_TS);
+    const logo = "reference:logo";
+    const sm = await StateManager.load(videoRoot);
+    const seen = sm.reserveVariantId(logo);
+    sm.getAssetState(logo).variants![seen]!.file = "assets/logo-a.png";
+    sm.setAccepted(logo, seen);
+    const landed = sm.reserveVariantId(logo);
+    sm.getAssetState(logo).variants![landed]!.file = "assets/logo-b.png";
+    sm.setAccepted(logo, landed);
+    await sm.save();
+
+    const { res, payload } = await submit(videoRoot, {
+      stage: "video",
+      overlayDecision: "accepted",
+      displayedVariants: { [logo]: seen },
+      displayedStandInShotIds: [],
+    });
+    expect(res.status).toBe(200);
+    expect(
+      (payload.skippedDecisions as { address: string; reason: string }[]).map((d) => d.address),
+    ).toEqual(["video:timeline#overlay"]);
+    const after = await StateManager.load(videoRoot);
+    expect(after.getAcceptedVariant("video:timeline#overlay")).toBeNull();
+    expect(after.getAcceptedVariant(logo)).toBe(landed);
+  });
+});
+
+describe("handleReelSubmit — the overlay under the shot accepts", () => {
+  async function overlayProject(): Promise<{ videoRoot: string; seen: Record<string, string> }> {
+    const { videoRoot, variantId } = await project(VIDEO_OVERLAY_TSX);
+    const sm = await StateManager.load(videoRoot);
+    const logo = sm.reserveVariantId("video:timeline.logo");
+    sm.getAssetState("video:timeline.logo").variants![logo]!.file = "assets/logo.png";
+    sm.setAccepted("video:timeline.logo", logo);
+    const motion02 = sm.reserveVariantId("video:shot.02.motion");
+    sm.getAssetState("video:shot.02.motion").variants![motion02]!.file = "assets/motion-02.mp4";
+    await sm.save();
+    return {
+      videoRoot,
+      seen: {
+        [SHOT_01_MOTION]: variantId,
+        "video:shot.02.motion": motion02,
+        "video:timeline.logo": logo,
+      },
+    };
+  }
+
+  it("is signed off with the review that leaves every shot accept standing", async () => {
+    const { videoRoot, seen } = await overlayProject();
+
+    await submit(videoRoot, {
+      stage: "video",
+      decisions: { "01": "accepted" },
+      displayedVariants: seen,
+      displayedStandInShotIds: [],
+    });
+    expect((await StateManager.load(videoRoot)).getAcceptedVariant("video:timeline#overlay")).toBe(
+      null,
+    );
+
+    const { payload } = await submit(videoRoot, {
+      stage: "video",
+      decisions: { "02": "accepted" },
+      displayedVariants: seen,
+      displayedStandInShotIds: [],
+    });
+    expect(
+      (await StateManager.load(videoRoot)).getAcceptedVariant("video:timeline#overlay"),
+    ).not.toBe(null);
+    const record = JSON.parse(await fs.readFile(payload.filePath as string, "utf-8")) as {
+      overlayDecision?: string;
+    };
+    expect(record.overlayDecision).toBe("accepted");
+  });
+});

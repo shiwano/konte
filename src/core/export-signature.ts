@@ -1,3 +1,5 @@
+import { mixedSoundtracks } from "./song-bed.js";
+import { overlayDefinitionHash } from "./composition-resource.js";
 import { shortHash } from "./content-hash.js";
 import type { VideoDefinition } from "./types/index.js";
 
@@ -17,7 +19,10 @@ import type { VideoDefinition } from "./types/index.js";
 //     it too, and the blind spot that changes in helpers/closures the source text doesn't reflect.
 //     (The composite's own definition hash is instead structural — rendered picture HTML — so the
 //     two now differ in that respect: this export line still tracks per-shot `<Audio>` source.)
-//   - soundtracks: the muxed timeline beds (normalized, so robust to how they're authored).
+//   - soundtracks: the muxed timeline beds, the song bed among them (normalized, so robust to how
+//     they're authored).
+//   - overlay: the overlay's structural hash. Its build is bound inside the timeline run, so no
+//     source text reaches `renderFns`.
 //   - delivery: the video's delivery resolution + upscale fns.
 //
 // Must be computed from the SAME definition the export actually renders — see run-export-job.ts,
@@ -37,7 +42,7 @@ export function computeExportSignature(video: VideoDefinition): string {
     timeline: video.timelineFn?.toString() ?? null,
     shots: video.shots.map((s) => [s.id, s.shotFn?.toString() ?? null] as const),
   };
-  const soundtracks = (video.timelineSoundtracks ?? []).map((st) => ({
+  const soundtracks = mixedSoundtracks(video, video.timelineSoundtracks).map((st) => ({
     id: st.id,
     src: st.src.src,
     options: st.options,
@@ -50,7 +55,14 @@ export function computeExportSignature(video: VideoDefinition): string {
         frame: delivery.upscale?.frame?.toString() ?? null,
       }
     : null;
-  return shortHash({ render, renderFns, soundtracks, delivery: deliverySig });
+  const overlay = video.overlay ? overlayDefinitionHash(video) : null;
+  return shortHash({
+    render,
+    renderFns,
+    soundtracks,
+    delivery: deliverySig,
+    ...(overlay ? { overlay } : {}),
+  });
 }
 
 // Everything the definition alone decides about an export's cut, stamped on the export job by the

@@ -1,5 +1,6 @@
 import {
   DIRECTION_BRIEF_FIELDS,
+  DIRECTION_LYRICS_ADDRESS,
   DIRECTION_NARRATOR_ADDRESS,
   DIRECTION_ROOT_PATH,
   directionChildNodePath,
@@ -18,6 +19,8 @@ import {
 import type {
   Character,
   Direction,
+  DirectionClock,
+  DirectionLyrics,
   DirectionNode,
   Landmark,
   Location,
@@ -46,6 +49,14 @@ import { shortHash } from "./content-hash.js";
 // `stableStringify` sorts object keys but PRESERVES array order, so shot/sequence order is part of
 // the hash while the waiver map (a set of key→reason) is order-independent.
 
+// The span as written: beats on the song clock, seconds without one. Whichever the author did not
+// write is absent.
+function projectSpan(shot: Shot): { duration: number } | { beats: number } | object {
+  if (shot.beats !== undefined) return { beats: shot.beats };
+  if (shot.duration !== undefined) return { duration: shot.duration };
+  return {};
+}
+
 function projectShotShape(shot: Shot): unknown {
   // `setup` rides with the shape, not the prose: pointing a shot at a different frame re-shapes the
   // arc's size and space cadence, so an arc note ages out. The framing/location the setup CARRIES are
@@ -54,9 +65,9 @@ function projectShotShape(shot: Shot): unknown {
   // re-block every shot on it.
   //
   // An aside has neither a role nor a setup, but it holds a span, and inserting or moving one
-  // re-shapes the piece. So its `kind` and `duration` ride here and its label does not.
+  // re-shapes the piece. So its `kind` and span ride here and its label does not.
   if (isAsideShot(shot)) {
-    return { id: shot.id, kind: "aside", duration: shot.duration };
+    return { id: shot.id, kind: "aside", ...projectSpan(shot) };
   }
   // Whether a wipe is there, which camera it is and how it runs on are the arc's cadence like the
   // main frame's own `setup` and `join`; who it holds is the prose half below. Absent on a shot
@@ -65,13 +76,13 @@ function projectShotShape(shot: Shot): unknown {
     ? { cutin: { setup: shot.cutin.setup, join: shot.cutin.join ?? null } }
     : {};
   if (isGraphicShot(shot)) {
-    return { id: shot.id, kind: "graphic", role: shot.role, duration: shot.duration, ...cutin };
+    return { id: shot.id, kind: "graphic", role: shot.role, ...projectSpan(shot), ...cutin };
   }
   return {
     id: shot.id,
     role: shot.role,
     setup: shot.setup,
-    duration: shot.duration,
+    ...projectSpan(shot),
     // The boundary into this shot rides with the shape too: whether the cut before it is there at
     // all, and whether story time breaks across it, is the arc's own cadence rather than prose.
     join: shot.join ?? null,
@@ -187,7 +198,7 @@ function projectSetupShape(setups: Record<string, Setup> | undefined): unknown[]
   return projectRoster(setups, (s) => ({ location: s.location, framing: s.framing }));
 }
 
-// A custom lens is a `LensSpec` the author wrote: rewriting its `beats` changes the arc every shot
+// A custom lens is a `LensSpec` the author wrote: rewriting its `roles` changes the arc every shot
 // is placed on, even though `direction.lens` still names the same thing. Sorted by name — a lens
 // registry is a lookup table, not an ordered list.
 function projectLenses(lenses: readonly { name: string }[] | undefined): unknown[] {
@@ -239,10 +250,27 @@ function projectFormat(direction: Direction): unknown {
   return { fps: resolved.fps, base: resolved.size.base, delivery: resolved.size.delivery };
 }
 
+// All three clock fields re-block.
+function projectClock(clock: DirectionClock | undefined): unknown {
+  return clock ? { song: clock.song, bpm: clock.bpm, beatsPerBar: clock.beatsPerBar } : null;
+}
+
+// The words in singing order, with their sections and who sings each.
+function projectLyrics(lyrics: DirectionLyrics | undefined): unknown {
+  if (!lyrics) return null;
+  return lyrics.map((s) => ({
+    label: s.label,
+    singer: s.singer,
+    lines: s.lines.map((l) =>
+      typeof l === "string" ? { text: l } : { text: l.text, singer: l.singer },
+    ),
+  }));
+}
+
 // The arc's shape: the characters it can draw on, the lens definitions its nodes are placed on, and the
 // tree itself. `lenses` rides here rather than in a part of its own — a custom lens is not a thing a
 // reviewer takes a position on, it is the ruler every shot's role is measured against, so rewriting
-// its beats changes the shape of the arc the sequence map shows while `node.lens` still names the same
+// its roles changes the shape of the arc the sequence map shows while `node.lens` still names the same
 // thing. Including it is also what makes `projectDirection` a superset of every part hash, which the
 // acceptance short-circuit depends on (see `directionPartHashes`).
 //
@@ -272,7 +300,9 @@ function projectDirection(direction: Direction): unknown {
       lang: direction.policy?.lang ?? null,
       fonts: projectFonts(direction.policy?.fonts),
       speech: direction.policy?.speech ?? null,
+      clock: projectClock(direction.policy?.clock),
     },
+    lyrics: projectLyrics(direction.lyrics),
     sequence: projectNode(direction.sequence),
   };
 }
@@ -323,6 +353,11 @@ export function directionPartHashes(direction: Direction): Map<string, string> {
   out.set(formatDirectionPolicyAddress("lang"), hash(direction.policy?.lang ?? null));
   out.set(formatDirectionPolicyAddress("fonts"), hash(projectFonts(direction.policy?.fonts)));
   out.set(formatDirectionPolicyAddress("speech"), hash(direction.policy?.speech ?? null));
+  // The one optional policy field: a piece keeps seconds until it declares a song clock, and the
+  // part exists only once it does.
+  if (direction.policy?.clock) {
+    out.set(formatDirectionPolicyAddress("clock"), hash(projectClock(direction.policy.clock)));
+  }
 
   // One part per shot, aside included: an aside owes an accept and ages out when its label, span or
   // placement changes.
@@ -382,6 +417,9 @@ export function directionPartHashes(direction: Direction): Map<string, string> {
   }
   if (direction.narrator) {
     out.set(DIRECTION_NARRATOR_ADDRESS, hash({ narrator: projectVoice(direction.narrator) }));
+  }
+  if (direction.lyrics) {
+    out.set(DIRECTION_LYRICS_ADDRESS, hash(projectLyrics(direction.lyrics)));
   }
   for (const [id, p] of Object.entries(direction.props ?? {})) {
     out.set(formatDirectionPropAddress(id), hash({ id, name: p.name, description: p.description }));

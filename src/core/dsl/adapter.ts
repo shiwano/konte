@@ -29,6 +29,7 @@ import {
 } from "./prompt-structure.js";
 import type { Identifier } from "./validate-identifier.js";
 import { validateAssetName } from "./validate-identifier.js";
+import { shiftSongSpan, songSpanOfInputs, withSongSpan } from "./song-window.js";
 
 export type AdapterBackendKind = "comfy" | "fal" | "local" | "file";
 
@@ -47,8 +48,9 @@ export interface AdapterMetaInput {
   computed?: boolean;
   // The `step * k + offset` grid this number lands on — konte raises whatever it resolves to onto it.
   grid?: { step: number; offset?: number };
-  // The ceiling declared on the input, reported by `adapter show`. Enforced where it is declared —
-  // see `AdapterInputDef.max`.
+  // The floor and ceiling declared on the input, reported by `adapter show`. Enforced where they
+  // are declared — see `AdapterInputDef.max` and `FalInputDef.min`.
+  min?: number;
   max?: number;
   // Frames per second a `"frames"` input counts on, when the model samples on its own clock.
   clock?: number;
@@ -114,6 +116,10 @@ export interface AssetAdapter<TInputs extends Record<string, unknown>, TOutput e
   type: TOutput;
   meta: AdapterMeta;
   createDefinition(inputs: TInputs): AssetDefinition;
+  // For an output that does not start where its input does: the seconds of the input played
+  // before the output's first sample, or null when the output keeps no place on the input's clock.
+  // Omitted, a take cut to the song starts where the input it was made from does.
+  timeOffset?(inputs: TInputs): number | null;
 }
 
 // See `AdapterInputDef.pin`.
@@ -132,6 +138,7 @@ interface DeclaredInput {
     | boolean
     | ((format: BuildFormat | undefined) => string | number | boolean);
   grid?: { step: number; offset?: number };
+  min?: number;
   max?: number;
   clock?: number;
   pin?: DeclaredPin;
@@ -160,6 +167,7 @@ export function buildMetaInputs(
               ? { default: def.default }
               : {}),
           ...(def.grid ? { grid: def.grid } : {}),
+          ...(def.min !== undefined ? { min: def.min } : {}),
           ...(def.max !== undefined ? { max: def.max } : {}),
           ...(def.clock ? { clock: def.clock } : {}),
           ...(def.pin ? { pin: pinnedEnd(def.pin) } : {}),
@@ -294,7 +302,14 @@ export function asset<TName extends string, TAdapter extends AssetAdapter<any, a
   adapter: TAdapter,
   inputs: AdapterInputs<TAdapter>,
 ): BrandedMediaAsset<TName, TAdapter> {
-  return registerAsset(name, adapter, inputs);
+  // A take built on a stem holding the song is cut to it, and carries where.
+  const span = shiftSongSpan(
+    songSpanOfInputs(inputs),
+    adapter.timeOffset ? adapter.timeOffset(inputs) : 0,
+  );
+  const registered = registerAsset(name, adapter, inputs);
+  if (span && declarationSite() === "shot") getShotContext()?.songSpans.set(name, span);
+  return withSongSpan(registered, span);
 }
 
 function declarationSite(): AssetDeclarationSite | undefined {

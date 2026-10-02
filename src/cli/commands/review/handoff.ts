@@ -1,3 +1,4 @@
+import type { StageDefinition } from "../../../core/types/index.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { Command } from "commander";
@@ -12,6 +13,7 @@ import {
   formatReferenceAddress,
   formatTimelineAddress,
   formatTimelineAssetPath,
+  formatTimelineOverlayAddress,
   formatTimelineStemAddress,
   listReviewableAssetPaths,
   listShotStems,
@@ -207,6 +209,12 @@ export function collectChangedAddresses(
     timelinePaths.push(formatTimelineAssetPath(stage, STEM_ASSET_NAME));
   }
 
+  // The overlay is a leaf: its baseline is the content hash the review recorded.
+  if ((stageDef as unknown as StageDefinition).overlay) {
+    const address = formatTimelineOverlayAddress(stage);
+    if (leafChangedSinceReview(manager, stageDef, address, record)) timelinePaths.push(address);
+  }
+
   const changes = computeChangeInfo(resolveCurrentVariantsByShot(shots, stage, manager), record);
   for (const shot of changes?.changedShots ?? []) {
     for (const assetName of Object.keys(shot.changedAssets)) add(shot.shotId, assetName);
@@ -275,12 +283,14 @@ export function collectAllAddresses(
   topLevelAssets?: DefinitionLike["topLevelAssets"],
   timelineSoundtracks?: readonly unknown[],
   plateIds?: readonly string[],
+  hasOverlay?: boolean,
 ): string[] {
   const ordered: string[] = [];
   for (const setupId of plateIds ?? []) ordered.push(formatPlateAssetPath(setupId));
   for (const assetName of Object.keys(topLevelAssets ?? {})) {
     ordered.push(formatTimelineAssetPath(stage, assetName));
   }
+  if (hasOverlay) ordered.push(formatTimelineOverlayAddress(stage));
   if ((timelineSoundtracks?.length ?? 0) > 0) {
     ordered.push(formatTimelineAssetPath(stage, STEM_ASSET_NAME));
   }
@@ -439,6 +449,7 @@ Examples:
           stage === "animatic"
             ? (animatic.exposedPlateIds ?? Object.keys(animatic.plates ?? {}))
             : undefined,
+          !!(stage === "animatic" ? animatic : video)?.overlay,
         );
         changedAddresses = record
           ? collectChangedAddresses(shots, stage, manager, stageDef, record)

@@ -12,7 +12,7 @@ import {
   summarizeDirectionAcceptance,
 } from "../direction-acceptance.js";
 import { directionHash, directionPartHashes } from "../direction-hash.js";
-import type { BeatFunction } from "../direction-check.js";
+import type { RoleFunction } from "../direction-check.js";
 import type { Direction, NarrativeShot } from "../dsl/direction.js";
 
 // The frames the shots are taken from. A fixture's shots name one by id; its `location`/`framing` are
@@ -148,7 +148,11 @@ describe("directionAcceptanceView", () => {
     expect(view.complete).toBe(false);
     expect(view.blocking).toHaveLength(view.parts.size);
     expect(view.blocking.every((b) => b.status === "unaccepted")).toBe(true);
-    expect([...view.sections.values()].every((s) => s === "unaccepted")).toBe(true);
+    // Every box holding a part; one with nothing in it (no lyrics declared) has nothing to accept.
+    const held = new Set([...view.parts.keys()].map(directionSectionOf));
+    expect(
+      [...view.sections].filter(([s]) => held.has(s)).every(([, v]) => v === "unaccepted"),
+    ).toBe(true);
   });
 
   it("reads a fully accepted direction as complete", () => {
@@ -298,9 +302,9 @@ describe("isDirectionSpendGateSatisfied", () => {
   // leave the short-circuit reporting a sign-off nobody gave. A custom lens is the case that nearly
   // escaped: rewriting its beats re-shapes the arc while every `node.lens` still names the same lens.
   it("ages out the arc when a custom lens it is placed on is rewritten", () => {
-    const withLens = (fn: BeatFunction): Direction => ({
+    const withLens = (fn: RoleFunction): Direction => ({
       ...makeDirection(),
-      lenses: [{ name: "house-style", beats: [{ role: "hero", fn }], payoff: "hero" }],
+      lenses: [{ name: "house-style", roles: [{ role: "hero", fn }], payoff: "hero" }],
     });
 
     const direction = withLens("build");

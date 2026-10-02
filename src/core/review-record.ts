@@ -7,6 +7,7 @@ import {
   formatAddress,
   formatCompositionAddress,
   formatTimelineAddress,
+  formatTimelineOverlayAddress,
   formatTimelineStemAddress,
 } from "./address.js";
 import { writeFileAtomic } from "./atomic-write.js";
@@ -91,6 +92,9 @@ export const ReviewRecordSchema = z.object({
   // The timeline audio stem (soundtrack beds) accept decision. Per-shot audio is folded into its
   // shot's decision above; the beds are signed off here via `timeline#stem`.
   timelineStemDecision: z.enum(["accepted", "none"]).optional(),
+  // The overlay's accept decision at `<stage>:timeline#overlay`: signed off with the last shot
+  // accept under it, or on its own once every shot accept stands.
+  overlayDecision: z.enum(["accepted", "none"]).optional(),
   // The direction's accept decisions, one per section of the review page the reviewer
   // settled ("none" is an explicit revoke). The direction is variant-less, so unlike every other
   // stage's acceptance these have no `decisions` entry to ride on and are carried here instead. A
@@ -661,7 +665,12 @@ function collectReviewSections(
       pushDecision(address, record.timelineStemDecision, address);
     }
 
-    // Non-audio timeline assets (overlays/logos) are accepted through the compositions that
+    if (record.overlayDecision) {
+      const address = formatTimelineOverlayAddress(stage);
+      pushDecision(address, record.overlayDecision, address);
+    }
+
+    // Non-audio timeline assets (images, logos) are accepted through the compositions that
     // consume them — only when every shot is explicitly accepted, the exact rule submit applies.
     const timeline = Object.entries(record.context.timeline ?? {});
     if (timeline.length > 0) {

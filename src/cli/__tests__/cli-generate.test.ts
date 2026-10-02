@@ -792,9 +792,9 @@ export default defineDirection({
       "location-unreferenced_studio": "fixture has no reference stage exposing it",
       "setup-unconsumed_front": "fixture board is anchored on nothing",
       "setup-unconsumed_detail": "fixture board is anchored on nothing",
-      "missing-beat_disruption": "two-shot fixture",
-      "missing-beat_pressure": "two-shot fixture",
-      "beat-overweight_ordinary": "two-shot fixture",
+      "missing-role_disruption": "two-shot fixture",
+      "missing-role_pressure": "two-shot fixture",
+      "role-overweight_ordinary": "two-shot fixture",
     },
   },
 });

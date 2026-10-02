@@ -17,8 +17,8 @@ export function isVoiceKind(kind: CueKind | undefined): boolean {
   return kind === "voice" || kind === "narration";
 }
 
-/** A cue kind, or the timeline bed a `soundtrack()` places. */
-export type LevelKind = CueKind | "bed";
+/** A cue kind, the timeline bed a `soundtrack()` places, or the song `policy.clock` counts on. */
+export type LevelKind = CueKind | "bed" | "song";
 
 // Where each kind sits. `sfx` is levelled by true peak instead: integrated loudness measured over
 // a 200 ms transient is not a number worth trusting.
@@ -27,6 +27,7 @@ const TARGET_LUFS: Record<Exclude<LevelKind, "sfx">, number> = {
   narration: -18,
   mob: -26,
   bed: -24,
+  song: -14,
 };
 const SFX_TARGET_PEAK_DB = -8;
 

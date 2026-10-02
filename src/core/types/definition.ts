@@ -200,6 +200,9 @@ export const ShotDefinitionSchema = z.object({
   // whether it ducks a bed. Stored here because the direction's lines are not on the stage
   // definition.
   cueKinds: z.record(z.string(), z.enum(["voice", "narration", "mob", "sfx"])).optional(),
+  // ANIMATIC ONLY, on a direction with `policy.clock`: the span of the song this shot holds, which
+  // konte mixes into its `#stem` and never plays.
+  songCue: z.object({ src: z.string(), mediaStart: z.number(), duration: z.number() }).optional(),
   // ANIMATIC ONLY: the keyframes this shot's composition declared with `<Panel>`, in document
   // order, each with its resolved window. A developed animatic shot always has at least one
   // (PANEL_REQUIRED); a video shot has none.
@@ -259,6 +262,17 @@ export function isPendingShot(shot: ShotDefinition): boolean {
 export type TimelineFunction = (args: { format: VideoFormat }) => {
   shots: Array<{ id: string; fn: ShotFunction }>;
   soundtracks: ReadonlyArray<SoundtrackEntry>;
+  overlay?: ShotFunction;
+};
+
+/**
+ * A stage's overlay (see `OverlayContext`): the timeline's length, the build its `<Composition>`
+ * comes from (its context already bound), and the refs that composition draws.
+ */
+export type OverlayDefinition = {
+  duration: number;
+  fn: ShotFunction;
+  compositionRefs: readonly string[];
 };
 
 /**
@@ -374,6 +388,10 @@ export const StageDefinitionSchema = z.object({
   shots: z.array(ShotDefinitionSchema),
   topLevelAssets: z.record(z.string(), AssetDefinitionSchema).optional(),
   timelineSoundtracks: z.custom<readonly SoundtrackEntry[]>().optional(),
+  // The `reference:<id>` of the song `policy.clock` counts on, which konte lays under the whole
+  // timeline from its first sample.
+  song: z.string().optional(),
+  overlay: z.custom<OverlayDefinition>().optional(),
   timelineFn: z.custom<TimelineFunction>().optional(),
   prompts: PromptsSchema,
   pins: PinsSchema,

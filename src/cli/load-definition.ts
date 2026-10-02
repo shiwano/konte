@@ -10,9 +10,12 @@ import { assertNever } from "../core/assert.js";
 import {
   assertDirectionGate,
   collectShotFrames,
+  type SongTakeState,
   type SpendCommand,
   type StagingStageState,
 } from "../core/direction.js";
+import { resolveSongTake, songAddressOf } from "../core/song-take.js";
+import { mediaDurationSec } from "../core/variant-media.js";
 import {
   directionAcceptanceView,
   isDirectionSpendGateSatisfied,
@@ -89,6 +92,7 @@ export async function gateDirectionForStage(opts: {
     referenceAssetNames: reference?.exposedAssetNames ?? [],
     animaticSetups: await loadAnimaticSetupState(opts.videoRoot, direction),
     stagingStage: await loadStagingStageState(opts.videoRoot, direction),
+    songTake: manager ? songTakeState(manager, direction) : undefined,
     directionAccepted: isDirectionSpendGateSatisfied(direction, acceptance ?? null),
   });
 
@@ -448,6 +452,25 @@ export async function loadAnimaticSetupState(
     unconsumedBy: gaps.unanchoredShots,
     deterministicShotsPerSetup: gaps.deterministicShots,
   };
+}
+
+// The take of the song the piece is read against, as the song class reads it.
+export function songTakeState(manager: StateManager, direction: Direction): SongTakeState {
+  const address = songAddressOf(direction);
+  const take = address ? resolveSongTake(manager.getState(), address) : null;
+  const media = take
+    ? manager.getState().assets[take.address]?.variants?.[take.variantId]?.media
+    : undefined;
+  return { take, durationSec: mediaDurationSec(media ?? null) };
+}
+
+// The same off a video root, undefined where its state cannot be read.
+export async function loadSongTakeState(
+  videoRoot: string,
+  direction: Direction,
+): Promise<SongTakeState | undefined> {
+  const manager = await StateManager.load(videoRoot).catch(() => null);
+  return manager ? songTakeState(manager, direction) : undefined;
 }
 
 // The stage-side half of the staging class: the order the board hands each keyframe its references

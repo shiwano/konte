@@ -20,6 +20,7 @@ import { directionPartHashes } from "../../core/direction-hash.js";
 import { type DirectionPartContent, directionPartContents } from "../../core/direction-parts.js";
 import type { Direction } from "../../core/dsl/direction.js";
 import { KonteError } from "../../core/errors.js";
+import { formatShotSpan } from "../../core/format-duration.js";
 import { FeedbackManager, feedbackStaleness } from "../../core/feedback/index.js";
 import { StateManager } from "../../core/state/index.js";
 import { scriptLinesToView } from "../../core/types/script.js";
@@ -27,6 +28,7 @@ import {
   loadDirectionIfPresent,
   loadAnimaticSetupState,
   loadStagingStageState,
+  loadSongTakeState,
 } from "../load-definition.js";
 import { loadReference } from "../../core/loader.js";
 import { type FeedbackView, feedbackLine, feedbackTag, printFeedback } from "./inspect-feedback.js";
@@ -121,6 +123,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
     referenceAssetNames: reference?.exposedAssetNames ?? [],
     animaticSetups: await loadAnimaticSetupState(videoRoot, direction),
     stagingStage: await loadStagingStageState(videoRoot, direction),
+    songTake: await loadSongTakeState(videoRoot, direction),
   });
   const findings = reportableDirectionFindings(check.active, view.gateSatisfied).map((f) => ({
     key: directionWaiverKey(f),
@@ -301,7 +304,9 @@ function printContent(
         const join = content.cutin.join ? ` (join: ${content.cutin.join})` : "";
         console.log(`  Cutin:    ${content.cutin.setup} — ${lineup}${to}${join}`);
       }
-      console.log(`  Duration: ${content.duration}s`);
+      console.log(
+        `  Span:     ${formatShotSpan(content.duration, content.beats, direction.policy?.clock?.beatsPerBar)}`,
+      );
       console.log(`  Action:   ${content.action}`);
       const characterNameById = new Map(
         Object.entries(direction.characters ?? {}).map(([id, c]) => [id, c.name]),
@@ -324,11 +329,32 @@ function printContent(
     case "aside": {
       heading(`Aside: ${content.id}`);
       console.log(`  Label:    ${content.label}`);
-      console.log(`  Duration: ${content.duration}s`);
+      console.log(
+        `  Span:     ${formatShotSpan(content.duration, content.beats, direction.policy?.clock?.beatsPerBar)}`,
+      );
       if (content.telop.length > 0) {
         console.log("  Telop:");
         for (const text of content.telop) console.log(`    ${text}`);
       }
+      return;
+    }
+    case "clock":
+      heading("Policy: clock");
+      console.log(`  Song:          reference:${content.song}`);
+      console.log(`  BPM:           ${content.bpm}`);
+      console.log(`  Beats per bar: ${content.beatsPerBar}`);
+      return;
+    case "lyrics": {
+      heading("Lyrics");
+      const singers = (ids: readonly string[]) =>
+        ids.map((id) => `${direction.characters?.[id]?.name ?? id} (${id})`).join(", ");
+      content.sections.forEach((section, s) => {
+        console.log(`  [${section.label}] ${singers(section.singer)}`);
+        section.lines.forEach((line, l) => {
+          const by = line.singer === null ? "" : `  (sung by ${singers(line.singer)})`;
+          console.log(`    ${s + 1}.${l + 1}  ${line.text}${by}`);
+        });
+      });
       return;
     }
     case "waiver":

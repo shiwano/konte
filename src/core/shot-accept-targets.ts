@@ -3,7 +3,9 @@ import {
   formatAssetPath,
   formatCompositionAddress,
   formatTimelineAddress,
+  formatTimelineOverlayAddress,
   formatTimelineStemAddress,
+  isOverlayAddress,
   getStage,
   isNarrationStemAddress,
   isStemAddress,
@@ -212,6 +214,8 @@ export function stageReviewDecidableAddresses(
     const address = formatTimelineAddress(video.stage, assetName);
     if (!isAudioAddress(manager, address)) add(address, false);
   }
+  // The overlay is signed off by the shot accepts under it, or on its own once they all stand.
+  if (video.overlay) add(formatTimelineOverlayAddress(video.stage), false);
   return closeOverRefs(manager, video, roots);
 }
 
@@ -255,6 +259,7 @@ function isAudioAddress(manager: StateManager, address: string): boolean {
 }
 
 function refsOf(video: StageDefinition, address: string): readonly string[] {
+  if (isOverlayAddress(address)) return video.overlay?.compositionRefs ?? [];
   const parsed = tryParseAddress(address);
   if (!parsed || parsed.stage !== video.stage || !parsed.assetName) return [];
   const definition =

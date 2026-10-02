@@ -64,6 +64,7 @@ import {
   loadDirectionIfPresent,
   loadAnimaticSetupState,
   loadStagingStageState,
+  loadSongTakeState,
 } from "../load-definition.js";
 import { currentRoots, requireWorkspaceRoot } from "../context.js";
 import type { VideoRoots, VideoSelection } from "../../core/roots.js";
@@ -1095,6 +1096,7 @@ async function checkDirectionHealth(videoRoot: string): Promise<CheckResult[]> {
     referenceAssetNames: reference?.exposedAssetNames ?? [],
     animaticSetups: await loadAnimaticSetupState(videoRoot, direction),
     stagingStage: await loadStagingStageState(videoRoot, direction),
+    songTake: await loadSongTakeState(videoRoot, direction),
   });
   const manager = await StateManager.load(videoRoot).catch(() => null);
   const acceptance = manager?.getDirectionAcceptance();

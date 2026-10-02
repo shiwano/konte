@@ -58,8 +58,9 @@ Nothing is written to disk until the human has said yes to the treatment, in so 
 
 - **Read `direction-guide` first** — and `scenario-guide`, entering here on a revision.
 - **New piece → `konte video new <name> --template blank`, then copy the material already in hand to its `assets/files/`.**
+- **Cut to a song → [song-first.md](references/song-first.md) before writing any shot** — the song is made and accepted first.
 - **Write `direction.ts`** — the `brief` is step 6's treatment (its hook is `hook`, step 3's refused direction is `outOfScope`); add rosters, `policy` and `sequence: { lens, pleasure, shots }`; clear `konte status`'s direction findings (fix or waive).
-- **Then a split pass — the direction check can't read prose**: check every `action` against the one-action rule. **A pass that changes nothing on a first draft is suspect** — go find the fused trigger-reaction pair. Then an idiom pass over the hinges and peaks: a key action staged as one take is a missed chain. Then a continuity replay: walk the list as one continuous space — every "how did it get there?" is a missing shot.
+- **Then a split pass — the direction check can't read prose**: check every `action` against the one-action rule. **A pass that changes nothing on a first draft is suspect** — in a story, go find the fused trigger-reaction pair. Then an idiom pass over the hinges and peaks: a key action staged as one take is a missed chain. Then a continuity replay: walk the list as one continuous space — every "how did it get there?" is a missing shot.
 
 ## 8. Critique the cut
 

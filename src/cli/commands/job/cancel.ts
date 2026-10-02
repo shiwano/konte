@@ -106,7 +106,7 @@ async function cancelOne(
   // Export jobs aren't tied to an asset/variant and have no backend prompt. Mark
   // cancelled (a running worker stops on the next status check); a render already in
   // flight may still finish writing its file — harmless, just re-export to refresh.
-  if (job.kind === "export") {
+  if (job.kind === "export" || job.kind === "song-analysis") {
     const cancelledJob = await jobManager.updateIfNotTerminal(jobId, {
       status: "cancelled",
       completedAt: new Date().toISOString(),
@@ -116,7 +116,7 @@ async function cancelOne(
       jobId,
       outcome: "cancelled",
       job: cancelledJob,
-      message: `Export job ${jobId} cancelled.`,
+      message: `${job.kind === "export" ? "Export" : "Song analysis"} job ${jobId} cancelled.`,
     };
   }
 

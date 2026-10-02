@@ -4,6 +4,7 @@ import { isRendering } from "../jsx-html.js";
 import type { AnimaticDefinition } from "../types/animatic.js";
 import type { MediaAsset, MediaKind, NarrationStem, ShotHandle } from "./builders.js";
 import { makeMediaAsset } from "./builders.js";
+import { withSongSpan } from "./song-window.js";
 import {
   getPatchContext,
   getShotContext,
@@ -40,6 +41,8 @@ export type AssetKindsByShot = ReadonlyMap<string, ReadonlyMap<string, MediaKind
 export function createAnimaticRef(
   definition: AnimaticDefinition,
   assetKindsByShot: AssetKindsByShot,
+  // Where every shot starts on the timeline, on a direction with `policy.clock`.
+  songShotStarts?: ReadonlyMap<string, number>,
 ): AnimaticRef {
   const shotsById = new Map(definition.shots.map((s) => [s.id, s]));
 
@@ -118,7 +121,7 @@ export function createAnimaticRef(
           // The stem only exists once the shot has something to mix. Reaching for one that does not
           // would otherwise surface as a generic missing-reference at graph time, well away from the
           // line that asked for it.
-          if ((shot.stemRefs?.length ?? 0) === 0) {
+          if ((shot.stemRefs?.length ?? 0) === 0 && !shot.songCue) {
             throw new KonteError(
               "ANIMATIC_INVALID",
               (shot.narrationStemRefs?.length ?? 0) > 0
@@ -130,8 +133,11 @@ export function createAnimaticRef(
                     `reference.`,
             );
           }
-          return makeMediaAsset<"audio">(
-            makeAddressPlaceholder(formatShotStemAddress("animatic", id)),
+          return withSongSpan(
+            makeMediaAsset<"audio">(makeAddressPlaceholder(formatShotStemAddress("animatic", id))),
+            shot.songCue && songShotStarts
+              ? { start: shot.songCue.mediaStart, shotStarts: songShotStarts }
+              : undefined,
           );
         },
         get narrationStem() {

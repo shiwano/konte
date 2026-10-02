@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import * as path from "node:path";
 import type { Command } from "commander";
 import {
+  formatReferenceAddress,
   getAssetEntry,
   isDeliveryAddress,
   isMaterializedLeafAddress,
@@ -25,7 +26,10 @@ import { StateManager } from "../../core/state/index.js";
 import { feedbackStaleness, listAllFeedback } from "../../core/feedback/index.js";
 import { directionPartHashes } from "../../core/direction-hash.js";
 import { liveDefinitionHashesOf } from "./feedback/definition-hashes.js";
-import { suggestForStatus } from "../../core/suggested-actions.js";
+import { type SongPending, suggestForStatus } from "../../core/suggested-actions.js";
+import { unreadSongTakes } from "../../core/song-queue.js";
+import { JobManager } from "../../core/job-manager.js";
+import type { Direction } from "../../core/dsl/direction.js";
 import { isPendingShot, isPendingAnimaticShot } from "../../core/types/index.js";
 import {
   loadDirectionIfPresent,
@@ -35,6 +39,7 @@ import {
   unacceptedUpstreamDeps,
   unsatisfiedCharacters,
   unsatisfiedVoices,
+  loadSongTakeState,
 } from "../load-definition.js";
 import { checkPins, formatPinFinding, type PinCheckSubject } from "../../core/pin-check.js";
 import { STAGE_ENTRY_FILE } from "../../core/roots.js";
@@ -124,6 +129,7 @@ export function registerStatusCommand(program: Command): void {
             referenceAssetNames: reference?.exposedAssetNames ?? [],
             animaticSetups: await loadAnimaticSetupState(videoRoot, direction),
             stagingStage: await loadStagingStageState(videoRoot, direction),
+            songTake: await loadSongTakeState(videoRoot, direction),
           })
         : null;
       const reportedFindings = directionCheck
@@ -294,6 +300,12 @@ export function registerStatusCommand(program: Command): void {
       const directionReviewNeeded = acceptanceView !== null && !acceptanceView.gateSatisfied;
       // A shotless direction is the untouched template: the review step becomes "write it".
       const directionEmpty = direction !== null && !directionHasShots(direction);
+      const songPending = pendingSong(manager, direction);
+      const songReadingsPending = (await new JobManager(videoRoot).listJobs()).some(
+        (j) => j.kind === "song-analysis" && (j.status === "pending" || j.status === "running"),
+      );
+      // A take no job is reading: placed as a file, failed, or read against another clock.
+      const songUnread = !songReadingsPending && unreadSongTakes(direction, state).length > 0;
       // A broken patch is listed under the same section keyed by its FILE path, which is not an
       // address — Next steps parses these with `getStage`, so letting one through would turn a
       // report about a bad file into an INVALID_ADDRESS crash. They are offered as an edit instead
@@ -462,6 +474,9 @@ export function registerStatusCommand(program: Command): void {
         directionReviewNeeded,
         unacceptedCast,
         directionEmpty,
+        ...(songPending ? { songPending } : {}),
+        songReadingsPending,
+        songUnread,
         upstreamReviewBlockedStages,
         promptBlockedStages,
       });
@@ -481,4 +496,14 @@ export function registerStatusCommand(program: Command): void {
         pinStaleWaivers,
       });
     });
+}
+
+// The song `policy.clock` counts on, while no take of it is accepted.
+function pendingSong(manager: StateManager, direction: Direction | null): SongPending | undefined {
+  const song = direction?.policy.clock?.song;
+  if (song === undefined) return undefined;
+  const address = formatReferenceAddress(song);
+  if (manager.selectVariant(address, { requireAccepted: true }) !== null) return undefined;
+  const variants = Object.values(manager.getState().assets[address]?.variants ?? {});
+  return { address, hasTake: variants.some((v) => v.file && v.status !== "dismissed") };
 }

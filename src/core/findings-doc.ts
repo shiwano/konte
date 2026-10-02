@@ -26,9 +26,9 @@ type DirectionFindingDoc = {
 };
 
 export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindingDoc> = {
-  "missing-beat": { flags: "A role its lens requires has no item.", subject: "role" },
+  "missing-role": { flags: "A role its lens requires has no item.", subject: "role" },
   "no-payoff": { flags: "No item takes the lens's payoff role.", subject: null },
-  "beat-out-of-order": {
+  "role-out-of-order": {
     flags: "A role appears before one its lens places earlier.",
     subject: "role that arrived early",
   },
@@ -54,11 +54,11 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     flags: "The payoff lands before any item grounds, turns or builds toward it.",
     subject: "payoff role",
   },
-  "beat-overweight": {
+  "role-overweight": {
     flags: "A role holds more of the runtime than its `maxShare`.",
     subject: "role",
   },
-  "beat-underweight": {
+  "role-underweight": {
     flags: "A role holds less of the runtime than its `minShare`.",
     subject: "role",
   },
@@ -71,6 +71,23 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     flags: "A direction shot that no stage shot realizes.",
     subject: "shot id",
     typeLevel: true,
+  },
+  "song-unreferenced": {
+    flags: "`policy.clock.song` names no `reference:<id>` asset.",
+    subject: null,
+  },
+  "song-off-tempo": {
+    flags:
+      "The take of the song drifts a quarter beat or more off the declared `bpm` by the end of the timeline.",
+    subject: null,
+  },
+  "song-overrun": {
+    flags: "The timeline runs on past the end of the take of the song.",
+    subject: null,
+  },
+  "lyric-unplaced": {
+    flags: "A lyric line nobody placed on the take of the song is not clearly sung anywhere in it.",
+    subject: "line (`<section>.<line>`, from 1)",
   },
   "character-unreferenced": {
     flags: "A character has no `reference:<id>` asset.",
@@ -156,7 +173,8 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     subject: "shot id",
   },
   "off-grid-duration": {
-    flags: "A shot's duration is not a positive multiple of 0.5s.",
+    flags:
+      "A shot's `duration` is not a positive multiple of 0.5s, or on `policy.clock` its `beats` is not a positive whole number.",
     subject: "shot id",
     typeLevel: true,
   },

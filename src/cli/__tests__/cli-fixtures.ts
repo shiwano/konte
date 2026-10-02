@@ -109,7 +109,7 @@ const direction = defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
-  lenses: [defineLens({ name: "two-beat", payoff: "second", beats: [{ role: "first" }, { role: "second" }] })],
+  lenses: [defineLens({ name: "two-beat", payoff: "second", roles: [{ role: "first" }, { role: "second" }] })],
   sequence: {
     lens: "two-beat",
     pleasure: "cute",
@@ -649,9 +649,9 @@ export default defineDirection({
     waivers: {
       "location-unreferenced_studio": "fixture has no reference stage exposing it",
       "setup-unconsumed_front": "fixture board is anchored on nothing",
-      "missing-beat_ordinary": "single-shot fixture",
-      "missing-beat_disruption": "single-shot fixture",
-      "missing-beat_pressure": "single-shot fixture",
+      "missing-role_ordinary": "single-shot fixture",
+      "missing-role_disruption": "single-shot fixture",
+      "missing-role_pressure": "single-shot fixture",
       "unearned-payoff_hero": "single-shot fixture",
     },
   },

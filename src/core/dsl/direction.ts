@@ -6,8 +6,9 @@ import type { ScriptLine } from "../types/script.js";
 import type { Typography } from "../types/definition.js";
 import type { ArcItem, LensSpec } from "../direction-check.js";
 import type { PendingShotInput, ShotHandle, ShotInput, StageShots } from "./builders.js";
-import type { ShotFunction } from "./shot-context.js";
+import type { DiscoveryResult, ShotFunction } from "./shot-context.js";
 import { makePlaceholder, runInDiscoveryMode } from "./shot-context.js";
+import { withSongSpan } from "./song-window.js";
 import type { ShotStage } from "../address.js";
 import type { ShotScript } from "./shot-script.js";
 import { makeShotScript } from "./shot-script.js";
@@ -26,6 +27,9 @@ import type {
   LineupToOf,
   NarrativeIdOf,
   ScriptOf,
+  ShotClockContext,
+  ShotLyricsContext,
+  ShotSongOf,
   StageShotContext,
   StageChain,
   StageCutinContext,
@@ -39,7 +43,11 @@ import {
   type MediaKind,
 } from "./builders.js";
 import { assertFontFamilies, assertLanguageTag, type LanguageTag } from "../typography.js";
-import { validateShotId, type ValidatedIdentifier } from "./validate-identifier.js";
+import { isIdentifier, validateShotId, type ValidatedIdentifier } from "./validate-identifier.js";
+import { formatReferenceAddress } from "../address.js";
+import { placeLyricLines } from "../song-lyrics.js";
+import type { SongTake } from "../song-take.js";
+import { songTakeAt } from "./song-context.js";
 
 // Re-export the arc layer so the DSL surface (index.ts / template-entry.ts) has one import point.
 export type { Pleasure } from "../lenses.js";
@@ -47,8 +55,8 @@ export type { ScriptLine } from "../types/script.js";
 export { defineLens } from "../lenses.js";
 export type {
   ArcItem,
-  Beat,
-  BeatFunction,
+  LensRole,
+  RoleFunction,
   DirectionFinding,
   DirectionFindingCode,
   LensSpec,
@@ -226,10 +234,20 @@ export type ResolvedDirectionFormat = {
 // state to default silently past review; pick `free` to allow anything.
 export type SpeechPolicy = "none" | "no-dialogue" | "free";
 
-// The piece-wide, machine-checked policy: the canvas (`format`), the typesetting (`lang`, `fonts`)
-// and the speech rule (`speech`). All feed the acceptance hash, and each is its own reviewed feedback
-// part (`direction:policy.<field>`, see DIRECTION_POLICY_FIELDS), so a note on the speech rule is not
-// aged out by a canvas-size edit.
+// The song the piece is cut to. `song` is the `reference:<id>` asset that plays it, `bpm` the tempo
+// the author decided on and `beatsPerBar` the meter. With a clock every shot's span is `beats`, and
+// the timeline's 0s is the take's own start: the first shot also holds what the take plays before
+// its first beat, which is the take's own fact, never written here.
+export type DirectionClock = {
+  song: string;
+  bpm: number;
+  beatsPerBar: number;
+};
+
+// The piece-wide, machine-checked policy: the canvas (`format`), the typesetting (`lang`, `fonts`),
+// the speech rule (`speech`) and the song clock (`clock`). All feed the acceptance hash, and each is
+// its own reviewed feedback part (`direction:policy.<field>`, see DIRECTION_POLICY_FIELDS), so a note
+// on the speech rule is not aged out by a canvas-size edit.
 export type DirectionPolicy = {
   format: DirectionFormat;
   // The language the piece is authored and rendered in. It becomes the composition document's root
@@ -243,15 +261,20 @@ export type DirectionPolicy = {
   // no system face is guaranteed to cover raises `fonts-undeclared`.
   fonts?: readonly string[];
   speech: SpeechPolicy;
+  clock?: DirectionClock;
 };
 
-// Shot-scale leaf: duration is required (it is the rhythm source of truth that pacing checks read).
+// Shot-scale leaf: its span is required (it is the rhythm source of truth that pacing checks read) —
+// `duration` in seconds, or `beats` on a direction with `policy.clock`; exactly one of them.
 // `role` is a plain string validated against the node's lens (a foreign role is a waivable finding,
 // not a type error). `action` is the single on-screen action this clip lands — the leaf-scale twin
 // of a branch node's `synopsis` (the engine holds both as one generic `ArcItem` field). `script` is
 // the shot's spoken lines — the source of truth injected into both stages' builds so a video's
 // subtitles derive from one place, never re-authored per stage; `telop` is its unspoken twin.
-export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "location" | "framing" | "aside"> & {
+export type NarrativeShot = Omit<
+  ArcItem<string>,
+  "synopsis" | "location" | "framing" | "aside" | "duration"
+> & {
   // The discriminant, defaulted rather than required: a shot is narrative unless it
   // says otherwise, so the ordinary case stays unannotated.
   kind?: "shot";
@@ -262,7 +285,8 @@ export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "location" | "fra
   // so it is pinned here and matched to the roster by exact id. The shot's `framing` and `location`
   // are read through it — declaring either here as well would let a shot contradict its own setup.
   setup: string;
-  duration: number;
+  duration?: number;
+  beats?: number;
   // The lines this shot SPEAKS aloud. Every line demands a cast voice and an `animatic` on the video
   // shot, which is why the unspoken kind lives in `telop` instead of borrowing this field.
   script?: readonly ScriptLine[];
@@ -353,7 +377,8 @@ export type AsideShot = {
   // rather than describing a picture — the picture is the video stage's, and for an OP it is not
   // konte's at all. Required: an unlabelled hole in the runtime is unreviewable.
   label: string;
-  duration: number;
+  duration?: number;
+  beats?: number;
   // Text laid over it and never spoken — a title card's own words. Same field, same meaning as a
   // narrative shot's, and the only text an aside carries.
   telop?: readonly string[];
@@ -395,6 +420,33 @@ export type DirectionNode = {
   sequences?: DirectionNode[];
 };
 
+// Who sings: a `characters` id, or the ids singing together.
+export type Singer = string | readonly [string, ...string[]];
+
+// One sung line, as the words are written. A line with its own `singer` is sung by them.
+export type LyricLine = string | { text: string; singer: Singer };
+
+// A stretch of the song's form — a verse, a chorus — who sings it, and its lines in the order they
+// are sung.
+export type LyricSection = { label: string; singer: Singer; lines: readonly LyricLine[] };
+
+// What the song sings, section by section. The words are the ones the song asset is generated with,
+// a subtitle is set from, and a take is read against. Only a piece with `policy.clock` has a song to
+// sing them.
+export type DirectionLyrics = readonly LyricSection[];
+
+export function lyricText(line: LyricLine): string {
+  return typeof line === "string" ? line : line.text;
+}
+
+export function singersOf(singer: Singer): readonly string[] {
+  return typeof singer === "string" ? [singer] : singer;
+}
+
+export function lineSingers(section: LyricSection, line: LyricLine): readonly string[] {
+  return singersOf(typeof line === "string" ? section.singer : line.singer);
+}
+
 // The always-declared direction policy: `brief`, `characters`, and `policy` (canvas + speech rule)
 // are required so every session opens on the full, explicit prior agreement rather than a set of
 // silent defaults. `lenses` is the one exception — it is an extension mechanism (custom lenses on top
@@ -428,6 +480,8 @@ export type Direction = {
   lenses?: LensSpec<string>[];
   // The machine-checked canvas + speech rule, each reviewed as its own feedback part.
   policy: DirectionPolicy;
+  // The song's words, reviewed as one part (`direction:lyrics`).
+  lyrics?: DirectionLyrics;
   // The root of the arc tree. A leaf for a short piece (`{ lens, shots }`), a branch for a long one
   // (`{ lens, sequences }`). Named `sequence` because every node is a sequence — an ordered run that
   // forms an arc — whether it runs over shots or over sub-sequences.
@@ -436,15 +490,16 @@ export type Direction = {
 
 // `const` inference produces readonly tuples, which are NOT assignable to the mutable arrays of
 // `Direction` — so `<const D extends Direction>` would reject every literal. Constrain to a
-// structural shape whose arrays are `readonly` instead: it still type-checks `role`/`duration`,
-// but never widens the inferred literal ids. `duration` stays required so the direction must declare it.
+// structural shape whose arrays are `readonly` instead: it still type-checks `role` and the span,
+// but never widens the inferred literal ids. Which span a shot owes is `ConstrainSpan`'s.
 type NarrativeShotShape = {
   id: string;
   kind?: "shot";
   role: string;
   action: string;
   setup: string;
-  duration: number;
+  duration?: number;
+  beats?: number;
   script?: readonly ScriptLine[];
   telop?: readonly string[];
   // Left as `readonly string[]` rather than narrowed to the roster keys: `<const D>` captures the
@@ -469,7 +524,8 @@ type GraphicShotShape = {
   kind: "graphic";
   role: string;
   action: string;
-  duration: number;
+  duration?: number;
+  beats?: number;
   script?: readonly ScriptLine[];
   telop?: readonly string[];
   cutin?: CutinShape;
@@ -482,7 +538,8 @@ type AsideShotShape = {
   id: string;
   kind: "aside";
   label: string;
-  duration: number;
+  duration?: number;
+  beats?: number;
   telop?: readonly string[];
   cutin?: never;
 };
@@ -512,6 +569,7 @@ type DirectionInput = {
   narrator?: Voice;
   lenses?: readonly LensSpec<string>[];
   policy: DirectionPolicy;
+  lyrics?: DirectionLyrics;
   sequence: RootNodeShape;
 };
 
@@ -575,7 +633,7 @@ type BuiltinLensRolesOf<Name> =
   Extract<BuiltinLens, { name: Name }> extends infer L
     ? [L] extends [never]
       ? string
-      : L extends { beats: infer B extends readonly { role: string }[] }
+      : L extends { roles: infer B extends readonly { role: string }[] }
         ? B[number]["role"]
         : string
     : string;
@@ -589,7 +647,7 @@ type ConstrainRole<Item, Roles extends string> = Item extends { role: infer R }
       : [R] extends [Roles]
         ? unknown
         : {
-            role: DirectionViolation<`konte: "${R & string}" is not a beat role this node's lens declares`>;
+            role: DirectionViolation<`konte: "${R & string}" is not a role this node's lens declares`>;
           }
   : unknown;
 
@@ -649,6 +707,42 @@ type ConstrainDuration<B> = B extends { kind: "aside" }
             }
           : unknown
     : unknown;
+// On the song clock a span is a positive whole number of beats, an aside's included. A computed value passes through to `off-grid-duration`.
+type ConstrainBeats<B> = B extends { beats: infer N }
+  ? number extends N
+    ? unknown
+    : `${N & number}` extends `${string}.${string}` | `-${string}` | "0"
+      ? {
+          beats: DirectionViolation<"konte: a shot's span is a positive whole number of beats — a half-beat cut is a computed value with an off-grid-duration waiver">;
+        }
+      : unknown
+  : unknown;
+// Which span a shot owes: `beats` on a direction with `policy.clock`, `duration` without one, and
+// never both. A computed policy (`Clocked` widened to `boolean`) checks only the grid of what was
+// written and leaves which one to `shot-span-mismatch`.
+type ConstrainSpan<B, Clocked extends boolean> = boolean extends Clocked
+  ? ConstrainBeats<B> & ConstrainDuration<B>
+  : Clocked extends true
+    ? (B extends { duration: number }
+        ? {
+            duration: DirectionViolation<"konte: this direction keeps time with policy.clock, so a shot's span is `beats`, not `duration`">;
+          }
+        : unknown) &
+        (B extends { beats: number }
+          ? ConstrainBeats<B>
+          : {
+              beats: DirectionViolation<"konte: this direction keeps time with policy.clock, so every shot declares its span in `beats`">;
+            })
+    : (B extends { beats: number }
+        ? {
+            beats: DirectionViolation<"konte: `beats` counts on policy.clock, which this direction does not declare — a shot's span is `duration` in seconds">;
+          }
+        : unknown) &
+        (B extends { duration: number }
+          ? ConstrainDuration<B>
+          : {
+              duration: DirectionViolation<"konte: every shot declares its span — `duration` in seconds">;
+            });
 
 // The one sentence a shot lands, and a child node's own summary. Empty is `empty-synopsis`; a
 // whitespace-only string has no literal form to catch, so that one stays the finding's.
@@ -750,11 +844,18 @@ type ConstrainCutinJoin<B, Shots> = B extends {
         };
       }
   : unknown;
-type ConstrainShotIds<Arr, Subjects extends string, Speech, Roles extends string, Shots> = {
+type ConstrainShotIds<
+  Arr,
+  Subjects extends string,
+  Speech,
+  Roles extends string,
+  Shots,
+  Clocked extends boolean,
+> = {
   [K in keyof Arr]: Omit<Arr[K], "id" | "lineup" | "lineupTo" | "cutin"> & {
     id: ValidatedIdentifier<Arr[K] extends { id: infer I extends string } ? I : never>;
   } & ConstrainFrameLineups<Arr[K], Subjects> &
-    ConstrainDuration<Arr[K]> &
+    ConstrainSpan<Arr[K], Clocked> &
     ConstrainAction<Arr[K]> &
     ConstrainSpeech<Arr[K], Speech> &
     ConstrainRole<Arr[K], Roles> &
@@ -767,12 +868,26 @@ type ConstrainShotIds<Arr, Subjects extends string, Speech, Roles extends string
 // Preserve the full node (so the sibling-array covariance check still sees every field) and override
 // only the id-bearing positions, recursing through both node bodies to any depth. `Shots` is the
 // whole arc flattened, for the checks that read the shot before on the clock.
-type ConstrainNodeIds<N, Subjects extends string, Speech, Lenses, Shots> = N &
+type ConstrainNodeIds<
+  N,
+  Subjects extends string,
+  Speech,
+  Lenses,
+  Shots,
+  Clocked extends boolean,
+> = N &
   (N extends { id: infer I extends string } ? { id: ValidatedIdentifier<I> } : unknown) &
   ConstrainSynopsis<N> &
   (N extends { shots: infer S }
     ? {
-        shots: ConstrainShotIds<S, Subjects, Speech, LensRolesOf<LensNameOf<N>, Lenses>, Shots>;
+        shots: ConstrainShotIds<
+          S,
+          Subjects,
+          Speech,
+          LensRolesOf<LensNameOf<N>, Lenses>,
+          Shots,
+          Clocked
+        >;
       }
     : unknown) &
   (N extends { sequences: infer Q }
@@ -783,7 +898,8 @@ type ConstrainNodeIds<N, Subjects extends string, Speech, Lenses, Shots> = N &
           Speech,
           Lenses,
           LensRolesOf<LensNameOf<N>, Lenses>,
-          Shots
+          Shots,
+          Clocked
         >;
       }
     : unknown);
@@ -797,8 +913,9 @@ type ConstrainSequenceIds<
   Lenses,
   ParentRoles extends string,
   Shots,
+  Clocked extends boolean,
 > = {
-  [K in keyof Arr]: ConstrainNodeIds<Arr[K], Subjects, Speech, Lenses, Shots> &
+  [K in keyof Arr]: ConstrainNodeIds<Arr[K], Subjects, Speech, Lenses, Shots, Clocked> &
     ConstrainRole<Arr[K], ParentRoles>;
 };
 // A cast voice's `id` is an address part like any other, but it sits in a value rather than a key, so
@@ -912,6 +1029,13 @@ type ConstrainSetupIds<D extends DirectionInput> = ConstrainRosterIds<D["setups"
 type SpeechOf<D extends DirectionInput> = D["policy"] extends { speech: infer S }
   ? S
   : SpeechPolicy;
+// Whether the piece keeps time with `policy.clock`, read off the literal policy. A computed policy,
+// whose `clock` may or may not be there, is `boolean` and leaves every span to the runtime.
+type ClockedOf<D extends DirectionInput> = D["policy"] extends { clock: object }
+  ? true
+  : "clock" extends keyof D["policy"]
+    ? boolean
+    : false;
 type ConstrainIds<D extends DirectionInput> = {
   characters: ConstrainRosterIds<D["characters"]> & ConstrainCastVoiceIds<D["characters"]>;
   locations: ConstrainRosterIds<D["locations"]> & ConstrainLandmarkIds<D["locations"]>;
@@ -921,10 +1045,42 @@ type ConstrainIds<D extends DirectionInput> = {
     SubjectIdOf<D>,
     SpeechOf<D>,
     DeclaredLensNameOf<D>,
-    DirectionShotTuple<D>
+    DirectionShotTuple<D>,
+    ClockedOf<D>
   >;
 } & (D extends { props: infer P } ? { props: ConstrainRosterIds<P> } : unknown) &
-  (D extends { narrator: infer N } ? { narrator: ConstrainVoiceId<N> } : unknown);
+  (D extends { narrator: infer N } ? { narrator: ConstrainVoiceId<N> } : unknown) &
+  (D["policy"] extends { clock: { song: infer S extends string } }
+    ? { policy: { clock: { song: ValidatedIdentifier<S> } } }
+    : unknown) &
+  (D extends { lyrics: infer L }
+    ? ClockedOf<D> extends false
+      ? {
+          lyrics: DirectionViolation<"konte: `lyrics` are sung on the song policy.clock names, which this direction does not declare">;
+        }
+      : string extends LyricSingerIdsOf<L>
+        ? unknown
+        : [Exclude<LyricSingerIdsOf<L>, SubjectIdOf<D>>] extends [never]
+          ? unknown
+          : {
+              lyrics: DirectionViolation<`konte: singer "${Exclude<LyricSingerIdsOf<L>, SubjectIdOf<D>> & string}" is not a declared character id`>;
+            }
+    : unknown);
+
+type SingerIdsOf<G> = G extends readonly (infer X)[] ? X : G;
+
+// Every literal singer id the lyrics name, on a section or a line; a widened `string` names none.
+type LyricSingerIdsOf<L> = L extends readonly (infer S)[]
+  ? S extends { singer: infer G; lines: infer Lines }
+    ?
+        | SingerIdsOf<G>
+        | (Lines extends readonly (infer Line)[]
+            ? Line extends { singer: infer G2 }
+              ? SingerIdsOf<G2>
+              : never
+            : never)
+    : never
+  : never;
 
 // The shot ids this direction declares, flattened across the arc tree in direction order.
 export type ShotIdOf<D> = DirectionIdTuple<D>[number];
@@ -937,9 +1093,15 @@ export type ShotIdOf<D> = DirectionIdTuple<D>[number];
 export interface DirectionIndex {
   format: ResolvedDirectionFormat;
   typography: Typography;
+  // Where every shot sits on the timeline, and the song clock it is counted on.
+  timeline: DirectionTimeline;
+  // Where each lyric line falls on the timeline, read off the video's song take; null on a direction
+  // without lyrics.
+  lyrics: LyricPlacementEntry[] | null;
   // Every shot, aside included — its key order IS the direction order, which is what the stage
   // chains read to find each shot's successor. An aside occupies the clock, so it must be walked
   // like any other shot; the maps below that describe a camera view simply have no entry for one.
+  // The span is the timeline's, on the frame grid, never the number the author wrote.
   durationById: Map<string, number>;
   actionById: Map<string, string>;
   setupById: Map<string, string>;
@@ -1007,14 +1169,10 @@ export type StageShotStarter<D, TStage extends ShotStage> = <
   // `shot` is here so the ctx has one shape across the whole chain; its `TIds` is `never` at the
   // first shot, so there is no id it will take.
   build: (
-    ctx: StageShotContext<
-      ScriptOf<D, TId>,
-      LineupOf<D, TId>,
-      LineupToOf<D, TId>,
-      CutinOf<D, TId>
-    > & {
-      shot: StageShots<never>;
-    },
+    ctx: StageShotContext<ScriptOf<D, TId>, LineupOf<D, TId>, LineupToOf<D, TId>, CutinOf<D, TId>> &
+      ShotSongOf<D> & {
+        shot: StageShots<never>;
+      },
   ) => ReturnType<ShotFunction>,
 ) => StageChain<D, ChainRest<D>, TId, TStage>;
 
@@ -1025,7 +1183,8 @@ export type StageGraphicShotStarter<D, TStage extends ShotStage> = <
 >(
   id: TId,
   build: (
-    ctx: GraphicShotContext<ScriptOf<D, TId>, CutinOf<D, TId>> & { shot: StageShots<never> },
+    ctx: GraphicShotContext<ScriptOf<D, TId>, CutinOf<D, TId>> &
+      ShotSongOf<D> & { shot: StageShots<never> },
   ) => ReturnType<ShotFunction>,
 ) => StageChain<D, ChainRest<D>, TId, TStage>;
 
@@ -1046,7 +1205,7 @@ export type StageAsideShotStarter<D> = <TId extends AsideIdOf<D, FirstShotId<D>>
 ) => StageChain<D, ChainRest<D>, TId, "animatic">;
 export type VideoAsideShotStarter<D> = <TId extends AsideIdOf<D, FirstShotId<D>>>(
   id: TId,
-  build: (ctx: AsideShotContext) => ReturnType<ShotFunction>,
+  build: (ctx: AsideShotContext & ShotSongOf<D>) => ReturnType<ShotFunction>,
 ) => StageChain<D, ChainRest<D>, TId, "video">;
 
 // The chain's `shot` — the by-name accessors below, resolving against an already-placed shot's
@@ -1067,7 +1226,7 @@ const makeStageShots = (stage: ShotStage, placed: readonly AnyShotInput[]): Stag
       );
     }
     return makeAssetNameHandle(stage, `shot("${shotId}")`, shotId, () =>
-      shotAssetKinds(stage, target),
+      shotDeclarations(stage, target),
     );
   };
 };
@@ -1077,10 +1236,12 @@ const makeStageShots = (stage: ShotStage, placed: readonly AnyShotInput[]): Stag
 // context) and memoize per shot input. Keyed by the input object rather than the id: the chain
 // re-wraps its list at every link but carries the same input objects through, so one run per shot
 // serves the whole chain however many later shots reach back to it.
-const assetKindsByInput = new WeakMap<AnyShotInput, Map<string, MediaKind>>();
+type ShotDeclarations = Pick<DiscoveryResult, "assetKinds" | "songSpans">;
 
-const shotAssetKinds = (stage: ShotStage, input: AnyShotInput): Map<string, MediaKind> => {
-  const cached = assetKindsByInput.get(input);
+const declarationsByInput = new WeakMap<AnyShotInput, ShotDeclarations>();
+
+const shotDeclarations = (stage: ShotStage, input: AnyShotInput): ShotDeclarations => {
+  const cached = declarationsByInput.get(input);
   if (cached) return cached;
   if (isPendingShotInput(input)) {
     throw new Error(
@@ -1094,9 +1255,10 @@ const shotAssetKinds = (stage: ShotStage, input: AnyShotInput): Map<string, Medi
         `so it declares no assets. Reach the media it drops in from a timeline or reference asset instead.`,
     );
   }
-  const kinds = runInDiscoveryMode(stage, input.id, input.fn).assetKinds;
-  assetKindsByInput.set(input, kinds);
-  return kinds;
+  const { assetKinds, songSpans } = runInDiscoveryMode(stage, input.id, input.fn);
+  const declarations = { assetKinds, songSpans };
+  declarationsByInput.set(input, declarations);
+  return declarations;
 };
 
 // The `shot` a chain's FIRST shot receives. Its `TIds` is `never`, so typed code cannot call it.
@@ -1116,12 +1278,13 @@ const makeAssetNameHandle = (
   stage: ShotStage,
   label: string,
   shotId: string,
-  kinds: () => Map<string, MediaKind>,
+  declarations: () => ShotDeclarations,
 ): ShotHandle => {
   const get = <T extends MediaKind>(assetName: string, want: T): MediaAsset<T> => {
-    const found = kinds().get(assetName);
+    const { assetKinds, songSpans } = declarations();
+    const found = assetKinds.get(assetName);
     if (found === undefined) {
-      const names = [...kinds().keys()];
+      const names = [...assetKinds.keys()];
       throw new Error(
         `${label}.${want}("${assetName}"): ${stage} shot "${shotId}" declares no asset named ` +
           `"${assetName}". Declared: ${names.join(", ") || "(none)"}.`,
@@ -1133,7 +1296,10 @@ const makeAssetNameHandle = (
           `${found}, not ${want}. Use ${label}.${found}("${assetName}").`,
       );
     }
-    return makeMediaAsset<T>(makePlaceholder(stage, shotId, assetName));
+    return withSongSpan(
+      makeMediaAsset<T>(makePlaceholder(stage, shotId, assetName)),
+      songSpans.get(assetName),
+    );
   };
   return {
     video: (assetName) => get(assetName, "video"),
@@ -1163,6 +1329,24 @@ const directionSuccessor = (index: DirectionIndex, lastId: string, passedId: str
 
 const shotScriptOf = (index: DirectionIndex, shotId: string): ShotScript =>
   makeShotScript(index.scriptById.get(shotId) ?? []);
+
+// `ctx.beat`, on a direction with a song clock, counted from the beat the shot's span starts on — the
+// first shot's head is the take's start, before that beat.
+const shotClockOf = (
+  index: DirectionIndex,
+  shotId: string,
+): Partial<ShotClockContext & ShotLyricsContext> => {
+  const { clock, fps, timings } = index.timeline;
+  const timing = timings.get(shotId);
+  if (!clock || timing?.startBeat === undefined) return {};
+  const startBeat = timing.startBeat;
+  return {
+    beat: (n: number) => onFrames(beatTime(index.timeline, startBeat + n) - timing.start, fps),
+    ...(index.lyrics
+      ? { lyrics: lyricsInSpan(index.lyrics, timing.start, timing.duration, fps) }
+      : {}),
+  };
+};
 
 // The mirror of `asideShotContext`'s guard, for the starters that place a shot of the ARC. `.nextShot` reads
 // its shot eagerly through `stageShotContext` and carries its own; the starters and `.nextPendingShot` build
@@ -1220,6 +1404,7 @@ const graphicShotContext = (
     duration: index.durationById.get(shotId)!,
     script: shotScriptOf(index, shotId),
     cutin: cutinContext(index, shotId),
+    ...shotClockOf(index, shotId),
   };
 };
 
@@ -1233,7 +1418,7 @@ const asideShotContext = (index: DirectionIndex, shotId: string): AsideShotConte
       `asideShot("${shotId}") is not an aside shot — direction.ts declares it as an ordinary shot. Use shot("${shotId}", …).`,
     );
   }
-  return { duration: index.durationById.get(shotId)!, label };
+  return { duration: index.durationById.get(shotId)!, label, ...shotClockOf(index, shotId) };
 };
 
 // The shot facts a stage build receives. One reader for the starter and the chain step, so a field
@@ -1265,6 +1450,7 @@ const stageShotContext = (
     lineup: index.lineupById.get(shotId) ?? [],
     lineupTo: index.lineupToById.get(shotId) ?? null,
     cutin: cutinContext(index, shotId),
+    ...shotClockOf(index, shotId),
   };
 };
 
@@ -1485,6 +1671,223 @@ export function resolveDirectionFormat(direction: Direction): ResolvedDirectionF
   };
 }
 
+// Where one shot sits on the timeline, in seconds on the canvas' frame grid. `startBeat` / `beats`
+// are the song clock's count, present only on a direction with `policy.clock`.
+export type ShotTiming = {
+  start: number;
+  duration: number;
+  startBeat?: number;
+  beats?: number;
+};
+
+// The one reading of the direction's clock every stage shares. Each cut lands on the frame nearest
+// the running sum of the spans before it — `lead + round(beats × 60 / bpm × fps)` on the song clock,
+// `round(seconds × fps)` without one.
+export type DirectionTimeline = {
+  fps: number;
+  clock: DirectionClock | null;
+  // Frames of the song take before its first beat, which the first shot holds; 0 without a clock or
+  // a read take.
+  leadFrames: number;
+  // Every shot, asides included, in direction order.
+  timings: Map<string, ShotTiming>;
+};
+
+// What a shot's own span counts in: beats on the song clock, seconds without it. A span the author
+// did not write (a computed direction, `shot-span-mismatch`) counts as nothing.
+export function shotSpan(shot: Shot, clock: DirectionClock | null | undefined): number {
+  return (clock ? shot.beats : shot.duration) ?? 0;
+}
+
+function shotsInClockOrder(node: DirectionNode): Shot[] {
+  if (Array.isArray(node.shots)) return node.shots;
+  return (node.sequences ?? []).flatMap(shotsInClockOrder);
+}
+
+// A time a build reads, on the frame grid and exact: two readings of one place are one number
+// whatever arithmetic reached them, so a prompt or a composition written from it hashes the same.
+function onFrames(sec: number, fps: number): number {
+  return Math.round(sec * fps) / fps;
+}
+
+// The timeline second of beat `beat`, counted from the song's first beat, on the frame grid.
+export function beatTime(
+  timeline: { clock: DirectionClock | null; fps: number; leadFrames: number },
+  beat: number,
+): number {
+  const { clock, fps, leadFrames } = timeline;
+  if (!clock) return 0;
+  return (leadFrames + Math.round(((beat * 60) / clock.bpm) * fps)) / fps;
+}
+
+function leadFramesOf(take: SongTake | null, fps: number): number {
+  return take ? Math.max(0, Math.round(take.analysis.downbeatSec * fps)) : 0;
+}
+
+// The direction's timeline: the one its loaded index holds, else read off the direction alone, with
+// no song take.
+export function resolveDirectionTimeline(direction: Direction): DirectionTimeline {
+  const index = (direction as unknown as Record<symbol, DirectionIndex | undefined>)[DIRECTION_KEY];
+  return index?.timeline ?? readDirectionTimeline(direction, null);
+}
+
+export function readDirectionTimeline(
+  direction: Direction,
+  take: SongTake | null,
+): DirectionTimeline {
+  const fps = direction.policy.format.fps;
+  const clock = direction.policy.clock ?? null;
+  const secondsPer = clock ? 60 / clock.bpm : 1;
+  const leadFrames = clock ? leadFramesOf(take, fps) : 0;
+  const timings = new Map<string, ShotTiming>();
+  let sum = 0;
+  let edge = 0;
+  for (const shot of shotsInClockOrder(direction.sequence)) {
+    const span = shotSpan(shot, clock);
+    const startBeat = sum;
+    sum += span;
+    // At least one frame, so a shot that holds nothing still has a picture to cut to.
+    const next = Math.max(edge + 1, leadFrames + Math.round(sum * secondsPer * fps));
+    timings.set(shot.id, {
+      start: edge / fps,
+      duration: (next - edge) / fps,
+      ...(clock ? { startBeat, beats: span } : {}),
+    });
+    edge = next;
+  }
+  return { fps, clock, leadFrames, timings };
+}
+
+// One declared lyric line and where it falls on the timeline, in seconds from the take's start —
+// `start` and `end` null where neither the take nor a person places it. `set` marks a line a person
+// placed on the take (`konte song set --line`).
+export type LyricPlacementEntry = {
+  // `<section>.<line>`, both counted from 1.
+  key: string;
+  section: string;
+  text: string;
+  singer: readonly string[];
+} & ({ start: number; end: number; set: boolean } | { start: null; end: null; set: false });
+
+// Where the direction's lyric lines fall, read off a take of the song (see `placeLyricLines`), a
+// line a person placed on the take where they placed it. The timeline runs on the take's clock: a
+// line sung at take-second t falls at t, counted in frames from the lead, so a line sung at the same
+// place after the first beat reads the same whatever lead the take has.
+export function placeDirectionLyrics(
+  direction: Direction,
+  take: SongTake | null,
+): LyricPlacementEntry[] {
+  const clock = direction.policy.clock;
+  const lyrics = direction.lyrics;
+  if (!clock || !lyrics) return [];
+  const fps = direction.policy.format.fps;
+  const setLines = take?.analysis.lines ?? {};
+  const lines = lyrics.flatMap((section, s) =>
+    section.lines.map((line, l) => {
+      const key = `${s + 1}.${l + 1}`;
+      const text = lyricText(line);
+      const set = setLines[key];
+      return {
+        key,
+        section: section.label,
+        text,
+        singer: lineSingers(section, line),
+        ...(set && set.text === text
+          ? { set: { startSec: set.startSec, endSec: set.endSec } }
+          : {}),
+      };
+    }),
+  );
+  const downbeat = take?.analysis.downbeatSec ?? 0;
+  const leadFrames = leadFramesOf(take, fps);
+  const onTimeline = (sec: number) => (leadFrames + Math.round((sec - downbeat) * fps)) / fps;
+  const placements = placeLyricLines({
+    lines: lines.map((line) => ({ text: line.text, ...(line.set ? { set: line.set } : {}) })),
+    phrases: take?.analysis.phrases ?? null,
+    bpm: take?.analysis.bpm ?? clock.bpm,
+    beatsPerBar: clock.beatsPerBar,
+    downbeatSec: downbeat,
+    lang: direction.policy.lang,
+  });
+  return lines.map((line, i): LyricPlacementEntry => {
+    const placed = placements[i] ?? null;
+    const at = { key: line.key, section: line.section, text: line.text, singer: line.singer };
+    return placed
+      ? {
+          ...at,
+          start: onTimeline(placed.startSec),
+          end: onTimeline(placed.endSec),
+          set: placed.set,
+        }
+      : { ...at, start: null, end: null, set: false };
+  });
+}
+
+// The lines a span of the timeline hears, from its head: every placed line sounding inside
+// [from, from + duration), cut to it at its head.
+export type SpanLyric = { text: string; singer: readonly string[]; start: number; end: number };
+
+function lyricsInSpan(
+  placed: readonly LyricPlacementEntry[],
+  from: number,
+  duration: number,
+  fps: number,
+): SpanLyric[] {
+  return placed.flatMap((line) => {
+    if (line.start === null) return [];
+    const end = line.end;
+    if (line.start >= from + duration || end <= from) return [];
+    // A line sung from before the span opens at its head: a timed layer the runtime starts at 0
+    // would otherwise keep its whole length and run into the next line.
+    return [
+      {
+        text: line.text,
+        singer: line.singer,
+        start: onFrames(Math.max(0, line.start - from), fps),
+        end: onFrames(end - from, fps),
+      },
+    ];
+  });
+}
+
+// What a span of the timeline hears and counts, from its head — the context an overlay's build
+// receives: on the song clock, the second of the span's `n`th beat on the song grid; with lyrics,
+// the lines sung inside it.
+export function spanSongContext(
+  index: DirectionIndex,
+  start: number,
+  duration: number,
+): Partial<ShotClockContext & ShotLyricsContext> {
+  const { clock, fps, timings, leadFrames } = index.timeline;
+  if (!clock) return {};
+  // A span opening on a cut starts on that cut's beat: the frame a beat lands on is rounded, so
+  // reading the beat back from the frame would miss it.
+  const cut = [...timings.values()].find((t) => Math.abs(t.start - start) < 1e-9);
+  const startBeat = cut?.startBeat ?? ((start - leadFrames / fps) * clock.bpm) / 60;
+  return {
+    beat: (n: number) => onFrames(beatTime(index.timeline, startBeat + n) - start, fps),
+    ...(index.lyrics ? { lyrics: lyricsInSpan(index.lyrics, start, duration, fps) } : {}),
+  };
+}
+
+// Runs before the direction is reviewed, beside `assertCanvasFormat`.
+export function assertDirectionClock(clock: DirectionClock | undefined): void {
+  if (!clock) return;
+  if (typeof clock.song !== "string" || !isIdentifier(clock.song)) {
+    throw new Error(
+      `policy.clock.song must name a reference asset id (a-z, A-Z, 0-9, -, _), got "${clock.song}"`,
+    );
+  }
+  if (!Number.isFinite(clock.bpm) || clock.bpm <= 0) {
+    throw new Error(`policy.clock.bpm must be a positive, finite tempo, got ${clock.bpm}`);
+  }
+  if (!Number.isInteger(clock.beatsPerBar) || clock.beatsPerBar <= 0) {
+    throw new Error(
+      `policy.clock.beatsPerBar must be a positive whole number of beats, got ${clock.beatsPerBar}`,
+    );
+  }
+}
+
 // The widest budget the derivation will resolve: past this, a stated budget is far likelier to be a
 // unit slip (pixels typed where megapixels were meant) than a deliberate choice.
 const MAX_MEGAPIXELS = 16;
@@ -1551,12 +1954,17 @@ export function defineDirection<const D extends DirectionInput>(
   assertLanguageTag(dir.policy.lang);
   if (dir.policy.fonts) assertFontFamilies(dir.policy.fonts);
   assertCanvasFormat(dir.policy.format);
+  assertDirectionClock(dir.policy.clock);
   const resolvedFormat = resolveDirectionFormat(dir);
+  const clock = dir.policy.clock;
+  const songTake = clock ? songTakeAt(formatReferenceAddress(clock.song)) : null;
+  const timeline = readDirectionTimeline(dir, songTake);
+  const lyrics = dir.lyrics ? placeDirectionLyrics(dir, songTake) : null;
   // A shot's framing/location are its setup's. An unknown setup id leaves both unindexed rather than
   // guessing: `validateDirectionStructure` reports it as `setup-unknown`, and `stageShotContext` throws
   // for the readers that run before that gate.
   const indexShot = (s: Shot) => {
-    durationById.set(s.id, s.duration);
+    durationById.set(s.id, timeline.timings.get(s.id)!.duration);
     // An aside is a span with a name and nothing a camera or a speaker fills, so it enters the clock
     // (`durationById`) and the label map only. Every other map stays without an entry for it, which
     // is what makes a reader that needs a setup fail loudly rather than read an invented one.
@@ -1635,6 +2043,8 @@ export function defineDirection<const D extends DirectionInput>(
 
   const index: DirectionIndex = {
     format: resolvedFormat,
+    timeline,
+    lyrics,
     typography: {
       lang: dir.policy.lang,
       ...(dir.policy.fonts?.length ? { fonts: [...dir.policy.fonts] } : {}),

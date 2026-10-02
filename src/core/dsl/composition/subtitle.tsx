@@ -9,7 +9,7 @@ export interface SubtitleEntry {
 }
 
 export type SubtitleProps = DivElementProps & {
-  entries: SubtitleEntry[];
+  entries: readonly SubtitleEntry[];
 };
 
 export function Subtitle({ entries, ...rest }: SubtitleProps): React.ReactElement | null {
@@ -19,7 +19,7 @@ export function Subtitle({ entries, ...rest }: SubtitleProps): React.ReactElemen
   return <>{renderEntries(toSrtEntries(entries), rest)}</>;
 }
 
-function toSrtEntries(entries: SubtitleEntry[]): SrtEntry[] {
+function toSrtEntries(entries: readonly SubtitleEntry[]): SrtEntry[] {
   return entries.map((e, i) => ({
     index: i + 1,
     startSeconds: e.start,

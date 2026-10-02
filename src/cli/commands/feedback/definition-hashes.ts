@@ -1,4 +1,5 @@
 import {
+  listOverlayAddresses,
   formatCompositionAddress,
   formatTimelineStemAddress,
   listShotStems,
@@ -54,6 +55,9 @@ export function liveDefinitionHashesOf(
     }
     if ((stage.timelineSoundtracks?.length ?? 0) > 0) {
       const address = formatTimelineStemAddress(stage.stage);
+      set(address, definitionHashForAddress(stage, address));
+    }
+    for (const address of listOverlayAddresses(stage)) {
       set(address, definitionHashForAddress(stage, address));
     }
   }

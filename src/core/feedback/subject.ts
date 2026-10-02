@@ -1,6 +1,8 @@
 import {
+  isOverlayAddress,
   formatAddress,
   formatCompositionAddress,
+  formatTimelineOverlayAddress,
   formatTimelineStemAddress,
   listShotStems,
   parseShotAddress,
@@ -46,6 +48,11 @@ export function commentSubjectAddresses(
     return { assets: timelineStemRefs(def), leaves: [address] };
   }
 
+  // The overlay stands on what it shows and on its own definition, as a composition does.
+  if (isOverlayAddress(address) && def.overlay) {
+    return { assets: [...def.overlay.compositionRefs], leaves: [address] };
+  }
+
   const shot = parseShotAddress(address);
   if (!shot || shot.stage !== def.stage) return null;
   const shotDef = shotById(def.shots, shot.shotId);
@@ -60,14 +67,22 @@ export function commentSubjectAddresses(
   // nothing" and only a raw literal (tests, fallback shots) leaves it unset for declarations to
   // stand in for. Treating the two alike put an unplaced `asset()` back in the subject.
   const refs = shotDef.compositionRefs;
-  const assets =
-    refs !== undefined
-      ? [...new Set(refs)]
-      : Object.keys(shotDef.assets).map((name) => formatAddress(def.stage, shot.shotId, name));
+  // The overlay laid over the shot is part of the picture the reviewer commented on, and nothing on
+  // screen tells it apart from the shot's own layers.
+  const overlay = shotDef.shotFn ? def.overlay : undefined;
+  const assets = [
+    ...new Set([
+      ...(refs !== undefined
+        ? refs
+        : Object.keys(shotDef.assets).map((name) => formatAddress(def.stage, shot.shotId, name))),
+      ...(overlay?.compositionRefs ?? []),
+    ]),
+  ];
 
   const leaves: string[] = [];
   if (shotDef.shotFn) leaves.push(formatCompositionAddress(def.stage, shot.shotId));
   for (const stem of listShotStems(def.stage, shotDef)) leaves.push(stem.address);
+  if (overlay) leaves.push(formatTimelineOverlayAddress(def.stage));
 
   return { assets, leaves };
 }

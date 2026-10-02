@@ -16,6 +16,7 @@ A `defineComfyAsset` adapter declares its ComfyUI dependencies so konte provisio
   Presence is read from the loader combos in `/object_info`, falling back to the `savePath` root's `/api/models/<root>` listing for a model no node exposes as a combo.
 - **comfy node installs** — shared/deduped per pack, install-to-disk only — paired with an **activate** job that reboots ComfyUI once (under a server-wide reboot lock keyed by baseUrl) so the new nodes load. Deduped per pack set (one per run, not per asset), reset like the installs above. A generation job that needs nodes depends on the activate job, so nothing generates mid-reboot.
 - **`export` jobs** — a leaf render job (see the `arch-delivery-guide` skill).
+- **`song-analysis`** — see `arch-direction-guide`.
 
 A reboot is destructive (a server not under a relauncher won't return): on failure konte raises `COMFY_NODE_RESTART_REQUIRED` for a manual restart; shared servers set `comfyui.autoRebootAfterNodeInstall: false`. Activation also holds while any comfy job (generation, model-download, node-install) is running workspace-wide, or the reboot orphans it.
 

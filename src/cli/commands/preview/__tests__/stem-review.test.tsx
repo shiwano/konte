@@ -17,6 +17,7 @@ import {
   acceptDisplayedStemSources,
   buildAudioAssets,
   materializedLeafReviewStatus,
+  overlayVerdict,
   timelineStemVerdict,
   unlandedLeafReason,
   unlandedShotLeaves,
@@ -24,14 +25,14 @@ import {
 } from "../reel-review.js";
 import { Audio, Composition, Image, Panel } from "../../../../core/dsl/composition/index.js";
 import { defineComfyAsset } from "../../../../core/dsl/comfy-asset.js";
-import { asset, defineAnimatic, defineVideo } from "../../../../core/dsl/index.js";
+import { asset, defineAnimatic, defineDirection, defineVideo } from "../../../../core/dsl/index.js";
 import {
   animaticTimeline,
   moves,
   shot,
   videoTimeline,
 } from "../../../../core/__tests__/helpers/shot.js";
-import { testDirection } from "../../../../core/__tests__/helpers/direction.js";
+import { directionDefaults, testDirection } from "../../../../core/__tests__/helpers/direction.js";
 
 let dir: string;
 let manager: StateManager;
@@ -959,5 +960,54 @@ describe("unreleasedShotLeaves", () => {
     expect(
       unreleasedShotLeaves(manager, video, { ...planShot, resolvedVariants: { vo: vid } }),
     ).toEqual([]);
+  });
+});
+
+describe("overlayVerdict", () => {
+  const address = "video:timeline#overlay";
+  const withTitle = defineVideo(
+    defineDirection({
+      ...directionDefaults,
+      sequence: {
+        lens: "mini-drama",
+        pleasure: "cute",
+        shots: [
+          { id: "01", role: "ordinary", action: "a", setup: "front", duration: 2, lineup: [] },
+        ],
+      },
+    }),
+    {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => <Composition />),
+        overlay: () => <Composition />,
+      }),
+    },
+  );
+  const withoutTitle: VideoDefinition = { ...withTitle, overlay: undefined };
+
+  it("records an accept that landed at the overlay's current definition", () => {
+    const vid = addReadyVariant(
+      address,
+      "overlay.html",
+      definitionHashForAddress(withTitle, address) ?? undefined,
+    );
+    manager.setAccepted(address, vid);
+    expect(overlayVerdict(manager, withTitle, "accepted")).toEqual({
+      landed: "accepted",
+      skipped: null,
+    });
+  });
+
+  it("reports an accept that did not land", () => {
+    const verdict = overlayVerdict(manager, withTitle, "accepted");
+    expect(verdict.landed).toBeUndefined();
+    expect(verdict.skipped?.address).toBe(address);
+  });
+
+  it("drops a verdict on an overlay removed while the review was open", () => {
+    expect(overlayVerdict(manager, withoutTitle, "accepted")).toEqual({
+      landed: undefined,
+      skipped: null,
+    });
   });
 });

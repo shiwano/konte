@@ -1,3 +1,4 @@
+import { mixedSoundtracks } from "./song-bed.js";
 import {
   type ShotStage,
   COMPOSITION_ASSET_NAME,
@@ -12,6 +13,7 @@ import {
   NARRATION_STEM_ASSET_NAME,
   parseAssetPath,
   tryParseAddress,
+  OVERLAY_ASSET_NAME,
   STEM_ASSET_NAME,
   assetNameOf,
   type DefinitionLike,
@@ -170,6 +172,7 @@ export function buildDependencyGraph(
     if ((def.timelineSoundtracks?.length ?? 0) > 0) {
       allAssetPaths.add(formatTimelineAssetPath(stage, STEM_ASSET_NAME));
     }
+    if (def.overlay) allAssetPaths.add(formatTimelineAssetPath(stage, OVERLAY_ASSET_NAME));
   }
 
   const dependencies = new Map<string, string[]>();
@@ -268,6 +271,16 @@ export function buildDependencyGraph(
         pendingAnimaticShots,
       );
     }
+    if (def.overlay) {
+      addEdges(
+        formatTimelineAssetPath(stage, OVERLAY_ASSET_NAME),
+        def.overlay.compositionRefs,
+        allAssetPaths,
+        dependencies,
+        dependents,
+        pendingAnimaticShots,
+      );
+    }
   }
 
   validateReferencePurity(dependencies);
@@ -343,6 +356,9 @@ export function listUnusedAssetPaths(
   if ((video.timelineSoundtracks?.length ?? 0) > 0) {
     roots.push(formatTimelineAssetPath("video", STEM_ASSET_NAME));
   }
+  // The overlay is a leaf of its own: what it shows is used by it.
+  if (video.overlay) roots.push(formatTimelineAssetPath("video", OVERLAY_ASSET_NAME));
+  if (animatic?.overlay) roots.push(formatTimelineAssetPath("animatic", OVERLAY_ASSET_NAME));
 
   // The animatic's own compositions are review roots of their own: each is what a human watches to
   // decide whether the shot may be spent on, so the takes it shows (a keyframe, a TTS line) are used
@@ -364,7 +380,7 @@ export function listUnusedAssetPaths(
   // Timeline soundtracks are render roots too — a bed muxed onto the final video is
   // "used" even though no shot composition references it. Each entry's `src` is an
   // audio asset placeholder resolved to its asset path.
-  for (const st of video.timelineSoundtracks ?? []) {
+  for (const st of mixedSoundtracks(video, video.timelineSoundtracks)) {
     const path = parsePlaceholder(st.src.src);
     if (path) roots.push(path);
   }
@@ -472,7 +488,7 @@ function boardNodesOf(shot: AnimaticDefinition["shots"][number]): Set<string> {
     Object.keys(shot.assets).map((name) => formatAssetPath("animatic", shot.id, name)),
   );
   for (const panel of allPanels(shot)) nodes.add(panel.assetPath);
-  if ((shot.stemRefs?.length ?? 0) > 0) {
+  if ((shot.stemRefs?.length ?? 0) > 0 || shot.songCue) {
     nodes.add(formatAssetPath("animatic", shot.id, STEM_ASSET_NAME));
   }
   return nodes;

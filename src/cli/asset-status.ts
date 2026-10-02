@@ -4,6 +4,7 @@ import {
   isDeliveryAddress,
   listAddresses,
   listCompositionAddresses,
+  listOverlayAddresses,
   listReferenceAddresses,
   listStemAddresses,
 } from "../core/address.js";
@@ -57,6 +58,8 @@ export async function buildAssetStatus(opts: {
       ...listStemAddresses(animatic),
       ...listCompositionAddresses(video),
       ...listStemAddresses(video),
+      ...listOverlayAddresses(animatic),
+      ...listOverlayAddresses(video),
       ...listRemovedShotStemAddresses(state, animatic),
       ...listRemovedShotStemAddresses(state, video),
       ...Object.keys(state.assets).filter(isDeliveryAddress),

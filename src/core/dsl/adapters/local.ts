@@ -174,6 +174,7 @@ function createTrimAdapter<T extends "video" | "audio">(
         inputs: { source: inputs.source.src, start: inputs.start, duration: inputs.duration },
       };
     },
+    timeOffset: (inputs) => inputs.start,
   };
 }
 
@@ -212,6 +213,7 @@ export const audioRetime: AssetAdapter<AudioRetimeInputs, "audio"> = {
       },
     },
   },
+  timeOffset: () => null,
   createDefinition(inputs: AudioRetimeInputs): LocalAssetDefinition {
     if (!Number.isFinite(inputs.duration) || inputs.duration <= 0) {
       throw new KonteError(

@@ -1,6 +1,6 @@
 # Cut idioms
 
-Ways to stage a key action across cuts — reach for them on the beats that carry the piece (a turn, a payoff, a peak); a connective beat staged plainly is fine. Each is ordinary shots: `action`/`setup`/`duration` chosen together.
+Ways to stage a key action across cuts — reach for them on the roles that carry the piece (a turn, a payoff, a peak); a connective role staged plainly is fine. Each is ordinary shots: `action`/`setup`/`duration` chosen together.
 
 - **Decompose the key action — anticipation, cut, result.** A `close`/`insert` of the body finding the action, the motion itself elided IN the cut, the result already landed. The skipped middle is the impact — the viewer supplies a faster, cleaner motion than any take — and the generation-safe form: each side is a near-still a model holds. Keep the anticipation short; let the result hold.
 

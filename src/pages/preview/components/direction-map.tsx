@@ -7,7 +7,7 @@ import {
   tickLabel,
   useTimelineZoom,
 } from "../review/use-timeline-zoom.js";
-import type { BeatFunction, DirectionSequenceInfo, DirectionShotInfo } from "../types.js";
+import type { RoleFunction, DirectionSequenceInfo, DirectionShotInfo } from "../types.js";
 import { CommentIcon, FitIcon } from "./icons.js";
 
 const LABEL_W = 76;
@@ -22,7 +22,7 @@ const ARC_PAD = 7;
 // peak by definition and has nowhere to travel. The numbers are a reading aid, not a theory: what
 // they have to get right is the order — ground below turn below build below payoff — and that a run
 // of anything moves.
-const FUNCTION_BAND: Record<BeatFunction, readonly [number, number]> = {
+const FUNCTION_BAND: Record<RoleFunction, readonly [number, number]> = {
   ground: [0.06, 0.14],
   turn: [0.34, 0.44],
   build: [0.46, 0.86],
@@ -33,7 +33,7 @@ const FUNCTION_BAND: Record<BeatFunction, readonly [number, number]> = {
 // Each item's own value within its parent's arc: its function's band, and how far along a run of
 // that same function it sits. A lone item takes the band's middle — it is the whole of its run, not
 // the start of one.
-function runValues(fns: readonly (BeatFunction | null)[]): number[] {
+function runValues(fns: readonly (RoleFunction | null)[]): number[] {
   const out: number[] = [];
   for (let i = 0; i < fns.length; ) {
     let j = i;
@@ -48,9 +48,9 @@ function runValues(fns: readonly (BeatFunction | null)[]): number[] {
   return out;
 }
 
-// Mirrors BEAT_FUNCTION_LABEL (core/lenses.ts) — the five words this page is allowed to spend on
+// Mirrors ROLE_FUNCTION_LABEL (core/lenses.ts) — the five words this page is allowed to spend on
 // structure, chosen so a reviewer can dispute them without knowing the craft vocabulary behind them.
-const FUNCTION_LABELS: Array<[BeatFunction, string]> = [
+const FUNCTION_LABELS: Array<[RoleFunction, string]> = [
   ["ground", "opening"],
   ["build", "rising"],
   ["turn", "turning point"],
@@ -105,7 +105,7 @@ const ACT_SPAN = 0.4;
 // that. The band is allowed below zero — clamping it there is what would re-crush the low branches,
 // since an act deep inside a `setup-act` has its ceiling near the floor and no room underneath.
 // `normalize` lifts the whole curve afterwards instead. An act with no function is a container (a
-// custom lens' fn-less beat, or a role its lens does not declare) and claims nothing about tension,
+// custom lens' fn-less role, or a role its lens does not declare) and claims nothing about tension,
 // so it passes its parent's range straight through — cap it and the piece inside it could never
 // reach its own payoff.
 function actRange(
@@ -380,7 +380,7 @@ export function DirectionMap({
                     title={`${band.seq.id}: ${band.seq.synopsis}`}
                   >
                     <span className="direction-map-seq-id">{band.seq.id}</span>
-                    <span className="direction-map-seq-role">{band.seq.beatFunctionLabel}</span>
+                    <span className="direction-map-seq-role">{band.seq.roleFunctionLabel}</span>
                   </span>
                 ))}
               </div>
@@ -410,7 +410,7 @@ export function DirectionMap({
                       left: start * effectivePxPerSec,
                       width: Math.max(shot.duration * effectivePxPerSec, 8),
                     }}
-                    title={`${shot.id}${shot.aside ? " · aside" : shot.beatFunctionLabel ? ` · ${shot.beatFunctionLabel}` : ""} · ${shot.duration}s: ${shot.action}`}
+                    title={`${shot.id}${shot.aside ? " · aside" : shot.roleFunctionLabel ? ` · ${shot.roleFunctionLabel}` : ""} · ${shot.duration}s: ${shot.action}`}
                     // A drag across the track pans it, so a pointer click that moved is the tail of
                     // that pan, not a pick. `detail === 0` is an activation with no pointer behind it
                     // (Enter/Space on the focused shot) — there was no drag to be the tail of, and

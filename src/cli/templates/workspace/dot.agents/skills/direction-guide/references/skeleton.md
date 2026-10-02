@@ -137,7 +137,7 @@ export default defineDirection({
       },
     ],
     waivers: {
-      "missing-beat_ordinary":
+      "missing-role_ordinary":
         "A cold open — the piece starts on the paw already moving, with no calm to establish first.",
     },
   },

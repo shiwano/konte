@@ -7,6 +7,10 @@ import {
 import { runComfyNodeActivateJob } from "../../../backends/run-comfy-node-activate-job.js";
 import { runRunnableComfyNodeActivateJobs } from "../../../backends/run-comfy-node-activate-job.js";
 import { runExportJob, runRunnableExportJobs } from "../../../backends/run-export-job.js";
+import {
+  runPendingSongAnalyses,
+  runSongAnalysisJob,
+} from "../../../backends/run-song-analysis-job.js";
 import { type WaitForJobResult, waitForJob } from "../../../backends/wait-for-job.js";
 import type { GenerationBackend } from "../../../core/backend.js";
 import { formatDuration } from "../../../core/format-duration.js";
@@ -20,7 +24,9 @@ import { sleep } from "../../../core/sleep.js";
 const WAIT_CONCURRENCY = 16;
 import type { BackendKind, JobRecord } from "../../../core/types/index.js";
 import type { LoadedDefinitions } from "../../../core/select-definition.js";
-import { loadStageDefinitions } from "../../load-definition.js";
+import { loadDirectionIfPresent, loadStageDefinitions } from "../../load-definition.js";
+import { StateManager } from "../../../core/state/index.js";
+import { queueSongAnalyses } from "../../../core/song-queue.js";
 import { parsePositiveInt } from "../../parse-option.js";
 import { TURBO_TAKE_NOTE, turboTakes } from "../../turbo-takes.js";
 import { requireVideoRoots } from "../../context.js";
@@ -119,6 +125,10 @@ Examples:
           }
           if (job.kind === "export") {
             results.push(await waitForExportJob(jobManager, videoRoot, id, deadline));
+            continue;
+          }
+          if (job.kind === "song-analysis") {
+            results.push(await waitForSongAnalysisJob(jobManager, videoRoot, id, deadline));
             continue;
           }
           if (job.status === "pending") {
@@ -414,6 +424,26 @@ function waitForExportJob(
   );
 }
 
+function waitForSongAnalysisJob(
+  jobManager: JobManager,
+  videoRoot: string,
+  id: string,
+  deadline: Deadline,
+): Promise<WaitForJobResult> {
+  return waitForLocalRunJob(
+    jobManager,
+    id,
+    deadline,
+    () =>
+      runSongAnalysisJob(jobManager, videoRoot, id, {
+        onStarted: ({ address }) => {
+          process.stderr.write(`Reading the song: ${address}\n`);
+        },
+      }),
+    (job) => ({ address: job.kind === "song-analysis" ? job.address : "", outputFiles: [] }),
+  );
+}
+
 async function runWait(
   jobManager: JobManager,
   variantId: string,
@@ -633,6 +663,12 @@ async function waitAllCascade(
   };
 
   while (true) {
+    // A take of the song that landed since the last pass is read before anything waits on it.
+    await queueSongAnalyses({
+      direction: await loadDirectionIfPresent(videoRoot).catch(() => null),
+      state: (await StateManager.load(videoRoot)).getState(),
+      jobManager,
+    });
     const allJobs = await jobManager.listJobs();
     // Model downloads run concurrently with generation waits — a multi-GB model
     // install must not block unrelated jobs (no watcher needed for standalone use).
@@ -665,6 +701,9 @@ async function waitAllCascade(
       (j) => j.kind === "export" && (j.status === "pending" || j.status === "running"),
     );
     for (const j of exportJobs) monitoredExportIds.add(j.id);
+    const songJobs = allJobs.filter(
+      (j) => j.kind === "song-analysis" && (j.status === "pending" || j.status === "running"),
+    );
 
     if (
       activeModelJobs.length === 0 &&
@@ -673,7 +712,8 @@ async function waitAllCascade(
       runningJobs.length === 0 &&
       submittingJobs.length === 0 &&
       pendingJobs.length === 0 &&
-      exportJobs.length === 0
+      exportJobs.length === 0 &&
+      songJobs.length === 0
     )
       break;
 
@@ -694,7 +734,10 @@ async function waitAllCascade(
         running: runningJobs.length,
         pending: pendingJobs.length + submittingJobs.length,
         installing:
-          activeModelJobs.length + activeNodeInstallJobs.length + activeNodeActivateJobs.length,
+          activeModelJobs.length +
+          activeNodeInstallJobs.length +
+          activeNodeActivateJobs.length +
+          songJobs.length,
         exporting: exportJobs.length,
       }),
     );
@@ -834,6 +877,14 @@ async function waitAllCascade(
       await recordStandalone(r.id, r.status);
     }
 
+    const songResults = await runPendingSongAnalyses(jobManager, videoRoot, {
+      onStarted: ({ address }) => live.log(`Reading the song: ${address}`),
+    });
+    const ranAnySong = songResults.some((r) => r.ranAnalysis);
+    for (const r of songResults) {
+      await recordStandalone(r.id, r.status);
+    }
+
     const ranAnyModel = modelResults.some((r) => r.ranInstall);
     const ranAnyNodeInstall = nodeInstallResults.some((r) => r.ranInstall);
     if (
@@ -843,7 +894,8 @@ async function waitAllCascade(
       !ranAnyModel &&
       !ranAnyNodeInstall &&
       !ranAnyNodeActivate &&
-      !ranAnyExport
+      !ranAnyExport &&
+      !ranAnySong
     ) {
       // Nothing advanced this pass. If model/node installs, an in-flight activate, or an
       // in-flight submit (a job being submitted by another process — a stranded one would have
@@ -857,7 +909,8 @@ async function waitAllCascade(
         activeNodeInstallJobs.length > 0 ||
         activeNodeActivateJobs.length > 0 ||
         submittingJobs.length > 0 ||
-        unsettledExports
+        unsettledExports ||
+        songResults.some((r) => r.status === "running")
       ) {
         if (deadline.expired) continue;
         await sleep(1000);
@@ -936,5 +989,6 @@ function stillRunningResult(job: JobRecord): WaitForJobResult {
 function standaloneLabel(job: JobRecord): string {
   if (job.kind === "comfy-model-download") return job.model.filename;
   if (job.kind === "comfy-node-install") return job.node.id;
+  if (job.kind === "song-analysis") return job.address;
   return "";
 }

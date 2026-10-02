@@ -47,7 +47,7 @@ export const falSeedance25T2v = defineFalAsset({
   guide: "konte/guides/seedance-2-5.md",
   inputs: {
     prompt: { field: "prompt", type: "prompt", required: true },
-    duration: { field: "duration", type: "string", default: "auto", values: DURATION_SECONDS },
+    duration: { field: "duration", type: "seconds", default: "auto", values: DURATION_SECONDS },
     aspectRatio: {
       field: "aspect_ratio",
       type: "string",
@@ -100,7 +100,7 @@ export const falSeedance25I2v = defineFalAsset({
       description:
         "Frame the shot lands on — describe the movement towards it, not the state it already fixes.",
     },
-    duration: { field: "duration", type: "string", default: "auto", values: DURATION_SECONDS },
+    duration: { field: "duration", type: "seconds", default: "auto", values: DURATION_SECONDS },
     resolution: {
       field: "resolution",
       type: "string",
@@ -153,7 +153,7 @@ export const falSeedance25R2v = defineFalAsset({
       description:
         "Rhythm, timing and voice references driving lip-sync, addressed @Audio1, @Audio2, … in prompt order. Up to 10, each 1.8-30.2s, 30.2s combined.",
     },
-    duration: { field: "duration", type: "string", default: "auto", values: DURATION_SECONDS },
+    duration: { field: "duration", type: "seconds", default: "auto", values: DURATION_SECONDS },
     aspectRatio: {
       field: "aspect_ratio",
       type: "string",

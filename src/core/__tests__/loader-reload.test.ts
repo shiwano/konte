@@ -109,3 +109,55 @@ describe("reloadFreshModule in a long-lived Bun process", () => {
     },
   );
 });
+
+describe("a definition cached under one reading of the song", () => {
+  it("is evaluated again once the song reads differently", { timeout: 30_000 }, async () => {
+    const video = path.join(root, "videos", "v1");
+    const src = (rel: string) => JSON.stringify(new URL(rel, import.meta.url).pathname);
+    await fs.writeFile(
+      path.join(video, "direction.ts"),
+      [
+        `import { defineDirection } from ${src("../dsl/direction.ts")};`,
+        `import { directionDefaults } from ${src("./helpers/direction.ts")};`,
+        "export default defineDirection({",
+        "  ...directionDefaults,",
+        '  policy: { ...directionDefaults.policy, clock: { song: "song", bpm: 120, beatsPerBar: 4 } },',
+        '  sequence: { lens: "mini-drama", pleasure: "cute", shots: [',
+        '    { id: "01", role: "ordinary", action: "a", setup: "front", beats: 4, lineup: [] },',
+        "  ] },",
+        "});",
+      ].join("\n"),
+    );
+    const script = `
+      const { loadDirectionDefinition } = await import(${JSON.stringify(loaderPath)});
+      const { getDirectionIndex } = await import(${src("../dsl/direction.ts")});
+      const { StateManager } = await import(${src("../state/index.ts")});
+      const setDownbeat = async (downbeatSec) => {
+        await StateManager.withLock(${JSON.stringify(video)}, async (m) => {
+          const address = "reference:song";
+          const existing = m.tryGetAssetState(address);
+          const id = existing ? Object.keys(existing.variants)[0] : m.reserveVariantId(address);
+          const v = m.getAssetState(address).variants[id];
+          v.file = "assets/song.mp3";
+          v.song = { bpm: 120, downbeatSec, sectionSecs: [], phrases: null, analyzedAt: "2026-09-30T00:00:00.000Z" };
+          m.setAccepted(address, id);
+        });
+      };
+      const lead = async () =>
+        getDirectionIndex(await loadDirectionDefinition(${JSON.stringify(path.join(video, "direction.ts"))})).timeline.leadFrames;
+      const seen = [];
+      await StateManager.init(${JSON.stringify(video)});
+      await setDownbeat(0);
+      seen.push(await lead());
+      seen.push(await lead());
+      await setDownbeat(1);
+      seen.push(await lead());
+      console.log(JSON.stringify(seen));
+    `;
+    const { stdout } = await promisify(execFile)("bun", ["-e", script], {
+      encoding: "utf8",
+      cwd: video,
+    });
+    expect(JSON.parse(stdout.trim().split("\n").at(-1)!)).toEqual([0, 0, 24]);
+  });
+});

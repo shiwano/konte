@@ -13,14 +13,19 @@ import {
   parseAddress,
   shotStemAssetNames,
   formatAssetPath,
+  OVERLAY_HTML_FILE,
+  formatTimelineOverlayAddress,
+  isOverlayAddress,
 } from "./address.js";
 import {
+  buildOverlayCompositionHtml,
   buildShotCompositionHtml,
   compositionStructureHtml,
   harvestShotAudioStructure,
   type StemAudioEntry,
 } from "./composition-builder.js";
 import { resolveCompositionRef } from "./composition-refs.js";
+import { renderOverlayBody } from "./overlay-render.js";
 import { computeDefinitionHash } from "./definition-hash.js";
 import {
   clampEffectiveGain,
@@ -33,7 +38,7 @@ import { parsePlaceholder } from "./dsl/shot-context.js";
 import { KonteError } from "./errors.js";
 import { mixAudioTracks, type MuxAudioTrack } from "./ffmpeg.js";
 import { shotById } from "./shot-index.js";
-import { formatStaleCause } from "./staleness.js";
+import { formatStaleCause, isAcceptedStale } from "./staleness.js";
 import { sha256Hex, shortHash, stableHash } from "./content-hash.js";
 import { stableStringify } from "./stable-stringify.js";
 import type { StateManager } from "./state/index.js";
@@ -149,6 +154,11 @@ export function compositionDefinitionHashForAddress(
  * and `status` compute so definition-staleness reads consistently everywhere.
  */
 export function definitionHashForAddress(def: DefinitionLike, address: string): string | null {
+  if (isOverlayAddress(address)) {
+    return (def as unknown as StageDefinition).overlay
+      ? overlayDefinitionHash(def as unknown as StageDefinition)
+      : null;
+  }
   if (isCompositionAddress(address)) {
     return compositionDefinitionHashForAddress(def as unknown as StageDefinition, address);
   }
@@ -224,7 +234,22 @@ export function compositionCacheKey(
   if (shot.shotFn) {
     const definitionHash = compositionDefinitionHash(video, shotId);
     const inputFingerprints = compositionInputFingerprints(manager, pictureRefsOf(shot));
-    return stableHash({ kind: "composition", definitionHash, inputFingerprints });
+    // The overlay laid over the shot is part of the frames a delivery upscales.
+    const overlay = video.overlay
+      ? {
+          shotStart: video.shots
+            .slice(0, video.shots.indexOf(shot))
+            .reduce((sum, s) => sum + s.duration, 0),
+          definitionHash: overlayDefinitionHash(video),
+          inputs: compositionInputFingerprints(manager, video.overlay.compositionRefs),
+        }
+      : null;
+    return stableHash({
+      kind: "composition",
+      definitionHash,
+      inputFingerprints,
+      ...(overlay ? { overlay } : {}),
+    });
   }
 
   // Fallback shot: the composite is the resolved fallback source rendered to video at working
@@ -445,6 +470,7 @@ function shotStemStructure(video: StageDefinition, address: string): ShotStemStr
   const cues = harvested.filter(
     (cue) => narration.has(cue.src) === isNarrationStemAddress(address),
   );
+  if (shot?.songCue && !isNarrationStemAddress(address)) cues.push(songStemEntry(shot.songCue));
   if (cues.length === 0) return null;
   const refs = shotStemOf(video, address)?.refs ?? [];
   const kinds = shot?.cueKinds
@@ -453,6 +479,19 @@ function shotStemStructure(video: StageDefinition, address: string): ShotStemStr
   if (video.stage !== "animatic") return { kind: "delivered", cues, kinds };
   if (!shot) return null;
   return { kind: "board", cues, clamp: shot.duration, kinds };
+}
+
+function songStemEntry(cue: NonNullable<ShotDefinition["songCue"]>): StemAudioEntry {
+  return {
+    src: cue.src,
+    track: "song",
+    start: 0,
+    duration: cue.duration,
+    mediaStart: cue.mediaStart,
+    volume: null,
+    fadeIn: null,
+    fadeOut: null,
+  };
 }
 
 function hashShotStemStructure(structure: ShotStemStructure): string {
@@ -594,14 +633,14 @@ async function mixStemToStaging(
         `Cannot mix ${address}: "${cue.src}" has no ready take`,
       );
     }
-    const kind = cueKinds?.[cue.src] ?? "voice";
+    const kind = cue.track === "song" ? "song" : (cueKinds?.[cue.src] ?? "voice");
     const media = manager.getState().assets[cue.src]?.variants?.[resolved.variantId]?.media;
     return {
       file: resolved.file,
       start: cue.start ?? 0,
       // Levelled and lead-in trimmed exactly as the render does: this file is what an audio-driven
       // model consumes and what the reviewer signed off in the preview.
-      mediaStart: cue.mediaStart ?? cueLeadIn(kind, media),
+      mediaStart: cue.mediaStart ?? (kind === "song" ? 0 : cueLeadIn(kind, media)),
       duration: cue.duration != null ? Math.max(0, cue.duration) : null,
       volume: clampEffectiveGain((cue.volume ?? 1) * levellingGain(kind, loudnessOf(media))),
       loop: false,
@@ -777,6 +816,84 @@ export async function materializeShotStem(opts: {
   return commitShotStem({ ...opts, prepared });
 }
 
+// ── Overlay ──────────────────────────────────────────────────────────────────
+// The overlay is a leaf like a composition: konte renders it, and the shot accepts under it sign it
+// off. Its identity is its own structure over the timeline — it is no part of the compositions of
+// the shots it is laid over — and the refs it draws.
+
+export function overlayDefinitionHash(video: StageDefinition): string {
+  return memoizedHash(video, "overlay", () => {
+    const overlay = video.overlay;
+    if (!overlay) return "";
+    const structureHtml = renderOverlayBody({
+      stage: video.stage,
+      overlay,
+      fn: overlay.fn,
+      size: video.format.size,
+      typography: video.typography,
+      resolvedFiles: {},
+    });
+    return shortHash({
+      structureHtml,
+      typography: video.typography,
+      duration: overlay.duration,
+      width: video.format.size.width,
+      height: video.format.size.height,
+    });
+  });
+}
+
+// Whether every shot accept on the stage stands: each developed shot's composition accepted at its
+// current definition, and no shot left to develop. The overlay is signed off by these; only once
+// they all stand is it reviewed on its own.
+export function shotAcceptsStand(manager: StateManager, video: StageDefinition): boolean {
+  if (video.shots.some((s) => s.pending)) return false;
+  return video.shots
+    .filter((s) => s.shotFn)
+    .every((s) => {
+      const address = formatCompositionAddress(video.stage, s.id);
+      return (
+        manager.getAcceptedVariant(address) !== null &&
+        !isAcceptedStale(manager, address, definitionHashForAddress(video, address))
+      );
+    });
+}
+
+/**
+ * Idempotently materialize the overlay's variant: reused while its definition and inputs are
+ * unchanged, else rendered to `overlay.html`. Null when the stage declares no overlay. Mutates
+ * in-memory state — the caller persists.
+ */
+export async function materializeOverlayVariant(opts: {
+  manager: StateManager;
+  video: StageDefinition;
+}): Promise<string | null> {
+  const { manager, video } = opts;
+  if (!video.overlay) return null;
+  const refs = video.overlay.compositionRefs;
+  const definitionHash = overlayDefinitionHash(video);
+  const inputFingerprints = compositionInputFingerprints(manager, refs);
+  const address = formatTimelineOverlayAddress(video.stage);
+  const existing = manager.tryGetAssetState(address);
+  if (existing) {
+    const match = findMatchingCompositionVariant(existing, definitionHash, inputFingerprints);
+    if (match) return match;
+  }
+  const html = await buildOverlayCompositionHtml({
+    video,
+    manager,
+    assetBaseUrl: CANONICAL_ASSET_BASE,
+  });
+  const variantId = manager.reserveVariantId(address);
+  const htmlPath = path.join(variantDir(manager.videoRoot, address, variantId), OVERLAY_HTML_FILE);
+  await fs.mkdir(path.dirname(htmlPath), { recursive: true });
+  await fs.writeFile(htmlPath, html, "utf-8");
+  return recordLeafVariant(manager, address, variantId, htmlPath, sha256Hex(html), {
+    definitionHash,
+    inputFingerprints,
+  });
+}
+
 // Idempotently materialize the timeline audio stem (the soundtrack beds), only when present.
 export async function materializeTimelineStem(opts: {
   manager: StateManager;
@@ -827,6 +944,7 @@ function leafContentHash(
 // materializer fingerprints: a composition's picture refs, a shot stem's cues, the timeline beds.
 // null when the address is not a renderable leaf (no shotFn / no audio cues / no soundtracks).
 function leafInputRefs(video: StageDefinition, address: string): readonly string[] | null {
+  if (isOverlayAddress(address)) return video.overlay?.compositionRefs ?? null;
   const parsed = parseAddress(address);
   if (isCompositionAddress(address)) {
     if (parsed.kind !== "shot") return null;
@@ -863,6 +981,7 @@ export function materializedLeafContentHash(
 // shotFn / no audio cues / no soundtracks), which is not the same as a leaf whose refs do not
 // resolve — the callers below keep the two apart.
 function leafReadinessRefs(video: StageDefinition, address: string): readonly string[] | null {
+  if (isOverlayAddress(address)) return video.overlay?.compositionRefs ?? null;
   const parsed = parseAddress(address);
   if (isCompositionAddress(address)) {
     if (parsed.kind !== "shot") return null;
@@ -958,6 +1077,7 @@ export async function prepareLeafForAddress(
   // leaf shows under "Needs review". A composition renders its <Audio> too (only its hash is
   // audio-independent), so every ref — audio included — must resolve before we build it.
   if (!leafReadyForReview(manager, video, address)) return null;
+  if (isOverlayAddress(address)) return { kind: "inline" };
   const parsed = parseAddress(address);
   if (parsed.kind === "shot" && isStemAddress(address)) {
     const prepared = await prepareShotStem({ manager, video, address });
@@ -983,6 +1103,7 @@ export async function commitLeafForAddress(
     return commitShotStem({ manager, video, address, prepared: prepared.prepared });
   }
   if (!leafReadyForReview(manager, video, address)) return null;
+  if (isOverlayAddress(address)) return materializeOverlayVariant({ manager, video });
   const parsed = parseAddress(address);
   if (parsed.kind === "shot") {
     return isCompositionAddress(address)
@@ -1007,8 +1128,8 @@ export async function materializeLeafForAddress(
   return commitLeafForAddress(manager, video, address, prepared);
 }
 
-// Dead stem variants — the stem counterpart of collectDeadCompositionVariants: unaccepted,
-// unlocked variants that no longer match the current definition/inputs.
+// Dead stem and overlay variants — the counterpart of collectDeadCompositionVariants for the other
+// leaves: unaccepted, unlocked variants that no longer match the current definition/inputs.
 export function collectDeadStemVariants(
   manager: StateManager,
   video: StageDefinition,
@@ -1054,6 +1175,17 @@ export function collectDeadStemVariants(
         }
       : null;
     collect(formatTimelineStemAddress(video.stage), live);
+  }
+
+  if (video.overlay) {
+    const refs = video.overlay.compositionRefs;
+    const live = compositionRefsResolvable(manager, refs)
+      ? {
+          definitionHash: overlayDefinitionHash(video),
+          inputFingerprints: compositionInputFingerprints(manager, refs),
+        }
+      : null;
+    collect(formatTimelineOverlayAddress(video.stage), live);
   }
   return dead;
 }

@@ -7,7 +7,6 @@ const PROMPT_EXPANSION_MODES = ["disabled", "balanced", "quality"] as const;
 // A double-quoted line in prose, or a `<d>` span in H3's own structured prompt.
 const SPOKEN_LINE = /(?:<d>\s*\[[^\]]+\]\s*|")([^"<]+?)(?:<\/d>|")/g;
 
-const DURATION_DESC = "Whole seconds, 5-15.";
 const RESOLUTION_DESC =
   "768P is the resolution the model is tuned around; 1080P is a latent refinement of a 768P render.";
 const PROMPT_EXPANSION_DESC =
@@ -22,7 +21,7 @@ export const falMinimaxH3MaxT2v = defineFalAsset({
   spokenTextPattern: SPOKEN_LINE,
   inputs: {
     prompt: { field: "prompt", type: "prompt", required: true },
-    duration: { field: "duration", type: "number", default: 5, description: DURATION_DESC },
+    duration: { field: "duration", type: "seconds", default: 5, min: 5, max: 15 },
     aspectRatio: { field: "aspect_ratio", type: "string", default: "16:9", values: ASPECT_RATIOS },
     resolution: {
       field: "resolution",
@@ -63,7 +62,7 @@ export const falMinimaxH3MaxI2v = defineFalAsset({
       pin: "end",
       description: "Frame the shot lands on. Passed alone, the output canvas follows it instead.",
     },
-    duration: { field: "duration", type: "number", default: 5, description: DURATION_DESC },
+    duration: { field: "duration", type: "seconds", default: 5, min: 5, max: 15 },
     resolution: {
       field: "resolution",
       type: "string",
@@ -116,7 +115,7 @@ export const falMinimaxH3MaxR2v = defineFalAsset({
       description:
         "Audio references, named Audio 1, Audio 2, … in list order. Up to 3, each 2-15s, 15s combined.",
     },
-    duration: { field: "duration", type: "number", default: 5, description: DURATION_DESC },
+    duration: { field: "duration", type: "seconds", default: 5, min: 5, max: 15 },
     aspectRatio: {
       field: "aspect_ratio",
       type: "string",

@@ -19,9 +19,9 @@ Gates: every spend.
 
 | Code                    | Flags                                                                                                    | Waiver subject          | Notes      |
 | ----------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------- | ---------- |
-| `missing-beat`          | A role its lens requires has no item.                                                                    | role                    | —          |
+| `missing-role`          | A role its lens requires has no item.                                                                    | role                    | —          |
 | `no-payoff`             | No item takes the lens's payoff role.                                                                    | —                       | —          |
-| `beat-out-of-order`     | A role appears before one its lens places earlier.                                                       | role that arrived early | —          |
+| `role-out-of-order`     | A role appears before one its lens places earlier.                                                       | role that arrived early | —          |
 | `lens-role-mismatch`    | An item's role is not one its node's lens declares.                                                      | item id                 | Type-level |
 | `too-many-consecutive`  | More items of one role in a row than its `maxConsecutive`.                                               | role                    | —          |
 | `too-few-consecutive`   | A role's longest run is shorter than its `minConsecutive`.                                               | role                    | —          |
@@ -34,21 +34,22 @@ Gates: every spend.
 
 Gates: every spend.
 
-| Code                    | Flags                                                                                       | Waiver subject    | Notes      |
-| ----------------------- | ------------------------------------------------------------------------------------------- | ----------------- | ---------- |
-| `beat-overweight`       | A role holds more of the runtime than its `maxShare`.                                       | role              | —          |
-| `beat-underweight`      | A role holds less of the runtime than its `minShare`.                                       | role              | —          |
-| `off-grid-duration`     | A shot's duration is not a positive multiple of 0.5s.                                       | shot id           | Type-level |
-| `undeclared-continuity` | Adjacent shots cut between two set-showing sizes of one location with no `within` declared. | id pair (`05-06`) | —          |
-| `re-established-wide`   | A shot re-establishes a location already shown wide.                                        | shot id           | —          |
+| Code                    | Flags                                                                                                                    | Waiver subject    | Notes      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------- | ---------- |
+| `role-overweight`       | A role holds more of the runtime than its `maxShare`.                                                                    | role              | —          |
+| `role-underweight`      | A role holds less of the runtime than its `minShare`.                                                                    | role              | —          |
+| `off-grid-duration`     | A shot's `duration` is not a positive multiple of 0.5s, or on `policy.clock` its `beats` is not a positive whole number. | shot id           | Type-level |
+| `undeclared-continuity` | Adjacent shots cut between two set-showing sizes of one location with no `within` declared.                              | id pair (`05-06`) | —          |
+| `re-established-wide`   | A shot re-establishes a location already shown wide.                                                                     | shot id           | —          |
 
-### stage (1)
+### stage (2)
 
 Gates: every spend.
 
 | Code                   | Flags                                                        | Waiver subject | Notes      |
 | ---------------------- | ------------------------------------------------------------ | -------------- | ---------- |
 | `stage-order-mismatch` | A stage realizes the direction's shots in a different order. | —              | Type-level |
+| `song-overrun`         | The timeline runs on past the end of the take of the song.   | —              | —          |
 
 ### completeness (1)
 

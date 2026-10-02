@@ -24,6 +24,11 @@ import {
 } from "../backends/run-comfy-install-job.js";
 import { runComfyNodeActivateJob } from "../backends/run-comfy-node-activate-job.js";
 import { runExportJob } from "../backends/run-export-job.js";
+import { runSongAnalysisJob } from "../backends/run-song-analysis-job.js";
+import { loadDirectionDefinition, loadIfPresent } from "../core/loader.js";
+import { stageEntryPath } from "../core/roots.js";
+import { queueSongAnalyses } from "../core/song-queue.js";
+import { StateManager } from "../core/state/index.js";
 import { waitForJob } from "../backends/wait-for-job.js";
 import type { LoadedDefinitions } from "../core/select-definition.js";
 import type { VideoRoots } from "../core/roots.js";
@@ -66,6 +71,7 @@ export class JobWatcher {
   private readonly nodeInstallJobsInFlight = new Set<string>();
   private readonly nodeActivateJobsInFlight = new Set<string>();
   private readonly exportJobsInFlight = new Set<string>();
+  private readonly songJobsInFlight = new Set<string>();
   private cascadeRunning = false;
   private cascadeRerunRequested = false;
 
@@ -166,6 +172,12 @@ export class JobWatcher {
           }
           continue;
         }
+        if (job.kind === "song-analysis") {
+          if (job.status === "pending" || job.status === "running") {
+            this.startSongAnalysisJob(job.id);
+          }
+          continue;
+        }
         if (job.status === "running" || job.status === "queued") {
           this.startWaitingForJob(job.id);
         }
@@ -246,6 +258,7 @@ export class JobWatcher {
 
   private async scanForNewJobs(): Promise<void> {
     try {
+      await this.queueSongAnalyses();
       const jobs = await this.jobManager.listJobs();
       this.pruneDedupState(jobs);
       let hasPending = false;
@@ -271,6 +284,12 @@ export class JobWatcher {
         if (job.kind === "export") {
           if (job.status === "pending" || job.status === "running") {
             this.startExportJob(job.id);
+          }
+          continue;
+        }
+        if (job.kind === "song-analysis") {
+          if (job.status === "pending" || job.status === "running") {
+            this.startSongAnalysisJob(job.id);
           }
           continue;
         }
@@ -387,6 +406,43 @@ export class JobWatcher {
     // "pending" (install deps not ready, or the ComfyUI server is not idle): drop the watch; a
     // later scan retries. A hold by a SIBLING video's comfy job changes no file this watcher
     // watches, so there it is the periodic poll — not fs.watch — that eventually re-triggers.
+  }
+
+  // A take of the song that landed since the last scan is queued for reading; the queued job
+  // rewrites the jobs database, which brings the next scan round to run it.
+  private async queueSongAnalyses(): Promise<void> {
+    const direction = await loadIfPresent(
+      stageEntryPath(this.videoRoot, "direction"),
+      loadDirectionDefinition,
+    ).catch(() => null);
+    if (!direction?.policy?.clock) return;
+    const state = (await StateManager.load(this.videoRoot)).getState();
+    await queueSongAnalyses({ direction, state, jobManager: this.jobManager });
+  }
+
+  private startSongAnalysisJob(id: string): void {
+    if (this.songJobsInFlight.has(id)) return;
+    this.songJobsInFlight.add(id);
+    runSongAnalysisJob(this.jobManager, this.videoRoot, id, {
+      onStarted: ({ address }) =>
+        this.sendLog("debug", { event: "song_analysis_started", variantId: id, address }),
+    })
+      .then(async (result) => {
+        if (result.status !== "completed" && result.status !== "failed") return;
+        if (this.handledJobs.has(id)) return;
+        this.handledJobs.add(id);
+        const job = await this.jobManager.getJob(id).catch(() => null);
+        this.sendLog("info", {
+          event: "job_completed",
+          variantId: id,
+          kind: "song-analysis",
+          status: result.status,
+          error: job?.error ?? null,
+          remainingActiveJobs: await this.countActiveJobs(),
+        });
+      })
+      .catch(() => {})
+      .finally(() => this.songJobsInFlight.delete(id));
   }
 
   // Run an export (render) job concurrently, like a model download. runExportJob gates

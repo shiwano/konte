@@ -399,11 +399,6 @@ export interface ReferenceDefinition {
   pins?: readonly PinOccurrence[];
   waivers?: Record<string, string>;
 }
-export type ShotStage = "animatic" | "video";
-/**
- * The stages that own an asset address at all, in any shape.
- */
-export type AssetStage = ShotStage | "reference";
 export type ShotFunction = () => React.ReactElement;
 /**
  * The stage canvas an adapter's format-derived inputs (width/height/fps) resolve against at
@@ -792,6 +787,27 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
           cueKinds: z.ZodOptional<
             z.ZodRecord<z.ZodString, z.ZodEnum<["voice", "narration", "mob", "sfx"]>>
           >;
+          songCue: z.ZodOptional<
+            z.ZodObject<
+              {
+                src: z.ZodString;
+                mediaStart: z.ZodNumber;
+                duration: z.ZodNumber;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                duration: number;
+                src: string;
+                mediaStart: number;
+              },
+              {
+                duration: number;
+                src: string;
+                mediaStart: number;
+              }
+            >
+          >;
           panels: z.ZodOptional<
             z.ZodArray<
               z.ZodObject<
@@ -993,6 +1009,13 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
           stemRefs?: string[] | undefined;
           narrationStemRefs?: string[] | undefined;
           cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+          songCue?:
+            | {
+                duration: number;
+                src: string;
+                mediaStart: number;
+              }
+            | undefined;
           panels?:
             | {
                 duration: number;
@@ -1101,6 +1124,13 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
           stemRefs?: string[] | undefined;
           narrationStemRefs?: string[] | undefined;
           cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+          songCue?:
+            | {
+                duration: number;
+                src: string;
+                mediaStart: number;
+              }
+            | undefined;
           panels?:
             | {
                 duration: number;
@@ -1412,6 +1442,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
         readonly SoundtrackEntry<string>[]
       >
     >;
+    song: z.ZodOptional<z.ZodString>;
+    overlay: z.ZodOptional<z.ZodType<OverlayDefinition, z.ZodTypeDef, OverlayDefinition>>;
     timelineFn: z.ZodOptional<z.ZodType<TimelineFunction, z.ZodTypeDef, TimelineFunction>>;
     prompts: z.ZodOptional<
       z.ZodType<readonly PromptOccurrence[], z.ZodTypeDef, readonly PromptOccurrence[]>
@@ -1796,6 +1828,13 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
       stemRefs?: string[] | undefined;
       narrationStemRefs?: string[] | undefined;
       cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+      songCue?:
+        | {
+            duration: number;
+            src: string;
+            mediaStart: number;
+          }
+        | undefined;
       panels?:
         | {
             duration: number;
@@ -1842,6 +1881,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
       lang: LanguageTag;
       fonts?: string[] | undefined;
     };
+    song?: string | undefined;
     topLevelAssets?:
       | Record<
           string,
@@ -1910,6 +1950,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
     pins?: readonly PinOccurrence[] | undefined;
     waivers?: Record<string, string> | undefined;
     timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
+    overlay?: OverlayDefinition | undefined;
     timelineFn?: TimelineFunction | undefined;
     imageInputs?: readonly ImageInputOccurrence[] | undefined;
     prevPanelReaders?: readonly string[] | undefined;
@@ -2062,6 +2103,13 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
       stemRefs?: string[] | undefined;
       narrationStemRefs?: string[] | undefined;
       cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+      songCue?:
+        | {
+            duration: number;
+            src: string;
+            mediaStart: number;
+          }
+        | undefined;
       panels?:
         | {
             duration: number;
@@ -2108,6 +2156,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
       lang: LanguageTag;
       fonts?: string[] | undefined;
     };
+    song?: string | undefined;
     topLevelAssets?:
       | Record<
           string,
@@ -2176,6 +2225,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
     pins?: readonly PinOccurrence[] | undefined;
     waivers?: Record<string, string> | undefined;
     timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
+    overlay?: OverlayDefinition | undefined;
     timelineFn?: TimelineFunction | undefined;
     imageInputs?: readonly ImageInputOccurrence[] | undefined;
     prevPanelReaders?: readonly string[] | undefined;
@@ -2255,383 +2305,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
   }
 >;
 export type AnimaticDefinition = z.infer<typeof AnimaticDefinitionSchema>;
+export type ShotStage = "animatic" | "video";
 /**
- * The dramatic function a role performs — the five-stage skeleton the classical arc schemas share
- * (Freytag's pyramid, three-act, kishōtenketsu): ground establishes a state, turn breaks it, build
- * escalates it, payoff lands the climax, settle lets it ring.
+ * The stages that own an asset address at all, in any shape.
  */
-export type BeatFunction = "ground" | "turn" | "build" | "payoff" | "settle";
-export type ArcItem<Role extends string> = {
-  id: string;
-  role: Role;
-  synopsis: string;
-  duration?: number;
-  framing?: string;
-  location?: string;
-  join?: string;
-  axis?: string;
-  afterGap?: true;
-};
-export type Beat<Role extends string> = {
-  role: Role;
-  fn?: BeatFunction;
-  required?: boolean;
-  minConsecutive?: number;
-  maxConsecutive?: number;
-  minShare?: number;
-  maxShare?: number;
-};
-export type LensSpec<Role extends string> = {
-  name: string;
-  beats: Beat<Role>[];
-  payoff: Role;
-};
-/**
- * Fixed contract, like KonteErrorCode: doctor / waiver keys / scripts branch on these. The same
- * codes are reused at both scales — the subject (role / id / range) distinguishes instances.
- */
-export type DirectionFindingCode =
-  | "missing-beat"
-  | "no-payoff"
-  | "beat-out-of-order"
-  | "lens-role-mismatch"
-  | "too-many-consecutive"
-  | "too-few-consecutive"
-  | "empty-synopsis"
-  | "unearned-payoff"
-  | "unrealized"
-  | "stage-order-mismatch"
-  | "beat-overweight"
-  | "beat-underweight"
-  | "character-unreferenced"
-  | "unused-character"
-  | "character-voice-missing"
-  | "character-voice-unreferenced"
-  | "unused-character-voice"
-  | "narrator-missing"
-  | "narrator-unreferenced"
-  | "unused-narrator"
-  | "prop-unreferenced"
-  | "unused-prop"
-  | "location-unreferenced"
-  | "unused-location"
-  | "setup-unrealized"
-  | "plate-unanchored"
-  | "setup-unconsumed"
-  | "plate-unnested"
-  | "axis-unrealized"
-  | "unused-setup"
-  | "setup-indistinct"
-  | "setup-atomized"
-  | "unexpected-script"
-  | "multi-sentence-action"
-  | "off-grid-duration"
-  | "undeclared-continuity"
-  | "re-established-wide"
-  | "fonts-undeclared"
-  | "lineup-flipped"
-  | "lineup-gap"
-  | "lineup-vacuous"
-  | "lineup-inconsistent"
-  | "character-unconsumed"
-  | "slot-order-mismatch"
-  | "plate-undescribed"
-  | "join-lineup-mismatch"
-  | "join-unpinned"
-  | "join-unshown"
-  | "panel-unlinked"
-  | "landmark-flipped"
-  | "subject-unnamed"
-  | "plate-unnamed";
-export type DirectionFinding = {
-  code: DirectionFindingCode;
-  subject?: string;
-  path?: readonly string[];
-  message: string;
-};
-export type CheckArcOptions = {
-  realizedIds?: readonly string[];
-  coverageIds?: readonly string[];
-  noun?: string;
-  textLabel?: string;
-  exposedFramings?: readonly string[];
-  establishingFraming?: string;
-};
-export declare function checkArc<Role extends string>(
-  lens: LensSpec<Role>,
-  items: ArcItem<Role>[],
-  options?: CheckArcOptions,
-): DirectionFinding[];
-/**
- * The emotional reward a video aims for — orthogonal to the lens (structure): a `mini-drama` can be
- * `cute` or `scary`. Every node names one, root and child alike.
- */
-export type Pleasure =
-  | "cute"
-  | "funny"
-  | "cool"
-  | "beautiful"
-  | "scary"
-  | "satisfying"
-  | "surprising"
-  | "emotional"
-  | "mysterious"
-  | "awe";
-/**
- * The built-in lenses. Each beat names a `role` and the dramatic `fn` it performs in this lens, so
- * the engine checks theory ("a climax must be earned") off the beat itself. A beat with no `fn` is a
- * container, exempt from the function checks — no built-in declares one; a project opts out of the
- * arc engine in its own `defineLens`. Share budgets are act-ratio guards — a grounding beat past ~40%
- * of the runtime is front-loaded, a settling beat past ~25% outstays the climax it is meant to let
- * ring. Both are waivable pacing findings, never targets. A lens over shots and a lens over sequences
- * live in one registry: any node names any lens, and the checker only flags a role its lens does not
- * declare (a waivable `lens-role-mismatch`).
- */
-export declare const BUILTIN_LENSES: readonly [
-  {
-    readonly name: "mini-drama";
-    readonly payoff: "hero";
-    readonly beats: [
-      {
-        readonly role: "ordinary";
-        readonly fn: "ground";
-        readonly maxShare: 0.4;
-      },
-      {
-        readonly role: "disruption";
-        readonly fn: "turn";
-      },
-      {
-        readonly role: "pressure";
-        readonly fn: "build";
-        readonly maxConsecutive: 3;
-      },
-      {
-        readonly role: "hero";
-        readonly fn: "payoff";
-      },
-      {
-        readonly role: "release";
-        readonly fn: "settle";
-        readonly required: false;
-        readonly maxShare: 0.25;
-      },
-    ];
-  },
-  {
-    readonly name: "comedy";
-    readonly payoff: "button";
-    readonly beats: [
-      {
-        readonly role: "setup";
-        readonly fn: "ground";
-      },
-      {
-        readonly role: "violation";
-        readonly fn: "turn";
-      },
-      {
-        readonly role: "escalation";
-        readonly fn: "build";
-        readonly required: false;
-      },
-      {
-        readonly role: "button";
-        readonly fn: "payoff";
-      },
-    ];
-  },
-  {
-    readonly name: "satisfying-process";
-    readonly payoff: "completion";
-    readonly beats: [
-      {
-        readonly role: "before";
-        readonly fn: "ground";
-        readonly maxShare: 0.4;
-      },
-      {
-        readonly role: "method";
-        readonly fn: "build";
-      },
-      {
-        readonly role: "rhythm";
-        readonly fn: "build";
-        readonly minConsecutive: 2;
-      },
-      {
-        readonly role: "completion";
-        readonly fn: "payoff";
-      },
-      {
-        readonly role: "after-glow";
-        readonly fn: "settle";
-        readonly required: false;
-        readonly maxShare: 0.25;
-      },
-    ];
-  },
-  {
-    readonly name: "mood-piece";
-    readonly payoff: "peak";
-    readonly beats: [
-      {
-        readonly role: "atmosphere";
-        readonly fn: "ground";
-      },
-      {
-        readonly role: "motif";
-        readonly fn: "build";
-      },
-      {
-        readonly role: "variation";
-        readonly fn: "build";
-      },
-      {
-        readonly role: "peak";
-        readonly fn: "payoff";
-      },
-      {
-        readonly role: "fade";
-        readonly fn: "settle";
-        readonly required: false;
-        readonly maxShare: 0.25;
-      },
-    ];
-  },
-  {
-    readonly name: "transformation";
-    readonly payoff: "reveal";
-    readonly beats: [
-      {
-        readonly role: "before";
-        readonly fn: "ground";
-        readonly maxShare: 0.4;
-      },
-      {
-        readonly role: "process";
-        readonly fn: "build";
-        readonly minConsecutive: 2;
-      },
-      {
-        readonly role: "reveal";
-        readonly fn: "payoff";
-      },
-      {
-        readonly role: "after-glow";
-        readonly fn: "settle";
-        readonly required: false;
-        readonly maxShare: 0.25;
-      },
-    ];
-  },
-  {
-    readonly name: "product-demo";
-    readonly payoff: "result";
-    readonly beats: [
-      {
-        readonly role: "problem";
-        readonly fn: "ground";
-        readonly maxShare: 0.4;
-      },
-      {
-        readonly role: "solution";
-        readonly fn: "turn";
-      },
-      {
-        readonly role: "demonstration";
-        readonly fn: "build";
-      },
-      {
-        readonly role: "result";
-        readonly fn: "payoff";
-      },
-      {
-        readonly role: "call-to-action";
-        readonly fn: "settle";
-        readonly required: false;
-        readonly maxShare: 0.2;
-      },
-    ];
-  },
-  {
-    readonly name: "kishotenketsu";
-    readonly payoff: "ketsu";
-    readonly beats: [
-      {
-        readonly role: "ki";
-        readonly fn: "ground";
-        readonly maxShare: 0.4;
-      },
-      {
-        readonly role: "sho";
-        readonly fn: "build";
-      },
-      {
-        readonly role: "ten";
-        readonly fn: "turn";
-      },
-      {
-        readonly role: "ketsu";
-        readonly fn: "payoff";
-      },
-    ];
-  },
-  {
-    readonly name: "three-act";
-    readonly payoff: "climax-act";
-    readonly beats: [
-      {
-        readonly role: "setup-act";
-        readonly fn: "ground";
-        readonly maxShare: 0.4;
-      },
-      {
-        readonly role: "confrontation-act";
-        readonly fn: "build";
-      },
-      {
-        readonly role: "climax-act";
-        readonly fn: "payoff";
-        readonly minShare: 0.15;
-      },
-      {
-        readonly role: "resolution-act";
-        readonly fn: "settle";
-        readonly required: false;
-      },
-    ];
-  },
-];
-/**
- * One built-in lens, with its name and role literals intact — what the type layer reads to pin a
- * node's `role` to the lens it names. A `defineLens` spec widens to `LensSpec<string>`, so a custom
- * lens is not in this union and its roles fall through to `lens-role-mismatch`.
- */
-export type BuiltinLens = (typeof BUILTIN_LENSES)[number];
-export declare function findBuiltinLens(name: string): LensSpec<string> | undefined;
-export type LensSpecInput = {
-  name: string;
-  payoff: string;
-  beats: readonly Beat<string>[];
-};
-export declare function defineLens(spec: LensSpecInput): LensSpec<string>;
-export type CanvasSize = {
-  width: number;
-  height: number;
-};
-/**
- * The authored half of `policy.format.size`: what ships, and what it may cost to get there.
- */
-export type CanvasBudget = {
-  megapixels: number;
-  delivery: CanvasSize;
-};
-/**
- * A reference sheet's shape: a character is portrait, a location is a master, and a prop is squared,
- * as is anything outside the rosters.
- */
-export type ReferenceShape = "portrait" | "square" | "master";
+export type AssetStage = ShotStage | "reference";
 declare const ScriptLineSchema: z.ZodUnion<
   [
     z.ZodObject<
@@ -2748,6 +2426,1383 @@ export interface AnimaticShotRef extends ShotHandle {
 export interface AnimaticRef {
   shot(id: string): AnimaticShotRef;
 }
+/**
+ * The dramatic function a role performs — the five-stage skeleton the classical arc schemas share
+ * (Freytag's pyramid, three-act, kishōtenketsu): ground establishes a state, turn breaks it, build
+ * escalates it, payoff lands the climax, settle lets it ring.
+ */
+export type RoleFunction = "ground" | "turn" | "build" | "payoff" | "settle";
+export type ArcItem<Role extends string> = {
+  id: string;
+  role: Role;
+  synopsis: string;
+  duration?: number;
+  framing?: string;
+  location?: string;
+  join?: string;
+  axis?: string;
+  afterGap?: true;
+};
+export type LensRole<Role extends string> = {
+  role: Role;
+  fn?: RoleFunction;
+  required?: boolean;
+  minConsecutive?: number;
+  maxConsecutive?: number;
+  minShare?: number;
+  maxShare?: number;
+};
+export type LensSpec<Role extends string> = {
+  name: string;
+  roles: LensRole<Role>[];
+  payoff: Role;
+};
+/**
+ * Fixed contract, like KonteErrorCode: doctor / waiver keys / scripts branch on these. The same
+ * codes are reused at both scales — the subject (role / id / range) distinguishes instances.
+ */
+export type DirectionFindingCode =
+  | "missing-role"
+  | "no-payoff"
+  | "role-out-of-order"
+  | "lens-role-mismatch"
+  | "too-many-consecutive"
+  | "too-few-consecutive"
+  | "empty-synopsis"
+  | "unearned-payoff"
+  | "unrealized"
+  | "stage-order-mismatch"
+  | "role-overweight"
+  | "role-underweight"
+  | "character-unreferenced"
+  | "unused-character"
+  | "character-voice-missing"
+  | "character-voice-unreferenced"
+  | "unused-character-voice"
+  | "narrator-missing"
+  | "narrator-unreferenced"
+  | "unused-narrator"
+  | "prop-unreferenced"
+  | "unused-prop"
+  | "location-unreferenced"
+  | "unused-location"
+  | "setup-unrealized"
+  | "plate-unanchored"
+  | "setup-unconsumed"
+  | "plate-unnested"
+  | "axis-unrealized"
+  | "unused-setup"
+  | "setup-indistinct"
+  | "setup-atomized"
+  | "unexpected-script"
+  | "multi-sentence-action"
+  | "off-grid-duration"
+  | "undeclared-continuity"
+  | "re-established-wide"
+  | "fonts-undeclared"
+  | "lineup-flipped"
+  | "lineup-gap"
+  | "lineup-vacuous"
+  | "lineup-inconsistent"
+  | "character-unconsumed"
+  | "slot-order-mismatch"
+  | "plate-undescribed"
+  | "join-lineup-mismatch"
+  | "join-unpinned"
+  | "join-unshown"
+  | "panel-unlinked"
+  | "landmark-flipped"
+  | "subject-unnamed"
+  | "plate-unnamed"
+  | "song-unreferenced"
+  | "song-off-tempo"
+  | "lyric-unplaced"
+  | "song-overrun";
+export type DirectionFinding = {
+  code: DirectionFindingCode;
+  subject?: string;
+  path?: readonly string[];
+  message: string;
+};
+export type CheckArcOptions = {
+  realizedIds?: readonly string[];
+  coverageIds?: readonly string[];
+  noun?: string;
+  textLabel?: string;
+  exposedFramings?: readonly string[];
+  establishingFraming?: string;
+};
+export declare function checkArc<Role extends string>(
+  lens: LensSpec<Role>,
+  items: ArcItem<Role>[],
+  options?: CheckArcOptions,
+): DirectionFinding[];
+/**
+ * The emotional reward a video aims for — orthogonal to the lens (structure): a `mini-drama` can be
+ * `cute` or `scary`. Every node names one, root and child alike.
+ */
+export type Pleasure =
+  | "cute"
+  | "funny"
+  | "cool"
+  | "beautiful"
+  | "scary"
+  | "satisfying"
+  | "surprising"
+  | "emotional"
+  | "mysterious"
+  | "awe";
+/**
+ * The built-in lenses. Each names its `roles` and the dramatic `fn` each performs in this lens, so
+ * the engine checks theory ("a climax must be earned") off the role itself. A role with no `fn` is a
+ * container, exempt from the function checks — no built-in declares one; a project opts out of the
+ * arc engine in its own `defineLens`. Share budgets are act-ratio guards — a grounding role past ~40%
+ * of the runtime is front-loaded, a settling role past ~25% outstays the climax it is meant to let
+ * ring. Both are waivable pacing findings, never targets. A lens over shots and a lens over sequences
+ * live in one registry: any node names any lens, and the checker only flags a role its lens does not
+ * declare (a waivable `lens-role-mismatch`).
+ */
+export declare const BUILTIN_LENSES: readonly [
+  {
+    readonly name: "mini-drama";
+    readonly payoff: "hero";
+    readonly roles: [
+      {
+        readonly role: "ordinary";
+        readonly fn: "ground";
+        readonly maxShare: 0.4;
+      },
+      {
+        readonly role: "disruption";
+        readonly fn: "turn";
+      },
+      {
+        readonly role: "pressure";
+        readonly fn: "build";
+        readonly maxConsecutive: 3;
+      },
+      {
+        readonly role: "hero";
+        readonly fn: "payoff";
+      },
+      {
+        readonly role: "release";
+        readonly fn: "settle";
+        readonly required: false;
+        readonly maxShare: 0.25;
+      },
+    ];
+  },
+  {
+    readonly name: "comedy";
+    readonly payoff: "button";
+    readonly roles: [
+      {
+        readonly role: "setup";
+        readonly fn: "ground";
+      },
+      {
+        readonly role: "violation";
+        readonly fn: "turn";
+      },
+      {
+        readonly role: "escalation";
+        readonly fn: "build";
+        readonly required: false;
+      },
+      {
+        readonly role: "button";
+        readonly fn: "payoff";
+      },
+    ];
+  },
+  {
+    readonly name: "satisfying-process";
+    readonly payoff: "completion";
+    readonly roles: [
+      {
+        readonly role: "before";
+        readonly fn: "ground";
+        readonly maxShare: 0.4;
+      },
+      {
+        readonly role: "method";
+        readonly fn: "build";
+      },
+      {
+        readonly role: "rhythm";
+        readonly fn: "build";
+        readonly minConsecutive: 2;
+      },
+      {
+        readonly role: "completion";
+        readonly fn: "payoff";
+      },
+      {
+        readonly role: "after-glow";
+        readonly fn: "settle";
+        readonly required: false;
+        readonly maxShare: 0.25;
+      },
+    ];
+  },
+  {
+    readonly name: "mood-piece";
+    readonly payoff: "peak";
+    readonly roles: [
+      {
+        readonly role: "atmosphere";
+        readonly fn: "ground";
+      },
+      {
+        readonly role: "motif";
+        readonly fn: "build";
+      },
+      {
+        readonly role: "variation";
+        readonly fn: "build";
+      },
+      {
+        readonly role: "peak";
+        readonly fn: "payoff";
+      },
+      {
+        readonly role: "fade";
+        readonly fn: "settle";
+        readonly required: false;
+        readonly maxShare: 0.25;
+      },
+    ];
+  },
+  {
+    readonly name: "transformation";
+    readonly payoff: "reveal";
+    readonly roles: [
+      {
+        readonly role: "before";
+        readonly fn: "ground";
+        readonly maxShare: 0.4;
+      },
+      {
+        readonly role: "process";
+        readonly fn: "build";
+        readonly minConsecutive: 2;
+      },
+      {
+        readonly role: "reveal";
+        readonly fn: "payoff";
+      },
+      {
+        readonly role: "after-glow";
+        readonly fn: "settle";
+        readonly required: false;
+        readonly maxShare: 0.25;
+      },
+    ];
+  },
+  {
+    readonly name: "product-demo";
+    readonly payoff: "result";
+    readonly roles: [
+      {
+        readonly role: "problem";
+        readonly fn: "ground";
+        readonly maxShare: 0.4;
+      },
+      {
+        readonly role: "solution";
+        readonly fn: "turn";
+      },
+      {
+        readonly role: "demonstration";
+        readonly fn: "build";
+      },
+      {
+        readonly role: "result";
+        readonly fn: "payoff";
+      },
+      {
+        readonly role: "call-to-action";
+        readonly fn: "settle";
+        readonly required: false;
+        readonly maxShare: 0.2;
+      },
+    ];
+  },
+  {
+    readonly name: "kishotenketsu";
+    readonly payoff: "ketsu";
+    readonly roles: [
+      {
+        readonly role: "ki";
+        readonly fn: "ground";
+        readonly maxShare: 0.4;
+      },
+      {
+        readonly role: "sho";
+        readonly fn: "build";
+      },
+      {
+        readonly role: "ten";
+        readonly fn: "turn";
+      },
+      {
+        readonly role: "ketsu";
+        readonly fn: "payoff";
+      },
+    ];
+  },
+  {
+    readonly name: "three-act";
+    readonly payoff: "climax-act";
+    readonly roles: [
+      {
+        readonly role: "setup-act";
+        readonly fn: "ground";
+        readonly maxShare: 0.4;
+      },
+      {
+        readonly role: "confrontation-act";
+        readonly fn: "build";
+      },
+      {
+        readonly role: "climax-act";
+        readonly fn: "payoff";
+        readonly minShare: 0.15;
+      },
+      {
+        readonly role: "resolution-act";
+        readonly fn: "settle";
+        readonly required: false;
+      },
+    ];
+  },
+];
+/**
+ * One built-in lens, with its name and role literals intact — what the type layer reads to pin a
+ * node's `role` to the lens it names. A `defineLens` spec widens to `LensSpec<string>`, so a custom
+ * lens is not in this union and its roles fall through to `lens-role-mismatch`.
+ */
+export type BuiltinLens = (typeof BUILTIN_LENSES)[number];
+export declare function findBuiltinLens(name: string): LensSpec<string> | undefined;
+export type LensSpecInput = {
+  name: string;
+  payoff: string;
+  roles: readonly LensRole<string>[];
+};
+export declare function defineLens(spec: LensSpecInput): LensSpec<string>;
+export type CanvasSize = {
+  width: number;
+  height: number;
+};
+/**
+ * The authored half of `policy.format.size`: what ships, and what it may cost to get there.
+ */
+export type CanvasBudget = {
+  megapixels: number;
+  delivery: CanvasSize;
+};
+/**
+ * A reference sheet's shape: a character is portrait, a location is a master, and a prop is squared,
+ * as is anything outside the rosters.
+ */
+export type ReferenceShape = "portrait" | "square" | "master";
+export type IdentifierChar =
+  | "a"
+  | "b"
+  | "c"
+  | "d"
+  | "e"
+  | "f"
+  | "g"
+  | "h"
+  | "i"
+  | "j"
+  | "k"
+  | "l"
+  | "m"
+  | "n"
+  | "o"
+  | "p"
+  | "q"
+  | "r"
+  | "s"
+  | "t"
+  | "u"
+  | "v"
+  | "w"
+  | "x"
+  | "y"
+  | "z"
+  | "A"
+  | "B"
+  | "C"
+  | "D"
+  | "E"
+  | "F"
+  | "G"
+  | "H"
+  | "I"
+  | "J"
+  | "K"
+  | "L"
+  | "M"
+  | "N"
+  | "O"
+  | "P"
+  | "Q"
+  | "R"
+  | "S"
+  | "T"
+  | "U"
+  | "V"
+  | "W"
+  | "X"
+  | "Y"
+  | "Z"
+  | "0"
+  | "1"
+  | "2"
+  | "3"
+  | "4"
+  | "5"
+  | "6"
+  | "7"
+  | "8"
+  | "9"
+  | "-"
+  | "_";
+export type IsIdentifierString<T extends string> = T extends ""
+  ? false
+  : T extends `${IdentifierChar}${infer Rest}`
+    ? Rest extends ""
+      ? true
+      : IsIdentifierString<Rest>
+    : false;
+export type Identifier<T extends string> = string extends T
+  ? T
+  : IsIdentifierString<T> extends true
+    ? T
+    : never;
+/**
+ * A branded error carrying the offending id in a required property KEY, so a violation surfaces the
+ * whole explanation verbatim ("Property 'konte: id "…" …' is missing").
+ */
+export type IdentifierViolation<T extends string> = {
+  [P in `konte: id "${T}" must use only a-z A-Z 0-9 - _`]: never;
+};
+export type ValidatedIdentifier<T extends string> =
+  Identifier<T> extends never ? IdentifierViolation<T> : T;
+export type Voice = {
+  id: string;
+  description: string;
+};
+export type Character = {
+  name: string;
+  promptDepiction: string;
+  description: string;
+  voice?: Voice;
+};
+export type Prop = {
+  name: string;
+  description: string;
+};
+type Location$1 = {
+  name: string;
+  description: string;
+  landmarks: Record<string, Landmark>;
+};
+export type Landmark = {
+  name: string;
+  promptDepiction: string;
+  description: string;
+};
+export type Framing = "wide" | "medium" | "close" | "insert";
+export type Setup = {
+  name: string;
+  description: string;
+  location: string;
+  framing: Framing;
+  holds: readonly string[];
+  within?: string | null;
+};
+export type DirectionBrief = {
+  logline: string;
+  hook?: string;
+  audience?: string;
+  tone?: string;
+  look?: string;
+  outOfScope?: readonly string[];
+  tolerances?: readonly string[];
+};
+export type DirectionFormat = {
+  fps: number;
+  size: CanvasBudget;
+};
+export type ResolvedDirectionFormat = {
+  fps: number;
+  size: CanvasBudget & {
+    base: CanvasSize;
+  };
+};
+export type SpeechPolicy = "none" | "no-dialogue" | "free";
+export type DirectionClock = {
+  song: string;
+  bpm: number;
+  beatsPerBar: number;
+};
+export type DirectionPolicy = {
+  format: DirectionFormat;
+  lang: LanguageTag;
+  fonts?: readonly string[];
+  speech: SpeechPolicy;
+  clock?: DirectionClock;
+};
+export type NarrativeShot = Omit<
+  ArcItem<string>,
+  "synopsis" | "location" | "framing" | "aside" | "duration"
+> & {
+  kind?: "shot";
+  action: string;
+  setup: string;
+  duration?: number;
+  beats?: number;
+  script?: readonly ScriptLine[];
+  telop?: readonly string[];
+  lineup: readonly string[];
+  lineupTo?: readonly string[];
+  join?: "continuous" | "jump-back" | "jump-forward";
+  cutin?: Cutin;
+};
+export type Cutin = {
+  setup: string;
+  lineup: readonly string[];
+  lineupTo?: readonly string[];
+  join?: "continuous" | "jump-back" | "jump-forward";
+};
+export type GraphicShot = Omit<NarrativeShot, "kind" | "setup" | "lineup" | "lineupTo" | "join"> & {
+  kind: "graphic";
+  cutin?: Cutin;
+};
+export type AsideShot = {
+  kind: "aside";
+  id: string;
+  label: string;
+  duration?: number;
+  beats?: number;
+  telop?: readonly string[];
+};
+export type Shot = NarrativeShot | GraphicShot | AsideShot;
+export declare function isAsideShot(shot: Shot): shot is AsideShot;
+export declare function isGraphicShot(shot: Shot): shot is GraphicShot;
+export type DirectionNode = {
+  id?: string;
+  role?: string;
+  synopsis?: string;
+  lens: string;
+  pleasure: Pleasure;
+  waivers?: Record<string, string>;
+  shots?: Shot[];
+  sequences?: DirectionNode[];
+};
+export type Singer = string | readonly [string, ...string[]];
+export type LyricLine =
+  | string
+  | {
+      text: string;
+      singer: Singer;
+    };
+export type LyricSection = {
+  label: string;
+  singer: Singer;
+  lines: readonly LyricLine[];
+};
+export type DirectionLyrics = readonly LyricSection[];
+export type Direction = {
+  brief: DirectionBrief;
+  characters: Record<string, Character>;
+  props?: Record<string, Prop>;
+  locations: Record<string, Location$1>;
+  setups: Record<string, Setup>;
+  narrator?: Voice;
+  lenses?: LensSpec<string>[];
+  policy: DirectionPolicy;
+  lyrics?: DirectionLyrics;
+  sequence: DirectionNode;
+};
+export type NarrativeShotShape = {
+  id: string;
+  kind?: "shot";
+  role: string;
+  action: string;
+  setup: string;
+  duration?: number;
+  beats?: number;
+  script?: readonly ScriptLine[];
+  telop?: readonly string[];
+  lineup: readonly string[];
+  lineupTo?: readonly string[];
+  join?: "continuous" | "jump-back" | "jump-forward";
+  cutin?: CutinShape;
+};
+export type CutinShape = {
+  setup: string;
+  lineup: readonly string[];
+  lineupTo?: readonly string[];
+  join?: "continuous" | "jump-back" | "jump-forward";
+};
+export type GraphicShotShape = {
+  id: string;
+  kind: "graphic";
+  role: string;
+  action: string;
+  duration?: number;
+  beats?: number;
+  script?: readonly ScriptLine[];
+  telop?: readonly string[];
+  cutin?: CutinShape;
+  setup?: never;
+  lineup?: never;
+  lineupTo?: never;
+  join?: never;
+};
+export type AsideShotShape = {
+  id: string;
+  kind: "aside";
+  label: string;
+  duration?: number;
+  beats?: number;
+  telop?: readonly string[];
+  cutin?: never;
+};
+export type ShotShape = NarrativeShotShape | GraphicShotShape | AsideShotShape;
+export type NodeBodyShape =
+  | {
+      shots: readonly ShotShape[];
+    }
+  | {
+      sequences: readonly ChildNodeShape[];
+    };
+export type NodeCommonShape = {
+  lens: string;
+  pleasure: Pleasure;
+  waivers?: Record<string, string>;
+};
+export type ChildNodeShape = NodeCommonShape & {
+  id: string;
+  role: string;
+  synopsis: string;
+} & NodeBodyShape;
+export type RootNodeShape = NodeCommonShape & NodeBodyShape;
+export type DirectionInput = {
+  brief: DirectionBrief;
+  characters: Record<string, Character>;
+  props?: Record<string, Prop>;
+  locations: Record<string, Location$1>;
+  setups: Record<string, Setup>;
+  narrator?: Voice;
+  lenses?: readonly LensSpec<string>[];
+  policy: DirectionPolicy;
+  lyrics?: DirectionLyrics;
+  sequence: RootNodeShape;
+};
+export type ConstrainRosterIds<R> = R & {
+  [K in keyof R & string as ValidatedIdentifier<K> extends string
+    ? never
+    : K]: ValidatedIdentifier<K>;
+};
+export type SubjectIdOf<D extends DirectionInput> = Extract<keyof D["characters"], string>;
+export type LineupSubjectViolation<T extends string> = {
+  [P in `konte: lineup id "${T}" is not a declared character id`]: never;
+};
+export type ConstrainLineup<L, Subjects extends string> = {
+  [K in keyof L]: string extends L[K]
+    ? L[K]
+    : L[K] extends Subjects
+      ? L[K]
+      : L[K] extends string
+        ? LineupSubjectViolation<L[K]>
+        : never;
+};
+export type DeclaredLensNameOf<D> = D extends {
+  lenses: readonly (infer L)[];
+}
+  ? L extends {
+      name: infer N;
+    }
+    ? N
+    : never
+  : never;
+export type LensRolesOf<Name, Declared> = string extends Name
+  ? string
+  : [Declared] extends [never]
+    ? BuiltinLensRolesOf<Name>
+    : [Name] extends [Declared]
+      ? string
+      : BuiltinLensRolesOf<Name>;
+export type BuiltinLensRolesOf<Name> =
+  Extract<
+    BuiltinLens,
+    {
+      name: Name;
+    }
+  > extends infer L
+    ? [L] extends [never]
+      ? string
+      : L extends {
+            roles: infer B extends readonly {
+              role: string;
+            }[];
+          }
+        ? B[number]["role"]
+        : string
+    : string;
+export type ConstrainRole<Item, Roles extends string> = Item extends {
+  role: infer R;
+}
+  ? string extends R
+    ? unknown
+    : string extends Roles
+      ? unknown
+      : [R] extends [Roles]
+        ? unknown
+        : {
+            role: DirectionViolation<`konte: "${R & string}" is not a role this node's lens declares`>;
+          }
+  : unknown;
+export type IsWidenedArray<A> = A extends readonly unknown[]
+  ? number extends A["length"]
+    ? true
+    : false
+  : false;
+export type DirectionViolation<M extends string> = {
+  [P in M]: never;
+};
+export type ConstrainLineupTo<F, LT> = F extends {
+  lineup: infer L extends readonly string[];
+}
+  ? IsWidenedArray<L> extends true
+    ? unknown
+    : IsWidenedArray<LT> extends true
+      ? unknown
+      : [L] extends [LT]
+        ? [LT] extends [L]
+          ? {
+              lineupTo: DirectionViolation<"konte: this `lineupTo` is the `lineup` again \u2014 write the order the shot leaves behind, or drop it">;
+            }
+          : unknown
+        : unknown
+  : unknown;
+export type ConstrainFrameLineups<F, Subjects extends string> = (F extends {
+  lineup: infer L extends readonly string[];
+}
+  ? {
+      lineup: ConstrainLineup<L, Subjects>;
+    }
+  : unknown) &
+  (F extends {
+    lineupTo: infer L extends readonly string[];
+  }
+    ? {
+        lineupTo: ConstrainLineup<L, Subjects>;
+      } & ConstrainLineupTo<F, L>
+    : unknown);
+export type ConstrainDuration<B> = B extends {
+  kind: "aside";
+}
+  ? unknown
+  : B extends {
+        duration: infer N;
+      }
+    ? number extends N
+      ? unknown
+      : `${N & number}` extends `${string}.${infer Decimals}`
+        ? Decimals extends "5"
+          ? unknown
+          : {
+              duration: DirectionViolation<"konte: a shot's duration is a multiple of 0.5s, so it lands a whole frame at every fps">;
+            }
+        : [N] extends [0]
+          ? {
+              duration: DirectionViolation<"konte: a shot's duration is a multiple of 0.5s, so it lands a whole frame at every fps">;
+            }
+          : unknown
+    : unknown;
+export type ConstrainBeats<B> = B extends {
+  beats: infer N;
+}
+  ? number extends N
+    ? unknown
+    : `${N & number}` extends `${string}.${string}` | `-${string}` | "0"
+      ? {
+          beats: DirectionViolation<"konte: a shot's span is a positive whole number of beats \u2014 a half-beat cut is a computed value with an off-grid-duration waiver">;
+        }
+      : unknown
+  : unknown;
+export type ConstrainSpan<B, Clocked extends boolean> = boolean extends Clocked
+  ? ConstrainBeats<B> & ConstrainDuration<B>
+  : Clocked extends true
+    ? (B extends {
+        duration: number;
+      }
+        ? {
+            duration: DirectionViolation<"konte: this direction keeps time with policy.clock, so a shot's span is `beats`, not `duration`">;
+          }
+        : unknown) &
+        (B extends {
+          beats: number;
+        }
+          ? ConstrainBeats<B>
+          : {
+              beats: DirectionViolation<"konte: this direction keeps time with policy.clock, so every shot declares its span in `beats`">;
+            })
+    : (B extends {
+        beats: number;
+      }
+        ? {
+            beats: DirectionViolation<"konte: `beats` counts on policy.clock, which this direction does not declare \u2014 a shot's span is `duration` in seconds">;
+          }
+        : unknown) &
+        (B extends {
+          duration: number;
+        }
+          ? ConstrainDuration<B>
+          : {
+              duration: DirectionViolation<"konte: every shot declares its span \u2014 `duration` in seconds">;
+            });
+export type ConstrainAction<B> = B extends {
+  action: infer A;
+}
+  ? [A] extends [""]
+    ? {
+        action: DirectionViolation<"konte: `action` is the one thing this shot lands \u2014 it cannot be empty">;
+      }
+    : unknown
+  : unknown;
+export type ConstrainSynopsis<N> = N extends {
+  synopsis: infer S;
+}
+  ? [S] extends [""]
+    ? {
+        synopsis: DirectionViolation<"konte: `synopsis` is what this act of the arc IS \u2014 it cannot be empty">;
+      }
+    : unknown
+  : unknown;
+export type SpokenLines<S> = Extract<
+  S,
+  | {
+      character: unknown;
+    }
+  | {
+      speaker: unknown;
+    }
+>;
+export type ConstrainSpeech<B, Speech> = SpeechPolicy extends Speech
+  ? unknown
+  : B extends {
+        script: infer S extends readonly ScriptLine[];
+      }
+    ? IsWidenedArray<S> extends true
+      ? unknown
+      : [Speech] extends ["none"]
+        ? [S] extends [readonly []]
+          ? unknown
+          : {
+              script: DirectionViolation<'konte: policy.speech is "none", so no shot declares a script line'>;
+            }
+        : [Speech] extends ["no-dialogue"]
+          ? [SpokenLines<S[number]>] extends [never]
+            ? unknown
+            : {
+                script: DirectionViolation<'konte: policy.speech is "no-dialogue", so a shot narrates but nobody speaks'>;
+              }
+          : unknown
+    : unknown;
+export type ShotBefore<Shots, Id extends string, Prev = null> = Shots extends readonly [
+  infer H extends {
+    id: string;
+  },
+  ...infer T extends readonly {
+    id: string;
+  }[],
+]
+  ? H extends {
+      id: Id;
+    }
+    ? Prev
+    : ShotBefore<T, Id, H>
+  : never;
+export type SameSetup<PS, S> = string extends PS
+  ? true
+  : string extends S
+    ? true
+    : [PS] extends [S]
+      ? [S] extends [PS]
+        ? true
+        : false
+      : false;
+export type RunsOnFrom<P, S> = [P] extends [never]
+  ? true
+  : P extends null
+    ? false
+    : P extends {
+          kind: "aside" | "graphic";
+        }
+      ? false
+      : P extends {
+            setup: infer PS;
+          }
+        ? SameSetup<PS, S>
+        : false;
+export type CutinRunsOnFrom<P, S> = [P] extends [never]
+  ? true
+  : P extends {
+        cutin: {
+          setup: infer PS;
+        };
+      }
+    ? SameSetup<PS, S>
+    : false;
+export type ConstrainJoin<B, Shots> = B extends {
+  join: "continuous";
+  id: infer Id extends string;
+  setup: infer S;
+}
+  ? RunsOnFrom<ShotBefore<Shots, Id>, S> extends true
+    ? unknown
+    : {
+        join: DirectionViolation<"konte: `continuous` is one unbroken take with the shot before it on the clock, so that shot is a narrative shot on this same setup \u2014 declare a jump, or drop the join">;
+      }
+  : unknown;
+export type ConstrainCutinJoin<B, Shots> = B extends {
+  id: infer Id extends string;
+  cutin: {
+    join: "continuous";
+    setup: infer S;
+  };
+}
+  ? CutinRunsOnFrom<ShotBefore<Shots, Id>, S> extends true
+    ? unknown
+    : {
+        cutin: {
+          join: DirectionViolation<"konte: a `continuous` cutin runs on from the cutin over the shot before it on the clock, so that shot carries a cutin on this same setup \u2014 declare a jump, or drop the join">;
+        };
+      }
+  : unknown;
+export type ConstrainShotIds<
+  Arr,
+  Subjects extends string,
+  Speech,
+  Roles extends string,
+  Shots,
+  Clocked extends boolean,
+> = {
+  [K in keyof Arr]: Omit<Arr[K], "id" | "lineup" | "lineupTo" | "cutin"> & {
+    id: ValidatedIdentifier<
+      Arr[K] extends {
+        id: infer I extends string;
+      }
+        ? I
+        : never
+    >;
+  } & ConstrainFrameLineups<Arr[K], Subjects> &
+    ConstrainSpan<Arr[K], Clocked> &
+    ConstrainAction<Arr[K]> &
+    ConstrainSpeech<Arr[K], Speech> &
+    ConstrainRole<Arr[K], Roles> &
+    ConstrainJoin<Arr[K], Shots> &
+    ConstrainCutinJoin<Arr[K], Shots> &
+    (Arr[K] extends {
+      cutin: infer C;
+    }
+      ? {
+          cutin: Omit<C, "lineup" | "lineupTo"> & ConstrainFrameLineups<C, Subjects>;
+        }
+      : unknown);
+};
+export type ConstrainNodeIds<
+  N,
+  Subjects extends string,
+  Speech,
+  Lenses,
+  Shots,
+  Clocked extends boolean,
+> = N &
+  (N extends {
+    id: infer I extends string;
+  }
+    ? {
+        id: ValidatedIdentifier<I>;
+      }
+    : unknown) &
+  ConstrainSynopsis<N> &
+  (N extends {
+    shots: infer S;
+  }
+    ? {
+        shots: ConstrainShotIds<
+          S,
+          Subjects,
+          Speech,
+          LensRolesOf<LensNameOf<N>, Lenses>,
+          Shots,
+          Clocked
+        >;
+      }
+    : unknown) &
+  (N extends {
+    sequences: infer Q;
+  }
+    ? {
+        sequences: ConstrainSequenceIds<
+          Q,
+          Subjects,
+          Speech,
+          Lenses,
+          LensRolesOf<LensNameOf<N>, Lenses>,
+          Shots,
+          Clocked
+        >;
+      }
+    : unknown);
+export type LensNameOf<N> = N extends {
+  lens: infer L;
+}
+  ? L
+  : string;
+export type ConstrainSequenceIds<
+  Arr,
+  Subjects extends string,
+  Speech,
+  Lenses,
+  ParentRoles extends string,
+  Shots,
+  Clocked extends boolean,
+> = {
+  [K in keyof Arr]: ConstrainNodeIds<Arr[K], Subjects, Speech, Lenses, Shots, Clocked> &
+    ConstrainRole<Arr[K], ParentRoles>;
+};
+export type ConstrainVoiceId<V> = V extends {
+  id: infer I extends string;
+}
+  ? {
+      id: ValidatedIdentifier<I>;
+    }
+  : unknown;
+export type ConstrainCastVoiceIds<R> = {
+  [K in keyof R]: R[K] &
+    (R[K] extends {
+      voice: infer V;
+    }
+      ? {
+          voice: ConstrainVoiceId<V>;
+        }
+      : unknown);
+};
+export type ConstrainLandmarkIds<R> = {
+  [K in keyof R]: R[K] &
+    (R[K] extends {
+      landmarks: infer L;
+    }
+      ? {
+          landmarks: ConstrainRosterIds<L>;
+        }
+      : unknown);
+};
+export type LandmarkIdOf<D extends DirectionInput, S> = S extends {
+  location: infer L;
+}
+  ? L extends keyof D["locations"]
+    ? D["locations"][L] extends {
+        landmarks: infer M;
+      }
+      ? Extract<keyof M, string>
+      : string
+    : string
+  : string;
+export type HoldsLandmarkViolation<T extends string> = {
+  [P in `konte: holds id "${T}" is not a landmark of this setup's location`]: never;
+};
+export type ConstrainHolds<H, Ids extends string> = {
+  [K in keyof H]: string extends H[K]
+    ? H[K]
+    : H[K] extends Ids
+      ? H[K]
+      : H[K] extends string
+        ? HoldsLandmarkViolation<H[K]>
+        : never;
+};
+export type HoldsRequired = {
+  "konte: this setup is not an insert, so `holds` must name at least one landmark": never;
+};
+export type ConstrainSetupHolds<S, Ids extends string> = S extends {
+  holds: infer H;
+}
+  ? {
+      holds: ConstrainHolds<H, Ids>;
+    } & (S extends {
+      framing: infer F;
+    }
+      ? "insert" extends F
+        ? unknown
+        : H extends readonly []
+          ? {
+              holds: readonly [HoldsRequired];
+            }
+          : unknown
+      : unknown)
+  : unknown;
+export type WiderThan<F> = F extends "close"
+  ? "wide" | "medium"
+  : F extends "medium"
+    ? "wide"
+    : never;
+export type WithinViolation<M extends string> = {
+  [P in M]: never;
+};
+export type ConstrainWithinTarget<S, T, W extends string, F> = T extends {
+  location: infer TL;
+  framing: infer TF;
+}
+  ? S extends {
+      location: infer SL;
+    }
+    ? string extends SL
+      ? unknown
+      : string extends TL
+        ? unknown
+        : [SL] extends [TL]
+          ? Framing extends TF
+            ? unknown
+            : [TF] extends [WiderThan<F>]
+              ? unknown
+              : {
+                  within: WithinViolation<`konte: within "${W}" is ${TF & string}, not wider than this ${F & string}`>;
+                }
+          : {
+              within: WithinViolation<`konte: within "${W}" is set in another location`>;
+            }
+    : unknown
+  : unknown;
+export type ConstrainSetupWithin<S, Setups> = S extends {
+  within: infer W;
+}
+  ? [W] extends [null | undefined]
+    ? unknown
+    : string extends W
+      ? unknown
+      : S extends {
+            framing: infer F;
+          }
+        ? Framing extends F
+          ? unknown
+          : [F] extends ["insert"]
+            ? {
+                within: WithinViolation<"konte: an insert holds nothing, so it is no window">;
+              }
+            : W extends keyof Setups & string
+              ? ConstrainWithinTarget<S, Setups[W], W, F>
+              : W extends string
+                ? {
+                    within: WithinViolation<`konte: within id "${W}" is not a declared setup`>;
+                  }
+                : unknown
+        : unknown
+  : unknown;
+export type ConstrainSetupIds<D extends DirectionInput> = ConstrainRosterIds<D["setups"]> & {
+  [K in keyof D["setups"]]: ConstrainSetupHolds<D["setups"][K], LandmarkIdOf<D, D["setups"][K]>> &
+    ConstrainSetupWithin<D["setups"][K], D["setups"]>;
+};
+export type SpeechOf<D extends DirectionInput> = D["policy"] extends {
+  speech: infer S;
+}
+  ? S
+  : SpeechPolicy;
+export type ClockedOf<D extends DirectionInput> = D["policy"] extends {
+  clock: object;
+}
+  ? true
+  : "clock" extends keyof D["policy"]
+    ? boolean
+    : false;
+export type ConstrainIds<D extends DirectionInput> = {
+  characters: ConstrainRosterIds<D["characters"]> & ConstrainCastVoiceIds<D["characters"]>;
+  locations: ConstrainRosterIds<D["locations"]> & ConstrainLandmarkIds<D["locations"]>;
+  setups: ConstrainSetupIds<D>;
+  sequence: ConstrainNodeIds<
+    D["sequence"],
+    SubjectIdOf<D>,
+    SpeechOf<D>,
+    DeclaredLensNameOf<D>,
+    DirectionShotTuple<D>,
+    ClockedOf<D>
+  >;
+} & (D extends {
+  props: infer P;
+}
+  ? {
+      props: ConstrainRosterIds<P>;
+    }
+  : unknown) &
+  (D extends {
+    narrator: infer N;
+  }
+    ? {
+        narrator: ConstrainVoiceId<N>;
+      }
+    : unknown) &
+  (D["policy"] extends {
+    clock: {
+      song: infer S extends string;
+    };
+  }
+    ? {
+        policy: {
+          clock: {
+            song: ValidatedIdentifier<S>;
+          };
+        };
+      }
+    : unknown) &
+  (D extends {
+    lyrics: infer L;
+  }
+    ? ClockedOf<D> extends false
+      ? {
+          lyrics: DirectionViolation<"konte: `lyrics` are sung on the song policy.clock names, which this direction does not declare">;
+        }
+      : string extends LyricSingerIdsOf<L>
+        ? unknown
+        : [Exclude<LyricSingerIdsOf<L>, SubjectIdOf<D>>] extends [never]
+          ? unknown
+          : {
+              lyrics: DirectionViolation<`konte: singer "${Exclude<LyricSingerIdsOf<L>, SubjectIdOf<D>> & string}" is not a declared character id`>;
+            }
+    : unknown);
+export type SingerIdsOf<G> = G extends readonly (infer X)[] ? X : G;
+export type LyricSingerIdsOf<L> = L extends readonly (infer S)[]
+  ? S extends {
+      singer: infer G;
+      lines: infer Lines;
+    }
+    ?
+        | SingerIdsOf<G>
+        | (Lines extends readonly (infer Line)[]
+            ? Line extends {
+                singer: infer G2;
+              }
+              ? SingerIdsOf<G2>
+              : never
+            : never)
+    : never
+  : never;
+export type ShotIdOf<D> = DirectionIdTuple<D>[number];
+export interface DirectionIndex {
+  format: ResolvedDirectionFormat;
+  typography: Typography;
+  timeline: DirectionTimeline;
+  lyrics: LyricPlacementEntry[] | null;
+  durationById: Map<string, number>;
+  actionById: Map<string, string>;
+  setupById: Map<string, string>;
+  framingById: Map<string, Framing>;
+  locationById: Map<string, string>;
+  scriptById: Map<string, readonly ScriptLine[]>;
+  lineupById: Map<string, readonly string[]>;
+  lineupToById: Map<string, readonly string[]>;
+  continuedById: Map<
+    string,
+    {
+      main?: string;
+      cutin?: string;
+    }
+  >;
+  graphicIds: Set<string>;
+  cutinById: Map<string, Cutin>;
+  cutinFrameById: Map<
+    string,
+    {
+      framing: Framing;
+      location: string;
+    }
+  >;
+  asideIds: Set<string>;
+  labelById: Map<string, string>;
+  referenceShapeById: Map<string, ReferenceShape>;
+}
+declare const DIRECTION: unique symbol;
+export type DirectionHandle<D> = DirectionIndex & {
+  readonly __direction?: D;
+};
+export type DirectionEntry<D> = D & {
+  readonly [DIRECTION]: DirectionHandle<D>;
+};
+export type StageShotStarter<D, TStage extends ShotStage> = <
+  TId extends NarrativeIdOf<D, FirstShotId<D>>,
+>(
+  id: TId,
+  build: (
+    ctx: StageShotContext<ScriptOf<D, TId>, LineupOf<D, TId>, LineupToOf<D, TId>, CutinOf<D, TId>> &
+      ShotSongOf<D> & {
+        shot: StageShots<never>;
+      },
+  ) => ReturnType<ShotFunction>,
+) => StageChain<D, ChainRest<D>, TId, TStage>;
+export type StageGraphicShotStarter<D, TStage extends ShotStage> = <
+  TId extends GraphicIdOf<D, FirstShotId<D>>,
+>(
+  id: TId,
+  build: (
+    ctx: GraphicShotContext<ScriptOf<D, TId>, CutinOf<D, TId>> &
+      ShotSongOf<D> & {
+        shot: StageShots<never>;
+      },
+  ) => ReturnType<ShotFunction>,
+) => StageChain<D, ChainRest<D>, TId, TStage>;
+export type StagePendingShotStarter<D, TStage extends ShotStage> = <
+  TId extends ArcIdOf<D, FirstShotId<D>>,
+>(
+  id: TId,
+) => StageChain<D, ChainRest<D>, TId, TStage>;
+export type StageAsideShotStarter<D> = <TId extends AsideIdOf<D, FirstShotId<D>>>(
+  id: TId,
+) => StageChain<D, ChainRest<D>, TId, "animatic">;
+export type VideoAsideShotStarter<D> = <TId extends AsideIdOf<D, FirstShotId<D>>>(
+  id: TId,
+  build: (ctx: AsideShotContext & ShotSongOf<D>) => ReturnType<ShotFunction>,
+) => StageChain<D, ChainRest<D>, TId, "video">;
+export type ShotTiming = {
+  start: number;
+  duration: number;
+  startBeat?: number;
+  beats?: number;
+};
+export type DirectionTimeline = {
+  fps: number;
+  clock: DirectionClock | null;
+  leadFrames: number;
+  timings: Map<string, ShotTiming>;
+};
+export type LyricPlacementEntry = {
+  key: string;
+  section: string;
+  text: string;
+  singer: readonly string[];
+} & (
+  | {
+      start: number;
+      end: number;
+      set: boolean;
+    }
+  | {
+      start: null;
+      end: null;
+      set: false;
+    }
+);
+export declare function defineDirection<const D extends DirectionInput>(
+  direction: D & ConstrainIds<D>,
+): DirectionEntry<D>;
 export type MapIds<
   S extends readonly {
     id: string;
@@ -2908,6 +3963,40 @@ export type GraphicShotContext<
   cutin: C;
 };
 /**
+ * `beat(n)`: the second, from the shot's head, of its `n`th beat — read off the song's own grid, so a
+ * beat lands on the same frame whichever shot counts to it. Only a direction with `policy.clock` has
+ * one.
+ */
+export type ShotClockContext = {
+  beat: (n: number) => number;
+};
+export type ShotClockOf<D> = D extends {
+  policy: {
+    clock: object;
+  };
+}
+  ? ShotClockContext
+  : {};
+/**
+ * `lyrics`: the lyric lines the shot hears, each with the `characters` ids singing it and its
+ * seconds from the shot's head — where the song take sings it. A line sung from before the shot
+ * starts at 0; one sung past its end runs past it. Only a direction with `lyrics` has them.
+ */
+export type ShotLyricsContext = {
+  lyrics: readonly {
+    text: string;
+    singer: readonly string[];
+    start: number;
+    end: number;
+  }[];
+};
+export type ShotLyricsOf<D> = D extends {
+  lyrics: object;
+}
+  ? ShotLyricsContext
+  : {};
+export type ShotSongOf<D> = ShotClockOf<D> & ShotLyricsOf<D>;
+/**
  * The shot values an ASIDE build receives. The four fields describing a camera view are absent, not
  * blank. Only the video builds an aside.
  */
@@ -2984,17 +4073,19 @@ export interface StageChain<
         LineupOf<D, Head<TRest>>,
         LineupToOf<D, Head<TRest>>,
         CutinOf<D, Head<TRest>>
-      > & {
-        shot: StageShots<TIds>;
-      },
+      > &
+        ShotSongOf<D> & {
+          shot: StageShots<TIds>;
+        },
     ) => ReturnType<ShotFunction>,
   ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
   nextGraphicShot(
     id: GraphicIdOf<D, Head<TRest>>,
     build: (
-      ctx: GraphicShotContext<ScriptOf<D, Head<TRest>>, CutinOf<D, Head<TRest>>> & {
-        shot: StageShots<TIds>;
-      },
+      ctx: GraphicShotContext<ScriptOf<D, Head<TRest>>, CutinOf<D, Head<TRest>>> &
+        ShotSongOf<D> & {
+          shot: StageShots<TIds>;
+        },
     ) => ReturnType<ShotFunction>,
   ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
   nextPendingShot(
@@ -3003,7 +4094,7 @@ export interface StageChain<
   nextAsideShot(
     id: AsideIdOf<D, Head<TRest>>,
     ...build: TStage extends "video"
-      ? [build: (ctx: AsideShotContext) => ReturnType<ShotFunction>]
+      ? [build: (ctx: AsideShotContext & ShotSongOf<D>) => ReturnType<ShotFunction>]
       : []
   ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
 }
@@ -3020,9 +4111,10 @@ export type StageTerminal<TIds extends string = string> = {
  * for an empty or not-yet-authored stage), plus optional timeline-spanning `soundtracks` whose
  * anchors are checked against the shots' ids.
  */
-export type StageTimelineReturn<Ids extends string = string> = {
+export type StageTimelineReturn<Ids extends string = string, D = unknown> = {
   shots: StageTerminal<Ids> | readonly never[];
   soundtracks?: ReadonlyArray<SoundtrackEntry<NoInfer<Ids>>>;
+  overlay?: (ctx: OverlayContext<D>) => React.ReactElement;
 };
 /**
  * The `setups` roster ids this direction declares — the only keys a plate may be filed under.
@@ -3060,7 +4152,7 @@ export interface DefineAnimaticOptions<
     pendingShot: StagePendingShotStarter<D, "animatic">;
     asideShot: StageAsideShotStarter<D>;
     plates: TPlates;
-  }) => StageTimelineReturn<Ids>;
+  }) => StageTimelineReturn<Ids, D>;
 }
 /**
  * The animatic: the storyboard laid on the direction's clock, with the shot's lines sounding over
@@ -3076,827 +4168,6 @@ export declare function defineAnimatic<
   direction: DirectionEntry<D>,
   opts: DefineAnimaticOptions<D, Ids, TPlates>,
 ): AnimaticDefinition & AnimaticRef;
-export type IdentifierChar =
-  | "a"
-  | "b"
-  | "c"
-  | "d"
-  | "e"
-  | "f"
-  | "g"
-  | "h"
-  | "i"
-  | "j"
-  | "k"
-  | "l"
-  | "m"
-  | "n"
-  | "o"
-  | "p"
-  | "q"
-  | "r"
-  | "s"
-  | "t"
-  | "u"
-  | "v"
-  | "w"
-  | "x"
-  | "y"
-  | "z"
-  | "A"
-  | "B"
-  | "C"
-  | "D"
-  | "E"
-  | "F"
-  | "G"
-  | "H"
-  | "I"
-  | "J"
-  | "K"
-  | "L"
-  | "M"
-  | "N"
-  | "O"
-  | "P"
-  | "Q"
-  | "R"
-  | "S"
-  | "T"
-  | "U"
-  | "V"
-  | "W"
-  | "X"
-  | "Y"
-  | "Z"
-  | "0"
-  | "1"
-  | "2"
-  | "3"
-  | "4"
-  | "5"
-  | "6"
-  | "7"
-  | "8"
-  | "9"
-  | "-"
-  | "_";
-export type IsIdentifierString<T extends string> = T extends ""
-  ? false
-  : T extends `${IdentifierChar}${infer Rest}`
-    ? Rest extends ""
-      ? true
-      : IsIdentifierString<Rest>
-    : false;
-export type Identifier<T extends string> = string extends T
-  ? T
-  : IsIdentifierString<T> extends true
-    ? T
-    : never;
-/**
- * A branded error carrying the offending id in a required property KEY, so a violation surfaces the
- * whole explanation verbatim ("Property 'konte: id "…" …' is missing").
- */
-export type IdentifierViolation<T extends string> = {
-  [P in `konte: id "${T}" must use only a-z A-Z 0-9 - _`]: never;
-};
-export type ValidatedIdentifier<T extends string> =
-  Identifier<T> extends never ? IdentifierViolation<T> : T;
-export type Voice = {
-  id: string;
-  description: string;
-};
-export type Character = {
-  name: string;
-  promptDepiction: string;
-  description: string;
-  voice?: Voice;
-};
-export type Prop = {
-  name: string;
-  description: string;
-};
-type Location$1 = {
-  name: string;
-  description: string;
-  landmarks: Record<string, Landmark>;
-};
-export type Landmark = {
-  name: string;
-  promptDepiction: string;
-  description: string;
-};
-export type Framing = "wide" | "medium" | "close" | "insert";
-export type Setup = {
-  name: string;
-  description: string;
-  location: string;
-  framing: Framing;
-  holds: readonly string[];
-  within?: string | null;
-};
-export type DirectionBrief = {
-  logline: string;
-  hook?: string;
-  audience?: string;
-  tone?: string;
-  look?: string;
-  outOfScope?: readonly string[];
-  tolerances?: readonly string[];
-};
-export type DirectionFormat = {
-  fps: number;
-  size: CanvasBudget;
-};
-export type ResolvedDirectionFormat = {
-  fps: number;
-  size: CanvasBudget & {
-    base: CanvasSize;
-  };
-};
-export type SpeechPolicy = "none" | "no-dialogue" | "free";
-export type DirectionPolicy = {
-  format: DirectionFormat;
-  lang: LanguageTag;
-  fonts?: readonly string[];
-  speech: SpeechPolicy;
-};
-export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "location" | "framing" | "aside"> & {
-  kind?: "shot";
-  action: string;
-  setup: string;
-  duration: number;
-  script?: readonly ScriptLine[];
-  telop?: readonly string[];
-  lineup: readonly string[];
-  lineupTo?: readonly string[];
-  join?: "continuous" | "jump-back" | "jump-forward";
-  cutin?: Cutin;
-};
-export type Cutin = {
-  setup: string;
-  lineup: readonly string[];
-  lineupTo?: readonly string[];
-  join?: "continuous" | "jump-back" | "jump-forward";
-};
-export type GraphicShot = Omit<NarrativeShot, "kind" | "setup" | "lineup" | "lineupTo" | "join"> & {
-  kind: "graphic";
-  cutin?: Cutin;
-};
-export type AsideShot = {
-  kind: "aside";
-  id: string;
-  label: string;
-  duration: number;
-  telop?: readonly string[];
-};
-export type Shot = NarrativeShot | GraphicShot | AsideShot;
-export declare function isAsideShot(shot: Shot): shot is AsideShot;
-export declare function isGraphicShot(shot: Shot): shot is GraphicShot;
-export type DirectionNode = {
-  id?: string;
-  role?: string;
-  synopsis?: string;
-  lens: string;
-  pleasure: Pleasure;
-  waivers?: Record<string, string>;
-  shots?: Shot[];
-  sequences?: DirectionNode[];
-};
-export type Direction = {
-  brief: DirectionBrief;
-  characters: Record<string, Character>;
-  props?: Record<string, Prop>;
-  locations: Record<string, Location$1>;
-  setups: Record<string, Setup>;
-  narrator?: Voice;
-  lenses?: LensSpec<string>[];
-  policy: DirectionPolicy;
-  sequence: DirectionNode;
-};
-export type NarrativeShotShape = {
-  id: string;
-  kind?: "shot";
-  role: string;
-  action: string;
-  setup: string;
-  duration: number;
-  script?: readonly ScriptLine[];
-  telop?: readonly string[];
-  lineup: readonly string[];
-  lineupTo?: readonly string[];
-  join?: "continuous" | "jump-back" | "jump-forward";
-  cutin?: CutinShape;
-};
-export type CutinShape = {
-  setup: string;
-  lineup: readonly string[];
-  lineupTo?: readonly string[];
-  join?: "continuous" | "jump-back" | "jump-forward";
-};
-export type GraphicShotShape = {
-  id: string;
-  kind: "graphic";
-  role: string;
-  action: string;
-  duration: number;
-  script?: readonly ScriptLine[];
-  telop?: readonly string[];
-  cutin?: CutinShape;
-  setup?: never;
-  lineup?: never;
-  lineupTo?: never;
-  join?: never;
-};
-export type AsideShotShape = {
-  id: string;
-  kind: "aside";
-  label: string;
-  duration: number;
-  telop?: readonly string[];
-  cutin?: never;
-};
-export type ShotShape = NarrativeShotShape | GraphicShotShape | AsideShotShape;
-export type NodeBodyShape =
-  | {
-      shots: readonly ShotShape[];
-    }
-  | {
-      sequences: readonly ChildNodeShape[];
-    };
-export type NodeCommonShape = {
-  lens: string;
-  pleasure: Pleasure;
-  waivers?: Record<string, string>;
-};
-export type ChildNodeShape = NodeCommonShape & {
-  id: string;
-  role: string;
-  synopsis: string;
-} & NodeBodyShape;
-export type RootNodeShape = NodeCommonShape & NodeBodyShape;
-export type DirectionInput = {
-  brief: DirectionBrief;
-  characters: Record<string, Character>;
-  props?: Record<string, Prop>;
-  locations: Record<string, Location$1>;
-  setups: Record<string, Setup>;
-  narrator?: Voice;
-  lenses?: readonly LensSpec<string>[];
-  policy: DirectionPolicy;
-  sequence: RootNodeShape;
-};
-export type ConstrainRosterIds<R> = R & {
-  [K in keyof R & string as ValidatedIdentifier<K> extends string
-    ? never
-    : K]: ValidatedIdentifier<K>;
-};
-export type SubjectIdOf<D extends DirectionInput> = Extract<keyof D["characters"], string>;
-export type LineupSubjectViolation<T extends string> = {
-  [P in `konte: lineup id "${T}" is not a declared character id`]: never;
-};
-export type ConstrainLineup<L, Subjects extends string> = {
-  [K in keyof L]: string extends L[K]
-    ? L[K]
-    : L[K] extends Subjects
-      ? L[K]
-      : L[K] extends string
-        ? LineupSubjectViolation<L[K]>
-        : never;
-};
-export type DeclaredLensNameOf<D> = D extends {
-  lenses: readonly (infer L)[];
-}
-  ? L extends {
-      name: infer N;
-    }
-    ? N
-    : never
-  : never;
-export type LensRolesOf<Name, Declared> = string extends Name
-  ? string
-  : [Declared] extends [never]
-    ? BuiltinLensRolesOf<Name>
-    : [Name] extends [Declared]
-      ? string
-      : BuiltinLensRolesOf<Name>;
-export type BuiltinLensRolesOf<Name> =
-  Extract<
-    BuiltinLens,
-    {
-      name: Name;
-    }
-  > extends infer L
-    ? [L] extends [never]
-      ? string
-      : L extends {
-            beats: infer B extends readonly {
-              role: string;
-            }[];
-          }
-        ? B[number]["role"]
-        : string
-    : string;
-export type ConstrainRole<Item, Roles extends string> = Item extends {
-  role: infer R;
-}
-  ? string extends R
-    ? unknown
-    : string extends Roles
-      ? unknown
-      : [R] extends [Roles]
-        ? unknown
-        : {
-            role: DirectionViolation<`konte: "${R & string}" is not a beat role this node's lens declares`>;
-          }
-  : unknown;
-export type IsWidenedArray<A> = A extends readonly unknown[]
-  ? number extends A["length"]
-    ? true
-    : false
-  : false;
-export type DirectionViolation<M extends string> = {
-  [P in M]: never;
-};
-export type ConstrainLineupTo<F, LT> = F extends {
-  lineup: infer L extends readonly string[];
-}
-  ? IsWidenedArray<L> extends true
-    ? unknown
-    : IsWidenedArray<LT> extends true
-      ? unknown
-      : [L] extends [LT]
-        ? [LT] extends [L]
-          ? {
-              lineupTo: DirectionViolation<"konte: this `lineupTo` is the `lineup` again \u2014 write the order the shot leaves behind, or drop it">;
-            }
-          : unknown
-        : unknown
-  : unknown;
-export type ConstrainFrameLineups<F, Subjects extends string> = (F extends {
-  lineup: infer L extends readonly string[];
-}
-  ? {
-      lineup: ConstrainLineup<L, Subjects>;
-    }
-  : unknown) &
-  (F extends {
-    lineupTo: infer L extends readonly string[];
-  }
-    ? {
-        lineupTo: ConstrainLineup<L, Subjects>;
-      } & ConstrainLineupTo<F, L>
-    : unknown);
-export type ConstrainDuration<B> = B extends {
-  kind: "aside";
-}
-  ? unknown
-  : B extends {
-        duration: infer N;
-      }
-    ? number extends N
-      ? unknown
-      : `${N & number}` extends `${string}.${infer Decimals}`
-        ? Decimals extends "5"
-          ? unknown
-          : {
-              duration: DirectionViolation<"konte: a shot's duration is a multiple of 0.5s, so it lands a whole frame at every fps">;
-            }
-        : [N] extends [0]
-          ? {
-              duration: DirectionViolation<"konte: a shot's duration is a multiple of 0.5s, so it lands a whole frame at every fps">;
-            }
-          : unknown
-    : unknown;
-export type ConstrainAction<B> = B extends {
-  action: infer A;
-}
-  ? [A] extends [""]
-    ? {
-        action: DirectionViolation<"konte: `action` is the one thing this shot lands \u2014 it cannot be empty">;
-      }
-    : unknown
-  : unknown;
-export type ConstrainSynopsis<N> = N extends {
-  synopsis: infer S;
-}
-  ? [S] extends [""]
-    ? {
-        synopsis: DirectionViolation<"konte: `synopsis` is what this act of the arc IS \u2014 it cannot be empty">;
-      }
-    : unknown
-  : unknown;
-export type SpokenLines<S> = Extract<
-  S,
-  | {
-      character: unknown;
-    }
-  | {
-      speaker: unknown;
-    }
->;
-export type ConstrainSpeech<B, Speech> = SpeechPolicy extends Speech
-  ? unknown
-  : B extends {
-        script: infer S extends readonly ScriptLine[];
-      }
-    ? IsWidenedArray<S> extends true
-      ? unknown
-      : [Speech] extends ["none"]
-        ? [S] extends [readonly []]
-          ? unknown
-          : {
-              script: DirectionViolation<'konte: policy.speech is "none", so no shot declares a script line'>;
-            }
-        : [Speech] extends ["no-dialogue"]
-          ? [SpokenLines<S[number]>] extends [never]
-            ? unknown
-            : {
-                script: DirectionViolation<'konte: policy.speech is "no-dialogue", so a shot narrates but nobody speaks'>;
-              }
-          : unknown
-    : unknown;
-export type ShotBefore<Shots, Id extends string, Prev = null> = Shots extends readonly [
-  infer H extends {
-    id: string;
-  },
-  ...infer T extends readonly {
-    id: string;
-  }[],
-]
-  ? H extends {
-      id: Id;
-    }
-    ? Prev
-    : ShotBefore<T, Id, H>
-  : never;
-export type SameSetup<PS, S> = string extends PS
-  ? true
-  : string extends S
-    ? true
-    : [PS] extends [S]
-      ? [S] extends [PS]
-        ? true
-        : false
-      : false;
-export type RunsOnFrom<P, S> = [P] extends [never]
-  ? true
-  : P extends null
-    ? false
-    : P extends {
-          kind: "aside" | "graphic";
-        }
-      ? false
-      : P extends {
-            setup: infer PS;
-          }
-        ? SameSetup<PS, S>
-        : false;
-export type CutinRunsOnFrom<P, S> = [P] extends [never]
-  ? true
-  : P extends {
-        cutin: {
-          setup: infer PS;
-        };
-      }
-    ? SameSetup<PS, S>
-    : false;
-export type ConstrainJoin<B, Shots> = B extends {
-  join: "continuous";
-  id: infer Id extends string;
-  setup: infer S;
-}
-  ? RunsOnFrom<ShotBefore<Shots, Id>, S> extends true
-    ? unknown
-    : {
-        join: DirectionViolation<"konte: `continuous` is one unbroken take with the shot before it on the clock, so that shot is a narrative shot on this same setup \u2014 declare a jump, or drop the join">;
-      }
-  : unknown;
-export type ConstrainCutinJoin<B, Shots> = B extends {
-  id: infer Id extends string;
-  cutin: {
-    join: "continuous";
-    setup: infer S;
-  };
-}
-  ? CutinRunsOnFrom<ShotBefore<Shots, Id>, S> extends true
-    ? unknown
-    : {
-        cutin: {
-          join: DirectionViolation<"konte: a `continuous` cutin runs on from the cutin over the shot before it on the clock, so that shot carries a cutin on this same setup \u2014 declare a jump, or drop the join">;
-        };
-      }
-  : unknown;
-export type ConstrainShotIds<Arr, Subjects extends string, Speech, Roles extends string, Shots> = {
-  [K in keyof Arr]: Omit<Arr[K], "id" | "lineup" | "lineupTo" | "cutin"> & {
-    id: ValidatedIdentifier<
-      Arr[K] extends {
-        id: infer I extends string;
-      }
-        ? I
-        : never
-    >;
-  } & ConstrainFrameLineups<Arr[K], Subjects> &
-    ConstrainDuration<Arr[K]> &
-    ConstrainAction<Arr[K]> &
-    ConstrainSpeech<Arr[K], Speech> &
-    ConstrainRole<Arr[K], Roles> &
-    ConstrainJoin<Arr[K], Shots> &
-    ConstrainCutinJoin<Arr[K], Shots> &
-    (Arr[K] extends {
-      cutin: infer C;
-    }
-      ? {
-          cutin: Omit<C, "lineup" | "lineupTo"> & ConstrainFrameLineups<C, Subjects>;
-        }
-      : unknown);
-};
-export type ConstrainNodeIds<N, Subjects extends string, Speech, Lenses, Shots> = N &
-  (N extends {
-    id: infer I extends string;
-  }
-    ? {
-        id: ValidatedIdentifier<I>;
-      }
-    : unknown) &
-  ConstrainSynopsis<N> &
-  (N extends {
-    shots: infer S;
-  }
-    ? {
-        shots: ConstrainShotIds<S, Subjects, Speech, LensRolesOf<LensNameOf<N>, Lenses>, Shots>;
-      }
-    : unknown) &
-  (N extends {
-    sequences: infer Q;
-  }
-    ? {
-        sequences: ConstrainSequenceIds<
-          Q,
-          Subjects,
-          Speech,
-          Lenses,
-          LensRolesOf<LensNameOf<N>, Lenses>,
-          Shots
-        >;
-      }
-    : unknown);
-export type LensNameOf<N> = N extends {
-  lens: infer L;
-}
-  ? L
-  : string;
-export type ConstrainSequenceIds<
-  Arr,
-  Subjects extends string,
-  Speech,
-  Lenses,
-  ParentRoles extends string,
-  Shots,
-> = {
-  [K in keyof Arr]: ConstrainNodeIds<Arr[K], Subjects, Speech, Lenses, Shots> &
-    ConstrainRole<Arr[K], ParentRoles>;
-};
-export type ConstrainVoiceId<V> = V extends {
-  id: infer I extends string;
-}
-  ? {
-      id: ValidatedIdentifier<I>;
-    }
-  : unknown;
-export type ConstrainCastVoiceIds<R> = {
-  [K in keyof R]: R[K] &
-    (R[K] extends {
-      voice: infer V;
-    }
-      ? {
-          voice: ConstrainVoiceId<V>;
-        }
-      : unknown);
-};
-export type ConstrainLandmarkIds<R> = {
-  [K in keyof R]: R[K] &
-    (R[K] extends {
-      landmarks: infer L;
-    }
-      ? {
-          landmarks: ConstrainRosterIds<L>;
-        }
-      : unknown);
-};
-export type LandmarkIdOf<D extends DirectionInput, S> = S extends {
-  location: infer L;
-}
-  ? L extends keyof D["locations"]
-    ? D["locations"][L] extends {
-        landmarks: infer M;
-      }
-      ? Extract<keyof M, string>
-      : string
-    : string
-  : string;
-export type HoldsLandmarkViolation<T extends string> = {
-  [P in `konte: holds id "${T}" is not a landmark of this setup's location`]: never;
-};
-export type ConstrainHolds<H, Ids extends string> = {
-  [K in keyof H]: string extends H[K]
-    ? H[K]
-    : H[K] extends Ids
-      ? H[K]
-      : H[K] extends string
-        ? HoldsLandmarkViolation<H[K]>
-        : never;
-};
-export type HoldsRequired = {
-  "konte: this setup is not an insert, so `holds` must name at least one landmark": never;
-};
-export type ConstrainSetupHolds<S, Ids extends string> = S extends {
-  holds: infer H;
-}
-  ? {
-      holds: ConstrainHolds<H, Ids>;
-    } & (S extends {
-      framing: infer F;
-    }
-      ? "insert" extends F
-        ? unknown
-        : H extends readonly []
-          ? {
-              holds: readonly [HoldsRequired];
-            }
-          : unknown
-      : unknown)
-  : unknown;
-export type WiderThan<F> = F extends "close"
-  ? "wide" | "medium"
-  : F extends "medium"
-    ? "wide"
-    : never;
-export type WithinViolation<M extends string> = {
-  [P in M]: never;
-};
-export type ConstrainWithinTarget<S, T, W extends string, F> = T extends {
-  location: infer TL;
-  framing: infer TF;
-}
-  ? S extends {
-      location: infer SL;
-    }
-    ? string extends SL
-      ? unknown
-      : string extends TL
-        ? unknown
-        : [SL] extends [TL]
-          ? Framing extends TF
-            ? unknown
-            : [TF] extends [WiderThan<F>]
-              ? unknown
-              : {
-                  within: WithinViolation<`konte: within "${W}" is ${TF & string}, not wider than this ${F & string}`>;
-                }
-          : {
-              within: WithinViolation<`konte: within "${W}" is set in another location`>;
-            }
-    : unknown
-  : unknown;
-export type ConstrainSetupWithin<S, Setups> = S extends {
-  within: infer W;
-}
-  ? [W] extends [null | undefined]
-    ? unknown
-    : string extends W
-      ? unknown
-      : S extends {
-            framing: infer F;
-          }
-        ? Framing extends F
-          ? unknown
-          : [F] extends ["insert"]
-            ? {
-                within: WithinViolation<"konte: an insert holds nothing, so it is no window">;
-              }
-            : W extends keyof Setups & string
-              ? ConstrainWithinTarget<S, Setups[W], W, F>
-              : W extends string
-                ? {
-                    within: WithinViolation<`konte: within id "${W}" is not a declared setup`>;
-                  }
-                : unknown
-        : unknown
-  : unknown;
-export type ConstrainSetupIds<D extends DirectionInput> = ConstrainRosterIds<D["setups"]> & {
-  [K in keyof D["setups"]]: ConstrainSetupHolds<D["setups"][K], LandmarkIdOf<D, D["setups"][K]>> &
-    ConstrainSetupWithin<D["setups"][K], D["setups"]>;
-};
-export type SpeechOf<D extends DirectionInput> = D["policy"] extends {
-  speech: infer S;
-}
-  ? S
-  : SpeechPolicy;
-export type ConstrainIds<D extends DirectionInput> = {
-  characters: ConstrainRosterIds<D["characters"]> & ConstrainCastVoiceIds<D["characters"]>;
-  locations: ConstrainRosterIds<D["locations"]> & ConstrainLandmarkIds<D["locations"]>;
-  setups: ConstrainSetupIds<D>;
-  sequence: ConstrainNodeIds<
-    D["sequence"],
-    SubjectIdOf<D>,
-    SpeechOf<D>,
-    DeclaredLensNameOf<D>,
-    DirectionShotTuple<D>
-  >;
-} & (D extends {
-  props: infer P;
-}
-  ? {
-      props: ConstrainRosterIds<P>;
-    }
-  : unknown) &
-  (D extends {
-    narrator: infer N;
-  }
-    ? {
-        narrator: ConstrainVoiceId<N>;
-      }
-    : unknown);
-export type ShotIdOf<D> = DirectionIdTuple<D>[number];
-export interface DirectionIndex {
-  format: ResolvedDirectionFormat;
-  typography: Typography;
-  durationById: Map<string, number>;
-  actionById: Map<string, string>;
-  setupById: Map<string, string>;
-  framingById: Map<string, Framing>;
-  locationById: Map<string, string>;
-  scriptById: Map<string, readonly ScriptLine[]>;
-  lineupById: Map<string, readonly string[]>;
-  lineupToById: Map<string, readonly string[]>;
-  continuedById: Map<
-    string,
-    {
-      main?: string;
-      cutin?: string;
-    }
-  >;
-  graphicIds: Set<string>;
-  cutinById: Map<string, Cutin>;
-  cutinFrameById: Map<
-    string,
-    {
-      framing: Framing;
-      location: string;
-    }
-  >;
-  asideIds: Set<string>;
-  labelById: Map<string, string>;
-  referenceShapeById: Map<string, ReferenceShape>;
-}
-declare const DIRECTION: unique symbol;
-export type DirectionHandle<D> = DirectionIndex & {
-  readonly __direction?: D;
-};
-export type DirectionEntry<D> = D & {
-  readonly [DIRECTION]: DirectionHandle<D>;
-};
-export type StageShotStarter<D, TStage extends ShotStage> = <
-  TId extends NarrativeIdOf<D, FirstShotId<D>>,
->(
-  id: TId,
-  build: (
-    ctx: StageShotContext<
-      ScriptOf<D, TId>,
-      LineupOf<D, TId>,
-      LineupToOf<D, TId>,
-      CutinOf<D, TId>
-    > & {
-      shot: StageShots<never>;
-    },
-  ) => ReturnType<ShotFunction>,
-) => StageChain<D, ChainRest<D>, TId, TStage>;
-export type StageGraphicShotStarter<D, TStage extends ShotStage> = <
-  TId extends GraphicIdOf<D, FirstShotId<D>>,
->(
-  id: TId,
-  build: (
-    ctx: GraphicShotContext<ScriptOf<D, TId>, CutinOf<D, TId>> & {
-      shot: StageShots<never>;
-    },
-  ) => ReturnType<ShotFunction>,
-) => StageChain<D, ChainRest<D>, TId, TStage>;
-export type StagePendingShotStarter<D, TStage extends ShotStage> = <
-  TId extends ArcIdOf<D, FirstShotId<D>>,
->(
-  id: TId,
-) => StageChain<D, ChainRest<D>, TId, TStage>;
-export type StageAsideShotStarter<D> = <TId extends AsideIdOf<D, FirstShotId<D>>>(
-  id: TId,
-) => StageChain<D, ChainRest<D>, TId, "animatic">;
-export type VideoAsideShotStarter<D> = <TId extends AsideIdOf<D, FirstShotId<D>>>(
-  id: TId,
-  build: (ctx: AsideShotContext) => ReturnType<ShotFunction>,
-) => StageChain<D, ChainRest<D>, TId, "video">;
-export declare function defineDirection<const D extends DirectionInput>(
-  direction: D & ConstrainIds<D>,
-): DirectionEntry<D>;
 /** How far a bed yields to the lines over it, and how quickly. */
 export interface DuckOptions {
   /** Gain the bed is held at under a line; 1 is no duck. Default 0.35 (≈ −9 dB). */
@@ -4003,6 +4274,7 @@ export interface SoundtrackEntry<TId extends string = string> {
   id: string;
   src: MediaAsset<"audio">;
   options: SoundtrackOptions<TId>;
+  song?: true;
 }
 /**
  * A timeline-spanning audio bed / music track. Placed in the `soundtracks` array of the
@@ -4015,6 +4287,20 @@ export declare function soundtrack<const TId extends string = never>(
   src: MediaAsset<"audio">,
   options: SoundtrackOptions<TId>,
 ): SoundtrackEntry<TId>;
+/**
+ * What a stage's `overlay` build receives, on the timeline's clock: `duration` is the timeline's; on
+ * a direction with `policy.clock`, `beat(n)` is the second of the song's `n`th beat, and on one with
+ * `lyrics`, `lyrics` every placed line.
+ *
+ * The overlay is the one picture layer a timeline lays over every shot — lyrics sung across a cut,
+ * a title, a credit — the picture twin of `soundtracks`. Its build returns a `<Composition>` of text,
+ * images and animation (no `<Video>`, no `<Audio>`), so an entrance that starts in one shot carries
+ * on through the cut. The shot accepts sign it off; once they all stand, an overlay changed after
+ * them is reviewed on its own, at `<stage>:timeline#overlay`.
+ */
+export type OverlayContext<D = unknown> = {
+  duration: number;
+} & ShotSongOf<D>;
 /**
  * One already-placed shot's assets by name. Each accessor names the media kind it expects and checks
  * it against what that shot declared: an unknown name, a kind mismatch, or an undeveloped
@@ -4055,7 +4341,7 @@ export interface DefineVideoOptions<D = unknown, Ids extends string = string> {
     graphicShot: StageGraphicShotStarter<D, "video">;
     pendingShot: StagePendingShotStarter<D, "video">;
     asideShot: VideoAsideShotStarter<D>;
-  }) => StageTimelineReturn<Ids>;
+  }) => StageTimelineReturn<Ids, D>;
 }
 export declare function defineVideo<const D, Ids extends string = string>(
   direction: DirectionEntry<D>,
@@ -4979,6 +5265,27 @@ declare const ShotDefinitionSchema: z.ZodObject<
     cueKinds: z.ZodOptional<
       z.ZodRecord<z.ZodString, z.ZodEnum<["voice", "narration", "mob", "sfx"]>>
     >;
+    songCue: z.ZodOptional<
+      z.ZodObject<
+        {
+          src: z.ZodString;
+          mediaStart: z.ZodNumber;
+          duration: z.ZodNumber;
+        },
+        "strip",
+        z.ZodTypeAny,
+        {
+          duration: number;
+          src: string;
+          mediaStart: number;
+        },
+        {
+          duration: number;
+          src: string;
+          mediaStart: number;
+        }
+      >
+    >;
     panels: z.ZodOptional<
       z.ZodArray<
         z.ZodObject<
@@ -5180,6 +5487,13 @@ declare const ShotDefinitionSchema: z.ZodObject<
     stemRefs?: string[] | undefined;
     narrationStemRefs?: string[] | undefined;
     cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+    songCue?:
+      | {
+          duration: number;
+          src: string;
+          mediaStart: number;
+        }
+      | undefined;
     panels?:
       | {
           duration: number;
@@ -5288,6 +5602,13 @@ declare const ShotDefinitionSchema: z.ZodObject<
     stemRefs?: string[] | undefined;
     narrationStemRefs?: string[] | undefined;
     cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+    songCue?:
+      | {
+          duration: number;
+          src: string;
+          mediaStart: number;
+        }
+      | undefined;
     panels?:
       | {
           duration: number;
@@ -5336,6 +5657,16 @@ export type TimelineFunction = (args: { format: VideoFormat }) => {
     fn: ShotFunction;
   }>;
   soundtracks: ReadonlyArray<SoundtrackEntry>;
+  overlay?: ShotFunction;
+};
+/**
+ * A stage's overlay (see `OverlayContext`): the timeline's length, the build its `<Composition>`
+ * comes from (its context already bound), and the refs that composition draws.
+ */
+export type OverlayDefinition = {
+  duration: number;
+  fn: ShotFunction;
+  compositionRefs: readonly string[];
 };
 /**
  * What konte hands a delivery upscale function at export time: the source `video` (a
@@ -5931,6 +6262,27 @@ declare const VideoDefinitionSchema: z.ZodObject<
           cueKinds: z.ZodOptional<
             z.ZodRecord<z.ZodString, z.ZodEnum<["voice", "narration", "mob", "sfx"]>>
           >;
+          songCue: z.ZodOptional<
+            z.ZodObject<
+              {
+                src: z.ZodString;
+                mediaStart: z.ZodNumber;
+                duration: z.ZodNumber;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                duration: number;
+                src: string;
+                mediaStart: number;
+              },
+              {
+                duration: number;
+                src: string;
+                mediaStart: number;
+              }
+            >
+          >;
           panels: z.ZodOptional<
             z.ZodArray<
               z.ZodObject<
@@ -6132,6 +6484,13 @@ declare const VideoDefinitionSchema: z.ZodObject<
           stemRefs?: string[] | undefined;
           narrationStemRefs?: string[] | undefined;
           cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+          songCue?:
+            | {
+                duration: number;
+                src: string;
+                mediaStart: number;
+              }
+            | undefined;
           panels?:
             | {
                 duration: number;
@@ -6240,6 +6599,13 @@ declare const VideoDefinitionSchema: z.ZodObject<
           stemRefs?: string[] | undefined;
           narrationStemRefs?: string[] | undefined;
           cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+          songCue?:
+            | {
+                duration: number;
+                src: string;
+                mediaStart: number;
+              }
+            | undefined;
           panels?:
             | {
                 duration: number;
@@ -6551,6 +6917,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
         readonly SoundtrackEntry<string>[]
       >
     >;
+    song: z.ZodOptional<z.ZodString>;
+    overlay: z.ZodOptional<z.ZodType<OverlayDefinition, z.ZodTypeDef, OverlayDefinition>>;
     timelineFn: z.ZodOptional<z.ZodType<TimelineFunction, z.ZodTypeDef, TimelineFunction>>;
     prompts: z.ZodOptional<
       z.ZodType<readonly PromptOccurrence[], z.ZodTypeDef, readonly PromptOccurrence[]>
@@ -6787,6 +7155,13 @@ declare const VideoDefinitionSchema: z.ZodObject<
       stemRefs?: string[] | undefined;
       narrationStemRefs?: string[] | undefined;
       cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+      songCue?:
+        | {
+            duration: number;
+            src: string;
+            mediaStart: number;
+          }
+        | undefined;
       panels?:
         | {
             duration: number;
@@ -6853,6 +7228,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             | undefined;
         }
       | undefined;
+    song?: string | undefined;
     topLevelAssets?:
       | Record<
           string,
@@ -6921,6 +7297,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
     pins?: readonly PinOccurrence[] | undefined;
     waivers?: Record<string, string> | undefined;
     timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
+    overlay?: OverlayDefinition | undefined;
     timelineFn?: TimelineFunction | undefined;
     imageInputs?: readonly ImageInputOccurrence[] | undefined;
     prevPanelReaders?: readonly string[] | undefined;
@@ -7007,6 +7384,13 @@ declare const VideoDefinitionSchema: z.ZodObject<
       stemRefs?: string[] | undefined;
       narrationStemRefs?: string[] | undefined;
       cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+      songCue?:
+        | {
+            duration: number;
+            src: string;
+            mediaStart: number;
+          }
+        | undefined;
       panels?:
         | {
             duration: number;
@@ -7073,6 +7457,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             | undefined;
         }
       | undefined;
+    song?: string | undefined;
     topLevelAssets?:
       | Record<
           string,
@@ -7141,6 +7526,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
     pins?: readonly PinOccurrence[] | undefined;
     waivers?: Record<string, string> | undefined;
     timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
+    overlay?: OverlayDefinition | undefined;
     timelineFn?: TimelineFunction | undefined;
     imageInputs?: readonly ImageInputOccurrence[] | undefined;
     prevPanelReaders?: readonly string[] | undefined;
@@ -7217,6 +7603,7 @@ export interface AdapterMetaInput {
     step: number;
     offset?: number;
   };
+  min?: number;
   max?: number;
   clock?: number;
   pin?: "start" | "end";
@@ -7248,6 +7635,7 @@ export interface AssetAdapter<TInputs extends Record<string, unknown>, TOutput e
   type: TOutput;
   meta: AdapterMeta;
   createDefinition(inputs: TInputs): AssetDefinition;
+  timeOffset?(inputs: TInputs): number | null;
 }
 export type DeclaredPin =
   | "start"
@@ -7734,6 +8122,7 @@ export type FalInputType =
   | "number"
   | "boolean"
   | "seed"
+  | "seconds"
   | "image"
   | "video"
   | "audio";
@@ -7754,6 +8143,8 @@ export interface FalInputDefBase {
   default?: string | number | boolean;
   pin?: "start" | "end";
   values?: readonly string[];
+  min?: number;
+  max?: number;
   required?: boolean;
   array?: boolean;
   description?: string;
@@ -7783,7 +8174,7 @@ export type FalTurbo<TInputs extends Record<string, FalInputDef>> = {
     : never]?: FalInputTSType<TInputs[K]>;
 };
 export type FalInputTSType<T extends FalInputDef> = T extends {
-  type: "string";
+  type: "string" | "seconds";
   values: readonly (infer V)[];
 }
   ? V
@@ -7797,7 +8188,7 @@ export type FalInputTSType<T extends FalInputDef> = T extends {
         }
       ? string
       : T extends {
-            type: "number";
+            type: "number" | "seconds";
           }
         ? number
         : T extends {
@@ -8029,7 +8420,7 @@ export interface SubtitleEntry {
   text: string;
 }
 export type SubtitleProps = DivElementProps & {
-  entries: SubtitleEntry[];
+  entries: readonly SubtitleEntry[];
 };
 export declare function Subtitle({ entries, ...rest }: SubtitleProps): React.ReactElement | null;
 export type VideoElementProps = React.ComponentPropsWithoutRef<"video">;
@@ -8039,9 +8430,12 @@ export type VideoProps = Omit<VideoElementProps, "src"> & {
   start?: number;
   /** Clip duration in seconds (data-duration). Defaults to the shot duration. */
   duration?: number;
-  /** Offset into the source media in seconds (data-media-start). */
+  /**
+   * Offset into the source media in seconds (data-media-start). konte fills it for a take cut to
+   * the song, and refuses one written there.
+   */
   mediaStart?: number;
-  /** Include the video's audio in the mix (data-has-audio). */
+  /** Include the video's audio in the mix (data-has-audio). Refused on a take cut to the song. */
   hasAudio?: boolean;
   /** Audio gain 0–MAX_AUDIO_GAIN (+12 dB), 1 = unity (data-volume). Only applies when hasAudio is true. */
   volume?: number;

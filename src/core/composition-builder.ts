@@ -1,3 +1,4 @@
+import { mixedSoundtracks } from "./song-bed.js";
 import * as path from "node:path";
 import {
   addressFromCacheSegments,
@@ -5,6 +6,7 @@ import {
   formatAddress,
   formatCompositionAddress,
   formatTimelineAddress,
+  formatTimelineOverlayAddress,
   type ParsedAddress,
   type ShotStage,
   parseAddress,
@@ -27,6 +29,9 @@ import {
   type Span,
 } from "./audio-duck.js";
 import { buildFallbackComposition } from "./composition-fallback.js";
+import { jsx } from "react/jsx-runtime";
+import { Composition } from "./dsl/composition/composition.js";
+import { injectOverlay, OVERLAY_COMPOSITION_ID, renderOverlayBody } from "./overlay-render.js";
 import { resolveCompositionRef, substituteAssetPlaceholders } from "./composition-refs.js";
 import { computeBedLevels } from "./render-plan.js";
 import {
@@ -451,7 +456,9 @@ export function compositionStructureHtml(video: StageDefinition, shotId: string)
 // edit never changes it (the mirror of stripAudioFromHtml).
 export interface StemAudioEntry {
   src: string;
-  track: "sound" | "embedded";
+  // `song`: the span of the song a board shot holds (`ShotDefinition.songCue`), mixed into its stem
+  // only.
+  track: "sound" | "embedded" | "song";
   start: number | null;
   duration: number | null;
   mediaStart: number | null;
@@ -915,6 +922,52 @@ export async function buildShotCompositionHtml(
   };
 }
 
+/**
+ * The overlay on its own, over the whole timeline: what its materialized variant holds. A
+ * standalone document hosting the overlay as the nested composition every render lays it as.
+ */
+export async function buildOverlayCompositionHtml(options: {
+  video: StageDefinition;
+  manager: StateManager;
+  assetBaseUrl: string;
+  allowNotReady?: boolean;
+}): Promise<string> {
+  const { video, manager, assetBaseUrl } = options;
+  const overlay = video.overlay;
+  if (!overlay) {
+    throw new KonteError("COMPOSITION_BUILD_FAILED", "The stage declares no overlay");
+  }
+  const size = video.format.size;
+  const root = `${OVERLAY_COMPOSITION_ID}.frame`;
+  const frame = renderToHtml(jsx(Composition, {}), {
+    shotId: root,
+    width: size.width,
+    height: size.height,
+    duration: overlay.duration,
+    typography: video.typography,
+  });
+  const body = renderOverlayBody({
+    stage: video.stage,
+    overlay,
+    fn: overlay.fn,
+    size,
+    typography: video.typography,
+    resolvedFiles: {},
+  });
+  await assertTailwindClasses([{ label: formatTimelineOverlayAddress(video.stage), html: body }]);
+  const html = injectBaseTimeline(
+    injectOverlay(frame, { body, shotStart: 0, shotDuration: overlay.duration }),
+    root,
+    overlay.duration,
+  );
+  return resolveAssetPlaceholdersInHtml(
+    injectRuntime(html),
+    manager,
+    assetBaseUrl,
+    options.allowNotReady ?? false,
+  );
+}
+
 export async function buildFullCompositionHtml(
   options: BuildFullCompositionOptions,
 ): Promise<CompositionBuildResult> {
@@ -996,7 +1049,7 @@ export async function buildFullCompositionHtml(
       )
     : null;
   const renderShotInputs = timelineRun?.shots ?? null;
-  const timelineSoundtracks = timelineRun?.soundtracks ?? [];
+  const timelineSoundtracks = mixedSoundtracks(video, timelineRun?.soundtracks);
 
   const shotInfos: ShotCompositionInfo[] = [];
   const stageFragments: string[] = [];
@@ -1153,6 +1206,26 @@ export async function buildFullCompositionHtml(
         `<div id="timeline-audio" class="shot-group" data-start="0" data-duration="${totalDuration}" style="position:absolute;top:0;left:0;width:100%;height:100%;visibility:hidden;">${els.join("")}</div>`,
       );
     }
+  }
+
+  // The overlay is one nested composition over the whole timeline — on the master clock the runtime
+  // re-bases its layers and seeks its timeline from the host's own start, so it needs no shifting.
+  if (video.overlay) {
+    const overlay = video.overlay;
+    const id = `shot-${OVERLAY_COMPOSITION_ID}`;
+    const body = renderOverlayBody({
+      stage: plan.stage,
+      overlay,
+      fn: timelineRun?.overlay ?? overlay.fn,
+      size: plan.size,
+      typography: plan.typography,
+      resolvedFiles: {},
+    });
+    await assertTailwindClasses([{ label: formatTimelineOverlayAddress(plan.stage), html: body }]);
+    shotTemplates.push(`<template id="${id}-template">${body}</template>`);
+    stageFragments.push(
+      `<div data-composition-id="${id}" data-start="0" data-duration="${overlay.duration}" data-width="${plan.size.width}" data-height="${plan.size.height}" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>`,
+    );
   }
 
   // Mirrored clip audio sits outside the shot templates, in one full-span group, for the same

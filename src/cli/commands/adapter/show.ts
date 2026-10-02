@@ -59,7 +59,7 @@ function defaultCell(input: AdapterMetaInput): string {
   return "-";
 }
 
-// `≤362` marks the ceiling past which the load fails.
+// `≥5` marks the floor a derived length is raised to, `≤362` the ceiling past which the load fails.
 // `×32` / `×17+5` marks the grid konte raises a number onto: a value passed off it comes back at
 // the next point. `@24` is the fps a frame count is measured on. `pin:start` / `pin:end` marks an
 // image the model reproduces as that frame; the pin check refuses a sheet or a plate there.
@@ -69,9 +69,10 @@ function typeCell(input: AdapterMetaInput): string {
   const grid = input.grid
     ? ` ×${input.grid.step}${input.grid.offset ? `+${input.grid.offset}` : ""}`
     : "";
+  const min = input.min !== undefined ? ` ≥${input.min}` : "";
   const max = input.max !== undefined ? ` ≤${input.max}` : "";
   const pin = input.pin ? ` pin:${input.pin}` : "";
-  return `${base}${clock}${grid}${max}${pin}`;
+  return `${base}${clock}${grid}${min}${max}${pin}`;
 }
 
 function renderInputs(inputs: Record<string, AdapterMetaInput>): string {

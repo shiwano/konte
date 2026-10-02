@@ -36,7 +36,6 @@ Bring each file under `assets/files/` in as `file` kind — no generation. Pick 
 - **Lay out every shot in `animatic.tsx` undeveloped** — `pendingShot(id)` / `.nextPendingShot(id)`, a graphic shot `graphicShot(id, …)`. **Don't stand one up as a `jsxImage` plate.**
 - **Mirror the structure into `video.tsx` as the same `pendingShot(id)` skeleton** — one per shot ID, declared rather than omitted, so the direction ↔ video drift check sees every shot (`konte export` refuses while any remain).
 - **An aside shot is `asideShot(id)`** — never boarded, never `pendingShot`ed; the video builds it, usually one `file`. A generated OP is its own konte video, exported and brought in as that file.
-- **Animatic `soundtracks` only for a cut timed to a track** (music video, dance) — one `reference:<id>` in both stages; other music goes in `video.tsx` once the cut exists.
 
 ## 6. Bake the plates
 

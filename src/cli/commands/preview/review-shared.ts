@@ -22,10 +22,15 @@ import { isReviewLeaf } from "../../../core/variant-lineage.js";
 import { errorMessage } from "../../../core/errors.js";
 import { parseJsonBody } from "../../page-host/http.js";
 import { resolveLens } from "../../../core/direction.js";
-import { BEAT_FUNCTION_LABEL } from "../../../core/lenses.js";
+import { ROLE_FUNCTION_LABEL } from "../../../core/lenses.js";
 import type { Direction, DirectionNode, Framing } from "../../../core/dsl/direction.js";
 import { isAsideShot, isGraphicShot } from "../../../core/dsl/direction.js";
-import type { AssetInfo, ScriptLineView, ShotInfo } from "../../../pages/preview/types.js";
+import type {
+  AssetInfo,
+  ScriptLineView,
+  ShotInfo,
+  SongReadingInfo,
+} from "../../../pages/preview/types.js";
 import { scriptLinesToView } from "../../../core/types/script.js";
 import type { Handoff, AnimaticDefinition } from "../../../core/types/index.js";
 import { z } from "zod";
@@ -102,6 +107,7 @@ type VariantCandidate = {
     fileUrl: string | null;
   } | null;
   info?: AssetInfo;
+  song?: SongReadingInfo;
 };
 
 export type AddressFeedback = {
@@ -136,6 +142,7 @@ export function buildVariantCandidates(
   buildFileUrl?: (variantId: string, variant: VariantState) => string | null,
   patchHashes?: PatchHashes,
   buildInfo?: (variantId: string) => AssetInfo | undefined,
+  buildSong?: (variantId: string) => SongReadingInfo | undefined,
 ): VariantCandidate[] {
   const variants: VariantCandidate[] = [];
   try {
@@ -150,6 +157,7 @@ export function buildVariantCandidates(
         const stale = isVariantStale(staleState, addr, v, defHash, patchHashes, cache);
         const source = v.derivedFrom ? target.variants?.[v.derivedFrom] : null;
         const info = buildInfo?.(vid);
+        const song = buildSong?.(vid);
         return {
           variantId: vid,
           variantStatus: (vid === acceptedId ? "accepted" : "none") as "none" | "accepted",
@@ -172,6 +180,7 @@ export function buildVariantCandidates(
                 }
               : null,
           ...(info ? { info } : {}),
+          ...(song ? { song } : {}),
         };
       })
       .reverse();
@@ -297,6 +306,8 @@ export type RegenerateEntryBody = z.infer<typeof RegenerateSchema>[number];
 export const ReelSubmitSchema = z.object({
   decisions: VideoReviewDecisionsSchema.nullish(),
   timelineStemDecision: ReviewAcceptDecisionSchema.optional(),
+  // The overlay's accept decision, offered once every shot accept stands (see `overlayOffered`).
+  overlayDecision: ReviewAcceptDecisionSchema.optional(),
   notes: ReviewRecordSchema.shape.notes,
   addedFeedback: ReelAddedFeedbackSchema.optional(),
   feedbackPatches: FeedbackPatchesSchema.optional(),
@@ -338,6 +349,15 @@ const StageSubmitSchema = z.object({
   overallComment: OverallCommentSchema.optional(),
   keep: KeepSchema.optional(),
   regenerate: RegenerateSchema.optional(),
+  songLines: z
+    .array(
+      z.object({
+        variantId: z.string(),
+        key: z.string(),
+        span: z.object({ startSec: z.number(), endSec: z.number() }).nullable(),
+      }),
+    )
+    .optional(),
 });
 
 // The review page accepts per SECTION (the boxes it renders), while state records per part — one
@@ -675,7 +695,7 @@ export function handoffNotesForShot(
 // none of; `telop` is the unspoken text laid over the same shot. Empty when the video has no
 // direction.ts, which the band then simply omits.
 interface ShotFacts {
-  beatFunctionLabel: string | null;
+  roleFunctionLabel: string | null;
   // Both read through the shot's setup, so both are null when it is not a declared one — and on an
   // aside, which is taken from no camera and set in no place, so are the rest.
   framing: Framing | null;
@@ -721,7 +741,7 @@ export function shotFactsIndex(direction: Direction | null): Map<string, ShotFac
     for (const shot of node.shots ?? []) {
       if (isAsideShot(shot)) {
         byId.set(shot.id, {
-          beatFunctionLabel: null,
+          roleFunctionLabel: null,
           framing: null,
           location: null,
           script: [],
@@ -731,13 +751,13 @@ export function shotFactsIndex(direction: Direction | null): Map<string, ShotFac
         });
         continue;
       }
-      const fn = resolveLens(node.lens, direction.lenses)?.beats.find(
+      const fn = resolveLens(node.lens, direction.lenses)?.roles.find(
         (b) => b.role === shot.role,
       )?.fn;
       const own = isGraphicShot(shot) ? null : shot;
       const frame = own ? frameOf(own.setup) : null;
       byId.set(shot.id, {
-        beatFunctionLabel: fn ? BEAT_FUNCTION_LABEL[fn] : null,
+        roleFunctionLabel: fn ? ROLE_FUNCTION_LABEL[fn] : null,
         framing: frame?.framing ?? null,
         location: frame?.location ?? null,
         script: scriptLinesToView(shot.script, characterNameById),
@@ -771,6 +791,15 @@ type AddressReviewBody = {
   overallComment?: string;
   keep?: KeepEntryBody[];
   regenerate?: RegenerateEntryBody[];
+  // Lyric lines the reviewer placed on a take of the song, or left to the reading again (`span`
+  // null) — see `setSongLine`.
+  songLines?: SongLineBody[];
+};
+
+export type SongLineBody = {
+  variantId: string;
+  key: string;
+  span: { startSec: number; endSec: number } | null;
 };
 
 // What lands and what does not, for an address-keyed review, before the stage builds its record.
@@ -802,7 +831,10 @@ export async function applyAddressReview(
     // Definition hashes the comments' stale flags are read against.
     staleDefinitionHashes?: ReadonlyMap<string, string>;
     // A reason to refuse an accept made on this page, or null to let it through.
-    refuseAccept?: (address: string) => string | null;
+    refuseAccept?: (address: string, variantId: string, mgr: StateManager) => string | null;
+    // Writes the lyric lines the reviewer placed, before any accept lands, returning the ones that
+    // did not.
+    placeSongLines?: (mgr: StateManager) => AddressReviewOutcome["skippedDecisions"];
     // The direction parts an applied accept re-signs, tagged with the accept's address.
     cascadeDirection: (
       mgr: StateManager,
@@ -856,9 +888,14 @@ export async function applyAddressReview(
         ...(hooks.staleDefinitionHashes ? { definitionHashes: hooks.staleDefinitionHashes } : {}),
       });
 
+      skippedDecisions.push(...(hooks.placeSongLines?.(mgr) ?? []));
+
       for (const override of body.decisions ?? []) {
         try {
-          const refusal = hooks.refuseAccept?.(override.address) ?? null;
+          const refusal =
+            override.status === "accepted"
+              ? (hooks.refuseAccept?.(override.address, override.variantId, mgr) ?? null)
+              : null;
           if (refusal !== null) {
             skippedDecisions.push({ address: override.address, reason: refusal });
             continue;
@@ -1041,6 +1078,7 @@ export function addressReviewTouchesNothing(body: AddressReviewBody): boolean {
     body.feedbackPatches.length === 0 &&
     (body.keep ?? []).length === 0 &&
     (body.regenerate ?? []).length === 0 &&
+    (body.songLines ?? []).length === 0 &&
     !body.overallComment
   );
 }

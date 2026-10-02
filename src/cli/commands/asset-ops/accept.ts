@@ -42,6 +42,7 @@ import { StateManager } from "../../../core/state/index.js";
 import { variantDir } from "../../../core/variant-dir.js";
 import { confirmAction, printAborted } from "../../confirm.js";
 import { loadDirectionIfPresent, loadStageDefinitions } from "../../load-definition.js";
+import { assertSongLinesPlaced } from "../../../core/direction.js";
 import { resolveVariantArg } from "./resolve-variant-arg.js";
 import {
   assertConsentedStale,
@@ -329,7 +330,7 @@ async function runAccept(targets: string[], opts: AcceptOptions): Promise<void> 
   if (leafTarget && targets.length > 1) {
     throw new KonteError(
       "TARGETS_CONFLICT",
-      `A composition or stem is accepted on its own — run \`konte accept ${leafTarget}\` separately`,
+      `A composition, stem or overlay is accepted on its own — run \`konte accept ${leafTarget}\` separately`,
     );
   }
 
@@ -387,6 +388,9 @@ async function runAccept(targets: string[], opts: AcceptOptions): Promise<void> 
     findAllUnmetPrerequisites({ animatic }, previewManager.getState(), new Set(addresses)),
     `Cannot accept ${addresses.join(", ")}`,
   );
+  for (const item of items) {
+    assertSongLinesPlaced(direction, previewManager.getState(), item.address, item.variantId);
+  }
 
   // A patch script is the second definition source a take can go stale against, so the candidate
   // set below needs it as it needs the definition hash. A catalog that will not load is swallowed:

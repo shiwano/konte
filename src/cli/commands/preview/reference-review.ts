@@ -18,7 +18,11 @@ import {
   directionAcceptanceView,
   directionCascadeReferenceIds,
 } from "../../../core/direction-acceptance.js";
-import type { Direction } from "../../../core/dsl/direction.js";
+import { type Direction, placeDirectionLyrics } from "../../../core/dsl/direction.js";
+import { lyricLines, songLinesRefusal } from "../../../core/direction.js";
+import { KonteError } from "../../../core/errors.js";
+import { setSongLines, songAddressOf } from "../../../core/song-take.js";
+import type { SongReadingInfo } from "../../../pages/preview/types.js";
 import type { DirectionRosterKind } from "../../../pages/preview/types.js";
 import type {
   DirectionAcceptance,
@@ -44,6 +48,7 @@ import {
   addressReviewTouchesNothing,
   applyAddressReview,
   handoffRecordFields,
+  type SongLineBody,
 } from "./review-shared.js";
 import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
 import { createAssetInfoBuilder } from "./asset-info.js";
@@ -178,6 +183,7 @@ export async function handleGetReferenceState(
       playableUrl,
       patchHashes,
       (vid) => assetInfo(addr, vid),
+      (vid) => songReading(manager, direction, addr, vid),
     );
     const chosen = variantId ? manager.tryGetAssetState(addr)?.variants?.[variantId] : undefined;
 
@@ -261,6 +267,9 @@ export async function handleReferenceSubmit(
 
   const outcome = await applyAddressReview(videoRoot, "reference", body, reviewedAt, {
     animatic,
+    placeSongLines: (mgr) => placeSongLines(mgr, direction, body.songLines ?? []),
+    refuseAccept: (address, variantId, mgr) =>
+      songLinesRefusal(direction, mgr.getState(), address, variantId),
     // No board movement baseline is stamped here: this review shows the media, never the panel
     // prose it may back.
     // Carry each accepted reference image back into the direction: the roster entry it anchors was
@@ -316,4 +325,69 @@ export async function handleReferenceSubmit(
     kept: outcome.kept,
     regenerate: outcome.regenerate,
   });
+}
+
+// The bar grid and lyric places a take of the song was read as, on the take's own clock — what its
+// review lays over playback. Absent on any other asset, and on a take not read yet.
+function songReading(
+  manager: StateManager,
+  direction: Direction | null,
+  address: string,
+  variantId: string,
+): SongReadingInfo | undefined {
+  const clock = direction?.policy?.clock;
+  if (!direction || !clock || songAddressOf(direction) !== address) return undefined;
+  const variant = manager.getState().assets[address]?.variants?.[variantId];
+  const analysis = variant?.song;
+  if (!analysis) return undefined;
+  return {
+    variantId,
+    durationSec: variant.media && variant.media.kind !== "image" ? variant.media.durationSec : null,
+    bpm: analysis.bpm,
+    beatsPerBar: clock.beatsPerBar,
+    downbeatSec: analysis.downbeatSec,
+    phrases: analysis.phrases,
+    lines: placeDirectionLyrics(direction, { address, variantId, analysis }).map((line) => ({
+      key: line.key,
+      text: line.text,
+      singer: [...line.singer],
+      startSec: line.start,
+      endSec: line.end,
+      set: line.set,
+    })),
+  };
+}
+
+// The lyric lines the reviewer placed on takes of the song, each take's together, as `konte song
+// set --line` writes them; a take whose lines cannot all be placed is reported, and none written.
+function placeSongLines(
+  mgr: StateManager,
+  direction: Direction | null,
+  songLines: readonly SongLineBody[],
+): Array<{ address: string; reason: string }> {
+  if (songLines.length === 0) return [];
+  const songAddress = songAddressOf(direction);
+  if (!direction || !songAddress) {
+    return [{ address: "direction", reason: "direction.ts declares no song to place lines on" }];
+  }
+  const lines = lyricLines(direction);
+  const skipped: Array<{ address: string; reason: string }> = [];
+  const byTake = Map.groupBy(songLines, (edit) => edit.variantId);
+  for (const [variantId, edits] of byTake) {
+    const variant = mgr.tryGetAssetState(songAddress)?.variants?.[variantId];
+    try {
+      if (!variant?.song) {
+        throw new KonteError("VALIDATION_FAILED", `${variantId} has not been read as the song yet`);
+      }
+      const durationSec =
+        variant.media && variant.media.kind !== "image" ? variant.media.durationSec : Infinity;
+      variant.song = setSongLines(variant.song, lines, edits, durationSec);
+    } catch (err) {
+      skipped.push({
+        address: songAddress,
+        reason: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  return skipped;
 }

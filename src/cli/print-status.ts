@@ -8,6 +8,7 @@ import {
   isPlateAddress,
   listExposedReferenceAssetPaths,
   isMaterializedLeafAddress,
+  isOverlayAddress,
   isPatchAddress,
   isStemAddress,
 } from "../core/address.js";
@@ -16,6 +17,7 @@ import {
   collectDeadStemVariants,
   definitionHashForAddress,
   leafReadyForReview,
+  shotAcceptsStand,
 } from "../core/composition-resource.js";
 import { computeDefinitionHash } from "../core/definition-hash.js";
 import { type DependencyGraph, videoDependentsHoldVerdicts } from "../core/graph.js";
@@ -198,9 +200,10 @@ export async function buildStatusReport(
 
   // The stage definition behind a leaf, PER STAGE: both composition stages carry leaves, and one
   // stage's definition read for another reports its leaves against the wrong shots.
+  const isLeafAddress = isMaterializedLeafAddress;
   const leafStages = new Map<string, VideoDefinition>();
   for (const addr of addresses) {
-    if (!isMaterializedLeafAddress(addr)) continue;
+    if (!isLeafAddress(addr)) continue;
     const stage = getStage(addr);
     if (leafStages.has(stage)) continue;
     const def = getDefinition(addr) as unknown as VideoDefinition | null;
@@ -256,12 +259,18 @@ export async function buildStatusReport(
     // tracked, but no review surface lists it and no accept is owed on it (see
     // `listExposedReferenceAssetPaths`). A plate is judged inside the panels drawn on it, whose
     // accept cascades onto it. Every other address is somebody's to decide.
+    // The overlay is signed off by the shot accepts under it, and reviewed on its own only once they
+    // all stand.
+    const overlayStage = isOverlayAddress(addr) ? (leafStages.get(getStage(addr)) ?? null) : null;
     const reviewTarget =
       (getStage(addr) !== "reference" || isDeliveryAddress(addr) || exposedReferences.has(addr)) &&
-      !isPlateAddress(addr);
-    if (def && isMaterializedLeafAddress(addr)) {
-      // A composition/stem has no AssetDefinition; it is a no-job leaf of its stage's definition.
-      assetKind = isStemAddress(addr) ? "stem" : "composition";
+      !isPlateAddress(addr) &&
+      (!isOverlayAddress(addr) ||
+        (overlayStage !== null && shotAcceptsStand(manager, overlayStage)));
+    if (def && isLeafAddress(addr)) {
+      // A composition/stem/overlay has no AssetDefinition; it is a no-job leaf of its stage's
+      // definition.
+      assetKind = isStemAddress(addr) ? "stem" : isOverlayAddress(addr) ? "overlay" : "composition";
       definitionHash = definitionHashForAddress(def, addr);
       const leafDef = leafStages.get(getStage(addr)) ?? null;
       // Leaves are materialized only on accept, so a never-accepted leaf has no variant — its
@@ -344,7 +353,7 @@ export async function buildStatusReport(
     };
     for (const info of infos) {
       if (info.staleVariants.length === 0 || info.staleAcceptStands) continue;
-      if (isMaterializedLeafAddress(info.address) || isDeliveryAddress(info.address)) continue;
+      if (isLeafAddress(info.address) || isDeliveryAddress(info.address)) continue;
       info.staleAcceptStands = videoDependentsHoldVerdicts(graph, info.address, verdictOf);
     }
   }

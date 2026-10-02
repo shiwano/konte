@@ -230,6 +230,7 @@ function PlayerTime({
 type ReelMarks = {
   shots: Record<string, "accepted" | "none">;
   stem: "accepted" | "none" | undefined;
+  overlay: "accepted" | "none" | undefined;
 };
 
 export function VideoPreview({ state }: { state: VideoPreviewState }): React.ReactElement {
@@ -245,12 +246,17 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   const [timelineStemDecision, setTimelineStemDecision] = useState<"accepted" | "none" | undefined>(
     undefined,
   );
+  // The overlay's accept mark for this session; undefined = undecided. Only an offered overlay takes
+  // one (see OverlayInfo.offered).
+  const [overlayDecision, setOverlayDecision] = useState<"accepted" | "none" | undefined>(
+    undefined,
+  );
 
-  // What the feedback panel is pointed at. "shot" follows the playhead; "soundtrack" is a
-  // sticky pick (the beds span the whole timeline, so seeking to hear one must not snap the
-  // panel back to whatever shot the playhead landed in). Only an explicit shot gesture —
-  // picking a card, J/K/N, placing a pin — points it back at the shot.
-  const [noteTarget, setNoteTarget] = useState<"shot" | "soundtrack">("shot");
+  // What the feedback panel is pointed at. "shot" follows the playhead; "soundtrack" and an overlay
+  // are sticky picks (each spans shots, so seeking to hear or watch one must not snap the panel back
+  // to whatever shot the playhead landed in). Only an explicit shot gesture — picking a card, J/K/N,
+  // placing a pin — points it back at the shot.
+  const [noteTarget, setNoteTarget] = useState<"shot" | "soundtrack" | "overlay">("shot");
 
   // The take whose declaration panel is open, stacked over the gallery when opened from there.
   const [infoTake, setInfoTake] = useState<InfoTake | null>(null);
@@ -298,6 +304,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     hasExtraChanges:
       Object.keys(decisions).length > 0 ||
       timelineStemDecision !== undefined ||
+      overlayDecision !== undefined ||
       keepChoices.length > 0,
   });
 
@@ -331,6 +338,19 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   // A reload that drops the soundtracks takes the panel's target with it, so the pick is read
   // through the stem's presence rather than trusted on its own.
   const soundtrackFocused = noteTarget === "soundtrack" && !!state.timelineStem;
+  // The overlay, when it is offered on its own: every shot accept stands and it changed after them.
+  const offeredOverlay = state.overlay?.offered ? state.overlay : undefined;
+  const focusedOverlay = noteTarget === "overlay" ? offeredOverlay : undefined;
+  // The target the panel shows when it is not a shot.
+  const spanTarget = useMemo(
+    () =>
+      soundtrackFocused && state.timelineStem
+        ? { address: state.timelineStem.address, label: "Soundtrack" }
+        : focusedOverlay
+          ? { address: focusedOverlay.address, label: "Overlay" }
+          : null,
+    [soundtrackFocused, state.timelineStem, focusedOverlay],
+  );
 
   // A definition reload can shrink the timeline out from under the focused index.
   useEffect(() => {
@@ -716,10 +736,16 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     return !!ts && ts.variantId !== null && !ts.needsReview;
   }, [state.timelineStem]);
 
+  // The overlay: the persisted accept unless it is stale/unaccepted.
+  const baseOverlayAccepted = useMemo(() => {
+    const o = state.overlay;
+    return !!o && o.variantId !== null && !o.needsReview;
+  }, [state.overlay]);
+
   // The marks this session has made, as one value.
   const marks: ReelMarks = useMemo(
-    () => ({ shots: decisions, stem: timelineStemDecision }),
-    [decisions, timelineStemDecision],
+    () => ({ shots: decisions, stem: timelineStemDecision, overlay: overlayDecision }),
+    [decisions, timelineStemDecision, overlayDecision],
   );
 
   // Where one unit stands under a given set of marks: an explicit mark this session wins over the
@@ -728,9 +754,11 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     (unit: ReelUnit, m: ReelMarks): boolean =>
       unit.kind === "stem"
         ? (m.stem ?? (baseTimelineStemAccepted ? "accepted" : "none")) === "accepted"
-        : (m.shots[unit.shotId] ?? (baseShotAccepted[unit.shotId] ? "accepted" : "none")) ===
-          "accepted",
-    [baseShotAccepted, baseTimelineStemAccepted],
+        : unit.kind === "overlay"
+          ? (m.overlay ?? (baseOverlayAccepted ? "accepted" : "none")) === "accepted"
+          : (m.shots[unit.shotId] ?? (baseShotAccepted[unit.shotId] ? "accepted" : "none")) ===
+            "accepted",
+    [baseShotAccepted, baseTimelineStemAccepted, baseOverlayAccepted],
   );
 
   const shotAccepted = useMemo(() => {
@@ -871,6 +899,13 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     [markTimelineStem, timelineStemAccepted],
   );
 
+  const toggleOverlay = useCallback(() => {
+    const accepted = !unitAccepted({ kind: "overlay" }, marks);
+    setOverlayDecision(
+      accepted === baseOverlayAccepted ? undefined : accepted ? "accepted" : "none",
+    );
+  }, [unitAccepted, marks, baseOverlayAccepted]);
+
   // Whether an audio asset still needs attention, for the "Needs review" filter. Each of its cues
   // is signed off by the shot that placed it (a shot accept covers that shot's stem); a bed is
   // signed off by the timeline stem.
@@ -886,8 +921,8 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   }, [state.audioAssets, shotAccepted, timelineStemAccepted]);
 
   const acceptUnits = useMemo(
-    () => reelAcceptUnits(state.shots, !!state.timelineStem),
-    [state.shots, state.timelineStem],
+    () => reelAcceptUnits(state.shots, !!state.timelineStem, !!offeredOverlay),
+    [state.shots, state.timelineStem, offeredOverlay],
   );
 
   // Accept one unit. Toggling back to the baseline drops the mark rather than recording a no-op
@@ -896,12 +931,14 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     (unit: ReelUnit, m: ReelMarks): ReelMarks => {
       if (unit.kind === "stem")
         return { ...m, stem: baseTimelineStemAccepted ? undefined : "accepted" };
+      if (unit.kind === "overlay")
+        return { ...m, overlay: baseOverlayAccepted ? undefined : "accepted" };
       const shots = { ...m.shots };
       if (baseShotAccepted[unit.shotId]) delete shots[unit.shotId];
       else shots[unit.shotId] = "accepted";
       return { ...m, shots };
     },
-    [baseShotAccepted, baseTimelineStemAccepted],
+    [baseShotAccepted, baseTimelineStemAccepted, baseOverlayAccepted],
   );
 
   // What the whole review still has to sign off, and whether "Accept all" would move anything.
@@ -935,6 +972,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
       () => {
         setDecisions(next.shots);
         setTimelineStemDecision(next.stem);
+        setOverlayDecision(next.overlay);
       },
       units,
     );
@@ -1027,6 +1065,17 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     else focusSoundtrack();
   }, [soundtrackFocused, focusSoundtrack]);
 
+  // Picking the overlay frames the whole timeline; picking it again drops the pick.
+  const toggleOverlayFocus = useCallback(() => {
+    if (focusedOverlay) {
+      setNoteTarget("shot");
+      return;
+    }
+    if (state.overlay) frameSpan(0, state.overlay.duration);
+    setNoteTarget("overlay");
+    setNoteDraft((draft) => (draft?.pin ? { ...draft, pin: null } : draft));
+  }, [focusedOverlay, state.overlay, frameSpan]);
+
   const handleJumpToUnreviewed = useCallback(() => {
     if (unreviewedShotIds.length === 0) return;
     const order = state.shots.map((s) => s.shotId);
@@ -1067,9 +1116,8 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     (text: string) => {
       if (!noteDraft) return;
       const { time, pin } = noteDraft;
-      const stem = state.timelineStem;
-      if (soundtrackFocused && stem) {
-        session.addPending(stem.address, text, { annotation: null, time });
+      if (spanTarget) {
+        session.addPending(spanTarget.address, text, { annotation: null, time });
         setNoteDraft(null);
         return;
       }
@@ -1082,7 +1130,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
       });
       setNoteDraft(null);
     },
-    [state.shots, state.timelineStem, soundtrackFocused, session, shotFeedbackAddress, noteDraft],
+    [state.shots, spanTarget, session, shotFeedbackAddress, noteDraft],
   );
 
   // Every visible comment (saved + draft) across the timeline — one list for the sidebar, the
@@ -1139,10 +1187,12 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     // the shot notes on the ruler while belonging to none of them, and take no pin.
     const stem = state.timelineStem;
     if (stem) collect(stem.address, stem.feedback, 0);
+    if (state.overlay) collect(state.overlay.address, state.overlay.feedback, 0);
     return out;
   }, [
     state.shots,
     state.timelineStem,
+    state.overlay,
     session.pendingFeedback,
     session.deletedFeedbackIds,
     session.editedTextById,
@@ -1154,10 +1204,10 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   // the per-shot counts keep working off the whole-timeline list.
   const panelComments = useMemo(
     () =>
-      soundtrackFocused
-        ? displayComments.filter((c) => c.address === state.timelineStem?.address)
+      spanTarget
+        ? displayComments.filter((c) => c.address === spanTarget.address)
         : displayComments.filter((c) => c.shotId === focusedShot?.shotId),
-    [displayComments, soundtrackFocused, state.timelineStem, focusedShot],
+    [displayComments, spanTarget, focusedShot],
   );
 
   const noteCounts = useMemo(() => {
@@ -1165,6 +1215,12 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     for (const c of displayComments) {
       if (c.shotId) counts[c.shotId] = (counts[c.shotId] ?? 0) + 1;
     }
+    return counts;
+  }, [displayComments]);
+
+  const addressNoteCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of displayComments) counts[c.address] = (counts[c.address] ?? 0) + 1;
     return counts;
   }, [displayComments]);
 
@@ -1184,7 +1240,11 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   // still incomplete.
   const undecided = useMemo(() => {
     const commented = commentedAddresses(
-      [...state.shots.flatMap((s) => s.feedback), ...(state.timelineStem?.feedback ?? [])],
+      [
+        ...state.shots.flatMap((s) => s.feedback),
+        ...(state.timelineStem?.feedback ?? []),
+        ...(state.overlay?.feedback ?? []),
+      ],
       session,
     );
     const out: string[] = [];
@@ -1203,10 +1263,21 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     ) {
       out.push("Soundtrack");
     }
+    if (
+      offeredOverlay &&
+      !unitAccepted({ kind: "overlay" }, marks) &&
+      !commented.has(offeredOverlay.address)
+    ) {
+      out.push("Overlay");
+    }
     return out;
   }, [
     state.shots,
     state.timelineStem,
+    state.overlay,
+    offeredOverlay,
+    unitAccepted,
+    marks,
     session,
     shotAccepted,
     timelineStemAccepted,
@@ -1316,6 +1387,9 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
       if (state.timelineStem?.definitionHash) {
         displayedDefinitionHashes[state.timelineStem.address] = state.timelineStem.definitionHash;
       }
+      if (state.overlay?.definitionHash) {
+        displayedDefinitionHashes[state.overlay.address] = state.overlay.definitionHash;
+      }
       // Which shots stood in, snapshotted like `displayedVariants`: a build dependency finishing
       // mid-review flips it, and submit drops any verdict on one — accepting it would sign off a
       // composition nobody has seen.
@@ -1324,6 +1398,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
         .map((s) => s.shotId);
       await submitReview(decisions, notes.length > 0 ? notes : undefined, reelStage, {
         ...(timelineStemDecision ? { timelineStemDecision } : {}),
+        ...(overlayDecision ? { overlayDecision } : {}),
         addedFeedback: added,
         feedbackPatches,
         displayedVariants,
@@ -1340,11 +1415,13 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
       keepChoices,
       decisions,
       timelineStemDecision,
+      overlayDecision,
       effectiveVariants,
       reelStage,
       state.shots,
       state.audioAssets,
       state.timelineStem,
+      state.overlay,
       state.compositionRefVariants,
     ],
   );
@@ -1360,8 +1437,16 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   // signs off a shot.
   const acceptFocused = useCallback(() => {
     if (soundtrackFocused) toggleTimelineStem();
+    else if (focusedOverlay) toggleOverlay();
     else if (focusedShot) toggleShotDecision(focusedShot.shotId);
-  }, [soundtrackFocused, toggleTimelineStem, focusedShot, toggleShotDecision]);
+  }, [
+    soundtrackFocused,
+    toggleTimelineStem,
+    focusedOverlay,
+    toggleOverlay,
+    focusedShot,
+    toggleShotDecision,
+  ]);
 
   useReviewShortcuts({
     blocked:
@@ -1443,11 +1528,19 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
               ? {
                   accepted: soundtrackFocused
                     ? timelineStemAccepted
-                    : !!focusedShot && !!shotAccepted[focusedShot.shotId],
-                  what: soundtrackFocused ? "soundtrack" : `shot ${focusedShot?.shotId ?? ""}`,
+                    : focusedOverlay
+                      ? unitAccepted({ kind: "overlay" }, marks)
+                      : !!focusedShot && !!shotAccepted[focusedShot.shotId],
+                  what: soundtrackFocused
+                    ? "soundtrack"
+                    : focusedOverlay
+                      ? "overlay"
+                      : `shot ${focusedShot?.shotId ?? ""}`,
                   disabled: soundtrackFocused
                     ? !state.timelineStem
-                    : !(focusedShot && shotAcceptable(focusedShot)),
+                    : focusedOverlay
+                      ? false
+                      : !(focusedShot && shotAcceptable(focusedShot)),
                   onClick: acceptFocused,
                 }
               : undefined
@@ -1672,13 +1765,11 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
         <div className="vp-side">
           <div className="vp-col vp-col-notes">
             <CommentsPanel
-              subject={
-                soundtrackFocused ? "Soundtrack" : focusedShot && `Shot ${focusedShot.shotId}`
-              }
-              pinnable={!soundtrackFocused}
-              script={soundtrackFocused ? undefined : focusedShot?.script}
-              moves={soundtrackFocused ? undefined : focusedShot?.moves}
-              handoffNotes={soundtrackFocused ? undefined : focusedShot?.handoffNotes}
+              subject={spanTarget ? spanTarget.label : focusedShot && `Shot ${focusedShot.shotId}`}
+              pinnable={!spanTarget}
+              script={spanTarget ? undefined : focusedShot?.script}
+              moves={spanTarget ? undefined : focusedShot?.moves}
+              handoffNotes={spanTarget ? undefined : focusedShot?.handoffNotes}
               comments={panelComments}
               highlightedId={highlightedFeedbackId}
               draft={noteDraft}
@@ -1732,6 +1823,49 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
               </div>
               /* oxlint-enable jsx-a11y/prefer-tag-over-role */
             )}
+            {offeredOverlay &&
+              !(session.showChangedOnly && unitAccepted({ kind: "overlay" }, marks)) && (
+                /* Offered once every shot accept stands and the overlay changed after them:
+               selectable like the soundtrack, for its notes and its accept. */
+                /* oxlint-disable jsx-a11y/prefer-tag-over-role */
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className={`vp-soundtrack-box${focusedOverlay ? " vp-soundtrack-box--focused" : ""}`}
+                  onClick={toggleOverlayFocus}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && e.target === e.currentTarget) {
+                      e.preventDefault();
+                      toggleOverlayFocus();
+                    }
+                  }}
+                  title={
+                    focusedOverlay
+                      ? "Click to stop reviewing the overlay"
+                      : "Review the overlay, changed after every shot was accepted"
+                  }
+                >
+                  <h3 className="panel-title">
+                    Overlay
+                    {(addressNoteCounts[offeredOverlay.address] ?? 0) > 0 && (
+                      <span className="vp-shot-item-notes">
+                        <CommentIcon size={12} /> {addressNoteCounts[offeredOverlay.address]}
+                      </span>
+                    )}
+                    <StatusBadge status="changed" label="Changed" />
+                  </h3>
+                  <AcceptButton
+                    accepted={unitAccepted({ kind: "overlay" }, marks)}
+                    title={
+                      unitAccepted({ kind: "overlay" }, marks)
+                        ? "Click to unaccept"
+                        : "Accept the overlay over the whole video"
+                    }
+                    onClick={toggleOverlay}
+                  />
+                </div>
+                /* oxlint-enable jsx-a11y/prefer-tag-over-role */
+              )}
             <ShotList
               shots={visibleShots}
               progress={{

@@ -1,3 +1,4 @@
+import { mixedSoundtracks } from "./song-bed.js";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { formatAddress, formatTimelineAddress } from "./address.js";
@@ -692,7 +693,10 @@ export async function inspectTimelineAudio(opts: {
       )
     : null;
   const renderShotInputs = timelineRun?.shots ?? null;
-  const soundtracks = timelineRun?.soundtracks ?? video.timelineSoundtracks ?? [];
+  const soundtracks = mixedSoundtracks(
+    video,
+    timelineRun?.soundtracks ?? video.timelineSoundtracks,
+  );
   const bedLevels = computeBedLevels(video, manager, timelineResolvedVariants);
 
   // Collect every shot's standalone placements.
@@ -913,7 +917,8 @@ export async function inspectTimelineAudio(opts: {
           loop && w.type === "trailing_silence" ? `${w.message} — replays every loop` : w.message,
         );
       }
-      if (!loop) {
+      // The song ends where the timeline does.
+      if (!loop && !st.song) {
         for (const w of detectWindowCuts(
           sourceProfile.rms,
           sourceProfile.rate,

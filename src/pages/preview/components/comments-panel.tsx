@@ -40,8 +40,8 @@ export interface NoteDraft {
  * bottom, matching the animatic/reference threads. The composer's target is the caller's
  * `draft` — the instant it opened at, and the pin if one was placed on the frame.
  *
- * The target is a shot, or the soundtrack — which takes timed comments but no pin, there
- * being no frame position to point at in a bed.
+ * The target is a shot, or a target spanning shots (the soundtrack, an overlay) — which takes timed
+ * comments but no pin.
  */
 export function CommentsPanel({
   subject,
@@ -115,7 +115,7 @@ export function CommentsPanel({
         <p className="comments-panel-empty">
           {pinnable
             ? "No notes on this shot yet. Add one below, or click the frame to pin one."
-            : "No notes on the soundtrack yet. Add one below at the moment you mean."}
+            : `No notes on the ${subject?.toLowerCase() ?? "soundtrack"} yet. Add one below at the moment you mean.`}
         </p>
       ) : (
         <div className="comments-panel-list">

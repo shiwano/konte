@@ -7,6 +7,7 @@ import { Composition, Image, Video } from "../dsl/composition/index.js";
 import { defineDirection, defineAnimatic, defineVideo, asset, Panel } from "../dsl/index.js";
 import { buildRenderPlan } from "../render-plan.js";
 import { buildShotRenderInputs } from "../render-video.js";
+import { runTimelineInRenderMode } from "../dsl/shot-context.js";
 import { StateManager } from "../state/index.js";
 import { directionDefaults, testDirection } from "./helpers/direction.js";
 import { moves, shot, animaticTimeline, videoTimeline } from "./helpers/shot.js";
@@ -482,5 +483,94 @@ describe("buildRenderPlan — out-of-shot refs", () => {
     const s = plan();
     // `motion` is the shot's own asset and is covered by unacceptedAssets/resolvedFiles instead.
     expect([...s.unresolvedRefs, ...s.unacceptedRefs].join()).not.toContain("motion");
+  });
+});
+
+// The timeline runs in render mode on its assets' absolute paths; the capture serves only what is
+// staged.
+describe("buildShotRenderInputs — timeline assets", () => {
+  const video = defineVideo(
+    defineDirection({
+      ...directionDefaults,
+      sequence: {
+        lens: "mini-drama",
+        pleasure: "cute",
+        shots: [
+          { id: "01", role: "ordinary", action: "a", setup: "front", duration: 2, lineup: [] },
+          {
+            id: "02",
+            role: "hero",
+            action: "b",
+            setup: "front",
+            duration: 2,
+            lineup: [],
+            join: "jump-forward",
+          },
+        ],
+      },
+    }),
+    {
+      timeline: ({ shot }) => {
+        const logo = asset("logo", imageComfy, { prompt: "a logo" });
+        return {
+          shots: shot("01", () => (
+            <Composition>
+              <Image src={logo} fill />
+            </Composition>
+          )).nextShot("02", () => <Composition />),
+          overlay: () => (
+            <Composition>
+              <Image src={logo} fill />
+            </Composition>
+          ),
+        };
+      },
+    },
+  );
+
+  function inputs(shotId: string, onlyThisShot: boolean) {
+    setupAccepted("video:timeline.logo", "assets/logo.png");
+    const plan = buildRenderPlan(video, manager, { outputDir: "" });
+    const run = runTimelineInRenderMode(
+      "video",
+      () => plan.timelineFn!({ format: { size: plan.size, fps: plan.fps } }),
+      plan.timelineResolvedFiles,
+      plan.timelineResolvedFiles,
+    );
+    const shotPlan = plan.shots.find((s) => s.shotId === shotId)!;
+    return buildShotRenderInputs(shotPlan as never, {
+      size: plan.size,
+      typography: { lang: "en" as const },
+      manager,
+      renderShotInputs: run.shots,
+      shots: onlyThisShot ? [shotPlan] : plan.shots,
+      overlay: {
+        definition: video.overlay!,
+        fn: run.overlay!,
+        shotStarts: new Map([
+          ["01", 0],
+          ["02", 2],
+        ]),
+      },
+      timelineFiles: plan.timelineResolvedFiles,
+    });
+  }
+
+  const staged = "video.timeline.logo.png";
+
+  it("stages one a shot shows", () => {
+    const { compositionHtml, assetFiles } = inputs("01", false);
+    expect(compositionHtml).not.toContain(tmpDir);
+    expect(compositionHtml).toContain(`src="${staged}"`);
+    expect(assetFiles[staged]).toBe(path.resolve(tmpDir, "assets/logo.png"));
+  });
+
+  it("stages one an overlay shows, on a render scoped to a later shot", () => {
+    const { compositionHtml, assetFiles } = inputs("02", true);
+    expect(compositionHtml).toContain(
+      'data-composition-id="shot-timeline.overlay" data-start="0" data-duration="2" data-media-start="2"',
+    );
+    expect(compositionHtml).not.toContain(tmpDir);
+    expect(assetFiles[staged]).toBe(path.resolve(tmpDir, "assets/logo.png"));
   });
 });

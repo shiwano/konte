@@ -8,6 +8,11 @@ import { ffprobeBin } from "../../../core/ffmpeg-binary.js";
 import { type AudioStreamInfo, probeMediaDetail } from "../../../core/video-probe.js";
 import { buildTimeAxis, cell, fmtSeconds, normalize, resample } from "../../audio-sparkline.js";
 import { openProbeTargets } from "./resolve-arg.js";
+import { loadDirectionIfPresent } from "../../load-definition.js";
+import { songAddressOf } from "../../../core/song-take.js";
+import { barAt, songBars } from "../../../core/song-report.js";
+import type { SongAnalysis } from "../../../core/types/index.js";
+import { type LyricPlacementEntry, placeDirectionLyrics } from "../../../core/dsl/direction.js";
 import { probeEach } from "./shared.js";
 
 // Enough to read the shape of a broken-up take off one line.
@@ -91,6 +96,9 @@ Examples:
 
       await ensureFfmpeg();
       await ffprobeBin();
+      const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
+      const clock = direction?.policy?.clock;
+      const songAddress = songAddressOf(direction);
 
       await probeEach(targets, async (variantId) => {
         const wf = await loadSourceWaveform({ manager, videoRoot, variantId });
@@ -131,6 +139,16 @@ Examples:
           );
         }
 
+        const song = manager.getState().assets[wf.address]?.variants?.[variantId]?.song;
+        if (clock && direction && wf.address === songAddress && dur != null) {
+          printSong(song ?? null, clock, dur, wf.rms, wf.rate);
+          if (song && direction.lyrics) {
+            printLyrics(
+              placeDirectionLyrics(direction, { address: wf.address, variantId, analysis: song }),
+            );
+          }
+        }
+
         if (!wf.hasAudio || dur == null || dur <= 0) return;
 
         const termW = process.stdout.columns ?? 100;
@@ -149,4 +167,68 @@ Examples:
         }
       });
     });
+}
+
+// What konte read off a take of the song: its clock against the declared one, each bar's level on
+// the grid, the section boundary candidates and where it is sung.
+function printSong(
+  song: SongAnalysis | null,
+  clock: { bpm: number; beatsPerBar: number },
+  durationSec: number,
+  rms: readonly number[],
+  rate: number,
+): void {
+  if (!song) {
+    console.log("  song      not read yet — `konte song analyze` reads it");
+    return;
+  }
+  printSongReading(song, clock);
+  console.log("  bars");
+  for (const bar of songBars(song, clock.beatsPerBar, durationSec, rms, rate)) {
+    const level = bar.levelDb === null ? "  —  " : `${bar.levelDb.toFixed(0).padStart(4)} dB`;
+    console.log(
+      `    ${String(bar.index).padStart(3)}  ${fmtOnset(bar.startSec).padStart(7)}  ${level}`,
+    );
+  }
+}
+
+// The reading's clock against the declared one, its section candidates and where it is sung.
+export function printSongReading(
+  song: SongAnalysis,
+  clock: { bpm: number; beatsPerBar: number },
+): void {
+  const corrected = song.downbeatSetAt ? " (set by hand)" : "";
+  console.log(
+    `  song      ${song.bpm} BPM (declared ${clock.bpm}), first bar head at ` +
+      `${fmtOnset(song.downbeatSec)}${corrected}`,
+  );
+  const sections = song.sectionSecs
+    .map((sec) => ({ sec, bar: barAt(song, clock.beatsPerBar, sec) }))
+    .sort((a, b) => a.sec - b.sec)
+    .map(({ sec, bar }) => `bar ${bar} (${fmtOnset(sec)})`);
+  console.log(`  sections  ${sections.length > 0 ? sections.join(", ") : "none stands out"}`);
+  if (song.phrases === null) {
+    console.log("  sung      unknown — the vocal track could not be separated");
+  } else {
+    const listed = song.phrases
+      .map((p) => `${fmtOnset(p.startSec)}–${fmtOnset(p.endSec)}`)
+      .join(", ");
+    console.log(`  sung      ${song.phrases.length} stretch(es): ${listed || "none"}`);
+  }
+}
+
+// Where each lyric line falls in this take, on its own clock — what the song's review page lays
+// over the audio — keyed as `konte song set --line` takes it.
+export function printLyrics(lines: readonly LyricPlacementEntry[]): void {
+  console.log("  lines");
+  const singerWidth = Math.max(0, ...lines.map((l) => l.singer.join("+").length));
+  for (const line of lines) {
+    const span =
+      line.start === null
+        ? "unplaced"
+        : `${fmtOnset(line.start)}–${fmtOnset(line.end)}${line.set ? " (set)" : ""}`;
+    console.log(
+      `    ${line.key.padEnd(5)} ${span.padEnd(20)} ${line.singer.join("+").padEnd(singerWidth)} ${line.text}`,
+    );
+  }
 }

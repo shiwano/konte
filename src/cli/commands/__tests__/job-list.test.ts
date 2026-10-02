@@ -16,7 +16,7 @@ const direction = defineDirection({
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
   // A fixture direction is one shot with no arc to check: no built-in lens declares a function-less
   // beat, so it brings its own container lens rather than staging a whole mini-drama.
-  lenses: [defineLens({ name: "one-beat", payoff: "beat", beats: [{ role: "beat" }] })],
+  lenses: [defineLens({ name: "one-beat", payoff: "beat", roles: [{ role: "beat" }] })],
   sequence: {
     lens: "one-beat",
     pleasure: "cute",

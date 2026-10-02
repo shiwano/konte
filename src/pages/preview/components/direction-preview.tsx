@@ -1,5 +1,5 @@
 import type React from "react";
-import { Fragment, useCallback, useMemo, useState } from "react";
+import { Fragment, createContext, useCallback, useContext, useMemo, useState } from "react";
 import { submitDirectionReview } from "../api.js";
 import { bulkAcceptState } from "../review/bulk-accept.js";
 import { ReviewShell, type ShortcutRows } from "../review/review-shell.js";
@@ -19,6 +19,7 @@ import type {
   DirectionPolicyFieldInfo,
   DirectionPreviewState,
   DirectionPropInfo,
+  DirectionLyricsInfo,
   DirectionSection,
   DirectionSectionStatus,
   DirectionSequenceInfo,
@@ -52,6 +53,7 @@ type StagedDecisions = Partial<Record<DirectionSection, boolean>>;
 const SECTION_LABELS: Record<DirectionSection, string> = {
   brief: "Brief",
   policy: "Policy",
+  lyrics: "Lyrics",
   characters: "Characters",
   props: "Props",
   locations: "Locations & Setups",
@@ -158,6 +160,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
     };
     add("brief", ...state.brief);
     add("policy", ...state.policy);
+    if (state.lyrics) add("lyrics", state.lyrics);
     // The cast is one box: each character, the voice cast for them, and the narrator — every one a
     // part of its own, all decided by the Characters box's single Accept.
     add(
@@ -371,6 +374,17 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
             <DirectionPolicy fields={state.policy} renderNotes={renderNotes} />,
           )}
 
+        {shownSections.includes("lyrics") &&
+          sectionBox(
+            "Lyrics",
+            "lyrics",
+            state.lyrics ? (
+              <DirectionLyrics lyrics={state.lyrics} renderNotes={renderNotes} />
+            ) : (
+              <CutSectionNote what="lyrics" />
+            ),
+          )}
+
         {shownSections.includes("characters") &&
           sectionBox(
             "Characters",
@@ -433,41 +447,43 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
               onSelectShot={handleSelectShot}
             />
             {renderNotes(state.sequence)}
-            <table className="dir-table">
-              <thead>
-                <tr>
-                  <th className="dir-col-id">#</th>
-                  <th className="dir-col-role">Does</th>
-                  <th className="dir-col-syn">Action</th>
-                  <th className="dir-col-where">Where</th>
-                  <th className="dir-col-lineup">Lineup (L→R)</th>
-                  <th className="dir-col-dur">Dur</th>
-                  <th className="dir-col-notes">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {state.kind === "sequenced"
-                  ? (state.sequences ?? []).map((seq) => (
-                      <SequenceGroup
-                        key={seq.id}
-                        sequence={seq}
-                        depth={0}
-                        parentPleasure={state.pleasure.name}
-                        focusedShotId={focusedShotId}
-                        renderNotes={renderNotes}
-                      />
-                    ))
-                  : (state.shots ?? []).map((shot) => (
-                      <ShotRow
-                        key={shot.id}
-                        shot={shot}
-                        depth={0}
-                        focused={focusedShotId === shot.id}
-                        renderNotes={renderNotes}
-                      />
-                    ))}
-              </tbody>
-            </table>
+            <BeatsPerBarContext.Provider value={state.beatsPerBar}>
+              <table className="dir-table">
+                <thead>
+                  <tr>
+                    <th className="dir-col-id">#</th>
+                    <th className="dir-col-role">Does</th>
+                    <th className="dir-col-syn">Action</th>
+                    <th className="dir-col-where">Where</th>
+                    <th className="dir-col-lineup">Lineup (L→R)</th>
+                    <th className="dir-col-dur">{state.beatsPerBar === null ? "Dur" : "Beats"}</th>
+                    <th className="dir-col-notes">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.kind === "sequenced"
+                    ? (state.sequences ?? []).map((seq) => (
+                        <SequenceGroup
+                          key={seq.id}
+                          sequence={seq}
+                          depth={0}
+                          parentPleasure={state.pleasure.name}
+                          focusedShotId={focusedShotId}
+                          renderNotes={renderNotes}
+                        />
+                      ))
+                    : (state.shots ?? []).map((shot) => (
+                        <ShotRow
+                          key={shot.id}
+                          shot={shot}
+                          depth={0}
+                          focused={focusedShotId === shot.id}
+                          renderNotes={renderNotes}
+                        />
+                      ))}
+                </tbody>
+              </table>
+            </BeatsPerBarContext.Provider>
           </>,
         )}
 
@@ -495,7 +511,11 @@ type NotesRenderer = (part: DirectionPartInfo) => React.ReactElement;
 
 // The brief is not here: like the policy, it always has rows — its two list fields are parts even
 // when empty — so it can never be the box a cut emptied.
-const CUT_SECTION_TEXT: Record<"characters" | "props" | "locations" | "waivers", string> = {
+const CUT_SECTION_TEXT: Record<
+  "lyrics" | "characters" | "props" | "locations" | "waivers",
+  string
+> = {
+  lyrics: "The lyrics you accepted have been removed. This piece declares no song words.",
   characters: "The characters you accepted have been removed. This piece declares none.",
   props: "The props you accepted have been removed. This piece declares no props.",
   locations:
@@ -511,7 +531,7 @@ const CUT_SECTION_TEXT: Record<"characters" | "props" | "locations" | "waivers",
 function CutSectionNote({
   what,
 }: {
-  what: "characters" | "props" | "locations" | "waivers";
+  what: "lyrics" | "characters" | "props" | "locations" | "waivers";
 }): React.ReactElement {
   return <p className="direction-section-cut">{CUT_SECTION_TEXT[what]}</p>;
 }
@@ -647,9 +667,9 @@ function ShotRow({
           {shot.aside ? (
             <span className="dir-role dir-role--aside">aside</span>
           ) : (
-            shot.beatFunctionLabel && (
+            shot.roleFunctionLabel && (
               <span className={`dir-role direction-fn--${shot.beatFunction ?? "ground"}`}>
-                {shot.beatFunctionLabel}
+                {shot.roleFunctionLabel}
               </span>
             )
           )}
@@ -728,10 +748,32 @@ function ShotRow({
             </span>
           )}
         </td>
-        <td className="dir-col-dur">{shot.duration}s</td>
+        <td className="dir-col-dur">
+          <Span seconds={shot.duration} beats={shot.beats} />
+        </td>
         <td className="dir-col-notes">{renderNotes(shot)}</td>
       </tr>
     </Fragment>
+  );
+}
+
+// The meter a span is read in bars by — null on a piece with no song clock, whose spans are seconds.
+const BeatsPerBarContext = createContext<number | null>(null);
+
+// A span as the direction wrote it: seconds, or on the song clock beats and the bars they make, with
+// the seconds they land on beneath.
+function Span({ seconds, beats }: { seconds: number; beats: number | null }): React.ReactElement {
+  const beatsPerBar = useContext(BeatsPerBarContext);
+  const sec = `${Number(seconds.toFixed(2))}s`;
+  if (beats === null || beatsPerBar === null) return <>{sec}</>;
+  const bars = Number((beats / beatsPerBar).toFixed(2));
+  return (
+    <>
+      {beats}
+      <span className="direction-policy-gloss">
+        {bars} bar{bars === 1 ? "" : "s"} · {sec}
+      </span>
+    </>
   );
 }
 
@@ -851,9 +893,9 @@ function SequenceRow({
       <td className="dir-col-id">{sequence.id}</td>
       <td colSpan={4}>
         <span className="dir-seq-cell">
-          {sequence.beatFunctionLabel && (
+          {sequence.roleFunctionLabel && (
             <span className={`dir-role dir-role--seq direction-fn--${sequence.beatFunction}`}>
-              {sequence.beatFunctionLabel}
+              {sequence.roleFunctionLabel}
             </span>
           )}
           <span className="dir-col-syn">{sequence.synopsis}</span>
@@ -866,7 +908,13 @@ function SequenceRow({
         </span>
       </td>
       <td className="dir-col-dur">
-        {collectShots(sequence).reduce((acc, s) => acc + s.duration, 0)}s
+        <Span
+          seconds={collectShots(sequence).reduce((acc, s) => acc + s.duration, 0)}
+          beats={collectShots(sequence).reduce<number | null>(
+            (acc, s) => (acc === null || s.beats === null ? null : acc + s.beats),
+            0,
+          )}
+        />
       </td>
       <td className="dir-col-notes">{renderNotes(sequence)}</td>
     </tr>
@@ -1020,6 +1068,15 @@ function policyValue(field: DirectionPolicyFieldInfo): React.ReactElement {
         </>
       );
     }
+    case "clock":
+      return (
+        <>
+          {field.bpm} BPM, {field.beatsPerBar}/bar
+          <span className="direction-policy-gloss">
+            cut to reference:{field.song}; every shot is counted in beats
+          </span>
+        </>
+      );
   }
 }
 
@@ -1039,6 +1096,7 @@ const POLICY_FIELD_LABELS: Record<DirectionPolicyFieldInfo["field"], string> = {
   lang: "Language",
   fonts: "Fonts",
   speech: "Speech",
+  clock: "Clock",
 };
 
 // The machine-checked constraints the piece renders under — canvas, language, speech rule. Each is a
@@ -1118,6 +1176,51 @@ function DirectionCharacters({
 
 // The recurring props: objects that must look the same wherever they appear, read like the characters (a
 // shot action names them) but never speaking.
+// The song's words as one part: the box takes one note and one Accept.
+function DirectionLyrics({
+  lyrics,
+  renderNotes,
+}: {
+  lyrics: DirectionLyricsInfo;
+  renderNotes: NotesRenderer;
+}): React.ReactElement {
+  return (
+    <DirTable
+      headers={["Sung by", "Lines"]}
+      rows={[
+        {
+          key: "lyrics",
+          name: [...new Set(lyrics.sections.flatMap((s) => s.singer))].join(", "),
+          value: (
+            <>
+              {lyrics.sections.map((section, s) => (
+                <div key={s} className="direction-lyrics-section">
+                  <span className="dir-inline-label">{section.label}</span>
+                  <span className="direction-policy-gloss">{section.singer.join(", ")}</span>
+                  <ul className="direction-brief-list">
+                    {section.lines.map((line, l) => (
+                      <li key={l}>
+                        {line.text}
+                        {line.singer !== null && (
+                          <span className="direction-policy-gloss">
+                            sung by {line.singer.join(", ")}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </>
+          ),
+          part: lyrics,
+        },
+      ]}
+      renderNotes={renderNotes}
+    />
+  );
+}
+
 function DirectionProps({
   props,
   renderNotes,

@@ -1,0 +1,40 @@
+# A piece cut to a song
+
+The song take is accepted before any shot is written. Fields → `direction-guide`'s song.md.
+
+## 1. Declare the clock and the lyrics, no shots
+
+- **`policy.clock`, `lyrics`, and `sequence.shots: []`** — until the song is accepted.
+- **`bpm` and `beatsPerBar` are your decision** — the music model is asked for them.
+
+## 2. Make the song
+
+- **Generated → a `reference.tsx` asset at `clock.song`'s id, returned under it and fed from the direction** — the words laid out per the model's guide:
+
+```tsx
+const clock = direction.policy.clock!;
+const song = asset(clock.song, audioAceStep15XlTurbo, {
+  tags: "Synth pop, bright female vocal, driving four-on-the-floor",
+  bpm: clock.bpm,
+  timeSignature: String(clock.beatsPerBar),
+  lyrics: direction
+    .lyrics!.map(
+      (s) => `[${s.label}]\n${s.lines.map((l) => (typeof l === "string" ? l : l.text)).join("\n")}`,
+    )
+    .join("\n"),
+});
+```
+
+- **Brought → a `file` asset at that id.**
+- **`konte generate reference`, then `konte job wait`** — the wait covers the reading of each take.
+- **A reading failed → `konte song analyze`** — the first run downloads the vocal separator. It re-reads the current take, dropping every `konte song set` correction on it.
+
+## 3. Check the lines, then accept
+
+- **Preview the song and listen with its lines laid over it before accepting** — a line may be placed a line off, not only left unplaced (`lyric-unplaced`).
+- **A wrong or unplaced line is the human's to fix on the song's review page** — they drag it to where it is sung.
+- **Settle the song before any animatic spend** — a new take, a same-path file swap or a `konte song set --downbeat` can move the intro, and the first shot is then remade.
+
+## 4. Write the shots in beats
+
+- **Back to step 7** — `beats` per shot, one section's idea at a time.

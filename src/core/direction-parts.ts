@@ -1,5 +1,6 @@
 import {
   DIRECTION_BRIEF_FIELDS,
+  DIRECTION_LYRICS_ADDRESS,
   DIRECTION_NARRATOR_ADDRESS,
   DIRECTION_ROOT_PATH,
   type DirectionBriefField,
@@ -24,9 +25,16 @@ import type {
   Framing,
   Landmark,
   Pleasure,
+  Shot,
   SpeechPolicy,
 } from "./dsl/direction.js";
-import { isAsideShot, isGraphicShot, resolveDirectionFormat } from "./dsl/direction.js";
+import {
+  isAsideShot,
+  isGraphicShot,
+  resolveDirectionFormat,
+  resolveDirectionTimeline,
+  singersOf,
+} from "./dsl/direction.js";
 import type { ScriptLine } from "./types/script.js";
 
 // What each reviewable part of the direction actually holds — the read side of `directionPartHashes`,
@@ -55,6 +63,17 @@ export type DirectionPartContent =
   // position a reviewer takes (text falls to the rendering machine's own faces), so it stays a part.
   | { kind: "fonts"; fonts: readonly string[] }
   | { kind: "speech"; speech: SpeechPolicy }
+  | { kind: "clock"; song: string; bpm: number; beatsPerBar: number }
+  // The song's words by section and who sings each section; a line's own singers are null where
+  // its section's sing it.
+  | {
+      kind: "lyrics";
+      sections: readonly {
+        label: string;
+        singer: readonly string[];
+        lines: readonly { text: string; singer: readonly string[] | null }[];
+      }[];
+    }
   | {
       kind: "roster";
       roster: "characters" | "props" | "locations";
@@ -110,7 +129,10 @@ export type DirectionPartContent =
       // The frame this shot is taken from. Its size and place are the setup's own part to show and to
       // age out, so they are not copied in here — a reader resolves them through the roster.
       setup: string;
+      // The span on the timeline in seconds, on the frame grid, and the beats it was written as on the
+      // song clock (null without one).
       duration: number;
+      beats: number | null;
       action: string;
       script: readonly ScriptLine[];
       telop: readonly string[];
@@ -127,6 +149,7 @@ export type DirectionPartContent =
       id: string;
       role: string;
       duration: number;
+      beats: number | null;
       action: string;
       script: readonly ScriptLine[];
       telop: readonly string[];
@@ -140,6 +163,7 @@ export type DirectionPartContent =
       id: string;
       label: string;
       duration: number;
+      beats: number | null;
       telop: readonly string[];
     }
   | { kind: "waiver"; key: string; reason: string };
@@ -222,6 +246,20 @@ export function directionPartContents(direction: Direction): Map<string, Directi
     kind: "speech",
     speech: direction.policy?.speech ?? "free",
   });
+  const clock = direction.policy?.clock;
+  if (clock) {
+    out.set(formatDirectionPolicyAddress("clock"), {
+      kind: "clock",
+      song: clock.song,
+      bpm: clock.bpm,
+      beatsPerBar: clock.beatsPerBar,
+    });
+  }
+  const timings = direction.policy?.format ? resolveDirectionTimeline(direction).timings : null;
+  const span = (s: Shot) => ({
+    duration: timings?.get(s.id)?.duration ?? s.duration ?? 0,
+    beats: clock ? (s.beats ?? null) : null,
+  });
 
   const addNode = (node: DirectionNode, nodePath: readonly string[], isRoot: boolean) => {
     if (isRoot || node.id !== undefined) {
@@ -247,7 +285,7 @@ export function directionPartContents(direction: Direction): Map<string, Directi
                 kind: "aside",
                 id: s.id,
                 label: s.label,
-                duration: s.duration,
+                ...span(s),
                 telop: s.telop ?? [],
               }
             : isGraphicShot(s)
@@ -255,7 +293,7 @@ export function directionPartContents(direction: Direction): Map<string, Directi
                   kind: "graphic",
                   id: s.id,
                   role: s.role,
-                  duration: s.duration,
+                  ...span(s),
                   action: s.action,
                   script: s.script ?? [],
                   telop: s.telop ?? [],
@@ -266,7 +304,7 @@ export function directionPartContents(direction: Direction): Map<string, Directi
                   id: s.id,
                   role: s.role,
                   setup: s.setup,
-                  duration: s.duration,
+                  ...span(s),
                   action: s.action,
                   script: s.script ?? [],
                   telop: s.telop ?? [],
@@ -304,6 +342,20 @@ export function directionPartContents(direction: Direction): Map<string, Directi
         assetId: c.voice.id,
       });
     }
+  }
+  if (direction.lyrics) {
+    out.set(DIRECTION_LYRICS_ADDRESS, {
+      kind: "lyrics",
+      sections: direction.lyrics.map((s) => ({
+        label: s.label,
+        singer: singersOf(s.singer),
+        lines: s.lines.map((l) =>
+          typeof l === "string"
+            ? { text: l, singer: null }
+            : { text: l.text, singer: singersOf(l.singer) },
+        ),
+      })),
+    });
   }
   if (direction.narrator) {
     out.set(DIRECTION_NARRATOR_ADDRESS, {

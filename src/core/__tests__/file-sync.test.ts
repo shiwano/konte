@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
-import { asset, defineReference, videoFile } from "../dsl/index.js";
+import { asset, audioFile, defineReference, videoFile } from "../dsl/index.js";
 import { KonteError } from "../errors.js";
 import { syncFileAssets } from "../file-sync.js";
 import { StateManager } from "../state/index.js";
@@ -147,6 +147,28 @@ describe("syncFileAssets (reference stage)", () => {
     expect(Object.keys(p2.variants ?? {})).toHaveLength(1);
     expect(p2.variants![vid!]!.outputHash).toBe(sha256("updated-content"));
     expect(p2.variants![vid!]!.status).toBe("none");
+  });
+
+  it("drops what was read off a song take whose file content changes", async () => {
+    await writeAsset(tmpDir, "assets/files/song.mp3", "v1");
+    const reference = defineReference(plainDirection, () => {
+      const song = asset("song", audioFile, { path: "assets/files/song.mp3" });
+      return { song };
+    });
+    const manager = await StateManager.init(tmpDir);
+    await syncFileAssets({ reference }, manager);
+    const [variant] = Object.values(manager.getAssetState("reference:song").variants!);
+    variant!.song = {
+      bpm: 120,
+      downbeatSec: 0.5,
+      sectionSecs: [],
+      phrases: null,
+      analyzedAt: "2026-09-30T00:00:00.000Z",
+    };
+
+    await writeAsset(tmpDir, "assets/files/song.mp3", "v2");
+    await syncFileAssets({ reference }, manager);
+    expect(variant!.song).toBeUndefined();
   });
 
   it("makes dependents input-stale when file content changes", async () => {

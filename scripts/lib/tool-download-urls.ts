@@ -1,6 +1,7 @@
 import { chromiumDownloadUrl } from "../../src/core/chromium.js";
 import { cloudflaredDownloadSource } from "../../src/core/cloudflared-binary.js";
 import { ffmpegDownloadSources } from "../../src/core/ffmpeg-binary.js";
+import { SPLEETER_URL, sherpaDownloadUrl } from "../../src/core/sherpa-binary.js";
 import { tscDownloadUrl } from "../../src/core/tsc.js";
 
 type Target = { platform: NodeJS.Platform; arch: string };
@@ -41,6 +42,15 @@ const CHROMIUM_TARGETS: Target[] = [
   { platform: "win32", arch: "x64" },
 ];
 
+const SHERPA_TARGETS: Target[] = [
+  { platform: "linux", arch: "x64" },
+  { platform: "linux", arch: "arm64" },
+  { platform: "darwin", arch: "x64" },
+  { platform: "darwin", arch: "arm64" },
+  { platform: "win32", arch: "x64" },
+  { platform: "win32", arch: "arm64" },
+];
+
 /** Every managed-tool artifact URL konte can ask for, across all supported platforms. */
 export function toolDownloadUrls(): string[] {
   const urls: string[] = [];
@@ -54,5 +64,7 @@ export function toolDownloadUrls(): string[] {
   }
   for (const { platform, arch } of TSC_TARGETS) urls.push(tscDownloadUrl(platform, arch));
   for (const { platform, arch } of CHROMIUM_TARGETS) urls.push(chromiumDownloadUrl(platform, arch));
+  for (const { platform, arch } of SHERPA_TARGETS) urls.push(sherpaDownloadUrl(platform, arch));
+  urls.push(SPLEETER_URL);
   return [...new Set(urls)];
 }

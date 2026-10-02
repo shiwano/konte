@@ -274,7 +274,8 @@ describe("a derived count narrowed under half the words", () => {
   });
 
   it("is refused when the shot alone is too short", () => {
-    expect(board({ duration: 0.8 })).toThrow(/leaving 0.80s of its 0.80s shot/);
+    // 0.8s lands on frame 19 at 24fps.
+    expect(board({ duration: 0.8 })).toThrow(/leaving 0.79s of its 0.79s shot/);
   });
 
   it("lets a window short only of the lead-in stand", () => {

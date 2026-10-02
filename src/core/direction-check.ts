@@ -2,15 +2,15 @@
 // doctor, the generate gate, and unit tests can pull it in standalone. `checkArc` is the single
 // engine reused at every scale of the arc tree (a run of shots, a run of sequences, a run of runs);
 // it is generic over `Role`. A role is a plain string scoped to its lens — each lens declares its
-// own beats and each beat carries the dramatic `fn` the theory checks read, so there is no global
-// role vocabulary or function map; the engine reads `fn` off the matched beat.
+// own roles and each carries the dramatic `fn` the theory checks read, so there is no global role
+// vocabulary or function map; the engine reads `fn` off the matched role.
 
 /**
  * The dramatic function a role performs — the five-stage skeleton the classical arc schemas share
  * (Freytag's pyramid, three-act, kishōtenketsu): ground establishes a state, turn breaks it, build
  * escalates it, payoff lands the climax, settle lets it ring.
  */
-export type BeatFunction = "ground" | "turn" | "build" | "payoff" | "settle";
+export type RoleFunction = "ground" | "turn" | "build" | "payoff" | "settle";
 
 export type ArcItem<Role extends string> = {
   id: string;
@@ -38,14 +38,14 @@ export type ArcItem<Role extends string> = {
   afterGap?: true;
 };
 
-export type Beat<Role extends string> = {
+export type LensRole<Role extends string> = {
   role: Role;
   // The dramatic function this role performs in *this* lens — the five-stage skeleton the classical
   // arc schemas share (ground establishes a state, turn breaks it, build escalates, payoff lands the
   // climax, settle lets it ring). It is what lets the engine check theory ("a climax must be earned")
-  // generically. Omit it for a container role — a beat with no `fn` is exempt from every function
-  // check. No built-in lens does: a lens of function-less beats is a lens with no rules.
-  fn?: BeatFunction;
+  // generically. Omit it for a container role — a role with no `fn` is exempt from every function
+  // check. No built-in lens does: a lens of function-less roles is a lens with no rules.
+  fn?: RoleFunction;
   required?: boolean;
   minConsecutive?: number;
   maxConsecutive?: number;
@@ -58,7 +58,7 @@ export type Beat<Role extends string> = {
 
 export type LensSpec<Role extends string> = {
   name: string;
-  beats: Beat<Role>[];
+  roles: LensRole<Role>[];
   payoff: Role;
 };
 
@@ -67,9 +67,9 @@ export type LensSpec<Role extends string> = {
  * codes are reused at both scales — the subject (role / id / range) distinguishes instances.
  */
 export type DirectionFindingCode =
-  | "missing-beat"
+  | "missing-role"
   | "no-payoff"
-  | "beat-out-of-order"
+  | "role-out-of-order"
   | "lens-role-mismatch"
   | "too-many-consecutive"
   | "too-few-consecutive"
@@ -77,8 +77,8 @@ export type DirectionFindingCode =
   | "unearned-payoff"
   | "unrealized"
   | "stage-order-mismatch"
-  | "beat-overweight"
-  | "beat-underweight"
+  | "role-overweight"
+  | "role-underweight"
   | "character-unreferenced"
   | "unused-character"
   | "character-voice-missing"
@@ -138,7 +138,14 @@ export type DirectionFindingCode =
   // calls it by the name the direction declared.
   | "landmark-flipped"
   | "subject-unnamed"
-  | "plate-unnamed";
+  | "plate-unnamed"
+  // The song clock's: the song it counts on is not a reference asset, the take drifts off the
+  // declared tempo by the end of the timeline, and a lyric line no reading of the take places.
+  | "song-unreferenced"
+  | "song-off-tempo"
+  | "lyric-unplaced"
+  // The timeline runs on past the end of the take of the song.
+  | "song-overrun";
 
 export type DirectionFinding = {
   code: DirectionFindingCode;
@@ -182,21 +189,21 @@ export function checkArc<Role extends string>(
   const { realizedIds, noun = "shot", textLabel = "synopsis" } = options;
   const findings: DirectionFinding[] = [];
 
-  const beatIndex = new Map<string, number>();
-  lens.beats.forEach((b, i) => beatIndex.set(b.role, i));
-  const beatByRole = new Map<string, Beat<Role>>();
-  for (const b of lens.beats) beatByRole.set(b.role, b);
-  // A role's dramatic function is declared on its beat (a role outside the lens has none — exempt).
-  const fnOf = (role: string): BeatFunction | undefined => beatByRole.get(role)?.fn;
+  const roleIndex = new Map<string, number>();
+  lens.roles.forEach((b, i) => roleIndex.set(b.role, i));
+  const declByRole = new Map<string, LensRole<Role>>();
+  for (const b of lens.roles) declByRole.set(b.role, b);
+  // A role's dramatic function is declared on the lens (a role outside the lens has none — exempt).
+  const fnOf = (role: string): RoleFunction | undefined => declByRole.get(role)?.fn;
   const presentRoles = new Set<string>(items.map((it) => it.role));
 
-  for (const beat of lens.beats) {
-    if (beat.required === false) continue;
-    if (!presentRoles.has(beat.role)) {
+  for (const decl of lens.roles) {
+    if (decl.required === false) continue;
+    if (!presentRoles.has(decl.role)) {
       findings.push({
-        code: "missing-beat",
-        subject: beat.role,
-        message: `${lens.name} has no ${beat.role} ${noun}`,
+        code: "missing-role",
+        subject: decl.role,
+        message: `${lens.name} has no ${decl.role} ${noun}`,
       });
     }
   }
@@ -209,7 +216,7 @@ export function checkArc<Role extends string>(
   }
 
   for (const it of items) {
-    if (!beatIndex.has(it.role)) {
+    if (!roleIndex.has(it.role)) {
       findings.push({
         code: "lens-role-mismatch",
         subject: it.id,
@@ -218,19 +225,19 @@ export function checkArc<Role extends string>(
     }
   }
 
-  // Walk the in-lens items tracking the highest beat seen; a later item with a lower beat index
-  // means the earlier high-beat role appeared ahead of schedule (e.g. "release before pressure").
+  // Walk the in-lens items tracking the highest role seen; a later item with a lower role index
+  // means the earlier later-placed role appeared ahead of schedule (e.g. "release before pressure").
   let maxIdx = -1;
   let maxRole: string | null = null;
   const reportedOutOfOrder = new Set<string>();
   for (const it of items) {
-    const idx = beatIndex.get(it.role);
+    const idx = roleIndex.get(it.role);
     if (idx === undefined) continue;
     if (idx < maxIdx && maxRole !== null) {
       if (!reportedOutOfOrder.has(maxRole)) {
         reportedOutOfOrder.add(maxRole);
         findings.push({
-          code: "beat-out-of-order",
+          code: "role-out-of-order",
           subject: maxRole,
           message: `${maxRole} appears before ${it.role}`,
         });
@@ -248,21 +255,21 @@ export function checkArc<Role extends string>(
     if (prevRole !== null) {
       let runStart = i - 1;
       while (runStart > 0 && items[runStart - 1]!.role === prevRole) runStart--;
-      const beat = beatByRole.get(prevRole);
+      const decl = declByRole.get(prevRole);
       const len = i - runStart;
-      if (beat?.maxConsecutive !== undefined && len > beat.maxConsecutive) {
+      if (decl?.maxConsecutive !== undefined && len > decl.maxConsecutive) {
         findings.push({
           code: "too-many-consecutive",
           subject: prevRole,
-          message: `${len} consecutive "${prevRole}" ${noun}s exceed maxConsecutive ${beat.maxConsecutive}`,
+          message: `${len} consecutive "${prevRole}" ${noun}s exceed maxConsecutive ${decl.maxConsecutive}`,
         });
       }
     }
   }
 
-  // The mirror of maxConsecutive: a beat that only lands once when its lens wants it to build (a
+  // The mirror of maxConsecutive: a role that only lands once when its lens wants it to build (a
   // comedy escalation, a process montage) is hollow. Measured on the role's longest run — an absent
-  // required role is already `missing-beat`, so only under-repeated *present* roles fire here.
+  // required role is already `missing-role`, so only under-repeated *present* roles fire here.
   const longestRun = new Map<string, number>();
   for (let i = 0; i < items.length; ) {
     const role = items[i]!.role;
@@ -271,14 +278,14 @@ export function checkArc<Role extends string>(
     longestRun.set(role, Math.max(longestRun.get(role) ?? 0, j - i));
     i = j;
   }
-  for (const beat of lens.beats) {
-    if (beat.minConsecutive === undefined || !presentRoles.has(beat.role)) continue;
-    const run = longestRun.get(beat.role) ?? 0;
-    if (run < beat.minConsecutive) {
+  for (const decl of lens.roles) {
+    if (decl.minConsecutive === undefined || !presentRoles.has(decl.role)) continue;
+    const run = longestRun.get(decl.role) ?? 0;
+    if (run < decl.minConsecutive) {
       findings.push({
         code: "too-few-consecutive",
-        subject: beat.role,
-        message: `"${beat.role}" needs a run of at least ${beat.minConsecutive} but the longest is ${run}`,
+        subject: decl.role,
+        message: `"${decl.role}" needs a run of at least ${decl.minConsecutive} but the longest is ${run}`,
       });
     }
   }
@@ -295,7 +302,7 @@ export function checkArc<Role extends string>(
 
   // A climax must be earned (rising action precedes it — Freytag, McKee's progressive
   // complications): the declared payoff cannot land before at least one grounding, turning, or
-  // building item. This is what makes a degenerate one-beat lens — or a direction that opens on
+  // building item. This is what makes a degenerate one-role lens — or a direction that opens on
   // its climax — visible instead of silently passing; a deliberate cold-open waives it.
   const payoffIdx = items.findIndex((it) => it.role === lens.payoff);
   if (payoffIdx !== -1 && fnOf(lens.payoff) === "payoff") {
@@ -366,7 +373,7 @@ export function checkArc<Role extends string>(
     }
   }
 
-  // Act-ratio pacing: each role's share of the arc's total duration against its beat's min/maxShare.
+  // Act-ratio pacing: each role's share of the arc's total duration against its min/maxShare.
   // Relative, so it reads the *shape* of the arc independent of overall length — a setup act that
   // swallows the runtime, a climax that never gets room. Runs only when every item has a duration
   // (a direction always does) and the total is positive, so an empty or duration-less arc stays silent.
@@ -378,21 +385,21 @@ export function checkArc<Role extends string>(
         roleDuration.set(it.role, (roleDuration.get(it.role) ?? 0) + (it.duration ?? 0));
       }
       const pct = (share: number) => Math.round(share * 100);
-      for (const beat of lens.beats) {
-        if (!presentRoles.has(beat.role)) continue;
-        const share = (roleDuration.get(beat.role) ?? 0) / total;
-        if (beat.maxShare !== undefined && share > beat.maxShare) {
+      for (const decl of lens.roles) {
+        if (!presentRoles.has(decl.role)) continue;
+        const share = (roleDuration.get(decl.role) ?? 0) / total;
+        if (decl.maxShare !== undefined && share > decl.maxShare) {
           findings.push({
-            code: "beat-overweight",
-            subject: beat.role,
-            message: `"${beat.role}" holds ${pct(share)}% of the runtime, over its ${pct(beat.maxShare)}% budget`,
+            code: "role-overweight",
+            subject: decl.role,
+            message: `"${decl.role}" holds ${pct(share)}% of the runtime, over its ${pct(decl.maxShare)}% budget`,
           });
         }
-        if (beat.minShare !== undefined && share < beat.minShare) {
+        if (decl.minShare !== undefined && share < decl.minShare) {
           findings.push({
-            code: "beat-underweight",
-            subject: beat.role,
-            message: `"${beat.role}" holds only ${pct(share)}% of the runtime, under its ${pct(beat.minShare)}% minimum`,
+            code: "role-underweight",
+            subject: decl.role,
+            message: `"${decl.role}" holds only ${pct(share)}% of the runtime, under its ${pct(decl.minShare)}% minimum`,
           });
         }
       }

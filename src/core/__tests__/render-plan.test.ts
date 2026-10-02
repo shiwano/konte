@@ -8,7 +8,7 @@ import { Composition } from "../dsl/composition/composition.js";
 import { pendingShot, shot, videoTimeline } from "./helpers/shot.js";
 import { testDirection } from "./helpers/direction.js";
 import { KonteError } from "../errors.js";
-import { buildRenderPlan, buildStageReviewPlan, frameAlignedDurations } from "../render-plan.js";
+import { buildRenderPlan, buildStageReviewPlan } from "../render-plan.js";
 import { StateManager } from "../state/index.js";
 
 function el(): React.ReactElement {
@@ -624,29 +624,6 @@ describe("buildRenderPlan", () => {
       expect(plan.shots[0]!.resolvedFiles.motion).toContain("output/motion.mp4");
       expect(plan.shots[0]!.notReadyAssets).toEqual([]);
     });
-  });
-});
-
-describe("frameAlignedDurations", () => {
-  const spans = (durations: number[], fps: number): number[] => [
-    ...frameAlignedDurations(
-      durations.map((duration, i) => ({ id: `s${i}`, duration })),
-      fps,
-    ).values(),
-  ];
-
-  it("leaves a span that already lands whole frames untouched", () => {
-    expect(spans([0.5, 3.5, 4], 24)).toEqual([0.5, 3.5, 4]);
-  });
-
-  it("cuts off-frame spans at the nearest frame so the cut keeps the direction's length", () => {
-    const result = spans([2.3, 3.1, 4.55, 4.55], 24);
-    expect(result.map((d) => Math.round(d * 24))).toEqual([55, 75, 109, 109]);
-    expect(result.reduce((a, b) => a + b, 0)).toBeCloseTo(14.5, 9);
-  });
-
-  it("gives a span shorter than half a frame one frame", () => {
-    expect(spans([0.01, 1], 24).map((d) => Math.round(d * 24))).toEqual([1, 23]);
   });
 });
 

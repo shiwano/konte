@@ -1,4 +1,12 @@
-import type { DeliveryUpscaleFn, Export, VideoDefinition, VideoFormat } from "../types/index.js";
+import type { ShotSongOf } from "./animatic-builders.js";
+import type {
+  DeliveryUpscaleFn,
+  Export,
+  StageDefinition,
+  VideoDefinition,
+  VideoFormat,
+} from "../types/index.js";
+import { KonteError } from "../errors.js";
 import { beginPromptCollection } from "./prompt-collect.js";
 import { assertRespellings, beginRespellCollection } from "./respell.js";
 import { scriptTexts } from "./shot-script.js";
@@ -147,6 +155,8 @@ export interface SoundtrackEntry<TId extends string = string> {
   id: string;
   src: MediaAsset<"audio">;
   options: SoundtrackOptions<TId>;
+  // The song bed konte lays under a piece with `policy.clock` (see `mixedSoundtracks`).
+  song?: true;
 }
 
 /**
@@ -179,6 +189,39 @@ export function soundtrack<const TId extends string = never>(
   }
   return { __soundtrackEntry: true, id, src, options };
 }
+
+// On a piece cut to its song a take's own audio is never heard — the song bed plays in its place —
+// so a shot the direction gives lines to sounds them with an `<Audio>` of its own.
+function assertLinesPlacedOverSong(
+  definition: StageDefinition,
+  scriptById: ReadonlyMap<string, readonly unknown[]>,
+): void {
+  for (const shot of definition.shots) {
+    if (shot.pending || !shot.shotFn || (scriptById.get(shot.id)?.length ?? 0) === 0) continue;
+    const picture = new Set(shot.pictureRefs ?? []);
+    if ((shot.stemRefs ?? []).some((ref) => !picture.has(ref))) continue;
+    throw new KonteError(
+      "SCRIPT_UNVOICED",
+      `Video shot "${shot.id}" has spoken lines in the direction but places no <Audio>. On a piece ` +
+        `cut to its song only the song bed plays under the takes, so place each line where the ` +
+        `animatic does: <Audio src={animatic.shot("${shot.id}").audio("<name>")} start={…}>, or ` +
+        `the reference voice it was made from.`,
+    );
+  }
+}
+
+/**
+ * What a stage's `overlay` build receives, on the timeline's clock: `duration` is the timeline's; on
+ * a direction with `policy.clock`, `beat(n)` is the second of the song's `n`th beat, and on one with
+ * `lyrics`, `lyrics` every placed line.
+ *
+ * The overlay is the one picture layer a timeline lays over every shot — lyrics sung across a cut,
+ * a title, a credit — the picture twin of `soundtracks`. Its build returns a `<Composition>` of text,
+ * images and animation (no `<Video>`, no `<Audio>`), so an entrance that starts in one shot carries
+ * on through the cut. The shot accepts sign it off; once they all stand, an overlay changed after
+ * them is reviewed on its own, at `<stage>:timeline#overlay`.
+ */
+export type OverlayContext<D = unknown> = { duration: number } & ShotSongOf<D>;
 
 /**
  * One already-placed shot's assets by name. Each accessor names the media kind it expects and checks
@@ -231,7 +274,7 @@ export interface DefineVideoOptions<D = unknown, Ids extends string = string> {
     // The aside starter. Unlike the animatic's it takes a build: an aside is never boarded, so the
     // video is where its picture comes from — usually a `file` asset holding finished media.
     asideShot: VideoAsideShotStarter<D>;
-  }) => StageTimelineReturn<Ids>;
+  }) => StageTimelineReturn<Ids, D>;
 }
 
 export function defineVideo<const D, Ids extends string = string>(
@@ -259,11 +302,19 @@ export function defineVideo<const D, Ids extends string = string>(
   const { definition } = defineStage({
     stage: "video",
     index,
-    runTimeline: (format) => opts.timeline({ format, shot, graphicShot, pendingShot, asideShot }),
+    runTimeline: (format) =>
+      opts.timeline({
+        format,
+        shot,
+        graphicShot,
+        pendingShot,
+        asideShot,
+      }),
     waivers: opts.waivers,
   });
 
   assertRespellings(definition.respellings, index.scriptById);
+  if (index.timeline.clock) assertLinesPlacedOverSong(definition, index.scriptById);
   attachCueKinds(definition, index.scriptById);
 
   const video: VideoDefinition = {

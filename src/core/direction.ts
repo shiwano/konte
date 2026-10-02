@@ -42,14 +42,27 @@ import {
 } from "./direction-check.js";
 import type {
   Direction,
+  DirectionClock,
   DirectionNode,
   GraphicShot,
   NarrativeShot,
   Setup,
   Shot,
 } from "./dsl/direction.js";
-import { isAsideShot, isGraphicShot } from "./dsl/direction.js";
+import {
+  isAsideShot,
+  isGraphicShot,
+  lineSingers,
+  lyricText,
+  placeDirectionLyrics,
+  readDirectionTimeline,
+  singersOf,
+  shotSpan,
+} from "./dsl/direction.js";
+import { type SongTake, songAddressOf } from "./song-take.js";
+import { songDriftBeats } from "./song-report.js";
 import type { PanelLane } from "./types/definition.js";
+import type { KonteState } from "./types/index.js";
 
 // A shot of the arc — every kind but an aside.
 export type ArcShot = NarrativeShot | GraphicShot;
@@ -69,19 +82,20 @@ export type DirectionFindingClass =
   | "locations"
   | "setups"
   | "staging"
-  | "typesetting";
+  | "typesetting"
+  | "song";
 
 const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
-  "missing-beat": "arc",
+  "missing-role": "arc",
   "no-payoff": "arc",
-  "beat-out-of-order": "arc",
+  "role-out-of-order": "arc",
   "lens-role-mismatch": "arc",
   "too-many-consecutive": "arc",
   "too-few-consecutive": "arc",
   "empty-synopsis": "arc",
   "unearned-payoff": "arc",
-  "beat-overweight": "pacing",
-  "beat-underweight": "pacing",
+  "role-overweight": "pacing",
+  "role-underweight": "pacing",
   "stage-order-mismatch": "stage",
   unrealized: "completeness",
   "character-unreferenced": "characters",
@@ -129,6 +143,11 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "join-unpinned": "staging",
   "join-unshown": "staging",
   "panel-unlinked": "staging",
+  // The song the piece is cut to. Never deferred.
+  "song-unreferenced": "song",
+  "song-off-tempo": "song",
+  "lyric-unplaced": "song",
+  "song-overrun": "stage",
 };
 
 export function classifyDirectionFinding(code: DirectionFindingCode): DirectionFindingClass {
@@ -150,6 +169,8 @@ const FIX_STAGE: Partial<Record<DirectionFindingCode, "reference" | "animatic">>
   "plate-unnested": "animatic",
   "axis-unrealized": "animatic",
   "setup-unconsumed": "animatic",
+  "song-unreferenced": "reference",
+  "song-off-tempo": "reference",
 };
 
 export type FindingFixStage = "direction" | "reference" | "animatic";
@@ -190,7 +211,7 @@ export function reportableDirectionFindings(
 }
 
 // The waiver key that cancels a finding: `<code>` for subject-less findings (no-payoff) or
-// `<code>_<subject>` for an instance (missing-beat_disruption, lens-role-mismatch_08). No finding
+// `<code>_<subject>` for an instance (missing-role_disruption, lens-role-mismatch_08). No finding
 // code contains an underscore (they are all hyphenated), so the first one splits the key back apart
 // however the subject (role / shot id / id-range / stage) is spelled — and the key stays a single
 // segment of its review address (`sequence.waivers.<key>`), where a `:` would need escaping and a
@@ -213,7 +234,7 @@ function isWaivableCode(code: string): code is DirectionFindingCode {
 }
 
 // The one typo the separator invites: a key written with `_` where the code's own hyphens belong
-// (`beat_overweight_problem`). Re-hyphenate and take the longest code that opens the key, so the
+// (`role_overweight_problem`). Re-hyphenate and take the longest code that opens the key, so the
 // error can name the key the author meant instead of listing the whole vocabulary.
 function waiverKeySuggestion(key: string): string | undefined {
   const hyphenated = key.replace(/_/g, "-");
@@ -251,9 +272,9 @@ type DirectionErrorCode =
   | "empty-direction"
   | "duplicate-id"
   | "unknown-lens"
-  | "payoff-not-in-beats"
+  | "payoff-not-in-roles"
   | "payoff-function-mismatch"
-  | "empty-beats"
+  | "empty-roles"
   | "invalid-share"
   | "character-invalid-id"
   | "character-empty-name"
@@ -331,7 +352,16 @@ type DirectionErrorCode =
   // waivable: a boundary where a long take is possible and nothing says whether it is one, and a
   // `continuous` at a boundary no unbroken take could cross.
   | "join-undeclared"
-  | "join-impossible";
+  | "join-impossible"
+  // A shot whose span is not the one the policy counts in: `beats` on a direction with
+  // `policy.clock`, `duration` on one without, and never both.
+  | "shot-span-mismatch"
+  // The lyrics' own contract: they are sung on the song clock, by declared characters, in lines
+  // with words in them.
+  | "lyrics-without-clock"
+  | "lyrics-singer-unknown"
+  | "lyrics-singer-empty"
+  | "lyrics-empty-line";
 
 type DirectionStructureError = {
   code: DirectionErrorCode;
@@ -582,6 +612,114 @@ function checkTypesetting(direction: Direction): DirectionFinding[] {
   ];
 }
 
+// What the song class reads off state: the take of the song the piece is read against (see
+// `resolveSongTake`), null while no take has been read, and how long that take plays, null while
+// unmeasured. Undefined at a caller is "state could not be read", and the class is then not
+// evaluated.
+export type SongTakeState = { take: SongTake | null; durationSec: number | null };
+
+// How far off the declared grid a take may end up by the end of the timeline: a quarter beat.
+const OFF_TEMPO_BEATS = 0.25;
+
+// The song the clock counts on must be a reference asset. Its take must keep that tempo across the timeline, and
+// every lyric line must be found in it or placed by hand.
+function checkSong(
+  direction: Direction,
+  referenceAssetNames: readonly string[],
+  song: SongTakeState,
+): DirectionFinding[] {
+  const clock = direction.policy?.clock;
+  if (!clock) return [];
+  if (!referenceAssetNames.includes(clock.song)) {
+    return [
+      {
+        code: "song-unreferenced",
+        message:
+          `policy.clock.song is "${clock.song}", but reference.tsx exposes no ` +
+          `reference:${clock.song} — declare the song there, generated at direction.policy.clock.bpm`,
+      },
+    ];
+  }
+  const take = song.take;
+  if (!take) return [];
+  const findings: DirectionFinding[] = [];
+  const beats = collectShots(direction).reduce((sum, s) => sum + (s.beats ?? 0), 0);
+  const drift = songDriftBeats(take.analysis.bpm, clock.bpm, beats);
+  if (drift >= OFF_TEMPO_BEATS) {
+    findings.push({
+      code: "song-off-tempo",
+      message:
+        `${take.address} ${take.variantId} plays at ${take.analysis.bpm} BPM against the declared ` +
+        `${clock.bpm} — by the end of the ${beats}-beat timeline it is ${drift.toFixed(2)} beats off ` +
+        `the grid the shots are cut on. Regenerate the song at ${clock.bpm} BPM, or waive a drift ` +
+        `the cut can live with`,
+    });
+  }
+  for (const line of placeDirectionLyrics(direction, take)) {
+    if (line.start !== null) continue;
+    findings.push({
+      code: "lyric-unplaced",
+      subject: line.key,
+      message:
+        `lyric line ${line.key} ("${line.text}") is not clearly sung anywhere in ${take.address} ` +
+        `${take.variantId} — a person places it on the song's review page (\`konte preview ` +
+        `reference\`), or \`konte song set ${take.variantId} --line ${line.key} --start <sec> ` +
+        `--end <sec>\``,
+    });
+  }
+  return findings;
+}
+
+// The timeline a take of the song is cut on ends within a frame of the take.
+function checkSongOverrun(direction: Direction, song: SongTakeState): DirectionFinding[] {
+  const { take, durationSec } = song;
+  if (!direction.policy?.clock || !take || durationSec === null) return [];
+  const timeline = readDirectionTimeline(direction, take);
+  const last = [...timeline.timings.values()].at(-1);
+  const end = last ? last.start + last.duration : 0;
+  if (end - durationSec <= 1 / timeline.fps) return [];
+  return [
+    {
+      code: "song-overrun",
+      message:
+        `the timeline runs ${end.toFixed(2)}s, past the end of ${take.address} ${take.variantId} ` +
+        `(${durationSec.toFixed(2)}s) — shorten the cut, or accept a longer take of the song`,
+    },
+  ];
+}
+
+// Refuses an accept of a song take with a lyric line nobody placed on it.
+export function assertSongLinesPlaced(
+  direction: Direction | null,
+  state: KonteState,
+  address: string,
+  variantId: string,
+): void {
+  const refusal = songLinesRefusal(direction, state, address, variantId);
+  if (refusal) throw new KonteError("SONG_LINES_UNPLACED", refusal);
+}
+
+// Why a song take cannot be accepted yet, or null when it can (or the address is not the song).
+export function songLinesRefusal(
+  direction: Direction | null,
+  state: KonteState,
+  address: string,
+  variantId: string,
+): string | null {
+  if (!direction?.lyrics || songAddressOf(direction) !== address) return null;
+  const analysis = state.assets[address]?.variants?.[variantId]?.song;
+  const unplaced = placeDirectionLyrics(
+    direction,
+    analysis ? { address, variantId, analysis } : null,
+  ).filter((line) => line.start === null);
+  if (unplaced.length === 0) return null;
+  return (
+    `${address} ${variantId} has ${unplaced.length} lyric line(s) placed nowhere on it ` +
+    `(${unplaced.map((l) => l.key).join(", ")}) — place them on the song's track in ` +
+    "`konte preview reference`"
+  );
+}
+
 // Shots whose script contradicts the declared speech policy. `none` forbids any script line;
 // `no-dialogue` forbids spoken lines (`{character}`/`{speaker}`) while allowing `{narration}`; `free`
 // imposes no constraint. A waivable finding (`unexpected-script_<shotId>`) so a deliberate exception
@@ -649,14 +787,28 @@ function checkFusedShots(direction: Direction): DirectionFinding[] {
   return findings;
 }
 
-// A shot whose `duration` is off the 0.5s grid, or not positive. A shot's span is a window the
-// render cuts the take to, so the grid is the one every legal `fps` (a multiple of 8) lands a whole
-// frame on. A waivable finding (`off-grid-duration_<shotId>`).
+// A shot whose span is off its grid, or not positive. A shot's span is a window the render cuts the
+// take to: in seconds the grid is the one every legal `fps` (a multiple of 8) lands a whole frame on;
+// on the song clock it is the beat, asides included. A waivable finding (`off-grid-duration_<shotId>`).
 const DURATION_GRID = 0.5;
 
 function checkDurations(direction: Direction): DirectionFinding[] {
   const findings: DirectionFinding[] = [];
+  const clock = direction.policy?.clock;
+  if (clock) {
+    for (const s of collectShots(direction)) {
+      if (s.beats === undefined) continue;
+      if (s.beats > 0 && Number.isInteger(s.beats)) continue;
+      findings.push({
+        code: "off-grid-duration",
+        subject: s.id,
+        message: `shot ${s.id} runs ${s.beats} beats — a shot's span on the song clock is a positive whole number of beats, so every cut lands on a beat; round it, or waive a deliberate off-beat cut`,
+      });
+    }
+    return findings;
+  }
   for (const s of collectArcShots(direction)) {
+    if (s.duration === undefined) continue;
     const steps = s.duration / DURATION_GRID;
     if (s.duration <= 0 || Math.abs(steps - Math.round(steps)) > 1e-9) {
       findings.push({
@@ -983,25 +1135,25 @@ function sharesSubject(previous: ShotFrame, frame: ShotFrame): boolean {
 
 function lensSpecErrors(lens: LensSpec<string>, who: string): DirectionStructureError[] {
   const errors: DirectionStructureError[] = [];
-  if (lens.beats.length === 0) {
+  if (lens.roles.length === 0) {
     errors.push({
-      code: "empty-beats",
+      code: "empty-roles",
       subject: lens.name,
-      message: `${who} "${lens.name}" has no beats`,
+      message: `${who} "${lens.name}" declares no roles`,
     });
     return errors;
   }
-  if (!lens.beats.some((b) => b.role === lens.payoff)) {
+  if (!lens.roles.some((b) => b.role === lens.payoff)) {
     errors.push({
-      code: "payoff-not-in-beats",
+      code: "payoff-not-in-roles",
       subject: lens.name,
-      message: `${who} "${lens.name}" declares payoff "${lens.payoff}", which is not one of its beats`,
+      message: `${who} "${lens.name}" declares payoff "${lens.payoff}", which is not one of its roles`,
     });
   }
-  // A beat carries the dramatic function its role performs, so a lens whose declared climax is a
+  // A role carries the dramatic function it performs, so a lens whose declared climax is a
   // grounding or settling role is misusing the vocabulary — a definition bug, never a creative
-  // call. A container beat with no `fn` is exempt — it claims no function to contradict.
-  const payoffFunction = lens.beats.find((b) => b.role === lens.payoff)?.fn;
+  // call. A container role with no `fn` is exempt — it claims no function to contradict.
+  const payoffFunction = lens.roles.find((b) => b.role === lens.payoff)?.fn;
   if (payoffFunction !== undefined && payoffFunction !== "payoff") {
     errors.push({
       code: "payoff-function-mismatch",
@@ -1012,28 +1164,28 @@ function lensSpecErrors(lens: LensSpec<string>, who: string): DirectionStructure
   // Share bounds are fractions of the total, so an out-of-[0,1] value or an inverted min/max is a
   // lens-definition bug (never a creative call) — the act-ratio check would then be meaningless or
   // dead. Hard-fail it here alongside the other LensSpec validity errors.
-  for (const beat of lens.beats) {
+  for (const decl of lens.roles) {
     for (const [field, value] of [
-      ["minShare", beat.minShare],
-      ["maxShare", beat.maxShare],
+      ["minShare", decl.minShare],
+      ["maxShare", decl.maxShare],
     ] as const) {
       if (value !== undefined && (value < 0 || value > 1)) {
         errors.push({
           code: "invalid-share",
-          subject: `${lens.name}.${beat.role}`,
-          message: `${who} "${lens.name}" beat "${beat.role}" has ${field} ${value}, which must be a fraction in [0, 1]`,
+          subject: `${lens.name}.${decl.role}`,
+          message: `${who} "${lens.name}" role "${decl.role}" has ${field} ${value}, which must be a fraction in [0, 1]`,
         });
       }
     }
     if (
-      beat.minShare !== undefined &&
-      beat.maxShare !== undefined &&
-      beat.minShare > beat.maxShare
+      decl.minShare !== undefined &&
+      decl.maxShare !== undefined &&
+      decl.minShare > decl.maxShare
     ) {
       errors.push({
         code: "invalid-share",
-        subject: `${lens.name}.${beat.role}`,
-        message: `${who} "${lens.name}" beat "${beat.role}" has minShare ${beat.minShare} greater than maxShare ${beat.maxShare}`,
+        subject: `${lens.name}.${decl.role}`,
+        message: `${who} "${lens.name}" role "${decl.role}" has minShare ${decl.minShare} greater than maxShare ${decl.maxShare}`,
       });
     }
   }
@@ -1173,6 +1325,70 @@ function withinErrors(direction: Direction): DirectionStructureError[] {
   return errors;
 }
 
+// The lyric lines in singing order, each with its place in the sections — `<section>.<line>`, both
+// counted from 1, the subject a finding about the line names.
+export function lyricLines(
+  direction: Direction,
+): { key: string; text: string; singer: readonly string[]; section: string }[] {
+  return (direction.lyrics ?? []).flatMap((section, s) =>
+    section.lines.map((line, l) => ({
+      key: `${s + 1}.${l + 1}`,
+      text: lyricText(line),
+      singer: lineSingers(section, line),
+      section: section.label,
+    })),
+  );
+}
+
+// Every `characters` id the lyrics name, on a section or a line.
+export function lyricSingerIds(direction: Direction): Set<string> {
+  const ids = new Set<string>();
+  for (const section of direction.lyrics ?? []) {
+    for (const id of singersOf(section.singer)) ids.add(id);
+    for (const line of section.lines) {
+      if (typeof line !== "string") for (const id of singersOf(line.singer)) ids.add(id);
+    }
+  }
+  return ids;
+}
+
+function validateLyrics(direction: Direction): DirectionStructureError[] {
+  const lyrics = direction.lyrics;
+  if (!lyrics) return [];
+  const errors: DirectionStructureError[] = [];
+  if (!direction.policy?.clock) {
+    errors.push({
+      code: "lyrics-without-clock",
+      message: "`lyrics` are sung on the song `policy.clock` names — declare the clock",
+    });
+  }
+  for (const id of lyricSingerIds(direction)) {
+    if (Object.hasOwn(direction.characters ?? {}, id)) continue;
+    errors.push({
+      code: "lyrics-singer-unknown",
+      subject: id,
+      message: `lyrics singer "${id}" is not a declared character id`,
+    });
+  }
+  for (const line of lyricLines(direction)) {
+    if (line.singer.length === 0) {
+      errors.push({
+        code: "lyrics-singer-empty",
+        subject: line.key,
+        message: `lyric line ${line.key} is sung by nobody — name at least one singer`,
+      });
+    }
+    if (line.text.trim() === "") {
+      errors.push({
+        code: "lyrics-empty-line",
+        subject: line.key,
+        message: `lyric line ${line.key} has no words — drop it or write what is sung`,
+      });
+    }
+  }
+  return errors;
+}
+
 // Hard, never-waivable structural validity (DirectionErrorCode). Returns errors instead of throwing
 // so doctor can report them and the gate can decide to abort.
 export function validateDirectionStructure(direction: Direction): DirectionStructureError[] {
@@ -1189,6 +1405,24 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
       });
     }
   }
+
+  // Which span a shot owes is the policy's: `beats` on the song clock, `duration` without one. The
+  // type layer refuses both mistakes on a literal; this is the computed direction's receiver.
+  const clocked = direction.policy?.clock !== undefined;
+  for (const s of shots) {
+    const owed = clocked ? s.beats : s.duration;
+    const foreign = clocked ? s.duration : s.beats;
+    if (typeof owed === "number" && foreign === undefined) continue;
+    errors.push({
+      code: "shot-span-mismatch",
+      subject: s.id,
+      message: clocked
+        ? `shot "${s.id}" must declare its span as \`beats\` and nothing else — the direction keeps time with policy.clock`
+        : `shot "${s.id}" must declare its span as \`duration\` in seconds and nothing else — \`beats\` counts on a policy.clock this direction does not declare`,
+    });
+  }
+
+  errors.push(...validateLyrics(direction));
 
   const shotIds = collectShotIds(direction);
   if (shotIds.length === 0) {
@@ -1855,6 +2089,8 @@ function buildArcNode(
   // framing checks read them off the item; an unknown setup leaves both undefined, which those checks
   // already skip (`validateDirectionStructure` reports it as `setup-unknown`).
   setups: Record<string, Setup> | undefined,
+  // The song clock, so a shot's span is counted in the unit it was written in.
+  clock: DirectionClock | undefined,
   // The node's field path in direction.ts — the same path its review addresses are built from.
   path: readonly string[],
   isRoot: boolean,
@@ -1891,7 +2127,7 @@ function buildArcNode(
         id: s.id,
         role: s.role,
         synopsis: s.action,
-        duration: s.duration,
+        duration: shotSpan(s, clock),
         ...camera,
         ...(afterGap ? { afterGap: true as const } : {}),
       });
@@ -1913,6 +2149,7 @@ function buildArcNode(
         lenses,
         realizedIds,
         setups,
+        clock,
         directionChildNodePath(path, child.id ?? ""),
         false,
       ),
@@ -1926,6 +2163,7 @@ function buildArcTree(direction: Direction, realizedIds?: readonly string[]): Ar
     direction.lenses,
     realizedIds,
     direction.setups,
+    direction.policy?.clock,
     DIRECTION_ROOT_PATH,
     true,
   );
@@ -1984,6 +2222,9 @@ export function checkDirection(
     // not be read, so the two stage-side staging findings stay silent and the class's waivers are
     // never flagged stale.
     stagingStage?: StagingStageState;
+    // The take of the song the piece is read against. Same contract again: undefined means state
+    // could not be read, so the song class is not evaluated.
+    songTake?: SongTakeState;
   } = {},
 ): DirectionCheckResult {
   const structureErrors = validateDirectionStructure(direction);
@@ -1998,6 +2239,7 @@ export function checkDirection(
     evaluatedClasses.add("characters");
     evaluatedClasses.add("props");
     evaluatedClasses.add("locations");
+    if (options.songTake !== undefined) evaluatedClasses.add("song");
   }
   // `unused-setup` reads the direction alone, but the two plate findings need the board, and
   // stale-waiver detection is per CLASS: marking the class evaluated without it would flag a live
@@ -2014,7 +2256,11 @@ export function checkDirection(
   // — a leaf's shot arc, or a branch's arc over its children (recursively). The engine recurses, so
   // the tree, not this function, decides depth.
   const groups: FoldGroup[] = [];
-  walkArcTree(buildArcTree(direction, options.realizedIds), options.stage, groups);
+  // A direction with no shots yet is one being written after its song: `empty-direction` says so,
+  // and an arc of nothing would only list every role as missing.
+  if (directionHasShots(direction)) {
+    walkArcTree(buildArcTree(direction, options.realizedIds), options.stage, groups);
+  }
 
   // Characters and speech are piece-wide (not per-node), so they fold against the ROOT node's waiver bag —
   // the same object the root arc's group uses, so stale detection judges the shared bag once. Adding
@@ -2024,11 +2270,14 @@ export function checkDirection(
   const rootBag = direction.sequence.waivers ?? {};
 
   if (evaluatedClasses.has("characters")) {
+    // A singer is on screen singing whatever the actions say; singing needs no cast voice.
+    const alwaysUsed = collectScriptCharacterIds(direction);
+    for (const id of lyricSingerIds(direction)) alwaysUsed.add(id);
     const characterFindings = checkCharacters(
       entityRefs(direction.characters),
       options.referenceAssetNames ?? [],
       collectActions(direction),
-      collectScriptCharacterIds(direction),
+      alwaysUsed,
     );
     // The voice checks share the characters class and the root bag, so they fold with the look
     // findings as one group — the cast is one thing the reviewer signs off on.
@@ -2044,6 +2293,22 @@ export function checkDirection(
       findings: [...characterFindings, ...voiceFindings],
       waivers: rootBag,
       classFilter: new Set(["characters"]),
+    });
+  }
+
+  if (evaluatedClasses.has("stage") && options.songTake !== undefined) {
+    groups.push({
+      findings: checkSongOverrun(direction, options.songTake),
+      waivers: rootBag,
+      classFilter: new Set(["stage"]),
+    });
+  }
+
+  if (evaluatedClasses.has("song")) {
+    groups.push({
+      findings: checkSong(direction, options.referenceAssetNames ?? [], options.songTake!),
+      waivers: rootBag,
+      classFilter: new Set(["song"]),
     });
   }
 
@@ -2194,6 +2459,7 @@ export function gatedClasses(command: SpendCommand, stage: Stage): Set<Direction
     "setups",
     "staging",
     "typesetting",
+    "song",
   ];
   if (command === "export" && stage === "video") base.push("completeness");
   return new Set(base);
@@ -2211,6 +2477,7 @@ export function assertDirectionGate(
     referenceAssetNames?: readonly string[];
     animaticSetups?: AnimaticSetupState;
     stagingStage?: StagingStageState;
+    songTake?: SongTakeState;
     // Pre-acceptance, characters findings are deferred (see reportableDirectionFindings) so the
     // acceptance gate that runs after this one surfaces the actionable error instead.
     directionAccepted: boolean;
@@ -2222,6 +2489,7 @@ export function assertDirectionGate(
     referenceAssetNames: options.referenceAssetNames,
     animaticSetups: options.animaticSetups,
     stagingStage: options.stagingStage,
+    songTake: options.songTake,
   });
   const active = reportableDirectionFindings(allActive, options.directionAccepted);
 

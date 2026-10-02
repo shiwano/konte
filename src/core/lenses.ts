@@ -1,11 +1,11 @@
 // The curated built-in lens registry and the `Pleasure` vocabulary every direction draws from, plus
 // the by-name lookup the doctor resolves `node.lens` against. Kept apart from the arc engine
 // (`direction-check.ts`) so that engine stays generic over `Role` and data-free. A lens declares its
-// own beats, and each beat carries the dramatic `fn` the theory checks read — there is no global role
+// own roles, and each carries the dramatic `fn` the theory checks read — there is no global role
 // enum or function map, so a role is just a lens-scoped string. Custom lenses (`defineLens`) slot in
 // beside these — see `resolveLens` in `direction.ts`.
 
-import type { Beat, BeatFunction, LensSpec } from "./direction-check.js";
+import type { LensRole, RoleFunction, LensSpec } from "./direction-check.js";
 
 /**
  * The emotional reward a video aims for — orthogonal to the lens (structure): a `mini-drama` can be
@@ -44,7 +44,7 @@ export const PLEASURE_GLOSS: Record<Pleasure, string> = {
 // The five functions, named for a reader rather than for the theory. This is the one structural
 // word the review page prints: unlike a role ("method"), "payoff" is a claim about the piece that a
 // reviewer can dispute — *this* is the high point? — without knowing any of the vocabulary behind it.
-export const BEAT_FUNCTION_LABEL: Record<BeatFunction, string> = {
+export const ROLE_FUNCTION_LABEL: Record<RoleFunction, string> = {
   ground: "opening",
   turn: "turning point",
   build: "rising",
@@ -53,11 +53,11 @@ export const BEAT_FUNCTION_LABEL: Record<BeatFunction, string> = {
 };
 
 /**
- * The built-in lenses. Each beat names a `role` and the dramatic `fn` it performs in this lens, so
- * the engine checks theory ("a climax must be earned") off the beat itself. A beat with no `fn` is a
+ * The built-in lenses. Each names its `roles` and the dramatic `fn` each performs in this lens, so
+ * the engine checks theory ("a climax must be earned") off the role itself. A role with no `fn` is a
  * container, exempt from the function checks — no built-in declares one; a project opts out of the
- * arc engine in its own `defineLens`. Share budgets are act-ratio guards — a grounding beat past ~40%
- * of the runtime is front-loaded, a settling beat past ~25% outstays the climax it is meant to let
+ * arc engine in its own `defineLens`. Share budgets are act-ratio guards — a grounding role past ~40%
+ * of the runtime is front-loaded, a settling role past ~25% outstays the climax it is meant to let
  * ring. Both are waivable pacing findings, never targets. A lens over shots and a lens over sequences
  * live in one registry: any node names any lens, and the checker only flags a role its lens does not
  * declare (a waivable `lens-role-mismatch`).
@@ -66,7 +66,7 @@ export const BUILTIN_LENSES = [
   {
     name: "mini-drama",
     payoff: "hero",
-    beats: [
+    roles: [
       { role: "ordinary", fn: "ground", maxShare: 0.4 },
       { role: "disruption", fn: "turn" },
       { role: "pressure", fn: "build", maxConsecutive: 3 },
@@ -77,7 +77,7 @@ export const BUILTIN_LENSES = [
   {
     name: "comedy",
     payoff: "button",
-    beats: [
+    roles: [
       { role: "setup", fn: "ground" },
       { role: "violation", fn: "turn" },
       { role: "escalation", fn: "build", required: false }, // optional — a tight gag can skip the build, and a lone escalation still lands
@@ -87,7 +87,7 @@ export const BUILTIN_LENSES = [
   {
     name: "satisfying-process",
     payoff: "completion",
-    beats: [
+    roles: [
       { role: "before", fn: "ground", maxShare: 0.4 }, // the deficient starting state — shared with transformation
       { role: "method", fn: "build" },
       { role: "rhythm", fn: "build", minConsecutive: 2 }, // rhythm only reads as rhythm once it repeats
@@ -98,7 +98,7 @@ export const BUILTIN_LENSES = [
   {
     name: "mood-piece",
     payoff: "peak",
-    beats: [
+    roles: [
       { role: "atmosphere", fn: "ground" }, // no ceiling — atmosphere is the genre's substance, not its setup
       { role: "motif", fn: "build" },
       { role: "variation", fn: "build" },
@@ -109,7 +109,7 @@ export const BUILTIN_LENSES = [
   {
     name: "transformation",
     payoff: "reveal",
-    beats: [
+    roles: [
       { role: "before", fn: "ground", maxShare: 0.4 },
       { role: "process", fn: "build", minConsecutive: 2 }, // the before/after contrast is earned by visible work
       { role: "reveal", fn: "payoff" },
@@ -119,7 +119,7 @@ export const BUILTIN_LENSES = [
   {
     name: "product-demo",
     payoff: "result",
-    beats: [
+    roles: [
       { role: "problem", fn: "ground", maxShare: 0.4 }, // dwell on the pain past ~40% and the demo reads as a complaint
       { role: "solution", fn: "turn" },
       { role: "demonstration", fn: "build" },
@@ -130,12 +130,12 @@ export const BUILTIN_LENSES = [
   // The one shape with no conflict in it: `ten` lands a juxtaposition rather than an antagonist, and
   // `ketsu` reframes it instead of resolving a fight. Hence the skeleton no other lens has — the
   // turn arrives *after* the build, and the payoff ends the piece with nothing to settle. Roles stay
-  // in romaji: they are the lens's own vocabulary, and "twist" would name a beat this lens does not
+  // in romaji: they are the lens's own vocabulary, and "twist" would name a role this lens does not
   // mean. It reads at either scale — four panels of a strip, or four parts of a long piece.
   {
     name: "kishotenketsu",
     payoff: "ketsu",
-    beats: [
+    roles: [
       { role: "ki", fn: "ground", maxShare: 0.4 },
       { role: "sho", fn: "build" },
       { role: "ten", fn: "turn" },
@@ -145,7 +145,7 @@ export const BUILTIN_LENSES = [
   {
     name: "three-act",
     payoff: "climax-act",
-    beats: [
+    roles: [
       { role: "setup-act", fn: "ground", maxShare: 0.4 }, // an act-1 past ~40% of the runtime is front-loaded
       { role: "confrontation-act", fn: "build" },
       { role: "climax-act", fn: "payoff", minShare: 0.15 }, // the payoff act below ~15% reads as rushed
@@ -165,7 +165,7 @@ export function findBuiltinLens(name: string): LensSpec<string> | undefined {
   return BUILTIN_LENSES.find((l) => l.name === name);
 }
 
-// A custom lens the author wrote: it declares a beat order, each beat's dramatic `fn`, and the payoff.
+// A custom lens the author wrote: it declares a role order, each role's dramatic `fn`, and the payoff.
 // Takes a readonly-friendly shape (an `as const` literal is accepted) and returns a mutable
 // `LensSpec`, so the result drops straight into `defineDirection`'s `lenses`. There is no custom
 // checking code: the resolved spec flows through the same `checkArc` as a built-in, producing the
@@ -173,9 +173,9 @@ export function findBuiltinLens(name: string): LensSpec<string> | undefined {
 type LensSpecInput = {
   name: string;
   payoff: string;
-  beats: readonly Beat<string>[];
+  roles: readonly LensRole<string>[];
 };
 
 export function defineLens(spec: LensSpecInput): LensSpec<string> {
-  return { name: spec.name, payoff: spec.payoff, beats: spec.beats.map((b) => ({ ...b })) };
+  return { name: spec.name, payoff: spec.payoff, roles: spec.roles.map((b) => ({ ...b })) };
 }

@@ -6,7 +6,7 @@ import type { AssetDefinition, VideoFormat } from "../types/index.js";
 import type { ScriptLine } from "../types/script.js";
 import { lineText } from "../types/script.js";
 import type { ShotScript } from "./shot-script.js";
-import type { AnyShotInput, MediaAsset, SoundtrackEntry } from "./builders.js";
+import type { AnyShotInput, MediaAsset, OverlayContext, SoundtrackEntry } from "./builders.js";
 import { readAnimaticShot } from "./animatic.js";
 import { type AnimaticRef, createAnimaticRef } from "./animatic-ref.js";
 import type {
@@ -192,6 +192,26 @@ export type GraphicShotContext<
 };
 
 /**
+ * `beat(n)`: the second, from the shot's head, of its `n`th beat — read off the song's own grid, so a
+ * beat lands on the same frame whichever shot counts to it. Only a direction with `policy.clock` has
+ * one.
+ */
+export type ShotClockContext = { beat: (n: number) => number };
+export type ShotClockOf<D> = D extends { policy: { clock: object } } ? ShotClockContext : {};
+
+/**
+ * `lyrics`: the lyric lines the shot hears, each with the `characters` ids singing it and its
+ * seconds from the shot's head — where the song take sings it. A line sung from before the shot
+ * starts at 0; one sung past its end runs past it. Only a direction with `lyrics` has them.
+ */
+export type ShotLyricsContext = {
+  lyrics: readonly { text: string; singer: readonly string[]; start: number; end: number }[];
+};
+export type ShotLyricsOf<D> = D extends { lyrics: object } ? ShotLyricsContext : {};
+// Everything a shot's build reads off the song: its beat grid and its lines.
+export type ShotSongOf<D> = ShotClockOf<D> & ShotLyricsOf<D>;
+
+/**
  * The shot values an ASIDE build receives. The four fields describing a camera view are absent, not
  * blank. Only the video builds an aside.
  */
@@ -276,9 +296,10 @@ export interface StageChain<
         LineupOf<D, Head<TRest>>,
         LineupToOf<D, Head<TRest>>,
         CutinOf<D, Head<TRest>>
-      > & {
-        shot: import("./builders.js").StageShots<TIds>;
-      },
+      > &
+        ShotSongOf<D> & {
+          shot: import("./builders.js").StageShots<TIds>;
+        },
     ) => ReturnType<ShotFunction>,
   ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
   // The graphic successor: a shot of the arc with no camera. Its composition is the picture itself —
@@ -286,9 +307,10 @@ export interface StageChain<
   nextGraphicShot(
     id: GraphicIdOf<D, Head<TRest>>,
     build: (
-      ctx: GraphicShotContext<ScriptOf<D, Head<TRest>>, CutinOf<D, Head<TRest>>> & {
-        shot: import("./builders.js").StageShots<TIds>;
-      },
+      ctx: GraphicShotContext<ScriptOf<D, Head<TRest>>, CutinOf<D, Head<TRest>>> &
+        ShotSongOf<D> & {
+          shot: import("./builders.js").StageShots<TIds>;
+        },
     ) => ReturnType<ShotFunction>,
   ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
   // The undeveloped successor: everything about it is the direction's, so it takes nothing but the
@@ -301,7 +323,7 @@ export interface StageChain<
   nextAsideShot(
     id: AsideIdOf<D, Head<TRest>>,
     ...build: TStage extends "video"
-      ? [build: (ctx: AsideShotContext) => ReturnType<ShotFunction>]
+      ? [build: (ctx: AsideShotContext & ShotSongOf<D>) => ReturnType<ShotFunction>]
       : []
   ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
 }
@@ -320,10 +342,12 @@ export type StageTerminal<TIds extends string = string> = {
  * for an empty or not-yet-authored stage), plus optional timeline-spanning `soundtracks` whose
  * anchors are checked against the shots' ids.
  */
-export type StageTimelineReturn<Ids extends string = string> = {
+export type StageTimelineReturn<Ids extends string = string, D = unknown> = {
   shots: StageTerminal<Ids> | readonly never[];
   // NoInfer: the shot-id set is fixed by the chain; soundtrack anchors are checked against it.
   soundtracks?: ReadonlyArray<SoundtrackEntry<NoInfer<Ids>>>;
+  // The picture layer over every shot (see `OverlayContext`).
+  overlay?: (ctx: OverlayContext<D>) => React.ReactElement;
 };
 
 /**
@@ -383,7 +407,7 @@ export interface DefineAnimaticOptions<
     asideShot: StageAsideShotStarter<D>;
     // The plates `plates` returned, each as `{ image, prompt }` — `{}` when it declared none.
     plates: TPlates;
-  }) => StageTimelineReturn<Ids>;
+  }) => StageTimelineReturn<Ids, D>;
 }
 
 /**
@@ -479,7 +503,13 @@ export function defineAnimatic<
   attachCueKinds(definition, index.scriptById);
   splitNarrationStems(definition);
 
-  return Object.assign(definition, createAnimaticRef(definition, built.assetKindsByShot));
+  const songShotStarts = index.timeline.clock
+    ? new Map([...index.timeline.timings].map(([id, timing]) => [id, timing.start]))
+    : undefined;
+  return Object.assign(
+    definition,
+    createAnimaticRef(definition, built.assetKindsByShot, songShotStarts),
+  );
 }
 
 // A narration cue feeds `#narrationStem`, never the `#stem` a motion model takes.

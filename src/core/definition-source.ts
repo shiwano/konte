@@ -2,6 +2,8 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { sha256Hex } from "./content-hash.js";
+import { songReadingsOf } from "./song-take.js";
+import { KonteStateSchema } from "./types/state.js";
 import { STAGE_ENTRY_FILE, WORKSPACE_MARKER } from "./roots.js";
 
 // The files a video's definitions are evaluated from: its stage entries and patch scripts, and the
@@ -10,6 +12,10 @@ import { STAGE_ENTRY_FILE, WORKSPACE_MARKER } from "./roots.js";
 // while this fingerprint still matches is not looking at a changed definition — its own loaded
 // definitions are older than the files. That is the one case the hash check must not read as
 // "definition changed": the job is right and the process is stale.
+//
+// One more input is not a file: the reading of the song take `defineDirection` places its lyric lines
+// with. Accepting another take or correcting its reading moves the lyrics a build reads, so it moves
+// the fingerprint too; a take read beside it does not.
 //
 // A module imported from outside these roots (a shared helper beside the workspace) is not
 // covered — an edit there changes the definition without moving the fingerprint, which the judge
@@ -67,5 +73,18 @@ export async function computeDefinitionSourceFingerprint(videoRoot: string): Pro
   for (const file of files) {
     parts.push(path.relative(videoRoot, file), "\0", await fs.readFile(file), "\0");
   }
+  parts.push(await songReadings(videoRoot));
   return sha256Hex(...parts).slice(0, 16);
+}
+
+// The song reading of the video's state, "" where it cannot be read.
+async function songReadings(videoRoot: string): Promise<string> {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await fs.readFile(path.join(videoRoot, "konte.state.json"), "utf-8"));
+  } catch {
+    return "";
+  }
+  const parsed = KonteStateSchema.safeParse(raw);
+  return parsed.success ? songReadingsOf(parsed.data) : "";
 }

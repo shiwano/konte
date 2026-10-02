@@ -48,9 +48,9 @@ describe("direction addressing", () => {
     expect(
       formatDirectionWaiverAddress(
         directionChildNodePath(DIRECTION_ROOT_PATH, "s1"),
-        "missing-beat_before",
+        "missing-role_before",
       ),
-    ).toBe("direction:sequence.sequences.s1.waivers.missing-beat_before");
+    ).toBe("direction:sequence.sequences.s1.waivers.missing-role_before");
   });
 
   it("routes a direction address to the direction stream", () => {
@@ -74,7 +74,7 @@ describe("direction addressing", () => {
     expect(() => assertValidAddressScope("direction:sequence.sequences.s1")).not.toThrow();
     expect(() => assertValidAddressScope("direction:sequence.sequences.s1.shots.01")).not.toThrow();
     expect(() =>
-      assertValidAddressScope("direction:sequence.waivers.missing-beat_before"),
+      assertValidAddressScope("direction:sequence.waivers.missing-role_before"),
     ).not.toThrow();
     expect(() => assertValidAddressScope("direction:characters.alice")).not.toThrow();
     expect(() => assertValidAddressScope("direction:props.lantern")).not.toThrow();

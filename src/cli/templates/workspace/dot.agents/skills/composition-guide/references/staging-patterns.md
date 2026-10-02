@@ -16,6 +16,7 @@ return (
 ## Subtitles and a custom title / lower-third
 
 - **`<Subtitle>` for spoken lines; a plain `<div>` + Tailwind for branded titles.**
+- **Move a `<Subtitle>` up with `style={{ paddingBottom: "12%" }}`** — each entry is a full-frame box aligned to its bottom; `bottom-*` / `top-*` do nothing.
 
 ```tsx
 return (
@@ -37,6 +38,26 @@ return (
   </Composition>
 );
 ```
+
+## One layer over every shot: `overlay`
+
+- **Text, images and animation laid across the cuts** — lyrics, a title held over several shots, credits; an entrance runs on through the cut. One per `timeline`; its `ctx` is on the timeline's clock (`duration`, and `beat` / `lyrics` on a piece cut to a song).
+
+```tsx
+timeline: ({ shot }) => ({
+  shots: …,
+  overlay: (ctx) => (
+    <Composition>
+      <Subtitle entries={ctx.lyrics} />
+      <div id="title" className="absolute top-[8%] w-full text-center text-[3vmax]">Neon</div>
+      <Animate script={({ timeline }) => timeline.from("#title", { opacity: 0, duration: 0.6 }, 0)} />
+    </Composition>
+  ),
+}),
+```
+
+- **No `<Video>` / `<Audio>`** — a clip goes in a shot, a sound in `soundtracks`.
+- **No `asset()` inside it** — declare the asset at the top of `timeline` and use it there.
 
 ## Crossfade / transition between two clips in one shot
 

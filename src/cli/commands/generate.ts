@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import { queueSongAnalyses } from "../../core/song-queue.js";
 import {
   type DefinitionLike,
   getAssetEntry,
@@ -45,6 +46,7 @@ import {
   gateDirectionForStage,
   gateStageChecks,
   loadStageDefinitions,
+  loadDirectionIfPresent,
 } from "../load-definition.js";
 import { errorMessage } from "../../core/errors.js";
 import {
@@ -616,7 +618,16 @@ export function registerGenerateCommand(program: Command): void {
       };
 
       // Generation is async: this command returns as soon as the jobs are registered.
-      const hasWork = summary.started > 0 || summary.waiting > 0;
+      // A take of the song synced as a file above lands without a job, so its reading is queued here.
+      const songReadings = await queueSongAnalyses({
+        direction: await loadDirectionIfPresent(videoRoot).catch(() => null),
+        state: (await StateManager.load(videoRoot)).getState(),
+        jobManager,
+      });
+      if (songReadings.length > 0) {
+        console.log(`\nReading the song: ${songReadings.join(", ")}`);
+      }
+      const hasWork = summary.started > 0 || summary.waiting > 0 || songReadings.length > 0;
       const rerollCommand =
         acceptedStale.length > 0
           ? `konte reroll ${acceptedStale.map((a) => a.address).join(" ")}`

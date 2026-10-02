@@ -26,7 +26,7 @@ export default defineDirection({
     defineLens({
       name: "two-act",
       payoff: "resolve",
-      beats: [
+      roles: [
         { role: "provoke", fn: "ground", maxShare: 0.8 },
         { role: "resolve", fn: "payoff" },
       ],

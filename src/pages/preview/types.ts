@@ -202,6 +202,8 @@ export interface VideoPreviewState {
   // The timeline audio stem (soundtrack beds) — the single in-context accept for the beds.
   // Absent when the video has no soundtracks.
   timelineStem?: TimelineStemInfo;
+  // Absent when the stage declares no overlay.
+  overlay?: OverlayInfo;
   keep: KeepGraphInfo;
   handoffSummary?: string;
 }
@@ -253,6 +255,19 @@ export interface TimelineStemInfo {
   feedback: FeedbackInfo[];
 }
 
+// The overlay: the picture layer over every shot, at `<stage>:timeline#overlay`. The shot accepts
+// sign it off; `offered` is true once they all stand and it changed after them, and only then does
+// the page show it with an accept of its own.
+export interface OverlayInfo {
+  address: string;
+  duration: number;
+  variantId: string | null;
+  definitionHash: string | null;
+  needsReview: boolean;
+  offered: boolean;
+  feedback: FeedbackInfo[];
+}
+
 export interface FeedbackInfo {
   id: string;
   address: string;
@@ -275,6 +290,36 @@ export interface VariantBeforeInfo {
 }
 
 // One take in a gallery — the card the reviewer picks among, on any stage.
+// What konte read off a take of the song the piece is cut to, laid over its playback: the bar grid
+// from the downbeat on, and where each lyric line is sung — all on the take's own clock. A line
+// with no `startSec` is one the take does not clearly place (`lyric-unplaced`); `set` is one a
+// person placed.
+export interface SongReadingInfo {
+  variantId: string;
+  // The take's length, null where it was never measured.
+  durationSec: number | null;
+  bpm: number;
+  beatsPerBar: number;
+  downbeatSec: number;
+  // Where the separated vocal track sings, null where none could be separated.
+  phrases: { startSec: number; endSec: number }[] | null;
+  lines: {
+    key: string;
+    text: string;
+    singer: string[];
+    startSec: number | null;
+    endSec: number | null;
+    set: boolean;
+  }[];
+}
+
+// A lyric line the reviewer placed on a take of the song, sent with the review.
+export interface SongLineEdit {
+  variantId: string;
+  key: string;
+  span: { startSec: number; endSec: number } | null;
+}
+
 export interface VariantInfo {
   variantId: string;
   variantStatus: VariantStatus;
@@ -292,6 +337,8 @@ export interface VariantInfo {
   fileUrl?: string | null;
   before?: VariantBeforeInfo | null;
   info?: AssetInfo;
+  // A take of the song `policy.clock` counts on, once read.
+  song?: SongReadingInfo;
 }
 
 // One rendered script line: the speaker's display label (a resolved character name or a mob label,
@@ -363,7 +410,7 @@ export interface DirectionPartInfo {
 
 // A role's dramatic function in its lens — the vocabulary the direction map's colors and arc
 // line derive from. Null when the shot's role is not one its lens declares (see core/lenses.ts).
-export type BeatFunction = "ground" | "turn" | "build" | "payoff" | "settle";
+export type RoleFunction = "ground" | "turn" | "build" | "payoff" | "settle";
 
 // A shot's framing size — mirrors `Framing` in core/dsl/direction.ts. Shown as a chip in the shot
 // table so the size cadence reads at a glance beside the durations.
@@ -376,7 +423,7 @@ export interface DirectionPleasureInfo {
   gloss: string;
 }
 
-// No `role`: the shot's craft vocabulary (`method`, `peak`) stays server-side. `beatFunctionLabel`
+// No `role`: the shot's craft vocabulary (`method`, `peak`) stays server-side. `roleFunctionLabel`
 // is what the reviewer sees — "rising", "payoff" — a claim they can dispute without the vocabulary.
 // Both are null when the shot's role is not one its node's lens declares.
 export interface DirectionShotInfo extends DirectionPartInfo {
@@ -388,8 +435,8 @@ export interface DirectionShotInfo extends DirectionPartInfo {
   // A shot of the arc with no camera — a UI screen, a motion graphic. It has a role, an action and
   // lines, and the frame columns (setup, framing, location, lineup, join) are null/empty on it.
   graphic: boolean;
-  beatFunction: BeatFunction | null;
-  beatFunctionLabel: string | null;
+  beatFunction: RoleFunction | null;
+  roleFunctionLabel: string | null;
   // The shot's prose: a narrative shot's `action`, an aside's label.
   action: string;
   // The frame this shot is taken from — the declared setup's name, shown under the space chip so the
@@ -427,7 +474,10 @@ export interface DirectionShotInfo extends DirectionPartInfo {
   // The shot's unspoken on-screen text (titles, lower thirds, speaker-less captions). Bare strings:
   // telop has no speaker to attribute. Empty when none.
   telop: string[];
+  // The span on the timeline, in seconds on the frame grid.
   duration: number;
+  // The beats it was written as, on a direction with a song clock; null without one.
+  beats: number | null;
 }
 
 // A node of the arc tree below the root: an act. A leaf act carries `shots`; a branch act carries
@@ -435,8 +485,8 @@ export interface DirectionShotInfo extends DirectionPartInfo {
 export interface DirectionSequenceInfo extends DirectionPartInfo {
   id: string;
   // Null for a container role with no dramatic function, or a role its lens does not declare.
-  beatFunction: BeatFunction | null;
-  beatFunctionLabel: string | null;
+  beatFunction: RoleFunction | null;
+  roleFunctionLabel: string | null;
   synopsis: string;
   pleasure: DirectionPleasureInfo;
   shots?: DirectionShotInfo[];
@@ -461,6 +511,16 @@ export interface DirectionVoiceInfo extends DirectionPartInfo {
 
 // A recurring prop, reviewed in its own box below the characters. Same shape as a character — anchored to a
 // reference asset and named in synopses — but it never speaks, so it carries no script.
+// The song's words, one part: each section's singers by name and its lines in singing order, a
+// line's own singers null where its section's sing it.
+export interface DirectionLyricsInfo extends DirectionPartInfo {
+  sections: {
+    label: string;
+    singer: string[];
+    lines: { text: string; singer: string[] | null }[];
+  }[];
+}
+
 export interface DirectionPropInfo extends DirectionPartInfo {
   id: string;
   name: string;
@@ -533,7 +593,7 @@ export type DirectionBriefFieldInfo = DirectionPartInfo &
     | { field: DirectionBriefListField; items: string[] }
   );
 
-export type DirectionPolicyField = "format" | "lang" | "fonts" | "speech";
+export type DirectionPolicyField = "format" | "lang" | "fonts" | "speech" | "clock";
 
 // One machine-checked policy field — the canvas, the typesetting, the speech rule — reviewed as its
 // own feedback part below the brief. Structured rather than pre-formatted so the UI owns the labels
@@ -554,6 +614,7 @@ export type DirectionPolicyFieldInfo = DirectionPartInfo &
     | { field: "lang"; lang: string }
     | { field: "fonts"; fonts: string[] }
     | { field: "speech"; speech: "none" | "no-dialogue" | "free" }
+    | { field: "clock"; song: string; bpm: number; beatsPerBar: number }
   );
 
 // A finding a `waivers` entry has cleared: what was flagged, plus the reason it was signed off.
@@ -576,6 +637,7 @@ export interface DirectionWaiverInfo extends DirectionPartInfo {
 export const DIRECTION_SECTIONS = [
   "brief",
   "policy",
+  "lyrics",
   "characters",
   "props",
   "locations",
@@ -606,8 +668,13 @@ export interface DirectionPreviewState {
   gatingSections: DirectionSection[];
   // One entry per prose field the author filled in, plus both list fields — always, empty included.
   brief: DirectionBriefFieldInfo[];
-  // The always-declared policy fields (format, lang, speech), each reviewed on its own.
+  // The policy fields (format, lang, fonts, speech, and the song clock where declared), each reviewed
+  // on its own.
   policy: DirectionPolicyFieldInfo[];
+  // The meter a shot's beats are shown in bars by; null on a direction without a song clock.
+  beatsPerBar: number | null;
+  // Absent when the direction declares no lyrics.
+  lyrics?: DirectionLyricsInfo;
   sequence: DirectionPartInfo;
   characters: DirectionCharacterInfo[];
   // Absent when the direction casts none. Reviewed inside the Characters box.

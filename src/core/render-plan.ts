@@ -1,3 +1,4 @@
+import { mixedSoundtracks } from "./song-bed.js";
 import {
   audioLevelling,
   type AudioLevelling,
@@ -163,24 +164,6 @@ function describeNotReady(
   return reasons.join(", ");
 }
 
-// Each shot's span as a whole number of frames, cut at the frame nearest its edge on the direction's
-// clock. A render rounds an off-frame span up, and the error summed over the cut would stretch it.
-export function frameAlignedDurations(
-  shots: readonly { id: string; duration: number }[],
-  fps: number,
-): Map<string, number> {
-  const durations = new Map<string, number>();
-  let clock = 0;
-  let edge = 0;
-  for (const shot of shots) {
-    clock += shot.duration;
-    const next = Math.max(edge + 1, Math.round(clock * fps));
-    durations.set(shot.id, (next - edge) / fps);
-    edge = next;
-  }
-  return durations;
-}
-
 export function buildRenderPlan(
   video: StageDefinition,
   manager: StateManager,
@@ -291,14 +274,15 @@ export function buildRenderPlan(
     }
   }
 
-  const shotPlans: ShotRenderPlan[] = [];
-  const frameDurations = frameAlignedDurations(video.shots, video.format.fps);
+  // What the overlay laid over every shot shows.
+  const overlayRefs = video.overlay?.compositionRefs ?? [];
 
+  const shotPlans: ShotRenderPlan[] = [];
   for (const shot of targetShots) {
     const plan: ShotRenderPlan = {
       stage,
       shotId: shot.id,
-      duration: frameDurations.get(shot.id) ?? shot.duration,
+      duration: shot.duration,
       shotFn: shot.shotFn ?? null,
       ...(shot.panels ? { panels: shot.panels } : {}),
       ...(shot.cutin?.panels ? { cutinPanels: shot.cutin.panels } : {}),
@@ -358,8 +342,16 @@ export function buildRenderPlan(
       const ownPaths = new Set(
         Object.keys(shot.assets).map((name) => formatAssetPath(stage, shot.id, name)),
       );
-      for (const ref of shot.compositionRefs ?? []) {
+      // The overlay laid over the shot renders with it.
+      for (const ref of new Set([...(shot.compositionRefs ?? []), ...overlayRefs])) {
         if (ownPaths.has(ref)) continue;
+        const resolved = resolveCompositionRef(manager, ref, { includeStale: allowNotReady });
+        if (!resolved) plan.unresolvedRefs.push(ref);
+        else if (!resolved.isAccepted) plan.unacceptedRefs.push(resolved.address);
+      }
+    } else if (plan.aside) {
+      // konte's own slug fills the span; the overlay laid over it renders with it.
+      for (const ref of new Set(overlayRefs)) {
         const resolved = resolveCompositionRef(manager, ref, { includeStale: allowNotReady });
         if (!resolved) plan.unresolvedRefs.push(ref);
         else if (!resolved.isAccepted) plan.unacceptedRefs.push(resolved.address);
@@ -486,7 +478,7 @@ export interface BedLevel {
 }
 
 /**
- * Each bed's level by `soundtrack()` id, against the take currently resolved for it. Recomputed
+ * Each bed's level by `soundtrack()` id (the song bed's by `SONG_BED_ID`), against the take currently resolved for it. Recomputed
  * rather than carried whenever the resolution can have moved: a review previewing a different
  * candidate must hear THAT take levelled, and duck to where THAT take lands. An override is
  * honoured whichever way it names the bed's source — by address (a shared asset) or through the
@@ -499,7 +491,7 @@ export function computeBedLevels(
   overrideByAddress?: ReadonlyMap<string, string>,
 ): Record<string, BedLevel> {
   const levels: Record<string, BedLevel> = {};
-  for (const st of video.timelineSoundtracks ?? []) {
+  for (const st of mixedSoundtracks(video, video.timelineSoundtracks)) {
     const address = parsePlaceholder(st.src.src);
     if (!address) continue;
     const parsed = tryParseAddress(address);
@@ -511,7 +503,7 @@ export function computeBedLevels(
     const variantId = overridden ?? manager.resolveReference(address)?.variantId;
     if (!variantId) continue;
     const loudness = loudnessOf(manager.getState().assets[address]?.variants?.[variantId]?.media);
-    const adjustment = audioLevelling("bed", loudness);
+    const adjustment = audioLevelling(st.song ? "song" : "bed", loudness);
     levels[st.id] = { gain: adjustment.gain, adjustment, loudness };
   }
   return levels;

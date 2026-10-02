@@ -14,6 +14,7 @@ import { execFileSync } from "node:child_process";
 //   animatic → video → export. The chain is the fixed, always-loaded set;
 //   per-model and per-backend docs (one of each loads per project, ~2-3k
 //   tokens) are headroom inside the budget, not listed.
+// - `music-video` — the `video` chain for a storyless piece cut to a song.
 // - `konte-direction-critic` / `konte-prompt-critic` — a subagent contract, loaded whole
 //   on every spawn. Its "Read only this" rules bar skills and records, so
 //   contract plus `AGENTS.md` is the whole fixed load; what it reads (the
@@ -33,6 +34,12 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - video 37,000 → 37,600 (agreed by a human): the `overlay` over every shot; a storyless piece's
+//   branch in scenario-guide.
+// - music-video (new, 38,650): a piece cut to a song — the video chain, storyless, with the song
+//   references.
+// - dev-direction 16,600 → 16,650, dev-render 10,350 → 10,450 (agreed by a human): the song bed,
+//   the song span in a board stem and the take window it derives, `song-overrun`.
 // - dev-release (new, 3,700): cutting a release.
 // - every dev journey +200 (agreed by a human): AGENTS.md's Commits — the commit message format.
 // - video 42,850 → 37,000 (agreed by a human): cut to the measured load (36,935).
@@ -84,7 +91,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "video",
-    budget: 37_000,
+    budget: 37_600,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
@@ -93,6 +100,45 @@ const SHIPPED_JOURNEYS = [
       `${SKILLS}/layout-guide/SKILL.md`,
       `${SKILLS}/production-guide/SKILL.md`,
       `${SKILLS}/scenario-guide/SKILL.md`,
+      `${SKILLS}/scenario-guide/references/story.md`,
+      `${SKILLS}/direction-guide/SKILL.md`,
+      `${SKILLS}/direction-guide/references/rosters.md`,
+      `${SKILLS}/direction-guide/references/camera.md`,
+      `${SKILLS}/direction-guide/references/lineup.md`,
+      `${SKILLS}/direction-guide/references/lenses.md`,
+      `${SKILLS}/direction-guide/references/skeleton.md`,
+      `${SKILLS}/direction-guide/references/cut-idioms.md`,
+      `${SKILLS}/direction-guide/references/long-form.md`,
+      `${SKILLS}/staging-guide/SKILL.md`,
+      `${SKILLS}/staging-guide/references/plates.md`,
+      `${SKILLS}/authoring-guide/SKILL.md`,
+      `${SKILLS}/authoring-guide/references/delivery.md`,
+      `${SKILLS}/prompt-guide/SKILL.md`,
+      `${SKILLS}/generation-loop-guide/SKILL.md`,
+      `${SKILLS}/review-guide/SKILL.md`,
+      `${SKILLS}/composition-guide/SKILL.md`,
+      `${SKILLS}/composition-guide/references/staging-patterns.md`,
+      `${SKILLS}/composition-guide/references/audio-patterns.md`,
+      `${SKILLS}/composition-guide/references/sound-design.md`,
+      `${SKILLS}/polish-guide/SKILL.md`,
+      `${SKILLS}/export-guide/SKILL.md`,
+    ],
+  },
+  {
+    name: "music-video",
+    budget: 38_650,
+    files: [
+      ...ALWAYS,
+      HOUSE_RULES,
+      `${SKILLS}/konte-checkin/SKILL.md`,
+      `${SKILLS}/drafting-guide/SKILL.md`,
+      `${SKILLS}/layout-guide/SKILL.md`,
+      `${SKILLS}/production-guide/SKILL.md`,
+      `${SKILLS}/scenario-guide/SKILL.md`,
+      `${SKILLS}/scenario-guide/references/no-story.md`,
+      `${SKILLS}/drafting-guide/references/song-first.md`,
+      `${SKILLS}/direction-guide/references/song.md`,
+      `${SKILLS}/composition-guide/references/song.md`,
       `${SKILLS}/direction-guide/SKILL.md`,
       `${SKILLS}/direction-guide/references/rosters.md`,
       `${SKILLS}/direction-guide/references/camera.md`,
@@ -148,7 +194,7 @@ const DEV_JOURNEYS = [
   // part hashes, so the review guide comes along.
   {
     name: "dev-direction",
-    budget: 16_600,
+    budget: 16_650,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-direction-guide/SKILL.md`,
@@ -162,7 +208,7 @@ const DEV_JOURNEYS = [
   // the same render plan chooses between per shot.
   {
     name: "dev-render",
-    budget: 10_350,
+    budget: 10_450,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-delivery-guide/SKILL.md`,

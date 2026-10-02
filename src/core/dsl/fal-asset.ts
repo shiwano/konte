@@ -1,7 +1,7 @@
 import type { FalAssetDefinition } from "../types/index.js";
 import { KonteError } from "../errors.js";
 import type { MediaKind, MediaAsset } from "./builders.js";
-import { getShotContext, seed } from "./shot-context.js";
+import { getActiveFormat, getShotContext, seed } from "./shot-context.js";
 import { setFieldPath } from "./set-field-path.js";
 import {
   assertTurboInputs,
@@ -31,6 +31,11 @@ export type FalInputType =
   | "number"
   | "boolean"
   | "seed"
+  // The clip's length in seconds, derived from the shot it plays in when the caller passes none. With
+  // `values` the provider takes one of a set of lengths: the shortest numeric one that holds the shot
+  // is sent, and the take plays windowed to the shot. Without them it is whole seconds, raised to
+  // `min`. Outside a shot `default` stands.
+  | "seconds"
   | "image"
   | "video"
   | "audio";
@@ -50,6 +55,10 @@ interface FalInputDefBase {
   // See `AdapterInputDef.pin`.
   pin?: "start" | "end";
   values?: readonly string[];
+  // The shortest and longest `"seconds"` the model takes. A derived length is raised to `min`; one
+  // past `max` is refused at load.
+  min?: number;
+  max?: number;
   required?: boolean;
   array?: boolean;
   description?: string;
@@ -84,7 +93,7 @@ export type FalTurbo<TInputs extends Record<string, FalInputDef>> = {
 };
 
 type FalInputTSType<T extends FalInputDef> = T extends {
-  type: "string";
+  type: "string" | "seconds";
   values: readonly (infer V)[];
 }
   ? V
@@ -92,7 +101,7 @@ type FalInputTSType<T extends FalInputDef> = T extends {
     ? PromptStructureValue<S>
     : T extends { type: "string" | "prompt" | "negativePrompt" | "spokenText" }
       ? string
-      : T extends { type: "number" }
+      : T extends { type: "number" | "seconds" }
         ? number
         : T extends { type: "boolean" }
           ? boolean
@@ -145,6 +154,43 @@ function missingRequiredInput(key: string, def: FalInputDef): KonteError {
   );
 }
 
+// A frame-aligned span can sit a hair under the whole second it was written as.
+const SPAN_EPSILON = 1e-6;
+
+// The length a shot of `duration` seconds asks a `"seconds"` input for, in the form the provider
+// takes it; undefined outside a shot.
+function shotSeconds(
+  key: string,
+  def: FalInputDef,
+  duration: number | undefined,
+): string | number | undefined {
+  if (duration === undefined) return undefined;
+  if (def.values) {
+    const lengths = def.values
+      .map((value) => ({ value, seconds: Number(value) }))
+      .filter((c) => Number.isFinite(c.seconds))
+      .sort((a, b) => a.seconds - b.seconds);
+    const fit = lengths.find((c) => c.seconds >= duration - SPAN_EPSILON);
+    if (!fit) {
+      throw new KonteError(
+        "INVALID_ADAPTER_INPUT",
+        `Input "${key}" has no length that holds the ${duration}s shot — the longest this model ` +
+          `takes is ${lengths.at(-1)?.seconds ?? 0}s. Shorten the shot, or split it into segments.`,
+      );
+    }
+    return fit.value;
+  }
+  const whole = Math.max(def.min ?? 0, Math.ceil(duration - SPAN_EPSILON));
+  if (def.max !== undefined && whole > def.max) {
+    throw new KonteError(
+      "INVALID_ADAPTER_INPUT",
+      `Input "${key}" resolves to ${whole}s for the ${duration}s shot, past this model's maximum ` +
+        `of ${def.max}s. Shorten the shot, or split it into segments.`,
+    );
+  }
+  return whole;
+}
+
 export function defineFalAsset<
   const TInputs extends Record<string, FalInputDef>,
   const TMedia extends MediaKind,
@@ -195,6 +241,16 @@ export function defineFalAsset<
 
         if (def.type === "seed") {
           put(key, def.field, userValue !== undefined ? userValue : seed());
+        } else if (def.type === "seconds") {
+          const value =
+            userValue !== undefined
+              ? userValue
+              : (shotSeconds(key, def, getActiveFormat()?.duration) ?? def.default);
+          if (value !== undefined) {
+            put(key, def.field, value);
+          } else if (def.required) {
+            throw missingRequiredInput(key, def);
+          }
         } else if (def.type === "image" || def.type === "video" || def.type === "audio") {
           if (userValue !== undefined) {
             if (def.array) {

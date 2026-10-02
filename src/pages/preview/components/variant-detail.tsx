@@ -4,6 +4,7 @@ import { formatRelativeTime } from "../format-time.js";
 import type { MediaKind, VariantInfo } from "../types.js";
 import { CheckIcon, VolumeIcon } from "./icons.js";
 import { Modal } from "./modal.js";
+import { SongTrack } from "./song-track.js";
 
 function badgeOf(v: VariantInfo): string | null {
   if (v.variantStatus === "accepted") return "accepted";
@@ -44,7 +45,7 @@ export function VariantDetail({
 
   return (
     <Modal
-      className="variant-detail"
+      className={`variant-detail${kind === "audio" && variant.song ? " variant-detail--song" : ""}`}
       closeLabel="Back to gallery"
       onClose={onClose}
       title={
@@ -86,7 +87,9 @@ export function VariantDetail({
     >
       <div className={`variant-detail-media variant-detail-media--${kind}`}>
         {kind === "audio" ? (
-          fileUrl ? (
+          fileUrl && variant.song && !viewingBefore ? (
+            <SongTrack fileUrl={fileUrl} song={variant.song} />
+          ) : fileUrl ? (
             <div className="variant-detail-audio">
               <span className="variant-detail-audio-glyph">
                 <VolumeIcon size={48} />

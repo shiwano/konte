@@ -23,6 +23,7 @@ Leave a note the reviewer reads inline next to each changed item — what you ch
 - **Then run the `konte review wait` command it prints** — returns once the review ends; if interrupted, rerun it. Background it if your harness notifies you when a background command exits; otherwise **never close a turn while it has not returned**.
 - **An idle, unanswered preview is normal** — don't kill it, and don't `konte job wait` on it.
 - **What the human sees** — per part for `direction`; a flat pool grouped by media kind for `reference`; per shot for `animatic`/`video` (accept toggle + pin/text comments; a pin (`x`/`y` 0-1 of the frame) captures the frame as `[image: <path>]`). The soundtrack is its own target: comments land on `timeline#stem`, timed, never pinned.
+- **The `overlay` is signed off by the shot accepts** — only one changed after every shot was accepted shows on its own, on the reel page as `<stage>:timeline#overlay`.
 - **A video shot badged `Animatic: not made yet` is standing in with the board** — its picture has not been generated, so it has nothing to sign off and its toggle is closed. Comments stay on the shot and survive into the finished take.
 
 ## 3. Read the record

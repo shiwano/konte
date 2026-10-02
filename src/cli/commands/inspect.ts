@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import {
+  isOverlayAddress,
   type AssetStage,
   type ShotStage,
   formatAddress,
@@ -31,7 +32,8 @@ import {
   readDefinitionSnapshot,
 } from "../../core/definition-snapshot.js";
 import { collectShots } from "../../core/direction.js";
-import { isAsideShot, isGraphicShot } from "../../core/dsl/direction.js";
+import { isAsideShot, isGraphicShot, resolveDirectionTimeline } from "../../core/dsl/direction.js";
+import { formatShotSpan } from "../../core/format-duration.js";
 import { directionShotCascadeTargets } from "../../core/direction-acceptance.js";
 import { KonteError } from "../../core/errors.js";
 import type { PromptOccurrence } from "../../core/prompt-check.js";
@@ -270,10 +272,14 @@ function formatAssetSummary(
 
 async function inspectComposition(videoRoot: string, address: string): Promise<void> {
   const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
-  const leafKind = isStemAddress(address) ? "stem" : "composition";
   // The hash is read from the stage the address names: asking the video definition for a board leaf
   // reports another shot's hash, or none.
   const stageDef = parseAddress(address).stage === "animatic" ? animatic : video;
+  const leafKind = isStemAddress(address)
+    ? "stem"
+    : isOverlayAddress(address)
+      ? "overlay"
+      : "composition";
   const defHash = stageDef ? definitionHashForAddress(stageDef, address) : null;
   if (defHash === null) {
     throw new KonteError("ADDRESS_NOT_FOUND", `No ${leafKind} found for address "${address}"`);
@@ -585,7 +591,8 @@ interface ShotView {
   framing: string | null;
   location: string | null;
   action: string;
-  duration: number;
+  // The span as the direction wrote it: seconds on the timeline, and beats on the song clock.
+  span: string;
   script: readonly ScriptLine[];
   telop: readonly string[];
 }
@@ -602,6 +609,12 @@ async function loadShot(
   const characterNameById = new Map(
     Object.entries(direction.characters ?? {}).map(([id, c]) => [id, c.name] as const),
   );
+  const clock = direction.policy.clock;
+  const span = formatShotSpan(
+    resolveDirectionTimeline(direction).timings.get(shot.id)?.duration ?? 0,
+    clock ? (shot.beats ?? null) : null,
+    clock?.beatsPerBar,
+  );
   if (isAsideShot(shot)) {
     return {
       view: {
@@ -611,7 +624,7 @@ async function loadShot(
         framing: null,
         location: null,
         action: shot.label,
-        duration: shot.duration,
+        span,
         script: [],
         telop: shot.telop ?? [],
       },
@@ -627,7 +640,7 @@ async function loadShot(
       framing: setup === null ? null : (direction.setups?.[setup]?.framing ?? null),
       location: setup === null ? null : (direction.setups?.[setup]?.location ?? null),
       action: shot.action,
-      duration: shot.duration,
+      span,
       script: shot.script ?? [],
       telop: shot.telop ?? [],
     },
@@ -645,6 +658,7 @@ function printShot(view: ShotView, characterNameById: ReadonlyMap<string, string
   if (view.framing) console.log(`  Framing:  ${view.framing}`);
   if (view.location) console.log(`  Location: ${view.location}`);
   console.log(view.role ? `  Action:   ${view.action}` : `  Label:    ${view.action}`);
+  console.log(`  Span:     ${view.span}`);
   const lines = scriptLinesToView(view.script, characterNameById);
   if (lines.length > 0) {
     console.log("  Script:");

@@ -2,6 +2,7 @@ import {
   formatShotAddress,
   listAddresses,
   listCompositionAddresses,
+  listOverlayAddresses,
   listFrameDeliverySources,
   listReferenceAddresses,
   listStemAddresses,
@@ -62,6 +63,7 @@ export function buildOrphanContext(
     if (!def) continue;
     for (const addr of listCompositionAddresses(def)) validCompositionAddresses.add(addr);
     for (const addr of listStemAddresses(def)) validCompositionAddresses.add(addr);
+    for (const addr of listOverlayAddresses(def)) validCompositionAddresses.add(addr);
     if (state) {
       for (const addr of listRemovedShotStemAddresses(state, def)) {
         validCompositionAddresses.add(addr);

@@ -16,6 +16,9 @@ import type { Direction } from "./dsl/direction.js";
 import * as dsl from "./dsl/index.js";
 import type { PatchBuild, PatchBuildContext, PatchDefinition } from "./dsl/patch.js";
 import { KonteError, errorMessage } from "./errors.js";
+import { withSongTakes } from "./dsl/song-context.js";
+import { resolveSongTake, songReadingsOf, type SongTake } from "./song-take.js";
+import { KonteStateSchema } from "./types/state.js";
 import { extractRefs } from "./graph.js";
 import { STAGE_ENTRY_FILE, WORKSPACE_MARKER, stageEntryPath } from "./roots.js";
 import { type Handoff, HandoffSchema } from "./types/handoff.js";
@@ -274,6 +277,60 @@ export async function loadIfPresent<T>(
   return read(file);
 }
 
+// The video a definition file belongs to: the nearest directory above it holding a state file.
+function videoRootOf(filePath: string): string | null {
+  let dir = path.dirname(filePath);
+  for (let depth = 0; depth < 3; depth++) {
+    if (existsSync(path.join(dir, "konte.state.json"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+  return null;
+}
+
+// The video's song takes as its state holds them now, for `defineDirection` to place its lyrics
+// with, and their reading (`songReadingsOf`). No state (a fresh video, a test fixture) is no take.
+async function songTakesFor(filePath: string): Promise<{
+  videoRoot: string | null;
+  takes: ((address: string) => SongTake | null) | null;
+  reading: string;
+}> {
+  const videoRoot = videoRootOf(filePath);
+  if (!videoRoot) return { videoRoot, takes: null, reading: "" };
+  try {
+    const raw = await fs.readFile(path.join(videoRoot, "konte.state.json"), "utf-8");
+    const parsed = KonteStateSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return { videoRoot, takes: null, reading: "" };
+    const state = parsed.data;
+    return {
+      videoRoot,
+      takes: (address) => resolveSongTake(state, address),
+      reading: songReadingsOf(state),
+    };
+  } catch {
+    return { videoRoot, takes: null, reading: "" };
+  }
+}
+
+// The song reading each video's modules were last evaluated under. A cached module placed its lyrics
+// and lead with the takes of its evaluation, so a reading that moved since re-evaluates them.
+const evaluatedReading = new Map<string, string>();
+
+let definitionLock: Promise<unknown> = Promise.resolve();
+
+// One definition import at a time, process-wide, each under the song takes of its own video: the
+// daemon loads several videos in one process, and a module evaluates against whatever takes are
+// current while it does.
+function underDefinitionLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = definitionLock.then(fn);
+  definitionLock = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 // Import a definition entry (fresh — evicting the project's modules first — or from the registry)
 // and hand the module to its parser; a failed import is a LOAD_FAILED naming the file.
 async function importDefinition<T>(
@@ -284,7 +341,17 @@ async function importDefinition<T>(
 ): Promise<T> {
   let mod: Record<string, unknown>;
   try {
-    mod = fresh ? await reloadFreshModule(filePath) : await importModule(filePath);
+    const { videoRoot, takes, reading } = await songTakesFor(filePath);
+    const moved =
+      videoRoot !== null &&
+      evaluatedReading.has(videoRoot) &&
+      evaluatedReading.get(videoRoot) !== reading;
+    mod = await underDefinitionLock(() =>
+      withSongTakes(takes, () =>
+        fresh || moved ? reloadFreshModule(filePath) : importModule(filePath),
+      ),
+    );
+    if (videoRoot !== null) evaluatedReading.set(videoRoot, reading);
   } catch (err) {
     // Bun keeps the record of a module that threw during evaluation, and a SECOND import of it
     // RESOLVES — handing back a namespace whose bindings never initialized instead of re-throwing.

@@ -1,6 +1,6 @@
-import type { ShotStage } from "../address.js";
+import { formatReferenceAddress, type ShotStage } from "../address.js";
 import { partitionShotRefs } from "../composition-refs.js";
-import type { RenderContext } from "../jsx-html.js";
+import { renderToHtml, type RenderContext } from "../jsx-html.js";
 import type {
   ShotDefinition,
   StageDefinition,
@@ -10,6 +10,8 @@ import type {
 } from "../types/index.js";
 import { KonteError } from "../errors.js";
 import type { AnyShotInput, MediaKind, SoundtrackEntry } from "./builders.js";
+import type { OverlayDefinition } from "../types/index.js";
+import { spanSongContext } from "./direction.js";
 import { isAsideShotInput, isPendingShotInput } from "./builders.js";
 import { Composition } from "./composition/index.js";
 import type { DirectionIndex } from "./direction.js";
@@ -20,6 +22,7 @@ import { endPromptCollection } from "./prompt-collect.js";
 import { endRespellCollection } from "./respell.js";
 import {
   collectPlaceholderRefs,
+  parsePlaceholder,
   runInDiscoveryMode,
   runTimelineInDiscoveryMode,
 } from "./shot-context.js";
@@ -46,8 +49,9 @@ export function isCompositionElement(element: React.ReactElement): boolean {
 export function normalizeStageTimeline(result: unknown): {
   shots: Array<AnyShotInput>;
   soundtracks: SoundtrackEntry[];
+  overlay: OverlayBuild | undefined;
 } {
-  const obj = (result ?? {}) as { shots?: unknown; soundtracks?: unknown };
+  const obj = (result ?? {}) as { shots?: unknown; soundtracks?: unknown; overlay?: unknown };
   const rawShots = obj.shots;
   // `shots` is either the chain (its shots in `__shots`) or a bare `[]` (an empty or
   // not-yet-authored stage).
@@ -57,6 +61,7 @@ export function normalizeStageTimeline(result: unknown): {
   return {
     shots,
     soundtracks: (obj.soundtracks as SoundtrackEntry[] | undefined) ?? [],
+    overlay: typeof obj.overlay === "function" ? (obj.overlay as OverlayBuild) : undefined,
   };
 }
 
@@ -106,6 +111,9 @@ export function defineStage(args: DefineStageArgs): StageBuild {
   const normalized = normalizeStageTimeline(discovery.result);
   const shotInputs = normalized.shots;
   const timelineSoundtracks = normalized.soundtracks;
+  const clock = index.timeline.clock;
+  const song = clock ? formatReferenceAddress(clock.song) : undefined;
+  if (song) assertSongNotInSoundtracks(song, timelineSoundtracks);
 
   const assetKindsByShot = new Map<string, ReadonlyMap<string, MediaKind>>();
   const shots: ShotDefinition[] = shotInputs.map((input) => {
@@ -173,6 +181,11 @@ export function defineStage(args: DefineStageArgs): StageBuild {
             ...(cutin.sharedRefs.length > 0 ? { sharedRefs: cutin.sharedRefs } : {}),
           }
         : undefined;
+    const timing = index.timeline.timings.get(input.id);
+    const songCue =
+      song && stage === "animatic" && timing
+        ? { src: song, mediaStart: timing.start, duration: timing.duration }
+        : undefined;
     const base: ShotDefinition = {
       id: input.id,
       duration: input.options.duration,
@@ -182,6 +195,7 @@ export function defineStage(args: DefineStageArgs): StageBuild {
       compositionRefs,
       pictureRefs,
       stemRefs,
+      ...(songCue ? { songCue } : {}),
       ...(cutinDefinition ? { cutin: cutinDefinition } : {}),
       ...(aside ? { aside: true as const } : {}),
       ...(graphic ? { graphic: true as const } : {}),
@@ -195,6 +209,10 @@ export function defineStage(args: DefineStageArgs): StageBuild {
 
   assertSoundtrackAnchors(shotInputs, timelineSoundtracks);
 
+  const overlay = normalized.overlay
+    ? defineOverlay(stage, index, normalized.overlay, { ...format, typography })
+    : undefined;
+
   const timelineFn: TimelineFunction = ({ format: renderFormat }) => {
     const run = normalizeStageTimeline(runTimeline(renderFormat));
     return {
@@ -207,6 +225,7 @@ export function defineStage(args: DefineStageArgs): StageBuild {
         isPendingShotInput(s) || s.fn === undefined ? [] : [{ id: s.id, fn: s.fn }],
       ),
       soundtracks: run.soundtracks,
+      ...(run.overlay ? { overlay: overlayFn(run.overlay, index) } : {}),
     };
   };
 
@@ -224,6 +243,8 @@ export function defineStage(args: DefineStageArgs): StageBuild {
       shots,
       topLevelAssets: Object.keys(topLevelAssets).length > 0 ? topLevelAssets : undefined,
       timelineSoundtracks: timelineSoundtracks.length > 0 ? timelineSoundtracks : undefined,
+      ...(song ? { song } : {}),
+      overlay,
       timelineFn,
       prompts: prompts.length > 0 ? prompts : undefined,
       pins: pins.length > 0 ? pins : undefined,
@@ -270,6 +291,17 @@ function assertCutinDeclared(
   }
 }
 
+// konte lays the song under the timeline itself; a soundtrack of it would play it twice.
+function assertSongNotInSoundtracks(song: string, soundtracks: readonly SoundtrackEntry[]): void {
+  const doubled = soundtracks.find((st) => parsePlaceholder(st.src.src) === song);
+  if (!doubled) return;
+  throw new KonteError(
+    "SONG_DOUBLED",
+    `soundtrack "${doubled.id}" plays ${song}, the song policy.clock counts on. konte lays the ` +
+      `song under the whole timeline itself — drop the soundtrack.`,
+  );
+}
+
 // Validate soundtrack anchors against the declared shots. The shot-id types are checked at compile
 // time (NoInfer in the timeline return), but a computed id or an out-of-range `at` only surfaces
 // here, so fail fast at definition time rather than at render.
@@ -296,4 +328,65 @@ function assertSoundtrackAnchors(
       }
     }
   }
+}
+
+type OverlayBuild = (ctx: never) => React.ReactElement;
+
+function timelineLength(index: DirectionIndex): number {
+  const last = [...index.timeline.timings.values()].at(-1);
+  return last ? last.start + last.duration : 0;
+}
+
+// The build with its context bound: what the timeline hears and counts.
+function overlayFn(build: OverlayBuild, index: DirectionIndex): () => React.ReactElement {
+  const duration = timelineLength(index);
+  const ctx = { duration, ...spanSongContext(index, 0, duration) };
+  // The build is typed against the direction it was written for (`OverlayContext<D>`); this context
+  // is that shape, built from the same direction.
+  return () => build(ctx as never);
+}
+
+// The overlay and the refs its composition draws, found by running its build once. It declares no
+// asset of its own — what it shows is a timeline or reference asset — and plays no media.
+function defineOverlay(
+  stage: ShotStage,
+  index: DirectionIndex,
+  build: OverlayBuild,
+  format: VideoFormat & { typography: Typography },
+): OverlayDefinition {
+  const duration = timelineLength(index);
+  const fn = overlayFn(build, index);
+  const { assets, element } = runInDiscoveryMode(stage, "overlay", fn, { ...format, duration });
+  if (Object.keys(assets).length > 0) {
+    throw new Error(
+      `the overlay declares ${Object.keys(assets).join(", ")} with asset() — it shows timeline ` +
+        `or reference assets; declare the asset at the top of the timeline.`,
+    );
+  }
+  if (!isCompositionElement(element)) {
+    throw new Error(
+      "the overlay build must return a <Composition>…</Composition> at its top level.",
+    );
+  }
+  let media = false;
+  renderToHtml(
+    element,
+    {
+      shotId: "overlay",
+      width: format.size.width,
+      height: format.size.height,
+      duration,
+      typography: format.typography,
+    },
+    (tag) => {
+      if (tag === "audio" || tag === "video") media = true;
+    },
+  );
+  if (media) {
+    throw new Error(
+      "the overlay plays a <Video> or an <Audio> — an overlay is text, images and animation. " +
+        "Place the media in a shot, or a sound in the timeline's soundtracks.",
+    );
+  }
+  return { duration, fn, compositionRefs: collectPlaceholderRefs(element) };
 }

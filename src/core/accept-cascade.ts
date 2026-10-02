@@ -4,6 +4,7 @@ import {
   isMaterializedLeafAddress,
   isStemAddress,
   listShotStems,
+  isOverlayAddress,
   parseAddress,
 } from "./address.js";
 import { loadCastReferenceAddresses } from "./characters.js";
@@ -126,6 +127,15 @@ export async function cascadeAcceptConsumedDeps(
               .filter((p): p is string => p !== null);
       const pairs: Array<{ depAddress: string; depVariantId: string }> = [];
       for (const depAddress of srcPaths) {
+        const resolved = manager.resolveReference(depAddress);
+        if (resolved) pairs.push({ depAddress, depVariantId: resolved.variantId });
+      }
+      return pairs;
+    }
+    // The overlay's refs: what it shows is signed off with it, as a composition's are.
+    if (stage && isOverlayAddress(addr)) {
+      const pairs: Array<{ depAddress: string; depVariantId: string }> = [];
+      for (const depAddress of stage.overlay?.compositionRefs ?? []) {
         const resolved = manager.resolveReference(depAddress);
         if (resolved) pairs.push({ depAddress, depVariantId: resolved.variantId });
       }

@@ -4,7 +4,7 @@ description: Write the prompt text of an asset() — image, motion, voice, BGM, 
 user-invocable: false
 ---
 
-Turn fixed staging into `asset()` prompt text; done = the self-review below passes against the adapter's guide and the shot. A shot's production method and beat design are outside this guide.
+Turn fixed staging into `asset()` prompt text; done = the self-review below passes against the adapter's guide and the shot. A shot's production method and role design are outside this guide.
 
 ## Stage before you write
 

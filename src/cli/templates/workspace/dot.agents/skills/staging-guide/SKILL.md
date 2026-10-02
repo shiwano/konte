@@ -53,7 +53,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 - **The edit base chooses the camera** — a keyframe built by editing a neighbouring shot's populated frame inherits its composition whatever the prompt says. Chain off a neighbour only when a match cut is the point. Otherwise start from the plate whenever the shot is on a declared setup. At a `join: "continuous"` seam, keep the camera of the panel before it.
 - **A long take has one frame at its seam, and it is the next shot's first panel** — `join: "continuous"`: the shot before authors no closing keyframe; its last panel carries `blocking` / `camera` like any other. Nothing is passed on the board.
 - **A cut along one `within` axis takes the frame before it** — two setups of one axis, no join written: the previous shot's last panel goes in one of the keyframe's image inputs (a cutin's: the last panel of the cutin before it), for a model that reads it as the frame the cut comes from (`readsPrevPanel` in `konte adapter show`). The plate fixes the room, that panel the subject's light, size and position; a cut between two lineups sharing no subject owes none. `panel-unlinked` gates it; a cut meant to re-open the frame is the waiver.
-- **Save the strongest staging for the payoff** — the lens's payoff beat gets the most distinct frame in the piece; spending it on a setup beat upstages the climax.
+- **Save the strongest staging for the payoff** — the lens's payoff role gets the most distinct frame in the piece; spending it on a setup role upstages the climax.
 - **Name light and time per shot, and let them progress** — a light source and time of day are continuity anchors within a scene and an arc across the piece; unnamed light drifts per generation.
 
 ## Stage the motion
@@ -70,7 +70,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 - **Withhold an event through a reaction, sound or aftermath when that carries the shot more clearly.**
 - **Crop the choreography** — a tighter setup (`close`/`insert`) keeps only the load-bearing part moving in frame; what is outside the frame can't fail.
 - **One mover per shot** — subject or camera, never both large at once; a slow push, pan, or tilt over stable staging reads as motion on its own.
-- **A charged hold is a beat** — only breath, hair or light moving.
+- **A charged hold is still an action** — only breath, hair or light moving.
 - **Spend the risk on the payoff** — a shot that may take many rerolls earns them where the piece lands; alternate closes, inserts and charged holds for the setups.
 
 ## Read-test before you pay to generate
