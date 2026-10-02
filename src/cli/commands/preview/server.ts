@@ -399,6 +399,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
           }
 
           if (pathname.startsWith(`${PREROLL_ASSET_BASE}/`)) {
+            server.timeout(req, 0);
             return handlePrerollAssetRequest(
               videoRoot,
               pathname.slice(`${PREROLL_ASSET_BASE}/`.length),
@@ -406,6 +407,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
           }
 
           if (pathname.startsWith("/api/assets/")) {
+            server.timeout(req, 0);
             return handleAssetRequest(videoRoot, pathname.slice("/api/assets/".length));
           }
 
