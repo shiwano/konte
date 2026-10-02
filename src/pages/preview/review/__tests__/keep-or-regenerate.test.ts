@@ -198,6 +198,27 @@ describe("keepPromptFor", () => {
     );
   });
 
+  it("asks nothing about a take first accepted in this review", () => {
+    const first = graph();
+    for (const info of Object.values(first.addresses)) info.acceptedVariantId = null;
+    const takeOf = (address: string) =>
+      Object.keys(first.addresses[address]?.takes ?? {})[0] ?? null;
+    expect(keepPromptFor(ctx({ graph: first, takeAccepted: () => true, takeOf }), moveP12)).toEqual(
+      [],
+    );
+
+    const g = graph();
+    g.addresses[P13]!.takes.v13b = { outputHash: "h13b", inputs: { [P12]: ["h12a"] } };
+    const picked = keepPromptFor(
+      ctx({
+        graph: g,
+        takeOf: (a) => (a === P13 ? "v13b" : (g.addresses[a]?.acceptedVariantId ?? null)),
+      }),
+      moveP12,
+    );
+    expect(picked[0]?.targets.map((t) => t.unit)).toEqual(["video:shot.12"]);
+  });
+
   it("asks about a change to a take no reroll makes, like a file", () => {
     const g = graph();
     g.addresses[P12]!.rerollable = false;

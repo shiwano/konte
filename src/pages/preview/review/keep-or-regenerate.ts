@@ -235,8 +235,9 @@ export function keepingUnit(choices: readonly KeepChoice[], unit: string): KeepC
 
 /**
  * The prompt the accept of `origins` owes, one entry per origin that owes one. An origin owes one
- * when the accept changes a take that an accepted take was made from — directly, or through a take
- * konte re-makes on its own — and that accepted take would no longer match. Each such unit is a row;
+ * when the accept changes a take that a take accepted before this review was made from — directly,
+ * or through a take konte re-makes on its own — and that accepted take would no longer match. A take
+ * first accepted in this review is judged as shown, and leaving it unaccepted is its Regenerate. Each such unit is a row;
  * what a Regenerate of it re-makes with it (`follows`) and the rows it is made from (`madeFrom`) are
  * read once over every entry's rows together.
  */
@@ -308,7 +309,13 @@ function promptEntry(
   for (const [address, inputs] of stale) {
     const info = graph.addresses[address];
     const variantId = takeOf(address);
-    if (!info?.rerollable || variantId === null || !ctx.takeAccepted(address)) continue;
+    if (
+      !info?.rerollable ||
+      variantId === null ||
+      variantId !== info.acceptedVariantId ||
+      !ctx.takeAccepted(address)
+    )
+      continue;
     byUnit.set(info.unit, [...(byUnit.get(info.unit) ?? []), { address, variantId }]);
     keep[address] = { address, variantId, inputs };
   }
