@@ -442,6 +442,19 @@ describe("analyzeWorkflow() combo choices", () => {
     });
   });
 
+  it("pins the choices a COMBO-typed input lists in its options", () => {
+    const data = { "42": { class_type: "YuE2GenerateABC", inputs: { mode: "full" } } };
+    const objectInfo: Record<string, ComfyUINodeDefinition> = {
+      YuE2GenerateABC: {
+        input: {
+          required: { mode: ["COMBO", { multiselect: false, options: ["full", "melody"] }] },
+        },
+      },
+    };
+    const result = analyzeWorkflow(data, undefined, objectInfo);
+    expect(result.inputs.mode).toMatchObject({ default: "full", values: ["full", "melody"] });
+  });
+
   it("leaves a plain string input without `values` when object_info gives a scalar type", () => {
     const data = {
       "10": {

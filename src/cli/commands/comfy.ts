@@ -354,8 +354,9 @@ function jsonExtractKeyChoices(
 }
 
 // A combo (enum) input is declared in `object_info` as `def[0]` being the array of
-// choices (a scalar input has a type-name string there instead). Returns the choices
-// when the field is a string combo, so its adapter entry can pin the valid values.
+// choices, or as `"COMBO"` with the choices in `def[1].options` (a scalar input has
+// another type name there instead). Returns the choices when the field is a string
+// combo, so its adapter entry can pin the valid values.
 function comboChoices(
   objectInfo: Record<string, ComfyUINodeDefinition> | undefined,
   classType: string,
@@ -364,7 +365,8 @@ function comboChoices(
   const def = objectInfo?.[classType];
   if (!def) return undefined;
   const spec = def.input.required?.[field] ?? def.input.optional?.[field];
-  const choices = spec?.[0];
+  const choices =
+    spec?.[0] === "COMBO" ? (spec[1] as { options?: unknown } | undefined)?.options : spec?.[0];
   if (!Array.isArray(choices) || choices.length === 0) return undefined;
   if (!choices.every((c) => typeof c === "string")) return undefined;
   // A model/file picker's "choices" are the server's installed filenames — huge,
