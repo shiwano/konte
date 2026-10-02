@@ -7,7 +7,7 @@ import type { Typography } from "../types/definition.js";
 import type { ArcItem, LensSpec } from "../direction-check.js";
 import type { PendingShotInput, ShotHandle, ShotInput, StageShots } from "./builders.js";
 import type { DiscoveryResult, ShotFunction } from "./shot-context.js";
-import { makePlaceholder, runInDiscoveryMode } from "./shot-context.js";
+import { getActiveFormat, makePlaceholder, runInDiscoveryMode } from "./shot-context.js";
 import { withSongSpan } from "./song-window.js";
 import type { ShotStage } from "../address.js";
 import type { ShotScript } from "./shot-script.js";
@@ -1255,7 +1255,13 @@ const shotDeclarations = (stage: ShotStage, input: AnyShotInput): ShotDeclaratio
         `so it declares no assets. Reach the media it drops in from a timeline or reference asset instead.`,
     );
   }
-  const { assetKinds, songSpans } = runInDiscoveryMode(stage, input.id, input.fn);
+  const format = getActiveFormat();
+  const { assetKinds, songSpans } = runInDiscoveryMode(
+    stage,
+    input.id,
+    input.fn,
+    format && { ...format, duration: input.options.duration },
+  );
   const declarations = { assetKinds, songSpans };
   declarationsByInput.set(input, declarations);
   return declarations;

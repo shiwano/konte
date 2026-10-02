@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
-import { defineDirection, defineAnimatic, asset, Composition, Panel } from "../dsl/index.js";
+import {
+  adapters,
+  defineDirection,
+  defineAnimatic,
+  asset,
+  Composition,
+  Panel,
+} from "../dsl/index.js";
 import { directionDefaults, testDirection } from "./helpers/direction.js";
 import { moves } from "./helpers/shot.js";
 
@@ -90,6 +97,36 @@ describe("animatic shot chain", () => {
     expect(JSON.stringify(sb.shots[1]!.assets.next)).toContain("__konte:animatic:shot.01.first__");
     // Shot 02's direction `location` ("studio") was injected into its build ctx.
     expect(JSON.stringify(sb.shots[1]!.assets.next)).toContain("b in studio");
+  });
+
+  it("re-runs a referenced shot on the stage canvas, so its size-derived assets still resolve", () => {
+    const sb = defineAnimatic(direction, {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => {
+          const first = asset("first", imageComfy, {
+            prompt: "a",
+            image: asset("sketch", adapters.jsxImage, {}),
+          });
+          return (
+            <Composition>
+              <Panel src={first} {...moves} />
+            </Composition>
+          );
+        }).nextShot("02", ({ shot }) => {
+          const next = asset("next", imageComfy, {
+            prompt: "b",
+            image: shot("01").image("first"),
+          });
+          return (
+            <Composition>
+              <Panel src={next} {...moves} />
+            </Composition>
+          );
+        }),
+      }),
+    });
+
+    expect(JSON.stringify(sb.shots[1]!.assets.next)).toContain("__konte:animatic:shot.01.first__");
   });
 
   it("allows an empty animatic for an empty direction", () => {
