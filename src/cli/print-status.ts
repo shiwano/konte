@@ -11,6 +11,7 @@ import {
   isOverlayAddress,
   isPatchAddress,
   isStemAddress,
+  formatReferenceAddress,
 } from "../core/address.js";
 import {
   collectDeadCompositionVariants,
@@ -530,11 +531,8 @@ export function printStatusReport(
       if (r.filesMissing.length > 0) {
         parts.push(`${fileWord(r.filesMissing.length)} missing`);
       }
-      // A count: the gate is cleared by `konte generate reference` (stage-scoped) for a generated
-      // reference, and a `file` one's path is named by the "add file" step under Next steps.
       if (r.unacceptedCast.length > 0) {
-        const n = r.unacceptedCast.length;
-        parts.push(`${n} cast reference${n === 1 ? "" : "s"} not accepted`);
+        parts.push(`cast not accepted: ${r.unacceptedCast.map(formatReferenceAddress).join(", ")}`);
       }
       if (r.deliveryUpscalerMissing) parts.push("no delivery upscaler");
       console.log(`  ${r.label}: ${parts.join(", ")}`);
