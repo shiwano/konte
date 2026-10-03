@@ -19,6 +19,7 @@ import {
   collectChangedAddresses,
   collectChangedDirectionAddresses,
   collectChangedReferenceAddresses,
+  resolveAuthoredNotes,
 } from "../handoff.js";
 
 let tmpDir: string;
@@ -608,5 +609,21 @@ describe("collectChangedDirectionAddresses", () => {
     expect(collectChangedDirectionAddresses(direction, record)).toEqual(
       collectAllDirectionAddresses(direction),
     );
+  });
+});
+
+describe("resolveAuthoredNotes", () => {
+  const all = ["direction:brief.outOfScope", "direction:sequence.shots.01"];
+
+  it("prefixes an address that is valid once given the stage", () => {
+    expect(
+      resolveAuthoredNotes([{ address: "brief.outOfScope", text: "x" }], "direction", all, null),
+    ).toEqual([{ address: "direction:brief.outOfScope", text: "x" }]);
+  });
+
+  it("rejects an address that is unknown with or without the stage", () => {
+    expect(() =>
+      resolveAuthoredNotes([{ address: "brief.logline", text: "x" }], "direction", all, null),
+    ).toThrow(/Unknown handoff note address\(es\): brief\.logline/);
   });
 });

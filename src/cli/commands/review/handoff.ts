@@ -364,6 +364,35 @@ export function collectAllDirectionAddresses(direction: Direction): string[] {
   return [...directionPartHashes(direction).keys()];
 }
 
+// An address missing its `<stage>:` prefix is the stage's own when the prefixed form is one.
+export function resolveAuthoredNotes(
+  authored: HandoffNote[],
+  stage: string,
+  allAddresses: string[],
+  changedAddresses: string[] | null,
+): HandoffNote[] {
+  const valid = new Set(allAddresses);
+  const notes = authored.map((n) =>
+    !valid.has(n.address) && valid.has(`${stage}:${n.address}`)
+      ? { ...n, address: `${stage}:${n.address}` }
+      : n,
+  );
+  const unknown = notes.map((n) => n.address).filter((a) => !valid.has(a));
+  if (unknown.length > 0) {
+    // The changed set is almost always the intended target, so lead with it; fall back to
+    // the full authorable set when nothing changed or there is no review to diff.
+    const changed = changedAddresses ?? [];
+    const hint = changed.length
+      ? `Changed since the review:\n${changed.map((a) => `  ${a}`).join("\n")}`
+      : `Valid note addresses:\n${allAddresses.map((a) => `  ${a}`).join("\n")}`;
+    throw new KonteError(
+      "ADDRESS_NOT_FOUND",
+      `Unknown handoff note address(es): ${unknown.join(", ")}\n${hint}`,
+    );
+  }
+  return notes;
+}
+
 export function registerHandoffCommand(review: Command): void {
   const handoff = review.command("handoff").description("Handoff notes shown in the review UI");
   handoff
@@ -461,21 +490,7 @@ Examples:
 
       let notes: HandoffNote[];
       if (authored.length > 0) {
-        const valid = new Set(allAddresses);
-        const unknown = authored.map((n) => n.address).filter((a) => !valid.has(a));
-        if (unknown.length > 0) {
-          // The changed set is almost always the intended target, so lead with it; fall back to
-          // the full authorable set when nothing changed or there is no review to diff.
-          const changed = changedAddresses ?? [];
-          const hint = changed.length
-            ? `Changed since the review:\n${changed.map((a) => `  ${a}`).join("\n")}`
-            : `Valid note addresses:\n${allAddresses.map((a) => `  ${a}`).join("\n")}`;
-          throw new KonteError(
-            "ADDRESS_NOT_FOUND",
-            `Unknown handoff note address(es): ${unknown.join(", ")}\n${hint}`,
-          );
-        }
-        notes = authored;
+        notes = resolveAuthoredNotes(authored, stage, allAddresses, changedAddresses);
       } else {
         notes = seeded.map((address) => ({ address, text: "" }));
       }
