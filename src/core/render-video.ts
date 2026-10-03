@@ -14,7 +14,7 @@ import {
 } from "./address.js";
 import { asideSlugHtml } from "./aside-slug.js";
 import { injectBaseTimeline } from "./composition-builder.js";
-import { injectOverlay, renderOverlayBody } from "./overlay-render.js";
+import { injectOverlay, overlayShotStarts, renderOverlayBody } from "./overlay-render.js";
 import { resolveCompositionRef, substituteAssetPlaceholders } from "./composition-refs.js";
 import { planShotById } from "./shot-index.js";
 import { assertTailwindClasses } from "./tailwind-classes.js";
@@ -1222,11 +1222,6 @@ function renderOverlayOf(
   return {
     definition: video.overlay,
     fn: timelineRun?.overlay ?? video.overlay.fn,
-    shotStarts: new Map(
-      video.shots.map((shot, i) => [
-        shot.id,
-        video.shots.slice(0, i).reduce((sum, s) => sum + s.duration, 0),
-      ]),
-    ),
+    shotStarts: overlayShotStarts(video.shots),
   };
 }

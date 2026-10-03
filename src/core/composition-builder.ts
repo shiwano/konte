@@ -31,7 +31,12 @@ import {
 import { buildFallbackComposition } from "./composition-fallback.js";
 import { jsx } from "react/jsx-runtime";
 import { Composition } from "./dsl/composition/composition.js";
-import { injectOverlay, OVERLAY_COMPOSITION_ID, renderOverlayBody } from "./overlay-render.js";
+import {
+  injectOverlay,
+  OVERLAY_COMPOSITION_ID,
+  overlayShotStarts,
+  renderOverlayBody,
+} from "./overlay-render.js";
 import { resolveCompositionRef, substituteAssetPlaceholders } from "./composition-refs.js";
 import {
   parsePlaceholder,
@@ -87,6 +92,9 @@ interface BuildShotCompositionOptions {
   // behind `probe`/`review record show`. Never set where a partial shot would be PERSISTED —
   // materializing a leaf bakes what it reads.
   allowNotReady?: boolean;
+  // Lay the timeline's overlay over the shot's span, as the render and the reel review show it.
+  // Never set where the shot's own composition is materialized: the overlay is a leaf of its own.
+  withOverlay?: boolean;
 }
 
 interface BuildFullCompositionOptions {
@@ -824,7 +832,8 @@ function previewCueLevels(
 export async function buildShotCompositionHtml(
   options: BuildShotCompositionOptions,
 ): Promise<CompositionBuildResult> {
-  const { video, manager, shotId, assetBaseUrl, variantOverride, allowNotReady } = options;
+  const { video, manager, shotId, assetBaseUrl, variantOverride, allowNotReady, withOverlay } =
+    options;
 
   let plan: RenderPlan;
   try {
@@ -859,7 +868,7 @@ export async function buildShotCompositionHtml(
     ));
   }
 
-  const renderShotInputs = plan.timelineFn
+  const timelineRun = plan.timelineFn
     ? runTimelineInRenderMode(
         plan.stage,
         () => plan.timelineFn!({ format: plan.format }),
@@ -871,8 +880,9 @@ export async function buildShotCompositionHtml(
           assetBaseUrl,
           true,
         ),
-      ).shots
+      )
     : null;
+  const renderShotInputs = timelineRun?.shots ?? null;
 
   // Levelled against the take actually shown: a candidate previewed here is a different recording
   // at a different level.
@@ -881,7 +891,7 @@ export async function buildShotCompositionHtml(
     cueLevels: previewCueLevels(plan, shotPlan, resolvedVariants, manager, allowNotReady ?? false),
   };
 
-  const html = renderShotHtml(
+  const shotHtml = renderShotHtml(
     plan,
     levelled,
     resolvedFiles,
@@ -891,13 +901,31 @@ export async function buildShotCompositionHtml(
     false,
   );
 
-  if (!html) {
+  if (!shotHtml) {
     throw new KonteError(
       "COMPOSITION_BUILD_FAILED",
       `Shot "${shotId}" has no composition function`,
     );
   }
-  await assertTailwindClasses([{ label: shownCompositionAddress(plan, shotPlan), html }]);
+  await assertTailwindClasses([{ label: shownCompositionAddress(plan, shotPlan), html: shotHtml }]);
+
+  let html = shotHtml;
+  if (withOverlay && video.overlay) {
+    const body = renderOverlayBody({
+      stage: plan.stage,
+      overlay: video.overlay,
+      fn: timelineRun?.overlay ?? video.overlay.fn,
+      size: plan.size,
+      typography: plan.typography,
+      resolvedFiles: {},
+    });
+    await assertTailwindClasses([{ label: formatTimelineOverlayAddress(plan.stage), html: body }]);
+    html = injectOverlay(html, {
+      body,
+      shotStart: overlayShotStarts(video.shots).get(shotId) ?? 0,
+      shotDuration: shotPlan.duration,
+    });
+  }
 
   return {
     html: boundOpenAudio(

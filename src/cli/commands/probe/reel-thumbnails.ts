@@ -41,6 +41,7 @@ async function shotAnimates(
       shotId,
       allowNotReady: true,
       assetBaseUrl: "",
+      withOverlay: true,
     });
     return compositionAnimates(html);
   } catch {
@@ -65,8 +66,9 @@ export function registerProbeReelThumbnailsCommand(program: Command): void {
     .addHelpText(
       "after",
       `
-Captures sampled frames of a shot's composition (the assembled build output) — on either
-composition stage, so the same command reads the board and the finished piece. Composition
+Captures sampled frames of a shot's composition (the assembled build output), with the
+timeline's overlay laid over its span as the render lays it — on either composition stage, so
+the same command reads the board and the finished piece. Composition
 is a per-shot concept, so the address-scope targets a whole reel or a single shot of one; an
 individual asset address is rejected so the caller never gets frames it did not intend.
 

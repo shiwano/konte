@@ -71,6 +71,15 @@ function round(n: number): number {
   return Math.round(n * 1e6) / 1e6;
 }
 
+// Each shot's start on the whole timeline, where the overlay's clock meets it.
+export function overlayShotStarts(
+  shots: readonly { id: string; duration: number }[],
+): Map<string, number> {
+  return new Map(
+    shots.map((shot, i) => [shot.id, shots.slice(0, i).reduce((sum, s) => sum + s.duration, 0)]),
+  );
+}
+
 // Lay the overlay over a standalone composition — one shot's document, `shotStart` into the
 // timeline and `shotDuration` long: its host inside `#stage`, above the shot's own layers, carrying
 // the overlay's clock from `shotStart`, and its template after it.

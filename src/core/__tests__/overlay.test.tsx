@@ -17,6 +17,7 @@ import {
 } from "../dsl/index.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { buildRenderPlan } from "../render-plan.js";
+import { buildShotCompositionHtml } from "../composition-builder.js";
 import { commentSubjectAddresses } from "../feedback/subject.js";
 import { computeExportSignature } from "../export-signature.js";
 import { buildDependencyGraph, collectRerollCascade } from "../graph.js";
@@ -369,5 +370,22 @@ describe("the overlay as a leaf", () => {
       ["01", ["video:timeline.logo"]],
       ["02", ["video:timeline.logo"]],
     ]);
+  });
+
+  it("is laid over a shot's span where a frame of it is read", async () => {
+    const build = (withOverlay: boolean) =>
+      buildShotCompositionHtml({
+        video: withTitle("Hello"),
+        manager,
+        shotId: "02",
+        assetBaseUrl: "",
+        allowNotReady: true,
+        withOverlay,
+      });
+    const laid = (await build(true)).html;
+    expect(laid).toContain("Hello");
+    expect(laid).toContain(`data-composition-id="shot-timeline.overlay"`);
+    expect(laid).toContain(`data-media-start="2"`);
+    expect((await build(false)).html).not.toContain("Hello");
   });
 });

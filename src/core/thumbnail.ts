@@ -761,6 +761,7 @@ async function resolveCompositionCacheDir(options: {
     // the capture file server. `buildAssetUrl` adds the leading slash; a value of
     // "./" here would produce ".//…" → the browser resolves it to "//…" (404).
     assetBaseUrl: "",
+    withOverlay: true,
   });
   // What "this shot cannot be captured" means: the built page would draw nothing. Asked of the
   // render, not the refs, so a shot with text or a background over its missing layers still frames.
@@ -771,7 +772,12 @@ async function resolveCompositionCacheDir(options: {
       `Shot "${shotId}" has nothing to capture: it draws only ${gone.join(", ") || "layers"}, which resolve to nothing`,
     );
   }
-  const fingerprints = target ? compositionInputFingerprints(manager, pictureRefsOf(target)) : {};
+  const fingerprints = target
+    ? compositionInputFingerprints(manager, [
+        ...pictureRefsOf(target),
+        ...(video.overlay?.compositionRefs ?? []),
+      ])
+    : {};
   const compHash = createHash("sha256")
     .update(compositionResult.html)
     .update(
