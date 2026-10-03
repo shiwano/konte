@@ -50,7 +50,6 @@
           packages = [
             pkgs.bun
             pkgs.ffmpeg_8
-            pkgs.cloudflared
             waza
           ];
           shellHook = ''
@@ -58,15 +57,6 @@
               git config --local core.hooksPath scripts/git-hooks
             fi
           '';
-        };
-
-        # What CI builds, checks and tests with, minus the dev-only extras.
-        devShells.ci = pkgs.mkShell {
-          packages = [
-            pkgs.bun
-            pkgs.ffmpeg_8
-            waza
-          ];
         };
       }
     );

@@ -12,12 +12,12 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Every `run` step below executes in the flake's CI shell, so the release is built and
-    # tested with the same pinned bun and ffmpeg the dev shell hands a developer. The suite
-    # resolves ffmpeg/ffprobe off PATH (vitest.setup.ts) and the runner image ships neither.
+    # Every `run` step below executes in the flake's dev shell, so the release is built and
+    # tested with the same pinned bun and ffmpeg a developer gets. The suite resolves
+    # ffmpeg/ffprobe off PATH (vitest.setup.ts) and the runner image ships neither.
     defaults:
       run:
-        shell: nix develop .#ci --command bash -e {0}
+        shell: nix develop --command bash -e {0}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
