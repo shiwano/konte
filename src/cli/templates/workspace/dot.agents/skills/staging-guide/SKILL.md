@@ -61,7 +61,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 
 - **An `action` that needs two motions is a direction fix**, never a longer prompt.
 - **A motion shot is a visible change — fix state A and state B** — what the clip's first and last moments must each read as; if they read the same, the shot didn't happen. A near-still shot is chosen up front, in the panel's `camera`/`blocking`, never rationalized after a quiet clip comes back.
-- **A shot's `first` panel stages where its motion begins, not where it lands** — the loaded instant before the action: charged, never the peak, or the shot has nowhere to move. Opening on the tail is a choice, never a default.
+- **A shot's `first` panel stages where its motion begins, not where it lands** — the loaded instant before the action, never the peak, or the shot has nowhere to move. A change too long for the shot at real speed (a two-beat grin) opens mid-motion.
 - **Audio is staging too** — a one-shot `<Audio>` lands on a visible action frame (name which); a `soundtrack()` bed states a mood the picture already earns (placement → `composition-guide`). Sound or a telop never rescues an unreadable picture — fix the staging.
 
 ## Stage for the generator

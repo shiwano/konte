@@ -1020,6 +1020,7 @@ function platesUnderScope(
 // video with no direction.ts prints prompts alone.
 interface PromptShots {
   action: Map<string, string>;
+  span: Map<string, string>;
   lineup: Map<string, { lineup: readonly string[]; lineupTo: readonly string[] | null }>;
   // What the shot's frame carries of its set, left to right — the setup's `holds`, resolved to the
   // landmarks of the place it is set in. Empty on an insert, which holds nothing; absent only for a
@@ -1079,9 +1080,20 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
     }));
   };
   const action = new Map<string, string>();
+  const span = new Map<string, string>();
+  const clock = direction.policy.clock;
+  const timings = resolveDirectionTimeline(direction).timings;
   for (const shot of collectShots(direction)) {
     if (isAsideShot(shot)) continue;
     action.set(shot.id, shot.action);
+    span.set(
+      shot.id,
+      formatShotSpan(
+        timings.get(shot.id)?.duration ?? 0,
+        clock ? (shot.beats ?? null) : null,
+        clock?.beatsPerBar,
+      ),
+    );
     if (shot.cutin) {
       cutin.set(shot.id, {
         setup: shot.cutin.setup,
@@ -1109,7 +1121,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
     }));
     if (lines.length > 0) script.set(shot.id, lines);
   }
-  return { action, lineup, set, within, cutin, script, label };
+  return { action, span, lineup, set, within, cutin, script, label };
 }
 
 function shotIdOfAddress(address: string): string | null {
@@ -1163,6 +1175,8 @@ function promptShotLines(
   const order = (ids: readonly string[]) => ids.map(promptShots.label).join(" | ");
   const action = promptShots.action.get(shotId);
   if (action) out.push(`action: ${action}`);
+  const span = promptShots.span.get(shotId);
+  if (span) out.push(`span: ${span}`);
   const cutin = inCutin ? promptShots.cutin.get(shotId) : undefined;
   if (cutin) {
     const to = cutin.lineupTo ? ` → ${order(cutin.lineupTo)}` : "";

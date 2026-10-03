@@ -11,7 +11,7 @@ The caller gives you one thing: the **shot ids** of the sequence under review, o
 
 - `konte probe contact-sheet animatic` — one cell per panel, in order, each carrying its address.
 - `konte probe reel-audio animatic` — where each spoken line plays, against the shot windows.
-- `direction.ts` — the shots: each shot's `action`, `duration`, `role`, `setup`, `lineup`, `script`, and the `brief`. What the board promised.
+- `direction.ts` — the shots: each shot's `action`, `duration` or `beats`, `role`, `setup`, `lineup`, `script`, and the `brief`. What the board promised.
 
 Nothing else: no stage file, no prompt (the plate pass reads `plate:` lines only), no `blocking`/`camera` note, no handoff, no feedback list, no review record, no earlier critique, no `HOUSE_RULES.md`, and no project skill. If the caller volunteered why a choice was made, discard it — the viewer never gets that explanation, and it is the explanation that hides the defect.
 
@@ -69,7 +69,7 @@ Called with `plates`, before any shot stands on them. Read `konte probe contact-
 ## Axes
 
 - **Hook** — does the first panel put something on screen a viewer wants answered?
-- **Shot** — does each shot's panel show the `action`'s loaded instant, and on a two-panel shot can you draw the one path between the pair? A pair you could read as a jump cut will morph.
+- **Shot** — does each shot's panel show the `action`'s loaded instant — the instant before the change, or the change under way where it would not finish inside the shot at real-world speed — and on a two-panel shot can you draw the one path between the pair? A pair you could read as a jump cut will morph.
 - **Who and where** — does the panel hold everyone the shot's `lineup` names, in that order, and is the mover the frame's most salient element?
 - **Cut** — on each pair of adjacent panels: does size or angle change, does the subject's screen direction hold, does the space still assemble? A pair that changes nothing is a jump; a pair that swaps a subject's side is an axis break.
 - **Continuity** — is a recurring character, costume, prop or set the same thing from panel to panel, and does the world's ledger hold (what broke stays broken, what was picked up is in hand)?
@@ -77,6 +77,6 @@ Called with `plates`, before any shot stands on them. Read `konte probe contact-
 - **Lines** — does each line play over the picture of the shot that carries it, on the speaker the `script` names, inside that shot's window?
 - **Ending** — does the last panel carry `brief.audience`'s takeaway on its own?
 
-Problems: `weak-hook` (nothing to want answered in the first panel), `misread-shot` (your read of a panel contradicts its `action`), `invisible-change` (the shot's change has no panel it can be seen starting from — on a two-panel shot, none it can be seen starting from or landing on), `absent-subject` (a panel does not hold someone its `lineup` or `action` needs), `lineup-misplaced` (the frame holds them in another order than the `lineup`), `jump-cut` (an adjacent pair changing neither size nor angle, with no job), `axis-break` (a pair swapping a subject's side or direction), `continuity-drift` (a recurring thing that is not the same thing across panels, or a ledger reset), `look-drift` (a panel whose palette, register or scale breaks from the board), `wrong-speaker` (a line playing over a picture that does not carry its speaker or its shot), `line-misplaced` (a line outside its shot's window, or on the wrong instant of it), `flat-ending` (a last panel that carries nothing).
+Problems: `weak-hook` (nothing to want answered in the first panel), `misread-shot` (your read of a panel names another subject or event than its `action`; the instant before the change is not one), `invisible-change` (the shot's change has no panel it can be seen starting from — on a two-panel shot, none it can be seen starting from or landing on), `absent-subject` (a panel does not hold someone its `lineup` or `action` needs), `lineup-misplaced` (the frame holds them in another order than the `lineup`), `jump-cut` (an adjacent pair changing neither size nor angle, with no job), `axis-break` (a pair swapping a subject's side or direction), `continuity-drift` (a recurring thing that is not the same thing across panels, or a ledger reset), `look-drift` (a panel whose palette, register or scale breaks from the board), `wrong-speaker` (a line playing over a picture that does not carry its speaker or its shot), `line-misplaced` (a line outside its shot's window, or on the wrong instant of it), `flat-ending` (a last panel that carries nothing).
 
 Formal faults — a `duration` off the grid, a lens role out of order, a lineup the direction check owns, a missing `blocking`/`camera` note — are the checks' and the loop's; report a panel only when it is formally valid and still weak as a board.

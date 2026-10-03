@@ -127,6 +127,11 @@ describe("inspect --prompts", () => {
     );
   });
 
+  it("states how long the shot runs above its prompts", async () => {
+    const { stdout } = await run(["inspect", "video:shot.01.motion", "--prompts"], projectDir);
+    expect(stdout).toMatch(/^ {2}span: \S+s$/m);
+  });
+
   // The `set:` line is the other half of the handover: what the shot's frame carries of its place,
   // left to right. A critic cannot read direction.ts, so the plate's sentence is checked against this.
   it("states what the shot's frame holds of its place", async () => {
