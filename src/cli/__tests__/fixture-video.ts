@@ -37,7 +37,7 @@ export default defineDirection({
     character: {
       name: "the creator",
       description: "The maker at the desk — the recurring subject the piece follows.",
-      promptDepiction: "character",
+      promptDepiction: "the creator",
     },
   },
   locations: {
@@ -90,7 +90,7 @@ export default defineDirection({
         role: "rhythm",
         action: "Review and accept — the work settles into a confident rhythm.",
         setup: "deskMedium",
-        lineup: [],
+        lineup: ["character"],
         duration: 4,
         telop: ["Review it."],
       },

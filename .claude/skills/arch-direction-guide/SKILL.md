@@ -177,7 +177,7 @@ The second is `applyDirectionPartDecisions`, `konte accept direction[:<scope>]..
 
 The third writer is the media → direction cascade: an animatic/video shot accept signs off the direction shot and the acts bracketing it, a `reference:<id>` accept signs off the part it anchors — one of the three identity rosters' entries, or the voice part a cast sample belongs to. A `setups` part rides the SHOT cascade, not the reference one: `directionShotCascadeTargets` carries the shot's `setups.<id>` beside its own part and its acts. Before `whole` stands it only ever moves a part `stale` → `accepted` (R1); after, it signs off never-read parts too. Touching either: read `references/cascades.md`.
 
-The gate order at spend time (`load-definition.ts`): `assertDirectionGate` (structural + findings) → `assertDirectionAccepted` (`DIRECTION_ACCEPTANCE_REQUIRED`, naming each blocking part) → `assertCharactersAccepted` → `assertVoicesAccepted` (video only). The reference stage is exempt from the acceptance gate, bar the song: a run submitting `clock.song`'s take needs the `brief`, `policy` and `lyrics` parts accepted (`assertSongDirectionAccepted`).
+The gate order at spend time (`load-definition.ts`): `assertDirectionGate` (structural + findings) → `assertDirectionAccepted` (`DIRECTION_ACCEPTANCE_REQUIRED`, naming each blocking part) → `assertCharactersAccepted` (the characters a `lineup` / `lineupTo` holds) → `assertVoicesAccepted` (video only). The reference stage is exempt from the acceptance gate, bar the song: a run submitting `clock.song`'s take needs the `brief`, `policy` and `lyrics` parts accepted (`assertSongDirectionAccepted`).
 
 ## Policy fields
 

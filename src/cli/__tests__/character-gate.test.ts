@@ -25,10 +25,16 @@ beforeEach(async () => {
   manager = await StateManager.init(dir);
 });
 
-function directionWith(ids: string[]): Direction {
+function directionWith(ids: string[], unframed: string[] = []): Direction {
   return {
-    characters: Object.fromEntries(ids.map((id) => [id, { name: id, description: "d" }])),
-    sequence: { lens: "test", pleasure: "delight", shots: [] },
+    characters: Object.fromEntries(
+      [...ids, ...unframed].map((id) => [id, { name: id, description: "d" }]),
+    ),
+    sequence: {
+      lens: "test",
+      pleasure: "delight",
+      shots: ids.length > 0 ? [{ id: "01", action: "a", setup: "s", lineup: ids }] : [],
+    },
   } as unknown as Direction;
 }
 
@@ -94,6 +100,16 @@ describe("unsatisfiedCharacters", () => {
       manager,
       direction: directionWith(["hero"]),
       reference: referenceWith({ hero: "file" }),
+    });
+    expect(unsatisfied.map((c) => c.id)).toEqual(["hero"]);
+  });
+
+  it("asks nothing of a character no frame's lineup holds", async () => {
+    const unsatisfied = await unsatisfiedCharacters({
+      videoRoot: dir,
+      manager,
+      direction: directionWith(["hero"], ["singer"]),
+      reference: referenceWith({ hero: "comfy" }),
     });
     expect(unsatisfied.map((c) => c.id)).toEqual(["hero"]);
   });

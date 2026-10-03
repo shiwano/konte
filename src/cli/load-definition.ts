@@ -9,6 +9,7 @@ import {
 import { assertNever } from "../core/assert.js";
 import {
   assertDirectionGate,
+  collectFramedCharacterIds,
   collectShotFrames,
   type SongTakeState,
   type SpendCommand,
@@ -224,15 +225,18 @@ async function isCastReferenceSatisfied(
   return acceptedForSpend(opts.manager, formatReferenceAddress(id));
 }
 
-// The characters whose `reference:<id>` look anchor is not satisfied yet.
+// The characters some frame's lineup holds whose `reference:<id>` look anchor is not satisfied yet.
 export async function unsatisfiedCharacters(opts: {
   videoRoot: string;
   manager: StateManager;
   direction: Direction | null;
   reference: ReferenceDefinition | null;
 }): Promise<Array<{ id: string } & Character>> {
+  if (!opts.direction) return [];
+  const framed = collectFramedCharacterIds(opts.direction);
   const out: Array<{ id: string } & Character> = [];
-  for (const [id, c] of Object.entries(opts.direction?.characters ?? {})) {
+  for (const [id, c] of Object.entries(opts.direction.characters ?? {})) {
+    if (!framed.has(id)) continue;
     if (!(await isCastReferenceSatisfied(id, opts))) out.push({ id, ...c });
   }
   return out;

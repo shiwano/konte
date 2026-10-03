@@ -17,7 +17,7 @@ Substitute your stage's `<scope>` / `<address>` into every step below.
 ## Reference order
 
 - **When layout calls for a look proof, run it alone first** — later prompts follow its accepted take. Then run the roster-wired reference pool; without a look proof, start there.
-- **A `characters` roster reference is done only when accepted in `konte preview reference`** — an accept through a shot consuming it never counts; an animatic/video spend aborts `CHARACTER_ACCEPTANCE_REQUIRED` until it is.
+- **A lined-up character's reference is done only when accepted in `konte preview reference`** — an accept through a shot consuming it never counts; an animatic/video spend aborts `CHARACTER_ACCEPTANCE_REQUIRED` until it is.
 
 ## 1. Preflight
 

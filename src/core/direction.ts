@@ -488,7 +488,7 @@ function collectActions(direction: Direction): string[] {
   return collectArcShots(direction).map((s) => s.action);
 }
 
-function collectFramedCharacterIds(direction: Direction): Set<string> {
+export function collectFramedCharacterIds(direction: Direction): Set<string> {
   return new Set(
     collectShotFrames(direction).flatMap((f) => [...(f.lineup ?? []), ...(f.lineupTo ?? [])]),
   );
