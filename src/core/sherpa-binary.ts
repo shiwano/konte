@@ -117,6 +117,12 @@ async function managedSherpaDir(): Promise<string> {
   return dir;
 }
 
+/** Provisions the managed sherpa-onnx build unless an override names each of its tools. */
+export async function ensureSherpa(): Promise<void> {
+  if (process.env.KONTE_SHERPA_SEPARATION_PATH && process.env.KONTE_SHERPA_RECOGNIZER_PATH) return;
+  await managedSherpaDir();
+}
+
 // One sherpa-onnx tool: the path `override` names, else the managed build's.
 async function sherpaBin(name: string, override: string | undefined): Promise<string> {
   if (override) return override;
