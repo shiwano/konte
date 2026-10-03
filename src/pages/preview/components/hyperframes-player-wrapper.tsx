@@ -64,6 +64,11 @@ export function HyperFramesPlayerWrapper({
   // The frame a fresh document was sent to, until it reports having left its own first frame.
   const resumeFrameRef = useRef<number | null>(null);
   const lastFrameRef = useRef(0);
+  // A pause stops the runtime between two frames, where it reports the nearer frame number but
+  // draws the instant it stopped at — half a frame before the next shot's first frame reads as
+  // that shot while the last one is still on screen. The first state after a pause seeks onto the
+  // reported frame, so the picture is the frame the time names.
+  const snapOnPauseRef = useRef(false);
 
   const sendMessage = useCallback((action: string, payload?: Record<string, unknown>) => {
     const iframe = iframeRef.current;
@@ -78,16 +83,20 @@ export function HyperFramesPlayerWrapper({
     playerRef,
     () => ({
       play() {
+        snapOnPauseRef.current = false;
         sendMessage("play");
       },
       pause() {
+        snapOnPauseRef.current = true;
         sendMessage("pause");
       },
       seek(time: number) {
+        snapOnPauseRef.current = false;
         const frame = frameAtOrAfter(time);
         sendMessage("seek", { frame, seekMode: "commit" });
       },
       stepFrame(delta: number) {
+        snapOnPauseRef.current = false;
         sendMessage("pause");
         const frame = Math.max(0, lastFrameRef.current + delta);
         sendMessage("seek", { frame, seekMode: "commit" });
@@ -130,6 +139,10 @@ export function HyperFramesPlayerWrapper({
           resumeFrameRef.current = null;
         }
         lastFrameRef.current = frame;
+        if (snapOnPauseRef.current && !data.isPlaying) {
+          snapOnPauseRef.current = false;
+          sendMessage("seek", { frame, seekMode: "commit" });
+        }
         onTimeUpdate?.(frame / RUNTIME_FPS);
       }
     }
