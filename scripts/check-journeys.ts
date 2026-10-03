@@ -34,6 +34,8 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - dev-direction 16,650 → 16,750 (agreed by a human): a take's song reading kept in `song.json`
+//   beside it, hashed in the variant's `song`.
 // - music-video 38,700 → 38,800, dev-render 10,450 → 10,550 (agreed by a human): `#songStem`, what a
 //   motion model hears of the song, and the adapter `stem` input konte fills with it.
 // - video 37,750 → 37,800, konte-prompt-critic 3,750 → 3,800, konte-animatic-critic 3,450 → 3,500
@@ -206,7 +208,7 @@ const DEV_JOURNEYS = [
   // part hashes, so the review guide comes along.
   {
     name: "dev-direction",
-    budget: 16_650,
+    budget: 16_750,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-direction-guide/SKILL.md`,

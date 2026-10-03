@@ -6,7 +6,7 @@ import { ffmpegBin } from "./ffmpeg-binary.js";
 import { type HeardTokens, recognizeSpeech } from "./sherpa-binary.js";
 import { ANALYSIS_RATE, readSongBeat, readSungPhrases } from "./song-beat.js";
 import { songParts } from "./song-parts.js";
-import type { SongAnalysis } from "./types/index.js";
+import type { SongReading } from "./types/index.js";
 
 async function decodeMono(file: string): Promise<Float32Array> {
   const { stdout } = await execFileAsync(
@@ -50,7 +50,7 @@ export function hearingWindows(durationSec: number): number[] {
 // Each window's tokens on the take's clock, the overlap of two windows split down its middle.
 export function joinHeardWindows(
   windows: readonly { startSec: number; heard: HeardTokens }[],
-): NonNullable<SongAnalysis["heard"]> {
+): NonNullable<SongReading["heard"]> {
   const edge = (HEARING_WINDOW_SEC - HEARING_STEP_SEC) / 2;
   return windows.flatMap(({ startSec, heard }, i) => {
     const from = i === 0 ? -Infinity : edge;
@@ -69,7 +69,7 @@ async function hearVocals(
   durationSec: number,
   lang: string,
   workDir: string,
-): Promise<NonNullable<SongAnalysis["heard"]>> {
+): Promise<NonNullable<SongReading["heard"]>> {
   const starts = hearingWindows(durationSec);
   const wavs = await Promise.all(
     starts.map(async (startSec, i) => {
@@ -116,7 +116,7 @@ export async function analyzeSongTake(opts: {
   // A scratch directory under the video, removed when the analysis ends.
   workDir: string;
   log: (line: string) => void;
-}): Promise<Omit<SongAnalysis, "clock" | "lang">> {
+}): Promise<SongReading> {
   const beat = readSongBeat(await decodeMono(opts.file), {
     bpm: opts.bpm,
     beatsPerBar: opts.beatsPerBar,
@@ -126,8 +126,8 @@ export async function analyzeSongTake(opts: {
       `${beat.sectionSecs.length} section boundary candidate(s)`,
   );
 
-  let phrases: SongAnalysis["phrases"] = null;
-  let heard: SongAnalysis["heard"] = null;
+  let phrases: SongReading["phrases"] = null;
+  let heard: SongReading["heard"] = null;
   fs.mkdirSync(opts.workDir, { recursive: true });
   try {
     const { vocals } = await songParts(opts.videoRoot, {

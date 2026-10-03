@@ -141,7 +141,7 @@ The `song` class reads the take the piece is cut against (`resolveSongTake`: the
 
 The first two are fixed in the reference stage (`findingFixStage`).
 
-A take is read by a `song-analysis` job into the variant's `song`, once per bytes, declared clock and `policy.lang`: its clock off the mix, its sung stretches and words off the vocal track sherpa-onnx separates. A generated take is queued as it lands; `konte song analyze` reads the current take and every unread one in place. `song set --downbeat` corrects a reading.
+A take is read by a `song-analysis` job into `song.json` beside it, hashed in the variant's `song`, once per bytes, declared clock and `policy.lang`: its clock off the mix, its sung stretches and words off the vocal track sherpa-onnx separates. A generated take is queued as it lands; `konte song analyze` reads the current take and every unread one in place. `song set --downbeat` corrects a reading.
 
 ## Casting voices
 

@@ -21,7 +21,8 @@ import {
 import { type Direction, placeDirectionLyrics } from "../../../core/dsl/direction.js";
 import { lyricLines, songLinesRefusal } from "../../../core/direction.js";
 import { KonteError } from "../../../core/errors.js";
-import { setSongLines, songAddressOf } from "../../../core/song-take.js";
+import { songAnalysisOf } from "../../../core/song-reading.js";
+import { setSongLines, songAddressOf, songDownbeatSec } from "../../../core/song-take.js";
 import type { SongReadingInfo } from "../../../pages/preview/types.js";
 import type { DirectionRosterKind } from "../../../pages/preview/types.js";
 import type {
@@ -269,7 +270,7 @@ export async function handleReferenceSubmit(
     animatic,
     placeSongLines: (mgr) => placeSongLines(mgr, direction, body.songLines ?? []),
     refuseAccept: (address, variantId, mgr) =>
-      songLinesRefusal(direction, mgr.getState(), address, variantId),
+      songLinesRefusal(mgr.videoRoot, direction, mgr.getState(), address, variantId),
     // No board movement baseline is stamped here: this review shows the media, never the panel
     // prose it may back.
     // Carry each accepted reference image back into the direction: the roster entry it anchors was
@@ -338,14 +339,14 @@ function songReading(
   const clock = direction?.policy?.clock;
   if (!direction || !clock || songAddressOf(direction) !== address) return undefined;
   const variant = manager.getState().assets[address]?.variants?.[variantId];
-  const analysis = variant?.song;
-  if (!analysis) return undefined;
+  const analysis = songAnalysisOf(manager.videoRoot, address, variantId, variant?.song);
+  if (!variant || !analysis) return undefined;
   return {
     variantId,
     durationSec: variant.media && variant.media.kind !== "image" ? variant.media.durationSec : null,
     bpm: analysis.bpm,
     beatsPerBar: clock.beatsPerBar,
-    downbeatSec: analysis.downbeatSec,
+    downbeatSec: songDownbeatSec(analysis),
     phrases: analysis.phrases,
     lines: placeDirectionLyrics(direction, { address, variantId, analysis }).map((line) => ({
       key: line.key,
@@ -376,7 +377,7 @@ function placeSongLines(
   for (const [variantId, edits] of byTake) {
     const variant = mgr.tryGetAssetState(songAddress)?.variants?.[variantId];
     try {
-      if (!variant?.song) {
+      if (!variant?.song || !songAnalysisOf(mgr.videoRoot, songAddress, variantId, variant.song)) {
         throw new KonteError("VALIDATION_FAILED", `${variantId} has not been read as the song yet`);
       }
       const durationSec =

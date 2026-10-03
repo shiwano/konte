@@ -86,5 +86,5 @@ async function songReadings(videoRoot: string): Promise<string> {
     return "";
   }
   const parsed = KonteStateSchema.safeParse(raw);
-  return parsed.success ? songReadingsOf(parsed.data) : "";
+  return parsed.success ? songReadingsOf(videoRoot, parsed.data) : "";
 }

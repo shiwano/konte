@@ -132,6 +132,7 @@ describe("a definition cached under one reading of the song", () => {
       const { loadDirectionDefinition } = await import(${JSON.stringify(loaderPath)});
       const { getDirectionIndex } = await import(${src("../dsl/direction.ts")});
       const { StateManager } = await import(${src("../state/index.ts")});
+      const { writeSongReading } = await import(${src("../song-reading.ts")});
       const setDownbeat = async (downbeatSec) => {
         await StateManager.withLock(${JSON.stringify(video)}, async (m) => {
           const address = "reference:song";
@@ -139,7 +140,8 @@ describe("a definition cached under one reading of the song", () => {
           const id = existing ? Object.keys(existing.variants)[0] : m.reserveVariantId(address);
           const v = m.getAssetState(address).variants[id];
           v.file = "assets/song.mp3";
-          v.song = { bpm: 120, downbeatSec, sectionSecs: [], phrases: null, heard: null, analyzedAt: "2026-09-30T00:00:00.000Z", lang: "en" };
+          const reading = await writeSongReading(m.videoRoot, address, id, { bpm: 120, downbeatSec, sectionSecs: [], phrases: null, heard: null, analyzedAt: "2026-09-30T00:00:00.000Z" });
+          v.song = { reading, clock: { bpm: 120, beatsPerBar: 4 }, lang: "en" };
           m.setAccepted(address, id);
         });
       };

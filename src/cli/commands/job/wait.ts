@@ -683,6 +683,7 @@ async function waitAllCascade(
   while (true) {
     // A take of the song that landed since the last pass is read before anything waits on it.
     await queueSongAnalyses({
+      videoRoot,
       direction: await loadDirectionIfPresent(videoRoot).catch(() => null),
       state: (await StateManager.load(videoRoot)).getState(),
       jobManager,

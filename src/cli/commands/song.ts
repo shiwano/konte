@@ -5,27 +5,34 @@ import { lyricLines } from "../../core/direction.js";
 import { placeDirectionLyrics } from "../../core/dsl/direction.js";
 import { syncFileAssets } from "../../core/file-sync.js";
 import { unreadSongTakes } from "../../core/song-queue.js";
-import { currentSongTake, setSongLine, songAddressOf } from "../../core/song-take.js";
+import {
+  currentSongTake,
+  setSongLine,
+  songAddressOf,
+  songDownbeatSec,
+} from "../../core/song-take.js";
 import { runSongAnalysisJob } from "../../backends/run-song-analysis-job.js";
 import { printLyrics, printSongReading } from "./probe/audio.js";
 import { StateManager } from "../../core/state/index.js";
-import type { VariantState } from "../../core/types/index.js";
+import { songAnalysisOf } from "../../core/song-reading.js";
+import type { SongAnalysis, SongRecord, VariantState } from "../../core/types/index.js";
 import { requireVideoRoot } from "../context.js";
 import { loadDirectionIfPresent, loadStageDefinitions } from "../load-definition.js";
 
 function readSongVariant(
   manager: StateManager,
   variantId: string,
-): { address: string; variant: VariantState } {
+): { address: string; variant: VariantState; record: SongRecord; analysis: SongAnalysis } {
   const address = manager.resolveVariantAddress(variantId);
   const variant = manager.getState().assets[address]!.variants![variantId]!;
-  if (!variant.song) {
+  const analysis = songAnalysisOf(manager.videoRoot, address, variantId, variant.song);
+  if (!variant.song || !analysis) {
     throw new KonteError(
       "VALIDATION_FAILED",
       `${address} ${variantId} has not been read as the song yet — run \`konte song analyze\``,
     );
   }
-  return { address, variant };
+  return { address, variant, record: variant.song, analysis };
 }
 
 function takeDurationSec(variant: VariantState): number {
@@ -97,8 +104,8 @@ Examples:
           const direction = await loadDirectionIfPresent(videoRoot);
           const lines = direction ? lyricLines(direction) : [];
           const address = await StateManager.withLock(videoRoot, async (manager) => {
-            const { address, variant } = readSongVariant(manager, variantId);
-            variant.song = setSongLine(variant.song!, lines, key, span, takeDurationSec(variant));
+            const { address, variant, record } = readSongVariant(manager, variantId);
+            variant.song = setSongLine(record, lines, key, span, takeDurationSec(variant));
             return address;
           });
           console.log(
@@ -111,7 +118,7 @@ Examples:
         }
         const downbeat = seconds("--downbeat", opts.downbeat);
         const { address, before } = await StateManager.withLock(videoRoot, async (manager) => {
-          const { address, variant } = readSongVariant(manager, variantId);
+          const { address, variant, record, analysis } = readSongVariant(manager, variantId);
           const durationSec = takeDurationSec(variant);
           if (downbeat >= durationSec) {
             throw new KonteError(
@@ -119,12 +126,8 @@ Examples:
               `--downbeat ${downbeat} is past the end of the ${durationSec}s take`,
             );
           }
-          const before = variant.song!.downbeatSec;
-          variant.song = {
-            ...variant.song!,
-            downbeatSec: downbeat,
-            downbeatSetAt: new Date().toISOString(),
-          };
+          const before = songDownbeatSec(analysis);
+          variant.song = { ...record, downbeatSet: downbeat };
           return { address, before };
         });
         console.log(`Downbeat of ${address} ${variantId}: ${before}s → ${downbeat}s`);
@@ -165,13 +168,13 @@ Examples:
         await syncFileAssets({ reference, animatic, video }, manager, { measure: true });
         const state = manager.getState();
         const current = currentSongTake(state, songAddress);
-        const unread = unreadSongTakes(direction, state);
+        const unread = unreadSongTakes(videoRoot, direction, state);
         const ids = [
           ...new Set([...(current ? [current] : []), ...unread.map((t) => t.variantId)]),
         ];
         return ids.map((variantId) => {
           const variant = state.assets[songAddress]!.variants![variantId]!;
-          const setBefore = variant.song?.downbeatSetAt ? variant.song.downbeatSec : null;
+          const setBefore = variant.song?.downbeatSet ?? null;
           const linesSetBefore = Object.keys(variant.song?.lines ?? {});
           delete variant.song;
           return { variantId, outputHash: variant.outputHash ?? null, setBefore, linesSetBefore };
@@ -207,8 +210,14 @@ Examples:
           if (settled.status !== "pending" && settled.status !== "running") break;
           await new Promise((r) => setTimeout(r, 1000));
         }
-        const song = (await StateManager.load(videoRoot)).getState().assets[songAddress]
-          ?.variants?.[target.variantId]?.song;
+        const song = songAnalysisOf(
+          videoRoot,
+          songAddress,
+          target.variantId,
+          (await StateManager.load(videoRoot)).getState().assets[songAddress]?.variants?.[
+            target.variantId
+          ]?.song,
+        );
         if (settled.status !== "completed" || !song) {
           failed = true;
           console.log(

@@ -58,27 +58,33 @@ export const VariantMediaSchema = z.discriminatedUnion("kind", [
 
 export type VariantMedia = z.infer<typeof VariantMediaSchema>;
 
-// What konte read off a take of the song `policy.clock` counts on, recorded when the take lands:
-// the tempo it plays at, the take-second its first beat falls on, the bar heads its texture changes
-// most at, where it is sung, and what its vocal track is heard to sing, token by token. `phrases`
-// and `heard` are null where no vocal track could be separated, `heard` also where it could not be
-// recognized. `clock` and `lang` are the declared tempo, meter and language it was read against; a
-// reading against another is outdated.
-// `downbeatSetAt` marks a downbeat a person corrected (`konte song set`). `lines` are the lyric
-// lines a person placed on the take, keyed `<section>.<line>`, each with the words it was placed
-// as: a line whose words have changed since is read off the take again.
-export const SongAnalysisSchema = z.object({
+// What konte read off a take of the song `policy.clock` counts on, kept beside the take as
+// `song.json`: the tempo it plays at, the take-second its first beat falls on, the bar heads its
+// texture changes most at, where it is sung, and what its vocal track is heard to sing, token by
+// token. `phrases` and `heard` are null where no vocal track could be separated, `heard` also where
+// it could not be recognized.
+export const SongReadingSchema = z.object({
   bpm: z.number().positive(),
   downbeatSec: z.number().nonnegative(),
   sectionSecs: z.array(z.number()),
   phrases: z.array(z.object({ startSec: z.number(), endSec: z.number() })).nullable(),
   heard: z.array(z.object({ text: z.string(), startSec: z.number() })).nullable(),
   analyzedAt: z.string(),
-  clock: z
-    .object({ bpm: z.number().positive(), beatsPerBar: z.number().int().positive() })
-    .optional(),
+});
+
+export type SongReading = z.infer<typeof SongReadingSchema>;
+
+// A take's reading as state holds it: `reading` is the hash of its `song.json`, a file that no
+// longer hashes to it is no reading. `clock` and `lang` are the declared tempo, meter and language
+// it was read against; a reading against another is outdated.
+// `downbeatSet` is the downbeat a person corrected it to (`konte song set`), standing over the one
+// read. `lines` are the lyric lines a person placed on the take, keyed `<section>.<line>`, each with
+// the words it was placed as: a line whose words have changed since is read off the take again.
+export const SongRecordSchema = z.object({
+  reading: z.string(),
+  clock: z.object({ bpm: z.number().positive(), beatsPerBar: z.number().int().positive() }),
   lang: z.string(),
-  downbeatSetAt: z.string().optional(),
+  downbeatSet: z.number().nonnegative().optional(),
   lines: z
     .record(
       z.string(),
@@ -86,13 +92,15 @@ export const SongAnalysisSchema = z.object({
         text: z.string(),
         startSec: z.number().nonnegative(),
         endSec: z.number().nonnegative(),
-        setAt: z.string(),
       }),
     )
     .optional(),
 });
 
-export type SongAnalysis = z.infer<typeof SongAnalysisSchema>;
+export type SongRecord = z.infer<typeof SongRecordSchema>;
+
+// A take's reading with what a person set on it.
+export type SongAnalysis = SongReading & Omit<SongRecord, "reading">;
 
 // The reviewer's verdict on one take. `none` is undecided — nobody has looked, or nobody has
 // settled it. `dismissed` is decided-against: seen beside the take that was accepted and not
@@ -118,9 +126,9 @@ export const VariantStateSchema = z.object({
   // never null: a failed measurement leaves no record, so a later reader retries. Cleared when the
   // bytes it described are replaced.
   media: VariantMediaSchema.optional(),
-  // A take of the song `policy.clock` counts on, analyzed (see SongAnalysisSchema). Absent until the
+  // A take of the song `policy.clock` counts on, analyzed (see SongRecordSchema). Absent until the
   // analysis job records it, and on every other variant.
-  song: SongAnalysisSchema.optional(),
+  song: SongRecordSchema.optional(),
   // When the variant was reserved (ISO 8601). Drives "newest" selection in
   // `selectResolvedVariant`.
   createdAt: z.string(),

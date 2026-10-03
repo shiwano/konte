@@ -158,15 +158,7 @@ describe("syncFileAssets (reference stage)", () => {
     const manager = await StateManager.init(tmpDir);
     await syncFileAssets({ reference }, manager);
     const [variant] = Object.values(manager.getAssetState("reference:song").variants!);
-    variant!.song = {
-      bpm: 120,
-      downbeatSec: 0.5,
-      sectionSecs: [],
-      phrases: null,
-      heard: null,
-      analyzedAt: "2026-09-30T00:00:00.000Z",
-      lang: "en",
-    };
+    variant!.song = { reading: "r1", clock: { bpm: 120, beatsPerBar: 4 }, lang: "en" };
 
     await writeAsset(tmpDir, "assets/files/song.mp3", "v2");
     await syncFileAssets({ reference }, manager);

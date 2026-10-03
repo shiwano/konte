@@ -305,8 +305,8 @@ async function songTakesFor(filePath: string): Promise<{
     const state = parsed.data;
     return {
       videoRoot,
-      takes: (address) => resolveSongTake(state, address),
-      reading: songReadingsOf(state),
+      takes: (address) => resolveSongTake(videoRoot, state, address),
+      reading: songReadingsOf(videoRoot, state),
     };
   } catch {
     return { videoRoot, takes: null, reading: "" };

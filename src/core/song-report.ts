@@ -1,3 +1,4 @@
+import { songDownbeatSec } from "./song-take.js";
 import type { SongAnalysis } from "./types/index.js";
 
 // A song take's bar grid as the reader lays a take against it: where each bar head falls in the
@@ -14,9 +15,10 @@ export function songBars(
   rate: number,
 ): SongBar[] {
   const barSec = (60 / analysis.bpm) * beatsPerBar;
+  const downbeatSec = songDownbeatSec(analysis);
   const bars: SongBar[] = [];
-  for (let i = 0; analysis.downbeatSec + i * barSec < durationSec - 1e-6; i++) {
-    const startSec = analysis.downbeatSec + i * barSec;
+  for (let i = 0; downbeatSec + i * barSec < durationSec - 1e-6; i++) {
+    const startSec = downbeatSec + i * barSec;
     const from = Math.floor(startSec * rate);
     const to = Math.min(rms.length, Math.floor((startSec + barSec) * rate));
     let power = 0;
@@ -30,9 +32,8 @@ export function songBars(
 // The bar a take-second falls in, counted from 1 at the downbeat; 0 before it.
 export function barAt(analysis: SongAnalysis, beatsPerBar: number, sec: number): number {
   const barSec = (60 / analysis.bpm) * beatsPerBar;
-  return sec < analysis.downbeatSec - 1e-6
-    ? 0
-    : Math.floor((sec - analysis.downbeatSec) / barSec + 1e-6) + 1;
+  const downbeatSec = songDownbeatSec(analysis);
+  return sec < downbeatSec - 1e-6 ? 0 : Math.floor((sec - downbeatSec) / barSec + 1e-6) + 1;
 }
 
 // How many beats the take drifts from the declared grid by the end of a timeline `beats` long: the

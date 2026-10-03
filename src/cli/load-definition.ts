@@ -490,7 +490,7 @@ export async function loadAnimaticSetupState(
 // The take of the song the piece is read against, as the song class reads it.
 export function songTakeState(manager: StateManager, direction: Direction): SongTakeState {
   const address = songAddressOf(direction);
-  const take = address ? resolveSongTake(manager.getState(), address) : null;
+  const take = address ? resolveSongTake(manager.videoRoot, manager.getState(), address) : null;
   const media = take
     ? manager.getState().assets[take.address]?.variants?.[take.variantId]?.media
     : undefined;

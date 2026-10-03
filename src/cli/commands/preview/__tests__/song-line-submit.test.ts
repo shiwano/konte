@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { loadPreviewDefinitions } from "../load-definitions.js";
 import { handleReferenceSubmit } from "../reference-review.js";
 import { StateManager } from "../../../../core/state/index.js";
+import { writeSongReading } from "../../../../core/song-reading.js";
 import { ctx, initWorkspace, useTempWorkspace } from "../../../__tests__/cli-fixtures.js";
 
 vi.setConfig({ testTimeout: 30000 });
@@ -57,12 +58,15 @@ async function project(): Promise<{ videoRoot: string; variantId: string }> {
   const variant = sm.getAssetState(SONG).variants![variantId]!;
   variant.file = "/tmp/song.mp3";
   variant.song = {
-    bpm: 120,
-    downbeatSec: 0.5,
-    sectionSecs: [],
-    phrases: null,
-    heard: null,
-    analyzedAt: "2026-09-30T00:00:00.000Z",
+    reading: await writeSongReading(videoRoot, SONG, variantId, {
+      bpm: 120,
+      downbeatSec: 0.5,
+      sectionSecs: [],
+      phrases: null,
+      heard: null,
+      analyzedAt: "2026-09-30T00:00:00.000Z",
+    }),
+    clock: { bpm: 120, beatsPerBar: 4 },
     lang: "en",
   };
   await sm.save();

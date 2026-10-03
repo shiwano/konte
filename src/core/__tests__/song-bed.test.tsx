@@ -63,6 +63,7 @@ const songTake = () => ({
     phrases: null,
     heard: null,
     analyzedAt: "2026-09-30T00:00:00.000Z",
+    clock: { bpm: 120, beatsPerBar: 4 },
     lang: "en",
   },
 });
@@ -209,7 +210,6 @@ describe("a board shot's stem on a piece cut to its song", () => {
 });
 
 describe("a board shot's song stem", () => {
-  const setAt = "2026-09-30T00:00:00.000Z";
   // Shot 01 (0–2.5s) frames no one; shot 02 (2.5–4.5s) frames the cat, who sings over it while
   // the dog sings off screen.
   const singingDirection = () =>
@@ -237,7 +237,6 @@ describe("a board shot's song stem", () => {
     text,
     startSec,
     endSec,
-    setAt,
   });
   const onSungSong = <T,>(fn: () => T): Promise<T> =>
     withSongTakes(

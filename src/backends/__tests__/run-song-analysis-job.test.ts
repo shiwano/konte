@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { JobManager } from "../../core/job-manager.js";
 import { queueSongAnalyses, unreadSongTakes } from "../../core/song-queue.js";
-import { resolveSongTake } from "../../core/song-take.js";
+import { resolveSongTake, songReadingsOf } from "../../core/song-take.js";
 import { StateManager } from "../../core/state/index.js";
 import type { Direction } from "../../core/dsl/direction.js";
 import { directionDefaults } from "../../core/__tests__/helpers/direction.js";
@@ -88,13 +88,13 @@ describe("song analysis", () => {
     const jobManager = new JobManager(videoRoot);
     const state = () => StateManager.load(videoRoot).then((m) => m.getState());
 
-    expect(await queueSongAnalyses({ direction, state: await state(), jobManager })).toEqual([
-      "song-v-take1",
-    ]);
+    expect(
+      await queueSongAnalyses({ videoRoot, direction, state: await state(), jobManager }),
+    ).toEqual(["song-v-take1"]);
     const results = await runPendingSongAnalyses(jobManager, videoRoot);
     expect(results.map((r) => r.status)).toEqual(["completed"]);
 
-    const take = resolveSongTake(await state(), "reference:song");
+    const take = resolveSongTake(videoRoot, await state(), "reference:song");
     expect(take?.variantId).toBe("v-take1");
     expect(take?.analysis.bpm).toBeCloseTo(120, 0);
     expect(Math.abs(take!.analysis.downbeatSec - 0.5)).toBeLessThan(0.03);
@@ -103,7 +103,9 @@ describe("song analysis", () => {
     expect(await jobManager.readLog("song-v-take1")).toMatch(/could not be separated/);
 
     // Read once: a second pass queues nothing.
-    expect(await queueSongAnalyses({ direction, state: await state(), jobManager })).toEqual([]);
+    expect(
+      await queueSongAnalyses({ videoRoot, direction, state: await state(), jobManager }),
+    ).toEqual([]);
   });
 
   it("queues nothing for a piece that keeps no song clock", async () => {
@@ -111,6 +113,7 @@ describe("song analysis", () => {
     const state = (await StateManager.load(videoRoot)).getState();
     expect(
       await queueSongAnalyses({
+        videoRoot,
         direction: { ...direction, policy: directionDefaults.policy } as Direction,
         state,
         jobManager,
@@ -121,7 +124,12 @@ describe("song analysis", () => {
   it("records nothing for a job cancelled while it read", async () => {
     const jobManager = new JobManager(videoRoot);
     const state = () => StateManager.load(videoRoot).then((m) => m.getState());
-    const [id] = await queueSongAnalyses({ direction, state: await state(), jobManager });
+    const [id] = await queueSongAnalyses({
+      videoRoot,
+      direction,
+      state: await state(),
+      jobManager,
+    });
     const result = await runSongAnalysisJob(jobManager, videoRoot, id!, {
       onStarted: () => {
         void jobManager.updateIfNotTerminal(id!, { status: "cancelled" });
@@ -132,29 +140,51 @@ describe("song analysis", () => {
     expect((await state()).assets["reference:song"]?.variants?.["v-take1"]?.song).toBeUndefined();
   });
 
+  it("keeps the reading beside the take, and reads it again once that file is gone", async () => {
+    const jobManager = new JobManager(videoRoot);
+    const state = () => StateManager.load(videoRoot).then((m) => m.getState());
+    await queueSongAnalyses({ videoRoot, direction, state: await state(), jobManager });
+    await runPendingSongAnalyses(jobManager, videoRoot);
+    const record = (await state()).assets["reference:song"]?.variants?.["v-take1"]?.song;
+    expect(Object.keys(record ?? {}).sort()).toEqual(["clock", "lang", "reading"]);
+
+    const readings = songReadingsOf(videoRoot, await state());
+    await fs.rm(path.join(videoRoot, "assets/reference/song/v-take1/song.json"));
+    expect(resolveSongTake(videoRoot, await state(), "reference:song")).toBeNull();
+    expect(songReadingsOf(videoRoot, await state())).not.toBe(readings);
+    expect(unreadSongTakes(videoRoot, direction, await state()).map((t) => t.variantId)).toEqual([
+      "v-take1",
+    ]);
+  });
+
   it("reads a take again once its file is replaced", async () => {
     const jobManager = new JobManager(videoRoot);
     const state = () => StateManager.load(videoRoot).then((m) => m.getState());
-    await queueSongAnalyses({ direction, state: await state(), jobManager });
+    await queueSongAnalyses({ videoRoot, direction, state: await state(), jobManager });
     await runPendingSongAnalyses(jobManager, videoRoot);
     await StateManager.withLock(videoRoot, async (m) => {
       const v = m.getState().assets["reference:song"]!.variants!["v-take1"]!;
       v.outputHash = "h1-replaced";
       delete v.song;
     });
-    expect(await queueSongAnalyses({ direction, state: await state(), jobManager })).toEqual([
-      "song-v-take1",
-    ]);
+    expect(
+      await queueSongAnalyses({ videoRoot, direction, state: await state(), jobManager }),
+    ).toEqual(["song-v-take1"]);
   });
 
   it("has the reading on disk by the time the job completes", async () => {
     const jobManager = new JobManager(videoRoot);
     const state = () => StateManager.load(videoRoot).then((m) => m.getState());
-    const [id] = await queueSongAnalyses({ direction, state: await state(), jobManager });
+    const [id] = await queueSongAnalyses({
+      videoRoot,
+      direction,
+      state: await state(),
+      jobManager,
+    });
     const finish = jobManager.finishIfOwner.bind(jobManager);
     let onDisk: unknown = "unseen";
     jobManager.finishIfOwner = async (...args) => {
-      onDisk = (await state()).assets["reference:song"]?.variants?.["v-take1"]?.song;
+      onDisk = resolveSongTake(videoRoot, await state(), "reference:song")?.analysis;
       return finish(...args);
     };
     await runSongAnalysisJob(jobManager, videoRoot, id!);
@@ -164,7 +194,7 @@ describe("song analysis", () => {
   it("reads a take again once the declared clock changes", async () => {
     const jobManager = new JobManager(videoRoot);
     const state = () => StateManager.load(videoRoot).then((m) => m.getState());
-    await queueSongAnalyses({ direction, state: await state(), jobManager });
+    await queueSongAnalyses({ videoRoot, direction, state: await state(), jobManager });
     await runPendingSongAnalyses(jobManager, videoRoot);
     expect((await state()).assets["reference:song"]?.variants?.["v-take1"]?.song?.clock).toEqual({
       bpm: 120,
@@ -175,9 +205,11 @@ describe("song analysis", () => {
       ...direction,
       policy: { ...direction.policy, clock: { song: "song", bpm: 121, beatsPerBar: 4 } },
     } as Direction;
-    expect(unreadSongTakes(retimed, await state()).map((t) => t.variantId)).toEqual(["v-take1"]);
+    expect(unreadSongTakes(videoRoot, retimed, await state()).map((t) => t.variantId)).toEqual([
+      "v-take1",
+    ]);
     expect(
-      await queueSongAnalyses({ direction: retimed, state: await state(), jobManager }),
+      await queueSongAnalyses({ videoRoot, direction: retimed, state: await state(), jobManager }),
     ).toEqual(["song-v-take1"]);
     await runPendingSongAnalyses(jobManager, videoRoot);
     expect((await state()).assets["reference:song"]?.variants?.["v-take1"]?.song?.clock).toEqual({
@@ -189,7 +221,12 @@ describe("song analysis", () => {
   it("takes over a run whose holder died once its lease lapses", async () => {
     const jobManager = new JobManager(videoRoot);
     const state = () => StateManager.load(videoRoot).then((m) => m.getState());
-    const [id] = await queueSongAnalyses({ direction, state: await state(), jobManager });
+    const [id] = await queueSongAnalyses({
+      videoRoot,
+      direction,
+      state: await state(),
+      jobManager,
+    });
     expect(await jobManager.claimJobForRun(id!, "w-dead", -1)).toBeTruthy();
     const result = await runSongAnalysisJob(jobManager, videoRoot, id!);
     expect(result).toMatchObject({ status: "completed", ranAnalysis: true });

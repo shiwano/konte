@@ -422,7 +422,13 @@ async function runAccept(targets: string[], opts: AcceptOptions): Promise<void> 
     `Cannot accept ${addresses.join(", ")}`,
   );
   for (const item of items) {
-    assertSongLinesPlaced(direction, previewManager.getState(), item.address, item.variantId);
+    assertSongLinesPlaced(
+      videoRoot,
+      direction,
+      previewManager.getState(),
+      item.address,
+      item.variantId,
+    );
   }
 
   // A patch script is the second definition source a take can go stale against, so the candidate

@@ -534,7 +534,7 @@ async function readSongReading(videoRoot: string): Promise<string> {
   try {
     const raw = await fs.promises.readFile(path.join(videoRoot, "konte.state.json"), "utf-8");
     const parsed = KonteStateSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? songReadingsOf(parsed.data) : "";
+    return parsed.success ? songReadingsOf(videoRoot, parsed.data) : "";
   } catch {
     return "";
   }

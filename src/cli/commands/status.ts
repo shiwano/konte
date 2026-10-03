@@ -307,7 +307,8 @@ export function registerStatusCommand(program: Command): void {
         (j) => j.kind === "song-analysis" && (j.status === "pending" || j.status === "running"),
       );
       // A take no job is reading: placed as a file, failed, or read against another clock.
-      const songUnread = !songReadingsPending && unreadSongTakes(direction, state).length > 0;
+      const songUnread =
+        !songReadingsPending && unreadSongTakes(videoRoot, direction, state).length > 0;
       // A broken patch is listed under the same section keyed by its FILE path, which is not an
       // address — Next steps parses these with `getStage`, so letting one through would turn a
       // report about a bad file into an INVALID_ADDRESS crash. They are offered as an edit instead

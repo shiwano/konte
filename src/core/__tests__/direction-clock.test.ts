@@ -194,6 +194,7 @@ describe("the song take", () => {
         phrases: phrases?.map(([startSec, endSec]) => ({ startSec, endSec })) ?? null,
         heard: null,
         analyzedAt: "2026-09-30T00:00:00.000Z",
+        clock: { bpm: 120, beatsPerBar: 4 },
         lang: "en",
       },
     },
@@ -241,9 +242,7 @@ describe("the song take", () => {
       ...base.take!,
       analysis: {
         ...base.take!.analysis,
-        lines: Object.fromEntries(
-          Object.entries(lines).map(([k, v]) => [k, { ...v, setAt: "2026-09-30T00:00:00.000Z" }]),
-        ),
+        lines,
       },
     },
     durationSec: base.durationSec,
@@ -321,15 +320,7 @@ describe("the song take", () => {
 });
 
 describe("a lyric line placed on a take by hand", () => {
-  const analysis = {
-    bpm: 120,
-    downbeatSec: 0.5,
-    sectionSecs: [],
-    phrases: null,
-    heard: null,
-    analyzedAt: "2026-09-30T00:00:00.000Z",
-    lang: "en",
-  };
+  const record = { reading: "r1", clock: { bpm: 120, beatsPerBar: 4 }, lang: "en" };
   const lines = [
     { key: "1.1", text: "a" },
     { key: "1.2", text: "b" },
@@ -337,7 +328,7 @@ describe("a lyric line placed on a take by hand", () => {
   ];
 
   it("judges lines placed together on the order they leave together", () => {
-    let set = setSongLine(analysis, lines, "1.1", { startSec: 1, endSec: 2 }, 30);
+    let set = setSongLine(record, lines, "1.1", { startSec: 1, endSec: 2 }, 30);
     set = setSongLine(set, lines, "1.2", { startSec: 4, endSec: 5 }, 30);
     const moved = setSongLines(
       set,
@@ -353,13 +344,13 @@ describe("a lyric line placed on a take by hand", () => {
   });
 
   it("keeps the words it was placed as, and is left to the reading again when unset", () => {
-    const set = setSongLine(analysis, lines, "1.2", { startSec: 4, endSec: 6 }, 30);
+    const set = setSongLine(record, lines, "1.2", { startSec: 4, endSec: 6 }, 30);
     expect(set.lines?.["1.2"]).toMatchObject({ text: "b", startSec: 4, endSec: 6 });
     expect(setSongLine(set, lines, "1.2", null, 30)).not.toHaveProperty("lines");
   });
 
   it("opens in the order the lines are sung, inside the take", () => {
-    const set = setSongLine(analysis, lines, "1.2", { startSec: 4, endSec: 6 }, 30);
+    const set = setSongLine(record, lines, "1.2", { startSec: 4, endSec: 6 }, 30);
     expect(() => setSongLine(set, lines, "1.1", { startSec: 5, endSec: 7 }, 30)).toThrow(
       /before line 1\.2|after line 1\.2/,
     );
@@ -370,8 +361,8 @@ describe("a lyric line placed on a take by hand", () => {
     expect(
       setSongLine(set, lines, "1.3", { startSec: 5, endSec: 8 }, 30).lines?.["1.3"],
     ).toBeTruthy();
-    expect(() => setSongLine(analysis, lines, "1.1", { startSec: 2, endSec: 31 }, 30)).toThrow();
-    expect(() => setSongLine(analysis, lines, "9.9", { startSec: 2, endSec: 3 }, 30)).toThrow(
+    expect(() => setSongLine(record, lines, "1.1", { startSec: 2, endSec: 31 }, 30)).toThrow();
+    expect(() => setSongLine(record, lines, "9.9", { startSec: 2, endSec: 3 }, 30)).toThrow(
       /line 9\.9: direction\.ts declares no such lyric line/,
     );
   });

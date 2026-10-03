@@ -624,6 +624,7 @@ export function registerGenerateCommand(program: Command): void {
       // Generation is async: this command returns as soon as the jobs are registered.
       // A take of the song synced as a file above lands without a job, so its reading is queued here.
       const songReadings = await queueSongAnalyses({
+        videoRoot,
         direction: await loadDirectionIfPresent(videoRoot).catch(() => null),
         state: (await StateManager.load(videoRoot)).getState(),
         jobManager,

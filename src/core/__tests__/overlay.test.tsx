@@ -68,19 +68,18 @@ const placedTake = (address: string) =>
           phrases: null,
           heard: null,
           analyzedAt: "2026-09-30T00:00:00.000Z",
+          clock: { bpm: 120, beatsPerBar: 4 },
           lang: "en",
           lines: {
             "1.1": {
               text: "Hit the light",
               startSec: 1,
               endSec: 3,
-              setAt: "2026-09-30T00:00:00.000Z",
             },
             "1.2": {
               text: "Watch me move",
               startSec: 3,
               endSec: 4,
-              setAt: "2026-09-30T00:00:00.000Z",
             },
           },
         },

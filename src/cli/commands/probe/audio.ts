@@ -9,7 +9,8 @@ import { type AudioStreamInfo, probeMediaDetail } from "../../../core/video-prob
 import { buildTimeAxis, cell, fmtSeconds, normalize, resample } from "../../audio-sparkline.js";
 import { openProbeTargets } from "./resolve-arg.js";
 import { loadDirectionIfPresent } from "../../load-definition.js";
-import { songAddressOf } from "../../../core/song-take.js";
+import { songAnalysisOf } from "../../../core/song-reading.js";
+import { songAddressOf, songDownbeatSec } from "../../../core/song-take.js";
 import { barAt, songBars } from "../../../core/song-report.js";
 import type { SongAnalysis } from "../../../core/types/index.js";
 import { type LyricPlacementEntry, placeDirectionLyrics } from "../../../core/dsl/direction.js";
@@ -139,7 +140,12 @@ Examples:
           );
         }
 
-        const song = manager.getState().assets[wf.address]?.variants?.[variantId]?.song;
+        const song = songAnalysisOf(
+          manager.videoRoot,
+          wf.address,
+          variantId,
+          manager.getState().assets[wf.address]?.variants?.[variantId]?.song,
+        );
         if (clock && direction && wf.address === songAddress && dur != null) {
           printSong(song ?? null, clock, dur, wf.rms, wf.rate);
           if (song && direction.lyrics) {
@@ -198,10 +204,10 @@ export function printSongReading(
   song: SongAnalysis,
   clock: { bpm: number; beatsPerBar: number },
 ): void {
-  const corrected = song.downbeatSetAt ? " (set by hand)" : "";
+  const corrected = song.downbeatSet !== undefined ? " (set by hand)" : "";
   console.log(
     `  song      ${song.bpm} BPM (declared ${clock.bpm}), first bar head at ` +
-      `${fmtOnset(song.downbeatSec)}${corrected}`,
+      `${fmtOnset(songDownbeatSec(song))}${corrected}`,
   );
   const sections = song.sectionSecs
     .map((sec) => ({ sec, bar: barAt(song, clock.beatsPerBar, sec) }))

@@ -59,6 +59,7 @@ import {
   singersOf,
   shotSpan,
 } from "./dsl/direction.js";
+import { songAnalysisOf } from "./song-reading.js";
 import { type SongTake, songAddressOf } from "./song-take.js";
 import { songDriftBeats } from "./song-report.js";
 import type { PanelLane } from "./types/definition.js";
@@ -696,24 +697,31 @@ function checkSongOverrun(direction: Direction, song: SongTakeState): DirectionF
 
 // Refuses an accept of a song take with a lyric line nobody placed on it.
 export function assertSongLinesPlaced(
+  videoRoot: string,
   direction: Direction | null,
   state: KonteState,
   address: string,
   variantId: string,
 ): void {
-  const refusal = songLinesRefusal(direction, state, address, variantId);
+  const refusal = songLinesRefusal(videoRoot, direction, state, address, variantId);
   if (refusal) throw new KonteError("SONG_LINES_UNPLACED", refusal);
 }
 
 // Why a song take cannot be accepted yet, or null when it can (or the address is not the song).
 export function songLinesRefusal(
+  videoRoot: string,
   direction: Direction | null,
   state: KonteState,
   address: string,
   variantId: string,
 ): string | null {
   if (!direction?.lyrics || songAddressOf(direction) !== address) return null;
-  const analysis = state.assets[address]?.variants?.[variantId]?.song;
+  const analysis = songAnalysisOf(
+    videoRoot,
+    address,
+    variantId,
+    state.assets[address]?.variants?.[variantId]?.song,
+  );
   const unplaced = placeDirectionLyrics(
     direction,
     analysis ? { address, variantId, analysis } : null,

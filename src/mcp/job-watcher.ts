@@ -417,7 +417,12 @@ export class JobWatcher {
     ).catch(() => null);
     if (!direction?.policy?.clock) return;
     const state = (await StateManager.load(this.videoRoot)).getState();
-    await queueSongAnalyses({ direction, state, jobManager: this.jobManager });
+    await queueSongAnalyses({
+      videoRoot: this.videoRoot,
+      direction,
+      state,
+      jobManager: this.jobManager,
+    });
   }
 
   private startSongAnalysisJob(id: string): void {

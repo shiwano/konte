@@ -52,7 +52,7 @@ import { assertFontFamilies, assertLanguageTag, type LanguageTag } from "../typo
 import { isIdentifier, validateShotId, type ValidatedIdentifier } from "./validate-identifier.js";
 import { formatReferenceAddress, formatSongStemAddress } from "../address.js";
 import { placeLyricLines } from "../song-lyrics.js";
-import type { SongTake } from "../song-take.js";
+import { songDownbeatSec, type SongTake } from "../song-take.js";
 import { songTakeAt } from "./song-context.js";
 
 // Re-export the arc layer so the DSL surface (index.ts / template-entry.ts) has one import point.
@@ -1749,7 +1749,7 @@ export function beatTime(
 }
 
 function leadFramesOf(take: SongTake | null, fps: number): number {
-  return take ? Math.max(0, Math.round(take.analysis.downbeatSec * fps)) : 0;
+  return take ? Math.max(0, Math.round(songDownbeatSec(take.analysis) * fps)) : 0;
 }
 
 // The direction's timeline: the one its loaded index holds, else read off the direction alone, with
@@ -1826,7 +1826,7 @@ export function placeDirectionLyrics(
       };
     }),
   );
-  const downbeat = take?.analysis.downbeatSec ?? 0;
+  const downbeat = take ? songDownbeatSec(take.analysis) : 0;
   const leadFrames = leadFramesOf(take, fps);
   const onTimeline = (sec: number) => (leadFrames + Math.round((sec - downbeat) * fps)) / fps;
   const placements = placeLyricLines({

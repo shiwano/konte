@@ -1,19 +1,20 @@
 import type { Direction } from "./dsl/direction.js";
 import type { JobManager } from "./job-manager.js";
+import { readSongReading } from "./song-reading.js";
 import { songAddressOf } from "./song-take.js";
-import type { KonteState, SongAnalysis } from "./types/index.js";
+import type { KonteState, SongRecord } from "./types/index.js";
 
 // A reading taken against another declared tempo, meter or language: the tempo is searched near the
 // declared one, the bar heads counted in its meter and the vocal track heard in its language, so it
 // no longer holds.
 export function readingOutdated(
-  reading: SongAnalysis,
+  record: SongRecord,
   basis: { bpm: number; beatsPerBar: number; lang: string },
 ): boolean {
   return (
-    reading.clock?.bpm !== basis.bpm ||
-    reading.clock?.beatsPerBar !== basis.beatsPerBar ||
-    reading.lang !== basis.lang
+    record.clock.bpm !== basis.bpm ||
+    record.clock.beatsPerBar !== basis.beatsPerBar ||
+    record.lang !== basis.lang
   );
 }
 
@@ -29,13 +30,22 @@ export function readingBasis(
 export type UnreadSongTake = { address: string; variantId: string; outputHash: string | null };
 
 // Every take of the song that has landed and holds no reading of it under the declared clock.
-export function unreadSongTakes(direction: Direction | null, state: KonteState): UnreadSongTake[] {
+export function unreadSongTakes(
+  videoRoot: string,
+  direction: Direction | null,
+  state: KonteState,
+): UnreadSongTake[] {
   const basis = readingBasis(direction);
   const address = songAddressOf(direction);
   if (!basis || !address) return [];
   return Object.entries(state.assets[address]?.variants ?? {})
     .filter(
-      ([, v]) => v.file && v.status !== "dismissed" && (!v.song || readingOutdated(v.song, basis)),
+      ([variantId, v]) =>
+        v.file &&
+        v.status !== "dismissed" &&
+        (!v.song ||
+          readingOutdated(v.song, basis) ||
+          !readSongReading(videoRoot, address, variantId, v.song)),
     )
     .map(([variantId, v]) => ({ address, variantId, outputHash: v.outputHash ?? null }));
 }
@@ -46,6 +56,7 @@ export function unreadSongTakes(direction: Direction | null, state: KonteState):
  * `konte song analyze`.
  */
 export async function queueSongAnalyses(opts: {
+  videoRoot: string;
   direction: Direction | null;
   state: KonteState;
   jobManager: JobManager;
@@ -53,7 +64,7 @@ export async function queueSongAnalyses(opts: {
   const basis = readingBasis(opts.direction);
   if (!basis) return [];
   const queued: string[] = [];
-  for (const take of unreadSongTakes(opts.direction, opts.state)) {
+  for (const take of unreadSongTakes(opts.videoRoot, opts.direction, opts.state)) {
     const job = await opts.jobManager.ensureSongAnalysisJob({ ...take, ...basis });
     if (job.status === "pending") queued.push(job.id);
   }

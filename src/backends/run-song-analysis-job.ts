@@ -4,7 +4,8 @@ import type { JobManager } from "../core/job-manager.js";
 import { analyzeSongTake } from "../core/song-analysis.js";
 import { readingOutdated } from "../core/song-queue.js";
 import { StateManager } from "../core/state/index.js";
-import { SongAnalysisSchema, type JobRecord, type SongAnalysisJob } from "../core/types/index.js";
+import { readSongReading, writeSongReading } from "../core/song-reading.js";
+import { SongReadingSchema, type JobRecord, type SongAnalysisJob } from "../core/types/index.js";
 import { runLeasedJob } from "./run-leased-job.js";
 
 type SongAnalysisHooks = {
@@ -62,8 +63,8 @@ export async function runSongAnalysisJob(
           return await settle("failed", msg);
         }
         const outputHash = take.outputHash;
-        const analysis = SongAnalysisSchema.parse({
-          ...(await analyzeSongTake({
+        const reading = SongReadingSchema.parse(
+          await analyzeSongTake({
             file: path.resolve(videoRoot, take.file),
             outputHash,
             videoRoot,
@@ -73,10 +74,8 @@ export async function runSongAnalysisJob(
             // One directory per run: a run superseded by `song analyze` may still be reading.
             workDir: path.join(videoRoot, ".konte", "cache", "song", id, workerId),
             log: (line) => jobManager.appendLog(id, line),
-          })),
-          clock: { bpm: job.bpm, beatsPerBar: job.beatsPerBar },
-          lang: job.lang,
-        });
+          }),
+        );
         // Under the state lock: the reading is saved first, then the job completes, so a job seen
         // completed has its reading on disk. A job cancelled or reclaimed meanwhile (`job cancel`,
         // `song analyze` queueing it again) keeps nothing.
@@ -87,9 +86,15 @@ export async function runSongAnalysisJob(
           const lands =
             !!variant &&
             variant.outputHash === outputHash &&
-            (!variant.song || readingOutdated(variant.song, job));
+            (!variant.song ||
+              readingOutdated(variant.song, job) ||
+              !readSongReading(videoRoot, job.address, job.variantId, variant.song));
           if (lands) {
-            variant.song = analysis;
+            variant.song = {
+              reading: await writeSongReading(videoRoot, job.address, job.variantId, reading),
+              clock: { bpm: job.bpm, beatsPerBar: job.beatsPerBar },
+              lang: job.lang,
+            };
             await manager.save();
           }
           const won = await jobManager.finishIfOwner(id, workerId, {
