@@ -4,6 +4,7 @@ import {
   formatReferenceAddress,
   getAssetEntryByAddress,
   getStage,
+  isMaterializedLeafAddress,
   listAssetPaths,
 } from "../core/address.js";
 import { assertNever } from "../core/assert.js";
@@ -429,9 +430,11 @@ export function assertUpstreamAccepted(opts: {
   const lines = named.map(
     ([address, hasOutput]) =>
       `  ${address} — ${
-        hasOutput
-          ? `review and accept it in \`${upstream.review}\``
-          : `nothing generated yet — run \`${upstream.generate}\` first`
+        isMaterializedLeafAddress(address)
+          ? `run \`konte accept ${address}\`, which materializes it`
+          : hasOutput
+            ? `review and accept it in \`${upstream.review}\``
+            : `nothing generated yet — run \`${upstream.generate}\` first`
       }`,
   );
   throw new KonteError(

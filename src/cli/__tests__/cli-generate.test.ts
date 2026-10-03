@@ -651,6 +651,33 @@ describe("animatic stem gate", () => {
     const { stdout: after } = await run(["generate", "video", "--plan"], projectDir);
     expect(planEntries(after).map((e) => e.address)).toContain("video:shot.01.motion");
   });
+
+  it("points an unmaterialized stem at its accept, not at a generate that has no job for it", async () => {
+    const projectDir = await initWithCrossStageStemVideo();
+    await writeWorkspaceConfig(projectDir, {
+      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+    });
+    await fs.writeFile(path.join(projectDir, "direction.ts"), CROSS_STAGE_DIRECTION_TS);
+    await acceptDirection(projectDir);
+
+    const keyframe = "animatic:shot.01.keyframe";
+    const voice = "animatic:shot.01.voice";
+    const sm = await StateManager.load(projectDir);
+    const kfId = sm.reserveVariantId(keyframe);
+    sm.getAssetState(keyframe).variants![kfId]!.file = "assets/kf.png";
+    sm.getAssetState(keyframe).variants![kfId]!.outputHash = "kf-hash";
+    const voiceId = sm.reserveVariantId(voice);
+    sm.getAssetState(voice).variants![voiceId]!.file = "assets/voice.wav";
+    sm.getAssetState(voice).variants![voiceId]!.outputHash = "voice-take-1";
+    sm.setAccepted(keyframe, kfId);
+    sm.setAccepted(voice, voiceId);
+    await sm.save();
+
+    const err = await run(["generate", "video", "--plan"], projectDir).catch((e) => e);
+    expect(err.stderr).toContain("ANIMATIC_ACCEPTANCE_REQUIRED");
+    expect(err.stderr).toContain("run `konte accept animatic:shot.01#stem`");
+    expect(err.stderr).not.toContain("konte generate animatic");
+  });
 });
 
 // The same shapes one stage up: a sheet a board conditions on. Comfy, not `local` — a deterministic
