@@ -64,9 +64,6 @@ const GIT_SOURCES: ReadonlyArray<GitSource> = [
 // checks that the file is there.
 const LOCAL_DIR = "konte";
 const LOCAL_WORKFLOWS: ReadonlyArray<string> = [
-  // The style-reference template with its LoRA and its FluxKontextMultiReferenceLatentMethod
-  // taken out — the pair that make the reference a style source.
-  "image_krea2_turbo_reference",
   "image_minimax_h3_r2i",
   "audio_minimax_h3_r2a",
   "audio_zonos2_voice_clone",
@@ -138,15 +135,6 @@ const PATCHES: Record<string, (workflow: ComfyUIWorkflow) => void> = {
     useLiteralLatentSize(workflow, "EmptyLatentImage");
     pruneUnreachable(workflow);
   },
-  // Both higher encoder slots are wired here: with no LoRA holding the references to one job,
-  // each is the author's to assign in the prompt.
-  image_krea2_turbo_reference: (workflow) => {
-    useLiteralPromptText(workflow, "TextEncodeQwenImageEditPlus", "prompt");
-    useLiteralSizes(workflow);
-    addReferenceImage(workflow, "image2", 1);
-    addReferenceImage(workflow, "image3", 1);
-    pruneUnreachable(workflow);
-  },
   video_minimax_h3_r2v: (workflow) => {
     useLiteralH3Inputs(workflow);
     // Nine reference images, three reference clips, each clip's own soundtrack and three
@@ -165,36 +153,6 @@ const PATCHES: Record<string, (workflow: ComfyUIWorkflow) => void> = {
     useTurboSamplerSchedule(workflow);
   },
 };
-
-// TextEncodeQwenImageEditPlus takes image1..image3; the upstream template leaves the higher
-// slots unwired. Add a LoadImage and feed it to `slot` on every encoder — a graph that encodes
-// its negative branch too must see the same reference set on both.
-function addReferenceImage(
-  workflow: ComfyUIWorkflow,
-  slot: "image2" | "image3",
-  encoderCount: number,
-): void {
-  const encoders = Object.values(workflow).filter(
-    (node) => node.class_type === "TextEncodeQwenImageEditPlus",
-  );
-  if (encoders.length !== encoderCount) {
-    throw new Error(
-      `Expected ${encoderCount} TextEncodeQwenImageEditPlus nodes, found ${encoders.length}`,
-    );
-  }
-  // Unconnected optional slots survive conversion as an explicit null; only a link means the
-  // template already wired this reference, in which case overwriting it would be silent breakage.
-  for (const encoder of encoders) {
-    if (Array.isArray(encoder.inputs[slot])) {
-      throw new Error(`Encoder ${slot} is already wired; refusing to overwrite`);
-    }
-  }
-  const loadImageId = freeNodeId(workflow);
-  workflow[loadImageId] = { class_type: "LoadImage", inputs: { image: "example.png" } };
-  for (const encoder of encoders) {
-    encoder.inputs[slot] = [loadImageId, 0];
-  }
-}
 
 // Replace an empty latent's linked width/height with literals, so the size lands as an adapter
 // input. Whatever computed them is deleted once nothing else reads it.
@@ -294,20 +252,6 @@ function useScoreTempo(workflow: ComfyUIWorkflow, bpm = 120): void {
     },
   };
   music.inputs.abc = [score, 0];
-}
-
-// Retype every linked width/height in the graph to literals, for a template that sizes more than
-// one node off a shared selector. What computed them is left to `pruneUnreachable`, and the
-// surviving pairs become one adapter input each — collapsed into one with `also` by hand.
-function useLiteralSizes(workflow: ComfyUIWorkflow, width = 1280, height = 720): void {
-  const sized = Object.values(workflow).filter(
-    (node) => Array.isArray(node.inputs.width) && Array.isArray(node.inputs.height),
-  );
-  if (sized.length === 0) throw new Error("Expected at least one linked width/height pair");
-  for (const node of sized) {
-    node.inputs.width = width;
-    node.inputs.height = height;
-  }
 }
 
 // Read the sampler's model from the off branch of the ComfySwitchNode in front of it, leaving

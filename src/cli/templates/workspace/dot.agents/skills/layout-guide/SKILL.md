@@ -23,7 +23,7 @@ Bring each file under `assets/files/` in as `file` kind — no generation. Pick 
 - **Declare one look proof alone in `reference.tsx`, then hand to `generation-loop-guide` for its pass** — reference is exempt from the direction gate, so it generates with the rosters unanchored. Return here once it is accepted.
 - **It is `brief.look` as a picture** — palette, key light, line, finish, realism register. **Draw the world, not a shot**: a frame from the cut turns the review onto staging.
 - **Put one unnamed figure in it when the piece has people** — a person of the world, not the cast: line, skin and proportion under this look, no face or costume to sign off. A look settled on scenery alone is redone after pass 1, and every sheet with it.
-- **Looked at, never fed** — wiring it into a later asset as an image or style input carries its staging into everything built on it. Every later prompt is written to it in prose; where prose cannot pin the finish, that is a style sheet's slot, in pass 1.
+- **Looked at, never drawn from** — a later asset drawn from it carries its staging into everything built on it. Every later prompt is written to it in prose; where prose cannot pin the finish, style-convert each sheet with it as the style example, in pass 1.
 - **Leave it declared** — removing it orphans its accepted take.
 
 ## 4. Wire the rosters

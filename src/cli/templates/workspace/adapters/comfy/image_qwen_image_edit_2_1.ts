@@ -5,7 +5,7 @@ import { defineComfyAsset, inertInputs } from "konte";
 export const imageQwenImageEdit21 = defineComfyAsset({
   workflow: "image_qwen_image_edit_2_1.json",
   description:
-    "Qwen Image 2.1 — edits an existing image, keeping everything the prompt does not change: a change of rendering medium in reference, the next keyframe on the same camera from the one before it in a shot. Never a new viewpoint, a cut or a new composition.",
+    "Qwen Image 2.1 — edits from up to three images, keeping what the prompt does not change: in reference, a change of rendering medium (a photograph redrawn as anime) or a new pose, view or outfit of an existing subject; in a shot, the next keyframe on the same camera from the one before it, never a new viewpoint, a cut or a new composition.",
   guide: "konte/guides/qwen-image-edit-2-1.md",
   allowedIn: ["reference", "shot"],
   models: [
@@ -32,7 +32,7 @@ export const imageQwenImageEdit21 = defineComfyAsset({
       type: "image",
       required: true,
       description:
-        "Source image whose identity, geometry and composition the edit must retain: the image to convert, or the keyframe before on the same camera.",
+        "Source image: the image to convert, the subject to redraw in a new pose or view, or the keyframe before on the same camera.",
     },
     image2: {
       nodeId: "475",

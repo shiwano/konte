@@ -1,5 +1,5 @@
 import { adapters, asset, defineReference, seed } from "konte";
-import { imageKrea2TurboReference } from "konte/workspace/adapters/comfy/image_krea2_turbo_reference.js";
+import { imageQwenImageEdit21 } from "konte/workspace/adapters/comfy/image_qwen_image_edit_2_1.js";
 import { falNanoBanana2, falNanoBanana2Edit } from "konte/workspace/adapters/fal/nano-banana-2.js";
 import direction from "./direction";
 
@@ -10,10 +10,10 @@ export default defineReference(
     const tone = asset("tone", adapters.audioFile, { path: "assets/files/tone.mp3" });
     const clip = asset("clip", adapters.videoFile, { path: "assets/files/clip.mp4" });
 
-    const cook = asset("cook", imageKrea2TurboReference, {
+    const cook = asset("cook", imageQwenImageEdit21, {
       image1: photo,
       prompt:
-        "A full-body character sheet of the boy from image1 in a white apron, plain backdrop.",
+        "The boy from <image1>, full body, in a white apron, on a plain backdrop. Keep the same face and hair as in <image1>.",
       seed: seed(),
     });
     const rival = asset("rival", falNanoBanana2, {
