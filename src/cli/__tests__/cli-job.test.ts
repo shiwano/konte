@@ -144,6 +144,27 @@ describe("job wait command", () => {
     );
   });
 
+  // A fresh job sits "queued" with no backendJobId between createJob and its creator's claim, and
+  // stays so when the creator dies there.
+  it("submits an unclaimed queued job instead of reporting nothing to do (no ids)", async () => {
+    vi.spyOn(ComfyUIBackend.prototype, "submit").mockRejectedValue(new Error("comfy down"));
+    const jobManager = new JobManager(projectDir);
+    await jobManager.createJob({
+      address,
+      variantId: "v-orphan01",
+      resolvedDeps: {},
+      backendKind: "comfy",
+    });
+
+    const err = (await run(["job", "wait"], projectDir).catch((e) => e)) as {
+      code: number;
+      stdout: string;
+    };
+
+    expect(err.stdout).not.toContain("No running, queued, or pending jobs");
+    expect((await jobManager.getJob("v-orphan01")).status).not.toBe("queued");
+  });
+
   it("still reports an empty result when there are genuinely no jobs (no ids)", async () => {
     const { stdout } = await run(["job", "wait"], projectDir);
     expect(stdout).toContain("No running, queued, or pending jobs");

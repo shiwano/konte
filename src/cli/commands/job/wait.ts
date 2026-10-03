@@ -715,7 +715,13 @@ async function waitAllCascade(
     const submittingJobs = allJobs.filter(
       (j) => j.kind === "generation" && j.status === "running" && j.backendJobId == null,
     );
-    const pendingJobs = allJobs.filter((j) => j.kind === "generation" && j.status === "pending");
+    // A "queued" job with no backendJobId is unclaimed: its creator is between createJob and its
+    // claim, or died there. submitReadyPendingJobs claims it like a pending one.
+    const pendingJobs = allJobs.filter(
+      (j) =>
+        j.kind === "generation" &&
+        (j.status === "pending" || (j.status === "queued" && j.backendJobId == null)),
+    );
     const exportJobs = allJobs.filter(
       (j) => j.kind === "export" && (j.status === "pending" || j.status === "running"),
     );
