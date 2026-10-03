@@ -152,7 +152,7 @@ export function assertDirectionAccepted(opts: {
   if (isDirectionSpendGateSatisfied(opts.direction, acceptance)) return;
 
   const { gateBlocking } = directionAcceptanceView(opts.direction, acceptance);
-  const clear = "`konte preview direction`, or `konte accept direction:<part>` per part";
+  const clear = "`konte preview direction`, or `konte accept <part>...`";
   if (gateBlocking.length === 0) {
     // Nothing live is blocking, so what re-blocked the gate is a part that was DELETED since it was
     // accepted — there is no address to point at, only the fact that the page changed shape.
@@ -200,7 +200,7 @@ export async function assertSongDirectionAccepted(opts: {
     "DIRECTION_ACCEPTANCE_REQUIRED",
     `${song} is generated from the direction's brief, policy and lyrics — ${blocking.length} ` +
       "part(s) must be reviewed and accepted before it is made: `konte preview direction`, or " +
-      `\`konte accept direction:<part>\` per part:\n${lines.join("\n")}`,
+      `\`konte accept <part>...\`:\n${lines.join("\n")}`,
   );
 }
 

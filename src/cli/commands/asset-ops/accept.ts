@@ -20,6 +20,7 @@ import {
   directionSectionOf,
   getAssetStage,
   isMaterializedLeafAddress,
+  matchesAddressScope,
   parseAddress,
   parseDirectionScope,
 } from "../../../core/address.js";
@@ -71,8 +72,8 @@ export function registerAcceptCommand(program: Command): void {
     .addHelpText(
       "after",
       `
-Record a human sign-off, or clear one with --off. Each target is a take; the
-direction is a target on its own.
+Record a human sign-off, or clear one with --off. Each target is a take or a
+direction part; the two are accepted in separate runs.
 
 A take: a variant id, or an address — which lands on the take that address
 resolves to now (accepted, else the newest ready one), so name the id to sign off
@@ -102,9 +103,11 @@ A deterministic asset (a \`file\`, a trim, a mix, a \`jsxImage\`) accepts here l
 other; only \`dismiss\` refuses it, having no second take to decide for. A composition or stem is accepted by its address,
 which materializes it — the board's stem as the mix the motion is driven by.
 
-The direction: "direction" signs off every reviewable part at once (dropping the
-sign-off of any part since deleted), "direction:<part>" signs off that one part —
-the addresses "konte inspect direction" lists. Waivers are the exception: a waiver
+The direction: "direction" signs off every reviewable part at once, and
+"direction:<part>" every part under that scope — one part ("direction:brief.look")
+or a group ("direction:brief"), as "konte inspect direction" lists them; several
+scopes are decided together. A scope's accept drops the sign-off of any part under
+it since deleted. Waivers are the exception: a waiver
 silences a machine finding, so it is accepted only in "konte preview direction",
 where the reviewer sees what it silences. Nothing here is gated on the direction
 check — the machine's verdict and the human's are separate, and "konte generate"
@@ -117,18 +120,23 @@ Examples:
   konte accept v-abc123 --off              Clear the variant's acceptance
   konte accept direction                   Sign off the whole direction
   konte accept direction:brief.logline     Sign off one direction part
+  konte accept direction:brief             Sign off every brief part
+  konte accept direction:brief.look direction:props -y
+                                           Sign off several direction scopes
   konte accept direction:props.mug --off   Clear that part's sign-off`,
     )
     .action(async (targets: string[], opts: AcceptOptions) => {
-      const direction = targets.find((t) => t === "direction" || t.startsWith("direction:"));
+      const isDirection = (t: string) => t === "direction" || t.startsWith("direction:");
+      const direction = targets.find(isDirection);
       if (direction) {
-        if (targets.length > 1) {
+        const take = targets.find((t) => !isDirection(t));
+        if (take) {
           throw new KonteError(
             "TARGETS_CONFLICT",
-            `"${direction}" is accepted on its own — run \`konte accept ${direction}\` separately`,
+            `"${direction}" is a direction part and "${take}" a take — accept them in separate runs`,
           );
         }
-        await runDirectionAcceptance(direction, opts);
+        await runDirectionAcceptance(targets, opts);
         return;
       }
       if (opts.off) {
@@ -148,9 +156,14 @@ Examples:
 // human's (`assertDirectionAccepted`) are two independent gates that `konte generate` enforces in
 // order, so folding the check in here would duplicate a judgement that this command's result cannot
 // keep true anyway — the next edit to direction.ts moves the findings without moving the sign-off.
-async function runDirectionAcceptance(target: string, opts: AcceptOptions): Promise<void> {
+async function runDirectionAcceptance(
+  scopes: readonly string[],
+  opts: AcceptOptions,
+): Promise<void> {
   const videoRoot = requireVideoRoot();
-  const { address } = parseDirectionScope(target);
+  const scopeAddresses = scopes.map((scope) => parseDirectionScope(scope).address);
+  const whole = scopeAddresses.includes(null);
+  const partScopes = scopeAddresses.filter((a): a is string => a !== null);
   const direction = await loadDirectionIfPresent(videoRoot);
   if (!direction) {
     throw new KonteError("ADDRESS_NOT_FOUND", "No direction.ts found in the video root");
@@ -160,6 +173,9 @@ async function runDirectionAcceptance(target: string, opts: AcceptOptions): Prom
   const acceptance = previewManager.getDirectionAcceptance();
   const view = directionAcceptanceView(direction, acceptance);
   const recorded = Object.keys(acceptance?.parts ?? {});
+  const inScope = (part: string) =>
+    whole || partScopes.some((scope) => matchesAddressScope(part, scope));
+  const acceptable = (part: string) => directionSectionOf(part) !== CLI_UNACCEPTABLE_SECTION;
 
   // The exact set of parts this run decides, fixed here from the read above — so it is also what the
   // confirmation below describes and what the locked write applies. A record that appears
@@ -167,58 +183,57 @@ async function runDirectionAcceptance(target: string, opts: AcceptOptions): Prom
   // never decides a part the caller was not shown.
   const decisions = new Map<string, boolean>();
 
-  if (address === null) {
-    if (opts.off) {
-      if (recorded.length === 0) {
-        throw new KonteError(
-          "DIRECTION_PART_NOT_ACCEPTED",
-          "The direction carries no sign-off to clear",
-        );
-      }
-      for (const part of recorded) decisions.set(part, false);
-    } else {
-      for (const part of view.parts.keys()) {
-        if (directionSectionOf(part) === CLI_UNACCEPTABLE_SECTION) continue;
-        decisions.set(part, true);
-      }
-      // A part accepted and since deleted holds the gate shut while being invisible in the live set,
-      // so signing off the whole direction drops it — the same sweep the review page's boxes do.
-      for (const part of recorded) {
-        if (view.parts.has(part)) continue;
-        if (directionSectionOf(part) === CLI_UNACCEPTABLE_SECTION) continue;
-        decisions.set(part, false);
-      }
-    }
-  } else if (opts.off) {
-    if (!acceptance?.parts[address]) {
+  if (opts.off) {
+    if (whole && recorded.length === 0) {
       throw new KonteError(
         "DIRECTION_PART_NOT_ACCEPTED",
-        `"${address}" carries no sign-off to clear`,
+        "The direction carries no sign-off to clear",
       );
     }
-    decisions.set(address, false);
+    for (const scope of partScopes) {
+      if (!recorded.some((part) => matchesAddressScope(part, scope))) {
+        throw new KonteError(
+          "DIRECTION_PART_NOT_ACCEPTED",
+          `"${scope}" carries no sign-off to clear`,
+        );
+      }
+    }
+    for (const part of recorded) {
+      if (inScope(part)) decisions.set(part, false);
+    }
   } else {
-    if (directionSectionOf(address) === CLI_UNACCEPTABLE_SECTION) {
-      throw new KonteError(
-        "INVALID_ADDRESS",
-        `Cannot accept "${address}" here: a waiver silences a machine finding, so it is signed off ` +
-          "in `konte preview direction`, where the finding it silences is shown next to it",
-      );
+    for (const scope of partScopes) {
+      const live = [...view.parts.keys()].filter((part) => matchesAddressScope(part, scope));
+      if (live.length > 0 && !live.some(acceptable)) {
+        throw new KonteError(
+          "INVALID_ADDRESS",
+          `Cannot accept "${scope}" here: a waiver silences a machine finding, so it is signed off ` +
+            "in `konte preview direction`, where the finding it silences is shown next to it",
+        );
+      }
+      if (live.length === 0) {
+        throw new KonteError(
+          "ADDRESS_NOT_FOUND",
+          recorded.some((part) => matchesAddressScope(part, scope))
+            ? `"${scope}" is no longer a part of the direction — its sign-off cannot be renewed, only cleared with --off`
+            : `No such direction part: "${scope}" (run "konte inspect direction" to list them)`,
+        );
+      }
     }
-    if (!view.parts.has(address)) {
-      throw new KonteError(
-        "ADDRESS_NOT_FOUND",
-        acceptance?.parts[address]
-          ? `"${address}" is no longer a part of the direction — its sign-off cannot be renewed, only cleared with --off`
-          : `No such direction part: "${address}" (run "konte inspect direction" to list them)`,
-      );
+    for (const part of view.parts.keys()) {
+      if (inScope(part) && acceptable(part)) decisions.set(part, true);
     }
-    decisions.set(address, true);
+    // A part accepted and since deleted holds the gate shut while being invisible in the live set,
+    // so signing off a scope drops the ones under it — the same sweep the review page's boxes do.
+    for (const part of recorded) {
+      if (view.parts.has(part) || !inScope(part) || !acceptable(part)) continue;
+      decisions.set(part, false);
+    }
   }
 
-  // Clearing the whole direction discards every sign-off a human made, and each one costs a read to
-  // make again. A single part is one re-read, so it goes through unprompted like the variant path.
-  if (address === null && opts.off) {
+  // Clearing several sign-offs discards reads a human made, and each one costs a read to make
+  // again. A single part is one re-read, so it goes through unprompted like the variant path.
+  if (opts.off && decisions.size > 1) {
     console.log(`This will clear ${decisions.size} direction part sign-off(s).`);
     if (!(await confirmAction("Continue?", { yes: opts.yes, no: opts.no }))) {
       printAborted();
@@ -237,27 +252,27 @@ async function runDirectionAcceptance(target: string, opts: AcceptOptions): Prom
   });
 
   const summary = summarizeDirectionAcceptance(direction, result.acceptance);
-  // Only the whole-direction accept leaves anything behind, and it always leaves the waivers: named
-  // rather than counted into the tail line, so "42 of 44" does not read as a bug in what just ran.
+  // The waivers a scope covers are left behind: named rather than counted into the tail line, so
+  // "42 of 44" does not read as a bug in what just ran.
   const postView = directionAcceptanceView(direction, result.acceptance);
-  const heldWaivers =
-    address === null && !opts.off
-      ? [...postView.parts]
-          .filter(([, status]) => status !== "accepted")
-          .map(([part]) => part)
-          .filter((part) => directionSectionOf(part) === CLI_UNACCEPTABLE_SECTION)
-      : [];
+  const heldWaivers = opts.off
+    ? []
+    : [...postView.parts]
+        .filter(([part, status]) => status !== "accepted" && inScope(part) && !acceptable(part))
+        .map(([part]) => part);
 
+  const label = whole ? "direction" : partScopes.join(", ");
+  const singlePart = decisions.size === 1 && partScopes.length === 1 && decisions.has(label);
   if (result.accepted.length === 0 && result.revoked.length === 0) {
-    console.log(`Unchanged: ${address ?? "direction"} (already recorded as such)`);
-  } else if (address !== null) {
-    console.log(`${opts.off ? "Cleared" : "Accepted"}: ${address}`);
+    console.log(`Unchanged: ${label} (already recorded as such)`);
+  } else if (singlePart) {
+    console.log(`${opts.off ? "Cleared" : "Accepted"}: ${label}`);
   } else if (opts.off) {
-    console.log(`Cleared: direction — ${result.revoked.length} part(s)`);
+    console.log(`Cleared: ${label} — ${result.revoked.length} part(s)`);
   } else {
     const dropped =
       result.revoked.length > 0 ? `  (${result.revoked.length} deleted part(s) dropped)` : "";
-    console.log(`Accepted: direction — ${result.accepted.length} part(s)${dropped}`);
+    console.log(`Accepted: ${label} — ${result.accepted.length} part(s)${dropped}`);
   }
   if (heldWaivers.length > 0) {
     console.log(

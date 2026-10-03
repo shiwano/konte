@@ -1166,6 +1166,44 @@ describe("accept direction", () => {
     expect(await statusOf("direction:brief.tone")).toBe("unaccepted");
   });
 
+  it("signs off every part under a group scope", async () => {
+    const brief = (await inspect()).parts
+      .filter((p) => p.address.startsWith("direction:brief."))
+      .map((p) => p.address);
+    const { stdout } = await run(["accept", "direction:brief", "--verbose"], projectDir);
+    expect(addressesUnder(stdout, "Accepted parts").sort()).toEqual([...brief].sort());
+    expect(await statusOf("direction:brief.logline")).toBe("accepted");
+    expect(await statusOf("direction:policy.format")).toBe("unaccepted");
+  });
+
+  it("signs off several scopes in one run", async () => {
+    const { stdout } = await run(
+      ["accept", "direction:brief.logline", "direction:brief.tone", "--verbose"],
+      projectDir,
+    );
+    expect(addressesUnder(stdout, "Accepted parts")).toEqual([
+      "direction:brief.logline",
+      "direction:brief.tone",
+    ]);
+  });
+
+  it("refuses a scope holding only waivers", async () => {
+    const waiver = (await inspect()).parts.find((p) => p.section === "waivers")!.address;
+    const scope = waiver.slice(0, waiver.lastIndexOf("."));
+    await expect(run(["accept", scope], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("INVALID_ADDRESS"),
+    });
+  });
+
+  it("needs consent to clear several parts", async () => {
+    await run(["accept", "direction"], projectDir);
+    await expect(run(["accept", "direction:brief", "--off"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("CONFIRMATION_REQUIRED"),
+    });
+    await run(["accept", "direction:brief", "--off", "-y"], projectDir);
+    expect(await statusOf("direction:brief.logline")).toBe("unaccepted");
+  });
+
   it("rejects a part the direction does not have", async () => {
     await expect(run(["accept", "direction:props.nothing"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("ADDRESS_NOT_FOUND"),
