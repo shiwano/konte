@@ -35,6 +35,8 @@ What differs is what may go inside:
 
 **Narration is mixed apart** into `#narrationStem`, which only `<Audio>` takes (`NARRATION_UNPLACED` wherever both stages load).
 
+**On a song, `#songStem` is what a motion model hears** (`shotSongStem`): the vocals of the lines a character in frame sings, else the instrumental (`song-parts.ts`). `asset()` fills an adapter's `stem` input with it (`SONG_STEM_OVERRIDDEN`); `.stem` is refused.
+
 What the materialization writes is the one difference between the stages' stems: the delivered stem is a manifest (muxed at export), the board's is the real mix — `materializeShotStem` runs `mixAudioTracks` over the cues. Nothing generates it: the review page mixes the cues live, and the shot's accept materializes the stem over the takes it just signed off, an unchanged accept minting nothing; `konte accept animatic:shot.<id>#stem` does the same by address.
 
 **The clamp is konte's, not the author's** — a model of this kind reads the clip length off its input audio, so an unclamped stem would let a TTS take, not the direction, decide how long the shot runs. A sound that must cross a cut belongs in the video build's `<Audio>` (full length, never clamped).

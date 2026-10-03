@@ -65,6 +65,8 @@ export async function runSongAnalysisJob(
         const analysis = SongAnalysisSchema.parse({
           ...(await analyzeSongTake({
             file: path.resolve(videoRoot, take.file),
+            outputHash,
+            videoRoot,
             bpm: job.bpm,
             beatsPerBar: job.beatsPerBar,
             lang: job.lang,

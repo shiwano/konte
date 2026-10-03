@@ -7,6 +7,7 @@ import {
   assertTurboInputs,
   assertFixedInputs,
   assertPinInputs,
+  assertStemInputs,
   buildMetaInputs,
   type AssetAdapter,
   type AssetDeclarationSite,
@@ -54,6 +55,8 @@ interface FalInputDefBase {
   default?: string | number | boolean;
   // See `AdapterInputDef.pin`.
   pin?: "start" | "end";
+  // See `AdapterInputDef.stem`.
+  stem?: true;
   values?: readonly string[];
   // The shortest and longest `"seconds"` the model takes. A derived length is raised to `min`; one
   // past `max` is refused at load.
@@ -201,6 +204,7 @@ export function defineFalAsset<
   assertFixedInputs(config.inputs);
   assertTurboInputs(config.turbo, config.inputs);
   assertPinInputs(config.inputs);
+  assertStemInputs(config.inputs);
   assertValidatorInputs(config.validators, config.inputs);
   const promptInput = promptInputName(config.inputs);
 

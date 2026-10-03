@@ -11,7 +11,7 @@ import type {
 import { KonteError } from "../errors.js";
 import type { AnyShotInput, MediaKind, SoundtrackEntry } from "./builders.js";
 import type { OverlayDefinition } from "../types/index.js";
-import { spanSongContext } from "./direction.js";
+import { shotSongStem, spanSongContext } from "./direction.js";
 import { isAsideShotInput, isPendingShotInput } from "./builders.js";
 import { Composition } from "./composition/index.js";
 import type { DirectionIndex } from "./direction.js";
@@ -195,7 +195,12 @@ export function defineStage(args: DefineStageArgs): StageBuild {
       compositionRefs,
       pictureRefs,
       stemRefs,
-      ...(songCue ? { songCue } : {}),
+      ...(songCue
+        ? {
+            songCue,
+            songStem: shotSongStem(index, input.id, songCue.mediaStart, songCue.duration),
+          }
+        : {}),
       ...(cutinDefinition ? { cutin: cutinDefinition } : {}),
       ...(aside ? { aside: true as const } : {}),
       ...(graphic ? { graphic: true as const } : {}),

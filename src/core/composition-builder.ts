@@ -462,8 +462,8 @@ export function compositionStructureHtml(video: StageDefinition, shotId: string)
 export interface StemAudioEntry {
   src: string;
   // `song`: the span of the song a board shot holds (`ShotDefinition.songCue`), mixed into its stem
-  // only.
-  track: "sound" | "embedded" | "song";
+  // only. `vocals` / `instrumental`: that span's separated part, mixed into its `#songStem`.
+  track: "sound" | "embedded" | "song" | "vocals" | "instrumental";
   start: number | null;
   duration: number | null;
   mediaStart: number | null;

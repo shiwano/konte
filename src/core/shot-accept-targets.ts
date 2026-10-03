@@ -8,6 +8,7 @@ import {
   isOverlayAddress,
   getStage,
   isNarrationStemAddress,
+  isSongStemAddress,
   isStemAddress,
   listShotStems,
   shotCueRefs,
@@ -101,7 +102,11 @@ export function shotAcceptTargets(
         .filter((address) => stems.has(address))
         .map((address) => ({
           address,
-          what: isNarrationStemAddress(address) ? "the narration stem" : "the audio stem",
+          what: isNarrationStemAddress(address)
+            ? "the narration stem"
+            : isSongStemAddress(address)
+              ? "the song stem"
+              : "the audio stem",
         })),
     ],
   };

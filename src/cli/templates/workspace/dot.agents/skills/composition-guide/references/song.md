@@ -5,6 +5,7 @@
 - **Lyrics on screen go in the `overlay`** — `<Subtitle entries={ctx.lyrics} />` there keeps a line sung across a cut as one caption ([staging-patterns.md](staging-patterns.md)). A shot's own `ctx.lyrics` is in shot seconds, a line begun before the shot starting at 0.
 - **A prompt quotes a line's words, never its time** — a new take of the song moves each line by frames, and every take whose prompt carried the time goes stale.
 - **The song is the main audio** — SE and ambience sit under it; no score of your own.
+- **A motion model hears `animatic.shot(id).songStem`** — the vocals of the lines a singer in frame sings, else the instrumental. konte fills an input `adapter show` marks `stem`; a reference audio the prompt tags takes it by hand.
 
 ## Spoken lines
 

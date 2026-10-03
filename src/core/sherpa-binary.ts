@@ -164,26 +164,24 @@ export async function senseVoiceModelDir(): Promise<string> {
 }
 
 /**
- * Separate the voice of a 44.1 kHz stereo WAV into `vocalsWav`. spleeter reads 44.1 kHz; the caller
- * converts.
+ * Separate a 44.1 kHz stereo WAV into its voice (`vocalsWav`) and the rest (`instrumentalWav`).
+ * spleeter reads 44.1 kHz; the caller converts.
  */
-export async function separateVocals(inputWav: string, vocalsWav: string): Promise<void> {
+export async function separateSong(
+  inputWav: string,
+  out: { vocalsWav: string; instrumentalWav: string },
+): Promise<void> {
   const [bin, model] = await Promise.all([
     sherpaBin(SEPARATOR, process.env.KONTE_SHERPA_SEPARATION_PATH),
     spleeterModelDir(),
   ]);
-  const accompaniment = `${vocalsWav}.accompaniment.wav`;
-  try {
-    await execFileAsync(bin, [
-      `--spleeter-vocals=${path.join(model, "vocals.fp16.onnx")}`,
-      `--spleeter-accompaniment=${path.join(model, "accompaniment.fp16.onnx")}`,
-      `--input-wav=${inputWav}`,
-      `--output-vocals-wav=${vocalsWav}`,
-      `--output-accompaniment-wav=${accompaniment}`,
-    ]);
-  } finally {
-    fs.rmSync(accompaniment, { force: true });
-  }
+  await execFileAsync(bin, [
+    `--spleeter-vocals=${path.join(model, "vocals.fp16.onnx")}`,
+    `--spleeter-accompaniment=${path.join(model, "accompaniment.fp16.onnx")}`,
+    `--input-wav=${inputWav}`,
+    `--output-vocals-wav=${out.vocalsWav}`,
+    `--output-accompaniment-wav=${out.instrumentalWav}`,
+  ]);
 }
 
 // What one 16 kHz mono WAV is heard to say: each token and the second it starts at in that WAV.

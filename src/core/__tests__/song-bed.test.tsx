@@ -41,6 +41,17 @@ const ia2vComfy = defineComfyAsset({
   outputs: { result: { nodeId: "9", type: "video" } },
 });
 
+// A model timing its picture to its `stem` input, which konte fills on a song.
+const stemComfy = defineComfyAsset({
+  workflow: "stem.json",
+  description: "test adapter",
+  inputs: {
+    image: { nodeId: "1", field: "image", type: "image" },
+    track: { nodeId: "2", field: "audio", type: "audio", stem: true },
+  },
+  outputs: { result: { nodeId: "9", type: "video" } },
+});
+
 // A half-second lead: shot 01 holds 0–2.5s, shot 02 2.5–4.5s.
 const songTake = () => ({
   address: "reference:song",
@@ -56,7 +67,7 @@ const songTake = () => ({
   },
 });
 
-function clockedDirection(opts: { script?: boolean } = {}) {
+function clockedDirection(opts: { script?: boolean; clock?: false } = {}) {
   return defineDirection({
     ...directionDefaults,
     characters: {
@@ -67,7 +78,10 @@ function clockedDirection(opts: { script?: boolean } = {}) {
         promptDepiction: "cat",
       },
     },
-    policy: { ...directionDefaults.policy, clock: { song: "song", bpm: 120, beatsPerBar: 4 } },
+    policy: {
+      ...directionDefaults.policy,
+      ...(opts.clock === false ? {} : { clock: { song: "song", bpm: 120, beatsPerBar: 4 } }),
+    },
     sequence: {
       lens: "mini-drama",
       pleasure: "cute",
@@ -177,6 +191,7 @@ describe("a board shot's stem on a piece cut to its song", () => {
     expect(second!.songCue).toEqual({ src: "reference:song", mediaStart: 2.5, duration: 2 });
     expect(listShotStems("animatic", second!)).toEqual([
       { address: "animatic:shot.02#stem", refs: ["reference:song"] },
+      { address: "animatic:shot.02#songStem", refs: ["reference:song"] },
     ]);
     const hashes = ["01", "02"].map((id) =>
       stemDefinitionHash(animatic, `animatic:shot.${id}#stem`),
@@ -193,6 +208,186 @@ describe("a board shot's stem on a piece cut to its song", () => {
   });
 });
 
+describe("a board shot's song stem", () => {
+  const setAt = "2026-09-30T00:00:00.000Z";
+  // Shot 01 (0–2.5s) frames no one; shot 02 (2.5–4.5s) frames the cat, who sings over it while
+  // the dog sings off screen.
+  const singingDirection = () =>
+    defineDirection({
+      ...directionDefaults,
+      characters: {
+        cat: { name: "the cat", description: "a black cat", promptDepiction: "cat" },
+        dog: { name: "the dog", description: "a white dog", promptDepiction: "dog" },
+      },
+      policy: { ...directionDefaults.policy, clock: { song: "song", bpm: 120, beatsPerBar: 4 } },
+      lyrics: [
+        { label: "verse", singer: "cat", lines: ["la la", "na na", "ta ta"] },
+        { label: "bridge", singer: "dog", lines: ["wo wo"] },
+      ],
+      sequence: {
+        lens: "mini-drama",
+        pleasure: "cute",
+        shots: [
+          { id: "01", role: "ordinary", action: "a", setup: "front", beats: 4, lineup: [] },
+          { id: "02", role: "hero", action: "b", setup: "front", beats: 4, lineup: ["cat"] },
+        ],
+      },
+    });
+  const line = (text: string, startSec: number, endSec: number) => ({
+    text,
+    startSec,
+    endSec,
+    setAt,
+  });
+  const onSungSong = <T,>(fn: () => T): Promise<T> =>
+    withSongTakes(
+      (address) =>
+        address === "reference:song"
+          ? {
+              ...songTake(),
+              analysis: {
+                ...songTake().analysis,
+                lines: {
+                  "1.1": line("la la", 1, 2),
+                  "1.2": line("na na", 3, 3.5),
+                  "1.3": line("ta ta", 3.25, 4),
+                  "2.1": line("wo wo", 4, 4.25),
+                },
+              },
+            }
+          : null,
+      async () => fn(),
+    );
+  const singingAnimatic = () =>
+    defineAnimatic(singingDirection(), {
+      timeline: ({ shot }) => ({ shots: shot("01", board).nextShot("02", board) }),
+    });
+
+  it("is the instrumental where no one in frame sings", async () => {
+    const animatic = await onSungSong(singingAnimatic);
+    expect(animatic.shots[0]!.songStem).toEqual({ part: "instrumental" });
+  });
+
+  it("is the vocals over the lines a singer in frame sings, an off-screen singer's left out", async () => {
+    const animatic = await onSungSong(singingAnimatic);
+    expect(animatic.shots[1]!.songStem).toEqual({
+      part: "vocals",
+      windows: [{ start: 0.5, duration: 1 }],
+    });
+  });
+
+  it("is a stem of its own, on its own hash", async () => {
+    const animatic = await onSungSong(singingAnimatic);
+    const song = stemDefinitionHash(animatic, "animatic:shot.02#songStem");
+    expect(song).not.toBe("");
+    expect(song).not.toBe(stemDefinitionHash(animatic, "animatic:shot.02#stem"));
+  });
+
+  it("puts a take built on it on the song", async () => {
+    const video = await onSungSong(() => {
+      const animatic = singingAnimatic();
+      return defineVideo(singingDirection(), {
+        timeline: ({ shot }) => ({
+          shots: shot("01", still).nextShot("02", () => (
+            <Composition>
+              <Video
+                src={asset("clip", ia2vComfy, {
+                  image: animatic.shot("02").image("first"),
+                  audio: animatic.shot("02").songStem,
+                })}
+              />
+            </Composition>
+          )),
+        }),
+      });
+    });
+    expect(harvestShotPictureCues(video, "02")?.map((cue) => cue.mediaStart)).toEqual([0]);
+  });
+});
+
+describe("an adapter's stem input on a piece cut to its song", () => {
+  const videoWith = (
+    track?: (animatic: ReturnType<typeof clockedAnimatic>) => MediaAsset<"audio">,
+  ) =>
+    onSong(() => {
+      const animatic = clockedAnimatic();
+      return videoOpeningWith(() => (
+        <Composition>
+          <Video
+            src={asset("clip", stemComfy, {
+              image: animatic.shot("01").image("first"),
+              ...(track ? { track: track(animatic) } : {}),
+            })}
+          />
+        </Composition>
+      ));
+    });
+
+  it("is filled with the shot's song stem", async () => {
+    const video = await videoWith();
+    expect(JSON.stringify(video.shots[0]!.assets.clip)).toContain("animatic:shot.01#songStem");
+  });
+
+  it("takes the shot's own song stem written there, and refuses any other", async () => {
+    await expect(videoWith((animatic) => animatic.shot("01").songStem)).resolves.toBeDefined();
+    await expect(videoWith((animatic) => animatic.shot("02").songStem)).rejects.toMatchObject({
+      code: "SONG_STEM_OVERRIDDEN",
+    });
+  });
+
+  it("is left alone off a song", () => {
+    const video = defineVideo(clockedDirection({ clock: false }), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Video
+              src={asset("clip", stemComfy, {
+                image: asset("still", stillComfy, { prompt: "a" }),
+              })}
+            />
+          </Composition>
+        )).nextShot("02", still),
+      }),
+    });
+    expect(JSON.stringify(video.shots[0]!.assets.clip)).not.toContain("songStem");
+  });
+
+  it("refuses the board's whole-song stem", async () => {
+    await expect(
+      onSong(() => {
+        const animatic = clockedAnimatic();
+        return videoOpeningWith(() => (
+          <Composition>
+            <Video
+              src={asset("clip", ia2vComfy, {
+                image: animatic.shot("01").image("first"),
+                audio: animatic.shot("01").stem,
+              })}
+            />
+          </Composition>
+        ));
+      }),
+    ).rejects.toMatchObject({ code: "ANIMATIC_INVALID" });
+  });
+
+  it("is one audio per adapter", () => {
+    const declare = (inputs: Parameters<typeof defineComfyAsset>[0]["inputs"]) => () =>
+      defineComfyAsset({
+        workflow: "x.json",
+        description: "test adapter",
+        inputs,
+        outputs: { result: { nodeId: "9", type: "video" } },
+      });
+    expect(declare({ a: { nodeId: "1", field: "image", type: "image", stem: true } })).toThrow();
+    expect(
+      declare({
+        a: { nodeId: "1", field: "audio", type: "audio", stem: true },
+        b: { nodeId: "2", field: "audio", type: "audio", stem: true },
+      }),
+    ).toThrow();
+  });
+});
+
 describe("the window of a take cut to the song", () => {
   const mediaStartOf = (video: VideoDefinition, shotId: string) =>
     harvestShotPictureCues(video, shotId)?.map((cue) => cue.mediaStart);
@@ -203,10 +398,7 @@ describe("the window of a take cut to the song", () => {
       return defineVideo(clockedDirection(), {
         timeline: ({ shot }) => ({
           shots: shot("01", () => {
-            const clip = asset("clip", ia2vComfy, {
-              image: animatic.shot("01").image("first"),
-              audio: animatic.shot("01").stem,
-            });
+            const clip = asset("clip", stemComfy, { image: animatic.shot("01").image("first") });
             return (
               <Composition>
                 <Video src={clip} />
@@ -231,10 +423,7 @@ describe("the window of a take cut to the song", () => {
         return videoOpeningWith(() => (
           <Composition>
             <Video
-              src={asset("clip", ia2vComfy, {
-                image: animatic.shot("01").image("first"),
-                audio: animatic.shot("01").stem,
-              })}
+              src={asset("clip", stemComfy, { image: animatic.shot("01").image("first") })}
               mediaStart={0.5}
             />
           </Composition>
@@ -252,7 +441,7 @@ describe("the window of a take cut to the song", () => {
             <Video
               src={asset("clip", ia2vComfy, {
                 image: animatic.shot("02").image("first"),
-                audio: animatic.shot("02").stem,
+                audio: animatic.shot("02").songStem,
               })}
             />
           </Composition>
@@ -268,10 +457,7 @@ describe("the window of a take cut to the song", () => {
         return videoOpeningWith(() => (
           <Composition>
             <Video
-              src={asset("clip", ia2vComfy, {
-                image: animatic.shot("01").image("first"),
-                audio: animatic.shot("01").stem,
-              })}
+              src={asset("clip", stemComfy, { image: animatic.shot("01").image("first") })}
               hasAudio
             />
           </Composition>
@@ -288,10 +474,7 @@ describe("the window of a take cut to the song", () => {
           shots: shot("01", () => (
             <Composition>
               <Video
-                src={asset("clip", ia2vComfy, {
-                  image: animatic.shot("01").image("first"),
-                  audio: animatic.shot("01").stem,
-                })}
+                src={asset("clip", stemComfy, { image: animatic.shot("01").image("first") })}
               />
             </Composition>
           )).nextShot("02", ({ shot: placed }) => (
@@ -319,7 +502,7 @@ describe("a stem holding the song", () => {
       const animatic = clockedAnimatic();
       return videoOpeningWith(() => (
         <Composition>
-          <Audio src={src(animatic.shot("01").stem)} />
+          <Audio src={src(animatic.shot("01").songStem)} />
         </Composition>
       ));
     });

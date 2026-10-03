@@ -8,6 +8,7 @@ import {
   getAssetEntryByAddress,
   isCompositionAddress,
   isNarrationStemAddress,
+  isSongStemAddress,
   isStemAddress,
   listShotStems,
   parseAddress,
@@ -35,6 +36,7 @@ import {
   type CueKind,
 } from "./audio-level.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
+import { songParts } from "./song-parts.js";
 import { KonteError } from "./errors.js";
 import { mixAudioTracks, type MuxAudioTrack } from "./ffmpeg.js";
 import { shotById } from "./shot-index.js";
@@ -463,9 +465,14 @@ function shotStemOf(
 function shotStemStructure(video: StageDefinition, address: string): ShotStemStructure | null {
   const parsed = parseAddress(address);
   if (parsed.kind !== "shot") return null;
+  const shot = shotById(video.shots, parsed.shotId);
+  if (isSongStemAddress(address)) {
+    if (!shot?.shotFn || !shot.songCue || !shot.songStem) return null;
+    const cues = songPartEntries(shot.songCue, shot.songStem);
+    return { kind: "board", cues, clamp: shot.duration };
+  }
   const harvested = harvestShotAudioStructure(video, parsed.shotId);
   if (harvested === null) return null;
-  const shot = shotById(video.shots, parsed.shotId);
   const narration = new Set(shot?.narrationStemRefs ?? []);
   const cues = harvested.filter(
     (cue) => narration.has(cue.src) === isNarrationStemAddress(address),
@@ -492,6 +499,20 @@ function songStemEntry(cue: NonNullable<ShotDefinition["songCue"]>): StemAudioEn
     fadeIn: null,
     fadeOut: null,
   };
+}
+
+function songPartEntries(
+  cue: NonNullable<ShotDefinition["songCue"]>,
+  stem: NonNullable<ShotDefinition["songStem"]>,
+): StemAudioEntry[] {
+  const windows = stem.part === "vocals" ? stem.windows : [{ start: 0, duration: cue.duration }];
+  return windows.map((w) => ({
+    ...songStemEntry(cue),
+    track: stem.part,
+    start: w.start,
+    duration: w.duration,
+    mediaStart: cue.mediaStart + w.start,
+  }));
 }
 
 function hashShotStemStructure(structure: ShotStemStructure): string {
@@ -625,7 +646,8 @@ async function mixStemToStaging(
   clamp: number,
   cueKinds: Readonly<Record<string, CueKind>> | undefined,
 ): Promise<{ stagingDir: string; file: string; outputHash: string; media: VariantMedia | null }> {
-  const tracks: MuxAudioTrack[] = cues.map((cue) => {
+  const tracks: MuxAudioTrack[] = [];
+  for (const cue of cues) {
     const resolved = manager.resolveReference(cue.src);
     if (!resolved) {
       throw new KonteError(
@@ -633,10 +655,11 @@ async function mixStemToStaging(
         `Cannot mix ${address}: "${cue.src}" has no ready take`,
       );
     }
-    const kind = cue.track === "song" ? "song" : (cueKinds?.[cue.src] ?? "voice");
+    const part = cue.track === "vocals" || cue.track === "instrumental" ? cue.track : null;
+    const kind = cue.track === "song" || part ? "song" : (cueKinds?.[cue.src] ?? "voice");
     const media = manager.getState().assets[cue.src]?.variants?.[resolved.variantId]?.media;
-    return {
-      file: resolved.file,
+    tracks.push({
+      file: part ? (await songParts(manager.videoRoot, resolved))[part] : resolved.file,
       start: cue.start ?? 0,
       // Levelled and lead-in trimmed exactly as the render does: this file is what an audio-driven
       // model consumes and what the reviewer signed off in the preview.
@@ -646,8 +669,8 @@ async function mixStemToStaging(
       loop: false,
       fadeIn: cue.fadeIn ?? undefined,
       fadeOut: cue.fadeOut ?? undefined,
-    };
-  });
+    });
+  }
   const cacheDir = path.join(manager.videoRoot, ".konte", "cache");
   await fs.mkdir(cacheDir, { recursive: true });
   const stagingDir = await fs.mkdtemp(path.join(cacheDir, "stem-"));

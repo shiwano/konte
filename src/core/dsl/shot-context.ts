@@ -6,7 +6,7 @@ import {
   formatPlateAssetPath,
 } from "../address.js";
 import type { AssetDefinition, Typography } from "../types/index.js";
-import type { MediaKind } from "./builders.js";
+import type { MediaAsset, MediaKind } from "./builders.js";
 import type { SongSpan } from "./song-window.js";
 
 export type ShotFunction = () => React.ReactElement;
@@ -38,6 +38,9 @@ interface ShotContext {
   assetKinds: Map<string, MediaKind>;
   // Each asset built on a stem holding the song, and where on the song that take starts.
   songSpans: Map<string, SongSpan>;
+  // On a video shot of a piece cut to its song, the board's `#songStem` an adapter's `stem` input
+  // is filled with (see `withShotSongStem`).
+  songStem?: MediaAsset<"audio">;
   resolvedFiles: Map<string, string>;
   absolutePaths: Map<string, string>;
   format?: BuildFormat;
@@ -286,6 +289,20 @@ export function runTimelineInRenderMode<T>(
   }
 }
 
+const SHOT_SONG_STEM = Symbol("konte.shotSongStem");
+
+// A video shot's build carries the board's `#songStem` it hears, so every discovery and render of
+// the shot fills the same one.
+export function withShotSongStem(fn: ShotFunction, stem: MediaAsset<"audio">): ShotFunction {
+  const wrapped: ShotFunction = () => fn();
+  Object.defineProperty(wrapped, SHOT_SONG_STEM, { value: stem, enumerable: false });
+  return wrapped;
+}
+
+function shotSongStemOf(fn: ShotFunction): MediaAsset<"audio"> | undefined {
+  return (fn as { [SHOT_SONG_STEM]?: MediaAsset<"audio"> })[SHOT_SONG_STEM];
+}
+
 export function runInDiscoveryMode(
   stage: ShotStage,
   shotId: string,
@@ -299,6 +316,7 @@ export function runInDiscoveryMode(
     assets: new Map(),
     assetKinds: new Map(),
     songSpans: new Map(),
+    songStem: shotSongStemOf(fn),
     resolvedFiles: new Map(),
     absolutePaths: new Map(),
     format,
@@ -399,6 +417,7 @@ export function runInRenderMode(
     assets: new Map(),
     assetKinds: new Map(),
     songSpans: new Map(),
+    songStem: shotSongStemOf(fn),
     resolvedFiles: new Map(Object.entries(resolvedFiles)),
     absolutePaths: new Map(Object.entries(absolutePaths ?? {})),
   };

@@ -7,7 +7,13 @@ import type { Typography } from "../types/definition.js";
 import type { ArcItem, LensSpec } from "../direction-check.js";
 import type { PendingShotInput, ShotHandle, ShotInput, StageShots } from "./builders.js";
 import type { DiscoveryResult, ShotFunction } from "./shot-context.js";
-import { getActiveFormat, makePlaceholder, runInDiscoveryMode } from "./shot-context.js";
+import {
+  getActiveFormat,
+  makeAddressPlaceholder,
+  makePlaceholder,
+  runInDiscoveryMode,
+  withShotSongStem,
+} from "./shot-context.js";
 import { withSongSpan } from "./song-window.js";
 import type { ShotStage } from "../address.js";
 import type { ShotScript } from "./shot-script.js";
@@ -44,7 +50,7 @@ import {
 } from "./builders.js";
 import { assertFontFamilies, assertLanguageTag, type LanguageTag } from "../typography.js";
 import { isIdentifier, validateShotId, type ValidatedIdentifier } from "./validate-identifier.js";
-import { formatReferenceAddress } from "../address.js";
+import { formatReferenceAddress, formatSongStemAddress } from "../address.js";
 import { placeLyricLines } from "../song-lyrics.js";
 import type { SongTake } from "../song-take.js";
 import { songTakeAt } from "./song-context.js";
@@ -1485,6 +1491,20 @@ interface StageChainRuntime {
   ): StageChainRuntime;
 }
 
+// A video shot of a piece cut to its song hears the board's `#songStem` of its own span.
+const stageShotBuild = (
+  stage: ShotStage,
+  index: DirectionIndex,
+  id: string,
+  fn: ShotFunction,
+): ShotFunction => {
+  const timing = index.timeline.timings.get(id);
+  if (stage !== "video" || !index.timeline.clock || !timing) return fn;
+  const shotStarts = new Map([...index.timeline.timings].map(([shotId, t]) => [shotId, t.start]));
+  const stem = makeMediaAsset<"audio">(makeAddressPlaceholder(formatSongStemAddress(id)));
+  return withShotSongStem(fn, withSongSpan(stem, { start: timing.start, shotStarts }));
+};
+
 // An aside's input, built the same way from either end of the chain. The video owes a build (an
 // aside still has to come from somewhere) and the animatic must not have one; the type says so per
 // stage, and this is the runtime twin for a computed call.
@@ -1529,7 +1549,7 @@ const makeStageChain = (
     const nextInput: ShotInput = {
       __shotInput: true,
       id: nextId,
-      fn: () => build({ ...facts, shot: placedShot }),
+      fn: stageShotBuild(stage, index, nextId, () => build({ ...facts, shot: placedShot })),
       options: { duration: index.durationById.get(nextId)!, action: index.actionById.get(nextId)! },
     };
     return makeStageChain(stage, index, [...shots, nextInput]);
@@ -1542,7 +1562,7 @@ const makeStageChain = (
       __shotInput: true,
       __graphicShot: true,
       id: nextId,
-      fn: () => build({ ...facts, shot: placedShot }),
+      fn: stageShotBuild(stage, index, nextId, () => build({ ...facts, shot: placedShot })),
       options: { duration: index.durationById.get(nextId)!, action: index.actionById.get(nextId)! },
     };
     return makeStageChain(stage, index, [...shots, nextInput]);
@@ -1595,7 +1615,9 @@ function makeStageShotStarter(stage: ShotStage, index: DirectionIndex) {
     const firstInput: ShotInput = {
       __shotInput: true,
       id,
-      fn: () => build({ ...stageShotContext(index, id), shot: noShotsPlaced(stage) }),
+      fn: stageShotBuild(stage, index, id, () =>
+        build({ ...stageShotContext(index, id), shot: noShotsPlaced(stage) }),
+      ),
       options: { duration, action: index.actionById.get(id)! },
     };
     return makeStageChain(stage, index, [firstInput]);
@@ -1613,7 +1635,7 @@ function makeStageShotStarter(stage: ShotStage, index: DirectionIndex) {
       __shotInput: true,
       __graphicShot: true,
       id,
-      fn: () => build({ ...facts, shot: noShotsPlaced(stage) }),
+      fn: stageShotBuild(stage, index, id, () => build({ ...facts, shot: noShotsPlaced(stage) })),
       options: { duration, action: index.actionById.get(id)! },
     };
     return makeStageChain(stage, index, [firstInput]);
@@ -1870,6 +1892,41 @@ export function spanSongContext(
   return {
     beat: (n: number) => onFrames(beatTime(index.timeline, startBeat + n) - start, fps),
     ...(index.lyrics ? { lyrics: lyricsInSpan(index.lyrics, start, duration, fps) } : {}),
+  };
+}
+
+// What of a board shot's span of the song a motion model hears (`ShotDefinition.songStem`): the
+// vocals over the lines a character in the shot's frame or cutin sings, else the instrumental.
+export function shotSongStem(
+  index: DirectionIndex,
+  shotId: string,
+  start: number,
+  duration: number,
+): { part: "vocals"; windows: { start: number; duration: number }[] } | { part: "instrumental" } {
+  const cutin = index.cutinById.get(shotId);
+  const inFrame = new Set([
+    ...(index.lineupById.get(shotId) ?? []),
+    ...(index.lineupToById.get(shotId) ?? []),
+    ...(cutin?.lineup ?? []),
+    ...(cutin?.lineupTo ?? []),
+  ]);
+  const sung = index.lyrics
+    ? lyricsInSpan(index.lyrics, start, duration, index.timeline.fps)
+        .filter((line) => line.singer.some((id) => inFrame.has(id)))
+        .map((line) => ({ start: line.start, end: Math.min(line.end, duration) }))
+        .filter((line) => line.end > line.start)
+        .sort((a, b) => a.start - b.start)
+    : [];
+  const merged: { start: number; end: number }[] = [];
+  for (const line of sung) {
+    const last = merged.at(-1);
+    if (last && line.start <= last.end) last.end = Math.max(last.end, line.end);
+    else merged.push({ ...line });
+  }
+  if (merged.length === 0) return { part: "instrumental" };
+  return {
+    part: "vocals",
+    windows: merged.map((w) => ({ start: w.start, duration: w.end - w.start })),
   };
 }
 

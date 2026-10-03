@@ -808,6 +808,66 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               }
             >
           >;
+          songStem: z.ZodOptional<
+            z.ZodDiscriminatedUnion<
+              "part",
+              [
+                z.ZodObject<
+                  {
+                    part: z.ZodLiteral<"vocals">;
+                    windows: z.ZodArray<
+                      z.ZodObject<
+                        {
+                          start: z.ZodNumber;
+                          duration: z.ZodNumber;
+                        },
+                        "strip",
+                        z.ZodTypeAny,
+                        {
+                          duration: number;
+                          start: number;
+                        },
+                        {
+                          duration: number;
+                          start: number;
+                        }
+                      >,
+                      "many"
+                    >;
+                  },
+                  "strip",
+                  z.ZodTypeAny,
+                  {
+                    part: "vocals";
+                    windows: {
+                      duration: number;
+                      start: number;
+                    }[];
+                  },
+                  {
+                    part: "vocals";
+                    windows: {
+                      duration: number;
+                      start: number;
+                    }[];
+                  }
+                >,
+                z.ZodObject<
+                  {
+                    part: z.ZodLiteral<"instrumental">;
+                  },
+                  "strip",
+                  z.ZodTypeAny,
+                  {
+                    part: "instrumental";
+                  },
+                  {
+                    part: "instrumental";
+                  }
+                >,
+              ]
+            >
+          >;
           panels: z.ZodOptional<
             z.ZodArray<
               z.ZodObject<
@@ -823,17 +883,17 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 z.ZodTypeAny,
                 {
                   duration: number;
+                  start: number;
                   assetName: string;
                   assetPath: string;
-                  start: number;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 },
                 {
                   duration: number;
+                  start: number;
                   assetName: string;
                   assetPath: string;
-                  start: number;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }
@@ -879,17 +939,17 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       z.ZodTypeAny,
                       {
                         duration: number;
+                        start: number;
                         assetName: string;
                         assetPath: string;
-                        start: number;
                         blocking?: string | undefined;
                         camera?: string | undefined;
                       },
                       {
                         duration: number;
+                        start: number;
                         assetName: string;
                         assetPath: string;
-                        start: number;
                         blocking?: string | undefined;
                         camera?: string | undefined;
                       }
@@ -905,9 +965,9 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 panels?:
                   | {
                       duration: number;
+                      start: number;
                       assetName: string;
                       assetPath: string;
-                      start: number;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -919,9 +979,9 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 panels?:
                   | {
                       duration: number;
+                      start: number;
                       assetName: string;
                       assetPath: string;
-                      start: number;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -1016,12 +1076,24 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaStart: number;
               }
             | undefined;
+          songStem?:
+            | {
+                part: "vocals";
+                windows: {
+                  duration: number;
+                  start: number;
+                }[];
+              }
+            | {
+                part: "instrumental";
+              }
+            | undefined;
           panels?:
             | {
                 duration: number;
+                start: number;
                 assetName: string;
                 assetPath: string;
-                start: number;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -1032,9 +1104,9 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 panels?:
                   | {
                       duration: number;
+                      start: number;
                       assetName: string;
                       assetPath: string;
-                      start: number;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -1131,12 +1203,24 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaStart: number;
               }
             | undefined;
+          songStem?:
+            | {
+                part: "vocals";
+                windows: {
+                  duration: number;
+                  start: number;
+                }[];
+              }
+            | {
+                part: "instrumental";
+              }
+            | undefined;
           panels?:
             | {
                 duration: number;
+                start: number;
                 assetName: string;
                 assetPath: string;
-                start: number;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -1147,9 +1231,9 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 panels?:
                   | {
                       duration: number;
+                      start: number;
                       assetName: string;
                       assetPath: string;
-                      start: number;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -1835,12 +1919,24 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             mediaStart: number;
           }
         | undefined;
+      songStem?:
+        | {
+            part: "vocals";
+            windows: {
+              duration: number;
+              start: number;
+            }[];
+          }
+        | {
+            part: "instrumental";
+          }
+        | undefined;
       panels?:
         | {
             duration: number;
+            start: number;
             assetName: string;
             assetPath: string;
-            start: number;
             blocking?: string | undefined;
             camera?: string | undefined;
           }[]
@@ -1851,9 +1947,9 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             panels?:
               | {
                   duration: number;
+                  start: number;
                   assetName: string;
                   assetPath: string;
-                  start: number;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }[]
@@ -2110,12 +2206,24 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             mediaStart: number;
           }
         | undefined;
+      songStem?:
+        | {
+            part: "vocals";
+            windows: {
+              duration: number;
+              start: number;
+            }[];
+          }
+        | {
+            part: "instrumental";
+          }
+        | undefined;
       panels?:
         | {
             duration: number;
+            start: number;
             assetName: string;
             assetPath: string;
-            start: number;
             blocking?: string | undefined;
             camera?: string | undefined;
           }[]
@@ -2126,9 +2234,9 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             panels?:
               | {
                   duration: number;
+                  start: number;
                   assetName: string;
                   assetPath: string;
-                  start: number;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }[]
@@ -2409,8 +2517,9 @@ export type ShotScript<S extends readonly ScriptLine[] = readonly ScriptLine[]> 
 };
 /**
  * One animatic shot as `video.tsx` reaches it: its takes by name and kind, plus the `stem` konte
- * mixes from the shot's cues, which an audio-driven motion model takes, and the `narrationStem` it
- * mixes from the narration apart, which only `<Audio>` places.
+ * mixes from the shot's cues, which an audio-driven motion model takes, the `narrationStem` it
+ * mixes from the narration apart, which only `<Audio>` places, and on a song the `songStem` a motion
+ * model hears of the shot's span of it.
  *
  * The board shot's own rendering is not reachable; a V2V route wants `#composition` rendered to video
  * first.
@@ -2422,6 +2531,7 @@ export type ShotScript<S extends readonly ScriptLine[] = readonly ScriptLine[]> 
 export interface AnimaticShotRef extends ShotHandle {
   readonly stem: MediaAsset<"audio">;
   readonly narrationStem: NarrationStem;
+  readonly songStem: MediaAsset<"audio">;
 }
 export interface AnimaticRef {
   shot(id: string): AnimaticShotRef;
@@ -4972,17 +5082,17 @@ declare const PanelDefinitionSchema: z.ZodObject<
   z.ZodTypeAny,
   {
     duration: number;
+    start: number;
     assetName: string;
     assetPath: string;
-    start: number;
     blocking?: string | undefined;
     camera?: string | undefined;
   },
   {
     duration: number;
+    start: number;
     assetName: string;
     assetPath: string;
-    start: number;
     blocking?: string | undefined;
     camera?: string | undefined;
   }
@@ -5286,6 +5396,66 @@ declare const ShotDefinitionSchema: z.ZodObject<
         }
       >
     >;
+    songStem: z.ZodOptional<
+      z.ZodDiscriminatedUnion<
+        "part",
+        [
+          z.ZodObject<
+            {
+              part: z.ZodLiteral<"vocals">;
+              windows: z.ZodArray<
+                z.ZodObject<
+                  {
+                    start: z.ZodNumber;
+                    duration: z.ZodNumber;
+                  },
+                  "strip",
+                  z.ZodTypeAny,
+                  {
+                    duration: number;
+                    start: number;
+                  },
+                  {
+                    duration: number;
+                    start: number;
+                  }
+                >,
+                "many"
+              >;
+            },
+            "strip",
+            z.ZodTypeAny,
+            {
+              part: "vocals";
+              windows: {
+                duration: number;
+                start: number;
+              }[];
+            },
+            {
+              part: "vocals";
+              windows: {
+                duration: number;
+                start: number;
+              }[];
+            }
+          >,
+          z.ZodObject<
+            {
+              part: z.ZodLiteral<"instrumental">;
+            },
+            "strip",
+            z.ZodTypeAny,
+            {
+              part: "instrumental";
+            },
+            {
+              part: "instrumental";
+            }
+          >,
+        ]
+      >
+    >;
     panels: z.ZodOptional<
       z.ZodArray<
         z.ZodObject<
@@ -5301,17 +5471,17 @@ declare const ShotDefinitionSchema: z.ZodObject<
           z.ZodTypeAny,
           {
             duration: number;
+            start: number;
             assetName: string;
             assetPath: string;
-            start: number;
             blocking?: string | undefined;
             camera?: string | undefined;
           },
           {
             duration: number;
+            start: number;
             assetName: string;
             assetPath: string;
-            start: number;
             blocking?: string | undefined;
             camera?: string | undefined;
           }
@@ -5357,17 +5527,17 @@ declare const ShotDefinitionSchema: z.ZodObject<
                 z.ZodTypeAny,
                 {
                   duration: number;
+                  start: number;
                   assetName: string;
                   assetPath: string;
-                  start: number;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 },
                 {
                   duration: number;
+                  start: number;
                   assetName: string;
                   assetPath: string;
-                  start: number;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }
@@ -5383,9 +5553,9 @@ declare const ShotDefinitionSchema: z.ZodObject<
           panels?:
             | {
                 duration: number;
+                start: number;
                 assetName: string;
                 assetPath: string;
-                start: number;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -5397,9 +5567,9 @@ declare const ShotDefinitionSchema: z.ZodObject<
           panels?:
             | {
                 duration: number;
+                start: number;
                 assetName: string;
                 assetPath: string;
-                start: number;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -5494,12 +5664,24 @@ declare const ShotDefinitionSchema: z.ZodObject<
           mediaStart: number;
         }
       | undefined;
+    songStem?:
+      | {
+          part: "vocals";
+          windows: {
+            duration: number;
+            start: number;
+          }[];
+        }
+      | {
+          part: "instrumental";
+        }
+      | undefined;
     panels?:
       | {
           duration: number;
+          start: number;
           assetName: string;
           assetPath: string;
-          start: number;
           blocking?: string | undefined;
           camera?: string | undefined;
         }[]
@@ -5510,9 +5692,9 @@ declare const ShotDefinitionSchema: z.ZodObject<
           panels?:
             | {
                 duration: number;
+                start: number;
                 assetName: string;
                 assetPath: string;
-                start: number;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -5609,12 +5791,24 @@ declare const ShotDefinitionSchema: z.ZodObject<
           mediaStart: number;
         }
       | undefined;
+    songStem?:
+      | {
+          part: "vocals";
+          windows: {
+            duration: number;
+            start: number;
+          }[];
+        }
+      | {
+          part: "instrumental";
+        }
+      | undefined;
     panels?:
       | {
           duration: number;
+          start: number;
           assetName: string;
           assetPath: string;
-          start: number;
           blocking?: string | undefined;
           camera?: string | undefined;
         }[]
@@ -5625,9 +5819,9 @@ declare const ShotDefinitionSchema: z.ZodObject<
           panels?:
             | {
                 duration: number;
+                start: number;
                 assetName: string;
                 assetPath: string;
-                start: number;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -6283,6 +6477,66 @@ declare const VideoDefinitionSchema: z.ZodObject<
               }
             >
           >;
+          songStem: z.ZodOptional<
+            z.ZodDiscriminatedUnion<
+              "part",
+              [
+                z.ZodObject<
+                  {
+                    part: z.ZodLiteral<"vocals">;
+                    windows: z.ZodArray<
+                      z.ZodObject<
+                        {
+                          start: z.ZodNumber;
+                          duration: z.ZodNumber;
+                        },
+                        "strip",
+                        z.ZodTypeAny,
+                        {
+                          duration: number;
+                          start: number;
+                        },
+                        {
+                          duration: number;
+                          start: number;
+                        }
+                      >,
+                      "many"
+                    >;
+                  },
+                  "strip",
+                  z.ZodTypeAny,
+                  {
+                    part: "vocals";
+                    windows: {
+                      duration: number;
+                      start: number;
+                    }[];
+                  },
+                  {
+                    part: "vocals";
+                    windows: {
+                      duration: number;
+                      start: number;
+                    }[];
+                  }
+                >,
+                z.ZodObject<
+                  {
+                    part: z.ZodLiteral<"instrumental">;
+                  },
+                  "strip",
+                  z.ZodTypeAny,
+                  {
+                    part: "instrumental";
+                  },
+                  {
+                    part: "instrumental";
+                  }
+                >,
+              ]
+            >
+          >;
           panels: z.ZodOptional<
             z.ZodArray<
               z.ZodObject<
@@ -6298,17 +6552,17 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 z.ZodTypeAny,
                 {
                   duration: number;
+                  start: number;
                   assetName: string;
                   assetPath: string;
-                  start: number;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 },
                 {
                   duration: number;
+                  start: number;
                   assetName: string;
                   assetPath: string;
-                  start: number;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }
@@ -6354,17 +6608,17 @@ declare const VideoDefinitionSchema: z.ZodObject<
                       z.ZodTypeAny,
                       {
                         duration: number;
+                        start: number;
                         assetName: string;
                         assetPath: string;
-                        start: number;
                         blocking?: string | undefined;
                         camera?: string | undefined;
                       },
                       {
                         duration: number;
+                        start: number;
                         assetName: string;
                         assetPath: string;
-                        start: number;
                         blocking?: string | undefined;
                         camera?: string | undefined;
                       }
@@ -6380,9 +6634,9 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 panels?:
                   | {
                       duration: number;
+                      start: number;
                       assetName: string;
                       assetPath: string;
-                      start: number;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -6394,9 +6648,9 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 panels?:
                   | {
                       duration: number;
+                      start: number;
                       assetName: string;
                       assetPath: string;
-                      start: number;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -6491,12 +6745,24 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 mediaStart: number;
               }
             | undefined;
+          songStem?:
+            | {
+                part: "vocals";
+                windows: {
+                  duration: number;
+                  start: number;
+                }[];
+              }
+            | {
+                part: "instrumental";
+              }
+            | undefined;
           panels?:
             | {
                 duration: number;
+                start: number;
                 assetName: string;
                 assetPath: string;
-                start: number;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -6507,9 +6773,9 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 panels?:
                   | {
                       duration: number;
+                      start: number;
                       assetName: string;
                       assetPath: string;
-                      start: number;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -6606,12 +6872,24 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 mediaStart: number;
               }
             | undefined;
+          songStem?:
+            | {
+                part: "vocals";
+                windows: {
+                  duration: number;
+                  start: number;
+                }[];
+              }
+            | {
+                part: "instrumental";
+              }
+            | undefined;
           panels?:
             | {
                 duration: number;
+                start: number;
                 assetName: string;
                 assetPath: string;
-                start: number;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -6622,9 +6900,9 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 panels?:
                   | {
                       duration: number;
+                      start: number;
                       assetName: string;
                       assetPath: string;
-                      start: number;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -7162,12 +7440,24 @@ declare const VideoDefinitionSchema: z.ZodObject<
             mediaStart: number;
           }
         | undefined;
+      songStem?:
+        | {
+            part: "vocals";
+            windows: {
+              duration: number;
+              start: number;
+            }[];
+          }
+        | {
+            part: "instrumental";
+          }
+        | undefined;
       panels?:
         | {
             duration: number;
+            start: number;
             assetName: string;
             assetPath: string;
-            start: number;
             blocking?: string | undefined;
             camera?: string | undefined;
           }[]
@@ -7178,9 +7468,9 @@ declare const VideoDefinitionSchema: z.ZodObject<
             panels?:
               | {
                   duration: number;
+                  start: number;
                   assetName: string;
                   assetPath: string;
-                  start: number;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }[]
@@ -7391,12 +7681,24 @@ declare const VideoDefinitionSchema: z.ZodObject<
             mediaStart: number;
           }
         | undefined;
+      songStem?:
+        | {
+            part: "vocals";
+            windows: {
+              duration: number;
+              start: number;
+            }[];
+          }
+        | {
+            part: "instrumental";
+          }
+        | undefined;
       panels?:
         | {
             duration: number;
+            start: number;
             assetName: string;
             assetPath: string;
-            start: number;
             blocking?: string | undefined;
             camera?: string | undefined;
           }[]
@@ -7407,9 +7709,9 @@ declare const VideoDefinitionSchema: z.ZodObject<
             panels?:
               | {
                   duration: number;
+                  start: number;
                   assetName: string;
                   assetPath: string;
-                  start: number;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }[]
@@ -7607,6 +7909,7 @@ export interface AdapterMetaInput {
   max?: number;
   clock?: number;
   pin?: "start" | "end";
+  stem?: true;
   values?: readonly string[];
   array?: boolean;
   description?: string;
@@ -7988,6 +8291,7 @@ export interface AdapterInputDefBase {
   clock?: number;
   fill?: "speech";
   pin?: DeclaredPin;
+  stem?: true;
   values?: readonly string[];
   required?: boolean;
   also?: readonly {
@@ -8178,6 +8482,7 @@ export interface FalInputDefBase {
   fixed?: true;
   default?: string | number | boolean;
   pin?: "start" | "end";
+  stem?: true;
   values?: readonly string[];
   min?: number;
   max?: number;

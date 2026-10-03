@@ -132,9 +132,10 @@ export const videoMinimaxH3R2v = defineComfyAsset({
       nodeId: "163",
       field: "audio",
       type: "audio",
+      stem: true,
       branch: [{ nodeId: "164", passThrough: "positive" }],
       description:
-        "The take's own soundtrack, anchored at frame 0 so the lips follow it — the shot's `animatic.stem`. It takes no `<Audio N>` tag. Cropped to the take's length.",
+        "The take's own soundtrack, anchored at frame 0 so the lips follow it — the shot's `animatic.stem`; on a piece cut to its song konte fills it with `.songStem`. It takes no `<Audio N>` tag. Cropped to the take's length.",
     },
     // LoadImage → MiniMaxH3AddGuide.image at frame 0 (→ BasicGuider.conditioning)
     //

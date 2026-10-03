@@ -11,6 +11,7 @@ import {
   listReferenceAssetPaths,
   listShotStems,
   NARRATION_STEM_ASSET_NAME,
+  SONG_STEM_ASSET_NAME,
   parseAssetPath,
   tryParseAddress,
   OVERLAY_ASSET_NAME,
@@ -396,7 +397,12 @@ export function listUnusedAssetPaths(
 
   // Every reserved name is konte's own synthesis, never something an author declared, so an unused
   // one is not a wiring mistake to report.
-  const synthesized = new Set([COMPOSITION_ASSET_NAME, STEM_ASSET_NAME, NARRATION_STEM_ASSET_NAME]);
+  const synthesized = new Set([
+    COMPOSITION_ASSET_NAME,
+    STEM_ASSET_NAME,
+    NARRATION_STEM_ASSET_NAME,
+    SONG_STEM_ASSET_NAME,
+  ]);
   const unused: string[] = [];
   for (const p of graph.dependencies.keys()) {
     if (needed.has(p) || synthesized.has(assetNameOf(parseAssetPath(p)))) continue;
@@ -481,8 +487,9 @@ export function collectRerollCascade(
 }
 
 // The nodes that ARE a shot's board: the keyframes its `<Panel>`s pin, the shot's declared assets,
-// and its derived `#stem`. A panel records where its keyframe really lives, which for a shared one is
-// `animatic:timeline.<name>` or `reference:<name>` — outside this shot's address space.
+// and its derived `#stem` and `#songStem`. A panel records where its keyframe really lives, which
+// for a shared one is `animatic:timeline.<name>` or `reference:<name>` — outside this shot's
+// address space.
 function boardNodesOf(shot: AnimaticDefinition["shots"][number]): Set<string> {
   const nodes = new Set<string>(
     Object.keys(shot.assets).map((name) => formatAssetPath("animatic", shot.id, name)),
@@ -490,6 +497,9 @@ function boardNodesOf(shot: AnimaticDefinition["shots"][number]): Set<string> {
   for (const panel of allPanels(shot)) nodes.add(panel.assetPath);
   if ((shot.stemRefs?.length ?? 0) > 0 || shot.songCue) {
     nodes.add(formatAssetPath("animatic", shot.id, STEM_ASSET_NAME));
+  }
+  if (shot.songCue && shot.songStem) {
+    nodes.add(formatAssetPath("animatic", shot.id, SONG_STEM_ASSET_NAME));
   }
   return nodes;
 }

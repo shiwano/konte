@@ -57,6 +57,8 @@ export interface AdapterMetaInput {
   // Which end of the clip this image is pinned to — see `AdapterInputDef.pin`. Read by the pin
   // check, and reported by `adapter show`.
   pin?: "start" | "end";
+  // The take's own soundtrack, which the model times its picture to — see `AdapterInputDef.stem`.
+  stem?: true;
   values?: readonly string[];
   array?: boolean;
   // Optional per-input prose, surfaced by `konte adapter show`. Reserved for what
@@ -142,6 +144,7 @@ interface DeclaredInput {
   max?: number;
   clock?: number;
   pin?: DeclaredPin;
+  stem?: true;
   values?: readonly string[];
   required?: boolean;
   array?: boolean;
@@ -171,6 +174,7 @@ export function buildMetaInputs(
           ...(def.max !== undefined ? { max: def.max } : {}),
           ...(def.clock ? { clock: def.clock } : {}),
           ...(def.pin ? { pin: pinnedEnd(def.pin) } : {}),
+          ...(def.stem ? { stem: true as const } : {}),
           ...(def.values ? { values: [...def.values] } : {}),
           ...(def.array ? { array: true } : {}),
           ...(def.description ? { description: def.description } : {}),
@@ -267,6 +271,44 @@ export function assertPinInputs(inputs: Record<string, DeclaredInput>): void {
   }
 }
 
+// A stem is the one track a take is timed to: an audio, singular, one input per adapter. Every
+// invalid combination is silent (a slot konte never fills, two tracks fighting over one take), so
+// they are rejected where the adapter is declared, as `fixed` inputs are.
+export function assertStemInputs(inputs: Record<string, DeclaredInput>): void {
+  const stems = Object.entries(inputs).filter(([, def]) => def.stem);
+  for (const [key, def] of stems) {
+    if (def.type !== "audio" || def.array || def.fixed || def.required) {
+      throw new Error(
+        `Input "${key}" is a stem, so it takes one audio konte fills — not "${def.type}", an ` +
+          `array, fixed or required`,
+      );
+    }
+  }
+  if (stems.length > 1) {
+    throw new Error(
+      `Inputs ${stems.map(([key]) => `"${key}"`).join(" and ")} are all stems, and a take has one`,
+    );
+  }
+}
+
+// On a video shot of a piece cut to its song, an adapter's `stem` input takes the board's
+// `#songStem` of that shot: konte fills it, and refuses anything else written there.
+function fillSongStem<T>(adapter: AssetAdapter<any, any>, given: T, name: string): T {
+  const stem = declarationSite() === "shot" ? getShotContext()?.songStem : undefined;
+  if (!stem) return given;
+  const key = Object.keys(adapter.meta.inputs).find((k) => adapter.meta.inputs[k]!.stem);
+  if (!key) return given;
+  const value = (given as Record<string, unknown>)[key];
+  if (value === undefined) return { ...given, [key]: stem };
+  if ((value as { src?: unknown } | null)?.src === stem.src) return given;
+  throw new KonteError(
+    "SONG_STEM_OVERRIDDEN",
+    `Asset "${name}" in ${assetLocation()}: "${key}" is the take's soundtrack, which on a piece ` +
+      `cut to its song konte fills with the shot's song stem (the vocals a singer in frame ` +
+      `sings, else the instrumental). Leave "${key}" unset.`,
+  );
+}
+
 export function isAssetAdapter(value: unknown): value is AssetAdapter<never, MediaKind> {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Partial<AssetAdapter<never, MediaKind>>;
@@ -302,6 +344,7 @@ export function asset<TName extends string, TAdapter extends AssetAdapter<any, a
   adapter: TAdapter,
   inputs: AdapterInputs<TAdapter>,
 ): BrandedMediaAsset<TName, TAdapter> {
+  inputs = fillSongStem(adapter, inputs, name);
   // A take built on a stem holding the song is cut to it, and carries where.
   const span = shiftSongSpan(
     songSpanOfInputs(inputs),

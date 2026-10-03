@@ -3,8 +3,9 @@ import * as path from "node:path";
 import { errorMessage } from "./errors.js";
 import { execFileAsync } from "./exec-file.js";
 import { ffmpegBin } from "./ffmpeg-binary.js";
-import { type HeardTokens, recognizeSpeech, separateVocals } from "./sherpa-binary.js";
+import { type HeardTokens, recognizeSpeech } from "./sherpa-binary.js";
 import { ANALYSIS_RATE, readSongBeat, readSungPhrases } from "./song-beat.js";
+import { songParts } from "./song-parts.js";
 import type { SongAnalysis } from "./types/index.js";
 
 async function decodeMono(file: string): Promise<Float32Array> {
@@ -106,6 +107,8 @@ async function hearVocals(
  */
 export async function analyzeSongTake(opts: {
   file: string;
+  outputHash: string | null | undefined;
+  videoRoot: string;
   bpm: number;
   beatsPerBar: number;
   // The language the lyrics are sung in.
@@ -127,25 +130,10 @@ export async function analyzeSongTake(opts: {
   let heard: SongAnalysis["heard"] = null;
   fs.mkdirSync(opts.workDir, { recursive: true });
   try {
-    const stereo = path.join(opts.workDir, "song.wav");
-    const vocals = path.join(opts.workDir, "vocals.wav");
-    await execFileAsync(await ffmpegBin(), [
-      "-v",
-      "quiet",
-      "-y",
-      "-i",
-      opts.file,
-      "-map",
-      "0:a:0",
-      "-ac",
-      "2",
-      "-ar",
-      "44100",
-      "-c:a",
-      "pcm_s16le",
-      stereo,
-    ]);
-    await separateVocals(stereo, vocals);
+    const { vocals } = await songParts(opts.videoRoot, {
+      file: opts.file,
+      outputHash: opts.outputHash,
+    });
     const voice = await decodeMono(vocals);
     phrases = readSungPhrases(voice);
     opts.log(`Singing: ${phrases.length} sung stretch(es)`);

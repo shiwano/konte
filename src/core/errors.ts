@@ -124,6 +124,9 @@ export type KonteErrorCode =
   // of it, a board stem holding it placed with `<Audio>`, or a take cut to it placed with
   // `<Audio>` or `<Video hasAudio>`.
   | "SONG_DOUBLED"
+  // An adapter's `stem` input written on a video shot of a piece cut to its song, where konte fills
+  // it with the board's `#songStem`.
+  | "SONG_STEM_OVERRIDDEN"
   // A `<Video>` of a take cut to the song whose window konte cannot fill: a `mediaStart` written
   // on it, or a place on the song before the take starts.
   | "SONG_WINDOW_INVALID"

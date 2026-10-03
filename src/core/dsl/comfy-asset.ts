@@ -11,6 +11,7 @@ import { OVERFLOW_FLOOR, recordClipLength } from "./clip-length-collect.js";
 import {
   assertTurboInputs,
   assertPinInputs,
+  assertStemInputs,
   buildMetaInputs,
   type DeclaredPin,
   type AssetAdapter,
@@ -114,6 +115,10 @@ interface AdapterInputDefBase {
   // longer than the shot, and the frames past it are never played. Only a clip at least one frame
   // longer than the shot has that frame; a shorter one is anchored at its last (`-1`).
   pin?: DeclaredPin;
+  // The take's own soundtrack, which the model times its picture to (lips, a beat). On a video shot
+  // of a piece cut to its song konte fills it with the board's `#songStem` and refuses anything
+  // written there. One `"audio"` input per adapter.
+  stem?: true;
   values?: readonly string[];
   required?: boolean;
   // Additional workflow targets that receive the same value. Used when one
@@ -374,6 +379,7 @@ export function defineComfyAsset<
   assertDerivedInputs(derive, config.inputs, config.turbo);
   assertTurboInputs(config.turbo, config.inputs);
   assertPinInputs(config.inputs);
+  assertStemInputs(config.inputs);
   assertSpeechFill(config);
   assertValidatorInputs(config.validators, config.inputs);
   const outputKind = resolveOutputKind(config.outputs, config.primary);

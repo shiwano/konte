@@ -203,6 +203,18 @@ export const ShotDefinitionSchema = z.object({
   // ANIMATIC ONLY, on a direction with `policy.clock`: the span of the song this shot holds, which
   // konte mixes into its `#stem` and never plays.
   songCue: z.object({ src: z.string(), mediaStart: z.number(), duration: z.number() }).optional(),
+  // ANIMATIC ONLY, beside `songCue`: what of that span `#songStem` mixes, derived from the direction.
+  // `vocals` where a singer in frame sings — sounding only in `windows`, the shot-local stretches
+  // their lines are sung in — else the `instrumental` across the shot.
+  songStem: z
+    .discriminatedUnion("part", [
+      z.object({
+        part: z.literal("vocals"),
+        windows: z.array(z.object({ start: z.number(), duration: z.number() })),
+      }),
+      z.object({ part: z.literal("instrumental") }),
+    ])
+    .optional(),
   // ANIMATIC ONLY: the keyframes this shot's composition declared with `<Panel>`, in document
   // order, each with its resolved window. A developed animatic shot always has at least one
   // (PANEL_REQUIRED); a video shot has none.

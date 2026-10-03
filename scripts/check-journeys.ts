@@ -34,6 +34,8 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - music-video 38,700 → 38,800, dev-render 10,450 → 10,550 (agreed by a human): `#songStem`, what a
+//   motion model hears of the song, and the adapter `stem` input konte fills with it.
 // - video 37,000 → 37,600 (agreed by a human): the `overlay` over every shot; a storyless piece's
 //   branch in scenario-guide.
 // - music-video (new, 38,650): a piece cut to a song — the video chain, storyless, with the song
@@ -134,7 +136,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "music-video",
-    budget: 38_700,
+    budget: 38_800,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
@@ -216,7 +218,7 @@ const DEV_JOURNEYS = [
   // the same render plan chooses between per shot.
   {
     name: "dev-render",
-    budget: 10_450,
+    budget: 10_550,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-delivery-guide/SKILL.md`,

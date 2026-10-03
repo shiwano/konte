@@ -1,4 +1,9 @@
-import { formatAssetPath, formatNarrationStemAddress, formatShotStemAddress } from "../address.js";
+import {
+  formatAssetPath,
+  formatNarrationStemAddress,
+  formatShotStemAddress,
+  formatSongStemAddress,
+} from "../address.js";
 import { KonteError } from "../errors.js";
 import { isRendering } from "../jsx-html.js";
 import type { AnimaticDefinition } from "../types/animatic.js";
@@ -14,8 +19,9 @@ import {
 
 /**
  * One animatic shot as `video.tsx` reaches it: its takes by name and kind, plus the `stem` konte
- * mixes from the shot's cues, which an audio-driven motion model takes, and the `narrationStem` it
- * mixes from the narration apart, which only `<Audio>` places.
+ * mixes from the shot's cues, which an audio-driven motion model takes, the `narrationStem` it
+ * mixes from the narration apart, which only `<Audio>` places, and on a song the `songStem` a motion
+ * model hears of the shot's span of it.
  *
  * The board shot's own rendering is not reachable; a V2V route wants `#composition` rendered to video
  * first.
@@ -27,6 +33,7 @@ import {
 export interface AnimaticShotRef extends ShotHandle {
   readonly stem: MediaAsset<"audio">;
   readonly narrationStem: NarrationStem;
+  readonly songStem: MediaAsset<"audio">;
 }
 
 export interface AnimaticRef {
@@ -118,10 +125,18 @@ export function createAnimaticRef(
         image: (assetName) => get(assetName, "image"),
         audio: (assetName) => get(assetName, "audio"),
         get stem() {
+          if (shot.songCue) {
+            throw new KonteError(
+              "ANIMATIC_INVALID",
+              `animatic.shot("${id}").stem: on a piece cut to its song the stem holds the whole ` +
+                `song. A motion model hears animatic.shot("${id}").songStem — konte fills an ` +
+                `adapter's stem input with it — and a line is placed with <Audio>.`,
+            );
+          }
           // The stem only exists once the shot has something to mix. Reaching for one that does not
           // would otherwise surface as a generic missing-reference at graph time, well away from the
           // line that asked for it.
-          if ((shot.stemRefs?.length ?? 0) === 0 && !shot.songCue) {
+          if ((shot.stemRefs?.length ?? 0) === 0) {
             throw new KonteError(
               "ANIMATIC_INVALID",
               (shot.narrationStemRefs?.length ?? 0) > 0
@@ -133,11 +148,8 @@ export function createAnimaticRef(
                     `reference.`,
             );
           }
-          return withSongSpan(
-            makeMediaAsset<"audio">(makeAddressPlaceholder(formatShotStemAddress("animatic", id))),
-            shot.songCue && songShotStarts
-              ? { start: shot.songCue.mediaStart, shotStarts: songShotStarts }
-              : undefined,
+          return makeMediaAsset<"audio">(
+            makeAddressPlaceholder(formatShotStemAddress("animatic", id)),
           );
         },
         get narrationStem() {
@@ -149,6 +161,22 @@ export function createAnimaticRef(
             );
           }
           return { src: makeAddressPlaceholder(formatNarrationStemAddress(id)) };
+        },
+        get songStem() {
+          if (!shot.songCue || !shot.songStem) {
+            throw new KonteError(
+              "ANIMATIC_INVALID",
+              `animatic.shot("${id}").songStem: animatic shot "${id}" holds no span of a song — ` +
+                `the direction declares no policy.clock, or the board does not draw the shot. ` +
+                `Drop the reference.`,
+            );
+          }
+          return withSongSpan(
+            makeMediaAsset<"audio">(makeAddressPlaceholder(formatSongStemAddress(id))),
+            songShotStarts
+              ? { start: shot.songCue.mediaStart, shotStarts: songShotStarts }
+              : undefined,
+          );
         },
       };
     },
