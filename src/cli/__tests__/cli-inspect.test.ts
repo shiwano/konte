@@ -1,7 +1,11 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getAssetEntryByAddress } from "../../core/address.js";
+import { writeDefinitionSnapshot } from "../../core/definition-snapshot.js";
 import { StateManager } from "../../core/state/manager.js";
+import type { ComfyAssetDefinition } from "../../core/types/index.js";
+import { loadDefinitionForAddress } from "../load-definition.js";
 import { generateFeedbackId } from "../../core/feedback/index.js";
 import {
   acceptDirection,
@@ -767,6 +771,97 @@ export default defineReference(direction, () => {
     const { stdout } = await run(["inspect", "video:shot.01"], projectDir);
     const motionLine = stdout.split("\n").find((line) => line.includes(motionAddr));
     expect(motionLine).toContain("definition-stale");
+  });
+});
+
+describe("inspect <variantId>", () => {
+  let projectDir: string;
+  const motionAddr = "video:shot.01.motion";
+  const oldPrompt =
+    "a wide shot of the studio at dawn, the desk lamp still on, rain streaking the window behind her";
+
+  beforeEach(async () => {
+    projectDir = await initWithDepsVideo();
+  });
+
+  async function seedTakeOnOldPrompt(): Promise<string> {
+    const definition = await loadDefinitionForAddress(projectDir, motionAddr);
+    const current = getAssetEntryByAddress(definition, motionAddr) as ComfyAssetDefinition;
+    const sm = await StateManager.load(projectDir);
+    const vid = sm.reserveVariantId(motionAddr);
+    sm.getAssetState(motionAddr).variants![vid]!.file = "/tmp/motion.mp4";
+    sm.getAssetState(motionAddr).variants![vid]!.definitionHash = "hash-before-the-edit";
+    await sm.save();
+    writeDefinitionSnapshot(projectDir, motionAddr, vid, {
+      ...current,
+      inputs: { ...current.inputs, "3.text": oldPrompt },
+    });
+    return vid;
+  }
+
+  it("prints the inputs the take was made from, in full, and what has changed since", async () => {
+    const vid = await seedTakeOnOldPrompt();
+    const { stdout } = await run(["inspect", vid], projectDir);
+    expect(stdout).toContain(`Variant: ${vid}`);
+    expect(stdout).toContain(`Address: ${motionAddr}`);
+    expect(stdout).toContain("Status: none (definition-stale)");
+    expect(stdout).toContain("definition-stale: changed since this take (inputs.3.text)");
+    expect(stdout).toContain("Inputs it was made from:");
+    expect(stdout).toContain(`prompt (3.text): ${oldPrompt}`);
+  });
+
+  it("lists a turbo take's overrides apart from the inputs the definition holds", async () => {
+    const definition = await loadDefinitionForAddress(projectDir, motionAddr);
+    const current = getAssetEntryByAddress(definition, motionAddr) as ComfyAssetDefinition;
+    const sm = await StateManager.load(projectDir);
+    const vid = sm.reserveVariantId(motionAddr);
+    sm.getAssetState(motionAddr).variants![vid]!.file = "/tmp/motion.mp4";
+    sm.getAssetState(motionAddr).variants![vid]!.turbo = true;
+    await sm.save();
+    writeDefinitionSnapshot(projectDir, motionAddr, vid, {
+      ...current,
+      turboInputs: { "3.text": "turbo prompt" },
+    });
+
+    const { stdout } = await run(["inspect", vid], projectDir);
+    const turbo = stdout.slice(stdout.indexOf("Turbo inputs"));
+    expect(stdout.slice(0, stdout.indexOf("Turbo inputs"))).toContain("prompt (3.text): test");
+    expect(turbo).toContain("prompt (3.text): turbo prompt");
+  });
+
+  it("reads a patched take's inputs off the take it was generated as", async () => {
+    const source = await seedTakeOnOldPrompt();
+    const sm = await StateManager.load(projectDir);
+    const patched = sm.reserveVariantId(motionAddr);
+    sm.getAssetState(motionAddr).variants![patched]!.file = "/tmp/patched.mp4";
+    sm.getAssetState(motionAddr).variants![patched]!.derivedFrom = source;
+    sm.getAssetState(motionAddr).variants![patched]!.definitionHash = "hash-before-the-edit";
+    await sm.save();
+
+    const { stdout } = await run(["inspect", patched], projectDir);
+    expect(stdout).toContain(
+      `Patch of: ${source} (patches/${source}.ts) — the inputs below are ${source}'s`,
+    );
+    expect(stdout).toContain(`prompt (3.text): ${oldPrompt}`);
+  });
+
+  it("points a definition-stale take at its own report from the asset listing", async () => {
+    const vid = await seedTakeOnOldPrompt();
+    const { stdout } = await run(["inspect", motionAddr], projectDir);
+    expect(stdout).toContain(`the definition it was made from, in full: konte inspect ${vid}`);
+  });
+
+  it("refuses --prompts on a variant id", async () => {
+    const vid = await seedTakeOnOldPrompt();
+    await expect(run(["inspect", vid, "--prompts"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("INVALID_OPTION"),
+    });
+  });
+
+  it("fails on an unknown variant id", async () => {
+    await expect(run(["inspect", "v-missing"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("VARIANT_NOT_FOUND"),
+    });
   });
 });
 

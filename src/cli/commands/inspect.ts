@@ -58,7 +58,7 @@ import {
 } from "../../core/staleness.js";
 import { StateManager } from "../../core/state/index.js";
 import { readVariantThumbnails } from "../../core/thumbnail.js";
-import { isReviewLeaf } from "../../core/variant-lineage.js";
+import { generatedOrigin, isReviewLeaf } from "../../core/variant-lineage.js";
 import { variantOwningFile } from "../../core/variant-dir.js";
 import type {
   AssetDefinition,
@@ -86,7 +86,11 @@ import {
   feedbackTag,
   printFeedback,
 } from "./inspect-feedback.js";
-import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
+import {
+  applyResolutionDefinitions,
+  definitionForAddress,
+  type StageDefinitions,
+} from "../../core/definition-hashes.js";
 import { staleRefreshStep } from "../stale-refresh-step.js";
 
 type InspectScope =
@@ -96,12 +100,16 @@ type InspectScope =
   // Every plate the animatic returned (`animatic:plate`).
   | { level: "plates"; stage: "animatic" }
   // The direction: the whole stage, or one of its parts (`address` null / set).
-  | { level: "direction"; address: string | null };
+  | { level: "direction"; address: string | null }
+  | { level: "variant"; variantId: string };
+
+type PromptScope = Exclude<InspectScope, { level: "variant" }>;
 
 // Canonical bare forms shared with clean/prune/status — a trailing ":" or "." matches
 // none of these and falls through to the error below.
 const STAGE_PATTERN = /^(animatic|video|reference)$/;
 const SHOT_PATTERN = /^(animatic|video):shot\.([a-zA-Z0-9_-]+)$/;
+const VARIANT_PATTERN = /^v-[A-Za-z0-9_-]+$/;
 
 function parseInspectScope(input: string): InspectScope {
   // The direction stage has its own grammar (feedback-only parts, no asset suffix), so it is routed
@@ -124,6 +132,8 @@ function parseInspectScope(input: string): InspectScope {
 
   if (input === "animatic:plate") return { level: "plates", stage: "animatic" };
 
+  if (VARIANT_PATTERN.test(input)) return { level: "variant", variantId: input };
+
   const stageMatch = STAGE_PATTERN.exec(input);
   if (stageMatch) {
     return { level: "stage", stage: stageMatch[1] as AssetStage };
@@ -131,7 +141,7 @@ function parseInspectScope(input: string): InspectScope {
 
   throw new KonteError(
     "INVALID_ADDRESS",
-    `Invalid address-scope format: "${input}" (expected an address, shot scope, or stage scope — no trailing ":" or ".")`,
+    `Invalid address-scope format: "${input}" (expected an address, shot scope, stage scope, or variant id — no trailing ":" or ".")`,
   );
 }
 
@@ -430,16 +440,7 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
   }
 
   if ("inputs" in assetDef && assetDef.inputs) {
-    const entries = Object.entries(assetDef.inputs);
-    if (entries.length > 0) {
-      const labels = ("inputLabels" in assetDef ? assetDef.inputLabels : undefined) ?? {};
-      console.log("Inputs:");
-      for (const [key, value] of entries) {
-        const name = labels[key];
-        const formatted = typeof value === "string" ? value : JSON.stringify(value);
-        console.log(`  ${name ? `${name} (${key})` : key}: ${formatted}`);
-      }
-    }
+    printInputs(assetDef, "Inputs:");
   } else if (assetDef.kind === "file") {
     console.log(`Path: ${assetDef.path}`);
   }
@@ -553,6 +554,7 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
             if (changes.length > 10) {
               console.log(`      … and ${changes.length - 10} more`);
             }
+            console.log(`      the definition it was made from, in full: konte inspect ${vid}`);
           } else if (!staleness.patchStale) {
             console.log(
               changes
@@ -595,6 +597,94 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
   }
 
   printFeedback(feedback);
+}
+
+function printInputs(def: AssetDefinition, heading: string): void {
+  if (!("inputs" in def) || !def.inputs) return;
+  const entries = Object.entries(def.inputs);
+  if (entries.length === 0) return;
+  console.log(heading);
+  printInputEntries(def, entries);
+}
+
+function printInputEntries(def: AssetDefinition, entries: [string, unknown][]): void {
+  const labels = ("inputLabels" in def ? def.inputLabels : undefined) ?? {};
+  for (const [key, value] of entries) {
+    const name = labels[key];
+    const formatted = typeof value === "string" ? value : JSON.stringify(value);
+    console.log(`  ${name ? `${name} (${key})` : key}: ${formatted}`);
+  }
+}
+
+// One take, read from the definition snapshot written when it was generated rather than from the
+// stage file, so a take the definition has since moved away from is shown as it was made.
+async function inspectVariant(videoRoot: string, variantId: string): Promise<void> {
+  const manager = await StateManager.load(videoRoot);
+  const address = manager.resolveVariantAddress(variantId);
+  const variant = manager.getAssetState(address).variants![variantId]!;
+  const staleness = manager.variantStaleness(address, variantId);
+  const origin = generatedOrigin(manager.getState(), address, variantId);
+  const snapshot = readDefinitionSnapshot(videoRoot, address, origin);
+
+  const tags: string[] = [];
+  if (staleness?.inputStale) tags.push("input-stale");
+  if (staleness?.patchStale) tags.push("patch-stale");
+  if (staleness?.definitionStale && !staleness.patchStale) tags.push("definition-stale");
+
+  console.log(`Variant: ${variantId}`);
+  console.log(`Address: ${address}`);
+  console.log(`Status: ${variant.status}${tags.length > 0 ? ` (${tags.join(", ")})` : ""}`);
+  console.log(`File: ${variant.file ?? "-"}`);
+  if (variant.seed != null) console.log(`Seed: ${variant.seed}`);
+  if (variant.derivedFrom) {
+    console.log(
+      `Patch of: ${variant.derivedFrom} (patches/${variant.derivedFrom}.ts) — the inputs below are ${origin}'s`,
+    );
+  }
+  for (const ci of staleness?.changedInputs ?? []) {
+    console.log(
+      `input-stale: ${ci.assetPath} changed (${ci.recorded.slice(0, 8)} → ${(ci.current ?? "none").slice(0, 8)})`,
+    );
+  }
+  if (staleness?.definitionStale && !staleness.patchStale) {
+    const current =
+      snapshot && !isPatchAddress(address) && !isDeliveryAddress(address)
+        ? currentAssetDefinition(await loadStageDefinitions(videoRoot), address)
+        : null;
+    const changes = snapshot && current ? diffDefinitions(snapshot, current) : [];
+    console.log(
+      changes.length > 0
+        ? `definition-stale: changed since this take (${changes.map((c) => c.path).join(", ")})`
+        : "definition-stale: definition changed since this take was generated",
+    );
+  }
+
+  if (!snapshot) {
+    console.log("Definition: not recorded for this take");
+    return;
+  }
+  console.log(`Kind: ${snapshot.kind}`);
+  if (snapshot.kind === "file") console.log(`Path: ${snapshot.path}`);
+  printInputs(snapshot, "Inputs it was made from:");
+  const turboInputs =
+    variant.turbo && "turboInputs" in snapshot ? (snapshot.turboInputs ?? {}) : {};
+  if (Object.keys(turboInputs).length > 0) {
+    console.log("Turbo inputs (the address's first take; sent over the inputs above):");
+    printInputEntries(snapshot, Object.entries(turboInputs));
+  }
+}
+
+function currentAssetDefinition(
+  definitions: StageDefinitions,
+  address: string,
+): AssetDefinition | null {
+  const definition = definitionForAddress(definitions, address);
+  if (!definition) return null;
+  try {
+    return getAssetEntryByAddress(definition, address);
+  } catch {
+    return null;
+  }
 }
 
 // The direction shot this stage shot realizes — what the shot is *for*, which the stage definition never
@@ -866,7 +956,7 @@ async function inspectStage(videoRoot: string, stage: AssetStage): Promise<void>
 // and the `"spokenText"` a speech or music model voices, each at the address that declares it.
 // Collected as `asset()` ran, so a value assembled from shared constants is listed expanded. A
 // patch script's steps declare their own and are not listed here.
-async function inspectPrompts(videoRoot: string, scope: InspectScope): Promise<void> {
+async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<void> {
   const stage = scope.level === "direction" ? null : scope.stage;
   const definition = stage ? await loadDefinitionWithDuration(videoRoot, stage) : null;
   const prompts = definition?.prompts ?? [];
@@ -1032,7 +1122,7 @@ async function inspectPlates(videoRoot: string): Promise<void> {
 
 function platesUnderScope(
   definition: DefinitionWithDuration | null,
-  scope: InspectScope,
+  scope: PromptScope,
   promptShots: PromptShots | null,
 ): { address: string; prompt: string; within: string | null }[] {
   if (!definition?.platePrompts) return [];
@@ -1249,7 +1339,7 @@ function promptShotLines(
 
 export function registerInspectCommand(program: Command): void {
   program
-    .command("inspect <address-scope>")
+    .command("inspect <variantOrScope>")
     .description("Inspect assets at any scope level (asset, shot, or stage)")
     .option("--prompts", "List the text each address feeds a model, instead of asset state")
     .addHelpText(
@@ -1268,7 +1358,12 @@ The direction stage holds no assets, so it reports what it does have: every revi
 direction with its acceptance status and feedback, plus the unresolved findings. A part scope
 ("direction:<part>") adds the words being reviewed, for one part or for every part under a prefix.
 
+A variant id reports that one take: its status and staleness, and the inputs it was made from, in
+full — what to write back to make the definition match a take the definition has since moved away
+from.
+
 Examples:
+  konte inspect v-abc123                One take — the inputs it was made from
   konte inspect video:shot.01.motion    One asset — variants, staleness, feedback
   konte inspect video:shot.01           One shot — its direction shot, timing and assets
   konte inspect animatic                A whole stage
@@ -1302,11 +1397,22 @@ prompt writes a shot's opening frame.
   konte inspect video:shot.01 --prompts   One shot's
 `,
     )
-    .action(async (addressScope: string, opts: { prompts?: boolean }) => {
+    .action(async (variantOrScope: string, opts: { prompts?: boolean }) => {
       const videoRoot = requireVideoRoot();
-      const scope = parseInspectScope(addressScope);
+      const scope = parseInspectScope(variantOrScope);
       // Every path below reports staleness, so all of them read the definitions on disk.
       await applyResolutionDefinitions({ videoRoot });
+
+      if (scope.level === "variant") {
+        if (opts.prompts) {
+          throw new KonteError(
+            "INVALID_OPTION",
+            `--prompts reads a scope's current definition; "konte inspect ${scope.variantId}" already prints the inputs that take was made from`,
+          );
+        }
+        await inspectVariant(videoRoot, scope.variantId);
+        return;
+      }
 
       if (opts.prompts) {
         await inspectPrompts(videoRoot, scope);

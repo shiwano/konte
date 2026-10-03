@@ -18,7 +18,7 @@ import {
   undecidedTakeBesideAccepted,
   type PatchHashes,
 } from "../../../core/staleness.js";
-import { isReviewLeaf } from "../../../core/variant-lineage.js";
+import { generatedOrigin, isReviewLeaf } from "../../../core/variant-lineage.js";
 import { errorMessage } from "../../../core/errors.js";
 import { parseJsonBody } from "../../page-host/http.js";
 import { resolveLens } from "../../../core/direction.js";
@@ -594,20 +594,6 @@ export function variantPreviewUrl(
   return null;
 }
 
-// The take a patch lineage was generated from: a patched take is generated from nothing of its own,
-// and its fingerprints are merged (see `patchInputFingerprints`), not what anything consumed.
-function generatedOrigin(manager: StateManager, address: string, variantId: string): string {
-  const variants = manager.tryGetAssetState(address)?.variants ?? {};
-  let origin = variantId;
-  const seen = new Set<string>();
-  for (let from = variants[origin]?.derivedFrom; from && !seen.has(from); ) {
-    seen.add(from);
-    origin = from;
-    from = variants[origin]?.derivedFrom;
-  }
-  return origin;
-}
-
 /**
  * The definition a take's lineage was submitted with — its `definition.json`, with the turbo inputs
  * over it for a turbo take — or null when it is gone.
@@ -618,7 +604,7 @@ export function takeDefinitionSnapshot(
   address: string,
   variantId: string,
 ): AssetDefinition | null {
-  const origin = generatedOrigin(manager, address, variantId);
+  const origin = generatedOrigin(manager.getState(), address, variantId);
   const snapshot = readDefinitionSnapshot(videoRoot, address, origin);
   if (!snapshot) return null;
   const turbo = manager.getState().assets[address]?.variants?.[origin]?.turbo === true;
@@ -638,7 +624,7 @@ export function consumedTakePreviewUrl(
   ref: string,
   assetBaseUrl: string,
 ): string | null {
-  const origin = generatedOrigin(manager, address, variantId);
+  const origin = generatedOrigin(manager.getState(), address, variantId);
   const hash = manager.tryGetAssetState(address)?.variants?.[origin]?.inputFingerprints?.[ref];
   if (!hash) return null;
   const match = Object.entries(manager.tryGetAssetState(ref)?.variants ?? {}).find(

@@ -82,3 +82,17 @@ export function isProtectedVariant(state: KonteState, address: string, variantId
     hasAcceptedDescendant(state, address, variantId)
   );
 }
+
+// The take a patch lineage was generated from: a patched take is generated from nothing of its own,
+// and its fingerprints are merged (see `patchInputFingerprints`), not what anything consumed.
+export function generatedOrigin(state: KonteState, address: string, variantId: string): string {
+  const variants = state.assets[address]?.variants ?? {};
+  let origin = variantId;
+  const seen = new Set<string>();
+  for (let from = variants[origin]?.derivedFrom; from && !seen.has(from); ) {
+    seen.add(from);
+    origin = from;
+    from = variants[origin]?.derivedFrom;
+  }
+  return origin;
+}
