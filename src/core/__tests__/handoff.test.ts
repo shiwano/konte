@@ -20,6 +20,20 @@ describe("HandoffSchema", () => {
     expect(parsed.notes).toEqual([{ address: "video:shot.01.motion", text: "dusk background" }]);
   });
 
+  it("drops a note left blank", () => {
+    const parsed = HandoffSchema.parse({
+      stage: "animatic",
+      notes: [
+        { address: "animatic:shot.52.first", text: "" },
+        { address: "animatic:shot.52#composition", text: "  " },
+        { address: "animatic:shot.26.first", text: "closer on the face" },
+      ],
+    });
+    expect(parsed.notes).toEqual([
+      { address: "animatic:shot.26.first", text: "closer on the face" },
+    ]);
+  });
+
   it("rejects a file missing its stage", () => {
     expect(() => HandoffSchema.parse({ notes: [] })).toThrow();
   });

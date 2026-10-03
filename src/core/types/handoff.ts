@@ -8,7 +8,10 @@ export const HandoffNoteSchema = z.object({
 export const HandoffSchema = z.object({
   stage: z.enum(["animatic", "video", "reference", "direction"]),
   summary: z.string().optional(),
-  notes: z.array(HandoffNoteSchema).default([]),
+  notes: z
+    .array(HandoffNoteSchema)
+    .default([])
+    .transform((notes) => notes.filter((n) => n.text.trim() !== "")),
 });
 
 export type HandoffNote = z.infer<typeof HandoffNoteSchema>;

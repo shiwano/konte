@@ -11,7 +11,7 @@ Every human review runs the same three steps — hand off, preview, read the rec
 Leave a note the reviewer reads inline next to each changed item — what you changed and why.
 
 - **One shot: `konte review handoff new <scope> --summary "<line>" --note <address>=<text> …`** — writes the whole handoff. `--note` repeats and splits on the first `=`; an unknown address is rejected, listing the changed assets.
-- **Or omit `--note`** — writes `review/<stage>/handoffs/<ts>.json` with an empty `text` per changed asset; fill each `text` and `summary`, drop rows you have nothing to add. Nothing changed → no file.
+- **Or omit `--note`** — writes `review/<stage>/handoffs/<ts>.json` with an empty `text` per changed asset; fill each `text` and `summary`. Nothing changed → no file.
 - **Write summary and notes in the human's language** — they show in the review UI.
 - **Never delete or overwrite an earlier handoff file** — each run writes a new timestamped one and preview auto-loads only the newest for the stage (override with `--handoff <path>`).
 
