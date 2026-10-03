@@ -9,7 +9,7 @@ The caller gives you one thing: the **shot ids** under review. Findings land onl
 
 ## Read only this
 
-- `konte inspect animatic:shot.<id> --prompts`, for each id and for the shot before and after it — each panel's prompt, and above it the shot's `action:`, `lineup:` and `set:` lines; its `Keyframes:` block names the prompt-bearing addresses behind each panel, the plate among them.
+- `konte inspect animatic:shot.<id> --prompts`, for each id and for the shot before and after it — each panel's prompt, and above it the shot's `action:`, `lineup:` and `set:` lines; its `Keyframes:` block names the addresses behind each panel, and its `plate:` line the plate the panel stands on — that line, never the picture, says which plate it is.
 - `konte probe contact-sheet animatic:plate` — the plates. Look at the one each panel stands on.
 - `konte probe contact-sheet animatic:shot.<id>` for a neighbouring shot that already holds a take — the frame the cut comes from or goes to.
 

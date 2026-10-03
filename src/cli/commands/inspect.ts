@@ -900,6 +900,8 @@ async function inspectPrompts(videoRoot: string, scope: InspectScope): Promise<v
     for (const k of keyframes) {
       console.log(`  shot ${k.shotId} · panel ${k.index} of ${k.of} · ${k.lane}   ${k.panel}`);
       console.log(`    conditioning: ${k.conditioning.join(", ") || "(none)"}`);
+      const plate = panelPlate(k, promptShots);
+      if (plate) console.log(`    plate: ${plate}`);
     }
     console.log("");
   }
@@ -932,6 +934,16 @@ async function inspectPrompts(videoRoot: string, scope: InspectScope): Promise<v
     }
     printOccurrences(occurrences);
   }
+}
+
+// The plate of the setup the panel's lane is shot from. `conditioning` can reach another setup's
+// plate through the frame before the cut, so the order there does not say which one this is.
+function panelPlate(k: PanelConditioning, promptShots: PromptShots | null): string | null {
+  const setupId =
+    k.lane === "cutin" ? promptShots?.cutin.get(k.shotId)?.setup : promptShots?.setup.get(k.shotId);
+  if (!setupId) return null;
+  const plate = formatPlateAssetPath(setupId);
+  return k.conditioning.includes(plate) ? plate : `(none — ${plate} is not in its conditioning)`;
 }
 
 // The keyframes whose conditioning the listing carries: a panel fed by a prompt under this scope.
@@ -1026,6 +1038,8 @@ interface PromptShots {
   // landmarks of the place it is set in. Empty on an insert, which holds nothing; absent only for a
   // shot whose setup the roster does not declare, so a reader can tell the two apart.
   set: Map<string, { id: string; label: string }[]>;
+  // The shot's own camera; a graphic shot has none.
+  setup: Map<string, string>;
   // Per SETUP id, not per shot: the wider frame that one steps in from, null where there is
   // none — a frame that declared nothing answers as a root here, and the two are told apart on the
   // direction's own surfaces.
@@ -1062,6 +1076,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
     { lineup: readonly string[]; lineupTo: readonly string[] | null }
   >();
   const set = new Map<string, { id: string; label: string }[]>();
+  const setup = new Map<string, string>();
   const within = new Map<string, string | null>(
     Object.entries(direction.setups ?? {}).map(([id, s]) => [id, s.within ?? null]),
   );
@@ -1103,6 +1118,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
       });
     }
     if (!isGraphicShot(shot)) {
+      setup.set(shot.id, shot.setup);
       if (shot.lineup) {
         lineup.set(shot.id, { lineup: shot.lineup, lineupTo: shot.lineupTo ?? null });
       }
@@ -1121,7 +1137,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
     }));
     if (lines.length > 0) script.set(shot.id, lines);
   }
-  return { action, span, lineup, set, within, cutin, script, label };
+  return { action, span, lineup, set, setup, within, cutin, script, label };
 }
 
 function shotIdOfAddress(address: string): string | null {

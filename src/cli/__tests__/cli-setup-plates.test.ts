@@ -187,6 +187,40 @@ export default defineAnimatic(direction, {
     expect(one).toContain("Plate: the studio, its window along the far wall");
   });
 
+  // A keyframe can take the frame before the cut ahead of its own plate, so the plate a panel
+  // stands on is named apart from the conditioning chain.
+  it("names the plate each panel stands on under --prompts", async () => {
+    const projectDir = await project(
+      DEVELOPED(
+        `asset("first", promptedImage, { prompt: "she turns", image: plates.front.image })`,
+      ),
+    );
+    const animaticPath = path.join(projectDir, "animatic.tsx");
+    const source = await fs.readFile(animaticPath, "utf-8");
+    await fs.writeFile(
+      animaticPath,
+      source.replace(`Panel } from "konte";`, `Panel, defineComfyAsset } from "konte";`).replace(
+        "export default",
+        `const promptedImage = defineComfyAsset({
+  workflow: "image.json",
+  description: "test adapter",
+  inputs: {
+    prompt: { nodeId: "3", field: "text", type: "prompt" },
+    image: { nodeId: "1", field: "image", type: "image" },
+  },
+  outputs: { result: { nodeId: "9", type: "image" } },
+});
+
+export default`,
+      ),
+    );
+
+    const { stdout } = await run(["inspect", "animatic:shot.01", "--prompts"], projectDir);
+    expect(stdout).toContain(
+      "conditioning: animatic:shot.01.first, animatic:plate.front\n    plate: animatic:plate.front",
+    );
+  });
+
   it("refuses to spend on a shot that ignores its setup's plate", async () => {
     const projectDir = await project(DEVELOPED(FROM_NOTHING));
     await expect(run(["generate", "animatic"], projectDir)).rejects.toThrow();

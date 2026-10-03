@@ -21,6 +21,7 @@ import {
   getAssetEntry,
   isMaterializedLeafAssetPath,
   isNarrationStemAddress,
+  isPlateAddress,
 } from "./address.js";
 import { isVendorBackendAsset } from "./backend-policy.js";
 import type { PinWindow, VideoShotPins } from "./direction-check.js";
@@ -1090,7 +1091,8 @@ export type PanelConditioningSource = AnimaticPictureSource & {
 
 // A panel name is the author's and a wrapper carries no text of its own, so which prompt writes a
 // shot's opening frame is not readable off the addresses. The chain crosses shots, the timeline and
-// the plates; an address outside this stage declares no prompt here, so it drops out.
+// the plates; an address outside this stage declares no prompt here, so it drops out. A plate stays
+// whatever it is built with: a crop carries no prompt, yet it is the frame the panel stands on.
 export function listPanelConditioning(animatic: PanelConditioningSource): PanelConditioning[] {
   const entryOf = animaticEntryResolver(animatic);
   const written = new Set(
@@ -1108,8 +1110,8 @@ export function listPanelConditioning(animatic: PanelConditioningSource): PanelC
           index: i + 1,
           of: panels.length,
           panel: panel.assetPath,
-          conditioning: orderedChainAddresses([panel.assetPath], entryOf).filter((address) =>
-            written.has(address),
+          conditioning: orderedChainAddresses([panel.assetPath], entryOf).filter(
+            (address) => written.has(address) || isPlateAddress(address),
           ),
         });
       });

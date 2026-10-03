@@ -102,4 +102,37 @@ describe("listPanelConditioning", () => {
       },
     ]);
   });
+
+  it("names the plate a panel stands on, a crop with no prompt of its own included", () => {
+    const plated = {
+      shots: [
+        {
+          id: "01",
+          panels: [{ assetPath: "animatic:shot.01.first" }],
+          assets: {
+            first: {
+              kind: "comfy",
+              inputs: { prompt: "she leans in", image1: "__konte:animatic:plate.close__" },
+            },
+          },
+        },
+      ],
+      plates: {
+        close: { kind: "local", inputs: { image: "__konte:animatic:plate.wide__" } },
+        wide: { kind: "comfy", inputs: { prompt: "the empty room" } },
+      },
+      prompts: [{ address: "animatic:shot.01.first" }, { address: "animatic:plate.wide" }],
+    } as unknown as Parameters<typeof listPanelConditioning>[0];
+
+    expect(listPanelConditioning(plated)).toEqual([
+      {
+        shotId: "01",
+        lane: "main",
+        index: 1,
+        of: 1,
+        panel: "animatic:shot.01.first",
+        conditioning: ["animatic:shot.01.first", "animatic:plate.close", "animatic:plate.wide"],
+      },
+    ]);
+  });
 });
