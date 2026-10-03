@@ -916,9 +916,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
       map[a.address] =
         a.kind === "soundtrack"
           ? baseTimelineStemAccepted
-          : a.cues.every((c) =>
-              c.shotId ? baseShotAccepted[c.shotId] : baseTimelineStemAccepted,
-            );
+          : a.cues.every((c) => (c.shotId ? baseShotAccepted[c.shotId] : baseTimelineStemAccepted));
     }
     return map;
   }, [state.audioAssets, baseShotAccepted, baseTimelineStemAccepted]);
@@ -1826,49 +1824,48 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
               </div>
               /* oxlint-enable jsx-a11y/prefer-tag-over-role */
             )}
-            {offeredOverlay &&
-              !(session.showChangedOnly && baseOverlayAccepted) && (
-                /* Offered once every shot accept stands and the overlay changed after them:
+            {offeredOverlay && !(session.showChangedOnly && baseOverlayAccepted) && (
+              /* Offered once every shot accept stands and the overlay changed after them:
                selectable like the soundtrack, for its notes and its accept. */
-                /* oxlint-disable jsx-a11y/prefer-tag-over-role */
-                <div
-                  role="button"
-                  tabIndex={0}
-                  className={`vp-soundtrack-box${focusedOverlay ? " vp-soundtrack-box--focused" : ""}`}
-                  onClick={toggleOverlayFocus}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.target === e.currentTarget) {
-                      e.preventDefault();
-                      toggleOverlayFocus();
-                    }
-                  }}
-                  title={
-                    focusedOverlay
-                      ? "Click to stop reviewing the overlay"
-                      : "Review the overlay, changed after every shot was accepted"
+              /* oxlint-disable jsx-a11y/prefer-tag-over-role */
+              <div
+                role="button"
+                tabIndex={0}
+                className={`vp-soundtrack-box${focusedOverlay ? " vp-soundtrack-box--focused" : ""}`}
+                onClick={toggleOverlayFocus}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && e.target === e.currentTarget) {
+                    e.preventDefault();
+                    toggleOverlayFocus();
                   }
-                >
-                  <h3 className="panel-title">
-                    Overlay
-                    {(addressNoteCounts[offeredOverlay.address] ?? 0) > 0 && (
-                      <span className="vp-shot-item-notes">
-                        <CommentIcon size={12} /> {addressNoteCounts[offeredOverlay.address]}
-                      </span>
-                    )}
-                    <StatusBadge status="changed" label="Changed" />
-                  </h3>
-                  <AcceptButton
-                    accepted={unitAccepted({ kind: "overlay" }, marks)}
-                    title={
-                      unitAccepted({ kind: "overlay" }, marks)
-                        ? "Click to unaccept"
-                        : "Accept the overlay over the whole video"
-                    }
-                    onClick={toggleOverlay}
-                  />
-                </div>
-                /* oxlint-enable jsx-a11y/prefer-tag-over-role */
-              )}
+                }}
+                title={
+                  focusedOverlay
+                    ? "Click to stop reviewing the overlay"
+                    : "Review the overlay, changed after every shot was accepted"
+                }
+              >
+                <h3 className="panel-title">
+                  Overlay
+                  {(addressNoteCounts[offeredOverlay.address] ?? 0) > 0 && (
+                    <span className="vp-shot-item-notes">
+                      <CommentIcon size={12} /> {addressNoteCounts[offeredOverlay.address]}
+                    </span>
+                  )}
+                  <StatusBadge status="changed" label="Changed" />
+                </h3>
+                <AcceptButton
+                  accepted={unitAccepted({ kind: "overlay" }, marks)}
+                  title={
+                    unitAccepted({ kind: "overlay" }, marks)
+                      ? "Click to unaccept"
+                      : "Accept the overlay over the whole video"
+                  }
+                  onClick={toggleOverlay}
+                />
+              </div>
+              /* oxlint-enable jsx-a11y/prefer-tag-over-role */
+            )}
             <ShotList
               shots={visibleShots}
               progress={{

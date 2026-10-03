@@ -168,7 +168,9 @@ export function KeepOrRegenerateModal({
           type="button"
           className="ctrl-btn ctrl-btn--primary keep-modal-confirm"
           // The accept this prompt interrupted: confirming is what completes it.
-          onClick={() => onAnswer(Object.fromEntries(rows.map((r) => [r.unit, decisionOf(r.unit)])))}
+          onClick={() =>
+            onAnswer(Object.fromEntries(rows.map((r) => [r.unit, decisionOf(r.unit)])))
+          }
           ref={confirmRef}
         >
           {accepting === 1 && origin ? `Accept ${origin}` : "Accept all"}
