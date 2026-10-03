@@ -107,6 +107,16 @@ export default defineAnimatic(direction, {
     expect(variants.some((v) => v.file)).toBe(true);
   });
 
+  it("points a shotless animatic sheet at the plates, which tile on their own", async () => {
+    const projectDir = await generated(PENDING);
+
+    const board = await runCapture(["probe", "contact-sheet", "animatic"], projectDir);
+    expect(board.stderr).toContain("konte probe contact-sheet animatic:plate");
+
+    const plates = await runCapture(["probe", "contact-sheet", "animatic:plate"], projectDir);
+    expect(plates.stdout).toContain("contact-sheets");
+  });
+
   // No accept is owed OF THE AUTHOR, but a plate is not konte's own take either — the frame it fixes
   // is delivered inside every panel on that setup. The verdict arrives sideways, through the
   // keyframe's job provenance, when the first panel standing on the plate is accepted.

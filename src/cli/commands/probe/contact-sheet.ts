@@ -8,6 +8,7 @@ import {
   formatCompositionAddress,
   formatShotAddress,
   isCompositionAddress,
+  isPlateAddress,
   matchesAddressScope,
   parseAddress,
   parseReelScope,
@@ -157,7 +158,18 @@ async function buildCompositionCells(
     }
   }
   if (targets.length === 0) {
-    throw new KonteError("SHOT_NOT_FOUND", "No shots with a composition to tile");
+    const hasPlate =
+      stage === "animatic" &&
+      Object.keys(manager.getState().assets).some(
+        (address) =>
+          isPlateAddress(address) && manager.resolveReference(address, { includeStale: true }),
+      );
+    throw new KonteError(
+      "SHOT_NOT_FOUND",
+      hasPlate
+        ? "No shots with a composition to tile — tile the setup plates with `konte probe contact-sheet animatic:plate`"
+        : "No shots with a composition to tile",
+    );
   }
 
   const cells: ContactSheetCell[] = [];
@@ -708,7 +720,7 @@ Examples:
   konte probe contact-sheet --needs-review video       ... narrowed to the video stage
   konte probe contact-sheet animatic                 The whole board, paginated
   konte probe contact-sheet animatic:shot.01         One shot's panels
-  konte probe contact-sheet animatic:timeline        Every timeline-level still (setup plates)
+  konte probe contact-sheet animatic:plate           Every setup plate
   konte probe contact-sheet reference                  Every shared reference still
   konte probe contact-sheet video                      Every shot's composition, in and out
   konte probe contact-sheet video:shot.02              One shot's composition, in and out
