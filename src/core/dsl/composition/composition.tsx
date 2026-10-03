@@ -50,7 +50,7 @@ export function Composition({ children }: { children?: React.ReactNode }): React
 @layer base { * { margin: 0; padding: 0; box-sizing: border-box; } }
 html, body { width: ${frameWidth}px; height: ${frameHeight}px; overflow: hidden; background: #000;${fontStack ? ` font-family: ${fontStack};` : ""} }
 #stage { position: absolute; top: ${offsetY}px; left: ${offsetX}px; width: ${width}px; height: ${height}px; overflow: hidden; }
-@layer components { .konte-clip { position: absolute; top: 0; left: 0; width: 100%; height: 100%; visibility: hidden; object-fit: cover; } }
+@layer components { .konte-clip { position: absolute; top: 0; left: 0; width: 100%; height: 100%; visibility: hidden; object-fit: cover; } .konte-subtitle { padding-bottom: 5%; font-size: 1.875vmax; } @media (orientation: portrait) { .konte-subtitle { padding-bottom: 15vh; font-size: 3.25vmax; } } }
 `}</style>
       </head>
       <body>

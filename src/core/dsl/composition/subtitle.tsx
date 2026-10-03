@@ -35,7 +35,7 @@ function renderEntries(entries: SrtEntry[], rest: DivElementProps): React.ReactE
       <div
         key={entry.index}
         {...rest}
-        className={`konte-clip konte-subtitle flex items-end justify-center pb-[5%] text-center text-white text-[1.875vmax] font-semibold drop-shadow-lg${rest.className ? ` ${rest.className}` : ""}`}
+        className={`konte-clip konte-subtitle flex items-end justify-center text-center text-white font-semibold drop-shadow-lg${rest.className ? ` ${rest.className}` : ""}`}
         data-start={entry.startSeconds}
         data-duration={duration}
         data-track-index={10}

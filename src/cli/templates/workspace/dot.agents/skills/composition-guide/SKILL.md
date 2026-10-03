@@ -41,7 +41,7 @@ import {
 - **`<Video src={asset} />`** — a video clip on the timeline, a full-stage cover-fit layer; Tailwind classes in `className` override that (`left-0 top-0 w-1/3 h-1/3` for an inset). Defaults to `muted` + `playsInline`. Props: `src` (MediaAsset), `start`, `duration`, `mediaStart`, `hasAudio`, `volume`, + any `<video>` attr (`id`, `className`, `style`)
 - **`<Audio src={asset} />`** — a one-shot sound in a shot (SE, sting, dialogue, narration). Plays once at full length; may extend past the shot. Props: `src`, `id` (cue handle), `start`, `duration`, `mediaStart`, `volume`, `fadeIn`, `fadeOut`, + any `<audio>` attr. With `mediaStart` omitted, the take's leading silence is skipped, so `start` is where the sound lands
 - **`<Image src={asset} />`** — a still image on the timeline (logo, character, product, plate, overlay). Whole shot unless windowed; at its pixel size unless `fill` makes it a full-stage cover-fit layer. Props: `src` (MediaAsset), `start`, `duration`, `fill`, + any `<img>` attr (`alt`, `className`, `style`)
-- **`<Subtitle entries={[...]} />`** — timed text. Defaults to bottom-center, white, `text-[1.875vmax] font-semibold drop-shadow-lg`, rendered above clips. Props: `entries: { start, end, text }[]`, + any `<div>` attr (`className` merges, so you can restyle)
+- **`<Subtitle entries={[...]} />`** — timed text. Defaults to bottom-center, white, `text-[1.875vmax] font-semibold drop-shadow-lg`; a portrait canvas sits it 15% up at `text-[3.25vmax]`, rendered above clips. Props: `entries: { start, end, text }[]`, + any `<div>` attr (`className` merges, so you can restyle)
 - **`<Cutin at size inset>`** — the shot's declared `cutin`, over the whole shot: `at` a corner (default `bottom-right`), `size` a fraction of canvas width, `inset` the edge gap. Holds that frame's `<Panel>`s on the animatic, its `<Video>` on the video; only where the direction declares one (`CUTIN_REQUIRED` / `CUTIN_UNDECLARED`).
 - **`<Animate script={...} />`** — GSAP animation for the shot. Props: `script: ({ timeline }) => void` — inferred inline; `import type { GsapTimeline }` only for a callback lifted out of the JSX
 
@@ -49,7 +49,7 @@ Plus **any HTML element** styled with **Tailwind v4** classes or inline `style` 
 
 Gotchas:
 
-- **Fixed px font sizes change apparent size when the canvas size changes** — the canvas renders at `format.size`'s actual pixel size. Use `text-[Nvmax]` (1% of the longer edge) to keep text a constant fraction; `<Subtitle>` defaults to `text-[1.875vmax]`.
+- **Fixed px font sizes change apparent size when the canvas size changes** — the canvas renders at `format.size`'s actual pixel size. Use `text-[Nvmax]` (1% of the longer edge) to keep text a constant fraction; `<Subtitle>` defaults to `text-[1.875vmax]` (`text-[3.25vmax]` on a portrait canvas).
 - **A clip's own audio needs `hasAudio`** — without it the track is dropped: `<Video src={motion} hasAudio volume={0.8} />`.
 - **`volume` is relative gain, 0–3.98 (+12 dB), 1 = unity** — same on `<Audio>`, `<Video>`, `soundtrack()`; above the ceiling the load fails (`AUDIO_GAIN_INVALID`). Omit for the default level.
 - **`<Animate>` does not auto-assign ids** — give the element your own `id`/`className` and target it by CSS selector (`"#title"`, `".badge"`). Each shot's animation is scoped to that shot, so a selector never reaches another shot's element.
