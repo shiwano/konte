@@ -14,6 +14,7 @@ import { KonteError } from "../core/errors.js";
 import { buildDependencyGraph, type DependencyGraph, listUnusedAssetPaths } from "../core/graph.js";
 import { JobManager } from "../core/job-manager.js";
 import type { StateManager } from "../core/state/index.js";
+import type { StatusSection } from "../core/status-sections.js";
 import type {
   ReferenceDefinition,
   AnimaticDefinition,
@@ -126,10 +127,6 @@ export async function buildAssetStatus(opts: {
 }
 
 /** The "Needs review" items, in report order. */
-export function needsReviewItems(report: StatusReport): {
-  address: string;
-  detail: string;
-  variantId?: string;
-}[] {
+export function needsReviewItems(report: StatusReport): StatusSection["items"] {
   return report.sections.find((s) => s.title === "Needs review")?.items ?? [];
 }

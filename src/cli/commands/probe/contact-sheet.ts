@@ -321,9 +321,9 @@ async function buildNeedsReviewCells(
     reference,
   });
 
-  const items = needsReviewItems(report).filter(
-    (item) => scope === undefined || matchesAddressScope(item.address, scope),
-  );
+  const items = needsReviewItems(report)
+    .filter((item) => scope === undefined || matchesAddressScope(item.address, scope))
+    .flatMap((item) => (item.takes ? item.takes.map((take) => ({ ...item, ...take })) : [item]));
   if (items.length === 0) {
     throw new KonteError(
       "VARIANT_NOT_FOUND",

@@ -136,6 +136,47 @@ export default defineVideo(direction, {
     await fs.writeFile(statePath, JSON.stringify(state, null, 2));
   }
 
+  // Another undecided take beside the address's existing one — the state a reroll leaves behind.
+  async function addTake(projectDir: string, address: string, variantId: string): Promise<void> {
+    const statePath = path.join(projectDir, "konte.state.json");
+    const state = JSON.parse(await fs.readFile(statePath, "utf-8"));
+    const variants = state.assets[address].variants as Record<string, Record<string, unknown>>;
+    const source = Object.values(variants)[0]!;
+    const at = new Date(Date.now() + Object.keys(variants).length * 1000).toISOString();
+    variants[variantId] = {
+      ...source,
+      status: "none",
+      decidedAt: null,
+      createdAt: at,
+      readyAt: at,
+    };
+    await fs.writeFile(statePath, JSON.stringify(state, null, 2));
+  }
+
+  it("tiles every undecided take at an address, not just the newest", async () => {
+    const projectDir = await initAndGenerate();
+    await unaccept(projectDir, "reference:plateA");
+    await addTake(projectDir, "reference:plateA", "v-plateatake2");
+
+    const { stderr } = await run(
+      ["probe", "contact-sheet", "--needs-review", "reference"],
+      projectDir,
+    );
+    expect(stderr).toContain("2 cells, 1 sheet(s)");
+  });
+
+  it("tiles every undecided take beside an accept", async () => {
+    const projectDir = await initAndGenerate();
+    await addTake(projectDir, "reference:plateA", "v-plateatake2");
+    await addTake(projectDir, "reference:plateA", "v-plateatake3");
+
+    const { stderr } = await run(
+      ["probe", "contact-sheet", "--needs-review", "reference"],
+      projectDir,
+    );
+    expect(stderr).toContain("2 cells, 1 sheet(s)");
+  });
+
   it("reports nothing outstanding when every landed take is accepted", async () => {
     const projectDir = await initAndGenerate();
     await expect(

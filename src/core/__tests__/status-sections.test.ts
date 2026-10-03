@@ -47,6 +47,7 @@ function makeInfo(overrides: Partial<AddressInfo> & { address: string }): Addres
     undecidedTakeVariantId: null,
     patchedAwaitingReview: null,
     readyVariantIds: [],
+    undecidedVariantIds: [],
     readyCount: 0,
     leafReadyForReview: false,
     generatingJobs: [],
@@ -689,6 +690,7 @@ describe("computeStatusSections", () => {
         assetKind: "fal",
         hasAccepted: true,
         undecidedTakeVariantId: "v-undecided",
+        undecidedVariantIds: ["v-other", "v-undecided"],
       }),
     ];
     const sections = computeStatusSections(infos);
@@ -698,6 +700,10 @@ describe("computeStatusSections", () => {
         address: "video:shot.01.motion",
         detail: "undecided take beside the accept",
         variantId: "v-undecided",
+        takes: [
+          { variantId: "v-undecided", detail: "undecided take beside the accept" },
+          { variantId: "v-other", detail: "undecided take beside the accept" },
+        ],
       },
     ]);
   });
@@ -717,7 +723,34 @@ describe("computeStatusSections", () => {
         address: "video:shot.01.motion",
         detail: "patched — accept it, or konte patch remove v-src to drop the fix",
         variantId: "v-patch",
+        takes: [
+          {
+            variantId: "v-patch",
+            detail: "patched — accept it, or konte patch remove v-src to drop the fix",
+          },
+        ],
       },
+    ]);
+  });
+
+  it("lists a reroll beside a correction of the accepted take, each with its own reason", () => {
+    const infos: AddressInfo[] = [
+      makeInfo({
+        address: "video:shot.01.motion",
+        assetKind: "fal",
+        hasAccepted: true,
+        undecidedTakeVariantId: "v-reroll",
+        undecidedVariantIds: ["v-reroll", "v-patch"],
+        patchedAwaitingReview: { variantId: "v-patch", sourceVariantId: "v-src", hasScript: true },
+      }),
+    ];
+    const review = computeStatusSections(infos).find((s) => s.title === "Needs review");
+    expect(review?.items[0]?.takes).toEqual([
+      {
+        variantId: "v-patch",
+        detail: "patched — accept it, or konte patch remove v-src to drop the fix",
+      },
+      { variantId: "v-reroll", detail: "undecided take beside the accept" },
     ]);
   });
 
@@ -740,6 +773,12 @@ describe("computeStatusSections", () => {
         address: "video:shot.01.motion",
         detail: "patched — accept it, or konte patch remove v-src to drop the fix",
         variantId: "v-patch",
+        takes: [
+          {
+            variantId: "v-patch",
+            detail: "patched — accept it, or konte patch remove v-src to drop the fix",
+          },
+        ],
       },
     ]);
   });

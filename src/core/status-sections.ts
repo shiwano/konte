@@ -72,6 +72,8 @@ export interface AddressInfo {
   /** The takes `readyCount` counts, in canonical resolution order — `readyVariantIds[0]` is the
    * take `selectResolvedVariant` resolves to while nothing here is accepted. */
   readyVariantIds: string[];
+  /** `readyVariantIds` less the accepted take — every take here awaiting a verdict. */
+  undecidedVariantIds: string[];
   readyCount: number;
   /**
    * A materialized leaf (composition / stem) is ready to be reviewed now: renderable structure and
@@ -125,6 +127,8 @@ export interface AddressInfo {
   missingFilePath: string | null;
 }
 
+const UNDECIDED_BESIDE_ACCEPT = "undecided take beside the accept";
+
 export interface StatusSection {
   title: string;
   items: {
@@ -135,6 +139,8 @@ export interface StatusSection {
      * no variant until it is accepted, and on items that are about an address.
      */
     variantId?: string;
+    /** Every take at the address awaiting a verdict, each with why, `variantId`'s first. */
+    takes?: { variantId: string; detail: string }[];
   }[];
 }
 
@@ -337,6 +343,9 @@ export function buildAddressInfo(
     })
     .map(([variantId]) => variantId);
   const readyCount = readyVariantIds.length;
+  const undecidedVariantIds = readyVariantIds.filter(
+    (variantId) => target?.variants?.[variantId]?.status === "none",
+  );
   // An accepted take with an undecided correction hanging off it. Reported apart from
   // `undecidedTakeVariantId` for its wording alone — the reviewer's question is "did the fix land?",
   // not "is this alternative better?". It clears the same three ways any rival does: accept it,
@@ -437,6 +446,7 @@ export function buildAddressInfo(
     undecidedTakeVariantId,
     patchedAwaitingReview,
     readyVariantIds,
+    undecidedVariantIds,
     readyCount,
     leafReadyForReview,
     generatingJobs,
@@ -592,18 +602,31 @@ export function computeStatusSections(
       needsReview.push({
         address: info.address,
         detail: "",
-        ...(info.readyVariantIds[0] ? { variantId: info.readyVariantIds[0] } : {}),
+        ...(info.readyVariantIds[0]
+          ? {
+              variantId: info.readyVariantIds[0],
+              takes: info.readyVariantIds.map((variantId) => ({ variantId, detail: "" })),
+            }
+          : {}),
       });
     } else if (isGenerationAsset(info.assetKind) && info.patchedAwaitingReview) {
       // A correction of the accepted take is ready. Reported before the "newer take" branch and
       // on its own wording because the reviewer's question is different: not "is this alternative
       // better?" but "did the fix land?".
+      const patched = info.patchedAwaitingReview;
+      const detail = patched.hasScript
+        ? `patched — accept it, or konte patch remove ${patched.sourceVariantId} to drop the fix`
+        : "patched — its patch script is gone; accept it, or konte prune to drop it";
       needsReview.push({
         address: info.address,
-        detail: info.patchedAwaitingReview.hasScript
-          ? `patched — accept it, or konte patch remove ${info.patchedAwaitingReview.sourceVariantId} to drop the fix`
-          : "patched — its patch script is gone; accept it, or konte prune to drop it",
-        variantId: info.patchedAwaitingReview.variantId,
+        detail,
+        variantId: patched.variantId,
+        takes: [
+          { variantId: patched.variantId, detail },
+          ...info.undecidedVariantIds
+            .filter((id) => id !== patched.variantId)
+            .map((variantId) => ({ variantId, detail: UNDECIDED_BESIDE_ACCEPT })),
+        ],
       });
     } else if (isGenerationAsset(info.assetKind) && info.undecidedTakeVariantId) {
       // Accepted, but a take (e.g. from `reroll`) stands undecided beside it — offer it for
@@ -612,8 +635,12 @@ export function computeStatusSections(
       // section.)
       needsReview.push({
         address: info.address,
-        detail: "undecided take beside the accept",
+        detail: UNDECIDED_BESIDE_ACCEPT,
         variantId: info.undecidedTakeVariantId,
+        takes: [
+          info.undecidedTakeVariantId,
+          ...info.undecidedVariantIds.filter((id) => id !== info.undecidedTakeVariantId),
+        ].map((variantId) => ({ variantId, detail: UNDECIDED_BESIDE_ACCEPT })),
       });
     }
   }
