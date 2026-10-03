@@ -155,12 +155,14 @@ describe("status command", () => {
     const address = "direction:brief.logline";
     const direction = await loadDirectionIfPresent(projectDir);
     const subjectHash = directionPartHashes(direction!).get(address);
+    const state = JSON.parse(await fs.readFile(path.join(projectDir, "konte.state.json"), "utf-8"));
+    const acceptedAt = Date.parse(state.directionAcceptance.parts[address].acceptedAt);
     const comment = {
       id: generateFeedbackId(),
       displayedVariants: {},
       annotation: null,
       text: "ログラインが弱い",
-      createdAt: new Date().toISOString(),
+      createdAt: new Date(acceptedAt + 1).toISOString(),
       createdBy: "local",
     };
     await seedFeedback(projectDir, address, { ...comment, subjectHash });
