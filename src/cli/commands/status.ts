@@ -221,7 +221,8 @@ export function registerStatusCommand(program: Command): void {
             entry?.kind === "file" && !existsSync(path.resolve(videoRoot, entry.path))
               ? entry.path
               : null;
-          return { id, blocks, missingFile };
+          const declared = reference?.exposedAssetNames?.includes(id) ?? false;
+          return { id, declared, blocks, missingFile };
         });
 
       // Undeveloped shots carry no address, so their stage would otherwise vanish from Progress —

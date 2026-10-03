@@ -321,11 +321,13 @@ function prependAnimaticRetimes(
 
 // A cast reference — a character's look or a cast voice's sample — whose `reference:<id>` asset is
 // not yet accepted. `missingFile` carries the declared path of a `file` asset, which is satisfied by
-// putting media there — never generated. `blocks` is which spends it actually gates: a look aborts
-// every animatic/video spend, a voice only video (`assertVoicesAccepted`), so an uncast voice must
-// not hold back the animatic work that would still run.
+// putting media there — never generated. `declared` is whether reference.tsx exposes the asset; one
+// it does not has no step here, since no command makes it. `blocks` is which spends it actually
+// gates: a look aborts every animatic/video spend, a voice only video (`assertVoicesAccepted`), so an
+// uncast voice must not hold back the animatic work that would still run.
 type UnacceptedCastRef = {
   id: string;
+  declared: boolean;
   missingFile: string | null;
   blocks: "all" | "video";
 };
@@ -337,9 +339,10 @@ type UnacceptedCastRef = {
 function prependCastGate(
   actions: SuggestedAction[],
   state: KonteState,
-  cast: readonly UnacceptedCastRef[] | undefined,
+  unacceptedCast: readonly UnacceptedCastRef[] | undefined,
 ): void {
-  if (!cast || cast.length === 0) return;
+  const cast = (unacceptedCast ?? []).filter((c) => c.declared);
+  if (cast.length === 0) return;
   const steps: SuggestedAction[] = [];
 
   const generated = cast.filter((c) => c.missingFile === null);

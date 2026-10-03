@@ -766,19 +766,23 @@ describe("suggestForStatus cast gate scope", () => {
     readinessFor("animatic", ["animatic:shot.01.first"]),
     readinessFor("video", ["video:shot.01.motion"]),
   ];
-  const commands = (cast: { id: string; missingFile: string | null; blocks: "all" | "video" }[]) =>
+  const commands = (
+    cast: { id: string; declared: boolean; missingFile: string | null; blocks: "all" | "video" }[],
+  ) =>
     suggestForStatus({ state: makeState({}), readiness, unacceptedCast: cast })
       .map((a) => ("command" in a ? a.command : null))
       .filter((c): c is string => c !== null);
 
   it("holds back only the video stage while a cast voice is unaccepted", () => {
-    const offered = commands([{ id: "heroVoice", missingFile: null, blocks: "video" }]);
+    const offered = commands([
+      { id: "heroVoice", declared: true, missingFile: null, blocks: "video" },
+    ]);
     expect(offered).toContain("konte generate animatic");
     expect(offered).not.toContain("konte generate video");
   });
 
   it("holds back both stages while a character's look is unaccepted", () => {
-    const offered = commands([{ id: "hero", missingFile: null, blocks: "all" }]);
+    const offered = commands([{ id: "hero", declared: true, missingFile: null, blocks: "all" }]);
     expect(offered).not.toContain("konte generate animatic");
     expect(offered).not.toContain("konte generate video");
   });
@@ -804,11 +808,17 @@ describe("suggestForStatus cast gate scope", () => {
     const offered = suggestForStatus({
       state: dismissedSheet,
       readiness,
-      unacceptedCast: [{ id: "hero", missingFile: null, blocks: "all" }],
+      unacceptedCast: [{ id: "hero", declared: true, missingFile: null, blocks: "all" }],
     })
       .map((a) => ("command" in a ? a.command : null))
       .filter((c): c is string => c !== null);
     expect(offered).toContain("konte generate reference");
+    expect(offered).not.toContain("konte preview reference");
+  });
+
+  it("offers no reference step for a cast member reference.tsx does not declare", () => {
+    const offered = commands([{ id: "hero", declared: false, missingFile: null, blocks: "all" }]);
+    expect(offered).not.toContain("konte generate reference");
     expect(offered).not.toContain("konte preview reference");
   });
 });
