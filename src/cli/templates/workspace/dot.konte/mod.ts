@@ -3128,6 +3128,7 @@ export type LyricSection = {
   lines: readonly LyricLine[];
 };
 export type DirectionLyrics = readonly LyricSection[];
+export declare function lyricText(line: LyricLine): string;
 export type Direction = {
   brief: DirectionBrief;
   characters: Record<string, Character>;

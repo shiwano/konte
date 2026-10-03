@@ -150,6 +150,7 @@ export {
   defineLens,
   isAsideShot,
   isGraphicShot,
+  lyricText,
   type StageShotStarter,
   type StagePendingShotStarter,
   type StageAsideShotStarter,
