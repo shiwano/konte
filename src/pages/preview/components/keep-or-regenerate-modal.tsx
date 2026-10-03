@@ -15,8 +15,8 @@ function names(labels: readonly string[]): string {
 
 /**
  * The one question an accept that moves an upstream asks, one row per accepted unit made from what
- * it changes: keep it as it is, or regenerate it from the new take. Every row starts on Keep, the
- * answer konte gives on its own; Regenerate is the reviewer's call, row by row.
+ * it changes: keep it as it is, or regenerate it from the new take. Each row starts on its
+ * `initial` answer; the reviewer changes it row by row.
  */
 export function KeepOrRegenerateModal({
   prompt,
@@ -30,11 +30,14 @@ export function KeepOrRegenerateModal({
   onAnswer: (decisions: Record<string, KeepDecision> | null) => void;
 }): React.ReactElement {
   const [decisions, setDecisions] = useState<Record<string, KeepDecision>>({});
-  // Focus lands on the button that completes the accept: with every row on Keep, Enter is enough.
+  // Focus lands on the button that completes the accept: with every row on its initial answer,
+  // Enter is enough.
   const confirmRef = useRef<HTMLButtonElement>(null);
   useEffect(() => confirmRef.current?.focus(), []);
-  const decisionOf = (unit: string): KeepDecision => decisions[unit] ?? "keep";
   const rows = prompt.stages.flatMap((s) => s.rows);
+  const initialOf = new Map(rows.map((r) => [r.unit, r.initial]));
+  const decisionOf = (unit: string): KeepDecision =>
+    decisions[unit] ?? initialOf.get(unit) ?? "keep";
   const total = rows.length;
   const regenerating = rows.filter((r) => decisionOf(r.unit) === "regenerate").length;
   const cancel = () => onAnswer(null);
@@ -165,7 +168,7 @@ export function KeepOrRegenerateModal({
           type="button"
           className="ctrl-btn ctrl-btn--primary keep-modal-confirm"
           // The accept this prompt interrupted: confirming is what completes it.
-          onClick={() => onAnswer(decisions)}
+          onClick={() => onAnswer(Object.fromEntries(rows.map((r) => [r.unit, decisionOf(r.unit)])))}
           ref={confirmRef}
         >
           {accepting === 1 && origin ? `Accept ${origin}` : "Accept all"}

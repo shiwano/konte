@@ -319,7 +319,7 @@ describe("standing answers", () => {
 });
 
 describe("what the prompt and the submit dialog show", () => {
-  it("lists the rows per stage in pipeline order, naming another stage's unit by its stage", () => {
+  it("lists the rows per stage in pipeline order, naming another stage's unit by its stage and starting a motion on Regenerate", () => {
     expect(keepPrompt(graph(), keepPromptFor(ctx(), moveP12), "animatic")).toEqual({
       origins: ["Shot 12"],
       stages: [
@@ -332,6 +332,7 @@ describe("what the prompt and the submit dialog show", () => {
               takes: ["first"],
               follows: ["Shot 14"],
               madeFrom: [],
+              initial: "keep",
             },
           ],
         },
@@ -344,6 +345,7 @@ describe("what the prompt and the submit dialog show", () => {
               takes: ["motion"],
               follows: [],
               madeFrom: [],
+              initial: "regenerate",
             },
           ],
         },

@@ -409,6 +409,8 @@ export interface KeepPromptRow {
   follows: string[];
   // The rows it is made from.
   madeFrom: Array<{ unit: string; label: string; stage: KeepStage }>;
+  // The answer it starts on: a motion is redone from the new take, anything else kept.
+  initial: KeepDecision;
 }
 
 export interface KeepPromptStage {
@@ -462,6 +464,7 @@ export function keepPrompt(
             label: unitLabel(graph, u, stage),
             stage: stageOf(u) ?? stage,
           })),
+          initial: stage === "video" ? ("regenerate" as const) : ("keep" as const),
         })),
     })).filter((s) => s.rows.length > 0),
   };
