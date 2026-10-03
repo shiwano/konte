@@ -194,7 +194,7 @@ Pre-1.0 technical preview:
 - The review UI covers the core loop (playback, comparison, accept, pinned feedback) and is still minimal.
 - We haven't yet dogfooded konte on film-scale productions, and we expect the current workflow to become challenging at that scale.
 
-Field reports from real projects are the most useful contribution right now. Share them on [Discord](https://discord.gg/2b7UwFE2Yy); in a workspace, `konte-feedback` skill drafts the post for you.
+Field reports from real projects are the most useful contribution right now. Share them on [Discord](https://discord.gg/2b7UwFE2Yy) or [GitHub Discussions](https://github.com/shiwano/konte/discussions); in a workspace, `konte-feedback` skill drafts the post for you.
 
 ## License
 
