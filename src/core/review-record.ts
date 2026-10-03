@@ -454,6 +454,9 @@ export function formatReviewRecord(
   opts: {
     filePath?: string;
     showHandoff?: boolean;
+    // List every address the review accepted or un-accepted, cascades included. Off, a reel review
+    // names its decided shots on one line per outcome and no cascade is listed.
+    showAccepts?: boolean;
     // Resolved frame per note id, from `resolveShotFeedbackFrames`. Absent for a note whose frame is not
     // on disk and could not be rendered — the listing then names no frame for it.
     noteFrames?: ReadonlyMap<string, string>;
@@ -471,39 +474,48 @@ export function formatReviewRecord(
 
   // Outcome, not gesture, is the axis: accept / un-accept / comment. A directly-judged accept and
   // one that rode in on another (a shot's composition/stem, an audio source under a stem) are the
-  // same outcome, so they share one `Accepted` section — the cascade ones ordered after, tagged
-  // with their driver only when it sits in another stage (within a stage the address already says
-  // whose it is). Reporting outcomes separately keeps a feedback-only review from ever reading as a
-  // set of approvals.
+  // same outcome, so under `showAccepts` they share one `Accepted` section — the cascade ones
+  // ordered after, tagged with their driver only when it sits in another stage (within a stage the
+  // address already says whose it is). Reporting outcomes separately keeps a feedback-only review
+  // from ever reading as a set of approvals.
   const { accepted, acceptedAddresses, unaccepted, feedback } = collectReviewSections(
     record,
     opts.noteFrames,
   );
 
-  const seen = new Set<string>();
-  const cascadeLines: string[] = [];
-  for (const { address, via } of record.cascadeAccepted ?? []) {
-    // A cascade whose target already carries its own accept line is not repeated.
-    if (acceptedAddresses.has(address) || seen.has(address)) continue;
-    seen.add(address);
-    cascadeLines.push(
-      addressStage(address) === addressStage(via) ? address : `${address} (via ${via})`,
-    );
-  }
-  const acceptedLines = [...accepted, ...cascadeLines];
-
-  lines.push("");
-  if (acceptedLines.length > 0) {
-    lines.push("Accepted:");
-    for (const line of acceptedLines) lines.push(`  ${line}`);
-  } else {
-    lines.push("Accepted: none submitted");
-  }
-
-  if (unaccepted.length > 0) {
+  const reelSummary = opts.showAccepts ? null : summarizeReelDecisions(record);
+  if (reelSummary) {
     lines.push("");
-    lines.push("Unaccepted:");
-    for (const addr of unaccepted) lines.push(`  ${addr}`);
+    lines.push(
+      reelSummary.accepted ? `Accepted: ${reelSummary.accepted}` : "Accepted: none submitted",
+    );
+    if (reelSummary.unaccepted) lines.push(`Unaccepted: ${reelSummary.unaccepted}`);
+  } else {
+    const seen = new Set<string>();
+    const cascadeLines: string[] = [];
+    for (const { address, via } of opts.showAccepts ? (record.cascadeAccepted ?? []) : []) {
+      // A cascade whose target already carries its own accept line is not repeated.
+      if (acceptedAddresses.has(address) || seen.has(address)) continue;
+      seen.add(address);
+      cascadeLines.push(
+        addressStage(address) === addressStage(via) ? address : `${address} (via ${via})`,
+      );
+    }
+    const acceptedLines = [...accepted, ...cascadeLines];
+
+    lines.push("");
+    if (acceptedLines.length > 0) {
+      lines.push("Accepted:");
+      for (const line of acceptedLines) lines.push(`  ${line}`);
+    } else {
+      lines.push("Accepted: none submitted");
+    }
+
+    if (unaccepted.length > 0) {
+      lines.push("");
+      lines.push("Unaccepted:");
+      for (const addr of unaccepted) lines.push(`  ${addr}`);
+    }
   }
 
   if ((record.kept ?? []).length > 0) {
@@ -571,6 +583,49 @@ export function formatReviewRecord(
   }
 
   return lines.join("\n");
+}
+
+// A reel review's decisions as one line per outcome: the decided shots, counted against the reel
+// and named in timeline order with consecutive runs collapsed (`01–12, 14`), then the timeline's
+// own leaves. Null for a stage whose decisions are not per shot.
+function summarizeReelDecisions(
+  record: ReviewRecord,
+): { accepted: string | null; unaccepted: string | null } | null {
+  if (record.mode !== "animatic-preview" && record.mode !== "video-preview") return null;
+  const stage = reviewStage(record) === "animatic" ? "animatic" : "video";
+  const shotDecisions = (record.decisions as Record<string, "accepted" | "none"> | null) ?? {};
+  const order = record.context.shots.map((s) => s.shotId);
+  for (const shotId of Object.keys(shotDecisions)) {
+    if (!order.includes(shotId)) order.push(shotId);
+  }
+  const total = record.context.shots.length;
+
+  const line = (status: "accepted" | "none"): string | null => {
+    const parts: string[] = [];
+    const runs: string[][] = [];
+    let count = 0;
+    let run: string[] = [];
+    for (const shotId of order) {
+      if (shotDecisions[shotId] === status) {
+        run.push(shotId);
+        count++;
+      } else if (run.length > 0) {
+        runs.push(run);
+        run = [];
+      }
+    }
+    if (run.length > 0) runs.push(run);
+    if (count > 0) {
+      const ids = runs.map((r) => (r.length === 1 ? r[0]! : `${r[0]}–${r.at(-1)}`)).join(", ");
+      const noun = total === 1 ? "shot" : "shots";
+      parts.push(total > 0 ? `${count} of ${total} ${noun} (${ids})` : `${count} shot(s) (${ids})`);
+    }
+    if (record.timelineStemDecision === status) parts.push(formatTimelineStemAddress(stage));
+    if (record.overlayDecision === status) parts.push(formatTimelineOverlayAddress(stage));
+    return parts.length > 0 ? parts.join(", ") : null;
+  };
+
+  return { accepted: line("accepted"), unaccepted: line("none") };
 }
 
 interface FeedbackGroup {
