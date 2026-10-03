@@ -29,7 +29,8 @@ import type { AnimaticDefinition } from "../core/types/index.js";
  * `reroll`: nothing there fits, so the refresh has to be paid for.
  *
  * `none`: the address's own accepted take is current, so the stale one asked about is an old
- * alternative beside it.
+ * alternative beside it — or the asset is deterministic and a matching take already resolves in
+ * place of its accept.
  */
 type StaleRefreshStep =
   | { kind: "none" }
@@ -80,6 +81,9 @@ export function staleRefreshStep(opts: {
   }
 
   const matching = manager.matchingReadyTake(address, variantId, opts.cache);
+  if (matching && !isMaterializedLeafAddress(address) && manager.registeredDeterministic(address)) {
+    return { kind: "none" };
+  }
   if (!matching || opts.animatic === undefined) {
     if (isMaterializedLeafAddress(address)) return { kind: "review", stage: getStage(address) };
     if (accepted === variantId && holdsHumanVerdict(manager, address)) {

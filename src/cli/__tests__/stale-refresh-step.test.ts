@@ -119,6 +119,23 @@ describe("staleRefreshStep", () => {
     ).toEqual({ kind: "generate", stage: "animatic" });
   });
 
+  it("asks no accept of a deterministic take whose match already resolves", () => {
+    twoTakes();
+    manager.setAccepted(ADDRESS, "v-new");
+    manager.useResolutionDefinitions({
+      definitionHash: () => "CURRENT",
+      isDeterministic: () => true,
+    });
+    expect(
+      staleRefreshStep({
+        manager,
+        address: ADDRESS,
+        variantId: "v-new",
+        animatic: boardWithMovement("steps in"),
+      }),
+    ).toEqual({ kind: "none" });
+  });
+
   it("asks for nothing when the address's accepted take is itself current", () => {
     twoTakes();
     manager.setAccepted(ADDRESS, "v-old");
