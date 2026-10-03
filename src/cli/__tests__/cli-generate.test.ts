@@ -419,6 +419,16 @@ export default defineReference(direction, () => {
     expect((await latentAction(projectDir))?.action).toBe("start");
   });
 
+  it("does not re-bake a deterministic asset already holding a take of its current definition", async () => {
+    const projectDir = await withDeterministicAccept("skipproj-deterministic-rebaked");
+    const sm = await StateManager.load(projectDir);
+    const fresh = sm.reserveVariantId("reference:latent");
+    sm.getAssetState("reference:latent").variants![fresh]!.file =
+      `assets/reference:latent/${fresh}/output.png`;
+    await sm.save();
+    expect((await latentAction(projectDir))?.action).toBe("skip");
+  });
+
   // A patch output sits at the SOURCE address. Generating there would make a fresh original,
   // orphaning the take the correction was built on; the refresh is the patch pass, which this same
   // run does.

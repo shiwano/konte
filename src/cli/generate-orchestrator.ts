@@ -77,7 +77,7 @@ export type LevelResult = {
  * resolution never picks (the accepted one wins), so an accepted asset is skipped even when
  * stale. One whose upstream alone moved stands as "accepted"; one whose definition moved is
  * "accepted-stale", named with the reroll that replaces it. A deterministic take is the exception: there is nothing else to pick, so re-running the op IS the
- * correction.
+ * correction — unless a take matching the current definition is already there.
  *
  * Everything else turns on readiness, both axes of it: pass the asset's current definition
  * hash so an edited definition ages its variant out here exactly as it does in `status`.
@@ -112,8 +112,9 @@ export function assetSkipReason(
     // A patch output sits at the SOURCE address, whose own asset may be deterministic. Its refresh
     // is re-applying the correction (this run's own patch pass), so generating here would spend on a fresh original
     // and orphan the very take the patch names.
-    if (accepted.derivedFrom == null && deterministic) return null;
-    return staleness.definitionStale ? "accepted-stale" : "accepted";
+    if (accepted.derivedFrom != null || !deterministic) {
+      return staleness.definitionStale ? "accepted-stale" : "accepted";
+    }
   }
 
   // An address left holding only takes the reviewer decided against is generated afresh.
