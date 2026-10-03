@@ -67,6 +67,9 @@ export const ReviewRecordSchema = z.object({
     shots: z.array(
       z.object({
         shotId: z.string(),
+        // Where the shot stood on the timeline the reviewer played — frame-snapped, which a sum of
+        // the durations is not.
+        start: z.number(),
         duration: z.number(),
         variants: z.record(z.string(), z.string()),
       }),
@@ -743,13 +746,7 @@ type ReviewNote = NonNullable<ReviewRecord["notes"]>[number];
  * `time` minus this is its within-shot position — what `<Audio start>` takes.
  */
 function shotStarts(record: ReviewRecord): Map<string, number> {
-  const starts = new Map<string, number>();
-  let acc = 0;
-  for (const s of record.context.shots) {
-    starts.set(s.shotId, acc);
-    acc += s.duration;
-  }
-  return starts;
+  return new Map(record.context.shots.map((s) => [s.shotId, s.start]));
 }
 
 function formatVideoNoteItem(

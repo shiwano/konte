@@ -797,7 +797,9 @@ describe("review record show command", () => {
       mode: "animatic-preview",
       stage: "animatic",
       createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [{ shotId: "03", duration: 4, variants: { first: "v-Q4nT8aLp" } }] },
+      context: {
+        shots: [{ shotId: "03", start: 0, duration: 4, variants: { first: "v-Q4nT8aLp" } }],
+      },
       decisions: { "03": "accepted" },
       notes: [
         {

@@ -89,7 +89,9 @@ function makeRecord(reviewedMotionId: string): ReviewRecord {
     mode: "video-preview",
     stage: "video",
     createdAt: REVIEW_AT,
-    context: { shots: [{ shotId: "02", duration: 5, variants: { motion: reviewedMotionId } }] },
+    context: {
+      shots: [{ shotId: "02", start: 0, duration: 5, variants: { motion: reviewedMotionId } }],
+    },
     decisions: [],
   };
 }

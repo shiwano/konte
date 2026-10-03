@@ -9,7 +9,14 @@ function makeRecord(
   return {
     mode: "video-preview",
     createdAt: "2026-01-01T00:00:00.000Z",
-    context: { shots: shots.map((s) => ({ shotId: s.shotId, duration: 1, variants: s.variants })) },
+    context: {
+      shots: shots.map((s, i) => ({
+        shotId: s.shotId,
+        start: i,
+        duration: 1,
+        variants: s.variants,
+      })),
+    },
     decisions: null,
     notes,
   };

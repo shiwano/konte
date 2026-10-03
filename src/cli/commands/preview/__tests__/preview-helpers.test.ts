@@ -570,9 +570,9 @@ describe("applyFeedbackMutations", () => {
 
 describe("withShotLocalTime", () => {
   const shots = [
-    { shotId: "01", duration: 3 },
-    { shotId: "02", duration: 4 },
-    { shotId: "03", duration: 3 },
+    { shotId: "01", start: 0 },
+    { shotId: "02", start: 3 },
+    { shotId: "03", start: 7 },
   ];
 
   it("stamps each shot-note with its offset from the shot's timeline start", () => {

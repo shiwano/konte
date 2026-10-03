@@ -14,7 +14,7 @@ function record(overrides: Partial<ReviewRecord> = {}): ReviewRecord {
     mode: "video-preview",
     createdAt: "2026-05-16T12:00:00.000Z",
     context: {
-      shots: [{ shotId: "01", duration: 5, variants: { motion: "v-0001" } }],
+      shots: [{ shotId: "01", start: 0, duration: 5, variants: { motion: "v-0001" } }],
     },
     decisions: { "01": "accepted" },
     ...overrides,

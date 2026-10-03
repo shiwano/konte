@@ -536,14 +536,9 @@ export function applyFeedbackMutations(
  */
 export function withShotLocalTime<T extends { address: string; time?: number }>(
   added: T[],
-  shots: Array<{ shotId: string; duration: number }>,
+  shots: Array<{ shotId: string; start: number }>,
 ): Array<T & { shotTime?: number }> {
-  const startTime = new Map<string, number>();
-  let acc = 0;
-  for (const s of shots) {
-    startTime.set(s.shotId, acc);
-    acc += s.duration;
-  }
+  const startTime = new Map(shots.map((s) => [s.shotId, s.start]));
   return added.map((fb) => {
     if (fb.time === undefined) return fb;
     const shotId = [...startTime.keys()].find((id) => fb.address === `video:shot.${id}`);

@@ -1349,13 +1349,15 @@ export async function handleReelSubmit(
       ]),
     );
 
+  const timing = shotSpans(plan.shots, plan.fps);
   const record: ReviewRecord = {
     mode: stage === "animatic" ? "animatic-preview" : "video-preview",
     stage,
     createdAt: new Date().toISOString(),
     context: {
-      shots: plan.shots.map((s) => ({
+      shots: plan.shots.map((s, i) => ({
         shotId: s.shotId,
+        start: timing.spans[i]!.start,
         duration: s.duration,
         variants: displayedByAsset(s.resolvedVariants, (name) =>
           formatAddress(stage, s.shotId, name),
@@ -1892,7 +1894,7 @@ export async function handleReelSubmit(
     // Stamp each shot-note with its shot-local offset from the timeline the reviewer saw, so the
     // stored comment carries the within-shot position, not just the timeline-global `time`.
     const added = withCommentSubjects(
-      withShotLocalTime(body.addedFeedback ?? [], plan.shots),
+      withShotLocalTime(body.addedFeedback ?? [], record.context.shots),
       subjectOf,
       video,
       displayed,

@@ -108,7 +108,7 @@ export function record(notes: NonNullable<ReviewRecord["notes"]>): ReviewRecord 
     stage: "video",
     createdAt: "2026-05-16T12:00:00.000Z",
     // One shot, so every note's timeline time is also its shot-local time.
-    context: { shots: [{ shotId: "01", duration: 5, variants: { motion: "v-0001" } }] },
+    context: { shots: [{ shotId: "01", start: 0, duration: 5, variants: { motion: "v-0001" } }] },
     decisions: { "01": "accepted" },
     notes,
   };

@@ -140,7 +140,7 @@ describe("saveReviewRecord", () => {
     const record: ReviewRecord = {
       mode: "video-preview",
       createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [{ shotId: "01", duration: 5, variants: { motion: "v-xxx" } }] },
+      context: { shots: [{ shotId: "01", start: 0, duration: 5, variants: { motion: "v-xxx" } }] },
       decisions: { "01": "none" },
       notes: [{ time: 5, text: "Fix this" }],
     };
@@ -547,8 +547,8 @@ describe("countReviewAssets", () => {
       createdAt: "2026-05-16T12:00:00.000Z",
       context: {
         shots: [
-          { shotId: "01", duration: 3, variants: { key: "v-a", wide: "v-b" } },
-          { shotId: "02", duration: 2, variants: { key: "v-c" } },
+          { shotId: "01", start: 0, duration: 3, variants: { key: "v-a", wide: "v-b" } },
+          { shotId: "02", start: 3, duration: 2, variants: { key: "v-c" } },
         ],
       },
       decisions: [],
@@ -801,7 +801,9 @@ describe("formatReviewRecord", () => {
       mode: "animatic-preview",
       stage: "animatic",
       createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [{ shotId: "03", duration: 4, variants: { first: "v-Q4nT8aLp" } }] },
+      context: {
+        shots: [{ shotId: "03", start: 0, duration: 4, variants: { first: "v-Q4nT8aLp" } }],
+      },
       decisions: { "03": "accepted" },
     };
 
@@ -872,7 +874,9 @@ describe("formatReviewRecord", () => {
       mode: "video-preview",
       stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [{ shotId: "02", duration: 3, variants: { motion: "v-Q4nT8aLp" } }] },
+      context: {
+        shots: [{ shotId: "02", start: 0, duration: 3, variants: { motion: "v-Q4nT8aLp" } }],
+      },
       decisions: {},
       notes: [
         {
@@ -920,8 +924,8 @@ describe("formatReviewRecord", () => {
       createdAt: "2026-05-16T12:00:00.000Z",
       context: {
         shots: [
-          { shotId: "01", duration: 3, variants: { motion: "v-UI5zkvU6" } },
-          { shotId: "02", duration: 3, variants: { motion: "v-Q4nT8aLp" } },
+          { shotId: "01", start: 0, duration: 3, variants: { motion: "v-UI5zkvU6" } },
+          { shotId: "02", start: 3, duration: 3, variants: { motion: "v-Q4nT8aLp" } },
         ],
       },
       decisions: { "01": "accepted", "02": "none" },
@@ -957,7 +961,7 @@ describe("formatReviewRecord", () => {
       stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: {
-        shots: [{ shotId: "03", duration: 3, variants: { motion: "v-UI5zkvU6" } }],
+        shots: [{ shotId: "03", start: 0, duration: 3, variants: { motion: "v-UI5zkvU6" } }],
       },
       decisions: {},
       notes: [
@@ -983,7 +987,9 @@ describe("formatReviewRecord", () => {
       mode: "video-preview",
       stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [{ shotId: "01", duration: 3, variants: { motion: "v-UI5zkvU6" } }] },
+      context: {
+        shots: [{ shotId: "01", start: 0, duration: 3, variants: { motion: "v-UI5zkvU6" } }],
+      },
       decisions: {},
       notes: [{ time: 1.0, shotId: "01", text: "legacy note" }],
     };
@@ -1000,7 +1006,7 @@ describe("formatReviewRecord", () => {
       createdAt: "2026-05-16T12:00:00.000Z",
     };
     const context = {
-      shots: [{ shotId: "01", duration: 3, variants: { motion: "v-aaaaaaaa" } }],
+      shots: [{ shotId: "01", start: 0, duration: 3, variants: { motion: "v-aaaaaaaa" } }],
       timeline: { bgm: "v-bbbbbbbb" },
     };
 
@@ -1023,7 +1029,9 @@ describe("formatReviewRecord", () => {
       mode: "video-preview",
       stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [{ shotId: "01", duration: 3, variants: { motion: "v-aaaaaaaa" } }] },
+      context: {
+        shots: [{ shotId: "01", start: 0, duration: 3, variants: { motion: "v-aaaaaaaa" } }],
+      },
       decisions: { "01": "accepted" },
       timelineStemDecision: "accepted",
       cascadeAccepted: [
@@ -1052,7 +1060,9 @@ describe("formatReviewRecord", () => {
       mode: "video-preview",
       stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [{ shotId: "01", duration: 3, variants: { motion: "v-aaaaaaaa" } }] },
+      context: {
+        shots: [{ shotId: "01", start: 0, duration: 3, variants: { motion: "v-aaaaaaaa" } }],
+      },
       decisions: { "01": "accepted" },
     };
     const out = formatReviewRecord(record);
@@ -1066,7 +1076,7 @@ describe("formatReviewRecord", () => {
       stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: {
-        shots: [{ shotId: "01", duration: 3, variants: { motion: "v-aaaaaaaa" } }],
+        shots: [{ shotId: "01", start: 0, duration: 3, variants: { motion: "v-aaaaaaaa" } }],
         timeline: { bgm: "v-bbbbbbbb" },
       },
       decisions: { "01": "accepted" },
@@ -1079,7 +1089,9 @@ describe("formatReviewRecord", () => {
       mode: "video-preview",
       stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [{ shotId: "01", duration: 3, variants: { motion: "v-UI5zkvU6" } }] },
+      context: {
+        shots: [{ shotId: "01", start: 0, duration: 3, variants: { motion: "v-UI5zkvU6" } }],
+      },
       decisions: { "01": "none" },
     };
 
@@ -1097,7 +1109,9 @@ describe("formatReviewRecord", () => {
       mode: "video-preview",
       stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [{ shotId: "05", duration: 3, variants: { motion: "v-aaaaaaaa" } }] },
+      context: {
+        shots: [{ shotId: "05", start: 0, duration: 3, variants: { motion: "v-aaaaaaaa" } }],
+      },
       decisions: { "05": "accepted" },
       cascadeAccepted: [
         { address: "video:shot.05#composition", via: "video:shot.05" },
@@ -1124,8 +1138,8 @@ describe("formatReviewRecord", () => {
       createdAt: "2026-05-16T12:00:00.000Z",
       context: {
         shots: [
-          { shotId: "01", duration: 3, variants: {} },
-          { shotId: "10", duration: 3, variants: { motion: "v-kVNK2f5s" } },
+          { shotId: "01", start: 0, duration: 3, variants: {} },
+          { shotId: "10", start: 3, duration: 3, variants: { motion: "v-kVNK2f5s" } },
         ],
         contentHashes: { "video:shot.01#composition": "h-01" },
       },
@@ -1144,7 +1158,7 @@ describe("formatReviewRecord", () => {
       mode: "video-preview",
       stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [{ shotId: "04", duration: 3, variants: {} }] },
+      context: { shots: [{ shotId: "04", start: 0, duration: 3, variants: {} }] },
       decisions: { "04": "none" },
     };
 
@@ -1156,7 +1170,9 @@ describe("formatReviewRecord", () => {
       mode: "video-preview",
       stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [{ shotId: "01", duration: 3, variants: { motion: "v-aaaaaaaa" } }] },
+      context: {
+        shots: [{ shotId: "01", start: 0, duration: 3, variants: { motion: "v-aaaaaaaa" } }],
+      },
       decisions: { "01": "accepted" },
       handoffSummary: "remaining shots wrapped up",
       handoffNotes: [{ address: "video:shot.01.motion", text: "confirm the pacing" }],
@@ -1212,7 +1228,7 @@ describe("formatReviewRecord note ids", () => {
       mode: "video-preview",
       stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [{ shotId: "01", duration: 3, variants: {} }] },
+      context: { shots: [{ shotId: "01", start: 0, duration: 3, variants: {} }] },
       decisions: {},
       notes: [{ id: "fb-24G1HFL3", time: 1.5, shotId: "01", text: "face is wrong" }],
     };
@@ -1230,8 +1246,8 @@ describe("reviewNoteFrameTargets", () => {
     createdAt: "2026-05-16T12:00:00.000Z",
     context: {
       shots: [
-        { shotId: "01", duration: 10, variants: {} },
-        { shotId: "02", duration: 10, variants: {} },
+        { shotId: "01", start: 0, duration: 10, variants: {} },
+        { shotId: "02", start: 10, duration: 10, variants: {} },
       ],
     },
     decisions: {},
@@ -1260,6 +1276,23 @@ describe("reviewNoteFrameTargets", () => {
         label: "fb-late shot.02 +2.5s",
       },
     ]);
+  });
+
+  it("measures a note from the frame-snapped start the reviewer played, not the duration sum", () => {
+    const offGrid: ReviewRecord = {
+      ...record,
+      context: {
+        shots: [
+          { shotId: "01", start: 0, duration: 91.81, variants: {} },
+          { shotId: "02", start: 91.8, duration: 2, variants: {} },
+        ],
+      },
+      notes: [{ id: "fb-cut", time: 91.8, shotId: "02", text: "at the cut" }],
+    };
+    expect(reviewNoteFrameTargets(offGrid)[0]).toMatchObject({
+      localTime: 0,
+      label: "fb-cut shot.02 +0.0s",
+    });
   });
 
   it("carries a pinned note's reticle, so the rendered frame is marked", () => {
