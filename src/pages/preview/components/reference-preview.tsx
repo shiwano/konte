@@ -253,8 +253,8 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
     return out;
   }, [keepChoices, keepGraph]);
 
-  // The one answer behind every review affordance here — the unreviewed count, the N jump, Accept
-  // all's label AND the "Needs review" filter. See bulk-accept.ts.
+  // The one answer behind every review affordance here — the unreviewed count, the N jump and
+  // Accept all's label. See bulk-accept.ts.
   const {
     unaccepted: unacceptedAddresses,
     done: everythingAccepted,
@@ -262,6 +262,13 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
   } = useMemo(
     () => referenceBulkAccept(state.assets, effectiveVariants, statusOverrides),
     [state.assets, effectiveVariants, statusOverrides],
+  );
+
+  // The "Needs review" filter reads the server's accepts alone: a mark is recorded only on Submit,
+  // so a row marked here stays in view until then.
+  const persistedUnaccepted = useMemo(
+    () => referenceBulkAccept(state.assets, {}, {}).unaccepted,
+    [state.assets],
   );
 
   // Nothing persists until Submit, so no confirm dialog — each mark stays individually reversible.
@@ -465,7 +472,7 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
             const assets = orderedAssets.filter(
               (a) =>
                 a.mediaKind === kind &&
-                (!session.showChangedOnly || unacceptedAddresses.has(a.address)),
+                (!session.showChangedOnly || persistedUnaccepted.has(a.address)),
             );
             if (assets.length === 0) return null;
             return (

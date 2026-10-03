@@ -2,10 +2,11 @@
  * What every review page's bulk accept ("Accept all") does, what it reads as, and what it leaves
  * outstanding. Given the page's complete unit list and the reader its own accept controls use,
  * these come from one description of the work, so the count, the button's label and the "Needs
- * review" filter cannot describe different sets. Computing any of them from a predicate of its own
- * is how a page ends up counting work no action on it can discharge. (A page may narrow `pending`
- * for an affordance of narrower scope — the reel's "Next" is its shot list's own control — but it
- * narrows this answer rather than forming another.)
+ * review" filter (read under no marks, so a mark leaves it only on Submit) cannot describe different
+ * sets. Computing any of them from a predicate of its own is how a page ends up counting work no
+ * action on it can discharge. (A page may narrow `pending` for an affordance of narrower scope —
+ * the reel's "Next" is its shot list's own control — but it narrows this answer rather than forming
+ * another.)
  *
  * Two facts have to line up for that, and they are independent, so this enforces one and checks the
  * other:

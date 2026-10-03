@@ -908,17 +908,20 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
 
   // Whether an audio asset still needs attention, for the "Needs review" filter. Each of its cues
   // is signed off by the shot that placed it (a shot accept covers that shot's stem); a bed is
-  // signed off by the timeline stem.
+  // signed off by the timeline stem. Like the rest of the filter it reads the baseline, not this
+  // session's marks: an accept is recorded only on Submit, so a row marked here stays in view.
   const audioAccepted = useMemo(() => {
     const map: Record<string, boolean> = {};
     for (const a of state.audioAssets) {
       map[a.address] =
         a.kind === "soundtrack"
-          ? timelineStemAccepted
-          : a.cues.every((c) => (c.shotId ? shotAccepted[c.shotId] : timelineStemAccepted));
+          ? baseTimelineStemAccepted
+          : a.cues.every((c) =>
+              c.shotId ? baseShotAccepted[c.shotId] : baseTimelineStemAccepted,
+            );
     }
     return map;
-  }, [state.audioAssets, shotAccepted, timelineStemAccepted]);
+  }, [state.audioAssets, baseShotAccepted, baseTimelineStemAccepted]);
 
   const acceptUnits = useMemo(
     () => reelAcceptUnits(state.shots, !!state.timelineStem, !!offeredOverlay),
@@ -1476,16 +1479,16 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     },
   });
 
-  // "Needs review" narrows to what still needs attention: acceptable shots not yet accepted
-  // (shotAccepted already folds in a stale composition/stem and an undecided newer take), and
-  // audio not yet accepted. A pending shot can never be accepted, so it would never leave the
-  // filter — it is not what still needs the reviewer's attention.
+  // "Needs review" narrows to what the baseline leaves unsigned: acceptable shots whose verdict is
+  // owed (a stale composition/stem or an undecided newer take), and audio not yet accepted. A
+  // pending shot can never be accepted, so it would never leave the filter — it is not what still
+  // needs the reviewer's attention.
   const visibleShots = useMemo(
     () =>
       session.showChangedOnly
-        ? acceptableShots.filter((s) => !shotAccepted[s.shotId])
+        ? acceptableShots.filter((s) => !baseShotAccepted[s.shotId])
         : state.shots,
-    [session.showChangedOnly, acceptableShots, state.shots, shotAccepted],
+    [session.showChangedOnly, acceptableShots, state.shots, baseShotAccepted],
   );
 
   const visibleAudioAssets = useMemo(
@@ -1783,7 +1786,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
           </div>
 
           <div className="vp-col vp-col-shots">
-            {state.timelineStem && !(session.showChangedOnly && timelineStemAccepted) && (
+            {state.timelineStem && !(session.showChangedOnly && baseTimelineStemAccepted) && (
               /* Selectable like a shot card, so the feedback panel can point at the beds — the
                one reviewable target with no shot to hang a comment on. */
               /* oxlint-disable jsx-a11y/prefer-tag-over-role */
@@ -1824,7 +1827,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
               /* oxlint-enable jsx-a11y/prefer-tag-over-role */
             )}
             {offeredOverlay &&
-              !(session.showChangedOnly && unitAccepted({ kind: "overlay" }, marks)) && (
+              !(session.showChangedOnly && baseOverlayAccepted) && (
                 /* Offered once every shot accept stands and the overlay changed after them:
                selectable like the soundtrack, for its notes and its accept. */
                 /* oxlint-disable jsx-a11y/prefer-tag-over-role */

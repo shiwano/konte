@@ -42,8 +42,8 @@ export function referenceEffectiveStatus(
 }
 
 // The assets Accept all still has something to do to — the page's one review set, behind the
-// unreviewed count, the N jump, the button's label and the "Needs review" filter alike. An
-// accepted take that has only gone stale is settled: Accept all cannot move it, and re-accepting
+// unreviewed count, the N jump, the button's label and, under no marks, the "Needs review" filter.
+// An accepted take that has only gone stale is settled: Accept all cannot move it, and re-accepting
 // does not un-stale it — `konte reroll` is its refresh.
 export function referenceBulkAccept(
   assets: ReferenceAssetInfo[],
