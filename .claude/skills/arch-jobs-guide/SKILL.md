@@ -44,4 +44,4 @@ A cascade pass lists jobs, then reloads the definitions (`reloadLoadedDefinition
 
 ## Keyframe normalization
 
-A produced video whose keyframes are sparser than ~2s apart is re-encoded (before hashing) to add a keyframe roughly every second, so HyperFrames seeks reliably. It skips non-videos, already-dense videos, and alpha/HDR sources (a re-encode would degrade them); the action is logged to the job log.
+A produced video whose keyframes are sparser than ~2s apart is re-encoded (before hashing) to add a keyframe roughly every second, so HyperFrames seeks reliably. It skips non-videos, already-dense videos, and alpha/HDR sources (a re-encode would degrade them), logging what it did. A take owing a line, bar the song, is heard by SenseVoice into `heard.json` (`speech-hearing.ts`).

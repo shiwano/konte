@@ -10,6 +10,8 @@ import { buildTimeAxis, cell, fmtSeconds, normalize, resample } from "../../audi
 import { openProbeTargets } from "./resolve-arg.js";
 import { loadDirectionIfPresent } from "../../load-definition.js";
 import { songAnalysisOf } from "../../../core/song-reading.js";
+import { recognizesSpeechIn } from "../../../core/sherpa-binary.js";
+import { readHeardSpeech } from "../../../core/speech-hearing.js";
 import { songAddressOf, songDownbeatSec } from "../../../core/song-take.js";
 import { barAt, songBars } from "../../../core/song-report.js";
 import type { SongAnalysis } from "../../../core/types/index.js";
@@ -20,6 +22,11 @@ import { probeEach } from "./shared.js";
 const MAX_LISTED_SPANS = 6;
 
 const MAX_LINE_CHARS = 80;
+
+function quoteLine(text: string): string {
+  const shown = text.length > MAX_LINE_CHARS ? `${text.slice(0, MAX_LINE_CHARS)}…` : text;
+  return `\u201c${shown}\u201d (${text.length} chars)`;
+}
 
 function fmtAudioInfo(info: AudioStreamInfo | null): string {
   if (!info) return "—";
@@ -61,9 +68,13 @@ adapter says the model takes dialogue. It sits beside the duration and the spans
 is read against its line's: a 12-character line answered by three seconds of speech across three
 stretches is a model that padded the box it was given.
 
+The heard row under it is the speech recognized in the take when it landed, in \`policy.lang\`: a
+line said twice, cut short, misread or followed by words nobody wrote shows there as text. It is a
+machine hearing — a near-homophone or a kanji/kana difference is not a wrong take.
+
 The spans line appears when the sound breaks up, listing each audible stretch — a generated take
 padded out past the content it had comes back as several with both its edges short, which the ⚠ line
-cannot see. It reports the shape; only the words say whether a break is a pause inside one line or a
+cannot see. It reports the shape; the heard row says whether a break is a pause inside one line or a
 model saying that line twice.
 
 The onset line reports where the sound sits inside the file — its first audible sample and its
@@ -101,6 +112,19 @@ Examples:
       const clock = direction?.policy?.clock;
       const songAddress = songAddressOf(direction);
 
+      const lang = direction?.policy.lang;
+      const heardRow = (address: string, variantId: string): string => {
+        if (lang && !recognizesSpeechIn(lang))
+          return `unknown — speech in ${lang} is not recognized`;
+        const variant = manager.getState().assets[address]?.variants?.[variantId];
+        const words = readHeardSpeech(videoRoot, address, variantId, variant?.outputHash)
+          ?.map((t) => t.text)
+          .join("")
+          .trim();
+        if (words === undefined) return "unknown — the take was not recognized when it landed";
+        return words ? quoteLine(words) : "nothing";
+      };
+
       await probeEach(targets, async (variantId) => {
         const wf = await loadSourceWaveform({ manager, videoRoot, variantId });
         // loadSourceWaveform keys `file` video-root-relative (its on-disk contract), but probe's
@@ -116,8 +140,10 @@ Examples:
         console.log(`  duration  ${dur != null ? fmtSeconds(dur) : "—"}`);
         console.log(`  audio     ${wf.hasAudio ? fmtAudioInfo(info) : "no audio stream"}`);
         for (const line of lines) {
-          const shown = line.length > MAX_LINE_CHARS ? `${line.slice(0, MAX_LINE_CHARS)}…` : line;
-          console.log(`  line      \u201c${shown}\u201d (${line.length} chars)`);
+          console.log(`  line      ${quoteLine(line)}`);
+        }
+        if (lines.length > 0 && wf.address !== songAddress) {
+          console.log(`  heard     ${heardRow(wf.address, variantId)}`);
         }
         if (wf.onset) {
           console.log(

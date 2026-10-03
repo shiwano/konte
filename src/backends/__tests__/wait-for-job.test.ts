@@ -20,6 +20,15 @@ import { variantDir } from "../../core/variant-dir.js";
 import { waitForJob } from "../wait-for-job.js";
 import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/workspace.js";
 import type { VideoRoots } from "../../core/roots.js";
+import type { LanguageTag } from "../../core/typography.js";
+import { readHeardSpeech } from "../../core/speech-hearing.js";
+import { execFileAsync } from "../../core/exec-file.js";
+
+const recognizeSpeech = vi.hoisted(() => vi.fn());
+vi.mock("../../core/sherpa-binary.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../core/sherpa-binary.js")>()),
+  recognizeSpeech,
+}));
 
 function el(): React.ReactElement {
   return { type: Composition, props: { children: [] } } as unknown as React.ReactElement;
@@ -32,16 +41,24 @@ const motionComfy = defineComfyAsset({
   outputs: { result: { nodeId: "9", type: "video" } },
 });
 
+const tts = defineComfyAsset({
+  workflow: "tts.json",
+  description: "test speech adapter",
+  inputs: { script: { nodeId: "1", field: "text", type: "spokenText" } },
+  outputs: { result: { nodeId: "9", type: "audio" } },
+});
+
 const FORMAT = { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } };
 
-function buildVideo(): VideoDefinition {
-  return defineVideo(testDirection(FORMAT), {
+function buildVideo(lang: LanguageTag = "en"): VideoDefinition {
+  return defineVideo(testDirection(FORMAT, lang), {
     timeline: () =>
       videoTimeline([
         shot("01", {
           duration: 5,
           build: () => {
             asset("motion", motionComfy, {});
+            asset("line", tts, { script: "おはよう" });
             return el();
           },
         }),
@@ -72,6 +89,8 @@ const ADDRESS = "video:shot.01.motion";
 // waitForJob goes straight to the claim-or-monitor path.
 async function setupLocalRunningJob(
   address = ADDRESS,
+  output: (outDir: string) => Promise<void> = (outDir) =>
+    fs.writeFile(path.join(outDir, "output.png"), "fake-output"),
 ): Promise<{ jobManager: JobManager; variantId: string }> {
   await StateManager.init(tmpDir);
   let variantId = "";
@@ -81,7 +100,7 @@ async function setupLocalRunningJob(
 
   const outDir = variantDir(tmpDir, address, variantId);
   await fs.mkdir(outDir, { recursive: true });
-  await fs.writeFile(path.join(outDir, "output.png"), "fake-output");
+  await output(outDir);
 
   const jobManager = new JobManager(tmpDir);
   await jobManager.createJob({
@@ -280,6 +299,80 @@ describe("waitForJob completion ordering", () => {
     const job = await jobManager.getJob(variantId);
     if (job.kind !== "generation") throw new Error("expected a generation job");
     expect(job.outputFiles.every((f) => !path.isAbsolute(f))).toBe(true);
+  });
+});
+
+describe("waitForJob line hearing", () => {
+  const LINE_ADDRESS = "video:shot.01.line";
+  const writeSpeech = async (outDir: string) => {
+    await execFileAsync("ffmpeg", [
+      "-v",
+      "quiet",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=frequency=440:duration=2",
+      path.join(outDir, "output.wav"),
+    ]);
+  };
+  const definitions = () => ({
+    video: buildVideo(),
+    animatic: emptyAnimatic(),
+    reference: emptyReference(),
+  });
+
+  it("keeps what a take that owes a line is heard to say beside it", async () => {
+    recognizeSpeech.mockResolvedValue([{ tokens: ["おは", "よう"], timestamps: [0.2, 0.6] }]);
+    const { jobManager, variantId } = await setupLocalRunningJob(LINE_ADDRESS, writeSpeech);
+
+    const result = await waitForJob(jobManager, variantId, roots, definitions());
+
+    expect(result.status).toBe("completed");
+    expect(recognizeSpeech).toHaveBeenCalledWith([expect.stringMatching(/heard-0\.wav$/)], "en");
+    const variant = (await StateManager.load(tmpDir)).getAssetState(LINE_ADDRESS).variants![
+      variantId
+    ]!;
+    expect(readHeardSpeech(tmpDir, LINE_ADDRESS, variantId, variant.outputHash)).toEqual([
+      { text: "おは", startSec: 0.2 },
+      { text: "よう", startSec: 0.6 },
+    ]);
+    expect(readHeardSpeech(tmpDir, LINE_ADDRESS, variantId, "other-bytes")).toBeNull();
+  });
+
+  it("completes a take whose line could not be recognized", async () => {
+    recognizeSpeech.mockRejectedValue(new Error("no recognizer"));
+    const { jobManager, variantId } = await setupLocalRunningJob(LINE_ADDRESS, writeSpeech);
+
+    const result = await waitForJob(jobManager, variantId, roots, definitions());
+
+    expect(result.status).toBe("completed");
+    const variant = (await StateManager.load(tmpDir)).getAssetState(LINE_ADDRESS).variants![
+      variantId
+    ]!;
+    expect(readHeardSpeech(tmpDir, LINE_ADDRESS, variantId, variant.outputHash)).toBeNull();
+  });
+
+  it("does not hear a line in a language speech is not recognized in", async () => {
+    recognizeSpeech.mockClear();
+    const { jobManager, variantId } = await setupLocalRunningJob(LINE_ADDRESS, writeSpeech);
+
+    const result = await waitForJob(jobManager, variantId, roots, {
+      ...definitions(),
+      video: buildVideo("fr"),
+    });
+
+    expect(result.status).toBe("completed");
+    expect(recognizeSpeech).not.toHaveBeenCalled();
+  });
+
+  it("does not hear a take that owes no line", async () => {
+    recognizeSpeech.mockClear();
+    const { jobManager, variantId } = await setupLocalRunningJob(ADDRESS, writeSpeech);
+
+    expect((await waitForJob(jobManager, variantId, roots, definitions())).status).toBe(
+      "completed",
+    );
+    expect(recognizeSpeech).not.toHaveBeenCalled();
   });
 });
 

@@ -1,11 +1,11 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { errorMessage } from "./errors.js";
 import { execFileAsync } from "./exec-file.js";
 import { ffmpegBin } from "./ffmpeg-binary.js";
-import { type HeardTokens, recognizeSpeech } from "./sherpa-binary.js";
 import { ANALYSIS_RATE, readSongBeat, readSungPhrases } from "./song-beat.js";
 import { songParts } from "./song-parts.js";
+import { recognizesSpeechIn } from "./sherpa-binary.js";
+import { hearSpeech } from "./speech-hearing.js";
 import type { SongReading } from "./types/index.js";
 
 async function decodeMono(file: string): Promise<Float32Array> {
@@ -31,72 +31,6 @@ async function decodeMono(file: string): Promise<Float32Array> {
   const copy = new Uint8Array(stdout.byteLength - (stdout.byteLength % 4));
   copy.set(stdout.subarray(0, copy.byteLength));
   return new Float32Array(copy.buffer);
-}
-
-// The recognizer is trained on utterances, not songs: the vocal track is heard in windows of
-// `HEARING_WINDOW_SEC`, each starting `HEARING_STEP_SEC` after the last, and a token heard twice is
-// kept from the window it falls nearer the middle of.
-const HEARING_WINDOW_SEC = 20;
-const HEARING_STEP_SEC = 15;
-
-export function hearingWindows(durationSec: number): number[] {
-  const starts = [0];
-  while (starts.at(-1)! + HEARING_WINDOW_SEC < durationSec) {
-    starts.push(starts.at(-1)! + HEARING_STEP_SEC);
-  }
-  return starts;
-}
-
-// Each window's tokens on the take's clock, the overlap of two windows split down its middle.
-export function joinHeardWindows(
-  windows: readonly { startSec: number; heard: HeardTokens }[],
-): NonNullable<SongReading["heard"]> {
-  const edge = (HEARING_WINDOW_SEC - HEARING_STEP_SEC) / 2;
-  return windows.flatMap(({ startSec, heard }, i) => {
-    const from = i === 0 ? -Infinity : edge;
-    const to = i === windows.length - 1 ? Infinity : HEARING_WINDOW_SEC - edge;
-    return heard.tokens.flatMap((text, k) => {
-      const at = heard.timestamps[k];
-      return at !== undefined && at >= from && at < to
-        ? [{ text, startSec: Math.round((startSec + at) * 1000) / 1000 }]
-        : [];
-    });
-  });
-}
-
-async function hearVocals(
-  vocals: string,
-  durationSec: number,
-  lang: string,
-  workDir: string,
-): Promise<NonNullable<SongReading["heard"]>> {
-  const starts = hearingWindows(durationSec);
-  const wavs = await Promise.all(
-    starts.map(async (startSec, i) => {
-      const wav = path.join(workDir, `heard-${i}.wav`);
-      await execFileAsync(await ffmpegBin(), [
-        "-v",
-        "quiet",
-        "-y",
-        "-ss",
-        String(startSec),
-        "-t",
-        String(HEARING_WINDOW_SEC),
-        "-i",
-        vocals,
-        "-ac",
-        "1",
-        "-ar",
-        "16000",
-        "-c:a",
-        "pcm_s16le",
-        wav,
-      ]);
-      return wav;
-    }),
-  );
-  const heard = await recognizeSpeech(wavs, lang);
-  return joinHeardWindows(starts.map((startSec, i) => ({ startSec, heard: heard[i]! })));
 }
 
 /**
@@ -137,13 +71,17 @@ export async function analyzeSongTake(opts: {
     const voice = await decodeMono(vocals);
     phrases = readSungPhrases(voice);
     opts.log(`Singing: ${phrases.length} sung stretch(es)`);
-    try {
-      heard = await hearVocals(vocals, voice.length / ANALYSIS_RATE, opts.lang, opts.workDir);
-      opts.log(`Heard: ${heard.length} token(s)`);
-    } catch (err) {
-      opts.log(
-        `Warning: the vocal track could not be recognized, so no line is placed: ${errorMessage(err)}`,
-      );
+    if (!recognizesSpeechIn(opts.lang)) {
+      opts.log(`Warning: SenseVoice does not recognize ${opts.lang}, so no line is placed`);
+    } else {
+      try {
+        heard = await hearSpeech(vocals, voice.length / ANALYSIS_RATE, opts.lang, opts.workDir);
+        opts.log(`Heard: ${heard.length} token(s)`);
+      } catch (err) {
+        opts.log(
+          `Warning: the vocal track could not be recognized, so no line is placed: ${errorMessage(err)}`,
+        );
+      }
     }
   } catch (err) {
     opts.log(

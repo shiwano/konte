@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hearingWindows, joinHeardWindows } from "../song-analysis.js";
+import { hearingWindows, joinHeardWindows } from "../speech-hearing.js";
 
 describe("hearingWindows", () => {
   it("starts a window every 15s until one reaches the end", () => {

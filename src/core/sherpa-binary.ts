@@ -187,24 +187,37 @@ export async function separateSong(
 // What one 16 kHz mono WAV is heard to say: each token and the second it starts at in that WAV.
 export type HeardTokens = { tokens: string[]; timestamps: number[] };
 
+function senseVoiceLanguage(lang: string): string | null {
+  const primary = lang.split("-")[0]!.toLowerCase();
+  return SENSE_VOICE_LANGS.has(primary) ? primary : null;
+}
+
+/** Whether speech in `lang` (a BCP 47 tag) is recognized. */
+export function recognizesSpeechIn(lang: string): boolean {
+  return senseVoiceLanguage(lang) !== null;
+}
+
 /**
- * Recognize speech in each 16 kHz mono WAV, in order. `lang` is the BCP 47 tag of what is said; a
- * language SenseVoice has no model for is left to its own detection.
+ * Recognize speech in each 16 kHz mono WAV, in order. `lang` is the BCP 47 tag of what is said, one
+ * `recognizesSpeechIn` accepts.
  */
 export async function recognizeSpeech(
   wavs: readonly string[],
   lang: string,
 ): Promise<HeardTokens[]> {
+  const language = senseVoiceLanguage(lang);
+  if (!language) {
+    throw new KonteError("VALIDATION_FAILED", `Speech in "${lang}" is not recognized.`);
+  }
   if (wavs.length === 0) return [];
   const [bin, model] = await Promise.all([
     sherpaBin(RECOGNIZER, process.env.KONTE_SHERPA_RECOGNIZER_PATH),
     senseVoiceModelDir(),
   ]);
-  const primary = lang.split("-")[0]!.toLowerCase();
   const { stdout } = await execFileAsync(bin, [
     `--sense-voice-model=${path.join(model, "model.int8.onnx")}`,
     `--tokens=${path.join(model, "tokens.txt")}`,
-    `--sense-voice-language=${SENSE_VOICE_LANGS.has(primary) ? primary : "auto"}`,
+    `--sense-voice-language=${language}`,
     "--num-threads=4",
     ...wavs,
   ]);

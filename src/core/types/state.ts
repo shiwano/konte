@@ -58,6 +58,18 @@ export const VariantMediaSchema = z.discriminatedUnion("kind", [
 
 export type VariantMedia = z.infer<typeof VariantMediaSchema>;
 
+// One token a recognizer heard, at the take-second it starts.
+const HeardTokenSchema = z.object({ text: z.string(), startSec: z.number() });
+
+// What a take that owes a line is heard to say, kept beside it as `heard.json`, read off the bytes
+// at `outputHash`.
+export const HeardSpeechSchema = z.object({
+  outputHash: z.string(),
+  heard: z.array(HeardTokenSchema),
+});
+
+export type HeardSpeech = z.infer<typeof HeardSpeechSchema>;
+
 // What konte read off a take of the song `policy.clock` counts on, kept beside the take as
 // `song.json`: the tempo it plays at, the take-second its first beat falls on, the bar heads its
 // texture changes most at, where it is sung, and what its vocal track is heard to sing, token by
@@ -68,7 +80,7 @@ export const SongReadingSchema = z.object({
   downbeatSec: z.number().nonnegative(),
   sectionSecs: z.array(z.number()),
   phrases: z.array(z.object({ startSec: z.number(), endSec: z.number() })).nullable(),
-  heard: z.array(z.object({ text: z.string(), startSec: z.number() })).nullable(),
+  heard: z.array(HeardTokenSchema).nullable(),
   analyzedAt: z.string(),
 });
 

@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { ComfyUIBackend } from "../comfyui/backend.js";
 import { resolveComfyUIConfig } from "../comfyui/config.js";
@@ -25,7 +26,11 @@ import { StateManager } from "../core/state/index.js";
 import { ensureVariantThumbnails, type ThumbnailInfo } from "../core/thumbnail.js";
 import type { GenerationJob, JobKind, JobRecord } from "../core/types/index.js";
 import { variantDir } from "../core/variant-dir.js";
+import { mediaDurationSec, mediaHasAudio } from "../core/variant-media.js";
 import { probeMediaInfo } from "../core/video-probe.js";
+import { spokenLinesAt } from "../core/prompt-check.js";
+import { recognizesSpeechIn } from "../core/sherpa-binary.js";
+import { hearSpeech, writeHeardSpeech } from "../core/speech-hearing.js";
 import { startLeaseHeartbeat } from "./lease-heartbeat.js";
 import { getBackendKindFromJob, resolveBackend } from "./resolve-backend.js";
 import type { VideoRoots } from "../core/roots.js";
@@ -214,6 +219,8 @@ async function runAsOwner(
   // we skip the comfy output-node hint.
   const isDelivery = isDeliveryAddress(job.address);
   let patchOutput: PatchOutputOrigin | null = null;
+  // A take that owes a line is heard when it lands; the song is heard off its vocal track instead.
+  let owesLine = false;
   try {
     const patchFinalize = job.metadata.patchFinalize as PatchFinalize | undefined;
     if (patchFinalize) {
@@ -229,6 +236,9 @@ async function runAsOwner(
       // exhaustive mapping.
       const def: DefinitionLike = selectDefinition(getStage(job.address), definitions).def;
       const assetDef = getAssetEntryByAddress(def, job.address);
+      owesLine =
+        job.address !== definitions.video.song &&
+        spokenLinesAt(def.prompts ?? [], job.address).length > 0;
       if (backend instanceof ComfyUIBackend && assetDef.kind === "comfy") {
         backend.setOutputNodeId(backendJobId, assetDef.outputNodeId);
       }
@@ -406,6 +416,40 @@ async function runAsOwner(
       : null;
     // The one probe of these bytes, where the file has just landed.
     const media = outputFile ? await probeMediaInfo(path.resolve(videoRoot, outputFile)) : null;
+    const durationSec = mediaDurationSec(media);
+    const lang = definitions.video.typography.lang;
+    if (owesLine && !recognizesSpeechIn(lang)) {
+      jobManager.appendLog(
+        variantId,
+        `SenseVoice does not recognize ${lang}; the line is not heard.`,
+      );
+    } else if (
+      owesLine &&
+      outputFile &&
+      outputHash &&
+      durationSec &&
+      media &&
+      mediaHasAudio(media)
+    ) {
+      const workDir = path.join(videoRoot, ".konte", "cache", "heard", variantId, workerId);
+      try {
+        const heard = await hearSpeech(
+          path.resolve(videoRoot, outputFile),
+          durationSec,
+          lang,
+          workDir,
+        );
+        await writeHeardSpeech(videoRoot, job.address, job.variantId, { outputHash, heard });
+        jobManager.appendLog(variantId, `Heard by SenseVoice: ${heard.length} token(s)`);
+      } catch (hearErr) {
+        jobManager.appendLog(
+          variantId,
+          `Warning: SenseVoice could not recognize the take's line: ${errorMessage(hearErr)}`,
+        );
+      } finally {
+        await fs.rm(workDir, { recursive: true, force: true });
+      }
+    }
     const inputFingerprints: Record<string, string> = {};
     for (const [depPath, depFile] of Object.entries(job.provenance.resolvedDependencies)) {
       // A patch feeds its source variant in under its OWN address; fingerprinting that would make

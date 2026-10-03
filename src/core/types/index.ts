@@ -83,6 +83,8 @@ export {
   DirectionAcceptanceSchema,
   type DirectionWholeAcceptance,
   DirectionWholeAcceptanceSchema,
+  type HeardSpeech,
+  HeardSpeechSchema,
   type KonteState,
   KonteStateSchema,
   SCHEMA_VERSION,
