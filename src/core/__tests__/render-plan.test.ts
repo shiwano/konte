@@ -220,7 +220,7 @@ describe("buildRenderPlan", () => {
       });
     } catch (e) {
       const msg = (e as KonteError).message;
-      expect(msg).toContain("Assets without accepted variants");
+      expect(msg).toContain("have no accepted variant");
       expect(msg).toContain("--preview");
     }
   });
@@ -350,7 +350,7 @@ describe("buildRenderPlan", () => {
       buildRenderPlan(testVideo, manager, {
         outputDir: path.join(tmpDir, "dist"),
       }),
-    ).toThrow("Assets without accepted variants");
+    ).toThrow("have no accepted variant");
   });
 
   it("handles mixed shots: shotFn required + fallback not required", () => {
@@ -448,7 +448,7 @@ describe("buildRenderPlan", () => {
           outputDir: path.join(tmpDir, "dist"),
           allowUnaccepted: true,
         }),
-      ).toThrow("Assets without ready variants");
+      ).toThrow("have no ready variant");
 
       // The error explains why: the sole variant is input-stale on the changed upstream.
       expect(() =>
@@ -496,7 +496,7 @@ describe("buildRenderPlan", () => {
           outputDir: path.join(tmpDir, "dist"),
           allowUnaccepted: true,
         }),
-      ).toThrow("Assets without ready variants");
+      ).toThrow("have no ready variant");
       expect(() =>
         buildRenderPlan(testVideo, manager, {
           outputDir: path.join(tmpDir, "dist"),
@@ -574,7 +574,7 @@ describe("buildRenderPlan", () => {
           outputDir: path.join(tmpDir, "dist"),
           allowUnaccepted: true,
         }),
-      ).toThrow("Assets without ready variants");
+      ).toThrow("have no ready variant");
 
       // With no variants at all, the reason says so rather than being a bare address.
       expect(() =>

@@ -154,7 +154,7 @@ export function assertPinGate(subject: PinCheckSubject, where: string): void {
     "PIN_CHECK_FAILED",
     `${where} pins ${active.length} image(s) that are not frames of the picture. A pinned image is ` +
       `reproduced pixel for pixel, so it has to be a frame the piece actually shows. Fix each, or ` +
-      `add a reason to \`waivers\` in ${where} when the take is meant to open on it:\n` +
-      blocks.join("\n"),
+      `add a reason to \`waivers\` in ${where} when the take is meant to open on it`,
+    blocks,
   );
 }

@@ -12,7 +12,7 @@ import { computeDefinitionHash } from "./definition-hash.js";
 import { resolveDirectionFormat, resolveDirectionTimeline } from "./dsl/direction.js";
 import type { PatchBuild } from "./dsl/patch.js";
 import type { BuildFormat } from "./dsl/shot-context.js";
-import { KonteError, type KonteErrorCode, errorMessage } from "./errors.js";
+import { KonteError, errorMessage } from "./errors.js";
 import { extractRefs } from "./graph.js";
 import { loadDirectionDefinition, loadIfPresent, reloadPatchDefinition } from "./loader.js";
 import { computeVariantStaleness, type StalenessCache } from "./staleness.js";
@@ -142,9 +142,9 @@ interface PatchLoadError {
   sourceVariantId: string;
   filePath: string;
   message: string;
-  /** The typed code, when the failure had one — so naming the file gets the same code as any
-   * other command reporting it, rather than the catalog's generic "this file did not load". */
-  code?: KonteErrorCode;
+  /** The typed failure, when it had one — so naming the file gets the same refusal as any other
+   * command reporting it, rather than the catalog's generic "this file did not load". */
+  error?: KonteError;
 }
 
 export interface PatchCatalog {
@@ -325,7 +325,7 @@ export async function loadPatchCatalog(
         sourceVariantId,
         filePath,
         message: errorMessage(err),
-        ...(err instanceof KonteError ? { code: err.code } : {}),
+        ...(err instanceof KonteError ? { error: err } : {}),
       });
     }
   }
@@ -517,7 +517,7 @@ export function requirePatch(catalog: PatchCatalog, sourceVariantId: string): Lo
   // A file that exists but failed to load must report why. Falling through to "not found" would
   // send the author looking for a missing file instead of at the error in the one they wrote.
   const failed = catalog.errors.find((e) => e.sourceVariantId === sourceVariantId);
-  if (failed) throw new KonteError(failed.code ?? "PATCH_INVALID", failed.message);
+  if (failed) throw failed.error ?? new KonteError("PATCH_INVALID", failed.message);
 
   const absent = catalog.absent.find((o) => o.sourceVariantId === sourceVariantId);
   if (absent) {

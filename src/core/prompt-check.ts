@@ -246,9 +246,8 @@ export function assertPromptGate(subject: PromptCheckSubject, where: string): vo
     throw new KonteError(
       "PROMPT_CHECK_FAILED",
       `${where} declares ${unknownWaivers.length} waiver(s) whose key names no finding class — ` +
-        `a key is the one \`status\` prints, \`<code>:<hash>\`:\n${unknownWaivers
-          .map((key) => `  [${key}]`)
-          .join("\n")}`,
+        "a key is the one `status` prints, `<code>:<hash>`",
+      unknownWaivers.map((key) => `  [${key}]`),
     );
   }
 
@@ -269,7 +268,7 @@ export function assertPromptGate(subject: PromptCheckSubject, where: string): vo
   throw new KonteError(
     "PROMPT_CHECK_FAILED",
     `${where} has ${active.length} unresolved prompt finding(s). Fix each, or add a reason to ` +
-      `\`waivers\` in ${where} when the phrasing is how this model is meant to be written:\n` +
-      blocks.join("\n"),
+      `\`waivers\` in ${where} when the phrasing is how this model is meant to be written`,
+    blocks,
   );
 }

@@ -254,12 +254,15 @@ export function buildRenderPlan(
       if (allowUnaccepted) {
         throw new KonteError(
           "RENDER_PLAN_FAILED",
-          `Assets without ready variants:\n  ${missingAssets.join("\n  ")}`,
+          `${missingAssets.length} asset(s) have no ready variant — generate them first`,
+          missingAssets.map((a) => `  ${a}`),
         );
       } else {
         throw new KonteError(
           "RENDER_PLAN_FAILED",
-          `Assets without accepted variants: ${missingAssets.join(", ")}\nHint: use --preview to render with ready (non-accepted) variants`,
+          `${missingAssets.length} asset(s) have no accepted variant — accept them, or use ` +
+            "--preview to render with ready (non-accepted) variants",
+          missingAssets.map((a) => `  ${a}`),
         );
       }
     }

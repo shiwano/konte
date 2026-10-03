@@ -1272,6 +1272,17 @@ describe("prompt gate", () => {
     });
   });
 
+  it("puts the refusal, its findings included, on one line", async () => {
+    const projectDir = await project(NEGATED_VIDEO_TSX);
+    const err: { stderr: string } = await run(["generate", "video"], projectDir).then(
+      () => expect.fail("generate should refuse"),
+      (e) => e,
+    );
+    expect(err.stderr.trimEnd().split("\n").at(-1)).toMatch(
+      /^Error \[PROMPT_CHECK_FAILED\]: video\.tsx has 1 unresolved prompt finding\(s\)\. .*meant to be written: [^;]+: \[prompt-negation:[0-9a-f]{8}\] .*no outlines/,
+    );
+  });
+
   it("reports the finding and its key in status, and holds back the generate step", async () => {
     const projectDir = await project(NEGATED_VIDEO_TSX);
     const { stdout } = await run(["status"], projectDir);

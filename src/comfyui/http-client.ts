@@ -97,7 +97,8 @@ export class ComfyUIHttpClient {
         // verbatim in the persisted job error.
         throw new KonteError(
           "COMFYUI_ERROR",
-          `Workflow validation failed:\n${this.redactBody(details)}`,
+          "Workflow validation failed — fix the nodes ComfyUI names",
+          this.redactBody(details).split("\n"),
         );
       }
     }

@@ -412,7 +412,11 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
     inputs = assemblePromptInputs(adapter.meta.inputs, given);
   } catch (error) {
     if (!(error instanceof KonteError)) throw error;
-    throw new KonteError(error.code, `Asset "${name}" in ${assetLocation()}: ${error.message}`);
+    throw new KonteError(
+      error.code,
+      `Asset "${name}" in ${assetLocation()}: ${error.headline}`,
+      error.items,
+    );
   }
   // The prompt values, pin wiring and image inputs of this declaration, addressed by the
   // placeholder the discovery branch below hands back (see prompt-collect, pin-collect,
@@ -435,7 +439,11 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
     def = adapter.createDefinition(inputs);
   } catch (error) {
     if (!(error instanceof KonteError)) throw error;
-    throw new KonteError(error.code, `Asset "${name}" in ${assetLocation()}: ${error.message}`);
+    throw new KonteError(
+      error.code,
+      `Asset "${name}" in ${assetLocation()}: ${error.headline}`,
+      error.items,
+    );
   } finally {
     if (referenceCtx) referenceCtx.activeAssetName = outerAssetName;
   }

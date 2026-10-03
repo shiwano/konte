@@ -223,10 +223,18 @@ export type KonteErrorCode =
 
 export class KonteError extends Error {
   readonly code: KonteErrorCode;
-  constructor(code: KonteErrorCode, message: string) {
-    super(message);
+  readonly headline: string;
+  readonly items: readonly string[];
+  /**
+   * `headline` is one line that states the count and where to fix it; `items` are the lines
+   * listed under it. The CLI prints both on one line.
+   */
+  constructor(code: KonteErrorCode, headline: string, items: readonly string[] = []) {
+    super(items.length > 0 ? `${headline}:\n${items.join("\n")}` : headline);
     this.name = "KonteError";
     this.code = code;
+    this.headline = headline;
+    this.items = items;
   }
 }
 

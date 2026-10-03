@@ -35,9 +35,10 @@ export function assertNarrationStemsHeard(video: VideoDefinition): void {
   if (misplaced.length === 0) return;
   throw new KonteError(
     "ANIMATIC_INVALID",
-    `A board shot's narration stem is placed only with <Audio> in a video shot's composition:\n` +
-      `${misplaced.join("\n")}\n` +
-      `Nothing on screen speaks the narration, so it drives no model and draws no picture.`,
+    `${misplaced.length} board shot narration stem(s) are used as something other than a ` +
+      "sound — place each only with <Audio> in a video shot's composition; nothing on screen " +
+      "speaks the narration, so it drives no model and draws no picture",
+    misplaced,
   );
 }
 
@@ -60,11 +61,9 @@ export function assertNarrationStemsPlaced(
   if (unplaced.length === 0) return;
   throw new KonteError(
     "NARRATION_UNPLACED",
-    `video.tsx never places the narration of ${unplaced.length} board shot(s):\n` +
-      unplaced
-        .map((shot) => `  ${formatNarrationStemAddress(shot.id)} — video:shot.${shot.id}`)
-        .join("\n") +
-      `\nPlace each with <Audio src={animatic.shot("<id>").narrationStem} /> in a video shot's ` +
-      `composition — usually that shot's own; its start and volume are yours there.`,
+    `video.tsx never places the narration of ${unplaced.length} board shot(s) — place each ` +
+      `with <Audio src={animatic.shot("<id>").narrationStem} /> in a video shot's composition, ` +
+      "usually that shot's own; its start and volume are yours there",
+    unplaced.map((shot) => `  ${formatNarrationStemAddress(shot.id)} — video:shot.${shot.id}`),
   );
 }

@@ -76,9 +76,9 @@ export function assertPrerequisitesMet(unmet: readonly UnmetPrerequisite[], bloc
   const writeIn = [...new Set(unmet.map((u) => u.writeIn))].join(", ");
   throw new KonteError(
     "REVIEW_PREREQUISITE_MISSING",
-    `${blocked} — ${unmet.length} target(s) have output but are missing what their review needs:\n` +
-      `${lines.join("\n")}\n` +
-      `Write each in ${writeIn}, from the output it now has.`,
+    `${blocked} — ${unmet.length} target(s) have output but are missing what their review ` +
+      `needs; write each in ${writeIn}, from the output it now has`,
+    lines,
   );
 }
 

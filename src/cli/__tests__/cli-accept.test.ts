@@ -1205,9 +1205,15 @@ describe("accept direction", () => {
   });
 
   it("rejects a part the direction does not have", async () => {
-    await expect(run(["accept", "direction:props.nothing"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("ADDRESS_NOT_FOUND"),
-    });
+    const err: { stderr: string } = await run(
+      ["accept", "direction:props.nothing"],
+      projectDir,
+    ).then(
+      () => expect.fail("accept should refuse"),
+      (e) => e,
+    );
+    expect(err.stderr).toContain("ADDRESS_NOT_FOUND");
+    expect(err.stderr.match(/^Error \[/gm)).toHaveLength(1);
   });
 
   it("clears one part's sign-off", async () => {

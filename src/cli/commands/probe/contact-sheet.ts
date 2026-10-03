@@ -282,7 +282,8 @@ async function buildCompositionCells(
   if (cells.length === 0) {
     throw new KonteError(
       "SHOT_NOT_FOUND",
-      `No keyframe in scope reaches a frame of the composition:\n${skipped.map((r) => `  ${r}`).join("\n")}`,
+      `No keyframe in scope reaches a frame of the composition — ${skipped.length} dropped out`,
+      skipped.map((r) => `  ${r}`),
     );
   }
   return { cells, skipped, groups };

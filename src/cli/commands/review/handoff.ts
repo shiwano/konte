@@ -382,12 +382,11 @@ export function resolveAuthoredNotes(
     // The changed set is almost always the intended target, so lead with it; fall back to
     // the full authorable set when nothing changed or there is no review to diff.
     const changed = changedAddresses ?? [];
-    const hint = changed.length
-      ? `Changed since the review:\n${changed.map((a) => `  ${a}`).join("\n")}`
-      : `Valid note addresses:\n${allAddresses.map((a) => `  ${a}`).join("\n")}`;
     throw new KonteError(
       "ADDRESS_NOT_FOUND",
-      `Unknown handoff note address(es): ${unknown.join(", ")}\n${hint}`,
+      `Unknown handoff note address(es): ${unknown.join(", ")} — use one ` +
+        (changed.length ? "changed since the review" : "of the valid note addresses"),
+      (changed.length ? changed : allAddresses).map((a) => `  ${a}`),
     );
   }
   return notes;

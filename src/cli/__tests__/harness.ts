@@ -7,7 +7,7 @@ import { KonteError } from "../../core/errors.js";
 import { syncFileAssets } from "../../core/file-sync.js";
 import { StateManager } from "../../core/state/index.js";
 import { SCHEMA_VERSION } from "../../core/types/index.js";
-import { buildProgram } from "../program.js";
+import { buildProgram, formatKonteError } from "../program.js";
 import { loadDirectionIfPresent, loadStageDefinitions } from "../load-definition.js";
 import { writeFixtureVideo } from "./fixture-video.js";
 
@@ -95,7 +95,7 @@ export async function run(
       exitCode = err.exitCode;
     } else if (err instanceof KonteError) {
       // Mirror the entrypoint's top-level formatting so stderr carries the code.
-      errChunks.push(`Error [${err.code}]: ${err.message}\n`);
+      errChunks.push(`${formatKonteError(err)}\n`);
       exitCode = 1;
     } else if (isCommanderError(err)) {
       // Help/version/usage errors — commander already wrote text to the captured streams.

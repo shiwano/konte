@@ -284,7 +284,7 @@ describe("the video delivers the board's narration", () => {
           )),
         }),
       }),
-    ).toThrow(/placed only with <Audio>/);
+    ).toThrow(/place each only with <Audio>/);
   });
 
   it("does not count placing it as building on the board", () => {

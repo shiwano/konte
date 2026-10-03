@@ -497,8 +497,9 @@ Examples:
         if (unresolvedDeps.length > 0) {
           throw new KonteError(
             "DEPENDENCY_NOT_RESOLVED",
-            `${unresolvedDeps.length} dependency(ies) have no ready asset and no job generating them:\n` +
-              unresolvedDeps.join("\n"),
+            `${unresolvedDeps.length} dependency(ies) have no ready asset and no job generating ` +
+              "them — run the generate each names first",
+            unresolvedDeps,
           );
         }
 

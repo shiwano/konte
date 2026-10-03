@@ -323,9 +323,9 @@ export async function renderVideoToFile(opts: {
   if (unresolvedRefs.length > 0) {
     throw new KonteError(
       "DEPENDENCY_NOT_RESOLVED",
-      `Cannot export: the composition references assets with no ready variant:\n${unresolvedRefs
-        .map((ref) => `  ${ref}`)
-        .join("\n")}\nGenerate them first.`,
+      `Cannot export: ${unresolvedRefs.length} asset(s) the composition references have no ready ` +
+        "variant — generate them first",
+      unresolvedRefs.map((ref) => `  ${ref}`),
     );
   }
 
@@ -342,9 +342,9 @@ export async function renderVideoToFile(opts: {
   if (allUnacceptedParts.length > 0 && !allowUnaccepted) {
     throw new KonteError(
       "UNACCEPTED_ASSETS",
-      `Cannot export: the following assets are not accepted:\n${allUnacceptedParts
-        .map((addr) => `  ${addr}`)
-        .join("\n")}\nAccept them, or pass --allow-unaccepted to render the ready variants.`,
+      `Cannot export: ${allUnacceptedParts.length} asset(s) are not accepted — accept them, or pass ` +
+        "--allow-unaccepted to render the ready variants",
+      allUnacceptedParts.map((addr) => `  ${addr}`),
     );
   }
 

@@ -2511,9 +2511,8 @@ export function assertDirectionGate(
   if (structureErrors.length > 0) {
     throw new KonteError(
       "DIRECTION_CHECK_FAILED",
-      `direction.ts has a structural error:\n${structureErrors
-        .map((e) => `  [${e.code}] ${e.message}`)
-        .join("\n")}`,
+      `direction.ts has ${structureErrors.length} structural error(s) — fix direction.ts`,
+      structureErrors.map((e) => `  [${e.code}] ${e.message}`),
     );
   }
 
@@ -2524,8 +2523,7 @@ export function assertDirectionGate(
   throw new KonteError(
     "DIRECTION_CHECK_FAILED",
     `direction has ${blocking.length} unresolved finding(s) — fix direction.ts or add a reason to ` +
-      `direction.waivers:\n${blocking
-        .map((f) => `  [${directionWaiverKey(f)}] ${f.message}`)
-        .join("\n")}`,
+      "direction.waivers",
+    blocking.map((f) => `  [${directionWaiverKey(f)}] ${f.message}`),
   );
 }

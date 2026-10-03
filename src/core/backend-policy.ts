@@ -86,11 +86,11 @@ export function assertSpendAllowed(items: readonly SpendItem[], config: KonteCon
     unconfigured.push({ label: item.label, kind: item.kind });
   }
   if (unconfigured.length > 0) {
-    const list = unconfigured.map((v) => `  ${v.label} (${v.kind})`).join("\n");
     throw new KonteError(
       "BACKEND_NOT_CONFIGURED",
-      `These need a backend this workspace has not configured:\n${list}\n\n` +
+      `${unconfigured.length} asset(s) need a backend this workspace has not configured — ` +
         backendSetupAdvice(unconfigured.map((v) => v.kind)),
+      unconfigured.map((v) => `  ${v.label} (${v.kind})`),
     );
   }
 

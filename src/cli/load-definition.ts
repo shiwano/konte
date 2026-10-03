@@ -169,7 +169,8 @@ export function assertDirectionAccepted(opts: {
   throw new KonteError(
     "DIRECTION_ACCEPTANCE_REQUIRED",
     `${gateBlocking.length} part(s) of the direction must be reviewed and accepted before this ` +
-      `spend — ${clear}:\n${lines.join("\n")}`,
+      `spend — ${clear}`,
+    lines,
   );
 }
 
@@ -201,7 +202,8 @@ export async function assertSongDirectionAccepted(opts: {
     "DIRECTION_ACCEPTANCE_REQUIRED",
     `${song} is generated from the direction's brief, policy and lyrics — ${blocking.length} ` +
       "part(s) must be reviewed and accepted before it is made: `konte preview direction`, or " +
-      `\`konte accept <part>...\`:\n${lines.join("\n")}`,
+      "`konte accept <part>...`",
+    lines,
   );
 }
 
@@ -294,7 +296,8 @@ export async function assertCharactersAccepted(opts: {
   throw new KonteError(
     "CHARACTER_ACCEPTANCE_REQUIRED",
     `${unsatisfied.length} character reference(s) must be accepted before this spend — a character ` +
-      `is never accepted implicitly through a shot that uses it:\n${lines.join("\n")}`,
+      "is never accepted implicitly through a shot that uses it",
+    lines,
   );
 }
 
@@ -320,7 +323,8 @@ export async function assertVoicesAccepted(opts: {
   throw new KonteError(
     "VOICE_ACCEPTANCE_REQUIRED",
     `${unsatisfied.length} cast voice sample(s) must be accepted before this spend — how someone ` +
-      `sounds is a human call, never settled implicitly by a shot that speaks:\n${lines.join("\n")}`,
+      "sounds is a human call, never settled implicitly by a shot that speaks",
+    lines,
   );
 }
 
@@ -423,10 +427,10 @@ export function assertUpstreamAccepted(opts: {
       : "ANIMATIC_ACCEPTANCE_REQUIRED",
     upstream.stage === "reference"
       ? `${named.length} reference asset(s) this ${opts.stage} spend conditions on must be accepted ` +
-          `first — a sheet is never accepted implicitly through what consumes it:\n${lines.join("\n")}`
+          "first — a sheet is never accepted implicitly through what consumes it"
       : `${named.length} animatic asset(s) this video spend builds on must be accepted first — the ` +
-          `board and the lines that drive the motion are reviewed before motion is spent on ` +
-          `them:\n${lines.join("\n")}`,
+          "board and the lines that drive the motion are reviewed before motion is spent on them",
+    lines,
   );
 }
 
@@ -451,12 +455,11 @@ export function assertAnimaticConsumed(opts: {
   if (boardless.length === 0) return;
   throw new KonteError(
     "ANIMATIC_UNCONSUMED",
-    `${boardless.length} video shot(s) spend without building on the board they develop:\n` +
-      boardless.map((id) => `  video:shot.${id} — animatic:shot.${id}`).join("\n") +
-      `\nBuild each from its own board shot (a panel image, \`.stem\` — not \`.narrationStem\`, ` +
-      `which builds nothing) — develop that board shot first if it is still a pendingShot — or ` +
-      `leave the shot as pendingShot("<id>") in video.tsx ` +
-      `until it is wired.`,
+    `${boardless.length} video shot(s) spend without building on the board they develop — build ` +
+      "each from its own board shot (a panel image, `.stem` — not `.narrationStem`, which builds " +
+      "nothing), developing that board shot first if it is still a pendingShot, or leave the " +
+      'shot as pendingShot("<id>") in video.tsx until it is wired',
+    boardless.map((id) => `  video:shot.${id} — animatic:shot.${id}`),
   );
 }
 

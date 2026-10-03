@@ -136,9 +136,9 @@ function assertLyricsSung(
   if (missing.length === 0) return;
   throw new KonteError(
     "LYRICS_NOT_SUNG",
-    `${address} is not given ${missing.length} lyric line(s) direction.ts declares:\n` +
-      missing.map((line) => `  “${line}”`).join("\n") +
-      `\nBuild its words input from direction.lyrics, or spell a line the model needs differently ` +
-      `with respell(line, "…").`,
+    `${address} is not given ${missing.length} lyric line(s) direction.ts declares — build its ` +
+      "words input from direction.lyrics, or spell a line the model needs differently with " +
+      'respell(line, "…")',
+    missing.map((line) => `  “${line}”`),
   );
 }

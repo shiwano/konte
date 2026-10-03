@@ -302,12 +302,11 @@ export class ComfyUIBackend implements GenerationBackend {
     if (!(await this.managerClient.isAvailable())) {
       throw new KonteError(
         "COMFYUI_MANAGER_UNAVAILABLE",
-        `Missing model: ${decl.filename}.\n` +
-          `konte cannot write to this ComfyUI's model directory, and ComfyUI-Manager was not ` +
-          `detected at ${this.config.baseUrl} to install it remotely.\n` +
-          `Install it from: https://docs.comfy.org/ja/manager/install\n` +
-          `Or set comfyui.autoInstallModels: false in konte.config.json and place the file yourself:\n` +
-          manualDownloadHint(decl, reportedDir),
+        `Missing model: ${decl.filename}. konte cannot write to this ComfyUI's model directory, ` +
+          `and ComfyUI-Manager was not detected at ${this.config.baseUrl} to install it remotely — ` +
+          "install it from https://docs.comfy.org/ja/manager/install, or set " +
+          "comfyui.autoInstallModels: false in konte.config.json and run this on the ComfyUI host",
+        manualDownloadCommands(decl, reportedDir),
       );
     }
 
@@ -369,7 +368,8 @@ export class ComfyUIBackend implements GenerationBackend {
         "COMFYUI_MANAGER_UNAVAILABLE",
         `ComfyUI-Manager did not install ${decl.filename} — it reported "${detail}". ` +
           (outcome.denialHint ?? "Check ComfyUI-Manager's logs and the model URL.") +
-          `\n${manualDownloadHint(decl, reportedDir)}`,
+          " Or run this on the ComfyUI host",
+        manualDownloadCommands(decl, reportedDir),
       );
     }
 
@@ -378,7 +378,8 @@ export class ComfyUIBackend implements GenerationBackend {
         "COMFYUI_MANAGER_UNAVAILABLE",
         `Model install reported complete but ${decl.filename} is still missing from ComfyUI. ` +
           `The download likely failed (e.g. a 404, or a gated repo the Manager cannot ` +
-          `authenticate for).\n${manualDownloadHint(decl, reportedDir)}`,
+          "authenticate for) — run this on the ComfyUI host",
+        manualDownloadCommands(decl, reportedDir),
       );
     }
     // No listing could show this file, so its absence is not evidence of a failed download; the
@@ -414,10 +415,10 @@ export class ComfyUIBackend implements GenerationBackend {
     if (!(await this.managerClient.isAvailable())) {
       throw new KonteError(
         "COMFYUI_MANAGER_UNAVAILABLE",
-        `Missing custom node pack: ${decl.id}.\n` +
-          `ComfyUI-Manager is required to auto-install custom nodes but was not detected at ${this.config.baseUrl}.\n` +
-          `Install it from: https://docs.comfy.org/ja/manager/install\n` +
-          `Or set comfyui.autoInstallNodes: false in konte.config.json and install the nodes manually.`,
+        `Missing custom node pack: ${decl.id}. ComfyUI-Manager is required to auto-install custom ` +
+          `nodes but was not detected at ${this.config.baseUrl} — install it from ` +
+          "https://docs.comfy.org/ja/manager/install, or set comfyui.autoInstallNodes: false in " +
+          "konte.config.json and install the nodes manually.",
       );
     }
 
@@ -669,23 +670,19 @@ function unregisteredNodeHint(id: string): string {
   );
 }
 
-function manualDownloadHint(decl: ComfyModelDeclaration, reportedDir: string | null): string {
+function manualDownloadCommands(decl: ComfyModelDeclaration, reportedDir: string | null): string[] {
   const dest = shellSingleQuote(
     reportedDir === null
       ? `<ComfyUI>/models/<folder>/${decl.filename}`
       : joinReported(reportedDir, [decl.filename]),
   );
   const isHuggingFace = /^https:\/\/(?:[a-z0-9-]+\.)*(?:huggingface\.co|hf\.co)\//i.test(decl.url);
-  const lines = ["Run this on the ComfyUI host:"];
-  if (isHuggingFace) {
-    lines.push(
-      `  export HF_TOKEN=...   # https://huggingface.co/settings/tokens`,
-      `  curl -L -H "Authorization: Bearer $HF_TOKEN" -o ${dest} "${decl.url}"`,
-    );
-  } else {
-    lines.push(`  curl -L -o ${dest} "${decl.url}"`);
-  }
-  return lines.join("\n");
+  return isHuggingFace
+    ? [
+        `  export HF_TOKEN=...   # https://huggingface.co/settings/tokens`,
+        `  curl -L -H "Authorization: Bearer $HF_TOKEN" -o ${dest} "${decl.url}"`,
+      ]
+    : [`  curl -L -o ${dest} "${decl.url}"`];
 }
 
 // POSIX single-quoting: everything inside is literal, and the only character needing care is the

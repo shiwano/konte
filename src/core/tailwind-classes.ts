@@ -93,8 +93,10 @@ export async function assertTailwindClasses(subjects: readonly ClassSubject[]): 
   }
   if (blocks.length === 0) return;
 
+  const count = findings.reduce((n, f) => n + f.unknown.length + f.fontFamily.length, 0);
   throw new KonteError(
     "COMPOSITION_CLASS_INVALID",
-    `Rendered markup has invalid classes:\n${blocks.join("\n")}`,
+    `Rendered markup has ${count} invalid class(es) — fix each in the composition that renders it`,
+    blocks,
   );
 }

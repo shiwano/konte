@@ -304,7 +304,7 @@ async function runDownload(ctx: {
     if (response.status === 401 || response.status === 403) {
       return new KonteError(
         "MISSING_TOKEN",
-        `Download of ${where} was denied (${response.status}). ${authHint(resolvedUrl)}\n` +
+        `Download of ${where} was denied (${response.status}). ${authHint(resolvedUrl)} ` +
           STALE_ENV_HINT,
       );
     }

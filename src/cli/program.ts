@@ -179,12 +179,23 @@ function applyUniversalYesFlag(cmd: Command): void {
   }
 }
 
+export function formatKonteError(err: KonteError): string {
+  const prefix = `Error [${err.code}]: `;
+  if (err.items.length === 0) return `${prefix}${err.message}`;
+  const items = err.items
+    .flatMap((item) => item.split("\n"))
+    .map((line) => line.trim())
+    .filter((line) => line !== "")
+    .reduce((out, line) => (out === "" ? line : `${out}${out.endsWith(":") ? " " : "; "}${line}`));
+  return `${prefix}${err.headline}: ${items}`;
+}
+
 export async function run(): Promise<void> {
   try {
     await buildProgram().parseAsync(process.argv);
   } catch (err) {
     if (err instanceof KonteError) {
-      console.error(`Error [${err.code}]: ${err.message}`);
+      console.error(formatKonteError(err));
     } else {
       // A non-KonteError is an unexpected bug: print its stack (not a rethrow, which would
       // surface as an unhandled rejection with no exit code) and exit non-zero.

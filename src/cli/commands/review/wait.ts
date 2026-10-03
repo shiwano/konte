@@ -27,8 +27,8 @@ Examples:
       if (id === undefined || opts.port === undefined) {
         throw new KonteError(
           "INVALID_OPTION",
-          "Missing the review id or --port. Run the command konte preview printed under Next steps:\n" +
-            "  konte review wait <reviewId> --port <port>",
+          "Missing the review id or --port — run the command konte preview printed under Next steps",
+          ["  konte review wait <reviewId> --port <port>"],
         );
       }
       if (!REVIEW_ID.test(id)) {
