@@ -57,7 +57,7 @@ Truncating an address from the right gives a scope, and a command takes one of t
 
 Each asset holds one or more **variants** (alternative generations) at its address. At most one variant is `accepted`; accepting one **dismisses** the takes it was chosen among, so they stop being offered and stop counting as work. A variant goes **stale** when its own definition changed, or an input it consumed has been superseded — a different variant accepted there, or, with nothing accepted, a newer one from a patch or reroll (`konte inspect` names the cause).
 
-Acceptance **cascades to consumed inputs**, so most shared assets are reviewed implicitly, by accepting what uses them.
+Acceptance **cascades to the inputs it consumed within its stage**, never across stages: an upstream stage's assets are accepted in its own `konte preview <stage>` before a later stage generates from them. Once the direction has been accepted whole, accepting a take also signs off the direction parts it realizes.
 
 ## Status
 
