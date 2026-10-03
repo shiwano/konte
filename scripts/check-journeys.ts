@@ -36,6 +36,8 @@ import { execFileSync } from "node:child_process";
 // Budget log:
 // - music-video 38,700 → 38,800, dev-render 10,450 → 10,550 (agreed by a human): `#songStem`, what a
 //   motion model hears of the song, and the adapter `stem` input konte fills with it.
+// - video 37,750 → 37,800, konte-prompt-critic 3,750 → 3,800, konte-animatic-critic 3,450 → 3,500
+//   (agreed by a human): the workspace AGENTS.md's acceptance cascading only within a stage.
 // - video 37,000 → 37,600 (agreed by a human): the `overlay` over every shot; a storyless piece's
 //   branch in scenario-guide.
 // - music-video (new, 38,650): a piece cut to a song — the video chain, storyless, with the song
@@ -86,12 +88,12 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "konte-prompt-critic",
-    budget: 3_750,
+    budget: 3_800,
     files: [...ALWAYS, `${AGENTS}/konte-prompt-critic.md`],
   },
   {
     name: "konte-animatic-critic",
-    budget: 3_450,
+    budget: 3_500,
     files: [...ALWAYS, `${AGENTS}/konte-animatic-critic.md`],
   },
   {
@@ -101,7 +103,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "video",
-    budget: 37_750,
+    budget: 37_800,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
