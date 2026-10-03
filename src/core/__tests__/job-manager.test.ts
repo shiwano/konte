@@ -204,6 +204,25 @@ describe("Job CRUD", () => {
     expect(done.startedAt).toBe(running.startedAt);
   });
 
+  it("marks only a terminal job reported, and forgets it when the job runs again", async () => {
+    for (const variantId of ["v-done0001", "v-live0001"]) {
+      await manager.createJob({
+        address: "video:shot.01.motion",
+        variantId,
+        resolvedDeps: {},
+        backendKind: "comfy",
+      });
+    }
+    await manager.updateJob("v-done0001", { status: "completed" });
+
+    await manager.markReported(["v-done0001", "v-live0001"]);
+    expect((await manager.getJob("v-done0001")).reportedAt).not.toBeNull();
+    expect((await manager.getJob("v-live0001")).reportedAt).toBeNull();
+
+    const requeued = await manager.updateJob("v-done0001", { status: "pending" });
+    expect(requeued.reportedAt).toBeNull();
+  });
+
   it("rejects a variant id that is not a single path-safe segment", async () => {
     await expect(
       manager.createJob({

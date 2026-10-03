@@ -42,6 +42,7 @@ function generationJob(patch: Partial<GenerationJob> = {}): GenerationJob {
     processingStartedAt: iso(59 * MIN),
     updatedAt: iso(MIN),
     completedAt: null,
+    reportedAt: null,
     unconfirmedSince: null,
     sourceFingerprint: null,
     staleReleases: 0,

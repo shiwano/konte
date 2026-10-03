@@ -734,6 +734,7 @@ export async function submitAssetJobs(
         error: errorMsg,
         lease: null,
         completedAt: new Date().toISOString(),
+        reportedAt: new Date().toISOString(),
       });
 
       if (recorded) {

@@ -67,6 +67,7 @@ async function cancelOne(
     const cancelledJob = await jobManager.updateIfNotTerminal(jobId, {
       status: "cancelled",
       completedAt: new Date().toISOString(),
+      reportedAt: new Date().toISOString(),
     });
     if (!cancelledJob) return skippedTerminal(jobManager, jobId);
     const filename = job.model.filename;
@@ -91,6 +92,7 @@ async function cancelOne(
     const cancelledJob = await jobManager.updateIfNotTerminal(jobId, {
       status: "cancelled",
       completedAt: new Date().toISOString(),
+      reportedAt: new Date().toISOString(),
     });
     if (!cancelledJob) return skippedTerminal(jobManager, jobId);
     const what =
@@ -110,6 +112,7 @@ async function cancelOne(
     const cancelledJob = await jobManager.updateIfNotTerminal(jobId, {
       status: "cancelled",
       completedAt: new Date().toISOString(),
+      reportedAt: new Date().toISOString(),
     });
     if (!cancelledJob) return skippedTerminal(jobManager, jobId);
     return {
@@ -143,6 +146,7 @@ async function cancelOne(
   const cancelledJob = await jobManager.updateIfNotTerminal(jobId, {
     status: "cancelled",
     completedAt: new Date().toISOString(),
+    reportedAt: new Date().toISOString(),
   });
   if (!cancelledJob) return skippedTerminal(jobManager, jobId);
 

@@ -21,18 +21,27 @@ describe("job wait command", () => {
     vi.restoreAllMocks();
   });
 
-  async function createFailedJob(error: string): Promise<string> {
+  async function createFailedJob(error: string, opts: { reported: boolean }): Promise<string> {
+    return createSettledJob("v-fail0001", { status: "failed", error, ...opts });
+  }
+
+  async function createSettledJob(
+    variantId: string,
+    opts: { status: "completed" | "failed"; error?: string; reported: boolean },
+  ): Promise<string> {
     const jobManager = new JobManager(projectDir);
+    const now = new Date().toISOString();
     const job = await jobManager.createJob({
       address,
-      variantId: "v-fail0001",
+      variantId,
       resolvedDeps: {},
       backendKind: "comfy",
     });
     await jobManager.updateJob(job.variantId, {
-      status: "failed",
-      error,
-      completedAt: new Date().toISOString(),
+      status: opts.status,
+      error: opts.error ?? null,
+      completedAt: now,
+      reportedAt: opts.reported ? now : null,
     });
     return job.variantId;
   }
@@ -86,17 +95,16 @@ describe("job wait command", () => {
   });
 
   it("does not re-report jobs that already failed before the wait (no ids)", async () => {
-    await createFailedJob("Backend rejected: bad node");
+    await createFailedJob("Backend rejected: bad node", { reported: true });
 
-    // A pre-wait failure is prior history: it was reported by the wait that observed it, and
-    // re-printing it on every later wait reads as "still broken". Exit 0 — nothing failed here.
+    // A reported failure is prior history. Exit 0 — nothing failed here.
     const { stdout } = await run(["job", "wait"], projectDir);
 
     expect(stdout).toContain("No running, queued, or pending jobs");
   });
 
   it("notes prior failures in the human-readable output instead of listing them (no ids)", async () => {
-    await createFailedJob("Backend rejected: bad node");
+    await createFailedJob("Backend rejected: bad node", { reported: true });
 
     const { stdout } = await run(["job", "wait"], projectDir);
 
@@ -104,6 +112,36 @@ describe("job wait command", () => {
       "No running, queued, or pending jobs, 1 failed before this wait — run `konte status`",
     );
     expect(stdout).not.toContain("Job video:shot.01.motion (v-fail0001): failed");
+  });
+
+  // The MCP daemon finalizes a take nobody blocks on; a fast one lands before the `job wait` that
+  // follows its reroll starts. The wait reports it.
+  it("reports takes that landed before the wait, once (no ids)", async () => {
+    await createSettledJob("v-done0001", { status: "completed", reported: false });
+    await createSettledJob("v-done0002", { status: "completed", reported: false });
+
+    const { stdout } = await run(["job", "wait"], projectDir);
+    expect(stdout).toMatch(/2 job\(s\) settled: 2 completed \(\S+, 2 of them before this wait\)/);
+
+    const again = await run(["job", "wait"], projectDir);
+    expect(again.stdout).toContain("No running, queued, or pending jobs — run `konte status`");
+  });
+
+  it("reports a failure no command reported yet, then keeps it as history (no ids)", async () => {
+    const variantId = await createFailedJob("Backend rejected: bad node", { reported: false });
+
+    const err = (await run(["job", "wait"], projectDir).catch((e) => e)) as {
+      code: number;
+      stdout: string;
+    };
+    expect(err.code).toBe(1);
+    expect(err.stdout).toContain(`Job ${address} (${variantId}): failed`);
+    expect(err.stdout).toContain("1 job(s) settled: 0 completed, 1 failed");
+
+    const { stdout } = await run(["job", "wait"], projectDir);
+    expect(stdout).toContain(
+      "No running, queued, or pending jobs, 1 failed before this wait — run `konte status`",
+    );
   });
 
   it("still reports an empty result when there are genuinely no jobs (no ids)", async () => {
@@ -115,7 +153,7 @@ describe("job wait command", () => {
   it("exits 1 on a job that already failed, named by id", async () => {
     // Same gate as the bare wait: `konte generate && konte job wait <id> && konte export` must
     // not run export over a failed job.
-    const variantId = await createFailedJob("Backend rejected: bad node");
+    const variantId = await createFailedJob("Backend rejected: bad node", { reported: false });
 
     const err = (await run(["job", "wait", variantId], projectDir).catch((e) => e)) as {
       code: number;
@@ -181,6 +219,7 @@ describe("job wait command", () => {
     jobManager: JobManager,
     id: string,
     patch: Parameters<JobManager["updateJob"]>[1],
+    opts: { afterReread?: boolean } = {},
   ): Promise<void> {
     const claimForRun = JobManager.prototype.claimJobForRun;
     let fired = false;
@@ -197,8 +236,13 @@ describe("job wait command", () => {
       const claimed = await claimForRun.call(this, jobId, workerId, leaseMs);
       if (!claimed && jobId === id && !fired) {
         fired = true;
-        await jobManager.updateJob(id, patch);
-        observed();
+        // After the refused claimer's re-read: the next pass lists the job terminal.
+        if (opts.afterReread) {
+          setTimeout(() => void jobManager.updateJob(id, patch).then(observed), 0);
+        } else {
+          await jobManager.updateJob(id, patch);
+          observed();
+        }
       }
       return claimed;
     });
@@ -263,6 +307,31 @@ describe("job wait command", () => {
     expect(lines.at(-1)).toContain("run `konte status`");
     // `status` branches on what broke and offers the per-job commands; this hop does not.
     expect(err.stdout).not.toContain(`konte job show ${id}`);
+  });
+
+  it("reports a failure it watched even when another wait reported it first (no ids)", async () => {
+    const { jobManager, id } = await createForeignOwnedExport();
+    const now = new Date().toISOString();
+    const settle = settleOnRefusedClaim(
+      jobManager,
+      id,
+      {
+        status: "failed",
+        error: "ffmpeg exited 1",
+        completedAt: now,
+        reportedAt: now,
+      },
+      { afterReread: true },
+    );
+
+    const err = (await run(["job", "wait"], projectDir).catch((e) => e)) as {
+      code: number;
+      stdout: string;
+    };
+    await settle;
+
+    expect(err.code).toBe(1);
+    expect(err.stdout).toContain(`Job ${id}: failed`);
   });
 
   it("waits for an export rendered by another worker (single id)", async () => {

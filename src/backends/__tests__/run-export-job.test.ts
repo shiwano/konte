@@ -30,6 +30,7 @@ function exportJob(over: Partial<ExportJob> = {}): ExportJob {
     processingStartedAt: null,
     updatedAt: "2026-01-01T00:00:00.000Z",
     completedAt: null,
+    reportedAt: null,
     unconfirmedSince: null,
     sourceFingerprint: null,
     staleReleases: 0,

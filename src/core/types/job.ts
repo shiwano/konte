@@ -106,6 +106,10 @@ const JobRecordBaseSchema = z.object({
   processingStartedAt: z.string().nullable().default(null),
   updatedAt: z.string(),
   completedAt: z.string().nullable(),
+  // Stamped when a command printed this terminal outcome (`job wait`, `job cancel`, a submit that
+  // failed in the command that made it). A job the MCP daemon finalized stays null until a
+  // `job wait` reports it. Cleared when the job leaves a terminal status.
+  reportedAt: z.string().nullable().default(null),
   // Set (ISO timestamp) while a non-terminal job's status checks have been failing
   // transiently for a long stretch — e.g. a backend outage. The job is still polled
   // and never auto-failed; this only surfaces "couldn't confirm status" to the human.

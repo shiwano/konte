@@ -39,6 +39,7 @@ function makeJobRecord(overrides: Partial<GenerationJob> = {}): GenerationJob {
     processingStartedAt: null,
     updatedAt: new Date().toISOString(),
     completedAt: null,
+    reportedAt: null,
     unconfirmedSince: null,
     sourceFingerprint: null,
     staleReleases: 0,

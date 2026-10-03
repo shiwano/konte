@@ -278,6 +278,7 @@ export class JobManager {
       processingStartedAt: null,
       updatedAt: now,
       completedAt: null,
+      reportedAt: null,
       unconfirmedSince: null,
     };
     this.transaction(() => {
@@ -335,6 +336,7 @@ export class JobManager {
       processingStartedAt: null,
       updatedAt: now,
       completedAt: null,
+      reportedAt: null,
       unconfirmedSince: null,
     };
     this.write(job);
@@ -395,6 +397,7 @@ export class JobManager {
         processingStartedAt: null,
         updatedAt: now,
         completedAt: null,
+        reportedAt: null,
         unconfirmedSince: null,
       };
       this.write(job);
@@ -463,6 +466,7 @@ export class JobManager {
         processingStartedAt: null,
         updatedAt: now,
         completedAt: null,
+        reportedAt: null,
         unconfirmedSince: null,
         sourceFingerprint: null,
         staleReleases: 0,
@@ -513,6 +517,7 @@ export class JobManager {
         processingStartedAt: null,
         updatedAt: now,
         completedAt: null,
+        reportedAt: null,
         unconfirmedSince: null,
         sourceFingerprint: null,
         staleReleases: 0,
@@ -581,6 +586,7 @@ export class JobManager {
         processingStartedAt: null,
         updatedAt: now,
         completedAt: null,
+        reportedAt: null,
         unconfirmedSince: null,
         sourceFingerprint: null,
         staleReleases: 0,
@@ -608,6 +614,18 @@ export class JobManager {
 
   async updateJob(jobId: string, update: JobUpdate): Promise<JobRecord> {
     return this.transaction(() => this.apply(this.readOrThrow(jobId), update));
+  }
+
+  async markReported(jobIds: readonly string[]): Promise<void> {
+    if (jobIds.length === 0) return;
+    const now = new Date().toISOString();
+    this.transaction(() => {
+      for (const id of jobIds) {
+        const job = this.read(id);
+        if (!job || !isJobTerminal(job.status) || job.reportedAt != null) continue;
+        this.apply(job, { reportedAt: now });
+      }
+    });
   }
 
   // Remove a job record. Returns whether one existed.
@@ -894,11 +912,18 @@ export class JobManager {
     // `update` only carries fields common to every kind (Omit over the union drops
     // kind-specific ones), so the spread preserves `job`'s discriminant and payload.
     // TS widens `kind` across the union on spread, so re-assert the variant.
+    const reportedAt =
+      update.reportedAt !== undefined
+        ? update.reportedAt
+        : update.status !== undefined && !isJobTerminal(update.status)
+          ? null
+          : job.reportedAt;
     const updated = {
       ...job,
       ...update,
       startedAt,
       processingStartedAt,
+      reportedAt,
       updatedAt: now,
     } as JobRecord;
     this.write(updated);

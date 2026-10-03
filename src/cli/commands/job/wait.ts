@@ -81,7 +81,7 @@ Examples:
           renderRegion: Boolean(process.stderr.isTTY),
         });
         const startedAt = Date.now();
-        const { results, priorFailedCount } = await waitAllCascade(
+        const { results, priorFailedCount, settledBefore } = await waitAllCascade(
           jobManager,
           roots,
           live,
@@ -98,8 +98,9 @@ Examples:
           if (printProblemLines(results)) console.log("");
           for (const r of results) printExportOutput(r);
           await printTurboLine(videoRoot, results);
-          console.log(formatWaitSummary(results, elapsedMs));
+          console.log(formatWaitSummary(results, elapsedMs, settledBefore));
         }
+        await jobManager.markReported(reportedIds(results));
         if (results.some((r) => r.waitTimedOut || r.status === "failed")) process.exitCode = 1;
       } else {
         const live = new LiveProgress({
@@ -161,10 +162,21 @@ Examples:
         }
         console.log("");
         await printTurboLine(videoRoot, results);
-        console.log(formatWaitSummary(results, elapsedMs));
+        console.log(formatWaitSummary(results, elapsedMs, 0));
+        await jobManager.markReported(reportedIds(results));
         if (results.some((r) => r.waitTimedOut || r.status === "failed")) process.exitCode = 1;
       }
     });
+}
+
+function reportedIds(results: WaitForJobResult[]): string[] {
+  return results.flatMap((r) =>
+    !r.waitTimedOut &&
+    !r.submitPending &&
+    (r.status === "completed" || r.status === "failed" || r.status === "cancelled")
+      ? [r.variantId]
+      : [],
+  );
 }
 
 // `generate` already listed each address.
@@ -220,7 +232,11 @@ function summarize(results: WaitForJobResult[]): WaitSummary {
   };
 }
 
-function formatWaitSummary(results: WaitForJobResult[], elapsedMs: number): string {
+function formatWaitSummary(
+  results: WaitForJobResult[],
+  elapsedMs: number,
+  settledBefore: number,
+): string {
   const s = summarize(results);
   const parts = [
     `${s.completed} completed`,
@@ -231,7 +247,8 @@ function formatWaitSummary(results: WaitForJobResult[], elapsedMs: number): stri
   ].filter((p) => p !== null);
   // The outcome and the one command that answers it share a line, so a caller piping through
   // `tail -1` keeps both.
-  return `${s.total} job(s) settled: ${parts.join(", ")} (${formatDuration(elapsedMs)}) — run \`konte status\``;
+  const before = settledBefore > 0 ? `, ${settledBefore} of them before this wait` : "";
+  return `${s.total} job(s) settled: ${parts.join(", ")} (${formatDuration(elapsedMs)}${before}) — run \`konte status\``;
 }
 
 // Only what the caller may have to act on — naming all 60 completions buries the two that broke.
@@ -613,7 +630,7 @@ async function waitAllCascade(
   live: LiveProgress,
   initialDefinitions: LoadedDefinitions,
   deadline: Deadline,
-): Promise<{ results: WaitForJobResult[]; priorFailedCount: number }> {
+): Promise<{ results: WaitForJobResult[]; priorFailedCount: number; settledBefore: number }> {
   const videoRoot = roots.video;
   // This wait outlives the definitions it started with: an agent edits and rerolls while it
   // blocks on a long generation, and the pending job that lands must be judged by the files as
@@ -621,22 +638,23 @@ async function waitAllCascade(
   // the jobs, so no job is older than what judges it) and the waits use the latest read.
   let definitions = initialDefinitions;
   const allResults: WaitForJobResult[] = [];
-  // Failures already terminal when this wait began are prior history — reported by the wait
-  // (or generate) that observed them, and re-printing them on every later wait reads as
-  // "still broken". Snapshot them so the final sweep surfaces only what failed during this
-  // wait; the caller notes their count when there was otherwise nothing to do.
-  const priorFailed = await jobManager.listJobs({ status: "failed" });
-  const priorFailedIds = new Set(priorFailed.map((j) => j.id));
+  // An outcome already reported is history; the caller notes the reported failures' count when
+  // there was otherwise nothing to do. One terminal but unreported — the MCP daemon finalized it — is this wait's to
+  // report, counted as settled before it.
+  const jobsAtStart = await jobManager.listJobs();
+  const priorFailedCount = jobsAtStart.filter(
+    (j) => j.status === "failed" && j.reportedAt != null,
+  ).length;
+  const terminalAtStart = new Set(
+    jobsAtStart.filter((j) => isJobTerminal(j.status)).map((j) => j.id),
+  );
+  // Another wait may report a job this one watched in flight; it is still this wait's outcome.
+  const observedActive = new Set<string>();
   const backendCache = new Map<BackendKind, GenerationBackend>();
   // A node activation waits for the ComfyUI server to go idle, and reports that on every pass —
   // roughly once a second. Keyed by the reason so the hold is stated once, and again only when
   // what it is waiting for actually changes.
   const reportedActivateHolds = new Set<string>();
-  // Export jobs we observed active during this wait. An export owned by a live worker
-  // (e.g. the MCP watcher) can't be claimed here, so we poll until it settles; once it
-  // does, the top-of-loop filter drops it, so we surface its terminal status after the
-  // loop rather than letting a wait we deliberately blocked on report "nothing to do".
-  const monitoredExportIds = new Set<string>();
 
   // Model downloads and node installs/activations carry no variant of their own, so they are the
   // one class of work this wait drives without producing a result. Fold each settled one in, or a
@@ -670,6 +688,7 @@ async function waitAllCascade(
       jobManager,
     });
     const allJobs = await jobManager.listJobs();
+    for (const j of allJobs) if (!isJobTerminal(j.status)) observedActive.add(j.id);
     // Model downloads run concurrently with generation waits — a multi-GB model
     // install must not block unrelated jobs (no watcher needed for standalone use).
     const activeModelJobs = allJobs.filter(
@@ -700,7 +719,6 @@ async function waitAllCascade(
     const exportJobs = allJobs.filter(
       (j) => j.kind === "export" && (j.status === "pending" || j.status === "running"),
     );
-    for (const j of exportJobs) monitoredExportIds.add(j.id);
     const songJobs = allJobs.filter(
       (j) => j.kind === "song-analysis" && (j.status === "pending" || j.status === "running"),
     );
@@ -920,52 +938,38 @@ async function waitAllCascade(
     }
   }
 
+  // Every terminal outcome nothing reported: one finalized by another worker (an export the MCP
+  // watcher rendered, a take it landed before this wait began), or a failure between submission
+  // and the next pass's listing.
   const seen = new Set(allResults.map((r) => r.variantId));
-
-  // An export we polled while a live worker rendered it leaves the loop once it settles
-  // (the top-of-loop filter drops the now-terminal job before runRunnableExportJobs sees
-  // it). Report its terminal status here so a successful wait isn't summarized as empty.
-  for (const id of monitoredExportIds) {
-    if (seen.has(id)) continue;
-    const job = await jobManager.getJob(id).catch(() => null);
-    if (!job || job.kind !== "export") continue;
-    if (job.status !== "completed" && job.status !== "failed") continue;
-    seen.add(id);
-    allResults.push({
-      variantId: id,
-      kind: job.kind,
-      address: "",
-      status: job.status,
-      outputFiles: job.outputFile ? [job.outputFile] : [],
-      thumbnails: [],
-      error: job.error,
-      alreadyTerminal: true,
-      submitPending: false,
-    });
+  for (const job of await jobManager.listJobs()) {
+    if (seen.has(job.id) || !isJobTerminal(job.status)) continue;
+    if (job.reportedAt != null && !observedActive.has(job.id)) continue;
+    allResults.push(settledResult(job));
   }
 
-  // Surface failures that became terminal during this wait without being waited on directly
-  // (e.g. failed between submission and the next pass's listing), so a batch that failed
-  // right after submission isn't reported as "nothing to do". Jobs in priorFailedIds are
-  // excluded per the snapshot above.
-  const failedJobs = await jobManager.listJobs({ status: "failed" });
-  for (const job of failedJobs) {
-    if (seen.has(job.id) || priorFailedIds.has(job.id)) continue;
-    if (job.kind !== "generation") continue;
-    allResults.push({
-      variantId: job.id,
-      kind: job.kind,
-      address: job.address,
-      status: "failed",
-      outputFiles: [],
-      thumbnails: [],
-      error: job.error,
-      alreadyTerminal: true,
-      submitPending: false,
-    });
-  }
+  const settledBefore = allResults.filter((r) => terminalAtStart.has(r.variantId)).length;
 
-  return { results: allResults, priorFailedCount: priorFailed.length };
+  return { results: allResults, priorFailedCount, settledBefore };
+}
+
+function settledResult(job: JobRecord): WaitForJobResult {
+  return {
+    variantId: job.id,
+    kind: job.kind,
+    address: job.kind === "generation" ? job.address : standaloneLabel(job),
+    status: job.status,
+    outputFiles:
+      job.kind === "generation"
+        ? job.outputFiles
+        : job.kind === "export" && job.outputFile
+          ? [job.outputFile]
+          : [],
+    thumbnails: [],
+    error: job.error,
+    alreadyTerminal: true,
+    submitPending: false,
+  };
 }
 
 // A job the wait stopped waiting on. NOT a failure — it is still running and re-observable, so
