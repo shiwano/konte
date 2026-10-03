@@ -13,6 +13,7 @@ import {
   createStalenessCache,
   newestReadyUndecidedTake,
   type PatchHashes,
+  readyUndecidedTakes,
   type ResolutionDefinitions,
   selectResolvedVariant,
   type StalenessCache,
@@ -476,6 +477,21 @@ export class StateManager {
       definitions?.patchHashes,
       cache ?? this.stalenessCache(),
     );
+  }
+
+  /** Every take at `address` awaiting a verdict (see `readyUndecidedTakes`), newest ready first. */
+  readyUndecidedTakes(address: string, cache?: StalenessCache): string[] {
+    const definitions = this.definitionsFor(cache);
+    const variants = this.state.assets[address]?.variants ?? {};
+    const readyOf = (id: string) => variants[id]!.readyAt ?? variants[id]!.createdAt;
+    return readyUndecidedTakes(
+      this.state,
+      address,
+      definitions?.definitionHash(address) ?? null,
+      undefined,
+      definitions?.patchHashes,
+      cache ?? this.stalenessCache(),
+    ).sort((a, b) => (readyOf(a) < readyOf(b) ? 1 : readyOf(a) > readyOf(b) ? -1 : 0));
   }
 
   resolveReference(

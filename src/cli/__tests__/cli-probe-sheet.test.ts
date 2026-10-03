@@ -177,6 +177,38 @@ export default defineVideo(direction, {
     expect(stderr).toContain("2 cells, 1 sheet(s)");
   });
 
+  it("points a named address with rival takes at --takes, which tiles them all", async () => {
+    const projectDir = await initAndGenerate();
+    await addTake(projectDir, "reference:plateA", "v-plateatake2");
+    await addTake(projectDir, "reference:plateA", "v-plateatake3");
+
+    const one = await run(["probe", "contact-sheet", "reference:plateA"], projectDir);
+    expect(one.stderr).toContain("1 cells, 1 sheet(s)");
+    expect(one.stderr).toContain("konte probe contact-sheet reference:plateA --takes");
+
+    const all = await run(["probe", "contact-sheet", "reference:plateA", "--takes"], projectDir);
+    expect(all.stderr).toContain("3 cells, 1 sheet(s)");
+    expect(all.stderr).not.toContain("Next steps");
+  });
+
+  it("leaves a reel scope out of the --takes step it prints", async () => {
+    const projectDir = await initAndGenerate();
+    await addTake(projectDir, "reference:plateA", "v-plateatake2");
+
+    const { stderr } = await run(
+      ["probe", "contact-sheet", "reference:plateA", "video"],
+      projectDir,
+    );
+    expect(stderr).toContain("konte probe contact-sheet reference:plateA --takes");
+  });
+
+  it("refuses --takes beside --needs-review", async () => {
+    const projectDir = await initAndGenerate();
+    await expect(
+      run(["probe", "contact-sheet", "--needs-review", "--takes"], projectDir),
+    ).rejects.toMatchObject({ stderr: expect.stringContaining("INVALID_OPTION") });
+  });
+
   it("reports nothing outstanding when every landed take is accepted", async () => {
     const projectDir = await initAndGenerate();
     await expect(
