@@ -103,6 +103,8 @@ export type KonteErrorCode =
   // `konte accept --off` was pointed at a direction part carrying no sign-off to clear. The variant
   // path's VARIANT_NOT_ACCEPTED, for the stage that has no variants.
   | "DIRECTION_PART_NOT_ACCEPTED"
+  // `konte accept` named the flow of a direction with no shots yet.
+  | "DIRECTION_SHOTS_UNWRITTEN"
   // A developed animatic shot whose composition declares no `<Panel>`. A board shot IS its
   // keyframes; a plain `<Image>` is a layer.
   | "PANEL_REQUIRED"

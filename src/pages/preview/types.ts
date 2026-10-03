@@ -666,6 +666,8 @@ export interface DirectionPreviewState {
   // been accepted whole once; after that only the ones no downstream review re-reads. A box outside
   // this set still reads and still accepts — it no longer stops a generation.
   gatingSections: DirectionSection[];
+  // The sections an Accept can sign off — all but Flow & Shots while the direction has no shots.
+  acceptableSections: DirectionSection[];
   // One entry per prose field the author filled in, plus both list fields — always, empty included.
   brief: DirectionBriefFieldInfo[];
   // The policy fields (format, lang, fonts, speech, and the song clock where declared), each reviewed

@@ -112,6 +112,7 @@ export type PinStaleWaiverLine = { key: string; where: string; reason: string };
 // spend — so it heads the progress block, above the per-stage asset ratios it precedes.
 function directionAcceptanceLine(summary: DirectionAcceptanceSummary, empty: boolean): string {
   const label = "direction";
+  if (empty) return `  ${label}: not written yet`;
   switch (summary.status) {
     case "accepted":
       return `  ${label}: accepted`;
@@ -122,7 +123,7 @@ function directionAcceptanceLine(summary: DirectionAcceptanceSummary, empty: boo
         ? `  ${label}: ${summary.gateBlocking} of ${summary.total} parts need review — re-accept`
         : `  ${label}: accepted (${summary.blocking} of ${summary.total} parts changed since)`;
     case "unaccepted":
-      return empty ? `  ${label}: not written yet` : `  ${label}: not accepted`;
+      return `  ${label}: not accepted`;
   }
 }
 

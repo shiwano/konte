@@ -379,12 +379,15 @@ describe("applyDirectionSectionDecisions", () => {
     expect(acceptAll(direction).whole?.hash).toBe(directionHash(direction));
   });
 
-  it("does not stamp the short-circuit on a direction with no shots", () => {
+  it("leaves Flow & Shots unaccepted on a direction with no shots", () => {
     const direction = makeDirection();
     direction.sequence = { ...direction.sequence, shots: [], waivers: {} };
     const acceptance = acceptAll(direction);
     expect(acceptance.whole).toBeNull();
-    expect(directionAcceptanceView(direction, acceptance).complete).toBe(true);
+    const view = directionAcceptanceView(direction, acceptance);
+    expect(view.sections.get("shots")).toBe("unaccepted");
+    expect(view.sections.get("brief")).toBe("accepted");
+    expect(view.complete).toBe(false);
   });
 
   // An untouched box keeps last session's verdict: a reviewer who only came back to sign off the
@@ -472,6 +475,20 @@ describe("applyDirectionPartDecisions", () => {
     expect(view.parts.get("direction:brief.tone")).toBe("accepted");
     expect(view.parts.get("direction:brief.logline")).toBe("unaccepted");
     expect(acceptance.whole).toBeNull();
+  });
+
+  it("does not stamp the root arc of a direction with no shots", () => {
+    const direction = makeDirection();
+    direction.sequence = { ...direction.sequence, shots: [], waivers: {} };
+    const { accepted } = applyDirectionPartDecisions(
+      direction,
+      null,
+      new Map([
+        ["direction:sequence", true],
+        ["direction:brief.tone", true],
+      ]),
+    );
+    expect(accepted).toEqual(["direction:brief.tone"]);
   });
 
   it("reports nothing when the part is already signed off at that hash", () => {

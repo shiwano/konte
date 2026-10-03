@@ -10,6 +10,7 @@ import {
 import {
   CLI_UNACCEPTABLE_SECTION,
   applyDirectionPartDecisions,
+  directionSectionAcceptable,
   directionAcceptanceView,
   directionCascadeReferenceIds,
   directionCascadeShotIds,
@@ -175,7 +176,10 @@ async function runDirectionAcceptance(
   const recorded = Object.keys(acceptance?.parts ?? {});
   const inScope = (part: string) =>
     whole || partScopes.some((scope) => matchesAddressScope(part, scope));
-  const acceptable = (part: string) => directionSectionOf(part) !== CLI_UNACCEPTABLE_SECTION;
+  const isWaiver = (part: string) => directionSectionOf(part) === CLI_UNACCEPTABLE_SECTION;
+  const isShotless = (part: string) =>
+    !directionSectionAcceptable(direction, directionSectionOf(part));
+  const acceptable = (part: string) => !isWaiver(part) && !isShotless(part);
 
   // The exact set of parts this run decides, fixed here from the read above — so it is also what the
   // confirmation below describes and what the locked write applies. A record that appears
@@ -204,6 +208,12 @@ async function runDirectionAcceptance(
   } else {
     for (const scope of partScopes) {
       const live = [...view.parts.keys()].filter((part) => matchesAddressScope(part, scope));
+      if (live.length > 0 && live.every(isShotless)) {
+        throw new KonteError(
+          "DIRECTION_SHOTS_UNWRITTEN",
+          `Cannot accept "${scope}": the direction has no shots yet — write them in direction.ts first`,
+        );
+      }
       if (live.length > 0 && !live.some(acceptable)) {
         throw new KonteError(
           "INVALID_ADDRESS",
@@ -255,11 +265,13 @@ async function runDirectionAcceptance(
   // The waivers a scope covers are left behind: named rather than counted into the tail line, so
   // "42 of 44" does not read as a bug in what just ran.
   const postView = directionAcceptanceView(direction, result.acceptance);
-  const heldWaivers = opts.off
+  const held = opts.off
     ? []
     : [...postView.parts]
         .filter(([part, status]) => status !== "accepted" && inScope(part) && !acceptable(part))
         .map(([part]) => part);
+  const heldWaivers = held.filter(isWaiver);
+  const heldShots = held.filter(isShotless);
 
   const label = whole ? "direction" : partScopes.join(", ");
   const singlePart = decisions.size === 1 && partScopes.length === 1 && decisions.has(label);
@@ -279,6 +291,11 @@ async function runDirectionAcceptance(
       `Held: ${heldWaivers.length} waiver part(s) — accept in \`konte preview direction\``,
     );
   }
+  if (heldShots.length > 0) {
+    console.log(
+      `Held: ${heldShots.length} flow part(s) — the direction has no shots yet; accept once they are written`,
+    );
+  }
   console.log(
     summary.status === "accepted"
       ? `Acceptance: accepted (${summary.total} parts)`
@@ -290,6 +307,7 @@ async function runDirectionAcceptance(
     if (result.accepted.length > 0) printAddresses("Accepted parts", result.accepted, true);
     if (result.revoked.length > 0) printAddresses("Cleared parts", result.revoked, true);
     if (heldWaivers.length > 0) printAddresses("Held waiver parts", heldWaivers, true);
+    if (heldShots.length > 0) printAddresses("Held flow parts", heldShots, true);
   }
 }
 

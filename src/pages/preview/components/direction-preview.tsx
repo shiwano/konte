@@ -195,6 +195,12 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
     [partsBySection, state.sections],
   );
 
+  // The shown boxes an Accept can sign off; the rest are read-only until the author fills them.
+  const acceptableSections = useMemo(
+    () => shownSections.filter((s) => state.acceptableSections.includes(s)),
+    [shownSections, state.acceptableSections],
+  );
+
   // What a box will read as once this review is submitted — the staged verdict, else where it
   // stands now. The Accept toggle, "Accept all" and the undecided list must all agree on this, or
   // the page would offer to accept what it is already showing as accepted.
@@ -217,12 +223,12 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
   } = useMemo(
     () =>
       bulkAcceptState(
-        shownSections,
+        acceptableSections,
         decisions,
         (section, marks) => ({ ...marks, [section]: true }),
         isAcceptedWith,
       ),
-    [shownSections, decisions, isAcceptedWith],
+    [acceptableSections, decisions, isAcceptedWith],
   );
   const unacceptedCount = unacceptedSections.length;
 
@@ -254,13 +260,13 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
     for (let i = 1; i <= shownSections.length; i++) {
       const idx = (focusIdx + i) % shownSections.length;
       const section = shownSections[idx];
-      if (section && !isAccepted(section)) {
+      if (section && acceptableSections.includes(section) && !isAccepted(section)) {
         setFocusIdx(idx);
         scrollToSection(section);
         return;
       }
     }
-  }, [shownSections, focusIdx, isAccepted, scrollToSection]);
+  }, [shownSections, acceptableSections, focusIdx, isAccepted, scrollToSection]);
 
   // The boxes left with neither an accept nor a live note — named once at Submit, since the record
   // would show them unaccepted with no reason, which is indistinguishable from never having been
@@ -271,14 +277,14 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
       [...partsBySection.values()].flat().flatMap((p) => p.feedback),
       session,
     );
-    return shownSections
+    return acceptableSections
       .filter(
         (section) =>
           !isAccepted(section) &&
           !(partsBySection.get(section) ?? []).some((p) => commented.has(p.address)),
       )
       .map((section) => SECTION_LABELS[section]);
-  }, [partsBySection, shownSections, isAccepted, session]);
+  }, [partsBySection, acceptableSections, isAccepted, session]);
 
   useReviewShortcuts({
     blocked: session.submitOpen,
@@ -288,7 +294,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
       k: () => moveFocus(-1),
       a: () => {
         const section = shownSections[focusIdx];
-        if (section) decide(section, !isAccepted(section));
+        if (section && acceptableSections.includes(section)) decide(section, !isAccepted(section));
       },
       n: handleJumpToUndecided,
       s: () => session.setHideStale(!session.hideStale),
@@ -308,6 +314,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
       staged={decisions[section]}
       accepted={isAccepted(section)}
       gating={state.gatingSections.includes(section)}
+      acceptable={acceptableSections.includes(section)}
       focused={shownSections[focusIdx] === section}
       onDecide={decide}
       onFocus={() => setFocusIdx(shownSections.indexOf(section))}
@@ -553,6 +560,7 @@ function SectionBox({
   staged,
   accepted,
   gating,
+  acceptable,
   focused,
   onDecide,
   onFocus,
@@ -566,6 +574,8 @@ function SectionBox({
   // Whether a generation is actually waiting on this box (see `gatingSections`). Only the button's
   // wording turns on it.
   gating: boolean;
+  // False while the box has nothing to sign off yet (Flow & Shots before any shot is written).
+  acceptable: boolean;
   // What the box will read as once this review is submitted (see the page's `isAccepted`) — passed
   // in rather than re-derived, so the box and the header's "Accept all" cannot disagree.
   accepted: boolean;
@@ -605,13 +615,16 @@ function SectionBox({
           type="button"
           className={`direction-section-accept${accepted ? " direction-section-accept--on" : ""}`}
           aria-pressed={accepted}
+          disabled={!acceptable}
           onClick={() => onDecide(section, !accepted)}
           title={
-            accepted
-              ? gating
-                ? `Un-accept ${title}: generation blocks on it until it is accepted again`
-                : `Un-accept ${title}: it reads as unreviewed again (generation does not wait on it)`
-              : `Accept ${title}`
+            !acceptable
+              ? `${title} has no shots yet: write them in direction.ts, then accept`
+              : accepted
+                ? gating
+                  ? `Un-accept ${title}: generation blocks on it until it is accepted again`
+                  : `Un-accept ${title}: it reads as unreviewed again (generation does not wait on it)`
+                : `Accept ${title}`
           }
         >
           <CheckIcon size={13} /> {accepted ? "Accepted" : "Accept"}

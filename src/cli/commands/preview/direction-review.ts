@@ -3,6 +3,7 @@ import {
   DIRECTION_BRIEF_FIELDS,
   DIRECTION_LYRICS_ADDRESS,
   DIRECTION_NARRATOR_ADDRESS,
+  DIRECTION_SECTIONS,
   DIRECTION_ROOT_PATH,
   type DirectionSection,
   directionChildNodePath,
@@ -37,6 +38,7 @@ import {
   type DirectionSectionDecisions,
   type DirectionSectionStatus,
   applyDirectionSectionDecisions,
+  directionSectionAcceptable,
   directionAcceptanceView,
   directionGatingSections,
   summarizeDirectionAcceptance,
@@ -323,6 +325,7 @@ export async function handleGetDirectionState(
       DirectionSectionStatus
     >,
     gatingSections: directionGatingSections(manager.getDirectionAcceptance()),
+    acceptableSections: DIRECTION_SECTIONS.filter((s) => directionSectionAcceptable(direction, s)),
     brief: briefFields(direction.brief ?? {}),
     policy: policyFields,
     beatsPerBar: clock?.beatsPerBar ?? null,

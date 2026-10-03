@@ -1259,6 +1259,45 @@ describe("accept direction", () => {
   });
 });
 
+describe("accept direction (no shots yet)", () => {
+  let projectDir: string;
+
+  const SHOTLESS_DIRECTION_SOURCE = `import { defineDirection } from "konte";
+
+export default defineDirection({
+  brief: { logline: "test" },
+  characters: {},
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  setups: {
+    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
+  },
+  policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  sequence: { lens: "mini-drama", pleasure: "cute", shots: [] },
+});
+`;
+
+  beforeEach(async () => {
+    projectDir = await initWithTestVideo();
+    await fs.writeFile(path.join(projectDir, "direction.ts"), SHOTLESS_DIRECTION_SOURCE, "utf-8");
+    await fs.writeFile(path.join(projectDir, "animatic.tsx"), TEST_EMPTY_ANIMATIC_TSX, "utf-8");
+  });
+
+  it("holds the flow back from a whole accept", async () => {
+    const { stdout } = await run(["accept", "direction", "--verbose"], projectDir);
+    expect(addressesUnder(stdout, "Held flow parts")).toEqual(["direction:sequence"]);
+    const after = await inspectDirection(projectDir);
+    expect(after.parts.filter((p) => p.status !== "accepted").map((p) => p.address)).toEqual([
+      "direction:sequence",
+    ]);
+  });
+
+  it("refuses to sign off the flow", async () => {
+    await expect(run(["accept", "direction:sequence"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("DIRECTION_SHOTS_UNWRITTEN"),
+    });
+  });
+});
+
 // Both composition stages have leaves. Resolved against the video definition a board address finds
 // no such shot — the accept wrote to `video:shot.01#composition` or failed outright.
 describe("accept command (animatic leaves)", () => {

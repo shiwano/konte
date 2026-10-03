@@ -36,6 +36,15 @@ export type DirectionPartStatus = "accepted" | "stale" | "unaccepted";
 // review and reads as accepted — it is not a box the page shows.
 export type DirectionSectionStatus = DirectionPartStatus;
 
+// A shotless direction's Flow & Shots box holds only the root arc's empty shape: there is nothing in
+// it to read, and the shots written later would arrive at a sign-off no one gave them.
+export function directionSectionAcceptable(
+  direction: Direction,
+  section: DirectionSection,
+): boolean {
+  return section !== "shots" || directionHasShots(direction);
+}
+
 // The sections whose sign-off no downstream media re-reads, so they are the ones the spend gate
 // keeps demanding for the life of the piece. `brief` is an agreement between people that never
 // enters generation; `policy.speech` and `waivers` are inputs to the machine check and appear in no
@@ -271,6 +280,7 @@ export function applyDirectionSectionDecisions(
   }
   for (const [address, liveHash] of live) {
     if (decisionFor(address) !== true) continue;
+    if (!directionSectionAcceptable(direction, directionSectionOf(address))) continue;
     parts[address] = { partHash: liveHash, acceptedAt };
   }
 
@@ -318,6 +328,7 @@ export function applyDirectionPartDecisions(
       // Not a live part (a cut shot, a typo'd address) — an accept resurrects nothing. Already
       // signed off at this exact hash — nothing moved, so it is not reported as a fresh accept.
       if (liveHash === undefined || parts[address]?.partHash === liveHash) continue;
+      if (!directionSectionAcceptable(direction, directionSectionOf(address))) continue;
       parts[address] = { partHash: liveHash, acceptedAt };
       accepted.push(address);
     } else {
