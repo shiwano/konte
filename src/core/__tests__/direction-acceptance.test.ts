@@ -9,6 +9,7 @@ import {
   directionCascadeReferenceIds,
   directionCascadeShotIds,
   isDirectionSpendGateSatisfied,
+  songGateBlocking,
   summarizeDirectionAcceptance,
 } from "../direction-acceptance.js";
 import { directionHash, directionPartHashes } from "../direction-hash.js";
@@ -316,6 +317,50 @@ describe("isDirectionSpendGateSatisfied", () => {
   });
 });
 
+describe("songGateBlocking", () => {
+  function songDirection(): Direction {
+    const direction = makeDirection();
+    direction.policy = { ...direction.policy, clock: { song: "song", bpm: 120, beatsPerBar: 4 } };
+    direction.lyrics = [{ label: "Verse", singer: "alice", lines: ["lights down"] }];
+    direction.sequence = { ...direction.sequence, shots: [], waivers: {} };
+    return direction;
+  }
+
+  it("names the brief, policy and lyrics parts and nothing else", () => {
+    const direction = songDirection();
+    const sections = new Set(
+      songGateBlocking(direction, null).map((b) => directionSectionOf(b.address)),
+    );
+    expect(sections).toEqual(new Set(["brief", "policy", "lyrics"]));
+  });
+
+  it("clears once those three sections are accepted, the rest of the page unread", () => {
+    const direction = songDirection();
+    const acceptance = applyDirectionSectionDecisions(direction, null, {
+      brief: true,
+      policy: true,
+      lyrics: true,
+    });
+    expect(songGateBlocking(direction, acceptance)).toEqual([]);
+    expect(isDirectionSpendGateSatisfied(direction, acceptance)).toBe(false);
+  });
+
+  it("re-blocks on a lyric edit and on a deleted brief field", () => {
+    const direction = songDirection();
+    const acceptance = applyDirectionSectionDecisions(direction, null, {
+      brief: true,
+      policy: true,
+      lyrics: true,
+    });
+    direction.lyrics = [{ label: "Verse", singer: "alice", lines: ["lights up"] }];
+    direction.brief = { logline: direction.brief!.logline };
+    expect(songGateBlocking(direction, acceptance)).toEqual([
+      { address: "direction:lyrics", status: "stale" },
+      { address: "direction:brief.tone", status: "deleted" },
+    ]);
+  });
+});
+
 describe("applyDirectionSectionDecisions", () => {
   it("accepts only the parts the decided sections own", () => {
     const direction = makeDirection();
@@ -332,6 +377,14 @@ describe("applyDirectionSectionDecisions", () => {
     const direction = makeDirection();
     expect(applyDirectionSectionDecisions(direction, null, { brief: true }).whole).toBeNull();
     expect(acceptAll(direction).whole?.hash).toBe(directionHash(direction));
+  });
+
+  it("does not stamp the short-circuit on a direction with no shots", () => {
+    const direction = makeDirection();
+    direction.sequence = { ...direction.sequence, shots: [], waivers: {} };
+    const acceptance = acceptAll(direction);
+    expect(acceptance.whole).toBeNull();
+    expect(directionAcceptanceView(direction, acceptance).complete).toBe(true);
   });
 
   // An untouched box keeps last session's verdict: a reviewer who only came back to sign off the

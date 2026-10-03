@@ -36,6 +36,7 @@ import { getBackendKind } from "../../../backends/resolve-backend.js";
 import {
   assertAnimaticConsumed,
   assertUpstreamAccepted,
+  assertSongDirectionAccepted,
   gateDirectionForStage,
   gateStageChecks,
   loadStageDefinitions,
@@ -446,6 +447,11 @@ Examples:
           if (assetPaths.length === 0) continue;
           assertUpstreamAccepted({ manager, graph, assetPaths, stage, animatic });
         }
+        await assertSongDirectionAccepted({
+          videoRoot,
+          manager,
+          spending: workItems.map((w) => w.assetPath),
+        });
         // Same reason, one level out: a video take rerolled off a shot that consumes no board never
         // meets the gate above. Asked of what this run spends on, not of the definition, which may
         // pass over the asset being redone. A timeline asset belongs to no one shot, so there the

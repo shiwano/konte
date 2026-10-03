@@ -141,10 +141,20 @@ describe("Next steps before the song", () => {
       state,
       directionReviewNeeded: true,
       directionEmpty: true,
-      songPending: { address: "reference:song", hasTake: false },
+      songPending: { address: "reference:song", hasTake: false, directionReviewNeeded: false },
     });
     expect(actions[0]).toMatchObject({ command: "konte generate reference" });
     expect(actions[1]!.details?.[0]).toMatch(/counted in beats, once reference:song is accepted/);
+  });
+
+  it("reviews the brief, policy and lyrics before the song is made", () => {
+    const actions = suggestForStatus({
+      state,
+      directionReviewNeeded: true,
+      directionEmpty: true,
+      songPending: { address: "reference:song", hasTake: false, directionReviewNeeded: true },
+    });
+    expect(actions[0]).toMatchObject({ command: "konte preview direction" });
   });
 
   it("sends a song already taken to its review", () => {
@@ -152,7 +162,7 @@ describe("Next steps before the song", () => {
       state,
       directionReviewNeeded: true,
       directionEmpty: true,
-      songPending: { address: "reference:song", hasTake: true },
+      songPending: { address: "reference:song", hasTake: true, directionReviewNeeded: false },
     });
     expect(actions[0]).toMatchObject({ command: "konte preview reference" });
   });
@@ -162,7 +172,7 @@ describe("Next steps before the song", () => {
       state,
       directionReviewNeeded: true,
       directionEmpty: true,
-      songPending: { address: "reference:song", hasTake: true },
+      songPending: { address: "reference:song", hasTake: true, directionReviewNeeded: false },
       songUnread: true,
     });
     expect(actions.map((a) => a.command).slice(0, 2)).toEqual([

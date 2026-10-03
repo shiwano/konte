@@ -43,6 +43,7 @@ import type { AssetDefinition, BackendKind } from "../../core/types/index.js";
 import {
   assertAnimaticConsumed,
   assertUpstreamAccepted,
+  assertSongDirectionAccepted,
   gateDirectionForStage,
   gateStageChecks,
   loadStageDefinitions,
@@ -198,20 +199,23 @@ export function registerGenerateCommand(program: Command): void {
       // stage derives identity from. Gated on what this run would really submit — an asset it would
       // skip anyway (accepted, ready, in flight) must not block the shots that still have work,
       // which is the whole point of gating per consumed dependency. The reference stage is where
-      // those sheets are made, so it has no reviewed upstream of its own.
-      if (stage !== "reference") {
-        const spending = [...stageAssetPaths].filter((assetPath) => {
-          const assetDef = assetEntryOf(assetPath);
-          return (
-            assetDef.kind !== "file" &&
-            !assetSkipReason(
-              manager,
-              assetPath,
-              computeDefinitionHash(assetDef),
-              assetDef.deterministic === true,
-            )
-          );
-        });
+      // those sheets are made, so it has no reviewed upstream of its own — only the song's direction
+      // parts.
+      const spending = [...stageAssetPaths].filter((assetPath) => {
+        const assetDef = assetEntryOf(assetPath);
+        return (
+          assetDef.kind !== "file" &&
+          !assetSkipReason(
+            manager,
+            assetPath,
+            computeDefinitionHash(assetDef),
+            assetDef.deterministic === true,
+          )
+        );
+      });
+      if (stage === "reference") {
+        await assertSongDirectionAccepted({ videoRoot, manager, spending });
+      } else {
         assertUpstreamAccepted({ manager, graph, assetPaths: spending, stage, animatic });
       }
 

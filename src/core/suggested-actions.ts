@@ -242,7 +242,8 @@ function suggestStaleRefresh(
 // offering one would send the reviewer to re-read what the stage reel already showed them.
 //
 // A piece cut to a song is written after it: while the song has no accepted take, an empty direction
-// is not the next thing to write — the song is the next thing to make and hear.
+// is not the next thing to write — the song is the next thing to make and hear, once the brief,
+// policy and lyrics it is made from are accepted.
 function prependDirectionReview(
   actions: SuggestedAction[],
   needed: boolean | undefined,
@@ -262,7 +263,11 @@ function prependDirectionReview(
     });
     if (song) {
       actions.unshift({
-        command: song.hasTake ? "konte preview reference" : "konte generate reference",
+        command: song.hasTake
+          ? "konte preview reference"
+          : song.directionReviewNeeded
+            ? "konte preview direction"
+            : "konte generate reference",
       });
     }
     return;
@@ -583,6 +588,8 @@ export type SongPending = {
   address: string;
   // Whether a take exists to hear — otherwise the song is still to be generated.
   hasTake: boolean;
+  // Whether `generate reference` refuses the song until the brief, policy and lyrics are accepted.
+  directionReviewNeeded: boolean;
 };
 
 export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {

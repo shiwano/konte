@@ -182,6 +182,59 @@ export default defineReference(direction, () => {
     expect(bgm.map((v) => v.file)).toEqual(["assets/files/bgm.mp3"]);
   });
 
+  it("holds the song take until the brief, policy and lyrics are accepted", async () => {
+    const { video: projectDir } = await initWorkspace(path.join(ctx.dir, "songproj"), {
+      template: "blank",
+    });
+    const directionPath = path.join(projectDir, "direction.ts");
+    const blank = await fs.readFile(directionPath, "utf-8");
+    await fs.writeFile(
+      directionPath,
+      blank
+        .replace(
+          "characters: {},",
+          'characters: { mika: { name: "Mika", description: "a singer", promptDepiction: "mika" } },',
+        )
+        .replace(
+          'speech: "free",',
+          'speech: "free",\n    clock: { song: "song", bpm: 120, beatsPerBar: 4 },',
+        )
+        .replace(
+          "  sequence: {",
+          '  lyrics: [{ label: "Verse", singer: "mika", lines: ["lights down"] }],\n  sequence: {',
+        ),
+    );
+    await fs.writeFile(
+      path.join(projectDir, "reference.tsx"),
+      `import { defineReference, asset } from "konte";
+// @ts-expect-error konte's fixture adapter is runtime-only, outside the workspace's generated types.
+import { internalTestPlate } from "konte";
+import direction from "./direction";
+
+export default defineReference(direction, () => {
+  const song = asset("song", internalTestPlate, { width: 64, height: 64, color: "#ffffff" });
+  return { song };
+});
+`,
+    );
+
+    await expect(run(["generate", "reference", "--plan"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(/DIRECTION_ACCEPTANCE_REQUIRED[\s\S]*direction:lyrics/),
+    });
+
+    const statePath = path.join(projectDir, "konte.state.json");
+    const direction = await loadDirectionIfPresent(projectDir);
+    const state = JSON.parse(await fs.readFile(statePath, "utf-8"));
+    state.directionAcceptance = applyDirectionSectionDecisions(direction!, null, {
+      brief: true,
+      policy: true,
+      lyrics: true,
+    });
+    await fs.writeFile(statePath, JSON.stringify(state, null, 2));
+    const { stdout } = await run(["generate", "reference", "--plan"], projectDir);
+    expect(planEntries(stdout).map((e) => e.address)).toContain("reference:song");
+  });
+
   it("blocks animatic generation until the direction is accepted", async () => {
     const inited_gateproj = await initWorkspace(path.join(ctx.dir, "gateproj"));
     const projectDir = inited_gateproj.video;

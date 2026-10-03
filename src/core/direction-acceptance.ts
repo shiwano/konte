@@ -16,6 +16,7 @@ import {
 } from "./address.js";
 import type { Direction, DirectionNode } from "./dsl/direction.js";
 import { isAsideShot, isGraphicShot } from "./dsl/direction.js";
+import { directionHasShots } from "./direction.js";
 import { directionHash, directionPartHashes } from "./direction-hash.js";
 import type { DirectionAcceptance } from "./types/index.js";
 
@@ -47,6 +48,9 @@ const PIECE_WIDE_SECTIONS: ReadonlySet<DirectionSection> = new Set([
   "lyrics",
   "waivers",
 ]);
+
+// The sections a song is generated from.
+const SONG_SECTIONS: ReadonlySet<DirectionSection> = new Set(["brief", "policy", "lyrics"]);
 
 // A deleted waiver owes no reader: removing one only puts its finding back in front of the machine
 // check, so its orphaned sign-off neither blocks nor is kept.
@@ -158,6 +162,19 @@ export function directionAcceptanceView(
     gateSatisfied: gateBlocking.length === 0 && gateOrphans.length === 0,
     gateBlocking,
   };
+}
+
+// The parts a spend on the song take waits on — `SONG_SECTIONS`, whatever the rest of the page says.
+export function songGateBlocking(
+  direction: Direction,
+  acceptance: DirectionAcceptance | null,
+): { address: string; status: "stale" | "unaccepted" | "deleted" }[] {
+  const view = directionAcceptanceView(direction, acceptance);
+  const inSong = (address: string) => SONG_SECTIONS.has(directionSectionOf(address));
+  return [
+    ...view.blocking.filter((b) => inSong(b.address)),
+    ...view.orphans.filter(inSong).map((address) => ({ address, status: "deleted" as const })),
+  ];
 }
 
 // The direction's acceptance, summarized for a reader (`status`, `doctor`). Acceptance is per part,
@@ -531,7 +548,10 @@ function finalizeAcceptance(
   // gone, so the whole-direction verdict standing on them cannot survive either.
   if (Object.keys(parts).length === 0) return { acceptance: { parts, whole: null }, swept };
 
+  // A direction with no shots is one written after its song; signing it off whole would leave the
+  // shots written later to no reader.
   const covers =
+    directionHasShots(direction) &&
     [...live].every(([address, liveHash]) => parts[address]?.partHash === liveHash) &&
     Object.keys(parts).every((address) => live.has(address));
   const whole = covers

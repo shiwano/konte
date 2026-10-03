@@ -60,6 +60,7 @@ import { isProblemAddress } from "../../core/status-sections.js";
 import {
   type DirectionAcceptanceSummary,
   directionAcceptanceView,
+  songGateBlocking,
   summarizeDirectionAcceptance,
 } from "../../core/direction-acceptance.js";
 import { currentRoots, requireVideoRoots } from "../context.js";
@@ -501,9 +502,13 @@ export function registerStatusCommand(program: Command): void {
 // The song `policy.clock` counts on, while no take of it is accepted.
 function pendingSong(manager: StateManager, direction: Direction | null): SongPending | undefined {
   const song = direction?.policy.clock?.song;
-  if (song === undefined) return undefined;
+  if (direction === null || song === undefined) return undefined;
   const address = formatReferenceAddress(song);
   if (manager.selectVariant(address, { requireAccepted: true }) !== null) return undefined;
   const variants = Object.values(manager.getState().assets[address]?.variants ?? {});
-  return { address, hasTake: variants.some((v) => v.file && v.status !== "dismissed") };
+  return {
+    address,
+    hasTake: variants.some((v) => v.file && v.status !== "dismissed"),
+    directionReviewNeeded: songGateBlocking(direction, manager.getDirectionAcceptance()).length > 0,
+  };
 }

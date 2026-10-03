@@ -19,6 +19,7 @@ import { mediaDurationSec } from "../core/variant-media.js";
 import {
   directionAcceptanceView,
   isDirectionSpendGateSatisfied,
+  songGateBlocking,
 } from "../core/direction-acceptance.js";
 import { StateManager } from "../core/state/index.js";
 import type { Character, Direction } from "../core/dsl/direction.js";
@@ -168,6 +169,38 @@ export function assertDirectionAccepted(opts: {
     "DIRECTION_ACCEPTANCE_REQUIRED",
     `${gateBlocking.length} part(s) of the direction must be reviewed and accepted before this ` +
       `spend — ${clear}:\n${lines.join("\n")}`,
+  );
+}
+
+// The reference stage carries no direction gate, but the song take is generated from the direction's
+// brief, clock and lyrics: a run that would spend on it waits for a human to have read those three.
+// `spending` is what the run would really submit.
+export async function assertSongDirectionAccepted(opts: {
+  videoRoot: string;
+  manager: StateManager;
+  spending: Iterable<string>;
+}): Promise<void> {
+  const direction = await loadDirectionIfPresent(opts.videoRoot);
+  const song = songAddressOf(direction);
+  if (!direction || song === null || ![...opts.spending].includes(song)) return;
+  const blocking = songGateBlocking(direction, opts.manager.getDirectionAcceptance());
+  if (blocking.length === 0) return;
+
+  const lines = blocking.map(
+    ({ address, status }) =>
+      `  ${address} — ${
+        status === "stale"
+          ? "changed since it was accepted"
+          : status === "deleted"
+            ? "deleted since it was accepted"
+            : "never accepted"
+      }`,
+  );
+  throw new KonteError(
+    "DIRECTION_ACCEPTANCE_REQUIRED",
+    `${song} is generated from the direction's brief, policy and lyrics — ${blocking.length} ` +
+      "part(s) must be reviewed and accepted before it is made: `konte preview direction`, or " +
+      `\`konte accept direction:<part>\` per part:\n${lines.join("\n")}`,
   );
 }
 
