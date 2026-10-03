@@ -8,9 +8,9 @@ const REVIEW_ID = /^r-[0-9A-Za-z]+$/;
 
 export function registerReviewWaitCommand(review: Command): void {
   const command = review
-    .command("wait <reviewId>")
+    .command("wait [reviewId]")
     .description("Wait for an open review to end")
-    .requiredOption("--port <port>", "Port the preview listens on")
+    .option("--port <port>", "Port the preview listens on")
     .option("--timeout <seconds>", "Stop waiting after this many seconds; the review stays open")
     .addHelpText(
       "after",
@@ -23,7 +23,14 @@ Examples:
   konte review wait <reviewId> --port 4649 --timeout 600  Give up after 10 minutes
 `,
     )
-    .action(async (id: string, opts: { port: string; timeout?: string }) => {
+    .action(async (id: string | undefined, opts: { port?: string; timeout?: string }) => {
+      if (id === undefined || opts.port === undefined) {
+        throw new KonteError(
+          "INVALID_OPTION",
+          "Missing the review id or --port. Run the command konte preview printed under Next steps:\n" +
+            "  konte review wait <reviewId> --port <port>",
+        );
+      }
       if (!REVIEW_ID.test(id)) {
         throw new KonteError("INVALID_OPTION", `Not a review id: ${id}`);
       }

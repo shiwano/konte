@@ -93,6 +93,17 @@ describe("review wait", () => {
     expect(status).toBe(204);
   });
 
+  it("names the full form when the review id or port is missing", async () => {
+    for (const args of [
+      ["review", "wait"],
+      ["review", "wait", `r-${shortId()}`],
+    ]) {
+      await expect(run(args)).rejects.toMatchObject({
+        stderr: expect.stringContaining("konte review wait <reviewId> --port <port>"),
+      });
+    }
+  });
+
   it("refuses a malformed review id or port", async () => {
     await expect(run(["review", "wait", "../x", "--port", "4649"])).rejects.toMatchObject({
       stderr: expect.stringContaining("INVALID_OPTION"),
