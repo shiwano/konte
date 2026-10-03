@@ -464,6 +464,30 @@ export function compositionStructureHtml(video: StageDefinition, shotId: string)
   return video.stage === "animatic" ? html.replace(/\s+/g, " ").trim() : stripAudioFromHtml(html);
 }
 
+// Every developed shot's composition and the overlay, rendered from the definition alone.
+export function compositionClassSubjects(video: StageDefinition): ClassSubject[] {
+  const subjects: ClassSubject[] = [];
+  for (const shot of video.shots) {
+    const html = compositionStructureHtml(video, shot.id);
+    if (html !== null)
+      subjects.push({ label: formatCompositionAddress(video.stage, shot.id), html });
+  }
+  if (video.overlay) {
+    subjects.push({
+      label: formatTimelineOverlayAddress(video.stage),
+      html: renderOverlayBody({
+        stage: video.stage,
+        overlay: video.overlay,
+        fn: video.overlay.fn,
+        size: video.format.size,
+        typography: video.typography,
+        resolvedFiles: {},
+      }),
+    });
+  }
+  return subjects;
+}
+
 // One audio cue harvested from a shot's composition: its source asset path (placeholder-decoded)
 // and shot-local placement/params. The identity of a shot's audio stem — audio-only, so a picture
 // edit never changes it (the mirror of stripAudioFromHtml).

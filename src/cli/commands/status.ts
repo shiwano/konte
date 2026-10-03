@@ -40,9 +40,11 @@ import {
   unsatisfiedCharacters,
   unsatisfiedVoices,
   loadSongTakeState,
+  stageClassSubjects,
 } from "../load-definition.js";
 import { checkPins, formatPinFinding, type PinCheckSubject } from "../../core/pin-check.js";
 import { STAGE_ENTRY_FILE } from "../../core/roots.js";
+import { checkTailwindClasses } from "../../core/tailwind-classes.js";
 import {
   checkPrompts,
   formatPromptFinding,
@@ -50,6 +52,7 @@ import {
 } from "../../core/prompt-check.js";
 import {
   printStatusReport,
+  type ClassFindingLine,
   type PinFindingLine,
   type PinStaleWaiverLine,
   type PromptFindingLine,
@@ -81,6 +84,7 @@ export function registerStatusCommand(program: Command): void {
         "  Stale direction waivers  Waivers whose finding is gone — remove them from direction.ts\n" +
         "  Prompt findings     Prompts naming what to leave out, each with its waiver key\n" +
         "  Stale prompt waivers     Prompt waivers whose phrase is gone — remove them\n" +
+        "  Class findings      Classes Tailwind builds nothing for, or setting a font family — not waivable\n" +
         "  Needs authoring  Targets holding output whose review still needs something written\n" +
         "  Needs retiming   Shots whose animatic narration runs past the duration written for them\n" +
         "  Needs review     Anything awaiting a review and accept\n" +
@@ -88,8 +92,8 @@ export function registerStatusCommand(program: Command): void {
         "  Needs regenerate Assets whose every take is stale and unaccepted — `generate` remakes them\n" +
         "  Stale            Accepted variants whose inputs or definition have changed, unless the accept stands\n" +
         "\nThe sections are `-v` only: every state they report, Next steps names a command or an\n" +
-        "edit for. Progress, Next steps and the direction and\n" +
-        "prompt blocks always print.\n" +
+        "edit for. Progress, Next steps and the direction, prompt and\n" +
+        "class blocks always print.\n" +
         "\nRunning, queued and pending jobs are not listed — `konte job list` reports them.",
     )
     .option("-v, --verbose", "Print the sections — every address behind the counts and steps above")
@@ -197,6 +201,31 @@ export function registerStatusCommand(program: Command): void {
         if (!def) continue;
         const where = STAGE_ENTRY_FILE[stage];
         if (collectStageChecks(where, def)) promptBlockedStages.push({ stage, where });
+      }
+      // The class gate's twin: a composition's finding also refuses the review, which renders it.
+      const classFindings: ClassFindingLine[] = [];
+      const classBlockedStages: Array<{ stage: string; where: string; review: boolean }> = [];
+      for (const [stage, def] of [
+        ["reference", reference],
+        ["animatic", animatic],
+        ["video", video],
+      ] as const) {
+        if (!def) continue;
+        const where = STAGE_ENTRY_FILE[stage];
+        const { images, compositions } = stageClassSubjects(def, stage);
+        const imageFindings = await checkTailwindClasses(images);
+        const compositionFindings = await checkTailwindClasses(compositions);
+        for (const f of [...imageFindings, ...compositionFindings]) {
+          classFindings.push({
+            where,
+            label: f.label,
+            unknown: f.unknown,
+            fontFamily: f.fontFamily,
+          });
+        }
+        if (imageFindings.length > 0 || compositionFindings.length > 0) {
+          classBlockedStages.push({ stage, where, review: compositionFindings.length > 0 });
+        }
       }
       // The cast gate: a character's look, plus every cast voice sample (the video stage's own
       // gate — surfaced here too, or Next steps would keep offering a `generate video` that aborts).
@@ -482,6 +511,7 @@ export function registerStatusCommand(program: Command): void {
         songUnread,
         upstreamReviewBlockedStages,
         promptBlockedStages,
+        classBlockedStages,
       });
 
       if (videoName) console.log(`Video: ${videoName}\n`);
@@ -497,6 +527,7 @@ export function registerStatusCommand(program: Command): void {
         promptStaleWaivers,
         pinFindings,
         pinStaleWaivers,
+        classFindings,
       });
     });
 }

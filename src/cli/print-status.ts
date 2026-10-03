@@ -107,6 +107,13 @@ export type PromptStaleWaiverLine = {
 // both the wiring and the waiver that would cancel it.
 export type PinFindingLine = { key: string; where: string; detail: string };
 export type PinStaleWaiverLine = { key: string; where: string; reason: string };
+// A class finding as reported: the markup it is rendered in, and the file that writes it.
+export type ClassFindingLine = {
+  where: string;
+  label: string;
+  unknown: string[];
+  fontFamily: string[];
+};
 
 // The direction is the one project-wide, variant-less accept, and it gates every animatic/video
 // spend — so it heads the progress block, above the per-stage asset ratios it precedes.
@@ -448,6 +455,7 @@ export function printStatusReport(
     promptStaleWaivers?: PromptStaleWaiverLine[];
     pinFindings?: PinFindingLine[];
     pinStaleWaivers?: PinStaleWaiverLine[];
+    classFindings?: ClassFindingLine[];
   },
 ): void {
   const { sections, readiness, lastExports } = report;
@@ -617,6 +625,24 @@ export function printStatusReport(
     printCapped(pinStaleWaivers, (w) => `[${w.key}] (${w.where}) ${w.reason}`, {
       verbose: options?.verbose,
     });
+  }
+
+  // Not waivable: every spend on the stage aborts, and a composition's every review too.
+  const classFindings = options?.classFindings ?? [];
+  if (classFindings.length > 0) {
+    console.log();
+    console.log(
+      `Class findings: ${classFindings.length} — a class Tailwind builds nothing for, or one setting a font family (declare fonts on direction.policy.fonts)`,
+    );
+    printCapped(
+      classFindings,
+      (f) =>
+        `${f.label} (${f.where}) ${[
+          ...(f.unknown.length > 0 ? [`unknown: ${f.unknown.join(", ")}`] : []),
+          ...(f.fontFamily.length > 0 ? [`font family: ${f.fontFamily.join(", ")}`] : []),
+        ].join("; ")}`,
+      { verbose: options?.verbose },
+    );
   }
 
   if (lastExports.length > 0) {

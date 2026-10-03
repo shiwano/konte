@@ -533,6 +533,27 @@ describe("suggestForStatus", () => {
     expect(actions.some((a) => a.command?.includes("generate reference"))).toBe(true);
     expect(actions.some((a) => a.command?.includes("generate animatic"))).toBe(false);
   });
+
+  it("leads with the class edit, holding back the spend and a review the class refuses", () => {
+    const state = makeState({ "video:shot.01.motion": { variants: {} } });
+    const suggest = (review: boolean) =>
+      suggestForStatus({
+        state,
+        readiness: [readinessFor("video", ["shot.01.motion"])],
+        pendingReviewAddresses: ["video:shot.01.motion"],
+        staleAddresses: ["video:shot.02#composition"],
+        classBlockedStages: [{ stage: "video", where: "video.tsx", review }],
+      });
+
+    const refused = suggest(true);
+    expect(refused[0]?.details).toEqual(["Fix the flagged classes in video.tsx"]);
+    expect(refused.some((a) => a.command?.includes("generate video"))).toBe(false);
+    expect(refused.some((a) => a.command === "konte preview video")).toBe(false);
+
+    const imageOnly = suggest(false);
+    expect(imageOnly.some((a) => a.command?.includes("generate video"))).toBe(false);
+    expect(imageOnly.some((a) => a.command === "konte preview video")).toBe(true);
+  });
 });
 
 describe("formatSuggestedActions", () => {

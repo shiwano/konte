@@ -41,7 +41,7 @@ import type { AnimaticSetupState } from "../core/direction-check.js";
 import { assertPinGate, type PinCheckSubject } from "../core/pin-check.js";
 import { assertNarrationStemsPlaced } from "../core/narration-stem.js";
 import { assertPromptGate, type PromptCheckSubject } from "../core/prompt-check.js";
-import { assertTailwindClasses } from "../core/tailwind-classes.js";
+import { assertTailwindClasses, type ClassSubject } from "../core/tailwind-classes.js";
 import { assertPrerequisitesMet, findUnmetPrerequisites } from "../core/review-prerequisites.js";
 import {
   loadAnimatic,
@@ -53,9 +53,10 @@ import {
 import type {
   ReferenceDefinition,
   AnimaticDefinition,
+  StageDefinition,
   VideoDefinition,
 } from "../core/types/index.js";
-import { harvestShotPictureCues } from "../core/composition-builder.js";
+import { compositionClassSubjects, harvestShotPictureCues } from "../core/composition-builder.js";
 import { STAGE_ENTRY_FILE, stageEntryPath } from "../core/roots.js";
 
 // The direction (direction.ts). Absent file => null; an existing but invalid file throws.
@@ -118,9 +119,10 @@ export async function gateDirectionForStage(opts: {
 
 // The stage-file gates, run beside the direction gate at every spend: a `"prompt"` input still
 // naming an exclusion aborts with PROMPT_CHECK_FAILED, a `pin` input wired to something that is not
-// a frame with PIN_CHECK_FAILED, a `jsxImage` class Tailwind cannot build with
-// COMPOSITION_CLASS_INVALID. Stage-scoped like the direction gate — an untouched stage never blocks
-// a spend on this one. A finding points the author at the stage's entry file.
+// a frame with PIN_CHECK_FAILED, a class Tailwind cannot build — in a `jsxImage`, a shot's
+// composition or the overlay — with COMPOSITION_CLASS_INVALID. Stage-scoped like the direction
+// gate — an untouched stage never blocks a spend on this one. A finding points the author at the
+// stage's entry file.
 export async function gateStageChecks(
   definition: PromptCheckSubject & PinCheckSubject & DefinitionLike,
   stage: Stage,
@@ -129,14 +131,25 @@ export async function gateStageChecks(
   assertPromptGate(definition, where);
   assertPinGate(definition, where);
   if (stage === "direction") return;
-  await assertTailwindClasses(
-    listAssetPaths(definition, stage).flatMap((address) => {
-      const entry = getAssetEntryByAddress(definition, address);
-      return entry.kind === "local" && entry.operation === "render"
-        ? [{ label: address, html: entry.inputs.html as string }]
-        : [];
-    }),
-  );
+  const { images, compositions } = stageClassSubjects(definition, stage);
+  await assertTailwindClasses([...images, ...compositions]);
+}
+
+// The markup the class gate reads on a stage: each `jsxImage`'s, and on a composition stage each
+// developed shot's composition and the overlay — which a review renders too.
+export function stageClassSubjects(
+  definition: DefinitionLike,
+  stage: Exclude<Stage, "direction">,
+): { images: ClassSubject[]; compositions: ClassSubject[] } {
+  const images = listAssetPaths(definition, stage).flatMap((address) => {
+    const entry = getAssetEntryByAddress(definition, address);
+    return entry.kind === "local" && entry.operation === "render"
+      ? [{ label: address, html: entry.inputs.html as string }]
+      : [];
+  });
+  const compositions =
+    stage === "reference" ? [] : compositionClassSubjects(definition as unknown as StageDefinition);
+  return { images, compositions };
 }
 
 // The direction must be reviewed and accepted by a human (in `konte preview direction`) before any

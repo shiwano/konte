@@ -203,8 +203,8 @@ function suggestCompositionReReview(
 }
 
 // Stale compositions route to a per-scope re-review; the rest to whichever command actually
-// replaces the take. A re-review is never gated, but `reroll`/`generate` are — so a blocked stage
-// keeps the preview and drops the rest rather than naming a command that would abort.
+// replaces the take. `reroll`/`generate` are gated by the spend gates, a re-review only by a class
+// its compositions carry — a blocked stage drops what would abort.
 //
 // Every address here carries an ACCEPTED stale variant (collectStaleVariants returns no other), and
 // `generate` skips an accepted asset even when stale (`assetSkipReason`'s "accepted-stale"), so
@@ -215,12 +215,13 @@ function suggestStaleRefresh(
   staleAddresses: string[],
   deterministicStaleAddresses: string[],
   spendBlocked: (address: string) => boolean,
+  reviewBlocked: (address: string) => boolean,
   isLeaf: (address: string) => boolean,
 ): void {
   // Only an address a command can name. Every real stage is, so this catches nothing but an
   // address that will not parse.
   const refreshable = staleAddresses.filter((addr) => stageScope(addr) !== null);
-  const compositions = refreshable.filter(isLeaf);
+  const compositions = refreshable.filter(isLeaf).filter((addr) => !reviewBlocked(addr));
   const assets = refreshable.filter((addr) => !isLeaf(addr)).filter((addr) => !spendBlocked(addr));
 
   suggestCompositionReReview(actions, compositions);
@@ -576,6 +577,11 @@ interface SuggestStatusInput {
   upstreamReviewBlockedStages?: readonly string[];
   /** Stages whose spend the prompt gate would refuse, each with the file holding its prompts. */
   promptBlockedStages?: readonly { stage: string; where: string }[];
+  /**
+   * Stages whose spend the class gate would refuse, each with the file holding the markup; `review`
+   * when a composition's class also refuses `konte preview <stage>`.
+   */
+  classBlockedStages?: readonly { stage: string; where: string; review: boolean }[];
   /** Targets holding output whose review prerequisites are not written yet. */
   unmetPrerequisites?: readonly UnmetPrerequisite[];
   /** Shots whose animatic narration the stem's clamp cuts (see `findAnimaticOverflows`). */
@@ -618,10 +624,14 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   // The prompt gate is per stage and reaches the reference stage too — its prompts are spent on by
   // `generate reference`, which the direction gate never touches.
   const promptBlocked = new Set((input.promptBlockedStages ?? []).map((p) => p.stage));
+  const classBlocked = input.classBlockedStages ?? [];
+  const classBlockedStages = new Set(classBlocked.map((c) => c.stage));
+  const reviewClassBlocked = new Set(classBlocked.filter((c) => c.review).map((c) => c.stage));
   const stageBlocked = (s: string) =>
     (gated && s !== "reference") ||
     upstreamBlocked.has(s) ||
     promptBlocked.has(s) ||
+    classBlockedStages.has(s) ||
     (s === "video" && videoCastBlocked);
   const addressBlocked = (addr: string) => stageBlocked(getStage(addr));
 
@@ -636,7 +646,7 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   for (const scope of distinctScopes(pendingAddresses)) {
     // `konte preview <stage>` aborts while that stage has an unmet prerequisite, and suggesting a
     // command that would abort is worse than suggesting nothing — the edit note stands in for it.
-    if (prerequisiteBlocked.has(scope)) continue;
+    if (prerequisiteBlocked.has(scope) || reviewClassBlocked.has(scope)) continue;
     actions.push({ command: `konte preview ${scope}` });
   }
 
@@ -654,6 +664,7 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
     [...(input.staleAddresses ?? [])],
     [...(input.deterministicStaleAddresses ?? [])],
     addressBlocked,
+    (addr) => reviewClassBlocked.has(getStage(addr)),
     isMaterializedLeafAddress,
   );
 
@@ -692,7 +703,21 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   if (input.songUnread) actions.unshift({ command: "konte song analyze" });
   prependDirectionFindings(actions, input.directionBlock, input.directionEmpty);
   prependPromptFindings(actions, input.promptBlockedStages ?? []);
+  prependClassFindings(actions, classBlocked);
   return dedupeCommands(actions);
+}
+
+function prependClassFindings(
+  actions: SuggestedAction[],
+  blocked: readonly { stage: string; where: string }[],
+): void {
+  if (blocked.length === 0) return;
+  const files = [...new Set(blocked.map((b) => b.where))].join(", ");
+  actions.unshift({
+    command: null,
+    label: "edit",
+    details: [`Fix the flagged classes in ${files}`],
+  });
 }
 
 // Above the direction block. The file named is where both the rewrite and the waiver go.

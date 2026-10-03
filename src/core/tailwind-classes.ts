@@ -21,7 +21,7 @@ export interface ClassSubject {
   html: string;
 }
 
-interface ClassFindings {
+export interface ClassFindings {
   label: string;
   unknown: string[];
   fontFamily: string[];
@@ -72,13 +72,22 @@ function formatFindings(
     .join("\n");
 }
 
-// Abort with COMPOSITION_CLASS_INVALID when rendered markup carries a class Tailwind generates
-// nothing for, or one that sets a font family the export cannot embed.
-export async function assertTailwindClasses(subjects: readonly ClassSubject[]): Promise<void> {
-  if (subjects.length === 0) return;
+// The subjects carrying a class Tailwind generates nothing for, or one that sets a font family the
+// export cannot embed.
+export async function checkTailwindClasses(
+  subjects: readonly ClassSubject[],
+): Promise<ClassFindings[]> {
+  if (subjects.length === 0) return [];
   designSystem ??= __unstable__loadDesignSystem(tailwindCss);
   const system = await designSystem;
-  const findings = subjects.map((s) => findClassProblems(s, system));
+  return subjects
+    .map((s) => findClassProblems(s, system))
+    .filter((f) => f.unknown.length > 0 || f.fontFamily.length > 0);
+}
+
+// Abort with COMPOSITION_CLASS_INVALID on any finding of checkTailwindClasses.
+export async function assertTailwindClasses(subjects: readonly ClassSubject[]): Promise<void> {
+  const findings = await checkTailwindClasses(subjects);
 
   const blocks: string[] = [];
   if (findings.some((f) => f.unknown.length > 0)) {

@@ -17,7 +17,7 @@ import {
 } from "../dsl/index.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { buildRenderPlan } from "../render-plan.js";
-import { buildShotCompositionHtml } from "../composition-builder.js";
+import { buildShotCompositionHtml, compositionClassSubjects } from "../composition-builder.js";
 import { commentSubjectAddresses } from "../feedback/subject.js";
 import { computeExportSignature } from "../export-signature.js";
 import { buildDependencyGraph, collectRerollCascade } from "../graph.js";
@@ -25,6 +25,7 @@ import { computeDependencyLevels } from "../dependency-levels.js";
 import { withSongTakes } from "../dsl/song-context.js";
 import { injectOverlay, shiftTimedElements } from "../overlay-render.js";
 import { StateManager } from "../state/index.js";
+import { checkTailwindClasses } from "../tailwind-classes.js";
 import { directionDefaults } from "./helpers/direction.js";
 
 const clocked = () =>
@@ -387,5 +388,41 @@ describe("the overlay as a leaf", () => {
     expect(laid).toContain(`data-composition-id="shot-timeline.overlay"`);
     expect(laid).toContain(`data-media-start="2"`);
     expect((await build(false)).html).not.toContain("Hello");
+  });
+});
+
+describe("the overlay's classes", () => {
+  it("are read beside each shot's from the definition alone", async () => {
+    const video = defineVideo(
+      defineDirection({
+        ...directionDefaults,
+        sequence: {
+          lens: "mini-drama",
+          pleasure: "cute",
+          shots: [
+            { id: "01", role: "ordinary", action: "a", setup: "front", duration: 2, lineup: [] },
+          ],
+        },
+      }),
+      {
+        timeline: ({ shot }) => ({
+          shots: shot("01", () => (
+            <Composition>
+              <div className="text-whit" />
+            </Composition>
+          )),
+          overlay: () => (
+            <Composition>
+              <Subtitle entries={[{ text: "Hi", start: 0, end: 1 }]} className="font-['Cinzel']" />
+            </Composition>
+          ),
+        }),
+      },
+    );
+    const findings = await checkTailwindClasses(compositionClassSubjects(video));
+    expect(findings).toEqual([
+      { label: "video:shot.01#composition", unknown: ["text-whit"], fontFamily: [] },
+      { label: "video:timeline#overlay", unknown: [], fontFamily: ["font-['Cinzel']"] },
+    ]);
   });
 });
