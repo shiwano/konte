@@ -407,6 +407,10 @@ function pageBase(videoRoot: string, cacheKey: string, page: number): string {
   return path.join(contactSheetDir(videoRoot), `${cacheKey}-p${String(page).padStart(2, "0")}`);
 }
 
+function pageFilePattern(cacheKey: string): RegExp {
+  return new RegExp(`^${cacheKey}-p(\\d+)(?:-[0-9a-f]+)?\\.(jpg|json)$`);
+}
+
 /**
  * Drop pages left by an earlier, longer run under the same key — a scope that shrinks from three
  * sheets to one would otherwise strand the other two, which is exactly the accumulation the
@@ -423,9 +427,27 @@ export async function pruneContactSheetPages(
   } catch {
     return;
   }
+  const pattern = pageFilePattern(cacheKey);
   for (const entry of entries) {
-    const match = entry.match(new RegExp(`^${cacheKey}-p(\\d+)\\.(jpg|json)$`));
+    const match = entry.match(pattern);
     if (match && Number(match[1]) > keptPages) {
+      await fs.rm(path.join(contactSheetDir(videoRoot), entry), { force: true }).catch(() => {});
+    }
+  }
+}
+
+/** Drop the images a page showed before `kept`, so a page owns one image however often it re-renders. */
+async function pruneSupersededImages(
+  videoRoot: string,
+  cacheKey: string,
+  page: number,
+  kept: string,
+): Promise<void> {
+  const entries = await fs.readdir(contactSheetDir(videoRoot)).catch(() => [] as string[]);
+  const pattern = pageFilePattern(cacheKey);
+  for (const entry of entries) {
+    const match = entry.match(pattern);
+    if (match && Number(match[1]) === page && match[2] === "jpg" && entry !== kept) {
       await fs.rm(path.join(contactSheetDir(videoRoot), entry), { force: true }).catch(() => {});
     }
   }
@@ -434,10 +456,11 @@ export async function pruneContactSheetPages(
 /**
  * Render one labelled sheet from `cells` and return its path.
  *
- * The output path is keyed on `cacheKey` (the caller's arguments) rather than on content, and a
- * sidecar records what was rendered: an unchanged call returns the cached sheet, a changed one
- * overwrites in place. So a given invocation owns one file per page however often it is re-run —
- * a sheet spans many variants and no variant-scoped `clean` could reclaim per-content copies.
+ * A page is keyed on `cacheKey` (the caller's arguments), and its image name also carries the
+ * image's digest: an unchanged call returns the cached sheet at the same path, a changed one
+ * writes a new path and drops the old image. So a given invocation owns one image per page however
+ * often it is re-run — a sheet spans many variants and no variant-scoped `clean` could reclaim
+ * per-content copies.
  *
  * Both files are written atomically, and the sidecar carries the digest of the image it describes.
  * Two runs sharing a key can still interleave their renames, so a cache hit is only honored when
@@ -462,7 +485,6 @@ export async function renderContactSheet(opts: {
   const layout = planContactSheetLayout(maxCells, cells.length, { groupSize, aspect });
 
   const base = pageBase(videoRoot, cacheKey, page);
-  const outFile = `${base}.jpg`;
   const sidecarFile = `${base}.json`;
 
   const fingerprint = createHash("sha256")
@@ -478,10 +500,12 @@ export async function renderContactSheet(opts: {
     }),
   );
 
-  if (!force && existsSync(outFile) && existsSync(sidecarFile)) {
+  if (!force && existsSync(sidecarFile)) {
     try {
       const cached = JSON.parse(await fs.readFile(sidecarFile, "utf-8"));
+      const outFile = path.join(contactSheetDir(videoRoot), String(cached.image));
       if (
+        typeof cached.image === "string" &&
         cached.fingerprint === fingerprint &&
         JSON.stringify(cached.sources) === JSON.stringify(sources) &&
         cached.outputSha ===
@@ -553,11 +577,14 @@ export async function renderContactSheet(opts: {
 
     const bytes = await fs.readFile(tiled);
     const outputSha = createHash("sha256").update(bytes).digest("hex");
+    const image = `${path.basename(base)}-${outputSha.slice(0, 12)}.jpg`;
+    const outFile = path.join(contactSheetDir(videoRoot), image);
     await writeFileAtomic(outFile, bytes);
     await writeFileAtomic(
       sidecarFile,
-      JSON.stringify({ fingerprint, sources, labelled, outputSha }),
+      JSON.stringify({ fingerprint, sources, labelled, outputSha, image }),
     );
+    await pruneSupersededImages(videoRoot, cacheKey, page, image);
     return { path: outFile, layout, labelled, reused: false };
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });

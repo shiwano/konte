@@ -162,6 +162,21 @@ export default defineVideo(direction, {
     expect(again.stderr).toContain("1 of 1 sheet(s) unchanged since the last run");
   });
 
+  it("names a re-rendered sheet anew and drops the one it replaces", async () => {
+    const projectDir = await initAndGenerate();
+    await unaccept(projectDir, "reference:plateA");
+    const first = await run(["probe", "contact-sheet", "--needs-review", "reference"], projectDir);
+    const firstSheet = first.stdout.trim();
+
+    await unaccept(projectDir, "reference:studio");
+    const second = await run(["probe", "contact-sheet", "--needs-review", "reference"], projectDir);
+    const secondSheet = second.stdout.trim();
+
+    expect(secondSheet).not.toBe(firstSheet);
+    expect(existsSync(secondSheet)).toBe(true);
+    expect(existsSync(firstSheet)).toBe(false);
+  });
+
   it("samples a clip take into --frames-per-take cells", async () => {
     const projectDir = await initAndGenerate();
     await unaccept(projectDir, "reference:clip");

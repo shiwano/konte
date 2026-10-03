@@ -40,8 +40,12 @@ describe("review record show --contact-sheet", () => {
     const { stdout } = await run(["review", "record", "show", "--contact-sheet"], projectDir);
 
     expect(stdout).toContain("Contact sheet (13 frames, 2 sheets):");
-    expect(stdout).toMatch(/p01\.jpg\s+fb-00 shot\.01 \+1\.0s \.\. fb-11 shot\.01 \+12\.0s/);
-    expect(stdout).toMatch(/p02\.jpg\s+fb-12 shot\.01 \+13\.0s \.\. fb-12 shot\.01 \+13\.0s/);
+    expect(stdout).toMatch(
+      /p01-[0-9a-f]{12}\.jpg\s+fb-00 shot\.01 \+1\.0s \.\. fb-11 shot\.01 \+12\.0s/,
+    );
+    expect(stdout).toMatch(
+      /p02-[0-9a-f]{12}\.jpg\s+fb-12 shot\.01 \+13\.0s \.\. fb-12 shot\.01 \+13\.0s/,
+    );
   });
 
   it("collapses the same review onto one sheet when --max-cells allows it", async () => {
@@ -60,7 +64,7 @@ describe("review record show --contact-sheet", () => {
     return (await fs.readdir(dir).catch(() => [])).filter((f) => f.endsWith(".jpg")).sort();
   }
 
-  it("re-renders its own sheets in place when a note stops having a frame", async () => {
+  it("replaces its own sheet when a note stops having a frame", async () => {
     await useSubtitleFreeProject();
     await saveReviewRecord(
       projectDir,
@@ -82,8 +86,10 @@ describe("review record show --contact-sheet", () => {
 
     const { stdout } = await run(["review", "record", "show", "--contact-sheet"], projectDir);
 
-    // Same key, so the sheet showing the dropped frame is overwritten, never left beside a new one.
-    expect(await sheetFiles()).toEqual(first);
+    // A new picture takes a new path, and the sheet showing the dropped frame is not left beside it.
+    const second = await sheetFiles();
+    expect(second).toHaveLength(1);
+    expect(second).not.toEqual(first);
     expect(stdout).toContain("Contact sheet (2 frames):");
   });
 
