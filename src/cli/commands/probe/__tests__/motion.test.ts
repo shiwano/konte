@@ -162,4 +162,27 @@ describe("probe motion stdout/stderr contract", () => {
     expect(renderMotionStrip).not.toHaveBeenCalled();
     expect(stdout).toContain("not a video");
   });
+
+  it("a sweep across several shots points to contact-sheet for the side-by-side read", async () => {
+    loadMotionWaveform
+      .mockResolvedValueOnce(fakeWaveform({ variantId: "v-a", address: "video:shot.01.motion" }))
+      .mockResolvedValueOnce(fakeWaveform({ variantId: "v-b", address: "video:shot.02.motion" }))
+      .mockResolvedValueOnce(fakeWaveform({ variantId: "v-c", address: "animatic:shot.03.first" }));
+
+    const { stdout } = await runMotion(["v-a", "v-b", "v-c"]);
+
+    expect(stdout).toContain(
+      "Next steps:\n  konte probe contact-sheet video animatic:shot.03 --frames-per-shot 6",
+    );
+  });
+
+  it("a sweep within one shot has no Next steps", async () => {
+    loadMotionWaveform
+      .mockResolvedValueOnce(fakeWaveform({ variantId: "v-a", address: "video:shot.01.motion" }))
+      .mockResolvedValueOnce(fakeWaveform({ variantId: "v-b", address: "video:shot.01.motion" }));
+
+    const { stdout } = await runMotion(["v-a", "v-b"]);
+
+    expect(stdout).not.toContain("Next steps");
+  });
 });

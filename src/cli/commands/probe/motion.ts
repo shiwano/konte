@@ -2,7 +2,12 @@ import * as path from "node:path";
 import type { Command } from "commander";
 import { KonteError } from "../../../core/errors.js";
 import { ensureFfmpeg } from "../../../core/ffmpeg.js";
-import { isCompositionAddress, parseAddress } from "../../../core/address.js";
+import {
+  formatShotAddress,
+  isCompositionAddress,
+  parseAddress,
+  type ShotStage,
+} from "../../../core/address.js";
 import {
   loadMotionWaveform,
   type MotionWaveform,
@@ -91,7 +96,8 @@ are skipped) and prints one strip path per clip, so one command replaces looping
 motion; a patch chain's steps are swept only by a patch scope (<stage>:patch…). Several of any of
 those can be passed at once — they are probed in argument order, each variant once. In sweep mode
 each strip is preceded by a "# <address>" header line; the single-target form still prints only the
-strip path.
+strip path. A sweep spanning several shots ends with a Next steps line: those shots side by side on
+one sheet is probe contact-sheet.
 
 A composition address (<stage>:shot.<id>#composition) draws that shot as its live definition
 renders it, clips included — the read for an <Animate> move's speed, easing and continuity, which a
@@ -146,6 +152,15 @@ Examples:
 
       const motionIntent = createMotionIntentLoader(videoRoot, manager);
 
+      const sweptShots = new Map<ShotStage, Set<string>>();
+      const noteShot = (address: string): void => {
+        const parsed = parseAddress(address);
+        if (parsed.stage === "reference" || parsed.kind !== "shot") return;
+        const shots = sweptShots.get(parsed.stage) ?? new Set<string>();
+        shots.add(parsed.shotId);
+        sweptShots.set(parsed.stage, shots);
+      };
+
       const probeComposition = async (address: string): Promise<void> => {
         const parsed = parseAddress(address);
         if (parsed.stage === "reference" || parsed.kind !== "shot") return;
@@ -165,6 +180,7 @@ Examples:
         });
         if (multi) console.log(`# ${address}`);
         console.log(strip.path);
+        noteShot(address);
         if (opts.verbose) {
           console.error(
             `${address}   [live composition]   ${windowed ? "windowed" : "full-shot"} ${
@@ -215,6 +231,7 @@ Examples:
         // paths stay attributable; the single-target form keeps the bare-path contract.
         if (multi) console.log(`# ${wf.address}   ${wf.variantId}`);
         console.log(strip.path);
+        noteShot(wf.address);
 
         const dur = wf.durationSec;
         // A `low_motion` reading is a failure only where movement was asked for. Fetched for a warning
@@ -275,6 +292,18 @@ Examples:
         if (multi && i > 0) console.log("");
         if ("composition" in item) await probeComposition(item.composition);
         else await probeVariant(item.variantId);
+      }
+
+      // One strip per clip shows each move; comparing the clips against each other is a sheet's job.
+      const shotCount = [...sweptShots.values()].reduce((n, shots) => n + shots.size, 0);
+      if (shotCount > 1) {
+        const scopes = [...sweptShots].map(([stage, shots]) =>
+          shots.size === 1 ? formatShotAddress(stage, [...shots][0]!) : stage,
+        );
+        console.log("\nNext steps:");
+        console.log(
+          `  konte probe contact-sheet ${scopes.join(" ")} --frames-per-shot 6   Compare the shots side by side on one sheet`,
+        );
       }
     });
 }
