@@ -51,6 +51,7 @@ import {
   computeVariantStaleness,
   formatStaleCause,
   formatStaleReason,
+  type PatchHashes,
   resolvedStaleness,
   type StaleVariant,
   type StalenessCache,
@@ -246,10 +247,25 @@ function assetDefHash(assetDef: AssetDefinition): string | null {
   return assetDef.kind === "file" ? null : computeDefinitionHash(assetDef);
 }
 
-function formatStaleLine(stale: StaleVariant | null): string {
+function formatStaleLine(
+  state: KonteState,
+  address: string,
+  stale: StaleVariant | null,
+  currentDefinitionHash: string | null,
+  patchHashes?: PatchHashes,
+  cache?: StalenessCache,
+): string {
   if (!stale) return "-";
   const cause = formatStaleCause(stale);
-  return cause ? `yes — ${stale.variantId} (${cause})` : "no";
+  const verdict = cause ? `yes — ${stale.variantId} (${cause})` : `no — ${stale.variantId}`;
+  const accepted = Object.entries(state.assets[address]?.variants ?? {}).find(
+    ([, v]) => v.status === "accepted",
+  );
+  if (!accepted || accepted[0] === stale.variantId) return verdict;
+  const acceptedCause = formatStaleCause(
+    computeVariantStaleness(state, address, accepted[1], currentDefinitionHash, patchHashes, cache),
+  );
+  return `${verdict}; resolves in place of the accepted ${accepted[0]} (${acceptedCause})`;
 }
 
 function formatAssetSummary(
@@ -317,7 +333,10 @@ async function inspectComposition(videoRoot: string, address: string): Promise<v
 
   if (variantEntries.length > 0) {
     console.log(`Accepted: ${getAcceptedVariant(assetState) ?? "-"}`);
-    console.log(`Stale: ${formatStaleLine(stale)}`);
+    const staleLine = state
+      ? formatStaleLine(state, address, stale, defHash, undefined, cache)
+      : "-";
+    console.log(`Stale: ${staleLine}`);
     console.log("Variants:");
     for (const [vid, v] of variantEntries) {
       const s = state
@@ -458,7 +477,9 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
     }
     const state = manager!.getState();
     const stale = resolvedStaleness(state, address, currentDefHash, patchHashes, cache);
-    console.log(`Stale: ${formatStaleLine(stale)}`);
+    console.log(
+      `Stale: ${formatStaleLine(state, address, stale, currentDefHash, patchHashes, cache)}`,
+    );
     const allVariants: Array<[string, VariantState]> = [];
     for (const [vid, v] of Object.entries(assetState.variants ?? {})) {
       allVariants.push([vid, v]);

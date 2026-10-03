@@ -713,6 +713,39 @@ describe("inspect command (why-stale)", () => {
     expect(stdout).toContain(`${old}: dismissed (definition-stale)`);
   });
 
+  it("names the take that resolves in place of a stale deterministic accept", async () => {
+    const refDir = (await initWorkspace(path.join(ctx.dir, "deterministicproj"))).video;
+    await fs.writeFile(
+      path.join(refDir, "reference.tsx"),
+      `import { defineReference, asset, adapters } from "konte";
+// @ts-expect-error konte's fixture adapter is runtime-only, outside the workspace's generated types.
+import { internalTestPlate } from "konte";
+import direction from "./direction";
+
+export default defineReference(direction, () => {
+  const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
+  const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
+  const latent = asset("latent", internalTestPlate, { width: 64, height: 64, color: "#ffffff" });
+  return { character, bgm, latent };
+});
+`,
+    );
+    const latentAddr = "reference:latent";
+    const sm = await StateManager.load(refDir);
+    const acc = sm.reserveVariantId(latentAddr);
+    sm.getAssetState(latentAddr).variants![acc]!.file = "/tmp/old.png";
+    sm.getAssetState(latentAddr).variants![acc]!.definitionHash = "hash-before-the-edit";
+    sm.setAccepted(latentAddr, acc);
+    const fresh = sm.reserveVariantId(latentAddr);
+    sm.getAssetState(latentAddr).variants![fresh]!.file = "/tmp/new.png";
+    await sm.save();
+
+    const { stdout } = await run(["inspect", latentAddr], refDir);
+    expect(stdout).toContain(
+      `Stale: no — ${fresh}; resolves in place of the accepted ${acc} (definition-stale)`,
+    );
+  });
+
   it("surfaces input-stale at shot scope", async () => {
     await setupInputStale();
     const { stdout } = await run(["inspect", "video:shot.01"], projectDir);
