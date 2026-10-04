@@ -254,6 +254,13 @@ describe("laying the overlay over a shot", () => {
     );
   });
 
+  it("pushes a layer ending at the shot's start out of the window despite float drift", () => {
+    const html = `<div data-start="53.541666666666664" data-duration="10.708333333333336"></div>`;
+    expect(shiftTimedElements(html, 64.24999999999999, 1.1666666666666667)).toBe(
+      `<div data-start="2.166667" data-duration="0.001"></div>`,
+    );
+  });
+
   it("hosts the overlay inside the shot's stage and carries the clock it missed", () => {
     const shot = `<html><body><div id="stage"><div class="shot"></div></div></body></html>`;
     const out = injectOverlay(shot, { body: "<p>x</p>", shotStart: 3, shotDuration: 2 });

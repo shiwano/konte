@@ -48,16 +48,17 @@ export function shiftTimedElements(html: string, by: number, windowEnd: number):
     const start = /\sdata-start="([^"]*)"/.exec(attrs as string);
     if (!start) return tag;
     const duration = /\sdata-duration="([^"]*)"/.exec(attrs as string);
-    const from = Number(start[1]) - by;
+    const from = round(Number(start[1]) - by);
     const length = duration ? Number(duration[1]) : Infinity;
+    const end = round(from + length);
     let nextStart = from;
     let nextDuration = length;
-    if (from + length <= 0) {
+    if (end <= 0) {
       nextStart = windowEnd + 1;
       nextDuration = 0.001;
     } else if (from < 0) {
       nextStart = 0;
-      nextDuration = from + length;
+      nextDuration = end;
     }
     let out = tag.replace(/\sdata-start="[^"]*"/, ` data-start="${round(nextStart)}"`);
     if (duration && Number.isFinite(nextDuration)) {
