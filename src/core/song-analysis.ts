@@ -97,6 +97,5 @@ export async function analyzeSongTake(opts: {
     sectionSecs: beat.sectionSecs,
     phrases,
     heard,
-    analyzedAt: new Date().toISOString(),
   };
 }

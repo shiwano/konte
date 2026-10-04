@@ -253,7 +253,7 @@ describe("song analysis", () => {
       ranAnalysis: true,
     });
     expect(await song()).toMatchObject({ downbeatSet: 0.75, lines });
-    expect((await song())!.reading).not.toBe(before);
+    expect((await song())!.reading).toBe(before);
   });
 
   it("takes over a run whose holder died once its lease lapses", async () => {

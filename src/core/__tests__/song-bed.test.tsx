@@ -62,7 +62,6 @@ const songTake = () => ({
     sectionSecs: [],
     phrases: null,
     heard: null,
-    analyzedAt: "2026-09-30T00:00:00.000Z",
     clock: { bpm: 120, beatsPerBar: 4 },
     lang: "en",
   },

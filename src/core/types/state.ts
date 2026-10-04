@@ -81,7 +81,6 @@ export const SongReadingSchema = z.object({
   sectionSecs: z.array(z.number()),
   phrases: z.array(z.object({ startSec: z.number(), endSec: z.number() })).nullable(),
   heard: z.array(HeardTokenSchema).nullable(),
-  analyzedAt: z.string(),
 });
 
 export type SongReading = z.infer<typeof SongReadingSchema>;
