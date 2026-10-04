@@ -40,6 +40,8 @@ import {
   timelineStemRefs,
   removedShotStemAddresses,
   leafReadyForReview,
+  leafSignedOff,
+  materializedLeafReviewStatus,
   unresolvedLeafRefs,
   type UnresolvedLeafRef,
   materializeCompositionVariant,
@@ -61,11 +63,7 @@ import {
 } from "../../../core/preview-preroll.js";
 import { shotAcceptTargets, shotNeedsVerdict } from "../../../core/shot-accept-targets.js";
 import { Semaphore } from "../../../core/semaphore.js";
-import {
-  computeAcceptedStaleness,
-  formatStaleCause,
-  isAcceptedStale,
-} from "../../../core/staleness.js";
+import { computeAcceptedStaleness, formatStaleCause } from "../../../core/staleness.js";
 import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
 import { parsePlaceholder } from "../../../core/dsl/shot-context.js";
 import { KonteError, errorMessage } from "../../../core/errors.js";
@@ -122,22 +120,6 @@ import { buildKeepGraph } from "./keep-graph.js";
 // ffmpeg mixes run per accepted shot; a whole-reel Accept all must not spawn one per shot at once.
 const STEM_MIX_CONCURRENCY = 4;
 
-// The review status of a materialized leaf (composition / stem): its accepted variant (null when
-// none) and whether it needs review. An UNaccepted leaf needs review — it was never signed off in
-// context — as does a stale accepted one. Shared by the shot-composition, shot-stem and
-// timeline-stem status so "never accepted" and "accepted-then-stale" are treated alike.
-export function materializedLeafReviewStatus(
-  manager: StateManager,
-  address: string,
-  defHash: string | null,
-): { variantId: string | null; needsReview: boolean } {
-  const variantId = manager.getAcceptedVariant(address);
-  return {
-    variantId,
-    needsReview: variantId === null || isAcceptedStale(manager, address, defHash),
-  };
-}
-
 /**
  * Which leaves of one shot accept did NOT land — read back from state after the accept blocks ran,
  * asked as `materializedLeafReviewStatus`: the review page's own "does this still need reviewing?".
@@ -167,7 +149,7 @@ export function unlandedShotLeaves(
   shot: { shotId: string; pending: boolean; shotFn: unknown },
 ): Array<{ address: string; what: string }> {
   return shotAcceptTargets(manager, video, shot).leaves.filter(
-    ({ address }) => !leafLanded(manager, video, address),
+    ({ address }) => !leafSignedOff(manager, video, address),
   );
 }
 
@@ -176,7 +158,7 @@ export function unlandedShotLeaves(
  * back, and the command that clears it. Reported instead of "check that every asset it references
  * resolves", which named nothing and sent the reader to `status -v` to find out what.
  *
- * Both halves of `leafLanded` are covered, because they send the reader to different places: refs
+ * Both halves of `leafSignedOff` are covered, because they send the reader to different places: refs
  * that stopped resolving are upstream work, while a leaf whose accepted take aged out is one
  * re-accept here.
  *
@@ -279,7 +261,7 @@ export function timelineStemVerdict(
   const address = formatTimelineStemAddress(video.stage);
   const settled =
     decision === "accepted"
-      ? leafLanded(manager, video, address)
+      ? leafSignedOff(manager, video, address)
       : manager.getAcceptedVariant(address) === null;
   if (settled) return { landed: decision, skipped: null };
   return {
@@ -310,7 +292,7 @@ export function overlayVerdict(
   const address = formatTimelineOverlayAddress(video.stage);
   const settled =
     decision === "accepted"
-      ? leafLanded(manager, video, address)
+      ? leafSignedOff(manager, video, address)
       : manager.getAcceptedVariant(address) === null;
   if (settled) return { landed: decision, skipped: null };
   return {
@@ -323,14 +305,6 @@ export function overlayVerdict(
           : "the overlay is still accepted — the release did not take",
     },
   };
-}
-
-// Whether a materialized leaf is signed off as of right now — see unlandedShotLeaves for why both
-// halves are required. Shared with the timeline stem's own read-back.
-function leafLanded(manager: StateManager, video: StageDefinition, address: string): boolean {
-  if (!leafReadyForReview(manager, video, address)) return false;
-  return !materializedLeafReviewStatus(manager, address, definitionHashForAddress(video, address))
-    .needsReview;
 }
 
 // Accept the audio-source takes the reviewer saw (from the `displayed` snapshot) before a stem is

@@ -6,6 +6,7 @@ import {
   commitShotStem,
   definitionHashForAddress,
   materializedLeafContentHash,
+  materializedLeafReviewStatus,
   prepareShotStem,
 } from "../../../../core/composition-resource.js";
 import { writeSilentWav } from "../../../../core/__tests__/helpers/wav.js";
@@ -16,7 +17,6 @@ import type { VideoDefinition } from "../../../../core/types/index.js";
 import {
   acceptDisplayedStemSources,
   buildAudioAssets,
-  materializedLeafReviewStatus,
   overlayVerdict,
   timelineStemVerdict,
   unlandedLeafReason,
@@ -557,7 +557,7 @@ describe("unlandedShotLeaves", () => {
       );
     });
 
-    // The other half of `leafLanded`, and a different place to send the reader: nothing upstream is
+    // The other half of `leafSignedOff`, and a different place to send the reader: nothing upstream is
     // missing, the leaf's own leftover accept aged out.
     it("points at the leaf's own re-accept when its refs all resolve", () => {
       readyRefs();

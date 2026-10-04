@@ -1,6 +1,12 @@
 import * as path from "node:path";
 import type { Command } from "commander";
-import { parseStageScope } from "../../core/address.js";
+import {
+  listCompositionAddresses,
+  listOverlayAddresses,
+  listStemAddresses,
+  parseStageScope,
+} from "../../core/address.js";
+import { leafSignedOff } from "../../core/composition-resource.js";
 import { deliveryUpscalerMissing } from "../../core/delivery.js";
 import { KonteError } from "../../core/errors.js";
 import { computeExportPlanDigest } from "../../core/export-signature.js";
@@ -102,11 +108,19 @@ async function registerVideoExport(opts: {
   // Refuse to export a half-baked video by default — the upscale/render only runs on
   // ready source layers, so block here unless --allow-unaccepted. Out-of-shot refs are held to the
   // same bar: an animatic panel the video composites is as load-bearing as one of its own assets.
+  // A composition, stem or overlay renders from the live definition, so it is held to its accept at
+  // that definition.
+  const unsignedLeaves = [
+    ...listCompositionAddresses(video),
+    ...listStemAddresses(video),
+    ...listOverlayAddresses(video),
+  ].filter((address) => !leafSignedOff(manager, video, address));
   const unaccepted = [
     ...new Set([
       ...plan.unacceptedTimelineAssets,
       ...plan.shots.flatMap((s) => s.unacceptedAssets),
       ...plan.shots.flatMap((s) => s.unacceptedRefs),
+      ...unsignedLeaves,
     ]),
   ];
   if (unaccepted.length > 0 && !allowUnaccepted) {

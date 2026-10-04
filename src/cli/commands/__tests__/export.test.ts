@@ -88,6 +88,24 @@ export default defineVideo(direction, {
 });
 `;
 
+// VIDEO_TSX with a title laid over the timeline.
+const VIDEO_WITH_OVERLAY_TSX = VIDEO_TSX.replace(
+  "Composition, Image,",
+  "Composition, Image, Subtitle,",
+).replace(
+  `    }),
+  }),
+});`,
+  `    }),
+    overlay: () => (
+      <Composition>
+        <Subtitle entries={[{ text: "Title", start: 0, end: 1 }]} />
+      </Composition>
+    ),
+  }),
+});`,
+);
+
 // A direction delivering well above its working canvas (1024×576 → 1920×1080), so an upscaler is
 // owed. The delivery size lives here, not on the video.
 const DIRECTION_WITH_DELIVERY_TS = DIRECTION_TS.replace(
@@ -261,6 +279,13 @@ async function seedVariant(
   await manager.save();
 }
 
+// Every take accepted, and the shot's composition signed off at its current definition.
+async function seedAcceptedCut(dir: string): Promise<void> {
+  await seedVariant(dir, "video:shot.01.motion", { accepted: true });
+  await seedVariant(dir, "animatic:shot.01.first", { accepted: true });
+  await run(["accept", "video:shot.01#composition"], dir);
+}
+
 beforeEach(async () => {
   originalCwd = process.cwd();
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-export-test-"));
@@ -301,8 +326,7 @@ describe("export video", () => {
   it("registers an export job for a fully accepted video", async () => {
     projectDir = await initProject({ video: VIDEO_TSX });
     await acceptDirection(projectDir);
-    await seedVariant(projectDir, "video:shot.01.motion", { accepted: true });
-    await seedVariant(projectDir, "animatic:shot.01.first", { accepted: true });
+    await seedAcceptedCut(projectDir);
 
     const { stdout } = await run(["export", "video"], projectDir);
     const exportJobId = stdout.match(/Export job (\S+) registered \(video\)\./)?.[1];
@@ -316,6 +340,47 @@ describe("export video", () => {
       noDelivery: false,
       outputDir: path.join("dist", "video"),
     });
+  });
+
+  it("blocks on a composition never accepted, though every take under it is", async () => {
+    projectDir = await initProject({ video: VIDEO_TSX });
+    await acceptDirection(projectDir);
+    await seedVariant(projectDir, "video:shot.01.motion", { accepted: true });
+    await seedVariant(projectDir, "animatic:shot.01.first", { accepted: true });
+
+    await expect(run(["export", "video"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(/UNACCEPTED_ASSETS.*video:shot\.01#composition/),
+    });
+  });
+
+  it("blocks on a composition edited after its accept", async () => {
+    projectDir = await initProject({ video: VIDEO_TSX });
+    await acceptDirection(projectDir);
+    await seedAcceptedCut(projectDir);
+    // The take was signed off at a definition the shot has since moved off.
+    const manager = await StateManager.load(projectDir);
+    const address = "video:shot.01#composition";
+    const accepted = manager.getAcceptedVariant(address)!;
+    manager.getAssetState(address).variants![accepted]!.definitionHash = "before-edit";
+    await manager.save();
+
+    await expect(run(["export", "video"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(/UNACCEPTED_ASSETS.*video:shot\.01#composition/),
+    });
+  });
+
+  it("blocks on an overlay not accepted, and exports once it is", async () => {
+    projectDir = await initProject({ video: VIDEO_WITH_OVERLAY_TSX });
+    await acceptDirection(projectDir);
+    await seedAcceptedCut(projectDir);
+
+    await expect(run(["export", "video"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(/UNACCEPTED_ASSETS.*video:timeline#overlay/),
+    });
+
+    await run(["accept", "video:timeline#overlay"], projectDir);
+    await run(["export", "video"], projectDir);
+    expect(await new JobManager(projectDir).listJobs()).toHaveLength(1);
   });
 
   it("renders the ready variants of an unaccepted video with --allow-unaccepted", async () => {
@@ -338,8 +403,7 @@ describe("export video", () => {
       video: VIDEO_WITH_PENDING_TSX,
     });
     await acceptDirection(projectDir);
-    await seedVariant(projectDir, "video:shot.01.motion", { accepted: true });
-    await seedVariant(projectDir, "animatic:shot.01.first", { accepted: true });
+    await seedAcceptedCut(projectDir);
 
     for (const args of [
       ["export", "video"],
@@ -396,8 +460,7 @@ describe("export delivery gate", () => {
       video: VIDEO_FROM_DIRECTION_TSX,
     });
     await acceptDirection(projectDir);
-    await seedVariant(projectDir, "video:shot.01.motion", { accepted: true });
-    await seedVariant(projectDir, "animatic:shot.01.first", { accepted: true });
+    await seedAcceptedCut(projectDir);
 
     await expect(run(["export", "video"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("DELIVERY_UPSCALE_REQUIRED"),
@@ -412,8 +475,7 @@ describe("export delivery gate", () => {
       video: VIDEO_FROM_DIRECTION_TSX,
     });
     await acceptDirection(projectDir);
-    await seedVariant(projectDir, "video:shot.01.motion", { accepted: true });
-    await seedVariant(projectDir, "animatic:shot.01.first", { accepted: true });
+    await seedAcceptedCut(projectDir);
 
     const { stdout } = await run(["status"], projectDir);
     expect(stdout).not.toContain("ready to export");
@@ -428,8 +490,7 @@ describe("export delivery gate", () => {
       video: VIDEO_WITH_UPSCALE_TSX,
     });
     await acceptDirection(projectDir);
-    await seedVariant(projectDir, "video:shot.01.motion", { accepted: true });
-    await seedVariant(projectDir, "animatic:shot.01.first", { accepted: true });
+    await seedAcceptedCut(projectDir);
 
     const { stdout } = await run(["status"], projectDir);
     expect(stdout).toContain("ready to export");
@@ -445,8 +506,7 @@ describe("export delivery gate", () => {
       video: VIDEO_FROM_DIRECTION_TSX,
     });
     await acceptDirection(projectDir);
-    await seedVariant(projectDir, "video:shot.01.motion", { accepted: true });
-    await seedVariant(projectDir, "animatic:shot.01.first", { accepted: true });
+    await seedAcceptedCut(projectDir);
 
     // The video loads (the pairing check never fires at definition time) and --no-delivery skips it.
     const { stdout } = await run(["export", "video", "--no-delivery"], projectDir);
@@ -489,8 +549,7 @@ describe("export delivery gate", () => {
     // `konte workspace new` ships a default comfyui.url, so the unconfigured state has to be written back.
     await writeConfig(projectDir, { comfyui: { url: "" } });
     await acceptDirection(projectDir);
-    await seedVariant(projectDir, "video:shot.01.motion", { accepted: true });
-    await seedVariant(projectDir, "animatic:shot.01.first", { accepted: true });
+    await seedAcceptedCut(projectDir);
 
     await expect(run(["export", "video"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("comfyui.url"),
@@ -510,8 +569,7 @@ describe("export delivery gate", () => {
       },
     });
     await acceptDirection(projectDir);
-    await seedVariant(projectDir, "video:shot.01.motion", { accepted: true });
-    await seedVariant(projectDir, "animatic:shot.01.first", { accepted: true });
+    await seedAcceptedCut(projectDir);
 
     await expect(run(["export", "video"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("KONTE_TEST_EXPORT_TOKEN"),
@@ -525,8 +583,7 @@ describe("export delivery gate", () => {
   it("demands no upscaler when the delivery is the canvas's own resolution", async () => {
     projectDir = await initProject({ direction: DIRECTION_TS, video: VIDEO_FROM_DIRECTION_TSX });
     await acceptDirection(projectDir);
-    await seedVariant(projectDir, "video:shot.01.motion", { accepted: true });
-    await seedVariant(projectDir, "animatic:shot.01.first", { accepted: true });
+    await seedAcceptedCut(projectDir);
 
     await expect(run(["export", "video"], projectDir)).resolves.toBeDefined();
   });

@@ -1040,6 +1040,36 @@ export function leafReadyForReview(
   return refs !== null && compositionRefsResolvable(manager, refs);
 }
 
+// The review status of a materialized leaf (composition / stem / overlay): its accepted variant
+// (null when none) and whether it needs review. An UNaccepted leaf needs review — it was never
+// signed off in context — as does a stale accepted one, so "never accepted" and
+// "accepted-then-stale" are treated alike.
+export function materializedLeafReviewStatus(
+  manager: StateManager,
+  address: string,
+  defHash: string | null,
+): { variantId: string | null; needsReview: boolean } {
+  const variantId = manager.getAcceptedVariant(address);
+  return {
+    variantId,
+    needsReview: variantId === null || isAcceptedStale(manager, address, defHash),
+  };
+}
+
+// Whether a materialized leaf is signed off as of right now: reviewable, and accepted at its current
+// definition and inputs. Both halves are required — staleness reads an input that resolves to
+// nothing as "not determinable" rather than changed, so an accept whose inputs stopped resolving
+// would otherwise read fresh.
+export function leafSignedOff(
+  manager: StateManager,
+  video: StageDefinition,
+  address: string,
+): boolean {
+  if (!leafReadyForReview(manager, video, address)) return false;
+  return !materializedLeafReviewStatus(manager, address, definitionHashForAddress(video, address))
+    .needsReview;
+}
+
 /** One ref a leaf consumes that resolves to nothing a spend may bake, and why. */
 export interface UnresolvedLeafRef {
   address: string;
