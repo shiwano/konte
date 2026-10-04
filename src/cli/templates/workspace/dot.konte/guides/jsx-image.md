@@ -10,7 +10,7 @@ The axis is where the text ends up. Text **delivered on screen** belongs in the 
 
 The same document a shot's composition renders into: `<Composition>`'s head, Tailwind, and the stage's declared Google Fonts over the direction's `lang`.
 
-The canvas is the stage's, unless `width`/`height` say otherwise. The `build` callback receives the resolved size, so lay out against it:
+The canvas is the stage's, unless `width`/`height` say otherwise. In `reference.tsx` it is the asset's roster shape, and square for an asset on no roster; `...format.size` gives the shots' canvas. The `build` callback receives the resolved size, so lay out against it:
 
 ```tsx
 const card = asset("titleCard", adapters.jsxImage, {

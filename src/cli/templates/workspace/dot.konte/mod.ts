@@ -8189,11 +8189,11 @@ export interface DefineReferenceOptions {
  * The direction is taken for its typesetting (`policy.lang` + `policy.fonts`) and for the canvas
  * each sheet is sized off: its long edge, at the shape the asset's roster asks for
  * (`deriveReferenceSize`). An adapter's `width`/`height` are therefore filled in like a stage's;
- * passing them overrides.
+ * passing them overrides. `format` is the working canvas the other stages render at.
  */
 export declare function defineReference<TAssets extends ReferenceAssetMap>(
   direction: DirectionEntry<unknown>,
-  fn: () => TAssets,
+  fn: (args: { format: VideoFormat }) => TAssets,
   opts?: DefineReferenceOptions,
 ): ReferenceDefinition & ReferenceRef<TAssets>;
 /**

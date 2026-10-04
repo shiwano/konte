@@ -4,7 +4,7 @@ import { endPinCollection } from "./pin-collect.js";
 import { beginPromptCollection, endPromptCollection } from "./prompt-collect.js";
 import { beginRespellCollection, endRespellCollection } from "./respell.js";
 import { KonteError } from "../errors.js";
-import type { AssetDefinition, Respelling } from "../types/definition.js";
+import type { AssetDefinition, Respelling, VideoFormat } from "../types/definition.js";
 import type { PromptOccurrence } from "../prompt-check.js";
 import type { DirectionIndex } from "./direction.js";
 import { scriptTexts } from "./shot-script.js";
@@ -46,11 +46,11 @@ export interface DefineReferenceOptions {
  * The direction is taken for its typesetting (`policy.lang` + `policy.fonts`) and for the canvas
  * each sheet is sized off: its long edge, at the shape the asset's roster asks for
  * (`deriveReferenceSize`). An adapter's `width`/`height` are therefore filled in like a stage's;
- * passing them overrides.
+ * passing them overrides. `format` is the working canvas the other stages render at.
  */
 export function defineReference<TAssets extends ReferenceAssetMap>(
   direction: DirectionEntry<unknown>,
-  fn: () => TAssets,
+  fn: (args: { format: VideoFormat }) => TAssets,
   opts: DefineReferenceOptions = {},
 ): ReferenceDefinition & ReferenceRef<TAssets> {
   const index = getDirectionIndex(direction);
@@ -62,7 +62,8 @@ export function defineReference<TAssets extends ReferenceAssetMap>(
   // A respelling here stands for a lyric line the song's model is given in another spelling.
   beginRespellCollection();
   beginPromptCollection(scriptTexts(index.scriptById));
-  const discovery = runInReferenceDiscoveryMode(fn, format);
+  const canvas: VideoFormat = { size: base, fps: index.format.fps };
+  const discovery = runInReferenceDiscoveryMode(() => fn({ format: canvas }), format);
   const prompts = endPromptCollection();
   const respellings = endRespellCollection() ?? [];
   const pins = endPinCollection();

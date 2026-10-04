@@ -420,4 +420,13 @@ describe("reference canvas", () => {
 
     expect(sizesOf(def.topLevelAssets ?? {})).toEqual({ hana: [768, 768] });
   });
+
+  it("hands the callback the canvas the shots render at", () => {
+    const def = defineReference(rostered, ({ format }) => {
+      const frame = asset("frame", sized, { prompt: "a gilt frame", ...format.size });
+      return { frame };
+    });
+
+    expect(sizesOf(def.topLevelAssets ?? {})).toEqual({ frame: [1024, 576] });
+  });
 });
