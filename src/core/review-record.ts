@@ -460,6 +460,8 @@ export function formatReviewRecord(
     // Resolved frame per note id, from `resolveShotFeedbackFrames`. Absent for a note whose frame is not
     // on disk and could not be rendered — the listing then names no frame for it.
     noteFrames?: ReadonlyMap<string, string>;
+    // `fields` is empty when no field-level diff is available.
+    definitionDrift?: ReadonlyArray<{ address: string; variantId: string; fields: string[] }>;
   } = {},
 ): string {
   const lines: string[] = [];
@@ -516,6 +518,16 @@ export function formatReviewRecord(
       lines.push("Unaccepted:");
       for (const addr of unaccepted) lines.push(`  ${addr}`);
     }
+  }
+
+  if ((opts.definitionDrift ?? []).length > 0) {
+    lines.push("");
+    lines.push("Accepted against a changed definition:");
+    for (const { address, variantId, fields } of opts.definitionDrift ?? []) {
+      const what = fields.length > 0 ? fields.join(", ") : "definition";
+      lines.push(`  ${address} (${variantId}) — ${what} changed since this take`);
+    }
+    lines.push("  the definition each take was made from: konte inspect <variantId>");
   }
 
   if ((record.kept ?? []).length > 0) {
@@ -583,6 +595,31 @@ export function formatReviewRecord(
   }
 
   return lines.join("\n");
+}
+
+// Every take the review accepted by variant id: a reel review's accepted shots' assets as the
+// reviewer saw them, a reference review's accepted entries.
+export function reviewAcceptedTakes(
+  record: ReviewRecord,
+): Array<{ address: string; variantId: string }> {
+  const takes: Array<{ address: string; variantId: string }> = [];
+  if (record.mode === "animatic-preview" || record.mode === "video-preview") {
+    const stage = reviewStage(record) === "animatic" ? "animatic" : "video";
+    const shotDecisions = (record.decisions as Record<string, "accepted" | "none"> | null) ?? {};
+    for (const shot of record.context.shots) {
+      if (shotDecisions[shot.shotId] !== "accepted") continue;
+      for (const [assetName, variantId] of Object.entries(shot.variants)) {
+        takes.push({ address: formatAddress(stage, shot.shotId, assetName), variantId });
+      }
+    }
+    return takes;
+  }
+  for (const d of (record.decisions as ReviewDecisionEntry[] | null) ?? []) {
+    if (d.status === "accepted" && d.variantId) {
+      takes.push({ address: d.address, variantId: d.variantId });
+    }
+  }
+  return takes;
 }
 
 // A reel review's decisions as one line per outcome: the decided shots, counted against the reel

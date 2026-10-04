@@ -10,6 +10,8 @@ import {
   pruneContactSheetPages,
   renderContactSheet,
 } from "../../../core/contact-sheet.js";
+import { getAssetEntryByAddress } from "../../../core/address.js";
+import { diffDefinitions, readDefinitionSnapshot } from "../../../core/definition-snapshot.js";
 import { errorMessage } from "../../../core/errors.js";
 import { ensureFfmpeg } from "../../../core/ffmpeg.js";
 import {
@@ -17,13 +19,18 @@ import {
   loadLatestReviewRecord,
   loadReviewRecordFile,
   type ReviewRecord,
+  reviewAcceptedTakes,
   reviewNoteFrameTargets,
   reviewStage,
   toReviewFileId,
 } from "../../../core/review-record.js";
-import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
+import {
+  applyResolutionDefinitions,
+  definitionForAddress,
+} from "../../../core/definition-hashes.js";
 import { StateManager } from "../../../core/state/manager.js";
 import { resolveShotFeedbackFrames } from "../../../core/thumbnail.js";
+import { generatedOrigin } from "../../../core/variant-lineage.js";
 import { requireVideoRoot } from "../../context.js";
 import { loadVideoAndAnimatic } from "../../load-definition.js";
 import { parseNumberOption } from "../../parse-option.js";
@@ -85,6 +92,43 @@ async function resolveNoteFrames(
     }
   }
   return { frames, problems };
+}
+
+/**
+ * The takes this review accepted that still stand accepted while their own definition has moved on.
+ * Read against live state: a take since replaced by another accept, or whose definition was brought
+ * back in line, is no longer listed.
+ */
+async function resolveDefinitionDrift(
+  videoRoot: string,
+  record: ReviewRecord,
+): Promise<Array<{ address: string; variantId: string; fields: string[] }>> {
+  const takes = reviewAcceptedTakes(record);
+  if (takes.length === 0) return [];
+  const manager = await StateManager.load(videoRoot);
+  const definitions = await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
+  const drift: Array<{ address: string; variantId: string; fields: string[] }> = [];
+  for (const { address, variantId } of takes) {
+    const variant = manager.getState().assets[address]?.variants?.[variantId];
+    if (variant?.status !== "accepted") continue;
+    const staleness = manager.variantStaleness(address, variantId);
+    if (!staleness?.definitionStale || staleness.patchStale) continue;
+    const snapshot = readDefinitionSnapshot(
+      videoRoot,
+      address,
+      generatedOrigin(manager.getState(), address, variantId),
+    );
+    const definition = definitionForAddress(definitions, address);
+    let current: unknown = null;
+    try {
+      current = definition ? getAssetEntryByAddress(definition, address) : null;
+    } catch {
+      current = null;
+    }
+    const fields = snapshot && current ? diffDefinitions(snapshot, current).map((c) => c.path) : [];
+    drift.push({ address, variantId, fields });
+  }
+  return drift;
 }
 
 interface SheetInfo {
@@ -172,7 +216,9 @@ captioned with the comment id and its shot-local time, and laid out in timeline 
 text itself stays in the listing.
 
 A reel review names its decided shots on one line per outcome (Accepted: 38 of 50 shots (01–12, 14)),
-and no review lists what an accept signed off along with it; --accepts lists every address.
+and no review lists what an accept signed off along with it; --accepts lists every address. A take it
+accepted that still stands accepted while its definition has since changed is listed under
+"Accepted against a changed definition", with the fields that changed.
 
 A review with more notes than one sheet holds (${DEFAULT_MAX_CELLS}, at 384x216 per cell) paginates,
 printing one path per sheet; --max-cells (1..${MAX_CELLS_LIMIT}) trades cell size for fewer sheets.
@@ -250,11 +296,14 @@ Examples:
           }
         }
 
+        const definitionDrift = await resolveDefinitionDrift(videoRoot, record);
+
         console.log(
           formatReviewRecord(record, {
             showHandoff: opts.verbose,
             showAccepts: opts.accepts,
             noteFrames,
+            definitionDrift,
           }),
         );
       },
