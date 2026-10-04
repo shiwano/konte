@@ -218,6 +218,44 @@ describe("song analysis", () => {
     });
   });
 
+  it("keeps what a person set on the take over a reading taken again", async () => {
+    const jobManager = new JobManager(videoRoot);
+    const state = () => StateManager.load(videoRoot).then((m) => m.getState());
+    const song = () => state().then((s) => s.assets["reference:song"]?.variants?.["v-take1"]?.song);
+    await queueSongAnalyses({ videoRoot, direction, state: await state(), jobManager });
+    await runPendingSongAnalyses(jobManager, videoRoot);
+    const lines = { "1.1": { text: "hello", startSec: 2, endSec: 3 } };
+    await StateManager.withLock(videoRoot, async (m) => {
+      const v = m.getState().assets["reference:song"]!.variants!["v-take1"]!;
+      v.song = { ...v.song!, downbeatSet: 0.75, lines };
+    });
+
+    const retimed = {
+      ...direction,
+      policy: { ...direction.policy, clock: { song: "song", bpm: 121, beatsPerBar: 4 } },
+    } as Direction;
+    await queueSongAnalyses({ videoRoot, direction: retimed, state: await state(), jobManager });
+    await runPendingSongAnalyses(jobManager, videoRoot);
+    expect(await song()).toMatchObject({ clock: { bpm: 121 }, downbeatSet: 0.75, lines });
+
+    const before = (await song())!.reading;
+    const job = await jobManager.ensureSongAnalysisJob({
+      address: "reference:song",
+      variantId: "v-take1",
+      outputHash: "h1",
+      bpm: 121,
+      beatsPerBar: 4,
+      lang: retimed.policy.lang,
+      again: true,
+    });
+    expect(await runSongAnalysisJob(jobManager, videoRoot, job.id)).toMatchObject({
+      status: "completed",
+      ranAnalysis: true,
+    });
+    expect(await song()).toMatchObject({ downbeatSet: 0.75, lines });
+    expect((await song())!.reading).not.toBe(before);
+  });
+
   it("takes over a run whose holder died once its lease lapses", async () => {
     const jobManager = new JobManager(videoRoot);
     const state = () => StateManager.load(videoRoot).then((m) => m.getState());

@@ -83,17 +83,21 @@ export async function runSongAnalysisJob(
           const current = await jobManager.getJob(id).catch(() => null);
           if (current?.status !== "running" || current.lease?.owner !== workerId) return false;
           const variant = manager.getState().assets[job.address]?.variants?.[job.variantId];
+          const previous = variant?.song;
           const lands =
             !!variant &&
             variant.outputHash === outputHash &&
-            (!variant.song ||
-              readingOutdated(variant.song, job) ||
-              !readSongReading(videoRoot, job.address, job.variantId, variant.song));
+            (job.again ||
+              !previous ||
+              readingOutdated(previous, job) ||
+              !readSongReading(videoRoot, job.address, job.variantId, previous));
           if (lands) {
             variant.song = {
               reading: await writeSongReading(videoRoot, job.address, job.variantId, reading),
               clock: { bpm: job.bpm, beatsPerBar: job.beatsPerBar },
               lang: job.lang,
+              ...(previous?.downbeatSet !== undefined ? { downbeatSet: previous.downbeatSet } : {}),
+              ...(previous?.lines ? { lines: previous.lines } : {}),
             };
             await manager.save();
           }
@@ -103,7 +107,10 @@ export async function runSongAnalysisJob(
             progress: 100,
             completedAt: new Date().toISOString(),
           });
-          if (!won && lands) delete variant.song;
+          if (!won && lands) {
+            if (previous) variant.song = previous;
+            else delete variant.song;
+          }
           return won;
         });
         if (!committed) {

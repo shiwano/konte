@@ -190,6 +190,8 @@ export const SongAnalysisJobSchema = JobRecordBaseSchema.extend({
   beatsPerBar: z.number().int().positive(),
   // The language the direction declared (`policy.lang`): what the vocal track is heard as.
   lang: z.string(),
+  // Queued by `konte song analyze`: it lands over a reading that still holds.
+  again: z.boolean().default(false),
 });
 
 export const JobRecordSchema = z.discriminatedUnion("kind", [

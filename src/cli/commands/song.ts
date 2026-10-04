@@ -143,9 +143,9 @@ Examples:
       `
 Read the song \`policy.clock\` counts on — its tempo, bar heads, section candidates and
 sung stretches — and wait for it. It reads the song's current take (the accepted one,
-else the newest) again, replacing what was read, a corrected downbeat and placed lines included, and
-every other take not read yet: a song placed as a file, a reading that failed, one
-read against another tempo or meter. The first run downloads the vocal separator.
+else the newest) again, and every other take not read yet: a song placed as a file, a reading
+that failed, one read against another tempo or meter. A downbeat or a line set by hand
+(\`konte song set\`) stays where it was set. The first run downloads the vocal separator.
 
 A generated take is read on its own when it lands; this is the way in for any other.
 
@@ -172,13 +172,10 @@ Examples:
         const ids = [
           ...new Set([...(current ? [current] : []), ...unread.map((t) => t.variantId)]),
         ];
-        return ids.map((variantId) => {
-          const variant = state.assets[songAddress]!.variants![variantId]!;
-          const setBefore = variant.song?.downbeatSet ?? null;
-          const linesSetBefore = Object.keys(variant.song?.lines ?? {});
-          delete variant.song;
-          return { variantId, outputHash: variant.outputHash ?? null, setBefore, linesSetBefore };
-        });
+        return ids.map((variantId) => ({
+          variantId,
+          outputHash: state.assets[songAddress]!.variants![variantId]!.outputHash ?? null,
+        }));
       });
       if (targets.length === 0) {
         throw new KonteError(
@@ -224,16 +221,6 @@ Examples:
             `  failed    ${settled.error ?? settled.status} — see \`konte job logs ${job.id}\``,
           );
           continue;
-        }
-        if (target.setBefore !== null && target.setBefore !== song.downbeatSec) {
-          console.log(
-            `  downbeat  set by hand at ${target.setBefore}s, read again at ${song.downbeatSec}s`,
-          );
-        }
-        if (target.linesSetBefore.length > 0) {
-          console.log(
-            `  lines     placed by hand, read again: ${target.linesSetBefore.join(", ")}`,
-          );
         }
         printSongReading(song, clock);
         if (direction.lyrics) {

@@ -385,6 +385,7 @@ export class JobManager {
         bpm: opts.bpm,
         beatsPerBar: opts.beatsPerBar,
         lang: opts.lang,
+        again: opts.again ?? false,
         dependsOnJobs: [],
         lease: null,
         sourceFingerprint: null,

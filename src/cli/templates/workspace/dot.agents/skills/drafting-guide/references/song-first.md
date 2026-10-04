@@ -30,7 +30,7 @@ const song = asset(clock.song, audioYue2, {
 
 - **Brought → a `file` asset at that id.**
 - **`konte generate reference`, then `konte job wait`** — the wait covers the reading of each take.
-- **A reading failed → `konte song analyze`** — the first run downloads the vocal separator. It re-reads the current take, dropping every `konte song set` correction on it.
+- **A reading failed → `konte song analyze`** — the first run downloads the vocal separator. It re-reads the current take, keeping every `konte song set` correction on it.
 
 ## 4. Check the lines, then accept
 
