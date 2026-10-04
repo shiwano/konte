@@ -25,7 +25,7 @@ const SPLEETER_FILES = ["vocals.fp16.onnx", "accompaniment.fp16.onnx"];
 
 // SenseVoice, int8: speech recognition in zh, en, ja, ko and yue, with a time on every token.
 export const SENSE_VOICE_URL =
-  "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09.tar.bz2";
+  "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2";
 const SENSE_VOICE_FILES = ["model.int8.onnx", "tokens.txt"];
 const SENSE_VOICE_LANGS = new Set(["zh", "en", "ja", "ko", "yue"]);
 
@@ -160,7 +160,7 @@ export async function senseVoiceModelDir(): Promise<string> {
     senseVoiceDir = override;
     return override;
   }
-  const dir = toolCacheDir("sense-voice-int8-2025-09-09");
+  const dir = toolCacheDir("sense-voice-int8-2024-07-17");
   await provisionOnce(dir, toolPin([SENSE_VOICE_URL]), SENSE_VOICE_FILES, async () => {
     console.error(`konte: provisioning the SenseVoice model → ${dir}`);
     await unpackInto(SENSE_VOICE_URL, dir, "sense-voice");
