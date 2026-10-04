@@ -3,6 +3,9 @@ When reading SKILL.md files or documents they reference through code-mode,
 read each file in a separate exec call. If a file's output is truncated,
 retrieve the missing sections through separate exec calls.
 
+Run each `konte` command as its own exec call, never chained with other
+commands: only a lone `konte` command runs outside the sandbox.
+
 When exec_command returns a session_id, keep calling write_stdin with that
 session_id until the command exits, reading its output. For long-running
 commands, use yield_time_ms: 120000. In code mode, if
