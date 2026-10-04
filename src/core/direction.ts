@@ -5,7 +5,12 @@
 // turns the scoped, unwaived subset into a hard `DIRECTION_CHECK_FAILED`. The two share this one
 // finding pass so "report" and "enforce" can never diverge.
 
-import { DIRECTION_ROOT_PATH, directionChildNodePath, type Stage } from "./address.js";
+import {
+  DIRECTION_ROOT_PATH,
+  directionChildNodePath,
+  formatDirectionWaiverAddress,
+  type Stage,
+} from "./address.js";
 import { findBuiltinLens } from "./lenses.js";
 import {
   type AnchoredEntityRef,
@@ -155,6 +160,68 @@ export function classifyDirectionFinding(code: DirectionFindingCode): DirectionF
   return FINDING_CLASS[code];
 }
 
+// Where what a waiver of the code lets through plays, read off its subject: inside one shot (the
+// shot, one of its frames, or a subject in one), across the boundary `<from>-<to>` between two, or
+// in no one shot (null).
+const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> = {
+  "missing-role": null,
+  "no-payoff": null,
+  "role-out-of-order": null,
+  "lens-role-mismatch": null,
+  "too-many-consecutive": null,
+  "too-few-consecutive": null,
+  "empty-synopsis": null,
+  "unearned-payoff": null,
+  "role-overweight": null,
+  "role-underweight": null,
+  "stage-order-mismatch": null,
+  unrealized: null,
+  "character-unreferenced": null,
+  "unused-character": null,
+  "character-voice-missing": null,
+  "character-voice-unreferenced": null,
+  "unused-character-voice": null,
+  "narrator-missing": null,
+  "narrator-unreferenced": null,
+  "unused-narrator": null,
+  "prop-unreferenced": null,
+  "unused-prop": null,
+  "location-unreferenced": null,
+  "unused-location": null,
+  "setup-unrealized": null,
+  "plate-unanchored": null,
+  "plate-unnested": null,
+  "axis-unrealized": null,
+  "setup-unconsumed": null,
+  "unused-setup": null,
+  "setup-indistinct": null,
+  "setup-atomized": null,
+  "unexpected-script": "shot",
+  "multi-sentence-action": "shot",
+  "off-grid-duration": "shot",
+  "undeclared-continuity": "boundary",
+  "re-established-wide": "shot",
+  "fonts-undeclared": null,
+  "lineup-flipped": "shot",
+  "lineup-gap": "shot",
+  "lineup-vacuous": "shot",
+  "lineup-inconsistent": "shot",
+  "character-unconsumed": "shot",
+  "slot-order-mismatch": "shot",
+  "plate-undescribed": null,
+  "landmark-flipped": null,
+  "subject-unnamed": "shot",
+  "plate-unnamed": null,
+  "join-lineup-mismatch": "shot",
+  "join-unpinned": "shot",
+  "join-unshown": "shot",
+  "panel-unlinked": "boundary",
+  "song-unreferenced": null,
+  "song-off-tempo": null,
+  "lyric-unplaced": null,
+  "song-overrun": null,
+};
+
 // The stage entry file a finding's fix is written in. A declared entity — a look or a cast voice —
 // with no reference asset is answered in `reference.tsx`; a setup the board realizes wrongly is
 // answered by its plates and keyframes in `animatic.tsx`. The direction entry naming either is
@@ -263,6 +330,63 @@ export function directionWaiverEntries(direction: Direction): Map<string, Direct
     }
   };
   collect(direction.sequence, DIRECTION_ROOT_PATH);
+  return out;
+}
+
+// A waiver read by watching a shot: its review address, what it waives, and the shots it plays in —
+// one, or both sides of a boundary.
+export type ShotWaiver = {
+  address: string;
+  code: DirectionFindingCode;
+  subject: string;
+  reason: string;
+  shotIds: string[];
+};
+
+// Every boundary a boundary finding can name, spelled as its subject does: two arc shots adjacent
+// in a leaf (`undeclared-continuity`'s), and two frames of one lane across a cut (`panel-unlinked`'s,
+// `.cutin` on the cutin lane). Read off the boundaries themselves, since an id may hold a `-`.
+function shotBoundaries(direction: Direction): Map<string, [string, string]> {
+  const out = new Map<string, [string, string]>();
+  for (const leaf of collectLeaves(direction.sequence)) {
+    const arc = (leaf.shots ?? []).filter((s) => !isAsideShot(s));
+    for (let i = 0; i + 1 < arc.length; i++) {
+      out.set(`${arc[i]!.id}-${arc[i + 1]!.id}`, [arc[i]!.id, arc[i + 1]!.id]);
+    }
+  }
+  for (const { frame, previousFrame } of joinBoundaries(direction)) {
+    if (!previousFrame) continue;
+    const lane = frame.lane === "cutin" ? ".cutin" : "";
+    out.set(`${previousFrame.shotId}-${frame.shotId}${lane}`, [previousFrame.shotId, frame.shotId]);
+  }
+  return out;
+}
+
+export function directionShotWaivers(direction: Direction): ShotWaiver[] {
+  const shotIds = new Set(collectShots(direction).map((s) => s.id));
+  const boundaries = shotBoundaries(direction);
+  const out: ShotWaiver[] = [];
+  for (const [key, { reason, nodePath }] of directionWaiverEntries(direction)) {
+    const sep = key.indexOf(WAIVER_KEY_SEPARATOR);
+    if (sep === -1) continue;
+    const code = key.slice(0, sep);
+    if (!isWaivableCode(code)) continue;
+    const on = WAIVER_ON_SHOT[code];
+    if (!on) continue;
+    const subject = key.slice(sep + 1);
+    // A shot's subject opens with its id; an id holds no `.`.
+    const head = subject.split(".")[0] ?? "";
+    const ids =
+      on === "boundary" ? (boundaries.get(subject) ?? []) : shotIds.has(head) ? [head] : [];
+    if (ids.length === 0) continue;
+    out.push({
+      address: formatDirectionWaiverAddress(nodePath, key),
+      code,
+      subject,
+      reason,
+      shotIds: ids,
+    });
+  }
   return out;
 }
 

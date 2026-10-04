@@ -19,8 +19,14 @@ import type { AssetDefinition } from "../../../../core/types/index.js";
 import { reloadVideoDefinition } from "../../../../core/loader.js";
 import { StateManager } from "../../../../core/state/index.js";
 import {
+  applyDirectionSectionDecisions,
+  directionAcceptanceView,
+} from "../../../../core/direction-acceptance.js";
+import { DIRECTION_SECTIONS } from "../../../../core/address.js";
+import {
   ctx,
   initWorkspace,
+  run,
   useTempWorkspace,
   writeSilentWav,
 } from "../../../__tests__/cli-fixtures.js";
@@ -446,14 +452,40 @@ async function outstanding(
   };
 }
 
-async function project(animaticLine = "here we go"): Promise<string> {
+async function project(animaticLine = "here we go", videoTsx = VIDEO_TSX): Promise<string> {
   const inited = await initWorkspace(path.join(ctx.dir, "closure"));
   const videoRoot = inited.video;
   await fs.writeFile(path.join(videoRoot, "direction.ts"), DIRECTION_TS);
   await fs.writeFile(path.join(videoRoot, "animatic.tsx"), animaticTsx(animaticLine));
-  await fs.writeFile(path.join(videoRoot, "video.tsx"), VIDEO_TSX);
+  await fs.writeFile(path.join(videoRoot, "video.tsx"), videoTsx);
   await generateAll(videoRoot);
   return videoRoot;
+}
+
+// Sign the direction off whole, then write a waiver on a shot — what an agent does after a setup edit.
+async function waiveAfterWhole(videoRoot: string, key: string): Promise<void> {
+  const defs = await loadPreviewDefinitions({
+    videoRoot,
+    videoPath: path.join(videoRoot, "video.tsx"),
+    mode: "video-preview",
+  });
+  const manager = await StateManager.load(videoRoot);
+  manager.setDirectionAcceptance(
+    applyDirectionSectionDecisions(
+      defs.direction!,
+      null,
+      Object.fromEntries(DIRECTION_SECTIONS.map((s) => [s, true])),
+    ),
+  );
+  await manager.save();
+  await fs.writeFile(
+    path.join(videoRoot, "direction.ts"),
+    DIRECTION_TS.replace(
+      '    lens: "mini-drama",',
+      `    lens: "mini-drama",\n    waivers: { "${key}": "one breath" },`,
+    ),
+  );
+  await generateAll(videoRoot);
 }
 
 describe("video review closure", () => {
@@ -548,6 +580,47 @@ describe("video review closure", () => {
     const after = await StateManager.load(videoRoot);
     expect(after.getAcceptedVariant(stem)).not.toBe(before);
     expect(after.getAssetState(stem).variants![before]!.status).toBe("none");
+  });
+
+  // A waiver written on a shot after the piece was accepted whole changes no picture, so only the
+  // shot's accept can sign it off — the page must offer that accept on a shot already settled.
+  it("re-opens a settled shot for a waiver written on it, and its accept signs the waiver off", async () => {
+    const videoRoot = await project();
+    expect(await settle(videoRoot)).toBe(2);
+    await waiveAfterWhole(videoRoot, "multi-sentence-action_02");
+    expect(await settledShotIds(videoRoot)).toEqual(["01"]);
+    expect((await run(["status"], videoRoot)).stdout).toContain("konte preview video");
+
+    await acceptAll(videoRoot);
+    const { direction } = await loadPreviewDefinitions({
+      videoRoot,
+      videoPath: path.join(videoRoot, "video.tsx"),
+      mode: "video-preview",
+    });
+    const after = await StateManager.load(videoRoot);
+    expect(directionAcceptanceView(direction!, after.getDirectionAcceptance()).complete).toBe(true);
+    expect(await settledShotIds(videoRoot)).toEqual(["01", "02"]);
+    expect((await run(["status"], videoRoot)).stdout).not.toContain("konte preview");
+  });
+
+  // A shot drawn from the board alone owns no asset; it is still reviewed on the video stage.
+  it("sends a waiver on a shot with no assets of its own to that shot's stage", async () => {
+    const videoRoot = await project(
+      "here we go",
+      VIDEO_TSX.replace(
+        `    shots: shot("01", () => {
+      const motion = asset("motion", animate, { prompt: "she opens the door" });
+      return <Composition><Video src={motion} /></Composition>;
+    })`,
+        `    shots: shot("01", () => (
+      <Composition><Image src={animaticStage.shot("01").image("first")} fill /></Composition>
+    ))`,
+      ).replace("import { Composition, Video,", "import { Composition, Image, Video,"),
+    );
+    expect(await settle(videoRoot)).toBe(2);
+    await waiveAfterWhole(videoRoot, "multi-sentence-action_01");
+    expect(await settledShotIds(videoRoot)).toEqual(["02"]);
+    expect((await run(["status"], videoRoot)).stdout).toContain("konte preview video");
   });
 
   // Materialized once: a second review over unchanged takes reuses the mix rather than minting one.

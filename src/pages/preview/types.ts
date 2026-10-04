@@ -133,6 +133,8 @@ export interface ShotInfo {
   // order. `video.tsx` wrote its motion prompt from this prose, so it is the claim the motion is
   // watched against. Empty when the board has no shot of this id or none of its panels declares one.
   moves: ShotMoveInfo[];
+  // The direction's waivers whose subject is this shot. Accepting the shot signs each off.
+  waivers: ShotWaiverInfo[];
   assets: VideoAssetInfo[];
   // Composited clips on this shot's timeline, in document order.
   clips: ClipInfo[];
@@ -140,7 +142,7 @@ export interface ShotInfo {
   // Handoff notes (AI -> reviewer) for this shot's assets, shown inline always.
   handoffNotes: Array<{ assetName: string; text: string }>;
   allAccepted: boolean;
-  /** Whether this shot's shown half still holds a verdict — the server's one answer (`shotNeedsVerdict`). */
+  /** Whether this shot's shown half still holds a verdict — the server's one answer (`shotNeedsVerdict`, or a waiver's `needsReview`). */
   needsVerdict: boolean;
   /** The gallery-backed addresses that verdict lands on, over the half being shown. */
   verdictAddresses: string[];
@@ -181,6 +183,15 @@ export interface TimelineNote {
   x?: number;
   y?: number;
   stale?: boolean;
+}
+
+export interface ShotWaiverInfo {
+  code: string;
+  subject: string;
+  reason: string;
+  // Whether accepting the shot would sign it off — reworded, or new since the direction was accepted
+  // whole.
+  needsReview: boolean;
 }
 
 export interface VideoPreviewState {

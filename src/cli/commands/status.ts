@@ -2,7 +2,9 @@ import { existsSync } from "node:fs";
 import * as path from "node:path";
 import type { Command } from "commander";
 import {
+  formatAddress,
   formatReferenceAddress,
+  formatShotAddress,
   getAssetEntry,
   isDeliveryAddress,
   isMaterializedLeafAddress,
@@ -63,6 +65,7 @@ import { isProblemAddress } from "../../core/status-sections.js";
 import {
   type DirectionAcceptanceSummary,
   directionAcceptanceView,
+  shotWaiversAwaitingAccept,
   songGateBlocking,
   summarizeDirectionAcceptance,
 } from "../../core/direction-acceptance.js";
@@ -303,7 +306,28 @@ export function registerStatusCommand(program: Command): void {
       // Feed Next steps the report's definition-aware "Needs review" and job-aware
       // "Problems" sets so it never suggests previewing a composition the section itself
       // excluded, nor cleaning a variant that is still generating (no file yet, no error).
-      const pendingReviewAddresses = [...new Set(needsReviewItems(report).map((i) => i.address))];
+      // A shot's waiver awaiting its accept is review work on the latest stage where the shot can be
+      // accepted: built, with its own takes and everything its composition draws resolved (the
+      // reel's `shotNotReady`).
+      const builtShot = (stage: "animatic" | "video", shotId: string) => {
+        const shot = (stage === "video" ? video : animatic).shots.find((s) => s.id === shotId);
+        if (!shot || shot.pending || !shot.shotFn) return false;
+        return [
+          ...Object.keys(shot.assets).map((name) => formatAddress(stage, shotId, name)),
+          ...(shot.compositionRefs ?? []),
+        ].every((ref) => manager.resolveReference(ref, { includeStale: true }) !== null);
+      };
+      const waiverShotAddresses = direction
+        ? shotWaiversAwaitingAccept(direction, manager.getDirectionAcceptance()).flatMap((w) =>
+            w.shotIds.flatMap((shotId) => {
+              const stage = (["video", "animatic"] as const).find((s) => builtShot(s, shotId));
+              return stage ? [formatShotAddress(stage, shotId)] : [];
+            }),
+          )
+        : [];
+      const pendingReviewAddresses = [
+        ...new Set([...needsReviewItems(report).map((i) => i.address), ...waiverShotAddresses]),
+      ];
       // Derive clean candidates from the address infos, not the "Problems" section: the
       // section also lists orphan jobs and model-download failures, which have no state
       // variant for `clean` to act on — suggesting clean for them would be a no-op. Mirror

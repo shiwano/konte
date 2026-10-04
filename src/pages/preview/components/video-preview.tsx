@@ -1770,6 +1770,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
               pinnable={!spanTarget}
               script={spanTarget ? undefined : focusedShot?.script}
               moves={spanTarget ? undefined : focusedShot?.moves}
+              waivers={spanTarget ? undefined : focusedShot?.waivers}
               handoffNotes={spanTarget ? undefined : focusedShot?.handoffNotes}
               comments={panelComments}
               highlightedId={highlightedFeedbackId}

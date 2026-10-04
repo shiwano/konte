@@ -16,7 +16,7 @@ import {
 } from "./address.js";
 import type { Direction, DirectionNode } from "./dsl/direction.js";
 import { isAsideShot, isGraphicShot } from "./dsl/direction.js";
-import { directionHasShots } from "./direction.js";
+import { type ShotWaiver, directionHasShots, directionShotWaivers } from "./direction.js";
 import { directionHash, directionPartHashes } from "./direction-hash.js";
 import type { DirectionAcceptance } from "./types/index.js";
 
@@ -51,6 +51,8 @@ export function directionSectionAcceptable(
 // frame; `policy.format` is the size and fps, where a mistake is expensive. Everything else — the
 // shots, the arc, the rosters — reaches a human as a panel, a shot or a `reference:<id>` image, so
 // once the piece has been signed off whole, the reviews of that media are the reading that counts.
+// A waiver whose subject is a shot (`directionShotWaivers`) is the exception in `waivers`: it rides
+// the shot's review instead.
 const PIECE_WIDE_SECTIONS: ReadonlySet<DirectionSection> = new Set([
   "brief",
   "policy",
@@ -71,10 +73,17 @@ function orphanOwesReview(address: string): boolean {
 // whole, then only the piece-wide ones. The review page reads this to say which of its boxes hold a
 // generation, since a box that no longer does still accepts and still shows what changed.
 export function directionGatingSections(
+  direction: Direction,
   acceptance: DirectionAcceptance | null,
 ): DirectionSection[] {
   if (acceptance?.whole == null) return [...DIRECTION_SECTIONS];
-  return DIRECTION_SECTIONS.filter((s) => PIECE_WIDE_SECTIONS.has(s));
+  const onShot = new Set(directionShotWaivers(direction).map((w) => w.address));
+  const pieceWideWaivers = [...directionPartHashes(direction).keys()].some(
+    (address) => directionSectionOf(address) === "waivers" && !onShot.has(address),
+  );
+  return DIRECTION_SECTIONS.filter(
+    (s) => PIECE_WIDE_SECTIONS.has(s) && (s !== "waivers" || pieceWideWaivers),
+  );
 }
 
 interface DirectionAcceptanceView {
@@ -155,8 +164,11 @@ export function directionAcceptanceView(
   // Before the whole direction has been accepted once, the gate is the full comparison: nothing
   // downstream exists yet to have read any of it, so the first read is the only read.
   const unlocked = acceptance?.whole != null;
+  const onShot = new Set(directionShotWaivers(direction).map((w) => w.address));
   const gateBlocking = unlocked
-    ? blocking.filter((b) => PIECE_WIDE_SECTIONS.has(directionSectionOf(b.address)))
+    ? blocking.filter(
+        (b) => PIECE_WIDE_SECTIONS.has(directionSectionOf(b.address)) && !onShot.has(b.address),
+      )
     : blocking;
   const gateOrphans = unlocked
     ? [...orphans].filter((s) => PIECE_WIDE_SECTIONS.has(s))
@@ -352,8 +364,9 @@ export function applyDirectionPartDecisions(
 // third is here because the shot's size and place live on its setup, so the picture the reviewer
 // accepted IS that frame, and the identity rosters' route — a `reference:<id>` accept — does not
 // exist for a setup. Without it a setup edit could never be re-signed downstream and `complete` would
-// stay out of reach for a finished piece. Everything else — the brief, the policy, the identity
-// rosters, the waivers — is a piece-wide agreement or has its own media, so it never appears here. A
+// stay out of reach for a finished piece. The fourth is every waiver whose subject is the shot, shown
+// beside it on the review. Everything else — the brief, the policy, the identity rosters, the other
+// waivers — is a piece-wide agreement or has its own media, so it never appears here. A
 // node with no `id` contributes no part (see `directionPartHashes`), so its address is filtered out
 // by the live-part lookup rather than special-cased.
 export function directionShotCascadeTargets(direction: Direction): Map<string, string[]> {
@@ -383,7 +396,23 @@ export function directionShotCascadeTargets(direction: Direction): Map<string, s
     }
   };
   walk(direction.sequence, DIRECTION_ROOT_PATH, []);
+  for (const waiver of directionShotWaivers(direction)) {
+    for (const shotId of waiver.shotIds) out.get(shotId)?.push(waiver.address);
+  }
   return out;
+}
+
+// The shot waivers a shot's accept would sign off: reworded since they were signed, or new once the
+// direction has been accepted whole (R1). Each is review work on its shot.
+export function shotWaiversAwaitingAccept(
+  direction: Direction,
+  acceptance: DirectionAcceptance | null,
+): ShotWaiver[] {
+  const { parts } = directionAcceptanceView(direction, acceptance);
+  return directionShotWaivers(direction).filter((w) => {
+    const status = parts.get(w.address);
+    return status === "stale" || (status === "unaccepted" && acceptance?.whole != null);
+  });
 }
 
 // The shots a set of just-accepted asset addresses signs off. A `reference:` asset belongs to no

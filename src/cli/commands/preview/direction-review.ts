@@ -324,7 +324,7 @@ export async function handleGetDirectionState(
       DirectionSection,
       DirectionSectionStatus
     >,
-    gatingSections: directionGatingSections(manager.getDirectionAcceptance()),
+    gatingSections: directionGatingSections(direction, manager.getDirectionAcceptance()),
     acceptableSections: DIRECTION_SECTIONS.filter((s) => directionSectionAcceptable(direction, s)),
     brief: briefFields(direction.brief ?? {}),
     policy: policyFields,

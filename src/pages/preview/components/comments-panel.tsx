@@ -1,8 +1,8 @@
 import type React from "react";
 import { useState } from "react";
 import { formatTimecode } from "../format-time.js";
-import type { ScriptLineView, ShotMoveInfo } from "../types.js";
-import { CommentCard, HandoffCard, MoveCard, ScriptCard } from "./comment-thread.js";
+import type { ScriptLineView, ShotMoveInfo, ShotWaiverInfo } from "../types.js";
+import { CommentCard, HandoffCard, MoveCard, ScriptCard, WaiverCard } from "./comment-thread.js";
 import { PlusIcon } from "./icons.js";
 import { NoteInput } from "./note-input.js";
 
@@ -48,6 +48,7 @@ export function CommentsPanel({
   pinnable = true,
   script,
   moves,
+  waivers,
   handoffNotes,
   comments,
   highlightedId,
@@ -65,6 +66,7 @@ export function CommentsPanel({
   script?: ScriptLineView[];
   // One card per board panel that declares a movement.
   moves?: ShotMoveInfo[];
+  waivers?: ShotWaiverInfo[];
   handoffNotes?: Array<{ assetName: string; text: string }>;
   comments: DisplayComment[];
   highlightedId: string | null;
@@ -79,6 +81,7 @@ export function CommentsPanel({
 }): React.ReactElement {
   const scriptLines = script ?? [];
   const moveCards = moves ?? [];
+  const waiverCards = waivers ?? [];
   const [editingId, setEditingId] = useState<string | null>(null);
 
   return (
@@ -93,6 +96,7 @@ export function CommentsPanel({
 
       {(scriptLines.length > 0 ||
         moveCards.length > 0 ||
+        waiverCards.length > 0 ||
         (handoffNotes && handoffNotes.length > 0)) && (
         <div className="comments-panel-context">
           {scriptLines.length > 0 && <ScriptCard script={scriptLines} />}
@@ -103,6 +107,15 @@ export function CommentsPanel({
               cutin={m.cutin}
               blocking={m.blocking}
               camera={m.camera}
+            />
+          ))}
+          {waiverCards.map((w) => (
+            <WaiverCard
+              key={`${w.code}_${w.subject}`}
+              code={w.code}
+              subject={w.subject}
+              reason={w.reason}
+              needsReview={w.needsReview}
             />
           ))}
           {handoffNotes?.map((n) => (

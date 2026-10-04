@@ -5,6 +5,7 @@ import type { DirectionRosterKind, FeedbackInfo, ScriptLineView } from "../types
 import {
   CommentIcon,
   FilmIcon,
+  FlagIcon,
   PencilIcon,
   PlusIcon,
   SparkleIcon,
@@ -125,6 +126,40 @@ export function RosterCard({
         </span>
         <span className="comment-move-row">
           <span className="comment-move-text">{description}</span>
+        </span>
+      </span>
+    </div>
+  );
+}
+
+// A direction waiver whose subject is this shot: the rule the author broke here and why. Accepting
+// the shot signs it off.
+export function WaiverCard({
+  code,
+  subject,
+  reason,
+  needsReview,
+}: {
+  code: string;
+  subject: string;
+  reason: string;
+  needsReview?: boolean;
+}): React.ReactElement {
+  return (
+    <div className="comment-card comment-card--move">
+      <span className="comment-card-icon">
+        <FlagIcon size={12} />
+      </span>
+      <span className="comment-card-body">
+        <span className="comment-move-row">
+          <span className="comment-move-label">Waived</span>
+          <span className="comment-move-text">
+            {code} {subject}
+          </span>
+          {needsReview && <span className="comment-roster-flag">needs review</span>}
+        </span>
+        <span className="comment-move-row">
+          <span className="comment-move-text">{reason}</span>
         </span>
       </span>
     </div>

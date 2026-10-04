@@ -77,7 +77,7 @@ A fresh **`konte-direction-critic`** subagent reads the cut and returns findings
 - **Get the direction accepted before authoring the stages** — chat sign-off does not substitute; the animatic and video spends are gated on it.
 - **Run the review per `review-guide`, scope `direction`** — hand off, `konte preview direction`, read the record back.
 - **Iterate feedback here, not later** — fix the direction (or waive with a reason), hand off again, re-preview; loop until accepted.
-- **Once the direction is accepted end to end, don't reopen this preview** — re-entering here to retune a shot, a roster entry or the arc is an edit and a report, not a review: the human signs those off in the stage review of the panel or shot that realizes them. Only `brief`, `policy` and `waivers` bring you back, and `konte status` says so by offering `konte preview direction` under Next steps.
+- **Once the direction is accepted end to end, don't reopen this preview** — re-entering here to retune a shot, a roster entry or the arc is an edit and a report, not a review: the human signs those off in the stage review of the panel or shot that realizes them. Only `brief`, `policy` and a waiver on no shot bring you back; `konte status` then offers `konte preview direction` under Next steps.
 
 ## 10. Hand off
 

@@ -235,3 +235,12 @@ export function InfoIcon({ size }: { size?: number }): React.ReactElement {
     </Svg>
   );
 }
+
+export function FlagIcon({ size }: { size?: number }): React.ReactElement {
+  return (
+    <Svg size={size}>
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+      <path d="M4 22v-7" />
+    </Svg>
+  );
+}

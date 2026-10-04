@@ -71,7 +71,9 @@ import { parsePlaceholder } from "../../../core/dsl/shot-context.js";
 import { KonteError, errorMessage } from "../../../core/errors.js";
 import { errorResponse, htmlResponse, jsonResponse, parseJsonBody } from "../../page-host/http.js";
 import type { Direction } from "../../../core/dsl/direction.js";
-import type { ClipInfo, ShotMoveInfo } from "../../../pages/preview/types.js";
+import type { ClipInfo, ShotMoveInfo, ShotWaiverInfo } from "../../../pages/preview/types.js";
+import { directionShotWaivers } from "../../../core/direction.js";
+import { shotWaiversAwaitingAccept } from "../../../core/direction-acceptance.js";
 import type {
   AnimaticDefinition,
   Handoff,
@@ -554,6 +556,27 @@ function shotNotReady(
   );
 }
 
+function shotWaiverIndex(
+  manager: StateManager,
+  direction: Direction | null,
+): Map<string, ShotWaiverInfo[]> {
+  const byId = new Map<string, ShotWaiverInfo[]>();
+  if (!direction) return byId;
+  const awaiting = new Set(
+    shotWaiversAwaitingAccept(direction, manager.getDirectionAcceptance()).map((w) => w.address),
+  );
+  for (const waiver of directionShotWaivers(direction)) {
+    const info = {
+      code: waiver.code,
+      subject: waiver.subject,
+      reason: waiver.reason,
+      needsReview: awaiting.has(waiver.address),
+    };
+    for (const shotId of waiver.shotIds) byId.set(shotId, [...(byId.get(shotId) ?? []), info]);
+  }
+  return byId;
+}
+
 export async function handleGetReelState(
   videoRoot: string,
   video: StageDefinition,
@@ -575,6 +598,7 @@ export async function handleGetReelState(
   const patchHashes = patchHashesOf(await loadPatchCatalog(videoRoot, manager.getState()));
   const directionShotById = shotFactsIndex(direction);
   const movesByShotId = shotMoveIndex(animatic);
+  const waiversByShotId = shotWaiverIndex(manager, direction);
 
   const plan = buildStageReviewPlan(
     video,
@@ -749,14 +773,19 @@ export async function handleGetReelState(
       // accept toggle starts checked on its negation, and Accept all skips a shot it reads as
       // settled, so anything this misses is a verdict a reviewer is never offered while `status`
       // goes on asking for it.
-      const needsVerdict = shotNeedsVerdict(
-        manager,
-        video,
-        s,
-        (address) =>
-          !materializedLeafReviewStatus(manager, address, definitionHashForAddress(video, address))
-            .needsReview,
-      );
+      // A waiver the accept would sign off holds the verdict open too.
+      const needsVerdict =
+        shotNeedsVerdict(
+          manager,
+          video,
+          s,
+          (address) =>
+            !materializedLeafReviewStatus(
+              manager,
+              address,
+              definitionHashForAddress(video, address),
+            ).needsReview,
+        ) || (waiversByShotId.get(s.shotId) ?? []).some((w) => w.needsReview);
 
       return {
         shotId: s.shotId,
@@ -766,6 +795,7 @@ export async function handleGetReelState(
         script: directionShotById.get(s.shotId)?.script ?? [],
         join: directionShotById.get(s.shotId)?.join ?? null,
         moves: movesByShotId.get(s.shotId) ?? [],
+        waivers: waiversByShotId.get(s.shotId) ?? [],
         assets,
         clips: clipsFor(s.shotId),
         feedback,
@@ -798,6 +828,7 @@ export async function handleGetReelState(
         script: directionShotById.get(s.shotId)?.script ?? [],
         join: directionShotById.get(s.shotId)?.join ?? null,
         moves: movesByShotId.get(s.shotId) ?? [],
+        waivers: waiversByShotId.get(s.shotId) ?? [],
         assets: [] as ReturnType<typeof buildAsset>[],
         clips: clipsFor(s.shotId),
         feedback: [] as ReturnType<typeof buildAddressFeedback>,

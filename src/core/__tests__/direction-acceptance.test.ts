@@ -13,6 +13,7 @@ import {
   summarizeDirectionAcceptance,
 } from "../direction-acceptance.js";
 import { directionHash, directionPartHashes } from "../direction-hash.js";
+import { directionShotWaivers } from "../direction.js";
 import type { RoleFunction } from "../direction-check.js";
 import type { Direction, NarrativeShot } from "../dsl/direction.js";
 
@@ -267,19 +268,44 @@ describe("isDirectionSpendGateSatisfied", () => {
   });
 
   // The piece-wide agreements have no downstream reading, so they re-block for the life of the piece.
-  it("re-blocks on an edit to the brief, the policy or a waiver", () => {
+  it("re-blocks on an edit to the brief, the policy or a piece-wide waiver", () => {
     const direction = makeDirection();
     const acceptance = acceptAll(direction);
 
     for (const edit of [
       (d: Direction) => (d.brief.logline = "a girl wakes and stays"),
       (d: Direction) => (d.policy.format!.fps = 30),
-      (d: Direction) => (d.sequence.waivers = { "multi-sentence-action_02": "reconsidered" }),
+      (d: Direction) => (d.sequence.waivers!["no-payoff"] = "an open ending"),
     ]) {
       const edited = makeDirection();
       edit(edited);
       expect(isDirectionSpendGateSatisfied(edited, acceptance)).toBe(false);
     }
+  });
+
+  it("does not re-block on a shot's waiver written after the whole was accepted", () => {
+    const acceptance = acceptAll(makeDirection());
+
+    for (const edit of [
+      (d: Direction) => (d.sequence.waivers!["multi-sentence-action_02"] = "reconsidered"),
+      (d: Direction) => (d.sequence.waivers!["undeclared-continuity_01-02"] = "one room"),
+    ]) {
+      const edited = makeDirection();
+      edit(edited);
+      expect(isDirectionSpendGateSatisfied(edited, acceptance)).toBe(true);
+      expect(directionAcceptanceView(edited, acceptance).complete).toBe(false);
+    }
+  });
+
+  it("demands a shot's waiver until the direction has been accepted whole", () => {
+    const direction = makeDirection();
+    const partial = applyDirectionSectionDecisions(direction, null, ALL_SECTIONS);
+    const unread = makeDirection();
+    unread.sequence.waivers!["undeclared-continuity_01-02"] = "one room";
+    const view = directionAcceptanceView(unread, { ...partial, whole: null });
+    expect(view.gateBlocking.map((b) => b.address)).toEqual([
+      "direction:sequence.waivers.undeclared-continuity_01-02",
+    ]);
   });
 
   // The short-circuit must never be more permissive than the walk it stands in for. A stamped
@@ -694,6 +720,48 @@ function withThirdShot(): Direction {
   return grown;
 }
 
+describe("directionShotWaivers", () => {
+  it("resolves a shot, a frame, a frame's subject and a boundary to the shots they play in", () => {
+    const direction = makeDirection();
+    direction.sequence.waivers = {
+      "multi-sentence-action_02": "a quiet shot",
+      "subject-unnamed_02.cutin.alice": "named by her coat",
+      "panel-unlinked_01-02": "a fresh angle",
+      "panel-unlinked_01-02.cutin": "no cutin cuts here",
+      "multi-sentence-action_99": "a cut shot",
+      "setup-unconsumed_bedroom-wide": "drawn by hand",
+      "no-payoff": "an open ending",
+    };
+    expect(directionShotWaivers(direction).map((w) => [w.subject, w.shotIds])).toEqual([
+      ["02", ["02"]],
+      ["02.cutin.alice", ["02"]],
+      ["01-02", ["01", "02"]],
+    ]);
+  });
+
+  // An id may hold a `-`, so a shot named `01-02` must not take the boundary between 01 and 02.
+  it("reads a boundary's subject as two shots even where a shot spells it", () => {
+    const direction = withThirdShot();
+    direction.sequence.shots![2]!.id = "01-02";
+    direction.sequence.waivers = {
+      "undeclared-continuity_01-02": "one room",
+      "multi-sentence-action_01-02": "a quiet shot",
+    };
+    expect(directionShotWaivers(direction).map((w) => [w.code, w.shotIds])).toEqual([
+      ["undeclared-continuity", ["01", "02"]],
+      ["multi-sentence-action", ["01-02"]],
+    ]);
+  });
+
+  it("reads a boundary off the cut it names, not the first pair that spells it", () => {
+    const direction = makeDirection();
+    const shot = direction.sequence.shots![0]!;
+    direction.sequence.shots = ["a", "a-b", "c", "b-c"].map((id) => ({ ...shot, id }));
+    direction.sequence.waivers = { "panel-unlinked_a-b-c": "a fresh angle" };
+    expect(directionShotWaivers(direction).map((w) => w.shotIds)).toEqual([["a-b", "c"]]);
+  });
+});
+
 describe("applyDirectionShotCascade", () => {
   // The loop this exists for: a shot retimed while reviewing the video, signed off by accepting the
   // take that plays it — without sending the reviewer back to re-read the same shot on the
@@ -725,6 +793,27 @@ describe("applyDirectionShotCascade", () => {
     const { acceptance, restamped } = applyDirectionShotCascade(reframed, accepted, ["01"]);
     expect(restamped).toContain("direction:setups.bedroom-medium");
     expect(directionAcceptanceView(reframed, acceptance!).complete).toBe(true);
+  });
+
+  it("signs off a waiver whose subject is the accepted shot, from either side of a boundary", () => {
+    const accepted = acceptAll(makeDirection());
+
+    const waived = makeDirection();
+    waived.sequence.waivers!["undeclared-continuity_01-02"] = "one room";
+    for (const shotId of ["01", "02"]) {
+      const { acceptance, restamped } = applyDirectionShotCascade(waived, accepted, [shotId]);
+      expect(restamped).toContain("direction:sequence.waivers.undeclared-continuity_01-02");
+      expect(directionAcceptanceView(waived, acceptance!).complete).toBe(true);
+    }
+  });
+
+  it("leaves a piece-wide waiver to the direction page", () => {
+    const accepted = acceptAll(makeDirection());
+
+    const waived = makeDirection();
+    waived.sequence.waivers!["no-payoff"] = "an open ending";
+    const { restamped } = applyDirectionShotCascade(waived, accepted, ["01", "02"]);
+    expect(restamped).not.toContain("direction:sequence.waivers.no-payoff");
   });
 
   // Only the frame the accepted shot is actually taken from.
