@@ -2,13 +2,17 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyResolutionDefinitions } from "../../../../core/definition-hashes.js";
+import { saveReviewRecord } from "../../../../core/review-record.js";
 import { StateManager } from "../../../../core/state/manager.js";
 import { feedbackFramePath, resolveShotFeedbackFrames } from "../../../../core/thumbnail.js";
+import { run } from "../../../__tests__/harness.js";
 import { loadVideoAndAnimatic } from "../../../load-definition.js";
 import {
   useReviewShowProject,
   projectDir,
   dropShotTakes,
+  record,
+  seedShotTakes,
   writeFrame,
 } from "./record-show-fixtures.js";
 
@@ -187,5 +191,25 @@ describe("resolveShotFeedbackFrames", () => {
     });
 
     expect(results[0]!.kind).toBe("frame");
+  });
+});
+
+describe("review record show", () => {
+  it("frames an animatic review's note off the animatic's composition", async () => {
+    await saveReviewRecord(
+      projectDir,
+      {
+        ...record([{ id: "fb-board", time: 1, shotId: "01", text: "board" }]),
+        mode: "animatic-preview",
+        stage: "animatic",
+      },
+      { force: true },
+    );
+    await seedShotTakes("animatic");
+    await writeFrame("fb-board", 1, "01", "animatic");
+
+    const { stdout } = await run(["review", "record", "show"], projectDir);
+
+    expect(stdout).toMatch(/\[image: \.konte\/cache\/thumbnails\/animatic\/shot\.01#composition\//);
   });
 });

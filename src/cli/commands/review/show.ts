@@ -18,6 +18,7 @@ import {
   loadReviewRecordFile,
   type ReviewRecord,
   reviewNoteFrameTargets,
+  reviewStage,
   toReviewFileId,
 } from "../../../core/review-record.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
@@ -52,6 +53,7 @@ async function resolveNoteFrames(
   } catch (err) {
     return { frames, problems: [`definitions did not load: ${errorMessage(err)}`] };
   }
+  const stage = reviewStage(record) === "animatic" ? loaded.animatic : loaded.video;
   const manager = await StateManager.load(videoRoot);
   await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
 
@@ -66,7 +68,7 @@ async function resolveNoteFrames(
 
   for (const [shotId, shotTargets] of byShot) {
     const results = await resolveShotFeedbackFrames({
-      video: loaded.video,
+      video: stage,
       manager,
       videoRoot,
       shotId,

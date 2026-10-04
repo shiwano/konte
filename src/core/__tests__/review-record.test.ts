@@ -1316,7 +1316,6 @@ describe("reviewNoteFrameTargets", () => {
     expect(reviewNoteFrameTargets(record)).toEqual([
       {
         id: "fb-early",
-        address: "video:shot.01",
         shotId: "01",
         localTime: 3.5,
         annotation: null,
@@ -1324,7 +1323,6 @@ describe("reviewNoteFrameTargets", () => {
       },
       {
         id: "fb-late",
-        address: "video:shot.02",
         shotId: "02",
         localTime: 2.5,
         annotation: null,

@@ -829,7 +829,6 @@ function formatVideoNoteItem(
 export interface ReviewNoteFrameTarget {
   /** The feedback id — a pinned note's frame is named after it, and it keys the caller's result. */
   id: string;
-  address: string;
   shotId: string;
   /** Offset within the shot, which is what a composition capture takes. */
   localTime: number;
@@ -843,7 +842,7 @@ export interface ReviewNoteFrameTarget {
 }
 
 /**
- * The notes of a video review that can carry a frame, in timeline order — the cells of its contact
+ * The notes of a review that can carry a frame, in timeline order — the cells of its contact
  * sheet. Nothing is recorded about the frames themselves: the caller resolves them per shot through
  * `resolveShotFeedbackFrames` and drops what it cannot get.
  */
@@ -863,7 +862,6 @@ export function reviewNoteFrameTargets(record: ReviewRecord): ReviewNoteFrameTar
     const start = starts.get(note.shotId) ?? 0;
     return {
       id: note.id,
-      address: note.address ?? `video:shot.${note.shotId}`,
       shotId: note.shotId,
       localTime: note.time - start,
       annotation:

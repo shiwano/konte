@@ -22,17 +22,18 @@ let originalCwd: string;
 export let projectDir: string;
 
 /**
- * A ready take for shot 01's only asset, so its composition builds — which is what `show` needs
+ * A ready take for every shot asset of one stage, so its compositions build — which is what `show` needs
  * before it will look for (or render) any note frame.
  */
-export async function seedShotTakes(): Promise<void> {
-  const { video } = await loadVideoAndAnimatic(projectDir);
+export async function seedShotTakes(stage: "video" | "animatic" = "video"): Promise<void> {
+  const loaded = await loadVideoAndAnimatic(projectDir);
   await fs.mkdir(path.join(projectDir, "assets"), { recursive: true });
   const sm = await StateManager.load(projectDir);
-  for (const shot of video.shots) {
+  const ext = stage === "video" ? "mp4" : "png";
+  for (const shot of loaded[stage].shots) {
     for (const name of Object.keys(shot.assets ?? {})) {
-      const address = `video:shot.${shot.id}.${name}`;
-      const file = path.join("assets", `${shot.id}-${name}.mp4`);
+      const address = `${stage}:shot.${shot.id}.${name}`;
+      const file = path.join("assets", `${stage}-${shot.id}-${name}.${ext}`);
       await fs.writeFile(path.join(projectDir, file), "");
       const variantId = sm.reserveVariantId(address);
       sm.getAssetState(address).variants![variantId]!.file = file;
@@ -75,12 +76,13 @@ export async function writeFrame(
   feedbackId: string,
   localTime: number,
   shotId = "01",
+  stage: "video" | "animatic" = "video",
 ): Promise<void> {
-  const { video } = await loadVideoAndAnimatic(projectDir);
+  const loaded = await loadVideoAndAnimatic(projectDir);
   const manager = await StateManager.load(projectDir);
   await applyResolutionDefinitions({ videoRoot: projectDir, state: manager.getState() });
   const rel = await feedbackFramePath({
-    video,
+    video: loaded[stage],
     manager,
     videoRoot: projectDir,
     feedbackId,
