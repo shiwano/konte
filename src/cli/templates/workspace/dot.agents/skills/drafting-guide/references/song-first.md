@@ -13,15 +13,14 @@ The song take is accepted before any shot is written. Fields → `direction-guid
 
 ## 3. Make the song
 
-- **Generated → a `reference.tsx` asset at `clock.song`'s id, returned under it and fed from the direction** — the words laid out per the model's guide:
+- **Generated → a `reference.tsx` asset at `clock.song`'s id, returned under it, its lyrics fed from the direction** — the words laid out per the model's guide, the tempo and meter written as asked:
 
 ```tsx
 import { lyricText } from "konte";
 
-const clock = direction.policy.clock!;
-const song = asset(clock.song, audioYue2, {
-  style: `English, synth pop, bright female vocal, ${clock.bpm} BPM, ${clock.beatsPerBar}/4, four-on-the-floor kick`,
-  bpm: clock.bpm,
+const song = asset(direction.policy.clock!.song, audioYue2, {
+  style: "English, synth pop, bright female vocal, 104 BPM, 4/4, four-on-the-floor kick",
+  bpm: 104,
   lyrics: direction
     .lyrics!.map((s) => `[${s.label}]\n${s.lines.map(lyricText).join("\n")}`)
     .join("\n\n"),

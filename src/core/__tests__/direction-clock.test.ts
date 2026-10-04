@@ -209,6 +209,17 @@ describe("the song take", () => {
     expect(check(clocked(arc()), take(121)).map((f) => f.code)).toContain("song-off-tempo");
   });
 
+  it("offers declaring the tempo the take plays at", () => {
+    const message = (bpm: number, disruptionBeats?: number) =>
+      check(clocked(arc(disruptionBeats)), take(bpm)).find((f) => f.code === "song-off-tempo")
+        ?.message;
+    expect(message(121.2)).toContain("declare policy.clock.bpm as 121 ");
+    // Over 256 beats, 121 still drifts 0.44 beats off a take at 121.21; 121.2, 0.02.
+    expect(message(121.21, 232)).toContain("declare policy.clock.bpm as 121.2 ");
+    // Over 2000 beats, 121.2 drifts 0.58 beats off a take at 121.235.
+    expect(message(121.235, 1976)).toContain("declare policy.clock.bpm as 121.235 ");
+  });
+
   it("flags a timeline that runs past the end of the take, on a stage pass", () => {
     // 32 beats at 120 BPM after a 0.5s lead end the timeline at 16.5s.
     const overrun = (durationSec: number) =>

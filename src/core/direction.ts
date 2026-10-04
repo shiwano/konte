@@ -653,13 +653,22 @@ function checkSong(
   const beats = collectShots(direction).reduce((sum, s) => sum + (s.beats ?? 0), 0);
   const drift = songDriftBeats(take.analysis.bpm, clock.bpm, beats);
   if (drift >= OFF_TEMPO_BEATS) {
+    const played =
+      [1, 10]
+        .map((scale) => Math.round(take.analysis.bpm * scale) / scale)
+        .find((bpm) => songDriftBeats(take.analysis.bpm, bpm, beats) < OFF_TEMPO_BEATS) ??
+      take.analysis.bpm;
+    const remedies = [
+      `declare policy.clock.bpm as ${played} to cut on this take`,
+      `regenerate the song at ${clock.bpm} BPM`,
+      "waive a drift the cut can live with",
+    ];
     findings.push({
       code: "song-off-tempo",
       message:
         `${take.address} ${take.variantId} plays at ${take.analysis.bpm} BPM against the declared ` +
         `${clock.bpm} — by the end of the ${beats}-beat timeline it is ${drift.toFixed(2)} beats off ` +
-        `the grid the shots are cut on. Regenerate the song at ${clock.bpm} BPM, or waive a drift ` +
-        `the cut can live with`,
+        `the grid the shots are cut on: ${remedies.slice(0, -1).join(", ")}, or ${remedies.at(-1)}`,
     });
   }
   for (const line of placeDirectionLyrics(direction, take)) {
