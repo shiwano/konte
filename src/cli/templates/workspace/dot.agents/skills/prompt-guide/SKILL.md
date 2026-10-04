@@ -63,6 +63,7 @@ Look at the actual upstream image before writing about it.
 ## Project-wide consistency
 
 - **Read the sibling prompts in the same definition file first and align with them** unless the user asks for a break — style-layer and lighting vocabulary, camera/motion vocabulary, character-preservation phrasing, the same voice parameters per speaker.
+- **Strip body words from a style layer reused where no one stands** — proportions, skin or faces draw a figure in.
 
 ## Self-review
 

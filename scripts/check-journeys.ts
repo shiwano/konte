@@ -34,6 +34,8 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - music-video 38,800 → 38,850 (agreed by a human): no body words in a style layer reused
+//   where no one stands.
 // - dev-direction 16,650 → 16,750 (agreed by a human): a take's song reading kept in `song.json`
 //   beside it, hashed in the variant's `song`.
 // - music-video 38,700 → 38,800, dev-render 10,450 → 10,550 (agreed by a human): `#songStem`, what a
@@ -140,7 +142,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "music-video",
-    budget: 38_800,
+    budget: 38_850,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
