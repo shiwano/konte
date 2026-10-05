@@ -8,15 +8,15 @@ A shipped adapter is a typed wrapper around one hosted model, seeded into every 
 
 ## Where things live
 
-- **Adapter**: `src/cli/templates/workspace/adapters/fal/<model>.ts` — one file may export several modes (e.g. `falSeedance25T2v` / `falSeedance25I2v`). Template **seed**: `konte workspace new` writes it once, never re-synced.
+- **Adapter**: `src/cli/templates/workspace/adapters/fal/<model>.ts` — one file may export several modes (e.g. `falSeedance25T2v` / `falSeedance25I2v`). Template **seed**: written once by `konte workspace new`, never re-synced.
 - **Guide**: `dot.konte/guides/<name>.md`, imported as `konte/guides/<name>.md` — managed and re-synced on upgrade.
 - **Builder**: `defineFalAsset` (`src/core/dsl/fal-asset.ts`) — read it once; it is the source of truth for input semantics.
-- **Export barrel**: none — a named `export` from the file is all that's needed.
-- **Discovery**: none to update — `konte adapter list` walks `adapters/**/*.ts` plus the built-ins and builds one table from each adapter's `meta` (`{backend, mediaType, description, ref, inputs}`), filtered to the configured backends (plus `file`/`local`); a broken adapter file is reported per file, not fatal. `adapter show <adapter>` adds the full input schema and the craft guide's absolute path, never its body. So the `description` and input `description`s you write here _are_ the docs.
+- **Export barrel**: none — a named `export` suffices.
+- **Discovery**: none to update — `konte adapter list` walks `adapters/**/*.ts` plus the built-ins and tables each adapter's `meta`, filtered to the configured backends (plus `file`/`local`); a broken adapter file is reported, not fatal. `adapter show <adapter>` adds the full input schema and the craft guide's absolute path, never its body. So the `description` and input `description`s you write here _are_ the docs.
 
 ## Verify the schema first — never from memory
 
-Confirm against the live schema page — and when it is unclear, fan out a research agent against the provider's docs.
+Confirm against the live schema page; when unclear, fan out a research agent on the provider's docs.
 
 - **FAL** — `fal.ai/models/<endpoint>/api`. Get the exact **endpoint id**. A successor may sit under the same path (`.../sound-effects` → `.../sound-effects/v2`) or move namespace entirely (`fal-ai/minimax-music/v2.6` → `minimax/music-3`), so search the model by name — never append a guessed version to the old id.
   - `curl "https://fal.ai/api/openapi/queue/openapi.json?endpoint_id=<id>" | jq .components.schemas` is the authoritative input schema — field names, types, defaults, enums, min/max, and which are required.
@@ -90,4 +90,4 @@ Read the adapter and the live schema side by side and flag every divergence: a d
 
 - `bun run check` (typecheck + template type-check + lint + format) — must pass; it verifies the `konte/guides/…` import resolves on disk.
 - `konte adapter show <adapter>` in a workspace renders the final schema as an agent will read it.
-- Don't smoke-test against the live API here; schema-correctness against the docs is the gate.
+- No live-API smoke test; schema-correctness against the docs is the gate.
