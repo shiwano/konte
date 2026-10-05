@@ -1,3 +1,6 @@
+model_context_window = 1000000
+model_auto_compact_token_limit = 750000
+
 developer_instructions = """
 When reading SKILL.md files or documents they reference through code-mode,
 read each file in a separate exec call. If a file's output is truncated,
