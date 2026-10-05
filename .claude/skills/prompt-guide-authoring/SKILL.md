@@ -26,7 +26,7 @@ No parameter table. Sections in order, omitting any that doesn't apply: `# <the 
 - **`## Prompt Shape` stays prose** — the agent copies its template line + gloss.
 - **Length, mode notes, Avoid are terse** — one rule per line, why inline. `## Avoid` includes this model's negative-phrasing rule.
 - **`## Cost ladder` when the schema offers rungs** (resolution, steps, a tier, per-reference cost) — the rung to open on and what each higher one buys.
-- **`## Known failures` from observed takes only** — `- **symptom** — the change that cleared it`; never a general belief about generation.
+- **`## Known failures` from observed takes only** — `- **symptom** — the change that cleared it`; never a general belief about generation. Only a symptom that reaches the agent (feedback, command output) and a change to a prompt or input the agent makes; not one a default or another section already covers.
 - **Keep parameter catalogs in the schema/descriptions** — the guide may recommend which value to choose, when, and what it changes.
 
 ## Parameters: input descriptions

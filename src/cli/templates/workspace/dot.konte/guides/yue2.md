@@ -46,13 +46,6 @@ The planned score sets the length, not a requested running time: four sections o
 
 - **None.** The workflow routes conditioning through `ConditioningZeroOut`, so there's no negative text path. Steer by editing `style`.
 
-## Known failures
-
-- **Song cut mid-phrase at 120 s** — the template's ceiling; the adapter's `maxDuration` default of 360 let takes end on their own.
-- **A Japanese ballad at 92 BPM read at 91 on five of six takes** — re-roll until `konte song analyze` reads the declared tempo; English and Japanese at 104 BPM, and English at 92, landed on most takes.
-- **A Japanese score slipped a 2/4 or 9/8 bar between sections on four of six plans**, moving every later bar head off a 4/4 grid — re-roll; the English plans held 4/4 throughout.
-- **Words sung into an instrumental on two of three takes** — the style was `Instrumental, …, no vocals, no singing, no choir`; a style naming no voice gave none in three.
-
 ## Avoid
 
 - A BPM in `style` that differs from `bpm`.
