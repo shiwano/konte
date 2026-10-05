@@ -23,6 +23,10 @@ import { $ } from "bun";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { writeFixtureVideo } from "../../../src/cli/__tests__/fixture-video.js";
+import { loadStageDefinitions } from "../../../src/cli/load-definition.js";
+import { syncFileAssets } from "../../../src/core/file-sync.js";
+import { requireShotStages } from "../../../src/core/select-definition.js";
+import { StateManager } from "../../../src/core/state/index.js";
 
 const repoRoot = path.resolve(import.meta.dir, "../../..");
 const cli = path.join(repoRoot, "src/cli/index.ts");
@@ -121,9 +125,11 @@ await tone(330, 2.5, "narration.mp3");
 await tone(880, 0.6, "sfx.mp3");
 await $`ffmpeg -y -f lavfi -i color=c=teal:s=320x180:d=2 -pix_fmt yuv420p ${path.join(files, "reference-clip.mp4")}`.quiet();
 
-// 3. Let konte auto-register the `file` assets (character/clip/bgm + the per-shot bg/narration/sfx)
-//    into state via file-sync — running any read command does it.
-await $`bun run ${cli} --cwd ${dest} status video`.quiet().nothrow();
+// 3. Register the `file` assets (character/clip/bgm + the per-shot bg/narration/sfx) into state via
+//    file-sync, persisted — `status` syncs in memory only, and `preview` opens a browser.
+await StateManager.withLock(dest, async (m) => {
+  await syncFileAssets(requireShotStages(await loadStageDefinitions(dest)), m, { measure: true });
+});
 
 // 4. Two distinct dummy clips so "which take is shown" is visible at a glance.
 fs.mkdirSync(path.join(dest, "media"), { recursive: true });

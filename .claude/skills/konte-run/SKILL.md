@@ -55,7 +55,7 @@ It scaffolds a workspace (`/tmp/konte-run-fixture/ws`) and a video in it from `f
 - **direction** — the fixture video's `direction.ts`, left **un-accepted**, so the per-section acceptance gate is exercisable.
 - **video** — two dummy clips (navy `old.mp4` accepted, crimson `new.mp4` the reroll); `shot.01.motion` gets both, shots 02/03 a single accepted take so the render plan resolves. Each shot also gets a `bg` image layer + `narration`/`sfx` audio, un-accepted so the audio track needs review.
 - **animatic** — each shot's `first`/`last` panel gets one accepted flat-color PNG.
-- **reference** — `character.png` / `bgm.mp3` / `reference-clip.mp4` are `file` assets auto-registered by file-sync (the fixture runs a read command to trigger it). All are ffmpeg-generated, overwriting the fixture video's media so none of it reaches state.
+- **reference** — `character.png` / `bgm.mp3` / `reference-clip.mp4` are `file` assets registered by file-sync, which the fixture runs itself. All are ffmpeg-generated, overwriting the fixture video's media so none of it reaches state.
 
 It also seeds shot-01 feedback and a handoff per stage, so notes render inline in every UI.
 
