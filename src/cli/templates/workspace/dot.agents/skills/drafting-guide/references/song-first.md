@@ -2,10 +2,9 @@
 
 The song take is accepted before any shot is written. Fields → `direction-guide`'s song.md.
 
-## 1. Declare the clock and the lyrics, no shots
+## 1. Declare the song and the lyrics, no shots
 
-- **`policy.clock`, `lyrics`, and `sequence.shots: []`.**
-- **`bpm` and `beatsPerBar` are your decision** — the music model is asked for them.
+- **`policy.song`, `lyrics`, and `sequence.shots: []`.**
 
 ## 2. Review the brief, policy and lyrics
 
@@ -13,12 +12,12 @@ The song take is accepted before any shot is written. Fields → `direction-guid
 
 ## 3. Make the song
 
-- **Generated → a `reference.tsx` asset at `clock.song`'s id, returned under it, its lyrics fed from the direction** — the words laid out per the model's guide, the tempo and meter written as asked:
+- **Generated → a `reference.tsx` asset at `policy.song`'s id, returned under it, its lyrics fed from the direction** — the words laid out per the model's guide; the tempo and meter are your decision, written as the guide asks:
 
 ```tsx
 import { lyricText } from "konte";
 
-const song = asset(direction.policy.clock!.song, audioYue2, {
+const song = asset(direction.policy.song!, audioYue2, {
   style: "English, synth pop, bright female vocal, 104 BPM, 4/4, four-on-the-floor kick",
   bpm: 104,
   lyrics: direction
@@ -29,13 +28,13 @@ const song = asset(direction.policy.clock!.song, audioYue2, {
 
 - **Brought → a `file` asset at that id.**
 - **`konte generate reference`, then `konte job wait`** — the wait covers the reading of each take.
-- **A reading failed → `konte song analyze`** — the first run downloads the vocal separator. It re-reads the current take, keeping every `konte song set` correction on it.
+- **A reading failed → `konte song analyze`** — the first run downloads the beat tracker and the vocal separator. It re-reads the current take, keeping every `konte song set` correction on it.
 
 ## 4. Check the lines, then accept
 
 - **Preview the song and listen with its lines laid over it before accepting** — a line may be placed a line off, not only left unplaced (`lyric-unplaced`).
 - **A wrong or unplaced line is the human's to fix on the song's review page** — they drag it to where it is sung.
-- **Settle the song before any animatic spend** — a new take, a same-path file swap or a `konte song set --downbeat` can move the intro, and the first shot is then remade.
+- **Settle the song before any animatic spend** — a new take, a same-path file swap or a `konte song set --first-beat` moves the cuts, and every shot they move is then remade.
 
 ## 5. Write the shots in beats
 

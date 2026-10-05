@@ -12,7 +12,7 @@ import { loadDirectionIfPresent } from "../../load-definition.js";
 import { songAnalysisOf } from "../../../core/song-reading.js";
 import { recognizesSpeechIn } from "../../../core/sherpa-binary.js";
 import { readHeardSpeech } from "../../../core/speech-hearing.js";
-import { songAddressOf, songDownbeatSec } from "../../../core/song-take.js";
+import { formatSongTempo, songAddressOf, songBeatSec, songTempo } from "../../../core/song-take.js";
 import { barAt, songBars } from "../../../core/song-report.js";
 import type { SongAnalysis } from "../../../core/types/index.js";
 import { type LyricPlacementEntry, placeDirectionLyrics } from "../../../core/dsl/direction.js";
@@ -109,7 +109,6 @@ Examples:
       await ensureFfmpeg();
       await ffprobeBin();
       const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
-      const clock = direction?.policy?.clock;
       const songAddress = songAddressOf(direction);
 
       const lang = direction?.policy.lang;
@@ -172,8 +171,8 @@ Examples:
           variantId,
           manager.getState().assets[wf.address]?.variants?.[variantId]?.song,
         );
-        if (clock && direction && wf.address === songAddress && dur != null) {
-          printSong(song ?? null, clock, dur, wf.rms, wf.rate);
+        if (direction && wf.address === songAddress && dur != null) {
+          printSong(song ?? null, dur, wf.rms, wf.rate);
           if (song && direction.lyrics) {
             printLyrics(
               placeDirectionLyrics(direction, { address: wf.address, variantId, analysis: song }),
@@ -201,11 +200,10 @@ Examples:
     });
 }
 
-// What konte read off a take of the song: its clock against the declared one, each bar's level on
-// the grid, the section boundary candidates and where it is sung.
+// What konte read off a take of the song: its clock, each bar's level on its beats, the section
+// boundary candidates and where it is sung.
 function printSong(
   song: SongAnalysis | null,
-  clock: { bpm: number; beatsPerBar: number },
   durationSec: number,
   rms: readonly number[],
   rate: number,
@@ -214,9 +212,9 @@ function printSong(
     console.log("  song      not read yet — `konte song analyze` reads it");
     return;
   }
-  printSongReading(song, clock);
+  printSongReading(song);
   console.log("  bars");
-  for (const bar of songBars(song, clock.beatsPerBar, durationSec, rms, rate)) {
+  for (const bar of songBars(song, durationSec, rms, rate)) {
     const level = bar.levelDb === null ? "  —  " : `${bar.levelDb.toFixed(0).padStart(4)} dB`;
     console.log(
       `    ${String(bar.index).padStart(3)}  ${fmtOnset(bar.startSec).padStart(7)}  ${level}`,
@@ -224,19 +222,16 @@ function printSong(
   }
 }
 
-// The reading's clock against the declared one, its section candidates, where it is sung and what it
-// is heard to sing.
-export function printSongReading(
-  song: SongAnalysis,
-  clock: { bpm: number; beatsPerBar: number },
-): void {
-  const corrected = song.downbeatSet !== undefined ? " (set by hand)" : "";
+// The reading's clock — its tempo, meter and beat 0 — its section candidates, where it is sung and
+// what it is heard to sing.
+export function printSongReading(song: SongAnalysis): void {
+  const corrected = song.firstBeatSet !== undefined ? " (set by hand)" : "";
   console.log(
-    `  song      ${song.bpm} BPM (declared ${clock.bpm}), first bar head at ` +
-      `${fmtOnset(songDownbeatSec(song))}${corrected}`,
+    `  song      ${formatSongTempo(songTempo(song))}, ${song.beatsPerBar}/bar, beat 0 at ` +
+      `${fmtOnset(songBeatSec(song, 0))}${corrected}`,
   );
   const sections = song.sectionSecs
-    .map((sec) => ({ sec, bar: barAt(song, clock.beatsPerBar, sec) }))
+    .map((sec) => ({ sec, bar: barAt(song, sec) }))
     .sort((a, b) => a.sec - b.sec)
     .map(({ sec, bar }) => `bar ${bar} (${fmtOnset(sec)})`);
   console.log(`  sections  ${sections.length > 0 ? sections.join(", ") : "none stands out"}`);

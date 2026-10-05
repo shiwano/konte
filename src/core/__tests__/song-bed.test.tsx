@@ -57,12 +57,12 @@ const songTake = () => ({
   address: "reference:song",
   variantId: "v-song",
   analysis: {
-    bpm: 120,
-    downbeatSec: 0.5,
+    beats: Array.from({ length: 240 }, (_, i) => 0.5 + i * 0.5),
+    firstBeat: 0,
+    beatsPerBar: 4,
     sectionSecs: [],
     phrases: null,
     heard: null,
-    clock: { bpm: 120, beatsPerBar: 4 },
     lang: "en",
   },
 });
@@ -80,7 +80,7 @@ function clockedDirection(opts: { script?: boolean; clock?: false } = {}) {
     },
     policy: {
       ...directionDefaults.policy,
-      ...(opts.clock === false ? {} : { clock: { song: "song", bpm: 120, beatsPerBar: 4 } }),
+      ...(opts.clock === false ? {} : { song: "song" }),
     },
     sequence: {
       lens: "mini-drama",
@@ -218,7 +218,7 @@ describe("a board shot's song stem", () => {
         cat: { name: "the cat", description: "a black cat", promptDepiction: "cat" },
         dog: { name: "the dog", description: "a white dog", promptDepiction: "dog" },
       },
-      policy: { ...directionDefaults.policy, clock: { song: "song", bpm: 120, beatsPerBar: 4 } },
+      policy: { ...directionDefaults.policy, song: "song" },
       lyrics: [
         { label: "verse", singer: "cat", lines: ["la la", "na na", "ta ta"] },
         { label: "bridge", singer: "dog", lines: ["wo wo"] },

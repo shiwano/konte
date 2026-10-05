@@ -57,8 +57,8 @@ export type VendorBackendKind = z.infer<typeof VendorBackendKindSchema>;
 //   to a delivered MP4. It is the leaf of the dependency graph — nothing
 //   depends on its output — so it needs no address; it consumes the resolved layer
 //   and #delivery assets it depends on. Run by `run-export-job`, like a model download.
-// - "song-analysis": a standalone job that reads one take of the song `policy.clock` counts on —
-//   its tempo, bar heads, section boundaries and sung stretches — and records them on that
+// - "song-analysis": a standalone job that reads one take of the song `policy.song` names —
+//   its beats, meter, section boundaries and sung stretches — and records them on that
 //   variant (`song`). Queued when the take lands; run by `run-song-analysis-job`.
 export const JobKindSchema = z.enum([
   "generation",
@@ -184,10 +184,6 @@ export const SongAnalysisJobSchema = JobRecordBaseSchema.extend({
   address: z.string(),
   variantId: JobIdSchema,
   outputHash: z.string().nullable().default(null),
-  // The clock the direction declared when the job was queued: the tempo is searched near `bpm`,
-  // and bar heads counted in `beatsPerBar`.
-  bpm: z.number().positive(),
-  beatsPerBar: z.number().int().positive(),
   // The language the direction declared (`policy.lang`): what the vocal track is heard as.
   lang: z.string(),
   // Queued by `konte song analyze`: it lands over a reading that still holds.

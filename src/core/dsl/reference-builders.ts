@@ -103,7 +103,7 @@ export function defineReference<TAssets extends ReferenceAssetMap>(
   return Object.assign(definition, returned) as ReferenceDefinition & ReferenceRef<TAssets>;
 }
 
-// Every lyric line is one the song is generated singing: the words `reference:<clock.song>` hands
+// Every lyric line is one the song is generated singing: the words `reference:<policy.song>` hands
 // its model carry each line as the direction spells it, or as a `respell()` of it does. A song not
 // declared here is `song-unreferenced`'s, and one handed no words (a file, a model given none) has
 // nothing to hold the lines against.
@@ -113,7 +113,7 @@ function assertLyricsSung(
   prompts: readonly PromptOccurrence[],
   respellings: readonly Respelling[],
 ): void {
-  const song = index.timeline.clock?.song;
+  const song = index.timeline.song;
   if (!song || !index.lyrics || !(song in assets)) return;
   const lines = index.lyrics.map((l) => l.text);
   for (const { line } of respellings) {

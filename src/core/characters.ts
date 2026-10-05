@@ -6,7 +6,7 @@ import { songAddressOf } from "./song-take.js";
 
 // Every `reference:<id>` the cast is anchored to: a character's look (the roster key equals the
 // exposed asset name) and every cast voice sample — each character's, and the narrator's — plus the
-// song `policy.clock` counts on. All are human calls, so all are held out of the accept cascades;
+// song `policy.song` names. All are human calls, so all are held out of the accept cascades;
 // a voice or the song is audio, which a stem-rooted walk would otherwise sign off sideways.
 export function castReferenceAddresses(direction: Direction): string[] {
   const out: string[] = [];

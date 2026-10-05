@@ -26,7 +26,7 @@ export default defineDirection({
     format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
     lang: "en",
     speech: "free",
-    clock: { song: "song", bpm: 120, beatsPerBar: 4 },
+    song: "song",
   },
   lyrics: [{ label: "chorus", singer: "konte", lines: ["Hit the light", "Watch me move"] }],
   sequence: { lens: "mini-drama", pleasure: "cute", shots: [] },
@@ -59,13 +59,13 @@ async function project(): Promise<{ videoRoot: string; variantId: string }> {
   variant.file = "/tmp/song.mp3";
   variant.song = {
     reading: await writeSongReading(videoRoot, SONG, variantId, {
-      bpm: 120,
-      downbeatSec: 0.5,
+      beats: Array.from({ length: 240 }, (_, i) => 0.5 + i * 0.5),
+      firstBeat: 0,
+      beatsPerBar: 4,
       sectionSecs: [],
       phrases: null,
       heard: null,
     }),
-    clock: { bpm: 120, beatsPerBar: 4 },
     lang: "en",
   };
   await sm.save();

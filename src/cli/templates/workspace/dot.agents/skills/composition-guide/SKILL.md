@@ -9,7 +9,7 @@ Compose layers, captions, animation and sound in `animatic.tsx` or `video.tsx`; 
 ## Routing
 
 - **Writing a `soundtracks` entry, an `<Audio>` cue, or `<Video hasAudio>`** → [audio-patterns.md](references/audio-patterns.md), then [sound-design.md](references/sound-design.md) before placing any of them
-- **A piece cut to a song** (`policy.clock`) → [song.md](references/song.md) before any sound, beat-timed move or lyric
+- **A piece cut to a song** (`policy.song`) → [song.md](references/song.md) before any sound, beat-timed move or lyric
 - **Anything beyond one full-frame `<Video>`** — a layer over every shot (`overlay`), a title / lower-third, a crossfade, Ken Burns, a fade or flash → [staging-patterns.md](references/staging-patterns.md)
 - **Whether a shot gets that `duration` or that sound at all** → `direction-guide`
 

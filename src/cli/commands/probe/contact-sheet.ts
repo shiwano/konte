@@ -43,6 +43,7 @@ import { probeMediaInfo } from "../../../core/video-probe.js";
 import { unresolvedPictureRefs } from "../../../core/composition-resource.js";
 import { buildAssetStatus, needsReviewItems } from "../../asset-status.js";
 import { loadStageDefinitions, loadVideoAndAnimatic } from "../../load-definition.js";
+import { requireShotStages } from "../../../core/select-definition.js";
 import { parseNumberOption } from "../../parse-option.js";
 import { requireVideoRoot } from "../../context.js";
 import { resolveProbeTargets } from "./resolve-arg.js";
@@ -305,7 +306,7 @@ async function buildNeedsReviewCells(
   opts: { framesPerTake: number; force?: boolean },
 ): Promise<{ cells: ContactSheetCell[]; skipped: string[] }> {
   if (scope !== undefined) assertValidAddressScope(scope);
-  const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
+  const { video, animatic, reference } = requireShotStages(await loadStageDefinitions(videoRoot));
   // The same sync `status` runs before its own report: an edited `file` asset moves its content
   // hash, which stales the takes built on it. Skipping it would put a take on this sheet that
   // `status` reports as work to redo.

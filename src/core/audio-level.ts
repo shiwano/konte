@@ -17,7 +17,7 @@ export function isVoiceKind(kind: CueKind | undefined): boolean {
   return kind === "voice" || kind === "narration";
 }
 
-/** A cue kind, the timeline bed a `soundtrack()` places, or the song `policy.clock` counts on. */
+/** A cue kind, the timeline bed a `soundtrack()` places, or the song `policy.song` names. */
 export type LevelKind = CueKind | "bed" | "song";
 
 // Where each kind sits. `sfx` is levelled by true peak instead: integrated loudness measured over

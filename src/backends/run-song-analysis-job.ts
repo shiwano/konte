@@ -68,8 +68,6 @@ export async function runSongAnalysisJob(
             file: path.resolve(videoRoot, take.file),
             outputHash,
             videoRoot,
-            bpm: job.bpm,
-            beatsPerBar: job.beatsPerBar,
             lang: job.lang,
             // One directory per run: a run superseded by `song analyze` may still be reading.
             workDir: path.join(videoRoot, ".konte", "cache", "song", id, workerId),
@@ -94,9 +92,10 @@ export async function runSongAnalysisJob(
           if (lands) {
             variant.song = {
               reading: await writeSongReading(videoRoot, job.address, job.variantId, reading),
-              clock: { bpm: job.bpm, beatsPerBar: job.beatsPerBar },
               lang: job.lang,
-              ...(previous?.downbeatSet !== undefined ? { downbeatSet: previous.downbeatSet } : {}),
+              ...(previous?.firstBeatSet !== undefined
+                ? { firstBeatSet: previous.firstBeatSet }
+                : {}),
               ...(previous?.lines ? { lines: previous.lines } : {}),
             };
             await manager.save();

@@ -124,24 +124,23 @@ A shot's words split by whether anyone says them. `telop` is unspoken text over 
 
 `assertScriptVoiced` (`dsl/animatic-builders.ts`) reads `SCRIPT_UNVOICED` per LINE, off the `"spokenText"` reachable from each `stemRef`. A cue yielding none is a recording, and ONE drops the shot back to the whole-shot rule: counting them as one line each refuses a single recording of a two-hander, and this error takes no waiver.
 
-## The song clock
+## The song
 
-`policy.clock` (`{ song, bpm, beatsPerBar }`) cuts the piece to a song: every shot's span is `beats`, never `duration` (`ConstrainSpan` in the type, `shot-span-mismatch` past it), and `off-grid-duration` asks for a positive whole number of beats. The timeline's 0s is the song take's start: the first shot also holds the take's lead before its downbeat, so a cut lands at `lead + round(cumBeats × 60 / bpm × fps)` frames and moves with the take the loader injects. `DirectionIndex.timeline` carries it to every stage. `ctx.beat(n)` is beat `n` of the shot's own span, in seconds. The clock is the policy part `direction:policy.clock` (`projectClock`); a shot's span rides `projectSpan`.
+`policy.song` (a `reference:<id>` id) cuts the piece to a song: every shot's span is `beats`, never `duration` (`ConstrainSpan` in the type, `shot-span-mismatch` past it), and `off-grid-duration` asks for a positive whole number of beats. A beat falls where the injected take is read to play it (`songBeatSec`). The first shot holds the take's lead before beat 0; each cut lands on its beat's frame. Unread, a shot holds only beats and a build needing seconds stops on `SONG_UNREAD`. `DirectionIndex.timeline` carries it to every stage. `ctx.beat(n)` is beat `n` of the shot's own span, in seconds. The song is the policy part `direction:policy.song`; a shot's span rides `projectSpan`.
 
-`lyrics` (`[{ label, singer, lines }]`) is what the song sings. `singer` is a character id or list; a line is text or `{ text, singer }`. Structural: `lyrics-without-clock`, `lyrics-singer-unknown`, `lyrics-singer-empty`, `lyrics-empty-line`. `direction:lyrics` is one part with its own section, and piece-wide: a lyric edit holds a spend after `whole`.
+`lyrics` (`[{ label, singer, lines }]`) is what the song sings. `singer` is a character id or list; a line is text or `{ text, singer }`. Structural: `lyrics-without-song`, `lyrics-singer-unknown`, `lyrics-singer-empty`, `lyrics-empty-line`. `direction:lyrics` is one part with its own section, and piece-wide: a lyric edit holds a spend after `whole`.
 
 `placeDirectionLyrics` puts each line on the take's clock — where a person placed it on the take (`SongAnalysis.lines`), else `placeLyricLines` (`song-lyrics.ts`), which matches the lyrics against the words heard, leaving a line unplaced where its opening is not heard. `lyricsInSpan` hands a shot or an overlay the lines under its span as `ctx.lyrics`, frame-rounded so an unmoved placement hashes the same. The definition loader injects each video's song take (`withSongTakes`, under the definition import's lock), and `definition-source.ts` folds that take's reading into the source fingerprint.
 
 The `song` class reads the take the piece is cut against (`resolveSongTake`: the accepted take, else the newest analyzed one not dismissed; staleness is not asked), passed as `SongTakeState` (`loadSongTakeState`) on `animaticSetups`' contract, never deferred.
 
-- `song-unreferenced` — `clock.song` names no exposed `reference:<id>`.
-- `song-off-tempo` — the take's measured bpm drifts `OFF_TEMPO_BEATS` or more from the declared grid by the timeline's end.
+- `song-unreferenced` — `policy.song` names no exposed `reference:<id>`.
 - `lyric-unplaced` — a line nobody places, keyed `<section>.<line>`; its take refuses accept (`SONG_LINES_UNPLACED`).
 - `song-overrun` (`stage`) — the timeline outlasts the take.
 
-The first two are fixed in the reference stage (`findingFixStage`).
+`song-unreferenced` is fixed in the reference stage (`findingFixStage`).
 
-A take is read by a `song-analysis` job into `song.json` beside it, hashed in the variant's `song`, once per bytes, declared clock and `policy.lang`: its clock off the mix, its sung stretches and words off the vocal track sherpa-onnx separates. A generated take is queued as it lands; `konte song analyze` reads the current take and every unread one in place. `song set --downbeat` corrects a reading.
+A take is read by a `song-analysis` job into `song.json` beside it, hashed in the variant's `song`, once per bytes and `policy.lang`: its beats and bar heads by Beat This! (`beat-this.ts`), the meter and beat 0 from them, its sung stretches and words off the vocal track sherpa-onnx separates. A generated take is queued as it lands; `konte song analyze` reads the current take and every unread one in place. `song set --first-beat` picks which read beat is beat 0 (`firstBeatSet`), kept over a re-read.
 
 ## Casting voices
 

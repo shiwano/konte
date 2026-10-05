@@ -301,17 +301,19 @@ export interface VariantBeforeInfo {
 }
 
 // One take in a gallery — the card the reviewer picks among, on any stage.
-// What konte read off a take of the song the piece is cut to, laid over its playback: the bar grid
-// from the downbeat on, and where each lyric line is sung — all on the take's own clock. A line
-// with no `startSec` is one the take does not clearly place (`lyric-unplaced`); `set` is one a
-// person placed.
+// What konte read off a take of the song the piece is cut to, laid over its playback: its beats, and
+// where each lyric line is sung — all on the take's own clock. A line with no `startSec` is one the
+// take does not clearly place (`lyric-unplaced`); `set` is one a person placed.
 export interface SongReadingInfo {
   variantId: string;
   // The take's length, null where it was never measured.
   durationSec: number | null;
-  bpm: number;
+  // Take-seconds of every beat as read, the index of beat 0 among them, and the meter it plays in.
+  beats: number[];
+  firstBeat: number;
   beatsPerBar: number;
-  downbeatSec: number;
+  // The take-second of the read beat a person made beat 0, null where beat 0 is the reading's.
+  firstBeatSet: number | null;
   // Where the separated vocal track sings, null where none could be separated.
   phrases: { startSec: number; endSec: number }[] | null;
   lines: {
@@ -348,7 +350,7 @@ export interface VariantInfo {
   fileUrl?: string | null;
   before?: VariantBeforeInfo | null;
   info?: AssetInfo;
-  // A take of the song `policy.clock` counts on, once read.
+  // A take of the song `policy.song` names, once read.
   song?: SongReadingInfo;
 }
 
@@ -485,9 +487,10 @@ export interface DirectionShotInfo extends DirectionPartInfo {
   // The shot's unspoken on-screen text (titles, lower thirds, speaker-less captions). Bare strings:
   // telop has no speaker to attribute. Empty when none.
   telop: string[];
-  // The span on the timeline, in seconds on the frame grid.
-  duration: number;
-  // The beats it was written as, on a direction with a song clock; null without one.
+  // The span on the timeline, in seconds on the frame grid; null on a direction cut to a song no
+  // take of is read.
+  duration: number | null;
+  // The beats it was written as, on a direction cut to a song; null without one.
   beats: number | null;
 }
 
@@ -604,7 +607,7 @@ export type DirectionBriefFieldInfo = DirectionPartInfo &
     | { field: DirectionBriefListField; items: string[] }
   );
 
-export type DirectionPolicyField = "format" | "lang" | "fonts" | "speech" | "clock";
+export type DirectionPolicyField = "format" | "lang" | "fonts" | "speech" | "song";
 
 // One machine-checked policy field — the canvas, the typesetting, the speech rule — reviewed as its
 // own feedback part below the brief. Structured rather than pre-formatted so the UI owns the labels
@@ -625,7 +628,7 @@ export type DirectionPolicyFieldInfo = DirectionPartInfo &
     | { field: "lang"; lang: string }
     | { field: "fonts"; fonts: string[] }
     | { field: "speech"; speech: "none" | "no-dialogue" | "free" }
-    | { field: "clock"; song: string; bpm: number; beatsPerBar: number }
+    | { field: "song"; song: string }
   );
 
 // A finding a `waivers` entry has cleared: what was flagged, plus the reason it was signed off.
@@ -681,11 +684,12 @@ export interface DirectionPreviewState {
   acceptableSections: DirectionSection[];
   // One entry per prose field the author filled in, plus both list fields — always, empty included.
   brief: DirectionBriefFieldInfo[];
-  // The policy fields (format, lang, fonts, speech, and the song clock where declared), each reviewed
-  // on its own.
+  // The policy fields (format, lang, fonts, speech, and the song where declared), each reviewed on
+  // its own.
   policy: DirectionPolicyFieldInfo[];
-  // The meter a shot's beats are shown in bars by; null on a direction without a song clock.
-  beatsPerBar: number | null;
+  // On a direction cut to a song, the meter its read take plays in, which a shot's beats are shown
+  // in bars by — null while no take is read; null without a song.
+  song: { beatsPerBar: number | null } | null;
   // Absent when the direction declares no lyrics.
   lyrics?: DirectionLyricsInfo;
   sequence: DirectionPartInfo;

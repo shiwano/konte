@@ -34,13 +34,13 @@ Gates: every spend.
 
 Gates: every spend.
 
-| Code                    | Flags                                                                                                                    | Waiver subject    | Notes      |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------- | ---------- |
-| `role-overweight`       | A role holds more of the runtime than its `maxShare`.                                                                    | role              | —          |
-| `role-underweight`      | A role holds less of the runtime than its `minShare`.                                                                    | role              | —          |
-| `off-grid-duration`     | A shot's `duration` is not a positive multiple of 0.5s, or on `policy.clock` its `beats` is not a positive whole number. | shot id           | Type-level |
-| `undeclared-continuity` | Adjacent shots cut between two set-showing sizes of one location with no `within` declared.                              | id pair (`05-06`) | —          |
-| `re-established-wide`   | A shot re-establishes a location already shown wide.                                                                     | shot id           | —          |
+| Code                    | Flags                                                                                                                   | Waiver subject    | Notes      |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------- | ---------- |
+| `role-overweight`       | A role holds more of the runtime than its `maxShare`.                                                                   | role              | —          |
+| `role-underweight`      | A role holds less of the runtime than its `minShare`.                                                                   | role              | —          |
+| `off-grid-duration`     | A shot's `duration` is not a positive multiple of 0.5s, or on `policy.song` its `beats` is not a positive whole number. | shot id           | Type-level |
+| `undeclared-continuity` | Adjacent shots cut between two set-showing sizes of one location with no `within` declared.                             | id pair (`05-06`) | —          |
+| `re-established-wide`   | A shot re-establishes a location already shown wide.                                                                    | shot id           | —          |
 
 ### stage (2)
 

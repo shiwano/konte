@@ -22,7 +22,7 @@ import { type Direction, placeDirectionLyrics } from "../../../core/dsl/directio
 import { lyricLines, songLinesRefusal } from "../../../core/direction.js";
 import { KonteError } from "../../../core/errors.js";
 import { songAnalysisOf } from "../../../core/song-reading.js";
-import { setSongLines, songAddressOf, songDownbeatSec } from "../../../core/song-take.js";
+import { setSongLines, songAddressOf } from "../../../core/song-take.js";
 import type { SongReadingInfo } from "../../../pages/preview/types.js";
 import type { DirectionRosterKind } from "../../../pages/preview/types.js";
 import type {
@@ -328,7 +328,7 @@ export async function handleReferenceSubmit(
   });
 }
 
-// The bar grid and lyric places a take of the song was read as, on the take's own clock — what its
+// The beats and lyric places a take of the song was read as, on the take's own clock — what its
 // review lays over playback. Absent on any other asset, and on a take not read yet.
 function songReading(
   manager: StateManager,
@@ -336,17 +336,17 @@ function songReading(
   address: string,
   variantId: string,
 ): SongReadingInfo | undefined {
-  const clock = direction?.policy?.clock;
-  if (!direction || !clock || songAddressOf(direction) !== address) return undefined;
+  if (!direction || songAddressOf(direction) !== address) return undefined;
   const variant = manager.getState().assets[address]?.variants?.[variantId];
   const analysis = songAnalysisOf(manager.videoRoot, address, variantId, variant?.song);
   if (!variant || !analysis) return undefined;
   return {
     variantId,
     durationSec: variant.media && variant.media.kind !== "image" ? variant.media.durationSec : null,
-    bpm: analysis.bpm,
-    beatsPerBar: clock.beatsPerBar,
-    downbeatSec: songDownbeatSec(analysis),
+    beats: analysis.beats,
+    firstBeat: analysis.firstBeat,
+    beatsPerBar: analysis.beatsPerBar,
+    firstBeatSet: analysis.firstBeatSet ?? null,
     phrases: analysis.phrases,
     lines: placeDirectionLyrics(direction, { address, variantId, analysis }).map((line) => ({
       key: line.key,

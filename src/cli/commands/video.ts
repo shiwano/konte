@@ -69,7 +69,8 @@ interface VideoDigest {
   state: "selected" | "not-selected" | "not-found" | "no-videos";
   logline: string | null;
   shots: number;
-  runtimeSeconds: number;
+  // Seconds on the timeline; the beats it is written as on a piece cut to a song no take of is read.
+  runtime: { seconds: number } | { beats: number };
   lastReview: { scope: string; at: string } | null;
   lastExport: { scope: string; at: string } | null;
 }
@@ -91,7 +92,9 @@ async function buildDigest(videoRoot: string, name: string): Promise<VideoDigest
     state: "selected",
     logline: direction?.brief.logline ?? null,
     shots: timings.length,
-    runtimeSeconds: timings.reduce((total, shot) => total + shot.duration, 0),
+    runtime: timings.every((shot) => shot.duration !== null)
+      ? { seconds: timings.reduce((total, shot) => total + shot.duration!, 0) }
+      : { beats: timings.reduce((total, shot) => total + (shot.beats ?? 0), 0) },
     lastReview: review ? { scope: reviewStage(review), at: review.createdAt } : null,
     lastExport: lastExport
       ? { scope: "video", at: lastExport.completedAt ?? lastExport.createdAt }
@@ -126,7 +129,7 @@ function printDigest(digest: VideoDigest): void {
   console.log(
     digest.shots === 0
       ? "Runtime: no shots yet"
-      : `Runtime: ${formatRuntime(digest.runtimeSeconds)} across ${digest.shots} shots`,
+      : `Runtime: ${"seconds" in digest.runtime ? formatRuntime(digest.runtime.seconds) : `${digest.runtime.beats} beats`} across ${digest.shots} shots`,
   );
   console.log(
     `Last review: ${digest.lastReview ? `${digest.lastReview.scope}, ${formatRelativeTime(digest.lastReview.at)}` : "never"}`,
@@ -217,7 +220,7 @@ Examples:
               selection?.kind === "not-found" ? "not-found" : empty ? "no-videos" : "not-selected",
             logline: null,
             shots: 0,
-            runtimeSeconds: 0,
+            runtime: { seconds: 0 },
             lastReview: null,
             lastExport: null,
           };

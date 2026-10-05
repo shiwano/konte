@@ -12,7 +12,7 @@ user-invocable: false
 - **Declaring camera setups** → [camera.md](references/camera.md).
 - **Declaring who is in frame, a join or a cutin** → [lineup.md](references/lineup.md).
 - **A piece long enough for acts** (several minutes up) → [long-form.md](references/long-form.md).
-- **A piece cut to a song** — `policy.clock`, `lyrics`, spans in beats → [song.md](references/song.md).
+- **A piece cut to a song** — `policy.song`, `lyrics`, spans in beats → [song.md](references/song.md).
 
 ## Authoring the direction
 

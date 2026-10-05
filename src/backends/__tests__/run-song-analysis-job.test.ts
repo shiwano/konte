@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JobManager } from "../../core/job-manager.js";
 import { queueSongAnalyses, unreadSongTakes } from "../../core/song-queue.js";
 import { resolveSongTake, songReadingsOf } from "../../core/song-take.js";
@@ -9,6 +9,19 @@ import { StateManager } from "../../core/state/index.js";
 import type { Direction } from "../../core/dsl/direction.js";
 import { directionDefaults } from "../../core/__tests__/helpers/direction.js";
 import { runPendingSongAnalyses, runSongAnalysisJob } from "../run-song-analysis-job.js";
+
+// What Beat This! hears in the click track below: a beat every half second from 0.5s, a bar head on
+// every fourth.
+vi.mock("../../core/beat-this.js", () => {
+  const beats = Array.from({ length: 23 }, (_, k) => 0.5 + k * 0.5);
+  return {
+    detectBeats: async () => ({
+      beats,
+      downbeats: beats.filter((_, k) => k % 4 === 0),
+      durationSec: 12,
+    }),
+  };
+});
 
 // A 16-bit mono WAV of a kick on every beat of 120 BPM from 0.5s, the bar head's louder.
 async function writeClickTrack(file: string, seconds: number): Promise<void> {
@@ -44,7 +57,7 @@ async function writeClickTrack(file: string, seconds: number): Promise<void> {
 
 const direction = {
   ...directionDefaults,
-  policy: { ...directionDefaults.policy, clock: { song: "song", bpm: 120, beatsPerBar: 4 } },
+  policy: { ...directionDefaults.policy, song: "song" },
   sequence: { lens: "mini-drama", pleasure: "cute", shots: [] },
 } as Direction;
 
@@ -96,8 +109,8 @@ describe("song analysis", () => {
 
     const take = resolveSongTake(videoRoot, await state(), "reference:song");
     expect(take?.variantId).toBe("v-take1");
-    expect(take?.analysis.bpm).toBeCloseTo(120, 0);
-    expect(Math.abs(take!.analysis.downbeatSec - 0.5)).toBeLessThan(0.03);
+    expect(take?.analysis.beatsPerBar).toBe(4);
+    expect(take!.analysis.beats[take!.analysis.firstBeat]).toBe(0.5);
     // The separator is pinned to nothing in tests, so no line can be placed.
     expect(take?.analysis.phrases).toBeNull();
     expect(await jobManager.readLog("song-v-take1")).toMatch(/could not be separated/);
@@ -108,7 +121,7 @@ describe("song analysis", () => {
     ).toEqual([]);
   });
 
-  it("queues nothing for a piece that keeps no song clock", async () => {
+  it("queues nothing for a piece cut to no song", async () => {
     const jobManager = new JobManager(videoRoot);
     const state = (await StateManager.load(videoRoot)).getState();
     expect(
@@ -146,7 +159,7 @@ describe("song analysis", () => {
     await queueSongAnalyses({ videoRoot, direction, state: await state(), jobManager });
     await runPendingSongAnalyses(jobManager, videoRoot);
     const record = (await state()).assets["reference:song"]?.variants?.["v-take1"]?.song;
-    expect(Object.keys(record ?? {}).sort()).toEqual(["clock", "lang", "reading"]);
+    expect(Object.keys(record ?? {}).sort()).toEqual(["lang", "reading"]);
 
     const readings = songReadingsOf(videoRoot, await state());
     await fs.rm(path.join(videoRoot, "assets/reference/song/v-take1/song.json"));
@@ -188,34 +201,27 @@ describe("song analysis", () => {
       return finish(...args);
     };
     await runSongAnalysisJob(jobManager, videoRoot, id!);
-    expect(onDisk).toMatchObject({ bpm: expect.any(Number) });
+    expect(onDisk).toMatchObject({ beats: expect.any(Array) });
   });
 
-  it("reads a take again once the declared clock changes", async () => {
+  it("reads a take again once the declared language changes", async () => {
     const jobManager = new JobManager(videoRoot);
     const state = () => StateManager.load(videoRoot).then((m) => m.getState());
     await queueSongAnalyses({ videoRoot, direction, state: await state(), jobManager });
     await runPendingSongAnalyses(jobManager, videoRoot);
-    expect((await state()).assets["reference:song"]?.variants?.["v-take1"]?.song?.clock).toEqual({
-      bpm: 120,
-      beatsPerBar: 4,
-    });
+    expect((await state()).assets["reference:song"]?.variants?.["v-take1"]?.song?.lang).toBe(
+      direction.policy.lang,
+    );
 
-    const retimed = {
-      ...direction,
-      policy: { ...direction.policy, clock: { song: "song", bpm: 121, beatsPerBar: 4 } },
-    } as Direction;
-    expect(unreadSongTakes(videoRoot, retimed, await state()).map((t) => t.variantId)).toEqual([
+    const relanged = { ...direction, policy: { ...direction.policy, lang: "ja" } } as Direction;
+    expect(unreadSongTakes(videoRoot, relanged, await state()).map((t) => t.variantId)).toEqual([
       "v-take1",
     ]);
     expect(
-      await queueSongAnalyses({ videoRoot, direction: retimed, state: await state(), jobManager }),
+      await queueSongAnalyses({ videoRoot, direction: relanged, state: await state(), jobManager }),
     ).toEqual(["song-v-take1"]);
     await runPendingSongAnalyses(jobManager, videoRoot);
-    expect((await state()).assets["reference:song"]?.variants?.["v-take1"]?.song?.clock).toEqual({
-      bpm: 121,
-      beatsPerBar: 4,
-    });
+    expect((await state()).assets["reference:song"]?.variants?.["v-take1"]?.song?.lang).toBe("ja");
   });
 
   it("keeps what a person set on the take over a reading taken again", async () => {
@@ -225,34 +231,30 @@ describe("song analysis", () => {
     await queueSongAnalyses({ videoRoot, direction, state: await state(), jobManager });
     await runPendingSongAnalyses(jobManager, videoRoot);
     const lines = { "1.1": { text: "hello", startSec: 2, endSec: 3 } };
+    const firstBeatSet = 2.5;
     await StateManager.withLock(videoRoot, async (m) => {
       const v = m.getState().assets["reference:song"]!.variants!["v-take1"]!;
-      v.song = { ...v.song!, downbeatSet: 0.75, lines };
+      v.song = { ...v.song!, firstBeatSet, lines };
     });
 
-    const retimed = {
-      ...direction,
-      policy: { ...direction.policy, clock: { song: "song", bpm: 121, beatsPerBar: 4 } },
-    } as Direction;
-    await queueSongAnalyses({ videoRoot, direction: retimed, state: await state(), jobManager });
+    const relanged = { ...direction, policy: { ...direction.policy, lang: "ja" } } as Direction;
+    await queueSongAnalyses({ videoRoot, direction: relanged, state: await state(), jobManager });
     await runPendingSongAnalyses(jobManager, videoRoot);
-    expect(await song()).toMatchObject({ clock: { bpm: 121 }, downbeatSet: 0.75, lines });
+    expect(await song()).toMatchObject({ lang: "ja", firstBeatSet, lines });
 
     const before = (await song())!.reading;
     const job = await jobManager.ensureSongAnalysisJob({
       address: "reference:song",
       variantId: "v-take1",
       outputHash: "h1",
-      bpm: 121,
-      beatsPerBar: 4,
-      lang: retimed.policy.lang,
+      lang: relanged.policy.lang,
       again: true,
     });
     expect(await runSongAnalysisJob(jobManager, videoRoot, job.id)).toMatchObject({
       status: "completed",
       ranAnalysis: true,
     });
-    expect(await song()).toMatchObject({ downbeatSet: 0.75, lines });
+    expect(await song()).toMatchObject({ firstBeatSet, lines });
     expect((await song())!.reading).toBe(before);
   });
 

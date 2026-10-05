@@ -47,7 +47,6 @@ import {
 } from "./direction-check.js";
 import type {
   Direction,
-  DirectionClock,
   DirectionNode,
   GraphicShot,
   NarrativeShot,
@@ -66,7 +65,6 @@ import {
 } from "./dsl/direction.js";
 import { songAnalysisOf } from "./song-reading.js";
 import { type SongTake, songAddressOf } from "./song-take.js";
-import { songDriftBeats } from "./song-report.js";
 import type { PanelLane } from "./types/definition.js";
 import type { KonteState } from "./types/index.js";
 
@@ -151,7 +149,6 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "panel-unlinked": "staging",
   // The song the piece is cut to. Never deferred.
   "song-unreferenced": "song",
-  "song-off-tempo": "song",
   "lyric-unplaced": "song",
   "song-overrun": "stage",
 };
@@ -217,7 +214,6 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "join-unshown": "shot",
   "panel-unlinked": "boundary",
   "song-unreferenced": null,
-  "song-off-tempo": null,
   "lyric-unplaced": null,
   "song-overrun": null,
 };
@@ -238,7 +234,6 @@ const FIX_STAGE: Partial<Record<DirectionFindingCode, "reference" | "animatic">>
   "axis-unrealized": "animatic",
   "setup-unconsumed": "animatic",
   "song-unreferenced": "reference",
-  "song-off-tempo": "reference",
 };
 
 export type FindingFixStage = "direction" | "reference" | "animatic";
@@ -479,11 +474,11 @@ type DirectionErrorCode =
   | "join-undeclared"
   | "join-impossible"
   // A shot whose span is not the one the policy counts in: `beats` on a direction with
-  // `policy.clock`, `duration` on one without, and never both.
+  // `policy.song`, `duration` on one without, and never both.
   | "shot-span-mismatch"
-  // The lyrics' own contract: they are sung on the song clock, by declared characters, in lines
-  // with words in them.
-  | "lyrics-without-clock"
+  // The lyrics' own contract: they are sung on the song, by declared characters, in lines with
+  // words in them.
+  | "lyrics-without-song"
   | "lyrics-singer-unknown"
   | "lyrics-singer-empty"
   | "lyrics-empty-line";
@@ -749,52 +744,28 @@ function checkTypesetting(direction: Direction): DirectionFinding[] {
 // evaluated.
 export type SongTakeState = { take: SongTake | null; durationSec: number | null };
 
-// How far off the declared grid a take may end up by the end of the timeline: a quarter beat.
-const OFF_TEMPO_BEATS = 0.25;
-
-// The song the clock counts on must be a reference asset. Its take must keep that tempo across the timeline, and
-// every lyric line must be found in it or placed by hand.
+// The song the piece is cut to must be a reference asset, and every lyric line must be found in its
+// take or placed by hand.
 function checkSong(
   direction: Direction,
   referenceAssetNames: readonly string[],
   song: SongTakeState,
 ): DirectionFinding[] {
-  const clock = direction.policy?.clock;
-  if (!clock) return [];
-  if (!referenceAssetNames.includes(clock.song)) {
+  const id = direction.policy?.song;
+  if (!id) return [];
+  if (!referenceAssetNames.includes(id)) {
     return [
       {
         code: "song-unreferenced",
         message:
-          `policy.clock.song is "${clock.song}", but reference.tsx exposes no ` +
-          `reference:${clock.song} — declare the song there, generated at direction.policy.clock.bpm`,
+          `policy.song is "${id}", but reference.tsx exposes no reference:${id} — declare the ` +
+          "song there",
       },
     ];
   }
   const take = song.take;
   if (!take) return [];
   const findings: DirectionFinding[] = [];
-  const beats = collectShots(direction).reduce((sum, s) => sum + (s.beats ?? 0), 0);
-  const drift = songDriftBeats(take.analysis.bpm, clock.bpm, beats);
-  if (drift >= OFF_TEMPO_BEATS) {
-    const played =
-      [1, 10]
-        .map((scale) => Math.round(take.analysis.bpm * scale) / scale)
-        .find((bpm) => songDriftBeats(take.analysis.bpm, bpm, beats) < OFF_TEMPO_BEATS) ??
-      take.analysis.bpm;
-    const remedies = [
-      `declare policy.clock.bpm as ${played} to cut on this take`,
-      `regenerate the song at ${clock.bpm} BPM`,
-      "waive a drift the cut can live with",
-    ];
-    findings.push({
-      code: "song-off-tempo",
-      message:
-        `${take.address} ${take.variantId} plays at ${take.analysis.bpm} BPM against the declared ` +
-        `${clock.bpm} — by the end of the ${beats}-beat timeline it is ${drift.toFixed(2)} beats off ` +
-        `the grid the shots are cut on: ${remedies.slice(0, -1).join(", ")}, or ${remedies.at(-1)}`,
-    });
-  }
   for (const line of placeDirectionLyrics(direction, take)) {
     if (line.start !== null) continue;
     findings.push({
@@ -813,10 +784,10 @@ function checkSong(
 // The timeline a take of the song is cut on ends within a frame of the take.
 function checkSongOverrun(direction: Direction, song: SongTakeState): DirectionFinding[] {
   const { take, durationSec } = song;
-  if (!direction.policy?.clock || !take || durationSec === null) return [];
+  if (!direction.policy?.song || !take || durationSec === null) return [];
   const timeline = readDirectionTimeline(direction, take);
   const last = [...timeline.timings.values()].at(-1);
-  const end = last ? last.start + last.duration : 0;
+  const end = last?.start != null ? last.start + last.duration : 0;
   if (end - durationSec <= 1 / timeline.fps) return [];
   return [
     {
@@ -936,20 +907,19 @@ function checkFusedShots(direction: Direction): DirectionFinding[] {
 
 // A shot whose span is off its grid, or not positive. A shot's span is a window the render cuts the
 // take to: in seconds the grid is the one every legal `fps` (a multiple of 8) lands a whole frame on;
-// on the song clock it is the beat, asides included. A waivable finding (`off-grid-duration_<shotId>`).
+// on the song it is the beat, asides included. A waivable finding (`off-grid-duration_<shotId>`).
 const DURATION_GRID = 0.5;
 
 function checkDurations(direction: Direction): DirectionFinding[] {
   const findings: DirectionFinding[] = [];
-  const clock = direction.policy?.clock;
-  if (clock) {
+  if (direction.policy?.song) {
     for (const s of collectShots(direction)) {
       if (s.beats === undefined) continue;
       if (s.beats > 0 && Number.isInteger(s.beats)) continue;
       findings.push({
         code: "off-grid-duration",
         subject: s.id,
-        message: `shot ${s.id} runs ${s.beats} beats — a shot's span on the song clock is a positive whole number of beats, so every cut lands on a beat; round it, or waive a deliberate off-beat cut`,
+        message: `shot ${s.id} runs ${s.beats} beats — a shot's span on the song is a positive whole number of beats, so every cut lands on a beat; round it, or waive a deliberate off-beat cut`,
       });
     }
     return findings;
@@ -1503,10 +1473,10 @@ function validateLyrics(direction: Direction): DirectionStructureError[] {
   const lyrics = direction.lyrics;
   if (!lyrics) return [];
   const errors: DirectionStructureError[] = [];
-  if (!direction.policy?.clock) {
+  if (!direction.policy?.song) {
     errors.push({
-      code: "lyrics-without-clock",
-      message: "`lyrics` are sung on the song `policy.clock` names — declare the clock",
+      code: "lyrics-without-song",
+      message: "`lyrics` are sung on the song `policy.song` names — declare the song",
     });
   }
   for (const id of lyricSingerIds(direction)) {
@@ -1553,9 +1523,9 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
     }
   }
 
-  // Which span a shot owes is the policy's: `beats` on the song clock, `duration` without one. The
-  // type layer refuses both mistakes on a literal; this is the computed direction's receiver.
-  const clocked = direction.policy?.clock !== undefined;
+  // Which span a shot owes is the policy's: `beats` on the song, `duration` without one. The type
+  // layer refuses both mistakes on a literal; this is the computed direction's receiver.
+  const clocked = direction.policy?.song !== undefined;
   for (const s of shots) {
     const owed = clocked ? s.beats : s.duration;
     const foreign = clocked ? s.duration : s.beats;
@@ -1564,8 +1534,8 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
       code: "shot-span-mismatch",
       subject: s.id,
       message: clocked
-        ? `shot "${s.id}" must declare its span as \`beats\` and nothing else — the direction keeps time with policy.clock`
-        : `shot "${s.id}" must declare its span as \`duration\` in seconds and nothing else — \`beats\` counts on a policy.clock this direction does not declare`,
+        ? `shot "${s.id}" must declare its span as \`beats\` and nothing else — the direction is cut to policy.song`
+        : `shot "${s.id}" must declare its span as \`duration\` in seconds and nothing else — \`beats\` counts on a policy.song this direction does not declare`,
     });
   }
 
@@ -2236,8 +2206,8 @@ function buildArcNode(
   // framing checks read them off the item; an unknown setup leaves both undefined, which those checks
   // already skip (`validateDirectionStructure` reports it as `setup-unknown`).
   setups: Record<string, Setup> | undefined,
-  // The song clock, so a shot's span is counted in the unit it was written in.
-  clock: DirectionClock | undefined,
+  // The song, so a shot's span is counted in the unit it was written in.
+  song: string | undefined,
   // The node's field path in direction.ts — the same path its review addresses are built from.
   path: readonly string[],
   isRoot: boolean,
@@ -2274,7 +2244,7 @@ function buildArcNode(
         id: s.id,
         role: s.role,
         synopsis: s.action,
-        duration: shotSpan(s, clock),
+        duration: shotSpan(s, song),
         ...camera,
         ...(afterGap ? { afterGap: true as const } : {}),
       });
@@ -2296,7 +2266,7 @@ function buildArcNode(
         lenses,
         realizedIds,
         setups,
-        clock,
+        song,
         directionChildNodePath(path, child.id ?? ""),
         false,
       ),
@@ -2310,7 +2280,7 @@ function buildArcTree(direction: Direction, realizedIds?: readonly string[]): Ar
     direction.lenses,
     realizedIds,
     direction.setups,
-    direction.policy?.clock,
+    direction.policy?.song,
     DIRECTION_ROOT_PATH,
     true,
   );

@@ -82,12 +82,14 @@ export function registerGenerateCommand(program: Command): void {
       const { stage } = parseStageScope(scope);
       const roots = requireVideoRoots();
       const videoRoot = roots.video;
-      const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
+      const defs = await loadStageDefinitions(videoRoot);
+      const { video, animatic, reference } = defs;
 
       // `selectDefinition` rejects the one scope with no assets (`direction`), so what it hands
       // back carries the stage already narrowed to one that owns them — which is what the
-      // asset-address helpers below need.
-      const loaded = selectDefinition(stage, { video, animatic, reference });
+      // asset-address helpers below need. A board or video spend while the song they are cut to
+      // has no read take stops here on `SONG_UNREAD`.
+      const loaded = selectDefinition(stage, defs);
       const def: DefinitionLike = loaded.def;
 
       const assetEntryOf = (address: string): AssetDefinition => getAssetEntry(def, address);
@@ -95,7 +97,7 @@ export function registerGenerateCommand(program: Command): void {
       // Before the gates: they ask strict resolution what counts as accepted upstream work.
       await applyResolutionDefinitions({
         videoRoot,
-        definitions: { video, animatic, reference },
+        definitions: defs,
       });
 
       // Gate on the direction before spending: an unresolved arc hole for this stage's scope aborts
@@ -172,7 +174,7 @@ export function registerGenerateCommand(program: Command): void {
 
       // The acceptance gate below only reaches what a spend consumes, so a video shot wired to no
       // board routes around it.
-      if (stage === "video") {
+      if (stage === "video" && video && animatic) {
         assertAnimaticConsumed({ video, animatic, graph });
       }
 

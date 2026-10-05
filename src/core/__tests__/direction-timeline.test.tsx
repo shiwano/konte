@@ -3,12 +3,16 @@ import type React from "react";
 import { Composition, Panel, asset, defineAnimatic, defineDirection } from "../dsl/index.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import {
+  readDirectionTimeline,
   resolveDirectionTimeline,
   type Direction,
   type DirectionPolicy,
 } from "../dsl/direction.js";
+import { KonteError } from "../errors.js";
+import type { SongAnalysis } from "../types/index.js";
 import { directionDefaults } from "./helpers/direction.js";
 import { moves } from "./helpers/shot.js";
+import { songTake, steadySong } from "./helpers/song.js";
 import { withSongTakes } from "../dsl/song-context.js";
 
 const secondsDirection = (durations: number[], fps = 24): Direction =>
@@ -29,16 +33,16 @@ const secondsDirection = (durations: number[], fps = 24): Direction =>
     },
   }) as Direction;
 
-const clockPolicy = (bpm: number, fps = 24): DirectionPolicy => ({
+const songPolicy = (fps = 24): DirectionPolicy => ({
   ...directionDefaults.policy,
   format: { ...directionDefaults.policy.format, fps },
-  clock: { song: "song", bpm, beatsPerBar: 4 },
+  song: "song",
 });
 
-const beatsDirection = (beats: number[], bpm: number, fps = 24): Direction =>
+const beatsDirection = (beats: number[], fps = 24): Direction =>
   ({
     ...directionDefaults,
-    policy: clockPolicy(bpm, fps),
+    policy: songPolicy(fps),
     sequence: {
       lens: "mini-drama",
       pleasure: "cute",
@@ -54,7 +58,11 @@ const beatsDirection = (beats: number[], bpm: number, fps = 24): Direction =>
   }) as Direction;
 
 const spans = (direction: Direction): number[] =>
-  [...resolveDirectionTimeline(direction).timings.values()].map((t) => t.duration);
+  [...resolveDirectionTimeline(direction).timings.values()].map((t) => t.duration!);
+
+const timingsOn = (direction: Direction, take: SongAnalysis | null) => [
+  ...readDirectionTimeline(direction, take ? songTake(take) : null).timings.values(),
+];
 
 describe("resolveDirectionTimeline", () => {
   it("leaves a span that already lands whole frames untouched", () => {
@@ -71,9 +79,8 @@ describe("resolveDirectionTimeline", () => {
     expect(spans(secondsDirection([0.01, 1])).map((d) => Math.round(d * 24))).toEqual([1, 23]);
   });
 
-  it("counts beats at the declared tempo", () => {
-    const timeline = resolveDirectionTimeline(beatsDirection([4, 8, 2], 120));
-    expect([...timeline.timings.values()]).toEqual([
+  it("counts beats on the take's own beats", () => {
+    expect(timingsOn(beatsDirection([4, 8, 2]), steadySong({ bpm: 120 }))).toEqual([
       { start: 0, duration: 2, startBeat: 0, beats: 4 },
       { start: 2, duration: 4, startBeat: 4, beats: 8 },
       { start: 6, duration: 1, startBeat: 12, beats: 2 },
@@ -82,32 +89,41 @@ describe("resolveDirectionTimeline", () => {
 
   it("lands every cut on the frame nearest its beat, so no shot's rounding drifts the next", () => {
     // 100 BPM is 0.6s a beat: 3 beats run 43.2 frames at 24fps.
-    const frames = [
-      ...resolveDirectionTimeline(beatsDirection([3, 3, 3], 100)).timings.values(),
-    ].map((t) => Math.round((t.start + t.duration) * 24));
+    const frames = timingsOn(beatsDirection([3, 3, 3]), steadySong({ bpm: 100 })).map((t) =>
+      Math.round((t.start! + t.duration!) * 24),
+    );
     expect(frames).toEqual([43, 86, 130]);
   });
 
-  it("gives the first shot what the take plays before its first beat, and moves every cut by it", async () => {
-    const lead = (downbeatSec: number) => () => ({
-      address: "reference:song",
-      variantId: "v-song",
-      analysis: {
-        bpm: 120,
-        downbeatSec,
-        sectionSecs: [],
-        phrases: null,
-        heard: null,
-        clock: { bpm: 120, beatsPerBar: 4 },
-        lang: "en",
-      },
-    });
-    const timings = (downbeatSec: number) =>
-      withSongTakes(lead(downbeatSec), async () => [
-        ...resolveDirectionTimeline(
-          defineDirection(beatsDirection([4, 8], 120) as never) as unknown as Direction,
-        ).timings.values(),
-      ]);
+  it("puts every cut on its beat where the take's tempo moves", () => {
+    // Each beat a little longer than the last: 0.5s, 0.51s, 0.52s, …
+    const beats: number[] = [];
+    for (let i = 0, t = 0; i < 40; t += 0.5 + 0.01 * i, i++) beats.push(t);
+    const take = { ...steadySong(), beats, firstBeat: 0 };
+    const timings = timingsOn(beatsDirection([4, 8, 6, 3]), take);
+    const ends = [4, 12, 18, 21];
+    expect(timings.map((t) => Math.round((t.start! + t.duration!) * 24))).toEqual(
+      ends.map((beat) => Math.round(beats[beat]! * 24)),
+    );
+  });
+
+  it("holds the beats and no seconds while no take of the song is read", () => {
+    expect(timingsOn(beatsDirection([4, 8]), null)).toEqual([
+      { start: null, duration: null, startBeat: 0, beats: 4 },
+      { start: null, duration: null, startBeat: 4, beats: 8 },
+    ]);
+  });
+
+  it("gives the first shot what the take plays before beat 0, and moves every cut by it", async () => {
+    const timings = (beat0Sec: number) =>
+      withSongTakes(
+        () => songTake(steadySong({ bpm: 120, beat0Sec })),
+        async () =>
+          timingsOn(
+            defineDirection(beatsDirection([4, 8]) as never) as unknown as Direction,
+            steadySong({ bpm: 120, beat0Sec }),
+          ),
+      );
     expect(await timings(0.5)).toEqual([
       { start: 0, duration: 2.5, startBeat: 0, beats: 4 },
       { start: 2.5, duration: 4, startBeat: 4, beats: 8 },
@@ -134,14 +150,14 @@ const board = (): React.ReactElement => {
 };
 
 describe("ctx.beat", () => {
-  it("is the second of a beat from the shot's head, on the song's own frame grid", () => {
-    const direction = defineDirection({
+  const songDirection = () =>
+    defineDirection({
       ...directionDefaults,
       policy: {
         format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
         lang: "en",
         speech: "free",
-        clock: { song: "song", bpm: 100, beatsPerBar: 4 },
+        song: "song",
       },
       sequence: {
         lens: "mini-drama",
@@ -152,6 +168,12 @@ describe("ctx.beat", () => {
         ],
       },
     });
+
+  it("is the second of a beat from the shot's head, on the song's own frame grid", async () => {
+    const direction = await withSongTakes(
+      () => songTake(steadySong({ bpm: 100 })),
+      async () => songDirection(),
+    );
     let beats: number[] = [];
     let duration = 0;
     defineAnimatic(direction, {
@@ -169,7 +191,22 @@ describe("ctx.beat", () => {
     expect(Math.round(duration * 24)).toBe(58);
   });
 
-  it("is absent from the type on a direction without a song clock", () => {
+  it("stops a shot's build, naming the song, while no take of it is read", () => {
+    const direction = songDirection();
+    let error: unknown;
+    try {
+      defineAnimatic(direction, {
+        timeline: ({ shot }) => ({ shots: shot("01", board).nextShot("02", board) }),
+      });
+    } catch (err) {
+      error = err;
+    }
+    expect(error).toBeInstanceOf(KonteError);
+    expect((error as KonteError).code).toBe("SONG_UNREAD");
+    expect((error as KonteError).message).toContain("reference:song");
+  });
+
+  it("is absent from the type on a direction without a song", () => {
     const direction = defineDirection({
       ...directionDefaults,
       policy: {
@@ -202,10 +239,10 @@ describe("the span a shot owes", () => {
     format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
     lang: "en",
     speech: "free",
-    clock: { song: "song", bpm: 120, beatsPerBar: 4 },
+    song: "song",
   } as const;
 
-  it("is beats on a song clock, refusing a duration", () => {
+  it("is beats on a song, refusing a duration", () => {
     defineDirection({
       ...directionDefaults,
       policy: clocked,
@@ -218,7 +255,7 @@ describe("the span a shot owes", () => {
             role: "ordinary",
             action: "a",
             setup: "front",
-            // @ts-expect-error -- the clock counts in beats, so a shot owes `beats`
+            // @ts-expect-error -- the song counts in beats, so a shot owes `beats`
             duration: 2,
             lineup: [],
           },
@@ -249,7 +286,7 @@ describe("the span a shot owes", () => {
     });
   });
 
-  it("refuses beats without a clock", () => {
+  it("refuses beats without a song", () => {
     defineDirection({
       ...directionDefaults,
       policy: {
@@ -266,7 +303,7 @@ describe("the span a shot owes", () => {
             role: "ordinary",
             action: "a",
             setup: "front",
-            // @ts-expect-error -- `beats` counts on a clock the direction does not declare
+            // @ts-expect-error -- `beats` counts on a song the direction does not declare
             beats: 4,
             lineup: [],
           },
@@ -278,13 +315,10 @@ describe("the span a shot owes", () => {
 
 describe("ctx.lyrics", () => {
   it("hands a shot the lines it hears, from its head, on the take's clock", async () => {
-    const take = {
-      address: "reference:song",
-      variantId: "v-song",
-      analysis: {
+    const take = songTake(
+      steadySong({
         bpm: 120,
-        downbeatSec: 0.5,
-        sectionSecs: [],
+        beat0Sec: 0.5,
         phrases: [
           { startSec: 0.5, endSec: 2.2 },
           { startSec: 2.5, endSec: 4.3 },
@@ -304,10 +338,8 @@ describe("ctx.lyrics", () => {
           { text: " THE", startSec: 3.6 },
           { text: " GROOVE", startSec: 3.8 },
         ],
-        clock: { bpm: 120, beatsPerBar: 4 },
-        lang: "en",
-      },
-    };
+      }),
+    );
     let heard: readonly { text: string; singer: readonly string[]; start: number; end: number }[] =
       [];
     await withSongTakes(
@@ -325,7 +357,7 @@ describe("ctx.lyrics", () => {
             },
             lang: "en",
             speech: "free",
-            clock: { song: "song", bpm: 120, beatsPerBar: 4 },
+            song: "song",
           },
           lyrics: [
             {
@@ -377,7 +409,7 @@ describe("a build that reads ctx.lyrics", () => {
           },
           lang: "en",
           speech: "free",
-          clock: { song: "song", bpm: 120, beatsPerBar: 4 },
+          song: "song",
         },
         lyrics: [{ label: "chorus", singer: "konte", lines: ["Hit the light, watch me move"] }],
         sequence: {
@@ -412,22 +444,12 @@ describe("a build that reads ctx.lyrics", () => {
       { text: " MOVE", startSec: sec + 1.4 },
     ],
   });
-  const take = (variantId: string, downbeatSec: number, sectionSecs: number[]) => () => ({
-    address: "reference:song",
-    variantId,
-    analysis: {
-      bpm: 120,
-      downbeatSec,
-      sectionSecs,
-      ...sungAt(downbeatSec + 2.5),
-      clock: { bpm: 120, beatsPerBar: 4 },
-      lang: "en",
-    },
-  });
+  const take = (variantId: string, beat0Sec: number, sectionSecs: number[]) => () =>
+    songTake(steadySong({ bpm: 120, beat0Sec, sectionSecs, ...sungAt(beat0Sec + 2.5) }), variantId);
 
   it("reads the same whichever take sings the lines at the same places", async () => {
     // Another take, another lead and other section guesses — the line sung at the same place after
-    // the first beat.
+    // beat 0.
     const a = await promptOf(take("v-a", 0.5, [8.5]));
     const b = await promptOf(take("v-b", 0.9, [4.9, 12.9]));
     // On the frame grid: 2.2s is frame 52.8, read as frame 53.
@@ -449,7 +471,7 @@ describe("the singers the lyrics name", () => {
     format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
     lang: "en",
     speech: "free",
-    clock: { song: "song", bpm: 120, beatsPerBar: 4 },
+    song: "song",
   } as const;
   const characters = {
     konte: { name: "Konte", promptDepiction: "girl", description: "the singer" },

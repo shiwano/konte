@@ -415,7 +415,7 @@ export class JobWatcher {
       stageEntryPath(this.videoRoot, "direction"),
       loadDirectionDefinition,
     ).catch(() => null);
-    if (!direction?.policy?.clock) return;
+    if (!direction?.policy?.song) return;
     const state = (await StateManager.load(this.videoRoot)).getState();
     await queueSongAnalyses({
       videoRoot: this.videoRoot,

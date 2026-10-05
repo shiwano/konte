@@ -81,8 +81,18 @@ function collectShots(node: DirectionSequenceInfo): DirectionShotInfo[] {
   return node.shots ?? (node.sequences ?? []).flatMap(collectShots);
 }
 
+// How much of the strip a shot takes: its seconds, or its beats on a piece cut to a song no take of
+// is read.
+function shotLength(shot: DirectionShotInfo): number {
+  return shot.duration ?? shot.beats ?? 0;
+}
+
+function shotLengthLabel(shot: DirectionShotInfo): string {
+  return shot.duration !== null ? `${shot.duration.toFixed(1)}s` : `${shot.beats ?? 0} beats`;
+}
+
 function nodeDuration(node: DirectionSequenceInfo): number {
-  return collectShots(node).reduce((acc, s) => acc + s.duration, 0);
+  return collectShots(node).reduce((acc, s) => acc + shotLength(s), 0);
 }
 
 // How high an act lets the shots inside it climb, as a share of the range the act itself was given.
@@ -226,13 +236,13 @@ export function DirectionMap({
     let acc = 0;
     return source.map((shot) => {
       const flatShot = { shot, start: acc };
-      acc += shot.duration;
+      acc += shotLength(shot);
       return flatShot;
     });
   }, [kind, shots, sequences]);
 
   const totalDuration = useMemo(
-    () => flatShots.reduce((acc, b) => acc + b.shot.duration, 0),
+    () => flatShots.reduce((acc, b) => acc + shotLength(b.shot), 0),
     [flatShots],
   );
 
@@ -275,20 +285,22 @@ export function DirectionMap({
     noPanSelector: ".direction-map-label",
   });
 
+  // A strip laid out in beats has no seconds to rule.
+  const inBeats = flatShots.some((b) => b.shot.duration === null);
   const ticks = useMemo(() => {
-    if (totalDuration <= 0) return { step: 1, times: [] as number[] };
+    if (totalDuration <= 0 || inBeats) return { step: 1, times: [] as number[] };
     const step = tickInterval(effectivePxPerSec);
     const times: number[] = [];
     for (let t = 0; t <= totalDuration + 0.001; t += step) times.push(t);
     return { step, times };
-  }, [totalDuration, effectivePxPerSec]);
+  }, [totalDuration, effectivePxPerSec, inBeats]);
 
   if (flatShots.length === 0 || totalDuration <= 0) return null;
 
   // Arc line points at each shot's horizontal centre, at its tension. A shot whose role its lens
   // does not declare has no function; it reads as grounded rather than breaking the line.
   const points = flatShots.map((b) => ({
-    x: (b.start + b.shot.duration / 2) * effectivePxPerSec,
+    x: (b.start + shotLength(b.shot) / 2) * effectivePxPerSec,
     y: ARC_PAD + (1 - (tension.get(b.shot.id) ?? 0)) * (ARC_H - ARC_PAD * 2),
     fn: b.shot.beatFunction ?? "ground",
   }));
@@ -408,9 +420,9 @@ export function DirectionMap({
                     }${focusedShotId === shot.id ? " direction-map-shot--focused" : ""}`}
                     style={{
                       left: start * effectivePxPerSec,
-                      width: Math.max(shot.duration * effectivePxPerSec, 8),
+                      width: Math.max(shotLength(shot) * effectivePxPerSec, 8),
                     }}
-                    title={`${shot.id}${shot.aside ? " · aside" : shot.roleFunctionLabel ? ` · ${shot.roleFunctionLabel}` : ""} · ${shot.duration.toFixed(1)}s: ${shot.action}`}
+                    title={`${shot.id}${shot.aside ? " · aside" : shot.roleFunctionLabel ? ` · ${shot.roleFunctionLabel}` : ""} · ${shotLengthLabel(shot)}: ${shot.action}`}
                     // A drag across the track pans it, so a pointer click that moved is the tail of
                     // that pan, not a pick. `detail === 0` is an activation with no pointer behind it
                     // (Enter/Space on the focused shot) — there was no drag to be the tail of, and
@@ -426,7 +438,7 @@ export function DirectionMap({
                     <span className="direction-map-shot-head">
                       <span className="direction-map-shot-id">{shot.id}</span>
                     </span>
-                    <span className="direction-map-shot-dur">{shot.duration.toFixed(1)}s</span>
+                    <span className="direction-map-shot-dur">{shotLengthLabel(shot)}</span>
                     <span className="direction-map-shot-flags">
                       {commentCount > 0 && (
                         <span className="direction-map-shot-comments">

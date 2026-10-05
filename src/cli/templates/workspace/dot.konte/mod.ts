@@ -2625,7 +2625,6 @@ export type DirectionFindingCode =
   | "subject-unnamed"
   | "plate-unnamed"
   | "song-unreferenced"
-  | "song-off-tempo"
   | "lyric-unplaced"
   | "song-overrun";
 export type DirectionFinding = {
@@ -3056,17 +3055,12 @@ export type ResolvedDirectionFormat = {
   };
 };
 export type SpeechPolicy = "none" | "no-dialogue" | "free";
-export type DirectionClock = {
-  song: string;
-  bpm: number;
-  beatsPerBar: number;
-};
 export type DirectionPolicy = {
   format: DirectionFormat;
   lang: LanguageTag;
   fonts?: readonly string[];
   speech: SpeechPolicy;
-  clock?: DirectionClock;
+  song?: string;
 };
 export type NarrativeShot = Omit<
   ArcItem<string>,
@@ -3357,7 +3351,7 @@ export type ConstrainSpan<B, Clocked extends boolean> = boolean extends Clocked
         duration: number;
       }
         ? {
-            duration: DirectionViolation<"konte: this direction keeps time with policy.clock, so a shot's span is `beats`, not `duration`">;
+            duration: DirectionViolation<"konte: this direction is cut to policy.song, so a shot's span is `beats`, not `duration`">;
           }
         : unknown) &
         (B extends {
@@ -3365,13 +3359,13 @@ export type ConstrainSpan<B, Clocked extends boolean> = boolean extends Clocked
         }
           ? ConstrainBeats<B>
           : {
-              beats: DirectionViolation<"konte: this direction keeps time with policy.clock, so every shot declares its span in `beats`">;
+              beats: DirectionViolation<"konte: this direction is cut to policy.song, so every shot declares its span in `beats`">;
             })
     : (B extends {
         beats: number;
       }
         ? {
-            beats: DirectionViolation<"konte: `beats` counts on policy.clock, which this direction does not declare \u2014 a shot's span is `duration` in seconds">;
+            beats: DirectionViolation<"konte: `beats` counts on policy.song, which this direction does not declare \u2014 a shot's span is `duration` in seconds">;
           }
         : unknown) &
         (B extends {
@@ -3730,10 +3724,10 @@ export type SpeechOf<D extends DirectionInput> = D["policy"] extends {
   ? S
   : SpeechPolicy;
 export type ClockedOf<D extends DirectionInput> = D["policy"] extends {
-  clock: object;
+  song: string;
 }
   ? true
-  : "clock" extends keyof D["policy"]
+  : "song" extends keyof D["policy"]
     ? boolean
     : false;
 export type ConstrainIds<D extends DirectionInput> = {
@@ -3763,15 +3757,11 @@ export type ConstrainIds<D extends DirectionInput> = {
       }
     : unknown) &
   (D["policy"] extends {
-    clock: {
-      song: infer S extends string;
-    };
+    song: infer S extends string;
   }
     ? {
         policy: {
-          clock: {
-            song: ValidatedIdentifier<S>;
-          };
+          song: ValidatedIdentifier<S>;
         };
       }
     : unknown) &
@@ -3780,7 +3770,7 @@ export type ConstrainIds<D extends DirectionInput> = {
   }
     ? ClockedOf<D> extends false
       ? {
-          lyrics: DirectionViolation<"konte: `lyrics` are sung on the song policy.clock names, which this direction does not declare">;
+          lyrics: DirectionViolation<"konte: `lyrics` are sung on the song policy.song names, which this direction does not declare">;
         }
       : string extends LyricSingerIdsOf<L>
         ? unknown
@@ -3813,7 +3803,7 @@ export interface DirectionIndex {
   typography: Typography;
   timeline: DirectionTimeline;
   lyrics: LyricPlacementEntry[] | null;
-  durationById: Map<string, number>;
+  durationById: Map<string, number | null>;
   actionById: Map<string, string>;
   setupById: Map<string, string>;
   framingById: Map<string, Framing>;
@@ -3882,15 +3872,27 @@ export type VideoAsideShotStarter<D> = <TId extends AsideIdOf<D, FirstShotId<D>>
   id: TId,
   build: (ctx: AsideShotContext & ShotSongOf<D>) => ReturnType<ShotFunction>,
 ) => StageChain<D, ChainRest<D>, TId, "video">;
-export type ShotTiming = {
+export type TimedShotTiming = {
   start: number;
   duration: number;
   startBeat?: number;
   beats?: number;
 };
+export type BeatShotTiming = {
+  start: null;
+  duration: null;
+  startBeat: number;
+  beats: number;
+};
+export type ShotTiming = TimedShotTiming | BeatShotTiming;
 export type DirectionTimeline = {
   fps: number;
-  clock: DirectionClock | null;
+  song: string | null;
+  songGrid: {
+    beatSec: (beat: number) => number;
+    beatAt: (sec: number) => number;
+    beatsPerBar: number;
+  } | null;
   leadFrames: number;
   timings: Map<string, ShotTiming>;
 };
@@ -4075,7 +4077,7 @@ export type GraphicShotContext<
 };
 /**
  * `beat(n)`: the second, from the shot's head, of its `n`th beat — read off the song's own grid, so a
- * beat lands on the same frame whichever shot counts to it. Only a direction with `policy.clock` has
+ * beat lands on the same frame whichever shot counts to it. Only a direction with `policy.song` has
  * one.
  */
 export type ShotClockContext = {
@@ -4083,7 +4085,7 @@ export type ShotClockContext = {
 };
 export type ShotClockOf<D> = D extends {
   policy: {
-    clock: object;
+    song: string;
   };
 }
   ? ShotClockContext
@@ -4400,7 +4402,7 @@ export declare function soundtrack<const TId extends string = never>(
 ): SoundtrackEntry<TId>;
 /**
  * What a stage's `overlay` build receives, on the timeline's clock: `duration` is the timeline's; on
- * a direction with `policy.clock`, `beat(n)` is the second of the song's `n`th beat, and on one with
+ * a direction with `policy.song`, `beat(n)` is the second of the song's `n`th beat, and on one with
  * `lyrics`, `lyrics` every placed line.
  *
  * The overlay is the one picture layer a timeline lays over every shot — lyrics sung across a cut,

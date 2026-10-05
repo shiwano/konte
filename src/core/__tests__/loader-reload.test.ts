@@ -121,7 +121,7 @@ describe("a definition cached under one reading of the song", () => {
         `import { directionDefaults } from ${src("./helpers/direction.ts")};`,
         "export default defineDirection({",
         "  ...directionDefaults,",
-        '  policy: { ...directionDefaults.policy, clock: { song: "song", bpm: 120, beatsPerBar: 4 } },',
+        '  policy: { ...directionDefaults.policy, song: "song" },',
         '  sequence: { lens: "mini-drama", pleasure: "cute", shots: [',
         '    { id: "01", role: "ordinary", action: "a", setup: "front", beats: 4, lineup: [] },',
         "  ] },",
@@ -140,8 +140,8 @@ describe("a definition cached under one reading of the song", () => {
           const id = existing ? Object.keys(existing.variants)[0] : m.reserveVariantId(address);
           const v = m.getAssetState(address).variants[id];
           v.file = "assets/song.mp3";
-          const reading = await writeSongReading(m.videoRoot, address, id, { bpm: 120, downbeatSec, sectionSecs: [], phrases: null, heard: null });
-          v.song = { reading, clock: { bpm: 120, beatsPerBar: 4 }, lang: "en" };
+          const reading = await writeSongReading(m.videoRoot, address, id, { beats: Array.from({ length: 240 }, (_, i) => downbeatSec + i * 0.5), firstBeat: 0, beatsPerBar: 4, sectionSecs: [], phrases: null, heard: null });
+          v.song = { reading, lang: "en" };
           m.setAccepted(address, id);
         });
       };

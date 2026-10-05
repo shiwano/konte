@@ -15,14 +15,7 @@ import type { StalenessCache } from "./staleness.js";
 import { type LoadedDefinitions, selectDefinition } from "./select-definition.js";
 import { selectResolvedVariant } from "./staleness.js";
 import { StateManager } from "./state/index.js";
-import type {
-  BackendKind,
-  GenerationJob,
-  KonteState,
-  ReferenceDefinition,
-  AnimaticDefinition,
-  VideoDefinition,
-} from "./types/index.js";
+import type { BackendKind, GenerationJob, KonteState } from "./types/index.js";
 import type { VideoRoots } from "./roots.js";
 
 type ResolveBackendFn = (kind: BackendKind, roots: VideoRoots) => Promise<GenerationBackend>;
@@ -90,7 +83,7 @@ export async function submitReadyPendingJobs(
     );
     if (pendingJobs.length === 0) break;
 
-    const { video, animatic, reference } = await loadDefinitions();
+    const definitions = await loadDefinitions();
     const manager = await StateManager.load(videoRoot);
 
     for (const job of pendingJobs) {
@@ -114,11 +107,9 @@ export async function submitReadyPendingJobs(
           manager,
           jobManager,
           roots,
-          video,
+          definitions,
           backendCache,
           resolveBackendFn,
-          animatic,
-          reference,
         );
         if (outcome === "submitted") {
           // A successful submit changes no other job's evaluation: the address already
@@ -342,11 +333,9 @@ async function trySubmitJob(
   manager: StateManager,
   jobManager: JobManager,
   roots: VideoRoots,
-  video: VideoDefinition,
+  definitions: LoadedDefinitions,
   backendCache: Map<BackendKind, GenerationBackend>,
   resolveBackendFn: ResolveBackendFn,
-  animatic: AnimaticDefinition,
-  reference: ReferenceDefinition,
 ): Promise<"submitted" | "failed" | StaleJudgeRelease> {
   const videoRoot = roots.video;
   // Hold the submit lease across the slow backend.submit() so a crashed submitter is
@@ -362,7 +351,8 @@ async function trySubmitJob(
     const assetDef =
       patchDef ??
       getAssetEntryByAddress(
-        getDefinitionForStage(video, animatic, job.address, reference) as DefinitionLike,
+        // A board or video job while the song it is cut to has no read take fails on `SONG_UNREAD`.
+        selectDefinition(getStage(job.address), definitions).def as DefinitionLike,
         job.address,
       );
 
@@ -478,13 +468,4 @@ async function trySubmitJob(
   } finally {
     stopHeartbeat();
   }
-}
-
-function getDefinitionForStage(
-  video: VideoDefinition,
-  animatic: AnimaticDefinition,
-  address: string,
-  reference: ReferenceDefinition,
-): DefinitionLike {
-  return selectDefinition(getStage(address), { video, animatic, reference }).def;
 }

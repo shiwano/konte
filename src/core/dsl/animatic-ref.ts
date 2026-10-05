@@ -48,7 +48,7 @@ export type AssetKindsByShot = ReadonlyMap<string, ReadonlyMap<string, MediaKind
 export function createAnimaticRef(
   definition: AnimaticDefinition,
   assetKindsByShot: AssetKindsByShot,
-  // Where every shot starts on the timeline, on a direction with `policy.clock`.
+  // Where every shot starts on the timeline, on a direction with `policy.song`.
   songShotStarts?: ReadonlyMap<string, number>,
 ): AnimaticRef {
   const shotsById = new Map(definition.shots.map((s) => [s.id, s]));
@@ -167,7 +167,7 @@ export function createAnimaticRef(
             throw new KonteError(
               "ANIMATIC_INVALID",
               `animatic.shot("${id}").songStem: animatic shot "${id}" holds no span of a song — ` +
-                `the direction declares no policy.clock, or the board does not draw the shot. ` +
+                `the direction declares no policy.song, or the board does not draw the shot. ` +
                 `Drop the reference.`,
             );
           }

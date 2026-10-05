@@ -3,6 +3,7 @@ import { KonteError } from "./errors.js";
 import type { Direction } from "./dsl/direction.js";
 import { stableStringify } from "./stable-stringify.js";
 import { readSongReading, songAnalysisOf } from "./song-reading.js";
+import { nearestBeatIndex, type SongGridSource } from "./song-grid.js";
 import type { KonteState, SongAnalysis, SongRecord } from "./types/index.js";
 
 // The take of the song the piece is read against: the accepted one, else the newest analyzed take
@@ -10,7 +11,7 @@ import type { KonteState, SongAnalysis, SongRecord } from "./types/index.js";
 export type SongTake = { address: string; variantId: string; analysis: SongAnalysis };
 
 export function songAddressOf(direction: Direction | null | undefined): string | null {
-  const song = direction?.policy?.clock?.song;
+  const song = direction?.policy?.song;
   return song === undefined ? null : formatReferenceAddress(song);
 }
 
@@ -37,9 +38,31 @@ export function resolveSongTake(
   return analysis ? { address, variantId, analysis } : null;
 }
 
-// The take-second the take's first bar head falls on: where a person set it, else where it was read.
-export function songDownbeatSec(analysis: SongAnalysis): number {
-  return analysis.downbeatSet ?? analysis.downbeatSec;
+export {
+  formatSongTempo,
+  nearestBeatIndex,
+  songFirstBeat,
+  type SongGridSource,
+  songBeatAt,
+  songBeatSec,
+  songGridBeats,
+  type SongTempo,
+  songTempo,
+} from "./song-grid.js";
+
+// A take's record with the read beat nearest `sec` made beat 0 by a person, or beat 0 left to the
+// reading again (`sec` null).
+export function setSongFirstBeat(
+  record: SongRecord,
+  reading: SongGridSource,
+  sec: number | null,
+): SongRecord {
+  const { firstBeatSet: _, ...rest } = record;
+  if (sec === null) return rest;
+  if (reading.beats.length === 0) {
+    throw new KonteError("VALIDATION_FAILED", "the take was read with no beats to make beat 0");
+  }
+  return { ...rest, firstBeatSet: reading.beats[nearestBeatIndex(reading.beats, sec)]! };
 }
 
 // The reading of the take each song address resolves to — the only song input a definition reads.

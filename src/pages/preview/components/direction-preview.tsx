@@ -454,7 +454,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
               onSelectShot={handleSelectShot}
             />
             {renderNotes(state.sequence)}
-            <BeatsPerBarContext.Provider value={state.beatsPerBar}>
+            <SongMeterContext.Provider value={state.song}>
               <table className="dir-table">
                 <thead>
                   <tr>
@@ -463,7 +463,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
                     <th className="dir-col-syn">Action</th>
                     <th className="dir-col-where">Where</th>
                     <th className="dir-col-lineup">Lineup (L→R)</th>
-                    <th className="dir-col-dur">{state.beatsPerBar === null ? "Dur" : "Beats"}</th>
+                    <th className="dir-col-dur">{state.song === null ? "Dur" : "Beats"}</th>
                     <th className="dir-col-notes">Notes</th>
                   </tr>
                 </thead>
@@ -490,7 +490,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
                       ))}
                 </tbody>
               </table>
-            </BeatsPerBarContext.Provider>
+            </SongMeterContext.Provider>
           </>,
         )}
 
@@ -770,22 +770,29 @@ function ShotRow({
   );
 }
 
-// The meter a span is read in bars by — null on a piece with no song clock, whose spans are seconds.
-const BeatsPerBarContext = createContext<number | null>(null);
+// The meter a span is read in bars by — null on a piece with no song, whose spans are seconds.
+const SongMeterContext = createContext<{ beatsPerBar: number | null } | null>(null);
 
-// A span as the direction wrote it: seconds, or on the song clock beats and the bars they make, with
-// the seconds they land on beneath.
-function Span({ seconds, beats }: { seconds: number; beats: number | null }): React.ReactElement {
-  const beatsPerBar = useContext(BeatsPerBarContext);
-  const sec = `${Number(seconds.toFixed(2))}s`;
-  if (beats === null || beatsPerBar === null) return <>{sec}</>;
-  const bars = Number((beats / beatsPerBar).toFixed(2));
+// A span as the direction wrote it: seconds, or on the song beats and the bars they make in the read
+// take's meter, with the seconds they land on beneath — both absent while no take is read.
+function Span({
+  seconds,
+  beats,
+}: {
+  seconds: number | null;
+  beats: number | null;
+}): React.ReactElement {
+  const song = useContext(SongMeterContext);
+  const sec = seconds === null ? null : `${Number(seconds.toFixed(2))}s`;
+  if (beats === null || song === null) return <>{sec}</>;
+  const bars = song.beatsPerBar === null ? null : Number((beats / song.beatsPerBar).toFixed(2));
+  const gloss = [bars === null ? null : `${bars} bar${bars === 1 ? "" : "s"}`, sec].filter(
+    (part) => part !== null,
+  );
   return (
     <>
       {beats}
-      <span className="direction-policy-gloss">
-        {bars} bar{bars === 1 ? "" : "s"} · {sec}
-      </span>
+      {gloss.length > 0 && <span className="direction-policy-gloss">{gloss.join(" · ")}</span>}
     </>
   );
 }
@@ -922,7 +929,10 @@ function SequenceRow({
       </td>
       <td className="dir-col-dur">
         <Span
-          seconds={collectShots(sequence).reduce((acc, s) => acc + s.duration, 0)}
+          seconds={collectShots(sequence).reduce<number | null>(
+            (acc, s) => (acc === null || s.duration === null ? null : acc + s.duration),
+            0,
+          )}
           beats={collectShots(sequence).reduce<number | null>(
             (acc, s) => (acc === null || s.beats === null ? null : acc + s.beats),
             0,
@@ -1081,12 +1091,12 @@ function policyValue(field: DirectionPolicyFieldInfo): React.ReactElement {
         </>
       );
     }
-    case "clock":
+    case "song":
       return (
         <>
-          {field.bpm} BPM, {field.beatsPerBar}/bar
+          reference:{field.song}
           <span className="direction-policy-gloss">
-            cut to reference:{field.song}; every shot is counted in beats
+            the piece is cut to it; every shot is counted in its beats
           </span>
         </>
       );
@@ -1109,7 +1119,7 @@ const POLICY_FIELD_LABELS: Record<DirectionPolicyFieldInfo["field"], string> = {
   lang: "Language",
   fonts: "Fonts",
   speech: "Speech",
-  clock: "Clock",
+  song: "Song",
 };
 
 // The machine-checked constraints the piece renders under — canvas, language, speech rule. Each is a

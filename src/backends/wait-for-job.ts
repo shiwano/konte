@@ -21,7 +21,11 @@ import {
   type PatchOutputOrigin,
   materializePatchOutput,
 } from "../core/patch-output.js";
-import { type LoadedDefinitions, selectDefinition } from "../core/select-definition.js";
+import {
+  type LoadedDefinitions,
+  selectDefinition,
+  songOfDefinitions,
+} from "../core/select-definition.js";
 import { StateManager } from "../core/state/index.js";
 import { ensureVariantThumbnails, type ThumbnailInfo } from "../core/thumbnail.js";
 import type { GenerationJob, JobKind, JobRecord } from "../core/types/index.js";
@@ -237,7 +241,7 @@ async function runAsOwner(
       const def: DefinitionLike = selectDefinition(getStage(job.address), definitions).def;
       const assetDef = getAssetEntryByAddress(def, job.address);
       owesLine =
-        job.address !== definitions.video.song &&
+        job.address !== songOfDefinitions(definitions) &&
         spokenLinesAt(def.prompts ?? [], job.address).length > 0;
       if (backend instanceof ComfyUIBackend && assetDef.kind === "comfy") {
         backend.setOutputNodeId(backendJobId, assetDef.outputNodeId);
@@ -417,7 +421,9 @@ async function runAsOwner(
     // The one probe of these bytes, where the file has just landed.
     const media = outputFile ? await probeMediaInfo(path.resolve(videoRoot, outputFile)) : null;
     const durationSec = mediaDurationSec(media);
-    const lang = definitions.video.typography.lang;
+    const lang = definitions.video
+      ? definitions.video.typography.lang
+      : definitions.direction.policy.lang;
     if (owesLine && !recognizesSpeechIn(lang)) {
       jobManager.appendLog(
         variantId,

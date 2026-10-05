@@ -18,7 +18,7 @@ import {
 } from "../../core/direction-acceptance.js";
 import { directionPartHashes } from "../../core/direction-hash.js";
 import { type DirectionPartContent, directionPartContents } from "../../core/direction-parts.js";
-import type { Direction } from "../../core/dsl/direction.js";
+import { type Direction, resolveDirectionTimeline } from "../../core/dsl/direction.js";
 import { KonteError } from "../../core/errors.js";
 import { formatShotSpan } from "../../core/format-duration.js";
 import { FeedbackManager, feedbackStaleness } from "../../core/feedback/index.js";
@@ -305,7 +305,7 @@ function printContent(
         console.log(`  Cutin:    ${content.cutin.setup} — ${lineup}${to}${join}`);
       }
       console.log(
-        `  Span:     ${formatShotSpan(content.duration, content.beats, direction.policy?.clock?.beatsPerBar)}`,
+        `  Span:     ${formatShotSpan(content.duration, content.beats, resolveDirectionTimeline(direction).songGrid?.beatsPerBar)}`,
       );
       console.log(`  Action:   ${content.action}`);
       const characterNameById = new Map(
@@ -330,7 +330,7 @@ function printContent(
       heading(`Aside: ${content.id}`);
       console.log(`  Label:    ${content.label}`);
       console.log(
-        `  Span:     ${formatShotSpan(content.duration, content.beats, direction.policy?.clock?.beatsPerBar)}`,
+        `  Span:     ${formatShotSpan(content.duration, content.beats, resolveDirectionTimeline(direction).songGrid?.beatsPerBar)}`,
       );
       if (content.telop.length > 0) {
         console.log("  Telop:");
@@ -338,11 +338,9 @@ function printContent(
       }
       return;
     }
-    case "clock":
-      heading("Policy: clock");
-      console.log(`  Song:          reference:${content.song}`);
-      console.log(`  BPM:           ${content.bpm}`);
-      console.log(`  Beats per bar: ${content.beatsPerBar}`);
+    case "song":
+      heading("Policy: song");
+      console.log(`  Song: reference:${content.song}`);
       return;
     case "lyrics": {
       heading("Lyrics");

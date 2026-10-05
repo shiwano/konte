@@ -19,7 +19,6 @@ import {
 import type {
   Character,
   Direction,
-  DirectionClock,
   DirectionLyrics,
   DirectionNode,
   Landmark,
@@ -49,7 +48,7 @@ import { shortHash } from "./content-hash.js";
 // `stableStringify` sorts object keys but PRESERVES array order, so shot/sequence order is part of
 // the hash while the waiver map (a set of key→reason) is order-independent.
 
-// The span as written: beats on the song clock, seconds without one. Whichever the author did not
+// The span as written: beats on the song, seconds without one. Whichever the author did not
 // write is absent.
 function projectSpan(shot: Shot): { duration: number } | { beats: number } | object {
   if (shot.beats !== undefined) return { beats: shot.beats };
@@ -250,11 +249,6 @@ function projectFormat(direction: Direction): unknown {
   return { fps: resolved.fps, base: resolved.size.base, delivery: resolved.size.delivery };
 }
 
-// All three clock fields re-block.
-function projectClock(clock: DirectionClock | undefined): unknown {
-  return clock ? { song: clock.song, bpm: clock.bpm, beatsPerBar: clock.beatsPerBar } : null;
-}
-
 // The words in singing order, with their sections and who sings each.
 function projectLyrics(lyrics: DirectionLyrics | undefined): unknown {
   if (!lyrics) return null;
@@ -300,7 +294,7 @@ function projectDirection(direction: Direction): unknown {
       lang: direction.policy?.lang ?? null,
       fonts: projectFonts(direction.policy?.fonts),
       speech: direction.policy?.speech ?? null,
-      clock: projectClock(direction.policy?.clock),
+      song: direction.policy?.song ?? null,
     },
     lyrics: projectLyrics(direction.lyrics),
     sequence: projectNode(direction.sequence),
@@ -353,10 +347,10 @@ export function directionPartHashes(direction: Direction): Map<string, string> {
   out.set(formatDirectionPolicyAddress("lang"), hash(direction.policy?.lang ?? null));
   out.set(formatDirectionPolicyAddress("fonts"), hash(projectFonts(direction.policy?.fonts)));
   out.set(formatDirectionPolicyAddress("speech"), hash(direction.policy?.speech ?? null));
-  // The one optional policy field: a piece keeps seconds until it declares a song clock, and the
-  // part exists only once it does.
-  if (direction.policy?.clock) {
-    out.set(formatDirectionPolicyAddress("clock"), hash(projectClock(direction.policy.clock)));
+  // The one optional policy field: a piece keeps seconds until it declares a song, and the part
+  // exists only once it does.
+  if (direction.policy?.song) {
+    out.set(formatDirectionPolicyAddress("song"), hash(direction.policy.song));
   }
 
   // One part per shot, aside included: an aside owes an accept and ages out when its label, span or

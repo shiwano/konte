@@ -10,3 +10,13 @@ declare module "*.css" {
   const content: string;
   export default content;
 }
+
+// onnxruntime-web's WASM runtime, embedded as files (`with { type: "file" }`): the path it lands at.
+declare module "onnxruntime-web/ort-wasm-simd-threaded.mjs" {
+  const file: string;
+  export default file;
+}
+declare module "onnxruntime-web/ort-wasm-simd-threaded.wasm" {
+  const file: string;
+  export default file;
+}

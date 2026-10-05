@@ -128,7 +128,7 @@ function exposedPlateIdsOf(def: object | null | undefined): string[] {
 }
 
 export function buildDependencyGraph(
-  video: StageDefinition,
+  video: StageDefinition | null,
   animatic?: AnimaticDefinition | null,
   reference?: ReferenceDefinition | null,
 ): DependencyGraph {
@@ -136,7 +136,7 @@ export function buildDependencyGraph(
   // `generate`/`status` pass) addresses its nodes the same way a whole-project one does.
   const stages: Array<{ def: StageDefinition; stage: ShotStage }> = [
     ...(animatic && animatic !== video ? [{ def: animatic as StageDefinition }] : []),
-    { def: video },
+    ...(video ? [{ def: video }] : []),
   ].map(({ def }) => ({ def, stage: def.stage }));
 
   const allAssetPaths = new Set<string>();
@@ -320,7 +320,7 @@ function validateReferencePurity(dependencies: ReadonlyMap<string, readonly stri
 // composition (and everything reachable) never touches is reported here. Composition
 // nodes are synthesized, not user assets, so they are never reported.
 export function listUnusedAssetPaths(
-  video: VideoDefinition,
+  video: VideoDefinition | null,
   animatic: AnimaticDefinition | null,
   graph: DependencyGraph,
   reference?: ReferenceDefinition | null,
@@ -345,7 +345,7 @@ export function listUnusedAssetPaths(
     roots.push(formatPlateAssetPath(setupId));
   }
 
-  for (const s of video.shots) {
+  for (const s of video?.shots ?? []) {
     if (s.shotFn) {
       roots.push(formatAssetPath("video", s.id, COMPOSITION_ASSET_NAME));
     } else {
@@ -355,11 +355,11 @@ export function listUnusedAssetPaths(
     }
     for (const stem of listShotStems("video", s)) roots.push(stem.address);
   }
-  if ((video.timelineSoundtracks?.length ?? 0) > 0) {
+  if ((video?.timelineSoundtracks?.length ?? 0) > 0) {
     roots.push(formatTimelineAssetPath("video", STEM_ASSET_NAME));
   }
   // The overlay is a leaf of its own: what it shows is used by it.
-  if (video.overlay) roots.push(formatTimelineAssetPath("video", OVERLAY_ASSET_NAME));
+  if (video?.overlay) roots.push(formatTimelineAssetPath("video", OVERLAY_ASSET_NAME));
   if (animatic?.overlay) roots.push(formatTimelineAssetPath("animatic", OVERLAY_ASSET_NAME));
 
   // The animatic's own compositions are review roots of their own: each is what a human watches to
@@ -382,7 +382,7 @@ export function listUnusedAssetPaths(
   // Timeline soundtracks are render roots too — a bed muxed onto the final video is
   // "used" even though no shot composition references it. Each entry's `src` is an
   // audio asset placeholder resolved to its asset path.
-  for (const st of mixedSoundtracks(video, video.timelineSoundtracks)) {
+  for (const st of video ? mixedSoundtracks(video, video.timelineSoundtracks) : []) {
     const path = parsePlaceholder(st.src.src);
     if (path) roots.push(path);
   }

@@ -9,11 +9,10 @@ import { directionPartHashes } from "../direction-hash.js";
 import { directionPartContents } from "../direction-parts.js";
 import type { Direction, LyricLine, NarrativeShot } from "../dsl/direction.js";
 import { placeDirectionLyrics } from "../dsl/direction.js";
-import { setSongLine, setSongLines } from "../song-take.js";
+import { setSongFirstBeat, setSongLine, setSongLines } from "../song-take.js";
+import { steadySong } from "./helpers/song.js";
 import { directionDefaults } from "./helpers/direction.js";
 import { suggestForStatus } from "../suggested-actions.js";
-
-const clock = { song: "song", bpm: 120, beatsPerBar: 4 };
 
 const beatShot = (id: string, role: string, beats: number): NarrativeShot => ({
   id,
@@ -27,7 +26,7 @@ const beatShot = (id: string, role: string, beats: number): NarrativeShot => ({
 function clocked(shots: NarrativeShot[], waivers?: Record<string, string>): Direction {
   return {
     ...directionDefaults,
-    policy: { ...directionDefaults.policy, clock },
+    policy: { ...directionDefaults.policy, song: "song" },
     sequence: {
       lens: "mini-drama",
       pleasure: "cute",
@@ -50,7 +49,7 @@ const codes = (direction: Direction, referenceAssetNames?: readonly string[]) =>
     referenceAssetNames ? { referenceAssetNames, songTake: { take: null, durationSec: null } } : {},
   ).active.map((f) => f.code);
 
-describe("the song clock", () => {
+describe("the song", () => {
   it("flags a song no reference asset holds", () => {
     expect(codes(clocked(arc()), [])).toContain("song-unreferenced");
     expect(codes(clocked(arc()), ["song"])).not.toContain("song-unreferenced");
@@ -108,26 +107,26 @@ describe("the song clock", () => {
 
   it("is a policy part of its own, present only when declared", () => {
     const hashes = directionPartHashes(clocked(arc()));
-    expect(hashes.has("direction:policy.clock")).toBe(true);
+    expect(hashes.has("direction:policy.song")).toBe(true);
     expect(
       directionPartHashes({ ...clocked(arc()), policy: directionDefaults.policy }).has(
-        "direction:policy.clock",
+        "direction:policy.song",
       ),
     ).toBe(false);
 
-    const retimed = directionPartHashes({
+    const renamed = directionPartHashes({
       ...clocked(arc()),
-      policy: { ...directionDefaults.policy, clock: { ...clock, bpm: 100 } },
+      policy: { ...directionDefaults.policy, song: "tune" },
     } as Direction);
-    expect(retimed.get("direction:policy.clock")).not.toBe(hashes.get("direction:policy.clock"));
-    expect(retimed.get("direction:sequence.shots.01")).toBe(
+    expect(renamed.get("direction:policy.song")).not.toBe(hashes.get("direction:policy.song"));
+    expect(renamed.get("direction:sequence.shots.01")).toBe(
       hashes.get("direction:sequence.shots.01"),
     );
   });
 
-  it("shows a shot's beats beside the seconds they land on", () => {
+  it("shows a shot's beats, and no seconds while no take of the song is read", () => {
     expect(directionPartContents(clocked(arc())).get("direction:sequence.shots.02")).toMatchObject({
-      duration: 4,
+      duration: null,
       beats: 8,
     });
   });
@@ -187,37 +186,16 @@ describe("the song take", () => {
     take: {
       address: "reference:song",
       variantId: "v-song",
-      analysis: {
+      analysis: steadySong({
         bpm,
-        downbeatSec: 0.5,
-        sectionSecs: [],
+        beat0Sec: 0.5,
         phrases: phrases?.map(([startSec, endSec]) => ({ startSec, endSec })) ?? null,
-        heard: null,
-        clock: { bpm: 120, beatsPerBar: 4 },
-        lang: "en",
-      },
+      }),
     },
     durationSec: null,
   });
   const check = (direction: Direction, song: SongTakeState) =>
     checkDirection(direction, { referenceAssetNames: ["song"], songTake: song }).active;
-
-  it("flags a take that drifts a quarter beat off the grid by the end of the timeline", () => {
-    // 32 beats at 120.5 against 120 drift 0.13 beats; at 121, 0.27.
-    expect(check(clocked(arc()), take(120.5)).map((f) => f.code)).not.toContain("song-off-tempo");
-    expect(check(clocked(arc()), take(121)).map((f) => f.code)).toContain("song-off-tempo");
-  });
-
-  it("offers declaring the tempo the take plays at", () => {
-    const message = (bpm: number, disruptionBeats?: number) =>
-      check(clocked(arc(disruptionBeats)), take(bpm)).find((f) => f.code === "song-off-tempo")
-        ?.message;
-    expect(message(121.2)).toContain("declare policy.clock.bpm as 121 ");
-    // Over 256 beats, 121 still drifts 0.44 beats off a take at 121.21; 121.2, 0.02.
-    expect(message(121.21, 232)).toContain("declare policy.clock.bpm as 121.2 ");
-    // Over 2000 beats, 121.2 drifts 0.58 beats off a take at 121.235.
-    expect(message(121.235, 1976)).toContain("declare policy.clock.bpm as 121.235 ");
-  });
 
   it("flags a timeline that runs past the end of the take, on a stage pass", () => {
     // 32 beats at 120 BPM after a 0.5s lead end the timeline at 16.5s.
@@ -301,7 +279,7 @@ describe("the song take", () => {
     ]);
   });
 
-  it("refuses lyrics nobody declared can sing, sung by nobody, or off the clock", () => {
+  it("refuses lyrics nobody declared can sing, sung by nobody, or with no song", () => {
     const codes = (direction: Direction) =>
       validateDirectionStructure(direction).map((e) => e.code);
     expect(codes(withLyrics([{ text: "a", singer: "nobody" }]))).toContain("lyrics-singer-unknown");
@@ -313,7 +291,7 @@ describe("the song take", () => {
     ).toContain("lyrics-singer-empty");
     expect(
       codes({ ...withLyrics(["a"]), policy: directionDefaults.policy } as Direction),
-    ).toContain("lyrics-without-clock");
+    ).toContain("lyrics-without-song");
     expect(codes(withLyrics([" "]))).toContain("lyrics-empty-line");
   });
 
@@ -330,7 +308,7 @@ describe("the song take", () => {
 });
 
 describe("a lyric line placed on a take by hand", () => {
-  const record = { reading: "r1", clock: { bpm: 120, beatsPerBar: 4 }, lang: "en" };
+  const record = { reading: "r1", lang: "en" };
   const lines = [
     { key: "1.1", text: "a" },
     { key: "1.2", text: "b" },
@@ -375,5 +353,18 @@ describe("a lyric line placed on a take by hand", () => {
     expect(() => setSongLine(record, lines, "9.9", { startSec: 2, endSec: 3 }, 30)).toThrow(
       /line 9\.9: direction\.ts declares no such lyric line/,
     );
+  });
+});
+
+describe("beat 0 set on a take by hand", () => {
+  const record = { reading: "r1", lang: "en" };
+  const reading = { beats: [0.5, 1, 1.5, 2], firstBeat: 0, beatsPerBar: 4 };
+
+  it("is the read beat nearest the second a person sets", () => {
+    expect(setSongFirstBeat(record, reading, 1.6)).toEqual({ ...record, firstBeatSet: 1.5 });
+  });
+
+  it("is left to the reading again when unset", () => {
+    expect(setSongFirstBeat(setSongFirstBeat(record, reading, 1), reading, null)).toEqual(record);
   });
 });

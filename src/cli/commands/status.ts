@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { requireShotStages } from "../../core/select-definition.js";
 import * as path from "node:path";
 import type { Command } from "commander";
 import {
@@ -105,7 +106,9 @@ export function registerStatusCommand(program: Command): void {
       const videoRoot = roots.video;
       const currentVideo = currentRoots()?.video;
       const videoName = currentVideo?.kind === "selected" ? currentVideo.name : null;
-      const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
+      const { video, animatic, reference } = requireShotStages(
+        await loadStageDefinitions(videoRoot),
+      );
       // The direction gates animatic/video generation, so status flags an unaccepted (or
       // changed-since-accepted) direction as the first next step. Tolerant: a broken direction.ts
       // surfaces via the gate/doctor, not here.
@@ -556,9 +559,9 @@ export function registerStatusCommand(program: Command): void {
     });
 }
 
-// The song `policy.clock` counts on, while no take of it is accepted.
+// The song `policy.song` names, while no take of it is accepted.
 function pendingSong(manager: StateManager, direction: Direction | null): SongPending | undefined {
-  const song = direction?.policy.clock?.song;
+  const song = direction?.policy.song;
   if (direction === null || song === undefined) return undefined;
   const address = formatReferenceAddress(song);
   if (manager.selectVariant(address, { requireAccepted: true }) !== null) return undefined;

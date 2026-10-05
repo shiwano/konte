@@ -70,14 +70,18 @@ export const HeardSpeechSchema = z.object({
 
 export type HeardSpeech = z.infer<typeof HeardSpeechSchema>;
 
-// What konte read off a take of the song `policy.clock` counts on, kept beside the take as
-// `song.json`: the tempo it plays at, the take-second its first beat falls on, the bar heads its
-// texture changes most at, where it is sung, and what its vocal track is heard to sing, token by
-// token. `phrases` and `heard` are null where no vocal track could be separated, `heard` also where
-// it could not be recognized.
+// What konte read off a take of the song `policy.song` names, kept beside the take as `song.json`:
+// the take-second of every beat it plays, which of them is beat 0, the meter it plays in, the bar
+// heads its texture changes most at, where it is sung, and what its vocal track is heard to sing,
+// token by token. `phrases` and `heard` are null where no vocal track could be separated, `heard`
+// also where it could not be recognized.
 export const SongReadingSchema = z.object({
-  bpm: z.number().positive(),
-  downbeatSec: z.number().nonnegative(),
+  // Take-seconds of every beat, ascending.
+  beats: z.array(z.number()),
+  // The index in `beats` of beat 0, the first bar head at or after the first sound.
+  firstBeat: z.number().int().nonnegative(),
+  // The beats between bar heads the take is heard to play in.
+  beatsPerBar: z.number().int().positive(),
   sectionSecs: z.array(z.number()),
   phrases: z.array(z.object({ startSec: z.number(), endSec: z.number() })).nullable(),
   heard: z.array(HeardTokenSchema).nullable(),
@@ -86,16 +90,16 @@ export const SongReadingSchema = z.object({
 export type SongReading = z.infer<typeof SongReadingSchema>;
 
 // A take's reading as state holds it: `reading` is the hash of its `song.json`, a file that no
-// longer hashes to it is no reading. `clock` and `lang` are the declared tempo, meter and language
-// it was read against; a reading against another is outdated.
-// `downbeatSet` is the downbeat a person corrected it to (`konte song set`), standing over the one
-// read. `lines` are the lyric lines a person placed on the take, keyed `<section>.<line>`, each with
-// the words it was placed as: a line whose words have changed since is read off the take again.
+// longer hashes to it is no reading. `lang` is the language it was read against; a reading against
+// another is outdated.
+// `firstBeatSet` is the take-second of the read beat a person made beat 0 (`konte song set
+// --first-beat`), standing over the reading's `firstBeat`. `lines`
+// are the lyric lines a person placed on the take, keyed `<section>.<line>`, each with the words it
+// was placed as: a line whose words have changed since is read off the take again.
 export const SongRecordSchema = z.object({
   reading: z.string(),
-  clock: z.object({ bpm: z.number().positive(), beatsPerBar: z.number().int().positive() }),
   lang: z.string(),
-  downbeatSet: z.number().nonnegative().optional(),
+  firstBeatSet: z.number().nonnegative().optional(),
   lines: z
     .record(
       z.string(),
@@ -137,7 +141,7 @@ export const VariantStateSchema = z.object({
   // never null: a failed measurement leaves no record, so a later reader retries. Cleared when the
   // bytes it described are replaced.
   media: VariantMediaSchema.optional(),
-  // A take of the song `policy.clock` counts on, analyzed (see SongRecordSchema). Absent until the
+  // A take of the song `policy.song` names, analyzed (see SongRecordSchema). Absent until the
   // analysis job records it, and on every other variant.
   song: SongRecordSchema.optional(),
   // When the variant was reserved (ISO 8601). Drives "newest" selection in

@@ -82,7 +82,7 @@ let definitions: LoadedDefinitions;
 
 function currentHash(): string {
   return computeDefinitionHash(
-    getAssetEntryByAddress(definitions.video, ADDRESS) as AssetDefinition,
+    getAssetEntryByAddress(definitions.video!, ADDRESS) as AssetDefinition,
   );
 }
 

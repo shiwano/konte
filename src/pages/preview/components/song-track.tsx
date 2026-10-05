@@ -18,6 +18,7 @@ import {
   tickLabel,
   useTimelineZoom,
 } from "../review/use-timeline-zoom.js";
+import { formatSongTempo, songBeatAt, songGridBeats, songTempo } from "../../../core/song-grid.js";
 import type { SongLineEdit, SongReadingInfo } from "../types.js";
 import { FitIcon, PauseIcon, PlayIcon, SkipToStartIcon, VolumeIcon } from "./icons.js";
 import { PlayheadLine } from "./scrub-preview.js";
@@ -28,6 +29,8 @@ export const SongLineEditsContext = createContext<{
   edits: readonly SongLineEdit[];
   place: (edit: SongLineEdit) => void;
   discard: (variantId: string, key: string) => void;
+  // Every line this review placed or let go on one take, undone together.
+  reset: (variantId: string) => void;
 } | null>(null);
 
 type Span = { startSec: number; endSec: number };
@@ -112,9 +115,9 @@ type Drag = {
   over: boolean;
 };
 
-// A take of the song under the grid and the lines konte read off it, on the review timeline's own
-// controls: the bars, where the vocal track sings, and each lyric line as a clip on the take's
-// clock. Accepting the take accepts this reading.
+// A take of the song under the beats and the lines konte read off it, on the review timeline's own
+// controls: the bars and beats, where the vocal track sings, and each lyric line as a clip on the
+// take's clock. Accepting the take accepts this reading.
 export function SongTrack({
   fileUrl,
   song,
@@ -134,9 +137,17 @@ export function SongTrack({
   const lines = linesUnderEdits(song, editing?.edits);
 
   const durationSec = song.durationSec ?? measured ?? 0;
-  const beatSec = 60 / song.bpm;
-  const barSec = beatSec * song.beatsPerBar;
-
+  const firstBeatSet = song.firstBeatSet;
+  const grid = useMemo(
+    () => ({
+      beats: song.beats,
+      firstBeat: song.firstBeat,
+      beatsPerBar: song.beatsPerBar,
+      ...(firstBeatSet !== null ? { firstBeatSet } : {}),
+    }),
+    [song, firstBeatSet],
+  );
+  const gridBeats = useMemo(() => songGridBeats(grid, durationSec), [grid, durationSec]);
   const timeAt = useCallback(
     (clientX: number): number => {
       const rect = rulerRef.current?.getBoundingClientRect();
@@ -171,8 +182,22 @@ export function SongTrack({
   } = useTimelineZoom({
     totalDuration: durationSec,
     labelWidth: LABEL_W,
-    noPanSelector: ".song-track-line, .rt-label, .rt-ruler",
-    onTap: (e) => seek(timeAt(e.clientX)),
+    noPanSelector:
+      ".song-track-line-grip, .song-track-edge, .song-track-line-undo, .rt-label, .rt-ruler",
+    // A tap on a lyric line plays it from its head; anywhere else seeks there. The pan holds the
+    // pointer, so the line is found under it rather than by the event's target.
+    onTap: (e) => {
+      const line = document
+        .elementFromPoint(e.clientX, e.clientY)
+        ?.closest<HTMLElement>(".song-track-line");
+      const start = line?.dataset.start;
+      if (start === undefined) {
+        seek(timeAt(e.clientX));
+        return;
+      }
+      seek(Number(start));
+      void audioRef.current?.play();
+    },
   });
   const { handlers: scrubHandlers } = useScrubPreview(
     (clientX) => ({ time: timeAt(clientX), barTop: 0 }),
@@ -311,6 +336,11 @@ export function SongTrack({
     };
   });
 
+  const playFrom = (sec: number) => {
+    seek(sec);
+    void audioRef.current?.play();
+  };
+
   const grab = (e: React.PointerEvent, line: TrackLine, mode: Drag["mode"]) => {
     if (e.button !== 0) return;
     e.stopPropagation();
@@ -360,15 +390,22 @@ export function SongTrack({
   );
   const sung = placed.findLast((l) => l.startSec <= now && now < l.endSec);
 
-  const beats = Math.floor((now - song.downbeatSec) / beatSec + 1e-6);
+  const per = song.beatsPerBar;
+  const beatNow = Math.floor(songBeatAt(grid, now) + 1e-6);
   const position =
-    beats < 0
+    beatNow < 0
       ? "before the first bar"
-      : `bar ${Math.floor(beats / song.beatsPerBar) + 1} · beat ${(beats % song.beatsPerBar) + 1}`;
+      : `bar ${Math.floor(beatNow / per) + 1} · beat ${(beatNow % per) + 1}`;
+  const beatZeroSec = gridBeats.find((b) => b.beat === 0)?.sec ?? null;
 
-  const bars: number[] = [];
-  for (let t = song.downbeatSec; durationSec > 0 && t < durationSec; t += barSec) bars.push(t);
-  const beatTicks = pxPerSec * beatSec >= 10;
+  const bars = gridBeats.filter((b) => b.beat >= 0 && b.beat % per === 0);
+  const gaps = gridBeats
+    .slice(1)
+    .map((b, i) => b.sec - gridBeats[i]!.sec)
+    .sort((a, b) => a - b);
+  const typicalBeatSec = gaps[Math.floor(gaps.length / 2)] ?? 0.5;
+  const beatTicks = pxPerSec * typicalBeatSec >= 10;
+  const shownBeats = gridBeats.filter((b) => beatTicks && b.beat % per !== 0);
   const tickStep = tickInterval(pxPerSec);
   const ticks: number[] = [];
   for (let t = 0; durationSec > 0 && t <= durationSec + 0.001; t += tickStep) ticks.push(t);
@@ -406,7 +443,13 @@ export function SongTrack({
         </button>
         <span className="song-track-now">
           <span className="song-track-reading">
-            {position} · {song.bpm} BPM · first bar at {song.downbeatSec.toFixed(2)}s
+            {position} · {formatSongTempo(songTempo(grid))} · {per}/bar
+            {beatZeroSec !== null && (
+              <>
+                {" "}
+                · bar 1 at {beatZeroSec.toFixed(2)}s{firstBeatSet !== null && " (set by hand)"}
+              </>
+            )}
           </span>
           <span className="song-track-now-line">
             {sung && (
@@ -423,10 +466,21 @@ export function SongTrack({
         </span>
       </div>
       {editing && (
-        <p className="song-track-hint">
-          Drag each line to where it is sung, and its edges to its first and last word. Click a line
-          to hear it.
-        </p>
+        <div className="song-track-hint-row">
+          <p className="song-track-hint">
+            Drag each line by its ⠿ grip to where it is sung, and its edges to its first and last
+            word. Click a line to hear it.
+          </p>
+          <button
+            type="button"
+            className="ctrl-btn"
+            disabled={!lines.some((l) => l.pending)}
+            title="Undo every change made to this take's lines in this review"
+            onClick={() => editing.reset(song.variantId)}
+          >
+            Reset
+          </button>
+        </div>
       )}
       <div className="review-timeline">
         <div className="rt-scroll" ref={scrollRef} {...panHandlers}>
@@ -451,19 +505,14 @@ export function SongTrack({
                 <span className="rt-label-text">Bar</span>
               </div>
               <div className="rt-track song-track-bars" style={{ width: timelineWidth }}>
-                {bars.map((t, i) => (
-                  <span key={t} className="song-track-bar" style={{ left: x(t) }}>
-                    {i + 1}
+                {bars.map((b) => (
+                  <span key={`bar${b.beat}`} className="song-track-bar" style={{ left: x(b.sec) }}>
+                    {b.beat / per + 1}
                   </span>
                 ))}
-                {beatTicks &&
-                  bars.flatMap((t) =>
-                    Array.from({ length: song.beatsPerBar - 1 }, (_, b) => t + (b + 1) * beatSec)
-                      .filter((s) => s < durationSec)
-                      .map((s) => (
-                        <span key={s} className="song-track-beat" style={{ left: x(s) }} />
-                      )),
-                  )}
+                {shownBeats.map((b) => (
+                  <span key={b.beat} className="song-track-beat" style={{ left: x(b.sec) }} />
+                ))}
               </div>
             </div>
             <div className="rt-row">
@@ -493,10 +542,12 @@ export function SongTrack({
                 ref={linesRef}
                 style={{ width: timelineWidth, height: lanes * LANE_PX }}
               >
-                {bars.map((t) => (
-                  <span key={t} className="song-track-gridline" style={{ left: x(t) }} />
+                {bars.map((b) => (
+                  <span key={b.beat} className="song-track-gridline" style={{ left: x(b.sec) }} />
                 ))}
                 {placed.map((line) => (
+                  /* A div: it holds the undo buttons, which a <button> cannot. */
+                  /* oxlint-disable jsx-a11y/prefer-tag-over-role */
                   <div
                     key={line.key}
                     className={[
@@ -505,7 +556,7 @@ export function SongTrack({
                       line.pending && "song-track-line--pending",
                       line.set && !line.pending && "song-track-line--set",
                       drag?.key === line.key && "song-track-line--dragged",
-                      !editing && "song-track-line--readonly",
+                      editing && "song-track-line--movable",
                     ]
                       .filter(Boolean)
                       .join(" ")}
@@ -515,7 +566,12 @@ export function SongTrack({
                       top: (laneOf.get(line.key) ?? 0) * LANE_PX,
                     }}
                     title={`${line.key} · ${line.startSec.toFixed(2)}s–${line.endSec.toFixed(2)}s · ${line.singer.join(", ")}\n${line.text}`}
-                    onPointerDown={(e) => grab(e, line, "move")}
+                    data-start={line.startSec}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") playFrom(line.startSec);
+                    }}
                   >
                     {editing && (
                       <span
@@ -523,6 +579,15 @@ export function SongTrack({
                         style={{ width: EDGE_PX }}
                         onPointerDown={(e) => grab(e, line, "start")}
                       />
+                    )}
+                    {editing && (
+                      <span
+                        className="song-track-line-grip"
+                        title="Drag to where the line is sung"
+                        onPointerDown={(e) => grab(e, line, "move")}
+                      >
+                        ⠿
+                      </span>
                     )}
                     <span className="song-track-line-text">{line.text}</span>
                     <span className="song-track-line-singer">{line.singer.join(", ")}</span>
@@ -558,6 +623,7 @@ export function SongTrack({
                       />
                     )}
                   </div>
+                  /* oxlint-enable jsx-a11y/prefer-tag-over-role */
                 ))}
               </div>
             </div>

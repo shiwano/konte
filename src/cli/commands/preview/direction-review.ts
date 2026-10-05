@@ -136,12 +136,15 @@ export async function handleGetDirectionState(
   const roleFunctionOf = (lensName: string, role: string): RoleFunction | null =>
     resolveLens(lensName, direction.lenses)?.roles.find((b) => b.role === role)?.fn ?? null;
 
-  const clock = direction.policy.clock ?? null;
-  const timings = resolveDirectionTimeline(direction).timings;
-  const spanOf = (s: Shot) => ({
-    duration: timings.get(s.id)?.duration ?? 0,
-    beats: clock ? (s.beats ?? null) : null,
-  });
+  const song = direction.policy.song ?? null;
+  const timeline = resolveDirectionTimeline(direction);
+  const spanOf = (s: Shot) => {
+    const timing = timeline.timings.get(s.id);
+    return {
+      duration: timing ? timing.duration : song ? null : 0,
+      beats: song ? (s.beats ?? null) : null,
+    };
+  };
 
   // `nodePath` is the field path of the node the shot sits in — a shot is reviewed where it is
   // declared, so its address hangs off its owner rather than off the root.
@@ -276,16 +279,8 @@ export async function handleGetDirectionState(
       speech: direction.policy.speech,
       ...partView(formatDirectionPolicyAddress("speech")),
     },
-    ...(clock
-      ? [
-          {
-            field: "clock" as const,
-            song: clock.song,
-            bpm: clock.bpm,
-            beatsPerBar: clock.beatsPerBar,
-            ...partView(formatDirectionPolicyAddress("clock")),
-          },
-        ]
+    ...(song
+      ? [{ field: "song" as const, song, ...partView(formatDirectionPolicyAddress("song")) }]
       : []),
   ];
 
@@ -328,7 +323,7 @@ export async function handleGetDirectionState(
     acceptableSections: DIRECTION_SECTIONS.filter((s) => directionSectionAcceptable(direction, s)),
     brief: briefFields(direction.brief ?? {}),
     policy: policyFields,
-    beatsPerBar: clock?.beatsPerBar ?? null,
+    song: song ? { beatsPerBar: timeline.songGrid?.beatsPerBar ?? null } : null,
     ...(direction.lyrics
       ? {
           lyrics: {

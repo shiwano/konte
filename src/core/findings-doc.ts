@@ -73,12 +73,7 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     typeLevel: true,
   },
   "song-unreferenced": {
-    flags: "`policy.clock.song` names no `reference:<id>` asset.",
-    subject: null,
-  },
-  "song-off-tempo": {
-    flags:
-      "The take of the song drifts a quarter beat or more off the declared `bpm` by the end of the timeline.",
+    flags: "`policy.song` names no `reference:<id>` asset.",
     subject: null,
   },
   "song-overrun": {
@@ -174,7 +169,7 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
   },
   "off-grid-duration": {
     flags:
-      "A shot's `duration` is not a positive multiple of 0.5s, or on `policy.clock` its `beats` is not a positive whole number.",
+      "A shot's `duration` is not a positive multiple of 0.5s, or on `policy.song` its `beats` is not a positive whole number.",
     subject: "shot id",
     typeLevel: true,
   },

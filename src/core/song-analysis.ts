@@ -1,9 +1,11 @@
 import * as fs from "node:fs";
+import { detectBeats } from "./beat-this.js";
 import { errorMessage } from "./errors.js";
 import { execFileAsync } from "./exec-file.js";
 import { ffmpegBin } from "./ffmpeg-binary.js";
 import { ANALYSIS_RATE, readSongBeat, readSungPhrases } from "./song-beat.js";
 import { songParts } from "./song-parts.js";
+import { formatSongTempo, songTempo } from "./song-take.js";
 import { recognizesSpeechIn } from "./sherpa-binary.js";
 import { hearSpeech } from "./speech-hearing.js";
 import type { SongReading } from "./types/index.js";
@@ -34,8 +36,8 @@ async function decodeMono(file: string): Promise<Float32Array> {
 }
 
 /**
- * Read one take of the song: its clock off the mix, and where it is sung and what it is heard to
- * sing off the vocal track sherpa-onnx separates from it. A separation that fails leaves `phrases`
+ * Read one take of the song: its beats off the mix by Beat This!, and where it is sung and what it is
+ * heard to sing off the vocal track sherpa-onnx separates from it. A separation that fails leaves `phrases`
  * and `heard` null, a recognition that fails `heard` alone, and says why in `log`; the clock still
  * stands.
  */
@@ -43,20 +45,18 @@ export async function analyzeSongTake(opts: {
   file: string;
   outputHash: string | null | undefined;
   videoRoot: string;
-  bpm: number;
-  beatsPerBar: number;
   // The language the lyrics are sung in.
   lang: string;
   // A scratch directory under the video, removed when the analysis ends.
   workDir: string;
   log: (line: string) => void;
 }): Promise<SongReading> {
-  const beat = readSongBeat(await decodeMono(opts.file), {
-    bpm: opts.bpm,
-    beatsPerBar: opts.beatsPerBar,
-  });
+  const heardBeats = await detectBeats(opts.file);
+  const beat = readSongBeat(await decodeMono(opts.file), heardBeats);
+  const beatZero = beat.beats[beat.firstBeat];
   opts.log(
-    `Clock: ${beat.bpm} BPM, first bar head at ${beat.downbeatSec}s, ` +
+    `Clock: ${beat.beats.length} beat(s), ${formatSongTempo(songTempo(beat))}, ` +
+      `${beat.beatsPerBar}/bar, beat 0 at ${beatZero ?? 0}s, ` +
       `${beat.sectionSecs.length} section boundary candidate(s)`,
   );
 
@@ -92,8 +92,9 @@ export async function analyzeSongTake(opts: {
   }
 
   return {
-    bpm: beat.bpm,
-    downbeatSec: beat.downbeatSec,
+    beats: beat.beats,
+    firstBeat: beat.firstBeat,
+    beatsPerBar: beat.beatsPerBar,
     sectionSecs: beat.sectionSecs,
     phrases,
     heard,

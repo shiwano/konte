@@ -1,3 +1,4 @@
+import { beatThisModelDir } from "../../../core/beat-this.js";
 import { ensureChromium } from "../../../core/chromium.js";
 import { ffmpegBin, ffprobeBin } from "../../../core/ffmpeg-binary.js";
 import { ensureHyperFramesEnv } from "../../../core/hyperframes-env.js";
@@ -24,6 +25,7 @@ export async function prefetchManagedRuntimes(): Promise<void> {
   await step("tsc", () => ensureTsc());
   await step("chromium", () => ensureChromium());
   await step("sherpa-onnx", () => ensureSherpa());
+  await step("beat-this", () => beatThisModelDir());
 }
 
 async function step(label: string, run: () => Promise<unknown>): Promise<void> {

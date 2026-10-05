@@ -447,7 +447,7 @@ async function runAccept(targets: string[], opts: AcceptOptions): Promise<void> 
     }[getAssetStage(address)] as DefinitionLike | null;
     return stageDef ? definitionHashForAddress(stageDef, address) : null;
   };
-  const cascadeOpts = { video, animatic };
+  const cascadeOpts = { ...(video ? { video } : {}), animatic };
   const jobManager = new JobManager(videoRoot);
 
   // Preview (no persist) which downstream assets this accept would restale, to drive the prompt.

@@ -104,7 +104,7 @@ export function isDirectionBriefListField(
 // rule is not aged out by an aspect-ratio change. Mirrors the members of `DirectionPolicy`
 // (dsl/direction); addressed as `direction:policy.<field>`, and the hash and preview builders index
 // them by these keys.
-export const DIRECTION_POLICY_FIELDS = ["format", "lang", "fonts", "speech", "clock"] as const;
+export const DIRECTION_POLICY_FIELDS = ["format", "lang", "fonts", "speech", "song"] as const;
 
 export type DirectionPolicyField = (typeof DIRECTION_POLICY_FIELDS)[number];
 

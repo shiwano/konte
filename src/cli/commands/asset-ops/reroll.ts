@@ -33,6 +33,7 @@ import { buildAddressInfo, isProblemAddress } from "../../../core/status-section
 import { StateManager } from "../../../core/state/index.js";
 import type { AssetDefinition, BackendKind, JobRecord } from "../../../core/types/index.js";
 import { getBackendKind } from "../../../backends/resolve-backend.js";
+import { requireShotStages, selectDefinition } from "../../../core/select-definition.js";
 import {
   assertAnimaticConsumed,
   assertUpstreamAccepted,
@@ -163,11 +164,9 @@ Examples:
           }
         }
 
-        const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
-        await applyResolutionDefinitions({
-          videoRoot,
-          definitions: { video, animatic, reference },
-        });
+        const definitions = await loadStageDefinitions(videoRoot);
+        const { video, animatic, reference } = definitions;
+        await applyResolutionDefinitions({ videoRoot, definitions });
         const variantCount = parsePositiveInt(opts.count, "--count");
 
         if (opts.withDependents && variantCount > 1) {
@@ -178,22 +177,13 @@ Examples:
           );
         }
 
-        const stageEntries = [
+        const stageEntries: Array<readonly [AssetStage, DefinitionLike]> = [
           ["reference", reference],
-          ["animatic", animatic],
-          ["video", video],
-        ] as const satisfies ReadonlyArray<readonly [AssetStage, DefinitionLike]>;
-        const definitionByStage = new Map<Stage, DefinitionLike>(stageEntries);
-        const definitionForAddress = (address: string): DefinitionLike => {
-          const definition = definitionByStage.get(getStage(address));
-          if (!definition) {
-            throw new KonteError(
-              "INVALID_ADDRESS",
-              `Address "${address}" references the direction stage, which is feedback-only with no asset definition`,
-            );
-          }
-          return definition;
-        };
+          ...(animatic ? [["animatic", animatic] as const] : []),
+          ...(video ? [["video", video] as const] : []),
+        ];
+        const definitionForAddress = (address: string): DefinitionLike =>
+          selectDefinition(getStage(address), definitions).def;
 
         const graph = buildDependencyGraph(video, animatic, reference);
 
@@ -377,14 +367,14 @@ Examples:
         // through the same direction gate — closing the "reroll one shot at a time" bypass. Gate
         // once per distinct stage the addresses touch.
         for (const stage of new Set(primaries.map((p) => p.stage))) {
-          const definition = definitionByStage.get(stage);
+          const definition = selectDefinition(stage, definitions).def;
           await gateDirectionForStage({
             videoRoot,
             command: "reroll",
             stage,
-            realizedIds: stage === "reference" ? undefined : definition?.shots.map((s) => s.id),
+            realizedIds: stage === "reference" ? undefined : definition.shots.map((s) => s.id),
           });
-          if (definition) await gateStageChecks(definition, stage);
+          await gateStageChecks(definition, stage);
         }
 
         // Combined work list, keyed by address so overlapping cascades (or an address that is
@@ -465,8 +455,7 @@ Examples:
             .flatMap((parsed) => (parsed?.kind === "shot" ? [parsed.shotId] : []));
           const timelineSpend = shotIds.length < vendorVideo.length;
           assertAnimaticConsumed({
-            video,
-            animatic,
+            ...requireShotStages(definitions),
             graph,
             ...(timelineSpend ? {} : { spendingShotIds: shotIds }),
           });

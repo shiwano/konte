@@ -361,6 +361,8 @@ async function importDefinition<T>(
     // that threw poisons its importers too, so evict the whole project subtree: the next load
     // re-evaluates and says it again.
     await underReloadLock(async () => bustProjectModuleCache(path.dirname(filePath)));
+    // A board or video cut to a song no take of is read waits on that song, which the code names.
+    if (err instanceof KonteError && err.code === "SONG_UNREAD") throw err;
     throw new KonteError(
       "LOAD_FAILED",
       `Failed to ${fresh ? "reload" : "load"} ${label} file "${filePath}": ${errorMessage(err)}`,

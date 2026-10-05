@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { toolDownloadUrls } from "../../../scripts/lib/tool-download-urls.js";
 import { chromiumDownloadUrl } from "../chromium.js";
 import { cloudflaredDownloadSource } from "../cloudflared-binary.js";
+import { BEAT_THIS_URLS } from "../beat-this.js";
 import { KonteError } from "../errors.js";
 import { ffmpegDownloadSources } from "../ffmpeg-binary.js";
 import { TOOL_CHECKSUMS, toolChecksum, toolPin } from "../tool-checksums.js";
@@ -48,6 +49,7 @@ const RESOLVERS: Record<string, (platform: NodeJS.Platform, arch: string) => str
   tsc: (platform, arch) => [tscDownloadUrl(platform, arch)],
   chromium: (platform, arch) => [chromiumDownloadUrl(platform, arch)],
   sherpa: (platform, arch) => [sherpaDownloadUrl(platform, arch), SPLEETER_URL, SENSE_VOICE_URL],
+  beatThis: () => BEAT_THIS_URLS,
 };
 
 function reachableUrls(): { tool: string; platform: string; url: string }[] {

@@ -28,7 +28,7 @@ import { StateManager } from "../state/index.js";
 import { checkTailwindClasses } from "../tailwind-classes.js";
 import { directionDefaults } from "./helpers/direction.js";
 
-const clocked = () =>
+const songDirection = () =>
   defineDirection({
     ...directionDefaults,
     characters: { konte: { name: "Konte", promptDepiction: "girl", description: "the singer" } },
@@ -36,7 +36,7 @@ const clocked = () =>
       format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
       lang: "en",
       speech: "free",
-      clock: { song: "song", bpm: 120, beatsPerBar: 4 },
+      song: "song",
     },
     lyrics: [{ label: "chorus", singer: "konte", lines: ["Hit the light", "Watch me move"] }],
     sequence: {
@@ -64,12 +64,12 @@ const placedTake = (address: string) =>
         address,
         variantId: "v-song",
         analysis: {
-          bpm: 120,
-          downbeatSec: 0,
+          beats: Array.from({ length: 240 }, (_, i) => 0 + i * 0.5),
+          firstBeat: 0,
+          beatsPerBar: 4,
           sectionSecs: [],
           phrases: null,
           heard: null,
-          clock: { bpm: 120, beatsPerBar: 4 },
           lang: "en",
           lines: {
             "1.1": {
@@ -86,6 +86,15 @@ const placedTake = (address: string) =>
         },
       }
     : null;
+
+// The direction as the loader reads it, under the take `placedTake` holds.
+const clocked = () => {
+  let direction!: ReturnType<typeof songDirection>;
+  void withSongTakes(placedTake, async () => {
+    direction = songDirection();
+  });
+  return direction;
+};
 
 const plain = () => <Composition />;
 

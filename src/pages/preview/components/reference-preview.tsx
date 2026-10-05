@@ -130,6 +130,8 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
       edits: songLines,
       place: (edit: SongLineEdit) => setSongLines([...others(edit.variantId, edit.key), edit]),
       discard: (variantId: string, key: string) => setSongLines(others(variantId, key)),
+      reset: (variantId: string) =>
+        setSongLines(songLines.filter((e) => e.variantId !== variantId)),
     };
   }, [songLines]);
 

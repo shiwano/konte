@@ -567,7 +567,7 @@ interface SuggestStatusInput {
   unacceptedCast?: readonly UnacceptedCastRef[];
   /** True when the direction declares no shots yet — the step points at authoring, not reviewing. */
   directionEmpty?: boolean;
-  /** The song `policy.clock` counts on, while no take of it is accepted. */
+  /** The song `policy.song` names, while no take of it is accepted. */
   songPending?: SongPending;
   /** Takes of the song waiting to be read — their analysis jobs run under `konte job wait`. */
   songReadingsPending?: boolean;

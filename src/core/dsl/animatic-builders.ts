@@ -17,7 +17,12 @@ import type {
   StagePendingShotStarter,
   StageShotStarter,
 } from "./direction.js";
-import { getDirectionIndex, makeAnimaticShotStarter, type DirectionIndex } from "./direction.js";
+import {
+  getDirectionIndex,
+  makeAnimaticShotStarter,
+  shotStartsOf,
+  type DirectionIndex,
+} from "./direction.js";
 import { beginPromptCollection } from "./prompt-collect.js";
 import { assertRespellings, beginRespellCollection } from "./respell.js";
 import { makePlatePlaceholder, runInPlateDiscoveryMode } from "./shot-context.js";
@@ -193,11 +198,11 @@ export type GraphicShotContext<
 
 /**
  * `beat(n)`: the second, from the shot's head, of its `n`th beat — read off the song's own grid, so a
- * beat lands on the same frame whichever shot counts to it. Only a direction with `policy.clock` has
+ * beat lands on the same frame whichever shot counts to it. Only a direction with `policy.song` has
  * one.
  */
 export type ShotClockContext = { beat: (n: number) => number };
-export type ShotClockOf<D> = D extends { policy: { clock: object } } ? ShotClockContext : {};
+export type ShotClockOf<D> = D extends { policy: { song: string } } ? ShotClockContext : {};
 
 /**
  * `lyrics`: the lyric lines the shot hears, each with the `characters` ids singing it and its
@@ -503,9 +508,7 @@ export function defineAnimatic<
   attachCueKinds(definition, index.scriptById);
   splitNarrationStems(definition);
 
-  const songShotStarts = index.timeline.clock
-    ? new Map([...index.timeline.timings].map(([id, timing]) => [id, timing.start]))
-    : undefined;
+  const songShotStarts = index.timeline.song ? shotStartsOf(index.timeline) : undefined;
   return Object.assign(
     definition,
     createAnimaticRef(definition, built.assetKindsByShot, songShotStarts),

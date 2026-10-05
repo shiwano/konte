@@ -200,7 +200,7 @@ export const ShotDefinitionSchema = z.object({
   // whether it ducks a bed. Stored here because the direction's lines are not on the stage
   // definition.
   cueKinds: z.record(z.string(), z.enum(["voice", "narration", "mob", "sfx"])).optional(),
-  // ANIMATIC ONLY, on a direction with `policy.clock`: the span of the song this shot holds, which
+  // ANIMATIC ONLY, on a direction with `policy.song`: the span of the song this shot holds, which
   // konte mixes into its `#stem` and never plays.
   songCue: z.object({ src: z.string(), mediaStart: z.number(), duration: z.number() }).optional(),
   // ANIMATIC ONLY, beside `songCue`: what of that span `#songStem` mixes, derived from the direction.
@@ -400,7 +400,7 @@ export const StageDefinitionSchema = z.object({
   shots: z.array(ShotDefinitionSchema),
   topLevelAssets: z.record(z.string(), AssetDefinitionSchema).optional(),
   timelineSoundtracks: z.custom<readonly SoundtrackEntry[]>().optional(),
-  // The `reference:<id>` of the song `policy.clock` counts on, which konte lays under the whole
+  // The `reference:<id>` of the song `policy.song` names, which konte lays under the whole
   // timeline from its first sample.
   song: z.string().optional(),
   overlay: z.custom<OverlayDefinition>().optional(),

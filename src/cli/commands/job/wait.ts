@@ -69,12 +69,9 @@ Examples:
         opts.timeout ? parsePositiveInt(opts.timeout, "--timeout") * 1000 : undefined,
       );
 
-      const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
+      const definitions = await loadStageDefinitions(videoRoot);
       // This command cascades pending submissions — it resolves dependencies for a spend.
-      await applyResolutionDefinitions({
-        videoRoot,
-        definitions: { video, animatic, reference },
-      });
+      await applyResolutionDefinitions({ videoRoot, definitions });
 
       if (jobIds.length === 0) {
         const live = new LiveProgress({
@@ -85,7 +82,7 @@ Examples:
           jobManager,
           roots,
           live,
-          { video, animatic, reference },
+          definitions,
           deadline,
         );
         live.stop();
@@ -149,9 +146,7 @@ Examples:
             });
             continue;
           }
-          results.push(
-            await runWait(jobManager, id, roots, { video, animatic, reference }, deadline, live),
-          );
+          results.push(await runWait(jobManager, id, roots, definitions, deadline, live));
         }
         live.stop();
         const elapsedMs = Date.now() - startedAt;

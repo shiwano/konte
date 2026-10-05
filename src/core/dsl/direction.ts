@@ -52,7 +52,8 @@ import { assertFontFamilies, assertLanguageTag, type LanguageTag } from "../typo
 import { isIdentifier, validateShotId, type ValidatedIdentifier } from "./validate-identifier.js";
 import { formatReferenceAddress, formatSongStemAddress } from "../address.js";
 import { placeLyricLines } from "../song-lyrics.js";
-import { songDownbeatSec, type SongTake } from "../song-take.js";
+import { songBeatAt, songBeatSec, type SongTake } from "../song-take.js";
+import { KonteError } from "../errors.js";
 import { songTakeAt } from "./song-context.js";
 
 // Re-export the arc layer so the DSL surface (index.ts / template-entry.ts) has one import point.
@@ -240,18 +241,8 @@ export type ResolvedDirectionFormat = {
 // state to default silently past review; pick `free` to allow anything.
 export type SpeechPolicy = "none" | "no-dialogue" | "free";
 
-// The song the piece is cut to. `song` is the `reference:<id>` asset that plays it, `bpm` the tempo
-// the author decided on and `beatsPerBar` the meter. With a clock every shot's span is `beats`, and
-// the timeline's 0s is the take's own start: the first shot also holds what the take plays before
-// its first beat, which is the take's own fact, never written here.
-export type DirectionClock = {
-  song: string;
-  bpm: number;
-  beatsPerBar: number;
-};
-
 // The piece-wide, machine-checked policy: the canvas (`format`), the typesetting (`lang`, `fonts`),
-// the speech rule (`speech`) and the song clock (`clock`). All feed the acceptance hash, and each is
+// the speech rule (`speech`) and the song (`song`). All feed the acceptance hash, and each is
 // its own reviewed feedback part (`direction:policy.<field>`, see DIRECTION_POLICY_FIELDS), so a note
 // on the speech rule is not aged out by a canvas-size edit.
 export type DirectionPolicy = {
@@ -267,11 +258,15 @@ export type DirectionPolicy = {
   // no system face is guaranteed to cover raises `fonts-undeclared`.
   fonts?: readonly string[];
   speech: SpeechPolicy;
-  clock?: DirectionClock;
+  // The song the piece is cut to: the id of the `reference:<id>` asset that plays it. With a song
+  // every shot's span is `beats`, counted on the beats a take of it is read to play, and the
+  // timeline's 0s is the take's own start: the first shot also holds what the take plays before
+  // beat 0, which is the take's own fact, never written here.
+  song?: string;
 };
 
 // Shot-scale leaf: its span is required (it is the rhythm source of truth that pacing checks read) —
-// `duration` in seconds, or `beats` on a direction with `policy.clock`; exactly one of them.
+// `duration` in seconds, or `beats` on a direction with `policy.song`; exactly one of them.
 // `role` is a plain string validated against the node's lens (a foreign role is a waivable finding,
 // not a type error). `action` is the single on-screen action this clip lands — the leaf-scale twin
 // of a branch node's `synopsis` (the engine holds both as one generic `ArcItem` field). `script` is
@@ -437,7 +432,7 @@ export type LyricLine = string | { text: string; singer: Singer };
 export type LyricSection = { label: string; singer: Singer; lines: readonly LyricLine[] };
 
 // What the song sings, section by section. The words are the ones the song asset is generated with,
-// a subtitle is set from, and a take is read against. Only a piece with `policy.clock` has a song to
+// a subtitle is set from, and a take is read against. Only a piece with `policy.song` has a song to
 // sing them.
 export type DirectionLyrics = readonly LyricSection[];
 
@@ -713,7 +708,7 @@ type ConstrainDuration<B> = B extends { kind: "aside" }
             }
           : unknown
     : unknown;
-// On the song clock a span is a positive whole number of beats, an aside's included. A computed value passes through to `off-grid-duration`.
+// On the song a span is a positive whole number of beats, an aside's included. A computed value passes through to `off-grid-duration`.
 type ConstrainBeats<B> = B extends { beats: infer N }
   ? number extends N
     ? unknown
@@ -723,7 +718,7 @@ type ConstrainBeats<B> = B extends { beats: infer N }
         }
       : unknown
   : unknown;
-// Which span a shot owes: `beats` on a direction with `policy.clock`, `duration` without one, and
+// Which span a shot owes: `beats` on a direction with `policy.song`, `duration` without one, and
 // never both. A computed policy (`Clocked` widened to `boolean`) checks only the grid of what was
 // written and leaves which one to `shot-span-mismatch`.
 type ConstrainSpan<B, Clocked extends boolean> = boolean extends Clocked
@@ -731,17 +726,17 @@ type ConstrainSpan<B, Clocked extends boolean> = boolean extends Clocked
   : Clocked extends true
     ? (B extends { duration: number }
         ? {
-            duration: DirectionViolation<"konte: this direction keeps time with policy.clock, so a shot's span is `beats`, not `duration`">;
+            duration: DirectionViolation<"konte: this direction is cut to policy.song, so a shot's span is `beats`, not `duration`">;
           }
         : unknown) &
         (B extends { beats: number }
           ? ConstrainBeats<B>
           : {
-              beats: DirectionViolation<"konte: this direction keeps time with policy.clock, so every shot declares its span in `beats`">;
+              beats: DirectionViolation<"konte: this direction is cut to policy.song, so every shot declares its span in `beats`">;
             })
     : (B extends { beats: number }
         ? {
-            beats: DirectionViolation<"konte: `beats` counts on policy.clock, which this direction does not declare — a shot's span is `duration` in seconds">;
+            beats: DirectionViolation<"konte: `beats` counts on policy.song, which this direction does not declare — a shot's span is `duration` in seconds">;
           }
         : unknown) &
         (B extends { duration: number }
@@ -1035,11 +1030,11 @@ type ConstrainSetupIds<D extends DirectionInput> = ConstrainRosterIds<D["setups"
 type SpeechOf<D extends DirectionInput> = D["policy"] extends { speech: infer S }
   ? S
   : SpeechPolicy;
-// Whether the piece keeps time with `policy.clock`, read off the literal policy. A computed policy,
-// whose `clock` may or may not be there, is `boolean` and leaves every span to the runtime.
-type ClockedOf<D extends DirectionInput> = D["policy"] extends { clock: object }
+// Whether the piece is cut to `policy.song`, read off the literal policy. A computed policy, whose
+// `song` may or may not be there, is `boolean` and leaves every span to the runtime.
+type ClockedOf<D extends DirectionInput> = D["policy"] extends { song: string }
   ? true
-  : "clock" extends keyof D["policy"]
+  : "song" extends keyof D["policy"]
     ? boolean
     : false;
 type ConstrainIds<D extends DirectionInput> = {
@@ -1056,13 +1051,13 @@ type ConstrainIds<D extends DirectionInput> = {
   >;
 } & (D extends { props: infer P } ? { props: ConstrainRosterIds<P> } : unknown) &
   (D extends { narrator: infer N } ? { narrator: ConstrainVoiceId<N> } : unknown) &
-  (D["policy"] extends { clock: { song: infer S extends string } }
-    ? { policy: { clock: { song: ValidatedIdentifier<S> } } }
+  (D["policy"] extends { song: infer S extends string }
+    ? { policy: { song: ValidatedIdentifier<S> } }
     : unknown) &
   (D extends { lyrics: infer L }
     ? ClockedOf<D> extends false
       ? {
-          lyrics: DirectionViolation<"konte: `lyrics` are sung on the song policy.clock names, which this direction does not declare">;
+          lyrics: DirectionViolation<"konte: `lyrics` are sung on the song policy.song names, which this direction does not declare">;
         }
       : string extends LyricSingerIdsOf<L>
         ? unknown
@@ -1099,7 +1094,7 @@ export type ShotIdOf<D> = DirectionIdTuple<D>[number];
 export interface DirectionIndex {
   format: ResolvedDirectionFormat;
   typography: Typography;
-  // Where every shot sits on the timeline, and the song clock it is counted on.
+  // Where every shot sits on the timeline, and the song beats it is counted on.
   timeline: DirectionTimeline;
   // Where each lyric line falls on the timeline, read off the video's song take; null on a direction
   // without lyrics.
@@ -1107,8 +1102,9 @@ export interface DirectionIndex {
   // Every shot, aside included — its key order IS the direction order, which is what the stage
   // chains read to find each shot's successor. An aside occupies the clock, so it must be walked
   // like any other shot; the maps below that describe a camera view simply have no entry for one.
-  // The span is the timeline's, on the frame grid, never the number the author wrote.
-  durationById: Map<string, number>;
+  // The span is the timeline's, on the frame grid, never the number the author wrote; null on a
+  // piece cut to its song while no take of it is read (see `shotDurationOf`).
+  durationById: Map<string, number | null>;
   actionById: Map<string, string>;
   setupById: Map<string, string>;
   // Resolved through the shot's setup rather than declared per shot, and kept as their own maps so
@@ -1342,15 +1338,33 @@ const directionSuccessor = (index: DirectionIndex, lastId: string, passedId: str
 const shotScriptOf = (index: DirectionIndex, shotId: string): ShotScript =>
   makeShotScript(index.scriptById.get(shotId) ?? []);
 
-// `ctx.beat`, on a direction with a song clock, counted from the beat the shot's span starts on — the
+// A shot's span in seconds, for a build to read. A piece cut to its song has none until a take of it
+// is read.
+export function shotDurationOf(index: DirectionIndex, shotId: string): number {
+  const duration = index.durationById.get(shotId);
+  if (duration === null) throw songUnread(index.timeline.song!);
+  return duration!;
+}
+
+export function songUnread(song: string): KonteError {
+  const address = formatReferenceAddress(song);
+  return new KonteError(
+    "SONG_UNREAD",
+    `${address} has no read take, so no shot's beats fall anywhere yet — generate it ` +
+      "(`konte generate reference`, then `konte job wait`), or read a take that has none " +
+      "(`konte song analyze`)",
+  );
+}
+
+// `ctx.beat`, on a direction cut to its song, counted from the beat the shot's span starts on — the
 // first shot's head is the take's start, before that beat.
 const shotClockOf = (
   index: DirectionIndex,
   shotId: string,
 ): Partial<ShotClockContext & ShotLyricsContext> => {
-  const { clock, fps, timings } = index.timeline;
+  const { fps, timings } = index.timeline;
   const timing = timings.get(shotId);
-  if (!clock || timing?.startBeat === undefined) return {};
+  if (!timing || timing.start === null || timing.startBeat === undefined) return {};
   const startBeat = timing.startBeat;
   return {
     beat: (n: number) => onFrames(beatTime(index.timeline, startBeat + n) - timing.start, fps),
@@ -1413,7 +1427,7 @@ const graphicShotContext = (
     );
   }
   return {
-    duration: index.durationById.get(shotId)!,
+    duration: shotDurationOf(index, shotId),
     script: shotScriptOf(index, shotId),
     cutin: cutinContext(index, shotId),
     ...shotClockOf(index, shotId),
@@ -1430,7 +1444,7 @@ const asideShotContext = (index: DirectionIndex, shotId: string): AsideShotConte
       `asideShot("${shotId}") is not an aside shot — direction.ts declares it as an ordinary shot. Use shot("${shotId}", …).`,
     );
   }
-  return { duration: index.durationById.get(shotId)!, label, ...shotClockOf(index, shotId) };
+  return { duration: shotDurationOf(index, shotId), label, ...shotClockOf(index, shotId) };
 };
 
 // The shot facts a stage build receives. One reader for the starter and the chain step, so a field
@@ -1454,7 +1468,7 @@ const stageShotContext = (
     );
   }
   return {
-    duration: index.durationById.get(shotId)!,
+    duration: shotDurationOf(index, shotId),
     setup,
     framing,
     location,
@@ -1499,8 +1513,9 @@ const stageShotBuild = (
   fn: ShotFunction,
 ): ShotFunction => {
   const timing = index.timeline.timings.get(id);
-  if (stage !== "video" || !index.timeline.clock || !timing) return fn;
-  const shotStarts = new Map([...index.timeline.timings].map(([shotId, t]) => [shotId, t.start]));
+  if (stage !== "video" || !index.timeline.song || !timing) return fn;
+  if (timing.start === null) throw songUnread(index.timeline.song);
+  const shotStarts = shotStartsOf(index.timeline);
   const stem = makeMediaAsset<"audio">(makeAddressPlaceholder(formatSongStemAddress(id)));
   return withShotSongStem(fn, withSongSpan(stem, { start: timing.start, shotStarts }));
 };
@@ -1550,7 +1565,7 @@ const makeStageChain = (
       __shotInput: true,
       id: nextId,
       fn: stageShotBuild(stage, index, nextId, () => build({ ...facts, shot: placedShot })),
-      options: { duration: index.durationById.get(nextId)!, action: index.actionById.get(nextId)! },
+      options: { duration: shotDurationOf(index, nextId), action: index.actionById.get(nextId)! },
     };
     return makeStageChain(stage, index, [...shots, nextInput]);
   },
@@ -1563,7 +1578,7 @@ const makeStageChain = (
       __graphicShot: true,
       id: nextId,
       fn: stageShotBuild(stage, index, nextId, () => build({ ...facts, shot: placedShot })),
-      options: { duration: index.durationById.get(nextId)!, action: index.actionById.get(nextId)! },
+      options: { duration: shotDurationOf(index, nextId), action: index.actionById.get(nextId)! },
     };
     return makeStageChain(stage, index, [...shots, nextInput]);
   },
@@ -1574,7 +1589,7 @@ const makeStageChain = (
       __shotInput: true,
       __pendingShot: true,
       id: nextId,
-      options: { duration: index.durationById.get(nextId)!, action: index.actionById.get(nextId)! },
+      options: { duration: shotDurationOf(index, nextId), action: index.actionById.get(nextId)! },
     };
     return makeStageChain(stage, index, [...shots, nextInput]);
   },
@@ -1590,15 +1605,14 @@ const makeStageChain = (
 function makeStageShotStarter(stage: ShotStage, index: DirectionIndex) {
   const requireShot = (fnName: string, id: string): number => {
     validateShotId(id);
-    const duration = index.durationById.get(id);
-    if (duration === undefined) {
+    if (!index.durationById.has(id)) {
       // The type system already forbids unknown ids; this only guards a computed/forged id.
       throw new Error(
         `${fnName}("${id}") is not a declared direction shot. ` +
           `Declared: ${[...index.durationById.keys()].join(", ") || "(none)"}.`,
       );
     }
-    return duration;
+    return shotDurationOf(index, id);
   };
 
   const shot = (
@@ -1700,31 +1714,42 @@ export function resolveDirectionFormat(direction: Direction): ResolvedDirectionF
 }
 
 // Where one shot sits on the timeline, in seconds on the canvas' frame grid. `startBeat` / `beats`
-// are the song clock's count, present only on a direction with `policy.clock`.
-export type ShotTiming = {
+// are the song's count, present only on a direction with `policy.song`; there a shot has no seconds
+// until a take of the song is read.
+export type TimedShotTiming = {
   start: number;
   duration: number;
   startBeat?: number;
   beats?: number;
 };
+export type BeatShotTiming = { start: null; duration: null; startBeat: number; beats: number };
+export type ShotTiming = TimedShotTiming | BeatShotTiming;
 
 // The one reading of the direction's clock every stage shares. Each cut lands on the frame nearest
-// the running sum of the spans before it — `lead + round(beats × 60 / bpm × fps)` on the song clock,
-// `round(seconds × fps)` without one.
+// its place — on the song, the beat the spans before it sum to, `round(seconds × fps)` without one.
+// A take-second falls `leadFrames` and then its own offset from beat 0 in: two takes that play a
+// moment at one place after beat 0 put it on one frame.
 export type DirectionTimeline = {
   fps: number;
-  clock: DirectionClock | null;
-  // Frames of the song take before its first beat, which the first shot holds; 0 without a clock or
-  // a read take.
+  // The id of the song the piece is cut to (`policy.song`), null without one.
+  song: string | null;
+  // Beats to take-seconds and back on the read take of the song, and the meter it is read to play
+  // in; null without a song or a read take.
+  songGrid: {
+    beatSec: (beat: number) => number;
+    beatAt: (sec: number) => number;
+    beatsPerBar: number;
+  } | null;
+  // Frames of the song take before beat 0, which the first shot holds; 0 without a read take.
   leadFrames: number;
   // Every shot, asides included, in direction order.
   timings: Map<string, ShotTiming>;
 };
 
-// What a shot's own span counts in: beats on the song clock, seconds without it. A span the author
-// did not write (a computed direction, `shot-span-mismatch`) counts as nothing.
-export function shotSpan(shot: Shot, clock: DirectionClock | null | undefined): number {
-  return (clock ? shot.beats : shot.duration) ?? 0;
+// What a shot's own span counts in: beats on the song, seconds without it. A span the author did not
+// write (a computed direction, `shot-span-mismatch`) counts as nothing.
+export function shotSpan(shot: Shot, song: string | null | undefined): number {
+  return (song ? shot.beats : shot.duration) ?? 0;
 }
 
 function shotsInClockOrder(node: DirectionNode): Shot[] {
@@ -1738,18 +1763,54 @@ function onFrames(sec: number, fps: number): number {
   return Math.round(sec * fps) / fps;
 }
 
-// The timeline second of beat `beat`, counted from the song's first beat, on the frame grid.
+// The timeline second of beat `beat`, counted from the song's beat 0, on the frame grid; 0 with no
+// read take.
 export function beatTime(
-  timeline: { clock: DirectionClock | null; fps: number; leadFrames: number },
+  timeline: Pick<DirectionTimeline, "songGrid" | "fps" | "leadFrames">,
   beat: number,
 ): number {
-  const { clock, fps, leadFrames } = timeline;
-  if (!clock) return 0;
-  return (leadFrames + Math.round(((beat * 60) / clock.bpm) * fps)) / fps;
+  const { songGrid, fps } = timeline;
+  return songGrid ? takeFrame(timeline, songGrid.beatSec(beat)) / fps : 0;
+}
+
+// The timeline frame a take-second falls on (see `DirectionTimeline`).
+function takeFrame(
+  timeline: Pick<DirectionTimeline, "songGrid" | "fps" | "leadFrames">,
+  sec: number,
+): number {
+  const beat0 = timeline.songGrid?.beatSec(0) ?? 0;
+  return timeline.leadFrames + Math.round((sec - beat0) * timeline.fps);
+}
+
+// Where every shot starts on the timeline. A piece cut to its song has no starts until a take of it
+// is read.
+export function shotStartsOf(timeline: DirectionTimeline): Map<string, number> {
+  const starts = new Map<string, number>();
+  for (const [id, t] of timeline.timings) {
+    if (t.start === null) throw songUnread(timeline.song!);
+    starts.set(id, t.start);
+  }
+  return starts;
+}
+
+// The timing of a shot with seconds, or the stop a piece cut to its unread song makes.
+export function timedShot(timeline: DirectionTimeline, timing: ShotTiming): TimedShotTiming {
+  if (timing.start === null) throw songUnread(timeline.song!);
+  return timing;
 }
 
 function leadFramesOf(take: SongTake | null, fps: number): number {
-  return take ? Math.max(0, Math.round(songDownbeatSec(take.analysis) * fps)) : 0;
+  return take ? Math.max(0, Math.round(songBeatSec(take.analysis, 0) * fps)) : 0;
+}
+
+function songGridOf(take: SongTake | null): DirectionTimeline["songGrid"] {
+  if (!take) return null;
+  const analysis = take.analysis;
+  return {
+    beatSec: (beat) => songBeatSec(analysis, beat),
+    beatAt: (sec) => songBeatAt(analysis, sec),
+    beatsPerBar: analysis.beatsPerBar,
+  };
 }
 
 // The direction's timeline: the one its loaded index holds, else read off the direction alone, with
@@ -1764,26 +1825,33 @@ export function readDirectionTimeline(
   take: SongTake | null,
 ): DirectionTimeline {
   const fps = direction.policy.format.fps;
-  const clock = direction.policy.clock ?? null;
-  const secondsPer = clock ? 60 / clock.bpm : 1;
-  const leadFrames = clock ? leadFramesOf(take, fps) : 0;
+  const song = direction.policy.song ?? null;
+  const songGrid = song ? songGridOf(take) : null;
+  const leadFrames = songGrid ? leadFramesOf(take, fps) : 0;
   const timings = new Map<string, ShotTiming>();
   let sum = 0;
   let edge = 0;
   for (const shot of shotsInClockOrder(direction.sequence)) {
-    const span = shotSpan(shot, clock);
+    const span = shotSpan(shot, song);
     const startBeat = sum;
     sum += span;
+    if (song && !songGrid) {
+      timings.set(shot.id, { start: null, duration: null, startBeat, beats: span });
+      continue;
+    }
+    const at = songGrid
+      ? takeFrame({ songGrid, fps, leadFrames }, songGrid.beatSec(sum))
+      : Math.round(sum * fps);
     // At least one frame, so a shot that holds nothing still has a picture to cut to.
-    const next = Math.max(edge + 1, leadFrames + Math.round(sum * secondsPer * fps));
+    const next = Math.max(edge + 1, at);
     timings.set(shot.id, {
       start: edge / fps,
       duration: (next - edge) / fps,
-      ...(clock ? { startBeat, beats: span } : {}),
+      ...(song ? { startBeat, beats: span } : {}),
     });
     edge = next;
   }
-  return { fps, clock, leadFrames, timings };
+  return { fps, song, songGrid, leadFrames, timings };
 }
 
 // One declared lyric line and where it falls on the timeline, in seconds from the take's start —
@@ -1800,14 +1868,13 @@ export type LyricPlacementEntry = {
 // Where the direction's lyric lines fall, read off a take of the song (see `placeLyricLines`), a
 // line a person placed on the take where they placed it. The timeline runs on the take's clock: a
 // line sung at take-second t falls at t, counted in frames from the lead, so a line sung at the same
-// place after the first beat reads the same whatever lead the take has.
+// place after beat 0 reads the same whatever lead the take has.
 export function placeDirectionLyrics(
   direction: Direction,
   take: SongTake | null,
 ): LyricPlacementEntry[] {
-  const clock = direction.policy.clock;
   const lyrics = direction.lyrics;
-  if (!clock || !lyrics) return [];
+  if (!direction.policy.song || !lyrics) return [];
   const fps = direction.policy.format.fps;
   const setLines = take?.analysis.lines ?? {};
   const lines = lyrics.flatMap((section, s) =>
@@ -1826,9 +1893,8 @@ export function placeDirectionLyrics(
       };
     }),
   );
-  const downbeat = take ? songDownbeatSec(take.analysis) : 0;
-  const leadFrames = leadFramesOf(take, fps);
-  const onTimeline = (sec: number) => (leadFrames + Math.round((sec - downbeat) * fps)) / fps;
+  const timeline = { songGrid: songGridOf(take), fps, leadFrames: leadFramesOf(take, fps) };
+  const onTimeline = (sec: number) => takeFrame(timeline, sec) / fps;
   const placements = placeLyricLines({
     lines: lines.map((line) => ({ text: line.text, ...(line.set ? { set: line.set } : {}) })),
     heard: take?.analysis.heard ?? null,
@@ -1876,19 +1942,22 @@ function lyricsInSpan(
 }
 
 // What a span of the timeline hears and counts, from its head — the context an overlay's build
-// receives: on the song clock, the second of the span's `n`th beat on the song grid; with lyrics,
-// the lines sung inside it.
+// receives: on the song, the second of the span's `n`th beat on the take's beats; with lyrics, the
+// lines sung inside it.
 export function spanSongContext(
   index: DirectionIndex,
   start: number,
   duration: number,
 ): Partial<ShotClockContext & ShotLyricsContext> {
-  const { clock, fps, timings, leadFrames } = index.timeline;
-  if (!clock) return {};
+  const { fps, timings, songGrid, leadFrames } = index.timeline;
+  if (!songGrid) return {};
   // A span opening on a cut starts on that cut's beat: the frame a beat lands on is rounded, so
   // reading the beat back from the frame would miss it.
-  const cut = [...timings.values()].find((t) => Math.abs(t.start - start) < 1e-9);
-  const startBeat = cut?.startBeat ?? ((start - leadFrames / fps) * clock.bpm) / 60;
+  const cut = [...timings.values()].find(
+    (t) => t.start !== null && Math.abs(t.start - start) < 1e-9,
+  );
+  const startBeat =
+    cut?.startBeat ?? songGrid.beatAt(songGrid.beatSec(0) + start - leadFrames / fps);
   return {
     beat: (n: number) => onFrames(beatTime(index.timeline, startBeat + n) - start, fps),
     ...(index.lyrics ? { lyrics: lyricsInSpan(index.lyrics, start, duration, fps) } : {}),
@@ -1931,19 +2000,11 @@ export function shotSongStem(
 }
 
 // Runs before the direction is reviewed, beside `assertCanvasFormat`.
-export function assertDirectionClock(clock: DirectionClock | undefined): void {
-  if (!clock) return;
-  if (typeof clock.song !== "string" || !isIdentifier(clock.song)) {
+export function assertDirectionSong(song: string | undefined): void {
+  if (song === undefined) return;
+  if (typeof song !== "string" || !isIdentifier(song)) {
     throw new Error(
-      `policy.clock.song must name a reference asset id (a-z, A-Z, 0-9, -, _), got "${clock.song}"`,
-    );
-  }
-  if (!Number.isFinite(clock.bpm) || clock.bpm <= 0) {
-    throw new Error(`policy.clock.bpm must be a positive, finite tempo, got ${clock.bpm}`);
-  }
-  if (!Number.isInteger(clock.beatsPerBar) || clock.beatsPerBar <= 0) {
-    throw new Error(
-      `policy.clock.beatsPerBar must be a positive whole number of beats, got ${clock.beatsPerBar}`,
+      `policy.song must name a reference asset id (a-z, A-Z, 0-9, -, _), got "${String(song)}"`,
     );
   }
 }
@@ -1995,7 +2056,7 @@ export function assertCanvasFormat(format: DirectionFormat): void {
 export function defineDirection<const D extends DirectionInput>(
   direction: D & ConstrainIds<D>,
 ): DirectionEntry<D> {
-  const durationById = new Map<string, number>();
+  const durationById = new Map<string, number | null>();
   const actionById = new Map<string, string>();
   const framingById = new Map<string, Framing>();
   const locationById = new Map<string, string>();
@@ -2014,10 +2075,10 @@ export function defineDirection<const D extends DirectionInput>(
   assertLanguageTag(dir.policy.lang);
   if (dir.policy.fonts) assertFontFamilies(dir.policy.fonts);
   assertCanvasFormat(dir.policy.format);
-  assertDirectionClock(dir.policy.clock);
+  assertDirectionSong(dir.policy.song);
   const resolvedFormat = resolveDirectionFormat(dir);
-  const clock = dir.policy.clock;
-  const songTake = clock ? songTakeAt(formatReferenceAddress(clock.song)) : null;
+  const song = dir.policy.song;
+  const songTake = song ? songTakeAt(formatReferenceAddress(song)) : null;
   const timeline = readDirectionTimeline(dir, songTake);
   const lyrics = dir.lyrics ? placeDirectionLyrics(dir, songTake) : null;
   // A shot's framing/location are its setup's. An unknown setup id leaves both unindexed rather than

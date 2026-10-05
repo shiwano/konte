@@ -1172,7 +1172,7 @@ body.fill-mode .fab-submit-wrap {
 .rt-ruler {
   position: relative;
   height: 24px;
-  cursor: ew-resize;
+  cursor: pointer;
   touch-action: none;
   user-select: none;
   background: var(--bg-elevated);
@@ -2519,6 +2519,13 @@ body.fill-mode .fab-submit-wrap {
   white-space: nowrap;
 }
 
+.song-track-hint-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .song-track-hint {
   margin: 0;
   color: var(--text-muted);
@@ -2599,12 +2606,27 @@ body.fill-mode .fab-submit-wrap {
   font-size: 0.8rem;
   line-height: 1.2;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.song-track-line--movable {
+  padding-left: 24px;
+}
+
+.song-track-line-grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
   cursor: grab;
   touch-action: none;
 }
 
-.song-track-line--readonly {
-  cursor: pointer;
+.song-track-line-grip:hover {
+  color: var(--text-primary);
 }
 
 .song-track-line--set {
@@ -2664,6 +2686,7 @@ body.fill-mode .fab-submit-wrap {
   top: 0;
   bottom: 0;
   cursor: ew-resize;
+  touch-action: none;
 }
 
 .song-track-edge--start {

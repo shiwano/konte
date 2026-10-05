@@ -11,7 +11,7 @@ import type {
 import { KonteError } from "../errors.js";
 import type { AnyShotInput, MediaKind, SoundtrackEntry } from "./builders.js";
 import type { OverlayDefinition } from "../types/index.js";
-import { shotSongStem, spanSongContext } from "./direction.js";
+import { shotSongStem, spanSongContext, timedShot } from "./direction.js";
 import { isAsideShotInput, isPendingShotInput } from "./builders.js";
 import { Composition } from "./composition/index.js";
 import type { DirectionIndex } from "./direction.js";
@@ -111,8 +111,7 @@ export function defineStage(args: DefineStageArgs): StageBuild {
   const normalized = normalizeStageTimeline(discovery.result);
   const shotInputs = normalized.shots;
   const timelineSoundtracks = normalized.soundtracks;
-  const clock = index.timeline.clock;
-  const song = clock ? formatReferenceAddress(clock.song) : undefined;
+  const song = index.timeline.song ? formatReferenceAddress(index.timeline.song) : undefined;
   if (song) assertSongNotInSoundtracks(song, timelineSoundtracks);
 
   const assetKindsByShot = new Map<string, ReadonlyMap<string, MediaKind>>();
@@ -181,11 +180,11 @@ export function defineStage(args: DefineStageArgs): StageBuild {
             ...(cutin.sharedRefs.length > 0 ? { sharedRefs: cutin.sharedRefs } : {}),
           }
         : undefined;
-    const timing = index.timeline.timings.get(input.id);
-    const songCue =
-      song && stage === "animatic" && timing
-        ? { src: song, mediaStart: timing.start, duration: timing.duration }
-        : undefined;
+    const at = index.timeline.timings.get(input.id);
+    const timing = song && stage === "animatic" && at ? timedShot(index.timeline, at) : undefined;
+    const songCue = timing
+      ? { src: song!, mediaStart: timing.start, duration: timing.duration }
+      : undefined;
     const base: ShotDefinition = {
       id: input.id,
       duration: input.options.duration,
@@ -302,7 +301,7 @@ function assertSongNotInSoundtracks(song: string, soundtracks: readonly Soundtra
   if (!doubled) return;
   throw new KonteError(
     "SONG_DOUBLED",
-    `soundtrack "${doubled.id}" plays ${song}, the song policy.clock counts on. konte lays the ` +
+    `soundtrack "${doubled.id}" plays ${song}, the song policy.song names. konte lays the ` +
       `song under the whole timeline itself — drop the soundtrack.`,
   );
 }
@@ -339,7 +338,9 @@ type OverlayBuild = (ctx: never) => React.ReactElement;
 
 function timelineLength(index: DirectionIndex): number {
   const last = [...index.timeline.timings.values()].at(-1);
-  return last ? last.start + last.duration : 0;
+  if (!last) return 0;
+  const timed = timedShot(index.timeline, last);
+  return timed.start + timed.duration;
 }
 
 // The build with its context bound: what the timeline hears and counts.

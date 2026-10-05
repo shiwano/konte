@@ -139,10 +139,9 @@ export type DirectionFindingCode =
   | "landmark-flipped"
   | "subject-unnamed"
   | "plate-unnamed"
-  // The song clock's: the song it counts on is not a reference asset, the take drifts off the
-  // declared tempo by the end of the timeline, and a lyric line no reading of the take places.
+  // The song's: the song the piece is cut to is not a reference asset, and a lyric line no reading
+  // of the take places.
   | "song-unreferenced"
-  | "song-off-tempo"
   | "lyric-unplaced"
   // The timeline runs on past the end of the take of the song.
   | "song-overrun";

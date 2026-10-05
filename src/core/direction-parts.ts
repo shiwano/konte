@@ -63,7 +63,7 @@ export type DirectionPartContent =
   // position a reviewer takes (text falls to the rendering machine's own faces), so it stays a part.
   | { kind: "fonts"; fonts: readonly string[] }
   | { kind: "speech"; speech: SpeechPolicy }
-  | { kind: "clock"; song: string; bpm: number; beatsPerBar: number }
+  | { kind: "song"; song: string }
   // The song's words by section and who sings each section; a line's own singers are null where
   // its section's sing it.
   | {
@@ -129,9 +129,9 @@ export type DirectionPartContent =
       // The frame this shot is taken from. Its size and place are the setup's own part to show and to
       // age out, so they are not copied in here — a reader resolves them through the roster.
       setup: string;
-      // The span on the timeline in seconds, on the frame grid, and the beats it was written as on the
-      // song clock (null without one).
-      duration: number;
+      // The span on the timeline in seconds, on the frame grid — null on the song while no take of it
+      // is read — and the beats it was written as on the song (null without one).
+      duration: number | null;
       beats: number | null;
       action: string;
       script: readonly ScriptLine[];
@@ -148,7 +148,7 @@ export type DirectionPartContent =
       kind: "graphic";
       id: string;
       role: string;
-      duration: number;
+      duration: number | null;
       beats: number | null;
       action: string;
       script: readonly ScriptLine[];
@@ -162,7 +162,7 @@ export type DirectionPartContent =
       kind: "aside";
       id: string;
       label: string;
-      duration: number;
+      duration: number | null;
       beats: number | null;
       telop: readonly string[];
     }
@@ -246,20 +246,16 @@ export function directionPartContents(direction: Direction): Map<string, Directi
     kind: "speech",
     speech: direction.policy?.speech ?? "free",
   });
-  const clock = direction.policy?.clock;
-  if (clock) {
-    out.set(formatDirectionPolicyAddress("clock"), {
-      kind: "clock",
-      song: clock.song,
-      bpm: clock.bpm,
-      beatsPerBar: clock.beatsPerBar,
-    });
-  }
+  const song = direction.policy?.song;
+  if (song) out.set(formatDirectionPolicyAddress("song"), { kind: "song", song });
   const timings = direction.policy?.format ? resolveDirectionTimeline(direction).timings : null;
-  const span = (s: Shot) => ({
-    duration: timings?.get(s.id)?.duration ?? s.duration ?? 0,
-    beats: clock ? (s.beats ?? null) : null,
-  });
+  const span = (s: Shot) => {
+    const timing = timings?.get(s.id);
+    return {
+      duration: timing ? timing.duration : song ? null : (s.duration ?? 0),
+      beats: song ? (s.beats ?? null) : null,
+    };
+  };
 
   const addNode = (node: DirectionNode, nodePath: readonly string[], isRoot: boolean) => {
     if (isRoot || node.id !== undefined) {

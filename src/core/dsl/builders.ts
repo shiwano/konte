@@ -155,7 +155,7 @@ export interface SoundtrackEntry<TId extends string = string> {
   id: string;
   src: MediaAsset<"audio">;
   options: SoundtrackOptions<TId>;
-  // The song bed konte lays under a piece with `policy.clock` (see `mixedSoundtracks`).
+  // The song bed konte lays under a piece with `policy.song` (see `mixedSoundtracks`).
   song?: true;
 }
 
@@ -212,7 +212,7 @@ function assertLinesPlacedOverSong(
 
 /**
  * What a stage's `overlay` build receives, on the timeline's clock: `duration` is the timeline's; on
- * a direction with `policy.clock`, `beat(n)` is the second of the song's `n`th beat, and on one with
+ * a direction with `policy.song`, `beat(n)` is the second of the song's `n`th beat, and on one with
  * `lyrics`, `lyrics` every placed line.
  *
  * The overlay is the one picture layer a timeline lays over every shot — lyrics sung across a cut,
@@ -314,7 +314,7 @@ export function defineVideo<const D, Ids extends string = string>(
   });
 
   assertRespellings(definition.respellings, index.scriptById);
-  if (index.timeline.clock) assertLinesPlacedOverSong(definition, index.scriptById);
+  if (index.timeline.song) assertLinesPlacedOverSong(definition, index.scriptById);
   attachCueKinds(definition, index.scriptById);
 
   const video: VideoDefinition = {

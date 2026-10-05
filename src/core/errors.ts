@@ -122,7 +122,9 @@ export type KonteErrorCode =
   | "LYRICS_NOT_SUNG"
   // An accept of a song take with a lyric line placed neither by the reading nor by a person.
   | "SONG_LINES_UNPLACED"
-  // The song `policy.clock` counts on played a second time over the bed konte lays: a soundtrack
+  // A shot's seconds asked of a piece cut to its song while no take of the song has been read.
+  | "SONG_UNREAD"
+  // The song `policy.song` names played a second time over the bed konte lays: a soundtrack
   // of it, a board stem holding it placed with `<Audio>`, or a take cut to it placed with
   // `<Audio>` or `<Video hasAudio>`.
   | "SONG_DOUBLED"
@@ -215,6 +217,8 @@ export type KonteErrorCode =
   | "CLOUDFLARED_SETUP_FAILED"
   // The managed sherpa-onnx source separator or its spleeter model could not be provisioned.
   | "SHERPA_SETUP_FAILED"
+  // The managed Beat This! model could not be provisioned.
+  | "BEAT_THIS_SETUP_FAILED"
   | "TUNNEL_FAILED"
   | "CREDENTIALS_UNREADABLE"
   | "CONFIRMATION_REQUIRED"

@@ -1,3 +1,4 @@
+import { BEAT_THIS_URLS } from "../../src/core/beat-this.js";
 import { chromiumDownloadUrl } from "../../src/core/chromium.js";
 import { cloudflaredDownloadSource } from "../../src/core/cloudflared-binary.js";
 import { ffmpegDownloadSources } from "../../src/core/ffmpeg-binary.js";
@@ -65,6 +66,6 @@ export function toolDownloadUrls(): string[] {
   for (const { platform, arch } of TSC_TARGETS) urls.push(tscDownloadUrl(platform, arch));
   for (const { platform, arch } of CHROMIUM_TARGETS) urls.push(chromiumDownloadUrl(platform, arch));
   for (const { platform, arch } of SHERPA_TARGETS) urls.push(sherpaDownloadUrl(platform, arch));
-  urls.push(SPLEETER_URL, SENSE_VOICE_URL);
+  urls.push(SPLEETER_URL, SENSE_VOICE_URL, ...BEAT_THIS_URLS);
   return [...new Set(urls)];
 }

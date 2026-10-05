@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import { requireShotStages } from "../../../core/select-definition.js";
 import type { GenerationBackend } from "../../../core/backend.js";
 import { loadKonteConfig } from "../../../core/config.js";
 import { JobManager } from "../../../core/job-manager.js";
@@ -120,7 +121,9 @@ Examples:
         return stage === "animatic" || stage === "video";
       });
       if (gatedPatches.length > 0) {
-        const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
+        const { video, animatic, reference } = requireShotStages(
+          await loadStageDefinitions(videoRoot),
+        );
         await applyResolutionDefinitions({
           videoRoot,
           definitions: { video, animatic, reference },

@@ -346,7 +346,7 @@ describe("isDirectionSpendGateSatisfied", () => {
 describe("songGateBlocking", () => {
   function songDirection(): Direction {
     const direction = makeDirection();
-    direction.policy = { ...direction.policy, clock: { song: "song", bpm: 120, beatsPerBar: 4 } };
+    direction.policy = { ...direction.policy, song: "song" };
     direction.lyrics = [{ label: "Verse", singer: "alice", lines: ["lights down"] }];
     direction.sequence = { ...direction.sequence, shots: [], waivers: {} };
     return direction;

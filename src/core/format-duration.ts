@@ -30,16 +30,17 @@ export function jobElapsed(
   return formatDuration(end - start);
 }
 
-// A shot's span as a reader names it: its seconds on the timeline, and on the song clock the beats
-// it was written as, with the bars those make.
+// A shot's span as a reader names it: its seconds on the timeline, and on the song the beats it was
+// written as, with the bars those make in the meter the take is read to play in. Seconds and bars are
+// absent while no take of the song is read.
 export function formatShotSpan(
-  seconds: number,
+  seconds: number | null,
   beats: number | null,
-  beatsPerBar: number | undefined,
+  beatsPerBar: number | null | undefined,
 ): string {
-  const sec = `${Number(seconds.toFixed(3))}s`;
-  if (beats === null) return sec;
+  const sec = seconds === null ? null : `${Number(seconds.toFixed(3))}s`;
+  if (beats === null) return sec ?? "";
   const bars = beatsPerBar ? beats / beatsPerBar : null;
   const barText = bars === null ? "" : ` (${Number(bars.toFixed(2))} bar${bars === 1 ? "" : "s"})`;
-  return `${beats} beat${beats === 1 ? "" : "s"}${barText}, ${sec}`;
+  return `${beats} beat${beats === 1 ? "" : "s"}${barText}${sec === null ? "" : `, ${sec}`}`;
 }

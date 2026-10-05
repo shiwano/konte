@@ -57,7 +57,7 @@ export function staleRefreshStep(opts: {
   address: string;
   variantId: string;
   patchHashes?: PatchHashes;
-  animatic: AnimaticDefinition | undefined;
+  animatic: AnimaticDefinition | null | undefined;
   cache?: StalenessCache;
 }): StaleRefreshStep {
   const { manager, address, variantId, patchHashes } = opts;

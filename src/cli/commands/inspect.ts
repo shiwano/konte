@@ -720,11 +720,11 @@ async function loadShot(
   const characterNameById = new Map(
     Object.entries(direction.characters ?? {}).map(([id, c]) => [id, c.name] as const),
   );
-  const clock = direction.policy.clock;
+  const timeline = resolveDirectionTimeline(direction);
   const span = formatShotSpan(
-    resolveDirectionTimeline(direction).timings.get(shot.id)?.duration ?? 0,
-    clock ? (shot.beats ?? null) : null,
-    clock?.beatsPerBar,
+    timeline.timings.get(shot.id)?.duration ?? 0,
+    timeline.song ? (shot.beats ?? null) : null,
+    timeline.songGrid?.beatsPerBar,
   );
   if (isAsideShot(shot)) {
     return {
@@ -1207,8 +1207,8 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
   };
   const action = new Map<string, string>();
   const span = new Map<string, string>();
-  const clock = direction.policy.clock;
-  const timings = resolveDirectionTimeline(direction).timings;
+  const timeline = resolveDirectionTimeline(direction);
+  const timings = timeline.timings;
   for (const shot of collectShots(direction)) {
     if (isAsideShot(shot)) continue;
     action.set(shot.id, shot.action);
@@ -1216,8 +1216,8 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
       shot.id,
       formatShotSpan(
         timings.get(shot.id)?.duration ?? 0,
-        clock ? (shot.beats ?? null) : null,
-        clock?.beatsPerBar,
+        timeline.song ? (shot.beats ?? null) : null,
+        timeline.songGrid?.beatsPerBar,
       ),
     );
     if (shot.cutin) {

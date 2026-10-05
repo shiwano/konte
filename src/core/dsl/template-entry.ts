@@ -59,7 +59,6 @@ export {
   type CanvasSize,
   type DirectionFormat,
   type SpeechPolicy,
-  type DirectionClock,
   type DirectionPolicy,
   type Shot,
   type NarrativeShot,

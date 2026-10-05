@@ -195,10 +195,7 @@ export default defineReference(direction, () => {
           "characters: {},",
           'characters: { mika: { name: "Mika", description: "a singer", promptDepiction: "mika" } },',
         )
-        .replace(
-          'speech: "free",',
-          'speech: "free",\n    clock: { song: "song", bpm: 120, beatsPerBar: 4 },',
-        )
+        .replace('speech: "free",', 'speech: "free",\n    song: "song",')
         .replace(
           "  sequence: {",
           '  lyrics: [{ label: "Verse", singer: "mika", lines: ["lights down"] }],\n  sequence: {',
@@ -233,6 +230,65 @@ export default defineReference(direction, () => {
     await fs.writeFile(statePath, JSON.stringify(state, null, 2));
     const { stdout } = await run(["generate", "reference", "--plan"], projectDir);
     expect(planEntries(stdout).map((e) => e.address)).toContain("reference:song");
+  });
+
+  it("makes and waits on the song while a board cut to it waits on a read take", async () => {
+    const { video: projectDir } = await initWorkspace(path.join(ctx.dir, "unreadsong"), {
+      template: "blank",
+    });
+    const directionPath = path.join(projectDir, "direction.ts");
+    const blank = await fs.readFile(directionPath, "utf-8");
+    await fs.writeFile(
+      directionPath,
+      blank
+        .replace(
+          "locations: {},",
+          'locations: { studio: { name: "the studio", description: "a studio", landmarks: {} } },',
+        )
+        .replace(
+          "setups: {},",
+          'setups: { front: { name: "front", description: "straight on", location: "studio", framing: "medium", holds: [] } },',
+        )
+        .replace('speech: "free",', 'speech: "free",\n    song: "song",')
+        .replace(
+          "shots: [],",
+          'shots: [{ id: "01", role: "ordinary", action: "a", setup: "front", beats: 4, lineup: [] }],',
+        ),
+    );
+    await fs.writeFile(
+      path.join(projectDir, "animatic.tsx"),
+      `import { defineAnimatic } from "konte";
+import direction from "./direction";
+
+export default defineAnimatic(direction, {
+  timeline: ({ pendingShot }) => ({ shots: pendingShot("01") }),
+});
+`,
+    );
+    await fs.writeFile(
+      path.join(projectDir, "reference.tsx"),
+      `import { defineReference, asset } from "konte";
+// @ts-expect-error konte's fixture adapter is runtime-only, outside the workspace's generated types.
+import { internalTestPlate } from "konte";
+import direction from "./direction";
+
+export default defineReference(direction, () => {
+  const song = asset("song", internalTestPlate, { width: 64, height: 64, color: "#ffffff" });
+  return { song };
+});
+`,
+    );
+    await acceptDirection(projectDir);
+
+    await expect(run(["generate", "animatic", "--plan"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(/SONG_UNREAD[\s\S]*reference:song/),
+    });
+    const { stdout } = await run(["generate", "reference", "--plan"], projectDir);
+    expect(planEntries(stdout).map((e) => e.address)).toContain("reference:song");
+    await run(["job", "wait"], projectDir);
+    await expect(run(["status"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(/SONG_UNREAD[\s\S]*konte generate reference/),
+    });
   });
 
   it("blocks animatic generation until the direction is accepted", async () => {

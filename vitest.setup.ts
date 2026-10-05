@@ -32,8 +32,12 @@ if (!process.env.KONTE_UPDATE_CHECK) process.env.KONTE_UPDATE_CHECK = "0";
 // reachable from workspace setup — pin the override so a stray call can never pull ~150 MB.
 if (!process.env.KONTE_CHROMIUM_PATH) process.env.KONTE_CHROMIUM_PATH = "chrome-headless-shell";
 if (!process.env.KONTE_CLOUDFLARED_PATH) process.env.KONTE_CLOUDFLARED_PATH = "cloudflared";
-// A song take's analysis separates its vocals and recognizes them; pin every tool and model so no
-// test pulls ~230 MB, and the analysis fails into the no-vocals reading instead.
+// A song take's analysis tracks its beats, separates its vocals and recognizes them; pin every tool
+// and model so no test pulls ~310 MB. A test that reads a take mocks the beat tracker, and the
+// analysis fails into the no-vocals reading.
+if (!process.env.KONTE_BEAT_THIS_MODEL_DIR) {
+  process.env.KONTE_BEAT_THIS_MODEL_DIR = path.join(os.tmpdir(), "konte-no-beat-this");
+}
 if (!process.env.KONTE_SHERPA_SEPARATION_PATH) {
   process.env.KONTE_SHERPA_SEPARATION_PATH = "sherpa-onnx-offline-source-separation";
 }

@@ -352,8 +352,6 @@ export class JobManager {
     address: string;
     variantId: string;
     outputHash: string | null;
-    bpm: number;
-    beatsPerBar: number;
     lang: string;
     again?: boolean;
   }): Promise<SongAnalysisJob> {
@@ -367,8 +365,6 @@ export class JobManager {
         existing?.kind === "song-analysis" &&
         !opts.again &&
         existing.outputHash === opts.outputHash &&
-        existing.bpm === opts.bpm &&
-        existing.beatsPerBar === opts.beatsPerBar &&
         existing.lang === opts.lang
       ) {
         return existing;
@@ -382,8 +378,6 @@ export class JobManager {
         address: opts.address,
         variantId: opts.variantId,
         outputHash: opts.outputHash,
-        bpm: opts.bpm,
-        beatsPerBar: opts.beatsPerBar,
         lang: opts.lang,
         again: opts.again ?? false,
         dependsOnJobs: [],

@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises";
+import { requireShotStages } from "../../core/select-definition.js";
 import * as path from "node:path";
 import type { Command } from "commander";
 import {
@@ -131,7 +132,8 @@ async function executePrune(opts: PruneOptions): Promise<void> {
   // Successfully loaded definitions are required: without them we cannot tell which addresses are
   // genuinely orphaned versus temporarily unreadable — a broken reference.tsx must abort prune,
   // never silently null out and orphan every reference target.
-  const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
+  // A board or video waiting on an unread song is unreadable in the same sense.
+  const { video, animatic, reference } = requireShotStages(await loadStageDefinitions(videoRoot));
 
   // `validCompositionAddresses` doubles as the live set for the composition-cache pass below;
   // `isOrphan` is shared with `doctor` so prune and its warning never disagree on what an orphan is.

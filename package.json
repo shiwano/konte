@@ -36,6 +36,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@puppeteer/browsers": "^3.1.0",
     "commander": "^13",
+    "onnxruntime-web": "1.30.0",
     "proxy-agent": "^8.0.2",
     "tailwindcss": "^4.3.3",
     "yauzl": "^3.4.0",

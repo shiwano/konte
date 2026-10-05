@@ -26,6 +26,7 @@ import {
   gateStageChecks,
   loadStageDefinitions,
 } from "../load-definition.js";
+import { requireShotStages } from "../../core/select-definition.js";
 import { planDelivery } from "./render-delivery.js";
 import { formatSuggestedActions } from "../../core/suggested-actions.js";
 import { requireVideoRoots } from "../context.js";
@@ -230,7 +231,9 @@ Examples:
         );
       }
 
-      const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
+      const { video, animatic, reference } = requireShotStages(
+        await loadStageDefinitions(videoRoot),
+      );
       await applyResolutionDefinitions({
         videoRoot,
         definitions: { video, animatic, reference },

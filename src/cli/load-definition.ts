@@ -26,6 +26,7 @@ import {
 import { StateManager } from "../core/state/index.js";
 import type { Character, Direction } from "../core/dsl/direction.js";
 import { KonteError } from "../core/errors.js";
+import { type LoadedDefinitions, loadShotStages } from "../core/select-definition.js";
 import {
   listBoardlessVideoShots,
   listPanelPromptText,
@@ -405,12 +406,12 @@ export function assertUpstreamAccepted(opts: {
   assetPaths: Iterable<string>;
   stage: Stage;
   extraRefs?: Iterable<string>;
-  animatic: AnimaticDefinition;
+  animatic: AnimaticDefinition | null;
 }): void {
   // Whole-stage, matching the refusal of `konte preview animatic`: a board with an unwritten panel is
-  // not reviewable, whatever this spend reaches.
+  // not reviewable, whatever this spend reaches. Only the stages upstream of the spend.
   for (const { stage } of GATED_UPSTREAM) {
-    if (stage === opts.stage) continue;
+    if (stage === opts.stage) break;
     assertPrerequisitesMet(
       findUnmetPrerequisites(stage, { animatic: opts.animatic }, opts.manager.getState()),
       `Cannot spend on ${opts.stage}`,
@@ -573,16 +574,9 @@ export async function loadVideoAndAnimatic(
 
 // The three stage entries a video holds — what a whole-project read (status, generate, accept,
 // prune, …) loads before resolving addresses or building the dependency graph.
-export interface StageDefinitions {
-  video: VideoDefinition;
-  animatic: AnimaticDefinition;
-  reference: ReferenceDefinition;
-}
-
-export async function loadStageDefinitions(videoRoot: string): Promise<StageDefinitions> {
-  const { video, animatic } = await loadVideoAndAnimatic(videoRoot);
-  const reference = await loadReference(videoRoot);
-  return { video, animatic, reference };
+export async function loadStageDefinitions(videoRoot: string): Promise<LoadedDefinitions> {
+  const shots = await loadShotStages(videoRoot, () => loadVideoAndAnimatic(videoRoot));
+  return { reference: await loadReference(videoRoot), ...shots };
 }
 
 export async function loadDefinitionForAddress(
