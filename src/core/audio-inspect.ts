@@ -77,6 +77,7 @@ export interface AudioInspectModel {
   shots: { shotId: string; start: number; end: number }[];
   tracks: AudioTrack[];
   notes: string[];
+  warnings: string[];
 }
 
 // The mux's own cue, tagged with the shot it was harvested from.
@@ -336,11 +337,13 @@ const MIN_EDGE_SILENCE = 1.5;
 // audible span by the first/last bucket above the floor, and flag a silent head or tail longer than
 // MIN_EDGE_SILENCE. Music models like ACE-Step routinely end a generation seconds early, leaving a
 // silent tail under the requested duration; a hard, cross-clip-comparable warning lets a self-review
-// catch "the last N seconds are silent" without eyeballing the sparkline. Pure — unit-tested directly.
+// catch "the last N seconds are silent" without eyeballing the sparkline. `of` names what `rms`
+// covers: a whole file, or the window of one that a track plays. Pure — unit-tested directly.
 export function summarizeAudioSilence(
   rms: number[],
   rate: number,
   durationSec: number | null,
+  of: "file" | "window" = "file",
 ): AudioWarning[] {
   const warnings: AudioWarning[] = [];
   if (rms.length === 0 || rate <= 0) return warnings;
@@ -361,7 +364,10 @@ export function summarizeAudioSilence(
   if (firstAudible < 0) {
     warnings.push({
       type: "silent",
-      message: `No audible signal above the noise floor — the whole ${total.toFixed(1)}s file is silent.`,
+      message:
+        of === "file"
+          ? `No audible signal above the noise floor — the whole ${total.toFixed(1)}s file is silent.`
+          : `No audible signal above the noise floor in the ${total.toFixed(1)}s it plays.`,
     });
     return warnings;
   }
@@ -529,6 +535,60 @@ export function detectWindowCuts(
     });
   }
   return warnings;
+}
+
+/** One track's sound on the timeline. `rms` null: unmeasured, so taken as sounding throughout. */
+export interface MixLayer {
+  start: number;
+  duration: number;
+  /** The played region at `rate` — or, looped, the whole source it repeats. */
+  rms: number[] | null;
+  rate: number;
+  loop: boolean;
+}
+
+// Where nothing in the mix is audible, longer than MIN_EDGE_SILENCE: what a listener hears as dead
+// air. A layer is audible by its own floor, summarizeAudioSilence's. Fades, gain and ducking are
+// not applied. Pure — unit-tested.
+export function findMixSilences(
+  layers: readonly MixLayer[],
+  totalDuration: number,
+  rate: number,
+): AudibleSpan[] {
+  const n = Math.round(totalDuration * rate);
+  if (n <= 0) return [];
+  const sounding = new Array<boolean>(n).fill(false);
+  for (const layer of layers) {
+    const lo = Math.max(0, Math.round(layer.start * rate));
+    const hi = Math.min(n, Math.round((layer.start + layer.duration) * rate));
+    if (layer.rms == null) {
+      for (let j = lo; j < hi; j++) sounding[j] = true;
+      continue;
+    }
+    const len = layer.rms.length;
+    if (len === 0) continue;
+    const threshold = Math.max(SILENCE_ABS_FLOOR, Math.max(...layer.rms) * SILENCE_REL);
+    const step = layer.rate / rate;
+    for (let j = lo; j < hi; j++) {
+      const i = Math.floor((j - lo) * step);
+      const v = layer.loop ? layer.rms[i % len] : layer.rms[i];
+      if ((v ?? 0) > threshold) sounding[j] = true;
+    }
+  }
+
+  const gaps: AudibleSpan[] = [];
+  let gapStart = -1;
+  for (let j = 0; j <= n; j++) {
+    if (j < n && !sounding[j]) {
+      if (gapStart < 0) gapStart = j;
+      continue;
+    }
+    if (gapStart >= 0 && (j - gapStart) / rate >= MIN_EDGE_SILENCE) {
+      gaps.push({ start: gapStart / rate, end: j / rate });
+    }
+    gapStart = -1;
+  }
+  return gaps;
 }
 
 // Cut the region a track actually plays out of its source as raw (un-normalized) RMS at the profile
@@ -770,6 +830,7 @@ export async function inspectTimelineAudio(opts: {
   // Where the lines sit, and how loud — what a ducking bed yields to, and what "audible" is
   // measured against. Kept per line: a bed is only under the lines it overlaps.
   const voices: Array<Span & { lufs: number | null }> = [];
+  const layers: MixLayer[] = [];
 
   for (const raw of placements) {
     const { absFile, displayFile, isPlaceholder } = interpretSource(
@@ -811,8 +872,18 @@ export async function inspectTimelineAudio(opts: {
     }
     if (sourceProfile) {
       const played = playedRms(sourceProfile, raw.mediaStart, duration, false);
-      for (const w of summarizeAudioSilence(played, sourceProfile.rate, null)) {
-        warnings.push(w.message);
+      // A cue's own silence is dead air only when nothing else sounds there — findMixSilences'.
+      for (const w of summarizeAudioSilence(played, sourceProfile.rate, null, "window")) {
+        notes.push(w.message);
+      }
+      if (raw.volume > 0) {
+        layers.push({
+          start,
+          duration: duration ?? 0,
+          rms: played,
+          rate: sourceProfile.rate,
+          loop: false,
+        });
       }
       for (const w of detectWindowCuts(
         sourceProfile.rms,
@@ -823,6 +894,8 @@ export async function inspectTimelineAudio(opts: {
       )) {
         (w.informational ? notes : warnings).push(w.message);
       }
+    } else if (duration != null && (raw.role !== "embedded" || !fileExists)) {
+      layers.push({ start, duration, rms: null, rate: PROFILE_RATE, loop: false });
     }
 
     const buckets = envelopeBuckets(duration ?? 0);
@@ -912,7 +985,15 @@ export async function inspectTimelineAudio(opts: {
     }
     if (sourceProfile) {
       const played = playedRms(sourceProfile, mediaStart, duration, loop);
-      for (const w of summarizeAudioSilence(played, sourceProfile.rate, null)) {
+      if (volume > 0) {
+        // A loop enters its source at mediaStart, as sliceEnvelope reads it, then wraps.
+        const k = loop
+          ? Math.round(mediaStart * sourceProfile.rate) % Math.max(1, played.length)
+          : 0;
+        const rms = k > 0 ? [...played.slice(k), ...played.slice(0, k)] : played;
+        layers.push({ start, duration, rms, rate: sourceProfile.rate, loop });
+      }
+      for (const w of summarizeAudioSilence(played, sourceProfile.rate, null, "window")) {
         warnings.push(
           loop && w.type === "trailing_silence" ? `${w.message} — replays every loop` : w.message,
         );
@@ -929,6 +1010,8 @@ export async function inspectTimelineAudio(opts: {
           (w.informational ? notes : warnings).push(w.message);
         }
       }
+    } else {
+      layers.push({ start, duration, rms: null, rate: PROFILE_RATE, loop: false });
     }
 
     const buckets = envelopeBuckets(duration);
@@ -987,12 +1070,21 @@ export async function inspectTimelineAudio(opts: {
     }
   }
 
+  const warnings = findMixSilences(layers, totalDuration, PROFILE_RATE)
+    .map((g) => ({ start: Math.max(g.start, view.start), end: Math.min(g.end, view.end) }))
+    .filter((g) => g.end > g.start)
+    .map(
+      (g) =>
+        `mix silent ${g.start.toFixed(1)}–${g.end.toFixed(1)}s (${(g.end - g.start).toFixed(1)}s): no track is audible there`,
+    );
+
   return {
     totalDuration,
     view,
     shots: shotId ? shotSpans.filter((s) => s.shotId === shotId) : shotSpans,
     tracks: visible,
     notes: describeGainOverlap(visible.filter(isMuxed)),
+    warnings,
   };
 }
 

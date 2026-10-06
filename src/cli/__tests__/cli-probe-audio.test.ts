@@ -191,6 +191,58 @@ export default defineVideo(direction, {
     expect(stdout).toContain("⚠ bed: loops ×2 to fill 7.0s span (source 6.00s)");
   });
 
+  it("notes a cue's own silence and warns only where the mix is silent", async () => {
+    const { video: projectDir } = await initWorkspace(path.join(ctx.dir, "testproject"));
+    await fs.writeFile(path.join(projectDir, "assets", "files", "early.wav"), toneThenSilenceWav());
+    await fs.writeFile(
+      path.join(projectDir, "reference.tsx"),
+      AUDIO_REFERENCE_TS.replace("assets/files/bgm.mp3", "assets/files/early.wav"),
+    );
+    // The cue plays 3s–4.8s of the source, all silence; the bed plays the tone over 0–2s alone.
+    await fs.writeFile(
+      path.join(projectDir, "video.tsx"),
+      AUDIO_VIDEO_TSX.replace("duration={1.8}", "duration={1.8} mediaStart={3}")
+        .replace("volume: 0.3, duck: true", "volume: 0.3, duck: true, loop: false")
+        .replace(/\s*soundtrack\("sting"[^\n]*/, ""),
+    );
+    await acceptDirection(projectDir);
+    await acceptFileAssets(projectDir);
+    await run(["generate", "video"], projectDir);
+
+    const { stdout } = await run(["probe", "reel-audio", "video"], projectDir);
+    expect(stdout).toContain(
+      "  01 vo: No audible signal above the noise floor in the 1.8s it plays.",
+    );
+    expect(stdout).not.toContain("⚠ 01 vo:");
+    expect(stdout).toContain("⚠ mix silent 2.0–7.0s (5.0s): no track is audible there");
+  });
+
+  it("enters a looped bed at its mediaStart when judging the mix", async () => {
+    const { video: projectDir } = await initWorkspace(path.join(ctx.dir, "testproject"));
+    await fs.writeFile(path.join(projectDir, "assets", "files", "early.wav"), toneThenSilenceWav());
+    await fs.writeFile(
+      path.join(projectDir, "reference.tsx"),
+      AUDIO_REFERENCE_TS.replace("assets/files/bgm.mp3", "assets/files/early.wav"),
+    );
+    // From 4s the bed plays 2s of silence, wraps to the 2s tone, then silence to the end.
+    await fs.writeFile(
+      path.join(projectDir, "video.tsx"),
+      AUDIO_VIDEO_TSX.replace("duration={1.8}", "duration={1.8} mediaStart={3}")
+        .replace("volume: 0.3, duck: true", "volume: 0.3, duck: true, loop: true, mediaStart: 4")
+        .replace(/\s*soundtrack\("sting"[^\n]*/, ""),
+    );
+    await acceptDirection(projectDir);
+    await acceptFileAssets(projectDir);
+    await run(["generate", "video"], projectDir);
+
+    const { stdout } = await run(["probe", "reel-audio", "video"], projectDir);
+    const mix = stdout.split("\n").filter((line) => line.includes("mix silent"));
+    expect(mix.map((line) => line.trim())).toEqual([
+      "⚠ mix silent 0.0–2.0s (2.0s): no track is audible there",
+      "⚠ mix silent 4.0–7.0s (3.0s): no track is audible there",
+    ]);
+  });
+
   it("keeps faded cue and bed source cuts out of warnings", async () => {
     const projectDir = await initWithAudioVideo();
     await fs.writeFile(path.join(projectDir, "assets", "files", "tone.wav"), toneThenSilenceWav(6));

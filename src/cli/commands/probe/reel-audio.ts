@@ -119,12 +119,12 @@ skip reason; ducked LUFS is a separate estimate.
 
 Offsets are NOMINAL (accumulated from each shot's declared duration), so this works before any shot
 is rendered and may differ from the final mux by a few ms of encoder drift. Diagnostics flag missing
-sources, silent embedded audio, looped/overflowing beds,
-and — per track, over the region actually played — the same leading/trailing/whole-file silence
-\`konte probe audio\` reports, so one run checks every source. They also flag a shot whose animatic
-narration runs past its duration, which the stem's clamp cuts without a sound. Asset and timeline scopes
-are rejected. Source-window boundaries with fades and overlapping effective gain sums are informational;
-output discontinuities, clipping and limiter reduction are not measured.
+sources, looped/overflowing beds, a stretch where no track is audible, and a bed's leading, trailing
+or whole silence over the region it plays. A cue's or embedded clip's own silence is a note. They
+also flag a shot whose animatic narration runs past its duration, which the stem's clamp cuts
+without a sound. Asset and timeline scopes are rejected. Source-window boundaries with fades and
+overlapping effective gain sums are informational; output discontinuities, clipping and limiter
+reduction are not measured.
 
 Examples:
   konte probe reel-audio video               Inspect the delivered audio timeline
@@ -194,6 +194,6 @@ Examples:
       const trackWarnings = model.tracks.flatMap((t) =>
         t.warnings.map((w) => `${trackTag(t)}: ${w}`),
       );
-      printWarnings([...trackWarnings, ...overflowWarnings]);
+      printWarnings([...model.warnings, ...trackWarnings, ...overflowWarnings]);
     });
 }

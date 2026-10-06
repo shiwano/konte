@@ -4,6 +4,7 @@ import {
   detectAudibleSpans,
   detectAudioOnset,
   detectWindowCuts,
+  findMixSilences,
   playedRms,
   summarizeAudioSilence,
 } from "../audio-inspect.js";
@@ -36,6 +37,15 @@ describe("summarizeAudioSilence", () => {
     const warnings = summarizeAudioSilence(envelope(10, 2, 10), RATE, 10);
     const leading = warnings.find((w) => w.type === "leading_silence");
     expect(leading?.message).toBe("leading silence: 2.0s (audio starts at 2.0s / 10.0s)");
+  });
+
+  it("names a played window as the window, not the file", () => {
+    expect(summarizeAudioSilence(new Array(100).fill(0), RATE, null, "window")).toEqual([
+      {
+        type: "silent",
+        message: "No audible signal above the noise floor in the 1.0s it plays.",
+      },
+    ]);
   });
 
   it("flags a wholly silent file just once", () => {
@@ -158,6 +168,42 @@ describe("detectAudioOnset", () => {
   it("returns nothing for a silent or empty envelope", () => {
     expect(detectAudioOnset(new Array(300).fill(0), RATE)).toBeNull();
     expect(detectAudioOnset([], RATE)).toBeNull();
+  });
+});
+
+describe("findMixSilences", () => {
+  const layer = (start: number, rms: number[] | null, loop = false) => ({
+    start,
+    duration: rms ? rms.length / RATE : 5,
+    rms,
+    rate: RATE,
+    loop,
+  });
+
+  it("finds nothing where a bed covers a silent clip", () => {
+    const layers = [layer(0, new Array(500).fill(0)), layer(0, envelope(10, 0, 10))];
+    expect(findMixSilences(layers, 10, RATE)).toEqual([]);
+  });
+
+  it("reports a stretch no layer sounds in", () => {
+    const layers = [layer(0, envelope(4, 0, 4)), layer(4, envelope(6, 2, 6))];
+    expect(findMixSilences(layers, 10, RATE)).toEqual([{ start: 4, end: 6 }]);
+  });
+
+  it("leaves a gap shorter than an edge silence alone", () => {
+    const layers = [layer(0, envelope(10, 0, 4)), layer(5, envelope(5, 0, 5))];
+    expect(findMixSilences(layers, 10, RATE)).toEqual([]);
+  });
+
+  it("replays a looped layer's source across its span", () => {
+    // A 4s source sounding for its first 3s, looped over 12s: three 1s gaps, none long enough.
+    expect(
+      findMixSilences([{ ...layer(0, envelope(4, 0, 3), true), duration: 12 }], 12, RATE),
+    ).toEqual([]);
+  });
+
+  it("takes an unmeasured layer as sounding over its span", () => {
+    expect(findMixSilences([layer(0, null)], 5, RATE)).toEqual([]);
   });
 });
 
