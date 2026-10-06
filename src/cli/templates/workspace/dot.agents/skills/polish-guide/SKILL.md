@@ -15,7 +15,7 @@ Take an assembled cut whose every shot holds a self-reviewed take from "plays" t
 
 ## 1. Watch it whole before touching anything
 
-- **Walk the reel once as a viewer, and write the read down in chat first** — `konte probe reel-thumbnails video`, then `konte probe reel-audio video`, in order, one line per shot: what you took to have happened and what you felt.
+- **Walk the reel once as a viewer, and write the read down in chat first** — `konte probe contact-sheet video`, then `konte probe reel-audio video`, in order, one line per shot: what you took to have happened and what you felt.
 
 ## 2. The hook
 
@@ -70,7 +70,7 @@ Name the ones the reel carries; clear each, or say in the handoff why it stays.
 ## Verify
 
 - `konte probe reel-audio video` — no ⚠ at the head or the tail, and no silent shot you did not choose.
-- `konte probe reel-thumbnails video` — the first frame carries the hook, the last carries the takeaway.
+- `konte probe contact-sheet video` — the first cell carries the hook, the last carries the takeaway.
 - `konte status -v` — the pass's `#composition` and `#stem` targets sit under Needs review beside the takes; one `konte preview video` reviews both.
 
 ## Pitfalls

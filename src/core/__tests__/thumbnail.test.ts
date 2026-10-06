@@ -7,6 +7,7 @@ import { KonteError } from "../errors.js";
 import {
   compositionSampleTimes,
   panelSampleTime,
+  subtitleSampleTimes,
   generateUniformTimestamps,
   harvestCompositionVideos,
   lastSeekableTime,
@@ -239,6 +240,36 @@ describe("panelSampleTime", () => {
         expect(t * fps).toBeCloseTo(Math.round(t * fps), 9);
       }
     }
+  });
+});
+
+describe("subtitleSampleTimes", () => {
+  const line = (start: number, duration: number, text = "x") =>
+    `<div class="konte-clip konte-subtitle flex" data-start="${start}" data-duration="${duration}" data-track-index="10">${text}</div>`;
+
+  it("samples each line at the grid frame nearest its middle", () => {
+    const html = `<div id="stage">${line(1, 2)}${line(3.5, 1)}</div>`;
+    expect(subtitleSampleTimes(html, 6, 24)).toEqual([2, 4]);
+  });
+
+  it("samples only the part of a line the shot holds", () => {
+    expect(subtitleSampleTimes(line(-2, 4), 4, 25)).toEqual([1]);
+    expect(subtitleSampleTimes(line(3, 4), 4, 24)).toEqual([3.5]);
+  });
+
+  it("samples a line on screen for a single frame on that frame", () => {
+    expect(subtitleSampleTimes(line(1, 0.04), 4, 25)).toEqual([1]);
+    expect(subtitleSampleTimes(line(3.9, 1), 3.94, 25)).toEqual([expect.closeTo(3.92, 9)]);
+  });
+
+  it("skips a line outside the shot or holding no grid frame of it", () => {
+    expect(subtitleSampleTimes(line(5, 0.001), 4, 24)).toEqual([]);
+    expect(subtitleSampleTimes(line(1.01, 0.01), 4, 24)).toEqual([]);
+  });
+
+  it("ignores timed elements that are not subtitle lines", () => {
+    const html = `<img class="konte-clip" data-start="1" data-duration="2" />`;
+    expect(subtitleSampleTimes(html, 4, 24)).toEqual([]);
   });
 });
 

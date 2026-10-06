@@ -142,10 +142,11 @@ describe("probe reel-thumbnails on an animated shot", () => {
   it("points each <Animate> shot at probe motion", async () => {
     const projectDir = await setup();
 
-    const { stdout } = await run(["probe", "reel-thumbnails", "video"], projectDir);
+    const animated = await run(["probe", "reel-thumbnails", "video:shot.01"], projectDir);
+    expect(animated.stdout).toContain("Next steps:");
+    expect(animated.stdout).toContain("konte probe motion video:shot.01#composition --at <sec>");
 
-    expect(stdout).toContain("Next steps:");
-    expect(stdout).toContain("konte probe motion video:shot.01#composition --at <sec>");
-    expect(stdout).not.toContain("konte probe motion video:shot.02#composition");
+    const still = await run(["probe", "reel-thumbnails", "video:shot.02"], projectDir);
+    expect(still.stdout).not.toContain("Next steps:");
   });
 });

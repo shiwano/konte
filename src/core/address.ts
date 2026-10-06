@@ -424,7 +424,7 @@ export function assertValidAddressScope(scope: string): void {
 }
 
 // A reel scope: one of the two composition stages, whole or narrowed to a single shot. Composition
-// is a per-shot concept, so the commands that take this scope (`reel-thumbnails`, `reel-audio`)
+// is a per-shot concept, so the commands that take this scope (`reel-audio`, `contact-sheet`)
 // never accept an individual asset or a timeline scope (both of which pass assertValidAddressScope
 // yet are rejected here).
 const REEL_SCOPE_PATTERN = /^(animatic|video)(?::shot\.([a-zA-Z0-9_-]+))?$/;

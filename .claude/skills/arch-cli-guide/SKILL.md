@@ -32,7 +32,7 @@ Commands declare their scope: `none` (`workspace new`, `workspace setup`, `lsp`)
 
 ## Media inspection
 
-`konte probe`: `audio` / `contact-sheet` / `motion` / `thumbnails` on one or more (in any mix) of a `<variantId>`, an address, or an `<address-scope>` that sweeps every matching variant it can read; `motion` also on a `<stage>:shot.<id>#composition`, drawn live from the definition and never swept; `crop` on one still, rendering `--rect` windows as `imageCrop` would (an `imageCrop` asset's own window and master derived); `reel-audio` / `reel-thumbnails` on an `<animatic|video[:shot.<id>]>` scope; `jsx` renders a `jsxImage` from its definition, writing nothing; and `export` on an optional `[outputFile]` (default: the last real export), reporting the MP4's real resolution/duration/fps/audio.
+`konte probe`: `audio` / `contact-sheet` / `motion` / `thumbnails` on one or more (in any mix) of a `<variantId>`, an address, or an `<address-scope>` that sweeps every matching variant it can read; `motion` also on a `<stage>:shot.<id>#composition`, drawn live from the definition and never swept; `crop` on one still, rendering `--rect` windows as `imageCrop` would (an `imageCrop` asset's own window and master derived); `reel-audio` on an `<animatic|video[:shot.<id>]>` scope; `reel-thumbnails` on one `<stage>:shot.<id>`, a whole stage being `contact-sheet`'s; `jsx` renders a `jsxImage` from its definition, writing nothing; and `export` on an optional `[outputFile]` (default: the last real export), reporting the MP4's real resolution/duration/fps/audio.
 
 ## Settings
 

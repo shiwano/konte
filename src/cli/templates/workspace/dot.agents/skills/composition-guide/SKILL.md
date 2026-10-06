@@ -83,5 +83,5 @@ GSAP `position` (3rd arg of `to`/`from`/...) uses the same clock: absolute secon
 
 ## Verify
 
-- `konte probe reel-thumbnails video` / `reel-audio video` — timing, captions, transitions, the audio timeline.
+- `konte probe contact-sheet video` / `reel-audio video` — captions, transitions, the audio timeline.
 - `konte probe motion video:shot.<id>#composition --at <sec>` — each `<Animate>` move.

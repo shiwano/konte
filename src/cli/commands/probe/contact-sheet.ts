@@ -38,7 +38,10 @@ import {
   compositionSampleTimes,
   extractFrameAt,
   panelSampleTime,
+  subtitleSampleTimes,
 } from "../../../core/thumbnail.js";
+import { buildShotCompositionHtml } from "../../../core/composition-builder.js";
+import type { StageDefinition } from "../../../core/types/index.js";
 import { probeMediaInfo } from "../../../core/video-probe.js";
 import { unresolvedPictureRefs } from "../../../core/composition-resource.js";
 import { buildAssetStatus, needsReviewItems } from "../../asset-status.js";
@@ -93,13 +96,35 @@ function splitBoards(args: readonly string[]): Board[] {
   return boards;
 }
 
+// A build that fails here fails the capture too, which reports it.
+async function shotSubtitleTimes(
+  video: StageDefinition,
+  manager: StateManager,
+  shotId: string,
+): Promise<number[]> {
+  const shot = video.shots.find((s) => s.id === shotId)!;
+  try {
+    const { html } = await buildShotCompositionHtml({
+      video,
+      manager,
+      shotId,
+      allowNotReady: true,
+      assetBaseUrl: "",
+      withOverlay: true,
+    });
+    return subtitleSampleTimes(html, shot.duration, video.format.fps);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Cells for the shot compositions named by `args`, in argument order (the whole-stage scope
- * expanding in shot order): one cell per `<Panel>` on the board, `framesPerShot` evenly-spaced
- * cells per shot on the video.
+ * expanding in shot order): one cell per `<Panel>` on the board; on the video `framesPerShot`
+ * evenly-spaced cells per shot, plus one per subtitle line unless `framesPerShot` is explicit.
  *
  * Never goes through `resolveProbeTargets` — a composition is not a variant until it is accepted,
- * so this walks the definition the way `probe reel-thumbnails` does.
+ * so this walks the definition.
  */
 async function buildCompositionCells(
   args: readonly string[],
@@ -212,9 +237,30 @@ async function buildCompositionCells(
     // IS the rule.
     if (panels.length > 0 && sampled.length === 0) continue;
     const panelCells = sampled.length > 0 ? sampled : null;
-    const timestamps = panelCells
-      ? panelCells.map((c) => c.time)
-      : compositionSampleTimes(shot.duration, video.format.fps, opts.framesPerShot);
+    let timestamps: number[];
+    // On the even sampler a cell is marked by the moment it stands for.
+    const markers = new Map<number, string>();
+    if (panelCells) {
+      timestamps = panelCells.map((c) => c.time);
+    } else {
+      timestamps = compositionSampleTimes(shot.duration, video.format.fps, opts.framesPerShot);
+      if (timestamps.length > 1) {
+        markers.set(timestamps[0]!, "in ");
+        markers.set(timestamps.at(-1)!, "out ");
+      }
+      if (opts.framesPerShotExplicit !== true) {
+        const lines = await shotSubtitleTimes(video, manager, shotId);
+        const added = lines.filter((t) => !timestamps.some((u) => Math.abs(u - t) < 1e-9));
+        const room = Math.max(0, MAX_FRAMES_PER_SHOT - timestamps.length);
+        if (added.length > room) {
+          skipped.push(
+            `${shotAddress} (${added.length - room} of ${added.length} subtitle lines left off — read them with \`konte probe reel-thumbnails ${shotAddress} --at <sec>\`)`,
+          );
+        }
+        for (const t of added.slice(0, room)) markers.set(t, "subtitle ");
+        timestamps = [...timestamps, ...added.slice(0, room)].sort((a, b) => a - b);
+      }
+    }
     // Drawn from whatever resolves, so a layer with no take leaves a hole. Say which, or the cell
     // reads as the shot composing to that.
     const blank = unresolvedPictureRefs(manager, shot);
@@ -262,16 +308,10 @@ async function buildCompositionCells(
       //
       // The sampled moment is on the cell because the out frame is not the last one (see
       // compositionSampleTimes). On the board a cell IS a keyframe, so it carries the panel's part
-      // name; elsewhere in/out mark the pair a cut is read on.
+      // name; elsewhere it carries the mark its moment was sampled under.
       const marker = panelCells
         ? `${panelCells[i]?.panel.assetName ?? ""} `
-        : frames.length > 1
-          ? i === 0
-            ? "in "
-            : i === frames.length - 1
-              ? "out "
-              : ""
-          : "";
+        : (markers.get(timestamps[i]!) ?? "");
       cells.push({
         label: `${shotAddress} ${marker}@${frame.timestamp.toFixed(2)}s`,
         file: path.resolve(videoRoot, frame.file),
@@ -728,10 +768,11 @@ A reel scope (animatic, video, <stage>:shot.<id>) instead tiles the shots' COMPO
 live from the definition, accepted at <address>#composition. On the ANIMATIC each shot contributes
 one cell per <Panel>, taken just inside its window, so every keyframe is on the sheet. On the VIDEO
 each shot contributes ${DEFAULT_FRAMES_PER_SHOT} cells, its in and out frames, so a cut can be read
-across the boundary; --frames-per-shot (1..${MAX_FRAMES_PER_SHOT}) samples more, evenly spaced, on
-either stage. The out frame sits a few frames short of the shot's end, where a generative model has
-usually degraded — so every cell carries the moment it was taken at, and a tail artifact is judged on
-the clip itself (probe motion), not here. Shots with no composition are skipped with a note; named
+across the boundary, plus one cell per <Subtitle> line on screen in it — the shot's own or the
+overlay's — at the middle of the line, up to ${MAX_FRAMES_PER_SHOT} cells a shot. --frames-per-shot
+(1..${MAX_FRAMES_PER_SHOT}) samples exactly that many instead, evenly spaced, on either stage. The
+out frame sits a few frames short of the shot's end, where a generative model has usually degraded
+— so every cell carries the moment it was taken at, and a tail artifact is judged on the clip itself (probe motion), not here. Shots with no composition are skipped with a note; named
 outright, they error. A shot whose media fails to load is skipped the same way and exits 1. Stills, animatic reel scopes and video reel scopes passed together each tile
 on their own sheets, printed in the order each kind first appears.
 
@@ -763,7 +804,7 @@ Examples:
   konte probe contact-sheet animatic:plate           Every setup plate
   konte probe contact-sheet reference                  Every shared reference still
   konte probe contact-sheet reference:look --takes     Every take of one reference, side by side
-  konte probe contact-sheet video                      Every shot's composition, in and out
+  konte probe contact-sheet video                      Every shot's in, out and subtitle frames
   konte probe contact-sheet video:shot.02              One shot's composition, in and out
   konte probe contact-sheet video --frames-per-shot 3  Add a mid frame to each shot
   konte probe contact-sheet animatic --max-cells 30  One sheet, smaller cells

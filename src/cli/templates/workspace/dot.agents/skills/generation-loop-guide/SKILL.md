@@ -57,9 +57,9 @@ After `konte generate` or `konte reroll`:
 - **Image** (animatic panels, reference characters/backgrounds): view the file against the shot's `action` (and `script`, if any) — right subject, character consistency across shots, no artifacts. A `first` panel must be able to launch the transit its shot needs — the contacts and positions that transit starts from are in the pixels, or it's a reroll however clean it looks. A recurring character reference must be a clean single-subject conditioning frame, not a turnaround sheet.
 - **Board batch → `konte probe contact-sheet`** — shots side by side in one sheet; `--cell-width <px>` when detail is too small to read.
   - **`--needs-review [scope]` first after a `generate`** — every landed take nobody has judged, each cell carrying its variant id.
-  - **Otherwise `<variantId|address|scope>...`** — a still scope sweeps every image under it; a video scope tiles each shot's in/out pair, so a cut reads across the boundary. A tail artifact is judged on the clip's own filmstrip, never off this sheet.
+  - **Otherwise `<variantId|address|scope>...`** — a still scope sweeps every image under it; a video scope tiles each shot's in/out pair, so a cut reads across the boundary, plus a cell per subtitle line. A tail artifact is judged on the clip's own filmstrip, never off this sheet.
   - **Same-size-and-angle neighbors are a reroll unless a match cut is intended**; a planted prop must stay readable across its cuts.
-- **Video frames**: `konte probe reel-thumbnails <animatic|video[:shot.<id>]>` (a composition's own frames, scene-detected; `--at <timecode>` for an exact moment) or `konte probe thumbnails <variantId|address|scope>...` (raw clips).
+- **Video frames**: `konte probe reel-thumbnails <animatic|video>:shot.<id>` (one shot's composition frames, scene-detected; `--at <timecode>` for an exact moment) or `konte probe thumbnails <variantId|address|scope>...` (raw clips).
 - **Motion → `konte probe motion <variantId|address|scope|…#composition>...`** — a filmstrip per clip or composition; a scope sweeps every clip. Read adjacent tiles for _did it move_, trajectory and sustained breakage.
   - `low_motion` → it carries the shot's `action` and the board's `blocking`/`camera`; a reroll only where those asked for movement
   - `dispersed_motion` → nothing moved and something churned

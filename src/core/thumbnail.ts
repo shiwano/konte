@@ -155,6 +155,32 @@ export function compositionSampleTimes(durationSec: number, fps: number, count: 
   return Array.from({ length: count }, (_, i) => snap((out * i) / (count - 1)));
 }
 
+/**
+ * One sample time per `<Subtitle>` line on screen within a shot's composition document (overlay
+ * laid in, so its lines are already on shot-local time): the grid frame nearest the middle of the
+ * part of the line the shot holds. A line that holds no grid frame of the shot has none.
+ */
+export function subtitleSampleTimes(html: string, durationSec: number, fps: number): number[] {
+  const interval = frameInterval(fps);
+  const times: number[] = [];
+  for (const [tag] of html.matchAll(/<[a-z][a-z0-9-]*\b[^>]*>/gi)) {
+    if (!/\sclass="[^"]*\bkonte-subtitle\b/.test(tag)) continue;
+    const start = Number(/\sdata-start="([^"]*)"/.exec(tag)?.[1]);
+    const duration = Number(/\sdata-duration="([^"]*)"/.exec(tag)?.[1]);
+    if (!Number.isFinite(start) || !Number.isFinite(duration)) continue;
+    const from = Math.max(0, start);
+    const to = Math.min(durationSec, start + duration);
+    // The grid frames the line is on screen for: the first at or after `from`, the last before `to`.
+    const first = Math.ceil(from / interval - 1e-9);
+    const last = Math.ceil(to / interval - 1e-9) - 1;
+    if (first > last) continue;
+    const frame = Math.min(last, Math.max(first, Math.round((from + to) / 2 / interval)));
+    const time = frame * interval;
+    if (!times.some((t) => Math.abs(t - time) < 1e-9)) times.push(time);
+  }
+  return times.sort((a, b) => a - b);
+}
+
 export function parseProbeOutput(stdout: string): VideoProbeResult {
   const data = JSON.parse(stdout);
 

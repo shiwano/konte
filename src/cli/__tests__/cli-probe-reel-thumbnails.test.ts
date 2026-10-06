@@ -18,27 +18,19 @@ vi.mock("../../core/thumbnail.js", async (importOriginal) => {
 
 useTempWorkspace();
 
-describe("probe reel-thumbnails with a shot that fails to capture", () => {
+describe("probe reel-thumbnails", () => {
   async function setup(): Promise<string> {
     failures.clear();
     return await initWithChainedShotsVideo();
   }
 
-  it("captures the rest of the reel and names the failed shot", async () => {
+  it("refuses a whole stage and points at the contact sheet", async () => {
     const projectDir = await setup();
-    failures.set("02", new Error("Protocol error (Page.captureScreenshot): Target crashed"));
 
-    const err = (await run(["probe", "reel-thumbnails", "video"], projectDir).catch((e) => e)) as {
-      code: number;
-      stdout: string;
-      stderr: string;
-    };
+    const { stderr } = await runCapture(["probe", "reel-thumbnails", "video"], projectDir);
 
-    expect(err.code).toBe(1);
-    expect(err.stdout).toContain("video:shot.01#composition: 1 frames captured");
-    expect(err.stderr).toContain("video:shot.02#composition: capture failed — Protocol error");
-    expect(err.stderr).toContain("1 of 2 shots captured; failed: video:shot.02#composition");
-    expect(err.stderr).toContain("KONTE_DEBUG=1");
+    expect(stderr).toContain("INVALID_ADDRESS");
+    expect(stderr).toContain("konte probe contact-sheet video");
   });
 
   it("fails a named shot with its address and no raw stack", async () => {
@@ -51,13 +43,12 @@ describe("probe reel-thumbnails with a shot that fails to capture", () => {
     expect(stderr).not.toContain("    at ");
   });
 
-  it("leaves an all-green reel at exit code 0", async () => {
+  it("lists a captured shot's frames at exit code 0", async () => {
     const projectDir = await setup();
 
-    const { stdout, stderr } = await run(["probe", "reel-thumbnails", "video"], projectDir);
+    const { stdout } = await run(["probe", "reel-thumbnails", "video:shot.01"], projectDir);
 
     expect(stdout).toContain("video:shot.01#composition: 1 frames captured");
-    expect(stdout).toContain("video:shot.02#composition: 1 frames captured");
-    expect(stderr).not.toContain("failed");
+    expect(stdout).toContain("thumbnails/01.jpg (0.00s)");
   });
 });

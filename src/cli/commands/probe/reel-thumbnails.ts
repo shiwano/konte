@@ -59,27 +59,22 @@ function captureFailure(err: unknown): string {
 export function registerProbeReelThumbnailsCommand(program: Command): void {
   addFrameCaptureOptions(
     program
-      .command("reel-thumbnails <address-scope>")
-      .description("Capture composition thumbnails for a shot or a whole reel")
+      .command("reel-thumbnails <shot>")
+      .description("Capture one shot's composition frames")
       .option("--force", "Re-render even if cached frames already exist"),
   )
     .addHelpText(
       "after",
       `
-Captures sampled frames of a shot's composition (the assembled build output), with the
+Captures sampled frames of one shot's composition (the assembled build output), with the
 timeline's overlay laid over its span as the render lays it — on either composition stage, so
-the same command reads the board and the finished piece. Composition
-is a per-shot concept, so the address-scope targets a whole reel or a single shot of one; an
-individual asset address is rejected so the caller never gets frames it did not intend.
+the same command reads the board and the finished piece. Prints each frame's path.
 
-  animatic | video           Capture every shot of that stage that has a composition
-  <stage>:shot.<id>          Capture a single shot
+  <stage>:shot.<id>          The shot to capture (stage: animatic or video)
 
-Shots without a composition (an undeveloped pendingShot, or an aside on the board that never
-carries one) are skipped when capturing a whole reel, and rejected with an error when named
-directly. A shot whose capture fails is reported by address and stepped over the same way: the
-failures are listed and the exit code is 1. Asset (video:shot.<id>.<asset>)
-and timeline scopes are rejected.
+A whole stage is refused: the whole piece is read on \`konte probe contact-sheet <stage>\`, one
+sheet of every shot. A shot without a composition (an undeveloped pendingShot, or an aside on the
+board) is refused, as are asset and timeline addresses.
 
 By default frames are chosen by scene detection (--threshold, capped at --max-frames). Pass
 --at to capture exact moments instead. Timecodes are comma-separated and mixed freely:
@@ -92,26 +87,22 @@ A shot carrying an <Animate> gets a Next steps line: its move, frame by frame ov
 \`probe motion <stage>:shot.<id>#composition --at <sec> --window <sec>\`.
 
 Examples:
-  konte probe reel-thumbnails video                Capture every finished shot
-  konte probe reel-thumbnails animatic             Capture the board, shot by shot
+  konte probe reel-thumbnails video:shot.01                 Its scene-detected frames
+  konte probe reel-thumbnails animatic:shot.03              One shot of the board
   konte probe reel-thumbnails video:shot.01 --at 0:30,1:00,1:30`,
     )
-    .action(async (addressScope: string, opts: FrameCaptureOptions & { force?: boolean }) => {
-      const { stage, shotId } = parseReelScope(addressScope);
+    .action(async (scope: string, opts: FrameCaptureOptions & { force?: boolean }) => {
+      const { stage, shotId } = parseReelScope(scope);
+      if (!shotId) {
+        throw new KonteError(
+          "INVALID_ADDRESS",
+          `reel-thumbnails reads one shot — read the whole ${stage} with \`konte probe contact-sheet ${stage}\`, then name a shot here (${stage}:shot.<id>)`,
+        );
+      }
 
       const videoRoot = requireVideoRoot();
       const video = compositionStage(await loadVideoAndAnimatic(videoRoot), stage);
-
-      let shotIds: string[];
-      if (shotId) {
-        requireCompositionShot(video, shotId);
-        shotIds = [shotId];
-      } else {
-        shotIds = video.shots.filter((s) => s.shotFn).map((s) => s.id);
-        if (shotIds.length === 0) {
-          throw new KonteError("SHOT_NOT_FOUND", "No shots with a composition found");
-        }
-      }
+      requireCompositionShot(video, shotId);
 
       const manager = await StateManager.load(videoRoot);
       await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
@@ -127,81 +118,45 @@ Examples:
         ...(timestamps ? { timestamps } : {}),
       };
 
-      const results: { shotId: string; thumbnails: ThumbnailInfo[] }[] = [];
-      const failed: { shotId: string; address: string; error: string }[] = [];
-      // The first shot the renderer itself dropped — its rejection says next to nothing, and the
-      // one thing that reads it is behind KONTE_DEBUG.
-      let rendererFailed: string | null = null;
-      const animated: string[] = [];
-      for (const [i, id] of shotIds.entries()) {
-        const address = formatCompositionAddress(stage, id);
-        const outputDir = path.join(
+      const address = formatCompositionAddress(stage, shotId);
+      const outputDir = path.join(
+        videoRoot,
+        ".konte",
+        "cache",
+        "thumbnails",
+        ...addressToCacheSegments(address),
+      );
+      let captured: ThumbnailInfo[];
+      try {
+        captured = await captureCompositionFrames({
+          video,
+          manager,
+          shotId,
           videoRoot,
-          ".konte",
-          "cache",
-          "thumbnails",
-          ...addressToCacheSegments(address),
+          outputDir,
+          captureOptions,
+        });
+      } catch (err) {
+        // Wrapped, because a bundled stack names no shot.
+        if (err instanceof KonteError) throw err;
+        throw new KonteError(
+          "FRAME_CAPTURE_FAILED",
+          `${address}: ${captureFailure(err)} — re-run with KONTE_DEBUG=1 for the renderer's own diagnostics`,
         );
-        let captured: ThumbnailInfo[];
-        try {
-          captured = await captureCompositionFrames({
-            video,
-            manager,
-            shotId: id,
-            videoRoot,
-            outputDir,
-            captureOptions,
-          });
-        } catch (err) {
-          const message = captureFailure(err);
-          // A shot named outright IS the command, so its failure fails it — wrapped, because a
-          // bundled stack names no shot. A sweep steps over it instead.
-          if (shotId) {
-            if (err instanceof KonteError) throw err;
-            throw new KonteError(
-              "FRAME_CAPTURE_FAILED",
-              `${address}: ${message} — re-run with KONTE_DEBUG=1 for the renderer's own diagnostics`,
-            );
-          }
-          if (!(err instanceof KonteError)) rendererFailed ??= id;
-          failed.push({ shotId: id, address, error: message });
-          console.error(`${address}: capture failed — ${message}`);
-          continue;
-        }
-        const thumbnails = withAbsoluteFiles(videoRoot, captured);
-        results.push({ shotId: id, thumbnails });
-        if (await shotAnimates(video, manager, id)) animated.push(address);
+      }
+      const thumbnails = withAbsoluteFiles(videoRoot, captured);
 
-        if (i > 0) console.log("");
-        console.log(`${address}: ${thumbnails.length} frames captured`);
-        for (const thumb of thumbnails) {
-          console.log(`  ${thumb.file} (${thumb.timestamp.toFixed(2)}s)`);
-        }
+      console.log(`${address}: ${thumbnails.length} frames captured`);
+      for (const thumb of thumbnails) {
+        console.log(`  ${thumb.file} (${thumb.timestamp.toFixed(2)}s)`);
       }
 
       // Sampled frames are too far apart to show how an <Animate> move travels.
-      if (animated.length > 0) {
+      if (await shotAnimates(video, manager, shotId)) {
         console.log("\nNext steps:");
-        for (const address of animated) {
-          console.log(
-            `  konte probe motion ${address} --at <sec> --window <sec>   Read its <Animate> move frame by frame`,
-          );
-        }
-      }
-
-      if (failed.length > 0) {
-        console.error(
-          `\n${results.length} of ${shotIds.length} shots captured; failed: ${failed
-            .map((f) => f.address)
-            .join(", ")}`,
+        console.log(
+          `  konte probe motion ${address} --at <sec> --window <sec>   Read its <Animate> move frame by frame`,
         );
-        if (rendererFailed) {
-          console.error(
-            "Read the renderer's own diagnostics with: " +
-              `KONTE_DEBUG=1 konte probe reel-thumbnails ${stage}:shot.${rendererFailed} --force`,
-          );
-        }
       }
-      if (failed.length > 0) process.exitCode = 1;
     });
 }
