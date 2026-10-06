@@ -21,6 +21,7 @@ import {
   classifyDirectionFinding,
   directionHasShots,
   directionWaiverKey,
+  leafSequenceShotIds,
   reportableDirectionFindings,
 } from "../../core/direction.js";
 import { syncFileAssets } from "../../core/file-sync.js";
@@ -499,6 +500,27 @@ export function registerStatusCommand(program: Command): void {
         feedbackAddresses.add(address);
       }
 
+      const pendingVideoShots = video.shots.filter(isPendingShot).map((s) => s.id);
+      const pendingAnimaticShots = new Set(
+        animatic.shots.filter(isPendingAnimaticShot).map((s) => s.id),
+      );
+      const boardedPendingVideoShots = pendingVideoShots.filter((id) => {
+        const board = animatic.shots.find((s) => s.id === id);
+        if (!board || isPendingAnimaticShot(board)) return false;
+        return Object.keys(board.assets).every(
+          (name) => manager.getAcceptedVariant(formatAddress("animatic", id, name)) !== null,
+        );
+      });
+      const nextSequence = direction
+        ? leafSequenceShotIds(direction).find((ids) =>
+            ids.some((id) => pendingVideoShots.includes(id)),
+          )
+        : undefined;
+      const nextSequencePendingShots = nextSequence && {
+        animatic: nextSequence.filter((id) => pendingAnimaticShots.has(id)),
+        video: nextSequence.filter((id) => pendingVideoShots.includes(id)),
+      };
+
       const suggestedActions = suggestForStatus({
         state,
         stalenessCache: readCache,
@@ -539,6 +561,8 @@ export function registerStatusCommand(program: Command): void {
         upstreamReviewBlockedStages,
         promptBlockedStages,
         classBlockedStages,
+        boardedPendingVideoShots,
+        ...(nextSequencePendingShots ? { nextSequencePendingShots } : {}),
       });
 
       if (videoName) console.log(`Video: ${videoName}\n`);

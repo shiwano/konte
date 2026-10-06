@@ -429,6 +429,55 @@ describe("suggestForStatus", () => {
     expect(actions).toEqual([]);
   });
 
+  it("names undeveloped video shots whose board is accepted", () => {
+    const actions = suggestForStatus({
+      state: makeState({}),
+      boardedPendingVideoShots: ["03", "04"],
+      nextSequencePendingShots: { animatic: [], video: ["03", "04"] },
+    });
+    expect(actions).toEqual([
+      {
+        command: null,
+        label: "edit",
+        details: ["Develop video shots 03, 04 in video.tsx from the accepted animatic"],
+      },
+    ]);
+  });
+
+  it("names the next sequence's undeveloped shots once nothing else is left", () => {
+    const actions = suggestForStatus({
+      state: makeState({}),
+      nextSequencePendingShots: { animatic: ["05"], video: ["05"] },
+    });
+    expect(actions).toEqual([
+      {
+        command: null,
+        label: "edit",
+        details: [
+          "Develop the next sequence: animatic shot 05 in animatic.tsx, video shot 05 in video.tsx",
+        ],
+      },
+    ]);
+  });
+
+  it("holds the next sequence back while other work is offered", () => {
+    const actions = suggestForStatus({
+      state: makeState({}),
+      readiness: [readinessFor("animatic", ["shot.01.first"])],
+      nextSequencePendingShots: { animatic: ["05"], video: ["05"] },
+    });
+    expect(actions).toEqual([{ command: "konte generate animatic" }]);
+  });
+
+  it("names no development while the direction holds the spend", () => {
+    const actions = suggestForStatus({
+      state: makeState({}),
+      directionReviewNeeded: true,
+      boardedPendingVideoShots: ["03"],
+    });
+    expect(actions.some((a) => a.command === null && a.label === "edit")).toBe(false);
+  });
+
   it("suggests generate for a stage the report says has something ungenerated", () => {
     const state = makeState({ "video:shot.01.motion": { variants: {} } });
 

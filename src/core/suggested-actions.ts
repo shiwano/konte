@@ -591,6 +591,10 @@ interface SuggestStatusInput {
    * it (the take moved under it, or an accept was stamped over it), so it asks for nothing.
    */
   feedbackAddresses?: readonly string[];
+  /** Undeveloped video shots whose animatic shot is developed with every asset accepted. */
+  boardedPendingVideoShots?: readonly string[];
+  /** The undeveloped shots of the first leaf sequence still holding an undeveloped video shot. */
+  nextSequencePendingShots?: { animatic: readonly string[]; video: readonly string[] };
 }
 
 export type SongPending = {
@@ -704,7 +708,47 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   prependDirectionFindings(actions, input.directionBlock, input.directionEmpty);
   prependPromptFindings(actions, input.promptBlockedStages ?? []);
   prependClassFindings(actions, classBlocked);
+  if (!gated) {
+    suggestDevelopment(
+      actions,
+      input.boardedPendingVideoShots ?? [],
+      input.nextSequencePendingShots,
+    );
+  }
   return dedupeCommands(actions);
+}
+
+function shotList(ids: readonly string[]): string {
+  return `shot${ids.length === 1 ? "" : "s"} ${ids.join(", ")}`;
+}
+
+function suggestDevelopment(
+  actions: SuggestedAction[],
+  boarded: readonly string[],
+  next: SuggestStatusInput["nextSequencePendingShots"],
+): void {
+  if (boarded.length > 0) {
+    actions.push({
+      command: null,
+      label: "edit",
+      details: [
+        `Develop video ${shotList(boarded)} in ${STAGE_ENTRY_FILE.video} from the accepted animatic`,
+      ],
+    });
+    return;
+  }
+  if (!next || next.video.length === 0 || actions.length > 0) return;
+  const parts = [
+    ...(next.animatic.length > 0
+      ? [`animatic ${shotList(next.animatic)} in ${STAGE_ENTRY_FILE.animatic}`]
+      : []),
+    `video ${shotList(next.video)} in ${STAGE_ENTRY_FILE.video}`,
+  ];
+  actions.push({
+    command: null,
+    label: "edit",
+    details: [`Develop the next sequence: ${parts.join(", ")}`],
+  });
 }
 
 function prependClassFindings(

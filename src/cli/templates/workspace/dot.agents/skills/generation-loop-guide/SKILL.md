@@ -1,6 +1,6 @@
 ---
 name: generation-loop-guide
-description: Drive one stage — reference pool, animatic, or video — through generate → wait → self-review → human review → iterate until every reviewable asset is accepted. Read when the user wants to build the reference pool, complete the animatic, complete/refine the video shots, run a stage, or whenever you reach a generate/wait/reroll step.
+description: Drive one stage — reference pool, animatic, or video — through generate → wait → self-review → human review → iterate until every reviewable asset is accepted. Read when the user wants to build the reference pool, complete the animatic, complete/refine the video shots, run a stage, or whenever you reach a generate/wait/reroll step; developing a pendingShot is layout-guide's.
 user-invocable: false
 ---
 
@@ -22,7 +22,7 @@ Substitute your stage's `<scope>` / `<address>` into every step below.
 ## 1. Preflight
 
 - **Run `konte doctor`** — on a missing backend key or disconnected backend (`FAIL ...`), stop and follow `config-guide` first.
-- **`generate` aborts `DIRECTION_ACCEPTANCE_REQUIRED`** → drive the direction review in `drafting-guide`, then run again. `pendingShot` shots are `layout-guide`'s to develop, not this loop's.
+- **`generate` aborts `DIRECTION_ACCEPTANCE_REQUIRED`** → drive the direction review in `drafting-guide`, then run again.
 - **The board is accepted before the motion it feeds** — `generate video` aborts (`ANIMATIC_ACCEPTANCE_REQUIRED`) on any `animatic:` address a shot consumes with no accepted take: its keyframes, and its `#stem` where the shot speaks. Take the board through one review of the whole reel (step 5) and run again.
 
 ## 2. See what's missing

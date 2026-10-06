@@ -11,7 +11,7 @@ Turn the accepted direction into stage definitions ready to generate — rosters
 ## 1. Preflight
 
 - **The direction is accepted, or this isn't your step** — `konte status`; a direction review under Next steps, or a change that belongs in `direction.ts` → `drafting-guide`. A part reported as changed with no direction review offered needs none: the stage review it belongs to signs it off.
-- **Re-entering a piece → `konte status` before editing** — which shots are developed, what's accepted, which pendings remain.
+- **Re-entering a piece → `konte status` before editing** — which shots are developed, what's accepted, which pendings remain. Plates baked → resume at step 7.
 
 ## 2. Wire brought material as file assets
 

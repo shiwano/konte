@@ -516,6 +516,11 @@ function collectLeaves(node: DirectionNode): DirectionNode[] {
   return (node.sequences ?? []).flatMap(collectLeaves);
 }
 
+// Each leaf sequence's shot ids, in direction order.
+export function leafSequenceShotIds(direction: Direction): string[][] {
+  return collectLeaves(direction.sequence).map((leaf) => (leaf.shots ?? []).map((s) => s.id));
+}
+
 // Every node of the arc tree (root + every descendant), depth-first.
 function collectNodes(node: DirectionNode): DirectionNode[] {
   return [node, ...(node.sequences ?? []).flatMap(collectNodes)];
