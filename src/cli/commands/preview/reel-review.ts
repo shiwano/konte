@@ -1354,6 +1354,17 @@ export async function handleReelSubmit(
       ]),
     );
 
+  const displayedTakes = (refs: readonly string[]): Record<string, string> => {
+    const takes: Record<string, string> = {};
+    for (const ref of refs) {
+      if (isMaterializedLeafAddress(ref) || takes[ref]) continue;
+      const variantId =
+        displayed[ref] ?? resolveCompositionRef(manager, ref, { includeStale: true })?.variantId;
+      if (variantId) takes[ref] = variantId;
+    }
+    return takes;
+  };
+
   const timing = shotSpans(plan.shots, plan.fps);
   const record: ReviewRecord = {
     mode: stage === "animatic" ? "animatic-preview" : "video-preview",
@@ -1367,6 +1378,14 @@ export async function handleReelSubmit(
         variants: displayedByAsset(s.resolvedVariants, (name) =>
           formatAddress(stage, s.shotId, name),
         ),
+        ...(s.shotFn
+          ? {
+              takes: displayedTakes([
+                ...(shotById(video.shots, s.shotId)?.compositionRefs ?? []),
+                ...shotAcceptTargets(manager, video, s).stemSources,
+              ]),
+            }
+          : {}),
       })),
       // Stage-level timeline assets — recorded at the variant the reviewer saw, like the shots
       // above: a bed switched in the gallery, or a reroll that landed mid-review, must not make
@@ -1375,6 +1394,11 @@ export async function handleReelSubmit(
       // `timelineStemDecision` on `timeline#stem`, and the overlay via `overlayDecision`.
       timeline: displayedByAsset(plan.timelineResolvedVariants, (name) =>
         formatTimelineAddress(stage, name),
+      ),
+      timelineSources: displayedTakes(
+        (video.timelineSoundtracks ?? [])
+          .map((st) => parsePlaceholder(st.src.src))
+          .filter((p): p is string => p !== null),
       ),
       // `contentHashes` (the materialized-leaf baseline) is set below, after the accepts —
       // see the note there.

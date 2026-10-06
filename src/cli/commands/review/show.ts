@@ -199,7 +199,6 @@ export function registerReviewShowCommand(program: Command): void {
     .description("Show the latest (or a specific) review session's decisions and feedback")
     .option("--last", "Show the most recent review (default)")
     .option("--verbose", "Also show the AI-authored handoff notes")
-    .option("--accepts", "List every accepted and un-accepted address, cascades included")
     .option("--contact-sheet", "Also tile every note's frame into one sheet to Read")
     .option("--max-cells <n>", `Cells per sheet (default ${DEFAULT_MAX_CELLS})`)
     .addHelpText(
@@ -216,9 +215,10 @@ captioned with the comment id and its shot-local time, and laid out in timeline 
 text itself stays in the listing.
 
 A reel review names its decided shots on one line per outcome (Accepted: 38 of 50 shots (01–12, 14)),
-and no review lists what an accept signed off along with it; --accepts lists every address. A take it
-accepted that still stands accepted while its definition has since changed is listed under
-"Accepted against a changed definition", with the fields that changed.
+then each take the reviewer saw or heard, in timeline order. What an accept signed off along with them
+(a composition, a stem, an upstream a take consumed) is not listed. A take it accepted that still
+stands accepted while its definition has since changed is listed under "Accepted against a changed
+definition", with the fields that changed.
 
 A review with more notes than one sheet holds (${DEFAULT_MAX_CELLS}, at 384x216 per cell) paginates,
 printing one path per sheet; --max-cells (1..${MAX_CELLS_LIMIT}) trades cell size for fewer sheets.
@@ -227,8 +227,7 @@ Examples:
   konte review record show                                 The latest review
   konte review record show --contact-sheet                 ... plus a sheet of every flagged frame
   konte review record show --contact-sheet --max-cells 30  ... on one sheet, smaller cells
-  konte review record show --verbose                       ... plus the handoff notes the AI wrote
-  konte review record show --accepts                       ... with every accepted address listed`,
+  konte review record show --verbose                       ... plus the handoff notes the AI wrote`,
     )
     .action(
       async (
@@ -236,7 +235,6 @@ Examples:
         opts: {
           last?: boolean;
           verbose?: boolean;
-          accepts?: boolean;
           contactSheet?: boolean;
           maxCells?: string;
         },
@@ -301,7 +299,6 @@ Examples:
         console.log(
           formatReviewRecord(record, {
             showHandoff: opts.verbose,
-            showAccepts: opts.accepts,
             noteFrames,
             definitionDrift,
           }),

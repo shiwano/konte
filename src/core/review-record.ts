@@ -72,11 +72,16 @@ export const ReviewRecordSchema = z.object({
         start: z.number(),
         duration: z.number(),
         variants: z.record(z.string(), z.string()),
+        // The takes the shot's composition places and its stems mix (address -> variantId), as the
+        // reviewer saw and heard them. Absent on a shot with no composition.
+        takes: z.record(z.string(), z.string()).optional(),
       }),
     ),
     // Stage-level timeline assets (assetName -> variantId). Not shot-scoped, so
     // kept separate from `shots`.
     timeline: z.record(z.string(), z.string()).optional(),
+    // The takes `timeline#stem` mixes (address -> variantId), as the reviewer heard them.
+    timelineSources: z.record(z.string(), z.string()).optional(),
     // Direction reviews only: the part hash of every reviewable direction part at submit
     // (full `direction:<part>` address -> hash) — the baseline `review handoff new
     // direction` diffs against, playing the role `shots`/`timeline` variant ids play for
@@ -111,8 +116,7 @@ export const ReviewRecordSchema = z.object({
     .object({ open: z.boolean(), blocking: z.number(), total: z.number() })
     .optional(),
   // Targets signed off implicitly, as a side effect of another accept, rather than through a
-  // decision line of their own — so `review record show` reflects the acceptance `status` computes
-  // instead of hiding it. Each entry names the address it was accepted through (`via`): a shot's
+  // decision line of their own. Each entry names the address it was accepted through (`via`): a shot's
   // composition and audio stem via the shot (`video:shot.<id>`), and each audio source via its stem
   // (`shot.<id>#stem` / `timeline#stem`) — e.g. a BGM bed under `timeline#stem`.
   cascadeAccepted: z.array(z.object({ address: z.string(), via: z.string() })).optional(),
@@ -438,13 +442,6 @@ export function reviewStage(
   return "video";
 }
 
-// The stage prefix of an address (`video:shot.05` -> `video`); the whole string when it carries no
-// prefix. Used to decide whether a cascade's provenance is worth showing.
-function addressStage(address: string): string {
-  const i = address.indexOf(":");
-  return i === -1 ? address : address.slice(0, i);
-}
-
 // Single renderer for a review's content, used by `review record show`. Every mode
 // (video/animatic/reference/direction) funnels through here, so the recap reads the same
 // wherever it comes from: what was accepted (directly or by cascade), what was un-accepted, and
@@ -454,9 +451,6 @@ export function formatReviewRecord(
   opts: {
     filePath?: string;
     showHandoff?: boolean;
-    // List every address the review accepted or un-accepted, cascades included. Off, a reel review
-    // names its decided shots on one line per outcome and no cascade is listed.
-    showAccepts?: boolean;
     // Resolved frame per note id, from `resolveShotFeedbackFrames`. Absent for a note whose frame is not
     // on disk and could not be rendered — the listing then names no frame for it.
     noteFrames?: ReadonlyMap<string, string>;
@@ -474,41 +468,28 @@ export function formatReviewRecord(
     for (const line of record.overallComment.split("\n")) lines.push(`  ${line}`);
   }
 
-  // Outcome, not gesture, is the axis: accept / un-accept / comment. A directly-judged accept and
-  // one that rode in on another (a shot's composition/stem, an audio source under a stem) are the
-  // same outcome, so under `showAccepts` they share one `Accepted` section — the cascade ones
-  // ordered after, tagged with their driver only when it sits in another stage (within a stage the
-  // address already says whose it is). Reporting outcomes separately keeps a feedback-only review
-  // from ever reading as a set of approvals.
-  const { accepted, acceptedAddresses, unaccepted, feedback } = collectReviewSections(
-    record,
-    opts.noteFrames,
-  );
+  // Outcome, not gesture, is the axis: accept / un-accept / comment. Reporting outcomes separately
+  // keeps a feedback-only review from ever reading as a set of approvals. A reel review heads each
+  // outcome with its decided shots on one line, then names the takes the reviewer saw or heard; what
+  // an accept signed off along with them (a composition, a stem, an upstream a take consumed) is not
+  // listed.
+  const { accepted, unaccepted, feedback } = collectReviewSections(record, opts.noteFrames);
 
-  const reelSummary = opts.showAccepts ? null : summarizeReelDecisions(record);
+  const reelSummary = summarizeReelDecisions(record);
+  lines.push("");
   if (reelSummary) {
-    lines.push("");
     lines.push(
       reelSummary.accepted ? `Accepted: ${reelSummary.accepted}` : "Accepted: none submitted",
     );
-    if (reelSummary.unaccepted) lines.push(`Unaccepted: ${reelSummary.unaccepted}`);
-  } else {
-    const seen = new Set<string>();
-    const cascadeLines: string[] = [];
-    for (const { address, via } of opts.showAccepts ? (record.cascadeAccepted ?? []) : []) {
-      // A cascade whose target already carries its own accept line is not repeated.
-      if (acceptedAddresses.has(address) || seen.has(address)) continue;
-      seen.add(address);
-      cascadeLines.push(
-        addressStage(address) === addressStage(via) ? address : `${address} (via ${via})`,
-      );
+    for (const line of accepted) lines.push(`  ${line}`);
+    if (reelSummary.unaccepted) {
+      lines.push(`Unaccepted: ${reelSummary.unaccepted}`);
+      for (const line of unaccepted) lines.push(`  ${line}`);
     }
-    const acceptedLines = [...accepted, ...cascadeLines];
-
-    lines.push("");
-    if (acceptedLines.length > 0) {
+  } else {
+    if (accepted.length > 0) {
       lines.push("Accepted:");
-      for (const line of acceptedLines) lines.push(`  ${line}`);
+      for (const line of accepted) lines.push(`  ${line}`);
     } else {
       lines.push("Accepted: none submitted");
     }
@@ -631,10 +612,7 @@ function summarizeReelDecisions(
   if (record.mode !== "animatic-preview" && record.mode !== "video-preview") return null;
   const stage = reviewStage(record) === "animatic" ? "animatic" : "video";
   const shotDecisions = (record.decisions as Record<string, "accepted" | "none"> | null) ?? {};
-  const order = record.context.shots.map((s) => s.shotId);
-  for (const shotId of Object.keys(shotDecisions)) {
-    if (!order.includes(shotId)) order.push(shotId);
-  }
+  const order = reelShotOrder(record);
   const total = record.context.shots.length;
 
   const line = (status: "accepted" | "none"): string | null => {
@@ -665,6 +643,16 @@ function summarizeReelDecisions(
   return { accepted: line("accepted"), unaccepted: line("none") };
 }
 
+// A reel review's decided shots in timeline order, any the record's context no longer holds after.
+function reelShotOrder(record: ReviewRecord): string[] {
+  const shotDecisions = (record.decisions as Record<string, "accepted" | "none"> | null) ?? {};
+  const order = record.context.shots.map((s) => s.shotId);
+  for (const shotId of Object.keys(shotDecisions)) {
+    if (!order.includes(shotId)) order.push(shotId);
+  }
+  return order;
+}
+
 interface FeedbackGroup {
   address: string;
   items: string[];
@@ -680,20 +668,13 @@ function collectReviewSections(
   noteFrames?: ReadonlyMap<string, string>,
 ): {
   accepted: string[];
-  acceptedAddresses: Set<string>;
   unaccepted: string[];
   feedback: FeedbackGroup[];
 } {
   const accepted: string[] = [];
-  const acceptedAddresses = new Set<string>();
   const unaccepted: string[] = [];
-  const pushDecision = (address: string, status: "accepted" | "none", line: string) => {
-    if (status === "accepted") {
-      accepted.push(line);
-      acceptedAddresses.add(address);
-    } else {
-      unaccepted.push(line);
-    }
+  const pushDecision = (status: "accepted" | "none", line: string) => {
+    (status === "accepted" ? accepted : unaccepted).push(line);
   };
   const groups: FeedbackGroup[] = [];
   const groupByAddress = new Map<string, FeedbackGroup>();
@@ -712,69 +693,64 @@ function collectReviewSections(
     // against the section itself instead of any single `direction:<part>` address.
     for (const [section, decision] of Object.entries(record.directionDecisions ?? {})) {
       const address = `direction:${section}`;
-      pushDecision(address, decision, address);
+      pushDecision(decision, address);
     }
     for (const d of (record.decisions as ReviewDecisionEntry[] | null) ?? []) {
       // A bare comment leaves status unset; only an explicit accept/none is an outcome, so
       // feedback-only entries stay out of both lists.
       if (d.status) {
         const variant = d.variantId ? ` (${d.variantId})` : "";
-        pushDecision(d.address, d.status, `${d.address}${variant}`);
+        pushDecision(d.status, `${d.address}${variant}`);
       }
       for (const fb of d.feedback.filter(isSessionFeedback)) {
         pushFeedback(d.address, formatAnimaticFeedbackItem(fb, d.address));
       }
     }
   } else {
-    // A reel stage's decisions are per-shot accepted/none; expand each into per-asset lines with
-    // variant IDs so the output names addresses (`<address> (<variantId>)`) instead of the
-    // ambiguous bare `01`.
+    // A reel stage's decisions are per-shot accepted/none; expand each, in timeline order, into
+    // `<address> (<variantId>)` lines: an accept into the takes the reviewer saw or heard, an
+    // un-accept into the shot's own takes it released.
     const stage = reviewStage(record) === "animatic" ? "animatic" : "video";
     const shotDecisions = (record.decisions as Record<string, "accepted" | "none"> | null) ?? {};
     const shotsById = new Map(record.context.shots.map((s) => [s.shotId, s]));
-    // A shot decision covers the shot's picture AND its audio (via its stem, cascaded), so every
-    // resolved asset is listed under the shot.
-    for (const [shotId, status] of Object.entries(shotDecisions)) {
-      const variants = Object.entries(shotsById.get(shotId)?.variants ?? {});
-      if (variants.length > 0) {
-        for (const [assetName, variantId] of variants) {
-          const address = formatAddress(stage, shotId, assetName);
-          pushDecision(address, status, `${address} (${variantId})`);
-        }
+    for (const shotId of reelShotOrder(record)) {
+      const status = shotDecisions[shotId];
+      if (!status) continue;
+      const shot = shotsById.get(shotId);
+      const takes: Array<[string, string]> =
+        status === "accepted" && shot?.takes
+          ? Object.entries(shot.takes)
+          : Object.entries(shot?.variants ?? {}).map(([assetName, variantId]) => [
+              formatAddress(stage, shotId, assetName),
+              variantId,
+            ]);
+      if (takes.length > 0) {
+        for (const [address, variantId] of takes) pushDecision(status, `${address} (${variantId})`);
       } else {
         // A shot that generates nothing of its own (its picture is composed entirely from
         // animatic/reference takes) has no variant to name. Beside sibling lines that all carry
         // one, a bare address reads as a half-recorded accept — so say why it has none.
-        const address = `${stage}:shot.${shotId}`;
         pushDecision(
-          address,
           status,
-          `${address} (${shotVariantlessReason(record, stage, shotId)})`,
+          `${stage}:shot.${shotId} (${shotVariantlessReason(record, stage, shotId)})`,
         );
       }
     }
 
-    // The timeline audio stem (soundtrack beds), signed off in context.
-    if (record.timelineStemDecision) {
-      const address = formatTimelineStemAddress(stage);
-      pushDecision(address, record.timelineStemDecision, address);
-    }
-
-    if (record.overlayDecision) {
-      const address = formatTimelineOverlayAddress(stage);
-      pushDecision(address, record.overlayDecision, address);
-    }
-
     // Non-audio timeline assets (images, logos) are accepted through the compositions that
     // consume them — only when every shot is explicitly accepted, the exact rule submit applies.
-    const timeline = Object.entries(record.context.timeline ?? {});
-    if (timeline.length > 0) {
-      const allShotsOk = record.context.shots.every((s) => shotDecisions[s.shotId] === "accepted");
-      if (allShotsOk) {
-        for (const [assetName, variantId] of timeline) {
-          const address = formatTimelineAddress("video", assetName);
-          pushDecision(address, "accepted", `${address} (${variantId})`);
-        }
+    const allShotsOk = record.context.shots.every((s) => shotDecisions[s.shotId] === "accepted");
+    const listed = new Set<string>();
+    if (allShotsOk) {
+      for (const [assetName, variantId] of Object.entries(record.context.timeline ?? {})) {
+        const address = formatTimelineAddress(stage, assetName);
+        listed.add(address);
+        pushDecision("accepted", `${address} (${variantId})`);
+      }
+    }
+    if (record.timelineStemDecision === "accepted") {
+      for (const [address, variantId] of Object.entries(record.context.timelineSources ?? {})) {
+        if (!listed.has(address)) pushDecision("accepted", `${address} (${variantId})`);
       }
     }
 
@@ -787,7 +763,7 @@ function collectReviewSections(
     }
   }
 
-  return { accepted, acceptedAddresses, unaccepted, feedback: groups };
+  return { accepted, unaccepted, feedback: groups };
 }
 
 // Why a video shot's decision line names no variant. The record itself says which: a composition

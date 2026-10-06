@@ -825,14 +825,8 @@ describe("review record show command", () => {
   it("displays the latest review's decisions and feedback", async () => {
     await writeReview();
     const { stdout } = await run(["review", "record", "show"], projectDir);
-    expect(stdout).toContain("Accepted: 1 of 1 shot (03)");
+    expect(stdout).toContain("Accepted: 1 of 1 shot (03)\n  animatic:shot.03.first (v-Q4nT8aLp)");
     expect(stdout).toContain("hand position looks unnatural");
-  });
-
-  it("lists every accepted address under --accepts", async () => {
-    await writeReview();
-    const { stdout } = await run(["review", "record", "show", "--accepts"], projectDir);
-    expect(stdout).toContain("animatic:shot.03.first (v-Q4nT8aLp)");
   });
 
   it("opens a specific review file by name", async () => {

@@ -134,6 +134,41 @@ export default defineVideo(direction, {
 });
 `;
 
+// Shot 01's motion is animated from a still the composition never places.
+const VIDEO_WITH_STILL_TSX = `import { Composition, Video, defineVideo, defineComfyAsset, asset } from "konte";
+import direction from "./direction";
+
+const still = defineComfyAsset({
+  workflow: "still.json",
+  description: "test adapter",
+  inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },
+  outputs: { result: { nodeId: "9", type: "image" } },
+});
+
+const animate = defineComfyAsset({
+  workflow: "animate.json",
+  description: "test adapter",
+  inputs: {
+    prompt: { nodeId: "1", field: "text", type: "string" },
+    image: { nodeId: "2", field: "image", type: "image" },
+  },
+  outputs: { result: { nodeId: "9", type: "video" } },
+});
+
+export default defineVideo(direction, {
+  timeline: ({ shot }) => ({
+    shots: shot("01", () => {
+      const first = asset("first", still, { prompt: "the door" });
+      const motion = asset("motion", animate, { prompt: "she opens the door", image: first });
+      return <Composition><Video src={motion} /></Composition>;
+    }).nextShot("02", () => {
+      const motion = asset("motion", animate, { prompt: "she steps through", image: asset("first", still, { prompt: "the hall" }) });
+      return <Composition><Video src={motion} /></Composition>;
+    }),
+  }),
+});
+`;
+
 const SHOT_01_MOTION = "video:shot.01.motion";
 
 async function project(videoTsx = VIDEO_TSX): Promise<{ videoRoot: string; variantId: string }> {
@@ -229,6 +264,27 @@ describe("handleReelSubmit — accepts land while another shot is not ready", ()
     // `timeline` key at all. A record shaped like that means the accepts never ran.
     expect(record.context.shots).not.toHaveLength(0);
     expect(record.context.timeline).toBeDefined();
+  });
+
+  it("records the takes an accepted shot placed, not the still its motion was made from", async () => {
+    const { videoRoot, variantId } = await project(VIDEO_WITH_STILL_TSX);
+    const sm = await StateManager.load(videoRoot);
+    const firstId = sm.reserveVariantId("video:shot.01.first");
+    sm.getAssetState("video:shot.01.first").variants![firstId]!.file = "assets/first.png";
+    await sm.save();
+
+    const { payload } = await submit(videoRoot, {
+      stage: "video",
+      decisions: { "01": "accepted" },
+      displayedVariants: { [SHOT_01_MOTION]: variantId, "video:shot.01.first": firstId },
+      displayedStandInShotIds: [],
+    });
+
+    const record = JSON.parse(await fs.readFile(payload.filePath as string, "utf-8")) as {
+      context: { shots: Array<{ variants: Record<string, string>; takes?: unknown }> };
+    };
+    expect(record.context.shots[0]!.variants).toEqual({ first: firstId, motion: variantId });
+    expect(record.context.shots[0]!.takes).toEqual({ [SHOT_01_MOTION]: variantId });
   });
 
   it("releases an accept on 'none' even while a sibling shot is not ready", async () => {

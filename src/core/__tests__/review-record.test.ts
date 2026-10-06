@@ -807,7 +807,7 @@ describe("formatReviewRecord", () => {
       decisions: { "03": "accepted" },
     };
 
-    const out = formatReviewRecord(record, { showAccepts: true });
+    const out = formatReviewRecord(record);
     expect(out).toContain("Review: animatic-preview (animatic) 2026-05-16T12:00:00.000Z");
     expect(out).toContain("Accepted:");
     expect(out).toContain("animatic:shot.03.first (v-Q4nT8aLp)");
@@ -941,7 +941,7 @@ describe("formatReviewRecord", () => {
       ],
     };
 
-    const out = formatReviewRecord(record, { showAccepts: true });
+    const out = formatReviewRecord(record);
     expect(out).toContain("Accepted:");
     expect(out).toContain("video:shot.01.motion (v-UI5zkvU6)");
     // An explicit un-accept ("none") is its own outcome, listed under Unaccepted by bare address.
@@ -1010,18 +1010,12 @@ describe("formatReviewRecord", () => {
       timeline: { bgm: "v-bbbbbbbb" },
     };
 
-    const accepted = formatReviewRecord(
-      { ...base, context, decisions: { "01": "accepted" } },
-      { showAccepts: true },
-    );
+    const accepted = formatReviewRecord({ ...base, context, decisions: { "01": "accepted" } });
     expect(accepted).toContain("video:timeline.bgm (v-bbbbbbbb)");
 
     // A shot that isn't explicitly accepted means submit never accepts the timeline
     // asset, so it must not be listed as accepted (the shot itself surfaces under Unaccepted).
-    const notOk = formatReviewRecord(
-      { ...base, context, decisions: { "01": "none" } },
-      { showAccepts: true },
-    );
+    const notOk = formatReviewRecord({ ...base, context, decisions: { "01": "none" } });
     expect(notOk).not.toContain("video:timeline.bgm");
     expect(notOk).toContain("Unaccepted:");
 
@@ -1030,35 +1024,89 @@ describe("formatReviewRecord", () => {
     expect(undecided).not.toContain("video:timeline.bgm");
   });
 
-  it("folds cascade accepts into Accepted, showing via only across a stage boundary", () => {
+  it("names an accepted shot's placed and mixed takes, and the timeline's", () => {
+    const record: ReviewRecord = {
+      mode: "video-preview",
+      stage: "video",
+      createdAt: "2026-05-16T12:00:00.000Z",
+      context: {
+        shots: [
+          {
+            shotId: "01",
+            start: 0,
+            duration: 3,
+            variants: { first: "v-eeeeeeee", motion: "v-aaaaaaaa" },
+            takes: {
+              "video:shot.01.motion": "v-aaaaaaaa",
+              "animatic:shot.01.line": "v-cccccccc",
+            },
+          },
+        ],
+        timeline: { bgm: "v-bbbbbbbb" },
+        timelineSources: { "video:timeline.bgm": "v-bbbbbbbb", "reference:theme": "v-dddddddd" },
+      },
+      decisions: { "01": "accepted" },
+      timelineStemDecision: "accepted",
+    };
+
+    const out = formatReviewRecord(record);
+    expect(out).toContain(
+      [
+        "Accepted: 1 of 1 shot (01), video:timeline#stem",
+        "  video:shot.01.motion (v-aaaaaaaa)",
+        "  animatic:shot.01.line (v-cccccccc)",
+        "  video:timeline.bgm (v-bbbbbbbb)",
+        "  reference:theme (v-dddddddd)",
+      ].join("\n"),
+    );
+    expect(out).not.toContain("video:shot.01.first");
+  });
+
+  it("names the beds a timeline stem accept heard while a shot is left undecided", () => {
     const record: ReviewRecord = {
       mode: "video-preview",
       stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: {
         shots: [{ shotId: "01", start: 0, duration: 3, variants: { motion: "v-aaaaaaaa" } }],
+        timeline: { bgm: "v-bbbbbbbb", logo: "v-eeeeeeee" },
+        timelineSources: { "video:timeline.bgm": "v-bbbbbbbb" },
       },
-      decisions: { "01": "accepted" },
+      decisions: {},
       timelineStemDecision: "accepted",
-      cascadeAccepted: [
-        // Same stage (video → video): the address already says whose it is, so no `via`.
-        { address: "video:timeline.bgm", via: "video:timeline#stem" },
-        // Cross stage (reference locked by a video review): `via` names the driver.
-        { address: "reference:bgm", via: "video:timeline#stem" },
-        // Already an accept line — must not be repeated.
-        { address: "video:shot.01.motion", via: "video:shot.01#stem" },
-      ],
     };
 
-    const out = formatReviewRecord(record, { showAccepts: true });
-    expect(out).toContain("Accepted:");
-    expect(out).toContain("video:timeline#stem");
-    expect(out).toContain("reference:bgm (via video:timeline#stem)");
-    // Within-stage cascade drops the redundant provenance.
-    expect(out).toContain("  video:timeline.bgm\n");
-    expect(out).not.toContain("video:timeline.bgm (via");
-    // The motion accept appears once (its own line), never duplicated by the cascade entry.
-    expect(out.match(/video:shot\.01\.motion/g)).toHaveLength(1);
+    const out = formatReviewRecord(record);
+    expect(out).toContain("Accepted: video:timeline#stem\n  video:timeline.bgm (v-bbbbbbbb)");
+    expect(out).not.toContain("video:timeline.logo");
+  });
+
+  it("names every take an un-accept released, the ones only another consumed included", () => {
+    const record: ReviewRecord = {
+      mode: "video-preview",
+      stage: "video",
+      createdAt: "2026-05-16T12:00:00.000Z",
+      context: {
+        shots: [
+          {
+            shotId: "01",
+            start: 0,
+            duration: 3,
+            variants: { first: "v-eeeeeeee", motion: "v-aaaaaaaa" },
+            takes: { "video:shot.01.motion": "v-aaaaaaaa" },
+          },
+        ],
+      },
+      decisions: { "01": "none" },
+    };
+
+    expect(formatReviewRecord(record)).toContain(
+      [
+        "Unaccepted: 1 of 1 shot (01)",
+        "  video:shot.01.first (v-eeeeeeee)",
+        "  video:shot.01.motion (v-aaaaaaaa)",
+      ].join("\n"),
+    );
   });
 
   it("has no cascade lines when nothing was signed off in context", () => {
@@ -1071,7 +1119,7 @@ describe("formatReviewRecord", () => {
       },
       decisions: { "01": "accepted" },
     };
-    const out = formatReviewRecord(record, { showAccepts: true });
+    const out = formatReviewRecord(record);
     expect(out).toContain("video:shot.01.motion (v-aaaaaaaa)");
     expect(out).not.toContain("(via ");
   });
@@ -1103,7 +1151,6 @@ describe("formatReviewRecord", () => {
 
     const out = formatReviewRecord(record, {
       filePath: "review/video/records/20260516T120000000.json",
-      showAccepts: true,
     });
     expect(out).toContain("File: review/video/records/20260516T120000000.json");
     // The un-accept comes from the record itself, listed by bare address.
@@ -1111,7 +1158,7 @@ describe("formatReviewRecord", () => {
     expect(out).toContain("  video:shot.01.motion");
   });
 
-  it("names the composition and stem accepted as a side effect of the shot accept", () => {
+  it("leaves out what a shot accept signed off along with its takes", () => {
     const record: ReviewRecord = {
       mode: "video-preview",
       stage: "video",
@@ -1123,19 +1170,15 @@ describe("formatReviewRecord", () => {
       cascadeAccepted: [
         { address: "video:shot.05#composition", via: "video:shot.05" },
         { address: "video:shot.05#stem", via: "video:shot.05" },
-        { address: "video:se-hit", via: "video:shot.05#stem" },
+        { address: "reference:cat-sheet", via: "video:shot.05.motion" },
       ],
     };
 
-    const out = formatReviewRecord(record, { showAccepts: true });
-    // The composition/stem aren't reviewable per-shot assets, but they surface under Accepted so the
-    // recap names everything the shot accept signed off. All within `video`, so no `via` is shown.
-    expect(out).toContain("Accepted:");
-    expect(out).toContain("  video:shot.05.motion (v-aaaaaaaa)");
-    expect(out).toContain("  video:shot.05#composition");
-    expect(out).toContain("  video:shot.05#stem");
-    expect(out).toContain("  video:se-hit");
-    expect(out).not.toContain("(via ");
+    const out = formatReviewRecord(record);
+    expect(out).toContain("Accepted: 1 of 1 shot (05)\n  video:shot.05.motion (v-aaaaaaaa)");
+    expect(out).not.toContain("#composition");
+    expect(out).not.toContain("#stem");
+    expect(out).not.toContain("reference:cat-sheet");
   });
 
   it("says why a shot that generates nothing of its own carries no variant id", () => {
@@ -1155,7 +1198,7 @@ describe("formatReviewRecord", () => {
 
     // Beside a sibling that names its variant, a bare `video:shot.01` reads as a half-recorded
     // accept — the reason keeps it from being mistaken for one.
-    const out = formatReviewRecord(record, { showAccepts: true });
+    const out = formatReviewRecord(record);
     expect(out).toContain("  video:shot.10.motion (v-kVNK2f5s)");
     expect(out).toContain("  video:shot.01 (composition only)");
   });
@@ -1169,12 +1212,10 @@ describe("formatReviewRecord", () => {
       decisions: { "04": "none" },
     };
 
-    expect(formatReviewRecord(record, { showAccepts: true })).toContain(
-      "  video:shot.04 (no generated assets)",
-    );
+    expect(formatReviewRecord(record)).toContain("  video:shot.04 (no generated assets)");
   });
 
-  it("names a reel review's decided shots on one line per outcome, in timeline order", () => {
+  it("names a reel review's decided shots per outcome, then their takes in timeline order", () => {
     const shot = (shotId: string, start: number) => ({
       shotId,
       start,
@@ -1195,14 +1236,21 @@ describe("formatReviewRecord", () => {
     };
 
     const out = formatReviewRecord(record);
-    expect(out).toContain("Accepted: 3 of 6 shots (01–02, 05), video:timeline#stem");
-    expect(out).toContain("Unaccepted: 1 of 6 shots (04)");
-    expect(out).not.toContain("v-01aaaaaa");
+    expect(out).toContain(
+      [
+        "Accepted: 3 of 6 shots (01–02, 05), video:timeline#stem",
+        "  video:shot.01.motion (v-01aaaaaa)",
+        "  video:shot.02.motion (v-02aaaaaa)",
+        "  video:shot.05.motion (v-05aaaaaa)",
+        "Unaccepted: 1 of 6 shots (04)",
+        "  video:shot.04.motion (v-04aaaaaa)",
+      ].join("\n"),
+    );
     expect(out).not.toContain("#composition");
     expect(out).not.toContain("reference:bgm");
   });
 
-  it("leaves a direct accept listed and its cascades out outside a reel review", () => {
+  it("leaves a direct accept listed and its cascades out", () => {
     const record: ReviewRecord = {
       mode: "reference-preview",
       stage: "reference",
@@ -1217,7 +1265,6 @@ describe("formatReviewRecord", () => {
     const out = formatReviewRecord(record);
     expect(out).toContain("Accepted:\n  reference:cat (v-xm65f1Aa)");
     expect(out).not.toContain("reference:cat-sheet");
-    expect(formatReviewRecord(record, { showAccepts: true })).toContain("  reference:cat-sheet");
   });
 
   it("gates the AI-authored handoff behind showHandoff", () => {
