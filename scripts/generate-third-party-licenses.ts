@@ -29,12 +29,16 @@ const TEXT_FALLBACKS: Record<string, string> = {
   degenerator: "MIT",
   "proxy-agent-negotiate": "MIT",
   "quickjs-wasi": "MIT",
+  "onnxruntime-common": "MIT",
+  "onnxruntime-web": "MIT",
 };
 
-// The copyright holder for a vendored text, for a package whose manifest names no author. Taken
-// from the upstream repository's license file.
+// The copyright holder for a vendored text, for a package whose manifest names no author or names
+// someone other than the holder. Taken from the upstream repository's license file.
 const HOLDER_FALLBACKS: Record<string, string> = {
   "quickjs-wasi": "2026 Vercel, Inc.",
+  "onnxruntime-common": "Microsoft Corporation",
+  "onnxruntime-web": "Microsoft Corporation",
 };
 
 // MIT carries the copyright line inside the grant, so a vendored copy is only correct once the
@@ -107,7 +111,7 @@ function vendoredText(
   const text = fs.readFileSync(vendored, "utf-8").trimEnd();
   if (!text.includes(HOLDER_PLACEHOLDER)) return text;
 
-  const holder = holderOf(manifest) ?? HOLDER_FALLBACKS[name] ?? null;
+  const holder = HOLDER_FALLBACKS[name] ?? holderOf(manifest);
   if (holder === null) return null;
   return text.replaceAll(HOLDER_PLACEHOLDER, holder);
 }
@@ -117,15 +121,16 @@ function bundledPackages(): Set<string> {
   const names = new Set<string>();
   try {
     for (const [entry, target] of ENTRIES) {
-      const outfile = path.join(scratch, `${path.basename(path.dirname(entry))}.js`);
+      const outdir = path.join(scratch, path.basename(path.dirname(entry)));
       const { exitCode, stderr } = Bun.spawnSync(
-        ["bun", "build", entry, `--target=${target}`, "--outfile", outfile],
+        ["bun", "build", entry, `--target=${target}`, "--outdir", outdir],
         { cwd: repoRoot },
       );
       if (exitCode !== 0) {
         console.error(`Bundling ${entry} failed:\n${new TextDecoder().decode(stderr)}`);
         process.exit(1);
       }
+      const outfile = path.join(outdir, `${path.basename(entry, path.extname(entry))}.js`);
       for (const [, name] of fs.readFileSync(outfile, "utf-8").matchAll(MODULE_MARKER)) {
         if (name !== undefined) names.add(name);
       }
