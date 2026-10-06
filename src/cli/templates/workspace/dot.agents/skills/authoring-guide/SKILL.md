@@ -43,7 +43,7 @@ export default defineReference(direction, () => {
 - **Generated once and shared across every stage** — accepting it once satisfies everyone. A reference asset may depend only on other reference assets, never on an animatic/video asset.
 - **Return only what other stages consume** — an asset used solely as an input to another reference asset (e.g. a blank `latent` feeding a generated `key`) is declared but left un-returned. An un-returned one still generates, but is never reviewed. A returned name must be a real `asset()`.
 - **Return each character, prop, location and cast voice under its roster id** — a `lineup`'s `cat` needs `reference:cat`; other shared assets (`bgm`) are fine. Setups and landmarks are declared on the animatic.
-- **Let konte size a generated reference** — `width`/`height` derive off the canvas' long edge: portrait for a character, a 2:1 master at twice it for a location, square for the rest; pass neither. A canvas-shaped overlay takes `...format.size`.
+- **Let konte size a generated reference** — `width`/`height` derive off the canvas' long edge: portrait for a character, a landscape master at twice it for a location, square for the rest; pass neither. A canvas-shaped overlay takes `...format.size`.
 - **Frame the subject tight** — margin is pixels the shot never uses; ask for it filling the frame.
 
 ### animatic.tsx — defineAnimatic()

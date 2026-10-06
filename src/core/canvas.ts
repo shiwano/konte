@@ -103,12 +103,12 @@ export type ReferenceShape = "portrait" | "square" | "master";
 const PORTRAIT_SHORT_EDGE = 2 / 3;
 
 // A location sheet is the master a plate is cut out of, so it is sized for the crop rather than for
-// the frame: twice the canvas on its long edge, so the tightest window still carries texture, at
-// 2:1 — the widest a place can be drawn without the sampler doubling what is in it. The long edge
-// stays the canvas', so a turned piece gets a turned master and a vertical window keeps the same
-// headroom a horizontal one has.
+// the frame: twice the canvas on its long edge, so the tightest window still carries texture. It is
+// landscape whatever the canvas: 2:1 — the widest a place can be drawn without the sampler doubling
+// what is in it — under a horizontal canvas, 3:2 under a vertical one.
 const MASTER_LONG_EDGE_SCALE = 2;
 const MASTER_ASPECT = 2;
+const VERTICAL_MASTER_ASPECT = 3 / 2;
 
 function roundToGrid(value: number): number {
   return Math.max(CANVAS_GRID, Math.round(value / CANVAS_GRID) * CANVAS_GRID);
@@ -121,8 +121,6 @@ export function deriveReferenceSize(base: CanvasSize, shape: ReferenceShape): Ca
   if (shape === "portrait") return { width: roundToGrid(long * PORTRAIT_SHORT_EDGE), height: long };
   if (shape === "square") return { width: long, height: long };
   const masterLong = roundToGrid(long * MASTER_LONG_EDGE_SCALE);
-  const masterShort = roundToGrid(masterLong / MASTER_ASPECT);
-  return base.height > base.width
-    ? { width: masterShort, height: masterLong }
-    : { width: masterLong, height: masterShort };
+  const aspect = base.height > base.width ? VERTICAL_MASTER_ASPECT : MASTER_ASPECT;
+  return { width: masterLong, height: roundToGrid(masterLong / aspect) };
 }

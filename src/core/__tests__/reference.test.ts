@@ -394,7 +394,7 @@ describe("reference canvas", () => {
 
   // The master is the one shape that follows the canvas' orientation: a window cut for a vertical
   // frame needs the headroom on the vertical axis.
-  it("turns the master with the canvas", () => {
+  it("keeps the master landscape under a vertical canvas", () => {
     const portrait = defineDirection({
       ...directionDefaults,
       policy: {
@@ -409,7 +409,7 @@ describe("reference canvas", () => {
       return { studio };
     });
 
-    expect(sizesOf(def.topLevelAssets ?? {})).toEqual({ studio: [1024, 2048] });
+    expect(sizesOf(def.topLevelAssets ?? {})).toEqual({ studio: [2048, 1376] });
   });
 
   it("takes a declared size over the derived one", () => {
