@@ -41,4 +41,4 @@ The workspace root comes from `workspaceRootOrNull()` (`src/core/workspace-conte
 
 Each directory name pins the identity of what it holds — `ffmpeg-<version>`, `tsc-<version>`, `chromium-<version>`, `hyperframes-<contentHash>`. hyperframes is written out of the binary rather than downloaded, so it is the one runtime with nothing to pin, and the one whose resolver still goes by the files existing.
 
-`konte workspace new` prefetches ffmpeg, tsc, Chromium, sherpa-onnx and Beat This!, one at a time. A prefetch failure warns and continues.
+`konte workspace new` prefetches ffmpeg, tsc, Chromium and sherpa-onnx, one at a time. A prefetch failure warns and continues.
