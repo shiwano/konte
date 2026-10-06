@@ -47,8 +47,8 @@ Look at the actual upstream image before writing about it.
 - **Skip when:** drafting an initial prompt before any variant exists.
 
 1. **`konte inspect <this-asset-address>` → "Dependencies"** — enumerate the image-producing deps authoritatively, not by eyeballing the source file.
-2. **`konte ref <dep-address>...` → one canonical file path per address, in the order given**; non-zero exit = no ready variant → skip and proceed.
-3. **Open the printed path as an image.**
+2. **`konte probe image <dep-address>...`**; no ready variant → skip and proceed.
+3. **Open the printed images**; `probe crop` for detail.
 4. **Match what you actually see** — outfit, palette, framing, lighting tone, accessories; don't invent details that contradict the reference.
 5. **Write the identity into the prompt as discriminative prose** — the details that separate this subject from a generic one (coat colour and stripe direction, the cut and shade of a garment), spelled out. Handing an edit model the reference image alone does not carry identity across.
 

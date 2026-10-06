@@ -88,7 +88,7 @@ Every take is review work, bar a `#delivery` upscale, which konte accepts on com
 
 ### Templates
 
-Templates live under `src/cli/templates/`. Upgrade overwrites managed files except `HOUSE_RULES.md`; `workspace new` / `workspace setup` render agent settings, preserving user values and replacing konte launch paths. Skills are authored under `workspace/dot.agents/skills/` (the `dot.claude/` twins are generated), subagents under `agents/<name>.md`; see `template-skills-guide`.
+Templates live under `src/cli/templates/`. `workspace setup` overwrites managed files except `HOUSE_RULES.md`; `workspace new` / `workspace setup` render agent settings, preserving user values and replacing konte launch paths. Skills are authored under `workspace/dot.agents/skills/` (the `dot.claude/` twins are generated), subagents under `agents/<name>.md`; see `template-skills-guide`.
 
 ### Subsystem guides
 

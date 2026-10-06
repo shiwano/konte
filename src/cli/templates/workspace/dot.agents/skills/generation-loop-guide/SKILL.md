@@ -48,13 +48,13 @@ After `konte generate` or `konte reroll`:
 
 ## 5. Self-review before involving the human
 
-**Look at every generated asset before the human does**, sampled by media kind — skip `file` assets and `pendingShot` shots. Resolve any asset's file with `konte ref <address>...` (accepted, else newest ready non-stale, else newest stale take).
+**Look at every generated asset before the human does**, sampled by media kind — skip `file` assets and `pendingShot` shots.
 
 **Your eyes settle what can be counted, never whether it is good** — the wrong subject, a figure too many or too few, an empty frame, a missing element, a take that never moved, a line not carried. A doubt you cannot name in those terms is a note in the handoff, not a reroll.
 
 - **A turbo take's finish is its setting** (`generate` lists them) — softness or thin detail is no reroll; the counted defects above still are.
 - **A shared base image is reviewed before the panels built on it, and on its own terms** — set state, realism register, scale, not "does the shot read". A defect there is the root's reroll, never a note on one shot.
-- **Image** (animatic panels, reference characters/backgrounds): view the file against the shot's `action` (and `script`, if any) — right subject, character consistency across shots, no artifacts. A `first` panel must be able to launch the transit its shot needs — the contacts and positions that transit starts from are in the pixels, or it's a reroll however clean it looks. A recurring character reference must be a clean single-subject conditioning frame, not a turnaround sheet.
+- **Image → `konte probe image <variantId|address|scope>...`** — open the printed images; `probe crop` for detail. Judge against the shot's `action` (and `script`, if any) — right subject, character consistency across shots, no artifacts. A `first` panel must be able to launch the transit its shot needs — the contacts and positions that transit starts from are in the pixels, or it's a reroll however clean it looks. A recurring character reference must be a clean single-subject conditioning frame, not a turnaround sheet.
 - **Board batch → `konte probe contact-sheet`** — shots side by side in one sheet; `--cell-width <px>` when detail is too small to read.
   - **`--needs-review [scope]` first after a `generate`** — every landed take nobody has judged, each cell carrying its variant id.
   - **Otherwise `<variantId|address|scope>...`** — a still scope sweeps every image under it; a video scope tiles each shot's in/out pair, so a cut reads across the boundary, plus a cell per subtitle line. A tail artifact is judged on the clip's own filmstrip, never off this sheet.

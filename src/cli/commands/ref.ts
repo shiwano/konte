@@ -46,6 +46,9 @@ prints that exact take — stale or undecided included — or an address, resolv
 variant (accepted, else latest ready non-stale, else the latest stale one). \`:\` is the
 discriminator: a variant id never carries one.
 
+The path is the original file at full size — pass it to a tool, never open it to look. To look at a
+still, run \`konte probe image\` with the same arguments; it prints a compact JPEG per take.
+
 A take that no longer matches its definition or its inputs still prints, with a notice on stderr
 naming the step back — an accept when a matching take is already generated, else a reroll; an
 accepted take whose upstream alone changed is named as standing. It

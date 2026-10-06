@@ -3,6 +3,7 @@ import { registerProbeAudioCommand } from "./audio.js";
 import { registerProbeContactSheetCommand } from "./contact-sheet.js";
 import { registerProbeCropCommand } from "./crop.js";
 import { registerProbeExportCommand } from "./export.js";
+import { registerProbeImageCommand } from "./image.js";
 import { registerProbeJsxCommand } from "./jsx.js";
 import { registerProbeMotionCommand } from "./motion.js";
 import { registerProbeThumbnailsCommand } from "./thumbnails.js";
@@ -15,6 +16,7 @@ export function registerProbeCommand(program: Command): void {
     .description("Inspect a variant's, composition's or deliverable's media");
 
   registerProbeContactSheetCommand(probe);
+  registerProbeImageCommand(probe);
   registerProbeCropCommand(probe);
   registerProbeJsxCommand(probe);
   registerProbeMotionCommand(probe);
