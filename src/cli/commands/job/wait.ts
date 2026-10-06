@@ -28,7 +28,6 @@ import { loadDirectionIfPresent, loadStageDefinitions } from "../../load-definit
 import { StateManager } from "../../../core/state/index.js";
 import { queueSongAnalyses } from "../../../core/song-queue.js";
 import { parsePositiveInt } from "../../parse-option.js";
-import { TURBO_TAKE_NOTE, turboTakes } from "../../turbo-takes.js";
 import { requireVideoRoots } from "../../context.js";
 import type { VideoRoots } from "../../../core/roots.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
@@ -94,7 +93,6 @@ Examples:
           // Problems first, outcome last: the outcome line is the one a piped caller keeps.
           if (printProblemLines(results)) console.log("");
           for (const r of results) printExportOutput(r);
-          await printTurboLine(videoRoot, results);
           console.log(formatWaitSummary(results, elapsedMs, settledBefore));
         }
         await jobManager.markReported(reportedIds(results));
@@ -156,7 +154,6 @@ Examples:
           printResultLine(r);
         }
         console.log("");
-        await printTurboLine(videoRoot, results);
         console.log(formatWaitSummary(results, elapsedMs, 0));
         await jobManager.markReported(reportedIds(results));
         if (results.some((r) => r.waitTimedOut || r.status === "failed")) process.exitCode = 1;
@@ -172,17 +169,6 @@ function reportedIds(results: WaitForJobResult[]): string[] {
       ? [r.variantId]
       : [],
   );
-}
-
-// `generate` already listed each address.
-async function printTurboLine(videoRoot: string, results: WaitForJobResult[]): Promise<void> {
-  const landed = results.flatMap((r) =>
-    r.kind === "generation" && r.status === "completed" && !r.waitTimedOut && r.address
-      ? [{ address: r.address, variantId: r.variantId }]
-      : [],
-  );
-  const onTurbo = await turboTakes(videoRoot, landed);
-  if (onTurbo.length > 0) console.log(`${onTurbo.length} on turbo — ${TURBO_TAKE_NOTE}`);
 }
 
 // `--timeout` is a deadline on the whole command, not a per-waiter budget: every waiter below is
