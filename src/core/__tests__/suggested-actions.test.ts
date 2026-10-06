@@ -21,11 +21,11 @@ function readinessFor(
     inFlight: 0,
     staleAwaitingReroll: [],
     staleAwaitingAccept: [],
-    filesReady: 0,
     filesMissing: [],
     pendingShots: 0,
     unacceptedCast: [],
     deliveryUpscalerMissing: false,
+    leavesUnsigned: false,
   };
 }
 
@@ -671,6 +671,17 @@ describe("formatSuggestedActions", () => {
     });
     expect(actions).toContainEqual({ command: "konte probe export" });
     expect(actions).not.toContainEqual({ command: "konte export video" });
+  });
+
+  it("offers no export while a video leaf awaits its accept", () => {
+    const accepted = { ...readinessFor("video", []), total: 1, accepted: 1 };
+    const exportOf = (leavesUnsigned: boolean) =>
+      suggestForStatus({
+        state: makeState({}),
+        readiness: [{ ...accepted, leavesUnsigned }],
+      }).some((a) => a.command === "konte export video");
+    expect(exportOf(false)).toBe(true);
+    expect(exportOf(true)).toBe(false);
   });
 
   it("formats commands bare — a command describes itself, so it carries no comment", () => {

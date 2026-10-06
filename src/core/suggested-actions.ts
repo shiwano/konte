@@ -445,8 +445,7 @@ function suggestExport(
   // An undeveloped shot carries no address, so it never shows in the ratio — but export refuses
   // while one remains.
   if (video.pendingShots > 0) return;
-  const fileTotal = video.filesReady + video.filesMissing.length;
-  if (video.accepted + video.filesReady !== video.total + fileTotal) return;
+  if (video.accepted !== video.total || video.leavesUnsigned) return;
   if (current && !current.outOfDate) return;
   if (video.deliveryUpscalerMissing) {
     actions.push({

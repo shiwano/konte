@@ -313,10 +313,21 @@ describe("status command", () => {
     expect(stdout).not.toContain("no file, no active job");
 
     const { stdout: verbose } = await run(["status", "-v"], projectDir);
-    expect(verbose).toContain("Needs review: 1");
+    // Beside the template's two placed reference files, never synced into the state: their ids are
+    // this run's own, so no take is named.
+    expect(verbose).toContain("Needs review: 3");
+    expect(verbose).toMatch(/^ {2}reference:bgm$/m);
     expect(verbose).toContain(reviewable);
     expect(verbose).toContain("Problems: 1");
     expect(verbose).toContain("no file, no active job");
+  });
+
+  it("names no take for a file replaced since the state recorded it", async () => {
+    await acceptFileAssets(projectDir);
+    await fs.writeFile(path.join(projectDir, "assets", "files", "character.png"), "new bytes");
+
+    const { stdout } = await run(["status", "-v"], projectDir);
+    expect(stdout).toMatch(/^ {2}reference:character$/m);
   });
 
   // The two "Problems" entries with no variant behind them.
@@ -600,7 +611,7 @@ describe("status command", () => {
 
     const { stdout } = await run(["status"], projectDir);
 
-    expect(stdout).toMatch(/\((\d+)\/\1 files\)/);
+    expect(stdout).toMatch(/reference: 0\/3 accepted · 2\/3 generated/);
     expect(await fs.readFile(statePath, "utf-8")).toBe(before);
     await expect(fs.access(gitignorePath)).rejects.toThrow();
   });

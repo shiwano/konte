@@ -117,6 +117,13 @@ export function registerStatusCommand(program: Command): void {
       // File assets are synced in memory only, like `generate --plan`: status reports what is on
       // disk and writes nothing — neither the state nor assets/.gitignore.
       const manager = await StateManager.load(videoRoot);
+      const outputHashes = () =>
+        new Map(
+          Object.values(manager.getState().assets).flatMap((a) =>
+            Object.entries(a.variants ?? {}).map(([id, v]) => [id, v.outputHash] as const),
+          ),
+        );
+      const savedOutputHashes = outputHashes();
       await syncFileAssets({ reference, animatic, video }, manager);
       const state = manager.getState();
 
@@ -278,6 +285,20 @@ export function registerStatusCommand(program: Command): void {
         unacceptedCast: unacceptedCast.map((c) => c.id),
         pendingShotsByStage,
       });
+      // A file placed or replaced since the last write is a take only the in-memory sync above holds:
+      // `accept` would refuse its id, or sign off the bytes the state still records. The review page
+      // records it.
+      const syncedOutputHashes = outputHashes();
+      for (const item of report.sections.flatMap((section) => section.items)) {
+        const id = item.variantId;
+        if (
+          id &&
+          (!savedOutputHashes.has(id) || savedOutputHashes.get(id) !== syncedOutputHashes.get(id))
+        ) {
+          delete item.variantId;
+          delete item.takes;
+        }
+      }
 
       // Would `generate <stage>` abort on ANIMATIC_/REFERENCE_ACCEPTANCE_REQUIRED right now?
       // Mirrors the gate's own target set — used assets that run would submit — so Next steps never

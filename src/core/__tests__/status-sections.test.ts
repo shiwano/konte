@@ -191,7 +191,6 @@ describe("buildAddressInfo", () => {
         "fal",
         "d1",
         new JobIndex(),
-        false,
         new Set(),
         false,
         null,
@@ -216,7 +215,6 @@ describe("buildAddressInfo", () => {
         "fal",
         "d1",
         new JobIndex(),
-        false,
         new Set(),
         false,
         null,
@@ -617,7 +615,6 @@ describe("buildAddressInfo", () => {
         "composition",
         definitionHash,
         new JobIndex(),
-        false,
         deadVariantIds,
         leafReadyForReview,
       );
@@ -859,19 +856,6 @@ describe("computeStatusSections", () => {
       address: "video:shot.01#stem",
       detail: "audio mix",
     });
-  });
-
-  it("excludes file assets from Needs review", () => {
-    const infos: AddressInfo[] = [
-      makeInfo({
-        address: "video:timeline.bgm",
-        assetKind: "file",
-        readyCount: 1,
-        hasAccepted: false,
-      }),
-    ];
-    const sections = computeStatusSections(infos);
-    expect(sections).toEqual([]);
   });
 
   it("reports no section for in-flight jobs — nothing to act on; `konte job list` owns them", () => {
@@ -1414,47 +1398,40 @@ describe("computeExportReadiness", () => {
     expect(readiness[0]!.missing).toEqual(["shot.02.motion", "shot.03.motion"]);
   });
 
-  it("reports file assets separately from the generation accept ratio", () => {
+  it("counts a placed file asset as a take awaiting its accept", () => {
     const infos: AddressInfo[] = [
-      makeInfo({ address: "video:shot.01.motion", assetKind: "fal", hasAccepted: true }),
-      makeInfo({ address: "reference:bgm", assetKind: "file", hasAccepted: true }),
-    ];
-    const readiness = computeExportReadiness(infos);
-    const video = readiness.find((r) => r.label === "video")!;
-    expect(video.total).toBe(1);
-    expect(video.accepted).toBe(1);
-    expect(video.filesReady).toBe(0);
-
-    const reference = readiness.find((r) => r.label === "reference")!;
-    expect(reference.total).toBe(0);
-    expect(reference.filesReady).toBe(1);
-    expect(reference.filesMissing).toEqual([]);
-  });
-
-  it("emits a reference-only stage on its own line", () => {
-    const infos: AddressInfo[] = [
-      makeInfo({ address: "reference:character", assetKind: "file", hasAccepted: true }),
-      makeInfo({ address: "reference:bgm", assetKind: "file", hasAccepted: true }),
+      makeInfo({ address: "reference:bgm", assetKind: "file", hasOutputFile: true }),
+      makeInfo({
+        address: "reference:character",
+        assetKind: "file",
+        hasOutputFile: true,
+        hasAccepted: true,
+      }),
     ];
     const readiness = computeExportReadiness(infos);
     expect(readiness).toHaveLength(1);
     expect(readiness[0]!.label).toBe("reference");
-    expect(readiness[0]!.total).toBe(0);
-    expect(readiness[0]!.accepted).toBe(0);
-    expect(readiness[0]!.filesReady).toBe(2);
+    expect(readiness[0]!.total).toBe(2);
+    expect(readiness[0]!.accepted).toBe(1);
+    expect(readiness[0]!.missing).toEqual(["bgm"]);
+    expect(readiness[0]!.generated).toBe(2);
+    expect(readiness[0]!.notGenerated).toEqual([]);
     expect(readiness[0]!.filesMissing).toEqual([]);
   });
 
-  it("folds a stage's file assets into its stage line", () => {
-    const infos: AddressInfo[] = [
-      makeInfo({ address: "video:shot.01.motion", assetKind: "fal", hasAccepted: true }),
-      makeInfo({ address: "video:timeline.bgm", assetKind: "file", hasAccepted: true }),
-    ];
-    const readiness = computeExportReadiness(infos);
-    expect(readiness).toHaveLength(1);
-    expect(readiness[0]!.label).toBe("video");
-    expect(readiness[0]!.total).toBe(1);
-    expect(readiness[0]!.filesReady).toBe(1);
+  it("lists a placed, unaccepted file asset under Needs review", () => {
+    const sections = computeStatusSections([
+      makeInfo({
+        address: "reference:bgm",
+        assetKind: "file",
+        hasOutputFile: true,
+        readyCount: 1,
+        readyVariantIds: ["v-file0001"],
+      }),
+    ]);
+    expect(sections.find((s) => s.title === "Needs review")?.items).toEqual([
+      expect.objectContaining({ address: "reference:bgm", variantId: "v-file0001" }),
+    ]);
   });
 
   it("groups by stage", () => {
@@ -1503,15 +1480,15 @@ describe("computeExportReadiness", () => {
     expect(readiness[0]!.missing).toEqual(["timeline.bgm"]);
   });
 
-  it("reports a file with no file on disk as missing, not in the accept ratio", () => {
+  it("reports a file with no file on disk as missing, not as generate work", () => {
     const infos: AddressInfo[] = [
-      makeInfo({ address: "reference:bgm", assetKind: "file", hasAccepted: false }),
+      makeInfo({ address: "reference:bgm", assetKind: "file", missingFilePath: "assets/bgm.mp3" }),
     ];
     const readiness = computeExportReadiness(infos);
     expect(readiness).toHaveLength(1);
-    expect(readiness[0]!.total).toBe(0);
+    expect(readiness[0]!.total).toBe(1);
     expect(readiness[0]!.accepted).toBe(0);
-    expect(readiness[0]!.filesReady).toBe(0);
+    expect(readiness[0]!.notGenerated).toEqual([]);
     expect(readiness[0]!.filesMissing).toEqual(["bgm"]);
   });
 
@@ -1874,7 +1851,6 @@ describe("an accepted take whose upstream alone changed", () => {
         "fal",
         null,
         new JobIndex([]),
-        false,
         undefined,
         false,
         null,

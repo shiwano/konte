@@ -600,7 +600,7 @@ describe("video review closure", () => {
     const after = await StateManager.load(videoRoot);
     expect(directionAcceptanceView(direction!, after.getDirectionAcceptance()).complete).toBe(true);
     expect(await settledShotIds(videoRoot)).toEqual(["01", "02"]);
-    expect((await run(["status"], videoRoot)).stdout).not.toContain("konte preview");
+    expect((await run(["status"], videoRoot)).stdout).not.toMatch(/konte preview (animatic|video)/);
   });
 
   // A shot drawn from the board alone owns no asset; it is still reviewed on the video stage.

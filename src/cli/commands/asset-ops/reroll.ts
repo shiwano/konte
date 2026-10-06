@@ -317,7 +317,6 @@ Examples:
                 assetDef.kind,
                 computeDefinitionHash(assetDef),
                 jobIndex,
-                false,
                 undefined,
                 false,
                 null,

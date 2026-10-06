@@ -35,7 +35,7 @@ export interface AddressInfo {
    * A human ever decides about this address. False for an intermediate — an asset a stage declared
    * without returning it: generated and tracked like any other, but read through the asset that
    * consumes it, so it is on no review surface and nothing waits on an accept of it. It counts
-   * toward neither the accept nor the generation ratio; only a `file` one's presence on disk shows,
+   * toward neither the accept nor the generation ratio; only a `file` one's absence from disk shows,
    * since putting the file there is the author's work whoever reads it. Also false for a plate,
    * judged inside the panels drawn on it; it is still `generate` work.
    */
@@ -174,8 +174,6 @@ export interface ExportReadiness {
    * awaiting review — the refresh is `accept`, not another `reroll`.
    */
   staleAwaitingAccept: string[];
-  /** File assets present on disk. They're never "accepted" (no review) — just ready. */
-  filesReady: number;
   /** File assets declared but not found on disk (e.g. a bad path) — a real problem. */
   filesMissing: string[];
   /**
@@ -197,6 +195,11 @@ export interface ExportReadiness {
    * computeExportReadiness leaves it false.
    */
   deliveryUpscalerMissing: boolean;
+  /**
+   * A video composition, stem or overlay is not signed off at its live definition — export refuses
+   * with UNACCEPTED_ASSETS. Populated by the status builder; computeExportReadiness leaves it false.
+   */
+  leavesUnsigned: boolean;
   /**
    * Of this stage's generate work (`notGenerated` and `needsRegenerate` alike), what the animatic
    * gate withholds: `generate` skips these, so the step is an accept, not another generate — and
@@ -270,10 +273,6 @@ export function buildAddressInfo(
   assetKind: AddressKind | null,
   currentDefinitionHash: string | null = null,
   jobs: JobIndex = new JobIndex(),
-  // A file asset has no generate/review/accept lifecycle — its "acceptance" is just the
-  // file being present on disk. The caller resolves that (it needs fs access) and forces
-  // accepted here, so a declared-and-present file reads as complete before any sync.
-  forceAccepted = false,
   // Dead composition leftover variant ids for this address (from collectDeadCompositionVariants)
   // — never counted as "ready". A composition is auto-materialized, not rerolled, so a variant
   // that isn't the live one (the current definition can't materialize it, or it predates the
@@ -304,7 +303,7 @@ export function buildAddressInfo(
   const target = state.assets[address];
   const variants = Object.entries(target?.variants ?? {});
 
-  const hasAccepted = forceAccepted || variants.some(([, v]) => v.status === "accepted");
+  const hasAccepted = variants.some(([, v]) => v.status === "accepted");
   const hasOutputFile = variants.some(([, v]) => !!v.file);
   const undecidedTakeVariantId = undecidedTakeBesideAccepted(
     state,
@@ -491,6 +490,10 @@ function isGenerationAsset(kind: AddressKind | null): boolean {
   );
 }
 
+function hasTakes(kind: AddressKind | null): boolean {
+  return kind === "file" || isGenerationAsset(kind);
+}
+
 // A one-line peek of a job error, shown inline next to a failure. The full text
 // is available via `konte inspect <address>`.
 function formatErrorGlimpse(error: string | null): string {
@@ -598,7 +601,7 @@ export function computeStatusSections(
           detail: `accepted take is ${formatStaleReason(sv)}`,
         });
       }
-    } else if (isGenerationAsset(info.assetKind) && info.readyCount > 0 && !info.hasAccepted) {
+    } else if (hasTakes(info.assetKind) && info.readyCount > 0 && !info.hasAccepted) {
       needsReview.push({
         address: info.address,
         detail: "",
@@ -609,7 +612,7 @@ export function computeStatusSections(
             }
           : {}),
       });
-    } else if (isGenerationAsset(info.assetKind) && info.patchedAwaitingReview) {
+    } else if (hasTakes(info.assetKind) && info.patchedAwaitingReview) {
       // A correction of the accepted take is ready. Reported before the "newer take" branch and
       // on its own wording because the reviewer's question is different: not "is this alternative
       // better?" but "did the fix land?".
@@ -628,7 +631,7 @@ export function computeStatusSections(
             .map((variantId) => ({ variantId, detail: UNDECIDED_BESIDE_ACCEPT })),
         ],
       });
-    } else if (isGenerationAsset(info.assetKind) && info.undecidedTakeVariantId) {
+    } else if (hasTakes(info.assetKind) && info.undecidedTakeVariantId) {
       // Accepted, but a take (e.g. from `reroll`) stands undecided beside it — offer it for
       // re-review without forcing an unaccept. It is not necessarily newer than the accept, so the
       // wording claims no order. (Composition re-review is handled by its own staleness-based
@@ -772,7 +775,6 @@ export function computeExportReadiness(
     inFlight: number;
     staleAwaitingReroll: string[];
     staleAwaitingAccept: string[];
-    filesReady: number;
     filesMissing: string[];
   };
   // One group per stage — an address is its asset path, so a stage has a single implicit instance.
@@ -791,7 +793,6 @@ export function computeExportReadiness(
         inFlight: 0,
         staleAwaitingReroll: [],
         staleAwaitingAccept: [],
-        filesReady: 0,
         filesMissing: [],
       };
       m.set(key, e);
@@ -807,18 +808,12 @@ export function computeExportReadiness(
     else entry.notGenerated.push(suffix);
   };
   const accumulate = (entry: Acc, info: AddressInfo, suffix: string) => {
-    // A file asset has no generate/review/accept lifecycle — it's complete once present on
-    // disk (hasAccepted reflects that). Report it separately so it's never miscounted as a
-    // reviewed-and-accepted generation asset.
-    if (info.assetKind === "file") {
-      if (info.hasAccepted) entry.filesReady++;
-      else entry.filesMissing.push(suffix);
-      return;
-    }
+    // A file asset's take is reviewed and accepted like a generated one; only its absence from disk
+    // is reported apart, since no `generate` puts it there.
+    if (info.missingFilePath !== null) entry.filesMissing.push(suffix);
     // An intermediate counts on neither axis: nobody accepts one, and `generate` reaches it through
-    // the asset that consumes it. A `file` one is the exception handled above — putting the file on
-    // disk is the author's work whoever reads it. A plate is the other: baked while every shot on
-    // it may still be a `pendingShot`, it is `generate` work of its own.
+    // the asset that consumes it. A plate is the exception: baked while every shot on it may still
+    // be a `pendingShot`, it is `generate` work of its own.
     if (!info.reviewTarget) {
       if (isPlateAddress(info.address)) countGenerateWork(entry, info, suffix);
       return;
@@ -841,15 +836,14 @@ export function computeExportReadiness(
     // not-yet-accepted asset apart as awaiting-review vs never-generated. An asset with a job in
     // flight is neither — it is already handled, so it must not land in `notGenerated`.
     if (info.hasOutputFile) entry.generated++;
-    countGenerateWork(entry, info, suffix);
+    if (info.assetKind !== "file") countGenerateWork(entry, info, suffix);
   };
 
   for (const info of infos) {
     // Composition/stem leaves are materialized only on accept and never gate export (the export
     // gate keys on the underlying source assets), so they don't count toward the ratio — their
     // review need surfaces under "Needs review". An unresolved (null) address has no definition to
-    // count. Generation assets AND `file` assets are counted (the latter surfaced separately so
-    // they're visible/confirmable).
+    // count.
     if (
       info.assetKind === null ||
       info.assetKind === "composition" ||
@@ -886,11 +880,11 @@ export function computeExportReadiness(
       inFlight: entry.inFlight,
       staleAwaitingReroll: entry.staleAwaitingReroll,
       staleAwaitingAccept: entry.staleAwaitingAccept,
-      filesReady: entry.filesReady,
       filesMissing: entry.filesMissing,
       pendingShots: pendingShotsByStage?.[label as Stage] ?? 0,
       unacceptedCast: [],
       deliveryUpscalerMissing: false,
+      leavesUnsigned: false,
     });
   }
   // Report in pipeline order — the shared reference pool feeds animatic, which feeds video — so

@@ -12,12 +12,16 @@ import {
   isPatchAddress,
   isStemAddress,
   formatReferenceAddress,
+  listCompositionAddresses,
+  listOverlayAddresses,
+  listStemAddresses,
 } from "../core/address.js";
 import {
   collectDeadCompositionVariants,
   collectDeadStemVariants,
   definitionHashForAddress,
   leafReadyForReview,
+  leafSignedOff,
   shotAcceptsStand,
 } from "../core/composition-resource.js";
 import { computeDefinitionHash } from "../core/definition-hash.js";
@@ -257,9 +261,6 @@ export async function buildStatusReport(
   const infos: AddressInfo[] = addresses.map((addr) => {
     let assetKind: AddressInfo["assetKind"] = null;
     let definitionHash: string | null = null;
-    // A file asset is "accepted" once its file is on disk — no generate/review needed — so
-    // a declared-and-present file counts as complete even before the first sync registers it.
-    let fileOnDisk = false;
     let missingFilePath: string | null = null;
     let leafReady = false;
     let deterministic = false;
@@ -300,12 +301,12 @@ export async function buildStatusReport(
         const entry = getAssetEntryByAddress(def, addr) as AssetDefinition;
         assetKind = entry.kind;
         if (entry.kind === "file") {
-          fileOnDisk = options?.videoRoot
+          const onDisk = options?.videoRoot
             ? existsSync(path.resolve(options.videoRoot, entry.path))
             : false;
           // Carry the declared path, not the resolved one: it is what the author wrote and where
           // they must put the media.
-          if (!fileOnDisk) missingFilePath = entry.path;
+          if (!onDisk) missingFilePath = entry.path;
         } else {
           definitionHash = computeDefinitionHash(entry);
           deterministic = entry.deterministic === true;
@@ -333,7 +334,6 @@ export async function buildStatusReport(
       assetKind,
       definitionHash,
       jobIndex,
-      fileOnDisk,
       deadByAddress.get(addr),
       leafReady,
       missingFilePath,
@@ -411,9 +411,14 @@ export async function buildStatusReport(
       if (r.label === "reference") r.unacceptedCast = [...options.unacceptedCast];
     }
   }
-  if (videoDef && deliveryUpscalerMissing(videoDef)) {
-    const videoLine = readiness.find((r) => r.label === "video");
-    if (videoLine) videoLine.deliveryUpscalerMissing = true;
+  const videoLine = readiness.find((r) => r.label === "video");
+  if (videoDef && videoLine) {
+    videoLine.deliveryUpscalerMissing = deliveryUpscalerMissing(videoDef);
+    videoLine.leavesUnsigned = [
+      ...listCompositionAddresses(videoDef),
+      ...listStemAddresses(videoDef),
+      ...listOverlayAddresses(videoDef),
+    ].some((address) => !leafSignedOff(manager, videoDef, address));
   }
   const currentSignature = videoDef ? () => computeExportSignature(videoDef) : undefined;
   const lastExports = computeLastExports(videoDef != null, everyJob, currentSignature);
@@ -473,15 +478,6 @@ export function printStatusReport(
     }
     const fileWord = (n: number) => `${n} file${n === 1 ? "" : "s"}`;
     for (const r of readiness) {
-      // Readiness ("can I export?") includes file assets, so they fold into the accept
-      // ratio with a `(x/y files)` breakdown. "Generated" is a generation-pipeline axis
-      // only (files are never generated), so it stays on the generation count — its
-      // denominator differs from the accept total by exactly the file count.
-      const fileTotal = r.filesReady + r.filesMissing.length;
-      const acceptTotal = r.total + fileTotal;
-      const accepted = r.accepted + r.filesReady;
-      const fileSuffix = fileTotal > 0 ? ` (${r.filesReady}/${fileTotal} files)` : "";
-
       // Only the video stage has a deliverable — `konte export` refuses reference (an upstream
       // pool) and animatic (a working stage), so only the video line claims export-readiness.
       const exportable = r.label === "video";
@@ -502,34 +498,30 @@ export function printStatusReport(
       const staleSuffix = staleCount > 0 ? ` (${staleCount} stale)` : "";
 
       const parts: string[] = [];
-      if (acceptTotal > 0) {
-        if (accepted !== acceptTotal) {
-          let clause = `${accepted}/${acceptTotal} accepted${fileSuffix}${staleSuffix}`;
+      if (r.total > 0) {
+        if (r.accepted !== r.total) {
+          let clause = `${r.accepted}/${r.total} accepted${staleSuffix}`;
           // Pair the accept ratio with a generate ratio so a not-fully-accepted profile
           // reads unambiguously: what's never been generated (run `generate`) vs what's
           // generated and only awaiting review (see "Needs review").
-          if (r.total > 0) {
-            clause += ` · ${r.generated}/${r.total} generated`;
-            // Counts, not addresses: `generate` is stage-scoped, so it acts on every one of these
-            // whether or not this line names them — and an in-flight one is already handled. Naming
-            // them would only restate the stage this line already leads with.
-            const notes: string[] = [];
-            if (r.inFlight > 0) notes.push(`${r.inFlight} in flight`);
-            if (r.notGenerated.length > 0) {
-              notes.push(`${r.notGenerated.length} not generated`);
-            }
-            if (notes.length > 0) clause += ` (${notes.join("; ")})`;
+          clause += ` · ${r.generated}/${r.total} generated`;
+          // Counts, not addresses: `generate` is stage-scoped, so it acts on every one of these
+          // whether or not this line names them — and an in-flight one is already handled. Naming
+          // them would only restate the stage this line already leads with.
+          const notes: string[] = [];
+          if (r.inFlight > 0) notes.push(`${r.inFlight} in flight`);
+          if (r.notGenerated.length > 0) {
+            notes.push(`${r.notGenerated.length} not generated`);
           }
+          if (notes.length > 0) clause += ` (${notes.join("; ")})`;
           parts.push(clause);
         } else {
-          // Two fully-accepted stages are still not exportable: a static-only pool (r.total === 0),
-          // and one whose developed shots are all accepted while an undeveloped shot remains
-          // (surfaced below). Neither should read as "ready to export".
+          // A fully-accepted stage is still not exportable while an undeveloped shot remains
+          // (surfaced below), or while a composition, stem or overlay awaits its accept ("Needs
+          // review").
           const ready =
-            exportable && undeveloped === 0 && r.total > 0 && !r.deliveryUpscalerMissing;
-          parts.push(
-            `all ${acceptTotal} accepted${fileSuffix}${ready ? " — ready to export" : ""}${staleSuffix}`,
-          );
+            exportable && undeveloped === 0 && !r.leavesUnsigned && !r.deliveryUpscalerMissing;
+          parts.push(`all ${r.total} accepted${ready ? " — ready to export" : ""}${staleSuffix}`);
         }
       }
       if (undeveloped > 0) {
