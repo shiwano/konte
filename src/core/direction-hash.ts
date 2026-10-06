@@ -332,6 +332,11 @@ export function directionPartHashes(direction: Direction): Map<string, string> {
   // fields always get one, empty included — "the piece bans nothing" / "the piece tolerates nothing"
   // is a position a reviewer takes and adds to, so it must stay reviewable.
   for (const field of DIRECTION_BRIEF_FIELDS) {
+    if (field === "references") {
+      const references = direction.brief?.references ?? [];
+      if (references.length > 0) out.set(formatDirectionBriefAddress(field), hash(references));
+      continue;
+    }
     const value = direction.brief?.[field];
     if (isDirectionBriefListField(field)) {
       out.set(formatDirectionBriefAddress(field), hash([...(value ?? [])]));

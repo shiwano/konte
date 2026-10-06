@@ -593,7 +593,8 @@ export type DirectionBriefField =
   | "tone"
   | "look"
   | "outOfScope"
-  | "tolerances";
+  | "tolerances"
+  | "references";
 
 export type DirectionBriefListField = "outOfScope" | "tolerances";
 
@@ -603,9 +604,23 @@ export type DirectionBriefListField = "outOfScope" | "tolerances";
 // included, so a reviewer can ask for an entry the piece does not have yet.
 export type DirectionBriefFieldInfo = DirectionPartInfo &
   (
-    | { field: Exclude<DirectionBriefField, DirectionBriefListField>; text: string }
+    | {
+        field: Exclude<DirectionBriefField, DirectionBriefListField | "references">;
+        text: string;
+      }
     | { field: DirectionBriefListField; items: string[] }
+    | { field: "references"; references: BriefReferenceInfo[] }
   );
+
+// A clip a human brought as "make it like this": what the piece takes from it and refuses of it, and
+// the sheets of its study (`konte study clip`) where one was made — empty where none was.
+export interface BriefReferenceInfo {
+  clip: string;
+  link: string | null;
+  take: string;
+  avoid: string;
+  sheets: string[];
+}
 
 export type DirectionPolicyField = "format" | "lang" | "fonts" | "speech" | "song";
 

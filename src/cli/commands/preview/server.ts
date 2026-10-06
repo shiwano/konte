@@ -37,7 +37,13 @@ import {
   printReviewOutcome,
   recoverOutcome,
 } from "./review-outcome.js";
-import { handleGetDirectionState, handleDirectionSubmit } from "./direction-review.js";
+import {
+  STUDY_SHEET_BASE,
+  handleDirectionSubmit,
+  handleGetDirectionState,
+} from "./direction-review.js";
+import { studiesDir } from "../../../core/study-clip.js";
+import { workspaceRootOrNull } from "../../../core/workspace-context.js";
 import { handleGetReferenceState, handleReferenceSubmit } from "./reference-review.js";
 import {
   assertReelBuilds,
@@ -391,6 +397,14 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
             return await lifecycle.track(() =>
               handleDirectionSubmit(videoRoot, handoff, directionDef, req, reportOutcome),
             );
+          }
+
+          if (pathname.startsWith(`${STUDY_SHEET_BASE}/`)) {
+            const workspaceRoot = workspaceRootOrNull();
+            if (!workspaceRoot) return errorResponse("File not found", "NOT_FOUND", 404);
+            const studies = studiesDir(workspaceRoot);
+            const rawPath = decodeURIComponent(pathname.slice(`${STUDY_SHEET_BASE}/`.length));
+            return serveContainedFile(path.resolve(studies, rawPath), studies);
           }
 
           if (pathname.startsWith("/api/thumbnail-assets/")) {

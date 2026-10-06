@@ -200,6 +200,17 @@ export type Setup = {
 // The two list fields run opposite ways: `outOfScope` is what the piece must not contain,
 // `tolerances` what may show up in the output and is left alone. Unlike a feedback comment, a
 // tolerance is not aged out by the next generation.
+//
+// `references` is what the piece takes from, and refuses of, each clip a human brought as "make it
+// like this": `clip` is the file under the video (`konte study clip <clip>` reads it), `link` where
+// it came from.
+export type BriefReference = {
+  clip: string;
+  link?: string;
+  take: string;
+  avoid: string;
+};
+
 export type DirectionBrief = {
   logline: string;
   hook?: string;
@@ -208,6 +219,7 @@ export type DirectionBrief = {
   look?: string;
   outOfScope?: readonly string[];
   tolerances?: readonly string[];
+  references?: readonly BriefReference[];
 };
 
 export type { CanvasSize };

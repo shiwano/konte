@@ -3035,6 +3035,12 @@ export type Setup = {
   holds: readonly string[];
   within?: string | null;
 };
+export type BriefReference = {
+  clip: string;
+  link?: string;
+  take: string;
+  avoid: string;
+};
 export type DirectionBrief = {
   logline: string;
   hook?: string;
@@ -3043,6 +3049,7 @@ export type DirectionBrief = {
   look?: string;
   outOfScope?: readonly string[];
   tolerances?: readonly string[];
+  references?: readonly BriefReference[];
 };
 export type DirectionFormat = {
   fps: number;

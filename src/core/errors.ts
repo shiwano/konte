@@ -220,6 +220,10 @@ export type KonteErrorCode =
   // The managed Beat This! model could not be provisioned.
   | "BEAT_THIS_SETUP_FAILED"
   | "TUNNEL_FAILED"
+  // `konte study clip` was handed a file running past the 30 minutes it reads.
+  | "CLIP_TOO_LONG"
+  // `konte study clip` was handed a file that is missing or holds no picture ffprobe can read.
+  | "CLIP_UNREADABLE"
   | "CREDENTIALS_UNREADABLE"
   | "CONFIRMATION_REQUIRED"
   | "INVALID_TEMPLATE"

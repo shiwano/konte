@@ -8,6 +8,7 @@ import { type SubmitInput, useReviewSession } from "../review/use-review-session
 import { useReviewShortcuts } from "../review/use-review-shortcuts.js";
 import { DIRECTION_SECTIONS } from "../types.js";
 import type {
+  BriefReferenceInfo,
   DirectionBriefField,
   DirectionBriefFieldInfo,
   DirectionBriefListField,
@@ -952,6 +953,7 @@ const BRIEF_FIELD_LABELS: Record<DirectionBriefField, string> = {
   look: "Look",
   outOfScope: "Out of scope",
   tolerances: "Tolerances",
+  references: "References",
 };
 
 // An empty list field still gets a row — "the piece bans nothing", "the piece tolerates nothing" is
@@ -999,7 +1001,46 @@ function DirTable({
   );
 }
 
+function BriefReference({ reference }: { reference: BriefReferenceInfo }): React.ReactElement {
+  const clip = reference.clip.split("/").at(-1) ?? reference.clip;
+  return (
+    <div className="direction-brief-ref">
+      <div className="direction-brief-ref-text">
+        <div>
+          <span className="dir-inline-label">Take</span> {reference.take}
+        </div>
+        <div>
+          <span className="dir-inline-label">Avoid</span> {reference.avoid}
+        </div>
+        <div className="direction-brief-ref-source">
+          {clip}
+          {reference.link && (
+            <>
+              {" · "}
+              <a href={reference.link} target="_blank" rel="noopener noreferrer">
+                {reference.link}
+              </a>
+            </>
+          )}
+        </div>
+      </div>
+      {reference.sheets.length > 0 && (
+        <div className="direction-brief-ref-sheets">
+          {reference.sheets.map((src) => (
+            <a key={src} href={src} target="_blank" rel="noopener noreferrer">
+              <img src={src} alt={clip} loading="lazy" />
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function briefValue(f: DirectionBriefFieldInfo): React.ReactNode {
+  if ("references" in f) {
+    return f.references.map((r, i) => <BriefReference key={i} reference={r} />);
+  }
   if (!("items" in f)) return f.text;
   return f.items.length > 0 ? (
     <ul className="direction-brief-list">

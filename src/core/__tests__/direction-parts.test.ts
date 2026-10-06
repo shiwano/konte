@@ -146,6 +146,19 @@ describe("directionPartContents", () => {
     );
   });
 
+  it("carries the brief's references, keyed like their hash", () => {
+    const direction = flat();
+    const references = [{ clip: "studies/ref.mp4", take: "the cut rate", avoid: "the captions" }];
+    (direction as { brief: { references?: unknown[] } }).brief.references = references;
+    expect(directionPartContents(direction).get("direction:brief.references")).toEqual({
+      kind: "references",
+      references,
+    });
+    expect([...directionPartContents(direction).keys()].sort()).toEqual(
+      [...directionPartHashes(direction).keys()].sort(),
+    );
+  });
+
   it("carries each part's content", () => {
     const parts = directionPartContents(flat());
     expect(parts.get("direction:brief.logline")).toMatchObject({

@@ -4522,6 +4522,46 @@ body.fill-mode .fab-submit-wrap {
   line-height: 1.5;
 }
 
+/* A brought clip: what the piece takes and refuses beside the sheets of its study. */
+.direction-brief-ref {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  line-height: 1.5;
+}
+
+.direction-brief-ref + .direction-brief-ref {
+  margin-top: 0.9rem;
+}
+
+.direction-brief-ref-text {
+  flex: 1 1 18rem;
+}
+
+.direction-brief-ref-source {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.direction-brief-ref-source a {
+  color: var(--accent-hover);
+}
+
+.direction-brief-ref-sheets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  flex: 1 1 18rem;
+}
+
+.direction-brief-ref-sheets img {
+  display: block;
+  max-width: 100%;
+  max-height: 14rem;
+  border-radius: 4px;
+}
+
 /* An empty list field's stand-in value — dimmer than the cell it sits in (which is already
    `--text-secondary`), so the row reads as a state to argue with rather than as text the author
    wrote. */

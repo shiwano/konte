@@ -520,6 +520,24 @@ export async function renderContactSheet(opts: {
     }
   }
 
+  const { bytes, labelled } = await drawContactSheet(cells, layout);
+  const outputSha = createHash("sha256").update(bytes).digest("hex");
+  const image = `${path.basename(base)}-${outputSha.slice(0, 12)}.jpg`;
+  const outFile = path.join(contactSheetDir(videoRoot), image);
+  await writeFileAtomic(outFile, bytes);
+  await writeFileAtomic(
+    sidecarFile,
+    JSON.stringify({ fingerprint, sources, labelled, outputSha, image }),
+  );
+  await pruneSupersededImages(videoRoot, cacheKey, page, image);
+  return { path: outFile, layout, labelled, reused: false };
+}
+
+/** Render `cells` laid out as `layout` into one JPEG; `labelled` is false when ffmpeg has no font. */
+export async function drawContactSheet(
+  cells: readonly ContactSheetCell[],
+  layout: ContactSheetLayout,
+): Promise<{ bytes: Buffer; labelled: boolean }> {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-sheet-"));
   try {
     const labelled = await canDrawText(layout, tmpDir);
@@ -575,17 +593,7 @@ export async function renderContactSheet(opts: {
       "Failed to tile contact sheet",
     );
 
-    const bytes = await fs.readFile(tiled);
-    const outputSha = createHash("sha256").update(bytes).digest("hex");
-    const image = `${path.basename(base)}-${outputSha.slice(0, 12)}.jpg`;
-    const outFile = path.join(contactSheetDir(videoRoot), image);
-    await writeFileAtomic(outFile, bytes);
-    await writeFileAtomic(
-      sidecarFile,
-      JSON.stringify({ fingerprint, sources, labelled, outputSha, image }),
-    );
-    await pruneSupersededImages(videoRoot, cacheKey, page, image);
-    return { path: outFile, layout, labelled, reused: false };
+    return { bytes: await fs.readFile(tiled), labelled };
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

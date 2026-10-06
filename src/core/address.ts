@@ -84,12 +84,13 @@ export const DIRECTION_BRIEF_FIELDS = [
   "look",
   "outOfScope",
   "tolerances",
+  "references",
 ] as const;
 
 export type DirectionBriefField = (typeof DIRECTION_BRIEF_FIELDS)[number];
 
-// The brief fields holding a list rather than a sentence — the hash, the CLI and the review page
-// each render these two differently from the prose ones.
+// The brief fields holding a list of sentences rather than one — the hash, the CLI and the review
+// page each render these two differently from the prose ones. `references` is a list of records.
 const DIRECTION_BRIEF_LIST_FIELDS = ["outOfScope", "tolerances"] as const;
 
 export type DirectionBriefListField = (typeof DIRECTION_BRIEF_LIST_FIELDS)[number];

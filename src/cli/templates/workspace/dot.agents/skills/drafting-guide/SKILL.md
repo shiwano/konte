@@ -18,7 +18,7 @@ A human arrives with some mix of three inputs — **ask which they have:**
 
 - **Concept** — a script/shot list (honor it; map onto konte's shape with minimal restructuring) or a vague idea (then you propose).
 - **Material** — their own media to put _in_ the video (footage, character/product/logo image, BGM/SE). Separate "already have" from "to generate"; `layout-guide` wires the files in.
-- **Reference** — a link/video/image shown as "make it like this" → **direction, not material to include.** Pin down _what_ to emulate (tone, pacing, palette, framing, motion, subtitles); read what you can, ask the rest.
+- **Reference** — a link/video/image shown as "make it like this" → **direction, not material to include.** Pin down _what_ to emulate (tone, pacing, palette, framing, motion, subtitles); read what you can (a video or downloadable link: `konte study clip <file>`), ask the rest.
 
 ## 3. Hear what they picture — before any pitch
 
@@ -57,7 +57,7 @@ Nothing is written to disk until the human has said yes to the treatment, in so 
 ## 7. Author the direction
 
 - **Read `direction-guide` first** — and `scenario-guide`, entering here on a revision.
-- **New piece → `konte video new <name> --template blank`, then copy the material already in hand to its `assets/files/`.**
+- **New piece → `konte video new <name> --template blank`, then copy the material already in hand to its `assets/files/`, a studied clip to `studies/` (`brief.references`).**
 - **Cut to a song → [song-first.md](references/song-first.md) before writing any shot** — the song is made and accepted first.
 - **Write `direction.ts`** — the `brief` is step 6's treatment (its hook is `hook`, step 3's refused direction is `outOfScope`); add rosters, `policy` and `sequence: { lens, pleasure, shots }`; clear `konte status`'s direction findings (fix or waive).
 - **Then a split pass — the direction check can't read prose**: check every `action` against the one-action rule. **A pass that changes nothing on a first draft is suspect** — in a story, go find the fused trigger-reaction pair. Then an idiom pass over the hinges and peaks: a key action staged as one take is a missed chain. Then a continuity replay: walk the list as one continuous space — every "how did it get there?" is a missing shot.

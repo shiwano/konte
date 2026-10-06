@@ -1,4 +1,7 @@
+import * as path from "node:path";
 import { ratioOf } from "../../../core/aspect.js";
+import { cachedClipStudy } from "../../../core/study-clip.js";
+import { workspaceRootOrNull } from "../../../core/workspace-context.js";
 import {
   DIRECTION_BRIEF_FIELDS,
   DIRECTION_LYRICS_ADDRESS,
@@ -44,6 +47,7 @@ import {
   summarizeDirectionAcceptance,
 } from "../../../core/direction-acceptance.js";
 import type {
+  BriefReference,
   Direction,
   DirectionBrief,
   DirectionNode,
@@ -60,6 +64,7 @@ import {
 } from "../../../core/dsl/direction.js";
 import type { RoleFunction } from "../../../core/direction-check.js";
 import type {
+  BriefReferenceInfo,
   DirectionPolicyFieldInfo,
   DirectionLyricsInfo,
   DirectionSequenceInfo,
@@ -88,6 +93,29 @@ import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
 // A direction part's feedback address is `direction:<part>`, the same form a handoff note carries.
 function handoffNoteForDirection(handoff: Handoff | null, address: string): string | undefined {
   return (handoff?.notes ?? []).find((n) => n.address === address)?.text;
+}
+
+// Where the page fetches a study's sheets, under `<workspace>/.konte/studies/`.
+export const STUDY_SHEET_BASE = "/api/study-sheets";
+
+// A brief reference as the page shows it: the sheets of its study where one was made, never making
+// one.
+async function referenceView(videoRoot: string, ref: BriefReference): Promise<BriefReferenceInfo> {
+  const workspaceRoot = workspaceRootOrNull();
+  const study = workspaceRoot
+    ? await cachedClipStudy(workspaceRoot, path.resolve(videoRoot, ref.clip)).catch(() => null)
+    : null;
+  return {
+    clip: ref.clip,
+    link: ref.link ?? null,
+    take: ref.take,
+    avoid: ref.avoid,
+    sheets: study
+      ? study.study.sheets.map(
+          (s) => `${STUDY_SHEET_BASE}/${path.basename(study.dir)}/${encodeURIComponent(s.file)}`,
+        )
+      : [],
+  };
 }
 
 // The direction as a media-less review view: the arc (lens/pleasure), every shot and
@@ -241,15 +269,28 @@ export async function handleGetDirectionState(
   // rather than with the concept wholesale. A prose field left unwritten is dropped, not rendered
   // empty; the two list fields are always rendered, empty included, so a reviewer can ask for an
   // entry the piece does not have yet.
-  const briefFields = (brief: Partial<DirectionBrief>) =>
-    DIRECTION_BRIEF_FIELDS.map((field) => {
-      const view = partView(formatDirectionBriefAddress(field));
-      if (isDirectionBriefListField(field)) {
-        return { ...view, field, items: [...(brief[field] ?? [])] };
-      }
-      const text = brief[field];
-      return text ? { ...view, field, text } : null;
-    }).filter((f) => f !== null);
+  const briefFields = async (brief: Partial<DirectionBrief>) =>
+    (
+      await Promise.all(
+        DIRECTION_BRIEF_FIELDS.map(async (field) => {
+          const view = partView(formatDirectionBriefAddress(field));
+          if (field === "references") {
+            const references = brief.references ?? [];
+            if (references.length === 0) return null;
+            return {
+              ...view,
+              field,
+              references: await Promise.all(references.map((r) => referenceView(videoRoot, r))),
+            };
+          }
+          if (isDirectionBriefListField(field)) {
+            return { ...view, field, items: [...(brief[field] ?? [])] };
+          }
+          const text = brief[field];
+          return text ? { ...view, field, text } : null;
+        }),
+      )
+    ).filter((f) => f !== null);
 
   // The always-declared policy fields, each its own feedback target below the brief. Structured
   // (not pre-formatted) so the UI owns the labels and glosses, as it does for the brief.
@@ -321,7 +362,7 @@ export async function handleGetDirectionState(
     >,
     gatingSections: directionGatingSections(direction, manager.getDirectionAcceptance()),
     acceptableSections: DIRECTION_SECTIONS.filter((s) => directionSectionAcceptable(direction, s)),
-    brief: briefFields(direction.brief ?? {}),
+    brief: await briefFields(direction.brief ?? {}),
     policy: policyFields,
     song: song ? { beatsPerBar: timeline.songGrid?.beatsPerBar ?? null } : null,
     ...(direction.lyrics

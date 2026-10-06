@@ -56,6 +56,7 @@ export {
   type Setup,
   type Framing,
   type DirectionBrief,
+  type BriefReference,
   type CanvasSize,
   type DirectionFormat,
   type SpeechPolicy,

@@ -190,8 +190,9 @@ export async function separateSong(
   ]);
 }
 
-// What one 16 kHz mono WAV is heard to say: each token and the second it starts at in that WAV.
-export type HeardTokens = { tokens: string[]; timestamps: number[] };
+// What one 16 kHz mono WAV is heard to say: each token and the second it starts at in that WAV, and
+// the language SenseVoice heard it in (`ja`, `en`, …; null where it names none).
+export type HeardTokens = { tokens: string[]; timestamps: number[]; lang: string | null };
 
 function senseVoiceLanguage(lang: string): string | null {
   const primary = lang.split("-")[0]!.toLowerCase();
@@ -205,13 +206,13 @@ export function recognizesSpeechIn(lang: string): boolean {
 
 /**
  * Recognize speech in each 16 kHz mono WAV, in order. `lang` is the BCP 47 tag of what is said, one
- * `recognizesSpeechIn` accepts.
+ * `recognizesSpeechIn` accepts, or null to have SenseVoice tell the language itself.
  */
 export async function recognizeSpeech(
   wavs: readonly string[],
-  lang: string,
+  lang: string | null,
 ): Promise<HeardTokens[]> {
-  const language = senseVoiceLanguage(lang);
+  const language = lang === null ? "auto" : senseVoiceLanguage(lang);
   if (!language) {
     throw new KonteError("VALIDATION_FAILED", `Speech in "${lang}" is not recognized.`);
   }
@@ -231,7 +232,11 @@ export async function recognizeSpeech(
     .split("\n")
     .filter((line) => line.startsWith("{"))
     .map((line) => JSON.parse(line) as Partial<HeardTokens>)
-    .map((r) => ({ tokens: r.tokens ?? [], timestamps: r.timestamps ?? [] }));
+    .map((r) => ({
+      tokens: r.tokens ?? [],
+      timestamps: r.timestamps ?? [],
+      lang: /^<\|([a-z]+)\|>$/.exec(r.lang ?? "")?.[1] ?? null,
+    }));
   if (results.length !== wavs.length) {
     throw new KonteError(
       "SHERPA_SETUP_FAILED",

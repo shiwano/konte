@@ -34,6 +34,7 @@ import { registerMcpCommand } from "./commands/mcp/index.js";
 import { registerProbeCommand } from "./commands/probe/index.js";
 import { registerVideoCommand } from "./commands/video.js";
 import { registerSongCommand } from "./commands/song.js";
+import { registerStudyCommand } from "./commands/study.js";
 
 interface BuildProgramOptions {
   // Skip the per-invocation workspace type-check and managed-template sync in the
@@ -72,6 +73,7 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
   registerDismissCommand(program);
   registerProbeCommand(program);
   registerSongCommand(program);
+  registerStudyCommand(program);
 
   registerJobCommand(program);
   registerReviewCommand(program);

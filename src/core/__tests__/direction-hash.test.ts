@@ -423,6 +423,20 @@ describe("directionPartHashes", () => {
     );
   });
 
+  it("keys the references once the brief names a clip, moving when what it takes is reworded", () => {
+    const key = "direction:brief.references";
+    expect(directionPartHashes(flat()).has(key)).toBe(false);
+    const withRef = (take: string) => {
+      const d = flat();
+      (d as { brief: { references?: unknown[] } }).brief.references = [
+        { clip: "studies/ref.mp4", take, avoid: "the lyric captions" },
+      ];
+      return directionPartHashes(d).get(key);
+    };
+    expect(withRef("the chorus cut rate")).toBeDefined();
+    expect(withRef("the chorus cut rate")).not.toBe(withRef("the backlit silhouettes"));
+  });
+
   it("moves a waiver's hash when its reason is reworded", () => {
     const d = flat();
     (d as { sequence: { waivers: Record<string, string> } }).sequence.waivers[

@@ -291,7 +291,7 @@ export async function extractKeyframes(
   });
 }
 
-async function detectSceneChanges(
+export async function detectSceneChanges(
   videoPath: string,
   threshold: number,
   minInterval: number,

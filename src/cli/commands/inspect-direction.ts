@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   DIRECTION_SECTIONS,
   type DirectionSection,
@@ -88,7 +90,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
     const status = view.parts.get(scope);
     if (status !== undefined || view.orphans.includes(scope)) {
       const entry = entryOf(scope, status ?? "orphan");
-      printPart(entry, direction);
+      printPart(entry, direction, videoRoot);
       return;
     }
 
@@ -110,7 +112,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
     console.log(`Parts: ${entries.length}`);
     for (const entry of entries) {
       console.log("");
-      printPartInList(entry, direction);
+      printPartInList(entry, direction, videoRoot);
     }
     return;
   }
@@ -185,7 +187,7 @@ function partLine(part: PartEntry, width: number): string {
   return `${part.address.padEnd(width)}  ${part.status}${feedbackTag(part.feedback)}`;
 }
 
-function printPart(part: PartEntry, direction: Direction): void {
+function printPart(part: PartEntry, direction: Direction, videoRoot: string): void {
   console.log(`Address: ${part.address}`);
   console.log(`Section: ${part.section}`);
   const accepted = part.acceptedAt ? ` (accepted ${part.acceptedAt})` : "";
@@ -193,7 +195,7 @@ function printPart(part: PartEntry, direction: Direction): void {
 
   if (part.content) {
     console.log("");
-    printContent(part.content, direction, { label: true });
+    printContent(part.content, direction, videoRoot, { label: true });
   }
 
   printFeedback(part.feedback);
@@ -201,9 +203,9 @@ function printPart(part: PartEntry, direction: Direction): void {
 
 // One part inside a scope listing. The address heads the block, so the content drops the label that
 // would restate it — reading a section is a read of its words, not of six copies of its scaffolding.
-function printPartInList(part: PartEntry, direction: Direction): void {
+function printPartInList(part: PartEntry, direction: Direction, videoRoot: string): void {
   console.log(`${part.address}  ${part.status}${feedbackTag(part.feedback)}`);
-  if (part.content) printContent(part.content, direction, { label: false });
+  if (part.content) printContent(part.content, direction, videoRoot, { label: false });
   for (const entry of part.feedback) {
     if (entry.staleness !== "stale") console.log(feedbackLine(entry));
   }
@@ -212,6 +214,7 @@ function printPartInList(part: PartEntry, direction: Direction): void {
 function printContent(
   content: DirectionPartContent,
   direction: Direction,
+  videoRoot: string,
   opts: { label: boolean },
 ): void {
   const heading = (text: string): void => {
@@ -226,6 +229,21 @@ function printContent(
       } else {
         console.log(`  ${content.text}`);
       }
+      return;
+    case "references":
+      heading("Brief: references");
+      content.references.forEach((ref, i) => {
+        console.log(`  ${i + 1}. ${ref.clip}${ref.link ? `  ${ref.link}` : ""}`);
+        console.log(`     take:  ${ref.take}`);
+        console.log(`     avoid: ${ref.avoid}`);
+        const clip = path.resolve(videoRoot, ref.clip);
+        if (fs.existsSync(clip)) {
+          console.log(`     konte study clip ${clip}`);
+        } else {
+          const from = ref.link ? `download ${ref.link}` : "ask the human for the file";
+          console.log(`     missing — ${from}, save it to ${clip}`);
+        }
+      });
       return;
     case "format":
       heading("Policy: format");

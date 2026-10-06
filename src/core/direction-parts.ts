@@ -18,6 +18,7 @@ import {
   isDirectionBriefListField,
 } from "./address.js";
 import type {
+  BriefReference,
   CanvasSize,
   Cutin,
   Direction,
@@ -53,10 +54,11 @@ export type DirectionLandmarkContent = {
 export type DirectionPartContent =
   | {
       kind: "brief";
-      field: DirectionBriefField;
+      field: Exclude<DirectionBriefField, "references">;
       text: string | null;
       items: readonly string[] | null;
     }
+  | { kind: "references"; references: readonly BriefReference[] }
   | { kind: "format"; fps: number; base: CanvasSize; delivery: CanvasSize | null }
   | { kind: "lang"; lang: string }
   // The declared families in declaration order — empty when the piece declares none, which is a
@@ -208,6 +210,13 @@ export function directionPartContents(direction: Direction): Map<string, Directi
   const out = new Map<string, DirectionPartContent>();
 
   for (const field of DIRECTION_BRIEF_FIELDS) {
+    if (field === "references") {
+      const references = direction.brief?.references ?? [];
+      if (references.length > 0) {
+        out.set(formatDirectionBriefAddress(field), { kind: "references", references });
+      }
+      continue;
+    }
     const value = direction.brief?.[field];
     if (isDirectionBriefListField(field)) {
       out.set(formatDirectionBriefAddress(field), {
