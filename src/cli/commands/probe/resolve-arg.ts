@@ -13,6 +13,7 @@ import {
   type StageDefinitions,
 } from "../../../core/definition-hashes.js";
 import { requireVideoRoot } from "../../context.js";
+import { printResolutionNotices, type ResolvedTake } from "../../resolution-notice.js";
 
 type ProbeMediaKind = "video" | "image" | "audio";
 
@@ -23,6 +24,8 @@ export interface ProbeTargets {
   // their output shape on this (a sweep prints per-target headers and emits a JSON array; a single
   // target keeps the one-object form).
   multi: boolean;
+  // The takes an address or scope resolved to.
+  resolved: ResolvedTake[];
 }
 
 /**
@@ -45,7 +48,7 @@ function resolveOne(
   arg: string,
   opts: { mediaKinds: readonly ProbeMediaKind[] },
 ): ProbeTargets {
-  if (arg.startsWith("v-")) return { variantIds: [arg], multi: false };
+  if (arg.startsWith("v-")) return { variantIds: [arg], multi: false, resolved: [] };
 
   let isFullAddress = true;
   try {
@@ -63,7 +66,11 @@ function resolveOne(
         `No ready variant for "${arg}" — pass a specific variant id (see \`konte inspect ${arg}\`)`,
       );
     }
-    return { variantIds: [resolved.variantId], multi: false };
+    return {
+      variantIds: [resolved.variantId],
+      multi: false,
+      resolved: [{ address: arg, variantId: resolved.variantId }],
+    };
   }
 
   assertValidAddressScope(arg);
@@ -72,6 +79,7 @@ function resolveOne(
   // corrected take's own address, so keeping the steps would probe the same file twice.
   const patchAxis = isPatchScope(arg);
   const variantIds: string[] = [];
+  const takes: ResolvedTake[] = [];
   for (const address of Object.keys(state.assets).sort()) {
     if (!matchesAddressScope(address, arg)) continue;
     if (!patchAxis && isPatchAddress(address)) continue;
@@ -83,6 +91,7 @@ function resolveOne(
     const mediaType = inferMediaType(resolved.file);
     if (!mediaType || !opts.mediaKinds.includes(mediaType)) continue;
     variantIds.push(resolved.variantId);
+    takes.push({ address, variantId: resolved.variantId, scope: arg });
   }
   if (variantIds.length === 0) {
     throw new KonteError(
@@ -90,7 +99,7 @@ function resolveOne(
       `No ${opts.mediaKinds.join("/")} variant to probe under scope "${arg}"`,
     );
   }
-  return { variantIds, multi: true };
+  return { variantIds, multi: true, resolved: takes };
 }
 
 /**
@@ -112,6 +121,7 @@ export function resolveProbeTargets(
   // shape then follows from the command line alone, not from how many variants happened to match.
   let multi = args.length > 1;
   const variantIds: string[] = [];
+  const takes: ResolvedTake[] = [];
   const seen = new Set<string>();
   for (const arg of args) {
     const resolved = resolveOne(manager, arg, opts);
@@ -121,8 +131,11 @@ export function resolveProbeTargets(
       seen.add(variantId);
       variantIds.push(variantId);
     }
+    for (const take of resolved.resolved) {
+      if (!takes.some((t) => t.variantId === take.variantId)) takes.push(take);
+    }
   }
-  return { variantIds, multi };
+  return { variantIds, multi, resolved: takes };
 }
 
 interface OpenedProbeTargets extends ProbeTargets {
@@ -135,7 +148,8 @@ interface OpenedProbeTargets extends ProbeTargets {
 
 // The preamble every variant-probe shares: the current video's state, resolution definitions when
 // any argument is a scope or address (`v-` and not `:` — a bare stage like `video` is a scope to
-// resolve, not a variant id), then the arguments resolved to variant ids.
+// resolve, not a variant id), then the arguments resolved to variant ids. A take an address resolved
+// to gets its notices on stderr here.
 //
 // `definitions` forces that load even for a bare variant id and hands the stages back, for a probe
 // that reports on what the definition says as well as on the file — `probe audio` prints the line a
@@ -150,5 +164,12 @@ export async function openProbeTargets(
   if (opts.definitions || args.some((arg) => !arg.startsWith("v-"))) {
     definitions = await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
   }
-  return { videoRoot, manager, definitions, ...resolveProbeTargets(manager, args, opts) };
+  const targets = resolveProbeTargets(manager, args, opts);
+  await printResolutionNotices({
+    videoRoot,
+    manager,
+    animatic: definitions?.animatic,
+    takes: targets.resolved,
+  });
+  return { videoRoot, manager, definitions, ...targets };
 }

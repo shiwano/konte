@@ -47,6 +47,7 @@ import { requireShotStages } from "../../../core/select-definition.js";
 import { parseNumberOption } from "../../parse-option.js";
 import { requireVideoRoot } from "../../context.js";
 import { resolveProbeTargets } from "./resolve-arg.js";
+import { printResolutionNotices, type ResolvedTake } from "../../resolution-notice.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 
 // Two cells per shot: a cut is read on the outgoing frame against the next shot's incoming one.
@@ -479,7 +480,7 @@ async function buildStillCells(
   opts: { takes?: boolean } = {},
 ): Promise<{ cells: ContactSheetCell[]; moreTakes: string[] }> {
   const manager = await StateManager.load(videoRoot);
-  await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
+  const definitions = await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
 
   const toCell = (variantId: string): ContactSheetCell => {
     const address = manager.resolveVariantAddress(variantId);
@@ -516,8 +517,10 @@ async function buildStillCells(
   const cells: ContactSheetCell[] = [];
   const seen = new Set<string>();
   const moreTakes: string[] = [];
+  const resolvedTakes: ResolvedTake[] = [];
   for (const arg of args) {
-    const { variantIds } = resolveProbeTargets(manager, [arg], { mediaKinds: ["image"] });
+    const { variantIds, resolved } = resolveProbeTargets(manager, [arg], { mediaKinds: ["image"] });
+    resolvedTakes.push(...resolved);
     const ids: string[] = [];
     for (const id of variantIds) {
       ids.push(id);
@@ -531,6 +534,12 @@ async function buildStillCells(
     for (const id of group) seen.add(id);
     cells.push(...group.map(toCell).sort((a, b) => compareNatural(a.label, b.label)));
   }
+  await printResolutionNotices({
+    videoRoot,
+    manager,
+    animatic: definitions.animatic,
+    takes: resolvedTakes,
+  });
 
   // Two variants of one address (comparing rerolls) would otherwise carry the same label and
   // be unattributable in the image.

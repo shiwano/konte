@@ -4,16 +4,15 @@ import { KonteError } from "../../core/errors.js";
 import { StateManager } from "../../core/state/index.js";
 import { requireVideoRoot } from "../context.js";
 import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
-import { staleRefreshStep } from "../stale-refresh-step.js";
-import type { AnimaticDefinition } from "../../core/types/index.js";
+import { listActiveGenerationJobs, resolutionNotices } from "../resolution-notice.js";
 
 interface Resolved {
   address: string;
   file: string;
   variantId: string;
   isAccepted: boolean;
-  /** The notice to print on stderr beside the path, when the take printed is not current. */
-  notice?: string;
+  /** The notices to print on stderr beside the path, when the take printed is not current. */
+  notices?: string[];
 }
 
 /**
@@ -34,54 +33,6 @@ function resolveVariantId(manager: StateManager, variantId: string): Resolved | 
   };
 }
 
-/**
- * What to say on stderr about the take an address resolved to, or undefined when it is current.
- *
- * Both staleness axes, and an ACCEPTED take is warned about too: an accept protects a take from
- * being replaced, not from the definition moving under it.
- *
- * The step named is `staleRefreshStep`'s — the same one `inspect` prints.
- */
-function staleNotice(
-  manager: StateManager,
-  address: string,
-  variantId: string,
-  animatic: AnimaticDefinition | undefined,
-): string | undefined {
-  const cache = manager.stalenessCache();
-  const staleness = manager.variantStaleness(address, variantId, cache);
-  if (!staleness || (!staleness.inputStale && !staleness.definitionStale)) return undefined;
-  const lead = `${address} resolves to a stale take (${variantId})`;
-  const step = staleRefreshStep({
-    manager,
-    address,
-    variantId,
-    patchHashes: manager.patchHashes(),
-    animatic,
-    cache,
-  });
-  switch (step.kind) {
-    case "none":
-      return undefined;
-    case "patch-apply":
-      return `${lead} — \`konte patch apply ${step.sourceVariantId}\` to re-apply its correction`;
-    case "prune":
-      return `${lead} — \`konte prune\` (its patch script is gone)`;
-    case "accept":
-      return `${lead} — \`konte accept ${step.variantId}\` is already generated and matches the current definition`;
-    case "prerequisite":
-      return `${lead} — ${step.variantId} matches the current definition; write ${step.missing.join("/")} in ${step.writeIn} before accepting it`;
-    case "generate":
-      return `${lead} — \`konte generate ${step.stage}\` to re-bake it (a deterministic take has no alternative to pick)`;
-    case "review":
-      return `${lead} — \`konte preview ${step.stage}\` to re-accept it (materialized by its accept)`;
-    case "stands":
-      return `${lead} — accepted against an older upstream; the accept stands`;
-    case "reroll":
-      return `${lead} — \`konte reroll ${address}\` to rebuild it`;
-  }
-}
-
 export function registerRefCommand(program: Command): void {
   program
     .command("ref <variantOrAddress...>")
@@ -100,7 +51,8 @@ naming the step back — an accept when a matching take is already generated, el
 accepted take whose upstream alone changed is named as standing. It
 is what the review surfaces show, so \`ref\` names it too; a spend does not build on it, so read it
 as material to judge, never as a result to report. An accepted take gets the notice as well: an
-accept protects a take from being replaced, not from the definition moving under it.
+accept protects a take from being replaced, not from the definition moving under it. An address
+with a take still generating prints its earlier take, with a notice naming the job.
 
 Name a variant id to see a take the address does not resolve to — a fresh patch output or reroll
 sitting undecided beside the accepted take (\`konte patch apply\` and \`konte inspect <address>\`
@@ -118,9 +70,11 @@ Examples:
       const videoRoot = requireVideoRoot();
       const manager = await StateManager.load(videoRoot);
       // Definitions before any resolution; a run naming only variant ids resolves nothing.
-      const stages = variantOrAddresses.some((arg) => arg.includes(":"))
+      const anyAddress = variantOrAddresses.some((arg) => arg.includes(":"));
+      const stages = anyAddress
         ? await applyResolutionDefinitions({ videoRoot, state: manager.getState() })
         : {};
+      const activeJobs = anyAddress ? await listActiveGenerationJobs(videoRoot) : [];
 
       const resolved: Resolved[] = [];
       const missing: string[] = [];
@@ -131,7 +85,12 @@ Examples:
             resolved.push({
               address: arg,
               ...reference,
-              notice: staleNotice(manager, arg, reference.variantId, stages.animatic ?? undefined),
+              notices: resolutionNotices(
+                manager,
+                { address: arg, variantId: reference.variantId },
+                stages.animatic,
+                activeJobs,
+              ),
             });
           } else missing.push(arg);
           continue;
@@ -145,13 +104,13 @@ Examples:
         throw new KonteError("VARIANT_NOT_FOUND", `No ready variant for ${missing.join(", ")}`);
       }
 
-      for (const { address, file, variantId, isAccepted, notice } of resolved) {
+      for (const { address, file, variantId, isAccepted, notices } of resolved) {
         if (opts.verbose) {
           console.error(`${address} → ${variantId}${isAccepted ? " (accepted)" : ""}`);
         }
         // Not gated on --verbose: silence here is how an old file gets piped onward, probed, and
         // reported as the fix.
-        if (notice) console.error(notice);
+        for (const notice of notices ?? []) console.error(notice);
         console.log(file);
       }
     });

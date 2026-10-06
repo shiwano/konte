@@ -14,7 +14,7 @@ describe("resolveProbeTargets", () => {
     const result = resolveProbeTargets(fakeManager({ resolveReference, getState }), ["v-abc123"], {
       mediaKinds: ["video"],
     });
-    expect(result).toEqual({ variantIds: ["v-abc123"], multi: false });
+    expect(result).toEqual({ variantIds: ["v-abc123"], multi: false, resolved: [] });
     expect(resolveReference).not.toHaveBeenCalled();
     expect(getState).not.toHaveBeenCalled();
   });
@@ -27,7 +27,11 @@ describe("resolveProbeTargets", () => {
     const result = resolveProbeTargets(manager, ["video:shot.01.motion"], {
       mediaKinds: ["video"],
     });
-    expect(result).toEqual({ variantIds: ["v-canon"], multi: false });
+    expect(result).toEqual({
+      variantIds: ["v-canon"],
+      multi: false,
+      resolved: [{ address: "video:shot.01.motion", variantId: "v-canon" }],
+    });
     expect(resolveReference).toHaveBeenCalledWith("video:shot.01.motion", { includeStale: true });
   });
 
@@ -67,7 +71,13 @@ describe("resolveProbeTargets", () => {
     const result = resolveProbeTargets(fakeManager({ getState, resolveReference }), ["video"], {
       mediaKinds: ["video"],
     });
-    expect(result).toEqual({ variantIds: ["v-video:shot.01.motion"], multi: true });
+    expect(result).toEqual({
+      variantIds: ["v-video:shot.01.motion"],
+      multi: true,
+      resolved: [
+        { address: "video:shot.01.motion", variantId: "v-video:shot.01.motion", scope: "video" },
+      ],
+    });
   });
 
   it("narrows a bare-shot scope and admits multiple media kinds", () => {
@@ -92,7 +102,7 @@ describe("resolveProbeTargets", () => {
       ["video:shot.01"],
       { mediaKinds: ["video", "image"] },
     );
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       variantIds: ["v-video:shot.01.first", "v-video:shot.01.motion"],
       multi: true,
     });
@@ -115,7 +125,7 @@ describe("resolveProbeTargets", () => {
     const result = resolveProbeTargets(fakeManager({ getState, resolveReference }), ["animatic"], {
       mediaKinds: ["image"],
     });
-    expect(result).toEqual({ variantIds: ["v-animatic:shot.01.first"], multi: true });
+    expect(result).toMatchObject({ variantIds: ["v-animatic:shot.01.first"], multi: true });
   });
 
   it("sweeps patch steps when the scope names the patch axis", () => {
@@ -133,13 +143,15 @@ describe("resolveProbeTargets", () => {
       isAccepted: true,
     }));
     const manager = fakeManager({ getState, resolveReference });
-    expect(resolveProbeTargets(manager, ["animatic:patch"], { mediaKinds: ["image"] })).toEqual({
+    expect(
+      resolveProbeTargets(manager, ["animatic:patch"], { mediaKinds: ["image"] }),
+    ).toMatchObject({
       variantIds: ["v-animatic:patch.v-src0001.flattened", "v-animatic:patch.v-src0002.cropped"],
       multi: true,
     });
     expect(
       resolveProbeTargets(manager, ["animatic:patch.v-src0001"], { mediaKinds: ["image"] }),
-    ).toEqual({
+    ).toMatchObject({
       variantIds: ["v-animatic:patch.v-src0001.flattened"],
       multi: true,
     });
@@ -160,7 +172,7 @@ describe("resolveProbeTargets", () => {
     const result = resolveProbeTargets(fakeManager({ getState, resolveReference }), ["video"], {
       mediaKinds: ["video"],
     });
-    expect(result).toEqual({ variantIds: ["v-video:shot.01.motion"], multi: true });
+    expect(result).toMatchObject({ variantIds: ["v-video:shot.01.motion"], multi: true });
   });
 
   it("concatenates several arguments in argument order and marks them multi", () => {
@@ -175,7 +187,7 @@ describe("resolveProbeTargets", () => {
       ["reference:rain", "reference:bgm"],
       { mediaKinds: ["audio"] },
     );
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       variantIds: ["v-reference:rain", "v-reference:bgm"],
       multi: true,
     });
@@ -196,7 +208,7 @@ describe("resolveProbeTargets", () => {
       ["reference", "reference:bgm"],
       { mediaKinds: ["audio"] },
     );
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       variantIds: ["v-reference:bgm", "v-reference:rain"],
       multi: true,
     });
