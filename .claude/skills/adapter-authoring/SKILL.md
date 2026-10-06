@@ -46,7 +46,7 @@ export const falMyModel = defineFalAsset({
 });
 ```
 
-`description` is **required** on the config — it is all an agent sees when picking an adapter.
+`description` is **required** on the config.
 
 ### Input def rules
 
