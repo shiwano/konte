@@ -235,6 +235,27 @@ describe("the video delivers the board's narration", () => {
     expect(() => assertNarrationStemsPlaced(video, board)).not.toThrow();
   });
 
+  it("reads footage beside the placed narration as the footage's own sound", () => {
+    const narrated: ScriptLine[] = [{ narration: NARRATION }];
+    const board = boardWith(narrated, () => [asset("narration", tts, { script: NARRATION })]);
+    const video = defineVideo(directionWith(narrated), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Video src={asset("motion", t2v, { prompt: "rain on a deck" })} hasAudio />
+            <Audio src={board.shot("01").narrationStem} />
+          </Composition>
+        )),
+      }),
+    });
+    expect(video.shots[0]!.cueKinds?.["video:shot.01.motion"]).toBe("sfx");
+  });
+
+  it("still reads footage as the recording of a line the narration leaves", () => {
+    const video = videoOver(boardWithBoth(), true);
+    expect(video.shots[0]!.cueKinds?.["video:shot.01.motion"]).toBe("voice");
+  });
+
   it("refuses a developed shot the direction narrates that never places it", () => {
     const board = boardWithBoth();
     expect(() => assertNarrationStemsPlaced(videoOver(board, false), board)).toThrow(

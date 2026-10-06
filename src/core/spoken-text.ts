@@ -92,9 +92,10 @@ const lineKind = (line: ScriptLine): CueKind =>
  * The exception is the OPAQUE cue — a recording, which konte can read no words out of. When a shot
  * has lines and not one of its cues carries words, those cues ARE the recording of them, so they
  * are voices — narration when every line is; the same test `assertScriptVoiced` makes before
- * falling back to its whole-shot rule. Mixed with a readable cue the reasoning is gone, and a
- * wordless cue beside a TTS take is far more often a door slam than a second recorded line
- * (`assertNarrationAttributable` refuses the board shot where it could be the narration).
+ * falling back to its whole-shot rule. Only the lines a placed `#narrationStem` leaves are owed a
+ * recording. Mixed with a readable cue the reasoning is gone, and a wordless cue beside a TTS take
+ * is far more often a door slam than a second recorded line (`assertNarrationAttributable`
+ * refuses the board shot where it could be the narration).
  *
  * Every unresolved case lands on `voice` — the level and the ducking a line already gets, so a
  * misread leaves the mix where it stands today instead of sinking a cue that should carry.
@@ -107,7 +108,10 @@ export function classifyShotCues(
 ): Map<string, CueKind> {
   const wordsByRef = new Map(stemRefs.map((ref) => [ref, spokenTextsUnder(definition, [ref])]));
   const anyReadable = [...wordsByRef.values()].some((words) => words.length > 0);
-  const recordingKind: CueKind = lines.every((line) => "narration" in line) ? "narration" : "voice";
+  const owed = stemRefs.some(isNarrationStemAddress)
+    ? lines.filter((line) => !("narration" in line))
+    : lines;
+  const recordingKind: CueKind = owed.every((line) => "narration" in line) ? "narration" : "voice";
   const out = new Map<string, CueKind>();
   for (const [ref, words] of wordsByRef) {
     if (isNarrationStemAddress(ref)) {
@@ -115,7 +119,7 @@ export function classifyShotCues(
       continue;
     }
     if (words.length === 0) {
-      out.set(ref, lines.length > 0 && !anyReadable ? recordingKind : "sfx");
+      out.set(ref, owed.length > 0 && !anyReadable ? recordingKind : "sfx");
       continue;
     }
     // Longest match first: a cue carrying "Yes, sir" contains "Yes" too, and the line it is really
