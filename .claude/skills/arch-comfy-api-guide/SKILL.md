@@ -27,6 +27,6 @@ How a comfy asset is routed off a ComfyUI, and how konte builds a Comfy API depl
 konte never creates, stops or deletes a deployment; the human does, on the Build page (`https://platform.comfy.org/profile/builds/<buildId>`).
 
 - **Build per deployment** — every workspace adapter whose whole-adapter route lands there (`routeAdapter`), models deduped by `type` + `filename` (two URLs for one is a config error), packs by id. A URL holding `${VAR}` is refused (`COMFY_API_AUTHENTICATED_MODEL`): the builder fetches anonymously and the definition would keep it.
-- **Pins** — `baseComfyVersion` (GitHub latest release unless `comfyVersion`) and each pack's registry version are resolved only when the unpinned inputs change (`inputsHash`).
+- **Versions** — `baseComfyVersion` is the deployment's required `comfyVersion`; each pack's registry version is resolved only when the inputs change (`inputsHash`).
 - **`konte adapter comfy build [<name>]`** (`buildDeployment`) — the only writer to the platform: Build create/`PATCH` → release (deduped per definition) → wait `deployable`. Then it finds a ready deployment of the release; with none it opens the Build page, prints its URL and exits 1. A deployment of a `pastReleaseIds` release is named as outdated. Serialized per deployment by `.konte/comfyapi-<name>.lock`; ids live in `.konte/comfyapi.json`, never a secret.
 - **Readiness** — `unbuilt` when no release is recorded or `inputsHash` no longer matches what routes there; `undeployed` when `GET /deployments` holds no `ready` deployment of the release; else `ready`.

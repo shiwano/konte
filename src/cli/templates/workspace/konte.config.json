@@ -16,7 +16,9 @@
     },
     "comfyapi": {
       "deployments": {
-        "main": {}
+        "main": {
+          "comfyVersion": "v0.39.0"
+        }
       }
     }
   }

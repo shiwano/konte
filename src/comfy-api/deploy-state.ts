@@ -11,7 +11,6 @@ const DeploymentStateSchema = z.object({
   // What the definition was built from before any version was resolved; while it holds, the pins
   // below stand.
   inputsHash: z.string().nullable().default(null),
-  baseComfyVersion: z.string().nullable().default(null),
   registryVersions: z.record(z.string(), z.string()).default({}),
   definitionHash: z.string().nullable().default(null),
   releaseId: z.string().nullable().default(null),

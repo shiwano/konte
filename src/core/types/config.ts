@@ -91,8 +91,8 @@ export type ComfyTarget = "comfyui" | "comfycloud" | `comfyapi:${string}`;
 
 export const ComfyApiDeploymentConfigSchema = z
   .object({
-    // A ComfyUI git ref for the Build's `baseComfyVersion`; the latest release tag when absent.
-    comfyVersion: z.string().min(1).optional(),
+    // The ComfyUI release tag the Build runs (its `baseComfyVersion`).
+    comfyVersion: z.string().min(1),
   })
   .strict();
 export type ComfyApiDeploymentConfig = z.infer<typeof ComfyApiDeploymentConfigSchema>;

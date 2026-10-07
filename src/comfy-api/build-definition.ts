@@ -13,7 +13,6 @@ import type {
 import type { DeploymentState } from "./deploy-state.js";
 import type { ComfyRouter } from "./routing.js";
 
-const COMFYUI_LATEST_RELEASE = "https://api.github.com/repos/Comfy-Org/ComfyUI/releases/latest";
 const REGISTRY_NODE = "https://api.comfy.org/nodes/";
 
 export type ComfyAdapterDeclarations = {
@@ -28,7 +27,7 @@ export type BuildModel = { type: string; filename: string; sourceUri: string };
 export type BuildInputs = {
   models: BuildModel[];
   nodeIds: string[];
-  comfyVersion: string | null;
+  comfyVersion: string;
 };
 
 export type BuildDefinition = {
@@ -38,7 +37,6 @@ export type BuildDefinition = {
 };
 
 export type VersionResolvers = {
-  latestComfyVersion: () => Promise<string>;
   registryVersion: (nodeId: string) => Promise<string>;
 };
 
@@ -76,7 +74,7 @@ export async function adaptersRoutedTo(
  */
 export function buildInputs(
   adapters: readonly ComfyAdapterDeclarations[],
-  comfyVersion: string | null,
+  comfyVersion: string,
 ): BuildInputs {
   const models = new Map<string, BuildModel & { from: string }>();
   const nodeIds = new Set<string>();
@@ -115,27 +113,21 @@ export function buildInputs(
 }
 
 /**
- * The Build definition, with the ComfyUI tag and each pack's registry version pinned. A pin is
- * resolved again only when the inputs changed for another reason; otherwise the recorded one
- * stands, so a release upstream never rebuilds a deployment on its own.
+ * The Build definition, with each pack's registry version pinned. A pin is resolved again only when
+ * the inputs changed for another reason; otherwise the recorded one stands, so a pack's release
+ * upstream never rebuilds a deployment on its own.
  */
 export async function resolveBuildDefinition(
   inputs: BuildInputs,
-  pinned: Pick<DeploymentState, "inputsHash" | "baseComfyVersion" | "registryVersions">,
+  pinned: Pick<DeploymentState, "inputsHash" | "registryVersions">,
   resolvers: VersionResolvers,
 ): Promise<{
   definition: BuildDefinition;
   inputsHash: string;
-  baseComfyVersion: string;
   registryVersions: Record<string, string>;
 }> {
   const inputsHash = hashOf(inputs);
   const keep = pinned.inputsHash === inputsHash;
-  const baseComfyVersion =
-    inputs.comfyVersion ??
-    (keep && pinned.baseComfyVersion
-      ? pinned.baseComfyVersion
-      : await resolvers.latestComfyVersion());
   const registryVersions: Record<string, string> = {};
   for (const id of inputs.nodeIds) {
     const kept = keep ? pinned.registryVersions[id] : undefined;
@@ -143,7 +135,7 @@ export async function resolveBuildDefinition(
   }
   return {
     definition: {
-      baseComfyVersion,
+      baseComfyVersion: inputs.comfyVersion,
       models: inputs.models,
       customNodes: inputs.nodeIds.map((id) => ({
         name: id,
@@ -152,33 +144,15 @@ export async function resolveBuildDefinition(
       })),
     },
     inputsHash,
-    baseComfyVersion,
     registryVersions,
   };
 }
 
-const LatestReleaseSchema = z.object({ tag_name: z.string() }).passthrough();
 const RegistryNodeSchema = z
   .object({ latest_version: z.object({ version: z.string() }).passthrough().nullable().optional() })
   .passthrough();
 
 export const DEFAULT_VERSION_RESOLVERS: VersionResolvers = {
-  async latestComfyVersion() {
-    const res = await fetchWithRetry(
-      COMFYUI_LATEST_RELEASE,
-      { headers: { Accept: "application/vnd.github+json" } },
-      { timeoutMs: API_REQUEST_TIMEOUT_MS },
-    );
-    const parsed = res.ok ? LatestReleaseSchema.safeParse(await res.json()) : null;
-    if (!parsed?.success) {
-      throw new KonteError(
-        "COMFY_API_ERROR",
-        `Could not read ComfyUI's latest release tag (${res.status}). Set comfyVersion on the ` +
-          `deployment in konte.config.json to pin one.`,
-      );
-    }
-    return parsed.data.tag_name;
-  },
   async registryVersion(nodeId) {
     const res = await fetchWithRetry(`${REGISTRY_NODE}${encodeURIComponent(nodeId)}`, undefined, {
       timeoutMs: API_REQUEST_TIMEOUT_MS,

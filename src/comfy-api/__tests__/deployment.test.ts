@@ -22,11 +22,11 @@ const flux: ComfyModelDeclaration = {
   url: "https://example.com/flux.safetensors",
 };
 
-function config(main: Record<string, unknown> = {}): KonteConfig {
+function config(comfyVersion = "v0.4.0"): KonteConfig {
   return {
     comfy: {
       adapters: { "*": ["comfyapi:main"] },
-      comfyapi: { deployments: { main } },
+      comfyapi: { deployments: { main: { comfyVersion } } },
     },
   } as KonteConfig;
 }
@@ -54,7 +54,7 @@ function fakePlatform() {
   const platform = {
     createBuild: vi.fn(async (_name: string, _definition: unknown) => ({ id: "build-1" })),
     getBuild: vi.fn(async (id: string) => ({ id, updatedAt: "t0" })),
-    updateBuild: vi.fn(async (id: string) => ({ id })),
+    updateBuild: vi.fn(async (id: string, _definition: unknown) => ({ id })),
     createRelease: vi.fn(async () => `rel-${++releases}`),
     getRelease: vi.fn(async () => ({ status: "complete", deployable: true })),
     getReleaseLog: vi.fn(async () => null),
@@ -80,7 +80,7 @@ function ctx(
     log: () => {},
     platform: platform as unknown as ComfyPlatformClient,
     router: routedToMain,
-    resolvers: { latestComfyVersion: async () => "v0.4.0", registryVersion: async () => "1.0.0" },
+    resolvers: { registryVersion: async () => "1.0.0" },
     timing: { releasePollMs: 1 },
     ...overrides,
   };
@@ -107,7 +107,6 @@ describe("buildDeployment", () => {
     });
     expect(await loadDeploymentState(ws.root, "main")).toMatchObject({
       buildId: "build-1",
-      baseComfyVersion: "v0.4.0",
       releaseId: "rel-1",
       pastReleaseIds: [],
     });
@@ -153,13 +152,13 @@ describe("buildDeployment", () => {
     expect(result.outdated.map((d) => d.id)).toEqual(["dep-1"]);
   });
 
-  it("keeps the pins when only comfyVersion names the tag already pinned", async () => {
+  it("updates the Build to a new comfyVersion", async () => {
     const { platform } = fakePlatform();
     await buildDeployment(ctx(platform), "main");
-    await buildDeployment(ctx(platform, { config: config({ comfyVersion: "v0.4.0" }) }), "main");
+    await buildDeployment(ctx(platform, { config: config("v0.5.0") }), "main");
 
-    expect(platform.updateBuild).not.toHaveBeenCalled();
-    expect(platform.createRelease).toHaveBeenCalledTimes(1);
+    expect(platform.updateBuild.mock.calls[0]![1]).toMatchObject({ baseComfyVersion: "v0.5.0" });
+    expect(platform.createRelease).toHaveBeenCalledTimes(2);
   });
 
   it("fails a release that built undeployable", async () => {

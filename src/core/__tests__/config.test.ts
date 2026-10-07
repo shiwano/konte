@@ -143,7 +143,7 @@ describe("preview.allowedHosts", () => {
 });
 
 describe("comfy.adapters", () => {
-  const deployments = { main: {} };
+  const deployments = { main: { comfyVersion: "v0.39.0" } };
 
   it("takes routes onto a declared deployment", () => {
     const parsed = KonteConfigSchema.safeParse({
@@ -155,9 +155,9 @@ describe("comfy.adapters", () => {
     expect(parsed.success).toBe(true);
   });
 
-  it("takes no compute on a deployment — it is chosen when deploying the Build", () => {
+  it("requires comfyVersion on a deployment", () => {
     const parsed = KonteConfigSchema.safeParse({
-      comfy: { comfyapi: { deployments: { main: { gpuClass: "L40S" } } } },
+      comfy: { comfyapi: { deployments: { main: {} } } },
     });
     expect(parsed.success).toBe(false);
   });

@@ -37,7 +37,7 @@ Configure the required backends and editor; done = those backends pass `konte do
 - **`comfy.adapters`** — per adapter (workflow file name without `.json`), the targets tried in order; `*` is the default, an adapter's own key replaces it whole. `generate` prints each asset's target.
   - `comfyui` — usable when `comfy.comfyui.url` is set.
   - `comfycloud` — usable when `COMFY_API_KEY` is set and Comfy Cloud has every node and model the asset uses.
-  - `comfyapi:<name>` — a deployment under `comfy.comfyapi.deployments` (optional `comfyVersion`). Usable when `COMFY_API_KEY` is set.
+  - `comfyapi:<name>` — a deployment under `comfy.comfyapi.deployments`, with `comfyVersion` — the ComfyUI release tag its Build runs. Usable when `COMFY_API_KEY` is set.
 - **`COMFY_API_DEPLOYMENT_NOT_READY`** → the Comfy API deployment steps below.
 - **`BACKEND_NOT_CONFIGURED` on a comfy asset** → each candidate's reason is listed; set what it names, or add a target to the adapter's key.
 - **An adapter your ComfyUI cannot run (VRAM)** → give it its own key without `comfyui` — konte cannot tell.

@@ -97,7 +97,7 @@ async function inputsFor(ctx: DeploymentContext, name: string): Promise<BuildInp
       `No comfy adapter routes to ${target} in comfy.adapters, so there is nothing to build`,
     );
   }
-  return buildInputs(adapters, declared.comfyVersion ?? null);
+  return buildInputs(adapters, declared.comfyVersion);
 }
 
 /** Whether the recorded release was cut from what routes to the deployment now. */
@@ -179,7 +179,6 @@ export async function buildDeployment(
       const definitionHash = hashOf(resolved.definition);
       const pins = {
         inputsHash: resolved.inputsHash,
-        baseComfyVersion: resolved.baseComfyVersion,
         registryVersions: resolved.registryVersions,
       };
 
@@ -195,17 +194,13 @@ export async function buildDeployment(
           ...pins,
         }));
       } else if (state.definitionHash !== definitionHash) {
-        log(`Updating Build ${state.buildId} (ComfyUI ${resolved.baseComfyVersion})`);
+        log(`Updating Build ${state.buildId} (ComfyUI ${inputs.comfyVersion})`);
         const current = await platform.getBuild(state.buildId);
         await platform.updateBuild(state.buildId, resolved.definition, current.updatedAt ?? null);
         state = await updateDeploymentState(workspaceRoot, name, () => ({
           definitionHash,
           ...pins,
         }));
-      } else if (state.inputsHash !== resolved.inputsHash) {
-        // The inputs moved but resolved to the same definition (a `comfyVersion` naming the tag
-        // already pinned); the pins are kept under the new inputs.
-        state = await updateDeploymentState(workspaceRoot, name, () => pins);
       }
 
       if (!state.releaseId || state.releaseDefinitionHash !== definitionHash) {

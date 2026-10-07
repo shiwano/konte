@@ -113,7 +113,7 @@ describe("assertSpendAllowed", () => {
   const onDeployment: KonteConfig = {
     comfy: {
       adapters: { "*": ["comfyapi:main"] },
-      comfyapi: { deployments: { main: {} } },
+      comfyapi: { deployments: { main: { comfyVersion: "v0.39.0" } } },
     },
   };
   const readiness = (value: DeploymentReadiness) =>

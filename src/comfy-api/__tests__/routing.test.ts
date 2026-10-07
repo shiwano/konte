@@ -18,7 +18,7 @@ const MODEL = {
   url: "https://example.com/flux.safetensors",
 };
 
-const DEPLOYMENTS = { main: {} };
+const DEPLOYMENTS = { main: { comfyVersion: "v0.39.0" } };
 
 let ws: Workspace;
 
