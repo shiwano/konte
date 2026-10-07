@@ -14,7 +14,7 @@ import { loadDirectionIfPresent } from "../../load-definition.js";
 
 const POLL_INTERVAL_MS = 1000;
 
-export function registerJobWaitCommand(program: Command): void {
+export function registerJobWaitCommand(program: Command, pollIntervalMs = POLL_INTERVAL_MS): void {
   program
     .command("wait [jobIds...]")
     .description("Wait for jobs to complete — every active one, or the ids given")
@@ -64,6 +64,7 @@ Examples:
           live,
           runner,
           warnings,
+          pollIntervalMs,
         );
       } finally {
         live.stop();
@@ -115,6 +116,7 @@ async function observe(
   live: LiveProgress,
   runner: JobRunnerGuard,
   warnings: DaemonWarnings,
+  pollIntervalMs: number,
 ): Promise<Observed> {
   // An outcome already reported is history; the caller notes the reported failures' count when
   // there was otherwise nothing to do. One terminal but unreported is this wait's to report,
@@ -155,7 +157,7 @@ async function observe(
         .filter((j) => j.kind === "generation" && j.backendJobId != null)
         .map((j) => [j.id, formatJobLine(j)]),
     );
-    await sleep(Math.min(POLL_INTERVAL_MS, deadline.remainingMs() ?? POLL_INTERVAL_MS));
+    await sleep(Math.min(pollIntervalMs, deadline.remainingMs() ?? pollIntervalMs));
     jobs = await jobManager.listJobs();
   }
 

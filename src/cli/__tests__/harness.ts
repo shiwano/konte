@@ -106,7 +106,7 @@ export async function run(
 
   let exitCode = 0;
   try {
-    const program = buildProgram({ skipProjectChecks: true });
+    const program = buildProgram({ skipProjectChecks: true, jobPollIntervalMs: 20 });
     program.exitOverride();
     await program.parseAsync(args, { from: "user" });
     exitCode = process.exitCode ? Number(process.exitCode) : 0;

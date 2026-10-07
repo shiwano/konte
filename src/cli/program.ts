@@ -44,6 +44,7 @@ interface BuildProgramOptions {
   // still exercise the full path). Root resolution always runs — it is what the
   // commands read their roots from.
   skipProjectChecks?: boolean;
+  jobPollIntervalMs?: number;
 }
 
 export function buildProgram(opts: BuildProgramOptions = {}): Command {
@@ -77,7 +78,7 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
   registerSongCommand(program);
   registerStudyCommand(program);
 
-  registerJobCommand(program);
+  registerJobCommand(program, opts.jobPollIntervalMs);
   registerReviewCommand(program);
   registerAdapterCommand(program);
   registerPatchCommand(program);

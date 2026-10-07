@@ -6,12 +6,12 @@ import { registerJobShowCommand } from "./show.js";
 import { registerJobStatsCommand } from "./stats.js";
 import { registerJobWaitCommand } from "./wait.js";
 
-export function registerJobCommand(program: Command): void {
+export function registerJobCommand(program: Command, pollIntervalMs?: number): void {
   const job = program.command("job").description("Manage jobs");
   registerJobListCommand(job);
   registerJobShowCommand(job);
   registerJobStatsCommand(job);
-  registerJobWaitCommand(job);
+  registerJobWaitCommand(job, pollIntervalMs);
   registerJobLogsCommand(job);
   registerJobCancelCommand(job);
 }
