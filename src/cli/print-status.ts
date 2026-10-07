@@ -132,7 +132,7 @@ function directionAcceptanceLine(summary: DirectionAcceptanceSummary, empty: boo
       // accepted whole is named without one.
       return summary.gateBlocking > 0
         ? `  ${label}: ${summary.gateBlocking} of ${summary.total} parts need review — re-accept`
-        : `  ${label}: accepted (${summary.blocking} of ${summary.total} parts changed since)`;
+        : `  ${label}: accepted — ${summary.blocking} of ${summary.total} parts changed since, none blocking`;
     case "unaccepted":
       return `  ${label}: not accepted`;
   }
