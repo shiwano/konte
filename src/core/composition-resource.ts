@@ -46,6 +46,7 @@ import { stableStringify } from "./stable-stringify.js";
 import type { StateManager } from "./state/index.js";
 import {
   isPendingShot,
+  type AssetDefinition,
   type AssetState,
   type KonteState,
   type ShotDefinition,
@@ -88,25 +89,46 @@ function compositionFingerprintRefs(def: StageDefinition, shot: ShotDefinition):
   return def.stage === "animatic" ? (shot.compositionRefs ?? []) : pictureRefsOf(shot);
 }
 
-// Per-definition memo of the discovery-rendered definition hashes (composition / animatic /
-// stem). Each computation renders the shot's structure from the definition, so an all-shots
-// sweep (status, review submit, handoff) would otherwise pay one render per shot per pass and
-// re-pay them on the next. Keyed weakly on the definition object — a reload builds a new one,
-// invalidating naturally — and the hashes are deterministic per loaded definition.
-const definitionHashMemo = new WeakMap<StageDefinition, Map<string, string>>();
+// Per-definition memo of what the discovery-rendered definition hashes (composition / animatic /
+// stem / overlay) hash. Each computation renders the shot's structure from the definition, so an
+// all-shots sweep (status, review submit, handoff) would otherwise pay one render per shot per pass
+// and re-pay them on the next. Keyed weakly on the definition object — a reload builds a new one,
+// invalidating naturally — and the inputs are deterministic per loaded definition. `null` is no
+// input, hashed as "".
+const definitionInputMemo = new WeakMap<StageDefinition, Map<string, unknown>>();
 
-function memoizedHash(video: StageDefinition, key: string, compute: () => string): string {
-  let cache = definitionHashMemo.get(video);
+function memoizedInput(video: StageDefinition, key: string, compute: () => unknown): unknown {
+  let cache = definitionInputMemo.get(video);
   if (!cache) {
     cache = new Map();
-    definitionHashMemo.set(video, cache);
+    definitionInputMemo.set(video, cache);
   }
-  let value = cache.get(key);
-  if (value === undefined) {
-    value = compute();
-    cache.set(key, value);
-  }
-  return value;
+  if (!cache.has(key)) cache.set(key, compute());
+  return cache.get(key);
+}
+
+/** Rewrites what a definition hash hashes, before it is hashed. */
+export type HashInputRewrite = (input: unknown) => unknown;
+
+function hashInput(input: unknown, rewrite?: HashInputRewrite): string {
+  if (input === null) return "";
+  return shortHash(rewrite ? rewrite(input) : input);
+}
+
+function compositionHashInput(video: StageDefinition, shotId: string): unknown {
+  return memoizedInput(video, `composition:${shotId}`, () => {
+    const structureHtml = compositionStructureHtml(video, shotId);
+    if (structureHtml === null) return null;
+    const shot = shotById(video.shots, shotId);
+    const size = video.format.size;
+    return {
+      structureHtml,
+      typography: video.typography,
+      duration: shot?.duration,
+      width: size?.width,
+      height: size?.height,
+    };
+  });
 }
 
 /**
@@ -117,20 +139,12 @@ function memoizedHash(video: StageDefinition, key: string, compute: () => string
  * Unlike the old source-text hash it ignores audio-only edits structurally. Returns "" when the
  * shot has no render function.
  */
-export function compositionDefinitionHash(video: StageDefinition, shotId: string): string {
-  return memoizedHash(video, `composition:${shotId}`, () => {
-    const structureHtml = compositionStructureHtml(video, shotId);
-    if (structureHtml === null) return "";
-    const shot = shotById(video.shots, shotId);
-    const size = video.format.size;
-    return shortHash({
-      structureHtml,
-      typography: video.typography,
-      duration: shot?.duration,
-      width: size?.width,
-      height: size?.height,
-    });
-  });
+export function compositionDefinitionHash(
+  video: StageDefinition,
+  shotId: string,
+  rewrite?: HashInputRewrite,
+): string {
+  return hashInput(compositionHashInput(video, shotId), rewrite);
 }
 
 /**
@@ -141,12 +155,13 @@ export function compositionDefinitionHash(video: StageDefinition, shotId: string
 export function compositionDefinitionHashForAddress(
   video: StageDefinition,
   address: string,
+  rewrite?: HashInputRewrite,
 ): string | null {
   const parsed = parseAddress(address);
   if (parsed.kind !== "shot") return null;
   const shot = shotById(video.shots, parsed.shotId);
   if (!shot?.shotFn) return null;
-  return compositionDefinitionHash(video, parsed.shotId);
+  return compositionDefinitionHash(video, parsed.shotId, rewrite);
 }
 
 /**
@@ -155,21 +170,26 @@ export function compositionDefinitionHashForAddress(
  * definition, and for addresses absent from the definition). Mirrors what `inspect`
  * and `status` compute so definition-staleness reads consistently everywhere.
  */
-export function definitionHashForAddress(def: DefinitionLike, address: string): string | null {
+export function definitionHashForAddress(
+  def: DefinitionLike,
+  address: string,
+  rewrite?: HashInputRewrite,
+): string | null {
   if (isOverlayAddress(address)) {
     return (def as unknown as StageDefinition).overlay
-      ? overlayDefinitionHash(def as unknown as StageDefinition)
+      ? overlayDefinitionHash(def as unknown as StageDefinition, rewrite)
       : null;
   }
   if (isCompositionAddress(address)) {
-    return compositionDefinitionHashForAddress(def as unknown as StageDefinition, address);
+    return compositionDefinitionHashForAddress(def as unknown as StageDefinition, address, rewrite);
   }
   if (isStemAddress(address)) {
-    return stemDefinitionHashForAddress(def as unknown as StageDefinition, address);
+    return stemDefinitionHashForAddress(def as unknown as StageDefinition, address, rewrite);
   }
   try {
     const entry = getAssetEntryByAddress(def, address);
-    return entry.kind === "file" ? null : computeDefinitionHash(entry);
+    if (entry.kind === "file") return null;
+    return computeDefinitionHash(rewrite ? (rewrite(entry) as AssetDefinition) : entry);
   } catch {
     return null;
   }
@@ -515,11 +535,15 @@ function songPartEntries(
   }));
 }
 
-function hashShotStemStructure(structure: ShotStemStructure): string {
+function shotStemHashInput(structure: ShotStemStructure): unknown {
   const kinds = structure.kinds ?? {};
   return structure.kind === "board"
-    ? hashStructure({ cues: structure.cues, clamp: structure.clamp, kinds })
-    : hashStructure({ cues: structure.cues, kinds });
+    ? { cues: structure.cues, clamp: structure.clamp, kinds }
+    : { cues: structure.cues, kinds };
+}
+
+function hashShotStemStructure(structure: ShotStemStructure): string {
+  return hashStructure(shotStemHashInput(structure));
 }
 
 function timelineStemStructure(
@@ -546,21 +570,27 @@ export function timelineStemRefs(video: StageDefinition): string[] {
 
 // The stem's definition hash: a hash of its audio structure (shot cues or timeline beds), rendered
 // from the definition alone. "" when there is no stem (no render fn / no audio / no soundtracks).
-export function stemDefinitionHash(video: StageDefinition, address: string): string {
-  return memoizedHash(video, `stem:${address}`, () => {
-    if (parseAddress(address).kind === "timeline") {
-      const structure = timelineStemStructure(video);
-      return structure === null ? "" : hashStructure(structure);
-    }
+export function stemDefinitionHash(
+  video: StageDefinition,
+  address: string,
+  rewrite?: HashInputRewrite,
+): string {
+  const input = memoizedInput(video, `stem:${address}`, () => {
+    if (parseAddress(address).kind === "timeline") return timelineStemStructure(video);
     const structure = shotStemStructure(video, address);
-    return structure === null ? "" : hashShotStemStructure(structure);
+    return structure === null ? null : shotStemHashInput(structure);
   });
+  return hashInput(input, rewrite);
 }
 
-function stemDefinitionHashForAddress(video: StageDefinition, address: string): string | null {
+function stemDefinitionHashForAddress(
+  video: StageDefinition,
+  address: string,
+  rewrite?: HashInputRewrite,
+): string | null {
   const parsed = parseAddress(address);
   if (parsed.kind !== "shot" && parsed.kind !== "timeline") return null;
-  const hash = stemDefinitionHash(video, address);
+  const hash = stemDefinitionHash(video, address, rewrite);
   if (hash !== "") return hash;
   // A developed shot that sounds nothing stems silence, so a stem accepted before its last cue was
   // removed reads definition-stale.
@@ -844,10 +874,10 @@ export async function materializeShotStem(opts: {
 // off. Its identity is its own structure over the timeline — it is no part of the compositions of
 // the shots it is laid over — and the refs it draws.
 
-export function overlayDefinitionHash(video: StageDefinition): string {
-  return memoizedHash(video, "overlay", () => {
+export function overlayDefinitionHash(video: StageDefinition, rewrite?: HashInputRewrite): string {
+  const input = memoizedInput(video, "overlay", () => {
     const overlay = video.overlay;
-    if (!overlay) return "";
+    if (!overlay) return null;
     const structureHtml = renderOverlayBody({
       stage: video.stage,
       overlay,
@@ -856,14 +886,15 @@ export function overlayDefinitionHash(video: StageDefinition): string {
       typography: video.typography,
       resolvedFiles: {},
     });
-    return shortHash({
+    return {
       structureHtml,
       typography: video.typography,
       duration: overlay.duration,
       width: video.format.size.width,
       height: video.format.size.height,
-    });
+    };
   });
+  return hashInput(input, rewrite);
 }
 
 // Whether every shot accept on the stage stands: each developed shot's composition accepted at its

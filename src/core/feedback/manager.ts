@@ -206,6 +206,47 @@ export class FeedbackManager {
     delete this.stream.feedback[address];
   }
 
+  /**
+   * Moves the comments on each `moves` key to its value, renames the address in the takes every
+   * comment was written against and in the live hashes it recorded, passing each of those through
+   * `carryHash`.
+   * Returns whether anything changed.
+   */
+  renameAddresses(
+    moves: ReadonlyMap<string, string>,
+    carryHash: (address: string, recorded: string) => string,
+  ): boolean {
+    let changed = false;
+    for (const [from, to] of moves) {
+      const entries = this.stream.feedback[from];
+      if (!entries) continue;
+      (this.stream.feedback[to] ??= []).push(...entries);
+      delete this.stream.feedback[from];
+      changed = true;
+    }
+    for (const entries of Object.values(this.stream.feedback)) {
+      for (const entry of entries) {
+        for (const [from, to] of moves) {
+          const variantId = entry.displayedVariants[from];
+          if (variantId === undefined) continue;
+          delete entry.displayedVariants[from];
+          entry.displayedVariants[to] = variantId;
+          changed = true;
+        }
+        if (!entry.displayedDefinitionHashes) continue;
+        const hashes = Object.entries(entry.displayedDefinitionHashes).map(([key, hash]) => {
+          const address = moves.get(key) ?? key;
+          return [address, hash === null ? null : carryHash(address, hash)] as const;
+        });
+        if (hashes.some(([address, hash]) => entry.displayedDefinitionHashes![address] !== hash)) {
+          entry.displayedDefinitionHashes = Object.fromEntries(hashes);
+          changed = true;
+        }
+      }
+    }
+    return changed;
+  }
+
   async save(): Promise<void> {
     try {
       await writeFileAtomic(this.filePath, JSON.stringify(this.stream, null, 2));

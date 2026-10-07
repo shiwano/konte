@@ -11,7 +11,9 @@ import { withFileLock } from "../file-lock.js";
 import {
   computeVariantStaleness,
   createStalenessCache,
+  keptViaMarker,
   newestReadyUndecidedTake,
+  parseKeptVia,
   type PatchHashes,
   readyUndecidedTakes,
   type ResolutionDefinitions,
@@ -656,6 +658,46 @@ export class StateManager {
       "VARIANT_NOT_FOUND",
       `Variant "${variantId}" not found for address "${address}"`,
     );
+  }
+
+  /**
+   * Moves the takes at each `moves` key to its value, absent ones included, and renames the address
+   * in what every take recorded against it. `moveFile` repoints a take's `file`.
+   */
+  renameAddresses(moves: ReadonlyMap<string, string>, moveFile: (file: string) => string): void {
+    for (const [from, to] of moves) {
+      const asset = this.state.assets[from];
+      if (asset) {
+        this.state.assets[to] = asset;
+        delete this.state.assets[from];
+      }
+      const absent = this.absentVariants.get(from);
+      if (absent) {
+        this.absentVariants.set(to, absent);
+        this.absentVariants.delete(from);
+      }
+    }
+    const rename = (address: string) => moves.get(address) ?? address;
+    const renameKeys = <T>(record: Record<string, T>) =>
+      Object.fromEntries(Object.entries(record).map(([k, v]) => [rename(k), v]));
+    const variants = [
+      ...Object.values(this.state.assets).flatMap((a) => Object.values(a.variants ?? {})),
+      ...[...this.absentVariants.values()].flatMap((a) => [...a.variants.values()]),
+    ];
+    for (const variant of variants) {
+      if (variant.file) variant.file = moveFile(variant.file);
+      variant.inputFingerprints = renameKeys(variant.inputFingerprints);
+      if (variant.keptInputs) {
+        variant.keptInputs = renameKeys(
+          Object.fromEntries(
+            Object.entries(variant.keptInputs).map(([k, v]) => {
+              const via = parseKeptVia(v);
+              return [k, via ? keptViaMarker(renameKeys(via)) : v];
+            }),
+          ),
+        );
+      }
+    }
   }
 
   removeAsset(address: string): boolean {

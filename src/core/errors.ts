@@ -29,6 +29,10 @@ export type KonteErrorCode =
   // Several targets handed to one command that cannot be decided together — two takes of one
   // address, or a target decided only on its own.
   | "TARGETS_CONFLICT"
+  // `konte rename` onto an address already holding takes.
+  | "RENAME_TARGET_TAKEN"
+  // `konte rename` of an address a job is still making a take for.
+  | "RENAME_JOB_ACTIVE"
   | "ASSET_NOT_FOUND"
   | "ADAPTER_NOT_FOUND"
   | "GENERATION_FAILED"

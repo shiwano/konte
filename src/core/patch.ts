@@ -55,7 +55,7 @@ export function patchFilePath(videoRoot: string, variantId: string): string {
  * comment does not age out a take and trigger a paid re-apply. Every step is hashed, not just the
  * output's: an edit anywhere in the chain changes what the correction produces.
  */
-function computePatchHash(build: PatchBuild): string {
+export function computePatchHash(build: PatchBuild): string {
   const parts = Object.entries(build.assets)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([name, def]) => `${name}:${computeDefinitionHash(def)}`);

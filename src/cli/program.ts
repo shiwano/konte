@@ -24,6 +24,7 @@ import { registerJobCommand } from "./commands/job/index.js";
 import { registerReviewCommand } from "./commands/review/index.js";
 import { registerAcceptCommand } from "./commands/asset-ops/accept.js";
 import { registerDismissCommand } from "./commands/asset-ops/dismiss.js";
+import { registerRenameCommand } from "./commands/asset-ops/rename.js";
 import { registerRerollCommand } from "./commands/asset-ops/reroll.js";
 import { registerStatusCommand } from "./commands/status.js";
 import { registerGenerateCommand } from "./commands/generate.js";
@@ -71,6 +72,7 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
   registerExportCommand(program);
   registerAcceptCommand(program);
   registerDismissCommand(program);
+  registerRenameCommand(program);
   registerProbeCommand(program);
   registerSongCommand(program);
   registerStudyCommand(program);
