@@ -69,7 +69,6 @@ export interface PreviewServerOptions {
   access?: AccessPolicy;
   /** Guards every non-loopback route. Omitted only where nothing but loopback is admitted. */
   gate?: PinGate;
-  reviewId: string;
 }
 
 export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
@@ -157,25 +156,14 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
   // consulted once a submit has actually been taken here.
   let submitSeen = false;
 
-  // Settled once the outcome is printed: `konte review wait` returns on it, so what it points the
-  // agent at is already in the preview's output. Bun's stop() lets the waiting request run on.
-  let settleEnded!: () => void;
-  const ended = new Promise<void>((resolve) => {
-    settleEnded = resolve;
-  });
-
   const lifecycle = createPageLifecycle({
     autoClose,
     onShutdown: async ({ drainTimedOut }) => {
-      try {
-        printReviewOutcome(
-          mode,
-          outcome ?? (submitSeen ? await recoverOutcome(videoRoot, mode, sessionStart) : null),
-          drainTimedOut,
-        );
-      } finally {
-        settleEnded();
-      }
+      printReviewOutcome(
+        mode,
+        outcome ?? (submitSeen ? await recoverOutcome(videoRoot, mode, sessionStart) : null),
+        drainTimedOut,
+      );
     },
     onSocketOpen: (ws) => wsClients.add(ws),
     onSocketClose: (ws) => wsClients.delete(ws),
@@ -224,16 +212,6 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
         // time it changes network — so nothing but a server that does not answer at all may end a
         // review page and take the comment being typed with it.
         if (pathname === "/api/ping") {
-          return new NativeResponse(null, { status: 204 });
-        }
-
-        const waitRoute = /^\/api\/review\/([^/]+)\/wait$/.exec(pathname);
-        if (waitRoute && req.method === "GET") {
-          if (waitRoute[1] !== opts.reviewId) {
-            return errorResponse("No such review on this server", "REVIEW_NOT_FOUND", 404);
-          }
-          server.timeout(req, 0);
-          await ended;
           return new NativeResponse(null, { status: 204 });
         }
 

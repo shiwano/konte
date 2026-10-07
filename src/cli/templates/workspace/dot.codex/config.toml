@@ -11,16 +11,18 @@ commands: only a lone `konte` command runs outside the sandbox.
 
 When exec_command returns a session_id, keep calling write_stdin with that
 session_id until the command exits, reading its output. For long-running
-commands, use yield_time_ms: 120000. In code mode, if
+commands, use yield_time_ms: 60000 with write_stdin. In code mode, if
 functions.exec yields a cell_id, resume it with functions.wait first; a
-cell_id is not a shell session_id. Use commentary for progress updates,
-except while a `konte review wait` is pending: send none until it returns.
-Keep the turn active until generation/review waits finish and their results
-are read; do not send final while either is pending unless the user stops
-or pauses the task.
+cell_id is not a shell session_id.
+Run `konte preview` directly, without shell backgrounding or detaching it.
+Send its startup URL and any PIN in commentary before waiting.
+Use commentary for progress updates on other commands.
+Keep the turn active until generation waits and previews finish and their
+results are read; do not send final while either is pending unless the user
+stops or pauses the task.
 
-On "Unknown process id", rerun the lost wait: `konte job wait`, or
-the same `konte review wait`.
+On "Unknown process id", rerun a lost `konte job wait`; for a lost
+`konte preview`, run `konte review record list` instead of a second preview.
 
 When a skill says to spawn a subagent fresh or never as a fork, name the
 agent in the request and carry no history (`fork_turns: "none"`).
@@ -29,6 +31,9 @@ agent in the request and carry no history (`fork_turns: "none"`).
 default_permissions = ":workspace"
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
+
+[features]
+unified_exec = true
 
 [shell_environment_policy.set]
 

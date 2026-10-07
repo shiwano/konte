@@ -14,8 +14,8 @@ Every human review runs the same two steps — preview with a handoff, read the 
 - **Never delete or overwrite a file under `review/<stage>/handoffs/`** — each one records what an earlier round changed and why.
 - **Before the first preview, ask once per session whether they review on this machine or another device** — preview opens its browser on this machine. Their answer holds for the session.
 - **This machine → no flag; another device → `--tunnel`** — a public https URL on the startup line, with a 4-digit PIN they must enter. Hand them both; it dies with the command.
-- **`konte preview <scope>` opens the browser itself and runs until the human submits or closes it** — run it in the background without extra confirmation; never open a browser yourself or start a second one while it's up.
-- **Then run the `konte review wait` command it prints** — returns once the review ends; if interrupted, rerun it. Background it if your harness notifies you when a background command exits; otherwise **never close a turn while it has not returned**.
+- **`konte preview <scope>` opens the browser itself and runs until the human submits or closes it** — run it without extra confirmation, and wait for it to exit. Background it if your harness notifies you when a background command exits; otherwise **never close a turn while it has not exited**. Never open a browser yourself or start a second one while it's up.
+- **Lost a running preview's output → `konte review record list`** — a record newer than the preview is its submit.
 - **An idle, unanswered preview is normal** — don't kill it, and don't `konte job wait` on it.
 - **What the human sees** — per part for `direction`; a flat pool grouped by media kind for `reference`; per shot for `animatic`/`video` (accept toggle + pin/text comments; a pin (`x`/`y` 0-1 of the frame) captures the frame as `[image: <path>]`). The soundtrack is its own target: comments land on `timeline#stem`, timed, never pinned.
 - **The `overlay` is signed off by the shot accepts** — only one changed after every shot was accepted shows on its own, on the reel page as `<stage>:timeline#overlay`.
@@ -23,7 +23,7 @@ Every human review runs the same two steps — preview with a handoff, read the 
 
 ## 2. Read the record
 
-- **Once `review wait` returns, read the backgrounded `konte preview`'s exit line** — one of `submitted` (followed by the `konte review record show` command that reads it, then any `konte generate` to run), `submitted, but nothing to record (no changes)`, or `not submitted (closed without submitting)`.
+- **Once `konte preview` exits, read its exit line** — one of `submitted` (followed by the `konte review record show` command that reads it, then any `konte generate` to run), `submitted, but nothing to record (no changes)`, or `not submitted (closed without submitting)`.
 - **`konte review record show <file>`** — every decision the review made, plus any target the submit could not settle and, for `direction`, where the acceptance gate stood at submit.
 - **Read it whole** — never `head`/`tail` it; a cut drops the human's comments silently.
 - **`--contact-sheet` tiles every commented frame into one image** — cells captioned with comment id + shot-local time. Triage only: judge any single comment off its own `[image: <path>]`.

@@ -1,6 +1,5 @@
 import * as path from "node:path";
 import { loadKonteConfig } from "../../../core/config.js";
-import { shortId } from "../../../core/short-id.js";
 import { createPinGate } from "../../page-host/auth.js";
 import { describeExposure, LOOPBACK_ONLY } from "../../page-host/http.js";
 import { runPage } from "../../page-host/run.js";
@@ -77,7 +76,6 @@ export async function launchPreview(opts: {
     },
   });
 
-  const reviewId = `r-${shortId()}`;
   const serverOpts: PreviewServerOptions = {
     videoRoot,
     videoPath,
@@ -89,7 +87,6 @@ export async function launchPreview(opts: {
     explicitHandoffPath,
     access,
     gate,
-    reviewId,
   };
 
   await runPage({
@@ -97,7 +94,7 @@ export async function launchPreview(opts: {
     startupLine: (url, port) => {
       const line = `Preview server at ${url} — opening browser (Ctrl+C to stop)`;
       const exposure = describeExposure(access, port, { pin: gate.pin, tunnelUrl: tunnel?.url });
-      return `${exposure ? `${line}\n${exposure}` : line}\n\nNext steps:\n  konte review wait ${reviewId} --port ${port}`;
+      return exposure ? `${line}\n${exposure}` : line;
     },
     start: async () => {
       const { server, shutdown, triggerShutdown } = await createPreviewServer(serverOpts);
