@@ -505,6 +505,7 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
         const thumbs = readVariantThumbnails(videoRoot, address, vid, v.outputHash, v.file);
         const thumbInfo = thumbs.length > 0 ? ` (${thumbs.length} thumbnails)` : "";
         console.log(`  ${vid}: ${v.status}${tagStr}${fileInfo}${thumbInfo}`);
+        if (v.seed != null) console.log(`    seed: ${v.seed}`);
         if (v.derivedFrom) {
           const owner = v.file ? variantOwningFile(state, v.file) : null;
           const fileFrom =

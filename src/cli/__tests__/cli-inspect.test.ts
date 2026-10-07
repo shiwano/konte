@@ -194,6 +194,17 @@ describe("inspect command", () => {
     expect(stdout).toMatch(/^Dependents:/m);
   });
 
+  it("lists each take's seed", async () => {
+    const sm = await StateManager.load(projectDir);
+    const take = sm.reserveVariantId("video:shot.01.motion");
+    sm.getAssetState("video:shot.01.motion").variants![take]!.seed = 123456;
+    await sm.save();
+
+    const { stdout } = await run(["inspect", "video:shot.01.motion"], projectDir);
+    expect(stdout).toContain(`  ${take}: none`);
+    expect(stdout).toContain("    seed: 123456");
+  });
+
   it("fails for non-existent address", async () => {
     await expect(run(["inspect", "video:shot.99.nonexistent"], projectDir)).rejects.toThrow();
   });
