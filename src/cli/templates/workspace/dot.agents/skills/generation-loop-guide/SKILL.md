@@ -34,7 +34,7 @@ Substitute your stage's `<scope>` / `<address>` into every step below.
 - **New or rewritten definitions clear `layout-guide`'s self-check before they meet a backend.**
 - **Generating what has no accepted variant needs no go-ahead** — on a paid vendor backend report the batch size and expected cost in one line, then generate. Ask before invalidating accepted work, such as rerolling an accepted asset by its address.
 - **`konte generate <scope>`** — submits all the stage's assets at once, async; dependency-free assets start immediately, dependent ones cascade as inputs become ready.
-- **`generate` skips accepted generative takes, even stale ones** — follow the command's `accepted but stale` Next steps. Stale deterministic assets re-bake automatically unless their accepted take is a patch.
+- **`generate` regenerates a stale unaccepted take and skips an accepted generative one, even stale** — after an edit, `generate` is the new take; `reroll` draws again on an unchanged definition. Follow the command's `accepted but stale` Next steps. Stale deterministic assets re-bake automatically unless their accepted take is a patch.
 - **Open on the cheap pass** — `production-guide`'s cost ladder.
 
 ## 4. Wait for jobs
@@ -77,21 +77,21 @@ After `konte generate` or `konte reroll`:
 
 **Fix what you found, then re-check — never hand the human a frame you already know is broken.** Route the defect to its owning layer:
 
-- prompt content or delivery → `prompt-guide` → reroll
+- prompt content or delivery → `prompt-guide` → generate
 - one local element on a take otherwise right — add, remove or recolour it — once a reroll on the fixed prompt still misses it, or the human wants the take kept, and the medium has an edit route (`konte adapter list`) → **`konte patch new <address>`**, the edit in the shape its adapter's guide gives, then generate. A failed patch leaves the take; `konte patch remove <variantId>` (the take it was written against) drops the fix for good. A further fix is another step in that same script — a take a patch produced cannot be patched again.
-- the shot doesn't read — framing, staging, continuity → the animatic panel: restage, reroll the chain, never papered over in the motion prompt
-- a pinned endpoint — pose, gaze, hands at start/end → the animatic frames pin it, not the prompt: edit the panel, reroll the chain
+- the shot doesn't read — framing, staging, continuity → the animatic panel: restage, then generate down the chain, never papered over in the motion prompt
+- a pinned endpoint — pose, gaze, hands at start/end → the animatic frames pin it, not the prompt: edit the panel, then generate down the chain
 - the note is about the movement, not the frame — "give it more motion", a transit that doesn't read → the panel's `blocking`/`camera`: rewriting them answers it with no new take, and the comment goes stale on its own
 - pacing, shot order, runtime → `direction.ts` (`direction-guide`) — no reroll fixes it; a shot's retuned words are re-signed by its stage accept, a retuned setup on `direction:setups.<id>`
 - subtitles, overlays, transitions, BGM/SE mix → the `<Composition>` (`composition-guide`) — re-renders live, regenerates nothing
-- an action off its SE in the stem → the board's `<Audio start>`, then reroll the motion
+- an action off its SE in the stem → the board's `<Audio start>`, then generate the motion
 
 **Reroll:**
 
 - **Draw again before you rewrite** — a broken still is one sample; rewrite only when several draws fail the same way.
 - **Before a third take at one address, simplify its action instruction to one sentence** — the adapter guide's required sections, notation and word counts still hold; re-add action constraints only for what the take actually misses.
 - **`konte reroll <address>`** — then wait (step 4) and re-check. Rerolling a named accepted asset drops its accept after confirmation; the new take becomes review work. **If the asset feeds another in the same stage, add `--with-dependents`** — the chain rebuilds in dependency order, stopping at an accepted take. A whole stage or shot is rerolled by its address-scope (`konte reroll video:shot.05 --yes`), which skips what it cannot spend on and accepted takes.
-- **A reroll that came out worse → `konte dismiss <newVariantId>`** — the address falls back to the take before it, still undecided and undeleted. It falls back only to a take matching the current definition, so where the reroll followed a prompt edit, restore the prompt instead: `konte inspect <address>` diffs each take against the live one.
+- **A reroll that came out worse → `konte dismiss <newVariantId>`** — the address falls back to the take before it, still undecided and undeleted. It falls back only to a take matching the current definition, so where the new take followed a prompt edit, restore the prompt instead: `konte inspect <address>` diffs each take against the live one.
 
 ### Before handoff
 
