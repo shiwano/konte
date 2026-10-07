@@ -23,7 +23,7 @@ import {
   isNarrationStemAddress,
   isPlateAddress,
 } from "./address.js";
-import { isVendorBackendAsset } from "./backend-policy.js";
+import { isVendorBackendAsset } from "./vendor-backend.js";
 import type { PinWindow, VideoShotPins } from "./direction-check.js";
 import type { PinOccurrence } from "./pin-check.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";

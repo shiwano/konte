@@ -25,8 +25,6 @@ import type {
   ComfyTarget,
   KonteConfig,
 } from "../core/types/index.js";
-import { DEFAULT_IDLE_MINUTES } from "../comfy-api/deployment.js";
-import { deploymentNameOf } from "../comfy-api/routing.js";
 import { getBackendKind } from "../backends/resolve-backend.js";
 import type { VideoRoots } from "../core/roots.js";
 
@@ -402,30 +400,17 @@ export function formatComfyDownloadNotice(notice: ComfyDownloadNotice): string |
 }
 
 /**
- * Where this run's comfy assets go, and the deployments it brings up — the spend a reader cannot
- * see from the definitions. Null when nothing is routed off a ComfyUI.
+ * Where this run's comfy assets go — the spend a reader cannot see from the definitions. Null when
+ * nothing is routed off a ComfyUI.
  */
 export function formatComfyRouteNotice(
   routed: ReadonlyArray<{ address: string; target: ComfyTarget }>,
-  config: KonteConfig,
 ): string | null {
-  const off = routed.filter((r) => r.target !== "comfyui");
-  if (off.length === 0) return null;
-  const lines = routed.map((r) => `${r.address} → ${r.target}`);
-  const deployments = [...new Set(off.map((r) => deploymentNameOf(r.target)))].filter(
-    (name): name is string => name !== null,
+  if (routed.every((r) => r.target === "comfyui")) return null;
+  return formatNotice(
+    "where this run's comfy assets go:",
+    routed.map((r) => `${r.address} → ${r.target}`),
   );
-  for (const name of deployments) {
-    const d = config.comfy?.comfyapi?.deployments?.[name];
-    if (!d) continue;
-    const idle = d.idleMinutes ?? DEFAULT_IDLE_MINUTES;
-    lines.push(
-      `deployment ${name}: ${d.gpuClass} in ${d.region}, up to ${d.max ?? 1} worker(s) — brought ` +
-        `up before its jobs submit, ${d.close === "stop" ? "stopped" : "deleted"} ` +
-        (idle === 0 ? "when `konte job wait` ends" : `after ${idle}m without a job`),
-    );
-  }
-  return formatNotice("where this run's comfy assets go:", lines);
 }
 
 // A pre-flight warning that one or more upstreams carry an undecided take (e.g. from a reroll)
@@ -558,9 +543,8 @@ export async function ensureComfyNodeJobs(
 }
 
 /**
- * The jobs a comfy asset waits on before it can submit, by where it was routed: model and node
- * provisioning on a ComfyUI, the deployment's bring-up on a Comfy API deployment, nothing on Comfy
- * Cloud. Empty for every other kind.
+ * The jobs a comfy asset waits on before it can submit: model and node provisioning on a ComfyUI,
+ * nothing off one. Empty for every other kind.
  */
 export async function ensureComfyPrereqJobs(
   assetDef: AssetDefinition,
@@ -570,15 +554,11 @@ export async function ensureComfyPrereqJobs(
   missingNodes: MissingComfyNodeAssets,
 ): Promise<string[]> {
   if (assetDef.kind !== "comfy") return [];
-  if (target === null || target === "comfyui") {
-    return [
-      ...(await ensureComfyModelJobs(assetDef, jobManager, missingModels)),
-      ...(await ensureComfyNodeJobs(assetDef, jobManager, missingNodes)),
-    ];
-  }
-  const deployment = deploymentNameOf(target);
-  if (deployment === null) return [];
-  return [(await jobManager.ensureComfyApiDeployJob(deployment)).id];
+  if (target !== null && target !== "comfyui") return [];
+  return [
+    ...(await ensureComfyModelJobs(assetDef, jobManager, missingModels)),
+    ...(await ensureComfyNodeJobs(assetDef, jobManager, missingNodes)),
+  ];
 }
 
 // The backend a job runs on: a comfy asset routed off a ComfyUI runs on `comfy-api`.
@@ -784,11 +764,10 @@ export function buildGeneratePlan(params: {
           (assetDef.kind === "comfy" &&
             (comfyTarget === null || comfyTarget === "comfyui") &&
             ((assetDef.models?.some((m) => missingModels.has(comfyModelJobId(m))) ?? false) ||
-              (assetDef.nodes?.some((n) => missingNodes.has(n.id)) ?? false))) ||
-          (comfyTarget !== null && deploymentNameOf(comfyTarget) !== null)
+              (assetDef.nodes?.some((n) => missingNodes.has(n.id)) ?? false)))
         ) {
-          // An upstream still to build, comfy models/nodes still to install, or a deployment to
-          // bring up → the job is registered blocked and submits once those land.
+          // An upstream still to build, or comfy models/nodes still to install → the job is
+          // registered blocked and submits once those land.
           action = "wait";
         } else {
           // No deps, or deps already generated: the daemon submits it on its next pass.

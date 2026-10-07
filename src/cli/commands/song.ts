@@ -18,7 +18,7 @@ import { songAnalysisOf } from "../../core/song-reading.js";
 import type { SongAnalysis, SongRecord, VariantState } from "../../core/types/index.js";
 import { sleep } from "../../core/sleep.js";
 import { requireVideoRoot, requireVideoRoots } from "../context.js";
-import { closeDeploymentsAfterWait, JobRunnerGuard } from "../job-runner.js";
+import { JobRunnerGuard } from "../job-runner.js";
 import { loadDirectionIfPresent } from "../load-definition.js";
 import { loadReference } from "../../core/loader.js";
 
@@ -258,7 +258,6 @@ Examples:
       } finally {
         await runner.stop();
       }
-      await closeDeploymentsAfterWait(roots.workspace);
       if (failed) process.exitCode = 1;
       console.log(`\nNext steps:\n  konte preview reference\n  konte probe audio ${songAddress}`);
     });

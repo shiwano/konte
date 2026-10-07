@@ -254,7 +254,6 @@ export function registerGenerateCommand(program: Command): void {
           const target = spend.targetOf(assetEntryOf(address));
           return target ? [{ address, target }] : [];
         }),
-        config,
       );
 
       if (opts.plan) {
@@ -398,8 +397,7 @@ export function registerGenerateCommand(program: Command): void {
           for (const d of deps) generatedDepPaths.add(d);
           // A comfy asset's prerequisites are shared jobs the generation job depends on — on a
           // ComfyUI its models (comfy-model-download) and nodes (comfy-node-install gated by a
-          // comfy-node-activate reboot), on a deployment its bring-up (comfy-api-deploy) — so
-          // anything with one is pending until it is ready.
+          // comfy-node-activate reboot) — so anything with one is pending until it is ready.
           const prereqJobIds = await ensureComfyPrereqJobs(
             assetDef,
             spend.targetOf(assetDef),

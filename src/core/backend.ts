@@ -9,9 +9,12 @@ export type GenerationRequest = {
   // A line for the job log, emitted during submit. The local backend generates inside submit()
   // (there is no wait phase to observe), so what it has to say cannot ride WaitOptions.onLog.
   onLog?: (line: string) => void;
-  // Whether the job was cancelled while its submit was held back. A backend whose submit can wait
-  // (a Comfy API deployment coming up) asks before sending anything.
+  // Whether the job was cancelled while its submit was being prepared. A backend whose submit can
+  // take a while (Comfy API uploads, a 429 backoff) asks before sending anything.
   shouldCancel?: () => Promise<boolean>;
+  // Where the first attempt of this submission was sent (`chooseSubmissionSite`), recorded before
+  // sending: a resubmission goes there, where its Idempotency-Key finds the first one's job.
+  submissionSite?: string | null;
 };
 
 export type GenerationResult = {
@@ -52,6 +55,8 @@ export interface GenerationBackend {
   // `__konte:seed__` occurrence, so a variant's persisted seed reproduces the submission.
   // A backend whose definition declares no seed placeholder simply ignores it.
   submit(request: GenerationRequest, jobRecord: JobRecord, seed: number): Promise<string>;
+  // Where this submission will be sent, when the backend picks among several; null otherwise.
+  chooseSubmissionSite?(request: GenerationRequest, jobRecord: JobRecord): Promise<string | null>;
   waitForCompletion(
     backendJobId: string,
     outputDir: string,

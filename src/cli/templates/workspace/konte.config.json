@@ -16,10 +16,7 @@
     },
     "comfyapi": {
       "deployments": {
-        "main": {
-          "gpuClass": "rtx-pro-6000-server",
-          "region": "US-NE-1"
-        }
+        "main": {}
       }
     }
   }

@@ -48,21 +48,16 @@ export type KonteErrorCode =
   | "COMFY_API_NOT_ENABLED"
   // A release could not be built: a model the builder cannot fetch, or `deployable: false`.
   | "COMFY_API_RELEASE_FAILED"
-  // A deployment went `failed` / `unhealthy` instead of `ready`.
-  | "COMFY_API_DEPLOY_FAILED"
   // A model whose URL carries a credential, which a Build definition would keep.
   | "COMFY_API_AUTHENTICATED_MODEL"
   // 402 PAYMENT_REQUIRED from the Comfy API.
   | "COMFY_API_INSUFFICIENT_CREDITS"
-  // A deployment bring-up held back: replacing it would cut off jobs still running on it, or its
-  // job was cancelled. The deploy job goes back to pending, or stays cancelled.
-  | "COMFY_API_DEPLOY_DEFERRED"
-  | "COMFY_API_DEPLOY_CANCELLED"
-  // A Comfy API submit held back (a deployment coming up or awaiting its replacement) whose job was
-  // cancelled meanwhile; nothing was sent.
+  // A Comfy API submit whose job was cancelled while its inputs were uploading or a 429 was
+  // backing off; nothing was sent.
   | "COMFY_API_SUBMIT_CANCELLED"
-  // A spend routed to a Comfy API deployment with no konte MCP daemon alive in the workspace.
-  | "COMFY_API_DAEMON_REQUIRED"
+  // A Comfy API deployment with no Build of its current adapters, or no ready deployment of that
+  // Build's release.
+  | "COMFY_API_DEPLOYMENT_NOT_READY"
   // The daemon a `konte job wait` started to run the jobs kept exiting.
   | "JOB_RUNNER_EXITED"
   // Comfy Cloud's node or model index could not be read, so whether an adapter runs there is

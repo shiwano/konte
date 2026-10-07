@@ -2,7 +2,6 @@ import { existsSync } from "node:fs";
 import * as path from "node:path";
 import { loadWorkflow, parameterizeWorkflow } from "../comfyui/workflow.js";
 import { modelPathSegments } from "../comfyui/model-destination.js";
-import { hasLiveDaemon } from "../core/daemon-registry.js";
 import { KonteError } from "../core/errors.js";
 import { stableStringify } from "../core/stable-stringify.js";
 import type {
@@ -54,9 +53,7 @@ export function assertComfyAdapterKeys(workspaceRoot: string, config: KonteConfi
 export type ComfyRoute =
   | { kind: "routed"; target: ComfyTarget }
   // No candidate can run it; one reason per candidate tried.
-  | { kind: "unroutable"; reasons: string[] }
-  // The first usable candidate is a deployment, and no daemon is there to close it.
-  | { kind: "daemon-required"; target: ComfyTarget };
+  | { kind: "unroutable"; reasons: string[] };
 
 type RouteSubject = {
   workflow: string;
@@ -76,20 +73,17 @@ type RouteSubject = {
 export class ComfyRouter {
   private readonly workspaceRoot: string;
   private readonly config: KonteConfig;
-  private readonly daemonAlive: () => Promise<boolean>;
   private catalog: ComfyCloudCatalog | null = null;
-  private daemon: Promise<boolean> | null = null;
   private readonly memo = new Map<string, Promise<ComfyRoute>>();
 
   constructor(
     workspaceRoot: string,
     config: KonteConfig,
-    opts: { catalog?: ComfyCloudCatalog; daemonAlive?: () => Promise<boolean> } = {},
+    opts: { catalog?: ComfyCloudCatalog } = {},
   ) {
     this.workspaceRoot = workspaceRoot;
     this.config = config;
     this.catalog = opts.catalog ?? null;
-    this.daemonAlive = opts.daemonAlive ?? (() => hasLiveDaemon(workspaceRoot));
     assertComfyAdapterKeys(workspaceRoot, config);
   }
 
@@ -114,14 +108,10 @@ export class ComfyRouter {
 
   /**
    * Where a whole adapter — every branch, every model — runs, which is what decides whether a
-   * deployment's Build carries it. A daemon is not asked for.
+   * deployment's Build carries it.
    */
-  async routeAdapter(
-    workflow: string,
-    models: readonly ComfyModelDeclaration[],
-  ): Promise<ComfyRoute> {
-    const route = await this.routeSubject({ workflow, models });
-    return route.kind === "daemon-required" ? { kind: "routed", target: route.target } : route;
+  routeAdapter(workflow: string, models: readonly ComfyModelDeclaration[]): Promise<ComfyRoute> {
+    return this.routeSubject({ workflow, models });
   }
 
   private routeSubject(subject: RouteSubject): Promise<ComfyRoute> {
@@ -142,17 +132,9 @@ export class ComfyRouter {
         reasons.push(`${target}: ${reason}`);
         continue;
       }
-      if (deploymentNameOf(target) !== null && !(await this.isDaemonAlive())) {
-        return { kind: "daemon-required", target };
-      }
       return { kind: "routed", target };
     }
     return { kind: "unroutable", reasons };
-  }
-
-  private isDaemonAlive(): Promise<boolean> {
-    this.daemon ??= this.daemonAlive();
-    return this.daemon;
   }
 
   private async unusableReason(target: ComfyTarget, subject: RouteSubject): Promise<string | null> {

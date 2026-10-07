@@ -91,14 +91,8 @@ export type ComfyTarget = "comfyui" | "comfycloud" | `comfyapi:${string}`;
 
 export const ComfyApiDeploymentConfigSchema = z
   .object({
-    gpuClass: z.string().min(1),
-    region: z.string().min(1),
-    max: z.number().int().min(1).max(20).optional(),
     // A ComfyUI git ref for the Build's `baseComfyVersion`; the latest release tag when absent.
     comfyVersion: z.string().min(1).optional(),
-    // Minutes without a job before the deployment is closed. 0 closes it when `job wait` ends.
-    idleMinutes: z.number().int().nonnegative().optional(),
-    close: z.enum(["delete", "stop"]).optional(),
   })
   .strict();
 export type ComfyApiDeploymentConfig = z.infer<typeof ComfyApiDeploymentConfigSchema>;

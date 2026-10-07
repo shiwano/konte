@@ -20,13 +20,4 @@ export function registerMcpCommand(program: Command): void {
     // out of both the template sync and the type-check.
     { scope: "workspace", skipSync: true, skipTypeCheck: true },
   );
-
-  // Run by an exiting daemon, detached into its own session (see daemon-exit.ts).
-  declareScope(
-    mcp.command("close-deployments", { hidden: true }).action(async () => {
-      const { closeDeploymentsOnDaemonExit } = await import("../../../comfy-api/daemon-exit.js");
-      await closeDeploymentsOnDaemonExit(requireWorkspaceRoot(), () => {});
-    }),
-    { scope: "workspace", skipSync: true, skipTypeCheck: true },
-  );
 }

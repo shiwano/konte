@@ -258,20 +258,16 @@ export function describePendingJob(
 
   let pendingModels = 0;
   let pendingNodes = 0;
-  const deployments: string[] = [];
   for (const depJobId of job.dependsOnJobs) {
     const depJob = jobs.get(depJobId);
     if (depJob?.status === "completed") continue;
     if (depJob?.kind === "comfy-model-download") pendingModels++;
     else if (depJob?.kind === "comfy-node-activate" || depJob?.kind === "comfy-node-install")
       pendingNodes++;
-    else if (depJob?.kind === "comfy-api-deploy")
-      deployments.push(`deployment ${depJob.deployment}`);
     else waitingOn.push(depJobId);
   }
   if (pendingModels > 0) waitingOn.push(`${pendingModels} model${pendingModels === 1 ? "" : "s"}`);
   if (pendingNodes > 0) waitingOn.push("custom nodes");
-  waitingOn.push(...deployments);
 
   if (waitingOn.length === 0) return { submittable: true };
   return { submittable: false, waitingOn };
@@ -308,9 +304,7 @@ function evaluateJob(job: GenerationJob, manager: StateManager, jobs: JobIndex):
             ? `node install "${depJob.node.id}"`
             : depJob.kind === "comfy-node-activate"
               ? `custom node activation`
-              : depJob.kind === "comfy-api-deploy"
-                ? `Comfy API deployment ${depJob.deployment}`
-                : `job ${depJobId}`;
+              : `job ${depJobId}`;
       const detail = depJob.error ? `: ${depJob.error.replace(/\.$/, "")}` : "";
       return {
         action: "fail",

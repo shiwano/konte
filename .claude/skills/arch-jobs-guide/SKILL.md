@@ -15,7 +15,6 @@ A `defineComfyAsset` adapter declares its ComfyUI dependencies so konte provisio
 - **comfy model downloads** — deduped by install target (`type` + `savePath` + `filename`), so one filename across savePaths gets a job each; reuse refreshes the declaration and resets any terminal job, completed included, so a fixed `url` or a deleted file retries.
   Presence is read from the loader combos in `/object_info`, falling back to the `savePath` root's `/api/models/<root>` listing for a model no node exposes as a combo.
 - **comfy node installs** — shared/deduped per pack, install-to-disk only — paired with an **activate** job that reboots ComfyUI once (under a server-wide reboot lock keyed by baseUrl) so the new nodes load. Deduped per pack set (one per run, not per asset), reset like the installs above. A generation job that needs nodes depends on the activate job, so nothing generates mid-reboot.
-- **`comfy-api-deploy`** — see `arch-comfy-api-guide`.
 - **`export` jobs** — a leaf render job (see `arch-delivery-guide`).
 - **`song-analysis`** — see `arch-direction-guide`.
 
@@ -35,7 +34,7 @@ Transient result-fetch and download-stream failures retry against the existing b
 
 `konte mcp serve` runs per workspace: a `VideoRegistry` (`src/mcp/video-registry.ts`) keeps a `JobWatcher` per video under `videos/`, following videos as they appear and disappear (`fs.watch` plus a 5s reconcile poll, since `fs.watch` drops events under WSL2). Credentials are re-applied each tick, dropping stale-keyed backends. `konte workspace new` configures it in `.mcp.json` (Claude Code) and `.codex/config.toml` (Codex).
 
-Its one MCP tool, `status`, returns the daemon's version, instance id, pid, start time and watched videos. Spend commands only register jobs. `konte job wait` reads job records and, with no daemon up, runs an attached one that `hasLiveDaemon` ignores.
+Its one MCP tool, `status`, returns the daemon's version, instance id, pid, start time and watched videos. Spend commands only register jobs. `konte job wait` reads job records and, with no daemon up, runs an attached one for as long as it waits.
 
 Every daemon of the workspace appends to `.konte/logs/mcp.log` (`src/mcp/mcp-log.ts`): its start and stop, the videos it watches, and each info-or-above event it sends its client, tagged with a per-daemon instance id and URLs redacted. Past 5 MB the file moves to `mcp.log.1`.
 

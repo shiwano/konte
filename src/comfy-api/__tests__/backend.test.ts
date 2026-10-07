@@ -6,17 +6,13 @@ import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/work
 import type { GenerationJob } from "../../core/types/index.js";
 import { ComfyApiBackend, describeJobError } from "../backend.js";
 import { updateDeploymentState } from "../deploy-state.js";
-import { KonteError } from "../../core/errors.js";
 import { TransientHttpError } from "../../core/http-retry.js";
 import { ComfyApiHttpError } from "../http.js";
 import type { ComfyApiJob, ComfyApiOutput, ComfyApiRuntimeClient } from "../runtime-client.js";
 
-const { submitOnMock } = vi.hoisted(() => ({ submitOnMock: vi.fn() }));
-vi.mock("../deployment.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../deployment.js")>()),
-  submitOnDeployment: submitOnMock,
-}));
-// A submit held back by a replacement waits between tries; no test waits that out.
+import type { ComfyPlatformClient, PlatformDeployment } from "../platform-client.js";
+
+// A 429 backoff waits between tries; no test waits that out.
 vi.mock("../../core/sleep.js", () => ({ sleep: async () => {} }));
 
 const WORKFLOW = {
@@ -27,6 +23,7 @@ const WORKFLOW = {
 let ws: Workspace;
 
 beforeEach(async () => {
+  deployments = [];
   ws = await makeWorkspace({ videos: ["main"] });
   await fs.mkdir(path.join(ws.root, "adapters", "comfy"), { recursive: true });
   await fs.writeFile(
@@ -76,16 +73,24 @@ function fakeClient(surface: "cloud" | "deployment"): FakeClient {
   };
 }
 
+// The deployments the human made on the platform.
+let deployments: PlatformDeployment[] = [];
+
 function backendWith(client: FakeClient): {
   backend: ComfyApiBackend;
   endpoints: string[];
 } {
   const endpoints: string[] = [];
+  const platform = {
+    listDeployments: async () => deployments,
+    getDeployment: async (id: string) => deployments.find((d) => d.id === id) ?? null,
+  };
   const backend = new ComfyApiBackend(ws.videos.main!, {
     clientFactory: (endpoint) => {
       endpoints.push(endpoint);
       return client as unknown as ComfyApiRuntimeClient;
     },
+    platformFactory: () => platform as unknown as ComfyPlatformClient,
   });
   return { backend, endpoints };
 }
@@ -149,12 +154,13 @@ const keyReuse = () =>
     body: "",
   });
 
-// Bringing a deployment up is the bring-up's own subject (deployment.test.ts); here it is up.
+// `konte adapter comfy build` cut rel-1, and the human deployed it.
 async function readyDeployment(): Promise<void> {
-  submitOnMock.mockImplementation(
-    async (_ctx: unknown, _name: string, _jobId: string, submit: (e: string) => unknown) =>
-      submit("https://dep.example"),
-  );
+  await updateDeploymentState(ws.root, "main", () => ({ releaseId: "rel-1" }));
+  deployments = [
+    { id: "dep-old", status: "ready", releaseId: "rel-0", endpointUrl: "https://old.example" },
+    { id: "dep-1", status: "ready", releaseId: "rel-1", endpointUrl: "https://dep.example" },
+  ];
 }
 
 describe("submit", () => {
@@ -211,39 +217,45 @@ describe("submit", () => {
     const { backend, endpoints } = backendWith(client);
 
     expect(await backend.submit(request(), jobRecord("comfyapi:main"), 7)).toBe(
-      "comfyapi:main|job-7",
+      "comfyapi:main|dep-1|job-7",
     );
     expect(endpoints).toEqual(["https://dep.example"]);
-    // Submitted under the deployment's lock, recorded by the job it is for.
-    expect(submitOnMock).toHaveBeenCalledWith(
-      expect.anything(),
-      "main",
-      request().variantId,
-      expect.any(Function),
-    );
   });
 
-  // A cancel while the submit was held back must not end in a paid job no one collects.
-  it("sends nothing once its job is cancelled while held back", async () => {
+  it("chooses the ready deployment of the recorded release as the site", async () => {
     await readyDeployment();
-    let cancelled = false;
-    submitOnMock.mockImplementationOnce(async () => {
-      cancelled = true;
-      throw new KonteError("COMFY_API_DEPLOY_DEFERRED", "jobs are still running");
-    });
-    const client = fakeClient("deployment");
-    const { backend } = backendWith(client);
+    const { backend } = backendWith(fakeClient("deployment"));
+    expect(await backend.chooseSubmissionSite(request(), jobRecord("comfyapi:main"))).toBe("dep-1");
+    expect(await backend.chooseSubmissionSite(request(), jobRecord("comfycloud"))).toBeNull();
+  });
 
-    await expect(
-      backend.submit(
-        { ...request(), shouldCancel: async () => cancelled },
+  // A resubmission must reach the deployment its first attempt went to, or its Idempotency-Key
+  // finds nothing and the job runs twice.
+  it("sends a resubmission to its recorded site, not the newest deployment", async () => {
+    await readyDeployment();
+    const client = fakeClient("deployment");
+    const { backend, endpoints } = backendWith(client);
+
+    expect(
+      await backend.submit(
+        { ...request(), submissionSite: "dep-old" },
         jobRecord("comfyapi:main"),
         7,
       ),
-    ).rejects.toMatchObject({ code: "COMFY_API_SUBMIT_CANCELLED" });
-    expect(submitOnMock).toHaveBeenCalledTimes(1);
+    ).toBe("comfyapi:main|dep-old|job-1");
+    expect(endpoints).toEqual(["https://old.example"]);
+  });
+
+  it("refuses a deployment whose release has no ready deployment", async () => {
+    await readyDeployment();
+    deployments = deployments.filter((d) => d.id !== "dep-1");
+    const client = fakeClient("deployment");
+    const { backend } = backendWith(client);
+
+    await expect(backend.submit(request(), jobRecord("comfyapi:main"), 7)).rejects.toMatchObject({
+      code: "COMFY_API_DEPLOYMENT_NOT_READY",
+    });
     expect(client.uploadInput).not.toHaveBeenCalled();
-    expect(client.submitJob).not.toHaveBeenCalled();
   });
 
   // A 429 backoff can outlast a `job cancel`; the resend would create a job no one collects.
@@ -283,43 +295,6 @@ describe("submit", () => {
       ),
     ).rejects.toMatchObject({ code: "COMFY_API_SUBMIT_CANCELLED" });
     expect(client.submitJob).not.toHaveBeenCalled();
-  });
-
-  // A cancel during the bring-up itself, read once the deployment is ready.
-  it("sends nothing when the job was cancelled during the bring-up", async () => {
-    let cancelled = false;
-    submitOnMock.mockImplementation(
-      async (_ctx: unknown, _name: string, _jobId: string, submit: (e: string) => unknown) => {
-        cancelled = true;
-        return submit("https://dep.example");
-      },
-    );
-    const client = fakeClient("deployment");
-    const { backend } = backendWith(client);
-
-    await expect(
-      backend.submit(
-        { ...request(), shouldCancel: async () => cancelled },
-        jobRecord("comfyapi:main"),
-        7,
-      ),
-    ).rejects.toMatchObject({ code: "COMFY_API_SUBMIT_CANCELLED" });
-    expect(client.submitJob).not.toHaveBeenCalled();
-  });
-
-  // A replacement held back by other jobs on the deployment holds this submit back too; it is
-  // never a failure of the job.
-  it("waits out a deferred replacement, then submits", async () => {
-    await readyDeployment();
-    const deferred = new KonteError("COMFY_API_DEPLOY_DEFERRED", "jobs are still running");
-    submitOnMock.mockRejectedValueOnce(deferred).mockRejectedValueOnce(deferred);
-    const client = fakeClient("deployment");
-    const { backend } = backendWith(client);
-
-    expect(await backend.submit(request(), jobRecord("comfyapi:main"), 7)).toBe(
-      "comfyapi:main|job-1",
-    );
-    expect(submitOnMock).toHaveBeenCalledTimes(3);
   });
 
   it("stops when a deployment's job list does not hold the key", async () => {
@@ -389,7 +364,7 @@ describe("waitForCompletion", () => {
   });
 
   it("fails naming the node errors, with a deployment's run log in the job log", async () => {
-    await updateDeploymentState(ws.root, "main", () => ({ endpointUrl: "https://dep.example" }));
+    await readyDeployment();
     const client = fakeClient("deployment");
     client.getJob.mockResolvedValue(
       job({
@@ -411,7 +386,7 @@ describe("waitForCompletion", () => {
     const lines: string[] = [];
 
     await expect(
-      backend.waitForCompletion("comfyapi:main|job-1", ws.videos.main!.video, {
+      backend.waitForCompletion("comfyapi:main|dep-1|job-1", ws.videos.main!.video, {
         onLog: (l) => lines.push(l),
       }),
     ).rejects.toMatchObject({
@@ -419,6 +394,23 @@ describe("waitForCompletion", () => {
       message: "Comfy API job job-1 failed: node 4 CheckpointLoaderSimple: Value not in list (x)",
     });
     expect(lines).toContain("line two");
+  });
+
+  it("reads a job on the deployment it was sent to", async () => {
+    await readyDeployment();
+    const client = fakeClient("deployment");
+    client.getJob.mockResolvedValue(job({ status: "succeeded", outputs }));
+    const { backend, endpoints } = backendWith(client);
+
+    await backend.waitForCompletion("comfyapi:main|dep-old|job-1", ws.videos.main!.video);
+    expect(endpoints).toEqual(["https://old.example"]);
+  });
+
+  it("fails a job whose deployment is gone", async () => {
+    const { backend } = backendWith(fakeClient("deployment"));
+    await expect(
+      backend.waitForCompletion("comfyapi:main|dep-1|job-1", ws.videos.main!.video),
+    ).rejects.toMatchObject({ code: "COMFY_API_ERROR" });
   });
 });
 

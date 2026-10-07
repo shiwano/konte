@@ -1,16 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import pkg from "../../package.json" with { type: "json" };
-import { closeIdleDeployments } from "../comfy-api/deployment.js";
-import { handOffDeploymentClose } from "../comfy-api/daemon-exit.js";
 import { registerDaemon, unregisterDaemonSync } from "../core/daemon-registry.js";
 import { RESTART_EXIT_CODE } from "../core/process-restart.js";
 import { drainSubmissions } from "../core/submission-drain.js";
 import { McpLog } from "./mcp-log.js";
 import { VideoRegistry } from "./video-registry.js";
 
-// How often the daemon judges whether a Comfy API deployment has sat idle long enough to close.
-const IDLE_CLOSE_INTERVAL_MS = 60_000;
 // How long a stopping daemon waits for a submit already sent to commit its backend job id.
 export const SUBMIT_DRAIN_MS = 60_000;
 
@@ -29,7 +25,7 @@ function stopProcessGroup(): void {
 
 /**
  * One daemon per workspace, watching every video in it. An attached one is a `konte job wait`'s:
- * it exits when the wait closes its stdin, and leaves the deployments to that wait's idle close.
+ * it exits when the wait closes its stdin.
  */
 export async function startMcpServer(
   workspaceRoot: string,
@@ -92,28 +88,9 @@ export async function startMcpServer(
     },
   );
 
-  // A deployment left up by a daemon that died without its exit handler is closed here, and
-  // every idle one after that.
-  await registerDaemon(workspaceRoot, { attached }).catch(() => {});
-  let closing = false;
-  const closeIdle = (): void => {
-    if (closing) return;
-    closing = true;
-    void closeIdleDeployments({
-      workspaceRoot,
-      log: (line) => log.write("info", { event: "comfy_api_close", line }),
-    })
-      .catch(() => [])
-      .finally(() => {
-        closing = false;
-      });
-  };
-  closeIdle();
-  const idleTimer = setInterval(closeIdle, IDLE_CLOSE_INTERVAL_MS);
-  idleTimer.unref?.();
+  await registerDaemon(workspaceRoot).catch(() => {});
 
   const cleanup = () => {
-    clearInterval(idleTimer);
     registry.stop();
     unregisterDaemonSync(workspaceRoot);
   };
@@ -122,7 +99,6 @@ export async function startMcpServer(
     if (stopping) return;
     stopping = true;
     cleanup();
-    if (!attached) handOffDeploymentClose(workspaceRoot);
     void drainSubmissions(SUBMIT_DRAIN_MS)
       .then(() => {
         log.write("info", { event: "daemon_stopped", signal: reason });

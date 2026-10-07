@@ -203,16 +203,6 @@ export async function buildStatusReport(
     if (job.kind === "comfy-node-activate") {
       return [{ jobId: job.id, label: "custom nodes", error: job.error, what: "node activation" }];
     }
-    if (job.kind === "comfy-api-deploy") {
-      return [
-        {
-          jobId: job.id,
-          label: `deployment ${job.deployment}`,
-          error: job.error,
-          what: "Comfy API deployment",
-        },
-      ];
-    }
     return [];
   });
 

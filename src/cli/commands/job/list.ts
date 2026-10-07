@@ -30,8 +30,6 @@ export function jobTarget(job: JobRecord): string {
       return `node ${job.node.id}`;
     case "comfy-node-activate":
       return `node reboot (${job.cnrIds.length})`;
-    case "comfy-api-deploy":
-      return `deployment ${job.deployment}`;
     case "export":
       return "video";
     case "song-analysis":

@@ -6,13 +6,10 @@ import { writeFileAtomic } from "./atomic-write.js";
 
 const DAEMONS_DIR = path.join(".konte", "daemons");
 
-// `attached`: started by a `konte job wait` and gone when that wait ends, so nothing it does
-// outlives the wait — it runs jobs, but judges no deployment's idle time after it.
 type DaemonRecord = {
   pid: number;
   startToken: string | null;
   startedAt: string;
-  attached?: boolean;
 };
 
 function recordPath(workspaceRoot: string, pid: number): string {
@@ -56,15 +53,11 @@ async function isAlive(record: DaemonRecord): Promise<boolean> {
 }
 
 /** Record this process as a live daemon of the workspace. */
-export async function registerDaemon(
-  workspaceRoot: string,
-  opts: { attached?: boolean } = {},
-): Promise<void> {
+export async function registerDaemon(workspaceRoot: string): Promise<void> {
   const record: DaemonRecord = {
     pid: process.pid,
     startToken: await processStartToken(process.pid),
     startedAt: new Date().toISOString(),
-    ...(opts.attached ? { attached: true } : {}),
   };
   const file = recordPath(workspaceRoot, process.pid);
   await fs.mkdir(path.dirname(file), { recursive: true });
@@ -100,20 +93,4 @@ export async function liveDaemons(workspaceRoot: string): Promise<DaemonRecord[]
     else await fs.rm(file, { force: true }).catch(() => {});
   }
   return live;
-}
-
-/**
- * Whether a daemon outlives the current wait in this workspace — this process counts when it is
- * one. An attached daemon does not.
- */
-export async function hasLiveDaemon(workspaceRoot: string): Promise<boolean> {
-  try {
-    const own = JSON.parse(
-      await fs.readFile(recordPath(workspaceRoot, process.pid), "utf-8"),
-    ) as DaemonRecord;
-    if (!own.attached) return true;
-  } catch {
-    // This process is no daemon.
-  }
-  return (await liveDaemons(workspaceRoot)).some((r) => !r.attached);
 }

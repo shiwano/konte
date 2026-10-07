@@ -18,7 +18,7 @@ const MODEL = {
   url: "https://example.com/flux.safetensors",
 };
 
-const DEPLOYMENTS = { main: { gpuClass: "L40S", region: "us-east" } };
+const DEPLOYMENTS = { main: {} };
 
 let ws: Workspace;
 
@@ -152,22 +152,13 @@ describe("ComfyRouter", () => {
       comfy: { adapters: { "*": ["comfyapi:main"] }, comfyapi: { deployments: DEPLOYMENTS } },
     };
 
-    it("requires a live daemon instead of falling through", async () => {
-      const router = new ComfyRouter(ws.root, config, { daemonAlive: async () => false });
-      expect(await router.route(def())).toEqual({
-        kind: "daemon-required",
-        target: "comfyapi:main",
-      });
-    });
-
-    it("routes there with a daemon alive", async () => {
-      const router = new ComfyRouter(ws.root, config, { daemonAlive: async () => true });
+    it("routes there", async () => {
+      const router = new ComfyRouter(ws.root, config);
       expect(await router.route(def())).toEqual({ kind: "routed", target: "comfyapi:main" });
     });
 
-    it("routes a whole adapter there without asking for a daemon", async () => {
-      const daemonAlive = vi.fn(async () => false);
-      const router = new ComfyRouter(ws.root, config, { daemonAlive });
+    it("routes a whole adapter there", async () => {
+      const router = new ComfyRouter(ws.root, config);
       expect(await router.routeAdapter("image.json", [MODEL])).toEqual({
         kind: "routed",
         target: "comfyapi:main",
@@ -176,7 +167,7 @@ describe("ComfyRouter", () => {
 
     it("is unusable without COMFY_API_KEY", async () => {
       vi.stubEnv("COMFY_API_KEY", "");
-      const router = new ComfyRouter(ws.root, config, { daemonAlive: async () => true });
+      const router = new ComfyRouter(ws.root, config);
       expect(await router.route(def())).toEqual({
         kind: "unroutable",
         reasons: ["comfyapi:main: COMFY_API_KEY is not set"],

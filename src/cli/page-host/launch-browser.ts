@@ -2,9 +2,10 @@ import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dlopen, FFIType, ptr } from "bun:ffi";
 
-export function launchBrowser(url: string): void {
+/** `silent`: a failure to open says nothing. */
+export function launchBrowser(url: string, opts: { silent?: boolean } = {}): void {
   const [command, args] = openerFor(url);
-  let reported = false;
+  let reported = opts.silent === true;
   const reportFailure = () => {
     if (reported) return;
     reported = true;
@@ -12,7 +13,9 @@ export function launchBrowser(url: string): void {
   };
 
   if (hasRestrictedToken()) {
-    console.log(`A sandbox cannot open the browser. Open ${url} to continue (Ctrl+C to stop).`);
+    if (!opts.silent) {
+      console.log(`A sandbox cannot open the browser. Open ${url} to continue (Ctrl+C to stop).`);
+    }
     return;
   }
 

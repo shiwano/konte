@@ -197,6 +197,7 @@ describe("turbo takes through reservation and submission", () => {
       address,
       backendKind: "comfy",
       lease: { owner: "w-test" },
+      metadata: {},
     } as unknown as GenerationJob;
     await submitToBackend(jobManager, backend, job, {
       address,

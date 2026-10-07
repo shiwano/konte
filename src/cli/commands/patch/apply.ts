@@ -14,7 +14,8 @@ import { StateManager } from "../../../core/state/index.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
 import { requireVideoRoots } from "../../context.js";
 import { getStage, isPatchAddress, tryParseAddress } from "../../../core/address.js";
-import { isVendorBackendAsset, type SpendRoutes } from "../../../core/backend-policy.js";
+import type { SpendRoutes } from "../../../core/backend-policy.js";
+import { isVendorBackendAsset } from "../../../core/vendor-backend.js";
 import { buildDependencyGraph, extractRefs } from "../../../core/graph.js";
 import {
   assertAnimaticConsumed,

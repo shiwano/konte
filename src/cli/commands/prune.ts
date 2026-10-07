@@ -52,8 +52,7 @@ function isProvisioningJob(job: JobRecord): boolean {
   return (
     job.kind === "comfy-model-download" ||
     job.kind === "comfy-node-install" ||
-    job.kind === "comfy-node-activate" ||
-    job.kind === "comfy-api-deploy"
+    job.kind === "comfy-node-activate"
   );
 }
 
@@ -65,7 +64,6 @@ function provisioningLabel(job: JobRecord): string {
   if (job.kind === "comfy-node-activate") {
     return `node activation${job.cnrIds.length > 0 ? ` [${job.cnrIds.join(", ")}]` : ""}`;
   }
-  if (job.kind === "comfy-api-deploy") return `deployment ${job.deployment}`;
   return job.id;
 }
 

@@ -22,7 +22,6 @@ import {
   runComfyModelDownloadJob,
   runComfyNodeInstallJob,
 } from "../backends/run-comfy-install-job.js";
-import { runComfyApiDeployJob } from "../backends/run-comfy-api-deploy-job.js";
 import { runComfyNodeActivateJob } from "../backends/run-comfy-node-activate-job.js";
 import { runExportJob } from "../backends/run-export-job.js";
 import { runSongAnalysisJob } from "../backends/run-song-analysis-job.js";
@@ -71,7 +70,6 @@ export class JobWatcher {
   private readonly modelJobsInFlight = new Set<string>();
   private readonly nodeInstallJobsInFlight = new Set<string>();
   private readonly nodeActivateJobsInFlight = new Set<string>();
-  private readonly deployJobsInFlight = new Set<string>();
   private readonly exportJobsInFlight = new Set<string>();
   private readonly songJobsInFlight = new Set<string>();
   private cascadeRunning = false;
@@ -165,12 +163,6 @@ export class JobWatcher {
         if (job.kind === "comfy-node-activate") {
           if (job.status === "pending" || job.status === "running") {
             this.startComfyNodeActivateJob(job.id);
-          }
-          continue;
-        }
-        if (job.kind === "comfy-api-deploy") {
-          if (job.status === "pending" || job.status === "running") {
-            this.startComfyApiDeployJob(job.id);
           }
           continue;
         }
@@ -288,12 +280,6 @@ export class JobWatcher {
           }
           continue;
         }
-        if (job.kind === "comfy-api-deploy") {
-          if (job.status === "pending" || job.status === "running") {
-            this.startComfyApiDeployJob(job.id);
-          }
-          continue;
-        }
         if (job.kind === "export") {
           if (job.status === "pending" || job.status === "running") {
             this.startExportJob(job.id);
@@ -385,24 +371,6 @@ export class JobWatcher {
     this.processComfyNodeActivateJob(id)
       .catch(() => {})
       .finally(() => this.nodeActivateJobsInFlight.delete(id));
-  }
-
-  // Run a comfy-api-deploy job concurrently: a release build can take many minutes, and only the
-  // generation jobs routed to that deployment wait on it.
-  private startComfyApiDeployJob(id: string): void {
-    if (this.deployJobsInFlight.has(id)) return;
-    this.deployJobsInFlight.add(id);
-    this.processComfyApiDeployJob(id)
-      .catch(() => {})
-      .finally(() => this.deployJobsInFlight.delete(id));
-  }
-
-  private async processComfyApiDeployJob(id: string): Promise<void> {
-    await runComfyApiDeployJob(this.jobManager, this.roots, id, {
-      onLog: (line) => this.sendLog("debug", { event: "comfy_api_deploy", variantId: id, line }),
-    });
-    // Generation jobs depend on this; cascade so they submit (or fail) now that it settled.
-    await this.runCascadeSubmit();
   }
 
   private async processComfyNodeInstallJob(id: string): Promise<void> {

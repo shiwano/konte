@@ -2,7 +2,7 @@ import { hasSeedPlaceholder } from "../backends/prepare-inputs.js";
 import { ComfyUIBackend } from "../comfyui/backend.js";
 import { ADAPTER_KEY_METADATA_KEY, adapterKeyFor } from "./adapter-key.js";
 import type { GenerationBackend, GenerationRequest } from "./backend.js";
-import type { JobManager } from "./job-manager.js";
+import { type JobManager, recordedSubmissionAttempt } from "./job-manager.js";
 import type { GenerationJob } from "./types/index.js";
 import { KonteError } from "./errors.js";
 import { applyTurboInputs } from "./turbo.js";
@@ -31,15 +31,22 @@ export async function submitToBackend(
   // resubmission sends the same ones; returned in `metadata`, which the caller commits to the job
   // record via finishIfOwner right after submit (still under the submit lease) — so a reclaimer
   // that only re-runs waitForCompletion still reads it back from the persisted job.
-  const { seed, resolvedDependencies } = await jobManager.beginSubmission(job.id, job.lease.owner, {
+  const recorded = recordedSubmissionAttempt(job);
+  const site = recorded
+    ? recorded.site
+    : ((await backend.chooseSubmissionSite?.(request, job)) ?? null);
+  const sent = await jobManager.beginSubmission(job.id, job.lease.owner, {
     seed: Math.floor(Math.random() * 2 ** 32),
     resolvedDependencies: request.resolvedDependencies,
+    site,
   });
+  const { seed, resolvedDependencies } = sent;
   const turbo = await isTurboVariant(jobManager.videoRoot, job, request);
   const backendJobId = await backend.submit(
     {
       ...request,
       resolvedDependencies,
+      submissionSite: sent.site,
       ...(turbo ? { assetDefinition: applyTurboInputs(request.assetDefinition) } : {}),
       onLog: (line) => jobManager.appendLog(job.variantId, line),
       shouldCancel: async () =>

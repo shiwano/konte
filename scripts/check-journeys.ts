@@ -209,7 +209,7 @@ const DEV_JOURNEYS = [
       `${DEV}/prompt-guide-authoring/SKILL.md`,
     ],
   },
-  // Where a comfy asset runs off a ComfyUI, and a deployment's bring-up job.
+  // Where a comfy asset runs off a ComfyUI, and a deployment's Build.
   {
     name: "dev-comfy-api",
     budget: 5_700,

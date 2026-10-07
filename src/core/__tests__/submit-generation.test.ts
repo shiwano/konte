@@ -12,6 +12,7 @@ function fakeJob(): GenerationJob {
     variantId: "v-test",
     backendKind: "local",
     lease: { owner: "w-test" },
+    metadata: {},
   } as unknown as GenerationJob;
 }
 
@@ -35,6 +36,56 @@ function fakeJobManager(logs: string[]): JobManager {
 }
 
 describe("submitToBackend", () => {
+  it("records the site the backend chooses before sending there", async () => {
+    let sentTo: string | null | undefined;
+    const backend = {
+      chooseSubmissionSite: async () => "dep-1",
+      submit: async (req: GenerationRequest) => {
+        sentTo = req.submissionSite;
+        return "backend-site";
+      },
+    } as unknown as GenerationBackend;
+    const begun: unknown[] = [];
+    const jobManager = {
+      ...fakeJobManager([]),
+      beginSubmission: async (_id: string, _owner: string, attempt: unknown) => {
+        begun.push(attempt);
+        return attempt;
+      },
+    } as unknown as JobManager;
+
+    await submitToBackend(jobManager, backend, fakeJob(), fakeRequest());
+
+    expect(begun).toMatchObject([{ site: "dep-1" }]);
+    expect(sentTo).toBe("dep-1");
+  });
+
+  it("keeps a resubmission on the first attempt's site without choosing again", async () => {
+    let chosen = 0;
+    let sentTo: string | null | undefined;
+    const backend = {
+      chooseSubmissionSite: async () => {
+        chosen++;
+        return "dep-new";
+      },
+      submit: async (req: GenerationRequest) => {
+        sentTo = req.submissionSite;
+        return "backend-site";
+      },
+    } as unknown as GenerationBackend;
+    const first = { seed: 1, resolvedDependencies: {}, site: "dep-old" };
+    const job = { ...fakeJob(), metadata: { submissionAttempt: first } } as GenerationJob;
+    const jobManager = {
+      ...fakeJobManager([]),
+      beginSubmission: async () => first,
+    } as unknown as JobManager;
+
+    await submitToBackend(jobManager, backend, job, fakeRequest());
+
+    expect(chosen).toBe(0);
+    expect(sentTo).toBe("dep-old");
+  });
+
   it("stamps adapterKey for every submitted generation job", async () => {
     const backend = {
       submit: async () => "backend-123",

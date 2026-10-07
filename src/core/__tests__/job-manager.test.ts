@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Database } from "bun:sqlite";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { comfyApiDeployJobId, JobManager, jobsDbPath } from "../job-manager.js";
+import { JobManager, jobsDbPath, recordedSubmissionAttempt } from "../job-manager.js";
 import type { JobRecord } from "../types/index.js";
 
 let tmpDir: string;
@@ -354,7 +354,11 @@ describe("beginSubmission", () => {
       backendKind: "comfy-api",
       comfyTarget: "comfyapi:main",
     });
-    const first = { seed: 111, resolvedDependencies: { "animatic:shot.01.first": "a/v-old.png" } };
+    const first = {
+      seed: 111,
+      resolvedDependencies: { "animatic:shot.01.first": "a/v-old.png" },
+      site: "dep-1",
+    };
     await manager.claimForSubmission("v-seed0001", "w-1", 60_000);
     expect(await manager.beginSubmission("v-seed0001", "w-1", first)).toEqual(first);
 
@@ -366,8 +370,10 @@ describe("beginSubmission", () => {
       await manager.beginSubmission("v-seed0001", "w-2", {
         seed: 222,
         resolvedDependencies: { "animatic:shot.01.first": "a/v-new.png" },
+        site: "dep-2",
       }),
     ).toEqual(first);
+    expect(recordedSubmissionAttempt(await manager.getJob("v-seed0001"))).toEqual(first);
   });
 
   it("still refuses to resubmit to a backend without an Idempotency-Key", async () => {
@@ -377,56 +383,13 @@ describe("beginSubmission", () => {
       resolvedDeps: {},
       backendKind: "fal",
     });
-    const attempt = { seed: 1, resolvedDependencies: {} };
+    const attempt = { seed: 1, resolvedDependencies: {}, site: null };
     await manager.claimForSubmission("v-seed0002", "w-1", 60_000);
     await manager.beginSubmission("v-seed0002", "w-1", attempt);
     await manager.updateJob("v-seed0002", { lease: null });
     await manager.claimForSubmission("v-seed0002", "w-2", 60_000);
     await expect(manager.beginSubmission("v-seed0002", "w-2", attempt)).rejects.toMatchObject({
       code: "SUBMISSION_UNCONFIRMED",
-    });
-  });
-});
-
-describe("ensureComfyApiDeployJob", () => {
-  it("keys the job by its deployment", async () => {
-    const created = await manager.ensureComfyApiDeployJob("main");
-    expect(created).toEqual({ id: comfyApiDeployJobId("main"), created: true, reset: false });
-    expect(comfyApiDeployJobId("main")).not.toBe(comfyApiDeployJobId("other"));
-    expect(await manager.getJob(created.id)).toMatchObject({
-      kind: "comfy-api-deploy",
-      deployment: "main",
-      status: "pending",
-      backendKind: "comfy-api",
-    });
-  });
-
-  it("leaves an in-flight job alone", async () => {
-    const { id } = await manager.ensureComfyApiDeployJob("main");
-    await manager.updateJob(id, { status: "running" });
-
-    expect(await manager.ensureComfyApiDeployJob("main")).toEqual({
-      id,
-      created: false,
-      reset: false,
-    });
-    expect((await manager.getJob(id)).status).toBe("running");
-  });
-
-  // A deployment closed since its last bring-up needs another one, so even a completed job runs again.
-  it.each(["completed", "failed", "cancelled"] as const)("resets a %s job", async (status) => {
-    const { id } = await manager.ensureComfyApiDeployJob("main");
-    await manager.updateJob(id, { status, error: "x", completedAt: new Date().toISOString() });
-
-    expect(await manager.ensureComfyApiDeployJob("main")).toEqual({
-      id,
-      created: false,
-      reset: true,
-    });
-    expect(await manager.getJob(id)).toMatchObject({
-      status: "pending",
-      error: null,
-      completedAt: null,
     });
   });
 });

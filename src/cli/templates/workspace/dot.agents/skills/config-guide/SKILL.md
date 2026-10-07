@@ -37,10 +37,23 @@ Configure the required backends and editor; done = those backends pass `konte do
 - **`comfy.adapters`** — per adapter (workflow file name without `.json`), the targets tried in order; `*` is the default, an adapter's own key replaces it whole. `generate` prints each asset's target.
   - `comfyui` — usable when `comfy.comfyui.url` is set.
   - `comfycloud` — usable when `COMFY_API_KEY` is set and Comfy Cloud has every node and model the asset uses.
-  - `comfyapi:<name>` — a deployment under `comfy.comfyapi.deployments` (`gpuClass`, `region`; optional `max`, `comfyVersion`, `idleMinutes` (default 15, `0` = close when `job wait` ends), `close`: `delete` | `stop`). Brought up before its jobs submit, closed when idle — at once when `job wait` ends with no daemon running.
-- **`COMFY_API_DAEMON_REQUIRED`** → a deployment needs the konte MCP daemon running; start the agent session that runs `konte mcp serve`, or drop `comfyapi:<name>` from that adapter's list.
+  - `comfyapi:<name>` — a deployment under `comfy.comfyapi.deployments` (optional `comfyVersion`). Usable when `COMFY_API_KEY` is set.
+- **`COMFY_API_DEPLOYMENT_NOT_READY`** → the Comfy API deployment steps below.
 - **`BACKEND_NOT_CONFIGURED` on a comfy asset** → each candidate's reason is listed; set what it names, or add a target to the adapter's key.
 - **An adapter your ComfyUI cannot run (VRAM)** → give it its own key without `comfyui` — konte cannot tell.
+
+## Comfy API deployment
+
+konte builds a deployment's Build and release; the user creates and deletes the deployment on the Build page — konte never does.
+
+1. **Run `konte adapter comfy build` in the background** — a changed Build takes several minutes. Exit 0 → ready; done.
+2. **Exit 1** → it opened the Build page and printed its URL. Tell the user, with that URL:
+   - press **Deploy** on the release it names, keeping **Always-warm workers** at 0 — above 0 bills a GPU for as long as the deployment exists
+   - it reaches ready in a few minutes
+3. **Once the user has deployed it**, run the command again until it exits 0.
+
+- **A deployment named as running an earlier release** → ask the user to delete it on the same page — a deployment bills its models' storage until deleted.
+- **Done with Comfy API for now** → the user may delete the deployment on the Build page; the next `konte adapter comfy build` asks for a new one.
 
 ## Editor type-checking
 

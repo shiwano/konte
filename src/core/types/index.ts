@@ -64,8 +64,6 @@ export {
   ComfyModelDownloadJobSchema,
   type ComfyNodeActivateJob,
   ComfyNodeActivateJobSchema,
-  type ComfyApiDeployJob,
-  ComfyApiDeployJobSchema,
   type ComfyNodeInstallJob,
   ComfyNodeInstallJobSchema,
   type ExportJob,

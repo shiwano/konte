@@ -9,7 +9,8 @@ import {
   parseManagerMajorVersion,
 } from "../../comfyui/manager-client.js";
 import { resolveHeaderTokens } from "../../comfyui/token-resolver.js";
-import { assertComfyAdapterKeys } from "../../comfy-api/routing.js";
+import { deploymentReadiness, routedDeploymentNames } from "../../comfy-api/deployment.js";
+import { assertComfyAdapterKeys, comfyApiKey, ComfyRouter } from "../../comfy-api/routing.js";
 import type { ComfyUISystemStats } from "../../comfyui/types.js";
 import {
   getAssetEntry,
@@ -445,6 +446,8 @@ async function runBackendChecks(
       }
       checks.push(await checkComfyUIManager(config));
     }
+    // A survey does not ask after a deployment's Build.
+    if (!advisory) checks.push(...(await checkComfyApiDeployments(workspaceRoot)));
   }
 
   if (kinds.has("local")) {
@@ -648,6 +651,37 @@ async function checkStuckComfyJobs(config: ComfyUIConfig, videoRoot: string): Pr
     };
   } catch {
     return { name: "ComfyUI stuck jobs", status: "PASS", message: "unable to check (skipped)" };
+  }
+}
+
+// Each Comfy API deployment an adapter routes to: a Build of its current adapters, deployed.
+async function checkComfyApiDeployments(workspaceRoot: string): Promise<CheckResult[]> {
+  const apiKey = comfyApiKey();
+  if (apiKey === null) return [];
+  try {
+    const config = await loadKonteConfig(workspaceRoot);
+    const router = new ComfyRouter(workspaceRoot, config);
+    const checks: CheckResult[] = [];
+    for (const name of await routedDeploymentNames(workspaceRoot, config, router)) {
+      const check = `Comfy API deployment ${name}`;
+      const readiness = await deploymentReadiness({ workspaceRoot, config, apiKey, router }, name);
+      checks.push(
+        readiness.kind === "ready"
+          ? { name: check, status: "PASS", message: `${readiness.deployment.id} ready` }
+          : {
+              name: check,
+              status: "FAIL",
+              message:
+                (readiness.kind === "unbuilt"
+                  ? "its Build is missing or older than its adapters"
+                  : `no ready deployment of release ${readiness.releaseId}`) +
+                ` — run \`konte adapter comfy build ${name}\``,
+            },
+      );
+    }
+    return checks;
+  } catch (err) {
+    return [{ name: "Comfy API deployments", status: "FAIL", message: errorMessage(err) }];
   }
 }
 

@@ -143,7 +143,7 @@ describe("preview.allowedHosts", () => {
 });
 
 describe("comfy.adapters", () => {
-  const deployments = { main: { gpuClass: "L40S", region: "us-east" } };
+  const deployments = { main: {} };
 
   it("takes routes onto a declared deployment", () => {
     const parsed = KonteConfigSchema.safeParse({
@@ -153,6 +153,13 @@ describe("comfy.adapters", () => {
       },
     });
     expect(parsed.success).toBe(true);
+  });
+
+  it("takes no compute on a deployment — it is chosen when deploying the Build", () => {
+    const parsed = KonteConfigSchema.safeParse({
+      comfy: { comfyapi: { deployments: { main: { gpuClass: "L40S" } } } },
+    });
+    expect(parsed.success).toBe(false);
   });
 
   it("refuses a comfyapi target naming no declared deployment", () => {

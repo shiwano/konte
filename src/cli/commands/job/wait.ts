@@ -9,7 +9,7 @@ import type { JobRecord } from "../../../core/types/index.js";
 import { mcpLogEnd, readMcpLogSince } from "../../../mcp/mcp-log.js";
 import { parsePositiveInt } from "../../parse-option.js";
 import { requireVideoRoots } from "../../context.js";
-import { closeDeploymentsAfterWait, JobRunnerGuard } from "../../job-runner.js";
+import { JobRunnerGuard } from "../../job-runner.js";
 import { loadDirectionIfPresent } from "../../load-definition.js";
 
 const POLL_INTERVAL_MS = 1000;
@@ -69,8 +69,6 @@ Examples:
         live.stop();
         await runner.stop();
       }
-      // Printed before the outcome line, which stays last.
-      await closeDeploymentsAfterWait(roots.workspace);
       const elapsedMs = Date.now() - startedAt;
       const { results, priorFailedCount, settledBefore } = observed;
 
@@ -215,7 +213,6 @@ function outcomeOf(job: JobRecord, timedOut: boolean): Outcome {
 function standaloneLabel(job: JobRecord): string {
   if (job.kind === "comfy-model-download") return job.model.filename;
   if (job.kind === "comfy-node-install") return job.node.id;
-  if (job.kind === "comfy-api-deploy") return `deployment ${job.deployment}`;
   if (job.kind === "song-analysis") return job.address;
   return "";
 }

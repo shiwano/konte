@@ -6,7 +6,6 @@ import type {
   WaitForCompletionResult,
   WaitOptions,
 } from "../core/backend.js";
-import { loadKonteConfig } from "../core/config.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { TransientHttpError } from "../core/http-retry.js";
 import { requireFileWithinRoot } from "../core/path-containment.js";
@@ -15,8 +14,9 @@ import type { VideoRoots } from "../core/roots.js";
 import { sleep } from "../core/sleep.js";
 import type { ComfyAssetDefinition, ComfyTarget, JobRecord } from "../core/types/index.js";
 import { loadDeploymentState } from "./deploy-state.js";
-import { submitOnDeployment } from "./deployment.js";
+import { usableDeployment } from "./deployment.js";
 import { ComfyApiHttpError, COMFY_CLOUD_ORIGIN } from "./http.js";
+import { ComfyPlatformClient } from "./platform-client.js";
 import { comfyApiKey, COMFY_API_KEY_ENV, deploymentNameOf } from "./routing.js";
 import {
   type ComfyApiJob,
@@ -30,26 +30,29 @@ import { missingCredentialMessage } from "../core/credentials.js";
 // same submission is sent again.
 const SUBMIT_BACKOFF_MS = [2_000, 5_000, 10_000, 20_000, 30_000];
 const SUBMIT_RETRY_WINDOW_MS = 15 * 60_000;
-// How long a submit waits for the jobs holding back its deployment's replacement.
-const SUBMIT_DEFER_WINDOW_MS = 6 * 60 * 60_000;
-const SUBMIT_DEFER_POLL_MS = 30_000;
 // How far back a deployment's job list is read to find a submission whose answer was lost.
 const RECOVERY_LIST_LIMIT = 100;
 const MEDIA_OUTPUT_TYPES = new Set(["image", "video", "audio"]);
 
-export function encodeComfyApiJobId(target: ComfyTarget, jobId: string): string {
-  return `${target}|${jobId}`;
+/** Where a submitted job runs: Comfy Cloud, or one deployment by id. */
+export type ComfyApiSite = { target: ComfyTarget; deploymentId: string | null };
+
+/** `<target>|<jobId>` on Cloud, `<target>|<deploymentId>|<jobId>` on a deployment. */
+export function encodeComfyApiJobId(site: ComfyApiSite, jobId: string): string {
+  return site.deploymentId === null
+    ? `${site.target}|${jobId}`
+    : `${site.target}|${site.deploymentId}|${jobId}`;
 }
 
-export function decodeComfyApiJobId(backendJobId: string): { target: ComfyTarget; jobId: string } {
-  const idx = backendJobId.lastIndexOf("|");
-  if (idx === -1) {
-    throw new KonteError("COMFY_API_ERROR", `Invalid Comfy API backend job id: ${backendJobId}`);
+export function decodeComfyApiJobId(backendJobId: string): ComfyApiSite & { jobId: string } {
+  const parts = backendJobId.split("|");
+  if (parts.length === 2) {
+    return { target: parts[0] as ComfyTarget, deploymentId: null, jobId: parts[1]! };
   }
-  return {
-    target: backendJobId.slice(0, idx) as ComfyTarget,
-    jobId: backendJobId.slice(idx + 1),
-  };
+  if (parts.length === 3) {
+    return { target: parts[0] as ComfyTarget, deploymentId: parts[1]!, jobId: parts[2]! };
+  }
+  throw new KonteError("COMFY_API_ERROR", `Invalid Comfy API backend job id: ${backendJobId}`);
 }
 
 function requireKey(): string {
@@ -68,37 +71,45 @@ function requireKey(): string {
 export class ComfyApiBackend implements GenerationBackend {
   private readonly roots: VideoRoots;
   private readonly outputNodeIds = new Map<string, string>();
+  private readonly endpoints = new Map<string, string>();
   private readonly clientFactory: (
     endpoint: string,
     surface: "cloud" | "deployment",
   ) => ComfyApiRuntimeClient;
+  private readonly platformFactory: () => ComfyPlatformClient;
 
   constructor(
     roots: VideoRoots,
     opts: {
       clientFactory?: (endpoint: string, surface: "cloud" | "deployment") => ComfyApiRuntimeClient;
+      platformFactory?: () => ComfyPlatformClient;
     } = {},
   ) {
     this.roots = roots;
     this.clientFactory =
       opts.clientFactory ??
       ((endpoint, surface) => new ComfyApiRuntimeClient(endpoint, requireKey(), surface));
+    this.platformFactory = opts.platformFactory ?? (() => new ComfyPlatformClient(requireKey()));
   }
 
   setOutputNodeId(backendJobId: string, nodeId: string | undefined): void {
     if (nodeId) this.outputNodeIds.set(backendJobId, nodeId);
   }
 
-  // Where an observer reads a job: Cloud, or the deployment's recorded endpoint.
-  private async clientFor(target: ComfyTarget): Promise<ComfyApiRuntimeClient> {
-    const name = deploymentNameOf(target);
-    if (name === null) return this.clientFactory(COMFY_CLOUD_ORIGIN, "cloud");
-    const endpoint = (await loadDeploymentState(this.roots.workspace, name)).endpointUrl;
+  // Where an observer reads a job: Cloud, or the endpoint of the deployment it was sent to.
+  private async clientFor(site: ComfyApiSite): Promise<ComfyApiRuntimeClient> {
+    if (site.deploymentId === null) return this.clientFactory(COMFY_CLOUD_ORIGIN, "cloud");
+    let endpoint = this.endpoints.get(site.deploymentId);
     if (!endpoint) {
-      throw new KonteError(
-        "COMFY_API_DEPLOY_FAILED",
-        `Comfy API deployment ${name} has no endpoint; it was closed while this job was on it`,
-      );
+      const deployment = await this.platformFactory().getDeployment(site.deploymentId);
+      if (!deployment?.endpointUrl) {
+        throw new KonteError(
+          "COMFY_API_ERROR",
+          `Comfy API deployment ${site.deploymentId} is gone; the job sent to it is lost with it`,
+        );
+      }
+      endpoint = deployment.endpointUrl;
+      this.endpoints.set(site.deploymentId, endpoint);
     }
     return this.clientFactory(endpoint, "deployment");
   }
@@ -118,55 +129,44 @@ export class ComfyApiBackend implements GenerationBackend {
     }
     const log = request.onLog ?? (() => {});
     const name = deploymentNameOf(target);
-    const jobId =
-      name === null
-        ? await this.submitTo(this.clientFactory(COMFY_CLOUD_ORIGIN, "cloud"), request, seed, log)
-        : await this.submitToDeployment(name, request, seed, log);
-    const backendJobId = encodeComfyApiJobId(target, jobId);
+    const deploymentId =
+      name === null ? null : (request.submissionSite ?? (await this.deploymentFor(name)).id);
+    const site: ComfyApiSite = { target, deploymentId };
+    const client = await this.clientFor(site);
+    const jobId = await this.submitTo(client, request, seed, log);
+    const backendJobId = encodeComfyApiJobId(site, jobId);
     this.setOutputNodeId(backendJobId, def.outputNodeId);
     return backendJobId;
   }
 
-  // A replacement the deployment needs but cannot make while other jobs run on it holds this submit
-  // back until they end; the job stays a submit in flight.
-  private async submitToDeployment(
-    name: string,
-    request: GenerationRequest,
-    seed: number,
-    log: (line: string) => void,
-  ): Promise<string> {
-    const config = await loadKonteConfig(this.roots.workspace);
-    const cancelled = (): Promise<void> => assertNotCancelled(request);
-    const ctx = {
-      workspaceRoot: this.roots.workspace,
-      config,
-      apiKey: requireKey(),
-      log,
-      ...(request.shouldCancel ? { shouldCancel: request.shouldCancel } : {}),
-    };
-    const giveUpAt = Date.now() + SUBMIT_DEFER_WINDOW_MS;
-    let reported = "";
-    while (true) {
-      try {
-        await cancelled();
-        return await submitOnDeployment(ctx, name, request.variantId, async (endpoint) => {
-          // The bring-up before this may have taken minutes.
-          await cancelled();
-          return this.submitTo(this.clientFactory(endpoint, "deployment"), request, seed, log);
-        });
-      } catch (err) {
-        if (err instanceof KonteError && err.code === "COMFY_API_DEPLOY_CANCELLED") {
-          await cancelled();
-        }
-        if (!(err instanceof KonteError) || err.code !== "COMFY_API_DEPLOY_DEFERRED") throw err;
-        if (Date.now() > giveUpAt) throw err;
-        if (err.message !== reported) {
-          reported = err.message;
-          log(`${err.message}; this submit waits too`);
-        }
-        await sleep(SUBMIT_DEFER_POLL_MS);
-      }
+  // The deployment a job on one goes to, recorded before it is sent.
+  async chooseSubmissionSite(
+    _request: GenerationRequest,
+    jobRecord: JobRecord,
+  ): Promise<string | null> {
+    const target =
+      jobRecord.kind === "generation" ? (jobRecord.comfyTarget as ComfyTarget | null) : null;
+    const name = target === null ? null : deploymentNameOf(target);
+    if (name === null) return null;
+    const deployment = await this.deploymentFor(name);
+    this.endpoints.set(deployment.id, deployment.endpointUrl);
+    return deployment.id;
+  }
+
+  // The ready deployment of the release `konte adapter comfy build` last cut for this name.
+  private async deploymentFor(name: string): Promise<{ id: string; endpointUrl: string }> {
+    const { releaseId } = await loadDeploymentState(this.roots.workspace, name);
+    const deployment = releaseId
+      ? usableDeployment(await this.platformFactory().listDeployments(), releaseId)
+      : null;
+    if (!deployment?.endpointUrl) {
+      throw new KonteError(
+        "COMFY_API_DEPLOYMENT_NOT_READY",
+        `Comfy API deployment ${name} has no ready deployment of its release. Run ` +
+          `\`konte adapter comfy build ${name}\`, deploy the Build on the page it opens, then generate again.`,
+      );
     }
+    return { id: deployment.id, endpointUrl: deployment.endpointUrl };
   }
 
   private async submitTo(
@@ -263,9 +263,10 @@ export class ComfyApiBackend implements GenerationBackend {
     options?: WaitOptions,
   ): Promise<WaitForCompletionResult> {
     const startMark = performance.now();
-    const { target, jobId } = decodeComfyApiJobId(backendJobId);
+    const { jobId, ...site } = decodeComfyApiJobId(backendJobId);
+    const { target } = site;
     const log = options?.onLog ?? (() => {});
-    const client = await this.clientFor(target);
+    const client = await this.clientFor(site);
 
     let started = false;
     const poll = await pollUntilTerminal(
@@ -351,13 +352,13 @@ export class ComfyApiBackend implements GenerationBackend {
   }
 
   async cancel(backendJobId: string): Promise<void> {
-    const { target, jobId } = decodeComfyApiJobId(backendJobId);
-    const client = await this.clientFor(target);
+    const { jobId, ...site } = decodeComfyApiJobId(backendJobId);
+    const client = await this.clientFor(site);
     await client.cancelJob(jobId);
   }
 }
 
-// A job cancelled while its submit was still being prepared or held back: nothing is sent.
+// A job cancelled while its submit was still being prepared: nothing is sent.
 async function assertNotCancelled(request: GenerationRequest): Promise<void> {
   if (await request.shouldCancel?.()) {
     throw new KonteError(

@@ -1,6 +1,7 @@
 import { resolveHeaderTokens } from "../comfyui/token-resolver.js";
 import { type AssetStage, type DefinitionLike, getAssetEntry, listAssetPaths } from "./address.js";
 import { KonteError } from "./errors.js";
+import { isVendorBackendAsset } from "./vendor-backend.js";
 import { backendCredential } from "./types/credentials.js";
 import { VendorBackendKindSchema } from "./types/job.js";
 import type {
@@ -9,6 +10,7 @@ import type {
   KonteConfig,
   VendorBackendKind,
 } from "./types/index.js";
+import { type DeploymentReadiness, deploymentReadiness } from "../comfy-api/deployment.js";
 import {
   COMFY_API_KEY_ENV,
   ComfyRouter,
@@ -16,15 +18,19 @@ import {
   deploymentNameOf,
 } from "../comfy-api/routing.js";
 
-type UnconfiguredBackendAsset = { address: string; kind: VendorBackendKind };
+export const spendGateHooks: {
+  deploymentReadiness: (
+    workspaceRoot: string,
+    config: KonteConfig,
+    name: string,
+    router: ComfyRouter,
+  ) => Promise<DeploymentReadiness>;
+} = {
+  deploymentReadiness: (workspaceRoot, config, name, router) =>
+    deploymentReadiness({ workspaceRoot, config, apiKey: comfyApiKey() ?? "", router }, name),
+};
 
-// The kinds no vendor policy speaks about: `file` carries no backend, and `local` is konte's own
-// ffmpeg plumbing (imageResize, videoTrim) rather than a vendor.
-export function isVendorBackendAsset(
-  kind: AssetDefinition["kind"],
-): kind is VendorBackendKind & AssetDefinition["kind"] {
-  return kind !== "file" && kind !== "local";
-}
+type UnconfiguredBackendAsset = { address: string; kind: VendorBackendKind };
 
 /**
  * Whether this workspace has what it takes to generate on a vendor backend, which is also what
@@ -106,7 +112,7 @@ export class SpendRoutes {
     return this.byKey.get(routeKeyOf(def)) ?? "comfyui";
   }
 
-  /** The deployments this spend brings up. */
+  /** The deployments this spend runs on. */
   deployments(): string[] {
     const names = new Set<string>();
     for (const { target } of this.routed) {
@@ -133,7 +139,7 @@ function routeKeyOf(def: AssetDefinition & { kind: "comfy" }): string {
  *
  * Its questions share one deadline, before a variant id is reserved or a job file written: is this
  * backend configured at all, where does each comfy asset run, and are the credentials it needs
- * resolvable.
+ * resolvable, and is each Comfy API deployment it reaches built and deployed.
  */
 export async function assertSpendAllowed(
   items: readonly SpendItem[],
@@ -165,13 +171,10 @@ export async function assertSpendAllowed(
   if (comfyItems.length > 0) {
     const router = new ComfyRouter(workspaceRoot, config);
     const unroutable: string[] = [];
-    const needDaemon: Array<{ label: string; target: ComfyTarget }> = [];
     for (const { label, def } of comfyItems) {
       const route = await router.route(def);
       if (route.kind === "unroutable") {
         unroutable.push(`  ${label} (comfy) — ${route.reasons.join("; ")}`);
-      } else if (route.kind === "daemon-required") {
-        needDaemon.push({ label, target: route.target });
       } else {
         byKey.set(routeKeyOf(def), route.target);
         routed.push({ label, target: route.target });
@@ -186,14 +189,27 @@ export async function assertSpendAllowed(
         unroutable,
       );
     }
-    if (needDaemon.length > 0) {
+    const routes = new SpendRoutes(byKey, routed);
+    const notReady: string[] = [];
+    for (const name of routes.deployments()) {
+      const readiness = await spendGateHooks.deploymentReadiness(
+        workspaceRoot,
+        config,
+        name,
+        router,
+      );
+      if (readiness.kind === "unbuilt") {
+        notReady.push(`  comfyapi:${name} — its Build is missing or older than its adapters`);
+      } else if (readiness.kind === "undeployed") {
+        notReady.push(`  comfyapi:${name} — no ready deployment of release ${readiness.releaseId}`);
+      }
+    }
+    if (notReady.length > 0) {
       throw new KonteError(
-        "COMFY_API_DAEMON_REQUIRED",
-        `${needDaemon.length} comfy asset(s) route to a Comfy API deployment, which only the konte ` +
-          `MCP daemon closes when idle, and none is running in this workspace. Start the agent ` +
-          `session whose MCP settings run \`konte mcp serve\`, or take the deployment out of ` +
-          `comfy.adapters in konte.config.json.`,
-        needDaemon.map((v) => `  ${v.label} → ${v.target}`),
+        "COMFY_API_DEPLOYMENT_NOT_READY",
+        `${notReady.length} Comfy API deployment(s) this run reaches cannot take jobs. Run ` +
+          `\`konte adapter comfy build\`, deploy the Build on the page it opens, and run it again.`,
+        notReady,
       );
     }
   }

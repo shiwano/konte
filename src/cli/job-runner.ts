@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import { closeIdleDeployments } from "../comfy-api/deployment.js";
 import { environmentWithoutCredentials } from "../core/credentials.js";
 import { liveDaemons } from "../core/daemon-registry.js";
 import { KonteError } from "../core/errors.js";
@@ -114,16 +113,4 @@ export class JobRunnerGuard {
     this.running = false;
     await runner?.stop();
   }
-}
-
-/**
- * The end of a wait is one of the moments a deployment's idle time is judged — with no daemon
- * outliving it, the last one.
- */
-export async function closeDeploymentsAfterWait(workspaceRoot: string): Promise<void> {
-  await closeIdleDeployments({
-    workspaceRoot,
-    afterWait: true,
-    log: (line) => console.log(line),
-  }).catch(() => []);
 }

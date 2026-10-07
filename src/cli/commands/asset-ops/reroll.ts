@@ -13,7 +13,8 @@ import {
   tryParseAddress,
   validateAddress,
 } from "../../../core/address.js";
-import { assertSpendAllowed, isVendorBackendAsset } from "../../../core/backend-policy.js";
+import { assertSpendAllowed } from "../../../core/backend-policy.js";
+import { isVendorBackendAsset } from "../../../core/vendor-backend.js";
 import { loadKonteConfig } from "../../../core/config.js";
 import { KonteError } from "../../../core/errors.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
@@ -553,7 +554,6 @@ Examples:
             const target = spend.targetOf(w.def);
             return target ? [{ address: w.address, target }] : [];
           }),
-          config,
         );
         if (routeNotice) console.log(routeNotice);
 

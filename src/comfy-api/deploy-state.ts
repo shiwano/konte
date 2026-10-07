@@ -16,29 +16,8 @@ const DeploymentStateSchema = z.object({
   definitionHash: z.string().nullable().default(null),
   releaseId: z.string().nullable().default(null),
   releaseDefinitionHash: z.string().nullable().default(null),
-  deploymentId: z.string().nullable().default(null),
-  // A create whose answer has not been recorded yet, as it was sent: resent unchanged under the same
-  // Idempotency-Key, it returns the deployment it made, if any.
-  pendingCreate: z
-    .object({
-      key: z.string(),
-      releaseId: z.string(),
-      gpuClass: z.string(),
-      region: z.string(),
-      max: z.number(),
-    })
-    .nullable()
-    .default(null),
-  // Jobs sent under the deployment lock, by when, recorded before their POST; a replacement waits
-  // for each until it settles, like for a job whose backend id is recorded.
-  sentJobs: z.record(z.string(), z.string()).default({}),
-  endpointUrl: z.string().nullable().default(null),
-  gpuClass: z.string().nullable().default(null),
-  region: z.string().nullable().default(null),
-  max: z.number().nullable().default(null),
-  stopped: z.boolean().default(false),
-  // When the deployment last came up — idle time counts from here when no job has finished since.
-  readyAt: z.string().nullable().default(null),
+  // Releases this Build had before the current one; a deployment of one is outdated.
+  pastReleaseIds: z.array(z.string()).default([]),
 });
 export type DeploymentState = z.infer<typeof DeploymentStateSchema>;
 
@@ -67,13 +46,7 @@ async function readState(workspaceRoot: string): Promise<State> {
   return { deployments: {} };
 }
 
-/** Every deployment konte holds ids for. Ids only — nothing here is a secret. */
-export async function loadDeploymentStates(
-  workspaceRoot: string,
-): Promise<Record<string, DeploymentState>> {
-  return (await readState(workspaceRoot)).deployments;
-}
-
+/** Ids only — nothing here is a secret. */
 export async function loadDeploymentState(
   workspaceRoot: string,
   name: string,
@@ -99,7 +72,7 @@ export async function updateDeploymentState(
   });
 }
 
-/** The lock one deployment's bring-up and close take, across every process of the workspace. */
+/** The lock one deployment's Build and release are made under, across the workspace. */
 export function deploymentLockPath(workspaceRoot: string, name: string): string {
   return path.join(workspaceRoot, ".konte", `comfyapi-${name}.lock`);
 }

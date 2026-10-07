@@ -66,8 +66,6 @@ const MAX_DEPLOYMENT_PAGES = 100;
 
 const ReleaseLogsSchema = z.object({ log: z.string().optional() }).passthrough();
 
-export type ComputeConfig = { gpuClass: string; region: string; min: 0; max: number };
-
 /** The Builder (`/builder/v1`) and Deploy (`/deploy/v1`) control APIs. */
 export class ComfyPlatformClient {
   private readonly auth: ComfyApiAuth;
@@ -184,20 +182,6 @@ export class ComfyPlatformClient {
     }
   }
 
-  async createDeployment(
-    releaseId: string,
-    computeConfig: ComputeConfig,
-    idempotencyKey: string,
-  ): Promise<PlatformDeployment> {
-    const res = await this.post(
-      this.deploy("deployments"),
-      { releaseId, computeConfig },
-      "Deployment create",
-      { "Idempotency-Key": idempotencyKey },
-    );
-    return parseApiResponse(res, DeploymentSchema, "COMFY_API_ERROR", "Deployment create");
-  }
-
   /** The deployment, or null when it is gone or soft-deleted. */
   async getDeployment(deploymentId: string): Promise<PlatformDeployment | null> {
     const res = await sendIdempotent(
@@ -235,50 +219,5 @@ export class ComfyPlatformClient {
       after = body.nextCursor;
     }
     return out;
-  }
-
-  async updateDeployment(deploymentId: string, computeConfig: ComputeConfig): Promise<void> {
-    const what = "Deployment scale";
-    const res = await sendOnce(
-      this.deploy(`deployments/${encodeURIComponent(deploymentId)}`),
-      {
-        method: "PATCH",
-        auth: this.auth,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ computeConfig }),
-      },
-      what,
-    );
-    if (!res.ok) throw await toHttpError(res, what);
-  }
-
-  async startDeployment(deploymentId: string): Promise<void> {
-    await this.post(
-      this.deploy(`deployments/${encodeURIComponent(deploymentId)}/start`),
-      undefined,
-      "Deployment start",
-    );
-  }
-
-  async stopDeployment(deploymentId: string): Promise<void> {
-    await this.post(
-      this.deploy(`deployments/${encodeURIComponent(deploymentId)}/stop`),
-      undefined,
-      "Deployment stop",
-    );
-  }
-
-  /** Soft delete; a second one is also accepted. */
-  async deleteDeployment(deploymentId: string): Promise<void> {
-    const what = "Deployment delete";
-    const res = await sendIdempotent(
-      this.deploy(`deployments/${encodeURIComponent(deploymentId)}`),
-      {
-        method: "DELETE",
-        auth: this.auth,
-      },
-    );
-    if (res.status === 404) return;
-    if (!res.ok) throw await toHttpError(res, what);
   }
 }

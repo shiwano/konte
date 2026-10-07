@@ -88,23 +88,6 @@ async function cancelOne(
   // prompt to interrupt. Mark cancelled (a running install worker stops on the next status
   // check); an install already started may finish server-side (harmless). Generation jobs
   // depending on this will fail on cascade.
-  // A deployment bring-up stops at its next poll; whatever it already created on the platform
-  // stays, and the idle close takes it down.
-  if (job.kind === "comfy-api-deploy") {
-    const cancelledJob = await jobManager.updateIfNotTerminal(jobId, {
-      status: "cancelled",
-      completedAt: new Date().toISOString(),
-      reportedAt: new Date().toISOString(),
-    });
-    if (!cancelledJob) return skippedTerminal(jobManager, jobId);
-    return {
-      jobId,
-      outcome: "cancelled",
-      job: cancelledJob,
-      message: `Comfy API deployment bring-up ${jobId} (${job.deployment}) cancelled.`,
-    };
-  }
-
   if (job.kind === "comfy-node-install" || job.kind === "comfy-node-activate") {
     const cancelledJob = await jobManager.updateIfNotTerminal(jobId, {
       status: "cancelled",

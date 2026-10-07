@@ -16,6 +16,7 @@ import type { ComfyUINodeDefinition } from "../../comfyui/types.js";
 import { KonteError } from "../../core/errors.js";
 import { requireWorkspaceRoot } from "../context.js";
 import { declareScope } from "../scope.js";
+import { registerComfyBuildCommand } from "./comfy-build.js";
 
 // Fail fast when probing an unreachable ComfyUI instead of waiting out the
 // client's default request timeout.
@@ -992,7 +993,10 @@ export function extractHiddenSubgraphInputs(
 }
 
 export function registerComfyCommand(program: Command): void {
-  const comfy = program.command("comfy").description("Manage ComfyUI adapters");
+  const comfy = program
+    .command("comfy")
+    .description("Manage ComfyUI adapters and their Comfy API deployments");
+  registerComfyBuildCommand(comfy);
 
   const importCmd = comfy
     .command("import <source>")

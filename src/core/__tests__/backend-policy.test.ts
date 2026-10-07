@@ -4,9 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   assertSpendAllowed,
   configuredVendorBackends,
+  spendGateHooks,
   unconfiguredBackendAssets,
 } from "../backend-policy.js";
-import { registerDaemon, unregisterDaemonSync } from "../daemon-registry.js";
+import type { DeploymentReadiness } from "../../comfy-api/deployment.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { adapters, defineVideo, asset } from "../dsl/index.js";
 import { imageFile } from "../dsl/adapters/index.js";
@@ -99,7 +100,7 @@ describe("assertSpendAllowed", () => {
 
   afterEach(async () => {
     vi.unstubAllEnvs();
-    unregisterDaemonSync(ws.root);
+    vi.restoreAllMocks();
     await ws.cleanup();
   });
 
@@ -112,9 +113,11 @@ describe("assertSpendAllowed", () => {
   const onDeployment: KonteConfig = {
     comfy: {
       adapters: { "*": ["comfyapi:main"] },
-      comfyapi: { deployments: { main: { gpuClass: "L40S", region: "us-east" } } },
+      comfyapi: { deployments: { main: {} } },
     },
   };
+  const readiness = (value: DeploymentReadiness) =>
+    vi.spyOn(spendGateHooks, "deploymentReadiness").mockResolvedValue(value);
 
   it("routes a comfy asset to comfyui when its url is set", async () => {
     const def = comfyDef();
@@ -137,25 +140,39 @@ describe("assertSpendAllowed", () => {
     });
   });
 
-  it("refuses a deployment no daemon is there to close", async () => {
+  it.each([
+    [{ kind: "unbuilt" }, "its Build is missing or older than its adapters"],
+    [
+      { kind: "undeployed", buildId: "b-1", releaseId: "rel-1" },
+      "no ready deployment of release rel-1",
+    ],
+  ] as const)("refuses a deployment that cannot take jobs (%o)", async (value, reason) => {
     vi.stubEnv("COMFY_API_KEY", "key");
+    readiness(value);
     await expect(
       assertSpendAllowed([{ label: "a", def: comfyDef() }], onDeployment, ws.root),
-    ).rejects.toMatchObject({ code: "COMFY_API_DAEMON_REQUIRED", items: ["  a → comfyapi:main"] });
+    ).rejects.toMatchObject({
+      code: "COMFY_API_DEPLOYMENT_NOT_READY",
+      items: [`  comfyapi:main — ${reason}`],
+    });
   });
 
-  it("routes to a deployment while a daemon is alive", async () => {
+  it("routes to a deployment that is ready", async () => {
     vi.stubEnv("COMFY_API_KEY", "key");
-    await registerDaemon(ws.root);
+    const spy = readiness({
+      kind: "ready",
+      deployment: { id: "dep-1", status: "ready" },
+      endpointUrl: "https://dep-1",
+    });
     const def = comfyDef();
     const routes = await assertSpendAllowed([{ label: "a", def }], onDeployment, ws.root);
     expect(routes.targetOf(def)).toBe("comfyapi:main");
     expect(routes.deployments()).toEqual(["main"]);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it("refuses a deployment a model URL with a credential would land on", async () => {
     vi.stubEnv("COMFY_API_KEY", "key");
-    await registerDaemon(ws.root);
     await expect(
       assertSpendAllowed(
         [{ label: "a", def: comfyDef("https://hf.co/flux?token=${HF_TOKEN}") }],
