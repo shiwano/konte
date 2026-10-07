@@ -63,6 +63,8 @@ export type KonteErrorCode =
   | "COMFY_API_SUBMIT_CANCELLED"
   // A spend routed to a Comfy API deployment with no konte MCP daemon alive in the workspace.
   | "COMFY_API_DAEMON_REQUIRED"
+  // The daemon a `konte job wait` started to run the jobs kept exiting.
+  | "JOB_RUNNER_EXITED"
   // Comfy Cloud's node or model index could not be read, so whether an adapter runs there is
   // unknown.
   | "COMFY_CLOUD_UNAVAILABLE"

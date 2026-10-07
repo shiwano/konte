@@ -1,4 +1,3 @@
-import type { GenerationBackend } from "../core/backend.js";
 import { assertSpendAllowed, type SpendRoutes } from "../core/backend-policy.js";
 import { computeDefinitionHash } from "../core/definition-hash.js";
 import { KonteError } from "../core/errors.js";
@@ -13,13 +12,11 @@ import {
   materializePatchOutput,
   patchFinalizeOf,
 } from "../core/patch-output.js";
-import { resolveRefs } from "../core/ref-resolver.js";
 import type { VideoRoots } from "../core/roots.js";
 import { computeVariantStaleness, variantsNewestFirst } from "../core/staleness.js";
 import { StateManager } from "../core/state/index.js";
 import type {
   AssetDefinition,
-  BackendKind,
   GenerationJob,
   JobRecord,
   KonteConfig,
@@ -27,11 +24,10 @@ import type {
 } from "../core/types/index.js";
 import {
   type AssetResult,
-  createPendingJobs,
+  registerJobs,
   ensureComfyPrereqJobs,
   resolveMissingComfyModels,
   resolveMissingComfyNodes,
-  submitAssetJobs,
 } from "./generate-orchestrator.js";
 
 // A patch's steps exist outside any stage, so its spend items are built from the chain itself.
@@ -74,7 +70,6 @@ export async function applyPatch(
   patch: LoadedPatch,
   roots: VideoRoots,
   jobManager: JobManager,
-  backendCache: Map<BackendKind, GenerationBackend>,
   config: KonteConfig,
   // What `assertPatchSpendAllowed` answered for this patch.
   spend: SpendRoutes,
@@ -109,7 +104,6 @@ export async function applyPatch(
     patchHash: patch.patchHash,
   };
   const pin: Record<string, string> = { [patch.sourceAddress]: patch.sourceVariantId };
-  const pinnedFiles: Record<string, string> = { [patch.sourceAddress]: source.file };
 
   // Declaration order is dependency order: a step can only reference one whose handle already
   // exists, so a plain sequential walk never runs a step before what it consumes.
@@ -169,7 +163,6 @@ export async function applyPatch(
         };
       }
       if (current && !isOutput) {
-        pinnedFiles[address] = current.file;
         pin[address] = current.variantId;
         continue;
       }
@@ -180,11 +173,8 @@ export async function applyPatch(
       assetDef,
       roots,
       jobManager,
-      backendCache,
       config,
-      manager,
       pin,
-      pinnedFiles,
       dependsOnJobs: stepJobIds,
       output: isOutput ? origin : null,
       consumesRebuild,
@@ -293,24 +283,20 @@ async function launchStep(opts: {
   assetDef: AssetDefinition;
   roots: VideoRoots;
   jobManager: JobManager;
-  backendCache: Map<BackendKind, GenerationBackend>;
   config: KonteConfig;
   spend: SpendRoutes;
-  manager: StateManager;
   pin: Record<string, string>;
-  pinnedFiles: Record<string, string>;
   dependsOnJobs: readonly string[];
   output: PatchOutputOrigin | null;
   consumesRebuild: boolean;
 }): Promise<AssetResult> {
-  const { address, assetDef, roots, jobManager, config, manager } = opts;
+  const { address, assetDef, roots, jobManager, config } = opts;
   const videoRoot = roots.video;
 
   // Everything the step references besides what is already pinned resolves normally — a character
   // sheet fed to the edit model is a real upstream, resolved to whatever take is currently
   // accepted.
   const refs = [...new Set(extractRefs(assetDef))];
-  const unpinnedRefs = refs.filter((ref) => opts.pinnedFiles[ref] === undefined);
 
   // A comfy step needs its declared weights and node packs provisioned first, exactly as a comfy
   // asset does under `generate`. Without this the job submits against a ComfyUI that cannot run
@@ -350,41 +336,21 @@ async function launchStep(opts: {
     ? new Set<string>()
     : rivalStepVariantIds(await jobManager.listJobs(), opts.output);
 
-  if (prereqJobIds.length > 0) {
-    // Deferred: the pin travels as `pinnedDeps` so the source variant is still the exact take when
-    // the worker submits, however long the installs and earlier steps take.
-    return createPendingJobs(
-      address,
-      assetDef,
-      refs,
-      1,
-      videoRoot,
-      jobManager,
-      prereqJobIds,
-      opts.pin,
-      finalize,
-      rivals,
-      null,
-      comfyTarget,
-    );
-  }
-
-  const resolvedDeps = { ...resolveRefs(unpinnedRefs, manager, {}), ...pinnedSubset(opts, refs) };
-  return submitAssetJobs(
+  // The pin travels as `pinnedDeps` so the source variant is still the exact take when the daemon
+  // submits, however long the installs and earlier steps take.
+  return registerJobs({
     address,
     assetDef,
-    1,
-    roots,
+    deps: refs,
+    variantCount: 1,
+    videoRoot,
     jobManager,
-    opts.backendCache,
-    resolvedDeps,
-    undefined,
-    null,
-    finalize,
-    rivals,
-    null,
+    dependsOnJobs: prereqJobIds,
+    pinnedDeps: opts.pin,
+    patchFinalize: finalize,
+    rivalVariantIds: rivals,
     comfyTarget,
-  );
+  });
 }
 
 /** In-flight generation variants a fresh reservation must treat as the same work (see runningStepVariant). */
@@ -399,16 +365,4 @@ function rivalStepVariantIds(
     if (finalizesAs(job, output)) ids.add(variantId);
   }
   return ids;
-}
-
-function pinnedSubset(
-  opts: { pinnedFiles: Record<string, string> },
-  refs: readonly string[],
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const ref of refs) {
-    const file = opts.pinnedFiles[ref];
-    if (file !== undefined) out[ref] = file;
-  }
-  return out;
 }

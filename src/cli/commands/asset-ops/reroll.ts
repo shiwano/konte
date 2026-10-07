@@ -13,7 +13,6 @@ import {
   tryParseAddress,
   validateAddress,
 } from "../../../core/address.js";
-import type { GenerationBackend } from "../../../core/backend.js";
 import { assertSpendAllowed, isVendorBackendAsset } from "../../../core/backend-policy.js";
 import { loadKonteConfig } from "../../../core/config.js";
 import { KonteError } from "../../../core/errors.js";
@@ -31,7 +30,7 @@ import { collectUndecidedUpstreamTakes } from "../../../core/staleness.js";
 import { holdsHumanVerdict } from "../../../core/accept-cascade.js";
 import { buildAddressInfo, isProblemAddress } from "../../../core/status-sections.js";
 import { StateManager } from "../../../core/state/index.js";
-import type { AssetDefinition, BackendKind, JobRecord } from "../../../core/types/index.js";
+import type { AssetDefinition, JobRecord } from "../../../core/types/index.js";
 import { getBackendKind } from "../../../backends/resolve-backend.js";
 import { requireShotStages, selectDefinition } from "../../../core/select-definition.js";
 import {
@@ -47,14 +46,12 @@ import { TURBO_TAKE_NOTE, turboTakes } from "../../turbo-takes.js";
 import { confirmAction, printAborted } from "../../confirm.js";
 import { parsePositiveInt } from "../../parse-option.js";
 import {
-  type AssetResult,
-  createPendingJobs,
+  registerJobs,
   ensureComfyPrereqJobs,
   formatComfyDownloadNotice,
   formatComfyRouteNotice,
   formatUndecidedUpstreamTakesNotice,
   preflightComfyAssets,
-  submitAssetJobs,
 } from "../../generate-orchestrator.js";
 import { requireVideoRoots } from "../../context.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
@@ -560,17 +557,14 @@ Examples:
         );
         if (routeNotice) console.log(routeNotice);
 
-        const backendCache = new Map<BackendKind, GenerationBackend>();
-
         // Variant id (== job id) of each work item we just (re)created, keyed by its address so a
         // downstream item (possibly in another stage) can both wait on and pin to the new
         // upstream variant. Only single-variant items are recorded — a --count>1 item has no one
         // variant to pin, so its downstreams resolve normally.
         const newVariantByAddress = new Map<string, string>();
         const jobRows: Array<{ address: string; variantId: string; status: string }> = [];
-        // A submit that failed synchronously (submitAssetJobs returns status "failed" with the
-        // backend error). Collected so the run reports it and exits non-zero — mirroring generate
-        // — instead of dropping the error and exiting 0.
+        // A job that could not be registered. Collected so the run reports it and exits non-zero —
+        // mirroring generate — instead of dropping the error and exiting 0.
         const failures: Array<{ address: string; error: string }> = [];
         // An address this run produced no live take for — every submit failed, or a dependency did.
         const deadAddresses = new Set<string>();
@@ -605,40 +599,17 @@ Examples:
           }
 
           const count = w.isPrimary ? variantCount : 1;
-          let result: AssetResult;
-          if (prereqJobIds.length > 0 || w.deps.some(awaitsDep)) {
-            result = await createPendingJobs(
-              w.address,
-              w.def,
-              w.deps,
-              count,
-              videoRoot,
-              jobManager,
-              [...prereqJobIds, ...upstreamJobIds],
-              pinnedDeps,
-              null,
-              null,
-              null,
-              spend.targetOf(w.def),
-            );
-          } else {
-            const resolvedDeps = resolveRefs(w.deps, manager, {});
-            result = await submitAssetJobs(
-              w.address,
-              w.def,
-              count,
-              roots,
-              jobManager,
-              backendCache,
-              resolvedDeps,
-              undefined,
-              undefined,
-              null,
-              null,
-              null,
-              spend.targetOf(w.def),
-            );
-          }
+          const result = await registerJobs({
+            address: w.address,
+            assetDef: w.def,
+            deps: w.deps,
+            variantCount: count,
+            videoRoot,
+            jobManager,
+            dependsOnJobs: [...prereqJobIds, ...upstreamJobIds],
+            pinnedDeps,
+            comfyTarget: spend.targetOf(w.def),
+          });
 
           for (const j of result.jobs) jobRows.push({ address: w.address, ...j });
           if (result.status === "failed") {

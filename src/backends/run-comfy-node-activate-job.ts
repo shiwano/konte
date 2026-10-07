@@ -302,37 +302,3 @@ export async function runComfyNodeActivateJob(
     stopHeartbeat();
   }
 }
-
-// Run every runnable comfy-node-activate job (used by a bare `konte job wait`). Skips jobs still
-// waiting on their install dependencies; fails those whose dependencies died; holds all of them
-// while the ComfyUI server is busy.
-export async function runRunnableComfyNodeActivateJobs(
-  jobManager: JobManager,
-  roots: VideoRoots,
-  hooks: ComfyNodeActivateJobHooks = {},
-): Promise<RunComfyNodeActivateJobResult[]> {
-  const allJobs = await jobManager.listJobs();
-  const jobs = allJobs.filter(
-    (j) => j.kind === "comfy-node-activate" && (j.status === "pending" || j.status === "running"),
-  );
-  if (jobs.length === 0) return [];
-
-  // The idle gate, answered ONCE for the batch. It is the same question for every job here, and
-  // the cascade re-runs this every second — asking per job would poll the server and re-read every
-  // job file of every video N times a second. The per-job gate still runs below and stays
-  // authoritative; this only skips the calls that are certain to defer.
-  const busy = await findPendingComfySubmits(roots.workspace);
-  if (busy.length > 0) {
-    const reason = describeBusy(busy);
-    return jobs.map((j) => {
-      hooks.onDeferred?.({ id: j.id, reason });
-      return { id: j.id, status: "pending" as const, ranActivate: false, pendingReason: reason };
-    });
-  }
-
-  const results: RunComfyNodeActivateJobResult[] = [];
-  for (const j of jobs) {
-    results.push(await runComfyNodeActivateJob(jobManager, roots, j.id, hooks));
-  }
-  return results;
-}

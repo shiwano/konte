@@ -1,5 +1,11 @@
 import * as crypto from "node:crypto";
-import { type DefinitionLike, getAssetEntryByAddress, getStage } from "./address.js";
+import {
+  type DefinitionLike,
+  getAssetEntryByAddress,
+  getStage,
+  isDeliveryAddress,
+} from "./address.js";
+import { synthesizeDeliveryAssetDefinition } from "./delivery.js";
 import { variantDir } from "./variant-dir.js";
 import type { GenerationBackend } from "./backend.js";
 import { submitToBackend } from "./submit-generation.js";
@@ -15,7 +21,14 @@ import type { StalenessCache } from "./staleness.js";
 import { type LoadedDefinitions, selectDefinition } from "./select-definition.js";
 import { selectResolvedVariant } from "./staleness.js";
 import { StateManager } from "./state/index.js";
-import type { BackendKind, GenerationJob, KonteState } from "./types/index.js";
+import { submittingStopped, trackSubmission } from "./submission-drain.js";
+import type {
+  AssetDefinition,
+  BackendKind,
+  GenerationJob,
+  KonteState,
+  VideoDefinition,
+} from "./types/index.js";
 import type { VideoRoots } from "./roots.js";
 
 type ResolveBackendFn = (kind: BackendKind, roots: VideoRoots) => Promise<GenerationBackend>;
@@ -64,16 +77,15 @@ export async function submitReadyPendingJobs(
   const released: StaleJudgeRelease[] = [];
 
   let changed = true;
-  while (changed) {
+  while (changed && !submittingStopped()) {
     changed = false;
 
     const allJobs = await jobManager.listJobs();
     const jobIndex = new JobIndex(allJobs);
     // Only generation jobs are submitted here. comfy-model-download jobs are run
-    // by the worker (run-comfy-install-job), not queued to a backend. Besides freshly
-    // "pending" and "queued" jobs (the eager path claims a fresh "queued" job before
-    // submitting, so one still sitting "queued" is an orphan whose submitter never got
-    // that far), reclaim any whose submitter crashed mid-transaction (stranded "running"
+    // by the worker (run-comfy-install-job), not queued to a backend. Besides "pending" and
+    // "queued" jobs (a "queued" one was registered with nothing to wait on), reclaim any whose
+    // submitter crashed mid-transaction (stranded "running"
     // with no backendJobId and a lapsed lease) — claimForSubmission flips them back to a
     // fresh-leased "running". beginSubmission refuses an uncertain external submission.
     const pendingJobs = allJobs.filter(
@@ -87,6 +99,7 @@ export async function submitReadyPendingJobs(
     const manager = await StateManager.load(videoRoot);
 
     for (const job of pendingJobs) {
+      if (submittingStopped()) break;
       const evaluation = evaluateJob(job, manager, jobIndex);
 
       if (evaluation.action === "submit") {
@@ -101,15 +114,17 @@ export async function submitReadyPendingJobs(
           // claimed this job; skip it to avoid double-submitting to the backend.
           continue;
         }
-        const outcome = await trySubmitJob(
-          claimed,
-          workerId,
-          manager,
-          jobManager,
-          roots,
-          definitions,
-          backendCache,
-          resolveBackendFn,
+        const outcome = await trackSubmission(
+          trySubmitJob(
+            claimed,
+            workerId,
+            manager,
+            jobManager,
+            roots,
+            definitions,
+            backendCache,
+            resolveBackendFn,
+          ),
         );
         if (outcome === "submitted") {
           // A successful submit changes no other job's evaluation: the address already
@@ -333,6 +348,23 @@ function evaluateJob(job: GenerationJob, manager: StateManager, jobs: JobIndex):
   return { action: "submit" };
 }
 
+// A delivery upscale is synthesized from the video and the target its variant snapshotted.
+function deliveryDefinition(
+  job: GenerationJob,
+  manager: StateManager,
+  definitions: LoadedDefinitions,
+): AssetDefinition {
+  const target = manager.getState().assets[job.address]?.variants?.[job.variantId]?.deliveryTarget;
+  if (!target) {
+    throw new KonteError(
+      "VARIANT_NOT_FOUND",
+      `Variant ${job.variantId} of ${job.address} has no delivery target — re-run "konte export"`,
+    );
+  }
+  const video = selectDefinition("video", definitions).def as VideoDefinition;
+  return synthesizeDeliveryAssetDefinition(video, job.address, target);
+}
+
 async function trySubmitJob(
   job: GenerationJob,
   workerId: string,
@@ -348,7 +380,12 @@ async function trySubmitJob(
   // reclaimable but a live one is never double-submitted (see claimForSubmission).
   const stopHeartbeat = startLeaseHeartbeat(jobManager, job.variantId, workerId);
   try {
-    const resolvedDeps = resolveJobDeps(job, manager);
+    // A delivery upscale's composite has no address to resolve: it was rendered to a file when
+    // the job was registered.
+    const resolvedDeps = {
+      ...job.provenance.resolvedDependencies,
+      ...resolveJobDeps(job, manager),
+    };
 
     // A patch job's definition is declared by `patches/<sourceVariantId>.ts`, not by any stage
     // definition: a step's address has no stage entry at all. Falls through to the ordinary lookup
@@ -356,11 +393,14 @@ async function trySubmitJob(
     const patchDef = await loadPatchStepDefinition(videoRoot, manager.getState(), job.address);
     const assetDef =
       patchDef ??
-      getAssetEntryByAddress(
-        // A board or video job while the song it is cut to has no read take fails on `SONG_UNREAD`.
-        selectDefinition(getStage(job.address), definitions).def as DefinitionLike,
-        job.address,
-      );
+      (isDeliveryAddress(job.address)
+        ? deliveryDefinition(job, manager, definitions)
+        : getAssetEntryByAddress(
+            // A board or video job while the song it is cut to has no read take fails on
+            // `SONG_UNREAD`.
+            selectDefinition(getStage(job.address), definitions).def as DefinitionLike,
+            job.address,
+          ));
 
     const savedHash = job.metadata.definitionHash as string | undefined;
     if (savedHash) {

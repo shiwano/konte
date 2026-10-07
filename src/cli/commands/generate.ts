@@ -7,7 +7,6 @@ import {
   listAssetPaths,
   parseStageScope,
 } from "../../core/address.js";
-import type { GenerationBackend } from "../../core/backend.js";
 import { assertSpendAllowed, stageSpendItems } from "../../core/backend-policy.js";
 import { loadKonteConfig } from "../../core/config.js";
 import { computeDependencyLevels } from "../../core/dependency-levels.js";
@@ -39,7 +38,7 @@ import {
   formatStaleCause,
 } from "../../core/staleness.js";
 import { StateManager } from "../../core/state/index.js";
-import type { AssetDefinition, BackendKind } from "../../core/types/index.js";
+import type { AssetDefinition } from "../../core/types/index.js";
 import {
   assertAnimaticConsumed,
   assertUpstreamAccepted,
@@ -55,7 +54,6 @@ import {
   type AssetResult,
   assetSkipReason,
   buildGeneratePlan,
-  createPendingJobs,
   ensureComfyPrereqJobs,
   formatComfyRouteNotice,
   formatAcceptedStaleNotice,
@@ -66,7 +64,7 @@ import {
   preflightComfyAssets,
   reserveVariantsBatch,
   type SkipReason,
-  submitAssetJobs,
+  registerJobs,
   type VariantReservationRequest,
 } from "../generate-orchestrator.js";
 import { requireVideoRoots } from "../context.js";
@@ -226,14 +224,13 @@ export function registerGenerateCommand(program: Command): void {
       }
 
       const jobManager = new JobManager(videoRoot);
-      const backendCache = new Map<BackendKind, GenerationBackend>();
       const failedAssetPaths = new Set<string>();
 
       const levelResults: LevelResult[] = [];
       const generatedDepPaths = new Set<string>();
       const pendingReasons = new Map<string, PendingReason>();
 
-      // Present models/nodes get no job — their generation jobs submit immediately; if ComfyUI is
+      // Present models/nodes get no job — their generation jobs wait on nothing; if ComfyUI is
       // unreachable everything is treated as missing, so jobs are created and no-op (or
       // download/install) at run time.
       const comfyEntries: Array<{ address: string; def: AssetDefinition }> = [];
@@ -358,7 +355,6 @@ export function registerGenerateCommand(program: Command): void {
           assetDef: ReturnType<typeof assetEntryOf>;
           deps: string[];
           prereqJobIds: string[];
-          pending: boolean;
         }> = [];
         const reservations: VariantReservationRequest[] = [];
 
@@ -403,7 +399,7 @@ export function registerGenerateCommand(program: Command): void {
           // A comfy asset's prerequisites are shared jobs the generation job depends on — on a
           // ComfyUI its models (comfy-model-download) and nodes (comfy-node-install gated by a
           // comfy-node-activate reboot), on a deployment its bring-up (comfy-api-deploy) — so
-          // anything with one is pending (submitted by the worker once it is ready), never eager.
+          // anything with one is pending until it is ready.
           const prereqJobIds = await ensureComfyPrereqJobs(
             assetDef,
             spend.targetOf(assetDef),
@@ -420,7 +416,6 @@ export function registerGenerateCommand(program: Command): void {
             assetDef,
             deps: [...deps],
             prereqJobIds,
-            pending: deps.length > 0 || prereqJobIds.length > 0,
           });
           reservations.push({
             address,
@@ -433,7 +428,7 @@ export function registerGenerateCommand(program: Command): void {
         // Phase 2 — one lock cycle reserves every variant this level generates.
         const reserved = await reserveVariantsBatch(videoRoot, reservations);
 
-        // Phase 3 — create pending jobs / submit eager ones against the reserved variants.
+        // Phase 3 — register the jobs against the reserved variants.
         // If this aborts partway, every reserved variant that got no job file is rolled back:
         // a reservation with no job and no terminal marker reads as active forever, and every
         // later `generate` would skip its asset as "active job(s) exist".
@@ -441,59 +436,31 @@ export function registerGenerateCommand(program: Command): void {
         try {
           for (const w of work) {
             const reservedIds = reserved.get(w.address) ?? [];
-            if (w.pending) {
-              const result = await createPendingJobs(
-                w.address,
-                w.assetDef,
-                w.deps,
-                variantCount,
-                videoRoot,
-                jobManager,
-                w.prereqJobIds,
-                {},
-                null,
-                null,
-                reservedIds,
-                spend.targetOf(w.assetDef),
-              );
-              assetResults[w.slot] = result;
-              for (const j of result.jobs) jobbedVariantIds.add(j.variantId);
-              for (const id of w.prereqJobIds) await refreshKnownJob(id);
-              const pendingState = manager.getState();
-              // Valid against this snapshot: the jobs registered above wrote job files, not state.
-              const pendingCache = manager.stalenessCache();
-              for (const j of result.jobs) {
-                const rec = await addKnownJob(j.variantId);
-                const reason: PendingReason =
-                  rec?.kind === "generation"
-                    ? describePendingJob(rec, pendingState, jobIndex, pendingCache)
-                    : { submittable: false, waitingOn: [] };
-                pendingReasons.set(j.variantId, reason);
-              }
-            } else {
-              const result = await submitAssetJobs(
-                w.address,
-                w.assetDef,
-                variantCount,
-                roots,
-                jobManager,
-                backendCache,
-                undefined,
-                undefined,
-                undefined,
-                undefined,
-                null,
-                reservedIds,
-                spend.targetOf(w.assetDef),
-              );
-              if (result.status === "failed") {
-                failedAssetPaths.add(w.address);
-              }
-              assetResults[w.slot] = result;
-              for (const j of result.jobs) {
-                jobbedVariantIds.add(j.variantId);
-                await addKnownJob(j.variantId);
-              }
+            const result = await registerJobs({
+              address: w.address,
+              assetDef: w.assetDef,
+              deps: w.deps,
+              variantCount,
+              videoRoot,
+              jobManager,
+              dependsOnJobs: w.prereqJobIds,
+              reservedVariantIds: reservedIds,
+              comfyTarget: spend.targetOf(w.assetDef),
+            });
+            if (result.status === "failed") failedAssetPaths.add(w.address);
+            assetResults[w.slot] = result;
+            for (const j of result.jobs) jobbedVariantIds.add(j.variantId);
+            for (const id of w.prereqJobIds) await refreshKnownJob(id);
+            const pendingState = manager.getState();
+            // Valid against this snapshot: the jobs registered above wrote job files, not state.
+            const pendingCache = manager.stalenessCache();
+            for (const j of result.jobs) {
+              const rec = await addKnownJob(j.variantId);
+              const reason: PendingReason =
+                rec?.kind === "generation"
+                  ? describePendingJob(rec, pendingState, jobIndex, pendingCache)
+                  : { submittable: false, waitingOn: [] };
+              pendingReasons.set(j.variantId, reason);
             }
           }
         } catch (err) {
@@ -554,14 +521,7 @@ export function registerGenerateCommand(program: Command): void {
           const patchSpend = await assertPatchSpendAllowed(patch, config, roots.workspace);
           assertPromptGate(patch, `patches/${patch.sourceVariantId}.ts`);
           assertPinGate(patch, `patches/${patch.sourceVariantId}.ts`);
-          const result = await applyPatch(
-            patch,
-            roots,
-            jobManager,
-            backendCache,
-            config,
-            patchSpend,
-          );
+          const result = await applyPatch(patch, roots, jobManager, config, patchSpend);
           for (const job of result.jobs) {
             patchApplications.push({
               source: patch.sourceVariantId,

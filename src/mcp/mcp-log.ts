@@ -67,3 +67,48 @@ export class McpLog {
     }
   }
 }
+
+export interface McpLogEntry {
+  level: McpLogLevel;
+  data: Record<string, unknown>;
+}
+
+const LINE = /^\[[^\]]*\] \S+ pid=\d+ (\w+) (.*)$/;
+
+/** Where a read of the log from now on starts. */
+export async function mcpLogEnd(workspaceRoot: string): Promise<number> {
+  return fs.stat(mcpLogPath(workspaceRoot)).then(
+    (s) => s.size,
+    () => 0,
+  );
+}
+
+/**
+ * The whole lines written past `offset`, and the offset the next read starts at. A log shorter
+ * than `offset` was rotated, and is read from its start.
+ */
+export async function readMcpLogSince(
+  workspaceRoot: string,
+  offset: number,
+): Promise<{ entries: McpLogEntry[]; offset: number }> {
+  let text: Buffer;
+  try {
+    text = await fs.readFile(mcpLogPath(workspaceRoot));
+  } catch {
+    return { entries: [], offset: 0 };
+  }
+  const start = text.length < offset ? 0 : offset;
+  const end = text.lastIndexOf(0x0a) + 1;
+  if (end <= start) return { entries: [], offset: start };
+  const entries: McpLogEntry[] = [];
+  for (const line of text.subarray(start, end).toString("utf-8").split("\n")) {
+    const m = LINE.exec(line);
+    if (!m) continue;
+    try {
+      entries.push({ level: m[1] as McpLogLevel, data: JSON.parse(m[2]!) });
+    } catch {
+      // A line cut by a concurrent rotation.
+    }
+  }
+  return { entries, offset: end };
+}

@@ -189,9 +189,8 @@ export class JobWatcher {
         if (job.status === "running" || job.status === "queued") {
           this.startWaitingForJob(job.id);
         }
-        // "queued" too: the eager path claims a fresh no-deps job before submitting, so one left
-        // sitting "queued" is an orphan (its creator died in the createJob→claim gap) that only
-        // the cascade can submit — waitForJob can't claim it. A stranded submit (crashed
+        // "queued" too: a job registered with nothing to wait on is the cascade's to submit —
+        // waitForJob can't claim it. A stranded submit (crashed
         // mid-submit: "running", no backendJobId, lapsed lease) likewise needs the cascade to
         // reclaim and re-submit it — on its own it never leaves "running".
         if (job.status === "pending" || job.status === "queued" || isStrandedSubmit(job)) {
@@ -330,7 +329,7 @@ export class JobWatcher {
         ) {
           this.startWaitingForJob(job.id);
         }
-        // See initialScan: an orphaned "queued" job and a stranded submit both need the cascade
+        // See initialScan: a "queued" job and a stranded submit both need the cascade
         // to submit them; neither ever leaves its state on its own.
         if (job.status === "pending" || job.status === "queued" || isStrandedSubmit(job)) {
           hasPending = true;

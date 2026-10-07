@@ -23,7 +23,7 @@ A reboot is destructive (a server not under a relauncher won't return): on failu
 
 ## Leader-elected waiting
 
-When several processes (the MCP watcher, a `konte job wait`) await the same running job, a **run lease** (`job.lease`) makes exactly one the _owner_ — it runs the backend wait, downloads/normalizes the output, and commits the terminal state; the rest only _monitor_ the job record. If the owner crashes, its lease lapses and a monitor reclaims and re-attaches via the persisted backend job id (every backend job is re-observable by id). The same lease protects export and model-download workers.
+When several daemons of the workspace await the same running job, a **run lease** (`job.lease`) makes exactly one the _owner_ — it runs the backend wait, downloads/normalizes the output, and commits the terminal state; the rest only _monitor_ the job record. If the owner crashes, its lease lapses and a monitor reclaims and re-attaches via the persisted backend job id (every backend job is re-observable by id). The same lease protects export and model-download workers.
 
 Waiting is unbounded, except comfy, whose prompt lives in the server process: it fails after `comfy.comfyui.unreachableTimeoutMinutes` of silence (default 15, 0 = never).
 
@@ -35,13 +35,13 @@ Transient result-fetch and download-stream failures retry against the existing b
 
 `konte mcp serve` runs per workspace: a `VideoRegistry` (`src/mcp/video-registry.ts`) keeps a `JobWatcher` per video under `videos/`, following videos as they appear and disappear (`fs.watch` plus a 5s reconcile poll, since `fs.watch` drops events under WSL2). Credentials are re-applied each tick, dropping stale-keyed backends. `konte workspace new` configures it in `.mcp.json` (Claude Code) and `.codex/config.toml` (Codex).
 
-Its one MCP tool, `status`, returns the daemon's version, instance id, pid, start time and watched videos. Job outcomes come from `konte job wait`, which drives the same cascade itself and so works with the daemon down.
+Its one MCP tool, `status`, returns the daemon's version, instance id, pid, start time and watched videos. Spend commands only register jobs. `konte job wait` reads job records and, with no daemon up, runs an attached one that `hasLiveDaemon` ignores.
 
 Every daemon of the workspace appends to `.konte/logs/mcp.log` (`src/mcp/mcp-log.ts`): its start and stop, the videos it watches, and each info-or-above event it sends its client, tagged with a per-daemon instance id and URLs redacted. Past 5 MB the file moves to `mcp.log.1`.
 
 ## What a judge reads
 
-A cascade pass lists jobs, then reloads the definitions (`reloadLoadedDefinitions`), per iteration — no job is judged by definitions older than itself, in the daemon or in `job wait`. A job records a **source fingerprint** at creation (`definition-source.ts`). On a hash mismatch, fingerprint moved → the definition changed and the job fails; unchanged → the judge is stale: it **releases** the job (`releaseIfOwner`) and the daemon restarts (`RESTART_EXIT_CODE`, `supervise.ts`); a second stale judge fails it. Exports do the same via `planDigest` / `decideExportRender`.
+A cascade pass lists jobs, then reloads the definitions (`reloadLoadedDefinitions`), per iteration — no job is judged by definitions older than itself. A job records a **source fingerprint** at creation (`definition-source.ts`). On a hash mismatch, fingerprint moved → the definition changed and the job fails; unchanged → the judge is stale: it **releases** the job (`releaseIfOwner`) and the daemon restarts (`RESTART_EXIT_CODE`, `supervise.ts`); a second stale judge fails it. Exports do the same via `planDigest` / `decideExportRender`.
 
 ## Keyframe normalization
 

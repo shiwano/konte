@@ -1,6 +1,5 @@
 import type { Command } from "commander";
 import { requireShotStages } from "../../../core/select-definition.js";
-import type { GenerationBackend } from "../../../core/backend.js";
 import { loadKonteConfig } from "../../../core/config.js";
 import { JobManager } from "../../../core/job-manager.js";
 import {
@@ -13,7 +12,6 @@ import {
 } from "../../../core/patch.js";
 import { StateManager } from "../../../core/state/index.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
-import type { BackendKind } from "../../../core/types/index.js";
 import { requireVideoRoots } from "../../context.js";
 import { getStage, isPatchAddress, tryParseAddress } from "../../../core/address.js";
 import { isVendorBackendAsset, type SpendRoutes } from "../../../core/backend-policy.js";
@@ -180,20 +178,12 @@ Examples:
         }
       }
 
-      const backendCache = new Map<BackendKind, GenerationBackend>();
       const applied: Array<{ variantId: string; address: string; source: string; status: string }> =
         [];
 
       for (const patch of targets) {
         try {
-          const result = await applyPatch(
-            patch,
-            roots,
-            jobManager,
-            backendCache,
-            config,
-            spends.get(patch)!,
-          );
+          const result = await applyPatch(patch, roots, jobManager, config, spends.get(patch)!);
           for (const job of result.jobs) {
             applied.push({
               variantId: job.variantId,

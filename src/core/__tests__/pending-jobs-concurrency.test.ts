@@ -135,16 +135,15 @@ describe("JobManager.claimForSubmission", () => {
     expect(job.lease?.owner).toBe(winners[0]?.lease?.owner);
   });
 
-  it("claims a fresh queued job (eager no-deps path)", async () => {
+  it("claims a fresh queued job (no deps)", async () => {
     await jobManager.createJob({
       address: "video:shot.01.motion",
       variantId: "v-bbb22222",
       resolvedDeps: {},
       backendKind: "comfy",
     });
-    // Created without deps → status "queued". The eager path claims it under a lease before
-    // submitting, so a crash mid-submit strands a reclaimable "running" job, not a lease-less
-    // "queued" orphan.
+    // Created without deps → status "queued". It is claimed under a lease before submitting, so a
+    // crash mid-submit strands a reclaimable "running" job.
     const claimed = await jobManager.claimForSubmission("v-bbb22222", "w-x", 60_000);
     expect(claimed?.status).toBe("running");
     expect(claimed?.lease?.owner).toBe("w-x");

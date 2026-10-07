@@ -5,7 +5,7 @@ import { analyzeSongTake } from "../core/song-analysis.js";
 import { readingOutdated } from "../core/song-queue.js";
 import { StateManager } from "../core/state/index.js";
 import { readSongReading, writeSongReading } from "../core/song-reading.js";
-import { SongReadingSchema, type JobRecord, type SongAnalysisJob } from "../core/types/index.js";
+import { SongReadingSchema, type JobRecord } from "../core/types/index.js";
 import { runLeasedJob } from "./run-leased-job.js";
 
 type SongAnalysisHooks = {
@@ -125,19 +125,4 @@ export async function runSongAnalysisJob(
       }
     },
   });
-}
-
-// Run every pending song analysis to completion (used by `konte job wait` and the MCP watcher).
-export async function runPendingSongAnalyses(
-  jobManager: JobManager,
-  videoRoot: string,
-  hooks: SongAnalysisHooks = {},
-): Promise<RunSongAnalysisResult[]> {
-  const jobs = (await jobManager.listJobs()).filter(
-    (j): j is SongAnalysisJob =>
-      j.kind === "song-analysis" && (j.status === "pending" || j.status === "running"),
-  );
-  const results: RunSongAnalysisResult[] = [];
-  for (const j of jobs) results.push(await runSongAnalysisJob(jobManager, videoRoot, j.id, hooks));
-  return results;
 }

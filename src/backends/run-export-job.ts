@@ -260,22 +260,3 @@ export async function runExportJob(
     },
   });
 }
-
-// Run every runnable export job to completion (used by `konte job wait`). Skips export
-// jobs still waiting on dependencies; fails those whose dependencies died.
-export async function runRunnableExportJobs(
-  jobManager: JobManager,
-  videoRoot: string,
-  hooks: ExportJobHooks = {},
-): Promise<RunExportJobResult[]> {
-  const allJobs = await jobManager.listJobs();
-  const exportJobs = allJobs.filter(
-    (j): j is ExportJob =>
-      j.kind === "export" && (j.status === "pending" || j.status === "running"),
-  );
-  const results: RunExportJobResult[] = [];
-  for (const j of exportJobs) {
-    results.push(await runExportJob(jobManager, videoRoot, j.id, hooks));
-  }
-  return results;
-}

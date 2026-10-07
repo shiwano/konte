@@ -1,6 +1,5 @@
 import { SpendRoutes } from "../../core/backend-policy.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { GenerationBackend, WaitForCompletionResult } from "../../core/backend.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/workspace.js";
 import { JobManager } from "../../core/job-manager.js";
@@ -9,22 +8,12 @@ import { patchAssetAddress } from "../../core/patch.js";
 import type { PatchOutputOrigin } from "../../core/patch-output.js";
 import type { VideoRoots } from "../../core/roots.js";
 import { StateManager } from "../../core/state/index.js";
-import type { AssetDefinition, BackendKind, KonteConfig } from "../../core/types/index.js";
+import type { AssetDefinition, KonteConfig } from "../../core/types/index.js";
 import { applyPatch } from "../patch-orchestrator.js";
 
 const SOURCE_ADDRESS = "animatic:shot.01.first";
 const CONFIG = { comfy: { comfyui: { url: "http://127.0.0.1:8188" } } } as KonteConfig;
 const NO_ROUTES = new SpendRoutes(new Map(), []);
-
-class FakeBackend implements GenerationBackend {
-  async submit(): Promise<string> {
-    return "fake-job";
-  }
-  async waitForCompletion(): Promise<WaitForCompletionResult> {
-    throw new Error("not used");
-  }
-  async cancel(): Promise<void> {}
-}
 
 function resize(inputs: Record<string, unknown>): AssetDefinition {
   return { kind: "local", operation: "resize", mediaType: "image", inputs } as AssetDefinition;
@@ -33,14 +22,12 @@ function resize(inputs: Record<string, unknown>): AssetDefinition {
 let ws: Workspace;
 let roots: VideoRoots;
 let jobManager: JobManager;
-let backendCache: Map<BackendKind, GenerationBackend>;
 let sourceVariantId: string;
 
 beforeEach(async () => {
   ws = await makeWorkspace({ videos: ["v1"], seedState: false });
   roots = ws.videos.v1!;
   jobManager = new JobManager(roots.video);
-  backendCache = new Map<BackendKind, GenerationBackend>([["local", new FakeBackend()]]);
 
   await StateManager.init(roots.video);
   sourceVariantId = await StateManager.withLock(roots.video, async (m) => {
@@ -118,7 +105,7 @@ describe("applyPatch in-flight steps", () => {
     const patch = chain("hash-a", "one");
     const running = await inFlightStep(patch, "patched", originOf(patch));
 
-    const result = await applyPatch(patch, roots, jobManager, backendCache, CONFIG, NO_ROUTES);
+    const result = await applyPatch(patch, roots, jobManager, CONFIG, NO_ROUTES);
 
     expect(result.jobs).toEqual([{ variantId: running, status: "running" }]);
     expect(await jobManager.listJobs()).toHaveLength(1);
@@ -130,14 +117,7 @@ describe("applyPatch in-flight steps", () => {
     const stale = chain("hash-old", "one");
     const running = await inFlightStep(stale, "patched", originOf(stale));
 
-    const result = await applyPatch(
-      chain("hash-new", "one"),
-      roots,
-      jobManager,
-      backendCache,
-      CONFIG,
-      NO_ROUTES,
-    );
+    const result = await applyPatch(chain("hash-new", "one"), roots, jobManager, CONFIG, NO_ROUTES);
 
     const launched = result.jobs[0]!.variantId;
     expect(launched).not.toBe(running);
@@ -157,7 +137,7 @@ describe("applyPatch in-flight steps", () => {
       patchHash: "hash-old",
     });
 
-    const result = await applyPatch(patch, roots, jobManager, backendCache, CONFIG, NO_ROUTES);
+    const result = await applyPatch(patch, roots, jobManager, CONFIG, NO_ROUTES);
 
     const launched = result.jobs[0]!.variantId;
     expect(launched).not.toBe(running);

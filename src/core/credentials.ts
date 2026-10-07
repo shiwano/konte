@@ -140,3 +140,15 @@ export function hasEnvironmentOverride(key: string): boolean {
   const current = process.env[key] ?? "";
   return current !== "" && injected.get(key) !== current;
 }
+
+/**
+ * `process.env` less what `applyCredentials` put there, for a konte process started from this one:
+ * it loads the file itself, and an inherited copy would read as an override it never re-reads.
+ */
+export function environmentWithoutCredentials(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const [key, value] of injected) {
+    if (env[key] === value) delete env[key];
+  }
+  return env;
+}

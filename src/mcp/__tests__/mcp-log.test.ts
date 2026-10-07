@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { McpLog, mcpLogPath } from "../mcp-log.js";
+import { McpLog, mcpLogEnd, mcpLogPath, readMcpLogSince } from "../mcp-log.js";
 
 let root: string;
 
@@ -71,4 +71,27 @@ it("rotates once when several daemons find the log full together", async () => {
   expect(await fs.readFile(`${mcpLogPath(root)}.1`, "utf-8")).toContain("ORIGINAL");
   const current = await fs.readFile(mcpLogPath(root), "utf-8");
   expect(current.trim().split("\n")).toHaveLength(8);
+});
+
+it("reads the whole lines written since an offset, and starts over after a rotation", async () => {
+  const log = new McpLog(root);
+  log.write("info", { event: "daemon_started" });
+  await log.flush();
+  const start = await mcpLogEnd(root);
+
+  log.write("warning", { video: "v1", event: "job_watch_failed", error: "boom" });
+  await log.flush();
+  await fs.appendFile(mcpLogPath(root), "[2026-01-01T00:00:00.000Z] abc pid=1 info {");
+  const first = await readMcpLogSince(root, start);
+  expect(first.entries).toEqual([
+    { level: "warning", data: { video: "v1", event: "job_watch_failed", error: "boom" } },
+  ]);
+  expect((await readMcpLogSince(root, first.offset)).entries).toEqual([]);
+
+  await fs.writeFile(mcpLogPath(root), "");
+  log.write("error", { event: "x" });
+  await log.flush();
+  expect((await readMcpLogSince(root, first.offset)).entries).toEqual([
+    { level: "error", data: { event: "x" } },
+  ]);
 });

@@ -7,6 +7,8 @@ import { KonteError } from "../../core/errors.js";
 import { syncFileAssets } from "../../core/file-sync.js";
 import { StateManager } from "../../core/state/index.js";
 import { SCHEMA_VERSION } from "../../core/types/index.js";
+import { VideoRegistry } from "../../mcp/video-registry.js";
+import { jobRunnerHooks } from "../job-runner.js";
 import { buildProgram, formatKonteError } from "../program.js";
 import { loadDirectionIfPresent, loadStageDefinitions } from "../load-definition.js";
 import { writeFixtureVideo } from "./fixture-video.js";
@@ -22,6 +24,24 @@ class ExitSignal extends Error {
     super(`process.exit(${exitCode})`);
   }
 }
+
+// The daemon a `job wait` starts runs in this process, where a test's backend stubs reach it.
+jobRunnerHooks.start = (workspaceRoot) => {
+  const server = { server: { sendLoggingMessage: async () => {} } };
+  const registry = new VideoRegistry(server as never, workspaceRoot);
+  const started = registry.start().catch(() => {});
+  let exit: (code: number) => void = () => {};
+  const exited = new Promise<number>((resolve) => (exit = resolve));
+  return {
+    exited,
+    stderrTail: () => "",
+    async stop() {
+      await started;
+      registry.stop();
+      exit(0);
+    },
+  };
+};
 
 function isCommanderError(err: unknown): err is { exitCode: number } {
   return (

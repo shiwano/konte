@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { KonteError } from "../../core/errors.js";
-import { JobManager } from "../../core/job-manager.js";
+import { isJobTerminal, JobManager } from "../../core/job-manager.js";
 import { lyricLines } from "../../core/direction.js";
 import { placeDirectionLyrics } from "../../core/dsl/direction.js";
 import { syncFileAssets } from "../../core/file-sync.js";
@@ -12,12 +12,13 @@ import {
   songAddressOf,
   songBeatSec,
 } from "../../core/song-take.js";
-import { runSongAnalysisJob } from "../../backends/run-song-analysis-job.js";
 import { printLyrics, printSongReading } from "./probe/audio.js";
 import { StateManager } from "../../core/state/index.js";
 import { songAnalysisOf } from "../../core/song-reading.js";
 import type { SongAnalysis, SongRecord, VariantState } from "../../core/types/index.js";
-import { requireVideoRoot } from "../context.js";
+import { sleep } from "../../core/sleep.js";
+import { requireVideoRoot, requireVideoRoots } from "../context.js";
+import { closeDeploymentsAfterWait, JobRunnerGuard } from "../job-runner.js";
 import { loadDirectionIfPresent } from "../load-definition.js";
 import { loadReference } from "../../core/loader.js";
 
@@ -175,7 +176,8 @@ Examples:
   konte song analyze   Read the song's takes`,
     )
     .action(async () => {
-      const videoRoot = requireVideoRoot();
+      const roots = requireVideoRoots();
+      const videoRoot = roots.video;
       const direction = await loadDirectionIfPresent(videoRoot);
       const songAddress = songAddressOf(direction);
       if (!direction || !songAddress) {
@@ -209,51 +211,54 @@ Examples:
       }
 
       const jobManager = new JobManager(videoRoot);
+      const runner = new JobRunnerGuard(roots.workspace, () => {});
       let failed = false;
-      for (const target of targets) {
-        const job = await jobManager.ensureSongAnalysisJob({
-          address: songAddress,
-          variantId: target.variantId,
-          outputHash: target.outputHash,
-          lang: direction.policy.lang,
-          again: true,
-        });
-        console.log(`Reading ${songAddress} ${target.variantId}...`);
-        // Another process (the MCP daemon) may hold the run: keep asking for it until it settles, so
-        // a run whose holder died is taken over once its lease lapses.
-        let settled = await jobManager.getJob(job.id);
-        for (;;) {
-          await runSongAnalysisJob(jobManager, videoRoot, job.id);
-          settled = await jobManager.getJob(job.id);
-          if (settled.status !== "pending" && settled.status !== "running") break;
-          await new Promise((r) => setTimeout(r, 1000));
-        }
-        const song = songAnalysisOf(
-          videoRoot,
-          songAddress,
-          target.variantId,
-          (await StateManager.load(videoRoot)).getState().assets[songAddress]?.variants?.[
-            target.variantId
-          ]?.song,
-        );
-        if (settled.status !== "completed" || !song) {
-          failed = true;
-          console.log(
-            `  failed    ${settled.error ?? settled.status} — see \`konte job logs ${job.id}\``,
+      try {
+        for (const target of targets) {
+          const job = await jobManager.ensureSongAnalysisJob({
+            address: songAddress,
+            variantId: target.variantId,
+            outputHash: target.outputHash,
+            lang: direction.policy.lang,
+            again: true,
+          });
+          console.log(`Reading ${songAddress} ${target.variantId}...`);
+          let settled = await jobManager.getJob(job.id);
+          while (!isJobTerminal(settled.status)) {
+            await runner.ensure();
+            await sleep(1000);
+            settled = await jobManager.getJob(job.id);
+          }
+          const song = songAnalysisOf(
+            videoRoot,
+            songAddress,
+            target.variantId,
+            (await StateManager.load(videoRoot)).getState().assets[songAddress]?.variants?.[
+              target.variantId
+            ]?.song,
           );
-          continue;
+          if (settled.status !== "completed" || !song) {
+            failed = true;
+            console.log(
+              `  failed    ${settled.error ?? settled.status} — see \`konte job logs ${job.id}\``,
+            );
+            continue;
+          }
+          printSongReading(song);
+          if (direction.lyrics) {
+            printLyrics(
+              placeDirectionLyrics(direction, {
+                address: songAddress,
+                variantId: target.variantId,
+                analysis: song,
+              }),
+            );
+          }
         }
-        printSongReading(song);
-        if (direction.lyrics) {
-          printLyrics(
-            placeDirectionLyrics(direction, {
-              address: songAddress,
-              variantId: target.variantId,
-              analysis: song,
-            }),
-          );
-        }
+      } finally {
+        await runner.stop();
       }
+      await closeDeploymentsAfterWait(roots.workspace);
       if (failed) process.exitCode = 1;
       console.log(`\nNext steps:\n  konte preview reference\n  konte probe audio ${songAddress}`);
     });

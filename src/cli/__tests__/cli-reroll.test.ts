@@ -300,32 +300,7 @@ export default defineReference(direction, () => {
     expect(sm.getAcceptedVariant("reference:latentA")).toBe(latentA);
   });
 
-  // The accept is dropped only after the reroll job is created; an asset whose submit fails
-  // synchronously produced no reroll, so its accept survives (old take stays accepted/resolved).
-  it("keeps the accept when the reroll submit fails", async () => {
-    const projectDir = await initRerollProject();
-    const badReference = REROLL_REFERENCE_TS.replace(
-      "  return { character, bgm, latentA, latentB, keyed, derived };",
-      `  const badSrc = asset("badSrc", adapters.imageFile, { path: "assets/files/bad.png" });
-  const badResize = asset("badResize", internalTestImage, { image: badSrc, width: 32, height: 32 });
-  return { character, bgm, latentA, latentB, keyed, derived, badSrc, badResize };`,
-    );
-    await fs.writeFile(path.join(projectDir, "reference.tsx"), badReference);
-    await fs.mkdir(path.join(projectDir, "assets", "files"), { recursive: true });
-    await fs.writeFile(path.join(projectDir, "assets", "files", "bad.png"), "not a real png");
-    const oldVid = await acceptFresh(projectDir, "reference:badResize");
-
-    const err = (await run(["reroll", "reference:badResize", "--yes"], projectDir).catch(
-      (e) => e,
-    )) as { code: number; stdout: string };
-    expect(err.code).toBe(1);
-    expect(err.stdout).toContain("1 failed");
-
-    const sm = await StateManager.load(projectDir);
-    expect(sm.getAcceptedVariant("reference:badResize")).toBe(oldVid);
-  });
-
-  it("fails a listed dependent without a job when its upstream's submit fails", async () => {
+  it("fails a listed dependent once its upstream's take fails", async () => {
     const projectDir = await initRerollProject();
     const badReference = REROLL_REFERENCE_TS.replace(
       "  return { character, bgm, latentA, latentB, keyed, derived };",
@@ -337,18 +312,14 @@ export default defineReference(direction, () => {
     await fs.writeFile(path.join(projectDir, "reference.tsx"), badReference);
     await fs.mkdir(path.join(projectDir, "assets", "files"), { recursive: true });
     await fs.writeFile(path.join(projectDir, "assets", "files", "bad.png"), "not a real png");
-    const childVid = await acceptFresh(projectDir, "reference:badChild");
 
-    const err = (await run(
-      ["reroll", "reference:badResize", "reference:badChild", "--count", "2", "--yes"],
-      projectDir,
-    ).catch((e) => e)) as { code: number; stdout: string };
+    await run(["reroll", "reference:badResize", "reference:badChild", "--yes"], projectDir);
+    const err = (await run(["job", "wait"], projectDir).catch((e) => e)) as {
+      code: number;
+      stdout: string;
+    };
     expect(err.code).toBe(1);
-    expect(jobsByAddress(err.stdout, "reference:badChild")).toEqual([]);
-    expect(err.stdout).toContain("reference:badChild  Dependency failed");
-
-    const sm = await StateManager.load(projectDir);
-    expect(sm.getAcceptedVariant("reference:badChild")).toBe(childVid);
+    expect(err.stdout).toMatch(/reference:badChild \(v-\S+\): failed\n {2}Error: Prerequisite/);
   });
 
   // Validation runs over every listed address before any job is created, so one bad address
@@ -391,9 +362,9 @@ export default defineReference(direction, () => {
     expect(sm.getAcceptedVariant("reference:derived")).toBeNull();
   });
 
-  // A synchronous submit failure (here: ffmpeg choking on a non-image "bad.png") must be surfaced
-  // in the output AND set a non-zero exit — mirroring `generate`, not silently exiting 0.
-  it("surfaces a submit failure and exits non-zero", async () => {
+  // A take that fails in the daemon (here: ffmpeg choking on a non-image "bad.png") is surfaced by
+  // the wait with a non-zero exit.
+  it("reports a failed reroll take on the wait", async () => {
     const projectDir = await initRerollProject();
     const badReference = REROLL_REFERENCE_TS.replace(
       "  return { character, bgm, latentA, latentB, keyed, derived };",
@@ -405,13 +376,13 @@ export default defineReference(direction, () => {
     await fs.mkdir(path.join(projectDir, "assets", "files"), { recursive: true });
     await fs.writeFile(path.join(projectDir, "assets", "files", "bad.png"), "not a real png");
 
-    const err = (await run(["reroll", "reference:badResize"], projectDir).catch((e) => e)) as {
+    await run(["reroll", "reference:badResize"], projectDir);
+    const err = (await run(["job", "wait"], projectDir).catch((e) => e)) as {
       code: number;
       stdout: string;
     };
     expect(err.code).toBe(1);
-    expect(err.stdout).toContain("Failed:");
-    expect(err.stdout).toMatch(/^ {2}reference:badResize {2}\S/m);
+    expect(err.stdout).toMatch(/^Job reference:badResize \(v-\S+\): failed$/m);
     expect(err.stdout).toContain("1 failed");
   });
 
@@ -490,6 +461,7 @@ export default defineReference(direction, () => {
     await fs.mkdir(path.join(projectDir, "assets", "files"), { recursive: true });
     await fs.writeFile(path.join(projectDir, "assets", "files", "bad.png"), "not a real png");
     await run(["reroll", "reference:badResize"], projectDir).catch(() => undefined);
+    await run(["job", "wait"], projectDir).catch(() => undefined);
 
     const retry = (await run(["reroll", "--failed", "--yes"], projectDir).catch((e) => e)) as {
       stdout: string;

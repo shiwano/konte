@@ -1,18 +1,15 @@
-import * as crypto from "node:crypto";
 import { ComfyUIBackend } from "../comfyui/backend.js";
 import { resolveComfyUIConfig } from "../comfyui/config.js";
 import { resolveUrlTokens } from "../comfyui/token-resolver.js";
-import type { GenerationBackend } from "../core/backend.js";
 import { computeDefinitionHash } from "../core/definition-hash.js";
 import { isTurboTake } from "../core/turbo.js";
 import { writeDefinitionSnapshot } from "../core/definition-snapshot.js";
 import type { DeliveryTarget } from "../core/delivery.js";
-import { KonteError, errorMessage } from "../core/errors.js";
+import { KonteError } from "../core/errors.js";
 import type { DependencyGraph } from "../core/graph.js";
-import { comfyModelJobId, JobManager, RUN_LEASE_TTL_MS } from "../core/job-manager.js";
+import { comfyModelJobId, JobManager } from "../core/job-manager.js";
 import type { PatchFinalize } from "../core/patch-output.js";
 import { assetResolves } from "../core/pending-jobs.js";
-import { startLeaseHeartbeat } from "../backends/lease-heartbeat.js";
 import { formatNotice } from "../core/notice.js";
 import type { SetupFork } from "../core/stale-refresh.js";
 import {
@@ -21,7 +18,6 @@ import {
   type UndecidedUpstreamTake,
 } from "../core/staleness.js";
 import { StateManager } from "../core/state/index.js";
-import { submitToBackend } from "../core/submit-generation.js";
 import type {
   AssetDefinition,
   BackendKind,
@@ -31,8 +27,7 @@ import type {
 } from "../core/types/index.js";
 import { DEFAULT_IDLE_MINUTES } from "../comfy-api/deployment.js";
 import { deploymentNameOf } from "../comfy-api/routing.js";
-import { variantDir } from "../core/variant-dir.js";
-import { getBackendKind, resolveBackend } from "../backends/resolve-backend.js";
+import { getBackendKind } from "../backends/resolve-backend.js";
 import type { VideoRoots } from "../core/roots.js";
 
 /**
@@ -152,18 +147,6 @@ export function getActiveVariantIds(manager: StateManager, address: string): str
     }
   }
   return variantIds;
-}
-
-async function getCachedBackend(
-  kind: BackendKind,
-  roots: VideoRoots,
-  cache: Map<BackendKind, GenerationBackend>,
-): Promise<GenerationBackend> {
-  const cached = cache.get(kind);
-  if (cached) return cached;
-  const backend = await resolveBackend(kind, roots);
-  cache.set(kind, backend);
-  return backend;
 }
 
 // Reserve `variantCount` variant ids for `address`, persisting them to state under
@@ -604,26 +587,37 @@ function jobBackendKind(assetDef: AssetDefinition, target: ComfyTarget | null): 
   return getBackendKind(assetDef);
 }
 
-export async function createPendingJobs(
-  address: string,
-  assetDef: AssetDefinition,
-  deps: readonly string[],
-  variantCount: number,
-  videoRoot: string,
-  jobManager: JobManager,
-  dependsOnJobs: readonly string[] = [],
+export interface JobRegistration {
+  address: string;
+  assetDef: AssetDefinition;
+  variantCount: number;
+  videoRoot: string;
+  jobManager: JobManager;
+  // Upstream addresses resolved when the daemon submits.
+  deps?: readonly string[];
+  dependsOnJobs?: readonly string[];
   // Asset-path → variant-id of an upstream this job must consume specifically (not via the
   // newest-ready/accepted heuristic). Set by `reroll --with-dependents` so a cascaded
   // dependent builds on the freshly rerolled upstream variant even when an older one is
   // still accepted. Resolved to the variant's file at submit time (see trySubmitJob).
-  pinnedDeps: Record<string, string> = {},
-  patchFinalize: PatchFinalize | null = null,
-  rivalVariantIds: ReadonlySet<string> | null = null,
+  pinnedDeps?: Record<string, string>;
+  // Dependencies already resolved to files, for an input no address resolves (a delivery
+  // upscale's rendered composite).
+  resolvedDeps?: Record<string, string>;
+  compositionCacheKeys?: Record<string, string>;
+  deliveryTarget?: DeliveryTarget | null;
+  patchFinalize?: PatchFinalize | null;
+  rivalVariantIds?: ReadonlySet<string> | null;
   // Variants already reserved by a reserveVariantsBatch pass — skips the per-asset lock cycle.
-  reservedVariantIds: readonly string[] | null = null,
+  reservedVariantIds?: readonly string[] | null;
   // Where the spend gate routed a comfy asset (`SpendRoutes.targetOf`).
-  comfyTarget: ComfyTarget | null = null,
-): Promise<AssetResult> {
+  comfyTarget?: ComfyTarget | null;
+}
+
+/** Reserve the variants and register their jobs, which the daemon submits once they are ready. */
+export async function registerJobs(opts: JobRegistration): Promise<AssetResult> {
+  const { address, assetDef, videoRoot, jobManager } = opts;
+  const comfyTarget = opts.comfyTarget ?? null;
   const backendKind = jobBackendKind(assetDef, comfyTarget);
   if (!backendKind) {
     return {
@@ -636,17 +630,18 @@ export async function createPendingJobs(
 
   const definitionHash = computeDefinitionHash(assetDef);
   const variantIds =
-    reservedVariantIds ??
+    opts.reservedVariantIds ??
     (await reserveVariants(
       videoRoot,
       address,
-      variantCount,
+      opts.variantCount,
       definitionHash,
       assetDef,
-      null,
-      rivalVariantIds ?? undefined,
+      opts.deliveryTarget ?? null,
+      opts.rivalVariantIds ?? undefined,
     ));
   const jobs: Array<{ variantId: string; status: string }> = [];
+  const pinnedDeps = opts.pinnedDeps ?? {};
   const hasPins = Object.keys(pinnedDeps).length > 0;
 
   for (const vid of variantIds) {
@@ -654,15 +649,16 @@ export async function createPendingJobs(
       await jobManager.createJob({
         address,
         variantId: vid,
-        resolvedDeps: {},
+        resolvedDeps: opts.resolvedDeps ?? {},
         backendKind,
         comfyTarget: assetDef.kind === "comfy" ? comfyTarget : null,
-        dependsOnAssets: [...deps],
-        dependsOnJobs: [...dependsOnJobs],
+        dependsOnAssets: [...(opts.deps ?? [])],
+        dependsOnJobs: [...(opts.dependsOnJobs ?? [])],
+        compositionCacheKeys: opts.compositionCacheKeys,
         metadata: {
           definitionHash,
           ...(hasPins ? { pinnedDeps } : {}),
-          ...(patchFinalize ? { patchFinalize } : {}),
+          ...(opts.patchFinalize ? { patchFinalize: opts.patchFinalize } : {}),
         },
       });
     } catch (err) {
@@ -675,157 +671,6 @@ export async function createPendingJobs(
   }
 
   return { address, status: "pending", jobs };
-}
-
-export async function submitAssetJobs(
-  address: string,
-  assetDef: AssetDefinition,
-  variantCount: number,
-  roots: VideoRoots,
-  jobManager: JobManager,
-  backendCache: Map<BackendKind, GenerationBackend>,
-  resolvedDeps?: Record<string, string>,
-  compositionCacheKeys?: Record<string, string>,
-  deliveryTarget?: DeliveryTarget | null,
-  patchFinalize?: PatchFinalize | null,
-  rivalVariantIds: ReadonlySet<string> | null = null,
-  // Variants already reserved by a reserveVariantsBatch pass — skips the per-asset lock cycle.
-  reservedVariantIds: readonly string[] | null = null,
-  // Where the spend gate routed a comfy asset (`SpendRoutes.targetOf`).
-  comfyTarget: ComfyTarget | null = null,
-): Promise<AssetResult> {
-  const videoRoot = roots.video;
-  const backendKind = jobBackendKind(assetDef, comfyTarget);
-  if (!backendKind) {
-    return {
-      address,
-      status: "failed",
-      jobs: [],
-      error: `Asset kind "${assetDef.kind}" has no generation backend`,
-    };
-  }
-
-  const deps = resolvedDeps ?? {};
-
-  const definitionHash = computeDefinitionHash(assetDef);
-  const variantIds =
-    reservedVariantIds ??
-    (await reserveVariants(
-      videoRoot,
-      address,
-      variantCount,
-      definitionHash,
-      assetDef,
-      deliveryTarget ?? null,
-      rivalVariantIds ?? undefined,
-    ));
-
-  const backend = await getCachedBackend(backendKind, roots, backendCache);
-
-  const jobs: Array<{ variantId: string; status: string }> = [];
-  let hasFailure = false;
-
-  for (const vid of variantIds) {
-    try {
-      await jobManager.createJob({
-        address,
-        variantId: vid,
-        resolvedDeps: deps,
-        backendKind,
-        comfyTarget: assetDef.kind === "comfy" ? comfyTarget : null,
-        compositionCacheKeys,
-        // A patch step's address has no stage entry, so the waiter cannot look its definition up
-        // the usual way — it would find nothing and finalize by neither determinism nor output
-        // node. Carry the finalization facts on the job itself.
-        ...(patchFinalize ? { metadata: { patchFinalize } } : {}),
-      });
-    } catch (err) {
-      await StateManager.withLock(videoRoot, async (manager) => {
-        manager.removeVariant(address, vid);
-      });
-      throw err;
-    }
-
-    // Hold a submit lease across the slow backend.submit() so a crash mid-submit strands a
-    // reclaimable "running" job instead of a lease-less orphan — the same discipline the
-    // pending-worker path uses (see claimForSubmission / startLeaseHeartbeat). A concurrent
-    // watcher cascade may claim this fresh job first; if so our claim returns null and we
-    // hand it off rather than double-submit.
-    const workerId = `w-${crypto.randomBytes(8).toString("hex")}`;
-    const claimed = await jobManager.claimForSubmission(vid, workerId, RUN_LEASE_TTL_MS);
-    if (!claimed || claimed.kind !== "generation") {
-      jobs.push({ variantId: vid, status: "running" });
-      continue;
-    }
-
-    const stopHeartbeat = startLeaseHeartbeat(jobManager, vid, workerId);
-    try {
-      const outputDir = variantDir(videoRoot, address, vid);
-      const request = {
-        address,
-        assetDefinition: assetDef,
-        variantId: vid,
-        outputDir,
-        resolvedDependencies: deps,
-      };
-
-      const { backendJobId, metadata } = await submitToBackend(
-        jobManager,
-        backend,
-        claimed,
-        request,
-      );
-
-      // Commit the backendJobId and release the lease only if we still own it: a submit that
-      // outran the lease was reclaimed by another worker, so we must not clobber its state.
-      const committed = await jobManager.finishIfOwner(vid, workerId, {
-        status: "running",
-        backendJobId,
-        lease: null,
-        // This REPLACES the job's metadata. `submitToBackend` is what carries `patchFinalize`
-        // across, so both submit paths keep it without either one remembering to.
-        metadata,
-      });
-      if (!committed) {
-        jobManager.appendLog(
-          vid,
-          `Submit lease lost before committing backendJobId ${backendJobId}; reclaimed by another worker`,
-        );
-      }
-
-      jobs.push({ variantId: vid, status: "running" });
-    } catch (err) {
-      const errorMsg = errorMessage(err);
-      const recorded = await jobManager.finishIfOwner(vid, workerId, {
-        status: "failed",
-        error: errorMsg,
-        lease: null,
-        completedAt: new Date().toISOString(),
-        reportedAt: new Date().toISOString(),
-      });
-
-      if (recorded) {
-        await StateManager.withLock(videoRoot, async (manager) => {
-          const variant = manager.tryGetAssetState(address)?.variants?.[vid];
-          if (variant) {
-            variant.metadata = { error: errorMsg };
-          }
-        });
-        jobs.push({ variantId: vid, status: "failed" });
-        hasFailure = true;
-      } else {
-        jobs.push({ variantId: vid, status: "running" });
-      }
-    } finally {
-      stopHeartbeat();
-    }
-  }
-
-  return {
-    address,
-    status: hasFailure ? "failed" : "submitted",
-    jobs,
-  };
 }
 
 type PlanAction = "start" | "wait" | "skip" | "synced";
@@ -946,8 +791,7 @@ export function buildGeneratePlan(params: {
           // bring up → the job is registered blocked and submits once those land.
           action = "wait";
         } else {
-          // Either no deps (submitted outright) or deps already generated, which the watcher
-          // submits the moment the job file appears. Both are under way — see generate.ts.
+          // No deps, or deps already generated: the daemon submits it on its next pass.
           action = "start";
         }
         if (action === "start" || action === "wait") notYetBuilt.add(address);

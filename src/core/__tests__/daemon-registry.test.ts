@@ -24,10 +24,17 @@ afterEach(async () => {
 
 const daemonsDir = () => path.join(ws.root, ".konte", "daemons");
 
-async function writeRecord(pid: number, startToken: string | null): Promise<string> {
+async function writeRecord(
+  pid: number,
+  startToken: string | null,
+  opts: { attached?: boolean } = {},
+): Promise<string> {
   await fs.mkdir(daemonsDir(), { recursive: true });
   const file = path.join(daemonsDir(), `${pid}.json`);
-  await fs.writeFile(file, JSON.stringify({ pid, startToken, startedAt: "2026-01-01T00:00:00Z" }));
+  await fs.writeFile(
+    file,
+    JSON.stringify({ pid, startToken, startedAt: "2026-01-01T00:00:00Z", ...opts }),
+  );
   return file;
 }
 
@@ -68,6 +75,15 @@ describe("daemon registry", () => {
     await writeRecord(process.ppid, await processStartToken(process.ppid));
     expect((await liveDaemons(ws.root)).map((r) => r.pid)).toEqual([process.ppid]);
     expect(await hasLiveDaemon(ws.root)).toBe(true);
+  });
+
+  it("lists an attached daemon, but does not count it as outliving the wait", async () => {
+    await writeRecord(process.ppid, await processStartToken(process.ppid), { attached: true });
+    expect((await liveDaemons(ws.root)).map((r) => r.pid)).toEqual([process.ppid]);
+    expect(await hasLiveDaemon(ws.root)).toBe(false);
+
+    await registerDaemon(ws.root, { attached: true });
+    expect(await hasLiveDaemon(ws.root)).toBe(false);
   });
 
   it("drops the record of a process that exited", async () => {

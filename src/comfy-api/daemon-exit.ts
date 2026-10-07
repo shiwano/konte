@@ -3,9 +3,7 @@ import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import { closeIdleDeployments } from "./deployment.js";
 import { liveDaemons } from "../core/daemon-registry.js";
-
-// Replaced by `true` when bun builds the standalone binary; absent under `bun run`.
-declare const KONTE_COMPILED: boolean | undefined;
+import { selfCommand } from "../core/self-command.js";
 
 function hasOpenDeployment(workspaceRoot: string): boolean {
   try {
@@ -34,13 +32,9 @@ function hasOpenDeployment(workspaceRoot: string): boolean {
  */
 export function handOffDeploymentClose(workspaceRoot: string): void {
   if ((process.env.COMFY_API_KEY ?? "") === "" || !hasOpenDeployment(workspaceRoot)) return;
-  const args = ["mcp", "close-deployments"];
-  const [cmd, ...rest] =
-    typeof KONTE_COMPILED !== "undefined" && KONTE_COMPILED
-      ? [process.execPath, ...args]
-      : [process.execPath, process.argv[1]!, ...args];
+  const [cmd, ...rest] = selfCommand(["mcp", "close-deployments"]);
   try {
-    const child = spawn(cmd!, rest, {
+    const child = spawn(cmd, rest, {
       cwd: workspaceRoot,
       detached: true,
       stdio: "ignore",

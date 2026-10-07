@@ -5,16 +5,37 @@ import { closeIdleDeployments } from "../comfy-api/deployment.js";
 import { handOffDeploymentClose } from "../comfy-api/daemon-exit.js";
 import { registerDaemon, unregisterDaemonSync } from "../core/daemon-registry.js";
 import { RESTART_EXIT_CODE } from "../core/process-restart.js";
+import { drainSubmissions } from "../core/submission-drain.js";
 import { McpLog } from "./mcp-log.js";
 import { VideoRegistry } from "./video-registry.js";
 
 // How often the daemon judges whether a Comfy API deployment has sat idle long enough to close.
 const IDLE_CLOSE_INTERVAL_MS = 60_000;
+// How long a stopping daemon waits for a submit already sent to commit its backend job id.
+export const SUBMIT_DRAIN_MS = 60_000;
 
 const INSTRUCTIONS = `Per-workspace daemon running every video's generation jobs in the background, so "konte generate" and "konte export" return immediately. "konte job wait" blocks until the queue drains.`;
 
-/** One daemon per workspace, watching every video in it. */
-export async function startMcpServer(workspaceRoot: string): Promise<void> {
+// An attached daemon leads a process group of its own (job-runner.ts). What it started — an
+// ffmpeg mid-render — must not outlive it and race the worker that takes the job over.
+function stopProcessGroup(): void {
+  if (process.platform === "win32") return;
+  try {
+    process.kill(0, "SIGTERM");
+  } catch {
+    // Nothing left to signal.
+  }
+}
+
+/**
+ * One daemon per workspace, watching every video in it. An attached one is a `konte job wait`'s:
+ * it exits when the wait closes its stdin, and leaves the deployments to that wait's idle close.
+ */
+export async function startMcpServer(
+  workspaceRoot: string,
+  opts: { attached?: boolean } = {},
+): Promise<void> {
+  const attached = opts.attached === true;
   const startedAt = new Date().toISOString();
   const server = new McpServer(
     { name: "konte", version: pkg.version },
@@ -25,7 +46,12 @@ export async function startMcpServer(workspaceRoot: string): Promise<void> {
   );
 
   const log = new McpLog(workspaceRoot);
-  log.write("info", { event: "daemon_started", version: pkg.version, workspace: workspaceRoot });
+  log.write("info", {
+    event: "daemon_started",
+    version: pkg.version,
+    workspace: workspaceRoot,
+    ...(attached ? { attached } : {}),
+  });
 
   const registry = new VideoRegistry(server, workspaceRoot, {
     log,
@@ -42,6 +68,7 @@ export async function startMcpServer(workspaceRoot: string): Promise<void> {
           data: { video, event: "stale_definitions_restart", pid: process.pid, ...info },
         })
         .catch(() => undefined)
+        .then(() => drainSubmissions(SUBMIT_DRAIN_MS))
         .then(() => log.flush())
         .finally(() => process.exit(RESTART_EXIT_CODE));
     },
@@ -67,7 +94,7 @@ export async function startMcpServer(workspaceRoot: string): Promise<void> {
 
   // A deployment left up by a daemon that died without its exit handler is closed here, and
   // every idle one after that.
-  await registerDaemon(workspaceRoot).catch(() => {});
+  await registerDaemon(workspaceRoot, { attached }).catch(() => {});
   let closing = false;
   const closeIdle = (): void => {
     if (closing) return;
@@ -90,18 +117,32 @@ export async function startMcpServer(workspaceRoot: string): Promise<void> {
     registry.stop();
     unregisterDaemonSync(workspaceRoot);
   };
+  let stopping = false;
+  const stop = (reason: string): void => {
+    if (stopping) return;
+    stopping = true;
+    cleanup();
+    if (!attached) handOffDeploymentClose(workspaceRoot);
+    void drainSubmissions(SUBMIT_DRAIN_MS)
+      .then(() => {
+        log.write("info", { event: "daemon_stopped", signal: reason });
+        return log.flush();
+      })
+      .finally(() => {
+        if (attached) stopProcessGroup();
+        process.exit(0);
+      });
+  };
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
-    process.on(signal, () => {
-      cleanup();
-      handOffDeploymentClose(workspaceRoot);
-      log.write("info", { event: "daemon_stopped", signal });
-      void log.flush().finally(() => process.exit(0));
-    });
+    process.on(signal, () => stop(signal));
   }
   process.on("exit", cleanup);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  // The stdio transport never ends on its own; a wait that died without stopping this daemon
+  // closes the pipe all the same.
+  if (attached) process.stdin.once("end", () => stop("stdin-closed"));
 
   await registry.start();
 }

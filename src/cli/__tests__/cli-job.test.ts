@@ -187,9 +187,7 @@ describe("job wait command", () => {
   });
 
   // A submitter killed mid-transaction leaves a "running" job with no backendJobId and
-  // no lease (a stranded submit). It has no backend job to observe, so a single-id wait
-  // must report it (pointing at the bare wait) rather than loop forever waiting for an id that
-  // no one in this process will commit.
+  // no lease (a stranded submit), which only the daemon's cascade reclaims.
   async function createStrandedSubmit(
     variantId: string,
     dependsOnAssets?: string[],
@@ -206,14 +204,15 @@ describe("job wait command", () => {
     await jobManager.updateJob(variantId, { status: "running" });
   }
 
-  it("reports a stranded submit instead of hanging (single id)", { timeout: 20000 }, async () => {
-    await createStrandedSubmit("v-strand01");
+  it("settles a stranded submit through the daemon's cascade (single id)", async () => {
+    await createStrandedSubmit("v-strand01", ["video:timeline.character"]);
 
-    const { stdout } = await run(["job", "wait", "v-strand01"], projectDir);
-
-    expect(stdout).toContain(
-      "Job v-strand01: not submitted yet (submit in progress or interrupted)",
-    );
+    const err = (await run(["job", "wait", "v-strand01"], projectDir).catch((e) => e)) as {
+      code: number;
+      stdout: string;
+    };
+    expect(err.code).toBe(1);
+    expect(err.stdout).toContain("v-strand01): failed");
   });
 
   // An export rendered by another live worker (the MCP watcher) holds a valid run lease, so

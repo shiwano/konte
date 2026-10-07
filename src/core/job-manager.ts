@@ -724,7 +724,7 @@ export class JobManager {
    * Atomically claim a generation job for submission, taking a time-bounded lease so a
    * crashed submitter is recoverable. In one write transaction, re-reads the job and
    * claims it when submittable but not yet under way — "pending" (deps not yet resolved at
-   * creation) or "queued" (the eager no-deps path's fresh job) — or when a previous submitter
+   * creation) or "queued" (registered with nothing to wait on) — or when a previous submitter
    * died mid-transaction (isStrandedSubmit), transitioning it to "running" under a fresh lease.
    * Returns null if another submitter (a re-entrant cascade or a separate process) holds it —
    * no longer claimable, or "running" with a live lease the owner keeps renewing across its

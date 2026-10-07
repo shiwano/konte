@@ -84,7 +84,7 @@ A variant is **input-stale** when an input it consumed no longer matches what th
 
 Every take is review work, bar a `#delivery` upscale, which konte accepts on completion; a **deterministic** asset has one outcome — no `reroll` / `dismiss`. A shot **composition**, an audio **stem** and the **overlay** (`<stage>:timeline#overlay`, signed off by shot accepts) are graph leaves with no job: rendered live wherever used, materialized only on accept, by address.
 
-`konte mcp serve` is a per-workspace daemon that watches every video's jobs and cascades submission. Its one tool, `status`, reports the daemon itself; every job outcome is learned by blocking on the CLI.
+`konte mcp serve` is a per-workspace daemon that watches every video's jobs and cascades submission; `konte job wait` starts one when none is up. Its one tool, `status`, reports the daemon itself; every job outcome is learned by blocking on the CLI.
 
 ### Templates
 

@@ -8,7 +8,7 @@ import { resolveSongTake, songReadingsOf } from "../../core/song-take.js";
 import { StateManager } from "../../core/state/index.js";
 import type { Direction } from "../../core/dsl/direction.js";
 import { directionDefaults } from "../../core/__tests__/helpers/direction.js";
-import { runPendingSongAnalyses, runSongAnalysisJob } from "../run-song-analysis-job.js";
+import { runSongAnalysisJob } from "../run-song-analysis-job.js";
 
 // What Beat This! hears in the click track below: a beat every half second from 0.5s, a bar head on
 // every fourth.
@@ -95,6 +95,16 @@ beforeEach(async () => {
 afterEach(async () => {
   await fs.rm(videoRoot, { recursive: true, force: true });
 });
+
+// What the daemon does for a video's song-analysis jobs, in one pass.
+async function runPendingSongAnalyses(jobManager: JobManager, videoRoot: string) {
+  const jobs = (await jobManager.listJobs()).filter(
+    (j) => j.kind === "song-analysis" && (j.status === "pending" || j.status === "running"),
+  );
+  const results = [];
+  for (const j of jobs) results.push(await runSongAnalysisJob(jobManager, videoRoot, j.id));
+  return results;
+}
 
 describe("song analysis", () => {
   it("reads every landed take once, and records what it read on the variant", async () => {

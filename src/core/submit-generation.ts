@@ -9,11 +9,9 @@ import { applyTurboInputs } from "./turbo.js";
 import { StateManager } from "./state/index.js";
 
 // The single seam where a generation job is handed to its backend: submit, log, and
-// build the run-time metadata every submitted job carries. Both submit paths — the eager
-// no-deps path in generate-orchestrator and the pending-worker path in pending-jobs —
-// route through here so the recorded metadata can never drift between them. Both also hold
-// a submit lease across this call and commit the backendJobId with lease-guarded
-// finishIfOwner, so a crash mid-submit is reclaimable on either path.
+// build the run-time metadata every submitted job carries. The caller holds a submit lease
+// across this call and commits the backendJobId with lease-guarded finishIfOwner, so a crash
+// mid-submit is reclaimable.
 export async function submitToBackend(
   jobManager: JobManager,
   backend: GenerationBackend,
@@ -28,7 +26,7 @@ export async function submitToBackend(
 }> {
   if (!job.lease)
     throw new KonteError("GENERATION_FAILED", `Submission lease missing for ${job.id}`);
-  // One seed per job, generated here so both submit paths share it and reuse it for every
+  // One seed per job, generated here and reused for every
   // `__konte:seed__` occurrence. Recorded before the backend is called with the input files, so a
   // resubmission sends the same ones; returned in `metadata`, which the caller commits to the job
   // record via finishIfOwner right after submit (still under the submit lease) — so a reclaimer
@@ -64,7 +62,7 @@ export async function submitToBackend(
   );
 
   const metadata: Record<string, unknown> = {
-    // Both callers commit this object as the job's WHOLE metadata, so anything recorded at
+    // The caller commits this object as the job's WHOLE metadata, so anything recorded at
     // creation that the waiter still needs has to be carried across here. `patchFinalize` is
     // that: a patch step's definition is declared by its script, so losing it leaves the waiter
     // with no definition to finalize by — and, on the returned step, with no patched variant to

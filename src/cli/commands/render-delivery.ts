@@ -1,6 +1,5 @@
 import * as path from "node:path";
 import { deliveryAddressOf, formatCompositionAddress } from "../../core/address.js";
-import type { GenerationBackend } from "../../core/backend.js";
 import { assertSpendAllowed } from "../../core/backend-policy.js";
 import { deploymentNameOf } from "../../comfy-api/routing.js";
 import { loadKonteConfig } from "../../core/config.js";
@@ -20,20 +19,15 @@ import type { JobManager } from "../../core/job-manager.js";
 import { collectDeliveryLayers, renderShotCompositeToFile } from "../../core/render-video.js";
 import type { ShotRenderPlan } from "../../core/render-plan.js";
 import type { StateManager } from "../../core/state/index.js";
-import type {
-  AssetDefinition,
-  BackendKind,
-  ComfyTarget,
-  VideoDefinition,
-} from "../../core/types/index.js";
-import { submitAssetJobs } from "../generate-orchestrator.js";
+import type { AssetDefinition, ComfyTarget, VideoDefinition } from "../../core/types/index.js";
+import { registerJobs } from "../generate-orchestrator.js";
 import type { VideoRoots } from "../../core/roots.js";
 
 // Result of planning the video's delivery upscales (export command side).
 type DeliveryPlan = {
   // Every delivery address the export render will consume (the export job depends on these).
   deliveryAddresses: string[];
-  // Upscale generation jobs submitted this invocation.
+  // Upscale generation jobs registered this invocation.
   submittedJobIds: string[];
   // Delivery upscales still running from a previous invocation.
   inProgress: number;
@@ -77,7 +71,7 @@ export async function planDelivery(opts: {
       await assertSpendAllowed([{ label, def: assetDef }], config, roots.workspace)
     ).targetOf(assetDef);
     const deployment = target ? deploymentNameOf(target) : null;
-    // A delivery upscale submits at once, so a deployment it lands on comes up inside the submit.
+    // A delivery upscale's deployment comes up inside its submit.
     if (deployment !== null && !announced.has(deployment)) {
       announced.add(deployment);
       console.log(
@@ -88,7 +82,6 @@ export async function planDelivery(opts: {
     return target;
   };
 
-  const backendCache = new Map<BackendKind, GenerationBackend>();
   const deliveryAddresses: string[] = [];
   const submittedJobIds: string[] = [];
   let inProgress = 0;
@@ -133,27 +126,24 @@ export async function planDelivery(opts: {
         allowUnaccepted: true,
         outputFile: compositeAbs,
       });
-      const result = await submitAssetJobs(
-        deliveryAddr,
+      const result = await registerJobs({
+        address: deliveryAddr,
         assetDef,
-        1,
-        roots,
+        variantCount: 1,
+        videoRoot,
         jobManager,
-        backendCache,
-        { [compAddr]: path.relative(videoRoot, compositeAbs) },
+        resolvedDeps: { [compAddr]: path.relative(videoRoot, compositeAbs) },
         // Snapshot the source composition's cache key so the produced upscale is fingerprinted
         // against the composition actually rendered here — not whatever live state shows when the
         // (possibly long) upscale finishes. Absent when uncomputable, in which case the upscale is
         // simply left without a composition fingerprint (never cache-hit) rather than mis-keyed.
-        cacheKey ? { [compAddr]: cacheKey } : undefined,
-        // Snapshot the resolved target so the variant's definition hash is re-derived from these exact
-        // dims at export time, never from a fresh probe.
-        target,
-        null,
-        null,
-        null,
+        compositionCacheKeys: cacheKey ? { [compAddr]: cacheKey } : undefined,
+        // Snapshot the resolved target so the variant's definition hash is re-derived from these
+        // exact dims at export time, never from a fresh probe — and the daemon rebuilds the
+        // definition from it.
+        deliveryTarget: target,
         comfyTarget,
-      );
+      });
       for (const j of result.jobs) submittedJobIds.push(j.variantId);
     }
     return { deliveryAddresses, submittedJobIds, inProgress };
@@ -188,23 +178,18 @@ export async function planDelivery(opts: {
     const subject = deliveryPromptSubject(video, layer.deliveryAddress, layer.target);
     assertPromptGate(subject, "video.tsx");
     assertPinGate(subject, "video.tsx");
-    const result = await submitAssetJobs(
-      layer.deliveryAddress,
+    const result = await registerJobs({
+      address: layer.deliveryAddress,
       assetDef,
-      1,
-      roots,
+      variantCount: 1,
+      videoRoot,
       jobManager,
-      backendCache,
-      { [layer.sourceAssetPath]: layer.sourceFileRel },
-      undefined,
+      resolvedDeps: { [layer.sourceAssetPath]: layer.sourceFileRel },
       // Snapshot the resolved target so the variant's definition hash is re-derived from these exact
       // dims at export time, never from a fresh probe (whose drift would falsely mark it stale).
-      layer.target,
-      null,
-      null,
-      null,
+      deliveryTarget: layer.target,
       comfyTarget,
-    );
+    });
     for (const j of result.jobs) submittedJobIds.push(j.variantId);
   }
 
