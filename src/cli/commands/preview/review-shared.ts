@@ -9,8 +9,8 @@ import {
   DIRECTION_SECTIONS,
   addressToUrlPath,
   formatAddress,
+  formatShotAddress,
   patchSourceVariantIdOf,
-  tryParseAddress,
 } from "../../../core/address.js";
 import {
   isVariantStale,
@@ -694,20 +694,17 @@ export function variantMediaUrl(
 
 /** Media kind an asset's variants render as, inferred from the chosen variant's file. */
 
-// Handoff notes (AI -> reviewer guidance) attach to an asset path and are shown
-// inline next to each shot in the review UI, independent of change detection —
+// Handoff notes (AI -> reviewer guidance) attach to a shot address and are shown
+// inline next to the shot in the review UI, independent of change detection —
 // they must surface on the first review (no prior record) too, not only when a
 // variant changed since the last review.
 export function handoffNotesForShot(
   handoff: Handoff | null,
   stage: "video" | "animatic",
   shotId: string,
-): Array<{ assetName: string; text: string }> {
-  return (handoff?.notes ?? []).flatMap((n) => {
-    const parsed = tryParseAddress(n.address);
-    if (parsed?.kind !== "shot" || parsed.stage !== stage || parsed.shotId !== shotId) return [];
-    return [{ assetName: parsed.assetName, text: n.text }];
-  });
+): string[] {
+  const address = formatShotAddress(stage, shotId);
+  return (handoff?.notes ?? []).filter((n) => n.address === address).map((n) => n.text);
 }
 
 // The direction facts the animatic's shot band prints beside each shot's action: its dramatic

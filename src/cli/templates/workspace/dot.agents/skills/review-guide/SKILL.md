@@ -8,7 +8,7 @@ Every human review runs the same two steps — preview with a handoff, read the 
 
 ## 1. Preview with a handoff
 
-- **`konte preview <scope> --summary "<line>" --note <address>=<text> …`** — the handoff: a note the reviewer reads inline next to each changed item, what you changed and why. `--note` repeats and splits on the first `=`; an unknown address refuses the preview, listing the assets changed since the last review.
+- **`konte preview <scope> --summary "<line>" --note <address>=<text> …`** — the handoff: beside each changed item, a note saying what you changed and why. `--note` (on a shot: `video:shot.02`) repeats and splits on the first `=`; an unknown address refuses the preview, listing what changed since the last review.
 - **Write summary and notes in the human's language** — they show in the review UI.
 - **Reopening a closed page → `konte preview <scope>` alone** — it shows the newest handoff until a submitted review has shown it.
 - **Never delete or overwrite a file under `review/<stage>/handoffs/`** — each one records what an earlier round changed and why.

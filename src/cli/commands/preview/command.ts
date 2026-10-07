@@ -20,7 +20,7 @@ export function registerPreviewCommand(program: Command): void {
     .option("--tunnel", "Open a Cloudflare quick tunnel and print its public URL")
     .option(
       "--note <address=text>",
-      'Handoff note shown beside that asset, as "<address>=<text>"; repeatable',
+      'Handoff note shown beside that shot or asset, as "<address>=<text>"; repeatable',
       parseNoteOption,
       [] as HandoffNote[],
     )
@@ -35,8 +35,9 @@ export function registerPreviewCommand(program: Command): void {
 Opens the review page for one stage and blocks until the browser closes or a review is submitted.
 
 --summary and --note are the handoff: what you changed and why, in the reviewer's language. They
-are written to review/<stage>/handoffs/ before the page opens; a note address the stage does not
-hold is refused instead, listing the addresses changed since the last review. Without them, the
+are written to review/<stage>/handoffs/ before the page opens. A note on a shot's asset is filed
+under the shot; a note address the stage does not hold is refused instead, listing the addresses
+changed since the last review. Without them, the
 page shows the newest handoff until a submitted review has shown it, so a closed page reopens with
 its notes.
 
@@ -54,7 +55,7 @@ session. Five wrong answers close the tunnel; guesses that keep coming after tha
 Examples:
   konte preview animatic              Review the board
   konte preview video --summary "reworked shot 02" \\
-    --note video:shot.02.motion="minimized motion to stop drift"
+    --note video:shot.02="minimized motion to stop drift"
   konte preview video --host 0.0.0.0  Also serve your local network, for a phone
   konte preview video --tunnel        Also serve a public URL, PIN-gated
 `,

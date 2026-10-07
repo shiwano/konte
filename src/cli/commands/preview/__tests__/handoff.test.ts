@@ -10,6 +10,7 @@ import {
 import { directionPartHashes } from "../../../../core/direction-hash.js";
 import type { Direction } from "../../../../core/dsl/direction.js";
 import type { ReviewRecord } from "../../../../core/review-record.js";
+import { handoffNotesForShot } from "../review-shared.js";
 import { StateManager } from "../../../../core/state/manager.js";
 import type { ReferenceDefinition, VideoDefinition } from "../../../../core/types/index.js";
 import {
@@ -112,7 +113,7 @@ describe("collectChangedAddresses", () => {
 
     const changed = collectChangedAddresses(SHOTS, "video", mgr, STAGE_DEF, makeRecord(vOld));
 
-    expect(changed).toEqual(["video:shot.02.motion"]);
+    expect(changed).toEqual(["video:shot.02"]);
   });
 
   it("reports no changes when the accepted variant still matches the review", async () => {
@@ -168,7 +169,7 @@ describe("collectChangedAddresses", () => {
       makeRecord(vOld),
     );
 
-    expect(changed).toEqual(["video:shot.02#composition"]);
+    expect(changed).toEqual(["video:shot.02"]);
   });
 
   it("flags a shot absent from the review whose fresh variant landed after it", async () => {
@@ -188,7 +189,7 @@ describe("collectChangedAddresses", () => {
       makeRecord("v-reviewed02"),
     );
 
-    expect(changed).toEqual(["video:shot.03.motion"]);
+    expect(changed).toEqual(["video:shot.03"]);
   });
 
   it("flags a new shot's composition materialized after the review", async () => {
@@ -207,7 +208,7 @@ describe("collectChangedAddresses", () => {
       makeRecord("v-reviewed02"),
     );
 
-    expect(changed).toEqual(["video:shot.03#composition"]);
+    expect(changed).toEqual(["video:shot.03"]);
   });
 
   it("does not flag a composition whose ready variant predates the review", async () => {
@@ -274,7 +275,7 @@ describe("collectChangedAddresses", () => {
       makeRecord("v-reviewed02"),
     );
 
-    expect(changed).toEqual(["video:shot.02#stem"]);
+    expect(changed).toEqual(["video:shot.02"]);
   });
 
   const TIMELINE_STEM_DEF = {
@@ -352,7 +353,7 @@ describe("collectChangedAddresses", () => {
       def,
       record,
     );
-    expect(changed).toEqual(["video:shot.02#composition"]);
+    expect(changed).toEqual(["video:shot.02"]);
   });
 
   it("does not flag a composition whose accepted variant still matches the definition", async () => {
@@ -384,69 +385,39 @@ describe("collectChangedAddresses", () => {
 });
 
 describe("collectAllAddresses", () => {
-  // The animatic's shots are compositions too, so a developed one seeds its leaf; an undeveloped
-  // shot has none. Its per-shot stem is a real take in the pool, already seeded as an asset.
-  it("seeds every shot asset for animatic, plus a composition per developed shot", () => {
-    const shots = [
-      { id: "01", assets: { key: {}, first: {} }, shotFn: () => [] },
-      { id: "02", assets: { key: {} } },
-    ];
+  it("lists one address per shot", () => {
+    const shots = [{ id: "01" }, { id: "02" }];
     expect(collectAllAddresses(shots, "animatic")).toEqual([
-      "animatic:shot.01.key",
-      "animatic:shot.01.first",
-      "animatic:shot.01#composition",
-      "animatic:shot.02.key",
+      "animatic:shot.01",
+      "animatic:shot.02",
     ]);
   });
 
-  it("seeds shot assets plus a composition for each video shot with a shotFn", () => {
-    const shots = [
-      { id: "01", assets: { motion: {} }, shotFn: () => [] },
-      { id: "02", assets: { motion: {} } },
-    ];
-    expect(collectAllAddresses(shots, "video")).toEqual([
-      "video:shot.01.motion",
-      "video:shot.01#composition",
-      "video:shot.02.motion",
-    ]);
-  });
-
-  it("seeds a per-shot stem for a shot with audio cues, and the timeline stem for soundtrack beds", () => {
-    const shots = [
-      { id: "01", assets: { motion: {} }, shotFn: () => [], stemRefs: ["video:shot.01.motion"] },
-      { id: "02", assets: { motion: {} }, shotFn: () => [] },
-    ];
-    expect(collectAllAddresses(shots, "video", {}, [{ id: "bed" }])).toEqual([
+  it("lists the timeline stem for soundtrack beds before shots", () => {
+    expect(collectAllAddresses([{ id: "01" }], "video", {}, [{ id: "bed" }])).toEqual([
       "video:timeline#stem",
-      "video:shot.01.motion",
-      "video:shot.01#composition",
-      "video:shot.01#stem",
-      "video:shot.02.motion",
-      "video:shot.02#composition",
+      "video:shot.01",
     ]);
   });
 
-  it("seeds the animatic's plates before its shots", () => {
-    const shots = [{ id: "01", assets: { key: {} } }];
-    expect(collectAllAddresses(shots, "animatic", {}, [], ["hall-wide"])).toEqual([
+  it("lists the animatic's plates before its shots", () => {
+    expect(collectAllAddresses([{ id: "01" }], "animatic", {}, [], ["hall-wide"])).toEqual([
       "animatic:plate.hall-wide",
-      "animatic:shot.01.key",
+      "animatic:shot.01",
     ]);
   });
 
-  it("seeds timeline beds before shots", () => {
-    const shots = [{ id: "01", assets: { motion: {} }, shotFn: () => [] }];
+  it("lists timeline beds before shots", () => {
     const topLevelAssets = {
       bgm: { deterministic: false },
       sizzle: { deterministic: false },
       logo: { kind: "file" },
     } as unknown as DefinitionLike["topLevelAssets"];
-    expect(collectAllAddresses(shots, "video", topLevelAssets)).toEqual([
+    expect(collectAllAddresses([{ id: "01" }], "video", topLevelAssets)).toEqual([
       "video:timeline.bgm",
       "video:timeline.sizzle",
       "video:timeline.logo",
-      "video:shot.01.motion",
-      "video:shot.01#composition",
+      "video:shot.01",
     ]);
   });
 });
@@ -634,6 +605,36 @@ describe("resolveAuthoredNotes", () => {
     ).rejects.toThrow(/Unknown handoff note address\(es\): brief\.logline/);
   });
 
+  it("files a note on a shot's asset under the shot", async () => {
+    expect(
+      await resolveAuthoredNotes(
+        [
+          { address: "animatic:shot.01.first", text: "a" },
+          { address: "shot.01#composition", text: "b" },
+          { address: "shot.01", text: "c" },
+        ],
+        "animatic",
+        ["animatic:shot.01"],
+        noReview,
+      ),
+    ).toEqual([
+      { address: "animatic:shot.01", text: "a" },
+      { address: "animatic:shot.01", text: "b" },
+      { address: "animatic:shot.01", text: "c" },
+    ]);
+  });
+
+  it("names the authored address of a shot the stage does not hold", async () => {
+    await expect(
+      resolveAuthoredNotes(
+        [{ address: "animatic:shot.09.first", text: "x" }],
+        "animatic",
+        ["animatic:shot.01"],
+        noReview,
+      ),
+    ).rejects.toThrow(/Unknown handoff note address\(es\): animatic:shot\.09\.first /);
+  });
+
   it("names the changed addresses when refusing one", async () => {
     await expect(
       resolveAuthoredNotes(
@@ -647,5 +648,22 @@ describe("resolveAuthoredNotes", () => {
       headline: expect.stringContaining("changed since the review"),
       items: ["  direction:sequence.shots.01"],
     });
+  });
+});
+
+describe("reel handoff note routing", () => {
+  const handoff = {
+    id: "h",
+    stage: "animatic" as const,
+    notes: [
+      { address: "animatic:shot.01", text: "a" },
+      { address: "animatic:shot.01", text: "b" },
+      { address: "animatic:plate.hall-wide", text: "c" },
+      { address: "animatic:timeline#stem", text: "d" },
+    ],
+  };
+
+  it("shows every note on a shot beside it", () => {
+    expect(handoffNotesForShot(handoff, "animatic", "01")).toEqual(["a", "b"]);
   });
 });

@@ -129,9 +129,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
         feedback={part.feedback}
         pendingFeedback={session.pendingFeedback[part.address] ?? []}
         pendingPin={null}
-        handoffNotes={
-          part.handoffNote ? [{ assetName: part.address, text: part.handoffNote }] : undefined
-        }
+        handoffNotes={part.handoffNote ? [part.handoffNote] : undefined}
         hideStale={session.hideStale}
         deletedFeedbackIds={session.deletedFeedbackIds}
         editedTextById={session.editedTextById}

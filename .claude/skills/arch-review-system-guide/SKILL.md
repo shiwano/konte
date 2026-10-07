@@ -53,9 +53,7 @@ The direction stage is media-less, so its comments snapshot a `subjectHash` inst
 
 ## Handoff
 
-A handoff's per-asset notes (`review/<stage>/handoffs/<ts>.json`, validated by `HandoffSchema`) record _why_ a revision was made — address + text. `konte preview <stage> --note <address>=<text>` writes one before the server starts, or refuses an address the stage does not hold. Without `--note`, preview shows the newest one unless a record already holds its `handoffId`, and reloads it on edit; a submit copies it into the record.
-
-Notes route by **address** against what each surface draws — a `<Panel>`'s is its captured asset path, so a note on a shared plate or reference image lands on the panel drawing it. One nothing drew (a plate consumed only as a generation input) rides the summary banner rather than being dropped.
+A handoff's notes (`review/<stage>/handoffs/<ts>.json`, validated by `HandoffSchema`) record _why_ a revision was made — address + text. `konte preview <stage> --note <address>=<text>` writes one before the server starts, or refuses an address the stage does not hold. A reel stage's shot note is keyed by the shot (`<stage>:shot.<id>`), the unit its review draws; an address naming one of the shot's assets is filed under it. Without `--note`, preview shows the newest one unless a record already holds its `handoffId`, and reloads it on edit; a submit copies it into the record.
 
 ## Audio accept (stems)
 

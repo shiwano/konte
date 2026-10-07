@@ -155,8 +155,8 @@ export interface ShotInfo {
   // Composited clips on this shot's timeline, in document order.
   clips: ClipInfo[];
   feedback: FeedbackInfo[];
-  // Handoff notes (AI -> reviewer) for this shot's assets, shown inline always.
-  handoffNotes: Array<{ assetName: string; text: string }>;
+  // Handoff notes (AI -> reviewer) for this shot, shown inline always.
+  handoffNotes: string[];
   allAccepted: boolean;
   /** Whether this shot's shown half still holds a verdict — the server's one answer (`shotNeedsVerdict`, or a waiver's `needsReview`). */
   needsVerdict: boolean;

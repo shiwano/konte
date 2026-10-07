@@ -67,7 +67,7 @@ export function CommentsPanel({
   // One card per board panel that declares a movement.
   moves?: ShotMoveInfo[];
   waivers?: ShotWaiverInfo[];
-  handoffNotes?: Array<{ assetName: string; text: string }>;
+  handoffNotes?: string[];
   comments: DisplayComment[];
   highlightedId: string | null;
   // The comment being written, or null while the composer is closed.
@@ -118,8 +118,8 @@ export function CommentsPanel({
               needsReview={w.needsReview}
             />
           ))}
-          {handoffNotes?.map((n) => (
-            <HandoffCard key={`agent-${n.assetName}`} text={n.text} />
+          {handoffNotes?.map((text, i) => (
+            <HandoffCard key={`agent-${i}`} text={text} />
           ))}
         </div>
       )}

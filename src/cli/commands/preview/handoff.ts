@@ -2,12 +2,11 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { StageDefinition } from "../../../core/types/index.js";
 import {
-  assetNameOf,
-  COMPOSITION_ASSET_NAME,
   type DefinitionLike,
   formatAddress,
   formatCompositionAddress,
   formatPlateAssetPath,
+  formatShotAddress,
   type ShotStage,
   formatReferenceAddress,
   formatTimelineAddress,
@@ -16,8 +15,8 @@ import {
   formatTimelineStemAddress,
   listReviewableAssetPaths,
   listShotStems,
-  parseAddress,
   STEM_ASSET_NAME,
+  tryParseAddress,
 } from "../../../core/address.js";
 import {
   definitionHashForAddress,
@@ -129,8 +128,8 @@ function leafChangedSinceReview(
   );
 }
 
-// Asset paths whose review-worthy state moved since `record`, so the scaffold can
-// seed a note for each. Three signals, because the resolved variant alone hides
+// Note addresses whose review-worthy state moved since `record` — a shot's address when any of its
+// assets did. Three signals, because the resolved variant alone hides
 // the common reroll case: (1) the resolved variant id changed; (2) a fresh
 // unreviewed ready variant became ready *after* the review (a reroll's output, or a
 // brand-new shot added since — accepted-still-wins resolution keeps (2) invisible to
@@ -154,11 +153,11 @@ export function collectChangedAddresses(
 ): string[] {
   const ordered: string[] = [];
   const seen = new Set<string>();
-  const add = (shotId: string, assetName: string) => {
-    const assetPath = formatAddress(stage, shotId, assetName);
-    if (seen.has(assetPath)) return;
-    seen.add(assetPath);
-    ordered.push(assetPath);
+  const add = (shotId: string) => {
+    const address = formatShotAddress(stage, shotId);
+    if (seen.has(address)) return;
+    seen.add(address);
+    ordered.push(address);
   };
 
   // The soundtrack beds — read off whichever stage this is (the reference DefinitionLike carries
@@ -206,7 +205,7 @@ export function collectChangedAddresses(
 
   const changes = computeChangeInfo(resolveCurrentVariantsByShot(shots, stage, manager), record);
   for (const shot of changes?.changedShots ?? []) {
-    for (const assetName of Object.keys(shot.changedAssets)) add(shot.shotId, assetName);
+    if (Object.keys(shot.changedAssets).length > 0) add(shot.shotId);
   }
 
   const reviewedByShot = new Map(record.context.shots.map((s) => [s.shotId, s.variants]));
@@ -229,7 +228,7 @@ export function collectChangedAddresses(
         hasFreshUnreviewedReady(variants, reviewed[assetName], record.createdAt) ||
         acceptedStale
       ) {
-        add(shot.id, assetName);
+        add(shot.id);
       }
     }
   }
@@ -242,32 +241,19 @@ export function collectChangedAddresses(
       shot.shotFn &&
       leafChangedSinceReview(manager, stageDef, formatCompositionAddress(stage, shot.id), record)
     ) {
-      add(shot.id, COMPOSITION_ASSET_NAME);
+      add(shot.id);
     }
     for (const stem of listShotStems(stage, shot)) {
-      if (leafChangedSinceReview(manager, stageDef, stem.address, record)) {
-        add(shot.id, assetNameOf(parseAddress(stem.address)));
-      }
+      if (leafChangedSinceReview(manager, stageDef, stem.address, record)) add(shot.id);
     }
   }
 
   return [...timelinePaths, ...ordered];
 }
 
-// The first review has no baseline to diff against, so "changed" is meaningless —
-// every asset is new. Seed them all (the same set the diff considers: per-shot
-// assets + video compositions) so the agent fills the lines it cares about and
-// deletes the rest, identical to the steady-state workflow. Without this the agent
-// would hand-type addresses on round one — exactly the typo risk the scaffold exists
-// to remove.
+// The first review has no baseline to diff against, so every note address is listed.
 export function collectAllAddresses(
-  shots: Array<{
-    id: string;
-    assets: Record<string, unknown>;
-    shotFn?: unknown;
-    stemRefs?: readonly string[];
-    narrationStemRefs?: readonly string[];
-  }>,
+  shots: Array<{ id: string }>,
   stage: ShotStage,
   topLevelAssets?: DefinitionLike["topLevelAssets"],
   timelineSoundtracks?: readonly unknown[],
@@ -283,15 +269,7 @@ export function collectAllAddresses(
   if ((timelineSoundtracks?.length ?? 0) > 0) {
     ordered.push(formatTimelineAssetPath(stage, STEM_ASSET_NAME));
   }
-  for (const shot of shots) {
-    for (const assetName of Object.keys(shot.assets)) {
-      ordered.push(formatAddress(stage, shot.id, assetName));
-    }
-    if (shot.shotFn) {
-      ordered.push(formatAddress(stage, shot.id, COMPOSITION_ASSET_NAME));
-    }
-    for (const stem of listShotStems(stage, shot)) ordered.push(stem.address);
-  }
+  for (const shot of shots) ordered.push(formatShotAddress(stage, shot.id));
   return ordered;
 }
 
@@ -353,8 +331,9 @@ export function collectAllDirectionAddresses(direction: Direction): string[] {
   return [...directionPartHashes(direction).keys()];
 }
 
-// An address missing its `<stage>:` prefix is the stage's own when the prefixed form is one.
-// `changedAddresses` is read only to name the intended targets when an address is refused.
+// An address missing its `<stage>:` prefix is the stage's own when the prefixed form is one, and an
+// asset of a shot is that shot. `changedAddresses` is read only to name the intended targets when an
+// address is refused.
 export async function resolveAuthoredNotes(
   authored: HandoffNote[],
   stage: string,
@@ -362,12 +341,18 @@ export async function resolveAuthoredNotes(
   changedAddresses: () => Promise<string[] | null>,
 ): Promise<HandoffNote[]> {
   const valid = new Set(allAddresses);
-  const notes = authored.map((n) =>
-    !valid.has(n.address) && valid.has(`${stage}:${n.address}`)
-      ? { ...n, address: `${stage}:${n.address}` }
-      : n,
-  );
-  const unknown = notes.map((n) => n.address).filter((a) => !valid.has(a));
+  const canonical = (address: string): string => {
+    for (const candidate of [address, `${stage}:${address}`]) {
+      if (valid.has(candidate)) return candidate;
+      const parsed = tryParseAddress(candidate);
+      if (parsed?.kind === "shot" && parsed.stage === stage) {
+        return formatShotAddress(parsed.stage as ShotStage, parsed.shotId);
+      }
+    }
+    return address;
+  };
+  const notes = authored.map((n) => ({ ...n, address: canonical(n.address) }));
+  const unknown = authored.filter((_, i) => !valid.has(notes[i]!.address)).map((n) => n.address);
   if (unknown.length > 0) {
     // The changed set is almost always the intended target, so lead with it; fall back to
     // the full authorable set when nothing changed or there is no review to diff.

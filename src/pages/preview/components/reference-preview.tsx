@@ -897,11 +897,7 @@ function ReferenceRow({
           feedback={asset.feedback}
           pendingFeedback={pendingFeedback}
           pendingPin={pendingPin}
-          handoffNotes={
-            asset.handoffNote
-              ? [{ assetName: asset.assetName, text: asset.handoffNote }]
-              : undefined
-          }
+          handoffNotes={asset.handoffNote ? [asset.handoffNote] : undefined}
           emptyHint={
             isImage
               ? "No notes on this asset yet. Add one below, or click the frame to pin one."
@@ -1104,11 +1100,7 @@ function ReferenceDetailModal({
             feedback={asset.feedback}
             pendingFeedback={pendingFeedback}
             pendingPin={pendingPin}
-            handoffNotes={
-              asset.handoffNote
-                ? [{ assetName: asset.assetName, text: asset.handoffNote }]
-                : undefined
-            }
+            handoffNotes={asset.handoffNote ? [asset.handoffNote] : undefined}
             hideStale={hideStale}
             deletedFeedbackIds={deletedFeedbackIds}
             editedTextById={editedTextById}

@@ -1307,7 +1307,7 @@ describe("formatReviewRecord", () => {
       },
       decisions: { "01": "accepted" },
       handoffSummary: "remaining shots wrapped up",
-      handoffNotes: [{ address: "video:shot.01.motion", text: "confirm the pacing" }],
+      handoffNotes: [{ address: "video:shot.01", text: "confirm the pacing" }],
     };
 
     // A bare recap is the human's decisions, not the agent's own note echoed back.
@@ -1318,7 +1318,7 @@ describe("formatReviewRecord", () => {
     const verbose = formatReviewRecord(record, { showHandoff: true });
     expect(verbose).toContain("Handoff:");
     expect(verbose).toContain("  summary: remaining shots wrapped up");
-    expect(verbose).toContain("  video:shot.01.motion: confirm the pacing");
+    expect(verbose).toContain("  video:shot.01: confirm the pacing");
   });
 
   it("derives the stage for the header when the record omits it", () => {

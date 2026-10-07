@@ -290,7 +290,7 @@ export function CommentThread({
   feedback: FeedbackInfo[];
   pendingFeedback: PendingFeedbackItem[];
   pendingPin: { x: number; y: number } | null;
-  handoffNotes?: Array<{ assetName: string; text: string }>;
+  handoffNotes?: string[];
   // Shown in place of the comment list while the thread holds no reviewer comment, so an empty
   // thread reads as "nothing said yet" rather than as context with a stray button under it.
   emptyHint?: string;
@@ -361,8 +361,8 @@ export function CommentThread({
 
   return (
     <div className="comment-thread">
-      {handoffNotes?.map((an) => (
-        <HandoffCard key={`agent-${an.assetName}`} text={an.text} />
+      {handoffNotes?.map((text, i) => (
+        <HandoffCard key={`agent-${i}`} text={text} />
       ))}
 
       {emptyHint && visibleFeedback.length === 0 && pendingFeedback.length === 0 && !pendingPin && (

@@ -15,11 +15,11 @@ describe("HandoffSchema", () => {
       id: "h",
       stage: "video",
       summary: "warmer grade",
-      notes: [{ address: "video:shot.01.motion", text: "dusk background" }],
+      notes: [{ address: "video:shot.01", text: "dusk background" }],
     });
     expect(parsed.stage).toBe("video");
     expect(parsed.summary).toBe("warmer grade");
-    expect(parsed.notes).toEqual([{ address: "video:shot.01.motion", text: "dusk background" }]);
+    expect(parsed.notes).toEqual([{ address: "video:shot.01", text: "dusk background" }]);
   });
 
   it("drops a note left blank", () => {
