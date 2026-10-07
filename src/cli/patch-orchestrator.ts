@@ -65,6 +65,9 @@ export function assertPatchSpendAllowed(
  *
  * The patched variant is materialized from the returned step — here when that step's take is
  * already current, otherwise by the waiter when its job lands (`patchFinalize.output`).
+ *
+ * `rerollStep` names a step to roll again even when its take is current or in flight; every step
+ * consuming it is rebuilt by the rule above, so the attempt it asks for reaches the patched take.
  */
 export async function applyPatch(
   patch: LoadedPatch,
@@ -73,6 +76,7 @@ export async function applyPatch(
   config: KonteConfig,
   // What `assertPatchSpendAllowed` answered for this patch.
   spend: SpendRoutes,
+  rerollStep?: string,
 ): Promise<AssetResult> {
   const videoRoot = roots.video;
   // The job listing is taken BEFORE the state snapshot, and the order matters: a variant is
@@ -95,6 +99,13 @@ export async function applyPatch(
     throw new KonteError(
       "PATCH_SOURCE_NOT_READY",
       `Patch source variant "${patch.sourceVariantId}" has no output file yet (${patch.filePath})`,
+    );
+  }
+
+  if (rerollStep !== undefined && !(rerollStep in patch.assets)) {
+    throw new KonteError(
+      "ADDRESS_NOT_FOUND",
+      `${patch.filePath} declares no step "${rerollStep}" — declared: ${Object.keys(patch.assets).join(", ")}`,
     );
   }
 
@@ -122,11 +133,11 @@ export async function applyPatch(
     // the reuse check's (below), applied to in-flight work too — without it, editing an early step
     // mid-flight would rebuild that step and then join the unedited later step's old job, leaving
     // the fresh upstream unused and the old chain to finalize.
-    const consumesRebuild = extractRefs(assetDef).some((ref) => rebuilding.has(ref));
+    const fresh = name === rerollStep || extractRefs(assetDef).some((ref) => rebuilding.has(ref));
     // A step already being generated — by a concurrent `patch apply`, or by this patch's own
     // earlier run — is work in flight, not work to redo. It narrows the concurrent-apply race the
     // way the reservation's rival check does; it does not close it.
-    const running = consumesRebuild
+    const running = fresh
       ? null
       : runningStepVariant(manager, address, assetDef, inFlight, isOutput ? origin : null);
     if (running) {
@@ -140,7 +151,7 @@ export async function applyPatch(
       rebuilding.add(address);
       continue;
     }
-    if (!consumesRebuild) {
+    if (!fresh) {
       const current = currentPoolVariant(manager, address, assetDef, {
         address: patch.sourceAddress,
         variant: source,
@@ -177,7 +188,7 @@ export async function applyPatch(
       pin,
       dependsOnJobs: stepJobIds,
       output: isOutput ? origin : null,
-      consumesRebuild,
+      fresh,
     });
     if (result.status === "failed" || isOutput) return result;
     // Pin the variant this run just reserved, not merely its job id. A later step submits from the
@@ -288,7 +299,7 @@ async function launchStep(opts: {
   pin: Record<string, string>;
   dependsOnJobs: readonly string[];
   output: PatchOutputOrigin | null;
-  consumesRebuild: boolean;
+  fresh: boolean;
 }): Promise<AssetResult> {
   const { address, assetDef, roots, jobManager, config } = opts;
   const videoRoot = roots.video;
@@ -332,7 +343,7 @@ async function launchStep(opts: {
   // to catch a rival that reserved after this run's snapshot — so it must ask it the same way. An
   // in-flight variant this run declined to join is not a rival: it is producing something else, and
   // counting it would abort the apply instead of queueing the fresh job alongside.
-  const rivals = opts.consumesRebuild
+  const rivals = opts.fresh
     ? new Set<string>()
     : rivalStepVariantIds(await jobManager.listJobs(), opts.output);
 

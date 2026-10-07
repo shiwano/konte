@@ -9,6 +9,7 @@ import {
   isMaterializedLeafAddress,
   isDeliveryAddress,
   listAssetPaths,
+  isPatchAddress,
   matchesAddressScope,
   tryParseAddress,
   validateAddress,
@@ -16,7 +17,7 @@ import {
 import { assertSpendAllowed } from "../../../core/backend-policy.js";
 import { isVendorBackendAsset } from "../../../core/vendor-backend.js";
 import { loadKonteConfig } from "../../../core/config.js";
-import { KonteError } from "../../../core/errors.js";
+import { KonteError, errorMessage } from "../../../core/errors.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
 import {
   buildDependencyGraph,
@@ -24,7 +25,12 @@ import {
   listUnusedAssetPaths,
 } from "../../../core/graph.js";
 import { JobIndex } from "../../../core/job-index.js";
-import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
+import {
+  loadPatchCatalog,
+  patchAssetAddress,
+  patchHashesOf,
+  requirePatch,
+} from "../../../core/patch.js";
 import { JobManager } from "../../../core/job-manager.js";
 import { resolveRefs } from "../../../core/ref-resolver.js";
 import { collectUndecidedUpstreamTakes } from "../../../core/staleness.js";
@@ -57,6 +63,8 @@ import {
 import { requireVideoRoots } from "../../context.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { computeDefinitionHash } from "../../../core/definition-hash.js";
+import { applyPatch } from "../../patch-orchestrator.js";
+import { gatePatchApply } from "../patch/apply.js";
 
 export function registerRerollCommand(program: Command): void {
   program
@@ -107,6 +115,10 @@ A deterministic asset (a \`local\` op) is refused: the same inputs give the same
 so there is no alternative to pick, and \`konte generate <stage>\` re-bakes it once one
 moves. A composition or stem is refused too — its accept materializes it.
 
+A patch step (\`<stage>:patch.<variantId>.<step>\`) is rolled again with every step
+after it that consumes it, each run landing one more correction at the patched address,
+as \`konte patch apply\` does. It is named on its own, without other targets.
+
 A reroll that came out worse is undone with \`konte dismiss <variantId>\`: a dismissed
 take never resolves, so the address falls back to the take before it, undecided and
 undeleted.
@@ -115,6 +127,7 @@ Examples:
   konte reroll animatic:shot.01.first --count 3   3 alternatives of one panel
   konte reroll animatic:shot.03.frame animatic:shot.05.frame   reroll both
   konte reroll animatic:shot.01.first --with-dependents   rebuild it and shot.01.last
+  konte reroll animatic:patch.v-a1b2c3.card --count 3   3 corrections rolled from that step
   konte reroll animatic --yes                     every unaccepted rerollable asset of the board
   konte reroll video:shot.05 --yes                every unaccepted asset of one shot
   konte reroll --failed --yes                     retry every target status calls a problem`,
@@ -160,6 +173,11 @@ Examples:
               `Cannot reroll "${address}": composition/stem targets are materialized from their inputs, not generated`,
             );
           }
+        }
+
+        if (uniqueTargets.some(isPatchAddress)) {
+          await rerollPatchSteps(uniqueTargets, opts);
+          return;
         }
 
         const definitions = await loadStageDefinitions(videoRoot);
@@ -691,4 +709,112 @@ Examples:
         if (failures.length > 0) process.exitCode = 1;
       },
     );
+}
+
+/**
+ * Another roll of one step of a patch chain. A step is not a review candidate, so the roll is only
+ * worth its spend as a new correction: the steps consuming it are rebuilt and the returned one
+ * lands a patched take beside the earlier ones. The script is unchanged, so those keep their
+ * `patchHash` and stay rivals.
+ */
+async function rerollPatchSteps(
+  targets: readonly string[],
+  opts: { count: string; failed?: boolean },
+): Promise<void> {
+  const roots = requireVideoRoots();
+  const videoRoot = roots.video;
+  if (opts.failed || !targets.every(isPatchAddress)) {
+    throw new KonteError(
+      "INVALID_OPTION",
+      "A patch step is rerolled on its own: name only `<stage>:patch.<variantId>.<step>` " +
+        "addresses, without --failed",
+    );
+  }
+  const variantCount = parsePositiveInt(opts.count, "--count");
+
+  const manager = await StateManager.load(videoRoot);
+  const catalog = await loadPatchCatalog(videoRoot, manager.getState(), manager.absentVariantIds());
+  await applyResolutionDefinitions({ videoRoot, patchHashes: patchHashesOf(catalog) });
+
+  const steps = targets.map((address) => {
+    const parsed = tryParseAddress(address);
+    if (parsed?.kind !== "patch") {
+      throw new KonteError("INVALID_ADDRESS", `"${address}" is not a patch step address`);
+    }
+    const patch = requirePatch(catalog, parsed.sourceVariantId);
+    const canonical = patchAssetAddress(patch, parsed.assetName);
+    if (address !== canonical) {
+      throw new KonteError(
+        "ADDRESS_NOT_FOUND",
+        `"${address}" names no patch step — ${patch.sourceVariantId}'s chain is at ${canonical}`,
+      );
+    }
+    const def = patch.assets[parsed.assetName];
+    if (!def) {
+      throw new KonteError(
+        "ADDRESS_NOT_FOUND",
+        `${patch.filePath} declares no step "${parsed.assetName}" — declared: ${Object.keys(patch.assets).join(", ")}`,
+      );
+    }
+    if (def.deterministic === true) {
+      throw new KonteError(
+        "DETERMINISTIC_NOT_REROLLABLE",
+        `Cannot reroll "${address}": a deterministic step has no alternative take to pick — ` +
+          `run \`konte patch apply ${patch.sourceVariantId}\` to re-bake it`,
+      );
+    }
+    if (!getBackendKind(def)) {
+      throw new KonteError(
+        "INVALID_ASSET_TYPE",
+        `Cannot reroll "${address}": asset kind "${def.kind}" has no generation backend`,
+      );
+    }
+    return { address, patch, stepName: parsed.assetName };
+  });
+
+  const config = await loadKonteConfig(roots.workspace);
+  const spends = await gatePatchApply(
+    roots,
+    catalog,
+    [...new Set(steps.map((s) => s.patch))],
+    config,
+    "reroll",
+  );
+
+  const jobManager = new JobManager(videoRoot);
+  const rows: Array<{ address: string; variantId: string; status: string }> = [];
+  const failures: Array<{ address: string; error: string }> = [];
+  for (let i = 0; i < variantCount; i++) {
+    for (const step of steps) {
+      try {
+        const result = await applyPatch(
+          step.patch,
+          roots,
+          jobManager,
+          config,
+          spends.get(step.patch)!,
+          step.stepName,
+        );
+        for (const job of result.jobs) rows.push({ address: result.address, ...job });
+        if (result.status === "failed") {
+          failures.push({ address: step.address, error: result.error ?? "generation failed" });
+        }
+      } catch (err) {
+        failures.push({ address: step.address, error: errorMessage(err) });
+      }
+    }
+  }
+
+  for (const row of rows) console.log(`  ${row.address}: ${row.status} → ${row.variantId}`);
+  if (failures.length > 0) {
+    console.log("\nFailed:");
+    for (const f of failures) console.log(`  ${f.address}  ${f.error}`);
+  }
+  const parts = [
+    `${rows.length} correction(s) from ${steps.length} patch step(s)`,
+    failures.length > 0 ? `${failures.length} failed` : null,
+  ].filter((part) => part !== null);
+  const next = rows.length > 0 ? "run `konte job wait`" : "run `konte status`";
+  console.log(`\n${parts.join(", ")} — ${next}`);
+  if (failures.length > 0) process.exitCode = 1;
 }

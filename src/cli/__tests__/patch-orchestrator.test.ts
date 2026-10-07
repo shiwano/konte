@@ -159,3 +159,72 @@ describe("applyPatch in-flight steps", () => {
     });
   });
 });
+
+describe("applyPatch rerollStep", () => {
+  /** A step's take from an earlier apply, landed and current. */
+  async function landedStep(patch: LoadedPatch, name: string): Promise<string> {
+    const address = patchAssetAddress(patch, name);
+    return StateManager.withLock(roots.video, async (m) => {
+      const vid = m.reserveVariantId(address);
+      const variant = m.getAssetState(address).variants![vid]!;
+      variant.file = `assets/animatic/patch/${vid}.png`;
+      variant.outputHash = `hash-${vid}`;
+      variant.definitionHash = computeDefinitionHash(patch.assets[name]!);
+      variant.inputFingerprints = { [SOURCE_ADDRESS]: "hash-source" };
+      return vid;
+    });
+  }
+
+  it("reuses a current earlier step when no step is named", async () => {
+    const patch = chain("hash-a", "two");
+    const landed = await landedStep(patch, "flattened");
+
+    const result = await applyPatch(patch, roots, jobManager, CONFIG, NO_ROUTES);
+
+    const job = await jobManager.getJob(result.jobs[0]!.variantId);
+    if (job.kind !== "generation") throw new Error("expected a generation job");
+    expect(job.metadata.pinnedDeps).toMatchObject({
+      [patchAssetAddress(patch, "flattened")]: landed,
+    });
+    expect(await jobManager.listJobs()).toHaveLength(1);
+  });
+
+  it("rolls the named step again and rebuilds the returned step on it", async () => {
+    const patch = chain("hash-a", "two");
+    const landed = await landedStep(patch, "flattened");
+    const flattenedAddress = patchAssetAddress(patch, "flattened");
+
+    const result = await applyPatch(patch, roots, jobManager, CONFIG, NO_ROUTES, "flattened");
+
+    const jobs = await jobManager.listJobs();
+    const flattened = jobs.find((j) => j.kind === "generation" && j.address === flattenedAddress);
+    expect(flattened).toBeDefined();
+    expect(flattened!.id).not.toBe(landed);
+    const job = await jobManager.getJob(result.jobs[0]!.variantId);
+    if (job.kind !== "generation") throw new Error("expected a generation job");
+    expect(job.dependsOnJobs).toContain(flattened!.id);
+    expect(job.metadata.pinnedDeps).toMatchObject({ [flattenedAddress]: flattened!.id });
+    expect(job.metadata.patchFinalize).toMatchObject({ output: { patchHash: "hash-a" } });
+  });
+
+  // A second roll while the first is still generating is another attempt, not the same work.
+  it("queues the named step beside its own in-flight job", async () => {
+    const patch = chain("hash-a", "two");
+    const running = await inFlightStep(patch, "flattened", null);
+
+    await applyPatch(patch, roots, jobManager, CONFIG, NO_ROUTES, "flattened");
+
+    const flattenedAddress = patchAssetAddress(patch, "flattened");
+    const flattened = (await jobManager.listJobs()).filter(
+      (j) => j.kind === "generation" && j.address === flattenedAddress,
+    );
+    expect(flattened.map((j) => j.id)).toContain(running);
+    expect(flattened).toHaveLength(2);
+  });
+
+  it("refuses a step the script does not declare", async () => {
+    await expect(
+      applyPatch(chain("hash-a", "two"), roots, jobManager, CONFIG, NO_ROUTES, "missing"),
+    ).rejects.toMatchObject({ code: "ADDRESS_NOT_FOUND" });
+  });
+});
