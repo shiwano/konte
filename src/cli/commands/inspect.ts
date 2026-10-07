@@ -588,7 +588,9 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
                           ? `    Suggested: konte preview ${step.stage} (materialized by its accept)`
                           : step.kind === "stands"
                             ? "    Accepted against an older upstream; the accept stands"
-                            : `    Suggested: konte reroll ${address}`,
+                            : step.kind === "restore"
+                              ? `    Suggested: restore the fields above in ${step.file} to what made this take — the accept stands (konte reroll ${address} drops it)`
+                              : `    Suggested: konte reroll ${address}`,
             );
           }
         }

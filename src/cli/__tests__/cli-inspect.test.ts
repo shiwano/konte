@@ -531,6 +531,24 @@ describe("ref command", () => {
     expect(stderr).toContain(`konte reroll ${address}`);
   });
 
+  it("names restoring the definition for a human accept whose definition moved", async () => {
+    const sm = await StateManager.load(projectDir);
+    const v1 = sm.reserveVariantId(address);
+    Object.assign(sm.getAssetState(address).variants![v1]!, {
+      file: "/tmp/picked.mp4",
+      definitionHash: "before-the-edit",
+    });
+    sm.setAccepted(address, v1);
+    await sm.save();
+
+    const { stdout, stderr } = await run(["ref", address], projectDir);
+    expect(stdout.trim()).toBe("/tmp/picked.mp4");
+    expect(stderr).toContain(
+      `accepted against a changed definition; restore it in video.tsx to what made the take (\`konte inspect ${v1}\`)`,
+    );
+    expect(stderr).not.toContain("konte reroll");
+  });
+
   it("exits non-zero when no ready variant exists", async () => {
     await expect(run(["ref", address], projectDir)).rejects.toThrow();
   });

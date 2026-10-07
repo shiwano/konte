@@ -492,8 +492,8 @@ export function printStatusReport(
       // moved since, and whose accept does not stand, is counted as accepted and isn't finished work. Left off the count, a partly
       // accepted stage reads as plain progress and the aged accepts are invisible until `inspect`.
       // Not a problem to fix — export uses the accepted output as-is. Next steps picks the refresh
-      // and names the addresses with it — the accept once a fresh take has landed, the reroll
-      // otherwise — so repeating them here would say it twice.
+      // and names the addresses with it — the accept once a fresh take has landed, the definition
+      // restore for a human accept, the reroll otherwise — so repeating them here would say it twice.
       const staleCount = r.staleAwaitingAccept.length + r.staleAwaitingReroll.length;
       const staleSuffix = staleCount > 0 ? ` (${staleCount} stale)` : "";
 

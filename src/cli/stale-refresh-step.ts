@@ -1,6 +1,7 @@
 import { holdsHumanVerdict } from "../core/accept-cascade.js";
 import { getStage, isMaterializedLeafAddress, type Stage } from "../core/address.js";
 import { findAllUnmetPrerequisites } from "../core/review-prerequisites.js";
+import { STAGE_ENTRY_FILE } from "../core/roots.js";
 import type { StateManager } from "../core/state/index.js";
 import type { PatchHashes, StalenessCache } from "../core/staleness.js";
 import type { AnimaticDefinition } from "../core/types/index.js";
@@ -26,6 +27,9 @@ import type { AnimaticDefinition } from "../core/types/index.js";
  * `stands`: a human-accepted take whose inputs alone moved — the accept stands; nothing replaces it
  * unless it is cleared.
  *
+ * `restore`: a human-accepted take whose own definition moved — the take is the human's pick, so the
+ * definition is written back to what made it; a `reroll` would drop the accept.
+ *
  * `reroll`: nothing there fits, so the refresh has to be paid for.
  *
  * `none`: the address's own accepted take is current, so the stale one asked about is an old
@@ -41,6 +45,7 @@ type StaleRefreshStep =
   | { kind: "generate"; stage: Stage }
   | { kind: "review"; stage: Stage }
   | { kind: "stands" }
+  | { kind: "restore"; file: string }
   | { kind: "reroll" };
 
 /**
@@ -88,9 +93,10 @@ export function staleRefreshStep(opts: {
     if (isMaterializedLeafAddress(address)) return { kind: "review", stage: getStage(address) };
     if (accepted === variantId && holdsHumanVerdict(manager, address)) {
       const staleness = manager.variantStaleness(address, variantId, opts.cache);
-      if (staleness?.inputStale && !staleness.definitionStale) {
-        return { kind: "stands" };
+      if (staleness?.definitionStale) {
+        return { kind: "restore", file: STAGE_ENTRY_FILE[getStage(address)] };
       }
+      if (staleness?.inputStale) return { kind: "stands" };
     }
     return manager.registeredDeterministic(address)
       ? { kind: "generate", stage: getStage(address) }

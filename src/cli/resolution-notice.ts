@@ -53,6 +53,8 @@ function staleNotice(
       return `${lead} — \`konte preview ${step.stage}\` to re-accept it (materialized by its accept)`;
     case "stands":
       return `${lead} — accepted against an older upstream; the accept stands`;
+    case "restore":
+      return `${lead} — accepted against a changed definition; restore it in ${step.file} to what made the take (\`konte inspect ${variantId}\`) to keep the accept`;
     case "reroll":
       return `${lead} — \`konte reroll ${address}\` to rebuild it`;
   }

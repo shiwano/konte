@@ -166,7 +166,8 @@ export interface ExportReadiness {
   /** Generation assets with a running, queued, or pending job — already handled; do not generate. */
   inFlight: number;
   /**
-   * Accepted-but-stale assets with no fresher take yet — the refresh is a `reroll`.
+   * Accepted-but-stale assets with no fresher take yet — the refresh is a `reroll`, or a definition
+   * restore for a human accept whose own definition moved.
    */
   staleAwaitingReroll: string[];
   /**

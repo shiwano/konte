@@ -202,6 +202,25 @@ function suggestCompositionReReview(
   }
 }
 
+// A human accept whose own definition moved. The take is the human's pick, so the step is writing
+// the definition back to what made it — free, and the accept stands; `reroll` would drop it.
+function suggestDefinitionRestores(
+  actions: SuggestedAction[],
+  restores: readonly DefinitionRestore[],
+): void {
+  for (const { address, variantId, fields } of restores) {
+    const what = fields.length > 0 ? fields.join(", ") : "its definition";
+    const file = STAGE_ENTRY_FILE[getStage(address)];
+    actions.push({
+      command: `konte inspect ${variantId}`,
+      details: [
+        `${address}: accepted against a changed definition — restore ${what} in ${file} to what made it` +
+          ` (\`konte reroll ${address}\` drops the accept)`,
+      ],
+    });
+  }
+}
+
 // Stale compositions route to a per-scope re-review; the rest to whichever command actually
 // replaces the take. `reroll`/`generate` are gated by the spend gates, a re-review only by a class
 // its compositions carry — a blocked stage drops what would abort.
@@ -545,6 +564,8 @@ interface SuggestStatusInput {
   staleAddresses?: readonly string[];
   /** Of those, the deterministic ones — the only stale accepts `generate` will re-bake. */
   deterministicStaleAddresses?: readonly string[];
+  /** Human accepts whose own definition moved, apart from `staleAddresses`. */
+  definitionRestores?: readonly DefinitionRestore[];
   /** Variant ids of the failed generation jobs behind `problemAddresses`. */
   failedJobVariantIds?: readonly string[];
   /** Declared paths of `file` assets whose media is absent, minus the cast's (the gate names those). */
@@ -595,6 +616,13 @@ interface SuggestStatusInput {
   /** The undeveloped shots of the first leaf sequence still holding an undeveloped video shot. */
   nextSequencePendingShots?: { animatic: readonly string[]; video: readonly string[] };
 }
+
+export type DefinitionRestore = {
+  address: string;
+  variantId: string;
+  // The definition fields moved since the take was made; empty when the diff cannot be read.
+  fields: readonly string[];
+};
 
 export type SongPending = {
   address: string;
@@ -662,6 +690,7 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   suggestOrphanJobCancel(actions, input.orphanJobIds ?? []);
   suggestProvisioningLogs(actions, input.provisioningFailureJobIds ?? []);
 
+  suggestDefinitionRestores(actions, input.definitionRestores ?? []);
   suggestStaleRefresh(
     actions,
     [...(input.staleAddresses ?? [])],

@@ -1,5 +1,12 @@
-import { getAssetEntry, getStage, isDeliveryAddress, isStemAddress } from "./address.js";
+import {
+  getAssetEntry,
+  getAssetEntryByAddress,
+  getStage,
+  isDeliveryAddress,
+  isStemAddress,
+} from "./address.js";
 import { definitionHashForAddress } from "./composition-resource.js";
+import { diffDefinitions, readDefinitionSnapshot } from "./definition-snapshot.js";
 import {
   loadIfPresent,
   loadReferenceDefinition,
@@ -17,6 +24,7 @@ import type {
   VideoDefinition,
 } from "./types/index.js";
 import { stageEntryPath } from "./roots.js";
+import { generatedOrigin } from "./variant-lineage.js";
 
 /**
  * The stage entries a video is made of, as far as an address's definition is concerned. Each is
@@ -44,6 +52,32 @@ export function definitionForAddress(definitions: StageDefinitions, address: str
       : stage === "video"
         ? (definitions.video ?? null)
         : null;
+}
+
+/**
+ * The definition fields the address's live entry has moved away from since `variantId`'s original
+ * was made. Empty when either side cannot be read.
+ */
+export function definitionDriftFields(
+  videoRoot: string,
+  state: KonteState,
+  definitions: StageDefinitions,
+  address: string,
+  variantId: string,
+): string[] {
+  const snapshot = readDefinitionSnapshot(
+    videoRoot,
+    address,
+    generatedOrigin(state, address, variantId),
+  );
+  const definition = definitionForAddress(definitions, address);
+  let current: unknown = null;
+  try {
+    current = definition ? getAssetEntryByAddress(definition, address) : null;
+  } catch {
+    current = null;
+  }
+  return snapshot && current ? diffDefinitions(snapshot, current).map((c) => c.path) : [];
 }
 
 function assetFlag(definitions: StageDefinitions, address: string, flag: "deterministic"): boolean {

@@ -504,7 +504,7 @@ describe("status command", () => {
     await sm.save();
 
     const { stdout: before } = await run(["status"], projectDir);
-    expect(before).toContain(`konte reroll ${keyframe}`);
+    expect(before).toContain(`konte inspect ${kf}`);
     expect(before).toMatch(/animatic: all 1 accepted \(1 stale\)/);
 
     const mv = sm.reserveVariantId(motion);
@@ -521,11 +521,12 @@ describe("status command", () => {
   });
 
   // The loop reads status while jobs run. A refresh already in flight is not work to name again.
-  it("does not offer a reroll while one is already running for that address", async () => {
+  it("does not offer a refresh while one is already running for that address", async () => {
     const sm = await seedStaleAccept(DEFINITION_STALE);
+    const accepted = sm.getAcceptedVariant(ADDRESS)!;
 
     const { stdout: before } = await run(["status"], projectDir);
-    expect(before).toContain(`konte reroll ${ADDRESS}`);
+    expect(before).toContain(`konte inspect ${accepted}`);
 
     const running = sm.reserveVariantId(ADDRESS);
     await sm.save();
@@ -539,7 +540,23 @@ describe("status command", () => {
     await jobManager.updateJob(running, { status: "running" });
 
     const { stdout } = await run(["status"], projectDir);
+    expect(stdout).not.toContain(`konte inspect ${accepted}`);
     expect(stdout).not.toContain(`konte reroll ${ADDRESS}`);
+  });
+
+  // The human picked the take the definition has since moved away from: the step writes the
+  // definition back, and the reroll that would drop the accept is never the command offered.
+  it("offers restoring the definition of a human accept whose definition moved", async () => {
+    const sm = await seedStaleAccept(DEFINITION_STALE);
+    const accepted = sm.getAcceptedVariant(ADDRESS)!;
+
+    const { stdout } = await run(["status"], projectDir);
+    expect(stdout).toMatch(/video: all 2 accepted.*\(1 stale\)/);
+    expect(stdout).toContain(`  konte inspect ${accepted}\n`);
+    expect(stdout).toContain(
+      `${ADDRESS}: accepted against a changed definition — restore its definition in video.tsx`,
+    );
+    expect(stdout).not.toContain(`  konte reroll ${ADDRESS}\n`);
   });
 
   // A patch output is refreshed by re-applying its correction. Rerolling the address would make a

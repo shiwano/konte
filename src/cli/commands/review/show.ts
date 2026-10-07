@@ -10,8 +10,6 @@ import {
   pruneContactSheetPages,
   renderContactSheet,
 } from "../../../core/contact-sheet.js";
-import { getAssetEntryByAddress } from "../../../core/address.js";
-import { diffDefinitions, readDefinitionSnapshot } from "../../../core/definition-snapshot.js";
 import { errorMessage } from "../../../core/errors.js";
 import { ensureFfmpeg } from "../../../core/ffmpeg.js";
 import {
@@ -26,11 +24,10 @@ import {
 } from "../../../core/review-record.js";
 import {
   applyResolutionDefinitions,
-  definitionForAddress,
+  definitionDriftFields,
 } from "../../../core/definition-hashes.js";
 import { StateManager } from "../../../core/state/manager.js";
 import { resolveShotFeedbackFrames } from "../../../core/thumbnail.js";
-import { generatedOrigin } from "../../../core/variant-lineage.js";
 import { requireVideoRoot } from "../../context.js";
 import { loadVideoAndAnimatic } from "../../load-definition.js";
 import { parseNumberOption } from "../../parse-option.js";
@@ -113,19 +110,13 @@ async function resolveDefinitionDrift(
     if (variant?.status !== "accepted") continue;
     const staleness = manager.variantStaleness(address, variantId);
     if (!staleness?.definitionStale || staleness.patchStale) continue;
-    const snapshot = readDefinitionSnapshot(
+    const fields = definitionDriftFields(
       videoRoot,
+      manager.getState(),
+      definitions,
       address,
-      generatedOrigin(manager.getState(), address, variantId),
+      variantId,
     );
-    const definition = definitionForAddress(definitions, address);
-    let current: unknown = null;
-    try {
-      current = definition ? getAssetEntryByAddress(definition, address) : null;
-    } catch {
-      current = null;
-    }
-    const fields = snapshot && current ? diffDefinitions(snapshot, current).map((c) => c.path) : [];
     drift.push({ address, variantId, fields });
   }
   return drift;

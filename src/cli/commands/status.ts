@@ -13,7 +13,8 @@ import {
   parseAddress,
 } from "../../core/address.js";
 import { findAnimaticOverflows, formatAnimaticOverflow } from "../../core/animatic-overflow.js";
-import { isDeterministicAddress } from "../../core/definition-hashes.js";
+import { definitionDriftFields, isDeterministicAddress } from "../../core/definition-hashes.js";
+import { holdsHumanVerdict } from "../../core/accept-cascade.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import { assetSkipReason } from "../generate-orchestrator.js";
 import {
@@ -30,7 +31,11 @@ import { StateManager } from "../../core/state/index.js";
 import { feedbackStaleness, listAllFeedback } from "../../core/feedback/index.js";
 import { directionPartHashes } from "../../core/direction-hash.js";
 import { liveDefinitionHashesOf } from "./feedback/definition-hashes.js";
-import { type SongPending, suggestForStatus } from "../../core/suggested-actions.js";
+import {
+  type DefinitionRestore,
+  type SongPending,
+  suggestForStatus,
+} from "../../core/suggested-actions.js";
 import { unreadSongTakes } from "../../core/song-queue.js";
 import { JobManager } from "../../core/job-manager.js";
 import type { Direction } from "../../core/dsl/direction.js";
@@ -455,8 +460,26 @@ export function registerStatusCommand(program: Command): void {
         );
       const staleAddresses: string[] = [];
       const deterministicStaleAddresses: string[] = [];
-      for (const address of new Set(staleInfos.map((i) => i.address))) {
-        (rebakesOnGenerate(address) ? deterministicStaleAddresses : staleAddresses).push(address);
+      const definitionRestores: DefinitionRestore[] = [];
+      for (const info of staleInfos) {
+        const moved = info.staleVariants.find((sv) => sv.definitionStale && !sv.patchStale);
+        if (moved && holdsHumanVerdict(manager, info.address)) {
+          definitionRestores.push({
+            address: info.address,
+            variantId: moved.variantId,
+            fields: definitionDriftFields(
+              videoRoot,
+              state,
+              { reference, animatic, video },
+              info.address,
+              moved.variantId,
+            ),
+          });
+          continue;
+        }
+        (rebakesOnGenerate(info.address) ? deterministicStaleAddresses : staleAddresses).push(
+          info.address,
+        );
       }
       // A target holding output whose review prerequisites are unwritten. It sits above "Needs
       // review" because it is what the review is waiting on: `konte preview <stage>` aborts with
@@ -557,6 +580,7 @@ export function registerStatusCommand(program: Command): void {
         blockedPatchAddresses: [...promptBlockedPatches],
         staleAddresses,
         deterministicStaleAddresses,
+        definitionRestores,
         missingFilePaths,
         orphanJobIds: report.orphanJobIds,
         provisioningFailureJobIds: report.provisioningFailureJobIds,
