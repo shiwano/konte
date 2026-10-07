@@ -8,6 +8,7 @@ Take an accepted or exported cut through the changes the human picks, and nothin
 
 ## Routing
 
+- **They want changes but haven't said how** → ask once: watch the cut in review and comment (recommended), name them in chat, or have you list candidates.
 - **They want to watch the cut and point at the changes themselves** → skip §2.
 - **They already named the changes in chat** → skip §2 and §3; fix them (§4), then show them in one review.
 - **They ask you for candidates** → §2, then §3.

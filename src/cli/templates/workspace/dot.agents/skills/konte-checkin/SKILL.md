@@ -12,7 +12,7 @@ Read the state of **one video** and check in, in plain language, on where it sta
 - **Always name the piece in the check-in.**
 - **`Video: none — … has no videos`, `Runtime: no shots yet`, or they asked for a new piece** ("let's make X", "start the next one") → **skip section 2**; section 3's "Nothing authored yet".
 - **`Video: none selected` / `none — … no longer exists`** → `konte video list`, then ask which; never guess.
-- **They asked nothing and `Last export:` isn't `never`** → read the brief, **skip section 2**: report from the digest and let section 5 ask, revise it or start the next one? Read section 2 only if they carry it on.
+- **They asked nothing and `Last export:` isn't `never`** → read the brief, **skip section 2**: report from the digest and let section 5 ask, revise it or start the next one? Revise → `revision-guide` before asking more.
 - **Otherwise** — a piece still in production → read the brief, then section 2.
 - **The brief** — `konte inspect direction:brief`: `look` (its medium binds every prompt), `outOfScope`, and `tolerances` — flaws already signed off, never to be fixed. Read this, not `direction.ts` — the shots are not yours to re-narrate.
 
