@@ -615,15 +615,37 @@ describe("collectChangedDirectionAddresses", () => {
 describe("resolveAuthoredNotes", () => {
   const all = ["direction:brief.outOfScope", "direction:sequence.shots.01"];
 
-  it("prefixes an address that is valid once given the stage", () => {
+  const noReview = async () => null;
+
+  it("prefixes an address that is valid once given the stage", async () => {
     expect(
-      resolveAuthoredNotes([{ address: "brief.outOfScope", text: "x" }], "direction", all, null),
+      await resolveAuthoredNotes(
+        [{ address: "brief.outOfScope", text: "x" }],
+        "direction",
+        all,
+        noReview,
+      ),
     ).toEqual([{ address: "direction:brief.outOfScope", text: "x" }]);
   });
 
-  it("rejects an address that is unknown with or without the stage", () => {
-    expect(() =>
-      resolveAuthoredNotes([{ address: "brief.logline", text: "x" }], "direction", all, null),
-    ).toThrow(/Unknown handoff note address\(es\): brief\.logline/);
+  it("rejects an address that is unknown with or without the stage", async () => {
+    await expect(
+      resolveAuthoredNotes([{ address: "brief.logline", text: "x" }], "direction", all, noReview),
+    ).rejects.toThrow(/Unknown handoff note address\(es\): brief\.logline/);
+  });
+
+  it("names the changed addresses when refusing one", async () => {
+    await expect(
+      resolveAuthoredNotes(
+        [{ address: "brief.logline", text: "x" }],
+        "direction",
+        all,
+        async () => ["direction:sequence.shots.01"],
+      ),
+    ).rejects.toMatchObject({
+      code: "ADDRESS_NOT_FOUND",
+      headline: expect.stringContaining("changed since the review"),
+      items: ["  direction:sequence.shots.01"],
+    });
   });
 });

@@ -20,7 +20,7 @@ import { findLatestHandoff, loadHandoff } from "../../../core/loader.js";
 import { loadPreviewDefinitions, reloadStageDefinition } from "./load-definitions.js";
 import { KonteStateSchema, type Handoff } from "../../../core/types/index.js";
 import { songReadingsOf } from "../../../core/song-take.js";
-import { REVIEW_DIR } from "../../../core/review-record.js";
+import { REVIEW_DIR, reviewShowedHandoff } from "../../../core/review-record.js";
 import { StateManager } from "../../../core/state/index.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
 import {
@@ -99,8 +99,8 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
   }
 
   // Select the handoff file for this stage: a handoff file is scoped to one stage, so the
-  // auto-selection surfaces only the latest file matching this session. An explicit --handoff
-  // path bypasses the matching.
+  // auto-selection surfaces only the latest file matching this session, unless a submitted review
+  // already showed it. An explicit --handoff path bypasses the matching.
   const stage: "animatic" | "video" | "reference" | "direction" =
     mode === "animatic-preview"
       ? "animatic"
@@ -115,7 +115,9 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
     handoffPath = opts.explicitHandoffPath;
     handoff = await loadHandoff(handoffPath);
   } else {
-    const found = await findLatestHandoff(path.join(videoRoot, REVIEW_DIR), stage);
+    const found = await findLatestHandoff(path.join(videoRoot, REVIEW_DIR), stage, (id) =>
+      reviewShowedHandoff(videoRoot, stage, id),
+    );
     if (found) {
       handoffPath = found.path;
       handoff = found.handoff;

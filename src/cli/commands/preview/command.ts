@@ -4,6 +4,8 @@ import { KonteError } from "../../../core/errors.js";
 import { loadDirectionIfPresent, loadVideoAndAnimatic } from "../../load-definition.js";
 import { loadReference } from "../../../core/loader.js";
 import { requireVideoRoot } from "../../context.js";
+import type { HandoffNote } from "../../../core/types/index.js";
+import { writeHandoff, parseNoteOption } from "./handoff.js";
 
 export function registerPreviewCommand(program: Command): void {
   program
@@ -17,13 +19,26 @@ export function registerPreviewCommand(program: Command): void {
     .option("--no-auto-close", "Disable auto-close when browser disconnects")
     .option("--tunnel", "Open a Cloudflare quick tunnel and print its public URL")
     .option(
+      "--note <address=text>",
+      'Handoff note shown beside that asset, as "<address>=<text>"; repeatable',
+      parseNoteOption,
+      [] as HandoffNote[],
+    )
+    .option("--summary <text>", "Handoff summary shown atop the page")
+    .option(
       "--handoff <path>",
-      "Handoff file to show (default: latest under review/<stage>/handoffs/)",
+      "Handoff file to show (default: the newest under review/<stage>/handoffs/ no submitted review showed)",
     )
     .addHelpText(
       "after",
       `
 Opens the review page for one stage and blocks until the browser closes or a review is submitted.
+
+--summary and --note are the handoff: what you changed and why, in the reviewer's language. They
+are written to review/<stage>/handoffs/ before the page opens; a note address the stage does not
+hold is refused instead, listing the addresses changed since the last review. Without them, the
+page shows the newest handoff until a submitted review has shown it, so a closed page reopens with
+its notes.
 
 The server binds loopback and admits only loopback names. To review on a phone over the same wifi,
 bind the LAN with --host 0.0.0.0 (or set preview.host in konte.config.json). To review from
@@ -38,6 +53,8 @@ session. Five wrong answers close the tunnel; guesses that keep coming after tha
 
 Examples:
   konte preview animatic              Review the board
+  konte preview video --summary "reworked shot 02" \\
+    --note video:shot.02.motion="minimized motion to stop drift"
   konte preview video --host 0.0.0.0  Also serve your local network, for a phone
   konte preview video --tunnel        Also serve a public URL, PIN-gated
 `,
@@ -49,12 +66,15 @@ Examples:
           port?: string;
           host?: string;
           autoClose: boolean;
+          note: HandoffNote[];
+          summary?: string;
           handoff?: string;
           tunnel?: boolean;
         },
       ) => {
         const { stage } = parseStageScope(scope);
         const videoRoot = requireVideoRoot();
+        const { note, summary, handoff: handoffOpt, ...launchOpts } = opts;
         // The page host, its bundled UI and the tunnel are the preview command's alone; loading
         // them here keeps them out of every other command's startup.
         const { launchPreview } = await import("./index.js");
@@ -69,22 +89,29 @@ Examples:
               "No direction.ts found in this project — nothing to preview for the direction stage.",
             );
           }
-          await launchPreview({ ...opts, mode: "direction-preview" });
+          const handoff =
+            (await writeHandoff(videoRoot, { stage, direction }, note, summary)) ?? handoffOpt;
+          await launchPreview({ ...launchOpts, handoff, mode: "direction-preview" });
           return;
         }
 
         // Reference loads its own `reference.tsx` rather than the video file.
         if (stage === "reference") {
-          await loadReference(videoRoot);
-          await launchPreview({ ...opts, mode: "reference-preview" });
+          const reference = await loadReference(videoRoot);
+          const handoff =
+            (await writeHandoff(videoRoot, { stage, reference }, note, summary)) ?? handoffOpt;
+          await launchPreview({ ...launchOpts, handoff, mode: "reference-preview" });
           return;
         }
 
         // Both stage pages stand on the board, so a missing or broken animatic.tsx is refused here.
-        await loadVideoAndAnimatic(videoRoot);
+        const { video, animatic } = await loadVideoAndAnimatic(videoRoot);
+        const handoff =
+          (await writeHandoff(videoRoot, { stage, video, animatic }, note, summary)) ?? handoffOpt;
 
         await launchPreview({
-          ...opts,
+          ...launchOpts,
+          handoff,
           mode: stage === "animatic" ? "animatic-preview" : "video-preview",
         });
       },

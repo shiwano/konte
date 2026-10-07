@@ -433,8 +433,9 @@ export function recordFeedbackFor(
 // The handoff (AI -> reviewer) a review record was made against.
 export function handoffRecordFields(
   handoff: Handoff | null,
-): Pick<ReviewRecord, "handoffSummary" | "handoffNotes"> {
+): Pick<ReviewRecord, "handoffId" | "handoffSummary" | "handoffNotes"> {
   return {
+    ...(handoff ? { handoffId: handoff.id } : {}),
     ...(handoff?.summary ? { handoffSummary: handoff.summary } : {}),
     ...(handoff && handoff.notes.length > 0 ? { handoffNotes: handoff.notes } : {}),
   };

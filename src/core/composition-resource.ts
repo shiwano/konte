@@ -950,7 +950,7 @@ export async function materializeTimelineStem(opts: {
 // (findMatchingCompositionVariant). No state write, and no *full-artifact* render: a stem's part is
 // a pure structure hash, and a composition reuses the discovery-mode structure hash that
 // definition-staleness already computes (lighter than the full rendered HTML). A review snapshots it
-// per shown leaf so `review handoff new` can diff a leaf's current content against what was
+// per shown leaf so a refused handoff note can diff a leaf's current content against what was
 // reviewed, catching a definition edit or an upstream take swap alike.
 //
 // Deliberately NOT a variant's `outputHash`, which hashes the produced *artifact* (a composition's
@@ -985,7 +985,7 @@ function leafInputRefs(video: StageDefinition, address: string): readonly string
 
 // The content-hash baseline of one materialized leaf (composition / stem), or null when it is not a
 // renderable leaf or its inputs do not resolve (nothing was shown to snapshot). Pure — no render, no
-// state write. Shared by the review submit (records it) and `review handoff new` (diffs against it).
+// state write. Shared by the review submit (records it) and the preview's handoff (diffs against it).
 export function materializedLeafContentHash(
   manager: StateManager,
   video: StageDefinition,

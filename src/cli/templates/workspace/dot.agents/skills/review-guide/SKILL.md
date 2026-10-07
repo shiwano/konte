@@ -1,22 +1,17 @@
 ---
 name: review-guide
-description: Put work in front of a human and get a decision back — write the handoff, open the preview, read the submitted record. Read whenever you are about to show the human something to accept (the direction or a stage's assets), and when their review comes back.
+description: Put work in front of a human and get a decision back — open the preview with a handoff, read the submitted record. Read whenever you are about to show the human something to accept (the direction or a stage's assets), and when their review comes back.
 user-invocable: false
 ---
 
-Every human review runs the same three steps — hand off, preview, read the record — for the direction or a stage's assets. Done = the submitted decisions read back and reported to the human; acting on the feedback belongs to whoever sent you here (`drafting-guide` for direction, `generation-loop-guide` for a stage).
+Every human review runs the same two steps — preview with a handoff, read the record — for the direction or a stage's assets. Done = the submitted decisions read back and reported to the human; acting on the feedback belongs to whoever sent you here (`drafting-guide` for direction, `generation-loop-guide` for a stage).
 
-## 1. Hand off
+## 1. Preview with a handoff
 
-Leave a note the reviewer reads inline next to each changed item — what you changed and why.
-
-- **One shot: `konte review handoff new <scope> --summary "<line>" --note <address>=<text> …`** — writes the whole handoff. `--note` repeats and splits on the first `=`; an unknown address is rejected, listing the changed assets.
-- **Or omit `--note`** — writes `review/<stage>/handoffs/<ts>.json` with an empty `text` per changed asset; fill each `text` and `summary`. Nothing changed → no file.
+- **`konte preview <scope> --summary "<line>" --note <address>=<text> …`** — the handoff: a note the reviewer reads inline next to each changed item, what you changed and why. `--note` repeats and splits on the first `=`; an unknown address refuses the preview, listing the assets changed since the last review.
 - **Write summary and notes in the human's language** — they show in the review UI.
-- **Never delete or overwrite an earlier handoff file** — each run writes a new timestamped one and preview auto-loads only the newest for the stage (override with `--handoff <path>`).
-
-## 2. Preview
-
+- **Reopening a closed page → `konte preview <scope>` alone** — it shows the newest handoff until a submitted review has shown it.
+- **Never delete or overwrite a file under `review/<stage>/handoffs/`** — each one records what an earlier round changed and why.
 - **Before the first preview, ask once per session whether they review on this machine or another device** — preview opens its browser on this machine. Their answer holds for the session.
 - **This machine → no flag; another device → `--tunnel`** — a public https URL on the startup line, with a 4-digit PIN they must enter. Hand them both; it dies with the command.
 - **`konte preview <scope>` opens the browser itself and runs until the human submits or closes it** — run it in the background without extra confirmation; never open a browser yourself or start a second one while it's up.
@@ -26,7 +21,7 @@ Leave a note the reviewer reads inline next to each changed item — what you ch
 - **The `overlay` is signed off by the shot accepts** — only one changed after every shot was accepted shows on its own, on the reel page as `<stage>:timeline#overlay`.
 - **A video shot badged `Animatic: not made yet` is standing in with the board** — its picture has not been generated, so it has nothing to sign off and its toggle is closed. Comments stay on the shot and survive into the finished take.
 
-## 3. Read the record
+## 2. Read the record
 
 - **Once `review wait` returns, read the backgrounded `konte preview`'s exit line** — one of `submitted` (followed by the `konte review record show` command that reads it, then any `konte generate` to run), `submitted, but nothing to record (no changes)`, or `not submitted (closed without submitting)`.
 - **`konte review record show <file>`** — every decision the review made, plus any target the submit could not settle and, for `direction`, where the acceptance gate stood at submit.

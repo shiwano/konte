@@ -6,6 +6,8 @@ export const HandoffNoteSchema = z.object({
 });
 
 export const HandoffSchema = z.object({
+  // The file's name without `.json`; not stored in the file.
+  id: z.string(),
   stage: z.enum(["animatic", "video", "reference", "direction"]),
   summary: z.string().optional(),
   notes: z

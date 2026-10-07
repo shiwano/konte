@@ -3,7 +3,8 @@ import { HandoffSchema } from "../types/handoff.js";
 
 describe("HandoffSchema", () => {
   it("defaults notes to an empty array", () => {
-    expect(HandoffSchema.parse({ stage: "video" })).toEqual({
+    expect(HandoffSchema.parse({ id: "h", stage: "video" })).toEqual({
+      id: "h",
       stage: "video",
       notes: [],
     });
@@ -11,6 +12,7 @@ describe("HandoffSchema", () => {
 
   it("parses stage, summary, and notes", () => {
     const parsed = HandoffSchema.parse({
+      id: "h",
       stage: "video",
       summary: "warmer grade",
       notes: [{ address: "video:shot.01.motion", text: "dusk background" }],
@@ -22,6 +24,7 @@ describe("HandoffSchema", () => {
 
   it("drops a note left blank", () => {
     const parsed = HandoffSchema.parse({
+      id: "h",
       stage: "animatic",
       notes: [
         { address: "animatic:shot.52.first", text: "" },
@@ -35,17 +38,18 @@ describe("HandoffSchema", () => {
   });
 
   it("rejects a file missing its stage", () => {
-    expect(() => HandoffSchema.parse({ notes: [] })).toThrow();
+    expect(() => HandoffSchema.parse({ id: "h", notes: [] })).toThrow();
   });
 
   it("rejects a note missing its address", () => {
     expect(() =>
-      HandoffSchema.parse({ stage: "video", notes: [{ text: "no address" }] }),
+      HandoffSchema.parse({ id: "h", stage: "video", notes: [{ text: "no address" }] }),
     ).toThrow();
   });
 
   it("accepts the reference stage with a bare reference address", () => {
     const parsed = HandoffSchema.parse({
+      id: "h",
       stage: "reference",
       notes: [{ address: "reference:character", text: "redrew the bow" }],
     });

@@ -1,7 +1,6 @@
-import type { StageDefinition } from "../../../core/types/index.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { Command } from "commander";
+import type { StageDefinition } from "../../../core/types/index.js";
 import {
   assetNameOf,
   COMPOSITION_ASSET_NAME,
@@ -18,7 +17,6 @@ import {
   listReviewableAssetPaths,
   listShotStems,
   parseAddress,
-  parseStageScope,
   STEM_ASSET_NAME,
 } from "../../../core/address.js";
 import {
@@ -28,7 +26,6 @@ import {
 import { directionPartHashes } from "../../../core/direction-hash.js";
 import type { Direction } from "../../../core/dsl/direction.js";
 import { KonteError } from "../../../core/errors.js";
-import { STAGE_ENTRY_FILE } from "../../../core/roots.js";
 import { computeChangeInfo } from "../../../core/review-diff.js";
 import {
   buildTimestamp,
@@ -38,28 +35,20 @@ import {
 } from "../../../core/review-record.js";
 import { isAcceptedStale } from "../../../core/staleness.js";
 import { StateManager } from "../../../core/state/index.js";
-import type { HandoffNote } from "../../../core/types/handoff.js";
+import type { Handoff, HandoffNote } from "../../../core/types/handoff.js";
 import type {
+  AnimaticDefinition,
   ReferenceDefinition,
   VariantState,
   VideoDefinition,
 } from "../../../core/types/index.js";
-import { loadDirectionIfPresent, loadVideoAndAnimatic } from "../../load-definition.js";
-import { loadReference } from "../../../core/loader.js";
-import { requireVideoRoot } from "../../context.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 
-type Stage = "animatic" | "video" | "reference";
-
-function renderHandoff(notes: HandoffNote[], stage: Stage | "direction", summary: string): string {
-  return `${JSON.stringify({ stage, summary, notes }, null, 2)}\n`;
-}
-
 // `--note "<address>=<text>"` — split on the first `=`, since an address never contains one
-// but note prose might. A missing separator is a usage error, not an empty-text note.
-function parseNoteOption(value: string, previous: HandoffNote[]): HandoffNote[] {
+// but note prose might.
+export function parseNoteOption(value: string, previous: HandoffNote[]): HandoffNote[] {
   const eq = value.indexOf("=");
-  if (eq === -1) {
+  if (eq === -1 || value.slice(eq + 1).trim() === "") {
     throw new KonteError(
       "INVALID_OPTION",
       `--note must be "<address>=<text>", got ${JSON.stringify(value)}`,
@@ -365,12 +354,13 @@ export function collectAllDirectionAddresses(direction: Direction): string[] {
 }
 
 // An address missing its `<stage>:` prefix is the stage's own when the prefixed form is one.
-export function resolveAuthoredNotes(
+// `changedAddresses` is read only to name the intended targets when an address is refused.
+export async function resolveAuthoredNotes(
   authored: HandoffNote[],
   stage: string,
   allAddresses: string[],
-  changedAddresses: string[] | null,
-): HandoffNote[] {
+  changedAddresses: () => Promise<string[] | null>,
+): Promise<HandoffNote[]> {
   const valid = new Set(allAddresses);
   const notes = authored.map((n) =>
     !valid.has(n.address) && valid.has(`${stage}:${n.address}`)
@@ -381,7 +371,7 @@ export function resolveAuthoredNotes(
   if (unknown.length > 0) {
     // The changed set is almost always the intended target, so lead with it; fall back to
     // the full authorable set when nothing changed or there is no review to diff.
-    const changed = changedAddresses ?? [];
+    const changed = (await changedAddresses()) ?? [];
     throw new KonteError(
       "ADDRESS_NOT_FOUND",
       `Unknown handoff note address(es): ${unknown.join(", ")} — use one ` +
@@ -392,121 +382,72 @@ export function resolveAuthoredNotes(
   return notes;
 }
 
-export function registerHandoffCommand(review: Command): void {
-  const handoff = review.command("handoff").description("Handoff notes shown in the review UI");
-  handoff
-    .command("new <stage>")
-    .description("Write a handoff file for a stage (video, animatic, reference, or direction)")
-    .option(
-      "--note <address=text>",
-      'Authored note as "<address>=<text>"; repeatable. Writes a complete handoff in one shot (no scaffold to Read+Edit); an unknown address is rejected with the changed set',
-      parseNoteOption,
-      [] as HandoffNote[],
-    )
-    .option("--summary <text>", "Handoff summary line")
-    .addHelpText(
-      "after",
-      `
-Diffs the latest review against current state and seeds a note per changed asset.
-Without --note it writes a scaffold (empty text) to fill in; with --note it writes
-those authored notes directly, so the agent loop is one command instead of three.
-A scaffold with nothing to seed is not written.
+export type HandoffSubject =
+  | { stage: "direction"; direction: Direction }
+  | { stage: "reference"; reference: ReferenceDefinition }
+  | { stage: "animatic" | "video"; animatic: AnimaticDefinition; video: VideoDefinition };
 
-Examples:
-  konte review handoff new video                               scaffold the changed assets
-  konte review handoff new video --summary "reworked shot 02" \\
-    --note video:shot.02.motion="minimized motion to stop drift" \\
-    --note video:timeline.bgm="fit bed to 16s"                  author notes in one shot`,
-    )
-    .action(async (scope: string, opts: { note: HandoffNote[]; summary?: string }) => {
-      const videoRoot = requireVideoRoot();
+// Writes the handoff under `review/<stage>/handoffs/` and returns its path, or null when the agent
+// left none. Nothing is written when an address is refused.
+export async function writeHandoff(
+  videoRoot: string,
+  subject: HandoffSubject,
+  authored: HandoffNote[],
+  summary: string | undefined,
+): Promise<string | null> {
+  if (authored.length === 0 && !summary) return null;
+  const { stage } = subject;
 
-      // The stage-scope selects which review stream to diff against: a review exists per stage.
-      const { stage } = parseStageScope(scope);
+  let allAddresses: string[];
+  let changedAddresses: () => Promise<string[] | null>;
+  if (subject.stage === "direction") {
+    const { direction } = subject;
+    allAddresses = collectAllDirectionAddresses(direction);
+    changedAddresses = async () => {
+      const record = await loadLatestReviewRecord(videoRoot, "direction-preview");
+      return record ? collectChangedDirectionAddresses(direction, record) : null;
+    };
+  } else if (subject.stage === "reference") {
+    const { reference } = subject;
+    allAddresses = collectAllReferenceAddresses(reference);
+    changedAddresses = async () => {
+      const record = await loadLatestReviewRecord(videoRoot, "reference-preview");
+      if (!record) return null;
+      await applyResolutionDefinitions({ videoRoot });
+      const manager = await StateManager.load(videoRoot);
+      return collectChangedReferenceAddresses(reference, manager, record);
+    };
+  } else {
+    const reel = subject.stage === "animatic" ? subject.animatic : subject.video;
+    const reelStage = subject.stage;
+    allAddresses = collectAllAddresses(
+      reel.shots,
+      reelStage,
+      reel.topLevelAssets,
+      reel.timelineSoundtracks,
+      reelStage === "animatic"
+        ? (subject.animatic.exposedPlateIds ?? Object.keys(subject.animatic.plates ?? {}))
+        : undefined,
+      !!reel.overlay,
+    );
+    changedAddresses = async () => {
+      const record = await loadLatestReviewRecord(
+        videoRoot,
+        reelStage === "animatic" ? "animatic-preview" : "video-preview",
+      );
+      if (!record) return null;
+      // Resolves addresses, so it must name what the pages showed.
+      await applyResolutionDefinitions({ videoRoot });
+      const manager = await StateManager.load(videoRoot);
+      return collectChangedAddresses(reel.shots, reelStage, manager, reel, record);
+    };
+  }
 
-      // `allAddresses` is every authorable note address (the validation set); `changedAddresses`
-      // is the diff against the latest review (null when there is no review to diff). The scaffold
-      // seeds the diff (falling back to all on the first review); author mode validates against all
-      // and surfaces the diff as the hint on a bad address.
-      let allAddresses: string[];
-      let changedAddresses: string[] | null;
-      let record: ReviewRecord | null;
-
-      // Every branch below but `direction` resolves addresses, and must name what the pages showed.
-      if (stage !== "direction") await applyResolutionDefinitions({ videoRoot });
-
-      if (stage === "direction") {
-        // Media-less: the diff is against the part-hash baseline in the latest review record,
-        // not variants — so neither state nor the stage definitions are loaded here.
-        const direction = await loadDirectionIfPresent(videoRoot);
-        if (!direction) {
-          throw new KonteError("ADDRESS_NOT_FOUND", "No direction.ts found in project");
-        }
-        record = await loadLatestReviewRecord(videoRoot, "direction-preview");
-        allAddresses = collectAllDirectionAddresses(direction);
-        changedAddresses = record ? collectChangedDirectionAddresses(direction, record) : null;
-      } else if (stage === "reference") {
-        // Reference is a flat pool of assets — its own definition file, no shots, no compositions.
-        const reference = await loadReference(videoRoot);
-        const manager = await StateManager.load(videoRoot);
-        record = await loadLatestReviewRecord(videoRoot, "reference-preview");
-        allAddresses = collectAllReferenceAddresses(reference);
-        changedAddresses = record
-          ? collectChangedReferenceAddresses(reference, manager, record)
-          : null;
-      } else {
-        const { video, animatic } = await loadVideoAndAnimatic(videoRoot);
-        const manager = await StateManager.load(videoRoot);
-        const stageDef = stage === "animatic" ? animatic : video;
-        if (!stageDef) {
-          throw new KonteError(
-            "INVALID_ADDRESS",
-            `No ${STAGE_ENTRY_FILE.animatic} found in project`,
-          );
-        }
-
-        const mode = stage === "animatic" ? "animatic-preview" : "video-preview";
-        record = await loadLatestReviewRecord(videoRoot, mode);
-
-        const shots = stage === "animatic" ? animatic.shots : video.shots;
-        allAddresses = collectAllAddresses(
-          shots,
-          stage,
-          stageDef.topLevelAssets,
-          (stage === "animatic" ? animatic : video)?.timelineSoundtracks,
-          stage === "animatic"
-            ? (animatic.exposedPlateIds ?? Object.keys(animatic.plates ?? {}))
-            : undefined,
-          !!(stage === "animatic" ? animatic : video)?.overlay,
-        );
-        changedAddresses = record
-          ? collectChangedAddresses(shots, stage, manager, stageDef, record)
-          : null;
-      }
-
-      const seeded = changedAddresses ?? allAddresses;
-      const authored = opts.note;
-
-      let notes: HandoffNote[];
-      if (authored.length > 0) {
-        notes = resolveAuthoredNotes(authored, stage, allAddresses, changedAddresses);
-      } else {
-        notes = seeded.map((address) => ({ address, text: "" }));
-      }
-
-      // A scaffold with nothing to seed would be an empty file the agent must still open only to
-      // find it useless — so skip the write and say why. Author mode always writes (the notes are
-      // the point), even if the diff found nothing.
-      if (authored.length === 0 && notes.length === 0) {
-        console.error(record ? "No changes since the review." : "No assets to seed.");
-        return;
-      }
-
-      const dir = path.join(videoRoot, REVIEW_DIR, stage, "handoffs");
-      await fs.mkdir(dir, { recursive: true });
-      const filePath = path.join(dir, `${buildTimestamp()}.json`);
-      await fs.writeFile(filePath, renderHandoff(notes, stage, opts.summary ?? ""), "utf-8");
-
-      console.log(filePath);
-    });
+  const notes = await resolveAuthoredNotes(authored, stage, allAddresses, changedAddresses);
+  const handoff: Omit<Handoff, "id"> = { stage, ...(summary ? { summary } : {}), notes };
+  const dir = path.join(videoRoot, REVIEW_DIR, stage, "handoffs");
+  await fs.mkdir(dir, { recursive: true });
+  const filePath = path.join(dir, `${buildTimestamp()}.json`);
+  await fs.writeFile(filePath, `${JSON.stringify(handoff, null, 2)}\n`, "utf-8");
+  return filePath;
 }

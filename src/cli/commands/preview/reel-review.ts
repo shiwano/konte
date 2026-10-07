@@ -1958,8 +1958,8 @@ export async function handleReelSubmit(
   if (cascadeAccepted.length > 0) record.cascadeAccepted = cascadeAccepted;
 
   // The materialized-leaf content baseline (each composition / stem) — the state this review
-  // concluded in, so `review handoff new` can diff a later edit against it. Computed here, after
-  // the accepts, and from freshly loaded state: `handoff` resolves inputs the same default way, so
+  // concluded in, so a refused handoff note can name a later edit. Computed here, after the
+  // accepts, and from freshly loaded state: the handoff resolves inputs the same default way, so
   // a take accepted in *this* review must fold into the baseline, else the next handoff would read
   // it as a post-review change. (The `manager` above predates the accepts and would do exactly
   // that.)

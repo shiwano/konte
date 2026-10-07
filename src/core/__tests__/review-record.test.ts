@@ -13,6 +13,7 @@ import {
   loadLatestReviewRecord,
   loadReviewRecordFile,
   reviewNoteFrameTargets,
+  reviewShowedHandoff,
   reviewStage,
   saveReviewRecord,
   toReviewFileId,
@@ -132,6 +133,35 @@ describe("hasFeedback", () => {
       decisions: [],
     };
     expect(hasFeedback(record)).toBe(false);
+  });
+});
+
+describe("reviewShowedHandoff", () => {
+  const save = (createdAt: string, handoffId?: string) =>
+    saveReviewRecord(tmpDir, {
+      mode: "video-preview",
+      createdAt,
+      context: { shots: [] },
+      decisions: {},
+      overallComment: "ok",
+      ...(handoffId ? { handoffId } : {}),
+    });
+
+  it("finds the record submitted after the handoff that showed it", async () => {
+    await save("2026-05-16T12:00:00.000Z", "20260516T110000000");
+    await save("2026-05-16T13:00:00.000Z");
+    expect(await reviewShowedHandoff(tmpDir, "video", "20260516T110000000")).toBe(true);
+  });
+
+  it("finds none when no later record showed it", async () => {
+    await save("2026-05-16T12:00:00.000Z", "20260516T110000000");
+    expect(await reviewShowedHandoff(tmpDir, "video", "20260516T113000000")).toBe(false);
+    expect(await reviewShowedHandoff(tmpDir, "animatic", "20260516T110000000")).toBe(false);
+  });
+
+  it("reads no record written before the handoff", async () => {
+    await save("2026-05-16T12:00:00.000Z", "20260516T130000000");
+    expect(await reviewShowedHandoff(tmpDir, "video", "20260516T130000000")).toBe(false);
   });
 });
 

@@ -209,6 +209,16 @@ describe("findLatestHandoff", () => {
     expect(found?.handoff.summary).toBe("new notes");
   });
 
+  it("finds none once a review showed the newest", async () => {
+    writeNotes("20260101T000000000", "video", "older notes");
+    writeNotes("20260102T000000000", "video", "shown notes");
+    const shown = async (id: string) => id === "20260102T000000000";
+    expect(await findLatestHandoff(reviewDir, "video", shown)).toBeNull();
+    writeNotes("20260103T000000000", "video", "pending notes");
+    const found = await findLatestHandoff(reviewDir, "video", shown);
+    expect(found?.handoff).toMatchObject({ id: "20260103T000000000", summary: "pending notes" });
+  });
+
   it("skips a newer file for a different stage", async () => {
     writeNotes("20260101T000000000", "video", "video notes");
     writeNotes("20260103T000000000", "animatic", "animatic notes");

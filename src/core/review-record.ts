@@ -83,16 +83,16 @@ export const ReviewRecordSchema = z.object({
     // The takes `timeline#stem` mixes (address -> variantId), as the reviewer heard them.
     timelineSources: z.record(z.string(), z.string()).optional(),
     // Direction reviews only: the part hash of every reviewable direction part at submit
-    // (full `direction:<part>` address -> hash) — the baseline `review handoff new
-    // direction` diffs against, playing the role `shots`/`timeline` variant ids play for
-    // the media stages.
+    // (full `direction:<part>` address -> hash) — the baseline a refused handoff note diffs
+    // against to name the changed parts, playing the role `shots`/`timeline` variant ids play
+    // for the media stages.
     directionParts: z.record(z.string(), z.string()).optional(),
     // Video reviews only: the content hash of every materialized leaf shown — each composition
     // (`shot.<id>#composition`) and audio stem (`shot.<id>#stem`, `timeline#stem`) — at submit,
     // keyed by full address. A leaf has no reviewed variant id (it materializes only on accept), so
     // this hash of its (definitionHash, inputFingerprints) is its baseline, the role `directionParts`
-    // plays for the direction: `review handoff new` diffs a leaf's live content against it to seed a
-    // note when a definition edit or an upstream take swap changed what the reviewer saw or heard.
+    // plays for the direction: a refused handoff note diffs a leaf's live content against it to name
+    // the leaf when a definition edit or an upstream take swap changed what the reviewer saw or heard.
     // Not a variant `outputHash` — see `materializedLeafContentHash`.
     contentHashes: z.record(z.string(), z.string()).optional(),
   }),
@@ -157,6 +157,7 @@ export const ReviewRecordSchema = z.object({
   // hangs off no address, so nothing goes stale against it and no accept re-signs it.
   overallComment: z.string().optional(),
   // Handoff notes (AI -> reviewer) attached to this preview session.
+  handoffId: z.string().optional(),
   handoffSummary: z.string().optional(),
   handoffNotes: z.array(z.object({ address: z.string(), text: z.string() })).optional(),
 });
@@ -213,7 +214,7 @@ export function hasFeedback(record: ReviewRecord): boolean {
 }
 
 // A stage's review stream lives under `review/<stage>/`, sharing that dir with
-// `feedback.json`: submitted reviews nest in a `records/` subdir and the scaffolded
+// `feedback.json`: submitted reviews nest in a `records/` subdir and the
 // handoffs in a `handoffs/` subdir.
 export const REVIEW_DIR = "review";
 
@@ -262,6 +263,26 @@ async function listReviewFiles(dir: string): Promise<Array<{ id: string; filePat
       .sort((a, b) => (a.base !== b.base ? (a.base < b.base ? 1 : -1) : a.id < b.id ? 1 : -1))
       .map(({ id, filePath }) => ({ id, filePath }))
   );
+}
+
+// Whether a record in one stage's stream showed the handoff `handoffId`. Only a record submitted
+// after the handoff was written can have, so older ones are never read.
+export async function reviewShowedHandoff(
+  videoRoot: string,
+  stage: string,
+  handoffId: string,
+): Promise<boolean> {
+  for (const { filePath } of await listReviewFiles(path.join(videoRoot, REVIEW_DIR, stage))) {
+    if (path.basename(filePath, ".json") <= handoffId) return false;
+    try {
+      if (parseReviewRecord(await fs.readFile(filePath, "utf-8")).handoffId === handoffId) {
+        return true;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return false;
 }
 
 // The newest record in one stage's stream, if it was written at or after `sinceIso`. The preview's
