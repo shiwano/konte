@@ -19,15 +19,19 @@ import {
   isVoiceKind,
   loudnessOf,
   shotCueLevels,
+  type CueKind,
   type ShotCueLevels,
 } from "./audio-level.js";
 import {
   bedVolumeLane,
   buildDuckEnvelope,
   duckSettings,
+  narrationDuck,
   voiceTriggerSpan,
+  type BedAutomation,
   type Span,
 } from "./audio-duck.js";
+import type { AudioLoudness } from "./audio-loudness.js";
 import { buildFallbackComposition } from "./composition-fallback.js";
 import { jsx } from "react/jsx-runtime";
 import { Composition } from "./dsl/composition/composition.js";
@@ -263,16 +267,26 @@ function offsetClipStarts(html: string, offset: number): string {
 // attribute is copied verbatim — `data-start` included, so this must run on already-offset HTML;
 // re-deriving the shift would diverge from `offsetClipStarts` wherever its numeric pattern skips
 // a value. A clip with no `data-start` is not a timed clip to the runtime, so it is not mirrored.
+// `duckUnder` gives a clip its duck under the narration as a volume lane, the shape a bed's takes.
 // See the `arch-audio-guide` skill for the preview's remaining audio-parity gaps.
-function buildEmbeddedAudioTags(html: string): string[] {
+const HAS_CLIP_AUDIO = /\sdata-has-audio="true"/;
+
+function buildEmbeddedAudioTags(html: string, duckUnder?: ClipDuck): string[] {
   const tags: string[] = [];
   for (const [tag] of html.matchAll(/<video\b[^>]*>/g)) {
-    if (!/\sdata-has-audio="true"/.test(tag)) continue;
+    if (!HAS_CLIP_AUDIO.test(tag)) continue;
     const src = tag.match(/\ssrc="([^"]*)"/)?.[1];
     if (!src) continue;
     const attr = (name: string) => tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
     const start = attr("data-start");
     if (start == null) continue;
+    const duration = attr("data-duration");
+    const automation = duckUnder?.({
+      src,
+      start: parseFloat(start),
+      duration: duration != null ? parseFloat(duration) : null,
+      volume: attr("data-volume") != null ? parseFloat(attr("data-volume")!) : 1,
+    });
     const attrs = [
       `data-konte-track="embedded"`,
       `src="${src}"`,
@@ -280,15 +294,78 @@ function buildEmbeddedAudioTags(html: string): string[] {
       attr("data-duration") != null ? `data-duration="${attr("data-duration")}"` : "",
       attr("data-media-start") != null ? `data-media-start="${attr("data-media-start")}"` : "",
       attr("data-volume") != null ? `data-volume="${attr("data-volume")}"` : "",
+      automation ? `data-automation="${escapeAttr(JSON.stringify(automation))}"` : "",
     ].filter(Boolean);
     tags.push(`<audio ${attrs.join(" ")}></audio>`);
   }
   return tags;
 }
 
+type ClipDuck = (clip: {
+  src: string;
+  start: number;
+  duration: number | null;
+  volume: number;
+}) => BedAutomation | null;
+
+/**
+ * The duck a shot's clips take under `narration` (spans on the clock the clips' `data-start` is on),
+ * each off its own measured loudness. A clip with no `data-duration` plays to `shotEnd`.
+ */
+function clipDuckUnder(
+  narration: readonly Span[],
+  loudnessBySrc: Readonly<Record<string, AudioLoudness>> | undefined,
+  shotEnd: number,
+): ClipDuck {
+  return ({ src, start, duration, volume }) => {
+    const end = duration != null ? start + duration : shotEnd;
+    if (!(end > start)) return null;
+    const duck = narrationDuck({
+      clip: { start, end },
+      narration,
+      volume,
+      loudness: loudnessBySrc?.[src],
+    });
+    return duck
+      ? bedVolumeLane({ span: end - start, volume, steps: duck.steps, depth: duck.depth })
+      : null;
+  };
+}
+
+// Each of a shot's `<Video hasAudio>` clips' loudness, keyed by the HTTP src its render emits.
+function clipLoudnessBySrc(
+  plan: RenderPlan,
+  shotPlan: ShotRenderPlan,
+  resolvedFiles: Record<string, string>,
+  resolvedVariants: Record<string, string>,
+  assetBaseUrl: string,
+): Record<string, AudioLoudness> | undefined {
+  return cueBySrc({
+    stage: plan.stage,
+    shotId: shotPlan.shotId,
+    byAddress: shotPlan.cueLevels?.clipLoudness,
+    resolvedFiles: buildHttpResolvedFiles(
+      plan.stage,
+      shotPlan.shotId,
+      resolvedFiles,
+      resolvedVariants,
+      assetBaseUrl,
+      false,
+    ),
+    timelineFiles: buildHttpResolvedFiles(
+      plan.stage,
+      shotPlan.shotId,
+      plan.timelineResolvedFiles,
+      plan.timelineResolvedVariants,
+      assetBaseUrl,
+      true,
+    ),
+  });
+}
+
 // Place mirrored clip audio in a standalone shot-level document (the single-shot preview).
-function injectEmbeddedAudio(compositionHtml: string): string {
-  const tags = buildEmbeddedAudioTags(compositionHtml);
+function injectEmbeddedAudio(compositionHtml: string, duckUnder?: ClipDuck): string {
+  const tags = buildEmbeddedAudioTags(compositionHtml, duckUnder);
   if (tags.length === 0) return compositionHtml;
   const group = `<div id="embedded-audio" style="display:none;">${tags.join("")}</div>`;
   const bodyCloseIdx = compositionHtml.lastIndexOf("</body>");
@@ -557,8 +634,8 @@ export function harvestAudioStructure(
 function standInVoiceSpans(
   plan: RenderPlan,
   voiceTake: (cue: StemAudioEntry) => VoiceTake | null,
-): Array<Span & { address: string }> {
-  const spans: Array<Span & { address: string }> = [];
+): VoiceSpan[] {
+  const spans: VoiceSpan[] = [];
   let offset = 0;
   for (const shotPlan of plan.shots) {
     const duration = shotPlan.duration;
@@ -582,7 +659,8 @@ function standInVoiceSpans(
         ...(standIn.panels ? { panels: standIn.panels } : {}),
         ...(standIn.cutinPanels ? { cutinPanels: standIn.cutinPanels } : {}),
       })) {
-        if (!isVoiceKind(standIn.cueKinds?.[cue.src])) continue;
+        const kind = standIn.cueKinds?.[cue.src];
+        if (!isVoiceKind(kind)) continue;
         const start = cue.start ?? 0;
         const take = voiceTake(cue);
         const length = cue.duration ?? take?.length ?? Math.max(0, standIn.duration - start);
@@ -593,7 +671,7 @@ function standInVoiceSpans(
           mediaStart: cue.mediaStart ?? 0,
           leadInSec: take?.leadInSec,
         });
-        if (span) spans.push({ ...span, address: cue.src });
+        if (span) spans.push({ ...span, address: cue.src, kind: kind!, track: cue.track });
       }
     }
     offset += duration;
@@ -601,18 +679,47 @@ function standInVoiceSpans(
   return spans;
 }
 
+// A narration cue of its own: what a clip's track ducks under. A clip that carries a line ducks
+// under nothing of its own.
+function isNarrationCue(span: VoiceSpan): boolean {
+  return span.kind === "narration" && span.track === "sound";
+}
+
+// What a cue's resolved take tells the duck, read off its measured media — no probe.
+function previewVoiceTake(
+  manager: StateManager,
+  includeStale: boolean,
+  overrideByAddress?: ReadonlyMap<string, string>,
+): (cue: StemAudioEntry) => VoiceTake | null {
+  return (cue) => {
+    const resolved = resolveCompositionRef(manager, cue.src, { includeStale, overrideByAddress });
+    if (!resolved) return null;
+    const media =
+      manager.getState().assets[resolved.address]?.variants?.[resolved.variantId]?.media ?? null;
+    const recorded = mediaDurationSec(media);
+    return {
+      length: recorded == null ? null : Math.max(0, recorded - (cue.mediaStart ?? 0)),
+      leadInSec: loudnessOf(media ?? undefined)?.leadInSec,
+    };
+  };
+}
+
+/** A spoken line's span: the cue that sounds it, what the line is, and whether a clip carries it. */
+export type VoiceSpan = Span & { address: string; kind: CueKind; track: StemAudioEntry["track"] };
+
 export function declaredVoiceSpans(
   video: StageDefinition,
   // The take resolved for a cue. Given, an OPEN-ENDED cue spans what it will actually sound for,
   // and every cue ducks from where its sound starts. Omitted (the hash paths) the span falls back
   // to the whole placement, keeping those render- and take-free.
   voiceTake?: (cue: StemAudioEntry) => VoiceTake | null,
-): Array<Span & { address: string; shotId: string }> {
-  const spans: Array<Span & { address: string; shotId: string }> = [];
+): Array<VoiceSpan & { shotId: string }> {
+  const spans: Array<VoiceSpan & { shotId: string }> = [];
   let offset = 0;
   for (const shot of video.shots) {
     for (const cue of harvestShotAudioStructure(video, shot.id) ?? []) {
-      if (!isVoiceKind(shot.cueKinds?.[cue.src])) continue;
+      const kind = shot.cueKinds?.[cue.src];
+      if (!isVoiceKind(kind)) continue;
       const start = cue.start ?? 0;
       const take = voiceTake?.(cue) ?? null;
       const length = cue.duration ?? take?.length ?? Math.max(0, shot.duration - start);
@@ -623,7 +730,8 @@ export function declaredVoiceSpans(
         mediaStart: cue.mediaStart ?? 0,
         leadInSec: take?.leadInSec,
       });
-      if (span) spans.push({ ...span, address: cue.src, shotId: shot.id });
+      if (span)
+        spans.push({ ...span, address: cue.src, kind: kind!, track: cue.track, shotId: shot.id });
     }
     offset += shot.duration;
   }
@@ -951,11 +1059,38 @@ export async function buildShotCompositionHtml(
     });
   }
 
+  // The shot's own narration — all this document plays — on its own clock, timed off the take it
+  // plays. Every shot's lines are rendered to find it, so only for a shot with a clip to duck.
+  let duckUnder: ClipDuck | undefined;
+  if (HAS_CLIP_AUDIO.test(html)) {
+    const shotStart = overlayShotStarts(video.shots).get(shotId) ?? 0;
+    const shown = variantOverride
+      ? new Map([
+          [formatAddress(plan.stage, shotId, variantOverride.assetName), variantOverride.variantId],
+        ])
+      : undefined;
+    const narration = declaredVoiceSpans(
+      video,
+      previewVoiceTake(manager, allowNotReady ?? false, shown),
+    )
+      .filter((v) => v.shotId === shotId && isNarrationCue(v))
+      .map((v) => ({ start: v.start - shotStart, end: v.end - shotStart }));
+    duckUnder = clipDuckUnder(
+      narration,
+      clipLoudnessBySrc(plan, levelled, resolvedFiles, resolvedVariants, assetBaseUrl),
+      shotPlan.duration,
+    );
+  }
+
   return {
     html: boundOpenAudio(
       resolveAssetPlaceholdersInHtml(
         injectRuntime(
-          injectBaseTimeline(injectEmbeddedAudio(html), shotPlan.shotId, shotPlan.duration),
+          injectBaseTimeline(
+            injectEmbeddedAudio(html, duckUnder),
+            shotPlan.shotId,
+            shotPlan.duration,
+          ),
         ),
         manager,
         assetBaseUrl,
@@ -1112,6 +1247,11 @@ export async function buildFullCompositionHtml(
   const stageFragments: string[] = [];
   const shotTemplates: string[] = [];
   const embeddedAudio: string[] = [];
+  const clipHosts: Array<{
+    html: string;
+    shotEnd: number;
+    loudnessBySrc: Record<string, AudioLoudness> | undefined;
+  }> = [];
   const classSubjects: ClassSubject[] = [];
   const timing = shotSpans(plan.shots, plan.fps);
 
@@ -1167,7 +1307,17 @@ export async function buildFullCompositionHtml(
       // start so its window lands in the shot's slot. (This is attribute-only; gsap timeline
       // positions are not data-start attributes and the runtime already offsets them.)
       const offset = offsetClipStarts(templateBody, span.start);
-      embeddedAudio.push(...buildEmbeddedAudioTags(offset));
+      clipHosts.push({
+        html: offset,
+        shotEnd: span.start + span.duration,
+        loudnessBySrc: clipLoudnessBySrc(
+          plan,
+          levelled,
+          resolvedFiles,
+          resolvedVariants,
+          assetBaseUrl,
+        ),
+      });
       const body = injectBaseTimeline(offset, shotPlan.shotId, shotPlan.duration);
       shotTemplates.push(`<template id="shot-${shotPlan.shotId}-template">${body}</template>`);
       stageFragments.push(
@@ -1189,6 +1339,29 @@ export async function buildFullCompositionHtml(
   const { width, height } = plan.size;
   const totalDuration = timing.total;
 
+  // The spans the MUX will duck under, read off each take's measured media — no probe. Every shot's
+  // lines are rendered to find them, so only for a reel with something to duck.
+  const ducks =
+    timelineSoundtracks.length > 0 || clipHosts.some((host) => HAS_CLIP_AUDIO.test(host.html));
+  const voiceTake = previewVoiceTake(manager, allowNotReady ?? false, overrideByAddress);
+  // The video shot a stand-in replaces contributes no lines of its own.
+  const standInIds = new Set(plan.shots.filter((s) => s.showStandIn).map((s) => s.shotId));
+  const voiceSpans = ducks
+    ? [
+        ...declaredVoiceSpans(video, voiceTake).filter((v) => !standInIds.has(v.shotId)),
+        ...standInVoiceSpans(plan, voiceTake),
+      ]
+    : [];
+  const narration = voiceSpans.filter(isNarrationCue);
+  for (const host of clipHosts) {
+    embeddedAudio.push(
+      ...buildEmbeddedAudioTags(
+        host.html,
+        clipDuckUnder(narration, host.loudnessBySrc, host.shotEnd),
+      ),
+    );
+  }
+
   // Inject timeline-level soundtracks (beds/music) as <audio> elements that span the whole
   // composition, so HyperFrames mixes them live — matching the final mux. Same element shape as a
   // per-shot <Audio>, placed at absolute time, inside one full-span group (so playback isn't gated
@@ -1198,27 +1371,6 @@ export async function buildFullCompositionHtml(
     const offsets = new Map(shotInfos.map((s) => [s.shotId, s.startTime]));
     const durations = new Map(plan.shots.map((s) => [s.shotId, s.duration]));
     const els: string[] = [];
-    // The spans the MUX will duck under, read off each take's measured media — no probe.
-    const voiceTake = (cue: StemAudioEntry): VoiceTake | null => {
-      const resolved = resolveCompositionRef(manager, cue.src, {
-        includeStale: allowNotReady ?? false,
-        overrideByAddress,
-      });
-      if (!resolved) return null;
-      const media =
-        manager.getState().assets[resolved.address]?.variants?.[resolved.variantId]?.media ?? null;
-      const recorded = mediaDurationSec(media);
-      return {
-        length: recorded == null ? null : Math.max(0, recorded - (cue.mediaStart ?? 0)),
-        leadInSec: loudnessOf(media ?? undefined)?.leadInSec,
-      };
-    };
-    // The video shot a stand-in replaces contributes no lines of its own.
-    const standInIds = new Set(plan.shots.filter((s) => s.showStandIn).map((s) => s.shotId));
-    const voiceSpans = [
-      ...declaredVoiceSpans(video, voiceTake).filter((v) => !standInIds.has(v.shotId)),
-      ...standInVoiceSpans(plan, voiceTake),
-    ];
     for (const st of timelineSoundtracks) {
       const { start, end } = resolveSoundtrackSpan(st.options, offsets, durations, totalDuration);
       const span = end - start;

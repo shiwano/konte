@@ -102,6 +102,62 @@ describe("buildTimelineTracks — recorded media", () => {
   });
 });
 
+describe("buildTimelineTracks — a clip's own track", () => {
+  it("ducks under the narration over it", async () => {
+    const tracks = await buildTimelineTracks({
+      shotOrder: order,
+      actualDurations: durations,
+      audioByShot: new Map([
+        [
+          "02",
+          [
+            cue({ role: "embedded", kind: "sfx", file: "/take.mp4", localEnd: 4 }),
+            cue({
+              role: "sound",
+              kind: "narration",
+              file: "/narration.wav",
+              localStart: 1,
+              localEnd: 2,
+            }),
+          ],
+        ],
+      ]),
+    });
+    // offset(02)=3: the clip plays 3→7, the narration 4→5 — 1→2 on the clip's own clock.
+    expect(tracks.find((t) => t.file === "/take.mp4")?.duck?.steps).toEqual([
+      { a: 0.85, b: 1, c: 2.2, d: expect.closeTo(2.6, 6) },
+    ]);
+  });
+
+  it("does not duck under a character's line, which the clip may be carrying", async () => {
+    const tracks = await buildTimelineTracks({
+      shotOrder: order,
+      actualDurations: durations,
+      audioByShot: new Map([
+        [
+          "02",
+          [
+            cue({ role: "embedded", kind: "sfx", file: "/take.mp4", localEnd: 4 }),
+            cue({ role: "sound", kind: "voice", file: "/line.wav", localStart: 1, localEnd: 2 }),
+          ],
+        ],
+      ]),
+    });
+    expect(tracks.find((t) => t.file === "/take.mp4")?.duck).toBeUndefined();
+  });
+
+  it("does not duck under the narration it carries itself", async () => {
+    const tracks = await buildTimelineTracks({
+      shotOrder: order,
+      actualDurations: durations,
+      audioByShot: new Map([
+        ["02", [cue({ role: "embedded", kind: "narration", file: "/take.mp4", localEnd: 4 })]],
+      ]),
+    });
+    expect(tracks.find((t) => t.file === "/take.mp4")?.duck).toBeUndefined();
+  });
+});
+
 describe("buildTimelineTracks — timeline soundtracks", () => {
   const bed = (over: Partial<ResolvedSoundtrack> = {}): ResolvedSoundtrack => ({
     id: "main",

@@ -5,6 +5,7 @@ import { cueBySrc, isVoiceKind, loudnessOf } from "./audio-level.js";
 import {
   buildDuckEnvelope,
   duckSettings,
+  narrationDuck,
   voiceTriggerSpan,
   type Duck,
   type Span,
@@ -218,10 +219,13 @@ export async function buildTimelineTracks(opts: {
     return recorded ? mediaHasAudio(recorded) : await probeHasAudio(file);
   };
 
-  // Where the spoken lines sit on the finished timeline — what a ducking bed yields to.
+  // Where the spoken lines sit on the finished timeline — what a ducking bed yields to — and the
+  // narration among them, which a clip's own track yields to.
   const voiceSpans: Span[] = [];
+  const narrationSpans: Span[] = [];
 
   // <Sound> and embedded: one independent, play-once track per placement.
+  const placed: Array<{ raw: RawShotAudio; start: number; duration: number | null }> = [];
   for (const shotId of shotOrder) {
     const offset = offsets.get(shotId) ?? 0;
     const shotDur = actualDurations.get(shotId) ?? 0;
@@ -245,18 +249,34 @@ export async function buildTimelineTracks(opts: {
           leadInSec: loudnessOf(mediaOf?.(raw.file))?.leadInSec,
         });
         if (trigger) voiceSpans.push(trigger);
+        if (trigger && raw.role === "sound" && raw.kind === "narration") {
+          narrationSpans.push(trigger);
+        }
       }
-      tracks.push({
-        file: raw.file,
-        start,
-        mediaStart: raw.mediaStart,
-        duration,
-        volume: raw.volume,
-        loop: false,
-        fadeIn: raw.fadeIn,
-        fadeOut: raw.fadeOut,
-      });
+      placed.push({ raw, start, duration });
     }
+  }
+  for (const { raw, start, duration } of placed) {
+    const duck =
+      raw.role === "embedded" && duration != null
+        ? narrationDuck({
+            clip: { start, end: start + duration },
+            narration: narrationSpans,
+            volume: raw.volume,
+            loudness: loudnessOf(mediaOf?.(raw.file)),
+          })
+        : null;
+    tracks.push({
+      file: raw.file,
+      start,
+      mediaStart: raw.mediaStart,
+      duration,
+      volume: raw.volume,
+      ...(duck ? { duck } : {}),
+      loop: false,
+      fadeIn: raw.fadeIn,
+      fadeOut: raw.fadeOut,
+    });
   }
 
   // Timeline-level soundtracks: each is one span, resolved from its from/until shot anchors.

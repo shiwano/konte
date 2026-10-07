@@ -161,6 +161,132 @@ const embeddedAudioVideo = defineVideo(
   },
 );
 
+// Shot 02's clip under a narration cue at 1→2s of the shot.
+const narratedVideo = (() => {
+  const video = defineVideo(
+    testDirection({
+      fps: 30,
+      size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
+    }),
+    {
+      timeline: () =>
+        videoTimeline([
+          shot("01", {
+            duration: 5,
+            build: () => {
+              const motion = asset("motion", animateComfy, { prompt: "a cat walking" });
+              return (
+                <Composition>
+                  <Video src={motion} />
+                </Composition>
+              );
+            },
+          }),
+          shot("02", {
+            duration: 3,
+            build: () => {
+              const motion = asset("motion", animateComfy, { prompt: "a dog running" });
+              const narration = asset("narration", audioComfy, { prompt: "a narrator" });
+              return (
+                <Composition>
+                  <Video src={motion} hasAudio volume={0.4} />
+                  <Audio src={narration} start={1} duration={1} />
+                </Composition>
+              );
+            },
+          }),
+        ]),
+    },
+  );
+  return {
+    ...video,
+    shots: video.shots.map((s) =>
+      s.id === "02"
+        ? {
+            ...s,
+            cueKinds: {
+              "video:shot.02.motion": "sfx" as const,
+              "video:shot.02.narration": "narration" as const,
+            },
+          }
+        : s,
+    ),
+  };
+})();
+
+// Shot 01's narration runs 4→7s, across the cut into shot 02; shot 02's runs open-ended from 0s.
+const crossingNarrationVideo = (() => {
+  const video = defineVideo(
+    testDirection({
+      fps: 30,
+      size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
+    }),
+    {
+      timeline: () =>
+        videoTimeline([
+          shot("01", {
+            duration: 5,
+            build: () => {
+              const narration = asset("narration", audioComfy, { prompt: "a narrator" });
+              return (
+                <Composition>
+                  <Audio src={narration} start={4} duration={3} />
+                </Composition>
+              );
+            },
+          }),
+          shot("02", {
+            duration: 3,
+            build: () => {
+              const motion = asset("motion", animateComfy, { prompt: "a dog running" });
+              const narration = asset("narration", audioComfy, { prompt: "a narrator" });
+              return (
+                <Composition>
+                  <Video src={motion} hasAudio />
+                  <Audio src={narration} start={0} />
+                </Composition>
+              );
+            },
+          }),
+        ]),
+    },
+  );
+  return {
+    ...video,
+    shots: video.shots.map((s) => ({
+      ...s,
+      cueKinds: {
+        [`video:shot.${s.id}.motion`]: "sfx" as const,
+        [`video:shot.${s.id}.narration`]: "narration" as const,
+      },
+    })),
+  };
+})();
+
+function setupAudioTake(
+  manager: StateManager,
+  address: string,
+  file: string,
+  durationSec: number,
+): string {
+  const variantId = setupReady(manager, address, file);
+  manager.getAssetState(address).variants![variantId]!.media = {
+    kind: "audio",
+    durationSec,
+    channels: 1,
+    sampleRate: 24000,
+  };
+  return variantId;
+}
+
+const automationOf = (html: string): { t: number; v: number }[] | null => {
+  const tag = html.match(/<audio[^>]*data-konte-track="embedded"[^>]*>/)?.[0];
+  const raw = tag?.match(/data-automation="([^"]*)"/)?.[1];
+  if (!raw) return null;
+  const json = raw.replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+  return JSON.parse(json).lanes[0].points;
+};
+
 function setupAccepted(manager: StateManager, address: string, file: string): string {
   const variantId = manager.reserveVariantId(address);
   manager.getAssetState(address).variants![variantId]!.file = file;
@@ -293,6 +419,64 @@ describe("buildShotCompositionHtml", () => {
     );
   });
 
+  it("ducks a mirrored clip under the narration over its shot", async () => {
+    setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
+    setupAccepted(manager, "video:shot.02.narration", "assets/shot.02.narration/output.wav");
+
+    const result = await buildShotCompositionHtml({
+      video: narratedVideo,
+      manager,
+      shotId: "02",
+      assetBaseUrl: ASSET_BASE,
+    });
+
+    // Down by 1s, held to 2.2s, back by 2.6s — at the default depth, 0.35 of the clip's 0.4.
+    expect(automationOf(result.html)).toEqual([
+      { t: 0, v: 0.4 },
+      { t: 0.85, v: 0.4 },
+      { t: 1, v: 0.14 },
+      { t: 2.2, v: 0.14 },
+      { t: 2.6, v: 0.4 },
+      { t: 3, v: 0.4 },
+    ]);
+  });
+
+  it("ducks a shot's clip only under the narration its own document plays", async () => {
+    setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
+    const prior = setupAudioTake(manager, "video:shot.01.narration", "prior.wav", 3);
+    manager.setAccepted("video:shot.01.narration", prior);
+    const own = setupAudioTake(manager, "video:shot.02.narration", "own.wav", 1);
+    manager.setAccepted("video:shot.02.narration", own);
+
+    const result = await buildShotCompositionHtml({
+      video: crossingNarrationVideo,
+      manager,
+      shotId: "02",
+      assetBaseUrl: ASSET_BASE,
+    });
+
+    // Shot 01's narration runs 2s into this shot but is not in this document; its own runs 0→1s.
+    expect(automationOf(result.html)?.find((p) => p.v === 1 && p.t > 0)?.t).toBeCloseTo(1.6, 6);
+  });
+
+  it("ducks a shot's clip under the narration take the review swaps in", async () => {
+    setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
+    const accepted = setupAudioTake(manager, "video:shot.02.narration", "old.wav", 1);
+    manager.setAccepted("video:shot.02.narration", accepted);
+    const candidate = setupAudioTake(manager, "video:shot.02.narration", "fresh.wav", 2);
+
+    const result = await buildShotCompositionHtml({
+      video: crossingNarrationVideo,
+      manager,
+      shotId: "02",
+      assetBaseUrl: ASSET_BASE,
+      variantOverride: { assetName: "narration", variantId: candidate },
+    });
+
+    // The 2s candidate plays, so the clip comes back up 0.6s after 2s, not after 1s.
+    expect(automationOf(result.html)?.find((p) => p.v === 1 && p.t > 0)?.t).toBeCloseTo(2.6, 6);
+  });
+
   it("throws COMPOSITION_BUILD_FAILED for non-existent shot", async () => {
     await expect(
       buildShotCompositionHtml({
@@ -418,6 +602,21 @@ describe("buildFullCompositionHtml", () => {
     expect(result.html).toMatch(/<video[^>]*muted[^>]*data-has-audio="true"/);
     // Shot 01 carries no embedded audio, so nothing mirrors it.
     expect(result.html.match(/<audio\b/g)).toHaveLength(1);
+  });
+
+  it("ducks a mirrored clip under the narration on the master timeline", async () => {
+    setupAccepted(manager, "video:shot.01.motion", "assets/shot.01.motion/output.mp4");
+    setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
+    setupAccepted(manager, "video:shot.02.narration", "assets/shot.02.narration/output.wav");
+
+    const result = await buildFullCompositionHtml({
+      video: narratedVideo,
+      manager,
+      assetBaseUrl: ASSET_BASE,
+    });
+
+    // The lane is on the clip's own clock, wherever the shot sits on the reel.
+    expect(automationOf(result.html)?.map((p) => p.t)).toEqual([0, 0.85, 1, 2.2, 2.6, 3]);
   });
 
   it("injects timeline soundtracks as a full-span audio group", async () => {

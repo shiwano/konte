@@ -76,7 +76,7 @@ The camera holds a static shot as the runner exits the frame.
 - **A line a mouth has to match is `animatic.stem` passed as `audioStem`** — it takes no `<Audio N>` tag, no `audio reuse` / `audio reference` task type and no `retentionAnalysis` line; the words in `<d>` are the recording's own, verbatim, as in a reuse.
 - **An effect in the stem times the action that makes it** — name it at that action in `detailedDescription` (`her fist landing on her chest exactly on the dull thump in the soundtrack`), and in `overallSoundscape`.
 - **The clip arrives with its track baked in** — a composition plays it with `<Video hasAudio>` alone; a second `<Audio src={animatic.stem} />` over that take double-tracks the line.
-- **Narration goes in neither slot** — konte keeps it out of `animatic.stem`; a shot whose only line is narration leaves `audioStem` and `audio1` unpassed, lets the take carry only its soundscape, and plays `<Audio src={animatic.shot(id).narrationStem} />` over `<Video hasAudio volume={…}>` in the composition.
+- **Narration goes in neither slot** — konte keeps it out of `animatic.stem`; a shot whose only line is narration leaves `audioStem` and `audio1` unpassed, lets the take carry only its soundscape, and plays `<Audio src={animatic.shot(id).narrationStem} />` over `<Video hasAudio>` in the composition.
 
 ## Clip Length
 

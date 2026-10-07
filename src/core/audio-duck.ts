@@ -148,6 +148,22 @@ export function buildDuckEnvelope(opts: {
 }
 
 /**
+ * The dips a `<Video hasAudio>` clip's own track takes under the narration over it, at the depth a
+ * `duck: true` bed takes. Null when no narration plays over the clip.
+ */
+export function narrationDuck(opts: {
+  clip: Span;
+  narration: readonly Span[];
+  volume: number;
+  loudness: AudioLoudness | undefined;
+}): { steps: DuckStep[]; depth: number } | null {
+  const settings = duckSettings(true, { volume: opts.volume, loudness: opts.loudness });
+  if (!settings) return null;
+  const steps = buildDuckEnvelope({ bed: opts.clip, triggers: opts.narration, settings });
+  return steps.length > 0 ? { steps, depth: settings.depth } : null;
+}
+
+/**
  * The envelope as an ffmpeg `volume` expression, `baseVolume` scaled by the dips. Its commas are
  * left bare: the caller quotes it inside the filtergraph.
  */

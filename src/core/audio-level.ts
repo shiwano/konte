@@ -123,6 +123,8 @@ export interface ShotCueLevels {
   adjustments: Record<string, AudioLevelling>;
   /** The lead-in an sfx cue skips (`cueLeadIn`); absent at 0. */
   leadIns: Record<string, number>;
+  /** A `<Video hasAudio>` clip's measured loudness, which its duck under the narration aims off. */
+  clipLoudness: Record<string, AudioLoudness>;
 }
 
 /**
@@ -149,18 +151,11 @@ export function shotCueLevels(opts: {
 }): ShotCueLevels {
   const shotPrefix = `${opts.stage}:shot.${opts.shotId}.`;
   const timelinePrefix = `${opts.stage}:timeline.`;
-  const out: ShotCueLevels = { gains: {}, leadIns: {}, adjustments: {} };
+  const out: ShotCueLevels = { gains: {}, leadIns: {}, adjustments: {}, clipLoudness: {} };
   const picture = new Set(opts.pictureRefs ?? []);
   for (const [address, kind] of Object.entries(opts.cueKinds ?? {})) {
     if (isStemAddress(address)) {
       out.adjustments[address] = { gain: 1, reason: "stem" };
-      continue;
-    }
-    // A clip's own track is the shot's whole mix, not one cue. Where the shot speaks, that mix is
-    // its line and belongs at the voice target; where it does not, `sfx` aims a true peak meant for
-    // a door slam, which would haul a quiet shot up to the level of a loud one.
-    if (kind === "sfx" && picture.has(address)) {
-      out.adjustments[address] = { gain: 1, reason: "no-lines" };
       continue;
     }
     const variantId = address.startsWith(shotPrefix)
@@ -169,6 +164,15 @@ export function shotCueLevels(opts: {
         ? opts.timelineResolvedVariants?.[address.slice(timelinePrefix.length)]
         : opts.resolve(address);
     const media = variantId ? opts.state.assets[address]?.variants?.[variantId]?.media : undefined;
+    const clip = picture.has(address) ? loudnessOf(media) : undefined;
+    if (clip) out.clipLoudness[address] = clip;
+    // A clip's own track is the shot's whole mix, not one cue. Where the shot speaks, that mix is
+    // its line and belongs at the voice target; where it does not, `sfx` aims a true peak meant for
+    // a door slam, which would haul a quiet shot up to the level of a loud one.
+    if (kind === "sfx" && picture.has(address)) {
+      out.adjustments[address] = { gain: 1, reason: "no-lines" };
+      continue;
+    }
     const adjustment = audioLevelling(kind, loudnessOf(media));
     out.adjustments[address] = adjustment;
     const { gain } = adjustment;

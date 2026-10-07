@@ -12,7 +12,13 @@ import {
   playedLufs,
   shotCueLevels,
 } from "./audio-level.js";
-import { buildDuckEnvelope, duckSettings, voiceTriggerSpan, type Span } from "./audio-duck.js";
+import {
+  buildDuckEnvelope,
+  duckSettings,
+  narrationDuck,
+  voiceTriggerSpan,
+  type Span,
+} from "./audio-duck.js";
 import type { AudioLoudness } from "./audio-loudness.js";
 import { parsePlaceholder, runTimelineInRenderMode } from "./dsl/shot-context.js";
 import { KonteError } from "./errors.js";
@@ -59,7 +65,7 @@ export interface AudioTrack {
   levelling: AudioLevelling;
   /** Whole-source LUFS plus effective gain, before trimming, fades and final mixing. */
   lufs: number | null;
-  /** A ducking bed's level under the lines it yields to. Null when it ducks under none. */
+  /** Its level where it ducks: a bed under the lines, a clip under the narration. Null when it never ducks. */
   duckedLufs: number | null;
   loop: boolean;
   fadeIn?: number;
@@ -830,6 +836,8 @@ export async function inspectTimelineAudio(opts: {
   // Where the lines sit, and how loud — what a ducking bed yields to, and what "audible" is
   // measured against. Kept per line: a bed is only under the lines it overlaps.
   const voices: Array<Span & { lufs: number | null }> = [];
+  const narration: Span[] = [];
+  const clipLoudness = new Map<AudioTrack, AudioLoudness | undefined>();
   const layers: MixLayer[] = [];
 
   for (const raw of placements) {
@@ -913,9 +921,10 @@ export async function inspectTimelineAudio(opts: {
         leadInSec: loudnessByFile.get(absFile)?.leadInSec,
       });
       if (trigger) voices.push({ ...trigger, lufs });
+      if (trigger && raw.role === "sound" && raw.kind === "narration") narration.push(trigger);
     }
 
-    tracks.push({
+    const track: AudioTrack = {
       kind: raw.role,
       label: `${raw.shotId} ${raw.role}`,
       shotId: raw.shotId,
@@ -939,7 +948,20 @@ export async function inspectTimelineAudio(opts: {
       envelope,
       warnings,
       notes,
+    };
+    tracks.push(track);
+    if (raw.role === "embedded") clipLoudness.set(track, loudnessByFile.get(absFile));
+  }
+
+  // The duck the mux gives a clip's own track under the narration over it.
+  for (const [track, loudness] of clipLoudness) {
+    const duck = narrationDuck({
+      clip: { start: track.start, end: track.end },
+      narration,
+      volume: track.volume,
+      loudness,
     });
+    if (duck) track.duckedLufs = playedLufs(loudness, track.volume * duck.depth);
   }
 
   for (const st of soundtracks) {

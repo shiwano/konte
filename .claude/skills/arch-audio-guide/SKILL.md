@@ -15,7 +15,7 @@ All standalone audio is **muxed onto the final video in one pass after the shots
 - **`soundtrack()`** — a bed in the timeline's `soundtracks`, spanning its `from`/`until` shot anchors, looping if the source is shorter.
 - **`<Audio>`** — plays once at full length and may cross a cut.
 - **The song bed** — with `policy.song`, the song under the whole timeline (`mixedSoundtracks`): unlooped, unducked, −14 LUFS, outside `timeline#stem`; doubling it is `SONG_DOUBLED`.
-- **`<Video hasAudio>`** — contributes the clip's embedded audio as another muxed track, from the original, pre-upscale source. The track carries the shot's cue kind, so a line inside the picture ducks a bed and is levelled like a cue; a shot with no lines is left where it plays.
+- **`<Video hasAudio>`** — contributes the clip's embedded audio as another muxed track, from the original, pre-upscale source. The track carries the shot's cue kind, so a line inside the picture ducks a bed and is levelled like a cue; a shot with no lines is left where it plays. It ducks under narration `<Audio>` (`narrationDuck`), never under a line it may carry.
 
 ## Preview parity
 
@@ -25,7 +25,7 @@ The preview runtime plays `<audio>` only: it schedules `audio[data-start]` into 
 
 The reel's **preroll** (`preview-preroll.ts`) moves the picture alone: a shot's opening `<video>` opens its window a lead early, hidden by its shot host's window, so the cut reveals a clip already running. The shift comes out of `data-media-start`; a clip on its take's first frame gets a cached picture-only copy (`padVideoClip`) holding that frame in front, with a cloned tail keeping EOF clear of the window. A late start stays late past the cut (the runtime never re-syncs a playing `<video>`), so the reel's **warm-up** seeks each clip to its in-point before its window, waking one the browser suspended.
 
-A bed's duck and fades reach the preview as a volume lane (`bedVolumeLane`, `data-automation`). The transport does not loop buffers, so gaps remain:
+Ducks and a bed's fades reach the preview as a volume lane (`bedVolumeLane`, `data-automation`). The transport does not loop buffers, so gaps remain:
 
 - **A bed that `shouldAutoLoop` loops in the mux does not loop in preview.**
 - **`volume` is gain up to `MAX_AUDIO_GAIN`** (+12 dB, `audio-gain.ts`); `assertAudioGain` refuses more at load (`AUDIO_GAIN_INVALID`).
