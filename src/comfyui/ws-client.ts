@@ -96,7 +96,7 @@ function unreachableError(promptId: string, sinceMs: number, lastError: string):
     `ComfyUI has answered nothing for ${Math.round(sinceMs / 60_000)}m (last error: ${lastError}). ` +
       `Prompt ${promptId} lives in the server process, so it did not survive — failing it rather ` +
       `than polling a server that is gone. Start ComfyUI, then re-run the command. ` +
-      `Set comfyui.unreachableTimeoutMinutes (0 = wait forever) to change this.`,
+      `Set comfy.comfyui.unreachableTimeoutMinutes (0 = wait forever) to change this.`,
   );
 }
 

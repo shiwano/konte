@@ -227,7 +227,9 @@ export default defineVideo(direction, {
         `asset("canvas", adapters.jsxImage, { width: 1920, height: 1080 })`,
       ),
     );
-    await writeWorkspaceConfig(projectDir, { comfyui: { url: "http://127.0.0.1:8188" } });
+    await writeWorkspaceConfig(projectDir, {
+      comfy: { comfyui: { url: "http://127.0.0.1:8188" } },
+    });
 
     const check = await backendCheck(projectDir);
     expect(check?.status).toBe("PASS");

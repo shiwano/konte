@@ -2,6 +2,7 @@ import * as path from "node:path";
 import { deliveryAddressOf, formatCompositionAddress } from "../../core/address.js";
 import type { GenerationBackend } from "../../core/backend.js";
 import { assertSpendAllowed } from "../../core/backend-policy.js";
+import { deploymentNameOf } from "../../comfy-api/routing.js";
 import { loadKonteConfig } from "../../core/config.js";
 import { compositionCacheKey } from "../../core/composition-resource.js";
 import {
@@ -19,7 +20,12 @@ import type { JobManager } from "../../core/job-manager.js";
 import { collectDeliveryLayers, renderShotCompositeToFile } from "../../core/render-video.js";
 import type { ShotRenderPlan } from "../../core/render-plan.js";
 import type { StateManager } from "../../core/state/index.js";
-import type { AssetDefinition, BackendKind, VideoDefinition } from "../../core/types/index.js";
+import type {
+  AssetDefinition,
+  BackendKind,
+  ComfyTarget,
+  VideoDefinition,
+} from "../../core/types/index.js";
 import { submitAssetJobs } from "../generate-orchestrator.js";
 import type { VideoRoots } from "../../core/roots.js";
 
@@ -62,11 +68,24 @@ export async function planDelivery(opts: {
   // item that would be submitted — one upscale function serves a whole mode — and before its
   // composite is rendered.
   const config = await loadKonteConfig(roots.workspace);
-  let gated = false;
-  const gateSpend = (assetDef: AssetDefinition, label: string): void => {
-    if (gated) return;
-    assertSpendAllowed([{ label, kind: assetDef.kind }], config);
-    gated = true;
+  const announced = new Set<string>();
+  const gateSpend = async (
+    assetDef: AssetDefinition,
+    label: string,
+  ): Promise<ComfyTarget | null> => {
+    const target = (
+      await assertSpendAllowed([{ label, def: assetDef }], config, roots.workspace)
+    ).targetOf(assetDef);
+    const deployment = target ? deploymentNameOf(target) : null;
+    // A delivery upscale submits at once, so a deployment it lands on comes up inside the submit.
+    if (deployment !== null && !announced.has(deployment)) {
+      announced.add(deployment);
+      console.log(
+        `Bringing up Comfy API deployment ${deployment} for the delivery upscale — the first ` +
+          `submit waits for it (minutes when a release has to build)`,
+      );
+    }
+    return target;
   };
 
   const backendCache = new Map<BackendKind, GenerationBackend>();
@@ -96,7 +115,7 @@ export async function planDelivery(opts: {
       }
 
       const assetDef = synthesizeDeliveryAssetDefinition(video, deliveryAddr, target);
-      gateSpend(assetDef, deliveryAddr);
+      const comfyTarget = await gateSpend(assetDef, deliveryAddr);
       const subject = deliveryPromptSubject(video, deliveryAddr, target);
       assertPromptGate(subject, "video.tsx");
       assertPinGate(subject, "video.tsx");
@@ -130,6 +149,10 @@ export async function planDelivery(opts: {
         // Snapshot the resolved target so the variant's definition hash is re-derived from these exact
         // dims at export time, never from a fresh probe.
         target,
+        null,
+        null,
+        null,
+        comfyTarget,
       );
       for (const j of result.jobs) submittedJobIds.push(j.variantId);
     }
@@ -161,7 +184,7 @@ export async function planDelivery(opts: {
     if (!layer.sourceFileRel) continue;
 
     const assetDef = synthesizeDeliveryAssetDefinition(video, layer.deliveryAddress, layer.target);
-    gateSpend(assetDef, layer.deliveryAddress);
+    const comfyTarget = await gateSpend(assetDef, layer.deliveryAddress);
     const subject = deliveryPromptSubject(video, layer.deliveryAddress, layer.target);
     assertPromptGate(subject, "video.tsx");
     assertPinGate(subject, "video.tsx");
@@ -177,6 +200,10 @@ export async function planDelivery(opts: {
       // Snapshot the resolved target so the variant's definition hash is re-derived from these exact
       // dims at export time, never from a fresh probe (whose drift would falsely mark it stale).
       layer.target,
+      null,
+      null,
+      null,
+      comfyTarget,
     );
     for (const j of result.jobs) submittedJobIds.push(j.variantId);
   }

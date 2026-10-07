@@ -403,6 +403,8 @@ export function defineComfyAsset<
       ...(config.allowedIn ? { allowedIn: config.allowedIn } : {}),
       ...(config.readsPrevPanel ? { readsPrevPanel: true } : {}),
       ...(config.turbo ? { turbo: config.turbo as Record<string, string | number | boolean> } : {}),
+      ...(config.models ? { models: config.models } : {}),
+      ...(config.nodes ? { nodes: config.nodes } : {}),
     },
     createDefinition(
       userInputs: ComfyCallOptions<TInputs, keyof TTurbo | TDerived>,

@@ -7943,6 +7943,8 @@ export interface AdapterMeta {
   spokenTextPattern?: RegExp;
   readsPrevPanel?: true;
   turbo?: Record<string, string | number | boolean>;
+  models?: readonly ComfyModelDeclaration[];
+  nodes?: readonly ComfyNodeDeclaration[];
 }
 export interface AssetAdapter<TInputs extends Record<string, unknown>, TOutput extends MediaKind> {
   type: TOutput;

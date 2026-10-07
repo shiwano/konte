@@ -4,7 +4,9 @@ import {
   runComfyModelDownloadJob,
   runComfyNodeInstallJob,
 } from "../../../backends/run-comfy-install-job.js";
+import { runComfyApiDeployJob } from "../../../backends/run-comfy-api-deploy-job.js";
 import { runComfyNodeActivateJob } from "../../../backends/run-comfy-node-activate-job.js";
+import { closeIdleDeployments } from "../../../comfy-api/deployment.js";
 import { runRunnableComfyNodeActivateJobs } from "../../../backends/run-comfy-node-activate-job.js";
 import { runExportJob, runRunnableExportJobs } from "../../../backends/run-export-job.js";
 import {
@@ -85,6 +87,7 @@ Examples:
           deadline,
         );
         live.stop();
+        await closeDeploymentsAfterWait(roots.workspace);
         const elapsedMs = Date.now() - startedAt;
         if (results.length === 0) {
           const prior = priorFailedCount > 0 ? `, ${priorFailedCount} failed before this wait` : "";
@@ -119,6 +122,10 @@ Examples:
             results.push(await waitForNodeActivateJob(jobManager, roots, id, deadline));
             continue;
           }
+          if (job.kind === "comfy-api-deploy") {
+            results.push(await waitForDeployJob(jobManager, roots, id, deadline));
+            continue;
+          }
           if (job.kind === "export") {
             results.push(await waitForExportJob(jobManager, videoRoot, id, deadline));
             continue;
@@ -147,6 +154,7 @@ Examples:
           results.push(await runWait(jobManager, id, roots, definitions, deadline, live));
         }
         live.stop();
+        await closeDeploymentsAfterWait(roots.workspace);
         const elapsedMs = Date.now() - startedAt;
         // Named ids get a line each: the caller asked about exactly these jobs.
         for (const r of results) {
@@ -159,6 +167,16 @@ Examples:
         if (results.some((r) => r.waitTimedOut || r.status === "failed")) process.exitCode = 1;
       }
     });
+}
+
+// The wait is one of the moments a deployment's idle time is judged. Printed before the outcome
+// line, which stays last.
+async function closeDeploymentsAfterWait(workspaceRoot: string): Promise<void> {
+  await closeIdleDeployments({
+    workspaceRoot,
+    afterWait: true,
+    log: (line) => console.log(line),
+  }).catch(() => []);
 }
 
 function reportedIds(results: WaitForJobResult[]): string[] {
@@ -395,6 +413,29 @@ function waitForNodeActivateJob(
       }),
     () => ({ address: "", outputFiles: [] }),
     `Pending: node install dependencies not ready. Run "konte job wait" with no ids to cascade.`,
+  );
+}
+
+function waitForDeployJob(
+  jobManager: JobManager,
+  roots: VideoRoots,
+  id: string,
+  deadline: Deadline,
+): Promise<WaitForJobResult> {
+  return waitForLocalRunJob(
+    jobManager,
+    id,
+    deadline,
+    () =>
+      runComfyApiDeployJob(jobManager, roots, id, {
+        onStarted: ({ deployment }) => {
+          process.stderr.write(`Bringing up Comfy API deployment ${deployment}...\n`);
+        },
+      }),
+    (job) => ({
+      address: job.kind === "comfy-api-deploy" ? `deployment ${job.deployment}` : "",
+      outputFiles: [],
+    }),
   );
 }
 
@@ -683,6 +724,9 @@ async function waitAllCascade(
     const activeNodeActivateJobs = allJobs.filter(
       (j) => j.kind === "comfy-node-activate" && (j.status === "pending" || j.status === "running"),
     );
+    const activeDeployJobs = allJobs.filter(
+      (j) => j.kind === "comfy-api-deploy" && (j.status === "pending" || j.status === "running"),
+    );
     // Only jobs with a committed backendJobId are waitable — there is a backend job to
     // observe. A "running" job WITHOUT one is still mid-submit (being submitted now, or
     // stranded by a crashed submitter); it goes to submittingJobs and is advanced by
@@ -715,6 +759,7 @@ async function waitAllCascade(
       activeModelJobs.length === 0 &&
       activeNodeInstallJobs.length === 0 &&
       activeNodeActivateJobs.length === 0 &&
+      activeDeployJobs.length === 0 &&
       runningJobs.length === 0 &&
       submittingJobs.length === 0 &&
       pendingJobs.length === 0 &&
@@ -743,6 +788,7 @@ async function waitAllCascade(
           activeModelJobs.length +
           activeNodeInstallJobs.length +
           activeNodeActivateJobs.length +
+          activeDeployJobs.length +
           songJobs.length,
         exporting: exportJobs.length,
       }),
@@ -762,6 +808,16 @@ async function waitAllCascade(
           onStarted: ({ label }) => live.log(`Installing custom node pack: ${label}`),
           onSettled: ({ label, status }) => live.log(`Custom node ${label}: ${status}`),
         }).catch(() => ({ id: nj.id, status: "failed" as const, ranInstall: false })),
+      ),
+    );
+    // A bring-up can take many minutes (a release build); only the jobs routed to it wait.
+    const deployTask = Promise.all(
+      activeDeployJobs.map((dj) =>
+        runComfyApiDeployJob(jobManager, roots, dj.id, {
+          onStarted: ({ deployment }) => live.log(`Bringing up Comfy API deployment ${deployment}`),
+          onLog: (line) => live.log(line),
+          onSettled: ({ status }) => live.log(`Comfy API deployment ${dj.id}: ${status}`),
+        }).catch(() => ({ id: dj.id, status: "failed" as const, ran: false })),
       ),
     );
     // At most WAIT_CONCURRENCY jobs are awaited at once; the rest queue for a slot. Each
@@ -797,16 +853,17 @@ async function waitAllCascade(
           )
         : Promise.resolve([] as WaitForJobResult[]);
 
-    const [modelResults, nodeInstallResults, waitResults] = await Promise.all([
+    const [modelResults, nodeInstallResults, deployResults, waitResults] = await Promise.all([
       modelTask,
       nodeInstallTask,
+      deployTask,
       waitTask,
     ]);
     // A submitPending result is not an outcome (the job has no backendJobId yet) — drop
     // it; the cascade reclaims/resubmits it and a later pass waits on the real job.
     allResults.push(...waitResults.filter((r) => !r.submitPending));
 
-    for (const r of [...modelResults, ...nodeInstallResults]) {
+    for (const r of [...modelResults, ...nodeInstallResults, ...deployResults]) {
       await recordStandalone(r.id, r.status);
     }
 
@@ -893,12 +950,14 @@ async function waitAllCascade(
 
     const ranAnyModel = modelResults.some((r) => r.ranInstall);
     const ranAnyNodeInstall = nodeInstallResults.some((r) => r.ranInstall);
+    const ranAnyDeploy = deployResults.some((r) => r.ran);
     if (
       submitted.length === 0 &&
       failed.length === 0 &&
       runningJobs.length === 0 &&
       !ranAnyModel &&
       !ranAnyNodeInstall &&
+      !ranAnyDeploy &&
       !ranAnyNodeActivate &&
       !ranAnyExport &&
       !ranAnySong
@@ -914,6 +973,7 @@ async function waitAllCascade(
         activeModelJobs.length > 0 ||
         activeNodeInstallJobs.length > 0 ||
         activeNodeActivateJobs.length > 0 ||
+        activeDeployJobs.length > 0 ||
         submittingJobs.length > 0 ||
         unsettledExports ||
         songResults.some((r) => r.status === "running")
@@ -981,6 +1041,7 @@ function stillRunningResult(job: JobRecord): WaitForJobResult {
 function standaloneLabel(job: JobRecord): string {
   if (job.kind === "comfy-model-download") return job.model.filename;
   if (job.kind === "comfy-node-install") return job.node.id;
+  if (job.kind === "comfy-api-deploy") return `deployment ${job.deployment}`;
   if (job.kind === "song-analysis") return job.address;
   return "";
 }

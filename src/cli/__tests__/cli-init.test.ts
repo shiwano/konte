@@ -24,7 +24,7 @@ describe("workspace new command", () => {
     const config = JSON.parse(
       await fs.readFile(path.join(workspace, "konte.config.json"), "utf-8"),
     );
-    expect(config.comfyui.url).toBe("http://127.0.0.1:8000");
+    expect(config.comfy.comfyui.url).toBe("http://127.0.0.1:8000");
     await expect(fs.access(path.join(workspace, "konte.state.json"))).rejects.toThrow();
 
     await run(["video", "new", "opening", "--template", "kitchen-sink"], workspace);

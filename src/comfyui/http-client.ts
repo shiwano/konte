@@ -29,7 +29,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 
 export type ComfyUIClientOptions = {
   clientId?: string;
-  // Unresolved header templates from `comfyui.headers` (`Bearer ${COMFYUI_TOKEN}`).
+  // Unresolved header templates from `comfy.comfyui.headers` (`Bearer ${COMFYUI_TOKEN}`).
   headers?: Readonly<Record<string, string>>;
 };
 
@@ -323,7 +323,7 @@ export class ComfyUIHttpClient {
     const names = Object.keys(this.headerTemplates);
     return names.length === 0
       ? `ComfyUI at ${this.baseUrl} rejected the request (${status}) and konte sent no credentials. ` +
-          `Set "comfyui.headers" in konte.config.json (or \`konte settings\`, Config tab).`
+          `Set "comfy.comfyui.headers" in konte.config.json (or \`konte settings\`, Config tab).`
       : `ComfyUI at ${this.baseUrl} rejected the credentials in ${names.join(", ")} (${status}).`;
   }
 }

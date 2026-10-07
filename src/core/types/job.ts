@@ -33,12 +33,15 @@ export const ProvenanceSchema = z.object({
 
 export type Provenance = z.infer<typeof ProvenanceSchema>;
 
-export const BackendKindSchema = z.enum(["comfy", "fal", "local"]);
+// `comfy-api` runs a comfy asset on Comfy Cloud or a Comfy API deployment; `comfy` on a ComfyUI
+// reached by URL.
+export const BackendKindSchema = z.enum(["comfy", "comfy-api", "fal", "local"]);
 export type BackendKind = z.infer<typeof BackendKindSchema>;
 
-// The backends a project chooses between — the ones that run someone else's model. `local` is
-// konte's own ffmpeg plumbing, so it is not one of them (see backend-policy).
-export const VendorBackendKindSchema = BackendKindSchema.exclude(["local"]);
+// The backends an asset kind names — the ones that run someone else's model. `local` is konte's
+// own ffmpeg plumbing, so it is not one of them (see backend-policy); `comfy-api` is where a comfy
+// asset is routed.
+export const VendorBackendKindSchema = BackendKindSchema.exclude(["local", "comfy-api"]);
 export type VendorBackendKind = z.infer<typeof VendorBackendKindSchema>;
 
 // The kind of a job. More kinds may be added over time; today there are:
@@ -53,6 +56,8 @@ export type VendorBackendKind = z.infer<typeof VendorBackendKindSchema>;
 //   comfy-node-install jobs and, under a server-wide reboot lease, reboots ComfyUI once (only
 //   when newly-installed packs are not yet loaded) so the new nodes register. comfy generation
 //   jobs depend on this so nothing generates before the nodes are live.
+// - "comfy-api-deploy": a standalone job that brings one Comfy API deployment up (Build →
+//   release → deployment → ready). The comfy-api generation jobs routed to it depend on it.
 // - "export": a standalone job (no asset/variant of its own) that renders the video
 //   to a delivered MP4. It is the leaf of the dependency graph — nothing
 //   depends on its output — so it needs no address; it consumes the resolved layer
@@ -65,6 +70,7 @@ export const JobKindSchema = z.enum([
   "comfy-model-download",
   "comfy-node-install",
   "comfy-node-activate",
+  "comfy-api-deploy",
   "export",
   "song-analysis",
 ]);
@@ -133,6 +139,8 @@ export const GenerationJobSchema = JobRecordBaseSchema.extend({
   address: z.string(),
   dependsOnAssets: z.array(z.string()).default([]),
   backendJobId: z.string().nullable(),
+  // Where a comfy asset was routed when the job was created; null for every other backend.
+  comfyTarget: z.string().nullable().default(null),
   submissionStartedAt: z.string().nullable().default(null),
   outputFiles: z.array(z.string()),
   provenance: ProvenanceSchema,
@@ -152,6 +160,12 @@ export const ComfyNodeActivateJobSchema = JobRecordBaseSchema.extend({
   kind: z.literal("comfy-node-activate"),
   // The cnr_ids whose loaded-state this job verifies (and reboots ComfyUI to load if needed).
   cnrIds: z.array(z.string()).default([]),
+});
+
+export const ComfyApiDeployJobSchema = JobRecordBaseSchema.extend({
+  kind: z.literal("comfy-api-deploy"),
+  // The `comfy.comfyapi.deployments` name.
+  deployment: z.string(),
 });
 
 export const ExportJobSchema = JobRecordBaseSchema.extend({
@@ -195,6 +209,7 @@ export const JobRecordSchema = z.discriminatedUnion("kind", [
   ComfyModelDownloadJobSchema,
   ComfyNodeInstallJobSchema,
   ComfyNodeActivateJobSchema,
+  ComfyApiDeployJobSchema,
   ExportJobSchema,
   SongAnalysisJobSchema,
 ]);
@@ -203,6 +218,7 @@ export type GenerationJob = z.infer<typeof GenerationJobSchema>;
 export type ComfyModelDownloadJob = z.infer<typeof ComfyModelDownloadJobSchema>;
 export type ComfyNodeInstallJob = z.infer<typeof ComfyNodeInstallJobSchema>;
 export type ComfyNodeActivateJob = z.infer<typeof ComfyNodeActivateJobSchema>;
+export type ComfyApiDeployJob = z.infer<typeof ComfyApiDeployJobSchema>;
 export type ExportJob = z.infer<typeof ExportJobSchema>;
 export type SongAnalysisJob = z.infer<typeof SongAnalysisJobSchema>;
 export type JobRecord = z.infer<typeof JobRecordSchema>;

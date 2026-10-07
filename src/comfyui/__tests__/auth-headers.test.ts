@@ -9,7 +9,7 @@ import { ComfyUIWsClient } from "../ws-client.js";
 
 describe("comfyui.headers schema", () => {
   const parse = (headers: Record<string, string>) =>
-    KonteConfigSchema.safeParse({ comfyui: { headers } });
+    KonteConfigSchema.safeParse({ comfy: { comfyui: { headers } } });
 
   it("takes a secret header whose value is a placeholder, with or without an auth scheme", () => {
     expect(parse({ Authorization: "${COMFYUI_TOKEN}" }).success).toBe(true);

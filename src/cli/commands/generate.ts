@@ -56,8 +56,8 @@ import {
   assetSkipReason,
   buildGeneratePlan,
   createPendingJobs,
-  ensureComfyModelJobs,
-  ensureComfyNodeJobs,
+  ensureComfyPrereqJobs,
+  formatComfyRouteNotice,
   formatAcceptedStaleNotice,
   formatComfyDownloadNotice,
   formatGeneratePlan,
@@ -116,7 +116,11 @@ export function registerGenerateCommand(program: Command): void {
       // The spend gate, before any job is created. Definition-level (it inspects the declared
       // stage, not just what this run would submit) so the failure is deterministic.
       const config = await loadKonteConfig(roots.workspace);
-      assertSpendAllowed(stageSpendItems(def, loaded.stage), config);
+      const spend = await assertSpendAllowed(
+        stageSpendItems(def, loaded.stage),
+        config,
+        roots.workspace,
+      );
 
       const variantCount = 1;
 
@@ -237,12 +241,22 @@ export function registerGenerateCommand(program: Command): void {
         for (const assetPath of allAssetPaths) {
           if (!stageAssetPaths.has(assetPath)) continue;
           const assetDef = assetEntryOf(assetPath);
-          if (assetDef.kind === "comfy") comfyEntries.push({ address: assetPath, def: assetDef });
+          if (assetDef.kind === "comfy" && spend.targetOf(assetDef) === "comfyui") {
+            comfyEntries.push({ address: assetPath, def: assetDef });
+          }
         }
       }
       const { missingModels, missingNodes, comfyDownloads } = await preflightComfyAssets(
         roots,
         comfyEntries,
+        config,
+      );
+
+      const routeNotice = formatComfyRouteNotice(
+        spending.flatMap((address) => {
+          const target = spend.targetOf(assetEntryOf(address));
+          return target ? [{ address, target }] : [];
+        }),
         config,
       );
 
@@ -256,6 +270,7 @@ export function registerGenerateCommand(program: Command): void {
           getAssetDef: assetEntryOf,
           missingModels: missingModels.ids,
           missingNodes: missingNodes.ids,
+          targetOf: (d) => spend.targetOf(d),
         });
         // The real run applies pending patches too, and each one spends. A plan that omitted them
         // would understate the cost of the command it is previewing.
@@ -284,11 +299,13 @@ export function registerGenerateCommand(program: Command): void {
         }
         const noticeText = formatComfyDownloadNotice(comfyDownloads);
         if (noticeText) console.log(`\n${noticeText}`);
+        if (routeNotice) console.log(`\n${routeNotice}`);
         return;
       }
 
       const noticeText = formatComfyDownloadNotice(comfyDownloads);
       if (noticeText) console.log(`\n${noticeText}`);
+      if (routeNotice) console.log(`\n${routeNotice}`);
 
       // Number the levels shown to the user sequentially. The graph spans both
       // stages, so the global level index is sparse per stage (an animatic-only
@@ -383,13 +400,17 @@ export function registerGenerateCommand(program: Command): void {
 
           const deps = graph.dependencies.get(assetPath) ?? [];
           for (const d of deps) generatedDepPaths.add(d);
-          // A comfy asset's models/nodes are installed by shared jobs the generation job
-          // depends on (models → comfy-model-download; nodes → comfy-node-install gated by a
-          // comfy-node-activate reboot), so anything with missing models/nodes is pending
-          // (submitted by the worker once those are ready), never eager.
-          const modelJobIds = await ensureComfyModelJobs(assetDef, jobManager, missingModels);
-          const nodeJobIds = await ensureComfyNodeJobs(assetDef, jobManager, missingNodes);
-          const prereqJobIds = [...modelJobIds, ...nodeJobIds];
+          // A comfy asset's prerequisites are shared jobs the generation job depends on — on a
+          // ComfyUI its models (comfy-model-download) and nodes (comfy-node-install gated by a
+          // comfy-node-activate reboot), on a deployment its bring-up (comfy-api-deploy) — so
+          // anything with one is pending (submitted by the worker once it is ready), never eager.
+          const prereqJobIds = await ensureComfyPrereqJobs(
+            assetDef,
+            spend.targetOf(assetDef),
+            jobManager,
+            missingModels,
+            missingNodes,
+          );
           for (const id of prereqJobIds) await addKnownJob(id);
 
           const slot = assetResults.push(null) - 1;
@@ -433,6 +454,7 @@ export function registerGenerateCommand(program: Command): void {
                 null,
                 null,
                 reservedIds,
+                spend.targetOf(w.assetDef),
               );
               assetResults[w.slot] = result;
               for (const j of result.jobs) jobbedVariantIds.add(j.variantId);
@@ -462,6 +484,7 @@ export function registerGenerateCommand(program: Command): void {
                 undefined,
                 null,
                 reservedIds,
+                spend.targetOf(w.assetDef),
               );
               if (result.status === "failed") {
                 failedAssetPaths.add(w.address);
@@ -528,10 +551,17 @@ export function registerGenerateCommand(program: Command): void {
       }
       for (const patch of pendingPatches) {
         try {
-          assertPatchSpendAllowed(patch, config);
+          const patchSpend = await assertPatchSpendAllowed(patch, config, roots.workspace);
           assertPromptGate(patch, `patches/${patch.sourceVariantId}.ts`);
           assertPinGate(patch, `patches/${patch.sourceVariantId}.ts`);
-          const result = await applyPatch(patch, roots, jobManager, backendCache, config);
+          const result = await applyPatch(
+            patch,
+            roots,
+            jobManager,
+            backendCache,
+            config,
+            patchSpend,
+          );
           for (const job of result.jobs) {
             patchApplications.push({
               source: patch.sourceVariantId,

@@ -27,7 +27,7 @@ function fakeRequest(): GenerationRequest {
 
 function fakeJobManager(logs: string[]): JobManager {
   return {
-    beginSubmission: async () => {},
+    beginSubmission: async (_id: string, _owner: string, attempt: unknown) => attempt,
     appendLog: (_id: string, line: string) => {
       logs.push(line);
     },

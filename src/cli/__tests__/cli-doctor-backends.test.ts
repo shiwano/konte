@@ -72,7 +72,9 @@ describe("doctor command (ComfyUI-Manager)", () => {
   async function setup(managerInstalled: boolean, autoInstallModels: boolean) {
     const projectDir = await initWithTestVideo();
     const mock = await startMockComfyUI(managerInstalled);
-    await writeWorkspaceConfig(projectDir, { comfyui: { url: mock.baseUrl, autoInstallModels } });
+    await writeWorkspaceConfig(projectDir, {
+      comfy: { comfyui: { url: mock.baseUrl, autoInstallModels } },
+    });
     return { projectDir, mock };
   }
 

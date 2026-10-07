@@ -786,7 +786,7 @@ function renderNodesScaffold(packs: string[]): string[] {
   lines.push(`  // ComfyUI-Manager registry ids). Uncomment the ones konte should auto-install`);
   lines.push(`  // via ComfyUI-Manager before running this workflow. Packs already present on the`);
   lines.push(`  // ComfyUI server are skipped; installing a missing one reboots ComfyUI once so`);
-  lines.push(`  // its nodes load (set comfyui.autoRebootAfterNodeInstall: false to do this`);
+  lines.push(`  // its nodes load (set comfy.comfyui.autoRebootAfterNodeInstall: false to do this`);
   lines.push(`  // manually). Leave commented-out to manage custom nodes yourself.`);
   lines.push(`  //`);
   lines.push(`  // - \`id\` is the registry (cnr) id. A pack outside the registry is not`);

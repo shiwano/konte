@@ -72,8 +72,8 @@ export function registerAdapterListCommand(program: Command): void {
         "its description and `adapter show`.\n" +
         "\nOnly the backends this workspace has configured are listed (plus file and local, which\n" +
         "need none) — an adapter generate would refuse is not a choice. A backend is configured by\n" +
-        "comfyui.url in konte.config.json, or by its credential (fal: FAL_KEY). --all lists the\n" +
-        "rest too.\n" +
+        "comfy.comfyui.url in konte.config.json or COMFY_API_KEY (comfy), or by its credential\n" +
+        "(fal: FAL_KEY). --all lists the rest too.\n" +
         "\nExamples:\n" +
         "  konte adapter list                    Every adapter the workspace allows\n" +
         "  konte adapter list --backend comfy    Only the workspace's ComfyUI adapters\n" +

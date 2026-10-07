@@ -26,8 +26,11 @@ import type {
   AssetDefinition,
   BackendKind,
   ComfyModelDeclaration,
+  ComfyTarget,
   KonteConfig,
 } from "../core/types/index.js";
+import { DEFAULT_IDLE_MINUTES } from "../comfy-api/deployment.js";
+import { deploymentNameOf } from "../comfy-api/routing.js";
 import { variantDir } from "../core/variant-dir.js";
 import { getBackendKind, resolveBackend } from "../backends/resolve-backend.js";
 import type { VideoRoots } from "../core/roots.js";
@@ -378,12 +381,12 @@ export async function preflightComfyAssets(
   const missingModels = await resolveMissingComfyModels(
     roots,
     [...declaredModels.values()],
-    config.comfyui?.autoInstallModels ?? true,
+    config.comfy?.comfyui?.autoInstallModels ?? true,
   );
   const missingNodes = await resolveMissingComfyNodes(
     roots,
     [...declaredNodeIds],
-    config.comfyui?.autoInstallNodes ?? true,
+    config.comfy?.comfyui?.autoInstallNodes ?? true,
   );
   return {
     missingModels,
@@ -413,6 +416,33 @@ export function formatComfyDownloadNotice(notice: ComfyDownloadNotice): string |
     lines.push(`install   ${n.id} (custom node)  — ${formatAddresses(n.addresses)}`);
   }
   return formatNotice("first-time setup before generation (skipped if already present):", lines);
+}
+
+/**
+ * Where this run's comfy assets go, and the deployments it brings up — the spend a reader cannot
+ * see from the definitions. Null when nothing is routed off a ComfyUI.
+ */
+export function formatComfyRouteNotice(
+  routed: ReadonlyArray<{ address: string; target: ComfyTarget }>,
+  config: KonteConfig,
+): string | null {
+  const off = routed.filter((r) => r.target !== "comfyui");
+  if (off.length === 0) return null;
+  const lines = routed.map((r) => `${r.address} → ${r.target}`);
+  const deployments = [...new Set(off.map((r) => deploymentNameOf(r.target)))].filter(
+    (name): name is string => name !== null,
+  );
+  for (const name of deployments) {
+    const d = config.comfy?.comfyapi?.deployments?.[name];
+    if (!d) continue;
+    const idle = d.idleMinutes ?? DEFAULT_IDLE_MINUTES;
+    lines.push(
+      `deployment ${name}: ${d.gpuClass} in ${d.region}, up to ${d.max ?? 1} worker(s) — brought ` +
+        `up before its jobs submit, ${d.close === "stop" ? "stopped" : "deleted"} ` +
+        (idle === 0 ? "when `konte job wait` ends" : `after ${idle}m without a job`),
+    );
+  }
+  return formatNotice("where this run's comfy assets go:", lines);
 }
 
 // A pre-flight warning that one or more upstreams carry an undecided take (e.g. from a reroll)
@@ -544,6 +574,36 @@ export async function ensureComfyNodeJobs(
   return [id];
 }
 
+/**
+ * The jobs a comfy asset waits on before it can submit, by where it was routed: model and node
+ * provisioning on a ComfyUI, the deployment's bring-up on a Comfy API deployment, nothing on Comfy
+ * Cloud. Empty for every other kind.
+ */
+export async function ensureComfyPrereqJobs(
+  assetDef: AssetDefinition,
+  target: ComfyTarget | null,
+  jobManager: JobManager,
+  missingModels: MissingComfyAssets,
+  missingNodes: MissingComfyNodeAssets,
+): Promise<string[]> {
+  if (assetDef.kind !== "comfy") return [];
+  if (target === null || target === "comfyui") {
+    return [
+      ...(await ensureComfyModelJobs(assetDef, jobManager, missingModels)),
+      ...(await ensureComfyNodeJobs(assetDef, jobManager, missingNodes)),
+    ];
+  }
+  const deployment = deploymentNameOf(target);
+  if (deployment === null) return [];
+  return [(await jobManager.ensureComfyApiDeployJob(deployment)).id];
+}
+
+// The backend a job runs on: a comfy asset routed off a ComfyUI runs on `comfy-api`.
+function jobBackendKind(assetDef: AssetDefinition, target: ComfyTarget | null): BackendKind | null {
+  if (assetDef.kind === "comfy" && target !== null && target !== "comfyui") return "comfy-api";
+  return getBackendKind(assetDef);
+}
+
 export async function createPendingJobs(
   address: string,
   assetDef: AssetDefinition,
@@ -561,8 +621,10 @@ export async function createPendingJobs(
   rivalVariantIds: ReadonlySet<string> | null = null,
   // Variants already reserved by a reserveVariantsBatch pass — skips the per-asset lock cycle.
   reservedVariantIds: readonly string[] | null = null,
+  // Where the spend gate routed a comfy asset (`SpendRoutes.targetOf`).
+  comfyTarget: ComfyTarget | null = null,
 ): Promise<AssetResult> {
-  const backendKind = getBackendKind(assetDef);
+  const backendKind = jobBackendKind(assetDef, comfyTarget);
   if (!backendKind) {
     return {
       address,
@@ -594,6 +656,7 @@ export async function createPendingJobs(
         variantId: vid,
         resolvedDeps: {},
         backendKind,
+        comfyTarget: assetDef.kind === "comfy" ? comfyTarget : null,
         dependsOnAssets: [...deps],
         dependsOnJobs: [...dependsOnJobs],
         metadata: {
@@ -628,9 +691,11 @@ export async function submitAssetJobs(
   rivalVariantIds: ReadonlySet<string> | null = null,
   // Variants already reserved by a reserveVariantsBatch pass — skips the per-asset lock cycle.
   reservedVariantIds: readonly string[] | null = null,
+  // Where the spend gate routed a comfy asset (`SpendRoutes.targetOf`).
+  comfyTarget: ComfyTarget | null = null,
 ): Promise<AssetResult> {
   const videoRoot = roots.video;
-  const backendKind = getBackendKind(assetDef);
+  const backendKind = jobBackendKind(assetDef, comfyTarget);
   if (!backendKind) {
     return {
       address,
@@ -667,6 +732,7 @@ export async function submitAssetJobs(
         variantId: vid,
         resolvedDeps: deps,
         backendKind,
+        comfyTarget: assetDef.kind === "comfy" ? comfyTarget : null,
         compositionCacheKeys,
         // A patch step's address has no stage entry, so the waiter cannot look its definition up
         // the usual way — it would find nothing and finalize by neither determinism nor output
@@ -771,6 +837,8 @@ export type PlanEntry = {
   /** The skip's code — `reason` is its prose form. */
   skipReason?: SkipReason;
   backendKind: BackendKind | null;
+  // Where a comfy asset runs; null for every other kind.
+  comfyTarget: ComfyTarget | null;
   variantCount: number;
   deps: string[];
 };
@@ -793,6 +861,7 @@ export function buildGeneratePlan(params: {
   getAssetDef: (assetPath: string) => AssetDefinition;
   missingModels?: ReadonlySet<string>;
   missingNodes?: ReadonlySet<string>;
+  targetOf?: (def: AssetDefinition) => ComfyTarget | null;
 }): GeneratePlan {
   const {
     levels,
@@ -803,6 +872,7 @@ export function buildGeneratePlan(params: {
     getAssetDef,
     missingModels = new Set<string>(),
     missingNodes = new Set<string>(),
+    targetOf = () => null,
   } = params;
 
   const planLevels: GeneratePlan["levels"] = [];
@@ -837,7 +907,8 @@ export function buildGeneratePlan(params: {
       // Address and asset path are the same string form.
       const address = assetPath;
       const deps = [...(graph.dependencies.get(assetPath) ?? [])];
-      const backendKind = getBackendKind(assetDef) ?? null;
+      const comfyTarget = targetOf(assetDef);
+      const backendKind = jobBackendKind(assetDef, comfyTarget);
 
       let action: PlanAction;
       let reason: string | undefined;
@@ -866,11 +937,13 @@ export function buildGeneratePlan(params: {
         } else if (
           deps.some(depBlocks) ||
           (assetDef.kind === "comfy" &&
+            (comfyTarget === null || comfyTarget === "comfyui") &&
             ((assetDef.models?.some((m) => missingModels.has(comfyModelJobId(m))) ?? false) ||
-              (assetDef.nodes?.some((n) => missingNodes.has(n.id)) ?? false)))
+              (assetDef.nodes?.some((n) => missingNodes.has(n.id)) ?? false))) ||
+          (comfyTarget !== null && deploymentNameOf(comfyTarget) !== null)
         ) {
-          // An upstream still to build, or comfy models/nodes still to install → the job is
-          // registered blocked and submits once those land.
+          // An upstream still to build, comfy models/nodes still to install, or a deployment to
+          // bring up → the job is registered blocked and submits once those land.
           action = "wait";
         } else {
           // Either no deps (submitted outright) or deps already generated, which the watcher
@@ -881,7 +954,16 @@ export function buildGeneratePlan(params: {
       }
 
       summary[action]++;
-      entries.push({ address, action, reason, skipReason, backendKind, variantCount, deps });
+      entries.push({
+        address,
+        action,
+        reason,
+        skipReason,
+        backendKind,
+        comfyTarget,
+        variantCount,
+        deps,
+      });
     }
     planLevels.push({ level: levelIdx, entries });
   }
@@ -894,7 +976,8 @@ function formatPlanEntry(e: PlanEntry): string {
   if (e.action === "skip") return `skip (${e.reason})`;
 
   const detail: string[] = [];
-  if (e.backendKind) detail.push(e.backendKind);
+  if (e.comfyTarget) detail.push(`comfy → ${e.comfyTarget}`);
+  else if (e.backendKind) detail.push(e.backendKind);
   let line = detail.length > 0 ? `${e.action} (${detail.join(", ")})` : e.action;
   if (e.deps.length > 0) line += ` [deps: ${e.deps.join(", ")}]`;
   return line;

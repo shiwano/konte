@@ -160,7 +160,13 @@ export default defineReference(direction, () => {
     // The fixture animatic declares comfy models; disable auto-install so `generate` doesn't probe
     // ComfyUI for them (this test only covers reference file-asset registration).
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await acceptDirection(projectDir);
     // The character gate runs before the sync, so the look's accept is seeded as a reviewer leaves it.
@@ -295,7 +301,13 @@ export default defineReference(direction, () => {
     const inited_gateproj = await initWorkspace(path.join(ctx.dir, "gateproj"));
     const projectDir = inited_gateproj.video;
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await acceptFileAssets(projectDir);
 
@@ -333,7 +345,13 @@ export default defineReference(direction, () => {
     const inited = await initWorkspace(path.join(ctx.dir, "unlockproj"));
     const projectDir = inited.video;
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await acceptDirection(projectDir);
     await acceptFileAssets(projectDir);
@@ -390,7 +408,13 @@ export default defineReference(direction, () => {
     const projectDir = inited.video;
     await fs.writeFile(path.join(projectDir, "reference.tsx"), REFERENCE_REVIEWABLE_TS);
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
 
     const sm = await StateManager.load(projectDir);
@@ -541,7 +565,13 @@ describe("animatic acceptance gate", () => {
   it("blocks a video spend until every board it consumes is accepted", async () => {
     const projectDir = await initWithCrossStageVideo();
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await fs.writeFile(path.join(projectDir, "direction.ts"), CROSS_STAGE_DIRECTION_TS);
     await acceptDirection(projectDir);
@@ -580,7 +610,13 @@ describe("animatic wiring gate", () => {
   it("refuses a video spend on a shot that consumes no board", async () => {
     const projectDir = await initWithCrossStageVideo();
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await fs.writeFile(path.join(projectDir, "direction.ts"), CROSS_STAGE_DIRECTION_TS);
     await fs.writeFile(path.join(projectDir, "video.tsx"), TEST_UNCONSUMED_ANIMATIC_VIDEO_TSX);
@@ -604,7 +640,13 @@ describe("animatic wiring gate", () => {
   it("refuses a reroll of a timeline asset the boardless shot draws", async () => {
     const projectDir = await initWithCrossStageVideo();
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await fs.writeFile(path.join(projectDir, "direction.ts"), CROSS_STAGE_DIRECTION_TS);
     await fs.writeFile(path.join(projectDir, "video.tsx"), TEST_TIMELINE_SPEND_VIDEO_TSX);
@@ -620,7 +662,13 @@ describe("animatic wiring gate", () => {
   it("refuses a patch whose step spends on a shot that draws no board", async () => {
     const projectDir = await initWithCrossStageVideo();
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await fs.writeFile(path.join(projectDir, "direction.ts"), CROSS_STAGE_DIRECTION_TS);
     await fs.writeFile(path.join(projectDir, "video.tsx"), TEST_LOCAL_PICTURE_VIDEO_TSX);
@@ -660,7 +708,13 @@ describe("animatic stem gate", () => {
   it("closes again when the mix goes stale under a re-picked take", async () => {
     const projectDir = await initWithCrossStageStemVideo();
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await fs.writeFile(path.join(projectDir, "direction.ts"), CROSS_STAGE_DIRECTION_TS);
     await acceptDirection(projectDir);
@@ -721,7 +775,13 @@ describe("animatic stem gate", () => {
   it("points an unmaterialized stem at its accept, not at a generate that has no job for it", async () => {
     const projectDir = await initWithCrossStageStemVideo();
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await fs.writeFile(path.join(projectDir, "direction.ts"), CROSS_STAGE_DIRECTION_TS);
     await acceptDirection(projectDir);
@@ -820,7 +880,13 @@ describe("reference acceptance gate", () => {
   it("blocks an animatic spend until every sheet it conditions on is accepted", async () => {
     const projectDir = await initWithCrossStageVideo();
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await fs.writeFile(path.join(projectDir, "direction.ts"), CROSS_STAGE_DIRECTION_TS);
     await fs.writeFile(path.join(projectDir, "reference.tsx"), SHEET_REFERENCE_TS);
@@ -876,7 +942,13 @@ describe("reference acceptance gate", () => {
   it("blocks a video spend on a sheet it consumes directly, past an accepted board", async () => {
     const projectDir = await initWithCrossStageVideo();
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await fs.writeFile(path.join(projectDir, "direction.ts"), CROSS_STAGE_DIRECTION_TS);
     await fs.writeFile(path.join(projectDir, "reference.tsx"), SHEET_REFERENCE_TS);
@@ -1118,7 +1190,13 @@ describe("animatic acceptance gate (multi-shot)", () => {
     const sourceId = await seedVariant(projectDir, "video:shot.01.motion", { accept: true });
 
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await fs.mkdir(path.join(projectDir, "patches"), { recursive: true });
     await fs.writeFile(
@@ -1152,7 +1230,13 @@ export default definePatch<"image">(({ source }) =>
   // pending path, so the definition is built and snapshotted without any ComfyUI round-trip.
   async function applyFormatPatch(projectDir: string, sourceId: string) {
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await fs.mkdir(path.join(projectDir, "patches"), { recursive: true });
     await fs.writeFile(
@@ -1344,7 +1428,13 @@ describe("prompt gate", () => {
     const projectDir = inited.video;
     await fs.writeFile(path.join(projectDir, "video.tsx"), video);
     await writeWorkspaceConfig(projectDir, {
-      comfyui: { url: "http://127.0.0.1:8188", autoInstallModels: false, autoInstallNodes: false },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
     });
     await acceptDirection(projectDir);
     await acceptFileAssets(projectDir);

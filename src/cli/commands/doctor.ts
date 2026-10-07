@@ -9,6 +9,7 @@ import {
   parseManagerMajorVersion,
 } from "../../comfyui/manager-client.js";
 import { resolveHeaderTokens } from "../../comfyui/token-resolver.js";
+import { assertComfyAdapterKeys } from "../../comfy-api/routing.js";
 import type { ComfyUISystemStats } from "../../comfyui/types.js";
 import {
   getAssetEntry,
@@ -559,7 +560,7 @@ async function checkComfyUIManager(config: ComfyUIConfig): Promise<CheckResult> 
       ? {
           name: "ComfyUI-Manager",
           status: "FAIL",
-          message: `not detected at ${baseUrl} (required by comfyui.autoInstallModels)`,
+          message: `not detected at ${baseUrl} (required by comfy.comfyui.autoInstallModels)`,
         }
       : { name: "ComfyUI-Manager", status: "WARN", message: `not detected at ${baseUrl}` };
   }
@@ -1198,6 +1199,11 @@ async function checkConfiguredBackends(
   const name = "configured backends";
   const config = await loadKonteConfig(workspaceRoot);
   const configured = configuredVendorBackends(config);
+  try {
+    assertComfyAdapterKeys(workspaceRoot, config);
+  } catch (err) {
+    return { name, status: "FAIL", message: errorMessage(err) };
+  }
 
   const unconfigured = defs
     ? [

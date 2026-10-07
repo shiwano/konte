@@ -31,7 +31,8 @@ export function parameterizeWorkflow(
   workflow: ComfyUIWorkflow,
   inputs: Record<string, unknown>,
   seed: number,
-  resolvedDependencies?: Record<string, string>,
+  // A file name for a ComfyUI, a `core/ASSET` reference for the Comfy API.
+  resolvedDependencies?: Readonly<Record<string, unknown>>,
   prunedNodes?: readonly string[],
   prunedPassThroughs?: Readonly<Record<string, string>>,
 ): ComfyUIWorkflow {
@@ -130,7 +131,7 @@ function pruneNodes(
 
 function substituteInValue(
   value: unknown,
-  resolvedDependencies: Record<string, string>,
+  resolvedDependencies: Readonly<Record<string, unknown>>,
   seed: number,
 ): unknown {
   if (typeof value === "string") {

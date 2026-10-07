@@ -241,7 +241,9 @@ export default definePatch<"image">(({ source }) =>
       const projectDir = await initPatchProject();
       // The backend gate is checked first, and this patch reaches for a comfy adapter — without a
       // ComfyUI URL the apply would abort on that instead, testing the wrong gate.
-      await writeWorkspaceConfig(projectDir, { comfyui: { url: "http://127.0.0.1:8188" } });
+      await writeWorkspaceConfig(projectDir, {
+        comfy: { comfyui: { url: "http://127.0.0.1:8188" } },
+      });
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId, negatedPatch);
 

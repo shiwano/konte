@@ -1,4 +1,8 @@
-import type { AssetDefinition } from "../types/index.js";
+import type {
+  AssetDefinition,
+  ComfyModelDeclaration,
+  ComfyNodeDeclaration,
+} from "../types/index.js";
 import { KonteError } from "../errors.js";
 import type { MediaKind, MediaAsset } from "./builders.js";
 import { makeMediaAsset } from "./builders.js";
@@ -112,6 +116,9 @@ export interface AdapterMeta {
   // setting. A later take goes back to the defaults. The inputs it names are not in
   // `inputs`: konte sets them, never a stage file.
   turbo?: Record<string, string | number | boolean>;
+  // A comfy adapter's declarations whatever branch a call prunes — what a Comfy API Build installs.
+  models?: readonly ComfyModelDeclaration[];
+  nodes?: readonly ComfyNodeDeclaration[];
 }
 
 export interface AssetAdapter<TInputs extends Record<string, unknown>, TOutput extends MediaKind> {

@@ -20,6 +20,7 @@ function makeJobRecord(overrides: Partial<GenerationJob> = {}): GenerationJob {
     status: "queued",
     backendKind: "comfy",
     backendJobId: null,
+    comfyTarget: null,
     submissionStartedAt: null,
     progress: null,
     error: null,

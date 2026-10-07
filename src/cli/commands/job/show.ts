@@ -53,6 +53,7 @@ function printJob(
   console.log(`Backend: ${job.backendKind}`);
   const adapterKey = adapterKeyOf(job);
   if (adapterKey) console.log(`Adapter: ${adapterKey}`);
+  if (job.kind === "generation" && job.comfyTarget) console.log(`Comfy target: ${job.comfyTarget}`);
   if (job.kind === "generation" && job.backendJobId) {
     console.log(`Backend job: ${job.backendJobId}`);
   }

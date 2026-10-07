@@ -23,6 +23,7 @@ function generationJob(patch: Partial<GenerationJob> = {}): GenerationJob {
     status: "running",
     backendKind: "comfy",
     backendJobId: "prompt-1",
+    comfyTarget: null,
     submissionStartedAt: null,
     dependsOnJobs: [],
     dependsOnAssets: [],
@@ -270,6 +271,7 @@ describe("jobStatusFlags", () => {
   it("judges a submit lease against the caller's clock, not the real one", () => {
     const live = generationJob({
       backendJobId: null,
+      comfyTarget: null,
       lease: { owner: "w-submitting", expiresAt: iso(-30_000) },
     });
     expect(jobStatusFlags({ job: live, now: NOW })).toEqual([]);

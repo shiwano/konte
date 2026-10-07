@@ -15,7 +15,7 @@ import { applyCredentialsPatch, credentialEntries, saveCredentialsPatch } from "
 let ws: Workspace;
 
 beforeEach(async () => {
-  ws = await makeWorkspace({ config: { comfyui: { url: "http://comfy:8188" } } });
+  ws = await makeWorkspace({ config: { comfy: { comfyui: { url: "http://comfy:8188" } } } });
 });
 
 afterEach(async () => {
@@ -31,21 +31,23 @@ function entry(list: CredentialEntry[], key: string): CredentialEntry {
 describe("config", () => {
   it("round-trips what the Config tab saves", async () => {
     await saveKonteConfig(ws.root, {
-      comfyui: { url: "http://comfy:9000" },
+      comfy: { comfyui: { url: "http://comfy:9000" } },
       preview: { host: "127.0.0.1" },
     });
 
     await expect(loadKonteConfig(ws.root)).resolves.toEqual({
-      comfyui: { url: "http://comfy:9000" },
+      comfy: { comfyui: { url: "http://comfy:9000" } },
       preview: { host: "127.0.0.1" },
     });
   });
 
   it("refuses a config the schema rejects, leaving the file as it was", async () => {
-    await expect(saveKonteConfig(ws.root, { comfyui: { url: 42 } } as never)).rejects.toThrow();
+    await expect(
+      saveKonteConfig(ws.root, { comfy: { comfyui: { url: 42 } } } as never),
+    ).rejects.toThrow();
 
     await expect(loadKonteConfig(ws.root)).resolves.toMatchObject({
-      comfyui: { url: "http://comfy:8188" },
+      comfy: { comfyui: { url: "http://comfy:8188" } },
     });
   });
 });

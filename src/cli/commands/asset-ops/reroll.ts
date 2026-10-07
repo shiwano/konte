@@ -49,9 +49,9 @@ import { parsePositiveInt } from "../../parse-option.js";
 import {
   type AssetResult,
   createPendingJobs,
-  ensureComfyModelJobs,
-  ensureComfyNodeJobs,
+  ensureComfyPrereqJobs,
   formatComfyDownloadNotice,
+  formatComfyRouteNotice,
   formatUndecidedUpstreamTakesNotice,
   preflightComfyAssets,
   submitAssetJobs,
@@ -538,18 +538,27 @@ Examples:
 
         const config = await loadKonteConfig(roots.workspace);
         // The spend gate, before a variant id is reserved or a job written.
-        assertSpendAllowed(
-          workItems.map((w) => ({ label: w.address, kind: w.def.kind })),
+        const spend = await assertSpendAllowed(
+          workItems.map((w) => ({ label: w.address, def: w.def })),
           config,
+          roots.workspace,
         );
         // Resolve which declared comfy models/nodes are missing once across the whole work list,
         // then gate each comfy asset's job on its own subset — exactly as generate does. Missing
         // ones make that asset pending until they install.
         const { missingModels, missingNodes, comfyDownloads } = await preflightComfyAssets(
           roots,
-          workItems.filter((w) => w.def.kind === "comfy"),
+          workItems.filter((w) => w.def.kind === "comfy" && spend.targetOf(w.def) === "comfyui"),
           config,
         );
+        const routeNotice = formatComfyRouteNotice(
+          workItems.flatMap((w) => {
+            const target = spend.targetOf(w.def);
+            return target ? [{ address: w.address, target }] : [];
+          }),
+          config,
+        );
+        if (routeNotice) console.log(routeNotice);
 
         const backendCache = new Map<BackendKind, GenerationBackend>();
 
@@ -576,9 +585,13 @@ Examples:
             continue;
           }
 
-          const modelJobIds = await ensureComfyModelJobs(w.def, jobManager, missingModels);
-          const nodeJobIds = await ensureComfyNodeJobs(w.def, jobManager, missingNodes);
-          const prereqJobIds = [...modelJobIds, ...nodeJobIds];
+          const prereqJobIds = await ensureComfyPrereqJobs(
+            w.def,
+            spend.targetOf(w.def),
+            jobManager,
+            missingModels,
+            missingNodes,
+          );
 
           // Upstreams within this run: wait on their new jobs and pin to their new variants so
           // this item builds on the fresh upstream, not an older accepted one.
@@ -603,6 +616,10 @@ Examples:
               jobManager,
               [...prereqJobIds, ...upstreamJobIds],
               pinnedDeps,
+              null,
+              null,
+              null,
+              spend.targetOf(w.def),
             );
           } else {
             const resolvedDeps = resolveRefs(w.deps, manager, {});
@@ -614,6 +631,12 @@ Examples:
               jobManager,
               backendCache,
               resolvedDeps,
+              undefined,
+              undefined,
+              null,
+              null,
+              null,
+              spend.targetOf(w.def),
             );
           }
 

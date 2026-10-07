@@ -1,6 +1,11 @@
 export type { GenerationBackend, GenerationRequest, GenerationResult } from "../backend.js";
 export { type HandoffNote, HandoffNoteSchema, type Handoff, HandoffSchema } from "./handoff.js";
-export { type KonteConfig, KonteConfigSchema } from "./config.js";
+export {
+  type ComfyApiDeploymentConfig,
+  type ComfyTarget,
+  type KonteConfig,
+  KonteConfigSchema,
+} from "./config.js";
 export {
   clampUnit,
   type FeedbackAnnotation,
@@ -59,6 +64,8 @@ export {
   ComfyModelDownloadJobSchema,
   type ComfyNodeActivateJob,
   ComfyNodeActivateJobSchema,
+  type ComfyApiDeployJob,
+  ComfyApiDeployJobSchema,
   type ComfyNodeInstallJob,
   ComfyNodeInstallJobSchema,
   type ExportJob,

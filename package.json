@@ -34,6 +34,7 @@
   "dependencies": {
     "@hyperframes/producer": "^0.8",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@noble/hashes": "^2.4.0",
     "@puppeteer/browsers": "^3.1.0",
     "commander": "^13",
     "onnxruntime-web": "1.30.0",

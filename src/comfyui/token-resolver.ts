@@ -42,7 +42,7 @@ export function resolveHeaderTokens(
   const out: Record<string, string> = {};
   for (const [name, template] of Object.entries(headers)) {
     const { resolved, missing } = substitute(template, env);
-    if (missing.length > 0) throw missingTokenError(missing, `comfyui.headers."${name}"`);
+    if (missing.length > 0) throw missingTokenError(missing, `comfy.comfyui.headers."${name}"`);
     out[name] = resolved;
   }
   return out;

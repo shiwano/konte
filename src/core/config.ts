@@ -6,7 +6,7 @@ import type { KonteConfig } from "./types/config.js";
 import { KonteConfigSchema } from "./types/config.js";
 
 const DEFAULT_CONFIG: KonteConfig = {
-  comfyui: {},
+  comfy: {},
 };
 
 const CONFIG_FILE = "konte.config.json";

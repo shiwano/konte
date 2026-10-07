@@ -79,22 +79,79 @@ export function allowedHostIssue(pattern: string): string | null {
   return null;
 }
 
+const COMFY_TARGET_RE = /^(?:comfyui|comfycloud|comfyapi:[A-Za-z0-9_-]+)$/;
+// A deployment name becomes part of a Build name and a job id.
+const DEPLOYMENT_NAME_RE = /^[A-Za-z0-9_-]+$/;
+
+/** Where a comfy adapter runs: `comfyui`, `comfycloud`, or `comfyapi:<deployment>`. */
+export const ComfyTargetSchema = z
+  .string()
+  .regex(COMFY_TARGET_RE, "must be comfyui, comfycloud or comfyapi:<deployment>");
+export type ComfyTarget = "comfyui" | "comfycloud" | `comfyapi:${string}`;
+
+export const ComfyApiDeploymentConfigSchema = z
+  .object({
+    gpuClass: z.string().min(1),
+    region: z.string().min(1),
+    max: z.number().int().min(1).max(20).optional(),
+    // A ComfyUI git ref for the Build's `baseComfyVersion`; the latest release tag when absent.
+    comfyVersion: z.string().min(1).optional(),
+    // Minutes without a job before the deployment is closed. 0 closes it when `job wait` ends.
+    idleMinutes: z.number().int().nonnegative().optional(),
+    close: z.enum(["delete", "stop"]).optional(),
+  })
+  .strict();
+export type ComfyApiDeploymentConfig = z.infer<typeof ComfyApiDeploymentConfigSchema>;
+
+const ComfyConfigSchema = z
+  .object({
+    // Per adapter (its workflow file name without `.json`), the targets to try in order. `*` is the
+    // default; an adapter's own key replaces it whole.
+    adapters: z.record(z.string(), z.array(ComfyTargetSchema).min(1)).optional(),
+    comfyui: z
+      .object({
+        url: z.string().optional(),
+        // Sent on every request to this server — a bearer token, a Basic credential, a Cloudflare
+        // Access pair.
+        headers: ComfyUIHeadersSchema.optional(),
+        autoInstallModels: z.boolean().optional(),
+        autoInstallNodes: z.boolean().optional(),
+        autoRebootAfterNodeInstall: z.boolean().optional(),
+        // How many minutes a generation job keeps polling a ComfyUI it cannot reach at all before
+        // it is failed. 0 waits forever (the cloud backends' contract) — right for a remote ComfyUI
+        // whose outages are network-side, wrong for a local one, whose prompts die with the process.
+        unreachableTimeoutMinutes: z.number().int().nonnegative().optional(),
+      })
+      .optional(),
+    comfycloud: z.object({}).strict().optional(),
+    comfyapi: z
+      .object({
+        deployments: z
+          .record(z.string().regex(DEPLOYMENT_NAME_RE), ComfyApiDeploymentConfigSchema)
+          .optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .superRefine((comfy, ctx) => {
+    const declared = new Set(Object.keys(comfy.comfyapi?.deployments ?? {}));
+    for (const [adapter, targets] of Object.entries(comfy.adapters ?? {})) {
+      for (const target of targets) {
+        if (!target.startsWith("comfyapi:")) continue;
+        const name = target.slice("comfyapi:".length);
+        if (declared.has(name)) continue;
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["adapters", adapter],
+          message: `"${target}" names no deployment under comfy.comfyapi.deployments`,
+        });
+      }
+    }
+  });
+export type ComfyConfig = z.infer<typeof ComfyConfigSchema>;
+
 export const KonteConfigSchema = z.object({
-  comfyui: z
-    .object({
-      url: z.string().optional(),
-      // Sent on every request to this server — a bearer token, a Basic credential, a Cloudflare
-      // Access pair.
-      headers: ComfyUIHeadersSchema.optional(),
-      autoInstallModels: z.boolean().optional(),
-      autoInstallNodes: z.boolean().optional(),
-      autoRebootAfterNodeInstall: z.boolean().optional(),
-      // How many minutes a generation job keeps polling a ComfyUI it cannot reach at all before it
-      // is failed. 0 waits forever (the cloud backends' contract) — right for a remote ComfyUI
-      // whose outages are network-side, wrong for a local one, whose prompts die with the process.
-      unreachableTimeoutMinutes: z.number().int().nonnegative().optional(),
-    })
-    .optional(),
+  comfy: ComfyConfigSchema.optional(),
   local: z
     .object({
       ffmpegPath: z.string().optional(),

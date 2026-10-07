@@ -243,16 +243,20 @@ export function describePendingJob(
 
   let pendingModels = 0;
   let pendingNodes = 0;
+  const deployments: string[] = [];
   for (const depJobId of job.dependsOnJobs) {
     const depJob = jobs.get(depJobId);
     if (depJob?.status === "completed") continue;
     if (depJob?.kind === "comfy-model-download") pendingModels++;
     else if (depJob?.kind === "comfy-node-activate" || depJob?.kind === "comfy-node-install")
       pendingNodes++;
+    else if (depJob?.kind === "comfy-api-deploy")
+      deployments.push(`deployment ${depJob.deployment}`);
     else waitingOn.push(depJobId);
   }
   if (pendingModels > 0) waitingOn.push(`${pendingModels} model${pendingModels === 1 ? "" : "s"}`);
   if (pendingNodes > 0) waitingOn.push("custom nodes");
+  waitingOn.push(...deployments);
 
   if (waitingOn.length === 0) return { submittable: true };
   return { submittable: false, waitingOn };
@@ -289,7 +293,9 @@ function evaluateJob(job: GenerationJob, manager: StateManager, jobs: JobIndex):
             ? `node install "${depJob.node.id}"`
             : depJob.kind === "comfy-node-activate"
               ? `custom node activation`
-              : `job ${depJobId}`;
+              : depJob.kind === "comfy-api-deploy"
+                ? `Comfy API deployment ${depJob.deployment}`
+                : `job ${depJobId}`;
       const detail = depJob.error ? `: ${depJob.error.replace(/\.$/, "")}` : "";
       return {
         action: "fail",
@@ -415,7 +421,12 @@ async function trySubmitJob(
       resolvedDependencies: resolvedDeps,
     };
 
-    const { backendJobId, metadata } = await submitToBackend(jobManager, backend, job, request);
+    const { backendJobId, metadata, resolvedDependencies } = await submitToBackend(
+      jobManager,
+      backend,
+      job,
+      request,
+    );
 
     // Commit the backendJobId and release the submit lease, handing off to the wait/run
     // phase — but only if we still own the lease. If a slow submit outran the lease and a
@@ -428,7 +439,7 @@ async function trySubmitJob(
       metadata,
       provenance: {
         ...job.provenance,
-        resolvedDependencies: resolvedDeps,
+        resolvedDependencies,
       },
     });
     if (!committed) {

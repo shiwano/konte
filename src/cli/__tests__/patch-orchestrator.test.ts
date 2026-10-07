@@ -1,3 +1,4 @@
+import { SpendRoutes } from "../../core/backend-policy.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { GenerationBackend, WaitForCompletionResult } from "../../core/backend.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
@@ -12,7 +13,8 @@ import type { AssetDefinition, BackendKind, KonteConfig } from "../../core/types
 import { applyPatch } from "../patch-orchestrator.js";
 
 const SOURCE_ADDRESS = "animatic:shot.01.first";
-const CONFIG = { comfyui: { url: "http://127.0.0.1:8188" } } as KonteConfig;
+const CONFIG = { comfy: { comfyui: { url: "http://127.0.0.1:8188" } } } as KonteConfig;
+const NO_ROUTES = new SpendRoutes(new Map(), []);
 
 class FakeBackend implements GenerationBackend {
   async submit(): Promise<string> {
@@ -116,7 +118,7 @@ describe("applyPatch in-flight steps", () => {
     const patch = chain("hash-a", "one");
     const running = await inFlightStep(patch, "patched", originOf(patch));
 
-    const result = await applyPatch(patch, roots, jobManager, backendCache, CONFIG);
+    const result = await applyPatch(patch, roots, jobManager, backendCache, CONFIG, NO_ROUTES);
 
     expect(result.jobs).toEqual([{ variantId: running, status: "running" }]);
     expect(await jobManager.listJobs()).toHaveLength(1);
@@ -134,6 +136,7 @@ describe("applyPatch in-flight steps", () => {
       jobManager,
       backendCache,
       CONFIG,
+      NO_ROUTES,
     );
 
     const launched = result.jobs[0]!.variantId;
@@ -154,7 +157,7 @@ describe("applyPatch in-flight steps", () => {
       patchHash: "hash-old",
     });
 
-    const result = await applyPatch(patch, roots, jobManager, backendCache, CONFIG);
+    const result = await applyPatch(patch, roots, jobManager, backendCache, CONFIG, NO_ROUTES);
 
     const launched = result.jobs[0]!.variantId;
     expect(launched).not.toBe(running);

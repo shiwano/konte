@@ -47,12 +47,13 @@ const THUMBNAILS_DIR = "thumbnails";
 const AUDIO_DIR = "audio";
 const MOTION_DIR = "motion";
 
-// The three job kinds that provision the ComfyUI server rather than produce a variant.
+// The job kinds that provision a comfy backend rather than produce a variant.
 function isProvisioningJob(job: JobRecord): boolean {
   return (
     job.kind === "comfy-model-download" ||
     job.kind === "comfy-node-install" ||
-    job.kind === "comfy-node-activate"
+    job.kind === "comfy-node-activate" ||
+    job.kind === "comfy-api-deploy"
   );
 }
 
@@ -64,6 +65,7 @@ function provisioningLabel(job: JobRecord): string {
   if (job.kind === "comfy-node-activate") {
     return `node activation${job.cnrIds.length > 0 ? ` [${job.cnrIds.join(", ")}]` : ""}`;
   }
+  if (job.kind === "comfy-api-deploy") return `deployment ${job.deployment}`;
   return job.id;
 }
 

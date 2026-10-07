@@ -1,6 +1,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { ComfyApiBackend } from "../comfy-api/backend.js";
 import { ComfyUIBackend } from "../comfyui/backend.js";
 import { resolveComfyUIConfig } from "../comfyui/config.js";
 import {
@@ -232,7 +233,7 @@ async function runAsOwner(
       // below would find nothing. Everything it needs was snapshotted at submit time (see
       // patchFinalizeOf), including whether this step is the one the patched take comes from.
       patchOutput = patchFinalize.output ?? null;
-      if (backend instanceof ComfyUIBackend) {
+      if (backend instanceof ComfyUIBackend || backend instanceof ComfyApiBackend) {
         backend.setOutputNodeId(backendJobId, patchFinalize.outputNodeId);
       }
     } else if (!isDelivery) {
@@ -243,7 +244,10 @@ async function runAsOwner(
       owesLine =
         job.address !== songOfDefinitions(definitions) &&
         spokenLinesAt(def.prompts ?? [], job.address).length > 0;
-      if (backend instanceof ComfyUIBackend && assetDef.kind === "comfy") {
+      if (
+        (backend instanceof ComfyUIBackend || backend instanceof ComfyApiBackend) &&
+        assetDef.kind === "comfy"
+      ) {
         backend.setOutputNodeId(backendJobId, assetDef.outputNodeId);
       }
     }
@@ -265,7 +269,9 @@ async function runAsOwner(
   // basis and they never call onExecutionStarted. The write is set-once in JobManager (a
   // reclaimer can't overwrite an earlier true start); the local flag just avoids re-issuing it,
   // and stampWrite is awaited before the terminal commit so stats never race a still-null stamp.
-  const stampsProcessingStart = backendKind === "comfy";
+  // A deployment runs its jobs one after another too, so comfy-api stamps it from the job's
+  // `started_at`.
+  const stampsProcessingStart = backendKind === "comfy" || backendKind === "comfy-api";
   let processingStamped = job.processingStartedAt != null;
   let stampWrite: Promise<unknown> = Promise.resolve();
   const stampProcessingStart = (): void => {

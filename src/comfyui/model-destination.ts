@@ -99,6 +99,22 @@ export function resolveModelDir(
   };
 }
 
+/**
+ * The model's place under ComfyUI's `models/` directory, as `[folder, ...subdirs, filename]` —
+ * what a Comfy API Build and Comfy Cloud's model index name it by.
+ */
+export function modelPathSegments(decl: ComfyModelDeclaration): string[] {
+  const savePath = decl.savePath;
+  const segments =
+    savePath === undefined || savePath === "" || savePath === "default"
+      ? [MODEL_DIR_NAME_MAP[decl.type]]
+      : savePath
+          .replaceAll("\\", "/")
+          .split("/")
+          .filter((s) => s.length > 0 && s !== ".");
+  return [...segments, decl.filename];
+}
+
 // Extend a ComfyUI-reported path in the separator style it already uses.
 export function joinReported(dir: string, segments: readonly string[]): string {
   const sep = dir.includes("\\") ? "\\" : "/";

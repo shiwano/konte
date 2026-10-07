@@ -18,6 +18,7 @@ function genJob(overrides: Partial<GenerationJob> & { variantId: string }): Gene
     lease: null,
     backendKind: "comfy",
     backendJobId: null,
+    comfyTarget: null,
     submissionStartedAt: null,
     progress: null,
     error: null,

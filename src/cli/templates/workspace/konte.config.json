@@ -1,9 +1,26 @@
 {
-  "comfyui": {
-    "url": "http://127.0.0.1:8000",
-    "autoInstallModels": true,
-    "autoInstallNodes": true,
-    "autoRebootAfterNodeInstall": true,
-    "unreachableTimeoutMinutes": 15
+  "comfy": {
+    "adapters": {
+      "*": [
+        "comfyui",
+        "comfycloud",
+        "comfyapi:main"
+      ]
+    },
+    "comfyui": {
+      "url": "http://127.0.0.1:8000",
+      "autoInstallModels": true,
+      "autoInstallNodes": true,
+      "autoRebootAfterNodeInstall": true,
+      "unreachableTimeoutMinutes": 15
+    },
+    "comfyapi": {
+      "deployments": {
+        "main": {
+          "gpuClass": "rtx-pro-6000-server",
+          "region": "US-NE-1"
+        }
+      }
+    }
   }
 }

@@ -165,7 +165,10 @@ export function diagnoseJob(input: DiagnoseJobInput): string[] {
   if (isStrandedSubmit(job, now)) {
     out.push(
       "Claimed running but never recorded a backend job id, and its submit lease has lapsed — " +
-        (job.kind === "generation" && job.submissionStartedAt && job.backendKind !== "local"
+        (job.kind === "generation" &&
+        job.submissionStartedAt &&
+        job.backendKind !== "local" &&
+        job.backendKind !== "comfy-api"
           ? "Submission may have reached the backend. Automatic resubmission is refused; check the backend before rerolling."
           : "The next worker can retry submission."),
     );

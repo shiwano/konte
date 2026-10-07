@@ -8,6 +8,7 @@ import { hashToShortId, shortId } from "./short-id.js";
 import { stableStringify } from "./stable-stringify.js";
 import {
   type BackendKind,
+  type ComfyApiDeployJob,
   type ComfyModelDeclaration,
   type ComfyModelDownloadJob,
   type ComfyNodeActivateJob,
@@ -28,6 +29,7 @@ type JobUpdate = Partial<Omit<GenerationJob, "id" | "variantId">> &
   Partial<Omit<ComfyModelDownloadJob, "id">> &
   Partial<Omit<ComfyNodeInstallJob, "id">> &
   Partial<Omit<ComfyNodeActivateJob, "id">> &
+  Partial<Omit<ComfyApiDeployJob, "id">> &
   Partial<Omit<ExportJob, "id">>;
 
 const KONTE_DIR = ".konte";
@@ -71,6 +73,26 @@ export function comfyNodeActivateJobId(
 ): string {
   const key = JSON.stringify([[...cnrIds].sort(), [...dependsOnJobs].sort()]);
   return `cna-${hashToShortId(key)}`;
+}
+
+// Deterministic id for a deployment's bring-up job, so every asset routed to it in a video
+// converges on one.
+export function comfyApiDeployJobId(deployment: string): string {
+  return `cad-${hashToShortId(JSON.stringify([deployment]))}`;
+}
+
+// Where `beginSubmission` keeps what a submission whose backend id is not recorded yet was sent.
+const SUBMISSION_ATTEMPT_KEY = "submissionAttempt";
+
+/** What one submission sends that is drawn at submit time: its seed and its inputs' files. */
+export type SubmissionAttempt = { seed: number; resolvedDependencies: Record<string, string> };
+
+function recordedAttempt(value: unknown): SubmissionAttempt | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { seed, resolvedDependencies } = value as Record<string, unknown>;
+  if (typeof seed !== "number" || typeof resolvedDependencies !== "object") return null;
+  if (resolvedDependencies === null) return null;
+  return { seed, resolvedDependencies: resolvedDependencies as Record<string, string> };
 }
 
 export function isJobTerminal(status: JobRecord["status"]): boolean {
@@ -236,6 +258,7 @@ export class JobManager {
     variantId: string;
     resolvedDeps: Record<string, string>;
     backendKind: BackendKind;
+    comfyTarget?: string | null;
     dependsOnAssets?: string[];
     dependsOnJobs?: string[];
     metadata?: Record<string, unknown>;
@@ -262,6 +285,7 @@ export class JobManager {
       staleReleases: 0,
       backendKind: opts.backendKind,
       backendJobId: null,
+      comfyTarget: opts.comfyTarget ?? null,
       submissionStartedAt: null,
       progress: null,
       error: null,
@@ -591,6 +615,52 @@ export class JobManager {
     });
   }
 
+  /**
+   * Ensure the bring-up job for a Comfy API deployment exists, returning its id. An active one is
+   * reused; a terminal one — completed included — goes back to "pending", because the deployment
+   * it brought up may have been closed since, and the job is what checks.
+   */
+  async ensureComfyApiDeployJob(
+    deployment: string,
+  ): Promise<{ id: string; created: boolean; reset: boolean }> {
+    await this.ensureDirs();
+    const id = comfyApiDeployJobId(deployment);
+    return this.transaction(() => {
+      const existing = this.read(id);
+      if (existing) {
+        if (isJobTerminal(existing.status)) {
+          this.apply(existing, { status: "pending", error: null, completedAt: null, lease: null });
+          return { id, created: false, reset: true };
+        }
+        return { id, created: false, reset: false };
+      }
+      const now = new Date().toISOString();
+      const job: ComfyApiDeployJob = {
+        kind: "comfy-api-deploy",
+        id,
+        status: "pending",
+        backendKind: "comfy-api",
+        deployment,
+        dependsOnJobs: [],
+        lease: null,
+        progress: null,
+        error: null,
+        metadata: {},
+        createdAt: now,
+        startedAt: null,
+        processingStartedAt: null,
+        updatedAt: now,
+        completedAt: null,
+        reportedAt: null,
+        unconfirmedSince: null,
+        sourceFingerprint: null,
+        staleReleases: 0,
+      };
+      this.write(job);
+      return { id, created: true, reset: false };
+    });
+  }
+
   // Whether every named job exists and has completed. A missing one counts as not completed: the
   // thing it was to provide cannot be vouched for by a record that is gone.
   private allJobsCompleted(jobIds: readonly string[]): boolean {
@@ -706,13 +776,29 @@ export class JobManager {
     });
   }
 
-  async beginSubmission(id: string, workerId: string): Promise<void> {
-    this.transaction(() => {
+  /**
+   * Stamp the submission's start and record what it sends, returning what to submit with. A
+   * resubmission (comfy-api only, see below) gets the first attempt's seed and input files back:
+   * the backend may hand back the job that attempt created, and the take must record what that job
+   * ran with.
+   */
+  async beginSubmission(
+    id: string,
+    workerId: string,
+    attempt: SubmissionAttempt,
+  ): Promise<SubmissionAttempt> {
+    return this.transaction(() => {
       const job = this.readOrThrow(id);
       if (job.kind !== "generation" || job.status !== "running" || job.lease?.owner !== workerId) {
         throw new KonteError("GENERATION_FAILED", `Submission lease lost for ${id}`);
       }
-      if (job.submissionStartedAt && job.backendKind !== "local") {
+      // A comfy-api submission carries the variant id as its Idempotency-Key, so a repeat cannot
+      // create a second job; the backend finds the first one instead.
+      if (
+        job.submissionStartedAt &&
+        job.backendKind !== "local" &&
+        job.backendKind !== "comfy-api"
+      ) {
         throw new KonteError(
           "SUBMISSION_UNCONFIRMED",
           `Submission of ${id} to ${job.backendKind} began at ${job.submissionStartedAt}, ` +
@@ -720,7 +806,12 @@ export class JobManager {
             `Automatic resubmission stopped. Check the backend before rerolling ${job.address}.`,
         );
       }
-      this.apply(job, { submissionStartedAt: new Date().toISOString() });
+      const sent = recordedAttempt(job.metadata[SUBMISSION_ATTEMPT_KEY]) ?? attempt;
+      this.apply(job, {
+        submissionStartedAt: new Date().toISOString(),
+        metadata: { ...job.metadata, [SUBMISSION_ATTEMPT_KEY]: sent },
+      });
+      return sent;
     });
   }
 

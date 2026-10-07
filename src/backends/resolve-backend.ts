@@ -1,3 +1,4 @@
+import { ComfyApiBackend } from "../comfy-api/backend.js";
 import { ComfyUIBackend } from "../comfyui/backend.js";
 import { resolveComfyUIConfig } from "../comfyui/config.js";
 import type { GenerationBackend } from "../core/backend.js";
@@ -24,7 +25,7 @@ export function getBackendKindFromJob(job: JobRecord): BackendKind {
   return job.backendKind;
 }
 
-// Only the comfy backend spans both roots: its workflows and adapters are workspace-wide, while
+// Only the comfy backends span both roots: its workflows and adapters are workspace-wide, while
 // the files it reads and writes belong to one video. The others take the video root alone, so the
 // type stops them from reaching for the workspace later.
 export async function resolveBackend(
@@ -36,6 +37,8 @@ export async function resolveBackend(
       const config = await resolveComfyUIConfig(roots.workspace);
       return new ComfyUIBackend(config, roots);
     }
+    case "comfy-api":
+      return new ComfyApiBackend(roots);
     case "fal": {
       const config = await resolveFalConfig();
       return new FalBackend(config, roots.video);

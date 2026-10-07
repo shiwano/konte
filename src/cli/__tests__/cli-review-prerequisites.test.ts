@@ -127,7 +127,9 @@ describe("review prerequisite gates", () => {
   describe("video spend", () => {
     it("refuses while the board it builds on has an unwritten panel", async () => {
       const projectDir = await initWithCrossStageVideo();
-      await writeWorkspaceConfig(projectDir, { comfyui: { url: "http://127.0.0.1:8188" } });
+      await writeWorkspaceConfig(projectDir, {
+        comfy: { comfyui: { url: "http://127.0.0.1:8188" } },
+      });
       const variantId = await seedTake(projectDir);
       const sm = await StateManager.load(projectDir);
       sm.setAccepted(ADDRESS, variantId);

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { VendorBackendKind } from "./job.js";
+import type { BackendKind } from "./job.js";
 
 // A credential is keyed by the environment variable it becomes, so the same name works from a
 // shell, from CI, and inside an adapter's `${VAR}` model URL.
@@ -30,7 +30,7 @@ interface KnownCredential {
   /** Where the user obtains the value. */
   obtainUrl: string;
   /** The vendor this authenticates; absent for a model-host credential. */
-  backend?: VendorBackendKind;
+  backend?: BackendKind;
   /** What konte does with the value. */
   help: string;
 }
@@ -49,6 +49,15 @@ export const KNOWN_CREDENTIALS: readonly KnownCredential[] = [
     help: "Authenticates every fal.ai generation.",
   },
   {
+    key: "COMFY_API_KEY",
+    label: "Comfy API key",
+    obtainUrl: "https://platform.comfy.org/profile/api-keys",
+    backend: "comfy-api",
+    help:
+      "Authenticates Comfy Cloud (comfycloud) and Comfy API deployments (comfyapi:<name>). " +
+      "Setting it is what lets a comfy adapter route to either.",
+  },
+  {
     key: "HF_TOKEN",
     label: "HuggingFace access token",
     obtainUrl: "https://huggingface.co/settings/tokens",
@@ -57,13 +66,13 @@ export const KNOWN_CREDENTIALS: readonly KnownCredential[] = [
       "downloads a model from huggingface.co — keep the URL in the adapter plain.",
   },
   {
-    // No `backend`: what authorizes comfy spend is `comfyui.url`.
+    // No `backend`: what authorizes comfy spend on a ComfyUI is `comfy.comfyui.url`.
     key: "COMFYUI_TOKEN",
     label: "ComfyUI server credential",
     obtainUrl: "https://docs.comfy.org/development/comfyui-server/comms_overview",
     help:
       "Only needed for a ComfyUI behind an auth front (a remote pod, a reverse proxy). Reference " +
-      'it from konte.config.json: "comfyui": { "headers": { "Authorization": "Bearer ${COMFYUI_TOKEN}" } }',
+      'it from konte.config.json: "comfy": { "comfyui": { "headers": { "Authorization": "Bearer ${COMFYUI_TOKEN}" } } }',
   },
   {
     key: "CIVITAI_TOKEN",
@@ -80,6 +89,6 @@ export function knownCredential(key: string): KnownCredential | undefined {
 }
 
 /** The credential a vendor backend authenticates with; absent for one that needs none. */
-export function backendCredential(backend: VendorBackendKind): KnownCredential | undefined {
+export function backendCredential(backend: BackendKind): KnownCredential | undefined {
   return KNOWN_CREDENTIALS.find((c) => c.backend === backend);
 }

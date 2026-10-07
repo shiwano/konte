@@ -71,7 +71,7 @@ export const DEFAULT_COMFYUI_UNREACHABLE_TIMEOUT_MINUTES = 15;
  * the server. A partition, a VPN drop or a proxy restart proves nothing about a prompt that may
  * still be executing, and failing it would abandon output that is about to exist. The local
  * inference — "unreachable therefore restarted" — is only sound when there is no network in
- * between. Set `comfyui.unreachableTimeoutMinutes` explicitly to opt a remote server in.
+ * between. Set `comfy.comfyui.unreachableTimeoutMinutes` explicitly to opt a remote server in.
  */
 const DEFAULT_REMOTE_COMFYUI_UNREACHABLE_TIMEOUT_MINUTES = 0;
 
@@ -89,16 +89,16 @@ function isLocalComfyUrl(baseUrl: string): boolean {
 }
 
 export async function resolveComfyUIConfig(workspaceRoot: string): Promise<ComfyUIConfig> {
-  const config = await loadKonteConfig(workspaceRoot);
-  const baseUrl = normalizeUrl(config.comfyui?.url ?? "");
+  const comfyui = (await loadKonteConfig(workspaceRoot)).comfy?.comfyui;
+  const baseUrl = normalizeUrl(comfyui?.url ?? "");
   return {
     baseUrl,
-    headers: config.comfyui?.headers ?? {},
-    autoInstallModels: config.comfyui?.autoInstallModels ?? true,
-    autoInstallNodes: config.comfyui?.autoInstallNodes ?? true,
-    autoRebootAfterNodeInstall: config.comfyui?.autoRebootAfterNodeInstall ?? true,
+    headers: comfyui?.headers ?? {},
+    autoInstallModels: comfyui?.autoInstallModels ?? true,
+    autoInstallNodes: comfyui?.autoInstallNodes ?? true,
+    autoRebootAfterNodeInstall: comfyui?.autoRebootAfterNodeInstall ?? true,
     unreachableTimeoutMs:
-      (config.comfyui?.unreachableTimeoutMinutes ??
+      (comfyui?.unreachableTimeoutMinutes ??
         (isLocalComfyUrl(baseUrl)
           ? DEFAULT_COMFYUI_UNREACHABLE_TIMEOUT_MINUTES
           : DEFAULT_REMOTE_COMFYUI_UNREACHABLE_TIMEOUT_MINUTES)) * 60_000,

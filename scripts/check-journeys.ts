@@ -34,6 +34,9 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - dev-adapter 7,550 → 7,600, dev-direction 16,750 → 16,800, dev-render 10,550 → 10,600 (agreed
+//   by a human): comfy routing to Comfy Cloud and Comfy API deployments, `arch-comfy-api-guide`.
+// - dev-comfy-api (new, 5,700): the routing and deployment lifecycle guide.
 // - music-video 38,800 → 38,850 (agreed by a human): no body words in a style layer reused
 //   where no one stands.
 // - dev-direction 16,650 → 16,750 (agreed by a human): a take's song reading kept in `song.json`
@@ -185,7 +188,7 @@ const DEV_JOURNEYS = [
   // model's prompt guide and input descriptions that ship with it.
   {
     name: "dev-adapter",
-    budget: 7_550,
+    budget: 7_600,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/adapter-authoring/SKILL.md`,
@@ -206,11 +209,21 @@ const DEV_JOURNEYS = [
       `${DEV}/prompt-guide-authoring/SKILL.md`,
     ],
   },
+  // Where a comfy asset runs off a ComfyUI, and a deployment's bring-up job.
+  {
+    name: "dev-comfy-api",
+    budget: 5_700,
+    files: [
+      ...DEV_ALWAYS,
+      `${DEV}/arch-comfy-api-guide/SKILL.md`,
+      `${DEV}/arch-jobs-guide/SKILL.md`,
+    ],
+  },
   // The direction. Acceptance and comment staleness key off the same
   // part hashes, so the review guide comes along.
   {
     name: "dev-direction",
-    budget: 16_750,
+    budget: 16_800,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-direction-guide/SKILL.md`,
@@ -224,7 +237,7 @@ const DEV_JOURNEYS = [
   // the same render plan chooses between per shot.
   {
     name: "dev-render",
-    budget: 10_550,
+    budget: 10_600,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-delivery-guide/SKILL.md`,

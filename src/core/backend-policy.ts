@@ -3,7 +3,18 @@ import { type AssetStage, type DefinitionLike, getAssetEntry, listAssetPaths } f
 import { KonteError } from "./errors.js";
 import { backendCredential } from "./types/credentials.js";
 import { VendorBackendKindSchema } from "./types/job.js";
-import type { AssetDefinition, KonteConfig, VendorBackendKind } from "./types/index.js";
+import type {
+  AssetDefinition,
+  ComfyTarget,
+  KonteConfig,
+  VendorBackendKind,
+} from "./types/index.js";
+import {
+  COMFY_API_KEY_ENV,
+  ComfyRouter,
+  comfyApiKey,
+  deploymentNameOf,
+} from "../comfy-api/routing.js";
 
 type UnconfiguredBackendAsset = { address: string; kind: VendorBackendKind };
 
@@ -17,13 +28,14 @@ export function isVendorBackendAsset(
 
 /**
  * Whether this workspace has what it takes to generate on a vendor backend, which is also what
- * authorizes the spend.
+ * authorizes the spend. For comfy that is any target it could route to — whether one actually takes
+ * a given asset is the spend gate's question (`ComfyRouter`).
  *
  * Never a connectivity probe. This answers the same way offline, and a ComfyUI that is merely down
  * is one konte's jobs already wait out (see `unreachableTimeoutMinutes`).
  */
 export function isBackendConfigured(kind: VendorBackendKind, config: KonteConfig): boolean {
-  if (kind === "comfy") return (config.comfyui?.url ?? "") !== "";
+  if (kind === "comfy") return (config.comfy?.comfyui?.url ?? "") !== "" || comfyApiKey() !== null;
   const credential = backendCredential(kind);
   return credential ? (process.env[credential.key] ?? "") !== "" : true;
 }
@@ -35,7 +47,11 @@ export function configuredVendorBackends(config: KonteConfig): VendorBackendKind
 /** Where a vendor backend is turned on, for the message that says it is off. */
 export function backendSetupHint(kind: VendorBackendKind): string {
   if (kind === "comfy") {
-    return 'set "comfyui.url" in konte.config.json (or `konte settings`, Config tab)';
+    return (
+      'set "comfy.comfyui.url" in konte.config.json (or `konte settings`, Config tab), or ' +
+      `${COMFY_API_KEY_ENV} for comfycloud / comfyapi:<name> — ` +
+      backendCredential("comfy-api")!.obtainUrl
+    );
   }
   const credential = backendCredential(kind);
   return credential
@@ -67,23 +83,73 @@ export function backendSetupAdvice(kinds: Iterable<VendorBackendKind>): string {
   return [...new Set(kinds)].map((kind) => `${kind}: ${backendSetupHint(kind)}`).join("; ");
 }
 
-/** One asset a run is about to spend on: what to call it in a refusal, and what it runs on. */
-export type SpendItem = { label: string; kind: AssetDefinition["kind"] };
+/** One asset a run is about to spend on: what to call it in a refusal, and its definition. */
+export type SpendItem = { label: string; def: AssetDefinition };
+
+/** Where each comfy asset the gate passed runs. */
+export class SpendRoutes {
+  private readonly byKey: ReadonlyMap<string, ComfyTarget>;
+  /** Every comfy item the gate routed, in the order it was handed them. */
+  readonly routed: ReadonlyArray<{ label: string; target: ComfyTarget }>;
+
+  constructor(
+    byKey: ReadonlyMap<string, ComfyTarget>,
+    routed: ReadonlyArray<{ label: string; target: ComfyTarget }>,
+  ) {
+    this.byKey = byKey;
+    this.routed = routed;
+  }
+
+  /** The target a comfy definition the gate saw was routed to; null for any other kind. */
+  targetOf(def: AssetDefinition): ComfyTarget | null {
+    if (def.kind !== "comfy") return null;
+    return this.byKey.get(routeKeyOf(def)) ?? "comfyui";
+  }
+
+  /** The deployments this spend brings up. */
+  deployments(): string[] {
+    const names = new Set<string>();
+    for (const { target } of this.routed) {
+      const name = deploymentNameOf(target);
+      if (name !== null) names.add(name);
+    }
+    return [...names];
+  }
+}
+
+function routeKeyOf(def: AssetDefinition & { kind: "comfy" }): string {
+  return ComfyRouter.subjectKey({
+    workflow: def.workflow,
+    models: def.models ?? [],
+    prunedNodes: def.prunedNodes,
+    prunedPassThroughs: def.prunedPassThroughs,
+  });
+}
 
 /**
  * THE spend gate. Every entry point that can create a generation job — `generate`, `reroll`,
  * `patch apply`, `export`'s delivery upscale — passes its work through here first, and nothing
  * else authorizes a spend.
  *
- * Both questions it answers share one deadline, before a variant id is reserved or a job file
- * written: is this backend configured at all, and are the credentials it needs resolvable.
+ * Its questions share one deadline, before a variant id is reserved or a job file written: is this
+ * backend configured at all, where does each comfy asset run, and are the credentials it needs
+ * resolvable.
  */
-export function assertSpendAllowed(items: readonly SpendItem[], config: KonteConfig): void {
+export async function assertSpendAllowed(
+  items: readonly SpendItem[],
+  config: KonteConfig,
+  workspaceRoot: string,
+): Promise<SpendRoutes> {
   const unconfigured: Array<{ label: string; kind: VendorBackendKind }> = [];
+  const comfyItems: Array<{ label: string; def: AssetDefinition & { kind: "comfy" } }> = [];
   for (const item of items) {
-    if (!isVendorBackendAsset(item.kind)) continue;
-    if (isBackendConfigured(item.kind, config)) continue;
-    unconfigured.push({ label: item.label, kind: item.kind });
+    if (item.def.kind === "comfy") {
+      comfyItems.push({ label: item.label, def: item.def });
+      continue;
+    }
+    if (!isVendorBackendAsset(item.def.kind)) continue;
+    if (isBackendConfigured(item.def.kind, config)) continue;
+    unconfigured.push({ label: item.label, kind: item.def.kind });
   }
   if (unconfigured.length > 0) {
     throw new KonteError(
@@ -94,16 +160,67 @@ export function assertSpendAllowed(items: readonly SpendItem[], config: KonteCon
     );
   }
 
-  // A configured backend may still be missing a credential the config only names.
-  if (items.some((item) => item.kind === "comfy")) {
-    resolveHeaderTokens(config.comfyui?.headers ?? {});
+  const byKey = new Map<string, ComfyTarget>();
+  const routed: Array<{ label: string; target: ComfyTarget }> = [];
+  if (comfyItems.length > 0) {
+    const router = new ComfyRouter(workspaceRoot, config);
+    const unroutable: string[] = [];
+    const needDaemon: Array<{ label: string; target: ComfyTarget }> = [];
+    for (const { label, def } of comfyItems) {
+      const route = await router.route(def);
+      if (route.kind === "unroutable") {
+        unroutable.push(`  ${label} (comfy) — ${route.reasons.join("; ")}`);
+      } else if (route.kind === "daemon-required") {
+        needDaemon.push({ label, target: route.target });
+      } else {
+        byKey.set(routeKeyOf(def), route.target);
+        routed.push({ label, target: route.target });
+        if (deploymentNameOf(route.target) !== null) assertNoAuthenticatedModel(label, def);
+      }
+    }
+    if (unroutable.length > 0) {
+      throw new KonteError(
+        "BACKEND_NOT_CONFIGURED",
+        `${unroutable.length} comfy asset(s) have no target in comfy.adapters that can run them — ` +
+          backendSetupHint("comfy"),
+        unroutable,
+      );
+    }
+    if (needDaemon.length > 0) {
+      throw new KonteError(
+        "COMFY_API_DAEMON_REQUIRED",
+        `${needDaemon.length} comfy asset(s) route to a Comfy API deployment, which only the konte ` +
+          `MCP daemon closes when idle, and none is running in this workspace. Start the agent ` +
+          `session whose MCP settings run \`konte mcp serve\`, or take the deployment out of ` +
+          `comfy.adapters in konte.config.json.`,
+        needDaemon.map((v) => `  ${v.label} → ${v.target}`),
+      );
+    }
   }
+
+  // A configured backend may still be missing a credential the config only names.
+  if (routed.some((r) => r.target === "comfyui")) {
+    resolveHeaderTokens(config.comfy?.comfyui?.headers ?? {});
+  }
+  return new SpendRoutes(byKey, routed);
+}
+
+// A deployment's Build keeps every model URL it is given, so one carrying a credential is refused.
+function assertNoAuthenticatedModel(label: string, def: AssetDefinition & { kind: "comfy" }): void {
+  const secret = (def.models ?? []).filter((m) => m.url.includes("${"));
+  if (secret.length === 0) return;
+  throw new KonteError(
+    "COMFY_API_AUTHENTICATED_MODEL",
+    `${label} routes to a Comfy API deployment, but its model URL carries a credential, which a ` +
+      `Build definition would keep: ${secret.map((m) => m.filename).join(", ")}. Route this ` +
+      `adapter to comfyui or comfycloud in comfy.adapters.`,
+  );
 }
 
 /** Everything a stage declares, as spend items — definition-level, so the gate is deterministic. */
 export function stageSpendItems(def: DefinitionLike, stage: AssetStage): SpendItem[] {
   return listAssetPaths(def, stage).map((address) => ({
     label: address,
-    kind: getAssetEntry(def, address).kind,
+    def: getAssetEntry(def, address),
   }));
 }

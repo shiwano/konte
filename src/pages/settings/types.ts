@@ -1,4 +1,4 @@
-import type { VendorBackendKind } from "../../core/types/job.js";
+import type { BackendKind } from "../../core/types/job.js";
 
 export const SETTINGS_TABS = ["config", "credentials"] as const;
 export type SettingsTab = (typeof SETTINGS_TABS)[number];
@@ -14,7 +14,7 @@ export interface CredentialEntry {
   label?: string;
   obtainUrl?: string;
   help?: string;
-  backend?: VendorBackendKind;
+  backend?: BackendKind;
 }
 
 export interface CredentialsResponse {

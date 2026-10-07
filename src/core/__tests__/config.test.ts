@@ -7,7 +7,7 @@ import {
   resolveComfyUIConfig,
 } from "../../comfyui/config.js";
 import { loadKonteConfig } from "../config.js";
-import { allowedHostIssue, KonteConfigSchema } from "../types/config.js";
+import { allowedHostIssue, ComfyTargetSchema, KonteConfigSchema } from "../types/config.js";
 
 let tmpDir: string;
 
@@ -23,7 +23,7 @@ describe("loadKonteConfig", () => {
   it("returns default when config file does not exist", async () => {
     const config = await loadKonteConfig(tmpDir);
     expect(config).toEqual({
-      comfyui: {},
+      comfy: {},
     });
   });
 
@@ -31,11 +31,11 @@ describe("loadKonteConfig", () => {
     const configPath = path.join(tmpDir, "konte.config.json");
     await fs.writeFile(
       configPath,
-      JSON.stringify({ comfyui: { url: "http://localhost:9000" } }),
+      JSON.stringify({ comfy: { comfyui: { url: "http://localhost:9000" } } }),
       "utf-8",
     );
     const config = await loadKonteConfig(tmpDir);
-    expect(config.comfyui?.url).toBe("http://localhost:9000");
+    expect(config.comfy?.comfyui?.url).toBe("http://localhost:9000");
   });
 
   it("throws for invalid JSON", async () => {
@@ -46,7 +46,7 @@ describe("loadKonteConfig", () => {
 
   it("throws for schema-invalid content", async () => {
     const configPath = path.join(tmpDir, "konte.config.json");
-    await fs.writeFile(configPath, JSON.stringify({ comfyui: { url: 123 } }), "utf-8");
+    await fs.writeFile(configPath, JSON.stringify({ comfy: { comfyui: { url: 123 } } }), "utf-8");
     await expect(loadKonteConfig(tmpDir)).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
   });
 
@@ -59,9 +59,9 @@ describe("loadKonteConfig", () => {
 
   it("handles partial config with empty comfyui", async () => {
     const configPath = path.join(tmpDir, "konte.config.json");
-    await fs.writeFile(configPath, JSON.stringify({ comfyui: {} }), "utf-8");
+    await fs.writeFile(configPath, JSON.stringify({ comfy: { comfyui: {} } }), "utf-8");
     const config = await loadKonteConfig(tmpDir);
-    expect(config).toEqual({ comfyui: {} });
+    expect(config).toEqual({ comfy: { comfyui: {} } });
   });
 });
 
@@ -71,7 +71,7 @@ describe("resolveComfyUIConfig unreachable ceiling", () => {
   async function writeConfig(comfyui: Record<string, unknown>): Promise<void> {
     await fs.writeFile(
       path.join(tmpDir, "konte.config.json"),
-      JSON.stringify({ comfyui }),
+      JSON.stringify({ comfy: { comfyui } }),
       "utf-8",
     );
   }
@@ -139,5 +139,35 @@ describe("preview.allowedHosts", () => {
       preview: { host: "0.0.0.0", allowedHosts: ["*.trycloudflare.com"] },
     });
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe("comfy.adapters", () => {
+  const deployments = { main: { gpuClass: "L40S", region: "us-east" } };
+
+  it("takes routes onto a declared deployment", () => {
+    const parsed = KonteConfigSchema.safeParse({
+      comfy: {
+        adapters: { "*": ["comfyui", "comfycloud"], image: ["comfyapi:main", "comfyui"] },
+        comfyapi: { deployments },
+      },
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("refuses a comfyapi target naming no declared deployment", () => {
+    const parsed = KonteConfigSchema.safeParse({
+      comfy: { adapters: { image: ["comfyapi:other"] }, comfyapi: { deployments } },
+    });
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues[0]?.message).toContain('"comfyapi:other" names no deployment');
+    expect(parsed.error?.issues[0]?.path).toEqual(["comfy", "adapters", "image"]);
+  });
+
+  it("names a target only as comfyui, comfycloud or comfyapi:<name>", () => {
+    expect(ComfyTargetSchema.safeParse("comfyapi:main").success).toBe(true);
+    for (const junk of ["comfy", "comfyapi:", "comfyapi:a/b", "ComfyUI", ""]) {
+      expect(ComfyTargetSchema.safeParse(junk).success).toBe(false);
+    }
   });
 });

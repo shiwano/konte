@@ -9,6 +9,9 @@ export type GenerationRequest = {
   // A line for the job log, emitted during submit. The local backend generates inside submit()
   // (there is no wait phase to observe), so what it has to say cannot ride WaitOptions.onLog.
   onLog?: (line: string) => void;
+  // Whether the job was cancelled while its submit was held back. A backend whose submit can wait
+  // (a Comfy API deployment coming up) asks before sending anything.
+  shouldCancel?: () => Promise<boolean>;
 };
 
 export type GenerationResult = {

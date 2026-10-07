@@ -1,9 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import pkg from "../../package.json" with { type: "json" };
+import { closeIdleDeployments } from "../comfy-api/deployment.js";
+import { handOffDeploymentClose } from "../comfy-api/daemon-exit.js";
+import { registerDaemon, unregisterDaemonSync } from "../core/daemon-registry.js";
 import { RESTART_EXIT_CODE } from "../core/process-restart.js";
 import { McpLog } from "./mcp-log.js";
 import { VideoRegistry } from "./video-registry.js";
+
+// How often the daemon judges whether a Comfy API deployment has sat idle long enough to close.
+const IDLE_CLOSE_INTERVAL_MS = 60_000;
 
 const INSTRUCTIONS = `Per-workspace daemon running every video's generation jobs in the background, so "konte generate" and "konte export" return immediately. "konte job wait" blocks until the queue drains.`;
 
@@ -59,10 +65,35 @@ export async function startMcpServer(workspaceRoot: string): Promise<void> {
     },
   );
 
-  const cleanup = () => registry.stop();
+  // A deployment left up by a daemon that died without its exit handler is closed here, and
+  // every idle one after that.
+  await registerDaemon(workspaceRoot).catch(() => {});
+  let closing = false;
+  const closeIdle = (): void => {
+    if (closing) return;
+    closing = true;
+    void closeIdleDeployments({
+      workspaceRoot,
+      log: (line) => log.write("info", { event: "comfy_api_close", line }),
+    })
+      .catch(() => [])
+      .finally(() => {
+        closing = false;
+      });
+  };
+  closeIdle();
+  const idleTimer = setInterval(closeIdle, IDLE_CLOSE_INTERVAL_MS);
+  idleTimer.unref?.();
+
+  const cleanup = () => {
+    clearInterval(idleTimer);
+    registry.stop();
+    unregisterDaemonSync(workspaceRoot);
+  };
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.on(signal, () => {
       cleanup();
+      handOffDeploymentClose(workspaceRoot);
       log.write("info", { event: "daemon_stopped", signal });
       void log.flush().finally(() => process.exit(0));
     });

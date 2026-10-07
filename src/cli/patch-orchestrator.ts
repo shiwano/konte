@@ -1,5 +1,5 @@
 import type { GenerationBackend } from "../core/backend.js";
-import { assertSpendAllowed } from "../core/backend-policy.js";
+import { assertSpendAllowed, type SpendRoutes } from "../core/backend-policy.js";
 import { computeDefinitionHash } from "../core/definition-hash.js";
 import { KonteError } from "../core/errors.js";
 import { extractRefs } from "../core/graph.js";
@@ -28,21 +28,25 @@ import type {
 import {
   type AssetResult,
   createPendingJobs,
-  ensureComfyModelJobs,
-  ensureComfyNodeJobs,
+  ensureComfyPrereqJobs,
   resolveMissingComfyModels,
   resolveMissingComfyNodes,
   submitAssetJobs,
 } from "./generate-orchestrator.js";
 
 // A patch's steps exist outside any stage, so its spend items are built from the chain itself.
-export function assertPatchSpendAllowed(patch: LoadedPatch, config: KonteConfig): void {
-  assertSpendAllowed(
+export function assertPatchSpendAllowed(
+  patch: LoadedPatch,
+  config: KonteConfig,
+  workspaceRoot: string,
+): Promise<SpendRoutes> {
+  return assertSpendAllowed(
     Object.entries(patch.assets).map(([name, def]) => ({
       label: `${patch.filePath} → ${name}`,
-      kind: def.kind,
+      def,
     })),
     config,
+    workspaceRoot,
   );
 }
 
@@ -72,6 +76,8 @@ export async function applyPatch(
   jobManager: JobManager,
   backendCache: Map<BackendKind, GenerationBackend>,
   config: KonteConfig,
+  // What `assertPatchSpendAllowed` answered for this patch.
+  spend: SpendRoutes,
 ): Promise<AssetResult> {
   const videoRoot = roots.video;
   // The job listing is taken BEFORE the state snapshot, and the order matters: a variant is
@@ -169,6 +175,7 @@ export async function applyPatch(
       }
     }
     const result = await launchStep({
+      spend,
       address,
       assetDef,
       roots,
@@ -288,6 +295,7 @@ async function launchStep(opts: {
   jobManager: JobManager;
   backendCache: Map<BackendKind, GenerationBackend>;
   config: KonteConfig;
+  spend: SpendRoutes;
   manager: StateManager;
   pin: Record<string, string>;
   pinnedFiles: Record<string, string>;
@@ -309,20 +317,27 @@ async function launchStep(opts: {
   // the workflow. Skipped entirely for every other backend, so the common (fal) patch pays no
   // ComfyUI round-trip.
   const prereqJobIds: string[] = [...opts.dependsOnJobs];
+  const comfyTarget = opts.spend.targetOf(assetDef);
   if (assetDef.kind === "comfy") {
+    const onComfyUI = comfyTarget === "comfyui";
     const missingModels = await resolveMissingComfyModels(
       roots,
-      assetDef.models ?? [],
-      config.comfyui?.autoInstallModels ?? true,
+      onComfyUI ? (assetDef.models ?? []) : [],
+      config.comfy?.comfyui?.autoInstallModels ?? true,
     );
     const missingNodes = await resolveMissingComfyNodes(
       roots,
-      (assetDef.nodes ?? []).map((n) => n.id),
-      config.comfyui?.autoInstallNodes ?? true,
+      onComfyUI ? (assetDef.nodes ?? []).map((n) => n.id) : [],
+      config.comfy?.comfyui?.autoInstallNodes ?? true,
     );
     prereqJobIds.push(
-      ...(await ensureComfyModelJobs(assetDef, jobManager, missingModels)),
-      ...(await ensureComfyNodeJobs(assetDef, jobManager, missingNodes)),
+      ...(await ensureComfyPrereqJobs(
+        assetDef,
+        comfyTarget,
+        jobManager,
+        missingModels,
+        missingNodes,
+      )),
     );
   }
 
@@ -349,6 +364,8 @@ async function launchStep(opts: {
       opts.pin,
       finalize,
       rivals,
+      null,
+      comfyTarget,
     );
   }
 
@@ -365,6 +382,8 @@ async function launchStep(opts: {
     null,
     finalize,
     rivals,
+    null,
+    comfyTarget,
   );
 }
 

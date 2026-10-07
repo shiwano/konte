@@ -236,7 +236,7 @@ export class ComfyUIBackend implements GenerationBackend {
       "COMFYUI_ERROR",
       `Downloaded ${decl.filename} to ${dest.dir}, but ComfyUI does not list it under ` +
         `"${dest.root}". That directory is not the one this ComfyUI reads — check that ` +
-        `comfyui.url points at a server sharing this filesystem, and that the declaration's ` +
+        `comfy.comfyui.url points at a server sharing this filesystem, and that the declaration's ` +
         `type/savePath are right.`,
     );
   }
@@ -305,7 +305,7 @@ export class ComfyUIBackend implements GenerationBackend {
         `Missing model: ${decl.filename}. konte cannot write to this ComfyUI's model directory, ` +
           `and ComfyUI-Manager was not detected at ${this.config.baseUrl} to install it remotely — ` +
           "install it from https://docs.comfy.org/ja/manager/install, or set " +
-          "comfyui.autoInstallModels: false in konte.config.json and run this on the ComfyUI host",
+          "comfy.comfyui.autoInstallModels: false in konte.config.json and run this on the ComfyUI host",
         manualDownloadCommands(decl, reportedDir),
       );
     }
@@ -417,7 +417,7 @@ export class ComfyUIBackend implements GenerationBackend {
         "COMFYUI_MANAGER_UNAVAILABLE",
         `Missing custom node pack: ${decl.id}. ComfyUI-Manager is required to auto-install custom ` +
           `nodes but was not detected at ${this.config.baseUrl} — install it from ` +
-          "https://docs.comfy.org/ja/manager/install, or set comfyui.autoInstallNodes: false in " +
+          "https://docs.comfy.org/ja/manager/install, or set comfy.comfyui.autoInstallNodes: false in " +
           "konte.config.json and install the nodes manually.",
       );
     }
@@ -510,7 +510,7 @@ export class ComfyUIBackend implements GenerationBackend {
       throw new KonteError(
         "COMFY_NODE_RESTART_REQUIRED",
         `Installed custom node pack(s) [${unloaded.join(", ")}] require a ComfyUI restart to load. ` +
-          `Auto-reboot is disabled (comfyui.autoRebootAfterNodeInstall: false). ` +
+          `Auto-reboot is disabled (comfy.comfyui.autoRebootAfterNodeInstall: false). ` +
           `Restart ComfyUI, then re-run the command.`,
       );
     }

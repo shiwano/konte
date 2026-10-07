@@ -89,7 +89,7 @@ export default defineReference(direction, () => {
     const inited = await initWorkspace(path.join(ctx.dir, name));
     const projectDir = inited.video;
     await fs.writeFile(path.join(projectDir, "reference.tsx"), COMFY_REFERENCE_TS);
-    await writeWorkspaceConfig(projectDir, { comfyui });
+    await writeWorkspaceConfig(projectDir, { comfy: { comfyui } });
     return projectDir;
   }
 
@@ -114,11 +114,13 @@ export default defineReference(direction, () => {
     const projectDir = inited.video;
     await fs.writeFile(path.join(projectDir, "reference.tsx"), COMFY_REFERENCE_TS);
     await writeWorkspaceConfig(projectDir, {
-      comfyui: {
-        url: "http://127.0.0.1:8188",
-        headers: { Authorization: "Bearer ${KONTE_TEST_ABSENT_TOKEN}" },
-        autoInstallModels: false,
-        autoInstallNodes: false,
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          headers: { Authorization: "Bearer ${KONTE_TEST_ABSENT_TOKEN}" },
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
       },
     });
 

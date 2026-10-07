@@ -19,4 +19,4 @@ nodes: [
 ```
 
 - **`id` is the registry (cnr) id** — a pack outside the registry is not auto-installed; give it the `custom_nodes` directory name it is installed under.
-- **A newly installed pack needs a ComfyUI restart to load** — konte reboots once after install (`comfyui.autoRebootAfterNodeInstall`, default `true`); set it `false` on a shared server and konte asks you to restart and re-run instead.
+- **A newly installed pack needs a ComfyUI restart to load** — konte reboots once after install (`comfy.comfyui.autoRebootAfterNodeInstall`, default `true`); set it `false` on a shared server and konte asks you to restart and re-run instead.

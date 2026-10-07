@@ -188,7 +188,7 @@ describe("turbo takes through reservation and submission", () => {
     } as unknown as GenerationBackend;
     const jobManager = {
       videoRoot,
-      beginSubmission: async () => {},
+      beginSubmission: async (_id: string, _owner: string, attempt: unknown) => attempt,
       appendLog: () => {},
     } as unknown as JobManager;
     const job = {

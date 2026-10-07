@@ -1,6 +1,6 @@
 ---
 name: config-guide
-description: Read when a key "is not set" or konte doctor reports a backend failure — API keys, the ComfyUI connection, editor type-checking.
+description: Read when a key "is not set", konte doctor reports a backend failure, or a comfy asset routes to the wrong place — API keys, the ComfyUI connection, Comfy Cloud and Comfy API routing, editor type-checking.
 user-invocable: false
 ---
 
@@ -17,16 +17,30 @@ Configure the required backends and editor; done = those backends pass `konte do
 
 ## ComfyUI connection
 
-- **`comfyui.url`** — edit `konte.config.json` directly, or use `konte settings`' **Config** tab.
-- `cannot reach <url>` → check in order: ① ComfyUI is running, ② `comfyui.url` host/port, ③ the host resolves from where konte runs (WSL2: below).
-- `rejected the credentials` → check the `comfyui.headers` placeholder and its Credentials entry.
-- **A ComfyUI behind an auth front** (a remote pod, a reverse proxy) takes `comfyui.headers`, sent on every request. **A credential header is always a `${VAR}` placeholder** (an auth scheme may precede it), stored under Credentials — a literal is rejected.
+- **`comfy.comfyui.url`** — edit `konte.config.json` directly, or use `konte settings`' **Config** tab.
+- `cannot reach <url>` → check in order: ① ComfyUI is running, ② `comfy.comfyui.url` host/port, ③ the host resolves from where konte runs (WSL2: below).
+- `rejected the credentials` → check the `comfy.comfyui.headers` placeholder and its Credentials entry.
+- **A ComfyUI behind an auth front** (a remote pod, a reverse proxy) takes `comfy.comfyui.headers`, sent on every request. **A credential header is always a `${VAR}` placeholder** (an auth scheme may precede it), stored under Credentials — a literal is rejected.
 
   ```json
-  { "comfyui": { "url": "https://…", "headers": { "Authorization": "Bearer ${COMFYUI_TOKEN}" } } }
+  {
+    "comfy": {
+      "comfyui": { "url": "https://…", "headers": { "Authorization": "Bearer ${COMFYUI_TOKEN}" } }
+    }
+  }
   ```
 
-- **WSL2: `127.0.0.1` points at WSL itself, not a ComfyUI running on Windows** — either enable WSL mirrored networking (`networkingMode=mirrored` in `%UserProfile%\.wslconfig`, then `wsl --shutdown`; needs Win11 22H2+) so `127.0.0.1` works unchanged, or set `comfyui.url` to the Windows host IP (can change on reboot).
+- **WSL2: `127.0.0.1` points at WSL itself, not a ComfyUI running on Windows** — either enable WSL mirrored networking (`networkingMode=mirrored` in `%UserProfile%\.wslconfig`, then `wsl --shutdown`; needs Win11 22H2+) so `127.0.0.1` works unchanged, or set `comfy.comfyui.url` to the Windows host IP (can change on reboot).
+
+## Comfy routing
+
+- **`comfy.adapters`** — per adapter (workflow file name without `.json`), the targets tried in order; `*` is the default, an adapter's own key replaces it whole. `generate` prints each asset's target.
+  - `comfyui` — usable when `comfy.comfyui.url` is set.
+  - `comfycloud` — usable when `COMFY_API_KEY` is set and Comfy Cloud has every node and model the asset uses.
+  - `comfyapi:<name>` — a deployment under `comfy.comfyapi.deployments` (`gpuClass`, `region`; optional `max`, `comfyVersion`, `idleMinutes` (default 15, `0` = close when `job wait` ends), `close`: `delete` | `stop`). Brought up before its jobs submit, closed when idle — at once when `job wait` ends with no daemon running.
+- **`COMFY_API_DAEMON_REQUIRED`** → a deployment needs the konte MCP daemon running; start the agent session that runs `konte mcp serve`, or drop `comfyapi:<name>` from that adapter's list.
+- **`BACKEND_NOT_CONFIGURED` on a comfy asset** → each candidate's reason is listed; set what it names, or add a target to the adapter's key.
+- **An adapter your ComfyUI cannot run (VRAM)** → give it its own key without `comfyui` — konte cannot tell.
 
 ## Editor type-checking
 

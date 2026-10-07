@@ -31,15 +31,15 @@ function num(value: number | undefined): string {
 
 function toDraft(config: KonteConfig): Draft {
   return {
-    comfyUrl: config.comfyui?.url ?? "",
-    comfyHeaders: Object.entries(config.comfyui?.headers ?? {}).map(([name, value]) => ({
+    comfyUrl: config.comfy?.comfyui?.url ?? "",
+    comfyHeaders: Object.entries(config.comfy?.comfyui?.headers ?? {}).map(([name, value]) => ({
       name,
       value,
     })),
-    autoInstallModels: config.comfyui?.autoInstallModels ?? true,
-    autoInstallNodes: config.comfyui?.autoInstallNodes ?? true,
-    autoRebootAfterNodeInstall: config.comfyui?.autoRebootAfterNodeInstall ?? true,
-    unreachableTimeoutMinutes: num(config.comfyui?.unreachableTimeoutMinutes),
+    autoInstallModels: config.comfy?.comfyui?.autoInstallModels ?? true,
+    autoInstallNodes: config.comfy?.comfyui?.autoInstallNodes ?? true,
+    autoRebootAfterNodeInstall: config.comfy?.comfyui?.autoRebootAfterNodeInstall ?? true,
+    unreachableTimeoutMinutes: num(config.comfy?.comfyui?.unreachableTimeoutMinutes),
     ffmpegPath: config.local?.ffmpegPath ?? "",
     ffprobePath: config.local?.ffprobePath ?? "",
     previewHost: config.preview?.host ?? "",
@@ -94,15 +94,21 @@ function allowedHosts(raw: string): string[] | undefined {
   return patterns.length === 0 ? undefined : patterns;
 }
 
-function fromDraft(draft: Draft): KonteConfig {
+// `base` is the config as loaded: what this page has no field for — comfy.adapters, the Comfy API
+// deployments — is kept as it is.
+function fromDraft(draft: Draft, base: KonteConfig): KonteConfig {
   return {
-    comfyui: {
-      url: text(draft.comfyUrl),
-      headers: headers(draft.comfyHeaders),
-      autoInstallModels: draft.autoInstallModels,
-      autoInstallNodes: draft.autoInstallNodes,
-      autoRebootAfterNodeInstall: draft.autoRebootAfterNodeInstall,
-      unreachableTimeoutMinutes: integer("Unreachable timeout", draft.unreachableTimeoutMinutes),
+    ...base,
+    comfy: {
+      ...base.comfy,
+      comfyui: {
+        url: text(draft.comfyUrl),
+        headers: headers(draft.comfyHeaders),
+        autoInstallModels: draft.autoInstallModels,
+        autoInstallNodes: draft.autoInstallNodes,
+        autoRebootAfterNodeInstall: draft.autoRebootAfterNodeInstall,
+        unreachableTimeoutMinutes: integer("Unreachable timeout", draft.unreachableTimeoutMinutes),
+      },
     },
     local: {
       ffmpegPath: text(draft.ffmpegPath),
@@ -166,12 +172,16 @@ function HeaderRows(props: { rows: HeaderRow[]; onChange: (rows: HeaderRow[]) =>
 
 export function ConfigTab() {
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [base, setBase] = useState<KonteConfig>({});
   const [status, setStatus] = useState<{ kind: "error" | "saved"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchConfig()
-      .then((config) => setDraft(toDraft(config)))
+      .then((config) => {
+        setBase(config);
+        setDraft(toDraft(config));
+      })
       .catch((err: Error) => setStatus({ kind: "error", text: err.message }));
   }, []);
 
@@ -191,7 +201,8 @@ export function ConfigTab() {
   const save = async () => {
     setSaving(true);
     try {
-      const saved = await saveConfig(fromDraft(draft));
+      const saved = await saveConfig(fromDraft(draft, base));
+      setBase(saved);
       setDraft(toDraft(saved));
       setStatus({ kind: "saved", text: "Saved to konte.config.json" });
     } catch (err) {
@@ -205,7 +216,7 @@ export function ConfigTab() {
     <div className="tab-body">
       <Section
         title="ComfyUI"
-        note="A server URL is what turns the ComfyUI backend on: leave it blank and generate refuses every comfy asset."
+        note="A server URL is what lets a comfy adapter route to comfyui. Comfy Cloud and Comfy API deployments are turned on by COMFY_API_KEY under Credentials; which adapter goes where is comfy.adapters in konte.config.json."
       >
         <Field
           label="Server URL"

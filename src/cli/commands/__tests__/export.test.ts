@@ -547,7 +547,7 @@ describe("export delivery gate", () => {
       video: VIDEO_WITH_UPSCALE_TSX,
     });
     // `konte workspace new` ships a default comfyui.url, so the unconfigured state has to be written back.
-    await writeConfig(projectDir, { comfyui: { url: "" } });
+    await writeConfig(projectDir, { comfy: { comfyui: { url: "" } } });
     await acceptDirection(projectDir);
     await seedAcceptedCut(projectDir);
 
@@ -563,9 +563,11 @@ describe("export delivery gate", () => {
       video: VIDEO_WITH_UPSCALE_TSX,
     });
     await writeConfig(projectDir, {
-      comfyui: {
-        url: "http://127.0.0.1:8188",
-        headers: { Authorization: "Bearer ${KONTE_TEST_EXPORT_TOKEN}" },
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          headers: { Authorization: "Bearer ${KONTE_TEST_EXPORT_TOKEN}" },
+        },
       },
     });
     await acceptDirection(projectDir);

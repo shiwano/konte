@@ -9,13 +9,14 @@ import {
   loadPatchCatalog,
   patchHashesOf,
   requirePatch,
+  type LoadedPatch,
 } from "../../../core/patch.js";
 import { StateManager } from "../../../core/state/index.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
 import type { BackendKind } from "../../../core/types/index.js";
 import { requireVideoRoots } from "../../context.js";
 import { getStage, isPatchAddress, tryParseAddress } from "../../../core/address.js";
-import { isVendorBackendAsset } from "../../../core/backend-policy.js";
+import { isVendorBackendAsset, type SpendRoutes } from "../../../core/backend-policy.js";
 import { buildDependencyGraph, extractRefs } from "../../../core/graph.js";
 import {
   assertAnimaticConsumed,
@@ -89,7 +90,10 @@ Examples:
       // A patch spends, so it passes the same gates generate does — the direction gate once per
       // stage the targets touch, and the vendor allowlist per patch definition.
       const config = await loadKonteConfig(roots.workspace);
-      for (const patch of targets) assertPatchSpendAllowed(patch, config);
+      const spends = new Map<LoadedPatch, SpendRoutes>();
+      for (const patch of targets) {
+        spends.set(patch, await assertPatchSpendAllowed(patch, config, roots.workspace));
+      }
       // A correction's own prompts and pins, gated like a stage's. A patch declares no waivers of
       // its own.
       for (const patch of targets) {
@@ -182,7 +186,14 @@ Examples:
 
       for (const patch of targets) {
         try {
-          const result = await applyPatch(patch, roots, jobManager, backendCache, config);
+          const result = await applyPatch(
+            patch,
+            roots,
+            jobManager,
+            backendCache,
+            config,
+            spends.get(patch)!,
+          );
           for (const job of result.jobs) {
             applied.push({
               variantId: job.variantId,
