@@ -233,6 +233,8 @@ export interface VideoPreviewState {
   overlay?: OverlayInfo;
   keep: KeepGraphInfo;
   handoffSummary?: string;
+  // Handoff notes no shot shows (a plate's, the timeline's), carried by the summary banner.
+  unroutedHandoffNotes: Array<{ address: string; text: string }>;
 }
 
 // What the Keep-or-regenerate prompt reads: the accepted takes standing downstream of an accept on

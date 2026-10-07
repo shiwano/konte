@@ -106,6 +106,7 @@ import {
   variantPreviewUrl,
   buildAddressFeedback,
   handoffNotesForShot,
+  unroutedReelHandoffNotes,
   ReelSubmitSchema,
   applyKeepDecisions,
   applyRegenerateDecisions,
@@ -904,6 +905,11 @@ export async function handleGetReelState(
     ...(overlay ? { overlay } : {}),
     keep: reelKeepGraph(manager, video, animatic, reference, downstreamVideo),
     ...(handoff?.summary ? { handoffSummary: handoff.summary } : {}),
+    unroutedHandoffNotes: unroutedReelHandoffNotes(
+      handoff,
+      stage,
+      shots.map((s) => s.shotId),
+    ),
   });
 }
 

@@ -10,7 +10,7 @@ import {
 import { directionPartHashes } from "../../../../core/direction-hash.js";
 import type { Direction } from "../../../../core/dsl/direction.js";
 import type { ReviewRecord } from "../../../../core/review-record.js";
-import { handoffNotesForShot } from "../review-shared.js";
+import { handoffNotesForShot, unroutedReelHandoffNotes } from "../review-shared.js";
 import { StateManager } from "../../../../core/state/manager.js";
 import type { ReferenceDefinition, VideoDefinition } from "../../../../core/types/index.js";
 import {
@@ -665,5 +665,12 @@ describe("reel handoff note routing", () => {
 
   it("shows every note on a shot beside it", () => {
     expect(handoffNotesForShot(handoff, "animatic", "01")).toEqual(["a", "b"]);
+  });
+
+  it("hands the banner the notes no shot shows", () => {
+    expect(unroutedReelHandoffNotes(handoff, "animatic", ["01"])).toEqual([
+      { address: "animatic:plate.hall-wide", text: "c" },
+      { address: "animatic:timeline#stem", text: "d" },
+    ]);
   });
 });

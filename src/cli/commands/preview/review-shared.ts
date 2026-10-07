@@ -707,6 +707,16 @@ export function handoffNotesForShot(
   return (handoff?.notes ?? []).filter((n) => n.address === address).map((n) => n.text);
 }
 
+// The notes no shot of the reel shows — a plate's, the timeline's — which the summary banner carries.
+export function unroutedReelHandoffNotes(
+  handoff: Handoff | null,
+  stage: "video" | "animatic",
+  shotIds: readonly string[],
+): Array<{ address: string; text: string }> {
+  const routed = new Set(shotIds.map((id) => formatShotAddress(stage, id)));
+  return (handoff?.notes ?? []).filter((n) => !routed.has(n.address));
+}
+
 // The direction facts the animatic's shot band prints beside each shot's action: its dramatic
 // function, framing, and the NAME of its location. The raw `role` is deliberately left behind —
 // see handleGetDirectionState for why the reviewer is shown the function instead. `script` is the

@@ -25,8 +25,8 @@ export function ChangesBanner({
           {summary}
         </p>
       )}
-      {unroutedNotes?.map((n) => (
-        <p className="handoff-summary handoff-unrouted" key={n.address}>
+      {unroutedNotes?.map((n, i) => (
+        <p className="handoff-summary handoff-unrouted" key={`${n.address}-${i}`}>
           <span className="handoff-icon">
             <SparkleIcon size={14} />
           </span>

@@ -1514,6 +1514,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
       error={session.error}
       onDismissError={() => session.setError(null)}
       handoffSummary={state.handoffSummary}
+      unroutedHandoffNotes={state.unroutedHandoffNotes}
       showChangedOnly={session.showChangedOnly}
       onToggleChangedOnly={() => session.setShowChangedOnly(!session.showChangedOnly)}
       hideStale={session.hideStale}
