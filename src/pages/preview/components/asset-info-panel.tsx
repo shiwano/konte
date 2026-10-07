@@ -1,6 +1,12 @@
 import type React from "react";
 import { useState } from "react";
-import type { AssetInfo, AssetPromptInfo, AssetRefInfo, VariantInfo } from "../types.js";
+import type {
+  AssetGenerationInfo,
+  AssetInfo,
+  AssetPromptInfo,
+  AssetRefInfo,
+  VariantInfo,
+} from "../types.js";
 import { Modal } from "./modal.js";
 
 const PROMPT_LABEL: Record<AssetPromptInfo["kind"], string> = {
@@ -99,10 +105,95 @@ function Refs({
   );
 }
 
+// One declaration: its backend and ref, the text it fed a model, and every other input with the
+// addresses it consumed.
+function GenerationDetails({
+  info,
+  onOpen,
+}: {
+  info: AssetGenerationInfo;
+  onOpen: (ref: AssetRefInfo) => void;
+}): React.ReactElement {
+  return (
+    <>
+      <div className="asset-info-meta">
+        <span className={`asset-info-backend asset-info-backend--${info.backend}`}>
+          {info.backend}
+        </span>
+        <code className="asset-info-ref-id">{info.ref}</code>
+        {info.deterministic && (
+          <span className="asset-info-flag" title="One outcome for one input: no reroll">
+            deterministic
+          </span>
+        )}
+      </div>
+
+      {info.prompts.length > 0 && (
+        <div className="asset-info-section">
+          {info.prompts.map((p) => (
+            <div
+              key={`${p.input}-${p.kind}`}
+              className={`asset-info-field asset-info-field--${p.kind}`}
+            >
+              <div className="asset-info-field-head">
+                <span className={`asset-info-kind asset-info-kind--${p.kind}`}>
+                  {PROMPT_LABEL[p.kind]}
+                </span>
+                <span className="asset-info-name">{p.input}</span>
+                <CopyButton text={p.value} />
+              </div>
+              <Value text={p.value} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {info.inputs.length > 0 && (
+        <div className="asset-info-section">
+          <h4 className="asset-info-heading">Inputs</h4>
+          {info.inputs.map((input) => {
+            // The chip already carries the address and its still, so the text line is dropped.
+            const bareRef = input.refs.length === 1 && input.value === input.refs[0]?.address;
+            const scalar =
+              input.refs.length === 0 &&
+              !input.value.includes("\n") &&
+              input.value.length <= SCALAR_CHARS;
+            if (bareRef || scalar) {
+              return (
+                <div key={input.name} className="asset-info-row">
+                  <span className="asset-info-name">{input.name}</span>
+                  {bareRef ? (
+                    <Refs refs={input.refs} onOpen={onOpen} />
+                  ) : (
+                    <code className="asset-info-scalar">{input.value}</code>
+                  )}
+                </div>
+              );
+            }
+            return (
+              <div key={input.name} className="asset-info-field">
+                <div className="asset-info-field-head">
+                  <span className="asset-info-name">{input.name}</span>
+                  <CopyButton text={input.value} />
+                </div>
+                <Value text={input.value} />
+                <Refs refs={input.refs} onOpen={onOpen} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {info.prompts.length === 0 && info.inputs.length === 0 && (
+        <p className="asset-info-empty">This asset declares no inputs.</p>
+      )}
+    </>
+  );
+}
+
 /**
- * Read-only overlay printing the declaration one take was generated from: its backend and ref, the
- * text it fed a model, and every other input with the addresses it consumed. Takes no review
- * decision.
+ * Read-only overlay printing the declaration one take was generated from. A patched take prints
+ * each chain step that produced it above its source take's declaration. Takes no review decision.
  */
 export function AssetInfoPanel({
   assetName,
@@ -145,76 +236,41 @@ export function AssetInfoPanel({
       }
     >
       <div className="asset-info-body">
-        <div className="asset-info-meta">
-          <span className={`asset-info-backend asset-info-backend--${info.backend}`}>
-            {info.backend}
-          </span>
-          <code className="asset-info-ref-id">{info.ref}</code>
-          {info.deterministic && (
-            <span className="asset-info-flag" title="One outcome for one input: no reroll">
-              deterministic
-            </span>
-          )}
-        </div>
-
-        {info.prompts.length > 0 && (
-          <div className="asset-info-section">
-            {info.prompts.map((p) => (
-              <div
-                key={`${p.input}-${p.kind}`}
-                className={`asset-info-field asset-info-field--${p.kind}`}
-              >
-                <div className="asset-info-field-head">
-                  <span className={`asset-info-kind asset-info-kind--${p.kind}`}>
-                    {PROMPT_LABEL[p.kind]}
-                  </span>
-                  <span className="asset-info-name">{p.input}</span>
-                  <CopyButton text={p.value} />
-                </div>
-                <Value text={p.value} />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {info.inputs.length > 0 && (
-          <div className="asset-info-section">
-            <h4 className="asset-info-heading">Inputs</h4>
-            {info.inputs.map((input) => {
-              // The chip already carries the address and its still, so the text line is dropped.
-              const bareRef = input.refs.length === 1 && input.value === input.refs[0]?.address;
-              const scalar =
-                input.refs.length === 0 &&
-                !input.value.includes("\n") &&
-                input.value.length <= SCALAR_CHARS;
-              if (bareRef || scalar) {
-                return (
-                  <div key={input.name} className="asset-info-row">
-                    <span className="asset-info-name">{input.name}</span>
-                    {bareRef ? (
-                      <Refs refs={input.refs} onOpen={setEnlarged} />
-                    ) : (
-                      <code className="asset-info-scalar">{input.value}</code>
-                    )}
+        {"patch" in info ? (
+          <>
+            <div className="asset-info-part">
+              <h4 className="asset-info-heading">
+                Patch{" "}
+                <code className="asset-info-address">patches/{info.patch.sourceVariantId}.ts</code>
+              </h4>
+              {info.patch.steps.map((step) => (
+                <div key={step.address} className="asset-info-step">
+                  <div className="asset-info-step-head">
+                    <span className="asset-info-name">{step.name}</span>
+                    <code className="asset-info-address">{step.variantId}</code>
                   </div>
-                );
-              }
-              return (
-                <div key={input.name} className="asset-info-field">
-                  <div className="asset-info-field-head">
-                    <span className="asset-info-name">{input.name}</span>
-                    <CopyButton text={input.value} />
-                  </div>
-                  <Value text={input.value} />
-                  <Refs refs={input.refs} onOpen={setEnlarged} />
+                  <GenerationDetails info={step} onOpen={setEnlarged} />
                 </div>
-              );
-            })}
-          </div>
-        )}
-
-        {info.prompts.length === 0 && info.inputs.length === 0 && (
-          <p className="asset-info-empty">This asset declares no inputs.</p>
+              ))}
+              {info.patch.steps.length === 0 && (
+                <p className="asset-info-empty">
+                  The chain steps that produced this take are no longer in state.
+                </p>
+              )}
+            </div>
+            <div className="asset-info-part">
+              <h4 className="asset-info-heading">
+                Source <code className="asset-info-address">{info.patch.sourceVariantId}</code>
+              </h4>
+              {info.patch.source ? (
+                <GenerationDetails info={info.patch.source} onOpen={setEnlarged} />
+              ) : (
+                <p className="asset-info-empty">The source take has no recorded declaration.</p>
+              )}
+            </div>
+          </>
+        ) : (
+          <GenerationDetails info={info} onOpen={setEnlarged} />
         )}
       </div>
     </Modal>

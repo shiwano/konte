@@ -39,6 +39,7 @@ import type { VariantState } from "../../../core/types/index.js";
 import { inferMediaType, variantMediaKind } from "../../../core/media-type.js";
 import {
   consumedTakePreviewUrl,
+  patchChainTakes,
   takeDefinitionSnapshot,
   variantFileUrl,
   variantPreviewUrl,
@@ -143,12 +144,14 @@ export async function handleGetReferenceState(
 ): Promise<Response> {
   const manager = await StateManager.load(videoRoot);
   const feedbackMgr = await FeedbackManager.load(videoRoot, "reference");
-  const patchHashes = patchHashesOf(await loadPatchCatalog(videoRoot, manager.getState()));
+  const patchCatalog = await loadPatchCatalog(videoRoot, manager.getState());
+  const patchHashes = patchHashesOf(patchCatalog);
   const rosterEntries = referenceRosterEntries(direction, manager.getDirectionAcceptance());
   const assetInfo = createAssetInfoBuilder(
-    { reference },
+    [reference, ...patchCatalog.patches.values()].flatMap((d) => d.prompts ?? []),
     (addr, vid) => takeDefinitionSnapshot(manager, videoRoot, addr, vid),
     (addr, vid, ref) => consumedTakePreviewUrl(manager, videoRoot, addr, vid, ref, assetBaseUrl),
+    (addr, vid) => patchChainTakes(manager, addr, vid),
   );
 
   // Exposed assets only: an unreturned one is an intermediate another reference asset consumes, and

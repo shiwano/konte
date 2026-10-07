@@ -5698,6 +5698,32 @@ body.fill-mode .fab-submit-wrap {
   padding-right: 0.25rem;
 }
 
+/* A patched take's chain, then its source take's declaration. */
+.asset-info-part {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.asset-info-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border);
+}
+
+.asset-info-step-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.2rem;
+}
+
+.asset-info-step-head .asset-info-name {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 .asset-info-meta {
   display: flex;
   flex-wrap: wrap;
@@ -5747,6 +5773,11 @@ body.fill-mode .fab-submit-wrap {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.asset-info-heading .asset-info-address {
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .asset-info-field {

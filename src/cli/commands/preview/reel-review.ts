@@ -96,6 +96,7 @@ import { StateManager } from "../../../core/state/index.js";
 import { JobManager } from "../../../core/job-manager.js";
 import {
   consumedTakePreviewUrl,
+  patchChainTakes,
   takeDefinitionSnapshot,
   buildVariantCandidates,
   shotFactsIndex,
@@ -569,7 +570,8 @@ export async function handleGetReelState(
   const stage = video.stage;
   const manager = await StateManager.load(videoRoot);
   const feedbackMgr = await FeedbackManager.load(videoRoot, stage);
-  const patchHashes = patchHashesOf(await loadPatchCatalog(videoRoot, manager.getState()));
+  const patchCatalog = await loadPatchCatalog(videoRoot, manager.getState());
+  const patchHashes = patchHashesOf(patchCatalog);
   const directionShotById = shotFactsIndex(direction);
   const movesByShotId = shotMoveIndex(animatic);
   const waiversByShotId = shotWaiverIndex(manager, direction);
@@ -600,11 +602,13 @@ export async function handleGetReelState(
         manager.resolveReference(clip.address, { includeStale: true }) === null,
     }));
 
-  // On the animatic stage `video` IS the board, so the two keys name the same definition.
+  // On the animatic stage `video` IS the board, so its prompts are listed twice — harmless, as an
+  // input is read once per address.
   const assetInfo = createAssetInfoBuilder(
-    { [stage]: video, animatic, reference },
+    [video, animatic, reference, ...patchCatalog.patches.values()].flatMap((d) => d?.prompts ?? []),
     (addr, vid) => takeDefinitionSnapshot(manager, videoRoot, addr, vid),
     (addr, vid, ref) => consumedTakePreviewUrl(manager, videoRoot, addr, vid, ref, assetBaseUrl),
+    (addr, vid) => patchChainTakes(manager, addr, vid),
   );
 
   const buildAsset = (assetName: string, addr: string, resolvedVariantId: string | undefined) => {

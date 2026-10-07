@@ -16,6 +16,7 @@ import {
   displayedVariantStatus,
   hasNewerReadyVariant,
   isValidSubmitPayload,
+  patchChainTakes,
   recordFeedbackFor,
   takeDefinitionSnapshot,
   variantPreviewUrl,
@@ -24,6 +25,7 @@ import {
 } from "../review-shared.js";
 import { unacceptReelShots } from "../reel-review.js";
 import { writeDefinitionSnapshot } from "../../../../core/definition-snapshot.js";
+import { variantDir } from "../../../../core/variant-dir.js";
 
 let tmpDir: string;
 
@@ -244,6 +246,54 @@ describe("takeDefinitionSnapshot", () => {
     const vid = mgr.reserveVariantId(ADDR);
 
     expect(takeDefinitionSnapshot(mgr, tmpDir, ADDR, vid)).toBeNull();
+  });
+});
+
+describe("patchChainTakes", () => {
+  const SHOT = "animatic:shot.01.first";
+
+  // A take landed in its own directory, carrying `hash` and the hashes it consumed.
+  function take(
+    mgr: StateManager,
+    addr: string,
+    hash: string,
+    consumed: Record<string, string> = {},
+  ): string {
+    const vid = mgr.reserveVariantId(addr);
+    const variant = mgr.getAssetState(addr).variants![vid]!;
+    variant.file = path.join(variantDir("", addr, vid), "out.png");
+    variant.outputHash = hash;
+    variant.inputFingerprints = consumed;
+    return vid;
+  }
+
+  it("walks back from the step owning the patched take's file, upstream first", async () => {
+    const mgr = await StateManager.init(tmpDir);
+    const source = take(mgr, SHOT, "h-source");
+    const card = `animatic:patch.${source}.card`;
+    const clean = `animatic:patch.${source}.clean`;
+    take(mgr, card, "h-card-old", { [SHOT]: "h-source" });
+    const cardUsed = take(mgr, card, "h-card", { [SHOT]: "h-source" });
+    const cleanUsed = take(mgr, clean, "h-clean", { [card]: "h-card" });
+    const patched = mgr.reserveVariantId(SHOT);
+    const variant = mgr.getAssetState(SHOT).variants![patched]!;
+    variant.derivedFrom = source;
+    variant.file = mgr.getAssetState(clean).variants![cleanUsed]!.file;
+
+    expect(patchChainTakes(mgr, SHOT, patched)).toEqual({
+      sourceVariantId: source,
+      steps: [
+        { address: card, variantId: cardUsed },
+        { address: clean, variantId: cleanUsed },
+      ],
+    });
+  });
+
+  it("is null for a take no patch produced", async () => {
+    const mgr = await StateManager.init(tmpDir);
+    const vid = take(mgr, SHOT, "h");
+
+    expect(patchChainTakes(mgr, SHOT, vid)).toBeNull();
   });
 });
 

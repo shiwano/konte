@@ -1,10 +1,12 @@
-import { parseAddress, type AssetStage, type DefinitionLike } from "../../../core/address.js";
+import { assetNameOf, parseAddress } from "../../../core/address.js";
 import { parsePlaceholder } from "../../../core/dsl/shot-context.js";
 import type { PromptOccurrence } from "../../../core/prompt-check.js";
 import type { AssetDefinition } from "../../../core/types/index.js";
 import type {
+  AssetGenerationInfo,
   AssetInfo,
   AssetInputInfo,
+  AssetPatchStepInfo,
   AssetPromptInfo,
   AssetRefInfo,
 } from "../../../pages/preview/types.js";
@@ -149,38 +151,40 @@ function declaredValue(
   return undefined;
 }
 
+/** The chain step takes a patched take was produced by, upstream first. */
+export interface PatchChainTakes {
+  sourceVariantId: string;
+  steps: ReadonlyArray<{ address: string; variantId: string }>;
+}
+
 /**
  * Reads the declaration one take was generated from — its `definition.json` snapshot — for the
  * review page's asset info panel. A take with no snapshot (cleaned, a `file` mirror) yields nothing.
+ * A patched take reads as each chain step's own declaration and its source take's.
  *
- * `definitions` only says which inputs are prompt text, by the name the stage's prompt collection
- * recorded them under; every value is the snapshot's. `consumedPreviewUrl` supplies the still of the
- * take this one consumed at a referenced address.
+ * `prompts` only says which inputs are prompt text, by the name the stage's or patch's prompt
+ * collection recorded them under; every value is the snapshot's. `consumedPreviewUrl` supplies the
+ * still of the take this one consumed at a referenced address.
  */
 export function createAssetInfoBuilder(
-  definitions: Partial<Record<AssetStage, DefinitionLike | null>>,
+  prompts: readonly PromptOccurrence[],
   snapshotOf: (address: string, variantId: string) => AssetDefinition | null,
   consumedPreviewUrl: (address: string, variantId: string, ref: string) => string | null,
+  patchChainOf: (address: string, variantId: string) => PatchChainTakes | null = () => null,
 ): (address: string, variantId: string) => AssetInfo | undefined {
-  return (address: string, variantId: string): AssetInfo | undefined => {
+  const generation = (address: string, variantId: string): AssetGenerationInfo | undefined => {
     const def = snapshotOf(address, variantId);
     if (!def) return undefined;
 
-    let occurrences: readonly PromptOccurrence[] = [];
-    try {
-      occurrences = definitions[parseAddress(address).stage]?.prompts ?? [];
-    } catch {
-      // an unparseable address classifies nothing as prompt text
-    }
-    const prompts: AssetPromptInfo[] = [];
+    const promptInfos: AssetPromptInfo[] = [];
     if ("inputs" in def) {
       const seen = new Set<string>();
-      for (const p of occurrences) {
+      for (const p of prompts) {
         if (p.address !== address || seen.has(p.input)) continue;
         seen.add(p.input);
         const value = declaredValue(def, p.input);
         if (typeof value !== "string" || value.trim() === "") continue;
-        prompts.push({
+        promptInfos.push({
           input: p.input,
           kind: p.negative ? "negative" : p.spoken ? "spoken" : "prompt",
           value,
@@ -192,14 +196,27 @@ export function createAssetInfoBuilder(
       address: ref,
       imageUrl: consumedPreviewUrl(address, variantId, ref),
     });
-    const inputs = "inputs" in def ? labelledInputs(def, prompts, refInfo) : [];
+    const inputs = "inputs" in def ? labelledInputs(def, promptInfos, refInfo) : [];
 
     return {
       backend: def.kind,
       ref: refOf(def),
       deterministic: def.deterministic === true,
-      prompts,
+      prompts: promptInfos,
       inputs,
     };
+  };
+
+  return (address: string, variantId: string): AssetInfo | undefined => {
+    const source = generation(address, variantId);
+    const chain = patchChainOf(address, variantId);
+    if (!chain) return source;
+    const steps = chain.steps.flatMap((step): AssetPatchStepInfo[] => {
+      const info = generation(step.address, step.variantId);
+      if (!info) return [];
+      return [{ name: assetNameOf(parseAddress(step.address)), ...step, ...info }];
+    });
+    if (!source && steps.length === 0) return undefined;
+    return { patch: { sourceVariantId: chain.sourceVariantId, source: source ?? null, steps } };
   };
 }

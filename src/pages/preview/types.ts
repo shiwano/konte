@@ -4,8 +4,24 @@ export type MediaKind = "video" | "image" | "audio";
 
 // The declaration one take was generated from — what `<stage>.tsx` handed the model then, read off
 // the take's `definition.json` snapshot. Absent when the take has none (cleaned, a `file` mirror, a
-// materialized leaf).
-export interface AssetInfo {
+// materialized leaf). A patched take's is its chain's, with its source take's declaration.
+export type AssetInfo = AssetGenerationInfo | { patch: AssetPatchInfo };
+
+export interface AssetPatchInfo {
+  sourceVariantId: string;
+  // Null when the source take has no snapshot (a `file` asset's).
+  source: AssetGenerationInfo | null;
+  // The chain step takes that produced the patched take, upstream first, the returned step last.
+  steps: AssetPatchStepInfo[];
+}
+
+export interface AssetPatchStepInfo extends AssetGenerationInfo {
+  name: string;
+  address: string;
+  variantId: string;
+}
+
+export interface AssetGenerationInfo {
   backend: "comfy" | "fal" | "local" | "file";
   // The backend's own identifier: a workflow filename, an endpoint id, an ffmpeg operation, a path.
   ref: string;

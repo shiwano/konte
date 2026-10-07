@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { DefinitionLike } from "../../../../core/address.js";
+import type { PromptOccurrence } from "../../../../core/prompt-check.js";
 import type { AssetDefinition } from "../../../../core/types/index.js";
-import { createAssetInfoBuilder } from "../asset-info.js";
+import type {
+  AssetGenerationInfo,
+  AssetInfo,
+  AssetPatchInfo,
+} from "../../../../pages/preview/types.js";
+import { type PatchChainTakes, createAssetInfoBuilder } from "../asset-info.js";
 
 const PROMPT = "a girl at a desk";
 const NEGATIVE = "blurry";
@@ -21,28 +26,40 @@ const MOTION: AssetDefinition = {
   inputLabels: { "136.prompt": "prompt", "136.negative": "negativePrompt" },
 };
 
-// The stage as it is now: only its prompt collection is read, to say which inputs are prompt text.
-const VIDEO: DefinitionLike = {
-  shots: [],
-  prompts: [
-    { address: ADDR, input: "prompt", value: "rewritten since" },
-    { address: ADDR, input: "negativePrompt", value: NEGATIVE, negative: true },
-  ],
-};
+// The stage's prompt collection as it is now: read only to say which inputs are prompt text.
+const PROMPTS: PromptOccurrence[] = [
+  { address: ADDR, input: "prompt", value: "rewritten since" },
+  { address: ADDR, input: "negativePrompt", value: NEGATIVE, negative: true },
+];
 
 // A builder over one snapshotted take per address.
-function builder(
+function chainBuilder(
   snapshots: Record<string, AssetDefinition>,
-  definitions: Partial<Record<"video" | "reference", DefinitionLike>> = {},
+  prompts: PromptOccurrence[],
+  patchChainOf: (address: string, variantId: string) => PatchChainTakes | null,
 ) {
   return createAssetInfoBuilder(
-    definitions,
+    prompts,
     (addr) => snapshots[addr] ?? null,
     (addr, vid, ref) => `/thumb/${addr}/${vid}/${ref}`,
+    patchChainOf,
   );
 }
 
-const build = (addr: string) => builder({ [ADDR]: MOTION }, { video: VIDEO })(addr, "v-1");
+// The same over takes no patch produced.
+function builder(snapshots: Record<string, AssetDefinition>, prompts: PromptOccurrence[] = []) {
+  const build = chainBuilder(snapshots, prompts, () => null);
+  return (addr: string, vid: string): AssetGenerationInfo | undefined => {
+    const info = build(addr, vid);
+    if (info && "patch" in info) throw new Error("unexpected patch info");
+    return info;
+  };
+}
+
+const patchOf = (info: AssetInfo | undefined): AssetPatchInfo | undefined =>
+  info && "patch" in info ? info.patch : undefined;
+
+const build = (addr: string) => builder({ [ADDR]: MOTION }, PROMPTS)(addr, "v-1");
 
 describe("createAssetInfoBuilder", () => {
   it("splits the prompt inputs off with the take's own text, labelling the exclusion half", () => {
@@ -114,7 +131,7 @@ describe("createAssetInfoBuilder", () => {
           inputLabels: { "136.prompt": "prompt", "140.style": "style" },
         },
       },
-      { video: { shots: [], prompts: [{ address: ADDR, input: "prompt", value: "cinematic" }] } },
+      [{ address: ADDR, input: "prompt", value: "cinematic" }],
     )(ADDR, "v-1");
     expect(info?.prompts.map((p) => p.input)).toEqual(["prompt"]);
     expect(info?.inputs.map((i) => i.name)).toEqual(["style"]);
@@ -159,7 +176,7 @@ describe("createAssetInfoBuilder", () => {
           inputs: { prompt: PROMPT, width: 640 },
         },
       },
-      { video: VIDEO },
+      PROMPTS,
     )(ADDR, "v-1");
     expect(info?.prompts).toEqual([{ input: "prompt", kind: "prompt", value: PROMPT }]);
     expect(info?.inputs.map((i) => i.name)).toEqual(["width"]);
@@ -167,5 +184,80 @@ describe("createAssetInfoBuilder", () => {
 
   it("yields nothing for a take with no snapshot", () => {
     expect(build("video:shot.99.motion")).toBeUndefined();
+  });
+
+  describe("a patched take", () => {
+    const CARD = "video:patch.v-1.card";
+    const CLEAN = "video:patch.v-1.clean";
+    const edit = (image: string, prompt: string): AssetDefinition => ({
+      kind: "comfy",
+      workflow: "edit.json",
+      inputs: { "1.image": image, "2.prompt": prompt },
+      inputLabels: { "1.image": "image1", "2.prompt": "prompt" },
+    });
+    const patched = chainBuilder(
+      {
+        [ADDR]: MOTION,
+        [CARD]: edit(`__konte:${ADDR}__`, "fix the card"),
+        [CLEAN]: edit(`__konte:${CARD}__`, "remove the stickers"),
+      },
+      [
+        ...PROMPTS,
+        { address: CARD, input: "prompt", value: "fix the card" },
+        { address: CLEAN, input: "prompt", value: "remove the stickers" },
+      ],
+      (_addr, vid) =>
+        vid === "v-2"
+          ? {
+              sourceVariantId: "v-1",
+              steps: [
+                { address: CARD, variantId: "v-c" },
+                { address: CLEAN, variantId: "v-s" },
+              ],
+            }
+          : null,
+    );
+
+    it("carries the source take's declaration beside the chain", () => {
+      expect(patched(ADDR, "v-2")).toMatchObject({
+        patch: {
+          source: {
+            ref: "r2v.json",
+            prompts: [{ input: "prompt", value: PROMPT }, { input: "negativePrompt" }],
+          },
+        },
+      });
+    });
+
+    it("lists the chain though the source take has no snapshot", () => {
+      const info = chainBuilder({ [CARD]: edit(`__konte:${ADDR}__`, "fix the card") }, [], () => ({
+        sourceVariantId: "v-1",
+        steps: [{ address: CARD, variantId: "v-c" }],
+      }))(ADDR, "v-2");
+      expect(info).toMatchObject({ patch: { source: null, steps: [{ name: "card" }] } });
+    });
+
+    it("lists each chain step's declaration, the consumed take's still beside each input", () => {
+      const patch = patchOf(patched(ADDR, "v-2"));
+      expect(patch?.sourceVariantId).toBe("v-1");
+      expect(patch?.steps.map((s) => [s.name, s.variantId, s.ref])).toEqual([
+        ["card", "v-c", "edit.json"],
+        ["clean", "v-s", "edit.json"],
+      ]);
+      expect(patch?.steps[1]?.prompts).toEqual([
+        { input: "prompt", kind: "prompt", value: "remove the stickers" },
+      ]);
+      expect(patch?.steps[0]?.inputs).toEqual([
+        {
+          name: "image1",
+          value: ADDR,
+          refs: [{ address: ADDR, imageUrl: `/thumb/${CARD}/v-c/${ADDR}` }],
+        },
+      ]);
+    });
+
+    it("carries no patch for an unpatched take", () => {
+      expect(patched(ADDR, "v-1")).not.toHaveProperty("patch");
+    });
   });
 });

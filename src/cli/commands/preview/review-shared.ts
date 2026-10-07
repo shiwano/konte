@@ -9,6 +9,7 @@ import {
   DIRECTION_SECTIONS,
   addressToUrlPath,
   formatAddress,
+  patchSourceVariantIdOf,
   tryParseAddress,
 } from "../../../core/address.js";
 import {
@@ -19,6 +20,7 @@ import {
   type PatchHashes,
 } from "../../../core/staleness.js";
 import { generatedOrigin, isReviewLeaf } from "../../../core/variant-lineage.js";
+import { variantOwningFile } from "../../../core/variant-dir.js";
 import { errorMessage } from "../../../core/errors.js";
 import { parseJsonBody } from "../../page-host/http.js";
 import { resolveLens } from "../../../core/direction.js";
@@ -62,6 +64,7 @@ import type {
   VariantState,
 } from "../../../core/types/index.js";
 import { readDefinitionSnapshot } from "../../../core/definition-snapshot.js";
+import type { PatchChainTakes } from "./asset-info.js";
 import { applyTurboInputs } from "../../../core/turbo.js";
 import { readVariantThumbnails } from "../../../core/thumbnail.js";
 import { inferMediaType } from "../../../core/media-type.js";
@@ -609,6 +612,43 @@ export function takeDefinitionSnapshot(
   if (!snapshot) return null;
   const turbo = manager.getState().assets[address]?.variants?.[origin]?.turbo === true;
   return turbo ? applyTurboInputs(snapshot) : snapshot;
+}
+
+/**
+ * The chain step takes a patched take was produced by, upstream first, or null for a take no patch
+ * produced. Walked back from the step take that owns its file, each step to the take its
+ * `inputFingerprints` recorded at an earlier step's address — what made this take, not what the
+ * script declares now.
+ */
+export function patchChainTakes(
+  manager: StateManager,
+  address: string,
+  variantId: string,
+): PatchChainTakes | null {
+  const state = manager.getState();
+  const variant = state.assets[address]?.variants?.[variantId];
+  const sourceVariantId = variant?.derivedFrom;
+  if (!sourceVariantId) return null;
+  const steps: Array<{ address: string; variantId: string }> = [];
+  const seen = new Set<string>();
+  const visit = (stepAddress: string, stepId: string): void => {
+    if (seen.has(stepAddress)) return;
+    seen.add(stepAddress);
+    const fingerprints = state.assets[stepAddress]?.variants?.[stepId]?.inputFingerprints ?? {};
+    for (const [ref, hash] of Object.entries(fingerprints)) {
+      if (patchSourceVariantIdOf(ref) !== sourceVariantId) continue;
+      const consumed = Object.entries(state.assets[ref]?.variants ?? {}).find(
+        ([, v]) => v.file && v.outputHash === hash,
+      );
+      if (consumed) visit(ref, consumed[0]);
+    }
+    steps.push({ address: stepAddress, variantId: stepId });
+  };
+  const owner = variant.file ? variantOwningFile(state, variant.file) : null;
+  if (owner && patchSourceVariantIdOf(owner.address) === sourceVariantId) {
+    visit(owner.address, owner.variantId);
+  }
+  return { sourceVariantId, steps };
 }
 
 /**
