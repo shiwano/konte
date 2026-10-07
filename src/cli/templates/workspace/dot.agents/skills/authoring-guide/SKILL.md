@@ -39,9 +39,9 @@ export default defineReference(direction, () => {
 });
 ```
 
-- **`defineReference(direction, build)`** — the callback receives `{ format }` and declares assets with `asset()` (both `file` and generative adapters); **returning one exposes it as `reference.<name>`**. Address: `reference:<name>`. The direction is taken for its typesetting and for the size each sheet is derived at.
+- **`defineReference(direction, build)`** — the callback receives `{ format }` and declares assets with `asset()` (both `file` and generative adapters); **returning one exposes it as `reference.<name>`**. Address: `reference:<name>`.
 - **Generated once and shared across every stage** — accepting it once satisfies everyone. A reference asset may depend only on other reference assets, never on an animatic/video asset.
-- **Return only what other stages consume** — an asset used solely as an input to another reference asset (e.g. a blank `latent` feeding a generated `key`) is declared but left un-returned. An un-returned one still generates, but is never reviewed. A returned name must be a real `asset()`.
+- **Return only what other stages consume** — an asset used solely as an input to another reference asset (e.g. a blank `latent` feeding a generated `key`) is declared but left un-returned. An un-returned one still generates, but is never reviewed.
 - **Return each character, prop, location and cast voice under its roster id** — a `lineup`'s `cat` needs `reference:cat`; other shared assets (`bgm`) are fine. Setups and landmarks are declared on the animatic.
 - **Let konte size a generated reference** — `width`/`height` derive off the canvas' long edge: portrait for a character, a landscape master at twice it for a location, square for the rest; pass neither. A canvas-shaped overlay takes `...format.size`.
 - **Frame the subject tight** — margin is pixels the shot never uses; ask for it filling the frame.
@@ -148,4 +148,5 @@ export default defineVideo(direction, {
 - **Depend by passing a `MediaAsset` as an input value** — `asset("motion", animate, { image: reference.background, prompt: "zoom into earth" })`.
 - **Reach by closure, scoped by how wide the sharing is** — within one shot: a local `const`. Across shots in a stage: a timeline asset declared at the top of `timeline` (`video:timeline.<name>`). Across stages: a reference asset (`reference.<name>`).
 - **Across shots, back to any earlier shot** — a build's `shot(id)` reaches any shot the chain has already placed, on both stages: `({ shot }) => shot("01").video(name)` / `.image(name)` / `.audio(name)`. An unknown asset name, a kind mismatch, or a still-undeveloped `pendingShot` target fails while the definition loads.
-- **Across stages** — reach animatic assets through the imported module: `startImage: animatic.shot("01").image("first")`. An animatic asset moving to a new take stales dependent video assets.
+- **Across stages** — reach animatic assets through the imported module: `startImage: animatic.shot("01").image("first")`.
+- **Renaming an asset that holds takes** — rename it and its consumers, then `konte rename <old> <new>` before the next `generate`, which would leave its takes and accept behind.
