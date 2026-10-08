@@ -11,7 +11,6 @@ import {
   MAX_SHOWN_SHOTS,
   clipFrameAt,
   formatClock,
-  studiesDir,
   studyClip,
 } from "../../core/study-clip.js";
 import { parseTimecode } from "../../core/timecode.js";
@@ -96,11 +95,11 @@ and contact sheets of one frame per shot, each labelled with the shot's start an
 ${MAX_SHOWN_SHOTS} shots the sheets show an even spread and say how many. The music and heard rows
 are left out where the clip has none.
 
-Beside a clip yt-dlp downloaded, its page's title, uploader, chapters and description are read off
-<stem>.info.json, and the words off its <stem>.<lang>.vtt subtitles in place of hearing the voice.
+For a clip yt-dlp downloaded, its page's title, uploader, chapters and description are read, and
+the words off its subtitles in place of hearing the voice.
 
-A URL is downloaded into the workspace's .konte/studies/downloads/, once; that file is the clip
-from then on. Any page yt-dlp reads is a clip where it is on PATH; without it, only a direct link
+A URL is downloaded once, into the clip's study under .konte/studies/; that file is the clip from
+then on. Any page yt-dlp reads is a clip where it is on PATH; without it, only a direct link
 to a video file is.
 
 A clip runs at most 30 minutes. The study is kept under the workspace's .konte/studies/ by the
@@ -120,10 +119,8 @@ Examples:
         await ensureFfmpeg();
         await ffprobeBin();
         const url = isClipUrl(arg) ? arg : null;
-        if (url) console.error(`konte: downloading ${url}…`);
-        const abs = url
-          ? await downloadClip(url, path.join(studiesDir(workspaceRoot), "downloads"))
-          : path.resolve(arg);
+        const progress = (line: string) => console.error(`konte: ${line}…`);
+        const abs = url ? await downloadClip(url, workspaceRoot, progress) : path.resolve(arg);
         const file = url ? path.relative(process.cwd(), abs) : arg;
 
         if (opts.at !== undefined) {
@@ -137,7 +134,7 @@ Examples:
         const { dir, study: result } = await studyClip({
           workspaceRoot,
           file: abs,
-          progress: (line) => console.error(`konte: ${line}…`),
+          progress,
         });
         printStudy(file, url, dir, result);
         console.log("");

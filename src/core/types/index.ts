@@ -121,4 +121,10 @@ export {
   AnimaticFormatSchema,
   type AnimaticShotDefinition,
 } from "./animatic.js";
-export { type ClipPageInfo, ClipPageInfoSchema, type ClipStudy, ClipStudySchema } from "./study.js";
+export {
+  type ClipPageInfo,
+  ClipPageInfoSchema,
+  ClipSourceSchema,
+  type ClipStudy,
+  ClipStudySchema,
+} from "./study.js";

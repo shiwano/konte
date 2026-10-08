@@ -4,7 +4,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { detectBeats } from "./beat-this.js";
-import { readClipPageInfo, readClipSubtitle } from "./clip-sidecars.js";
+import { PAGE_INFO_FILE, readClipPageInfo, readClipSubtitle } from "./clip-sidecars.js";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import {
   type ContactSheetCell,
@@ -322,8 +322,8 @@ export async function studyClip(opts: {
     progress(`drawing ${Math.min(shots.length, MAX_SHOWN_SHOTS)} shot(s) onto sheets`);
     const sheets = await renderSheets({ proxy, probe, shots, workDir, outDir });
 
-    const info = readClipPageInfo(file);
-    const subtitle = readClipSubtitle(file, info?.language ?? null);
+    const info = readClipPageInfo(path.join(dir, PAGE_INFO_FILE));
+    const subtitle = readClipSubtitle(dir, info?.language ?? null);
     let heard: (NonNullable<ClipStudy["heard"]> & { lines: string[] }) | null = subtitle && {
       lang: subtitle.lang,
       from: subtitle.auto ? "auto-subtitles" : "subtitles",

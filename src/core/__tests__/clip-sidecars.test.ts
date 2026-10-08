@@ -121,23 +121,22 @@ describe("readClipSubtitle", () => {
 
   beforeEach(async () => {
     dir = await fs.mkdtemp(path.join(tmpdir(), "konte-clip-sidecars-"));
-    await fs.writeFile(path.join(dir, "abc.webm"), "");
   });
 
   const cue = (text: string) => `WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n${text}\n`;
 
-  it("reads the track beside the clip that fits its language", async () => {
-    await fs.writeFile(path.join(dir, "abc.ko-orig.vtt"), cue("auto"));
-    await fs.writeFile(path.join(dir, "abc.ko.vtt"), cue("human"));
-    await fs.writeFile(path.join(dir, "other.ko.vtt"), cue("another clip"));
-    expect(readClipSubtitle(path.join(dir, "abc.webm"), "ko")).toEqual({
+  it("reads the track in the study directory that fits the clip's language", async () => {
+    await fs.writeFile(path.join(dir, "ko-orig.vtt"), cue("auto"));
+    await fs.writeFile(path.join(dir, "ko.vtt"), cue("human"));
+    await fs.writeFile(path.join(dir, "heard.txt"), "");
+    expect(readClipSubtitle(dir, "ko")).toEqual({
       lang: "ko",
       auto: false,
       cues: [{ startSec: 1, text: "human" }],
     });
   });
 
-  it("is null where no track is beside the clip", () => {
-    expect(readClipSubtitle(path.join(dir, "abc.webm"), "ko")).toBeNull();
+  it("is null where the study directory holds no track", () => {
+    expect(readClipSubtitle(dir, "ko")).toBeNull();
   });
 });

@@ -5,17 +5,16 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { fetchVideoFile } from "../clip-download.js";
+import { downloadedClip, fetchVideoFile, keepDownload } from "../clip-download.js";
+import { clipSha256, clipStudyDir } from "../study-clip.js";
 
 describe("fetchVideoFile", () => {
   let server: Server;
   let port: number;
   let dir: string;
-  let requests: number;
 
   beforeAll(async () => {
     server = createServer((req, res) => {
-      requests++;
       const { pathname } = new URL(req.url!, "http://localhost");
       if (pathname === "/ref.mp4") {
         res.writeHead(200, { "content-type": "video/mp4" }).end("bytes");
@@ -34,32 +33,19 @@ describe("fetchVideoFile", () => {
   afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 
   beforeEach(async () => {
-    requests = 0;
     dir = await fs.mkdtemp(path.join(tmpdir(), "konte-fetch-clip-"));
   });
 
   const at = (p: string) => `http://127.0.0.1:${port}${p}`;
 
-  it("saves a video file under the URL's name, once", async () => {
+  it("saves a video file under the URL's name", async () => {
     const file = await fetchVideoFile(at("/ref.mp4"), dir);
-    expect(path.basename(file!)).toMatch(/^ref-[0-9a-f]{8}\.mp4$/);
+    expect(file).toBe(path.join(dir, "ref.mp4"));
     expect(readFileSync(file!, "utf-8")).toBe("bytes");
-    expect(await fetchVideoFile(at("/ref.mp4"), dir)).toBe(file);
-    expect(requests).toBe(1);
   });
 
-  it("keeps two URLs of the same name apart", async () => {
-    const first = await fetchVideoFile(at("/ref.mp4"), dir);
-    const second = await fetchVideoFile(at("/ref.mp4?take=2"), dir);
-    expect(second).not.toBe(first);
-    expect(requests).toBe(2);
-  });
-
-  it("names a file the URL gives no extension by its type, once", async () => {
-    const file = await fetchVideoFile(at("/stream"), dir);
-    expect(path.basename(file!)).toMatch(/^stream-[0-9a-f]{8}\.webm$/);
-    expect(await fetchVideoFile(at("/stream"), dir)).toBe(file);
-    expect(requests).toBe(1);
+  it("names a file the URL gives no extension by its type", async () => {
+    expect(await fetchVideoFile(at("/stream"), dir)).toBe(path.join(dir, "stream.webm"));
   });
 
   it("saves nothing for a page", async () => {
@@ -72,5 +58,40 @@ describe("fetchVideoFile", () => {
       code: "CLIP_DOWNLOAD_FAILED",
     });
     expect(await fs.readdir(dir)).toEqual([]);
+  });
+});
+
+describe("keepDownload", () => {
+  let workspace: string;
+  let workDir: string;
+
+  beforeEach(async () => {
+    workspace = await fs.mkdtemp(path.join(tmpdir(), "konte-keep-download-"));
+    workDir = path.join(workspace, "work");
+    await fs.mkdir(workDir);
+    await fs.writeFile(path.join(workDir, "Youtube-abc.webm"), "picture");
+    await fs.writeFile(path.join(workDir, "Youtube-abc.info.json"), "{}");
+    await fs.writeFile(path.join(workDir, "Youtube-abc.en.vtt"), "WEBVTT");
+    await fs.writeFile(path.join(workDir, "stray.txt"), "");
+  });
+
+  const url = "https://example.com/watch?v=abc";
+
+  it("moves the clip and what was saved beside it into its study directory", async () => {
+    const file = await keepDownload(workspace, url, path.join(workDir, "Youtube-abc.webm"));
+    const dir = clipStudyDir(workspace, await clipSha256(file));
+    expect(file).toBe(path.join(dir, "Youtube-abc.webm"));
+    expect((await fs.readdir(dir)).sort()).toEqual([
+      "Youtube-abc.webm",
+      "en.vtt",
+      "info.json",
+      "source.json",
+    ]);
+  });
+
+  it("finds the clip again by its URL", async () => {
+    const file = await keepDownload(workspace, url, path.join(workDir, "Youtube-abc.webm"));
+    expect(downloadedClip(workspace, url)).toBe(file);
+    expect(downloadedClip(workspace, "https://example.com/watch?v=other")).toBeNull();
   });
 });

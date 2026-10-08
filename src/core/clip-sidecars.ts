@@ -2,8 +2,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import * as path from "node:path";
 import { type ClipPageInfo, ClipPageInfoSchema } from "./types/index.js";
 
-// What yt-dlp leaves beside a clip `<dir>/<stem>.<ext>`: `<stem>.info.json` and one
-// `<stem>.<lang>.vtt` per subtitle track, an auto-generated one in the clip's own language named
+// What a clip's study directory keeps of the page it was downloaded from: yt-dlp's `info.json`, and
+// one `<lang>.vtt` per subtitle track, an auto-generated one in the clip's own language named
 // `<lang>-orig`.
 
 export interface SubtitleTrack {
@@ -16,16 +16,10 @@ export interface SubtitleCue {
   text: string;
 }
 
-function clipStem(file: string): string {
-  return path.join(path.dirname(file), path.basename(file, path.extname(file)));
-}
+export const PAGE_INFO_FILE = "info.json";
 
-export function clipInfoFile(file: string): string {
-  return `${clipStem(file)}.info.json`;
-}
-
-export function clipSubtitleFile(file: string, key: string): string {
-  return `${clipStem(file)}.${key}.vtt`;
+export function subtitleFileName(key: string): string {
+  return `${key}.vtt`;
 }
 
 function baseLang(key: string): string {
@@ -65,9 +59,7 @@ export function offeredSubtitleTracks(info: ClipPageInfo): SubtitleTrack[] {
 
 export function readClipPageInfo(file: string): ClipPageInfo | null {
   try {
-    const parsed = ClipPageInfoSchema.safeParse(
-      JSON.parse(readFileSync(clipInfoFile(file), "utf-8")),
-    );
+    const parsed = ClipPageInfoSchema.safeParse(JSON.parse(readFileSync(file, "utf-8")));
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
@@ -113,26 +105,26 @@ export function parseVtt(vtt: string, rolling: boolean): SubtitleCue[] {
   return cues;
 }
 
-/** The subtitle track beside `file` a study reads, and its cues; null where none fits. */
+/** The subtitle track in the study directory `dir` a study reads, and its cues; null where none fits. */
 export function readClipSubtitle(
-  file: string,
+  dir: string,
   language: string | null,
 ): { lang: string; auto: boolean; cues: SubtitleCue[] } | null {
-  const stem = path.basename(file, path.extname(file));
   let entries: string[];
   try {
-    entries = readdirSync(path.dirname(file));
+    entries = readdirSync(dir);
   } catch {
     return null;
   }
   const tracks = entries.flatMap((entry) => {
-    const key = /^(.+)\.vtt$/.exec(entry.slice(stem.length + 1))?.[1];
-    return entry.startsWith(`${stem}.`) && key && !key.includes(".")
-      ? [{ key, auto: key.endsWith("-orig") }]
-      : [];
+    const key = /^([^.]+)\.vtt$/.exec(entry)?.[1];
+    return key ? [{ key, auto: key.endsWith("-orig") }] : [];
   });
   const track = pickSubtitleTrack(tracks, language);
   if (!track) return null;
-  const cues = parseVtt(readFileSync(clipSubtitleFile(file, track.key), "utf-8"), track.auto);
+  const cues = parseVtt(
+    readFileSync(path.join(dir, subtitleFileName(track.key)), "utf-8"),
+    track.auto,
+  );
   return cues.length > 0 ? { lang: baseLang(track.key), auto: track.auto, cues } : null;
 }
