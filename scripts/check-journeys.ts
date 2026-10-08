@@ -35,6 +35,8 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - video 37,800 → 37,850, music-video 38,850 → 38,900 (agreed by a human): `MediaAsset<…>` as
+//   the prop type of a component that takes any asset.
 // - dev-adapter 7,550 → 7,600, dev-direction 16,750 → 16,800, dev-render 10,550 → 10,600 (agreed
 //   by a human): comfy routing to Comfy Cloud and Comfy API deployments, `arch-comfy-api-guide`.
 // - dev-comfy-api (new, 5,700): the routing and deployment lifecycle guide.
@@ -111,7 +113,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "video",
-    budget: 37_800,
+    budget: 37_850,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
@@ -146,7 +148,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "music-video",
-    budget: 38_850,
+    budget: 38_900,
     files: [
       ...ALWAYS,
       HOUSE_RULES,

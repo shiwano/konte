@@ -49,6 +49,7 @@ Plus **any HTML element** styled with **Tailwind v4** classes or inline `style` 
 
 Gotchas:
 
+- **A component prop that takes any asset is `MediaAsset<"image">` / `<"video">` / `<"audio">`**
 - **Fixed px font sizes change apparent size when the canvas size changes** — the canvas renders at `format.size`'s actual pixel size. Use `text-[Nvmax]` (1% of the longer edge) to keep text a constant fraction.
 - **A clip's own audio needs `hasAudio`** — without it the track is dropped: `<Video src={motion} hasAudio volume={0.8} />`.
 - **`volume` is relative gain, 0–3.98 (+12 dB), 1 = unity** — same on `<Audio>`, `<Video>`, `soundtrack()`; above the ceiling the load fails (`AUDIO_GAIN_INVALID`). Omit for the default level.
