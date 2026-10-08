@@ -34,7 +34,7 @@ Substitute your stage's `<scope>` / `<address>` into every step below.
 - **New or rewritten definitions clear `layout-guide`'s self-check before they meet a backend.**
 - **Generating what has no accepted variant needs no go-ahead** — on a paid vendor backend report the batch size and expected cost in one line, then generate. Ask before invalidating accepted work, such as rerolling an accepted asset by its address.
 - **`konte generate <scope>`** — submits all the stage's assets at once, async; dependency-free assets start immediately, dependent ones cascade as inputs become ready.
-- **`generate` regenerates a stale unaccepted take and skips an accepted generative one, even stale** — after an edit, `generate` is the new take; `reroll` draws again on an unchanged definition. Follow the command's `accepted but stale` Next steps. Stale deterministic assets re-bake automatically unless their accepted take is a patch.
+- **`generate` regenerates a stale unaccepted take and skips an accepted generative one, even stale** — after an edit, `generate` is the new take; `reroll` draws again on an unchanged definition, `--count N` for N takes at once. Follow the command's `accepted but stale` Next steps. Stale deterministic assets re-bake automatically unless their accepted take is a patch.
 - **Open on the cheap pass** — `production-guide`'s cost ladder.
 
 ## 4. Wait for jobs
