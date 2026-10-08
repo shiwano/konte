@@ -10,8 +10,8 @@ Configure the required backends and editor; done = those backends pass `konte do
 
 1. Run `konte doctor --backends` — each unconfigured backend prints the variable name and where to obtain it.
    - **WARN = survey only** — configure only the backends you'll use; plain `konte doctor` FAILs on one an asset uses.
-2. Ask the user to run `konte settings` and set the listed keys on the **Credentials** tab — you cannot read or edit `konte.credentials.json`. Name the keys and the source URL from the message.
-3. Re-run `konte doctor --backends` to confirm the backends you need now report connected.
+2. Run `konte settings --tab credentials` in the background and ask the user to enter the listed keys — you cannot read or edit `konte.credentials.json`. Name the keys and the source URL from the message.
+3. Once the user has saved the keys, re-run `konte doctor --backends` to confirm the backends you need now report connected.
 
 - **An adapter missing from `konte adapter list`** → its backend is unconfigured (`--all` shows it); `generate` refuses it. `file`/`local` assets need no backend.
 

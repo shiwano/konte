@@ -31,7 +31,7 @@ An agent should be able to take over both halves. But it can't, because an AI vi
 
 ## Quick start
 
-Supports macOS, Linux and Windows (including WSL). No Node.js or Python required. Requires a reachable ComfyUI instance.
+Supports macOS, Linux and Windows (including WSL). No Node.js or Python required. ComfyUI workflows can run on your own instance, Comfy Cloud, or a Comfy API deployment (see [Backends](#backends)).
 
 Create a workspace directory and open it in your agent. Install the plugin and run setup there (`$` = terminal, `>` = agent chat).
 
@@ -81,7 +81,7 @@ Restart as setup instructs, then run `$konte-checkin`.
 
 ### Uninstall
 
-Close agent sessions using konte, delete your workspace directories, then remove the **konte** plugin and its marketplace from your agent. Models and custom nodes added to ComfyUI by konte remain installed.
+Close agent sessions using konte, delete your workspace directories, then remove the **konte** plugin and its marketplace from your agent.
 
 ## Production as typed code
 
@@ -92,11 +92,11 @@ You don't write the production files; your agent does. They stay in code because
 - `animatic.tsx` plans each shot with keyframe stills and timed dialogue, at a fraction of the cost of motion.
 - `video.tsx` is the final stage: per-shot compositions in JSX (clips, subtitles, HTML overlays, soundtrack).
 
-What the type system enforces:
+What gets checked before generation:
 
 - **Shots are minted from the spine.** A `shot("01", ...)` whose ID is not declared in `direction.ts` is a type error. The beat's duration, camera setup, and spoken lines are injected, so a shot cannot drift from the plan.
 - **Cross-stage wiring is compile-checked.** Animatic references carry their types into the video stage: `animatic.shot("01").image("first")`.
-- **`konte status` covers what types can't.** Story-arc holes, characters drifting out of their shots, stale or missing assets. Findings block generation until fixed or waived with a reason.
+- **The agent checks what types can't.** konte reports story-arc holes, characters drifting out of their shots, and stale or missing assets. Findings block generation until fixed or waived with a reason.
 
 A shot in `video.tsx` puts those rules to work:
 
@@ -143,7 +143,7 @@ konte keeps creative intent and generation-specific details in different layers:
 
 - **Direction stays above the model.** `direction.ts` records the beats, characters, pacing, and camera setups the piece is built around, not the prompt syntax of a particular generator.
 - **Accepted work stays useful.** Framing decisions, animatic timing, selected takes, and review notes remain part of the project even when you change how an asset is generated.
-- **Models are replaceable at the edge.** Try a new video model by changing an adapter or regenerating selected assets. You don't need to reconstruct the production around it.
+- **Models are replaceable at the edge.** Ask your agent to try a new video model; it changes the adapter or regenerates selected assets. You don't need to reconstruct the production around it.
 
 A better model can improve the render. It doesn't have to erase the decisions that got you there.
 
@@ -157,7 +157,7 @@ Hand your agent a workflow you already use, and it becomes a model the whole pie
 
 - **As ComfyUI saves it.** No API-format export needed.
 - **Typed inputs.** Auto-numbered node fields become named, typed inputs (`prompt`, `startImage`, `seed`), checked like every other asset.
-- **Reproducible dependencies.** The models and custom nodes it needs are declared with download sources, and konte installs them on whichever ComfyUI you point it at.
+- **Reproducible dependencies.** The required models and custom nodes are declared with download sources. konte installs them on your own ComfyUI, checks their availability on Comfy Cloud, or includes them in a Comfy API build.
 - **A prompt guide.** The agent writes a craft guide for the model, so later sessions prompt it the way it expects.
 
 The result is a file under `adapters/comfy/`, used exactly like a shipped adapter:
@@ -173,9 +173,13 @@ const motion = asset("motion", myWorkflow, {
 
 Each asset declares the model that produces it. Mixing backends in one project is normal.
 
-- **[ComfyUI](https://comfy.org/download).** Required: every piece needs it, since the fal adapters alone do not cover a full production. It can run locally or on a remote GPU host such as [RunPod](https://docs.runpod.io/tutorials/pods/comfyui); konte only needs a reachable ComfyUI instance with ComfyUI-Manager, which the desktop install includes. For local use, plan on a GPU with 16 GB of VRAM (24 GB is comfortable) and tens of gigabytes of first-run downloads for weights and custom nodes. konte provisions those.
+- **[ComfyUI](https://comfy.org/download).** Run locally or on a remote GPU host such as [RunPod](https://docs.runpod.io/tutorials/pods/comfyui); konte needs a reachable ComfyUI instance with ComfyUI-Manager, which the desktop install includes. For local use, plan on a GPU with 16 GB of VRAM (24 GB is comfortable) and tens of gigabytes of first-run downloads for weights and custom nodes. konte provisions those.
+- **[Comfy Cloud](https://cloud.comfy.org).** Run ComfyUI workflows with an API key; no local GPU or ComfyUI setup. konte checks that Cloud has every node and model an asset needs before routing it there.
+- **[Comfy API](https://platform.comfy.org).** Run ComfyUI workflows on your own hosted deployment with an API key. Your agent prepares the environment your workflows need, then guides you to the deployment creation page before generation.
 - **[fal.ai](https://fal.ai/).** Hosted models (MiniMax H3 Max, Seedance, Nano Banana) behind an API key; no GPU. Paid per generation; the agent reports the cost before generation starts.
 - **Local ffmpeg and your own files.** Resizes, trims, blank frames, and bring-your-own media, tracked and addressed like everything else. No setup required.
+
+When a backend needs configuration during your session, your agent opens the settings screen and guides you through entering the required API keys or connection details.
 
 ## What konte is not
 
