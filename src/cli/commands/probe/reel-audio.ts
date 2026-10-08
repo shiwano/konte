@@ -120,7 +120,8 @@ skip reason; ducked LUFS is a separate estimate.
 Offsets are NOMINAL (accumulated from each shot's declared duration), so this works before any shot
 is rendered and may differ from the final mux by a few ms of encoder drift. Diagnostics flag missing
 sources, looped/overflowing beds, a stretch where no track is audible, and a bed's leading, trailing
-or whole silence over the region it plays. A cue's or embedded clip's own silence is a note. They
+or whole silence over the region it plays. A cue's or embedded clip's own silence is a note, as is
+the animatic's silent stretch. They
 also flag a shot whose animatic narration runs past its duration, which the stem's clamp cuts
 without a sound. Asset and timeline scopes are rejected. Source-window boundaries with fades and
 overlapping effective gain sums are informational; output discontinuities, clipping and limiter

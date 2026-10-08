@@ -1092,21 +1092,23 @@ export async function inspectTimelineAudio(opts: {
     }
   }
 
-  const warnings = findMixSilences(layers, totalDuration, PROFILE_RATE)
+  const silences = findMixSilences(layers, totalDuration, PROFILE_RATE)
     .map((g) => ({ start: Math.max(g.start, view.start), end: Math.min(g.end, view.end) }))
     .filter((g) => g.end > g.start)
     .map(
       (g) =>
         `mix silent ${g.start.toFixed(1)}–${g.end.toFixed(1)}s (${(g.end - g.start).toFixed(1)}s): no track is audible there`,
     );
+  // The board carries the lines alone; the gaps between them are filled by the video's beds.
+  const boardOnly = video.stage === "animatic";
 
   return {
     totalDuration,
     view,
     shots: shotId ? shotSpans.filter((s) => s.shotId === shotId) : shotSpans,
     tracks: visible,
-    notes: describeGainOverlap(visible.filter(isMuxed)),
-    warnings,
+    notes: [...describeGainOverlap(visible.filter(isMuxed)), ...(boardOnly ? silences : [])],
+    warnings: boardOnly ? [] : silences,
   };
 }
 
