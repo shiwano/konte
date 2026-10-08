@@ -557,6 +557,7 @@ async function buildStillCells(
   const seen = new Set<string>();
   const moreTakes: string[] = [];
   const resolvedTakes: ResolvedTake[] = [];
+  const onScreen = new Set<string>();
   for (const arg of args) {
     const { variantIds, resolved } = resolveProbeTargets(manager, [arg], { mediaKinds: ["image"] });
     resolvedTakes.push(...resolved);
@@ -564,6 +565,7 @@ async function buildStillCells(
     for (const id of variantIds) {
       ids.push(id);
       if (arg.startsWith("v-")) continue;
+      onScreen.add(id);
       const address = manager.resolveVariantAddress(id);
       const rivals = manager.readyUndecidedTakes(address).filter((r) => r !== id && isImage(r));
       if (opts.takes) ids.push(...rivals);
@@ -592,6 +594,8 @@ async function buildStillCells(
       const address = manager.resolveVariantAddress(cell.variantId!);
       if (manager.getAssetState(address).variants?.[cell.variantId!]?.status === "accepted") {
         cell.label = `${cell.label} (accepted)`;
+      } else if (onScreen.has(cell.variantId!)) {
+        cell.label = `${cell.label} (resolved)`;
       }
     }
   }
@@ -760,8 +764,8 @@ Takes one or more (in any mix) of a variant id (v-…), an address (resolved to 
 like konte ref), or an address-scope that sweeps every still under it. Stills only: a scope skips
 non-image variants, and a named variant id or address that is not one is rejected. A patch chain's
 steps are swept only by a patch scope (<stage>:patch…). --takes widens each address (named or swept)
-to every take in play there — its accepted one, marked so, and every ready take awaiting a verdict —
-to compare rerolls side by side; a named variant id stays one cell.
+to every take in play there — the one it resolves to, marked (accepted) or (resolved), and every
+ready take awaiting a verdict — to compare rerolls side by side; a named variant id stays one cell.
 
 A reel scope (animatic, video, <stage>:shot.<id>) instead tiles the shots' COMPOSITIONS — rendered
 live from the definition, accepted at <address>#composition. On the ANIMATIC each shot contributes
