@@ -15,9 +15,22 @@ export const ClipStudySchema = z.object({
   tempo: z
     .union([z.object({ bpm: z.number() }), z.object({ minBpm: z.number(), maxBpm: z.number() })])
     .nullable(),
-  // The language the most of its voice is heard in; null where no voice is heard. The words are
-  // `heard.txt`.
-  heardLang: z.string().nullable(),
+  // The page it was downloaded from, read off the `<stem>.info.json` yt-dlp left beside it; null
+  // where there is none. Its description is `description.txt`.
+  page: z
+    .object({
+      title: z.string(),
+      uploader: z.string().nullable(),
+      chapters: z.array(z.object({ startSec: z.number(), title: z.string() })),
+      described: z.boolean(),
+    })
+    .nullable(),
+  // The words of its voice, written to `heard.txt`, and the language the most of them are in: off
+  // the subtitles beside it (`auto-subtitles` where the site made them), else heard off its
+  // separated voice. Null where neither has words.
+  heard: z
+    .object({ lang: z.string(), from: z.enum(["subtitles", "auto-subtitles", "voice"]) })
+    .nullable(),
   // One sheet per page, in order: its file in the study directory, the span its cells cover, and
   // how many shots it shows.
   sheets: z.array(
@@ -31,3 +44,17 @@ export const ClipStudySchema = z.object({
 });
 
 export type ClipStudy = z.infer<typeof ClipStudySchema>;
+
+// The `<stem>.info.json` yt-dlp writes beside a clip, as far as a study reads it.
+export const ClipPageInfoSchema = z.object({
+  title: z.string().optional(),
+  uploader: z.string().nullish(),
+  channel: z.string().nullish(),
+  description: z.string().nullish(),
+  language: z.string().nullish(),
+  chapters: z.array(z.object({ start_time: z.number(), title: z.string() })).nullish(),
+  subtitles: z.record(z.string(), z.unknown()).nullish(),
+  automatic_captions: z.record(z.string(), z.unknown()).nullish(),
+});
+
+export type ClipPageInfo = z.infer<typeof ClipPageInfoSchema>;

@@ -4,6 +4,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { detectBeats } from "./beat-this.js";
+import { readClipPageInfo, readClipSubtitle } from "./clip-sidecars.js";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import {
   type ContactSheetCell,
@@ -27,7 +28,7 @@ import { type ClipStudy, ClipStudySchema } from "./types/index.js";
 import { probeHasAudio } from "./video-probe.js";
 
 // Bumped whenever what a study reads, or how, changes: a study of another version is read again.
-const STUDY_VERSION = 1;
+const STUDY_VERSION = 2;
 
 export const MAX_CLIP_SEC = 30 * 60;
 
@@ -53,6 +54,7 @@ const HEARD_LINE_GAP_SEC = 1.5;
 
 const STUDY_FILE = "study.json";
 export const HEARD_FILE = "heard.txt";
+export const DESCRIPTION_FILE = "description.txt";
 
 export function studiesDir(workspaceRoot: string): string {
   return path.join(workspaceRoot, ".konte", "studies");
@@ -320,16 +322,27 @@ export async function studyClip(opts: {
     progress(`drawing ${Math.min(shots.length, MAX_SHOWN_SHOTS)} shot(s) onto sheets`);
     const sheets = await renderSheets({ proxy, probe, shots, workDir, outDir });
 
+    const info = readClipPageInfo(file);
+    const subtitle = readClipSubtitle(file, info?.language ?? null);
+    let heard: (NonNullable<ClipStudy["heard"]> & { lines: string[] }) | null = subtitle && {
+      lang: subtitle.lang,
+      from: subtitle.auto ? "auto-subtitles" : "subtitles",
+      lines: subtitle.cues.map((c) => `[${formatClock(c.startSec)}] ${c.text}`),
+    };
     let tempo: SongTempo | null = null;
-    let heard: { lang: string; lines: string[] } | null = null;
     if (await probeHasAudio(file)) {
       progress("listening for a beat");
       const { beats, durationSec } = await detectBeats(file);
       tempo = musicTempo(beats, durationSec);
-      progress("listening for a voice");
-      heard = await hearVoice(file, probe.duration, path.join(workDir, "voice"));
-      if (heard) await fs.writeFile(path.join(outDir, HEARD_FILE), `${heard.lines.join("\n")}\n`);
+      if (!heard) {
+        progress("listening for a voice");
+        const voice = await hearVoice(file, probe.duration, path.join(workDir, "voice"));
+        if (voice) heard = { ...voice, from: "voice" };
+      }
     }
+    if (heard) await fs.writeFile(path.join(outDir, HEARD_FILE), `${heard.lines.join("\n")}\n`);
+    const description = info?.description?.trim();
+    if (description) await fs.writeFile(path.join(outDir, DESCRIPTION_FILE), `${description}\n`);
 
     const study: ClipStudy = {
       version: STUDY_VERSION,
@@ -339,12 +352,23 @@ export async function studyClip(opts: {
       fps: probe.fps,
       shots,
       tempo,
-      heardLang: heard?.lang ?? null,
+      page: info?.title
+        ? {
+            title: info.title,
+            uploader: info.uploader ?? info.channel ?? null,
+            chapters: (info.chapters ?? []).map((c) => ({
+              startSec: c.start_time,
+              title: c.title,
+            })),
+            described: Boolean(description),
+          }
+        : null,
+      heard: heard && { lang: heard.lang, from: heard.from },
       sheets,
     };
     // A study of an older version goes whole; a frame `--at` left beside it stays.
     await fs.mkdir(dir, { recursive: true });
-    for (const stale of [STUDY_FILE, HEARD_FILE])
+    for (const stale of [STUDY_FILE, HEARD_FILE, DESCRIPTION_FILE])
       await fs.rm(path.join(dir, stale), { force: true });
     for (const entry of await fs.readdir(dir)) {
       if (/^sheet-\d+\.jpg$/.test(entry)) await fs.rm(path.join(dir, entry), { force: true });

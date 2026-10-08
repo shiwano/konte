@@ -249,6 +249,8 @@ export type KonteErrorCode =
   | "CLIP_TOO_LONG"
   // `konte study clip` was handed a file that is missing or holds no picture ffprobe can read.
   | "CLIP_UNREADABLE"
+  // `konte study clip` could not download the URL it was handed, or the URL is a page it cannot read.
+  | "CLIP_DOWNLOAD_FAILED"
   | "CREDENTIALS_UNREADABLE"
   | "CONFIRMATION_REQUIRED"
   | "INVALID_TEMPLATE"

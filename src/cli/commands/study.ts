@@ -1,14 +1,17 @@
 import * as path from "node:path";
 import type { Command } from "commander";
 import { ratioOf } from "../../core/aspect.js";
+import { downloadClip, isClipUrl } from "../../core/clip-download.js";
 import { ensureFfmpeg } from "../../core/ffmpeg.js";
 import { ffprobeBin } from "../../core/ffmpeg-binary.js";
 import { formatSongTempo } from "../../core/song-grid.js";
 import {
+  DESCRIPTION_FILE,
   HEARD_FILE,
   MAX_SHOWN_SHOTS,
   clipFrameAt,
   formatClock,
+  studiesDir,
   studyClip,
 } from "../../core/study-clip.js";
 import { parseTimecode } from "../../core/timecode.js";
@@ -30,9 +33,14 @@ function median(values: readonly number[]): number {
   return sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
-function printStudy(arg: string, dir: string, study: ClipStudy): void {
+function printStudy(file: string, url: string | null, dir: string, study: ClipStudy): void {
   const lengths = study.shots.map((s) => s.endSec - s.startSec);
-  console.log(arg);
+  console.log(file);
+  if (url) console.log(`  from: ${url}`);
+  if (study.page) {
+    const { title, uploader } = study.page;
+    console.log(`  page: "${title}"${uploader ? ` by ${uploader}` : ""}`);
+  }
   console.log(
     `  ${formatClock(study.durationSec)} · ${study.width}×${study.height} ` +
       `(${ratioOf(study)}) · ${fmtFps(study.fps)}`,
@@ -41,8 +49,21 @@ function printStudy(arg: string, dir: string, study: ClipStudy): void {
     `  cuts: ${study.shots.length} shot(s), median ${fmtSec(median(lengths))} ` +
       `(${fmtSec(Math.min(...lengths))}–${fmtSec(Math.max(...lengths))})`,
   );
+  if (study.page && study.page.chapters.length > 0) {
+    console.log("  chapters:");
+    for (const c of study.page.chapters) console.log(`    ${formatClock(c.startSec)}  ${c.title}`);
+  }
   if (study.tempo) console.log(`  music: ${formatSongTempo(study.tempo)}`);
-  if (study.heardLang) console.log(`  heard: ${study.heardLang} → ${path.join(dir, HEARD_FILE)}`);
+  if (study.heard) {
+    const { lang, from } = study.heard;
+    const off = {
+      subtitles: ", off its subtitles",
+      "auto-subtitles": ", off its auto-generated subtitles",
+      voice: "",
+    }[from];
+    console.log(`  heard: ${lang}${off} → ${path.join(dir, HEARD_FILE)}`);
+  }
+  if (study.page?.described) console.log(`  description: ${path.join(dir, DESCRIPTION_FILE)}`);
   const shown = study.sheets.reduce((sum, s) => sum + s.shots, 0);
   console.log(
     shown < study.shots.length
@@ -62,7 +83,7 @@ export function registerStudyCommand(program: Command): void {
 
   declareScope(
     study
-      .command("clip <file>")
+      .command("clip <file|url>")
       .description("Read a reference video's cuts, look, music and voice")
       .option("--at <time>", "Show the frame at this moment at the file's own size")
       .addHelpText(
@@ -75,6 +96,13 @@ and contact sheets of one frame per shot, each labelled with the shot's start an
 ${MAX_SHOWN_SHOTS} shots the sheets show an even spread and say how many. The music and heard rows
 are left out where the clip has none.
 
+Beside a clip yt-dlp downloaded, its page's title, uploader, chapters and description are read off
+<stem>.info.json, and the words off its <stem>.<lang>.vtt subtitles in place of hearing the voice.
+
+A URL is downloaded into the workspace's .konte/studies/downloads/, once; that file is the clip
+from then on. Any page yt-dlp reads is a clip where it is on PATH; without it, only a direct link
+to a video file is.
+
 A clip runs at most 30 minutes. The study is kept under the workspace's .konte/studies/ by the
 file's content, so a moved or renamed file reads back the same study; deleting it is safe — the
 same command makes it again.
@@ -84,13 +112,19 @@ same command makes it again.
 Examples:
   konte study clip studies/ref.mp4              Study the clip, or print the study already made
   konte study clip studies/ref.mp4 --at 1:32    The frame at 1:32 at full size
+  konte study clip https://youtu.be/<id>        Download the clip, then study it
 `,
       )
-      .action(async (file: string, opts: { at?: string }) => {
+      .action(async (arg: string, opts: { at?: string }) => {
         const workspaceRoot = requireWorkspaceRoot();
-        const abs = path.resolve(file);
         await ensureFfmpeg();
         await ffprobeBin();
+        const url = isClipUrl(arg) ? arg : null;
+        if (url) console.error(`konte: downloading ${url}…`);
+        const abs = url
+          ? await downloadClip(url, path.join(studiesDir(workspaceRoot), "downloads"))
+          : path.resolve(arg);
+        const file = url ? path.relative(process.cwd(), abs) : arg;
 
         if (opts.at !== undefined) {
           const sec = parseTimecode(opts.at);
@@ -105,10 +139,16 @@ Examples:
           file: abs,
           progress: (line) => console.error(`konte: ${line}…`),
         });
-        printStudy(file, dir, result);
+        printStudy(file, url, dir, result);
         console.log("");
         console.log("Next steps:");
         console.log(`  konte study clip ${file} --at <m:ss>   See one moment's frame at full size`);
+        if (url) {
+          console.log(
+            `  Copy it to the video's studies/ and name it in brief.references: ` +
+              `{ clip: "studies/${path.basename(abs)}", link: "${url}", take, avoid }`,
+          );
+        }
       }),
     { scope: "workspace" },
   );

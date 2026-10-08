@@ -240,8 +240,11 @@ function printContent(
         if (fs.existsSync(clip)) {
           console.log(`     konte study clip ${clip}`);
         } else {
-          const from = ref.link ? `download ${ref.link}` : "ask the human for the file";
-          console.log(`     missing — ${from}, save it to ${clip}`);
+          console.log(
+            ref.link
+              ? `     missing — konte study clip ${ref.link} downloads it; copy it to ${clip}`
+              : `     missing — ask the human for the file, save it to ${clip}`,
+          );
         }
       });
       return;

@@ -18,7 +18,7 @@ A human arrives with some mix of three inputs — **ask which they have:**
 
 - **Concept** — a script/shot list (honor it; map onto konte's shape with minimal restructuring) or a vague idea (then you propose).
 - **Material** — their own media to put _in_ the video (footage, character/product/logo image, BGM/SE). Separate "already have" from "to generate"; `layout-guide` wires the files in.
-- **Reference** — a link/video/image shown as "make it like this" → **direction, not material to include.** Pin down _what_ to emulate (tone, pacing, palette, framing, motion, subtitles); read what you can (a video or downloadable link: `konte study clip <file>`), ask the rest.
+- **Reference** — a link/video/image shown as "make it like this" → **direction, not material to include.** Pin down _what_ to emulate (tone, pacing, palette, framing, motion, subtitles); read what you can (a video or a link: `konte study clip <file|url>`), ask the rest.
 
 ## 3. Hear what they picture — before any pitch
 
