@@ -75,7 +75,11 @@ declare global {
       children: {};
     }
 
-    interface HtmlAttributes {
+    interface IntrinsicAttributes {
+      key?: string | number;
+    }
+
+    interface HtmlAttributes extends IntrinsicAttributes {
       id?: string;
       className?: string;
       style?: string | Record<string, string | number>;
