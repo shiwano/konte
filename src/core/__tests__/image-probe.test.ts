@@ -35,8 +35,40 @@ async function source(filter: string): Promise<string> {
   return file;
 }
 
-function probe(file: string) {
-  return probeImage({ videoRoot: dir, address: "reference:portrait", variantId: "v-test", file });
+async function probe(file: string, grid?: number) {
+  const result = await probeImage({
+    videoRoot: dir,
+    address: "reference:portrait",
+    variantId: "v-test",
+    file,
+    grid,
+  });
+  return result.path;
+}
+
+async function pixel(file: string, x: number, y: number): Promise<number[]> {
+  const { stdout } = await execFileAsync(
+    await ffmpegBin(),
+    [
+      "-v",
+      "error",
+      ...SINGLE_FRAME_INPUT_ARGS,
+      "-i",
+      file,
+      "-frames:v",
+      "1",
+      ...SINGLE_FRAME_OUTPUT_ARGS,
+      "-vf",
+      `crop=1:1:${x}:${y}`,
+      "-f",
+      "rawvideo",
+      "-pix_fmt",
+      "rgb24",
+      "pipe:1",
+    ],
+    { encoding: "buffer" },
+  );
+  return [...stdout.subarray(0, 3)];
 }
 
 describe("probeImage", () => {
@@ -97,7 +129,19 @@ describe("probeImage", () => {
       file,
       outputHash: "recorded",
     });
-    expect(result.split(path.sep)).toContain("recorded");
+    expect(result.path.split(path.sep)).toContain("recorded");
+  }, 30_000);
+
+  it("draws a grid line at each percent step of the scaled image, cached apart", async () => {
+    const file = await source("color=white:s=2000x1000");
+    const plain = await probe(file);
+    const gridded = await probe(file, 25);
+    expect(gridded).not.toBe(plain);
+    expect(await probeVideo(gridded)).toMatchObject({ width: 1280, height: 640 });
+    const [r, g, b] = await pixel(gridded, 640, 400);
+    expect(r! - g!).toBeGreaterThan(80);
+    expect(b! - g!).toBeGreaterThan(80);
+    expect(Math.min(...(await pixel(gridded, 700, 400)))).toBeGreaterThan(230);
   }, 30_000);
 
   it("refuses invalid images without publishing a cache entry", async () => {

@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { openProbeTargets, probeImage } = vi.hoisted(() => ({
   openProbeTargets: vi.fn(),
-  probeImage: vi.fn(async ({ variantId }: { variantId: string }) => `/cache/${variantId}.jpg`),
+  probeImage: vi.fn(async ({ variantId }: { variantId: string }) => ({
+    path: `/cache/${variantId}.jpg`,
+    labelled: true,
+  })),
 }));
 vi.mock("../resolve-arg.js", () => ({ openProbeTargets }));
 vi.mock("../../../../core/image-probe.js", () => ({ probeImage }));
