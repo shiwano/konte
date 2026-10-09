@@ -6,7 +6,7 @@
 
 **Make multi-shot AI videos with a coding agent. You direct; your agent produces.**
 
-konte lets Claude Code and Codex plan, generate, and assemble a video. You discuss the idea, review the cut in your browser, and give feedback. The agent handles the production files and tools.
+konte treats the video as a software project, so Claude Code or Codex can run the production end to end. The agent plans the shots, drives generation, tracks every take, and carries your feedback into the next round. You discuss the idea, review the cut in your browser, and decide what changes.
 
 https://github.com/user-attachments/assets/6e47740c-b12b-4a7e-aa88-8df246534436
 
@@ -122,7 +122,7 @@ The agent creates an adapter with typed inputs, dependencies, and a prompting gu
 
 ## What the agent writes
 
-The agent writes four TypeScript files per video. konte checks types, the shot plan, and dependencies before generation.
+The agent writes four TypeScript files per video. They stay in code so they can be diffed, reviewed, and checked before money is spent. konte checks types, the shot plan, and dependencies before generation.
 
 | File            | What it describes                                                |
 | --------------- | ---------------------------------------------------------------- |
