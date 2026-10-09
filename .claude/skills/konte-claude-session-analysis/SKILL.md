@@ -23,7 +23,7 @@ ls -laS "$D"/*.jsonl   # newest/largest = the session; T=<pick one>
 
 ## 2. Transcript shape — the non-obvious parts
 
-- **Thinking text is not stored** — `.thinking` is empty, only `.signature` survives. Thinking size is derivable **only** by subtraction (§5). Never report it as measured.
+- **Thinking text is not stored, its size is** — `.thinking` is empty, but `usage.output_tokens_details.thinking_tokens` counts it. An assistant message spans several lines sharing one `message.id`, each repeating `usage` — count one per id.
 - **Images are stored twice** — in `message.content[]` _and_ `toolUseResult`. Count only `tool_result` blocks or you double every figure.
 - **Byte size ≠ token size** — a 20MB transcript is mostly image base64; an image costs ~1.6k tokens regardless of its bytes.
 - **Final context** = last assistant's `usage.cache_read_input_tokens + cache_creation_input_tokens`. Use it to confirm you picked the right session against `/context`.
@@ -33,15 +33,13 @@ ls -laS "$D"/*.jsonl   # newest/largest = the session; T=<pick one>
 
 ```sh
 jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use")
-  | [.id, .name, ((.input.file_path // .input.command // "") | tostring | gsub("\n";" "))] | @tsv' "$T" > /tmp/uses.tsv
-jq -r 'select(.type=="user") | .message.content[]? | select(.type=="tool_result")
-  | [.tool_use_id,
-     (if (.content|type)=="array" then ([.content[]|select(.type=="text")|(.text|length)]|add // 0) else (.content|length) end),
-     (if (.content|type)=="array" then ([.content[]|select(.type=="image")]|length) else 0 end)] | @tsv' "$T" > /tmp/res.tsv
-awk -F'\t' 'NR==FNR{c[$1]=$2; i[$1]=$3; next}
-  {t[$2] += c[$1]/4 + i[$1]*1600; n[$2]++}
-  END{for (k in t) printf "%-12s %4d calls %8.1fk tok\n", k, n[k], t[k]/1000}' /tmp/res.tsv /tmp/uses.tsv | sort -k4 -rn
+  | [.id, .name, ((.input.file_path // .input.command // "") | tostring | gsub("[\n\t]";" "))] | @tsv' "$T" > /tmp/uses.tsv
+bun "$SKILL_DIR/context-delta.mjs" "$T" > /tmp/per.tsv   # SKILL_DIR = this skill's base directory
+awk -F'\t' '{t[$2]+=$1; n[$2]++} END{for (k in t) printf "%-12s %4d %8.1fk\n", k, n[k], t[k]/1000}' /tmp/per.tsv | sort -k3 -rn
 ```
+
+- **Measure from `usage`** — the context added between two requests, minus the first one's output, is what the results between them cost. Characters ÷ 4 undercounts Japanese and box-drawing output.
+- **Group `/tmp/per.tsv` by consumer** — a path or command pattern (a sibling video's files, `.konte/guides/`, `skills/*/references`, one konte subcommand) names what the tokens bought. Parallel calls share their request's delta evenly.
 
 ## 4. Prove or kill the re-read hypothesis
 
@@ -55,8 +53,8 @@ awk -F'\t' '$2=="Read"{print $3}' /tmp/uses.tsv | sort | uniq -c | sort -rn | aw
 
 ## 5. Attribute the whole context
 
-- Sum the measurable — tool results (§3), `tool_use` inputs, assistant `text`, human prompts, `attachment` blocks.
-- **Subtract from `/context`'s Messages — the remainder is thinking.** In a healthy long session it dominates (~2/3). Report it as an estimate.
+- **Final context = first request's context + every added input (§3) + every output** — the outputs (the `out` per request, thinking included) stay in context. Check the sum against the final context before reporting.
+- Split the outputs into thinking (`thinking_tokens`, §2) and the rest — `tool_use` inputs (edits, heredocs, preview `--summary`/`--note`) and assistant text.
 
 ## 6. konte design signals
 
@@ -77,6 +75,7 @@ jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_us
 ```
 
 - **Grep nested paths** — `references/video/wan-2-2.md` won't match a `references/[a-z-]+\.md` pattern. A too-narrow pattern invents "never loaded" findings.
+- **Grep bare filenames after a `cd`** — `cd .../direction-guide/references && cat skeleton.md rosters.md` names no `skills/` path per file. Run `grep -oE '[a-z-]+\.md'` over the Bash commands that `cd` into a `references` dir.
 - **Loaded but not in JOURNEY** = a real budget hole; its tokens escape the check. Add it, and expect the raise (log it as an accounting fix, not a new concept).
 - **In JOURNEY but never loaded** = a routing miss, **not** a list error. Never trim the list to match observation — that blesses the miss and silently drops a guide from the chain.
 
