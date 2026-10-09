@@ -10,7 +10,7 @@ Take an assembled cut whose every shot holds a self-reviewed take from "plays" t
 
 - **A take is wrong** — subject, performance, a morph, motion that never came → `generation-loop-guide`; this pass never rerolls.
 - **A shot is wrong** — order, a missing shot, a `duration` → `direction-guide`.
-- **What plays where** — layers, where music enters and leaves, ducking, cut-crossing sound → `composition-guide`'s sound-design.md.
+- **What plays where** — a silent picture, music as wallpaper, layers, where music enters and leaves, ducking, cut-crossing sound → `composition-guide`'s sound-design.md.
 - **The mechanics of a fix** — `<Video>` windows, `<Animate>`, `<Subtitle>`, `soundtrack()`, CSS on a clip → `composition-guide`.
 
 ## 1. Watch it whole before touching anything
@@ -28,7 +28,7 @@ Take an assembled cut whose every shot holds a self-reviewed take from "plays" t
 - **The shot's length is the direction's; which part of the take fills it is yours** — a take longer than the shot is windowed by `mediaStart`: slide the window so the movement peaks near the cut, and the cut lands on the action rather than after it.
 - **Keep the generative tail outside the window** — a motion model smears its last frames; `konte probe motion video` shows where each strip degrades. Choose `mediaStart` so `mediaStart + duration` ends before the damaged tail; move the window earlier when needed.
 - **A take cut to the song** → `composition-guide`'s song.md; the window moves here and in §2 are for every other take.
-- **A held frame earns its hold with change** — a slow `<Animate>` push, a reveal, a light change; a frame held past its content is where the eye leaves. A hold the take cannot fill is a `duration` note for `direction-guide`.
+- **A held frame earns its hold with change** — a slow `<Animate>` push, a reveal, a light change; a frame held past its content — hair, cloth and light idly moving while nothing happens — is where the eye leaves. A hold the take cannot fill is a `duration` note for `direction-guide`.
 - **Read three cuts at a time** — a run whose shots all move at one speed, or all hold, is a metronome whatever the durations; vary what moves.
 
 ## 4. Look across shots
@@ -38,10 +38,9 @@ Take an assembled cut whose every shot holds a self-reviewed take from "plays" t
 
 ## 5. Text on screen
 
-- **Subtitles from `script`, styled once** — one `<Subtitle className>` for the piece, at most two rows; a line that needs three is broken in the entries.
+- **Subtitles from `script`, styled once** — one `<Subtitle className>` for the piece, never the default face and size, at most two rows; a line that needs three is broken in the entries.
 - **Keep text out of the edges** — 5% from every edge; a 9:16 delivery keeps the bottom sixth and the right edge clear for the platform's own controls.
 - **Telop lands on a hold** — where the frame is still, for the time it takes to read twice.
-- **Every family on screen is one `direction.policy.fonts` declares** — a typeface the machine happens to have is a seam.
 
 ## 6. Transitions
 
@@ -60,18 +59,13 @@ Name the ones the reel carries; clear each, or say in the handoff why it stays.
 
 - **Unmotivated camera drift** — every shot floating or slowly pushing. Clear: a tighter window; let one shot move and the rest sit. A drift no window escapes → `generation-loop-guide`.
 - **Everything at half speed** — every action slower than life. Clear: window to the action's real time. Slow end to end → `generation-loop-guide`.
-- **Idle breathing** — hair, cloth and light moving while nothing happens. Clear: §3's held frame.
-- **The model's default length everywhere** — every shot the clip cap long. Clear: §3's window.
 - **A morph** — an identity, a hand or an object changing inside the take or across the cut. Clear: a window that ends before it starts. A morph inside every window → `generation-loop-guide`.
-- **A silent picture** / **Music as wallpaper** — sound only where a line is; one bed at one level from first frame to last. Clear: sound-design.md.
-- **Text that floats** — subtitles in a default face at a default size, unanchored to the picture. Clear: §5.
 - **The default look** — saturation, sharpness and rim light past what `brief.look` names. Clear: name it in the handoff; where every take carries it, a prompt fix for the next piece.
 
 ## Verify
 
 - `konte probe reel-audio video` — no ⚠ at the head or the tail, and no silent shot you did not choose.
 - `konte probe contact-sheet video` — the first cell carries the hook, the last carries the takeaway.
-- `konte status -v` — the pass's `#composition` and `#stem` targets sit under Needs review beside the takes; one `konte preview video` reviews both.
 
 ## Pitfalls
 
