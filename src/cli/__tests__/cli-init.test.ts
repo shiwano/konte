@@ -21,6 +21,8 @@ describe("workspace new command", () => {
     expect(tsconfig).toContain("konte");
     const agentsMd = await fs.readFile(path.join(workspace, "AGENTS.md"), "utf-8");
     expect(agentsMd).toContain("AGENTS.md");
+    const readme = await fs.readFile(path.join(workspace, "README.md"), "utf-8");
+    expect(readme).toContain("konte-checkin");
     const config = JSON.parse(
       await fs.readFile(path.join(workspace, "konte.config.json"), "utf-8"),
     );
@@ -45,6 +47,7 @@ describe("workspace new command", () => {
 
     const { stdout } = await run(["workspace", "new"], workspace);
     await fs.access(path.join(workspace, "konte.config.json"));
+    expect(await fs.readFile(path.join(workspace, "README.md"), "utf8")).toBe("# hi\n");
     expect(stdout).toContain("current directory");
     expect(stdout).not.toMatch(/^\s*cd /m);
   });

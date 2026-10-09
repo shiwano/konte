@@ -53,7 +53,7 @@ async function scaffold(root: string, existing: boolean): Promise<void> {
   const files: Record<string, string> = {};
   for (const [key, content] of Object.entries(template)) {
     if (AGENT_SETTINGS_FILES.has(key) || key === ".gitignore") continue;
-    if (existing && (await pathExists(path.join(root, key)))) continue;
+    if ((existing || key === "README.md") && (await pathExists(path.join(root, key)))) continue;
     files[key] = content;
   }
   await writeTemplateFiles(root, files, WORKSPACE_BINARY_FILES);
