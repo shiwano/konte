@@ -1,4 +1,5 @@
 import { listShotStems } from "./address.js";
+import { MAX_RETIME_RATE } from "./audio-retime.js";
 import { cueLeadIn, type CueKind } from "./audio-level.js";
 import { harvestShotAudioStructure, type StemAudioEntry } from "./composition-builder.js";
 import { OVERFLOW_FLOOR } from "./dsl/clip-length-collect.js";
@@ -26,14 +27,33 @@ export interface AnimaticOverflow {
   overflowSec: number;
   /** Cues whose length is not known, so the real overflow may be larger than reported. */
   unmeasuredCues: number;
+  /** The `audioRetime` that fits the one cue the clamp cuts, when it stays inside the rate gate. */
+  retime: AnimaticRetime | null;
 }
 
-function cueEnd(
+export interface AnimaticRetime {
+  /** The cue's address — the `source` of the retime. */
+  src: string;
+  /** The room the cue has from its `start` to the shot's end: the retime's `duration`. */
+  roomSec: number;
+  /** The tempo that lands the take on `roomSec`. */
+  rate: number;
+}
+
+interface CueSpan {
+  src: string;
+  start: number;
+  end: number;
+  sourceSec: number;
+  untrimmed: boolean;
+}
+
+function cueSpan(
   cue: StemAudioEntry,
   kind: CueKind | undefined,
   state: KonteState,
   cache: StalenessCache,
-): number | "unmeasured" | "silent" {
+): CueSpan | "unmeasured" | "silent" {
   const start = cue.start ?? 0;
   // A cue mixed at zero is in the stem and in nobody's ears (`volume`, `trackFilter`).
   if (cue.volume === 0) return "silent";
@@ -49,7 +69,27 @@ function cueEnd(
 
   const mediaStart = cue.mediaStart ?? cueLeadIn(kind, variant?.media);
   const available = Math.max(0, sourceDuration - mediaStart);
-  return start + (cue.duration != null ? Math.min(cue.duration, available) : available);
+  return {
+    src: cue.src,
+    start,
+    end: start + (cue.duration != null ? Math.min(cue.duration, available) : available),
+    sourceSec: sourceDuration,
+    untrimmed: cue.duration == null && mediaStart === 0,
+  };
+}
+
+// A retime replaces the whole take, so it fixes a stem only when one untrimmed cue is all the clamp
+// cuts. The room is floored to the centisecond so the retimed take fits.
+function retimeFor(spans: readonly CueSpan[], durationSec: number): AnimaticRetime | null {
+  const cut = spans.filter((span) => span.end - durationSec > OVERFLOW_FLOOR);
+  if (cut.length !== 1) return null;
+  const [span] = cut as [CueSpan];
+  if (!span.untrimmed) return null;
+  const roomSec = Math.floor((durationSec - span.start) * 100) / 100;
+  if (roomSec <= 0) return null;
+  const rate = span.sourceSec / roomSec;
+  if (rate > MAX_RETIME_RATE) return null;
+  return { src: span.src, roomSec, rate };
 }
 
 /**
@@ -76,11 +116,15 @@ export function findAnimaticOverflows(
     for (const stem of stems) {
       let neededSec = 0;
       let unmeasuredCues = 0;
+      const spans: CueSpan[] = [];
       for (const cue of cues) {
         if (!stem.refs.includes(cue.src)) continue;
-        const end = cueEnd(cue, shot.cueKinds?.[cue.src], state, cache);
-        if (end === "unmeasured") unmeasuredCues++;
-        else if (end !== "silent") neededSec = Math.max(neededSec, end);
+        const span = cueSpan(cue, shot.cueKinds?.[cue.src], state, cache);
+        if (span === "unmeasured") unmeasuredCues++;
+        else if (span !== "silent") {
+          spans.push(span);
+          neededSec = Math.max(neededSec, span.end);
+        }
       }
 
       const overflowSec = neededSec - durationSec;
@@ -92,6 +136,7 @@ export function findAnimaticOverflows(
         neededSec,
         overflowSec,
         unmeasuredCues,
+        retime: unmeasuredCues === 0 ? retimeFor(spans, durationSec) : null,
       });
     }
   }

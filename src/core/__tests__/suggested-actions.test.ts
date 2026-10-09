@@ -46,6 +46,38 @@ function problemVariant() {
 }
 
 describe("suggestForStatus", () => {
+  it("fits a cut line in animatic.tsx and sends the rest to direction.ts", () => {
+    const actions = suggestForStatus({
+      state: { schemaVersion: 2, assets: {} },
+      animaticOverflows: [
+        {
+          shotId: "09",
+          overflowSec: 0.2,
+          retime: { src: "animatic:shot.09.narration", roomSec: 2, rate: 1.1 },
+        },
+        { shotId: "10", overflowSec: 1.5, retime: null },
+      ],
+    });
+    expect(actions.slice(0, 2)).toEqual([
+      {
+        command: null,
+        label: "edit animatic.tsx",
+        details: [
+          "Put animatic:shot.09.narration through adapters.audioRetime with duration 2.00 " +
+            "(1.100x) and play that in its place — it fits without cutting the tail",
+        ],
+      },
+      {
+        command: null,
+        label: "edit direction.ts",
+        details: [
+          "Lengthen the duration of shot 10 or shorten the script — the narration runs past the " +
+            "shot (up to 1.5s) and is cut",
+        ],
+      },
+    ]);
+  });
+
   it("suggests preview video for video pending variants", () => {
     const state = makeState({
       "video:shot.01.motion": {

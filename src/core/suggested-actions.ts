@@ -4,6 +4,7 @@ import {
   isMaterializedLeafAddress,
   isStageScope,
 } from "./address.js";
+import type { AnimaticOverflow } from "./animatic-overflow.js";
 import type { DirectionFindingCode } from "./direction-check.js";
 import { type FindingFixStage, findingFixStage } from "./direction.js";
 import { isVariantStale, type StalenessCache } from "./staleness.js";
@@ -320,23 +321,37 @@ function prependPrerequisiteEdits(
   }
 }
 
-// A shot whose animatic audio the clamp cuts. No command for it either: the fix is the shot's
-// `duration` or the lines written against it, both in direction.ts. One note for all of them,
-// naming the shots — the numbers are in the section.
+// A shot whose animatic audio the clamp cuts. No command for it either. A cut one retime can fit
+// is fixed in animatic.tsx, leaving the direction alone; the rest need the shot's `duration` or
+// the lines written against it, both in direction.ts.
 function prependAnimaticRetimes(
   actions: SuggestedAction[],
-  overflows: readonly { shotId: string; overflowSec: number }[],
+  overflows: readonly Pick<AnimaticOverflow, "shotId" | "overflowSec" | "retime">[],
 ): void {
-  if (overflows.length === 0) return;
-  const worst = Math.max(...overflows.map((o) => o.overflowSec));
-  actions.unshift({
-    command: null,
-    label: "edit direction.ts",
-    details: [
-      `Lengthen the duration of shot ${overflows.map((o) => o.shotId).join(", ")} or shorten the ` +
-        `script — the narration runs past the shot (up to ${worst.toFixed(1)}s) and is cut`,
-    ],
-  });
+  const unfit = overflows.filter((o) => o.retime === null);
+  if (unfit.length > 0) {
+    const worst = Math.max(...unfit.map((o) => o.overflowSec));
+    actions.unshift({
+      command: null,
+      label: `edit ${STAGE_ENTRY_FILE.direction}`,
+      details: [
+        `Lengthen the duration of shot ${unfit.map((o) => o.shotId).join(", ")} or shorten the ` +
+          `script — the narration runs past the shot (up to ${worst.toFixed(1)}s) and is cut`,
+      ],
+    });
+  }
+  const fits = overflows.flatMap((o) => (o.retime ? [o.retime] : []));
+  if (fits.length > 0) {
+    actions.unshift({
+      command: null,
+      label: `edit ${STAGE_ENTRY_FILE.animatic}`,
+      details: fits.map(
+        (r) =>
+          `Put ${r.src} through adapters.audioRetime with duration ${r.roomSec.toFixed(2)} ` +
+          `(${r.rate.toFixed(3)}x) and play that in its place — it fits without cutting the tail`,
+      ),
+    });
+  }
 }
 
 // A cast reference — a character's look or a cast voice's sample — whose `reference:<id>` asset is
@@ -605,7 +620,7 @@ interface SuggestStatusInput {
   /** Targets holding output whose review prerequisites are not written yet. */
   unmetPrerequisites?: readonly UnmetPrerequisite[];
   /** Shots whose animatic narration the stem's clamp cuts (see `findAnimaticOverflows`). */
-  animaticOverflows?: readonly { shotId: string; overflowSec: number }[];
+  animaticOverflows?: readonly Pick<AnimaticOverflow, "shotId" | "overflowSec" | "retime">[];
   /**
    * Addresses whose comments still stand — a stale one has already been answered by whatever aged
    * it (the take moved under it, or an accept was stamped over it), so it asks for nothing.

@@ -656,4 +656,28 @@ describe("animatic overflow", () => {
       "narration truncated by 1.8s — 5.8s of audio in a 4.0s shot (1 cue(s) not measured yet)",
     );
   });
+
+  it("fits a cut line with a retime the rate gate allows", async () => {
+    const [overflow] = await overflowsWithVo(vo(4));
+    expect(overflow?.retime).toEqual({ src: VO, roomSec: 3.8, rate: expect.closeTo(4 / 3.8, 5) });
+  });
+
+  it("offers no retime past the rate gate, or beside an unmeasured cue", async () => {
+    expect((await overflowsWithVo(vo(5.6)))[0]?.retime).toBeNull();
+    expect((await overflowsWithVo(vo(4), twoCueAnimatic()))[0]?.retime).toBeNull();
+  });
+
+  it("offers no retime for a cue its own duration trims", async () => {
+    const trimmed = defineAnimatic(direction(), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel src={asset("still", stillComfy, { prompt: "a cat" })} />
+            <Audio src={asset("vo", ttsComfy, { text: "meow" })} start={0.2} duration={4} />
+          </Composition>
+        )),
+      }),
+    });
+    expect((await overflowsWithVo(vo(5), trimmed))[0]?.retime).toBeNull();
+  });
 });
