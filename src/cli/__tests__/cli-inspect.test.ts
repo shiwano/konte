@@ -17,6 +17,8 @@ import {
   run,
   initWorkspace,
   seedFeedback,
+  TEST_CROSS_STAGE_ANIMATIC_TS,
+  TEST_CROSS_STAGE_VIDEO_TSX,
   TEST_EMPTY_ANIMATIC_TSX,
   TEST_VIDEO_TSX,
   TEST_VIDEO_WITH_SOUNDTRACK_TSX,
@@ -156,6 +158,27 @@ describe("inspect --prompts", () => {
 
     const { stdout } = await run(["inspect", "video:shot.01.motion", "--prompts"], projectDir);
     expect(stdout).not.toContain("set:");
+  });
+
+  it("states the board panel's movement above a video shot's prompts", async () => {
+    await fs.writeFile(path.join(projectDir, "animatic.tsx"), TEST_CROSS_STAGE_ANIMATIC_TS);
+    await fs.writeFile(
+      path.join(projectDir, "video.tsx"),
+      TEST_CROSS_STAGE_VIDEO_TSX.replace(
+        `inputs: { image: { nodeId: "1", field: "image", type: "image" } },`,
+        `inputs: {
+    image: { nodeId: "1", field: "image", type: "image" },
+    prompt: { nodeId: "3", field: "text", type: "prompt" },
+  },`,
+      ).replace(
+        `{ image: animatic.shot("01").image("keyframe") }`,
+        `{ image: animatic.shot("01").image("keyframe"), prompt: "the cat sits up" }`,
+      ),
+    );
+
+    const { stdout } = await run(["inspect", "video:shot.01.motion", "--prompts"], projectDir);
+    expect(stdout).toContain("blocking (panel 1 of 1): the cat rises to sit");
+    expect(stdout).toContain("camera (panel 1 of 1): fixed");
   });
 
   it("reports an empty scope rather than failing", async () => {

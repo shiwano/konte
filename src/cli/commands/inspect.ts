@@ -68,7 +68,8 @@ import type {
   VariantState,
 } from "../../core/types/index.js";
 import { type ScriptLine, scriptLinesToView } from "../../core/types/script.js";
-import type { Respelling } from "../../core/types/definition.js";
+import type { PanelDefinition, PanelLane, Respelling } from "../../core/types/definition.js";
+import type { AnimaticDefinition } from "../../core/types/animatic.js";
 import { spellingsOf } from "../../core/dsl/respell.js";
 import {
   loadDefinitionForAddress,
@@ -961,7 +962,13 @@ async function inspectStage(videoRoot: string, stage: AssetStage): Promise<void>
 // patch script's steps declare their own and are not listed here.
 async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<void> {
   const stage = scope.level === "direction" ? null : scope.stage;
-  const definition = stage ? await loadDefinitionWithDuration(videoRoot, stage) : null;
+  const shotStages = stage === "video" ? await loadVideoAndAnimatic(videoRoot) : null;
+  const definition = shotStages
+    ? shotStages.video
+    : stage
+      ? await loadDefinitionWithDuration(videoRoot, stage)
+      : null;
+  const boardMoves = panelMovesByShot(shotStages?.animatic);
   const prompts = definition?.prompts ?? [];
   const respellings = definition?.respellings;
   const promptShots = await loadPromptShots(videoRoot);
@@ -1046,8 +1053,48 @@ async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<vo
     )) {
       console.log(`  ${line}`);
     }
+    if (occurrences.some((p) => !p.spoken)) {
+      for (const line of panelMoveLines(boardMoves, address, cutinAddresses.has(address))) {
+        console.log(`  ${line}`);
+      }
+    }
     printOccurrences(occurrences);
   }
+}
+
+type PanelMove = { index: number; of: number; blocking?: string; camera?: string };
+
+function panelMovesByShot(
+  animatic: AnimaticDefinition | null | undefined,
+): Map<string, Record<PanelLane, PanelMove[]>> {
+  const out = new Map<string, Record<PanelLane, PanelMove[]>>();
+  for (const shot of animatic?.shots ?? []) {
+    const moves = (panels: readonly PanelDefinition[] | undefined): PanelMove[] =>
+      (panels ?? []).map((p, i, all) => ({
+        index: i + 1,
+        of: all.length,
+        blocking: p.blocking,
+        camera: p.camera,
+      }));
+    out.set(shot.id, { main: moves(shot.panels), cutin: moves(shot.cutin?.panels) });
+  }
+  return out;
+}
+
+function panelMoveLines(
+  boardMoves: Map<string, Record<PanelLane, PanelMove[]>>,
+  address: string,
+  inCutin: boolean,
+): string[] {
+  const shotId = shotIdOfAddress(address);
+  const moves = shotId ? boardMoves.get(shotId)?.[inCutin ? "cutin" : "main"] : undefined;
+  const out: string[] = [];
+  for (const m of moves ?? []) {
+    const place = `panel ${m.index} of ${m.of}`;
+    if (m.blocking) out.push(`blocking (${place}): ${m.blocking}`);
+    if (m.camera) out.push(`camera (${place}): ${m.camera}`);
+  }
+  return out;
 }
 
 // The plate of the setup the panel's lane is shot from. `conditioning` can reach another setup's
