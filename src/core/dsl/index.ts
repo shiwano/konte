@@ -1,4 +1,5 @@
 import {
+  audioConcat,
   audioFile,
   audioRetime,
   audioTrim,
@@ -197,6 +198,7 @@ export const adapters = {
   videoTrim,
   audioTrim,
   audioRetime,
+  audioConcat,
   videoFrame,
   jsxImage,
 };

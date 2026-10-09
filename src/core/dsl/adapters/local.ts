@@ -235,6 +235,59 @@ export const audioRetime: AssetAdapter<AudioRetimeInputs, "audio"> = {
   },
 };
 
+export type AudioConcatInputs = {
+  sources: readonly MediaAsset<"audio">[];
+  crossfade: number;
+};
+
+export const audioConcat: AssetAdapter<AudioConcatInputs, "audio"> = {
+  type: "audio",
+  meta: {
+    backend: "local",
+    mediaType: "audio",
+    description:
+      "ffmpeg concatenation of existing audio takes, in order, into one — a song made in parts " +
+      "played as the one take `policy.song` names.",
+    ref: "concat",
+    inputs: {
+      sources: { type: "audio", required: true, array: true },
+      crossfade: {
+        type: "number",
+        required: true,
+        description:
+          "Seconds each seam overlaps, an equal-power fade — the whole runs this much shorter per " +
+          "seam. A take must run longer than the fades it carries. 0 butts parts cut from one take.",
+      },
+    },
+  },
+  timeOffset: () => null,
+  createDefinition(inputs: AudioConcatInputs): LocalAssetDefinition {
+    if (inputs.sources.length < 2) {
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `sources must hold at least two takes, got ${String(inputs.sources.length)}`,
+      );
+    }
+    const { crossfade } = inputs;
+    if (!Number.isFinite(crossfade) || crossfade < 0) {
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `crossfade must be a non-negative number of seconds, got ${String(crossfade)}`,
+      );
+    }
+    return {
+      kind: "local",
+      operation: "concat",
+      mediaType: "audio",
+      deterministic: true,
+      inputs: {
+        sources: inputs.sources.map((source) => source.src),
+        crossfade,
+      },
+    };
+  },
+};
+
 export type VideoFrameInputs = {
   source: MediaAsset<"video">;
   at?: number | "last";

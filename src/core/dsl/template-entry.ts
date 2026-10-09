@@ -12,7 +12,7 @@ export type {
   DeliveryUpscaleFn,
   DeliveryUpscaleInput,
 } from "../types/definition.js";
-export type { TrimInputs, AudioRetimeInputs } from "./adapters/index.js";
+export type { TrimInputs, AudioRetimeInputs, AudioConcatInputs } from "./adapters/index.js";
 export type { AnimaticDefinition, AnimaticFormat, PanelDefinition } from "../types/animatic.js";
 export type {
   MediaKind,
@@ -180,6 +180,7 @@ export {
 } from "./animatic-builders.js";
 export type { AnimaticRef, AnimaticShotRef } from "./animatic-ref.js";
 import {
+  audioConcat,
   audioFile,
   audioRetime,
   audioTrim,
@@ -201,6 +202,7 @@ export const adapters = {
   videoTrim,
   audioTrim,
   audioRetime,
+  audioConcat,
   videoFrame,
   jsxImage,
 };

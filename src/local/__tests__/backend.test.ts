@@ -343,6 +343,83 @@ describe("LocalBackend retime", () => {
   });
 });
 
+describe("LocalBackend concat", () => {
+  it("plays the takes in order as one, across sample rates and layouts", async () => {
+    const ffmpeg = await ffmpegBin();
+    const verse = path.join(videoRoot, "verse.wav");
+    const chorus = path.join(videoRoot, "chorus.mp3");
+    await execFileAsync(ffmpeg, [
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=duration=1.5",
+      "-ar",
+      "44100",
+      verse,
+    ]);
+    await execFileAsync(ffmpeg, [
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=duration=2",
+      "-ac",
+      "2",
+      "-ar",
+      "48000",
+      chorus,
+    ]);
+
+    const file = await generate(
+      localDef("concat", "audio", {
+        sources: ["__konte:reference:verse__", "__konte:reference:chorus__"],
+        crossfade: 0,
+      }),
+      { "reference:verse": verse, "reference:chorus": chorus },
+    );
+
+    expect(path.basename(file)).toBe("output.wav");
+    expect(await audioDuration(file)).toBeCloseTo(3.5, 1);
+  });
+
+  const tone = async (name: string, seconds: number): Promise<string> => {
+    const file = path.join(videoRoot, name);
+    await execFileAsync(await ffmpegBin(), [
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      `sine=duration=${seconds}`,
+      file,
+    ]);
+    return file;
+  };
+  const sources = (n: number) =>
+    Array.from({ length: n }, (_, i) => `__konte:reference:part${String(i)}__`);
+  const deps = (files: readonly string[]) =>
+    Object.fromEntries(files.map((file, i) => [`reference:part${String(i)}`, file]));
+
+  it("overlaps each seam by the crossfade", async () => {
+    const files = [await tone("a.wav", 2), await tone("b.wav", 2), await tone("c.wav", 2)];
+
+    const file = await generate(
+      localDef("concat", "audio", { sources: sources(3), crossfade: 0.5 }),
+      deps(files),
+    );
+
+    expect(await audioDuration(file)).toBeCloseTo(5, 1);
+  });
+
+  it("refuses a middle take no longer than its two fades", async () => {
+    const files = [await tone("a.wav", 2), await tone("b.wav", 1), await tone("c.wav", 2)];
+
+    await expect(
+      generate(localDef("concat", "audio", { sources: sources(3), crossfade: 0.5 }), deps(files)),
+    ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+  });
+});
+
 describe("LocalBackend frame", () => {
   it("takes the frame at `at`, resolving the source through resolvedDependencies", async () => {
     const clip = await makeTwoToneClip("assets/clip.mp4");

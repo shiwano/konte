@@ -12,11 +12,13 @@ export {
   videoTrim,
   audioTrim,
   audioRetime,
+  audioConcat,
   videoFrame,
   type ColorString,
   type ImageResizeInputs,
   type ImageCropInputs,
   type TrimInputs,
   type AudioRetimeInputs,
+  type AudioConcatInputs,
   type VideoFrameInputs,
 } from "./local.js";

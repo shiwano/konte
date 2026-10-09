@@ -120,7 +120,7 @@ export type FalAssetDefinition = z.infer<typeof FalAssetDefinitionSchema>;
 
 export const LocalAssetDefinitionSchema = z.object({
   kind: z.literal("local"),
-  operation: z.enum(["resize", "crop", "blank", "trim", "retime", "frame", "render"]),
+  operation: z.enum(["resize", "crop", "blank", "trim", "retime", "concat", "frame", "render"]),
   mediaType: z.enum(["image", "video", "audio"]),
   inputs: z.record(z.string(), z.unknown()),
   ...VerdictAxes,

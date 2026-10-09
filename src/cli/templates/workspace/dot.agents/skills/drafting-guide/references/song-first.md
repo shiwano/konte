@@ -26,7 +26,7 @@ const song = asset(direction.policy.song!, audioYue2, {
 });
 ```
 
-- **Brought → a `file` asset at that id.**
+- **Brought → a `file` asset at that id; in parts → `adapters.audioConcat` of them, in order.**
 - **`konte generate reference`, then `konte job wait`** — the wait covers the reading of each take.
 - **A reading failed → `konte song analyze`** — the first run downloads the beat tracker and the vocal separator. It re-reads the current take, keeping every `konte song set` correction on it.
 

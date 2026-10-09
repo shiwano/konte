@@ -23,6 +23,30 @@ import { probeMediaDuration } from "../core/video-probe.js";
 import type { LocalAssetDefinition } from "../core/types/index.js";
 import { execFileAsync } from "../core/exec-file.js";
 
+// A middle take carries a fade at each end, the first and last one at one.
+async function assertCrossfadeFits(
+  inputFiles: readonly string[],
+  crossfade: number,
+): Promise<void> {
+  for (const [i, file] of inputFiles.entries()) {
+    const fades = i === 0 || i === inputFiles.length - 1 ? 1 : 2;
+    const duration = await probeMediaDuration(file);
+    if (duration === null) {
+      throw new KonteError(
+        "FFMPEG_ERROR",
+        `ffmpeg concatAudio failed: cannot read the length of ${file}`,
+      );
+    }
+    if (duration <= crossfade * fades) {
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `sources[${String(i)}] runs ${duration.toFixed(2)}s, not longer than the ` +
+          `${String(fades)} crossfade(s) of ${String(crossfade)}s it carries`,
+      );
+    }
+  }
+}
+
 export class LocalBackend implements GenerationBackend {
   private readonly videoRoot: string;
 
@@ -117,6 +141,9 @@ export class LocalBackend implements GenerationBackend {
         break;
       case "retime":
         await this.retimeMedia(def.inputs, outputFile, resolvedDependencies, address);
+        break;
+      case "concat":
+        await this.concatAudio(def.inputs, outputFile, resolvedDependencies);
         break;
       case "frame":
         await this.extractFrame(def.inputs, outputFile, resolvedDependencies);
@@ -310,6 +337,59 @@ export class LocalBackend implements GenerationBackend {
       await execFileAsync(ffmpeg, args);
     } catch (err) {
       throw new KonteError("FFMPEG_ERROR", `ffmpeg retimeMedia failed: ${errorMessage(err)}`);
+    }
+  }
+
+  private async concatAudio(
+    inputs: Record<string, unknown>,
+    outputFile: string,
+    resolvedDependencies: Record<string, string>,
+  ): Promise<void> {
+    const inputFiles = await Promise.all(
+      (inputs.sources as string[]).map((source) =>
+        this.resolveDependencyFile(source, resolvedDependencies),
+      ),
+    );
+
+    const crossfade = inputs.crossfade as number;
+    if (crossfade > 0) {
+      await assertCrossfadeFits(inputFiles, crossfade);
+    }
+
+    // Every seam needs both sides in one sample format, rate and layout; the takes may differ.
+    const normalize = inputFiles
+      .map(
+        (_, i) =>
+          `[${i}:a]aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[a${i}]`,
+      )
+      .join(";");
+    const join =
+      crossfade > 0
+        ? inputFiles
+            .slice(1)
+            .map(
+              (_, i) =>
+                `[${i === 0 ? "a0" : `x${i}`}][a${i + 1}]` +
+                `acrossfade=d=${crossfade}:c1=qsin:c2=qsin` +
+                `[${i === inputFiles.length - 2 ? "out" : `x${i + 1}`}]`,
+            )
+            .join(";")
+        : `${inputFiles.map((_, i) => `[a${i}]`).join("")}concat=n=${inputFiles.length}:v=0:a=1[out]`;
+    const args = [
+      "-y",
+      ...inputFiles.flatMap((file) => ["-i", file]),
+      "-filter_complex",
+      `${normalize};${join}`,
+      "-map",
+      "[out]",
+      outputFile,
+    ];
+
+    const ffmpeg = await ffmpegBin();
+    try {
+      await execFileAsync(ffmpeg, args);
+    } catch (err) {
+      throw new KonteError("FFMPEG_ERROR", `ffmpeg concatAudio failed: ${errorMessage(err)}`);
     }
   }
 
