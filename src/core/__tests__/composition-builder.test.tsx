@@ -1356,7 +1356,7 @@ describe("Video/Audio data attributes", () => {
     expect(html).not.toMatch(/data-media-start="7"/);
   });
 
-  it("maps typed Audio props to data-* and keeps data-start shot-local", async () => {
+  it("maps typed Audio props to data-* and lifts the clip out of its shot", async () => {
     const video = defineVideo(
       testDirection({
         fps: 30,
@@ -1404,11 +1404,11 @@ describe("Video/Audio data attributes", () => {
       })
     ).html;
 
-    // shot 02 starts at offset 5: its host carries data-start 5 and the inner <audio>'s data-start
-    // stays shot-local (0), which the runtime re-bases on the host.
+    // shot 02 starts at offset 5. The <audio> leaves the shot's template, where the runtime would
+    // cut it at the shot's end, for the full-span group on the master clock (0 -> 5).
     expect(html).toMatch(/<div data-composition-id="shot-02"[^>]*data-start="5"/);
-    expect(html).toMatch(/<audio[^>]*data-start="0"/);
-    expect(html).not.toMatch(/<audio[^>]*data-start="5"/);
+    expect(html).not.toMatch(/<template id="shot-02-template">(?:(?!<\/template>)[\s\S])*<audio/);
+    expect(html).toMatch(/<div id="embedded-audio"[^>]*>(?:(?!<\/div>)[\s\S])*<audio[^>]*data-start="5"/);
     expect(html).toMatch(/<audio[^>]*data-duration="3"/);
     expect(html).not.toMatch(/<audio[^>]*data-end=/);
     expect(html).toMatch(/<audio[^>]*data-media-start="2"/);

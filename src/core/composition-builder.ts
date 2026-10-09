@@ -287,6 +287,23 @@ function buildEmbeddedAudioTags(html: string, offset: number, duckUnder?: ClipDu
   return tags;
 }
 
+// Lift a shot's own `<audio>` out of its composition onto the master clock (`data-start` plus
+// `offset`). The runtime bounds a nested clip by its host's window, but an `<Audio>` plays past its
+// shot's cut, as the mux plays it.
+function liftShotAudio(html: string, offset: number): { html: string; tags: string[] } {
+  const tags: string[] = [];
+  const rest = html.replace(/<audio\b[^>]*>[\s\S]*?<\/audio>/g, (el) => {
+    tags.push(
+      el.replace(
+        /\sdata-start="([^"]*)"/,
+        (_, value: string) => ` data-start="${parseFloat(value) + offset}"`,
+      ),
+    );
+    return "";
+  });
+  return { html: rest, tags };
+}
+
 type ClipDuck = (clip: {
   src: string;
   start: number;
@@ -1232,7 +1249,7 @@ export async function buildFullCompositionHtml(
   const shotInfos: ShotCompositionInfo[] = [];
   const stageFragments: string[] = [];
   const shotTemplates: string[] = [];
-  const embeddedAudio: string[] = [];
+  const liftedAudio: string[] = [];
   const clipHosts: Array<{
     html: string;
     start: number;
@@ -1284,10 +1301,12 @@ export async function buildFullCompositionHtml(
       // Embed the shot as a nested composition: its content lives in a <template> that the
       // runtime hydrates into the empty [data-composition-id] host below. The mount scopes
       // selectors and getElementById per composition (duplicate ids across shots stay isolated)
-      // and re-bases each shot's gsap timeline and clip windows (<Video>/<Audio> included) onto
-      // the host's data-start — replacing the hand-rolled selector scoping and master-timeline merge.
+      // and re-bases each shot's gsap timeline and clip windows onto the host's data-start —
+      // replacing the hand-rolled selector scoping and master-timeline merge.
+      const lifted = liftShotAudio(templateBody, span.start);
+      liftedAudio.push(...lifted.tags);
       clipHosts.push({
-        html: templateBody,
+        html: lifted.html,
         start: span.start,
         shotEnd: span.start + span.duration,
         loudnessBySrc: clipLoudnessBySrc(
@@ -1298,7 +1317,7 @@ export async function buildFullCompositionHtml(
           assetBaseUrl,
         ),
       });
-      const body = injectBaseTimeline(templateBody, shotPlan.shotId, shotPlan.duration);
+      const body = injectBaseTimeline(lifted.html, shotPlan.shotId, shotPlan.duration);
       shotTemplates.push(`<template id="shot-${shotPlan.shotId}-template">${body}</template>`);
       stageFragments.push(
         `<div data-composition-id="shot-${shotPlan.shotId}" data-start="${span.start}" data-duration="${span.duration}" data-width="${plan.size.width}" data-height="${plan.size.height}" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>`,
@@ -1334,7 +1353,7 @@ export async function buildFullCompositionHtml(
     : [];
   const narration = voiceSpans.filter(isNarrationCue);
   for (const host of clipHosts) {
-    embeddedAudio.push(
+    liftedAudio.push(
       ...buildEmbeddedAudioTags(
         host.html,
         host.start,
@@ -1417,11 +1436,11 @@ export async function buildFullCompositionHtml(
     );
   }
 
-  // Mirrored clip audio sits outside the shot templates, in one full-span group, for the same
-  // reason the beds do.
-  if (embeddedAudio.length > 0) {
+  // A shot's own and mirrored clip audio sit outside the shot templates, in one full-span group, for
+  // the same reason the beds do.
+  if (liftedAudio.length > 0) {
     stageFragments.push(
-      `<div id="embedded-audio" class="shot-group" data-start="0" data-duration="${totalDuration}" style="position:absolute;top:0;left:0;width:100%;height:100%;visibility:hidden;">${embeddedAudio.join("")}</div>`,
+      `<div id="embedded-audio" class="shot-group" data-start="0" data-duration="${totalDuration}" style="position:absolute;top:0;left:0;width:100%;height:100%;visibility:hidden;">${liftedAudio.join("")}</div>`,
     );
   }
 

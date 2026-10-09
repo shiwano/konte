@@ -21,6 +21,8 @@ All standalone audio is **muxed onto the final video in one pass after the shots
 
 The preview runtime plays `<audio>` only: it schedules `audio[data-start]` into a WebAudio transport and force-mutes every media element while it is active, so `buildEmbeddedAudioTags` mirrors each `<Video hasAudio>` as an `<audio>` on the same source, in the preview HTML only.
 
+The runtime bounds a clip inside a nested composition by its host's window, so the reel lifts each shot's `<audio>` out of its template (`liftShotAudio`) into the full-span `#embedded-audio` group, beside the mirrors, at its master-clock start; an `<Audio>` crosses the cut there as in the mux.
+
 `boundOpenAudio` bounds every open-ended preview `<audio>` to its take's recorded length less `data-media-start`; the runtime's seek sync would otherwise seek it past its source and error it for good.
 
 The reel's **preroll** (`preview-preroll.ts`) moves the picture alone: a shot's opening `<video>` opens its window a lead early, hidden by its shot host's window, so the cut reveals a clip already running. The shift comes out of `data-media-start`; a clip on its take's first frame gets a cached picture-only copy (`padVideoClip`) holding that frame in front, with a cloned tail keeping EOF clear of the window. A late start stays late past the cut (the runtime never re-syncs a playing `<video>`), so the reel's **warm-up** seeks each clip to its in-point before its window, waking one the browser suspended.
