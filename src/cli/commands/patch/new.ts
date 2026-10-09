@@ -14,14 +14,17 @@ import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 // this workspace may not even be allowed to spend on the one a fixed default would pick. Returning
 // `source` unchanged type-checks, so a fresh scaffold never breaks the video it belongs to; it
 // fails at apply time instead, saying it was never written. The commented call is the shape an
-// author cannot guess — that steps are declared with `asset()` exactly as in a stage file, and
-// that the one returned is the correction's output.
+// author cannot guess — that steps are declared with `asset()` exactly as in a stage file, that
+// a stage file's assets are imported as further inputs, and that the one returned is the
+// correction's output.
 function scaffold(mediaKind: MediaKind): string {
   return `import { asset, adapters, definePatch } from "konte";
+// import reference from "../reference";
 
 export default definePatch<"${mediaKind}">(({ source }) => {
   // const patched = asset("patched", <${mediaKind}Edit>, {
   //   <${mediaKind}>: source,
+  //   <reference${mediaKind[0]!.toUpperCase()}${mediaKind.slice(1)}>: reference.<id>,
   //   prompt: "the edit, in the shape its guide gives — konte adapter show <adapter>",
   // });
   // return patched;

@@ -235,6 +235,42 @@ export default definePatch<"image">(({ source }) => {
       expect(section("Dependents")).toEqual([`reference:patch.${sourceId}.patched`]);
     });
 
+    it("feeds a stage file's asset into a step as an ordinary upstream", async () => {
+      const projectDir = await initPatchProject();
+      const sourceId = await generateSource(projectDir);
+      await writePatch(
+        projectDir,
+        sourceId,
+        `import { asset, definePatch } from "konte";
+// @ts-expect-error konte's own fixture adapter — deliberately outside the workspace type surface
+import { internalTestImage } from "konte";
+import reference from "../reference";
+
+export default definePatch<"image">(({ source }) =>
+  asset("patched", internalTestImage, {
+    image: source,
+    reference: reference.latentB,
+    width: 32,
+    height: 32,
+  }),
+);
+`,
+      );
+      const { stdout: applied } = await run(["patch", "apply", sourceId], projectDir);
+      expect(applied).not.toContain("Failed:");
+      await run(["job", "wait"], projectDir).catch(() => undefined);
+
+      const { stdout } = await run(["inspect", `reference:patch.${sourceId}.patched`], projectDir);
+      const deps = stdout
+        .slice(stdout.indexOf("Dependencies:"))
+        .split("\n")
+        .slice(1)
+        .filter((line) => line.startsWith("  "))
+        .map((line) => line.trim().split(" ")[0]);
+      expect(deps).toEqual(expect.arrayContaining(["reference:latentA", "reference:latentB"]));
+      expect((await patchedVariants(projectDir, sourceId))[0]?.[1].file).toBeTruthy();
+    });
+
     // A fresh scaffold type-checks so it never breaks the video it belongs to, but it describes no
     // correction — applying it must say so rather than record the take as its own patch.
     it("rejects a scaffold that still returns the source unchanged", async () => {

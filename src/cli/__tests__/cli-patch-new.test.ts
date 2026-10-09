@@ -31,6 +31,7 @@ describe("patch command", () => {
       // a typed adapter input — the one thing the author cannot supply from the filename alone.
       expect(written).toContain(`definePatch<"image">`);
       expect(written).toContain("return source;");
+      expect(written).toContain(`// import reference from "../reference";`);
     });
 
     // A review round hands back several takes to correct at once; scaffolding them one call at a

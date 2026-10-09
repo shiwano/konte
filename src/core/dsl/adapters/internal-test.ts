@@ -17,6 +17,8 @@ export type InternalTestImageInputs = {
   height: number;
   // Given, the output is that image resized; omitted, a blank canvas.
   image?: MediaAsset<"image">;
+  // A dependency edge only; the output never reads it.
+  reference?: MediaAsset<"image">;
 };
 
 export const internalTestImage: AssetAdapter<InternalTestImageInputs, "image"> = {
@@ -30,6 +32,7 @@ export const internalTestImage: AssetAdapter<InternalTestImageInputs, "image"> =
       width: { type: "number", required: true },
       height: { type: "number", required: true },
       image: { type: "image", required: false },
+      reference: { type: "image", required: false },
     },
   },
   createDefinition(inputs: InternalTestImageInputs): LocalAssetDefinition {
@@ -38,7 +41,12 @@ export const internalTestImage: AssetAdapter<InternalTestImageInputs, "image"> =
           kind: "local",
           operation: "resize",
           mediaType: "image",
-          inputs: { image: inputs.image.src, width: inputs.width, height: inputs.height },
+          inputs: {
+            image: inputs.image.src,
+            width: inputs.width,
+            height: inputs.height,
+            ...(inputs.reference ? { reference: inputs.reference.src } : {}),
+          },
         }
       : {
           kind: "local",
