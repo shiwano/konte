@@ -84,11 +84,18 @@ export function Animate({
   if (source !== undefined) assertEmbeddable(shotId, source);
   const scriptBody = source === undefined ? "" : `(${source})({ timeline: tl });`;
 
-  // The timeline registers before the script runs: a throw costs only the tweens after it, and the
-  // capture's readiness handshake still resolves.
-  const scriptText = `var tl = gsap.timeline({ paused: true });
+  // The shot's timeline registers before the script runs: a throw costs only the tweens after it, and
+  // the capture's readiness handshake still resolves.
+  const key = JSON.stringify(`shot-${shotId}`);
+  const scriptText = `(function () {
 window.__timelines = window.__timelines || {};
-window.__timelines[${JSON.stringify(`shot-${shotId}`)}] = tl;
+var shotTl = window.__timelines[${key}];
+if (!shotTl) {
+  shotTl = gsap.timeline({ paused: true });
+  window.__timelines[${key}] = shotTl;
+}
+var tl = gsap.timeline();
+shotTl.add(tl, 0);
 try {
 ${scriptBody}
 } catch (err) {
@@ -98,7 +105,8 @@ ${scriptBody}
   console.error("[konte] <Animate> script threw in shot " + ${JSON.stringify(shotId)} + ": " + msg +
     " — every tween after the throw is missing. The script is serialized and run in the browser, so it cannot reference anything outside itself.");
   ${errorOverlayJs(shotId)}
-}`;
+}
+})();`;
 
   return <script>{scriptText}</script>;
 }

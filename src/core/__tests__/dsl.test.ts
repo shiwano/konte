@@ -629,18 +629,72 @@ describe("Animate", () => {
     expect(html).toContain('window.__timelines["shot-05"]');
   });
 
-  it("registers the timeline before running the script", () => {
+  interface FakeTimeline {
+    vars: Record<string, unknown>;
+    children: Array<{ child: FakeTimeline; position: unknown }>;
+    tweens: string[];
+  }
+
+  function runAnimateScripts(html: string): Record<string, FakeTimeline> {
+    const timeline = (vars: Record<string, unknown> = {}) => {
+      const tl: FakeTimeline & Record<string, unknown> = {
+        vars,
+        children: [],
+        tweens: [],
+        add: (child: FakeTimeline, position: unknown) => tl.children.push({ child, position }),
+        from: (target: string) => tl.tweens.push(target),
+      };
+      return tl;
+    };
+    const window: { __timelines?: Record<string, FakeTimeline> } = {};
+    const document = { querySelector: () => null, getElementById: () => null, body: null };
+    const console = { error: () => {} };
+    for (const [, body] of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
+      Function(
+        "window",
+        "gsap",
+        "document",
+        "console",
+        body ?? "",
+      )(window, { timeline }, document, console);
+    }
+    return window.__timelines ?? {};
+  }
+
+  it("nests sibling <Animate> timelines at 0 of the one shot timeline", () => {
+    const html = [
+      ({ timeline }: { timeline: GsapTimeline }) => {
+        timeline.from("#telop", { opacity: 0 });
+      },
+      ({ timeline }: { timeline: GsapTimeline }) => {
+        timeline.from("#phone", { opacity: 0 });
+      },
+    ]
+      .map((script) => renderToHtml(animateEl({ script }), ctx))
+      .join("");
+    const timelines = runAnimateScripts(html);
+    expect(Object.keys(timelines)).toEqual(["shot-01"]);
+    const shotTl = timelines["shot-01"];
+    if (!shotTl) throw new Error("no shot timeline");
+    expect(shotTl.vars).toEqual({ paused: true });
+    expect(shotTl.children.map(({ child, position }) => [child.tweens, position])).toEqual([
+      [["#telop"], 0],
+      [["#phone"], 0],
+    ]);
+    expect(shotTl.children.every(({ child }) => child.vars.paused === undefined)).toBe(true);
+  });
+
+  it("registers the shot timeline before running the script", () => {
     const html = renderToHtml(
       animateEl({
-        script: ({ timeline }) => {
-          timeline.to(".clip", { opacity: 0 }, 0);
+        script: () => {
+          throw new Error("boom");
         },
       }),
       ctx,
     );
-    expect(html.indexOf('window.__timelines["shot-01"] = tl')).toBeLessThan(
-      html.indexOf("({ timeline: tl })"),
-    );
+    const timelines = runAnimateScripts(html);
+    expect(timelines["shot-01"]?.children).toHaveLength(1);
   });
 
   it("rejects a source that cannot be embedded as an expression", () => {
