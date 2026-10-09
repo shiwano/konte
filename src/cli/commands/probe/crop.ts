@@ -33,25 +33,46 @@ interface Window {
   y: number;
   width: number;
   height: number;
+  percent?: string;
+}
+
+interface Rect {
+  label: string;
+  given: string;
+  parts: { value: number; percent: boolean }[];
 }
 
 function collectRect(value: string, previous: string[]): string[] {
   return [...previous, value];
 }
 
-function parseRect(value: string, index: number): Window {
-  const match = value.trim().match(/^(\d+),(\d+),(\d+),(\d+)$/);
-  if (!match) {
+export function parseRect(value: string, index: number): Rect {
+  const parts = value
+    .trim()
+    .split(",")
+    .map((part) => part.trim().match(/^(\d+(?:\.\d+)?)(%?)$/));
+  if (parts.length !== 4 || parts.some((m) => !m || (!m[2] && m[1]!.includes(".")))) {
     throw new KonteError(
       "INVALID_OPTION",
-      `--rect takes x,y,width,height in source pixels, got "${value}"`,
+      `--rect takes x,y,width,height in source pixels or percent (4%,23.6%,92%,9%), got "${value}"`,
     );
   }
-  const [x, y, width, height] = match.slice(1).map(Number) as [number, number, number, number];
+  return {
+    label: String(index + 1),
+    given: value.trim(),
+    parts: parts.map((m) => ({ value: Number(m![1]), percent: m![2] === "%" })),
+  };
+}
+
+export function resolveRect(rect: Rect, size: { width: number; height: number }): Window {
+  const [x, y, width, height] = rect.parts.map(({ value, percent }, i) =>
+    percent ? Math.round(((i % 2 === 0 ? size.width : size.height) * value) / 100) : value,
+  ) as [number, number, number, number];
   if (width < 1 || height < 1) {
-    throw new KonteError("INVALID_OPTION", `--rect "${value}" has no area`);
+    throw new KonteError("INVALID_OPTION", `--rect "${rect.given}" has no area`);
   }
-  return { label: String(index + 1), x, y, width, height };
+  const percent = rect.parts.some((p) => p.percent) ? rect.given : undefined;
+  return { label: rect.label, x, y, width, height, ...(percent && { percent }) };
 }
 
 async function imageSize(
@@ -78,14 +99,20 @@ async function runFfmpeg(args: string[], what: string): Promise<void> {
 }
 
 function describeWindow(w: Window): string {
-  return `x=${w.x} y=${w.y} ${w.width}x${w.height}`;
+  const px = `x=${w.x} y=${w.y} ${w.width}x${w.height}`;
+  return w.percent ? `${px} (${w.percent})` : px;
 }
 
 export function registerProbeCropCommand(program: Command): void {
   program
     .command("crop <image>")
     .description("Try crop windows on an image before writing them into an imageCrop")
-    .option("--rect <x,y,w,h>", "A window to try, in source pixels (repeatable)", collectRect, [])
+    .option(
+      "--rect <x,y,w,h>",
+      "A window to try, in source pixels or percent (repeatable)",
+      collectRect,
+      [],
+    )
     .option("--force", "Re-render even if the crops are cached")
     .addHelpText(
       "after",
@@ -96,9 +123,12 @@ output size, its cell naming its color and geometry. Writes nothing to the defin
 
 <image> is a variant id (v-…) or an address, resolved like konte ref. When it is an imageCrop asset
 (a plate cut from a master), its master is the source, its own window is shown as "current", and
-every --rect is in the master's pixels and rendered at that asset's output size. Otherwise the image
+every --rect is on the master and rendered at that asset's output size. Otherwise the image
 itself is the source and each window is rendered at the animatic's canvas (the video's, with no
 animatic). A window whose aspect differs from the output's is reported: imageCrop stretches it.
+
+Each --rect value is source pixels or, with %, a percent of the source's width (x, width) or height
+(y, height).
 
 Examples:
   konte probe crop animatic:plate.deskMedium --rect 0,480,1760,440
@@ -164,7 +194,9 @@ Examples:
         source = { address, variantId, file: variant.file };
         output = definitions?.animatic?.format.size ?? definitions?.video?.format.size ?? null;
       }
-      windows.push(...rects);
+      const sourceFile = path.resolve(videoRoot, source.file);
+      const size = await imageSize(manager, source.variantId, source.address, sourceFile);
+      windows.push(...rects.map((rect) => resolveRect(rect, size)));
       if (windows.length > DEFAULT_MAX_CELLS) {
         throw new KonteError(
           "INVALID_OPTION",
@@ -172,8 +204,6 @@ Examples:
         );
       }
 
-      const sourceFile = path.resolve(videoRoot, source.file);
-      const size = await imageSize(manager, source.variantId, source.address, sourceFile);
       const outside = windows.filter(
         (w) => w.x + w.width > size.width || w.y + w.height > size.height,
       );
