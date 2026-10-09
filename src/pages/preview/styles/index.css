@@ -2625,6 +2625,23 @@ body.fill-mode .fab-submit-wrap {
   touch-action: none;
 }
 
+.song-track-line--narrow {
+  padding: 0;
+}
+
+.song-track-line--narrow .song-track-line-text,
+.song-track-line--narrow .song-track-line-singer,
+.song-track-line--narrow .song-track-line-undo {
+  display: none;
+}
+
+.song-track-line--narrow .song-track-line-grip {
+  left: 0;
+  right: 0;
+  justify-content: center;
+  overflow: hidden;
+}
+
 .song-track-line-grip:hover {
   color: var(--text-primary);
 }
@@ -2683,6 +2700,7 @@ body.fill-mode .fab-submit-wrap {
 
 .song-track-edge {
   position: absolute;
+  z-index: 1;
   top: 0;
   bottom: 0;
   cursor: ew-resize;

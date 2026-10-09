@@ -100,6 +100,7 @@ export function SongSummary({
 const LABEL_W = 84;
 const LANE_PX = 44;
 const EDGE_PX = 8;
+const NARROW_PX = 48;
 const SNAP_PX = 8;
 const MIN_LINE_SEC = 0.2;
 const STEP_SEC = 0.1;
@@ -545,86 +546,90 @@ export function SongTrack({
                 {bars.map((b) => (
                   <span key={b.beat} className="song-track-gridline" style={{ left: x(b.sec) }} />
                 ))}
-                {placed.map((line) => (
-                  /* A div: it holds the undo buttons, which a <button> cannot. */
-                  /* oxlint-disable jsx-a11y/prefer-tag-over-role */
-                  <div
-                    key={line.key}
-                    className={[
-                      "song-track-line",
-                      line === sung && "song-track-line--sung",
-                      line.pending && "song-track-line--pending",
-                      line.set && !line.pending && "song-track-line--set",
-                      drag?.key === line.key && "song-track-line--dragged",
-                      editing && "song-track-line--movable",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    style={{
-                      left: x(line.startSec),
-                      width: Math.max(4, x(line.endSec - line.startSec)),
-                      top: (laneOf.get(line.key) ?? 0) * LANE_PX,
-                    }}
-                    title={`${line.key} · ${line.startSec.toFixed(2)}s–${line.endSec.toFixed(2)}s · ${line.singer.join(", ")}\n${line.text}`}
-                    data-start={line.startSec}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") playFrom(line.startSec);
-                    }}
-                  >
-                    {editing && (
-                      <span
-                        className="song-track-edge song-track-edge--start"
-                        style={{ width: EDGE_PX }}
-                        onPointerDown={(e) => grab(e, line, "start")}
-                      />
-                    )}
-                    {editing && (
-                      <span
-                        className="song-track-line-grip"
-                        title="Drag to where the line is sung"
-                        onPointerDown={(e) => grab(e, line, "move")}
-                      >
-                        ⠿
-                      </span>
-                    )}
-                    <span className="song-track-line-text">{line.text}</span>
-                    <span className="song-track-line-singer">{line.singer.join(", ")}</span>
-                    {editing && line.pending && (
-                      <button
-                        type="button"
-                        className="song-track-line-undo"
-                        title="Undo this change"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => editing.discard(song.variantId, line.key)}
-                      >
-                        ↶
-                      </button>
-                    )}
-                    {editing && line.set && !line.pending && (
-                      <button
-                        type="button"
-                        className="song-track-line-undo"
-                        title="Leave this line to konte's reading again"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() =>
-                          editing.place({ variantId: song.variantId, key: line.key, span: null })
-                        }
-                      >
-                        ↺
-                      </button>
-                    )}
-                    {editing && (
-                      <span
-                        className="song-track-edge song-track-edge--end"
-                        style={{ width: EDGE_PX }}
-                        onPointerDown={(e) => grab(e, line, "end")}
-                      />
-                    )}
-                  </div>
-                  /* oxlint-enable jsx-a11y/prefer-tag-over-role */
-                ))}
+                {placed.map((line) => {
+                  const width = Math.max(4, x(line.endSec - line.startSec));
+                  return (
+                    /* A div: it holds the undo buttons, which a <button> cannot. */
+                    /* oxlint-disable jsx-a11y/prefer-tag-over-role */
+                    <div
+                      key={line.key}
+                      className={[
+                        "song-track-line",
+                        line === sung && "song-track-line--sung",
+                        line.pending && "song-track-line--pending",
+                        line.set && !line.pending && "song-track-line--set",
+                        drag?.key === line.key && "song-track-line--dragged",
+                        editing && "song-track-line--movable",
+                        width < NARROW_PX && "song-track-line--narrow",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      style={{
+                        left: x(line.startSec),
+                        width,
+                        top: (laneOf.get(line.key) ?? 0) * LANE_PX,
+                      }}
+                      title={`${line.key} · ${line.startSec.toFixed(2)}s–${line.endSec.toFixed(2)}s · ${line.singer.join(", ")}\n${line.text}`}
+                      data-start={line.startSec}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") playFrom(line.startSec);
+                      }}
+                    >
+                      {editing && (
+                        <span
+                          className="song-track-edge song-track-edge--start"
+                          style={{ width: EDGE_PX }}
+                          onPointerDown={(e) => grab(e, line, "start")}
+                        />
+                      )}
+                      {editing && (
+                        <span
+                          className="song-track-line-grip"
+                          title="Drag to where the line is sung"
+                          onPointerDown={(e) => grab(e, line, "move")}
+                        >
+                          ⠿
+                        </span>
+                      )}
+                      <span className="song-track-line-text">{line.text}</span>
+                      <span className="song-track-line-singer">{line.singer.join(", ")}</span>
+                      {editing && line.pending && (
+                        <button
+                          type="button"
+                          className="song-track-line-undo"
+                          title="Undo this change"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={() => editing.discard(song.variantId, line.key)}
+                        >
+                          ↶
+                        </button>
+                      )}
+                      {editing && line.set && !line.pending && (
+                        <button
+                          type="button"
+                          className="song-track-line-undo"
+                          title="Leave this line to konte's reading again"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={() =>
+                            editing.place({ variantId: song.variantId, key: line.key, span: null })
+                          }
+                        >
+                          ↺
+                        </button>
+                      )}
+                      {editing && (
+                        <span
+                          className="song-track-edge song-track-edge--end"
+                          style={{ width: EDGE_PX }}
+                          onPointerDown={(e) => grab(e, line, "end")}
+                        />
+                      )}
+                    </div>
+                    /* oxlint-enable jsx-a11y/prefer-tag-over-role */
+                  );
+                })}
               </div>
             </div>
             <PlayheadLine
