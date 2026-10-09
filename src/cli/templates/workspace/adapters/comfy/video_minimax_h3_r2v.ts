@@ -18,7 +18,7 @@ type Task =
   | "audio reference";
 type Cut = { at: number; text: string };
 
-const labelLines = (header: string) => (lines: string[]) =>
+const labelLines = (header: string) => (lines: readonly string[]) =>
   `${header}: ${lines.length > 0 ? lines.join("\n") : "N/A"}`;
 
 const shotsText = (shots: readonly (string | Cut)[]) =>
@@ -175,7 +175,7 @@ export const videoMinimaxH3R2v = defineComfyAsset({
           },
           summary: {
             required: true,
-            render: (s: { tasks: [Task, ...Task[]]; text: string }) =>
+            render: (s: { tasks: readonly [Task, ...Task[]]; text: string }) =>
               `summary: [${s.tasks.join(" + ")}] ${s.text}`,
           },
           retentionAnalysis: {
@@ -186,7 +186,7 @@ export const videoMinimaxH3R2v = defineComfyAsset({
           detailedDescription: {
             required: true,
             description: "shots: [Shot 1] as a string, each later one as { at: seconds, text }",
-            render: (d: { style: string; shots: [string, ...Cut[]] }) =>
+            render: (d: { style: string; shots: readonly [string, ...Cut[]] }) =>
               `detailed_description: ${d.style} ${shotsText(d.shots)}`,
           },
           overallSoundscape: {

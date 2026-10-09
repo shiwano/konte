@@ -11,7 +11,7 @@ import {
 type Task = "reference generation" | "audio reuse" | "audio reference";
 type Cut = { at: number; text: string };
 
-const labelLines = (header: string) => (lines: string[]) =>
+const labelLines = (header: string) => (lines: readonly string[]) =>
   `${header}: ${lines.length > 0 ? lines.join("\n") : "N/A"}`;
 
 const shotsText = (shots: readonly (string | Cut)[]) =>
@@ -96,7 +96,7 @@ export const audioMinimaxH3R2a = defineComfyAsset({
           },
           summary: {
             description: "with a reference",
-            render: (s: { tasks: [Task, ...Task[]]; text: string }) =>
+            render: (s: { tasks: readonly [Task, ...Task[]]; text: string }) =>
               `summary: [${s.tasks.join(" + ")}] ${s.text}`,
           },
           retentionAnalysis: {
@@ -106,7 +106,7 @@ export const audioMinimaxH3R2a = defineComfyAsset({
           detailedDescription: {
             description:
               "with a reference; shots: [Shot 1] as a string, each later one as { at: seconds, text }",
-            render: (d: { style: string; shots: [string, ...Cut[]] }) =>
+            render: (d: { style: string; shots: readonly [string, ...Cut[]] }) =>
               `detailed_description: ${d.style} ${shotsText(d.shots)}`,
           },
           integratedMultimodalDescription: {
@@ -116,7 +116,7 @@ export const audioMinimaxH3R2a = defineComfyAsset({
               shots: [first, ...rest],
             }: {
               style: string;
-              shots: [string, ...Cut[]];
+              shots: readonly [string, ...Cut[]];
             }) => `integrated_multimodal_description: ${shotsText([`${style} ${first}`, ...rest])}`,
           },
           overallSoundscape: {

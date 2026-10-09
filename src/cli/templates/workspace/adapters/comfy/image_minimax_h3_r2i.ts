@@ -10,7 +10,7 @@ import {
 
 type Task = "keyframe completion" | "reference generation";
 
-const labelLines = (header: string) => (lines: string[]) =>
+const labelLines = (header: string) => (lines: readonly string[]) =>
   `${header}: ${lines.length > 0 ? lines.join("\n") : "N/A"}`;
 
 const shotsText = (shots: readonly string[]) =>
@@ -89,7 +89,7 @@ export const imageMinimaxH3R2i = defineComfyAsset({
           },
           summary: {
             required: true,
-            render: (s: { tasks: [Task, ...Task[]]; text: string }) =>
+            render: (s: { tasks: readonly [Task, ...Task[]]; text: string }) =>
               `summary: [${s.tasks.join(" + ")}] ${s.text}`,
           },
           retentionAnalysis: {
@@ -100,7 +100,7 @@ export const imageMinimaxH3R2i = defineComfyAsset({
           detailedDescription: {
             required: true,
             description: "shots: [Shot 1], and [Shot 2] for a cut — each its text alone",
-            render: (d: { style: string; shots: [string] | [string, string] }) =>
+            render: (d: { style: string; shots: readonly [string] | readonly [string, string] }) =>
               `detailed_description: ${d.style} ${shotsText(d.shots)}`,
           },
           overallSoundscape: { render: () => "overall_soundscape: N/A" },

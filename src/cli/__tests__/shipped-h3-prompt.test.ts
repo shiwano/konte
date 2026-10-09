@@ -205,4 +205,39 @@ describe("shipped MiniMax H3 prompts", () => {
     expect(typeCheck?.details.join("\n") ?? "").toBe("");
     expect(typeCheck?.status).toBe("PASS");
   });
+
+  it("takes a prompt kept in an as-const constant", async () => {
+    const { video } = await initWorkspace(path.join(ctx.dir, "c"));
+    await fs.writeFile(
+      path.join(video, "reference.tsx"),
+      REFERENCE_TSX(`
+  const STILL = {
+    subjectDefinitions: ["<Subject 1> is the creator in <Picture 1>."],
+    summary: { tasks: ["reference generation"], text: "She looks up." },
+    retentionAnalysis: ["<Subject 1> (appears in [Shot 1]): fully_preserved - her face."],
+    detailedDescription: { style: "2D-animated.", shots: ["She looks up."] },
+  } as const;
+  const MOTION = {
+    subjectDefinitions: [],
+    summary: { tasks: ["keyframe completion"], text: "She turns." },
+    retentionAnalysis: [],
+    detailedDescription: { style: "2D-animated.", shots: ["She turns.", { at: 1.5, text: "the camera cuts to the window." }] },
+    overallSoundscape: "A quiet room.",
+    nonDiegeticMusic: "N/A",
+  } as const;
+  const LINE = {
+    integratedMultimodalDescription: { style: "live-action.", shots: ["She says, <d>[English] Hello there.</d>"] },
+    overallSoundscape: "A faint room tone.",
+    nonDiegeticMusic: "N/A",
+  } as const;
+  const still = asset("still", imageMinimaxH3R2i, { image1: character, prompt: STILL });
+  const motion = asset("motion", videoMinimaxH3R2v, { image1: character, prompt: MOTION });
+  const line = asset("line", audioMinimaxH3R2a, { prompt: LINE });
+  return { character, bgm, still, motion, line };`),
+    );
+
+    const typeCheck = (await doctorChecks(video)).find((check) => check.name === "type check");
+    expect(typeCheck?.details.join("\n") ?? "").toBe("");
+    expect(typeCheck?.status).toBe("PASS");
+  });
 });

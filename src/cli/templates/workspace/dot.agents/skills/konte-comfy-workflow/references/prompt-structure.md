@@ -18,15 +18,15 @@ prompt: {
       subjectDefinitions: {
         required: true,
         description: "one line per label, label written in the line",
-        render: (lines: string[]) => `subject_definitions: ${lines.length > 0 ? lines.join("\n") : "N/A"}`,
+        render: (lines: readonly string[]) => `subject_definitions: ${lines.length > 0 ? lines.join("\n") : "N/A"}`,
       },
       summary: {
         required: true,
-        render: (s: { tasks: [Task, ...Task[]]; text: string }) => `summary: [${s.tasks.join(" + ")}] ${s.text}`,
+        render: (s: { tasks: readonly [Task, ...Task[]]; text: string }) => `summary: [${s.tasks.join(" + ")}] ${s.text}`,
       },
       detailedDescription: {
         required: true,
-        render: (d: { style: string; shots: [string] | [string, Cut] }) =>
+        render: (d: { style: string; shots: readonly [string] | readonly [string, Cut] }) =>
           `detailed_description: ${d.style} ${d.shots
             .map((s, i) => (typeof s === "string" ? `[Shot ${i + 1}] ${s}` : `[Shot ${i + 1}] At ${formatCutTime(s.at)}, ${s.text}`))
             .join(" ")}`,
@@ -40,7 +40,7 @@ prompt: {
 - **`structure` goes on a `"prompt"` input only**.
 - **`join` is required.**
 - **Fields render in declaration order**; a field with no value is left out, `join` between the rest.
-- **`render`'s parameter type is the caller's type for that field** — annotate it; an unannotated parameter is `never`.
+- **`render`'s parameter type is the caller's type for that field** — annotate it; an unannotated parameter is `never`. An array or tuple in it is `readonly`, so a value kept `as const` passes.
 - **`render: () => "…"` is a constant section** — always written, never passed.
 - **`required: true`** — the caller cannot omit it.
 - **`description`** — printed under the input by `adapter show`.
