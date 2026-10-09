@@ -25,8 +25,6 @@ Write every `<d>` tag exactly as given.
 
 ## Japanese Lines
 
-- **Write a word read wrong in kana** — `祇園精舎` → `ぎおんしょうじゃ`. Change the word; leave the rest of the sentence in its ordinary orthography.
-- **Never gloss in parentheses** — `祇園精舎（ぎおんしょうじゃ）` is spoken twice over, the spelling and then the gloss.
 - **Keep figures in digits** — a date, a time or an address in kana comes back garbled. Hold the ordinary orthography and write the numbers as digits: `2026年8月27日`, `午後3時15分`, `神南1丁目19番8号`.
 
 ## Reference Audio

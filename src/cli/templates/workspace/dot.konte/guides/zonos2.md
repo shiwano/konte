@@ -26,7 +26,7 @@ Inferred from the `script`; there is no language input. English, Mandarin and Ja
 
 - **5–30 seconds** of clear, single-speaker speech; past 60 seconds the clip is cut.
 - **Whatever is in the clip clones** — music, room tone and reverb come across as part of the voice.
-- **Accent and delivery follow the clip** more than the `script`, so pick a sample that already demonstrates the reading you want.
+- **Accent and delivery follow the clip** more than the `script`, so pick a sample that already demonstrates the delivery you want.
 - **`cleanSpeakerBackground` asserts the clip is noise-free** — leave it off for any audible room tone, or the model treats the noise as intended.
 - **`accurateMode` tightens speaker adherence** at the cost of expressiveness, and works against emotion conditioning. konte holds it to the emotion: `true` on an unconditioned line, `false` as soon as `emotion` or either axis is set.
 - **A clip designed by a voice-design model works** — a mispronunciation in the sample does not carry. Design it as a sample of a voice: neutral everyday sentences with nothing to act. Delivery baked into the sample is inherited by every later take.
@@ -46,7 +46,7 @@ Inferred from the `script`; there is no language input. English, Mandarin and Ja
 
 ## Emotion
 
-`emotion` does not move the speaker — only the reading. `"none"` leaves conditioning untouched. A line that acts sets three inputs together:
+`emotion` does not move the speaker — only the delivery. `"none"` leaves conditioning untouched. A line that acts sets three inputs together:
 
 ```ts
 asset("line1", audioZonos2VoiceClone, {

@@ -13,10 +13,12 @@ How a Japanese line must be written down so the model reads it aloud correctly �
 
 ## A word whose reading won't settle
 
-- **A low-frequency word has no stable reading** — an archaic or technical term (`和同開珎`), an irregular name (`日下部`, `十六夜`); hiragana leaves the segmenter nothing to anchor on either.
-- **Pin the reading in katakana** — `ワドウカイチン`, the whole word, no spaces.
-- **Respell at the take: `respell(script.<who>[n], "…")`** — it returns the spelling and files it as standing for that line, so the voiced check takes either form and `direction.ts` keeps the notation the subtitle and every review surface show. Two takes of one line may spell it differently; swapping a speech model never touches the direction.
+- **Respell a wrong reading, never a wrong accent** — kana does not move the accent or intonation. Reroll first; past that, the adapter's guide names what moves it.
+- **A low-frequency word has no stable reading** — an archaic or technical term (`和同開珎`), an irregular name (`日下部`, `十六夜`). Respell it before generating.
 - **Suspect the same class of word before generating** — counters and dates (`一日` ついたち/いちにち, `三本`, `一人`), words with two live readings (`人気`, `方`), personal and place names, and any numeral next to a unit.
+- **Respell in katakana** — `和同開珎` → `ワドウカイチン`, the whole word, no spaces. Katakana keeps the word boundary.
+- **Never gloss a reading in parentheses** — `祇園精舎（ギオンショウジャ）` is spoken twice over. Annotate a reading only in a syntax the adapter's guide gives for it.
+- **Respell at the take: `respell(script.<who>[n], "…")`** — it returns the spelling and files it as standing for that line, so the voiced check takes either form and `direction.ts` keeps the notation the subtitle and every review surface show. Two takes of one line may spell it differently; swapping a speech model never touches the direction.
 
 ## Verifying
 
