@@ -1,19 +1,42 @@
 import { KonteError } from "../../errors.js";
 import { getRenderContext } from "../../jsx-html.js";
 
+declare const GSAP_TARGETS: unique symbol;
+
+export interface GsapTargets {
+  readonly [GSAP_TARGETS]: true;
+}
+
+type GsapTarget = string | GsapTargets;
+
 export interface GsapTimeline {
-  to(target: string, vars: Record<string, unknown>, position?: number | string): GsapTimeline;
-  from(target: string, vars: Record<string, unknown>, position?: number | string): GsapTimeline;
+  to(target: GsapTarget, vars: Record<string, unknown>, position?: number | string): GsapTimeline;
+  from(target: GsapTarget, vars: Record<string, unknown>, position?: number | string): GsapTimeline;
   fromTo(
-    target: string,
+    target: GsapTarget,
     fromVars: Record<string, unknown>,
     toVars: Record<string, unknown>,
     position?: number | string,
   ): GsapTimeline;
-  set(target: string, vars: Record<string, unknown>, position?: number | string): GsapTimeline;
+  set(target: GsapTarget, vars: Record<string, unknown>, position?: number | string): GsapTimeline;
   add(child: unknown, position?: number | string): GsapTimeline;
   addLabel(label: string, position?: number | string): GsapTimeline;
   call(fn: () => void, position?: number | string): GsapTimeline;
+}
+
+export interface GsapSplitOptions {
+  type: "chars" | "words" | "words,chars";
+  mask?: "chars" | "words";
+}
+
+export interface GsapSplit {
+  chars: GsapTargets;
+  words: GsapTargets;
+}
+
+export interface AnimateContext {
+  timeline: GsapTimeline;
+  split: (selector: string, options: GsapSplitOptions) => GsapSplit;
 }
 
 // Escaping these instead of refusing would change what a tagged template (`String.raw`) and a regex
@@ -76,14 +99,16 @@ export function compositionAnimates(html: string): boolean {
 export function Animate({
   script,
 }: {
-  script?: (ctx: { timeline: GsapTimeline }) => void;
+  script?: (ctx: AnimateContext) => void;
 }): React.ReactElement {
   const { shotId } = getRenderContext();
 
   const source = script?.toString();
   if (source !== undefined) assertEmbeddable(shotId, source);
-  const scriptBody = source === undefined ? "" : `(${source})({ timeline: tl });`;
+  const scriptBody = source === undefined ? "" : `(${source})({ timeline: tl, split: split });`;
 
+  // `split` resolves its selector through `document`, which a full-video render scopes to the shot;
+  // SplitText given the string would query the whole page, every shot's duplicate ids included.
   // The shot's timeline registers before the script runs: a throw costs only the tweens after it, and
   // the capture's readiness handshake still resolves.
   const key = JSON.stringify(`shot-${shotId}`);
@@ -96,6 +121,10 @@ if (!shotTl) {
 }
 var tl = gsap.timeline();
 shotTl.add(tl, 0);
+var split = function (selector, options) {
+  var result = SplitText.create(document.querySelectorAll(selector), options);
+  return { chars: result.chars, words: result.words };
+};
 try {
 ${scriptBody}
 } catch (err) {

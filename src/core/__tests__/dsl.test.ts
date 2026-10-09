@@ -608,7 +608,7 @@ describe("Animate", () => {
     );
     expect(html).toContain("({ timeline })");
     expect(html).toContain("timeline.from");
-    expect(html).toContain("({ timeline: tl })");
+    expect(html).toContain("({ timeline: tl, split: split })");
   });
 
   it("renders without script prop", () => {
@@ -635,7 +635,13 @@ describe("Animate", () => {
     tweens: string[];
   }
 
-  function runAnimateScripts(html: string): Record<string, FakeTimeline> {
+  function runAnimateScripts(
+    html: string,
+    page: {
+      querySelectorAll?: (selector: string) => unknown;
+      SplitText?: { create: (target: unknown, options: unknown) => unknown };
+    } = {},
+  ): Record<string, FakeTimeline> {
     const timeline = (vars: Record<string, unknown> = {}) => {
       const tl: FakeTimeline & Record<string, unknown> = {
         vars,
@@ -643,11 +649,17 @@ describe("Animate", () => {
         tweens: [],
         add: (child: FakeTimeline, position: unknown) => tl.children.push({ child, position }),
         from: (target: string) => tl.tweens.push(target),
+        to: (target: unknown) => tl.tweens.push(JSON.stringify(target)),
       };
       return tl;
     };
     const window: { __timelines?: Record<string, FakeTimeline> } = {};
-    const document = { querySelector: () => null, getElementById: () => null, body: null };
+    const document = {
+      querySelector: () => null,
+      querySelectorAll: page.querySelectorAll ?? (() => []),
+      getElementById: () => null,
+      body: null,
+    };
     const console = { error: () => {} };
     for (const [, body] of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
       Function(
@@ -655,8 +667,9 @@ describe("Animate", () => {
         "gsap",
         "document",
         "console",
+        "SplitText",
         body ?? "",
-      )(window, { timeline }, document, console);
+      )(window, { timeline }, document, console, page.SplitText);
     }
     return window.__timelines ?? {};
   }
@@ -682,6 +695,29 @@ describe("Animate", () => {
       [["#phone"], 0],
     ]);
     expect(shotTl.children.every(({ child }) => child.vars.paused === undefined)).toBe(true);
+  });
+
+  it("splits the elements the shot's document resolves, not a selector SplitText would query", () => {
+    const html = renderToHtml(
+      animateEl({
+        script: ({ timeline, split }) => {
+          timeline.to(split("#title", { type: "words,chars" }).chars, { opacity: 1 });
+        },
+      }),
+      ctx,
+    );
+    const created: unknown[] = [];
+    const timelines = runAnimateScripts(html, {
+      querySelectorAll: (selector) => [`scoped ${selector}`],
+      SplitText: {
+        create: (target, options) => {
+          created.push([target, options]);
+          return { chars: ["c"], words: ["w"] };
+        },
+      },
+    });
+    expect(created).toEqual([[["scoped #title"], { type: "words,chars" }]]);
+    expect(timelines["shot-01"]?.children[0]?.child.tweens).toEqual(['["c"]']);
   });
 
   it("registers the shot timeline before running the script", () => {

@@ -1,4 +1,11 @@
-export { Animate, type GsapTimeline } from "./animate.js";
+export {
+  Animate,
+  type AnimateContext,
+  type GsapSplit,
+  type GsapSplitOptions,
+  type GsapTargets,
+  type GsapTimeline,
+} from "./animate.js";
 export { Audio, type AudioProps } from "./audio.js";
 export { Composition } from "./composition.js";
 export { Cutin, type CutinCorner, type CutinProps } from "./cutin.js";

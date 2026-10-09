@@ -116,9 +116,3 @@ return (
 ```
 
 - **`#flash` is a `<div id="flash" className="absolute inset-0 bg-white opacity-0" />` you add to the stage** — a `fromTo`/`from` holds its start values from the shot's head until it plays, so a `fromTo` flash covers the frame until its hit.
-
-## Title reveal with easing
-
-```tsx
-timeline.from("#title", { opacity: 0, yPercent: 40, duration: 0.6, ease: "back.out(1.7)" }, 0.2);
-```

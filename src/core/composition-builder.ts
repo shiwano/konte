@@ -63,6 +63,7 @@ import {
 } from "./render-plan.js";
 import { shotById } from "./shot-index.js";
 import { assertTailwindClasses, type ClassSubject } from "./tailwind-classes.js";
+import { GSAP_SCRIPT_SRCS } from "./gsap-version.js";
 import { TAILWIND_BROWSER_SRC } from "./tailwind-version.js";
 import { resolveSoundtrackSpan } from "./timeline-audio.js";
 import { mediaDurationSec } from "./variant-media.js";
@@ -1456,8 +1457,7 @@ export async function buildFullCompositionHtml(
 <meta name="viewport" content="width=${width}, height=${height}" />
 <meta data-composition-id="full-video" data-width="${width}" data-height="${height}" data-duration="${totalDuration}" />
 <title>Video Preview</title>
-${fontsHref ? `<link rel="stylesheet" href="${escapeAttr(fontsHref)}" />\n` : ""}<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-<script src="${TAILWIND_BROWSER_SRC}"></script>
+${fontsHref ? `<link rel="stylesheet" href="${escapeAttr(fontsHref)}" />\n` : ""}${GSAP_SCRIPT_SRCS.map((src) => `<script src="${src}"></script>\n`).join("")}<script src="${TAILWIND_BROWSER_SRC}"></script>
 <style>
 @layer theme, base, components, utilities;
 @layer base { * { margin: 0; padding: 0; box-sizing: border-box; } }

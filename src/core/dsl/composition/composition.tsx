@@ -1,4 +1,5 @@
 import { getRenderContext } from "../../jsx-html.js";
+import { GSAP_SCRIPT_SRCS } from "../../gsap-version.js";
 import { TAILWIND_BROWSER_SRC } from "../../tailwind-version.js";
 import { fontFamilyStack, googleFontsHref } from "../../typography.js";
 import { resetPanelCursor } from "../panel-collect.js";
@@ -41,7 +42,9 @@ export function Composition({ children }: { children?: React.ReactNode }): React
         />
         <title>{`Shot ${shotId}`}</title>
         {fontsHref ? <link rel="stylesheet" href={fontsHref} /> : null}
-        <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js" />
+        {GSAP_SCRIPT_SRCS.map((src) => (
+          <script key={src} src={src} />
+        ))}
         <script src={TAILWIND_BROWSER_SRC} />
         {/* Layered under Tailwind's utilities: an unlayered rule beats every layered one, so an
             author's `w-1/3` or `p-4` would otherwise lose to the reset or `.konte-clip`. */}

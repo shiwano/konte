@@ -10,6 +10,7 @@ Compose layers, captions, animation and sound in `animatic.tsx` or `video.tsx`; 
 
 - **Writing a `soundtracks` entry, an `<Audio>` cue, or `<Video hasAudio>`** → [audio-patterns.md](references/audio-patterns.md), then [sound-design.md](references/sound-design.md) before placing any of them
 - **A piece cut to a song** (`policy.song`) → [song.md](references/song.md) before any sound, beat-timed move or lyric
+- **A graphic shot, or type / shapes / a chart that move** — a title's entrance, a count-up, a line drawn → [motion-craft.md](references/motion-craft.md) before its `<Animate>`
 - **Anything beyond one full-frame `<Video>`** — a layer over every shot (`overlay`), a title / lower-third, a crossfade, Ken Burns, a fade or flash → [staging-patterns.md](references/staging-patterns.md)
 - **Whether a shot gets that `duration` or that sound at all** → `direction-guide`
 
@@ -37,13 +38,13 @@ import {
 } from "konte";
 ```
 
-- **`<Composition>`** — root, one per shot. Injects HTML scaffold, GSAP 3.12.5, Tailwind v4, `#stage`. Props: `children`
+- **`<Composition>`** — root, one per shot. Injects HTML scaffold, GSAP 3.15 with SplitText and DrawSVG, Tailwind v4, `#stage`. Props: `children`
 - **`<Video src={asset} />`** — a video clip on the timeline, a full-stage cover-fit layer; Tailwind classes in `className` override that (`left-0 top-0 w-1/3 h-1/3` for an inset). Defaults to `muted` + `playsInline`. Props: `src` (MediaAsset), `start`, `duration`, `mediaStart`, `hasAudio`, `volume`, + any `<video>` attr (`id`, `className`, `style`)
 - **`<Audio src={asset} />`** — a one-shot sound in a shot (SE, sting, dialogue, narration). Plays once at full length; may extend past the shot. Props: `src`, `id` (cue handle), `start`, `duration`, `mediaStart`, `volume`, `fadeIn`, `fadeOut`, + any `<audio>` attr. With `mediaStart` omitted, the take's leading silence is skipped, so `start` is where the sound lands
 - **`<Image src={asset} />`** — a still image on the timeline (logo, character, product, plate, overlay). Whole shot unless windowed; at its pixel size unless `fill` makes it a full-stage cover-fit layer. Props: `src` (MediaAsset), `start`, `duration`, `fill`, + any `<img>` attr (`alt`, `className`, `style`)
 - **`<Subtitle entries={[...]} />`** — timed text. Defaults to bottom-center, white, `text-[1.875vmax] font-semibold drop-shadow-lg`; a portrait canvas sits it 15% up at `text-[3.25vmax]`, rendered above clips. Props: `entries: { start, end, text }[]`, + any `<div>` attr (`className` merges, so you can restyle)
 - **`<Cutin at size inset>`** — the shot's declared `cutin`, over the whole shot: `at` a corner (default `bottom-right`), `size` a fraction of canvas width, `inset` the edge gap. Holds that frame's `<Panel>`s on the animatic, its `<Video>` on the video; only where the direction declares one (`CUTIN_REQUIRED` / `CUTIN_UNDECLARED`).
-- **`<Animate script={...} />`** — GSAP animation for the shot. Props: `script: ({ timeline }) => void` — inferred inline; `import type { GsapTimeline }` only for a callback lifted out of the JSX
+- **`<Animate script={...} />`** — GSAP animation for the shot. Props: `script: ({ timeline, split }) => void` — `split(selector, { type, mask? })` returns `{ chars, words }`, each a tween target; inferred inline; `import type { GsapTimeline }` only for a callback lifted out of the JSX
 
 Plus **any HTML element** styled with **Tailwind v4** classes or inline `style` — overlays, titles, frames, vignettes.
 

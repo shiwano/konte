@@ -8852,24 +8852,41 @@ export declare function defineFalAsset<
     turbo?: TTurbo;
   },
 ): AssetAdapter<FalCallOptions<TInputs, keyof TTurbo>, TMedia>;
+declare const GSAP_TARGETS: unique symbol;
+export interface GsapTargets {
+  readonly [GSAP_TARGETS]: true;
+}
+export type GsapTarget = string | GsapTargets;
 export interface GsapTimeline {
-  to(target: string, vars: Record<string, unknown>, position?: number | string): GsapTimeline;
-  from(target: string, vars: Record<string, unknown>, position?: number | string): GsapTimeline;
+  to(target: GsapTarget, vars: Record<string, unknown>, position?: number | string): GsapTimeline;
+  from(target: GsapTarget, vars: Record<string, unknown>, position?: number | string): GsapTimeline;
   fromTo(
-    target: string,
+    target: GsapTarget,
     fromVars: Record<string, unknown>,
     toVars: Record<string, unknown>,
     position?: number | string,
   ): GsapTimeline;
-  set(target: string, vars: Record<string, unknown>, position?: number | string): GsapTimeline;
+  set(target: GsapTarget, vars: Record<string, unknown>, position?: number | string): GsapTimeline;
   add(child: unknown, position?: number | string): GsapTimeline;
   addLabel(label: string, position?: number | string): GsapTimeline;
   call(fn: () => void, position?: number | string): GsapTimeline;
 }
+export interface GsapSplitOptions {
+  type: "chars" | "words" | "words,chars";
+  mask?: "chars" | "words";
+}
+export interface GsapSplit {
+  chars: GsapTargets;
+  words: GsapTargets;
+}
+export interface AnimateContext {
+  timeline: GsapTimeline;
+  split: (selector: string, options: GsapSplitOptions) => GsapSplit;
+}
 export declare function Animate({
   script,
 }: {
-  script?: (ctx: { timeline: GsapTimeline }) => void;
+  script?: (ctx: AnimateContext) => void;
 }): React.ReactElement;
 export type AudioElementProps = React.ComponentPropsWithoutRef<"audio">;
 export type AudioProps = Omit<AudioElementProps, "src" | "id"> & {
