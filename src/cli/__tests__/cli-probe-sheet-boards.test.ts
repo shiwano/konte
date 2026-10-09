@@ -173,3 +173,38 @@ describe("probe contact-sheet video with subtitles", () => {
     expect(stderr).toContain("2 cells");
   });
 });
+
+describe("probe contact-sheet animatic with a graphic shot", () => {
+  async function setup(): Promise<string> {
+    const projectDir = await initWithCrossStageVideo();
+    const graphic = `{ kind: "graphic", id: "02", role: "hero", action: "a toast pops", duration: 2 }`;
+    const board = `.nextGraphicShot("02", () => <Composition><div>toast</div></Composition>)`;
+    for (const [file, end] of [
+      ["animatic.tsx", "}) }),\n});"],
+      ["video.tsx", "}),\n  }),\n});"],
+    ] as const) {
+      const filePath = path.join(projectDir, file);
+      const tsx = (await fs.readFile(filePath, "utf-8"))
+        .replace("lineup: [] }]", `lineup: [] }, ${graphic}]`)
+        .replace(end, `})${board}${end.slice(2)}`);
+      await fs.writeFile(filePath, tsx);
+    }
+    await acceptDirection(projectDir);
+    await writeStill(projectDir);
+    requested.length = 0;
+    return projectDir;
+  }
+
+  it("tiles a graphic shot with no panel on its out frame", async () => {
+    const projectDir = await setup();
+
+    const { stdout, stderr } = await runCapture(["probe", "contact-sheet", "animatic"], projectDir);
+
+    expect(stderr).toContain("2 cells");
+    expect(stderr).not.toContain("animatic:shot.02 (");
+    expect(stdout).toContain(".jpg");
+    const graphic = requested.at(-1)!;
+    expect(graphic).toHaveLength(1);
+    expect(graphic[0]).toBeGreaterThan(1.5);
+  });
+});

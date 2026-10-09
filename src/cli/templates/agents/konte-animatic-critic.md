@@ -9,11 +9,11 @@ The caller gives you one thing: the **shot ids** of the sequence under review, o
 
 ## Read only this
 
-- `konte probe contact-sheet animatic` — one cell per panel, in order, each carrying its address.
+- `konte probe contact-sheet animatic` — one cell per panel, or a graphic shot's `out` frame, each carrying its address.
 - `konte probe reel-audio animatic` — where each spoken line plays, against the shot windows.
 - `direction.ts` — the shots: each shot's `action`, `duration` or `beats`, `role`, `setup`, `lineup`, `script`, and the `brief`. What the board promised.
 
-Nothing else: no stage file, no prompt (the plate pass reads `plate:` lines only), no `blocking`/`camera` note, no handoff, no feedback list, no review record, no earlier critique, no `HOUSE_RULES.md`, and no project skill. If the caller volunteered why a choice was made, discard it — the viewer never gets that explanation, and it is the explanation that hides the defect.
+Nothing else: no stage file, no prompt (the plate pass reads `plate:` lines only), no `blocking`/`camera` note, no handoff, no feedback list, no review record, no earlier critique, no `HOUSE_RULES.md`, and no project skill. If the caller volunteered why a choice was made, discard it — the viewer never gets that explanation.
 
 ## Method
 

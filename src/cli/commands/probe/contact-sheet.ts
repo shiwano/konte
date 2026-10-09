@@ -120,8 +120,9 @@ async function shotSubtitleTimes(
 
 /**
  * Cells for the shot compositions named by `args`, in argument order (the whole-stage scope
- * expanding in shot order): one cell per `<Panel>` on the board; on the video `framesPerShot`
- * evenly-spaced cells per shot, plus one per subtitle line unless `framesPerShot` is explicit.
+ * expanding in shot order): one cell per `<Panel>` on the board, and a graphic shot with none its
+ * out frame; on the video `framesPerShot` evenly-spaced cells per shot, plus one per subtitle line
+ * unless `framesPerShot` is explicit.
  *
  * Never goes through `resolveProbeTargets` — a composition is not a variant until it is accepted,
  * so this walks the definition.
@@ -214,12 +215,8 @@ async function buildCompositionCells(
     const panels = keyframes
       ? [...(shot.panels ?? []), ...(shot.cutin?.panels ?? [])].sort((a, b) => a.start - b.start)
       : [];
-    if (keyframes && panels.length === 0 && shot.graphic === true) {
-      const why = "a graphic shot with no keyframe — watch it in `konte preview animatic`";
-      if (named) throw new KonteError("SHOT_NOT_FOUND", `Shot "${shotId}" is ${why}`);
-      skipped.push(`${shotAddress} (${why})`);
-      continue;
-    }
+    // The in frame of an animated graphic is the empty frame before it builds.
+    const settled = keyframes && panels.length === 0 && shot.graphic === true;
     // A panel whose window holds no frame of the grid never reaches the screen, so it has no cell.
     const sampled: { panel: { assetName: string }; time: number }[] = [];
     for (const p of panels) {
@@ -233,8 +230,7 @@ async function buildCompositionCells(
       else sampled.push({ panel: { assetName: p.assetName }, time });
     }
     // A board shot whose every keyframe fell out has nothing left to tile. `panels.length === 0`
-    // is the other case: the video board, or an explicit --frames-per-shot, where the even sampler
-    // IS the rule.
+    // is the other case: a graphic board shot, the video board, or an explicit --frames-per-shot.
     if (panels.length > 0 && sampled.length === 0) continue;
     const panelCells = sampled.length > 0 ? sampled : null;
     let timestamps: number[];
@@ -242,6 +238,9 @@ async function buildCompositionCells(
     const markers = new Map<number, string>();
     if (panelCells) {
       timestamps = panelCells.map((c) => c.time);
+    } else if (settled) {
+      timestamps = compositionSampleTimes(shot.duration, video.format.fps, 2).slice(-1);
+      markers.set(timestamps[0]!, "out ");
     } else {
       timestamps = compositionSampleTimes(shot.duration, video.format.fps, opts.framesPerShot);
       if (timestamps.length > 1) {
