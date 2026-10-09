@@ -94,16 +94,19 @@ Then run setup:
 
 Restart as setup instructs, then run `$konte-checkin`.
 
+### Uninstall
+
+Close agent sessions using konte, delete your workspace directories, then remove the **konte** plugin and its marketplace. konte writes nothing outside a workspace.
+
 ## Backends
 
-You can mix backends in one project. Hosted options require no local GPU. The agent opens settings when needed and guides you through entering API keys or connection details.
+You can mix backends in one project. The agent opens settings when needed and guides you through entering API keys or connection details.
 
-| Where                    | Backend                                 | Setup                                                                                                                                                                                                                            |
-| ------------------------ | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local or rented GPU      | [ComfyUI](https://comfy.org/download)   | Requires ComfyUI-Manager. konte installs models and nodes; plan on 16 GB of VRAM (24 GB is comfortable) and tens of gigabytes of first-run downloads. Run locally or on [RunPod](https://docs.runpod.io/tutorials/pods/comfyui). |
-| Hosted ComfyUI           | [Comfy Cloud](https://cloud.comfy.org)  | Requires an API key and support for the workflow's nodes and models, which konte checks.                                                                                                                                         |
-| Custom hosted deployment | [Comfy API](https://platform.comfy.org) | Requires an API key. The agent prepares the environment and guides you through creating the deployment.                                                                                                                          |
-| Hosted model APIs        | [fal.ai](https://fal.ai/)               | Requires an API key; paid per generation. Models include MiniMax H3 Max, Seedance, and Nano Banana.                                                                                                                              |
+| If you…                         | Backend                                                                          | Setup                                                                                                                                                                                                                                               |
+| ------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| have a capable GPU, or rent one | [ComfyUI](https://comfy.org/download)                                            | Requires ComfyUI-Manager. konte installs models and nodes; plan on 16 GB of VRAM (24 GB is comfortable) and tens of gigabytes of first-run downloads. Run locally or on a GPU host such as [RunPod](https://docs.runpod.io/tutorials/pods/comfyui). |
+| have no capable GPU             | [Comfy Cloud](https://cloud.comfy.org) / [Comfy API](https://platform.comfy.org) | Requires one Comfy API key. Comfy Cloud runs workflows whose nodes and models it already has, which konte checks; Comfy API runs any workflow on a deployment the agent prepares and guides you through creating.                                   |
+| want a closed model             | [fal.ai](https://fal.ai/)                                                        | Requires an API key; paid per generation. Adds models no ComfyUI can host, such as MiniMax H3 Max, Seedance, and Nano Banana, alongside a ComfyUI backend rather than in place of one.                                                              |
 
 Your own images, video, and audio work too. konte manages the local tools for resizing, trimming, and assembly.
 
@@ -170,10 +173,6 @@ konte is a pre-1.0 technical preview:
 - Film-scale productions have not been tested.
 
 Share feedback on [Discord](https://discord.gg/2b7UwFE2Yy) or [GitHub Discussions](https://github.com/shiwano/konte/discussions). The `konte-feedback` skill can draft a report.
-
-## Uninstall
-
-Close agent sessions using konte, then remove the **konte** plugin and its marketplace. Keep your workspace directories to preserve your projects.
 
 ## License
 
