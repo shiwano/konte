@@ -12,8 +12,8 @@ Every human review runs the same two steps — preview with a handoff, read the 
 - **Write summary and notes in the human's language** — they show in the review UI.
 - **Reopening a closed page → `konte preview <scope>` alone** — it shows the newest handoff until a submitted review has shown it.
 - **Never delete or overwrite a file under `review/<stage>/handoffs/`** — each one records what an earlier round changed and why.
-- **Before the first preview, ask once per session whether they review on this machine or another device** — preview opens its browser on this machine. Their answer holds for the session.
-- **This machine → no flag; another device → `--tunnel`** — a public https URL on the startup line, with a 4-digit PIN they must enter. Hand them both; it dies with the command.
+- **Default → no flag** — preview opens its browser on this machine.
+- **The human says they review on another device → `--tunnel`** — a public https URL on the startup line, with a 4-digit PIN they must enter. Hand them both; it dies with the command.
 - **`konte preview <scope>` opens the browser itself and runs until the human submits or closes it** — run it without extra confirmation, and wait for it to exit. Background it if your harness notifies you when a background command exits; otherwise **never close a turn while it has not exited**. Never open a browser yourself or start a second one while it's up.
 - **Lost a running preview's output → `konte review record list`** — a record newer than the preview is its submit.
 - **An idle, unanswered preview is normal** — don't kill it, and don't `konte job wait` on it.
