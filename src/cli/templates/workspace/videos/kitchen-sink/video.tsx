@@ -89,7 +89,7 @@ export default defineVideo(direction, {
             <Subtitle entries={[{ start: 1, end: duration, text: script.rival[0] }]} />
           </Composition>
         ))
-        .nextShot("03", ({ duration }) => {
+        .nextShot("03", () => {
           const motion = asset("motion", videoMinimaxH3R2v, {
             image1: animatic.shot("03").image("first"),
             startImage: animatic.shot("03").image("first"),
@@ -114,12 +114,7 @@ export default defineVideo(direction, {
               <div className="title">Fire!</div>
               <Animate
                 script={({ timeline }) => {
-                  timeline.fromTo(
-                    ".title",
-                    { opacity: 0 },
-                    { opacity: 1, duration: duration / 3 },
-                    0,
-                  );
+                  timeline.fromTo(".title", { opacity: 0 }, { opacity: 1, duration: 0.6 }, 0);
                 }}
               />
             </Composition>
