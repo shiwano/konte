@@ -645,8 +645,9 @@ function workspaceFileForSrc(src: string, workspace: string): string {
 // The hook is built from a frame lookup, which upstream fills by extracting *every* frame of
 // *every* clip. We know the handful of timestamps up front, so extract just those, through konte's
 // own managed ffmpeg (`extractFrameAt`) rather than the engine's PATH-resolved one. The injector
-// only ever asks the lookup for `getActiveFramePayloads(time)`, so that one method is the whole
-// contract we have to satisfy.
+// asks the lookup for `getActiveFramePayloads(time)` and for `frameDirs()`, the shared extraction
+// cache dirs whose lease it renews; these frames live in the capture's own workspace, so there are
+// none.
 //
 // `suppliedVideoIds` are the clips the hook covers at every captured moment. Their <video> is never
 // on screen, so its own load state is left out of the capture's media check, as the render does.
@@ -732,6 +733,7 @@ async function buildVideoFrameInjector(
   const lookup = {
     getActiveFramePayloads: (time: number) =>
       byCaptureFrame.get(Math.round(time * fps)) ?? new Map(),
+    frameDirs: () => [],
   };
   return {
     injector: createVideoFrameInjector(

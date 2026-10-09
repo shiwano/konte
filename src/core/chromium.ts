@@ -22,7 +22,7 @@ import {
 // the compiled binary freezes puppeteer at build time, so a runtime read of an `@internal` path
 // would buy nothing and fail on the user's machine if it ever moved. chromium.test.ts asserts the
 // copy instead, so a producer bump that carries a new puppeteer fails there.
-const CHROMIUM_BUILD_ID = "151.0.7922.71";
+const CHROMIUM_BUILD_ID = "152.0.7977.54";
 
 let chromiumPath: string | null = null;
 let provisioning: Promise<string> | null = null;

@@ -31,10 +31,6 @@ export const TOOL_CHECKSUMS: Readonly<Record<string, string>> = {
     "8923876afa8db5585022d7860ec7e589af192f441c56793971276d450ed3bbfa",
   "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-darwin-arm64.gz":
     "d986a8ec7b030899fe66a8a288ed809a3543338705a3ce178cfb85869c5d80be",
-  "https://github.com/shiwano/beat-this-onnx/releases/download/final0/beat-this-final0.onnx":
-    "19f9357b4cdc98920affa3d4ac2bb064d035b59d1ff39cec0fcedce8f5a681f6",
-  "https://github.com/shiwano/beat-this-onnx/releases/download/final0/frontend.json":
-    "8a34752320ca399658b7d16488c40134f5b03b628f1aac4e495ad04a5c075472",
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2":
     "7d1efa2138a65b0b488df37f8b89e3d91a60676e416f515b952358d83dfd347e",
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/sherpa-onnx-spleeter-2stems-fp16.tar.bz2":
@@ -51,6 +47,10 @@ export const TOOL_CHECKSUMS: Readonly<Record<string, string>> = {
     "39446be8a2a933308bb0b4b7a77fd21fdffaa68d3d73fc6f1e63634bb42d9cca",
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-v1.13.8-win-x64-shared-MD-Release-no-tts.tar.bz2":
     "876e6b89b8cf84a3a1b375a397507f2cfe9c227c2a945411a11a668475fcb5d3",
+  "https://github.com/shiwano/beat-this-onnx/releases/download/final0/beat-this-final0.onnx":
+    "19f9357b4cdc98920affa3d4ac2bb064d035b59d1ff39cec0fcedce8f5a681f6",
+  "https://github.com/shiwano/beat-this-onnx/releases/download/final0/frontend.json":
+    "8a34752320ca399658b7d16488c40134f5b03b628f1aac4e495ad04a5c075472",
   "https://registry.npmjs.org/@typescript/typescript-darwin-arm64/-/typescript-darwin-arm64-7.0.2.tgz":
     "902e2fe1cf0799198ef902c6b8c310a450fef629a6baba41d45641ef75c04ebd",
   "https://registry.npmjs.org/@typescript/typescript-darwin-x64/-/typescript-darwin-x64-7.0.2.tgz":
@@ -65,14 +65,14 @@ export const TOOL_CHECKSUMS: Readonly<Record<string, string>> = {
     "0a73534e6ee50cdbb2a29ac48657ca0ad13cf0f424cf63808e4df7baeb87b8be",
   "https://registry.npmjs.org/@typescript/typescript-win32-x64/-/typescript-win32-x64-7.0.2.tgz":
     "61fc4e141d2bc687db580e71bbfa63b9c209f0310645d82ca1b457eb3a24fd19",
-  "https://storage.googleapis.com/chrome-for-testing-public/151.0.7922.71/linux64/chrome-headless-shell-linux64.zip":
-    "7dd9d23b46fa7a9bfa26f1af96f413e0514c32698f6a43a57e1ade48d88a6578",
-  "https://storage.googleapis.com/chrome-for-testing-public/151.0.7922.71/mac-arm64/chrome-headless-shell-mac-arm64.zip":
-    "a873b850acb443ebd801cd6fc09b77806c379a13230f41bba260226d8877a5d9",
-  "https://storage.googleapis.com/chrome-for-testing-public/151.0.7922.71/mac-x64/chrome-headless-shell-mac-x64.zip":
-    "0603577363df323e57f9dd9aa72c49253374ff6718c7c1a5d0d0f29c59772844",
-  "https://storage.googleapis.com/chrome-for-testing-public/151.0.7922.71/win64/chrome-headless-shell-win64.zip":
-    "6e48a9cd964aa5fb80c9a02a677d9b810a53bbcf6d747959e8f0a9c09a3891b2",
+  "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.54/linux64/chrome-headless-shell-linux64.zip":
+    "11cedb5568cd374a76eb738e40bd434cd0c9956820fb406b8bd9edca53428d3e",
+  "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.54/mac-arm64/chrome-headless-shell-mac-arm64.zip":
+    "ef5d61434f13d9d2d9bdc7c9ab4bff92225979e196458cf846640862b25f127d",
+  "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.54/mac-x64/chrome-headless-shell-mac-x64.zip":
+    "a50c716727adf9e4af5b8861d19da23b672b4687a0d631ec4beebb3009d6db97",
+  "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.54/win64/chrome-headless-shell-win64.zip":
+    "e7ecbc129f9e5b9ba603a3a99dcee82f93b74cb3c9632be3b4b2a78335cc3faf",
 };
 
 /**

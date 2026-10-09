@@ -32,7 +32,7 @@
     "update:tool-checksums": "bun run scripts/update-tool-checksums.ts"
   },
   "dependencies": {
-    "@hyperframes/producer": "^0.8",
+    "@hyperframes/producer": "^0.8.143",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@noble/hashes": "^2.4.0",
     "@puppeteer/browsers": "^3.1.0",
