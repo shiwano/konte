@@ -158,7 +158,7 @@ interface ClipTag {
   tag: string;
   index: number;
   src: string;
-  dataStart: number;
+  hostStart: number;
   dataDuration: number;
   mediaStart: number;
 }
@@ -167,11 +167,11 @@ interface ClipTag {
  * Every `<video>` that opens its shot — the only ones a run-up is safe on.
  *
  * What hides the run-up is the shot host's own window, so a clip must begin exactly where its host
- * does. One that starts partway through its shot (`<Video start={2}>`, or the second clip of a
- * two-clip shot) sits inside a host that is ALREADY on screen, and pulling its window back would put
- * it on screen early. Tags are matched to their shot through the
- * `<template id="shot-<id>-template">` they are emitted in, so a clip cannot borrow another shot's
- * start by happening to land on it.
+ * does — at shot-local 0, the runtime reading a nested clip's `data-start` against its host. One
+ * that starts partway through its shot (`<Video start={2}>`, or the second clip of a two-clip shot)
+ * sits inside a host that is ALREADY on screen, and pulling its window back would put it on screen
+ * early. Tags are matched to their shot through the `<template id="shot-<id>-template">` they are
+ * emitted in, whose host's start is the cut.
  */
 function shotOpeningClipTags(html: string): ClipTag[] {
   const hostStarts = shotHostStarts(html);
@@ -191,7 +191,7 @@ function shotOpeningClipTags(html: string): ClipTag[] {
       // shift would stretch by the lead — and nothing bounds how much source a copy would cover.
       const dataDuration = num(attr(v[0], "data-duration"));
       if (!src || dataStart === null || dataDuration === null) continue;
-      if (dataStart !== hostStart) continue;
+      if (dataStart !== 0) continue;
       // A looping clip replays its whole source every cycle, padding included — the run-up would
       // become a held frame in the middle of the shot, over and over.
       if (/\sloop(?=[\s>=])/.test(v[0])) continue;
@@ -204,7 +204,7 @@ function shotOpeningClipTags(html: string): ClipTag[] {
         tag: v[0],
         index: from + v.index,
         src,
-        dataStart,
+        hostStart,
         dataDuration,
         mediaStart: num(attr(v[0], "data-media-start")) ?? 0,
       });
@@ -242,7 +242,7 @@ export function planVideoPreroll(
     if (!stamp) continue;
 
     const leadSec = Math.round(PREROLL_TARGET_SEC * media.fps) / media.fps;
-    if (leadSec <= 0 || clip.dataStart < leadSec) continue;
+    if (leadSec <= 0 || clip.hostStart < leadSec) continue;
 
     // Only what the take is short of — a clip cut from the middle of a long source needs no copy,
     // and never a pass over the whole file.
@@ -351,7 +351,7 @@ export async function ensurePrerollClips(
 function shiftedVideoTag(tag: string, clip: PrerollClip): string | null {
   const start = num(attr(tag, "data-start"));
   const duration = num(attr(tag, "data-duration"));
-  if (start === null || duration === null || start < clip.leadSec) return null;
+  if (start === null || duration === null) return null;
 
   let out = tag
     .replace(/\sdata-start="[^"]*"/, ` data-start="${start - clip.leadSec}"`)
@@ -399,8 +399,9 @@ export function prerollWarmupScript(): string {
     `<script>(function(){var WARM=${PREROLL_WARMUP_SEC},REWARM_MS=10000,warmed=new WeakMap();` +
     `setInterval(function(){var p=window.__player;if(!p||typeof p.getTime!=="function")return;` +
     `var t=p.getTime();if(typeof t!=="number"||!isFinite(t))return;` +
+    `var resolve=window.__hfResolveMediaStartSeconds;if(typeof resolve!=="function")return;` +
     `var els=document.querySelectorAll("video[data-start]");` +
-    `for(var i=0;i<els.length;i++){var el=els[i],start=parseFloat(el.dataset.start);` +
+    `for(var i=0;i<els.length;i++){var el=els[i],start=resolve(el);` +
     `if(!isFinite(start)||t<start-WARM||t>=start||!el.paused)continue;` +
     `var now=performance.now(),last=warmed.get(el);if(last!=null&&now-last<REWARM_MS)continue;` +
     `warmed.set(el,now);var ms=parseFloat(el.dataset.mediaStart||"0");` +

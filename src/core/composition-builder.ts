@@ -246,45 +246,30 @@ export function injectBaseTimeline(
   return compositionHtml + baseTag;
 }
 
-// Shift a shot-local `data-start` into its slot on the master timeline — but ONLY on <video>/<audio>.
-// The runtime evaluates those two against the master clock (raw data-start), so their window must be
-// pre-offset; every other timed element (<img>, a bare [data-start] div) it re-bases against the
-// enclosing composition's own start, so a pre-offset there double-counts and pushes the element out
-// of its shot's on-stage window entirely. Only `data-start` is timeline-absolute; `data-duration`,
-// `data-media-start`, and `data-volume` are not and must not shift.
-function offsetClipStarts(html: string, offset: number): string {
-  if (offset === 0) return html;
-  return html.replace(/<(?:video|audio)\b[^>]*>/g, (tag) =>
-    tag.replace(
-      /data-start="(\d+(?:\.\d+)?)"/,
-      (_, value) => `data-start="${parseFloat(value) + offset}"`,
-    ),
-  );
-}
-
 // Mirror every `<Video hasAudio>` as an `<audio>` on the same source: the preview runtime
 // schedules only `audio[data-start]` into its WebAudio transport and force-mutes every media
-// element (a <video> included) while that transport is active. Preview-only. Every window
-// attribute is copied verbatim — `data-start` included, so this must run on already-offset HTML;
-// re-deriving the shift would diverge from `offsetClipStarts` wherever its numeric pattern skips
-// a value. A clip with no `data-start` is not a timed clip to the runtime, so it is not mirrored.
+// element (a <video> included) while that transport is active. Preview-only. The mirror sits outside
+// its shot's composition, so its `data-start` is the shot-local one plus `offset`, the shot's start
+// on the master clock; every other window attribute is copied verbatim. A clip with no
+// `data-start` is not a timed clip to the runtime, so it is not mirrored.
 // `duckUnder` gives a clip its duck under the narration as a volume lane, the shape a bed's takes.
 // See the `arch-audio-guide` skill for the preview's remaining audio-parity gaps.
 const HAS_CLIP_AUDIO = /\sdata-has-audio="true"/;
 
-function buildEmbeddedAudioTags(html: string, duckUnder?: ClipDuck): string[] {
+function buildEmbeddedAudioTags(html: string, offset: number, duckUnder?: ClipDuck): string[] {
   const tags: string[] = [];
   for (const [tag] of html.matchAll(/<video\b[^>]*>/g)) {
     if (!HAS_CLIP_AUDIO.test(tag)) continue;
     const src = tag.match(/\ssrc="([^"]*)"/)?.[1];
     if (!src) continue;
     const attr = (name: string) => tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
-    const start = attr("data-start");
-    if (start == null) continue;
+    const localStart = attr("data-start");
+    if (localStart == null) continue;
+    const start = parseFloat(localStart) + offset;
     const duration = attr("data-duration");
     const automation = duckUnder?.({
       src,
-      start: parseFloat(start),
+      start,
       duration: duration != null ? parseFloat(duration) : null,
       volume: attr("data-volume") != null ? parseFloat(attr("data-volume")!) : 1,
     });
@@ -366,7 +351,7 @@ function clipLoudnessBySrc(
 
 // Place mirrored clip audio in a standalone shot-level document (the single-shot preview).
 function injectEmbeddedAudio(compositionHtml: string, duckUnder?: ClipDuck): string {
-  const tags = buildEmbeddedAudioTags(compositionHtml, duckUnder);
+  const tags = buildEmbeddedAudioTags(compositionHtml, 0, duckUnder);
   if (tags.length === 0) return compositionHtml;
   const group = `<div id="embedded-audio" style="display:none;">${tags.join("")}</div>`;
   const bodyCloseIdx = compositionHtml.lastIndexOf("</body>");
@@ -1250,6 +1235,7 @@ export async function buildFullCompositionHtml(
   const embeddedAudio: string[] = [];
   const clipHosts: Array<{
     html: string;
+    start: number;
     shotEnd: number;
     loudnessBySrc: Record<string, AudioLoudness> | undefined;
   }> = [];
@@ -1298,18 +1284,11 @@ export async function buildFullCompositionHtml(
       // Embed the shot as a nested composition: its content lives in a <template> that the
       // runtime hydrates into the empty [data-composition-id] host below. The mount scopes
       // selectors and getElementById per composition (duplicate ids across shots stay isolated)
-      // and offsets each shot's gsap timeline to the host's data-start — replacing the
-      // hand-rolled selector scoping and master-timeline merge.
-      //
-      // The runtime does NOT, however, re-base raw clip windows: a <Video>/<Audio>'s
-      // data-start/data-duration is evaluated against the master clock, not the composition's.
-      // So a clip authored shot-local (data-start 0) would light up at global 0 in every shot,
-      // stacking all shots at the start. Offset each clip's data-start by the shot's absolute
-      // start so its window lands in the shot's slot. (This is attribute-only; gsap timeline
-      // positions are not data-start attributes and the runtime already offsets them.)
-      const offset = offsetClipStarts(templateBody, span.start);
+      // and re-bases each shot's gsap timeline and clip windows (<Video>/<Audio> included) onto
+      // the host's data-start — replacing the hand-rolled selector scoping and master-timeline merge.
       clipHosts.push({
-        html: offset,
+        html: templateBody,
+        start: span.start,
         shotEnd: span.start + span.duration,
         loudnessBySrc: clipLoudnessBySrc(
           plan,
@@ -1319,7 +1298,7 @@ export async function buildFullCompositionHtml(
           assetBaseUrl,
         ),
       });
-      const body = injectBaseTimeline(offset, shotPlan.shotId, shotPlan.duration);
+      const body = injectBaseTimeline(templateBody, shotPlan.shotId, shotPlan.duration);
       shotTemplates.push(`<template id="shot-${shotPlan.shotId}-template">${body}</template>`);
       stageFragments.push(
         `<div data-composition-id="shot-${shotPlan.shotId}" data-start="${span.start}" data-duration="${span.duration}" data-width="${plan.size.width}" data-height="${plan.size.height}" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>`,
@@ -1358,6 +1337,7 @@ export async function buildFullCompositionHtml(
     embeddedAudio.push(
       ...buildEmbeddedAudioTags(
         host.html,
+        host.start,
         clipDuckUnder(narration, host.loudnessBySrc, host.shotEnd),
       ),
     );

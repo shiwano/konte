@@ -1297,7 +1297,7 @@ describe("Video/Audio data attributes", () => {
     expect(html).not.toMatch(/<video[^>]*data-end=/);
   });
 
-  it("offsets data-start but not data-duration/data-media-start when concatenating shots", async () => {
+  it("keeps clip windows shot-local when concatenating shots", async () => {
     const video = defineVideo(
       testDirection({
         fps: 30,
@@ -1323,7 +1323,7 @@ describe("Video/Audio data attributes", () => {
                 const motion = asset("motion", animateComfy, { prompt: "b" });
                 return (
                   <Composition>
-                    <Video src={motion} duration={3} mediaStart={2} />
+                    <Video src={motion} duration={3} mediaStart={2} hasAudio />
                   </Composition>
                 );
               },
@@ -1342,11 +1342,12 @@ describe("Video/Audio data attributes", () => {
       })
     ).html;
 
-    // shot 02 starts at cumulative offset 5: its composition host carries data-start 5, and each
-    // inner clip's data-start is offset onto the master clock (the runtime windows raw clip
-    // visibility globally, not per-composition). So shot 02's <video> data-start 0 -> 5.
+    // shot 02 starts at cumulative offset 5: its composition host carries data-start 5, and the
+    // runtime re-bases a nested clip's data-start on its host, so shot 02's <video> stays at 0.
     expect(html).toMatch(/<div data-composition-id="shot-02"[^>]*data-start="5"/);
-    expect(html).toMatch(/<video[^>]*data-start="5"/);
+    expect(html).not.toMatch(/<video[^>]*data-start="5"/);
+    // Its audio mirror sits outside the shot's composition, so it carries the shot's start.
+    expect(html).toMatch(/<audio[^>]*data-konte-track="embedded"[^>]*data-start="5"/);
     // data-duration is a span, not a timeline value, so it must NOT shift.
     expect(html).toMatch(/<video[^>]*data-duration="3"/);
     expect(html).not.toMatch(/<video[^>]*data-duration="8"/);
@@ -1355,7 +1356,7 @@ describe("Video/Audio data attributes", () => {
     expect(html).not.toMatch(/data-media-start="7"/);
   });
 
-  it("maps typed Audio props to data-* and offsets data-start across shots", async () => {
+  it("maps typed Audio props to data-* and keeps data-start shot-local", async () => {
     const video = defineVideo(
       testDirection({
         fps: 30,
@@ -1404,9 +1405,10 @@ describe("Video/Audio data attributes", () => {
     ).html;
 
     // shot 02 starts at offset 5: its host carries data-start 5 and the inner <audio>'s data-start
-    // is offset onto the master clock (0 -> 5). data-duration is a span and stays 3.
+    // stays shot-local (0), which the runtime re-bases on the host.
     expect(html).toMatch(/<div data-composition-id="shot-02"[^>]*data-start="5"/);
-    expect(html).toMatch(/<audio[^>]*data-start="5"/);
+    expect(html).toMatch(/<audio[^>]*data-start="0"/);
+    expect(html).not.toMatch(/<audio[^>]*data-start="5"/);
     expect(html).toMatch(/<audio[^>]*data-duration="3"/);
     expect(html).not.toMatch(/<audio[^>]*data-end=/);
     expect(html).toMatch(/<audio[^>]*data-media-start="2"/);

@@ -81,7 +81,7 @@ describe("planVideoPreroll", () => {
         id: "02",
         start: 1.5,
         duration: 4.5,
-        body: videoTag(assetUrl("video:shot.02.motion", v), 1.5, 4.5),
+        body: videoTag(assetUrl("video:shot.02.motion", v), 0, 4.5),
       },
     ]);
 
@@ -104,24 +104,8 @@ describe("planVideoPreroll", () => {
         id: "02",
         start: 1.5,
         duration: 4.5,
-        body: videoTag(assetUrl("video:shot.02.motion", v), 3.5, 2.5),
+        body: videoTag(assetUrl("video:shot.02.motion", v), 2, 2.5),
       },
-    ]);
-
-    expect(planVideoPreroll(html, ASSET_BASE, manager)).toEqual([]);
-  });
-
-  it("skips a clip that borrows another shot's start", () => {
-    const v = setupTake("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
-    const html = reel([
-      // Shot 02's second clip happens to land exactly where shot 03 begins.
-      {
-        id: "02",
-        start: 1.5,
-        duration: 4.5,
-        body: videoTag(assetUrl("video:shot.02.motion", v), 6, 1),
-      },
-      { id: "03", start: 6, duration: 1.5, body: "" },
     ]);
 
     expect(planVideoPreroll(html, ASSET_BASE, manager)).toEqual([]);
@@ -135,7 +119,7 @@ describe("planVideoPreroll", () => {
         id: "02",
         start: 1.5,
         duration: 4.5,
-        body: videoTag(assetUrl("video:shot.02.motion", v), 1.5, 4.5, " loop"),
+        body: videoTag(assetUrl("video:shot.02.motion", v), 0, 4.5, " loop"),
       },
     ]);
 
@@ -150,7 +134,7 @@ describe("planVideoPreroll", () => {
         id: "02",
         start: 1.5,
         duration: 4.5,
-        body: videoTag(assetUrl("video:shot.02.motion", v), 1.5, 4.5).replace(
+        body: videoTag(assetUrl("video:shot.02.motion", v), 0, 4.5).replace(
           ">",
           ' data-playback-rate="2">',
         ),
@@ -181,7 +165,7 @@ describe("planVideoPreroll", () => {
         id: "02",
         start: 1.5,
         duration: 4.5,
-        body: videoTag(assetUrl("video:shot.02.motion", v), 1.5, 4.5),
+        body: videoTag(assetUrl("video:shot.02.motion", v), 0, 4.5),
       },
     ]);
 
@@ -196,7 +180,7 @@ describe("planVideoPreroll", () => {
         id: "02",
         start: 1.5,
         duration: 4.5,
-        body: videoTag(assetUrl("video:shot.02.motion", v), 1.5, 4.5),
+        body: videoTag(assetUrl("video:shot.02.motion", v), 0, 4.5),
       },
     ]);
 
@@ -209,7 +193,7 @@ describe("planVideoPreroll", () => {
         id: "02",
         start: 1.5,
         duration: 4.5,
-        body: videoTag("__konte:video:shot.02.motion__", 1.5, 4.5),
+        body: videoTag("__konte:video:shot.02.motion__", 0, 4.5),
       },
     ]);
 
@@ -219,7 +203,7 @@ describe("planVideoPreroll", () => {
   it("needs no copy when the take carries a lead-in before the in-point and a tail after", () => {
     // A clip cut out of the middle of a long source runs up through its own frames.
     const v = setupTake("video:shot.02.motion", "assets/long.mp4", videoMedia(24, 7200));
-    const body = videoTag(assetUrl("video:shot.02.motion", v), 1.5, 3).replace(
+    const body = videoTag(assetUrl("video:shot.02.motion", v), 0, 3).replace(
       ">",
       ' data-media-start="3600">',
     );
@@ -234,7 +218,7 @@ describe("planVideoPreroll", () => {
 
   it("bounds a copy to the window the clip plays plus a tail, not the whole source", () => {
     const v = setupTake("video:shot.02.motion", "assets/long.mp4", videoMedia(24, 7200));
-    const body = videoTag(assetUrl("video:shot.02.motion", v), 1.5, 3).replace(
+    const body = videoTag(assetUrl("video:shot.02.motion", v), 0, 3).replace(
       ">",
       ' data-media-start="0.1">',
     );
@@ -252,7 +236,7 @@ describe("planVideoPreroll", () => {
     // The take has the run-up to spare but not the tail, so the copy starts a lead before the
     // in-point and clones the last frame past the source's end.
     const v = setupTake("video:shot.02.motion", "assets/a.mp4", videoMedia(24, 5));
-    const body = videoTag(assetUrl("video:shot.02.motion", v), 1.5, 4).replace(
+    const body = videoTag(assetUrl("video:shot.02.motion", v), 0, 4).replace(
       ">",
       ' data-media-start="1">',
     );
@@ -271,8 +255,8 @@ describe("planVideoPreroll", () => {
     const v = setupTake("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
     const src = assetUrl("video:shot.02.motion", v);
     const html = reel([
-      { id: "02", start: 1.5, duration: 2, body: videoTag(src, 1.5, 2) },
-      { id: "03", start: 6, duration: 2, body: videoTag(src, 6, 2) },
+      { id: "02", start: 1.5, duration: 2, body: videoTag(src, 0, 2) },
+      { id: "03", start: 6, duration: 2, body: videoTag(src, 0, 2) },
     ]);
 
     const plans = planVideoPreroll(html, ASSET_BASE, manager);
@@ -297,19 +281,19 @@ describe("applyVideoPreroll", () => {
   });
 
   it("opens the clip's window early and points it at the padded copy", () => {
-    const html = reel([{ id: "02", start: 1.5, duration: 4.5, body: videoTag(src, 1.5, 4.5) }]);
+    const html = reel([{ id: "02", start: 1.5, duration: 4.5, body: videoTag(src, 0, 4.5) }]);
 
     const out = applyVideoPreroll(html, planned(html));
 
     expect(out).toContain(`src="${PREROLL_ASSET_BASE}/`);
-    expect(out).toContain(`data-start="${1.5 - 10 / 24}"`);
+    expect(out).toContain(`data-start="${-10 / 24}"`);
     expect(out).toContain(`data-duration="${4.5 + 10 / 24}"`);
     // The window still ends where the shot does — the shift is entirely in front of the cut.
-    expect(1.5 - 10 / 24 + (4.5 + 10 / 24)).toBeCloseTo(6, 10);
+    expect(-10 / 24 + (4.5 + 10 / 24)).toBeCloseTo(4.5, 10);
   });
 
   it("leaves the shot host's own window alone", () => {
-    const html = reel([{ id: "02", start: 1.5, duration: 4.5, body: videoTag(src, 1.5, 4.5) }]);
+    const html = reel([{ id: "02", start: 1.5, duration: 4.5, body: videoTag(src, 0, 4.5) }]);
 
     expect(applyVideoPreroll(html, planned(html))).toContain(
       '<div data-composition-id="shot-02" data-start="1.5" data-duration="4.5"',
@@ -318,7 +302,7 @@ describe("applyVideoPreroll", () => {
 
   it("zeroes data-media-start when the run-up is padded on", () => {
     // The copy begins at the clip's own in-point, so the offset it had is baked into the padding.
-    const body = videoTag(src, 1.5, 4.5).replace(">", ' data-media-start="0.1">');
+    const body = videoTag(src, 0, 4.5).replace(">", ' data-media-start="0.1">');
     const html = reel([{ id: "02", start: 1.5, duration: 4.5, body }]);
 
     expect(applyVideoPreroll(html, planned(html))).toContain('data-media-start="0"');
@@ -326,7 +310,7 @@ describe("applyVideoPreroll", () => {
 
   it("moves the offset back instead of swapping the src when no copy was needed", () => {
     manager.getAssetState("video:shot.02.motion").variants![vid]!.media = videoMedia(24, 7200);
-    const body = videoTag(src, 1.5, 3).replace(">", ' data-media-start="3600">');
+    const body = videoTag(src, 0, 3).replace(">", ' data-media-start="3600">');
     const html = reel([{ id: "02", start: 1.5, duration: 3, body }]);
 
     const out = applyVideoPreroll(html, planned(html));
@@ -334,7 +318,7 @@ describe("applyVideoPreroll", () => {
     expect(out).toContain(`src="${src}"`);
     expect(out).not.toContain(PREROLL_ASSET_BASE);
     expect(out).toContain(`data-media-start="${3600 - 10 / 24}"`);
-    expect(out).toContain(`data-start="${1.5 - 10 / 24}"`);
+    expect(out).toContain(`data-start="${-10 / 24}"`);
   });
 
   it("gives each placement of one take its own offset and copy", () => {
@@ -345,9 +329,9 @@ describe("applyVideoPreroll", () => {
         id: "02",
         start: 1.5,
         duration: 3,
-        body: videoTag(src, 1.5, 3).replace(">", ' data-media-start="3600">'),
+        body: videoTag(src, 0, 3).replace(">", ' data-media-start="3600">'),
       },
-      { id: "03", start: 6, duration: 2, body: videoTag(src, 6, 2) },
+      { id: "03", start: 6, duration: 2, body: videoTag(src, 0, 2) },
     ]);
 
     const plans = planned(html);
@@ -362,20 +346,20 @@ describe("applyVideoPreroll", () => {
 
   it("shifts the take where it opens a shot and not where it does not", () => {
     const html = reel([
-      { id: "02", start: 1.5, duration: 4.5, body: videoTag(src, 1.5, 4.5) },
-      { id: "03", start: 6, duration: 3, body: videoTag(src, 7, 2) },
+      { id: "02", start: 1.5, duration: 4.5, body: videoTag(src, 0, 4.5) },
+      { id: "03", start: 6, duration: 3, body: videoTag(src, 1, 2) },
     ]);
 
     const out = applyVideoPreroll(html, planned(html));
 
     expect(out).toContain(`src="${PREROLL_ASSET_BASE}/`);
     // The mid-shot use keeps the original take and its own window.
-    expect(out).toContain(videoTag(src, 7, 2));
+    expect(out).toContain(videoTag(src, 1, 2));
   });
 
   it("leaves the mirrored <audio> on the untouched take", () => {
     const html =
-      reel([{ id: "02", start: 1.5, duration: 4.5, body: videoTag(src, 1.5, 4.5) }]) +
+      reel([{ id: "02", start: 1.5, duration: 4.5, body: videoTag(src, 0, 4.5) }]) +
       `<audio data-konte-track="embedded" src="${src}" data-start="1.5" data-duration="4.5"></audio>`;
 
     const out = applyVideoPreroll(html, planned(html));
@@ -384,7 +368,7 @@ describe("applyVideoPreroll", () => {
   });
 
   it("is a no-op when nothing is ready", () => {
-    const html = reel([{ id: "02", start: 1.5, duration: 4.5, body: videoTag(src, 1.5, 4.5) }]);
+    const html = reel([{ id: "02", start: 1.5, duration: 4.5, body: videoTag(src, 0, 4.5) }]);
 
     expect(applyVideoPreroll(html, [])).toBe(html);
   });
