@@ -18,18 +18,19 @@ A human arrives with some mix of three inputs — **ask which they have:**
 
 - **Concept** — a script/shot list (honor it; map onto konte's shape with minimal restructuring) or a vague idea (then you propose).
 - **Material** — their own media to put _in_ the video (footage, character/product/logo image, BGM/SE). Separate "already have" from "to generate"; `layout-guide` wires the files in.
-- **Reference** — a link/video/image shown as "make it like this" → **direction, not material to include.** Pin down _what_ to emulate (tone, pacing, palette, framing, motion, subtitles); read what you can (a video or a link: `konte study clip <file|url>`), ask the rest.
+- **Reference** — a link/video/image shown as "make it like this" → **direction, not material to include.** Pin down _what_ to emulate (form, tone, pacing, palette, framing, motion, subtitles); read what you can (a video or a link: `konte study clip <file|url>`), ask the rest.
 
 ## 3. Hear what they picture — before any pitch
 
 **Ask in rounds, not as a questionnaire** — two or three questions at a time, each next round shaped by the last answer — and stop when every line below is filled; a pitch made before that answers a brief you invented. "Just make something" fills the rest yourself; say what you assumed.
 
 - **Why, and where it plays** — the purpose (a laugh among friends, a portfolio piece, a product's feed) and the surface (a feed thumbed with the sound off, a screen watched sitting down). The two set the runtime, what the first second must do, and whether on-screen text carries the piece.
+- **The form** — offer the four, a reference's form as the first guess: a story (someone wants something, events follow), persuasion (a claim and its reasons — a promo, an explainer), a process (one subject made or changed), a mood (a motif).
 - **The feeling they want left behind** — offer the `pleasure` vocabulary (`direction-guide`'s lenses.md) and let them pick, never ask cold; then the one line they want a viewer to say afterwards.
 - **The picture in their head** — ask what they see when they imagine it, open, and follow what comes back: whatever they mention first is what matters to them, so the next question goes deeper into that — a figure, a light, a pace — never across a checklist. Write it back as they told it and let them correct you.
 - **Which way this piece goes, and which way it must not** — about this piece, never taste in general or AI video at large. For a work they name, ask _which thing_ in it — a rhythm, a face, a palette, the shape of a joke. Ask the refused side as a direction the piece could plausibly take, e.g. "cute, or unsettling?". The refused side is the first draft of `outOfScope`.
-- **What is fixed** — runtime, a character or product that must appear, the language, a deadline, a spend ceiling.
-- **Mirror it back before the first pitch** — one paragraph in their words: what it is for, who watches it where, the feeling, the picture they see, the direction wanted and refused, the fixed points. A correction here costs a sentence; after a pitch it costs the pitch.
+- **What is fixed** — runtime, a song to cut to, a character or product that must appear, the language, a deadline, a spend ceiling.
+- **Mirror it back before the first pitch** — one paragraph in their words: what it is for, who watches it where, the form, the feeling, the picture they see, the direction wanted and refused, the fixed points. A correction here costs a sentence; after a pitch it costs the pitch.
 
 ## 4. Decide the backend — before the pitch
 

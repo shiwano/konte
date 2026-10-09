@@ -1,6 +1,6 @@
 ---
 name: scenario-guide
-description: The writing craft under the direction — pitching and culling a concept, a story's premise, character and therefore/but chain or a storyless piece's sections and motif, concrete props. Read before proposing a concept, and before writing or changing what a shot's action makes happen.
+description: The writing craft under the direction — pitching and culling a concept, each form (story, persuasion, process, mood) and cutting to a song, concrete props. Read before proposing a concept, and before writing or changing what a shot's action makes happen.
 user-invocable: false
 ---
 
@@ -8,14 +8,18 @@ Invent the concept and what each shot makes happen; done = the routed reference'
 
 ## Routing
 
-- **A story** — a character wants something and events follow → [story.md](references/story.md).
-- **No story** — a music video on its song's sections, a mood piece → [no-story.md](references/no-story.md); never open story.md.
-- **Not settled by `drafting-guide` step 3** → ask the human which.
+Open only the reference of the form `drafting-guide` step 3 settled — unsettled, ask the human.
+
+- **Story** → [story.md](references/story.md).
+- **Persuasion** → [persuasion.md](references/persuasion.md).
+- **Process** → [process.md](references/process.md).
+- **Mood** → [mood.md](references/mood.md).
+- **Cut to a song** → also [song.md](references/song.md).
 - **The lens's roles** → `direction-guide`'s lenses.md — craft obligations to fulfill, never slots to fill.
 
 ## Pitch wide, cull hard
 
-- **Write the obvious version first, then ban it** — the pitch anyone would make from the brief is the one the viewer has already seen; write it in one line so you recognize it inside every later pitch, and never ship it unchanged.
+- **Write the obvious version first, then ban it** — inside the agreed form, never the form itself. The pitch anyone would make from the brief is the one the viewer has already seen; write it in one line to recognize it inside every later pitch, and never ship it unchanged.
 - **Invent eight to ten before choosing three** — three invented cold are the obvious one and two variations of it.
 - **Cull by five questions, one line each:**
   - **hook** — what the first two seconds put on screen that stops a thumb; a pitch opening on calm has none.

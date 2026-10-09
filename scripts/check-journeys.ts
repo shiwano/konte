@@ -13,8 +13,9 @@ import { execFileSync } from "node:child_process";
 // - `video` — the template skills loaded driving one video from reference →
 //   animatic → video → export. The chain is the fixed, always-loaded set;
 //   per-model and per-backend docs (one of each loads per project, ~2-3k
-//   tokens) are headroom inside the budget, not listed.
-// - `music-video` — the `video` chain for a storyless piece cut to a song.
+//   tokens) are headroom inside the budget, not listed. `story.md` stands
+//   for whichever form reference scenario-guide routes to, the largest of them.
+// - `music-video` — the `video` chain for a mood piece cut to a song.
 // - `konte-direction-critic` / `konte-prompt-critic` — a subagent contract, loaded whole
 //   on every spawn. Its "Read only this" rules bar skills and records, so
 //   contract plus `AGENTS.md` is the whole fixed load; what it reads (the
@@ -154,7 +155,8 @@ const SHIPPED_JOURNEYS = [
       `${SKILLS}/layout-guide/SKILL.md`,
       `${SKILLS}/production-guide/SKILL.md`,
       `${SKILLS}/scenario-guide/SKILL.md`,
-      `${SKILLS}/scenario-guide/references/no-story.md`,
+      `${SKILLS}/scenario-guide/references/mood.md`,
+      `${SKILLS}/scenario-guide/references/song.md`,
       `${SKILLS}/drafting-guide/references/song-first.md`,
       `${SKILLS}/direction-guide/references/song.md`,
       `${SKILLS}/composition-guide/references/song.md`,
