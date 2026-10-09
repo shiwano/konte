@@ -35,6 +35,7 @@ import {
 } from "../../../core/composition-builder.js";
 import { resolveCompositionRef } from "../../../core/composition-refs.js";
 import {
+  boardCompositionSuperseded,
   compositionDefinitionHashForAddress,
   definitionHashForAddress,
   timelineStemRefs,
@@ -692,10 +693,14 @@ export async function handleGetReelState(
         : null;
       let compositionVariantId: string | null = null;
       let compositionNeedsReview = false;
+      const compositionSuperseded =
+        compositionAddress !== null &&
+        boardCompositionSuperseded(manager, video, downstreamVideo, compositionAddress);
       if (compositionAddress) {
         // Unaccepted or stale both count as needing review (see materializedLeafReviewStatus).
         ({ variantId: compositionVariantId, needsReview: compositionNeedsReview } =
           materializedLeafReviewStatus(manager, compositionAddress, compositionDefinitionHash));
+        if (compositionSuperseded) compositionNeedsReview = false;
       }
 
       // The shot's audio stems (its <Audio>/<Video hasAudio> cues, the board's narration apart),
@@ -759,6 +764,7 @@ export async function handleGetReelState(
           video,
           s,
           (address) =>
+            (address === compositionAddress && compositionSuperseded) ||
             !materializedLeafReviewStatus(
               manager,
               address,
@@ -884,7 +890,7 @@ export async function handleGetReelState(
           duration: video.overlay.duration,
           definitionHash,
           ...status,
-          offered: status.needsReview && shotAcceptsStand(manager, video),
+          offered: status.needsReview && shotAcceptsStand(manager, video, downstreamVideo),
           feedback: buildAddressFeedback(feedbackMgr, manager.getState(), address, {
             cache: manager.stalenessCache(),
             definitionHashes: definitionHash ? new Map([[address, definitionHash]]) : new Map(),
@@ -1266,6 +1272,8 @@ export async function handleReelSubmit(
   animatic: AnimaticDefinition | null,
   req: Request,
   reportOutcome?: ReportOutcome,
+  // The video, when the reel is the board.
+  downstreamVideo: StageDefinition | null = null,
 ): Promise<Response> {
   // Stamped before anything is written, so every comment this review carries predates the
   // accepts it was submitted with (see applyFeedbackMutations).
@@ -1812,7 +1820,7 @@ export async function handleReelSubmit(
     submittedOverlayDecision ??
     (video.overlay &&
     Object.values(submittedDecisions ?? {}).includes("accepted") &&
-    shotAcceptsStand(await StateManager.load(videoRoot), video) &&
+    shotAcceptsStand(await StateManager.load(videoRoot), video, downstreamVideo) &&
     materializedLeafReviewStatus(
       await StateManager.load(videoRoot),
       overlayAddress,

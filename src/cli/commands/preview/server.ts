@@ -343,6 +343,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
                 animatic,
                 req,
                 reportOutcome,
+                mode === "animatic-preview" ? video : null,
               ),
             );
           }

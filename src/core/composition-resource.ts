@@ -40,7 +40,7 @@ import { songParts } from "./song-parts.js";
 import { KonteError } from "./errors.js";
 import { mixAudioTracks, type MuxAudioTrack } from "./ffmpeg.js";
 import { shotById } from "./shot-index.js";
-import { formatStaleCause, isAcceptedStale } from "./staleness.js";
+import { computeAcceptedStaleness, formatStaleCause, isAcceptedStale } from "./staleness.js";
 import { sha256Hex, shortHash, stableHash } from "./content-hash.js";
 import { stableStringify } from "./stable-stringify.js";
 import type { StateManager } from "./state/index.js";
@@ -899,16 +899,21 @@ export function overlayDefinitionHash(video: StageDefinition, rewrite?: HashInpu
 
 // Whether every shot accept on the stage stands: each developed shot's composition accepted at its
 // current definition, and no shot left to develop. The overlay is signed off by these; only once
-// they all stand is it reviewed on its own.
-export function shotAcceptsStand(manager: StateManager, video: StageDefinition): boolean {
+// they all stand is it reviewed on its own. `downstreamVideo` settles the board's superseded ones.
+export function shotAcceptsStand(
+  manager: StateManager,
+  video: StageDefinition,
+  downstreamVideo: StageDefinition | null = null,
+): boolean {
   if (video.shots.some((s) => s.pending)) return false;
   return video.shots
     .filter((s) => s.shotFn)
     .every((s) => {
       const address = formatCompositionAddress(video.stage, s.id);
       return (
-        manager.getAcceptedVariant(address) !== null &&
-        !isAcceptedStale(manager, address, definitionHashForAddress(video, address))
+        boardCompositionSuperseded(manager, video, downstreamVideo, address) ||
+        (manager.getAcceptedVariant(address) !== null &&
+          !isAcceptedStale(manager, address, definitionHashForAddress(video, address)))
       );
     });
 }
@@ -1085,6 +1090,35 @@ export function materializedLeafReviewStatus(
     variantId,
     needsReview: variantId === null || isAcceptedStale(manager, address, defHash),
   };
+}
+
+// A graphic shot's board composition accepted on the board, once the video develops that shot and
+// only the composition's own definition has moved since. The video places the component the board
+// draws, so the video's review is where that picture is signed off. A first review, a moved input or
+// a new one stays the board's: its accept is what decides the takes the composition draws.
+export function boardCompositionSuperseded(
+  manager: StateManager,
+  board: StageDefinition | null,
+  video: StageDefinition | null,
+  address: string,
+): boolean {
+  if (board?.stage !== "animatic" || video?.stage !== "video") return false;
+  if (!isCompositionAddress(address)) return false;
+  const parsed = parseAddress(address);
+  if (parsed.stage !== "animatic" || parsed.kind !== "shot") return false;
+  const shot = shotById(video.shots, parsed.shotId);
+  const boardShot = shotById(board.shots, parsed.shotId);
+  if (shot?.graphic !== true || !shot.shotFn || !boardShot?.shotFn) return false;
+  const accepted = computeAcceptedStaleness(
+    manager.getState(),
+    address,
+    null,
+    manager.stalenessCache(),
+  );
+  if (accepted.variantId === null || accepted.inputStale) return false;
+  const recorded =
+    manager.tryGetAssetState(address)?.variants?.[accepted.variantId]?.inputFingerprints ?? {};
+  return compositionFingerprintRefs(board, boardShot).every((ref) => ref in recorded);
 }
 
 // Whether a materialized leaf is signed off as of right now: reviewable, and accepted at its current

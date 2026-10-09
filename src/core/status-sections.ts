@@ -108,8 +108,9 @@ export interface AddressInfo {
   }[];
   /**
    * The accepted take is stale, yet the accept stands: it holds a human verdict (a generation or
-   * patch output) and only its inputs have moved, or every video take built on it holds one (set by
-   * `buildStatusReport`, which has the graph). No section, count or step names it.
+   * patch output) and only its inputs have moved, or every video take built on it holds one, or it
+   * is a board composition the video supersedes (both set by `buildStatusReport`, which has the
+   * graph and the video). No section, count or step names it.
    */
   staleAcceptStands: boolean;
   problemVariants: string[];

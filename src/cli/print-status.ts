@@ -17,6 +17,7 @@ import {
   listStemAddresses,
 } from "../core/address.js";
 import {
+  boardCompositionSuperseded,
   collectDeadCompositionVariants,
   collectDeadStemVariants,
   definitionHashForAddress,
@@ -272,11 +273,19 @@ export async function buildStatusReport(
     // The overlay is signed off by the shot accepts under it, and reviewed on its own only once they
     // all stand.
     const overlayStage = isOverlayAddress(addr) ? (leafStages.get(getStage(addr)) ?? null) : null;
+    const superseded = boardCompositionSuperseded(
+      manager,
+      def as unknown as VideoDefinition | null,
+      options?.videoDefinition ?? null,
+      addr,
+    );
     const reviewTarget =
       (getStage(addr) !== "reference" || isDeliveryAddress(addr) || exposedReferences.has(addr)) &&
       !isPlateAddress(addr) &&
+      !superseded &&
       (!isOverlayAddress(addr) ||
-        (overlayStage !== null && shotAcceptsStand(manager, overlayStage)));
+        (overlayStage !== null &&
+          shotAcceptsStand(manager, overlayStage, options?.videoDefinition ?? null)));
     if (def && isLeafAddress(addr)) {
       // A composition/stem/overlay has no AssetDefinition; it is a no-job leaf of its stage's
       // definition.
@@ -327,7 +336,7 @@ export async function buildStatusReport(
       !decidable.has(addr);
 
     if (deterministic) deterministicAddresses.add(addr);
-    return buildAddressInfo(
+    const info = buildAddressInfo(
       addr,
       state,
       jobsByVariantId,
@@ -343,6 +352,8 @@ export async function buildStatusReport(
       reviewUnreachable,
       deterministic,
     );
+    if (superseded) info.staleAcceptStands = info.staleVariants.length > 0;
+    return info;
   });
 
   // A stale accept every video take built on stands over too: its refresh would not change the cut.

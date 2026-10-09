@@ -61,11 +61,12 @@ There is no animatic-specific spend gate. `GATED_UPSTREAM` lists `[reference, an
 
 Both print the board's `blocking` / `camera` in the selected shot's detail.
 
-Two differences:
+Three differences:
 
 - **No stand-in.**
 - **Needs retiming** reads the shot's cues against the clamp.
+- **A graphic shot's accepted composition outlives its own edits once the video develops it** (`boardCompositionSuperseded`).
 
-On the video side the only trace left is the **stand-in**: a shot whose delivered composition cannot be drawn yet plays the animatic shot of the same id, spliced in from the animatic's own render plan (`RenderPlan.standInPlan`). Display only — no address, no node, no verdict: its toggle is closed and a decision on one is dropped at submit. Which shots stood in comes from the client (`displayedStandInShotIds`), never re-derived, because a build dependency finishing mid-review would otherwise flip the answer and accept a composition nobody watched.
+On the video side the only trace left is the **stand-in**: a shot whose delivered composition cannot be drawn yet plays the board's same shot (`RenderPlan.standInPlan`). Display only — no address, no verdict: a decision on one is dropped at submit. Which shots stood in comes from the client (`displayedStandInShotIds`), never re-derived: a dependency finishing mid-review would otherwise accept a composition nobody watched.
 
 **Order matters inside a submit.** The audio takes a stem is mixed from are accepted before any composition is materialized: an animatic composition's identity covers its audio, so building it first would fingerprint the take the reviewer replaced and read stale the moment the review saved.
