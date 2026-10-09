@@ -33,7 +33,7 @@ Take an assembled cut whose every shot holds a self-reviewed take from "plays" t
 
 ## 4. Look across shots
 
-- **Read the sheet as one sheet** — `konte probe contact-sheet video` tiles each shot's in and out frames; a shot whose palette, contrast or black level breaks from its neighbours, or a boundary where A's out frame and B's in frame differ in brightness, is named in the handoff, never color-corrected in the composition — a CSS `filter` or tint overlay flattens the picture.
+- **Read the sheet as one sheet** — `konte probe contact-sheet video` tiles each shot's in and out frames; a shot whose palette, contrast or black level breaks from its neighbours, or a boundary where A's out frame and B's in frame differ in brightness, is named in the handoff, not color-corrected on your own read; a grade the human asks for is one `<Video style={{ filter }}>` value on every shot they name.
 - **One vignette, grain or letterbox for the whole piece, or none** — an overlay some shots carry and others don't reads as a seam.
 
 ## 5. Text on screen
