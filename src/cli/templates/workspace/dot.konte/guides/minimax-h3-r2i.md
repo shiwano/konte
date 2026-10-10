@@ -27,6 +27,15 @@ One still frame decoded from a short burst.
 - **Leave the set to the plate's picture** — `shots[1]` carries the figures, where each sits and faces in the frame, and the movement.
 - **Settle a panel before cutting the next one out of it** — re-accepting an upstream panel makes every panel cut from it input-stale, one level per regeneration.
 
+## From a Draft Frame
+
+A panel drawn up from `drafts.<name>.frame(…)`.
+
+- **The frame is an animatic reference** — `<Picture N> is an animatic reference for [Shot 1], defining its viewpoint and subject placement.`, `weak_reference`. Line, colour and detail come from the character and prop references passed beside it.
+- **Write the pose out as well** — a frame too soft to read still comes back as the pose the prompt gives.
+- **The frame's count wins over the prompt's** — five cards in the frame come back as five where the text says four. What the frame lacks or misdraws is carried too: pick another frame, or reroll the draft.
+- **A shot's end panel takes the end frame and the settled first panel** — the first panel `fully_preserved` for camera and set, the end frame for where the figures are.
+
 ## Plates
 
 - **A closer plate is a cut from its parent's plate** — pass the parent plate as `image1`, `shots[0]` pointing at it, `shots[1]` the frame wanted, sized against the set: "the sofa's arm fills the left third of the frame". Mark it `attribute_transfer`, the framing new.

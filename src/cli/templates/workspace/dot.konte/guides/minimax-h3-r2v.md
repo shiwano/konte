@@ -32,6 +32,17 @@ Picture and stereo audio decoded from one take.
 - **`<Video N>` is a whole-video relationship, never visible content** — an edit source, a continuation, a borrowed cut rhythm. A person, prop, set or move taken out of a clip is a `<Subject N>` like any other, sourced from it (`whose walking motion comes from <Video 1>`). A clip that lends only its camera or pacing is `reference generation`, not `video editing`.
 - **`video editing` and `video continuation` are for a clip actually edited or continued** — the edit opens its summary with `The target video is an edited version of <Video 1>.`, and keeps `audio reuse` alongside whenever the original track stays audible.
 
+## Draft Takes
+
+A take declared under `drafts`: several shots in one clip, read only for where things sit in each frame.
+
+- **`shots: cuts((id) => text)`** — one text per shot; the cut times are the direction's. Five cuts reach the 500-word limit.
+- **Each setup's plate is an image, `attribute_transfer`** — its room and light carried, the framing the take's own; the plate's sentence goes in the text of every shot on it.
+- **`refImageSize: "match"`**, no `audioStem`, no `audioN`, both sound fields `N/A`.
+- **Leave `useTurbo` to konte** — a draft is never a turbo take.
+- **`previous` is `video1`, and the take is its continuation** — `subjectDefinitions` gains `<Video 1> is the footage just before this take; this take continues from it.`, `summary` opens `The target video continues <Video 1>.` with tasks `video continuation` + `reference generation`, and `retentionAnalysis` gains a `<Video 1>` line naming what carries over.
+- **The clip is truncated to this take's length from its head** — konte hands `previous` already cut to its last seconds.
+
 ## Shots and Cuts
 
 - **Cut verbs** — `the camera cuts to`, `the shot cuts to`, `the shot transitions to`, `the shot changes to`, `the shot switches to`. Cross-dissolve, fade and wipe only when the shot asks for one.

@@ -18,6 +18,10 @@ export type ParsedAddress =
   // id. `assetName` IS that id, and there is no second name slot to fill, so no reserved name and
   // no delivery derivative apply.
   | { stage: "animatic"; kind: "plate"; assetName: string; delivery: false }
+  // A draft take — several consecutive shots generated as one clip, which the panels are drawn
+  // from — keyed by the name `drafts` returns it under. `assetName` is that name, or
+  // `<name>#previous` for the tail of the take before it, cut to this take's length.
+  | { stage: "animatic"; kind: "draft"; assetName: string; delivery: false }
   | { stage: AssetStage; kind: "reference"; assetName: string; delivery: boolean }
   // A step of one patch's chain. Keyed by the source variant, not its address: two variants at the
   // same address can each carry a patch, and both may name a step `patched`.
@@ -36,6 +40,8 @@ export interface DefinitionLike {
   plates?: Record<string, AssetDefinition>;
   // Animatic stage only: the plate names it returned (see isUnexposedPlateAddress).
   exposedPlateIds?: string[];
+  // Animatic stage only: every asset its `drafts` callback declared, keyed by name.
+  drafts?: Record<string, AssetDefinition>;
   // Reference stage only: the asset names its callback returned (see listExposedReferenceAssetPaths).
   exposedAssetNames?: string[];
   // What the prompt and pin gates read off a stage entry, whichever one this is (see
@@ -65,6 +71,9 @@ const TIMELINE_SUFFIX_PATTERN = new RegExp(
 // nor the `#delivery` alternation applies — matched before the delivery strip, so `plate.x#delivery`
 // falls through and is rejected rather than silently read as a derivative.
 const PLATE_SUFFIX_PATTERN = new RegExp(`^plate\\.(${NAME_BODY})$`);
+// A draft's suffix: `draft.<name>`, or `draft.<name>#previous` for the cut of the take before it.
+const DRAFT_PREVIOUS_NAME = "#previous";
+const DRAFT_SUFFIX_PATTERN = new RegExp(`^draft\\.(${NAME_BODY}(?:${DRAFT_PREVIOUS_NAME})?)$`);
 const REFERENCE_SUFFIX_PATTERN = /^([a-zA-Z0-9_-]+)$/;
 // Non-capturing forms, for the scope patterns.
 const NAME_SLOT = `(?:\\.${NAME_BODY}|${RESERVED_NAME_BODY})`;
@@ -245,6 +254,7 @@ function parseSuffix(
   | { kind: "shot"; shotId: string; assetName: string; delivery: boolean }
   | { kind: "timeline"; assetName: string; delivery: boolean }
   | { kind: "plate"; assetName: string; delivery: false }
+  | { kind: "draft"; assetName: string; delivery: false }
   | { kind: "reference"; assetName: string; delivery: boolean }
   | { kind: "patch"; sourceVariantId: string; assetName: string; delivery: false } {
   // The patch axis is stage-agnostic (a reference asset's take can be patched too) and never a
@@ -264,6 +274,10 @@ function parseSuffix(
     const plateMatch = PLATE_SUFFIX_PATTERN.exec(suffix);
     if (plateMatch) {
       return { kind: "plate", assetName: plateMatch[1]!, delivery: false };
+    }
+    const draftMatch = DRAFT_SUFFIX_PATTERN.exec(suffix);
+    if (draftMatch) {
+      return { kind: "draft", assetName: draftMatch[1]!, delivery: false };
     }
   }
   // A reference asset has no shot/timeline axis — its suffix is a bare name.
@@ -308,7 +322,9 @@ export function parseAddress(address: string): ParsedAddress {
   const suffix = parseSuffix(m[2]!, address, stage);
   // `parseSuffix` only ever returns a plate for the animatic; restating it here is what carries that
   // into the type, so no consumer has to re-check its stage.
-  return suffix.kind === "plate" ? { stage: "animatic", ...suffix } : { stage, ...suffix };
+  return suffix.kind === "plate" || suffix.kind === "draft"
+    ? { stage: "animatic", ...suffix }
+    : { stage, ...suffix };
 }
 
 // Address and asset path are the same string form; kept as a distinct name for call sites that
@@ -364,6 +380,8 @@ export function getStage(address: string): Stage {
 //   <stage>:timeline#<name>     the reserved one (video:timeline#stem)
 //   animatic:plate              every plate        (animatic only)
 //   animatic:plate.<id>         one setup's plate  (animatic:plate.deskWide)
+//   animatic:draft              every draft take   (animatic only)
+//   animatic:draft.<name>       one draft take     (animatic:draft.opening)
 //   <stage>:patch               every patch step in the stage
 //   <stage>:patch.<variantId>   one patch's chain
 //   <stage>:patch.<vid>.<name>  one step of it
@@ -371,7 +389,7 @@ export function getStage(address: string): Stage {
 // that built a malformed scope should fail loud.
 const PATCH_SCOPE_BODY = `patch(\\.${VARIANT_ID_BODY}(\\.[a-zA-Z0-9_-]+)?)?`;
 const ADDRESS_SCOPE_PATTERN = new RegExp(
-  `^(?:(?:animatic|video)(?::(?:shot\\.${NAME_BODY}(?:${NAME_SLOT}(?:#delivery)?)?|timeline(?:${NAME_SLOT}(?:#delivery)?)?|${PATCH_SCOPE_BODY}))?|animatic:plate(?:\\.${NAME_BODY})?)$`,
+  `^(?:(?:animatic|video)(?::(?:shot\\.${NAME_BODY}(?:${NAME_SLOT}(?:#delivery)?)?|timeline(?:${NAME_SLOT}(?:#delivery)?)?|${PATCH_SCOPE_BODY}))?|animatic:plate(?:\\.${NAME_BODY})?|animatic:draft(?:\\.${NAME_BODY}(?:${DRAFT_PREVIOUS_NAME})?)?)$`,
 );
 
 // A reference scope: the whole stage `reference`, one asset `reference:<name>`, or its patch axis.
@@ -498,6 +516,16 @@ export function formatTimelineAssetPath(stage: ShotStage, assetName: string): st
 // A setup's plate. No stage parameter: only the animatic owns one.
 export function formatPlateAssetPath(setupId: string): string {
   return `animatic:plate.${setupId}`;
+}
+
+// A draft take. No stage parameter: only the animatic owns one.
+export function formatDraftAssetPath(name: string): string {
+  return `animatic:draft.${name}`;
+}
+
+// The tail of the take before draft `name`, cut to that draft's length.
+export function formatDraftPreviousAssetPath(name: string): string {
+  return `animatic:draft.${name}${DRAFT_PREVIOUS_NAME}`;
 }
 
 // A step of the patch chain declared in `patches/<sourceVariantId>.ts`. The stage is the source
@@ -664,6 +692,8 @@ export function formatAssetPathSuffix(parsed: ParsedAddress): string {
       return joinAssetName("timeline", parsed.assetName);
     case "plate":
       return `plate.${parsed.assetName}`;
+    case "draft":
+      return `draft.${parsed.assetName}`;
     case "reference":
       return parsed.assetName;
     case "patch":
@@ -920,6 +950,9 @@ export function listAssetPaths(definition: DefinitionLike, stage: AssetStage): s
     for (const setupId of Object.keys(definition.plates ?? {})) {
       paths.push(formatPlateAssetPath(setupId));
     }
+    for (const name of Object.keys(definition.drafts ?? {})) {
+      paths.push(formatDraftAssetPath(name));
+    }
   }
   for (const s of definition.shots) {
     for (const assetName of Object.keys(s.assets)) {
@@ -972,12 +1005,23 @@ export function isPlateAddress(address: string): boolean {
   return tryParseAddress(address)?.kind === "plate";
 }
 
-// The assets a review shows: every one but an intermediate read through what consumes it and a
-// plate.
+// Anything under `animatic:draft`: a draft take, or the cut of the take before it.
+export function isDraftAddress(address: string): boolean {
+  return address.startsWith("animatic:draft.");
+}
+
+// A draft take itself: resolved to its newest take, never accepted, judged inside the panels drawn
+// from its frames.
+export function isDraftTakeAddress(address: string): boolean {
+  return isDraftAddress(address) && !address.endsWith(DRAFT_PREVIOUS_NAME);
+}
+
+// The assets a review shows: every one but an intermediate read through what consumes it, a plate
+// and a draft.
 export function listReviewableAssetPaths(definition: DefinitionLike, stage: AssetStage): string[] {
   return stage === "reference"
     ? listExposedReferenceAssetPaths(definition)
-    : listAssetPaths(definition, stage).filter((p) => !isPlateAddress(p));
+    : listAssetPaths(definition, stage).filter((p) => !isPlateAddress(p) && !isDraftAddress(p));
 }
 
 export function getAssetEntry(definition: DefinitionLike, assetPath: string): AssetDefinition {
@@ -992,6 +1036,17 @@ export function getAssetEntry(definition: DefinitionLike, assetPath: string): As
       );
     }
     return plate;
+  }
+
+  if (parsed.kind === "draft") {
+    const draft = definition.drafts?.[parsed.assetName];
+    if (!draft) {
+      throw new KonteError(
+        "ADDRESS_NOT_FOUND",
+        `Draft "${parsed.assetName}" not found in animatic.tsx — declare it in \`drafts\``,
+      );
+    }
+    return draft;
   }
 
   if (parsed.kind === "timeline" || parsed.kind === "reference") {

@@ -8,6 +8,9 @@ import {
   getStage,
   isMaterializedLeafAddress,
   isDeliveryAddress,
+  isDraftAddress,
+  isDraftTakeAddress,
+  formatDraftPreviousAssetPath,
   listAssetPaths,
   isPatchAddress,
   matchesAddressScope,
@@ -53,6 +56,7 @@ import { TURBO_TAKE_NOTE, turboTakes } from "../../turbo-takes.js";
 import { confirmAction, printAborted } from "../../confirm.js";
 import { parsePositiveInt } from "../../parse-option.js";
 import {
+  assetSkipReason,
   registerJobs,
   ensureComfyPrereqJobs,
   formatComfyDownloadNotice,
@@ -83,7 +87,7 @@ export function registerRerollCommand(program: Command): void {
       "after",
       `
 A target is either an address (one asset) or an address-scope that sweeps every
-rerollable asset under it — a stage, a shot, the timeline, the plate roster. Naming an
+rerollable asset under it — a stage, a shot, the timeline, the plate roster, the drafts. Naming an
 asset that cannot be rerolled (a file, a deterministic op, a composition or stem) is
 an error; the same asset reached through a scope is skipped in silence, as is one no
 deliverable consumes and one holding an accepted take. --failed narrows to what
@@ -118,6 +122,11 @@ moves. A composition or stem is refused too — its accept materializes it.
 A patch step (\`<stage>:patch.<variantId>.<step>\`) is rolled again with every step
 after it that consumes it, each run landing one more correction at the patched address,
 as \`konte patch apply\` does. It is named on its own, without other targets.
+
+A draft take (\`animatic:draft.<name>\`) is rerolled only to change the composition itself.
+The new take becomes the one in use; no panel drawn from the take before it moves, and
+a scope sweeps a draft in only while it has no take. Next steps names the probe that
+reads the new cuts.
 
 A reroll that came out worse is undone with \`konte dismiss <variantId>\`: a dismissed
 take never resolves, so the address falls back to the take before it, undecided and
@@ -219,6 +228,13 @@ Examples:
         const isSweepable = (assetPath: string): boolean => {
           if (unused.has(assetPath)) return false;
           if (holdsHumanVerdict(manager, assetPath)) return false;
+          // A draft with a take is redone only by name.
+          if (
+            isDraftAddress(assetPath) &&
+            Object.values(manager.tryGetAssetState(assetPath)?.variants ?? {}).some((v) => v.file)
+          ) {
+            return false;
+          }
           if (isDeliveryAddress(assetPath) || isMaterializedLeafAddress(assetPath)) return false;
           const assetDef = getAssetEntry(definitionForAddress(assetPath), assetPath);
           return (
@@ -412,6 +428,31 @@ Examples:
         const workItemByAddress = new Map<string, WorkItem>();
         for (const p of primaries) {
           workItemByAddress.set(p.address, { ...p, isPrimary: true });
+        }
+        // A draft take continues from the cut of the take before it, which konte re-makes when that
+        // take was replaced.
+        for (const p of primaries) {
+          if (!isDraftTakeAddress(p.address)) continue;
+          const cut = formatDraftPreviousAssetPath(tryParseAddress(p.address)!.assetName);
+          if (!p.deps.includes(cut) || workItemByAddress.has(cut)) continue;
+          const def = getAssetEntry(p.definition, cut);
+          const cutDeps = graph.dependencies.get(cut) ?? [];
+          // Stale already, or about to be: the take it cuts is rerolled in this same run.
+          if (
+            assetSkipReason(manager, cut, computeDefinitionHash(def), true) &&
+            !cutDeps.some((dep) => workItemByAddress.has(dep))
+          ) {
+            continue;
+          }
+          workItemByAddress.set(cut, {
+            address: cut,
+            assetPath: cut,
+            def,
+            deps: [...(graph.dependencies.get(cut) ?? [])],
+            stage: p.stage,
+            definition: p.definition,
+            isPrimary: false,
+          });
         }
         if (opts.withDependents) {
           for (const p of primaries) {
@@ -705,6 +746,25 @@ Examples:
         ].filter((part) => part !== null);
         const next = jobRows.length > 0 ? "run `konte job wait`" : "run `konte status`";
         console.log(`\n${parts.join(", ")} — ${next}`);
+
+        // No frame taken from the take before moves on its own: the shots to redraw are re-picked
+        // by hand.
+        const rerolledDrafts = jobRows
+          .map((row) => row.address)
+          .filter((address, i, all) => isDraftTakeAddress(address) && all.indexOf(address) === i);
+        if (rerolledDrafts.length > 0) {
+          console.log("\nNext steps:");
+          console.log("  konte job wait");
+          for (const address of rerolledDrafts) {
+            const name = tryParseAddress(address)!.assetName;
+            const shotIds = animatic?.draftShots?.[name] ?? [];
+            console.log(
+              `  konte probe cuts ${address}   Read where the new take cuts, then re-pick \`at\` in ` +
+                `each frame("<id>", …) of the shots to redraw (${shotIds.join(", ")}) — a panel ` +
+                `whose \`at\` is unchanged keeps the frame of the take before`,
+            );
+          }
+        }
 
         if (failures.length > 0) process.exitCode = 1;
       },

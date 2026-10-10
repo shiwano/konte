@@ -1,3 +1,4 @@
+import { isDraftTakeAddress } from "./address.js";
 import type { StateManager } from "./state/index.js";
 import type { KonteState, VariantState } from "./types/index.js";
 import { isReviewLeaf } from "./variant-lineage.js";
@@ -154,6 +155,9 @@ function isPatchStale(variant: VariantState, patchHashes: PatchHashes | undefine
  *
  * A dependency path IS its upstream address (address ≡ asset path), so each recorded input
  * fingerprint is checked directly against that address's resolved output.
+ *
+ * A draft take is never stale: its newest take is what the address resolves to. The cut of the take
+ * before it is an ordinary deterministic asset, re-made when that take is replaced.
  */
 export function computeVariantStaleness(
   state: KonteState,
@@ -175,12 +179,15 @@ export function computeVariantStaleness(
 
 function computeVariantStalenessInternal(
   state: KonteState,
-  _address: string,
+  address: string,
   variant: VariantState,
   currentDefinitionHash: string | null,
   patchHashes: PatchHashes | undefined,
   ctx: ResolveContext,
 ): VariantStaleness {
+  if (isDraftTakeAddress(address)) {
+    return { inputStale: false, definitionStale: false, patchStale: false, changedInputs: [] };
+  }
   const changedInputs: ChangedInput[] = [];
   const kept = variant.status === "accepted" ? variant.keptInputs : undefined;
 

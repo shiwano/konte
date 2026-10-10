@@ -12,6 +12,7 @@ import {
 } from "konte";
 import { audioZonos2VoiceClone } from "konte/workspace/adapters/comfy/audio_zonos2_voice_clone.js";
 import { imageMinimaxH3R2i } from "konte/workspace/adapters/comfy/image_minimax_h3_r2i.js";
+import { videoMinimaxH3R2v } from "konte/workspace/adapters/comfy/video_minimax_h3_r2v.js";
 import direction from "./direction";
 import reference from "./reference";
 
@@ -19,6 +20,11 @@ const KITCHEN_WIDE = "a sunny kitchen, the window at left, the stove at centre, 
 const KITCHEN_MEDIUM = "the stove at left and the table at right under warm light";
 const YARD_WIDE = "a back yard, the blue gate at left and the apple tree at right";
 const KITCHEN_CLOSE = "the table top under warm light";
+
+const SMOKE_DRAFT = {
+  "02": `${KITCHEN_WIDE}; the camera holds a static shot as the boy cooks at the stove, a thin line of smoke rises, and the woman walks in from the left and stops beside him.`,
+  "03": `the camera cuts to ${KITCHEN_MEDIUM}; the camera holds a static shot as the woman at left and the boy at right wave at the smoke.`,
+} as const;
 
 type Still = {
   task: "reference generation" | "keyframe completion";
@@ -99,7 +105,39 @@ export default defineAnimatic(direction, {
       },
     };
   },
-  timeline: ({ shot, plates }) => ({
+  drafts: ({ draft, plates }) => ({
+    smoke: draft(["02", "03"], ({ cuts }) =>
+      asset("smoke", videoMinimaxH3R2v, {
+        image1: reference.rival,
+        image2: reference.cook,
+        image3: plates.kitchenWide.image,
+        image4: plates.kitchenMedium.image,
+        refImageSize: "match",
+        prompt: {
+          subjectDefinitions: [
+            "<Subject 1> is the woman in <Picture 1>.",
+            "<Subject 2> is the boy in <Picture 2>.",
+            `<Picture 3> is the empty room of [Shot 1]: ${KITCHEN_WIDE}.`,
+            `<Picture 4> is the empty room of [Shot 2]: ${KITCHEN_MEDIUM}.`,
+          ],
+          summary: {
+            tasks: ["reference generation"],
+            text: "The woman walks in on the boy's smoking pan, and the two wave the smoke away.",
+          },
+          retentionAnalysis: [
+            "<Subject 1> (appears in [Shot 1], [Shot 2]): fully_preserved - her face and cardigan.",
+            "<Subject 2> (appears in [Shot 1], [Shot 2]): fully_preserved - his face and apron.",
+            "<Picture 3> (appears in [Shot 1]): attribute_transfer - the room and its light.",
+            "<Picture 4> (appears in [Shot 2]): attribute_transfer - the room and its light.",
+          ],
+          detailedDescription: { style: "2D-animated.", shots: cuts((id) => SMOKE_DRAFT[id]) },
+          overallSoundscape: "N/A",
+          nonDiegeticMusic: "N/A",
+        },
+      }),
+    ),
+  }),
+  timeline: ({ shot, plates, drafts }) => ({
     shots: shot("01", ({ script, lineup, duration }) => {
       const first = asset("first", imageMinimaxH3R2i, {
         image1: reference.cook,
@@ -218,6 +256,8 @@ export default defineAnimatic(direction, {
           image2: reference.cook,
           image3: plates.kitchenMedium.image,
           image4: shot("02").image("last"),
+          // The draft take's frame just past the cut into this shot: the composition to draw up.
+          image5: drafts.smoke.frame("03", "draftFirst", { at: 4.5 }),
           prompt: still({
             task: "reference generation",
             defines: [
@@ -225,12 +265,14 @@ export default defineAnimatic(direction, {
               "<Subject 2> is the boy in <Picture 2>.",
               `<Picture 3> is the empty frame: ${KITCHEN_MEDIUM}.`,
               "<Picture 4> is the frame this take continues from.",
+              "<Picture 5> is an animatic reference for [Shot 2], defining its viewpoint and subject placement.",
             ],
             retains: [
               kept("<Subject 1>", "her face and cardigan."),
               kept("<Subject 2>", "his face and apron."),
               kept("<Picture 3>", "the framing and the room."),
               kept("<Picture 4>", "the moment it holds."),
+              "<Picture 5> (appears in [Shot 2]): weak_reference - where each figure stands and faces; line and detail come from the other references.",
             ],
             summary: "Smoke billows between the woman and the boy.",
             cutFrom: "The frame of <Picture 4>.",

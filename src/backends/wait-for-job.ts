@@ -10,6 +10,8 @@ import {
   getStage,
   isCompositionAddress,
   isDeliveryAddress,
+  isDraftAddress,
+  isDraftTakeAddress,
 } from "../core/address.js";
 import type { GenerationBackend, WaitOptions } from "../core/backend.js";
 import { hashFile } from "../core/content-hash.js";
@@ -468,6 +470,9 @@ async function runAsOwner(
       // the output permanently input-stale against its own address's accepted output. The patch's
       // upstream picture is its source's, so it is inherited below instead.
       if (depPath === job.address) continue;
+      // A new take of a draft ages out no frame cut from the one before. Only the cut of its tail
+      // follows it.
+      if (isDraftTakeAddress(depPath) && !isDraftAddress(job.address)) continue;
       try {
         // A composition dependency (a frame delivery upscale's source) is identified by its
         // definition + upstream fingerprints (compositionCacheKey) — NOT the rendered mp4's

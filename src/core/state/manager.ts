@@ -5,6 +5,7 @@ import {
   renderAssetsGitignore,
   syncAssetsGitignore,
 } from "../assets-gitignore.js";
+import { isDraftAddress } from "../address.js";
 import { writeFileAtomic } from "../atomic-write.js";
 import { KonteError, errorMessage } from "../errors.js";
 import { withFileLock } from "../file-lock.js";
@@ -519,6 +520,7 @@ export class StateManager {
    * which says nothing about the takes nobody looked at.
    */
   setAccepted(address: string, variantId: string, opts?: { dismiss?: readonly string[] }): void {
+    assertDecidable(address);
     const target = this.getAssetState(address);
     if (!target.variants) {
       throw new KonteError(
@@ -589,6 +591,7 @@ export class StateManager {
    * Returns whether the verdict moved. A take already carrying it keeps its `decidedAt`.
    */
   setDismissed(address: string, variantId: string, dismissed: boolean): boolean {
+    assertDecidable(address);
     const variant = this.state.assets[address]?.variants?.[variantId];
     if (!variant) {
       throw new KonteError(
@@ -739,4 +742,14 @@ export class StateManager {
   renderAssetsGitignore(): string {
     return renderAssetsGitignore(this.getRecordedState());
   }
+}
+
+function assertDecidable(address: string): void {
+  if (!isDraftAddress(address)) return;
+  throw new KonteError(
+    "DRAFT_NOT_DECIDABLE",
+    `"${address}" is a draft take and holds no verdict: its newest take is the one in use, and its ` +
+      `composition is signed off by the panels drawn from it. To redo the composition, run ` +
+      `\`konte reroll ${address}\``,
+  );
 }

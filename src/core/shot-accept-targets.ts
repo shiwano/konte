@@ -7,6 +7,7 @@ import {
   formatTimelineStemAddress,
   isOverlayAddress,
   getStage,
+  isDraftAddress,
   isNarrationStemAddress,
   isSongStemAddress,
   isStemAddress,
@@ -248,6 +249,8 @@ function closeOverRefs(
     for (const ref of refsOf(video, address)) {
       if (getStage(ref) !== video.stage) continue;
       if (!allowAudio && isAudioAddress(manager, ref)) continue;
+      // The cascade stops at a draft (`cascadeAcceptConsumedDeps`).
+      if (isDraftAddress(ref)) continue;
       reached.add(ref);
       queue.push({ address: ref, allowAudio });
     }
@@ -272,6 +275,8 @@ function refsOf(video: StageDefinition, address: string): readonly string[] {
       ? shotById(video.shots, parsed.shotId)?.assets?.[parsed.assetName]
       : parsed.kind === "plate"
         ? (video as { plates?: Record<string, AssetDefinition> }).plates?.[parsed.assetName]
-        : video.topLevelAssets?.[parsed.assetName];
+        : parsed.kind === "draft"
+          ? undefined
+          : video.topLevelAssets?.[parsed.assetName];
   return definition ? extractRefs(definition) : [];
 }

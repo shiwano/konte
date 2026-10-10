@@ -43,6 +43,12 @@ Bring each file under `assets/files/` in as `file` kind — no generation. Pick 
 - **Spawn `konte-prompt-critic` with only the `animatic.tsx` path before the bake.**
 - **`konte generate animatic`, `konte job wait`, then spawn `konte-animatic-critic` with only `plates`** — recut or reroll a wrong frame before any panel stands on it. **Accept nothing**: a plate is never review work; the accept of the first panel built on it signs it off.
 
+## 6b. Draft the takes
+
+- **Split every camera shot into draft takes, shots still pending** → `staging-guide`; the plates are baked first.
+- **Before the spend, spawn `konte-staging-critic` per take with its shot ids, then `konte-prompt-critic` with only the `animatic.tsx` path.**
+- **`konte generate animatic`, `konte job wait`, then spawn `konte-animatic-critic` with only `drafts`** — move a frame or reroll a take before any panel is drawn from it.
+
 ## 7. Develop one direction sequence at a time
 
 Developing a shot = swapping its pending form for the real one — `pendingShot(id)` → `shot(id, build)` in either stage — with a real adapter and prompt.
@@ -51,6 +57,7 @@ Developing a shot = swapping its pending form for the real one — `pendingShot(
 - **One pass = one direction leaf sequence, in story order** — its shots and nothing outside it; a short piece is a single leaf, so it is one pass.
 - **A `join: "continuous"` pair is developed together** — the second shot's picture is derived from the first's, so leaving one of them a `pendingShot` leaves the other nothing to build on. Take the pair in one pass even where a sequence boundary falls between them.
 - **Carry a sequence through both stages before laying out the next** — its panels accepted, then its video shots developed and accepted. A video shot's motion prompt is written from the accepted frames; the next sequence's prompts from what this one settled — the adapter, the prompt pattern, each recurring subject's look.
+- **Each panel is drawn from a frame of its shot's draft take** — pick it before the prompt is written (`staging-guide`).
 - **Write each panel prompt from the plate on screen** — the prompt names what that frame actually shows as its `<Picture N>`. Written from the roster prose instead, the plate is wired in but unread by the model: `setup-unconsumed` passes and the frame drifts anyway.
 - **Leave `blocking`/`camera` off every `<Panel>`** — they are written from the take, in `generation-loop-guide`'s self-review. The shot's `script` is sounded with `<Audio>`, not written onto a panel.
 - **An animatic `pendingShot` may stay for good** — a shot produced by text-to-video or staged in composition consumes no keyframe; name the deferral in the handoff.

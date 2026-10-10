@@ -1,6 +1,6 @@
 ---
 name: staging-guide
-description: Stage a shot's frame, cut and motion from its action, and build its plates. Read before a shot's prompt or panel blocking/camera, when wiring plates or fixing a plate, landmark or keyframe-input finding, and for feedback about what the frame or movement conveys.
+description: Stage a shot's frame, cut and motion from its action, and build its plates and draft takes. Read before a shot's prompt or panel blocking/camera, when wiring plates or drafts or fixing a plate, landmark or keyframe-input finding, and for feedback about what the frame or movement conveys.
 user-invocable: false
 ---
 
@@ -9,6 +9,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 ## Routing
 
 - **Building or using location masters or setup plates, or fixing related findings** → [plates.md](references/plates.md).
+- **Splitting shots into draft takes, picking a panel's frame from one, or redoing one** → [drafts.md](references/drafts.md).
 - **Changing a setup, lineup, join or cutin** → `direction-guide`.
 
 ## Where the movement lives

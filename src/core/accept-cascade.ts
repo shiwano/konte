@@ -1,6 +1,7 @@
 import {
   COMPOSITION_ASSET_NAME,
   isCompositionAddress,
+  isDraftAddress,
   isMaterializedLeafAddress,
   isStemAddress,
   listShotStems,
@@ -222,6 +223,9 @@ export async function cascadeAcceptConsumedDeps(
 
       // A cast reference is accepted only in `konte preview reference` — never cascaded.
       if (castAddresses.has(depAddress)) continue;
+
+      // A draft holds no accept, and the plates it was handed are not what the panel was drawn on.
+      if (isDraftAddress(depAddress)) continue;
 
       // A dep with an unwritten review prerequisite is skipped rather than signed off sideways:
       // accepting a landing panel would otherwise cascade into the unbound panel that feeds it,

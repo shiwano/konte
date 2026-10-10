@@ -4,8 +4,11 @@ import {
   addressToCacheSegments,
   assertValidAddressScope,
   isCompositionAddress,
+  isDraftTakeAddress,
   matchesAddressScope,
 } from "../../core/address.js";
+import { selectResolvedVariant } from "../../core/staleness.js";
+import type { KonteState } from "../../core/types/index.js";
 import {
   collectDeadCompositionVariants,
   collectDeadStemVariants,
@@ -179,6 +182,11 @@ async function executeClean(opts: CleanOptions): Promise<void> {
             reason: `variant ${variantId} is the source of an accepted patch`,
           });
         }
+        continue;
+      }
+
+      if (isDraftTakeInUse(state, address, variantId)) {
+        skipped.push({ address, reason: `variant ${variantId} is the draft take in use` });
         continue;
       }
 
@@ -372,6 +380,7 @@ async function executeClean(opts: CleanOptions): Promise<void> {
           const v = target.variants?.[entry.variantId];
           if (!v) continue;
           if (isProtectedVariant(freshState, entry.address, entry.variantId)) continue;
+          if (isDraftTakeInUse(freshState, entry.address, entry.variantId)) continue;
           // A file-bearing variant collected without --delete-unaccepted was collected only
           // because it was a dead composition/stem leftover; require it to still be dead under
           // the lock.
@@ -500,4 +509,11 @@ Examples:
     .action(async (addressScope: string | undefined, opts) => {
       await executeClean({ addressScope, ...opts });
     });
+}
+
+// A draft holds no accept, so the take it resolves to is kept the way an accepted one is.
+function isDraftTakeInUse(state: KonteState, address: string, variantId: string): boolean {
+  return (
+    isDraftTakeAddress(address) && selectResolvedVariant(state, address)?.variantId === variantId
+  );
 }

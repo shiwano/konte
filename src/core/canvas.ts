@@ -124,3 +124,11 @@ export function deriveReferenceSize(base: CanvasSize, shape: ReferenceShape): Ca
   const aspect = base.height > base.width ? VERTICAL_MASTER_ASPECT : MASTER_ASPECT;
   return { width: masterLong, height: roundToGrid(masterLong / aspect) };
 }
+
+// A draft take is generated small: this budget at the delivery's aspect, through the canvas' own
+// derivation (512×288 at 16:9). Under it a face blurs and lines double.
+const DRAFT_MEGAPIXELS = 0.15;
+
+export function deriveDraftSize(delivery: CanvasSize): CanvasSize {
+  return deriveV1(DRAFT_MEGAPIXELS, delivery);
+}

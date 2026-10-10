@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import { registerProbeAudioCommand } from "./audio.js";
 import { registerProbeContactSheetCommand } from "./contact-sheet.js";
 import { registerProbeCropCommand } from "./crop.js";
+import { registerProbeCutsCommand } from "./cuts.js";
 import { registerProbeExportCommand } from "./export.js";
 import { registerProbeImageCommand } from "./image.js";
 import { registerProbeJsxCommand } from "./jsx.js";
@@ -20,6 +21,7 @@ export function registerProbeCommand(program: Command): void {
   registerProbeCropCommand(probe);
   registerProbeJsxCommand(probe);
   registerProbeMotionCommand(probe);
+  registerProbeCutsCommand(probe);
   registerProbeAudioCommand(probe);
   registerProbeThumbnailsCommand(probe);
   registerProbeReelAudioCommand(probe);

@@ -8,7 +8,7 @@ import type { AssetDefinition, AssetState } from "./types/index.js";
  * address — a take kept, dismissed or patched — spends it; a failed one does not.
  *
  * A reference and a plate are consumed by many takes, and a deterministic asset has no reroll to
- * leave its turbo take by, so none of them is ever generated on turbo.
+ * leave its turbo take by, so none of them is ever generated on turbo. Nor is a draft.
  */
 export function isTurboTake(
   address: string,
@@ -18,6 +18,7 @@ export function isTurboTake(
   if ((assetDef.kind !== "comfy" && assetDef.kind !== "fal") || !assetDef.turboInputs) return false;
   if (assetDef.deterministic) return false;
   const parsed = parseAddress(address);
+  if (parsed.kind === "draft") return false;
   if (parsed.kind !== "shot" && parsed.kind !== "timeline") return false;
   if (parsed.delivery) return false;
   return !Object.values(asset?.variants ?? {}).some((v) => v.file !== null);

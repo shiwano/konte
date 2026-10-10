@@ -10,12 +10,14 @@ import {
   getPatchContext,
   getReferenceContext,
   getPlatePoolContext,
+  getDraftPoolContext,
   getTimelineContext,
   getShotContext,
   makePatchPlaceholder,
   makePlaceholder,
   makeReferencePlaceholder,
   makePlatePlaceholder,
+  makeDraftPlaceholder,
   makeTimelinePlaceholder,
   parsePlaceholder,
   type BuildFormat,
@@ -38,10 +40,10 @@ import { shiftSongSpan, songSpanOfInputs, withSongSpan } from "./song-window.js"
 export type AdapterBackendKind = "comfy" | "fal" | "local" | "file";
 
 /**
- * The five places `asset()` can be called from. A stage build reaches exactly one — a shot build
+ * The six places `asset()` can be called from. A stage build reaches exactly one — a shot build
  * clears the timeline context.
  */
-export type AssetDeclarationSite = "patch" | "plate" | "reference" | "timeline" | "shot";
+export type AssetDeclarationSite = "patch" | "plate" | "draft" | "reference" | "timeline" | "shot";
 
 export interface AdapterMetaInput {
   type: string;
@@ -365,6 +367,7 @@ export function asset<TName extends string, TAdapter extends AssetAdapter<any, a
 function declarationSite(): AssetDeclarationSite | undefined {
   if (getPatchContext()) return "patch";
   if (getPlatePoolContext()) return "plate";
+  if (getDraftPoolContext()) return "draft";
   if (getReferenceContext()) return "reference";
   if (getTimelineContext()) return "timeline";
   if (getShotContext()) return "shot";
@@ -377,6 +380,7 @@ function assetLocation(): string {
   const patchCtx = getPatchContext();
   if (patchCtx) return `patch "${patchCtx.sourceVariantId}"`;
   if (getPlatePoolContext()) return "the animatic's plates";
+  if (getDraftPoolContext()) return "the animatic's drafts";
   if (getReferenceContext()) return "the reference stage";
   const timelineCtx = getTimelineContext();
   if (timelineCtx) return `the ${timelineCtx.stage} timeline`;
@@ -475,6 +479,15 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
     assertUniqueAsset(poolCtx.assets, name, assetLocation());
     poolCtx.assets.set(name, def);
     const placeholder = makePlatePlaceholder(name);
+    record(placeholder);
+    return makeMediaAsset(placeholder) as BrandedMediaAsset<TName, TAdapter>;
+  }
+
+  const draftCtx = getDraftPoolContext();
+  if (draftCtx) {
+    assertUniqueAsset(draftCtx.assets, name, assetLocation());
+    draftCtx.assets.set(name, def);
+    const placeholder = makeDraftPlaceholder(name);
     record(placeholder);
     return makeMediaAsset(placeholder) as BrandedMediaAsset<TName, TAdapter>;
   }

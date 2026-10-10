@@ -6,6 +6,7 @@ import {
   formatAddress,
   formatCompositionAddress,
   formatPlateAssetPath,
+  formatDraftAssetPath,
   formatShotAddress,
   listShotStems,
   formatTimelineAddress,
@@ -100,6 +101,8 @@ type InspectScope =
   | { level: "stage"; stage: AssetStage }
   // Every plate the animatic returned (`animatic:plate`).
   | { level: "plates"; stage: "animatic" }
+  // Every draft take the animatic returned (`animatic:draft`).
+  | { level: "drafts"; stage: "animatic" }
   // The direction: the whole stage, or one of its parts (`address` null / set).
   | { level: "direction"; address: string | null }
   | { level: "variant"; variantId: string };
@@ -132,6 +135,7 @@ function parseInspectScope(input: string): InspectScope {
   }
 
   if (input === "animatic:plate") return { level: "plates", stage: "animatic" };
+  if (input === "animatic:draft") return { level: "drafts", stage: "animatic" };
 
   if (VARIANT_PATTERN.test(input)) return { level: "variant", variantId: input };
 
@@ -170,6 +174,8 @@ interface DefinitionWithDuration {
   // Animatic only: the returned plates, in return order, and the sentence each says it holds.
   exposedPlateIds?: string[];
   platePrompts?: Record<string, string>;
+  // Animatic only: the shots each returned draft covers.
+  draftShots?: Record<string, string[]>;
 }
 
 // A materialized leaf (composition / stem) as a listing row. It has no AssetDefinition — it is
@@ -978,7 +984,9 @@ async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<vo
       ? `${formatShotAddress(scope.stage, scope.shotId)}.`
       : scope.level === "plates"
         ? "animatic:plate."
-        : undefined;
+        : scope.level === "drafts"
+          ? "animatic:draft."
+          : undefined;
   const matches = prompts.filter((p) =>
     scope.level === "asset"
       ? p.address === scope.address
@@ -1023,6 +1031,9 @@ async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<vo
       console.log(`    conditioning: ${k.conditioning.join(", ") || "(none)"}`);
       const plate = panelPlate(k, promptShots);
       if (plate) console.log(`    plate: ${plate}`);
+      for (const frame of k.draftFrames ?? []) {
+        console.log(`    frame: ${draftFrameLine(definition, frame)}`);
+      }
     }
     console.log("");
   }
@@ -1044,6 +1055,9 @@ async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<vo
     if (!first) console.log("");
     first = false;
     console.log(address);
+    for (const line of draftShotLines(definition, promptShots, address)) {
+      console.log(`  ${line}`);
+    }
     for (const line of promptShotLines(
       promptShots,
       respellings,
@@ -1170,13 +1184,29 @@ async function inspectPlates(videoRoot: string): Promise<void> {
   }
 }
 
+async function inspectDrafts(videoRoot: string): Promise<void> {
+  const definition = await loadDefinitionWithDuration(videoRoot, "animatic");
+  const drafts = Object.entries(definition.draftShots ?? {});
+  if (drafts.length === 0) {
+    console.log("No drafts returned.");
+    return;
+  }
+  let first = true;
+  for (const [name, shotIds] of drafts) {
+    if (!first) console.log("");
+    first = false;
+    console.log(`Shots: ${shotIds.join(", ")}`);
+    await inspectAsset(videoRoot, formatDraftAssetPath(name));
+  }
+}
+
 function platesUnderScope(
   definition: DefinitionWithDuration | null,
   scope: PromptScope,
   promptShots: PromptShots | null,
 ): { address: string; prompt: string; within: string | null }[] {
   if (!definition?.platePrompts) return [];
-  if (scope.level === "shot" || scope.level === "direction") return [];
+  if (scope.level === "shot" || scope.level === "direction" || scope.level === "drafts") return [];
   const out: { address: string; prompt: string; within: string | null }[] = [];
   for (const id of definition.exposedPlateIds ?? []) {
     const prompt = definition.platePrompts[id];
@@ -1339,6 +1369,71 @@ function quotedSpellings(
     .filter((spelling) => occurrences.some((p) => p.value.includes(spelling)));
 }
 
+// The shot's own camera frame as the direction declares it: who it holds, and what of its set.
+function shotFrameLines(promptShots: PromptShots, shotId: string): string[] {
+  const out: string[] = [];
+  const order = (ids: readonly string[]) => ids.map(promptShots.label).join(" | ");
+  const declared = promptShots.lineup.get(shotId);
+  if (declared) {
+    const to = declared.lineupTo ? ` → ${order(declared.lineupTo)}` : "";
+    out.push(`lineup: ${order(declared.lineup)}${to}`);
+  }
+  // An insert holds nothing, so there is no line to print — the
+  // empty list, which says "this frame holds nothing" rather than "no set was read".
+  const held = promptShots.set.get(shotId);
+  if (held && held.length > 0) out.push(`set: ${held.map((l) => l.label).join(" | ")}`);
+  return out;
+}
+
+// Each shot a draft take covers, where its cut falls on the take.
+function draftCuts(
+  definition: DefinitionWithDuration | null,
+  name: string,
+): { shotId: string; at: number }[] {
+  let at = 0;
+  return (definition?.draftShots?.[name] ?? []).map((shotId) => {
+    const cut = { shotId, at };
+    at += definition?.shots.find((s) => s.id === shotId)?.duration ?? 0;
+    return cut;
+  });
+}
+
+// Above a draft take's prompt: per `[Shot N]` of it, the direction shot it is and what that shot
+// declares.
+function draftShotLines(
+  definition: DefinitionWithDuration | null,
+  promptShots: PromptShots | null,
+  address: string,
+): string[] {
+  const parsed = tryParseAddress(address);
+  if (parsed?.kind !== "draft") return [];
+  const out: string[] = [];
+  draftCuts(definition, parsed.assetName).forEach(({ shotId, at }, i) => {
+    const setup = promptShots?.setup.get(shotId);
+    out.push(
+      `[Shot ${i + 1}] shot ${shotId} · at ${at.toFixed(2)}s${setup ? ` · setup ${setup}` : ""}`,
+    );
+    const action = promptShots?.action.get(shotId);
+    if (action) out.push(`  action: ${action}`);
+    if (promptShots) out.push(...shotFrameLines(promptShots, shotId).map((line) => `  ${line}`));
+  });
+  return out;
+}
+
+// Which shot of which take a panel's frame is cut from, and how far past that shot's stated cut.
+function draftFrameLine(
+  definition: DefinitionWithDuration | null,
+  frame: { address: string; draft: string; at: number },
+): string {
+  const cuts = draftCuts(definition, frame.draft);
+  const index = cuts.findLastIndex((cut) => cut.at <= frame.at);
+  const past =
+    index >= 0
+      ? ` ([Shot ${index + 1}], ${(frame.at - cuts[index]!.at).toFixed(2)}s past its stated cut)`
+      : "";
+  return `${frame.address} — ${formatDraftAssetPath(frame.draft)} at ${frame.at.toFixed(2)}s${past}`;
+}
+
 function promptShotLines(
   promptShots: PromptShots | null,
   respellings: Respellings,
@@ -1363,15 +1458,7 @@ function promptShotLines(
         : "";
     out.push(`cutin: ${cutin.setup} · lineup: ${order(cutin.lineup)}${to}${set}`);
   }
-  const declared = cutin ? undefined : promptShots.lineup.get(shotId);
-  if (declared) {
-    const to = declared.lineupTo ? ` → ${order(declared.lineupTo)}` : "";
-    out.push(`lineup: ${order(declared.lineup)}${to}`);
-  }
-  // An insert holds nothing, so there is no line to print — the
-  // empty list, which says "this frame holds nothing" rather than "no set was read".
-  const held = cutin ? undefined : promptShots.set.get(shotId);
-  if (held && held.length > 0) out.push(`set: ${held.map((l) => l.label).join(" | ")}`);
+  if (!cutin) out.push(...shotFrameLines(promptShots, shotId));
   for (const line of voicedLines(
     occurrences,
     promptShots.script.get(shotId) ?? [],
@@ -1418,6 +1505,7 @@ Examples:
   konte inspect video:shot.01           One shot — its direction shot, timing and assets
   konte inspect animatic                A whole stage
   konte inspect animatic:plate          Every returned plate — what it holds, and its takes
+  konte inspect animatic:draft          Every draft take — the shots it covers, and its takes
   konte inspect direction               The direction — per-part acceptance and findings
   konte inspect direction:brief         Every part of the brief — its content and feedback
   konte inspect direction:brief.tone    One direction part — its content and feedback
@@ -1481,6 +1569,9 @@ prompt writes a shot's opening frame.
           break;
         case "plates":
           await inspectPlates(videoRoot);
+          break;
+        case "drafts":
+          await inspectDrafts(videoRoot);
           break;
         case "direction":
           await inspectDirection(videoRoot, scope.address);
