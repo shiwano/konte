@@ -1408,7 +1408,9 @@ describe("Video/Audio data attributes", () => {
     // cut it at the shot's end, for the full-span group on the master clock (0 -> 5).
     expect(html).toMatch(/<div data-composition-id="shot-02"[^>]*data-start="5"/);
     expect(html).not.toMatch(/<template id="shot-02-template">(?:(?!<\/template>)[\s\S])*<audio/);
-    expect(html).toMatch(/<div id="embedded-audio"[^>]*>(?:(?!<\/div>)[\s\S])*<audio[^>]*data-start="5"/);
+    expect(html).toMatch(
+      /<div id="embedded-audio"[^>]*>(?:(?!<\/div>)[\s\S])*<audio[^>]*data-start="5"/,
+    );
     expect(html).toMatch(/<audio[^>]*data-duration="3"/);
     expect(html).not.toMatch(/<audio[^>]*data-end=/);
     expect(html).toMatch(/<audio[^>]*data-media-start="2"/);
