@@ -408,8 +408,8 @@ function prependCastGate(
 
 // An unresolved structural finding aborts generate/reroll/export with DIRECTION_CHECK_FAILED, so the
 // step is to edit a definition file — no command does it. Which file is each finding's own answer
-// (`findingFixStage`): pointing a missing reference asset or plate at direction.ts would send the
-// author to the one file that is already right. So one step per file, direction first. A structural
+// (`findingFixStage`): pointing a missing reference asset or keyframe input at direction.ts would
+// send the author to the one file that is already right. So one step per file, direction first. A structural
 // error is never fixed elsewhere and may be what the other findings follow from, so it takes the
 // whole block back to direction.ts. Skipped for a shotless direction: the "write your direction"
 // note already says the same thing (and `empty-direction` is itself one of the findings).
@@ -426,7 +426,7 @@ function prependDirectionFindings(
   const details: Record<FindingFixStage, string> = {
     direction: `Resolve the direction errors and findings below in ${STAGE_ENTRY_FILE.direction} — fix each, or waive a finding by its key`,
     reference: `Expose the missing reference assets in ${STAGE_ENTRY_FILE.reference} — one per finding below, ${waive}`,
-    animatic: `Build the plates and keyframe inputs the setup findings below ask for in ${STAGE_ENTRY_FILE.animatic}, ${waive}`,
+    animatic: `Pass the keyframe inputs the findings below ask for in ${STAGE_ENTRY_FILE.animatic}, ${waive}`,
   };
   const order: readonly FindingFixStage[] = ["direction", "reference", "animatic"];
   actions.unshift(

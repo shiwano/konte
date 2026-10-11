@@ -142,7 +142,7 @@ describe("isTurboTake", () => {
     expect(isTurboTake("animatic:shot.01.first", def, asset)).toBe(true);
   });
 
-  it.each(["reference:cook", "animatic:plate.kitchen", "video:shot.01.clip#delivery"])(
+  it.each(["reference:cook", "video:shot.01.clip#delivery"])(
     "never takes %s on turbo",
     (address) => {
       expect(isTurboTake(address, def, undefined)).toBe(false);

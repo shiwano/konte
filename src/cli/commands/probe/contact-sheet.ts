@@ -8,7 +8,6 @@ import {
   formatCompositionAddress,
   formatShotAddress,
   isCompositionAddress,
-  isPlateAddress,
   matchesAddressScope,
   parseAddress,
   parseReelScope,
@@ -186,18 +185,7 @@ async function buildCompositionCells(
     }
   }
   if (targets.length === 0) {
-    const hasPlate =
-      stage === "animatic" &&
-      Object.keys(manager.getState().assets).some(
-        (address) =>
-          isPlateAddress(address) && manager.resolveReference(address, { includeStale: true }),
-      );
-    throw new KonteError(
-      "SHOT_NOT_FOUND",
-      hasPlate
-        ? "No shots with a composition to tile — tile the setup plates with `konte probe contact-sheet animatic:plate`"
-        : "No shots with a composition to tile",
-    );
+    throw new KonteError("SHOT_NOT_FOUND", "No shots with a composition to tile");
   }
 
   const cells: ContactSheetCell[] = [];
@@ -804,7 +792,6 @@ Examples:
   konte probe contact-sheet --needs-review video       ... narrowed to the video stage
   konte probe contact-sheet animatic                 The whole board, paginated
   konte probe contact-sheet animatic:shot.01         One shot's panels
-  konte probe contact-sheet animatic:plate           Every setup plate
   konte probe contact-sheet reference                  Every shared reference still
   konte probe contact-sheet reference:look --takes     Every take of one reference, side by side
   konte probe contact-sheet video                      Every shot's in, out and subtitle frames
@@ -813,8 +800,8 @@ Examples:
   konte probe contact-sheet animatic --max-cells 30  One sheet, smaller cells
   konte probe contact-sheet animatic:shot.04 animatic:shot.09 --cell-width 1200
                                                        Two shots' panels, large enough for a hand
-  konte probe contact-sheet animatic:plate.front animatic:shot.05
-                                                       A plate's sheet, then the shot's panels`,
+  konte probe contact-sheet reference:look animatic:shot.05
+                                                       A reference's sheet, then the shot's panels`,
     )
     .action(
       async (

@@ -132,15 +132,12 @@ export type Location = {
 // by its `id` inside its location's `landmarks`, and named left to right by the `holds` of every
 // setup whose frame carries it.
 //
-// Its id is outside the `reference:<id>` namespace: what anchors a landmark is the plate its setup
-// stands on, so there is no sheet to expose for it. It still shares the direction's one id space, so
-// it may not collide with a character, a prop, a location, or a landmark of another place
-// (`landmark-id-conflict`).
+// Its id is outside the `reference:<id>` namespace: there is no sheet to expose for it. It still
+// shares the direction's one id space, so it may not collide with a character, a prop, a location,
+// or a landmark of another place (`landmark-id-conflict`).
 //
-// `promptDepiction` is the noun a prompt calls it by, exactly as a character's is —
-// `plate-unnamed` reads the plate's own sentence for it. `description` is where it stands and what
-// it looks like.
-export type Landmark = { name: string; promptDepiction: string; description: string };
+// `description` is where it stands and what it looks like.
+export type Landmark = { name: string; description: string };
 
 // A framing — the size of the `action`'s mover in the frame, a controlled vocabulary so the size
 // cadence is a structured direction value the pacing check reads, not prose the model defaults past.
@@ -156,12 +153,7 @@ export type Framing = "wide" | "medium" | "close" | "insert";
 // read through it rather than declared per shot.
 //
 // The other rosters bind an IDENTITY (who, what, where) and anchor to a `reference:<id>` sheet shared
-// by both stages. A setup binds a FRAME, which only the animatic consumes — the video inherits it
-// through the panel — so its anchor is the **plate**, an image declared under `plates` in
-// animatic.tsx and keyed by this id (`animatic:plate.<id>`), and the `setups` roster itself is prose.
-// A setup two or more shots share owes a plate (`setup-unrealized`) and the shots on it must build
-// from it (`setup-unconsumed`); one only a single shot names has nothing to hold together and owes
-// nothing, so a one-off frame costs a declaration and no generation.
+// by both stages. A setup binds a FRAME and anchors to no asset: the roster is prose.
 //
 // `name` is how a person refers to the frame, `description` is where the camera stands and what it
 // sees, `location` is the `id` of a declared `locations` roster entry (a frame is always somewhere).
@@ -169,22 +161,12 @@ export type Framing = "wide" | "medium" | "close" | "insert";
 // `holds` is what this frame carries of the set — its location's landmark ids, left to right on
 // screen, required and non-empty for every framing but `insert` (`holds-empty`). An insert fills the
 // frame with one object and shows no set, so it is the one frame with nothing to hold.
-//
-// `within` is the wider frame this one steps in from along its axis — a declaration, like `join`,
-// never derived: two frames of one place in a subsequence relation are as often a reverse or a second axis
-// as a push-in. It names a setup of the same location with a strictly wider `framing`
-// (`wide` < `medium` < `close`), and steps may be skipped. `null` says this frame is the root of its
-// axis and steps in from nothing; omission is legal only where no wider frame could be the window's
-// (`within-undeclared`). An `insert` holds nothing, so it is outside the axis entirely. What the
-// declaration buys is `plate-unnested`: the plate must be built from the parent's plate — a cut from
-// it or a window inside it — so the set's scale is carried rather than re-invented per plate.
 export type Setup = {
   name: string;
   description: string;
   location: string;
   framing: Framing;
   holds: readonly string[];
-  within?: string | null;
 };
 
 // The agreed concept — what the piece is, for whom, and how it should feel — captured from the
@@ -480,8 +462,8 @@ export type Direction = {
   // The camera-setup roster, keyed by id (`id` -> setup). Required and non-empty: every shot points at
   // one via its `setup` field, so the roster must offer at least one — the review's frame and space
   // columns and the unused-setup check all depend on it. Unlike the three identity rosters this one
-  // does NOT share the `reference:<id>` namespace: a setup's plate lives at `animatic:plate.<id>`, so
-  // a setup id may equal a character/prop/location id without conflict.
+  // does NOT share the `reference:<id>` namespace: a setup anchors to no asset, so a setup id may
+  // equal a character/prop/location id without conflict.
   setups: Record<string, Setup>;
   // Who reads the piece's `{ narration }` lines. Piece-wide and singular: a narration line carries no
   // speaker tag, so konte cannot tell two narrators apart — a piece that needs more than one voice
@@ -673,7 +655,7 @@ type IsWidenedArray<A> = A extends readonly unknown[]
     : false
   : false;
 // A branded error in the offending field's own position, carrying its message in the type ARGUMENT
-// so the compiler prints the advice rather than an alias name — the form `WithinViolation` takes.
+// so the compiler prints the advice rather than an alias name.
 type DirectionViolation<M extends string> = { [P in M]: never };
 type ConstrainLineupTo<F, LT> = F extends { lineup: infer L extends readonly string[] }
   ? IsWidenedArray<L> extends true
@@ -988,54 +970,8 @@ type ConstrainSetupHolds<S, Ids extends string> = S extends { holds: infer H }
             : unknown
         : unknown)
   : unknown;
-// The framings a `within` target may take, per the framing the window itself declares. `wide` is the
-// widest, and `insert` is off the axis, so both answer with nothing.
-type WiderThan<F> = F extends "close" ? "wide" | "medium" : F extends "medium" ? "wide" : never;
-// A branded error in the `within` position, the way `HoldsRequired` brands the `holds` one: an object
-// where a string was written, so the line is drawn on the `within` that was typed.
-type WithinViolation<M extends string> = { [P in M]: never };
-// Every guard is written non-distributively (`[X] extends [Y]`) and lets a widened type through: a
-// computed roster has no literal to blame, and the runtime `within-*` errors are the receivers.
-type ConstrainWithinTarget<S, T, W extends string, F> = T extends {
-  location: infer TL;
-  framing: infer TF;
-}
-  ? S extends { location: infer SL }
-    ? string extends SL
-      ? unknown
-      : string extends TL
-        ? unknown
-        : [SL] extends [TL]
-          ? Framing extends TF
-            ? unknown
-            : [TF] extends [WiderThan<F>]
-              ? unknown
-              : {
-                  within: WithinViolation<`konte: within "${W}" is ${TF & string}, not wider than this ${F & string}`>;
-                }
-          : { within: WithinViolation<`konte: within "${W}" is set in another location`> }
-    : unknown
-  : unknown;
-type ConstrainSetupWithin<S, Setups> = S extends { within: infer W }
-  ? [W] extends [null | undefined]
-    ? unknown
-    : string extends W
-      ? unknown
-      : S extends { framing: infer F }
-        ? Framing extends F
-          ? unknown
-          : [F] extends ["insert"]
-            ? { within: WithinViolation<"konte: an insert holds nothing, so it is no window"> }
-            : W extends keyof Setups & string
-              ? ConstrainWithinTarget<S, Setups[W], W, F>
-              : W extends string
-                ? { within: WithinViolation<`konte: within id "${W}" is not a declared setup`> }
-                : unknown
-        : unknown
-  : unknown;
 type ConstrainSetupIds<D extends DirectionInput> = ConstrainRosterIds<D["setups"]> & {
-  [K in keyof D["setups"]]: ConstrainSetupHolds<D["setups"][K], LandmarkIdOf<D, D["setups"][K]>> &
-    ConstrainSetupWithin<D["setups"][K], D["setups"]>;
+  [K in keyof D["setups"]]: ConstrainSetupHolds<D["setups"][K], LandmarkIdOf<D, D["setups"][K]>>;
 };
 // What the piece declares about its own lines, read off the literal policy; widened (a computed
 // policy) leaves every shot's `script` alone.

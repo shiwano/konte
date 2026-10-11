@@ -3,8 +3,8 @@ import type { DirectionFinding, ShotPanels, VideoShotPins } from "./direction-ch
 import { checkDirection, validateDirectionStructure, type StagingStageState } from "./direction.js";
 import type { Direction, NarrativeShot, Setup, Shot } from "./dsl/direction.js";
 
-// The source of `docs/SEAMS.md`: the boundary rules (`join`, the lineup across it, the previous
-// panel, the video's pins) as the checker answers them over fixtures. Each row runs one direction, and the board
+// The source of `docs/SEAMS.md`: the boundary rules (`join`, the lineup across it, the video's pins)
+// as the checker answers them over fixtures. Each row runs one direction, and the board
 // or video state the rule reads, through `validateDirectionStructure` and `checkDirection`.
 // `seam-doc.test.ts` fails until the document is regenerated (`bun run build:generate-seam-doc`).
 
@@ -16,14 +16,12 @@ const SEAM_CODES = new Set([
   "join-lineup-mismatch",
   "join-unpinned",
   "join-unshown",
-  "panel-unlinked",
   "lineup-flipped",
-  "undeclared-continuity",
   "character-unconsumed",
 ]);
 
-// One room with two landmarks; `wide` is the axis root, `medium` a step in from it, `reverse` a
-// second camera in the same room on its own axis, `yard` another place.
+// One room with two landmarks; `wide` and `medium` are two sizes of it, `reverse` a second camera in
+// the same room, `yard` another place.
 const SETUPS: Record<string, Setup> = {
   wide: {
     name: "the room, wide",
@@ -31,7 +29,6 @@ const SETUPS: Record<string, Setup> = {
     location: "room",
     framing: "wide",
     holds: ["desk", "window"],
-    within: null,
   },
   medium: {
     name: "the desk",
@@ -39,7 +36,6 @@ const SETUPS: Record<string, Setup> = {
     location: "room",
     framing: "medium",
     holds: ["desk"],
-    within: "wide",
   },
   reverse: {
     name: "the window from the desk",
@@ -47,7 +43,6 @@ const SETUPS: Record<string, Setup> = {
     location: "room",
     framing: "medium",
     holds: ["window"],
-    within: null,
   },
   yard: {
     name: "the yard",
@@ -70,14 +65,14 @@ function direction(shots: readonly Shot[]): Direction {
         name: "the room",
         description: "a small room",
         landmarks: {
-          desk: { name: "the desk", promptDepiction: "desk", description: "a desk" },
-          window: { name: "the window", promptDepiction: "window", description: "a window" },
+          desk: { name: "the desk", description: "a desk" },
+          window: { name: "the window", description: "a window" },
         },
       },
       yard: {
         name: "the yard",
         description: "a back yard",
-        landmarks: { gate: { name: "the gate", promptDepiction: "gate", description: "a gate" } },
+        landmarks: { gate: { name: "the gate", description: "a gate" } },
       },
     },
     setups: SETUPS,
@@ -108,28 +103,20 @@ const graphic = (id: string): Shot =>
 const noStage: StagingStageState = {
   panelSlots: [],
   panelReach: [],
-  plateUses: [],
   panelPrompts: [],
-  platePrompts: {},
   videoPins: [],
   shotPanels: [],
 };
 
 const panelAddress = (shotId: string, name: string) => `animatic:shot.${shotId}.${name}`;
 
-// A developed board shot: whether its opening keyframe's model reads a previous panel, and what it
-// was handed of one.
-function boarded(
-  shotId: string,
-  opts: { lane?: "main" | "cutin"; reads?: boolean; linked?: readonly string[] } = {},
-): ShotPanels {
+// A developed board shot.
+function boarded(shotId: string): ShotPanels {
   return {
     shotId,
-    lane: opts.lane ?? "main",
+    lane: "main",
     firstPanel: panelAddress(shotId, "first"),
     lastPanel: panelAddress(shotId, "last"),
-    carries: opts.reads ?? false,
-    linked: [...(opts.linked ?? [])],
   };
 }
 
@@ -156,12 +143,6 @@ type SeamCase = {
 
 type SeamSection = { title: string; intro: string; cases: readonly SeamCase[] };
 
-const boardCase = (title: string, dir: Direction, shotPanels: readonly ShotPanels[]): SeamCase => ({
-  title,
-  direction: dir,
-  stage: { ...noStage, shotPanels },
-});
-
 const videoCase = (
   title: string,
   dir: Direction,
@@ -173,7 +154,6 @@ const videoCase = (
 });
 
 const longTake = direction([shot("01", "wide"), shot("02", "wide", { join: "continuous" })]);
-const pushIn = direction([shot("01", "wide"), shot("02", "medium")]);
 
 export const SEAM_SECTIONS: readonly SeamSection[] = [
   {
@@ -267,55 +247,6 @@ export const SEAM_SECTIONS: readonly SeamSection[] = [
           shot("02", "medium", { lineup: ["b", "a"], join: "jump-forward" }),
         ]),
       },
-    ],
-  },
-  {
-    title: "The board's frame across a cut along one axis",
-    intro:
-      "An omitted join between two setups sharing a `within` root: the opening keyframe takes the previous shot's last panel in one of its image inputs. Judged where both shots are on the board and the keyframe's model reads a previous panel (`readsPrevPanel`), unless both frames hold subjects and share none. A long take asks the board for nothing.",
-    cases: [
-      boardCase("Push in, handed the frame before", pushIn, [
-        boarded("01"),
-        boarded("02", { reads: true, linked: [panelAddress("01", "last")] }),
-      ]),
-      boardCase("Push in, handed no previous panel", pushIn, [
-        boarded("01"),
-        boarded("02", { reads: true }),
-      ]),
-      boardCase("Push in, handed another shot's frame", pushIn, [
-        boarded("01"),
-        boarded("02", { reads: true, linked: [panelAddress("07", "last")] }),
-      ]),
-      boardCase("Push in, a model that reads no previous panel", pushIn, [
-        boarded("01"),
-        boarded("02"),
-      ]),
-      boardCase("Push in, the shot before not yet on the board", pushIn, [
-        boarded("02", { reads: true }),
-      ]),
-      boardCase(
-        "Push in across a story-time jump",
-        direction([shot("01", "wide"), shot("02", "medium", { join: "jump-forward" })]),
-        [boarded("01"), boarded("02", { reads: true })],
-      ),
-      boardCase(
-        "Push in from one subject to another",
-        direction([shot("01", "wide", { lineup: ["a"] }), shot("02", "medium", { lineup: ["b"] })]),
-        [boarded("01"), boarded("02", { reads: true })],
-      ),
-      boardCase("Two cameras in one room", direction([shot("01", "wide"), shot("02", "reverse")]), [
-        boarded("01"),
-        boarded("02", { reads: true }),
-      ]),
-      boardCase(
-        "Push in with an aside between",
-        direction([shot("01", "wide"), aside("ec"), shot("02", "medium")]),
-        [boarded("01"), boarded("02", { reads: true })],
-      ),
-      boardCase("One take, handed no previous panel", longTake, [
-        boarded("01"),
-        boarded("02", { reads: true }),
-      ]),
     ],
   },
   {
@@ -452,14 +383,6 @@ function describeBoard(stage: StagingStageState | undefined): string {
   const notes: string[] = [];
   const on = stage.shotPanels.map((p) => `${p.shotId}${p.lane === "cutin" ? ".cutin" : ""}`);
   if (on.length > 0) notes.push(`on the board: ${on.join(", ")}`);
-  for (const p of stage.shotPanels) {
-    if (!p.carries) continue;
-    notes.push(
-      p.linked.length === 0
-        ? `${p.shotId} handed no previous panel`
-        : `${p.shotId} previous panel ← ${p.linked.map(short).join(", ")}`,
-    );
-  }
   for (const r of stage.panelReach)
     notes.push(`${short(r.panel)} ← reference ${r.refs.join(", ")}`);
   return notes.length > 0 ? notes.join("; ") : "none";
@@ -503,9 +426,9 @@ function renderSeamMarkdown(): string {
     "",
     "<!-- Generated from src/core/seam-doc.ts by `bun run build:generate-seam-doc`. Do not edit by hand: src/core/__tests__/seam-doc.test.ts fails when this file and the code disagree. -->",
     "",
-    "What konte demands at the boundary between two shots (`join`, the lineup across it, the previous panel, the video's pins), as the checker answers it over fixtures. Every row is one direction, with the board or video state the rule reads, run through `validateDirectionStructure` and `checkDirection`; Result is what came back. An `error` is structural and never waived; the rest are findings, waived by key. Not shown: findings outside the boundary rules, and the load-time rules a stage file trips on its own (`ANIMATIC_INVALID` on a landing panel that declares movement).",
+    "What konte demands at the boundary between two shots (`join`, the lineup across it, the video's pins), as the checker answers it over fixtures. Every row is one direction, with the board or video state the rule reads, run through `validateDirectionStructure` and `checkDirection`; Result is what came back. An `error` is structural and never waived; the rest are findings, waived by key. Not shown: findings outside the boundary rules, and the load-time rules a stage file trips on its own (`ANIMATIC_INVALID` on a landing panel that declares movement).",
     "",
-    'Fixtures: one room with `wide` (the axis root), `medium` (`within: "wide"`) and `reverse` (a second camera on its own axis), and `yard` in another place. `[a ⇒ b,a]` is a shot\'s `lineup` and `lineupTo`.',
+    "Fixtures: one room with `wide`, `medium` and `reverse` (a second camera), and `yard` in another place. `[a ⇒ b,a]` is a shot's `lineup` and `lineupTo`.",
   ];
   for (const section of SEAM_SECTIONS) {
     lines.push(

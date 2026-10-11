@@ -296,10 +296,9 @@ declare const STAGE_FINDING_CODES: readonly [
 export type StageFindingCode = (typeof STAGE_FINDING_CODES)[number];
 /**
  * The class this check reports, its slice of the waiver namespace (see waiver-keys.ts).
- *   - pin-unanchored: the pinned image is a reference sheet or a plate.
+ *   - pin-unanchored: the pinned image is a reference sheet.
  */
 export type PinFindingCode = Extract<StageFindingCode, `pin-${string}`>;
-export type PinSubject = "sheet" | "plate";
 export type PinOccurrence = {
   address: string;
   input: string;
@@ -315,20 +314,11 @@ export type PinFinding = {
   code: PinFindingCode;
   key: string;
   source: string;
-  subject: PinSubject;
   sites: readonly {
     address: string;
     input: string;
     pin: "start" | "end";
   }[];
-};
-/**
- * One wired image input that is not a `pin`, as declared at one address: the addresses it was
- * passed.
- */
-export type ImageInputOccurrence = {
-  address: string;
-  sources: readonly string[];
 };
 /**
  * The classes this check reports, its slice of the waiver namespace (see waiver-keys.ts).
@@ -1587,10 +1577,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
     pins: z.ZodOptional<
       z.ZodType<readonly PinOccurrence[], z.ZodTypeDef, readonly PinOccurrence[]>
     >;
-    imageInputs: z.ZodOptional<
-      z.ZodType<readonly ImageInputOccurrence[], z.ZodTypeDef, readonly ImageInputOccurrence[]>
-    >;
-    prevPanelReaders: z.ZodOptional<z.ZodType<readonly string[], z.ZodTypeDef, readonly string[]>>;
     waivers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
     respellings: z.ZodOptional<
       z.ZodArray<
@@ -1618,290 +1604,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
     >;
   } & {
     stage: z.ZodLiteral<"animatic">;
-    plates: z.ZodOptional<
-      z.ZodRecord<
-        z.ZodString,
-        z.ZodDiscriminatedUnion<
-          "kind",
-          [
-            z.ZodObject<
-              {
-                deterministic: z.ZodOptional<z.ZodBoolean>;
-                kind: z.ZodLiteral<"comfy">;
-                workflow: z.ZodString;
-                inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-                prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-                prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-                outputNodeId: z.ZodOptional<z.ZodString>;
-                models: z.ZodOptional<
-                  z.ZodArray<
-                    z.ZodObject<
-                      {
-                        filename: z.ZodString;
-                        type: z.ZodEnum<
-                          [
-                            "checkpoint",
-                            "lora",
-                            "VAE",
-                            "clip",
-                            "diffusion_model",
-                            "controlnet",
-                            "upscale",
-                            "embeddings",
-                            "clip_vision",
-                            "unet",
-                          ]
-                        >;
-                        nodeId: z.ZodOptional<z.ZodString>;
-                        url: z.ZodString;
-                        savePath: z.ZodOptional<z.ZodString>;
-                        base: z.ZodOptional<z.ZodString>;
-                        displayName: z.ZodOptional<z.ZodString>;
-                      },
-                      "strip",
-                      z.ZodTypeAny,
-                      {
-                        type:
-                          | "checkpoint"
-                          | "lora"
-                          | "VAE"
-                          | "clip"
-                          | "diffusion_model"
-                          | "controlnet"
-                          | "upscale"
-                          | "embeddings"
-                          | "clip_vision"
-                          | "unet";
-                        url: string;
-                        filename: string;
-                        nodeId?: string | undefined;
-                        savePath?: string | undefined;
-                        base?: string | undefined;
-                        displayName?: string | undefined;
-                      },
-                      {
-                        type:
-                          | "checkpoint"
-                          | "lora"
-                          | "VAE"
-                          | "clip"
-                          | "diffusion_model"
-                          | "controlnet"
-                          | "upscale"
-                          | "embeddings"
-                          | "clip_vision"
-                          | "unet";
-                        url: string;
-                        filename: string;
-                        nodeId?: string | undefined;
-                        savePath?: string | undefined;
-                        base?: string | undefined;
-                        displayName?: string | undefined;
-                      }
-                    >,
-                    "many"
-                  >
-                >;
-                nodes: z.ZodOptional<
-                  z.ZodArray<
-                    z.ZodObject<
-                      {
-                        id: z.ZodString;
-                      },
-                      "strip",
-                      z.ZodTypeAny,
-                      {
-                        id: string;
-                      },
-                      {
-                        id: string;
-                      }
-                    >,
-                    "many"
-                  >
-                >;
-                inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-                turboInputs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                kind: "comfy";
-                workflow: string;
-                inputs: Record<string, unknown>;
-                prunedNodes?: string[] | undefined;
-                prunedPassThroughs?: Record<string, string> | undefined;
-                outputNodeId?: string | undefined;
-                models?:
-                  | {
-                      type:
-                        | "checkpoint"
-                        | "lora"
-                        | "VAE"
-                        | "clip"
-                        | "diffusion_model"
-                        | "controlnet"
-                        | "upscale"
-                        | "embeddings"
-                        | "clip_vision"
-                        | "unet";
-                      url: string;
-                      filename: string;
-                      nodeId?: string | undefined;
-                      savePath?: string | undefined;
-                      base?: string | undefined;
-                      displayName?: string | undefined;
-                    }[]
-                  | undefined;
-                nodes?:
-                  | {
-                      id: string;
-                    }[]
-                  | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                turboInputs?: Record<string, unknown> | undefined;
-                deterministic?: boolean | undefined;
-              },
-              {
-                kind: "comfy";
-                workflow: string;
-                inputs: Record<string, unknown>;
-                prunedNodes?: string[] | undefined;
-                prunedPassThroughs?: Record<string, string> | undefined;
-                outputNodeId?: string | undefined;
-                models?:
-                  | {
-                      type:
-                        | "checkpoint"
-                        | "lora"
-                        | "VAE"
-                        | "clip"
-                        | "diffusion_model"
-                        | "controlnet"
-                        | "upscale"
-                        | "embeddings"
-                        | "clip_vision"
-                        | "unet";
-                      url: string;
-                      filename: string;
-                      nodeId?: string | undefined;
-                      savePath?: string | undefined;
-                      base?: string | undefined;
-                      displayName?: string | undefined;
-                    }[]
-                  | undefined;
-                nodes?:
-                  | {
-                      id: string;
-                    }[]
-                  | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                turboInputs?: Record<string, unknown> | undefined;
-                deterministic?: boolean | undefined;
-              }
-            >,
-            z.ZodObject<
-              {
-                deterministic: z.ZodOptional<z.ZodBoolean>;
-                kind: z.ZodLiteral<"file">;
-                path: z.ZodString;
-                type: z.ZodOptional<z.ZodEnum<["image", "video", "audio"]>>;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                kind: "file";
-                path: string;
-                type?: "image" | "video" | "audio" | undefined;
-                deterministic?: boolean | undefined;
-              },
-              {
-                kind: "file";
-                path: string;
-                type?: "image" | "video" | "audio" | undefined;
-                deterministic?: boolean | undefined;
-              }
-            >,
-            z.ZodObject<
-              {
-                deterministic: z.ZodOptional<z.ZodBoolean>;
-                kind: z.ZodLiteral<"fal">;
-                endpointId: z.ZodString;
-                mediaType: z.ZodEnum<["image", "video", "audio"]>;
-                inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-                inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-                turboInputs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                kind: "fal";
-                inputs: Record<string, unknown>;
-                endpointId: string;
-                mediaType: "image" | "video" | "audio";
-                inputLabels?: Record<string, string> | undefined;
-                turboInputs?: Record<string, unknown> | undefined;
-                deterministic?: boolean | undefined;
-              },
-              {
-                kind: "fal";
-                inputs: Record<string, unknown>;
-                endpointId: string;
-                mediaType: "image" | "video" | "audio";
-                inputLabels?: Record<string, string> | undefined;
-                turboInputs?: Record<string, unknown> | undefined;
-                deterministic?: boolean | undefined;
-              }
-            >,
-            z.ZodObject<
-              {
-                deterministic: z.ZodOptional<z.ZodBoolean>;
-                kind: z.ZodLiteral<"local">;
-                operation: z.ZodEnum<
-                  ["resize", "crop", "blank", "trim", "retime", "concat", "frame", "render"]
-                >;
-                mediaType: z.ZodEnum<["image", "video", "audio"]>;
-                inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                kind: "local";
-                inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
-                operation:
-                  | "concat"
-                  | "trim"
-                  | "resize"
-                  | "crop"
-                  | "blank"
-                  | "retime"
-                  | "frame"
-                  | "render";
-                deterministic?: boolean | undefined;
-              },
-              {
-                kind: "local";
-                inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
-                operation:
-                  | "concat"
-                  | "trim"
-                  | "resize"
-                  | "crop"
-                  | "blank"
-                  | "retime"
-                  | "frame"
-                  | "render";
-                deterministic?: boolean | undefined;
-              }
-            >,
-          ]
-        >
-      >
-    >;
-    exposedPlateIds: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-    platePrompts: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
     drafts: z.ZodOptional<
       z.ZodRecord<
         z.ZodString,
@@ -2415,8 +2117,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
     timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
     overlay?: OverlayDefinition | undefined;
     timelineFn?: TimelineFunction | undefined;
-    imageInputs?: readonly ImageInputOccurrence[] | undefined;
-    prevPanelReaders?: readonly string[] | undefined;
     respellings?:
       | {
           line: string;
@@ -2424,80 +2124,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
           shot?: string | undefined;
         }[]
       | undefined;
-    plates?:
-      | Record<
-          string,
-          | {
-              kind: "comfy";
-              workflow: string;
-              inputs: Record<string, unknown>;
-              prunedNodes?: string[] | undefined;
-              prunedPassThroughs?: Record<string, string> | undefined;
-              outputNodeId?: string | undefined;
-              models?:
-                | {
-                    type:
-                      | "checkpoint"
-                      | "lora"
-                      | "VAE"
-                      | "clip"
-                      | "diffusion_model"
-                      | "controlnet"
-                      | "upscale"
-                      | "embeddings"
-                      | "clip_vision"
-                      | "unet";
-                    url: string;
-                    filename: string;
-                    nodeId?: string | undefined;
-                    savePath?: string | undefined;
-                    base?: string | undefined;
-                    displayName?: string | undefined;
-                  }[]
-                | undefined;
-              nodes?:
-                | {
-                    id: string;
-                  }[]
-                | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              turboInputs?: Record<string, unknown> | undefined;
-              deterministic?: boolean | undefined;
-            }
-          | {
-              kind: "file";
-              path: string;
-              type?: "image" | "video" | "audio" | undefined;
-              deterministic?: boolean | undefined;
-            }
-          | {
-              kind: "fal";
-              inputs: Record<string, unknown>;
-              endpointId: string;
-              mediaType: "image" | "video" | "audio";
-              inputLabels?: Record<string, string> | undefined;
-              turboInputs?: Record<string, unknown> | undefined;
-              deterministic?: boolean | undefined;
-            }
-          | {
-              kind: "local";
-              inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
-              operation:
-                | "concat"
-                | "trim"
-                | "resize"
-                | "crop"
-                | "blank"
-                | "retime"
-                | "frame"
-                | "render";
-              deterministic?: boolean | undefined;
-            }
-        >
-      | undefined;
-    exposedPlateIds?: string[] | undefined;
-    platePrompts?: Record<string, string> | undefined;
     drafts?:
       | Record<
           string,
@@ -2799,8 +2425,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
     timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
     overlay?: OverlayDefinition | undefined;
     timelineFn?: TimelineFunction | undefined;
-    imageInputs?: readonly ImageInputOccurrence[] | undefined;
-    prevPanelReaders?: readonly string[] | undefined;
     respellings?:
       | {
           line: string;
@@ -2808,80 +2432,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
           shot?: string | undefined;
         }[]
       | undefined;
-    plates?:
-      | Record<
-          string,
-          | {
-              kind: "comfy";
-              workflow: string;
-              inputs: Record<string, unknown>;
-              prunedNodes?: string[] | undefined;
-              prunedPassThroughs?: Record<string, string> | undefined;
-              outputNodeId?: string | undefined;
-              models?:
-                | {
-                    type:
-                      | "checkpoint"
-                      | "lora"
-                      | "VAE"
-                      | "clip"
-                      | "diffusion_model"
-                      | "controlnet"
-                      | "upscale"
-                      | "embeddings"
-                      | "clip_vision"
-                      | "unet";
-                    url: string;
-                    filename: string;
-                    nodeId?: string | undefined;
-                    savePath?: string | undefined;
-                    base?: string | undefined;
-                    displayName?: string | undefined;
-                  }[]
-                | undefined;
-              nodes?:
-                | {
-                    id: string;
-                  }[]
-                | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              turboInputs?: Record<string, unknown> | undefined;
-              deterministic?: boolean | undefined;
-            }
-          | {
-              kind: "file";
-              path: string;
-              type?: "image" | "video" | "audio" | undefined;
-              deterministic?: boolean | undefined;
-            }
-          | {
-              kind: "fal";
-              inputs: Record<string, unknown>;
-              endpointId: string;
-              mediaType: "image" | "video" | "audio";
-              inputLabels?: Record<string, string> | undefined;
-              turboInputs?: Record<string, unknown> | undefined;
-              deterministic?: boolean | undefined;
-            }
-          | {
-              kind: "local";
-              inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
-              operation:
-                | "concat"
-                | "trim"
-                | "resize"
-                | "crop"
-                | "blank"
-                | "retime"
-                | "frame"
-                | "render";
-              deterministic?: boolean | undefined;
-            }
-        >
-      | undefined;
-    exposedPlateIds?: string[] | undefined;
-    platePrompts?: Record<string, string> | undefined;
     drafts?:
       | Record<
           string,
@@ -3095,8 +2645,6 @@ export type ArcItem<Role extends string> = {
   framing?: string;
   location?: string;
   join?: string;
-  axis?: string;
-  afterGap?: true;
 };
 export type LensRole<Role extends string> = {
   role: Role;
@@ -3141,18 +2689,11 @@ export type DirectionFindingCode =
   | "unused-prop"
   | "location-unreferenced"
   | "unused-location"
-  | "setup-unrealized"
-  | "plate-unanchored"
-  | "setup-unconsumed"
-  | "plate-unnested"
-  | "axis-unrealized"
   | "unused-setup"
   | "setup-indistinct"
-  | "setup-atomized"
   | "unexpected-script"
   | "multi-sentence-action"
   | "off-grid-duration"
-  | "undeclared-continuity"
   | "re-established-wide"
   | "fonts-undeclared"
   | "lineup-flipped"
@@ -3160,15 +2701,13 @@ export type DirectionFindingCode =
   | "lineup-vacuous"
   | "lineup-inconsistent"
   | "character-unconsumed"
+  | "location-unconsumed"
   | "slot-order-mismatch"
-  | "plate-undescribed"
   | "join-lineup-mismatch"
   | "join-unpinned"
   | "join-unshown"
-  | "panel-unlinked"
   | "landmark-flipped"
   | "subject-unnamed"
-  | "plate-unnamed"
   | "song-unreferenced"
   | "lyric-unplaced"
   | "song-overrun";
@@ -3183,7 +2722,6 @@ export type CheckArcOptions = {
   coverageIds?: readonly string[];
   noun?: string;
   textLabel?: string;
-  exposedFramings?: readonly string[];
   establishingFraming?: string;
 };
 export declare function checkArc<Role extends string>(
@@ -3568,7 +3106,6 @@ type Location$1 = {
 };
 export type Landmark = {
   name: string;
-  promptDepiction: string;
   description: string;
 };
 export type Framing = "wide" | "medium" | "close" | "insert";
@@ -3578,7 +3115,6 @@ export type Setup = {
   location: string;
   framing: Framing;
   holds: readonly string[];
-  within?: string | null;
 };
 export type BriefReference = {
   clip: string;
@@ -4209,66 +3745,8 @@ export type ConstrainSetupHolds<S, Ids extends string> = S extends {
           : unknown
       : unknown)
   : unknown;
-export type WiderThan<F> = F extends "close"
-  ? "wide" | "medium"
-  : F extends "medium"
-    ? "wide"
-    : never;
-export type WithinViolation<M extends string> = {
-  [P in M]: never;
-};
-export type ConstrainWithinTarget<S, T, W extends string, F> = T extends {
-  location: infer TL;
-  framing: infer TF;
-}
-  ? S extends {
-      location: infer SL;
-    }
-    ? string extends SL
-      ? unknown
-      : string extends TL
-        ? unknown
-        : [SL] extends [TL]
-          ? Framing extends TF
-            ? unknown
-            : [TF] extends [WiderThan<F>]
-              ? unknown
-              : {
-                  within: WithinViolation<`konte: within "${W}" is ${TF & string}, not wider than this ${F & string}`>;
-                }
-          : {
-              within: WithinViolation<`konte: within "${W}" is set in another location`>;
-            }
-    : unknown
-  : unknown;
-export type ConstrainSetupWithin<S, Setups> = S extends {
-  within: infer W;
-}
-  ? [W] extends [null | undefined]
-    ? unknown
-    : string extends W
-      ? unknown
-      : S extends {
-            framing: infer F;
-          }
-        ? Framing extends F
-          ? unknown
-          : [F] extends ["insert"]
-            ? {
-                within: WithinViolation<"konte: an insert holds nothing, so it is no window">;
-              }
-            : W extends keyof Setups & string
-              ? ConstrainWithinTarget<S, Setups[W], W, F>
-              : W extends string
-                ? {
-                    within: WithinViolation<`konte: within id "${W}" is not a declared setup`>;
-                  }
-                : unknown
-        : unknown
-  : unknown;
 export type ConstrainSetupIds<D extends DirectionInput> = ConstrainRosterIds<D["setups"]> & {
-  [K in keyof D["setups"]]: ConstrainSetupHolds<D["setups"][K], LandmarkIdOf<D, D["setups"][K]>> &
-    ConstrainSetupWithin<D["setups"][K], D["setups"]>;
+  [K in keyof D["setups"]]: ConstrainSetupHolds<D["setups"][K], LandmarkIdOf<D, D["setups"][K]>>;
 };
 export type SpeechOf<D extends DirectionInput> = D["policy"] extends {
   speech: infer S;
@@ -4782,28 +4260,6 @@ export type StageTimelineReturn<Ids extends string = string, D = unknown> = {
   overlay?: (ctx: OverlayContext<D>) => React.ReactElement;
 };
 /**
- * The `setups` roster ids this direction declares — the only keys a plate may be filed under.
- */
-export type SetupIdOf<D> = D extends {
-  setups: infer S;
-}
-  ? Extract<keyof S, string>
-  : string;
-/**
- * One plate as `plates` returns it: the picture, and one English sentence saying what that frame
- * holds. The sentence is required because the picture cannot be read — a crop of a master is bytes
- * konte never looks inside, and two setups cut from one place hold different things.
- */
-export type AnimaticPlate = {
-  image: MediaAsset<"image">;
-  prompt: string;
-};
-/**
- * The plates a `plates` callback may return: one per shared camera position, keyed by its `setups`
- * roster id. Partial — a setup only one shot names has nothing to hold together and owes none.
- */
-export type AnimaticPlates<D> = Partial<Record<SetupIdOf<D>, AnimaticPlate>>;
-/**
  * The shot ids a draft may cover. A `D` that never inferred as a direction literal leaves it `string`.
  */
 export type DraftShotIdOf<D> = [DirectionIdTuple<D>] extends [never]
@@ -4851,11 +4307,9 @@ export type AnimaticDrafts = Record<string, AnimaticDraft<never>>;
 export interface DefineAnimaticOptions<
   D = unknown,
   Ids extends string = string,
-  TPlates extends AnimaticPlates<D> = AnimaticPlates<D>,
   TDrafts extends AnimaticDrafts = AnimaticDrafts,
 > {
-  plates?: (args: { format: VideoFormat }) => TPlates;
-  drafts?: (args: { draft: DraftStarter<D>; plates: TPlates }) => TDrafts;
+  drafts?: (args: { draft: DraftStarter<D> }) => TDrafts;
   waivers?: Record<string, string>;
   timeline: (args: {
     format: VideoFormat;
@@ -4863,7 +4317,6 @@ export interface DefineAnimaticOptions<
     graphicShot: StageGraphicShotStarter<D, "animatic">;
     pendingShot: StagePendingShotStarter<D, "animatic">;
     asideShot: StageAsideShotStarter<D>;
-    plates: TPlates;
     drafts: TDrafts;
   }) => StageTimelineReturn<Ids, D>;
 }
@@ -4876,11 +4329,10 @@ export interface DefineAnimaticOptions<
 export declare function defineAnimatic<
   const D,
   Ids extends string = string,
-  TPlates extends AnimaticPlates<D> = AnimaticPlates<D>,
   TDrafts extends AnimaticDrafts = AnimaticDrafts,
 >(
   direction: DirectionEntry<D>,
-  opts: DefineAnimaticOptions<D, Ids, TPlates, TDrafts>,
+  opts: DefineAnimaticOptions<D, Ids, TDrafts>,
 ): AnimaticDefinition & AnimaticRef;
 /** How far a bed yields to the lines over it, and how quickly. */
 export interface DuckOptions {
@@ -7892,10 +7344,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
     pins: z.ZodOptional<
       z.ZodType<readonly PinOccurrence[], z.ZodTypeDef, readonly PinOccurrence[]>
     >;
-    imageInputs: z.ZodOptional<
-      z.ZodType<readonly ImageInputOccurrence[], z.ZodTypeDef, readonly ImageInputOccurrence[]>
-    >;
-    prevPanelReaders: z.ZodOptional<z.ZodType<readonly string[], z.ZodTypeDef, readonly string[]>>;
     waivers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
     respellings: z.ZodOptional<
       z.ZodArray<
@@ -8293,8 +7741,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
     timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
     overlay?: OverlayDefinition | undefined;
     timelineFn?: TimelineFunction | undefined;
-    imageInputs?: readonly ImageInputOccurrence[] | undefined;
-    prevPanelReaders?: readonly string[] | undefined;
     respellings?:
       | {
           line: string;
@@ -8550,8 +7996,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
     timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
     overlay?: OverlayDefinition | undefined;
     timelineFn?: TimelineFunction | undefined;
-    imageInputs?: readonly ImageInputOccurrence[] | undefined;
-    prevPanelReaders?: readonly string[] | undefined;
     respellings?:
       | {
           line: string;
@@ -8612,10 +8056,10 @@ export interface PromptStructureMeta {
 export declare function formatCutTime(seconds: number): string;
 export type AdapterBackendKind = "comfy" | "fal" | "local" | "file";
 /**
- * The six places `asset()` can be called from. A stage build reaches exactly one — a shot build
+ * The five places `asset()` can be called from. A stage build reaches exactly one — a shot build
  * clears the timeline context.
  */
-export type AssetDeclarationSite = "patch" | "plate" | "draft" | "reference" | "timeline" | "shot";
+export type AssetDeclarationSite = "patch" | "draft" | "reference" | "timeline" | "shot";
 export interface AdapterMetaInput {
   type: string;
   required: boolean;

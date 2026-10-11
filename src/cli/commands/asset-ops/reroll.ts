@@ -87,7 +87,7 @@ export function registerRerollCommand(program: Command): void {
       "after",
       `
 A target is either an address (one asset) or an address-scope that sweeps every
-rerollable asset under it — a stage, a shot, the timeline, the plate roster, the drafts. Naming an
+rerollable asset under it — a stage, a shot, the timeline, the drafts. Naming an
 asset that cannot be rerolled (a file, a deterministic op, a composition or stem) is
 an error; the same asset reached through a scope is skipped in silence, as is one no
 deliverable consumes and one holding an accepted take. --failed narrows to what

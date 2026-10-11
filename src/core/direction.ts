@@ -15,7 +15,6 @@ import { findBuiltinLens } from "./lenses.js";
 import {
   type AnchoredEntityRef,
   type SetupRef,
-  type AnimaticSetupState,
   type ArcItem,
   type CharacterVoiceRef,
   type DirectionFinding,
@@ -26,13 +25,8 @@ import {
   type PanelReach,
   type VideoShotPins,
   type PanelPrompts,
-  type PlateNaming,
-  type PlateUse,
   type ShotPanels,
-  type AxisCut,
-  type PanelSeam,
   checkJoinPins,
-  checkPanelLinks,
   type HoldsSetupRef,
   checkArc,
   checkCharacterVoices,
@@ -41,7 +35,6 @@ import {
   checkLandmarkOrder,
   checkLineups,
   checkNarrator,
-  checkPlateNaming,
   checkProps,
   checkSetups,
 } from "./direction-check.js";
@@ -117,20 +110,13 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "unused-prop": "props",
   "location-unreferenced": "locations",
   "unused-location": "locations",
-  "setup-unrealized": "setups",
-  "plate-unanchored": "setups",
-  "plate-unnested": "setups",
-  "axis-unrealized": "setups",
-  "setup-unconsumed": "setups",
   "unused-setup": "setups",
   "setup-indistinct": "setups",
-  "setup-atomized": "setups",
   // A direction content check (like empty-synopsis): it gates generate and is never deferred.
   "unexpected-script": "arc",
   // A fused-shot content check on the action prose — likewise gates generate and is never deferred.
   "multi-sentence-action": "arc",
   "off-grid-duration": "pacing",
-  "undeclared-continuity": "pacing",
   "re-established-wide": "pacing",
   "fonts-undeclared": "typesetting",
   "lineup-flipped": "staging",
@@ -138,15 +124,13 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "lineup-vacuous": "staging",
   "lineup-inconsistent": "staging",
   "character-unconsumed": "staging",
+  "location-unconsumed": "staging",
   "slot-order-mismatch": "staging",
-  "plate-undescribed": "staging",
   "landmark-flipped": "staging",
   "subject-unnamed": "staging",
-  "plate-unnamed": "staging",
   "join-lineup-mismatch": "staging",
   "join-unpinned": "staging",
   "join-unshown": "staging",
-  "panel-unlinked": "staging",
   // The song the piece is cut to. Never deferred.
   "song-unreferenced": "song",
   "lyric-unplaced": "song",
@@ -158,9 +142,8 @@ export function classifyDirectionFinding(code: DirectionFindingCode): DirectionF
 }
 
 // Where what a waiver of the code lets through plays, read off its subject: inside one shot (the
-// shot, one of its frames, or a subject in one), across the boundary `<from>-<to>` between two, or
-// in no one shot (null).
-const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> = {
+// shot, one of its frames, or a subject in one), or in no one shot (null).
+const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | null> = {
   "missing-role": null,
   "no-payoff": null,
   "role-out-of-order": null,
@@ -185,18 +168,11 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "unused-prop": null,
   "location-unreferenced": null,
   "unused-location": null,
-  "setup-unrealized": null,
-  "plate-unanchored": null,
-  "plate-unnested": null,
-  "axis-unrealized": null,
-  "setup-unconsumed": null,
   "unused-setup": null,
   "setup-indistinct": null,
-  "setup-atomized": null,
   "unexpected-script": "shot",
   "multi-sentence-action": "shot",
   "off-grid-duration": "shot",
-  "undeclared-continuity": "boundary",
   "re-established-wide": "shot",
   "fonts-undeclared": null,
   "lineup-flipped": "shot",
@@ -204,35 +180,29 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "lineup-vacuous": "shot",
   "lineup-inconsistent": "shot",
   "character-unconsumed": "shot",
+  "location-unconsumed": "shot",
   "slot-order-mismatch": "shot",
-  "plate-undescribed": null,
   "landmark-flipped": null,
   "subject-unnamed": "shot",
-  "plate-unnamed": null,
   "join-lineup-mismatch": "shot",
   "join-unpinned": "shot",
   "join-unshown": "shot",
-  "panel-unlinked": "boundary",
   "song-unreferenced": null,
   "lyric-unplaced": null,
   "song-overrun": null,
 };
 
 // The stage entry file a finding's fix is written in. A declared entity — a look or a cast voice —
-// with no reference asset is answered in `reference.tsx`; a setup the board realizes wrongly is
-// answered by its plates and keyframes in `animatic.tsx`. The direction entry naming either is
-// already correct, so it is edited only to waive one. Every other finding is direction-side.
+// with no reference asset is answered in `reference.tsx`; a keyframe standing on no reference to its
+// place is answered in `animatic.tsx`. The direction entry naming either is already correct, so it
+// is edited only to waive one. Every other finding is direction-side.
 const FIX_STAGE: Partial<Record<DirectionFindingCode, "reference" | "animatic">> = {
   "character-unreferenced": "reference",
   "character-voice-unreferenced": "reference",
   "narrator-unreferenced": "reference",
   "prop-unreferenced": "reference",
   "location-unreferenced": "reference",
-  "setup-unrealized": "animatic",
-  "plate-unanchored": "animatic",
-  "plate-unnested": "animatic",
-  "axis-unrealized": "animatic",
-  "setup-unconsumed": "animatic",
+  "location-unconsumed": "animatic",
   "song-unreferenced": "reference",
 };
 
@@ -242,10 +212,8 @@ export function findingFixStage(code: DirectionFindingCode): FindingFixStage {
   return FIX_STAGE[code] ?? "direction";
 }
 
-// The framing vocabulary the engine's space checks read (framing stays opaque to `checkArc`; this
-// layer knows the DSL's words). `wide` and `medium` keep most of the set in frame, so two different
-// ones cut adjacently in one location bind backgrounds; `wide` alone opens a whole set.
-const EXPOSED_FRAMINGS: readonly string[] = ["wide", "medium"];
+// The framing the engine's space check reads (framing stays opaque to `checkArc`; this layer knows
+// the DSL's words): `wide` opens a whole set.
 const ESTABLISHING_FRAMING = "wide";
 
 // Characters, prop, and location findings point at post-acceptance work — anchoring an entity to a
@@ -328,58 +296,34 @@ export function directionWaiverEntries(direction: Direction): Map<string, Direct
   return out;
 }
 
-// A waiver read by watching a shot: its review address, what it waives, and the shots it plays in —
-// one, or both sides of a boundary.
+// A waiver read by watching a shot: its review address, what it waives, and the shot it plays in.
 export type ShotWaiver = {
   address: string;
   code: DirectionFindingCode;
   subject: string;
   reason: string;
-  shotIds: string[];
+  shotId: string;
 };
-
-// Every boundary a boundary finding can name, spelled as its subject does: two arc shots adjacent
-// in a leaf (`undeclared-continuity`'s), and two frames of one lane across a cut (`panel-unlinked`'s,
-// `.cutin` on the cutin lane). Read off the boundaries themselves, since an id may hold a `-`.
-function shotBoundaries(direction: Direction): Map<string, [string, string]> {
-  const out = new Map<string, [string, string]>();
-  for (const leaf of collectLeaves(direction.sequence)) {
-    const arc = (leaf.shots ?? []).filter((s) => !isAsideShot(s));
-    for (let i = 0; i + 1 < arc.length; i++) {
-      out.set(`${arc[i]!.id}-${arc[i + 1]!.id}`, [arc[i]!.id, arc[i + 1]!.id]);
-    }
-  }
-  for (const { frame, previousFrame } of joinBoundaries(direction)) {
-    if (!previousFrame) continue;
-    const lane = frame.lane === "cutin" ? ".cutin" : "";
-    out.set(`${previousFrame.shotId}-${frame.shotId}${lane}`, [previousFrame.shotId, frame.shotId]);
-  }
-  return out;
-}
 
 export function directionShotWaivers(direction: Direction): ShotWaiver[] {
   const shotIds = new Set(collectShots(direction).map((s) => s.id));
-  const boundaries = shotBoundaries(direction);
   const out: ShotWaiver[] = [];
   for (const [key, { reason, nodePath }] of directionWaiverEntries(direction)) {
     const sep = key.indexOf(WAIVER_KEY_SEPARATOR);
     if (sep === -1) continue;
     const code = key.slice(0, sep);
     if (!isWaivableCode(code)) continue;
-    const on = WAIVER_ON_SHOT[code];
-    if (!on) continue;
+    if (!WAIVER_ON_SHOT[code]) continue;
     const subject = key.slice(sep + 1);
     // A shot's subject opens with its id; an id holds no `.`.
-    const head = subject.split(".")[0] ?? "";
-    const ids =
-      on === "boundary" ? (boundaries.get(subject) ?? []) : shotIds.has(head) ? [head] : [];
-    if (ids.length === 0) continue;
+    const shotId = subject.split(".")[0] ?? "";
+    if (!shotIds.has(shotId)) continue;
     out.push({
       address: formatDirectionWaiverAddress(nodePath, key),
       code,
       subject,
       reason,
-      shotIds: ids,
+      shotId,
     });
   }
   return out;
@@ -415,24 +359,21 @@ type DirectionErrorCode =
   | "location-empty-name"
   | "location-empty-description"
   | "location-empty"
-  // The landmarks a place is recognized by: the roster must exist and hold something, each entry is
-  // the same hard contract as a roster entry, and its `promptDepiction` is what `plate-unnamed`
-  // looks for.
+  // The landmarks a place is recognized by: the roster must exist and hold something, and each entry
+  // is the same hard contract as a roster entry.
   | "landmarks-empty"
   | "landmark-invalid-id"
   | "landmark-empty-name"
   | "landmark-empty-description"
-  | "landmark-empty-prompt-depiction"
   // A landmark id that collides with a character / prop / location id, or with a landmark of another
   // place. The direction has one id space; unlike the three rosters a landmark maps to no reference
   // asset, so the collision is the id space's, not the namespace's.
   | "landmark-id-conflict"
-  // Two declared `promptDepiction`s one substring scan cannot tell apart, characters and landmarks
-  // in one depiction space.
+  // Two declared `promptDepiction`s one substring scan cannot tell apart.
   | "prompt-depiction-conflict"
   // The setup roster's twin of the above, plus `setup-unknown-location` (a frame is always somewhere,
-  // so the `location` it names must be declared). No `reference-id-conflict` arm: a setup's plate lives
-  // at `animatic:plate.<id>`, so its id is in its own namespace.
+  // so the `location` it names must be declared). No `reference-id-conflict` arm: a setup anchors to
+  // no asset.
   | "setup-invalid-id"
   | "setup-empty-name"
   | "setup-empty-description"
@@ -443,12 +384,6 @@ type DirectionErrorCode =
   // named must be a landmark of the place the setup is set in.
   | "holds-empty"
   | "holds-unknown-id"
-  // The `within` axis's own contract, the `join` pair's twin: a frame that could step in from a
-  // wider one and says nothing about whether it does, a `within` no step could have, and a chain of
-  // them that closes on itself. None is a creative call, so none is waivable.
-  | "within-undeclared"
-  | "within-impossible"
-  | "within-cyclic"
   // A single id declared in more than one of the characters / props / locations rosters — all three
   // share the `reference:<id>` namespace, so a collision names one reference asset for two entities.
   | "reference-id-conflict"
@@ -624,9 +559,7 @@ function collectUsedSetupIds(direction: Direction): Set<string> {
   return new Set(collectShotFrames(direction).map((f) => f.setup));
 }
 
-// How many frames each setup is named by. The `setup-unrealized` check reads it: a frame two or more
-// shots share is one they must be held to, a frame one shot uses has nothing to hold together. A
-// cutin counts as one more shot on its setup.
+// How many frames each setup is named by. A cutin counts as one more shot on its setup.
 function countShotsPerSetup(direction: Direction): Map<string, number> {
   const counts = new Map<string, number>();
   for (const f of collectShotFrames(direction)) {
@@ -654,16 +587,7 @@ function entityRefs(roster: Record<string, { name: string }> | undefined): Ancho
 
 function setupRefs(
   roster:
-    | Record<
-        string,
-        {
-          name: string;
-          location: string;
-          framing: string;
-          holds?: readonly string[];
-          within?: string | null;
-        }
-      >
+    | Record<string, { name: string; location: string; framing: string; holds?: readonly string[] }>
     | undefined,
 ): SetupRef[] {
   return Object.entries(roster ?? {}).map(([id, s]) => ({
@@ -672,7 +596,6 @@ function setupRefs(
     location: s.location,
     framing: s.framing,
     holds: s.holds ?? [],
-    ...(s.within != null ? { within: s.within } : {}),
   }));
 }
 
@@ -944,7 +867,7 @@ function checkDurations(direction: Direction): DirectionFinding[] {
 }
 
 // The stage-side half of the staging class: what order the board actually passed each keyframe its
-// references in. Built by the CLI and handed in, the way `realizedIds` and `animaticSetups` are —
+// references in. Built by the CLI and handed in, the way `realizedIds` is —
 // this module stays free of the dependency graph.
 export type StagingStageState = {
   // One entry per developed keyframe, in panel order: the `reference:<id>` assets that panel takes,
@@ -952,27 +875,20 @@ export type StagingStageState = {
   // subject lands, so two panels of a shot are two orders.
   panelSlots: readonly PanelSlots[];
   // The same panels read down the chain instead: every reference each one stands on. An inherited
-  // keyframe answers for what it was handed, which is why `character-unconsumed` reads this and
-  // `slot-order-mismatch` reads the slots.
+  // keyframe answers for what it was handed, which is why `character-unconsumed` and
+  // `location-unconsumed` read this and `slot-order-mismatch` reads the slots.
   panelReach: readonly PanelReach[];
-  // One entry per developed shot standing on a plated setup: whether its panels' prompts carry the
-  // plate's own sentence.
-  plateUses: readonly PlateUse[];
   // A fourth reading of the same panels: the conditioning text each one stands on, which
   // `subject-unnamed` looks for the frame's subjects in.
   panelPrompts: readonly PanelPrompts[];
-  // The sentence each returned plate was written with, keyed by setup id — what `plate-unnamed`
-  // reads for the landmarks that frame declares it holds.
-  platePrompts: Readonly<Record<string, string>>;
   // The one reading that comes off the VIDEO rather than the board: which frames each developed
   // video shot pins, so `join-unpinned` can ask whether a declared long take is carried across its
   // seam. Empty where the direction declares no seam to judge, and empty too where video.tsx could
   // not be read — which is the one place stale-waiver detection is imprecise, since the class is
   // marked evaluated by the BOARD: a `join-unpinned` waiver reads stale while the video is broken.
   videoPins: readonly VideoShotPins[];
-  // The seam reading: the two keyframes each developed shot answers a boundary with, and what the
-  // opening one was handed of the frame before it. `join-unpinned` reads the opening keyframe as
-  // the seam of a long take; `panel-unlinked` reads the rest against the `within` declarations.
+  // The seam reading: the two keyframes each developed shot answers a boundary with. `join-unpinned`
+  // reads the opening keyframe as the seam of a long take.
   shotPanels: readonly ShotPanels[];
 };
 
@@ -1063,7 +979,6 @@ function checkStaging(
         ? {
             panelSlots: stage.panelSlots,
             panelReach: stage.panelReach,
-            plateUses: stage.plateUses,
             panelPrompts: stage.panelPrompts,
             subjectPromptDepictions: subjectPromptDepictions(direction),
           }
@@ -1072,9 +987,7 @@ function checkStaging(
     }),
     // The setups roster alone: a landmark's place on screen is the camera's, not a shot's.
     ...checkLandmarkOrder(holdsSetupRefs(direction)),
-    ...(stage ? checkPlateNaming(plateNamings(direction, stage.platePrompts)) : []),
     ...(stage ? checkJoinPins(shots, stage.videoPins, stage.shotPanels) : []),
-    ...(stage ? checkPanelLinks(panelSeams(direction, stage.shotPanels)) : []),
   ];
 }
 
@@ -1096,163 +1009,6 @@ function holdsSetupRefs(direction: Direction): HoldsSetupRef[] {
     location: s.location,
     holds: s.holds ?? [],
   }));
-}
-
-// Each returned plate paired with what its setup declares that frame holds. A setup with no plate has
-// no sentence to read, and one holding nothing (an `insert`) has nothing to look for.
-function plateNamings(
-  direction: Direction,
-  platePrompts: Readonly<Record<string, string>>,
-): PlateNaming[] {
-  const out: PlateNaming[] = [];
-  for (const [setupId, prompt] of Object.entries(platePrompts)) {
-    const setup = direction.setups?.[setupId];
-    if (!setup) continue;
-    const landmarks = direction.locations?.[setup.location]?.landmarks ?? {};
-    const holds = (setup.holds ?? []).flatMap((id) => {
-      // An id the place does not declare is `holds-unknown-id`, a structural error; own keys only,
-      // so an inherited name is not read as one.
-      if (!Object.hasOwn(landmarks, id)) return [];
-      return [{ id, promptDepiction: landmarks[id]!.promptDepiction ?? "" }];
-    });
-    if (holds.length === 0) continue;
-    out.push({ setupId, prompt, holds });
-  }
-  return out;
-}
-
-// The cuts the `undeclared-continuity` skip waives through: adjacent shots of one leaf, no aside
-// between them, two set-showing sizes of one place that the direction says are one camera. Walked
-// here rather than in the arc engine because the plates that answer for them are the setups class's,
-// and read on exactly the same terms as the skip so no pair falls between the two.
-//
-// A cutin lane is cut along its own axis the same way, read across the clock: two wipes over
-// adjacent shots standing on two sizes of one axis owe the same plates.
-function axisCuts(direction: Direction): AxisCut[] {
-  const setups = direction.setups ?? {};
-  const out: AxisCut[] = [];
-  const push = (from: string, to: string) => {
-    if (from === to) return;
-    const a = setups[from];
-    const b = setups[to];
-    if (!a || !b) return;
-    // Read on the skip's own terms, predicate for predicate: the place (a `within` crossing two of
-    // them is `within-impossible`, and the skip guards the pair anyway), then the axis by the same
-    // `withinRoot` — undefined on a ring, where the skip does not apply either — then the two
-    // sizes. A pair one of the two walks and the other does not is a pair that falls between them.
-    if (a.location !== b.location) return;
-    const root = withinRoot(setups, from);
-    if (root === undefined || root !== withinRoot(setups, to)) return;
-    if (!EXPOSED_FRAMINGS.includes(a.framing) || !EXPOSED_FRAMINGS.includes(b.framing)) return;
-    if (a.framing === b.framing) return;
-    const chain = nestingChain(setups, from, to);
-    const pair = [from, to].sort() as [string, string];
-    if (chain) out.push({ pair, chain });
-  };
-  for (const leaf of collectLeaves(direction.sequence)) {
-    let previous: NarrativeShot | undefined;
-    for (const shot of leaf.shots ?? []) {
-      // An aside or a graphic shot breaks the pair — the skip does not apply across one, so nothing
-      // is owed either.
-      if (isAsideShot(shot) || isGraphicShot(shot)) {
-        previous = undefined;
-        continue;
-      }
-      const before = previous;
-      previous = shot;
-      if (before !== undefined) push(before.setup, shot.setup);
-    }
-  }
-  for (const { frame, previousFrame } of joinBoundaries(direction)) {
-    if (frame.lane === "cutin" && previousFrame) push(previousFrame.setup, frame.setup);
-  }
-  return out;
-}
-
-// Both setups and every frame between them and the one they are both windows of. `undefined` where
-// they stand on different axes — there is nothing to nest and the skip never applied.
-function nestingChain(
-  setups: Readonly<Record<string, Setup>>,
-  from: string,
-  to: string,
-): string[] | undefined {
-  const up = (id: string): string[] => {
-    const path: string[] = [];
-    let at = id;
-    while (setups[at] !== undefined && !path.includes(at)) {
-      path.push(at);
-      const parent = setups[at]!.within;
-      if (parent == null) return path;
-      at = parent;
-    }
-    return path;
-  };
-  const fromPath = up(from);
-  const toPath = up(to);
-  // The nearest frame both are windows of. Their roots agreeing is what "one axis" means, so a meet
-  // deeper than the root only shortens what has to be plated.
-  const meet = fromPath.find((id) => toPath.includes(id));
-  if (meet === undefined) return undefined;
-  const take = (path: string[]) => path.slice(0, path.indexOf(meet) + 1);
-  return [...new Set([...take(fromPath), ...take(toPath)])];
-}
-
-// The cuts a frame has to carry across, paired with what the board did about them: an omitted join
-// across two setups on ONE `within` axis — story time runs on and the camera has moved only along
-// that axis. The plate nesting already carries the room (`plate-unnested`); what the frame before
-// it carries is the subject — her light, her size against the set, where she stands.
-//
-// `"continuous"` owes the board nothing here: the seam is the next shot's opening keyframe, and the
-// take before landing on it is the video's to answer (`join-unpinned`). A story-time jump
-// carries nothing (she may have moved), a second axis is a different camera, two frames holding no
-// subject in common have no subject to carry, and an aside between the two shots is a card the take
-// does not run through. A seam is judged only where both shots are on the board and the opening
-// keyframe has a slot for the frame — the rest is not this finding's to report.
-//
-// Each lane is its own camera: a wipe carries across the seam from the wipe before it, and a main
-// frame from the main frame before it.
-function panelSeams(direction: Direction, continuity: readonly ShotPanels[]): PanelSeam[] {
-  const setups = direction.setups ?? {};
-  const byFrame = new Map(continuity.map((entry) => [`${entry.shotId}/${entry.lane}`, entry]));
-  const out: PanelSeam[] = [];
-  for (const { frame, previousFrame } of joinBoundaries(direction)) {
-    if (previousFrame === undefined) continue;
-    const here = byFrame.get(`${frame.shotId}/${frame.lane}`);
-    const before = byFrame.get(`${previousFrame.shotId}/${previousFrame.lane}`);
-    if (!here?.carries || !before) continue;
-    if (!isAxisCut(setups, frame, previousFrame)) continue;
-    if (!sharesSubject(previousFrame, frame)) continue;
-    out.push({
-      id: frame.shotId,
-      lane: frame.lane,
-      from: previousFrame.shotId,
-      fromPanel: before.lastPanel,
-      linked: here.linked,
-    });
-  }
-  return out;
-}
-
-// An omitted join between two different setups of one `within` axis. Anything the author wrote at the
-// boundary moves story time or is no cut, and two frames of one setup are `join-undeclared` until
-// they say which.
-function isAxisCut(
-  setups: Readonly<Record<string, Setup>>,
-  frame: ShotFrame,
-  previous: ShotFrame,
-): boolean {
-  if (frame.join !== undefined) return false;
-  if (previous.setup === frame.setup) return false;
-  const root = withinRoot(setups, frame.setup);
-  return root !== undefined && root === withinRoot(setups, previous.setup);
-}
-
-// Two frames that both hold subjects but none in common — a cut from one face to another — carry
-// nothing across. A frame with no subject declared may still hold a prop, so it is read as sharing.
-function sharesSubject(previous: ShotFrame, frame: ShotFrame): boolean {
-  const before = previous.lineupTo ?? previous.lineup;
-  if (before.length === 0 || frame.lineup.length === 0) return true;
-  return frame.lineup.some((id) => before.includes(id));
 }
 
 function lensSpecErrors(lens: LensSpec<string>, who: string): DirectionStructureError[] {
@@ -1310,139 +1066,6 @@ function lensSpecErrors(lens: LensSpec<string>, who: string): DirectionStructure
         message: `${who} "${lens.name}" role "${decl.role}" has minShare ${decl.minShare} greater than maxShare ${decl.maxShare}`,
       });
     }
-  }
-  return errors;
-}
-
-// How wide each framing is, for the `within` axis. `insert` is off the axis: it holds nothing, so it
-// is neither a window nor a frame one is cut from, and answers `undefined` at both ends.
-const FRAMING_WIDTH: Record<string, number> = { wide: 0, medium: 1, close: 2 };
-
-// The shape a push-in on one axis leaves in the two `holds`. A reverse angle (the same landmarks
-// the other way round) and an angle from the side (a landmark the wider frame does not carry) both
-// fail it, which is what keeps them out of the `within-undeclared` candidate set.
-function isOrderedSubsequence(inner: readonly string[], outer: readonly string[]): boolean {
-  let at = 0;
-  for (const id of outer) {
-    if (at < inner.length && inner[at] === id) at++;
-  }
-  return at === inner.length;
-}
-
-// The setups a given one could step in from: same place, strictly wider, and carrying this frame's
-// `holds` in order. Only a candidate SET — it decides whether the author owes a declaration, never
-// whether the one they wrote is right. A window may legitimately hold a landmark too small to have
-// been declared in the frame it is cut from, so a `within` outside this set is not an error.
-function withinCandidates(setups: Record<string, Setup>, id: string, setup: Setup): string[] {
-  const width = FRAMING_WIDTH[setup.framing];
-  if (width === undefined) return [];
-  return Object.entries(setups)
-    .filter(([otherId, other]) => {
-      if (otherId === id || other.location !== setup.location) return false;
-      const otherWidth = FRAMING_WIDTH[other.framing];
-      return otherWidth !== undefined && otherWidth < width;
-    })
-    .filter(([, other]) => isOrderedSubsequence(setup.holds ?? [], other.holds ?? []))
-    .map(([otherId]) => otherId);
-}
-
-// The root of a setup's `within` chain — the widest frame it is a window of, and the id of the camera
-// axis it stands on. A setup declaring `within: null` is its own root, and so is one whose chain
-// leaves the roster. Guarded against a ring (`within-cyclic` reports it; this must still answer).
-export function withinRoot(
-  setups: Readonly<Record<string, Setup>>,
-  id: string,
-): string | undefined {
-  const seen = new Set<string>();
-  let at = id;
-  while (setups[at] !== undefined && !seen.has(at)) {
-    seen.add(at);
-    // An omitted `within` is a root as much as an explicit `null`: it is legal only where no wider
-    // frame could hold this one, which is what being the root of an axis means.
-    const parent = setups[at]!.within;
-    if (parent == null) return at;
-    at = parent;
-  }
-  // A chain that leaves the roster (`within-impossible`) or rings (`within-cyclic`) names no axis.
-  return undefined;
-}
-
-// The `within` axis: a window declares the frame it is cut out of, and konte checks the declaration
-// rather than deriving it.
-function withinErrors(direction: Direction): DirectionStructureError[] {
-  const errors: DirectionStructureError[] = [];
-  const setups = direction.setups ?? {};
-  for (const [id, setup] of Object.entries(setups)) {
-    // A frame set nowhere the roster declares is `setup-unknown-location`; asking it about its
-    // window on top of that names the wrong fix.
-    if (direction.locations?.[setup.location] === undefined) continue;
-    const within = setup.within;
-    if (within === undefined) {
-      // An `insert` is off the axis, so it owes no declaration however its empty `holds` nests.
-      if (setup.framing === "insert") continue;
-      const candidates = withinCandidates(setups, id, setup);
-      if (candidates.length === 0) continue;
-      errors.push({
-        code: "within-undeclared",
-        subject: id,
-        message:
-          `setup "${id}" could be a step in from ${candidates.map((c) => `"${c}"`).join(", ")} — ` +
-          `same place, wider, and holding what this frame holds. Say which: \`within: "<id>"\` for the ` +
-          `frame this one steps in from, or \`within: null\` if it is the root of its own camera axis`,
-      });
-      continue;
-    }
-    if (within === null) continue;
-    const impossible = (why: string) =>
-      errors.push({
-        code: "within-impossible",
-        subject: id,
-        message: `setup "${id}" declares \`within: "${within}"\`, but ${why}`,
-      });
-    if (setup.framing === "insert") {
-      impossible(
-        "an insert fills the frame with one object and shows no set, so it holds nothing and is no " +
-          "window on another frame — drop the `within`",
-      );
-      continue;
-    }
-    const target = setups[within];
-    if (target === undefined) {
-      impossible("that is not a declared setup");
-      continue;
-    }
-    if (target.location !== setup.location) {
-      impossible(
-        `"${within}" is set in "${target.location}" while this frame is in "${setup.location}" — a ` +
-          `window is cut out of a frame of the same place`,
-      );
-      continue;
-    }
-    const width = FRAMING_WIDTH[setup.framing];
-    const targetWidth = FRAMING_WIDTH[target.framing];
-    if (width === undefined || targetWidth === undefined || targetWidth >= width) {
-      impossible(
-        `"${within}" is ${target.framing} and this frame is ${setup.framing} — a window is cut out ` +
-          `of a strictly wider frame (wide, then medium, then close; an insert is off the axis)`,
-      );
-    }
-  }
-
-  // Only reachable through a computed roster: the framing order is strict, so a literal chain cannot
-  // close on itself. Reported once per setup on the ring, so no reader has to walk it.
-  for (const id of Object.keys(setups)) {
-    const seen = new Set<string>();
-    let at: string | undefined = id;
-    while (at !== undefined && !seen.has(at)) {
-      seen.add(at);
-      at = setups[at]?.within ?? undefined;
-    }
-    if (at !== id) continue;
-    errors.push({
-      code: "within-cyclic",
-      subject: id,
-      message: `setup "${id}" is cut out of itself — its \`within\` chain leads back to it`,
-    });
   }
   return errors;
 }
@@ -1628,7 +1251,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
   // `key` is the form the naming checks match on.
   const declaredDepictions: {
     subject: string;
-    kind: "character" | "landmark";
     depiction: string;
     key: string;
   }[] = [];
@@ -1664,7 +1286,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
     } else {
       declaredDepictions.push({
         subject: id,
-        kind: "character",
         depiction: character.promptDepiction,
         key: character.promptDepiction.trim().toLowerCase(),
       });
@@ -1782,20 +1403,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
           message: `landmark "${subject}" has an empty description — say where it stands and what it looks like`,
         });
       }
-      if ((landmark.promptDepiction ?? "").trim() === "") {
-        errors.push({
-          code: "landmark-empty-prompt-depiction",
-          subject,
-          message: `landmark "${subject}" has no \`promptDepiction\` — declare a noun the model can draw it by`,
-        });
-      } else {
-        declaredDepictions.push({
-          subject,
-          kind: "landmark",
-          depiction: landmark.promptDepiction,
-          key: landmark.promptDepiction.trim().toLowerCase(),
-        });
-      }
     }
   }
 
@@ -1873,10 +1480,9 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
     }
   }
 
-  // Both naming checks read a prompt for a declared depiction anywhere in it, so one contained in
+  // The naming check reads a prompt for a declared depiction anywhere in it, so one contained in
   // another is undecidable: a prompt that says only "girl in a purple hoodie" also answers for a
-  // bare "girl". One depiction space across both rosters, since a panel's prompt carries its plate's
-  // sentence as well.
+  // bare "girl".
   for (let i = 0; i < declaredDepictions.length; i++) {
     for (let j = i + 1; j < declaredDepictions.length; j++) {
       const first = declaredDepictions[i]!;
@@ -1888,7 +1494,7 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
         code: "prompt-depiction-conflict",
         subject: inner.subject,
         message:
-          `${inner.kind} "${inner.subject}" and ${outer.kind} "${outer.subject}" declare ` +
+          `character "${inner.subject}" and character "${outer.subject}" declare ` +
           `\`promptDepiction\` "${inner.depiction}" and "${outer.depiction}" — a prompt naming the ` +
           `second names the first too, so no scan can tell them apart. Give each a depiction neither ` +
           `contains`,
@@ -1896,16 +1502,16 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
     }
   }
 
-  // Setups are the same hard contract minus the reference mapping — a setup's plate is an animatic
-  // timeline asset, so its id lives in its own namespace and joins no conflict check above. The
-  // `location` it names must still be a declared one: a frame is always somewhere.
+  // Setups are the same hard contract minus the reference mapping: an id anchors to no asset, so it
+  // joins no conflict check above. The `location` it names must still be a declared one: a frame is
+  // always somewhere.
   const seenSetupIds = new Set<string>();
   for (const [id, setup] of Object.entries(direction.setups ?? {})) {
     if (!isIdentifier(id)) {
       errors.push({
         code: "setup-invalid-id",
         subject: id,
-        message: `setup id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _) so it can map to animatic:plate.${id}`,
+        message: `setup id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _)`,
       });
     }
     seenSetupIds.add(id);
@@ -1957,8 +1563,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
       }
     }
   }
-
-  errors.push(...withinErrors(direction));
 
   // Every shot is taken from somewhere: `shot.setup` is required and must resolve to a declared setup.
   // An empty roster (while shots exist) is `setup-empty` — reported once rather than as one
@@ -2225,25 +1829,19 @@ function buildArcNode(
   if (Array.isArray(node.shots)) {
     // A shot names its shot text `action`; map it onto the engine's generic `synopsis` field. Asides
     // are dropped — every check below `items` reads a role, a framing, a place or an adjacency an
-    // aside has none of — and stay in `coverageIds`. The shot after one carries `afterGap`, since a
-    // dropped aside leaves two shots adjacent here that the clock does not.
+    // aside has none of — and stay in `coverageIds`.
     //
-    // A graphic shot stays, so role, share and pacing read it. It carries no framing, place or axis,
-    // and since it stays in `items`, the narrative shots either side of it are not adjacent here.
+    // A graphic shot stays, so role, share and pacing read it. It carries no framing or place, and
+    // since it stays in `items`, the narrative shots either side of it are not adjacent here.
     const items: ArcItem<string>[] = [];
-    let afterGap = false;
     for (const s of node.shots) {
-      if (isAsideShot(s)) {
-        afterGap = true;
-        continue;
-      }
+      if (isAsideShot(s)) continue;
       const camera = isGraphicShot(s)
         ? {}
         : {
             framing: setups?.[s.setup]?.framing,
             location: setups?.[s.setup]?.location,
             join: s.join,
-            axis: withinRoot(setups ?? {}, s.setup),
           };
       items.push({
         id: s.id,
@@ -2251,9 +1849,7 @@ function buildArcNode(
         synopsis: s.action,
         duration: shotSpan(s, song),
         ...camera,
-        ...(afterGap ? { afterGap: true as const } : {}),
       });
-      afterGap = false;
     }
     const coverageIds = node.shots.map((s) => s.id);
     return { item, lens, noun: "shot", waivers, path, items, coverageIds, realizedIds };
@@ -2312,7 +1908,6 @@ function walkArcTree(node: ArcNode, stage: Stage | undefined, out: FoldGroup[]):
       noun: node.noun,
       // A leaf's shot text is a shot's `action`; a branch's is a sequence's `synopsis`.
       textLabel: node.noun === "shot" ? "action" : "synopsis",
-      exposedFramings: EXPOSED_FRAMINGS,
       establishingFraming: ESTABLISHING_FRAMING,
     }).map((f) => ({
       ...f,
@@ -2336,10 +1931,6 @@ export function checkDirection(
     realizedIds?: readonly string[];
     stage?: Stage;
     referenceAssetNames?: readonly string[];
-    // The board's plates and which shots ignore them. Supplied on the same terms as
-    // `referenceAssetNames`: undefined means the animatic could not be read, so the setups class is
-    // not evaluated and its waivers are never flagged stale.
-    animaticSetups?: AnimaticSetupState;
     // The board's slot orders and voice takes. Same contract again: undefined means the stage could
     // not be read, so the two stage-side staging findings stay silent and the class's waivers are
     // never flagged stale.
@@ -2352,8 +1943,8 @@ export function checkDirection(
   const structureErrors = validateDirectionStructure(direction);
 
   const evaluatedClasses: Set<DirectionFindingClass> = options.realizedIds
-    ? new Set(["arc", "pacing", "stage", "completeness", "typesetting"])
-    : new Set(["arc", "pacing", "typesetting"]);
+    ? new Set(["arc", "pacing", "stage", "completeness", "typesetting", "setups"])
+    : new Set(["arc", "pacing", "typesetting", "setups"]);
   // The characters and prop checks cross-reference the reference stage, so they run only when the caller
   // supplies its asset names (undefined = "can't evaluate the roster", so their waivers are never
   // flagged stale).
@@ -2363,12 +1954,6 @@ export function checkDirection(
     evaluatedClasses.add("locations");
     if (options.songTake !== undefined) evaluatedClasses.add("song");
   }
-  // `unused-setup` reads the direction alone, but the two plate findings need the board, and
-  // stale-waiver detection is per CLASS: marking the class evaluated without it would flag a live
-  // `setup-unrealized` waiver stale, since `checkSetups` emitted nothing to match it. So the whole
-  // class waits for the board — the cost is that a genuinely stale `unused-setup` waiver goes
-  // unreported on an animatic-less pass, which is the same conservative trade the rosters make.
-  if (options.animaticSetups !== undefined) evaluatedClasses.add("setups");
   // The staging class's direction half always runs (it reads the direction alone), but two of its
   // findings need the board — so, like the setups class, the whole class waits for it before a
   // waiver of it may be called stale.
@@ -2457,13 +2042,7 @@ export function checkDirection(
     });
   }
 
-  const setupFindings = checkSetups(
-    setupRefs(direction.setups),
-    countShotsPerSetup(direction),
-    options.animaticSetups,
-    options.referenceAssetNames,
-    axisCuts(direction),
-  );
+  const setupFindings = checkSetups(setupRefs(direction.setups), countShotsPerSetup(direction));
   groups.push({ findings: setupFindings, waivers: rootBag, classFilter: new Set(["setups"]) });
 
   // Staging findings: who each frame holds, left to right. Pushed unconditionally like the setups
@@ -2598,7 +2177,6 @@ export function assertDirectionGate(
     stage: Stage;
     realizedIds?: readonly string[];
     referenceAssetNames?: readonly string[];
-    animaticSetups?: AnimaticSetupState;
     stagingStage?: StagingStageState;
     songTake?: SongTakeState;
     // Pre-acceptance, characters findings are deferred (see reportableDirectionFindings) so the
@@ -2610,7 +2188,6 @@ export function assertDirectionGate(
     realizedIds: options.realizedIds,
     stage: options.stage,
     referenceAssetNames: options.referenceAssetNames,
-    animaticSetups: options.animaticSetups,
     stagingStage: options.stagingStage,
     songTake: options.songTake,
   });

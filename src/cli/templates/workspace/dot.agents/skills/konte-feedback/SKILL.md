@@ -54,7 +54,7 @@ Done = one post, approved by the human, handed over as paste-ready text with its
 - `agent` — coding agent behavior around konte: a skill it did not load, a step it skipped, a command it mis-typed.
 - `comfyui` — ComfyUI provisioning, workflows, or the queue.
 
-**Title** — `<command>: <symptom>` for CLI or `review UI: <symptom>` for UI, under 70 characters, symptom not diagnosis (`generate animatic: exits 0 after a failed plate job`); a `help` post is the question in one line.
+**Title** — `<command>: <symptom>` for CLI or `review UI: <symptom>` for UI, under 70 characters, symptom not diagnosis (`generate animatic: exits 0 after a failed draft job`); a `help` post is the question in one line.
 
 **Body**:
 

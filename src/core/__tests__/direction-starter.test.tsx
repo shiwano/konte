@@ -329,7 +329,6 @@ describe("defineDirection", () => {
           landmarks: {
             desk: {
               name: "the desk",
-              promptDepiction: "desk",
               description: "a plain desk, centre",
             },
           },
@@ -366,7 +365,6 @@ describe("defineDirection", () => {
           landmarks: {
             desk: {
               name: "the desk",
-              promptDepiction: "desk",
               description: "a plain desk, centre",
             },
           },
@@ -546,169 +544,6 @@ describe("defineDirection", () => {
             cutin: { setup: "back", lineup: [], join: "continuous" },
           },
         ],
-      },
-    });
-  });
-
-  // The `within` axis is checked against the whole `setups` roster, so the named entry is looked up
-  // and its place and size read back out. A one-shot sequence throughout: these are type assertions,
-  // and the runtime `within-*` errors have their own cases.
-  const oneShotSequence = {
-    lens: "mini-drama",
-    pleasure: "cute",
-    shots: [
-      { id: "01", role: "ordinary", action: "calm", setup: "front", duration: 3, lineup: [] },
-    ],
-  } as const;
-
-  it("refuses a `within` naming no declared setup", () => {
-    defineDirection({
-      ...directionDefaults,
-      sequence: oneShotSequence,
-      setups: {
-        front: {
-          name: "the front angle",
-          description: "straight on, eye level",
-          location: "studio",
-          framing: "medium",
-          holds: ["desk"],
-          // @ts-expect-error "establishing" is not a declared setup
-          within: "establishing",
-        },
-      },
-    });
-  });
-
-  it("refuses a `within` set in another place", () => {
-    defineDirection({
-      ...directionDefaults,
-      locations: {
-        ...directionDefaults.locations,
-        hall: {
-          name: "the hall",
-          description: "a plain hall",
-          landmarks: {
-            door: { name: "the door", promptDepiction: "door", description: "at the far end" },
-          },
-        },
-      },
-      sequence: oneShotSequence,
-      setups: {
-        hallWide: {
-          name: "the hall, wide",
-          description: "the length of it",
-          location: "hall",
-          framing: "wide",
-          holds: ["door"],
-        },
-        front: {
-          name: "the front angle",
-          description: "straight on, eye level",
-          location: "studio",
-          framing: "medium",
-          holds: ["desk"],
-          // @ts-expect-error a window is cut out of a frame of the same place
-          within: "hallWide",
-        },
-      },
-    });
-  });
-
-  it("refuses a `within` that is not strictly wider", () => {
-    defineDirection({
-      ...directionDefaults,
-      sequence: oneShotSequence,
-      setups: {
-        other: {
-          name: "the other angle",
-          description: "from the side",
-          location: "studio",
-          framing: "medium",
-          holds: ["desk"],
-          within: null,
-        },
-        front: {
-          name: "the front angle",
-          description: "straight on, eye level",
-          location: "studio",
-          framing: "medium",
-          holds: ["desk"],
-          // @ts-expect-error "other" is medium, the same size as this frame
-          within: "other",
-        },
-      },
-    });
-  });
-
-  // An insert fills the frame with one object and shows no set, so it is off the axis at both ends.
-  it("refuses a `within` on an insert", () => {
-    defineDirection({
-      ...directionDefaults,
-      sequence: oneShotSequence,
-      setups: {
-        wide: {
-          name: "the wide",
-          description: "the whole room",
-          location: "studio",
-          framing: "wide",
-          holds: ["desk"],
-        },
-        front: {
-          name: "the page",
-          description: "the page filling the frame",
-          location: "studio",
-          framing: "insert",
-          holds: [],
-          // @ts-expect-error an insert holds nothing, so it is no window
-          within: "wide",
-        },
-      },
-    });
-  });
-
-  // A step may be skipped — a close is as legitimately a window of a wide as of the medium between
-  // them — and `null` says the frame is the root of its own axis.
-  it("takes a skipped step and a declared root", () => {
-    defineDirection({
-      ...directionDefaults,
-      sequence: oneShotSequence,
-      setups: {
-        wide: {
-          name: "the wide",
-          description: "the whole room",
-          location: "studio",
-          framing: "wide",
-          holds: ["desk"],
-          within: null,
-        },
-        front: {
-          name: "the front angle",
-          description: "in on the page",
-          location: "studio",
-          framing: "close",
-          holds: ["desk"],
-          within: "wide",
-        },
-      },
-    });
-  });
-
-  // A computed roster has no literal to look up, so the type layer stands aside and the runtime
-  // `within-impossible` receives it — the same door a widened id walks through.
-  it("lets a computed `within` through", () => {
-    const parentOf = (): string => "nowhere";
-    defineDirection({
-      ...directionDefaults,
-      sequence: oneShotSequence,
-      setups: {
-        front: {
-          name: "the front angle",
-          description: "straight on, eye level",
-          location: "studio",
-          framing: "medium",
-          holds: ["desk"],
-          within: parentOf(),
-        },
       },
     });
   });

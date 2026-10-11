@@ -485,7 +485,7 @@ export default defineReference(direction, () => {
 export default defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", description: "a mark only this place has" } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
@@ -500,7 +500,7 @@ export default defineDirection({
       "missing-role_pressure": "single-shot offline fixture",
       "unearned-payoff_hero": "single-shot offline fixture",
       "location-unreferenced_studio": "single-shot offline fixture has no reference stage",
-      "setup-unconsumed_front": "fixture board is anchored on nothing",
+      "location-unconsumed_01": "fixture board is anchored on nothing",
     },
   },
 });

@@ -43,7 +43,6 @@ function flat(): Direction {
         landmarks: {
           bedroomMark: {
             name: "the mark",
-            promptDepiction: "mark",
             description: "a mark only this place has",
           },
         },
@@ -84,7 +83,6 @@ function sequenced(): Direction {
         landmarks: {
           bedroomMark: {
             name: "the mark",
-            promptDepiction: "mark",
             description: "a mark only this place has",
           },
         },
@@ -191,24 +189,12 @@ describe("directionPartContents", () => {
     const parts = directionPartContents(flat());
     expect(parts.get("direction:characters.alice")).toMatchObject({ promptDepiction: "alice" });
     expect(parts.get("direction:locations.bedroom")).toMatchObject({
-      landmarks: [{ id: "bedroomMark", name: "the mark", promptDepiction: "mark" }],
+      landmarks: [{ id: "bedroomMark", name: "the mark" }],
     });
     expect(parts.get("direction:setups.bedroom-medium")).toMatchObject({
       kind: "setup",
       holds: ["bedroomMark"],
     });
-  });
-
-  // `within: null` is a declaration (this frame is a root of its own axis); omitting the field is
-  // not, and `within-undeclared` may be asking the author to choose. A page that read the second back
-  // as the first would contradict the error it is shown beside.
-  it("tells a declared root apart from a frame that declares no window", () => {
-    const d = flat();
-    (d.setups as unknown as Record<string, { within?: string | null }>)["bedroom-wide"]!.within =
-      null;
-    const parts = directionPartContents(d);
-    expect(parts.get("direction:setups.bedroom-wide")).toMatchObject({ within: null });
-    expect(parts.get("direction:setups.bedroom-medium")).not.toHaveProperty("within");
   });
 
   // The two rosters no check reads a prompt name or a landmark for say so, rather than leaving a

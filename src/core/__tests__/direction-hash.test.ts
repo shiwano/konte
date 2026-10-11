@@ -44,7 +44,6 @@ function flat(): Direction {
         landmarks: {
           bedroomMark: {
             name: "the mark",
-            promptDepiction: "mark",
             description: "a mark only this place has",
           },
         },
@@ -94,7 +93,6 @@ function sequenced(): Direction {
         landmarks: {
           bedroomMark: {
             name: "the mark",
-            promptDepiction: "mark",
             description: "a mark only this place has",
           },
         },
@@ -344,7 +342,6 @@ describe("directionPartHashes", () => {
   const sequence = "direction:sequence";
   const alice = "direction:characters.alice";
   const bedroomMedium = "direction:setups.bedroom-medium";
-  const bedroomClose = "direction:setups.bedroom-close";
 
   const logline = "direction:brief.logline";
   const tone = "direction:brief.tone";
@@ -693,19 +690,6 @@ describe("directionPartHashes", () => {
     expect(directionHash(d)).not.toBe(directionHash(flat()));
   });
 
-  // `within` is the camera axis, not the size or the place — so it moves the setup's part and the
-  // arc shape, which is what a note about the size cadence is written against, stands.
-  it("moves a setup's hash on a within edit, holding the sequence shape", () => {
-    const d = flat();
-    (d.setups as unknown as Record<string, { within: string | null }>)["bedroom-close"]!.within =
-      "bedroom-wide";
-    const before = directionPartHashes(flat());
-    const after = directionPartHashes(d);
-    expect(after.get(bedroomClose)).not.toBe(before.get(bedroomClose));
-    expect(after.get(sequence)).toBe(before.get(sequence));
-    expect(directionHash(d)).not.toBe(directionHash(flat()));
-  });
-
   it("leaves directionHash standing when locations are only reordered (a roster, not a sequence)", () => {
     const withLocations = (): Direction => ({
       ...flat(),
@@ -716,7 +700,6 @@ describe("directionPartHashes", () => {
           landmarks: {
             bedroomMark: {
               name: "the mark",
-              promptDepiction: "mark",
               description: "a mark only this place has",
             },
           },
@@ -727,7 +710,6 @@ describe("directionPartHashes", () => {
           landmarks: {
             hallMark: {
               name: "the mark",
-              promptDepiction: "mark",
               description: "a mark only this place has",
             },
           },

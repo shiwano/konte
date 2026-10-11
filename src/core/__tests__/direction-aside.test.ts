@@ -46,7 +46,6 @@ function direction(shots: Array<NarrativeShot | AsideShot>): Direction {
         landmarks: {
           hereMark: {
             name: "the mark",
-            promptDepiction: "mark",
             description: "a mark only this place has",
           },
         },

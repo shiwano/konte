@@ -549,7 +549,7 @@ function shotWaiverIndex(
       reason: waiver.reason,
       needsReview: awaiting.has(waiver.address),
     };
-    for (const shotId of waiver.shotIds) byId.set(shotId, [...(byId.get(shotId) ?? []), info]);
+    byId.set(waiver.shotId, [...(byId.get(waiver.shotId) ?? []), info]);
   }
   return byId;
 }

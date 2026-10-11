@@ -7,8 +7,8 @@ import type { AssetDefinition, AssetState } from "./types/index.js";
  * or timeline asset whose adapter declares `turbo`. Anything that already produced a file at the
  * address — a take kept, dismissed or patched — spends it; a failed one does not.
  *
- * A reference and a plate are consumed by many takes, and a deterministic asset has no reroll to
- * leave its turbo take by, so none of them is ever generated on turbo. Nor is a draft.
+ * A reference is consumed by many takes, and a deterministic asset has no reroll to leave its turbo
+ * take by, so neither is ever generated on turbo. Nor is a draft.
  */
 export function isTurboTake(
   address: string,

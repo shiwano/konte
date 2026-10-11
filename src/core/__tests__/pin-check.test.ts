@@ -13,19 +13,19 @@ describe("checkPins", () => {
         pin("video:shot.01.motion", "startImage", "animatic:shot.01.first"),
         pin("video:shot.01.motionB", "startImage", "video:shot.01.seam"),
         pin("video:shot.02.motion", "endImage", "animatic:shot.02#composition", "end"),
-        pin("video:shot.03.motion", "startImage", "assets/plate.png"),
+        pin("video:shot.03.motion", "startImage", "assets/still.png"),
       ]).active,
     ).toEqual([]);
   });
 
-  it("flags a reference sheet and a plate, naming which each is", () => {
+  it("flags a reference sheet at either end", () => {
     const active = checkPins([
       pin("video:shot.01.motion", "startImage", "reference:hero"),
-      pin("video:shot.02.motion", "endImage", "animatic:plate.kitchen", "end"),
+      pin("video:shot.02.motion", "endImage", "reference:kitchen", "end"),
     ]).active;
-    expect(active.map((f) => [f.source, f.subject])).toEqual([
-      ["reference:hero", "sheet"],
-      ["animatic:plate.kitchen", "plate"],
+    expect(active.map((f) => [f.code, f.source])).toEqual([
+      ["pin-unanchored", "reference:hero"],
+      ["pin-unanchored", "reference:kitchen"],
     ]);
   });
 
@@ -44,13 +44,12 @@ describe("checkPins", () => {
   });
 
   it("folds a finding its key waives", () => {
-    const key = pinWaiverKey("pin-unanchored", "animatic:plate.kitchen");
-    const result = checkPins(
-      [pin("video:shot.01.motion", "startImage", "animatic:plate.kitchen")],
-      { [key]: "the shot opens on the empty room and the cast walks in" },
-    );
+    const key = pinWaiverKey("pin-unanchored", "reference:kitchen");
+    const result = checkPins([pin("video:shot.01.motion", "startImage", "reference:kitchen")], {
+      [key]: "the shot opens on the empty room and the cast walks in",
+    });
     expect(result.active).toEqual([]);
-    expect(result.waived.map((f) => f.source)).toEqual(["animatic:plate.kitchen"]);
+    expect(result.waived.map((f) => f.source)).toEqual(["reference:kitchen"]);
   });
 
   // An asset name may carry uppercase, so two addresses that differ only in case are two assets.
@@ -105,14 +104,13 @@ describe("assertPinGate", () => {
     }
   });
 
-  it("says each remedy once for a stage pinning both kinds", () => {
+  it("says the remedy once however many sheets are pinned", () => {
     try {
       assertPinGate(
         {
           pins: [
             pin("video:shot.01.motion", "startImage", "reference:hero"),
             pin("video:shot.02.motion", "startImage", "reference:street"),
-            pin("video:shot.03.motion", "endImage", "animatic:plate.kitchen", "end"),
           ],
         },
         "video.tsx",
@@ -121,7 +119,6 @@ describe("assertPinGate", () => {
     } catch (error) {
       const message = (error as KonteError).message;
       expect(message.match(/a sheet is conditioning/g)).toHaveLength(1);
-      expect(message.match(/a plate holds the frame empty/g)).toHaveLength(1);
     }
   });
 });

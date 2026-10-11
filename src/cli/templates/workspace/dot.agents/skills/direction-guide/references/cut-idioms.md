@@ -12,7 +12,7 @@ Ways to stage a key action across cuts — reach for them on the roles that carr
   ```
 
 - **Reveal by the witness — the face before the deed.** Cut to who watches while the event happens off frame; their read tells the viewer what happened, and the next frame shows only the aftermath. Buys dread over spectacle, and spares staging the event at all.
-- **Axial punch-in — same axis, tighter, to land a turn.** Both sizes are their own `setups` entries, the tighter one `within` the wider. This is the adjacent pair with a job — the punch is the cut.
+- **Axial punch-in — same axis, tighter, to land a turn.** Both sizes are their own `setups` entries. This is the adjacent pair with a job — the punch is the cut.
 - **Compress a repetition — one continuing action as 2–3 cuts, each further along.** Same subject, same action, the time between elided in each cut; shrink the `duration`s into the peak.
 - **Flash insert — a 0.5–1s `insert` as punctuation.** An object detail dropped into a run right before the peak. It breaks a background-matching pair for free.
 

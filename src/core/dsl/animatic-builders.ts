@@ -2,7 +2,7 @@ import { formatShotStemAddress } from "../address.js";
 import type { ShotStage } from "../address.js";
 import { KonteError } from "../errors.js";
 import type { AnimaticDefinition } from "../types/animatic.js";
-import type { AssetDefinition, VideoFormat } from "../types/index.js";
+import type { AssetDefinition } from "../types/index.js";
 import type { ScriptLine } from "../types/script.js";
 import { lineText } from "../types/script.js";
 import type { ShotScript } from "./shot-script.js";
@@ -26,13 +26,7 @@ import {
 } from "./direction.js";
 import { beginPromptCollection } from "./prompt-collect.js";
 import { assertRespellings, beginRespellCollection } from "./respell.js";
-import {
-  getShotContext,
-  makeDraftPlaceholder,
-  makePlatePlaceholder,
-  runInDraftDiscoveryMode,
-  runInPlateDiscoveryMode,
-} from "./shot-context.js";
+import { getShotContext, makeDraftPlaceholder, runInDraftDiscoveryMode } from "./shot-context.js";
 import { asset } from "./adapter.js";
 import { videoFrame } from "./adapters/local.js";
 import { makeMediaAsset } from "./builders.js";
@@ -369,24 +363,6 @@ export type StageTimelineReturn<Ids extends string = string, D = unknown> = {
 };
 
 /**
- * The `setups` roster ids this direction declares — the only keys a plate may be filed under.
- */
-export type SetupIdOf<D> = D extends { setups: infer S } ? Extract<keyof S, string> : string;
-
-/**
- * One plate as `plates` returns it: the picture, and one English sentence saying what that frame
- * holds. The sentence is required because the picture cannot be read — a crop of a master is bytes
- * konte never looks inside, and two setups cut from one place hold different things.
- */
-export type AnimaticPlate = { image: MediaAsset<"image">; prompt: string };
-
-/**
- * The plates a `plates` callback may return: one per shared camera position, keyed by its `setups`
- * roster id. Partial — a setup only one shot names has nothing to hold together and owes none.
- */
-export type AnimaticPlates<D> = Partial<Record<SetupIdOf<D>, AnimaticPlate>>;
-
-/**
  * The shot ids a draft may cover. A `D` that never inferred as a direction literal leaves it `string`.
  */
 export type DraftShotIdOf<D> = [DirectionIdTuple<D>] extends [never]
@@ -439,29 +415,13 @@ export type AnimaticDrafts = Record<string, AnimaticDraft<never>>;
 export interface DefineAnimaticOptions<
   D = unknown,
   Ids extends string = string,
-  TPlates extends AnimaticPlates<D> = AnimaticPlates<D>,
   TDrafts extends AnimaticDrafts = AnimaticDrafts,
 > {
-  // The plates, each addressed `animatic:plate.<id>`. A plate holds that frame with nobody in it,
-  // generated once and handed to every panel on that setup as an input — a prompt can move a subject
-  // inside a frame but cannot recover a frame the roster only describes, so a shared angle drifts
-  // unless one picture pins it. konte demands a plate for every setup two or more shots name
-  // (`setup-unrealized`), refuses to spend on a panel that ignores the anchor its setup carries —
-  // the plate, or the location reference where there is none (`setup-unconsumed`) — and demands the
-  // plate itself be built from that reference (`plate-unanchored`). It runs before `timeline`, which
-  // receives the plates it returned.
-  //
-  // Each plate is returned as `{ image, prompt }`: the picture, and one English sentence saying what
-  // that frame holds, which `timeline` receives unchanged. Every keyframe on that setup writes the
-  // sentence into its own prompt, in its adapter's own notation (`plate-undescribed`). An asset
-  // declared here and not returned is an intermediate the plates are built from and carries no
-  // prompt.
-  plates?: (args: { format: import("../types/index.js").VideoFormat }) => TPlates;
   // The draft takes, each addressed `animatic:draft.<name>`: consecutive camera shots generated as
   // one small clip. A panel is drawn from a frame of it (`drafts.<name>.frame(…)`). konte derives
-  // each take's cut times, length and size. It runs after `plates` and before `timeline`, which
-  // receives what it returned.
-  drafts?: (args: { draft: DraftStarter<D>; plates: TPlates }) => TDrafts;
+  // each take's cut times, length and size. It runs before `timeline`, which receives what it
+  // returned.
+  drafts?: (args: { draft: DraftStarter<D> }) => TDrafts;
   // Prompt findings this stage accepts, keyed the way `konte status` prints them
   // (`prompt-negation:<hash>`) over the reason each is right for the model it is written for. One
   // key covers every address a shared phrase reaches; never a fixable one — rewrite that prompt.
@@ -479,8 +439,6 @@ export interface DefineAnimaticOptions<
     pendingShot: StagePendingShotStarter<D, "animatic">;
     // The aside starter. It takes the id alone; konte fills the span with a labelled slug.
     asideShot: StageAsideShotStarter<D>;
-    // The plates `plates` returned, each as `{ image, prompt }` — `{}` when it declared none.
-    plates: TPlates;
     // The drafts `drafts` returned — `{}` when it declared none.
     drafts: TDrafts;
   }) => StageTimelineReturn<Ids, D>;
@@ -495,11 +453,10 @@ export interface DefineAnimaticOptions<
 export function defineAnimatic<
   const D,
   Ids extends string = string,
-  TPlates extends AnimaticPlates<D> = AnimaticPlates<D>,
   TDrafts extends AnimaticDrafts = AnimaticDrafts,
 >(
   direction: DirectionEntry<D>,
-  opts: DefineAnimaticOptions<D, Ids, TPlates, TDrafts>,
+  opts: DefineAnimaticOptions<D, Ids, TDrafts>,
 ): AnimaticDefinition & AnimaticRef {
   const index = getDirectionIndex(direction);
   const starter = makeAnimaticShotStarter(index);
@@ -510,10 +467,9 @@ export function defineAnimatic<
 
   beginPromptCollection(scriptTexts(index.scriptById));
   beginRespellCollection();
-  // Before the timeline: a shot's panel takes its plate as an input, so the placeholders must exist
-  // by the time the chain is walked. Prompt collection already spans both.
-  const plates = buildPlates(direction, index, opts.plates);
-  const drafts = buildDrafts(index, opts.drafts as DraftsCallback | undefined, plates.returned);
+  // Before the timeline: a shot's panel takes a frame of its draft as an input, so the placeholders
+  // must exist by the time the chain is walked. Prompt collection already spans both.
+  const drafts = buildDrafts(index, opts.drafts as DraftsCallback | undefined);
   const built = defineStage({
     stage: "animatic",
     index,
@@ -524,7 +480,6 @@ export function defineAnimatic<
         graphicShot,
         pendingShot,
         asideShot,
-        plates: plates.returned as TPlates,
         drafts: drafts.returned as TDrafts,
       }),
     waivers: opts.waivers,
@@ -568,11 +523,6 @@ export function defineAnimatic<
     },
   });
   const definition = built.definition as AnimaticDefinition;
-  if (plates.assets) {
-    definition.plates = plates.assets;
-    definition.exposedPlateIds = plates.exposed;
-    definition.platePrompts = plates.prompts;
-  }
   if (drafts.assets) {
     definition.drafts = drafts.assets;
     definition.draftShots = drafts.shots;
@@ -652,105 +602,7 @@ function assertScriptVoiced(
   }
 }
 
-// Run the `plates` callback under its own discovery context and file each plate by setup id.
-//
-// Returning is what files a plate under a setup: a returned key must name a declared setup, and the
-// handle it returns must be that setup's own. What is declared and NOT returned is an intermediate
-// the plates are built from, on the reference stage's terms (`AnimaticDefinition`). Its name may not
-// be a roster id, or the address a setup's plate would occupy would be taken by a picture no shot
-// can reach.
-//
-// Returning also states what the frame holds, in the author's own sentence; konte stores it and
-// never writes prompt text of its own.
-function buildPlates<D>(
-  direction: DirectionEntry<D>,
-  index: DirectionIndex,
-  fn: DefineAnimaticOptions<D>["plates"],
-): {
-  assets: Record<string, AssetDefinition> | undefined;
-  returned: object;
-  exposed: string[];
-  prompts: Record<string, string>;
-} {
-  if (!fn) return { assets: undefined, returned: {}, exposed: [], prompts: {} };
-  const declared = new Set(
-    Object.keys((direction as { setups?: Record<string, unknown> }).setups ?? {}),
-  );
-  const format: VideoFormat = { size: index.format.size.base, fps: index.format.fps };
-  const discovery = runInPlateDiscoveryMode(() => fn({ format }), {
-    ...format,
-    typography: index.typography,
-  });
-  const declaredPlates = discovery.result as Record<string, unknown>;
-
-  const prompts: Record<string, string> = {};
-  const returned: Record<string, AnimaticPlate> = {};
-  for (const id of Object.keys(declaredPlates)) {
-    if (!declared.has(id)) {
-      throw new KonteError(
-        "INVALID_PLATE",
-        `defineAnimatic: plates."${id}" is not a setup direction.ts declares. A plate is filed ` +
-          `under the roster id it holds still, so its key must be one of: ${[...declared].join(", ")}`,
-      );
-    }
-    if (!Object.hasOwn(discovery.assets, id)) {
-      throw new KonteError(
-        "INVALID_PLATE",
-        `defineAnimatic: plates."${id}" was returned but not declared via asset("${id}", …)`,
-      );
-    }
-    const entry = declaredPlates[id] as { image?: unknown; prompt?: unknown } | null | undefined;
-    const image = entry?.image as { src?: unknown } | undefined;
-    if (typeof image?.src !== "string") {
-      throw new KonteError(
-        "INVALID_PLATE",
-        `defineAnimatic: plates."${id}" must return { image, prompt } — the asset() handle under ` +
-          `\`image\`, and one English sentence under \`prompt\` saying what that frame holds.`,
-      );
-    }
-    const prompt = entry?.prompt;
-    if (typeof prompt !== "string" || prompt.trim() === "") {
-      throw new KonteError(
-        "INVALID_PLATE",
-        `defineAnimatic: plates."${id}" declares no \`prompt\`. Say in one English sentence what ` +
-          `this frame holds — konte cannot read the picture, and two setups cut from one place hold ` +
-          `different things. Write the contents only: every framing decision is the picture's.`,
-      );
-    }
-    // Matching key SETS is not enough: two plates filed under each other's ids would pass that and
-    // then hand `timeline` a handle pointing at the wrong frame — every keyframe on `front` would be
-    // built from `side`'s plate, and the `setup-unconsumed` finding would name the innocent setup.
-    const expected = makePlatePlaceholder(id);
-    if (image.src !== expected) {
-      throw new KonteError(
-        "INVALID_PLATE",
-        `defineAnimatic: plates."${id}" returns a handle for a different plate. File each ` +
-          `asset("<setupId>", …) under its own id — a swapped pair silently builds every keyframe ` +
-          `on the wrong frame.`,
-      );
-    }
-    prompts[id] = prompt;
-    returned[id] = { image: image as MediaAsset<"image">, prompt };
-  }
-  for (const name of Object.keys(discovery.assets)) {
-    if (!Object.hasOwn(declaredPlates, name) && declared.has(name)) {
-      throw new KonteError(
-        "INVALID_PLATE",
-        `defineAnimatic: asset("${name}", …) is named after a setup but not returned as its plate. ` +
-          `An intermediate the plates are built from takes a name of its own — return it under ` +
-          `"${name}" to make it that setup's plate, or rename it.`,
-      );
-    }
-  }
-  return {
-    assets: Object.keys(discovery.assets).length > 0 ? discovery.assets : undefined,
-    returned,
-    exposed: Object.keys(returned),
-    prompts,
-  };
-}
-
-type DraftsCallback = (args: { draft: DraftStarter<unknown>; plates: object }) => object;
+type DraftsCallback = (args: { draft: DraftStarter<unknown> }) => object;
 
 type DraftEntry = {
   ids: readonly string[];
@@ -772,7 +624,6 @@ function invalidDraft(message: string): KonteError {
 function buildDrafts(
   index: DirectionIndex,
   fn: DraftsCallback | undefined,
-  plates: object,
 ): {
   assets: Record<string, AssetDefinition> | undefined;
   returned: object;
@@ -842,10 +693,7 @@ function buildDrafts(
   };
 
   const discovery = runInDraftDiscoveryMode((pool) => {
-    const declared = fn({ draft: draft as DraftStarter<unknown>, plates }) as Record<
-      string,
-      unknown
-    >;
+    const declared = fn({ draft: draft as DraftStarter<unknown> }) as Record<string, unknown>;
     for (const [name, handle] of Object.entries(declared)) {
       const entry = entries.find((e) => e.handle === handle);
       if (!entry) throw invalidDraft(`drafts."${name}" must be a draft([…], …) of this callback.`);

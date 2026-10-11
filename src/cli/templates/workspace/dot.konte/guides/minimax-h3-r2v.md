@@ -37,7 +37,7 @@ Picture and stereo audio decoded from one take.
 A take declared under `drafts`: several shots in one clip, read only for where things sit in each frame.
 
 - **`shots: cuts((id) => text)`** — one text per shot; the cut times are the direction's. Five cuts reach the 500-word limit.
-- **Each setup's plate is an image, `attribute_transfer`** — its room and light carried, the framing the take's own; the plate's sentence goes in the text of every shot on it.
+- **The place's reference is an image, `attribute_transfer`** — its room and light carried, the framing the take's own.
 - **`refImageSize: "match"`**, no `audioStem`, no `audioN`, both sound fields `N/A`.
 - **Leave `useTurbo` to konte** — a draft is never a turbo take.
 - **`previous` is `video1`, and the take is its continuation** — `subjectDefinitions` gains `<Video 1> is the footage just before this take; this take continues from it.`, `summary` opens `The target video continues <Video 1>.` with tasks `video continuation` + `reference generation`, and `retentionAnalysis` gains a `<Video 1>` line naming what carries over.

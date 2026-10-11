@@ -234,9 +234,9 @@ describe("gateDirectionForStage voice scope", () => {
         characters: {
           hero: { name: "Hero", description: "d", voice: { id: "heroVoice", description: "warm" }, promptDepiction: "hero", },
         },
-        locations: { here: { name: "H", description: "h", landmarks: { hereMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+        locations: { here: { name: "H", description: "h", landmarks: { hereMark: { name: "the mark", description: "a mark only this place has" } } } },
         setups: {
-          near: { name: "near", description: "in close", location: "here", framing: "close", holds: ["hereMark"], within: null },
+          near: { name: "near", description: "in close", location: "here", framing: "close", holds: ["hereMark"] },
           wide: { name: "wide", description: "the room", location: "here", framing: "medium", holds: ["hereMark"] },
           thing: { name: "the thing", description: "filling the frame", location: "here", framing: "insert", holds: [] },
         },

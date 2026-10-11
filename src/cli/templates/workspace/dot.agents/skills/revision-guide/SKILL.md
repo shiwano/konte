@@ -40,7 +40,7 @@ Only what can be counted.
 - **Direction first** — lines, `duration`, `telop`, what a shot shows → `direction-guide`.
 - **Then the board for every shot whose panel or stem moved, then the motion.**
 - **Then the composition** — `<Animate>`, text, windows, sound → `composition-guide`.
-- **Touch only reopened shots** — an accepted take reading stale because a shared plate or stem moved under it stays accepted.
+- **Touch only reopened shots** — an accepted take reading stale because a shared asset or stem moved under it stays accepted.
 - **`Kept against newer upstream` in a record is the human's keep** — don't reroll it. Where the change breaks what it shows (a line its mouth no longer speaks), say so and ask.
 - **A `duration` change moves the cut** — read the seam on both sides again.
 - **Every reopened shot back through one review** — as in §3.

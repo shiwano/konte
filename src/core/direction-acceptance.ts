@@ -397,7 +397,7 @@ export function directionShotCascadeTargets(direction: Direction): Map<string, s
   };
   walk(direction.sequence, DIRECTION_ROOT_PATH, []);
   for (const waiver of directionShotWaivers(direction)) {
-    for (const shotId of waiver.shotIds) out.get(shotId)?.push(waiver.address);
+    out.get(waiver.shotId)?.push(waiver.address);
   }
   return out;
 }

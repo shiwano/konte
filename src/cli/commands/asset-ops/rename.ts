@@ -64,7 +64,7 @@ Both addresses are generated assets of one stage. <to> must be declared and hold
 takes; no job may still be making a take at <from>, and no export may be running.
 
 Examples:
-  konte rename animatic:plate.counterClose animatic:plate.counterReverse
+  konte rename animatic:shot.03.first animatic:shot.03.wide
   konte rename video:shot.03.motion video:shot.03.walkIn`,
     )
     .action(async (from: string, to: string) => {

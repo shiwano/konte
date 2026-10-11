@@ -24,7 +24,6 @@ function assetAt(definition: AnimaticDefinition, address: string): AssetDefiniti
   const parsed = tryParseAddress(address);
   if (!parsed || parsed.stage !== definition.stage) return undefined;
   if (parsed.kind === "timeline") return definition.topLevelAssets?.[parsed.assetName];
-  if (parsed.kind === "plate") return definition.plates?.[parsed.assetName];
   if (parsed.kind === "shot") {
     return definition.shots.find((s) => s.id === parsed.shotId)?.assets[parsed.assetName];
   }

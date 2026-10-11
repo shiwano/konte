@@ -233,7 +233,7 @@ export interface VideoPreviewState {
   overlay?: OverlayInfo;
   keep: KeepGraphInfo;
   handoffSummary?: string;
-  // Handoff notes no shot shows (a plate's, the timeline's), carried by the summary banner.
+  // Handoff notes no shot shows (the timeline's), carried by the summary banner.
   unroutedHandoffNotes: Array<{ address: string; text: string }>;
 }
 
@@ -566,8 +566,7 @@ export interface DirectionLocationInfo extends DirectionPartInfo {
   id: string;
   name: string;
   description: string;
-  // What only this place has, in roster order — the things a setup's `holds` names and a plate's
-  // sentence must say.
+  // What only this place has, in roster order — the things a setup's `holds` names.
   landmarks: DirectionLandmarkInfo[];
 }
 
@@ -580,8 +579,8 @@ export interface DirectionLandmarkInfo {
 }
 
 // A camera setup, reviewed under the location it is set in. Unlike the three identity rosters it
-// anchors to no reference asset — what realizes it is an animatic plate — so it carries the frame's
-// place and size instead, which is what the shot table's two cadence columns are read through.
+// anchors to no reference asset, so it carries the frame's place and size instead, which is what the
+// shot table's two cadence columns are read through.
 export interface DirectionSetupInfo extends DirectionPartInfo {
   id: string;
   name: string;
@@ -597,11 +596,6 @@ export interface DirectionSetupInfo extends DirectionPartInfo {
   // What this frame carries of its place, left to right on screen, resolved to landmark NAMES.
   // Empty on an `insert`.
   holds: string[];
-  // The wider frame this one steps in from, resolved to that setup's NAME; `null` where the
-  // author declared this frame a root (`within: null`). ABSENT is a frame that declares neither —
-  // legal only where no wider frame could be its parent, and `within-undeclared` otherwise, so the
-  // page must not read it back as a root the author never wrote.
-  within?: string | null;
 }
 
 export type DirectionBriefField =

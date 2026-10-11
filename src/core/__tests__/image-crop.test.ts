@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { imageCrop } from "../dsl/adapters/index.js";
 import type { MediaAsset } from "../dsl/builders.js";
-import { runInPlateDiscoveryMode } from "../dsl/shot-context.js";
+import { runTimelineInDiscoveryMode } from "../dsl/shot-context.js";
 import { extractRefs } from "../graph.js";
 import type { LocalAssetDefinition } from "../types/index.js";
 
@@ -18,12 +18,16 @@ const WINDOW = {
 };
 
 // createDefinition reads the working canvas off the active discovery context, so drive it through
-// the one a plate is declared in.
+// the board's timeline.
 function define(
   inputs: Parameters<typeof imageCrop.createDefinition>[0],
   format = CANVAS,
 ): LocalAssetDefinition {
-  const { result } = runInPlateDiscoveryMode(() => imageCrop.createDefinition(inputs), format);
+  const { result } = runTimelineInDiscoveryMode(
+    "animatic",
+    () => imageCrop.createDefinition(inputs),
+    format,
+  );
   return result as LocalAssetDefinition;
 }
 

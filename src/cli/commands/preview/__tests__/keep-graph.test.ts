@@ -8,15 +8,14 @@ import { StateManager } from "../../../../core/state/index.js";
 import { buildKeepGraph } from "../keep-graph.js";
 
 const SHEET = "reference:sheet";
-const PLATE = "animatic:plate.front";
 const BG = "animatic:timeline.bg";
 const SMALL = "animatic:timeline.small";
 
 const generated = { kind: "comfy", workflow: "image.json", inputs: {} };
 const deterministic = { kind: "local", op: "imageResize", inputs: {}, deterministic: true };
 
-// A reference sheet the board's plate and a timeline background are made from, and a resize konte
-// bakes from the background.
+// A reference sheet a timeline background is made from, and a resize konte bakes from the
+// background.
 const reference = {
   topLevelAssets: { sheet: generated },
   exposedAssetNames: ["sheet"],
@@ -25,7 +24,6 @@ const animatic = {
   stage: "animatic",
   shots: [],
   topLevelAssets: { bg: generated, small: deterministic },
-  plates: { front: generated },
 } as unknown as DefinitionLike;
 
 function graphOf(edges: Array<[string, string]>): DependencyGraph {
@@ -67,21 +65,13 @@ const build = (edges: Array<[string, string]>) =>
   });
 
 describe("buildKeepGraph", () => {
-  it("asks about a plate and a timeline asset as units of their own", () => {
+  it("asks about a timeline asset as a unit of its own", () => {
     accept(SHEET);
-    accept(PLATE);
     accept(BG);
 
-    const graph = build([
-      [SHEET, PLATE],
-      [SHEET, BG],
-    ]);
-    expect(graph.units[PLATE]).toEqual({ stage: "animatic", label: "Plate: front" });
+    const graph = build([[SHEET, BG]]);
     expect(graph.units[BG]).toEqual({ stage: "animatic", label: "Timeline: bg" });
-    expect(graph.addresses[SHEET]!.consumers).toEqual([
-      { address: PLATE, via: SHEET },
-      { address: BG, via: SHEET },
-    ]);
+    expect(graph.addresses[SHEET]!.consumers).toEqual([{ address: BG, via: SHEET }]);
   });
 
   it("names a patched take of a deterministic asset as a verdict to keep or regenerate", () => {

@@ -5,7 +5,6 @@ import {
   getAssetEntryByAddress,
   getStage,
   isDeliveryAddress,
-  isPlateAddress,
   isDraftAddress,
   listExposedReferenceAssetPaths,
   isMaterializedLeafAddress,
@@ -269,9 +268,8 @@ export async function buildStatusReport(
     const def = getDefinition(addr);
     // An asset the stage declared without returning it is an intermediate: it is generated and
     // tracked, but no review surface lists it and no accept is owed on it (see
-    // `listExposedReferenceAssetPaths`). A plate is judged inside the panels drawn on it, whose
-    // accept cascades onto it; a draft holds no accept at all. Every other address is somebody's to
-    // decide.
+    // `listExposedReferenceAssetPaths`). A draft holds no accept at all. Every other address is
+    // somebody's to decide.
     // The overlay is signed off by the shot accepts under it, and reviewed on its own only once they
     // all stand.
     const overlayStage = isOverlayAddress(addr) ? (leafStages.get(getStage(addr)) ?? null) : null;
@@ -283,7 +281,6 @@ export async function buildStatusReport(
     );
     const reviewTarget =
       (getStage(addr) !== "reference" || isDeliveryAddress(addr) || exposedReferences.has(addr)) &&
-      !isPlateAddress(addr) &&
       !isDraftAddress(addr) &&
       !superseded &&
       (!isOverlayAddress(addr) ||

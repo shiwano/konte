@@ -11,9 +11,6 @@ describe("renameMoves", () => {
   });
 
   it("adds no derivative to an address that has none", () => {
-    expect([...renameMoves("animatic:plate.x", "animatic:plate.y")]).toEqual([
-      ["animatic:plate.x", "animatic:plate.y"],
-    ]);
     expect([...renameMoves("reference:x", "reference:y")]).toEqual([
       ["reference:x", "reference:y"],
     ]);

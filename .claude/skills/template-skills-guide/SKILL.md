@@ -21,7 +21,7 @@ Conventions for the skills `konte workspace new` writes into every user project 
 ## Subagents
 
 - **Single source: `src/cli/templates/agents/<name>.md`** — client-neutral frontmatter (`name`, `description`) over the instructions body. Embed generates `.claude/agents/<name>.md` and `.codex/agents/<name>.toml` (body → `developer_instructions`); a hand-written file under either path fails the build.
-- **Critics are fresh-spawned, read-only, findings-only** — `konte-direction-critic` reads the direction, `konte-prompt-critic` the prompts, and `konte-animatic-critic` the board or plates.
+- **Critics are fresh-spawned, read-only, findings-only** — `konte-direction-critic` reads the direction, `konte-prompt-critic` the prompts, and `konte-animatic-critic` the board.
 - **The calling skill owns when to spawn and how to handle findings.**
 
 ## Naming

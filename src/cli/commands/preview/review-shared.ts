@@ -707,7 +707,7 @@ export function handoffNotesForShot(
   return (handoff?.notes ?? []).filter((n) => n.address === address).map((n) => n.text);
 }
 
-// The notes no shot of the reel shows — a plate's, the timeline's — which the summary banner carries.
+// The notes no shot of the reel shows — the timeline's — which the summary banner carries.
 export function unroutedReelHandoffNotes(
   handoff: Handoff | null,
   stage: "video" | "animatic",

@@ -10,7 +10,7 @@ Reported by the direction check over `direction.ts` and the stages built on it. 
 
 - **Deferred** — silent until the direction is accepted.
 - **Fix in `reference.tsx`** — the roster entry is right; a reference asset is missing.
-- **Fix in `animatic.tsx`** — the setup is right; its plate or a keyframe's input is missing or misbuilt.
+- **Fix in `animatic.tsx`** — the direction is right; a keyframe's input is missing.
 - **Type-level** — a literal value is also a type error, so it stops at the startup type-check; a computed value reaches the finding instead.
 
 ### arc (10)
@@ -30,17 +30,16 @@ Gates: every spend.
 | `unexpected-script`     | A shot's `script` contradicts `policy.speech`: any line under `none`, a spoken line under `no-dialogue`. | shot id                 | Type-level |
 | `multi-sentence-action` | A shot's `action` reads as two or more sentences.                                                        | shot id                 | —          |
 
-### pacing (5)
+### pacing (4)
 
 Gates: every spend.
 
-| Code                    | Flags                                                                                                                   | Waiver subject    | Notes      |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------- | ---------- |
-| `role-overweight`       | A role holds more of the runtime than its `maxShare`.                                                                   | role              | —          |
-| `role-underweight`      | A role holds less of the runtime than its `minShare`.                                                                   | role              | —          |
-| `off-grid-duration`     | A shot's `duration` is not a positive multiple of 0.5s, or on `policy.song` its `beats` is not a positive whole number. | shot id           | Type-level |
-| `undeclared-continuity` | Adjacent shots cut between two set-showing sizes of one location with no `within` declared.                             | id pair (`05-06`) | —          |
-| `re-established-wide`   | A shot re-establishes a location already shown wide.                                                                    | shot id           | —          |
+| Code                  | Flags                                                                                                                   | Waiver subject | Notes      |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------- | ---------- |
+| `role-overweight`     | A role holds more of the runtime than its `maxShare`.                                                                   | role           | —          |
+| `role-underweight`    | A role holds less of the runtime than its `minShare`.                                                                   | role           | —          |
+| `off-grid-duration`   | A shot's `duration` is not a positive multiple of 0.5s, or on `policy.song` its `beats` is not a positive whole number. | shot id        | Type-level |
+| `re-established-wide` | A shot re-establishes a location already shown wide.                                                                    | shot id        | —          |
 
 ### stage (2)
 
@@ -92,41 +91,33 @@ Gates: every spend. Deferred.
 | `location-unreferenced` | A location has no `reference:<id>` asset.       | location id    | Fix in `reference.tsx` |
 | `unused-location`       | No setup a shot points at is set in a location. | location id    | —                      |
 
-### setups (8)
+### setups (2)
 
 Gates: every spend. Deferred.
 
-| Code               | Flags                                                                                                               | Waiver subject           | Notes                 |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------ | --------------------- |
-| `setup-unrealized` | A setup two or more generated shots share has no plate.                                                             | setup id                 | Fix in `animatic.tsx` |
-| `plate-unanchored` | A plate is built from no location reference.                                                                        | setup id                 | Fix in `animatic.tsx` |
-| `plate-unnested`   | A plate is neither a cut from, nor a window inside, the plate of the setup it is `within`.                          | setup id                 | Fix in `animatic.tsx` |
-| `axis-unrealized`  | Two sizes cut along one `within` axis lack the plates that nest them.                                               | setup pair (`<a>.<b>`)   | Fix in `animatic.tsx` |
-| `setup-unconsumed` | A developed shot builds no keyframe from its setup's plate, or from the location reference where there is no plate. | setup id                 | Fix in `animatic.tsx` |
-| `unused-setup`     | No shot points at a setup.                                                                                          | setup id                 | —                     |
-| `setup-indistinct` | Two setups declare the same location, framing and `holds` order.                                                    | setup id (the later one) | —                     |
-| `setup-atomized`   | A location holds many shots but almost none share a frame.                                                          | location id              | —                     |
+| Code               | Flags                                                            | Waiver subject           | Notes |
+| ------------------ | ---------------------------------------------------------------- | ------------------------ | ----- |
+| `unused-setup`     | No shot points at a setup.                                       | setup id                 | —     |
+| `setup-indistinct` | Two setups declare the same location, framing and `holds` order. | setup id (the later one) | —     |
 
-### staging (14)
+### staging (12)
 
 Gates: every spend.
 
-| Code                   | Flags                                                                                                                                                                                                                                                              | Waiver subject                             | Notes      |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ---------- |
-| `lineup-flipped`       | A `lineup` reverses a left-to-right order an earlier shot set in that location, and no shot between them declares the move.                                                                                                                                        | frame (`<shotId>` or `<shotId>.cutin`)     | —          |
-| `lineup-gap`           | A frame's two ends skip someone the location places between them.                                                                                                                                                                                                  | frame                                      | —          |
-| `lineup-vacuous`       | A `lineupTo` repeats its `lineup`.                                                                                                                                                                                                                                 | frame                                      | Type-level |
-| `lineup-inconsistent`  | The order accumulated in a location forms a cycle.                                                                                                                                                                                                                 | frame                                      | —          |
-| `character-unconsumed` | A keyframe framing a character is built from no reference to them.                                                                                                                                                                                                 | `<frame>.<characterId>`                    | —          |
-| `slot-order-mismatch`  | A keyframe passes its reference images in an order its `lineup` does not declare.                                                                                                                                                                                  | frame                                      | —          |
-| `plate-undescribed`    | A shot on a plated setup carries no `plates.<id>.prompt` in its prompt.                                                                                                                                                                                            | setup id                                   | —          |
-| `landmark-flipped`     | Two setups of one location disagree on the left-to-right order of its landmarks.                                                                                                                                                                                   | setup id                                   | —          |
-| `subject-unnamed`      | No prompt behind a keyframe contains the `promptDepiction` of a subject it frames, verbatim (case-insensitive).                                                                                                                                                    | `<frame>.<characterId>`                    | —          |
-| `plate-unnamed`        | A plate's sentence omits a landmark its setup's `holds` declares.                                                                                                                                                                                                  | `<setupId>.<landmarkId>`                   | —          |
-| `join-lineup-mismatch` | A `continuous` shot opens on a different order than the shot before it leaves.                                                                                                                                                                                     | frame                                      | —          |
-| `join-unpinned`        | The video take before a `continuous` seam does not pin its end to the opening keyframe of the shot after it, where its model has an end slot.                                                                                                                      | frame                                      | —          |
-| `join-unshown`         | A take pinned to a `continuous` seam is played off that frame: the take before does not cut on the frame its end image lands on, or the take after does not open its shot on its first (`mediaStart`, `duration`).                                                 | frame                                      | —          |
-| `panel-unlinked`       | A keyframe opening a cut along one `within` axis, on a model that reads a previous panel (`readsPrevPanel`), takes no previous panel, or another frame, among its image inputs. A cut between two frames whose lineups hold subjects but none in common is exempt. | seam (`<from>-<id>`, `.cutin` for a cutin) | —          |
+| Code                   | Flags                                                                                                                                                                                                              | Waiver subject                         | Notes                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- | --------------------- |
+| `lineup-flipped`       | A `lineup` reverses a left-to-right order an earlier shot set in that location, and no shot between them declares the move.                                                                                        | frame (`<shotId>` or `<shotId>.cutin`) | —                     |
+| `lineup-gap`           | A frame's two ends skip someone the location places between them.                                                                                                                                                  | frame                                  | —                     |
+| `lineup-vacuous`       | A `lineupTo` repeats its `lineup`.                                                                                                                                                                                 | frame                                  | Type-level            |
+| `lineup-inconsistent`  | The order accumulated in a location forms a cycle.                                                                                                                                                                 | frame                                  | —                     |
+| `character-unconsumed` | A keyframe framing a character is built from no reference to them.                                                                                                                                                 | `<frame>.<characterId>`                | —                     |
+| `location-unconsumed`  | No keyframe of a frame is built from a reference to the location it is set in.                                                                                                                                     | frame                                  | Fix in `animatic.tsx` |
+| `slot-order-mismatch`  | A keyframe passes its reference images in an order its `lineup` does not declare.                                                                                                                                  | frame                                  | —                     |
+| `landmark-flipped`     | Two setups of one location disagree on the left-to-right order of its landmarks.                                                                                                                                   | setup id                               | —                     |
+| `subject-unnamed`      | No prompt behind a keyframe contains the `promptDepiction` of a subject it frames, verbatim (case-insensitive).                                                                                                    | `<frame>.<characterId>`                | —                     |
+| `join-lineup-mismatch` | A `continuous` shot opens on a different order than the shot before it leaves.                                                                                                                                     | frame                                  | —                     |
+| `join-unpinned`        | The video take before a `continuous` seam does not pin its end to the opening keyframe of the shot after it, where its model has an end slot.                                                                      | frame                                  | —                     |
+| `join-unshown`         | A take pinned to a `continuous` seam is played off that frame: the take before does not cut on the frame its end image lands on, or the take after does not open its shot on its first (`mediaStart`, `duration`). | frame                                  | —                     |
 
 ### typesetting (1)
 
@@ -145,4 +136,4 @@ Reported over the prompt and pin inputs a stage or a patch declares. An unwaived
 | `prompt-negation`        | A prompt names something to leave out.                                                                                 |
 | `prompt-not-yet`         | A prompt describes what has not happened: time talk in a still, or a state to hold where a motion prompt needs a move. |
 | `prompt-double-negative` | A `negativePrompt` names an exclusion negatively, which cancels it.                                                    |
-| `pin-unanchored`         | A pin input takes a reference sheet or a plate instead of a frame of the picture.                                      |
+| `pin-unanchored`         | A pin input takes a reference sheet instead of a frame of the picture.                                                 |

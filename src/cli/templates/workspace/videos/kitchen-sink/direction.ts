@@ -57,17 +57,14 @@ export default defineDirection({
       landmarks: {
         window: {
           name: "the window",
-          promptDepiction: "window",
           description: "A square window over the sink.",
         },
         stove: {
           name: "the stove",
-          promptDepiction: "stove",
           description: "A white four-burner stove.",
         },
         table: {
           name: "the table",
-          promptDepiction: "table",
           description: "A round pine table.",
         },
       },
@@ -76,8 +73,8 @@ export default defineDirection({
       name: "the yard",
       description: "A back yard behind the kitchen.",
       landmarks: {
-        gate: { name: "the gate", promptDepiction: "gate", description: "A blue wooden gate." },
-        tree: { name: "the tree", promptDepiction: "tree", description: "An old apple tree." },
+        gate: { name: "the gate", description: "A blue wooden gate." },
+        tree: { name: "the tree", description: "An old apple tree." },
       },
     },
   },
@@ -88,7 +85,6 @@ export default defineDirection({
       location: "kitchen",
       framing: "wide",
       holds: ["window", "stove", "table"],
-      within: null,
     },
     kitchenMedium: {
       name: "the kitchen, medium",
@@ -96,7 +92,6 @@ export default defineDirection({
       location: "kitchen",
       framing: "medium",
       holds: ["stove", "table"],
-      within: "kitchenWide",
     },
     kitchenClose: {
       name: "the kitchen, close",
@@ -104,7 +99,6 @@ export default defineDirection({
       location: "kitchen",
       framing: "close",
       holds: ["table"],
-      within: "kitchenMedium",
     },
     panInsert: {
       name: "the pan, insert",

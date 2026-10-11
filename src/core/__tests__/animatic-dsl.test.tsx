@@ -15,15 +15,6 @@ const imageComfy = defineComfyAsset({
   outputs: { result: { nodeId: "9", type: "image" } },
 });
 
-const editComfy = defineComfyAsset({
-  workflow: "edit.json",
-  description: "test adapter",
-  inputs: {
-    image: { nodeId: "1", field: "image", type: "image" },
-  },
-  outputs: { result: { nodeId: "9", type: "image" } },
-});
-
 const animateComfy = defineComfyAsset({
   workflow: "animate.json",
   description: "test adapter",
@@ -31,123 +22,6 @@ const animateComfy = defineComfyAsset({
     image: { nodeId: "1", field: "image", type: "image" },
   },
   outputs: { result: { nodeId: "9", type: "video" } },
-});
-
-// A plate is filed under the roster id it holds still, so both halves of that binding are checked
-// at definition time — before the address it would be generated at exists.
-describe("defineAnimatic plates", () => {
-  const direction = testDirection({
-    fps: 24,
-    size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } },
-  });
-  const animatic = (plates: () => Record<string, { image: MediaAsset<"image">; prompt: string }>) =>
-    defineAnimatic(direction, {
-      plates: plates as never,
-      timeline: () => animaticTimeline([]),
-    });
-
-  it("files a plate at animatic:plate.<id> and hands it to the timeline", () => {
-    let handed: unknown;
-    const sb = defineAnimatic(direction, {
-      plates: () => ({
-        front: {
-          image: asset("front", imageComfy, { prompt: "the empty frame" }),
-          prompt: "a plain studio, the desk at the right edge",
-        },
-      }),
-      timeline: ({ plates }) => {
-        handed = plates.front;
-        return animaticTimeline([]);
-      },
-    });
-    expect(Object.keys(sb.plates ?? {})).toEqual(["front"]);
-    // The sentence reaches `timeline` as the author wrote it — konte stores it and writes no prompt
-    // text of its own.
-    expect(handed).toEqual({
-      image: expect.objectContaining({ src: "__konte:animatic:plate.front__" }),
-      prompt: "a plain studio, the desk at the right edge",
-    });
-    expect(sb.platePrompts?.front).toBe("a plain studio, the desk at the right edge");
-  });
-
-  it("rejects a key naming no declared setup", () => {
-    expect(() =>
-      animatic(() => ({
-        nope: { image: asset("nope", imageComfy, { prompt: "x" }), prompt: "a plain studio" },
-      })),
-    ).toThrow(/not a setup direction.ts declares/);
-  });
-
-  // Matching key SETS is not enough — two plates filed under each other's ids would pass that and
-  // then build every keyframe on the wrong frame, with `setup-unconsumed` naming the innocent setup.
-  it("rejects a plate filed under another setup's id", () => {
-    const twoSetups = defineDirection({
-      ...directionDefaults,
-      setups: {
-        ...directionDefaults.setups,
-        back: {
-          name: "the back angle",
-          description: "from behind",
-          location: "studio",
-          framing: "wide",
-          holds: ["studioMark"],
-        },
-      },
-      sequence: { lens: "mini-drama", pleasure: "cute", shots: [] },
-    });
-    expect(() =>
-      defineAnimatic(twoSetups, {
-        plates: () => {
-          const front = asset("front", imageComfy, { prompt: "the front frame" });
-          const back = asset("back", imageComfy, { prompt: "the back frame" });
-          return {
-            front: { image: back, prompt: "a plain studio" },
-            back: { image: front, prompt: "a plain studio" },
-          } as never;
-        },
-        timeline: () => animaticTimeline([]),
-      }),
-    ).toThrow(/handle for a different plate/);
-  });
-
-  // Returning is what files a plate under a setup.
-  it("keeps an unreturned asset as an intermediate the plate is built from", () => {
-    const sb = animatic(() => {
-      const master = asset("master", imageComfy, { prompt: "the whole room" });
-      return {
-        front: { image: asset("front", editComfy, { image: master }), prompt: "a plain studio" },
-      } as never;
-    });
-    expect(Object.keys(sb.plates ?? {}).sort()).toEqual(["front", "master"]);
-    expect(sb.exposedPlateIds).toEqual(["front"]);
-    const front = sb.plates?.front as { inputs: Record<string, unknown> };
-    expect(front.inputs["1.image"]).toBe("__konte:animatic:plate.master__");
-  });
-
-  // konte cannot look inside a crop, so what the frame holds reaches the model only through this.
-  it("rejects a plate returned with no sentence saying what it holds", () => {
-    expect(() =>
-      animatic(() => ({
-        front: { image: asset("front", imageComfy, { prompt: "x" }) } as never,
-      })),
-    ).toThrow(/declares no `prompt`/);
-  });
-
-  it("rejects a bare asset handle where a plate is owed", () => {
-    expect(() =>
-      animatic(() => ({ front: asset("front", imageComfy, { prompt: "x" }) as never })),
-    ).toThrow(/must return \{ image, prompt \}/);
-  });
-
-  // An intermediate under a roster id would take the address that setup's plate occupies.
-  it("rejects an intermediate named after a setup", () => {
-    expect(() =>
-      animatic(() => {
-        asset("front", imageComfy, { prompt: "x" });
-        return {} as never;
-      }),
-    ).toThrow(/named after a setup but not returned/);
-  });
 });
 
 describe("defineAnimatic", () => {

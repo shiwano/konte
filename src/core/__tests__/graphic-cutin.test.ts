@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { AnimaticSetupState } from "../direction-check.js";
 import {
   checkDirection,
   directionWaiverKey,
@@ -27,7 +26,6 @@ const setups: Record<string, Setup> = {
     location: "studio",
     framing: "medium",
     holds: ["deskTop"],
-    within: null,
   },
   sofa: {
     name: "the sofa",
@@ -35,7 +33,6 @@ const setups: Record<string, Setup> = {
     location: "studio",
     framing: "medium",
     holds: ["couch"],
-    within: null,
   },
   wide: {
     name: "the room",
@@ -43,7 +40,6 @@ const setups: Record<string, Setup> = {
     location: "studio",
     framing: "wide",
     holds: ["deskTop", "couch"],
-    within: null,
   },
   deskClose: {
     name: "the desk, close",
@@ -51,7 +47,6 @@ const setups: Record<string, Setup> = {
     location: "studio",
     framing: "close",
     holds: ["deskTop"],
-    within: null,
   },
 };
 
@@ -92,8 +87,8 @@ function direction(shots: Shot[], extra: Partial<Direction> = {}): Direction {
         name: "the studio",
         description: "a small studio",
         landmarks: {
-          deskTop: { name: "the desk", promptDepiction: "desk", description: "centre" },
-          couch: { name: "the sofa", promptDepiction: "sofa", description: "back wall" },
+          deskTop: { name: "the desk", description: "centre" },
+          couch: { name: "the sofa", description: "back wall" },
         },
       },
     },
@@ -111,9 +106,7 @@ function direction(shots: Shot[], extra: Partial<Direction> = {}): Direction {
 const noStage: StagingStageState = {
   panelSlots: [],
   panelReach: [],
-  plateUses: [],
   panelPrompts: [],
-  platePrompts: {},
   videoPins: [],
   shotPanels: [],
 };
@@ -125,14 +118,6 @@ const active = (dir: Direction, code: string, opts: Parameters<typeof checkDirec
 describe("a graphic shot", () => {
   it("is structurally whole with no setup or lineup of its own", () => {
     expect(structure(direction([narrative("01"), graphic("02")]))).toEqual([]);
-  });
-
-  it("stays in the arc, so the narrative shots either side of it are not adjacent", () => {
-    // medium → wide in one studio on two cameras binds backgrounds when cut adjacently.
-    const cut = direction([narrative("01"), narrative("02", { setup: "wide" })]);
-    expect(active(cut, "undeclared-continuity").map((f) => f.subject)).toEqual(["01-02"]);
-    const split = direction([narrative("01"), graphic("02"), narrative("03", { setup: "wide" })]);
-    expect(active(split, "undeclared-continuity")).toEqual([]);
   });
 
   it("breaks a main-frame long take: `continuous` after it is impossible", () => {
@@ -341,8 +326,6 @@ describe("cutin staging", () => {
       lane: "cutin" as const,
       firstPanel: `animatic:shot.${shotId}.presenter`,
       lastPanel: `animatic:shot.${shotId}.presenter`,
-      carries: false,
-      linked: [],
     }));
     const pins = (before: string[]): StagingStageState => ({
       ...noStage,
@@ -374,54 +357,13 @@ describe("cutin staging", () => {
 });
 
 describe("cutin setups", () => {
-  const plates = (): AnimaticSetupState => ({
-    plateIds: [],
-    unanchoredPlateIds: [],
-    unnestedPlateIds: [],
-    unconsumedBy: new Map(),
-    deterministicShotsPerSetup: new Map(),
-  });
-
   it("counts a wipe as a shot on its setup", () => {
     const dir = direction([
       narrative("01", { setup: "sofa" }),
       graphic("02", { cutin: wipe() }),
       graphic("03", { cutin: wipe({ join: "jump-forward" }) }),
     ]);
-    const { active: found } = checkDirection(dir, {
-      referenceAssetNames: ["studio"],
-      animaticSetups: plates(),
-    });
-    expect(found.filter((f) => f.code === "unused-setup").map((f) => f.subject)).not.toContain(
-      "desk",
-    );
-    expect(found.filter((f) => f.code === "setup-unrealized").map((f) => f.subject)).toEqual([
-      "desk",
-    ]);
-  });
-
-  it("owes plates for two wipes cut along one camera axis", () => {
-    const dir = direction([
-      graphic("01", { cutin: wipe({ setup: "wide", lineup: [] }) }),
-      graphic("02", { cutin: wipe({ setup: "deskClose" }) }),
-    ]);
-    // `deskClose` names no `within`, so the pair is two cameras, not one axis.
-    expect(
-      active(dir, "axis-unrealized", { referenceAssetNames: ["studio"], animaticSetups: plates() }),
-    ).toEqual([]);
-    const onAxis = direction(
-      [
-        graphic("01", { cutin: wipe({ setup: "wide", lineup: [] }) }),
-        graphic("02", { cutin: wipe({ setup: "desk" }) }),
-      ],
-      { setups: { ...setups, desk: { ...setups.desk!, within: "wide" } } },
-    );
-    expect(
-      active(onAxis, "axis-unrealized", {
-        referenceAssetNames: ["studio"],
-        animaticSetups: plates(),
-      }).map((f) => f.subject),
-    ).toEqual(["desk.wide"]);
+    expect(active(dir, "unused-setup").map((f) => f.subject)).toEqual(["wide", "deskClose"]);
   });
 
   it("signs a wipe's setup off with the shot it is over", () => {

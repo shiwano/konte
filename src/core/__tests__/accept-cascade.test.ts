@@ -176,42 +176,6 @@ describe("cascadeAcceptConsumedDeps", () => {
     expect(manager.getAcceptedVariant(cue)).toBe(cueVid);
   });
 
-  // A setup's plate is what the shot's keyframe was BUILT FROM, so it sits one level below the
-  // composition — reached through the keyframe's job provenance, never named in `compositionRefs`.
-  // This is what spares the author an accept on the plate: the accept of the first panel standing on
-  // it is the verdict.
-  it("cascades a board accept through a keyframe to the setup plate under it", async () => {
-    const comp = "animatic:shot.01#composition";
-    const keyframe = "animatic:shot.01.first";
-    const plate = "animatic:plate.front";
-    const plateVid = addReadyVariant(plate, "front.png");
-    const keyframeVid = addReadyVariant(keyframe, "first.png");
-    const compVid = addReadyVariant(comp, "comp.html");
-    await addJob(keyframe, keyframeVid, { [plate]: "front.png" });
-
-    const board = {
-      stage: "animatic" as const,
-      typography: { lang: "en" as const },
-      format: { fps: 30, size: { width: 100, height: 100 } },
-      shots: [
-        {
-          id: "01",
-          duration: 2,
-          action: "i",
-          assets: {},
-          compositionRefs: [keyframe],
-        },
-      ],
-    } as unknown as AnimaticDefinition;
-
-    const accepted = await cascadeAcceptConsumedDeps(manager, jobManager, comp, compVid, {
-      animatic: board,
-    });
-
-    expect(new Set(accepted)).toEqual(new Set([keyframe, plate]));
-    expect(manager.getAcceptedVariant(plate)).toBe(plateVid);
-  });
-
   // The board's per-shot mix is a real generated take, not a leaf — but it is still the shot's
   // audio sign-off, so a CLI accept of it must reach the cues it was mixed from. Keying the root's
   // `allowAudio` on the LEAF predicate left every cue undecided.

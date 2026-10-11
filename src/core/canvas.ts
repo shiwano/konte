@@ -102,7 +102,7 @@ export type ReferenceShape = "portrait" | "square" | "master";
 // grid wherever the long edge is a multiple of 96.
 const PORTRAIT_SHORT_EDGE = 2 / 3;
 
-// A location sheet is the master a plate is cut out of, so it is sized for the crop rather than for
+// A location sheet is the master a frame is cut out of, so it is sized for the crop rather than for
 // the frame: twice the canvas on its long edge, so the tightest window still carries texture. It is
 // landscape whatever the canvas: 2:1 — the widest a place can be drawn without the sampler doubling
 // what is in it — under a horizontal canvas, 3:2 under a vertical one.

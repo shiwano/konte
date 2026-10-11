@@ -131,20 +131,6 @@ describe("formatAcceptedStaleNotice", () => {
     expect(notice).toContain("video:shot.01.motion: definition-stale");
     expect(notice).toContain("konte reroll video:shot.01.motion");
   });
-
-  it("offers the fork beside the reroll for a plate two shots stand on", () => {
-    const notice = formatAcceptedStaleNotice([
-      {
-        address: "animatic:plate.deckLow",
-        cause: "definition-stale",
-        command: "konte reroll animatic:plate.deckLow",
-        fork: { setupId: "deckLow", shotIds: ["06", "22"] },
-      },
-    ]);
-    expect(notice).toContain("shared frame for shots 06, 22");
-    expect(notice).toContain("for one shot: fork the setup");
-    expect(notice).toContain("for all 2: konte reroll animatic:plate.deckLow");
-  });
 });
 
 describe("getActiveVariantIds", () => {

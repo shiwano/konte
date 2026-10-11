@@ -1,7 +1,6 @@
 import type { PromptOccurrence } from "../prompt-check.js";
 import type { AdapterMeta } from "./adapter.js";
 import { beginClipLengthCollection } from "./clip-length-collect.js";
-import { beginImageInputCollection } from "./image-input-collect.js";
 import { beginPinCollection } from "./pin-collect.js";
 
 // Where a stage's `"prompt"`, `"negativePrompt"` and `"spokenText"` values are gathered while it
@@ -24,7 +23,6 @@ let script: string[] = [];
 export function beginPromptCollection(spokenLines: readonly string[] = []): void {
   beginClipLengthCollection();
   beginPinCollection();
-  beginImageInputCollection();
   sink = [];
   seen = new Set();
   script = [...spokenLines];

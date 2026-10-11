@@ -1438,8 +1438,8 @@ function LocationGroup({
         <td className="dir-col-holds" />
         <td className="dir-col-syn">
           {description}
-          {/* What only this place has — what a setup's `holds` names and a plate's sentence must
-              say. Reviewed with the place, so they carry no Accept of their own. */}
+          {/* What only this place has — what a setup's `holds` names. Reviewed with the place, so
+              they carry no Accept of their own. */}
           {landmarks.length > 0 && (
             <ul className="dir-landmarks">
               {landmarks.map((l) => (
@@ -1459,9 +1459,8 @@ function LocationGroup({
 }
 
 // One camera position under the set it looks at. `Frame` is the size every shot taken on it inherits
-// — the column the shot table's size cadence is read against, with the wider frame this one is a
-// window of beneath it — and `Holds` is what of the place this frame carries, left to right, which is
-// what makes it recognizable as that place at all.
+// — the column the shot table's size cadence is read against — and `Holds` is what of the place this
+// frame carries, left to right, which is what makes it recognizable as that place at all.
 function SetupRow({
   setup,
   renderNotes,
@@ -1474,9 +1473,6 @@ function SetupRow({
       <td className="dir-col-name">{setup.name}</td>
       <td className="dir-col-frame">
         <span className={`dir-framing dir-framing--${setup.framing}`}>{setup.framing}</span>
-        <span className="dir-within">
-          {setup.within === undefined ? "—" : setup.within === null ? "root" : `▸ ${setup.within}`}
-        </span>
       </td>
       {/* Left to right on screen. An insert holds nothing, and says so rather than reading as a
           frame whose contents were left out. */}
