@@ -33,7 +33,7 @@ A panel drawn up from `drafts.<name>.frame(…)`.
 
 - **The frame is an animatic reference** — `<Picture N> is an animatic reference for [Shot 1], defining its viewpoint and subject placement.`, `weak_reference`. Line, colour and detail come from the character and prop references passed beside it.
 - **Write the pose out as well** — a frame too soft to read still comes back as the pose the prompt gives.
-- **The frame's count wins over the prompt's** — five cards in the frame come back as five where the text says four. What the frame lacks or misdraws is carried too: pick another frame, or reroll the draft.
+- **What the frame shows wins over the prompt** — a facing, a held prop, the set behind, a count. What the frame lacks or misdraws is carried too: change the frame before the panel is drawn.
 - **A shot's end panel takes the end frame and the settled first panel** — the first panel `fully_preserved` for camera and set, the end frame for where the figures are.
 
 ## Empty Frames

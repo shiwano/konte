@@ -4,7 +4,7 @@ Picture and stereo audio decoded from one take.
 
 ## Length
 
-- **`detailedDescription`: up to 500 English words.** Dialogue-dense content fits the whole spoken timeline.
+- **`detailedDescription`: 350–1200 English words**, spread over the shots by what each has to show — a take of few shots is no shorter. Dialogue-dense content fits the whole spoken timeline.
 
 ## References
 
@@ -34,9 +34,11 @@ Picture and stereo audio decoded from one take.
 
 ## Draft Takes
 
-A take declared under `drafts`: several shots in one clip, read only for where things sit in each frame.
+A take declared under `drafts`: several shots in one clip, whose text decides each panel's composition.
 
-- **`shots: cuts((id) => text)`** — one text per shot; the cut times are the direction's. Five cuts reach the 500-word limit.
+- **`shots: cuts((id) => text)`** — one text per shot; the cut times are the direction's.
+- **A shot comes back as written** — a height, an angle, a near plane and a far one that the text names are in the frame; what it leaves out comes back flat.
+- **A reroll of unchanged text returns the same composition** — change the text to change the frame.
 - **The place's reference is an image, `attribute_transfer`** — its room and light carried, the framing the take's own.
 - **`refImageSize: "match"`**, no `audioStem`, no `audioN`, both sound fields `N/A`.
 - **Leave `useTurbo` to konte** — a draft is never a turbo take.

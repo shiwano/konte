@@ -82,6 +82,7 @@ After `konte generate` or `konte reroll`:
 - prompt content or delivery → `prompt-guide` → generate
 - one local element on a take otherwise right — add, remove or recolour it — once a reroll on the fixed prompt still misses it, or the human wants the take kept, and the medium has an edit route (`konte adapter list`) → **`konte patch new <address>`**, the edit in the shape its adapter's guide gives, then generate. A failed patch leaves the take; `konte patch remove <variantId>` (the take it was written against) drops the fix for good. A further fix is another step in that same script — a take a patch produced cannot be patched again.
 - the shot doesn't read — framing, staging, continuity → the animatic panel: restage, then generate down the chain, never papered over in the motion prompt
+- a panel that kept its draft frame against its prompt → change the frame, then generate
 - a pinned endpoint — pose, gaze, hands at start/end → the animatic frames pin it, not the prompt: edit the panel, then generate down the chain
 - the note is about the movement, not the frame — "give it more motion", a transit that doesn't read → the panel's `blocking`/`camera`: rewriting them answers it with no new take, and the comment goes stale on its own
 - pacing, shot order, runtime → `direction.ts` (`direction-guide`) — no reroll fixes it; a shot's retuned words are re-signed by its stage accept, a retuned setup on `direction:setups.<id>`

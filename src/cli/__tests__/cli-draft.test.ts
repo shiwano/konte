@@ -263,6 +263,16 @@ export default defineReference(direction, () => ({
     expect(kept.map(([id]) => id)).toEqual([newest]);
   });
 
+  it("names the frame a rerolled panel is drawn from", async () => {
+    const projectDir = await project(animaticWith({ shots: "drawn" }));
+    await generate(projectDir);
+
+    const { stdout } = await run(["reroll", PANEL], projectDir);
+    expect(stdout).toContain("Next steps:");
+    expect(stdout).toContain(`konte probe image ${FRAME}`);
+    expect(stdout).toContain(`The frame ${PANEL} is drawn from`);
+  });
+
   it("refuses a target that is no draft take, beside one that is", async () => {
     const projectDir = await project(animaticWith({ shots: "drawn" }));
     await generate(projectDir);

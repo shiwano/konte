@@ -25,6 +25,7 @@ import { syncFileAssets } from "../../../core/file-sync.js";
 import {
   buildDependencyGraph,
   collectRerollCascade,
+  listPanelConditioning,
   listUnusedAssetPaths,
 } from "../../../core/graph.js";
 import { JobIndex } from "../../../core/job-index.js";
@@ -127,6 +128,9 @@ A draft take (\`animatic:draft.<name>\`) is rerolled only to change the composit
 The new take becomes the one in use; no panel drawn from the take before it moves, and
 a scope sweeps a draft in only while it has no take. Next steps names the probe that
 reads the new cuts.
+
+A panel drawn from a draft frame keeps what that frame shows, so its reroll changes line,
+colour and detail only. Next steps names the frame.
 
 A reroll that came out worse is undone with \`konte dismiss <variantId>\`: a dismissed
 take never resolves, so the address falls back to the take before it, undecided and
@@ -752,9 +756,24 @@ Examples:
         const rerolledDrafts = jobRows
           .map((row) => row.address)
           .filter((address, i, all) => isDraftTakeAddress(address) && all.indexOf(address) === i);
-        if (rerolledDrafts.length > 0) {
+        // A panel drawn from a draft frame comes back on that frame's composition.
+        const rerolled = new Set(jobRows.map((row) => row.address));
+        const framedPanels = (animatic ? listPanelConditioning(animatic) : []).filter(
+          (k, i, all) =>
+            k.draftFrames !== undefined &&
+            rerolled.has(k.panel) &&
+            all.findIndex((other) => other.panel === k.panel) === i,
+        );
+        if (rerolledDrafts.length > 0 || framedPanels.length > 0) {
           console.log("\nNext steps:");
           console.log("  konte job wait");
+          for (const k of framedPanels) {
+            console.log(
+              `  konte probe image ${k.draftFrames![0]!.address}   The frame ${k.panel} is drawn ` +
+                `from: the new take keeps what it shows, whatever the prompt says — change the ` +
+                `frame to change the composition`,
+            );
+          }
           for (const address of rerolledDrafts) {
             const name = tryParseAddress(address)!.assetName;
             const shotIds = animatic?.draftShots?.[name] ?? [];

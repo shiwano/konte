@@ -5,13 +5,19 @@ A draft take is consecutive shots generated as one small clip, so their frames a
 ## Split the shots into takes
 
 - **`draft([ids], build)` under `drafts` in animatic.tsx** — a run of consecutive camera shots, each shot in exactly one take, addressed `animatic:draft.<name>`. An aside or a graphic shot ends the run.
-- **Four or five cuts a take** — the prompt's word limit and reference slots fill first, the model's length after (`konte adapter show`).
+- **Four or five cuts a take** — the reference slots fill first, the model's length after (`konte adapter show`).
 - **Start a new take where the place changes.**
 - **`drafts` declares takes only** — what a take is built from is a `reference.tsx` asset.
 - **Hand it each place's reference and each subject's** — `reference.<location>`, or a `reference.tsx` asset built from it; a panel drawn from a frame of the take stands on what the take was handed.
 - **`cuts((id) => text)` lays each shot's text on the direction's cut times**; length and size are derived.
 - **`previous` is the take before, cut to its last seconds** — pass it as the reference clip and write the take as its continuation, in the adapter guide's notation. `undefined` on the first take and after a change of place.
 - **Pass no voice reference and no stem** — a draft's sound is never used.
+
+## Write each shot
+
+- **Name the camera's height and angle in every shot.**
+- **Write the action's first state and its last.**
+- **Give a shot the words its frame needs** — the adapter guide's range is for the whole take.
 
 ## Say one thing one way across takes
 
@@ -36,6 +42,15 @@ Take the take's last frame of the shot as a second `<Panel>` where the head and 
 
 ## Change a composition
 
-- **One shot** — redraw its panel from the same frame, or move `at` to another.
-- **The take itself** — `konte reroll animatic:draft.<name>`, then the Next steps it prints. No panel moves until its own `at` is rewritten; `generate` never redoes a draft that has a take.
+**A panel draws what its frame shows** — its prompt moves line, colour, expression and detail.
+
+- **Another moment of the shot** → move `at`.
+- **What the frame shows — a facing, a pose, a held prop, the set's structure, a count** → an image-edit asset between the frame and the panel (`konte adapter list`), written in the shape its guide gives.
+- **Framing, size, camera position** → rewrite that shot's text in the take, `konte reroll animatic:draft.<name>`, then rewrite that shot's `at`. No other panel moves until its own `at` is rewritten; `generate` never redoes a draft that has a take.
+
+```tsx
+const frame = drafts.opening.frame("02", "draftFirst", { at: 2.15 });
+const shaped = asset("shapedFrame", imageEdit, { image1: frame, prompt: "…" });
+```
+
 - **A draft is never accepted or dismissed** — the panels drawn from it are what the human signs off.
