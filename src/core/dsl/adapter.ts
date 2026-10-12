@@ -413,6 +413,9 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
       );
     }
   }
+  const rendered = renderedAsset(name, adapter);
+  if (rendered) return rendered as BrandedMediaAsset<TName, TAdapter>;
+
   let inputs: AdapterInputs<TAdapter>;
   try {
     inputs = assemblePromptInputs(adapter.meta.inputs, given);
@@ -482,18 +485,11 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
 
   const timelineCtx = getTimelineContext();
   if (timelineCtx) {
-    if (timelineCtx.mode === "discovery") {
-      assertUniqueAsset(timelineCtx.assets, name, `${timelineCtx.stage} timeline`);
-      timelineCtx.assets.set(name, def);
-      const placeholder = makeTimelinePlaceholder(timelineCtx.stage, name);
-      record(placeholder);
-      return makeMediaAsset(placeholder) as BrandedMediaAsset<TName, TAdapter>;
-    }
-
-    const resolved = timelineCtx.resolvedFiles.get(name);
-    return makeMediaAsset(
-      resolved ?? makeTimelinePlaceholder(timelineCtx.stage, name),
-    ) as BrandedMediaAsset<TName, TAdapter>;
+    assertUniqueAsset(timelineCtx.assets, name, `${timelineCtx.stage} timeline`);
+    timelineCtx.assets.set(name, def);
+    const placeholder = makeTimelinePlaceholder(timelineCtx.stage, name);
+    record(placeholder);
+    return makeMediaAsset(placeholder) as BrandedMediaAsset<TName, TAdapter>;
   }
 
   const ctx = getShotContext();
@@ -502,16 +498,32 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
   }
 
   ctx.assetKinds.set(name, adapter.type);
-  if (ctx.mode === "discovery") {
-    assertUniqueAsset(ctx.assets, name, `shot "${ctx.shotId}"`);
-    ctx.assets.set(name, def);
-    const placeholder = makePlaceholder(ctx.stage, ctx.shotId, name);
-    record(placeholder);
-    return makeMediaAsset(placeholder) as BrandedMediaAsset<TName, TAdapter>;
-  }
+  assertUniqueAsset(ctx.assets, name, `shot "${ctx.shotId}"`);
+  ctx.assets.set(name, def);
+  const placeholder = makePlaceholder(ctx.stage, ctx.shotId, name);
+  record(placeholder);
+  return makeMediaAsset(placeholder) as BrandedMediaAsset<TName, TAdapter>;
+}
 
-  const resolved = ctx.resolvedFiles.get(name);
-  return makeMediaAsset(
-    resolved ?? makePlaceholder(ctx.stage, ctx.shotId, name),
-  ) as BrandedMediaAsset<TName, TAdapter>;
+// A render pass resolves the name to its file and builds no definition: a render context carries no
+// canvas for an adapter to derive its inputs from.
+function renderedAsset(
+  name: string,
+  adapter: AssetAdapter<any, any>,
+): MediaAsset<MediaKind> | undefined {
+  const site = declarationSite();
+  if (site === "timeline") {
+    const ctx = getTimelineContext();
+    if (ctx?.mode !== "render") return undefined;
+    return makeMediaAsset(ctx.resolvedFiles.get(name) ?? makeTimelinePlaceholder(ctx.stage, name));
+  }
+  if (site === "shot") {
+    const ctx = getShotContext();
+    if (ctx?.mode !== "render") return undefined;
+    ctx.assetKinds.set(name, adapter.type);
+    return makeMediaAsset(
+      ctx.resolvedFiles.get(name) ?? makePlaceholder(ctx.stage, ctx.shotId, name),
+    );
+  }
+  return undefined;
 }

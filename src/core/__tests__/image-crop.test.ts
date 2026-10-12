@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { imageCrop } from "../dsl/adapters/index.js";
 import type { MediaAsset } from "../dsl/builders.js";
-import { runTimelineInDiscoveryMode } from "../dsl/shot-context.js";
+import { asset } from "../dsl/adapter.js";
+import {
+  runInRenderMode,
+  runTimelineInDiscoveryMode,
+  runTimelineInRenderMode,
+} from "../dsl/shot-context.js";
 import { extractRefs } from "../graph.js";
 import type { LocalAssetDefinition } from "../types/index.js";
 
@@ -63,6 +68,28 @@ describe("imageCrop", () => {
 
   it("demands an out size where there is no canvas to take one from", () => {
     expect(() => imageCrop.createDefinition(WINDOW)).toThrow(/needs an outWidth and outHeight/);
+  });
+
+  it("resolves to its file in a render pass, which carries no canvas", () => {
+    const files = { crowFrame: "/assets/crow.png" };
+    let inShot: MediaAsset<"image"> | undefined;
+    runInRenderMode(
+      "animatic",
+      "59",
+      () => {
+        inShot = asset("crowFrame", imageCrop, WINDOW);
+        return null as never;
+      },
+      files,
+    );
+    const inTimeline = runTimelineInRenderMode(
+      "animatic",
+      () => asset("crowFrame", imageCrop, WINDOW),
+      files,
+    );
+
+    expect(inShot?.src).toBe("/assets/crow.png");
+    expect(inTimeline.src).toBe("/assets/crow.png");
   });
 
   it("makes the master a dependency edge", () => {
