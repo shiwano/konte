@@ -35,6 +35,10 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - konte-prompt-critic 3,800 → 3,950, konte-animatic-critic 3,500 → 3,550 (agreed by a human): a
+//   declared `join` read above each prompt and on the board, the `reference-contradicted` axis.
+// - dev-direction 16,800 → 17,100, dev-render 10,600 → 10,750 (agreed by a human): what both held
+//   over budget once the draft take's raise was taken back.
 // - konte-video-critic (new, 2,700): each motion take against its shot's action, the board's
 //   movement, the panels it was built on and the boundary into it.
 // - video 37,850 → 38,750, music-video 38,900 → 39,800 (agreed by a human): motion craft for a
@@ -102,12 +106,12 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "konte-prompt-critic",
-    budget: 3_800,
+    budget: 3_950,
     files: [...ALWAYS, `${AGENTS}/konte-prompt-critic.md`],
   },
   {
     name: "konte-animatic-critic",
-    budget: 3_500,
+    budget: 3_550,
     files: [...ALWAYS, `${AGENTS}/konte-animatic-critic.md`],
   },
   {
@@ -238,7 +242,7 @@ const DEV_JOURNEYS = [
   // part hashes, so the review guide comes along.
   {
     name: "dev-direction",
-    budget: 16_800,
+    budget: 17_100,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-direction-guide/SKILL.md`,
@@ -252,7 +256,7 @@ const DEV_JOURNEYS = [
   // the same render plan chooses between per shot.
   {
     name: "dev-render",
-    budget: 10_600,
+    budget: 10_750,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-delivery-guide/SKILL.md`,
