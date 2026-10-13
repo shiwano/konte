@@ -11,14 +11,16 @@ import { requireVideoRoot } from "../../context.js";
 export function registerJobStatsCommand(program: Command): void {
   program
     .command("stats [address-scope]")
-    .description("Show average job duration per adapter")
+    .description("Show job duration per adapter and the total generation time")
     .addHelpText(
       "after",
       "\nAggregates completed generation jobs by adapter so you — or an agent — can gauge\n" +
         "how long future generations will take. Durations are execution time\n" +
         "(running → done), excluding queue wait. When one adapter's runs cluster into two\n" +
         "well-separated groups (two distinct runtime regimes), the row splits into fast/slow\n" +
-        "modes. Optionally scope to a stage/shot.\n" +
+        "modes. TOTAL sums each row's runs; a second table sums them per backend, and the\n" +
+        "closing line sums every row.\n" +
+        "Optionally scope to a stage/shot.\n" +
         "\nExamples:\n" +
         "  konte job stats                 All adapters\n" +
         "  konte job stats video           Video stage only\n" +
@@ -49,7 +51,14 @@ export function registerJobStatsCommand(program: Command): void {
       const rows = buckets.flatMap((b) => {
         const cells = (
           mode: string,
-          s: { count: number; p50Ms: number; p90Ms: number; meanMs: number; lastRunAt: string },
+          s: {
+            count: number;
+            p50Ms: number;
+            p90Ms: number;
+            meanMs: number;
+            totalMs: number;
+            lastRunAt: string;
+          },
         ) => ({
           ADAPTER: `${b.backendKind}:${b.adapterKey}`,
           MODE: mode,
@@ -57,11 +66,34 @@ export function registerJobStatsCommand(program: Command): void {
           P50: formatDuration(s.p50Ms),
           P90: formatDuration(s.p90Ms),
           MEAN: formatDuration(s.meanMs),
+          TOTAL: formatDuration(s.totalMs),
           "LAST RUN": formatRelativeTime(s.lastRunAt),
         });
         return b.modes ? b.modes.map((m) => cells(m.label, m)) : [cells("—", b)];
       });
 
       console.log(renderTable(rows));
+
+      const backends = new Map<string, { count: number; totalMs: number }>();
+      for (const b of buckets) {
+        const backend = backends.get(b.backendKind) ?? { count: 0, totalMs: 0 };
+        backend.count += b.count;
+        backend.totalMs += b.totalMs;
+        backends.set(b.backendKind, backend);
+      }
+      const backendRows = [...backends]
+        .sort(([a, x], [b, y]) => y.totalMs - x.totalMs || a.localeCompare(b))
+        .map(([backendKind, s]) => ({
+          BACKEND: backendKind,
+          COUNT: String(s.count),
+          TOTAL: formatDuration(s.totalMs),
+        }));
+      console.log(`\n${renderTable(backendRows)}`);
+
+      const count = buckets.reduce((acc, b) => acc + b.count, 0);
+      const totalMs = buckets.reduce((acc, b) => acc + b.totalMs, 0);
+      console.log(
+        `\nTotal: ${formatDuration(totalMs)} across ${count} job${count === 1 ? "" : "s"}`,
+      );
     });
 }

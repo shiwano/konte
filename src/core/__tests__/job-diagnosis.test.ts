@@ -71,6 +71,7 @@ function bucket(patch: Partial<JobStatBucket> = {}): JobStatBucket {
     p50Ms: 47_000,
     p90Ms: 109_000,
     meanMs: 78_000,
+    totalMs: 780_000,
     lastRunAt: iso(HOUR),
     modes: null,
     ...patch,

@@ -27,6 +27,7 @@ type JobStatMode = {
   p50Ms: number;
   p90Ms: number;
   meanMs: number;
+  totalMs: number;
   lastRunAt: string;
 };
 
@@ -37,6 +38,7 @@ export type JobStatBucket = {
   p50Ms: number;
   p90Ms: number;
   meanMs: number;
+  totalMs: number;
   lastRunAt: string;
   // Present (exactly two entries — fast then slow) when the bucket's durations split cleanly
   // into two well-separated groups — an adapter run under two distinct runtime regimes, whose
@@ -86,6 +88,7 @@ function statsFor(samples: Sample[]): Omit<JobStatMode, "label"> {
     p50Ms: percentile(durations, 50),
     p90Ms: percentile(durations, 90),
     meanMs: Math.round(sum / durations.length),
+    totalMs: sum,
     lastRunAt,
   };
 }

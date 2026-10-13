@@ -74,6 +74,7 @@ describe("computeJobStats", () => {
     expect(b.count).toBe(3);
     expect(b.p50Ms).toBe(20_000);
     expect(b.meanMs).toBe(20_000);
+    expect(b.totalMs).toBe(60_000);
   });
 
   it("splits adapters into separate buckets", () => {

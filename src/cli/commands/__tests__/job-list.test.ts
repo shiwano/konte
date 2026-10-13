@@ -54,14 +54,18 @@ function nextVariantId(): string {
 
 async function seedJob(
   status: JobRecord["status"],
-  { adapterKey, durationMs }: { adapterKey?: string; durationMs?: number } = {},
+  {
+    adapterKey,
+    durationMs,
+    backendKind = "comfy",
+  }: { adapterKey?: string; durationMs?: number; backendKind?: JobRecord["backendKind"] } = {},
 ): Promise<string> {
   const variantId = nextVariantId();
   await jobManager.createJob({
     address: "video:shot.01.motion",
     variantId,
     resolvedDeps: {},
-    backendKind: "comfy",
+    backendKind,
     metadata: adapterKey ? { [ADAPTER_KEY_METADATA_KEY]: adapterKey } : undefined,
   });
 
@@ -266,13 +270,42 @@ describe("job stats", () => {
 
     const [, row] = stdout.trim().split("\n");
     // The running job carries no duration, so it is outside the count.
-    expect(row!.split(/\s{2,}/).slice(0, 6)).toEqual([
+    expect(row!.split(/\s{2,}/).slice(0, 7)).toEqual([
       "comfy:animate",
       "—",
       "3",
       "0:02",
       "0:03",
       "0:02",
+      "0:06",
+    ]);
+  });
+
+  it("closes with the generation time summed over every adapter", async () => {
+    for (const ms of [1000, 2000, 3000]) {
+      await seedJob("completed", { adapterKey: "animate", durationMs: ms });
+    }
+    await seedJob("completed", { adapterKey: "upscale", durationMs: 60_000 });
+
+    const { stdout } = await run(["job", "stats"], projectDir);
+    expect(stdout.trim().split("\n").at(-1)).toBe("Total: 1:06 across 4 jobs");
+  });
+
+  it("sums the generation time per backend, the longest first", async () => {
+    await seedJob("completed", { adapterKey: "animate", durationMs: 1000 });
+    await seedJob("completed", { adapterKey: "upscale", durationMs: 2000 });
+    await seedJob("completed", {
+      adapterKey: "fal-ai/kling",
+      durationMs: 60_000,
+      backendKind: "fal",
+    });
+
+    const { stdout } = await run(["job", "stats"], projectDir);
+    const [, backends] = stdout.trim().split("\n\n");
+    expect(backends!.split("\n").map((line) => line.split(/\s{2,}/))).toEqual([
+      ["BACKEND", "COUNT", "TOTAL"],
+      ["fal", "1", "1:00"],
+      ["comfy", "2", "0:03"],
     ]);
   });
 
