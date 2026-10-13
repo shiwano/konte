@@ -58,8 +58,13 @@ export function getDeliverySize(
 // is cropped off at the end (`deliveryCoverSize`).
 function deliveryScale(video: VideoDefinition): number {
   const size = getDeliverySize(video);
-  const base = video.format.size;
-  if (!size || base.width <= 0 || base.height <= 0) return 1;
+  return size ? coverScale(video.format.size, size) : 1;
+}
+
+type Size = { width: number; height: number };
+
+export function coverScale(base: Size, size: Size): number {
+  if (base.width <= 0 || base.height <= 0) return 1;
   return Math.max(size.width / base.width, size.height / base.height);
 }
 
@@ -90,7 +95,11 @@ export function deliveryCoverSize(video: VideoDefinition): { width: number; heig
   const size = getDeliverySize(video);
   const base = video.format.size;
   if (!size) return { width: base.width, height: base.height };
-  const scale = deliveryScale(video);
+  return coverSize(base, size);
+}
+
+export function coverSize(base: Size, size: Size): Size {
+  const scale = coverScale(base, size);
   return {
     width: Math.max(size.width, toEven(base.width * scale)),
     height: Math.max(size.height, toEven(base.height * scale)),

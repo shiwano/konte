@@ -59,6 +59,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
     allowUnaccepted: false,
     fps: 30,
     size: { width: 1920, height: 1080 },
+    canvas: { width: 1280, height: 720 },
     deliveryUpscale: "video",
     variants: {
       "video:shot.01.motion#delivery": { variantId: "v-abc", accepted: true },
@@ -148,8 +149,42 @@ describe("probe export", () => {
 
     expect(stdout).toContain("2026-07-16T00:00:00.000Z");
     expect(stdout).toContain("konte 0.0.1");
-    expect(stdout).toContain("video"); // deliveryUpscale
+    expect(stdout).toMatch(/delivery +1920×1080, scaled ×1\.5 from 1280×720 \(upscale\.video\)$/m);
     expect(stdout).not.toContain("rough cut");
+  });
+
+  it("names the scale and crop of a delivery no upscale model fed", async () => {
+    const outDir = path.join(videoRoot, "dist", "video", "20260716T000000000");
+    await fs.writeFile(
+      path.join(outDir, "manifest.json"),
+      JSON.stringify(
+        manifest({
+          size: { width: 1280, height: 720 },
+          canvas: { width: 1248, height: 704 },
+          deliveryUpscale: null,
+        }),
+      ) + "\n",
+    );
+
+    expect(await runExport([])).toMatch(
+      /delivery +1280×720, scaled ×1\.026 from 1248×704, cropped 0×4 \(no upscale model\)$/m,
+    );
+  });
+
+  it("calls a render whose size is its canvas working size", async () => {
+    const outDir = path.join(videoRoot, "dist", "video", "20260716T000000000");
+    await fs.writeFile(
+      path.join(outDir, "manifest.json"),
+      JSON.stringify(
+        manifest({
+          size: { width: 1248, height: 704 },
+          canvas: { width: 1248, height: 704 },
+          deliveryUpscale: null,
+        }),
+      ) + "\n",
+    );
+
+    expect(await runExport([])).toMatch(/delivery +none \(working size\)$/m);
   });
 
   it("flags a rough cut rendered with --allow-unaccepted", async () => {

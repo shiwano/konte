@@ -8,6 +8,7 @@ import {
   type ExportManifest,
   ExportManifestSchema,
 } from "../../../core/types/index.js";
+import { coverScale, coverSize } from "../../../core/delivery.js";
 import { computeExportSignature } from "../../../core/export-signature.js";
 import { JobManager } from "../../../core/job-manager.js";
 import { computeLastExports } from "../../../core/status-sections.js";
@@ -61,6 +62,20 @@ function formatPicture(
       ? `   [direction runs ${expected} frames]`
       : "";
   return `${frames}, ${length}${drift}`;
+}
+
+// How the delivered frame came from the working canvas: one uniform scale that covers the delivery,
+// then the overshoot cut from the centre.
+function formatDelivery(manifest: ExportManifest): string {
+  const { size, canvas, deliveryUpscale } = manifest;
+  if (size.width === canvas.width && size.height === canvas.height) return "none (working size)";
+  const scale = Math.round(coverScale(canvas, size) * 1000) / 1000;
+  const cover = coverSize(canvas, size);
+  const cropW = cover.width - size.width;
+  const cropH = cover.height - size.height;
+  const cropped = cropW > 0 || cropH > 0 ? `, cropped ${cropW}×${cropH}` : "";
+  const model = deliveryUpscale ? `upscale.${deliveryUpscale}` : "no upscale model";
+  return `${size.width}×${size.height}, scaled ×${scale} from ${canvas.width}×${canvas.height}${cropped} (${model})`;
 }
 
 async function resolveTarget(
@@ -199,7 +214,7 @@ Examples:
       if (manifest) {
         console.log(`  id          ${manifest.id}`);
         console.log(`  rendered    ${manifest.renderedAt}  (konte ${manifest.konteVersion})`);
-        console.log(`  delivery    ${manifest.deliveryUpscale ?? "none (working size)"}`);
+        console.log(`  delivery    ${formatDelivery(manifest)}`);
         if (manifest.allowUnaccepted) {
           console.log(`  note        rough cut — rendered with --allow-unaccepted`);
         }

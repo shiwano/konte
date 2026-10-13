@@ -465,6 +465,7 @@ export async function renderVideoToFile(opts: {
         allowUnaccepted,
         exportSignature,
         deliveryUpscale: "frame",
+        canvas: video.format.size,
         resolved: resolvedForManifest,
         derivedFromOf,
         deliverySubstitutions: new Map(),
@@ -588,6 +589,7 @@ export async function renderVideoToFile(opts: {
       allowUnaccepted,
       exportSignature,
       deliveryUpscale,
+      canvas: video.format.size,
       resolved: resolvedForManifest,
       derivedFromOf,
       deliverySubstitutions,
@@ -1133,6 +1135,7 @@ export function buildManifest(
     allowUnaccepted: boolean;
     exportSignature: string | null;
     deliveryUpscale: "video" | "frame" | null;
+    canvas: { width: number; height: number };
     // Every address the definitions declare, resolved the way the render resolved it.
     resolved: ReadonlyMap<string, ResolvedForManifest>;
     // A variant's patch lineage, read off state.
@@ -1146,6 +1149,7 @@ export function buildManifest(
     allowUnaccepted,
     exportSignature,
     deliveryUpscale,
+    canvas,
     resolved,
     derivedFromOf,
     deliverySubstitutions,
@@ -1195,6 +1199,7 @@ export function buildManifest(
     allowUnaccepted,
     fps: plan.fps,
     size: plan.size,
+    canvas,
     deliveryUpscale,
     variants: Object.fromEntries([...variants].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
     shots: plan.shots.map((shotPlan) => ({
