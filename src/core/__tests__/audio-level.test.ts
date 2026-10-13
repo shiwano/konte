@@ -138,6 +138,11 @@ describe("audioLevelling diagnostics", () => {
     ["voice", -49, -30, 12, true],
     ["voice", -2, -1, -12, true],
     ["sfx", null, -20, 12, true],
+    ["ambience", -24, -6, -6, false],
+    ["ambience", -33, -6, 3, false],
+    ["ambience", -36, -6, 6, true],
+    ["ambience", -48, -6, 6, true],
+    ["ambience", -16, -6, -12, true],
   ] as const)(
     "explains %s gain for LUFS %s and peak %s",
     (kind, integratedLufs, truePeakDb, db, limited) => {
@@ -288,13 +293,15 @@ describe("shotCueLevels — a clip's own track", () => {
       },
     },
   });
-  const levelsFor = (kind: CueKind) =>
+  const levelsFor = (kind: CueKind, integratedLufs = -30) =>
     shotCueLevels({
       stage: "video",
       shotId: "01",
       cueKinds: { "video:shot.01.motion": kind },
       pictureRefs: ["video:shot.01.motion"],
-      state: { assets: { "video:shot.01.motion": clip(-30) } } as unknown as KonteState,
+      state: {
+        assets: { "video:shot.01.motion": clip(integratedLufs) },
+      } as unknown as KonteState,
       resolvedVariants: { motion: "v-1" },
       resolve: () => "v-1",
     });
@@ -309,15 +316,22 @@ describe("shotCueLevels — a clip's own track", () => {
     });
   });
 
-  // The true-peak rule sfx is levelled by is meant for a door slam, not a whole soundscape: it
-  // would haul a quiet shot up to the level of a loud one.
-  it("leaves the mix of a shot that does not speak alone", () => {
-    const levels = levelsFor("sfx");
-    expect(levels.gains["video:shot.01.motion"]).toBeUndefined();
-    expect(levels.adjustments["video:shot.01.motion"]).toEqual({ gain: 1, reason: "no-lines" });
+  // The true-peak rule sfx is levelled by is meant for a door slam, not a whole soundscape: off
+  // this clip's -30 dB peak it would ask for +22 dB.
+  it("brings the mix of a shot that does not speak to the ambience target", () => {
+    const levels = levelsFor("sfx", -36);
+    expect(20 * Math.log10(levels.gains["video:shot.01.motion"]!)).toBeCloseTo(6, 6);
+    expect(levels.adjustments["video:shot.01.motion"]).toEqual({
+      gain: levels.gains["video:shot.01.motion"],
+      limited: true,
+    });
+    expect(levelsFor("sfx", -30).adjustments["video:shot.01.motion"]).toEqual({
+      gain: 1,
+      limited: false,
+    });
   });
 
-  it("levels a standalone sfx cue as before — the refusal is the clip's track only", () => {
+  it("levels a standalone sfx cue by true peak — the ambience target is the clip's track only", () => {
     expect(
       shotCueLevels({
         stage: "video",

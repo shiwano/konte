@@ -56,7 +56,6 @@ function formatLevelling(level: AudioTrack["levelling"]): string {
       unmeasured: "source unmeasured",
       "no-lufs": "source LUFS unavailable",
       stem: "already mixed stem",
-      "no-lines": "no spoken lines",
       unclassified: "unclassified source",
     };
     return `auto off: ${reasons[level.reason]}`;

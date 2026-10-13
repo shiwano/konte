@@ -356,7 +356,8 @@ describe("a line the picture carries is still a line", () => {
       });
       expect(track?.levelling).toEqual(cueLevels.adjustments["video:shot.01.motion"]);
       expect(track?.volume).toBeCloseTo(track!.levelling!.gain, 6);
-      expect(track?.levelling?.reason).toBe(kind === "sfx" ? "no-lines" : undefined);
+      // -24 LUFS: +6 dB to the voice target, -6 dB to the ambience one.
+      expect(20 * Math.log10(track!.levelling!.gain)).toBeCloseTo(kind === "sfx" ? -6 : 6, 6);
     },
   );
 

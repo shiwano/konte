@@ -17,8 +17,11 @@ export function isVoiceKind(kind: CueKind | undefined): boolean {
   return kind === "voice" || kind === "narration";
 }
 
-/** A cue kind, the timeline bed a `soundtrack()` places, or the song `policy.song` names. */
-export type LevelKind = CueKind | "bed" | "song";
+/**
+ * A cue kind, the timeline bed a `soundtrack()` places, the song `policy.song` names, or the
+ * `ambience` a `<Video hasAudio>` clip carries in a shot with no lines.
+ */
+export type LevelKind = CueKind | "bed" | "song" | "ambience";
 
 // Where each kind sits. `sfx` is levelled by true peak instead: integrated loudness measured over
 // a 200 ms transient is not a number worth trusting.
@@ -28,6 +31,7 @@ const TARGET_LUFS: Record<Exclude<LevelKind, "sfx">, number> = {
   mob: -26,
   bed: -24,
   song: -14,
+  ambience: -30,
 };
 const SFX_TARGET_PEAK_DB = -8;
 
@@ -40,14 +44,19 @@ const DUCK_TARGET_LUFS = -33;
 // A measurement wide of the mark (a near-silent take, a mis-decoded file) must not be able to shove
 // a cue across the mix. Past this the take itself is the thing to fix.
 const MAX_LEVEL_GAIN_DB = 12;
-const MIN_GAIN = 10 ** (-MAX_LEVEL_GAIN_DB / 20);
-const MAX_GAIN = 10 ** (MAX_LEVEL_GAIN_DB / 20);
+// A quiet ambience is mostly noise floor, and its level is measured over the whole source while the
+// shot plays a window of it.
+const AMBIENCE_MAX_BOOST_DB = 6;
+
+function maxBoostDb(kind: LevelKind): number {
+  return kind === "ambience" ? AMBIENCE_MAX_BOOST_DB : MAX_LEVEL_GAIN_DB;
+}
 
 export type AudioLevelling =
   | { gain: number; limited: boolean; reason?: never }
   | {
       gain: 1;
-      reason: "unmeasured" | "no-lufs" | "stem" | "no-lines" | "unclassified";
+      reason: "unmeasured" | "no-lufs" | "stem" | "unclassified";
       limited?: never;
     };
 
@@ -63,9 +72,10 @@ export function audioLevelling(
     kind === "sfx"
       ? SFX_TARGET_PEAK_DB - loudness.truePeakDb
       : TARGET_LUFS[kind] - loudness.integratedLufs!;
-  const requested = 10 ** (db / 20);
-  const gain = clampGain(requested);
-  return { gain, limited: Number.isFinite(requested) && Math.abs(db) >= MAX_LEVEL_GAIN_DB };
+  if (!Number.isFinite(db)) return { gain: 1, limited: false };
+  const boost = maxBoostDb(kind);
+  const clamped = Math.min(boost, Math.max(-MAX_LEVEL_GAIN_DB, db));
+  return { gain: 10 ** (clamped / 20), limited: db >= boost || db <= -MAX_LEVEL_GAIN_DB };
 }
 
 export function levellingGain(kind: LevelKind, loudness: AudioLoudness | undefined): number {
@@ -93,11 +103,6 @@ export function playedLufs(loudness: AudioLoudness | undefined, volume: number):
   const lufs = loudness?.integratedLufs;
   if (lufs == null || !(volume > 0)) return null;
   return lufs + 20 * Math.log10(volume);
-}
-
-function clampGain(gain: number): number {
-  if (!Number.isFinite(gain)) return 1;
-  return Math.min(MAX_GAIN, Math.max(MIN_GAIN, gain));
 }
 
 /** The loudness a measured file carries, from the record written when it landed. */
@@ -167,13 +172,10 @@ export function shotCueLevels(opts: {
     const clip = picture.has(address) ? loudnessOf(media) : undefined;
     if (clip) out.clipLoudness[address] = clip;
     // A clip's own track is the shot's whole mix, not one cue. Where the shot speaks, that mix is
-    // its line and belongs at the voice target; where it does not, `sfx` aims a true peak meant for
-    // a door slam, which would haul a quiet shot up to the level of a loud one.
-    if (kind === "sfx" && picture.has(address)) {
-      out.adjustments[address] = { gain: 1, reason: "no-lines" };
-      continue;
-    }
-    const adjustment = audioLevelling(kind, loudnessOf(media));
+    // its line and belongs at the voice target; where it does not, it is the shot's ambience —
+    // `sfx` aims a true peak meant for a door slam.
+    const clipAmbience = kind === "sfx" && picture.has(address);
+    const adjustment = audioLevelling(clipAmbience ? "ambience" : kind, loudnessOf(media));
     out.adjustments[address] = adjustment;
     const { gain } = adjustment;
     if (gain !== 1) out.gains[address] = gain;

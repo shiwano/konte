@@ -15,7 +15,7 @@ All standalone audio is **muxed onto the final video in one pass after the shots
 - **`soundtrack()`** — a bed in the timeline's `soundtracks`, spanning its `from`/`until` shot anchors, looping if the source is shorter.
 - **`<Audio>`** — plays once at full length and may cross a cut.
 - **The song bed** — with `policy.song`, the song under the whole timeline (`mixedSoundtracks`): unlooped, unducked, −14 LUFS, outside `timeline#stem`; doubling it is `SONG_DOUBLED`.
-- **`<Video hasAudio>`** — contributes the clip's embedded audio as another muxed track, from the original, pre-upscale source. The track carries the shot's cue kind, so a line inside the picture ducks a bed and is levelled like a cue; a shot with no lines is left where it plays. It ducks under narration `<Audio>` (`narrationDuck`), never under a line it may carry.
+- **`<Video hasAudio>`** — contributes the clip's embedded audio as another muxed track, from the original, pre-upscale source. The track carries the shot's cue kind, so a line inside the picture ducks a bed and is levelled like a cue; a shot with no lines is levelled as `ambience` (−30 LUFS, boosted at most 6 dB). It ducks under narration `<Audio>` (`narrationDuck`), never under a line it may carry.
 
 ## Preview parity
 
