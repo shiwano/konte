@@ -1,43 +1,18 @@
 # Staging patterns
 
-## Layering: background clip + foreground overlay
+A `<Composition>` is a web page on the shot's clock: any HTML element, Tailwind class, inline `style`, CSS `filter`, inline SVG and GSAP tween works in it.
 
-```tsx
-return (
-  <Composition>
-    <Video src={motion} />
-    <div className="absolute inset-0 flex items-center justify-center">
-      <div className="rounded-xl border-4 border-amber-300/80 w-4/5 h-3/5" />
-    </div>
-  </Composition>
-);
-```
+## Layers
 
-## Subtitles and a custom title / lower-third
+- **A frame, vignette, letterbox or badge over a clip** — an `absolute inset-0` element after the `<Video>`.
+- **An inset or a split screen** — `className` on the `<Video>` / `<Image>` sizes and places it.
+- **A grade** — a CSS `filter` in the clip's `style`.
 
-- **`<Subtitle>` for spoken lines; a plain `<div>` + Tailwind for branded titles.**
+## Text
+
+- **`<Subtitle>` for spoken lines; a plain `<div>` + Tailwind for a title, a lower-third or a caption card.**
 - **Move a `<Subtitle>` up with `style={{ paddingBottom: "12%" }}`** — each entry is a full-frame box aligned to its bottom; `bottom-*` / `top-*` do nothing.
-
-```tsx
-return (
-  <Composition>
-    <Video src={motion} />
-    <Subtitle entries={[{ start: 1, end: 3, text: "Animatic it." }]} />
-    {/* lower-third, animated in below */}
-    <div
-      id="lower-third"
-      className="absolute bottom-[12%] left-[6%] text-white text-[2.5vmax] font-bold drop-shadow-lg"
-    >
-      Konte
-    </div>
-    <Animate
-      script={({ timeline }) => {
-        timeline.from("#lower-third", { opacity: 0, yPercent: 50, duration: 0.4 }, 0.3);
-      }}
-    />
-  </Composition>
-);
-```
+- **A text entrance** — give the element an `id` and tween it `from` its off state (`opacity`, `yPercent`).
 
 ## One layer over every shot: `overlay`
 
@@ -59,60 +34,11 @@ timeline: ({ shot }) => ({
 - **No `<Video>` / `<Audio>`** — a clip goes in a shot, a sound in `soundtracks`.
 - **No `asset()` inside it** — declare the asset at the top of `timeline` and use it there.
 
-## Crossfade / transition between two clips in one shot
+## Moves on a clip
 
-- **Overlap them with `start`, then fade with `Animate`.**
+Each is an `<Animate>` tween on the clip's `id`.
 
-```tsx
-return (
-  <Composition>
-    <Video id="a" src={clipA} start={0} duration={2} />
-    <Video id="b" src={clipB} start={1.5} duration={1.5} />
-    <Animate
-      script={({ timeline }) => {
-        timeline.set("#b", { opacity: 0 }, 0);
-        timeline.to("#a", { opacity: 0, duration: 0.5 }, 1.5);
-        timeline.to("#b", { opacity: 1, duration: 0.5 }, 1.5);
-      }}
-    />
-  </Composition>
-);
-```
-
-## Ken Burns (slow zoom / pan)
-
-- **Animate `scale`/`xPercent`/`yPercent` on the clip; set `transformOrigin` to steer the zoom anchor.** — px offsets change with the canvas size.
-
-```tsx
-return (
-  <Composition>
-    <Video id="main" src={motion} />
-    <Animate
-      script={({ timeline }) => {
-        timeline.fromTo(
-          "#main",
-          { scale: 1, xPercent: 0, transformOrigin: "50% 50%" },
-          { scale: 1.15, xPercent: -3, duration: 3, ease: "none" },
-          0,
-        );
-      }}
-    />
-  </Composition>
-);
-```
-
-## Fades and a flash accent
-
-```tsx
-<Animate
-  script={({ timeline }) => {
-    timeline.from("#main", { opacity: 0, duration: 0.5 }, 0); // fade in
-    timeline.to("#main", { opacity: 0, duration: 0.5 }, 2.5); // fade out: the shot's duration − 0.5, written as a literal
-    // white flash on a hit
-    timeline.set("#flash", { opacity: 0.9 }, 1.2);
-    timeline.to("#flash", { opacity: 0, duration: 0.25 }, 1.2);
-  }}
-/>
-```
-
-- **`#flash` is a `<div id="flash" className="absolute inset-0 bg-white opacity-0" />` you add to the stage** — a `fromTo`/`from` holds its start values from the shot's head until it plays, so a `fromTo` flash covers the frame until its hit.
+- **Crossfade between two clips in one shot** — overlap them with `start`, then tween one's `opacity` down and the other's up across the overlap.
+- **Ken Burns (slow zoom / pan)** — tween `scale` / `xPercent` / `yPercent` with `ease: "none"`; `transformOrigin` steers the zoom anchor. px offsets change with the canvas size.
+- **Fade in / out** — an `opacity` tween at the head and at the tail.
+- **Flash on a hit** — a full-frame white `<div>` at `opacity-0`, `set` visible at the hit and tweened back to 0. A `fromTo`/`from` holds its start values from the shot's head until it plays, so a `fromTo` flash covers the frame until its hit.

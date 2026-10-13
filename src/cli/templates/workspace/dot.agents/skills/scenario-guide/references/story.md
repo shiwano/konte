@@ -2,28 +2,28 @@
 
 ## Premise is the engine
 
-- **A premise is a collision, not a topic** — a specific trait × a situation that punishes it ("a meticulous butler serves on a pirate ship": etiquette × mayhem), the classic **fish-out-of-water** shape. A topic ("life aboard a pirate ship") generates description; a collision generates events.
-- **Test: list five events in one breath** — a working premise makes events fall out, each a new way the collision fires; if inventing events feels like pulling, fix the premise, never pad the events.
+- **A premise is a collision, not a topic** — a specific trait × a situation that punishes it, the **fish-out-of-water** shape ("a meticulous butler serves on a pirate ship").
+- **Test: list five events in one breath** — if inventing events feels like pulling, fix the premise, never pad the events.
 - **State both sides of the collision in the logline.**
 - **Pitch collisions** — each of the eight to ten a different collision, or the same trait fired in a different arena, at a different cost, before a different witness.
 
 ## Character is where events come from
 
-- **Give each character a want and a trait that fights it** — the screenwriter's **want-vs-flaw** pair; behavior falls out of it (the butler wants a flawless dinner service; the sea doesn't care). A character described only by look generates poses, not events.
-- **Specific enough that two writers stage the same shot** — "clumsy" allows anything; "cannot let a crooked fork lie" writes the shot by itself.
-- **The payoff resolves through who the character is, not despite it** — the flaw becomes the skill (the obsessively polished tray is what blinds the boarding party).
-- **Never fire the same expression unchanged** — a repeat must escalate (scale, cost, witness, consequence) or be a planted callback.
+- **Give each character a want and a trait that fights it** — the **want-vs-flaw** pair.
+- **Specific enough that two writers stage the same shot** — "cannot let a crooked fork lie", never "clumsy".
+- **The payoff resolves through who the character is** — the flaw becomes the skill.
+- **Never fire the same expression unchanged** — a repeat escalates (scale, cost, witness, consequence) or is a planted callback.
 
 ## Chain events with therefore/but, never and-then
 
-- **Each event's consequence is the next event's situation** — the South Park writers' **"but/therefore" rule**: "therefore" (the soup spills, therefore the deck turns slippery) or "but" (the table is finally set, but the cannons fire); events joined by "and then" can be reordered without breaking, which means no story.
-- **Test: delete an event** — if nothing downstream breaks, it's decoration or the chain is fake; rewire or cut.
-- **The chain links every event; within an event, shots chain too unless they are a montage** — a montage's shots are parallel instances (`direction-guide`).
+- **Each event's consequence is the next event's situation** — the **"but/therefore" rule**.
+- **Test: delete an event** — if nothing downstream breaks, rewire or cut.
+- **Within an event, shots chain too unless they are a montage.**
 
 ## Sharpen by lens
 
-- **comedy** — the violation breaks a pattern the piece established (no pattern, no laugh); escalation raises stakes, not volume — each gag **tops** the last (the topper); the button recontextualizes — the last event reframes what came before (the butler irons the Jolly Roger: the ship has a butler now).
-- **mini-drama** — pressure is visible **stakes**, a **ticking clock** when possible (water rising past the second step, never "tension mounts"); the hero role spends exactly what the pressure banked — the bigger the debt, the better the payoff.
+- **comedy** — the violation breaks an established pattern; each gag **tops** the last; the button recontextualizes what came before.
+- **mini-drama** — visible **stakes**, a **ticking clock** when possible; the hero role spends exactly what the pressure banked.
 
 ## At length
 
