@@ -11,7 +11,7 @@ Declare shots, assets and dependencies in the stage files; done = `konte status`
 - `export.delivery` / upscale modes → [delivery.md](references/delivery.md)
 - Which adapter to pass `asset()` → `konte adapter list` (every permitted adapter, its backend, media, required inputs and lean), then `konte adapter show <adapter>` for its schema and guide
 - The `prompt` string → `prompt-guide`
-- Draft takes and a panel's `blocking` / `camera` → `staging-guide`
+- Plates, draft takes, landmarks and a panel's `blocking` / `camera` → `staging-guide`
 - `<Composition>` JSX, audio placement → `composition-guide`
 - A type, field or signature (check, don't guess) → the konte LSP (`konte-lsp` plugin) in your editor
 - A dependency or staleness reason → `konte inspect <address>`
@@ -42,7 +42,7 @@ export default defineReference(direction, () => {
 - **`defineReference(direction, build)`** — the callback receives `{ format }` and declares assets with `asset()` (both `file` and generative adapters); **returning one exposes it as `reference.<name>`**. Address: `reference:<name>`.
 - **Generated once and shared across every stage.** A reference asset may depend only on other reference assets, never on an animatic/video asset.
 - **Return only what other stages consume** — an asset used solely as an input to another reference asset (e.g. a blank `latent` feeding a generated `key`) is declared but left un-returned. An un-returned one still generates, but is never reviewed.
-- **Return each character, prop, location and cast voice under its roster id** — a `lineup`'s `cat` needs `reference:cat`; other shared assets (`bgm`) are fine.
+- **Return each character, prop, location and cast voice under its roster id** — a `lineup`'s `cat` needs `reference:cat`; other shared assets (`bgm`) are fine. Setups and landmarks are declared on the animatic.
 - **Let konte size a generated reference** — `width`/`height` derive off the canvas' long edge: portrait for a character, a landscape master at twice it for a location, square for the rest; pass neither. A canvas-shaped overlay takes `...format.size`.
 - **Frame the subject tight** — margin is pixels the shot never uses; ask for it filling the frame.
 
@@ -58,12 +58,21 @@ import direction from "./direction";
 import reference from "./reference";
 
 export default defineAnimatic(direction, {
-  timeline: ({ shot }) => ({
+  plates: () => ({
+    cabinWide: {
+      image: asset("cabinWide", imageGen, {
+        image1: reference.cabin,
+        prompt: "the cabin from a low three-quarter angle, wide, empty",
+      }),
+      prompt: "a bare cabin, the bunk left, the window at the far end",
+    },
+  }),
+  timeline: ({ shot, plates }) => ({
     shots: shot("01", ({ script }) => {
       const first = asset("first", imageGen, {
-        image1: reference.cabin,
+        image1: plates.cabinWide.image,
         image2: reference.character,
-        prompt: "<Picture 1> is the empty cabin. … the character at the window",
+        prompt: `<Picture 1> is the empty frame: ${plates.cabinWide.prompt}. … the character at the window`,
       });
       return (
         <Composition>
@@ -80,8 +89,9 @@ export default defineAnimatic(direction, {
 });
 ```
 
-- **`defineAnimatic(direction, { drafts?, timeline })`** — the animatic derives its working `{ size, fps }` from the direction. `timeline` receives `{ format }`, the injected `shot`/`pendingShot` starters, declares shared assets at the top, and returns `{ shots, soundtracks? }`.
-- **`drafts: ({ draft }) => ({ <name>: draft([ids], ({ cuts, previous }) => asset("<name>", …)) })`** — one take per run of consecutive camera shots, addressed `animatic:draft.<name>`; `timeline` receives them as `drafts`, and `drafts.<name>.frame(id, name, { at })` declares that shot's frame of the take.
+- **`defineAnimatic(direction, { plates?, drafts?, timeline })`** — the animatic derives its working `{ size, fps }` from the direction. `timeline` receives `{ format }`, the injected `shot`/`pendingShot` starters and what `plates` returned, declares shared assets at the top, and returns `{ shots, soundtracks? }`.
+- **`plates` returns `{ image, prompt }` by setup id** — addressed `animatic:plate.<id>`, handed to `timeline` unchanged.
+- **`drafts: ({ draft, plates }) => ({ <name>: draft([ids], ({ cuts, previous }) => asset("<name>", …)) })`** — one take per run of consecutive camera shots, addressed `animatic:draft.<name>`; `timeline` receives them as `drafts`, and `drafts.<name>.frame(id, name, { at })` declares that shot's frame of the take.
 - **Shots come from the direction** — the injected `shot(id, …).nextShot(id, …)` is the only way to mint a shot; each `id` is pinned to the direction (a stray id is a type error), and the shot's `duration` and `script` are injected into the build, never written here.
 - **`pendingShot(id)` / `.nextPendingShot(id)`** — the undeveloped shot, injected into `timeline` alongside `shot`. It carries nothing of its own (the shot's duration, action and script are the direction's) and declares nothing. Develop it by swapping in `shot(id, …)` / `.nextShot(id, …)`.
 - **`asideShot(id)` / `.nextAsideShot(id)`** — the `kind: "aside"` shot (`direction-guide`). The animatic's takes no build; the video's takes one — `asideShot(id, ({ duration, label }) => …)`. Each starter is pinned to its kind.
@@ -132,7 +142,7 @@ export default defineVideo(direction, {
 - **Omit them and they auto-fill from the canvas** — an input typed `width`/`height`/`fps`/`frames` resolves from `format` (frames also from the shot's duration). Pass a value only to override; konte does no resampling, so an overridden `fps` ships at that rate.
 - **A `seed` input defaults to `seed()`**, re-randomized per variant — pass a fixed number to pin a take. An adapter with no seed input pins nothing.
 - **A `"prompt"` input is checked before every spend** — a value naming what to leave out aborts `generate` (`prompt-guide`). Where the negation is how that model is written and its adapter does not exempt it, record it in the stage's own `waivers: { "<key from konte status>": "<why>" }`, alongside `timeline` — one key covers every address a shared phrase reaches.
-- **A pinned frame must be one the picture shows** — an input marked `pin:start`/`pin:end` in `konte adapter show` is reproduced pixel for pixel, so it takes the board panel this shot develops, or the seam frame of the segment before it. Pinning a `reference:` sheet aborts `generate`; waive it in the same `waivers` when the take is meant to open on it.
+- **A pinned frame must be one the picture shows** — an input marked `pin:start`/`pin:end` in `konte adapter show` is reproduced pixel for pixel, so it takes the board panel this shot develops, or the seam frame of the segment before it. Pinning a `reference:` sheet or a plate aborts `generate`; waive it in the same `waivers` when the take is meant to open on it.
 
 ## Dependencies Between Assets
 

@@ -29,7 +29,7 @@ describe("draft takes", () => {
 export default defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioWindow: { name: "the window", description: "the tall window along the far wall" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioWindow: { name: "the window", promptDepiction: "window", description: "the tall window along the far wall" } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioWindow"] },
   },
@@ -44,6 +44,7 @@ export default defineDirection({
     ],
     waivers: {
       "location-unreferenced_studio": "fixture has no reference stage exposing it",
+      "setup-unrealized_front": "fixture draft is a cut of a file, with no plate to hand it",
     },
   },
 });

@@ -1291,7 +1291,7 @@ describe("computeExportReadiness", () => {
       }),
       makeInfo({ address: "reference:latent", assetKind: "comfy", reviewTarget: false }),
       makeInfo({
-        address: "animatic:shot.01.base",
+        address: "animatic:plate.master",
         assetKind: "comfy",
         reviewTarget: false,
         hasOutputFile: true,
@@ -1307,16 +1307,16 @@ describe("computeExportReadiness", () => {
     expect(readiness.find((r) => r.label === "animatic")?.generated ?? 0).toBe(0);
   });
 
-  // A draft is baked while every shot on it may still be pending, so it is `generate` work of its
+  // A plate is baked while every shot on it may still be pending, so it is `generate` work of its
   // own — but never an accept.
-  it("counts an unbaked draft as generate work, not toward either ratio", () => {
+  it("counts an unbaked plate as generate work, not toward either ratio", () => {
     const infos: AddressInfo[] = [
-      makeInfo({ address: "animatic:draft.opening", assetKind: "comfy", reviewTarget: false }),
+      makeInfo({ address: "animatic:plate.master", assetKind: "comfy", reviewTarget: false }),
     ];
     const animatic = computeExportReadiness(infos).find((r) => r.label === "animatic")!;
     expect(animatic.total).toBe(0);
     expect(animatic.missing).toEqual([]);
-    expect(animatic.notGenerated).toEqual(["draft.opening"]);
+    expect(animatic.notGenerated).toEqual(["plate.master"]);
   });
 
   it("reports all accepted when every generation asset is accepted", () => {

@@ -63,7 +63,7 @@ user-invocable: false
 - **Run `konte status`** — each finding carries a cause and a waiver key in `[brackets]`; unresolved findings abort `generate` / `reroll` / `export` with `DIRECTION_CHECK_FAILED`. Roster and setup findings are deferred until direction acceptance.
 - **Role, pacing, or roster declaration finding** → fix the named field; an unused roster entry must be used or removed.
 - **Missing reference asset** → `authoring-guide`; expose the named roster id in `reference.tsx`.
-- **Keyframe input or prompt finding** → `staging-guide`; fix the named animatic asset.
+- **Plate, landmark, keyframe input or prompt finding** → `staging-guide`; fix the named animatic asset.
 - **Deliberate structural exception** → copy the bracketed key into the owning node's `waivers` with a reason. Never waive a fixable defect; remove stale waivers reported by status.
 
 ## Pacing — rhythm, not uniform length
@@ -72,6 +72,6 @@ user-invocable: false
 - **A cut's pleasure lives in the _contrast_ between shot lengths** — equal-length cuts read as a metronome: choose each length against its neighbors — staccato shots build pressure, a held frame releases; accelerate into a peak, ease after.
 - **`wide` is a spend — establish once per act, when the space itself is content.**
 - **Vary the framing size against its neighbors** — hold `medium`, push to `close`/`insert` before a payoff. A gag/turn's trigger is often an `insert`/`close`, its reaction a `close`.
-- **A one-step size change inside one `location` invites background matching** — adjacent `wide`→`medium` (or `medium`→`close`) keeps most of the set in both frames, a match generation can't hold: jump two sizes (`wide`→`close`/`insert`), or break the pair with an `insert` or a reaction shot.
+- **A one-step size change inside one `location` invites background matching** — adjacent `wide`→`medium` (or `medium`→`close`) keeps most of the set in both frames, a match generation can't hold: jump two sizes (`wide`→`close`/`insert`), break the pair with an `insert` or a reaction shot, or, when the match _is_ the cut (an axial punch-in), declare the pair on one camera axis with `within`.
 - **A held, low-change frame holds attention ~3s; earn a longer hold with change** — motion, an `<Animate>` move, or an overlay reveal buys seconds, and what dulls tempo is a frame held past its content. A comedy `button` cuts on the laugh, never past it.
 - **Each shot advances the feeling, never restates it** — a long fight or a montage that repeats one shot is one motif stretched thin.

@@ -47,6 +47,7 @@ import type { ScriptLine } from "./types/script.js";
 export type DirectionLandmarkContent = {
   id: string;
   name: string;
+  promptDepiction: string;
   description: string;
 };
 
@@ -89,7 +90,8 @@ export type DirectionPartContent =
     }
   // A camera setup. Its own kind rather than a fourth `roster`: it carries the frame's size and place
   // as well as its prose, and unlike the three identity rosters it is not anchored to a
-  // `reference:<id>`, so a reader must not be pointed at a reference asset that will never exist.
+  // `reference:<id>` — what realizes it is an animatic plate, so a reader must not be pointed at a
+  // reference asset that will never exist.
   | {
       kind: "setup";
       id: string;
@@ -99,6 +101,9 @@ export type DirectionPartContent =
       framing: Framing;
       // The landmark ids this frame carries, left to right on screen.
       holds: readonly string[];
+      // The setup id this frame steps in from; `null` where the author declared this frame
+      // a root, absent where they declared neither.
+      within?: string | null;
     }
   // A cast voice. `characterId`/`name` are the character it belongs to, both null for the narrator —
   // who is cast piece-wide and has no roster entry. `assetId` is the `reference:<id>` holding the
@@ -190,6 +195,7 @@ function landmarkContents(
   return Object.entries(landmarks ?? {}).map(([id, l]) => ({
     id,
     name: l.name,
+    promptDepiction: l.promptDepiction,
     description: l.description,
   }));
 }
@@ -396,6 +402,7 @@ export function directionPartContents(direction: Direction): Map<string, Directi
       location: s.location,
       framing: s.framing,
       holds: [...(s.holds ?? [])],
+      ...(s.within !== undefined ? { within: s.within } : {}),
     });
   }
 

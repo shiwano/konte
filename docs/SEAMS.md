@@ -2,9 +2,9 @@
 
 <!-- Generated from src/core/seam-doc.ts by `bun run build:generate-seam-doc`. Do not edit by hand: src/core/__tests__/seam-doc.test.ts fails when this file and the code disagree. -->
 
-What konte demands at the boundary between two shots (`join`, the lineup across it, the video's pins), as the checker answers it over fixtures. Every row is one direction, with the board or video state the rule reads, run through `validateDirectionStructure` and `checkDirection`; Result is what came back. An `error` is structural and never waived; the rest are findings, waived by key. Not shown: findings outside the boundary rules, and the load-time rules a stage file trips on its own (`ANIMATIC_INVALID` on a landing panel that declares movement).
+What konte demands at the boundary between two shots (`join`, the lineup across it, the previous panel, the video's pins), as the checker answers it over fixtures. Every row is one direction, with the board or video state the rule reads, run through `validateDirectionStructure` and `checkDirection`; Result is what came back. An `error` is structural and never waived; the rest are findings, waived by key. Not shown: findings outside the boundary rules, and the load-time rules a stage file trips on its own (`ANIMATIC_INVALID` on a landing panel that declares movement).
 
-Fixtures: one room with `wide`, `medium` and `reverse` (a second camera), and `yard` in another place. `[a ⇒ b,a]` is a shot's `lineup` and `lineupTo`.
+Fixtures: one room with `wide` (the axis root), `medium` (`within: "wide"`) and `reverse` (a second camera on its own axis), and `yard` in another place. `[a ⇒ b,a]` is a shot's `lineup` and `lineupTo`.
 
 ## Declaring the boundary
 
@@ -32,6 +32,23 @@ Who a frame holds, left to right, accumulates per place across ordinary cuts. A 
 | One take, the two shots wanting different frames | 01 wide [a] → 02 wide `continuous` [b,a]       | none  | none  | `join-lineup-mismatch` (02) |
 | An ordinary cut reversing a pair                 | 01 wide [a,b] → 02 medium [b,a]                | none  | none  | `lineup-flipped` (02)       |
 | A jump reversing a pair                          | 01 wide [a,b] → 02 medium `jump-forward` [b,a] | none  | none  | none                        |
+
+## The board's frame across a cut along one axis
+
+An omitted join between two setups sharing a `within` root: the opening keyframe takes the previous shot's last panel in one of its image inputs. Judged where both shots are on the board and the keyframe's model reads a previous panel (`readsPrevPanel`), unless both frames hold subjects and share none. A long take asks the board for nothing.
+
+| Case                                          | Direction                                  | Board                                             | Video | Result                          |
+| --------------------------------------------- | ------------------------------------------ | ------------------------------------------------- | ----- | ------------------------------- |
+| Push in, handed the frame before              | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 previous panel ← 01.last | none  | none                            |
+| Push in, handed no previous panel             | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 handed no previous panel | none  | `panel-unlinked` (01-02)        |
+| Push in, handed another shot's frame          | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 previous panel ← 07.last | none  | `panel-unlinked` (01-02)        |
+| Push in, a model that reads no previous panel | 01 wide [a] → 02 medium [a]                | on the board: 01, 02                              | none  | none                            |
+| Push in, the shot before not yet on the board | 01 wide [a] → 02 medium [a]                | on the board: 02; 02 handed no previous panel     | none  | none                            |
+| Push in across a story-time jump              | 01 wide [a] → 02 medium `jump-forward` [a] | on the board: 01, 02; 02 handed no previous panel | none  | none                            |
+| Push in from one subject to another           | 01 wide [a] → 02 medium [b]                | on the board: 01, 02; 02 handed no previous panel | none  | none                            |
+| Two cameras in one room                       | 01 wide [a] → 02 reverse [a]               | on the board: 01, 02; 02 handed no previous panel | none  | `undeclared-continuity` (01-02) |
+| Push in with an aside between                 | 01 wide [a] → ec (aside) → 02 medium [a]   | on the board: 01, 02; 02 handed no previous panel | none  | `undeclared-continuity` (01-02) |
+| One take, handed no previous panel            | 01 wide [a] → 02 wide `continuous` [a]     | on the board: 01, 02; 02 handed no previous panel | none  | none                            |
 
 ## The video's frame across a long take
 

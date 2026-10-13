@@ -8,7 +8,7 @@ A draft take is consecutive shots generated as one small clip, so their frames a
 - **Four or five cuts a take** — the reference slots fill first, the model's length after (`konte adapter show`).
 - **Start a new take where the place changes.**
 - **`drafts` declares takes only** — what a take is built from is a `reference.tsx` asset.
-- **Hand it each place's reference and each subject's** — `reference.<location>`, or a `reference.tsx` asset built from it; a panel drawn from a frame of the take stands on what the take was handed.
+- **Hand it each setup's plate and each subject's reference** — `plates.<id>.image` as an input, `plates.<id>.prompt` written into the text of every shot on that setup.
 - **`cuts((id) => text)` lays each shot's text on the direction's cut times**; length and size are derived.
 - **`previous` is the take before, cut to its last seconds** — pass it as the reference clip and write the take as its continuation, in the adapter guide's notation. `undefined` on the first take and after a change of place.
 - **Pass no voice reference and no stem** — a draft's sound is never used.

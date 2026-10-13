@@ -838,7 +838,7 @@ const PROMPT_TYPE_PLACEHOLDER = `// TODO: type the model's natural-language cond
 // workflow is one.
 const ALLOWED_IN_PLACEHOLDER = [
   `  // Uncomment if this workflow only works on a take that already exists (an edit model). The`,
-  `  // sites are "patch", "draft", "reference", "timeline" and "shot"; omitted means all five:`,
+  `  // sites are "patch", "plate", "reference", "timeline" and "shot"; omitted means all five:`,
   `  // allowedIn: ["patch", "reference"],`,
 ];
 

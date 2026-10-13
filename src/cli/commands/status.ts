@@ -43,6 +43,7 @@ import { isPendingShot, isPendingAnimaticShot } from "../../core/types/index.js"
 import {
   loadDirectionIfPresent,
   loadStageDefinitions,
+  loadAnimaticSetupState,
   loadStagingStageState,
   unacceptedUpstreamDeps,
   unsatisfiedCharacters,
@@ -150,6 +151,7 @@ export function registerStatusCommand(program: Command): void {
       const directionCheck = direction
         ? checkDirection(direction, {
             referenceAssetNames: reference?.exposedAssetNames ?? [],
+            animaticSetups: await loadAnimaticSetupState(videoRoot, direction),
             stagingStage: await loadStagingStageState(videoRoot, direction),
             songTake: await loadSongTakeState(videoRoot, direction),
           })
@@ -346,10 +348,12 @@ export function registerStatusCommand(program: Command): void {
         ].every((ref) => manager.resolveReference(ref, { includeStale: true }) !== null);
       };
       const waiverShotAddresses = direction
-        ? shotWaiversAwaitingAccept(direction, manager.getDirectionAcceptance()).flatMap((w) => {
-            const stage = (["video", "animatic"] as const).find((s) => builtShot(s, w.shotId));
-            return stage ? [formatShotAddress(stage, w.shotId)] : [];
-          })
+        ? shotWaiversAwaitingAccept(direction, manager.getDirectionAcceptance()).flatMap((w) =>
+            w.shotIds.flatMap((shotId) => {
+              const stage = (["video", "animatic"] as const).find((s) => builtShot(s, shotId));
+              return stage ? [formatShotAddress(stage, shotId)] : [];
+            }),
+          )
         : [];
       const pendingReviewAddresses = [
         ...new Set([...needsReviewItems(report).map((i) => i.address), ...waiverShotAddresses]),

@@ -126,10 +126,36 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     flags: "No setup a shot points at is set in a location.",
     subject: "location id",
   },
+  "setup-unrealized": {
+    flags: "A setup two or more generated shots share has no plate.",
+    subject: "setup id",
+  },
+  "plate-unanchored": {
+    flags: "A plate is built from no location reference.",
+    subject: "setup id",
+  },
+  "plate-unnested": {
+    flags:
+      "A plate is neither a cut from, nor a window inside, the plate of the setup it is `within`.",
+    subject: "setup id",
+  },
+  "axis-unrealized": {
+    flags: "Two sizes cut along one `within` axis lack the plates that nest them.",
+    subject: "setup pair (`<a>.<b>`)",
+  },
+  "setup-unconsumed": {
+    flags:
+      "A developed shot builds no keyframe from its setup's plate, or from the location reference where there is no plate.",
+    subject: "setup id",
+  },
   "unused-setup": { flags: "No shot points at a setup.", subject: "setup id" },
   "setup-indistinct": {
     flags: "Two setups declare the same location, framing and `holds` order.",
     subject: "setup id (the later one)",
+  },
+  "setup-atomized": {
+    flags: "A location holds many shots but almost none share a frame.",
+    subject: "location id",
   },
   "unexpected-script": {
     flags:
@@ -146,6 +172,11 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
       "A shot's `duration` is not a positive multiple of 0.5s, or on `policy.song` its `beats` is not a positive whole number.",
     subject: "shot id",
     typeLevel: true,
+  },
+  "undeclared-continuity": {
+    flags:
+      "Adjacent shots cut between two set-showing sizes of one location with no `within` declared.",
+    subject: "id pair (`05-06`)",
   },
   "re-established-wide": {
     flags: "A shot re-establishes a location already shown wide.",
@@ -177,13 +208,13 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     flags: "A keyframe framing a character is built from no reference to them.",
     subject: "`<frame>.<characterId>`",
   },
-  "location-unconsumed": {
-    flags: "No keyframe of a frame is built from a reference to the location it is set in.",
-    subject: "frame",
-  },
   "slot-order-mismatch": {
     flags: "A keyframe passes its reference images in an order its `lineup` does not declare.",
     subject: "frame",
+  },
+  "plate-undescribed": {
+    flags: "A shot on a plated setup carries no `plates.<id>.prompt` in its prompt.",
+    subject: "setup id",
   },
   "landmark-flipped": {
     flags: "Two setups of one location disagree on the left-to-right order of its landmarks.",
@@ -193,6 +224,10 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     flags:
       "No prompt behind a keyframe contains the `promptDepiction` of a subject it frames, verbatim (case-insensitive).",
     subject: "`<frame>.<characterId>`",
+  },
+  "plate-unnamed": {
+    flags: "A plate's sentence omits a landmark its setup's `holds` declares.",
+    subject: "`<setupId>.<landmarkId>`",
   },
   "join-lineup-mismatch": {
     flags: "A `continuous` shot opens on a different order than the shot before it leaves.",
@@ -208,6 +243,11 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
       "A take pinned to a `continuous` seam is played off that frame: the take before does not cut on the frame its end image lands on, or the take after does not open its shot on its first (`mediaStart`, `duration`).",
     subject: "frame",
   },
+  "panel-unlinked": {
+    flags:
+      "A keyframe opening a cut along one `within` axis, on a model that reads a previous panel (`readsPrevPanel`), takes no previous panel, or another frame, among its image inputs. A cut between two frames whose lineups hold subjects but none in common is exempt.",
+    subject: "seam (`<from>-<id>`, `.cutin` for a cutin)",
+  },
 };
 
 export const STAGE_FINDING_DOCS: Record<StageFindingCode, { flags: string }> = {
@@ -220,7 +260,7 @@ export const STAGE_FINDING_DOCS: Record<StageFindingCode, { flags: string }> = {
     flags: "A `negativePrompt` names an exclusion negatively, which cancels it.",
   },
   "pin-unanchored": {
-    flags: "A pin input takes a reference sheet instead of a frame of the picture.",
+    flags: "A pin input takes a reference sheet or a plate instead of a frame of the picture.",
   },
 };
 
@@ -288,7 +328,7 @@ function renderFindingsMarkdown(): string {
     "",
     "- **Deferred** — silent until the direction is accepted.",
     "- **Fix in `reference.tsx`** — the roster entry is right; a reference asset is missing.",
-    "- **Fix in `animatic.tsx`** — the direction is right; a keyframe's input is missing.",
+    "- **Fix in `animatic.tsx`** — the setup is right; its plate or a keyframe's input is missing or misbuilt.",
     "- **Type-level** — a literal value is also a type error, so it stops at the startup type-check; a computed value reaches the finding instead.",
   ];
 

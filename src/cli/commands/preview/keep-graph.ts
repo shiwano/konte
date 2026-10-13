@@ -1,6 +1,7 @@
 import {
   type AssetStage,
   type DefinitionLike,
+  formatPlateAssetPath,
   formatShotAddress,
   formatTimelineAssetPath,
   getAssetEntry,
@@ -42,9 +43,15 @@ export function buildKeepGraph(opts: {
       if (isPendingShot(shot)) continue;
       units[formatShotAddress(stage, shot.id)] = { stage, label: `Shot ${shot.id}` };
     }
-    // A timeline asset is accepted through the shots that consume it — each is its own unit.
+    // A timeline asset and a plate are accepted through the shots that consume them — each is its own
+    // unit.
     for (const name of Object.keys(definition?.topLevelAssets ?? {})) {
       units[formatTimelineAssetPath(stage, name)] = { stage, label: `Timeline: ${name}` };
+    }
+    for (const setupId of Object.keys(
+      (definition as { plates?: Record<string, unknown> } | null | undefined)?.plates ?? {},
+    )) {
+      units[formatPlateAssetPath(setupId)] = { stage, label: `Plate: ${setupId}` };
     }
   }
 

@@ -18,7 +18,7 @@ const DIRECTION_TS = `import { defineDirection } from "konte";
 export default defineDirection({
   brief: { logline: "test" },
   characters: { konte: { name: "Konte", promptDepiction: "girl", description: "the singer" } },
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },

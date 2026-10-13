@@ -400,6 +400,13 @@ describe("collectAllAddresses", () => {
     ]);
   });
 
+  it("lists the animatic's plates before its shots", () => {
+    expect(collectAllAddresses([{ id: "01" }], "animatic", {}, [], ["hall-wide"])).toEqual([
+      "animatic:plate.hall-wide",
+      "animatic:shot.01",
+    ]);
+  });
+
   it("lists timeline beds before shots", () => {
     const topLevelAssets = {
       bgm: { deterministic: false },
@@ -651,7 +658,7 @@ describe("reel handoff note routing", () => {
     notes: [
       { address: "animatic:shot.01", text: "a" },
       { address: "animatic:shot.01", text: "b" },
-      { address: "animatic:timeline.bg", text: "c" },
+      { address: "animatic:plate.hall-wide", text: "c" },
       { address: "animatic:timeline#stem", text: "d" },
     ],
   };
@@ -662,7 +669,7 @@ describe("reel handoff note routing", () => {
 
   it("hands the banner the notes no shot shows", () => {
     expect(unroutedReelHandoffNotes(handoff, "animatic", ["01"])).toEqual([
-      { address: "animatic:timeline.bg", text: "c" },
+      { address: "animatic:plate.hall-wide", text: "c" },
       { address: "animatic:timeline#stem", text: "d" },
     ]);
   });

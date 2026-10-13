@@ -12,7 +12,12 @@ import { loadKonteConfig } from "../../core/config.js";
 import { computeDependencyLevels } from "../../core/dependency-levels.js";
 import { printCapped } from "../format-list.js";
 import { syncFileAssets } from "../../core/file-sync.js";
-import { buildDependencyGraph, listUnusedAssetPaths } from "../../core/graph.js";
+import {
+  buildDependencyGraph,
+  collectTransitiveDependents,
+  listUnusedAssetPaths,
+} from "../../core/graph.js";
+import { plateFork } from "../../core/stale-refresh.js";
 import { JobManager } from "../../core/job-manager.js";
 import {
   activeGenerationVariantIds,
@@ -155,7 +160,17 @@ export function registerGenerateCommand(program: Command): void {
             manager.stalenessCache(),
           );
           const cause = formatStaleCause(staleness);
-          return { address, cause, command: `konte reroll ${address}` };
+          const fork = plateFork(
+            address,
+            collectTransitiveDependents(graph, address).map((assetPath) => ({ assetPath })),
+            def,
+          );
+          return {
+            address,
+            cause,
+            command: `konte reroll ${address}`,
+            ...(fork ? { fork } : {}),
+          };
         });
 
       // The acceptance gate below only reaches what a spend consumes, so a video shot wired to no

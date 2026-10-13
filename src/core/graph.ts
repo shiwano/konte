@@ -4,6 +4,7 @@ import {
   COMPOSITION_ASSET_NAME,
   formatAssetPath,
   formatReferenceAssetPath,
+  formatPlateAssetPath,
   formatDraftAssetPath,
   formatTimelineAssetPath,
   getStage,
@@ -23,6 +24,7 @@ import {
   isDraftAddress,
   isDraftTakeAddress,
   isNarrationStemAddress,
+  isPlateAddress,
 } from "./address.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
 import type { PinWindow, VideoShotPins } from "./direction-check.js";
@@ -95,6 +97,8 @@ export function extractRefs(entry: AssetDefinition): string[] {
   }
 }
 
+// The plates a stage carries. Only the animatic declares any; typed here rather than at each call
+// site so a `StageDefinition` reference stays legal.
 // A shot's keyframes in one lane: its own picture's, or the cutin's laid over it.
 export function lanePanels(
   shot: AnimaticDefinition["shots"][number],
@@ -109,6 +113,22 @@ function allPanels(shot: AnimaticDefinition["shots"][number]): PanelDefinition[]
 }
 
 const LANES: readonly PanelLane[] = ["main", "cutin"];
+
+/**
+ * One camera frame the direction places on a board shot: which lane of which shot, on which setup.
+ */
+export type BoardFrame = { shotId: string; lane: PanelLane; setup: string };
+
+function platesOf(def: object | null | undefined): Record<string, AssetDefinition> {
+  return (def as { plates?: Record<string, AssetDefinition> } | null)?.plates ?? {};
+}
+
+// The plates filed under a setup. A definition that never went through `defineAnimatic` filed all.
+function exposedPlateIdsOf(def: object | null | undefined): string[] {
+  return (
+    (def as { exposedPlateIds?: string[] } | null)?.exposedPlateIds ?? Object.keys(platesOf(def))
+  );
+}
 
 function draftsOf(def: object | null | undefined): Record<string, AssetDefinition> {
   return (def as { drafts?: Record<string, AssetDefinition> } | null)?.drafts ?? {};
@@ -183,6 +203,17 @@ export function buildDependencyGraph(
     for (const [assetName, entry] of Object.entries(def.topLevelAssets ?? {})) {
       addDependencyEdges(
         formatTimelineAssetPath(stage, assetName),
+        entry,
+        allAssetPaths,
+        dependencies,
+        dependents,
+        pendingAnimaticShots,
+      );
+    }
+
+    for (const [setupId, entry] of Object.entries(platesOf(def))) {
+      addDependencyEdges(
+        formatPlateAssetPath(setupId),
         entry,
         allAssetPaths,
         dependencies,
@@ -324,8 +355,16 @@ export function listUnusedAssetPaths(
     }
   }
 
-  // A draft take is a usage root: the panels are written from its frames, so it is generated while
-  // its shots are still `pendingShot`s.
+  // A setup's plate is a usage root: it is the ground its panels are built on, so it is generated and
+  // looked at BEFORE any of them exists — at which point every shot is still a `pendingShot`
+  // declaring nothing, and reachability alone would call it unused. Same rule as an exposed
+  // reference asset.
+  for (const setupId of exposedPlateIdsOf(animatic)) {
+    roots.push(formatPlateAssetPath(setupId));
+  }
+
+  // A draft take is a usage root for the same reason: the panels are written from its frames, so it
+  // is generated while its shots are still `pendingShot`s.
   for (const name of Object.keys((animatic as { draftShots?: object } | null)?.draftShots ?? {})) {
     roots.push(formatDraftAssetPath(name));
   }
@@ -445,8 +484,8 @@ export function videoDependentsHoldVerdicts(
  * The dependents `konte reroll --with-dependents` rebuilds alongside `assetPath`, in dependency
  * order. Cross-stage dependents are excluded — a downstream stage is regenerated through its own
  * review cycle. The walk stops at a dependent holding a human verdict (`holdsVerdict`): that take and
- * whatever is reached only through it are left out. A draft cascades into nothing: the frames cut
- * from it move only with their own `at`.
+ * whatever is reached only through it are left out. It stops at a draft the same way, and a draft
+ * cascades into nothing: the frames cut from it move only with their own `at`.
  */
 export function collectRerollCascade(
   graph: DependencyGraph,
@@ -460,7 +499,7 @@ export function collectRerollCascade(
   const stack = [...(graph.dependents.get(assetPath) ?? [])];
   while (stack.length > 0) {
     const p = stack.pop();
-    if (p === undefined || reachable.has(p) || holdsVerdict(p)) continue;
+    if (p === undefined || reachable.has(p) || holdsVerdict(p) || isDraftAddress(p)) continue;
     reachable.add(p);
     for (const d of graph.dependents.get(p) ?? []) stack.push(d);
   }
@@ -705,8 +744,107 @@ function topologicalSort(
   return result;
 }
 
+// Where a keyframe stands on nothing. Two gaps over one walk, since both ask the same question of
+// the same chain — what a picture was built FROM:
+//
+//   - a PLATE that reaches no `reference:<location>`.
+//   - a SHOT that reaches neither its setup's plate nor, where the setup has none, its location
+//     reference.
+//
+// Wiring, not fidelity: it answers whether the anchor is an input the picture was built from.
+// Whether the prompt then NAMES that picture is the prompt critic's and the reviewer's business.
+//
+// A SHOT with no generative step is exempt: a `jsxImage` screen or a `file` frame has one outcome,
+// so there is nothing for an anchor to hold still, and it counts toward no plate either.
+//
+// A PLATE is exempt on a narrower condition — a chain that never touches the reference stage. What
+// the author hands over whole, konte cannot look inside: a `file` plate cut from the place offline
+// and one cut from nothing are the same bytes here, so the demand would be unanswerable. A plate
+// DERIVED from the reference stage answers it — `imageCrop` of the wrong sheet is as invented a place
+// as a generated plate that took none.
+//
+// The walk is the animatic's own; anything else it hits (a `reference:` sheet) is a leaf here.
+//
+// A `pendingShot` is skipped: it declares nothing, so there is nothing for it to have ignored.
+//
+// A cutin is one more shot on its setup: its keyframes are read against that setup's anchor, and a
+// deterministic one drops out of the plate demand the same way.
+export type SetupAnchorGaps = {
+  // Setup ids whose plate stands on no location reference — bar one built from no reference at all.
+  unanchoredPlates: string[];
+  // Shot ids that reach neither anchor, keyed by the setup they sit on.
+  unanchoredShots: Map<string, string[]>;
+  // Developed frames with no generative step, keyed by setup, so the plate demand can drop them too.
+  // A `pendingShot` is not among them: it declares nothing yet, so it still counts toward a plate.
+  deterministicShots: Map<string, number>;
+};
+
+export function listSetupAnchorGaps(
+  animatic: AnimaticDefinition,
+  frames: readonly BoardFrame[],
+  locationBySetup: ReadonlyMap<string, string>,
+): SetupAnchorGaps {
+  const plates = platesOf(animatic);
+  const entryOf = animaticEntryResolver(animatic);
+
+  const unanchoredPlates: string[] = [];
+  for (const setupId of Object.keys(plates)) {
+    // An unknown setup id is the direction's own finding (`unused-setup` / a plate keyed off-roster);
+    // reporting it again as unanchored would name the wrong fix.
+    const location = locationBySetup.get(setupId);
+    if (location === undefined) continue;
+    const walk = walkPictureChain(
+      [formatPlateAssetPath(setupId)],
+      formatReferenceAssetPath(location),
+      entryOf,
+    );
+    if ((walk.generative || walk.touchedReference) && !walk.reached) unanchoredPlates.push(setupId);
+  }
+
+  const unanchoredShots = new Map<string, string[]>();
+  const deterministicShots = new Map<string, number>();
+  const shotById = new Map(animatic.shots.map((shot) => [shot.id, shot]));
+  for (const frame of frames) {
+    const shot = shotById.get(frame.shotId);
+    if (shot === undefined || isPendingAnimaticShot(shot)) continue;
+    const setupId = frame.setup;
+    const location = locationBySetup.get(setupId);
+    // The plate supersedes: where one exists it IS the frame, and a shot feeding the raw location
+    // instead has taken the unframed anchor for the framed one.
+    const target =
+      setupId in plates
+        ? formatPlateAssetPath(setupId)
+        : location !== undefined
+          ? formatReferenceAssetPath(location)
+          : undefined;
+    if (target === undefined) continue;
+
+    // Rooted at the PANELS alone — the keyframes are what these findings are about. Not the shot's
+    // declared pool, and not `compositionRefs` either, which carries every layer the shot renders:
+    // an overlay or a sound that happens to take the anchor says nothing about the frame the keyframe
+    // was drawn on. Everything legitimately reachable — a shot asset the panel consumes, a timeline
+    // asset, a `shot(…)` chain — is reached from a panel.
+    const walk = walkPictureChain(
+      lanePanels(shot, frame.lane).map((panel) => panel.assetPath),
+      target,
+      entryOf,
+    );
+    if (!walk.generative) {
+      deterministicShots.set(setupId, (deterministicShots.get(setupId) ?? 0) + 1);
+      continue;
+    }
+    if (walk.reached) continue;
+    const shots = unanchoredShots.get(setupId) ?? [];
+    if (!shots.includes(shot.id)) shots.push(shot.id);
+    unanchoredShots.set(setupId, shots);
+  }
+
+  return { unanchoredPlates, unanchoredShots, deterministicShots };
+}
+
 /**
- * One `imageCrop`: the address it cuts and the window it takes, in that source's own pixels.
+ * One `imageCrop` as the nesting check reads it: the address it cuts and the window it takes, in that
+ * source's own pixels.
  */
 type CropWindow = {
   image: string;
@@ -732,6 +870,190 @@ export function cropWindowOf(inputs: Record<string, unknown>): CropWindow | null
     outWidth: outWidth!,
     outHeight: outHeight!,
   };
+}
+
+// Every crop behind a picture, nearest first — breadth-first, so "the crop closest to the plate" is
+// the first one out.
+function cropsInChain(
+  root: string,
+  entryOf: (address: string) => AssetDefinition | undefined,
+): CropWindow[] {
+  const seen = new Set<string>();
+  const queue = [root];
+  const out: CropWindow[] = [];
+  for (let at = 0; at < queue.length; at++) {
+    const address = queue[at]!;
+    if (seen.has(address)) continue;
+    seen.add(address);
+    const entry = entryOf(address);
+    if (!entry) continue;
+    if (entry.kind === "local" && entry.operation === "crop") {
+      const window = cropWindowOf(entry.inputs);
+      if (window) out.push(window);
+    }
+    queue.push(...extractRefs(entry));
+  }
+  return out;
+}
+
+/**
+ * Where a closer frame's plate is not built from the plate of the frame it declares itself `within`.
+ *
+ * `within` says this frame is a step in along a wider one's axis; the plates have to say the same,
+ * or the scale of the set is re-invented per plate and a `close` comes back at a `medium`'s
+ * distance. Either of two forms in the plate's chain satisfies it:
+ *
+ * - A CUT: a `readsPrevPanel` step handed the parent plate as is, which draws the step in as a cut
+ *   from that frame — the camera moves, so perspective and eye height change as a real move in does.
+ * - A WINDOW: a strictly smaller crop, straight out of the parent plate (the form a generated parent
+ *   leaves) or out of whatever master the parent plate itself cuts, inside the parent's window — a
+ *   zoom from the parent's camera position.
+ *
+ * Silent where either plate is absent: the demand would name a file that is not there.
+ *
+ * Wiring, not fidelity, as on `listSetupAnchorGaps`: nothing on an adapter says which input a model
+ * takes its framing from, so a plate handed the master AND a nested crop passes here, and a cut is
+ * not measured for how far in it went. What reads either as the wrong size is the critic's
+ * `off-framing`, and the accept of the panels drawn on it.
+ */
+// Per `readsPrevPanel` address, every source passed as is to one of its image inputs.
+function cutSources(animatic: AnimaticDefinition): Map<string, Set<string>> {
+  const readers = new Set(animatic.prevPanelReaders ?? []);
+  const out = new Map<string, Set<string>>();
+  for (const input of animatic.imageInputs ?? []) {
+    if (!readers.has(input.address)) continue;
+    const sources = out.get(input.address) ?? new Set<string>();
+    for (const source of input.sources) sources.add(source);
+    out.set(input.address, sources);
+  }
+  return out;
+}
+
+// The parent plate's own frame, where the definition states it: a crop is rendered at its
+// `outWidth`/`outHeight`. A generated or handed-over plate has no size on the graph, and the canvas
+// is a guess that would report a legal window as a gap.
+function parentFrameSize(plate: AssetDefinition): { width: number; height: number } | undefined {
+  if (plate.kind !== "local" || plate.operation !== "crop") return undefined;
+  const own = cropWindowOf(plate.inputs);
+  return own ? { width: own.outWidth, height: own.outHeight } : undefined;
+}
+
+export function listSetupNestGaps(
+  animatic: AnimaticDefinition,
+  withinBySetup: ReadonlyMap<string, string>,
+): string[] {
+  const plates = platesOf(animatic);
+  const entryOf = animaticEntryResolver(animatic);
+  const cutFrom = cutSources(animatic);
+  const out: string[] = [];
+  for (const [id, parentId] of withinBySetup) {
+    if (!(id in plates) || !(parentId in plates)) continue;
+    const parentAddress = formatPlateAssetPath(parentId);
+    const chain = chainAddresses([formatPlateAssetPath(id)], entryOf);
+    if ([...chain].some((address) => cutFrom.get(address)?.has(parentAddress))) continue;
+    const crops = cropsInChain(formatPlateAssetPath(id), entryOf);
+    // Cutting the parent plate itself. The window is in the PARENT's pixels, so it is read against
+    // the PARENT's frame — never the child's own output size, which is a scale. With no stated frame
+    // the crop stands: `x`/`y` are non-negative by construction.
+    const frame = parentFrameSize(plates[parentId]!);
+    if (
+      crops.some(
+        (c) =>
+          c.image === parentAddress &&
+          (!frame ||
+            (c.x + c.width <= frame.width &&
+              c.y + c.height <= frame.height &&
+              (c.width < frame.width || c.height < frame.height))),
+      )
+    ) {
+      continue;
+    }
+    // Cutting the same master the parent cuts. The parent's own window is the nearest crop behind
+    // it; containment in that implies containment in its parent's, so a chain of windows nests by
+    // induction.
+    const parent = cropsInChain(parentAddress, entryOf)[0];
+    if (
+      parent &&
+      crops.some(
+        (c) =>
+          c.image === parent.image &&
+          c.x >= parent.x &&
+          c.y >= parent.y &&
+          c.x + c.width <= parent.x + parent.width &&
+          c.y + c.height <= parent.y + parent.height &&
+          (c.width < parent.width || c.height < parent.height),
+      )
+    ) {
+      continue;
+    }
+    out.push(id);
+  }
+  return out;
+}
+
+/**
+ * How one developed shot on a plated setup carries its plate in TEXT — the half `setup-unconsumed`
+ * cannot see.
+ */
+export type PlateDescriptionUse = {
+  setupId: string;
+  shotId: string;
+  lane: PanelLane;
+  // A panel that was handed the plate carries the plate's own sentence verbatim.
+  describes: boolean;
+};
+
+// The sentence is read off every step BETWEEN a panel and the plate — the panel itself, and the
+// intermediates it is derived from that still stand on the plate. A wrapper panel carries no text of
+// its own, so reading the panel address alone would exempt a shot whose real keyframe took the plate
+// and dropped the sentence. A step off that path is not read: the plate's own generation prompt and
+// its upstream reach the plate from nowhere, and a sibling branch conditions a picture the plate
+// never entered.
+//
+// Exempt on the same two conditions as `setup-unconsumed`: a shot with nothing generative in its
+// chain has no prompt to write the sentence in, and one that never reaches the plate is that
+// finding's to report, not this one's. One more is this finding's own — a shot whose path to the
+// plate conditions on no text at all has no body the sentence could go in.
+export function listPlateDescriptionUses(
+  animatic: AnimaticDefinition,
+  frames: readonly BoardFrame[],
+): PlateDescriptionUse[] {
+  const platePrompts = animatic.platePrompts ?? {};
+  if (Object.keys(platePrompts).length === 0) return [];
+  const entryOf = animaticEntryResolver(animatic);
+  const shotById = new Map(animatic.shots.map((shot) => [shot.id, shot]));
+  const out: PlateDescriptionUse[] = [];
+  for (const frame of frames) {
+    const shot = shotById.get(frame.shotId);
+    if (shot === undefined || isPendingAnimaticShot(shot)) continue;
+    const setupId = frame.setup;
+    const platePrompt = platePrompts[setupId];
+    if (platePrompt === undefined) continue;
+    const panels = lanePanels(shot, frame.lane).map((panel) => panel.assetPath);
+    const plate = formatPlateAssetPath(setupId);
+    if (!walkPictureChain(panels, plate, entryOf).generative) continue;
+
+    const standsOnPlate = (address: string) => chainAddresses([address], entryOf).has(plate);
+    const prompts: string[] = [];
+    let plated = false;
+    for (const panel of panels) {
+      const chain = chainAddresses([panel], entryOf);
+      if (!chain.has(plate)) continue;
+      plated = true;
+      for (const address of chain) {
+        if (address === plate || !standsOnPlate(address)) continue;
+        prompts.push(...positivePromptsAt(animatic, address));
+      }
+    }
+    if (!plated || prompts.length === 0) continue;
+    out.push({
+      setupId,
+      shotId: shot.id,
+      lane: frame.lane,
+      describes: prompts.some((text) => text.includes(platePrompt)),
+    });
+  }
+  return out;
 }
 
 /**
@@ -796,8 +1118,9 @@ export type PanelConditioningSource = AnimaticPictureSource & {
 };
 
 // A panel name is the author's and a wrapper carries no text of its own, so which prompt writes a
-// shot's opening frame is not readable off the addresses. The chain crosses shots and the
-// timeline; an address outside this stage declares no prompt here, so it drops out.
+// shot's opening frame is not readable off the addresses. The chain crosses shots, the timeline and
+// the plates; an address outside this stage declares no prompt here, so it drops out. A plate stays
+// whatever it is built with: a crop carries no prompt, yet it is the frame the panel stands on.
 export function listPanelConditioning(animatic: PanelConditioningSource): PanelConditioning[] {
   const entryOf = animaticEntryResolver(animatic);
   const written = new Set(
@@ -822,7 +1145,7 @@ export function listPanelConditioning(animatic: PanelConditioningSource): PanelC
           index: i + 1,
           of: panels.length,
           panel: panel.assetPath,
-          conditioning: chain.filter((address) => written.has(address)),
+          conditioning: chain.filter((address) => written.has(address) || isPlateAddress(address)),
           ...(draftFrames.length > 0 ? { draftFrames } : {}),
         });
       });
@@ -1024,7 +1347,8 @@ function videoEntryResolver(
 }
 
 /**
- * The two keyframes each developed board shot answers a seam with.
+ * How each developed board shot meets the shot before it: the two keyframes that answer for a seam,
+ * and what the opening one was handed of the frame it cuts from.
  */
 export type ShotContinuity = {
   shotId: string;
@@ -1033,12 +1357,21 @@ export type ShotContinuity = {
   // same first/last split `lineup` and `lineupTo` are read at.
   firstPanel: string;
   lastPanel: string;
+  // Some step behind the first keyframe is drawn by a `readsPrevPanel` adapter.
+  carries: boolean;
+  // Every address the other shots' panels passed to those steps reach.
+  linked: string[];
 };
 
 // A shot with no panels — a pending one, a board aside — answers nothing and is left out; so does a
 // lane with none, which is a graphic shot's main frame. Each lane is its own camera and answers its
-// own seam.
+// own seam. Listed whether or not any adapter reads a previous panel: `join-unpinned` reads the
+// opening keyframe off a board that carries none at all.
 export function listShotContinuity(animatic: AnimaticDefinition): ShotContinuity[] {
+  const readers = new Set(animatic.prevPanelReaders ?? []);
+  const entryOf = animaticEntryResolver(animatic);
+  const prevPanels = prevPanelSources(animatic);
+
   const out: ShotContinuity[] = [];
   for (const shot of animatic.shots) {
     if (isPendingAnimaticShot(shot)) continue;
@@ -1047,10 +1380,67 @@ export function listShotContinuity(animatic: AnimaticDefinition): ShotContinuity
       const firstPanel = panels[0];
       const lastPanel = panels[panels.length - 1];
       if (firstPanel === undefined || lastPanel === undefined) continue;
-      out.push({ shotId: shot.id, lane, firstPanel, lastPanel });
+      const lineage = keyframeLineage(firstPanel, shot.id, entryOf);
+      const sources = lineage.flatMap((address) => [...(prevPanels.get(address) ?? [])]);
+      out.push({
+        shotId: shot.id,
+        lane,
+        firstPanel,
+        lastPanel,
+        carries: lineage.some((address) => readers.has(address)),
+        linked: sources.length > 0 ? [...chainAddresses(sources, entryOf)] : [],
+      });
     }
   }
   return out;
+}
+
+// Per `readsPrevPanel` address, the sources of its image inputs that are another shot's panel,
+// passed as is — what `promptReferenceTags`' `prevPanel` check sees. A wrapped panel is an ordinary
+// input.
+function prevPanelSources(animatic: AnimaticDefinition): Map<string, Set<string>> {
+  const readers = new Set(animatic.prevPanelReaders ?? []);
+  const out = new Map<string, Set<string>>();
+  for (const input of animatic.imageInputs ?? []) {
+    if (!readers.has(input.address)) continue;
+    const reader = tryParseAddress(input.address);
+    const shotId = reader?.stage === "animatic" && reader.kind === "shot" ? reader.shotId : null;
+    for (const source of input.sources) {
+      const parsed = tryParseAddress(source);
+      if (parsed?.stage !== "animatic" || parsed.kind !== "shot" || parsed.shotId === shotId) {
+        continue;
+      }
+      const sources = out.get(input.address) ?? new Set<string>();
+      sources.add(source);
+      out.set(input.address, sources);
+    }
+  }
+  return out;
+}
+
+// The keyframe and the steps it is wrapped in — this shot's OWN assets, and no further. A wrapper
+// is drawn by no model of its own, so the panel address alone would call a linked shot unlinked;
+// but a plate, a sheet and the panel of another shot are conditioning this keyframe stands on, and
+// a previous panel one of THOSE reads answers for its own seam, not for this one.
+function keyframeLineage(
+  panel: string,
+  shotId: string,
+  entryOf: (address: string) => AssetDefinition | undefined,
+): string[] {
+  const own = (address: string) => {
+    const parsed = tryParseAddress(address);
+    return parsed?.stage === "animatic" && parsed.kind === "shot" && parsed.shotId === shotId;
+  };
+  const seen = new Set<string>();
+  const stack = [panel];
+  while (stack.length > 0) {
+    const address = stack.pop()!;
+    if (seen.has(address)) continue;
+    seen.add(address);
+    const entry = entryOf(address);
+    if (entry) stack.push(...extractRefs(entry).filter(own));
+  }
+  return [...seen];
 }
 
 /** One keyframe's `reference:<id>` slots, in the order that panel's own inputs declare them. */
@@ -1075,8 +1465,8 @@ export function listPanelReferenceSlots(animatic: AnimaticDefinition): PanelRefe
     if (isPendingAnimaticShot(shot)) continue;
     for (const lane of LANES) {
       for (const panel of lanePanels(shot, lane)) {
-        // A keyframe may be a shot asset or a timeline asset — either is one call whose input order
-        // decides where a subject lands.
+        // A keyframe may be a shot asset, a timeline asset or a plate — all three are one call whose
+        // input order decides where a subject lands.
         const entry = entryOf(panel.assetPath);
         if (!entry) continue;
         const slots: string[] = [];
@@ -1108,14 +1498,10 @@ export type PanelReferenceReach = {
   generative: boolean;
 };
 
-// The references each developed animatic shot's keyframes stand on — what `character-unconsumed` and
-// `location-unconsumed` read. Unlike `listPanelReferenceSlots`, this walks the CHAIN behind each
-// panel rather than its own inputs: a keyframe drawn from an earlier keyframe carries that frame's
-// subjects in the picture.
-export function listPanelReferenceReach(
-  animatic: AnimaticDefinition,
-  reference?: ReferenceDefinition | null,
-): PanelReferenceReach[] {
+// The references each developed animatic shot's keyframes stand on — what `character-unconsumed`
+// reads. Unlike `listPanelReferenceSlots`, this walks the CHAIN behind each panel rather than its own
+// inputs: a keyframe drawn from an earlier keyframe carries that frame's subjects in the picture.
+export function listPanelReferenceReach(animatic: AnimaticDefinition): PanelReferenceReach[] {
   const entryOf = animaticEntryResolver(animatic);
   const out: PanelReferenceReach[] = [];
   for (const shot of animatic.shots) {
@@ -1126,7 +1512,7 @@ export function listPanelReferenceReach(
           shotId: shot.id,
           lane,
           panel: panel.assetPath,
-          ...walkReferenceReach(panel.assetPath, entryOf, reference),
+          ...walkReferenceReach(panel.assetPath, entryOf),
         });
       }
     }
@@ -1134,13 +1520,10 @@ export function listPanelReferenceReach(
   return out;
 }
 
-// A `reference:<id>` is recorded and, where the reference stage is at hand, walked on through what
-// it was built from — a frame cut out of a location sheet stands on that location. Whether the chain
-// generates is the animatic's own question, so a reference asset never answers it.
+// A `reference:<id>` is a leaf: what is behind a reference sheet is the sheet's business.
 function walkReferenceReach(
   root: string,
   entryOf: (address: string) => AssetDefinition | undefined,
-  reference?: ReferenceDefinition | null,
 ): { refs: string[]; generative: boolean } {
   const seen = new Set<string>();
   const refs: string[] = [];
@@ -1153,8 +1536,6 @@ function walkReferenceReach(
     const parsed = tryParseAddress(address);
     if (parsed?.stage === "reference" && parsed.kind === "reference") {
       if (!refs.includes(parsed.assetName)) refs.push(parsed.assetName);
-      const built = reference?.topLevelAssets?.[parsed.assetName];
-      if (built) stack.push(...extractRefs(built));
       continue;
     }
     const entry = entryOf(address);
@@ -1178,15 +1559,17 @@ export type AnimaticPictureSource = {
   topLevelAssets?: Record<string, AssetDefinition>;
 };
 
-// One address → its declaration, over the animatic's drafts, timeline and shots. A panel drawn
-// from a draft's frame reaches the references that draft was handed.
+// One address → its declaration, over the animatic's plates, drafts, timeline and shots. A panel
+// drawn from a draft's frame reaches the plates that draft was handed.
 function animaticEntryResolver(
   animatic: AnimaticPictureSource,
 ): (address: string) => AssetDefinition | undefined {
+  const plates = platesOf(animatic);
   const drafts = draftsOf(animatic);
   return (address) => {
     const parsed = tryParseAddress(address);
     if (!parsed || parsed.stage !== "animatic") return undefined;
+    if (parsed.kind === "plate") return plates[parsed.assetName];
     if (parsed.kind === "draft") return drafts[parsed.assetName];
     if (parsed.kind === "timeline") return animatic.topLevelAssets?.[parsed.assetName];
     if (parsed.kind === "shot") {
@@ -1194,4 +1577,33 @@ function animaticEntryResolver(
     }
     return undefined;
   };
+}
+
+// One walk over a picture's inputs, answering both halves at once: whether `target` is in the chain,
+// and whether anything in it generates. Never short-circuits on `reached` — `generative` is only
+// true of the whole chain once the whole chain has been seen.
+function walkPictureChain(
+  roots: readonly string[],
+  target: string,
+  entryOf: (address: string) => AssetDefinition | undefined,
+): { reached: boolean; generative: boolean; touchedReference: boolean } {
+  const seen = new Set<string>();
+  const stack = [...roots];
+  let reached = false;
+  let generative = false;
+  let touchedReference = false;
+  while (stack.length > 0) {
+    const address = stack.pop()!;
+    if (address === target) reached = true;
+    if (seen.has(address)) continue;
+    seen.add(address);
+    // Before the entry lookup: a reference asset is a leaf on this walk, so it has none here.
+    const parsed = tryParseAddress(address);
+    if (parsed?.stage === "reference" && parsed.kind === "reference") touchedReference = true;
+    const entry = entryOf(address);
+    if (!entry) continue;
+    if (entry.deterministic !== true) generative = true;
+    stack.push(...extractRefs(entry));
+  }
+  return { reached, generative, touchedReference };
 }

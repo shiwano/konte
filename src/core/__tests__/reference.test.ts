@@ -364,7 +364,7 @@ describe("reference canvas", () => {
     expect(sizesOf(def.topLevelAssets ?? {})).toEqual({
       hana: [672, 1024],
       katana: [1024, 1024],
-      // A location is the master a frame is cut out of: 2:1, twice the canvas' long edge.
+      // A location is the master a plate is cut out of: 2:1, twice the canvas' long edge.
       studio: [2048, 1024],
       // Outside every roster — a look proof, a shared bed — squares like a prop.
       look: [1024, 1024],

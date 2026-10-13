@@ -9,17 +9,20 @@ import { makeMediaAsset } from "./builders.js";
 import {
   getPatchContext,
   getReferenceContext,
+  getPlatePoolContext,
   getDraftPoolContext,
   getTimelineContext,
   getShotContext,
   makePatchPlaceholder,
   makePlaceholder,
   makeReferencePlaceholder,
+  makePlatePlaceholder,
   makeDraftPlaceholder,
   makeTimelinePlaceholder,
   parsePlaceholder,
   type BuildFormat,
 } from "./shot-context.js";
+import { recordImageInputs } from "./image-input-collect.js";
 import type { PinOccurrence } from "../pin-check.js";
 import { clipLengthOf } from "./clip-length-collect.js";
 import { recordPinInputs } from "./pin-collect.js";
@@ -37,10 +40,10 @@ import { shiftSongSpan, songSpanOfInputs, withSongSpan } from "./song-window.js"
 export type AdapterBackendKind = "comfy" | "fal" | "local" | "file";
 
 /**
- * The five places `asset()` can be called from. A stage build reaches exactly one — a shot build
+ * The six places `asset()` can be called from. A stage build reaches exactly one — a shot build
  * clears the timeline context.
  */
-export type AssetDeclarationSite = "patch" | "draft" | "reference" | "timeline" | "shot";
+export type AssetDeclarationSite = "patch" | "plate" | "draft" | "reference" | "timeline" | "shot";
 
 export interface AdapterMetaInput {
   type: string;
@@ -109,7 +112,7 @@ export interface AdapterMeta {
   // quoted line as prompt text.
   spokenTextPattern?: RegExp;
   // The model reads the previous shot's last panel, passed to one of its image inputs, as the frame
-  // a cut comes from (H3's `[Shot 1]`). Printed by `konte adapter show`.
+  // a cut comes from (H3's `[Shot 1]`). `panel-unlinked` asks only such an adapter for that panel.
   readsPrevPanel?: true;
   // A comfy adapter's declarations whatever branch a call prunes — what a Comfy API Build installs.
   models?: readonly ComfyModelDeclaration[];
@@ -332,6 +335,7 @@ export function asset<TName extends string, TAdapter extends AssetAdapter<any, a
 
 function declarationSite(): AssetDeclarationSite | undefined {
   if (getPatchContext()) return "patch";
+  if (getPlatePoolContext()) return "plate";
   if (getDraftPoolContext()) return "draft";
   if (getReferenceContext()) return "reference";
   if (getTimelineContext()) return "timeline";
@@ -344,6 +348,7 @@ function declarationSite(): AssetDeclarationSite | undefined {
 function assetLocation(): string {
   const patchCtx = getPatchContext();
   if (patchCtx) return `patch "${patchCtx.sourceVariantId}"`;
+  if (getPlatePoolContext()) return "the animatic's plates";
   if (getDraftPoolContext()) return "the animatic's drafts";
   if (getReferenceContext()) return "the reference stage";
   const timelineCtx = getTimelineContext();
@@ -396,12 +401,14 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
       error.items,
     );
   }
-  // The prompt values and pin wiring of this declaration, addressed by the placeholder the
-  // discovery branch below hands back (see prompt-collect, pin-collect).
+  // The prompt values, pin wiring and image inputs of this declaration, addressed by the
+  // placeholder the discovery branch below hands back (see prompt-collect, pin-collect,
+  // image-input-collect).
   const record = (placeholder: string): void => {
     const address = parsePlaceholder(placeholder) ?? placeholder;
     recordPromptInputs(address, adapter.meta, inputs);
     recordPinInputs(address, adapter.meta, inputs, clipOf(def));
+    recordImageInputs(address, adapter.meta, inputs);
   };
   let def: AssetDefinition;
   // The name a reference canvas resolves against (see ReferenceContext) has to stand while the
@@ -431,6 +438,19 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
     assertUniqueAsset(patchCtx.assets, name, `patch "${patchCtx.sourceVariantId}"`);
     patchCtx.assets.set(name, def);
     const placeholder = makePatchPlaceholder(patchCtx.stage, patchCtx.sourceVariantId, name);
+    record(placeholder);
+    return makeMediaAsset(placeholder) as BrandedMediaAsset<TName, TAdapter>;
+  }
+
+  // Registered like any other take. A plate is ordinary review work: the frame it
+  // fixes is delivered inside every panel on that setup. What spares the author a click is the
+  // cascade, the plate being what those keyframes were built from, so accepting the first panel on it
+  // signs it off (see `cascadeAcceptConsumedDeps`).
+  const poolCtx = getPlatePoolContext();
+  if (poolCtx) {
+    assertUniqueAsset(poolCtx.assets, name, assetLocation());
+    poolCtx.assets.set(name, def);
+    const placeholder = makePlatePlaceholder(name);
     record(placeholder);
     return makeMediaAsset(placeholder) as BrandedMediaAsset<TName, TAdapter>;
   }

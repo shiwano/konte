@@ -4831,6 +4831,15 @@ body.fill-mode .fab-submit-wrap {
   letter-spacing: 0.02em;
 }
 
+/* The wider frame a setup is a window of, under its size chip. Muted and on its own line: the size
+   is what the cadence is read against, the axis is what the plates are cut against. */
+.dir-within {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+}
+
 .dir-col-where {
   width: 1%;
   white-space: nowrap;

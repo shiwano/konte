@@ -28,7 +28,7 @@ export const directionDefaults: {
       name: "the studio",
       description: "a plain studio",
       landmarks: {
-        desk: { name: "the desk", description: "a plain desk, centre" },
+        desk: { name: "the desk", promptDepiction: "desk", description: "a plain desk, centre" },
       },
     },
   },

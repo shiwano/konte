@@ -144,7 +144,7 @@ describe("doctor command (configured backends)", () => {
 export default defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
@@ -341,24 +341,173 @@ describe("doctor command (text output)", () => {
   });
 });
 
-// The location anchor is a direction finding that reads the ANIMATIC, so it only fires if the board's
-// reference reach actually arrives at `checkDirection` — a wiring these tests exist to hold.
-describe("doctor command (location reference)", () => {
+// The plate/anchor demands are the direction findings that read the ANIMATIC, so they only fire if
+// the board's asset names actually reach `checkDirection` — a wiring these tests exist to hold.
+//
+// `internalTestImage` for every keyframe and plate: the shipped `local` adapters are deterministic,
+// and a picture with one outcome is exempt from the anchor demands entirely.
+describe("doctor command (setup plates)", () => {
   const DIRECTION_TS = `import { defineDirection, defineLens } from "konte";
 
 export default defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
-    side: { name: "the side angle", description: "in from the side", location: "studio", framing: "close", holds: ["studioMark"] },
+  },
+  policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  lenses: [defineLens({ name: "two-beat", payoff: "beat", roles: [{ role: "beat" }, { role: "beat" }] })],
+  sequence: {
+    lens: "two-beat",
+    pleasure: "cute",
+    // Both shots on one frame — the shape that owes a plate.
+    shots: [
+      { id: "01", role: "beat", action: "test shot", setup: "front", duration: 5 , lineup: [] },
+      { id: "02", role: "beat", action: "later shot", setup: "front", duration: 5 , lineup: [], join: "jump-forward" },
+    ],
+  },
+});
+`;
+
+  const REFERENCE_TSX = `import { defineReference, asset, adapters } from "konte";
+// @ts-expect-error konte's fixture adapter is runtime-only, outside the workspace's generated types.
+import { internalTestPlate } from "konte";
+import direction from "./direction";
+
+export default defineReference(direction, () => {
+  const studio = asset("studio", internalTestPlate, { width: 64, height: 64, color: "#eee" });
+  return { studio };
+});
+`;
+
+  const PLATE = `plates: () => ({
+    front: {
+      image: asset("front", internalTestImage, { image: reference.studio, width: 64, height: 64 }),
+      prompt: "the studio, its window along the far wall",
+    },
+  }),`;
+  // The same plate with nothing under it: the frame it fixes was invented.
+  const PLATE_UNANCHORED = `plates: () => ({
+    front: {
+      image: asset("front", internalTestImage, { width: 64, height: 64 }),
+      prompt: "the studio, its window along the far wall",
+    },
+  }),`;
+
+  // `keyframe` builds one shot's panel: from the plate, from the location, or from nothing.
+  const FROM_PLATE = `asset("first", internalTestImage, { image: plates.front.image, width: 64, height: 64 })`;
+  const FROM_NOTHING = `asset("first", internalTestImage, { width: 64, height: 64 })`;
+  // One outcome, so nothing an anchor could hold still.
+  const DETERMINISTIC = `asset("first", internalTestPlate, { width: 64, height: 64, color: "#fff" })`;
+
+  const animaticWith = (
+    plates: string,
+    keyframe: string,
+  ) => `import { defineAnimatic, asset, adapters, Composition, Panel } from "konte";
+// @ts-expect-error konte's fixture adapter is runtime-only, outside the workspace's generated types.
+import { internalTestImage, internalTestPlate } from "konte";
+import direction from "./direction";
+import reference from "./reference";
+
+export default defineAnimatic(direction, {
+  ${plates}
+  timeline: ({ format, shot, plates }) => {
+    return { shots: shot("01", () => <Composition>
+<Panel src={${keyframe}} />
+</Composition>)
+      .nextShot("02", () => <Composition>
+<Panel src={${keyframe}} />
+</Composition>) };
+  },
+});
+`;
+
+  async function setupProject(plates: string, keyframe = FROM_NOTHING): Promise<string> {
+    const projectDir = await initWithNoBackendVideo();
+    await fs.writeFile(path.join(projectDir, "direction.ts"), DIRECTION_TS);
+    await fs.writeFile(path.join(projectDir, "reference.tsx"), REFERENCE_TSX);
+    await fs.writeFile(path.join(projectDir, "animatic.tsx"), animaticWith(plates, keyframe));
+    // The finding is deferred until the direction is accepted, like the other roster classes.
+    await acceptDirection(projectDir);
+    return projectDir;
+  }
+
+  async function findingCodes(projectDir: string): Promise<string[]> {
+    return (await doctorCheck(projectDir, "direction"))?.details ?? [];
+  }
+
+  it("demands a plate for a frame two shots share", async () => {
+    const projectDir = await setupProject("");
+    expect((await findingCodes(projectDir)).join("\n")).toContain("setup-unrealized");
+  });
+
+  // A timeline asset named after the setup is no longer a plate: the roster binding is `plates`, not
+  // a name that happens to match.
+  it("does not read a same-named timeline asset as the plate", async () => {
+    const projectDir = await setupProject("");
+    const animatic = path.join(projectDir, "animatic.tsx");
+    const src = await fs.readFile(animatic, "utf8");
+    await fs.writeFile(
+      animatic,
+      src.replace(
+        "return { shots:",
+        `asset("front", internalTestPlate, { width: 16, height: 16, color: "#fff" });\n    return { shots:`,
+      ),
+    );
+    expect((await findingCodes(projectDir)).join("\n")).toContain("setup-unrealized");
+  });
+
+  it("demands the shots on a plated setup build from it", async () => {
+    const projectDir = await setupProject(PLATE);
+    const codes = (await findingCodes(projectDir)).join("\n");
+    expect(codes).not.toContain("setup-unrealized");
+    expect(codes).toContain("setup-unconsumed");
+  });
+
+  it("clears once the keyframes are built from the plate", async () => {
+    const projectDir = await setupProject(PLATE, FROM_PLATE);
+    const codes = (await findingCodes(projectDir)).join("\n");
+    expect(codes).not.toContain("setup-unrealized");
+    expect(codes).not.toContain("setup-unconsumed");
+    expect(codes).not.toContain("plate-unanchored");
+  });
+
+  // The demand one level up: the location reference is what holds the plate to the place.
+  it("demands the plate itself be built from the location reference", async () => {
+    const projectDir = await setupProject(PLATE_UNANCHORED, FROM_PLATE);
+    const codes = (await findingCodes(projectDir)).join("\n");
+    expect(codes).toContain("plate-unanchored");
+    expect(codes).toContain("reference.studio");
+    expect(codes).not.toContain("setup-unconsumed");
+  });
+
+  // A picture with one outcome cannot drift take to take, so neither anchor is owed of it.
+  it("exempts a keyframe with no generative step", async () => {
+    const projectDir = await setupProject(PLATE, DETERMINISTIC);
+    expect((await findingCodes(projectDir)).join("\n")).not.toContain("setup-unconsumed");
+  });
+});
+
+// A setup only one shot names owes no plate, so what its keyframe stands on is the location's own
+// reference — the same demand read where there is no plate to read it against.
+describe("doctor command (unplated setups)", () => {
+  const DIRECTION_TS = `import { defineDirection, defineLens } from "konte";
+
+export default defineDirection({
+  brief: { logline: "test" },
+  characters: {},
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  setups: {
+    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
+    side: { name: "the side angle", description: "in from the side", location: "studio", framing: "close", holds: ["studioMark"], within: null },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } } }, lang: "en", speech: "free" },
   lenses: [defineLens({ name: "two-beat", payoff: "beat", roles: [{ role: "beat" }, { role: "beat" }] })],
   sequence: {
     lens: "two-beat",
     pleasure: "cute",
+    // One shot each: neither setup owes a plate.
     shots: [
       { id: "01", role: "beat", action: "test shot", setup: "front", duration: 5 , lineup: [] },
       { id: "02", role: "beat", action: "later shot", setup: "side", duration: 5 , lineup: [] },
@@ -382,17 +531,17 @@ export default defineReference(direction, () => {
     keyframe: string,
   ) => `import { defineAnimatic, asset, Composition, Panel } from "konte";
 // @ts-expect-error konte's fixture adapter is runtime-only, outside the workspace's generated types.
-import { internalTestImage, internalTestPlate } from "konte";
+import { internalTestImage } from "konte";
 import direction from "./direction";
 import reference from "./reference";
 
 export default defineAnimatic(direction, {
   timeline: ({ shot }) => {
     return { shots: shot("01", () => <Composition>
-<Panel src={${keyframe}} blocking="she stands at the desk" camera="fixed" />
+<Panel src={${keyframe}} />
 </Composition>)
       .nextShot("02", () => <Composition>
-<Panel src={${keyframe}} blocking="her hands rest on the desk" camera="fixed" />
+<Panel src={${keyframe}} />
 </Composition>) };
   },
 });
@@ -400,50 +549,24 @@ export default defineAnimatic(direction, {
 
   const FROM_LOCATION = `asset("first", internalTestImage, { image: reference.studio, width: 64, height: 64 })`;
   const FROM_NOTHING = `asset("first", internalTestImage, { width: 64, height: 64 })`;
-  // One outcome, so nothing an anchor could hold still.
-  const DETERMINISTIC = `asset("first", internalTestPlate, { width: 64, height: 64, color: "#fff" })`;
 
-  async function setupProject(keyframe: string): Promise<string> {
+  async function findingCodes(keyframe: string): Promise<string> {
     const projectDir = await initWithNoBackendVideo();
     await fs.writeFile(path.join(projectDir, "direction.ts"), DIRECTION_TS);
     await fs.writeFile(path.join(projectDir, "reference.tsx"), REFERENCE_TSX);
     await fs.writeFile(path.join(projectDir, "animatic.tsx"), animaticWith(keyframe));
     await acceptDirection(projectDir);
-    return projectDir;
-  }
-
-  async function findingCodes(keyframe: string): Promise<string> {
-    const projectDir = await setupProject(keyframe);
     return ((await doctorCheck(projectDir, "direction"))?.details ?? []).join("\n");
   }
 
-  it("demands the location reference of a keyframe built from nothing", async () => {
+  it("demands the location reference of a keyframe whose setup has no plate", async () => {
     const codes = await findingCodes(FROM_NOTHING);
-    expect(codes).toContain("location-unconsumed_01");
-    expect(codes).toContain("location-unconsumed_02");
+    expect(codes).not.toContain("setup-unrealized");
+    expect(codes).toContain("setup-unconsumed");
     expect(codes).toContain("reference.studio");
   });
 
   it("clears once the keyframe is built from the location reference", async () => {
-    expect(await findingCodes(FROM_LOCATION)).not.toContain("location-unconsumed");
-  });
-
-  // A picture with one outcome cannot drift take to take, so no anchor is owed of it.
-  it("exempts a keyframe with no generative step", async () => {
-    expect(await findingCodes(DETERMINISTIC)).not.toContain("location-unconsumed");
-  });
-
-  it("aborts generate on it", async () => {
-    const projectDir = await setupProject(FROM_NOTHING);
-    const { stderr } = await runCapture(["generate", "animatic", "--plan"], projectDir);
-    expect(stderr).toContain("DIRECTION_CHECK_FAILED");
-    expect(stderr).toContain("location-unconsumed_01");
-  });
-
-  // Past the direction check, the spend stops at the next gate: the sheet it now consumes.
-  it("lets generate past it once the keyframe is built from the location reference", async () => {
-    const projectDir = await setupProject(FROM_LOCATION);
-    const { stderr } = await runCapture(["generate", "animatic", "--plan"], projectDir);
-    expect(stderr).toContain("REFERENCE_ACCEPTANCE_REQUIRED");
+    expect(await findingCodes(FROM_LOCATION)).not.toContain("setup-unconsumed");
   });
 });

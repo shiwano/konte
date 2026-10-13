@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { PinOccurrence } from "../pin-check.js";
+import type { ImageInputOccurrence } from "../image-inputs.js";
 import type { PromptOccurrence } from "../prompt-check.js";
 import { FONT_FAMILY_PATTERN, isLanguageTag, type LanguageTag } from "../typography.js";
 import type { MediaAsset, SoundtrackEntry } from "../dsl/builders.js";
@@ -356,6 +357,13 @@ export const PromptWaiversSchema = z.record(z.string(), z.string()).optional();
 // above is the one record both classes are keyed in (see waiver-keys.ts). Not hashed either.
 export const PinsSchema = z.custom<readonly PinOccurrence[]>().optional();
 
+// `panel-unlinked`'s and `plate-unnested`'s half — every wired image input the stage declared. Not
+// hashed either: what each slot was passed already lives in `inputs`.
+export const ImageInputsSchema = z.custom<readonly ImageInputOccurrence[]>().optional();
+
+// Every address the stage declared with a `readsPrevPanel` adapter. Not hashed.
+export const PrevPanelReadersSchema = z.custom<readonly string[]>().optional();
+
 // One line spelled as one model needs it — what `respell()` declared while the stage built, filed
 // by the shot the call was made inside (absent for a cue declared on the timeline). Read by the
 // voiced check and the cue classifier and printed beside the prompts; never hashed, since which
@@ -387,6 +395,8 @@ export const StageDefinitionSchema = z.object({
   timelineFn: z.custom<TimelineFunction>().optional(),
   prompts: PromptsSchema,
   pins: PinsSchema,
+  imageInputs: ImageInputsSchema,
+  prevPanelReaders: PrevPanelReadersSchema,
   waivers: PromptWaiversSchema,
   respellings: RespellingsSchema,
 });

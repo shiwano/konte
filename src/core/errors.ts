@@ -125,7 +125,7 @@ export type KonteErrorCode =
   // that no longer exists). The direction gate's twin one layer down: text, checked before spend.
   | "PROMPT_CHECK_FAILED"
   // A `pin` input about to be spent on is wired to something that is not a frame of the picture —
-  // a reference sheet. The prompt check's twin over wiring rather than text.
+  // a reference sheet, a plate. The prompt check's twin over wiring rather than text.
   | "PIN_CHECK_FAILED"
   | "DIRECTION_ACCEPTANCE_REQUIRED"
   // `konte accept --off` was pointed at a direction part carrying no sign-off to clear. The variant
@@ -141,6 +141,9 @@ export type KonteErrorCode =
   // checks read, so a composition and its direction must agree on whether there is one.
   | "CUTIN_REQUIRED"
   | "CUTIN_UNDECLARED"
+  // An `animatic.tsx` `plates` block that does not file its plates by roster id — a key naming no
+  // declared setup, or an asset declared there and not returned as one.
+  | "INVALID_PLATE"
   // An `animatic.tsx` `drafts` block that is not one take per run of consecutive camera shots, or
   // a `frame()` naming a shot or a time its draft does not hold.
   | "INVALID_DRAFT"

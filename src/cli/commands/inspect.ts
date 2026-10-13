@@ -5,6 +5,7 @@ import {
   type ShotStage,
   formatAddress,
   formatCompositionAddress,
+  formatPlateAssetPath,
   formatDraftAssetPath,
   formatShotAddress,
   listShotStems,
@@ -98,6 +99,8 @@ type InspectScope =
   | { level: "asset"; stage: AssetStage; address: string }
   | { level: "shot"; stage: ShotStage; shotId: string }
   | { level: "stage"; stage: AssetStage }
+  // Every plate the animatic returned (`animatic:plate`).
+  | { level: "plates"; stage: "animatic" }
   // Every draft take the animatic returned (`animatic:draft`).
   | { level: "drafts"; stage: "animatic" }
   // The direction: the whole stage, or one of its parts (`address` null / set).
@@ -131,6 +134,7 @@ function parseInspectScope(input: string): InspectScope {
     return { level: "shot", stage: shotMatch[1] as ShotStage, shotId: shotMatch[2]! };
   }
 
+  if (input === "animatic:plate") return { level: "plates", stage: "animatic" };
   if (input === "animatic:draft") return { level: "drafts", stage: "animatic" };
 
   if (VARIANT_PATTERN.test(input)) return { level: "variant", variantId: input };
@@ -167,6 +171,9 @@ interface DefinitionWithDuration {
   timelineSoundtracks?: readonly unknown[];
   prompts?: readonly PromptOccurrence[];
   respellings?: readonly Respelling[];
+  // Animatic only: the returned plates, in return order, and the sentence each says it holds.
+  exposedPlateIds?: string[];
+  platePrompts?: Record<string, string>;
   // Animatic only: the shots each returned draft covers.
   draftShots?: Record<string, string[]>;
 }
@@ -377,6 +384,8 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
   }
 
   const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
+  const platePrompt = platePromptOf(animatic, address);
+  const plateWithin = platePrompt === null ? null : await plateWithinOf(videoRoot, address);
   const definition = await loadDefinitionForAddress(videoRoot, address);
 
   let manager = await loadManager(videoRoot);
@@ -432,6 +441,10 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
   }));
   console.log(`Address: ${address}`);
   console.log(`Kind: ${assetDef.kind}`);
+  if (platePrompt !== null) {
+    console.log(`Within: ${plateWithin ?? "root"}`);
+    console.log(`Plate: ${platePrompt}`);
+  }
 
   if ("inputs" in assetDef && assetDef.inputs) {
     printInputs(assetDef, "Inputs:");
@@ -954,9 +967,11 @@ async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<vo
   const prefix =
     scope.level === "shot"
       ? `${formatShotAddress(scope.stage, scope.shotId)}.`
-      : scope.level === "drafts"
-        ? "animatic:draft."
-        : undefined;
+      : scope.level === "plates"
+        ? "animatic:plate."
+        : scope.level === "drafts"
+          ? "animatic:draft."
+          : undefined;
   const matches = prompts.filter((p) =>
     scope.level === "asset"
       ? p.address === scope.address
@@ -964,6 +979,7 @@ async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<vo
         ? p.address.startsWith(prefix)
         : true,
   );
+  const plates = platesUnderScope(definition, scope, promptShots);
   const cutinAddresses =
     definition && stage ? cutinLaneAddresses(stage, definition) : new Set<string>();
   const keyframes = keyframesUnderScope(definition, stage, matches);
@@ -979,7 +995,7 @@ async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<vo
     byAddress.set(p.address, bucket);
   }
 
-  if (matches.length === 0) {
+  if (matches.length === 0 && plates.length === 0) {
     console.log("No prompts declared under this scope.");
     return;
   }
@@ -998,6 +1014,8 @@ async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<vo
     for (const k of keyframes) {
       console.log(`  shot ${k.shotId} · panel ${k.index} of ${k.of} · ${k.lane}   ${k.panel}`);
       console.log(`    conditioning: ${k.conditioning.join(", ") || "(none)"}`);
+      const plate = panelPlate(k, promptShots);
+      if (plate) console.log(`    plate: ${plate}`);
       for (const frame of k.draftFrames ?? []) {
         console.log(`    frame: ${draftFrameLine(definition, frame)}`);
       }
@@ -1005,8 +1023,20 @@ async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<vo
     console.log("");
   }
 
+  // A plate is listed first, in return order, whether or not a model read a prompt to make it.
   let first = true;
+  for (const plate of plates) {
+    if (!first) console.log("");
+    first = false;
+    console.log(plate.address);
+    console.log(`  within: ${plate.within ?? "root"}`);
+    console.log(`  plate: ${plate.prompt}`);
+    printOccurrences(byAddress.get(plate.address) ?? []);
+  }
+
+  const plateAddresses = new Set(plates.map((p) => p.address));
   for (const [address, occurrences] of byAddress) {
+    if (plateAddresses.has(address)) continue;
     if (!first) console.log("");
     first = false;
     console.log(address);
@@ -1066,6 +1096,16 @@ function panelMoveLines(
   return out;
 }
 
+// The plate of the setup the panel's lane is shot from. `conditioning` can reach another setup's
+// plate through the frame before the cut, so the order there does not say which one this is.
+function panelPlate(k: PanelConditioning, promptShots: PromptShots | null): string | null {
+  const setupId =
+    k.lane === "cutin" ? promptShots?.cutin.get(k.shotId)?.setup : promptShots?.setup.get(k.shotId);
+  if (!setupId) return null;
+  const plate = formatPlateAssetPath(setupId);
+  return k.conditioning.includes(plate) ? plate : `(none — ${plate} is not in its conditioning)`;
+}
+
 // The keyframes whose conditioning the listing carries: a panel fed by a prompt under this scope.
 // Every address behind the panel stays in `conditioning`, this scope's or not — a narrower scope
 // cuts the listing, never the frame.
@@ -1094,6 +1134,41 @@ function cutinLaneAddresses(stage: AssetStage, definition: DefinitionWithDuratio
   return out;
 }
 
+// The wider frame a plate's setup declares itself a window of; null at the root of its own camera
+// axis, and for any address that is not a plate.
+async function plateWithinOf(videoRoot: string, address: string): Promise<string | null> {
+  const parsed = tryParseAddress(address);
+  if (!parsed || parsed.kind !== "plate") return null;
+  const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
+  return direction?.setups?.[parsed.assetName]?.within ?? null;
+}
+
+// What a returned plate says it holds, for a plate address; null for any other address or an
+// intermediate the plates callback did not return.
+function platePromptOf(
+  animatic: DefinitionWithDuration | null | undefined,
+  address: string,
+): string | null {
+  const parsed = tryParseAddress(address);
+  if (!parsed || parsed.kind !== "plate") return null;
+  return animatic?.platePrompts?.[parsed.assetName] ?? null;
+}
+
+async function inspectPlates(videoRoot: string): Promise<void> {
+  const definition = await loadDefinitionWithDuration(videoRoot, "animatic");
+  const ids = definition.exposedPlateIds ?? [];
+  if (ids.length === 0) {
+    console.log("No plates returned.");
+    return;
+  }
+  let first = true;
+  for (const id of ids) {
+    if (!first) console.log("");
+    first = false;
+    await inspectAsset(videoRoot, formatPlateAssetPath(id));
+  }
+}
+
 async function inspectDrafts(videoRoot: string): Promise<void> {
   const definition = await loadDefinitionWithDuration(videoRoot, "animatic");
   const drafts = Object.entries(definition.draftShots ?? {});
@@ -1108,6 +1183,24 @@ async function inspectDrafts(videoRoot: string): Promise<void> {
     console.log(`Shots: ${shotIds.join(", ")}`);
     await inspectAsset(videoRoot, formatDraftAssetPath(name));
   }
+}
+
+function platesUnderScope(
+  definition: DefinitionWithDuration | null,
+  scope: PromptScope,
+  promptShots: PromptShots | null,
+): { address: string; prompt: string; within: string | null }[] {
+  if (!definition?.platePrompts) return [];
+  if (scope.level === "shot" || scope.level === "direction" || scope.level === "drafts") return [];
+  const out: { address: string; prompt: string; within: string | null }[] = [];
+  for (const id of definition.exposedPlateIds ?? []) {
+    const prompt = definition.platePrompts[id];
+    if (prompt === undefined) continue;
+    const address = formatPlateAssetPath(id);
+    if (scope.level === "asset" && scope.address !== address) continue;
+    out.push({ address, prompt, within: promptShots?.within.get(id) ?? null });
+  }
+  return out;
 }
 
 // The direction facts printed beside a stage's prompts: what each shot lands, who its frame holds
@@ -1125,6 +1218,10 @@ interface PromptShots {
   setup: Map<string, string>;
   // The declared boundary into the shot's own frame; an ordinary one has no entry.
   join: Map<string, string>;
+  // Per SETUP id, not per shot: the wider frame that one steps in from, null where there is
+  // none — a frame that declared nothing answers as a root here, and the two are told apart on the
+  // direction's own surfaces.
+  within: Map<string, string | null>;
   // Printed above the addresses only the `<Cutin>` reaches, in place of the shot's own frame.
   cutin: Map<
     string,
@@ -1160,10 +1257,13 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
   const set = new Map<string, { id: string; label: string }[]>();
   const setup = new Map<string, string>();
   const join = new Map<string, string>();
+  const within = new Map<string, string | null>(
+    Object.entries(direction.setups ?? {}).map(([id, s]) => [id, s.within ?? null]),
+  );
   const script = new Map<string, { speaker: string; text: string; acting: string | null }[]>();
   const cutin: PromptShots["cutin"] = new Map();
-  // A critic cannot read direction.ts, so what the prompt is read against is printed here rather
-  // than looked up. An id the place does not declare is `holds-unknown-id`,
+  // A critic cannot read direction.ts, so what the plate's sentence and the prompt are read against
+  // is printed here rather than looked up. An id the place does not declare is `holds-unknown-id`,
   // a structural error, and stands as itself.
   const holdsOf = (setupId: string): { id: string; label: string }[] | null => {
     const setup = direction.setups?.[setupId];
@@ -1219,7 +1319,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
     }));
     if (lines.length > 0) script.set(shot.id, lines);
   }
-  return { action, span, lineup, set, setup, join, cutin, script, label };
+  return { action, span, lineup, set, setup, join, within, cutin, script, label };
 }
 
 function shotIdOfAddress(address: string): string | null {
@@ -1399,6 +1499,7 @@ Examples:
   konte inspect video:shot.01.motion    One asset — variants, staleness, feedback
   konte inspect video:shot.01           One shot — its direction shot, timing and assets
   konte inspect animatic                A whole stage
+  konte inspect animatic:plate          Every returned plate — what it holds, and its takes
   konte inspect animatic:draft          Every draft take — the shots it covers, and its takes
   konte inspect direction               The direction — per-part acceptance and findings
   konte inspect direction:brief         Every part of the brief — its content and feedback
@@ -1406,7 +1507,9 @@ Examples:
 
 "--prompts" replaces the listing with the text the addresses under the scope feed a model: the
 "prompt" / "negativePrompt" conditioning, and the "spokenText" a speech or music model voices.
-Values are what "asset()" built, so one assembled from shared constants is listed expanded. Above a
+Values are what "asset()" built, so one assembled from shared constants is listed expanded. A returned
+plate is listed first, whether or not a model read a prompt to make it: its "plate" line is the
+sentence its author wrote for that frame, which every panel on that setup carries. Above a
 shot address it prints what the direction declared for that shot — its "action" (what the shot
 lands), its "lineup" (who the frame holds,
 left to right, and the order the shot leaves behind, each as "<name> (<id>)"), its "set" (what the
@@ -1423,6 +1526,7 @@ order. A panel's name is the author's and a wrapper carries no text, so this is 
 prompt writes a shot's opening frame.
 
   konte inspect animatic --prompts        Every prompt and spoken line the board declares
+  konte inspect animatic:plate --prompts  What each plate holds, and any prompt that made it
   konte inspect video:shot.01 --prompts   One shot's
 `,
     )
@@ -1457,6 +1561,9 @@ prompt writes a shot's opening frame.
           break;
         case "stage":
           await inspectStage(videoRoot, scope.stage);
+          break;
+        case "plates":
+          await inspectPlates(videoRoot);
           break;
         case "drafts":
           await inspectDrafts(videoRoot);

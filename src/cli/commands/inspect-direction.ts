@@ -28,6 +28,7 @@ import { StateManager } from "../../core/state/index.js";
 import { scriptLinesToView } from "../../core/types/script.js";
 import {
   loadDirectionIfPresent,
+  loadAnimaticSetupState,
   loadStagingStageState,
   loadSongTakeState,
 } from "../load-definition.js";
@@ -122,6 +123,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
   const reference = await loadReference(videoRoot).catch(() => null);
   const check = checkDirection(direction, {
     referenceAssetNames: reference?.exposedAssetNames ?? [],
+    animaticSetups: await loadAnimaticSetupState(videoRoot, direction),
     stagingStage: await loadStagingStageState(videoRoot, direction),
     songTake: await loadSongTakeState(videoRoot, direction),
   });
@@ -273,7 +275,9 @@ function printContent(
       console.log(`  Description: ${content.description}`);
       console.log(`  Reference:   reference:${content.id}`);
       for (const landmark of content.landmarks ?? []) {
-        console.log(`  Landmark:    ${landmark.name} (${landmark.id}) — ${landmark.description}`);
+        console.log(
+          `  Landmark:    ${landmark.name} (${landmark.id}) — "${landmark.promptDepiction}" — ${landmark.description}`,
+        );
       }
       return;
     case "setup":
@@ -283,6 +287,10 @@ function printContent(
       console.log(`  Location:    ${content.location}`);
       console.log(`  Framing:     ${content.framing}`);
       console.log(`  Holds:       ${content.holds.join(" | ") || "(nothing — an insert)"}`);
+      console.log(
+        `  Within:      ${content.within === undefined ? "(not declared)" : (content.within ?? "(root of its own camera axis)")}`,
+      );
+      console.log(`  Plate:       animatic:plate.${content.id}`);
       return;
     case "voice":
       heading(`Voice: ${content.characterId ?? "narrator"}`);

@@ -64,6 +64,7 @@ import {
 import { isDirectionSpendGateSatisfied } from "../../core/direction-acceptance.js";
 import {
   loadDirectionIfPresent,
+  loadAnimaticSetupState,
   loadStagingStageState,
   loadSongTakeState,
 } from "../load-definition.js";
@@ -1128,6 +1129,7 @@ async function checkDirectionHealth(videoRoot: string): Promise<CheckResult[]> {
     staleWaivers,
   } = checkDirection(direction, {
     referenceAssetNames: reference?.exposedAssetNames ?? [],
+    animaticSetups: await loadAnimaticSetupState(videoRoot, direction),
     stagingStage: await loadStagingStageState(videoRoot, direction),
     songTake: await loadSongTakeState(videoRoot, direction),
   });

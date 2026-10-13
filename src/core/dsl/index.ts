@@ -140,6 +140,8 @@ export type {
 export {
   defineAnimatic,
   type DefineAnimaticOptions,
+  type SetupIdOf,
+  type AnimaticPlates,
   type AnimaticDraft,
   type AnimaticDrafts,
   type DraftBuildContext,

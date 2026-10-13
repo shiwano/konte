@@ -3,6 +3,7 @@ import {
   type AssetStage,
   type ShotStage,
   formatTimelineAssetPath,
+  formatPlateAssetPath,
   formatDraftAssetPath,
 } from "../address.js";
 import type { AssetDefinition, Typography } from "../types/index.js";
@@ -68,6 +69,14 @@ export interface ReferenceContext {
   activeAssetName?: string;
 }
 
+// The animatic's `plates` callback, running to collect its pool. A flat pool like the reference
+// stage's, but keyed by setup id and addressed `animatic:plate.<id>`. Discovery only: nothing re-runs
+// it in render mode.
+export interface PlatePoolContext {
+  assets: Map<string, AssetDefinition>;
+  format?: BuildFormat;
+}
+
 // The animatic's `drafts` callback, running to collect its pool, addressed `animatic:draft.<name>`.
 // Discovery only. `format` is the draft being built's own: its size and the length of its shots.
 export interface DraftPoolContext {
@@ -97,6 +106,7 @@ let currentContext: ShotContext | null = null;
 let currentTimelineContext: TimelineContext | null = null;
 let currentReferenceContext: ReferenceContext | null = null;
 let currentPatchContext: PatchDiscoveryContext | null = null;
+let currentPlatePoolContext: PlatePoolContext | null = null;
 let currentDraftPoolContext: DraftPoolContext | null = null;
 
 export function getShotContext(): ShotContext | null {
@@ -115,6 +125,10 @@ export function getPatchContext(): PatchDiscoveryContext | null {
   return currentPatchContext;
 }
 
+export function getPlatePoolContext(): PlatePoolContext | null {
+  return currentPlatePoolContext;
+}
+
 export function getDraftPoolContext(): DraftPoolContext | null {
   return currentDraftPoolContext;
 }
@@ -130,6 +144,7 @@ export function getActiveFormat(): BuildFormat | undefined {
     currentContext?.format ??
     currentTimelineContext?.format ??
     currentPatchContext?.format ??
+    currentPlatePoolContext?.format ??
     currentDraftPoolContext?.format ??
     currentReferenceContext?.format(currentReferenceContext.activeAssetName)
   );
@@ -142,6 +157,7 @@ export function getActiveTypography(): Typography | undefined {
     currentContext?.format?.typography ??
     currentTimelineContext?.format?.typography ??
     currentPatchContext?.format?.typography ??
+    currentPlatePoolContext?.format?.typography ??
     currentDraftPoolContext?.format?.typography ??
     currentReferenceContext?.format(currentReferenceContext.activeAssetName).typography
   );
@@ -153,6 +169,10 @@ export function makePlaceholder(stage: ShotStage, shotId: string, assetName: str
 
 export function makeTimelinePlaceholder(stage: ShotStage, assetName: string): string {
   return `${PLACEHOLDER_PREFIX}${formatTimelineAssetPath(stage, assetName)}${PLACEHOLDER_SUFFIX}`;
+}
+
+export function makePlatePlaceholder(id: string): string {
+  return `${PLACEHOLDER_PREFIX}${formatPlateAssetPath(id)}${PLACEHOLDER_SUFFIX}`;
 }
 
 export function makeDraftPlaceholder(name: string): string {
@@ -361,6 +381,25 @@ export function runInPatchDiscoveryMode<T>(
     return { assets, result };
   } finally {
     currentPatchContext = prev;
+  }
+}
+
+export function runInPlateDiscoveryMode<T>(
+  fn: () => T,
+  format?: BuildFormat,
+): TimelineDiscoveryResult {
+  const ctx: PlatePoolContext = { assets: new Map(), ...(format ? { format } : {}) };
+  const prev = currentPlatePoolContext;
+  currentPlatePoolContext = ctx;
+  try {
+    const result = fn();
+    const assets: Record<string, AssetDefinition> = {};
+    for (const [name, def] of ctx.assets) {
+      assets[name] = def;
+    }
+    return { assets, result };
+  } finally {
+    currentPlatePoolContext = prev;
   }
 }
 

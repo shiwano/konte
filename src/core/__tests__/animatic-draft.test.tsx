@@ -21,7 +21,13 @@ import {
   defineDirection,
   type MediaAsset,
 } from "../dsl/index.js";
-import { buildDependencyGraph, collectRerollCascade, listUnusedAssetPaths } from "../graph.js";
+import {
+  buildDependencyGraph,
+  collectRerollCascade,
+  listSetupAnchorGaps,
+  listPlateDescriptionUses,
+  listUnusedAssetPaths,
+} from "../graph.js";
 import { computeVariantStaleness, selectResolvedVariant } from "../staleness.js";
 import type { KonteState, VariantState } from "../types/index.js";
 import { directionDefaults } from "./helpers/direction.js";
@@ -300,9 +306,18 @@ describe("defineAnimatic drafts", () => {
 
 const drawn = (frames: { id: "01" | "02"; at: number; in?: string }) =>
   defineAnimatic(direction, {
-    drafts: ({ draft }) => ({
+    plates: () => ({
+      front: {
+        image: asset("front", panelComfy, { prompt: "the empty studio" }),
+        prompt: "a plain studio, the desk at the right edge",
+      },
+    }),
+    drafts: ({ draft, plates }) => ({
       opening: draft(["01", "02"], () =>
-        asset("opening", draftComfy, { prompt: "two shots in a plain studio" }),
+        asset("opening", draftComfy, {
+          prompt: `two shots in ${plates.front!.prompt}`,
+          image1: plates.front!.image,
+        }),
       ),
     }),
     timeline: ({ shot, drafts }) => ({
@@ -370,12 +385,23 @@ describe("a draft on the graph", () => {
     expect(listUnusedAssetPaths(null, animatic, graph)).toEqual([]);
   });
 
-  it("cascades a reroll into nothing", () => {
+  it("carries a panel drawn from its frame back to the plate it was handed", () => {
+    const animatic = drawn({ id: "01", at: 0.5 });
+    const frames = [{ shotId: "01", lane: "main" as const, setup: "front" }];
+    const gaps = listSetupAnchorGaps(animatic, frames, new Map([["front", "studio"]]));
+    expect(gaps.unanchoredShots.size).toBe(0);
+    expect(listPlateDescriptionUses(animatic, frames)).toEqual([
+      { setupId: "front", shotId: "01", lane: "main", describes: true },
+    ]);
+  });
+
+  it("cascades a reroll into nothing, and stops one that reaches it", () => {
     const animatic = drawn({ id: "01", at: 0.5 });
     const graph = buildDependencyGraph(null, animatic, null);
     expect(collectRerollCascade(graph, "animatic:draft.opening", animatic, () => false)).toEqual(
       [],
     );
+    expect(collectRerollCascade(graph, "animatic:plate.front", animatic, () => false)).toEqual([]);
   });
 });
 
@@ -399,13 +425,13 @@ describe("a draft take in state", () => {
   const address = "animatic:draft.opening";
   const state = {
     assets: {
-      "reference:studio": { variants: { "v-p2": variant({ outputHash: "studio-now" }) } },
+      "animatic:plate.front": { variants: { "v-p2": variant({ outputHash: "plate-now" }) } },
       [address]: {
         variants: {
-          "v-old": variant({ inputFingerprints: { "reference:studio": "studio-then" } }),
+          "v-old": variant({ inputFingerprints: { "animatic:plate.front": "plate-then" } }),
           "v-new": variant({
             createdAt: "2026-01-02T00:00:00.000Z",
-            inputFingerprints: { "reference:studio": "studio-then" },
+            inputFingerprints: { "animatic:plate.front": "plate-then" },
           }),
         },
       },

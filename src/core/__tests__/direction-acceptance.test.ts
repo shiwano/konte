@@ -60,6 +60,7 @@ function makeDirection(): Direction {
         landmarks: {
           bedroomMark: {
             name: "the mark",
+            promptDepiction: "mark",
             description: "a mark only this place has",
           },
         },
@@ -287,7 +288,7 @@ describe("isDirectionSpendGateSatisfied", () => {
 
     for (const edit of [
       (d: Direction) => (d.sequence.waivers!["multi-sentence-action_02"] = "reconsidered"),
-      (d: Direction) => (d.sequence.waivers!["location-unconsumed_01"] = "one room"),
+      (d: Direction) => (d.sequence.waivers!["undeclared-continuity_01-02"] = "one room"),
     ]) {
       const edited = makeDirection();
       edit(edited);
@@ -300,10 +301,10 @@ describe("isDirectionSpendGateSatisfied", () => {
     const direction = makeDirection();
     const partial = applyDirectionSectionDecisions(direction, null, ALL_SECTIONS);
     const unread = makeDirection();
-    unread.sequence.waivers!["location-unconsumed_01"] = "one room";
+    unread.sequence.waivers!["undeclared-continuity_01-02"] = "one room";
     const view = directionAcceptanceView(unread, { ...partial, whole: null });
     expect(view.gateBlocking.map((b) => b.address)).toEqual([
-      "direction:sequence.waivers.location-unconsumed_01",
+      "direction:sequence.waivers.undeclared-continuity_01-02",
     ]);
   });
 
@@ -720,30 +721,44 @@ function withThirdShot(): Direction {
 }
 
 describe("directionShotWaivers", () => {
-  it("resolves a shot, a frame and a frame's subject to the shot they play in", () => {
+  it("resolves a shot, a frame, a frame's subject and a boundary to the shots they play in", () => {
     const direction = makeDirection();
     direction.sequence.waivers = {
       "multi-sentence-action_02": "a quiet shot",
       "subject-unnamed_02.cutin.alice": "named by her coat",
-      "location-unconsumed_01.cutin": "the wipe is drawn by hand",
+      "panel-unlinked_01-02": "a fresh angle",
+      "panel-unlinked_01-02.cutin": "no cutin cuts here",
       "multi-sentence-action_99": "a cut shot",
-      "unused-setup_bedroom-wide": "kept for the next cut",
+      "setup-unconsumed_bedroom-wide": "drawn by hand",
       "no-payoff": "an open ending",
     };
-    expect(directionShotWaivers(direction).map((w) => [w.subject, w.shotId])).toEqual([
-      ["02", "02"],
-      ["02.cutin.alice", "02"],
-      ["01.cutin", "01"],
+    expect(directionShotWaivers(direction).map((w) => [w.subject, w.shotIds])).toEqual([
+      ["02", ["02"]],
+      ["02.cutin.alice", ["02"]],
+      ["01-02", ["01", "02"]],
     ]);
   });
 
-  it("reads a shot id holding a `-` whole", () => {
+  // An id may hold a `-`, so a shot named `01-02` must not take the boundary between 01 and 02.
+  it("reads a boundary's subject as two shots even where a shot spells it", () => {
     const direction = withThirdShot();
     direction.sequence.shots![2]!.id = "01-02";
-    direction.sequence.waivers = { "multi-sentence-action_01-02": "a quiet shot" };
-    expect(directionShotWaivers(direction).map((w) => [w.code, w.shotId])).toEqual([
-      ["multi-sentence-action", "01-02"],
+    direction.sequence.waivers = {
+      "undeclared-continuity_01-02": "one room",
+      "multi-sentence-action_01-02": "a quiet shot",
+    };
+    expect(directionShotWaivers(direction).map((w) => [w.code, w.shotIds])).toEqual([
+      ["undeclared-continuity", ["01", "02"]],
+      ["multi-sentence-action", ["01-02"]],
     ]);
+  });
+
+  it("reads a boundary off the cut it names, not the first pair that spells it", () => {
+    const direction = makeDirection();
+    const shot = direction.sequence.shots![0]!;
+    direction.sequence.shots = ["a", "a-b", "c", "b-c"].map((id) => ({ ...shot, id }));
+    direction.sequence.waivers = { "panel-unlinked_a-b-c": "a fresh angle" };
+    expect(directionShotWaivers(direction).map((w) => w.shotIds)).toEqual([["a-b", "c"]]);
   });
 });
 
@@ -780,17 +795,16 @@ describe("applyDirectionShotCascade", () => {
     expect(directionAcceptanceView(reframed, acceptance!).complete).toBe(true);
   });
 
-  it("signs off a waiver whose subject is the accepted shot, and no other shot's", () => {
+  it("signs off a waiver whose subject is the accepted shot, from either side of a boundary", () => {
     const accepted = acceptAll(makeDirection());
 
     const waived = makeDirection();
-    waived.sequence.waivers!["location-unconsumed_01"] = "one room";
-    const other = applyDirectionShotCascade(waived, accepted, ["02"]);
-    expect(other.restamped).not.toContain("direction:sequence.waivers.location-unconsumed_01");
-
-    const { acceptance, restamped } = applyDirectionShotCascade(waived, accepted, ["01"]);
-    expect(restamped).toContain("direction:sequence.waivers.location-unconsumed_01");
-    expect(directionAcceptanceView(waived, acceptance!).complete).toBe(true);
+    waived.sequence.waivers!["undeclared-continuity_01-02"] = "one room";
+    for (const shotId of ["01", "02"]) {
+      const { acceptance, restamped } = applyDirectionShotCascade(waived, accepted, [shotId]);
+      expect(restamped).toContain("direction:sequence.waivers.undeclared-continuity_01-02");
+      expect(directionAcceptanceView(waived, acceptance!).complete).toBe(true);
+    }
   });
 
   it("leaves a piece-wide waiver to the direction page", () => {

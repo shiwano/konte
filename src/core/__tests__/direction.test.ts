@@ -5,6 +5,7 @@ import {
   checkLocations,
   checkNarrator,
   checkProps,
+  type AnimaticSetupState,
 } from "../direction-check.js";
 import type { Pleasure } from "../lenses.js";
 import { defineLens } from "../lenses.js";
@@ -61,6 +62,9 @@ function setupsFor(shots: readonly NarrativeShot[]): Record<string, Setup> {
       framing,
       // Every terse location declares one landmark, minted the same way (see `locationsFor`).
       holds: framing === "insert" ? [] : [`${location}Mark`],
+      // One landmark held by every frame of the place makes each narrower one a `within` candidate.
+      // Nothing terse is about windows, so each frame is declared a root of its own axis.
+      within: null,
     };
   }
   return out;
@@ -79,6 +83,7 @@ const defaultLocations: Record<string, Location> = {
     landmarks: {
       hereMark: {
         name: "the mark",
+        promptDepiction: "mark",
         description: "a mark only this place has",
       },
     },
@@ -321,6 +326,7 @@ describe("validateDirectionStructure", () => {
           landmarks: {
             roomMark: {
               name: "the mark",
+              promptDepiction: "mark",
               description: "a mark only this place has",
             },
           },
@@ -380,8 +386,8 @@ describe("validateDirectionStructure", () => {
     expect(codes).toContain("setup-empty-description");
   });
 
-  // The three identity rosters share `reference:<id>`; a setup anchors to no asset, so its id is in
-  // its own namespace and colliding with a character is not a conflict.
+  // The three identity rosters share `reference:<id>`; a setup's plate lives at `animatic:plate.<id>`,
+  // so its id is in its own namespace and colliding with a character is not a conflict.
   it("allows a setup id equal to a character id", () => {
     const dir = leaf({
       characters: { cat: { name: "the cat", description: "a black cat", promptDepiction: "cat" } },
@@ -413,6 +419,7 @@ describe("validateDirectionStructure", () => {
           landmarks: {
             gardenMark: {
               name: "the mark",
+              promptDepiction: "mark",
               description: "a mark only this place has",
             },
           },
@@ -437,6 +444,7 @@ describe("validateDirectionStructure", () => {
           landmarks: {
             badMark: {
               name: "the mark",
+              promptDepiction: "mark",
               description: "a mark only this place has",
             },
           },
@@ -447,6 +455,7 @@ describe("validateDirectionStructure", () => {
           landmarks: {
             emptyMark: {
               name: "the mark",
+              promptDepiction: "mark",
               description: "a mark only this place has",
             },
           },
@@ -470,6 +479,7 @@ describe("validateDirectionStructure", () => {
           landmarks: {
             catMark: {
               name: "the mark",
+              promptDepiction: "mark",
               description: "a mark only this place has",
             },
           },
@@ -490,6 +500,7 @@ describe("validateDirectionStructure", () => {
             landmarks: {
               pattyMark: {
                 name: "the mark",
+                promptDepiction: "mark",
                 description: "a mark only this place has",
               },
             },
@@ -513,6 +524,7 @@ describe("validateDirectionStructure", () => {
           landmarks: {
             gardenMark: {
               name: "the mark",
+              promptDepiction: "mark",
               description: "a mark only this place has",
             },
           },
@@ -988,6 +1000,30 @@ describe("checkDirection function checks", () => {
 });
 
 describe("checkDirection space checks", () => {
+  // A wide→medium cut inside the one default location; the tail sizes vary so nothing else fires.
+  const exposedShots = () => [
+    shot("01", "ordinary", 3, "shot", "wide"),
+    shot("02", "disruption", 2, "shot", "medium"),
+    shot("03", "pressure", 4, "shot", "close"),
+    shot("04", "hero", 5, "shot", "insert"),
+  ];
+
+  it("flags an undeclared wide→medium cut in one location", () => {
+    const finding = checkDirection(leaf({ shots: exposedShots() })).active.find(
+      (f) => f.code === "undeclared-continuity",
+    );
+    expect(finding?.subject).toBe("01-02");
+  });
+
+  it("is waivable via undeclared-continuity_<pair>", () => {
+    const dir = withWaivers(leaf({ shots: exposedShots() }), {
+      "undeclared-continuity_01-02": "an axial punch-in landing the turn",
+    });
+    const res = checkDirection(dir);
+    expect(res.active.map((f) => f.code)).not.toContain("undeclared-continuity");
+    expect(res.waived.map(directionWaiverKey)).toContain("undeclared-continuity_01-02");
+  });
+
   it("flags a second wide of one location inside a role, and waives it by subject", () => {
     const shots = [
       shot("01", "ordinary", 3, "shot", "wide"),
@@ -1118,27 +1154,214 @@ describe("checkLocations", () => {
 });
 
 describe("checkDirection setups", () => {
-  const withUnused = leaf({
-    shots: [shot("01", "hero", 3, "shot", "wide")],
+  // The board state the setups class reads. Which pictures reach which anchor is the graph walk's
+  // business (listSetupAnchorGaps); these cases state the outcome directly.
+  const plates = (
+    ids: readonly string[] = [],
+    gaps: {
+      unanchored?: readonly string[];
+      unnested?: readonly string[];
+      ignoring?: Record<string, string[]>;
+      deterministic?: Record<string, number>;
+    } = {},
+  ): AnimaticSetupState => ({
+    plateIds: ids,
+    unanchoredPlateIds: gaps.unanchored ?? [],
+    unnestedPlateIds: gaps.unnested ?? [],
+    unconsumedBy: new Map(Object.entries(gaps.ignoring ?? {})),
+    deterministicShotsPerSetup: new Map(Object.entries(gaps.deterministic ?? {})),
+  });
+
+  // Two shots on one frame, one shot on another: exactly the split `setup-unrealized` draws.
+  const shared = leaf({
+    shots: [
+      { ...shot("01", "ordinary", 3), setup: "wall" },
+      { ...shot("02", "disruption", 2), setup: "wall" },
+      { ...shot("03", "pressure", 3), setup: "solo" },
+      { ...shot("04", "hero", 4), setup: "solo2" },
+    ],
     setups: {
-      "here-wide": {
-        name: "a",
-        description: "b",
+      wall: {
+        name: "the wall",
+        description: "flat on",
         location: "here",
-        framing: "wide",
+        framing: "medium",
         holds: ["hereMark"],
       },
-      spare: {
-        name: "spare",
-        description: "unused",
+      solo: {
+        name: "the solo",
+        description: "in close",
         location: "here",
         framing: "close",
+        holds: ["hereMark"],
+      },
+      solo2: {
+        name: "the other",
+        description: "wide",
+        location: "here",
+        framing: "wide",
         holds: ["hereMark"],
       },
     },
   });
 
+  // One camera axis: `close` is a window of `medium`, which is a window of `wide`.
+  const axis = (shots: NarrativeShot[]) =>
+    leaf({
+      shots,
+      setups: {
+        wide: {
+          name: "the room",
+          description: "from the door",
+          location: "here",
+          framing: "wide",
+          holds: ["hereMark"],
+          within: null,
+        },
+        medium: {
+          name: "the desk",
+          description: "in from the door",
+          location: "here",
+          framing: "medium",
+          holds: ["hereMark"],
+          within: "wide",
+        },
+        // A second camera in the same place, on its own axis.
+        across: {
+          name: "the desk from the side",
+          description: "from the window",
+          location: "here",
+          framing: "medium",
+          holds: ["hereMark"],
+          within: null,
+        },
+      },
+    });
+
+  const axial = axis([
+    { ...shot("01", "ordinary", 3), setup: "wide" },
+    { ...shot("02", "disruption", 2), setup: "medium" },
+  ]);
+  const found = (d: Direction, ids: readonly string[] = []) =>
+    checkDirection(d, { referenceAssetNames: ["here"], animaticSetups: plates(ids) }).active.filter(
+      (f) => f.code === "axis-unrealized",
+    );
+
+  it("demands the plates that hold an axial cut to one master", () => {
+    const findings = found(axial);
+    expect(findings.map((f) => f.subject)).toEqual(["medium.wide"]);
+    expect(findings[0]?.message).toContain('"wide", "medium"');
+  });
+
+  it("names only the end that is missing one", () => {
+    expect(found(axial, ["wide"])[0]?.message).toContain('"medium" has no plate');
+  });
+
+  // The plates a pair owes are the same whichever end the cut starts from, so one waiver answers for
+  // both directions rather than the author writing two.
+  it("reports one pair however often and whichever way round it is cut", () => {
+    const dir = axis([
+      { ...shot("01", "ordinary", 3), setup: "wide" },
+      { ...shot("02", "disruption", 2), setup: "medium" },
+      { ...shot("03", "pressure", 3), setup: "wide" },
+    ]);
+    expect(found(dir).map((f) => f.subject)).toEqual(["medium.wide"]);
+  });
+
+  it("says nothing once both ends are plated", () => {
+    expect(found(axial, ["wide", "medium"])).toEqual([]);
+  });
+
+  it("says nothing of a cut between two cameras", () => {
+    const dir = axis([
+      { ...shot("01", "ordinary", 3), setup: "wide" },
+      { ...shot("02", "disruption", 2), setup: "across" },
+    ]);
+    expect(found(dir)).toEqual([]);
+  });
+
+  it("stays silent with no board to read", () => {
+    expect(checkDirection(axial).active.map((f) => f.code)).not.toContain("axis-unrealized");
+  });
+
+  it("is waived by the pair's key", () => {
+    const waived = axis([
+      { ...shot("01", "ordinary", 3), setup: "wide" },
+      { ...shot("02", "disruption", 2), setup: "medium" },
+    ]);
+    waived.sequence.waivers = { "axis-unrealized_medium.wide": "cut as two separate frames" };
+    expect(found(waived)).toEqual([]);
+  });
+
+  it("does not demand a plate without the animatic's timeline names", () => {
+    expect(checkDirection(shared).active.map((f) => f.code)).not.toContain("setup-unrealized");
+  });
+
+  it("demands a plate for a frame two or more shots share", () => {
+    const { active } = checkDirection(shared, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates(),
+    });
+    const unrealized = active.filter((f) => f.code === "setup-unrealized");
+    expect(unrealized.map((f) => f.subject)).toEqual(["wall"]);
+  });
+
+  it("demands no plate for a frame only one shot uses", () => {
+    const { active } = checkDirection(shared, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates(),
+    });
+    expect(active.filter((f) => f.subject === "solo").map((f) => f.code)).toEqual([]);
+  });
+
+  it("clears once the plate is declared", () => {
+    const { active } = checkDirection(shared, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates(["wall"]),
+    });
+    expect(active.map((f) => f.code)).not.toContain("setup-unrealized");
+  });
+
+  // A plate holds GENERATED frames together. Two supplied `file` keyframes take no inputs at all, so
+  // a plate demanded of them is one nothing could ever build from — and no accept could reach.
+  it("demands no plate for a frame only deterministic shots use", () => {
+    const { active } = checkDirection(shared, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates([], { deterministic: { wall: 2 } }),
+    });
+    expect(active.map((f) => f.code)).not.toContain("setup-unrealized");
+  });
+
+  // One of the two still generates, so there is nothing for the plate to hold it to.
+  it("demands no plate once only one shot on the frame generates", () => {
+    const { active } = checkDirection(shared, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates([], { deterministic: { wall: 1 } }),
+    });
+    expect(active.map((f) => f.code)).not.toContain("setup-unrealized");
+  });
+
   it("flags a roster setup no shot points at", () => {
+    const withUnused = leaf({
+      shots: [shot("01", "hero", 3, "shot", "wide")],
+      setups: {
+        "here-wide": {
+          name: "a",
+          description: "b",
+          location: "here",
+          framing: "wide",
+          holds: ["hereMark"],
+        },
+        spare: {
+          name: "spare",
+          description: "unused",
+          location: "here",
+          framing: "close",
+          holds: ["hereMark"],
+          within: null,
+        },
+      },
+    });
     const { active } = checkDirection(withUnused);
     expect(active.filter((f) => f.code === "unused-setup").map((f) => f.subject)).toEqual([
       "spare",
@@ -1146,30 +1369,196 @@ describe("checkDirection setups", () => {
   });
 
   it("waives a setup finding via the root waivers", () => {
-    const waived = withWaivers(withUnused, { "unused-setup_spare": "kept for the next cut" });
-    const { active, waived: waivedFindings } = checkDirection(waived);
-    expect(active.map((f) => f.code)).not.toContain("unused-setup");
-    expect(waivedFindings.map((f) => f.code)).toContain("unused-setup");
-  });
-
-  it("defers setup findings until the direction is accepted", () => {
-    const { active } = checkDirection(withUnused);
-    expect(reportableDirectionFindings(active, false).map((f) => f.code)).not.toContain(
-      "unused-setup",
-    );
-    expect(reportableDirectionFindings(active, true).map((f) => f.code)).toContain("unused-setup");
-  });
-
-  it("flags a setup waiver stale on a pass with no board", () => {
-    const waived = withWaivers(leaf({ shots: [shot("01", "hero", 3, "shot", "wide")] }), {
-      "unused-setup_spare": "kept for the next cut",
+    const waived = leaf({
+      shots: [
+        { ...shot("01", "ordinary", 3), setup: "wall" },
+        { ...shot("02", "hero", 3), setup: "wall" },
+      ],
+      setups: {
+        wall: {
+          name: "the wall",
+          description: "flat on",
+          location: "here",
+          framing: "medium",
+          holds: ["hereMark"],
+        },
+      },
+      waivers: { "setup-unrealized_wall": "the two takes are meant to differ" },
     });
-    expect(checkDirection(waived).staleWaivers.map((w) => w.key)).toContain("unused-setup_spare");
+    const { active, waived: waivedFindings } = checkDirection(waived, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates(),
+    });
+    expect(active.map((f) => f.code)).not.toContain("setup-unrealized");
+    expect(waivedFindings.map((f) => f.code)).toContain("setup-unrealized");
+  });
+
+  it("flags a plate that stands on no location reference", () => {
+    const { active } = checkDirection(shared, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates(["wall"], { unanchored: ["wall"] }),
+    });
+    const unanchored = active.filter((f) => f.code === "plate-unanchored");
+    expect(unanchored.map((f) => f.subject)).toEqual(["wall"]);
+    expect(unanchored[0]?.message).toContain("reference.here");
+  });
+
+  // The window axis, declared in the direction and answered by the plates. `nesting` is `shared`
+  // with `solo` declared a window of `wall`, which is what gives the finding something to read.
+  const nesting = leaf({
+    shots: [
+      { ...shot("01", "ordinary", 3), setup: "wall" },
+      { ...shot("02", "disruption", 2), setup: "wall" },
+      { ...shot("03", "pressure", 3), setup: "solo" },
+      { ...shot("04", "hero", 4), setup: "solo" },
+    ],
+    setups: {
+      wall: {
+        name: "the wall",
+        description: "flat on",
+        location: "here",
+        framing: "medium",
+        holds: ["hereMark"],
+        within: null,
+      },
+      solo: {
+        name: "the solo",
+        description: "in close",
+        location: "here",
+        framing: "close",
+        holds: ["hereMark"],
+        within: "wall",
+      },
+    },
+  });
+
+  it("flags a window whose plate is not cut inside the frame it is a window of", () => {
+    const { active } = checkDirection(nesting, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates(["wall", "solo"], { unnested: ["solo"] }),
+    });
+    const unnested = active.filter((f) => f.code === "plate-unnested");
+    expect(unnested.map((f) => f.subject)).toEqual(["solo"]);
+    expect(unnested[0]?.message).toContain('"wall"');
+  });
+
+  it("says nothing about a frame that declares itself a root", () => {
+    const { active } = checkDirection(nesting, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates(["wall", "solo"], { unnested: ["wall"] }),
+    });
+    expect(active.map((f) => f.code)).not.toContain("plate-unnested");
+  });
+
+  // `setup-unrealized` stops it, exactly as it stops the anchor findings: there is no plate yet to
+  // have been cut in the wrong place.
+  it("waits behind the demand for the plate itself", () => {
+    const { active } = checkDirection(nesting, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates(["wall"], { unnested: ["solo"] }),
+    });
+    expect(active.filter((f) => f.subject === "solo").map((f) => f.code)).toEqual([
+      "setup-unrealized",
+    ]);
+  });
+
+  // The two are independent: the plate invented its place AND the shots ignore the plate.
+  it("reports an unanchored plate alongside the shots ignoring it", () => {
+    const { active } = checkDirection(shared, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates(["wall"], { unanchored: ["wall"], ignoring: { wall: ["01"] } }),
+    });
+    expect(active.filter((f) => f.subject === "wall").map((f) => f.code)).toEqual([
+      "plate-unanchored",
+      "setup-unconsumed",
+    ]);
+  });
+
+  // A one-shot setup owes no plate, so what its keyframe stands on is the location reference itself.
+  it("demands the location reference of a shot whose setup has no plate", () => {
+    const { active } = checkDirection(shared, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates([], { ignoring: { solo: ["03"] } }),
+    });
+    const unconsumed = active.filter((f) => f.code === "setup-unconsumed");
+    expect(unconsumed.map((f) => f.subject)).toEqual(["solo"]);
+    expect(unconsumed[0]?.message).toContain("reference.here");
+    expect(unconsumed[0]?.message).not.toContain("plates.solo");
+  });
+
+  it("names the plate, not the location, once the setup has one", () => {
+    const { active } = checkDirection(shared, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates(["wall"], { ignoring: { wall: ["01", "02"] } }),
+    });
+    const unconsumed = active.filter((f) => f.code === "setup-unconsumed");
+    expect(unconsumed[0]?.message).toContain("plates.wall");
+    expect(unconsumed[0]?.message).not.toContain("reference.here");
+  });
+
+  // The plate a shared setup still owes is what its shots will stand on, so demanding the location
+  // of them too would name a fix that the plate is about to replace.
+  it("reports only the missing plate for a shared setup, not the anchor its shots lack", () => {
+    const { active } = checkDirection(shared, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates([], { ignoring: { wall: ["01", "02"] } }),
+    });
+    expect(active.filter((f) => f.subject === "wall").map((f) => f.code)).toEqual([
+      "setup-unrealized",
+    ]);
+  });
+
+  // Like the three rosters, setup findings point at post-acceptance wiring — the plate is written in
+  // animatic.tsx — so they stay out of the direction review until it is signed off.
+  it("defers setup findings until the direction is accepted", () => {
+    const { active } = checkDirection(shared, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates(),
+    });
+    expect(reportableDirectionFindings(active, false).map((f) => f.code)).not.toContain(
+      "setup-unrealized",
+    );
+    expect(reportableDirectionFindings(active, true).map((f) => f.code)).toContain(
+      "setup-unrealized",
+    );
+  });
+
+  // Stale-waiver detection is per class, so marking `setups` evaluated without the plate pool would
+  // call a live `setup-unrealized` waiver stale — `checkSetups` emitted nothing to match it.
+  it("does not flag a plate waiver stale on a pass with no animatic pool", () => {
+    const waived = leaf({
+      shots: [
+        { ...shot("01", "ordinary", 3), setup: "wall" },
+        { ...shot("02", "hero", 3), setup: "wall" },
+      ],
+      setups: {
+        wall: {
+          name: "the wall",
+          description: "flat on",
+          location: "here",
+          framing: "medium",
+          holds: ["hereMark"],
+        },
+      },
+      waivers: { "setup-unrealized_wall": "the two takes are meant to differ" },
+    });
+    expect(checkDirection(waived).staleWaivers.map((w) => w.key)).not.toContain(
+      "setup-unrealized_wall",
+    );
+    // With the pool, and the plate now declared, the same waiver IS stale.
+    expect(
+      checkDirection(waived, {
+        referenceAssetNames: ["here"],
+        animaticSetups: plates(["wall"]),
+      }).staleWaivers.map((w) => w.key),
+    ).toContain("setup-unrealized_wall");
   });
 
   it("classifies both setup findings as setups findings", () => {
+    expect(classifyDirectionFinding("setup-unrealized")).toBe("setups");
     expect(classifyDirectionFinding("unused-setup")).toBe("setups");
     expect(classifyDirectionFinding("setup-indistinct")).toBe("setups");
+    expect(classifyDirectionFinding("setup-atomized")).toBe("setups");
   });
 
   const frame = (location: string, framing: Framing, holds: readonly string[]): Setup => ({
@@ -1209,14 +1598,14 @@ describe("checkDirection setups", () => {
           ...defaultLocations.here!,
           landmarks: {
             ...defaultLocations.here!.landmarks,
-            hereDesk: { name: "the desk", description: "a plain desk" },
+            hereDesk: { name: "the desk", promptDepiction: "desk", description: "a plain desk" },
           },
         },
         there: {
           name: "there",
           description: "another place",
           landmarks: {
-            thereMark: { name: "m", description: "a mark only there has" },
+            thereMark: { name: "m", promptDepiction: "m", description: "a mark only there has" },
           },
         },
       },
@@ -1240,6 +1629,50 @@ describe("checkDirection setups", () => {
     });
     expect(checkDirection(inserts).active.map((f) => f.code)).not.toContain("setup-indistinct");
   });
+
+  // One shot per frame across eight shots in one room: the place is lived in and no frame is ever
+  // returned to, which is the gap `setup-unrealized` cannot see.
+  const atomized = (shots: number, sharedPairs: number) => {
+    const roles = ["ordinary", "disruption", "pressure", "hero"];
+    const setups: Record<string, Setup> = {};
+    const list = [];
+    for (let i = 0; i < shots; i += 1) {
+      // The first `sharedPairs * 2` shots pair up onto shared frames; the rest each take their own.
+      const id = i < sharedPairs * 2 ? `pair${Math.floor(i / 2)}` : `solo${i}`;
+      setups[id] = frame("here", "medium", ["hereMark"]);
+      list.push({
+        ...shot(String(i + 1).padStart(2, "0"), roles[i % roles.length]!, 3),
+        setup: id,
+      });
+    }
+    // Every frame here is medium on the same landmark, so the duplicate scan would fire on all of
+    // them — this fixture is about the share, so read only the code under test.
+    return leaf({ shots: list, setups });
+  };
+
+  it("flags a place the piece lives in and never returns to a frame of", () => {
+    const findings = checkDirection(atomized(8, 0)).active.filter(
+      (f) => f.code === "setup-atomized",
+    );
+    expect(findings.map((f) => f.subject)).toEqual(["here"]);
+    expect(findings[0]?.message).toContain("8 shots");
+  });
+
+  it("stays silent on a short scene, where varied sizes force one frame per shot", () => {
+    expect(checkDirection(atomized(4, 0)).active.map((f) => f.code)).not.toContain(
+      "setup-atomized",
+    );
+  });
+
+  it("still flags a place where one shared frame carries a handful of a long scene's shots", () => {
+    expect(checkDirection(atomized(12, 1)).active.map((f) => f.code)).toContain("setup-atomized");
+  });
+
+  it("clears once most of the place's shots stand on a frame something else stands on", () => {
+    expect(checkDirection(atomized(8, 2)).active.map((f) => f.code)).not.toContain(
+      "setup-atomized",
+    );
+  });
 });
 
 describe("checkDirection locations", () => {
@@ -1251,6 +1684,7 @@ describe("checkDirection locations", () => {
         landmarks: {
           gardenMark: {
             name: "the mark",
+            promptDepiction: "mark",
             description: "a mark only this place has",
           },
         },
@@ -1290,6 +1724,7 @@ describe("checkDirection locations", () => {
           landmarks: {
             gardenMark: {
               name: "the mark",
+              promptDepiction: "mark",
               description: "a mark only this place has",
             },
           },
@@ -1300,6 +1735,7 @@ describe("checkDirection locations", () => {
           landmarks: {
             atticMark: {
               name: "the mark",
+              promptDepiction: "mark",
               description: "a mark only this place has",
             },
           },
@@ -1319,7 +1755,7 @@ describe("checkDirection locations", () => {
 
   it("waives an unreferenced location via the root waivers", () => {
     const waived = withWaivers(withPlace, {
-      "location-unreferenced_garden": "the sheet arrives later",
+      "location-unreferenced_garden": "the plate arrives later",
     });
     const res = checkDirection(waived, { referenceAssetNames: [] });
     expect(res.active.map((f) => f.code)).not.toContain("location-unreferenced");

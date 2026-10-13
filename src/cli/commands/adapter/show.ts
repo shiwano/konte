@@ -62,7 +62,7 @@ function defaultCell(input: AdapterMetaInput): string {
 // `≥5` marks the floor a derived length is raised to, `≤362` the ceiling past which the load fails.
 // `×32` / `×17+5` marks the grid konte raises a number onto: a value passed off it comes back at
 // the next point. `@24` is the fps a frame count is measured on. `pin:start` / `pin:end` marks an
-// image the model reproduces as that frame; the pin check refuses a sheet there. `stem`
+// image the model reproduces as that frame; the pin check refuses a sheet or a plate there. `stem`
 // marks the take's own soundtrack, which konte fills on a piece cut to its song.
 function typeCell(input: AdapterMetaInput): string {
   const base = input.array ? `${input.type}[]` : input.type;

@@ -808,11 +808,7 @@ describe("the direction edit step names the file the fix belongs in", () => {
   // Next steps prints ABOVE the direction blocks (print-status), so every file's step has to send
   // the reader the same way — they drifted apart once already.
   it("points every file's step down the page at the findings", () => {
-    const codes = [
-      "character-unreferenced",
-      "location-unconsumed",
-      "multi-sentence-action",
-    ] as const;
+    const codes = ["character-unreferenced", "setup-unrealized", "multi-sentence-action"] as const;
     const steps = codes.map((code) =>
       editStep({ findingCodes: [code], hasStructureErrors: false }),
     );
@@ -820,14 +816,12 @@ describe("the direction edit step names the file the fix belongs in", () => {
     expect(steps.join("")).not.toContain("above");
   });
 
-  it("points at animatic.tsx when every finding is a keyframe input the board owes", () => {
+  it("points at animatic.tsx when every finding is a setup the board realizes", () => {
     const description = editStep({
-      findingCodes: ["location-unconsumed"],
+      findingCodes: ["setup-unrealized", "setup-unconsumed"],
       hasStructureErrors: false,
     });
-    expect(description).toContain(
-      "Pass the keyframe inputs the findings below ask for in animatic.tsx",
-    );
+    expect(description).toContain("animatic.tsx");
     expect(description).toContain("waive a finding by its key in direction.ts");
     expect(description).not.toContain("Resolve the direction errors");
   });
@@ -836,7 +830,7 @@ describe("the direction edit step names the file the fix belongs in", () => {
     const steps = editSteps({
       state: makeState({}),
       directionBlock: {
-        findingCodes: ["location-unconsumed", "character-unreferenced", "multi-sentence-action"],
+        findingCodes: ["setup-unrealized", "character-unreferenced", "multi-sentence-action"],
         hasStructureErrors: false,
       },
     }).map((s) => s.details.join("\n"));
@@ -850,7 +844,7 @@ describe("the direction edit step names the file the fix belongs in", () => {
     const steps = editSteps({
       state: makeState({}),
       directionBlock: {
-        findingCodes: ["character-unreferenced", "location-unconsumed"],
+        findingCodes: ["character-unreferenced", "setup-unrealized"],
         hasStructureErrors: true,
       },
     });

@@ -60,10 +60,12 @@ function direction(opts: {
         landmarks: {
           bench: {
             name: "the port bench",
+            promptDepiction: "bench",
             description: "the long bench down the port side",
           },
           mast: {
             name: "the mast",
+            promptDepiction: "mast",
             description: "the stubby mast amidships",
           },
         },
@@ -74,6 +76,7 @@ function direction(opts: {
         landmarks: {
           jetty: {
             name: "the jetty",
+            promptDepiction: "jetty",
             description: "the wooden jetty the boat ties to",
           },
         },
@@ -90,7 +93,9 @@ function direction(opts: {
 const noStage: StagingStageState = {
   panelSlots: [],
   panelReach: [],
+  plateUses: [],
   panelPrompts: [],
+  platePrompts: {},
   videoPins: [],
   shotPanels: [],
 };
@@ -368,6 +373,7 @@ describe("character-unconsumed", () => {
   const reach = (refsHeld: string[], generative = true): StagingStageState => ({
     ...noStage,
     panelSlots: [],
+    plateUses: [],
     panelReach: [
       { shotId: "01", lane: "main", panel: "animatic:shot.01.first", refs: refsHeld, generative },
     ],
@@ -408,6 +414,7 @@ describe("character-unconsumed", () => {
     const findings = found(moved, {
       ...noStage,
       panelSlots: [],
+      plateUses: [],
       panelReach: [
         {
           shotId: "01",
@@ -463,6 +470,7 @@ describe("character-unconsumed", () => {
     const findings = found(moved, {
       ...noStage,
       panelSlots: [],
+      plateUses: [],
       panelReach: [
         { shotId: "01", lane: "main", panel: "animatic:shot.01.first", refs: [], generative: true },
         { shotId: "01", lane: "main", panel: "animatic:shot.01.last", refs: [], generative: true },
@@ -484,98 +492,6 @@ describe("character-unconsumed", () => {
   });
 });
 
-describe("location-unconsumed", () => {
-  const dir = direction({ shots: [shot("01", "deck", { lineup: ["ane"] })] });
-  const refs = ["ane", "ferryDeck", "landing"];
-  const panel = (
-    name: string,
-    refsHeld: string[],
-    extra: Partial<StagingStageState["panelReach"][number]> = {},
-  ): StagingStageState["panelReach"][number] => ({
-    shotId: "01",
-    lane: "main",
-    panel: `animatic:shot.01.${name}`,
-    refs: refsHeld,
-    generative: true,
-    ...extra,
-  });
-  const reach = (...panelReach: StagingStageState["panelReach"]): StagingStageState => ({
-    ...noStage,
-    panelReach,
-  });
-  const found = (
-    d: Direction,
-    stagingStage: StagingStageState,
-    referenceAssetNames: string[] = refs,
-  ) =>
-    checkDirection(d, { stagingStage, referenceAssetNames }).active.filter(
-      (f) => f.code === "location-unconsumed",
-    );
-
-  it("flags a frame none of whose keyframes is built from a reference to its place", () => {
-    const findings = found(dir, reach(panel("first", ["ane"]), panel("last", ["ane"])));
-    expect(findings.map((f) => f.subject)).toEqual(["01"]);
-    expect(findings[0]?.message).toContain("`reference.ferryDeck`");
-  });
-
-  it("says nothing once any one keyframe of the frame reaches the place", () => {
-    expect(found(dir, reach(panel("first", ["ane"]), panel("last", ["ane", "ferryDeck"])))).toEqual(
-      [],
-    );
-  });
-
-  it("does not take a keyframe that generates nothing as holding the place", () => {
-    const findings = found(
-      dir,
-      reach(panel("first", ["ferryDeck"], { generative: false }), panel("last", ["ane"])),
-    );
-    expect(findings.map((f) => f.subject)).toEqual(["01"]);
-  });
-
-  it("waits on the reference existing", () => {
-    expect(found(dir, reach(panel("first", ["ane"])), ["ane"])).toEqual([]);
-  });
-
-  it("asks nothing of a frame none of whose keyframes generates", () => {
-    expect(found(dir, reach(panel("first", [], { generative: false })))).toEqual([]);
-  });
-
-  it("asks nothing of an undeveloped shot", () => {
-    expect(found(dir, noStage)).toEqual([]);
-  });
-
-  it("names the main frame and the wipe apart, each against its own place", () => {
-    const wiped = direction({
-      shots: [shot("01", "deck", { lineup: ["ane"], cutin: { setup: "shore", lineup: [] } })],
-    });
-    const wipe = (refsHeld: string[]) => panel("wipe", refsHeld, { lane: "cutin" });
-    expect(
-      found(wiped, reach(panel("first", ["ferryDeck"]), wipe(["ferryDeck"]))).map((f) => f.subject),
-    ).toEqual(["01.cutin"]);
-    expect(found(wiped, reach(panel("first", ["ferryDeck"]), wipe(["landing"])))).toEqual([]);
-  });
-
-  it("takes a waiver keyed by the shot", () => {
-    const waived = direction({
-      shots: [shot("01", "deck", { lineup: ["ane"] })],
-      waivers: { "location-unconsumed_01": "the place is carried by the frame it is cut from" },
-    });
-    const stagingStage = reach(panel("first", ["ane"]));
-    expect(found(waived, stagingStage)).toEqual([]);
-    expect(
-      checkDirection(waived, { stagingStage, referenceAssetNames: refs }).waived.map((f) => f.code),
-    ).toContain("location-unconsumed");
-  });
-
-  it("stays silent with no board to read", () => {
-    expect(
-      checkDirection(dir, { referenceAssetNames: refs }).active.filter(
-        (f) => f.code === "location-unconsumed",
-      ),
-    ).toEqual([]);
-  });
-});
-
 describe("slot-order-mismatch", () => {
   const dir = direction({
     shots: [shot("01", "deck", { lineup: ["ane", "imouto"] })],
@@ -586,6 +502,7 @@ describe("slot-order-mismatch", () => {
       stagingStage: {
         ...noStage,
         panelReach: [],
+        plateUses: [],
         panelSlots: [
           {
             shotId: "01",
@@ -605,6 +522,7 @@ describe("slot-order-mismatch", () => {
       stagingStage: {
         ...noStage,
         panelReach: [],
+        plateUses: [],
         panelSlots: [
           {
             shotId: "01",
@@ -626,6 +544,7 @@ describe("slot-order-mismatch", () => {
       stagingStage: {
         ...noStage,
         panelReach: [],
+        plateUses: [],
         panelSlots: [
           { shotId: "01", lane: "main", panel: "animatic:shot.01.first", slots: ["ane", "imouto"] },
           { shotId: "01", lane: "main", panel: "animatic:shot.01.last", slots: ["ane", "imouto"] },
@@ -646,6 +565,7 @@ describe("slot-order-mismatch", () => {
       stagingStage: {
         ...noStage,
         panelReach: [],
+        plateUses: [],
         panelSlots: [
           { shotId: "01", lane: "main", panel: "animatic:shot.01.first", slots: ["ane", "imouto"] },
         ],
@@ -659,6 +579,7 @@ describe("slot-order-mismatch", () => {
       stagingStage: {
         ...noStage,
         panelReach: [],
+        plateUses: [],
         panelSlots: [
           { shotId: "01", lane: "main", panel: "animatic:shot.01.first", slots: ["imouto"] },
           { shotId: "01", lane: "main", panel: "animatic:shot.01.last", slots: ["ane"] },
@@ -746,6 +667,250 @@ describe("the staging class is waivable and gates a spend", () => {
     });
     expect(codes(dir, "lineup-flipped")).toEqual([]);
     expect(checkDirection(dir).waived.map((f) => f.code)).toContain("lineup-flipped");
+  });
+});
+
+describe("plate-undescribed", () => {
+  const dir = direction({ shots: [shot("01", "deck", { lineup: [] })] });
+  const state = (use: Partial<StagingStageState["plateUses"][number]>): StagingStageState => ({
+    ...noStage,
+    panelSlots: [],
+    panelReach: [],
+    plateUses: [{ setupId: "deck", shotId: "01", lane: "main", describes: true, ...use }],
+  });
+  const found = (stagingStage: StagingStageState) =>
+    checkDirection(dir, { stagingStage }).active.filter((f) => f.code === "plate-undescribed");
+
+  it("says nothing of a shot whose prompt carries the plate's sentence", () => {
+    expect(found(state({}))).toEqual([]);
+  });
+
+  it("flags a shot whose prompt does not carry the plate's sentence", () => {
+    const findings = found(state({ describes: false }));
+    expect(findings.map((f) => f.subject)).toEqual(["deck"]);
+    expect(findings[0]?.message).toContain("`plates.deck.prompt`");
+  });
+
+  // The sentence is the plate's, so one waiver answers for the frame rather than for one shot on it.
+  it("is waived by the setup's key", () => {
+    const waived = direction({
+      shots: [shot("01", "deck", { lineup: [] })],
+      waivers: { "plate-undescribed_deck": "the crop is unmistakable on its own" },
+    });
+    expect(
+      checkDirection(waived, { stagingStage: state({ describes: false }) }).active.filter(
+        (f) => f.code === "plate-undescribed",
+      ),
+    ).toEqual([]);
+  });
+
+  it("stays silent with no board to read", () => {
+    expect(checkDirection(dir).active.filter((f) => f.code === "plate-undescribed")).toEqual([]);
+  });
+});
+
+describe("panel-unlinked", () => {
+  // One camera axis over the bench: the stern frame is the whole boat, the deck frame a window cut
+  // out of it. `shore` is a second place and stands on its own axis.
+  const axis: Record<string, Setup> = {
+    stern: { ...stern, within: null },
+    deck: { ...deck, within: "stern" },
+    shore: { ...shore, within: null },
+  };
+  // A second frame of the bench from its own camera position — same place and wider than `deck`, and
+  // no window of anything.
+  const offAxis: Record<string, Setup> = {
+    ...axis,
+    bow: { ...stern, name: "the deck from the bow", framing: "medium", within: null },
+  };
+
+  const board = (
+    ...entries: { shotId: string; carries?: boolean; linked?: string[] }[]
+  ): StagingStageState => ({
+    ...noStage,
+    shotPanels: entries.map(({ shotId, carries = true, linked = [] }) => ({
+      shotId,
+      lane: "main" as const,
+      firstPanel: `animatic:shot.${shotId}.first`,
+      lastPanel: `animatic:shot.${shotId}.last`,
+      carries,
+      linked,
+    })),
+  });
+
+  const found = (dir: Direction, stagingStage: StagingStageState) =>
+    checkDirection(dir, { stagingStage }).active.filter((f) => f.code === "panel-unlinked");
+
+  // The camera has not moved, only the focal length.
+  const pushIn = () =>
+    direction({ setups: axis, shots: [shot("01", "stern"), shot("02", "deck")] });
+
+  it("passes a cut along one axis whose opening keyframe was handed the frame before it", () => {
+    expect(
+      found(pushIn(), board({ shotId: "01" }, { shotId: "02", linked: ["animatic:shot.01.last"] })),
+    ).toEqual([]);
+  });
+
+  it("flags a cut along one axis whose opening keyframe takes no frame at all", () => {
+    const findings = found(pushIn(), board({ shotId: "01" }, { shotId: "02" }));
+    expect(findings.map((f) => f.subject)).toEqual(["01-02"]);
+    expect(findings[0]?.message).toContain("one camera axis");
+    expect(findings[0]?.message).toContain("animatic:shot.01.last");
+  });
+
+  it("flags one cut from some other frame, saying so", () => {
+    const findings = found(
+      pushIn(),
+      board({ shotId: "01" }, { shotId: "02", linked: ["animatic:shot.07.last"] }),
+    );
+    expect(findings[0]?.message).toContain("cuts from another frame");
+  });
+
+  // A long take is no cut: its seam is the next shot's own opening keyframe, which the video lands
+  // on (`join-unpinned`), so the board is asked nothing.
+  it("says nothing of a long take", () => {
+    const dir = direction({
+      setups: axis,
+      shots: [shot("01", "deck"), shot("02", "deck", { join: "continuous" })],
+    });
+    expect(found(dir, board({ shotId: "01" }, { shotId: "02" }))).toEqual([]);
+  });
+
+  it("says nothing of a cut between two frames on their own axes", () => {
+    const dir = direction({ setups: offAxis, shots: [shot("01", "stern"), shot("02", "bow")] });
+    expect(found(dir, board({ shotId: "01" }, { shotId: "02" }))).toEqual([]);
+  });
+
+  it("says nothing of a cut along one axis from one subject to another", () => {
+    const dir = direction({
+      setups: axis,
+      shots: [shot("01", "stern", { lineup: ["ane"] }), shot("02", "deck", { lineup: ["imouto"] })],
+    });
+    expect(found(dir, board({ shotId: "01" }, { shotId: "02" }))).toEqual([]);
+  });
+
+  it("reads the frame before at its lineupTo", () => {
+    const dir = direction({
+      setups: axis,
+      shots: [
+        shot("01", "stern", { lineup: ["ane"], lineupTo: ["ane", "imouto"] }),
+        shot("02", "deck", { lineup: ["imouto"] }),
+      ],
+    });
+    expect(found(dir, board({ shotId: "01" }, { shotId: "02" })).map((f) => f.subject)).toEqual([
+      "01-02",
+    ]);
+  });
+
+  it("flags a cut along one axis where one frame declares no subject", () => {
+    const dir = direction({
+      setups: axis,
+      shots: [shot("01", "stern", { lineup: ["ane"] }), shot("02", "deck")],
+    });
+    expect(found(dir, board({ shotId: "01" }, { shotId: "02" })).map((f) => f.subject)).toEqual([
+      "01-02",
+    ]);
+  });
+
+  it("says nothing across a story-time jump on one axis", () => {
+    const dir = direction({
+      setups: axis,
+      shots: [shot("01", "stern"), shot("02", "deck", { join: "jump-forward" })],
+    });
+    expect(found(dir, board({ shotId: "01" }, { shotId: "02" }))).toEqual([]);
+  });
+
+  it("says nothing of a cut to another place", () => {
+    const dir = direction({ setups: axis, shots: [shot("01", "deck"), shot("02", "shore")] });
+    expect(found(dir, board({ shotId: "01" }, { shotId: "02" }))).toEqual([]);
+  });
+
+  // A model with no slot for the frame cannot carry it, so the finding would be uniformly waived.
+  it("says nothing of a keyframe whose adapter carries no slot", () => {
+    expect(found(pushIn(), board({ shotId: "01" }, { shotId: "02", carries: false }))).toEqual([]);
+  });
+
+  it("says nothing while the shot before it is still undeveloped", () => {
+    expect(found(pushIn(), board({ shotId: "02" }))).toEqual([]);
+  });
+
+  it("is waived by the seam's key", () => {
+    const waived = direction({
+      setups: axis,
+      shots: [shot("01", "stern"), shot("02", "deck")],
+      waivers: { "panel-unlinked_01-02": "the cut re-opens the frame on purpose" },
+    });
+    const stagingStage = board({ shotId: "01" }, { shotId: "02" });
+    expect(found(waived, stagingStage)).toEqual([]);
+    expect(checkDirection(waived, { stagingStage }).waived.map((f) => f.code)).toContain(
+      "panel-unlinked",
+    );
+  });
+
+  it("stays silent with no board to read", () => {
+    expect(checkDirection(pushIn()).active.filter((f) => f.code === "panel-unlinked")).toEqual([]);
+  });
+});
+
+const aside = (id: string) =>
+  ({ kind: "aside", id, label: "eyecatch", duration: 3 }) as unknown as NarrativeShot;
+
+describe("an aside between two same-axis frames", () => {
+  const axis: Record<string, Setup> = {
+    stern: { ...stern, within: null },
+    deck: { ...deck, within: "stern" },
+  };
+  const across = direction({
+    setups: axis,
+    shots: [shot("01", "stern"), aside("ec"), shot("02", "deck")],
+  });
+
+  // The seam check reads an aside as no seam, so nothing would be left asking whether the room comes
+  // back the same.
+  it("keeps undeclared-continuity, which the axis would otherwise have answered", () => {
+    expect(codes(across, "undeclared-continuity").map((f) => f.subject)).toEqual(["01-02"]);
+  });
+
+  it("still skips the same pair with no aside between them", () => {
+    const dir = direction({ setups: axis, shots: [shot("01", "stern"), shot("02", "deck")] });
+    expect(codes(dir, "undeclared-continuity")).toEqual([]);
+  });
+
+  it("and panel-unlinked stays silent across it", () => {
+    const stagingStage = {
+      ...noStage,
+      shotPanels: ["01", "02"].map((shotId) => ({
+        shotId,
+        lane: "main" as const,
+        firstPanel: `animatic:shot.${shotId}.first`,
+        lastPanel: `animatic:shot.${shotId}.last`,
+        carries: true,
+        linked: [],
+      })),
+    };
+    expect(
+      checkDirection(across, { stagingStage }).active.filter((f) => f.code === "panel-unlinked"),
+    ).toEqual([]);
+  });
+});
+
+describe("undeclared-continuity reads the axis", () => {
+  const axis: Record<string, Setup> = {
+    stern: { ...stern, within: null },
+    deck: { ...deck, within: "stern" },
+  };
+
+  it("says nothing of two exposed sizes that are one camera at two focal lengths", () => {
+    const dir = direction({ setups: axis, shots: [shot("01", "stern"), shot("02", "deck")] });
+    expect(codes(dir, "undeclared-continuity")).toEqual([]);
+  });
+
+  it("still flags two exposed sizes shot from two camera positions", () => {
+    const dir = direction({
+      setups: { stern: { ...stern, within: null }, deck: { ...deck, within: null } },
+      shots: [shot("01", "stern"), shot("02", "deck")],
+    });
+    expect(codes(dir, "undeclared-continuity").map((f) => f.subject)).toEqual(["01-02"]);
   });
 });
 
@@ -917,6 +1082,63 @@ describe("subject-unnamed", () => {
   });
 });
 
+describe("plate-unnamed", () => {
+  const dir = direction({ shots: [shot("01", "deck", { lineup: [] })] });
+  const state = (platePrompts: Record<string, string>): StagingStageState => ({
+    ...noStage,
+    platePrompts,
+  });
+  const found = (d: Direction, stagingStage: StagingStageState) =>
+    checkDirection(d, { stagingStage }).active.filter((f) => f.code === "plate-unnamed");
+
+  it("flags a sentence that does not say what its frame holds", () => {
+    const findings = found(dir, state({ deck: "the boat, empty, from across the water" }));
+    expect(findings.map((f) => f.subject)).toEqual(["deck.bench"]);
+  });
+
+  it("says nothing once the sentence names it", () => {
+    expect(found(dir, state({ deck: "the empty bench down the port side" }))).toEqual([]);
+  });
+
+  it("reports one finding per landmark, so a waiver covers only its own", () => {
+    const findings = found(dir, state({ stern: "the boat, empty" }));
+    expect(findings.map((f) => f.subject)).toEqual(["stern.bench", "stern.mast"]);
+  });
+
+  it("asks nothing of a setup with no plate", () => {
+    expect(found(dir, state({}))).toEqual([]);
+  });
+
+  it("asks nothing of an insert, which holds nothing", () => {
+    const insert: Setup = {
+      name: "the sweet",
+      description: "the sweet filling frame",
+      location: "ferryDeck",
+      framing: "insert",
+      holds: [],
+    };
+    const withInsert = direction({
+      shots: [shot("01", "insert", { lineup: [] })],
+      setups: { deck, stern, shore, insert },
+    });
+    expect(
+      found(withInsert, state({ insert: "a paper-wrapped sweet, filling the frame" })),
+    ).toEqual([]);
+  });
+
+  it("stays silent with no board to read", () => {
+    expect(checkDirection(dir).active.filter((f) => f.code === "plate-unnamed")).toEqual([]);
+  });
+
+  it("takes a waiver keyed by setup and landmark", () => {
+    const waived = direction({
+      shots: [shot("01", "deck", { lineup: [] })],
+      waivers: { "plate-unnamed_deck.bench": "this crop cuts the bench out of frame" },
+    });
+    expect(found(waived, state({ deck: "the boat, empty" }))).toEqual([]);
+  });
+});
+
 describe("the set's structure errors", () => {
   const errorCodes = (dir: Direction) => validateDirectionStructure(dir).map((e) => e.code);
   const withLocations = (locations: unknown): Direction =>
@@ -932,11 +1154,31 @@ describe("the set's structure errors", () => {
         name: "the landing",
         description: "a wooden jetty",
         landmarks: {
-          jetty: { name: "the jetty", description: "the jetty" },
+          jetty: { name: "the jetty", promptDepiction: "jetty", description: "the jetty" },
         },
       },
     });
     expect(errorCodes(dir)).toContain("landmarks-empty");
+  });
+
+  it("rejects a landmark with no `promptDepiction`", () => {
+    const dir = withLocations({
+      ferryDeck: {
+        name: "the ferry deck",
+        description: "a flat-bottomed ferry",
+        landmarks: {
+          bench: { name: "the bench", promptDepiction: "  ", description: "the bench" },
+        },
+      },
+      landing: {
+        name: "the landing",
+        description: "a wooden jetty",
+        landmarks: {
+          jetty: { name: "the jetty", promptDepiction: "jetty", description: "the jetty" },
+        },
+      },
+    });
+    expect(errorCodes(dir)).toContain("landmark-empty-prompt-depiction");
   });
 
   it("rejects a character with no `promptDepiction`", () => {
@@ -955,14 +1197,14 @@ describe("the set's structure errors", () => {
         name: "the ferry deck",
         description: "a flat-bottomed ferry",
         landmarks: {
-          jetty: { name: "the bench", description: "the bench" },
+          jetty: { name: "the bench", promptDepiction: "bench", description: "the bench" },
         },
       },
       landing: {
         name: "the landing",
         description: "a wooden jetty",
         landmarks: {
-          jetty: { name: "the jetty", description: "the jetty" },
+          jetty: { name: "the jetty", promptDepiction: "jetty", description: "the jetty" },
         },
       },
     });
@@ -978,6 +1220,30 @@ describe("the set's structure errors", () => {
           name: "the little one",
           promptDepiction: "girl in a red coat",
           description: "the younger sister",
+        },
+      },
+    });
+    expect(errorCodes(dir)).toContain("prompt-depiction-conflict");
+  });
+
+  it("rejects a character's `promptDepiction` a landmark's noun sits inside", () => {
+    const dir = withLocations({
+      ferryDeck: {
+        name: "the ferry deck",
+        description: "a flat-bottomed ferry",
+        landmarks: {
+          statue: {
+            name: "the statue",
+            promptDepiction: "mother and child statue",
+            description: "the statue amidships",
+          },
+        },
+      },
+      landing: {
+        name: "the landing",
+        description: "a wooden jetty",
+        landmarks: {
+          jetty: { name: "the jetty", promptDepiction: "jetty", description: "the jetty" },
         },
       },
     });
@@ -1341,8 +1607,8 @@ describe("the join", () => {
       ).toHaveLength(1);
     });
 
-    // A model with no pin input has no wiring to forget, so the demand is silent rather than a
-    // waiver every such piece carries.
+    // The line `panel-unlinked` already draws: a model with no pin input has no wiring to forget, so
+    // the demand is silent rather than a waiver every such piece carries.
     it("is silent where the take before cannot pin its end", () => {
       expect(pinned([{ shotId: "01", lane: "main", pins: [], slots: ["start"] }, after])).toEqual(
         [],
@@ -1375,5 +1641,128 @@ describe("the join", () => {
       ]);
       expect(found[0]!.message).toContain("another frame (animatic:shot.01.last)");
     });
+  });
+});
+
+// Whether a frame is a window on a wider one is a declaration, like the join. The fixture already
+// carries the shape that asks for it: `stern` holds ["bench", "mast"] and `deck` holds ["bench"],
+// so the narrower frame could be the inside of the wider one.
+describe("the within axis", () => {
+  const errorCodes = (dir: Direction) => validateDirectionStructure(dir).map((e) => e.code);
+  const errorFor = (dir: Direction, code: string) =>
+    validateDirectionStructure(dir).find((e) => e.code === code);
+
+  describe("within-undeclared", () => {
+    it("names the frames this one could be a window of", () => {
+      const dir = direction({ shots: [shot("01", "deck", { lineup: [] })] });
+      const error = errorFor(dir, "within-undeclared");
+      expect(error?.subject).toBe("deck");
+      expect(error?.message).toContain('"stern"');
+    });
+
+    it("says nothing once the frame declares itself a root", () => {
+      const dir = direction({
+        shots: [shot("01", "deck", { lineup: [] })],
+        setups: { deck: { ...deck, within: null }, stern, shore },
+      });
+      expect(errorCodes(dir)).not.toContain("within-undeclared");
+    });
+
+    // A reverse angle carries the same landmarks the other way round, which is exactly what a window
+    // cannot do — so it is never asked to declare one.
+    it("says nothing about a frame that reverses the wider one's holds", () => {
+      const reversed: Setup = { ...deck, holds: ["mast", "bench"] };
+      const dir = direction({
+        shots: [shot("01", "deck", { lineup: [] })],
+        setups: { deck: reversed, stern, shore },
+      });
+      expect(errorCodes(dir)).not.toContain("within-undeclared");
+    });
+
+    it("says nothing about a frame nothing in its place is wider than", () => {
+      const dir = direction({
+        shots: [shot("01", "stern", { lineup: [] })],
+        setups: { stern, shore },
+      });
+      expect(errorCodes(dir)).not.toContain("within-undeclared");
+    });
+
+    // An insert fills the frame with one object, so its empty `holds` nests inside everything and
+    // means nothing. It is off the axis at both ends.
+    it("says nothing about an insert", () => {
+      const insert: Setup = { ...deck, framing: "insert", holds: [] };
+      const dir = direction({
+        shots: [shot("01", "deck", { lineup: [] })],
+        setups: { deck: insert, stern, shore },
+      });
+      expect(errorCodes(dir)).not.toContain("within-undeclared");
+    });
+  });
+
+  // The candidate set decides who must declare, never whether the declaration is right: a window may
+  // hold a landmark the frame it is cut from was too wide to declare.
+  it("takes a `within` whose holds the wider frame does not carry", () => {
+    const dir = direction({
+      shots: [shot("01", "deck", { lineup: [] })],
+      setups: {
+        deck: { ...deck, within: "stern" },
+        stern,
+        shore,
+        page: {
+          name: "the mast, close",
+          description: "in on the mast",
+          location: "ferryDeck",
+          framing: "close",
+          holds: ["mast"],
+          within: "deck",
+        },
+      },
+    });
+    expect(errorCodes(dir)).not.toContain("within-impossible");
+  });
+
+  describe("within-impossible", () => {
+    const impossible = (within: string, framing: Setup["framing"] = "medium") =>
+      errorFor(
+        direction({
+          shots: [shot("01", "deck", { lineup: [] })],
+          setups: {
+            deck: { ...deck, framing, holds: framing === "insert" ? [] : deck.holds, within },
+            stern,
+            shore,
+          },
+        }),
+        "within-impossible",
+      );
+
+    it("rejects a `within` naming no declared setup", () => {
+      expect(impossible("bowsprit")?.subject).toBe("deck");
+    });
+
+    it("rejects a `within` set in another place", () => {
+      expect(impossible("shore")?.message).toContain("landing");
+    });
+
+    it("rejects a `within` no wider than the frame itself", () => {
+      expect(impossible("deck")?.message).toContain("medium");
+    });
+
+    it("rejects a `within` on an insert", () => {
+      expect(impossible("stern", "insert")?.message).toContain("insert");
+    });
+  });
+
+  // The framing order is strict, so a literal roster cannot close on itself — only a computed one
+  // that walked past the type layer gets here.
+  it("rejects a `within` chain that leads back to its own frame", () => {
+    const dir = direction({
+      shots: [shot("01", "deck", { lineup: [] })],
+      setups: {
+        deck: { ...deck, within: "stern" },
+        stern: { ...stern, within: "deck" as string },
+        shore,
+      },
+    });
+    expect(errorCodes(dir).filter((c) => c === "within-cyclic")).toHaveLength(2);
   });
 });

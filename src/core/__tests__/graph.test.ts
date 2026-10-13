@@ -9,7 +9,8 @@ import {
   buildDependencyGraph,
   collectTransitiveDependents,
   listBoardlessVideoShots,
-  listPanelReferenceReach,
+  listSetupAnchorGaps,
+  listSetupNestGaps,
   listUnusedAssetPaths,
   videoDependentsHoldVerdicts,
   type DependencyGraph,
@@ -17,7 +18,7 @@ import {
 import type {
   AnimaticDefinition,
   AssetDefinition,
-  ReferenceDefinition,
+  PanelDefinition,
   VideoDefinition,
 } from "../types/index.js";
 
@@ -1438,76 +1439,450 @@ describe("listBoardlessVideoShots", () => {
   });
 });
 
-// The reference-stage half of the reach walk: what a `reference:<id>` was itself built from.
-describe("listPanelReferenceReach", () => {
+// The walk behind the three setup/anchor findings — reachability and generativity over one chain.
+// The findings themselves are `checkSetups`' business (direction.test.ts); what is pinned here is
+// what the walk can see.
+describe("listSetupAnchorGaps", () => {
   const comfy = (inputs: Record<string, unknown>): AssetDefinition =>
     ({ kind: "comfy", workflow: "a.json", inputs }) as unknown as AssetDefinition;
-  const fixed = (inputs: Record<string, unknown>): AssetDefinition =>
+  const fixed = (inputs: Record<string, unknown> = {}): AssetDefinition =>
+    ({
+      kind: "local",
+      operation: "resize",
+      mediaType: "image",
+      inputs,
+      deterministic: true,
+    }) as unknown as AssetDefinition;
+
+  const panel = (assetPath: string): PanelDefinition =>
+    ({
+      assetName: assetPath.split(".").pop()!,
+      assetPath,
+      start: 0,
+      duration: 1,
+    }) as PanelDefinition;
+
+  const board = (
+    shots: AnimaticDefinition["shots"],
+    extra: Partial<AnimaticDefinition> = {},
+  ): AnimaticDefinition => ({ stage: "animatic", shots, ...extra }) as AnimaticDefinition;
+
+  const handed = (): AssetDefinition =>
+    ({
+      kind: "file",
+      path: "assets/files/plate.png",
+      type: "image",
+      deterministic: true,
+    }) as unknown as AssetDefinition;
+
+  const oneShot = [{ shotId: "01", lane: "main" as const, setup: "front" }];
+  const inStudio = new Map([["front", "studio"]]);
+  const STUDIO = "__konte:reference:studio__";
+  const PAD = "__konte:reference:pad__";
+
+  it("reaches the location through a chain of shot assets", () => {
+    const gaps = listSetupAnchorGaps(
+      board([
+        {
+          id: "01",
+          duration: 5,
+          action: "shot",
+          assets: {
+            base: comfy({ image: STUDIO }),
+            first: comfy({ image: "__konte:animatic:shot.01.base__" }),
+          },
+          panels: [panel("animatic:shot.01.first")],
+        },
+      ] as unknown as AnimaticDefinition["shots"]),
+      oneShot,
+      inStudio,
+    );
+    expect(gaps.unanchoredShots.size).toBe(0);
+  });
+
+  it("reaches it through a timeline asset and through a cross-shot chain", () => {
+    const gaps = listSetupAnchorGaps(
+      board(
+        [
+          {
+            id: "01",
+            duration: 5,
+            action: "shot",
+            assets: { first: comfy({ image: "__konte:animatic:timeline.plateish__" }) },
+            panels: [panel("animatic:shot.01.first")],
+          },
+          {
+            id: "02",
+            duration: 5,
+            action: "shot",
+            assets: { first: comfy({ image: "__konte:animatic:shot.01.first__" }) },
+            panels: [panel("animatic:shot.02.first")],
+          },
+        ] as unknown as AnimaticDefinition["shots"],
+        { topLevelAssets: { plateish: comfy({ image: STUDIO }) } },
+      ),
+      [
+        { shotId: "01", lane: "main", setup: "front" },
+        { shotId: "02", lane: "main", setup: "front" },
+      ],
+      inStudio,
+    );
+    expect(gaps.unanchoredShots.size).toBe(0);
+  });
+
+  // A cycle is a load error one level up; the walk must terminate rather than hang on the way there.
+  it("terminates on a cycle and reports the gap", () => {
+    const gaps = listSetupAnchorGaps(
+      board([
+        {
+          id: "01",
+          duration: 5,
+          action: "shot",
+          assets: {
+            first: comfy({ image: "__konte:animatic:shot.01.other__" }),
+            other: comfy({ image: "__konte:animatic:shot.01.first__" }),
+          },
+          panels: [panel("animatic:shot.01.first")],
+        },
+      ] as unknown as AnimaticDefinition["shots"]),
+      oneShot,
+      inStudio,
+    );
+    expect(gaps.unanchoredShots.get("front")).toEqual(["01"]);
+  });
+
+  // One keyframe standing on the anchor carries the shot — the finding names shots, not panels.
+  it("is satisfied by one panel of several", () => {
+    const gaps = listSetupAnchorGaps(
+      board([
+        {
+          id: "01",
+          duration: 5,
+          action: "shot",
+          assets: { first: comfy({ image: STUDIO }), last: comfy({}) },
+          panels: [panel("animatic:shot.01.first"), panel("animatic:shot.01.last")],
+        },
+      ] as unknown as AnimaticDefinition["shots"]),
+      oneShot,
+      inStudio,
+    );
+    expect(gaps.unanchoredShots.size).toBe(0);
+  });
+
+  // A deterministic chain has one outcome, so it owes no anchor — and is counted so the plate
+  // demand can drop it too.
+  it("exempts a chain with no generative step and counts it", () => {
+    const gaps = listSetupAnchorGaps(
+      board([
+        {
+          id: "01",
+          duration: 5,
+          action: "shot",
+          assets: { first: fixed({ image: "__konte:animatic:shot.01.base__" }), base: fixed() },
+          panels: [panel("animatic:shot.01.first")],
+        },
+      ] as unknown as AnimaticDefinition["shots"]),
+      oneShot,
+      inStudio,
+    );
+    expect(gaps.unanchoredShots.size).toBe(0);
+    expect(gaps.deterministicShots.get("front")).toBe(1);
+  });
+
+  // Where a plate exists it IS the frame: the raw location does not stand in for it.
+  it("does not accept the location in place of the plate", () => {
+    const gaps = listSetupAnchorGaps(
+      board(
+        [
+          {
+            id: "01",
+            duration: 5,
+            action: "shot",
+            assets: { first: comfy({ image: STUDIO }) },
+            panels: [panel("animatic:shot.01.first")],
+          },
+        ] as unknown as AnimaticDefinition["shots"],
+        { plates: { front: comfy({ image: STUDIO }) } },
+      ),
+      oneShot,
+      inStudio,
+    );
+    expect(gaps.unanchoredShots.get("front")).toEqual(["01"]);
+    expect(gaps.unanchoredPlates).toEqual([]);
+  });
+
+  it("flags a plate built from no location reference, and a pendingShot never", () => {
+    const gaps = listSetupAnchorGaps(
+      board(
+        [
+          { id: "01", duration: 5, action: "shot", pending: true },
+        ] as unknown as AnimaticDefinition["shots"],
+        { plates: { front: comfy({}) } },
+      ),
+      oneShot,
+      inStudio,
+    );
+    expect(gaps.unanchoredPlates).toEqual(["front"]);
+    expect(gaps.unanchoredShots.size).toBe(0);
+  });
+
+  // A plate the author hands over whole is outside the demand: konte cannot see what the file was
+  // cut from.
+  it("exempts a plate that touches no reference at all", () => {
+    const gaps = listSetupAnchorGaps(
+      board(
+        [
+          { id: "01", duration: 5, action: "shot", pending: true },
+        ] as unknown as AnimaticDefinition["shots"],
+        { plates: { front: handed() } },
+      ),
+      oneShot,
+      inStudio,
+    );
+    expect(gaps.unanchoredPlates).toEqual([]);
+  });
+
+  // An intermediate the plate is built from is walked through, so a two-step derivation answers the
+  // demand from inside the board.
+  it("reaches the location through an intermediate plate", () => {
+    const gaps = listSetupAnchorGaps(
+      board(
+        [
+          { id: "01", duration: 5, action: "shot", pending: true },
+        ] as unknown as AnimaticDefinition["shots"],
+        {
+          plates: {
+            front: comfy({ image: "__konte:animatic:plate.master__" }),
+            master: fixed({ image: STUDIO }),
+          },
+        },
+      ),
+      oneShot,
+      inStudio,
+    );
+    expect(gaps.unanchoredPlates).toEqual([]);
+  });
+
+  // A DERIVED plate answers the demand, deterministic or not: what it was cut from is on the graph.
+  it("flags a deterministic plate derived from another reference, and passes the location's", () => {
+    const board1 = (plate: AssetDefinition) =>
+      board(
+        [
+          { id: "01", duration: 5, action: "shot", pending: true },
+        ] as unknown as AnimaticDefinition["shots"],
+        { plates: { front: plate } },
+      );
+    expect(
+      listSetupAnchorGaps(board1(fixed({ image: PAD })), oneShot, inStudio).unanchoredPlates,
+    ).toEqual(["front"]);
+    expect(
+      listSetupAnchorGaps(board1(fixed({ image: STUDIO })), oneShot, inStudio).unanchoredPlates,
+    ).toEqual([]);
+  });
+});
+
+// The containment walk behind `plate-unnested`. The finding itself is `checkSetups`' business
+// (direction.test.ts); what is pinned here is what the walk can see.
+describe("listSetupNestGaps", () => {
+  const MASTER = "__konte:reference:studio__";
+  const WIDE_PLATE = "__konte:animatic:plate.wide__";
+
+  const crop = (
+    image: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    out: { outWidth: number; outHeight: number } = { outWidth: 1024, outHeight: 576 },
+  ): AssetDefinition =>
     ({
       kind: "local",
       operation: "crop",
       mediaType: "image",
+      inputs: { image, x, y, width, height, ...out },
       deterministic: true,
-      inputs,
     }) as unknown as AssetDefinition;
 
-  const boardOn = (first: AssetDefinition) =>
+  const generated = (inputs: Record<string, unknown>): AssetDefinition =>
+    ({ kind: "comfy", workflow: "a.json", inputs }) as unknown as AssetDefinition;
+
+  const boardOf = (plates: Record<string, AssetDefinition>): AnimaticDefinition =>
     ({
-      shots: [{ id: "01", panels: [{ assetPath: "animatic:shot.01.first" }], assets: { first } }],
-    }) as unknown as AnimaticDefinition;
-  const referenceOf = (topLevelAssets: Record<string, AssetDefinition>) =>
-    ({ stage: "reference", shots: [], topLevelAssets }) as unknown as ReferenceDefinition;
+      stage: "animatic",
+      shots: [
+        { id: "01", duration: 5, action: "shot", pending: true },
+      ] as unknown as AnimaticDefinition["shots"],
+      plates,
+    }) as AnimaticDefinition;
 
-  const FRAME = "__konte:reference:frame__";
-  const ROOM = "__konte:reference:room__";
+  const nested = new Map([["close", "wide"]]);
+  // The parent's own window on the master, which every "same source" case is measured against.
+  const wide = crop(MASTER, 100, 100, 800, 450);
 
-  it("leaves a derived reference a leaf where the reference stage is not at hand", () => {
-    expect(listPanelReferenceReach(boardOn(comfy({ image: FRAME })))).toEqual([
-      {
-        shotId: "01",
-        lane: "main",
-        panel: "animatic:shot.01.first",
-        refs: ["frame"],
-        generative: true,
-      },
-    ]);
+  it("takes a window cut inside the parent's, out of the same master", () => {
+    const gaps = listSetupNestGaps(
+      boardOf({ wide, close: crop(MASTER, 200, 150, 400, 225) }),
+      nested,
+    );
+    expect(gaps).toEqual([]);
   });
 
-  it("walks on through what a reference asset was built from", () => {
-    const reference = referenceOf({ frame: fixed({ image: ROOM }), room: comfy({}) });
-
-    expect(listPanelReferenceReach(boardOn(comfy({ image: FRAME })), reference)).toEqual([
-      {
-        shotId: "01",
-        lane: "main",
-        panel: "animatic:shot.01.first",
-        refs: ["frame", "room"],
-        generative: true,
-      },
-    ]);
+  it("takes a window cut straight out of the parent plate", () => {
+    const gaps = listSetupNestGaps(
+      boardOf({ wide, close: crop(WIDE_PLATE, 0, 0, 512, 288) }),
+      nested,
+    );
+    expect(gaps).toEqual([]);
   });
 
-  it("does not let a generative reference asset make a deterministic panel generative", () => {
-    const reference = referenceOf({ frame: comfy({ image: ROOM }), room: comfy({}) });
-
-    expect(listPanelReferenceReach(boardOn(fixed({ image: FRAME })), reference)).toEqual([
-      {
-        shotId: "01",
-        lane: "main",
-        panel: "animatic:shot.01.first",
-        refs: ["frame", "room"],
-        generative: false,
-      },
-    ]);
+  // The crop fixes the scale; what is generated from it is free to add detail.
+  it("takes a window re-generated from its own crop", () => {
+    const gaps = listSetupNestGaps(
+      boardOf({
+        wide,
+        close: generated({ image: "__konte:animatic:plate.closeCut__" }),
+        closeCut: crop(MASTER, 200, 150, 400, 225),
+      }),
+      nested,
+    );
+    expect(gaps).toEqual([]);
   });
 
-  it("terminates on reference assets built from each other", () => {
-    const reference = referenceOf({ frame: comfy({ image: ROOM }), room: comfy({ image: FRAME }) });
+  // The window is in the PARENT's pixels, so the degenerate case is judged against the PARENT's own
+  // rendered size — its `outWidth`/`outHeight`. The child's output size is a scale.
+  it("measures a crop of the parent plate against the parent's frame, not the child's output size", () => {
+    const parent = crop(MASTER, 100, 100, 800, 450, { outWidth: 640, outHeight: 360 });
+    const full = crop("__konte:animatic:plate.parent__", 0, 0, 640, 360, {
+      outWidth: 1280,
+      outHeight: 720,
+    });
+    expect(
+      listSetupNestGaps(boardOf({ parent, child: full }), new Map([["child", "parent"]])),
+    ).toEqual(["child"]);
+    const inside = crop("__konte:animatic:plate.parent__", 40, 20, 400, 225, {
+      outWidth: 512,
+      outHeight: 288,
+    });
+    expect(
+      listSetupNestGaps(boardOf({ parent, child: inside }), new Map([["child", "parent"]])),
+    ).toEqual([]);
+  });
 
-    expect(listPanelReferenceReach(boardOn(comfy({ image: FRAME })), reference)[0]!.refs).toEqual([
-      "frame",
-      "room",
-    ]);
+  it("flags a crop running off the edge of a parent whose frame is stated", () => {
+    const parent = crop(MASTER, 100, 100, 800, 450, { outWidth: 640, outHeight: 360 });
+    const overhang = crop("__konte:animatic:plate.parent__", 500, 0, 200, 180);
+    expect(
+      listSetupNestGaps(boardOf({ parent, child: overhang }), new Map([["child", "parent"]])),
+    ).toEqual(["child"]);
+  });
+
+  // A generated or handed-over parent's real size is not on the graph, and the canvas is a guess: a
+  // window cut out of a 2048-wide file plate is legal containment.
+  it("takes any crop of a parent whose own frame the definition does not state", () => {
+    const handed = {
+      kind: "file",
+      path: "assets/files/wide.png",
+      type: "image",
+      deterministic: true,
+    } as unknown as AssetDefinition;
+    const child = crop("__konte:animatic:plate.parent__", 0, 0, 1024, 576);
+    expect(
+      listSetupNestGaps(boardOf({ parent: handed, child }), new Map([["child", "parent"]])),
+    ).toEqual([]);
+  });
+
+  describe("a cut from the parent plate", () => {
+    const CUT = "animatic:plate.close";
+    const cutBoard = (
+      close: AssetDefinition,
+      opts: { readers?: string[]; sources?: string[] } = {},
+    ): AnimaticDefinition => ({
+      ...boardOf({ wide, close }),
+      prevPanelReaders: opts.readers ?? [CUT],
+      imageInputs: [{ address: CUT, sources: opts.sources ?? ["animatic:plate.wide"] }],
+    });
+
+    // The camera moves in along the parent's axis, so the plate is no window of the parent's.
+    it("takes a plate a previous-frame reader draws from the parent plate", () => {
+      expect(listSetupNestGaps(cutBoard(generated({ image1: WIDE_PLATE })), nested)).toEqual([]);
+    });
+
+    it("takes the cut behind a step the plate is derived from", () => {
+      const board: AnimaticDefinition = {
+        ...boardOf({
+          wide,
+          close: generated({ image: "__konte:animatic:plate.closeCut__" }),
+          closeCut: generated({ image1: WIDE_PLATE }),
+        }),
+        prevPanelReaders: ["animatic:plate.closeCut"],
+        imageInputs: [{ address: "animatic:plate.closeCut", sources: ["animatic:plate.wide"] }],
+      };
+      expect(listSetupNestGaps(board, nested)).toEqual([]);
+    });
+
+    it("flags the parent plate handed to a model that reads no previous frame", () => {
+      expect(
+        listSetupNestGaps(cutBoard(generated({ image1: WIDE_PLATE }), { readers: [] }), nested),
+      ).toEqual(["close"]);
+    });
+
+    it("flags a previous-frame reader handed another picture", () => {
+      expect(
+        listSetupNestGaps(
+          cutBoard(generated({ image1: MASTER }), { sources: ["reference:studio"] }),
+          nested,
+        ),
+      ).toEqual(["close"]);
+    });
+  });
+
+  it("flags a plate generated straight off the master", () => {
+    const gaps = listSetupNestGaps(boardOf({ wide, close: generated({ image: MASTER }) }), nested);
+    expect(gaps).toEqual(["close"]);
+  });
+
+  it("flags a window cut out of another plate", () => {
+    const gaps = listSetupNestGaps(
+      boardOf({
+        wide,
+        other: crop(MASTER, 0, 0, 900, 500),
+        close: crop("__konte:animatic:plate.other__", 0, 0, 400, 225),
+      }),
+      nested,
+    );
+    expect(gaps).toEqual(["close"]);
+  });
+
+  it("flags a window reaching outside the parent's", () => {
+    const gaps = listSetupNestGaps(
+      boardOf({ wide, close: crop(MASTER, 700, 150, 400, 225) }),
+      nested,
+    );
+    expect(gaps).toEqual(["close"]);
+  });
+
+  // A window the size of the frame it is cut from is no window.
+  it("flags a window with the parent's own rectangle", () => {
+    const gaps = listSetupNestGaps(
+      boardOf({ wide, close: crop(MASTER, 100, 100, 800, 450) }),
+      nested,
+    );
+    expect(gaps).toEqual(["close"]);
+  });
+
+  it("flags a window cut out of another source", () => {
+    const gaps = listSetupNestGaps(
+      boardOf({ wide, close: crop("__konte:reference:pad__", 200, 150, 400, 225) }),
+      nested,
+    );
+    expect(gaps).toEqual(["close"]);
+  });
+
+  it("says nothing where either plate is absent", () => {
+    expect(listSetupNestGaps(boardOf({ wide }), nested)).toEqual([]);
+    expect(listSetupNestGaps(boardOf({ close: crop(MASTER, 200, 150, 400, 225) }), nested)).toEqual(
+      [],
+    );
   });
 });
 

@@ -10,6 +10,7 @@ import { comfyModelJobId, JobManager } from "../core/job-manager.js";
 import type { PatchFinalize } from "../core/patch-output.js";
 import { assetResolves } from "../core/pending-jobs.js";
 import { formatNotice } from "../core/notice.js";
+import type { SetupFork } from "../core/stale-refresh.js";
 import {
   computeVariantStaleness,
   isVariantStale,
@@ -431,17 +432,28 @@ export type AcceptedStaleAsset = {
   cause: string;
   /** What replaces this take. */
   command: string;
+  /** Set only for a plate two or more shots stand on. */
+  fork?: SetupFork;
 };
 
 // The assets this run skipped because their accepted take is stale — the one skip a user is
 // liable to read as a silent no-op ("I edited the prompt and nothing happened"), so it names
-// each address with its stale cause and the command that settles it. Null when clean.
+// each address with its stale cause and the command that settles it. A plate carries a second
+// door: the edit is charged to every shot on that setup. Null when clean.
 export function formatAcceptedStaleNotice(assets: readonly AcceptedStaleAsset[]): string | null {
   if (assets.length === 0) return null;
   const lines: string[] = [];
   for (const a of assets) {
-    lines.push(a.cause ? `${a.address}: ${a.cause}` : a.address);
-    lines.push(`  ${a.command}`);
+    const shared = a.fork ? ` — shared frame for shots ${a.fork.shotIds.join(", ")}` : "";
+    lines.push(a.cause ? `${a.address}: ${a.cause}${shared}` : `${a.address}${shared}`);
+    if (a.fork) {
+      lines.push(
+        "  for one shot: fork the setup — add one to `setups` in direction.ts, point that shot's `setup` at it, declare its plate in `plates` in animatic.tsx",
+      );
+      lines.push(`  for all ${a.fork.shotIds.length}: ${a.command}`);
+    } else {
+      lines.push(`  ${a.command}`);
+    }
   }
   return formatNotice(
     "accepted but stale — generate never replaces an accepted take, so these were skipped:",

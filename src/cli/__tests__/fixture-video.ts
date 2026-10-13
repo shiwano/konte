@@ -44,7 +44,7 @@ export default defineDirection({
     studio: {
       name: "the creative studio",
       description: "A bright, tidy studio desk in a soft purple-and-white palette.",
-      landmarks: { studioMark: { name: "the mark", description: "a mark only this place has" } },
+      landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } },
     },
   },
   setups: {
@@ -61,6 +61,7 @@ export default defineDirection({
       location: "studio",
       framing: "medium",
       holds: ["studioMark"],
+      within: "deskWide",
     },
     deskClose: {
       name: "the desk, close",
@@ -68,6 +69,7 @@ export default defineDirection({
       location: "studio",
       framing: "close",
       holds: ["studioMark"],
+      within: "deskMedium",
     },
   },
   sequence: {
@@ -108,9 +110,16 @@ export default defineDirection({
       // The board is anchored on a blank latent, not on the studio reference. Wiring it instead would
       // put a studio asset in the reference stage of every suite that swaps this one out — and those
       // stages are each cut to exactly what their own plan / reroll / cascade assertions count.
-      "location-unconsumed_01": "fixture board is anchored on a latent, not the location",
-      "location-unconsumed_02": "fixture board is anchored on a latent, not the location",
-      "location-unconsumed_03": "fixture board is anchored on a latent, not the location",
+      "setup-unconsumed_deskWide": "fixture board is anchored on a latent, not the location",
+      "setup-unconsumed_deskMedium": "fixture board is anchored on a latent, not the location",
+      "setup-unconsumed_deskClose": "fixture board is anchored on a latent, not the location",
+      // Same reason one step further: the board declares no plates, so the axial push-in from 01 to
+      // 02 has nothing nesting its two frames.
+      "axis-unrealized_deskMedium.deskWide": "fixture board declares no plates",
+      // Wiring the previous panel would chain each shot's board to the one before it, which every plan and
+      // cascade count in the suite would then see.
+      "panel-unlinked_01-02": "fixture shots are boarded independently",
+      "panel-unlinked_02-03": "fixture shots are boarded independently",
     },
   },
 });

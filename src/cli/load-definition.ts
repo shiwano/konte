@@ -32,10 +32,14 @@ import {
   listPanelPromptText,
   listPanelReferenceReach,
   listPanelReferenceSlots,
+  listPlateDescriptionUses,
+  listSetupAnchorGaps,
+  listSetupNestGaps,
   listShotContinuity,
   listVideoShotPins,
   type DependencyGraph,
 } from "../core/graph.js";
+import type { AnimaticSetupState } from "../core/direction-check.js";
 import { assertPinGate, type PinCheckSubject } from "../core/pin-check.js";
 import { assertNarrationStemsPlaced } from "../core/narration-stem.js";
 import { assertPromptGate, type PromptCheckSubject } from "../core/prompt-check.js";
@@ -91,6 +95,7 @@ export async function gateDirectionForStage(opts: {
     stage: opts.stage,
     realizedIds: opts.realizedIds,
     referenceAssetNames: reference?.exposedAssetNames ?? [],
+    animaticSetups: await loadAnimaticSetupState(opts.videoRoot, direction),
     stagingStage: await loadStagingStageState(opts.videoRoot, direction),
     songTake: manager ? songTakeState(manager, direction) : undefined,
     directionAccepted: isDirectionSpendGateSatisfied(direction, acceptance ?? null),
@@ -475,6 +480,37 @@ export function assertAnimaticConsumed(opts: {
   );
 }
 
+// What the setups class reads off the board: which setups have a plate, which plates stand on no
+// location reference, and which developed shots reach neither anchor. **undefined when the board
+// could not be read**, and that distinction is the contract: an unreadable board cannot owe plates,
+// while a readable one that declares none owes every plate its shared setups call for. Mirrors
+// `reference?.exposedAssetNames` at the same call sites.
+export async function loadAnimaticSetupState(
+  videoRoot: string,
+  direction: Direction,
+): Promise<AnimaticSetupState | undefined> {
+  const animatic = await loadAnimatic(videoRoot).catch(() => null);
+  if (!animatic) return undefined;
+  const locationBySetup = new Map(
+    Object.entries(direction.setups ?? {}).map(([id, s]) => [id, s.location]),
+  );
+  const gaps = listSetupAnchorGaps(animatic, collectShotFrames(direction), locationBySetup);
+  // Only the declared windows: a root (`within: null`) and an undeclared one are cut from whatever
+  // they like.
+  const withinBySetup = new Map(
+    Object.entries(direction.setups ?? {}).flatMap(([id, s]) =>
+      typeof s.within === "string" ? [[id, s.within] as const] : [],
+    ),
+  );
+  return {
+    plateIds: animatic.exposedPlateIds ?? Object.keys(animatic.plates ?? {}),
+    unanchoredPlateIds: gaps.unanchoredPlates,
+    unnestedPlateIds: listSetupNestGaps(animatic, withinBySetup),
+    unconsumedBy: gaps.unanchoredShots,
+    deterministicShotsPerSetup: gaps.deterministicShots,
+  };
+}
+
 // The take of the song the piece is read against, as the song class reads it.
 export function songTakeState(manager: StateManager, direction: Direction): SongTakeState {
   const address = songAddressOf(direction);
@@ -494,9 +530,10 @@ export async function loadSongTakeState(
   return manager ? songTakeState(manager, direction) : undefined;
 }
 
-// The stage-side half of the staging class: the references the board hands each keyframe, and in
-// what order. **undefined when the board could not be read**, so `slot-order-mismatch` stays silent
-// rather than firing on nothing.
+// The stage-side half of the staging class: the order the board hands each keyframe its references
+// in, and how each shot on a plated setup carries its plate. Same contract as
+// `loadAnimaticSetupState` — **undefined when the board could not be read**, so
+// `slot-order-mismatch` stays silent rather than firing on nothing.
 export async function loadStagingStageState(
   videoRoot: string,
   direction: Direction,
@@ -512,8 +549,10 @@ export async function loadStagingStageState(
     : null;
   return {
     panelSlots: listPanelReferenceSlots(animatic),
-    panelReach: listPanelReferenceReach(animatic, await loadReference(videoRoot).catch(() => null)),
+    panelReach: listPanelReferenceReach(animatic),
+    plateUses: listPlateDescriptionUses(animatic, frames),
     panelPrompts: listPanelPromptText(animatic),
+    platePrompts: animatic.platePrompts ?? {},
     videoPins: video ? listVideoShotPins(video, (id) => harvestShotPictureCues(video, id)) : [],
     shotPanels: listShotContinuity(animatic),
   };

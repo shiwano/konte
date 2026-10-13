@@ -5,6 +5,7 @@ import {
   type DefinitionLike,
   formatAddress,
   formatCompositionAddress,
+  formatPlateAssetPath,
   formatShotAddress,
   type ShotStage,
   formatReferenceAddress,
@@ -256,9 +257,11 @@ export function collectAllAddresses(
   stage: ShotStage,
   topLevelAssets?: DefinitionLike["topLevelAssets"],
   timelineSoundtracks?: readonly unknown[],
+  plateIds?: readonly string[],
   hasOverlay?: boolean,
 ): string[] {
   const ordered: string[] = [];
+  for (const setupId of plateIds ?? []) ordered.push(formatPlateAssetPath(setupId));
   for (const assetName of Object.keys(topLevelAssets ?? {})) {
     ordered.push(formatTimelineAssetPath(stage, assetName));
   }
@@ -407,6 +410,9 @@ export async function writeHandoff(
       reelStage,
       reel.topLevelAssets,
       reel.timelineSoundtracks,
+      reelStage === "animatic"
+        ? (subject.animatic.exposedPlateIds ?? Object.keys(subject.animatic.plates ?? {}))
+        : undefined,
       !!reel.overlay,
     );
     changedAddresses = async () => {

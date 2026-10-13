@@ -1,8 +1,9 @@
 // The pin check: the machine floor under what a frame-pinning input is wired to. A `pin` input is
 // reproduced pixel for pixel, so what it takes has to be a frame of the piece's own picture — the
-// board panel the shot develops, the seam frame of the segment before it. A reference sheet is
-// conditioning: pinned, the take opens on a character sheet. Free of any DSL/runtime import (like
-// prompt-check.ts) so the gate, status and unit tests can pull it in standalone.
+// board panel the shot develops, the seam frame of the segment before it. A reference sheet and a
+// plate are conditioning: pinned, the take opens on a character sheet or on an empty room. Free of
+// any DSL/runtime import (like prompt-check.ts) so the gate, status and unit tests can pull it in
+// standalone.
 
 import { tryParseAddress } from "./address.js";
 import { KonteError } from "./errors.js";
@@ -10,9 +11,12 @@ import { waiverKey, type StageFindingCode } from "./waiver-keys.js";
 
 /**
  * The class this check reports, its slice of the waiver namespace (see waiver-keys.ts).
- *   - pin-unanchored: the pinned image is a reference sheet.
+ *   - pin-unanchored: the pinned image is a reference sheet or a plate.
  */
 export type PinFindingCode = Extract<StageFindingCode, `pin-${string}`>;
+
+// What a pinned address turns out to be, when it is not a frame.
+export type PinSubject = "sheet" | "plate";
 
 // One `pin` input's wiring, as declared at one address. `source` is the address it was passed, never
 // what that resolves to.
@@ -36,6 +40,7 @@ export type PinFinding = {
   code: PinFindingCode;
   key: string;
   source: string;
+  subject: PinSubject;
   sites: readonly { address: string; input: string; pin: "start" | "end" }[];
 };
 
@@ -53,11 +58,14 @@ export function pinWaiverKey(code: PinFindingCode, source: string): string {
   return waiverKey(code, source);
 }
 
-// Whether the pinned address is a reference sheet rather than a frame of the picture. A source that
-// parses to no address at all is a local file — footage, a still handed over whole — and is a frame.
-function isSheet(source: string): boolean {
+// What the pinned address is, when it is not a frame of the picture. A source that parses to no
+// address at all is a local file — footage, a still handed over whole — and is a frame.
+function subjectOf(source: string): PinSubject | undefined {
   const parsed = tryParseAddress(source);
-  return parsed?.stage === "reference" && parsed.kind === "reference";
+  if (!parsed) return undefined;
+  if (parsed.stage === "reference" && parsed.kind === "reference") return "sheet";
+  if (parsed.kind === "plate") return "plate";
+  return undefined;
 }
 
 // Reports findings; it never throws and never decides severity — the caller (the spend gate,
@@ -69,7 +77,8 @@ export function checkPins(
   const byKey = new Map<string, PinFinding & { sites: PinFinding["sites"][number][] }>();
   for (const occurrence of occurrences) {
     if (occurrence.source === undefined) continue;
-    if (!isSheet(occurrence.source)) continue;
+    const subject = subjectOf(occurrence.source);
+    if (!subject) continue;
     const key = pinWaiverKey("pin-unanchored", occurrence.source);
     const site = { address: occurrence.address, input: occurrence.input, pin: occurrence.pin };
     const existing = byKey.get(key);
@@ -83,6 +92,7 @@ export function checkPins(
       code: "pin-unanchored",
       key,
       source: occurrence.source,
+      subject,
       sites: [site],
     });
   }
@@ -118,8 +128,12 @@ export type PinCheckSubject = {
   waivers?: Readonly<Record<string, string>>;
 };
 
-const REMEDY =
-  "a sheet is conditioning, not a frame — pass it as an ordinary reference input and pin the board panel this shot develops";
+const REMEDY: Record<PinSubject, string> = {
+  sheet:
+    "a sheet is conditioning, not a frame — pass it as an ordinary reference input and pin the board panel this shot develops",
+  plate:
+    "a plate holds the frame empty, so pinning one opens the take on a room with nobody in it — pin the panel that stands on that plate",
+};
 
 // The gate: abort with PIN_CHECK_FAILED when a take about to be spent on pins a frame that is not
 // one. `where` is the file that holds both the wiring and its waivers.
@@ -127,9 +141,14 @@ export function assertPinGate(subject: PinCheckSubject, where: string): void {
   const { active } = checkPins(subject.pins ?? [], subject.waivers ?? {});
   if (active.length === 0) return;
 
-  const blocks = [
-    `  ${REMEDY}:\n${active.map((f) => `    [${f.key}] ${formatPinFinding(f)}`).join("\n")}`,
-  ];
+  // Grouped by remedy, so a stage that pins both kinds is told each thing once.
+  const blocks = (["sheet", "plate"] as const).flatMap((s) => {
+    const findings = active.filter((f) => f.subject === s);
+    if (findings.length === 0) return [];
+    return [
+      `  ${REMEDY[s]}:\n${findings.map((f) => `    [${f.key}] ${formatPinFinding(f)}`).join("\n")}`,
+    ];
+  });
 
   throw new KonteError(
     "PIN_CHECK_FAILED",

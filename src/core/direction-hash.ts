@@ -160,6 +160,7 @@ function projectProps(props: Record<string, Prop> | undefined): unknown[] {
 function projectLandmarks(landmarks: Record<string, Landmark> | undefined): unknown[] {
   return projectRoster(landmarks, (l) => ({
     name: l.name,
+    promptDepiction: l.promptDepiction,
     description: l.description,
   }));
 }
@@ -173,7 +174,7 @@ function projectLocations(locations: Record<string, Location> | undefined): unkn
 }
 
 // The setups roster in full — its prose plus the structural values it carries: the place and size
-// every shot on it reads, and what the frame holds.
+// every shot on it reads, what the frame holds, and the wider frame it is a window of.
 function projectSetups(setups: Record<string, Setup> | undefined): unknown[] {
   return projectRoster(setups, (s) => ({
     name: s.name,
@@ -181,6 +182,10 @@ function projectSetups(setups: Record<string, Setup> | undefined): unknown[] {
     location: s.location,
     framing: s.framing,
     holds: [...(s.holds ?? [])],
+    // Absent and `null` fold together: they are one frame, a root of its own axis, so spelling out
+    // `within: null` on a frame that was already one re-asks the reviewer nothing. Only the authoring
+    // surfaces tell them apart, since only the absent form can be `within-undeclared`.
+    within: s.within ?? null,
   }));
 }
 
@@ -439,6 +444,7 @@ export function directionPartHashes(direction: Direction): Map<string, string> {
         location: s.location,
         framing: s.framing,
         holds: [...(s.holds ?? [])],
+        within: s.within ?? null,
       }),
     );
   }

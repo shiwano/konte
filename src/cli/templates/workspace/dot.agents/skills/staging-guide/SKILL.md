@@ -1,6 +1,6 @@
 ---
 name: staging-guide
-description: Stage a shot's frame, cut and motion from its action, and build its draft takes. Read before a shot's prompt or panel blocking/camera, when wiring drafts or fixing a keyframe-input finding, and for feedback about what the frame or movement conveys.
+description: Stage a shot's frame, cut and motion from its action, and build its plates and draft takes. Read before a shot's prompt or panel blocking/camera, when wiring plates or drafts or fixing a plate, landmark or keyframe-input finding, and for feedback about what the frame or movement conveys.
 user-invocable: false
 ---
 
@@ -8,6 +8,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 
 ## Routing
 
+- **Building or using location masters or setup plates, or fixing related findings** → [plates.md](references/plates.md).
 - **Splitting shots into draft takes, picking a panel's frame from one, or redoing one** → [drafts.md](references/drafts.md).
 - **Changing a setup, lineup, join or cutin** → `direction-guide`.
 
@@ -28,19 +29,18 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 
 ## Stage the frame
 
-- **Every shot stands on its place's reference** — `reference.<location>`, or a `reference.tsx` asset built from it, handed to the draft take or the panel.
 - **A drafted shot is composed in its take's shot text** — every rule here is written there.
-- **The panel prompt composes** — where each figure sits and faces, what fills the frame they leave open, what is nearest the lens, what the edges cut, chosen from what the `action` has to show; naming only who is left and right leaves the frame to the model.
+- **The plate fixes the place and the camera; the panel prompt composes** — where each figure sits and faces, what fills the frame they leave open, what is nearest the lens, what the edges cut, chosen from what the `action` has to show; naming only who is left and right leaves the frame to the model.
 - **The eye lands on the action's carrier** — whatever the shot hinges on must be the frame's most salient element (position, contrast, light, motion); if a stranger's eye goes elsewhere first, the staging failed before the prompt.
 - **One strong signifier per idea** — pick the element that says it best and cut action-adjacent extras; each one added dilutes the read.
 - **Subject & purpose** — what the subject wants in this shot decides pose, expression, and gaze. Name a declared character by its exact roster `promptDepiction` and anchor its look on the `reference:<id>` asset (identity prose → `prompt-guide`'s reference preflight).
 - **Name every subject in `ctx.lineup` order** — who the frame holds, left to right, is the direction's (`ctx.lineupTo` the order the shot leaves on); one named place lands nothing, all of them always lands. Add who is nearer the lens where they are not side by side.
 - **Pass a reference image for every one of them** — a subject only a sleeve or a fist of whom is in frame is fed too, never waived. A keyframe drawn from an earlier keyframe inherits what that one stood on.
 - **Pass them in the same order** — the slot order is the other half of what decides who lands where.
-- **`<Cutin>` keyframes answer `ctx.cutin.lineup` / `lineupTo`** by the rules above.
+- **`<Cutin>` keyframes answer `ctx.cutin.lineup` / `lineupTo`** by the rules above and stand on that setup's plate.
 - **`ctx.lineupTo` is a `blocking` note waiting to be written** — the panel it changes out of says the move (`blocking`, above) and the last keyframe's slots take the new order.
-- **Size and angle both come from the shot's `setup`** — stage to its `framing` (`wide` → the concrete long shot, `insert` → the object filling frame), and change either by editing the setup. Low angle empowers, high diminishes, eye level observes — pick from the `action` and write it into the setup's `description` so the next shot on it inherits the camera.
-- **Say where each figure meets the floor** — a keyframe built on the location reference otherwise comes back with the figures pasted in front of it. Let distance read as height on the visible floor: further from the lens, feet higher in the frame and the figure smaller.
+- **Size and angle both come from the shot's `setup`** — stage to its `framing` (`wide` → the concrete long shot, `insert` → the object filling frame), and change either by editing the setup. Low angle empowers, high diminishes, eye level observes — pick from the `action` and write it into the setup's `description` so the next shot on it inherits the camera. A panel prompt names only the size and height its plate has — the panel follows the plate's picture.
+- **Say where each figure meets the floor** — a keyframe built on a plate otherwise comes back with the figures pasted in front of it. Let distance read as height on the visible floor: further from the lens, feet higher in the frame and the figure smaller.
 - **A state the story changes is one `reference:` asset per state, each built from text** — a window before and after it breaks is two; a page blank, scribbled, then washed is three. Feed each where shown: prose redraws the state every take. Count the states before the reference review — a reference accepted in one state a later shot contradicts stales every panel built on it.
 - **At `close`, anchor the subject and let the set fall to suggestion** — shallow depth of field, one sliver of set behind carrying the setup's `holds`: it owes the location its material and light, and owes it no layout. `insert` holds nothing — it fills the frame with an object and shows no set.
 - **Keep the set quiet** — the frame holds only what the shot reads against; every extra prop hands motion background churn to fail on. Keep the master sparse; dress a shot's prop in its panel.
@@ -53,8 +53,9 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 - **The 180° line is checked between two shots in one place** — a single subject re-framed from the other side settles no pair, so it is yours to catch.
 - **Matching backgrounds is a chosen spend** — owed only where two frames share geography on screen (a continuous-space stretch, a re-established `wide`); there, pin the look on a `reference.tsx` asset and compare the adjacent panels at the board, before paying for motion.
 - **Change two of size / angle / subject on every cut** — unless a match cut is the point; a cut that changes only one reads as a jump, and cutting back to one setup without a shot between flattens the sequence.
-- **The edit base chooses the camera** — a keyframe built by editing a neighbouring shot's populated frame inherits its composition whatever the prompt says. Chain off a neighbour only when a match cut is the point. Otherwise draw it from the shot's own draft frame. At a `join: "continuous"` seam, keep the camera of the panel before it.
+- **The edit base chooses the camera** — a keyframe built by editing a neighbouring shot's populated frame inherits its composition whatever the prompt says. Chain off a neighbour only when a match cut is the point. Otherwise start from the plate whenever the shot is on a declared setup. At a `join: "continuous"` seam, keep the camera of the panel before it.
 - **A long take has one frame at its seam, and it is the next shot's first panel** — `join: "continuous"`: the shot before authors no closing keyframe; its last panel carries `blocking` / `camera` like any other. Nothing is passed on the board.
+- **A cut along one `within` axis takes the frame before it** — two setups of one axis, no join written: the previous shot's last panel goes in one of the keyframe's image inputs (a cutin's: the last panel of the cutin before it), for a model that reads it as the frame the cut comes from (`readsPrevPanel` in `konte adapter show`). The plate fixes the room, that panel the subject's light, size and position; a cut between two lineups sharing no subject owes none. `panel-unlinked` gates it; a cut meant to re-open the frame is the waiver.
 - **Save the strongest staging for the payoff** — the lens's payoff role gets the most distinct frame in the piece; spending it on a setup role upstages the climax.
 - **Name light and time per shot, and let them progress** — a light source and time of day are continuity anchors within a scene and an arc across the piece; unnamed light drifts per generation.
 

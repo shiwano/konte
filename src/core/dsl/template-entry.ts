@@ -165,6 +165,8 @@ export type { ShotFunction } from "./shot-context.js";
 export {
   defineAnimatic,
   type DefineAnimaticOptions,
+  type SetupIdOf,
+  type AnimaticPlates,
   type AnimaticDraft,
   type AnimaticDrafts,
   type DraftBuildContext,

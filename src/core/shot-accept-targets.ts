@@ -23,7 +23,7 @@ import { extractRefs } from "./graph.js";
 import { variantMediaKind } from "./media-type.js";
 import { shotById } from "./shot-index.js";
 import type { StateManager } from "./state/index.js";
-import { isPendingShot, type StageDefinition } from "./types/index.js";
+import { isPendingShot, type AssetDefinition, type StageDefinition } from "./types/index.js";
 
 /**
  * The addresses ONE shot decision lands on, split by how each is accepted.
@@ -273,8 +273,10 @@ function refsOf(video: StageDefinition, address: string): readonly string[] {
   const definition =
     parsed.kind === "shot"
       ? shotById(video.shots, parsed.shotId)?.assets?.[parsed.assetName]
-      : parsed.kind === "draft"
-        ? undefined
-        : video.topLevelAssets?.[parsed.assetName];
+      : parsed.kind === "plate"
+        ? (video as { plates?: Record<string, AssetDefinition> }).plates?.[parsed.assetName]
+        : parsed.kind === "draft"
+          ? undefined
+          : video.topLevelAssets?.[parsed.assetName];
   return definition ? extractRefs(definition) : [];
 }

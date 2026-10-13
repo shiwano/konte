@@ -2,6 +2,7 @@ import {
   type Stage,
   formatAssetPathSuffix,
   isPatchAddress,
+  isPlateAddress,
   isDraftAddress,
   parseAddress,
 } from "./address.js";
@@ -36,8 +37,8 @@ export interface AddressInfo {
    * without returning it: generated and tracked like any other, but read through the asset that
    * consumes it, so it is on no review surface and nothing waits on an accept of it. It counts
    * toward neither the accept nor the generation ratio; only a `file` one's absence from disk shows,
-   * since putting the file there is the author's work whoever reads it. Also false for a draft,
-   * judged inside the panels drawn from it; it is still `generate` work.
+   * since putting the file there is the author's work whoever reads it. Also false for a plate,
+   * judged inside the panels drawn on it; it is still `generate` work.
    */
   reviewTarget: boolean;
   /**
@@ -759,7 +760,7 @@ export function computeStatusSections(
   return sections;
 }
 
-// Pipeline order: the shared pool (reference sheets) feeds the board, which feeds the video, so the
+// Pipeline order: the shared pool (reference plates) feeds the board, which feeds the video, so the
 // first unfinished line is the one to work on.
 const STAGE_ORDER: string[] = ["reference", "animatic", "video"] satisfies Stage[];
 
@@ -814,10 +815,12 @@ export function computeExportReadiness(
     // is reported apart, since no `generate` puts it there.
     if (info.missingFilePath !== null) entry.filesMissing.push(suffix);
     // An intermediate counts on neither axis: nobody accepts one, and `generate` reaches it through
-    // the asset that consumes it. A draft is the exception: baked while every shot on it may still
-    // be a `pendingShot`, it is `generate` work of its own.
+    // the asset that consumes it. A plate and a draft are the exception: baked while every shot on
+    // them may still be a `pendingShot`, each is `generate` work of its own.
     if (!info.reviewTarget) {
-      if (isDraftAddress(info.address)) countGenerateWork(entry, info, suffix);
+      if (isPlateAddress(info.address) || isDraftAddress(info.address)) {
+        countGenerateWork(entry, info, suffix);
+      }
       return;
     }
     entry.total++;

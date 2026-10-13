@@ -39,7 +39,7 @@ A take declared under `drafts`: several shots in one clip, whose text decides ea
 - **`shots: cuts((id) => text)`** — one text per shot; the cut times are the direction's.
 - **A shot comes back as written** — a height, an angle, a near plane and a far one that the text names are in the frame; what it leaves out comes back flat.
 - **A reroll of unchanged text returns the same composition** — change the text to change the frame.
-- **The place's reference is an image, `attribute_transfer`.**
+- **Each setup's plate is an image, `attribute_transfer`** — the plate's sentence goes in the text of every shot on it.
 - **`refImageSize: "match"`**, no `audioStem`, no `audioN`, both sound fields `N/A`.
 - **`previous` is `video1`, and the take is its continuation** — `subjectDefinitions` gains `<Video 1> is the footage just before this take; this take continues from it.`, `summary` opens `The target video continues <Video 1>.` with tasks `video continuation` + `reference generation`, and `retentionAnalysis` gains a `<Video 1>` line naming what carries over.
 

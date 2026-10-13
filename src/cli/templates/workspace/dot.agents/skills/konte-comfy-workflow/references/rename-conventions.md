@@ -17,7 +17,7 @@
 - **Fix LoadAudio inputs**: type `"audio"`.
 - **The model's conditioning → `"prompt"`**: the positive `prompt`, a music model's style `tags`/`caption`, a voice-design `instruct`. It is what the prompt check reads.
 - **The exclusion half → `"negativePrompt"`**: every exposed negative field; only a negation among its terms is refused.
-- **A first/last frame → `pin: "start"` / `pin: "end"`**: an image the model reproduces as that frame. The pin check then refuses a `reference:` sheet there. Images only, one input per end. When the end is anchored by a frame-index field (H3's `MiniMaxH3AddGuide.frame_idx`), write `pin: { end: { nodeId, field } }` naming it.
+- **A first/last frame → `pin: "start"` / `pin: "end"`**: an image the model reproduces as that frame. The pin check then refuses a `reference:` sheet or a plate there. Images only, one input per end. When the end is anchored by a frame-index field (H3's `MiniMaxH3AddGuide.frame_idx`), write `pin: { end: { nodeId, field } }` naming it.
 - **The voiced words → `"spokenText"`**: a TTS `text`/`script`, a `lyrics` sheet.
 - **Words embedded in a `"prompt"` → `spokenTextPattern`**: declare this adapter-level regex with capture group 1 matching the spoken words in the model's syntax.
 - **Canvas size / frame rate → `"width"` / `"height"` / `"fps"` types**: the importer emits every numeric knob as `"number"`, so a workflow's canvas width, height and frame-rate inputs arrive as plain numbers. Retype them — konte then auto-fills each from the video's `format` (size / fps) when the author omits it. **Do not** retype an upscaler's _target_ width/height (delivery-driven, not the canvas) — leave those `"number"`.

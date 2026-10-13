@@ -48,10 +48,12 @@ export default defineDirection({
       landmarks: {
         counter: {
           name: "the counter",
+          promptDepiction: "counter",
           description: "The white galley counter running the length of the room.",
         },
         window: {
           name: "the window",
+          promptDepiction: "window",
           description: "The sash window at the far end, the room's only light.",
         },
       },
@@ -63,6 +65,7 @@ export default defineDirection({
       description: "From the doorway at eye level, the whole counter.",
       location: "kitchen",
       framing: "wide",
+      within: null,
       holds: ["counter", "window"],
     },
     mugInsert: {
@@ -77,6 +80,7 @@ export default defineDirection({
       description: "Side on, both of them in one frame from the waist up.",
       location: "kitchen",
       framing: "medium",
+      within: null,
       holds: ["counter"],
     },
     ownerClose: {
@@ -84,6 +88,7 @@ export default defineDirection({
       description: "Tight on the owner's face and hands above the counter.",
       location: "kitchen",
       framing: "close",
+      within: "standoffMedium",
       holds: ["counter"],
     },
   },

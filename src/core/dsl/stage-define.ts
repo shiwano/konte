@@ -16,6 +16,7 @@ import { isAsideShotInput, isPendingShotInput } from "./builders.js";
 import { Composition } from "./composition/index.js";
 import type { DirectionIndex } from "./direction.js";
 import { endClipLengthCollection, type ClipLength } from "./clip-length-collect.js";
+import { endImageInputCollection } from "./image-input-collect.js";
 import { endPinCollection } from "./pin-collect.js";
 import { endPromptCollection } from "./prompt-collect.js";
 import { endRespellCollection } from "./respell.js";
@@ -234,6 +235,7 @@ export function defineStage(args: DefineStageArgs): StageBuild {
 
   const prompts = endPromptCollection();
   const pins = endPinCollection();
+  const { imageInputs, prevPanelReaders } = endImageInputCollection();
   const clipLengths = endClipLengthCollection();
   const respellings = endRespellCollection();
 
@@ -250,6 +252,8 @@ export function defineStage(args: DefineStageArgs): StageBuild {
       timelineFn,
       prompts: prompts.length > 0 ? prompts : undefined,
       pins: pins.length > 0 ? pins : undefined,
+      imageInputs: imageInputs.length > 0 ? imageInputs : undefined,
+      prevPanelReaders: prevPanelReaders.length > 0 ? prevPanelReaders : undefined,
       waivers: args.waivers,
       respellings,
     },

@@ -122,7 +122,7 @@ outlined in its own color; the second is each window as imageCrop would render i
 output size, its cell naming its color and geometry. Writes nothing to the definition or state.
 
 <image> is a variant id (v-…) or an address, resolved like konte ref. When it is an imageCrop asset
-(a frame cut from a master), its master is the source, its own window is shown as "current", and
+(a plate cut from a master), its master is the source, its own window is shown as "current", and
 every --rect is on the master and rendered at that asset's output size. Otherwise the image
 itself is the source and each window is rendered at the animatic's canvas (the video's, with no
 animatic). A window whose aspect differs from the output's is reported: imageCrop stretches it.
@@ -131,7 +131,7 @@ Each --rect value is source pixels or, with %, a percent of the source's width (
 (y, height).
 
 Examples:
-  konte probe crop reference:deskMedium --rect 0,480,1760,440
+  konte probe crop animatic:plate.deskMedium --rect 0,480,1760,440
                                                    The current window beside a lower one
   konte probe crop reference:studio --rect 3160,430,640,160 --rect 2800,300,1280,320
                                                    Two candidate windows on the master`,

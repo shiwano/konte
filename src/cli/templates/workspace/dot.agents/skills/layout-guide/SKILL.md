@@ -1,6 +1,6 @@
 ---
 name: layout-guide
-description: Lay out an accepted direction into stage definitions — wire rosters and brought material, lay out every shot in animatic.tsx / video.tsx, draft the takes, then develop and self-check one direction sequence at a time. Read when the direction is accepted and stage files are missing, when developing pendingShot shots, adding shots, or restructuring a definition; human reviews use generation-loop-guide.
+description: Lay out an accepted direction into stage definitions — wire rosters and brought material, lay out every shot in animatic.tsx / video.tsx, bake the plates, then develop and self-check one direction sequence at a time. Read when the direction is accepted and stage files are missing, when developing pendingShot shots, adding shots, or restructuring a definition; human reviews use generation-loop-guide.
 user-invocable: false
 ---
 
@@ -11,7 +11,7 @@ Turn the accepted direction into stage definitions ready to generate — rosters
 ## 1. Preflight
 
 - **The direction is accepted, or this isn't your step** — `konte status`; a direction review under Next steps, or a change that belongs in `direction.ts` → `drafting-guide`. A part reported as changed with no direction review offered needs none: the stage review it belongs to signs it off.
-- **Re-entering a piece → `konte status` before editing** — which shots are developed, what's accepted, which pendings remain. Drafts taken → resume at step 7.
+- **Re-entering a piece → `konte status` before editing** — which shots are developed, what's accepted, which pendings remain. Plates baked → resume at step 7.
 
 ## 2. Wire brought material as file assets
 
@@ -37,9 +37,15 @@ Bring each file under `assets/files/` in as `file` kind — no generation. Pick 
 - **Mirror the structure into `video.tsx` as the same `pendingShot(id)` skeleton** — one per shot ID (`konte export` refuses while any remain).
 - **An aside shot is `asideShot(id)`** — never boarded, never `pendingShot`ed; the video builds it, usually one `file`. A generated OP is its own konte video, exported and brought in as that file.
 
-## 6. Draft the takes
+## 6. Bake the plates
 
-- **Split every camera shot into draft takes, shots still pending** → `staging-guide`.
+- **Wire plates** → `staging-guide`; every shot stays pending through the bake.
+- **Spawn `konte-prompt-critic` with only the `animatic.tsx` path before the bake.**
+- **`konte generate animatic`, `konte job wait`, then spawn `konte-animatic-critic` with only `plates`** — recut or reroll a wrong frame before any panel stands on it. **Accept nothing**: a plate is never review work; the accept of the first panel built on it signs it off.
+
+## 6b. Draft the takes
+
+- **Split every camera shot into draft takes, shots still pending** → `staging-guide`; the plates are baked first.
 - **Before the spend, spawn `konte-staging-critic` per take with its shot ids, then `konte-prompt-critic` with only the `animatic.tsx` path.**
 - **`konte generate animatic`, `konte job wait`, then spawn `konte-animatic-critic` with only `drafts`** — move a frame or reroll a take before any panel is drawn from it.
 
@@ -52,6 +58,7 @@ Developing a shot = swapping its pending form for the real one — `pendingShot(
 - **A `join: "continuous"` pair is developed together** — the second shot's picture is derived from the first's, so leaving one of them a `pendingShot` leaves the other nothing to build on. Take the pair in one pass even where a sequence boundary falls between them.
 - **Carry a sequence through both stages before laying out the next** — its panels accepted, then its video shots developed and accepted. A video shot's motion prompt is written from the accepted frames; the next sequence's prompts from what this one settled — the adapter, the prompt pattern, each recurring subject's look.
 - **Each panel is drawn from a frame of its shot's draft take** — pick it before the prompt is written (`staging-guide`).
+- **Write each panel prompt from the plate on screen** — the prompt names what that frame actually shows as its `<Picture N>`. Written from the roster prose instead, the plate is wired in but unread by the model: `setup-unconsumed` passes and the frame drifts anyway.
 - **Leave `blocking`/`camera` off every `<Panel>`** — they are written from the take, in `generation-loop-guide`'s self-review. The shot's `script` is sounded with `<Audio>`, not written onto a panel.
 - **An animatic `pendingShot` may stay for good** — a shot produced by text-to-video or staged in composition consumes no keyframe; name the deferral in the handoff.
 - **Editing a definition copied from another video is writing it** — read the guides above before the first edit; a carried-over prompt holds the other piece's staging and adapter choices.
@@ -61,7 +68,7 @@ Developing a shot = swapping its pending form for the real one — `pendingShot(
 Every pass reads the files you just wrote, never your memory of what you meant.
 
 - **First a staging pass, at most eight shots at a time** — each panel prompt for its composition alone, against `staging-guide`'s frame rules; rewrite one that leaves the frame to the model. Once the whole sequence is staged, spawn `konte-staging-critic` with only its shot ids.
-- **A match pass, definition against definition** — each reference prompt against its roster entry and the job it holds as an anchor (single subject, clean ground, identifying features in frame); each panel prompt against its shot (`action`, `script`, and the size/place its `setup` carries) and the anchors it conditions on — the `reference:<id>`s; each motion prompt against the panel's `blocking` / `camera` and the shot's `duration`; each voice asset word for word against the shot's `script` line and a character line's delivery against that shot's `action`, each bed against `brief.tone`. A promise the prompt drops, or an element it invents, is a rewrite now — after generating it is a reroll.
+- **A match pass, definition against definition** — each reference prompt against its roster entry and the job it holds as an anchor (single subject, clean ground, identifying features in frame); each panel prompt against its shot (`action`, `script`, and the size/place its `setup` carries) and the anchors it conditions on — the `reference:<id>`s, and the setup's plate where it has one; each motion prompt against the panel's `blocking` / `camera` and the shot's `duration`; each voice asset word for word against the shot's `script` line and a character line's delivery against that shot's `action`, each bed against `brief.tone`. A promise the prompt drops, or an element it invents, is a rewrite now — after generating it is a reroll.
 - **Then each opening panel against the motion it must launch** — is the condition its `action` lands true in the frame the prompt fixes? Untrue, or half true, is a rewrite, unless that shot opens on the tail by choice.
 - **Then a run-through, shot against shot** — `konte inspect <stage>:shot.<id> --prompts` prints each address's `lineup:` and `set:` lines above its prompt. Read this sequence in order, opening from the last accepted shot before it, against `staging-guide`'s frame and cut rules: every subject by its `promptDepiction` in `lineup:` order, each `set:` landmark on its side, one continuity state described identically everywhere — **put each recurring element's wording side by side across shots**.
 - **`brief.outOfScope` is a rewrite wherever it shows**; what `brief.tolerances` accepts is never a finding.
@@ -80,5 +87,5 @@ Every pass reads the files you just wrote, never your memory of what you meant.
 
 ## Don't
 
-- generate mid-layout outside step 6's draft takes, open a preview, or accept / unaccept a variant — **except a take the human named**: `konte accept <variantId> -y` records their sign-off.
+- generate mid-layout outside step 6's plate bake, open a preview, or accept / unaccept a variant — **except a take the human named**: `konte accept <variantId> -y` records their sign-off.
 - develop past the current sequence before its review is in.

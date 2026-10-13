@@ -23,7 +23,11 @@ import {
   isDirectionBriefListField,
 } from "../../../core/address.js";
 import { errorResponse, jsonResponse, parseJsonBody } from "../../page-host/http.js";
-import { loadStagingStageState, loadSongTakeState } from "../../load-definition.js";
+import {
+  loadAnimaticSetupState,
+  loadStagingStageState,
+  loadSongTakeState,
+} from "../../load-definition.js";
 import {
   checkDirection,
   directionWaiverEntries,
@@ -130,6 +134,7 @@ export async function handleGetDirectionState(
 
   const check = checkDirection(direction, {
     referenceAssetNames: reference?.exposedAssetNames ?? [],
+    animaticSetups: await loadAnimaticSetupState(videoRoot, direction),
     stagingStage: await loadStagingStageState(videoRoot, direction),
     songTake: await loadSongTakeState(videoRoot, direction),
   });
@@ -431,6 +436,11 @@ export async function handleGetDirectionState(
       holds: (s.holds ?? []).map(
         (holdId) => direction.locations?.[s.location]?.landmarks?.[holdId]?.name ?? holdId,
       ),
+      // The name, like `location` above. Sent only where the author declared one, so an undeclared
+      // frame is not shown as a root while `within-undeclared` is asking it to choose.
+      ...(s.within !== undefined
+        ? { within: s.within ? (direction.setups?.[s.within]?.name ?? s.within) : null }
+        : {}),
       ...partView(formatDirectionSetupAddress(id)),
     })),
     waivers,

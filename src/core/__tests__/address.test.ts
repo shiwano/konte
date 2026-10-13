@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assetNameOf,
+  type DefinitionLike,
   addressFromCacheSegments,
   addressToCacheSegments,
   assertValidAddressScope,
@@ -9,6 +10,8 @@ import {
   formatAssetPath,
   formatCompositionAddress,
   formatPatchAssetPath,
+  formatAssetPathSuffix,
+  formatPlateAssetPath,
   formatShotStemAddress,
   formatTimelineAddress,
   formatTimelineAssetPath,
@@ -775,6 +778,71 @@ describe("timeline address-scope", () => {
     expect(matchesAddressScope("video:timeline.bg#delivery", "video:timeline")).toBe(true);
     expect(matchesAddressScope("video:shot.01.motion", "video:timeline")).toBe(false);
     expect(matchesAddressScope("animatic:timeline.bg1", "video:timeline")).toBe(false);
+  });
+});
+
+describe("setup addresses", () => {
+  it("parses a plate as its own kind, with the setup id in the name slot", () => {
+    expect(parseAddress("animatic:plate.deskWide")).toEqual({
+      stage: "animatic",
+      kind: "plate",
+      assetName: "deskWide",
+      delivery: false,
+    });
+  });
+
+  it("formats and round-trips", () => {
+    const address = formatPlateAssetPath("deskWide");
+    expect(address).toBe("animatic:plate.deskWide");
+    expect(formatAssetPathSuffix(parseAddress(address))).toBe("plate.deskWide");
+  });
+
+  // A plate has no second name slot, so neither `#` axis applies to it.
+  it("rejects a reserved name and a delivery derivative on a plate", () => {
+    expect(() => parseAddress("animatic:plate.deskWide#delivery")).toThrow(KonteError);
+    expect(() => parseAddress("animatic:plate#composition")).toThrow(KonteError);
+    expect(() => parseAddress("animatic:plate")).toThrow(KonteError);
+  });
+
+  // Only the animatic owns plates, so only the animatic spells one.
+  it("refuses the setup namespace on any other stage", () => {
+    expect(() => parseAddress("video:setup.deskWide")).toThrow(KonteError);
+    expect(() => parseAddress("reference:setup.deskWide")).toThrow(KonteError);
+    expect(() => assertValidAddressScope("video:setup")).toThrow(KonteError);
+  });
+
+  it("takes the bare container as a scope, like a bare timeline", () => {
+    expect(() => assertValidAddressScope("animatic:plate")).not.toThrow();
+    expect(() => assertValidAddressScope("animatic:plate.deskWide")).not.toThrow();
+    expect(() => assertValidAddressScope("animatic:plate.")).toThrow(KonteError);
+    expect(matchesAddressScope("animatic:plate.deskWide", "animatic:plate")).toBe(true);
+    expect(matchesAddressScope("animatic:timeline.bg", "animatic:plate")).toBe(false);
+  });
+
+  it("looks a plate up in plates, not the timeline pool", () => {
+    const definition: DefinitionLike = {
+      shots: [],
+      topLevelAssets: { deskWide: { kind: "file", path: "timeline.png" } },
+      plates: { deskWide: { kind: "file", path: "plate.png" } },
+    };
+    expect(getAssetEntry(definition, "animatic:plate.deskWide")).toEqual({
+      kind: "file",
+      path: "plate.png",
+    });
+    expect(listAssetPaths(definition, "animatic")).toContain("animatic:plate.deskWide");
+  });
+});
+
+describe("plate review", () => {
+  // A plate is judged inside the panels drawn on it; no review lists it on its own.
+  it("is listed as an asset but never as review work", () => {
+    const definition: DefinitionLike = {
+      shots: [],
+      plates: { front: { kind: "file", path: "front.png" } },
+      exposedPlateIds: ["front"],
+    };
+    expect(listAssetPaths(definition, "animatic")).toContain("animatic:plate.front");
+    expect(listReviewableAssetPaths(definition, "animatic")).not.toContain("animatic:plate.front");
   });
 });
 
