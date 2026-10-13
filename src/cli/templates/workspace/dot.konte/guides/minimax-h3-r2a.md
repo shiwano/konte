@@ -26,7 +26,7 @@ prompt: {
 
 ## References
 
-- **`<Audio N>` is a copied or referenced signal** — `audio1` → `<Audio 1>`, `audio2` → `<Audio 2>`. No `<Video N>`.
+- **`audio1` → `<Audio 1>`, `audio2` → `<Audio 2>`.** No `<Video N>`.
 
 ## Task Type
 
@@ -35,10 +35,9 @@ prompt: {
 ## Casting
 
 - **The canvas is heard, though no frame is decoded** — `width`/`height` set the voice as well. Raise both to 256 for a line that still breaks at 128, never to the project canvas.
-- **Cast the voice with the reference set** — the speaker's sheet as a `<Picture N>` cited in their `<Subject N>`, the timbre as `<Audio N>`.
 - **A take with no reference designs the voice** — the description alone casts it, so it comes back a different person on every seed. Make the character's voice sample this way, as `prompt-guide` describes it, rerolling until the voice is right.
 - **Pass the accepted sample as `audio1`** — on every line the character speaks, marked `weak_reference`.
-- **A line a mouth has to match is made here** — accept the R2A take and hand it to R2V as `audioStem`, or play it over the composition as `<Audio>`.
+- **A line a mouth has to match is made here** — accept the R2A take as the shot's `<Audio>` on the board.
 
 ## Clip Length
 

@@ -4,10 +4,18 @@ What a decoded frame reads from the prompt.
 
 ## Frames
 
-- **A picture used as a frame gets the frame phrasing** — `the shot begins from <Picture 1>`, `the shot's keyframe corresponds to <Picture 2>`, `the shot ends on <Picture 3>`, and `keyframe completion` in the task type. A panel that plans the shot rather than filling a frame says so instead: `<Picture 3> is an animatic reference for [Shot 1] and [Shot 2], defining their viewpoint, subject placement, and shot order.`
+- **A picture used as a frame is defined as one and cited in its shot** — in `subjectDefinitions`, `<Picture 1> is the first frame of [Shot 1].`, `<Picture 2> is the last frame of [Shot 1].`; in the shot's text, `the shot begins from <Picture 1>`, `the shot's keyframe corresponds to <Picture 2>`, `the shot ends on <Picture 3>`; and `keyframe completion` in the task type. A panel that plans the shot rather than filling a frame says so instead: `<Picture 3> is an animatic reference for [Shot 1] and [Shot 2], defining their viewpoint, subject placement, and shot order.`
 - **A passed frame fixes the camera as well as the content.** Its height and axis carry into the take, and prose rarely overrides them — writing "much closer, held level with his face" moves the distance and leaves the borrowed downward angle. Pass **the frame whose camera you want**: the wide a push-in cuts from hands over its own distance, so the push-in never lands.
 - **A populated frame with no slot wins the frame** — a neighbouring panel passed as a bare `<Picture N>` brings its own framing and pose. A panel goes in only as a frame the description names by shot.
-- **A picture of the place passed `fully_preserved` locks its framing** — prose in any shot asking for a closer view or a narrower space is ignored. To take a frame it does not hold, mark it `attribute_transfer`: its setting, materials and light carried onto a new camera position, the framing new.
+
+## Retention
+
+- **`fully_preserved` holds the label's defined role whole.**
+- **A picture of the place passed `fully_preserved` locks its framing** — prose in any shot asking for a closer view or a narrower space is ignored.
+- **`fully_preserved` on a face carries the sheet's expression too** — a cast sheet is a calm or cheerful face and comes back that way on a shot written as terror. Keep the bone structure, hair and clothing, and say in the same line that the expression is remade as the description writes it, overriding the sheet's.
+- **`partially_preserved` still uses the content, with some of its defined characteristics changed or only partly held.**
+- **`attribute_transfer` carries the reference's characteristics onto a different target** — a place's setting, materials and light onto a camera position its picture does not hold, the framing new.
+- **`weak_reference` holds only a broad similarity of style, category, composition or atmosphere** — an animatic reference's line, colour and detail come from the references passed beside it.
 
 ## Pose and Placement
 

@@ -8,7 +8,7 @@ Picture and stereo audio decoded from one take.
 
 ## References
 
-- **`<Video N>` is numbered as `<Picture N>` is; `<Audio N>` is a copied or referenced signal, ordered under Reference Audio.**
+- **`<Video N>` is numbered as `<Picture N>` is; `<Audio N>` is ordered under Reference Audio.**
 
 ## Task Type
 
@@ -21,7 +21,7 @@ Picture and stereo audio decoded from one take.
 
 ## Keyframes
 
-- **`startImage` pins the take's first frame pixel for pixel, `endImage` the frame just past the shot** — the shot's last shown frame leads into it. Neither takes a `<Picture N>` tag. To name the frame in the prompt, pass the same panel as `image1` (and `image2`) and write it as `keyframe completion` (`<Picture 1> is the first frame of [Shot 1].`, `<Picture 2> is the last frame of [Shot 1].`). A panel passed as `image1` alone holds the composition without fixing it.
+- **A pinned frame is named in the prompt by passing the same panel as `image1` (and `image2`).** A panel passed as `image1` alone holds the composition without fixing it.
 - **With `startImage` alone, develop forward** — the pinned frame carries the set, composition and light; write the action's onset, its continuous development, and the result or reaction it lands on, and describe the set only where the motion reveals or changes it. Identity, clothing, colours, key objects and spatial relationships hold across all of it.
 - **With both frames, favour one shot**; cut only when the shot needs it. Write the path — the onset, the observable intermediate changes, the differences narrowing, the landing.
 - **With `endImage` alone, converge on it** — infer the state the shot opens in, then write the subjects, objects, camera and light closing on the pinned frame, landing on it in the last shot.
@@ -39,10 +39,9 @@ A take declared under `drafts`: several shots in one clip, whose text decides ea
 - **`shots: cuts((id) => text)`** — one text per shot; the cut times are the direction's.
 - **A shot comes back as written** — a height, an angle, a near plane and a far one that the text names are in the frame; what it leaves out comes back flat.
 - **A reroll of unchanged text returns the same composition** — change the text to change the frame.
-- **The place's reference is an image, `attribute_transfer`** — its room and light carried, the framing the take's own.
+- **The place's reference is an image, `attribute_transfer`.**
 - **`refImageSize: "match"`**, no `audioStem`, no `audioN`, both sound fields `N/A`.
 - **`previous` is `video1`, and the take is its continuation** — `subjectDefinitions` gains `<Video 1> is the footage just before this take; this take continues from it.`, `summary` opens `The target video continues <Video 1>.` with tasks `video continuation` + `reference generation`, and `retentionAnalysis` gains a `<Video 1>` line naming what carries over.
-- **The clip is truncated to this take's length from its head** — konte hands `previous` already cut to its last seconds.
 
 ## Shots and Cuts
 
@@ -80,19 +79,18 @@ The camera holds a static shot as the runner exits the frame.
 
 ## Reference Audio
 
-- **A clip's own soundtrack is `video1Audio`…`video3Audio`** — the same clip handed a second time, beside the `video1`…`video3` it belongs to; without that clip it is refused.
 - **The `<Audio N>` order is `video1Audio`…`video3Audio`, then `audio1`…`audio3`** — count the wired slots in that order and number them from 1.
 
 ## The Stem
 
-- **A line a mouth has to match is `animatic.stem` passed as `audioStem`** — it takes no `<Audio N>` tag, no `audio reuse` / `audio reference` task type and no `retentionAnalysis` line; the words in `<d>` are the recording's own, verbatim, as in a reuse.
+- **A line a mouth has to match is `animatic.stem` passed as `audioStem`** — it takes no `audio reuse` / `audio reference` task type and no `retentionAnalysis` line; the words in `<d>` are the recording's own, verbatim, as in a reuse.
 - **An effect in the stem times the action that makes it** — name it at that action in `detailedDescription` (`her fist landing on her chest exactly on the dull thump in the soundtrack`), and in `overallSoundscape`.
 - **The clip arrives with its track baked in** — a composition plays it with `<Video hasAudio>` alone; a second `<Audio src={animatic.stem} />` over that take double-tracks the line.
-- **Narration goes in neither slot** — konte keeps it out of `animatic.stem`; a shot whose only line is narration leaves `audioStem` and `audio1` unpassed, lets the take carry only its soundscape, and plays `<Audio src={animatic.shot(id).narrationStem} />` over `<Video hasAudio>` in the composition.
+- **Narration goes in neither slot** — konte keeps it out of `animatic.stem`; a shot whose only line is narration leaves `audioStem` and `audio1` unpassed and lets the take carry only its soundscape.
 
 ## Clip Length
 
-- **Omit `length`** — it defaults to the shot's `duration × 24`, snapped up to the model's grid (one frame more with `endImage`).
+- **Omit `length`.**
 - **The rungs are `17k + 5`** — a value between them rounds up.
 - **The clock is 24fps** whatever the project's rate — moving `fps` off it without `length` rescales the motion and slips the audio.
 
