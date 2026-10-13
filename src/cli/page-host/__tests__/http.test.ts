@@ -414,6 +414,24 @@ describe("describeExposure", () => {
     expect(text).not.toContain("no authentication");
   });
 
+  it("puts the PIN on every line that names a route, so a filter keeping one keeps both", () => {
+    const policy: AccessPolicy = {
+      host: "192.168.1.5",
+      allowedHosts: ["review.example.com", "wide-fox-42.trycloudflare.com"],
+    };
+    const text =
+      describeExposure(policy, PORT, {
+        pin: "0427",
+        tunnelUrl: "https://wide-fox-42.trycloudflare.com",
+      }) ?? "";
+    const routes = text
+      .split("\n")
+      .filter((line) => /Listening on|Tunnel open|Accepting requests under/.test(line));
+    expect(routes).toHaveLength(3);
+    for (const line of routes) expect(line).toContain("PIN 0427");
+    expect(text).toMatch(/https:\/\/wide-fox-42\.trycloudflare\.com$/m);
+  });
+
   it("names a tunnel by the URL that reaches it, not by the host name in the policy", () => {
     const url = "https://wide-fox-42.trycloudflare.com";
     const policy: AccessPolicy = {

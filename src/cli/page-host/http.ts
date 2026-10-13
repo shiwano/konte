@@ -354,13 +354,15 @@ export function describeExposure(
   session: { pin?: string; tunnelUrl?: string } = {},
 ): string | null {
   const lines: string[] = [];
+  const { pin } = session;
+  const pinSuffix = pin ? ` — PIN ${pin}` : "";
   if (!isLoopbackBind(policy.host)) {
     const urls = localNetworkUrls(policy.host, port);
     const bind = policy.host.includes(":") ? `[${policy.host}]` : policy.host;
     lines.push(
       urls.length > 0
-        ? `Listening on ${bind}:${port} (this machine's private addresses: ${urls.join(", ")})`
-        : `Listening on ${bind}:${port}, with no private address to name`,
+        ? `Listening on ${bind}:${port} (this machine's private addresses: ${urls.join(", ")})${pinSuffix}`
+        : `Listening on ${bind}:${port}, with no private address to name${pinSuffix}`,
       "Inside a container or VM, the human reaches it at the host's address and forwarded port instead",
     );
     lines.push(
@@ -370,21 +372,25 @@ export function describeExposure(
   // The tunnel's own host name is in `allowedHosts` too; name it once, by the URL that reaches it.
   const tunnelHost = session.tunnelUrl ? hostOf(session.tunnelUrl) : null;
   if (session.tunnelUrl) {
-    lines.push(`Tunnel open — give the human this URL: ${session.tunnelUrl}`);
+    lines.push(
+      pin
+        ? `Tunnel open — give the human PIN ${pin} and this URL: ${session.tunnelUrl}`
+        : `Tunnel open — give the human this URL: ${session.tunnelUrl}`,
+    );
   }
   const named = policy.allowedHosts.filter((pattern) => pattern.trim() !== tunnelHost);
   if (named.length > 0) {
     const open = named.some((pattern) => pattern.trim() === "*");
     lines.push(
       open
-        ? `Accepting requests under ANY host name`
-        : `Accepting requests under ${named.join(", ")}. Give the human the URL your tunnel or proxy fronts.`,
+        ? `Accepting requests under ANY host name${pinSuffix}`
+        : `Accepting requests under ${named.join(", ")}. Give the human ${pin ? `PIN ${pin} and ` : ""}the URL your tunnel or proxy fronts.`,
     );
   }
   if (lines.length === 0) return null;
   lines.push(
-    session.pin
-      ? `PIN ${session.pin} — asked for once per browser. Everything off this machine goes through it.`
+    pin
+      ? "The PIN is asked for once per browser. Everything off this machine goes through it."
       : "The review UI has no authentication.",
   );
   return lines.map((line) => `  ! ${line}`).join("\n");
