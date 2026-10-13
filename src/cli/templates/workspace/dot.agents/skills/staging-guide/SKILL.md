@@ -1,6 +1,6 @@
 ---
 name: staging-guide
-description: Stage a shot's frame, cut and motion from its action, and build its plates and draft takes. Read before a shot's prompt or panel blocking/camera, when wiring plates or drafts or fixing a plate, landmark or keyframe-input finding, and for feedback about what the frame or movement conveys.
+description: Stage a shot's frame, cut and motion from its action, and build its plates. Read before a shot's prompt or panel blocking/camera, when wiring plates or fixing a plate, landmark or keyframe-input finding, and for feedback about what the frame or movement conveys.
 user-invocable: false
 ---
 
@@ -9,7 +9,6 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 ## Routing
 
 - **Building or using location masters or setup plates, or fixing related findings** → [plates.md](references/plates.md).
-- **Splitting shots into draft takes, picking a panel's frame from one, or redoing one** → [drafts.md](references/drafts.md).
 - **Changing a setup, lineup, join or cutin** → `direction-guide`.
 
 ## Where the movement lives
@@ -29,7 +28,6 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 
 ## Stage the frame
 
-- **A drafted shot is composed in its take's shot text** — every rule here is written there.
 - **The plate fixes the place and the camera; the panel prompt composes** — where each figure sits and faces, what fills the frame they leave open, what is nearest the lens, what the edges cut, chosen from what the `action` has to show; naming only who is left and right leaves the frame to the model.
 - **The eye lands on the action's carrier** — whatever the shot hinges on must be the frame's most salient element (position, contrast, light, motion); if a stranger's eye goes elsewhere first, the staging failed before the prompt.
 - **One strong signifier per idea** — pick the element that says it best and cut action-adjacent extras; each one added dilutes the read.

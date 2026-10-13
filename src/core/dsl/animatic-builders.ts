@@ -20,25 +20,12 @@ import type {
 import {
   getDirectionIndex,
   makeAnimaticShotStarter,
-  shotDurationOf,
   shotStartsOf,
   type DirectionIndex,
 } from "./direction.js";
 import { beginPromptCollection } from "./prompt-collect.js";
 import { assertRespellings, beginRespellCollection } from "./respell.js";
-import {
-  getShotContext,
-  makeDraftPlaceholder,
-  makePlatePlaceholder,
-  runInDraftDiscoveryMode,
-  runInPlateDiscoveryMode,
-} from "./shot-context.js";
-import { asset } from "./adapter.js";
-import { videoFrame } from "./adapters/local.js";
-import { makeMediaAsset } from "./builders.js";
-import type { Identifier } from "./validate-identifier.js";
-import { deriveDraftSize } from "../canvas.js";
-import { formatDraftAssetPath } from "../address.js";
+import { makePlatePlaceholder, runInPlateDiscoveryMode } from "./shot-context.js";
 import { scriptTexts } from "./shot-script.js";
 import type { ShotFunction } from "./shot-context.js";
 import { defineStage } from "./stage-define.js";
@@ -386,61 +373,10 @@ export type AnimaticPlate = { image: MediaAsset<"image">; prompt: string };
  */
 export type AnimaticPlates<D> = Partial<Record<SetupIdOf<D>, AnimaticPlate>>;
 
-/**
- * The shot ids a draft may cover. A `D` that never inferred as a direction literal leaves it `string`.
- */
-export type DraftShotIdOf<D> = [DirectionIdTuple<D>] extends [never]
-  ? string
-  : DirectionIdTuple<D>[number];
-
-/**
- * A draft's cut list as a multi-shot prompt takes it: the first shot's text, then each later shot
- * with the second its cut falls on, counted from the take's head on the direction's clock.
- */
-export type DraftCuts = [string, ...{ at: number; text: string }[]];
-
-/**
- * What one draft's build receives.
- */
-export type DraftBuildContext<TId extends string = string> = {
-  // The take's length: the sum of its shots' durations, in seconds.
-  duration: number;
-  // One text per shot of the draft, in order, laid on the direction's cut times.
-  cuts: (text: (id: TId) => string) => DraftCuts;
-  // The draft take just before this one in direction order, cut to its last seconds — as many as
-  // this take runs — a reference clip to continue from. `undefined` on the first take and wherever the
-  // place changes between the two.
-  previous: MediaAsset<"video"> | undefined;
-};
-
-/**
- * One draft take as `timeline` receives it. `frame` declares an asset of the shot being built —
- * `animatic:shot.<id>.<name>`, the take's frame at `at` seconds — for a panel to be drawn from.
- */
-export interface AnimaticDraft<TId extends string = string> {
-  frame<TName extends string>(
-    id: TId,
-    name: TName & Identifier<TName>,
-    opts: { at: number },
-  ): MediaAsset<"image">;
-}
-
-export type DraftStarter<D> = <
-  const TIds extends readonly [DraftShotIdOf<D>, ...DraftShotIdOf<D>[]],
->(
-  ids: TIds,
-  build: (ctx: DraftBuildContext<TIds[number]>) => MediaAsset<"video">,
-) => AnimaticDraft<TIds[number]>;
-
-// Not `AnimaticDraft<string>`: `frame`'s id is a parameter, so a draft over two ids is not
-// assignable to one over every string.
-export type AnimaticDrafts = Record<string, AnimaticDraft<never>>;
-
 export interface DefineAnimaticOptions<
   D = unknown,
   Ids extends string = string,
   TPlates extends AnimaticPlates<D> = AnimaticPlates<D>,
-  TDrafts extends AnimaticDrafts = AnimaticDrafts,
 > {
   // The plates, each addressed `animatic:plate.<id>`. A plate holds that frame with nobody in it,
   // generated once and handed to every panel on that setup as an input — a prompt can move a subject
@@ -457,11 +393,6 @@ export interface DefineAnimaticOptions<
   // declared here and not returned is an intermediate the plates are built from and carries no
   // prompt.
   plates?: (args: { format: import("../types/index.js").VideoFormat }) => TPlates;
-  // The draft takes, each addressed `animatic:draft.<name>`: consecutive camera shots generated as
-  // one small clip. A panel is drawn from a frame of it (`drafts.<name>.frame(…)`). konte derives
-  // each take's cut times, length and size. It runs after `plates` and before `timeline`, which
-  // receives what it returned.
-  drafts?: (args: { draft: DraftStarter<D>; plates: TPlates }) => TDrafts;
   // Prompt findings this stage accepts, keyed the way `konte status` prints them
   // (`prompt-negation:<hash>`) over the reason each is right for the model it is written for. One
   // key covers every address a shared phrase reaches; never a fixable one — rewrite that prompt.
@@ -481,8 +412,6 @@ export interface DefineAnimaticOptions<
     asideShot: StageAsideShotStarter<D>;
     // The plates `plates` returned, each as `{ image, prompt }` — `{}` when it declared none.
     plates: TPlates;
-    // The drafts `drafts` returned — `{}` when it declared none.
-    drafts: TDrafts;
   }) => StageTimelineReturn<Ids, D>;
 }
 
@@ -496,10 +425,9 @@ export function defineAnimatic<
   const D,
   Ids extends string = string,
   TPlates extends AnimaticPlates<D> = AnimaticPlates<D>,
-  TDrafts extends AnimaticDrafts = AnimaticDrafts,
 >(
   direction: DirectionEntry<D>,
-  opts: DefineAnimaticOptions<D, Ids, TPlates, TDrafts>,
+  opts: DefineAnimaticOptions<D, Ids, TPlates>,
 ): AnimaticDefinition & AnimaticRef {
   const index = getDirectionIndex(direction);
   const starter = makeAnimaticShotStarter(index);
@@ -513,7 +441,6 @@ export function defineAnimatic<
   // Before the timeline: a shot's panel takes its plate as an input, so the placeholders must exist
   // by the time the chain is walked. Prompt collection already spans both.
   const plates = buildPlates(direction, index, opts.plates);
-  const drafts = buildDrafts(index, opts.drafts as DraftsCallback | undefined, plates.returned);
   const built = defineStage({
     stage: "animatic",
     index,
@@ -525,7 +452,6 @@ export function defineAnimatic<
         pendingShot,
         asideShot,
         plates: plates.returned as TPlates,
-        drafts: drafts.returned as TDrafts,
       }),
     waivers: opts.waivers,
     perShot: ({ input, element, context, cutin }) => {
@@ -572,10 +498,6 @@ export function defineAnimatic<
     definition.plates = plates.assets;
     definition.exposedPlateIds = plates.exposed;
     definition.platePrompts = plates.prompts;
-  }
-  if (drafts.assets) {
-    definition.drafts = drafts.assets;
-    definition.draftShots = drafts.shots;
   }
 
   assertRespellings(definition.respellings, index.scriptById);
@@ -748,224 +670,4 @@ function buildPlates<D>(
     exposed: Object.keys(returned),
     prompts,
   };
-}
-
-type DraftsCallback = (args: { draft: DraftStarter<unknown>; plates: object }) => object;
-
-type DraftEntry = {
-  ids: readonly string[];
-  build: (ctx: DraftBuildContext) => MediaAsset<"video">;
-  handle: AnimaticDraft;
-  name?: string;
-  // Set once its build has run.
-  take?: MediaAsset<"video">;
-  duration?: number;
-};
-
-function invalidDraft(message: string): KonteError {
-  return new KonteError("INVALID_DRAFT", `defineAnimatic: ${message}`);
-}
-
-// Run the `drafts` callback under its own discovery context. `draft()` only records a take; the
-// builds run once the callback has returned, in direction order, so each can be handed the take
-// before it.
-function buildDrafts(
-  index: DirectionIndex,
-  fn: DraftsCallback | undefined,
-  plates: object,
-): {
-  assets: Record<string, AssetDefinition> | undefined;
-  returned: object;
-  shots: Record<string, string[]>;
-} {
-  if (!fn) return { assets: undefined, returned: {}, shots: {} };
-  const clock = [...index.durationById.keys()];
-  const fps = index.format.fps;
-  const onFrames = (sec: number) => Math.round(sec * fps) / fps;
-  const size = deriveDraftSize(index.format.size.delivery);
-  const entries: DraftEntry[] = [];
-  const draftOfShot = new Map<string, DraftEntry>();
-
-  const draft = (ids: readonly string[], build: DraftEntry["build"]): AnimaticDraft => {
-    if (ids.length === 0) throw invalidDraft("draft([]) covers no shot.");
-    for (const id of ids) {
-      if (!index.durationById.has(id)) {
-        throw invalidDraft(`draft([…]) names shot "${id}", which direction.ts does not declare.`);
-      }
-      if (index.asideIds.has(id) || index.graphicIds.has(id)) {
-        throw invalidDraft(
-          `draft([…]) names shot "${id}", ${index.asideIds.has(id) ? "an aside" : "a graphic shot"}. ` +
-            `A draft covers camera shots only — end the take before it and start the next after it.`,
-        );
-      }
-    }
-    const first = clock.indexOf(ids[0]!);
-    ids.forEach((id, i) => {
-      if (clock[first + i] !== id) {
-        throw invalidDraft(
-          `draft([${ids.join(", ")}]) is not a run of consecutive shots in direction order: ` +
-            `"${clock[first + i] ?? "(the end)"}" follows "${ids[i - 1]}", not "${id}".`,
-        );
-      }
-    });
-    const entry: DraftEntry = {
-      ids,
-      build,
-      handle: {
-        frame: ((id: string, name: string, opts: { at: number }) =>
-          draftFrame(entry, id, name, opts)) as AnimaticDraft["frame"],
-      },
-    };
-    for (const id of ids) {
-      if (draftOfShot.has(id)) {
-        throw invalidDraft(`shot "${id}" is in two drafts. A shot's panels come from one take.`);
-      }
-      draftOfShot.set(id, entry);
-    }
-    entries.push(entry);
-    return entry.handle;
-  };
-
-  // The take this one continues: the one holding the camera shot just before its first, asides and
-  // graphic shots passed over, where both stand in one place.
-  const previousOf = (entry: DraftEntry): DraftEntry | undefined => {
-    for (let at = clock.indexOf(entry.ids[0]!) - 1; at >= 0; at--) {
-      const id = clock[at]!;
-      if (index.asideIds.has(id) || index.graphicIds.has(id)) continue;
-      const before = draftOfShot.get(id);
-      if (before?.take === undefined || before.ids.at(-1) !== id) return undefined;
-      return index.locationById.get(id) === index.locationById.get(entry.ids[0]!)
-        ? before
-        : undefined;
-    }
-    return undefined;
-  };
-
-  const discovery = runInDraftDiscoveryMode((pool) => {
-    const declared = fn({ draft: draft as DraftStarter<unknown>, plates }) as Record<
-      string,
-      unknown
-    >;
-    for (const [name, handle] of Object.entries(declared)) {
-      const entry = entries.find((e) => e.handle === handle);
-      if (!entry) throw invalidDraft(`drafts."${name}" must be a draft([…], …) of this callback.`);
-      if (entry.name !== undefined) {
-        throw invalidDraft(`drafts."${entry.name}" and drafts."${name}" return the same draft.`);
-      }
-      entry.name = name;
-    }
-    const unreturned = entries.find((e) => e.name === undefined);
-    if (unreturned) {
-      throw invalidDraft(
-        `draft([${unreturned.ids.join(", ")}]) was not returned from \`drafts\`. Return every draft ` +
-          `under the name its asset("<name>", …) declares.`,
-      );
-    }
-
-    entries.sort((a, b) => clock.indexOf(a.ids[0]!) - clock.indexOf(b.ids[0]!));
-    for (const entry of entries) {
-      const name = entry.name!;
-      const durations = entry.ids.map((id) => shotDurationOf(index, id));
-      const duration = onFrames(durations.reduce((sum, d) => sum + d, 0));
-      entry.duration = duration;
-      pool.format = { size, fps, duration, typography: index.typography };
-
-      let previous: MediaAsset<"video"> | undefined | null = null;
-      const ctx: DraftBuildContext = {
-        duration,
-        cuts: (text) => {
-          let at = 0;
-          const [first, ...rest] = entry.ids.map((id, i) => {
-            const cut = { at: onFrames(at), text: text(id) };
-            at += durations[i]!;
-            return cut;
-          });
-          return [first!.text, ...rest];
-        },
-        // Read lazily: the cut is an asset of its own, declared only for a build that takes it.
-        get previous() {
-          if (previous !== null) return previous;
-          const before = previousOf(entry);
-          if (!before) return (previous = undefined);
-          const cut = `${name}#previous`;
-          pool.assets.set(cut, {
-            kind: "local",
-            operation: "trim",
-            mediaType: "video",
-            deterministic: true,
-            inputs: { source: before.take!.src, start: "tail", duration },
-          });
-          return (previous = makeMediaAsset<"video">(makeDraftPlaceholder(cut)));
-        },
-      };
-      const take = entry.build(ctx) as { src?: unknown } | null | undefined;
-      if (take?.src !== makeDraftPlaceholder(name)) {
-        throw invalidDraft(
-          `drafts."${name}" must return the take its build declares as asset("${name}", …).`,
-        );
-      }
-      // A take is replaced by `reroll` alone, which a file or a deterministic asset has none of.
-      const def = pool.assets.get(name)!;
-      if (def.kind === "file" || def.deterministic === true) {
-        throw invalidDraft(
-          `drafts."${name}" is ${def.kind === "file" ? "a file" : "a deterministic asset"}. A draft ` +
-            `take is generated, so that a reroll can replace it — hand footage to a take as a ` +
-            `reference.tsx asset instead.`,
-        );
-      }
-      entry.take = take as MediaAsset<"video">;
-    }
-    // The pool holds takes and konte's own cuts, so an address under `animatic:draft` says which it
-    // is with no definition to ask.
-    const takes = new Set(entries.flatMap((e) => [e.name!, `${e.name!}#previous`]));
-    const helper = [...pool.assets.keys()].find((name) => !takes.has(name));
-    if (helper !== undefined) {
-      throw invalidDraft(
-        `asset("${helper}", …) under \`drafts\` is not a take a draft returns. \`drafts\` declares ` +
-          `takes only — declare what a take is built from in reference.tsx and pass it in.`,
-      );
-    }
-    return declared;
-  });
-
-  return {
-    assets: Object.keys(discovery.assets).length > 0 ? discovery.assets : undefined,
-    returned: discovery.result as object,
-    shots: Object.fromEntries(entries.map((entry) => [entry.name!, [...entry.ids]])),
-  };
-}
-
-// `drafts.<name>.frame(id, name, { at })`: `asset(name, videoFrame, { source: <the take>, at })` in
-// the shot being built.
-function draftFrame(
-  entry: DraftEntry,
-  id: string,
-  name: string,
-  opts: { at: number },
-): MediaAsset<"image"> {
-  const address = formatDraftAssetPath(entry.name ?? "?");
-  if (entry.take === undefined || entry.duration === undefined) {
-    throw invalidDraft(`${address}'s frame() was called before its take was declared.`);
-  }
-  if (!entry.ids.includes(id)) {
-    throw invalidDraft(
-      `${address} does not cover shot "${id}" — it covers ${entry.ids.join(", ")}.`,
-    );
-  }
-  const shot = getShotContext();
-  if (shot?.stage !== "animatic" || shot.shotId !== id) {
-    throw invalidDraft(
-      `frame("${id}", "${name}", …) declares an asset of animatic shot "${id}", so it is called ` +
-        `inside that shot's build` +
-        (shot ? `, not shot "${shot.shotId}"'s.` : "."),
-    );
-  }
-  const at = opts.at;
-  if (!Number.isFinite(at) || at < 0 || at >= entry.duration) {
-    throw invalidDraft(
-      `frame("${id}", "${name}", { at: ${String(at)} }) is outside ${address}, which runs ` +
-        `${entry.duration}s. \`at\` is seconds from the take's head.`,
-    );
-  }
-  return asset(name as never, videoFrame, { source: entry.take, at });
 }

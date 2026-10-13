@@ -36,17 +36,12 @@ export function isPendingAnimaticShot(shot: AnimaticShotDefinition): boolean {
  *
  * `platePrompts` is keyed by the same exposed ids — the sentence the author wrote for that frame.
  * Only a returned plate says what it holds.
- *
- * `drafts` holds every asset the `drafts` callback declared, each addressed `animatic:draft.<name>`;
- * `draftShots` is the consecutive direction shots each returned draft covers, in order.
  */
 export const AnimaticDefinitionSchema = StageDefinitionSchema.extend({
   stage: z.literal("animatic"),
   plates: z.record(z.string(), AssetDefinitionSchema).optional(),
   exposedPlateIds: z.array(z.string()).optional(),
   platePrompts: z.record(z.string(), z.string()).optional(),
-  drafts: z.record(z.string(), AssetDefinitionSchema).optional(),
-  draftShots: z.record(z.string(), z.array(z.string())).optional(),
 });
 
 export type AnimaticDefinition = z.infer<typeof AnimaticDefinitionSchema>;

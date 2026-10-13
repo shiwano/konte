@@ -3,7 +3,6 @@ import {
   formatAssetPathSuffix,
   isPatchAddress,
   isPlateAddress,
-  isDraftAddress,
   parseAddress,
 } from "./address.js";
 import { JobIndex } from "./job-index.js";
@@ -815,12 +814,10 @@ export function computeExportReadiness(
     // is reported apart, since no `generate` puts it there.
     if (info.missingFilePath !== null) entry.filesMissing.push(suffix);
     // An intermediate counts on neither axis: nobody accepts one, and `generate` reaches it through
-    // the asset that consumes it. A plate and a draft are the exception: baked while every shot on
-    // them may still be a `pendingShot`, each is `generate` work of its own.
+    // the asset that consumes it. A plate is the exception: baked while every shot on it may still
+    // be a `pendingShot`, it is `generate` work of its own.
     if (!info.reviewTarget) {
-      if (isPlateAddress(info.address) || isDraftAddress(info.address)) {
-        countGenerateWork(entry, info, suffix);
-      }
+      if (isPlateAddress(info.address)) countGenerateWork(entry, info, suffix);
       return;
     }
     entry.total++;

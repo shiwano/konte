@@ -8,8 +8,6 @@ New pose or view: `The [subject] from <image1>, [the new pose, view or outfit], 
 
 Next keyframe: `In <image1>, [the subject's new pose and gaze, down to the contact point]. Keep [the subject] as in <image2>, and keep everything else in <image1> unchanged.`
 
-Draft frame: `In <image1>, [the one thing as it should be]. Keep everything else in <image1> unchanged.`
-
 Describe only the change. Name what stays by its role, in one blanket clause; re-describing its look reads as a change.
 
 ## Style Conversion
@@ -34,16 +32,9 @@ Name where a reach ends: "the paw pad touches the glass at the center of the scr
 
 Down a chain of keyframes, compare identity with the character reference at every link.
 
-## Draft Frame
-
-Use in a shot between `drafts.<name>.frame(…)` and the panel drawn from it, to change what the frame shows — a facing, a pose, a held prop, the set's structure, a count — while its framing holds. Pass the frame as `image1`, alone.
-
-- **Pass no reference** — a character sheet in `image2` replaces the figure's pose with the sheet's; a picture of the place brings its own light and colour.
-- **Write nothing about rendering** — a redraw request or a style word shifts colour and pose across the whole frame.
-
 ## Size
 
-For a conversion or a keyframe, set `width` and `height` to `image1`'s size; for a new pose or view, to the reference's own shape. Both snap to a 32-pixel grid. Defaults follow the video's canvas, and a draft frame takes them.
+For a conversion or a keyframe, set `width` and `height` to `image1`'s size; for a new pose or view, to the reference's own shape. Both snap to a 32-pixel grid. Defaults follow the video's canvas.
 
 Before accepting, compare a conversion or a keyframe with `image1` for identity, silhouette, proportions, pose, placement and framing; a new pose or view for identity alone. Use `imageQwenImageEdit21Inpaint` in a patch for a local correction.
 

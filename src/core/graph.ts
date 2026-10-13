@@ -5,7 +5,6 @@ import {
   formatAssetPath,
   formatReferenceAssetPath,
   formatPlateAssetPath,
-  formatDraftAssetPath,
   formatTimelineAssetPath,
   getStage,
   listAssetPaths,
@@ -21,8 +20,6 @@ import {
   type DefinitionLike,
   getAssetEntry,
   isMaterializedLeafAssetPath,
-  isDraftAddress,
-  isDraftTakeAddress,
   isNarrationStemAddress,
   isPlateAddress,
 } from "./address.js";
@@ -130,10 +127,6 @@ function exposedPlateIdsOf(def: object | null | undefined): string[] {
   );
 }
 
-function draftsOf(def: object | null | undefined): Record<string, AssetDefinition> {
-  return (def as { drafts?: Record<string, AssetDefinition> } | null)?.drafts ?? {};
-}
-
 export function buildDependencyGraph(
   video: StageDefinition | null,
   animatic?: AnimaticDefinition | null,
@@ -214,17 +207,6 @@ export function buildDependencyGraph(
     for (const [setupId, entry] of Object.entries(platesOf(def))) {
       addDependencyEdges(
         formatPlateAssetPath(setupId),
-        entry,
-        allAssetPaths,
-        dependencies,
-        dependents,
-        pendingAnimaticShots,
-      );
-    }
-
-    for (const [name, entry] of Object.entries(draftsOf(def))) {
-      addDependencyEdges(
-        formatDraftAssetPath(name),
         entry,
         allAssetPaths,
         dependencies,
@@ -363,12 +345,6 @@ export function listUnusedAssetPaths(
     roots.push(formatPlateAssetPath(setupId));
   }
 
-  // A draft take is a usage root for the same reason: the panels are written from its frames, so it
-  // is generated while its shots are still `pendingShot`s.
-  for (const name of Object.keys((animatic as { draftShots?: object } | null)?.draftShots ?? {})) {
-    roots.push(formatDraftAssetPath(name));
-  }
-
   for (const s of video?.shots ?? []) {
     if (s.shotFn) {
       roots.push(formatAssetPath("video", s.id, COMPOSITION_ASSET_NAME));
@@ -484,8 +460,7 @@ export function videoDependentsHoldVerdicts(
  * The dependents `konte reroll --with-dependents` rebuilds alongside `assetPath`, in dependency
  * order. Cross-stage dependents are excluded — a downstream stage is regenerated through its own
  * review cycle. The walk stops at a dependent holding a human verdict (`holdsVerdict`): that take and
- * whatever is reached only through it are left out. It stops at a draft the same way, and a draft
- * cascades into nothing: the frames cut from it move only with their own `at`.
+ * whatever is reached only through it are left out.
  */
 export function collectRerollCascade(
   graph: DependencyGraph,
@@ -493,13 +468,12 @@ export function collectRerollCascade(
   definition: DefinitionLike,
   holdsVerdict: (assetPath: string) => boolean,
 ): Array<{ assetPath: string; def: AssetDefinition }> {
-  if (isDraftAddress(assetPath)) return [];
   const stage = getStage(assetPath);
   const reachable = new Set<string>();
   const stack = [...(graph.dependents.get(assetPath) ?? [])];
   while (stack.length > 0) {
     const p = stack.pop();
-    if (p === undefined || reachable.has(p) || holdsVerdict(p) || isDraftAddress(p)) continue;
+    if (p === undefined || reachable.has(p) || holdsVerdict(p)) continue;
     reachable.add(p);
     for (const d of graph.dependents.get(p) ?? []) stack.push(d);
   }
@@ -1108,8 +1082,6 @@ export type PanelConditioning = {
   of: number;
   panel: string;
   conditioning: string[];
-  // The draft frames of this shot the panel is drawn from: which take, and the second it is cut at.
-  draftFrames?: { address: string; draft: string; at: number }[];
 };
 
 // Structural so a listing can pass the definition it already loaded.
@@ -1132,35 +1104,20 @@ export function listPanelConditioning(animatic: PanelConditioningSource): PanelC
     for (const lane of LANES) {
       const panels = (lane === "main" ? shot.panels : shot.cutin?.panels) ?? [];
       panels.forEach((panel, i) => {
-        const chain = orderedChainAddresses([panel.assetPath], entryOf);
-        const draftFrames = chain.flatMap((address) => {
-          const parsed = tryParseAddress(address);
-          if (parsed?.kind !== "shot" || parsed.shotId !== shot.id) return [];
-          const frame = draftFrameOf(entryOf(address));
-          return frame ? [{ address, ...frame }] : [];
-        });
         out.push({
           shotId: shot.id,
           lane,
           index: i + 1,
           of: panels.length,
           panel: panel.assetPath,
-          conditioning: chain.filter((address) => written.has(address) || isPlateAddress(address)),
-          ...(draftFrames.length > 0 ? { draftFrames } : {}),
+          conditioning: orderedChainAddresses([panel.assetPath], entryOf).filter(
+            (address) => written.has(address) || isPlateAddress(address),
+          ),
         });
       });
     }
   }
   return out;
-}
-
-// A `videoFrame` cut out of a draft take: the take's name and the second it is cut at.
-function draftFrameOf(entry: AssetDefinition | undefined): { draft: string; at: number } | null {
-  if (entry?.kind !== "local" || entry.operation !== "frame") return null;
-  const { source, at } = entry.inputs as { source?: unknown; at?: unknown };
-  const address = typeof source === "string" ? parsePlaceholder(source) : null;
-  if (!address || !isDraftTakeAddress(address) || typeof at !== "number") return null;
-  return { draft: tryParseAddress(address)!.assetName, at };
 }
 
 // Every address one picture's chain reaches, the root itself included.
@@ -1559,18 +1516,15 @@ export type AnimaticPictureSource = {
   topLevelAssets?: Record<string, AssetDefinition>;
 };
 
-// One address → its declaration, over the animatic's plates, drafts, timeline and shots. A panel
-// drawn from a draft's frame reaches the plates that draft was handed.
+// One address → its declaration, over the animatic's plates, timeline and shots.
 function animaticEntryResolver(
   animatic: AnimaticPictureSource,
 ): (address: string) => AssetDefinition | undefined {
   const plates = platesOf(animatic);
-  const drafts = draftsOf(animatic);
   return (address) => {
     const parsed = tryParseAddress(address);
     if (!parsed || parsed.stage !== "animatic") return undefined;
     if (parsed.kind === "plate") return plates[parsed.assetName];
-    if (parsed.kind === "draft") return drafts[parsed.assetName];
     if (parsed.kind === "timeline") return animatic.topLevelAssets?.[parsed.assetName];
     if (parsed.kind === "shot") {
       return animatic.shots.find((s) => s.id === parsed.shotId)?.assets[parsed.assetName];

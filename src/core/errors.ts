@@ -86,9 +86,6 @@ export type KonteErrorCode =
   // A `dismiss` was pointed at a deterministic asset: it has one outcome, so there is no other take
   // to decide for. The correction is an edit to its definition.
   | "DETERMINISTIC_NOT_DISMISSABLE"
-  // An `accept` or a `dismiss` was pointed at a draft take: its newest take is the one in use, and
-  // its composition is signed off by the panels drawn from it.
-  | "DRAFT_NOT_DECIDABLE"
   | "PATCH_NOT_FOUND"
   | "PATCH_ALREADY_EXISTS"
   | "PATCH_ALREADY_APPLYING"
@@ -144,9 +141,6 @@ export type KonteErrorCode =
   // An `animatic.tsx` `plates` block that does not file its plates by roster id — a key naming no
   // declared setup, or an asset declared there and not returned as one.
   | "INVALID_PLATE"
-  // An `animatic.tsx` `drafts` block that is not one take per run of consecutive camera shots, or
-  // a `frame()` naming a shot or a time its draft does not hold.
-  | "INVALID_DRAFT"
   // A `respell()` that names no line the direction wrote, or that hands over a blank spelling.
   | "INVALID_RESPELL"
   // A lyric line the song asset's words do not carry, in the direction's spelling or a respell().

@@ -34,7 +34,6 @@ Substitute your stage's `<scope>` / `<address>` into every step below.
 - **New or rewritten definitions clear `layout-guide`'s self-check before they meet a backend.**
 - **Generating what has no accepted variant needs no go-ahead** — on a paid vendor backend report the batch size and expected cost in one line, then generate. Ask before invalidating accepted work, such as rerolling an accepted asset by its address.
 - **`konte generate <scope>`** — submits all the stage's assets at once, async.
-- **`generate` never redoes a draft take that exists, whatever was edited** — a new composition is `konte reroll animatic:draft.<name>` (`staging-guide`).
 - **`generate` regenerates a stale unaccepted take and skips an accepted generative one, even stale** — after an edit, `generate` is the new take; `reroll` draws again on an unchanged definition, `--count N` for N takes at once. Follow the command's `accepted but stale` Next steps. Stale deterministic assets re-bake automatically unless their accepted take is a patch.
 - **Open on the cheap pass** — `production-guide`'s cost ladder.
 
@@ -53,7 +52,6 @@ After `konte generate` or `konte reroll`:
 
 **Your eyes settle what can be counted, never whether it is good** — the wrong subject, a figure too many or too few, an empty frame, a missing element, a take that never moved, a line not carried. A doubt you cannot name in those terms is a note in the handoff, not a reroll.
 
-- **A draft take is read for its composition alone → `konte probe cuts animatic:draft`** — soft lines and thin detail are its size.
 - **A shared base image is reviewed before the panels built on it, and on its own terms** — set state, realism register, scale, not "does the shot read". A defect there is the root's reroll, never a note on one shot.
 - **Image → `konte probe image <variantId|address|scope>...`** — open the printed images; `probe crop` for detail. Judge against the shot's `action` (and `script`, if any) — right subject, character consistency across shots, no artifacts. A `first` panel must be able to launch the transit its shot needs — the contacts and positions that transit starts from are in the pixels, or it's a reroll however clean it looks. A recurring character reference must be a clean single-subject conditioning frame, not a turnaround sheet.
 - **Board batch → `konte probe contact-sheet`** — shots side by side in one sheet; `--cell-width <px>` when detail is too small to read.
@@ -85,7 +83,6 @@ After `konte generate` or `konte reroll`:
 - prompt content or delivery → `prompt-guide` → generate
 - one local element on a take otherwise right — add, remove or recolour it — once a reroll on the fixed prompt still misses it, or the human wants the take kept, and the medium has an edit route (`konte adapter list`) → **`konte patch new <address>`**, the edit in the shape its adapter's guide gives, then generate. A failed patch leaves the take; `konte patch remove <variantId>` (the take it was written against) drops the fix for good. A further fix is another step in that same script — a take a patch produced cannot be patched again.
 - the shot doesn't read — framing, staging, continuity → the animatic panel: restage, then generate down the chain, never papered over in the motion prompt
-- a panel that kept its draft frame against its prompt → change the frame, then generate
 - a pinned endpoint — pose, gaze, hands at start/end → the animatic frames pin it, not the prompt: edit the panel, then generate down the chain
 - the note is about the movement, not the frame — "give it more motion", a transit that doesn't read → the panel's `blocking`/`camera`: rewriting them answers it with no new take, and the comment goes stale on its own
 - pacing, shot order, runtime → `direction.ts` (`direction-guide`) — no reroll fixes it; a shot's retuned words are re-signed by its stage accept, a retuned setup on `direction:setups.<id>`

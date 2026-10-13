@@ -10,9 +10,8 @@ The caller gives you one thing: the **target**, the path to a stage definition f
 ## Read only this
 
 - `konte inspect <stage> --prompts` — your subject: the text this stage feeds a model, at its address, and above each one the direction it was written from — the shot's `action:` line (what the shot lands), its `span:` line, its `join:` line where the boundary into the shot is declared, its `lineup:` line (who the frame holds, left to right as `<name> (<id>)`, and the order the shot leaves on), its `set:` line (what the frame carries of its place, same form and same left-to-right), above a video prompt the accepted panel's `blocking` / `camera` — or, above an address a `<Cutin>` draws, one `cutin:` line giving that wipe's setup, lineup and set in their place — plus, on a voice take, the shot's `script` lines, their `acting`, and any `spelled:` line, the form the take was given for the words.
-  On the board it opens with a `Keyframes:` block — per `<Panel>`, its shot, lane, place (`panel 1 of 2`) the addresses behind it, the plate it stands on, and on a `frame:` line the draft frame it is drawn from: the take, the second, and the `[Shot N]` of that take. A panel's name is the author's, so this is what says which prompts write a shot's opening frame.
-  A draft take (`animatic:draft.<name>`) is several shots in one prompt: above it, each `[Shot N]` is named as the direction shot it is, with its cut time, setup, `action:`, `join:`, `lineup:` and `set:`.
-- The target file, for what an address cannot carry: file order, and which block is a `plates` or a `drafts` entry.
+  On the board it opens with a `Keyframes:` block — per `<Panel>`, its shot, lane, place (`panel 1 of 2`) the addresses behind it, and the plate it stands on. A panel's name is the author's, so this is what says which prompts write a shot's opening frame.
+- The target file, for what an address cannot carry: file order, and which block is a `plates` entry.
 - `konte adapter show <adapter>` for each adapter the file uses — its guide is what says how that model reads a negation, an ordinal, a stacked condition. For a speech adapter, `direction-guide`'s notation reference for the piece's `policy.lang` (`references/japanese-notation.md` for `ja`) is the same thing for a line's written form.
 - `konte inspect direction:brief`, for `tolerances` and `outOfScope`, and `konte inspect <stage>` for which shots already hold a take.
 
@@ -22,7 +21,7 @@ The listing marks each value's kind. A `negativePrompt` is not your subject, nor
 
 ## Method
 
-1. **Read every prompt once**, in file order — a `plates` block first, then `drafts`, then the shots — and say in one line what each asks the model to produce, a draft take one line per `[Shot N]`. For a `panel 1 of …`, say the **instant** its conditioning fixes.
+1. **Read every prompt once**, in file order — a `plates` block first, then the shots — and say in one line what each asks the model to produce. For a `panel 1 of …`, say the **instant** its conditioning fixes.
 2. **Then read across them** — the same prop, desk, costume or movement, shot to shot. Disagreement between two prompts is invisible in either one alone.
 3. **Judge from those reads.** A finding traces to a specific line; one that doesn't is a preference, so drop it.
 
@@ -33,8 +32,7 @@ Write the reads as an intermediate message. Your final message — the only thin
 - **Every finding carries four fields**: `target` (the address, e.g. `video:shot.12.motion`), `problem` (a code from the vocabulary below), `evidence` (the phrase that breaks), `smallest-fix` (the least rewrite that clears it).
 - **A `smallest-fix` writes what the frame or the sound carries**, never an `action:` or `acting:` phrase carried over — a model draws no "as if nothing had happened".
 - **A negation is judged against its model.** The machine check (`konte status`, the spend gate) stops the plain ones; what you add is the rest — a freeze clause the adapter exempts, a comparative, a "has not moved yet". Ask whether its guide says that phrasing works, and say which side you land on; a quoted `script` line is never one.
-- **A shot that already holds a take is not your subject** — its prompt is the wording a new shot must match; file the finding against the new one. A draft that holds a take is the same: its `[Shot N]` text is what its panels' frames were composed from.
-- **A draft take is judged shot by shot** — every axis below reads a `[Shot N]` against the lines printed for it, and a finding's `target` names it: `animatic:draft.opening [Shot 3]`. **Landed opening is the exception** — a shot whose take `konte inspect <stage>` reports stale is judged.
+- **A shot that already holds a take is not your subject** — its prompt is the wording a new shot must match; file the finding against the new one. **Landed opening is the exception** — a shot whose take `konte inspect <stage>` reports stale is judged.
 - **Whatever `brief.tolerances` accepts is never a finding.**
 - **Change nothing.** No edit to a definition or state, and no konte command that writes: `generate`, `reroll`, `accept`, `clean`, `review`, `export`.
 - **A roster hole is not yours** — a prop or character named in several shots but absent from the direction's rosters is `konte-direction-critic`'s finding. You read the stage.
@@ -63,7 +61,7 @@ Report `No findings.` alone when nothing survives; otherwise every finding kept,
 
 - **Named exclusion** — does the prompt name something to leave out, in a model that does not read it as an instruction to omit? The picture gets what the prompt names. The fix is what occupies the space instead.
 - **Stacked conditions** — is a single readable action carrying amplitude, count, speed, and a stopping pose? Each term is another thing to miss, and a miss drags the take. One sentence first; specify only what the take gets wrong.
-- **Cross-shot inconsistency** — is the same prop, surface, costume or movement described in different words in two shots, or in two draft takes? Two descriptions produce two objects. The fix is one wording. A costume or a state that differs across a `jump-back` / `jump-forward` `join:` is no finding.
+- **Cross-shot inconsistency** — is the same prop, surface, costume or movement described in different words in two shots? Two descriptions produce two objects. The fix is one wording. A costume or a state that differs across a `jump-back` / `jump-forward` `join:` is no finding.
 - **Reference contradicted** (`reference-contradicted`) — does a prompt declare a reference held as it stands, then write that subject in another state, count, size or expression than its own definition gives — "one whole taiyaki", held, then two halves in two hands? Told both, the model holds the reference; the adapter's guide says how. The fix says in the declaration what the description remakes, or passes a reference showing the state.
 - **Restated frame** — does a motion prompt re-describe a composition its keyframe already fixes? It competes with the image and moves the frame off it.
 - **Model pitfall** — does the prompt ask for what this model is known to drop: a small object held in a hand, a hand-off between two subjects, legible text in frame, a real-world object it has no knowledge of? Weigh against the adapter's own guide. The fix shrinks what must be rendered, never adds a caveat.
@@ -76,6 +74,4 @@ Report `No findings.` alone when nothing survives; otherwise every finding kept,
 - **Body-relative side** — is a worn or carried object placed by the figure's own left and right? A subject facing the lens is mirrored: "his left hip" is the frame's right. The fix names the frame's side.
 - **Acting dropped** — does a spoken line's prompt carry the delivery its `acting:` note asks for, in the verb and the adverb? A note replaced by a list of acoustic properties, or by a delivery nobody wrote, comes back as neither.
 - **Out-of-scope object** — does the prompt name a thing `brief.outOfScope` keeps off screen, even as unseen (`unseen sheet of glass`)? A named thing is drawn. The fix writes the effect — fog blooming, a fingertip flat.
-- **Frame contradicted** (`frame-contradicted`) — does a panel with a `frame:` line place, turn or count its figures and props otherwise than that `[Shot N]`'s text does? The frame was composed from that text, and a redraw written against it comes back as the frame or as neither. The fix writes what the take's shot holds; a different composition is a `drafts` rewrite, filed against the take.
-- **Draft sound** (`draft-sound`) — does a draft take carry a spoken line, a soundscape or music, or is it handed a voice or a stem? Nothing of a draft's sound is used. The fix is `N/A` and the input dropped.
 - **Occupied plate** — does a `plates` entry's prompt put a subject, a pose or an action in the frame? Whatever is baked into a plate is inherited by every shot on that setup. The fix strips the figure and keeps the room, the light and the angle.

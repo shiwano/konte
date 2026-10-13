@@ -5,13 +5,7 @@ import type {
 } from "../types/index.js";
 import { KonteError } from "../errors.js";
 import type { MediaKind, MediaAsset } from "./builders.js";
-import {
-  getActiveFormat,
-  getDraftPoolContext,
-  getShotContext,
-  seed,
-  type BuildFormat,
-} from "./shot-context.js";
+import { getActiveFormat, getShotContext, seed, type BuildFormat } from "./shot-context.js";
 import { estimateSpeechSec } from "../speech-duration.js";
 import { OVERFLOW_FLOOR, recordClipLength } from "./clip-length-collect.js";
 import {
@@ -670,10 +664,9 @@ function assertDerivedInputs(
 function overMaxMessage(key: string, def: AdapterInputDef, value: number): string {
   const seconds = (n: number): string =>
     def.clock ? ` (${formatSeconds(n / def.clock)} at ${def.clock}fps)` : "";
-  const over = `Input "${key}" resolves to ${value}${seconds(value)}, past this adapter's maximum of ${def.max}${seconds(def.max!)}.`;
-  if (getDraftPoolContext()) return `${over} Split the draft's shots across two takes.`;
   return (
-    `${over} Shorten the shot, or split it into segments and chain each ` +
+    `Input "${key}" resolves to ${value}${seconds(value)}, past this adapter's maximum of ` +
+    `${def.max}${seconds(def.max!)}. Shorten the shot, or split it into segments and chain each ` +
     `one onto the frame the one before it ends on (adapters.videoFrame).`
   );
 }

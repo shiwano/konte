@@ -11,7 +11,7 @@ Declare shots, assets and dependencies in the stage files; done = `konte status`
 - `export.delivery` / upscale modes → [delivery.md](references/delivery.md)
 - Which adapter to pass `asset()` → `konte adapter list` (every permitted adapter, its backend, media, required inputs and lean), then `konte adapter show <adapter>` for its schema and guide
 - The `prompt` string → `prompt-guide`
-- Plates, draft takes, landmarks and a panel's `blocking` / `camera` → `staging-guide`
+- Plates, landmarks and a panel's `blocking` / `camera` → `staging-guide`
 - `<Composition>` JSX, audio placement → `composition-guide`
 - A type, field or signature (check, don't guess) → the konte LSP (`konte-lsp` plugin) in your editor
 - A dependency or staleness reason → `konte inspect <address>`
@@ -89,9 +89,8 @@ export default defineAnimatic(direction, {
 });
 ```
 
-- **`defineAnimatic(direction, { plates?, drafts?, timeline })`** — the animatic derives its working `{ size, fps }` from the direction. `timeline` receives `{ format }`, the injected `shot`/`pendingShot` starters and what `plates` returned, declares shared assets at the top, and returns `{ shots, soundtracks? }`.
+- **`defineAnimatic(direction, { plates?, timeline })`** — the animatic derives its working `{ size, fps }` from the direction. `timeline` receives `{ format }`, the injected `shot`/`pendingShot` starters and what `plates` returned, declares shared assets at the top, and returns `{ shots, soundtracks? }`.
 - **`plates` returns `{ image, prompt }` by setup id** — addressed `animatic:plate.<id>`, handed to `timeline` unchanged.
-- **`drafts: ({ draft, plates }) => ({ <name>: draft([ids], ({ cuts, previous }) => asset("<name>", …)) })`** — one take per run of consecutive camera shots, addressed `animatic:draft.<name>`; `timeline` receives them as `drafts`, and `drafts.<name>.frame(id, name, { at })` declares that shot's frame of the take.
 - **Shots come from the direction** — the injected `shot(id, …).nextShot(id, …)` is the only way to mint a shot; each `id` is pinned to the direction (a stray id is a type error), and the shot's `duration` and `script` are injected into the build, never written here.
 - **`pendingShot(id)` / `.nextPendingShot(id)`** — the undeveloped shot, injected into `timeline` alongside `shot`. It carries nothing of its own (the shot's duration, action and script are the direction's) and declares nothing. Develop it by swapping in `shot(id, …)` / `.nextShot(id, …)`.
 - **`asideShot(id)` / `.nextAsideShot(id)`** — the `kind: "aside"` shot (`direction-guide`). The animatic's takes no build; the video's takes one — `asideShot(id, ({ duration, label }) => …)`. Each starter is pinned to its kind.
