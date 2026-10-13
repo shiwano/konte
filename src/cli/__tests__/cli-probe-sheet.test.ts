@@ -1,9 +1,10 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ensureFfmpeg } from "../../core/ffmpeg.js";
 import { ffmpegBin } from "../../core/ffmpeg-binary.js";
 import { StateManager } from "../../core/state/index.js";
@@ -21,6 +22,17 @@ vi.setConfig({ testTimeout: 15000 });
 useTempWorkspace();
 
 describe("probe contact-sheet --needs-review", () => {
+  let fixtureRoot: string;
+
+  beforeAll(async () => {
+    fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), "konte-sheet-fixture-"));
+    await generateFixture(path.join(fixtureRoot, "workspace"));
+  });
+
+  afterAll(async () => {
+    if (fixtureRoot) await fs.rm(fixtureRoot, { recursive: true, force: true });
+  });
+
   const REFERENCE_TS = `import { defineReference, asset, adapters } from "konte";
 // @ts-expect-error konte's fixture adapter is runtime-only, outside the workspace's generated types.
 import { internalTestPlate } from "konte";
@@ -93,8 +105,14 @@ export default defineVideo(direction, {
     ]);
   }
 
-  async function initAndGenerate(): Promise<string> {
-    const { video: projectDir } = await initWorkspace(path.join(ctx.dir, "needsreview"));
+  async function initProject(): Promise<string> {
+    const workspace = path.join(ctx.dir, "needsreview");
+    await fs.cp(path.join(fixtureRoot, "workspace"), workspace, { recursive: true });
+    return path.join(workspace, "videos", "main");
+  }
+
+  async function generateFixture(workspace: string): Promise<void> {
+    const { video: projectDir } = await initWorkspace(workspace);
     await writeClip(projectDir);
     await fs.writeFile(path.join(projectDir, "reference.tsx"), REFERENCE_TS);
     await fs.writeFile(path.join(projectDir, "video.tsx"), VIDEO_TSX);
@@ -106,7 +124,6 @@ export default defineVideo(direction, {
     for (const name of ["character", "studio", "plateA", "clipSrc", "clip", "sfxSrc", "sfx"]) {
       await acceptAddress(projectDir, `reference:${name}`);
     }
-    return projectDir;
   }
 
   async function acceptAddress(projectDir: string, address: string): Promise<void> {
@@ -154,7 +171,7 @@ export default defineVideo(direction, {
   }
 
   it("tiles every undecided take at an address, not just the newest", async () => {
-    const projectDir = await initAndGenerate();
+    const projectDir = await initProject();
     await unaccept(projectDir, "reference:plateA");
     await addTake(projectDir, "reference:plateA", "v-plateatake2");
 
@@ -166,7 +183,7 @@ export default defineVideo(direction, {
   });
 
   it("tiles every undecided take beside an accept", async () => {
-    const projectDir = await initAndGenerate();
+    const projectDir = await initProject();
     await addTake(projectDir, "reference:plateA", "v-plateatake2");
     await addTake(projectDir, "reference:plateA", "v-plateatake3");
 
@@ -178,7 +195,7 @@ export default defineVideo(direction, {
   });
 
   it("points a named address with rival takes at --takes, which tiles them all", async () => {
-    const projectDir = await initAndGenerate();
+    const projectDir = await initProject();
     await addTake(projectDir, "reference:plateA", "v-plateatake2");
     await addTake(projectDir, "reference:plateA", "v-plateatake3");
 
@@ -192,7 +209,7 @@ export default defineVideo(direction, {
   });
 
   it("leaves a reel scope out of the --takes step it prints", async () => {
-    const projectDir = await initAndGenerate();
+    const projectDir = await initProject();
     await addTake(projectDir, "reference:plateA", "v-plateatake2");
 
     const { stderr } = await run(
@@ -203,21 +220,21 @@ export default defineVideo(direction, {
   });
 
   it("refuses --takes beside --needs-review", async () => {
-    const projectDir = await initAndGenerate();
+    const projectDir = await initProject();
     await expect(
       run(["probe", "contact-sheet", "--needs-review", "--takes"], projectDir),
     ).rejects.toMatchObject({ stderr: expect.stringContaining("INVALID_OPTION") });
   });
 
   it("reports nothing outstanding when every landed take is accepted", async () => {
-    const projectDir = await initAndGenerate();
+    const projectDir = await initProject();
     await expect(
       run(["probe", "contact-sheet", "--needs-review", "reference"], projectDir),
     ).rejects.toMatchObject({ stderr: expect.stringContaining("VARIANT_NOT_FOUND") });
   });
 
   it("tiles a still take onto one sheet", async () => {
-    const projectDir = await initAndGenerate();
+    const projectDir = await initProject();
     await unaccept(projectDir, "reference:plateA");
 
     const { stdout, stderr } = await run(
@@ -236,7 +253,7 @@ export default defineVideo(direction, {
   });
 
   it("names a re-rendered sheet anew and drops the one it replaces", async () => {
-    const projectDir = await initAndGenerate();
+    const projectDir = await initProject();
     await unaccept(projectDir, "reference:plateA");
     const first = await run(["probe", "contact-sheet", "--needs-review", "reference"], projectDir);
     const firstSheet = first.stdout.trim();
@@ -251,7 +268,7 @@ export default defineVideo(direction, {
   });
 
   it("samples a clip take into --frames-per-take cells", async () => {
-    const projectDir = await initAndGenerate();
+    const projectDir = await initProject();
     await unaccept(projectDir, "reference:clip");
 
     const { stderr } = await run(
@@ -262,7 +279,7 @@ export default defineVideo(direction, {
   });
 
   it("leaves an audio take off without listing it", async () => {
-    const projectDir = await initAndGenerate();
+    const projectDir = await initProject();
     await unaccept(projectDir, "reference:plateA", "reference:sfx");
 
     const { stderr } = await run(
@@ -279,7 +296,7 @@ export default defineVideo(direction, {
   });
 
   it("narrows to an address-scope, and says so when that scope has nothing", async () => {
-    const projectDir = await initAndGenerate();
+    const projectDir = await initProject();
     await unaccept(projectDir, "reference:plateA");
 
     const { stderr } = await run(
@@ -294,7 +311,7 @@ export default defineVideo(direction, {
   });
 
   it("requires an argument or --needs-review", async () => {
-    const projectDir = await initAndGenerate();
+    const projectDir = await initProject();
     await expect(run(["probe", "contact-sheet"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("INVALID_OPTION"),
     });
