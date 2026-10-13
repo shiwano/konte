@@ -13,6 +13,7 @@ import { requireVideoRoot } from "../../context.js";
 import { loadVideoAndAnimatic } from "../../load-definition.js";
 import { withAbsoluteFiles } from "./shared.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
+import { formatSeconds, formatSecondsRange } from "../../../core/format-duration.js";
 
 function trackTag(t: AudioTrack): string {
   if (t.kind === "soundtrack") return t.soundtrackId ?? "bed";
@@ -73,7 +74,7 @@ function formatTrackTable(model: AudioInspectModel): string[] {
   ];
   const tagW = Math.max(...model.tracks.map((t) => trackTag(t).length), 4);
   for (const t of model.tracks) {
-    const span = `${t.start.toFixed(1)}–${t.end.toFixed(1)}s`;
+    const span = `${formatSecondsRange(t.start, t.end)}`;
     const flags: string[] = [
       t.lufs != null ? `est ${t.lufs.toFixed(1)} LUFS` : "LUFS unknown",
       `gain ${t.volume.toFixed(2)}`,
@@ -165,7 +166,7 @@ Examples:
 
       const scopeLabel = shotId ? `${stage}:shot.${shotId}` : stage;
       console.log(
-        `${scopeLabel}   total ${model.totalDuration.toFixed(1)}s   ${model.tracks.length} track${model.tracks.length === 1 ? "" : "s"}   (nominal)`,
+        `${scopeLabel}   total ${formatSeconds(model.totalDuration)}   ${model.tracks.length} track${model.tracks.length === 1 ? "" : "s"}   (nominal)`,
       );
       console.log("");
 

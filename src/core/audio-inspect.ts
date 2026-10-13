@@ -35,6 +35,7 @@ import {
 import type { StageDefinition } from "./types/index.js";
 import { probeMediaDuration } from "./video-probe.js";
 import { execFileAsync } from "./exec-file.js";
+import { formatSeconds, formatSecondsRange } from "./format-duration.js";
 
 // One audio track laid on the timeline, with its identity preserved (which shot/cue/bed it came
 // from) — unlike the mux's MuxAudioTrack, which is anonymous. Times are timeline-absolute and
@@ -372,8 +373,8 @@ export function summarizeAudioSilence(
       type: "silent",
       message:
         of === "file"
-          ? `No audible signal above the noise floor — the whole ${total.toFixed(1)}s file is silent.`
-          : `No audible signal above the noise floor in the ${total.toFixed(1)}s it plays.`,
+          ? `No audible signal above the noise floor — the whole ${formatSeconds(total)} file is silent.`
+          : `No audible signal above the noise floor in the ${formatSeconds(total)} it plays.`,
     });
     return warnings;
   }
@@ -384,18 +385,14 @@ export function summarizeAudioSilence(
   if (contentStart >= MIN_EDGE_SILENCE) {
     warnings.push({
       type: "leading_silence",
-      message: `leading silence: ${contentStart.toFixed(1)}s (audio starts at ${contentStart.toFixed(
-        1,
-      )}s / ${total.toFixed(1)}s)`,
+      message: `leading silence: ${formatSeconds(contentStart)} (audio starts at ${formatSeconds(contentStart)} / ${formatSeconds(total)})`,
     });
   }
   const trailing = total - contentEnd;
   if (trailing >= MIN_EDGE_SILENCE) {
     warnings.push({
       type: "trailing_silence",
-      message: `trailing silence: ${trailing.toFixed(1)}s (audio ends at ${contentEnd.toFixed(
-        1,
-      )}s / ${total.toFixed(1)}s)`,
+      message: `trailing silence: ${formatSeconds(trailing)} (audio ends at ${formatSeconds(contentEnd)} / ${formatSeconds(total)})`,
     });
   }
   return warnings;
@@ -519,9 +516,9 @@ export function detectWindowCuts(
       type: "window_opens_mid_sound",
       informational: fadedIn,
       message:
-        `window opens mid-sound at ${(head / rate).toFixed(2)}s into the source ` +
+        `window opens mid-sound at ${formatSeconds(head / rate, 2)} into the source ` +
         `(${dbBelowPeak(rms[head] ?? 0).toFixed(0)} dB below peak): ` +
-        `${(before / rate).toFixed(2)}s of source audio precedes the window. ` +
+        `${formatSeconds(before / rate, 2)} of source audio precedes the window. ` +
         (fadedIn
           ? `fadeIn ${fades.fadeIn}s applied; this is a source boundary, not a measured output discontinuity.`
           : "No fadeIn; listen to the entrance before changing duration or mediaStart."),
@@ -534,9 +531,9 @@ export function detectWindowCuts(
       type: "window_cuts_mid_sound",
       informational: fadedOut || endsOnCut,
       message:
-        `window cuts mid-sound at ${(tail / rate).toFixed(2)}s into the source ` +
+        `window cuts mid-sound at ${formatSeconds(tail / rate, 2)} into the source ` +
         `(${dbBelowPeak(rms[tail - 1] ?? 0).toFixed(0)} dB below peak): ` +
-        `${(after / rate).toFixed(2)}s more follows in the source. ` +
+        `${formatSeconds(after / rate, 2)} more follows in the source. ` +
         (fadedOut
           ? `fadeOut ${fades.fadeOut}s reaches silence at the window end; this is a source boundary, not a measured output discontinuity.`
           : endsOnCut
@@ -890,7 +887,7 @@ export async function inspectTimelineAudio(opts: {
     }
     if (duration == null) warnings.push("unknown duration (source unreadable)");
     if (end > totalDuration + 0.01) {
-      warnings.push(`extends ${(end - totalDuration).toFixed(2)}s past timeline end`);
+      warnings.push(`extends ${formatSeconds(end - totalDuration, 2)} past timeline end`);
     }
     if (sourceProfile) {
       const played = playedRms(sourceProfile, raw.mediaStart, duration, false);
@@ -1017,7 +1014,7 @@ export async function inspectTimelineAudio(opts: {
     if (loop && sourceDuration != null) {
       const reps = Math.ceil(duration / Math.max(0.01, sourceDuration - mediaStart));
       warnings.push(
-        `loops ×${reps} to fill ${duration.toFixed(1)}s span (source ${sourceDuration.toFixed(2)}s)`,
+        `loops ×${reps} to fill ${formatSeconds(duration)} span (source ${formatSeconds(sourceDuration, 2)})`,
       );
     }
     if (sourceProfile) {
@@ -1112,7 +1109,7 @@ export async function inspectTimelineAudio(opts: {
     .filter((g) => g.end > g.start)
     .map(
       (g) =>
-        `mix silent ${g.start.toFixed(1)}–${g.end.toFixed(1)}s (${(g.end - g.start).toFixed(1)}s): no track is audible there`,
+        `mix silent ${formatSecondsRange(g.start, g.end)} (${formatSeconds(g.end - g.start)}): no track is audible there`,
     );
   // The board carries the lines alone; the gaps between them are filled by the video's beds.
   const boardOnly = video.stage === "animatic";
@@ -1164,7 +1161,7 @@ function describeGainOverlap(tracks: AudioTrack[]): string[] {
   }
   return hot.map(
     (h) =>
-      `effective gain sum ${h.peak.toFixed(1)} at ${h.start.toFixed(1)}s–${h.end.toFixed(1)}s ` +
+      `effective gain sum ${h.peak.toFixed(1)} at ${formatSecondsRange(h.start, h.end)} ` +
       "(includes automatic levelling; excludes source amplitudes, fades and ducking; clipping and limiter reduction are unmeasured)",
   );
 }

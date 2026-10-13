@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, jobElapsed } from "../format-duration.js";
+import {
+  formatDuration,
+  formatSeconds,
+  formatSecondsRange,
+  jobElapsed,
+} from "../format-duration.js";
 
 describe("formatDuration", () => {
   it("formats sub-hour durations as M:SS", () => {
@@ -14,6 +19,28 @@ describe("formatDuration", () => {
 
   it("clamps negatives to zero", () => {
     expect(formatDuration(-1000)).toBe("0:00");
+  });
+});
+
+describe("formatSeconds", () => {
+  it("rounds to one decimal and drops a trailing zero", () => {
+    expect(formatSeconds(73)).toBe("73s");
+    expect(formatSeconds(73.04)).toBe("73s");
+    expect(formatSeconds(73.5)).toBe("73.5s");
+    expect(formatSeconds(-0.01)).toBe("0s");
+  });
+
+  it("keeps the digits a caller asks for, still without trailing zeros", () => {
+    expect(formatSeconds(1.5, 2)).toBe("1.5s");
+    expect(formatSeconds(1.234, 2)).toBe("1.23s");
+    expect(formatSeconds(73, 3)).toBe("73s");
+  });
+});
+
+describe("formatSecondsRange", () => {
+  it("names the unit once, on the end", () => {
+    expect(formatSecondsRange(2, 7)).toBe("2–7s");
+    expect(formatSecondsRange(0.5, 2.34, 2)).toBe("0.5–2.34s");
   });
 });
 

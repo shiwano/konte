@@ -1,4 +1,5 @@
 import { KonteError } from "./errors.js";
+import { formatSeconds } from "./format-duration.js";
 
 // How far a tempo change may carry a take before it stops being the performance that was cast.
 // Speech survives a tenth either way unheard; past that the delivery itself moves, which is the
@@ -31,7 +32,7 @@ export function assertRetimeRate(options: {
   const percent = Math.round(Math.abs(rate - 1) * 100);
   throw new KonteError(
     "RETIME_RATE_EXCEEDED",
-    `${where}: fitting a ${sourceDuration.toFixed(2)}s take into ${duration.toFixed(2)}s runs it ` +
+    `${where}: fitting a ${formatSeconds(sourceDuration, 2)} take into ${formatSeconds(duration, 2)} runs it ` +
       `at ${rate.toFixed(3)}x (${percent}% off the take), past the ±` +
       `${Math.round((MAX_RETIME_RATE - 1) * 100)}% a voice carries unheard. Widen \`duration\`, ` +
       `shorten the line, or declare \`waiver: "<reason>"\` on the asset to run it anyway.`,

@@ -9,6 +9,7 @@ import { loadMotionWaveform, renderMotionStrip } from "../../../core/motion-insp
 import { detectSceneChanges, frameInterval } from "../../../core/thumbnail.js";
 import { parseNumberOption } from "../../parse-option.js";
 import { openProbeTargets } from "./resolve-arg.js";
+import { formatSeconds } from "../../../core/format-duration.js";
 
 const MAX_SHEET_FRAMES = 64;
 
@@ -87,7 +88,7 @@ Examples:
         });
 
         if (i > 0) console.log("");
-        console.log(`${address}   ${variantId}   ${duration.toFixed(2)}s`);
+        console.log(`${address}   ${variantId}   ${formatSeconds(duration, 2)}`);
         console.log("  shot  direction  detected");
         for (const cut of cuts) {
           const detected =
@@ -95,16 +96,17 @@ Examples:
               ? "(take head)"
               : cut.detected === null
                 ? "— none near it"
-                : `${cut.detected.toFixed(2)}s (${cut.detected >= cut.expected ? "+" : ""}${(
-                    cut.detected - cut.expected
-                  ).toFixed(2)})`;
+                : `${formatSeconds(cut.detected, 2)} (${cut.detected >= cut.expected ? "+" : ""}${formatSeconds(
+                    cut.detected - cut.expected,
+                    2,
+                  )})`;
           console.log(
-            `  ${cut.shotId.padEnd(4)}  ${`${cut.expected.toFixed(2)}s`.padEnd(9)}  ${detected}`,
+            `  ${cut.shotId.padEnd(4)}  ${formatSeconds(cut.expected, 2).padEnd(9)}  ${detected}`,
           );
         }
         if (unmatched.length > 0) {
           console.log(
-            `  other detections: ${unmatched.map((t) => `${t.toFixed(2)}s`).join(", ")} — a large ` +
+            `  other detections: ${unmatched.map((t) => formatSeconds(t, 2)).join(", ")} — a large ` +
               `move inside a shot reads as a cut`,
           );
         }

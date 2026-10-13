@@ -9,6 +9,16 @@ export function formatDuration(ms: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
+// Seconds, the unit the whole project speaks — shot durations, cue offsets, silence warnings and the
+// track table are all in it, so an m:ss timecode here would only force the reader to convert back.
+export function formatSeconds(seconds: number, digits = 1): string {
+  return `${Number(seconds.toFixed(digits))}s`;
+}
+
+export function formatSecondsRange(start: number, end: number, digits = 1): string {
+  return `${Number(start.toFixed(digits))}–${formatSeconds(end, digits)}`;
+}
+
 // Elapsed time for a job, measured from actual processing start: live (now − start)
 // while running, final (completedAt − start) once terminal, or "-" if it never started.
 // The basis is processingStartedAt when set (comfy, after its serial-queue wait) and
@@ -38,7 +48,7 @@ export function formatShotSpan(
   beats: number | null,
   beatsPerBar: number | null | undefined,
 ): string {
-  const sec = seconds === null ? null : `${Number(seconds.toFixed(3))}s`;
+  const sec = seconds === null ? null : formatSeconds(seconds, 3);
   if (beats === null) return sec ?? "";
   const bars = beatsPerBar ? beats / beatsPerBar : null;
   const barText = bars === null ? "" : ` (${Number(bars.toFixed(2))} bar${bars === 1 ? "" : "s"})`;

@@ -160,8 +160,8 @@ export default defineReference(direction, () => ({
     const projectDir = await project(animaticWith({ shots: "pending" }));
     await generate(projectDir);
     const { stdout } = await run(["probe", "cuts", DRAFT], projectDir);
-    expect(stdout).toMatch(/01\s+0\.00s\s+\(take head\)/);
-    expect(stdout).toMatch(/02\s+2\.00s\s+2\.00s \(\+0\.00\)/);
+    expect(stdout).toMatch(/01\s+0s\s+\(take head\)/);
+    expect(stdout).toMatch(/02\s+2s\s+2s \(\+0s\)/);
     expect(stdout).toMatch(/sheet {2}\S+strip-full-f17\.jpg/);
     expect(stdout).toContain("Next steps:");
   });
@@ -176,14 +176,14 @@ export default defineReference(direction, () => ({
     const projectDir = await project(piece);
     const drafts = await run(["inspect", "animatic", "--prompts"], projectDir);
     expect(drafts.stdout).toContain(
-      `frame: ${FRAME} — ${DRAFT} at 0.50s ([Shot 1], 0.50s past its stated cut)`,
+      `frame: ${FRAME} — ${DRAFT} at 0.5s ([Shot 1], 0.5s past its stated cut)`,
     );
     expect(drafts.stdout).toContain(`${DRAFT}
-  [Shot 1] shot 01 · at 0.00s · setup front
+  [Shot 1] shot 01 · at 0s · setup front
     action: test shot
     lineup: 
     set: the window (studioWindow)
-  [Shot 2] shot 02 · at 2.00s · setup front
+  [Shot 2] shot 02 · at 2s · setup front
     action: later shot
     join: jump-forward
     lineup: 

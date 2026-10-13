@@ -30,21 +30,21 @@ describe("summarizeAudioSilence", () => {
     const warnings = summarizeAudioSilence(envelope(20, 0, 16), RATE, 20);
     const trailing = warnings.find((w) => w.type === "trailing_silence");
     expect(trailing).toBeDefined();
-    expect(trailing?.message).toBe("trailing silence: 4.0s (audio ends at 16.0s / 20.0s)");
+    expect(trailing?.message).toBe("trailing silence: 4s (audio ends at 16s / 20s)");
     expect(warnings.some((w) => w.type === "leading_silence")).toBe(false);
   });
 
   it("flags a leading silence (delayed start)", () => {
     const warnings = summarizeAudioSilence(envelope(10, 2, 10), RATE, 10);
     const leading = warnings.find((w) => w.type === "leading_silence");
-    expect(leading?.message).toBe("leading silence: 2.0s (audio starts at 2.0s / 10.0s)");
+    expect(leading?.message).toBe("leading silence: 2s (audio starts at 2s / 10s)");
   });
 
   it("names a played window as the window, not the file", () => {
     expect(summarizeAudioSilence(new Array(100).fill(0), RATE, null, "window")).toEqual([
       {
         type: "silent",
-        message: "No audible signal above the noise floor in the 1.0s it plays.",
+        message: "No audible signal above the noise floor in the 1s it plays.",
       },
     ]);
   });
@@ -66,7 +66,7 @@ describe("summarizeAudioSilence", () => {
     const trailing = summarizeAudioSilence(buckets, RATE, 10).find(
       (w) => w.type === "trailing_silence",
     );
-    expect(trailing?.message).toBe("trailing silence: 2.0s (audio ends at 8.0s / 10.0s)");
+    expect(trailing?.message).toBe("trailing silence: 2s (audio ends at 8s / 10s)");
   });
 
   it("keeps a faint but audible ambience out of the silent verdict", () => {
@@ -82,7 +82,7 @@ describe("summarizeAudioSilence", () => {
     const trailing = summarizeAudioSilence(bell, RATE, 3).find(
       (w) => w.type === "trailing_silence",
     );
-    expect(trailing?.message).toBe("trailing silence: 1.7s (audio ends at 1.3s / 3.0s)");
+    expect(trailing?.message).toBe("trailing silence: 1.7s (audio ends at 1.3s / 3s)");
   });
 
   it("returns nothing for an empty envelope", () => {
@@ -155,7 +155,7 @@ describe("detectAudioOnset", () => {
   });
 
   it("separates the attack from the first audible sample", () => {
-    // A swell: audible from 0.2s, loudest at 1.0s — a hit aligned on its peak needs the latter.
+    // A swell: audible from 0.2s, loudest at 1s — a hit aligned on its peak needs the latter.
     const rms = envelope(2, 0.2, 2, 0.1).map((v, i) => (i / RATE >= 1 && i / RATE < 1.1 ? 0.9 : v));
     expect(detectAudioOnset(rms, RATE)).toEqual({ startSec: 0.2, peakSec: 1 });
   });
@@ -225,21 +225,21 @@ describe("playedRms", () => {
 
   it("still flags a trailing silence inside the played region", () => {
     const played = playedRms(profile(20, 0, 16), 0, 20, false);
-    expect(silence(played)).toEqual(["trailing silence: 4.0s (audio ends at 16.0s / 20.0s)"]);
+    expect(silence(played)).toEqual(["trailing silence: 4s (audio ends at 16s / 20s)"]);
   });
 
   it("pads the span a source runs out of, so an underrun reads as the silence it is", () => {
     // A 5s source held for 30s (`<Audio duration={30}>`, or a non-looping bed): 25s of nothing.
     const played = playedRms(profile(5, 0, 5), 0, 30, false);
     expect(played).toHaveLength(3000);
-    expect(silence(played)).toEqual(["trailing silence: 25.0s (audio ends at 5.0s / 30.0s)"]);
+    expect(silence(played)).toEqual(["trailing silence: 25s (audio ends at 5s / 30s)"]);
   });
 
   it("reads a mediaStart past the source end as wholly silent", () => {
     const played = playedRms(profile(10, 0, 10), 12, 3, false);
     expect(played).toEqual(new Array(300).fill(0));
     expect(silence(played)).toEqual([
-      "No audible signal above the noise floor — the whole 3.0s file is silent.",
+      "No audible signal above the noise floor — the whole 3s file is silent.",
     ]);
   });
 
@@ -247,7 +247,7 @@ describe("playedRms", () => {
     // A 10s bed whose music stops at 7s, looped across a 60s timeline: the gap recurs each lap.
     const played = playedRms(profile(10, 0, 7), 0, 60, true);
     expect(played).toHaveLength(1000);
-    expect(silence(played)).toEqual(["trailing silence: 3.0s (audio ends at 7.0s / 10.0s)"]);
+    expect(silence(played)).toEqual(["trailing silence: 3s (audio ends at 7s / 10s)"]);
   });
 
   it("ignores mediaStart on a looped bed — the wrap plays the head back anyway", () => {
@@ -274,7 +274,7 @@ describe("detectWindowCuts", () => {
   it("flags a window whose end lands inside the line", () => {
     const w = detectWindowCuts(line, RATE, 0, 4.8);
     expect(w.map((x) => x.type)).toEqual(["window_cuts_mid_sound"]);
-    expect(w[0]?.message).toContain("0.70s more follows");
+    expect(w[0]?.message).toContain("0.7s more follows");
   });
 
   it("flags a window that opens inside the line", () => {

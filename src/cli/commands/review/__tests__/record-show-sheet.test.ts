@@ -28,7 +28,7 @@ describe("review record show --contact-sheet", () => {
     // Above the listing, so a piped read keeps it.
     expect(stdout.indexOf("Contact sheet")).toBeLessThan(stdout.indexOf("Review: video-preview"));
     // The comment text stays in the listing — the sheet only says which comment each cell is.
-    expect(stdout).toContain("[fb-first] 1.0s (shot.01 +1.0s) earlier");
+    expect(stdout).toContain("[fb-first] 1s (shot.01 +1s) earlier");
   });
 
   it("skips a note whose frame cannot be rendered and says how many", async () => {
@@ -62,7 +62,7 @@ describe("review record show --contact-sheet", () => {
     const { stdout } = await run(["review", "record", "show", "--contact-sheet"], projectDir);
 
     expect(stdout).toContain("Contact sheet: no note in this review can carry a frame.");
-    expect(stdout).toContain("[fb-audio] 1.0s voice is flat");
+    expect(stdout).toContain("[fb-audio] 1s voice is flat");
   });
 
   it("labels the cells in timeline order, whatever order the notes were written in", async () => {
@@ -86,8 +86,8 @@ describe("review record show --contact-sheet", () => {
     expect(stdout).toContain("Contact sheet (2 frames, 2 sheets):");
     const spans = stdout.match(/^\s+\S+\.jpg\s+(.+?) \.\. /gm)?.map((line) => line.trim());
     expect(spans).toEqual([
-      expect.stringContaining("fb-first shot.01 +1.0s"),
-      expect.stringContaining("fb-second shot.01 +4.0s"),
+      expect.stringContaining("fb-first shot.01 +1s"),
+      expect.stringContaining("fb-second shot.01 +4s"),
     ]);
   });
 });

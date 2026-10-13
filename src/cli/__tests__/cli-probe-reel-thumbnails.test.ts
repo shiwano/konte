@@ -49,6 +49,6 @@ describe("probe reel-thumbnails", () => {
     const { stdout } = await run(["probe", "reel-thumbnails", "video:shot.01"], projectDir);
 
     expect(stdout).toContain("video:shot.01#composition: 1 frames captured");
-    expect(stdout).toContain("thumbnails/01.jpg (0.00s)");
+    expect(stdout).toContain("thumbnails/01.jpg (0s)");
   });
 });

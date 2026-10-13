@@ -66,6 +66,7 @@ export type ArcShot = NarrativeShot | GraphicShot;
 import { isIdentifier } from "./dsl/validate-identifier.js";
 import { scriptOf } from "./typography.js";
 import { KonteError } from "./errors.js";
+import { formatSeconds } from "./format-duration.js";
 
 // A waivable finding's class. The gate looks at a scope-specific subset of these (a `generate`
 // allows partial coverage so it ignores `completeness`; only `export` enforces it).
@@ -721,8 +722,8 @@ function checkSongOverrun(direction: Direction, song: SongTakeState): DirectionF
     {
       code: "song-overrun",
       message:
-        `the timeline runs ${end.toFixed(2)}s, past the end of ${take.address} ${take.variantId} ` +
-        `(${durationSec.toFixed(2)}s) — shorten the cut, or accept a longer take of the song`,
+        `the timeline runs ${formatSeconds(end, 2)}, past the end of ${take.address} ${take.variantId} ` +
+        `(${formatSeconds(durationSec, 2)}) — shorten the cut, or accept a longer take of the song`,
     },
   ];
 }

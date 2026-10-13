@@ -1,6 +1,8 @@
 // Shared terminal primitives for drawing audio amplitude as a block-character sparkline, used by
 // both `konte probe reel-audio` (timeline lanes) and `konte probe audio` (a single source's waveform).
 
+import { formatSeconds } from "../core/format-duration.js";
+
 const BLOCKS = "▁▂▃▄▅▆▇█";
 
 // Map a 0-1 amplitude to a block glyph; "·" marks a scheduled-but-near-silent column so an active
@@ -39,12 +41,6 @@ function niceStep(span: number, targetTicks: number): number {
   return nice * mag;
 }
 
-// Seconds, the unit the whole project speaks — shot durations, cue offsets, silence warnings and the
-// track table are all in it, so an m:ss timecode here would only force the reader to convert back.
-export function fmtSeconds(s: number): string {
-  return `${Number.isInteger(s) ? s : s.toFixed(1)}s`;
-}
-
 // A time axis spanning [vStart, vEnd] over `graphW` columns: one row of labels at round seconds,
 // exactly graphW wide. Callers prepend their own left gutter. Labels alone place the sparkline in
 // time; a rule of ─ under them would cost a glyph per column and say nothing they don't.
@@ -57,7 +53,7 @@ export function buildTimeAxis(vStart: number, vEnd: number, graphW: number): str
   for (let t = firstTick; t <= vEnd + 1e-6; t += step) {
     const col = colOf(t);
     if (col < 0 || col >= graphW) continue;
-    const lbl = fmtSeconds(t);
+    const lbl = formatSeconds(t);
     for (let i = 0; i < lbl.length && col + i < graphW; i++) labelRow[col + i] = lbl[i]!;
   }
   return labelRow.join("");

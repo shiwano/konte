@@ -19,10 +19,11 @@ import {
   probeEach,
   withAbsoluteFiles,
 } from "./shared.js";
+import { formatSeconds } from "../../../core/format-duration.js";
 
 function printThumbnails(thumbnails: ThumbnailInfo[]): void {
   for (const thumb of thumbnails) {
-    console.log(`  ${thumb.file} (${thumb.timestamp.toFixed(2)}s)`);
+    console.log(`  ${thumb.file} (${formatSeconds(thumb.timestamp, 2)})`);
   }
 }
 

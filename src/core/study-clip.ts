@@ -26,6 +26,7 @@ import {
 } from "./thumbnail.js";
 import { type ClipStudy, ClipStudySchema } from "./types/index.js";
 import { probeHasAudio } from "./video-probe.js";
+import { formatSeconds } from "./format-duration.js";
 
 // Bumped whenever what a study reads, or how, changes: a study of another version is read again.
 const STUDY_VERSION = 2;
@@ -184,7 +185,7 @@ export function heardLines(tokens: readonly { text: string; startSec: number }[]
 }
 
 function sheetCellLabel(shot: { startSec: number; endSec: number }): string {
-  return `${formatClock(shot.startSec)}  ${(shot.endSec - shot.startSec).toFixed(1)}s`;
+  return `${formatClock(shot.startSec)}  ${formatSeconds(shot.endSec - shot.startSec)}`;
 }
 
 async function ffmpeg(args: string[]): Promise<void> {

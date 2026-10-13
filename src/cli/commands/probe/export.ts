@@ -18,9 +18,9 @@ import { loadVideoDefinition } from "../../../core/loader.js";
 import { ffprobeBin } from "../../../core/ffmpeg-binary.js";
 import { probeContainerTags, probeMediaDetail } from "../../../core/video-probe.js";
 import { formatBytes } from "../clean-utils.js";
-import { fmtSeconds } from "../../audio-sparkline.js";
 import { requireVideoRoot } from "../../context.js";
 import { stageEntryPath } from "../../../core/roots.js";
+import { formatSeconds } from "../../../core/format-duration.js";
 
 interface ExportProbeTarget {
   outputFile: string;
@@ -53,7 +53,7 @@ function formatPicture(
 ): string {
   if (!video || (video.frames === null && video.durationSec === null)) return "—";
   const frames = video.frames !== null ? `${video.frames} frames` : "? frames";
-  const length = video.durationSec !== null ? `${video.durationSec.toFixed(3)}s` : "?s";
+  const length = video.durationSec !== null ? formatSeconds(video.durationSec, 3) : "?s";
   const expected = manifest
     ? Math.round(manifest.shots.reduce((sum, s) => sum + s.duration, 0) * manifest.fps)
     : null;
@@ -191,7 +191,7 @@ Examples:
         );
       }
       console.log(`  resolution  ${dimensions ? `${dimensions.width}×${dimensions.height}` : "—"}`);
-      console.log(`  duration    ${duration != null ? fmtSeconds(duration) : "—"}`);
+      console.log(`  duration    ${duration != null ? formatSeconds(duration) : "—"}`);
       console.log(`  fps         ${fps != null ? Math.round(fps * 1000) / 1000 : "—"}`);
       console.log(`  picture     ${formatPicture(dimensions, manifest)}`);
       console.log(`  size        ${formatBytes(stat.size)}`);

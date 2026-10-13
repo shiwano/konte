@@ -28,6 +28,7 @@ import {
   withAbsoluteFiles,
 } from "./shared.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
+import { formatSeconds } from "../../../core/format-duration.js";
 
 async function shotAnimates(
   video: StageDefinition,
@@ -148,7 +149,7 @@ Examples:
 
       console.log(`${address}: ${thumbnails.length} frames captured`);
       for (const thumb of thumbnails) {
-        console.log(`  ${thumb.file} (${thumb.timestamp.toFixed(2)}s)`);
+        console.log(`  ${thumb.file} (${formatSeconds(thumb.timestamp, 2)})`);
       }
 
       // Sampled frames are too far apart to show how an <Animate> move travels.

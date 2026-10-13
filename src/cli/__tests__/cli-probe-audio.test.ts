@@ -100,7 +100,7 @@ export default defineVideo(direction, {
     const projectDir = await initWithAudioVideo();
     const { stdout } = await run(["probe", "reel-audio", "video"], projectDir);
 
-    expect(stdout).toContain("total 7.0s");
+    expect(stdout).toContain("total 7s");
     expect(stdout).toContain("⚠ bed: not generated yet");
     expect(stdout).toContain("LUFS unknown  gain 0.30  auto off: source unmeasured");
     expect(stdout).not.toContain("effective gain sum");
@@ -117,14 +117,14 @@ export default defineVideo(direction, {
       table.find((line) => line.trim().startsWith(`${tag} `)) ?? "";
     const lufsOf = (tag: string) => Number(trackLine(tag).match(/(-?[\d.]+) LUFS/)?.[1]);
 
-    expect(stdout).toContain("total 7.0s");
+    expect(stdout).toContain("total 7s");
 
     expect(stdout).toContain("LUFS estimates use whole-source loudness + effective gain.");
     expect(stdout).toContain("They exclude trimming, fades, and final mixing");
     expect(trackLine("bed")).toMatch(/est -?[\d.]+ LUFS  gain [\d.]+  auto [+-][\d.]+ dB/);
     expect(trackLine("01 vo")).toMatch(/auto [+-][\d.]+ dB/);
-    expect(trackLine("bed")).toMatch(/soundtrack\s+0\.0–7\.0s/);
-    expect(trackLine("sting")).toMatch(/soundtrack\s+3\.0–7\.0s/);
+    expect(trackLine("bed")).toMatch(/soundtrack\s+0–7s/);
+    expect(trackLine("sting")).toMatch(/soundtrack\s+3–7s/);
     // A reported level is what the mux writes: the declared gain with the source's levelling
     // folded in. Both beds pull the same source, so the one gain scales both.
     expect(lufsOf("bed")).toBeLessThan(0);
@@ -182,13 +182,13 @@ export default defineVideo(direction, {
     const silence = stdout.split("\n").filter((line) => line.includes("trailing silence"));
 
     // `bed` loops the 6s source across the 7s timeline, so the 4s gap recurs each lap.
-    // `sting` plays 3s–7s of the timeline, i.e. the source's first 4s: tone, then 2s of silence.
+    // `sting` plays 3–7s of the timeline, i.e. the source's first 4s: tone, then 2s of silence.
     // The shot-01 cue plays 1.8s of tone — its region is all audible, so it stays clean.
     expect(silence.map((line) => line.trim())).toEqual([
-      "⚠ bed: trailing silence: 4.0s (audio ends at 2.0s / 6.0s) — replays every loop",
-      "⚠ sting: trailing silence: 2.0s (audio ends at 2.0s / 4.0s)",
+      "⚠ bed: trailing silence: 4s (audio ends at 2s / 6s) — replays every loop",
+      "⚠ sting: trailing silence: 2s (audio ends at 2s / 4s)",
     ]);
-    expect(stdout).toContain("⚠ bed: loops ×2 to fill 7.0s span (source 6.00s)");
+    expect(stdout).toContain("⚠ bed: loops ×2 to fill 7s span (source 6s)");
   });
 
   it("notes a cue's own silence and warns only where the mix is silent", async () => {
@@ -198,7 +198,7 @@ export default defineVideo(direction, {
       path.join(projectDir, "reference.tsx"),
       AUDIO_REFERENCE_TS.replace("assets/files/bgm.mp3", "assets/files/early.wav"),
     );
-    // The cue plays 3s–4.8s of the source, all silence; the bed plays the tone over 0–2s alone.
+    // The cue plays 3–4.8s of the source, all silence; the bed plays the tone over 0–2s alone.
     await fs.writeFile(
       path.join(projectDir, "video.tsx"),
       AUDIO_VIDEO_TSX.replace("duration={1.8}", "duration={1.8} mediaStart={3}")
@@ -214,14 +214,14 @@ export default defineVideo(direction, {
       "  01 vo: No audible signal above the noise floor in the 1.8s it plays.",
     );
     expect(stdout).not.toContain("⚠ 01 vo:");
-    expect(stdout).toContain("⚠ mix silent 2.0–7.0s (5.0s): no track is audible there");
+    expect(stdout).toContain("⚠ mix silent 2–7s (5s): no track is audible there");
   });
 
   it("notes the animatic's silent stretch instead of warning", async () => {
     const { video: projectDir } = await initWorkspace(path.join(ctx.dir, "testproject"));
     await fs.writeFile(path.join(projectDir, "reference.tsx"), AUDIO_REFERENCE_TS);
     await fs.writeFile(path.join(projectDir, "video.tsx"), AUDIO_VIDEO_TSX);
-    // The board's one line plays 0.5s–2.3s; the rest of the 7s timeline is silent.
+    // The board's one line plays 0.5–2.3s; the rest of the 7s timeline is silent.
     await fs.writeFile(
       path.join(projectDir, "animatic.tsx"),
       `import { Audio, Composition, Panel, defineAnimatic } from "konte";
@@ -251,7 +251,7 @@ export default defineAnimatic(direction, {
     const { stdout } = await run(["probe", "reel-audio", "animatic"], projectDir);
     const mix = stdout.split("\n").filter((line) => line.includes("mix silent"));
     expect(mix.map((line) => line.trim())).toEqual([
-      "mix silent 2.3–7.0s (4.7s): no track is audible there",
+      "mix silent 2.3–7s (4.7s): no track is audible there",
     ]);
   });
 
@@ -276,8 +276,8 @@ export default defineAnimatic(direction, {
     const { stdout } = await run(["probe", "reel-audio", "video"], projectDir);
     const mix = stdout.split("\n").filter((line) => line.includes("mix silent"));
     expect(mix.map((line) => line.trim())).toEqual([
-      "⚠ mix silent 0.0–2.0s (2.0s): no track is audible there",
-      "⚠ mix silent 4.0–7.0s (3.0s): no track is audible there",
+      "⚠ mix silent 0–2s (2s): no track is audible there",
+      "⚠ mix silent 4–7s (3s): no track is audible there",
     ]);
   });
 
@@ -313,7 +313,7 @@ export default defineAnimatic(direction, {
 
     const { stdout } = await run(["probe", "reel-audio", "video:shot.02"], projectDir);
 
-    expect(stdout).toContain("video:shot.02   total 7.0s   2 tracks");
+    expect(stdout).toContain("video:shot.02   total 7s   2 tracks");
     // The shot-01 cue is outside the window; bed (spanning) and sting remain.
     expect(stdout).not.toContain("01 vo");
     expect(stdout).toContain("sting");
@@ -364,7 +364,7 @@ describe("probe audio command", () => {
 
     // Two decimals: a rounded 0.1s is three frames off at 30fps.
     const { stdout } = await run(["probe", "audio", variantId], projectDir);
-    const onset = stdout.match(/ {2}onset {5}(\d+\.\d{2})s first audible, (\d+\.\d{2})s peak/);
+    const onset = stdout.match(/ {2}onset {5}([\d.]+)s first audible, ([\d.]+)s peak/);
     const duration = Number(stdout.match(/ {2}duration {2}([\d.]+)s/)?.[1]);
 
     expect(onset).not.toBeNull();

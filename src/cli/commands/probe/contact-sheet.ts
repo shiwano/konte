@@ -51,6 +51,7 @@ import { requireVideoRoot } from "../../context.js";
 import { resolveProbeTargets } from "./resolve-arg.js";
 import { printResolutionNotices, type ResolvedTake } from "../../resolution-notice.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
+import { formatSeconds } from "../../../core/format-duration.js";
 
 // Two cells per shot: a cut is read on the outgoing frame against the next shot's incoming one.
 const DEFAULT_FRAMES_PER_SHOT = 2;
@@ -300,7 +301,7 @@ async function buildCompositionCells(
         ? `${panelCells[i]?.panel.assetName ?? ""} `
         : (markers.get(timestamps[i]!) ?? "");
       cells.push({
-        label: `${shotAddress} ${marker}@${frame.timestamp.toFixed(2)}s`,
+        label: `${shotAddress} ${marker}@${formatSeconds(frame.timestamp, 2)}`,
         file: path.resolve(videoRoot, frame.file),
         aspect: video.format.size.width / video.format.size.height,
       });
@@ -413,7 +414,7 @@ async function buildNeedsReviewCells(
       });
       for (const frame of frames) {
         cells.push({
-          label: `${formatShotAddress(leafStage.stage, shot.id)}#composition @${frame.timestamp.toFixed(2)}s${suffix}`,
+          label: `${formatShotAddress(leafStage.stage, shot.id)}#composition @${formatSeconds(frame.timestamp, 2)}${suffix}`,
           file: path.resolve(videoRoot, frame.file),
           aspect: leafStage.format.size.width / leafStage.format.size.height,
         });
@@ -481,7 +482,7 @@ async function buildNeedsReviewCells(
         await extractFrameAt(absFile, ts, framePath);
       }
       cells.push({
-        label: `${label} @${ts.toFixed(2)}s`,
+        label: `${label} @${formatSeconds(ts, 2)}`,
         variantId: item.variantId,
         file: framePath,
         outputHash: variant.outputHash,

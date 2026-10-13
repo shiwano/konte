@@ -17,6 +17,7 @@ import { matchesAddressScope } from "../../../core/address.js";
 import type { FeedbackAnnotation } from "../../../core/types/feedback.js";
 import { loadFeedbackStaleContext } from "./stale-context.js";
 import { requireVideoRoot } from "../../context.js";
+import { formatSeconds } from "../../../core/format-duration.js";
 
 interface FeedbackRow {
   address: string;
@@ -41,8 +42,8 @@ function formatDetail(row: FeedbackRow): string {
 
   const meta: string[] = [];
   if (row.time !== undefined) {
-    const local = row.shotTime !== undefined ? ` (shot-local: ${row.shotTime.toFixed(1)}s)` : "";
-    meta.push(`time: ${row.time.toFixed(1)}s${local}`);
+    const local = row.shotTime !== undefined ? ` (shot-local: ${formatSeconds(row.shotTime)})` : "";
+    meta.push(`time: ${formatSeconds(row.time)}${local}`);
   }
   if (row.annotation?.kind === "pin") {
     meta.push(`pin: ${row.annotation.x.toFixed(2)}, ${row.annotation.y.toFixed(2)}`);

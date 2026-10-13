@@ -33,7 +33,7 @@ import {
 } from "../../core/definition-snapshot.js";
 import { collectShots } from "../../core/direction.js";
 import { isAsideShot, isGraphicShot, resolveDirectionTimeline } from "../../core/dsl/direction.js";
-import { formatShotSpan } from "../../core/format-duration.js";
+import { formatSeconds, formatShotSpan } from "../../core/format-duration.js";
 import { directionShotCascadeTargets } from "../../core/direction-acceptance.js";
 import { KonteError } from "../../core/errors.js";
 import type { PromptOccurrence } from "../../core/prompt-check.js";
@@ -1305,7 +1305,7 @@ function draftShotLines(
   draftCuts(definition, parsed.assetName).forEach(({ shotId, at }, i) => {
     const setup = promptShots?.setup.get(shotId);
     out.push(
-      `[Shot ${i + 1}] shot ${shotId} · at ${at.toFixed(2)}s${setup ? ` · setup ${setup}` : ""}`,
+      `[Shot ${i + 1}] shot ${shotId} · at ${formatSeconds(at, 2)}${setup ? ` · setup ${setup}` : ""}`,
     );
     const action = promptShots?.action.get(shotId);
     if (action) out.push(`  action: ${action}`);
@@ -1323,9 +1323,9 @@ function draftFrameLine(
   const index = cuts.findLastIndex((cut) => cut.at <= frame.at);
   const past =
     index >= 0
-      ? ` ([Shot ${index + 1}], ${(frame.at - cuts[index]!.at).toFixed(2)}s past its stated cut)`
+      ? ` ([Shot ${index + 1}], ${formatSeconds(frame.at - cuts[index]!.at, 2)} past its stated cut)`
       : "";
-  return `${frame.address} — ${formatDraftAssetPath(frame.draft)} at ${frame.at.toFixed(2)}s${past}`;
+  return `${frame.address} — ${formatDraftAssetPath(frame.draft)} at ${formatSeconds(frame.at, 2)}${past}`;
 }
 
 function promptShotLines(

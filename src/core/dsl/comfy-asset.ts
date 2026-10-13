@@ -29,6 +29,7 @@ import {
   type AdapterValidator,
 } from "./validators/index.js";
 import type { PromptStructure, PromptStructureValue } from "./prompt-structure.js";
+import { formatSeconds } from "../format-duration.js";
 
 export type AdapterInputType =
   | "string"
@@ -668,7 +669,7 @@ function assertDerivedInputs(
 // no later stage can put back; a take under the shot leaves a gap the timeline cannot fill.
 function overMaxMessage(key: string, def: AdapterInputDef, value: number): string {
   const seconds = (n: number): string =>
-    def.clock ? ` (${(n / def.clock).toFixed(1)}s at ${def.clock}fps)` : "";
+    def.clock ? ` (${formatSeconds(n / def.clock)} at ${def.clock}fps)` : "";
   const over = `Input "${key}" resolves to ${value}${seconds(value)}, past this adapter's maximum of ${def.max}${seconds(def.max!)}.`;
   if (getDraftPoolContext()) return `${over} Split the draft's shots across two takes.`;
   return (

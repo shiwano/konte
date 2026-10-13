@@ -6,7 +6,7 @@ import { spokenLinesAt } from "../../../core/prompt-check.js";
 import { ensureFfmpeg } from "../../../core/ffmpeg.js";
 import { ffprobeBin } from "../../../core/ffmpeg-binary.js";
 import { type AudioStreamInfo, probeMediaDetail } from "../../../core/video-probe.js";
-import { buildTimeAxis, cell, fmtSeconds, normalize, resample } from "../../audio-sparkline.js";
+import { buildTimeAxis, cell, normalize, resample } from "../../audio-sparkline.js";
 import { openProbeTargets } from "./resolve-arg.js";
 import { loadDirectionIfPresent } from "../../load-definition.js";
 import { songAnalysisOf } from "../../../core/song-reading.js";
@@ -17,6 +17,7 @@ import { barAt, songBars } from "../../../core/song-report.js";
 import type { SongAnalysis } from "../../../core/types/index.js";
 import { type LyricPlacementEntry, placeDirectionLyrics } from "../../../core/dsl/direction.js";
 import { probeEach } from "./shared.js";
+import { formatSeconds, formatSecondsRange } from "../../../core/format-duration.js";
 
 // Enough to read the shape of a broken-up take off one line.
 const MAX_LISTED_SPANS = 6;
@@ -42,10 +43,10 @@ function fmtAudioInfo(info: AudioStreamInfo | null): string {
   return parts.join("  ") || "—";
 }
 
-// Two decimals, unlike the project-wide fmtSeconds: an onset is subtracted from a cue's `start` to
+// Two decimals, unlike formatSeconds' default: an onset is subtracted from a cue's `start` to
 // place a sound on a frame, where a rounded 0.1s is already three frames off at 30fps.
 function fmtOnset(sec: number): string {
-  return `${sec.toFixed(2)}s`;
+  return formatSeconds(sec, 2);
 }
 
 export function registerProbeAudioCommand(program: Command): void {
@@ -136,7 +137,7 @@ Examples:
         console.log(`${wf.variantId}   ${wf.address}   [${wf.status}]`);
         console.log(`  file      ${fileAbs}`);
         const dur = wf.durationSec;
-        console.log(`  duration  ${dur != null ? fmtSeconds(dur) : "—"}`);
+        console.log(`  duration  ${dur != null ? formatSeconds(dur) : "—"}`);
         console.log(`  audio     ${wf.hasAudio ? fmtAudioInfo(info) : "no audio stream"}`);
         for (const line of lines) {
           console.log(`  line      ${quoteLine(line)}`);
@@ -156,7 +157,7 @@ Examples:
           const audible = wf.spans.reduce((sum, sp) => sum + (sp.end - sp.start), 0);
           const listed = wf.spans
             .slice(0, MAX_LISTED_SPANS)
-            .map((sp) => `${fmtOnset(sp.start)}–${fmtOnset(sp.end)}`)
+            .map((sp) => `${formatSecondsRange(sp.start, sp.end, 2)}`)
             .join(", ");
           const rest = wf.spans.length - MAX_LISTED_SPANS;
           console.log(
@@ -239,7 +240,7 @@ export function printSongReading(song: SongAnalysis): void {
     console.log("  sung      unknown — the vocal track could not be separated");
   } else {
     const listed = song.phrases
-      .map((p) => `${fmtOnset(p.startSec)}–${fmtOnset(p.endSec)}`)
+      .map((p) => `${formatSecondsRange(p.startSec, p.endSec, 2)}`)
       .join(", ");
     console.log(`  sung      ${song.phrases.length} stretch(es): ${listed || "none"}`);
   }
@@ -263,7 +264,7 @@ export function printLyrics(lines: readonly LyricPlacementEntry[]): void {
     const span =
       line.start === null
         ? "unplaced"
-        : `${fmtOnset(line.start)}–${fmtOnset(line.end)}${line.set ? " (set)" : ""}`;
+        : `${formatSecondsRange(line.start, line.end, 2)}${line.set ? " (set)" : ""}`;
     console.log(
       `    ${line.key.padEnd(5)} ${span.padEnd(20)} ${line.singer.join("+").padEnd(singerWidth)} ${line.text}`,
     );

@@ -16,7 +16,7 @@ import {
 import type { GenerationBackend, WaitOptions } from "../core/backend.js";
 import { hashFile } from "../core/content-hash.js";
 import { KonteError, errorMessage } from "../core/errors.js";
-import { formatDuration } from "../core/format-duration.js";
+import { formatSeconds, formatDuration } from "../core/format-duration.js";
 import { type JobManager, RUN_LEASE_TTL_MS } from "../core/job-manager.js";
 import { normalizeKeyframesIfSparse } from "../core/keyframe-normalize.js";
 import {
@@ -403,12 +403,12 @@ async function runAsOwner(
         if (norm.normalized) {
           jobManager.appendLog(
             variantId,
-            `Normalized sparse keyframes (max interval ${norm.maxIntervalSeconds?.toFixed(2)}s > 2s) for reliable seeking.`,
+            `Normalized sparse keyframes (max interval ${norm.maxIntervalSeconds === undefined ? "?" : formatSeconds(norm.maxIntervalSeconds, 2)} > 2s) for reliable seeking.`,
           );
         } else if (norm.skipReason && norm.maxIntervalSeconds !== undefined) {
           jobManager.appendLog(
             variantId,
-            `Left sparse keyframes (max interval ${norm.maxIntervalSeconds.toFixed(2)}s) unchanged: ${norm.skipReason}.`,
+            `Left sparse keyframes (max interval ${formatSeconds(norm.maxIntervalSeconds, 2)}) unchanged: ${norm.skipReason}.`,
           );
         }
       } catch (normErr) {

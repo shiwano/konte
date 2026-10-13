@@ -33,6 +33,7 @@ import { DirectionMap } from "./direction-map.js";
 import { CheckIcon } from "./icons.js";
 import { ReviewHeaderActions } from "./review-header-actions.js";
 import { StatusBadge } from "./status-badge.js";
+import { formatSeconds } from "../../../core/format-duration.js";
 
 // The same keys the other review pages use, over this page's accept unit — the section. A reviewer
 // who learned J/K/A/N on the animatic should not have to learn them again here.
@@ -782,7 +783,7 @@ function Span({
   beats: number | null;
 }): React.ReactElement {
   const song = useContext(SongMeterContext);
-  const sec = seconds === null ? null : `${Number(seconds.toFixed(2))}s`;
+  const sec = seconds === null ? null : formatSeconds(seconds, 2);
   if (beats === null || song === null) return <>{sec}</>;
   const bars = song.beatsPerBar === null ? null : Number((beats / song.beatsPerBar).toFixed(2));
   const gloss = [bars === null ? null : `${bars} bar${bars === 1 ? "" : "s"}`, sec].filter(

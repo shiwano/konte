@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { Command } from "commander";
 import { resolveDirectionTimeline } from "../../core/dsl/direction.js";
 import { KonteError } from "../../core/errors.js";
+import { formatSeconds } from "../../core/format-duration.js";
 import { formatRelativeTime } from "../../core/format-timestamp.js";
 import {
   loadVideoTemplate,
@@ -102,12 +103,6 @@ async function buildDigest(videoRoot: string, name: string): Promise<VideoDigest
   };
 }
 
-function formatRuntime(seconds: number): string {
-  const total = Math.round(seconds);
-  if (total < 60) return `${total}s`;
-  return `${Math.floor(total / 60)}m ${total % 60}s`;
-}
-
 function printDigest(digest: VideoDigest): void {
   if (digest.state === "no-videos") {
     console.log(`Video: none — this workspace has no videos. Run "konte video new <name>".`);
@@ -129,7 +124,7 @@ function printDigest(digest: VideoDigest): void {
   console.log(
     digest.shots === 0
       ? "Runtime: no shots yet"
-      : `Runtime: ${"seconds" in digest.runtime ? formatRuntime(digest.runtime.seconds) : `${digest.runtime.beats} beats`} across ${digest.shots} shots`,
+      : `Runtime: ${"seconds" in digest.runtime ? formatSeconds(digest.runtime.seconds) : `${digest.runtime.beats} beats`} across ${digest.shots} shots`,
   );
   console.log(
     `Last review: ${digest.lastReview ? `${digest.lastReview.scope}, ${formatRelativeTime(digest.lastReview.at)}` : "never"}`,

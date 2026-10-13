@@ -1026,7 +1026,7 @@ describe("formatReviewRecord", () => {
 
     const out = formatReviewRecord(record);
     expect(out).toContain("  video:shot.01");
-    expect(out).toContain("    1.0s (shot.01 +1.0s) legacy note");
+    expect(out).toContain("    1s (shot.01 +1s) legacy note");
   });
 
   it("renders timeline video assets, accepted only when every shot is accepted", () => {
@@ -1349,7 +1349,7 @@ describe("formatReviewRecord", () => {
 
     const out = formatReviewRecord(record, { noteFrames: new Map([["fb-1", image]]) });
     expect(out).toContain(`[image: ${image}]`);
-    expect(out).toContain("[fb-2] 2.0s no frame for this one");
+    expect(out).toContain("[fb-2] 2s no frame for this one");
     expect(out.match(/\[image: /g)).toHaveLength(1);
   });
 });
@@ -1421,7 +1421,7 @@ describe("reviewNoteFrameTargets", () => {
     };
     expect(reviewNoteFrameTargets(offGrid)[0]).toMatchObject({
       localTime: 0,
-      label: "fb-cut shot.02 +0.0s",
+      label: "fb-cut shot.02 +0s",
     });
   });
 

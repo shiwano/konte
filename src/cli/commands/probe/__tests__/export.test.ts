@@ -116,7 +116,7 @@ describe("probe export", () => {
     const stdout = await runExport([]);
 
     expect(stdout).toContain("1920×1080");
-    expect(stdout).toContain("12.4"); // fmtSeconds of 12.42
+    expect(stdout).toContain("12.4"); // formatSeconds of 12.42
     expect(stdout).toContain("30");
     expect(stdout).toContain("aac");
     expect(stdout).toContain("manifest.json");
@@ -236,7 +236,7 @@ describe("probe export", () => {
   });
 
   it("reports the picture's frames and length, flagging a count off the direction's clock", async () => {
-    expect(await runExport([])).toMatch(/picture +120 frames, 4\.000s$/m);
+    expect(await runExport([])).toMatch(/picture +120 frames, 4s$/m);
 
     probes.probeMediaDetail.mockResolvedValue({
       durationSec: 4.02,

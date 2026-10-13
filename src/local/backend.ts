@@ -22,6 +22,7 @@ import { trimVideo } from "../core/ffmpeg.js";
 import { probeMediaDuration } from "../core/video-probe.js";
 import type { LocalAssetDefinition } from "../core/types/index.js";
 import { execFileAsync } from "../core/exec-file.js";
+import { formatSeconds } from "../core/format-duration.js";
 
 // A middle take carries a fade at each end, the first and last one at one.
 async function assertCrossfadeFits(
@@ -40,7 +41,7 @@ async function assertCrossfadeFits(
     if (duration <= crossfade * fades) {
       throw new KonteError(
         "VALIDATION_FAILED",
-        `sources[${String(i)}] runs ${duration.toFixed(2)}s, not longer than the ` +
+        `sources[${String(i)}] runs ${formatSeconds(duration, 2)}, not longer than the ` +
           `${String(fades)} crossfade(s) of ${String(crossfade)}s it carries`,
       );
     }

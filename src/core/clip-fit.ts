@@ -5,6 +5,7 @@ import { floorToGrid } from "./dsl/comfy-asset.js";
 import { KonteError } from "./errors.js";
 import { BASE_SEC } from "./speech-duration.js";
 import type { AnimaticDefinition, AssetDefinition } from "./types/index.js";
+import { formatSeconds } from "./format-duration.js";
 
 /**
  * An animatic shot's stem is clamped to the shot (`materializeShotStem`), so a cue that ends past
@@ -131,10 +132,10 @@ export function assertCuesFitShot(
       ) {
         throw new KonteError(
           "CUE_WINDOW_TOO_SHORT",
-          `Animatic shot "${shotId}" plays ${cue.src} from ${start.toFixed(2)}s, leaving ` +
-            `${(duration - start).toFixed(2)}s of its ${duration.toFixed(2)}s shot for words konte ` +
-            `estimates at ${wordsSec.toFixed(1)}s to say. The clip was cut to the ` +
-            `${clipSec.toFixed(2)}s that fits, so the line comes back rushed or clipped. Start the ` +
+          `Animatic shot "${shotId}" plays ${cue.src} from ${formatSeconds(start, 2)}, leaving ` +
+            `${formatSeconds(duration - start, 2)} of its ${formatSeconds(duration, 2)} shot for words konte ` +
+            `estimates at ${formatSeconds(wordsSec)} to say. The clip was cut to the ` +
+            `${formatSeconds(clipSec, 2)} that fits, so the line comes back rushed or clipped. Start the ` +
             `cue earlier or give the shot more room in direction.ts — or declare the clip length on ` +
             `the asset if a clipped read is intended.`,
         );
@@ -150,8 +151,8 @@ export function assertCuesFitShot(
         : `konte sized this clip from the words and the grid names nothing shorter that fits — start the cue earlier, or give the shot more room in direction.ts.`;
     throw new KonteError(
       "CUE_OVERRUNS_SHOT",
-      `Animatic shot "${shotId}" plays ${cue.src} from ${start.toFixed(2)}s for ` +
-        `${clipSec.toFixed(2)}s, ending ${over.toFixed(2)}s past its ${duration.toFixed(2)}s shot. ` +
+      `Animatic shot "${shotId}" plays ${cue.src} from ${formatSeconds(start, 2)} for ` +
+        `${formatSeconds(clipSec, 2)}, ending ${formatSeconds(over, 2)} past its ${formatSeconds(duration, 2)} shot. ` +
         `The stem is clamped to the shot, so that tail is cut. ${fix}`,
     );
   }

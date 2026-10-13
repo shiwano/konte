@@ -9,6 +9,7 @@ import {
 } from "../review/use-timeline-zoom.js";
 import type { RoleFunction, DirectionSequenceInfo, DirectionShotInfo } from "../types.js";
 import { CommentIcon, FitIcon } from "./icons.js";
+import { formatSeconds } from "../../../core/format-duration.js";
 
 const LABEL_W = 76;
 const ARC_H = 52;
@@ -88,7 +89,7 @@ function shotLength(shot: DirectionShotInfo): number {
 }
 
 function shotLengthLabel(shot: DirectionShotInfo): string {
-  return shot.duration !== null ? `${shot.duration.toFixed(1)}s` : `${shot.beats ?? 0} beats`;
+  return shot.duration !== null ? formatSeconds(shot.duration) : `${shot.beats ?? 0} beats`;
 }
 
 function nodeDuration(node: DirectionSequenceInfo): number {

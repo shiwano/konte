@@ -28,6 +28,7 @@ import {
 } from "./thumbnail.js";
 import type { StageDefinition } from "./types/index.js";
 import { execFileAsync } from "./exec-file.js";
+import { formatSeconds } from "./format-duration.js";
 
 // The audio inspector decodes PCM, buckets RMS amplitude, and caches the result; motion is the exact
 // analog over the time axis — decode downscaled grayscale frames, measure the per-frame-pair diff
@@ -929,7 +930,7 @@ export async function renderMotionStrip(opts: {
       framePath: string,
     ): Promise<boolean> => {
       if (!useLabel) return tryFrame(seekAt, framePath, null);
-      if (await tryFrame(seekAt, framePath, `${labelAt.toFixed(2)}s`)) return true;
+      if (await tryFrame(seekAt, framePath, formatSeconds(labelAt, 2))) return true;
       if (!(await tryFrame(seekAt, framePath, null))) return false;
       useLabel = false;
       return true;
@@ -1069,7 +1070,7 @@ export async function renderCompositionMotionStrip(opts: {
         }
         return hasBytes(framePath);
       };
-      if (useLabel && (await tryFrame(`${timestamps[i]!.toFixed(2)}s`))) return;
+      if (useLabel && (await tryFrame(formatSeconds(timestamps[i]!, 2)))) return;
       if (!(await tryFrame(null))) {
         throw new KonteError(
           "FFMPEG_ERROR",

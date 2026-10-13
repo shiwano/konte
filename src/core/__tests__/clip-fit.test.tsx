@@ -249,12 +249,12 @@ describe("a clip length spelled in seconds", () => {
 
   it("is measured against the shot like a frame count is", () => {
     expect(withSfx({ duration: 4, seconds: 9 })).toThrow(/it asks for 9s/);
-    expect(withSfx({ duration: 4, seconds: 9 })).toThrow(/past its 4.00s shot/);
+    expect(withSfx({ duration: 4, seconds: 9 })).toThrow(/past its 4s shot/);
   });
 
   it("counts the cue's start", () => {
     expect(withSfx({ duration: 4, seconds: 3 })).not.toThrow();
-    expect(withSfx({ duration: 4, start: 2, seconds: 3 })).toThrow(/past its 4.00s shot/);
+    expect(withSfx({ duration: 4, start: 2, seconds: 3 })).toThrow(/past its 4s shot/);
   });
 });
 
@@ -292,20 +292,20 @@ describe("a derived count narrowed under half the words", () => {
   });
 
   it("names the placement that narrowed a shared take", () => {
-    expect(board({ duration: 4, againAt: 3.3 })).toThrow(/from 3.30s, leaving 0.70s/);
+    expect(board({ duration: 4, againAt: 3.3 })).toThrow(/from 3.3s, leaving 0.7s/);
   });
 });
 
 describe("a cue that ends past its shot", () => {
   it("is refused before the take is paid for", () => {
     // 124 frames is 5.17s in a 3s shot.
-    expect(board({ duration: 3, length: 124 })).toThrow(/past its 3.00s shot/);
+    expect(board({ duration: 3, length: 124 })).toThrow(/past its 3s shot/);
   });
 
   it("counts the cue's start against the shot", () => {
     // 56 frames is 2.33s, which fits a 3s shot on its own and not from 1.5s in.
     expect(board({ duration: 3, length: 56 })).not.toThrow();
-    expect(board({ duration: 3, start: 1.5, length: 56 })).toThrow(/past its 3.00s shot/);
+    expect(board({ duration: 3, start: 1.5, length: 56 })).toThrow(/past its 3s shot/);
   });
 
   it("lets an overrun under a tenth of a second stand", () => {

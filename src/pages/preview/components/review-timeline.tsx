@@ -24,6 +24,7 @@ import { FilmIcon, FitIcon, GridIcon, ImageIcon, InfoIcon, VolumeIcon } from "./
 import { PlayheadLine, ScrubPreview } from "./scrub-preview.js";
 import { StatusBadge } from "./status-badge.js";
 import { VariantSummaryLabel } from "./variant-summary-button.js";
+import { formatSeconds } from "../../../core/format-duration.js";
 
 const LABEL_W = 84;
 // Height of one sub-row on the clip tracks — matched to the shot track so every clip reads as
@@ -499,11 +500,11 @@ export function ReviewTimeline({
                       left: shot.startTime * effectivePxPerSec,
                       width: shot.duration * effectivePxPerSec,
                     }}
-                    title={`Shot ${shot.shotId}: ${shot.duration.toFixed(1)}s`}
+                    title={`Shot ${shot.shotId}: ${formatSeconds(shot.duration)}`}
                   >
                     <div className="rt-shot-head">
                       <span className="rt-shot-id">{shot.shotId}</span>
-                      <span className="rt-shot-duration">{shot.duration.toFixed(1)}s</span>
+                      <span className="rt-shot-duration">{formatSeconds(shot.duration)}</span>
                       {shot.pending && <StatusBadge status="pending" label="Pending" />}
                       {shot.notReady && !shot.showingStandIn && (
                         <StatusBadge status="not-ready" label="Not ready" />

@@ -1,4 +1,5 @@
 import { KonteError } from "../errors.js";
+import { formatSeconds } from "../format-duration.js";
 
 // A take holding the song: where on the song it starts (null once it keeps no place on it, as a
 // retimed one), and where each shot starts on the song — both seconds on the timeline. A board stem
@@ -57,8 +58,8 @@ export function songWindowStart(
   if (mediaStart < -1e-9) {
     throw new KonteError(
       "SONG_WINDOW_INVALID",
-      `${label} places a take cut to the song at ${(shotStart + start).toFixed(3)}s on the song, ` +
-        `before the take starts (${span.start.toFixed(3)}s). Place a take made from this shot's ` +
+      `${label} places a take cut to the song at ${formatSeconds(shotStart + start, 3)} on the song, ` +
+        `before the take starts (${formatSeconds(span.start, 3)}). Place a take made from this shot's ` +
         `stem, or from an earlier shot's.`,
     );
   }

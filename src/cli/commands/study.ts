@@ -17,13 +17,10 @@ import { parseTimecode } from "../../core/timecode.js";
 import type { ClipStudy } from "../../core/types/index.js";
 import { requireWorkspaceRoot } from "../context.js";
 import { declareScope } from "../scope.js";
+import { formatSeconds, formatSecondsRange } from "../../core/format-duration.js";
 
 function fmtFps(fps: number): string {
   return `${Number.isInteger(fps) ? fps : fps.toFixed(2)}fps`;
-}
-
-function fmtSec(sec: number): string {
-  return `${sec.toFixed(1)}s`;
 }
 
 function median(values: readonly number[]): number {
@@ -45,8 +42,8 @@ function printStudy(file: string, url: string | null, dir: string, study: ClipSt
       `(${ratioOf(study)}) · ${fmtFps(study.fps)}`,
   );
   console.log(
-    `  cuts: ${study.shots.length} shot(s), median ${fmtSec(median(lengths))} ` +
-      `(${fmtSec(Math.min(...lengths))}–${fmtSec(Math.max(...lengths))})`,
+    `  cuts: ${study.shots.length} shot(s), median ${formatSeconds(median(lengths))} ` +
+      `(${formatSecondsRange(Math.min(...lengths), Math.max(...lengths))})`,
   );
   if (study.page && study.page.chapters.length > 0) {
     console.log("  chapters:");

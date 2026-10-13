@@ -22,6 +22,7 @@ import { formatSongTempo, songBeatAt, songGridBeats, songTempo } from "../../../
 import type { SongLineEdit, SongReadingInfo } from "../types.js";
 import { FitIcon, PauseIcon, PlayIcon, SkipToStartIcon, VolumeIcon } from "./icons.js";
 import { PlayheadLine } from "./scrub-preview.js";
+import { formatSeconds, formatSecondsRange } from "../../../core/format-duration.js";
 
 // The lines the reviewer has placed on the song's takes this session, sent with the review. Absent
 // where the page has no review to send them with, and the track is then read-only.
@@ -448,7 +449,8 @@ export function SongTrack({
             {beatZeroSec !== null && (
               <>
                 {" "}
-                · bar 1 at {beatZeroSec.toFixed(2)}s{firstBeatSet !== null && " (set by hand)"}
+                · bar 1 at {formatSeconds(beatZeroSec, 2)}
+                {firstBeatSet !== null && " (set by hand)"}
               </>
             )}
           </span>
@@ -569,7 +571,7 @@ export function SongTrack({
                         width,
                         top: (laneOf.get(line.key) ?? 0) * LANE_PX,
                       }}
-                      title={`${line.key} · ${line.startSec.toFixed(2)}s–${line.endSec.toFixed(2)}s · ${line.singer.join(", ")}\n${line.text}`}
+                      title={`${line.key} · ${formatSecondsRange(line.startSec, line.endSec, 2)} · ${line.singer.join(", ")}\n${line.text}`}
                       data-start={line.startSec}
                       role="button"
                       tabIndex={0}

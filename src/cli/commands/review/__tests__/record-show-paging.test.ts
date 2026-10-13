@@ -18,7 +18,7 @@ useReviewShowProject();
 describe("review record show --contact-sheet", () => {
   it("pages a review with more notes than one sheet holds", async () => {
     const notes = await seedManyNotes(13);
-    const cell = (i: number): string => `${notes[i]!.id} shot.01 +${notes[i]!.time!.toFixed(1)}s`;
+    const cell = (i: number): string => `${notes[i]!.id} shot.01 +${notes[i]!.time!}s`;
 
     const { stdout } = await run(["review", "record", "show", "--contact-sheet"], projectDir);
 
@@ -40,11 +40,9 @@ describe("review record show --contact-sheet", () => {
     const { stdout } = await run(["review", "record", "show", "--contact-sheet"], projectDir);
 
     expect(stdout).toContain("Contact sheet (13 frames, 2 sheets):");
+    expect(stdout).toMatch(/p01-[0-9a-f]{12}\.jpg\s+fb-00 shot\.01 \+1s \.\. fb-11 shot\.01 \+12s/);
     expect(stdout).toMatch(
-      /p01-[0-9a-f]{12}\.jpg\s+fb-00 shot\.01 \+1\.0s \.\. fb-11 shot\.01 \+12\.0s/,
-    );
-    expect(stdout).toMatch(
-      /p02-[0-9a-f]{12}\.jpg\s+fb-12 shot\.01 \+13\.0s \.\. fb-12 shot\.01 \+13\.0s/,
+      /p02-[0-9a-f]{12}\.jpg\s+fb-12 shot\.01 \+13s \.\. fb-12 shot\.01 \+13s/,
     );
   });
 
@@ -117,6 +115,6 @@ describe("review record show --contact-sheet", () => {
     const { stdout } = await run(["review", "record", "show"], projectDir);
 
     expect(stdout).not.toContain("Contact sheet");
-    expect(stdout).toContain("[fb-a] 1.0s (shot.01 +1.0s) note");
+    expect(stdout).toContain("[fb-a] 1s (shot.01 +1s) note");
   });
 });

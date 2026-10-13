@@ -13,6 +13,7 @@ import type { UnmetPrerequisite } from "./review-prerequisites.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
 import type { ExportReadiness, LastExport } from "./status-sections.js";
 import type { AssetState, KonteState, VariantState } from "./types/index.js";
+import { formatSeconds } from "./format-duration.js";
 
 // One step: a runnable command, or — when no command performs it — a `label` naming the edit it
 // takes, parenthesized on the page so it never reads as something to run.
@@ -336,7 +337,7 @@ function prependAnimaticRetimes(
       label: `edit ${STAGE_ENTRY_FILE.direction}`,
       details: [
         `Lengthen the duration of shot ${unfit.map((o) => o.shotId).join(", ")} or shorten the ` +
-          `script — the narration runs past the shot (up to ${worst.toFixed(1)}s) and is cut`,
+          `script — the narration runs past the shot (up to ${formatSeconds(worst)}) and is cut`,
       ],
     });
   }

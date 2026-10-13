@@ -7,6 +7,7 @@ import { selectResolvedVariant, type StalenessCache } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
 import type { AnimaticDefinition, KonteState } from "./types/index.js";
 import { mediaDurationSec } from "./variant-media.js";
+import { formatSeconds } from "./format-duration.js";
 
 // An animatic shot's stem is clamped to the shot's `duration` (`materializeShotStem`), so a shot
 // whose spoken lines run longer loses its tail: the truncated stem is exactly as long as the shot, which
@@ -147,7 +148,7 @@ export function findAnimaticOverflows(
 export function formatAnimaticOverflow(o: AnimaticOverflow): string {
   const partial = o.unmeasuredCues > 0 ? ` (${o.unmeasuredCues} cue(s) not measured yet)` : "";
   return (
-    `narration truncated by ${o.overflowSec.toFixed(1)}s — ` +
-    `${o.neededSec.toFixed(1)}s of audio in a ${o.durationSec.toFixed(1)}s shot${partial}`
+    `narration truncated by ${formatSeconds(o.overflowSec)} — ` +
+    `${formatSeconds(o.neededSec)} of audio in a ${formatSeconds(o.durationSec)} shot${partial}`
   );
 }

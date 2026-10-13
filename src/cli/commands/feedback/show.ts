@@ -4,6 +4,7 @@ import { feedbackStaleness, findFeedback } from "../../../core/feedback/index.js
 import { formatTimestamp } from "../../../core/format-timestamp.js";
 import { loadFeedbackStaleContext } from "./stale-context.js";
 import { requireVideoRoot } from "../../context.js";
+import { formatSeconds } from "../../../core/format-duration.js";
 
 export function registerFeedbackShowCommand(program: Command): void {
   program
@@ -48,7 +49,7 @@ export function registerFeedbackShowCommand(program: Command): void {
       }
       if (entry.time !== undefined) {
         const local =
-          entry.shotTime !== undefined ? ` (shot-local: ${entry.shotTime.toFixed(1)}s)` : "";
+          entry.shotTime !== undefined ? ` (shot-local: ${formatSeconds(entry.shotTime)})` : "";
         console.log(`Time:        ${entry.time}s${local}`);
       }
       console.log(`Created:     ${formatTimestamp(entry.createdAt)}`);

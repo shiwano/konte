@@ -1200,7 +1200,7 @@ describe("max (the model's ceiling)", () => {
   it("rejects a shot konte's own frame count carries past the ceiling", () => {
     // 20s * 24 = 480 → 481 on the grid, past 362.
     expect(() => buildWith(20)).toThrow(KonteError);
-    expect(() => buildWith(20)).toThrow(/481.*20\.0s at 24fps.*362.*15\.1s/);
+    expect(() => buildWith(20)).toThrow(/481.*20s at 24fps.*362.*15\.1s/);
   });
 
   it("names the way out, since the count is derived and there is no input to lower", () => {

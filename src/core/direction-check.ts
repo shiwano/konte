@@ -5,6 +5,8 @@
 // own roles and each carries the dramatic `fn` the theory checks read, so there is no global role
 // vocabulary or function map; the engine reads `fn` off the matched role.
 
+import { formatSeconds, formatSecondsRange } from "./format-duration.js";
+
 /**
  * The dramatic function a role performs — the five-stage skeleton the classical arc schemas share
  * (Freytag's pyramid, three-act, kishōtenketsu): ground establishes a state, turn breaks it, build
@@ -1066,8 +1068,6 @@ export function checkJoinPins(
   return findings;
 }
 
-const sec = (n: number): string => `${Number(n.toFixed(2))}s`;
-
 // A seam pinned on both takes is one frame only if the composition plays it: the take before has to
 // close the shot on its last frame, the take after has to open the shot on its first. A `mediaStart`
 // or a `duration` that moves either off it turns the seam back into a jump.
@@ -1101,13 +1101,13 @@ function checkSeamWindows(
         subject: frameSubject(shot),
         message:
           `${frameName(previous)} and ${frameName(shot)} are one take, and ${landing.take} lands ` +
-          `on the seam \`${seam}\` ${sec(landing.landsAt)} in — but ${frameName(previous)} plays ` +
-          `${sec(landing.from)}–${sec(landing.to)} of it` +
+          `on the seam \`${seam}\` ${formatSeconds(landing.landsAt, 2)} in — but ${frameName(previous)} plays ` +
+          `${formatSecondsRange(landing.from, landing.to, 2)} of it` +
           (endsShot
             ? ""
-            : `, ending ${sec(landing.shotSec - landing.closesAt)} before the shot does`) +
+            : `, ending ${formatSeconds(landing.shotSec - landing.closesAt, 2)} before the shot does`) +
           `, so the cut is not on the landing and jumps. Play it so the shot ends there ` +
-          `(\`mediaStart={${Number(start.toFixed(3))}}\` for the ${sec(played)} window). ` +
+          `(\`mediaStart={${Number(start.toFixed(3))}}\` for the ${formatSeconds(played, 2)} window). ` +
           route,
       });
     }
@@ -1124,8 +1124,8 @@ function checkSeamWindows(
           `${frameName(previous)} and ${frameName(shot)} are one take, and ${opening.take} opens on ` +
           `the seam \`${seam}\` at its first frame — but ${frameName(shot)} ` +
           (opening.from > tol
-            ? `starts it ${sec(opening.from)} in (\`mediaStart\`)`
-            : `does not start it until ${sec(opening.opensAt)}`) +
+            ? `starts it ${formatSeconds(opening.from, 2)} in (\`mediaStart\`)`
+            : `does not start it until ${formatSeconds(opening.opensAt, 2)}`) +
           `, so the seam frame is never shown and the cut jumps. Play the take from its first ` +
           `frame at the shot's start. ` +
           route,

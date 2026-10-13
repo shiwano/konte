@@ -15,12 +15,13 @@ import {
   renderMotionStrip,
 } from "../../../core/motion-inspect.js";
 import { ffprobeBin } from "../../../core/ffmpeg-binary.js";
-import { buildTimeAxis, cell, fmtSeconds, normalize, resample } from "../../audio-sparkline.js";
+import { buildTimeAxis, cell, normalize, resample } from "../../audio-sparkline.js";
 import { parseNumberOption } from "../../parse-option.js";
 import { loadVideoAndAnimatic } from "../../load-definition.js";
 import { createMotionIntentLoader, formatMotionIntent } from "./motion-intent.js";
 import { openProbeTargets, resolveProbeTargets } from "./resolve-arg.js";
 import { compositionStage, requireCompositionShot } from "./shared.js";
+import { formatSeconds } from "../../../core/format-duration.js";
 
 function parseFps(raw: string | undefined): number | "native" | undefined {
   if (raw == null) return undefined;
@@ -251,7 +252,7 @@ Examples:
           );
           console.error(`  file      ${fileAbs}`);
           console.error(
-            `  duration  ${dur != null ? fmtSeconds(dur) : "—"}  decode fps ${wf.fps}  samples ${
+            `  duration  ${dur != null ? formatSeconds(dur) : "—"}  decode fps ${wf.fps}  samples ${
               wf.samples
             }`,
           );

@@ -14,6 +14,7 @@ import { writeFileAtomic } from "./atomic-write.js";
 import { KonteError } from "./errors.js";
 import { isWithinRootRealAsync } from "./path-containment.js";
 import { type FeedbackAnnotation, NormalizedCoordSchema } from "./types/feedback.js";
+import { formatSeconds } from "./format-duration.js";
 
 const ReviewDecisionEntrySchema = z.object({
   address: z.string(),
@@ -851,12 +852,12 @@ function formatVideoNoteItem(
       : "";
   const image = frame ? ` [image: ${frame}]` : "";
   const local =
-    shotStart !== undefined ? ` (shot.${shotId} +${(note.time - shotStart).toFixed(1)}s)` : "";
+    shotStart !== undefined ? ` (shot.${shotId} +${formatSeconds(note.time - shotStart)})` : "";
   const saw = formatSawVariants(
     note.address ?? (shotId ? `video:shot.${shotId}` : "video"),
     note.displayedVariants,
   );
-  return `${id}${note.time.toFixed(1)}s${local}${pin} ${note.text}${saw}${image}`;
+  return `${id}${formatSeconds(note.time)}${local}${pin} ${note.text}${saw}${image}`;
 }
 
 /** What one note's frame needs to be rendered and captioned. */
@@ -902,7 +903,7 @@ export function reviewNoteFrameTargets(record: ReviewRecord): ReviewNoteFrameTar
         note.x !== undefined && note.y !== undefined
           ? { kind: "pin" as const, x: note.x, y: note.y }
           : null,
-      label: `${note.id} shot.${note.shotId} +${(note.time - start).toFixed(1)}s`,
+      label: `${note.id} shot.${note.shotId} +${formatSeconds(note.time - start)}`,
     };
   });
 }
