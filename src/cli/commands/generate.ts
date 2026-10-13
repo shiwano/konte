@@ -11,7 +11,6 @@ import { assertSpendAllowed, stageSpendItems } from "../../core/backend-policy.j
 import { loadKonteConfig } from "../../core/config.js";
 import { computeDependencyLevels } from "../../core/dependency-levels.js";
 import { printCapped } from "../format-list.js";
-import { TURBO_TAKE_NOTE, turboTakes } from "../turbo-takes.js";
 import { syncFileAssets } from "../../core/file-sync.js";
 import { buildDependencyGraph, listUnusedAssetPaths } from "../../core/graph.js";
 import { JobManager } from "../../core/job-manager.js";
@@ -629,18 +628,6 @@ export function registerGenerateCommand(program: Command): void {
       }
       // "waiting" is the only count that can hide a genuinely stuck run, so name what each
       // blocked take is waiting on.
-      const onTurbo = await turboTakes(
-        videoRoot,
-        levelResults.flatMap((lr) =>
-          lr.assets.flatMap((a) =>
-            a.jobs.map((j) => ({ address: a.address, variantId: j.variantId })),
-          ),
-        ),
-      );
-      if (onTurbo.length > 0) {
-        console.log(`\nOn turbo — ${TURBO_TAKE_NOTE}:`);
-        printCapped(onTurbo, (t) => t.address, { verbose: opts.verbose });
-      }
       if (waitingCount > 0) {
         console.log("\nWaiting on:");
         const blocked = pendingDetails

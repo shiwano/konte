@@ -154,14 +154,6 @@ export function VariantTile({
         >
           {copied ? "copied" : variant.variantId}
         </button>
-        {variant.turbo && (
-          <span
-            className="variant-tile-turbo"
-            title="The first take, generated on the model's fast setting. The next take uses its full one."
-          >
-            turbo
-          </span>
-        )}
         {before && (
           <button
             type="button"

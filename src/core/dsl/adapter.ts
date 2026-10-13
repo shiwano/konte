@@ -111,10 +111,6 @@ export interface AdapterMeta {
   // The model reads the previous shot's last panel, passed to one of its image inputs, as the frame
   // a cut comes from (H3's `[Shot 1]`). Printed by `konte adapter show`.
   readsPrevPanel?: true;
-  // The inputs an address's first take is generated with, over their defaults — the model's fast
-  // setting. A later take goes back to the defaults. The inputs it names are not in
-  // `inputs`: konte sets them, never a stage file.
-  turbo?: Record<string, string | number | boolean>;
   // A comfy adapter's declarations whatever branch a call prunes — what a Comfy API Build installs.
   models?: readonly ComfyModelDeclaration[];
   nodes?: readonly ComfyNodeDeclaration[];
@@ -160,11 +156,10 @@ interface DeclaredInput {
 
 export function buildMetaInputs(
   inputs: Record<string, DeclaredInput>,
-  turbo: Record<string, unknown> = {},
 ): Record<string, AdapterMetaInput> {
   return Object.fromEntries(
     Object.entries(inputs)
-      .filter(([name, def]) => !def.fixed && !(name in turbo))
+      .filter(([, def]) => !def.fixed)
       .map(([name, def]) => [
         name,
         {
@@ -197,32 +192,6 @@ function structureMeta(name: string, def: DeclaredInput): PromptStructureMeta {
     );
   }
   return promptStructureMeta(name, def.structure!);
-}
-
-// Every invalid turbo declaration is silent (a value the model never reads, a required input nobody
-// can pass), so it is rejected where the adapter is declared, as `fixed` inputs are.
-export function assertTurboInputs(
-  turbo: Record<string, unknown> | undefined,
-  inputs: Record<string, DeclaredInput>,
-): void {
-  for (const [key, value] of Object.entries(turbo ?? {})) {
-    const def = inputs[key];
-    if (!def) throw new Error(`Turbo names input "${key}", which the adapter does not declare`);
-    if (def.type !== "string" && def.type !== "number" && def.type !== "boolean") {
-      throw new Error(
-        `Turbo input "${key}" must be a string, number or boolean, not "${def.type}"`,
-      );
-    }
-    if (def.fixed || def.required) {
-      throw new Error(`Turbo input "${key}" cannot also be fixed or required`);
-    }
-    if (typeof value !== def.type) {
-      throw new Error(`Turbo input "${key}" is typed "${def.type}" but is set to ${typeof value}`);
-    }
-    if (def.values && !def.values.includes(value as string)) {
-      throw new Error(`Turbo input "${key}" sets "${String(value)}", outside its values`);
-    }
-  }
 }
 
 // `fixed` has one coherent shape — a scalar with a literal default, and none of the flags that only

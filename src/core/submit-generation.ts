@@ -5,8 +5,6 @@ import type { GenerationBackend, GenerationRequest } from "./backend.js";
 import { type JobManager, recordedSubmissionAttempt } from "./job-manager.js";
 import type { GenerationJob } from "./types/index.js";
 import { KonteError } from "./errors.js";
-import { applyTurboInputs } from "./turbo.js";
-import { StateManager } from "./state/index.js";
 
 // The single seam where a generation job is handed to its backend: submit, log, and
 // build the run-time metadata every submitted job carries. The caller holds a submit lease
@@ -41,13 +39,11 @@ export async function submitToBackend(
     site,
   });
   const { seed, resolvedDependencies } = sent;
-  const turbo = await isTurboVariant(jobManager.videoRoot, job, request);
   const backendJobId = await backend.submit(
     {
       ...request,
       resolvedDependencies,
       submissionSite: sent.site,
-      ...(turbo ? { assetDefinition: applyTurboInputs(request.assetDefinition) } : {}),
       onLog: (line) => jobManager.appendLog(job.variantId, line),
       shouldCancel: async () =>
         (await jobManager.getJob(job.id).catch(() => null))?.status === "cancelled",
@@ -55,13 +51,6 @@ export async function submitToBackend(
     job,
     seed,
   );
-
-  if (turbo) {
-    jobManager.appendLog(
-      job.variantId,
-      "Turbo take: the address's first, on the adapter's turbo inputs",
-    );
-  }
 
   jobManager.appendLog(
     job.variantId,
@@ -88,16 +77,4 @@ export async function submitToBackend(
   }
 
   return { backendJobId, metadata, resolvedDependencies };
-}
-
-// Read off the variant, where reservation decided it.
-async function isTurboVariant(
-  videoRoot: string,
-  job: GenerationJob,
-  request: GenerationRequest,
-): Promise<boolean> {
-  const def = request.assetDefinition;
-  if ((def.kind !== "comfy" && def.kind !== "fal") || !def.turboInputs) return false;
-  const state = (await StateManager.load(videoRoot)).getState();
-  return state.assets[job.address]?.variants?.[job.variantId]?.turbo === true;
 }

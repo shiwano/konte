@@ -15,7 +15,6 @@ import {
 import { estimateSpeechSec } from "../speech-duration.js";
 import { OVERFLOW_FLOOR, recordClipLength } from "./clip-length-collect.js";
 import {
-  assertTurboInputs,
   assertPinInputs,
   assertStemInputs,
   buildMetaInputs,
@@ -171,8 +170,6 @@ export interface ComfyAssetConfig<
   allowedIn?: readonly AssetDeclarationSite[];
   // See `AdapterMeta.readsPrevPanel`.
   readsPrevPanel?: true;
-  // See `AdapterMeta.turbo`.
-  turbo?: ComfyTurbo<TInputs>;
 }
 
 // konte fills each named input from the others, resolved and pruned; a stage file never passes it.
@@ -198,13 +195,6 @@ type ComfyResolvedInputs<TInputs extends Record<string, AdapterInputDef>> = {
   [K in keyof TInputs]: TInputs[K] extends { required: true } | { default: {} } | { type: "seed" }
     ? ResolvedTSType<TInputs[K]>
     : ResolvedTSType<TInputs[K]> | undefined;
-};
-
-// See `AdapterMeta.turbo`.
-export type ComfyTurbo<TInputs extends Record<string, AdapterInputDef>> = {
-  [K in keyof TInputs as TInputs[K] extends { type: "string" | "number" | "boolean" }
-    ? K
-    : never]?: InputTSType<TInputs[K]>;
 };
 
 type InputTSType<T extends AdapterInputDef> = T extends {
@@ -241,11 +231,11 @@ type ComfyOptionalKeys<T extends Record<string, AdapterInputDef>> = Exclude<
 
 export type ComfyCallOptions<
   TInputs extends Record<string, AdapterInputDef>,
-  TTurboKey extends PropertyKey = never,
+  TDerivedKey extends PropertyKey = never,
 > = {
-  [K in Exclude<ComfyRequiredKeys<TInputs>, TTurboKey>]: InputTSType<TInputs[K]>;
+  [K in Exclude<ComfyRequiredKeys<TInputs>, TDerivedKey>]: InputTSType<TInputs[K]>;
 } & {
-  [K in Exclude<ComfyOptionalKeys<TInputs>, TTurboKey>]?: InputTSType<TInputs[K]>;
+  [K in Exclude<ComfyOptionalKeys<TInputs>, TDerivedKey>]?: InputTSType<TInputs[K]>;
 };
 
 type PrimaryOutputKind<
@@ -365,25 +355,19 @@ export function defineComfyAsset<
   const TInputs extends Record<string, AdapterInputDef>,
   const TOutputs extends Record<string, AdapterOutputDef>,
   TPrimary extends (keyof TOutputs & string) | undefined = undefined,
-  const TTurbo extends ComfyTurbo<TInputs> = {},
   TDerived extends ComfyScalarKey<TInputs> = never,
 >(
   config: ComfyAssetConfig<TInputs, TOutputs> & {
     primary?: TPrimary;
-    turbo?: TTurbo;
     derive?: ComfyDerive<TInputs, TDerived>;
   },
-): AssetAdapter<
-  ComfyCallOptions<TInputs, keyof TTurbo | TDerived>,
-  PrimaryOutputKind<TOutputs, TPrimary>
-> {
+): AssetAdapter<ComfyCallOptions<TInputs, TDerived>, PrimaryOutputKind<TOutputs, TPrimary>> {
   const derive = (config.derive ?? {}) as Record<
     string,
     (inputs: Record<string, unknown>) => unknown
   >;
   assertComfyInputs(config.inputs);
-  assertDerivedInputs(derive, config.inputs, config.turbo);
-  assertTurboInputs(config.turbo, config.inputs);
+  assertDerivedInputs(derive, config.inputs);
   assertPinInputs(config.inputs);
   assertStemInputs(config.inputs);
   assertSpeechFill(config);
@@ -401,21 +385,16 @@ export function defineComfyAsset<
       ref: config.workflow,
       inputs: buildMetaInputs(
         Object.fromEntries(Object.entries(config.inputs).filter(([key]) => !(key in derive))),
-        config.turbo,
       ),
       ...(config.guide ? { guide: config.guide } : {}),
       ...(config.promptExemptions ? { promptExemptions: config.promptExemptions } : {}),
       ...(config.spokenTextPattern ? { spokenTextPattern: config.spokenTextPattern } : {}),
       ...(config.allowedIn ? { allowedIn: config.allowedIn } : {}),
       ...(config.readsPrevPanel ? { readsPrevPanel: true } : {}),
-      ...(config.turbo ? { turbo: config.turbo as Record<string, string | number | boolean> } : {}),
       ...(config.models ? { models: config.models } : {}),
       ...(config.nodes ? { nodes: config.nodes } : {}),
     },
-    createDefinition(
-      userInputs: ComfyCallOptions<TInputs, keyof TTurbo | TDerived>,
-    ): ComfyAssetDefinition {
-      const turbo: Record<string, unknown> = config.turbo ?? {};
+    createDefinition(userInputs: ComfyCallOptions<TInputs, TDerived>): ComfyAssetDefinition {
       const inputs: Record<string, unknown> = {};
       const inputLabels: Record<string, string> = {};
       // The same values keyed by input name rather than workflow target — what `validators` read.
@@ -442,7 +421,7 @@ export function defineComfyAsset<
       );
 
       for (const [key, def] of Object.entries(config.inputs) as [string, AdapterInputDef][]) {
-        const userValue = key in turbo ? undefined : (userInputs as Record<string, unknown>)[key];
+        const userValue = (userInputs as Record<string, unknown>)[key];
         if (key in derive) {
           if (userValue !== undefined) {
             throw new KonteError(
@@ -644,17 +623,6 @@ export function defineComfyAsset<
         result.outputNodeId = outputNodeId;
       }
 
-      const turboInputs: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(turbo)) {
-        const def = config.inputs[key]!;
-        for (const t of [def, ...(def.also ?? [])]) {
-          if (!pruned.has(t.nodeId)) turboInputs[`${t.nodeId}.${t.field}`] = value;
-        }
-      }
-      if (Object.keys(turboInputs).length > 0) {
-        result.turboInputs = turboInputs;
-      }
-
       // A model whose loader node was pruned is not needed by this take, and konte provisions every
       // declared model before generating — so leaving it declared would download multiple gigabytes
       // for a branch that is not in the graph. Keyed on the declaration's own `nodeId`, not on a
@@ -681,7 +649,6 @@ export function defineComfyAsset<
 function assertDerivedInputs(
   derive: Record<string, unknown>,
   inputs: Record<string, AdapterInputDef>,
-  turbo: Record<string, unknown> | undefined,
 ): void {
   for (const key of Object.keys(derive)) {
     const def = inputs[key];
@@ -691,8 +658,8 @@ function assertDerivedInputs(
         `Derived input "${key}" must be a string, number or boolean, not "${def.type}"`,
       );
     }
-    if (def.required || def.default !== undefined || (turbo && key in turbo)) {
-      throw new Error(`Derived input "${key}" cannot also be required, defaulted or turbo`);
+    if (def.required || def.default !== undefined) {
+      throw new Error(`Derived input "${key}" cannot also be required or defaulted`);
     }
   }
 }

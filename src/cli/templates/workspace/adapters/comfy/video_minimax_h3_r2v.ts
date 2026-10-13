@@ -234,7 +234,7 @@ export const videoMinimaxH3R2v = defineComfyAsset({
       field: "value",
       type: "number",
       default: 20,
-      description: "Not read by the turbo take, which samples through the 4-step turbo LoRA.",
+      description: "Not read under `useTurbo`, which samples through the 4-step turbo LoRA.",
     },
     // PrimitiveBoolean → ComfySwitchNode.switch, ComfySwitchNode.switch, ComfySwitchNode.switch
     useTurbo: {
@@ -328,7 +328,6 @@ export const videoMinimaxH3R2v = defineComfyAsset({
       },
     }),
   ],
-  turbo: { useTurbo: true },
   promptExemptions: [
     /\bnothing\b[^.,;]*\b(?:moves|slides|turns|tilts|enters|leaves|shifts|changes)\b/i,
     /\bdoes\s+not\s+move\b/i,

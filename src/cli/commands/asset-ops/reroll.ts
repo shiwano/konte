@@ -53,7 +53,6 @@ import {
   loadStageDefinitions,
 } from "../../load-definition.js";
 import { capList, printCapped } from "../../format-list.js";
-import { TURBO_TAKE_NOTE, turboTakes } from "../../turbo-takes.js";
 import { confirmAction, printAborted } from "../../confirm.js";
 import { parsePositiveInt } from "../../parse-option.js";
 import {
@@ -728,12 +727,9 @@ Examples:
         if (takesNotice) console.warn(`${takesNotice}\n`);
         const noticeText = formatComfyDownloadNotice(comfyDownloads);
         if (noticeText) console.log(`${noticeText}\n`);
-        const onTurbo = new Set((await turboTakes(videoRoot, jobRows)).map((r) => r.variantId));
         for (const row of jobRows) {
-          const turbo = onTurbo.has(row.variantId) ? " (turbo)" : "";
-          console.log(`  ${row.address}: ${row.status} → ${row.variantId}${turbo}`);
+          console.log(`  ${row.address}: ${row.status} → ${row.variantId}`);
         }
-        if (onTurbo.size > 0) console.log(`\nturbo — ${TURBO_TAKE_NOTE}`);
         if (failures.length > 0) {
           console.log("\nFailed:");
           printCapped(failures, (f) => `${f.address}  ${f.error}`, { verbose: opts.verbose });

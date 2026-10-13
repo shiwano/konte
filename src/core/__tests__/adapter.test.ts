@@ -891,7 +891,7 @@ describe("derived comfy inputs", () => {
     );
     expect(
       declare({ nodeId: "2", field: "f", type: "number", default: 5 }, { length }),
-    ).toThrowError(/cannot also be required, defaulted or turbo/);
+    ).toThrowError(/cannot also be required or defaulted/);
   });
 
   it("types what derive reads and returns", () => {

@@ -361,8 +361,6 @@ export interface VariantInfo {
   // The reviewer decided against this take (badged "not used"). Still listed at full weight,
   // sorted out of the live candidates.
   dismissed?: boolean;
-  // Generated on its adapter's turbo inputs: coarser than a later take would be.
-  turbo?: boolean;
   createdAt: string;
   imageUrl: string | null;
   fileUrl?: string | null;

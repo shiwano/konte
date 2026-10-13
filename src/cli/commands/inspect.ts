@@ -508,11 +508,6 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
               : "";
           console.log(`    patch of ${v.derivedFrom} (patches/${v.derivedFrom}.ts)${fileFrom}`);
         }
-        if (v.turbo) {
-          console.log(
-            "    turbo: the address's first take, on its adapter's turbo inputs — every later take uses the defaults",
-          );
-        }
         // Worth saying out loud: this take is no longer one of the choices, so an accept or a
         // reroll aimed at it is not what the reviewer will be looking at. Name the way back only
         // while the script that displaced it is still there.
@@ -601,10 +596,6 @@ function printInputs(def: AssetDefinition, heading: string): void {
   const entries = Object.entries(def.inputs);
   if (entries.length === 0) return;
   console.log(heading);
-  printInputEntries(def, entries);
-}
-
-function printInputEntries(def: AssetDefinition, entries: [string, unknown][]): void {
   const labels = ("inputLabels" in def ? def.inputLabels : undefined) ?? {};
   for (const [key, value] of entries) {
     const name = labels[key];
@@ -663,12 +654,6 @@ async function inspectVariant(videoRoot: string, variantId: string): Promise<voi
   console.log(`Kind: ${snapshot.kind}`);
   if (snapshot.kind === "file") console.log(`Path: ${snapshot.path}`);
   printInputs(snapshot, "Inputs it was made from:");
-  const turboInputs =
-    variant.turbo && "turboInputs" in snapshot ? (snapshot.turboInputs ?? {}) : {};
-  if (Object.keys(turboInputs).length > 0) {
-    console.log("Turbo inputs (the address's first take; sent over the inputs above):");
-    printInputEntries(snapshot, Object.entries(turboInputs));
-  }
 }
 
 function currentAssetDefinition(

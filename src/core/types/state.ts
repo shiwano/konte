@@ -185,9 +185,6 @@ export const VariantStateSchema = z.object({
   // exactly as editing animatic.tsx ages out a generated one. `definitionHash` meanwhile is
   // INHERITED from the source, so an address-level definition change stales the whole lineage.
   patchHash: z.string().nullable().optional(),
-  // The address's first take, generated on its adapter's `turbo` inputs (see `isTurboTake`). Decided
-  // when the variant is reserved; absent on every other variant.
-  turbo: z.literal(true).optional(),
   metadata: z.record(z.string(), z.unknown()).default({}),
 });
 

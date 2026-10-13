@@ -136,14 +136,6 @@ function renderEntry(entry: AdapterCatalogEntry, unconfigured: boolean | null): 
     lines.push(
       "cut     readsPrevPanel — another shot's panel passed to an image input is the frame the cut comes from",
     );
-  if (entry.meta.turbo)
-    lines.push(
-      `turbo   ${Object.entries(entry.meta.turbo)
-        .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
-        .join(
-          ", ",
-        )} — konte sets it on a shot or timeline asset's first take; every later take uses the default`,
-    );
   // The specifier, plus how to import it — a named export, so a bare path would misread as a
   // default import (TS2613). A prebuilt adapter comes through the `adapters` namespace.
   lines.push(`import  ${entry.importFrom}`);

@@ -23,7 +23,6 @@ import {
 } from "../dsl/index.js";
 import { buildDependencyGraph, collectRerollCascade, listUnusedAssetPaths } from "../graph.js";
 import { computeVariantStaleness, selectResolvedVariant } from "../staleness.js";
-import { isTurboTake } from "../turbo.js";
 import type { KonteState, VariantState } from "../types/index.js";
 import { directionDefaults } from "./helpers/direction.js";
 import { moves } from "./helpers/shot.js";
@@ -38,10 +37,8 @@ const draftComfy = defineComfyAsset({
     width: { nodeId: "4", field: "width", type: "width", default: 1344 },
     height: { nodeId: "4", field: "height", type: "height", default: 768 },
     length: { nodeId: "4", field: "length", type: "frames", clock: 24, default: 120, max: 240 },
-    useTurbo: { nodeId: "5", field: "value", type: "boolean", default: false },
   },
   outputs: { result: { nodeId: "9", type: "video" } },
-  turbo: { useTurbo: true },
 });
 
 const shotOnly = defineComfyAsset({
@@ -436,15 +433,6 @@ describe("a draft take in state", () => {
       inputStale: true,
       definitionStale: true,
     });
-  });
-
-  it("is never generated on turbo", () => {
-    const animatic = board(({ draft }) => ({
-      opening: draft(["01", "02"], () => take("opening")),
-    }));
-    const def = animatic.drafts!.opening!;
-    expect((def as { turboInputs?: unknown }).turboInputs).toBeDefined();
-    expect(isTurboTake(address, def, undefined)).toBe(false);
   });
 });
 

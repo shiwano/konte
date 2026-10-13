@@ -64,18 +64,8 @@ export const VERDICT_AXIS_KEYS = Object.keys(VerdictAxes) as ReadonlyArray<
 // name the same set. A local asset declares none — its inputs already carry the adapter's names.
 const InputLabelsSchema = z.record(z.string(), z.string()).optional();
 
-// What a turbo take sends over `inputs` — an adapter's `turbo`, keyed as `inputs` is. Only the take
-// reserved as the address's first (`isTurboTake`) reads it, at submission.
-const TurboInputsSchema = z.record(z.string(), z.unknown()).optional();
-
 // Every definition field no backend reads, stripped before hashing (see `computeDefinitionHash`).
-// `turboInputs` is read by a turbo take, yet stays out: a turbo take and the ones after it are one
-// definition, so the second take never ages out the first.
-export const NON_GENERATIVE_KEYS: ReadonlyArray<string> = [
-  ...VERDICT_AXIS_KEYS,
-  "inputLabels",
-  "turboInputs",
-];
+export const NON_GENERATIVE_KEYS: ReadonlyArray<string> = [...VERDICT_AXIS_KEYS, "inputLabels"];
 
 export const ComfyAssetDefinitionSchema = z.object({
   kind: z.literal("comfy"),
@@ -91,7 +81,6 @@ export const ComfyAssetDefinitionSchema = z.object({
   models: z.array(ComfyModelDeclarationSchema).optional(),
   nodes: z.array(ComfyNodeDeclarationSchema).optional(),
   inputLabels: InputLabelsSchema,
-  turboInputs: TurboInputsSchema,
   ...VerdictAxes,
 });
 
@@ -111,7 +100,6 @@ export const FalAssetDefinitionSchema = z.object({
   mediaType: z.enum(["image", "video", "audio"]),
   inputs: z.record(z.string(), z.unknown()),
   inputLabels: InputLabelsSchema,
-  turboInputs: TurboInputsSchema,
   ...VerdictAxes,
 });
 

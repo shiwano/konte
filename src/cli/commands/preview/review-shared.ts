@@ -65,7 +65,6 @@ import type {
 } from "../../../core/types/index.js";
 import { readDefinitionSnapshot } from "../../../core/definition-snapshot.js";
 import type { PatchChainTakes } from "./asset-info.js";
-import { applyTurboInputs } from "../../../core/turbo.js";
 import { readVariantThumbnails } from "../../../core/thumbnail.js";
 import { inferMediaType } from "../../../core/media-type.js";
 
@@ -75,14 +74,6 @@ import { inferMediaType } from "../../../core/media-type.js";
 // a link under assets/ is lexically inside the video and still reads whatever it points at.
 export function isWithinVideoRoot(filePath: string, videoRoot: string): boolean {
   return isWithinRoot(filePath, videoRoot);
-}
-
-// A patch inherits its source's turbo mark.
-function isTurboLineage(variants: Record<string, VariantState>, variantId: string): boolean {
-  for (let v = variants[variantId]; v; v = v.derivedFrom ? variants[v.derivedFrom] : undefined) {
-    if (v.turbo) return true;
-  }
-  return false;
 }
 
 type VariantCandidate = {
@@ -95,8 +86,6 @@ type VariantCandidate = {
   // The reviewer decided against this take. Kept in the gallery — a decision can be revisited by
   // selecting it and accepting — but sorted after the live candidates.
   dismissed: boolean;
-  // Generated on its adapter's turbo inputs — the address's first take, or a patch of it.
-  turbo: boolean;
   createdAt: string;
   imageUrl: string | null;
   fileUrl: string | null;
@@ -167,7 +156,6 @@ export function buildVariantCandidates(
           stale,
           isNew: hasAccepted && vid !== acceptedId && !stale && v.status === "none",
           dismissed: v.status === "dismissed",
-          turbo: isTurboLineage(target.variants ?? {}, vid),
           createdAt: v.createdAt,
           imageUrl: buildVariantUrl(vid, v),
           fileUrl: buildFileUrl ? buildFileUrl(vid, v) : null,
@@ -599,8 +587,8 @@ export function variantPreviewUrl(
 }
 
 /**
- * The definition a take's lineage was submitted with — its `definition.json`, with the turbo inputs
- * over it for a turbo take — or null when it is gone.
+ * The definition a take's lineage was submitted with — its `definition.json` — or null when it is
+ * gone.
  */
 export function takeDefinitionSnapshot(
   manager: StateManager,
@@ -609,10 +597,7 @@ export function takeDefinitionSnapshot(
   variantId: string,
 ): AssetDefinition | null {
   const origin = generatedOrigin(manager.getState(), address, variantId);
-  const snapshot = readDefinitionSnapshot(videoRoot, address, origin);
-  if (!snapshot) return null;
-  const turbo = manager.getState().assets[address]?.variants?.[origin]?.turbo === true;
-  return turbo ? applyTurboInputs(snapshot) : snapshot;
+  return readDefinitionSnapshot(videoRoot, address, origin);
 }
 
 /**

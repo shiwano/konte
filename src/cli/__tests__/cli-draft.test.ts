@@ -154,7 +154,6 @@ export default defineReference(direction, () => ({
     await generate(projectDir);
     const takes = await takesOf(projectDir, DRAFT);
     expect(takes.some(([, v]) => v.file)).toBe(true);
-    expect(takes.every(([, v]) => v.turbo !== true)).toBe(true);
   });
 
   it("reads a take's cuts beside the direction's", async () => {

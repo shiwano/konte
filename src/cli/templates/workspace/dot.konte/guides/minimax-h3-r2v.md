@@ -41,7 +41,6 @@ A take declared under `drafts`: several shots in one clip, whose text decides ea
 - **A reroll of unchanged text returns the same composition** — change the text to change the frame.
 - **The place's reference is an image, `attribute_transfer`** — its room and light carried, the framing the take's own.
 - **`refImageSize: "match"`**, no `audioStem`, no `audioN`, both sound fields `N/A`.
-- **Leave `useTurbo` to konte** — a draft is never a turbo take.
 - **`previous` is `video1`, and the take is its continuation** — `subjectDefinitions` gains `<Video 1> is the footage just before this take; this take continues from it.`, `summary` opens `The target video continues <Video 1>.` with tasks `video continuation` + `reference generation`, and `retentionAnalysis` gains a `<Video 1>` line naming what carries over.
 - **The clip is truncated to this take's length from its head** — konte hands `previous` already cut to its last seconds.
 

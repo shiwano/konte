@@ -2,7 +2,6 @@ import { ComfyUIBackend } from "../comfyui/backend.js";
 import { resolveComfyUIConfig } from "../comfyui/config.js";
 import { resolveUrlTokens } from "../comfyui/token-resolver.js";
 import { computeDefinitionHash } from "../core/definition-hash.js";
-import { isTurboTake } from "../core/turbo.js";
 import { writeDefinitionSnapshot } from "../core/definition-snapshot.js";
 import type { DeliveryTarget } from "../core/delivery.js";
 import { KonteError } from "../core/errors.js";
@@ -183,13 +182,11 @@ async function reserveVariants(
       }
     }
     const ids: string[] = [];
-    const turbo = isTurboTake(address, assetDef, target);
     for (let i = 0; i < variantCount; i++) {
       const vid = manager.reserveVariantId(address);
       const variant = target.variants![vid]!;
       variant.definitionHash = definitionHash;
       if (deliveryTarget) variant.deliveryTarget = deliveryTarget;
-      if (turbo) variant.turbo = true;
       writeDefinitionSnapshot(videoRoot, address, vid, assetDef);
       ids.push(vid);
     }
@@ -221,13 +218,11 @@ export async function reserveVariantsBatch(
     for (const req of requests) {
       const target = manager.ensureAssetState(req.address);
       const ids: string[] = [];
-      const turbo = isTurboTake(req.address, req.assetDef, target);
       for (let i = 0; i < req.variantCount; i++) {
         const vid = manager.reserveVariantId(req.address);
         const variant = target.variants![vid]!;
         variant.definitionHash = req.definitionHash;
         if (req.deliveryTarget) variant.deliveryTarget = req.deliveryTarget;
-        if (turbo) variant.turbo = true;
         writeDefinitionSnapshot(videoRoot, req.address, vid, req.assetDef);
         ids.push(vid);
       }

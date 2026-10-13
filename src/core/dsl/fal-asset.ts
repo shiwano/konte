@@ -4,7 +4,6 @@ import type { MediaKind, MediaAsset } from "./builders.js";
 import { getActiveFormat, getShotContext, seed } from "./shot-context.js";
 import { setFieldPath } from "./set-field-path.js";
 import {
-  assertTurboInputs,
   assertFixedInputs,
   assertPinInputs,
   assertStemInputs,
@@ -84,16 +83,7 @@ export interface FalAssetConfig<
   allowedIn?: readonly AssetDeclarationSite[];
   // See `AdapterMeta.readsPrevPanel`.
   readsPrevPanel?: true;
-  // See `AdapterMeta.turbo`.
-  turbo?: FalTurbo<TInputs>;
 }
-
-// See `ComfyTurbo`.
-export type FalTurbo<TInputs extends Record<string, FalInputDef>> = {
-  [K in keyof TInputs as TInputs[K] extends { type: "string" | "number" | "boolean" }
-    ? K
-    : never]?: FalInputTSType<TInputs[K]>;
-};
 
 type FalInputTSType<T extends FalInputDef> = T extends {
   type: "string" | "seconds";
@@ -141,13 +131,10 @@ type FalOptionalKeys<T extends Record<string, FalInputDef>> = Exclude<
   FalRequiredKeys<T> | FalFixedKeys<T>
 >;
 
-export type FalCallOptions<
-  TInputs extends Record<string, FalInputDef>,
-  TTurboKey extends PropertyKey = never,
-> = {
-  [K in Exclude<FalRequiredKeys<TInputs>, TTurboKey>]: FalInputTSType<TInputs[K]>;
+export type FalCallOptions<TInputs extends Record<string, FalInputDef>> = {
+  [K in FalRequiredKeys<TInputs>]: FalInputTSType<TInputs[K]>;
 } & {
-  [K in Exclude<FalOptionalKeys<TInputs>, TTurboKey>]?: FalInputTSType<TInputs[K]>;
+  [K in FalOptionalKeys<TInputs>]?: FalInputTSType<TInputs[K]>;
 };
 
 function missingRequiredInput(key: string, def: FalInputDef): KonteError {
@@ -197,12 +184,8 @@ function shotSeconds(
 export function defineFalAsset<
   const TInputs extends Record<string, FalInputDef>,
   const TMedia extends MediaKind,
-  const TTurbo extends FalTurbo<TInputs> = {},
->(
-  config: FalAssetConfig<TInputs, TMedia> & { turbo?: TTurbo },
-): AssetAdapter<FalCallOptions<TInputs, keyof TTurbo>, TMedia> {
+>(config: FalAssetConfig<TInputs, TMedia>): AssetAdapter<FalCallOptions<TInputs>, TMedia> {
   assertFixedInputs(config.inputs);
-  assertTurboInputs(config.turbo, config.inputs);
   assertPinInputs(config.inputs);
   assertStemInputs(config.inputs);
   assertValidatorInputs(config.validators, config.inputs);
@@ -215,16 +198,14 @@ export function defineFalAsset<
       mediaType: config.mediaType,
       description: config.description,
       ref: config.endpointId,
-      inputs: buildMetaInputs(config.inputs, config.turbo),
+      inputs: buildMetaInputs(config.inputs),
       ...(config.guide ? { guide: config.guide } : {}),
       ...(config.promptExemptions ? { promptExemptions: config.promptExemptions } : {}),
       ...(config.spokenTextPattern ? { spokenTextPattern: config.spokenTextPattern } : {}),
       ...(config.allowedIn ? { allowedIn: config.allowedIn } : {}),
       ...(config.readsPrevPanel ? { readsPrevPanel: true } : {}),
-      ...(config.turbo ? { turbo: config.turbo as Record<string, string | number | boolean> } : {}),
     },
-    createDefinition(userInputs: FalCallOptions<TInputs, keyof TTurbo>): FalAssetDefinition {
-      const turbo: Record<string, unknown> = config.turbo ?? {};
+    createDefinition(userInputs: FalCallOptions<TInputs>): FalAssetDefinition {
       const inputs: Record<string, unknown> = {};
       const inputLabels: Record<string, string> = {};
       // The same values keyed by input name rather than provider field — what `validators` read.
@@ -241,7 +222,7 @@ export function defineFalAsset<
           continue;
         }
 
-        const userValue = key in turbo ? undefined : (userInputs as Record<string, unknown>)[key];
+        const userValue = (userInputs as Record<string, unknown>)[key];
 
         if (def.type === "seed") {
           put(key, def.field, userValue !== undefined ? userValue : seed());
@@ -284,17 +265,12 @@ export function defineFalAsset<
         shotId: getShotContext()?.shotId,
       });
 
-      const turboInputs = Object.fromEntries(
-        Object.entries(turbo).map(([key, value]) => [config.inputs[key]!.field, value]),
-      );
-
       return {
         kind: "fal",
         endpointId: config.endpointId,
         mediaType: config.mediaType,
         inputs,
         inputLabels,
-        ...(Object.keys(turboInputs).length > 0 ? { turboInputs } : {}),
         ...(config.deterministic ? { deterministic: true } : {}),
       };
     },

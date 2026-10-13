@@ -862,25 +862,6 @@ describe("inspect <variantId>", () => {
     expect(stdout).toContain(`prompt (3.text): ${oldPrompt}`);
   });
 
-  it("lists a turbo take's overrides apart from the inputs the definition holds", async () => {
-    const definition = await loadDefinitionForAddress(projectDir, motionAddr);
-    const current = getAssetEntryByAddress(definition, motionAddr) as ComfyAssetDefinition;
-    const sm = await StateManager.load(projectDir);
-    const vid = sm.reserveVariantId(motionAddr);
-    sm.getAssetState(motionAddr).variants![vid]!.file = "/tmp/motion.mp4";
-    sm.getAssetState(motionAddr).variants![vid]!.turbo = true;
-    await sm.save();
-    writeDefinitionSnapshot(projectDir, motionAddr, vid, {
-      ...current,
-      turboInputs: { "3.text": "turbo prompt" },
-    });
-
-    const { stdout } = await run(["inspect", vid], projectDir);
-    const turbo = stdout.slice(stdout.indexOf("Turbo inputs"));
-    expect(stdout.slice(0, stdout.indexOf("Turbo inputs"))).toContain("prompt (3.text): test");
-    expect(turbo).toContain("prompt (3.text): turbo prompt");
-  });
-
   it("reads a patched take's inputs off the take it was generated as", async () => {
     const source = await seedTakeOnOldPrompt();
     const sm = await StateManager.load(projectDir);
