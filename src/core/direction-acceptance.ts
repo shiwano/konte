@@ -15,8 +15,14 @@ import {
   parseAddress,
 } from "./address.js";
 import type { Direction, DirectionNode } from "./dsl/direction.js";
-import { isAsideShot, isGraphicShot } from "./dsl/direction.js";
-import { type ShotWaiver, directionHasShots, directionShotWaivers } from "./direction.js";
+import { isAsideShot } from "./dsl/direction.js";
+import {
+  type ArcShot,
+  type ShotWaiver,
+  directionHasShots,
+  directionShotWaivers,
+  shotFrames,
+} from "./direction.js";
 import { directionHash, directionPartHashes } from "./direction-hash.js";
 import type { DirectionAcceptance } from "./types/index.js";
 
@@ -358,17 +364,15 @@ export function applyDirectionPartDecisions(
 }
 
 // The direction parts a stage review can settle on a shot's behalf, keyed by shot id: the shot's own
-// part, the sequence parts bracketing it — its act, its act's act, up to the root — and the `setups`
-// part of the frame it is taken from. The arc tree hangs a shot on the first two, and a
-// animatic/video accept re-reads them (the reviewer is looking at that shot inside that act); the
-// third is here because the shot's size and place live on its setup, so the picture the reviewer
-// accepted IS that frame, and the identity rosters' route — a `reference:<id>` accept — does not
-// exist for a setup. Without it a setup edit could never be re-signed downstream and `complete` would
-// stay out of reach for a finished piece. The fourth is every waiver whose subject is the shot, shown
-// beside it on the review. Everything else — the brief, the policy, the identity rosters, the other
-// waivers — is a piece-wide agreement or has its own media, so it never appears here. A
-// node with no `id` contributes no part (see `directionPartHashes`), so its address is filtered out
-// by the live-part lookup rather than special-cased.
+// part, the `setups` part of each frame it is taken from, the sequence parts bracketing it — its act,
+// its act's act, up to the root — the roster entries the shot declares it shows or sounds
+// (`shotRosterTargets`), and every waiver whose subject is the shot, shown beside it on the review.
+// The arc tree hangs a shot on its acts, and an animatic/video accept re-reads them (the reviewer is
+// looking at that shot inside that act); a setup is here because the shot's size and place live on
+// it, so the picture the reviewer accepted IS that frame. Everything else — the brief, the policy,
+// the other waivers — is a piece-wide agreement, so it never appears here. A node with no `id`
+// contributes no part (see `directionPartHashes`), so its address is filtered out by the live-part
+// lookup rather than special-cased.
 export function directionShotCascadeTargets(direction: Direction): Map<string, string[]> {
   const out = new Map<string, string[]>();
   const walk = (node: DirectionNode, nodePath: readonly string[], ancestors: readonly string[]) => {
@@ -383,9 +387,9 @@ export function directionShotCascadeTargets(direction: Direction): Map<string, s
             ? [formatDirectionShotAddress(nodePath, s.id)]
             : [
                 formatDirectionShotAddress(nodePath, s.id),
-                ...(isGraphicShot(s) ? [] : [formatDirectionSetupAddress(s.setup)]),
-                ...(s.cutin ? [formatDirectionSetupAddress(s.cutin.setup)] : []),
+                ...shotFrames(s).map((f) => formatDirectionSetupAddress(f.setup)),
                 ...chain,
+                ...shotRosterTargets(direction, s),
               ],
         );
       }
@@ -400,6 +404,35 @@ export function directionShotCascadeTargets(direction: Direction): Map<string, s
     out.get(waiver.shotId)?.push(waiver.address);
   }
   return out;
+}
+
+// The roster entries a shot declares it shows or sounds: the place each of its frames is set in, the
+// characters a `lineup` / `lineupTo` holds, the voice a character line is spoken in, the narrator of
+// a narration line, and a prop its `action` names — the `unused-prop` scan's rule, a literal
+// substring. A `reference:<id>` accept signs the same parts off; this is the route for an entry
+// reworded under an image already accepted, which no reference review is waiting on.
+function shotRosterTargets(direction: Direction, shot: ArcShot): string[] {
+  const frames = shotFrames(shot);
+  const out = new Set<string>();
+  for (const f of frames) {
+    const location = direction.setups?.[f.setup]?.location;
+    if (location) out.add(formatDirectionLocationAddress(location));
+  }
+  for (const f of frames) {
+    for (const id of [...(f.lineup ?? []), ...(f.lineupTo ?? [])]) {
+      out.add(formatDirectionCharacterAddress(id));
+    }
+  }
+  for (const line of shot.script ?? []) {
+    if ("character" in line) out.add(formatDirectionCharacterVoiceAddress(line.character));
+    else if ("narration" in line) out.add(DIRECTION_NARRATOR_ADDRESS);
+  }
+  for (const [id, prop] of Object.entries(direction.props ?? {})) {
+    if (prop.name.trim() !== "" && shot.action.includes(prop.name)) {
+      out.add(formatDirectionPropAddress(id));
+    }
+  }
+  return [...out];
 }
 
 // The shot waivers a shot's accept would sign off: reworded since they were signed, or new once the

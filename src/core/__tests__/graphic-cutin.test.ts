@@ -373,6 +373,8 @@ describe("cutin setups", () => {
       "direction:setups.sofa",
       "direction:setups.desk",
       "direction:sequence",
+      "direction:locations.studio",
+      "direction:characters.nazuna",
     ]);
   });
 });

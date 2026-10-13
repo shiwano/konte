@@ -907,6 +907,86 @@ describe("applyDirectionShotCascade", () => {
       restamped: [],
     });
   });
+
+  // A roster entry reworded under an image already accepted moves no variant, so no reference review
+  // is waiting on it; the shot that shows or sounds the entry is where it is next judged.
+  describe("the roster entries a shot declares", () => {
+    // Shot 01 holds Alice, names the lantern and carries a line of hers and one of narration; shot 02
+    // declares none of them.
+    function castDirection(): Direction {
+      const direction = makeDirection();
+      (direction.characters.alice as { voice?: unknown }).voice = {
+        id: "aliceVoice",
+        description: "soft and low",
+      };
+      (direction as { narrator?: unknown }).narrator = {
+        id: "narratorVoice",
+        description: "level and dry",
+      };
+      const shot = direction.sequence.shots![0] as NarrativeShot;
+      Object.assign(shot, {
+        action: "she lifts the lantern",
+        lineup: ["alice"],
+        script: [{ character: "alice", text: "morning" }, { narration: "the house is still" }],
+      });
+      return direction;
+    }
+
+    function reworded(edit: (direction: Direction) => void): Direction {
+      const direction = castDirection();
+      edit(direction);
+      return direction;
+    }
+
+    const describeAs = (entry: unknown, description: string) => {
+      (entry as { description: string }).description = description;
+    };
+
+    it.each([
+      [
+        "direction:characters.alice",
+        (d: Direction) => describeAs(d.characters.alice, "a girl in blue"),
+      ],
+      [
+        "direction:characters.alice.voice",
+        (d: Direction) => describeAs(d.characters.alice!.voice, "bright and quick"),
+      ],
+      ["direction:narrator", (d: Direction) => describeAs(d.narrator, "warm and slow")],
+      ["direction:props.lantern", (d: Direction) => describeAs(d.props!.lantern, "a tin lantern")],
+      [
+        "direction:locations.bedroom",
+        (d: Direction) => describeAs(d.locations.bedroom, "a dim bedroom"),
+      ],
+    ])("re-signs %s on the shot that declares it", (address, edit) => {
+      const accepted = acceptAll(castDirection());
+      const edited = reworded(edit);
+      expect(directionAcceptanceView(edited, accepted).complete).toBe(false);
+
+      const { acceptance, restamped } = applyDirectionShotCascade(edited, accepted, ["01"]);
+      expect(restamped).toEqual([address]);
+      expect(directionAcceptanceView(edited, acceptance!).complete).toBe(true);
+    });
+
+    it("leaves an entry the accepted shot does not declare", () => {
+      const accepted = acceptAll(castDirection());
+      const edited = reworded((d) => {
+        describeAs(d.characters.alice, "a girl in blue");
+        describeAs(d.characters.alice!.voice, "bright and quick");
+        describeAs(d.narrator, "warm and slow");
+        describeAs(d.props!.lantern, "a tin lantern");
+      });
+
+      const { restamped } = applyDirectionShotCascade(edited, accepted, ["02"]);
+      expect(restamped).toEqual([]);
+    });
+
+    // R1: before the piece is accepted whole, a roster entry's first read is the human's alone.
+    it("signs off no entry never read before the whole was accepted", () => {
+      const partial = applyDirectionSectionDecisions(castDirection(), null, { shots: true });
+      const { restamped } = applyDirectionShotCascade(castDirection(), partial, ["01"]);
+      expect(restamped).toEqual([]);
+    });
+  });
 });
 
 describe("directionCascadeReferenceIds", () => {

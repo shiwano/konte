@@ -507,7 +507,7 @@ export function collectShotFrames(direction: Direction): ShotFrame[] {
   return collectArcShots(direction).flatMap(shotFrames);
 }
 
-function shotFrames(s: ArcShot): ShotFrame[] {
+export function shotFrames(s: ArcShot): ShotFrame[] {
   const frames: ShotFrame[] = [];
   if (!isGraphicShot(s)) {
     frames.push({
