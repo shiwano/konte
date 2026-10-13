@@ -17,6 +17,8 @@ One still frame decoded from a short burst.
 ## Stills
 
 - **Write the instant** — one shot, and motion words only for the pose the frame is caught in. No camera move and no beat-to-beat action ("then she turns"): one frame survives. **`summary` is that instant too** — a shot's action written there ("pressing the note onto the board and turning back") comes back with both done.
+- **A frame comes back as written** — a height, an angle, a near plane and a far one that the text names are in the frame; what it leaves out comes back flat.
+- **A reroll of unchanged text returns the same composition** — change the text to change the frame.
 - **A cut is the exception, and it is two shots** — where the camera steps in or out along one `within` axis between shots, pass the previous shot's last panel to a free `imageN` and write `shots[0]` as the frame it holds, `shots[1]` as the frame wanted. `panel-unlinked` asks for it; a second shot's panel is refused. A long take (`join: "continuous"`) is drawn with no previous panel.
 - **`shots[0]` is one sentence pointing at that picture.** Everything written goes in `shots[1]`.
 - **`shots[1]` is its text alone** — the adapter sets the cut time.
