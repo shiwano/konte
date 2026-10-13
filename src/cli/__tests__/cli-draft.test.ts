@@ -186,6 +186,7 @@ export default defineReference(direction, () => ({
     set: the window (studioWindow)
   [Shot 2] shot 02 · at 2.00s · setup front
     action: later shot
+    join: jump-forward
     lineup: 
     set: the window (studioWindow)
   prompt (prompt)

@@ -11,8 +11,8 @@ The caller gives you one thing: the **shot ids** under review. Findings land onl
 
 ## Read only this
 
-- `konte inspect animatic:shot.<id> --prompts`, for each id and for the shot before and after it — each panel's prompt, and above it the shot's `action:`, `lineup:` and `set:` lines; its `Keyframes:` block names the addresses behind each panel.
-- `konte inspect animatic:draft --prompts` — each draft take's prompt, and above it each `[Shot N]` named as the shot it is, with that shot's cut time, setup, `action:`, `lineup:` and `set:`. `konte inspect animatic:draft` says which takes exist yet.
+- `konte inspect animatic:shot.<id> --prompts`, for each id and for the shot before and after it — each panel's prompt, and above it the shot's `action:`, `join:`, `lineup:` and `set:` lines; its `Keyframes:` block names the addresses behind each panel.
+- `konte inspect animatic:draft --prompts` — each draft take's prompt, and above it each `[Shot N]` named as the shot it is, with that shot's cut time, setup, `action:`, `join:`, `lineup:` and `set:`. `konte inspect animatic:draft` says which takes exist yet.
 - `konte probe cuts animatic:draft.<name>`, for a take that exists and a panel under review carries a `frame:` line into — its sheet, the time on every frame. Look at the frame at that line's second.
 - `konte probe contact-sheet animatic:shot.<id>` for a neighbouring shot that already holds a take — the frame the cut comes from or goes to.
 
@@ -54,7 +54,7 @@ Report `No findings.` alone when nothing survives; otherwise every finding kept,
 
 - **Composition left to the model** (`lineup-only`) — the prompt says only who is on which side; it decides nothing about facing, what fills the frame they leave open, or what is nearest the lens.
 - **Composition against the action** (`hides-action`) — what the `action` hinges on is not where the eye lands: small, at an edge, turned away, or behind another figure.
-- **Flat run** (`flat-run`) — adjacent panels repeat the same size, camera height, placement and facing with no job, or a run of panels uses one formula throughout.
-- **Screen direction** (`direction-break`) — a figure's side or facing flips across a cut with no move written for it, or a gaze does not meet what it looks at in the neighbouring shot.
+- **Flat run** (`flat-run`) — adjacent panels repeat the same size, camera height, placement and facing with no job and no `join:` between them, or a run of panels uses one formula throughout.
+- **Screen direction** (`direction-break`) — a figure's side or facing flips across a cut with no move written for it and no `jump-back` / `jump-forward` `join:` into it, or a gaze does not meet what it looks at in the neighbouring shot.
 - **Contradiction** (`contradiction`) — two parts of one prompt place or turn the same figure differently.
 - **Off the frame** (`off-frame`) — a panel's prompt asks a size, a placement, a facing or a count the draft frame it is drawn from does not show. `lineup-only` is never raised on such a panel.

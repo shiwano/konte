@@ -1138,6 +1138,8 @@ interface PromptShots {
   set: Map<string, { id: string; label: string }[]>;
   // The shot's own camera; a graphic shot has none.
   setup: Map<string, string>;
+  // The declared boundary into the shot's own frame; an ordinary one has no entry.
+  join: Map<string, string>;
   // Printed above the addresses only the `<Cutin>` reaches, in place of the shot's own frame.
   cutin: Map<
     string,
@@ -1146,6 +1148,7 @@ interface PromptShots {
       lineup: readonly string[];
       lineupTo: readonly string[] | null;
       set: { id: string; label: string }[] | null;
+      join: string | null;
     }
   >;
   script: Map<string, { speaker: string; text: string; acting: string | null }[]>;
@@ -1171,6 +1174,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
   >();
   const set = new Map<string, { id: string; label: string }[]>();
   const setup = new Map<string, string>();
+  const join = new Map<string, string>();
   const script = new Map<string, { speaker: string; text: string; acting: string | null }[]>();
   const cutin: PromptShots["cutin"] = new Map();
   // A critic cannot read direction.ts, so what the prompt is read against is printed here rather
@@ -1206,10 +1210,12 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
         lineup: shot.cutin.lineup ?? [],
         lineupTo: shot.cutin.lineupTo ?? null,
         set: holdsOf(shot.cutin.setup),
+        join: shot.cutin.join ?? null,
       });
     }
     if (!isGraphicShot(shot)) {
       setup.set(shot.id, shot.setup);
+      if (shot.join) join.set(shot.id, shot.join);
       if (shot.lineup) {
         lineup.set(shot.id, { lineup: shot.lineup, lineupTo: shot.lineupTo ?? null });
       }
@@ -1228,7 +1234,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
     }));
     if (lines.length > 0) script.set(shot.id, lines);
   }
-  return { action, span, lineup, set, setup, cutin, script, label };
+  return { action, span, lineup, set, setup, join, cutin, script, label };
 }
 
 function shotIdOfAddress(address: string): string | null {
@@ -1269,9 +1275,12 @@ function quotedSpellings(
     .filter((spelling) => occurrences.some((p) => p.value.includes(spelling)));
 }
 
-// The shot's own camera frame as the direction declares it: who it holds, and what of its set.
+// The shot's own camera frame as the direction declares it: the boundary into it, who it holds, and
+// what of its set.
 function shotFrameLines(promptShots: PromptShots, shotId: string): string[] {
   const out: string[] = [];
+  const join = promptShots.join.get(shotId);
+  if (join) out.push(`join: ${join}`);
   const order = (ids: readonly string[]) => ids.map(promptShots.label).join(" | ");
   const declared = promptShots.lineup.get(shotId);
   if (declared) {
@@ -1356,7 +1365,8 @@ function promptShotLines(
       cutin.set && cutin.set.length > 0
         ? ` · set: ${cutin.set.map((l) => l.label).join(" | ")}`
         : "";
-    out.push(`cutin: ${cutin.setup} · lineup: ${order(cutin.lineup)}${to}${set}`);
+    const join = cutin.join ? ` · join: ${cutin.join}` : "";
+    out.push(`cutin: ${cutin.setup}${join} · lineup: ${order(cutin.lineup)}${to}${set}`);
   }
   if (!cutin) out.push(...shotFrameLines(promptShots, shotId));
   for (const line of voicedLines(
