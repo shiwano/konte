@@ -292,7 +292,7 @@ export function checkArc<Role extends string>(
       findings.push({
         code: "unearned-payoff",
         subject: lens.payoff,
-        message: `${noun}.${items[payoffIdx]!.id} lands the "${lens.payoff}" payoff with no ${noun} grounding or building toward it first`,
+        message: `${noun}.${items[payoffIdx]!.id} lands the "${lens.payoff}" payoff with no ${noun} grounding or building toward it first — waive this if the arc is meant to open on its payoff`,
       });
     }
   }
@@ -316,7 +316,7 @@ export function checkArc<Role extends string>(
         findings.push({
           code: "re-established-wide",
           subject: it.id,
-          message: `${noun}.${it.id} re-establishes "${it.location}" at ${options.establishingFraming} — a second full view of the set`,
+          message: `${noun}.${it.id} re-establishes "${it.location}" at ${options.establishingFraming} — a second full view of the set; waive this if the space itself changed`,
         });
       }
       established.add(it.location);
