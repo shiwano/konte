@@ -25,7 +25,7 @@ Write the Viewer read as an intermediate message. Your final message — the onl
 
 ## Rules
 
-- **Every finding carries four fields**: `target` (a shot id, a panel address, or a cut written `03→04`), `problem` (a code below), `evidence` (the cell and what you read in it), `smallest-fix` (the least change that clears it, and the surface it lives on — `panel` for a restaged or redrawn keyframe, `window` for a `<Panel start>`, `cue` for an `<Audio start>`, `direction` for a shot). Prefer them in that order; name `direction` only when no panel could carry the shot.
+- **Every finding carries four fields**: `target` (a shot id, a panel address, or a cut written `03→04`), `problem` (a code below), `evidence` (the cell and what you read in it), `smallest-fix` (the least change that clears it, and the surface it lives on — `frame` for what a camera shot's panel holds or how it frames it (a facing, a pose, a held prop, the set, a count, a size, an angle), `panel` for a panel's line, colour, expression or detail and for a graphic shot, `window` for a `<Panel start>`, `cue` for an `<Audio start>`, `direction` for a shot). Prefer them in that order; name `direction` only when no panel could carry the shot.
 - **Never guess at intent, never praise**, and never offer an alternative you merely prefer.
 - **A choice that reads as doing a job passes**, however unconventional — a held frame that loads the next shot, a reveal by the witness, a match cut. The finding is what misreads, stalls or contradicts; never what deviates.
 - **Whatever `brief.tolerances` accepts is never a finding**; whatever `brief.outOfScope` bans is one wherever it shows on a panel.
@@ -49,16 +49,19 @@ Blocking findings
 - target: animatic:shot.05.first
   problem: invisible-change
   evidence: cell 05.first: the cat sits beside the bag, paws down; the action says the paw drags the bag off the sill, and no panel shows the paw on the bag
-  smallest-fix: panel — redraw first with the paw hooked into the bag's strap, the bag still on the sill
+  smallest-fix: frame — the paw hooked into the bag's strap, the bag still on the sill
 
 Advisories
 - target: 03→04
   problem: jump-cut
   evidence: cells 03.first and 04.first: the same medium on the same corner of the counter, the cat in the same pose
-  smallest-fix: panel — redraw 04 at the angle its setup declares, or open 04 on the insert of the bell
+  smallest-fix: frame — 04 at the angle its setup declares, or opening on the insert of the bell
+
+A frame fix is made on the frame the panel is drawn from, never in its prompt — staging-guide's drafts.md, "Change a composition".
 ```
 
 - **Omit a section that has no entries.**
+- **The closing line stands only where a fix names `frame`.**
 
 ## Draft pass
 
