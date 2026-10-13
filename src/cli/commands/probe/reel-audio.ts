@@ -123,9 +123,9 @@ sources, looped/overflowing beds, a stretch where no track is audible, and a bed
 or whole silence over the region it plays. A cue's or embedded clip's own silence is a note, as is
 the animatic's silent stretch. They
 also flag a shot whose animatic narration runs past its duration, which the stem's clamp cuts
-without a sound. Asset and timeline scopes are rejected. Source-window boundaries with fades and
-overlapping effective gain sums are informational; output discontinuities, clipping and limiter
-reduction are not measured.
+without a sound. Asset and timeline scopes are rejected. Source-window boundaries with fades, a
+wordless clip's own track ending on its shot's cut, and overlapping effective gain sums are
+informational; output discontinuities, clipping and limiter reduction are not measured.
 
 Examples:
   konte probe reel-audio video               Inspect the delivered audio timeline

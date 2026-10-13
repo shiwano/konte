@@ -4,6 +4,7 @@ import {
   detectAudibleSpans,
   detectAudioOnset,
   detectWindowCuts,
+  endsOnShotCut,
   findMixSilences,
   playedRms,
   summarizeAudioSilence,
@@ -307,6 +308,13 @@ describe("detectWindowCuts", () => {
     expect(cuts.map((cut) => cut.informational)).toEqual([false, true]);
   });
 
+  it("reports a tail the shot's cut ends as information, and its head as a warning still", () => {
+    const cuts = detectWindowCuts(line, RATE, 1, 2, {}, true);
+    expect(cuts.map((cut) => cut.informational)).toEqual([false, true]);
+    expect(cuts[1]?.message).toContain("ends on its shot's cut");
+    expect(cuts[1]?.message).not.toContain("listen to the exit");
+  });
+
   it("passes a window opening exactly on the line's onset", () => {
     expect(detectWindowCuts(line, RATE, 0.5, 5.1)).toEqual([]);
   });
@@ -331,6 +339,27 @@ describe("detectWindowCuts", () => {
     expect(detectWindowCuts(line, RATE, 0, null)).toEqual([]);
     expect(detectWindowCuts([], RATE, 0, 2)).toEqual([]);
     expect(detectWindowCuts(new Array(300).fill(0), RATE, 0, 2)).toEqual([]);
+  });
+});
+
+describe("endsOnShotCut", () => {
+  it("holds for a wordless clip's track running to its shot's end", () => {
+    expect(endsOnShotCut({ role: "embedded", kind: "sfx", localEnd: 3 }, 3)).toBe(true);
+    expect(endsOnShotCut({ role: "embedded", kind: "sfx", localEnd: null }, 3)).toBe(true);
+  });
+
+  it("fails for a window written short of the cut", () => {
+    expect(endsOnShotCut({ role: "embedded", kind: "sfx", localEnd: 2.5 }, 3)).toBe(false);
+  });
+
+  it("fails for a clip carrying a line, or one konte could not classify", () => {
+    for (const kind of ["voice", "narration", "mob", undefined] as const) {
+      expect(endsOnShotCut({ role: "embedded", kind, localEnd: 3 }, 3)).toBe(false);
+    }
+  });
+
+  it("fails for an <Audio> cue, whose window is always written", () => {
+    expect(endsOnShotCut({ role: "sound", kind: "sfx", localEnd: 3 }, 3)).toBe(false);
   });
 });
 

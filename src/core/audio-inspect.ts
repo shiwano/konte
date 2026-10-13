@@ -482,13 +482,15 @@ const MIN_CUT_RUN = 0.05;
 // cannot be asked about it. Both edges: `duration` too small for the line leaves its tail unplayed,
 // `mediaStart` too large opens inside the first syllable. Judged on the WHOLE source (the played
 // slice cannot see what lies past its own end), and skipped for a looping bed, whose seam is the
-// loop's own business. Pure — unit-tested directly.
+// loop's own business. `endsOnCut` marks a tail the edit cut rather than a window anyone wrote.
+// Pure — unit-tested directly.
 export function detectWindowCuts(
   rms: number[],
   rate: number,
   mediaStart: number,
   duration: number | null,
   fades: { fadeIn?: number; fadeOut?: number } = {},
+  endsOnCut = false,
 ): (AudioWarning & { informational: boolean })[] {
   if (rms.length === 0 || rate <= 0 || duration == null || duration <= 0) return [];
   const peak = Math.max(...rms);
@@ -530,17 +532,29 @@ export function detectWindowCuts(
     for (let i = tail; i < rms.length && loud(i); i++) after++;
     warnings.push({
       type: "window_cuts_mid_sound",
-      informational: fadedOut,
+      informational: fadedOut || endsOnCut,
       message:
         `window cuts mid-sound at ${(tail / rate).toFixed(2)}s into the source ` +
         `(${dbBelowPeak(rms[tail - 1] ?? 0).toFixed(0)} dB below peak): ` +
         `${(after / rate).toFixed(2)}s more follows in the source. ` +
         (fadedOut
           ? `fadeOut ${fades.fadeOut}s reaches silence at the window end; this is a source boundary, not a measured output discontinuity.`
-          : "No completed fadeOut; listen to the exit before changing duration or shortening the line."),
+          : endsOnCut
+            ? "The window ends on its shot's cut and the clip carries no line."
+            : "No completed fadeOut; listen to the exit before changing duration or shortening the line."),
     });
   }
   return warnings;
+}
+
+// A wordless clip's own track running to its shot's end: the tail is the edit's, where a line cut
+// there is a lost word and an `<Audio>` window is always written. Pure — unit-tested directly.
+export function endsOnShotCut(
+  cue: Pick<RawShotAudio, "role" | "kind" | "localEnd">,
+  shotDuration: number,
+): boolean {
+  if (cue.role !== "embedded" || cue.kind !== "sfx") return false;
+  return cue.localEnd == null || Math.abs(cue.localEnd - shotDuration) < 0.001;
 }
 
 /** One track's sound on the timeline. `rms` null: unmeasured, so taken as sounding throughout. */
@@ -899,6 +913,7 @@ export async function inspectTimelineAudio(opts: {
         raw.mediaStart,
         duration,
         raw,
+        endsOnShotCut(raw, shotDur),
       )) {
         (w.informational ? notes : warnings).push(w.message);
       }
