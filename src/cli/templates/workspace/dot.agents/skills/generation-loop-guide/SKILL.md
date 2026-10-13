@@ -76,7 +76,7 @@ After `konte generate` or `konte reroll`:
 
 ### Video: each take
 
-- **Spawn `konte-video-critic` the same way, at most eight shot ids each** — every shot holding a new take, instead of reading its strip. An advisory is a handoff note.
+- **Spawn `konte-video-critic` the same way, once for the stage** — every shot holding a new take, instead of reading its strip. An advisory is a handoff note.
 
 ### Fix
 
