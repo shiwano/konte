@@ -25,7 +25,7 @@ Write the Viewer read as an intermediate message. Your final message — the onl
 
 ## Rules
 
-- **Every finding carries four fields**: `target` (a shot id, a panel address, or a cut written `03→04`), `problem` (a code below), `evidence` (the cell and what you read in it), `smallest-fix` (the least change that clears it, and the surface it lives on — `panel` for a restaged or redrawn keyframe, `window` for a `<Panel start>`, `cue` for an `<Audio start>`, `direction` for a shot). Prefer them in that order; name `direction` only when no panel could carry the shot.
+- **Every finding carries four fields**: `target` (a shot id, a panel address, or a cut written `03→04`), `problem` (a code below), `evidence` (the cell and what you read in it), `smallest-fix` (the least change that clears it, and the surface it lives on — `panel` for a restaged or redrawn keyframe, `plate` for a size, a camera height or angle, or a stretch of the set the panel's setup does not give it, `window` for a `<Panel start>`, `cue` for an `<Audio start>`, `direction` for a shot). Prefer them in that order; name `direction` only when no panel could carry the shot.
 - **Never guess at intent, never praise**, and never offer an alternative you merely prefer.
 - **A choice that reads as doing a job passes**, however unconventional — a held frame that loads the next shot, a reveal by the witness, a match cut. The finding is what misreads, stalls or contradicts; never what deviates.
 - **Whatever `brief.tolerances` accepts is never a finding**; whatever `brief.outOfScope` bans is one wherever it shows on a panel.
@@ -55,10 +55,13 @@ Advisories
 - target: 03→04
   problem: jump-cut
   evidence: cells 03.first and 04.first: the same medium on the same corner of the counter, the cat in the same pose
-  smallest-fix: panel — take 04 from its setup's plate at the angle the setup declares, or open 04 on the insert of the bell
+  smallest-fix: plate — 04's setup at another angle on the counter, or panel — open 04 on the insert of the bell
 ```
 
+A plate fix is made on the plate the panel stands on, never in its prompt — staging-guide's plates.md.
+
 - **Omit a section that has no entries.**
+- **The closing line stands only where a fix names `plate`.**
 
 ## Plate pass
 

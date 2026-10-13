@@ -35,6 +35,8 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - konte-animatic-critic 3,550 → 3,600 (agreed by a human): `plate` as the surface of a fix no
+//   redrawn panel carries.
 // - konte-prompt-critic 3,800 → 3,950, konte-animatic-critic 3,500 → 3,550 (agreed by a human): a
 //   declared `join` read above each prompt and on the board, the `reference-contradicted` axis.
 // - dev-direction 16,800 → 17,100, dev-render 10,600 → 10,750 (agreed by a human): what both held
@@ -111,7 +113,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "konte-animatic-critic",
-    budget: 3_550,
+    budget: 3_600,
     files: [...ALWAYS, `${AGENTS}/konte-animatic-critic.md`],
   },
   {
