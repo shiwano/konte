@@ -82,6 +82,8 @@ stderr — the absolute, cross-clip signals ('low_motion' when nothing in frame 
 tile measured against the frame a second later, so a slow push-in or a small figure walking reads as
 motion. A warning carries the shot's intent under it — the direction's action and the board's
 blocking/camera — since a shot meant to hold still measures the same as one that failed to animate.
+The intent names the boundary into the shot where it breaks time or place: its 'join', and a
+'location' line when its setup stands somewhere else than the shot before.
 Pass --verbose for the full advisory on stderr: the magnitude,
 mean/peak, high/low frame-diff segments, duration/fps, the intent, the reading note, and the motion-energy
 sparkline (the frame-to-frame diff waveform). Only the magnitude compares across clips; mean and peak

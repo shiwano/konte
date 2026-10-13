@@ -88,6 +88,7 @@ beforeEach(() => {
   resolveIntent.mockReset().mockResolvedValue({
     shotId: "01",
     action: "She taps the card",
+    boundary: { join: "jump-forward", location: { from: "kitchen", to: "street" } },
     moves: [{ blocking: "her hand comes down", camera: "fixed" }],
   });
   renderMotionStrip.mockReset().mockResolvedValue({
@@ -122,6 +123,8 @@ describe("probe motion stdout/stderr contract", () => {
     expect(stderr).toContain("No motion rises above the noise floor.");
     // A low_motion reading is a failure only where movement was asked for.
     expect(stderr).toContain("action    She taps the card");
+    expect(stderr).toContain("join      jump-forward");
+    expect(stderr).toContain("location  kitchen → street");
     expect(stderr).toContain("movement  blocking: her hand comes down  —  camera: fixed");
     // Still no full advisory.
     expect(stderr).not.toContain("mean 0.120");

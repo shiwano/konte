@@ -1,5 +1,6 @@
 import { parseAddress, patchSourceVariantIdOf } from "../../../core/address.js";
-import { collectArcShots } from "../../../core/direction.js";
+import { collectArcShots, collectShotFrames, type ShotFrame } from "../../../core/direction.js";
+import type { Direction } from "../../../core/dsl/direction.js";
 import type { StateManager } from "../../../core/state/index.js";
 import type { AnimaticDefinition } from "../../../core/types/index.js";
 import { loadAnimatic } from "../../../core/loader.js";
@@ -11,11 +12,43 @@ interface MotionMove {
   camera: string | null;
 }
 
+/** The boundary into a shot, where it breaks story time or place. Either side may be absent. */
+export interface ShotBoundary {
+  join: NonNullable<ShotFrame["join"]> | null;
+  location: { from: string; to: string } | null;
+}
+
 /** What the shot behind a clip was asked to do — the half no measurement supplies. */
 interface MotionIntent {
   shotId: string;
   action: string | null;
+  boundary: ShotBoundary | null;
   moves: MotionMove[];
+}
+
+// Keyed by shot id, for the shots whose boundary says anything: a declared `join`, or a setup in
+// another location than the shot just before on the clock.
+export function shotBoundaries(direction: Direction): Map<string, ShotBoundary> {
+  const mainFrames = new Map(
+    collectShotFrames(direction)
+      .filter((frame) => frame.lane === "main")
+      .map((frame) => [frame.shotId, frame]),
+  );
+  const locationOf = (shotId: string | undefined): string | undefined => {
+    const frame = shotId === undefined ? undefined : mainFrames.get(shotId);
+    return frame ? direction.setups?.[frame.setup]?.location : undefined;
+  };
+
+  const out = new Map<string, ShotBoundary>();
+  const shots = collectArcShots(direction);
+  for (const [i, shot] of shots.entries()) {
+    const join = mainFrames.get(shot.id)?.join ?? null;
+    const from = locationOf(shots[i - 1]?.id);
+    const to = locationOf(shot.id);
+    const location = from !== undefined && to !== undefined && from !== to ? { from, to } : null;
+    if (join != null || location != null) out.set(shot.id, { join, location });
+  }
+  return out;
 }
 
 // A clip that was meant to hold still measures the same as one that failed to animate — only the shot's
@@ -30,11 +63,13 @@ export function createMotionIntentLoader(
 ): (address: string) => Promise<MotionIntent | null> {
   let sources: Promise<{
     actions: Map<string, string>;
+    boundaries: Map<string, ShotBoundary>;
     animatic: AnimaticDefinition | null;
   }> | null = null;
 
   const load = (): Promise<{
     actions: Map<string, string>;
+    boundaries: Map<string, ShotBoundary>;
     animatic: AnimaticDefinition | null;
   }> => {
     sources ??= (async () => {
@@ -45,7 +80,8 @@ export function createMotionIntentLoader(
       const actions = new Map(
         direction ? collectArcShots(direction).map((s) => [s.id, s.action]) : [],
       );
-      return { actions, animatic };
+      const boundaries = direction ? shotBoundaries(direction) : new Map<string, ShotBoundary>();
+      return { actions, boundaries, animatic };
     })();
     return sources;
   };
@@ -72,7 +108,7 @@ export function createMotionIntentLoader(
       return null;
     }
 
-    const { actions, animatic } = await load();
+    const { actions, boundaries, animatic } = await load();
     const shot = animatic?.shots.find((s) => s.id === shotId);
     const panels = [...(shot?.panels ?? []), ...(shot?.cutin?.panels ?? [])];
     const moves = panels
@@ -80,7 +116,7 @@ export function createMotionIntentLoader(
       .filter((move) => move.blocking != null || move.camera != null);
     const action = actions.get(shotId) ?? null;
     if (action == null && moves.length === 0) return null;
-    return { shotId, action, moves };
+    return { shotId, action, boundary: boundaries.get(shotId) ?? null, moves };
   };
 }
 
@@ -89,6 +125,11 @@ export function createMotionIntentLoader(
 export function formatMotionIntent(intent: MotionIntent): string[] {
   const lines: string[] = [];
   if (intent.action) lines.push(`  action    ${intent.action}`);
+  if (intent.boundary?.join) lines.push(`  join      ${intent.boundary.join}`);
+  if (intent.boundary?.location) {
+    const { from, to } = intent.boundary.location;
+    lines.push(`  location  ${from} → ${to}`);
+  }
   for (const [i, move] of intent.moves.entries()) {
     const parts = [
       move.blocking ? `blocking: ${move.blocking}` : null,
