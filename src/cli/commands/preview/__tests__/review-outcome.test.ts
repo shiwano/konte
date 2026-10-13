@@ -61,7 +61,11 @@ describe("printReviewOutcome — text", () => {
   it("says a session closed without submitting", () => {
     const out = capture(() => printReviewOutcome("video-preview", null, false));
 
-    expect(out).toBe("Video Review: not submitted (closed without submitting)");
+    expect(out).toBe(
+      "Video Review: not submitted (closed without submitting)\n" +
+        "  nothing was recorded — ask the human before reopening\n" +
+        "  konte preview video",
+    );
   });
 
   it("leads with submitted, then the command that reads the record", () => {

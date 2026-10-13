@@ -69,7 +69,11 @@ export function printReviewOutcome(
     console.log("  konte review record list");
   }
   if (!outcome) {
-    if (!drainTimedOut) console.log(`${title}: not submitted (closed without submitting)`);
+    if (!drainTimedOut) {
+      console.log(`${title}: not submitted (closed without submitting)`);
+      console.log("  nothing was recorded — ask the human before reopening");
+      console.log(`  konte preview ${stageOfMode(mode)}`);
+    }
     return;
   }
   if (!outcome.filePath) {
