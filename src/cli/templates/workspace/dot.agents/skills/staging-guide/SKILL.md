@@ -28,15 +28,15 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 
 ## Stage the frame
 
-- **Every shot stands on its place's reference** — `reference.<location>`, or a `reference.tsx` asset built from it, handed to the draft take or the panel; a frame none of whose keyframes reaches it is `location-unconsumed`.
+- **Every shot stands on its place's reference** — `reference.<location>`, or a `reference.tsx` asset built from it, handed to the draft take or the panel.
 - **A drafted shot is composed in its take's shot text** — every rule here is written there.
 - **The panel prompt composes** — where each figure sits and faces, what fills the frame they leave open, what is nearest the lens, what the edges cut, chosen from what the `action` has to show; naming only who is left and right leaves the frame to the model.
 - **The eye lands on the action's carrier** — whatever the shot hinges on must be the frame's most salient element (position, contrast, light, motion); if a stranger's eye goes elsewhere first, the staging failed before the prompt.
 - **One strong signifier per idea** — pick the element that says it best and cut action-adjacent extras; each one added dilutes the read.
-- **Subject & purpose** — what the subject wants in this shot decides pose, expression, and gaze. Name a declared character by its exact roster `promptDepiction` and anchor its look on the `reference:<id>` asset (identity prose → `prompt-guide`'s reference preflight). A subject the frame holds that no prompt behind the keyframe names is `subject-unnamed`: name one and the model decides the rest for itself.
+- **Subject & purpose** — what the subject wants in this shot decides pose, expression, and gaze. Name a declared character by its exact roster `promptDepiction` and anchor its look on the `reference:<id>` asset (identity prose → `prompt-guide`'s reference preflight).
 - **Name every subject in `ctx.lineup` order** — who the frame holds, left to right, is the direction's (`ctx.lineupTo` the order the shot leaves on); one named place lands nothing, all of them always lands. Add who is nearer the lens where they are not side by side.
-- **Pass a reference image for every one of them** — a subject the frame holds and the keyframe took no `reference:<id>` of is `character-unconsumed`: the look is then whatever the prompt happens to say, take by take. A subject only a sleeve or a fist of whom is in frame is fed too, never waived. A keyframe drawn from an earlier keyframe inherits what that one stood on.
-- **Pass them in the same order** — the slot order is the other half of what decides who lands where (`slot-order-mismatch`), so a take that came back with the wrong person on the wrong side is a slot fix and never a waiver.
+- **Pass a reference image for every one of them** — a subject only a sleeve or a fist of whom is in frame is fed too, never waived. A keyframe drawn from an earlier keyframe inherits what that one stood on.
+- **Pass them in the same order** — the slot order is the other half of what decides who lands where.
 - **`<Cutin>` keyframes answer `ctx.cutin.lineup` / `lineupTo`** by the rules above.
 - **`ctx.lineupTo` is a `blocking` note waiting to be written** — the panel it changes out of says the move (`blocking`, above) and the last keyframe's slots take the new order.
 - **Size and angle both come from the shot's `setup`** — stage to its `framing` (`wide` → the concrete long shot, `insert` → the object filling frame), and change either by editing the setup. Low angle empowers, high diminishes, eye level observes — pick from the `action` and write it into the setup's `description` so the next shot on it inherits the camera.
@@ -50,7 +50,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 ## Stage the cut
 
 - **Eyelines, screen direction and edges bind every cut, shown geography or not** — the 180° line, gaze axes, the entrance/exit directions the `action` implies, and wardrobe/props agreeing across adjacent same-space shots. A journey "toward" something holds one direction across every panel and shot.
-- **The 180° line is checked between two shots in one place** — a pair both frames hold that swaps sides is `lineup-flipped`: move the camera, or declare the move with `lineupTo` in the shot it happens in. A single subject re-framed from the other side settles no pair, so it is yours to catch.
+- **The 180° line is checked between two shots in one place** — a single subject re-framed from the other side settles no pair, so it is yours to catch.
 - **Matching backgrounds is a chosen spend** — owed only where two frames share geography on screen (a continuous-space stretch, a re-established `wide`); there, pin the look on a `reference.tsx` asset and compare the adjacent panels at the board, before paying for motion.
 - **Change two of size / angle / subject on every cut** — unless a match cut is the point; a cut that changes only one reads as a jump, and cutting back to one setup without a shot between flattens the sequence.
 - **The edit base chooses the camera** — a keyframe built by editing a neighbouring shot's populated frame inherits its composition whatever the prompt says. Chain off a neighbour only when a match cut is the point. Otherwise draw it from the shot's own draft frame. At a `join: "continuous"` seam, keep the camera of the panel before it.

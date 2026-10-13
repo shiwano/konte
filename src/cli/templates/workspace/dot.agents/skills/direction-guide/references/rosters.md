@@ -4,7 +4,7 @@
 
 - **All three are anchored rosters** — a record keyed by `id` (one shared namespace), each `id` matching an exposed `reference:<id>` asset: generate the subject once there and animate/compose from it.
 - **Name characters and props by exact roster `name` in the actions that use them** — choose a distinctive phrase ("the black cat"); konte matches literal substrings. `characters` is required, `props` optional; only characters are named speakers.
-- **Choose a drawable, discriminative `promptDepiction`** — `chef`, not a story role or invented name; `tabby` for one cat, `girl in a purple hoodie` to distinguish two girls. Use the model's language, without adapter notation. No depiction may contain another (`prompt-depiction-conflict`); the scan matches substrings.
+- **Choose a drawable, discriminative `promptDepiction`** — `chef`, not a story role or invented name; `tabby` for one cat, `girl in a purple hoodie` to distinguish two girls. Use the model's language, without adapter notation.
 - **`locations` is required** — a shot reaches one through its setup.
 - **A location declares `landmarks`, what only this place has** — required and non-empty, keyed by id, each `{ name, description }`. A frame with nothing particular to the set comes back as another room. A landmark anchors on no `reference:<id>`. Its id shares the direction's one id space, so it may not collide with a character, a prop, a place, or a landmark elsewhere.
 

@@ -36,7 +36,7 @@ user-invocable: false
 - **`setup` is the frame the shot is taken from, required per narrative shot** — a `setups` roster id. Its size and its place are read through it, so a shot never declares `framing` or `location` of its own.
 - **`policy` is required and acceptance-hashed** — `format`, `lang`, `fonts`, `speech`.
 - **Author `format.size` as `{ megapixels, delivery: { width, height } }`** — delivery sets the aspect; konte derives a 32-grid canvas from the pixel budget (`0.9` at 16:9 → `1248×704`). Lower `megapixels` for cheaper iteration; a delivery well above the canvas needs `export.delivery.upscale`. Start with `fps: 24`; adapter grids govern generated frame counts.
-- **Declare `lang` and `fonts`** — one supported language tag (`"ja"`, `"en"`, `"zh-Hant"`), and Google Fonts families in fallback order. Scripts without default glyph coverage require fonts (`fonts-undeclared`). Text placement → `composition-guide`.
+- **Declare `lang` and `fonts`** — one supported language tag (`"ja"`, `"en"`, `"zh-Hant"`), and Google Fonts families in fallback order. Text placement → `composition-guide`.
 - **`speech` is `"none"`, `"no-dialogue"` or `"free"`** — no lines, narration only, or unrestricted speech.
 - **`script` holds spoken lines; `telop` holds unspoken screen text; `lyrics` holds sung words** — a sung line shown on screen is in `lyrics` alone; a sign inside the world belongs in the image prompt. Stages receive `script` from the direction; notation for Japanese → [japanese-notation.md](references/japanese-notation.md).
 - **A character line requires one `acting` sentence** — how it is said ("wheedling, drawn out, a shade too loud"), never a list of acoustic properties. `{ speaker }` and narration lines take none.
@@ -45,7 +45,7 @@ user-invocable: false
 
 - **The lens fixes the role order (its payoff role is the climax); `pleasure` names the feeling it aims for** — pick each from the catalogs in [lenses.md](references/lenses.md); `pleasure` is a closed vocabulary, a custom `defineLens` a last resort (rules there too).
 - **A building role must actually repeat** — `rhythm` and `process` each need at least two consecutive, varied shots (a copy is not variation); `comedy`'s optional `escalation` escalates across shots rather than holding one.
-- **Write the hinge roles as a change, and earn the climax** — on a **turn** (`disruption`/`violation`/`solution` — the **inciting incident** at this scale) and the **payoff**, the `action` must state a change of state: name the two concrete, visible states it moves between ("the calm sill; the ball rolls in"). A payoff with nothing grounding/turning/building before it is `unearned-payoff`; a piece that opens on the payoff waives it.
+- **Write the hinge roles as a change, and earn the climax** — on a **turn** (`disruption`/`violation`/`solution` — the **inciting incident** at this scale) and the **payoff**, the `action` must state a change of state: name the two concrete, visible states it moves between ("the calm sill; the ball rolls in").
 
 ### Writing the shots
 
@@ -68,11 +68,10 @@ user-invocable: false
 
 ## Pacing — rhythm, not uniform length
 
-- **Every `duration` is a multiple of 0.5s, at least 0.5s** — the shot's span is the window the render cuts the take to. Off the grid is waivable. Use the adapter's supported length and let the window cut it.
-- **A cut's pleasure lives in the _contrast_ between shot lengths** — equal-length cuts read as a metronome (three identical `duration`s in a row is the checker's line; the failure starts earlier): choose each length against its neighbors — staccato shots build pressure, a held frame releases; accelerate into a peak, ease after.
-- **`wide` is a spend — establish once per act, when the space itself is content** — a second `wide` of one location inside one `role` is the checker's line; waive it when the space itself changed. A role change resets it, so a closing `wide` that bookends the opening one is unflagged.
-- **Vary the framing size against its neighbors** — three same-size setups in a row is the checker's line: hold `medium`, push to `close`/`insert` before a payoff. A gag/turn's trigger is often an `insert`/`close`, its reaction a `close`.
+- **Every `duration` is a multiple of 0.5s, at least 0.5s** — the shot's span is the window the render cuts the take to. Use the adapter's supported length and let the window cut it.
+- **A cut's pleasure lives in the _contrast_ between shot lengths** — equal-length cuts read as a metronome: choose each length against its neighbors — staccato shots build pressure, a held frame releases; accelerate into a peak, ease after.
+- **`wide` is a spend — establish once per act, when the space itself is content.**
+- **Vary the framing size against its neighbors** — hold `medium`, push to `close`/`insert` before a payoff. A gag/turn's trigger is often an `insert`/`close`, its reaction a `close`.
 - **A one-step size change inside one `location` invites background matching** — adjacent `wide`→`medium` (or `medium`→`close`) keeps most of the set in both frames, a match generation can't hold: jump two sizes (`wide`→`close`/`insert`), or break the pair with an `insert` or a reaction shot.
 - **A held, low-change frame holds attention ~3s; earn a longer hold with change** — motion, an `<Animate>` move, or an overlay reveal buys seconds, and what dulls tempo is a frame held past its content. A comedy `button` cuts on the laugh, never past it.
-- **A grounding or settling role can't swallow the runtime** — lenses budget the `ground` role at ≤40% and the `settle` role at ≤20–25%; over is waivable (`atmosphere` and comedy's `setup` carry no cap).
 - **Each shot advances the feeling, never restates it** — a long fight or a montage that repeats one shot is one motif stretched thin.

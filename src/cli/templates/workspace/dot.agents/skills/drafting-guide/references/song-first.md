@@ -32,7 +32,7 @@ const song = asset(direction.policy.song!, audioYue2, {
 
 ## 4. Check the lines, then accept
 
-- **Preview the song and listen with its lines laid over it before accepting** — a line may be placed a line off, not only left unplaced (`lyric-unplaced`).
+- **Preview the song and listen with its lines laid over it before accepting** — a line may be placed a line off.
 - **A wrong or unplaced line is the human's to fix on the song's review page** — they drag it to where it is sung.
 - **Settle the song before any animatic spend** — a new take, a same-path file swap or a `konte song set --first-beat` moves the cuts, and every shot they move is then remade.
 

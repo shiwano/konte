@@ -31,5 +31,5 @@ The emotional reward a node aims for — orthogonal to the lens (a `mini-drama` 
 ## Custom lenses — a last resort
 
 - **`defineLens({ name, payoff, roles })`** — in `defineDirection`'s `lenses`, referenced by `name` from any node.
-- **Each entry of `roles` declares its `role` and dramatic `fn`** (`ground` / `turn` / `build` / `payoff` / `settle`; omit for a container role). `payoff` must be a `fn: "payoff"` role (`payoff-function-mismatch`); an ungrounded payoff trips `unearned-payoff`.
+- **Each entry of `roles` declares its `role` and dramatic `fn`** (`ground` / `turn` / `build` / `payoff` / `settle`; omit for a container role).
 - **Keep them rare and shaped like the built-ins.**
