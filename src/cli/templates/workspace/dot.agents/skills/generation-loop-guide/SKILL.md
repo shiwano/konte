@@ -53,7 +53,7 @@ After `konte generate` or `konte reroll`:
 
 **Your eyes settle what can be counted, never whether it is good** — the wrong subject, a figure too many or too few, an empty frame, a missing element, a take that never moved, a line not carried. A doubt you cannot name in those terms is a note in the handoff, not a reroll.
 
-- **A draft take is read for its composition alone → `konte probe cuts animatic:draft`** — soft lines and thin detail are its size; it is never accepted, and the human sees only the panels.
+- **A draft take is read for its composition alone → `konte probe cuts animatic:draft`** — soft lines and thin detail are its size.
 - **A shared base image is reviewed before the panels built on it, and on its own terms** — set state, realism register, scale, not "does the shot read". A defect there is the root's reroll, never a note on one shot.
 - **Image → `konte probe image <variantId|address|scope>...`** — open the printed images; `probe crop` for detail. Judge against the shot's `action` (and `script`, if any) — right subject, character consistency across shots, no artifacts. A `first` panel must be able to launch the transit its shot needs — the contacts and positions that transit starts from are in the pixels, or it's a reroll however clean it looks. A recurring character reference must be a clean single-subject conditioning frame, not a turnaround sheet.
 - **Board batch → `konte probe contact-sheet`** — shots side by side in one sheet; `--cell-width <px>` when detail is too small to read.

@@ -34,7 +34,7 @@ Bring each file under `assets/files/` in as `file` kind — no generation. Pick 
 ## 5. Lay out every shot
 
 - **Lay out every shot in `animatic.tsx` undeveloped** — `pendingShot(id)` / `.nextPendingShot(id)`, a graphic shot `graphicShot(id, …)`. **Don't stand one up as a `jsxImage` plate.**
-- **Mirror the structure into `video.tsx` as the same `pendingShot(id)` skeleton** — one per shot ID, declared rather than omitted, so the direction ↔ video drift check sees every shot (`konte export` refuses while any remain).
+- **Mirror the structure into `video.tsx` as the same `pendingShot(id)` skeleton** — one per shot ID (`konte export` refuses while any remain).
 - **An aside shot is `asideShot(id)`** — never boarded, never `pendingShot`ed; the video builds it, usually one `file`. A generated OP is its own konte video, exported and brought in as that file.
 
 ## 6. Draft the takes
@@ -69,7 +69,7 @@ Every pass reads the files you just wrote, never your memory of what you meant.
 
 ## 9. Typecheck, then hand off
 
-- **Typecheck with `konte status`** — it type-checks the whole workspace and loads the definitions.
+- **Typecheck with `konte status`.**
 - **Report in plain language** — structure, developed shots, runtime, remaining `pendingShot`s per stage; for a revision, what you touched.
 - **Next — carry straight into `generation-loop-guide`** for what you just developed; report the layout, don't stop for a go-ahead.
 

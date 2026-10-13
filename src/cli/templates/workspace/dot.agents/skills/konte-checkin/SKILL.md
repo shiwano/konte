@@ -30,7 +30,7 @@ Read the state of **one video** and check in, in plain language, on where it sta
 1. **Generation in progress** — report the wait and what follows completion.
 2. **Failed or blocked generation** — likely cause, retry plan, what it blocks.
 3. **Outstanding feedback** — explain how you'd address comments that still apply. Neither mark is authoritative — not every non-stale comment is a to-do, not every stale one is done; when unclear whether a comment stands, ask.
-4. **Unaccepted variants** — propose tidying acceptance from the review results. Exclude `pendingShot` shots — undeveloped by design, no variant to accept; developing one is new authoring, not a pending accept.
+4. **Unaccepted variants** — propose tidying acceptance from the review results. Exclude `pendingShot` shots — undeveloped by design, no variant to accept; developing one is new authoring.
 5. **Everything accepted** — propose export; reopening it only when they ask. Any video `pendingShot` must be developed before export; an unused animatic pending shot may remain.
 6. **Not confident?** — don't invent a plan; say plainly a judgment call is needed and hand it over.
 

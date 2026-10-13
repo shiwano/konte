@@ -33,7 +33,7 @@ user-invocable: false
   - a character in frame → narrative (default)
   - a screen, chart or motion graphic → `kind: "graphic"` — an arc shot with no `setup`/`lineup`/`lineupTo`/`join`; a character over it enters by `cutin`
   - not story (title card, eyecatch, OP/ED) → `kind: "aside"` — a span and a `label`, no `role`/`setup`/`action`/`script`; arc and pacing checks skip it, an unrealized one still blocks export, the animatic never boards it
-- **`setup` is the frame the shot is taken from, required per narrative shot** — a `setups` roster id. Its size and its place are read through it, so a shot never declares `framing` or `location` of its own and two shots on one setup cannot disagree about either.
+- **`setup` is the frame the shot is taken from, required per narrative shot** — a `setups` roster id. Its size and its place are read through it, so a shot never declares `framing` or `location` of its own.
 - **`policy` is required and acceptance-hashed** — `format`, `lang`, `fonts`, `speech`.
 - **Author `format.size` as `{ megapixels, delivery: { width, height } }`** — delivery sets the aspect; konte derives a 32-grid canvas from the pixel budget (`0.9` at 16:9 → `1248×704`). Lower `megapixels` for cheaper iteration; a delivery well above the canvas needs `export.delivery.upscale`. Start with `fps: 24`; adapter grids govern generated frame counts.
 - **Declare `lang` and `fonts`** — one supported language tag (`"ja"`, `"en"`, `"zh-Hant"`), and Google Fonts families in fallback order. Scripts without default glyph coverage require fonts (`fonts-undeclared`). Text placement → `composition-guide`.
@@ -73,6 +73,6 @@ user-invocable: false
 - **`wide` is a spend — establish once per act, when the space itself is content** — a second `wide` of one location inside one `role` is the checker's line; waive it when the space itself changed. A role change resets it, so a closing `wide` that bookends the opening one is unflagged.
 - **Vary the framing size against its neighbors** — three same-size setups in a row is the checker's line: hold `medium`, push to `close`/`insert` before a payoff. A gag/turn's trigger is often an `insert`/`close`, its reaction a `close`.
 - **A one-step size change inside one `location` invites background matching** — adjacent `wide`→`medium` (or `medium`→`close`) keeps most of the set in both frames, a match generation can't hold: jump two sizes (`wide`→`close`/`insert`), or break the pair with an `insert` or a reaction shot.
-- **A held, low-change frame holds attention ~3s; earn a longer hold with change** — a budget, not a law: motion, an `<Animate>` move, or an overlay reveal buys seconds, and what dulls tempo is a frame held past its content. A comedy `button` cuts on the laugh, never past it.
+- **A held, low-change frame holds attention ~3s; earn a longer hold with change** — motion, an `<Animate>` move, or an overlay reveal buys seconds, and what dulls tempo is a frame held past its content. A comedy `button` cuts on the laugh, never past it.
 - **A grounding or settling role can't swallow the runtime** — lenses budget the `ground` role at ≤40% and the `settle` role at ≤20–25%; over is waivable (`atmosphere` and comedy's `setup` carry no cap).
 - **Each shot advances the feeling, never restates it** — a long fight or a montage that repeats one shot is one motif stretched thin.

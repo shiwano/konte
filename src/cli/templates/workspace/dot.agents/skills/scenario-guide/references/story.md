@@ -4,7 +4,7 @@
 
 - **A premise is a collision, not a topic** — a specific trait × a situation that punishes it ("a meticulous butler serves on a pirate ship": etiquette × mayhem), the classic **fish-out-of-water** shape. A topic ("life aboard a pirate ship") generates description; a collision generates events.
 - **Test: list five events in one breath** — a working premise makes events fall out, each a new way the collision fires; if inventing events feels like pulling, fix the premise, never pad the events.
-- **State both sides of the collision in the logline** — so every later judgment can check against it.
+- **State both sides of the collision in the logline.**
 - **Pitch collisions** — each of the eight to ten a different collision, or the same trait fired in a different arena, at a different cost, before a different witness.
 
 ## Character is where events come from

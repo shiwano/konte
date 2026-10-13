@@ -2,7 +2,6 @@
 
 Shipping the final video above the canvas you generate and review at. The delivery **size** lives on the direction; `video.tsx` wires only **how** to reach it (`export.delivery.upscale`).
 
-- **Purely an export-time concern.**
 - **Raise `size.megapixels` to the delivery instead** when native high-res generation looks better — upscaling is not free quality. A canvas that already meets the delivery owes no upscaler.
 - **A delivery well above the canvas demands an upscaler** — wiring none is an error.
 

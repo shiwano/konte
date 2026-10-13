@@ -40,7 +40,7 @@ export default defineReference(direction, () => {
 ```
 
 - **`defineReference(direction, build)`** — the callback receives `{ format }` and declares assets with `asset()` (both `file` and generative adapters); **returning one exposes it as `reference.<name>`**. Address: `reference:<name>`.
-- **Generated once and shared across every stage** — accepting it once satisfies everyone. A reference asset may depend only on other reference assets, never on an animatic/video asset.
+- **Generated once and shared across every stage.** A reference asset may depend only on other reference assets, never on an animatic/video asset.
 - **Return only what other stages consume** — an asset used solely as an input to another reference asset (e.g. a blank `latent` feeding a generated `key`) is declared but left un-returned. An un-returned one still generates, but is never reviewed.
 - **Return each character, prop, location and cast voice under its roster id** — a `lineup`'s `cat` needs `reference:cat`; other shared assets (`bgm`) are fine.
 - **Let konte size a generated reference** — `width`/`height` derive off the canvas' long edge: portrait for a character, a landscape master at twice it for a location, square for the rest; pass neither. A canvas-shaped overlay takes `...format.size`.
@@ -123,7 +123,7 @@ export default defineVideo(direction, {
 ```
 
 - **`defineVideo(direction, { export?, timeline })`** — the video derives its working `{ size, fps }` from the direction's canvas. `export.delivery.upscale` wires the upscaler.
-- **A video shot is `shot(id, (ctx) => <Composition>…)`** — the same form the animatic takes. What goes inside is the `composition-guide` skill's.
+- **A video shot is `shot(id, (ctx) => <Composition>…)`** — the same form the animatic takes.
 - **What it takes from the board** — `animatic.shot("01").image("<panel>")` for a keyframe, `.stem` for the mixed-down lines, `.narrationStem` for the narration (`<Audio>` only). Each is checked against what that shot declared, so a typo fails while the definition loads.
 
 ## Adapter inputs

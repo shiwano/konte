@@ -2,7 +2,7 @@
 
 ## Built-in catalog
 
-Eight, and these are all of them. The **bold** payoff role is the climax; `escalation` and the trailing roles (`release` / `after-glow` / `fade` / `call-to-action` / `resolution-act`) are optional.
+The **bold** payoff role is the climax; `escalation` and the trailing roles (`release` / `after-glow` / `fade` / `call-to-action` / `resolution-act`) are optional.
 
 - `mini-drama` — ordinary → disruption → pressure → **hero** → release
 - `comedy` — setup → violation → escalation → **button** (caps the joke)

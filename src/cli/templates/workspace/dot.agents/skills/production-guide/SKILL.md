@@ -21,7 +21,7 @@ Choose each shot's production method; done = its required anchors and duration a
    - **Carried subjects, a recorded move or a voice** — several recurring figures in one frame, an identity holding across sheets, a look no panel drew → references.
    - **The stem as the take's own track** — from step 2.
    - **No panel to open on** (an aside, which the board never draws) → text alone, or references by step 3.
-5. **Pick the adapter that offers every anchor named, and reaches the shot's length** — `konte adapter list --backend <kind>`, then `konte adapter show <adapter>` for its inputs. **None on the backend offers them all → change adapter, or drop an anchor deliberately and say which** — quietly settling for less ships a shot missing the one thing it needed. A shot longer than the model's maximum clip → Past the model's clip cap.
+5. **Pick the adapter that offers every anchor named, and reaches the shot's length** — `konte adapter list --backend <kind>`, then `konte adapter show <adapter>` for its inputs. **None on the backend offers them all → change adapter, or drop an anchor deliberately and say which.** A shot longer than the model's maximum clip → Past the model's clip cap.
 6. **Keep iteration cheap** — see Cost ladder.
 
 ## References — carried, not pinned
@@ -50,7 +50,7 @@ Pin the last frame only where no plausible landing will do:
 - **Two pinned frames are less control, not more** — the model must thread a constrained path, and the authored `last` (an image edit plus its review) is paid before any motion.
 - **The pair decides the quality** — if a viewer couldn't draw the one obvious trajectory between the frames, the model can't either, and the clip morphs.
 - **`last` is `first` advanced one step, never an independent generation** — derive it by an image edit changing only the intended delta; every unintended difference (lighting, lens, a background detail) is spent mid-clip as identity morph. Wire: the animatic shot declares two `<Panel>`s, the adapter takes them as its first/last-frame anchors.
-- **A declared long take has one frame at its seam** — the shot after declares `join: "continuous"`, so pin this take's end to that shot's first panel (`endImage: animatic.shot("02").image("first")`) and open that shot's take on the same frame (`startImage`); `join-unpinned` asks for it. Generated twice, the seam is a cut with no cut in it.
+- **A declared long take has one frame at its seam** — the shot after declares `join: "continuous"`, so pin this take's end to that shot's first panel (`endImage: animatic.shot("02").image("first")`) and open that shot's take on the same frame (`startImage`); `join-unpinned` asks for it.
 - **A removal reverses the derivation** — edit models add reliably and delete poorly: generate the uncovered state as `last`, derive `first` by adding the covering element.
 - **One axis of change, composition overlapping** (`staging-guide`'s one-mover rule). **Flip test before paying for motion**: toggle the two frames rapidly — "the same shot a moment later" interpolates; "a jump cut" morphs.
 - **Match clip length to the action's real time** — over-long for the delta invents idle drift, too short warps.

@@ -46,7 +46,7 @@ Take the take's last frame of the shot as a second `<Panel>` where the head and 
 
 - **Another moment of the shot** → move `at`.
 - **What the frame shows — a facing, a pose, a held prop, the set's structure, a count** → an image-edit asset between the frame and the panel (`konte adapter list`), written in the shape its guide gives.
-- **Framing, size, camera position** → rewrite that shot's text in the take, `konte reroll animatic:draft.<name>`, then rewrite that shot's `at`. No other panel moves until its own `at` is rewritten; `generate` never redoes a draft that has a take.
+- **Framing, size, camera position** → rewrite that shot's text in the take, `konte reroll animatic:draft.<name>`, then rewrite that shot's `at`. No other panel moves until its own `at` is rewritten.
 
 ```tsx
 const frame = drafts.opening.frame("02", "draftFirst", { at: 2.15 });
