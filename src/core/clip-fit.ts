@@ -3,7 +3,6 @@ import { harvestShotAudioStructure, type StemAudioEntry } from "./composition-bu
 import { OVERFLOW_FLOOR, type ClipLength } from "./dsl/clip-length-collect.js";
 import { floorToGrid } from "./dsl/comfy-asset.js";
 import { KonteError } from "./errors.js";
-import { BASE_SEC } from "./speech-duration.js";
 import type { AnimaticDefinition, AssetDefinition } from "./types/index.js";
 import { formatSeconds } from "./format-duration.js";
 
@@ -17,8 +16,9 @@ import { formatSeconds } from "./format-duration.js";
  */
 
 // A script's rate runs up to twice a real read for the fastest language it covers, and further where
-// it is still a guess, so only a clip under half of the words — the lead-in and settle aside, which a
-// tight window may drop — is sure to rush them.
+// it is still a guess, so only a clip under half of the estimate is sure to rush the words. The
+// lead-in and settle count in it: a short line is nearly all of them, and a clip that holds neither
+// comes back silent.
 const RUSHED_RATIO = 0.5;
 
 function assetAt(definition: AnimaticDefinition, address: string): AssetDefinition | undefined {
@@ -109,8 +109,8 @@ export function tightenDerivedClipLengths(
  * A cue that ends past the shot it sounds over, refused before the take is paid for. The clip
  * length is declared, so this is exact.
  *
- * Also a count konte derived from the words and then narrowed to under half of what they take to
- * say: the take would come back rushed or clipped, and nothing says why until it is heard.
+ * Also a count konte derived from the words and then narrowed to under half of what the line takes
+ * to say: the take would come back rushed or clipped, and nothing says why until it is heard.
  */
 export function assertCuesFitShot(
   definition: AnimaticDefinition,
@@ -124,17 +124,16 @@ export function assertCuesFitShot(
     if (over <= OVERFLOW_FLOOR) {
       // A `duration` trims the take and cannot lengthen it, so it exempts nothing. A take placed
       // twice is reported at the placement whose window holds it this short.
-      const wordsSec = clip.wantSec !== undefined ? clip.wantSec - BASE_SEC : undefined;
       if (
-        wordsSec !== undefined &&
-        clipSec < wordsSec * RUSHED_RATIO &&
+        clip.wantSec !== undefined &&
+        clipSec < clip.wantSec * RUSHED_RATIO &&
         heldInWindow(clip, duration, cue) <= clip.length
       ) {
         throw new KonteError(
           "CUE_WINDOW_TOO_SHORT",
           `Animatic shot "${shotId}" plays ${cue.src} from ${formatSeconds(start, 2)}, leaving ` +
-            `${formatSeconds(duration - start, 2)} of its ${formatSeconds(duration, 2)} shot for words konte ` +
-            `estimates at ${formatSeconds(wordsSec)} to say. The clip was cut to the ` +
+            `${formatSeconds(duration - start, 2)} of its ${formatSeconds(duration, 2)} shot for a line konte ` +
+            `estimates at ${formatSeconds(clip.wantSec)} to say. The clip was cut to the ` +
             `${formatSeconds(clipSec, 2)} that fits, so the line comes back rushed or clipped. Start the ` +
             `cue earlier or give the shot more room in direction.ts — or declare the clip length on ` +
             `the asset if a clipped read is intended.`,

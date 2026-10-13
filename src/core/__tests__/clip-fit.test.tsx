@@ -57,7 +57,7 @@ const sfx = defineComfyAsset({
 
 const LINE = "かあちゃん、飴だまちょうだい。";
 
-function directionOf(duration: number) {
+function directionOf(duration: number, line = LINE) {
   return defineDirection({
     ...directionDefaults,
     policy: { ...directionDefaults.policy, lang: "ja" },
@@ -79,7 +79,7 @@ function directionOf(duration: number) {
           action: "the sister asks for a sweet",
           setup: "front",
           duration,
-          script: [{ character: "ane", text: LINE }],
+          script: [{ character: "ane", text: line }],
           lineup: [],
         },
       ],
@@ -95,8 +95,10 @@ function board(opts: {
   cueDuration?: number;
   // A second placement of the same take.
   againAt?: number;
+  line?: string;
 }): () => AnimaticDefinition {
-  const direction = directionOf(opts.duration);
+  const line = opts.line ?? LINE;
+  const direction = directionOf(opts.duration, line);
   return () =>
     defineAnimatic(direction, {
       timeline: ({ shot }) => ({
@@ -104,7 +106,7 @@ function board(opts: {
           asset("first", image, { prompt: "a girl on a deck" });
           asset("vo", speech, {
             prompt:
-              `A girl asks for a sweet, and says <d>[Japanese] ${LINE}</d>` +
+              `A girl asks for a sweet, and says <d>[Japanese] ${line}</d>` +
               (opts.cutAt !== undefined ? ` The camera cut at ${opts.cutAt}s.` : ""),
             ...(opts.length !== undefined ? { length: opts.length } : {}),
           });
@@ -141,9 +143,9 @@ describe("a derived clip length", () => {
   });
 
   it("is held inside the window the cue plays in", () => {
-    // The same line, 2.5s into the shot: 1.5s of window is left, which the 56-frame count (2.33s)
+    // The same line, 2.3s into the shot: 1.7s of window is left, which the 56-frame count (2.33s)
     // would end past, so it falls to the largest grid point that fits.
-    expect(framesOf(board({ duration: 4, start: 2.5 })())).toBe(22);
+    expect(framesOf(board({ duration: 4, start: 2.3 })())).toBe(39);
   });
 
   it("keeps a count the shot check lets overrun", () => {
@@ -157,7 +159,7 @@ describe("a derived clip length", () => {
   });
 
   it("never lands a count the shot check then refuses", () => {
-    for (const start of [0, 0.3, 0.6, 1.2, 2.4]) {
+    for (const start of [0, 0.3, 0.6, 1.2, 2.3]) {
       expect(board({ duration: 4, start })).not.toThrow();
     }
   });
@@ -266,10 +268,10 @@ describe("a narrowed count", () => {
   });
 });
 
-describe("a derived count narrowed under half the words", () => {
+describe("a derived count narrowed under half the estimate", () => {
   it("is refused before the take is paid for", () => {
-    // The words take 1.2s past the take's lead-in; 0.7s of window is left, whose grid point is 0.21s.
-    expect(board({ duration: 4, start: 3.3 })).toThrow(/estimates at 1.2s to say/);
+    // The line takes 2.1s with the take's lead-in; 0.7s of window is left, whose grid point is 0.21s.
+    expect(board({ duration: 4, start: 3.3 })).toThrow(/estimates at 2.1s to say/);
     expect(board({ duration: 4, start: 3.3 })).toThrow(/cut to the 0.21s that fits/);
   });
 
@@ -278,9 +280,22 @@ describe("a derived count narrowed under half the words", () => {
     expect(board({ duration: 0.8 })).toThrow(/leaving 0.79s of its 0.79s shot/);
   });
 
-  it("lets a window short only of the lead-in stand", () => {
-    // 0.92s holds the 1.2s of words at a fast read, though not the 2.1s estimate with the lead-in.
-    expect(board({ duration: 4, start: 2.5 })).not.toThrow();
+  it("is refused at the next grid point up, still under half", () => {
+    expect(board({ duration: 4, start: 2.5 })).toThrow(/cut to the 0.92s that fits/);
+  });
+
+  it("lets a window holding over half the estimate stand", () => {
+    // 1.63s of the 2.1s estimate.
+    expect(board({ duration: 4, start: 2.3 })).not.toThrow();
+  });
+
+  it("counts the lead-in for a line that is nearly all lead-in", () => {
+    // Two morae: 1.1s with the lead-in, 0.2s without. The 0.21s clip is past half of the words
+    // alone and holds none of them.
+    expect(board({ duration: 1, start: 0.2, line: "いま！" })).toThrow(
+      /cut to the 0.21s that fits/,
+    );
+    expect(framesOf(board({ duration: 1, line: "いま！" })())).toBe(22);
   });
 
   it("stands aside for a count the caller declares", () => {
