@@ -35,6 +35,8 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - konte-video-critic (new, 2,700): each motion take against its shot's action, the board's
+//   movement, the panels it was built on and the boundary into it.
 // - video 38,750 → 39,950, music-video 39,800 → 41,000 (agreed by a human): the draft take —
 //   consecutive shots generated as one clip, the frames its panels are drawn from,
 //   `konte probe cuts`, the critics run on it.
@@ -122,6 +124,11 @@ const SHIPPED_JOURNEYS = [
     name: "konte-staging-critic",
     budget: 2_800,
     files: [...ALWAYS, `${AGENTS}/konte-staging-critic.md`],
+  },
+  {
+    name: "konte-video-critic",
+    budget: 2_700,
+    files: [...ALWAYS, `${AGENTS}/konte-video-critic.md`],
   },
   {
     name: "video",

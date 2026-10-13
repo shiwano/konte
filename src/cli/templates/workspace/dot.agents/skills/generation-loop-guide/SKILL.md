@@ -75,6 +75,10 @@ After `konte generate` or `konte reroll`:
 - **Weigh each cut in Walter Murch's Rule of Six order** — emotion, story, rhythm, spatial continuity last.
 - **Read `staging-guide` and run its read-test per shot.**
 
+### Video: each take
+
+- **Spawn `konte-video-critic` the same way, at most eight shot ids each** — every shot holding a new take, instead of reading its strip. An advisory is a handoff note.
+
 ### Fix
 
 **Fix what you found, then re-check — never hand the human a frame you already know is broken.** Route the defect to its owning layer:
