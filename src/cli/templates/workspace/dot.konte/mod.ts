@@ -8143,7 +8143,7 @@ export type ImageResizeInputs = {
 };
 export type TrimInputs<T extends "video" | "audio"> = {
   source: MediaAsset<T>;
-  start: number;
+  start: number | "tail";
   duration: number;
 };
 export type ImageCropInputs = {

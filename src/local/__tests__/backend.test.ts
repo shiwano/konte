@@ -8,6 +8,7 @@ import type { GenerationRequest } from "../../core/backend.js";
 import { ffmpegBin, ffprobeBin } from "../../core/ffmpeg-binary.js";
 import type { AssetDefinition, LocalAssetDefinition } from "../../core/types/index.js";
 import { captureHtmlToImage } from "../../core/still-capture.js";
+import { probeMediaDuration } from "../../core/video-probe.js";
 import { LocalBackend } from "../backend.js";
 
 // No test in this suite launches a browser (see vitest.setup.ts), and what the backend owns is the
@@ -287,6 +288,24 @@ describe("LocalBackend output extension", () => {
     );
 
     expect(path.basename(file)).toBe("output.mkv");
+  });
+
+  it('cuts a trim that starts at "tail" to the source\'s last seconds', async () => {
+    const clip = path.join(videoRoot, "long.mkv");
+    await execFileAsync(await ffmpegBin(), [
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=black:s=32x32:d=3",
+      clip,
+    ]);
+
+    const file = await generate(
+      localDef("trim", "video", { source: clip, start: "tail", duration: 1 }),
+    );
+
+    expect(await probeMediaDuration(file)).toBeCloseTo(1, 1);
   });
 });
 

@@ -32,7 +32,7 @@ export type ImageResizeInputs = {
 
 export type TrimInputs<T extends "video" | "audio"> = {
   source: MediaAsset<T>;
-  start: number;
+  start: number | "tail";
   duration: number;
 };
 
@@ -161,7 +161,11 @@ function createTrimAdapter<T extends "video" | "audio">(
       ref: "trim",
       inputs: {
         source: { type: mediaType, required: true },
-        start: { type: "number", required: true },
+        start: {
+          type: "number",
+          required: true,
+          description: 'Seconds into the source, or "tail" for its last `duration` seconds.',
+        },
         duration: { type: "number", required: true },
       },
     },
@@ -174,7 +178,7 @@ function createTrimAdapter<T extends "video" | "audio">(
         inputs: { source: inputs.source.src, start: inputs.start, duration: inputs.duration },
       };
     },
-    timeOffset: (inputs) => inputs.start,
+    timeOffset: (inputs) => (inputs.start === "tail" ? null : inputs.start),
   };
 }
 

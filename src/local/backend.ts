@@ -288,12 +288,23 @@ export class LocalBackend implements GenerationBackend {
     outputFile: string,
     resolvedDependencies: Record<string, string>,
   ): Promise<void> {
-    const start = inputs.start as number;
     const duration = inputs.duration as number;
     const inputFile = await this.resolveDependencyFile(
       inputs.source as string,
       resolvedDependencies,
     );
+    // `"tail"` is the source's last `duration` seconds, measured on the file.
+    let start = inputs.start as number | "tail";
+    if (start === "tail") {
+      const sourceDuration = await probeMediaDuration(inputFile);
+      if (sourceDuration === null) {
+        throw new KonteError(
+          "FFMPEG_ERROR",
+          `ffmpeg trimMedia failed: cannot read the length of ${inputFile}`,
+        );
+      }
+      start = Math.max(0, sourceDuration - duration);
+    }
     await trimVideo({ inputFile, outputFile, start, duration });
   }
 

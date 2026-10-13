@@ -657,6 +657,17 @@ describe("audioTrim adapter", () => {
     expect(def.inputs.start).toBe(10);
     expect(def.inputs.duration).toBe(5);
   });
+
+  it('keeps a "tail" start for the backend to measure', () => {
+    const def = audioTrim.createDefinition({
+      source: { src: "assets/files/bgm.wav" },
+      start: "tail",
+      duration: 5,
+    }) as LocalAssetDefinition;
+
+    expect(def.inputs.start).toBe("tail");
+    expect(audioTrim.timeOffset!({ source: { src: "x" }, start: "tail", duration: 5 })).toBeNull();
+  });
 });
 
 describe("nested field paths", () => {
