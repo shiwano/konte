@@ -25,8 +25,9 @@ Take an assembled cut whose every shot holds a self-reviewed take from "plays" t
 
 ## 3. Rhythm inside the shot
 
-- **The shot's length is the direction's; which part of the take fills it is yours** — a take longer than the shot is windowed by `mediaStart`: slide the window so the movement peaks near the cut, and the cut lands on the action rather than after it.
-- **Keep the generative tail outside the window** — a motion model smears its last frames; `konte probe motion video` shows where each strip degrades. Choose `mediaStart` so `mediaStart + duration` ends before the damaged tail; move the window earlier when needed.
+- **A take is generated to its shot's length, raised to the nearest length its model takes** — one that overruns the shot by under a second plays from its head: leave `mediaStart` unset. `konte probe motion video --verbose` prints each take's length.
+- **A take that overruns by more is windowed** — slide `mediaStart` so the movement peaks near the cut, and the cut lands on the action rather than after it.
+- **Keep the generative tail outside a window you moved** — a motion model smears its last frames; `konte probe motion video` shows where each strip degrades. Choose `mediaStart` so `mediaStart + duration` ends before the damaged tail.
 - **A take cut to the song** → `composition-guide`'s song.md; the window moves here and in §2 are for every other take.
 - **A held frame earns its hold with change** — a slow `<Animate>` push, a reveal, a light change; a frame held past its content — hair, cloth and light idly moving while nothing happens — is where the eye leaves. A hold the take cannot fill is a `duration` note for `direction-guide`.
 - **Read three cuts at a time** — a run whose shots all move at one speed, or all hold, is a metronome whatever the durations; vary what moves.
