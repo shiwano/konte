@@ -6,7 +6,7 @@ import {
   getStage,
   parseStageScope,
 } from "../../core/address.js";
-import { assertSpendAllowed, stageSpendItems } from "../../core/backend-policy.js";
+import { assertSpendAllowed } from "../../core/backend-policy.js";
 import { loadKonteConfig } from "../../core/config.js";
 import { computeDependencyLevels } from "../../core/dependency-levels.js";
 import { printCapped } from "../format-list.js";
@@ -105,14 +105,7 @@ export function registerGenerateCommand(program: Command): void {
       // created.
       await gateStageChecks(def, loaded.stage);
 
-      // The spend gate, before any job is created. Definition-level (it inspects the declared
-      // stage, not just what this run would submit) so the failure is deterministic.
       const config = await loadKonteConfig(roots.workspace);
-      const spend = await assertSpendAllowed(
-        stageSpendItems(def, loaded.stage),
-        config,
-        roots.workspace,
-      );
 
       const variantCount = 1;
 
@@ -177,6 +170,11 @@ export function registerGenerateCommand(program: Command): void {
 
       const { stageAssetPaths, skippedUnused, spending, heldLines, heldCount } =
         selectGenerationAssets({ definitions: defs, stage: loaded.stage, manager, graph });
+      const spend = await assertSpendAllowed(
+        spending.map((address) => ({ label: address, def: assetEntryOf(address) })),
+        config,
+        roots.workspace,
+      );
       if (skippedUnused.length > 0) {
         console.log(
           `Skipping ${skippedUnused.length} unused asset(s) (used by no composition, panel, or reference export): ${skippedUnused.join(", ")}`,
@@ -204,13 +202,10 @@ export function registerGenerateCommand(program: Command): void {
       // unreachable everything is treated as missing, so jobs are created and no-op (or
       // download/install) at run time.
       const comfyEntries: Array<{ address: string; def: AssetDefinition }> = [];
-      for (const allAssetPaths of levels) {
-        for (const assetPath of allAssetPaths) {
-          if (!stageAssetPaths.has(assetPath)) continue;
-          const assetDef = assetEntryOf(assetPath);
-          if (assetDef.kind === "comfy" && spend.targetOf(assetDef) === "comfyui") {
-            comfyEntries.push({ address: assetPath, def: assetDef });
-          }
+      for (const assetPath of spending) {
+        const assetDef = assetEntryOf(assetPath);
+        if (assetDef.kind === "comfy" && spend.targetOf(assetDef) === "comfyui") {
+          comfyEntries.push({ address: assetPath, def: assetDef });
         }
       }
       const { missingModels, missingNodes, comfyDownloads } = await preflightComfyAssets(

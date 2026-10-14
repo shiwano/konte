@@ -4,11 +4,14 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readDefinitionSnapshot } from "../../core/definition-snapshot.js";
+import { spendGateHooks } from "../../core/backend-policy.js";
+import { computeDefinitionHash } from "../../core/definition-hash.js";
+import { getAssetEntry } from "../../core/address.js";
 import { ffmpegBin } from "../../core/ffmpeg-binary.js";
 import { applyDirectionSectionDecisions } from "../../core/direction-acceptance.js";
 import { hashFile } from "../../core/content-hash.js";
 import { StateManager } from "../../core/state/manager.js";
-import { loadDirectionIfPresent } from "../load-definition.js";
+import { loadDirectionIfPresent, loadStageDefinitions } from "../load-definition.js";
 import {
   ctx,
   useTempWorkspace,
@@ -426,6 +429,58 @@ export default defineReference(direction, () => {
     await sm.save();
     return projectDir;
   }
+
+  it.each([true, false])(
+    "checks deployment readiness only for new generation (plan=%s)",
+    async (plan) => {
+      const projectDir = await withDefinitionStaleVariant(false);
+      const { reference } = await loadStageDefinitions(projectDir);
+      const sm = await StateManager.load(projectDir);
+      const [variantId, variant] = Object.entries(sm.getAssetState(address).variants!)[0]!;
+      variant.definitionHash = computeDefinitionHash(getAssetEntry(reference!, address));
+      await sm.save();
+      const workspaceRoot = path.resolve(projectDir, "../..");
+      await fs.mkdir(path.join(workspaceRoot, "adapters/comfy"), { recursive: true });
+      await fs.writeFile(path.join(workspaceRoot, "adapters/comfy/plate.json"), "{}");
+      await writeWorkspaceConfig(projectDir, {
+        comfy: {
+          adapters: { plate: ["comfyapi:main"] },
+          comfyapi: { deployments: { main: { comfyVersion: "v0.39.0" } } },
+        },
+      });
+      vi.stubEnv("COMFY_API_KEY", "test-key");
+      const readiness = vi.spyOn(spendGateHooks, "deploymentReadiness").mockResolvedValue({
+        kind: "undeployed",
+        buildId: "build-1",
+        releaseId: "rel-1",
+      });
+      try {
+        const args = ["generate", "reference", ...(plan ? ["--plan"] : [])];
+        const { stdout } = await run(args, projectDir);
+        expect(readiness).not.toHaveBeenCalled();
+        if (plan) {
+          expect(planEntries(stdout).find((e) => e.address === address)?.action).toBe("skip");
+          expect(planEntries(stdout).find((e) => e.address === "reference:latent")?.action).toBe(
+            "start",
+          );
+        } else {
+          expect(stdout).toContain("1 started");
+          expect(stdout).toContain("1 already ready");
+        }
+
+        const stale = await StateManager.load(projectDir);
+        stale.getAssetState(address).variants![variantId]!.definitionHash = "changed";
+        await stale.save();
+        await expect(run(args, projectDir)).rejects.toMatchObject({
+          stderr: expect.stringContaining("COMFY_API_DEPLOYMENT_NOT_READY"),
+        });
+        expect(readiness).toHaveBeenCalledOnce();
+      } finally {
+        readiness.mockRestore();
+        vi.unstubAllEnvs();
+      }
+    },
+  );
 
   // Regression (P1): generate compared only input fingerprints, so an edited definition left
   // the asset "ready" and the whole run was a silent no-op — the user had to reach for reroll.
