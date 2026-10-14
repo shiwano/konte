@@ -12,7 +12,6 @@ Take an accepted or exported cut through the changes the human picks, and nothin
 - **They want to watch the cut and point at the changes themselves** → skip §2.
 - **They already named the changes in chat** → skip §2 and §3; fix them (§4), then show them in one review.
 - **They ask you for candidates** → §2, then §3.
-- **They ask for a finishing pass on the compositions** — rhythm, text, sound → `polish-guide`.
 - **A new shot, a cut shot, a restructure** → `drafting-guide`, then `layout-guide`.
 
 ## 1. Read what is already decided

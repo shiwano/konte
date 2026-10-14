@@ -6,11 +6,16 @@ A `<Composition>` is a web page on the shot's clock: any HTML element, Tailwind 
 
 - **A frame, vignette, letterbox or badge over a clip** — an `absolute inset-0` element after the `<Video>`.
 - **An inset or a split screen** — `className` on the `<Video>` / `<Image>` sizes and places it.
-- **A grade** — a CSS `filter` in the clip's `style`.
+- **A grade** — a CSS `filter` in the clip's `style`, one value on every shot it covers; a grade the human did not ask for is named in the handoff, not applied.
+- **One vignette, grain or letterbox for the whole piece, or none** — one some shots carry and others don't reads as a seam.
 
 ## Text
 
 - **`<Subtitle>` for spoken lines; a plain `<div>` + Tailwind for a title, a lower-third or a caption card.**
+- **One `<Subtitle className>` for the piece, never the default face and size** — at most two rows; a line that needs three is broken in the entries.
+- **Text stays 5% in from every edge** — a 9:16 delivery also keeps the bottom sixth and the right edge clear for the platform's controls.
+- **A title never delays the hook** — it rides over the first shot or lands after it.
+- **A telop lands on a hold** — where the frame is still, for as long as it takes to read twice.
 - **Move a `<Subtitle>` up with `style={{ paddingBottom: "12%" }}`** — each entry is a full-frame box aligned to its bottom; `bottom-*` / `top-*` do nothing.
 - **A text entrance** — give the element an `id` and tween it `from` its off state (`opacity`, `yPercent`).
 
@@ -33,6 +38,13 @@ timeline: ({ shot }) => ({
 
 - **No `<Video>` / `<Audio>`** — a clip goes in a shot, a sound in `soundtracks`.
 - **No `asset()` inside it** — declare the asset at the top of `timeline` and use it there.
+
+## Transitions
+
+- **The cut is the default** — a dissolve says time passes or the place changes; between two shots of one action it is a smear. A fade in at the head, a fade out at the tail, and elsewhere only where the direction asks for it (a flash on a hit).
+- **A `join: "continuous"` boundary takes no transition** — anything laid over it puts a cut back.
+- **A transition hides nothing** — a dissolve over a jump cut is a slow jump cut; fix the take or the shot.
+- **An end card comes after the last image, never instead of it.**
 
 ## Moves on a clip
 

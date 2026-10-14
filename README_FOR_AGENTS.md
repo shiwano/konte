@@ -27,7 +27,7 @@ A video is four authored files (`direction.ts`, `reference.tsx`, `animatic.tsx`,
 
 ## When you enter a workspace
 
-A workspace created by konte has its own `AGENTS.md` and skills covering direction, staging, prompting, generation, review, polish, export, and setup. Those are authoritative for that workspace. Read them before operating, and prefer them over anything remembered from this document, because the CLI and DSL still change. `konte --help` and `konte <command> --help` describe the current command surface.
+A workspace created by konte has its own `AGENTS.md` and skills covering direction, staging, prompting, generation, review, export, and setup. Those are authoritative for that workspace. Read them before operating, and prefer them over anything remembered from this document, because the CLI and DSL still change. `konte --help` and `konte <command> --help` describe the current command surface.
 
 ## If konte is not installed
 

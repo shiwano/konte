@@ -73,7 +73,7 @@ Size/fps come from `format`, shot length from the shot's `duration` — componen
 
 - `start` — when the clip appears (default `0`).
 - `duration` — how long it shows. `<Video>`/`<Image>` default to the shot duration; `<Audio>` to the full source.
-- `mediaStart` — offset _into the source file_ (trim the head); sequence sub-clips of one take with it.
+- `mediaStart` — offset _into the source file_ (trim the head); sequence sub-clips of one take with it. Leave it unset on a take generated from its panels.
 
 ```tsx
 //        timeline:  0 ----------- 1 ----------- 2 ----------- 3

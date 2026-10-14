@@ -100,7 +100,6 @@ After `konte generate` or `konte reroll`:
 ### Before handoff
 
 - **Animatic: write each panel's movement from its settled take** — preview reports `REVIEW_PREREQUISITE_MISSING` while any is missing; re-check after a reroll. Where that take departs from `action`, `action` follows it.
-- **Video, last sequence: run `polish-guide`** — once every shot holds a self-reviewed take and no sequence is left.
 
 ## 6. Human review
 

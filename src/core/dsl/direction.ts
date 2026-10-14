@@ -195,7 +195,7 @@ export type Setup = {
 // was written about is rewritten.
 //
 // `hook` is what the first two seconds put on screen — the frame that stops a scroll — so the
-// first shot, the polish pass and the direction critic all read against one sentence.
+// first shot and the direction critic both read against one sentence.
 //
 // The two list fields run opposite ways: `outOfScope` is what the piece must not contain,
 // `tolerances` what may show up in the output and is left alone. Unlike a feedback comment, a
