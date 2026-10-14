@@ -38,7 +38,7 @@ describe("environment-specific agent settings", () => {
     const config = codex(files);
     expect(claude(files).permissions.allow).toEqual(["Bash(konte:*)"]);
     expect(files[".claude/settings.json"]).not.toContain(`Bash(${binary}`);
-    expect(config.default_permissions).toBe(":workspace");
+    expect(config.default_permissions).toBe("konte");
     expect(config.approval_policy).toBe("on-request");
     expect(config.approvals_reviewer).toBe("auto_review");
     expect(config.mcp_servers.konte).toEqual({

@@ -22,14 +22,9 @@
       "Read(./konte.credentials.json)",
       "Edit(./konte.credentials.json)",
       "Edit(./.claude/settings.json)",
-      "Edit(./.claude/settings.local.json)",
       "Edit(./.codex/config.toml)",
-      "Edit(./**/konte.state.json)",
       "Bash(* konte.credentials.json)",
-      "Bash(* konte.credentials.json *)",
-      "Bash(env)",
-      "Bash(env *)",
-      "Bash(printenv*)"
+      "Bash(* konte.credentials.json *)"
     ]
   },
   "enabledMcpjsonServers": [

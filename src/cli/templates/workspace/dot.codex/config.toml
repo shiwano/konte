@@ -28,9 +28,17 @@ When a skill says to spawn a subagent fresh or never as a fork, name the
 agent in the request and carry no history (`fork_turns: "none"`).
 """
 
-default_permissions = ":workspace"
+default_permissions = "konte"
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
+
+[permissions.konte]
+extends = ":workspace"
+
+[permissions.konte.filesystem.":workspace_roots"]
+"konte.credentials.json" = "deny"
+".claude/settings.json" = "read"
+".codex/config.toml" = "read"
 
 [features]
 unified_exec = true
