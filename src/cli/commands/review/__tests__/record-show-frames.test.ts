@@ -210,6 +210,8 @@ describe("review record show", () => {
 
     const { stdout } = await run(["review", "record", "show"], projectDir);
 
-    expect(stdout).toMatch(/\[image: \.konte\/cache\/thumbnails\/animatic\/shot\.01#composition\//);
+    expect(stdout).toContain(
+      `[image: ${path.join(projectDir, ".konte/cache/thumbnails/animatic/shot.01#composition")}/`,
+    );
   });
 });

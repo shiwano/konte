@@ -84,7 +84,7 @@ async function resolveNoteFrames(
     });
     for (const [i, t] of shotTargets.entries()) {
       const result = results[i];
-      if (result?.kind === "frame") frames.set(t.id, result.file);
+      if (result?.kind === "frame") frames.set(t.id, path.resolve(videoRoot, result.file));
       else if (result?.kind === "failed") problems.push(`${t.id}: ${result.message}`);
     }
   }
