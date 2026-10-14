@@ -18,7 +18,6 @@ const SEAM_CODES = new Set([
   "join-unshown",
   "panel-unlinked",
   "lineup-flipped",
-  "undeclared-continuity",
   "character-unconsumed",
 ]);
 

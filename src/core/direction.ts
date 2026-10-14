@@ -126,15 +126,12 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "axis-unrealized": "setups",
   "setup-unconsumed": "setups",
   "unused-setup": "setups",
-  "setup-indistinct": "setups",
   "setup-atomized": "setups",
   // A direction content check (like empty-synopsis): it gates generate and is never deferred.
   "unexpected-script": "arc",
   // A fused-shot content check on the action prose — likewise gates generate and is never deferred.
   "multi-sentence-action": "arc",
   "off-grid-duration": "pacing",
-  "undeclared-continuity": "pacing",
-  "re-established-wide": "pacing",
   "fonts-undeclared": "typesetting",
   "lineup-flipped": "staging",
   "lineup-gap": "staging",
@@ -197,13 +194,10 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "axis-unrealized": null,
   "setup-unconsumed": null,
   "unused-setup": null,
-  "setup-indistinct": null,
   "setup-atomized": null,
   "unexpected-script": "shot",
   "multi-sentence-action": "shot",
   "off-grid-duration": "shot",
-  "undeclared-continuity": "boundary",
-  "re-established-wide": "shot",
   "fonts-undeclared": null,
   "lineup-flipped": "shot",
   "lineup-gap": "shot",
@@ -253,11 +247,7 @@ export function findingFixStage(code: DirectionFindingCode): FindingFixStage {
   return FIX_STAGE[code] ?? "direction";
 }
 
-// The framing vocabulary the engine's space checks read (framing stays opaque to `checkArc`; this
-// layer knows the DSL's words). `wide` and `medium` keep most of the set in frame, so two different
-// ones cut adjacently in one location bind backgrounds; `wide` alone opens a whole set.
 const EXPOSED_FRAMINGS: readonly string[] = ["wide", "medium"];
-const ESTABLISHING_FRAMING = "wide";
 
 // Characters, prop, and location findings point at post-acceptance work — anchoring an entity to a
 // reference asset — and the direction review may still change the roster, so while the direction is
@@ -330,17 +320,8 @@ export type ShotWaiver = {
   shotIds: string[];
 };
 
-// Every boundary a boundary finding can name, spelled as its subject does: two arc shots adjacent
-// in a leaf (`undeclared-continuity`'s), and two frames of one lane across a cut (`panel-unlinked`'s,
-// `.cutin` on the cutin lane). Read off the boundaries themselves, since an id may hold a `-`.
 function shotBoundaries(direction: Direction): Map<string, [string, string]> {
   const out = new Map<string, [string, string]>();
-  for (const leaf of collectLeaves(direction.sequence)) {
-    const arc = (leaf.shots ?? []).filter((s) => !isAsideShot(s));
-    for (let i = 0; i + 1 < arc.length; i++) {
-      out.set(`${arc[i]!.id}-${arc[i + 1]!.id}`, [arc[i]!.id, arc[i + 1]!.id]);
-    }
-  }
   for (const { frame, previousFrame } of joinBoundaries(direction)) {
     if (!previousFrame) continue;
     const lane = frame.lane === "cutin" ? ".cutin" : "";
@@ -658,7 +639,6 @@ function setupRefs(
           name: string;
           location: string;
           framing: string;
-          holds?: readonly string[];
           within?: string | null;
         }
       >
@@ -669,7 +649,6 @@ function setupRefs(
     name: s.name,
     location: s.location,
     framing: s.framing,
-    holds: s.holds ?? [],
     ...(s.within != null ? { within: s.within } : {}),
   }));
 }
@@ -1170,13 +1149,6 @@ function plateNamings(
   return out;
 }
 
-// The cuts the `undeclared-continuity` skip waives through: adjacent shots of one leaf, no aside
-// between them, two set-showing sizes of one place that the direction says are one camera. Walked
-// here rather than in the arc engine because the plates that answer for them are the setups class's,
-// and read on exactly the same terms as the skip so no pair falls between the two.
-//
-// A cutin lane is cut along its own axis the same way, read across the clock: two wipes over
-// adjacent shots standing on two sizes of one axis owe the same plates.
 function axisCuts(direction: Direction): AxisCut[] {
   const setups = direction.setups ?? {};
   const out: AxisCut[] = [];
@@ -1185,10 +1157,6 @@ function axisCuts(direction: Direction): AxisCut[] {
     const a = setups[from];
     const b = setups[to];
     if (!a || !b) return;
-    // Read on the skip's own terms, predicate for predicate: the place (a `within` crossing two of
-    // them is `within-impossible`, and the skip guards the pair anyway), then the axis by the same
-    // `withinRoot` — undefined on a ring, where the skip does not apply either — then the two
-    // sizes. A pair one of the two walks and the other does not is a pair that falls between them.
     if (a.location !== b.location) return;
     const root = withinRoot(setups, from);
     if (root === undefined || root !== withinRoot(setups, to)) return;
@@ -1201,8 +1169,6 @@ function axisCuts(direction: Direction): AxisCut[] {
   for (const leaf of collectLeaves(direction.sequence)) {
     let previous: NarrativeShot | undefined;
     for (const shot of leaf.shots ?? []) {
-      // An aside or a graphic shot breaks the pair — the skip does not apply across one, so nothing
-      // is owed either.
       if (isAsideShot(shot) || isGraphicShot(shot)) {
         previous = undefined;
         continue;
@@ -1219,7 +1185,7 @@ function axisCuts(direction: Direction): AxisCut[] {
 }
 
 // Both setups and every frame between them and the one they are both windows of. `undefined` where
-// they stand on different axes — there is nothing to nest and the skip never applied.
+// they stand on different axes.
 function nestingChain(
   setups: Readonly<Record<string, Setup>>,
   from: string,
@@ -2252,10 +2218,6 @@ function buildArcNode(
   node: DirectionNode,
   lenses: readonly LensSpec<string>[] | undefined,
   realizedIds: readonly string[] | undefined,
-  // The setups roster, so a shot's framing/location can be resolved through its setup. The space and
-  // framing checks read them off the item; an unknown setup leaves both undefined, which those checks
-  // already skip (`validateDirectionStructure` reports it as `setup-unknown`).
-  setups: Record<string, Setup> | undefined,
   // The song, so a shot's span is counted in the unit it was written in.
   song: string | undefined,
   // The node's field path in direction.ts — the same path its review addresses are built from.
@@ -2267,38 +2229,14 @@ function buildArcNode(
     ? undefined
     : { id: node.id ?? "", role: node.role ?? "", synopsis: node.synopsis ?? "" };
   if (Array.isArray(node.shots)) {
-    // A shot names its shot text `action`; map it onto the engine's generic `synopsis` field. Asides
-    // are dropped — every check below `items` reads a role, a framing, a place or an adjacency an
-    // aside has none of — and stay in `coverageIds`. The shot after one carries `afterGap`, since a
-    // dropped aside leaves two shots adjacent here that the clock does not.
-    //
-    // A graphic shot stays, so role, share and pacing read it. It carries no framing, place or axis,
-    // and since it stays in `items`, the narrative shots either side of it are not adjacent here.
-    const items: ArcItem<string>[] = [];
-    let afterGap = false;
-    for (const s of node.shots) {
-      if (isAsideShot(s)) {
-        afterGap = true;
-        continue;
-      }
-      const camera = isGraphicShot(s)
-        ? {}
-        : {
-            framing: setups?.[s.setup]?.framing,
-            location: setups?.[s.setup]?.location,
-            join: s.join,
-            axis: withinRoot(setups ?? {}, s.setup),
-          };
-      items.push({
+    const items: ArcItem<string>[] = node.shots
+      .filter((s) => !isAsideShot(s))
+      .map((s) => ({
         id: s.id,
         role: s.role,
         synopsis: s.action,
         duration: shotSpan(s, song),
-        ...camera,
-        ...(afterGap ? { afterGap: true as const } : {}),
-      });
-      afterGap = false;
-    }
+      }));
     const coverageIds = node.shots.map((s) => s.id);
     return { item, lens, noun: "shot", path, items, coverageIds, realizedIds };
   }
@@ -2312,7 +2250,6 @@ function buildArcNode(
         child,
         lenses,
         realizedIds,
-        setups,
         song,
         directionChildNodePath(path, child.id ?? ""),
         false,
@@ -2326,7 +2263,6 @@ function buildArcTree(direction: Direction, realizedIds?: readonly string[]): Ar
     direction.sequence,
     direction.lenses,
     realizedIds,
-    direction.setups,
     direction.policy?.song,
     DIRECTION_ROOT_PATH,
     true,
@@ -2369,8 +2305,6 @@ function walkArcTree(node: ArcNode, stage: Stage | undefined, out: DirectionFind
       noun: node.noun,
       // A leaf's shot text is a shot's `action`; a branch's is a sequence's `synopsis`.
       textLabel: node.noun === "shot" ? "action" : "synopsis",
-      exposedFramings: EXPOSED_FRAMINGS,
-      establishingFraming: ESTABLISHING_FRAMING,
     }).map((f) => {
       // stage-order-mismatch's qualifier is the stage (so a waiver reads `stage-order-mismatch_video`
       // and never suppresses the other stage). The arc engine is stage-agnostic, so stamp it here.

@@ -267,8 +267,6 @@ export default defineDirection({
   lenses: [defineLens({ name: "four", payoff: "beat", roles: [{ role: "beat" }, { role: "beat" }, { role: "beat" }, { role: "beat" }] })],
   waivers: {
     "location-unreferenced_studio": "fixture has no reference stage exposing it",
-    "undeclared-continuity_02-03": "fixture",
-    "re-established-wide_04": "fixture",
   },
   sequence: {
     lens: "four",

@@ -37,18 +37,18 @@ Who a frame holds, left to right, accumulates per place across ordinary cuts. A 
 
 An omitted join between two setups sharing a `within` root: the opening keyframe takes the previous shot's last panel in one of its image inputs. Judged where both shots are on the board and the keyframe's model reads a previous panel (`readsPrevPanel`), unless both frames hold subjects and share none. A long take asks the board for nothing.
 
-| Case                                          | Direction                                  | Board                                             | Video | Result                          |
-| --------------------------------------------- | ------------------------------------------ | ------------------------------------------------- | ----- | ------------------------------- |
-| Push in, handed the frame before              | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 previous panel ← 01.last | none  | none                            |
-| Push in, handed no previous panel             | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 handed no previous panel | none  | `panel-unlinked` (01-02)        |
-| Push in, handed another shot's frame          | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 previous panel ← 07.last | none  | `panel-unlinked` (01-02)        |
-| Push in, a model that reads no previous panel | 01 wide [a] → 02 medium [a]                | on the board: 01, 02                              | none  | none                            |
-| Push in, the shot before not yet on the board | 01 wide [a] → 02 medium [a]                | on the board: 02; 02 handed no previous panel     | none  | none                            |
-| Push in across a story-time jump              | 01 wide [a] → 02 medium `jump-forward` [a] | on the board: 01, 02; 02 handed no previous panel | none  | none                            |
-| Push in from one subject to another           | 01 wide [a] → 02 medium [b]                | on the board: 01, 02; 02 handed no previous panel | none  | none                            |
-| Two cameras in one room                       | 01 wide [a] → 02 reverse [a]               | on the board: 01, 02; 02 handed no previous panel | none  | `undeclared-continuity` (01-02) |
-| Push in with an aside between                 | 01 wide [a] → ec (aside) → 02 medium [a]   | on the board: 01, 02; 02 handed no previous panel | none  | `undeclared-continuity` (01-02) |
-| One take, handed no previous panel            | 01 wide [a] → 02 wide `continuous` [a]     | on the board: 01, 02; 02 handed no previous panel | none  | none                            |
+| Case                                          | Direction                                  | Board                                             | Video | Result                   |
+| --------------------------------------------- | ------------------------------------------ | ------------------------------------------------- | ----- | ------------------------ |
+| Push in, handed the frame before              | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 previous panel ← 01.last | none  | none                     |
+| Push in, handed no previous panel             | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 handed no previous panel | none  | `panel-unlinked` (01-02) |
+| Push in, handed another shot's frame          | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 previous panel ← 07.last | none  | `panel-unlinked` (01-02) |
+| Push in, a model that reads no previous panel | 01 wide [a] → 02 medium [a]                | on the board: 01, 02                              | none  | none                     |
+| Push in, the shot before not yet on the board | 01 wide [a] → 02 medium [a]                | on the board: 02; 02 handed no previous panel     | none  | none                     |
+| Push in across a story-time jump              | 01 wide [a] → 02 medium `jump-forward` [a] | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
+| Push in from one subject to another           | 01 wide [a] → 02 medium [b]                | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
+| Two cameras in one room                       | 01 wide [a] → 02 reverse [a]               | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
+| Push in with an aside between                 | 01 wide [a] → ec (aside) → 02 medium [a]   | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
+| One take, handed no previous panel            | 01 wide [a] → 02 wide `continuous` [a]     | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
 
 ## The video's frame across a long take
 

@@ -2629,11 +2629,6 @@ export type ArcItem<Role extends string> = {
   role: Role;
   synopsis: string;
   duration?: number;
-  framing?: string;
-  location?: string;
-  join?: string;
-  axis?: string;
-  afterGap?: true;
 };
 export type LensRole<Role extends string> = {
   role: Role;
@@ -2684,13 +2679,10 @@ export type DirectionFindingCode =
   | "plate-unnested"
   | "axis-unrealized"
   | "unused-setup"
-  | "setup-indistinct"
   | "setup-atomized"
   | "unexpected-script"
   | "multi-sentence-action"
   | "off-grid-duration"
-  | "undeclared-continuity"
-  | "re-established-wide"
   | "fonts-undeclared"
   | "lineup-flipped"
   | "lineup-gap"
@@ -2723,8 +2715,6 @@ export type CheckArcOptions = {
   coverageIds?: readonly string[];
   noun?: string;
   textLabel?: string;
-  exposedFramings?: readonly string[];
-  establishingFraming?: string;
 };
 export declare function checkArc<Role extends string>(
   lens: LensSpec<Role>,
@@ -3154,10 +3144,7 @@ export type DirectionPolicy = {
   speech: SpeechPolicy;
   song?: string;
 };
-export type NarrativeShot = Omit<
-  ArcItem<string>,
-  "synopsis" | "location" | "framing" | "aside" | "duration"
-> & {
+export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "duration"> & {
   kind?: "shot";
   action: string;
   setup: string;

@@ -284,10 +284,7 @@ export type DirectionPolicy = {
 // of a branch node's `synopsis` (the engine holds both as one generic `ArcItem` field). `script` is
 // the shot's spoken lines — the source of truth injected into both stages' builds so a video's
 // subtitles derive from one place, never re-authored per stage; `telop` is its unspoken twin.
-export type NarrativeShot = Omit<
-  ArcItem<string>,
-  "synopsis" | "location" | "framing" | "aside" | "duration"
-> & {
+export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "duration"> & {
   // The discriminant, defaulted rather than required: a shot is narrative unless it
   // says otherwise, so the ordinary case stays unannotated.
   kind?: "shot";

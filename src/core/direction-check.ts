@@ -22,22 +22,6 @@ export type ArcItem<Role extends string> = {
   // via `CheckArcOptions.textLabel` when a finding message must speak the author's own word.
   synopsis: string;
   duration?: number;
-  // The shot's framing token (kept an opaque string so this engine stays DSL-free). Present only at
-  // leaf scale — a branch item carries none, so the space checks skip branches naturally.
-  framing?: string;
-  // The shot's location id (opaque, like `framing`). Present only at leaf scale, so the space
-  // checks skip branches naturally.
-  location?: string;
-  // The boundary into this item (opaque, like `framing`). Only `"continuous"` is read here, and only
-  // by the re-established wide.
-  join?: string;
-  // The camera axis this item's frame stands on (opaque, like `framing`) — the caller's own token,
-  // equal for two frames that are one camera position at two focal lengths. Present only at leaf
-  // scale, and absent where the item names no axis at all.
-  axis?: string;
-  // Something the caller dropped from `items` sits between this one and the one before it, so the
-  // two are adjacent here and not on the clock.
-  afterGap?: true;
 };
 
 export type LensRole<Role extends string> = {
@@ -102,15 +86,10 @@ export type DirectionFindingCode =
   // master.
   | "axis-unrealized"
   | "unused-setup"
-  // The roster read as a whole rather than one entry at a time: two frames of one place nothing
-  // distinguishes, and a place made only of frames no second shot returns to.
-  | "setup-indistinct"
   | "setup-atomized"
   | "unexpected-script"
   | "multi-sentence-action"
   | "off-grid-duration"
-  | "undeclared-continuity"
-  | "re-established-wide"
   | "fonts-undeclared"
   // The staging class: who the frame holds, left to right, declared per shot and accumulated per
   // place. Four settle a RELATION between two subjects across two shots; the two the board feeds
@@ -166,8 +145,7 @@ export type CheckArcOptions = {
   // The stage's realized id order; enables the stage-coverage checks (unrealized / order).
   realizedIds?: readonly string[];
   // The ids coverage is measured over, in direction order — defaults to `items`. They come apart at
-  // leaf scale, where `items` holds the narrative shots only: an aside is absent from every check
-  // that reads a role, a framing or an adjacency, and present in these two.
+  // leaf scale, where `items` excludes asides from role and share checks. Coverage includes them.
   coverageIds?: readonly string[];
   // The scale's item word woven into messages ("shot" for a run of shots, "sequence" for a run of
   // sequences) so the same engine reads naturally at every scale — the finding *codes* stay identical.
@@ -175,12 +153,6 @@ export type CheckArcOptions = {
   // The author's word for an item's descriptive prose, woven into the empty-text message: "action"
   // at leaf scale, "synopsis" at branch scale. Defaults to "synopsis".
   textLabel?: string;
-  // The framing vocabulary the space checks read (framing stays opaque to this engine; the caller
-  // supplies the words). `exposedFramings` are the sizes that keep most of the set in frame — two
-  // different ones cut adjacently in one location bind backgrounds. `establishingFraming` is the
-  // size that opens a whole set. Omit either to skip its check.
-  exposedFramings?: readonly string[];
-  establishingFraming?: string;
 };
 
 // The one generic arc checker. Reports findings; it never throws and never decides severity — the
@@ -323,60 +295,6 @@ export function checkArc<Role extends string>(
     }
   }
 
-  // The space checks. Constructive editing is the default — space assembled from fragments is never
-  // asked to match — so what gets flagged is the spend: two set-showing sizes cut adjacently in one
-  // location bind backgrounds generation can't hold. Vocabulary comes from the caller
-  // (`exposedFramings`), and a branch item has no `location`, so both checks walk a leaf's shots only.
-  if (options.exposedFramings !== undefined) {
-    for (let i = 0; i + 1 < items.length; i++) {
-      const a = items[i]!;
-      const b = items[i + 1]!;
-      if (a.location === undefined || a.location !== b.location) continue;
-      // One camera axis is the case the author has DECLARED the match on: `within` says this frame
-      // steps in from that one, which is the claim this check would otherwise refuse. What
-      // is left here is two different cameras, where nothing binds the backgrounds together.
-      //
-      // Only across a real cut, though. An aside between the two is a card the piece breaks for, and
-      // the seam check reads it as no seam at all — so nothing would be left asking whether the room
-      // comes back the same.
-      if (a.axis !== undefined && a.axis === b.axis && !b.afterGap) continue;
-      if (a.framing === undefined || b.framing === undefined || a.framing === b.framing) continue;
-      if (!options.exposedFramings.includes(a.framing)) continue;
-      if (!options.exposedFramings.includes(b.framing)) continue;
-      findings.push({
-        code: "undeclared-continuity",
-        subject: `${a.id}-${b.id}`,
-        message: `${noun}s ${a.id}–${b.id} cut ${a.framing}→${b.framing} inside "${a.location}" — a background match generation can't hold`,
-      });
-    }
-  }
-
-  // Establishing a set is a spend, once per act: a second full view of the same location re-opens
-  // the whole set for matching. An act break re-establishes by right, so establishment resets at a
-  // role change just as it does at a leaf boundary — the check then reads the same whether the acts
-  // are nested as sequences or flattened into one leaf's roles.
-  //
-  // A `continuous` shot is the take before it running on, so it opens no second view.
-  if (options.establishingFraming !== undefined) {
-    const established = new Set<string>();
-    let establishedRole: Role | undefined;
-    for (const it of items) {
-      if (it.role !== establishedRole) {
-        established.clear();
-        establishedRole = it.role;
-      }
-      if (it.location === undefined || it.framing !== options.establishingFraming) continue;
-      if (established.has(it.location) && it.join !== "continuous") {
-        findings.push({
-          code: "re-established-wide",
-          subject: it.id,
-          message: `${noun}.${it.id} re-establishes "${it.location}" at ${options.establishingFraming} — a second full view of the set; waive this if the space itself changed`,
-        });
-      }
-      established.add(it.location);
-    }
-  }
-
   // Act-ratio pacing: each role's share of the arc's total duration against its min/maxShare.
   // Relative, so it reads the *shape* of the arc independent of overall length — a setup act that
   // swallows the runtime, a climax that never gets room. Runs only when every item has a duration
@@ -442,23 +360,14 @@ export function checkArc<Role extends string>(
 export type AnchoredEntityRef = { id: string; name: string };
 
 // The `locations` id a setup stands in names the reference asset its plate and its shots are held to.
-// `framing` and `holds` come along for `setup-indistinct`: what a frame is set in, how big it is, and
-// what it carries of the set are all a camera position declares, so two setups agreeing on all three
-// have declared one frame twice.
 export type SetupRef = AnchoredEntityRef & {
   location: string;
   framing: string;
-  holds: readonly string[];
   // The wider frame this one steps in from, `null` at the root of its axis. Read by
   // `plate-unnested`, which names it as the plate to build from.
   within?: string | null;
 };
 
-/**
- * One cut along a single camera axis. Assembled by the caller from the same walk the
- * `undeclared-continuity` skip reads, so the pairs that check waives through are exactly the pairs
- * this one asks a plate of.
- */
 export type AxisCut = {
   // The two setups the cut runs between, by id. Sorted, not in cut order: the plates it owes are the
   // same either way round.
@@ -721,9 +630,7 @@ const ATOMIZED_LOCATION_SHOTS = 8;
 
 // The axis read as a shared frame. `setup-unrealized` asks for a plate where one CAMERA POSITION is
 // shared; this asks for one where one camera AXIS is cut along — two set-showing sizes of a place
-// that the direction says are one camera at two focal lengths. Without the plates nothing holds them
-// to one master, and `undeclared-continuity` has already waived the pair through on the strength of
-// the `within` declaration alone.
+// that the direction says are one camera at two focal lengths.
 //
 // Keyed by the two setups rather than the two shots, and joined on `.` like `plate-unnamed`'s: the
 // plates are what the fix declares, one pair cut four times is one piece of work, and a `-` would not
@@ -747,46 +654,6 @@ function checkAxisCuts(cuts: readonly AxisCut[], plates: ReadonlySet<string>): D
         `${missing.length === 1 ? "has" : "have"} no plate, so nothing nests them. Declare ` +
         `${missing.length === 1 ? "it" : "them"} in \`plates\` in animatic.tsx, or waive the pair ` +
         `to cut it as two separate frames`,
-    });
-  }
-  return findings;
-}
-
-// Two setups of one place that declare the same frame. A camera position is what it is set in, how
-// big the frame is, and what that frame carries of the set — so two entries agreeing on all three
-// have said one thing twice, and the shots on them cannot read as two angles.
-//
-// An `insert` is exempt: it fills the frame with one object and shows no set, so its `holds` is empty
-// by contract and has nothing in it to tell two inserts apart. Any other frame with an empty `holds`
-// is already `holds-empty`, a structural error, and is skipped for the same reason.
-//
-// By id, not in roster order, and blamed on the LATER entry: a roster is a set, so which of the two
-// answers for the finding — and therefore which waiver key cancels it — must not move when the author
-// reorders the record. Only setups a shot names are read; a duplicate nothing points at is
-// `unused-setup`, whose fix is to delete it rather than to tell it apart.
-function checkIndistinctSetups(
-  setups: readonly SetupRef[],
-  shotsPerSetup: ReadonlyMap<string, number>,
-): DirectionFinding[] {
-  const findings: DirectionFinding[] = [];
-  const seen = new Map<string, string>();
-  for (const setup of [...setups].sort((a, b) => a.id.localeCompare(b.id))) {
-    if ((shotsPerSetup.get(setup.id) ?? 0) === 0) continue;
-    if (setup.framing === "insert" || setup.holds.length === 0) continue;
-    const key = JSON.stringify([setup.location, setup.framing, setup.holds]);
-    const first = seen.get(key);
-    if (first === undefined) {
-      seen.set(key, setup.id);
-      continue;
-    }
-    findings.push({
-      code: "setup-indistinct",
-      subject: setup.id,
-      message:
-        `setup "${setup.id}" declares the same frame as setup "${first}" — same place ` +
-        `("${setup.location}"), same framing ("${setup.framing}"), same \`holds\` in the same order. ` +
-        `Point both shots at one of them, or move the camera: a reverse angle reverses \`holds\` and ` +
-        `a different size changes \`framing\`, so a frame that is really two says so here`,
     });
   }
   return findings;
@@ -844,10 +711,6 @@ function checkAtomizedSetups(
 // `animatic` is undefined when the board could not be read, in which case the whole class stays
 // silent rather than reporting every setup as unrealized. `referenceAssetNames` carries the rosters'
 // own contract: undefined = "the reference stage could not be read", so the anchor findings hold.
-//
-// Two more read the roster as a whole rather than one entry at a time, and neither needs the board:
-// `setup-indistinct` (two entries of one place nothing tells apart) and `setup-atomized` (a place no
-// frame of which a second shot returns to).
 export function checkSetups(
   setups: readonly SetupRef[],
   shotsPerSetup: ReadonlyMap<string, number>,
@@ -923,7 +786,6 @@ export function checkSetups(
       });
     }
   }
-  findings.push(...checkIndistinctSetups(setups, shotsPerSetup));
   findings.push(...checkAtomizedSetups(setups, shotsPerSetup));
   // Board-gated like the three anchor findings: with no plates read there is nothing to be missing.
   if (plates) findings.push(...checkAxisCuts(axisCuts, plates));

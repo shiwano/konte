@@ -917,18 +917,7 @@ describe("an aside between two same-axis frames", () => {
     shots: [shot("01", "stern"), aside("ec"), shot("02", "deck")],
   });
 
-  // The seam check reads an aside as no seam, so nothing would be left asking whether the room comes
-  // back the same.
-  it("keeps undeclared-continuity, which the axis would otherwise have answered", () => {
-    expect(codes(across, "undeclared-continuity").map((f) => f.subject)).toEqual(["01-02"]);
-  });
-
-  it("still skips the same pair with no aside between them", () => {
-    const dir = direction({ setups: axis, shots: [shot("01", "stern"), shot("02", "deck")] });
-    expect(codes(dir, "undeclared-continuity")).toEqual([]);
-  });
-
-  it("and panel-unlinked stays silent across it", () => {
+  it("panel-unlinked stays silent across it", () => {
     const stagingStage = {
       ...noStage,
       shotPanels: ["01", "02"].map((shotId) => ({
@@ -943,26 +932,6 @@ describe("an aside between two same-axis frames", () => {
     expect(
       checkDirection(across, { stagingStage }).active.filter((f) => f.code === "panel-unlinked"),
     ).toEqual([]);
-  });
-});
-
-describe("undeclared-continuity reads the axis", () => {
-  const axis: Record<string, Setup> = {
-    stern: { ...stern, within: null },
-    deck: { ...deck, within: "stern" },
-  };
-
-  it("says nothing of two exposed sizes that are one camera at two focal lengths", () => {
-    const dir = direction({ setups: axis, shots: [shot("01", "stern"), shot("02", "deck")] });
-    expect(codes(dir, "undeclared-continuity")).toEqual([]);
-  });
-
-  it("still flags two exposed sizes shot from two camera positions", () => {
-    const dir = direction({
-      setups: { stern: { ...stern, within: null }, deck: { ...deck, within: null } },
-      shots: [shot("01", "stern"), shot("02", "deck")],
-    });
-    expect(codes(dir, "undeclared-continuity").map((f) => f.subject)).toEqual(["01-02"]);
   });
 });
 

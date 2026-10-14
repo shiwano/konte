@@ -14,14 +14,8 @@ const productDemo = findBuiltinLens("product-demo")!;
 const threeAct = findBuiltinLens("three-act")!;
 const kishotenketsu = findBuiltinLens("kishotenketsu")!;
 
-function shot(
-  id: string,
-  role: string,
-  duration: number,
-  synopsis = "act",
-  framing?: string,
-): ArcItem<string> {
-  return { id, role, synopsis, duration, ...(framing ? { framing } : {}) };
+function shot(id: string, role: string, duration: number, synopsis = "act"): ArcItem<string> {
+  return { id, role, synopsis, duration };
 }
 
 function seq(id: string, role: string, duration: number, synopsis = "act"): ArcItem<string> {
@@ -147,109 +141,6 @@ describe("checkArc", () => {
     ];
     const finding = checkArc(miniDrama, items).find((f) => f.code === "empty-synopsis");
     expect(finding?.subject).toBe("01");
-  });
-
-  // The space checks read the caller's framing vocabulary; these mirror what direction.ts passes.
-  const space = { exposedFramings: ["wide", "medium"], establishingFraming: "wide" };
-
-  it("flags an undeclared wide↔medium cut inside one location", () => {
-    const items = [
-      { ...shot("01", "ordinary", 3, "shot", "wide"), location: "deck" },
-      { ...shot("02", "disruption", 2, "shot", "medium"), location: "deck" },
-      { ...shot("03", "pressure", 3, "shot", "close"), location: "deck" },
-      { ...shot("04", "hero", 4, "shot", "insert"), location: "deck" },
-    ];
-    const finding = checkArc(miniDrama, items, space).find(
-      (f) => f.code === "undeclared-continuity",
-    );
-    expect(finding?.subject).toBe("01-02");
-  });
-
-  it("does not flag a two-size jump or a cross-location cut", () => {
-    const items = [
-      { ...shot("01", "ordinary", 3, "shot", "wide"), location: "deck" },
-      { ...shot("02", "disruption", 2, "shot", "close"), location: "deck" },
-      { ...shot("03", "pressure", 3, "shot", "wide"), location: "galley" },
-      { ...shot("04", "hero", 4, "shot", "medium"), location: "deck" },
-    ];
-    expect(checkArc(miniDrama, items, space).map((f) => f.code)).not.toContain(
-      "undeclared-continuity",
-    );
-  });
-
-  it("flags a second wide of one location inside a role (re-established-wide)", () => {
-    const items = [
-      { ...shot("01", "ordinary", 3, "shot", "wide"), location: "deck" },
-      { ...shot("02", "ordinary", 2, "shot", "close"), location: "deck" },
-      { ...shot("03", "ordinary", 3, "shot", "wide"), location: "deck" },
-      { ...shot("04", "disruption", 2, "shot", "close"), location: "deck" },
-      { ...shot("05", "pressure", 3, "shot", "close"), location: "deck" },
-      { ...shot("06", "hero", 4, "shot", "insert"), location: "deck" },
-    ];
-    const finding = checkArc(miniDrama, items, space).find((f) => f.code === "re-established-wide");
-    expect(finding?.subject).toBe("03");
-  });
-
-  it("flags every repeat wide in one role, not just the second", () => {
-    const items = [
-      { ...shot("01", "ordinary", 3, "shot", "wide"), location: "deck" },
-      { ...shot("02", "ordinary", 2, "shot", "wide"), location: "deck" },
-      { ...shot("03", "ordinary", 3, "shot", "close"), location: "deck" },
-      { ...shot("04", "ordinary", 4, "shot", "wide"), location: "deck" },
-      { ...shot("05", "disruption", 2, "shot", "close"), location: "deck" },
-      { ...shot("06", "pressure", 3, "shot", "close"), location: "deck" },
-      { ...shot("07", "hero", 4, "shot", "insert"), location: "deck" },
-    ];
-    const subjects = checkArc(miniDrama, items, space)
-      .filter((f) => f.code === "re-established-wide")
-      .map((f) => f.subject);
-    expect(subjects).toEqual(["02", "04"]);
-  });
-
-  it("does not flag a wide that runs on continuously from the wide before it", () => {
-    const items = [
-      { ...shot("01", "ordinary", 3, "shot", "wide"), location: "deck" },
-      { ...shot("02", "ordinary", 2, "shot", "wide"), location: "deck", join: "continuous" },
-      { ...shot("03", "disruption", 3, "shot", "close"), location: "deck" },
-      { ...shot("04", "pressure", 3, "shot", "close"), location: "deck" },
-      { ...shot("05", "hero", 4, "shot", "insert"), location: "deck" },
-    ];
-    expect(checkArc(miniDrama, items, space).map((f) => f.code)).not.toContain(
-      "re-established-wide",
-    );
-  });
-
-  it("does not flag a wide re-established after a role change (act break)", () => {
-    const items = [
-      { ...shot("01", "ordinary", 3, "shot", "wide"), location: "deck" },
-      { ...shot("02", "disruption", 2, "shot", "close"), location: "deck" },
-      { ...shot("03", "pressure", 3, "shot", "close"), location: "deck" },
-      { ...shot("04", "hero", 4, "shot", "wide"), location: "deck" },
-    ];
-    expect(checkArc(miniDrama, items, space).map((f) => f.code)).not.toContain(
-      "re-established-wide",
-    );
-  });
-
-  it("does not flag a first wide per location, and skips both checks without the vocabulary", () => {
-    const items = [
-      { ...shot("01", "ordinary", 3, "shot", "wide"), location: "deck" },
-      { ...shot("02", "disruption", 2, "shot", "wide"), location: "galley" },
-      { ...shot("03", "pressure", 3, "shot", "medium"), location: "deck" },
-      { ...shot("04", "hero", 4, "shot", "close"), location: "deck" },
-    ];
-    expect(checkArc(miniDrama, items, space).map((f) => f.code)).not.toContain(
-      "re-established-wide",
-    );
-    const bare = [
-      { ...shot("01", "ordinary", 3, "shot", "wide"), location: "deck" },
-      { ...shot("02", "disruption", 2, "shot", "medium"), location: "deck" },
-      { ...shot("03", "pressure", 3, "shot", "wide"), location: "deck" },
-      { ...shot("04", "hero", 4, "shot", "close"), location: "deck" },
-    ];
-    const codes = checkArc(miniDrama, bare).map((f) => f.code);
-    expect(codes).not.toContain("undeclared-continuity");
-    expect(codes).not.toContain("re-established-wide");
   });
 
   it("flags unrealized direction ids against a stage's realized set", () => {

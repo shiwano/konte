@@ -128,14 +128,6 @@ describe("a graphic shot", () => {
     expect(structure(direction([narrative("01"), graphic("02")]))).toEqual([]);
   });
 
-  it("stays in the arc, so the narrative shots either side of it are not adjacent", () => {
-    // medium → wide in one studio on two cameras binds backgrounds when cut adjacently.
-    const cut = direction([narrative("01"), narrative("02", { setup: "wide" })]);
-    expect(active(cut, "undeclared-continuity").map((f) => f.subject)).toEqual(["01-02"]);
-    const split = direction([narrative("01"), graphic("02"), narrative("03", { setup: "wide" })]);
-    expect(active(split, "undeclared-continuity")).toEqual([]);
-  });
-
   it("breaks a main-frame long take: `continuous` after it is impossible", () => {
     const dir = direction([graphic("01"), narrative("02", { join: "continuous" })]);
     const errors = validateDirectionStructure(dir).filter((e) => e.code === "join-impossible");

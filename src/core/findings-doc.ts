@@ -150,10 +150,6 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     subject: "setup id",
   },
   "unused-setup": { flags: "No shot points at a setup.", subject: "setup id" },
-  "setup-indistinct": {
-    flags: "Two setups declare the same location, framing and `holds` order.",
-    subject: "setup id (the later one)",
-  },
   "setup-atomized": {
     flags: "A location holds many shots but almost none share a frame.",
     subject: "location id",
@@ -173,15 +169,6 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
       "A shot's `duration` is not a positive multiple of 0.5s, or on `policy.song` its `beats` is not a positive whole number.",
     subject: "shot id",
     typeLevel: true,
-  },
-  "undeclared-continuity": {
-    flags:
-      "Adjacent shots cut between two set-showing sizes of one location with no `within` declared.",
-    subject: "id pair (`05-06`)",
-  },
-  "re-established-wide": {
-    flags: "A shot re-establishes a location already shown wide.",
-    subject: "shot id",
   },
   "fonts-undeclared": {
     flags: "`policy.lang` is in a script no default face covers, and `policy.fonts` is empty.",

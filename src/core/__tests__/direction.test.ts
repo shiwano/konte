@@ -1047,50 +1047,36 @@ describe("checkDirection function checks", () => {
   });
 });
 
-describe("checkDirection space checks", () => {
-  // A wide→medium cut inside the one default location; the tail sizes vary so nothing else fires.
-  const exposedShots = () => [
-    shot("01", "ordinary", 3, "shot", "wide"),
-    shot("02", "disruption", 2, "shot", "medium"),
-    shot("03", "pressure", 4, "shot", "close"),
-    shot("04", "hero", 5, "shot", "insert"),
-  ];
-
-  it("flags an undeclared wide→medium cut in one location", () => {
-    const finding = checkDirection(leaf({ shots: exposedShots() })).active.find(
-      (f) => f.code === "undeclared-continuity",
-    );
-    expect(finding?.subject).toBe("01-02");
+describe("checkDirection camera choices", () => {
+  it("allows a wide-to-medium cut between separate camera axes", () => {
+    const dir = leaf({
+      shots: [
+        shot("01", "ordinary", 3, "shot", "wide"),
+        shot("02", "disruption", 2, "shot", "medium"),
+        shot("03", "pressure", 4, "shot", "close"),
+        shot("04", "hero", 5, "shot", "insert"),
+      ],
+    });
+    expect(checkDirection(dir).active).toEqual([]);
+    expect(() =>
+      assertDirectionGate(dir, { command: "generate", stage: "animatic", directionAccepted: true }),
+    ).not.toThrow();
   });
 
-  it("is waivable via undeclared-continuity_<pair>", () => {
-    const dir = withWaivers(leaf({ shots: exposedShots() }), {
-      "undeclared-continuity_01-02": "an axial punch-in landing the turn",
+  it("allows repeated wide shots within one role", () => {
+    const dir = leaf({
+      lens: "one-act",
+      lenses: [ONE_ACT],
+      shots: [
+        shot("01", "whole", 3, "the street is gray", "wide"),
+        shot("02", "whole", 2, "a shoe leaves a yellow line", "insert"),
+        shot("03", "whole", 4, "the street fills with color", "wide"),
+      ],
     });
-    const res = checkDirection(dir);
-    expect(res.active.map((f) => f.code)).not.toContain("undeclared-continuity");
-    expect(res.waived.map(directionWaiverKey)).toContain("undeclared-continuity_01-02");
-  });
-
-  it("flags a second wide of one location inside a role, and waives it by subject", () => {
-    const shots = [
-      shot("01", "ordinary", 3, "shot", "wide"),
-      shot("02", "ordinary", 2, "shot", "close"),
-      shot("03", "ordinary", 4, "shot", "wide"),
-      shot("04", "disruption", 3, "shot", "close"),
-      shot("05", "pressure", 4, "shot", "medium"),
-      shot("06", "hero", 5, "shot", "insert"),
-    ];
-    const bare = checkDirection(leaf({ shots })).active.find(
-      (f) => f.code === "re-established-wide",
-    );
-    expect(bare?.subject).toBe("03");
-    const waived = withWaivers(leaf({ shots }), {
-      "re-established-wide_03": "the set itself changed — the shelf came down between the two",
-    });
-    const res = checkDirection(waived);
-    expect(res.active.map((f) => f.code)).not.toContain("re-established-wide");
-    expect(res.waived.map(directionWaiverKey)).toContain("re-established-wide_03");
+    expect(checkDirection(dir).active).toEqual([]);
+    expect(() =>
+      assertDirectionGate(dir, { command: "generate", stage: "animatic", directionAccepted: true }),
+    ).not.toThrow();
   });
 });
 
@@ -1602,10 +1588,9 @@ describe("checkDirection setups", () => {
     ).toContain("setup-unrealized_wall");
   });
 
-  it("classifies both setup findings as setups findings", () => {
+  it("classifies setup findings as setups findings", () => {
     expect(classifyDirectionFinding("setup-unrealized")).toBe("setups");
     expect(classifyDirectionFinding("unused-setup")).toBe("setups");
-    expect(classifyDirectionFinding("setup-indistinct")).toBe("setups");
     expect(classifyDirectionFinding("setup-atomized")).toBe("setups");
   });
 
@@ -1617,65 +1602,26 @@ describe("checkDirection setups", () => {
     holds,
   });
 
-  it("flags two setups of one place nothing tells apart, blaming the later id", () => {
-    const twins = leaf({
+  it("allows separate camera angles with the same place, framing and holds", () => {
+    const dir = leaf({
       shots: [
-        { ...shot("01", "ordinary", 3), setup: "a" },
-        { ...shot("02", "hero", 3), setup: "b" },
+        { ...shot("01", "ordinary", 3), setup: "oblique" },
+        { ...shot("02", "disruption", 2), setup: "overhead" },
+        { ...shot("03", "pressure", 4), setup: "oblique" },
+        { ...shot("04", "hero", 5), setup: "overhead" },
       ],
       setups: {
-        a: frame("here", "medium", ["hereMark"]),
-        b: frame("here", "medium", ["hereMark"]),
-      },
-    });
-    const indistinct = checkDirection(twins).active.filter((f) => f.code === "setup-indistinct");
-    expect(indistinct.map((f) => f.subject)).toEqual(["b"]);
-    expect(indistinct[0]?.message).toContain('setup "a"');
-  });
-
-  it("tells two frames apart on framing, on holds order, and on place", () => {
-    const distinct = leaf({
-      shots: [
-        { ...shot("01", "ordinary", 3), setup: "size" },
-        { ...shot("02", "disruption", 2), setup: "reverse" },
-        { ...shot("03", "pressure", 3), setup: "elsewhere" },
-        { ...shot("04", "hero", 4), setup: "base" },
-      ],
-      locations: {
-        here: {
-          ...defaultLocations.here!,
-          landmarks: {
-            ...defaultLocations.here!.landmarks,
-            hereDesk: { name: "the desk", promptDepiction: "desk", description: "a plain desk" },
-          },
+        oblique: {
+          ...frame("here", "wide", ["hereMark"]),
+          description: "looking down from a corner",
         },
-        there: {
-          name: "there",
-          description: "another place",
-          landmarks: {
-            thereMark: { name: "m", promptDepiction: "m", description: "a mark only there has" },
-          },
-        },
-      },
-      setups: {
-        base: frame("here", "medium", ["hereMark", "hereDesk"]),
-        size: frame("here", "close", ["hereMark", "hereDesk"]),
-        reverse: frame("here", "medium", ["hereDesk", "hereMark"]),
-        elsewhere: frame("there", "medium", ["thereMark"]),
+        overhead: { ...frame("here", "wide", ["hereMark"]), description: "looking straight down" },
       },
     });
-    expect(checkDirection(distinct).active.map((f) => f.code)).not.toContain("setup-indistinct");
-  });
-
-  it("never calls two inserts of one place indistinct — an insert holds nothing to compare", () => {
-    const inserts = leaf({
-      shots: [
-        { ...shot("01", "ordinary", 3), setup: "a" },
-        { ...shot("02", "hero", 3), setup: "b" },
-      ],
-      setups: { a: frame("here", "insert", []), b: frame("here", "insert", []) },
-    });
-    expect(checkDirection(inserts).active.map((f) => f.code)).not.toContain("setup-indistinct");
+    expect(checkDirection(dir).active).toEqual([]);
+    expect(() =>
+      assertDirectionGate(dir, { command: "generate", stage: "animatic", directionAccepted: true }),
+    ).not.toThrow();
   });
 
   // One shot per frame across eight shots in one room: the place is lived in and no frame is ever
@@ -1693,8 +1639,6 @@ describe("checkDirection setups", () => {
         setup: id,
       });
     }
-    // Every frame here is medium on the same landmark, so the duplicate scan would fire on all of
-    // them — this fixture is about the share, so read only the code under test.
     return leaf({ shots: list, setups });
   };
 

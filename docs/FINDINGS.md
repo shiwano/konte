@@ -31,17 +31,15 @@ Gates: every spend.
 | `unexpected-script`     | A shot's `script` contradicts `policy.speech`: any line under `none`, a spoken line under `no-dialogue`. | shot id                 | Type-level |
 | `multi-sentence-action` | A shot's `action` reads as two or more sentences.                                                        | shot id                 | —          |
 
-### pacing (5)
+### pacing (3)
 
 Gates: every spend.
 
-| Code                    | Flags                                                                                                                   | Waiver subject    | Notes      |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------- | ---------- |
-| `role-overweight`       | A role holds more of the runtime than its `maxShare`.                                                                   | role              | —          |
-| `role-underweight`      | A role holds less of the runtime than its `minShare`.                                                                   | role              | —          |
-| `off-grid-duration`     | A shot's `duration` is not a positive multiple of 0.5s, or on `policy.song` its `beats` is not a positive whole number. | shot id           | Type-level |
-| `undeclared-continuity` | Adjacent shots cut between two set-showing sizes of one location with no `within` declared.                             | id pair (`05-06`) | —          |
-| `re-established-wide`   | A shot re-establishes a location already shown wide.                                                                    | shot id           | —          |
+| Code                | Flags                                                                                                                   | Waiver subject | Notes      |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------- | ---------- |
+| `role-overweight`   | A role holds more of the runtime than its `maxShare`.                                                                   | role           | —          |
+| `role-underweight`  | A role holds less of the runtime than its `minShare`.                                                                   | role           | —          |
+| `off-grid-duration` | A shot's `duration` is not a positive multiple of 0.5s, or on `policy.song` its `beats` is not a positive whole number. | shot id        | Type-level |
 
 ### stage (2)
 
@@ -93,20 +91,19 @@ Gates: every spend. Deferred.
 | `location-unreferenced` | A location has no `reference:<id>` asset.       | location id    | Fix in `reference.tsx` |
 | `unused-location`       | No setup a shot points at is set in a location. | location id    | —                      |
 
-### setups (8)
+### setups (7)
 
 Gates: every spend. Deferred.
 
-| Code               | Flags                                                                                                               | Waiver subject           | Notes                 |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------ | --------------------- |
-| `setup-unrealized` | A setup two or more generated shots share has no plate.                                                             | setup id                 | Fix in `animatic.tsx` |
-| `plate-unanchored` | A plate is built from no location reference.                                                                        | setup id                 | Fix in `animatic.tsx` |
-| `plate-unnested`   | A plate is neither a cut from, nor a window inside, the plate of the setup it is `within`.                          | setup id                 | Fix in `animatic.tsx` |
-| `axis-unrealized`  | Two sizes cut along one `within` axis lack the plates that nest them.                                               | setup pair (`<a>.<b>`)   | Fix in `animatic.tsx` |
-| `setup-unconsumed` | A developed shot builds no keyframe from its setup's plate, or from the location reference where there is no plate. | setup id                 | Fix in `animatic.tsx` |
-| `unused-setup`     | No shot points at a setup.                                                                                          | setup id                 | —                     |
-| `setup-indistinct` | Two setups declare the same location, framing and `holds` order.                                                    | setup id (the later one) | —                     |
-| `setup-atomized`   | A location holds many shots but almost none share a frame.                                                          | location id              | —                     |
+| Code               | Flags                                                                                                               | Waiver subject         | Notes                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------- | ---------------------- | --------------------- |
+| `setup-unrealized` | A setup two or more generated shots share has no plate.                                                             | setup id               | Fix in `animatic.tsx` |
+| `plate-unanchored` | A plate is built from no location reference.                                                                        | setup id               | Fix in `animatic.tsx` |
+| `plate-unnested`   | A plate is neither a cut from, nor a window inside, the plate of the setup it is `within`.                          | setup id               | Fix in `animatic.tsx` |
+| `axis-unrealized`  | Two sizes cut along one `within` axis lack the plates that nest them.                                               | setup pair (`<a>.<b>`) | Fix in `animatic.tsx` |
+| `setup-unconsumed` | A developed shot builds no keyframe from its setup's plate, or from the location reference where there is no plate. | setup id               | Fix in `animatic.tsx` |
+| `unused-setup`     | No shot points at a setup.                                                                                          | setup id               | —                     |
+| `setup-atomized`   | A location holds many shots but almost none share a frame.                                                          | location id            | —                     |
 
 ### staging (17)
 

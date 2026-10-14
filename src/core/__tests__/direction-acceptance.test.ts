@@ -286,7 +286,7 @@ describe("isDirectionSpendGateSatisfied", () => {
 
     for (const edit of [
       (d: Direction) => (d.waivers!["multi-sentence-action_02"] = "reconsidered"),
-      (d: Direction) => (d.waivers!["undeclared-continuity_01-02"] = "one room"),
+      (d: Direction) => (d.waivers!["panel-unlinked_01-02"] = "the cut re-opens the frame"),
     ]) {
       const edited = makeDirection();
       edit(edited);
@@ -299,10 +299,10 @@ describe("isDirectionSpendGateSatisfied", () => {
     const direction = makeDirection();
     const partial = applyDirectionSectionDecisions(direction, null, ALL_SECTIONS);
     const unread = makeDirection();
-    unread.waivers!["undeclared-continuity_01-02"] = "one room";
+    unread.waivers!["panel-unlinked_01-02"] = "the cut re-opens the frame";
     const view = directionAcceptanceView(unread, { ...partial, whole: null });
     expect(view.gateBlocking.map((b) => b.address)).toEqual([
-      "direction:waivers.undeclared-continuity_01-02",
+      "direction:waivers.panel-unlinked_01-02",
     ]);
   });
 
@@ -745,11 +745,11 @@ describe("directionShotWaivers", () => {
     const direction = withThirdShot();
     direction.sequence.shots![2]!.id = "01-02";
     direction.waivers = {
-      "undeclared-continuity_01-02": "one room",
+      "panel-unlinked_01-02": "the cut re-opens the frame",
       "multi-sentence-action_01-02": "a quiet shot",
     };
     expect(directionShotWaivers(direction).map((w) => [w.code, w.shotIds])).toEqual([
-      ["undeclared-continuity", ["01", "02"]],
+      ["panel-unlinked", ["01", "02"]],
       ["multi-sentence-action", ["01-02"]],
     ]);
   });
@@ -800,10 +800,10 @@ describe("applyDirectionShotCascade", () => {
     const accepted = acceptAll(makeDirection());
 
     const waived = makeDirection();
-    waived.waivers!["undeclared-continuity_01-02"] = "one room";
+    waived.waivers!["panel-unlinked_01-02"] = "the cut re-opens the frame";
     for (const shotId of ["01", "02"]) {
       const { acceptance, restamped } = applyDirectionShotCascade(waived, accepted, [shotId]);
-      expect(restamped).toContain("direction:waivers.undeclared-continuity_01-02");
+      expect(restamped).toContain("direction:waivers.panel-unlinked_01-02");
       expect(directionAcceptanceView(waived, acceptance!).complete).toBe(true);
     }
   });
