@@ -355,7 +355,7 @@ describe("formatReviewRecord", () => {
     expect(out).not.toContain("direction:characters (");
   });
 
-  it("reports an un-accepted direction section under Unaccepted", () => {
+  it("reports an un-accepted direction section under Accept withdrawn", () => {
     const record: ReviewRecord = {
       mode: "direction-preview",
       createdAt: "2026-05-16T12:00:00.000Z",
@@ -366,7 +366,7 @@ describe("formatReviewRecord", () => {
 
     const out = formatReviewRecord(record);
     expect(out).toContain("Accepted: none submitted");
-    expect(out).toContain("Unaccepted:");
+    expect(out).toContain("Accept withdrawn:");
     expect(out).toContain("  direction:shots");
   });
 
@@ -947,7 +947,7 @@ describe("formatReviewRecord", () => {
     expect(out).not.toContain("saw:");
   });
 
-  it("renders video-preview accepts with variant IDs and un-accepts under Unaccepted", () => {
+  it("renders video-preview accepts with variant IDs and un-accepts under Accept withdrawn", () => {
     const record: ReviewRecord = {
       mode: "video-preview",
       stage: "video",
@@ -974,8 +974,8 @@ describe("formatReviewRecord", () => {
     const out = formatReviewRecord(record);
     expect(out).toContain("Accepted:");
     expect(out).toContain("video:shot.01.motion (v-UI5zkvU6)");
-    // An explicit un-accept ("none") is its own outcome, listed under Unaccepted by bare address.
-    expect(out).toContain("Unaccepted:");
+    // An explicit un-accept ("none") is its own outcome, listed under Accept withdrawn by bare address.
+    expect(out).toContain("Accept withdrawn:");
     expect(out).toContain("  video:shot.02.motion");
     // Feedback is grouped under the target address, not the old flat `Notes:` block.
     expect(out).toContain("Feedback:");
@@ -1006,7 +1006,7 @@ describe("formatReviewRecord", () => {
 
     const out = formatReviewRecord(record);
     expect(out).toContain("Accepted: none submitted");
-    expect(out).not.toContain("Unaccepted:");
+    expect(out).not.toContain("Accept withdrawn:");
     expect(out).toContain("Feedback:");
     expect(out).toContain("  video:shot.03#composition");
     expect(out).toContain("    8.2s (shot.03 +8.2s) 全体的に文字が小さい");
@@ -1044,10 +1044,10 @@ describe("formatReviewRecord", () => {
     expect(accepted).toContain("video:timeline.bgm (v-bbbbbbbb)");
 
     // A shot that isn't explicitly accepted means submit never accepts the timeline
-    // asset, so it must not be listed as accepted (the shot itself surfaces under Unaccepted).
+    // asset, so it must not be listed as accepted (the shot itself surfaces under Accept withdrawn).
     const notOk = formatReviewRecord({ ...base, context, decisions: { "01": "none" } });
     expect(notOk).not.toContain("video:timeline.bgm");
-    expect(notOk).toContain("Unaccepted:");
+    expect(notOk).toContain("Accept withdrawn:");
 
     // An undecided shot is likewise not "accepted", so timeline stays out of the accept list.
     const undecided = formatReviewRecord({ ...base, context, decisions: {} });
@@ -1132,7 +1132,7 @@ describe("formatReviewRecord", () => {
 
     expect(formatReviewRecord(record)).toContain(
       [
-        "Unaccepted: 1 of 1 shot (01)",
+        "Accept withdrawn: 1 of 1 shot (01)",
         "  video:shot.01.first (v-eeeeeeee)",
         "  video:shot.01.motion (v-aaaaaaaa)",
       ].join("\n"),
@@ -1184,7 +1184,7 @@ describe("formatReviewRecord", () => {
     });
     expect(out).toContain("File: review/video/records/20260516T120000000.json");
     // The un-accept comes from the record itself, listed by bare address.
-    expect(out).toContain("Unaccepted:");
+    expect(out).toContain("Accept withdrawn:");
     expect(out).toContain("  video:shot.01.motion");
   });
 
@@ -1272,7 +1272,7 @@ describe("formatReviewRecord", () => {
         "  video:shot.01.motion (v-01aaaaaa)",
         "  video:shot.02.motion (v-02aaaaaa)",
         "  video:shot.05.motion (v-05aaaaaa)",
-        "Unaccepted: 1 of 6 shots (04)",
+        "Accept withdrawn: 1 of 6 shots (04)",
         "  video:shot.04.motion (v-04aaaaaa)",
       ].join("\n"),
     );
@@ -1467,7 +1467,9 @@ describe("formatReviewRecord (keep or regenerate)", () => {
   it("names what was kept and what is left to regenerate", () => {
     const out = formatReviewRecord(record);
     expect(out).toContain("Kept against newer upstream:\n  animatic:shot.13.first");
-    expect(out).toContain("Regenerate:\n  animatic:shot.14.first\n  video:shot.14.motion");
+    expect(out).toContain(
+      "Sent back to regenerate:\n  animatic:shot.14.first\n  video:shot.14.motion",
+    );
   });
 
   it("is worth saving on those answers alone", () => {

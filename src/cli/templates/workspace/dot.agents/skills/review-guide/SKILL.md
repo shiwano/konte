@@ -36,4 +36,4 @@ Every human review runs the same two steps — preview with a handoff, read the 
 - **There is no "reject"** — a target needing work is one they left **feedback** on and did **not** accept. The comment is the instruction; act on it.
 - **Accepted with a comment on it — read the comment, not the toggle** — a comment asking for a change is the instruction, accept or no; one that only reacts leaves the accept as the verdict. `konte status` stops counting it either way.
 - **An `Overall:` comment belongs to no target** — it is an instruction like any other; act on it.
-- **Unaccepted with no comment is a deliberate hold** — submit listed it and the human went ahead anyway. Don't regenerate or guess: ask, or carry it forward.
+- **A target left undecided with no comment is a deliberate hold** — submit listed it and the human went ahead anyway. Don't regenerate or guess: ask, or carry it forward.

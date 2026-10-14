@@ -505,7 +505,7 @@ export function formatReviewRecord(
     );
     for (const line of accepted) lines.push(`  ${line}`);
     if (reelSummary.unaccepted) {
-      lines.push(`Unaccepted: ${reelSummary.unaccepted}`);
+      lines.push(`Accept withdrawn: ${reelSummary.unaccepted}`);
       for (const line of unaccepted) lines.push(`  ${line}`);
     }
   } else {
@@ -518,7 +518,7 @@ export function formatReviewRecord(
 
     if (unaccepted.length > 0) {
       lines.push("");
-      lines.push("Unaccepted:");
+      lines.push("Accept withdrawn:");
       for (const addr of unaccepted) lines.push(`  ${addr}`);
     }
   }
@@ -541,7 +541,7 @@ export function formatReviewRecord(
 
   if ((record.regenerate ?? []).length > 0) {
     lines.push("");
-    lines.push("Regenerate:");
+    lines.push("Sent back to regenerate:");
     for (const addr of record.regenerate ?? []) lines.push(`  ${addr}`);
   }
 
