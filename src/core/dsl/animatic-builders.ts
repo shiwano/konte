@@ -25,7 +25,7 @@ import {
 } from "./direction.js";
 import { beginPromptCollection } from "./prompt-collect.js";
 import { assertRespellings, beginRespellCollection } from "./respell.js";
-import { makePlatePlaceholder, runInPlateDiscoveryMode } from "./shot-context.js";
+import { makePlatePlaceholder, parsePlaceholder, runInPlateDiscoveryMode } from "./shot-context.js";
 import { scriptTexts } from "./shot-script.js";
 import type { ShotFunction } from "./shot-context.js";
 import { defineStage } from "./stage-define.js";
@@ -615,12 +615,6 @@ function buildPlates<D>(
           `under the roster id it holds still, so its key must be one of: ${[...declared].join(", ")}`,
       );
     }
-    if (!Object.hasOwn(discovery.assets, id)) {
-      throw new KonteError(
-        "INVALID_PLATE",
-        `defineAnimatic: plates."${id}" was returned but not declared via asset("${id}", …)`,
-      );
-    }
     const entry = declaredPlates[id] as { image?: unknown; prompt?: unknown } | null | undefined;
     const image = entry?.image as { src?: unknown } | undefined;
     if (typeof image?.src !== "string") {
@@ -644,6 +638,22 @@ function buildPlates<D>(
     // built from `side`'s plate, and the `setup-unconsumed` finding would name the innocent setup.
     const expected = makePlatePlaceholder(id);
     if (image.src !== expected) {
+      const returnedPlate = parsePlaceholder(image.src)?.match(/^animatic:plate\.(.+)$/)?.[1];
+      if (returnedPlate !== undefined && !declared.has(returnedPlate)) {
+        throw new KonteError(
+          "INVALID_PLATE",
+          `defineAnimatic: plates."${id}" returns asset("${returnedPlate}", …); a setup's plate is ` +
+            `the asset() named after it. To give "${id}" a new picture and keep its old takes as ` +
+            `"${returnedPlate}", return a new asset("${id}", …) here, then run ` +
+            `konte rename animatic:plate.${id} animatic:plate.${returnedPlate}.`,
+        );
+      }
+      if (!Object.hasOwn(discovery.assets, id)) {
+        throw new KonteError(
+          "INVALID_PLATE",
+          `defineAnimatic: plates."${id}" was returned but not declared via asset("${id}", …)`,
+        );
+      }
       throw new KonteError(
         "INVALID_PLATE",
         `defineAnimatic: plates."${id}" returns a handle for a different plate. File each ` +
@@ -660,7 +670,8 @@ function buildPlates<D>(
         "INVALID_PLATE",
         `defineAnimatic: asset("${name}", …) is named after a setup but not returned as its plate. ` +
           `An intermediate the plates are built from takes a name of its own — return it under ` +
-          `"${name}" to make it that setup's plate, or rename it.`,
+          `"${name}" to make it that setup's plate, or rename it and run ` +
+          `konte rename animatic:plate.${name} animatic:plate.<newName> to move its takes.`,
       );
     }
   }

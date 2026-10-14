@@ -110,6 +110,16 @@ describe("defineAnimatic plates", () => {
     ).toThrow(/handle for a different plate/);
   });
 
+  it("points a plate returned under a renamed intermediate at konte rename", () => {
+    expect(() =>
+      animatic(() => ({
+        front: { image: asset("frontOld", imageComfy, { prompt: "x" }), prompt: "a plain studio" },
+      })),
+    ).toThrow(
+      /returns asset\("frontOld", …\).*konte rename animatic:plate\.front animatic:plate\.frontOld/,
+    );
+  });
+
   // Returning is what files a plate under a setup.
   it("keeps an unreturned asset as an intermediate the plate is built from", () => {
     const sb = animatic(() => {
@@ -146,7 +156,7 @@ describe("defineAnimatic plates", () => {
         asset("front", imageComfy, { prompt: "x" });
         return {} as never;
       }),
-    ).toThrow(/named after a setup but not returned/);
+    ).toThrow(/named after a setup but not returned.*konte rename animatic:plate\.front /);
   });
 });
 
