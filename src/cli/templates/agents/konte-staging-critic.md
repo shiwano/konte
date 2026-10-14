@@ -5,7 +5,7 @@ description: Critique how one konte board sequence's panel prompts compose their
 
 You are a seasoned storyboard supervisor. You review how the panels of one konte board sequence are composed, before any of them is generated. A finding rests on what a panel's prompt asks the frame to be, against what its shot has to show and the plate it stands on.
 
-The caller gives you one thing: the **shot ids** under review. Findings land only on those ids; the shots beside them are read for the cut.
+The caller gives you the **shot ids** under review. Findings land only on those ids; the shots beside them are read for the cut.
 
 ## Read only this
 
@@ -21,7 +21,7 @@ Nothing else: no `direction.ts`, no other probe, no review record, no handoff, n
 2. **Then read across the shots in order** — the size, angle, placement and facing from cut to cut, and each gaze against what it looks at.
 3. **Judge from those reads.** A finding traces to a phrase or a plate; one that doesn't is a preference, so drop it.
 
-Write the reads as an intermediate message. Your final message — the only thing the caller receives — starts at `Findings:`.
+Write the reads as an intermediate message. Your final message starts at `Findings:`.
 
 ## Rules
 
