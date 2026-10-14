@@ -29,7 +29,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 ## Stage the frame
 
 - **The plate fixes the place and the camera; the panel prompt composes** — where each figure sits and faces, what fills the frame they leave open, what is nearest the lens, what the edges cut, chosen from what the `action` has to show; naming only who is left and right leaves the frame to the model.
-- **Each panel prompt writes one state of the `action`** — the first panel its first state, the last panel its last.
+- **Each panel prompt writes one state of the `action`** — the opening frame its starting state, a landing frame its final state.
 - **Give a panel the words its frame needs** — the camera's height and angle, what is nearest the lens and what is furthest.
 - **The eye lands on the action's carrier** — whatever the shot hinges on must be the frame's most salient element (position, contrast, light, motion); if a stranger's eye goes elsewhere first, the staging failed before the prompt.
 - **A hand or limb recurring across adjacent shots has its side and grip written in the panel prompt** — use screen coordinates (`image-left`, the thumb's direction), beyond the body-relative `left hand`.
