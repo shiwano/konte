@@ -14,6 +14,7 @@ import {
   listPanelReferenceReach,
   listPanelReferenceSlots,
   listPlateDescriptionUses,
+  listPlateRecrops,
   listShotContinuity,
 } from "../graph.js";
 import { plainDirection, testDirection } from "./helpers/direction.js";
@@ -460,6 +461,155 @@ describe("listPlateDescriptionUses", () => {
     ));
 
     expect(listPlateDescriptionUses(animatic, frames)).toEqual([]);
+  });
+
+  describe("listPlateRecrops", () => {
+    const window = { x: 0, y: 0, width: 32, height: 32 };
+
+    it("lists a keyframe that crops the plate, and owes it no sentence", () => {
+      const animatic = board((plate) => (
+        <Composition>
+          <Panel
+            src={asset("first", plated, {
+              image1: asset("stage", adapters.imageCrop, { image: plate.image, ...window }),
+              prompt: "her at the desk",
+            })}
+            {...moves}
+          />
+        </Composition>
+      ));
+
+      expect(listPlateRecrops(animatic, frames)).toEqual([
+        { setupId: "front", shotId: "01", lane: "main", panel: "animatic:shot.01.first" },
+      ]);
+      expect(listPlateDescriptionUses(animatic, frames)).toEqual([]);
+    });
+
+    it("lists a panel that is the crop itself", () => {
+      const animatic = board((plate) => (
+        <Composition>
+          <Panel
+            src={asset("first", adapters.imageCrop, { image: plate.image, ...window })}
+            {...moves}
+          />
+        </Composition>
+      ));
+
+      expect(listPlateRecrops(animatic, frames)).toEqual([
+        { setupId: "front", shotId: "01", lane: "main", panel: "animatic:shot.01.first" },
+      ]);
+    });
+
+    it("says nothing of a keyframe that takes the plate whole", () => {
+      const animatic = board((plate) => (
+        <Composition>
+          <Panel
+            src={asset("first", plated, {
+              image1: asset("fit", adapters.imageResize, {
+                image: plate.image,
+                width: 64,
+                height: 64,
+              }),
+              prompt: `her at the desk: ${PLATE_PROMPT}`,
+            })}
+            {...moves}
+          />
+        </Composition>
+      ));
+
+      expect(listPlateRecrops(animatic, frames)).toEqual([]);
+    });
+
+    // A crop of the plate's whole stated frame changes nothing in it.
+    it("says nothing of a crop that takes the whole plate", () => {
+      const croppedPlate = (crop: { x: number; y: number; width: number; height: number }) =>
+        defineAnimatic(testDirection(format), {
+          plates: () => ({
+            front: {
+              image: asset("front", adapters.imageCrop, { image: sheets.ferryDeck, ...window }),
+              prompt: PLATE_PROMPT,
+            },
+          }),
+          timeline: ({ plates }) =>
+            animaticTimeline([
+              shot("01", {
+                duration: 5,
+                build: () => (
+                  <Composition>
+                    <Panel
+                      src={asset("first", adapters.imageCrop, {
+                        image: (plates.front as unknown as { image: never }).image,
+                        ...crop,
+                      })}
+                      {...moves}
+                    />
+                  </Composition>
+                ),
+              }),
+            ]),
+        });
+
+      expect(
+        listPlateRecrops(croppedPlate({ x: 0, y: 0, width: 640, height: 480 }), frames),
+      ).toEqual([]);
+      expect(
+        listPlateRecrops(croppedPlate({ x: 0, y: 0, width: 320, height: 240 }), frames),
+      ).toHaveLength(1);
+    });
+
+    it("reads a resize's stated size as the frame a crop takes whole", () => {
+      const animatic = board((plate) => (
+        <Composition>
+          <Panel
+            src={asset("first", adapters.imageCrop, {
+              image: asset("fit", adapters.imageResize, {
+                image: plate.image,
+                width: 320,
+                height: 240,
+              }),
+              x: 0,
+              y: 0,
+              width: 320,
+              height: 240,
+            })}
+            {...moves}
+          />
+        </Composition>
+      ));
+
+      expect(listPlateRecrops(animatic, frames)).toEqual([]);
+    });
+
+    // The plate's own window of its master is the setup's frame.
+    it("does not count the crop the plate itself is", () => {
+      const animatic = defineAnimatic(testDirection(format), {
+        plates: () => ({
+          front: {
+            image: asset("front", adapters.imageCrop, { image: sheets.ferryDeck, ...window }),
+            prompt: PLATE_PROMPT,
+          },
+        }),
+        timeline: ({ plates }) =>
+          animaticTimeline([
+            shot("01", {
+              duration: 5,
+              build: () => (
+                <Composition>
+                  <Panel
+                    src={asset("first", plated, {
+                      image1: (plates.front as unknown as { image: never }).image,
+                      prompt: `her at the desk: ${PLATE_PROMPT}`,
+                    })}
+                    {...moves}
+                  />
+                </Composition>
+              ),
+            }),
+          ]),
+      });
+
+      expect(listPlateRecrops(animatic, frames)).toEqual([]);
+    });
   });
 });
 

@@ -979,6 +979,7 @@ describe("checkDirection meta arc (sequenced)", () => {
       panelSlots: [],
       panelReach: [],
       plateUses: [{ setupId: "here-wide", shotId: "a1", lane: "main", describes: false }],
+      plateRecrops: [],
       panelPrompts: [],
       platePrompts: {},
       videoPins: [],

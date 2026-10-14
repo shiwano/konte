@@ -27,6 +27,7 @@ import {
   type VideoShotPins,
   type PanelPrompts,
   type PlateNaming,
+  type PlateRecrop,
   type PlateUse,
   type ShotPanels,
   type AxisCut,
@@ -141,6 +142,7 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "character-unconsumed": "staging",
   "slot-order-mismatch": "staging",
   "plate-undescribed": "staging",
+  "plate-recropped": "staging",
   "landmark-flipped": "staging",
   "subject-unnamed": "staging",
   "plate-unnamed": "staging",
@@ -207,6 +209,7 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "character-unconsumed": "shot",
   "slot-order-mismatch": "shot",
   "plate-undescribed": null,
+  "plate-recropped": "shot",
   "landmark-flipped": null,
   "subject-unnamed": "shot",
   "plate-unnamed": null,
@@ -938,6 +941,8 @@ export type StagingStageState = {
   // One entry per developed shot standing on a plated setup: whether its panels' prompts carry the
   // plate's own sentence.
   plateUses: readonly PlateUse[];
+  // The keyframes that crop their setup's plate instead of standing on its frame.
+  plateRecrops: readonly PlateRecrop[];
   // A fourth reading of the same panels: the conditioning text each one stands on, which
   // `subject-unnamed` looks for the frame's subjects in.
   panelPrompts: readonly PanelPrompts[];
@@ -1044,6 +1049,7 @@ function checkStaging(
             panelSlots: stage.panelSlots,
             panelReach: stage.panelReach,
             plateUses: stage.plateUses,
+            plateRecrops: stage.plateRecrops,
             panelPrompts: stage.panelPrompts,
             subjectPromptDepictions: subjectPromptDepictions(direction),
           }

@@ -112,6 +112,7 @@ const noStage: StagingStageState = {
   panelSlots: [],
   panelReach: [],
   plateUses: [],
+  plateRecrops: [],
   panelPrompts: [],
   platePrompts: {},
   videoPins: [],

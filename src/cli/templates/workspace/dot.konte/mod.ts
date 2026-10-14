@@ -2699,6 +2699,7 @@ export type DirectionFindingCode =
   | "character-unconsumed"
   | "slot-order-mismatch"
   | "plate-undescribed"
+  | "plate-recropped"
   | "join-lineup-mismatch"
   | "join-unpinned"
   | "join-unshown"

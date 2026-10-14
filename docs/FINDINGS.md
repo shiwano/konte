@@ -107,7 +107,7 @@ Gates: every spend. Deferred.
 | `setup-indistinct` | Two setups declare the same location, framing and `holds` order.                                                    | setup id (the later one) | —                     |
 | `setup-atomized`   | A location holds many shots but almost none share a frame.                                                          | location id              | —                     |
 
-### staging (14)
+### staging (15)
 
 Gates: every spend.
 
@@ -120,6 +120,7 @@ Gates: every spend.
 | `character-unconsumed` | A keyframe framing a character is built from no reference to them.                                                                                                                                                                                                 | `<frame>.<characterId>`                    | —          |
 | `slot-order-mismatch`  | A keyframe passes its reference images in an order its `lineup` does not declare.                                                                                                                                                                                  | frame                                      | —          |
 | `plate-undescribed`    | A shot on a plated setup carries no `plates.<id>.prompt` in its prompt.                                                                                                                                                                                            | setup id                                   | —          |
+| `plate-recropped`      | A keyframe on a plated setup crops the plate, a frame its setup does not declare.                                                                                                                                                                                  | frame                                      | —          |
 | `landmark-flipped`     | Two setups of one location disagree on the left-to-right order of its landmarks.                                                                                                                                                                                   | setup id                                   | —          |
 | `subject-unnamed`      | No prompt behind a keyframe contains the `promptDepiction` of a subject it frames, verbatim (case-insensitive).                                                                                                                                                    | `<frame>.<characterId>`                    | —          |
 | `plate-unnamed`        | A plate's sentence omits a landmark its setup's `holds` declares.                                                                                                                                                                                                  | `<setupId>.<landmarkId>`                   | —          |

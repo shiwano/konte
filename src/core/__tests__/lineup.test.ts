@@ -94,6 +94,7 @@ const noStage: StagingStageState = {
   panelSlots: [],
   panelReach: [],
   plateUses: [],
+  plateRecrops: [],
   panelPrompts: [],
   platePrompts: {},
   videoPins: [],
@@ -374,6 +375,7 @@ describe("character-unconsumed", () => {
     ...noStage,
     panelSlots: [],
     plateUses: [],
+    plateRecrops: [],
     panelReach: [
       { shotId: "01", lane: "main", panel: "animatic:shot.01.first", refs: refsHeld, generative },
     ],
@@ -415,6 +417,7 @@ describe("character-unconsumed", () => {
       ...noStage,
       panelSlots: [],
       plateUses: [],
+      plateRecrops: [],
       panelReach: [
         {
           shotId: "01",
@@ -471,6 +474,7 @@ describe("character-unconsumed", () => {
       ...noStage,
       panelSlots: [],
       plateUses: [],
+      plateRecrops: [],
       panelReach: [
         { shotId: "01", lane: "main", panel: "animatic:shot.01.first", refs: [], generative: true },
         { shotId: "01", lane: "main", panel: "animatic:shot.01.last", refs: [], generative: true },
@@ -503,6 +507,7 @@ describe("slot-order-mismatch", () => {
         ...noStage,
         panelReach: [],
         plateUses: [],
+        plateRecrops: [],
         panelSlots: [
           {
             shotId: "01",
@@ -523,6 +528,7 @@ describe("slot-order-mismatch", () => {
         ...noStage,
         panelReach: [],
         plateUses: [],
+        plateRecrops: [],
         panelSlots: [
           {
             shotId: "01",
@@ -545,6 +551,7 @@ describe("slot-order-mismatch", () => {
         ...noStage,
         panelReach: [],
         plateUses: [],
+        plateRecrops: [],
         panelSlots: [
           { shotId: "01", lane: "main", panel: "animatic:shot.01.first", slots: ["ane", "imouto"] },
           { shotId: "01", lane: "main", panel: "animatic:shot.01.last", slots: ["ane", "imouto"] },
@@ -566,6 +573,7 @@ describe("slot-order-mismatch", () => {
         ...noStage,
         panelReach: [],
         plateUses: [],
+        plateRecrops: [],
         panelSlots: [
           { shotId: "01", lane: "main", panel: "animatic:shot.01.first", slots: ["ane", "imouto"] },
         ],
@@ -580,6 +588,7 @@ describe("slot-order-mismatch", () => {
         ...noStage,
         panelReach: [],
         plateUses: [],
+        plateRecrops: [],
         panelSlots: [
           { shotId: "01", lane: "main", panel: "animatic:shot.01.first", slots: ["imouto"] },
           { shotId: "01", lane: "main", panel: "animatic:shot.01.last", slots: ["ane"] },
@@ -677,6 +686,7 @@ describe("plate-undescribed", () => {
     panelSlots: [],
     panelReach: [],
     plateUses: [{ setupId: "deck", shotId: "01", lane: "main", describes: true, ...use }],
+    plateRecrops: [],
   });
   const found = (stagingStage: StagingStageState) =>
     checkDirection(dir, { stagingStage }).active.filter((f) => f.code === "plate-undescribed");
@@ -706,6 +716,48 @@ describe("plate-undescribed", () => {
 
   it("stays silent with no board to read", () => {
     expect(checkDirection(dir).active.filter((f) => f.code === "plate-undescribed")).toEqual([]);
+  });
+});
+
+describe("plate-recropped", () => {
+  const dir = direction({ shots: [shot("01", "deck", { lineup: [] })] });
+  const recrop = { setupId: "deck", shotId: "01", lane: "main" as const };
+  const state = (plateRecrops: StagingStageState["plateRecrops"]): StagingStageState => ({
+    ...noStage,
+    plateRecrops,
+  });
+  const found = (stagingStage: StagingStageState, d = dir) =>
+    checkDirection(d, { stagingStage }).active.filter((f) => f.code === "plate-recropped");
+
+  it("flags a frame once, naming every keyframe that crops the plate", () => {
+    const findings = found(
+      state([
+        { ...recrop, panel: "animatic:shot.01.first" },
+        { ...recrop, panel: "animatic:shot.01.last" },
+      ]),
+    );
+    expect(findings.map((f) => f.subject)).toEqual(["01"]);
+    expect(findings[0]?.message).toContain("`animatic:shot.01.first`, `animatic:shot.01.last`");
+    expect(findings[0]?.message).toContain('plate "deck"');
+  });
+
+  it("keys a cutin apart from its shot", () => {
+    const findings = found(
+      state([{ ...recrop, lane: "cutin", panel: "animatic:shot.01.cutin.first" }]),
+    );
+    expect(findings.map((f) => f.subject)).toEqual(["01.cutin"]);
+  });
+
+  it("is waived by the frame's key", () => {
+    const waived = direction({
+      shots: [shot("01", "deck", { lineup: [] })],
+      waivers: { "plate-recropped_01": "the window holds everything the setup does" },
+    });
+    expect(found(state([{ ...recrop, panel: "animatic:shot.01.first" }]), waived)).toEqual([]);
+  });
+
+  it("stays silent with no board to read", () => {
+    expect(checkDirection(dir).active.filter((f) => f.code === "plate-recropped")).toEqual([]);
   });
 });
 

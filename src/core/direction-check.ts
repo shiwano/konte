@@ -124,6 +124,7 @@ export type DirectionFindingCode =
   | "character-unconsumed"
   | "slot-order-mismatch"
   | "plate-undescribed"
+  | "plate-recropped"
   // The seam a `continuous` join declares: one take across a shot boundary, so the frame at the end
   // of the one and the start of the next is a single frame — the opening keyframe of the shot that
   // owns the boundary. The two shots must agree on who it holds, and the take before must land on
@@ -1145,6 +1146,8 @@ export function checkLineups(
     // How each developed shot on a plated setup carries its plate's own sentence. Undefined leaves
     // `plate-undescribed` silent.
     plateUses?: readonly PlateUse[];
+    // The keyframes that crop their setup's plate. Undefined leaves `plate-recropped` silent.
+    plateRecrops?: readonly PlateRecrop[];
     // The conditioning text behind each keyframe, in panel order. Undefined leaves `subject-unnamed`
     // silent.
     panelPrompts?: readonly PanelPrompts[];
@@ -1275,6 +1278,7 @@ export function checkLineups(
     );
   }
   if (options.plateUses) findings.push(...checkPlateDescriptions(options.plateUses));
+  if (options.plateRecrops) findings.push(...checkPlateRecrops(options.plateRecrops));
   if (options.panelPrompts) {
     findings.push(
       ...checkSubjectNaming(
@@ -1661,6 +1665,40 @@ function checkPlateDescriptions(uses: readonly PlateUse[]): DirectionFinding[] {
       `its prompt — write the sentence into the keyframe's own prompt, or the frame survives only ` +
       `as long as the model keeps the picture`,
   }));
+}
+
+/**
+ * A keyframe on a plated setup that crops the plate on its way in. Built by the CLI off the board
+ * and handed in, like `PlateUse`.
+ */
+export type PlateRecrop = {
+  setupId: string;
+  shotId: string;
+  lane: FrameLane;
+  panel: string;
+};
+
+// Reported per frame: the shot is what has to move onto a setup of its own.
+function checkPlateRecrops(recrops: readonly PlateRecrop[]): DirectionFinding[] {
+  const byFrame = new Map<string, PlateRecrop[]>();
+  for (const recrop of recrops) {
+    const subject = frameSubject({ id: recrop.shotId, frame: recrop.lane });
+    byFrame.set(subject, [...(byFrame.get(subject) ?? []), recrop]);
+  }
+  return [...byFrame].map(([subject, [first, ...rest]]) => {
+    const panels = [first!, ...rest].map((r) => `\`${r.panel}\``).join(", ");
+    const setupId = first!.setupId;
+    return {
+      code: "plate-recropped" as const,
+      subject,
+      message:
+        `${frameName({ id: first!.shotId, frame: first!.lane })} crops plate "${setupId}" in ` +
+        `${panels} — a window of the plate is a frame setup "${setupId}" does not declare, so its ` +
+        `\`holds\` no longer say what is in it. Declare a setup for that frame, holding what it ` +
+        `shows, and move the shot onto it; one shot alone needs no plate, and stands on a crop of ` +
+        `\`reference:<location>\``,
+    };
+  });
 }
 
 // The keyframe's reference slots against the order the shot declares. The first panel answers for

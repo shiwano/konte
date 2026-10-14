@@ -1013,6 +1013,8 @@ export function listPlateDescriptionUses(
     for (const panel of panels) {
       const chain = chainAddresses([panel], entryOf);
       if (!chain.has(plate)) continue;
+      // A window of the plate is not the plate's frame, so its sentence is not owed (`plate-recropped`).
+      if (recropsPlate(chain, plate, entryOf)) continue;
       plated = true;
       for (const address of chain) {
         if (address === plate || !standsOnPlate(address)) continue;
@@ -1026,6 +1028,73 @@ export function listPlateDescriptionUses(
       lane: frame.lane,
       describes: prompts.some((text) => text.includes(platePrompt)),
     });
+  }
+  return out;
+}
+
+function statedFrameSize(entry: AssetDefinition): { width: number; height: number } | undefined {
+  if (entry.kind !== "local" || entry.operation !== "resize") return parentFrameSize(entry);
+  const { width, height } = entry.inputs;
+  return typeof width === "number" && typeof height === "number" ? { width, height } : undefined;
+}
+
+// A crop on the path from a panel back to its plate — not the plate's own crop of its master, which
+// the plate address itself is, nor one taking the whole of a source whose frame the graph states.
+// With no stated frame the crop stands, as under `plate-unnested`.
+function recropsPlate(
+  chain: ReadonlySet<string>,
+  plate: string,
+  entryOf: (address: string) => AssetDefinition | undefined,
+): boolean {
+  return [...chain].some((address) => {
+    if (address === plate) return false;
+    const entry = entryOf(address);
+    if (entry?.kind !== "local" || entry.operation !== "crop") return false;
+    if (!chainAddresses([address], entryOf).has(plate)) return false;
+    const window = cropWindowOf(entry.inputs);
+    const source = window ? entryOf(window.image) : undefined;
+    const frame = source ? statedFrameSize(source) : undefined;
+    return !(
+      window &&
+      frame &&
+      window.x === 0 &&
+      window.y === 0 &&
+      window.width >= frame.width &&
+      window.height >= frame.height
+    );
+  });
+}
+
+/**
+ * A keyframe on a plated setup that crops the plate on its way in.
+ */
+export type PlateRecrop = {
+  setupId: string;
+  shotId: string;
+  lane: PanelLane;
+  panel: string;
+};
+
+// The plate is the setup's frame, so a window of it is a frame the direction never declared, and
+// the setup's `holds` no longer say what is in it. No generative step is required: a panel that is
+// the crop itself shows the same undeclared frame.
+export function listPlateRecrops(
+  animatic: AnimaticDefinition,
+  frames: readonly BoardFrame[],
+): PlateRecrop[] {
+  const plates = platesOf(animatic);
+  const entryOf = animaticEntryResolver(animatic);
+  const shotById = new Map(animatic.shots.map((shot) => [shot.id, shot]));
+  const out: PlateRecrop[] = [];
+  for (const frame of frames) {
+    const shot = shotById.get(frame.shotId);
+    if (shot === undefined || isPendingAnimaticShot(shot)) continue;
+    if (!(frame.setup in plates)) continue;
+    const plate = formatPlateAssetPath(frame.setup);
+    for (const { assetPath } of lanePanels(shot, frame.lane)) {
+      if (!recropsPlate(chainAddresses([assetPath], entryOf), plate, entryOf)) continue;
+      out.push({ setupId: frame.setup, shotId: shot.id, lane: frame.lane, panel: assetPath });
+    }
   }
   return out;
 }

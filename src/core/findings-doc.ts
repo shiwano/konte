@@ -216,6 +216,10 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     flags: "A shot on a plated setup carries no `plates.<id>.prompt` in its prompt.",
     subject: "setup id",
   },
+  "plate-recropped": {
+    flags: "A keyframe on a plated setup crops the plate, a frame its setup does not declare.",
+    subject: "frame",
+  },
   "landmark-flipped": {
     flags: "Two setups of one location disagree on the left-to-right order of its landmarks.",
     subject: "setup id",
