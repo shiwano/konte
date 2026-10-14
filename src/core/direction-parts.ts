@@ -142,6 +142,7 @@ export type DirectionPartContent =
       // into this shot is. Empty/null on a shot that declares none.
       lineup: readonly string[];
       lineupTo: readonly string[];
+      passing: readonly string[];
       join: "continuous" | "jump-back" | "jump-forward" | null;
       cutin: DirectionCutinContent | null;
     }
@@ -175,6 +176,7 @@ export type DirectionCutinContent = {
   setup: string;
   lineup: readonly string[];
   lineupTo: readonly string[];
+  passing: readonly string[];
   join: "continuous" | "jump-back" | "jump-forward" | null;
 };
 
@@ -184,6 +186,7 @@ function cutinContent(cutin: Cutin | undefined): DirectionCutinContent | null {
         setup: cutin.setup,
         lineup: cutin.lineup ?? [],
         lineupTo: cutin.lineupTo ?? [],
+        passing: cutin.passing ?? [],
         join: cutin.join ?? null,
       }
     : null;
@@ -312,6 +315,7 @@ export function directionPartContents(direction: Direction): Map<string, Directi
                   telop: s.telop ?? [],
                   lineup: s.lineup ?? [],
                   lineupTo: s.lineupTo ?? [],
+                  passing: s.passing ?? [],
                   join: s.join ?? null,
                   cutin: cutinContent(s.cutin),
                 },

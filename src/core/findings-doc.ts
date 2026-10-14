@@ -6,6 +6,7 @@ import {
   type SpendCommand,
   classifyDirectionFinding,
   gatedClasses,
+  findingGatesSpend,
   isDeferredUntilAcceptedFinding,
   findingFixStage,
 } from "./direction.js";
@@ -224,6 +225,15 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     flags: "Two setups of one location disagree on the left-to-right order of its landmarks.",
     subject: "setup id",
   },
+  "passer-unconsumed": {
+    flags: "A video take's input chain does not reach a passing character's reference.",
+    subject: "`<frame>.<characterId>`",
+  },
+  "passer-unnamed": {
+    flags:
+      "A video take's positive prompts omit a passing character's promptDepiction (case-insensitive).",
+    subject: "`<frame>.<characterId>`",
+  },
   "subject-unnamed": {
     flags:
       "No prompt behind a keyframe contains the `promptDepiction` of a subject it frames, verbatim (case-insensitive).",
@@ -333,6 +343,7 @@ function renderFindingsMarkdown(): string {
     "- **Deferred** — silent until the direction is accepted.",
     "- **Fix in `reference.tsx`** — the roster entry is right; a reference asset is missing.",
     "- **Fix in `animatic.tsx`** — the setup is right; its plate or a keyframe's input is missing or misbuilt.",
+    "- **Video spends only** — does not gate animatic work.",
     "- **Type-level** — a literal value is also a type error, so it stops at the startup type-check; a computed value reaches the finding instead.",
   ];
 
@@ -350,9 +361,14 @@ function renderFindingsMarkdown(): string {
         ["Code", "Flags", "Waiver subject", "Notes"],
         inClass.map((code) => {
           const doc = DIRECTION_FINDING_DOCS[code];
-          const notes = [fixNote(code), doc.typeLevel ? "Type-level" : null].filter(
-            (note) => note !== null,
-          );
+          const notes = [
+            fixNote(code),
+            doc.typeLevel ? "Type-level" : null,
+            !findingGatesSpend(code, "generate", "animatic") &&
+            findingGatesSpend(code, "generate", "video")
+              ? "Video spends only"
+              : null,
+          ].filter((note) => note !== null);
           return [`\`${code}\``, doc.flags, doc.subject ?? "—", notes.join(", ") || "—"];
         }),
       ),

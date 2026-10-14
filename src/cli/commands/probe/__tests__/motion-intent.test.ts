@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Direction } from "../../../../core/dsl/direction.js";
-import { shotBoundaries } from "../motion-intent.js";
+import { formatMotionIntent, shotBoundaries } from "../motion-intent.js";
 
 const shot = (id: string, setup: string, extra: Record<string, unknown> = {}) => ({
   id,
@@ -56,5 +56,32 @@ describe("shotBoundaries", () => {
     );
 
     expect(boundaries.size).toBe(0);
+  });
+});
+
+describe("formatMotionIntent", () => {
+  it("prints hinges with set membership and passers beside the action", () => {
+    expect(
+      formatMotionIntent({
+        shotId: "01",
+        action: "cross a gap",
+        boundary: null,
+        moves: [],
+        frames: [
+          {
+            lane: "main",
+            hinge: [
+              { name: "gap", notInSet: true },
+              { name: "bun", notInSet: false },
+            ],
+            passing: ["crow (crow)"],
+          },
+        ],
+      }),
+    ).toEqual([
+      "  action    cross a gap",
+      "  passing   crow (crow)",
+      "  hinge     gap (not in set) | bun",
+    ]);
   });
 });

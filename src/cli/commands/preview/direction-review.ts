@@ -188,6 +188,7 @@ export async function handleGetDirectionState(
         script: [],
         lineup: [],
         lineupTo: [],
+        passing: [],
         join: null,
         cutin: null,
         telop: [...(s.telop ?? [])],
@@ -204,6 +205,7 @@ export async function handleGetDirectionState(
           location: frameOf(s.cutin.setup).location,
           lineup: subjectNames(s.cutin.lineup),
           lineupTo: subjectNames(s.cutin.lineupTo),
+          passing: subjectNames(s.cutin.passing),
           join: s.cutin.join ?? null,
         }
       : null;
@@ -224,6 +226,7 @@ export async function handleGetDirectionState(
       // boundary into this shot is, drawn between the rows rather than inside one.
       lineup: subjectNames(own?.lineup),
       lineupTo: subjectNames(own?.lineupTo),
+      passing: subjectNames(own?.passing),
       join: own?.join ?? null,
       cutin,
       // The shot's unspoken on-screen text. Bare strings — telop carries no speaker to resolve.

@@ -36,6 +36,7 @@ export { defineVideo, soundtrack } from "./builders.js";
 export { respell } from "./respell.js";
 export {
   defineDirection,
+  deriveShotHinges,
   defineLens,
   isAsideShot,
   isGraphicShot,

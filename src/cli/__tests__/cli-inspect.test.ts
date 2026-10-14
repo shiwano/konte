@@ -126,6 +126,39 @@ describe("inspect --prompts", () => {
     );
   });
 
+  it("prints action hinges and passing characters", async () => {
+    const file = path.join(projectDir, "direction.ts");
+    const source = (await fs.readFile(file, "utf8"))
+      .replace(
+        "Plan the story — the creator sketches each shot in the animatic.",
+        "the creator crosses the mark",
+      )
+      .replace(
+        'setup: "deskWide",\n        lineup: [],',
+        'setup: "deskWide",\n        lineup: [],\n        passing: ["character"],',
+      );
+    await fs.writeFile(file, source);
+    const { stdout } = await run(["inspect", "video:shot.01.motion", "--prompts"], projectDir);
+    expect(stdout).toContain("passing: the creator (character)");
+    expect(stdout).toContain("hinge: the mark");
+  });
+
+  it("marks an action landmark outside its set", async () => {
+    const file = path.join(projectDir, "direction.ts");
+    const source = (await fs.readFile(file, "utf8"))
+      .replace(
+        "Plan the story — the creator sketches each shot in the animatic.",
+        "the creator crosses the mark",
+      )
+      .replace(
+        'framing: "wide",\n      holds: ["studioMark"],',
+        'framing: "insert",\n      holds: [],',
+      );
+    await fs.writeFile(file, source);
+    const { stdout } = await run(["inspect", "video:shot.01.motion", "--prompts"], projectDir);
+    expect(stdout).toContain("hinge: the mark (not in set)");
+  });
+
   it("states what the shot lands above its prompts", async () => {
     const { stdout } = await run(["inspect", "video:shot.01.motion", "--prompts"], projectDir);
     expect(stdout).toContain(

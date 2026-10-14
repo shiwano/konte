@@ -826,6 +826,32 @@ describe("the direction edit step names the file the fix belongs in", () => {
     expect(description).not.toContain("Resolve the direction errors");
   });
 
+  it("keeps offering animatic generation while only video passer findings stand", () => {
+    const actions = suggestForStatus({
+      state: makeState({}),
+      directionBlock: {
+        findingCodes: ["passer-unconsumed", "passer-unnamed"],
+        hasStructureErrors: false,
+      },
+      readiness: [
+        readinessFor("animatic", ["shot.01.first"]),
+        readinessFor("video", ["shot.01.motion"]),
+      ],
+    });
+    expect(actions).toContainEqual({ command: "konte generate animatic" });
+    expect(actions).not.toContainEqual({ command: "konte generate video" });
+  });
+
+  it("sends passer findings to video.tsx", () => {
+    const description = editStep({
+      findingCodes: ["passer-unconsumed", "passer-unnamed"],
+      hasStructureErrors: false,
+    });
+    expect(description).toContain("video.tsx");
+    expect(description).toContain("findings below");
+    expect(description).not.toContain("Resolve the direction errors");
+  });
+
   it("gives one step per file when the findings split across files, direction first", () => {
     const steps = editSteps({
       state: makeState({}),

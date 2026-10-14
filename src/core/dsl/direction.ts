@@ -324,6 +324,7 @@ export type NarrativeShot = Omit<
   // held and this one does not has walked out of it, so their place stops being known until a later
   // frame holds them again; the shots after read against what this shot left behind.
   lineupTo?: readonly string[];
+  passing?: readonly string[];
   // What the boundary INTO this shot is, so the shot after a boundary owns it.
   //
   // Omitted is an ordinary cut with story time running on. `jump-back` and `jump-forward` are cuts
@@ -355,6 +356,7 @@ export type Cutin = {
   setup: string;
   lineup: readonly string[];
   lineupTo?: readonly string[];
+  passing?: readonly string[];
   join?: "continuous" | "jump-back" | "jump-forward";
 };
 
@@ -363,7 +365,10 @@ export type Cutin = {
 // camera view has (`setup`, `lineup`, `lineupTo`, `join`), so every spatial check passes over it.
 // Its picture is built whole in the animatic's composition and placed again by the video; a
 // character on screen is a `cutin` over it, never part of the graphic.
-export type GraphicShot = Omit<NarrativeShot, "kind" | "setup" | "lineup" | "lineupTo" | "join"> & {
+export type GraphicShot = Omit<
+  NarrativeShot,
+  "kind" | "setup" | "lineup" | "lineupTo" | "passing" | "join"
+> & {
   kind: "graphic";
   cutin?: Cutin;
 };
@@ -521,6 +526,7 @@ type NarrativeShotShape = {
   // element at its own position.
   lineup: readonly string[];
   lineupTo?: readonly string[];
+  passing?: readonly string[];
   join?: "continuous" | "jump-back" | "jump-forward";
   cutin?: CutinShape;
 };
@@ -528,6 +534,7 @@ type CutinShape = {
   setup: string;
   lineup: readonly string[];
   lineupTo?: readonly string[];
+  passing?: readonly string[];
   join?: "continuous" | "jump-back" | "jump-forward";
 };
 // The camera fields a graphic shot does not have are `never` rather than merely absent: a const
@@ -546,6 +553,7 @@ type GraphicShotShape = {
   setup?: never;
   lineup?: never;
   lineupTo?: never;
+  passing?: never;
   join?: never;
 };
 type AsideShotShape = {
@@ -692,6 +700,22 @@ type ConstrainLineupTo<F, LT> = F extends { lineup: infer L extends readonly str
   : unknown;
 // The two lineup positions of one frame, re-blamed per element. A main frame and a cutin carry the
 // same pair.
+type FrameEndpointIds<F> =
+  | (F extends { lineup: readonly (infer I extends string)[] } ? I : never)
+  | (F extends { lineupTo: readonly (infer I extends string)[] } ? I : never);
+type ConstrainPassing<F, P, Subjects extends string> = {
+  [K in keyof P]: P[K] extends string
+    ? string extends P[K]
+      ? P[K]
+      : P[K] extends Subjects
+        ? string extends FrameEndpointIds<F>
+          ? P[K]
+          : P[K] extends FrameEndpointIds<F>
+            ? DirectionViolation<"konte: a passing character is absent from both `lineup` and `lineupTo`">
+            : P[K]
+        : DirectionViolation<`konte: "${P[K]}" is not a declared character`>
+    : P[K];
+};
 type ConstrainFrameLineups<F, Subjects extends string> = (F extends {
   lineup: infer L extends readonly string[];
 }
@@ -699,7 +723,8 @@ type ConstrainFrameLineups<F, Subjects extends string> = (F extends {
   : unknown) &
   (F extends { lineupTo: infer L extends readonly string[] }
     ? { lineupTo: ConstrainLineup<L, Subjects> } & ConstrainLineupTo<F, L>
-    : unknown);
+    : unknown) &
+  (F extends { passing: infer P } ? { passing: ConstrainPassing<F, P, Subjects> } : unknown);
 
 // A shot's span is a window the render cuts the take to, so it lands on the 0.5s grid every legal
 // fps divides whole. Read off the literal's decimal digits — a type does no arithmetic — so a
@@ -867,7 +892,7 @@ type ConstrainShotIds<
   Shots,
   Clocked extends boolean,
 > = {
-  [K in keyof Arr]: Omit<Arr[K], "id" | "lineup" | "lineupTo" | "cutin"> & {
+  [K in keyof Arr]: Omit<Arr[K], "id" | "lineup" | "lineupTo" | "passing" | "cutin"> & {
     id: ValidatedIdentifier<Arr[K] extends { id: infer I extends string } ? I : never>;
   } & ConstrainFrameLineups<Arr[K], Subjects> &
     ConstrainSpan<Arr[K], Clocked> &
@@ -877,7 +902,7 @@ type ConstrainShotIds<
     ConstrainJoin<Arr[K], Shots> &
     ConstrainCutinJoin<Arr[K], Shots> &
     (Arr[K] extends { cutin: infer C }
-      ? { cutin: Omit<C, "lineup" | "lineupTo"> & ConstrainFrameLineups<C, Subjects> }
+      ? { cutin: Omit<C, "lineup" | "lineupTo" | "passing"> & ConstrainFrameLineups<C, Subjects> }
       : unknown);
 };
 // Preserve the full node (so the sibling-array covariance check still sees every field) and override
@@ -1100,6 +1125,26 @@ type LyricSingerIdsOf<L> = L extends readonly (infer S)[]
 // The shot ids this direction declares, flattened across the arc tree in direction order.
 export type ShotIdOf<D> = DirectionIdTuple<D>[number];
 
+export function deriveShotHinges(
+  direction: Direction,
+  action: string,
+  setupId: string,
+): { name: string; notInSet: boolean }[] {
+  const setup = direction.setups?.[setupId];
+  const landmarks = setup ? (direction.locations?.[setup.location]?.landmarks ?? {}) : {};
+  return [
+    ...Object.entries(landmarks)
+      .filter(([, landmark]) => action.includes(landmark.name))
+      .map(([id, landmark]) => ({
+        name: landmark.name,
+        notInSet: !(setup?.holds ?? []).includes(id),
+      })),
+    ...Object.values(direction.props ?? {})
+      .filter((prop) => action.includes(prop.name))
+      .map((prop) => ({ name: prop.name, notInSet: false })),
+  ];
+}
+
 // The resolved direction, indexed by shot id. `defineDirection` walks the arc tree once and stamps this
 // onto the entry; `defineAnimatic`/`defineVideo` read it (via `getDirectionIndex`) to mint their
 // stage-bound `shot` starters, injecting each shot's duration/action/setup/framing/location/script
@@ -1120,6 +1165,7 @@ export interface DirectionIndex {
   // piece cut to its song while no take of it is read (see `shotDurationOf`).
   durationById: Map<string, number | null>;
   actionById: Map<string, string>;
+  hingeById: Map<string, ReturnType<typeof deriveShotHinges>>;
   setupById: Map<string, string>;
   // Resolved through the shot's setup rather than declared per shot, and kept as their own maps so
   // every reader (the shot contexts, the arc checker's items) reads one already-resolved value.
@@ -2072,6 +2118,7 @@ export function defineDirection<const D extends DirectionInput>(
 ): DirectionEntry<D> {
   const durationById = new Map<string, number | null>();
   const actionById = new Map<string, string>();
+  const hingeById: DirectionIndex["hingeById"] = new Map();
   const framingById = new Map<string, Framing>();
   const locationById = new Map<string, string>();
   const scriptById = new Map<string, readonly ScriptLine[]>();
@@ -2112,6 +2159,7 @@ export function defineDirection<const D extends DirectionInput>(
     scriptById.set(s.id, s.script ?? []);
     if (s.cutin) {
       cutinById.set(s.id, s.cutin);
+      hingeById.set(`${s.id}.cutin`, deriveShotHinges(dir, s.action, s.cutin.setup));
       const setup = (dir.setups ?? {})[s.cutin.setup];
       if (setup) cutinFrameById.set(s.id, { framing: setup.framing, location: setup.location });
     }
@@ -2120,6 +2168,7 @@ export function defineDirection<const D extends DirectionInput>(
       return;
     }
     setupById.set(s.id, s.setup);
+    hingeById.set(s.id, deriveShotHinges(dir, s.action, s.setup));
     const setup = (dir.setups ?? {})[s.setup];
     if (setup) {
       framingById.set(s.id, setup.framing);
@@ -2186,6 +2235,7 @@ export function defineDirection<const D extends DirectionInput>(
     },
     durationById,
     actionById,
+    hingeById,
     setupById,
     framingById,
     locationById,

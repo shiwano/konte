@@ -753,13 +753,25 @@ function ShotRow({
         <td className="dir-col-lineup">
           {shot.lineup.length > 0 && <Lineup names={shot.lineup} />}
           {shot.lineupTo.length > 0 && <Lineup names={shot.lineupTo} exit />}
-          {shot.cutin && (shot.cutin.lineup.length > 0 || shot.cutin.lineupTo.length > 0) && (
+          {shot.passing.length > 0 && (
             <span className="dir-cutin">
-              <span className="dir-cutin-label">cutin</span>
-              {shot.cutin.lineup.length > 0 && <Lineup names={shot.cutin.lineup} />}
-              {shot.cutin.lineupTo.length > 0 && <Lineup names={shot.cutin.lineupTo} exit />}
+              <span className="dir-cutin-label">passing</span>
+              {shot.passing.join(" · ")}
             </span>
           )}
+          {shot.cutin &&
+            (shot.cutin.lineup.length > 0 ||
+              shot.cutin.lineupTo.length > 0 ||
+              shot.cutin.passing.length > 0) && (
+              <span className="dir-cutin">
+                <span className="dir-cutin-label">cutin</span>
+                {shot.cutin.lineup.length > 0 && <Lineup names={shot.cutin.lineup} />}
+                {shot.cutin.lineupTo.length > 0 && <Lineup names={shot.cutin.lineupTo} exit />}
+                {shot.cutin.passing.length > 0 && (
+                  <span>passing: {shot.cutin.passing.join(" · ")}</span>
+                )}
+              </span>
+            )}
         </td>
         <td className="dir-col-dur">
           <Span seconds={shot.duration} beats={shot.beats} />

@@ -419,7 +419,7 @@ function shotRosterTargets(direction: Direction, shot: ArcShot): string[] {
     if (location) out.add(formatDirectionLocationAddress(location));
   }
   for (const f of frames) {
-    for (const id of [...(f.lineup ?? []), ...(f.lineupTo ?? [])]) {
+    for (const id of [...(f.lineup ?? []), ...(f.lineupTo ?? []), ...(f.passing ?? [])]) {
       out.add(formatDirectionCharacterAddress(id));
     }
   }

@@ -38,6 +38,7 @@ import {
   listSetupNestGaps,
   listShotContinuity,
   listVideoShotPins,
+  listVideoPasserInputs,
   type DependencyGraph,
 } from "../core/graph.js";
 import type { AnimaticSetupState } from "../core/direction-check.js";
@@ -542,12 +543,12 @@ export async function loadStagingStageState(
   const animatic = await loadAnimatic(videoRoot).catch(() => null);
   if (!animatic) return undefined;
   const frames = collectShotFrames(direction);
-  // video.tsx is read for the seams alone, so it is read only when the direction declares one —
-  // otherwise every status/doctor pass would evaluate the whole video stage for nothing.
   const seams = frames.some((f) => f.join === "continuous");
-  const video = seams
-    ? await loadVideoDefinition(stageEntryPath(videoRoot, "video")).catch(() => null)
-    : null;
+  const passers = frames.some((f) => (f.passing?.length ?? 0) > 0);
+  const video =
+    seams || passers
+      ? await loadVideoDefinition(stageEntryPath(videoRoot, "video")).catch(() => null)
+      : null;
   return {
     panelSlots: listPanelReferenceSlots(animatic),
     panelReach: listPanelReferenceReach(animatic),
@@ -556,6 +557,13 @@ export async function loadStagingStageState(
     panelPrompts: listPanelPromptText(animatic),
     platePrompts: animatic.platePrompts ?? {},
     videoPins: video ? listVideoShotPins(video, (id) => harvestShotPictureCues(video, id)) : [],
+    ...(passers && video
+      ? {
+          videoPassers: listVideoPasserInputs(video, animatic, (id) =>
+            harvestShotPictureCues(video, id),
+          ),
+        }
+      : {}),
     shotPanels: listShotContinuity(animatic),
   };
 }

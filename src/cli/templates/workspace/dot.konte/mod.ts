@@ -2706,6 +2706,8 @@ export type DirectionFindingCode =
   | "panel-unlinked"
   | "landmark-flipped"
   | "subject-unnamed"
+  | "passer-unconsumed"
+  | "passer-unnamed"
   | "plate-unnamed"
   | "song-unreferenced"
   | "lyric-unplaced"
@@ -3165,6 +3167,7 @@ export type NarrativeShot = Omit<
   telop?: readonly string[];
   lineup: readonly string[];
   lineupTo?: readonly string[];
+  passing?: readonly string[];
   join?: "continuous" | "jump-back" | "jump-forward";
   cutin?: Cutin;
 };
@@ -3172,9 +3175,13 @@ export type Cutin = {
   setup: string;
   lineup: readonly string[];
   lineupTo?: readonly string[];
+  passing?: readonly string[];
   join?: "continuous" | "jump-back" | "jump-forward";
 };
-export type GraphicShot = Omit<NarrativeShot, "kind" | "setup" | "lineup" | "lineupTo" | "join"> & {
+export type GraphicShot = Omit<
+  NarrativeShot,
+  "kind" | "setup" | "lineup" | "lineupTo" | "passing" | "join"
+> & {
   kind: "graphic";
   cutin?: Cutin;
 };
@@ -3237,6 +3244,7 @@ export type NarrativeShotShape = {
   telop?: readonly string[];
   lineup: readonly string[];
   lineupTo?: readonly string[];
+  passing?: readonly string[];
   join?: "continuous" | "jump-back" | "jump-forward";
   cutin?: CutinShape;
 };
@@ -3244,6 +3252,7 @@ export type CutinShape = {
   setup: string;
   lineup: readonly string[];
   lineupTo?: readonly string[];
+  passing?: readonly string[];
   join?: "continuous" | "jump-back" | "jump-forward";
 };
 export type GraphicShotShape = {
@@ -3259,6 +3268,7 @@ export type GraphicShotShape = {
   setup?: never;
   lineup?: never;
   lineupTo?: never;
+  passing?: never;
   join?: never;
 };
 export type AsideShotShape = {
@@ -3389,6 +3399,30 @@ export type ConstrainLineupTo<F, LT> = F extends {
           : unknown
         : unknown
   : unknown;
+export type FrameEndpointIds<F> =
+  | (F extends {
+      lineup: readonly (infer I extends string)[];
+    }
+      ? I
+      : never)
+  | (F extends {
+      lineupTo: readonly (infer I extends string)[];
+    }
+      ? I
+      : never);
+export type ConstrainPassing<F, P, Subjects extends string> = {
+  [K in keyof P]: P[K] extends string
+    ? string extends P[K]
+      ? P[K]
+      : P[K] extends Subjects
+        ? string extends FrameEndpointIds<F>
+          ? P[K]
+          : P[K] extends FrameEndpointIds<F>
+            ? DirectionViolation<"konte: a passing character is absent from both `lineup` and `lineupTo`">
+            : P[K]
+        : DirectionViolation<`konte: "${P[K]}" is not a declared character`>
+    : P[K];
+};
 export type ConstrainFrameLineups<F, Subjects extends string> = (F extends {
   lineup: infer L extends readonly string[];
 }
@@ -3402,6 +3436,13 @@ export type ConstrainFrameLineups<F, Subjects extends string> = (F extends {
     ? {
         lineupTo: ConstrainLineup<L, Subjects>;
       } & ConstrainLineupTo<F, L>
+    : unknown) &
+  (F extends {
+    passing: infer P;
+  }
+    ? {
+        passing: ConstrainPassing<F, P, Subjects>;
+      }
     : unknown);
 export type ConstrainDuration<B> = B extends {
   kind: "aside";
@@ -3593,7 +3634,7 @@ export type ConstrainShotIds<
   Shots,
   Clocked extends boolean,
 > = {
-  [K in keyof Arr]: Omit<Arr[K], "id" | "lineup" | "lineupTo" | "cutin"> & {
+  [K in keyof Arr]: Omit<Arr[K], "id" | "lineup" | "lineupTo" | "passing" | "cutin"> & {
     id: ValidatedIdentifier<
       Arr[K] extends {
         id: infer I extends string;
@@ -3612,7 +3653,7 @@ export type ConstrainShotIds<
       cutin: infer C;
     }
       ? {
-          cutin: Omit<C, "lineup" | "lineupTo"> & ConstrainFrameLineups<C, Subjects>;
+          cutin: Omit<C, "lineup" | "lineupTo" | "passing"> & ConstrainFrameLineups<C, Subjects>;
         }
       : unknown);
 };
@@ -3889,6 +3930,14 @@ export type LyricSingerIdsOf<L> = L extends readonly (infer S)[]
     : never
   : never;
 export type ShotIdOf<D> = DirectionIdTuple<D>[number];
+export declare function deriveShotHinges(
+  direction: Direction,
+  action: string,
+  setupId: string,
+): {
+  name: string;
+  notInSet: boolean;
+}[];
 export interface DirectionIndex {
   format: ResolvedDirectionFormat;
   typography: Typography;
@@ -3896,6 +3945,7 @@ export interface DirectionIndex {
   lyrics: LyricPlacementEntry[] | null;
   durationById: Map<string, number | null>;
   actionById: Map<string, string>;
+  hingeById: Map<string, ReturnType<typeof deriveShotHinges>>;
   setupById: Map<string, string>;
   framingById: Map<string, Framing>;
   locationById: Map<string, string>;

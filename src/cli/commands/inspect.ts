@@ -1,3 +1,4 @@
+import { deriveShotHinges } from "../../core/dsl/direction.js";
 import type { Command } from "commander";
 import {
   isOverlayAddress,
@@ -1178,6 +1179,8 @@ function platesUnderScope(
 // video with no direction.ts prints prompts alone.
 interface PromptShots {
   action: Map<string, string>;
+  hinge: Map<string, ReturnType<typeof deriveShotHinges>>;
+  passing: Map<string, readonly string[]>;
   span: Map<string, string>;
   lineup: Map<string, { lineup: readonly string[]; lineupTo: readonly string[] | null }>;
   // What the shot's frame carries of its set, left to right — the setup's `holds`, resolved to the
@@ -1245,6 +1248,8 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
     }));
   };
   const action = new Map<string, string>();
+  const hinge: PromptShots["hinge"] = new Map();
+  const passing: PromptShots["passing"] = new Map();
   const span = new Map<string, string>();
   const timeline = resolveDirectionTimeline(direction);
   const timings = timeline.timings;
@@ -1260,6 +1265,8 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
       ),
     );
     if (shot.cutin) {
+      hinge.set(`${shot.id}.cutin`, deriveShotHinges(direction, shot.action, shot.cutin.setup));
+      passing.set(`${shot.id}.cutin`, shot.cutin.passing ?? []);
       cutin.set(shot.id, {
         setup: shot.cutin.setup,
         lineup: shot.cutin.lineup ?? [],
@@ -1270,6 +1277,8 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
     }
     if (!isGraphicShot(shot)) {
       setup.set(shot.id, shot.setup);
+      hinge.set(shot.id, deriveShotHinges(direction, shot.action, shot.setup));
+      passing.set(shot.id, shot.passing ?? []);
       if (shot.join) join.set(shot.id, shot.join);
       if (shot.lineup) {
         lineup.set(shot.id, { lineup: shot.lineup, lineupTo: shot.lineupTo ?? null });
@@ -1289,7 +1298,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
     }));
     if (lines.length > 0) script.set(shot.id, lines);
   }
-  return { action, span, lineup, set, setup, join, within, cutin, script, label };
+  return { action, hinge, passing, span, lineup, set, setup, join, within, cutin, script, label };
 }
 
 function shotIdOfAddress(address: string): string | null {
@@ -1362,10 +1371,18 @@ function promptShotLines(
     const to = declared.lineupTo ? ` → ${order(declared.lineupTo)}` : "";
     out.push(`lineup: ${order(declared.lineup)}${to}`);
   }
+  const frameId = cutin ? `${shotId}.cutin` : shotId;
+  const passers = promptShots.passing.get(frameId);
+  if (passers?.length) out.push(`passing: ${order(passers)}`);
   // An insert holds nothing, so there is no line to print — the
   // empty list, which says "this frame holds nothing" rather than "no set was read".
   const held = cutin ? undefined : promptShots.set.get(shotId);
   if (held && held.length > 0) out.push(`set: ${held.map((l) => l.label).join(" | ")}`);
+  const hinges = promptShots.hinge.get(frameId);
+  if (hinges?.length)
+    out.push(
+      `hinge: ${hinges.map((h) => `${h.name}${h.notInSet ? " (not in set)" : ""}`).join(" | ")}`,
+    );
   for (const line of voicedLines(
     occurrences,
     promptShots.script.get(shotId) ?? [],

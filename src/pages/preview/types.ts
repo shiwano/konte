@@ -486,6 +486,7 @@ export interface DirectionShotInfo extends DirectionPartInfo {
   // not change inside the shot.
   lineup: string[];
   lineupTo: string[];
+  passing: string[];
   // What the boundary into this shot is — `continuous` for one unbroken take across it, `jump-back`
   // into a flashback, `jump-forward` out of one or past a gap. Null is an ordinary cut. Drawn
   // between the rows, since it is about the boundary rather than the shot.
@@ -498,6 +499,7 @@ export interface DirectionShotInfo extends DirectionPartInfo {
     location: string | null;
     lineup: string[];
     lineupTo: string[];
+    passing: string[];
     join: "continuous" | "jump-back" | "jump-forward" | null;
   } | null;
   // The shot's unspoken on-screen text (titles, lower thirds, speaker-less captions). Bare strings:

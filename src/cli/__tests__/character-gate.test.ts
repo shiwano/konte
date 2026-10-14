@@ -72,6 +72,32 @@ describe("unsatisfiedCharacters", () => {
     expect(unsatisfied.map((c) => c.id)).toEqual(["hero"]);
   });
 
+  it("requires acceptance for a character passing through a shot", async () => {
+    const direction = directionWith(["hero"], ["crow"]);
+    direction.sequence.shots![0] = {
+      ...direction.sequence.shots![0]!,
+      passing: ["crow"],
+    } as NonNullable<Direction["sequence"]["shots"]>[number];
+    accept("hero");
+    await expect(
+      assertCharactersAccepted({
+        videoRoot: dir,
+        manager,
+        direction,
+        reference: referenceWith({ hero: "comfy", crow: "comfy" }),
+      }),
+    ).rejects.toMatchObject({ code: "CHARACTER_ACCEPTANCE_REQUIRED" });
+    accept("crow");
+    await expect(
+      assertCharactersAccepted({
+        videoRoot: dir,
+        manager,
+        direction,
+        reference: referenceWith({ hero: "comfy", crow: "comfy" }),
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it("clears a generative character once it has an accepted variant", async () => {
     accept("hero");
     const unsatisfied = await unsatisfiedCharacters({

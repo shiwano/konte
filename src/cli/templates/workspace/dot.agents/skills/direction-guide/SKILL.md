@@ -49,6 +49,8 @@ user-invocable: false
 
 ### Writing the shots
 
+- **Write an action's relied-on landmark or prop with its exact roster `name`.**
+
 - **One action per shot — one sentence, one mover, one motion** — a second sentence, a second mover, or a then-pivot is the next shot's `action`. Test: **if it splits into two sentences that each still stage something, it's two shots**. A role is a phase, not a shot count — expect the shot list to outnumber the lens's roles.
 - **A gag or turn is a shot chain, never one shot** — trigger → reaction (→ collateral): the thing that moves (the rolling tureen) gets its own shot before the subject responds, and the reaction shot is often the stronger one. Expand the chain as you draft, never as a later split of one row.
 - **A key action is a chain too — never one take** — anticipation, the motion elided in the cut, the result landed; this and the other idioms are [cut-idioms.md](references/cut-idioms.md).
@@ -63,7 +65,7 @@ user-invocable: false
 - **Run `konte status`** — each finding carries a cause and a waiver key in `[brackets]`; unresolved findings abort `generate` / `reroll` / `export` with `DIRECTION_CHECK_FAILED`. Roster and setup findings are deferred until direction acceptance.
 - **Role, pacing, or roster declaration finding** → fix the named field; an unused roster entry must be used or removed.
 - **Missing reference asset** → `authoring-guide`; expose the named roster id in `reference.tsx`.
-- **Plate, landmark, keyframe input or prompt finding** → `staging-guide`; fix the named animatic asset.
+- **Plate, landmark, keyframe input or prompt finding** → `staging-guide`; fix the named animatic asset; `passer-unconsumed` / `passer-unnamed` name a video take.
 - **Deliberate structural exception** → copy the bracketed key into the direction's top-level `waivers` with a reason. Never waive a fixable defect; remove stale waivers reported by status.
 
 ## Pacing — rhythm, not uniform length

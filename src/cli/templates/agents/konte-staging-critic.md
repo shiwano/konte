@@ -9,7 +9,7 @@ The caller gives you one thing: the **shot ids** under review. Findings land onl
 
 ## Read only this
 
-- `konte inspect animatic:shot.<id> --prompts`, for each id and for the shot before and after it — each panel's prompt, and above it the shot's `action:`, `join:`, `lineup:` and `set:` lines; its `Keyframes:` block names the addresses behind each panel, and its `plate:` line the plate the panel stands on — that line, never the picture, says which plate it is.
+- `konte inspect animatic:shot.<id> --prompts`, for each id and for the shot before and after it — each panel's prompt, and above it the shot's `action:`, `join:`, `lineup:`, `passing:`, `set:` and `hinge:` lines; its `Keyframes:` block names the addresses behind each panel, and its `plate:` line the plate the panel stands on — that line, never the picture, says which plate it is.
 - `konte probe contact-sheet animatic:plate` — the plates. Look at the one each panel stands on.
 - `konte probe contact-sheet animatic:shot.<id>` for a neighbouring shot that already holds a take — the frame the cut comes from or goes to.
 
@@ -49,9 +49,9 @@ Report `No findings.` alone when nothing survives; otherwise every finding kept,
 ## Axes
 
 - **Composition left to the model** (`lineup-only`) — the prompt says only who is on which side; it decides nothing about facing, what fills the frame they leave open, or what is nearest the lens.
-- **Composition against the action** (`hides-action`) — what the `action` hinges on is not where the eye lands: small, at an edge, turned away, or behind another figure.
+- **Composition against the action** (`hides-action`) — a `hinge:` is peripheral, hidden, too small to warrant the action, off-path or implausibly placed.
 - **Flat run** (`flat-run`) — adjacent panels repeat the same size, camera height, placement and facing with no job and no `join:` between them, or a run of panels uses one formula throughout.
-- **Screen direction** (`direction-break`) — a figure's side or facing flips across a cut with no move written for it and no `jump-back` / `jump-forward` `join:` into it, or a gaze does not meet what it looks at in the neighbouring shot.
+- **Screen direction** (`direction-break`) — a figure's side or facing flips across a cut with no move written for it and no `jump-back` / `jump-forward` `join:` into it, or a gaze does not meet what it looks at in the neighbouring shot, or hand side/grip disagrees.
 - **Plate clash** (`set-clash`) — the prompt puts a figure where the plate's landmark stands, or asks for a part of the place the plate does not show.
 - **Camera the plate lacks** (`off-plate-camera`) — the prompt names a size or camera height the plate does not have: a figure from the waist up on a plate at full-figure scale, "from low on the ground" on a plate at eye level.
 - **Contradiction** (`contradiction`) — two parts of the panel's prompt place or turn the same figure differently.

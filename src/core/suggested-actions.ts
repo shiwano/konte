@@ -6,7 +6,7 @@ import {
 } from "./address.js";
 import type { AnimaticOverflow } from "./animatic-overflow.js";
 import type { DirectionFindingCode } from "./direction-check.js";
-import { type FindingFixStage, findingFixStage } from "./direction.js";
+import { type FindingFixStage, findingFixStage, findingGatesSpend } from "./direction.js";
 import { isVariantStale, type StalenessCache } from "./staleness.js";
 import { ERROR_GLIMPSE_WIDTH, truncateSingleLine } from "./truncate.js";
 import type { UnmetPrerequisite } from "./review-prerequisites.js";
@@ -428,8 +428,9 @@ function prependDirectionFindings(
     direction: `Resolve the direction errors and findings below in ${STAGE_ENTRY_FILE.direction} — fix each, or waive a finding by its key`,
     reference: `Expose the missing reference assets in ${STAGE_ENTRY_FILE.reference} — one per finding below, ${waive}`,
     animatic: `Build the plates and keyframe inputs the setup findings below ask for in ${STAGE_ENTRY_FILE.animatic}, ${waive}`,
+    video: `Wire and name the passing characters the findings below ask for in ${STAGE_ENTRY_FILE.video}, ${waive}`,
   };
-  const order: readonly FindingFixStage[] = ["direction", "reference", "animatic"];
+  const order: readonly FindingFixStage[] = ["direction", "reference", "animatic", "video"];
   actions.unshift(
     ...order
       .filter((stage) => stages.has(stage))
@@ -657,10 +658,7 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   // reference stage returns before all three, being where the cast is made. Suggesting a command
   // that would abort is worse than suggesting nothing, so the same gate decides what is offered.
   const cast = input.unacceptedCast ?? [];
-  const gated =
-    input.directionBlock !== undefined ||
-    input.directionReviewNeeded === true ||
-    cast.some((c) => c.blocks === "all");
+  const gated = input.directionReviewNeeded === true || cast.some((c) => c.blocks === "all");
   // Either creative stage aborts with ANIMATIC_/REFERENCE_ACCEPTANCE_REQUIRED while upstream work
   // it consumes is unaccepted; the video stage has one gate more, VOICE_ACCEPTANCE_REQUIRED while a
   // cast voice sample is, so those suggestions are held back too.
@@ -674,7 +672,16 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   const classBlocked = input.classBlockedStages ?? [];
   const classBlockedStages = new Set(classBlocked.map((c) => c.stage));
   const reviewClassBlocked = new Set(classBlocked.filter((c) => c.review).map((c) => c.stage));
+  const directionBlocked = (s: string) => {
+    const block = input.directionBlock;
+    if (!block || (s !== "animatic" && s !== "video")) return false;
+    return (
+      block.hasStructureErrors ||
+      block.findingCodes.some((code) => findingGatesSpend(code, "generate", s))
+    );
+  };
   const stageBlocked = (s: string) =>
+    directionBlocked(s) ||
     (gated && s !== "reference") ||
     upstreamBlocked.has(s) ||
     promptBlocked.has(s) ||

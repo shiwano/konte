@@ -96,7 +96,13 @@ function projectShot(shot: Shot): unknown {
     return { ...(projectShotShape(shot) as object), label: shot.label, telop: shot.telop ?? [] };
   }
   const cutinLineup = shot.cutin
-    ? { cutinLineup: { lineup: shot.cutin.lineup ?? [], lineupTo: shot.cutin.lineupTo ?? [] } }
+    ? {
+        cutinLineup: {
+          lineup: shot.cutin.lineup ?? [],
+          lineupTo: shot.cutin.lineupTo ?? [],
+          passing: [...(shot.cutin.passing ?? [])].sort(),
+        },
+      }
     : {};
   if (isGraphicShot(shot)) {
     return {
@@ -117,6 +123,7 @@ function projectShot(shot: Shot): unknown {
     // `acting` needs no line of its own — it is inside `script`.
     lineup: shot.lineup ?? [],
     lineupTo: shot.lineupTo ?? [],
+    passing: [...(shot.passing ?? [])].sort(),
     ...cutinLineup,
   };
 }

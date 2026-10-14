@@ -1,6 +1,6 @@
 import { parseAddress, patchSourceVariantIdOf } from "../../../core/address.js";
 import { collectArcShots, collectShotFrames, type ShotFrame } from "../../../core/direction.js";
-import type { Direction } from "../../../core/dsl/direction.js";
+import { deriveShotHinges, type Direction } from "../../../core/dsl/direction.js";
 import type { StateManager } from "../../../core/state/index.js";
 import type { AnimaticDefinition } from "../../../core/types/index.js";
 import { loadAnimatic } from "../../../core/loader.js";
@@ -24,6 +24,11 @@ interface MotionIntent {
   action: string | null;
   boundary: ShotBoundary | null;
   moves: MotionMove[];
+  frames?: {
+    lane: ShotFrame["lane"];
+    hinge: ReturnType<typeof deriveShotHinges>;
+    passing: string[];
+  }[];
 }
 
 // Keyed by shot id, for the shots whose boundary says anything: a declared `join`, or a setup in
@@ -63,12 +68,14 @@ export function createMotionIntentLoader(
 ): (address: string) => Promise<MotionIntent | null> {
   let sources: Promise<{
     actions: Map<string, string>;
+    direction: Direction | null;
     boundaries: Map<string, ShotBoundary>;
     animatic: AnimaticDefinition | null;
   }> | null = null;
 
   const load = (): Promise<{
     actions: Map<string, string>;
+    direction: Direction | null;
     boundaries: Map<string, ShotBoundary>;
     animatic: AnimaticDefinition | null;
   }> => {
@@ -81,7 +88,7 @@ export function createMotionIntentLoader(
         direction ? collectArcShots(direction).map((s) => [s.id, s.action]) : [],
       );
       const boundaries = direction ? shotBoundaries(direction) : new Map<string, ShotBoundary>();
-      return { actions, boundaries, animatic };
+      return { actions, boundaries, animatic, direction };
     })();
     return sources;
   };
@@ -108,7 +115,7 @@ export function createMotionIntentLoader(
       return null;
     }
 
-    const { actions, boundaries, animatic } = await load();
+    const { actions, boundaries, animatic, direction } = await load();
     const shot = animatic?.shots.find((s) => s.id === shotId);
     const panels = [...(shot?.panels ?? []), ...(shot?.cutin?.panels ?? [])];
     const moves = panels
@@ -116,7 +123,22 @@ export function createMotionIntentLoader(
       .filter((move) => move.blocking != null || move.camera != null);
     const action = actions.get(shotId) ?? null;
     if (action == null && moves.length === 0) return null;
-    return { shotId, action, boundary: boundaries.get(shotId) ?? null, moves };
+    const frames = direction ? collectShotFrames(direction).filter((f) => f.shotId === shotId) : [];
+    const frameIntents = frames.map((frame) => ({
+      lane: frame.lane,
+      hinge: deriveShotHinges(direction!, action ?? "", frame.setup),
+      passing: (frame.passing ?? []).map((id) => {
+        const name = direction?.characters?.[id]?.name;
+        return name ? `${name} (${id})` : id;
+      }),
+    }));
+    return {
+      shotId,
+      action,
+      boundary: boundaries.get(shotId) ?? null,
+      moves,
+      frames: frameIntents,
+    };
   };
 }
 
@@ -125,6 +147,15 @@ export function createMotionIntentLoader(
 export function formatMotionIntent(intent: MotionIntent): string[] {
   const lines: string[] = [];
   if (intent.action) lines.push(`  action    ${intent.action}`);
+  for (const frame of intent.frames ?? []) {
+    const suffix = intent.frames!.some((f) => f.lane === "cutin") ? ` (${frame.lane})` : "";
+    if (frame.passing.length)
+      lines.push(`  ${`passing${suffix}`.padEnd(9)} ${frame.passing.join(" | ")}`);
+    if (frame.hinge.length)
+      lines.push(
+        `  ${`hinge${suffix}`.padEnd(9)} ${frame.hinge.map((h) => `${h.name}${h.notInSet ? " (not in set)" : ""}`).join(" | ")}`,
+      );
+  }
   if (intent.boundary?.join) lines.push(`  join      ${intent.boundary.join}`);
   if (intent.boundary?.location) {
     const { from, to } = intent.boundary.location;

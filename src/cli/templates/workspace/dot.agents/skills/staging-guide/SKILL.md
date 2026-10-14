@@ -32,6 +32,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 - **Each panel prompt writes one state of the `action`** — the first panel its first state, the last panel its last.
 - **Give a panel the words its frame needs** — the camera's height and angle, what is nearest the lens and what is furthest.
 - **The eye lands on the action's carrier** — whatever the shot hinges on must be the frame's most salient element (position, contrast, light, motion); if a stranger's eye goes elsewhere first, the staging failed before the prompt.
+- **A hand or limb recurring across adjacent shots has its side and grip written in the panel prompt** — use screen coordinates (`image-left`, the thumb's direction), beyond the body-relative `left hand`.
 - **One strong signifier per idea** — pick the element that says it best and cut action-adjacent extras; each one added dilutes the read.
 - **Subject & purpose** — what the subject wants in this shot decides pose, expression, and gaze. Name a declared character by its exact roster `promptDepiction` and anchor its look on the `reference:<id>` asset (identity prose → `prompt-guide`'s reference preflight).
 - **Name every subject in `ctx.lineup` order** — who the frame holds, left to right, is the direction's (`ctx.lineupTo` the order the shot leaves on); one named place lands nothing, all of them always lands. Add who is nearer the lens where they are not side by side.

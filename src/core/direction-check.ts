@@ -141,6 +141,8 @@ export type DirectionFindingCode =
   // calls it by the name the direction declared.
   | "landmark-flipped"
   | "subject-unnamed"
+  | "passer-unconsumed"
+  | "passer-unnamed"
   | "plate-unnamed"
   // The song's: the song the piece is cut to is not a reference asset, and a lyric line no reading
   // of the take places.

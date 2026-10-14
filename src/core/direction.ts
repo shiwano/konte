@@ -11,6 +11,7 @@ import {
   formatDirectionWaiverAddress,
   type Stage,
 } from "./address.js";
+import { STAGE_ENTRY_FILE } from "./roots.js";
 import { findBuiltinLens } from "./lenses.js";
 import {
   type AnchoredEntityRef,
@@ -145,6 +146,8 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "plate-recropped": "staging",
   "landmark-flipped": "staging",
   "subject-unnamed": "staging",
+  "passer-unconsumed": "staging",
+  "passer-unnamed": "staging",
   "plate-unnamed": "staging",
   "join-lineup-mismatch": "staging",
   "join-unpinned": "staging",
@@ -212,6 +215,8 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "plate-recropped": "shot",
   "landmark-flipped": null,
   "subject-unnamed": "shot",
+  "passer-unconsumed": "shot",
+  "passer-unnamed": "shot",
   "plate-unnamed": null,
   "join-lineup-mismatch": "shot",
   "join-unpinned": "shot",
@@ -226,7 +231,7 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
 // with no reference asset is answered in `reference.tsx`; a setup the board realizes wrongly is
 // answered by its plates and keyframes in `animatic.tsx`. The direction entry naming either is
 // already correct, so it is edited only to waive one. Every other finding is direction-side.
-const FIX_STAGE: Partial<Record<DirectionFindingCode, "reference" | "animatic">> = {
+const FIX_STAGE: Partial<Record<DirectionFindingCode, FindingFixStage>> = {
   "character-unreferenced": "reference",
   "character-voice-unreferenced": "reference",
   "narrator-unreferenced": "reference",
@@ -238,9 +243,11 @@ const FIX_STAGE: Partial<Record<DirectionFindingCode, "reference" | "animatic">>
   "axis-unrealized": "animatic",
   "setup-unconsumed": "animatic",
   "song-unreferenced": "reference",
+  "passer-unconsumed": "video",
+  "passer-unnamed": "video",
 };
 
-export type FindingFixStage = "direction" | "reference" | "animatic";
+export type FindingFixStage = "direction" | "reference" | "animatic" | "video";
 
 export function findingFixStage(code: DirectionFindingCode): FindingFixStage {
   return FIX_STAGE[code] ?? "direction";
@@ -453,6 +460,7 @@ type DirectionErrorCode =
   | "lineup-missing"
   | "lineup-unknown-id"
   | "lineup-duplicate"
+  | "passing-overlap"
   // The join's own contract. Both are definition bugs with no creative reading, so neither is
   // waivable: a boundary where a long take is possible and nothing says whether it is one, and a
   // `continuous` at a boundary no unbroken take could cross.
@@ -535,6 +543,7 @@ export type ShotFrame = {
   setup: string;
   lineup: readonly string[];
   lineupTo?: readonly string[];
+  passing?: readonly string[];
   join?: "continuous" | "jump-back" | "jump-forward";
 };
 
@@ -563,6 +572,7 @@ export function shotFrames(s: ArcShot): ShotFrame[] {
       setup: s.setup,
       lineup: s.lineup,
       ...(s.lineupTo ? { lineupTo: s.lineupTo } : {}),
+      ...(s.passing ? { passing: s.passing } : {}),
       ...(s.join ? { join: s.join } : {}),
     });
   }
@@ -573,6 +583,7 @@ export function shotFrames(s: ArcShot): ShotFrame[] {
       setup: s.cutin.setup,
       lineup: s.cutin.lineup,
       ...(s.cutin.lineupTo ? { lineupTo: s.cutin.lineupTo } : {}),
+      ...(s.cutin.passing ? { passing: s.cutin.passing } : {}),
       ...(s.cutin.join ? { join: s.cutin.join } : {}),
     });
   }
@@ -597,7 +608,11 @@ function collectActions(direction: Direction): string[] {
 
 export function collectFramedCharacterIds(direction: Direction): Set<string> {
   return new Set(
-    collectShotFrames(direction).flatMap((f) => [...(f.lineup ?? []), ...(f.lineupTo ?? [])]),
+    collectShotFrames(direction).flatMap((f) => [
+      ...(f.lineup ?? []),
+      ...(f.lineupTo ?? []),
+      ...(f.passing ?? []),
+    ]),
   );
 }
 
@@ -955,6 +970,13 @@ export type StagingStageState = {
   // not be read — which is the one place stale-waiver detection is imprecise, since the class is
   // marked evaluated by the BOARD: a `join-unpinned` waiver reads stale while the video is broken.
   videoPins: readonly VideoShotPins[];
+  videoPassers?: readonly {
+    shotId: string;
+    lane: PanelLane;
+    refs: readonly string[];
+    texts: readonly string[];
+    generative: boolean;
+  }[];
   // The seam reading: the two keyframes each developed shot answers a boundary with, and what the
   // opening one was handed of the frame before it. `join-unpinned` reads the opening keyframe as
   // the seam of a long take; `panel-unlinked` reads the rest against the `within` declarations.
@@ -1061,7 +1083,48 @@ function checkStaging(
     ...(stage ? checkPlateNaming(plateNamings(direction, stage.platePrompts)) : []),
     ...(stage ? checkJoinPins(shots, stage.videoPins, stage.shotPanels) : []),
     ...(stage ? checkPanelLinks(panelSeams(direction, stage.shotPanels)) : []),
+    ...checkPassers(direction, stage?.videoPassers, referenceAssetNames),
   ];
+}
+
+function checkPassers(
+  direction: Direction,
+  inputs: StagingStageState["videoPassers"],
+  referenceAssetNames?: readonly string[],
+): DirectionFinding[] {
+  if (!inputs) return [];
+  const findings: DirectionFinding[] = [];
+  for (const frame of collectShotFrames(direction)) {
+    const takes = inputs.filter(
+      (input) => input.shotId === frame.shotId && input.lane === frame.lane && input.generative,
+    );
+    if (takes.length === 0) continue;
+    for (const id of frame.passing ?? []) {
+      const subject = `${frameSubject(frame)}.${id}`;
+      if (referenceAssetNames?.includes(id) && takes.some((take) => !take.refs.includes(id))) {
+        findings.push({
+          code: "passer-unconsumed",
+          subject,
+          message: `${frameLabel(frame)} passes "${id}" but a video take's input chain does not reach reference:${id} — pass its character reference to the take`,
+        });
+      }
+      const depiction = direction.characters?.[id]?.promptDepiction;
+      if (
+        depiction?.trim() &&
+        takes.some(
+          (take) =>
+            !take.texts.some((text) => text.toLowerCase().includes(depiction.toLowerCase())),
+        )
+      ) {
+        findings.push({
+          code: "passer-unnamed",
+          subject,
+          message: `${frameLabel(frame)} passes "${id}" but a video take's positive prompts do not contain "${depiction}" (verbatim, case-insensitive) — name the passer by its promptDepiction`,
+        });
+      }
+    }
+  }
+  return findings;
 }
 
 // The word a prompt calls each character by, for the `subject-unnamed` scan. An entry with none is
@@ -1996,6 +2059,7 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
     for (const [field, lineup] of [
       ["lineup", f.lineup],
       ["lineupTo", f.lineupTo],
+      ["passing", f.passing],
     ] as const) {
       if (!lineup) continue;
       const seen = new Set<string>();
@@ -2014,6 +2078,16 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
             code: "lineup-duplicate",
             subject: `${frameSubject(f)}:${subjectId}`,
             message: `${where} lists "${subjectId}" twice in \`${field}\` — one subject stands in one place`,
+          });
+        }
+        if (
+          field === "passing" &&
+          [...(f.lineup ?? []), ...(f.lineupTo ?? [])].includes(subjectId)
+        ) {
+          errors.push({
+            code: "passing-overlap",
+            subject: `${frameSubject(f)}:${subjectId}`,
+            message: `${where} lists "${subjectId}" in passing and an endpoint lineup — a passer is absent at both ends`,
           });
         }
         seen.add(subjectId);
@@ -2498,6 +2572,16 @@ export function gatedClasses(command: SpendCommand, stage: Stage): Set<Direction
   return new Set(base);
 }
 
+export function findingGatesSpend(
+  code: DirectionFindingCode,
+  command: SpendCommand,
+  stage: Stage,
+): boolean {
+  if (stage !== "video" && (code === "passer-unconsumed" || code === "passer-unnamed"))
+    return false;
+  return gatedClasses(command, stage).has(classifyDirectionFinding(code));
+}
+
 // The gate: abort with DIRECTION_CHECK_FAILED when the running command's scope has an unwaived
 // structural problem. Structural definition bugs abort unconditionally; otherwise only the scoped
 // finding classes count, so an untouched downstream stage never blocks an upstream generate.
@@ -2534,13 +2618,13 @@ export function assertDirectionGate(
     );
   }
 
-  const classes = gatedClasses(options.command, options.stage);
-  const blocking = active.filter((f) => classes.has(classifyDirectionFinding(f.code)));
+  const blocking = active.filter((f) => findingGatesSpend(f.code, options.command, options.stage));
   if (blocking.length === 0) return;
+  const files = [...new Set(blocking.map((f) => STAGE_ENTRY_FILE[findingFixStage(f.code)]))];
 
   throw new KonteError(
     "DIRECTION_CHECK_FAILED",
-    `direction has ${blocking.length} unresolved finding(s) — fix direction.ts or add a reason to ` +
+    `direction has ${blocking.length} unresolved finding(s) — fix ${files.join(" / ")} or add a reason to ` +
       "direction.waivers",
     blocking.map((f) => `  [${directionWaiverKey(f)}] ${f.message}`),
   );

@@ -10,7 +10,7 @@ The caller gives you one thing: the **shot ids** under review. Findings land onl
 ## Read only this
 
 - `konte probe motion video:shot.<id>...` — a filmstrip per clip, the time on every tile; any warning on stderr. `--at <sec>` or `--window 0.8` zooms into one moment.
-- `konte probe motion video:shot.<id>... --verbose`, with the shot after — per clip its status, the shot's `action` with the board's `movement` (`blocking`, `camera`), and the boundary into it: a `join`, and a `location` line where the place changes. Step 2, never before.
+- `konte probe motion video:shot.<id>... --verbose`, with the shot after — per clip its status, the shot's `action`, lane-labelled `hinge` and `passing` with the board's `movement` (`blocking`, `camera`), and the boundary into it: a `join`, and a `location` line where the place changes. Step 2, never before.
 - `konte probe contact-sheet animatic:shot.<id>...` — the panels each take was built on.
 - `konte probe contact-sheet video:shot.<id>...`, with the shot before and after — each shot's in and out frame.
 - `konte inspect direction:brief` — `tolerances` and `outOfScope`.
@@ -20,7 +20,7 @@ Nothing else: no stage file, no prompt, no `direction.ts`, no audio probe, no ha
 ## Method
 
 1. **Strip read** — per clip, from the filmstrip alone, one line: who is in frame, what moves and along what path, what the camera does, where the first and last tiles stand, and the second any breakage starts. A static strip with no warning is zoomed before it is called still.
-2. **Compare against the ask** — now read each shot's `action` and `movement`, and its panels. A change the strip never showed, a mover the ask did not name, a camera doing something else, an opening or landing tile that is not its panel: each is a finding with a second.
+2. **Compare against the ask** — now read each shot's `action`, `hinge`, `passing` and `movement`, and its panels. `passing`: absent at endpoints, enters/exits as asked. A missing change, wrong mover or camera, or endpoint unlike its panel is a finding with a second.
 3. **Read the boundaries** — on the video sheet, each out frame against the next in frame, under the `join` and `location` of the shot it leads into.
 
 Write the Strip read as an intermediate message. Your final message — the only thing the caller receives — starts at `Verdict:`.
@@ -39,7 +39,7 @@ Write the Strip read as an intermediate message. Your final message — the only
 
 ## Severity
 
-- `blocking` — `never-moved` (the ask moved and no tile differs), `action-missed` (the change the `action` names is on no tile, or another event is), `wrong-mover` (another figure carries the move, or a figure appears, vanishes or doubles), `camera-off` (the camera does other than `camera` asks, or the picture cuts inside the take), `endpoint-off` (the first or last tile is not the panel it was built on), `morph` (an identity, a hand or an object changing through the tiles), `seam-break` (a costume, prop or set that differs across a boundary — never across a `jump-back` / `jump-forward`, and never the set across a `location` change; across a `continuous` one, any difference between the out frame and the in frame).
+- `blocking` — `never-moved` (the ask moved and no tile differs), `action-missed` (the change the `action` names is on no tile, or another event is, including a declared passage that never happens), `wrong-mover` (wrong mover, unexplained appearance, disappearance or doubling, or a passer at an endpoint; declared passage is exempt), `hinge-lost` (a required `hinge` is absent), `camera-off` (the camera does other than `camera` asks, or the picture cuts inside the take), `endpoint-off` (the first or last tile is not the panel it was built on), `morph` (an identity, a hand or an object changing through the tiles), `seam-break` (changed costume, prop, set, possession, holding hand, eye/mouth state, facing or broken eyeline across an omitted `join` — except time jumps or a set across a `location` change; `continuous`: any out/in difference).
 - `advisory` — `tail-damage` (the last tiles smear), `half-speed` (the action slower than life), `drift` (a camera floating where `camera` asked for a lock, the frame still holding).
 
 The verdict is `revise` if any blocking finding stands, `pass` otherwise.

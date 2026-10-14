@@ -152,6 +152,7 @@ export type { AnimaticRef, AnimaticShotRef } from "./animatic-ref.js";
 export type { Identifier } from "./validate-identifier.js";
 export {
   defineDirection,
+  deriveShotHinges,
   defineLens,
   isAsideShot,
   isGraphicShot,

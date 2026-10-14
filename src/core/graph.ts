@@ -1217,7 +1217,10 @@ function orderedChainAddresses(
 
 // The conditioning text one panel carries. The negative half excludes rather than defines, and a
 // spoken line is words said inside the frame, so neither describes it.
-function positivePromptsAt(animatic: AnimaticDefinition, address: string): string[] {
+function positivePromptsAt(
+  animatic: Pick<AnimaticDefinition, "prompts">,
+  address: string,
+): string[] {
   return (animatic.prompts ?? [])
     .filter((p) => p.address === address && !p.negative && !p.spoken)
     .map((p) => p.value);
@@ -1259,6 +1262,50 @@ export function shotLaneChains(
     ]),
     cutin: walk([...cutinRefs, ...(shot.cutin?.panels ?? []).map((p) => p.assetPath)]),
   };
+}
+
+export function listVideoPasserInputs(
+  video: VideoDefinition,
+  animatic: AnimaticDefinition,
+  cuesOf: (shotId: string) => readonly PictureCueLike[] | null,
+): {
+  shotId: string;
+  lane: PanelLane;
+  refs: string[];
+  texts: string[];
+  generative: boolean;
+}[] {
+  const videoEntry = videoEntryResolver(video);
+  const boardEntry = animaticEntryResolver(animatic);
+  const entryOf = (address: string) => videoEntry(address) ?? boardEntry(address);
+  const out: ReturnType<typeof listVideoPasserInputs> = [];
+  for (const shot of video.shots) {
+    if (isPendingShot(shot)) continue;
+    const cutinRefs = new Set(shot.cutin?.refs ?? []);
+    const shared = new Set(shot.cutin?.sharedRefs ?? []);
+    const pictureRefs = shot.pictureRefs ?? shot.compositionRefs ?? [];
+    const videoRefs = new Set((cuesOf(shot.id) ?? []).map((cue) => cue.src));
+    for (const lane of LANES) {
+      const roots =
+        lane === "cutin"
+          ? [...cutinRefs]
+          : pictureRefs.filter((ref) => !cutinRefs.has(ref) || shared.has(ref));
+      for (const root of roots) {
+        if (!videoRefs.has(root)) continue;
+        const videoReach = walkReferenceReach(root, videoEntry);
+        out.push({
+          shotId: shot.id,
+          lane,
+          refs: walkReferenceReach(root, entryOf).refs,
+          texts: [...chainAddresses([root], videoEntry)].flatMap((address) =>
+            positivePromptsAt(video, address),
+          ),
+          generative: videoReach.generative,
+        });
+      }
+    }
+  }
+  return out;
 }
 
 // Which frames each DEVELOPED video shot pins, per lane, the seam half of `join-unpinned`. `pins` is
