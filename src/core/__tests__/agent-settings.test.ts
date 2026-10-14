@@ -71,7 +71,7 @@ describe("environment-specific agent settings", () => {
   });
 
   it.each(["linux", "win32"] as const)(
-    "preserves the project PATH and environment across repeated %s setup",
+    "preserves the Codex PATH and replaces Claude settings across repeated %s setup",
     async (platform) => {
       const paths = platform === "win32" ? path.win32 : path.posix;
       const binDir = paths.join(root, ".konte", "bin");
@@ -85,12 +85,11 @@ describe("environment-specific agent settings", () => {
         `[shell_environment_policy]\ninherit = "all"\n[shell_environment_policy.set]\n${configuredKey} = ${JSON.stringify(existingPath)}\nCUSTOM = "keep"\n`,
       );
       await fs.mkdir(path.join(root, ".claude"));
-      const ownHook = { hooks: [{ type: "command", command: "say-hello" }] };
       await fs.writeFile(
         path.join(root, ".claude/settings.json"),
         JSON.stringify({
           env: { [configuredKey]: existingPath, CUSTOM: "keep" },
-          hooks: { SessionStart: [ownHook] },
+          hooks: { SessionStart: [{ hooks: [{ type: "command", command: "say-hello" }] }] },
         }),
       );
 
@@ -101,11 +100,9 @@ describe("environment-specific agent settings", () => {
         set: { PATH: expectedPath, CUSTOM: "keep" },
       });
       expect(claude(files).env).toEqual({
-        CUSTOM: "keep",
         CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP: "1",
       });
-      expect(claude(files).hooks.SessionStart[0]).toEqual(ownHook);
-      expect(pathHooks(files)).toHaveLength(2);
+      expect(pathHooks(files)).toHaveLength(1);
       expect(process.env.PATH).toBe("inherited-tools");
       await writeAgentSettings(root, files);
       expect(await prepareAgentSettings(root, platform)).toEqual(files);
@@ -124,7 +121,8 @@ describe("environment-specific agent settings", () => {
   });
 
   it("preserves user values, other servers and unresolved secrets across regeneration", async () => {
-    await writeAgentSettings(root, await prepareAgentSettings(root));
+    const defaults = await prepareAgentSettings(root);
+    await writeAgentSettings(root, defaults);
     await fs.writeFile(
       path.join(root, ".codex/config.toml"),
       `model = "custom"\ndeveloper_instructions = "personal"\n[mcp_servers.other]\ncommand = "other"\n[mcp_servers.other.env]\nTOKEN = "\${PRIVATE_TOKEN}"\n[mcp_servers.konte]\ncommand = "old"\nstartup_timeout_sec = 42\n`,
@@ -144,11 +142,27 @@ describe("environment-specific agent settings", () => {
     expect(config.mcp_servers.konte.startup_timeout_sec).toBe(42);
     expect(config.mcp_servers.konte.command).toBe(path.join(root, ".konte/bin/konte"));
     const settings = JSON.parse(files[".claude/settings.json"]!);
-    expect(settings.env.CUSTOM).toBe("keep");
-    expect(settings.permissions.deny).toEqual([]);
-    expect(settings.permissions.allow).toEqual(["Bash(git status)", "Bash(konte:*)"]);
+    expect(settings.env.CUSTOM).toBeUndefined();
+    expect(settings.permissions.deny).toEqual(claude(defaults).permissions.deny);
+    expect(settings.permissions.allow).toEqual(["Bash(konte:*)"]);
     await writeAgentSettings(root, files);
     expect(await prepareAgentSettings(root)).toEqual(files);
+  });
+
+  it("replaces malformed Claude settings and preserves local settings", async () => {
+    const expected = claude(await prepareAgentSettings(root));
+    await fs.mkdir(path.join(root, ".claude"));
+    await fs.writeFile(path.join(root, ".claude/settings.json"), "invalid json");
+    const localPath = path.join(root, ".claude/settings.local.json");
+    const local = '{ "permissions": { "allow": ["Bash(git status)"] } }\n';
+    await fs.writeFile(localPath, local);
+    const files = await prepareAgentSettings(root);
+    expect(claude(files)).toEqual(expected);
+    await writeAgentSettings(root, files);
+    expect(JSON.parse(await fs.readFile(path.join(root, ".claude/settings.json"), "utf8"))).toEqual(
+      expected,
+    );
+    expect(await fs.readFile(localPath, "utf8")).toBe(local);
   });
 
   it("refuses malformed settings without echoing their contents or writing other files", async () => {

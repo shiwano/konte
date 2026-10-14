@@ -257,7 +257,9 @@ describe("workspace setup", () => {
       }),
     );
     await fs.rm(path.join(workspace, ".konte"), { recursive: true });
-    await fs.rm(path.join(workspace, ".claude/settings.json"));
+    await fs.writeFile(path.join(workspace, ".claude/settings.json"), "invalid json");
+    const localSettings = '{ "permissions": { "allow": ["Bash(git status)"] } }\n';
+    await fs.writeFile(path.join(workspace, ".claude/settings.local.json"), localSettings);
     const moved = path.join(ctx.dir, "moved space 日本語");
     await fs.rename(workspace, moved);
     await run(["workspace", "setup"], path.join(moved, "videos/main"));
@@ -273,7 +275,13 @@ describe("workspace setup", () => {
     const ignore = await fs.readFile(path.join(moved, ".gitignore"), "utf8");
     expect(ignore).toContain("my-cache/\n");
     expect(ignore).toContain(".codex/config.toml\n");
-    await fs.access(path.join(moved, ".claude/settings.json"));
+    const claudeSettings = JSON.parse(
+      await fs.readFile(path.join(moved, ".claude/settings.json"), "utf8"),
+    );
+    expect(claudeSettings.permissions.allow).toEqual(["Bash(konte:*)"]);
+    expect(await fs.readFile(path.join(moved, ".claude/settings.local.json"), "utf8")).toBe(
+      localSettings,
+    );
     await fs.access(path.join(moved, ".konte/mod.ts"));
     await run(["workspace", "setup"], moved);
     expect(await fs.readFile(path.join(moved, ".gitignore"), "utf8")).toBe(ignore);

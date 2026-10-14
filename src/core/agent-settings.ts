@@ -125,19 +125,12 @@ export async function prepareAgentSettings(
     try {
       const parse = key.endsWith(".toml") ? Bun.TOML.parse : JSON.parse;
       const defaults = parse(template[key]!);
-      const raw = await readOptional(path.join(workspaceRoot, key));
+      const raw =
+        key === ".claude/settings.json" ? null : await readOptional(path.join(workspaceRoot, key));
       const current = raw === null ? {} : parse(raw);
       if (!isTable(defaults) || !isTable(current)) throw new Error("Expected settings object");
       const settings = withDefaults(defaults, current);
       if (key === ".claude/settings.json") {
-        const permissions = table(settings, "permissions");
-        if (!Array.isArray(permissions.allow)) throw new Error("Expected permission list");
-        const allow = permissions.allow.filter(
-          (rule) =>
-            typeof rule !== "string" ||
-            !/^Bash\((?:konte|.*[/\\]\.konte[/\\]bin[/\\]konte(?:\.exe)?):\*\)$/.test(rule),
-        );
-        permissions.allow = [...allow, "Bash(konte:*)"];
         leadHookPathWithBin(settings, platform);
       } else if (key.endsWith("plugin.json")) {
         const server = table(table(settings, "lspServers"), "typescript");

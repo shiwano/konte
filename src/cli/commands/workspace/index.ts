@@ -137,7 +137,8 @@ Examples:
         `
 Run after cloning, moving or upgrading a workspace. Restores missing template files,
 updates managed files and regenerates agent settings before fetching managed runtimes.
-Preserves production files and user settings; konte's launch paths are replaced.
+Overwrites .claude/settings.json; put Claude customizations in .claude/settings.local.json.
+Preserves production files and other user settings; konte's launch paths are replaced.
 A konte installed elsewhere is linked into .konte/bin, which agent settings launch.
 
 Examples:
