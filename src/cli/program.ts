@@ -33,7 +33,7 @@ import { registerPreviewCommand } from "./commands/preview/command.js";
 import { registerSettingsCommand } from "./commands/settings/command.js";
 import { registerMcpCommand } from "./commands/mcp/index.js";
 import { registerProbeCommand } from "./commands/probe/index.js";
-import { registerVideoCommand } from "./commands/video.js";
+import { registerVideoCommand } from "./commands/video/index.js";
 import { registerSongCommand } from "./commands/song.js";
 import { registerStudyCommand } from "./commands/study.js";
 
