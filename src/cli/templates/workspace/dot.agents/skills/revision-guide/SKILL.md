@@ -13,6 +13,7 @@ Take an accepted or exported cut through the changes the human picks, and nothin
 - **They already named the changes in chat** → skip §2 and §3; fix them (§4), then show them in one review.
 - **They ask you for candidates** → §2, then §3.
 - **A new shot, a cut shot, a restructure** → `drafting-guide`, then `layout-guide`.
+- **They want the exported cut kept as it is** → `konte video copy <src> <dest> --through video` first, and revise the copy.
 
 ## 1. Read what is already decided
 
