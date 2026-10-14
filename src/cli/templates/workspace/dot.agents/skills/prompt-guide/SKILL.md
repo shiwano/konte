@@ -55,9 +55,10 @@ Look at the actual upstream image before writing about it.
 
 - **Write the performance toward its target** — "anxious" becomes "leans toward her companion, eyes searching his face for a response" when the shot calls for seeking reassurance. Name whom or what the gaze and posture address.
 - **Ground the performance in the shot's `action` and the character's personality**, under `brief.tone`; a gesture expresses that intention without adding a motive or story beat.
-- **Choose facial cues readable at the staged scale** — for a smile masking unease, "a smile at the mouth, eyes watching her companion's reaction". Specify only the features needed to read the intention.
+- **Describe facial cues at the staged scale** — in a close frame, state the head's tilt and turn, visible facial planes, brow and mouth shape, and pupil placement toward the gaze target; in a wide frame, express the performance through posture and limbs.
 - **Write an opening keyframe as a held instant** — an action verb can pull the model into completing it. Write "fingers pinch the note's top edge, its lower edge hovering a hand's width from the board"; "presses the note onto the board" belongs in the motion prompt. Redraw a take that completes the action from a rewritten opening, never patch it.
-- **Geometry earns its place** — keep only the spatial facts the shot cannot survive losing (the contact, what sits between whom, the gaze axis).
+- **An animatic panel states the body in full** — torso orientation, each visible arm and leg's direction and bend, hand and foot positions, and the surfaces visible from the staged camera. For an upward gaze: "torso faces the camera; head tilts back toward screen left, chin underside visible; pupils high and toward screen left, whites visible below; the raised hand is off the upper-left edge of frame."
+- **An animatic panel places contacts, overlaps and gaps explicitly** — name what touches what, which object is nearer the camera, what occludes what, and which frame edge crops each part. Describe a required gap by its visible shape, screen position and thickness relative to an object in frame, alongside the physical distance.
 - **Sides are the frame's, never a figure's** — `screen left`, `off the right edge of frame`. **A figure turned toward the lens is mirrored: what sits on its left sits on the frame's right**, so "the sword at his left hip" hangs it off the wrong side — a worn or carried object, and which hand reaches for it, as much as a gaze. A reverse cut holds its axis only if both halves name the edge the gaze leaves by; unstated, each subject renders squared up to the lens and the pair loses the line.
 
 ## Project-wide consistency
@@ -73,4 +74,4 @@ After writing, re-read the result cold against:
 - **Only positives.**
 - **No parameter-level control in prose.**
 - **Sides are the frame's**, and `script` lines pass as injected.
-- **The shot reads from the prompt alone.**
+- **The shot reads from the prompt alone** — for an animatic panel, reconstruct the pose, gaze, contacts and gaps from the written details; write in any relation supplied only by knowing the intended action.
