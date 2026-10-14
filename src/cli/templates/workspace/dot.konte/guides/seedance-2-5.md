@@ -34,7 +34,7 @@ Spoken lines go in double quotes — that is what triggers lip-sync.
 - **Don't fully re-describe the source image** — repeat only 3–6 key anchors (hair, clothing, age, silhouette, distinctive accessories).
 - **No pronouns as sole subject references** — "the silver-haired woman in the navy peacoat walks forward", not "she walks forward".
 - **Describe progression** — what changes from the start frame to the end state.
-- **Camera negation can help** — state what the camera is NOT doing ("no cuts, no zoom, no stabilization").
+- **Name what the camera does hold** — `one continuous take`, `a locked-off camera`.
 
 ## References
 
