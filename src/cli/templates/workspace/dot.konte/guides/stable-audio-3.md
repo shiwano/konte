@@ -39,7 +39,4 @@ A dense comma-list of descriptors, not narrative prose. Name concrete instrument
 
 ## Avoid
 
-- Mismatching the mode and prompt content (SFX wording under music).
-- Stuffing many unrelated sounds into one SFX prompt — generate separately and mix.
-- Narrative prose instead of a comma-list of descriptors.
 - Expecting vocals or lyrics — instrumental / SFX only.

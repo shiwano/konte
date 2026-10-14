@@ -44,11 +44,8 @@ The planned score sets the length, not a requested running time: four sections o
 
 ## Negative Prompt
 
-- **None.** The workflow routes conditioning through `ConditioningZeroOut`, so there's no negative text path. Steer by editing `style`.
+- **None.** Steer by editing `style`.
 
 ## Avoid
 
-- A BPM in `style` that differs from `bpm`.
-- Sung words in `style`, or a section's musical direction in `lyrics`.
 - Phrasing things to avoid as negatives — there's no negative path, and naming what to leave out can bring it in; describe what you _want_.
-- Mood adjectives ("epic", "emotional") with no genre, instrumentation or groove behind them.

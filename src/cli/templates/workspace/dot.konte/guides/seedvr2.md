@@ -38,4 +38,4 @@ At a 1080p or larger target, the VAE's encode and decode, not the DiT, are the p
 
 `width`/`height` size the frames fed into the model through ImageScale, which center-crops when `crop: "center"` and the aspect ratios differ. For delivery, pass the injected dimensions and set `resolution: Math.min(width, height)`.
 
-The workflow's temporal batch is fixed at 5 frames and is not exposed as an input. It governs temporal consistency and follows a 4n+1 rule (1, 5, 9, …), so raising it is an adapter edit, not a call-site one.
+The workflow's temporal batch is fixed at 5 frames and is not exposed as an input. It governs temporal consistency and follows a 4n+1 rule (1, 5, 9, …), so raising it is an adapter edit.

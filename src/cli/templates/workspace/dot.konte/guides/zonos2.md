@@ -14,7 +14,7 @@ She read the last line twice, then closed the book. It was already too late.
 
 - **Punctuation drives prosody** — `…` adds hesitation, `—` breaks a thought, `!`/`?` shape intonation.
 - **Pre-expand** numbers, currency, dates, abbreviations to spoken form ("$1,000" → "one thousand dollars").
-- **Nothing but the words** — there is no direction channel here, so a stage direction in the `script` is simply read aloud.
+- **Nothing but the words** — there is no direction channel here, so a stage direction in the `script` is read aloud.
 
 ## Language
 
@@ -34,7 +34,7 @@ Inferred from the `script`; there is no language input. English, Mandarin and Ja
 ## Length
 
 - **One or a few sentences per generation.** Split longer narration at sentence boundaries, then stitch in the composition.
-- **`maxNewTokens` is a ceiling, not a target** — DAC frames at roughly 86 per second of audio, so the 1024 default caps a take near 12 seconds and the 6000 maximum near 70. Raise it only when a long line comes back cut off.
+- **`maxNewTokens` is a ceiling, not a target** — the 1024 default caps a take near 12 seconds and the 6000 maximum near 70. Raise it only when a long line comes back cut off.
 - **`repetitionPenalty` above 1.0** breaks a stutter or a trailing hum at its source; the default 1.2 already leans that way.
 
 ## Conditioning Buckets
@@ -70,7 +70,5 @@ asset("line1", audioZonos2VoiceClone, {
 
 ## Avoid
 
-- A noisy, musical, or multi-speaker reference clip.
-- Bracketed emotion tags or parenthetical directions in the `script` — both are read aloud.
 - Re-rolling to fix the voice or an emotion that did not land — the seed varies delivery, not the speaker or the conditioning; change the clip, the strength, or the label.
 - Stacking a named emotion at high strength with both axes pushed — the clone thins out.

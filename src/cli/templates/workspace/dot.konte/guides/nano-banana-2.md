@@ -6,11 +6,11 @@
 [Subject] + [style] + [setting] + [lighting/mood] + [technical details]
 ```
 
-Concise, direct descriptions work best — avoid over-elaboration. Fast generation makes it ideal for rapid prompt iteration.
+Concise, direct descriptions work best — avoid over-elaboration.
 
 ## Length
 
-~50–120 words. Favors brevity; shorter, more focused prompts often produce better results.
+~50–120 words.
 
 ## Edit Mode
 
@@ -23,6 +23,5 @@ Use `falNanoBanana2Edit` to change existing frame(s) instead of generating from 
 
 ## Avoid
 
-- Over-elaborate descriptions beyond what the model can resolve.
-- Negative phrasing — no `negativePrompt`; it's an instruction-following model, so phrase exclusions as affirmative direction.
+- Negative phrasing — no `negativePrompt`; phrase exclusions as affirmative direction.
 - Embedding resolution or aspect ratio values in the prompt text.

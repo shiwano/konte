@@ -42,10 +42,6 @@ Before accepting, compare a conversion or a keyframe with `image1` for identity,
 
 The defaults, `cfg: 4` at 40 steps, are the rung to keep. `cfg: 1` at 25 steps takes about a quarter of the time and came back with a limb added on a turn of the body.
 
-## Known failures
-
-- **A reach stops short of its target** — name the contact point, and keep the rest with one blanket clause.
-
 ## Avoid
 
 - A new viewpoint, a cut, a change of framing or a new composition in a shot; draw those with `imageMinimaxH3R2i`.

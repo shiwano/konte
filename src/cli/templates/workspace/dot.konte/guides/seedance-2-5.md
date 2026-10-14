@@ -6,7 +6,7 @@
 [Shot/framing], [camera movement], [subject description], [action beats], [setting/environment], [lighting/palette], [style/grade], [audio/foley cues]
 ```
 
-Rewards richly detailed, multi-aspect prompts — the longest of all supported models.
+Rewards richly detailed, multi-aspect prompts.
 
 - **Sequence action beats chronologically** — bundled simultaneous motions tend to get dropped.
 - **Kinetic verbs** ("snaps", "lunges", "erupts") over generic ones ("attacks", "hits").
@@ -57,7 +57,4 @@ References are addressed by ordinal, numbered by their position in the input arr
 
 ## Avoid
 
-- Pronouns as sole subject references — always anchor with visual attributes.
-- Generic verbs when a more specific kinetic verb exists.
-- Abstract emotion labels without accompanying visible physical detail.
 - Baking duration, aspect ratio or resolution into the prompt text — those are inputs.

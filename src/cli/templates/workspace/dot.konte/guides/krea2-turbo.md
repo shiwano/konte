@@ -24,7 +24,7 @@ Trained for 1024–2048 px per side. Below ~1024 on the short edge composition l
 
 ## Negative Prompt
 
-- **Absent** — the workflow zeroes the negative conditioning and samples at CFG 1.
+- **Absent.**
 - A scene exclusion belongs in `prompt` as what fills the space instead. A custom adapter may differ — check its schema.
 
 ## Avoid

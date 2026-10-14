@@ -4,7 +4,7 @@ ACE-Step splits the request across **two fields**: `tags` describes the _music_ 
 
 ## Prompt Shape
 
-`tags` is the musical direction — a dense comma- or sentence-list, not narrative prose:
+`tags` is the musical direction — a dense comma- or sentence-list:
 
 ```
 [genre/subgenre], [mood], [instrumentation], [vocal character], [production/era]
@@ -31,7 +31,7 @@ Shout it out, I'm alive tonight
 ## Length Heuristic
 
 - **`tags`: a tight ~6–12 descriptors** — density beats length.
-- **Lyric lines short and singable** (~4–8 words). A focused style line outperforms a sprawling one.
+- **Lyric lines short and singable** (~4–8 words).
 
 ## Duration
 
@@ -39,7 +39,7 @@ Shout it out, I'm alive tonight
 
 ## Negative Prompt
 
-- **None.** The workflow routes conditioning through `ConditioningZeroOut`, so there's structurally no negative text path — nothing to fill. Steer by editing `tags`, not by listing things to avoid. A custom adapter may differ — check its schema.
+- **None.** Steer by editing `tags`, not by listing things to avoid. A custom adapter may differ — check its schema.
 
 ## Tips
 
@@ -49,8 +49,6 @@ Shout it out, I'm alive tonight
 
 ## Avoid
 
-- Putting sung words in `tags`, or the musical description in `lyrics`.
-- Writing "instrumental" into `tags` instead of leaving `lyrics` empty.
 - Baking tempo, key, duration, or seed into `tags` when a parameter controls them.
 - Phrasing things to avoid as negatives — there's no negative path; describe what you _want_.
 - Vague mood words with no genre, instrumentation, or tempo.

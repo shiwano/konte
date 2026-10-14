@@ -1,10 +1,10 @@
 # jsxImage
 
-Text and exact geometry, rendered instead of generated. A model cannot be relied on to spell a word or land an edge; a browser does both exactly, every time.
+Text and exact geometry, rendered instead of generated.
 
-**Material that carries text or a shape that has to be right — a card, a label, a plate, a framing guide — is worth building here rather than prompting for.** Its own edges need not be beautiful: when the still is a conditioning image, the generation downstream paints the piece's look over it. What survives is what only this can guarantee — the letters and the geometry.
+**Material that carries text or a shape that has to be right — a card, a label, a plate, a framing guide — is worth building here rather than prompting for.** Its own edges need not be beautiful: when the still is a conditioning image, the generation downstream paints the piece's look over it.
 
-The axis is where the text ends up. Text **delivered on screen** belongs in the shot's own `<Composition>` JSX. Text **fed into a generation** is what this is for.
+Text **delivered on screen** belongs in the shot's own `<Composition>` JSX. Text **fed into a generation** is what this is for.
 
 ## What it renders
 
@@ -54,7 +54,7 @@ Where neither is what you want, size a plain `<Image>` yourself — `className` 
 <Image src={reference.logo} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
 ```
 
-Stills only. A `<Video>` or `<Audio>` fails the load — one frame has no clock, so the first comes out black and the second is never heard. An `<Animate>` loads, and its timeline never runs.
+Stills only. A `<Video>` or `<Audio>` fails the load. An `<Animate>` loads, and its timeline never runs.
 
 ## Background
 
