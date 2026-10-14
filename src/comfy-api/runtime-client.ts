@@ -155,11 +155,11 @@ export class ComfyApiRuntimeClient {
     const contentType = guessContentType(fileName);
     const blob = await openAsBlob(absPath, { type: contentType });
     const form = new FormData();
-    form.append("file", blob, fileName);
     form.append("content_type", contentType);
     form.append("file_path", fileName);
     form.append("expected_hash", hash);
     form.append("tags", this.surface === "cloud" ? JSON.stringify(["input"]) : "input");
+    form.append("file", blob, fileName);
     const res = await sendOnce(
       `${this.apiBase}/assets`,
       {

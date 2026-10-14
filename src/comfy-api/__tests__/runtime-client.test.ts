@@ -47,6 +47,25 @@ describe("blake3File", () => {
 });
 
 describe("uploadInput", () => {
+  it.each(["cloud", "deployment"] as const)(
+    "sends content_type before the file in the %s multipart body",
+    async (surface) => {
+      const calls = mockFetch(({ init }) =>
+        init.method === "HEAD" ? new Response(null, { status: 404 }) : json({ id: "asset-1" }),
+      );
+      const client = new ComfyApiRuntimeClient("https://example.com", "key", surface);
+
+      await client.uploadInput(inputPath);
+      const upload = calls[1]!;
+      const body = await new Request(upload.url, upload.init).text();
+      const contentTypeIndex = body.indexOf('name="content_type"');
+      const fileIndex = body.indexOf('name="file";');
+      expect(contentTypeIndex).toBeGreaterThanOrEqual(0);
+      expect(fileIndex).toBeGreaterThan(contentTypeIndex);
+      expect(body).toContain('name="content_type"\r\n\r\nimage/png\r\n');
+    },
+  );
+
   it("mints an asset from a hash the platform already holds", async () => {
     const calls = mockFetch(({ url }) =>
       url.endsWith("/from-hash") ? json({ id: "asset-1" }) : new Response(null, { status: 200 }),
