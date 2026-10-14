@@ -6,7 +6,7 @@ user-invocable: false
 
 Turn the accepted direction into stage definitions ready to generate — rosters wired, every shot laid out, developed one direction sequence at a time. Done = the current sequence authored and typechecked, handed to `generation-loop-guide`; shaping the concept or revising the direction is `drafting-guide`'s.
 
-- **Critics are spawned fresh, never as a fork, handed only what the step names**. Take each finding or say why not.
+- **Before a shot's first human review, spawn critics fresh, never as a fork, handed only what the step names.** Take each finding or say why not. Human-review revisions use the parent's self-checks without spawning critics.
 
 ## 1. Preflight
 
@@ -60,12 +60,12 @@ Developing a shot = swapping its pending form for the real one — `pendingShot(
 
 Every pass reads the files you just wrote, never your memory of what you meant.
 
-- **First a staging pass, at most eight shots at a time** — each panel prompt for its composition alone, against `staging-guide`'s frame rules; rewrite one that leaves the frame to the model. Once the whole sequence is staged, spawn `konte-staging-critic` with only its shot ids.
+- **For pending panels, spawn `konte-staging-critic` with only the `animatic.tsx` path, then fix its findings before the prompt pass.**
 - **A match pass, definition against definition** — each reference prompt against its roster entry and the job it holds as an anchor (single subject, clean ground, identifying features in frame); each panel prompt against its shot (`action`, `script`, and the size/place its `setup` carries) and the anchors it conditions on — the `reference:<id>`s, and the setup's plate where it has one; each motion prompt against the panel's `blocking` / `camera` and the shot's `duration`; each voice asset word for word against the shot's `script` line and a character line's delivery against that shot's `action`, each bed against `brief.tone`. A promise the prompt drops, or an element it invents, is a rewrite now — after generating it is a reroll.
 - **Then each opening panel against the motion it must launch** — is the condition its `action` lands true in the frame the prompt fixes? Untrue, or half true, is a rewrite, unless that shot opens on the tail by choice.
 - **Then a run-through, shot against shot** — `konte inspect <stage>:shot.<id> --prompts` prints each address's `lineup:` and `set:` lines above its prompt. Read this sequence in order, opening from the last accepted shot before it, against `staging-guide`'s frame and cut rules: every subject by its `promptDepiction` in `lineup:` order, each `set:` landmark on its side, one continuity state described identically everywhere — **put each recurring element's wording side by side across shots**.
 - **`brief.outOfScope` is a rewrite wherever it shows**; what `brief.tolerances` accepts is never a finding.
-- **Then spawn `konte-prompt-critic` with only the definition path, before this sequence's first spend** — once per sequence, not per round.
+- **Then spawn `konte-prompt-critic` with only the definition path before the first spend on new or rewritten prompts.** A reroll on unchanged definitions skips both critics.
 
 ## 9. Typecheck, then hand off
 

@@ -4,12 +4,10 @@ import * as path from "node:path";
 import type { Command } from "commander";
 import {
   addressToCacheSegments,
-  assertValidAddressScope,
   formatCompositionAddress,
   formatShotAddress,
   isCompositionAddress,
   isPlateAddress,
-  matchesAddressScope,
   parseAddress,
   parseReelScope,
   type ShotStage,
@@ -28,7 +26,6 @@ import {
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "../../../core/concurrency.js";
 import { KonteError } from "../../../core/errors.js";
 import { ensureFfmpeg } from "../../../core/ffmpeg.js";
-import { syncFileAssets } from "../../../core/file-sync.js";
 import { inferMediaType } from "../../../core/media-type.js";
 import { StateManager } from "../../../core/state/index.js";
 import {
@@ -44,9 +41,8 @@ import { buildShotCompositionHtml } from "../../../core/composition-builder.js";
 import type { StageDefinition } from "../../../core/types/index.js";
 import { probeMediaInfo } from "../../../core/video-probe.js";
 import { unresolvedPictureRefs } from "../../../core/composition-resource.js";
-import { buildAssetStatus, needsReviewItems } from "../../asset-status.js";
-import { loadStageDefinitions, loadVideoAndAnimatic } from "../../load-definition.js";
-import { requireShotStages } from "../../../core/select-definition.js";
+import { loadNeedsReviewTargets } from "../../asset-status.js";
+import { loadVideoAndAnimatic } from "../../load-definition.js";
 import { parseNumberOption } from "../../parse-option.js";
 import { requireVideoRoot } from "../../context.js";
 import { resolveProbeTargets } from "./resolve-arg.js";
@@ -346,26 +342,11 @@ async function buildNeedsReviewCells(
   scope: string | undefined,
   opts: { framesPerTake: number; force?: boolean },
 ): Promise<{ cells: ContactSheetCell[]; skipped: string[] }> {
-  if (scope !== undefined) assertValidAddressScope(scope);
-  const { video, animatic, reference } = requireShotStages(await loadStageDefinitions(videoRoot));
-  // The same sync `status` runs before its own report: an edited `file` asset moves its content
-  // hash, which stales the takes built on it. Skipping it would put a take on this sheet that
-  // `status` reports as work to redo.
-  const manager = await StateManager.withLock(videoRoot, async (m) => {
-    await syncFileAssets({ reference, animatic, video }, m);
-    return m;
-  });
-  const { report } = await buildAssetStatus({
-    videoRoot,
+  const {
+    definitions: { video, animatic },
     manager,
-    video,
-    animatic,
-    reference,
-  });
-
-  const items = needsReviewItems(report)
-    .filter((item) => scope === undefined || matchesAddressScope(item.address, scope))
-    .flatMap((item) => (item.takes ? item.takes.map((take) => ({ ...item, ...take })) : [item]));
+    items,
+  } = await loadNeedsReviewTargets(videoRoot, scope);
   if (items.length === 0) {
     throw new KonteError(
       "VARIANT_NOT_FOUND",

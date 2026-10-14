@@ -93,6 +93,8 @@ import {
   definitionForAddress,
   type StageDefinitions,
 } from "../../core/definition-hashes.js";
+import { syncFileAssets } from "../../core/file-sync.js";
+import { selectGenerationAssets } from "../generation-selection.js";
 import { staleRefreshStep } from "../stale-refresh-step.js";
 
 type InspectScope =
@@ -946,7 +948,11 @@ async function inspectStage(videoRoot: string, stage: AssetStage): Promise<void>
 // and the `"spokenText"` a speech or music model voices, each at the address that declares it.
 // Collected as `asset()` ran, so a value assembled from shared constants is listed expanded. A
 // patch script's steps declare their own and are not listed here.
-async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<void> {
+async function inspectPrompts(
+  videoRoot: string,
+  scope: PromptScope,
+  pendingGeneration = false,
+): Promise<void> {
   const stage = scope.level === "direction" ? null : scope.stage;
   const shotStages = stage === "video" ? await loadVideoAndAnimatic(videoRoot) : null;
   const definition = shotStages
@@ -976,6 +982,44 @@ async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<vo
   const cutinAddresses =
     definition && stage ? cutinLaneAddresses(stage, definition) : new Set<string>();
   const keyframes = keyframesUnderScope(definition, stage, matches);
+
+  let pending: Set<string> | undefined;
+  if (pendingGeneration && stage) {
+    const definitions = await loadStageDefinitions(videoRoot);
+    const manager = await StateManager.load(videoRoot);
+    const syncDefinitions =
+      stage === "reference"
+        ? { reference: definitions.reference }
+        : stage === "animatic"
+          ? { reference: definitions.reference, animatic: definitions.animatic }
+          : definitions;
+    await syncFileAssets(syncDefinitions, manager);
+    await applyResolutionDefinitions({ videoRoot, definitions, state: manager.getState() });
+    const graph = buildDependencyGraph(
+      definitions.video,
+      definitions.animatic,
+      definitions.reference,
+    );
+    pending = new Set(selectGenerationAssets({ definitions, stage, manager, graph }).spending);
+    const addresses = new Set([
+      ...matches.map((p) => p.address),
+      ...plates.map((p) => p.address),
+      ...keyframes.map((k) => k.panel),
+    ]);
+    const targets = [...pending].filter((address) => addresses.has(address));
+    if (targets.length === 0) {
+      console.log("No pending generation under this scope.");
+      return;
+    }
+    console.log(
+      `Pending generation: ${targets.length} asset(s). Other entries are comparison only.`,
+    );
+    console.log("");
+  }
+  const printGeneration = (address: string) => {
+    if (pending)
+      console.log(`  generation: ${pending.has(address) ? "pending" : "comparison only"}`);
+  };
 
   const kindOf = (p: PromptOccurrence): string =>
     p.spoken ? "spokenText" : p.negative ? "negativePrompt" : "prompt";
@@ -1007,6 +1051,9 @@ async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<vo
     for (const k of keyframes) {
       console.log(`  shot ${k.shotId} · panel ${k.index} of ${k.of} · ${k.lane}   ${k.panel}`);
       console.log(`    conditioning: ${k.conditioning.join(", ") || "(none)"}`);
+      if (pending) {
+        console.log(`    generation: ${pending.has(k.panel) ? "pending" : "comparison only"}`);
+      }
       const plate = panelPlate(k, promptShots);
       if (plate) console.log(`    plate: ${plate}`);
     }
@@ -1019,6 +1066,7 @@ async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<vo
     if (!first) console.log("");
     first = false;
     console.log(plate.address);
+    printGeneration(plate.address);
     console.log(`  within: ${plate.within ?? "root"}`);
     console.log(`  plate: ${plate.prompt}`);
     printOccurrences(byAddress.get(plate.address) ?? []);
@@ -1030,6 +1078,7 @@ async function inspectPrompts(videoRoot: string, scope: PromptScope): Promise<vo
     if (!first) console.log("");
     first = false;
     console.log(address);
+    printGeneration(address);
     for (const line of promptShotLines(
       promptShots,
       respellings,
@@ -1403,6 +1452,10 @@ export function registerInspectCommand(program: Command): void {
     .command("inspect <variantOrScope>")
     .description("Inspect assets at any scope level (asset, shot, or stage)")
     .option("--prompts", "List the text each address feeds a model, instead of asset state")
+    .option(
+      "--pending-generation",
+      "Mark the next generate targets and comparison prompts (requires --prompts)",
+    )
     .addHelpText(
       "after",
       `
@@ -1456,46 +1509,59 @@ prompt writes a shot's opening frame.
   konte inspect animatic --prompts        Every prompt and spoken line the board declares
   konte inspect animatic:plate --prompts  What each plate holds, and any prompt that made it
   konte inspect video:shot.01 --prompts   One shot's
+  konte inspect animatic --prompts --pending-generation
+                                        Next generate targets, with comparison prompts
 `,
     )
-    .action(async (variantOrScope: string, opts: { prompts?: boolean }) => {
-      const videoRoot = requireVideoRoot();
-      const scope = parseInspectScope(variantOrScope);
-      // Every path below reports staleness, so all of them read the definitions on disk.
-      await applyResolutionDefinitions({ videoRoot });
-
-      if (scope.level === "variant") {
-        if (opts.prompts) {
+    .action(
+      async (variantOrScope: string, opts: { prompts?: boolean; pendingGeneration?: boolean }) => {
+        const videoRoot = requireVideoRoot();
+        const scope = parseInspectScope(variantOrScope);
+        if (
+          opts.pendingGeneration &&
+          (!opts.prompts || scope.level === "direction" || scope.level === "variant")
+        ) {
           throw new KonteError(
             "INVALID_OPTION",
-            `--prompts reads a scope's current definition; "konte inspect ${scope.variantId}" already prints the inputs that take was made from`,
+            "--pending-generation requires --prompts and an asset address-scope",
           );
         }
-        await inspectVariant(videoRoot, scope.variantId);
-        return;
-      }
+        // Every path below reports staleness, so all of them read the definitions on disk.
+        await applyResolutionDefinitions({ videoRoot });
 
-      if (opts.prompts) {
-        await inspectPrompts(videoRoot, scope);
-        return;
-      }
+        if (scope.level === "variant") {
+          if (opts.prompts) {
+            throw new KonteError(
+              "INVALID_OPTION",
+              `--prompts reads a scope's current definition; "konte inspect ${scope.variantId}" already prints the inputs that take was made from`,
+            );
+          }
+          await inspectVariant(videoRoot, scope.variantId);
+          return;
+        }
 
-      switch (scope.level) {
-        case "asset":
-          await inspectAsset(videoRoot, scope.address);
-          break;
-        case "shot":
-          await inspectShot(videoRoot, scope.stage, scope.shotId);
-          break;
-        case "stage":
-          await inspectStage(videoRoot, scope.stage);
-          break;
-        case "plates":
-          await inspectPlates(videoRoot);
-          break;
-        case "direction":
-          await inspectDirection(videoRoot, scope.address);
-          break;
-      }
-    });
+        if (opts.prompts) {
+          await inspectPrompts(videoRoot, scope, opts.pendingGeneration);
+          return;
+        }
+
+        switch (scope.level) {
+          case "asset":
+            await inspectAsset(videoRoot, scope.address);
+            break;
+          case "shot":
+            await inspectShot(videoRoot, scope.stage, scope.shotId);
+            break;
+          case "stage":
+            await inspectStage(videoRoot, scope.stage);
+            break;
+          case "plates":
+            await inspectPlates(videoRoot);
+            break;
+          case "direction":
+            await inspectDirection(videoRoot, scope.address);
+            break;
+        }
+      },
+    );
 }

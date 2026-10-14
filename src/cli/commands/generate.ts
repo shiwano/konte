@@ -4,7 +4,6 @@ import {
   type DefinitionLike,
   getAssetEntry,
   getStage,
-  listAssetPaths,
   parseStageScope,
 } from "../../core/address.js";
 import { assertSpendAllowed, stageSpendItems } from "../../core/backend-policy.js";
@@ -12,11 +11,7 @@ import { loadKonteConfig } from "../../core/config.js";
 import { computeDependencyLevels } from "../../core/dependency-levels.js";
 import { printCapped } from "../format-list.js";
 import { syncFileAssets } from "../../core/file-sync.js";
-import {
-  buildDependencyGraph,
-  collectTransitiveDependents,
-  listUnusedAssetPaths,
-} from "../../core/graph.js";
+import { buildDependencyGraph, collectTransitiveDependents } from "../../core/graph.js";
 import { plateFork } from "../../core/stale-refresh.js";
 import { JobManager } from "../../core/job-manager.js";
 import {
@@ -43,7 +38,6 @@ import {
   assertSongDirectionAccepted,
   gateDirectionForStage,
   gateStageChecks,
-  holdForUpstreamAcceptance,
   loadStageDefinitions,
   loadDirectionIfPresent,
 } from "../load-definition.js";
@@ -66,6 +60,7 @@ import {
   registerJobs,
   type VariantReservationRequest,
 } from "../generate-orchestrator.js";
+import { selectGenerationAssets } from "../generation-selection.js";
 import { requireVideoRoots } from "../context.js";
 import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
 
@@ -146,7 +141,6 @@ export function registerGenerateCommand(program: Command): void {
         });
       }
 
-      const stageAssetPaths = new Set(listAssetPaths(def, loaded.stage));
       const graph = buildDependencyGraph(video, animatic, reference);
 
       // Shared by the plan and the run, which must price the same command.
@@ -181,58 +175,15 @@ export function registerGenerateCommand(program: Command): void {
 
       const { levels } = computeDependencyLevels(graph);
 
-      // Skip assets nothing consumes — generating them would spend on output no deliverable
-      // uses. Usage spans every stage (the graph is global): a reference asset is "used" once
-      // it is exposed via `reference.<name>` or consumed by another reference asset, so a
-      // published-but-not-yet-referenced building block still generates; only a declared asset
-      // that is neither exposed nor consumed is skipped — the same rule as an unused video/
-      // animatic asset.
-      const skippedUnused = listUnusedAssetPaths(video, animatic, graph, reference).filter((p) =>
-        stageAssetPaths.has(p),
-      );
-      for (const p of skippedUnused) stageAssetPaths.delete(p);
+      const { stageAssetPaths, skippedUnused, spending, heldLines, heldCount } =
+        selectGenerationAssets({ definitions: defs, stage: loaded.stage, manager, graph });
       if (skippedUnused.length > 0) {
         console.log(
           `Skipping ${skippedUnused.length} unused asset(s) (used by no composition, panel, or reference export): ${skippedUnused.join(", ")}`,
         );
       }
-
-      // The cross-stage twin of the direction acceptance gate: a spend must not build on work no
-      // human has accepted — the boards a video derives motion from, and the sheets either creative
-      // stage derives identity from. Gated on what this run would really submit — an asset it would
-      // skip anyway (accepted, ready, in flight) must not block the shots that still have work,
-      // which is the whole point of gating per consumed dependency. An asset the gate holds is left
-      // out of the run, and the run refuses only when it would hold everything. The reference stage
-      // is where those sheets are made, so it has no reviewed upstream of its own — only the song's
-      // direction parts.
-      let spending = [...stageAssetPaths].filter((assetPath) => {
-        const assetDef = assetEntryOf(assetPath);
-        return (
-          assetDef.kind !== "file" &&
-          !assetSkipReason(
-            manager,
-            assetPath,
-            computeDefinitionHash(assetDef),
-            assetDef.deterministic === true,
-          )
-        );
-      });
-      let heldLines: string[] = [];
-      let heldCount = 0;
       if (stage === "reference") {
         await assertSongDirectionAccepted({ videoRoot, manager, spending });
-      } else {
-        const { held, lines } = holdForUpstreamAcceptance({
-          manager,
-          graph,
-          assetPaths: spending,
-          stage,
-          animatic,
-        });
-        for (const p of held) stageAssetPaths.delete(p);
-        spending = spending.filter((p) => !held.has(p));
-        heldLines = lines;
-        heldCount = held.size;
       }
       const printHeld = () => {
         if (heldCount === 0) return;

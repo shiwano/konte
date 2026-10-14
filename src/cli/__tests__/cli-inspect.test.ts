@@ -82,6 +82,90 @@ describe("inspect --prompts", () => {
     expect(stdout).toContain("a line to be read aloud");
   });
 
+  it("marks next-generation targets without changing the ordinary prompt listing", async () => {
+    const pending = await run(
+      ["inspect", "video", "--prompts", "--pending-generation"],
+      projectDir,
+    );
+    expect(pending.stdout).toContain("video:shot.01.motion\n  generation: pending");
+    expect(pending.stdout).toContain("video:shot.01.voice\n  generation: pending");
+    const ordinary = await run(["inspect", "video", "--prompts"], projectDir);
+    expect(ordinary.stdout).not.toContain("generation:");
+  });
+
+  it("marks the panel whose source is pending generation", async () => {
+    await fs.writeFile(
+      path.join(projectDir, "animatic.tsx"),
+      TEST_CROSS_STAGE_ANIMATIC_TS.replace('type: "string"', 'type: "prompt"'),
+    );
+    const before = await fs.readFile(path.join(projectDir, "konte.state.json"), "utf8");
+    const { stdout } = await run(
+      ["inspect", "animatic", "--prompts", "--pending-generation"],
+      projectDir,
+    );
+    expect(stdout).toMatch(
+      /panel 1 of 1.*animatic:shot\.01\.keyframe\n.*conditioning:.*\n {4}generation: pending/,
+    );
+    expect(await fs.readFile(path.join(projectDir, "konte.state.json"), "utf8")).toBe(before);
+  });
+
+  it("leaves unused assets out of the generation targets", async () => {
+    await fs.writeFile(
+      path.join(projectDir, "video.tsx"),
+      TYPED_TEXT_VIDEO_TSX.replace(
+        'const motion = asset("motion",',
+        'asset("unused", animateComfy, { prompt: "an unused picture" });\n      const motion = asset("motion",',
+      ),
+    );
+    const { stdout } = await run(
+      ["inspect", "video", "--prompts", "--pending-generation"],
+      projectDir,
+    );
+    expect(stdout).toContain("video:shot.01.unused\n  generation: comparison only");
+    expect(stdout).toContain("video:shot.01.motion\n  generation: pending");
+  });
+
+  it("keeps accepted prompts as comparison while targeting an edited unaccepted take", async () => {
+    const sm = await StateManager.load(projectDir);
+    for (const name of ["motion", "voice"]) {
+      const address = `video:shot.01.${name}`;
+      const id = sm.reserveVariantId(address);
+      const take = sm.getAssetState(address).variants![id]!;
+      take.file = `assets/${name}.${name === "motion" ? "mp4" : "wav"}`;
+      take.definitionHash = "old-definition";
+      if (name === "motion") sm.setAccepted(address, id);
+    }
+    await sm.save();
+    const { stdout } = await run(
+      ["inspect", "video", "--prompts", "--pending-generation"],
+      projectDir,
+    );
+    expect(stdout).toContain("video:shot.01.motion\n  generation: comparison only");
+    expect(stdout).toContain("video:shot.01.voice\n  generation: pending");
+    expect(stdout).toContain("a wide shot");
+  });
+
+  it("reports no pending prompts when all takes are in flight", async () => {
+    const sm = await StateManager.load(projectDir);
+    sm.reserveVariantId("video:shot.01.motion");
+    sm.reserveVariantId("video:shot.01.voice");
+    await sm.save();
+    const { stdout } = await run(
+      ["inspect", "video", "--prompts", "--pending-generation"],
+      projectDir,
+    );
+    expect(stdout.trim()).toBe("No pending generation under this scope.");
+  });
+
+  it("requires --prompts and an asset scope for --pending-generation", async () => {
+    await expect(run(["inspect", "video", "--pending-generation"], projectDir)).rejects.toThrow(
+      "--pending-generation requires",
+    );
+    await expect(
+      run(["inspect", "direction", "--prompts", "--pending-generation"], projectDir),
+    ).rejects.toThrow("--pending-generation requires");
+  });
+
   it("marks the spoken line as its own kind", async () => {
     const { stdout } = await run(["inspect", "video", "--prompts"], projectDir);
     expect(stdout).toMatch(/\(prompt\)\n {6}a wide shot$/m);

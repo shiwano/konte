@@ -194,6 +194,29 @@ export default defineVideo(direction, {
     expect(stderr).toContain("2 cells, 1 sheet(s)");
   });
 
+  it("probes only outstanding video alternatives beside an accept", async () => {
+    const projectDir = await initProject();
+    const before = (await StateManager.load(projectDir)).getAssetState("reference:clip");
+    const accepted = Object.keys(before.variants!)[0]!;
+    await addTake(projectDir, "reference:clip", "v-cliptake2");
+    await addTake(projectDir, "reference:clip", "v-clipdismissed");
+    const sm = await StateManager.load(projectDir);
+    sm.getAssetState("reference:clip").variants!["v-clipdismissed"]!.status = "dismissed";
+    await sm.save();
+
+    const { stdout } = await run(["probe", "motion", "--needs-review", "reference"], projectDir);
+    expect(stdout).toContain("# reference:clip   v-cliptake2");
+    expect(stdout).not.toContain(accepted);
+    expect(stdout).not.toContain("v-clipdismissed");
+    expect(stdout).not.toContain("reference:plateA");
+
+    const empty = await run(["probe", "motion", "--needs-review", "animatic"], projectDir);
+    expect(empty.stdout.trim()).toBe("No video takes awaiting review under this scope.");
+    await expect(
+      run(["probe", "motion", "--needs-review", "reference", "video"], projectDir),
+    ).rejects.toMatchObject({ stderr: expect.stringContaining("INVALID_OPTION") });
+  });
+
   it("points a named address with rival takes at --takes, which tiles them all", async () => {
     const projectDir = await initProject();
     await addTake(projectDir, "reference:plateA", "v-plateatake2");

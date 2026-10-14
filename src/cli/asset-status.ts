@@ -1,4 +1,9 @@
+import { syncFileAssets } from "../core/file-sync.js";
+import { requireShotStages } from "../core/select-definition.js";
+import { loadStageDefinitions } from "./load-definition.js";
 import {
+  assertValidAddressScope,
+  matchesAddressScope,
   getStage,
   type Stage,
   isDeliveryAddress,
@@ -13,7 +18,7 @@ import { listRemovedShotStemAddresses } from "../core/composition-resource.js";
 import { KonteError } from "../core/errors.js";
 import { buildDependencyGraph, type DependencyGraph, listUnusedAssetPaths } from "../core/graph.js";
 import { JobManager } from "../core/job-manager.js";
-import type { StateManager } from "../core/state/index.js";
+import { StateManager } from "../core/state/index.js";
 import type { StatusSection } from "../core/status-sections.js";
 import type {
   ReferenceDefinition,
@@ -129,4 +134,18 @@ export async function buildAssetStatus(opts: {
 /** The "Needs review" items, in report order. */
 export function needsReviewItems(report: StatusReport): StatusSection["items"] {
   return report.sections.find((s) => s.title === "Needs review")?.items ?? [];
+}
+
+export async function loadNeedsReviewTargets(videoRoot: string, scope?: string) {
+  if (scope !== undefined) assertValidAddressScope(scope);
+  const definitions = requireShotStages(await loadStageDefinitions(videoRoot));
+  const manager = await StateManager.withLock(videoRoot, async (m) => {
+    await syncFileAssets(definitions, m);
+    return m;
+  });
+  const { report } = await buildAssetStatus({ videoRoot, manager, ...definitions });
+  const items = needsReviewItems(report)
+    .filter((item) => scope === undefined || matchesAddressScope(item.address, scope))
+    .flatMap((item) => (item.takes ? item.takes.map((take) => ({ ...item, ...take })) : [item]));
+  return { definitions, manager, items };
 }

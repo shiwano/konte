@@ -1,3 +1,6 @@
+import { loadNeedsReviewTargets } from "../../asset-status.js";
+import { requireVideoRoot } from "../../context.js";
+import { inferMediaType } from "../../../core/media-type.js";
 import * as path from "node:path";
 import type { Command } from "commander";
 import { KonteError } from "../../../core/errors.js";
@@ -51,12 +54,17 @@ interface MotionOptions {
   window?: string;
   frames?: string;
   verbose?: boolean;
+  needsReview?: boolean;
 }
 
 export function registerProbeMotionCommand(program: Command): void {
   program
-    .command("motion <variantOrScope...>")
+    .command("motion [variantOrScope...]")
     .description("Render a tiled filmstrip of a video variant's or a shot composition's motion")
+    .option(
+      "--needs-review",
+      "Probe only video takes awaiting review, optionally narrowed by one address-scope",
+    )
     .option("--fps <fps>", "Override decode fps ('native' or a number; default min(nativeFps, 30))")
     .option(
       "--at <sec>",
@@ -108,7 +116,11 @@ contact sheet samples too sparsely to show. A scope never sweeps one in. Its fra
 composition's content, beside probe reel-thumbnails'. A composition has no decoded profile: no
 warnings, no motion peak (a window needs --at), and --fps is rejected.
 
+--needs-review selects the same outstanding takes as probe contact-sheet --needs-review,
+including undecided alternatives beside an accepted take. It takes at most one address-scope.
+
 Examples:
+  konte probe motion --needs-review video                     Every video take awaiting review
   konte probe motion v-iuQeCrR2                                 Full-clip filmstrip path to stdout (warnings only on stderr)
   konte probe motion video:shot.01.motion                       Resolve the address to its canonical variant, then probe
   konte probe motion video                                      Every motion clip in the video stage, one strip each
@@ -122,6 +134,29 @@ Examples:
                                                                 An <Animate> move, frame by frame`,
     )
     .action(async (targets: string[], opts: MotionOptions) => {
+      let reviewManager;
+      if (opts.needsReview) {
+        if (targets.length > 1) {
+          throw new KonteError("INVALID_OPTION", "--needs-review takes at most one address-scope");
+        }
+        const review = await loadNeedsReviewTargets(requireVideoRoot(), targets[0]);
+        reviewManager = review.manager;
+        targets = review.items.flatMap((item) => {
+          if (!item.variantId) return [];
+          const file = review.manager.tryGetAssetState(item.address)?.variants?.[item.variantId]
+            ?.file;
+          return file && inferMediaType(file) === "video" ? [item.variantId] : [];
+        });
+        if (targets.length === 0) {
+          console.log("No video takes awaiting review under this scope.");
+          return;
+        }
+      } else if (targets.length === 0) {
+        throw new KonteError(
+          "INVALID_OPTION",
+          "Pass a variant id, address or address-scope, or --needs-review",
+        );
+      }
       const compositions = targets.filter(isCompositionAddress);
       if (compositions.length > 0 && opts.fps != null) {
         throw new KonteError(
@@ -133,8 +168,9 @@ Examples:
         targets.filter((t) => !isCompositionAddress(t)),
         { mediaKinds: ["video"], definitions: compositions.length > 0 },
       );
-      const { videoRoot, manager } = opened;
-      const multi = opened.multi || targets.length > 1;
+      const { videoRoot } = opened;
+      const manager = reviewManager ?? opened.manager;
+      const multi = opts.needsReview || opened.multi || targets.length > 1;
       const stages = compositions.length > 0 ? await loadVideoAndAnimatic(videoRoot) : null;
 
       const plan: ({ composition: string } | { variantId: string })[] = [];
