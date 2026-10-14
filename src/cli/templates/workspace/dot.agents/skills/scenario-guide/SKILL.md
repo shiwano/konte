@@ -1,14 +1,16 @@
 ---
 name: scenario-guide
-description: The writing craft under the direction — pitching and culling a concept, each form (story, persuasion, process, mood) and cutting to a song, concrete props. Read before proposing a concept, and before writing or changing what a shot's action makes happen.
+description: The writing craft under the direction — pitching and culling a concept, each form (story, persuasion, process, mood), lyrics and cutting to a song, concrete props. Read before proposing a concept, writing or revising lyrics, or changing what a shot's action makes happen.
 user-invocable: false
 ---
 
-Invent the concept and what each shot makes happen; done = the routed reference's test and the read-aloud test pass. An event or a section fills a lens role; each entry in `direction.ts` is a shot. Structure belongs to `direction-guide`, frame design to `staging-guide`.
+Invent the concept, lyrics and what each shot makes happen; done = the routed reference's checks pass, plus the read-aloud test for shots. An event or a section fills a lens role; each entry in `direction.ts` is a shot. Structure belongs to `direction-guide`, frame design to `staging-guide`.
 
 ## Routing
 
-Open only the reference of the form `drafting-guide` step 3 settled — unsettled, ask the human.
+For concept or shot work, open the reference of the form `drafting-guide` step 3 settled — unsettled, ask the human.
+
+- **Writing or revising lyrics only** → [song.md](references/song.md), “Write and revise lyrics”.
 
 - **Story** → [story.md](references/story.md).
 - **Persuasion** → [persuasion.md](references/persuasion.md).
