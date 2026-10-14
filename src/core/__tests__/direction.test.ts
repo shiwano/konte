@@ -1704,6 +1704,7 @@ describe("checkDirection setups", () => {
     );
     expect(findings.map((f) => f.subject)).toEqual(["here"]);
     expect(findings[0]?.message).toContain("8 shots");
+    expect(findings[0]?.message).toContain("at least 4 of its 8 on a shared frame");
   });
 
   it("stays silent on a short scene, where varied sizes force one frame per shot", () => {

@@ -831,10 +831,11 @@ function checkAtomizedSetups(
       subject: location,
       message:
         `location "${location}" holds ${shots} shots across ${frames} setups, and only ${onShared} of ` +
-        `those shots stands on a frame another shot stands on too — so almost nothing there earns a ` +
-        `plate and nothing holds the room across ${frames} frames. Put a second shot on a frame the ` +
-        `piece returns to, or the place is only as steady as \`reference.${location}\` and each ` +
-        `prompt happen to be`,
+        `those shots stand on a frame another shot stands on too — a place with ` +
+        `${ATOMIZED_LOCATION_SHOTS} or more shots needs at least ${Math.ceil(shots / 2)} of its ` +
+        `${shots} on a shared frame, or almost nothing there earns a plate and nothing holds the ` +
+        `room across ${frames} frames. Put a second shot on a frame the piece returns to, or the ` +
+        `place is only as steady as \`reference.${location}\` and each prompt happen to be`,
     });
   }
   return findings;
