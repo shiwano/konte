@@ -396,22 +396,18 @@ export function unacceptedUpstreamDeps(opts: {
   return blocking;
 }
 
-// The upstream twin of the direction acceptance gate: a spend must not build on work no human has
-// accepted. Two levels of the same rule — a video spend needs its boards accepted, and either
-// creative stage needs the `reference:` sheets it conditions on accepted, since a sheet is where
-// every take downstream of it gets its identity from and is never settled implicitly by whatever
-// consumed it first. The upstream-most blocker is reported alone: accepting a board built on an
-// unaccepted sheet is not the fix, so naming both would send the human at the wrong one.
-export function assertUpstreamAccepted(opts: {
+type UpstreamGateOpts = {
   manager: StateManager;
   graph: DependencyGraph;
   assetPaths: Iterable<string>;
   stage: Stage;
   extraRefs?: Iterable<string>;
   animatic: AnimaticDefinition | null;
-}): void {
-  // Whole-stage, matching the refusal of `konte preview animatic`: a board with an unwritten panel is
-  // not reviewable, whatever this spend reaches. Only the stages upstream of the spend.
+};
+
+// Whole-stage, matching the refusal of `konte preview animatic`: a board with an unwritten panel is
+// not reviewable, whatever this spend reaches. Only the stages upstream of the spend.
+function assertUpstreamPrerequisites(opts: UpstreamGateOpts): void {
   for (const { stage } of GATED_UPSTREAM) {
     if (stage === opts.stage) break;
     assertPrerequisitesMet(
@@ -419,38 +415,96 @@ export function assertUpstreamAccepted(opts: {
       `Cannot spend on ${opts.stage}`,
     );
   }
+}
 
-  const blocking = unacceptedUpstreamDeps(opts);
-  if (blocking.size === 0) return;
-
-  // GATED_UPSTREAM is in pipeline order, so the first entry with a blocker is the upstream-most.
+// The upstream-most blockers alone: accepting a board built on an unaccepted sheet is not the fix,
+// so naming both would send the human at the wrong one. GATED_UPSTREAM is in pipeline order, so the
+// first entry with a blocker is the upstream-most.
+function upstreamMostBlockers(blocking: Map<string, boolean>): {
+  upstream: (typeof GATED_UPSTREAM)[number];
+  lines: string[];
+} | null {
   const upstream = GATED_UPSTREAM.find(({ stage }) =>
     [...blocking.keys()].some((address) => getStage(address) === stage),
   );
-  if (!upstream) return;
-  const named = [...blocking].filter(([address]) => getStage(address) === upstream.stage);
+  if (!upstream) return null;
+  const lines = [...blocking]
+    .filter(([address]) => getStage(address) === upstream.stage)
+    .map(
+      ([address, hasOutput]) =>
+        `  ${address} — ${
+          isMaterializedLeafAddress(address)
+            ? `run \`konte accept ${address}\`, which materializes it`
+            : hasOutput
+              ? `review and accept it in \`${upstream.review}\``
+              : `nothing generated yet — run \`${upstream.generate}\` first`
+        }`,
+    );
+  return { upstream, lines };
+}
 
-  const lines = named.map(
-    ([address, hasOutput]) =>
-      `  ${address} — ${
-        isMaterializedLeafAddress(address)
-          ? `run \`konte accept ${address}\`, which materializes it`
-          : hasOutput
-            ? `review and accept it in \`${upstream.review}\``
-            : `nothing generated yet — run \`${upstream.generate}\` first`
-      }`,
+function upstreamAcceptanceError(stage: Stage, blocking: Map<string, boolean>): KonteError | null {
+  const named = upstreamMostBlockers(blocking);
+  if (!named) return null;
+  const count = named.lines.length;
+  return named.upstream.stage === "reference"
+    ? new KonteError(
+        "REFERENCE_ACCEPTANCE_REQUIRED",
+        `${count} reference asset(s) this ${stage} spend conditions on must be accepted first — a ` +
+          "sheet is never accepted implicitly through what consumes it",
+        named.lines,
+      )
+    : new KonteError(
+        "ANIMATIC_ACCEPTANCE_REQUIRED",
+        `${count} animatic asset(s) this video spend builds on must be accepted first — the board ` +
+          "and the lines that drive the motion are reviewed before motion is spent on them",
+        named.lines,
+      );
+}
+
+// The upstream twin of the direction acceptance gate: a spend must not build on work no human has
+// accepted. Two levels of the same rule — a video spend needs its boards accepted, and either
+// creative stage needs the `reference:` sheets it conditions on accepted, since a sheet is where
+// every take downstream of it gets its identity from and is never settled implicitly by whatever
+// consumed it first. A targeted spend refuses on any blocker: every asset in it was asked for.
+export function assertUpstreamAccepted(opts: UpstreamGateOpts): void {
+  assertUpstreamPrerequisites(opts);
+  const error = upstreamAcceptanceError(opts.stage, unacceptedUpstreamDeps(opts));
+  if (error) throw error;
+}
+
+// The assets of a spend an unaccepted upstream holds back, each with what holds it. Every same-stage
+// dependent of a held asset reaches the same blocker, so it is held too.
+export function heldByUpstreamAcceptance(
+  opts: Omit<UpstreamGateOpts, "animatic" | "extraRefs">,
+): Map<string, Map<string, boolean>> {
+  const held = new Map<string, Map<string, boolean>>();
+  for (const assetPath of opts.assetPaths) {
+    const blocking = unacceptedUpstreamDeps({ ...opts, assetPaths: [assetPath] });
+    if (blocking.size > 0) held.set(assetPath, blocking);
+  }
+  return held;
+}
+
+// The whole-stage form of the gate: the assets it would hold are returned for the spend to leave
+// out, and it refuses only when it would hold every one, so a review still pending on one shot does
+// not stop the shots whose upstream is accepted.
+export function holdForUpstreamAcceptance(opts: UpstreamGateOpts): {
+  held: Set<string>;
+  lines: string[];
+} {
+  assertUpstreamPrerequisites(opts);
+  const assetPaths = [...opts.assetPaths];
+  const held = heldByUpstreamAcceptance({ ...opts, assetPaths });
+  if (held.size > 0 && held.size === assetPaths.length) {
+    const merged = new Map([...held.values()].flatMap((blocking) => [...blocking]));
+    const error = upstreamAcceptanceError(opts.stage, merged);
+    if (error) throw error;
+  }
+  const lines = new Set(
+    [...held.values()].flatMap((blocking) => upstreamMostBlockers(blocking)?.lines ?? []),
   );
-  throw new KonteError(
-    upstream.stage === "reference"
-      ? "REFERENCE_ACCEPTANCE_REQUIRED"
-      : "ANIMATIC_ACCEPTANCE_REQUIRED",
-    upstream.stage === "reference"
-      ? `${named.length} reference asset(s) this ${opts.stage} spend conditions on must be accepted ` +
-          "first — a sheet is never accepted implicitly through what consumes it"
-      : `${named.length} animatic asset(s) this video spend builds on must be accepted first — the ` +
-          "board and the lines that drive the motion are reviewed before motion is spent on them",
-    lines,
-  );
+  return { held: new Set(held.keys()), lines: [...lines] };
 }
 
 // The gate above only reaches the boards a video spend consumes, so a shot that consumes none at all

@@ -40,10 +40,10 @@ import { StateManager } from "../../core/state/index.js";
 import type { AssetDefinition } from "../../core/types/index.js";
 import {
   assertAnimaticConsumed,
-  assertUpstreamAccepted,
   assertSongDirectionAccepted,
   gateDirectionForStage,
   gateStageChecks,
+  holdForUpstreamAcceptance,
   loadStageDefinitions,
   loadDirectionIfPresent,
 } from "../load-definition.js";
@@ -201,10 +201,11 @@ export function registerGenerateCommand(program: Command): void {
       // human has accepted — the boards a video derives motion from, and the sheets either creative
       // stage derives identity from. Gated on what this run would really submit — an asset it would
       // skip anyway (accepted, ready, in flight) must not block the shots that still have work,
-      // which is the whole point of gating per consumed dependency. The reference stage is where
-      // those sheets are made, so it has no reviewed upstream of its own — only the song's direction
-      // parts.
-      const spending = [...stageAssetPaths].filter((assetPath) => {
+      // which is the whole point of gating per consumed dependency. An asset the gate holds is left
+      // out of the run, and the run refuses only when it would hold everything. The reference stage
+      // is where those sheets are made, so it has no reviewed upstream of its own — only the song's
+      // direction parts.
+      let spending = [...stageAssetPaths].filter((assetPath) => {
         const assetDef = assetEntryOf(assetPath);
         return (
           assetDef.kind !== "file" &&
@@ -216,11 +217,30 @@ export function registerGenerateCommand(program: Command): void {
           )
         );
       });
+      let heldLines: string[] = [];
+      let heldCount = 0;
       if (stage === "reference") {
         await assertSongDirectionAccepted({ videoRoot, manager, spending });
       } else {
-        assertUpstreamAccepted({ manager, graph, assetPaths: spending, stage, animatic });
+        const { held, lines } = holdForUpstreamAcceptance({
+          manager,
+          graph,
+          assetPaths: spending,
+          stage,
+          animatic,
+        });
+        for (const p of held) stageAssetPaths.delete(p);
+        spending = spending.filter((p) => !held.has(p));
+        heldLines = lines;
+        heldCount = held.size;
       }
+      const printHeld = () => {
+        if (heldCount === 0) return;
+        console.log(
+          `\nHeld: ${heldCount} asset(s) build on upstream work not yet accepted — accept it, then run \`konte generate ${stage}\` again:`,
+        );
+        printCapped(heldLines, (line) => line.trimStart(), { verbose: opts.verbose });
+      };
 
       const jobManager = new JobManager(videoRoot);
       const failedAssetPaths = new Set<string>();
@@ -284,6 +304,7 @@ export function registerGenerateCommand(program: Command): void {
           ),
         );
         console.log(formatGeneratePlan(plan));
+        printHeld();
         const planStaleNotice = formatAcceptedStaleNotice(plannedAcceptedStale);
         if (planStaleNotice) console.warn(`\n${planStaleNotice}`);
         if (plannedPatches.length > 0) {
@@ -661,6 +682,7 @@ export function registerGenerateCommand(program: Command): void {
         skipCounts.active > 0 ? `${skipCounts.active} in flight` : null,
       ].filter((p) => p !== null);
       const skipBreakdown = skipParts.length > 0 ? ` (${skipParts.join(", ")})` : "";
+      printHeld();
       if (patchApplications.length > 0) {
         console.log("\nPatches applied:");
         for (const p of patchApplications) {
@@ -681,7 +703,7 @@ export function registerGenerateCommand(program: Command): void {
           ? "run `konte job wait`"
           : "nothing to wait on; run `konte status`";
       console.log(
-        `\n${summary.started} started, ${summary.waiting} waiting, ${summary.synced} synced, ${summary.failed} failed, ${summary.skipped} skipped${skipBreakdown} — ${next}`,
+        `\n${summary.started} started, ${summary.waiting} waiting, ${summary.synced} synced, ${summary.failed} failed, ${summary.skipped} skipped${skipBreakdown}${heldCount > 0 ? `, ${heldCount} held` : ""} — ${next}`,
       );
 
       if (summary.failed > 0 || patchFailures.length > 0) {

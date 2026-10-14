@@ -45,7 +45,7 @@ import {
   loadStageDefinitions,
   loadAnimaticSetupState,
   loadStagingStageState,
-  unacceptedUpstreamDeps,
+  heldByUpstreamAcceptance,
   unsatisfiedCharacters,
   unsatisfiedVoices,
   loadSongTakeState,
@@ -305,31 +305,29 @@ export function registerStatusCommand(program: Command): void {
         }
       }
 
-      // Would `generate <stage>` abort on ANIMATIC_/REFERENCE_ACCEPTANCE_REQUIRED right now?
-      // Mirrors the gate's own target set — used assets that run would submit — so Next steps never
-      // offers a spend the gate would refuse, nor withholds one it would allow.
+      // Would `generate <stage>` abort on ANIMATIC_/REFERENCE_ACCEPTANCE_REQUIRED right now? It does
+      // only when the gate holds every used asset that run would submit, so Next steps never offers
+      // a spend the gate would refuse, nor withholds one it would allow.
       const upstreamReviewBlockedStages = (["animatic", "video"] as const).filter((stage) => {
         const def = stage === "video" ? video : animatic;
         if (graph === null || !def) return false;
+        const spending = listAssetPaths(def, stage).filter((assetPath) => {
+          if (unusedPaths.has(assetPath)) return false;
+          const assetDef = getAssetEntry(def, assetPath);
+          return (
+            assetDef.kind !== "file" &&
+            !assetSkipReason(
+              manager,
+              assetPath,
+              computeDefinitionHash(assetDef),
+              assetDef.deterministic === true,
+            )
+          );
+        });
         return (
-          unacceptedUpstreamDeps({
-            manager,
-            graph,
-            stage,
-            assetPaths: listAssetPaths(def, stage).filter((assetPath) => {
-              if (unusedPaths.has(assetPath)) return false;
-              const assetDef = getAssetEntry(def, assetPath);
-              return (
-                assetDef.kind !== "file" &&
-                !assetSkipReason(
-                  manager,
-                  assetPath,
-                  computeDefinitionHash(assetDef),
-                  assetDef.deterministic === true,
-                )
-              );
-            }),
-          }).size > 0
+          spending.length > 0 &&
+          heldByUpstreamAcceptance({ manager, graph, stage, assetPaths: spending }).size ===
+            spending.length
         );
       });
 

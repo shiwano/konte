@@ -23,7 +23,7 @@ Substitute your stage's `<scope>` / `<address>` into every step below.
 
 - **Run `konte doctor`** — on a missing backend key or disconnected backend (`FAIL ...`), stop and follow `config-guide` first.
 - **`generate` aborts `DIRECTION_ACCEPTANCE_REQUIRED`** → drive the direction review in `drafting-guide`, then run again.
-- **The board is accepted before the motion it feeds** — `generate video` aborts (`ANIMATIC_ACCEPTANCE_REQUIRED`) on any `animatic:` address a shot consumes with no accepted take: its keyframes, and its `#stem` where the shot speaks. Take the board through one review of the whole reel (step 5) and run again.
+- **The board is accepted before the motion it feeds** — `generate video` holds every shot that consumes an `animatic:` address with no accepted take (its keyframes, and its `#stem` where the shot speaks), lists it under `Held`, and spends on the rest; with every shot held it aborts (`ANIMATIC_ACCEPTANCE_REQUIRED`). Take the board through one review of the whole reel (step 5) and run again.
 
 ## 2. See what's missing
 

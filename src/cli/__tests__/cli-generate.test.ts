@@ -1317,14 +1317,34 @@ export default definePatch<"video">(({ source }) => asset("patched", edit, { ima
     });
   });
 
-  it("still blocks the shot whose board is unaccepted once it has work to do", async () => {
+  it("holds the shot whose board is unaccepted and spends on the rest", async () => {
     const projectDir = await initTwoShotProject("blockedproj");
     await seedVariant(projectDir, "animatic:shot.01.keyframe", { accept: false });
     await seedVariant(projectDir, "animatic:shot.02.keyframe", { accept: true });
 
-    // Shot 01's motion is ungenerated now, so the run would spend on it — the gate must refuse.
-    await expect(run(["generate", "video", "--plan"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("animatic:shot.01.keyframe"),
+    // The run would spend on shot 02, so status still offers it.
+    const { stdout: statusOut } = await run(["status"], projectDir);
+    expect(statusOut).toContain("konte generate video");
+
+    // Shot 01's motion and the take built on it reach the unaccepted board; shot 02's does not.
+    const { stdout: planOut } = await run(["generate", "video", "--plan"], projectDir);
+    const planned = planEntries(planOut).map((e) => e.address);
+    expect(planned).toContain("video:shot.02.motion");
+    expect(planned).not.toContain("video:shot.01.motion");
+    expect(planned).not.toContain("video:shot.01.refined");
+    expect(planOut).toContain(
+      "Held: 2 asset(s) build on upstream work not yet accepted — accept it, then run `konte generate video` again:\n" +
+        "  animatic:shot.01.keyframe — review and accept it in `konte preview animatic`",
+    );
+
+    const { stdout } = await run(["generate", "video"], projectDir);
+    expect(stdout.trimEnd().split("\n").at(-1)).toBe(
+      "1 started, 0 waiting, 0 synced, 0 failed, 0 skipped, 2 held — run `konte job wait`",
+    );
+
+    // A named reroll asked for the held shot, so it refuses.
+    await expect(run(["reroll", "video:shot.01.motion"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("ANIMATIC_ACCEPTANCE_REQUIRED"),
     });
   });
 });
