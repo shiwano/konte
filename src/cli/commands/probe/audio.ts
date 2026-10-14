@@ -86,7 +86,7 @@ hit whose attack must land on the frame).
 To lay out the whole assembled timeline instead (silence warnings per track), use \`konte probe
 reel-audio <animatic|video>\`.
 
-Takes a variant id (v-…), an address (resolved to its canonical variant, like konte ref), or an
+Takes a variant id (v-…), an address (resolved to its canonical variant, like konte path), or an
 address-scope. A container scope (stage, shot, timeline) sweeps every source under it (stills, which
 carry no audio, are skipped), so one command replaces looping over each address; a patch chain's
 steps are swept only by a patch scope (<stage>:patch…). Several of any of those can be passed at

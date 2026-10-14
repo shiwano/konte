@@ -186,6 +186,6 @@ export async function applyResolutionDefinitions(opts: {
           .catch(() => undefined)
       : undefined);
   registerResolutionDefinitions(videoRoot, createResolutionDefinitions(stages, patchHashes));
-  // Returned for the caller that needs a stage entry it did not load itself (`ref` reads the board).
+  // Returned for the caller that needs a stage entry it did not load itself (`path` reads the board).
   return stages;
 }

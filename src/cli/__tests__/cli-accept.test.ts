@@ -227,7 +227,7 @@ describe("accept command", () => {
     expect(stdout).toContain(`Accepted: ${address} → ${variantId}`);
   });
 
-  // An address means the take on screen, the same one `konte ref` prints — so with several to
+  // An address means the take on screen, the same one `konte path` prints — so with several to
   // choose from it signs off the newest ready one, not a question. Signing off an older take is
   // what naming its id is for.
   it("accepts the take an address resolves to when it holds several", async () => {

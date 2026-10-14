@@ -93,7 +93,7 @@ low frame-diff can include small subject movements. Judge the intended motion fr
 The profile is cached per variant (.konte/cache/motion/<variantId>/). An image variant reports "not a
 video".
 
-Takes a variant id (v-…), an address (resolved to its canonical variant, like konte ref), or an
+Takes a variant id (v-…), an address (resolved to its canonical variant, like konte path), or an
 address-scope. A container scope (stage, shot, timeline) sweeps every video source under it (stills
 are skipped) and prints one strip path per clip, so one command replaces looping over each shot's
 motion; a patch chain's steps are swept only by a patch scope (<stage>:patch…). Several of any of

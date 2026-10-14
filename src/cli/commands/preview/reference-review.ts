@@ -162,7 +162,7 @@ export async function handleGetReferenceState(
     const acceptedId = manager.getAcceptedVariant(addr);
 
     // Displayed variant: accepted, else newest non-stale (stale only as a last resort so
-    // the card is never empty) — the same take `konte ref` prints.
+    // the card is never empty) — the same take `konte path` prints.
     const displayed = manager.selectVariant(addr, { includeStale: true });
     const variantId: string | null = displayed?.variantId ?? null;
     const variantStatus: "none" | "accepted" = displayed?.isAccepted ? "accepted" : "none";

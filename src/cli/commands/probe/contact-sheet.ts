@@ -762,7 +762,7 @@ Tiles frames into one sheet and prints its path — Read it to judge the shots a
 character consistency, screen direction, palette drift.
 
 Takes one or more (in any mix) of a variant id (v-…), an address (resolved to its canonical variant,
-like konte ref), or an address-scope that sweeps every still under it. Stills only: a scope skips
+like konte path), or an address-scope that sweeps every still under it. Stills only: a scope skips
 non-image variants, and a named variant id or address that is not one is rejected. A patch chain's
 steps are swept only by a patch scope (<stage>:patch…). --takes widens each address (named or swept)
 to every take in play there — the one it resolves to, marked (accepted) or (resolved), and every

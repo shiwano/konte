@@ -49,7 +49,7 @@ type StaleRefreshStep =
   | { kind: "reroll" };
 
 /**
- * The step for one stale take, shared by `ref` and `inspect` so the two never name different ones
+ * The step for one stale take, shared by `path` and `inspect` so the two never name different ones
  * about the same take.
  *
  * The `accept` branch asks the prerequisite check the accept itself would ask: a panel still owed

@@ -33,7 +33,7 @@ export interface ProbeTargets {
  *
  * - a variant id (`v-…`) — that one variant, probed as-is (no media filtering; the caller named it).
  * - a full address (`<stage>:shot.<id>.<name>`, `<stage>:timeline.<name>`, `reference:<name>`) — its
- *   canonical variant, like `konte ref`. Kept distinct from a broadening scope so the single-probe
+ *   canonical variant, like `konte path`. Kept distinct from a broadening scope so the single-probe
  *   output (informative "not a video"/"no audio") and the targeted not-found error survive.
  * - a container address-scope (`video`, `video:shot.01`, `animatic:timeline`, `reference`) — every
  *   asset under it, each resolved to its canonical variant and kept only if this probe can read its
@@ -58,7 +58,7 @@ function resolveOne(
   }
 
   if (isFullAddress) {
-    // An address is the take on screen, stale included — what `konte ref` prints.
+    // An address is the take on screen, stale included — what `konte path` prints.
     const resolved = manager.resolveReference(arg, { includeStale: true });
     if (!resolved) {
       throw new KonteError(

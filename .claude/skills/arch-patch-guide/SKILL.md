@@ -81,4 +81,4 @@ The patched variant is **materialized**, not generated (`materializePatchOutput`
 
 `generate` applies pending patches after its dependency levels. The patched take is unaccepted unless the PATCH's own adapter is deterministic. The waiter cannot read that off a stage definition (a step's address has none), so it travels on the job as `patchFinalize`, along with a comfy step's output node and, on the returned step alone, the `output` target that materializes the patched variant. **The submit replaces job metadata wholesale**; `submitToBackend` is what carries `patchFinalize` across.
 
-`selectResolvedVariant` ignores the patch axis, as it already ignores definition-staleness — it answers "what is the current take". An edited patch's old output stays what render/`ref` consume until re-applied; `status` is what asks for the re-apply.
+`selectResolvedVariant` ignores the patch axis, as it already ignores definition-staleness — it answers "what is the current take". An edited patch's old output stays what render/`path` consume until re-applied; `status` is what asks for the re-apply.

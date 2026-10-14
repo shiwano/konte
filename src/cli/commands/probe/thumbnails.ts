@@ -37,7 +37,7 @@ export function registerProbeThumbnailsCommand(program: Command): void {
     .addHelpText(
       "after",
       `
-Takes a variant id (v-…), an address (resolved to its canonical variant, like konte ref), or an
+Takes a variant id (v-…), an address (resolved to its canonical variant, like konte path), or an
 address-scope. A container scope (stage, shot, timeline) sweeps every visual source under it
 (audio-only sources are skipped), so one command replaces looping over each address; a patch chain's
 steps are swept only by a patch scope (<stage>:patch…). Several of any of those can be passed at

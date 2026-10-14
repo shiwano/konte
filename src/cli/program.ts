@@ -19,7 +19,7 @@ import { registerInspectCommand } from "./commands/inspect.js";
 import { registerLicensesCommand } from "./commands/licenses.js";
 import { registerLspCommand } from "./commands/lsp.js";
 import { registerPruneCommand } from "./commands/prune.js";
-import { registerRefCommand } from "./commands/ref.js";
+import { registerPathCommand } from "./commands/path.js";
 import { registerJobCommand } from "./commands/job/index.js";
 import { registerReviewCommand } from "./commands/review/index.js";
 import { registerAcceptCommand } from "./commands/asset-ops/accept.js";
@@ -63,7 +63,7 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
   registerStatusCommand(program);
   registerDoctorCommand(program);
   registerInspectCommand(program);
-  registerRefCommand(program);
+  registerPathCommand(program);
   registerCleanCommand(program);
   registerPruneCommand(program);
 

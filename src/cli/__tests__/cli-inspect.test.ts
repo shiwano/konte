@@ -490,7 +490,7 @@ describe("inspect command (direction scope)", () => {
   });
 });
 
-describe("ref command", () => {
+describe("path command", () => {
   let projectDir: string;
   const address = "video:shot.01.motion";
 
@@ -505,7 +505,7 @@ describe("ref command", () => {
     sm.setAccepted(address, v1);
     await sm.save();
 
-    const { stdout } = await run(["ref", address], projectDir);
+    const { stdout } = await run(["path", address], projectDir);
     expect(stdout.trim()).toBe("/tmp/motion-1.mp4");
   });
 
@@ -517,7 +517,7 @@ describe("ref command", () => {
     sm.getAssetState(address).variants![v2]!.file = "/tmp/new.mp4";
     await sm.save();
 
-    const { stdout } = await run(["ref", address], projectDir);
+    const { stdout } = await run(["path", address], projectDir);
     expect(stdout.trim()).toBe("/tmp/new.mp4");
   });
 
@@ -541,7 +541,7 @@ describe("ref command", () => {
     };
     await sm.save();
 
-    const { stdout } = await run(["ref", address], projectDir);
+    const { stdout } = await run(["path", address], projectDir);
     expect(stdout.trim()).toBe("/tmp/fresh.mp4");
   });
 
@@ -559,7 +559,7 @@ describe("ref command", () => {
     sm.getAssetState(address).variants![v1]!.inputFingerprints = { [upstream]: "up-old" };
     await sm.save();
 
-    const { stdout, stderr } = await run(["ref", address], projectDir);
+    const { stdout, stderr } = await run(["path", address], projectDir);
     expect(stdout.trim()).toBe("/tmp/stale.mp4");
     expect(stderr).toContain("stale take");
     expect(stderr).toContain(`konte reroll ${address}`);
@@ -575,7 +575,7 @@ describe("ref command", () => {
     sm.setAccepted(address, v1);
     await sm.save();
 
-    const { stdout, stderr } = await run(["ref", address], projectDir);
+    const { stdout, stderr } = await run(["path", address], projectDir);
     expect(stdout.trim()).toBe("/tmp/picked.mp4");
     expect(stderr).toContain(
       `accepted against a changed definition; restore it in video.tsx to what made the take (\`konte inspect ${v1}\`)`,
@@ -584,7 +584,7 @@ describe("ref command", () => {
   });
 
   it("exits non-zero when no ready variant exists", async () => {
-    await expect(run(["ref", address], projectDir)).rejects.toThrow();
+    await expect(run(["path", address], projectDir)).rejects.toThrow();
   });
 
   it("prints one path per address, in the order given", async () => {
@@ -596,7 +596,7 @@ describe("ref command", () => {
     sm.getAssetState(other).variants![v2]!.file = "/tmp/first-1.png";
     await sm.save();
 
-    const { stdout } = await run(["ref", other, address], projectDir);
+    const { stdout } = await run(["path", other, address], projectDir);
     expect(stdout.trim().split("\n")).toEqual(["/tmp/first-1.png", "/tmp/motion-1.mp4"]);
   });
 
@@ -610,8 +610,8 @@ describe("ref command", () => {
     sm.getAssetState(address).variants![v2]!.derivedFrom = v1;
     await sm.save();
 
-    expect((await run(["ref", address], projectDir)).stdout.trim()).toBe("/tmp/accepted.mp4");
-    expect((await run(["ref", v2], projectDir)).stdout.trim()).toBe("/tmp/patched.mp4");
+    expect((await run(["path", address], projectDir)).stdout.trim()).toBe("/tmp/accepted.mp4");
+    expect((await run(["path", v2], projectDir)).stdout.trim()).toBe("/tmp/patched.mp4");
   });
 
   it("mixes addresses and variant ids, in the order given", async () => {
@@ -623,12 +623,12 @@ describe("ref command", () => {
     sm.getAssetState(other).variants![v2]!.file = "/tmp/first-1.png";
     await sm.save();
 
-    const { stdout } = await run(["ref", v1, other], projectDir);
+    const { stdout } = await run(["path", v1, other], projectDir);
     expect(stdout.trim().split("\n")).toEqual(["/tmp/motion-1.mp4", "/tmp/first-1.png"]);
   });
 
   it("fails for an unknown variant id", async () => {
-    await expect(run(["ref", "v-nosuchtake"], projectDir)).rejects.toThrow(/v-nosuchtake/);
+    await expect(run(["path", "v-nosuchtake"], projectDir)).rejects.toThrow(/v-nosuchtake/);
   });
 
   it("fails for a named variant with no file", async () => {
@@ -636,7 +636,7 @@ describe("ref command", () => {
     const v1 = sm.reserveVariantId(address);
     await sm.save();
 
-    await expect(run(["ref", v1], projectDir)).rejects.toThrow(new RegExp(v1));
+    await expect(run(["path", v1], projectDir)).rejects.toThrow(new RegExp(v1));
   });
 
   it("prints nothing and fails when any of the addresses has no ready variant", async () => {
@@ -645,7 +645,7 @@ describe("ref command", () => {
     sm.getAssetState(address).variants![v1]!.file = "/tmp/motion-1.mp4";
     await sm.save();
 
-    await expect(run(["ref", address, "video:shot.01.first"], projectDir)).rejects.toThrow(
+    await expect(run(["path", address, "video:shot.01.first"], projectDir)).rejects.toThrow(
       /video:shot\.01\.first/,
     );
   });

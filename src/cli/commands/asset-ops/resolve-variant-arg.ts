@@ -7,7 +7,7 @@ import type { StateManager } from "../../../core/state/index.js";
  * Resolve an asset-op argument that may be either a variant id (`v-…`) or a full
  * address (`<stage>:<path>`) to its `{ address, variantId }`. A variant id is looked
  * up directly; an address lands on the take it resolves to — accepted, else the newest
- * ready non-stale one, else the newest stale one: the same take `konte ref` prints and the
+ * ready non-stale one, else the newest stale one: the same take `konte path` prints and the
  * review surfaces show, so an accept made by address lands on what was on screen.
  *
  * An address that still resolves to nothing — every take fileless, or every one dismissed — fails

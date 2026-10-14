@@ -436,7 +436,7 @@ function resolveCore(state: KonteState, address: string, ctx: ResolveContext): R
  * `includeStale` picks which of the two questions this answers:
  *
  * - With it — "what does this address name right now": accepted, else newest non-stale, else the
- *   newest stale one. This is what every surface a human reads takes — `konte ref`, the review
+ *   newest stale one. This is what every surface a human reads takes — `konte path`, the review
  *   pages, `probe`, an address passed to `accept`/`patch new`.
  * - Without it — "what may a spend build on": a stale take answers nothing. This is the pipeline's
  *   question, asked by the job scheduler and the composition materializer so neither builds on

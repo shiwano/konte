@@ -50,7 +50,7 @@ describe("patch command", () => {
     });
 
     // The lookup this replaces: with several takes at an address there was no way to name the
-    // live one, so its id had to be dug out of the path `konte ref` prints.
+    // live one, so its id had to be dug out of the path `konte path` prints.
     it("takes an address with several takes, landing on the one it resolves to", async () => {
       const projectDir = await initPatchProject();
       const address = "reference:latentA";

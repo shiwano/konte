@@ -33,9 +33,9 @@ function resolveVariantId(manager: StateManager, variantId: string): Resolved | 
   };
 }
 
-export function registerRefCommand(program: Command): void {
+export function registerPathCommand(program: Command): void {
   program
-    .command("ref <variantOrAddress...>")
+    .command("path <variantOrAddress...>")
     .description("Print the file path for each asset address or variant id")
     .option("--verbose", "Also print the resolved address and variant id to stderr")
     .addHelpText(
@@ -52,7 +52,7 @@ still, run \`konte probe image\` with the same arguments; it prints a compact JP
 A take that no longer matches its definition or its inputs still prints, with a notice on stderr
 naming the step back — an accept when a matching take is already generated, else a reroll; an
 accepted take whose upstream alone changed is named as standing. It
-is what the review surfaces show, so \`ref\` names it too; a spend does not build on it, so read it
+is what the review surfaces show, so \`path\` names it too; a spend does not build on it, so read it
 as material to judge, never as a result to report. An accepted take gets the notice as well: an
 accept protects a take from being replaced, not from the definition moving under it. An address
 with a take still generating prints its earlier take, with a notice naming the job.
@@ -65,9 +65,9 @@ If any argument has no file, nothing is printed and the command fails with VARIA
 naming every unresolved one.
 
 Examples:
-  konte ref video:shot.01.motion                     Print one asset's path
-  konte ref reference:catClerk reference:shopCounter Print both paths, in that order
-  konte ref v-a1b2c3d4                               Print that exact take's path`,
+  konte path video:shot.01.motion                     Print one asset's path
+  konte path reference:catClerk reference:shopCounter Print both paths, in that order
+  konte path v-a1b2c3d4                               Print that exact take's path`,
     )
     .action(async (variantOrAddresses: string[], opts: { verbose?: boolean }) => {
       const videoRoot = requireVideoRoot();
