@@ -200,6 +200,10 @@ export async function assertSpendAllowed(
       );
       if (readiness.kind === "unbuilt") {
         notReady.push(`  comfyapi:${name} — its Build is missing or older than its adapters`);
+      } else if (readiness.kind === "deploying") {
+        notReady.push(
+          `  comfyapi:${name} — deployment ${readiness.deployment.id} is ${readiness.deployment.status}`,
+        );
       } else if (readiness.kind === "undeployed") {
         notReady.push(`  comfyapi:${name} — no ready deployment of release ${readiness.releaseId}`);
       }
@@ -208,7 +212,8 @@ export async function assertSpendAllowed(
       throw new KonteError(
         "COMFY_API_DEPLOYMENT_NOT_READY",
         `${notReady.length} Comfy API deployment(s) this run reaches cannot take jobs. Run ` +
-          `\`konte adapter comfy build\`, deploy the Build on the page it opens, and run it again.`,
+          `\`konte adapter comfy build\` — it waits for a deployment coming up, and otherwise opens ` +
+          `the Build page to deploy it on — then run this again.`,
         notReady,
       );
     }

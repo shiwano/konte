@@ -674,7 +674,9 @@ async function checkComfyApiDeployments(workspaceRoot: string): Promise<CheckRes
               message:
                 (readiness.kind === "unbuilt"
                   ? "its Build is missing or older than its adapters"
-                  : `no ready deployment of release ${readiness.releaseId}`) +
+                  : readiness.kind === "deploying"
+                    ? `${readiness.deployment.id} is ${readiness.deployment.status}`
+                    : `no ready deployment of release ${readiness.releaseId}`) +
                 ` — run \`konte adapter comfy build ${name}\``,
             },
       );

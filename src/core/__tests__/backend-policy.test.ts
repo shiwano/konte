@@ -143,6 +143,14 @@ describe("assertSpendAllowed", () => {
   it.each([
     [{ kind: "unbuilt" }, "its Build is missing or older than its adapters"],
     [
+      {
+        kind: "deploying",
+        deployment: { id: "dep-1", status: "provisioning" },
+        releaseId: "rel-1",
+      },
+      "deployment dep-1 is provisioning",
+    ],
+    [
       { kind: "undeployed", buildId: "b-1", releaseId: "rel-1" },
       "no ready deployment of release rel-1",
     ],

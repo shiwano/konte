@@ -33,6 +33,9 @@ function printResult(name: string, result: BuildResult): void {
     );
   } else {
     console.log(`comfyapi:${name}: no ready deployment of release ${result.releaseId}`);
+    for (const d of result.unready) {
+      console.log(`  Deployment ${d.id} is ${d.status} and takes no jobs`);
+    }
     console.log(`  Build page: ${url}`);
   }
   for (const d of result.outdated) {
@@ -52,9 +55,10 @@ export function registerComfyBuildCommand(comfy: Command): void {
       `
 Creates or updates the Comfy API Build of a deployment under comfy.comfyapi.deployments — every
 workspace comfy adapter whose comfy.adapters route lands on it — cuts its release and waits until
-the release is deployable (several minutes on a change; run it in the background). konte never
-creates or deletes a deployment: when the release has no ready deployment, this opens the Build
-page, prints its URL, and exits 1. Deploy the release there, then run this again.
+the release is deployable (several minutes on a change; run it in the background). A deployment
+of the release that is coming up (queued, provisioning, starting) is waited for until it is ready.
+konte never creates or deletes a deployment: when the release has none ready or coming up, this
+opens the Build page, prints its URL, and exits 1. Deploy the release there, then run this again.
 
 With no argument, every deployment some adapter routes to is built.
 
@@ -109,9 +113,12 @@ Examples:
       process.exitCode = 1;
       console.log("\nNext steps:");
       for (const { name, result } of undeployed) {
-        console.log(
-          `  Deploy release ${result.releaseId} on its Build page, then: konte adapter comfy build ${name}`,
-        );
+        const what =
+          result.unready.length > 0
+            ? `Read why ${result.unready.map((d) => d.id).join(", ")} is not ready on its Build ` +
+              `page and deploy release ${result.releaseId} again`
+            : `Deploy release ${result.releaseId} on its Build page`;
+        console.log(`  ${what}, then: konte adapter comfy build ${name}`);
       }
     });
 

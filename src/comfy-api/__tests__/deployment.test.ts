@@ -5,7 +5,12 @@ import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/work
 import type { ComfyModelDeclaration, KonteConfig } from "../../core/types/index.js";
 import { type ComfyAdapterDeclarations, workspaceComfyAdapters } from "../build-definition.js";
 import { loadDeploymentState } from "../deploy-state.js";
-import { buildDeployment, deploymentReadiness, routedDeploymentNames } from "../deployment.js";
+import {
+  type BuildTiming,
+  buildDeployment,
+  deploymentReadiness,
+  routedDeploymentNames,
+} from "../deployment.js";
 import { ComfyApiHttpError } from "../http.js";
 import type { ComfyPlatformClient, PlatformDeployment } from "../platform-client.js";
 import type { ComfyRouter } from "../routing.js";
@@ -71,7 +76,7 @@ const routedToMain = {
 
 function ctx(
   platform: FakePlatform,
-  overrides: { router?: ComfyRouter; config?: KonteConfig } = {},
+  overrides: { router?: ComfyRouter; config?: KonteConfig; timing?: Partial<BuildTiming> } = {},
 ) {
   return {
     workspaceRoot: ws.root,
@@ -81,7 +86,7 @@ function ctx(
     platform: platform as unknown as ComfyPlatformClient,
     router: routedToMain,
     resolvers: { registryVersion: async () => "1.0.0" },
-    timing: { releasePollMs: 1 },
+    timing: { releasePollMs: 1, deploymentPollMs: 1 },
     ...overrides,
   };
 }
@@ -98,6 +103,7 @@ describe("buildDeployment", () => {
       buildId: "build-1",
       releaseId: "rel-1",
       deployment: null,
+      unready: [],
       outdated: [],
     });
     expect(platform.createBuild.mock.calls[0]![1]).toEqual({
@@ -123,7 +129,87 @@ describe("buildDeployment", () => {
     const { platform, deployments } = fakePlatform();
     deployments.push(deployment("dep-1", "rel-1", "stopped"));
 
-    expect((await buildDeployment(ctx(platform), "main")).deployment).toBeNull();
+    const result = await buildDeployment(ctx(platform), "main");
+    expect(result.deployment).toBeNull();
+    expect(result.unready.map((d) => d.status)).toEqual(["stopped"]);
+  });
+
+  // The listings the human's deployments go through, one per list; the last one stays.
+  function listings(platform: FakePlatform, ...steps: PlatformDeployment[][]) {
+    platform.listDeployments.mockImplementation(async () =>
+      (steps.length > 1 ? steps.shift()! : steps[0]!).map((d) => ({ ...d })),
+    );
+  }
+
+  it("waits for a deployment of the release that is coming up", async () => {
+    const { platform } = fakePlatform();
+    const staging = (bytesDone: number) => ({
+      ...deployment("dep-1", "rel-1", "provisioning"),
+      progress: { step: "staging_models", bytesDone, bytesTotal: 100 },
+    });
+    listings(
+      platform,
+      [deployment("dep-1", "rel-1", "queued")],
+      [staging(31)],
+      [staging(39)],
+      [deployment("dep-1", "rel-1", "starting")],
+      [deployment("dep-1", "rel-1")],
+    );
+    const lines: string[] = [];
+
+    const result = await buildDeployment(
+      { ...ctx(platform), log: (line) => lines.push(line) },
+      "main",
+    );
+
+    expect(result.deployment?.id).toBe("dep-1");
+    expect(lines.filter((l) => l.startsWith("Deployment"))).toEqual([
+      "Deployment dep-1: queued",
+      "Deployment dep-1: provisioning, staging models",
+      "Deployment dep-1: starting",
+    ]);
+  });
+
+  it("takes another deployment of the release that comes up while one fails", async () => {
+    const { platform } = fakePlatform();
+    listings(
+      platform,
+      [deployment("dep-1", "rel-1", "starting"), deployment("dep-2", "rel-1", "provisioning")],
+      [deployment("dep-1", "rel-1", "failed"), deployment("dep-2", "rel-1", "starting")],
+      [deployment("dep-1", "rel-1", "failed"), deployment("dep-2", "rel-1")],
+    );
+
+    expect(await buildDeployment(ctx(platform), "main")).toMatchObject({
+      deployment: { id: "dep-2" },
+      unready: [],
+    });
+  });
+
+  it("stops waiting once no deployment of the release is coming up", async () => {
+    const { platform } = fakePlatform();
+    listings(
+      platform,
+      [deployment("dep-1", "rel-1", "starting")],
+      [deployment("dep-1", "rel-1", "failed")],
+    );
+
+    expect(await buildDeployment(ctx(platform), "main")).toMatchObject({
+      deployment: null,
+      unready: [{ id: "dep-1", status: "failed" }],
+    });
+  });
+
+  it("fails a deployment still coming up past the timeout", async () => {
+    const { platform, deployments } = fakePlatform();
+    deployments.push(deployment("dep-1", "rel-1", "provisioning"));
+    await expect(
+      buildDeployment(
+        ctx(platform, {
+          timing: { releasePollMs: 1, deploymentPollMs: 1, deploymentTimeoutMs: 0 },
+        }),
+        "main",
+      ),
+    ).rejects.toMatchObject({ code: "COMFY_API_DEPLOYMENT_NOT_READY" });
   });
 
   it("changes nothing when nothing moved", async () => {
@@ -214,6 +300,17 @@ describe("deploymentReadiness", () => {
     expect(await deploymentReadiness(ctx(platform), "main")).toMatchObject({
       kind: "ready",
       endpointUrl: "https://dep-1",
+    });
+  });
+
+  it("is deploying while a deployment of the release comes up", async () => {
+    const { platform, deployments } = fakePlatform();
+    await buildDeployment(ctx(platform), "main");
+    deployments.push(deployment("dep-1", "rel-1", "queued"));
+
+    expect(await deploymentReadiness(ctx(platform), "main")).toMatchObject({
+      kind: "deploying",
+      deployment: { id: "dep-1", status: "queued" },
     });
   });
 

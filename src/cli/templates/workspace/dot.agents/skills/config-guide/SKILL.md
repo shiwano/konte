@@ -50,8 +50,9 @@ konte builds a deployment's Build and release; the user creates and deletes the 
 2. **Exit 1** → it opened the Build page and printed its URL. Tell the user, with that URL:
    - press **Deploy** on the release it names, keeping **Always-warm workers** at 0 — above 0 bills a GPU for as long as the deployment exists
    - it reaches ready in a few minutes
-3. **Once the user has deployed it**, run the command again until it exits 0.
+3. **Once the user has deployed it**, run the command again in the background — it waits while the deployment comes up, and exits 0 once it is ready.
 
+- **A deployment named as not ready** → tell the user its status and the Build page URL; they read why on that page and deploy again.
 - **A deployment named as running an earlier release** → ask the user to delete it on the same page — a deployment bills its models' storage until deleted.
 - **Done with Comfy API for now** → the user may delete the deployment on the Build page; the next `konte adapter comfy build` asks for a new one.
 

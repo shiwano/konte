@@ -29,6 +29,8 @@ const BUILD_PAGE = "https://platform.comfy.org/profile/builds/";
 export type BuildTiming = {
   releasePollMs: number;
   releaseTimeoutMs: number;
+  deploymentPollMs: number;
+  deploymentTimeoutMs: number;
   // Waits out another process's whole release build behind the same lock.
   lockTimeoutMs: number;
 };
@@ -36,7 +38,9 @@ export type BuildTiming = {
 const DEFAULT_TIMING: BuildTiming = {
   releasePollMs: 10_000,
   releaseTimeoutMs: 60 * 60_000,
-  lockTimeoutMs: 90 * 60_000,
+  deploymentPollMs: 10_000,
+  deploymentTimeoutMs: 30 * 60_000,
+  lockTimeoutMs: 120 * 60_000,
 };
 
 export type DeploymentContext = {
@@ -120,10 +124,21 @@ export function usableDeployment(
   return usable[0] ?? null;
 }
 
+const COMING_UP = new Set(["queued", "provisioning", "starting"]);
+
+/** A deployment of `releaseId` the human deployed that is not ready yet. */
+export function comingUpDeployment(
+  deployments: readonly PlatformDeployment[],
+  releaseId: string,
+): PlatformDeployment | null {
+  return deployments.find((d) => d.releaseId === releaseId && COMING_UP.has(d.status)) ?? null;
+}
+
 export type DeploymentReadiness =
   | { kind: "ready"; deployment: PlatformDeployment; endpointUrl: string }
   // No release, or one cut from adapters or settings that have moved since.
   | { kind: "unbuilt" }
+  | { kind: "deploying"; deployment: PlatformDeployment; releaseId: string }
   | { kind: "undeployed"; buildId: string; releaseId: string };
 
 /** Whether the deployment's current release has a deployment to run jobs on. */
@@ -135,8 +150,11 @@ export async function deploymentReadiness(
   const state = await loadDeploymentState(ctx.workspaceRoot, name);
   if (!releaseIsCurrent(state, inputs)) return { kind: "unbuilt" };
   const platform = ctx.platform ?? new ComfyPlatformClient(ctx.apiKey);
-  const deployment = usableDeployment(await platform.listDeployments(), state.releaseId!);
+  const deployments = await platform.listDeployments();
+  const deployment = usableDeployment(deployments, state.releaseId!);
   if (!deployment) {
+    const coming = comingUpDeployment(deployments, state.releaseId!);
+    if (coming) return { kind: "deploying", deployment: coming, releaseId: state.releaseId! };
     return { kind: "undeployed", buildId: state.buildId!, releaseId: state.releaseId! };
   }
   return { kind: "ready", deployment, endpointUrl: deployment.endpointUrl! };
@@ -146,13 +164,16 @@ export type BuildResult = {
   buildId: string;
   releaseId: string;
   deployment: PlatformDeployment | null;
+  // Deployments of the release that settled without becoming ready.
+  unready: PlatformDeployment[];
   // Deployments of this Build's earlier releases, left for the human to delete.
   outdated: PlatformDeployment[];
 };
 
 /**
  * Bring a deployment's Build and release up to date with what routes to it, and wait for the
- * release to be deployable. Deployments are the human's to create and delete; this only finds one.
+ * release to be deployable. Deployments are the human's to create and delete; this only finds one,
+ * waiting while one of the release is coming up.
  */
 export async function buildDeployment(
   ctx: DeploymentContext & {
@@ -222,11 +243,20 @@ export async function buildDeployment(
       }
       await waitForRelease(platform, state.releaseId!, timing, log);
 
-      const deployments = await platform.listDeployments();
+      const releaseId = state.releaseId!;
+      const deployments = await waitForDeployment(
+        platform,
+        releaseId,
+        await platform.listDeployments(),
+        timing,
+        log,
+      );
+      const deployment = usableDeployment(deployments, releaseId);
       return {
         buildId: state.buildId!,
-        releaseId: state.releaseId!,
-        deployment: usableDeployment(deployments, state.releaseId!),
+        releaseId,
+        deployment,
+        unready: deployment ? [] : deployments.filter((d) => d.releaseId === releaseId),
         outdated: deployments.filter(
           (d) => d.releaseId != null && state.pastReleaseIds.includes(d.releaseId),
         ),
@@ -280,5 +310,42 @@ async function waitForRelease(
       );
     }
     await sleep(timing.releasePollMs);
+  }
+}
+
+function describeProgress(d: PlatformDeployment): string {
+  const step = d.progress?.step;
+  return step ? `${d.status}, ${step.replaceAll("_", " ")}` : d.status;
+}
+
+/** The deployments, re-listed while one of `releaseId` is coming up and none of it is ready. */
+async function waitForDeployment(
+  platform: ComfyPlatformClient,
+  releaseId: string,
+  listed: PlatformDeployment[],
+  timing: BuildTiming,
+  log: (line: string) => void,
+): Promise<PlatformDeployment[]> {
+  const deadline = Date.now() + timing.deploymentTimeoutMs;
+  let deployments = listed;
+  let lastLine = "";
+  while (true) {
+    if (usableDeployment(deployments, releaseId)) return deployments;
+    const coming = comingUpDeployment(deployments, releaseId);
+    if (!coming) return deployments;
+    const line = `Deployment ${coming.id}: ${describeProgress(coming)}`;
+    if (line !== lastLine) {
+      lastLine = line;
+      log(line);
+    }
+    if (Date.now() > deadline) {
+      throw new KonteError(
+        "COMFY_API_DEPLOYMENT_NOT_READY",
+        `No deployment of release ${releaseId} was ready after ` +
+          `${Math.round(timing.deploymentTimeoutMs / 60_000)}m (${line})`,
+      );
+    }
+    await sleep(timing.deploymentPollMs);
+    deployments = await platform.listDeployments();
   }
 }
