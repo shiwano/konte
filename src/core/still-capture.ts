@@ -5,6 +5,7 @@ import {
   assertCaptureMediaLoaded,
   ensureHyperFrames,
   linkIntoWorkspace,
+  loadHyperFramesProducer,
   makeCaptureWorkspace,
   silenceHyperFramesLogs,
 } from "./hyperframes.js";
@@ -38,7 +39,7 @@ export async function captureHtmlToImage(options: {
     initializeSession,
     captureFrame,
     closeCaptureSession,
-  } = await import("@hyperframes/producer");
+  } = await loadHyperFramesProducer();
 
   const restoreLogs = silenceHyperFramesLogs();
   const workspace = await makeCaptureWorkspace(options.videoRoot, "still-");

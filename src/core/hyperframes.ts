@@ -20,9 +20,26 @@ export async function ensureHyperFrames(): Promise<void> {
   await leadPathWithFfmpeg();
 
   try {
-    await import("@hyperframes/producer");
+    await loadHyperFramesProducer();
   } catch {
     throw new KonteError("HYPERFRAMES_NOT_FOUND", "@hyperframes/producer is not installed.");
+  }
+}
+
+/**
+ * `@hyperframes/producer`, imported with its load-time `[renderProvenance]` warning dropped: the
+ * engine looks for its own package.json beside its module, which a compiled binary has none of.
+ */
+export async function loadHyperFramesProducer(): Promise<typeof import("@hyperframes/producer")> {
+  const original = console.warn;
+  console.warn = (...args: unknown[]) => {
+    if (typeof args[0] === "string" && args[0].startsWith("[renderProvenance]")) return;
+    original(...args);
+  };
+  try {
+    return await import("@hyperframes/producer");
+  } finally {
+    console.warn = original;
   }
 }
 
@@ -223,7 +240,7 @@ export async function compositeWithHyperFrames(options: {
       await linkIntoWorkspace(source, target);
     }
 
-    const { createRenderJob, executeRenderJob } = await import("@hyperframes/producer");
+    const { createRenderJob, executeRenderJob } = await loadHyperFramesProducer();
     const onLog = (line: string) =>
       options.onLog?.(redactUrls(`[${path.basename(outputFile)}] ${line}`));
     const log = (level: string, message: string, meta?: Record<string, unknown>) => {

@@ -660,7 +660,8 @@ async function buildVideoFrameInjector(
   injector: import("@hyperframes/producer").BeforeCaptureHook | null;
   suppliedVideoIds: string[];
 }> {
-  const { createVideoFrameInjector, quantizeTimeToFrame } = await import("@hyperframes/producer");
+  const { loadHyperFramesProducer } = await import("./hyperframes.js");
+  const { createVideoFrameInjector, quantizeTimeToFrame } = await loadHyperFramesProducer();
   const framesDir = path.join(workspace, ".frames");
   await fs.mkdir(framesDir, { recursive: true });
 
@@ -879,6 +880,7 @@ export async function captureCompositionFrames(options: {
     assertCaptureMediaLoaded,
     ensureHyperFrames,
     linkIntoWorkspace,
+    loadHyperFramesProducer,
     makeCaptureWorkspace,
     silenceHyperFramesLogs,
   } = await import("./hyperframes.js");
@@ -934,7 +936,7 @@ export async function captureCompositionFrames(options: {
       initializeSession,
       captureFrame,
       closeCaptureSession,
-    } = await import("@hyperframes/producer");
+    } = await loadHyperFramesProducer();
 
     const restoreLogs = silenceHyperFramesLogs();
     let workspace: string | undefined;
