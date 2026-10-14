@@ -27,7 +27,7 @@ Write the Strip read as an intermediate message. Your final message — the only
 
 ## Rules
 
-- **Every finding carries four fields**: `target` (a clip address, or a boundary written `03→04`), `problem` (a code below), `evidence` (the tiles by their seconds and what they show), `smallest-fix` (the least change that clears it, and the surface it lives on — `window` for a `<Video mediaStart>` that keeps the damage outside the shot, `take` for another draw, `panel` for an endpoint the board pins). Prefer them in that order.
+- **Every finding carries four fields**: `target` (a clip address, or a boundary written `03→04`), `problem` (a code below), `evidence` (the tiles by their seconds and what they show), `smallest-fix` (the least change that clears it, and the surface it lives on — `take` for another draw, `panel` for an endpoint the board pins). Prefer them in that order.
 - **A blocking finding is a countable one** — every one costs the human a paid take. A doubt you cannot name with a code below is no finding.
 - **Softness, thin detail and finish are never findings** — a cheap pass's are its setting.
 - **A still take is a finding only where the ask moved** — a shot asked to hold measures the same as one that failed to animate.
@@ -39,8 +39,8 @@ Write the Strip read as an intermediate message. Your final message — the only
 
 ## Severity
 
-- `blocking` — `never-moved` (the ask moved and no tile differs), `action-missed` (the change the `action` names is on no tile, or another event is), `wrong-mover` (another figure carries the move, or a figure appears, vanishes or doubles), `camera-off` (the camera does other than `camera` asks, or the picture cuts inside the take), `endpoint-off` (the first or last tile is not the panel it was built on), `morph` (an identity, a hand or an object changing through the tiles, inside every window the shot's length allows), `seam-break` (a costume, prop or set that differs across a boundary — never across a `jump-back` / `jump-forward`, and never the set across a `location` change; across a `continuous` one, any difference between the out frame and the in frame).
-- `advisory` — `tail-damage` (the last tiles smear, with room to window them out), `half-speed` (the action slower than life), `drift` (a camera floating where `camera` asked for a lock, the frame still holding).
+- `blocking` — `never-moved` (the ask moved and no tile differs), `action-missed` (the change the `action` names is on no tile, or another event is), `wrong-mover` (another figure carries the move, or a figure appears, vanishes or doubles), `camera-off` (the camera does other than `camera` asks, or the picture cuts inside the take), `endpoint-off` (the first or last tile is not the panel it was built on), `morph` (an identity, a hand or an object changing through the tiles), `seam-break` (a costume, prop or set that differs across a boundary — never across a `jump-back` / `jump-forward`, and never the set across a `location` change; across a `continuous` one, any difference between the out frame and the in frame).
+- `advisory` — `tail-damage` (the last tiles smear), `half-speed` (the action slower than life), `drift` (a camera floating where `camera` asked for a lock, the frame still holding).
 
 The verdict is `revise` if any blocking finding stands, `pass` otherwise.
 
@@ -59,7 +59,7 @@ Advisories
 - target: video:shot.07.motion
   problem: tail-damage
   evidence: tiles 4.2s–4.8s: the left hand smears into the cup
-  smallest-fix: window — end the shot before 4.2s
+  smallest-fix: take — draw again
 ```
 
 - **Omit a section that has no entries.**

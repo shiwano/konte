@@ -11,7 +11,7 @@ Take an assembled cut whose every shot holds a self-reviewed take from "plays" t
 - **A take is wrong** — subject, performance, a morph, motion that never came → `generation-loop-guide`; this pass never rerolls.
 - **A shot is wrong** — order, a missing shot, a `duration` → `direction-guide`.
 - **What plays where** — a silent picture, music as wallpaper, layers, where music enters and leaves, ducking, cut-crossing sound → `composition-guide`'s sound-design.md.
-- **The mechanics of a fix** — `<Video>` windows, `<Animate>`, `<Subtitle>`, `soundtrack()`, CSS on a clip → `composition-guide`.
+- **The mechanics of a fix** — `<Animate>`, `<Subtitle>`, `soundtrack()`, CSS on a clip → `composition-guide`.
 
 ## 1. Watch it whole before touching anything
 
@@ -19,17 +19,14 @@ Take an assembled cut whose every shot holds a self-reviewed take from "plays" t
 
 ## 2. The hook
 
-- **Window the first shot on `brief.hook`** (none → the first shot's `action`) — slide `mediaStart` so its first second holds the frame that sentence names, not the calm before it.
 - **Sound is on from frame one** — ambience under the first frame; a silent head reads as a broken file.
 - **A title never delays the hook** — it rides over the first shot (an `<Animate>` reveal) or lands after it.
 
 ## 3. Rhythm inside the shot
 
-- **A take is generated to its shot's length, raised to the nearest length its model takes** — one that overruns the shot by under a second plays from its head: leave `mediaStart` unset. `konte probe motion video --verbose` prints each take's length.
-- **A take that overruns by more is windowed** — slide `mediaStart` so the movement peaks near the cut, and the cut lands on the action rather than after it.
-- **Keep the generative tail outside a window you moved** — a motion model smears its last frames; `konte probe motion video` shows where each strip degrades. Choose `mediaStart` so `mediaStart + duration` ends before the damaged tail.
-- **A take cut to the song** → `composition-guide`'s song.md; the window moves here and in §2 are for every other take.
-- **A held frame earns its hold with change** — a slow `<Animate>` push, a reveal, a light change; a frame held past its content — hair, cloth and light idly moving while nothing happens — is where the eye leaves. A hold the take cannot fill is a `duration` note for `direction-guide`.
+- **A take plays from its head** — its first and last frames are the panels it was built on; leave `mediaStart` unset.
+- **A take cut to the song** → `composition-guide`'s song.md.
+- **A held frame earns its hold with change** — a slow `<Animate>` push, a reveal, a light change; a frame held past its content — hair, cloth and light idly moving while nothing happens — is where the eye leaves. A hold the take cannot fill is named in the handoff.
 - **Read three cuts at a time** — a run whose shots all move at one speed, or all hold, is a metronome whatever the durations; vary what moves.
 
 ## 4. Look across shots
@@ -46,7 +43,7 @@ Take an assembled cut whose every shot holds a self-reviewed take from "plays" t
 ## 6. Transitions
 
 - **The cut is the default** — a dissolve says time passes or place changes; between two shots of one continuous action it is a smear. A fade in at the head that never delays the hook, a fade out at the tail, and nowhere else without a reason the direction wrote (a flash on a hit, a whip on a chase).
-- **A transition hides nothing** — a dissolve over a jump cut is a slow jump cut; fix the cut at the window, or the shot at the direction.
+- **A transition hides nothing** — a dissolve over a jump cut is a slow jump cut; fix the take or the shot.
 - **A boundary the direction declares `join: "continuous"` takes no transition at all** — there is no cut there to soften, and anything laid over it puts one back.
 
 ## 7. The end
@@ -58,9 +55,9 @@ Take an assembled cut whose every shot holds a self-reviewed take from "plays" t
 
 Name the ones the reel carries; clear each, or say in the handoff why it stays.
 
-- **Unmotivated camera drift** — every shot floating or slowly pushing. Clear: a tighter window; let one shot move and the rest sit. A drift no window escapes → `generation-loop-guide`.
-- **Everything at half speed** — every action slower than life. Clear: window to the action's real time. Slow end to end → `generation-loop-guide`.
-- **A morph** — an identity, a hand or an object changing inside the take or across the cut. Clear: a window that ends before it starts. A morph inside every window → `generation-loop-guide`.
+- **Unmotivated camera drift** — every shot floating or slowly pushing. Clear: let one shot move and the rest sit; each take that drifts → `generation-loop-guide`.
+- **Everything at half speed** — every action slower than life. Clear: → `generation-loop-guide`.
+- **A morph** — an identity, a hand or an object changing inside the take or across the cut. Clear: → `generation-loop-guide`.
 - **The default look** — saturation, sharpness and rim light past what `brief.look` names. Clear: name it in the handoff; where every take carries it, a prompt fix for the next piece.
 
 ## Verify
@@ -70,6 +67,6 @@ Name the ones the reel carries; clear each, or say in the handoff why it stays.
 
 ## Pitfalls
 
-- **Polishing a wrong take** — any morph the window shows; route it back.
+- **Polishing a wrong take** — any morph the take shows; route it back.
 - **Running polish per sequence** — rhythm, look and score read across the whole piece; run it once, before the last handoff.
 - **Running polish after the human accepted the cut** — every composition it touches comes back for review; what they signed off is what ships, and a further pass is theirs to ask for.
