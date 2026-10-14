@@ -32,6 +32,9 @@
       "Bash(printenv*)"
     ]
   },
+  "enabledMcpjsonServers": [
+    "konte"
+  ],
   "extraKnownMarketplaces": {
     "konte": {
       "source": {
