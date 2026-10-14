@@ -263,7 +263,7 @@ describe("cutin staging", () => {
     ]);
 
     const waived = direction(shots);
-    waived.sequence.waivers = { "lineup-vacuous_01": "kept on purpose" };
+    waived.waivers = { "lineup-vacuous_01": "kept on purpose" };
     expect(active(waived, "lineup-vacuous").map((f) => f.subject)).toEqual(["01.cutin"]);
   });
 

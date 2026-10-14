@@ -419,16 +419,14 @@ export function isGraphicShot(shot: Shot): shot is GraphicShot {
 // it omits them. `pleasure` is the feeling this node aims for and the one thing a person with no
 // craft vocabulary can argue with on the review page ("that act should not be scary") — required on
 // every node, since a node that could stay silent would, and the reviewer would be left with nothing
-// to take a position on. `waivers` cancels this node's own arc findings; the root's bag also owns
-// the piece-wide characters/speech findings. Both `pleasure` and the shape are in the acceptance hash —
-// retargeting or restructuring a node re-blocks the spend gate.
+// to take a position on. Both `pleasure` and the shape are in the acceptance hash — retargeting or
+// restructuring a node re-blocks the spend gate.
 export type DirectionNode = {
   id?: string;
   role?: string;
   synopsis?: string;
   lens: string;
   pleasure: Pleasure;
-  waivers?: Record<string, string>;
   shots?: Shot[];
   sequences?: DirectionNode[];
 };
@@ -495,6 +493,9 @@ export type Direction = {
   policy: DirectionPolicy;
   // The song's words, reviewed as one part (`direction:lyrics`).
   lyrics?: DirectionLyrics;
+  // Every waived finding, keyed `<code>` or `<code>_<subject>` (`directionWaiverKey`), whichever arc
+  // node or roster it fired on.
+  waivers?: Record<string, string>;
   // The root of the arc tree. A leaf for a short piece (`{ lens, shots }`), a branch for a long one
   // (`{ lens, sequences }`). Named `sequence` because every node is a sequence — an ordered run that
   // forms an arc — whether it runs over shots or over sub-sequences.
@@ -561,7 +562,7 @@ type NodeBodyShape = { shots: readonly ShotShape[] } | { sequences: readonly Chi
 type NodeCommonShape = {
   lens: string;
   pleasure: Pleasure;
-  waivers?: Record<string, string>;
+  waivers?: DirectionViolation<"konte: a waiver belongs in the direction's top-level `waivers`, not on a sequence">;
 };
 // A child node is an item in its parent's arc, so it carries `id`/`role`/`synopsis`; the recursion
 // bottoms out at a leaf (a body of `shots`).
@@ -583,6 +584,7 @@ type DirectionInput = {
   lenses?: readonly LensSpec<string>[];
   policy: DirectionPolicy;
   lyrics?: DirectionLyrics;
+  waivers?: Record<string, string>;
   sequence: RootNodeShape;
 };
 

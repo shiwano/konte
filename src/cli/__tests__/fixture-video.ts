@@ -72,6 +72,23 @@ export default defineDirection({
       within: "deskMedium",
     },
   },
+  waivers: {
+    "missing-role_before": "The piece opens at planning, with no prior state to show.",
+    "too-few-consecutive_rhythm": "A compressed three-shot showcase.",
+    // The board is anchored on a blank latent, not on the studio reference. Wiring it instead would
+    // put a studio asset in the reference stage of every suite that swaps this one out — and those
+    // stages are each cut to exactly what their own plan / reroll / cascade assertions count.
+    "setup-unconsumed_deskWide": "fixture board is anchored on a latent, not the location",
+    "setup-unconsumed_deskMedium": "fixture board is anchored on a latent, not the location",
+    "setup-unconsumed_deskClose": "fixture board is anchored on a latent, not the location",
+    // Same reason one step further: the board declares no plates, so the axial push-in from 01 to
+    // 02 has nothing nesting its two frames.
+    "axis-unrealized_deskMedium.deskWide": "fixture board declares no plates",
+    // Wiring the previous panel would chain each shot's board to the one before it, which every plan and
+    // cascade count in the suite would then see.
+    "panel-unlinked_01-02": "fixture shots are boarded independently",
+    "panel-unlinked_02-03": "fixture shots are boarded independently",
+  },
   sequence: {
     lens: "satisfying-process",
     pleasure: "satisfying",
@@ -104,23 +121,6 @@ export default defineDirection({
         telop: ["Move it."],
       },
     ],
-    waivers: {
-      "missing-role_before": "The piece opens at planning, with no prior state to show.",
-      "too-few-consecutive_rhythm": "A compressed three-shot showcase.",
-      // The board is anchored on a blank latent, not on the studio reference. Wiring it instead would
-      // put a studio asset in the reference stage of every suite that swaps this one out — and those
-      // stages are each cut to exactly what their own plan / reroll / cascade assertions count.
-      "setup-unconsumed_deskWide": "fixture board is anchored on a latent, not the location",
-      "setup-unconsumed_deskMedium": "fixture board is anchored on a latent, not the location",
-      "setup-unconsumed_deskClose": "fixture board is anchored on a latent, not the location",
-      // Same reason one step further: the board declares no plates, so the axial push-in from 01 to
-      // 02 has nothing nesting its two frames.
-      "axis-unrealized_deskMedium.deskWide": "fixture board declares no plates",
-      // Wiring the previous panel would chain each shot's board to the one before it, which every plan and
-      // cascade count in the suite would then see.
-      "panel-unlinked_01-02": "fixture shots are boarded independently",
-      "panel-unlinked_02-03": "fixture shots are boarded independently",
-    },
   },
 });
 `;

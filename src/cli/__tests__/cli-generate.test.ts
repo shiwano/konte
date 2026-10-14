@@ -999,6 +999,14 @@ export default defineDirection({
     detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", holds: ["studioMark"], within: null },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: {
+    "location-unreferenced_studio": "fixture has no reference stage exposing it",
+    "setup-unconsumed_front": "fixture board is anchored on nothing",
+    "setup-unconsumed_detail": "fixture board is anchored on nothing",
+    "missing-role_disruption": "two-shot fixture",
+    "missing-role_pressure": "two-shot fixture",
+    "role-overweight_ordinary": "two-shot fixture",
+  },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
@@ -1006,14 +1014,6 @@ export default defineDirection({
       { id: "01", role: "ordinary", action: "shot one", setup: "front", duration: 3 , lineup: [] },
       { id: "02", role: "hero", action: "shot two", setup: "detail", duration: 3 , lineup: [] },
     ],
-    waivers: {
-      "location-unreferenced_studio": "fixture has no reference stage exposing it",
-      "setup-unconsumed_front": "fixture board is anchored on nothing",
-      "setup-unconsumed_detail": "fixture board is anchored on nothing",
-      "missing-role_disruption": "two-shot fixture",
-      "missing-role_pressure": "two-shot fixture",
-      "role-overweight_ordinary": "two-shot fixture",
-    },
   },
 });
 `;

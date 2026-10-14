@@ -1012,13 +1012,13 @@ export default defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
     shots: [
       { id: "01", role: "hero", action: "test shot", setup: "front", duration: 5 , lineup: [] },
     ],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 `;
@@ -1143,9 +1143,9 @@ describe("accept direction", () => {
     const held = addressesUnder(stdout, "Held waiver parts");
 
     expect(held.length).toBeGreaterThan(0);
-    expect(addressesUnder(stdout, "Accepted parts").filter((p) => p.includes(".waivers."))).toEqual(
-      [],
-    );
+    expect(
+      addressesUnder(stdout, "Accepted parts").filter((p) => p.startsWith("direction:waivers.")),
+    ).toEqual([]);
     // The held waivers are exactly what is left blocking — nothing else was skipped along the way.
     const after = await inspect();
     expect(after.parts.filter((p) => p.status !== "accepted").map((p) => p.address)).toEqual(held);
@@ -1254,13 +1254,11 @@ describe("accept direction", () => {
 
   it("sweeps a deleted waiver's sign-off without holding it for review", async () => {
     await run(["accept", "direction"], projectDir);
-    await seedOrphan("direction:sequence.waivers.gone");
+    await seedOrphan("direction:waivers.gone");
     expect((await inspect()).orphans).toEqual([]);
 
     const { stdout } = await run(["accept", "direction", "--verbose"], projectDir);
-    expect(addressesUnder(stdout, "Held waiver parts")).not.toContain(
-      "direction:sequence.waivers.gone",
-    );
+    expect(addressesUnder(stdout, "Held waiver parts")).not.toContain("direction:waivers.gone");
     expect((await inspect()).orphans).toEqual([]);
   });
 });

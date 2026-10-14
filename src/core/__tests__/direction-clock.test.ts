@@ -27,11 +27,11 @@ function clocked(shots: NarrativeShot[], waivers?: Record<string, string>): Dire
   return {
     ...directionDefaults,
     policy: { ...directionDefaults.policy, song: "song" },
+    ...(waivers ? { waivers } : {}),
     sequence: {
       lens: "mini-drama",
       pleasure: "cute",
       shots,
-      ...(waivers ? { waivers } : {}),
     },
   } as Direction;
 }

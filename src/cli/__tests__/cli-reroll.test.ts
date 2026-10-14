@@ -490,18 +490,18 @@ export default defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: {
+    "missing-role_ordinary": "single-shot offline fixture",
+    "missing-role_disruption": "single-shot offline fixture",
+    "missing-role_pressure": "single-shot offline fixture",
+    "unearned-payoff_hero": "single-shot offline fixture",
+    "location-unreferenced_studio": "single-shot offline fixture has no reference stage",
+    "setup-unconsumed_front": "fixture board is anchored on nothing",
+  },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
     shots: [{ id: "01", role: "hero", action: "the hero beat", setup: "front", duration: 3 , lineup: [] }],
-    waivers: {
-      "missing-role_ordinary": "single-shot offline fixture",
-      "missing-role_disruption": "single-shot offline fixture",
-      "missing-role_pressure": "single-shot offline fixture",
-      "unearned-payoff_hero": "single-shot offline fixture",
-      "location-unreferenced_studio": "single-shot offline fixture has no reference stage",
-      "setup-unconsumed_front": "fixture board is anchored on nothing",
-    },
   },
 });
 `;

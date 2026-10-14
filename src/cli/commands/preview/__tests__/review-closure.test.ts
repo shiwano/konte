@@ -480,10 +480,7 @@ async function waiveAfterWhole(videoRoot: string, key: string): Promise<void> {
   await manager.save();
   await fs.writeFile(
     path.join(videoRoot, "direction.ts"),
-    DIRECTION_TS.replace(
-      '    lens: "mini-drama",',
-      `    lens: "mini-drama",\n    waivers: { "${key}": "one breath" },`,
-    ),
+    DIRECTION_TS.replace("  sequence: {", `  waivers: { "${key}": "one breath" },\n  sequence: {`),
   );
   await generateAll(videoRoot);
 }

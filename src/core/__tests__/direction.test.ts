@@ -16,6 +16,7 @@ import {
   directionWaiverKey,
   reportableDirectionFindings,
   validateDirectionStructure,
+  type StagingStageState,
 } from "../direction.js";
 import type {
   Character,
@@ -71,7 +72,7 @@ function setupsFor(shots: readonly NarrativeShot[]): Record<string, Setup> {
 }
 
 // Build a leaf-root direction (one arc over shots). Piece-wide fields (characters/lenses, and the
-// speech rule under `policy`) stay at the top; the arc (lens/pleasure/shots/waivers) lives in the
+// speech rule under `policy`, waivers) stay at the top; the arc (lens/pleasure/shots) lives in the
 // `sequence` root node.
 // The default location roster the terse fixtures satisfy: `shot()` points every shot at a frame set
 // in `here`, so a leaf/branch that does not override `locations` carries exactly this one entry —
@@ -106,9 +107,9 @@ function leaf(opts: {
     lens: opts.lens ?? "mini-drama",
     pleasure: opts.pleasure ?? "cute",
     shots: opts.shots,
-    ...(opts.waivers ? { waivers: opts.waivers } : {}),
   };
   return {
+    ...(opts.waivers ? { waivers: opts.waivers } : {}),
     ...(opts.characters ? { characters: opts.characters } : {}),
     locations: opts.locations ?? defaultLocations,
     setups: opts.setups ?? setupsFor(opts.shots),
@@ -139,9 +140,9 @@ function branch(opts: {
     lens: opts.lens,
     pleasure: opts.pleasure ?? "cool",
     sequences: opts.sequences,
-    ...(opts.waivers ? { waivers: opts.waivers } : {}),
   };
   return {
+    ...(opts.waivers ? { waivers: opts.waivers } : {}),
     ...(opts.characters ? { characters: opts.characters } : {}),
     locations: opts.locations ?? defaultLocations,
     setups: opts.setups ?? setupsFor(collectLeafShots(opts.sequences)),
@@ -157,8 +158,8 @@ function collectLeafShots(nodes: readonly DirectionNode[]): NarrativeShot[] {
   );
 }
 
-// Override the root node's shots / waivers (they live in `sequence`, not at the top level). The
-// setups roster follows the new shots, since a fixture's frames are derived from them.
+// Override the root node's shots (they live in `sequence`, not at the top level). The setups roster
+// follows the new shots, since a fixture's frames are derived from them.
 function withShots(base: Direction, shots: NarrativeShot[]): Direction {
   return {
     ...base,
@@ -167,7 +168,7 @@ function withShots(base: Direction, shots: NarrativeShot[]): Direction {
   };
 }
 function withWaivers(base: Direction, waivers: Record<string, string>): Direction {
-  return { ...base, sequence: { ...base.sequence, waivers } };
+  return { ...base, waivers };
 }
 
 const cat: Character = { name: "the cat", promptDepiction: "cat", description: "a black cat" };
@@ -943,6 +944,52 @@ describe("checkDirection meta arc (sequenced)", () => {
     );
   });
 
+  // Two acts on one lens fire the same role finding, so below the root the key names the act.
+  it("qualifies an act's role finding with the act's id, so one waiver cancels one act", () => {
+    const noDisruption = (id: string, role: string, prefix: string): DirectionNode => ({
+      ...seq(id, role, prefix, 1),
+      shots: [
+        shot(`${prefix}1`, "ordinary", 2),
+        shot(`${prefix}3`, "pressure", 2),
+        shot(`${prefix}4`, "hero", 1),
+      ],
+    });
+    const dir = threeActDirection(
+      [
+        noDisruption("act1", "setup-act", "a"),
+        seq("act2", "confrontation-act", "b", 5),
+        noDisruption("act3", "climax-act", "c"),
+      ],
+      { "missing-role_act1.disruption": "the act opens mid-trouble" },
+    );
+    const res = checkDirection(dir);
+    expect(res.waived.map(directionWaiverKey)).toEqual(["missing-role_act1.disruption"]);
+    expect(res.active.filter((f) => f.code === "missing-role").map(directionWaiverKey)).toEqual([
+      "missing-role_act3.disruption",
+    ]);
+    expect(res.staleWaivers).toEqual([]);
+  });
+
+  // A setup's finding names no act, so a sequenced direction waives it once, at the top.
+  it("waives a setup's staging finding on a sequenced direction without calling it stale", () => {
+    const dir = threeActDirection(balancedSequences, {
+      "plate-undescribed_here-wide": "the crop is unmistakable on its own",
+    });
+    const stagingStage: StagingStageState = {
+      panelSlots: [],
+      panelReach: [],
+      plateUses: [{ setupId: "here-wide", shotId: "a1", lane: "main", describes: false }],
+      panelPrompts: [],
+      platePrompts: {},
+      videoPins: [],
+      shotPanels: [],
+    };
+    const res = checkDirection(dir, { stagingStage });
+    expect(res.active.map((f) => f.code)).not.toContain("plate-undescribed");
+    expect(res.waived.map(directionWaiverKey)).toEqual(["plate-undescribed_here-wide"]);
+    expect(res.staleWaivers).toEqual([]);
+  });
+
   it("reports an unknown-code node waiver as a structural error, not as stale", () => {
     const dir = threeActDirection(balancedSequences, { "missing-roles_x": "typo" });
     const { structureErrors, staleWaivers } = checkDirection(dir, { referenceAssetNames: [] });
@@ -1289,7 +1336,7 @@ describe("checkDirection setups", () => {
       { ...shot("01", "ordinary", 3), setup: "wide" },
       { ...shot("02", "disruption", 2), setup: "medium" },
     ]);
-    waived.sequence.waivers = { "axis-unrealized_medium.wide": "cut as two separate frames" };
+    waived.waivers = { "axis-unrealized_medium.wide": "cut as two separate frames" };
     expect(found(waived)).toEqual([]);
   });
 
@@ -2036,7 +2083,7 @@ describe("checkDirection typesetting", () => {
     const dir = withPolicy("ja");
     const waived = {
       ...dir,
-      sequence: { ...dir.sequence, waivers: { "fonts-undeclared": "the piece carries no text" } },
+      waivers: { "fonts-undeclared": "the piece carries no text" },
     } as Direction;
     const res = checkDirection(waived);
     expect(res.active.map((f) => f.code)).not.toContain("fonts-undeclared");

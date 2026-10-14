@@ -21,16 +21,16 @@ export default defineDirection({
   // A fixture direction is one shot with no arc to check: no built-in lens declares a function-less
   // beat, so it brings its own container lens rather than staging a whole mini-drama.
   lenses: [defineLens({ name: "one-beat", payoff: "beat", roles: [{ role: "beat" }] })],
+  // No reference stage in this fixture, so the sole location has no reference:studio to anchor on.
+  // \`detail\` is here for the two-shot variant below, which swaps the shots line and nothing else.
+  waivers: {
+    "location-unreferenced_studio": "fixture has no reference stage",
+    "unused-setup_detail": "declared for the two-shot variant of this fixture",
+  },
   sequence: {
     lens: "one-beat",
     pleasure: "cute",
     shots: [{ id: "01", role: "beat", action: "test shot", setup: "front", duration: 5 , lineup: [] }],
-    // No reference stage in this fixture, so the sole location has no reference:studio to anchor on.
-    // \`detail\` is here for the two-shot variant below, which swaps the shots line and nothing else.
-    waivers: {
-      "location-unreferenced_studio": "fixture has no reference stage",
-      "unused-setup_detail": "declared for the two-shot variant of this fixture",
-    },
   },
 });
 `;

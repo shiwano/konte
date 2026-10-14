@@ -278,7 +278,7 @@ export function reportableDirectionFindings(
 // `<code>_<subject>` for an instance (missing-role_disruption, lens-role-mismatch_08). No finding
 // code contains an underscore (they are all hyphenated), so the first one splits the key back apart
 // however the subject (role / shot id / id-range / stage) is spelled — and the key stays a single
-// segment of its review address (`sequence.waivers.<key>`), where a `:` would need escaping and a
+// segment of its review address (`waivers.<key>`), where a `:` would need escaping and a
 // `-` would be indistinguishable from the hyphens inside a code.
 const WAIVER_KEY_SEPARATOR = "_";
 
@@ -308,25 +308,6 @@ function waiverKeySuggestion(key: string): string | undefined {
   if (!code) return undefined;
   const subject = hyphenated.slice(code.length + 1);
   return subject ? `${code}${WAIVER_KEY_SEPARATOR}${subject}` : code;
-}
-
-// Every declared waiver, keyed the way `directionWaiverKey` names it — a key is unique across bags,
-// since its subject names the shot or role it fires on. The reason is what a reader wants; the
-// `nodePath` is what an address needs, since a waiver is reviewed where it is declared (the bag of
-// the node whose finding it cancels), not at the root.
-type DirectionWaiverEntry = { reason: string; nodePath: readonly string[] };
-
-export function directionWaiverEntries(direction: Direction): Map<string, DirectionWaiverEntry> {
-  const out = new Map<string, DirectionWaiverEntry>();
-  const collect = (node: DirectionNode, nodePath: readonly string[]) => {
-    for (const [key, reason] of Object.entries(node.waivers ?? {}))
-      out.set(key, { reason, nodePath });
-    for (const child of node.sequences ?? []) {
-      collect(child, directionChildNodePath(nodePath, child.id ?? ""));
-    }
-  };
-  collect(direction.sequence, DIRECTION_ROOT_PATH);
-  return out;
 }
 
 // A waiver read by watching a shot: its review address, what it waives, and the shots it plays in —
@@ -362,7 +343,7 @@ export function directionShotWaivers(direction: Direction): ShotWaiver[] {
   const shotIds = new Set(collectShots(direction).map((s) => s.id));
   const boundaries = shotBoundaries(direction);
   const out: ShotWaiver[] = [];
-  for (const [key, { reason, nodePath }] of directionWaiverEntries(direction)) {
+  for (const [key, reason] of Object.entries(direction.waivers ?? {})) {
     const sep = key.indexOf(WAIVER_KEY_SEPARATOR);
     if (sep === -1) continue;
     const code = key.slice(0, sep);
@@ -376,7 +357,7 @@ export function directionShotWaivers(direction: Direction): ShotWaiver[] {
       on === "boundary" ? (boundaries.get(subject) ?? []) : shotIds.has(head) ? [head] : [];
     if (ids.length === 0) continue;
     out.push({
-      address: formatDirectionWaiverAddress(nodePath, key),
+      address: formatDirectionWaiverAddress(key),
       code,
       subject,
       reason,
@@ -493,8 +474,6 @@ type DirectionStructureError = {
 type StaleWaiver = {
   key: string;
   reason: string;
-  // The field path of the node whose `waivers` bag declares it.
-  path?: readonly string[];
 };
 
 type DirectionCheckResult = {
@@ -1577,20 +1556,18 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
   // that names none silences nothing and never will — the finding stays active while the key adds a
   // part to review, which reads as "waived" to everyone but the checker. Structural: no pass can make
   // an unknown code fire, so it is never the soft `staleWaivers` case ("the finding is gone").
-  for (const node of collectNodes(direction.sequence)) {
-    for (const key of Object.keys(node.waivers ?? {})) {
-      if (isWaivableCode(waiverKeyCode(key))) continue;
-      const suggestion = waiverKeySuggestion(key);
-      errors.push({
-        code: "waiver-unknown-code",
-        subject: key,
-        message:
-          `waiver "${key}" names no finding code` +
-          (suggestion
-            ? ` — did you mean "${suggestion}"?`
-            : " — copy the [bracketed] key konte prints with the finding"),
-      });
-    }
+  for (const key of Object.keys(direction.waivers ?? {})) {
+    if (isWaivableCode(waiverKeyCode(key))) continue;
+    const suggestion = waiverKeySuggestion(key);
+    errors.push({
+      code: "waiver-unknown-code",
+      subject: key,
+      message:
+        `waiver "${key}" names no finding code` +
+        (suggestion
+          ? ` — did you mean "${suggestion}"?`
+          : " — copy the [bracketed] key konte prints with the finding"),
+    });
   }
 
   // The characters are a hard contract: an `id` (the roster key) must be a valid asset name (it maps
@@ -2156,20 +2133,10 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
   return errors;
 }
 
-// A fold group pairs an arc's findings with the waiver bag that cancels them. `classFilter`, when
-// set, restricts stale-waiver detection to those classes — used where a bag is shared (a sequenced
-// direction's top-level `direction.waivers`, folded by both the meta arc and the global characters).
-type FoldGroup = {
-  findings: DirectionFinding[];
-  waivers: Record<string, string>;
-  path?: readonly string[];
-  classFilter?: Set<DirectionFindingClass>;
-};
-
 // One node of the arc tree the checker walks. A leaf carries shot `items`; an internal node carries
 // child `nodes` and appears as an item in its parent's arc (`item`). The walk is generic over depth:
 // `buildArcTree` produces a depth-1 (flat) or depth-2 (sequenced) tree today, but duration
-// derivation, the arc check, and waiver folding all recurse — so nesting the DSL deeper later (an act
+// derivation and the arc check both recurse — so nesting the DSL deeper later (an act
 // of acts, toward true long-form) changes only the builder below, not the engine. `lens` is optional
 // so an unresolved lens name (a structural error reported elsewhere) skips that node's own arc while
 // its children are still checked.
@@ -2177,9 +2144,7 @@ type ArcNode = {
   item?: { id: string; role: string; synopsis: string };
   lens?: LensSpec<string>;
   noun: string;
-  waivers: Record<string, string>;
   path: readonly string[];
-  classFilter?: Set<DirectionFindingClass>;
   items?: ArcItem<string>[];
   // Every shot this node declares, in direction order, asides included — what the stage-coverage
   // checks compare `realizedIds` against. Kept apart from `items` (narrative only): dropping an
@@ -2202,8 +2167,7 @@ function nodeDuration(node: ArcNode): number {
 // checked against its lens, seeing `realizedIds` so its stage/completeness checks run. A branch node
 // (`sequences`) → an internal arc over one child per sub-node, checked against its lens. The
 // recursion is depth-agnostic, so an act of acts just nests one level deeper. Only a *child* node
-// carries an `item` (its place in its parent's arc); a branch arc has no realized shot order, so it
-// emits arc/pacing only and its bag owns just those classes for stale detection.
+// carries an `item` (its place in its parent's arc).
 function buildArcNode(
   node: DirectionNode,
   lenses: readonly LensSpec<string>[] | undefined,
@@ -2219,7 +2183,6 @@ function buildArcNode(
   isRoot: boolean,
 ): ArcNode {
   const lens = resolveLens(node.lens, lenses);
-  const waivers = node.waivers ?? {};
   const item = isRoot
     ? undefined
     : { id: node.id ?? "", role: node.role ?? "", synopsis: node.synopsis ?? "" };
@@ -2257,15 +2220,13 @@ function buildArcNode(
       afterGap = false;
     }
     const coverageIds = node.shots.map((s) => s.id);
-    return { item, lens, noun: "shot", waivers, path, items, coverageIds, realizedIds };
+    return { item, lens, noun: "shot", path, items, coverageIds, realizedIds };
   }
   return {
     item,
     lens,
     noun: "sequence",
-    waivers,
     path,
-    classFilter: new Set(["arc", "pacing"]),
     nodes: (node.sequences ?? []).map((child) =>
       buildArcNode(
         child,
@@ -2292,12 +2253,27 @@ function buildArcTree(direction: Direction, realizedIds?: readonly string[]): Ar
   );
 }
 
-// Walk the tree depth-first, emitting a fold group per node that has a resolvable lens. An internal
-// node checks its children as arc items with derived durations (so pacing reads each scale); a leaf
-// checks its shots, plus the stage-coverage checks when given a realized id set. `stage` stamps
-// stage-order-mismatch so its waiver reads per stage. A node's own group is emitted before its
+// The arc codes whose subject is a role of the node's own lens, or none: two sequences on one lens
+// both fire `missing-role_disruption`, so below the root the subject is qualified with the node's id
+// (`missing-role_theft.disruption`, `no-payoff_theft`). An item-id subject is unique already.
+const NODE_SCOPED_CODES: ReadonlySet<DirectionFindingCode> = new Set([
+  "missing-role",
+  "no-payoff",
+  "role-out-of-order",
+  "too-many-consecutive",
+  "too-few-consecutive",
+  "unearned-payoff",
+  "role-overweight",
+  "role-underweight",
+  "stage-order-mismatch",
+]);
+
+// Walk the tree depth-first, checking each node that has a resolvable lens. An internal node checks
+// its children as arc items with derived durations (so pacing reads each scale); a leaf checks its
+// shots, plus the stage-coverage checks when given a realized id set. `stage` stamps
+// stage-order-mismatch so its waiver reads per stage. A node's own findings come before its
 // children's (meta arc before the per-sequence shot arcs).
-function walkArcTree(node: ArcNode, stage: Stage | undefined, out: FoldGroup[]): void {
+function walkArcTree(node: ArcNode, stage: Stage | undefined, out: DirectionFinding[]): void {
   if (node.lens) {
     const items: ArcItem<string>[] =
       node.items ??
@@ -2315,14 +2291,23 @@ function walkArcTree(node: ArcNode, stage: Stage | undefined, out: FoldGroup[]):
       textLabel: node.noun === "shot" ? "action" : "synopsis",
       exposedFramings: EXPOSED_FRAMINGS,
       establishingFraming: ESTABLISHING_FRAMING,
-    }).map((f) => ({
-      ...f,
+    }).map((f) => {
       // stage-order-mismatch's qualifier is the stage (so a waiver reads `stage-order-mismatch_video`
       // and never suppresses the other stage). The arc engine is stage-agnostic, so stamp it here.
-      subject: f.code === "stage-order-mismatch" && stage ? stage : f.subject,
-      path: node.path,
-    }));
-    out.push({ findings, waivers: node.waivers, path: node.path, classFilter: node.classFilter });
+      const subject = f.code === "stage-order-mismatch" && stage ? stage : f.subject;
+      const nodeId = node.item?.id;
+      return {
+        ...f,
+        subject:
+          nodeId !== undefined && NODE_SCOPED_CODES.has(f.code)
+            ? subject
+              ? `${nodeId}.${subject}`
+              : nodeId
+            : subject,
+        path: node.path,
+      };
+    });
+    out.push(...findings);
   }
   for (const child of node.nodes ?? []) walkArcTree(child, stage, out);
 }
@@ -2375,192 +2360,110 @@ export function checkDirection(
   // waiver of it may be called stale.
   if (options.stagingStage !== undefined) evaluatedClasses.add("staging");
 
-  // The arc findings: walk the arc tree, emitting one fold group per node that has a resolvable lens
-  // — a leaf's shot arc, or a branch's arc over its children (recursively). The engine recurses, so
-  // the tree, not this function, decides depth.
-  const groups: FoldGroup[] = [];
+  // The arc findings: walk the arc tree, checking each node that has a resolvable lens — a leaf's
+  // shot arc, or a branch's arc over its children (recursively). The engine recurses, so the tree,
+  // not this function, decides depth.
+  const findings: DirectionFinding[] = [];
   // A direction with no shots yet is one being written after its song: `empty-direction` says so,
   // and an arc of nothing would only list every role as missing.
   if (directionHasShots(direction)) {
-    walkArcTree(buildArcTree(direction, options.realizedIds), options.stage, groups);
+    walkArcTree(buildArcTree(direction, options.realizedIds), options.stage, findings);
   }
-
-  // Characters and speech are piece-wide (not per-node), so they fold against the ROOT node's waiver bag —
-  // the same object the root arc's group uses, so stale detection judges the shared bag once. Adding
-  // them as their own filtered groups makes that bag own the characters/arc classes too: for a leaf root the
-  // root group is already unfiltered (owns all); for a branch root the root arc owns only arc/pacing,
-  // so these groups extend its ownership to characters/arc.
-  const rootBag = direction.sequence.waivers ?? {};
 
   if (evaluatedClasses.has("characters")) {
     // A singer is on screen singing whatever the actions say; singing needs no cast voice.
     const alwaysUsed = collectScriptCharacterIds(direction);
     for (const id of lyricSingerIds(direction)) alwaysUsed.add(id);
-    const characterFindings = checkCharacters(
-      entityRefs(direction.characters),
-      options.referenceAssetNames ?? [],
-      collectActions(direction),
-      alwaysUsed,
-      collectFramedCharacterIds(direction),
-    );
-    // The voice checks share the characters class and the root bag, so they fold with the look
-    // findings as one group — the cast is one thing the reviewer signs off on.
-    const voiceFindings = [
+    findings.push(
+      ...checkCharacters(
+        entityRefs(direction.characters),
+        options.referenceAssetNames ?? [],
+        collectActions(direction),
+        alwaysUsed,
+        collectFramedCharacterIds(direction),
+      ),
       ...checkCharacterVoices(characterVoiceRefs(direction), options.referenceAssetNames ?? []),
       ...checkNarrator(
         direction.narrator?.id ?? null,
         options.referenceAssetNames ?? [],
         hasNarrationLines(direction),
       ),
-    ];
-    groups.push({
-      findings: [...characterFindings, ...voiceFindings],
-      waivers: rootBag,
-      classFilter: new Set(["characters"]),
-    });
+    );
   }
 
   if (evaluatedClasses.has("stage") && options.songTake !== undefined) {
-    groups.push({
-      findings: checkSongOverrun(direction, options.songTake),
-      waivers: rootBag,
-      classFilter: new Set(["stage"]),
-    });
+    findings.push(...checkSongOverrun(direction, options.songTake));
   }
 
   if (evaluatedClasses.has("song")) {
-    groups.push({
-      findings: checkSong(direction, options.referenceAssetNames ?? [], options.songTake!),
-      waivers: rootBag,
-      classFilter: new Set(["song"]),
-    });
+    findings.push(...checkSong(direction, options.referenceAssetNames ?? [], options.songTake!));
   }
 
   if (evaluatedClasses.has("props")) {
-    const propFindings = checkProps(
-      entityRefs(direction.props),
-      options.referenceAssetNames ?? [],
-      collectActions(direction),
+    findings.push(
+      ...checkProps(
+        entityRefs(direction.props),
+        options.referenceAssetNames ?? [],
+        collectActions(direction),
+      ),
     );
-    groups.push({ findings: propFindings, waivers: rootBag, classFilter: new Set(["props"]) });
   }
 
   if (evaluatedClasses.has("locations")) {
-    const locationFindings = checkLocations(
-      entityRefs(direction.locations),
-      options.referenceAssetNames ?? [],
-      collectUsedLocationIds(direction),
+    findings.push(
+      ...checkLocations(
+        entityRefs(direction.locations),
+        options.referenceAssetNames ?? [],
+        collectUsedLocationIds(direction),
+      ),
     );
-    groups.push({
-      findings: locationFindings,
-      waivers: rootBag,
-      classFilter: new Set(["locations"]),
-    });
   }
 
-  const setupFindings = checkSetups(
-    setupRefs(direction.setups),
-    countShotsPerSetup(direction),
-    options.animaticSetups,
-    options.referenceAssetNames,
-    axisCuts(direction),
+  findings.push(
+    ...checkSetups(
+      setupRefs(direction.setups),
+      countShotsPerSetup(direction),
+      options.animaticSetups,
+      options.referenceAssetNames,
+      axisCuts(direction),
+    ),
+    // Who each frame holds, left to right.
+    ...checkStaging(direction, options.stagingStage, options.referenceAssetNames),
+    // The direction's script must honor the declared speech policy.
+    ...checkSpeech(direction),
+    // A shot's action should land a single sentence, not an event-plus-reaction pair.
+    ...checkFusedShots(direction),
+    // A script no default face carries needs a family named.
+    ...checkTypesetting(direction),
+    // A shot's length must be a whole second to survive a backend's frame grid.
+    ...checkDurations(direction),
   );
-  groups.push({ findings: setupFindings, waivers: rootBag, classFilter: new Set(["setups"]) });
 
-  // Staging findings: who each frame holds, left to right. Pushed unconditionally like the setups
-  // group — the class has one owner, and its direction half runs on every pass.
-  groups.push({
-    findings: checkStaging(direction, options.stagingStage, options.referenceAssetNames),
-    waivers: rootBag,
-    classFilter: new Set(["staging"]),
-  });
-
-  // Speech findings: the direction's script must honor the declared speech policy.
-  const speechFindings = checkSpeech(direction);
-  if (speechFindings.length > 0) {
-    groups.push({ findings: speechFindings, waivers: rootBag, classFilter: new Set(["arc"]) });
-  }
-
-  // Fused-shot findings: a shot's action should land a single sentence, not an event-plus-reaction pair.
-  const fusedShotFindings = checkFusedShots(direction);
-  if (fusedShotFindings.length > 0) {
-    groups.push({ findings: fusedShotFindings, waivers: rootBag, classFilter: new Set(["arc"]) });
-  }
-
-  // Typesetting findings: a script no default face carries needs a family named. Pushed
-  // unconditionally, like the setups group: `typesetting` is the class's only owner, so skipping the
-  // push on an empty result would leave a sequenced direction's filtered root bag not owning it —
-  // and a `fonts-undeclared` waiver left behind after the family was declared would go unreported.
-  groups.push({
-    findings: checkTypesetting(direction),
-    waivers: rootBag,
-    classFilter: new Set(["typesetting"]),
-  });
-
-  // Duration findings: a shot's length must be a whole second to survive a backend's frame grid.
-  const durationFindings = checkDurations(direction);
-  if (durationFindings.length > 0) {
-    groups.push({ findings: durationFindings, waivers: rootBag, classFilter: new Set(["pacing"]) });
-  }
-
+  const waivers = direction.waivers ?? {};
   const active: DirectionFinding[] = [];
   const waived: DirectionFinding[] = [];
-
-  // Fold each finding against its group's waiver bag, but accumulate stale-detection state per *bag*
-  // (by object identity), not per group: a sequenced direction's meta arc and characters fold against the
-  // same top-level `direction.waivers`, so a key matched by either — or an unknown-code typo — must be
-  // judged once over the shared bag, never double-counted. A bag owns the union of its groups'
-  // `classFilter` classes; a group with no filter makes the bag own every class (the flat direction).
-  type BagState = {
-    waivers: Record<string, string>;
-    matched: Set<string>;
-    ownedClasses: Set<DirectionFindingClass>;
-    unfiltered: boolean;
-    path?: readonly string[];
-  };
-  const bags = new Map<Record<string, string>, BagState>();
-  for (const group of groups) {
-    let bag = bags.get(group.waivers);
-    if (!bag) {
-      bag = {
-        waivers: group.waivers,
-        matched: new Set(),
-        ownedClasses: new Set(),
-        unfiltered: false,
-        path: group.path,
-      };
-      bags.set(group.waivers, bag);
-    }
-    if (group.classFilter) for (const c of group.classFilter) bag.ownedClasses.add(c);
-    else bag.unfiltered = true;
-
-    for (const finding of group.findings) {
-      const key = directionWaiverKey(finding);
-      if (key in group.waivers) {
-        bag.matched.add(key);
-        waived.push(finding);
-      } else {
-        active.push(finding);
-      }
+  const matched = new Set<string>();
+  for (const finding of findings) {
+    const key = directionWaiverKey(finding);
+    if (key in waivers) {
+      matched.add(key);
+      waived.push(finding);
+    } else {
+      active.push(finding);
     }
   }
 
   const staleWaivers: StaleWaiver[] = [];
-  for (const bag of bags.values()) {
-    for (const [key, reason] of Object.entries(bag.waivers)) {
-      if (bag.matched.has(key)) continue;
-      const code = waiverKeyCode(key);
-      // An unknown code is `waiver-unknown-code`'s, a structural error — reporting it here too would
-      // say "the finding is gone" of a finding that never existed.
-      if (!isWaivableCode(code)) continue;
-      // Flag a waiver stale only for a class this pass evaluated (a direction-only pass must not mislabel
-      // a still-valid stage/completeness waiver) and that this bag actually owns (a filtered bag skips
-      // its sibling group's classes).
-      const cls = FINDING_CLASS[code];
-      if (!evaluatedClasses.has(cls)) continue;
-      if (!bag.unfiltered && !bag.ownedClasses.has(cls)) continue;
-      staleWaivers.push({ key, reason, path: bag.path });
-    }
+  for (const [key, reason] of Object.entries(waivers)) {
+    if (matched.has(key)) continue;
+    const code = waiverKeyCode(key);
+    // An unknown code is `waiver-unknown-code`'s, a structural error — reporting it here too would
+    // say "the finding is gone" of a finding that never existed.
+    if (!isWaivableCode(code)) continue;
+    // Flag a waiver stale only for a class this pass evaluated: a direction-only pass must not
+    // mislabel a still-valid stage/completeness waiver.
+    if (!evaluatedClasses.has(FINDING_CLASS[code])) continue;
+    staleWaivers.push({ key, reason });
   }
 
   return { structureErrors, active, waived, staleWaivers };

@@ -149,11 +149,11 @@ export default defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
     shots: [{ id: "01", role: "hero", action: "test shot", setup: "front", duration: 5 , lineup: [] }],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 `;

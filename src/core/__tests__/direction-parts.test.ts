@@ -68,8 +68,8 @@ function flat(): Direction {
           lineup: [],
         },
       ],
-      waivers: { "multi-sentence-action_01": "intentional — a quiet shot" },
     },
+    waivers: { "multi-sentence-action_01": "intentional — a quiet shot" },
   } as Direction;
 }
 
@@ -116,10 +116,10 @@ function sequenced(): Direction {
               lineup: [],
             },
           ],
-          waivers: { "empty-synopsis_s1": "deliberate" },
         },
       ],
     },
+    waivers: { "empty-synopsis_s1": "deliberate" },
   } as Direction;
 }
 
@@ -179,7 +179,7 @@ describe("directionPartContents", () => {
       role: "hero",
       duration: 4,
     });
-    expect(parts.get("direction:sequence.waivers.multi-sentence-action_01")).toMatchObject({
+    expect(parts.get("direction:waivers.multi-sentence-action_01")).toMatchObject({
       kind: "waiver",
     });
     expect(parts.get("direction:sequence")).toMatchObject({ kind: "sequence", children: ["01"] });

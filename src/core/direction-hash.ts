@@ -208,7 +208,6 @@ function projectLenses(lenses: readonly { name: string }[] | undefined): unknown
 // node's `id`/`role` are structural (they place it in its parent's arc), but its `synopsis` is prose
 // and rides with `projectNode`. An act's aimed-for feeling is structural, like the piece's own:
 // retargeting one act from `scary` to `emotional` is a change to the shape a human signed off on.
-// Waivers ride with `projectNode`: each is a part of its own, so removing one moves no arc.
 function projectNodeShape(node: DirectionNode): unknown {
   return {
     id: node.id ?? null,
@@ -225,7 +224,6 @@ function projectNode(node: DirectionNode): unknown {
   return {
     ...(projectNodeShape(node) as object),
     synopsis: node.synopsis ?? null,
-    waivers: node.waivers ?? {},
     ...(Array.isArray(node.shots)
       ? { shots: node.shots.map(projectShot) }
       : { sequences: (node.sequences ?? []).map(projectNode) }),
@@ -297,6 +295,7 @@ function projectDirection(direction: Direction): unknown {
       song: direction.policy?.song ?? null,
     },
     lyrics: projectLyrics(direction.lyrics),
+    waivers: direction.waivers ?? {},
     sequence: projectNode(direction.sequence),
   };
 }
@@ -364,16 +363,14 @@ export function directionPartHashes(direction: Direction): Map<string, string> {
     out.set(formatDirectionShotAddress(nodePath, s.id), hash(projectShot(s)));
 
   // A note on a waiver argues with the reason given for it, so a reworded reason ages it out.
-  const addWaivers = (waivers: Record<string, string> | undefined, nodePath: readonly string[]) => {
-    for (const [key, reason] of Object.entries(waivers ?? {})) {
-      out.set(formatDirectionWaiverAddress(nodePath, key), hash({ key, reason }));
-    }
-  };
+  for (const [key, reason] of Object.entries(direction.waivers ?? {})) {
+    out.set(formatDirectionWaiverAddress(key), hash({ key, reason }));
+  }
 
-  // Walk the arc tree: each node contributes its waivers, a child node its own sequence part, and a
-  // leaf its shots — each keyed by the field path that reaches it. A sequence note is about the act
-  // it brackets, so gaining or losing a direct child (a shot, or a sub-sequence) ages it out — that
-  // is what the `children` id list captures.
+  // Walk the arc tree: a child node contributes its own sequence part, and a leaf its shots — each
+  // keyed by the field path that reaches it. A sequence note is about the act it brackets, so gaining
+  // or losing a direct child (a shot, or a sub-sequence) ages it out — that is what the `children` id
+  // list captures.
   const addNode = (node: DirectionNode, nodePath: readonly string[], isRoot: boolean) => {
     if (!isRoot && node.id !== undefined) {
       out.set(
@@ -390,7 +387,6 @@ export function directionPartHashes(direction: Direction): Map<string, string> {
         }),
       );
     }
-    addWaivers(node.waivers, nodePath);
     if (Array.isArray(node.shots)) {
       for (const s of node.shots) addShot(s, nodePath);
     } else {

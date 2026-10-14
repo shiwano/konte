@@ -48,11 +48,11 @@ const direction = defineDirection({
     lang: "en",
     speech: "free",
   },
+  waivers: { "location-unreferenced_studio": "reference stage exposes no studio plate" },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
     shots: [{ id: "01", role: "ordinary", action: "test shot", setup: "front", duration: 2 , lineup: [] }],
-    waivers: { "location-unreferenced_studio": "reference stage exposes no studio plate" },
   },
 });
 

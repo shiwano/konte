@@ -93,8 +93,8 @@ function makeDirection(): Direction {
           lineup: [],
         },
       ],
-      waivers: { "multi-sentence-action_02": "intentional — a quiet shot" },
     },
+    waivers: { "multi-sentence-action_02": "intentional — a quiet shot" },
   } as Direction;
 }
 
@@ -133,9 +133,7 @@ describe("directionSectionOf", () => {
     expect(directionSectionOf("direction:sequence")).toBe("shots");
     expect(directionSectionOf("direction:sequence.shots.01")).toBe("shots");
     expect(directionSectionOf("direction:sequence.sequences.act1")).toBe("shots");
-    expect(directionSectionOf("direction:sequence.waivers.multi-sentence-action_02")).toBe(
-      "waivers",
-    );
+    expect(directionSectionOf("direction:waivers.multi-sentence-action_02")).toBe("waivers");
     expect(directionSectionOf("direction:brief.logline")).toBe("brief");
     expect(directionSectionOf("direction:policy.format")).toBe("policy");
     expect(directionSectionOf("direction:characters.alice")).toBe("characters");
@@ -184,7 +182,7 @@ describe("directionAcceptanceView", () => {
   it("reads a section with no parts as accepted", () => {
     const direction = makeDirection();
     direction.characters = {};
-    delete direction.sequence.waivers;
+    delete direction.waivers;
     const view = directionAcceptanceView(direction, acceptAll(direction));
     expect(view.sections.get("characters")).toBe("accepted");
     expect(view.sections.get("waivers")).toBe("accepted");
@@ -275,7 +273,7 @@ describe("isDirectionSpendGateSatisfied", () => {
     for (const edit of [
       (d: Direction) => (d.brief.logline = "a girl wakes and stays"),
       (d: Direction) => (d.policy.format!.fps = 30),
-      (d: Direction) => (d.sequence.waivers!["no-payoff"] = "an open ending"),
+      (d: Direction) => (d.waivers!["no-payoff"] = "an open ending"),
     ]) {
       const edited = makeDirection();
       edit(edited);
@@ -287,8 +285,8 @@ describe("isDirectionSpendGateSatisfied", () => {
     const acceptance = acceptAll(makeDirection());
 
     for (const edit of [
-      (d: Direction) => (d.sequence.waivers!["multi-sentence-action_02"] = "reconsidered"),
-      (d: Direction) => (d.sequence.waivers!["undeclared-continuity_01-02"] = "one room"),
+      (d: Direction) => (d.waivers!["multi-sentence-action_02"] = "reconsidered"),
+      (d: Direction) => (d.waivers!["undeclared-continuity_01-02"] = "one room"),
     ]) {
       const edited = makeDirection();
       edit(edited);
@@ -301,10 +299,10 @@ describe("isDirectionSpendGateSatisfied", () => {
     const direction = makeDirection();
     const partial = applyDirectionSectionDecisions(direction, null, ALL_SECTIONS);
     const unread = makeDirection();
-    unread.sequence.waivers!["undeclared-continuity_01-02"] = "one room";
+    unread.waivers!["undeclared-continuity_01-02"] = "one room";
     const view = directionAcceptanceView(unread, { ...partial, whole: null });
     expect(view.gateBlocking.map((b) => b.address)).toEqual([
-      "direction:sequence.waivers.undeclared-continuity_01-02",
+      "direction:waivers.undeclared-continuity_01-02",
     ]);
   });
 
@@ -348,7 +346,8 @@ describe("songGateBlocking", () => {
     const direction = makeDirection();
     direction.policy = { ...direction.policy, song: "song" };
     direction.lyrics = [{ label: "Verse", singer: "alice", lines: ["lights down"] }];
-    direction.sequence = { ...direction.sequence, shots: [], waivers: {} };
+    direction.sequence = { ...direction.sequence, shots: [] };
+    direction.waivers = {};
     return direction;
   }
 
@@ -407,7 +406,8 @@ describe("applyDirectionSectionDecisions", () => {
 
   it("leaves Flow & Shots unaccepted on a direction with no shots", () => {
     const direction = makeDirection();
-    direction.sequence = { ...direction.sequence, shots: [], waivers: {} };
+    direction.sequence = { ...direction.sequence, shots: [] };
+    direction.waivers = {};
     const acceptance = acceptAll(direction);
     expect(acceptance.whole).toBeNull();
     const view = directionAcceptanceView(direction, acceptance);
@@ -473,7 +473,7 @@ describe("applyDirectionSectionDecisions", () => {
     const acceptance = acceptAll(direction);
 
     const cut = makeDirection();
-    delete cut.sequence.waivers;
+    delete cut.waivers;
 
     const view = directionAcceptanceView(cut, acceptance);
     expect(view.complete).toBe(true);
@@ -482,7 +482,7 @@ describe("applyDirectionSectionDecisions", () => {
     expect(summarizeDirectionAcceptance(cut, acceptance).status).toBe("accepted");
 
     const written = applyDirectionSectionDecisions(cut, acceptance, { characters: true });
-    expect(written.parts["direction:sequence.waivers.multi-sentence-action_02"]).toBeUndefined();
+    expect(written.parts["direction:waivers.multi-sentence-action_02"]).toBeUndefined();
     expect(written.whole?.hash).toBe(directionHash(cut));
   });
 });
@@ -505,7 +505,8 @@ describe("applyDirectionPartDecisions", () => {
 
   it("does not stamp the root arc of a direction with no shots", () => {
     const direction = makeDirection();
-    direction.sequence = { ...direction.sequence, shots: [], waivers: {} };
+    direction.sequence = { ...direction.sequence, shots: [] };
+    direction.waivers = {};
     const { accepted } = applyDirectionPartDecisions(
       direction,
       null,
@@ -723,7 +724,7 @@ function withThirdShot(): Direction {
 describe("directionShotWaivers", () => {
   it("resolves a shot, a frame, a frame's subject and a boundary to the shots they play in", () => {
     const direction = makeDirection();
-    direction.sequence.waivers = {
+    direction.waivers = {
       "multi-sentence-action_02": "a quiet shot",
       "subject-unnamed_02.cutin.alice": "named by her coat",
       "panel-unlinked_01-02": "a fresh angle",
@@ -743,7 +744,7 @@ describe("directionShotWaivers", () => {
   it("reads a boundary's subject as two shots even where a shot spells it", () => {
     const direction = withThirdShot();
     direction.sequence.shots![2]!.id = "01-02";
-    direction.sequence.waivers = {
+    direction.waivers = {
       "undeclared-continuity_01-02": "one room",
       "multi-sentence-action_01-02": "a quiet shot",
     };
@@ -757,7 +758,7 @@ describe("directionShotWaivers", () => {
     const direction = makeDirection();
     const shot = direction.sequence.shots![0]!;
     direction.sequence.shots = ["a", "a-b", "c", "b-c"].map((id) => ({ ...shot, id }));
-    direction.sequence.waivers = { "panel-unlinked_a-b-c": "a fresh angle" };
+    direction.waivers = { "panel-unlinked_a-b-c": "a fresh angle" };
     expect(directionShotWaivers(direction).map((w) => w.shotIds)).toEqual([["a-b", "c"]]);
   });
 });
@@ -799,10 +800,10 @@ describe("applyDirectionShotCascade", () => {
     const accepted = acceptAll(makeDirection());
 
     const waived = makeDirection();
-    waived.sequence.waivers!["undeclared-continuity_01-02"] = "one room";
+    waived.waivers!["undeclared-continuity_01-02"] = "one room";
     for (const shotId of ["01", "02"]) {
       const { acceptance, restamped } = applyDirectionShotCascade(waived, accepted, [shotId]);
-      expect(restamped).toContain("direction:sequence.waivers.undeclared-continuity_01-02");
+      expect(restamped).toContain("direction:waivers.undeclared-continuity_01-02");
       expect(directionAcceptanceView(waived, acceptance!).complete).toBe(true);
     }
   });
@@ -811,9 +812,9 @@ describe("applyDirectionShotCascade", () => {
     const accepted = acceptAll(makeDirection());
 
     const waived = makeDirection();
-    waived.sequence.waivers!["no-payoff"] = "an open ending";
+    waived.waivers!["no-payoff"] = "an open ending";
     const { restamped } = applyDirectionShotCascade(waived, accepted, ["01", "02"]);
-    expect(restamped).not.toContain("direction:sequence.waivers.no-payoff");
+    expect(restamped).not.toContain("direction:waivers.no-payoff");
   });
 
   // Only the frame the accepted shot is actually taken from.

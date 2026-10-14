@@ -64,11 +64,11 @@ const direction = defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
     shots: [{ id: "01", role: "hero", action: "test shot", setup: "front", duration: 5 , lineup: [] }],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 
@@ -110,6 +110,7 @@ const direction = defineDirection({
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
   lenses: [defineLens({ name: "two-beat", payoff: "second", roles: [{ role: "first" }, { role: "second" }] })],
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "two-beat",
     pleasure: "cute",
@@ -117,7 +118,6 @@ const direction = defineDirection({
       { id: "01", role: "first", action: "test shot", setup: "front", duration: 5 , lineup: [] },
       { id: "02", role: "second", action: "second shot", setup: "front", duration: 5 , lineup: [] },
     ],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 
@@ -158,11 +158,11 @@ const direction = defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
     shots: [{ id: "01", role: "hero", action: "test shot", setup: "front", duration: 5 , lineup: [] }],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 
@@ -200,11 +200,11 @@ const direction = defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
     shots: [{ id: "01", role: "hero", action: "test shot", setup: "front", duration: 5 , lineup: [] }],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 
@@ -245,11 +245,11 @@ const direction = defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
     shots: [{ id: "01", role: "hero", action: "test shot", setup: "front", duration: 5 , lineup: [] }],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 
@@ -297,6 +297,7 @@ const direction = defineDirection({
     detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", holds: ["studioMark"], within: null },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
@@ -304,7 +305,6 @@ const direction = defineDirection({
       { id: "01", role: "hero", action: "test shot", setup: "front", duration: 5 , lineup: [] },
       { id: "02", role: "hero", action: "later shot", setup: "detail", duration: 4 , lineup: [] },
     ],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 
@@ -339,6 +339,7 @@ const direction = defineDirection({
     detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", holds: ["studioMark"], within: null },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
@@ -346,7 +347,6 @@ const direction = defineDirection({
       { id: "01", role: "hero", action: "test shot", setup: "front", duration: 5 , lineup: [] },
       { id: "02", role: "hero", action: "later shot", setup: "detail", duration: 4 , lineup: [] },
     ],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 
@@ -382,6 +382,7 @@ const direction = defineDirection({
     detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", holds: ["studioMark"], within: null },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
@@ -389,7 +390,6 @@ const direction = defineDirection({
       { id: "01", role: "hero", action: "test shot", setup: "front", duration: 5 , lineup: [] },
       { id: "02", role: "hero", action: "later shot", setup: "detail", duration: 4 , lineup: [] },
     ],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 
@@ -413,11 +413,11 @@ const direction = defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
     shots: [{ id: "01", role: "hero", action: "test shot", setup: "front", duration: 5 , lineup: [] }],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 
@@ -486,11 +486,11 @@ const direction = defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
     shots: [{ id: "01", role: "hero", action: "test shot", setup: "front", duration: 5 , lineup: [] }],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 
@@ -523,11 +523,11 @@ const direction = defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
     shots: [{ id: "01", role: "hero", action: "test shot", setup: "front", duration: 5 , lineup: [] }],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 
@@ -642,18 +642,18 @@ export default defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  waivers: {
+    "location-unreferenced_studio": "fixture has no reference stage exposing it",
+    "setup-unconsumed_front": "fixture board is anchored on nothing",
+    "missing-role_ordinary": "single-shot fixture",
+    "missing-role_disruption": "single-shot fixture",
+    "missing-role_pressure": "single-shot fixture",
+    "unearned-payoff_hero": "single-shot fixture",
+  },
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
     shots: [{ id: "01", role: "hero", action: "test shot", setup: "front", duration: 5 , lineup: [] }],
-    waivers: {
-      "location-unreferenced_studio": "fixture has no reference stage exposing it",
-      "setup-unconsumed_front": "fixture board is anchored on nothing",
-      "missing-role_ordinary": "single-shot fixture",
-      "missing-role_disruption": "single-shot fixture",
-      "missing-role_pressure": "single-shot fixture",
-      "unearned-payoff_hero": "single-shot fixture",
-    },
   },
 });
 `;

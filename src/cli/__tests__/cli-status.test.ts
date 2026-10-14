@@ -783,7 +783,7 @@ describe("status command", () => {
     const source = await fs.readFile(directionPath, "utf-8");
     await fs.writeFile(
       directionPath,
-      source.replace("waivers: {", 'waivers: {\n      "multi-sentence-action_01": "gone",'),
+      source.replace("waivers: {", 'waivers: {\n    "multi-sentence-action_01": "gone",'),
     );
 
     const { stdout } = await run(["status"], projectDir);

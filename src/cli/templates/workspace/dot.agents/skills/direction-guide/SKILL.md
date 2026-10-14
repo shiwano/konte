@@ -64,7 +64,7 @@ user-invocable: false
 - **Role, pacing, or roster declaration finding** → fix the named field; an unused roster entry must be used or removed.
 - **Missing reference asset** → `authoring-guide`; expose the named roster id in `reference.tsx`.
 - **Plate, landmark, keyframe input or prompt finding** → `staging-guide`; fix the named animatic asset.
-- **Deliberate structural exception** → copy the bracketed key into the owning node's `waivers` with a reason. Never waive a fixable defect; remove stale waivers reported by status.
+- **Deliberate structural exception** → copy the bracketed key into the direction's top-level `waivers` with a reason. Never waive a fixable defect; remove stale waivers reported by status.
 
 ## Pacing — rhythm, not uniform length
 

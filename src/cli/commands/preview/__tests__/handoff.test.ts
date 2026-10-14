@@ -504,10 +504,10 @@ describe("collectChangedReferenceAddresses", () => {
 function makeDirection(overrides?: { shot02Action?: string; shot02Duration?: number }): Direction {
   return {
     characters: { cat: { name: "the cat", description: "a brown tabby", promptDepiction: "cat" } },
+    waivers: { "role-overweight": "deliberate slow open" },
     sequence: {
       lens: "comedy",
       pleasure: "cute",
-      waivers: { "role-overweight": "deliberate slow open" },
       shots: [
         { id: "01", role: "setup", action: "The cat greets a customer.", duration: 3 },
         {
@@ -542,7 +542,7 @@ describe("collectAllDirectionAddresses", () => {
       "direction:policy.lang",
       "direction:policy.fonts",
       "direction:policy.speech",
-      "direction:sequence.waivers.role-overweight",
+      "direction:waivers.role-overweight",
       "direction:sequence.shots.01",
       "direction:sequence.shots.02",
       "direction:characters.cat",

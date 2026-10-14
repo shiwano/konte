@@ -40,9 +40,9 @@ function direction(opts: {
     lens: "mini-drama",
     pleasure: "cute",
     shots: opts.shots,
-    ...(opts.waivers ? { waivers: opts.waivers } : {}),
   };
   return {
+    ...(opts.waivers ? { waivers: opts.waivers } : {}),
     characters: opts.characters ?? {
       mother: { name: "the mother", promptDepiction: "mother", description: "the mother" },
       ane: { name: "the sister", promptDepiction: "elder sister", description: "the elder sister" },

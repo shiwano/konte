@@ -141,10 +141,9 @@ export function directionSectionOf(address: string): DirectionSection {
   // location, so the roster reads as a place and the coverage under it. Reviewing a frame means
   // reviewing the set it looks at, and splitting the two put that judgement in two boxes.
   if (body.startsWith("locations.") || body.startsWith("setups.")) return "locations";
-  // Waivers peel off first; the rest of the arc tree — the root arc (its sequence map), a child act, a
-  // shot — is inseparable (splitting a shot re-shapes the arc), so all of it is reviewed in the one
-  // Flow & Shots box.
-  if (body.includes(".waivers.")) return "waivers";
+  if (body.startsWith("waivers.")) return "waivers";
+  // The arc tree — the root arc (its sequence map), a child act, a shot — is inseparable (splitting a
+  // shot re-shapes the arc), so all of it is reviewed in the one Flow & Shots box.
   return "shots";
 }
 
@@ -154,10 +153,9 @@ export function directionSectionOf(address: string): DirectionSection {
 // voice (`characters.<id>.voice`), the narrator's voice (`narrator`), a prop
 // (`props.<id>`), a location (`locations.<id>`), a camera setup (`setups.<id>`), the root arc
 // (`sequence`), a nested one (`sequence.sequences.<id>`), a shot (`sequence.shots.<id>`), or a
-// waived finding in the bag of the node that owns it (`sequence.waivers.<code>[_<subject>]`). So an
-// address locates its target in the file at any nesting depth, with no lookup table. Like the bare
-// whole-shot feedback target `video:shot.01`, these route through `parseAddressStream` only and are
-// never parsed by `parseAddress`.
+// waived finding (`waivers.<code>[_<subject>]`). So an address locates its target in the file at any
+// nesting depth, with no lookup table. Like the bare whole-shot feedback target `video:shot.01`,
+// these route through `parseAddressStream` only and are never parsed by `parseAddress`.
 const DIRECTION_ID = "[a-zA-Z0-9_-]+";
 const DIRECTION_NODE_PATH = `sequence(?:\\.sequences\\.${DIRECTION_ID})*`;
 
@@ -176,7 +174,10 @@ const DIRECTION_SCOPE_BODY = [
   `props(?:\\.${DIRECTION_ID})?`,
   `locations(?:\\.${DIRECTION_ID})?`,
   `setups(?:\\.${DIRECTION_ID})?`,
-  `${DIRECTION_NODE_PATH}(?:\\.(?:shots|waivers)(?:\\.${DIRECTION_ID})?)?`,
+  // A waiver key is the last segment, so the `.` its subject may carry (`subject-unnamed_01.imouto`)
+  // splits nothing.
+  `waivers(?:\\.[a-zA-Z0-9_.-]+)?`,
+  `${DIRECTION_NODE_PATH}(?:\\.shots(?:\\.${DIRECTION_ID})?)?`,
 ].join("|");
 
 // `#` opens konte's reserved namespace inside an address. It is not a legal identifier character
@@ -637,13 +638,10 @@ export function formatDirectionSetupAddress(setupId: string): string {
 }
 
 // A waiver is reviewable too — it is the author signing off a deviation, and the human may object.
-// It lives in the `waivers` bag of the node whose finding it cancels, keyed `<code>[_<subject>]` (see
-// `directionWaiverKey`) — one path segment, like every other key in the direction.
-export function formatDirectionWaiverAddress(
-  nodePath: readonly string[],
-  waiverKey: string,
-): string {
-  return formatDirectionAddress([...nodePath, "waivers", waiverKey]);
+// Keyed `<code>[_<subject>]` (see `directionWaiverKey`) — one path segment, like every other key in
+// the direction.
+export function formatDirectionWaiverAddress(waiverKey: string): string {
+  return formatDirectionAddress(["waivers", waiverKey]);
 }
 
 // The leaf name of an address — what a listing labels it with, and the key a definition stores it

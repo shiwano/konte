@@ -28,12 +28,7 @@ import {
   loadStagingStageState,
   loadSongTakeState,
 } from "../../load-definition.js";
-import {
-  checkDirection,
-  directionWaiverEntries,
-  directionWaiverKey,
-  resolveLens,
-} from "../../../core/direction.js";
+import { checkDirection, directionWaiverKey, resolveLens } from "../../../core/direction.js";
 import { ROLE_FUNCTION_LABEL, PLEASURE_GLOSS } from "../../../core/lenses.js";
 import { directionHash, directionPartHashes } from "../../../core/direction-hash.js";
 import {
@@ -331,16 +326,14 @@ export async function handleGetDirectionState(
   // be accepted into anything anyway.
   //
   // A waiver is its own reviewable target: what was flagged, and the reason it was signed off.
-  const waiverEntries = directionWaiverEntries(direction);
   const waivers = check.waived.map((f) => {
     const key = directionWaiverKey(f);
-    const entry = waiverEntries.get(key);
     return {
       code: f.code,
       subject: f.subject ?? null,
       message: f.message,
-      reason: entry?.reason ?? "",
-      ...partView(formatDirectionWaiverAddress(entry?.nodePath ?? DIRECTION_ROOT_PATH, key)),
+      reason: direction.waivers?.[key] ?? "",
+      ...partView(formatDirectionWaiverAddress(key)),
     };
   });
 

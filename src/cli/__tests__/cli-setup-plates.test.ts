@@ -30,6 +30,7 @@ export default defineDirection({
   },
   policy: { format: { fps: 30, size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } } }, lang: "en", speech: "free" },
   lenses: [defineLens({ name: "two-beat", payoff: "beat", roles: [{ role: "beat" }, { role: "beat" }] })],
+  waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "two-beat",
     pleasure: "cute",
@@ -37,7 +38,6 @@ export default defineDirection({
       { id: "01", role: "beat", action: "test shot", setup: "front", duration: 5 , lineup: [] },
       { id: "02", role: "beat", action: "later shot", setup: "front", duration: 5 , lineup: [], join: "jump-forward" },
     ],
-    waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   },
 });
 `;
@@ -265,6 +265,11 @@ export default defineDirection({
   },
   policy: { format: { fps: 30, size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } } }, lang: "en", speech: "free" },
   lenses: [defineLens({ name: "four", payoff: "beat", roles: [{ role: "beat" }, { role: "beat" }, { role: "beat" }, { role: "beat" }] })],
+  waivers: {
+    "location-unreferenced_studio": "fixture has no reference stage exposing it",
+    "undeclared-continuity_02-03": "fixture",
+    "re-established-wide_04": "fixture",
+  },
   sequence: {
     lens: "four",
     pleasure: "cute",
@@ -274,11 +279,6 @@ export default defineDirection({
       { id: "03", role: "beat", action: "c", setup: "side", duration: 4 , lineup: [] },
       { id: "04", role: "beat", action: "d", setup: "side", duration: 6 , lineup: [], join: "jump-forward" },
     ],
-    waivers: {
-      "location-unreferenced_studio": "fixture has no reference stage exposing it",
-      "undeclared-continuity_02-03": "fixture",
-      "re-established-wide_04": "fixture",
-    },
   },
 });
 `;

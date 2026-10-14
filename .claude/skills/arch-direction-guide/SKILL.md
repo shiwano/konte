@@ -8,7 +8,7 @@ How konte turns `direction.ts` into two verdicts a person and the spend gate act
 
 ## The arc engine and finding classes
 
-`checkArc` (`direction-check.ts`) is the one generic engine, reused at every scale of the arc tree — a run of shots, a run of sequences, a run of runs — generic over the role string. It reads each item's dramatic `fn` off the matched lens role (no global role vocabulary) and reports `DirectionFinding`s; it never throws and never decides severity. `direction.ts` `walkArcTree` runs it once per node with a resolvable lens (a leaf's shots, a branch's meta-arc over children) and folds each finding against that node's `waivers` bag.
+`checkArc` (`direction-check.ts`) is the one generic engine, reused at every scale of the arc tree — a run of shots, a run of sequences, a run of runs — generic over the role string. It reads each item's dramatic `fn` off the matched lens role (no global role vocabulary) and reports `DirectionFinding`s; it never throws and never decides severity. `direction.ts` `walkArcTree` runs it once per node with a resolvable lens (a leaf's shots, a branch's meta-arc over children); every finding then folds against `direction.waivers`.
 
 ## Asides
 
@@ -31,7 +31,7 @@ A waivable finding has a **class** (`DirectionFindingClass`): `arc` | `pacing` |
 
 A **structural error** (`DirectionStructureError`, codes in `DirectionErrorCode`) is a definition bug, never waivable and always fatal — kept apart from the waivable finding set. `validateDirectionStructure` produces them (empty direction, duplicate id, unknown lens, payoff-not-in-roles, the per-roster `character-*`/`prop-*`/`location-*`/`landmark-*`/`setup-*`/`holds-*` errors, `reference-id-conflict`, `script-*`).
 
-A waiver is keyed `<code>` or `<code>_<subject>` (`directionWaiverKey`); the first `_` splits it back apart (no code contains one). Stale-waiver detection runs per bag over only the classes a pass actually evaluated, so a direction-only pass (doctor) never mislabels a still-valid stage/completeness waiver.
+A waiver is keyed `<code>` or `<code>_<subject>` (`directionWaiverKey`); the first `_` splits it back apart (no code contains one). All waivers share the top-level `direction.waivers`, so below the root a `NODE_SCOPED_CODES` subject is prefixed with the node id (`missing-role_act1.disruption`). Stale detection covers only the classes a pass evaluated.
 
 ## Graphic shots and cutins
 

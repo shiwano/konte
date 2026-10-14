@@ -278,9 +278,6 @@ export function directionPartContents(direction: Direction): Map<string, Directi
         children: nodeChildIds(node),
       });
     }
-    for (const [key, reason] of Object.entries(node.waivers ?? {})) {
-      out.set(formatDirectionWaiverAddress(nodePath, key), { kind: "waiver", key, reason });
-    }
     if (Array.isArray(node.shots)) {
       for (const s of node.shots) {
         out.set(
@@ -327,6 +324,9 @@ export function directionPartContents(direction: Direction): Map<string, Directi
     }
   };
   addNode(direction.sequence, DIRECTION_ROOT_PATH, true);
+  for (const [key, reason] of Object.entries(direction.waivers ?? {})) {
+    out.set(formatDirectionWaiverAddress(key), { kind: "waiver", key, reason });
+  }
 
   for (const [id, c] of Object.entries(direction.characters ?? {})) {
     out.set(formatDirectionCharacterAddress(id), {

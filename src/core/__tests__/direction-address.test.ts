@@ -39,18 +39,12 @@ describe("direction addressing", () => {
     );
   });
 
-  // A waiver is declared in the bag of the node whose finding it cancels, so it is addressed there —
-  // and its `<code>_<subject>` key is one segment, like every other key in the direction.
-  it("formats a waiver at the node that declares it", () => {
-    expect(formatDirectionWaiverAddress(DIRECTION_ROOT_PATH, "no-payoff")).toBe(
-      "direction:sequence.waivers.no-payoff",
+  // Its `<code>_<subject>` key is one segment, like every other key in the direction.
+  it("formats a waiver under the direction's one waivers record", () => {
+    expect(formatDirectionWaiverAddress("no-payoff")).toBe("direction:waivers.no-payoff");
+    expect(formatDirectionWaiverAddress("missing-role_s1.before")).toBe(
+      "direction:waivers.missing-role_s1.before",
     );
-    expect(
-      formatDirectionWaiverAddress(
-        directionChildNodePath(DIRECTION_ROOT_PATH, "s1"),
-        "missing-role_before",
-      ),
-    ).toBe("direction:sequence.sequences.s1.waivers.missing-role_before");
   });
 
   it("routes a direction address to the direction stream", () => {
@@ -73,9 +67,13 @@ describe("direction addressing", () => {
     expect(() => assertValidAddressScope("direction:sequence.shots.01")).not.toThrow();
     expect(() => assertValidAddressScope("direction:sequence.sequences.s1")).not.toThrow();
     expect(() => assertValidAddressScope("direction:sequence.sequences.s1.shots.01")).not.toThrow();
+    expect(() => assertValidAddressScope("direction:waivers.missing-role_before")).not.toThrow();
     expect(() =>
-      assertValidAddressScope("direction:sequence.waivers.missing-role_before"),
+      assertValidAddressScope("direction:waivers.missing-role_act1.disruption"),
     ).not.toThrow();
+    expect(() => assertValidAddressScope("direction:sequence.waivers.no-payoff")).toThrow(
+      KonteError,
+    );
     expect(() => assertValidAddressScope("direction:characters.alice")).not.toThrow();
     expect(() => assertValidAddressScope("direction:props.lantern")).not.toThrow();
     expect(() => assertValidAddressScope("direction:locations.studio")).not.toThrow();
@@ -110,7 +108,7 @@ describe("direction addressing", () => {
     expect(() => assertValidAddressScope("direction:locations")).not.toThrow();
     expect(() => assertValidAddressScope("direction:setups")).not.toThrow();
     expect(() => assertValidAddressScope("direction:sequence.shots")).not.toThrow();
-    expect(() => assertValidAddressScope("direction:sequence.waivers")).not.toThrow();
+    expect(() => assertValidAddressScope("direction:waivers")).not.toThrow();
     expect(() => assertValidAddressScope("direction:sequence.sequences.s1.shots")).not.toThrow();
     expect(() => assertValidAddressScope("direction:narrator.voice")).toThrow(KonteError);
   });
@@ -124,8 +122,6 @@ describe("direction addressing", () => {
     expect(directionSectionOf(formatDirectionLocationAddress("studio"))).toBe("locations");
     expect(directionSectionOf(formatDirectionShotAddress(DIRECTION_ROOT_PATH, "01"))).toBe("shots");
     expect(directionSectionOf(formatDirectionSequenceAddress(DIRECTION_ROOT_PATH))).toBe("shots");
-    expect(directionSectionOf(formatDirectionWaiverAddress(DIRECTION_ROOT_PATH, "no-payoff"))).toBe(
-      "waivers",
-    );
+    expect(directionSectionOf(formatDirectionWaiverAddress("no-payoff"))).toBe("waivers");
   });
 });

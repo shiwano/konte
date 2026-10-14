@@ -92,6 +92,10 @@ export default defineDirection({
       holds: ["counter"],
     },
   },
+  waivers: {
+    "missing-role_ordinary":
+      "A cold open — the piece starts on the paw already moving, with no calm to establish first.",
+  },
   sequence: {
     lens: "mini-drama",
     pleasure: "funny",
@@ -136,10 +140,6 @@ export default defineDirection({
         telop: ["Counter Rules, Rule 1"],
       },
     ],
-    waivers: {
-      "missing-role_ordinary":
-        "A cold open — the piece starts on the paw already moving, with no calm to establish first.",
-    },
   },
 });
 ```

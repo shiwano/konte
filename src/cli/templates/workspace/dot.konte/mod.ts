@@ -3194,7 +3194,6 @@ export type DirectionNode = {
   synopsis?: string;
   lens: string;
   pleasure: Pleasure;
-  waivers?: Record<string, string>;
   shots?: Shot[];
   sequences?: DirectionNode[];
 };
@@ -3222,6 +3221,7 @@ export type Direction = {
   lenses?: LensSpec<string>[];
   policy: DirectionPolicy;
   lyrics?: DirectionLyrics;
+  waivers?: Record<string, string>;
   sequence: DirectionNode;
 };
 export type NarrativeShotShape = {
@@ -3280,7 +3280,7 @@ export type NodeBodyShape =
 export type NodeCommonShape = {
   lens: string;
   pleasure: Pleasure;
-  waivers?: Record<string, string>;
+  waivers?: DirectionViolation<"konte: a waiver belongs in the direction's top-level `waivers`, not on a sequence">;
 };
 export type ChildNodeShape = NodeCommonShape & {
   id: string;
@@ -3298,6 +3298,7 @@ export type DirectionInput = {
   lenses?: readonly LensSpec<string>[];
   policy: DirectionPolicy;
   lyrics?: DirectionLyrics;
+  waivers?: Record<string, string>;
   sequence: RootNodeShape;
 };
 export type ConstrainRosterIds<R> = R & {

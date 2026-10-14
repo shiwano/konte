@@ -77,8 +77,8 @@ function flat(): Direction {
           lineup: [],
         },
       ],
-      waivers: { "multi-sentence-action_02": "intentional — a quiet shot" },
     },
+    waivers: { "multi-sentence-action_02": "intentional — a quiet shot" },
   } as Direction;
 }
 
@@ -126,10 +126,10 @@ function sequenced(): Direction {
               lineup: [],
             },
           ],
-          waivers: { "empty-synopsis_s1": "deliberate" },
         },
       ],
     },
+    waivers: { "empty-synopsis_s1": "deliberate" },
   } as Direction;
 }
 
@@ -268,17 +268,13 @@ describe("directionHash", () => {
 
     it("reacts to a new waiver key", () => {
       const d = flat();
-      (d as { sequence: { waivers: Record<string, string> } }).sequence.waivers[
-        "empty-synopsis:01"
-      ] = "on purpose";
+      d.waivers!["empty-synopsis:01"] = "on purpose";
       expect(directionHash(d)).not.toBe(directionHash(flat()));
     });
 
     it("reacts to an edited waiver reason (the human's justification)", () => {
       const d = flat();
-      (d as { sequence: { waivers: Record<string, string> } }).sequence.waivers[
-        "multi-sentence-action_02"
-      ] = "different reason";
+      d.waivers!["multi-sentence-action_02"] = "different reason";
       expect(directionHash(d)).not.toBe(directionHash(flat()));
     });
 
@@ -326,14 +322,6 @@ describe("directionHash", () => {
         "three-act";
       expect(directionHash(d)).not.toBe(directionHash(sequenced()));
     });
-
-    it("reacts to a per-sequence waiver reason change", () => {
-      const d = sequenced();
-      (
-        d as { sequence: { sequences: { waivers: Record<string, string> }[] } }
-      ).sequence.sequences[0]!.waivers["empty-synopsis_s1"] = "reworded";
-      expect(directionHash(d)).not.toBe(directionHash(sequenced()));
-    });
   });
 });
 
@@ -352,7 +340,7 @@ describe("directionPartHashes", () => {
   // Only the prose fields the fixture's brief fills in are keyed — an omitted one has nothing to
   // review, so `audience`/`look` never reach the map, while the two list fields are keyed even
   // though the fixture declares neither. The root is a leaf (no id), so it contributes no nested
-  // `sequence.sequences.<id>` part — only its shots and waivers.
+  // `sequence.sequences.<id>` part — only its shots.
   it("keys one hash per reviewable part, each brief field, policy field, and waivers included", () => {
     expect([...directionPartHashes(flat()).keys()].sort()).toEqual([
       logline,
@@ -369,10 +357,10 @@ describe("directionPartHashes", () => {
       sequence,
       shot01,
       "direction:sequence.shots.02",
-      "direction:sequence.waivers.multi-sentence-action_02",
       "direction:setups.bedroom-close",
       bedroomMedium,
       "direction:setups.bedroom-wide",
+      "direction:waivers.multi-sentence-action_02",
     ]);
   });
 
@@ -439,27 +427,25 @@ describe("directionPartHashes", () => {
 
   it("moves a waiver's hash when its reason is reworded", () => {
     const d = flat();
-    (d as { sequence: { waivers: Record<string, string> } }).sequence.waivers[
-      "multi-sentence-action_02"
-    ] = "reworded";
-    const key = "direction:sequence.waivers.multi-sentence-action_02";
+    d.waivers!["multi-sentence-action_02"] = "reworded";
+    const key = "direction:waivers.multi-sentence-action_02";
     expect(directionPartHashes(d).get(key)).not.toBe(directionPartHashes(flat()).get(key));
   });
 
   it("holds the root sequence's hash when a waiver is removed", () => {
     const d = flat();
-    delete (d as { sequence: { waivers?: Record<string, string> } }).sequence.waivers;
+    delete d.waivers;
     const key = "direction:sequence";
     expect(directionPartHashes(d).get(key)).toBe(directionPartHashes(flat()).get(key));
   });
 
-  // A nested part is keyed by the path that reaches it: the act's shot and the waiver in the act's
-  // own bag both hang off `sequence.sequences.s1`, not off the root.
-  it("keys a sequence, its shots, and its waivers under the act's path", () => {
+  // A nested part is keyed by the path that reaches it: the act's shot hangs off
+  // `sequence.sequences.s1`, not off the root. A waiver has no node, whatever arc it fired on.
+  it("keys a sequence and its shots under the act's path, and its waiver at the top", () => {
     const keys = [...directionPartHashes(sequenced()).keys()];
     expect(keys).toContain("direction:sequence.sequences.s1");
     expect(keys).toContain("direction:sequence.sequences.s1.shots.01");
-    expect(keys).toContain("direction:sequence.sequences.s1.waivers.empty-synopsis_s1");
+    expect(keys).toContain("direction:waivers.empty-synopsis_s1");
     expect(keys).not.toContain(shot01);
   });
 

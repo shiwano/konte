@@ -6,7 +6,7 @@ Every machine finding konte reports. An unwaived one aborts a spend; clearing it
 
 ## Direction findings
 
-Reported by the direction check over `direction.ts` and the stages built on it. An unwaived one aborts a spend with `DIRECTION_CHECK_FAILED`. A waiver sits in the `waivers` of the arc node the finding fired on, keyed `<code>` or `<code>_<subject>`.
+Reported by the direction check over `direction.ts` and the stages built on it. An unwaived one aborts a spend with `DIRECTION_CHECK_FAILED`. A waiver sits in the direction's top-level `waivers`, keyed `<code>` or `<code>_<subject>`; on a child sequence's own arc, a role subject (or none) is prefixed with the sequence id: `missing-role_<sequenceId>.<role>`, `no-payoff_<sequenceId>`.
 
 - **Deferred** — silent until the direction is accepted.
 - **Fix in `reference.tsx`** — the roster entry is right; a reference asset is missing.
