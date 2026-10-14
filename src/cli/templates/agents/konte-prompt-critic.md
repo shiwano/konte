@@ -42,11 +42,6 @@ Write the reads as an intermediate message. Your final message — the only thin
 
 ```txt
 Findings:
-- target: video:shot.12.motion
-  problem: stacked-conditions
-  evidence: "swings twice with small amplitude at slow speed and comes to rest facing left"
-  smallest-fix: keep the swing, drop the count, the amplitude and the resting pose — specify one only if the take misses
-
 - target: video:shot.23.motion
   problem: inconsistent-description
   evidence: "a thin oval coin" against shot.22's "a small oval gold piece with a square hole"
@@ -60,7 +55,6 @@ Report `No findings.` alone when nothing survives; otherwise every finding kept,
 ## Axes
 
 - **Named exclusion** — does the prompt name something to leave out, in a model that does not read it as an instruction to omit? The picture gets what the prompt names. The fix is what occupies the space instead.
-- **Stacked conditions** — is a single readable action carrying amplitude, count, speed, and a stopping pose? Each term is another thing to miss, and a miss drags the take. One sentence first; specify only what the take gets wrong.
 - **Cross-shot inconsistency** — is the same prop, surface, costume or movement described in different words in two shots? Two descriptions produce two objects. The fix is one wording. A costume or a state that differs across a `jump-back` / `jump-forward` `join:` is no finding.
 - **Reference contradicted** (`reference-contradicted`) — does a prompt declare a reference held as it stands, then write that subject in another state, count, size or expression than its own definition gives — "one whole taiyaki", held, then two halves in two hands? Told both, the model holds the reference; the adapter's guide says how. The fix says in the declaration what the description remakes, or passes a reference showing the state.
 - **Restated frame** — does a motion prompt re-describe a composition its keyframe already fixes? It competes with the image and moves the frame off it.

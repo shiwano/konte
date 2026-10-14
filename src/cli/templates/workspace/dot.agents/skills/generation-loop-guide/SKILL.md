@@ -93,7 +93,6 @@ After `konte generate` or `konte reroll`:
 **Reroll:**
 
 - **Draw again before you rewrite** — a broken still is one sample; rewrite only when several draws fail the same way.
-- **Before a third take at one address, simplify its action instruction to one sentence** — the adapter guide's required sections, notation and word counts still hold; re-add action constraints only for what the take actually misses.
 - **`konte reroll <address>`** — then wait (step 4) and re-check. Rerolling a named accepted asset drops its accept after confirmation; the new take becomes review work. **If the asset feeds another in the same stage, add `--with-dependents`** — the chain rebuilds in dependency order, stopping at an accepted take. A whole stage or shot is rerolled by its address-scope (`konte reroll video:shot.05 --yes`), which skips what it cannot spend on and accepted takes.
 - **A reroll that came out worse → `konte dismiss <newVariantId>`** — the address falls back to the take before it, still undecided and undeleted. It falls back only to a take matching the current definition, so where the new take followed a prompt edit, restore the prompt instead: `konte inspect <address>` diffs each take against the live one.
 

@@ -30,11 +30,12 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 
 - **The plate fixes the place and the camera; the panel prompt composes** — where each figure sits and faces, what fills the frame they leave open, what is nearest the lens, what the edges cut, chosen from what the `action` has to show; naming only who is left and right leaves the frame to the model.
 - **Each panel prompt writes one state of the `action`** — the opening frame its starting state, a landing frame its final state.
-- **Give a panel the words its frame needs** — the camera's height and angle, what is nearest the lens and what is furthest.
+- **Make the setup's `framing` concrete** — within the frame its plate holds, write the subject's crop or share of the image: "waist-up", "her head fills a third of the frame's height".
 - **The eye lands on the action's carrier** — whatever the shot hinges on must be the frame's most salient element (position, contrast, light, motion); if a stranger's eye goes elsewhere first, the staging failed before the prompt.
 - **A hand or limb recurring across adjacent shots has its side and grip written in the panel prompt** — use screen coordinates (`image-left`, the thumb's direction), beyond the body-relative `left hand`.
 - **One strong signifier per idea** — pick the element that says it best and cut action-adjacent extras; each one added dilutes the read.
 - **Subject & purpose** — what the subject wants in this shot decides pose, expression, and gaze. Name a declared character by its exact roster `promptDepiction` and anchor its look on the `reference:<id>` asset (identity prose → `prompt-guide`'s reference preflight).
+- **Make the performance readable at the shot's scale** — a close frame can carry a glance or a tightened mouth; a distant figure needs posture, weight, hands or distance from the other subject to carry the same intention.
 - **Name every subject in `ctx.lineup` order** — who the frame holds, left to right, is the direction's (`ctx.lineupTo` the order the shot leaves on); one named place lands nothing, all of them always lands. Add who is nearer the lens where they are not side by side.
 - **Pass a reference image for every one of them** — a subject only a sleeve or a fist of whom is in frame is fed too, never waived. A keyframe drawn from an earlier keyframe inherits what that one stood on.
 - **Pass them in the same order** — the slot order is the other half of what decides who lands where.
@@ -46,7 +47,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 - **At `close`, anchor the subject and let the set fall to suggestion** — shallow depth of field, one sliver of set behind carrying the setup's `holds`: it owes the location its material and light, and owes it no layout. `insert` holds nothing — it fills the frame with an object and shows no set.
 - **Keep the set quiet** — the frame holds only what the shot reads against; every extra prop hands motion background churn to fail on. Keep the master sparse; dress a shot's prop in its panel.
 - **The pose reads in silhouette** — if the action wouldn't be legible as a black shape, no lighting or detail will save it; pick the angle that opens the pose.
-- **Build depth in layers** — a foreground, a subject plane and a background give motion somewhere to travel, and naming what sits just off-frame gives gaze somewhere to go; a single-plane frame reads as a flat still.
+- **Build depth in layers** — foreground, subject and background give motion somewhere to travel; a single-plane frame reads flat. Write their overlaps without obscuring the detail that carries the action, and name a gaze's target just off-frame where it belongs.
 
 ## Stage the cut
 
@@ -79,7 +80,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 
 ## Read-test before you pay to generate
 
-- **Describe first, compare second** — state what the panel shows before rereading the `action` and its `blocking`/`camera`; checking with them in mind only ever confirms them.
+- **Describe first, compare second** — before generation, reconstruct the frame from its prompt and input images; after generation, describe the actual panel. Then compare with the `action`: a detail supplied only by knowing the story is missing from the frame.
 - **Name the reading that must be unambiguous, then try its opposite** — derive from the `action` the one axis that cannot misread (arriving vs leaving) and ask whether a zero-context viewer could land on the wrong side. If it misreads, fix the staging, not the prompt words.
 
 ## On a staging note, re-derive the whole staging

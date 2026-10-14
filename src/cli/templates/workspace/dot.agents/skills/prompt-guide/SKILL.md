@@ -24,7 +24,6 @@ When writing or editing a prompt-like field (`prompt`, `text`, `lyrics`) in an `
 - **Name what occupies the space, never what to leave out** — a model conditions on the words it is given, so `no outlines` draws outlines. Write the positive: `flat washes meeting edge to edge`.
 - **An exclusion belongs in `negativePrompt`** — the one field a model reads it in.
 - **Write the scene description as a plain string literal, inline and fully spelled out** — boilerplate that must stay verbatim across shots (a canvas preamble, a character-preservation clause) may be a shared constant.
-- **One sentence first** — write the action once and let the model do it. Add amplitude, count, speed or a stopping pose only for the term a take actually missed: conditions stack faster than a model holds them, and each dropped one drags the rest of the sentence with it.
 
 ## Per kind
 
@@ -54,9 +53,10 @@ Look at the actual upstream image before writing about it.
 
 ## Performance (image & video)
 
-- **Write the subject as an actor, not an inventory** — lead with what it does and wants, in progressive action verbs ("leans its weight into the bag"); a coordinate list ("facing right, head raised, one paw touching the base") sits outside caption language and renders stiff, unrelated figures.
-- **Pull the acting words from `direction.ts`** — `brief.tone` and the roster entry's personality, not per-shot invented adjectives.
-- **An opening keyframe's verb is the motion prompt's** — performance verbs pull the model into completing it, so "presses the note onto the board" comes back pressed. Write what the opening instant holds as positives — the weight, the grip, the gaze — and redraw a take that completes it from a rewritten opening, never patch it.
+- **Write the performance toward its target** — "anxious" becomes "leans toward her companion, eyes searching his face for a response" when the shot calls for seeking reassurance. Name whom or what the gaze and posture address.
+- **Ground the performance in the shot's `action` and the character's personality**, under `brief.tone`; a gesture expresses that intention without adding a motive or story beat.
+- **Choose facial cues readable at the staged scale** — for a smile masking unease, "a smile at the mouth, eyes watching her companion's reaction". Specify only the features needed to read the intention.
+- **Write an opening keyframe as a held instant** — an action verb can pull the model into completing it. Write "fingers pinch the note's top edge, its lower edge hovering a hand's width from the board"; "presses the note onto the board" belongs in the motion prompt. Redraw a take that completes the action from a rewritten opening, never patch it.
 - **Geometry earns its place** — keep only the spatial facts the shot cannot survive losing (the contact, what sits between whom, the gaze axis).
 - **Sides are the frame's, never a figure's** — `screen left`, `off the right edge of frame`. **A figure turned toward the lens is mirrored: what sits on its left sits on the frame's right**, so "the sword at his left hip" hangs it off the wrong side — a worn or carried object, and which hand reaches for it, as much as a gaze. A reverse cut holds its axis only if both halves name the edge the gaze leaves by; unstated, each subject renders squared up to the lens and the pair loses the line.
 
