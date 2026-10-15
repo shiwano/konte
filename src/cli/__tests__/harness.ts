@@ -37,7 +37,7 @@ jobRunnerHooks.start = (workspaceRoot) => {
     stderrTail: () => "",
     async stop() {
       await started;
-      registry.stop();
+      await registry.stop();
       exit(0);
     },
   };

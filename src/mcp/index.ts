@@ -55,7 +55,7 @@ export async function startMcpServer(
     // already handed the job back; nothing this process reads again is trusted, so it exits
     // asking the CLI entry to start a fresh daemon on the same stdio (see process-restart.ts).
     onStaleDefinitions: (video, info) => {
-      registry.stop();
+      void registry.stop();
       log.write("info", { video, event: "stale_definitions_restart", ...info });
       server.server
         .sendLoggingMessage({
@@ -91,7 +91,7 @@ export async function startMcpServer(
   await registerDaemon(workspaceRoot).catch(() => {});
 
   const cleanup = () => {
-    registry.stop();
+    void registry.stop();
     unregisterDaemonSync(workspaceRoot);
   };
   let stopping = false;

@@ -72,6 +72,7 @@ export class JobWatcher {
   private readonly nodeActivateJobsInFlight = new Set<string>();
   private readonly exportJobsInFlight = new Set<string>();
   private readonly songJobsInFlight = new Set<string>();
+  private readonly work = new Set<Promise<unknown>>();
   private cascadeRunning = false;
   private cascadeRerunRequested = false;
 
@@ -133,6 +134,16 @@ export class JobWatcher {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
     }
+  }
+
+  /** Settles once no job this watcher started is still running, including ones they start. */
+  async settled(): Promise<void> {
+    while (this.work.size > 0) await Promise.allSettled([...this.work]);
+  }
+
+  private track(promise: Promise<unknown>): void {
+    this.work.add(promise);
+    void promise.finally(() => this.work.delete(promise));
   }
 
   // A job already terminal before this session started is never recorded — nothing here watches a
@@ -336,7 +347,7 @@ export class JobWatcher {
   private startWaitingForJob(variantId: string): void {
     if (this.watchingVariants.has(variantId)) return;
     this.watchingVariants.add(variantId);
-    this.processJob(variantId).catch(() => {});
+    this.track(this.processJob(variantId).catch(() => {}));
   }
 
   // Run a comfy-model-download job concurrently. Unlike the serial cascade, this
@@ -346,9 +357,11 @@ export class JobWatcher {
   private startComfyModelJob(id: string): void {
     if (this.modelJobsInFlight.has(id)) return;
     this.modelJobsInFlight.add(id);
-    this.processComfyModelJob(id)
-      .catch(() => {})
-      .finally(() => this.modelJobsInFlight.delete(id));
+    this.track(
+      this.processComfyModelJob(id)
+        .catch(() => {})
+        .finally(() => this.modelJobsInFlight.delete(id)),
+    );
   }
 
   // Run a comfy-node-install job concurrently (installs the pack to disk). Like a model
@@ -357,9 +370,11 @@ export class JobWatcher {
   private startComfyNodeInstallJob(id: string): void {
     if (this.nodeInstallJobsInFlight.has(id)) return;
     this.nodeInstallJobsInFlight.add(id);
-    this.processComfyNodeInstallJob(id)
-      .catch(() => {})
-      .finally(() => this.nodeInstallJobsInFlight.delete(id));
+    this.track(
+      this.processComfyNodeInstallJob(id)
+        .catch(() => {})
+        .finally(() => this.nodeInstallJobsInFlight.delete(id)),
+    );
   }
 
   // Run a comfy-node-activate job concurrently. It gates on its install deps internally
@@ -368,9 +383,11 @@ export class JobWatcher {
   private startComfyNodeActivateJob(id: string): void {
     if (this.nodeActivateJobsInFlight.has(id)) return;
     this.nodeActivateJobsInFlight.add(id);
-    this.processComfyNodeActivateJob(id)
-      .catch(() => {})
-      .finally(() => this.nodeActivateJobsInFlight.delete(id));
+    this.track(
+      this.processComfyNodeActivateJob(id)
+        .catch(() => {})
+        .finally(() => this.nodeActivateJobsInFlight.delete(id)),
+    );
   }
 
   private async processComfyNodeInstallJob(id: string): Promise<void> {
@@ -427,7 +444,7 @@ export class JobWatcher {
   private startSongAnalysisJob(id: string): void {
     if (this.songJobsInFlight.has(id)) return;
     this.songJobsInFlight.add(id);
-    runSongAnalysisJob(this.jobManager, this.videoRoot, id, {
+    const run = runSongAnalysisJob(this.jobManager, this.videoRoot, id, {
       onStarted: ({ address }) =>
         this.sendLog("debug", { event: "song_analysis_started", variantId: id, address }),
     })
@@ -447,6 +464,7 @@ export class JobWatcher {
       })
       .catch(() => {})
       .finally(() => this.songJobsInFlight.delete(id));
+    this.track(run);
   }
 
   // Run an export (render) job concurrently, like a model download. runExportJob gates
@@ -456,9 +474,11 @@ export class JobWatcher {
   private startExportJob(id: string): void {
     if (this.exportJobsInFlight.has(id)) return;
     this.exportJobsInFlight.add(id);
-    this.processExportJob(id)
-      .catch(() => {})
-      .finally(() => this.exportJobsInFlight.delete(id));
+    this.track(
+      this.processExportJob(id)
+        .catch(() => {})
+        .finally(() => this.exportJobsInFlight.delete(id)),
+    );
   }
 
   private async processExportJob(id: string): Promise<void> {

@@ -48,7 +48,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  registry?.stop();
+  await registry?.stop();
   registry = null;
   delete process.env.KONTE_TEST_CRED;
   await ws.cleanup();

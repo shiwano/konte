@@ -71,17 +71,22 @@ export class VideoRegistry {
     return [...this.watchers.keys()].sort();
   }
 
-  stop(): void {
+  /** Stops watching at once; settles when the jobs already running have finished. */
+  stop(): Promise<void> {
     this.stopped = true;
     this.videosWatcher?.close();
     this.videosWatcher = null;
     if (this.reconcileTimer) clearInterval(this.reconcileTimer);
     this.reconcileTimer = null;
-    for (const watcher of this.watchers.values()) {
-      watcher.stop();
-      closeJobDatabase(watcher.videoRoot);
-    }
+    const retiring = [...this.watchers.values()].map((watcher) => this.retire(watcher));
     this.watchers.clear();
+    return Promise.all(retiring).then(() => {});
+  }
+
+  private async retire(watcher: JobWatcher): Promise<void> {
+    watcher.stop();
+    await watcher.settled();
+    closeJobDatabase(watcher.videoRoot);
   }
 
   /**
@@ -122,8 +127,7 @@ export class VideoRegistry {
 
       for (const [name, watcher] of this.watchers) {
         if (present.has(name)) continue;
-        watcher.stop();
-        closeJobDatabase(watcher.videoRoot);
+        void this.retire(watcher);
         this.watchers.delete(name);
         this.log?.write("info", { video: name, event: "video_unwatched" });
       }
