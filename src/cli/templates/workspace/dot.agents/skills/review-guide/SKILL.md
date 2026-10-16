@@ -4,7 +4,7 @@ description: Put work in front of a human and get a decision back — open the p
 user-invocable: false
 ---
 
-Every human review runs the same two steps — preview with a handoff, read the record — for the direction or a stage's assets. Done = the submitted decisions read back and reported to the human; acting on the feedback belongs to whoever sent you here (`drafting-guide` for direction, `generation-loop-guide` for a stage).
+Every human review runs the same two steps — preview with a handoff, read the record — for the direction or a stage's assets. Done = the submitted decisions read back; acting on the feedback belongs to whoever sent you here (`drafting-guide` for direction, `generation-loop-guide` for a stage).
 
 ## 1. Preview with a handoff
 
@@ -27,7 +27,7 @@ Every human review runs the same two steps — preview with a handoff, read the 
 - **`konte review record show <file>`** — every decision the review made, plus any target the submit could not settle and, for `direction`, where the acceptance gate stood at submit.
 - **Read it whole** — never `head`/`tail` it; a cut drops the human's comments silently.
 - **`--contact-sheet` tiles every commented frame into one image** — cells captioned with comment id + shot-local time. Triage only: judge any single comment off its own `[image: <path>]`.
-- **Report the decisions — accepts, feedback, pin coordinates — to the human before acting.**
+- **Never restate the record to the human** — they just made those decisions; before acting, say only how you read what it leaves open (below).
 
 ## What a submitted review means
 
