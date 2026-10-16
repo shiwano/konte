@@ -30,7 +30,8 @@ import {
 } from "../../core/variant-dir.js";
 import { collectDescendants } from "../../core/variant-lineage.js";
 import { confirmDeletion, printAborted } from "../confirm.js";
-import { loadStageDefinitions } from "../load-definition.js";
+import { loadDirectionIfPresent, loadStageDefinitions } from "../load-definition.js";
+import { directionPartHashes } from "../../core/direction-hash.js";
 import {
   type CascadeFailedJob,
   cascadeFailPendingJobs,
@@ -134,6 +135,7 @@ async function executePrune(opts: PruneOptions): Promise<void> {
   // never silently null out and orphan every reference target.
   // A board or video waiting on an unread song is unreadable in the same sense.
   const { video, animatic, reference } = requireShotStages(await loadStageDefinitions(videoRoot));
+  const direction = await loadDirectionIfPresent(videoRoot);
 
   // `validCompositionAddresses` doubles as the live set for the composition-cache pass below;
   // `isOrphan` is shared with `doctor` so prune and its warning never disagree on what an orphan is.
@@ -148,6 +150,7 @@ async function executePrune(opts: PruneOptions): Promise<void> {
     reference,
     patchScriptIds,
     state,
+    direction ? directionPartHashes(direction).keys() : [],
   );
 
   if (opts.addressScope) assertValidAddressScope(opts.addressScope);

@@ -42,6 +42,14 @@ describe("buildOrphanContext", () => {
     }
   });
 
+  it("does not flag a part of the direction it is given", () => {
+    const { isOrphan } = buildOrphanContext(video, animatic, null, undefined, undefined, [
+      "direction:brief.logline",
+    ]);
+    expect(isOrphan("direction:brief.logline")).toBe(false);
+    expect(isOrphan("direction:brief.tone")).toBe(true);
+  });
+
   it("flags a bare shot-level feedback target for a shot no longer in the definition", () => {
     const { isOrphan } = buildOrphanContext(video, animatic);
     expect(isOrphan("video:shot.99")).toBe(true);

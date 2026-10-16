@@ -39,6 +39,8 @@ export function buildOrphanContext(
   patchScriptIds?: ReadonlySet<string>,
   // Keeps a stem still accepted after its shot stopped sounding anything.
   state?: KonteState,
+  // The direction's part addresses (`directionPartHashes`), each a feedback-only target.
+  directionParts?: Iterable<string>,
 ): OrphanContext {
   const validAddresses = new Set<string>();
   for (const addr of listAddresses(video, "video")) validAddresses.add(addr);
@@ -47,6 +49,7 @@ export function buildOrphanContext(
   for (const s of video.shots) validAddresses.add(formatShotAddress("video", s.id));
   // A bare stage holds a review's overall comment.
   for (const stage of ["animatic", "video", "reference", "direction"]) validAddresses.add(stage);
+  for (const part of directionParts ?? []) validAddresses.add(part);
   if (animatic) {
     for (const addr of listAddresses(animatic, "animatic")) validAddresses.add(addr);
     for (const s of animatic.shots) validAddresses.add(formatShotAddress("animatic", s.id));

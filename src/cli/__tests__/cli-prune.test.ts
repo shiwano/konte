@@ -2,6 +2,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateFeedbackId } from "../../core/feedback/index.js";
+import { directionPartHashes } from "../../core/direction-hash.js";
+import { loadDirectionIfPresent } from "../load-definition.js";
 import { JobManager } from "../../core/job-manager.js";
 import { StateManager } from "../../core/state/manager.js";
 import {
@@ -205,6 +207,26 @@ describe("prune command", () => {
 
     await run(["prune", "--yes"], projectDir);
     expect(await readFeedback(projectDir, bareShot)).toHaveLength(1);
+  });
+
+  it("keeps feedback on a live direction part, and prunes it on a part the direction lost", async () => {
+    const direction = await loadDirectionIfPresent(projectDir);
+    const [livePart] = directionPartHashes(direction!).keys();
+    const lostPart = "direction:brief.gone";
+    for (const address of [livePart!, lostPart]) {
+      await seedFeedback(projectDir, address, {
+        id: generateFeedbackId(),
+        displayedVariants: {},
+        annotation: null,
+        text: "a note on the direction",
+        createdAt: new Date().toISOString(),
+        createdBy: "local",
+      });
+    }
+
+    await run(["prune", "--yes"], projectDir);
+    expect(await readFeedback(projectDir, livePart!)).toHaveLength(1);
+    expect(await readFeedback(projectDir, lostPart)).toHaveLength(0);
   });
 
   it("prunes orphaned composition caches but keeps live ones", async () => {
