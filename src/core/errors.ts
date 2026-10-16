@@ -176,7 +176,8 @@ export type KonteErrorCode =
   | "ANIMATIC_INVALID"
   // An `<Animate script>` whose source cannot be embedded. It is serialized and wrapped as
   // `(<source>)(…)`, so a form that is not a standalone expression leaves the whole <script>
-  // unparseable — nothing in it runs, the timeline registration included.
+  // unparseable — nothing in it runs, the timeline registration included. Also one outside a
+  // `jsxVideo` that runs its own clock (requestAnimationFrame, setInterval).
   | "ANIMATE_SCRIPT_INVALID"
   // An `<Animate data>` value JSON would drop or rewrite — the script would read null or a missing key.
   | "ANIMATE_DATA_INVALID"

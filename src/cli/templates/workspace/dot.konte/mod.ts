@@ -8210,11 +8210,13 @@ export type VideoFrameInputs = {
   source: MediaAsset<"video">;
   at?: number | "last";
 };
-/** The canvas the build lays out against — the resolved pixel size of the image it returns. */
-export type JsxImageCanvas = {
+/** The canvas a build lays out against — the resolved pixel size of what it renders. */
+export type JsxCanvas = {
   width: number;
   height: number;
 };
+/** The canvas the build lays out against — the resolved pixel size of the image it returns. */
+export type JsxImageCanvas = JsxCanvas;
 export type JsxImageInputs = {
   /** Omitted, the image is the `background` alone at the resolved canvas size. */
   build?: (canvas: JsxImageCanvas) => React.ReactElement;
@@ -8238,6 +8240,33 @@ export type JsxImageInputs = {
  *   });
  */
 export declare const jsxImage: AssetAdapter<JsxImageInputs, "image">;
+export type JsxVideoInputs = {
+  /** `(canvas) => JSX` — the document body; an `<Animate>` in it may run its own clock. */
+  build: (canvas: JsxCanvas) => React.ReactElement;
+  /** Seconds. Defaults to the length of the shot it is declared in; required elsewhere. */
+  duration?: number;
+  /** Defaults to the canvas the stage resolves for this asset; required where there is none. */
+  width?: number;
+  height?: number;
+  /** Defaults to `#000000`. */
+  background?: ColorString;
+};
+/**
+ * Bakes a JSX tree to an MP4 through the same headless Chromium, `<Composition>` head and font stack
+ * a shot's composition renders with, one frame after another from t=0. `requestAnimationFrame`,
+ * `performance.now`, `Date`, timers and `Math.random` run on the bake's clock, so a game loop or a
+ * simulation comes out the same on every bake.
+ *
+ *   const race = asset("race", adapters.jsxVideo, {
+ *     build: ({ width, height }) => (
+ *       <>
+ *         <canvas id="game" width={width} height={height} />
+ *         <Animate data={course} script={({ data }) => { … requestAnimationFrame(loop) … }} />
+ *       </>
+ *     ),
+ *   });
+ */
+export declare const jsxVideo: AssetAdapter<JsxVideoInputs, "video">;
 /**
  * The line as one model has to be spelled it: `respell(script.ane[0], "かあちゃん、飴玉ちょうだい。")`
  * returns the second string and files it as standing for the first.
@@ -9017,6 +9046,7 @@ export declare const adapters: {
   audioConcat: AssetAdapter<AudioConcatInputs, "audio">;
   videoFrame: AssetAdapter<VideoFrameInputs, "image">;
   jsxImage: AssetAdapter<JsxImageInputs, "image">;
+  jsxVideo: AssetAdapter<JsxVideoInputs, "video">;
 };
 export declare function seed(): string & {
   readonly __brand: "KontePlaceholder";

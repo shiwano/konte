@@ -223,6 +223,10 @@ export async function compositeWithHyperFrames(options: {
   size: { width: number; height: number };
   duration: number;
   quality: "draft" | "standard" | "high";
+  workers?: number;
+  // Capture by screenshot, never drawElement: drawElement hands its frame back through a page
+  // `setTimeout`, which a document that virtualizes its timers holds until the next seek.
+  screenshotCapture?: boolean;
   onLog?: (line: string) => void;
 }): Promise<string[]> {
   const { compositionHtml, assetFiles, outputFile, fps, quality } = options;
@@ -240,17 +244,21 @@ export async function compositeWithHyperFrames(options: {
       await linkIntoWorkspace(source, target);
     }
 
-    const { createRenderJob, executeRenderJob } = await loadHyperFramesProducer();
+    const producer = await loadHyperFramesProducer();
     const onLog = (line: string) =>
       options.onLog?.(redactUrls(`[${path.basename(outputFile)}] ${line}`));
     const log = (level: string, message: string, meta?: Record<string, unknown>) => {
       onLog(`${level}: ${message}${meta ? ` ${JSON.stringify(meta)}` : ""}`);
     };
 
-    const job = createRenderJob({
+    const job = producer.createRenderJob({
       fps,
       quality,
       entryFile: "index.html",
+      ...(options.workers !== undefined && { workers: options.workers }),
+      ...(options.screenshotCapture && {
+        producerConfig: producer.resolveConfig({ forceScreenshot: true }),
+      }),
       ...(options.onLog && {
         logger: {
           error: (message, meta) => log("error", message, meta),
@@ -262,9 +270,9 @@ export async function compositeWithHyperFrames(options: {
     });
 
     if (options.onLog) {
-      await captureRenderLogs(onLog, () => executeRenderJob(job, workspace, outputFile));
+      await captureRenderLogs(onLog, () => producer.executeRenderJob(job, workspace, outputFile));
     } else {
-      await executeRenderJob(job, workspace, outputFile);
+      await producer.executeRenderJob(job, workspace, outputFile);
     }
 
     return job.warnings.map(

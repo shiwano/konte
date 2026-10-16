@@ -157,6 +157,20 @@ describe("jsxImage", () => {
     ).not.toThrow();
   });
 
+  it("refuses an <Animate> that runs its own clock", () => {
+    expect(() =>
+      define({
+        build: () => (
+          <Animate
+            script={() => {
+              requestAnimationFrame(() => {});
+            }}
+          />
+        ),
+      }),
+    ).toThrow(/jsxVideo/);
+  });
+
   // A load-time gate that rejects valid documents is worse than one that misses.
   it("allows author text that only looks like a placeholder", () => {
     const def = define({

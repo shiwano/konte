@@ -17,7 +17,12 @@ import {
 } from "../core/ffmpeg-binary.js";
 import { extractFrameAt, lastSeekableTime, probeVideo } from "../core/thumbnail.js";
 import { requireFileWithinRoot } from "../core/path-containment.js";
-import { asJsxStillInputs, renderJsxStill } from "../core/jsx-still.js";
+import {
+  asJsxStillInputs,
+  asJsxClipInputs,
+  renderJsxStill,
+  renderJsxVideo,
+} from "../core/jsx-render.js";
 import { trimVideo } from "../core/ffmpeg.js";
 import { probeMediaDuration } from "../core/video-probe.js";
 import type { LocalAssetDefinition } from "../core/types/index.js";
@@ -70,6 +75,7 @@ export class LocalBackend implements GenerationBackend {
       request.outputDir,
       request.resolvedDependencies,
       request.address,
+      request.onLog,
     );
     return { files: [outputFile], metadata: {}, durationMs: Math.round(performance.now() - start) };
   }
@@ -122,6 +128,7 @@ export class LocalBackend implements GenerationBackend {
     outputDir: string,
     resolvedDependencies: Record<string, string>,
     address: string,
+    onLog?: (line: string) => void,
   ): Promise<string> {
     await fs.mkdir(outputDir, { recursive: true });
     const ext = this.outputExtension(def, resolvedDependencies);
@@ -150,7 +157,11 @@ export class LocalBackend implements GenerationBackend {
         await this.extractFrame(def.inputs, outputFile, resolvedDependencies);
         break;
       case "render":
-        await this.renderStill(def.inputs, outputFile, resolvedDependencies);
+        if (def.mediaType === "video") {
+          await this.renderVideo(def.inputs, outputFile, resolvedDependencies, onLog);
+        } else {
+          await this.renderStill(def.inputs, outputFile, resolvedDependencies);
+        }
         break;
     }
 
@@ -446,5 +457,21 @@ export class LocalBackend implements GenerationBackend {
       videoRoot: this.videoRoot,
       resolveRef: (placeholder) => this.resolveDependencyFile(placeholder, resolvedDependencies),
     });
+  }
+
+  private async renderVideo(
+    inputs: Record<string, unknown>,
+    outputFile: string,
+    resolvedDependencies: Record<string, string>,
+    onLog?: (line: string) => void,
+  ): Promise<void> {
+    const { warnings } = await renderJsxVideo({
+      inputs: asJsxClipInputs(inputs),
+      outputFile,
+      videoRoot: this.videoRoot,
+      resolveRef: (placeholder) => this.resolveDependencyFile(placeholder, resolvedDependencies),
+      ...(onLog && { onLog }),
+    });
+    for (const warning of warnings) onLog?.(`warning: ${warning}`);
   }
 }

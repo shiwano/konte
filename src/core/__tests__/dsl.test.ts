@@ -781,6 +781,41 @@ describe("Animate", () => {
     expect(codes).toEqual(["ANIMATE_DATA_INVALID", "ANIMATE_DATA_INVALID", "ANIMATE_DATA_INVALID"]);
   });
 
+  it("rejects a script that runs its own clock", () => {
+    const loops: Array<() => void> = [
+      () => {
+        requestAnimationFrame(() => {});
+      },
+      () => {
+        setInterval(() => {}, 100);
+      },
+    ];
+    const codes = loops.map((script) => {
+      try {
+        renderToHtml(animateEl({ script }), ctx);
+        return "no throw";
+      } catch (err) {
+        return (err as KonteError).code;
+      }
+    });
+    expect(codes).toEqual(["ANIMATE_SCRIPT_INVALID", "ANIMATE_SCRIPT_INVALID"]);
+  });
+
+  it("lets a script name a clock call in a string or a comment", () => {
+    const script = ({ timeline }: { timeline: GsapTimeline }) => {
+      // requestAnimationFrame(loop) would drift here
+      timeline.set("#code", { text: "setInterval(tick, 100)" }, 0);
+    };
+    expect(() => renderToHtml(animateEl({ script }), ctx)).not.toThrow();
+  });
+
+  it("lets a script run its own clock in a document baked on a virtual clock", () => {
+    const script = () => {
+      requestAnimationFrame(() => {});
+    };
+    expect(() => renderToHtml(animateEl({ script }), { ...ctx, virtualClock: true })).not.toThrow();
+  });
+
   it("rejects a source that cannot be embedded as an expression", () => {
     const holder = {
       script({ timeline }: { timeline: GsapTimeline }) {

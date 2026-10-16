@@ -119,6 +119,24 @@ function unserializablePath(value: unknown, path: string): string | null {
   return path;
 }
 
+const OWN_CLOCK = /\b(requestAnimationFrame|setInterval)\s*\(/;
+
+// A call spelled inside a comment or a string literal runs nothing.
+const COMMENT_OR_STRING =
+  /\/\/[^\n]*|\/\*[\s\S]*?\*\/|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/g;
+
+function assertNoOwnClock(shotId: string, source: string): void {
+  const call = OWN_CLOCK.exec(source.replace(COMMENT_OR_STRING, '""'))?.[1];
+  if (!call) return;
+  throw new KonteError(
+    "ANIMATE_SCRIPT_INVALID",
+    `Shot "${shotId}"'s <Animate> script calls ${call}, which runs on a clock of its own: the ` +
+      "render restarts it at every parallel range and the preview drifts off the timeline. Drive " +
+      "the motion from `timeline`, or bake the loop to a clip with `adapters.jsxVideo` and place " +
+      "it with <Video>.",
+  );
+}
+
 // Parsed rather than embedded as a literal, where a `__proto__` key sets the prototype instead of
 // being a key. `<` escaped so a string value cannot close the <script> element.
 function serializeData(shotId: string, data: AnimateData): string {
@@ -146,10 +164,13 @@ export function Animate<D extends AnimateData | undefined = undefined>({
   data?: D;
   script?: (ctx: AnimateContext<D>) => void;
 }): React.ReactElement {
-  const { shotId } = getRenderContext();
+  const { shotId, virtualClock } = getRenderContext();
 
   const source = script?.toString();
-  if (source !== undefined) assertEmbeddable(shotId, source);
+  if (source !== undefined) {
+    assertEmbeddable(shotId, source);
+    if (!virtualClock) assertNoOwnClock(shotId, source);
+  }
   const dataArg = data === undefined ? "" : `, data: ${serializeData(shotId, data)}`;
   const scriptBody =
     source === undefined ? "" : `(${source})({ timeline: tl, split: split${dataArg} });`;

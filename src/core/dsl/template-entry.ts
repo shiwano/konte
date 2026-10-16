@@ -76,6 +76,7 @@ export {
   type DirectionFindingCode,
 } from "./direction.js";
 export { jsxImage, type JsxImageInputs, type JsxImageCanvas } from "./adapters/index.js";
+export { jsxVideo, type JsxVideoInputs } from "./adapters/index.js";
 export { upscale } from "./delivery-upscale.js";
 export {
   asset,
@@ -194,6 +195,7 @@ import {
   imageFile,
   imageResize,
   jsxImage,
+  jsxVideo,
   videoFile,
   videoFrame,
   videoTrim,
@@ -211,6 +213,7 @@ export const adapters = {
   audioConcat,
   videoFrame,
   jsxImage,
+  jsxVideo,
 };
 export function seed(): string & { readonly __brand: "KontePlaceholder" } {
   return "" as any;

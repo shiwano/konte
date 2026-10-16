@@ -15,7 +15,7 @@ import {
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { computeDefinitionHash } from "../../../core/definition-hash.js";
 import { KonteError } from "../../../core/errors.js";
-import { asJsxStillInputs, renderJsxStill } from "../../../core/jsx-still.js";
+import { asJsxStillInputs, renderJsxStill } from "../../../core/jsx-render.js";
 import { requireFileWithinRoot } from "../../../core/path-containment.js";
 import { parsePlaceholder } from "../../../core/dsl/shot-context.js";
 import { StateManager } from "../../../core/state/index.js";
@@ -24,9 +24,9 @@ import type { AssetDefinition, LocalAssetDefinition } from "../../../core/types/
 import { requireVideoRoot } from "../../context.js";
 import { loadStageDefinitions } from "../../load-definition.js";
 
-// `render` is the one local operation `jsxImage` produces, and the only adapter that produces it.
+// A `render` image is a `jsxImage`; a `render` video is a `jsxVideo`, baked by `generate`.
 function isJsxRender(entry: AssetDefinition): entry is LocalAssetDefinition {
-  return entry.kind === "local" && entry.operation === "render";
+  return entry.kind === "local" && entry.operation === "render" && entry.mediaType === "image";
 }
 
 // Digit runs compared numerically, so an unpadded shot.2 precedes shot.10 (as in `contact-sheet`).

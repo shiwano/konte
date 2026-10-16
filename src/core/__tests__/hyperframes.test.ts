@@ -4,6 +4,7 @@ import { KonteError } from "../errors.js";
 vi.mock("@hyperframes/producer", () => ({
   createRenderJob: vi.fn().mockReturnValue({ id: "mock-job", warnings: [] }),
   executeRenderJob: vi.fn().mockResolvedValue(undefined),
+  resolveConfig: vi.fn((overrides: object) => ({ resolved: true, ...overrides })),
 }));
 
 vi.mock("../chromium.js", () => ({
@@ -209,6 +210,24 @@ describe("compositeWithHyperFrames", () => {
       { id: "mock-job", warnings: [] },
       "/tmp/konte-hf-mock",
       "/output/shot.mp4",
+    );
+  });
+
+  it("pins screenshot capture when asked", async () => {
+    await compositeWithHyperFrames({
+      videoRoot: "/video",
+      compositionHtml: sampleHtml,
+      assetFiles: {},
+      outputFile: "/output/clip.mp4",
+      fps: 30,
+      size: { width: 640, height: 360 },
+      duration: 2,
+      quality: "high",
+      screenshotCapture: true,
+    });
+
+    expect(createRenderJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({ producerConfig: { resolved: true, forceScreenshot: true } }),
     );
   });
 

@@ -31,6 +31,9 @@ export interface RenderContext {
   // marks its host `data-no-timeline`: the capture otherwise waits out its full 45s readiness
   // timeout for a `window.__timelines` registration that never comes. Set only by `jsxImage`.
   still?: boolean;
+  // When true, an `<Animate>` script may run its own clock (requestAnimationFrame, timers). Set
+  // only by `jsxVideo`.
+  virtualClock?: boolean;
   // EXPORT DELIVERY ONLY: the frame actually captured, cut from the centre of the `width`×`height`
   // composition above (see `deliveryCoverSize`). Absent everywhere else, where the captured frame IS
   // the composition.

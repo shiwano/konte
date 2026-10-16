@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vite
 import type { GenerationRequest } from "../../core/backend.js";
 import { ffmpegBin, ffprobeBin } from "../../core/ffmpeg-binary.js";
 import type { AssetDefinition, LocalAssetDefinition } from "../../core/types/index.js";
+import { compositeWithHyperFrames } from "../../core/hyperframes.js";
 import { captureHtmlToImage } from "../../core/still-capture.js";
 import { probeMediaDuration } from "../../core/video-probe.js";
 import { LocalBackend } from "../backend.js";
@@ -19,7 +20,17 @@ vi.mock("../../core/still-capture.js", () => ({
   }),
 }));
 
+vi.mock("../../core/hyperframes.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../core/hyperframes.js")>()),
+  ensureHyperFrames: vi.fn(async () => {}),
+  compositeWithHyperFrames: vi.fn(async ({ outputFile }: { outputFile: string }) => {
+    await (await import("node:fs/promises")).writeFile(outputFile, "mp4");
+    return [];
+  }),
+}));
+
 const captureHtmlToImageMock = captureHtmlToImage as unknown as Mock;
+const compositeWithHyperFramesMock = compositeWithHyperFrames as unknown as Mock;
 
 const execFileAsync = promisify(execFile);
 
@@ -594,6 +605,47 @@ describe("LocalBackend render", () => {
     expect(captureHtmlToImageMock).not.toHaveBeenCalled();
 
     await fs.rm(outside, { force: true });
+  });
+});
+
+describe("LocalBackend render (video)", () => {
+  const html = '<html><body><div id="stage"><canvas></canvas></div></body></html>';
+
+  it("bakes by screenshot on one worker, the clock installed before the document's own scripts", async () => {
+    const file = await generate(
+      localDef("render", "video", { html, width: 32, height: 24, duration: 2, fps: 24 }),
+    );
+
+    expect(path.basename(file)).toBe("output.mp4");
+    const call = compositeWithHyperFramesMock.mock.calls[0]![0];
+    expect(call).toMatchObject({
+      outputFile: file,
+      fps: 24,
+      duration: 2,
+      size: { width: 32, height: 24 },
+      workers: 1,
+      screenshotCapture: true,
+    });
+    expect(call.compositionHtml).toMatch(/^<html><body><script>\(function \(\) \{\n {2}var seed/);
+    expect(call.compositionHtml).toContain('"shot-clip"');
+    expect(call.compositionHtml).toContain("tl.set({},{},2)");
+  });
+
+  it("writes the bake's warnings to the job log", async () => {
+    compositeWithHyperFramesMock.mockImplementationOnce(async ({ outputFile }) => {
+      await fs.writeFile(outputFile, "mp4");
+      return ["render (output.mp4): IMAGE_TIMEOUT — asset-0.png"];
+    });
+    const lines: string[] = [];
+    const backend = new LocalBackend(videoRoot);
+    await backend.submit({
+      ...request(
+        localDef("render", "video", { html, width: 32, height: 24, duration: 1, fps: 24 }),
+      ),
+      onLog: (line) => lines.push(line),
+    });
+
+    expect(lines).toContain("warning: render (output.mp4): IMAGE_TIMEOUT — asset-0.png");
   });
 });
 
