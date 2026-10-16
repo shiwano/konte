@@ -8811,14 +8811,26 @@ export interface GsapSplit {
   chars: GsapTargets;
   words: GsapTargets;
 }
-export interface AnimateContext {
+export type AnimateData =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly AnimateData[]
+  | {
+      readonly [key: string]: AnimateData;
+    };
+export interface AnimateContext<D extends AnimateData | undefined = undefined> {
   timeline: GsapTimeline;
   split: (selector: string, options: GsapSplitOptions) => GsapSplit;
+  data: D;
 }
-export declare function Animate({
+export declare function Animate<D extends AnimateData | undefined = undefined>({
+  data,
   script,
 }: {
-  script?: (ctx: AnimateContext) => void;
+  data?: D;
+  script?: (ctx: AnimateContext<D>) => void;
 }): React.ReactElement;
 export type AudioElementProps = React.ComponentPropsWithoutRef<"audio">;
 export type AudioProps = Omit<AudioElementProps, "src" | "id"> & {

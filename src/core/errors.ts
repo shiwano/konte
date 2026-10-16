@@ -178,6 +178,8 @@ export type KonteErrorCode =
   // `(<source>)(…)`, so a form that is not a standalone expression leaves the whole <script>
   // unparseable — nothing in it runs, the timeline registration included.
   | "ANIMATE_SCRIPT_INVALID"
+  // An `<Animate data>` value JSON would drop or rewrite — the script would read null or a missing key.
+  | "ANIMATE_DATA_INVALID"
   // An animatic cue that ends past the shot it sounds over. The stem is clamped to the shot, so the
   // tail is cut — a line lost mid-word, with nothing to show for it until the mix is heard. Read
   // from the declared clip length, so it is refused before the take is paid for.

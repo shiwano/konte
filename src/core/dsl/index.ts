@@ -113,6 +113,7 @@ export {
   type CutinCorner,
   type CutinProps,
   type AnimateContext,
+  type AnimateData,
   type GsapSplit,
   type GsapSplitOptions,
   type GsapTargets,

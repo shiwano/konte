@@ -6,7 +6,7 @@ import {
   formatTimelineStemAddress,
 } from "../address.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
-import { Animate, type GsapTimeline } from "../dsl/composition/animate.js";
+import { Animate, type AnimateData, type GsapTimeline } from "../dsl/composition/animate.js";
 import { Composition } from "../dsl/composition/composition.js";
 import { KonteError } from "../errors.js";
 import {
@@ -593,7 +593,9 @@ describe("Animate", () => {
     typography: { lang: "en" as const },
   };
 
-  function animateEl(props: Parameters<typeof Animate>[0] = {}): React.ReactElement {
+  function animateEl<D extends AnimateData | undefined = undefined>(
+    props: Parameters<typeof Animate<D>>[0] = {},
+  ): React.ReactElement {
     return { type: Animate, props } as unknown as React.ReactElement;
   }
 
@@ -731,6 +733,52 @@ describe("Animate", () => {
     );
     const timelines = runAnimateScripts(html);
     expect(timelines["shot-01"]?.children).toHaveLength(1);
+  });
+
+  it("hands the script its data", () => {
+    const html = renderToHtml(
+      animateEl({
+        data: { bars: ["#a", "#b"], note: "</script><b>" },
+        script: ({ timeline, data }) => {
+          for (const bar of data.bars) timeline.to(bar, { opacity: 1 });
+          timeline.to(data.note, { opacity: 1 });
+        },
+      }),
+      ctx,
+    );
+    expect(html.match(/<\/script>/g)).toHaveLength(1);
+    const timelines = runAnimateScripts(html);
+    expect(timelines["shot-01"]?.children[0]?.child.tweens).toEqual([
+      '"#a"',
+      '"#b"',
+      '"</script><b>"',
+    ]);
+  });
+
+  it("keeps a __proto__ key in the data a key", () => {
+    const html = renderToHtml(
+      animateEl({
+        data: JSON.parse('{"__proto__":"#proto","label":"#label"}') as AnimateData,
+        script: ({ timeline, data }) => {
+          timeline.to(Object.keys(data as object).join(","), { opacity: 1 });
+        },
+      }),
+      ctx,
+    );
+    const timelines = runAnimateScripts(html);
+    expect(timelines["shot-01"]?.children[0]?.child.tweens).toEqual(['"__proto__,label"']);
+  });
+
+  it("rejects data JSON would drop or rewrite", () => {
+    const codes = [{ n: Number.NaN }, { at: new Date(0) }, [undefined]].map((data) => {
+      try {
+        renderToHtml(animateEl({ data: data as unknown as AnimateData, script: () => {} }), ctx);
+        return "no throw";
+      } catch (err) {
+        return (err as KonteError).code;
+      }
+    });
+    expect(codes).toEqual(["ANIMATE_DATA_INVALID", "ANIMATE_DATA_INVALID", "ANIMATE_DATA_INVALID"]);
   });
 
   it("rejects a source that cannot be embedded as an expression", () => {

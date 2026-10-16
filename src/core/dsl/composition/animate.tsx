@@ -34,9 +34,18 @@ export interface GsapSplit {
   words: GsapTargets;
 }
 
-export interface AnimateContext {
+export type AnimateData =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly AnimateData[]
+  | { readonly [key: string]: AnimateData };
+
+export interface AnimateContext<D extends AnimateData | undefined = undefined> {
   timeline: GsapTimeline;
   split: (selector: string, options: GsapSplitOptions) => GsapSplit;
+  data: D;
 }
 
 // Escaping these instead of refusing would change what a tagged template (`String.raw`) and a regex
@@ -90,22 +99,60 @@ function errorOverlayJs(shotId: string): string {
   return `var host=document.querySelector(${hostSelector});if(host&&host.tagName==="META")host=null;host=host||document.getElementById("stage")||document.body;if(host){var box=document.createElement("div");box.setAttribute("data-konte-animate-error",${key});box.style.cssText="position:absolute;left:0;right:0;bottom:0;z-index:2147483647;background:#b00020;color:#fff;font:600 14px/1.4 ui-monospace,monospace;padding:10px 14px;white-space:pre-wrap;word-break:break-word;";box.textContent="konte: <Animate> script failed in "+${key}+"\\n"+msg;host.appendChild(box);}`;
 }
 
+function unserializablePath(value: unknown, path: string): string | null {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? null : path;
+  if (Array.isArray(value)) {
+    for (const [i, item] of value.entries()) {
+      const found = unserializablePath(item, `${path}[${i}]`);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
+    for (const [key, item] of Object.entries(value)) {
+      const found = unserializablePath(item, `${path}.${key}`);
+      if (found) return found;
+    }
+    return null;
+  }
+  return path;
+}
+
+// Parsed rather than embedded as a literal, where a `__proto__` key sets the prototype instead of
+// being a key. `<` escaped so a string value cannot close the <script> element.
+function serializeData(shotId: string, data: AnimateData): string {
+  const bad = unserializablePath(data, "data");
+  if (bad) {
+    throw new KonteError(
+      "ANIMATE_DATA_INVALID",
+      `Shot "${shotId}"'s <Animate> ${bad} is not JSON — a non-finite number, undefined, a function ` +
+        `or a class instance. Pass strings, finite numbers, booleans, null, arrays and plain objects.`,
+    );
+  }
+  return `JSON.parse(${JSON.stringify(JSON.stringify(data)).replace(/</g, "\\u003c")})`;
+}
+
 const ANIMATE_ERRORS_GLOBAL = "__konteAnimateErrors";
 
 export function compositionAnimates(html: string): boolean {
   return html.includes(`window.${ANIMATE_ERRORS_GLOBAL}`);
 }
 
-export function Animate({
+export function Animate<D extends AnimateData | undefined = undefined>({
+  data,
   script,
 }: {
-  script?: (ctx: AnimateContext) => void;
+  data?: D;
+  script?: (ctx: AnimateContext<D>) => void;
 }): React.ReactElement {
   const { shotId } = getRenderContext();
 
   const source = script?.toString();
   if (source !== undefined) assertEmbeddable(shotId, source);
-  const scriptBody = source === undefined ? "" : `(${source})({ timeline: tl, split: split });`;
+  const dataArg = data === undefined ? "" : `, data: ${serializeData(shotId, data)}`;
+  const scriptBody =
+    source === undefined ? "" : `(${source})({ timeline: tl, split: split${dataArg} });`;
 
   // `split` resolves its selector through `document`, which a full-video render scopes to the shot;
   // SplitText given the string would query the whole page, every shot's duplicate ids included.
