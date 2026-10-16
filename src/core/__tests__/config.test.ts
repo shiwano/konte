@@ -148,7 +148,7 @@ describe("comfy.adapters", () => {
   it("takes routes onto a declared deployment", () => {
     const parsed = KonteConfigSchema.safeParse({
       comfy: {
-        adapters: { "*": ["comfyui", "comfycloud"], image: ["comfyapi:main", "comfyui"] },
+        adapters: { "*": ["comfyui", "comfyapi:cloud"], image: ["comfyapi:main", "comfyui"] },
         comfyapi: { deployments },
       },
     });
@@ -171,9 +171,20 @@ describe("comfy.adapters", () => {
     expect(parsed.error?.issues[0]?.path).toEqual(["comfy", "adapters", "image"]);
   });
 
-  it("names a target only as comfyui, comfycloud or comfyapi:<name>", () => {
+  it("reserves cloud for Comfy Cloud, which needs no declaration", () => {
+    expect(
+      KonteConfigSchema.safeParse({ comfy: { adapters: { image: ["comfyapi:cloud"] } } }).success,
+    ).toBe(true);
+    const parsed = KonteConfigSchema.safeParse({
+      comfy: { comfyapi: { deployments: { cloud: { comfyVersion: "v0.39.0" } } } },
+    });
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues[0]?.message).toContain('"cloud" is reserved for Comfy Cloud');
+  });
+
+  it("names a target only as comfyui, comfyapi:cloud or comfyapi:<name>", () => {
     expect(ComfyTargetSchema.safeParse("comfyapi:main").success).toBe(true);
-    for (const junk of ["comfy", "comfyapi:", "comfyapi:a/b", "ComfyUI", ""]) {
+    for (const junk of ["comfy", "comfycloud", "comfyapi:", "comfyapi:a/b", "ComfyUI", ""]) {
       expect(ComfyTargetSchema.safeParse(junk).success).toBe(false);
     }
   });

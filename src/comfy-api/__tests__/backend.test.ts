@@ -168,9 +168,9 @@ describe("submit", () => {
     const client = fakeClient("cloud");
     const { backend, endpoints } = backendWith(client);
 
-    const id = await backend.submit(request(), jobRecord("comfycloud"), 7);
+    const id = await backend.submit(request(), jobRecord("comfyapi:cloud"), 7);
 
-    expect(id).toBe("comfycloud|job-1");
+    expect(id).toBe("comfyapi:cloud|job-1");
     expect(endpoints).toEqual(["https://cloud.comfy.org"]);
     expect(client.uploadInput).toHaveBeenCalledWith(
       path.join(ws.videos.main!.video, "assets", "hero.png"),
@@ -200,7 +200,7 @@ describe("submit", () => {
     client.submitJob.mockRejectedValue(keyReuse());
     const { backend } = backendWith(client);
 
-    await expect(backend.submit(request(), jobRecord("comfycloud"), 7)).rejects.toMatchObject({
+    await expect(backend.submit(request(), jobRecord("comfyapi:cloud"), 7)).rejects.toMatchObject({
       code: "SUBMISSION_UNCONFIRMED",
     });
     expect(client.listJobs).not.toHaveBeenCalled();
@@ -226,7 +226,7 @@ describe("submit", () => {
     await readyDeployment();
     const { backend } = backendWith(fakeClient("deployment"));
     expect(await backend.chooseSubmissionSite(request(), jobRecord("comfyapi:main"))).toBe("dep-1");
-    expect(await backend.chooseSubmissionSite(request(), jobRecord("comfycloud"))).toBeNull();
+    expect(await backend.chooseSubmissionSite(request(), jobRecord("comfyapi:cloud"))).toBeNull();
   });
 
   // A resubmission must reach the deployment its first attempt went to, or its Idempotency-Key
@@ -271,7 +271,7 @@ describe("submit", () => {
     await expect(
       backend.submit(
         { ...request(), shouldCancel: async () => cancelled },
-        jobRecord("comfycloud"),
+        jobRecord("comfyapi:cloud"),
         7,
       ),
     ).rejects.toMatchObject({ code: "COMFY_API_SUBMIT_CANCELLED" });
@@ -290,7 +290,7 @@ describe("submit", () => {
     await expect(
       backend.submit(
         { ...request(), shouldCancel: async () => cancelled },
-        jobRecord("comfycloud"),
+        jobRecord("comfyapi:cloud"),
         7,
       ),
     ).rejects.toMatchObject({ code: "COMFY_API_SUBMIT_CANCELLED" });
@@ -319,7 +319,7 @@ describe("submit", () => {
     );
     const { backend } = backendWith(client);
 
-    await expect(backend.submit(request(), jobRecord("comfycloud"), 7)).rejects.toMatchObject({
+    await expect(backend.submit(request(), jobRecord("comfyapi:cloud"), 7)).rejects.toMatchObject({
       code: "COMFY_API_INSUFFICIENT_CREDITS",
     });
   });
@@ -336,15 +336,15 @@ describe("waitForCompletion", () => {
     const client = fakeClient("cloud");
     client.getJob.mockResolvedValue(job({ status: "succeeded", outputs }));
     const { backend } = backendWith(client);
-    backend.setOutputNodeId("comfycloud|job-1", "9");
+    backend.setOutputNodeId("comfyapi:cloud|job-1", "9");
 
-    const result = await backend.waitForCompletion("comfycloud|job-1", ws.videos.main!.video);
+    const result = await backend.waitForCompletion("comfyapi:cloud|job-1", ws.videos.main!.video);
 
     expect(result).toMatchObject({
       kind: "done",
       result: {
         files: [path.join(ws.videos.main!.video, "result.png")],
-        metadata: { comfyApiJobId: "job-1", comfyTarget: "comfycloud" },
+        metadata: { comfyApiJobId: "job-1", comfyTarget: "comfyapi:cloud" },
       },
     });
     expect(client.downloadOutput).toHaveBeenCalledTimes(1);
@@ -355,7 +355,7 @@ describe("waitForCompletion", () => {
     client.getJob.mockResolvedValue(job({ status: "succeeded", outputs }));
     const { backend } = backendWith(client);
 
-    const result = await backend.waitForCompletion("comfycloud|job-1", ws.videos.main!.video);
+    const result = await backend.waitForCompletion("comfyapi:cloud|job-1", ws.videos.main!.video);
 
     expect(result.kind === "done" && result.result.files.map((f) => path.basename(f))).toEqual([
       "hero.png",

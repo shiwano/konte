@@ -55,7 +55,7 @@ export function backendSetupHint(kind: VendorBackendKind): string {
   if (kind === "comfy") {
     return (
       'set "comfy.comfyui.url" in konte.config.json (or `konte settings`, Config tab), or ' +
-      `${COMFY_API_KEY_ENV} for comfycloud / comfyapi:<name> — ` +
+      `${COMFY_API_KEY_ENV} for comfyapi:cloud / comfyapi:<name> — ` +
       backendCredential("comfy-api")!.obtainUrl
     );
   }
@@ -234,7 +234,7 @@ function assertNoAuthenticatedModel(label: string, def: AssetDefinition & { kind
     "COMFY_API_AUTHENTICATED_MODEL",
     `${label} routes to a Comfy API deployment, but its model URL carries a credential, which a ` +
       `Build definition would keep: ${secret.map((m) => m.filename).join(", ")}. Route this ` +
-      `adapter to comfyui or comfycloud in comfy.adapters.`,
+      `adapter to comfyui or comfyapi:cloud in comfy.adapters.`,
   );
 }
 

@@ -216,7 +216,7 @@ export function ConfigTab() {
     <div className="tab-body">
       <Section
         title="ComfyUI"
-        note="A server URL is what lets a comfy adapter route to comfyui. Comfy Cloud and Comfy API deployments are turned on by COMFY_API_KEY under Credentials; which adapter goes where is comfy.adapters in konte.config.json."
+        note="A server URL is what lets a comfy adapter route to comfyui. Comfy API — Comfy Cloud and your own deployments — is turned on by COMFY_API_KEY under Credentials; which adapter goes where is comfy.adapters in konte.config.json."
       >
         <Field
           label="Server URL"

@@ -54,7 +54,7 @@ export const KNOWN_CREDENTIALS: readonly KnownCredential[] = [
     obtainUrl: "https://platform.comfy.org/profile/api-keys",
     backend: "comfy-api",
     help:
-      "Authenticates Comfy Cloud (comfycloud) and Comfy API deployments (comfyapi:<name>). " +
+      "Authenticates Comfy API: Comfy Cloud (comfyapi:cloud) and your own deployments (comfyapi:<name>). " +
       "Setting it is what lets a comfy adapter route to either.",
   },
   {

@@ -135,7 +135,7 @@ describe("assertSpendAllowed", () => {
     expect(err).toMatchObject({
       code: "BACKEND_NOT_CONFIGURED",
       items: [
-        "  a (comfy) — comfyui: comfy.comfyui.url is not set; comfycloud: COMFY_API_KEY is not set",
+        "  a (comfy) — comfyui: comfy.comfyui.url is not set; comfyapi:cloud: COMFY_API_KEY is not set",
       ],
     });
   });

@@ -4,16 +4,17 @@ import { loadWorkflow, parameterizeWorkflow } from "../comfyui/workflow.js";
 import { modelPathSegments } from "../comfyui/model-destination.js";
 import { KonteError } from "../core/errors.js";
 import { stableStringify } from "../core/stable-stringify.js";
-import type {
-  ComfyAssetDefinition,
-  ComfyModelDeclaration,
-  ComfyTarget,
-  KonteConfig,
+import {
+  COMFY_CLOUD_TARGET,
+  type ComfyAssetDefinition,
+  type ComfyModelDeclaration,
+  type ComfyTarget,
+  type KonteConfig,
 } from "../core/types/index.js";
 import { ComfyCloudCatalog } from "./cloud-catalog.js";
 
 export const COMFY_API_KEY_ENV = "COMFY_API_KEY";
-const DEFAULT_TARGETS: readonly ComfyTarget[] = ["comfyui", "comfycloud"];
+const DEFAULT_TARGETS: readonly ComfyTarget[] = ["comfyui", COMFY_CLOUD_TARGET];
 
 export function comfyApiKey(): string | null {
   const key = process.env[COMFY_API_KEY_ENV] ?? "";
@@ -26,7 +27,8 @@ export function comfyAdapterName(workflow: string): string {
 }
 
 export function deploymentNameOf(target: ComfyTarget): string | null {
-  return target.startsWith("comfyapi:") ? target.slice("comfyapi:".length) : null;
+  if (target === COMFY_CLOUD_TARGET || !target.startsWith("comfyapi:")) return null;
+  return target.slice("comfyapi:".length);
 }
 
 export function comfyCandidates(adapterName: string, config: KonteConfig): ComfyTarget[] {
@@ -143,7 +145,7 @@ export class ComfyRouter {
     }
     const key = comfyApiKey();
     if (key === null) return `${COMFY_API_KEY_ENV} is not set`;
-    if (target !== "comfycloud") return null;
+    if (target !== COMFY_CLOUD_TARGET) return null;
     return this.cloudGap(subject, key);
   }
 

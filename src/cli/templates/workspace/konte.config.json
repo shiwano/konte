@@ -3,7 +3,7 @@
     "adapters": {
       "*": [
         "comfyui",
-        "comfycloud",
+        "comfyapi:cloud",
         "comfyapi:main"
       ]
     },

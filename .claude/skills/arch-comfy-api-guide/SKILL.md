@@ -8,8 +8,8 @@ How a comfy asset is routed off a ComfyUI, and how konte builds a Comfy API depl
 
 ## Routing
 
-- **Candidates** — `comfy.adapters[<workflow without .json>] ?? comfy.adapters["*"] ?? ["comfyui", "comfycloud"]`; the first usable wins (`ComfyRouter`). A key naming no `adapters/comfy/<key>.json`, or a `comfyapi:<name>` with no declaration, is a config error.
-- **Usable** — `comfyui`: `comfy.comfyui.url` set. `comfycloud`: `COMFY_API_KEY` set and every `class_type` of the pruned graph is in Cloud's `/api/object_info` and every remaining model's `models/<folder>/<filename>` is in `/api/assets` (`ComfyCloudCatalog`, cached an hour in the workspace's `.konte/comfycloud.json`; `object_info`'s COMBO lists lag, so models are never read there). `comfyapi:<name>`: key set.
+- **Candidates** — `comfy.adapters[<workflow without .json>] ?? comfy.adapters["*"] ?? ["comfyui", "comfyapi:cloud"]`; the first usable wins (`ComfyRouter`). A key naming no `adapters/comfy/<key>.json`, a `comfyapi:<name>` with no declaration, or a deployment declared as `cloud` (`COMFY_CLOUD_DEPLOYMENT` reserves it) is a config error.
+- **Usable** — `comfyui`: `comfy.comfyui.url` set. `comfyapi:cloud`: `COMFY_API_KEY` set and every `class_type` of the pruned graph is in Cloud's `/api/object_info` and every remaining model's `models/<folder>/<filename>` is in `/api/assets` (`ComfyCloudCatalog`, cached an hour in the workspace's `.konte/comfycloud.json`; `object_info`'s COMBO lists lag, so models are never read there). `comfyapi:<name>`: key set.
 - **A deployment must be ready** — the spend gate refuses with `COMFY_API_DEPLOYMENT_NOT_READY` instead of falling through when a deployment it reaches is `unbuilt`, `deploying` or `undeployed` (`deploymentReadiness`); `doctor` reports the same.
 - **The route is never hashed** — it rides the job (`comfyTarget`, backend kind `comfy-api`), decided once by the spend gate (`assertSpendAllowed` → `SpendRoutes.targetOf`).
 - **Prereqs by route** (`ensureComfyPrereqJobs`) — `comfyui`: model/node jobs; off a ComfyUI: none.

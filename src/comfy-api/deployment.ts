@@ -271,7 +271,7 @@ function releaseFailure(err: unknown): unknown {
     return new KonteError(
       "COMFY_API_RELEASE_FAILED",
       `The release was refused: ${err.message}. A gated or private model cannot be fetched by the ` +
-        `builder; route the adapter that declares it to comfyui or comfycloud.`,
+        `builder; route the adapter that declares it to comfyui or comfyapi:cloud.`,
     );
   }
   return err;

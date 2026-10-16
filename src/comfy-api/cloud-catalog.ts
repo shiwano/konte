@@ -161,6 +161,6 @@ function unavailable(what: string, err: unknown): KonteError {
   if (err instanceof KonteError && err.code !== "COMFY_API_ERROR") return err;
   return new KonteError(
     "COMFY_CLOUD_UNAVAILABLE",
-    `Could not read ${what}, so whether an adapter runs on comfycloud is unknown: ${errorMessage(err)}`,
+    `Could not read ${what}, so whether an adapter runs on comfyapi:cloud is unknown: ${errorMessage(err)}`,
   );
 }

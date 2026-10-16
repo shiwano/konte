@@ -4,7 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/workspace.js";
 import type { ComfyAssetDefinition, KonteConfig } from "../../core/types/index.js";
 import type { ComfyCloudCatalog } from "../cloud-catalog.js";
-import { assertComfyAdapterKeys, comfyCandidates, ComfyRouter } from "../routing.js";
+import {
+  assertComfyAdapterKeys,
+  comfyCandidates,
+  ComfyRouter,
+  deploymentNameOf,
+} from "../routing.js";
 
 const WORKFLOW = {
   "3": { class_type: "CLIPTextEncode", inputs: { text: "a cat" } },
@@ -55,19 +60,27 @@ const fullCatalog = () =>
   );
 
 describe("comfyCandidates", () => {
-  it("tries comfyui then comfycloud when comfy.adapters is absent", () => {
-    expect(comfyCandidates("image", {})).toEqual(["comfyui", "comfycloud"]);
+  it("tries comfyui then comfyapi:cloud when comfy.adapters is absent", () => {
+    expect(comfyCandidates("image", {})).toEqual(["comfyui", "comfyapi:cloud"]);
   });
 
   it("takes `*` as the default and an adapter's own key in its place, whole", () => {
     const config: KonteConfig = {
       comfy: {
-        adapters: { "*": ["comfycloud", "comfyui"], image: ["comfyapi:main"] },
+        adapters: { "*": ["comfyapi:cloud", "comfyui"], image: ["comfyapi:main"] },
         comfyapi: { deployments: DEPLOYMENTS },
       },
     };
     expect(comfyCandidates("image", config)).toEqual(["comfyapi:main"]);
-    expect(comfyCandidates("video", config)).toEqual(["comfycloud", "comfyui"]);
+    expect(comfyCandidates("video", config)).toEqual(["comfyapi:cloud", "comfyui"]);
+  });
+});
+
+describe("deploymentNameOf", () => {
+  it("names a deployment of your own, and none for comfyui or Comfy Cloud", () => {
+    expect(deploymentNameOf("comfyapi:main")).toBe("main");
+    expect(deploymentNameOf("comfyapi:cloud")).toBeNull();
+    expect(deploymentNameOf("comfyui")).toBeNull();
   });
 });
 
@@ -100,17 +113,20 @@ describe("ComfyRouter", () => {
     expect(await router.route(def())).toEqual({ kind: "routed", target: "comfyui" });
   });
 
-  it("falls to comfycloud when comfyui has no url and Cloud has everything", async () => {
+  it("falls to comfyapi:cloud when comfyui has no url and Cloud has everything", async () => {
     const router = new ComfyRouter(ws.root, {}, { catalog: fullCatalog() });
-    expect(await router.route(def())).toEqual({ kind: "routed", target: "comfycloud" });
+    expect(await router.route(def())).toEqual({ kind: "routed", target: "comfyapi:cloud" });
   });
 
-  it("finds comfycloud unusable without COMFY_API_KEY", async () => {
+  it("finds comfyapi:cloud unusable without COMFY_API_KEY", async () => {
     vi.stubEnv("COMFY_API_KEY", "");
     const router = new ComfyRouter(ws.root, {}, { catalog: fullCatalog() });
     expect(await router.route(def())).toEqual({
       kind: "unroutable",
-      reasons: ["comfyui: comfy.comfyui.url is not set", "comfycloud: COMFY_API_KEY is not set"],
+      reasons: [
+        "comfyui: comfy.comfyui.url is not set",
+        "comfyapi:cloud: COMFY_API_KEY is not set",
+      ],
     });
   });
 
@@ -121,14 +137,17 @@ describe("ComfyRouter", () => {
       kind: "unroutable",
       reasons: [
         "comfyui: comfy.comfyui.url is not set",
-        "comfycloud: no node ControlNetApply, SaveImage; no model flux.safetensors",
+        "comfyapi:cloud: no node ControlNetApply, SaveImage; no model flux.safetensors",
       ],
     });
   });
 
-  it("falls past a comfycloud gap to the next candidate", async () => {
+  it("falls past a comfyapi:cloud gap to the next candidate", async () => {
     const config: KonteConfig = {
-      comfy: { adapters: { "*": ["comfycloud", "comfyui"] }, comfyui: { url: "http://h:8188" } },
+      comfy: {
+        adapters: { "*": ["comfyapi:cloud", "comfyui"] },
+        comfyui: { url: "http://h:8188" },
+      },
     };
     const router = new ComfyRouter(ws.root, config, { catalog: fakeCatalog([], []) });
     expect(await router.route(def())).toEqual({ kind: "routed", target: "comfyui" });
@@ -142,7 +161,7 @@ describe("ComfyRouter", () => {
     const router = new ComfyRouter(ws.root, {}, { catalog });
     expect(await router.route(def({ prunedNodes: ["5"] }))).toEqual({
       kind: "routed",
-      target: "comfycloud",
+      target: "comfyapi:cloud",
     });
     expect((await router.route(def())).kind).toBe("unroutable");
   });

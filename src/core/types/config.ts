@@ -79,15 +79,18 @@ export function allowedHostIssue(pattern: string): string | null {
   return null;
 }
 
-const COMFY_TARGET_RE = /^(?:comfyui|comfycloud|comfyapi:[A-Za-z0-9_-]+)$/;
+const COMFY_TARGET_RE = /^(?:comfyui|comfyapi:[A-Za-z0-9_-]+)$/;
 // A deployment name becomes part of a Build name and a job id.
 const DEPLOYMENT_NAME_RE = /^[A-Za-z0-9_-]+$/;
+/** The reserved Comfy API deployment name for Comfy Cloud, the managed deployment. */
+export const COMFY_CLOUD_DEPLOYMENT = "cloud";
+export const COMFY_CLOUD_TARGET = `comfyapi:${COMFY_CLOUD_DEPLOYMENT}` as const;
 
-/** Where a comfy adapter runs: `comfyui`, `comfycloud`, or `comfyapi:<deployment>`. */
+/** Where a comfy adapter runs: `comfyui`, `comfyapi:cloud`, or `comfyapi:<deployment>`. */
 export const ComfyTargetSchema = z
   .string()
-  .regex(COMFY_TARGET_RE, "must be comfyui, comfycloud or comfyapi:<deployment>");
-export type ComfyTarget = "comfyui" | "comfycloud" | `comfyapi:${string}`;
+  .regex(COMFY_TARGET_RE, "must be comfyui, comfyapi:cloud or comfyapi:<deployment>");
+export type ComfyTarget = "comfyui" | typeof COMFY_CLOUD_TARGET | `comfyapi:${string}`;
 
 export const ComfyApiDeploymentConfigSchema = z
   .object({
@@ -117,11 +120,18 @@ const ComfyConfigSchema = z
         unreachableTimeoutMinutes: z.number().int().nonnegative().optional(),
       })
       .optional(),
-    comfycloud: z.object({}).strict().optional(),
     comfyapi: z
       .object({
         deployments: z
-          .record(z.string().regex(DEPLOYMENT_NAME_RE), ComfyApiDeploymentConfigSchema)
+          .record(
+            z
+              .string()
+              .regex(DEPLOYMENT_NAME_RE)
+              .refine((name) => name !== COMFY_CLOUD_DEPLOYMENT, {
+                message: `"${COMFY_CLOUD_DEPLOYMENT}" is reserved for Comfy Cloud`,
+              }),
+            ComfyApiDeploymentConfigSchema,
+          )
           .optional(),
       })
       .strict()
@@ -131,7 +141,7 @@ const ComfyConfigSchema = z
     const declared = new Set(Object.keys(comfy.comfyapi?.deployments ?? {}));
     for (const [adapter, targets] of Object.entries(comfy.adapters ?? {})) {
       for (const target of targets) {
-        if (!target.startsWith("comfyapi:")) continue;
+        if (!target.startsWith("comfyapi:") || target === COMFY_CLOUD_TARGET) continue;
         const name = target.slice("comfyapi:".length);
         if (declared.has(name)) continue;
         ctx.addIssue({

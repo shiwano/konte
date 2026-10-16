@@ -84,7 +84,7 @@ export function buildInputs(
         throw new KonteError(
           "COMFY_API_AUTHENTICATED_MODEL",
           `${adapter.workflow} declares ${model.filename} at a URL carrying a credential, which a ` +
-            `Build definition would keep. Route this adapter to comfyui or comfycloud in ` +
+            `Build definition would keep. Route this adapter to comfyui or comfyapi:cloud in ` +
             `comfy.adapters.`,
         );
       }

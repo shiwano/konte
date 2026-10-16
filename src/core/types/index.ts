@@ -1,6 +1,7 @@
 export type { GenerationBackend, GenerationRequest, GenerationResult } from "../backend.js";
 export { type HandoffNote, HandoffNoteSchema, type Handoff, HandoffSchema } from "./handoff.js";
 export {
+  COMFY_CLOUD_TARGET,
   type ComfyApiDeploymentConfig,
   type ComfyTarget,
   type KonteConfig,
