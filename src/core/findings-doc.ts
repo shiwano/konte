@@ -192,6 +192,11 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     flags: "The order accumulated in a location forms a cycle.",
     subject: "frame",
   },
+  "location-backtrack": {
+    flags:
+      "A frame puts a character back in a location they left, and no `jump-back` / `jump-forward` join since moves story time.",
+    subject: "`<frame>.<characterId>`",
+  },
   "character-unconsumed": {
     flags: "A keyframe framing a character is built from no reference to them.",
     subject: "`<frame>.<characterId>`",

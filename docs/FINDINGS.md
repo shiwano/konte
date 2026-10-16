@@ -105,7 +105,7 @@ Gates: every spend. Deferred.
 | `unused-setup`     | No shot points at a setup.                                                                                          | setup id               | —                     |
 | `setup-atomized`   | A location holds many shots but almost none share a frame.                                                          | location id            | —                     |
 
-### staging (17)
+### staging (18)
 
 Gates: every spend.
 
@@ -115,6 +115,7 @@ Gates: every spend.
 | `lineup-gap`           | A frame's two ends skip someone the location places between them.                                                                                                                                                                                                  | frame                                      | —                                     |
 | `lineup-vacuous`       | A `lineupTo` repeats its `lineup`.                                                                                                                                                                                                                                 | frame                                      | Type-level                            |
 | `lineup-inconsistent`  | The order accumulated in a location forms a cycle.                                                                                                                                                                                                                 | frame                                      | —                                     |
+| `location-backtrack`   | A frame puts a character back in a location they left, and no `jump-back` / `jump-forward` join since moves story time.                                                                                                                                            | `<frame>.<characterId>`                    | —                                     |
 | `character-unconsumed` | A keyframe framing a character is built from no reference to them.                                                                                                                                                                                                 | `<frame>.<characterId>`                    | —                                     |
 | `slot-order-mismatch`  | A keyframe passes its reference images in an order its `lineup` does not declare.                                                                                                                                                                                  | frame                                      | —                                     |
 | `plate-undescribed`    | A shot on a plated setup carries no `plates.<id>.prompt` in its prompt.                                                                                                                                                                                            | setup id                                   | —                                     |

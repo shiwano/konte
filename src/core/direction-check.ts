@@ -100,6 +100,8 @@ export type DirectionFindingCode =
   | "lineup-gap"
   | "lineup-vacuous"
   | "lineup-inconsistent"
+  // A character's route: a frame back in a place they left, with no jump between.
+  | "location-backtrack"
   | "character-unconsumed"
   | "slot-order-mismatch"
   | "plate-undescribed"
@@ -811,6 +813,8 @@ export type LineupShot = {
   action: string;
   lineup: readonly string[];
   lineupTo?: readonly string[];
+  // Who enters and exits during the shot, absent at both ends.
+  passing?: readonly string[];
   join?: "continuous" | "jump-back" | "jump-forward";
   // The shot whose frame in this lane runs on from this one in one take (`join: "continuous"`,
   // where it is possible). This frame's last panel then answers for no `lineupTo`.
@@ -1152,6 +1156,50 @@ export function checkLineups(
         options.subjectPromptDepictions ?? new Map(),
       ),
     );
+  }
+  return findings;
+}
+
+/**
+ * Each character's route through the places, walked in direction order: a frame putting them back
+ * in a place they left, with no jump since, is `location-backtrack`. Read per frame, so a cutaway
+ * holding someone else, or no one, moves nobody. A jump in either frame of a shot clears every route.
+ */
+export function checkRoutes(shots: readonly LineupShot[]): DirectionFinding[] {
+  const findings: DirectionFinding[] = [];
+  const routes = new Map<string, { at: string; lastShot: string; left: Map<string, string> }>();
+
+  for (const [index, shot] of shots.entries()) {
+    if (index === 0 || shots[index - 1]!.id !== shot.id) {
+      const frames = shots.filter((b) => b.id === shot.id);
+      if (frames.some((b) => b.join === "jump-back" || b.join === "jump-forward")) routes.clear();
+    }
+    if (shot.location === undefined) continue;
+
+    for (const id of new Set([...shot.lineup, ...(shot.passing ?? []), ...(shot.lineupTo ?? [])])) {
+      const route = routes.get(id);
+      if (!route) {
+        routes.set(id, { at: shot.location, lastShot: shot.id, left: new Map() });
+        continue;
+      }
+      if (route.at !== shot.location) {
+        const leftAfter = route.left.get(shot.location);
+        if (leftAfter !== undefined) {
+          findings.push({
+            code: "location-backtrack",
+            subject: `${frameSubject(shot)}.${id}`,
+            message:
+              `${frameName(shot)} puts ${id} back in "${shot.location}", which they left after ` +
+              `shot ${leftAfter}, and no \`join: "jump-back" | "jump-forward"\` since moves story ` +
+              `time — on screen they warp back. Stage the detour in the place they are in, or ` +
+              `declare the jump where story time moves`,
+          });
+        }
+        route.left.set(route.at, route.lastShot);
+        route.at = shot.location;
+      }
+      route.lastShot = shot.id;
+    }
   }
   return findings;
 }

@@ -2688,6 +2688,7 @@ export type DirectionFindingCode =
   | "lineup-gap"
   | "lineup-vacuous"
   | "lineup-inconsistent"
+  | "location-backtrack"
   | "character-unconsumed"
   | "slot-order-mismatch"
   | "plate-undescribed"

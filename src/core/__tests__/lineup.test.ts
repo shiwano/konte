@@ -1787,3 +1787,75 @@ describe("the within axis", () => {
     expect(errorCodes(dir).filter((c) => c === "within-cyclic")).toHaveLength(2);
   });
 });
+
+describe("location-backtrack", () => {
+  it("flags a character put back in a place they left with no jump between", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", { lineup: ["ane"] }),
+        shot("02", "shore", { lineup: ["ane"] }),
+        shot("03", "stern", { lineup: ["ane"] }),
+      ],
+    });
+    const found = codes(dir, "location-backtrack");
+    expect(found).toHaveLength(1);
+    expect(found[0]!.subject).toBe("03.ane");
+    expect(found[0]!.message).toContain("after shot 01");
+  });
+
+  it("follows a character who only passes through a place", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", { lineup: ["ane"] }),
+        shot("02", "shore", { lineup: [], passing: ["ane"] }),
+        shot("03", "stern", { lineup: ["ane"] }),
+      ],
+    });
+    expect(codes(dir, "location-backtrack").map((f) => f.subject)).toEqual(["03.ane"]);
+  });
+
+  it("says nothing on a route that keeps moving forward", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", { lineup: ["ane"] }),
+        shot("02", "stern", { lineup: ["ane"] }),
+        shot("03", "shore", { lineup: ["ane"] }),
+      ],
+    });
+    expect(codes(dir, "location-backtrack")).toEqual([]);
+  });
+
+  it("says nothing about a cutaway that holds someone else", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", { lineup: ["ane"] }),
+        shot("02", "shore", { lineup: ["mother"] }),
+        shot("03", "deck", { lineup: ["ane"] }),
+      ],
+    });
+    expect(codes(dir, "location-backtrack")).toEqual([]);
+  });
+
+  it("says nothing once a jump moves story time", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", { lineup: ["ane"] }),
+        shot("02", "shore", { lineup: ["ane"] }),
+        shot("03", "deck", { lineup: ["ane"], join: "jump-forward" }),
+      ],
+    });
+    expect(codes(dir, "location-backtrack")).toEqual([]);
+  });
+
+  it("is silenced by its waiver", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", { lineup: ["ane"] }),
+        shot("02", "shore", { lineup: ["ane"] }),
+        shot("03", "deck", { lineup: ["ane"] }),
+      ],
+      waivers: { "location-backtrack_03.ane": "she runs back to the boat" },
+    });
+    expect(codes(dir, "location-backtrack")).toEqual([]);
+  });
+});

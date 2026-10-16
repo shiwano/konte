@@ -42,6 +42,7 @@ import {
   checkLocations,
   checkLandmarkOrder,
   checkLineups,
+  checkRoutes,
   checkNarrator,
   checkPlateNaming,
   checkProps,
@@ -137,6 +138,7 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "lineup-gap": "staging",
   "lineup-vacuous": "staging",
   "lineup-inconsistent": "staging",
+  "location-backtrack": "staging",
   "character-unconsumed": "staging",
   "slot-order-mismatch": "staging",
   "plate-undescribed": "staging",
@@ -203,6 +205,7 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "lineup-gap": "shot",
   "lineup-vacuous": "shot",
   "lineup-inconsistent": "shot",
+  "location-backtrack": "shot",
   "character-unconsumed": "shot",
   "slot-order-mismatch": "shot",
   "plate-undescribed": null,
@@ -1010,6 +1013,7 @@ function lineupShots(direction: Direction): LineupShot[] {
     action: actionById.get(frame.shotId) ?? "",
     lineup: frame.lineup ?? [],
     ...(frame.lineupTo ? { lineupTo: frame.lineupTo } : {}),
+    ...(frame.passing ? { passing: frame.passing } : {}),
     // A `continuous` at a boundary no unbroken take could cross is `join-impossible`. The seam
     // checks read the declaration only where it could be true, so a broken direction reports that
     // error rather than a mismatch at a seam the piece does not have.
@@ -1057,6 +1061,7 @@ function checkStaging(
         : {}),
       ...(referenceAssetNames ? { referenceAssetNames } : {}),
     }),
+    ...checkRoutes(shots),
     // The setups roster alone: a landmark's place on screen is the camera's, not a shot's.
     ...checkLandmarkOrder(holdsSetupRefs(direction)),
     ...(stage ? checkPlateNaming(plateNamings(direction, stage.platePrompts)) : []),
