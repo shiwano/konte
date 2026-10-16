@@ -18,10 +18,8 @@ Read the state of **one video** and check in, in plain language, on where it sta
 
 ## 2. Read the piece — only once it's settled they mean this one
 
-- **`konte status`** — review status (accepted / none), staleness, and its Next steps.
-- **`konte job list`** — running / failed jobs; not in `status`, and they outrank everything else you'd raise.
-- **`konte review feedback list`** — the comments that still stand.
-- **`konte review record show --verbose`** — the latest review's decisions and feedback.
+- **`konte status`** — review status (accepted / none), staleness, jobs in flight, and its Next steps.
+- **Run the reads its Next steps name** — `konte review feedback list` for the comments that still stand, a review's overall comment among them; `konte job show <id>` for a job that is not progressing. Running, failed or stuck jobs outrank everything else you'd raise.
 - **Translate, don't re-derive** — render what these commands report (state + Next steps) into human language; never reason your way to a different conclusion about what is stale, accepted, or needed.
 
 ## 3. Decide what to raise (priority order)
