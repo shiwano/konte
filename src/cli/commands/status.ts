@@ -37,7 +37,8 @@ import {
   suggestForStatus,
 } from "../../core/suggested-actions.js";
 import { unreadSongTakes } from "../../core/song-queue.js";
-import { JobManager } from "../../core/job-manager.js";
+import { isJobTerminal, JobManager } from "../../core/job-manager.js";
+import { jobStatusFlags } from "../../core/job-diagnosis.js";
 import { latestReviewTimes } from "../../core/review-record.js";
 import type { Direction } from "../../core/dsl/direction.js";
 import { isPendingShot, isPendingAnimaticShot } from "../../core/types/index.js";
@@ -385,9 +386,16 @@ export function registerStatusCommand(program: Command): void {
       // A shotless direction is the untouched template: the review step becomes "write it".
       const directionEmpty = direction !== null && !directionHasShots(direction);
       const songPending = pendingSong(manager, direction);
-      const songReadingsPending = (await new JobManager(videoRoot).listJobs()).some(
+      const jobs = await new JobManager(videoRoot).listJobs();
+      const songReadingsPending = jobs.some(
         (j) => j.kind === "song-analysis" && (j.status === "pending" || j.status === "running"),
       );
+      // An orphan job is offered `konte job cancel` instead.
+      const orphanJobIds = new Set(report.orphanJobIds);
+      const activeJobs = jobs.filter((j) => !isJobTerminal(j.status) && !orphanJobIds.has(j.id));
+      const stuckJobIds = activeJobs
+        .filter((job) => jobStatusFlags({ job }).length > 0)
+        .map((j) => j.id);
       // A take no job is reading: placed as a file, failed, or read against another clock.
       const songUnread =
         !songReadingsPending && unreadSongTakes(videoRoot, direction, state).length > 0;
@@ -603,6 +611,8 @@ export function registerStatusCommand(program: Command): void {
         directionEmpty,
         ...(songPending ? { songPending } : {}),
         songReadingsPending,
+        jobsInFlight: activeJobs.length > 0,
+        stuckJobIds,
         songUnread,
         upstreamReviewBlockedStages,
         promptBlockedStages,

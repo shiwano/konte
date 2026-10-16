@@ -961,3 +961,29 @@ describe("suggestForStatus cast gate scope", () => {
     expect(offered).not.toContain("konte preview reference");
   });
 });
+
+describe("suggestForStatus — jobs in flight", () => {
+  const state = makeState({});
+  const commands = (input: Partial<Parameters<typeof suggestForStatus>[0]>) =>
+    suggestForStatus({ state, pendingReviewAddresses: ["video:shot.01.motion"], ...input }).map(
+      (a) => a.command,
+    );
+
+  it("offers the wait ahead of the review while a job runs", () => {
+    const offered = commands({ jobsInFlight: true });
+    expect(offered.indexOf("konte job wait")).toBeLessThan(offered.indexOf("konte preview video"));
+  });
+
+  it("offers no wait with nothing in flight", () => {
+    expect(commands({})).not.toContain("konte job wait");
+  });
+
+  it("offers each stuck job's diagnosis ahead of the wait", () => {
+    const offered = commands({ jobsInFlight: true, stuckJobIds: ["v-a", "v-b"] });
+    expect(offered.slice(0, 3)).toEqual([
+      "konte job show v-a",
+      "konte job show v-b",
+      "konte job wait",
+    ]);
+  });
+});

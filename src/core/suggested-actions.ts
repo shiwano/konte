@@ -608,6 +608,10 @@ interface SuggestStatusInput {
   songPending?: SongPending;
   /** Takes of the song waiting to be read — their analysis jobs run under `konte job wait`. */
   songReadingsPending?: boolean;
+  /** A job is still running or queued — `konte job wait`. */
+  jobsInFlight?: boolean;
+  /** Active jobs that are not progressing (`jobStatusFlags`) — `konte job show` diagnoses each. */
+  stuckJobIds?: readonly string[];
   /** Takes of the song no job is reading — `konte song analyze` reads them. */
   songUnread?: boolean;
   /** Stages whose spend the upstream-acceptance gate would refuse — a board or a sheet they consume lacks an accepted variant. */
@@ -752,9 +756,15 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
     input.directionEmpty,
     input.songPending,
   );
-  // Ahead of the song's review: the review page lays the take's beats and lines over it, and a
-  // take not read yet has neither.
-  if (input.songReadingsPending) actions.unshift({ command: "konte job wait" });
+  // Ahead of the reviews: the song's page lays a take's beats and lines over it, which a take not
+  // read yet has neither.
+  if (input.songReadingsPending || input.jobsInFlight) {
+    actions.unshift({ command: "konte job wait" });
+  }
+  // Ahead of the wait, which would block on a job that is not progressing.
+  for (const id of [...(input.stuckJobIds ?? [])].reverse()) {
+    actions.unshift({ command: `konte job show ${id}` });
+  }
   if (input.songUnread) actions.unshift({ command: "konte song analyze" });
   prependDirectionFindings(actions, input.directionBlock, input.directionEmpty);
   prependPromptFindings(actions, input.promptBlockedStages ?? []);
