@@ -18,7 +18,11 @@ https://github.com/user-attachments/assets/6e47740c-b12b-4a7e-aa88-8df246534436
 
 ## Why
 
-AI made a single clip easy. A video gets harder with every shot you add: the shots have to agree with each other, each one is generated many times, takes have to be picked, and one change ripples into its neighbors. A coding agent can do that work, but only if the project tells it which take won and what depends on what. konte keeps that record, so the agent can carry your idea to a finished video and you can direct.
+AI made a single clip easy. A video gets harder with every shot you add: the shots have to agree with each other, each one is generated many times, takes have to be picked, and one change ripples into its neighbors. Those are production management problems, the kind software engineering already knows how to solve.
+
+So konte structures the video as a software project: the direction, the shots, every take, which one won, what depends on what, and your feedback. A coding agent already works in that shape, so it can carry your idea to a finished video while you direct.
+
+The longer argument is in [Vision](docs/VISION.md).
 
 ## How you use it
 
