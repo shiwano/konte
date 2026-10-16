@@ -318,16 +318,23 @@ export const parseAssetPath = parseAddress;
 
 // The stage a feedback target belongs to, read from its `<stage>:` prefix only. Unlike
 // `parseAddress`, it does not parse the suffix, so it also accepts bare feedback targets
-// (e.g. `video:shot.01`, whole-shot feedback) and direction parts (`direction:sequence`).
+// (e.g. `video:shot.01`, whole-shot feedback), direction parts (`direction:sequence`) and a bare
+// stage (`video`, the overall comment on a review of it).
 export function parseAddressStream(address: string): { stage: Stage } {
-  const m = /^(animatic|video|reference|direction):/.exec(address);
+  const m = /^(animatic|video|reference|direction)(?::|$)/.exec(address);
   if (!m) {
     throw new KonteError(
       "INVALID_ADDRESS",
-      `Invalid address format: "${address}" (expected "<stage>:<path>")`,
+      `Invalid address format: "${address}" (expected "<stage>" or "<stage>:<path>")`,
     );
   }
   return { stage: m[1] as Stage };
+}
+
+// A bare stage as a feedback-only target: it holds the overall comment a review of that stage
+// carries.
+export function parseStageAddress(address: string): Stage | null {
+  return /^(animatic|video|reference|direction)$/.test(address) ? (address as Stage) : null;
 }
 
 // The stage of an ASSET address. `getStage` reads the direction's feedback paths too, so it returns

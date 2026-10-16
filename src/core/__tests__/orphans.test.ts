@@ -35,6 +35,13 @@ describe("buildOrphanContext", () => {
     expect(isOrphan("animatic:shot.01")).toBe(false);
   });
 
+  it("does not flag a bare stage, which holds a review's overall comment", () => {
+    const { isOrphan } = buildOrphanContext(video, animatic);
+    for (const stage of ["animatic", "video", "reference", "direction"]) {
+      expect(isOrphan(stage)).toBe(false);
+    }
+  });
+
   it("flags a bare shot-level feedback target for a shot no longer in the definition", () => {
     const { isOrphan } = buildOrphanContext(video, animatic);
     expect(isOrphan("video:shot.99")).toBe(true);

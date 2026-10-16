@@ -50,6 +50,7 @@ import {
   addressReviewTouchesNothing,
   applyAddressReview,
   handoffRecordFields,
+  storeOverallComment,
   type SongLineBody,
 } from "./review-shared.js";
 import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
@@ -314,6 +315,7 @@ export async function handleReferenceSubmit(
   };
 
   const filePath = await saveReviewRecord(videoRoot, record);
+  if (filePath) await storeOverallComment(videoRoot, "reference", record);
 
   reportOutcome?.({
     stage: "reference",

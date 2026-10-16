@@ -11,6 +11,7 @@ import {
   formatAddress,
   formatShotAddress,
   patchSourceVariantIdOf,
+  type Stage,
 } from "../../../core/address.js";
 import {
   isVariantStale,
@@ -518,6 +519,20 @@ export function applyFeedbackMutations(
     }
   }
   return { added };
+}
+
+// A review's overall comment, stored as feedback on the bare stage beside the record that carries
+// it.
+export async function storeOverallComment(
+  videoRoot: string,
+  stage: Stage,
+  record: ReviewRecord,
+): Promise<void> {
+  if (!record.overallComment) return;
+  const text = record.overallComment;
+  await FeedbackManager.withLock(videoRoot, stage, async (mgr) => {
+    applyFeedbackMutations(mgr, [{ address: stage, text, annotation: null }], [], record.createdAt);
+  });
 }
 
 /**

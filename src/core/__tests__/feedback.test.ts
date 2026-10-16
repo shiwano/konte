@@ -421,3 +421,27 @@ describe("direction feedback staleness", () => {
     expect(feedbackStaleness(note("h1"), SHOT_PART, state)).toBe("unknown");
   });
 });
+
+describe("overall comment staleness", () => {
+  const state = makeState({});
+  const note: FeedbackEntry = { ...feedback({}), createdAt: "2026-01-01T00:00:00.000Z" };
+
+  it("stands while its own review is the stage's newest", () => {
+    const latestReviewAt = new Map([["video" as const, "2026-01-01T00:00:00.000Z"]]);
+    expect(feedbackStaleness(note, "video", state, { latestReviewAt })).toBe("fresh");
+  });
+
+  it("goes stale once a later review of the stage was submitted", () => {
+    const latestReviewAt = new Map([["video" as const, "2026-01-02T00:00:00.000Z"]]);
+    expect(feedbackStaleness(note, "video", state, { latestReviewAt })).toBe("stale");
+  });
+
+  it("is untouched by a later review of another stage", () => {
+    const latestReviewAt = new Map([["animatic" as const, "2026-01-02T00:00:00.000Z"]]);
+    expect(feedbackStaleness(note, "video", state, { latestReviewAt })).toBe("fresh");
+  });
+
+  it("reads unknown, not fresh, when the review times were not read", () => {
+    expect(feedbackStaleness(note, "video", state)).toBe("unknown");
+  });
+});

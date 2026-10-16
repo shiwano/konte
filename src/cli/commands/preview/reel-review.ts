@@ -115,6 +115,7 @@ import {
   type FeedbackMutationResult,
   withShotLocalTime,
   applyFeedbackMutations,
+  storeOverallComment,
 } from "./review-shared.js";
 import type { ReportOutcome } from "./review-outcome.js";
 import { createAssetInfoBuilder } from "./asset-info.js";
@@ -1999,6 +2000,8 @@ export async function handleReelSubmit(
     // file at all and `skippedDecisions` is reported to a terminal and then lost.
     force: acceptedAssets.length > 0 || unacceptedAssets.length > 0 || skippedDecisions.length > 0,
   });
+
+  if (filePath) await storeOverallComment(videoRoot, stage, record);
 
   reportOutcome?.({ stage, filePath, ...(regenerate.length > 0 ? { regenerate } : {}) });
 

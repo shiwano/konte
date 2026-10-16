@@ -82,6 +82,7 @@ import {
   staleFlagsBeforeDecisions,
   recordFeedbackFor,
   handoffRecordFields,
+  storeOverallComment,
 } from "./review-shared.js";
 import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
 
@@ -631,6 +632,7 @@ export async function handleDirectionSubmit(
     ...handoffRecordFields(handoff),
   };
   const filePath = await saveReviewRecord(videoRoot, record);
+  if (filePath) await storeOverallComment(videoRoot, "direction", record);
 
   reportOutcome?.({ stage: "direction", filePath });
 

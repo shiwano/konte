@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { z } from "zod";
 import {
   type ShotStage,
+  type Stage,
   DIRECTION_SECTIONS,
   formatAddress,
   formatCompositionAddress,
@@ -154,8 +155,8 @@ export const ReviewRecordSchema = z.object({
       }),
     )
     .optional(),
-  // The reviewer's word on the pass as a whole, written in the submit dialog. Not feedback: it
-  // hangs off no address, so nothing goes stale against it and no accept re-signs it.
+  // The reviewer's word on the pass as a whole, written in the submit dialog. Also stored as feedback
+  // on the bare stage.
   overallComment: z.string().optional(),
   // Handoff notes (AI -> reviewer) attached to this preview session.
   handoffId: z.string().optional(),
@@ -300,6 +301,21 @@ export async function findReviewRecordSince(
   return path.basename(newest.filePath, ".json") >= toReviewFileId(sinceIso)
     ? newest.filePath
     : null;
+}
+
+export async function latestReviewTimes(videoRoot: string): Promise<Map<Stage, string>> {
+  const out = new Map<Stage, string>();
+  for (const stage of ["animatic", "video", "reference", "direction"] as const) {
+    for (const { filePath } of await listReviewFiles(path.join(videoRoot, REVIEW_DIR, stage))) {
+      try {
+        out.set(stage, parseReviewRecord(await fs.readFile(filePath, "utf-8")).createdAt);
+        break;
+      } catch {
+        continue;
+      }
+    }
+  }
+  return out;
 }
 
 export async function saveReviewRecord(

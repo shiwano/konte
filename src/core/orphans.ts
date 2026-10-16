@@ -45,6 +45,8 @@ export function buildOrphanContext(
   // Bare shot-level targets hold whole-shot feedback (no asset name, no variants); listAddresses
   // never emits them, so add them explicitly or existing shots' feedback reads as orphaned.
   for (const s of video.shots) validAddresses.add(formatShotAddress("video", s.id));
+  // A bare stage holds a review's overall comment.
+  for (const stage of ["animatic", "video", "reference", "direction"]) validAddresses.add(stage);
   if (animatic) {
     for (const addr of listAddresses(animatic, "animatic")) validAddresses.add(addr);
     for (const s of animatic.shots) validAddresses.add(formatShotAddress("animatic", s.id));

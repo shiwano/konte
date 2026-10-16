@@ -2,8 +2,10 @@ import {
   formatAddress,
   formatCompositionAddress,
   parseShotAddress,
+  parseStageAddress,
   shotStemAssetNames,
   type ShotStage,
+  type Stage,
 } from "../address.js";
 import { shortId } from "../short-id.js";
 import {
@@ -44,6 +46,9 @@ export interface FeedbackStaleContext {
   // The caller's resolution memo, carrying the definitions its own surface resolved by. Omit it and
   // a media comment's subject is compared against a take the reviewer was not necessarily shown.
   cache?: StalenessCache;
+  // When each stage's newest review was submitted (`latestReviewTimes`). Omit it and an overall
+  // comment is left unevaluated.
+  latestReviewAt?: ReadonlyMap<Stage, string>;
 }
 
 /**
@@ -64,6 +69,8 @@ export interface FeedbackStaleContext {
  * when accepted, so a definition-only edit produces no variant to contradict `displayedVariants`. It
  * additionally snapshots the leaf's live definition hash (`displayedDefinitionHashes`) and is stale
  * once that hash no longer matches what the context reports — or the leaf leaves the definition.
+ *
+ * An overall comment (on a bare stage) is stale once a later review of the stage was submitted.
  */
 export function feedbackStaleness(
   entry: FeedbackEntry,
@@ -71,6 +78,14 @@ export function feedbackStaleness(
   state: KonteState,
   ctx: FeedbackStaleContext = {},
 ): FeedbackStaleness {
+  const stage = parseStageAddress(address);
+  if (stage !== null) {
+    if (!ctx.latestReviewAt) return "unknown";
+    const latest = ctx.latestReviewAt.get(stage);
+    return latest !== undefined && Date.parse(latest) > Date.parse(entry.createdAt)
+      ? "stale"
+      : "fresh";
+  }
   if (acceptedOver(entry, address, state)) return "stale";
   // An axis the caller gave no context for is not evidence that the comment still stands. Held
   // rather than returned at once: another axis may still find it stale, which is a verdict, and

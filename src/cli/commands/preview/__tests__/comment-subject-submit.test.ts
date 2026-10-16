@@ -5,6 +5,8 @@ import { loadPreviewDefinitions } from "../load-definitions.js";
 import { handleGetReelState, handleReelSubmit } from "../reel-review.js";
 import { reloadVideoDefinition } from "../../../../core/loader.js";
 import { StateManager } from "../../../../core/state/index.js";
+import { feedbackStaleness } from "../../../../core/feedback/index.js";
+import { latestReviewTimes } from "../../../../core/review-record.js";
 import {
   ctx,
   initWorkspace,
@@ -332,5 +334,25 @@ describe("handleReelSubmit — the subject a comment is persisted with", () => {
     expect(await readFeedback(videoRoot, "video:shot.99")).toEqual([]);
     const sm = await StateManager.load(videoRoot);
     expect(sm.getAcceptedVariant(MOTION)).toBeNull();
+  });
+});
+
+describe("handleReelSubmit — the overall comment", () => {
+  it("stands as feedback on the stage until the stage's next review", async () => {
+    const { videoRoot } = await project();
+    const body = { stage: "video", displayedVariants: {}, displayedStandInShotIds: [] };
+
+    await submit(videoRoot, { ...body, overallComment: "the pace drags overall" });
+    const [entry] = await readFeedback(videoRoot, "video");
+    expect(entry?.text).toBe("the pace drags overall");
+    const state = (await StateManager.load(videoRoot)).getState();
+    const staleness = async () =>
+      feedbackStaleness(entry!, "video", state, {
+        latestReviewAt: await latestReviewTimes(videoRoot),
+      });
+    expect(await staleness()).toBe("fresh");
+
+    await submit(videoRoot, { ...body, overallComment: "better" });
+    expect(await staleness()).toBe("stale");
   });
 });
