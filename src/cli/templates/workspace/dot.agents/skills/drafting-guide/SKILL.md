@@ -30,7 +30,6 @@ A human arrives with some mix of three inputs — **ask which they have:**
 - **The picture in their head** — ask what they see when they imagine it, open, and follow what comes back: whatever they mention first is what matters to them, so the next question goes deeper into that — a figure, a light, a pace — never across a checklist. Write it back as they told it and let them correct you.
 - **Which way this piece goes, and which way it must not** — about this piece, never taste in general or AI video at large. For a work they name, ask _which thing_ in it — a rhythm, a face, a palette, the shape of a joke. Ask the refused side as a direction the piece could plausibly take, e.g. "cute, or unsettling?". The refused side is the first draft of `outOfScope`.
 - **What is fixed** — runtime, a song to cut to, a character or product that must appear, the language, a deadline, a spend ceiling.
-- **Mirror it back before the first pitch** — one paragraph in their words: what it is for, who watches it where, the form, the feeling, the picture they see, the direction wanted and refused, the fixed points.
 
 ## 4. Decide the backend — before the pitch
 
@@ -52,7 +51,7 @@ A human arrives with some mix of three inputs — **ask which they have:**
 Nothing is written to disk until the human has said yes to the treatment, in so many words. "Make a video about X" authorized the conversation, not the file.
 
 - **Develop the pick, or the brought script, into a treatment** — tone, look, rough runtime (propose defaults, marked as yours), the recurring characters, props and places, and the frames the shots will share. **Ask only for forks you can't guess past** — live-action vs anime, aspect ratio, length. **Never pitch a shot-by-shot cut in chat** — the cut is authored under `direction-guide`'s rules and reviewed in the direction preview.
-- **Send the treatment as one message, then the question alone** — logline, hook, the feeling and the viewer's line, tone, look, runtime, delivery resolution, who and where, the frames; then "shall I write this up as the direction?" With a native choice UI, that is the only question on it.
+- **Send the treatment as one message, then the question alone** — what it is for and where it plays, logline, hook, the feeling and the viewer's line, the direction it refuses, tone, look, runtime, delivery resolution, who and where, the frames; then "shall I write this up as the direction?" With a native choice UI, that is the only question on it.
 - **What is not a yes** — the pick in step 5; "sounds good" on one part; silence; a question back; a "yes, but…" (fold the "but" in, re-send the treatment, ask again). A treatment changed after the yes needs a new one.
 
 ## 7. Author the direction
@@ -92,5 +91,4 @@ A fresh **`konte-direction-critic`** subagent reads the cut and returns findings
 
 - generate, open another stage preview, or accept / unaccept a variant.
 - rewrite the human's concept on your own.
-- pitch before step 3's mirror paragraph has been confirmed.
 - for a new piece, create the video or write `direction.ts` before step 6's yes — however settled the backend and the roster are.
