@@ -18,15 +18,11 @@ Substitute your stage's `<scope>` / `<address>` into every step below.
 
 - **When layout calls for a look proof, run it alone first** — later prompts follow its accepted take. Then run the roster-wired reference pool; without a look proof, start there.
 
-## 1. Preflight
-
-- **Run `konte doctor`** — on a missing backend key or disconnected backend (`FAIL ...`), stop and follow `config-guide` first.
-
-## 2. See what's missing
+## 1. See what's missing
 
 - **`konte status`** — your stage's Progress line; `all N accepted` → stage done.
 
-## 3. Generate
+## 2. Generate
 
 - **New or rewritten definitions clear `layout-guide`'s self-check before they meet a backend.**
 - **Generating what has no accepted variant needs no go-ahead** — on a paid vendor backend report the batch size and expected cost in one line, then generate. Ask before invalidating accepted work, such as rerolling an accepted asset by its address.
@@ -34,7 +30,7 @@ Substitute your stage's `<scope>` / `<address>` into every step below.
 - **`generate` regenerates a stale unaccepted take and skips an accepted generative one, even stale** — after an edit, `generate` is the new take; `reroll` draws again on an unchanged definition, `--count N` for N takes at once. Follow the command's `accepted but stale` Next steps. Stale deterministic assets re-bake automatically unless their accepted take is a patch.
 - **Open on the cheap pass** — `production-guide`'s cost ladder.
 
-## 4. Wait for jobs
+## 3. Wait for jobs
 
 After `konte generate` or `konte reroll`:
 
@@ -43,7 +39,7 @@ After `konte generate` or `konte reroll`:
 - **A job stuck running far too long** → `konte job show <jobId>` — its diagnosis separates a slow model, a prompt ComfyUI lost in a crash, and a job no worker is watching.
 - **Failed job** → `konte job show <jobId>`, then `konte job logs <jobId>`; fix the cause and `konte reroll <address>`. Several failed addresses → `konte reroll --failed --yes`.
 
-## 5. Self-review before involving the human
+## 4. Self-review before involving the human
 
 **Look at every generated asset before the human does**, sampled by media kind — skip `file` assets and `pendingShot` shots.
 
@@ -88,20 +84,20 @@ After `konte generate` or `konte reroll`:
 **Reroll:**
 
 - **Draw again before you rewrite** — a broken still is one sample; rewrite only when several draws fail the same way.
-- **`konte reroll <address>`** — then wait (step 4) and re-check. Rerolling a named accepted asset drops its accept after confirmation; the new take becomes review work. **If the asset feeds another in the same stage, add `--with-dependents`** — the chain rebuilds in dependency order, stopping at an accepted take. A whole stage or shot is rerolled by its address-scope (`konte reroll video:shot.05 --yes`), which skips what it cannot spend on and accepted takes.
+- **`konte reroll <address>`** — then wait (step 3) and re-check. Rerolling a named accepted asset drops its accept after confirmation; the new take becomes review work. **If the asset feeds another in the same stage, add `--with-dependents`** — the chain rebuilds in dependency order, stopping at an accepted take. A whole stage or shot is rerolled by its address-scope (`konte reroll video:shot.05 --yes`), which skips what it cannot spend on and accepted takes.
 - **A reroll that came out worse → `konte dismiss <newVariantId>`** — the address falls back to the take before it, still undecided and undeleted. It falls back only to a take matching the current definition, so where the new take followed a prompt edit, restore the prompt instead: `konte inspect <address>` diffs each take against the live one.
 
 ### Before handoff
 
 - **Animatic: write each panel's movement from its settled take** — preview reports `REVIEW_PREREQUISITE_MISSING` while any is missing; re-check after a reroll. Where that take departs from `action`, `action` follows it.
 
-## 6. Human review
+## 5. Human review
 
 - **Hand off, preview, read the record → `review-guide`** — `<scope>` is your stage's; come back here with the submitted decisions. The takes they name to go back to are yours to record: `konte accept <variantId>... -y`.
 
-## 7. Iterating on feedback
+## 6. Iterating on feedback
 
-For each target with open feedback, **accepted or not**: **route the human's words through step 5's fix** — read the comment with its pin and `[image: <path>]` frame. A note changing what the shot shows goes into its `action` too. Then wait (step 4), self-check (step 5), re-review (step 6).
+For each target with open feedback, **accepted or not**: **route the human's words through step 4's fix** — read the comment with its pin and `[image: <path>]` frame. A note changing what the shot shows goes into its `action` too. Then wait (step 3), self-check (step 4), re-review (step 5).
 
 **Before re-review, check the changes, adjacent cuts, countable defects and agreement with the feedback yourself.**
 

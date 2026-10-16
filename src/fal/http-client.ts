@@ -8,6 +8,7 @@ import {
   mediaTransferTimeoutMs,
 } from "../core/http-retry.js";
 import { redactErrorBody } from "../core/redact-url.js";
+import { backendCredential } from "../core/types/credentials.js";
 import {
   type FalStatusResponse,
   type FalSubmitResponse,
@@ -42,6 +43,14 @@ export class FalHttpClient {
 
     if (!res.ok) {
       const body = redactErrorBody(await res.text().catch(() => ""));
+      if (res.status === 401 || res.status === 403) {
+        const credential = backendCredential("fal")!;
+        throw new KonteError(
+          "FAL_ERROR",
+          `FAL rejected ${credential.key} (${res.status}): ${body}. Replace it in \`konte settings\` ` +
+            `(Credentials tab) with a valid key from ${credential.obtainUrl}, then re-run the command.`,
+        );
+      }
       throw new KonteError("FAL_ERROR", `FAL submit failed (${res.status}): ${body}`);
     }
 

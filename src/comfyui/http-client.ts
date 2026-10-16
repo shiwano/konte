@@ -298,7 +298,8 @@ export class ComfyUIHttpClient {
       }
       throw new KonteError(
         "COMFYUI_UNAVAILABLE",
-        `Failed to connect to ComfyUI at ${this.baseUrl}: ${errorMessage(err)}`,
+        `Failed to connect to ComfyUI at ${this.baseUrl}: ${errorMessage(err)}. Start ComfyUI ` +
+          `(or correct comfy.comfyui.url in \`konte settings\`, Config tab), then re-run the command.`,
       );
     }
 

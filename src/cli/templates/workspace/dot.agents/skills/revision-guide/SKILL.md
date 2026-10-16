@@ -27,7 +27,7 @@ Only what can be counted.
 
 - **Seams first** — `konte probe contact-sheet video` pairs each shot's out frame with the next one's in frame: a background, prop, mark or pose that differs across a cut the direction does not break.
 - **Then each take against its shot** — `konte probe motion video`, `konte probe reel-audio video`.
-- **Class each candidate by the cheapest layer that fixes it** — `generation-loop-guide` step 5's routing: composition (free), a take, the board and its take, the direction.
+- **Class each candidate by the cheapest layer that fixes it** — `generation-loop-guide` step 4's routing: composition (free), a take, the board and its take, the direction.
 - **Generate nothing yet.**
 
 ## 3. Open the accepted cut in review

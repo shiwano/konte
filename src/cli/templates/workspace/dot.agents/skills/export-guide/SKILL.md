@@ -16,7 +16,7 @@ Export the accepted cut; done = the render job finishes and `konte probe export`
 konte export video
 ```
 
-- **Async like generation** — registers a render job and returns; `konte job wait` blocks for it (`generation-loop-guide` step 4).
+- **Async like generation** — registers a render job and returns; `konte job wait` blocks for it (`generation-loop-guide` step 3).
 - **Output** — `video.mp4` + `manifest.json` into `dist/video/<timestamp>/`. When it completes, run `konte probe export` to read the deliverable's real resolution/duration/fps/audio — report those and the path.
 - **Then offer `konte clean` and `konte prune`.** Add `--delete-unaccepted` only once the human calls the video finished — a deleted take is lost spend.
 - **`--allow-unaccepted` renders unaccepted variants — only when the human explicitly asks for a rough-cut file.**
