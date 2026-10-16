@@ -13,8 +13,6 @@ https://github.com/user-attachments/assets/6e47740c-b12b-4a7e-aa88-8df246534436
 <sup>Project files for this video: [konte-readme-hero-example](https://github.com/shiwano/konte-readme-hero-example).</sup>
 
 > **Early technical preview.** Expect rough edges and breaking changes. See [Status](#status).
->
-> **AI agents:** start with [README_FOR_AGENTS.md](README_FOR_AGENTS.md).
 
 ## Why
 
