@@ -1111,8 +1111,7 @@ export default defineDirection({
   });
 });
 
-// `konte accept direction[:<part>]` — the review page's verdict, recorded from the CLI. The fixture
-// direction ships two waivers, so it also exercises the one section this path never signs off.
+// `konte accept direction[:<part>]` — the review page's verdict, recorded from the CLI.
 describe("accept direction", () => {
   let projectDir: string;
 
@@ -1138,25 +1137,21 @@ describe("accept direction", () => {
     projectDir = await initWithTestVideo();
   });
 
-  it("signs off every part but the waivers", async () => {
+  it("signs off every part, the waivers included", async () => {
     const { stdout } = await run(["accept", "direction", "--verbose"], projectDir);
-    const held = addressesUnder(stdout, "Held waiver parts");
 
-    expect(held.length).toBeGreaterThan(0);
     expect(
       addressesUnder(stdout, "Accepted parts").filter((p) => p.startsWith("direction:waivers.")),
-    ).toEqual([]);
-    // The held waivers are exactly what is left blocking — nothing else was skipped along the way.
+    ).not.toEqual([]);
     const after = await inspect();
-    expect(after.parts.filter((p) => p.status !== "accepted").map((p) => p.address)).toEqual(held);
-    expect(after.acceptance.status).toBe("partial");
+    expect(after.parts.filter((p) => p.status !== "accepted")).toEqual([]);
+    expect(after.acceptance.status).toBe("accepted");
   });
 
-  it("refuses to sign off a waiver", async () => {
+  it("signs off a waiver", async () => {
     const waiver = (await inspect()).parts.find((p) => p.section === "waivers")!.address;
-    await expect(run(["accept", waiver], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("INVALID_ADDRESS"),
-    });
+    await run(["accept", waiver], projectDir);
+    expect(await statusOf(waiver)).toBe("accepted");
   });
 
   it("signs off one part", async () => {
@@ -1185,14 +1180,6 @@ describe("accept direction", () => {
       "direction:brief.logline",
       "direction:brief.tone",
     ]);
-  });
-
-  it("refuses a scope holding only waivers", async () => {
-    const waiver = (await inspect()).parts.find((p) => p.section === "waivers")!.address;
-    const scope = waiver.slice(0, waiver.lastIndexOf("."));
-    await expect(run(["accept", scope], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("INVALID_ADDRESS"),
-    });
   });
 
   it("needs consent to clear several parts", async () => {
@@ -1255,10 +1242,6 @@ describe("accept direction", () => {
   it("sweeps a deleted waiver's sign-off without holding it for review", async () => {
     await run(["accept", "direction"], projectDir);
     await seedOrphan("direction:waivers.gone");
-    expect((await inspect()).orphans).toEqual([]);
-
-    const { stdout } = await run(["accept", "direction", "--verbose"], projectDir);
-    expect(addressesUnder(stdout, "Held waiver parts")).not.toContain("direction:waivers.gone");
     expect((await inspect()).orphans).toEqual([]);
   });
 });

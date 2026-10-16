@@ -310,12 +310,6 @@ export function applyDirectionSectionDecisions(
 // same "I did not look at this" the section decisions carry.
 type DirectionPartDecisions = ReadonlyMap<string, boolean>;
 
-// The section `konte accept` never signs off. A waiver is the author overriding a machine finding,
-// so it is the one part whose review is the finding sitting next to it — and the one part a blind
-// CLI accept must not settle. It stays in `konte preview direction`, where the reviewer sees what
-// the waiver silences. Revoking one is safe from anywhere: it only ever re-blocks.
-export const CLI_UNACCEPTABLE_SECTION: DirectionSection = "waivers";
-
 // The third writer, and the CLI's: acceptance decided per PART rather than per section, so
 // `konte accept direction:<part>` can settle exactly the shot it names. The section writer above is
 // the review page's, where a box is the unit a human reads; here the caller has already named the
