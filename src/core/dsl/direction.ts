@@ -106,7 +106,10 @@ export type Character = {
 // (must equal an exposed `reference:<id>` asset name); `name` is how every shot `action` refers to
 // it, `description` is the visual brief. The prop `id` shares the reference namespace with the
 // characters, so it may not collide with a character `id`.
-export type Prop = { name: string; description: string };
+//
+// `promptDepiction` is the noun a prompt calls it by, exactly as a character's is — a shot whose
+// `action` names the prop owes it in a keyframe's prompt (`prop-unnamed`).
+export type Prop = { name: string; promptDepiction: string; description: string };
 
 // A declared location — a recurring place (a set, a room, an exterior) a shot happens in, whose look
 // must stay consistent across the shots set there, so it is anchored to a reference asset exactly

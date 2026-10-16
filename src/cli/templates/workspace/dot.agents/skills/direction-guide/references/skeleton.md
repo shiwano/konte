@@ -39,7 +39,11 @@ export default defineDirection({
     },
   },
   props: {
-    mug: { name: "the striped mug", description: "A tall blue-and-white striped mug." },
+    mug: {
+      name: "the striped mug",
+      promptDepiction: "striped mug",
+      description: "A tall blue-and-white striped mug.",
+    },
   },
   locations: {
     kitchen: {

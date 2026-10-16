@@ -231,6 +231,11 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
       "No prompt behind a keyframe contains the `promptDepiction` of a subject it frames, verbatim (case-insensitive).",
     subject: "`<frame>.<characterId>`",
   },
+  "prop-unnamed": {
+    flags:
+      "A shot's `action` names a prop, but no prompt behind its keyframes contains the prop's `promptDepiction`, verbatim (case-insensitive).",
+    subject: "`<shotId>.<propId>`",
+  },
   "plate-unnamed": {
     flags: "A plate's sentence omits a landmark its setup's `holds` declares.",
     subject: "`<setupId>.<landmarkId>`",

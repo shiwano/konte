@@ -35,7 +35,7 @@ function flat(): Direction {
     characters: {
       alice: { name: "Alice", description: "a girl in red", promptDepiction: "alice" },
     },
-    props: { key: { name: "the key", description: "a brass key" } },
+    props: { key: { name: "the key", promptDepiction: "key", description: "a brass key" } },
     locations: {
       bedroom: {
         name: "the bedroom",
@@ -213,9 +213,9 @@ describe("directionPartContents", () => {
 
   // The two rosters no check reads a prompt name or a landmark for say so, rather than leaving a
   // reader to guess whether the field was dropped.
-  it("leaves a prop's prompt name and landmarks null", () => {
+  it("carries a prop's prompt name and leaves its landmarks null", () => {
     expect(directionPartContents(flat()).get("direction:props.key")).toMatchObject({
-      promptDepiction: null,
+      promptDepiction: "key",
       landmarks: null,
     });
   });

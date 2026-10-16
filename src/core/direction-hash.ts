@@ -158,7 +158,11 @@ function projectVoice(voice: Voice | undefined): unknown {
 
 // Props and locations follow the characters' rule: a renamed or re-described one re-accepts.
 function projectProps(props: Record<string, Prop> | undefined): unknown[] {
-  return projectRoster(props, (p) => ({ name: p.name, description: p.description }));
+  return projectRoster(props, (p) => ({
+    name: p.name,
+    promptDepiction: p.promptDepiction,
+    description: p.description,
+  }));
 }
 
 // The landmarks ride with the place: what only this room has is part of what the room looks like, so
@@ -424,7 +428,10 @@ export function directionPartHashes(direction: Direction): Map<string, string> {
     out.set(DIRECTION_LYRICS_ADDRESS, hash(projectLyrics(direction.lyrics)));
   }
   for (const [id, p] of Object.entries(direction.props ?? {})) {
-    out.set(formatDirectionPropAddress(id), hash({ id, name: p.name, description: p.description }));
+    out.set(
+      formatDirectionPropAddress(id),
+      hash({ id, name: p.name, promptDepiction: p.promptDepiction, description: p.description }),
+    );
   }
   for (const [id, l] of Object.entries(direction.locations ?? {})) {
     out.set(

@@ -595,7 +595,9 @@ describe("directionPartHashes", () => {
   it("keys one hash per prop and moves it on a description rewrite", () => {
     const withProp = (): Direction => ({
       ...flat(),
-      props: { patty: { name: "the patty", description: "a golden fish patty" } },
+      props: {
+        patty: { name: "the patty", promptDepiction: "patty", description: "a golden fish patty" },
+      },
     });
     const key = "direction:props.patty";
     expect([...directionPartHashes(withProp()).keys()]).toContain(key);
@@ -608,8 +610,8 @@ describe("directionPartHashes", () => {
     const withProps = (): Direction => ({
       ...flat(),
       props: {
-        patty: { name: "the patty", description: "a fish patty" },
-        tray: { name: "the tray", description: "a steel tray" },
+        patty: { name: "the patty", promptDepiction: "patty", description: "a fish patty" },
+        tray: { name: "the tray", promptDepiction: "tray", description: "a steel tray" },
       },
     });
     const d = withProps() as { props: Record<string, unknown> };

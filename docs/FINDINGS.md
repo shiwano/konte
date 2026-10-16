@@ -105,7 +105,7 @@ Gates: every spend. Deferred.
 | `unused-setup`     | No shot points at a setup.                                                                                          | setup id               | —                     |
 | `setup-atomized`   | A location holds many shots but almost none share a frame.                                                          | location id            | —                     |
 
-### staging (18)
+### staging (19)
 
 Gates: every spend.
 
@@ -124,6 +124,7 @@ Gates: every spend.
 | `passer-unconsumed`    | A video take's input chain does not reach a passing character's reference.                                                                                                                                                                                         | `<frame>.<characterId>`                    | Fix in `video.tsx`, Video spends only |
 | `passer-unnamed`       | A video take's positive prompts omit a passing character's promptDepiction (case-insensitive).                                                                                                                                                                     | `<frame>.<characterId>`                    | Fix in `video.tsx`, Video spends only |
 | `subject-unnamed`      | No prompt behind a keyframe contains the `promptDepiction` of a subject it frames, verbatim (case-insensitive).                                                                                                                                                    | `<frame>.<characterId>`                    | —                                     |
+| `prop-unnamed`         | A shot's `action` names a prop, but no prompt behind its keyframes contains the prop's `promptDepiction`, verbatim (case-insensitive).                                                                                                                             | `<shotId>.<propId>`                        | —                                     |
 | `plate-unnamed`        | A plate's sentence omits a landmark its setup's `holds` declares.                                                                                                                                                                                                  | `<setupId>.<landmarkId>`                   | —                                     |
 | `join-lineup-mismatch` | A `continuous` shot opens on a different order than the shot before it leaves.                                                                                                                                                                                     | frame                                      | —                                     |
 | `join-unpinned`        | The video take before a `continuous` seam does not pin its end to the opening keyframe of the shot after it, where its model has an end slot.                                                                                                                      | frame                                      | —                                     |

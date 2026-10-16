@@ -186,7 +186,7 @@ const withCat: Direction = leaf({
 
 // completeMiniDrama with a recurring prop named in its opening action, so only the reference-pool
 // axis varies. Props share the shape of the characters; `leaf` does not carry them, so it is spread on.
-const patty = { name: "the patty", description: "a golden fish patty" };
+const patty = { name: "the patty", promptDepiction: "patty", description: "a golden fish patty" };
 const withPatty: Direction = {
   ...leaf({
     shots: [
@@ -288,28 +288,44 @@ describe("validateDirectionStructure", () => {
   it("flags a prop id that is not a valid asset name", () => {
     const dir: Direction = {
       ...completeMiniDrama,
-      props: { "fish:patty": { name: "the patty", description: "a fish patty" } },
+      props: {
+        "fish:patty": { name: "the patty", promptDepiction: "patty", description: "a fish patty" },
+      },
     };
     expect(validateDirectionStructure(dir).map((e) => e.code)).toContain("prop-invalid-id");
   });
 
-  it("flags an empty prop name and description", () => {
+  it("flags an empty prop name, prompt depiction and description", () => {
     const dir: Direction = {
       ...completeMiniDrama,
-      props: { patty: { name: "  ", description: "" } },
+      props: { patty: { name: "  ", promptDepiction: "  ", description: "" } },
     };
     const codes = validateDirectionStructure(dir).map((e) => e.code);
     expect(codes).toContain("prop-empty-name");
     expect(codes).toContain("prop-empty-description");
+    expect(codes).toContain("prop-empty-prompt-depiction");
   });
 
   it("flags a prop id that collides with a character id (both map to reference:<id>)", () => {
     const dir: Direction = {
       ...completeMiniDrama,
       characters: { cat: { name: "the cat", description: "a black cat", promptDepiction: "cat" } },
-      props: { cat: { name: "the toy cat", description: "a plush cat" } },
+      props: {
+        cat: { name: "the toy cat", promptDepiction: "toy cat", description: "a plush cat" },
+      },
     };
     expect(validateDirectionStructure(dir).map((e) => e.code)).toContain("reference-id-conflict");
+  });
+
+  it("flags a prop depiction one a character's contains", () => {
+    const dir: Direction = {
+      ...completeMiniDrama,
+      characters: { cat: { name: "the cat", description: "a black cat", promptDepiction: "cat" } },
+      props: { toy: { name: "the toy", promptDepiction: "toy cat", description: "a plush cat" } },
+    };
+    expect(validateDirectionStructure(dir).map((e) => e.code)).toContain(
+      "prompt-depiction-conflict",
+    );
   });
 
   it("passes a well-formed props roster", () => {
@@ -509,7 +525,9 @@ describe("validateDirectionStructure", () => {
         },
         shots: [shot("01", "hero", 3, "shot", undefined, "patty")],
       }),
-      props: { patty: { name: "the patty", description: "a fish patty" } },
+      props: {
+        patty: { name: "the patty", promptDepiction: "patty", description: "a fish patty" },
+      },
     };
     expect(validateDirectionStructure(withProp).map((e) => e.code)).toContain(
       "reference-id-conflict",

@@ -122,6 +122,7 @@ export type DirectionFindingCode =
   // calls it by the name the direction declared.
   | "landmark-flipped"
   | "subject-unnamed"
+  | "prop-unnamed"
   | "passer-unconsumed"
   | "passer-unnamed"
   | "plate-unnamed"
@@ -1400,6 +1401,41 @@ function checkSubjectNaming(
           `holds by its promptDepiction, or the model decides for itself which sheet it was handed is ` +
           `the one the line is about; to call them by other words, change ` +
           `characters.${id}.promptDepiction`,
+      });
+    }
+  }
+  return findings;
+}
+
+export type PropNamingRef = { id: string; name: string; promptDepiction: string };
+
+// A prop a shot's `action` names, against the words its keyframes were conditioned on — the prop's
+// twin of `subject-unnamed`. No frame declares which props it holds, so the `action` is the
+// declaration: the same scan `unused-prop` makes. Any one keyframe of the shot, in either lane,
+// answers for it. A shot with no developed panel, or none that generates, has no prompt to name it
+// in. Keyed `<shotId>.<propId>`.
+export function checkPropNaming(
+  shots: readonly { id: string; action: string }[],
+  panelPrompts: readonly PanelPrompts[],
+  props: readonly PropNamingRef[],
+): DirectionFinding[] {
+  const findings: DirectionFinding[] = [];
+  for (const shot of shots) {
+    const panels = panelPrompts.filter((p) => p.shotId === shot.id && p.generative);
+    if (panels.length === 0) continue;
+    const texts = panels.flatMap((p) => p.texts);
+    for (const prop of props) {
+      if (prop.name.trim() === "" || prop.promptDepiction.trim() === "") continue;
+      if (!shot.action.includes(prop.name)) continue;
+      if (namesIn(texts, prop.promptDepiction)) continue;
+      findings.push({
+        code: "prop-unnamed",
+        subject: `${shot.id}.${prop.id}`,
+        message:
+          `shot ${shot.id}'s action names "${prop.name}" but no prompt behind its keyframes contains ` +
+          `"${prop.promptDepiction}" (verbatim, case-insensitive) — call the prop by its ` +
+          `promptDepiction, or each shot draws its own; to call it by other words, change ` +
+          `props.${prop.id}.promptDepiction`,
       });
     }
   }

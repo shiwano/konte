@@ -382,7 +382,7 @@ export function directionPartContents(direction: Direction): Map<string, Directi
       id,
       name: p.name,
       description: p.description,
-      promptDepiction: null,
+      promptDepiction: p.promptDepiction ?? null,
       landmarks: null,
     });
   }

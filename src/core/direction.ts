@@ -28,6 +28,7 @@ import {
   type VideoShotPins,
   type PanelPrompts,
   type PlateNaming,
+  type PropNamingRef,
   type PlateRecrop,
   type PlateUse,
   type ShotPanels,
@@ -45,6 +46,7 @@ import {
   checkRoutes,
   checkNarrator,
   checkPlateNaming,
+  checkPropNaming,
   checkProps,
   checkSetups,
 } from "./direction-check.js";
@@ -145,6 +147,7 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "plate-recropped": "staging",
   "landmark-flipped": "staging",
   "subject-unnamed": "staging",
+  "prop-unnamed": "staging",
   "passer-unconsumed": "staging",
   "passer-unnamed": "staging",
   "plate-unnamed": "staging",
@@ -212,6 +215,7 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "plate-recropped": "shot",
   "landmark-flipped": null,
   "subject-unnamed": "shot",
+  "prop-unnamed": "shot",
   "passer-unconsumed": "shot",
   "passer-unnamed": "shot",
   "plate-unnamed": null,
@@ -387,6 +391,7 @@ type DirectionErrorCode =
   | "prop-invalid-id"
   | "prop-empty-name"
   | "prop-empty-description"
+  | "prop-empty-prompt-depiction"
   | "location-invalid-id"
   | "location-empty-name"
   | "location-empty-description"
@@ -403,8 +408,8 @@ type DirectionErrorCode =
   // place. The direction has one id space; unlike the three rosters a landmark maps to no reference
   // asset, so the collision is the id space's, not the namespace's.
   | "landmark-id-conflict"
-  // Two declared `promptDepiction`s one substring scan cannot tell apart, characters and landmarks
-  // in one depiction space.
+  // Two declared `promptDepiction`s one substring scan cannot tell apart, characters, props and
+  // landmarks in one depiction space.
   | "prompt-depiction-conflict"
   // The setup roster's twin of the above, plus `setup-unknown-location` (a frame is always somewhere,
   // so the `location` it names must be declared). No `reference-id-conflict` arm: a setup's plate lives
@@ -1061,6 +1066,9 @@ function checkStaging(
         : {}),
       ...(referenceAssetNames ? { referenceAssetNames } : {}),
     }),
+    ...(stage
+      ? checkPropNaming(collectArcShots(direction), stage.panelPrompts, propRefs(direction))
+      : []),
     ...checkRoutes(shots),
     // The setups roster alone: a landmark's place on screen is the camera's, not a shot's.
     ...checkLandmarkOrder(holdsSetupRefs(direction)),
@@ -1118,6 +1126,14 @@ function subjectPromptDepictions(direction: Direction): Map<string, string> {
   return new Map(
     Object.entries(direction.characters ?? {}).map(([id, c]) => [id, c.promptDepiction ?? ""]),
   );
+}
+
+function propRefs(direction: Direction): PropNamingRef[] {
+  return Object.entries(direction.props ?? {}).map(([id, p]) => ({
+    id,
+    name: p.name,
+    promptDepiction: p.promptDepiction ?? "",
+  }));
 }
 
 // The setups in roster order, for the landmark accumulation. A frame set nowhere the roster declares
@@ -1646,7 +1662,7 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
   // `key` is the form the naming checks match on.
   const declaredDepictions: {
     subject: string;
-    kind: "character" | "landmark";
+    kind: "character" | "prop" | "landmark";
     depiction: string;
     key: string;
   }[] = [];
@@ -1732,6 +1748,20 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
         code: "prop-empty-description",
         subject: id,
         message: `prop "${id}" has an empty description`,
+      });
+    }
+    if ((prop.promptDepiction ?? "").trim() === "") {
+      errors.push({
+        code: "prop-empty-prompt-depiction",
+        subject: id,
+        message: `prop "${id}" has no \`promptDepiction\` — declare a noun the model can draw it by`,
+      });
+    } else {
+      declaredDepictions.push({
+        subject: id,
+        kind: "prop",
+        depiction: prop.promptDepiction,
+        key: prop.promptDepiction.trim().toLowerCase(),
       });
     }
   }

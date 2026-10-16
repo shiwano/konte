@@ -2699,6 +2699,7 @@ export type DirectionFindingCode =
   | "panel-unlinked"
   | "landmark-flipped"
   | "subject-unnamed"
+  | "prop-unnamed"
   | "passer-unconsumed"
   | "passer-unnamed"
   | "plate-unnamed"
@@ -3090,6 +3091,7 @@ export type Character = {
 };
 export type Prop = {
   name: string;
+  promptDepiction: string;
   description: string;
 };
 type Location$1 = {

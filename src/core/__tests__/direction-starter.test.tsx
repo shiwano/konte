@@ -298,7 +298,7 @@ describe("defineDirection", () => {
       characters: {
         ane: { name: "the sister", description: "the elder sister", promptDepiction: "ane" },
       },
-      props: { ame: { name: "the sweet", description: "a sweet" } },
+      props: { ame: { name: "the sweet", promptDepiction: "sweet", description: "a sweet" } },
       sequence: {
         lens: "mini-drama",
         pleasure: "cute",

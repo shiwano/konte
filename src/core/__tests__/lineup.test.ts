@@ -52,7 +52,9 @@ function direction(opts: {
         description: "the younger sister",
       },
     },
-    props: { ame: { name: "the sweet", description: "a paper-wrapped sweet" } },
+    props: {
+      ame: { name: "the sweet", promptDepiction: "sweet", description: "a paper-wrapped sweet" },
+    },
     locations: {
       ferryDeck: {
         name: "the ferry deck",
@@ -1100,6 +1102,57 @@ describe("subject-unnamed", () => {
       waivers: { "subject-unnamed_01.imouto": "this adapter names its subjects by slot" },
     });
     expect(found(waived, prompts(["the elder sister looks up"]))).toEqual([]);
+  });
+});
+
+describe("prop-unnamed", () => {
+  const dir = direction({
+    shots: [shot("01", "deck", { lineup: ["ane"], action: "the sister unwraps the sweet" })],
+  });
+  const prompts = (
+    panels: { lane?: "main" | "cutin"; texts: string[]; generative?: boolean }[],
+  ): StagingStageState => ({
+    ...noStage,
+    panelPrompts: panels.map((p, i) => ({
+      shotId: "01",
+      lane: p.lane ?? "main",
+      panel: `animatic:shot.01.p${i}`,
+      texts: p.texts,
+      generative: p.generative ?? true,
+    })),
+  });
+  const found = (d: Direction, stagingStage: StagingStageState) =>
+    checkDirection(d, { stagingStage }).active.filter((f) => f.code === "prop-unnamed");
+
+  it("flags a prop the action names that no keyframe prompt calls by its depiction", () => {
+    const findings = found(dir, prompts([{ texts: ["the elder sister holds a paper twist"] }]));
+    expect(findings.map((f) => f.subject)).toEqual(["01.ame"]);
+    expect(findings[0]?.message).toContain('"sweet"');
+  });
+
+  it("is answered by any one keyframe of the shot, in either lane", () => {
+    expect(
+      found(
+        dir,
+        prompts([
+          { texts: ["the elder sister on the bench"] },
+          { lane: "cutin", texts: ["a sweet in paper, close"] },
+        ]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("asks nothing of a shot whose action does not name the prop", () => {
+    const quiet = direction({ shots: [shot("01", "deck", { lineup: ["ane"] })] });
+    expect(found(quiet, prompts([{ texts: ["the elder sister on the bench"] }]))).toEqual([]);
+  });
+
+  it("asks nothing of a shot whose keyframes generate nothing", () => {
+    expect(found(dir, prompts([{ texts: [], generative: false }]))).toEqual([]);
+  });
+
+  it("stays silent with no board to read", () => {
+    expect(checkDirection(dir).active.filter((f) => f.code === "prop-unnamed")).toEqual([]);
   });
 });
 

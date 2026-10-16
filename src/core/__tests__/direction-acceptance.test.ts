@@ -52,7 +52,13 @@ function makeDirection(): Direction {
     characters: {
       alice: { name: "Alice", description: "a girl in red", promptDepiction: "alice" },
     },
-    props: { lantern: { name: "the lantern", description: "a brass hand lantern" } },
+    props: {
+      lantern: {
+        name: "the lantern",
+        promptDepiction: "lantern",
+        description: "a brass hand lantern",
+      },
+    },
     locations: {
       bedroom: {
         name: "the bedroom",
@@ -1061,7 +1067,7 @@ describe("applyDirectionReferenceCascade", () => {
     const partial = acceptAllButWaivers(makeDirection());
 
     const grown = makeDirection();
-    grown.props!.key = { name: "the key", description: "a small iron key" };
+    grown.props!.key = { name: "the key", promptDepiction: "key", description: "a small iron key" };
 
     const { acceptance, restamped } = applyDirectionReferenceCascade(grown, partial, [
       "alice",
@@ -1077,7 +1083,7 @@ describe("applyDirectionReferenceCascade", () => {
     const accepted = acceptAll(makeDirection());
 
     const grown = makeDirection();
-    grown.props!.key = { name: "the key", description: "a small iron key" };
+    grown.props!.key = { name: "the key", promptDepiction: "key", description: "a small iron key" };
 
     const { acceptance, restamped } = applyDirectionReferenceCascade(grown, accepted, ["key"]);
     expect(restamped).toContain("direction:props.key");

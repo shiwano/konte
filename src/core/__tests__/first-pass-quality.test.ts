@@ -92,7 +92,7 @@ describe("action hinges", () => {
   it("marks an unheld landmark and never marks a prop or another location's landmark", () => {
     const d: Direction = {
       ...direction,
-      props: { bun: { name: "bun", description: "a bun" } },
+      props: { bun: { name: "bun", promptDepiction: "bun", description: "a bun" } },
       setups: { ...direction.setups, front: { ...direction.setups.front!, holds: [] } },
       locations: {
         ...direction.locations,

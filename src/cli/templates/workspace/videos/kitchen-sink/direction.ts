@@ -48,7 +48,11 @@ export default defineDirection({
   },
   narrator: { id: "narratorVoice", description: "A warm, unhurried baritone." },
   props: {
-    pan: { name: "the pan", description: "A dented iron frying pan." },
+    pan: {
+      name: "the pan",
+      promptDepiction: "pan",
+      description: "A dented iron frying pan.",
+    },
   },
   locations: {
     kitchen: {

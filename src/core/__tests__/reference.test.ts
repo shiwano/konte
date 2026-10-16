@@ -340,7 +340,9 @@ describe("reference canvas", () => {
   const rostered = defineDirection({
     ...directionDefaults,
     characters: { hana: { name: "Hana", description: "the traveller", promptDepiction: "hana" } },
-    props: { katana: { name: "the katana", description: "a plain blade" } },
+    props: {
+      katana: { name: "the katana", promptDepiction: "katana", description: "a plain blade" },
+    },
     sequence: { lens: "mini-drama", pleasure: "cute", shots: [] },
   });
 
