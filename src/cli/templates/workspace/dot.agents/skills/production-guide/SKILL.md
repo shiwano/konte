@@ -1,6 +1,6 @@
 ---
 name: production-guide
-description: Choosing each shot's production method — composition vs generation, which frames to pin, references or the stem, and the adapter that offers them. Read before a shot's panels are drawn and again when its motion is wired.
+description: Choosing each shot's production method — composition vs generation, which frames to pin, references or the stem, and the adapter that offers them. Read before a shot's panels are drawn.
 user-invocable: false
 ---
 

@@ -8,7 +8,7 @@ Turn fixed staging into `asset()` prompt text; done = the self-review below pass
 
 ## Stage before you write
 
-**Read `staging-guide` and fix the shot's staging before writing a shot's prompt — an animatic panel or a motion clip — every time, not once per session.** Staging you never stated reads as fixed from inside the prompt.
+**Fix the shot's staging (`staging-guide`) before writing its prompt** — staging you never stated reads as fixed from inside the prompt.
 
 ## Before writing
 
@@ -59,7 +59,7 @@ Look at the actual upstream image before writing about it.
 - **Write an opening keyframe as a held instant** — an action verb can pull the model into completing it. Write "fingers pinch the note's top edge, its lower edge hovering a hand's width from the board"; "presses the note onto the board" belongs in the motion prompt. Redraw a take that completes the action from a rewritten opening, never patch it.
 - **An animatic panel states the body in full** — torso orientation, each visible arm and leg's direction and bend, hand and foot positions, and the surfaces visible from the staged camera. For an upward gaze: "torso faces the camera; head tilts back toward screen left, chin underside visible; pupils high and toward screen left, whites visible below; the raised hand is off the upper-left edge of frame."
 - **An animatic panel places contacts, overlaps and gaps explicitly** — name what touches what, which object is nearer the camera, what occludes what, and which frame edge crops each part. Describe a required gap by its visible shape, screen position and thickness relative to an object in frame, alongside the physical distance.
-- **Sides are the frame's, never a figure's** — `screen left`, `off the right edge of frame`. **A figure turned toward the lens is mirrored: what sits on its left sits on the frame's right**, so "the sword at his left hip" hangs it off the wrong side — a worn or carried object, and which hand reaches for it, as much as a gaze. A reverse cut holds its axis only if both halves name the edge the gaze leaves by; unstated, each subject renders squared up to the lens and the pair loses the line.
+- **Sides are the frame's, never a figure's** — `screen left`, `off the right edge of frame`; a hand recurring across adjacent shots has its side and grip written so (`image-left`, the thumb's direction). **A figure turned toward the lens is mirrored: what sits on its left sits on the frame's right**, so "the sword at his left hip" hangs it off the wrong side — a worn or carried object, and which hand reaches for it, as much as a gaze. A reverse cut holds its axis only if both halves name the edge the gaze leaves by; unstated, each subject renders squared up to the lens and the pair loses the line.
 
 ## Project-wide consistency
 

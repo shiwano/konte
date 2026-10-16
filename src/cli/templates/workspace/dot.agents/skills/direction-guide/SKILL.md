@@ -31,15 +31,14 @@ user-invocable: false
 - **One `sequence` node — `lens`, `pleasure`, `shots[]`** — the shots in order; the stages mint shots from these ids.
 - **Pick each shot's kind:**
   - a character in frame → narrative (default)
-  - a screen, chart or motion graphic → `kind: "graphic"` — an arc shot with no `setup`/`lineup`/`lineupTo`/`join`; a character over it enters by `cutin`
-  - not story (title card, eyecatch, OP/ED) → `kind: "aside"` — a span and a `label`, no `role`/`setup`/`action`/`script`; arc and pacing checks skip it, an unrealized one still blocks export, the animatic never boards it
-- **`setup` is the frame the shot is taken from, required per narrative shot** — a `setups` roster id. Its size and its place are read through it, so a shot never declares `framing` or `location` of its own.
-- **`policy` is required and acceptance-hashed** — `format`, `lang`, `fonts`, `speech`.
+  - a screen, chart or motion graphic → `kind: "graphic"` — an arc shot with no camera; a character over it enters by `cutin`
+  - not story (title card, eyecatch, OP/ED) → `kind: "aside"` — a span and a `label`; arc and pacing checks skip it, the animatic never boards it
+- **`setup` is the frame the shot is taken from** — a `setups` roster id; its size and its place are read through it.
 - **Author `format.size` as `{ megapixels, delivery: { width, height } }`** — delivery sets the aspect; konte derives a 32-grid canvas from the pixel budget (`0.9` at 16:9 → `1248×704`). Lower `megapixels` for cheaper iteration; a delivery well above the canvas needs `export.delivery.upscale`. Start with `fps: 24`; adapter grids govern generated frame counts.
-- **Declare `lang` and `fonts`** — one supported language tag (`"ja"`, `"en"`, `"zh-Hant"`), and Google Fonts families in fallback order. Text placement → `composition-guide`.
+- **`fonts` are Google Fonts families in fallback order** — text placement → `composition-guide`.
 - **`speech` is `"none"`, `"no-dialogue"` or `"free"`** — no lines, narration only, or unrestricted speech.
 - **`script` holds spoken lines; `telop` holds unspoken screen text; `lyrics` holds sung words** — a sung line shown on screen is in `lyrics` alone; a sign inside the world belongs in the image prompt. Stages receive `script` from the direction; notation for Japanese → [japanese-notation.md](references/japanese-notation.md).
-- **A character line requires one `acting` sentence** — how it is said ("wheedling, drawn out, a shade too loud"), never a list of acoustic properties. `{ speaker }` and narration lines take none.
+- **A character line requires one `acting` sentence** — how it is said ("wheedling, drawn out, a shade too loud"), never a list of acoustic properties.
 
 ### The arc
 
@@ -62,7 +61,7 @@ user-invocable: false
 
 ## Clearing direction findings
 
-- **Run `konte status`** — each finding carries a cause and a waiver key in `[brackets]`; unresolved findings abort `generate` / `reroll` / `export` with `DIRECTION_CHECK_FAILED`. Roster and setup findings are deferred until direction acceptance.
+- **Run `konte status`** — each finding carries a cause and a waiver key in `[brackets]`. Roster and setup findings are deferred until direction acceptance.
 - **Role, pacing, or roster declaration finding** → fix the named field; an unused roster entry must be used or removed.
 - **Missing reference asset** → `authoring-guide`; expose the named roster id in `reference.tsx`.
 - **Plate, landmark, keyframe input or prompt finding** → `staging-guide`; fix the named animatic asset; `passer-unconsumed` / `passer-unnamed` name a video take.
@@ -70,7 +69,7 @@ user-invocable: false
 
 ## Pacing — rhythm, not uniform length
 
-- **Every `duration` is a multiple of 0.5s, at least 0.5s** — the shot's span is the window the render cuts the take to. Use the adapter's supported length and let the window cut it.
+- **A shot's span is the window the render cuts the take to** — use the adapter's supported length and let the window cut it.
 - **A cut's pleasure lives in the _contrast_ between shot lengths** — equal-length cuts read as a metronome: choose each length against its neighbors — staccato shots build pressure, a held frame releases; accelerate into a peak, ease after.
 - **`wide` is a spend — establish once per act, when the space itself is content.**
 - **Vary the framing size against its neighbors** — hold `medium`, push to `close`/`insert` before a payoff. A gag/turn's trigger is often an `insert`/`close`, its reaction a `close`.

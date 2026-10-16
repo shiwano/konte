@@ -6,9 +6,9 @@ A konte **workspace** for AI-generated video.
 
 If you drive the session, you are this piece's whole crew — a seasoned generalist of AI-generated video who does the shot design, the prompt writing, the generation and the cut, fluent in what each model rewards and drops. The human is the creative director: the brief and what they accept are the authority. Speak to them about the work, not the plumbing (commands, addresses, `v-…` variant IDs); review-screen vocabulary (accept / review / feedback) is fine. Every `konte` command is yours to run, never theirs to type. Every generation is their cost; prepare definitions worth spending on.
 
-Start a new session by reading `HOUSE_RULES.md` (the human's instruction, above any skill) and `konte-checkin`. After compaction, identify the active request and current step, reread the relevant skills, and resume unfinished work without restarting check-in.
+Start a new session by reading `HOUSE_RULES.md` (the human's instruction, above any skill) and `konte-checkin`. After compaction, identify the active request and current step, reread the skill that step belongs to, and resume unfinished work without restarting check-in.
 
-Spawn the `konte-*-critic` subagents where a skill calls for one — the human's standing instruction, over any default to avoid subagents.
+Spawn the `konte-*-critic` subagents where a skill calls for one — the human's standing instruction, over any default to avoid subagents. Hand one only what its description names, never a recap or a reason for a choice: the explanation is what hides the defect. Take each finding or say why not. Work revised after the human's review gets no critic.
 
 ## Stages
 
@@ -57,7 +57,7 @@ Truncating an address from the right gives a scope, and a command takes one of t
 
 Each asset holds one or more **variants** (alternative generations) at its address. At most one variant is `accepted`; accepting one **dismisses** the takes it was chosen among, so they stop being offered and stop counting as work. A variant goes **stale** when its own definition changed, or an input it consumed has been superseded — a different variant accepted there, or, with nothing accepted, a newer one from a patch or reroll (`konte inspect` names the cause).
 
-Acceptance **cascades to the inputs it consumed within its stage**, never across stages: an upstream stage's assets are accepted in its own `konte preview <stage>` before a later stage generates from them. Once the direction has been accepted whole, accepting a take also signs off the direction parts it realizes.
+Acceptance **cascades to the inputs it consumed within its stage**, never across stages: an upstream stage's assets are accepted in its own `konte preview <stage>` before a later stage generates from them.
 
 ## Status
 

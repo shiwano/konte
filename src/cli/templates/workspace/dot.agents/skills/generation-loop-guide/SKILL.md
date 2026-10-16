@@ -17,13 +17,10 @@ Substitute your stage's `<scope>` / `<address>` into every step below.
 ## Reference order
 
 - **When layout calls for a look proof, run it alone first** — later prompts follow its accepted take. Then run the roster-wired reference pool; without a look proof, start there.
-- **A lined-up character's reference is done only when accepted in `konte preview reference`** — an accept through a shot consuming it never counts; an animatic/video spend aborts `CHARACTER_ACCEPTANCE_REQUIRED` until it is.
 
 ## 1. Preflight
 
 - **Run `konte doctor`** — on a missing backend key or disconnected backend (`FAIL ...`), stop and follow `config-guide` first.
-- **`generate` aborts `DIRECTION_ACCEPTANCE_REQUIRED`** → drive the direction review in `drafting-guide`, then run again.
-- **The board is accepted before the motion it feeds** — `generate video` holds every shot that consumes an `animatic:` address with no accepted take (its keyframes, and its `#stem` where the shot speaks), lists it under `Held`, and spends on the rest; with every shot held it aborts (`ANIMATIC_ACCEPTANCE_REQUIRED`). Take the board through one review of the whole reel (step 5) and run again.
 
 ## 2. See what's missing
 
@@ -67,14 +64,12 @@ After `konte generate` or `konte reroll`:
 
 ### Animatic: the board as a sequence
 
-- **Before the shots' first human review, spawn `konte-animatic-critic` cold with only the `animatic.tsx` path** — after countable defects are cleared and before panels' movement is written. Take or answer each finding.
-- **Judge the assembled cut** — per-shot checks pass on a flat, monotone cut.
-- **Weigh each cut in Walter Murch's Rule of Six order** — emotion, story, rhythm, spatial continuity last.
-- **Read `staging-guide` and run its read-test per shot.**
+- **Before the shots' first human review, spawn `konte-animatic-critic` on `animatic.tsx`** — after countable defects are cleared and before panels' movement is written.
+- **Revising after the human's review, read the assembled cut yourself** — per-shot checks pass on a flat, monotone cut: weigh each cut in Walter Murch's Rule of Six order (emotion, story, rhythm, spatial continuity last), and run `staging-guide`'s read-test on each changed shot.
 
 ### Video: each take
 
-- **Before the shots' first human review, spawn `konte-video-critic` cold with only the `video.tsx` path** — instead of reading its strips. An advisory is a handoff note.
+- **Before the shots' first human review, spawn `konte-video-critic` on `video.tsx`** — instead of reading its strips. An advisory is a handoff note.
 
 ### Fix
 
@@ -106,8 +101,8 @@ After `konte generate` or `konte reroll`:
 
 ## 7. Iterating on feedback
 
-For each target with open feedback, **accepted or not**: **route the human's words through step 5's fix** — read the comment with its pin and `[image: <path>]` frame. A note on what the frame or movement conveys re-derives the shot's whole staging from its `action`; a note changing what the shot shows goes into its `action` too. Then wait (step 4), self-check (step 5), re-review (step 6).
+For each target with open feedback, **accepted or not**: **route the human's words through step 5's fix** — read the comment with its pin and `[image: <path>]` frame. A note changing what the shot shows goes into its `action` too. Then wait (step 4), self-check (step 5), re-review (step 6).
 
-**After human review, spawn no critics for those shots.** The parent checks the changes, adjacent cuts, countable defects and agreement with the feedback before re-review.
+**Before re-review, check the changes, adjacent cuts, countable defects and agreement with the feedback yourself.**
 
 Loop until the stage matrix's "done =" holds, then report the accepted variant per asset and take that row's exit.

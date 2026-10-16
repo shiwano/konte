@@ -43,7 +43,7 @@ import {
 - **`<Audio src={asset} />`** — a one-shot sound in a shot (SE, sting, dialogue, narration). Plays once at full length; may extend past the shot. Props: `src`, `id` (cue handle), `start`, `duration`, `mediaStart`, `volume`, `fadeIn`, `fadeOut`, + any `<audio>` attr. With `mediaStart` omitted, the take's leading silence is skipped, so `start` is where the sound lands
 - **`<Image src={asset} />`** — a still image on the timeline (logo, character, product, plate, overlay). Whole shot unless windowed; at its pixel size unless `fill` makes it a full-stage cover-fit layer. Props: `src` (MediaAsset), `start`, `duration`, `fill`, + any `<img>` attr (`alt`, `className`, `style`)
 - **`<Subtitle entries={[...]} />`** — timed text. Defaults to bottom-center, white, `text-[1.875vmax] font-semibold drop-shadow-lg`; a portrait canvas sits it 15% up at `text-[3.25vmax]`, rendered above clips. Props: `entries: { start, end, text }[]`, + any `<div>` attr (`className` merges, so you can restyle)
-- **`<Cutin at size inset>`** — the shot's declared `cutin`, over the whole shot: `at` a corner (default `bottom-right`), `size` a fraction of canvas width, `inset` the edge gap. Holds that frame's `<Panel>`s on the animatic, its `<Video>` on the video; only where the direction declares one (`CUTIN_REQUIRED` / `CUTIN_UNDECLARED`).
+- **`<Cutin at size inset>`** — the shot's declared `cutin`, over the whole shot: `at` a corner (default `bottom-right`), `size` a fraction of canvas width, `inset` the edge gap. Holds that frame's `<Panel>`s on the animatic, its `<Video>` on the video.
 - **`<Animate script={...} />`** — GSAP animation for the shot. Props: `script: ({ timeline, split }) => void` — `split(selector, { type, mask? })` returns `{ chars, words }`, each a tween target; inferred inline; `import type { GsapTimeline }` only for a callback lifted out of the JSX
 
 Plus **any HTML element** styled with **Tailwind v4** classes or inline `style` — overlays, titles, frames, vignettes.
@@ -53,13 +53,13 @@ Gotchas:
 - **A component prop that takes any asset is `MediaAsset<"image">` / `<"video">` / `<"audio">`**
 - **Fixed px font sizes change apparent size when the canvas size changes** — the canvas renders at `format.size`'s actual pixel size. Use `text-[Nvmax]` (1% of the longer edge) to keep text a constant fraction.
 - **A clip's own audio needs `hasAudio`** — without it the track is dropped: `<Video src={motion} hasAudio volume={0.8} />`.
-- **`volume` is relative gain, 0–3.98 (+12 dB), 1 = unity** — same on `<Audio>`, `<Video>`, `soundtrack()`; above the ceiling the load fails (`AUDIO_GAIN_INVALID`). Omit for the default level.
+- **`volume` is relative gain, 0–3.98 (+12 dB), 1 = unity** — same on `<Audio>`, `<Video>`, `soundtrack()`. Omit for the default level.
 - **`<Animate>` does not auto-assign ids** — give the element your own `id`/`className` and target it by CSS selector (`"#title"`, `".badge"`). Each shot's animation is scoped to that shot, so a selector never reaches another shot's element. Sibling `<Animate>`s each start at 0 of the shot's clock, so a component can carry its own.
 - **`<Animate script>` is serialized to source and run in the browser, closing over nothing** — an import, a module constant, a helper, a value from the shot callback (`script`, an asset): each is a `ReferenceError` there and nothing flags it here. Inline every value; keep the callback an arrow or function expression. A synchronous throw drops the tweens after it and paints a red banner over the shot; one from a `timeline.call` callback or an `async` script fires later, uncaught.
 
 ## Graphic shots
 
-- **Finished on the board** — animatic.tsx's `graphicShot` is the picture itself: components, `<Image>` layers, `<Animate>`; no `<Panel>` outside `<Cutin>` (`ANIMATIC_INVALID`). video.tsx's `graphicShot` imports and places the same component.
+- **Finished on the board** — animatic.tsx's `graphicShot` is the picture itself: components, `<Image>` layers, `<Animate>`; no `<Panel>` outside `<Cutin>`. video.tsx's `graphicShot` imports and places the same component.
 
 ## Fonts
 

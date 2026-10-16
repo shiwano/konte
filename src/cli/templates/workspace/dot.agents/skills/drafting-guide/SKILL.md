@@ -68,9 +68,7 @@ Nothing is written to disk until the human has said yes to the treatment, in so 
 
 A fresh **`konte-direction-critic`** subagent reads the cut and returns findings before the direction goes to review.
 
-- **Two spawns in sequence** — the second, fresh, reads the cut the first one's fixes rewrote. Iterating on the human's direction feedback (step 9) skips both.
-- **Spawn it fresh, never as a fork** — a fork inherits your reading of the piece, which is the one thing the critique is for.
-- **Pass one thing and nothing else** — the path to `direction.ts`. No history, no recap, no reason a choice was made: the explanation is what hides the defect.
+- **Two spawns in sequence** — the second, fresh, reads the cut the first one's fixes rewrote.
 - **Fix every blocking finding; take each advisory or say why not** — or, keeping a blocking one on purpose, write it into `brief.tolerances` with its reason, never into the spawn prompt: the critic skips what the piece has agreed to carry.
 - **A spawn that won't run is the human's call** — ask, naming what the pass covers: unblock it, or go on without. Their go-ahead is what sends you to [self-critique.md](references/self-critique.md) — don't improvise that pass, and don't skip it.
 

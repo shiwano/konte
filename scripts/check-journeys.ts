@@ -35,6 +35,9 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - video 38,750 → 35,350, music-video 39,800 → 36,950 (agreed by a human): cut to the measured
+//   load (35,324 / 36,906) — one owner for the critic spawn rules and a panel's movement, no
+//   per-prompt reread of staging-guide, no rule a type or a refusal's own message already states.
 // - konte-animatic-critic 3,550 → 3,600 (agreed by a human): `plate` as the surface of a fix no
 //   redrawn panel carries.
 // - konte-prompt-critic 3,800 → 3,950, konte-animatic-critic 3,500 → 3,550 (agreed by a human): a
@@ -43,30 +46,19 @@ import { execFileSync } from "node:child_process";
 //   over budget once the draft take's raise was taken back.
 // - konte-video-critic (new, 2,700): each motion take against its shot's action, the board's
 //   movement, the panels it was built on and the boundary into it.
-// - video 37,850 → 38,750, music-video 38,900 → 39,800 (agreed by a human): motion craft for a
-//   graphic shot or moving type — easing, timing, `split` and DrawSVG.
-// - video 37,800 → 37,850, music-video 38,850 → 38,900 (agreed by a human): `MediaAsset<…>` as
-//   the prop type of a component that takes any asset.
 // - dev-adapter 7,550 → 7,600, dev-direction 16,750 → 16,800, dev-render 10,550 → 10,600 (agreed
 //   by a human): comfy routing to Comfy Cloud and Comfy API deployments, `arch-comfy-api-guide`.
 // - dev-comfy-api (new, 5,700): the routing and deployment lifecycle guide.
-// - music-video 38,800 → 38,850 (agreed by a human): no body words in a style layer reused
-//   where no one stands.
 // - dev-direction 16,650 → 16,750 (agreed by a human): a take's song reading kept in `song.json`
 //   beside it, hashed in the variant's `song`.
-// - music-video 38,700 → 38,800, dev-render 10,450 → 10,550 (agreed by a human): `#songStem`, what a
-//   motion model hears of the song, and the adapter `stem` input konte fills with it.
-// - video 37,750 → 37,800, konte-prompt-critic 3,750 → 3,800, konte-animatic-critic 3,450 → 3,500
-//   (agreed by a human): the workspace AGENTS.md's acceptance cascading only within a stage.
-// - video 37,000 → 37,600 (agreed by a human): the `overlay` over every shot; a storyless piece's
-//   branch in scenario-guide.
-// - music-video (new, 38,650): a piece cut to a song — the video chain, storyless, with the song
-//   references.
+// - dev-render 10,450 → 10,550 (agreed by a human): `#songStem`, what a motion model hears of the
+//   song, and the adapter `stem` input konte fills with it.
+// - konte-prompt-critic 3,750 → 3,800, konte-animatic-critic 3,450 → 3,500 (agreed by a human): the
+//   workspace AGENTS.md's acceptance cascading only within a stage.
 // - dev-direction 16,600 → 16,650, dev-render 10,350 → 10,450 (agreed by a human): the song bed,
 //   the song span in a board stem and the take window it derives, `song-overrun`.
 // - dev-release (new, 3,700): cutting a release.
 // - every dev journey +200 (agreed by a human): AGENTS.md's Commits — the commit message format.
-// - video 42,850 → 37,000 (agreed by a human): cut to the measured load (36,935).
 // - dev-render 10,050 → 10,150 (agreed by a human): source gain adjustments in arch-audio-guide;
 //   submission uncertainty and resumable result retrieval in arch-jobs-guide.
 // - dev-skills 10,250 → 11,900: Codex rollout analysis.
@@ -88,8 +80,6 @@ import { execFileSync } from "node:child_process";
 // - konte-animatic-critic (new, 3,300) → 3,450: a viewer's read of one board sequence; the declared
 //   set.
 // - konte-staging-critic (new, 2,450): how one staging pass's panel prompts compose their frames.
-// - video 37,600 → 37,750, music-video 38,650 → 38,700: the panel prompt composes the frame the plate
-//   only places, and the staging pass with its critic.
 
 const WORKSPACE = "src/cli/templates/workspace";
 const SKILLS = `${WORKSPACE}/dot.agents/skills`;
@@ -128,7 +118,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "video",
-    budget: 38_750,
+    budget: 35_350,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
@@ -163,7 +153,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "music-video",
-    budget: 39_800,
+    budget: 36_950,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
