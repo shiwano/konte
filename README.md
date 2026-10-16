@@ -4,7 +4,7 @@
 [![Build Status](https://github.com/shiwano/konte/actions/workflows/ci.yml/badge.svg)](https://github.com/shiwano/konte/actions/workflows/ci.yml)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/2b7UwFE2Yy)
 
-**Make multi-shot AI videos with a coding agent. You direct; your agent produces.**
+**You direct. Your agent produces.**
 
 konte treats the video as a software project, so Claude Code or Codex can run the production end to end. The agent plans the shots, drives generation, tracks every take, and carries your feedback into the next round. You discuss the idea, review the cut in your browser, and decide what changes.
 
