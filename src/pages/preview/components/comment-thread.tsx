@@ -50,10 +50,10 @@ export function ScriptCard({ script }: { script: ScriptLineView[] }): React.Reac
 }
 
 const ROLE_TEXT: Record<PanelRole, string> = {
-  key: "Key: the moment the shot reads; a change shows landed",
-  opening: "Opening: where the motion begins",
-  landing: "Landing: where the motion lands",
-  mid: "Mid: a step on the way to the landing",
+  key: "Key: the shot's defining moment",
+  opening: "Opening: motion starts here",
+  landing: "Landing: motion ends here",
+  mid: "Mid: motion in progress",
 };
 
 // The movement carrying the previous keyframe to this panel, labelled per half. Read-only, pinned
@@ -87,7 +87,7 @@ export function MoveCard({
           </span>
         )}
         <span className="comment-move-row">
-          <span className="comment-move-label">Role</span>
+          <span className="comment-move-label">Position</span>
           <span className="comment-move-text">{ROLE_TEXT[role]}</span>
         </span>
         <span className="comment-move-row">
