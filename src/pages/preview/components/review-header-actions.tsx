@@ -1,5 +1,7 @@
 import type React from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckIcon, ResetIcon } from "./icons.js";
+import { Modal } from "./modal.js";
 
 // "Next" with the count of what still needs a verdict — the same progress signal on every review
 // page (remaining, not a fraction). Un-accepting raises it.
@@ -29,7 +31,7 @@ export function NextUnreviewedButton({
 /**
  * The header's review actions: Next (optional — the video review seats it in its shot list),
  * Accept one, Accept all, Reset. Nothing persists until Submit, so Accept all takes no confirm
- * dialog — each mark stays individually reversible, and Reset drops the lot.
+ * dialog — each mark stays individually reversible, and Reset drops the lot after a confirm.
  */
 export function ReviewHeaderActions({
   next,
@@ -50,6 +52,8 @@ export function ReviewHeaderActions({
   acceptAll?: { done: boolean; what: string; onClick: () => void };
   reset: { disabled: boolean; discards?: string; onClick: () => void };
 }): React.ReactElement {
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const discards = reset.discards ?? "every accept mark, take switch, and draft note";
   return (
     <>
       {next && <NextUnreviewedButton {...next} />}
@@ -66,9 +70,9 @@ export function ReviewHeaderActions({
       <button
         type="button"
         className="ctrl-btn vp-reset"
-        onClick={reset.onClick}
+        onClick={() => setConfirmingReset(true)}
         disabled={reset.disabled}
-        title={`Discard ${reset.discards ?? "every accept mark, take switch, and draft note"}: back to how this review opened`}
+        title={`Discard ${discards}: back to how this review opened`}
       >
         <ResetIcon size={13} /> Reset
       </button>
@@ -89,6 +93,47 @@ export function ReviewHeaderActions({
           <CheckIcon size={13} /> {acceptCurrent.accepted ? "Accepted" : "Accept"}
         </button>
       )}
+      {confirmingReset && (
+        <ResetConfirmModal
+          discards={discards}
+          onCancel={() => setConfirmingReset(false)}
+          onConfirm={() => {
+            setConfirmingReset(false);
+            reset.onClick();
+          }}
+        />
+      )}
     </>
+  );
+}
+
+function ResetConfirmModal({
+  discards,
+  onCancel,
+  onConfirm,
+}: {
+  discards: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}): React.ReactElement {
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => confirmRef.current?.focus(), []);
+  return (
+    <Modal className="reset-modal" title="Reset this review?" onClose={onCancel}>
+      <p className="keep-modal-note">Discards {discards}: back to how this review opened.</p>
+      <div className="keep-modal-actions">
+        <button type="button" className="ctrl-btn" onClick={onCancel}>
+          Cancel <kbd>Esc</kbd>
+        </button>
+        <button
+          type="button"
+          className="ctrl-btn ctrl-btn--primary"
+          onClick={onConfirm}
+          ref={confirmRef}
+        >
+          <ResetIcon size={13} /> Reset
+        </button>
+      </div>
+    </Modal>
   );
 }

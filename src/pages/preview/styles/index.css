@@ -6136,6 +6136,10 @@ body.fill-mode .fab-submit-wrap {
   margin-top: 0.6rem;
 }
 
+.reset-modal {
+  width: min(420px, 92vw);
+}
+
 .keep-modal-tally {
   margin-right: auto;
   font-size: 0.75rem;
