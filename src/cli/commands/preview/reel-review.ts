@@ -1280,7 +1280,8 @@ export async function handleReelSubmit(
   downstreamVideo: StageDefinition | null = null,
 ): Promise<Response> {
   // Stamped before anything is written, so every comment this review carries predates the
-  // accepts it was submitted with (see applyFeedbackMutations).
+  // accepts it was submitted with (see applyFeedbackMutations). The record carries it too: a
+  // comment's own review is the one submitted at its createdAt.
   const reviewedAt = new Date().toISOString();
   const body = await parseJsonBody<{
     decisions: unknown;
@@ -1391,7 +1392,7 @@ export async function handleReelSubmit(
   const record: ReviewRecord = {
     mode: stage === "animatic" ? "animatic-preview" : "video-preview",
     stage,
-    createdAt: new Date().toISOString(),
+    createdAt: reviewedAt,
     context: {
       shots: plan.shots.map((s, i) => ({
         shotId: s.shotId,

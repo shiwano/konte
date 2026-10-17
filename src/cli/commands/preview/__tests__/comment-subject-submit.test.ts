@@ -6,7 +6,7 @@ import { handleGetReelState, handleReelSubmit } from "../reel-review.js";
 import { reloadVideoDefinition } from "../../../../core/loader.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { feedbackStaleness } from "../../../../core/feedback/index.js";
-import { latestReviewTimes } from "../../../../core/review-record.js";
+import { reviewTimes } from "../../../../core/review-record.js";
 import {
   ctx,
   initWorkspace,
@@ -348,11 +348,39 @@ describe("handleReelSubmit — the overall comment", () => {
     const state = (await StateManager.load(videoRoot)).getState();
     const staleness = async () =>
       feedbackStaleness(entry!, "video", state, {
-        latestReviewAt: await latestReviewTimes(videoRoot),
+        reviewTimes: await reviewTimes(videoRoot),
       });
     expect(await staleness()).toBe("fresh");
 
     await submit(videoRoot, { ...body, overallComment: "better" });
+    expect(await staleness()).toBe("stale");
+  });
+});
+
+describe("handleReelSubmit — a comment submitted with its shot's accept", () => {
+  it("stands off the reviewer's page until the stage's next review", async () => {
+    const { videoRoot, motionId } = await project();
+    const body = {
+      stage: "video",
+      displayedVariants: { [MOTION]: motionId },
+      displayedStandInShotIds: [],
+    };
+
+    await submit(videoRoot, {
+      ...body,
+      addedFeedback: [{ address: "video:shot.01", text: "a take with the hand on the hilt" }],
+      decisions: { "01": "accepted" },
+    });
+    const [entry] = await readFeedback(videoRoot, "video:shot.01");
+    const staleness = async (ctx: { reviewerView?: boolean } = {}) =>
+      feedbackStaleness(entry!, "video:shot.01", (await StateManager.load(videoRoot)).getState(), {
+        ...ctx,
+        reviewTimes: await reviewTimes(videoRoot),
+      });
+    expect(await staleness()).not.toBe("stale");
+    expect(await staleness({ reviewerView: true })).toBe("stale");
+
+    await submit(videoRoot, { ...body, overallComment: "next pass" });
     expect(await staleness()).toBe("stale");
   });
 });

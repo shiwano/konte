@@ -34,6 +34,6 @@ Every human review runs the same two steps — preview with a handoff, read the 
 - **It may be partial** — targets the human didn't touch are unchanged, **not** implicitly accepted; reconcile with `konte status`.
 - **A stage accept signs off the direction** — accepting a shot accepts the `direction:` parts describing it (its own, and the acts bracketing it), shown under Accepted as `direction:… (via <stage>:shot.<id>)`.
 - **There is no "reject"** — a target needing work is one they left **feedback** on and did **not** accept. The comment is the instruction; act on it.
-- **Accepted with a comment on it — read the comment, not the toggle** — a comment asking for a change is the instruction, accept or no; one that only reacts leaves the accept as the verdict. `konte status` stops counting it either way.
+- **Accepted with a comment on it — read the comment, not the toggle** — a comment asking for a change is the instruction, accept or no; one that only reacts leaves the accept as the verdict; `feedback list` keeps it until the next review.
 - **An `Overall:` comment is feedback on the bare stage (`video`)** — an instruction like any other, standing until the stage's next review; act on it.
 - **A target left undecided with no comment is a deliberate hold** — submit listed it and the human went ahead anyway. Don't regenerate or guess: ask, or carry it forward.

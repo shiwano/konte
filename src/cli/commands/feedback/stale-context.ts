@@ -2,7 +2,7 @@ import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import type { FeedbackStaleContext } from "../../../core/feedback/index.js";
 import { StateManager } from "../../../core/state/manager.js";
 import type { KonteState } from "../../../core/types/index.js";
-import { latestReviewTimes } from "../../../core/review-record.js";
+import { reviewTimes } from "../../../core/review-record.js";
 import { liveDefinitionHashes } from "./definition-hashes.js";
 import { directionSubjectHashes } from "./subject-hashes.js";
 
@@ -21,7 +21,7 @@ export async function loadFeedbackStaleContext(
       subjectHashes: await directionSubjectHashes(videoRoot),
       definitionHashes: await liveDefinitionHashes(videoRoot),
       cache: manager.stalenessCache(),
-      latestReviewAt: await latestReviewTimes(videoRoot),
+      reviewTimes: await reviewTimes(videoRoot),
     },
   };
 }

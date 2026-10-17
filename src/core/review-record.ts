@@ -303,17 +303,18 @@ export async function findReviewRecordSince(
     : null;
 }
 
-export async function latestReviewTimes(videoRoot: string): Promise<Map<Stage, string>> {
-  const out = new Map<Stage, string>();
+export async function reviewTimes(videoRoot: string): Promise<Map<Stage, string[]>> {
+  const out = new Map<Stage, string[]>();
   for (const stage of ["animatic", "video", "reference", "direction"] as const) {
+    const times: string[] = [];
     for (const { filePath } of await listReviewFiles(path.join(videoRoot, REVIEW_DIR, stage))) {
       try {
-        out.set(stage, parseReviewRecord(await fs.readFile(filePath, "utf-8")).createdAt);
-        break;
+        times.push(parseReviewRecord(await fs.readFile(filePath, "utf-8")).createdAt);
       } catch {
         continue;
       }
     }
+    out.set(stage, times);
   }
   return out;
 }

@@ -4,6 +4,7 @@ import {
   type FeedbackStaleness,
   feedbackStaleness,
 } from "../../core/feedback/index.js";
+import { reviewTimes as readReviewTimes } from "../../core/review-record.js";
 import type { KonteState } from "../../core/types/index.js";
 import { liveDefinitionHashes } from "./feedback/definition-hashes.js";
 import type { StalenessCache } from "../../core/staleness.js";
@@ -35,13 +36,14 @@ export async function assetFeedbackReader(
   const manager = await FeedbackManager.load(videoRoot, stage);
   const definitionHashes =
     stage === "video" || stage === "animatic" ? await liveDefinitionHashes(videoRoot) : undefined;
+  const reviewTimes = await readReviewTimes(videoRoot);
   return (address) =>
     manager.getFeedback(address).map((entry) => ({
       id: entry.id,
       text: entry.text,
       createdAt: entry.createdAt,
       staleness: state
-        ? feedbackStaleness(entry, address, state, { definitionHashes, cache })
+        ? feedbackStaleness(entry, address, state, { definitionHashes, cache, reviewTimes })
         : "unknown",
     }));
 }

@@ -39,7 +39,7 @@ import {
 import { unreadSongTakes } from "../../core/song-queue.js";
 import { isJobTerminal, JobManager } from "../../core/job-manager.js";
 import { jobStatusFlags } from "../../core/job-diagnosis.js";
-import { latestReviewTimes } from "../../core/review-record.js";
+import { reviewTimes as readReviewTimes } from "../../core/review-record.js";
 import type { Direction } from "../../core/dsl/direction.js";
 import { isPendingShot, isPendingAnimaticShot } from "../../core/types/index.js";
 import {
@@ -542,7 +542,7 @@ export function registerStatusCommand(program: Command): void {
       // direction has moved since. `undefined` when direction.ts would not load, which leaves the
       // axis unevaluated rather than reporting every comment stale.
       const subjectHashes = direction ? directionPartHashes(direction) : undefined;
-      const latestReviewAt = await latestReviewTimes(videoRoot);
+      const reviewTimes = await readReviewTimes(videoRoot);
       // One memo for the rest of this pass: a comment's subject and a take Next steps calls
       // awaiting review are both takes the review pages display, read by their resolution.
       const readCache = manager.stalenessCache();
@@ -554,7 +554,7 @@ export function registerStatusCommand(program: Command): void {
           definitionHashes,
           subjectHashes,
           cache: readCache,
-          latestReviewAt,
+          reviewTimes,
         });
         if (staleness === "stale") continue;
         feedbackAddresses.add(address);

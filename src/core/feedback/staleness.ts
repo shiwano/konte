@@ -1,6 +1,7 @@
 import {
   formatAddress,
   formatCompositionAddress,
+  getStage,
   parseShotAddress,
   parseStageAddress,
   shotStemAssetNames,
@@ -46,15 +47,19 @@ export interface FeedbackStaleContext {
   // The caller's resolution memo, carrying the definitions its own surface resolved by. Omit it and
   // a media comment's subject is compared against a take the reviewer was not necessarily shown.
   cache?: StalenessCache;
-  // When each stage's newest review was submitted (`latestReviewTimes`). Omit it and an overall
-  // comment is left unevaluated.
-  latestReviewAt?: ReadonlyMap<Stage, string>;
+  // When each of a stage's reviews was submitted (`reviewTimes`). Omit it and an overall comment,
+  // or one its own review accepted over, is left unevaluated.
+  reviewTimes?: ReadonlyMap<Stage, readonly string[]>;
+  // The reviewer's own page: an accept answers a comment the moment it lands, the one it was
+  // submitted with included.
+  reviewerView?: boolean;
 }
 
 /**
  * A comment is stale when it no longer stands, which happens two ways. The reviewer **signed off
- * over it**: an accept landed on its target at or after it was written (see `acceptedOver`). Or its
- * **subject moved**: what it was written against is no longer what the preview shows.
+ * over it**: an accept landed on its target at or after it was written (see `signedOffOver`) — on
+ * the reviewer's page at once, elsewhere once a later review is in (see `answeredBySignOff`). Or
+ * its **subject moved**: what it was written against is no longer what the preview shows.
  *
  * For a media target the subject is the *resolved* variant — the one actually displayed (accepted if any,
  * else the newest ready variant, else the stale fallback the review surfaces show). The comment is
@@ -78,19 +83,27 @@ export function feedbackStaleness(
   state: KonteState,
   ctx: FeedbackStaleContext = {},
 ): FeedbackStaleness {
+  const writtenAt = Date.parse(entry.createdAt);
   const stage = parseStageAddress(address);
   if (stage !== null) {
-    if (!ctx.latestReviewAt) return "unknown";
-    const latest = ctx.latestReviewAt.get(stage);
-    return latest !== undefined && Date.parse(latest) > Date.parse(entry.createdAt)
+    if (!ctx.reviewTimes) return "unknown";
+    return (ctx.reviewTimes.get(stage) ?? []).some((at) => Date.parse(at) > writtenAt)
       ? "stale"
       : "fresh";
   }
-  if (acceptedOver(entry, address, state)) return "stale";
   // An axis the caller gave no context for is not evidence that the comment still stands. Held
   // rather than returned at once: another axis may still find it stale, which is a verdict, and
   // "stale" outranks "we could not look".
   let unevaluated = false;
+
+  const signOff = signedOffOver(entry, address, state);
+  if (signOff !== null) {
+    if (ctx.reviewerView) return "stale";
+    if (!ctx.reviewTimes) unevaluated = true;
+    else if (answeredBySignOff(writtenAt, getStage(address), signOff, ctx.reviewTimes)) {
+      return "stale";
+    }
+  }
 
   if (entry.subjectHash !== undefined) {
     if (!ctx.subjectHashes) unevaluated = true;
@@ -171,9 +184,9 @@ function shotSignOffAddresses(
 }
 
 /**
- * The reviewer signed off over the comment: the target it stands on carries an accept stamped at or
- * after it was written. There is no "reject" in a review — a target needing work is one left
- * unaccepted — so accepting with a comment on it says "going with this".
+ * When the reviewer signed off over the comment: the instant the target it stands on carried an
+ * accept stamped at or after it was written, else null. There is no "reject" in a review — a target
+ * needing work is one left unaccepted — so accepting with a comment on it says "going with this".
  *
  * A comment written after that accept is not answered by it — a later review asking for work on a
  * signed-off take.
@@ -182,28 +195,62 @@ function shotSignOffAddresses(
  * so an accept and a comment submitted together compare as accept-after-comment whatever order the
  * handler writes them in.
  */
-function acceptedOver(entry: FeedbackEntry, address: string, state: KonteState): boolean {
+function signedOffOver(entry: FeedbackEntry, address: string, state: KonteState): number | null {
   const writtenAt = Date.parse(entry.createdAt);
-  if (Number.isNaN(writtenAt)) return false;
+  if (Number.isNaN(writtenAt)) return null;
   // Parsed, not compared as strings: both fields are bare `z.string()`, and `…:00Z` sorts AFTER
   // `…:00.500Z` lexically — which would read an earlier accept as a later one and drop a comment
   // nobody answered.
   const signedOffAt = (at: string | null | undefined): number => (at ? Date.parse(at) : Number.NaN);
 
-  const acceptedAtOrAfter = (addr: string): boolean =>
-    Object.values(state.assets[addr]?.variants ?? {}).some(
+  const acceptedAtOrAfter = (addr: string): number | null => {
+    for (const variant of Object.values(state.assets[addr]?.variants ?? {})) {
       // Only an accept answers a comment; a dismissal stamps `decidedAt` too.
-      (variant) => variant.status === "accepted" && signedOffAt(variant.decidedAt) >= writtenAt,
-    );
+      if (variant.status !== "accepted") continue;
+      const at = signedOffAt(variant.decidedAt);
+      if (at >= writtenAt) return at;
+    }
+    return null;
+  };
 
-  if (acceptedAtOrAfter(address)) return true;
+  const own = acceptedAtOrAfter(address);
+  if (own !== null) return own;
   const shot = parseShotAddress(address);
-  // `every`, not `some`: a shot is answered when it is finished, and half of it signed off says
-  // nothing about the other half.
-  if (shot && shotSignOffAddresses(entry, shot).every(acceptedAtOrAfter)) return true;
+  if (shot) {
+    // `every`, not `some`: a shot is answered when it is finished, and half of it signed off says
+    // nothing about the other half. Signed off when its last half was.
+    const halves = shotSignOffAddresses(entry, shot).map(acceptedAtOrAfter);
+    if (halves.every((at) => at !== null)) return Math.max(...(halves as number[]));
+  }
   // The direction is variant-less: its sign-off is the per-part acceptance record, so a comment on
   // a part settles exactly as one on an asset does.
-  return signedOffAt(state.directionAcceptance?.parts[address]?.acceptedAt) >= writtenAt;
+  const part = signedOffAt(state.directionAcceptance?.parts[address]?.acceptedAt);
+  return part >= writtenAt ? part : null;
+}
+
+/**
+ * Whether a sign-off answers the comment off the reviewer's page. One the comment's own review
+ * made reads "going with this" to the human, who need not see the comment again, while a comment
+ * asking for a change is still an instruction to whoever acts on the review; so it stands until the
+ * stage's next review is in. A sign-off a later review made — or made after one — answers it as
+ * soon as it lands.
+ *
+ * A comment's own review is the one submitted at its `createdAt`; a review submitted after it and
+ * at or before the sign-off is the one the sign-off came from, or one it followed.
+ */
+function answeredBySignOff(
+  writtenAt: number,
+  stage: Stage,
+  signOff: number,
+  reviewTimes: ReadonlyMap<Stage, readonly string[]>,
+): boolean {
+  for (const [reviewed, times] of reviewTimes) {
+    for (const at of times) {
+      const t = Date.parse(at);
+      if (t > writtenAt && (reviewed === stage || t <= signOff)) return true;
+    }
+  }
+  return false;
 }
 
 export function getFeedbackWithStaleness(

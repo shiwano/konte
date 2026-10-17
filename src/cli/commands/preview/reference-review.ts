@@ -261,7 +261,8 @@ export async function handleReferenceSubmit(
   reportOutcome?: ReportOutcome,
 ): Promise<Response> {
   // Stamped before anything is written, so every comment this review carries predates the
-  // accepts it was submitted with (see applyFeedbackMutations).
+  // accepts it was submitted with (see applyFeedbackMutations). The record carries it too: a
+  // comment's own review is the one submitted at its createdAt.
   const reviewedAt = new Date().toISOString();
   const body = await parseAddressReviewBody(req);
   if (!body) return errorResponse("Invalid review payload", "INVALID_REQUEST", 400);
@@ -303,7 +304,7 @@ export async function handleReferenceSubmit(
   const record: ReviewRecord = {
     mode: "reference-preview",
     stage: "reference",
-    createdAt: new Date().toISOString(),
+    createdAt: reviewedAt,
     context: { shots: [], timeline },
     decisions: outcome.decisions,
     ...(outcome.cascadeAccepted.length > 0 ? { cascadeAccepted: outcome.cascadeAccepted } : {}),

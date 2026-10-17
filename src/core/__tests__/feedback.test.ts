@@ -5,6 +5,7 @@ import {
   getFeedbackWithStaleness,
 } from "../feedback/index.js";
 import { SCHEMA_VERSION } from "../types/index.js";
+import type { Stage } from "../address.js";
 import type { FeedbackEntry, KonteState, VariantState } from "../types/index.js";
 
 function variant(status: VariantState["status"], extra: Partial<VariantState> = {}): VariantState {
@@ -165,6 +166,8 @@ describe("feedbackStaleness", () => {
 // take had moved under it — and only a comment written after it still asks for work.
 describe("feedbackStaleness (an accept stamped over the comment)", () => {
   const COMMENTED_AT = "2026-01-01T00:00:00.000Z";
+  // The reviewer's page, where an accept answers a comment the moment it lands.
+  const PAGE = { reviewerView: true };
 
   function note(): FeedbackEntry {
     return { ...feedback({ [MOTION]: "v-cur" }), createdAt: COMMENTED_AT };
@@ -176,7 +179,7 @@ describe("feedbackStaleness (an accept stamped over the comment)", () => {
         variants: { "v-cur": variant("accepted", { decidedAt: "2026-01-02T00:00:00.000Z" }) },
       },
     });
-    expect(feedbackStaleness(note(), MOTION, state)).toBe("stale");
+    expect(feedbackStaleness(note(), MOTION, state, PAGE)).toBe("stale");
   });
 
   it("leaves a comment written after that accept standing", () => {
@@ -185,16 +188,17 @@ describe("feedbackStaleness (an accept stamped over the comment)", () => {
         variants: { "v-cur": variant("accepted", { decidedAt: "2025-12-31T00:00:00.000Z" }) },
       },
     });
-    expect(feedbackStaleness(note(), MOTION, state)).toBe("fresh");
+    expect(feedbackStaleness(note(), MOTION, state, PAGE)).toBe("fresh");
   });
 
   it("says nothing with no accept, or one stamped before decidedAt was recorded", () => {
-    expect(feedbackStaleness(note(), MOTION, makeState({}))).toBe("fresh");
+    expect(feedbackStaleness(note(), MOTION, makeState({}), PAGE)).toBe("fresh");
     expect(
       feedbackStaleness(
         note(),
         MOTION,
         makeState({ [MOTION]: { variants: { "v-cur": variant("accepted") } } }),
+        PAGE,
       ),
     ).toBe("fresh");
   });
@@ -208,7 +212,7 @@ describe("feedbackStaleness (an accept stamped over the comment)", () => {
       },
     });
     const written = { ...note(), createdAt: "2025-12-31T23:59:59.500Z" };
-    expect(feedbackStaleness(written, MOTION, state)).toBe("fresh");
+    expect(feedbackStaleness(written, MOTION, state, PAGE)).toBe("fresh");
   });
 
   // A whole-shot target holds comments but no variant of its own; the shot's one "ok" lands on its
@@ -219,8 +223,8 @@ describe("feedbackStaleness (an accept stamped over the comment)", () => {
         variants: { "v-comp": variant("accepted", { decidedAt: "2026-01-02T00:00:00.000Z" }) },
       },
     });
-    expect(feedbackStaleness(note(), "video:shot.01", state)).toBe("stale");
-    expect(feedbackStaleness(note(), "video:shot.02", state)).toBe("fresh");
+    expect(feedbackStaleness(note(), "video:shot.01", state, PAGE)).toBe("stale");
+    expect(feedbackStaleness(note(), "video:shot.02", state, PAGE)).toBe("fresh");
   });
 
   // Nothing says which half a shot comment is about — konte cannot read whether "the mother sounds
@@ -231,7 +235,7 @@ describe("feedbackStaleness (an accept stamped over the comment)", () => {
     const STEM = "video:shot.01#stem";
     const heard = { ...note(), displayedDefinitionHashes: { [STEM]: "s1" } };
     // Supplied so the leaf axis reads fresh rather than unknown — this is about the accept axis.
-    const ctx = { definitionHashes: new Map([[STEM, "s1"]]) };
+    const ctx = { ...PAGE, definitionHashes: new Map([[STEM, "s1"]]) };
     const accepted = (decidedAt: string) => ({
       variants: { [`v-${decidedAt}`]: variant("accepted", { decidedAt }) },
     });
@@ -256,7 +260,7 @@ describe("feedbackStaleness (an accept stamped over the comment)", () => {
         variants: { "v-stem": variant("accepted", { decidedAt: "2026-01-02T00:00:00.000Z" }) },
       },
     });
-    expect(feedbackStaleness(note(), "video:shot.01", state)).toBe("fresh");
+    expect(feedbackStaleness(note(), "video:shot.01", state, PAGE)).toBe("fresh");
   });
 
   // The direction is variant-less: its sign-off is the per-part acceptance record.
@@ -269,8 +273,54 @@ describe("feedbackStaleness (an accept stamped over the comment)", () => {
         whole: { hash: "c", acceptedAt: "2026-01-01T00:00:00.000Z" },
       },
     };
-    expect(feedbackStaleness(note(), address, state)).toBe("stale");
-    expect(feedbackStaleness(note(), "direction:brief.tone", state)).toBe("fresh");
+    expect(feedbackStaleness(note(), address, state, PAGE)).toBe("stale");
+    expect(feedbackStaleness(note(), "direction:brief.tone", state, PAGE)).toBe("fresh");
+  });
+});
+
+// Off the reviewer's page, a comment submitted with its own accept is still what the agent acts
+// on: "going with this, but try the hand on the hilt" asks for work the accept does not answer.
+describe("feedbackStaleness (an accept its own review made, read off the reviewer's page)", () => {
+  const WRITTEN = "2026-01-01T00:00:00.000Z";
+  const SAME_SUBMIT = "2026-01-01T00:00:00.100Z";
+  const note = (): FeedbackEntry => ({ ...feedback({ [MOTION]: "v-cur" }), createdAt: WRITTEN });
+  const acceptedAt = (decidedAt: string) =>
+    makeState({ [MOTION]: { variants: { "v-cur": variant("accepted", { decidedAt }) } } });
+  const times = (entries: Array<[Stage, string[]]>) => ({ reviewTimes: new Map(entries) });
+
+  it("stands until the stage's next review is in", () => {
+    const state = acceptedAt(SAME_SUBMIT);
+    expect(feedbackStaleness(note(), MOTION, state, times([["video", [WRITTEN]]]))).toBe("fresh");
+    expect(
+      feedbackStaleness(
+        note(),
+        MOTION,
+        state,
+        times([["video", ["2026-01-03T00:00:00.000Z", WRITTEN]]]),
+      ),
+    ).toBe("stale");
+  });
+
+  it("is untouched by another stage's later review before it", () => {
+    const state = acceptedAt(SAME_SUBMIT);
+    const ctx = times([
+      ["video", [WRITTEN]],
+      ["reference", ["2026-01-03T00:00:00.000Z"]],
+    ]);
+    expect(feedbackStaleness(note(), MOTION, state, ctx)).toBe("fresh");
+  });
+
+  it("settles at once on an accept a later review made, whatever its stage", () => {
+    const state = acceptedAt("2026-01-02T00:00:00.100Z");
+    const ctx = times([
+      ["video", [WRITTEN]],
+      ["animatic", ["2026-01-02T00:00:00.000Z"]],
+    ]);
+    expect(feedbackStaleness(note(), MOTION, state, ctx)).toBe("stale");
+  });
+
+  it("reads unknown, not stale, when the review times were not read", () => {
+    expect(feedbackStaleness(note(), MOTION, acceptedAt(SAME_SUBMIT))).toBe("unknown");
   });
 });
 
@@ -427,18 +477,20 @@ describe("overall comment staleness", () => {
   const note: FeedbackEntry = { ...feedback({}), createdAt: "2026-01-01T00:00:00.000Z" };
 
   it("stands while its own review is the stage's newest", () => {
-    const latestReviewAt = new Map([["video" as const, "2026-01-01T00:00:00.000Z"]]);
-    expect(feedbackStaleness(note, "video", state, { latestReviewAt })).toBe("fresh");
+    const reviewTimes = new Map([["video" as const, ["2026-01-01T00:00:00.000Z"]]]);
+    expect(feedbackStaleness(note, "video", state, { reviewTimes })).toBe("fresh");
   });
 
   it("goes stale once a later review of the stage was submitted", () => {
-    const latestReviewAt = new Map([["video" as const, "2026-01-02T00:00:00.000Z"]]);
-    expect(feedbackStaleness(note, "video", state, { latestReviewAt })).toBe("stale");
+    const reviewTimes = new Map([
+      ["video" as const, ["2026-01-02T00:00:00.000Z", "2026-01-01T00:00:00.000Z"]],
+    ]);
+    expect(feedbackStaleness(note, "video", state, { reviewTimes })).toBe("stale");
   });
 
   it("is untouched by a later review of another stage", () => {
-    const latestReviewAt = new Map([["animatic" as const, "2026-01-02T00:00:00.000Z"]]);
-    expect(feedbackStaleness(note, "video", state, { latestReviewAt })).toBe("fresh");
+    const reviewTimes = new Map([["animatic" as const, ["2026-01-02T00:00:00.000Z"]]]);
+    expect(feedbackStaleness(note, "video", state, { reviewTimes })).toBe("fresh");
   });
 
   it("reads unknown, not fresh, when the review times were not read", () => {

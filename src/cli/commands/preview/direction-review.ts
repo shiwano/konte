@@ -473,7 +473,8 @@ export async function handleDirectionSubmit(
   reportOutcome?: ReportOutcome,
 ): Promise<Response> {
   // Stamped before anything is written, so every comment this review carries predates the
-  // accepts it was submitted with (see applyFeedbackMutations).
+  // accepts it was submitted with (see applyFeedbackMutations). The record carries it too: a
+  // comment's own review is the one submitted at its createdAt.
   const reviewedAt = new Date().toISOString();
   const body = await parseJsonBody<{
     addedFeedback: Array<{
@@ -610,7 +611,7 @@ export async function handleDirectionSubmit(
   const record: ReviewRecord = {
     mode: "direction-preview",
     stage: "direction",
-    createdAt: new Date().toISOString(),
+    createdAt: reviewedAt,
     context: { shots: [], directionParts: Object.fromEntries(subjectHashes) },
     decisions: reviewDecisions,
     ...(Object.keys(sectionDecisions).length > 0

@@ -388,7 +388,10 @@ export function staleFlagsBeforeDecisions(
   for (const { address, entry } of fbMgr.list()) {
     // The record keeps a plain flag: it is a historical note on what the reviewer saw, not a
     // routing input, and "unknown" there would mean the same as "still standing".
-    out.set(entry.id, feedbackStaleness(entry, address, state, ctx) === "stale");
+    out.set(
+      entry.id,
+      feedbackStaleness(entry, address, state, { ...ctx, reviewerView: true }) === "stale",
+    );
   }
   return out;
 }
@@ -430,14 +433,17 @@ export function handoffRecordFields(
   };
 }
 
-/** Persisted feedback for an address, with stale flags computed. */
+/** Persisted feedback for an address, with stale flags as the reviewer's page reads them. */
 export function buildAddressFeedback(
   feedbackMgr: FeedbackManager,
   state: KonteState,
   addr: string,
   ctx?: FeedbackStaleContext,
 ): AddressFeedback[] {
-  const withStaleness = getFeedbackWithStaleness(feedbackMgr.getFeedback(addr), addr, state, ctx);
+  const withStaleness = getFeedbackWithStaleness(feedbackMgr.getFeedback(addr), addr, state, {
+    ...ctx,
+    reviewerView: true,
+  });
   return withStaleness.map((fb) => ({
     id: fb.id,
     address: addr,

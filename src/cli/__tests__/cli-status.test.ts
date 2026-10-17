@@ -24,6 +24,7 @@ import {
 import { FeedbackManager, generateFeedbackId } from "../../core/feedback/index.js";
 import { directionPartHashes } from "../../core/direction-hash.js";
 import { JobManager } from "../../core/job-manager.js";
+import { saveReviewRecord } from "../../core/review-record.js";
 import { loadDirectionIfPresent } from "../load-definition.js";
 import { panelMoveHashes } from "../../core/panel-move-hash.js";
 
@@ -119,7 +120,9 @@ describe("status command", () => {
 
   // Accepting with a comment standing is the reviewer going with the take as it is — there is no
   // "reject", so the accept is the verdict and the comment stays as a note on the record.
-  it("stops routing a comment the reviewer accepted over", async () => {
+  // An accept submitted with the comment leaves it standing until the stage's next review: it is
+  // the human's "going with this", while the comment may still ask the agent for a change.
+  it("stops routing a comment its own review accepted over once the stage's next review is in", async () => {
     const address = "reference:studio";
     const sm = await StateManager.load(projectDir);
     const variantId = sm.reserveVariantId(address);
@@ -133,15 +136,23 @@ describe("status command", () => {
       createdAt: "2026-01-01T00:00:00.000Z",
       createdBy: "local",
     });
-
-    const { stdout: before } = await run(["status"], projectDir);
-    expect(before).toContain("1 address carries a comment");
+    const reviewAt = (createdAt: string) =>
+      saveReviewRecord(
+        projectDir,
+        { mode: "reference-preview", createdAt, context: { shots: [] }, decisions: {} },
+        { force: true },
+      );
+    await reviewAt("2026-01-01T00:00:00.000Z");
 
     // The accept lands after the comment — the same order a review submits them in.
     const sm2 = await StateManager.load(projectDir);
     sm2.setAccepted(address, variantId);
     await sm2.save();
 
+    const { stdout: before } = await run(["status"], projectDir);
+    expect(before).toContain("1 address carries a comment");
+
+    await reviewAt(new Date().toISOString());
     const { stdout } = await run(["status"], projectDir);
     expect(stdout).not.toContain("carries a comment");
     expect(stdout).not.toContain("konte patch new");

@@ -25,6 +25,7 @@ import { KonteError } from "../../core/errors.js";
 import { formatShotSpan } from "../../core/format-duration.js";
 import { FeedbackManager, feedbackStaleness } from "../../core/feedback/index.js";
 import { StateManager } from "../../core/state/index.js";
+import { reviewTimes as readReviewTimes } from "../../core/review-record.js";
 import { scriptLinesToView } from "../../core/types/script.js";
 import {
   loadDirectionIfPresent,
@@ -66,13 +67,14 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
   const state = manager.getState();
   const subjectHashes = directionPartHashes(direction);
   const feedbackMgr = await FeedbackManager.load(videoRoot, "direction");
+  const reviewTimes = await readReviewTimes(videoRoot);
 
   const feedbackOf = (address: string): FeedbackView[] =>
     feedbackMgr.getFeedback(address).map((entry) => ({
       id: entry.id,
       text: entry.text,
       createdAt: entry.createdAt,
-      staleness: feedbackStaleness(entry, address, state, { subjectHashes }),
+      staleness: feedbackStaleness(entry, address, state, { subjectHashes, reviewTimes }),
     }));
 
   const entryOf = (address: string, status: PartEntry["status"]): PartEntry => ({
