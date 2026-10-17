@@ -35,6 +35,8 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - video 35,350 → 35,400, music-video 36,950 → 37,000: a panel's role — a frame's only panel is its
+//   key, the moment the shot reads, handed to the video as a reference.
 // - video 38,750 → 35,350, music-video 39,800 → 36,950 (agreed by a human): cut to the measured
 //   load (35,324 / 36,906) — one owner for the critic spawn rules and a panel's movement, no
 //   per-prompt reread of staging-guide, no rule a type or a refusal's own message already states.
@@ -118,7 +120,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "video",
-    budget: 35_350,
+    budget: 35_400,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
@@ -153,7 +155,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "music-video",
-    budget: 36_950,
+    budget: 37_000,
     files: [
       ...ALWAYS,
       HOUSE_RULES,

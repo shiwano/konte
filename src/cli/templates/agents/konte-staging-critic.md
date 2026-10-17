@@ -35,7 +35,7 @@ Write the reads as an intermediate message. Your final message starts at `Findin
 
 ```txt
 Findings:
-- target: animatic:shot.11.first
+- target: animatic:shot.11.key
   problem: set-clash
   evidence: "the cave mouth above Heracles' shoulder at the upper left" — the plate's cave mouth is centre-left, mid-height; the upper left is bare rock
   smallest-fix: put the cave mouth "behind them, between their heads"

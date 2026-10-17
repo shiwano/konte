@@ -64,6 +64,7 @@ Every pass reads the files you just wrote, never your memory of what you meant.
 - **Revising after the human's review, no critic runs — read the rewritten prompts against their shots yourself:**
   - **each panel prompt** against its shot (`action`, `script`, and the size/place its `setup` carries) and the anchors it conditions on — the `reference:<id>`s, and the setup's plate where it has one; **each motion prompt** against the panel's `blocking` / `camera`; **each voice asset** word for word against the shot's `script` line, a character line's delivery against that shot's `action`
   - **each opening panel against the motion it must launch** — is the condition its `action` lands true in the frame the prompt fixes? Untrue, or half true, is a rewrite, unless that shot opens on the tail by choice
+  - **each key panel** — is it the moment its `action` is read by?
   - **a run-through, shot against shot** — `konte inspect <stage>:shot.<id> --prompts`, in order, opening from the last accepted shot before it, against `staging-guide`'s frame and cut rules: every subject by its `promptDepiction` in `lineup:` order, each `set:` landmark on its side, **each recurring element's wording side by side across shots**
   - **`brief.outOfScope` is a rewrite wherever it shows**; what `brief.tolerances` accepts is never a finding
 

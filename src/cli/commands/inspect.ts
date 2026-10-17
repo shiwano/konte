@@ -32,7 +32,7 @@ import {
   formatDefinitionValue,
   readDefinitionSnapshot,
 } from "../../core/definition-snapshot.js";
-import { collectShots } from "../../core/direction.js";
+import { collectShots, continuousFrameKeys, panelRole } from "../../core/direction.js";
 import { isAsideShot, isGraphicShot, resolveDirectionTimeline } from "../../core/dsl/direction.js";
 import { formatShotSpan } from "../../core/format-duration.js";
 import { directionShotCascadeTargets } from "../../core/direction-acceptance.js";
@@ -1049,7 +1049,14 @@ async function inspectPrompts(
   if (keyframes.length > 0) {
     console.log("Keyframes:");
     for (const k of keyframes) {
-      console.log(`  shot ${k.shotId} · panel ${k.index} of ${k.of} · ${k.lane}   ${k.panel}`);
+      const role = panelRole(
+        k.index,
+        k.of,
+        promptShots?.continuous.has(`${k.shotId}/${k.lane}`) ?? false,
+      );
+      console.log(
+        `  shot ${k.shotId} · panel ${k.index} of ${k.of} · ${k.lane} · ${role}   ${k.panel}`,
+      );
       console.log(`    conditioning: ${k.conditioning.join(", ") || "(none)"}`);
       if (pending) {
         console.log(`    generation: ${pending.has(k.panel) ? "pending" : "comparison only"}`);
@@ -1240,6 +1247,8 @@ interface PromptShots {
   setup: Map<string, string>;
   // The declared boundary into the shot's own frame; an ordinary one has no entry.
   join: Map<string, string>;
+  // The frames a `continuous` seam runs into, keyed `<shotId>/<lane>`.
+  continuous: Set<string>;
   // Per SETUP id, not per shot: the wider frame that one steps in from, null where there is
   // none — a frame that declared nothing answers as a root here, and the two are told apart on the
   // direction's own surfaces.
@@ -1347,7 +1356,21 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
     }));
     if (lines.length > 0) script.set(shot.id, lines);
   }
-  return { action, hinge, passing, span, lineup, set, setup, join, within, cutin, script, label };
+  return {
+    action,
+    hinge,
+    passing,
+    span,
+    lineup,
+    set,
+    setup,
+    join,
+    continuous: continuousFrameKeys(direction),
+    within,
+    cutin,
+    script,
+    label,
+  };
 }
 
 function shotIdOfAddress(address: string): string | null {
@@ -1502,8 +1525,10 @@ taken from no camera, prints neither. konte never turns any of them into prompt 
 prompt under them is read against.
 
 On the board it opens with "Keyframes": one line per <Panel>, saying which shot and lane it stands
-in, its place there ("panel 1 of 2") and the addresses behind it that carry a prompt, in declaration
-order. A panel's name is the author's and a wrapper carries no text, so this is what says which
+in, its place there ("panel 1 of 2"), its role and the addresses behind it that carry a prompt, in
+declaration order. A frame's only panel is its "key" — the moment the shot reads — unless a
+continuous seam runs into the frame; of several, the first is the "opening" and the last the
+"landing". A panel's name is the author's and a wrapper carries no text, so this is what says which
 prompt writes a shot's opening frame.
 
   konte inspect animatic --prompts        Every prompt and spoken line the board declares

@@ -69,15 +69,15 @@ export default defineAnimatic(direction, {
   }),
   timeline: ({ shot, plates }) => ({
     shots: shot("01", ({ script }) => {
-      const first = asset("first", imageGen, {
+      const key = asset("key", imageGen, {
         image1: plates.cabinWide.image,
         image2: reference.character,
-        prompt: `<Picture 1> is the empty frame: ${plates.cabinWide.prompt}. … the character at the window`,
+        prompt: `<Picture 1> is the empty frame: ${plates.cabinWide.prompt}. … the character at the window, back to the room`,
       });
       return (
         <Composition>
           <Panel
-            src={first}
+            src={key}
             blocking="She crosses from the doorway to the window and stops, back to the room."
             camera="fixed"
           />
@@ -114,7 +114,7 @@ export default defineVideo(direction, {
     soundtracks: [soundtrack("bed", reference.bgm, { duck: true })], // whole timeline
     shots: shot("01", () => {
       const motion = asset("motion", videoAdapter, {
-        startImage: animatic.shot("01").image("first"), // cross-stage, by import
+        image1: animatic.shot("01").image("key"), // cross-stage, by import
         audio: animatic.shot("01").stem, // audio-driven models only
         prompt: "She crosses from the doorway to the window and stops.",
       });
@@ -144,5 +144,5 @@ export default defineVideo(direction, {
 - **Depend by passing a `MediaAsset` as an input value** — `asset("motion", animate, { image: reference.background, prompt: "zoom into earth" })`.
 - **Reach by closure, scoped by how wide the sharing is** — within one shot: a local `const`. Across shots in a stage: a timeline asset declared at the top of `timeline` (`video:timeline.<name>`). Across stages: a reference asset (`reference.<name>`).
 - **Across shots, back to any earlier shot** — a build's `shot(id)` reaches any shot the chain has already placed, on both stages: `({ shot }) => shot("01").video(name)` / `.image(name)` / `.audio(name)`.
-- **Across stages** — reach animatic assets through the imported module: `startImage: animatic.shot("01").image("first")`.
+- **Across stages** — reach animatic assets through the imported module: `image1: animatic.shot("01").image("key")`.
 - **Renaming an asset that holds takes** — rename it and its consumers, then `konte rename <old> <new>` before the next `generate`, which would leave its takes and accept behind.

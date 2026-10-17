@@ -105,6 +105,7 @@ export function CommentsPanel({
               key={m.panel}
               panel={moveCards.length > 1 || m.cutin ? m.panel : undefined}
               cutin={m.cutin}
+              role={m.role}
               blocking={m.blocking}
               camera={m.camera}
             />

@@ -13,7 +13,9 @@ import {
   assertDirectionGate,
   checkDirection,
   classifyDirectionFinding,
+  continuousFrameKeys,
   directionWaiverKey,
+  panelRole,
   reportableDirectionFindings,
   validateDirectionStructure,
   type StagingStageState,
@@ -207,6 +209,33 @@ const completeMiniDrama: Direction = leaf({
     shot("03", "pressure"),
     shot("04", "hero", 4),
   ],
+});
+
+describe("panelRole", () => {
+  it("makes a frame's only panel its key, or its opening where a continuous seam runs in", () => {
+    expect(panelRole(1, 1, false)).toBe("key");
+    expect(panelRole(1, 1, true)).toBe("opening");
+  });
+
+  it("opens on the first of several panels and lands on the last", () => {
+    expect([1, 2, 3].map((i) => panelRole(i, 3, false))).toEqual(["opening", "mid", "landing"]);
+    expect(panelRole(1, 2, true)).toBe("opening");
+  });
+});
+
+describe("continuousFrameKeys", () => {
+  it("keys each frame a continuous seam runs into, and none without a direction", () => {
+    const direction = leaf({
+      shots: [
+        shot("01", "ordinary"),
+        { ...shot("02", "disruption", 2), join: "continuous" },
+        shot("03", "pressure"),
+        shot("04", "hero", 4),
+      ],
+    });
+    expect([...continuousFrameKeys(direction)]).toEqual(["02/main"]);
+    expect(continuousFrameKeys(null).size).toBe(0);
+  });
 });
 
 describe("validateDirectionStructure", () => {

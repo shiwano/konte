@@ -1,7 +1,7 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatTimecode } from "../format-time.js";
-import type { DirectionRosterKind, FeedbackInfo, ScriptLineView } from "../types.js";
+import type { DirectionRosterKind, FeedbackInfo, PanelRole, ScriptLineView } from "../types.js";
 import {
   CommentIcon,
   FilmIcon,
@@ -49,11 +49,19 @@ export function ScriptCard({ script }: { script: ScriptLineView[] }): React.Reac
   );
 }
 
+const ROLE_TEXT: Record<PanelRole, string> = {
+  key: "Key: the moment the shot reads; a change shows landed",
+  opening: "Opening: where the motion begins",
+  landing: "Landing: where the motion lands",
+  mid: "Mid: a step on the way to the landing",
+};
+
 // The movement carrying the previous keyframe to this panel, labelled per half. Read-only, pinned
 // above the comments — the claim the reviewer judges the pair of frames against.
 export function MoveCard({
   panel,
   cutin,
+  role,
   blocking,
   camera,
 }: {
@@ -62,6 +70,7 @@ export function MoveCard({
   panel?: string;
   // The panel keys the wipe laid over the shot rather than the shot's own picture.
   cutin?: boolean;
+  role: PanelRole;
   blocking: string;
   camera: string;
 }): React.ReactElement {
@@ -77,6 +86,10 @@ export function MoveCard({
             <span className="comment-move-text">{panel}</span>
           </span>
         )}
+        <span className="comment-move-row">
+          <span className="comment-move-label">Role</span>
+          <span className="comment-move-text">{ROLE_TEXT[role]}</span>
+        </span>
         <span className="comment-move-row">
           <span className="comment-move-label">Blocking</span>
           <span className="comment-move-text">{blocking}</span>

@@ -213,7 +213,7 @@ export default defineAnimatic(direction, {
         );
       })
       .nextShot("03", ({ script, cutin, shot }) => {
-        const first = asset("first", imageMinimaxH3R2i, {
+        const key = asset("key", imageMinimaxH3R2i, {
           image1: reference.rival,
           image2: reference.cook,
           image3: plates.kitchenMedium.image,
@@ -260,7 +260,7 @@ export default defineAnimatic(direction, {
         });
         return (
           <Composition>
-            <Panel src={first} blocking="They wave the smoke away." camera="Pushes in." />
+            <Panel src={key} blocking="They wave the smoke away." camera="Pushes in." />
             <Cutin at="bottom-left" size={0.25} inset={0.02}>
               <Panel src={insert} alt={cutin.setup} blocking="Smoke curls up." camera="Holds." />
             </Cutin>
@@ -312,7 +312,7 @@ export default defineAnimatic(direction, {
       .nextShot("05", ({ framing, location, setup }) => (
         <Composition>
           <Panel
-            src={asset("only", imageMinimaxH3R2i, {
+            src={asset("key", imageMinimaxH3R2i, {
               image1: reference.cook,
               image2: plates.kitchenClose.image,
               prompt: still({
@@ -325,8 +325,8 @@ export default defineAnimatic(direction, {
                   kept("<Subject 1>", "his face and apron."),
                   kept("<Picture 2>", "the framing and the room."),
                 ],
-                summary: "The boy sets a plate of eggs down.",
-                described: `${KITCHEN_CLOSE}; the boy sets down a plate of eggs, grinning.`,
+                summary: "The boy grins over the plate of eggs he has set down.",
+                described: `${KITCHEN_CLOSE}; the plate of eggs on the table, the boy grinning over it.`,
               }),
             })}
             alt={`${setup} ${framing} ${location}`}
@@ -336,7 +336,7 @@ export default defineAnimatic(direction, {
         </Composition>
       ))
       .nextShot("06", () => {
-        const first = asset("first", imageMinimaxH3R2i, {
+        const key = asset("key", imageMinimaxH3R2i, {
           image1: reference.rival,
           image2: plates.yardWide.image,
           prompt: still({
@@ -355,7 +355,7 @@ export default defineAnimatic(direction, {
         });
         return (
           <Composition>
-            <Panel src={first} blocking="She blows on the toast." camera="Holds." />
+            <Panel src={key} blocking="She blows on the toast." camera="Holds." />
           </Composition>
         );
       })
@@ -364,7 +364,7 @@ export default defineAnimatic(direction, {
         return (
           <Composition>
             <Panel
-              src={asset("only", imageMinimaxH3R2i, {
+              src={asset("key", imageMinimaxH3R2i, {
                 image1: reference.rival,
                 image2: reference.cook,
                 image3: plates.kitchenMedium.image,
@@ -380,8 +380,8 @@ export default defineAnimatic(direction, {
                     kept("<Subject 2>", "his face and apron."),
                     kept("<Picture 3>", "the framing and the room."),
                   ],
-                  summary: "The woman hands the boy a fresh pan.",
-                  described: `${KITCHEN_MEDIUM}; the woman at left hands the boy at right a fresh pan.`,
+                  summary: "The boy laughs, the fresh pan in his hands.",
+                  described: `${KITCHEN_MEDIUM}; the woman at left, the boy at right holding the fresh pan, laughing.`,
                 }),
               })}
               blocking="She hands it over; he laughs."

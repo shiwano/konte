@@ -15,22 +15,30 @@ import {
 import { videoMinimaxH3R2v } from "konte/workspace/adapters/comfy/video_minimax_h3_r2v.js";
 import { videoSeedvr2Upscale } from "konte/workspace/adapters/comfy/video_seedvr2_upscale.js";
 import { audioStableAudio3Medium } from "konte/workspace/adapters/comfy/audio_stable_audio_3_medium.js";
-import { falSeedance25I2v } from "konte/workspace/adapters/fal/seedance-2-5.js";
+import { falSeedance25I2v, falSeedance25R2v } from "konte/workspace/adapters/fal/seedance-2-5.js";
 import { falVideoUpscale } from "konte/workspace/adapters/fal/video-upscale.js";
 import animatic from "./animatic";
 import direction from "./direction";
 import reference from "./reference";
 
-const motionPrompt = (summary: string, described: string, landing = true) => ({
-  subjectDefinitions: [
-    "<Picture 1> is the first frame of [Shot 1].",
-    ...(landing ? ["<Picture 2> is the last frame of [Shot 1]."] : []),
-  ],
+const motionPrompt = (summary: string, described: string, frames: "pinned" | "key") => ({
+  subjectDefinitions:
+    frames === "key"
+      ? ["<Picture 1> is the key frame of [Shot 1]."]
+      : [
+          "<Picture 1> is the first frame of [Shot 1].",
+          "<Picture 2> is the last frame of [Shot 1].",
+        ],
   summary: { tasks: ["keyframe completion"] as ["keyframe completion"], text: summary },
-  retentionAnalysis: [
-    "<Picture 1> ([Shot 1] first frame): fully_preserved - the opening frame.",
-    ...(landing ? ["<Picture 2> ([Shot 1] last frame): fully_preserved - the closing frame."] : []),
-  ],
+  retentionAnalysis:
+    frames === "key"
+      ? [
+          "<Picture 1> ([Shot 1] key frame): fully_preserved - the set, framing and light it lands in.",
+        ]
+      : [
+          "<Picture 1> ([Shot 1] first frame): fully_preserved - the opening frame.",
+          "<Picture 2> ([Shot 1] last frame): fully_preserved - the closing frame.",
+        ],
   detailedDescription: { style: "2D-animated.", shots: [described] as [string] },
   overallSoundscape: "A quiet kitchen.",
   nonDiegeticMusic: "N/A",
@@ -43,7 +51,11 @@ const pinned = (id: "02" | "06" | "08", first: string, last: string, text: strin
     startImage: animatic.shot(id).image(first),
     endImage: animatic.shot(id).image(last),
     audioStem: animatic.shot(id).stem,
-    prompt: motionPrompt(text, `${text} The shot opens on <Picture 1> and lands on <Picture 2>.`),
+    prompt: motionPrompt(
+      text,
+      `${text} The shot opens on <Picture 1> and lands on <Picture 2>.`,
+      "pinned",
+    ),
   });
 
 export default defineVideo(direction, {
@@ -91,18 +103,17 @@ export default defineVideo(direction, {
         ))
         .nextShot("03", () => {
           const motion = asset("motion", videoMinimaxH3R2v, {
-            image1: animatic.shot("03").image("first"),
-            startImage: animatic.shot("03").image("first"),
+            image1: animatic.shot("03").image("key"),
             audioStem: animatic.shot("03").stem,
             prompt: motionPrompt(
               "They wave the smoke away.",
-              "The shot opens on <Picture 1>; they wave the smoke away.",
-              false,
+              "They wave the smoke away; the shot's keyframe corresponds to <Picture 1>.",
+              "key",
             ),
           });
-          const insert = asset("insert", falSeedance25I2v, {
-            prompt: "Smoke curls up off the pan.",
-            image: animatic.shot("03").image("insert"),
+          const insert = asset("insert", falSeedance25R2v, {
+            prompt: "@Image1 is the key frame: the smoking pan. Smoke curls up off the pan.",
+            referenceImages: [animatic.shot("03").image("insert")],
             resolution: "480p",
           });
           return (
@@ -136,9 +147,9 @@ export default defineVideo(direction, {
             width: 1920,
             height: 1080,
           });
-          const wipe = asset("wipe", falSeedance25I2v, {
-            prompt: "The boy nods along.",
-            image: animatic.shot("04").image("wipe"),
+          const wipe = asset("wipe", falSeedance25R2v, {
+            prompt: "@Image1 is the key frame: the boy at the table. The boy nods along.",
+            referenceImages: [animatic.shot("04").image("wipe")],
           });
           return (
             <Composition>
@@ -151,9 +162,10 @@ export default defineVideo(direction, {
           );
         })
         .nextShot("05", ({ duration }) => {
-          const motion = asset("motion", falSeedance25I2v, {
-            prompt: "The boy sets the plate down and grins.",
-            image: animatic.shot("05").image("only"),
+          const motion = asset("motion", falSeedance25R2v, {
+            prompt:
+              "@Image1 is the key frame: the boy, the plate set down. The boy sets the plate down and grins.",
+            referenceImages: [animatic.shot("05").image("key")],
           });
           const still = asset("still", adapters.videoFrame, { source: motion, at: "last" });
           const tail = asset("tail", adapters.audioTrim, {
@@ -179,8 +191,8 @@ export default defineVideo(direction, {
             <Video
               src={asset("motion", falSeedance25I2v, {
                 prompt: "She blows on the burnt toast.",
-                image: animatic.shot("06").image("first"),
-                endImage: animatic.shot("06").image("first"),
+                image: animatic.shot("06").image("key"),
+                endImage: animatic.shot("06").image("key"),
               })}
             />
           </Composition>
@@ -189,9 +201,10 @@ export default defineVideo(direction, {
         .nextShot("08", ({ shot }) => (
           <Composition>
             <Video
-              src={asset("motion", falSeedance25I2v, {
-                prompt: "She hands the boy a fresh pan and he laughs.",
-                image: animatic.shot("08").image("only"),
+              src={asset("motion", falSeedance25R2v, {
+                prompt:
+                  "@Image1 is the key frame: the boy holding the fresh pan. She hands the boy a fresh pan and he laughs.",
+                referenceImages: [animatic.shot("08").image("key")],
               })}
               mediaStart={0}
             />

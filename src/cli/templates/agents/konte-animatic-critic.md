@@ -46,15 +46,15 @@ Taste, a bare alternative, or a count is never `blocking`. The verdict is `revis
 Verdict: pass | revise
 
 Blocking findings
-- target: animatic:shot.05.first
+- target: animatic:shot.05.key
   problem: invisible-change
-  evidence: cell 05.first: the cat sits beside the bag, paws down; the action says the paw drags the bag off the sill, and no panel shows the paw on the bag
-  smallest-fix: panel — redraw first with the paw hooked into the bag's strap, the bag still on the sill
+  evidence: cell 05.key: the cat sits beside the bag, paws down; the action says the paw drags the bag off the sill, and the bag is still on the sill
+  smallest-fix: panel — redraw key with the bag tipped off the sill's edge, the paw hooked in its strap
 
 Advisories
 - target: 03→04
   problem: jump-cut
-  evidence: cells 03.first and 04.first: the same medium on the same corner of the counter, the cat in the same pose
+  evidence: cells 03.key and 04.key: the same medium on the same corner of the counter, the cat in the same pose
   smallest-fix: plate — 04's setup at another angle on the counter, or panel — open 04 on the insert of the bell
 ```
 
@@ -72,7 +72,7 @@ Called with `plates`, before any shot stands on them. Read `konte probe contact-
 ## Axes
 
 - **Hook** — does the first panel put something on screen a viewer wants answered?
-- **Shot** — does each shot's panel show the `action`'s loaded instant — the instant before the change, or the change under way where it would not finish inside the shot at real-world speed — and on a two-panel shot can you draw the one path between the pair? A pair you could read as a jump cut will morph.
+- **Shot** — does a shot's only panel show the moment its `action` is read by — a change landed, a continuing action or a state as itself? Where a `continuous` join runs into the shot, that panel is the seam and shows the loaded instant instead. On a two-panel shot, does the first show the loaded instant — the instant before the change, or the change under way where it would not finish inside the shot at real-world speed — and can you draw the one path between the pair? A pair you could read as a jump cut will morph.
 - **Who and where** — does the panel hold everyone the shot's `lineup` names, in that order, and is the mover the frame's most salient element?
 - **Cut** — on each pair of adjacent panels: does size or angle change, does the subject's screen direction hold, does the space still assemble? A pair that changes nothing is a jump; a pair that swaps a subject's side is an axis break.
 - **Continuity** — is a recurring character, costume, prop or set the same thing from panel to panel, and does the world's ledger hold (what broke stays broken, what was picked up is in hand)?
@@ -80,6 +80,6 @@ Called with `plates`, before any shot stands on them. Read `konte probe contact-
 - **Lines** — does each line play over the picture of the shot that carries it, on the speaker the `script` names, inside that shot's window?
 - **Ending** — does the last panel carry `brief.audience`'s takeaway on its own?
 
-Problems: `weak-hook` (nothing to want answered in the first panel), `misread-shot` (another subject/event than `action`, or a passer at an endpoint; the instant before the change is exempt), `invisible-change` (the shot's change has no panel it can be seen starting from — on a two-panel shot, none it can be seen starting from or landing on), `absent-subject` (a panel does not hold someone its endpoint `lineup` / `lineupTo` or `action` needs; a `passing` figure is absent at both endpoints), `lineup-misplaced` (the frame holds them in another order than the `lineup`), `jump-cut` (an adjacent pair changing neither size nor angle, with no job and no `join` declared between them), `axis-break` (a pair swapping a subject's side or direction), `continuity-drift` (a recurring thing that is not the same thing across panels, changed possession or holding hand, or a ledger reset — never across a `jump-back` / `jump-forward`), `look-drift` (a panel whose palette, register or scale breaks from the board), `wrong-speaker` (a line playing over a picture that does not carry its speaker or its shot), `line-misplaced` (a line outside its shot's window, or on the wrong instant of it), `flat-ending` (a last panel that carries nothing).
+Problems: `weak-hook` (nothing to want answered in the first panel), `misread-shot` (another subject/event than `action`, or a passer at an endpoint; an opening's instant before the change is exempt), `invisible-change` (the shot's change cannot be seen: its only panel does not show it landed — starting, where a `continuous` join runs into the shot — or, on a two-panel shot, no panel shows it starting or landing), `absent-subject` (a panel does not hold someone its endpoint `lineup` / `lineupTo` or `action` needs; a `passing` figure is absent at both endpoints), `lineup-misplaced` (the frame holds them in another order than the `lineup`), `jump-cut` (an adjacent pair changing neither size nor angle, with no job and no `join` declared between them), `axis-break` (a pair swapping a subject's side or direction), `continuity-drift` (a recurring thing that is not the same thing across panels, changed possession or holding hand, or a ledger reset — never across a `jump-back` / `jump-forward`), `look-drift` (a panel whose palette, register or scale breaks from the board), `wrong-speaker` (a line playing over a picture that does not carry its speaker or its shot), `line-misplaced` (a line outside its shot's window, or on the wrong instant of it), `flat-ending` (a last panel that carries nothing).
 
 Formal faults — a `duration` off the grid, a lens role out of order, a lineup the direction check owns, a missing `blocking`/`camera` note — are the checks' and the loop's; report a panel only when it is formally valid and still weak as a board.

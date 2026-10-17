@@ -27,7 +27,7 @@ What differs is what may go inside:
 
 **A `<Cutin>` is a second lane.** It renders its children itself through `renderInContext` with `lane: "cutin"` — a component's returned element renders only after it returns — so a `<Panel>` inside records into the cutin lane, pairs against `cutinPanels` on its own cursor, and lands in `shot.cutin.panels`, windowed on the same clock. `partitionShotRefs` counts the `<Cutin>`s and collects the refs drawn inside (`shot.cutin.refs`, on both stages), which `defineStage` checks against the direction (`CUTIN_REQUIRED` / `CUTIN_UNDECLARED`). A part name is the shot's across both lanes.
 
-**`blocking` / `camera` never reach the HTML.** They are the movement out of a panel — the subject, and the camera — across the span to the next keyframe, or, on a shot's only panel, to the shot's end: prose in the working language that `video.tsx` reads when it writes its motion prompt, so they are written from the take, a review prerequisite gated at `preview` / `accept`. Discovery rejects them only on a multi-panel shot's last panel, the landing frame nothing moves out of — unless the next shot runs on from that lane in one take (`ShotDefinition.continuedBy`): the last panel then owes the transit like any other (`arch-direction-guide`, Join). They are collected the way `asset()`'s prompts are, so they fall outside the composition's definition hash. Rewriting a move after the take came back asks for no re-accept and no reroll; it is hashed on its own axis (`panel-move-hash.ts`), read only by the comments written on the panel.
+**`blocking` / `camera` never reach the HTML.** They are the movement out of a panel — the subject, and the camera — across the span to the next keyframe, or, on a shot's only panel (its key, `panelRole`), the whole shot: prose in the working language that `video.tsx` reads when it writes its motion prompt, so they are written from the take, a review prerequisite gated at `preview` / `accept`. Discovery rejects them only on a multi-panel shot's last panel, the landing frame nothing moves out of — unless the next shot runs on from that lane in one take (`ShotDefinition.continuedBy`): the last panel then owes the transit like any other (`arch-direction-guide`, Join). They are collected the way `asset()`'s prompts are, so they fall outside the composition's definition hash. Rewriting a move after the take came back asks for no re-accept and no reroll; it is hashed on its own axis (`panel-move-hash.ts`), read only by the comments written on the panel.
 
 ## The stem
 
@@ -59,7 +59,7 @@ There is no animatic-specific spend gate. `GATED_UPSTREAM` lists `[reference, an
 
 `konte preview animatic` is `konte preview video`'s page, handler and submit (`reel-review.ts`, told which stage by the definition it is handed): one reel played through, one verdict per shot folding its `#composition`, its stem and the takes they rest on, takes picked in the variant gallery, comments pinned at the playhead on `animatic:shot.<id>`.
 
-Both print the board's `blocking` / `camera` in the selected shot's detail.
+Both print the board's `blocking` / `camera` in the selected shot's detail, with each panel's role.
 
 Three differences:
 

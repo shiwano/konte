@@ -44,7 +44,7 @@ Commands act on one video: the one you are inside, or else the workspace's **cur
 
 Everything konte generates, reviews or comments on is addressed as `<stage>:<part>`, across four stages:
 
-- `video:shot.01.motion`, `animatic:shot.01.first`, `video:timeline.bgm` — the two creative stages. A part you name is `shot.<id>.<name>` or `timeline.<name>`. Parts konte owns are introduced by `#` instead of `.`, a character no asset name may contain: a shot's `#composition` (the assembled shot) and `#stem` (its audio), and the timeline's `#stem` (the beds).
+- `video:shot.01.motion`, `animatic:shot.01.key`, `video:timeline.bgm` — the two creative stages. A part you name is `shot.<id>.<name>` or `timeline.<name>`. Parts konte owns are introduced by `#` instead of `.`, a character no asset name may contain: a shot's `#composition` (the assembled shot) and `#stem` (its audio), and the timeline's `#stem` (the beds).
 - `reference:bgm` — the reference pool of shared building blocks; its part is a bare name. Accepting one satisfies every stage that consumes it.
 - `direction:sequence.shots.01` — a **feedback target** on the direction, holding comments. Each part is its **field path in `direction.ts`** (`brief.logline`, `characters.cat`, `waivers.<key>`, …), so an address reads straight back into the file.
 

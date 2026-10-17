@@ -104,7 +104,7 @@ describe("inspect --prompts", () => {
       projectDir,
     );
     expect(stdout).toMatch(
-      /panel 1 of 1.*animatic:shot\.01\.keyframe\n.*conditioning:.*\n {4}generation: pending/,
+      /panel 1 of 1 · main · key {3}animatic:shot\.01\.keyframe\n.*conditioning:.*\n {4}generation: pending/,
     );
     expect(await fs.readFile(path.join(projectDir, "konte.state.json"), "utf8")).toBe(before);
   });

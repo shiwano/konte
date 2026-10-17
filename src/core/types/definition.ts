@@ -142,7 +142,9 @@ export const PanelDefinitionSchema = z.object({
   start: z.number(),
   duration: z.number(),
   // The subject movement carrying THIS frame to the next one — or, when it is the shot's only
-  // frame, to the shot's end. The transit, not either endpoint. Written from the take that came
+  // frame, its key, the shot's whole movement: into the moment the frame holds and on to the
+  // shot's end (an only frame a `continuous` seam runs into opens the take, so its movement leaves
+  // it). The transit, not either endpoint. Written from the take that came
   // back, so it is absent until bound; the last panel of a multi-panel shot is the landing frame
   // and never carries it (see assertPanelMoves) unless the next shot runs on from this lane in one
   // take (`continuedBy`), and every other panel must carry it before the board reaches review

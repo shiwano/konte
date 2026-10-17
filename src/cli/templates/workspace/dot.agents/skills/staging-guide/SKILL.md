@@ -14,7 +14,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 ## Where the movement lives
 
 - **The shot's goal is the direction's `action`, stated once in `direction.ts`** — stage against it, never restate it. There is no separate audio goal.
-- **Every panel declares the movement out of it** — `blocking` and `camera`, across the span to the next keyframe, or, on a shot's only panel, to the shot's end. A multi-panel shot's landing frame declares neither, except at a continuous seam.
+- **Every panel declares the movement out of it** — `blocking` and `camera`, across the span to the next keyframe; a key, the shot's whole movement. A multi-panel shot's landing frame declares neither, except at a continuous seam.
 - **Write it from the take** — settle the panel's take first, then write the transit the `action` needs from that frame; if the take can't launch it, the take is wrong, not the shot.
 - **Rewriting it after the panel was accepted asks for no review of its own** — the take is untouched.
 - **Only the transit** — a keyframe fixes a position, never a direction through it; what the pair already shows does not belong in these fields.
@@ -29,7 +29,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 ## Stage the frame
 
 - **The plate fixes the place and the camera; the panel prompt composes** — where each figure sits and faces, what fills the frame they leave open, what is nearest the lens, what the edges cut, chosen from what the `action` has to show; naming only who is left and right leaves the frame to the model.
-- **Each panel prompt writes one state of the `action`** — the opening frame its starting state, a landing frame its final state.
+- **Each panel prompt writes one state of the `action`** — the opening frame its starting state, a landing frame its final state, a key the moment the shot reads, a change landed.
 - **Make the setup's `framing` concrete** — within the frame its plate holds, write the subject's crop or share of the image: "waist-up", "her head fills a third of the frame's height".
 - **The eye lands on the action's carrier** — whatever the shot hinges on must be the frame's most salient element (position, contrast, light, motion); if a stranger's eye goes elsewhere first, the staging failed before the prompt.
 - **One strong signifier per idea** — pick the element that says it best and cut action-adjacent extras; each one added dilutes the read.
@@ -64,7 +64,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 
 - **An `action` that needs two motions is a direction fix**, never a longer prompt.
 - **A motion shot is a visible change — fix state A and state B** — what the clip's first and last moments must each read as; if they read the same, the shot didn't happen. A near-still shot is chosen up front, in the panel's `camera`/`blocking`, never rationalized after a quiet clip comes back.
-- **A shot's `first` panel stages where its motion begins, not where it lands** — the loaded instant before the action, never the peak, or the shot has nowhere to move. A change too long for the shot at real speed (a two-beat grin) opens mid-motion.
+- **An opening panel stages where its motion begins, not where it lands** — the loaded instant before the action, never the peak, or the shot has nowhere to move. A change too long for the shot at real speed (a two-beat grin) opens mid-motion.
 - **Audio is staging too** — a one-shot `<Audio>` lands on a visible action frame (name which); a `soundtrack()` bed states a mood the picture already earns (placement → `composition-guide`). Sound or a telop never rescues an unreadable picture — fix the staging.
 
 ## Stage for the generator

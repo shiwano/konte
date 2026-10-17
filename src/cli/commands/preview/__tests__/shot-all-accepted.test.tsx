@@ -153,6 +153,6 @@ describe("shot moves", () => {
     const res = await handleGetReelState(dir, motionVideo, "/assets", null, null, animatic);
     const body = (await res.json()) as { shots: { moves: unknown[] }[] };
 
-    expect(body.shots[0]!.moves).toEqual([{ panel: "first", cutin: false, ...moves }]);
+    expect(body.shots[0]!.moves).toEqual([{ panel: "first", cutin: false, role: "key", ...moves }]);
   });
 });

@@ -16,7 +16,10 @@ export type PanelProps = Omit<ImgElementProps, "src" | "children" | "start"> & {
    * dissolve with `<Animate>`.
    */
   start?: number;
-  /** The subject movement carrying this keyframe to the next one (or, on the only panel, to the shot's end). */
+  /**
+   * The subject movement carrying this keyframe to the next one — or, on a shot's only panel, its
+   * key, the shot's whole movement: into the moment the panel holds and on to the shot's end.
+   */
   blocking?: string;
   /** The camera's behaviour over that same transit. */
   camera?: string;
@@ -24,8 +27,8 @@ export type PanelProps = Omit<ImgElementProps, "src" | "children" | "start"> & {
 
 /**
  * A keyframe of an animatic shot: a part name (the leaf of its `src` address — what
- * `animatic.shot("01").image("first")` reaches from `video.tsx`), a slot on the shot's clock, the
- * movement leaving it, and a frame in the contact sheet. A plain `<Image>` in the same composition
+ * `animatic.shot("01").image("key")` reaches from `video.tsx`), a slot on the shot's clock, the
+ * movement it carries, and a frame in the contact sheet. A plain `<Image>` in the same composition
  * is a layer, not a keyframe — use it for a background plate or a title card.
  */
 export function Panel({

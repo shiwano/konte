@@ -542,6 +542,28 @@ export function frameSubject(frame: Pick<ShotFrame, "shotId" | "lane">): string 
   return frame.lane === "cutin" ? `${frame.shotId}.cutin` : frame.shotId;
 }
 
+/**
+ * The job a keyframe does in its frame. A frame's only panel is its key — the moment the shot reads —
+ * unless the frame runs on from the one before in one take, where it is that seam and opens the
+ * take. Of several, the first opens and the last lands.
+ */
+export type PanelRole = "key" | "opening" | "landing" | "mid";
+
+export function panelRole(index: number, of: number, continuous: boolean): PanelRole {
+  if (of === 1) return continuous ? "opening" : "key";
+  if (index === 1) return "opening";
+  return index === of ? "landing" : "mid";
+}
+
+// The frames whose boundary in is a `continuous` seam, keyed `<shotId>/<lane>`.
+export function continuousFrameKeys(direction: Direction | null): Set<string> {
+  return new Set(
+    (direction ? collectShotFrames(direction) : [])
+      .filter((f) => f.join === "continuous")
+      .map((f) => `${f.shotId}/${f.lane}`),
+  );
+}
+
 function frameLabel(frame: Pick<ShotFrame, "shotId" | "lane">): string {
   return frame.lane === "cutin"
     ? `the cutin over shot "${frame.shotId}"`

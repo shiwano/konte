@@ -117,12 +117,16 @@ export interface AudioTrackAssetInfo {
   cues: AudioCueInfo[];
 }
 
+export type PanelRole = "key" | "opening" | "landing" | "mid";
+
 // One panel's declared movement, carried into the video review under the panel it moves out of.
 export interface ShotMoveInfo {
   // The animatic panel's asset name — which board frame the prose starts from.
   panel: string;
   // The panel keys the shot's `<Cutin>`, the second camera frame over its picture.
   cutin: boolean;
+  // What the panel's picture is judged as (`panelRole`).
+  role: PanelRole;
   blocking: string;
   camera: string;
 }

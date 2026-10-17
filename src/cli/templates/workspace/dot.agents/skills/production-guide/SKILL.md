@@ -16,8 +16,8 @@ Choose each shot's production method; done = its required anchors and duration a
    - **Muxing an authored voice over a take that generated its own audio is not the fallback** — see Pitfalls.
 3. **Does it carry material or continuity?** A recurring character, a specific product / logo / real person, a look matching an **already-accepted visual** → anchor on generated material, **never text alone**. A general style or world tone alone can still be text alone.
 4. **Which anchors does the shot need — the ones it needs, not the ones already drawn.**
-   - **A pinned first frame — the default** → the take opens on the shot's board panel (below).
-   - **A pinned last frame too** → only where the viewer must see that exact picture (below).
+   - **One panel, passed as a reference — the default** (below).
+   - **Two panels, pinned at both ends** → only where the viewer must see that exact picture (below).
    - **Carried subjects, a recorded move or a voice** — several recurring figures in one frame, an identity holding across sheets, a look no panel drew → references.
    - **The stem as the take's own track** — from step 2.
    - **No panel to open on** (an aside, which the board never draws) → text alone, or references by step 3.
@@ -30,9 +30,9 @@ Choose each shot's production method; done = its required anchors and duration a
 - **References steer, they do not pin** — a panel passed as a reference carries framing, palette and style; its pixels do not open the clip. Only a first/last-frame anchor does.
 - **Every reference is paid for on every sampling step** — pass the ones the shot needs, not the whole roster; the model's guide carries the per-reference cost and any cap.
 
-## Pinning the first frame only — the default
+## One panel, passed as a reference — the default
 
-- **One `<Panel>` per shot** — the take opens on it, motion steered by the prompt, the end pose left to the model. A board where most shots carry two panels is over-pinned.
+- **One `<Panel>` per shot, its key** (`staging-guide`), passed as a reference — the take moves into it and lands there. A model with no reference input takes it as its first frame. A board where most shots carry two panels is over-pinned.
 - **Cheapest, and often more stable than pinning both ends** — short ambient cuts, generated camera moves, and shots where a natural expression or texture matters more than a precise end pose.
 
 ## Pinning both ends
