@@ -38,10 +38,6 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     subject: "item id",
     typeLevel: true,
   },
-  "too-many-consecutive": {
-    flags: "More items of one role in a row than its `maxConsecutive`.",
-    subject: "role",
-  },
   "too-few-consecutive": {
     flags: "A role's longest run is shorter than its `minConsecutive`.",
     subject: "role",

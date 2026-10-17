@@ -14,7 +14,7 @@ Reported by the direction check over `direction.ts` and the stages built on it. 
 - **Video spends only** — does not gate animatic work.
 - **Type-level** — a literal value is also a type error, so it stops at the startup type-check; a computed value reaches the finding instead.
 
-### arc (10)
+### arc (9)
 
 Gates: every spend.
 
@@ -24,7 +24,6 @@ Gates: every spend.
 | `no-payoff`             | No item takes the lens's payoff role.                                                                    | —                       | —          |
 | `role-out-of-order`     | A role appears before one its lens places earlier.                                                       | role that arrived early | —          |
 | `lens-role-mismatch`    | An item's role is not one its node's lens declares.                                                      | item id                 | Type-level |
-| `too-many-consecutive`  | More items of one role in a row than its `maxConsecutive`.                                               | role                    | —          |
 | `too-few-consecutive`   | A role's longest run is shorter than its `minConsecutive`.                                               | role                    | —          |
 | `empty-synopsis`        | A shot's `action` or a child node's `synopsis` is empty.                                                 | item id                 | Type-level |
 | `unearned-payoff`       | The payoff lands before any item grounds, turns or builds toward it.                                     | payoff role             | —          |

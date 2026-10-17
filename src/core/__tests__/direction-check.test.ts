@@ -75,21 +75,6 @@ describe("checkArc", () => {
     expect(finding?.subject).toBe("08");
   });
 
-  it("flags too many consecutive of one role", () => {
-    const items = [
-      shot("01", "ordinary", 3),
-      shot("02", "disruption", 2),
-      shot("03", "pressure", 3),
-      shot("04", "pressure", 3),
-      shot("05", "pressure", 3),
-      shot("06", "pressure", 3),
-      shot("07", "hero", 4),
-    ];
-    const finding = checkArc(miniDrama, items).find((f) => f.code === "too-many-consecutive");
-    expect(finding?.subject).toBe("pressure");
-    expect(finding?.message).toContain("4 consecutive");
-  });
-
   it("flags a building beat that lands only once (too-few-consecutive)", () => {
     // transformation's process must build across a run of ≥2; a single process shot is hollow.
     const items = [shot("01", "before", 3), shot("02", "process", 2), shot("03", "reveal", 4)];

@@ -2635,7 +2635,6 @@ export type LensRole<Role extends string> = {
   fn?: RoleFunction;
   required?: boolean;
   minConsecutive?: number;
-  maxConsecutive?: number;
   minShare?: number;
   maxShare?: number;
 };
@@ -2653,7 +2652,6 @@ export type DirectionFindingCode =
   | "no-payoff"
   | "role-out-of-order"
   | "lens-role-mismatch"
-  | "too-many-consecutive"
   | "too-few-consecutive"
   | "empty-synopsis"
   | "unearned-payoff"
@@ -2765,7 +2763,6 @@ export declare const BUILTIN_LENSES: readonly [
       {
         readonly role: "pressure";
         readonly fn: "build";
-        readonly maxConsecutive: 3;
       },
       {
         readonly role: "hero";

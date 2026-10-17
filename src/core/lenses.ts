@@ -69,7 +69,7 @@ export const BUILTIN_LENSES = [
     roles: [
       { role: "ordinary", fn: "ground", maxShare: 0.4 },
       { role: "disruption", fn: "turn" },
-      { role: "pressure", fn: "build", maxConsecutive: 3 },
+      { role: "pressure", fn: "build" },
       { role: "hero", fn: "payoff" },
       { role: "release", fn: "settle", required: false, maxShare: 0.25 },
     ],

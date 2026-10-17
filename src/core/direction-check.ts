@@ -34,7 +34,6 @@ export type LensRole<Role extends string> = {
   fn?: RoleFunction;
   required?: boolean;
   minConsecutive?: number;
-  maxConsecutive?: number;
   // Share of the arc's total duration this role must hold, as a fraction in [0, 1] — the act-ratio
   // guard at sequence scale: a setup act eating the runtime (`maxShare`), a climax reduced to a
   // sliver (`minShare`) — but usable at either scale.
@@ -57,7 +56,6 @@ export type DirectionFindingCode =
   | "no-payoff"
   | "role-out-of-order"
   | "lens-role-mismatch"
-  | "too-many-consecutive"
   | "too-few-consecutive"
   | "empty-synopsis"
   | "unearned-payoff"
@@ -227,28 +225,9 @@ export function checkArc<Role extends string>(
     }
   }
 
-  for (let i = 0; i <= items.length; i++) {
-    const role = i < items.length ? items[i]!.role : null;
-    const prevRole = i > 0 ? items[i - 1]!.role : null;
-    if (role === prevRole) continue;
-    if (prevRole !== null) {
-      let runStart = i - 1;
-      while (runStart > 0 && items[runStart - 1]!.role === prevRole) runStart--;
-      const decl = declByRole.get(prevRole);
-      const len = i - runStart;
-      if (decl?.maxConsecutive !== undefined && len > decl.maxConsecutive) {
-        findings.push({
-          code: "too-many-consecutive",
-          subject: prevRole,
-          message: `${len} consecutive "${prevRole}" ${noun}s exceed maxConsecutive ${decl.maxConsecutive}`,
-        });
-      }
-    }
-  }
-
-  // The mirror of maxConsecutive: a role that only lands once when its lens wants it to build (a
-  // comedy escalation, a process montage) is hollow. Measured on the role's longest run — an absent
-  // required role is already `missing-role`, so only under-repeated *present* roles fire here.
+  // A role that only lands once when its lens wants it to build (a comedy escalation, a process
+  // montage) is hollow. Measured on the role's longest run — an absent required role is already
+  // `missing-role`, so only under-repeated *present* roles fire here.
   const longestRun = new Map<string, number>();
   for (let i = 0; i < items.length; ) {
     const role = items[i]!.role;
