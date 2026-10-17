@@ -217,9 +217,8 @@ export default defineReference(direction, () => {
     expect(rerollJobs(stdout)).toHaveLength(1);
   });
 
-  // Rerolling an accepted asset is "redo it, review the new take", so the accept is dropped
-  // (else the old variant would keep winning resolution and hide the reroll). It is gated:
-  // a non-TTY run needs --yes; an asset with nothing accepted just proceeds.
+  // Rerolling an accepted asset draws a rival beside the accept; the accept that picks between
+  // them settles the other.
   async function acceptFresh(projectDir: string, address: string): Promise<string> {
     const sm = await StateManager.load(projectDir);
     const vid = sm.reserveVariantId(address);
@@ -229,69 +228,29 @@ export default defineReference(direction, () => {
     return vid;
   }
 
-  it("unaccepts an accepted asset when rerolled (with --yes)", async () => {
+  it("keeps the accept of a rerolled asset, without a confirmation", async () => {
     const projectDir = await initRerollProject();
     const oldVid = await acceptFresh(projectDir, "reference:latentA");
 
-    const { stdout } = await run(["reroll", "reference:latentA", "--yes"], projectDir);
-    expect(rerollJobs(stdout)).toHaveLength(1);
-
-    const sm = await StateManager.load(projectDir);
-    expect(sm.getAcceptedVariant("reference:latentA")).toBeNull();
-    // The old variant is unaccepted, not deleted.
-    expect(sm.getAssetState("reference:latentA").variants![oldVid]).toBeDefined();
-  });
-
-  it("refuses to reroll an accepted asset non-interactively without --yes", async () => {
-    const projectDir = await initRerollProject();
-    await acceptFresh(projectDir, "reference:latentA");
-
-    await expect(run(["reroll", "reference:latentA"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("CONFIRMATION_REQUIRED"),
-    });
-
-    // The accept survived and no reroll was submitted.
-    const sm = await StateManager.load(projectDir);
-    expect(sm.getAcceptedVariant("reference:latentA")).not.toBeNull();
-    expect(Object.keys(sm.getAssetState("reference:latentA").variants!)).toHaveLength(1);
-  });
-
-  it("aborts and keeps the accept on --no", async () => {
-    const projectDir = await initRerollProject();
-    const oldVid = await acceptFresh(projectDir, "reference:latentA");
-
-    const { stdout } = await run(["reroll", "reference:latentA", "--no"], projectDir);
-    expect(stdout).toContain("Aborted.");
+    const { stdout } = await run(["reroll", "reference:latentA"], projectDir);
+    const [job] = rerollJobs(stdout);
 
     const sm = await StateManager.load(projectDir);
     expect(sm.getAcceptedVariant("reference:latentA")).toBe(oldVid);
+    expect(sm.getAssetState("reference:latentA").variants![job!.variantId]!.status).toBe("none");
   });
 
-  it("stops --with-dependents at an accepted dependent and unaccepts only the named asset", async () => {
+  it("stops --with-dependents at an accepted dependent and keeps both accepts", async () => {
     const projectDir = await initRerollProject();
-    await acceptFresh(projectDir, "reference:latentA");
+    const latentA = await acceptFresh(projectDir, "reference:latentA");
     const keyed = await acceptFresh(projectDir, "reference:keyed");
 
-    const { stdout } = await run(
-      ["reroll", "reference:latentA", "--with-dependents", "--yes"],
-      projectDir,
-    );
+    const { stdout } = await run(["reroll", "reference:latentA", "--with-dependents"], projectDir);
     expect(jobsByAddress(stdout, "reference:keyed")).toHaveLength(0);
-    expect(stdout).toContain("will be unaccepted so the new take becomes the reviewed one");
-    expect(stdout).toContain("reference:latentA.");
 
     const sm = await StateManager.load(projectDir);
-    expect(sm.getAcceptedVariant("reference:latentA")).toBeNull();
+    expect(sm.getAcceptedVariant("reference:latentA")).toBe(latentA);
     expect(sm.getAcceptedVariant("reference:keyed")).toBe(keyed);
-  });
-
-  it("prints what --yes unaccepts", async () => {
-    const projectDir = await initRerollProject();
-    await acceptFresh(projectDir, "reference:latentA");
-
-    const { stdout } = await run(["reroll", "reference:latentA", "--yes"], projectDir);
-    expect(stdout).toContain("1 accepted variant(s) will be unaccepted");
-    expect(stdout).toContain("reference:latentA");
   });
 
   it("skips an accepted asset reached through a scope", async () => {
@@ -301,7 +260,6 @@ export default defineReference(direction, () => {
 
     const { stdout } = await run(["reroll", "reference", "--yes"], projectDir);
     expect(rerollJobs(stdout).map((j) => j.address)).toEqual(["reference:latentB"]);
-    expect(stdout).not.toContain("will be unaccepted");
 
     const sm = await StateManager.load(projectDir);
     expect(sm.getAcceptedVariant("reference:latentA")).toBe(latentA);
@@ -349,24 +307,16 @@ export default defineReference(direction, () => {
     expect(err.stderr).toContain("konte generate reference");
   });
 
-  // ...but a cascade still rebuilds one. Its accept is dropped behind the same confirmation as any
-  // other.
-  it("drops a collected deterministic dependent's accept after confirmation", async () => {
+  // ...but a cascade still rebuilds one, beside its accept.
+  it("rebuilds a collected deterministic dependent beside its accept", async () => {
     const projectDir = await initRerollProject();
-    await acceptFresh(projectDir, "reference:derived");
+    const derived = await acceptFresh(projectDir, "reference:derived");
 
-    await expect(
-      run(["reroll", "reference:latentA", "--with-dependents"], projectDir),
-    ).rejects.toMatchObject({ stderr: expect.stringContaining("CONFIRMATION_REQUIRED") });
-
-    const { stdout } = await run(
-      ["reroll", "reference:latentA", "--with-dependents", "--yes"],
-      projectDir,
-    );
+    const { stdout } = await run(["reroll", "reference:latentA", "--with-dependents"], projectDir);
     expect(jobsByAddress(stdout, "reference:derived")).toHaveLength(1);
 
     const sm = await StateManager.load(projectDir);
-    expect(sm.getAcceptedVariant("reference:derived")).toBeNull();
+    expect(sm.getAcceptedVariant("reference:derived")).toBe(derived);
   });
 
   // A take that fails in the daemon (here: ffmpeg choking on a non-image "bad.png") is surfaced by
@@ -565,8 +515,7 @@ export default defineVideo(direction, {
   it("pins a video asset to a freshly rerolled animatic upstream", async () => {
     const projectDir = await initCrossStageRerollProject();
     // The animatic gate requires the consumed board to be accepted before any video spend — a
-    // chain reroll is an iteration on a reviewed board, not a way around its review. Rerolling
-    // then drops this accept (hence -y) so the fresh chain goes back through review.
+    // chain reroll is an iteration on a reviewed board, not a way around its review.
     const address = "animatic:shot.01.keyframe";
     const sm = await StateManager.load(projectDir);
     const acceptedId = sm.reserveVariantId(address);
@@ -574,7 +523,7 @@ export default defineVideo(direction, {
     sm.setAccepted(address, acceptedId);
     await sm.save();
     const { stdout } = await run(
-      ["reroll", "animatic:shot.01.keyframe", "video:shot.01.motion", "-y"],
+      ["reroll", "animatic:shot.01.keyframe", "video:shot.01.motion"],
       projectDir,
     );
     const keyframeId = jobsByAddress(stdout, "animatic:shot.01.keyframe")[0]!.variantId;

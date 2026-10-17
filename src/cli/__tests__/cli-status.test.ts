@@ -545,7 +545,7 @@ describe("status command", () => {
   });
 
   // The human picked the take the definition has since moved away from: the step writes the
-  // definition back, and the reroll that would drop the accept is never the command offered.
+  // definition back, and a reroll is never the command offered.
   it("offers restoring the definition of a human accept whose definition moved", async () => {
     const sm = await seedStaleAccept(DEFINITION_STALE);
     const accepted = sm.getAcceptedVariant(ADDRESS)!;

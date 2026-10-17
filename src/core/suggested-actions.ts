@@ -205,7 +205,7 @@ function suggestCompositionReReview(
 }
 
 // A human accept whose own definition moved. The take is the human's pick, so the step is writing
-// the definition back to what made it — free, and the accept stands; `reroll` would drop it.
+// the definition back to what made it — free, and the accept stands; `reroll` draws a rival beside it.
 function suggestDefinitionRestores(
   actions: SuggestedAction[],
   restores: readonly DefinitionRestore[],
@@ -217,7 +217,7 @@ function suggestDefinitionRestores(
       command: `konte inspect ${variantId}`,
       details: [
         `${address}: accepted against a changed definition — restore ${what} in ${file} to what made it` +
-          ` (\`konte reroll ${address}\` drops the accept)`,
+          ` (\`konte reroll ${address}\` draws a new take beside it)`,
       ],
     });
   }

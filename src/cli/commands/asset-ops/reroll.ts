@@ -75,7 +75,7 @@ export function registerRerollCommand(program: Command): void {
       "--with-dependents",
       "Also rebuild every same-stage asset that depends on each one, stopping at an accepted take",
     )
-    .option("-y, --yes", "Skip the unaccept confirmation prompt")
+    .option("-y, --yes", "Skip the spend confirmation prompt of a sweep")
     .option("--no", "Abort without prompting (treat confirmation as 'no')")
     .option("-v, --verbose", "List every affected asset instead of capping")
     .addHelpText(
@@ -93,10 +93,9 @@ non-TTY run needs --yes. A scope that matched no rerollable asset fails; --faile
 nothing to retry says so and exits 0.
 
 Generates fresh variants for each asset so you can pick among alternatives;
-the new variants are never auto-accepted. If a named asset already has an accepted
-variant, that accept is dropped (so the reroll — not the old take — becomes what
-ref/preview/downstream resolve) after confirmation: a TTY prompts, a non-TTY run needs
---yes to proceed or --no to abort. --yes still prints what it unaccepts. Multiple
+the new variants are never auto-accepted. A named asset holding an accept keeps it:
+the new take stands undecided beside it, and the accept that picks between them
+dismisses the other. Until then ref/preview/downstream resolve the accepted take. Multiple
 addresses may span different stages — they are grouped and processed together in
 dependency order,
 and if one listed asset is an upstream of another, the downstream builds on the
@@ -214,7 +213,7 @@ Examples:
         const unused = new Set(listUnusedAssetPaths(video, animatic, graph, reference));
         // What a sweep may spend on. A named asset failing any of these gets the message saying
         // which (below); reached through a scope it was never what was asked for, so it is dropped.
-        // A human's accept is replaced only when its address is named.
+        // A take beside a human's accept is drawn only when its address is named.
         const isSweepable = (assetPath: string): boolean => {
           if (unused.has(assetPath)) return false;
           if (holdsHumanVerdict(manager, assetPath)) return false;
@@ -506,42 +505,18 @@ Examples:
           );
         }
 
-        // A reroll is "redo this, I want to review the new take". While the old variant stays
-        // accepted it keeps winning resolution (ref, preview, downstream), hiding the reroll — so
-        // this run drops the accept on every asset it regenerates. That is a state change, so
-        // confirm up front, before any spend: a TTY prompts, a non-TTY run must pass --yes (or
-        // --no to abort). Nothing accepted → nothing to confirm. The unaccept itself lands after
-        // the jobs are created (below), so a preflight/submit failure leaves the accept untouched.
-        const acceptedByAddress = new Map<string, string>();
-        for (const w of workItems) {
-          const variantId = manager.getAcceptedVariant(w.address);
-          if (variantId) acceptedByAddress.set(w.address, variantId);
-        }
-        const hasAcceptedTarget = acceptedByAddress.size > 0;
-        const decided = [...acceptedByAddress.keys()];
         const capped = (addresses: string[]): string => {
           const { shown, hidden } = capList(addresses, { verbose: opts.verbose });
           return hidden > 0 ? `${shown.join(", ")} (+${hidden} more)` : shown.join(", ");
         };
         // A sweep is priced before it runs: `konte reroll video` can be a hundred jobs, and whoever
-        // typed a stage name enumerated none of them. A named address is its own enumeration, so it
-        // still prompts only for the accept it would drop.
-        const promptLines: string[] = [];
+        // typed a stage name enumerated none of them. A named address is its own enumeration.
         if (scopeTargets.length > 0 || uniqueTargets.length === 0) {
           const takeCount = workItems.reduce((n, w) => n + (w.isPrimary ? variantCount : 1), 0);
-          promptLines.push(
-            `${takeCount} take(s) will be generated across ${workItems.length} asset(s): ${capped(workItems.map((w) => w.address))}.`,
-          );
-        }
-        if (decided.length > 0) {
-          promptLines.push(
-            `${decided.length} accepted variant(s) will be unaccepted so the new take becomes the reviewed one: ${capped(decided)}.`,
-          );
-        }
-        if (promptLines.length > 0) {
+          const pricing = `${takeCount} take(s) will be generated across ${workItems.length} asset(s): ${capped(workItems.map((w) => w.address))}.`;
           // --yes waives the question, not the disclosure.
-          if (opts.yes) console.log(promptLines.join("\n"));
-          const proceed = await confirmAction(`${promptLines.join("\n")}\nContinue?`, {
+          if (opts.yes) console.log(pricing);
+          const proceed = await confirmAction(`${pricing}\nContinue?`, {
             yes: opts.yes,
             no: opts.no,
           });
@@ -636,27 +611,6 @@ Examples:
           if (result.jobs.length === 1) {
             newVariantByAddress.set(w.address, result.jobs[0]!.variantId);
           }
-        }
-
-        // The jobs now exist, so drop the accept the user confirmed on: each regenerated asset's
-        // fresh variant becomes what resolution picks. Read the accepted variant under the lock —
-        // not the pre-submit snapshot — so a variant a concurrent accept moved to can't make
-        // setUnaccepted throw, and a newly-accepted target is caught too. Guarded by the up-front
-        // consent, and deferred to here so a preflight/submit throw above never clears an accept
-        // without producing the reroll. An asset whose submit failed synchronously produced no
-        // reroll, so it keeps its accept (its old variant stays both accepted and resolved).
-        const unaccepted: string[] = [];
-        if (hasAcceptedTarget) {
-          const failedAddresses = new Set(failures.map((f) => f.address));
-          await StateManager.withLock(videoRoot, async (m) => {
-            for (const w of workItems) {
-              if (failedAddresses.has(w.address)) continue;
-              const vid = m.getAcceptedVariant(w.address);
-              if (!vid) continue;
-              m.setUnaccepted(w.address, vid);
-              unaccepted.push(w.address);
-            }
-          });
         }
 
         // Heads-up: an upstream of a rerolled target has an undecided take that this reroll

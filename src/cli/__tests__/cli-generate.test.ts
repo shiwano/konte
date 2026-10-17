@@ -491,8 +491,8 @@ export default defineReference(direction, () => {
     expect(latent?.action).toBe("start");
   });
 
-  // generate fills holes; replacing an accepted take is reroll's job (it drops the accept behind
-  // a confirmation). A variant generated under a standing accept would not resolve anyway.
+  // generate fills holes; a rival to an accepted take is reroll's job. A variant generated under a
+  // standing accept would not resolve anyway.
   it("leaves an accepted asset alone when its definition changed, and points at reroll", async () => {
     const projectDir = await withDefinitionStaleVariant(true);
     const { stdout } = await run(["generate", "reference", "--plan"], projectDir);

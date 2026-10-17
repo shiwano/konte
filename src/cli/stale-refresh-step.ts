@@ -28,7 +28,7 @@ import type { AnimaticDefinition } from "../core/types/index.js";
  * unless it is cleared.
  *
  * `restore`: a human-accepted take whose own definition moved — the take is the human's pick, so the
- * definition is written back to what made it; a `reroll` would drop the accept.
+ * definition is written back to what made it; a `reroll` would only draw a rival beside it.
  *
  * `reroll`: nothing there fits, so the refresh has to be paid for.
  *

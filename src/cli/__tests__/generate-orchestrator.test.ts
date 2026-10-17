@@ -93,8 +93,8 @@ describe("assetSkipReason", () => {
     expect(assetSkipReason(manager, address, HASH)).toBe("accepted");
   });
 
-  // generate never replaces a take a human accepted — that is reroll's job, behind a
-  // confirmation that drops the accept. A new variant here would not resolve anyway.
+  // generate never draws a rival to a take a human accepted — that is reroll's job. A new variant
+  // here would not resolve anyway.
   it("skips an accepted variant that is definition-stale", async () => {
     const { manager, vid } = await withReadyVariant();
     manager.setAccepted(address, vid);

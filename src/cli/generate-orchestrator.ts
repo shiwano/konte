@@ -67,8 +67,8 @@ export type LevelResult = {
 /**
  * Why `generate` leaves this asset alone, or null when it must generate.
  *
- * generate fills holes; replacing a take a human accepted is `reroll`'s job, which drops the
- * accept behind a confirmation. Generating under a standing accept would spend on a variant
+ * generate fills holes; a rival to a take a human accepted is `reroll`'s job, and the accept
+ * between them is the human's. Generating under a standing accept would spend on a variant
  * resolution never picks (the accepted one wins), so an accepted asset is skipped even when
  * stale. One whose upstream alone moved stands as "accepted"; one whose definition moved is
  * "accepted-stale", named with the reroll that replaces it. A deterministic take is the exception: there is nothing else to pick, so re-running the op IS the

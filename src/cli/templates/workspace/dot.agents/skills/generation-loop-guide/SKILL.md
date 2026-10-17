@@ -25,7 +25,7 @@ Substitute your stage's `<scope>` / `<address>` into every step below.
 ## 2. Generate
 
 - **New or rewritten definitions clear `layout-guide`'s self-check before they meet a backend.**
-- **Generating what has no accepted variant needs no go-ahead** — on a paid vendor backend report the batch size and expected cost in one line, then generate. Ask before invalidating accepted work, such as rerolling an accepted asset by its address.
+- **Generating what has no accepted variant needs no go-ahead** — on a paid vendor backend report the batch size and expected cost in one line, then generate. Ask before invalidating accepted work.
 - **`konte generate <scope>`** — submits all the stage's assets at once, async.
 - **`generate` regenerates a stale unaccepted take and skips an accepted generative one, even stale** — after an edit, `generate` is the new take; `reroll` draws again on an unchanged definition, `--count N` for N takes at once. Follow the command's `accepted but stale` Next steps. Stale deterministic assets re-bake automatically unless their accepted take is a patch.
 - **Open on the cheap pass** — `production-guide`'s cost ladder.
@@ -84,7 +84,7 @@ After `konte generate` or `konte reroll`:
 **Reroll:**
 
 - **Draw again before you rewrite** — a broken still is one sample; rewrite only when several draws fail the same way.
-- **`konte reroll <address>`** — then wait (step 3) and re-check. Rerolling a named accepted asset drops its accept after confirmation; the new take becomes review work. **If the asset feeds another in the same stage, add `--with-dependents`** — the chain rebuilds in dependency order, stopping at an accepted take. A whole stage or shot is rerolled by its address-scope (`konte reroll video:shot.05 --yes`), which skips what it cannot spend on and accepted takes.
+- **`konte reroll <address>`** — then wait (step 3) and re-check. Rerolling a named accepted asset keeps its accept; the new take stands beside it as review work, and the accept between them dismisses the other. **If the asset feeds another in the same stage, add `--with-dependents`** — the chain rebuilds in dependency order, stopping at an accepted take. A whole stage or shot is rerolled by its address-scope (`konte reroll video:shot.05 --yes`), which skips what it cannot spend on and accepted takes.
 - **A reroll that came out worse → `konte dismiss <newVariantId>`** — the address falls back to the take before it, still undecided and undeleted. It falls back only to a take matching the current definition, so where the new take followed a prompt edit, restore the prompt instead: `konte inspect <address>` diffs each take against the live one.
 
 ### Before handoff
