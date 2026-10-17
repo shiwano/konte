@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type AccessPolicy,
   checkRequestOrigin as admitRequest,
+  denyFraming,
   describeExposure,
   listenWithPortFallback,
 } from "../http.js";
@@ -460,6 +461,19 @@ describe("describeExposure", () => {
     expect(describeExposure({ host: "127.0.0.1", allowedHosts: ["*"] }, PORT)).toContain(
       "ANY host",
     );
+  });
+});
+
+describe("denyFraming", () => {
+  it("forbids every response from rendering inside another site's frame", async () => {
+    const handler = denyFraming(async () => new Response("ok"));
+    const res = await handler();
+    expect(res.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+  });
+
+  it("passes a WebSocket upgrade's missing response through", async () => {
+    const handler = denyFraming(async () => undefined);
+    expect(await handler()).toBeUndefined();
   });
 });
 

@@ -4,6 +4,7 @@ import { UI_ASSETS } from "../../../core/generated/ui-assets.js";
 import { createAssetHandler } from "../../page-host/assets.js";
 import {
   checkRequestOrigin,
+  denyFraming,
   errorResponse,
   jsonResponse,
   listenWithPortFallback,
@@ -35,7 +36,7 @@ export async function createSettingsServer(opts: SettingsServerOptions): Promise
     Bun.serve({
       hostname: "127.0.0.1",
       port: listenPort,
-      async fetch(req, server) {
+      fetch: denyFraming(async (req, server) => {
         const pathname = new URL(req.url).pathname;
 
         // No access policy and no gate: the settings page shows which credential keys are set, so
@@ -108,7 +109,7 @@ export async function createSettingsServer(opts: SettingsServerOptions): Promise
           console.error(`[settings] ${req.method} ${pathname} → ${message}`);
           return errorResponse(message, "INTERNAL_ERROR", 500);
         }
-      },
+      }),
       websocket: lifecycle.websocket,
     });
 

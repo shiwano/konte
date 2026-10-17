@@ -11,6 +11,7 @@ import { createPageLifecycle, type PageShutdownResult } from "../../page-host/li
 import {
   type AccessPolicy,
   checkRequestOrigin,
+  denyFraming,
   errorResponse,
   listenWithPortFallback,
   LOOPBACK_ONLY,
@@ -185,7 +186,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
     Bun.serve({
       hostname: access.host,
       port: listenPort,
-      async fetch(req, server) {
+      fetch: denyFraming(async (req, server) => {
         const url = new URL(req.url);
         const pathname = url.pathname;
 
@@ -420,7 +421,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
           if (err instanceof Error && err.stack) console.error(err.stack);
           return errorResponse(message, "INTERNAL_ERROR", 500);
         }
-      },
+      }),
       websocket: lifecycle.websocket,
     });
 

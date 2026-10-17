@@ -21,6 +21,21 @@ export function errorResponse(error: string, code: string, status: number): Resp
   return jsonResponse({ error, code }, status);
 }
 
+/**
+ * Loopback is ungated, so any page the user has open could frame the review UI and steer clicks
+ * onto it. Set on every response the server sends.
+ */
+export function denyFraming<A extends unknown[]>(
+  handler: (...args: A) => Promise<Response | undefined>,
+): (...args: A) => Promise<Response> {
+  return async (...args) => {
+    const res = await handler(...args);
+    res?.headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+    // A WebSocket upgrade answers with no Response; Bun.serve takes `undefined` for that.
+    return res as Response;
+  };
+}
+
 export function htmlResponse(html: string): Response {
   return new NativeResponse(html, {
     headers: { "Content-Type": "text/html" },
