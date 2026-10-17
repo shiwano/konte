@@ -110,7 +110,6 @@ export type PromptStaleWaiverLine = {
   key: string;
   where: string;
   reason: string;
-  unknown?: boolean;
 };
 // A pin finding as reported: the image pinned and the sites pinning it, plus the file that holds
 // both the wiring and the waiver that would cancel it.
@@ -674,13 +673,11 @@ export function printStatusReport(
   if (promptStaleWaivers.length > 0) {
     console.log();
     console.log(
-      `Stale prompt waivers: ${promptStaleWaivers.length} — the phrase is gone; remove the waiver`,
+      `Stale prompt waivers: ${promptStaleWaivers.length} — the finding is gone; remove the waiver`,
     );
-    printCapped(
-      promptStaleWaivers,
-      (w) => `[${w.key}] (${w.where}) ${w.unknown ? "unknown key" : w.reason}`,
-      { verbose: options?.verbose },
-    );
+    printCapped(promptStaleWaivers, (w) => `[${w.key}] (${w.where}) ${w.reason}`, {
+      verbose: options?.verbose,
+    });
   }
 
   // The prompt findings' twin over wiring: a pinned image that is not a frame of the picture.

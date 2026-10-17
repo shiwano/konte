@@ -196,10 +196,6 @@ export function registerStatusCommand(program: Command): void {
         for (const waiver of result.staleWaivers) {
           promptStaleWaivers.push({ key: waiver.key, where, reason: waiver.reason });
         }
-        // Reported over the whole waiver namespace, so a mistyped pin key surfaces here too.
-        for (const key of result.unknownWaivers) {
-          promptStaleWaivers.push({ key, where, reason: "", unknown: true });
-        }
         const pinResult = checkPins(subject.pins ?? [], subject.waivers ?? {});
         for (const finding of pinResult.active) {
           pinFindings.push({ key: finding.key, where, detail: formatPinFinding(finding) });
@@ -207,12 +203,7 @@ export function registerStatusCommand(program: Command): void {
         for (const waiver of pinResult.staleWaivers) {
           pinStaleWaivers.push({ key: waiver.key, where, reason: waiver.reason });
         }
-        // An unknown key aborts the gate exactly as a finding does, so it blocks the same steps.
-        return (
-          result.active.length > 0 ||
-          result.unknownWaivers.length > 0 ||
-          pinResult.active.length > 0
-        );
+        return result.active.length > 0 || pinResult.active.length > 0;
       };
       for (const [stage, def] of [
         ["reference", reference],

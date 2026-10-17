@@ -1564,7 +1564,7 @@ describe("prompt gate", () => {
     expect(planOut).toContain("Plan:");
   });
 
-  it("holds back the spend on a waiver key that can never cancel anything", async () => {
+  it("reports a waiver key that can never cancel anything as stale, holding back no spend", async () => {
     const projectDir = await project(
       TEST_VIDEO_TSX.replace(
         `defineVideo(direction, {`,
@@ -1573,11 +1573,7 @@ describe("prompt gate", () => {
     );
     const { stdout } = await run(["status"], projectDir);
     expect(stdout).toContain("Stale prompt waivers: 1");
-    expect(stdout).toContain("[prompt-negation] (video.tsx) unknown key");
-    expect(stdout).not.toContain("konte generate video");
-
-    await expect(run(["generate", "video"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("PROMPT_CHECK_FAILED"),
-    });
+    expect(stdout).toContain("[prompt-negation] (video.tsx) no hash");
+    expect(stdout).not.toContain("PROMPT_CHECK_FAILED");
   });
 });

@@ -73,10 +73,8 @@ type PromptStaleWaiver = { key: string; reason: string };
 type PromptCheckResult = {
   active: PromptFinding[];
   waived: PromptFinding[];
-  // A waiver whose phrase is gone — the prompt was rewritten and the reason now cancels nothing.
+  // A waiver that cancels nothing: its phrase is gone, or its code half names no finding class.
   staleWaivers: PromptStaleWaiver[];
-  // A key whose code half names no finding class: a typo that can never cancel anything.
-  unknownWaivers: string[];
 };
 
 // A clause — the unit a finding is keyed at, and what reappears verbatim across prompts.
@@ -196,15 +194,19 @@ export function checkPrompts(
     (finding.key in waivers ? waived : active).push(finding);
   }
 
-  const unknownWaivers = unknownWaiverKeys(waivers);
+  const unknownWaivers = new Set(unknownWaiverKeys(waivers));
   const staleWaivers: PromptStaleWaiver[] = [];
   for (const [key, reason] of Object.entries(waivers)) {
+    if (unknownWaivers.has(key)) {
+      staleWaivers.push({ key, reason });
+      continue;
+    }
     // Another check's class, not this one's: its own gate answers for it.
     if (!FINDING_CODES.includes(key.slice(0, key.indexOf(":")) as PromptFindingCode)) continue;
     if (!byKey.has(key)) staleWaivers.push({ key, reason });
   }
 
-  return { active, waived, staleWaivers, unknownWaivers };
+  return { active, waived, staleWaivers };
 }
 
 const PHRASE_DISPLAY_LIMIT = 80;
@@ -240,16 +242,7 @@ const REMEDY: Record<PromptFindingCode, string> = {
 // The gate: abort with PROMPT_CHECK_FAILED when a prompt about to be spent on still names an
 // exclusion. `where` is the file that holds both the prompts and their waivers.
 export function assertPromptGate(subject: PromptCheckSubject, where: string): void {
-  const { active, unknownWaivers } = checkPrompts(subject.prompts ?? [], subject.waivers ?? {});
-
-  if (unknownWaivers.length > 0) {
-    throw new KonteError(
-      "PROMPT_CHECK_FAILED",
-      `${where} declares ${unknownWaivers.length} waiver(s) whose key names no finding class — ` +
-        "a key is the one `status` prints, `<code>:<hash>`",
-      unknownWaivers.map((key) => `  [${key}]`),
-    );
-  }
+  const { active } = checkPrompts(subject.prompts ?? [], subject.waivers ?? {});
 
   if (active.length === 0) return;
 

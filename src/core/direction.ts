@@ -302,19 +302,6 @@ function isWaivableCode(code: string): code is DirectionFindingCode {
   return Object.hasOwn(FINDING_CLASS, code);
 }
 
-// The one typo the separator invites: a key written with `_` where the code's own hyphens belong
-// (`role_overweight_problem`). Re-hyphenate and take the longest code that opens the key, so the
-// error can name the key the author meant instead of listing the whole vocabulary.
-function waiverKeySuggestion(key: string): string | undefined {
-  const hyphenated = key.replace(/_/g, "-");
-  const code = Object.keys(FINDING_CLASS)
-    .filter((c) => hyphenated === c || hyphenated.startsWith(`${c}-`))
-    .sort((a, b) => b.length - a.length)[0];
-  if (!code) return undefined;
-  const subject = hyphenated.slice(code.length + 1);
-  return subject ? `${code}${WAIVER_KEY_SEPARATOR}${subject}` : code;
-}
-
 // A waiver read by watching a shot: its review address, what it waives, and the shots it plays in —
 // one, or both sides of a boundary.
 export type ShotWaiver = {
@@ -431,9 +418,6 @@ type DirectionErrorCode =
   // A single id declared in more than one of the characters / props / locations rosters — all three
   // share the `reference:<id>` namespace, so a collision names one reference asset for two entities.
   | "reference-id-conflict"
-  // A waiver key whose code half names no waivable finding — it can never cancel anything, in any
-  // pass, so it is a typo rather than a waiver whose finding has gone (`staleWaivers`).
-  | "waiver-unknown-code"
   | "script-empty-text"
   | "script-unknown-character"
   // A telop entry with nothing in it — a blank string overlays nothing, so it is a typo, not a choice.
@@ -1628,24 +1612,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
     seen.add(id);
   }
 
-  // A waiver names the finding it cancels, so its code half must be one the checker can emit. A key
-  // that names none silences nothing and never will — the finding stays active while the key adds a
-  // part to review, which reads as "waived" to everyone but the checker. Structural: no pass can make
-  // an unknown code fire, so it is never the soft `staleWaivers` case ("the finding is gone").
-  for (const key of Object.keys(direction.waivers ?? {})) {
-    if (isWaivableCode(waiverKeyCode(key))) continue;
-    const suggestion = waiverKeySuggestion(key);
-    errors.push({
-      code: "waiver-unknown-code",
-      subject: key,
-      message:
-        `waiver "${key}" names no finding code` +
-        (suggestion
-          ? ` — did you mean "${suggestion}"?`
-          : " — copy the [bracketed] key konte prints with the finding"),
-    });
-  }
-
   // The characters are a hard contract: an `id` (the roster key) must be a valid asset name (it maps
   // to reference:<id>), and `name`/`description` must be non-empty — an empty `name` would make the
   // `unused-character` action scan silently pass (every string contains ""). The record key makes a
@@ -2525,12 +2491,9 @@ export function checkDirection(
   for (const [key, reason] of Object.entries(waivers)) {
     if (matched.has(key)) continue;
     const code = waiverKeyCode(key);
-    // An unknown code is `waiver-unknown-code`'s, a structural error — reporting it here too would
-    // say "the finding is gone" of a finding that never existed.
-    if (!isWaivableCode(code)) continue;
     // Flag a waiver stale only for a class this pass evaluated: a direction-only pass must not
-    // mislabel a still-valid stage/completeness waiver.
-    if (!evaluatedClasses.has(FINDING_CLASS[code])) continue;
+    // mislabel a still-valid stage/completeness waiver. A code no finding has is stale in any pass.
+    if (isWaivableCode(code) && !evaluatedClasses.has(FINDING_CLASS[code])) continue;
     staleWaivers.push({ key, reason });
   }
 

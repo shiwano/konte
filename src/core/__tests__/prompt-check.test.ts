@@ -280,10 +280,9 @@ describe("checkPrompts waivers", () => {
     expect(result.staleWaivers).toEqual([{ key, reason: "answered" }]);
   });
 
-  it("reports a key naming no finding class as unknown, never as stale", () => {
+  it("reports a key naming no finding class as stale", () => {
     const result = checkPrompts(occurrences, { "prompt-negations:abcd1234": "typo" });
-    expect(result.unknownWaivers).toEqual(["prompt-negations:abcd1234"]);
-    expect(result.staleWaivers).toEqual([]);
+    expect(result.staleWaivers).toEqual([{ key: "prompt-negations:abcd1234", reason: "typo" }]);
   });
 });
 
@@ -337,10 +336,10 @@ describe("assertPromptGate", () => {
     }
   });
 
-  it("aborts on a waiver key that can never cancel anything", () => {
+  it("passes a waiver key that can never cancel anything", () => {
     expect(() =>
       assertPromptGate({ prompts: [], waivers: { "prompt-negation": "no hash" } }, "video.tsx"),
-    ).toThrow(/waiver/);
+    ).not.toThrow();
   });
 
   it("gives each polarity its own remedy when a stage mixes them", () => {

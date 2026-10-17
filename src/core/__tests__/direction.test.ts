@@ -677,31 +677,14 @@ describe("checkDirection waivers", () => {
     expect(checkDirection(dir).staleWaivers).toEqual([]);
   });
 
-  it("fails a waiver key whose code is written with underscores, naming the key meant", () => {
-    const dir = withWaivers(completeMiniDrama, { role_overweight_problem: "deliberate overrun" });
-    const errors = validateDirectionStructure(dir).filter((e) => e.code === "waiver-unknown-code");
-    expect(errors).toHaveLength(1);
-    expect(errors[0]?.subject).toBe("role_overweight_problem");
-    expect(errors[0]?.message).toContain('"role-overweight_problem"');
-  });
-
-  it("passes a correctly keyed waiver, subject-less or with a subject", () => {
+  it("flags a waiver key naming no finding code stale, never a structural error", () => {
     const dir = withWaivers(completeMiniDrama, {
-      "no-payoff": "cold open",
-      "missing-role_disruption": "intentional unbroken loop",
+      role_overweight_problem: "deliberate overrun",
+      "duplicate-id_01": "no",
     });
-    expect(validateDirectionStructure(dir).filter((e) => e.code === "waiver-unknown-code")).toEqual(
-      [],
-    );
-  });
-
-  it("fails a waiver key naming a structural error code, which is never waivable", () => {
-    const dir = withWaivers(completeMiniDrama, { "duplicate-id_01": "no" });
-    expect(
-      validateDirectionStructure(dir)
-        .map((e) => e.code)
-        .filter((c) => c === "waiver-unknown-code"),
-    ).toEqual(["waiver-unknown-code"]);
+    const { structureErrors, staleWaivers } = checkDirection(dir);
+    expect(structureErrors).toEqual([]);
+    expect(staleWaivers.map((w) => w.key)).toEqual(["role_overweight_problem", "duplicate-id_01"]);
   });
 });
 
@@ -1038,11 +1021,11 @@ describe("checkDirection meta arc (sequenced)", () => {
     expect(res.staleWaivers).toEqual([]);
   });
 
-  it("reports an unknown-code node waiver as a structural error, not as stale", () => {
+  it("reports an unknown-code node waiver as stale", () => {
     const dir = threeActDirection(balancedSequences, { "missing-roles_x": "typo" });
     const { structureErrors, staleWaivers } = checkDirection(dir, { referenceAssetNames: [] });
-    expect(structureErrors.filter((e) => e.code === "waiver-unknown-code")).toHaveLength(1);
-    expect(staleWaivers.map((w) => w.key)).not.toContain("missing-roles_x");
+    expect(structureErrors).toEqual([]);
+    expect(staleWaivers.map((w) => w.key)).toContain("missing-roles_x");
   });
 });
 
