@@ -127,9 +127,18 @@ const JSX_NAMESPACE = `declare global {
       title?: string;
       lang?: string;
       hidden?: boolean;
+      dir?: "ltr" | "rtl" | "auto";
+      role?: string;
+      tabIndex?: number;
       children?: any;
       dangerouslySetInnerHTML?: { __html: string };
       [key: \`data-\${string}\`]: string | number | boolean;
+      [key: \`aria-\${string}\`]: string | number | boolean;
+    }
+
+    interface FormControlAttributes extends HtmlAttributes {
+      name?: string;
+      disabled?: boolean;
     }
 
     interface MediaAttributes extends HtmlAttributes {
@@ -206,57 +215,29 @@ const JSX_NAMESPACE = `declare global {
       letterSpacing?: SvgLength;
     }
 
-    interface IntrinsicElements {
-      div: HtmlAttributes;
-      span: HtmlAttributes;
-      p: HtmlAttributes;
-      h1: HtmlAttributes;
-      h2: HtmlAttributes;
-      h3: HtmlAttributes;
-      h4: HtmlAttributes;
-      h5: HtmlAttributes;
-      h6: HtmlAttributes;
-      section: HtmlAttributes;
-      article: HtmlAttributes;
-      header: HtmlAttributes;
-      footer: HtmlAttributes;
-      main: HtmlAttributes;
-      figure: HtmlAttributes;
-      figcaption: HtmlAttributes;
-      blockquote: HtmlAttributes;
-      pre: HtmlAttributes;
-      code: HtmlAttributes;
-      b: HtmlAttributes;
-      i: HtmlAttributes;
-      u: HtmlAttributes;
-      s: HtmlAttributes;
-      strong: HtmlAttributes;
-      em: HtmlAttributes;
-      small: HtmlAttributes;
-      mark: HtmlAttributes;
-      sub: HtmlAttributes;
-      sup: HtmlAttributes;
-      ruby: HtmlAttributes;
-      rt: HtmlAttributes;
-      rp: HtmlAttributes;
-      ul: HtmlAttributes;
-      ol: HtmlAttributes & { start?: number; reversed?: boolean };
-      li: HtmlAttributes & { value?: number };
-      dl: HtmlAttributes;
-      dt: HtmlAttributes;
-      dd: HtmlAttributes;
-      table: HtmlAttributes;
-      thead: HtmlAttributes;
-      tbody: HtmlAttributes;
-      tfoot: HtmlAttributes;
-      tr: HtmlAttributes;
-      th: HtmlAttributes & { colSpan?: number; rowSpan?: number };
-      td: HtmlAttributes & { colSpan?: number; rowSpan?: number };
-      a: HtmlAttributes & { href?: string; target?: string; rel?: string };
-      img: HtmlAttributes & { src?: string; alt?: string; width?: number; height?: number };
+    type HtmlElements = { [K in keyof HTMLElementTagNameMap]: HtmlAttributes };
+
+    interface IntrinsicElements extends HtmlElements {
+      a: HtmlAttributes & { href?: string; target?: string; rel?: string; download?: string | boolean };
+      img: HtmlAttributes & {
+        src?: string;
+        srcSet?: string;
+        sizes?: string;
+        alt?: string;
+        width?: number;
+        height?: number;
+        loading?: "eager" | "lazy";
+        decoding?: "sync" | "async" | "auto";
+      };
       video: MediaAttributes & { width?: number; height?: number; poster?: string };
       audio: MediaAttributes;
-      source: HtmlAttributes & { src?: string; type?: string };
+      source: HtmlAttributes & {
+        src?: string;
+        srcSet?: string;
+        sizes?: string;
+        media?: string;
+        type?: string;
+      };
       track: HtmlAttributes & {
         src?: string;
         kind?: string;
@@ -264,18 +245,54 @@ const JSX_NAMESPACE = `declare global {
         srcLang?: string;
         default?: boolean;
       };
-      html: HtmlAttributes;
-      head: HtmlAttributes;
-      body: HtmlAttributes;
-      title: HtmlAttributes;
+      iframe: HtmlAttributes & { src?: string; srcDoc?: string; width?: number; height?: number };
       meta: MetaAttributes;
       link: LinkAttributes;
-      style: HtmlAttributes;
       script: ScriptAttributes;
-      br: HtmlAttributes;
-      hr: HtmlAttributes;
-      input: HtmlAttributes & { type?: string; value?: string; name?: string };
       canvas: HtmlAttributes & { width?: number; height?: number };
+      ol: HtmlAttributes & { start?: number; reversed?: boolean; type?: string };
+      li: HtmlAttributes & { value?: number };
+      th: HtmlAttributes & { colSpan?: number; rowSpan?: number; scope?: string };
+      td: HtmlAttributes & { colSpan?: number; rowSpan?: number };
+      col: HtmlAttributes & { span?: number };
+      colgroup: HtmlAttributes & { span?: number };
+      time: HtmlAttributes & { dateTime?: string };
+      details: HtmlAttributes & { open?: boolean };
+      dialog: HtmlAttributes & { open?: boolean };
+      form: HtmlAttributes & { action?: string; method?: string };
+      label: HtmlAttributes & { htmlFor?: string };
+      input: FormControlAttributes & {
+        type?: string;
+        value?: string | number;
+        placeholder?: string;
+        checked?: boolean;
+        readOnly?: boolean;
+        required?: boolean;
+        min?: number | string;
+        max?: number | string;
+        step?: number | string;
+      };
+      button: FormControlAttributes & { type?: "button" | "submit" | "reset"; value?: string };
+      textarea: FormControlAttributes & {
+        placeholder?: string;
+        rows?: number;
+        cols?: number;
+        readOnly?: boolean;
+        required?: boolean;
+      };
+      select: FormControlAttributes & { multiple?: boolean; required?: boolean };
+      option: HtmlAttributes & { value?: string; selected?: boolean; disabled?: boolean };
+      optgroup: HtmlAttributes & { label?: string; disabled?: boolean };
+      fieldset: HtmlAttributes & { disabled?: boolean };
+      progress: HtmlAttributes & { value?: number; max?: number };
+      meter: HtmlAttributes & {
+        value?: number;
+        min?: number;
+        max?: number;
+        low?: number;
+        high?: number;
+        optimum?: number;
+      };
       svg: SvgAttributes & {
         width?: SvgLength;
         height?: SvgLength;
