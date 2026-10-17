@@ -19,6 +19,7 @@ function connectKeepAlive(): void {
       try {
         if ((JSON.parse(event.data as string) as { type?: string }).type === "session-ended") {
           ended = true;
+          window.dispatchEvent(new CustomEvent("konte:session-ended"));
           window.close();
         }
       } catch {}

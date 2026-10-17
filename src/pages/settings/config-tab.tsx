@@ -5,7 +5,7 @@ import {
   isSecretHeader,
   type KonteConfig,
 } from "../../core/types/config.js";
-import { fetchConfig, saveConfig } from "./api.js";
+import { closeSettings, fetchConfig, saveConfig } from "./api.js";
 import { Field, Row, Section, Toggle } from "./form.js";
 
 // Rows, not a record: a header being renamed passes through states with a duplicate or empty
@@ -198,13 +198,14 @@ export function ConfigTab() {
     setStatus(null);
   };
 
-  const save = async () => {
+  const save = async (closeAfterSave = false) => {
     setSaving(true);
     try {
       const saved = await saveConfig(fromDraft(draft, base));
       setBase(saved);
       setDraft(toDraft(saved));
       setStatus({ kind: "saved", text: "Saved to konte.config.json" });
+      if (closeAfterSave) await closeSettings();
     } catch (err) {
       setStatus({ kind: "error", text: (err as Error).message });
     } finally {
@@ -289,8 +290,11 @@ export function ConfigTab() {
 
       <footer className="tab-footer">
         {status && <span className={`status status-${status.kind}`}>{status.text}</span>}
-        <button type="button" className="primary" disabled={saving} onClick={save}>
+        <button type="button" className="primary" disabled={saving} onClick={() => save()}>
           {saving ? "Saving…" : "Save config"}
+        </button>
+        <button type="button" className="primary" disabled={saving} onClick={() => save(true)}>
+          Save and close
         </button>
       </footer>
     </div>

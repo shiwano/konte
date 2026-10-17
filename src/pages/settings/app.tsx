@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ConfigTab } from "./config-tab.js";
 import { CredentialsTab } from "./credentials-tab.js";
 import { SETTINGS_TABS, type SettingsTab } from "./types.js";
@@ -20,6 +20,22 @@ function initialTab(): SettingsTab {
 
 export function App() {
   const [tab, setTab] = useState<SettingsTab>(initialTab);
+  const [ended, setEnded] = useState(false);
+
+  useEffect(() => {
+    const onEnded = () => setEnded(true);
+    window.addEventListener("konte:session-ended", onEnded);
+    return () => window.removeEventListener("konte:session-ended", onEnded);
+  }, []);
+
+  if (ended) {
+    return (
+      <div className="app">
+        <h1>Settings closed</h1>
+        <p>You can close this tab.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="app">

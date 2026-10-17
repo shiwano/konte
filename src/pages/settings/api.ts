@@ -32,3 +32,8 @@ export function fetchCredentials(): Promise<CredentialsResponse> {
 export function saveCredentials(patch: CredentialsPatch): Promise<CredentialsResponse> {
   return request<CredentialsResponse>("/api/credentials", put(patch));
 }
+
+export async function closeSettings(): Promise<void> {
+  const res = await fetch("/api/close", { method: "POST" });
+  if (!res.ok) throw new Error(`Could not close settings: ${res.status}`);
+}

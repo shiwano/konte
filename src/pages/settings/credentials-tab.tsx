@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchCredentials, saveCredentials } from "./api.js";
+import { closeSettings, fetchCredentials, saveCredentials } from "./api.js";
 import { Field, Section } from "./form.js";
 import type { CredentialsPatch } from "../../core/types/credentials.js";
 import type { CredentialEntry } from "./types.js";
@@ -95,7 +95,7 @@ export function CredentialsTab() {
     setNewValue("");
   };
 
-  const save = async () => {
+  const save = async (closeAfterSave = false) => {
     const patch: CredentialsPatch = { set: {}, unset: [...cleared] };
     for (const [key, value] of Object.entries(values)) {
       if (value !== "") patch.set![key] = value;
@@ -117,6 +117,7 @@ export function CredentialsTab() {
       const res = await saveCredentials(patch);
       reset(res.entries);
       setStatus({ kind: "saved", text: "Saved to konte.credentials.json" });
+      if (closeAfterSave) await closeSettings();
     } catch (err) {
       setStatus({ kind: "error", text: (err as Error).message });
     } finally {
@@ -187,8 +188,11 @@ export function CredentialsTab() {
 
       <footer className="tab-footer">
         {status && <span className={`status status-${status.kind}`}>{status.text}</span>}
-        <button type="button" className="primary" disabled={saving} onClick={save}>
+        <button type="button" className="primary" disabled={saving} onClick={() => save()}>
           {saving ? "Saving…" : "Save credentials"}
+        </button>
+        <button type="button" className="primary" disabled={saving} onClick={() => save(true)}>
+          Save and close
         </button>
       </footer>
     </div>
