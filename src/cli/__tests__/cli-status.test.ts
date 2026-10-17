@@ -41,7 +41,7 @@ describe("status command", () => {
   it("outputs sections", async () => {
     const { stdout } = await run(["status"], projectDir);
     expect(stdout).toContain("Progress:");
-    expect(stdout).toMatch(/video: 0\/2 accepted/);
+    expect(stdout).toMatch(/video: 0\/1 shot accepted · 0\/2 assets generated/);
     // The readiness line counts; it does not name what `konte generate video` would act on.
     expect(stdout).toContain("2 not generated");
     expect(stdout).not.toContain("shot.01.motion");
@@ -472,7 +472,7 @@ describe("status command", () => {
     await sm.save();
 
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).toMatch(/video: 1\/2 accepted \(1 stale\)/);
+    expect(stdout).toMatch(/video: 0\/1 shot accepted \(1 stale\)/);
   });
 
   it("leaves an accept whose upstream alone changed standing, named nowhere", async () => {
@@ -502,10 +502,11 @@ describe("status command", () => {
       ...DEFINITION_STALE,
     });
     await sm.save();
+    await run(["accept", "animatic:shot.01#composition", "--yes"], projectDir);
 
     const { stdout: before } = await run(["status"], projectDir);
     expect(before).toContain(`konte inspect ${kf}`);
-    expect(before).toMatch(/animatic: all 1 accepted \(1 stale\)/);
+    expect(before).toMatch(/animatic: all 1 shot accepted \(1 stale\)/);
 
     const mv = sm.reserveVariantId(motion);
     Object.assign(sm.getAssetState(motion).variants![mv]!, {
@@ -544,14 +545,46 @@ describe("status command", () => {
     expect(stdout).not.toContain(`konte reroll ${ADDRESS}`);
   });
 
+  // The review page counts a shot whose composition moved after its accept as unaccepted; the
+  // Progress line counted its takes alone and went on calling it accepted.
+  it("stops counting a shot accepted once its composition changes", async () => {
+    const sm = await StateManager.load(projectDir);
+    for (const [address, file] of [
+      [ADDRESS, "/tmp/motion.mp4"],
+      [UPSTREAM, "/tmp/voice.wav"],
+    ] as const) {
+      const id = sm.reserveVariantId(address);
+      Object.assign(sm.getAssetState(address).variants![id]!, { status: "accepted", file });
+    }
+    await sm.save();
+    await run(["accept", "video:shot.01#composition", "--yes"], projectDir);
+    await run(["accept", "video:shot.01#stem", "--yes"], projectDir);
+
+    const { stdout: before } = await run(["status"], projectDir);
+    expect(before).toMatch(/video: all 1 shot accepted/);
+
+    // An edited composition, staged as the hash its accept recorded: the CLI runs in-process here,
+    // so a re-read of video.tsx would be served from the module registry.
+    const after = await StateManager.load(projectDir);
+    const composition = "video:shot.01#composition";
+    const accepted = after.getAcceptedVariant(composition)!;
+    after.getAssetState(composition).variants![accepted]!.definitionHash = "0123456789ab";
+    await after.save();
+
+    const { stdout } = await run(["status"], projectDir);
+    expect(stdout).toMatch(/video: 0\/1 shot accepted/);
+  });
+
   // The human picked the take the definition has since moved away from: the step writes the
   // definition back, and a reroll is never the command offered.
   it("offers restoring the definition of a human accept whose definition moved", async () => {
     const sm = await seedStaleAccept(DEFINITION_STALE);
     const accepted = sm.getAcceptedVariant(ADDRESS)!;
+    await run(["accept", "video:shot.01#composition", "--yes"], projectDir);
+    await run(["accept", "video:shot.01#stem", "--yes"], projectDir);
 
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).toMatch(/video: all 2 accepted.*\(1 stale\)/);
+    expect(stdout).toMatch(/video: all 1 shot accepted.*\(1 stale\)/);
     expect(stdout).toContain(`  konte inspect ${accepted}\n`);
     expect(stdout).toContain(
       `${ADDRESS}: accepted against a changed definition — restore its definition in video.tsx`,
@@ -636,7 +669,9 @@ describe("status command", () => {
   it("counts acceptance and what is left to generate before anything is generated", async () => {
     const { stdout } = await run(["status"], projectDir);
 
-    expect(stdout).toMatch(/video: 0\/\d+ accepted .* 0\/\d+ generated \(\d+ not generated\)/);
+    expect(stdout).toMatch(
+      /video: 0\/\d+ shots? accepted · 0\/\d+ assets generated \(\d+ not generated\)/,
+    );
   });
 
   it("does not report ready to export while a pendingShot remains", async () => {
@@ -727,9 +762,10 @@ describe("status command", () => {
     sm.getAssetState(address).variants![v1]!.file = "/tmp/keyframe-1.png";
     sm.setAccepted(address, v1);
     await sm.save();
+    await run(["accept", "animatic:shot.01#composition", "--yes"], projectDir);
 
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).toContain("all 1 accepted");
+    expect(stdout).toContain("animatic: all 1 shot accepted");
     expect(stdout).toContain("1 shot undeveloped");
     expect(stdout).not.toContain("ready to export");
   });
@@ -745,9 +781,10 @@ describe("status command", () => {
     sm.getAssetState(address).variants![v1]!.file = "/tmp/keyframe-1.png";
     sm.setAccepted(address, v1);
     await sm.save();
+    await run(["accept", "animatic:shot.01#composition", "--yes"], projectDir);
 
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).toContain("animatic: all 1 accepted");
+    expect(stdout).toContain("animatic: all 1 shot accepted");
     expect(stdout).not.toContain("ready to export");
   });
 
@@ -806,7 +843,7 @@ describe("status command", () => {
 
     const { stdout: text } = await run(["status"], unusedProject);
     // The timeline bgm is filtered out before readiness, so motion is the only counted asset here.
-    expect(text).toMatch(/video: 0\/1 accepted/);
+    expect(text).toMatch(/video: 0\/1 shot accepted · 0\/1 assets generated/);
     expect(text).not.toContain("video:timeline.bgm");
     // status drops it because there is nothing to do about one now, not because it goes unreported
     // — doctor's "unused assets" check owns it (see the doctor suite).

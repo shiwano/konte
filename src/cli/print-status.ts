@@ -12,6 +12,8 @@ import {
   isPatchAddress,
   isStemAddress,
   formatReferenceAddress,
+  formatTimelineOverlayAddress,
+  formatTimelineStemAddress,
   listCompositionAddresses,
   listOverlayAddresses,
   listStemAddresses,
@@ -23,11 +25,12 @@ import {
   definitionHashForAddress,
   leafReadyForReview,
   leafSignedOff,
+  materializedLeafReviewStatus,
   shotAcceptsStand,
 } from "../core/composition-resource.js";
 import { computeDefinitionHash } from "../core/definition-hash.js";
 import { type DependencyGraph, videoDependentsHoldVerdicts } from "../core/graph.js";
-import { stageReviewDecidableAddresses } from "../core/shot-accept-targets.js";
+import { shotNeedsVerdict, stageReviewDecidableAddresses } from "../core/shot-accept-targets.js";
 import { computeExportSignature } from "../core/export-signature.js";
 import { formatRelativeTime } from "../core/format-timestamp.js";
 import { printCapped } from "./format-list.js";
@@ -47,6 +50,7 @@ import {
   type AddressInfo,
   type ExportReadiness,
   type LastExport,
+  type ReelProgress,
   type StatusSection,
   buildAddressInfo,
   computeExportReadiness,
@@ -139,6 +143,49 @@ function directionAcceptanceLine(summary: DirectionAcceptanceSummary, empty: boo
   }
 }
 
+// Each composition stage's accept count in its reel review's units, read by the review's own rules
+// so the two surfaces report one number.
+function reelProgressByStage(
+  manager: StateManager,
+  leafStages: ReadonlyMap<string, VideoDefinition>,
+  videoDefinition: VideoDefinition | null,
+  waiverShotIds: ReadonlySet<string> | undefined,
+): Partial<Record<Stage, ReelProgress>> {
+  const stages = new Map(leafStages);
+  if (videoDefinition) stages.set("video", videoDefinition);
+  const out: Partial<Record<Stage, ReelProgress>> = {};
+  for (const [stage, def] of stages) {
+    const downstreamVideo = stage === "animatic" ? videoDefinition : null;
+    // A board aside carries konte's slug, nothing of the author's to sign off.
+    const shots = def.shots.filter((s) => !s.pending && !(s.aside && !s.shotFn));
+    const acceptedShots = shots.filter(
+      (s) =>
+        !waiverShotIds?.has(s.id) &&
+        !shotNeedsVerdict(
+          manager,
+          def,
+          { shotId: s.id, pending: false, shotFn: s.shotFn ?? null },
+          downstreamVideo,
+        ),
+    ).length;
+    const leafNeedsReview = (address: string) =>
+      materializedLeafReviewStatus(manager, address, definitionHashForAddress(def, address))
+        .needsReview;
+    const stemAddress = formatTimelineStemAddress(def.stage);
+    out[stage as Stage] = {
+      shots: shots.length,
+      acceptedShots,
+      soundtrackUnsigned:
+        (def.timelineSoundtracks?.length ?? 0) > 0 && leafNeedsReview(stemAddress),
+      overlayUnsigned:
+        def.overlay !== undefined &&
+        shotAcceptsStand(manager, def, downstreamVideo) &&
+        leafNeedsReview(formatTimelineOverlayAddress(def.stage)),
+    };
+  }
+  return out;
+}
+
 // The shared computation behind `konte status`:
 // every section, the per-stage progress, and the last exports are
 // derived from the definition-supplied `addresses` so both renderings agree —
@@ -156,6 +203,8 @@ export async function buildStatusReport(
     /** The loaded video definition — drives the export signature and last-export scope. */
     videoDefinition?: VideoDefinition | null;
     graph?: DependencyGraph | null;
+    /** Shots with a direction waiver their accept would sign off. */
+    waiverShotIds?: ReadonlySet<string>;
   },
 ): Promise<StatusReport> {
   const state = manager.getState();
@@ -407,7 +456,16 @@ export async function buildStatusReport(
   // must still show its "N shots undeveloped" line even when it has no other asset. Seed the count
   // into readiness so status (the single orientation point) reports it and never reads
   // "ready to export" with a shot pending.
-  const readiness = computeExportReadiness(infos, options?.pendingShotsByStage);
+  const readiness = computeExportReadiness(
+    infos,
+    options?.pendingShotsByStage,
+    reelProgressByStage(
+      manager,
+      leafStages,
+      options?.videoDefinition ?? null,
+      options?.waiverShotIds,
+    ),
+  );
 
   // The loaded video definition drives the export signature (to flag a last export whose
   // soundtrack/delivery config has since changed) and marks the video stage in scope for last
@@ -508,14 +566,22 @@ export function printStatusReport(
       const staleCount = r.staleAwaitingAccept.length + r.staleAwaitingReroll.length;
       const staleSuffix = staleCount > 0 ? ` (${staleCount} stale)` : "";
 
+      // A composition stage counts what its reel review signs off — shots, the soundtrack, the
+      // overlay — so the number matches the page's; the generate ratio stays per asset, the unit
+      // `generate` acts on.
+      const reel = r.reel;
+      const unit = reel ? (reel.shots === 1 ? " shot" : " shots") : "";
+      const acceptTotal = reel ? reel.shots : r.total;
+      const acceptedCount = reel ? reel.acceptedShots : r.accepted;
       const parts: string[] = [];
-      if (r.total > 0) {
-        if (r.accepted !== r.total) {
-          let clause = `${r.accepted}/${r.total} accepted${staleSuffix}`;
+      if (acceptTotal > 0) {
+        if (acceptedCount !== acceptTotal) {
+          let clause = `${acceptedCount}/${acceptTotal}${unit} accepted${staleSuffix}`;
           // Pair the accept ratio with a generate ratio so a not-fully-accepted profile
           // reads unambiguously: what's never been generated (run `generate`) vs what's
           // generated and only awaiting review (see "Needs review").
-          clause += ` · ${r.generated}/${r.total} generated`;
+          if (r.total > 0)
+            clause += ` · ${r.generated}/${r.total}${reel ? " assets" : ""} generated`;
           // Counts, not addresses: `generate` is stage-scoped, so it acts on every one of these
           // whether or not this line names them — and an in-flight one is already handled. Naming
           // them would only restate the stage this line already leads with.
@@ -528,13 +594,23 @@ export function printStatusReport(
           parts.push(clause);
         } else {
           // A fully-accepted stage is still not exportable while an undeveloped shot remains
-          // (surfaced below), or while a composition, stem or overlay awaits its accept ("Needs
-          // review").
+          // (surfaced below), while a timeline asset, the soundtrack or the overlay awaits its
+          // accept, or while a composition or stem awaits its accept ("Needs review").
           const ready =
-            exportable && undeveloped === 0 && !r.leavesUnsigned && !r.deliveryUpscalerMissing;
-          parts.push(`all ${r.total} accepted${ready ? " — ready to export" : ""}${staleSuffix}`);
+            exportable &&
+            undeveloped === 0 &&
+            r.accepted === r.total &&
+            !reel?.soundtrackUnsigned &&
+            !reel?.overlayUnsigned &&
+            !r.leavesUnsigned &&
+            !r.deliveryUpscalerMissing;
+          parts.push(
+            `all ${acceptTotal}${unit} accepted${ready ? " — ready to export" : ""}${staleSuffix}`,
+          );
         }
       }
+      if (reel?.soundtrackUnsigned) parts.push("soundtrack not accepted");
+      if (reel?.overlayUnsigned) parts.push("overlay not accepted");
       if (undeveloped > 0) {
         parts.push(`${undeveloped} shot${undeveloped === 1 ? "" : "s"} undeveloped`);
       }

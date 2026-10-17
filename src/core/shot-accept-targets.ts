@@ -15,7 +15,12 @@ import {
   shotStemAssetNames,
   tryParseAddress,
 } from "./address.js";
-import { definitionHashForAddress, removedShotStemAddresses } from "./composition-resource.js";
+import {
+  boardCompositionSuperseded,
+  definitionHashForAddress,
+  materializedLeafReviewStatus,
+  removedShotStemAddresses,
+} from "./composition-resource.js";
 import { newestReadyUndecidedTake } from "./staleness.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import { extractRefs } from "./graph.js";
@@ -119,9 +124,9 @@ export function shotAcceptTargets(
  * without an edit.
  *
  * An address is settled when it carries an accepted take that is still current and no ready,
- * undecided take stands beside it. A materialized leaf answers through `leafSettled`, which the
- * caller supplies (it needs the leaf materializer). A shot whose half signs off nothing at all is
- * never settled: an accept over nothing is vacuous.
+ * undecided take stands beside it; a materialized leaf, when it is accepted at its live definition
+ * and inputs, or is a board composition `downstreamVideo` supersedes. A shot whose half signs off
+ * nothing at all is never settled: an accept over nothing is vacuous.
  */
 export function shotNeedsVerdict(
   manager: StateManager,
@@ -132,12 +137,16 @@ export function shotNeedsVerdict(
     shotFn: unknown;
     resolvedVariants?: Record<string, string>;
   },
-  leafSettled: (address: string) => boolean,
+  downstreamVideo: StageDefinition | null,
 ): boolean {
   if (shot.pending) return false;
   const targets = shotAcceptTargets(manager, video, shot);
   const takes = [...targets.pictureAssets, ...targets.stemSources];
   if (takes.length === 0 && targets.leaves.length === 0) return true;
+  const leafSettled = (address: string) =>
+    boardCompositionSuperseded(manager, video, downstreamVideo, address) ||
+    !materializedLeafReviewStatus(manager, address, definitionHashForAddress(video, address))
+      .needsReview;
   if (targets.leaves.some(({ address }) => !leafSettled(address))) return true;
   return takes.some((address) => !takeSettled(manager, video, address));
 }

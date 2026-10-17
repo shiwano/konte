@@ -482,6 +482,13 @@ function suggestExport(
   // while one remains.
   if (video.pendingShots > 0) return;
   if (video.accepted !== video.total || video.leavesUnsigned) return;
+  const reel = video.reel;
+  if (
+    reel &&
+    (reel.acceptedShots !== reel.shots || reel.soundtrackUnsigned || reel.overlayUnsigned)
+  ) {
+    return;
+  }
   if (current && !current.outOfDate) return;
   if (video.deliveryUpscalerMissing) {
     actions.push({

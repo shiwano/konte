@@ -20,7 +20,7 @@ Substitute your stage's `<scope>` / `<address>` into every step below.
 
 ## 1. See what's missing
 
-- **`konte status`** — your stage's Progress line; `all N accepted` → stage done.
+- **`konte status`** — your stage's Progress line; `all N [shots] accepted` → stage done.
 
 ## 2. Generate
 

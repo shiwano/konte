@@ -145,6 +145,18 @@ export interface StatusSection {
   }[];
 }
 
+/** A composition stage's progress in the units its reel review signs off. */
+export interface ReelProgress {
+  /** Every developed shot the reel can sign off. */
+  shots: number;
+  /** Of `shots`, those `shotNeedsVerdict` settles. */
+  acceptedShots: number;
+  /** The timeline stem the soundtrack beds mix into awaits its accept. */
+  soundtrackUnsigned: boolean;
+  /** The overlay is offered on its own (every shot accept stands) and awaits its accept. */
+  overlayUnsigned: boolean;
+}
+
 export interface ExportReadiness {
   label: string;
   /** Generation assets only — `file` assets have no accept lifecycle and are reported separately. */
@@ -202,6 +214,11 @@ export interface ExportReadiness {
    * with UNACCEPTED_ASSETS. Populated by the status builder; computeExportReadiness leaves it false.
    */
   leavesUnsigned: boolean;
+  /**
+   * The accept count a composition stage reports, in its reel review's units. Null on the reference
+   * stage, which has no reel. Seeded by computeExportReadiness from its `reelByStage` argument.
+   */
+  reel: ReelProgress | null;
   /**
    * Of this stage's generate work (`notGenerated` and `needsRegenerate` alike), what the animatic
    * gate withholds: `generate` skips these, so the step is an accept, not another generate — and
@@ -766,6 +783,7 @@ const STAGE_ORDER: string[] = ["reference", "animatic", "video"] satisfies Stage
 export function computeExportReadiness(
   infos: AddressInfo[],
   pendingShotsByStage?: Partial<Record<Stage, number>>,
+  reelByStage?: Partial<Record<Stage, ReelProgress>>,
 ): ExportReadiness[] {
   type Acc = {
     total: number;
@@ -868,6 +886,10 @@ export function computeExportReadiness(
       if (count && count > 0) ensure(stageMap, stage);
     }
   }
+  // A shot built purely from another stage's takes has no address of its own here either.
+  for (const [stage, reel] of Object.entries(reelByStage ?? {})) {
+    if (reel.shots > 0) ensure(stageMap, stage);
+  }
 
   const results: ExportReadiness[] = [];
   for (const [label, entry] of stageMap) {
@@ -887,6 +909,7 @@ export function computeExportReadiness(
       unacceptedCast: [],
       deliveryUpscalerMissing: false,
       leavesUnsigned: false,
+      reel: reelByStage?.[label as Stage] ?? null,
     });
   }
   // Report in pipeline order — the shared reference pool feeds animatic, which feeds video — so

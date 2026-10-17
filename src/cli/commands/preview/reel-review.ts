@@ -760,18 +760,8 @@ export async function handleGetReelState(
       // goes on asking for it.
       // A waiver the accept would sign off holds the verdict open too.
       const needsVerdict =
-        shotNeedsVerdict(
-          manager,
-          video,
-          s,
-          (address) =>
-            (address === compositionAddress && compositionSuperseded) ||
-            !materializedLeafReviewStatus(
-              manager,
-              address,
-              definitionHashForAddress(video, address),
-            ).needsReview,
-        ) || (waiversByShotId.get(s.shotId) ?? []).some((w) => w.needsReview);
+        shotNeedsVerdict(manager, video, s, downstreamVideo) ||
+        (waiversByShotId.get(s.shotId) ?? []).some((w) => w.needsReview);
 
       return {
         shotId: s.shotId,

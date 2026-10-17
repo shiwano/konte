@@ -48,6 +48,7 @@ export async function buildAssetStatus(opts: {
   /** Progress/readiness only — no section depends on these. */
   unacceptedCast?: readonly string[];
   pendingShotsByStage?: Partial<Record<Stage, number>>;
+  waiverShotIds?: ReadonlySet<string>;
 }): Promise<AssetStatus> {
   const { videoRoot, manager, video, animatic, reference } = opts;
   const state = manager.getState();
@@ -125,6 +126,7 @@ export async function buildAssetStatus(opts: {
       pendingShotsByStage: opts.pendingShotsByStage,
       videoDefinition: video,
       graph,
+      waiverShotIds: opts.waiverShotIds,
     },
   );
 

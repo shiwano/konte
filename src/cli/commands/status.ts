@@ -291,6 +291,13 @@ export function registerStatusCommand(program: Command): void {
         reference,
         unacceptedCast: unacceptedCast.map((c) => c.id),
         pendingShotsByStage,
+        waiverShotIds: new Set(
+          direction
+            ? shotWaiversAwaitingAccept(direction, manager.getDirectionAcceptance()).flatMap(
+                (w) => w.shotIds,
+              )
+            : [],
+        ),
       });
       // A file placed or replaced since the last write is a take only the in-memory sync above holds:
       // `accept` would refuse its id, or sign off the bytes the state still records. The review page
