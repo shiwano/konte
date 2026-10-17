@@ -218,9 +218,10 @@ describe("createPinGate", () => {
     expect(onAttack).not.toHaveBeenCalled();
   });
 
-  it("marks the cookie Secure on https and not on plain http, which would discard it", async () => {
+  it("marks the cookie Secure and __Host- on https, and neither on plain http, which would discard it", async () => {
     const https = createPinGate();
     const httpsRes = (await https.guard(...submit(https.pin), "host")) as Response;
+    expect(httpsRes.headers.get("set-cookie")).toMatch(/^__Host-konte_review_session=/);
     expect(httpsRes.headers.get("set-cookie")).toContain("Secure");
 
     const http = createPinGate();
@@ -228,7 +229,15 @@ describe("createPinGate", () => {
       ...submit(http.pin, { origin: "http://192.168.1.5:4649" }),
       "network",
     )) as Response;
+    expect(httpRes.headers.get("set-cookie")).toMatch(/^konte_review_session=/);
     expect(httpRes.headers.get("set-cookie")).not.toContain("Secure");
+  });
+
+  it("stays admitted when a sibling host tosses in a cookie of the unprefixed name", async () => {
+    const gate = createPinGate();
+    const cookie = cookieOf((await gate.guard(...submit(gate.pin), "host")) as Response);
+    const tossed = `konte_review_session=forged; ${cookie}`;
+    expect(await gate.guard(...get("/api/state", { cookie: tossed }), "host")).toBeNull();
   });
 
   it("always sets HttpOnly and SameSite=Lax — Strict drops the cookie on a link from a chat app", async () => {

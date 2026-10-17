@@ -9,6 +9,9 @@ const gateHtml = gateBundle as unknown as string;
 const lockedHtml = lockedBundle as unknown as string;
 
 const SESSION_COOKIE = "konte_review_session";
+// On https the browser refuses a `__Host-` cookie set by any other host — a sibling quick tunnel
+// included — or set without Secure and Path=/. Plain http cannot carry the prefix.
+const SECURE_SESSION_COOKIE = `__Host-${SESSION_COOKIE}`;
 /** Where the gate page posts. Under `/api/` so it is never mistaken for a page route. */
 export const PIN_SUBMIT_PATH = "/api/pin";
 
@@ -56,8 +59,11 @@ export function createPinGate(
   }
 
   function authenticated(req: Request): boolean {
-    const cookie = readCookie(req.headers.get("cookie"), SESSION_COOKIE);
-    return cookie !== null && constantTimeEquals(cookie, token);
+    const header = req.headers.get("cookie");
+    return [SECURE_SESSION_COOKIE, SESSION_COOKIE].some((name) => {
+      const cookie = readCookie(header, name);
+      return cookie !== null && constantTimeEquals(cookie, token);
+    });
   }
 
   function refused(status: number, message: string): Response {
@@ -98,9 +104,9 @@ export function createPinGate(
         // first cross-site navigation, which would ask for the PIN again on every arrival.
         // Secure follows the scheme the browser says it is on — a proxy may terminate TLS or not,
         // and a Secure cookie on plain http is one the browser silently discards.
-        "Set-Cookie":
-          `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/` +
-          (isHttpsOrigin(req) ? "; Secure" : ""),
+        "Set-Cookie": isHttpsOrigin(req)
+          ? `${SECURE_SESSION_COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/; Secure`
+          : `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/`,
       },
     });
   }
