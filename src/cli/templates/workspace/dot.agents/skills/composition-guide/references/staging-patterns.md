@@ -16,7 +16,7 @@ A `<Composition>` is a web page on the shot's clock: any HTML element, Tailwind 
 - **Text stays 5% in from every edge** — a 9:16 delivery also keeps the bottom sixth and the right edge clear for the platform's controls.
 - **A title never delays the hook** — it rides over the first shot or lands after it.
 - **A telop lands on a hold** — where the frame is still, for as long as it takes to read twice.
-- **Move a `<Subtitle>` up with `style={{ paddingBottom: "12%" }}`** — each entry is a full-frame box aligned to its bottom; `bottom-*` / `top-*` do nothing.
+- **Place a `<Subtitle>` with `bottom-[12%]` / `right-[36%]`** — a box behind the text goes on `lineClassName`.
 - **A text entrance** — give the element an `id` and tween it `from` its off state (`opacity`, `yPercent`).
 
 ## One layer over every shot: `overlay`

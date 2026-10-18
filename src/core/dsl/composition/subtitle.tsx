@@ -1,6 +1,7 @@
 import type { SrtEntry } from "../../srt.js";
 
 type DivElementProps = React.ComponentPropsWithoutRef<"div">;
+type SpanElementProps = React.ComponentPropsWithoutRef<"span">;
 
 export interface SubtitleEntry {
   start: number;
@@ -10,13 +11,25 @@ export interface SubtitleEntry {
 
 export type SubtitleProps = DivElementProps & {
   entries: readonly SubtitleEntry[];
+  /** On the `<span>` holding each line's text. */
+  lineClassName?: string;
+  lineStyle?: SpanElementProps["style"];
 };
 
-export function Subtitle({ entries, ...rest }: SubtitleProps): React.ReactElement | null {
+export function Subtitle({
+  entries,
+  lineClassName,
+  lineStyle,
+  ...rest
+}: SubtitleProps): React.ReactElement | null {
   if (entries.length === 0) {
     return null;
   }
-  return <>{renderEntries(toSrtEntries(entries), rest)}</>;
+  return (
+    <>
+      {renderEntries(toSrtEntries(entries), rest, { className: lineClassName, style: lineStyle })}
+    </>
+  );
 }
 
 function toSrtEntries(entries: readonly SubtitleEntry[]): SrtEntry[] {
@@ -28,19 +41,23 @@ function toSrtEntries(entries: readonly SubtitleEntry[]): SrtEntry[] {
   }));
 }
 
-function renderEntries(entries: SrtEntry[], rest: DivElementProps): React.ReactElement[] {
+function renderEntries(
+  entries: SrtEntry[],
+  rest: DivElementProps,
+  line: SpanElementProps,
+): React.ReactElement[] {
   return entries.map((entry) => {
     const duration = entry.endSeconds - entry.startSeconds;
     return (
       <div
         key={entry.index}
         {...rest}
-        className={`konte-clip konte-subtitle flex items-end justify-center text-center text-white font-semibold drop-shadow-lg${rest.className ? ` ${rest.className}` : ""}`}
+        className={`konte-clip konte-subtitle${rest.className ? ` ${rest.className}` : ""}`}
         data-start={entry.startSeconds}
         data-duration={duration}
         data-track-index={10}
       >
-        {entry.text}
+        <span {...line}>{entry.text}</span>
       </div>
     );
   });

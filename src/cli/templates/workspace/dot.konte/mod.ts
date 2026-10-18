@@ -9052,6 +9052,7 @@ export declare function Panel({
   ...rest
 }: PanelProps): React.ReactElement;
 export type DivElementProps = React.ComponentPropsWithoutRef<"div">;
+export type SpanElementProps = React.ComponentPropsWithoutRef<"span">;
 export interface SubtitleEntry {
   start: number;
   end: number;
@@ -9059,8 +9060,16 @@ export interface SubtitleEntry {
 }
 export type SubtitleProps = DivElementProps & {
   entries: readonly SubtitleEntry[];
+  /** On the `<span>` holding each line's text. */
+  lineClassName?: string;
+  lineStyle?: SpanElementProps["style"];
 };
-export declare function Subtitle({ entries, ...rest }: SubtitleProps): React.ReactElement | null;
+export declare function Subtitle({
+  entries,
+  lineClassName,
+  lineStyle,
+  ...rest
+}: SubtitleProps): React.ReactElement | null;
 export type VideoElementProps = React.ComponentPropsWithoutRef<"video">;
 export type VideoProps = Omit<VideoElementProps, "src"> & {
   src: MediaAsset<"video">;
