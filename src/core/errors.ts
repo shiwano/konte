@@ -202,6 +202,8 @@ export type KonteErrorCode =
   // A video shot that generates something and builds it on nothing from the board it develops. The
   // gate above only reaches what a spend consumes, so such a shot would route around it entirely.
   | "ANIMATIC_UNCONSUMED"
+  // A take one stage consumes from another that its own stage's review never shows.
+  | "UPSTREAM_UNPLACED"
   // The same gate one stage up: a spend consumes a `reference:` asset no human has accepted. A
   // sheet is what every downstream take derives its identity from, so it is settled before anything
   // is built on it — never implicitly, by whatever consumed it first.

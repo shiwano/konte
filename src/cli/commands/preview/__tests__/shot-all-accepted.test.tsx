@@ -147,6 +147,45 @@ describe("shot allAccepted", () => {
   });
 });
 
+describe("a shot whose motion is made from a still it never places", () => {
+  const animateWithImage = defineComfyAsset({
+    workflow: "animate-image.json",
+    description: "test adapter",
+    inputs: { image: { nodeId: "1", field: "image", type: "image" } },
+    outputs: { result: { nodeId: "9", type: "video" } },
+  });
+  const stillVideo = defineVideo(testDirection(format), {
+    timeline: () =>
+      videoTimeline([
+        shot("01", {
+          duration: 5,
+          build: () => {
+            const still = asset("still", imageComfy, { prompt: "a cat" });
+            const motion = asset("motion", animateWithImage, { image: still });
+            return (
+              <Composition>
+                <Video src={motion} />
+              </Composition>
+            );
+          },
+        }),
+      ]),
+  });
+
+  it("is ready, and offers only the motion it shows", async () => {
+    acceptReadyVariant("video:shot.01.still", "assets/video/shot.01.still/s.png");
+    acceptReadyVariant("video:shot.01.motion", "assets/video/shot.01.motion/m.mp4");
+    await manager.save();
+    const res = await handleGetReelState(dir, stillVideo, "/assets", null, null, animatic);
+    const body = (await res.json()) as {
+      shots: { notReady: boolean; assets: { assetName: string }[] }[];
+    };
+
+    expect(body.shots[0]!.notReady).toBe(false);
+    expect(body.shots[0]!.assets.map((a) => a.assetName)).toEqual(["motion"]);
+  });
+});
+
 describe("shot moves", () => {
   it("carries the board's movement into the video review", async () => {
     await manager.save();

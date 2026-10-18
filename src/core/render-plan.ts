@@ -21,6 +21,7 @@ import {
   formatAddress,
   formatAssetPath,
   formatTimelineAddress,
+  shownShotAssetNames,
   tryParseAddress,
 } from "./address.js";
 import { resolveCompositionRef } from "./composition-refs.js";
@@ -246,7 +247,7 @@ export function buildRenderPlan(
 
     for (const s of targetShots) {
       if (!s.shotFn) continue;
-      for (const [assetName] of Object.entries(s.assets)) {
+      for (const assetName of shownShotAssetNames(stage, video.shots, s)) {
         collectMissing(shotAddr(s, assetName));
       }
     }
@@ -337,7 +338,7 @@ export function buildRenderPlan(
     }
 
     if (shot.shotFn) {
-      for (const [assetName] of Object.entries(shot.assets)) {
+      for (const assetName of shownShotAssetNames(stage, video.shots, shot)) {
         const addr = shotAddr(shot, assetName);
         if (allowUnaccepted) {
           const result = manager.resolveReference(addr, { includeStale: allowNotReady });

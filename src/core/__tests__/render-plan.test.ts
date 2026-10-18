@@ -11,8 +11,8 @@ import { KonteError } from "../errors.js";
 import { buildRenderPlan, buildStageReviewPlan, shotSpans } from "../render-plan.js";
 import { StateManager } from "../state/index.js";
 
-function el(): React.ReactElement {
-  return { type: Composition, props: { children: [] } } as unknown as React.ReactElement;
+function el(...placed: unknown[]): React.ReactElement {
+  return { type: Composition, props: { children: placed } } as unknown as React.ReactElement;
 }
 
 const animateComfy = defineComfyAsset({
@@ -75,16 +75,16 @@ const testVideo = defineVideo(
         shot("01", {
           duration: 5,
           build: () => {
-            asset("motion", animateComfy, { prompt: "a cat walking" });
-            asset("voice", ttsComfy, { text: "hello world" });
-            return el();
+            return el(
+              asset("motion", animateComfy, { prompt: "a cat walking" }),
+              asset("voice", ttsComfy, { text: "hello world" }),
+            );
           },
         }),
         shot("02", {
           duration: 3,
           build: () => {
-            asset("motion", renderComfy, { scene: "forest" });
-            return el();
+            return el(asset("motion", renderComfy, { scene: "forest" }));
           },
         }),
       ]),
@@ -123,8 +123,7 @@ const pendingVideo = defineVideo(
         shot("01", {
           duration: 5,
           build: () => {
-            asset("motion", animateComfy, { prompt: "a cat walking" });
-            return el();
+            return el(asset("motion", animateComfy, { prompt: "a cat walking" }));
           },
         }),
         pendingShot("02", { duration: 3, action: "the payoff, later" }),
@@ -296,8 +295,7 @@ describe("buildRenderPlan", () => {
             shot("01", {
               duration: 5,
               build: () => {
-                asset("motion", animateWithImageComfy, { image: character });
-                return el();
+                return el(asset("motion", animateWithImageComfy, { image: character }));
               },
             }),
           ]);
@@ -365,8 +363,7 @@ describe("buildRenderPlan", () => {
             shot("01", {
               duration: 5,
               build: () => {
-                asset("motion", animateComfy, { prompt: "a cat" });
-                return el();
+                return el(asset("motion", animateComfy, { prompt: "a cat" }));
               },
             }),
           ]),
@@ -396,6 +393,67 @@ describe("buildRenderPlan", () => {
     expect(plan.shots[0]!.shotFn).toBeDefined();
     expect(plan.shots[1]!.shotFn).toBeNull();
     expect(plan.shots[1]!.warnings).toContainEqual(expect.stringContaining("no composition"));
+  });
+
+  it("resolves only the takes the composition places, leaving the still its motion consumes", () => {
+    const video = defineVideo(
+      testDirection({
+        fps: 30,
+        size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
+      }),
+      {
+        timeline: () =>
+          videoTimeline([
+            shot("01", {
+              duration: 5,
+              build: () => {
+                const still = asset("still", imageComfy, { prompt: "a girl" });
+                return el(asset("motion", animateWithImageComfy, { image: still }));
+              },
+            }),
+          ]),
+      },
+    );
+    setupReady(manager, "video:shot.01.still", "output/still.png");
+    const motionId = setupReady(manager, "video:shot.01.motion", "output/motion.mp4");
+
+    const plan = buildRenderPlan(video, manager, {
+      outputDir: path.join(tmpDir, "dist"),
+      allowUnaccepted: true,
+    });
+
+    expect(plan.shots[0]!.resolvedVariants).toEqual({ motion: motionId });
+    expect(plan.shots[0]!.unacceptedAssets).toEqual(["video:shot.01.motion"]);
+  });
+
+  it("resolves a take on its own shot when only a sibling shot draws it", () => {
+    const video = defineVideo(
+      testDirection({
+        fps: 30,
+        size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
+      }),
+      {
+        timeline: () =>
+          videoTimeline([
+            shot("01", {
+              duration: 5,
+              build: () => {
+                asset("motion", animateComfy, { prompt: "a cat walking" });
+                return el();
+              },
+            }),
+            shot("02", {
+              duration: 3,
+              build: () => el({ src: "__konte:video:shot.01.motion__" }),
+            }),
+          ]),
+      },
+    );
+    setupAccepted(manager, "video:shot.01.motion", "output/motion.mp4");
+
+    const plan = buildRenderPlan(video, manager, { outputDir: path.join(tmpDir, "dist") });
+
+    expect(plan.shots[0]!.resolvedFiles.motion).toContain("output/motion.mp4");
   });
 
   describe("allowUnaccepted", () => {
@@ -547,8 +605,7 @@ describe("buildRenderPlan", () => {
               shot("01", {
                 duration: 5,
                 build: () => {
-                  asset("motion", animateWithImageComfy, { image: character });
-                  return el();
+                  return el(asset("motion", animateWithImageComfy, { image: character }));
                 },
               }),
             ]);

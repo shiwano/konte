@@ -286,6 +286,12 @@ export function buildDependencyGraph(
   }
 
   validateReferencePurity(dependencies);
+  assertUpstreamsPlaced(
+    dependencies,
+    video?.stage === "video" ? video : null,
+    animatic ?? (video?.stage === "animatic" ? (video as AnimaticDefinition) : null),
+    reference,
+  );
 
   const topologicalOrder = topologicalSort(allAssetPaths, dependencies, dependents);
 
@@ -311,19 +317,13 @@ function validateReferencePurity(dependencies: ReadonlyMap<string, readonly stri
   }
 }
 
-// Asset paths no deliverable consumes — defined but unreachable from any render/review
-// root, so they are not generated, not counted toward acceptance, and not needed for
-// export. Roots are where output is actually produced: a video shot's composition (it
-// pulls in `compositionRefs`), a shotFn-less shot's own assets (the render falls back to
-// whichever resolves), and each non-pending animatic panel. "Used" is the forward
-// closure of `dependencies` from those roots, so a timeline OR shot-level asset that the
-// composition (and everything reachable) never touches is reported here. Composition
-// nodes are synthesized, not user assets, so they are never reported.
-export function listUnusedAssetPaths(
-  video: VideoDefinition | null,
+// Where each stage's output is looked at: a shot's composition, a shotFn-less shot's own assets, its
+// stems, each non-pending animatic panel, the overlays, the soundtrack beds, and the pools a stage
+// publishes (exposed reference assets, exposed plates).
+function reviewRoots(
+  video: StageDefinition | null,
   animatic: AnimaticDefinition | null,
-  graph: DependencyGraph,
-  reference?: ReferenceDefinition | null,
+  reference: ReferenceDefinition | null | undefined,
 ): string[] {
   const roots: string[] = [];
 
@@ -345,38 +345,34 @@ export function listUnusedAssetPaths(
     roots.push(formatPlateAssetPath(setupId));
   }
 
-  for (const s of video?.shots ?? []) {
-    if (s.shotFn) {
-      roots.push(formatAssetPath("video", s.id, COMPOSITION_ASSET_NAME));
-    } else {
-      for (const assetName of Object.keys(s.assets)) {
-        roots.push(formatAssetPath("video", s.id, assetName));
-      }
-    }
-    for (const stem of listShotStems("video", s)) roots.push(stem.address);
-  }
-  if ((video?.timelineSoundtracks?.length ?? 0) > 0) {
-    roots.push(formatTimelineAssetPath("video", STEM_ASSET_NAME));
-  }
-  // The overlay is a leaf of its own: what it shows is used by it.
-  if (video?.overlay) roots.push(formatTimelineAssetPath("video", OVERLAY_ASSET_NAME));
-  if (animatic?.overlay) roots.push(formatTimelineAssetPath("animatic", OVERLAY_ASSET_NAME));
-
   // The animatic's own compositions are review roots of their own: each is what a human watches to
   // decide whether the shot may be spent on, so the takes it shows (a keyframe, a TTS line) are used
   // even before any video build consumes them. Its stems are konte's, not the author's, so they are
   // never "an asset nobody asked for" either.
+  for (const def of [animatic, video]) {
+    if (!def) continue;
+    for (const s of def.shots) {
+      if (s.shotFn) {
+        roots.push(formatAssetPath(def.stage, s.id, COMPOSITION_ASSET_NAME));
+      } else {
+        for (const assetName of Object.keys(s.assets)) {
+          roots.push(formatAssetPath(def.stage, s.id, assetName));
+        }
+      }
+      for (const stem of listShotStems(def.stage, s)) roots.push(stem.address);
+    }
+    if ((def.timelineSoundtracks?.length ?? 0) > 0) {
+      roots.push(formatTimelineAssetPath(def.stage, STEM_ASSET_NAME));
+    }
+    // The overlay is a leaf of its own: what it shows is used by it.
+    if (def.overlay) roots.push(formatTimelineAssetPath(def.stage, OVERLAY_ASSET_NAME));
+  }
   for (const s of animatic?.shots ?? []) {
-    if (s.shotFn) roots.push(formatAssetPath("animatic", s.id, COMPOSITION_ASSET_NAME));
-    for (const stem of listShotStems("animatic", s)) roots.push(stem.address);
     for (const panel of allPanels(s)) {
       // The panel's resolved path (shot-local / shared timeline / shared reference) is itself a
       // graph node key, so it is a render root directly — never reported unused.
       roots.push(panel.assetPath);
     }
-  }
-  if ((animatic?.timelineSoundtracks?.length ?? 0) > 0) {
-    roots.push(formatTimelineAssetPath("animatic", STEM_ASSET_NAME));
   }
 
   // Timeline soundtracks are render roots too — a bed muxed onto the final video is
@@ -386,15 +382,62 @@ export function listUnusedAssetPaths(
     const path = parsePlaceholder(st.src.src);
     if (path) roots.push(path);
   }
+  return roots;
+}
 
-  const needed = new Set<string>();
-  const stack = roots.filter((r) => graph.dependencies.has(r));
+// `withinStage` stops at every stage boundary.
+function reachFrom(
+  dependencies: ReadonlyMap<string, readonly string[]>,
+  roots: readonly string[],
+  withinStage: boolean,
+): Set<string> {
+  const reached = new Set<string>();
+  const stack = roots.filter((r) => dependencies.has(r));
   while (stack.length > 0) {
     const p = stack.pop();
-    if (p === undefined || needed.has(p)) continue;
-    needed.add(p);
-    for (const dep of graph.dependencies.get(p) ?? []) stack.push(dep);
+    if (p === undefined || reached.has(p)) continue;
+    reached.add(p);
+    for (const dep of dependencies.get(p) ?? []) {
+      if (!withinStage || getStage(dep) === getStage(p)) stack.push(dep);
+    }
   }
+  return reached;
+}
+
+// A take another stage consumes is one its own stage's review shows.
+function assertUpstreamsPlaced(
+  dependencies: ReadonlyMap<string, readonly string[]>,
+  video: StageDefinition | null,
+  animatic: AnimaticDefinition | null,
+  reference: ReferenceDefinition | null | undefined,
+): void {
+  const shown = reachFrom(dependencies, reviewRoots(video, animatic, reference), true);
+  const lines: string[] = [];
+  for (const [consumer, deps] of dependencies) {
+    for (const dep of deps) {
+      if (getStage(dep) === getStage(consumer) || shown.has(dep)) continue;
+      lines.push(`  ${dep} — consumed by ${consumer}`);
+    }
+  }
+  if (lines.length === 0) return;
+  throw new KonteError(
+    "UPSTREAM_UNPLACED",
+    `${lines.length} asset(s) consumed across stages are never shown on their own stage's review — ` +
+      "place each in its shot's composition (on the board, a <Panel> or a layer), so the take " +
+      "built on is one a human sees before accepting it",
+    lines,
+  );
+}
+
+// Asset paths no deliverable consumes — defined but unreachable from any render/review root, so
+// they are not generated, not counted toward acceptance, and not needed for export.
+export function listUnusedAssetPaths(
+  video: VideoDefinition | null,
+  animatic: AnimaticDefinition | null,
+  graph: DependencyGraph,
+  reference?: ReferenceDefinition | null,
+): string[] {
+  const needed = reachFrom(graph.dependencies, reviewRoots(video, animatic, reference), false);
 
   // Every reserved name is konte's own synthesis, never something an author declared, so an unused
   // one is not a wiring mistake to report.

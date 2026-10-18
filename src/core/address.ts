@@ -838,6 +838,43 @@ export function shotCueRefs(shot: StemShotLike): string[] {
   return [...(shot.stemRefs ?? []), ...(shot.narrationStemRefs ?? [])];
 }
 
+type ShownShotLike = StemShotLike & {
+  assets: Record<string, unknown>;
+  shotFn?: unknown;
+  compositionRefs?: readonly string[];
+};
+
+const placedByShots = new WeakMap<object, { length: number; placed: Set<string> }>();
+
+function placedRefs(shots: readonly ShownShotLike[]): Set<string> {
+  let entry = placedByShots.get(shots);
+  if (!entry || entry.length !== shots.length) {
+    const placed = new Set<string>();
+    for (const s of shots) {
+      for (const ref of [...(s.compositionRefs ?? []), ...shotCueRefs(s)]) placed.add(ref);
+    }
+    entry = { length: shots.length, placed };
+    placedByShots.set(shots, entry);
+  }
+  return entry.placed;
+}
+
+/**
+ * The shot's own assets the stage's review shows: what any of its compositions places — a sibling
+ * shot may draw one — or its stems mix. A shot with no composition, or one never discovered, shows
+ * every one.
+ */
+export function shownShotAssetNames(
+  stage: ShotStage,
+  shots: readonly ShownShotLike[],
+  shot: ShownShotLike,
+): string[] {
+  const names = Object.keys(shot.assets);
+  if (!shot.shotFn || !shot.compositionRefs) return names;
+  const placed = placedRefs(shots);
+  return names.filter((name) => placed.has(formatAssetPath(stage, shot.id, name)));
+}
+
 // The stem leaves a stage declares: each shot's stems (`listShotStems`), plus the timeline stem
 // when the stage has soundtrack beds.
 export function listStemAddresses(video: StemVideoLike): string[] {

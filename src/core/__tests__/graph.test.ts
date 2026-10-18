@@ -639,7 +639,14 @@ describe("buildDependencyGraph", () => {
       shots: animatic.shots.map((s) => ({
         ...s,
         assets: Object.fromEntries(Object.entries(s.assets).map(([k, v]) => [k, v])),
-        panels: [],
+        panels: [
+          {
+            assetName: "keyframe",
+            assetPath: "animatic:shot.01.keyframe",
+            start: 0,
+            duration: 5,
+          },
+        ],
       })),
     };
 
@@ -672,6 +679,53 @@ describe("buildDependencyGraph", () => {
     expect([...(graph.dependents.get("animatic:shot.01.keyframe") ?? [])]).toEqual([
       "video:shot.01.motion",
     ]);
+  });
+
+  it("refuses a video asset consuming a board take the board never shows", () => {
+    const comfyDef = { kind: "comfy" as const, workflow: "w.json", inputs: {} };
+    const animatic: AnimaticDefinition = {
+      stage: "animatic" as const,
+      format: { size: { width: 100, height: 100 }, fps: 30 },
+      typography: { lang: "en" as const },
+      shots: [
+        {
+          id: "01",
+          duration: 5,
+          action: "shot 01",
+          assets: { key: comfyDef, end: comfyDef },
+          shotFn: (() => null) as never,
+          compositionRefs: ["animatic:shot.01.key"],
+          panels: [{ assetName: "key", assetPath: "animatic:shot.01.key", start: 0, duration: 5 }],
+        },
+      ],
+    };
+    const video = {
+      stage: "video" as const,
+      format: { size: { width: 100, height: 100 }, fps: 30 },
+      typography: { lang: "en" as const },
+      shots: [
+        {
+          id: "01",
+          duration: 5,
+          assets: {
+            motion: {
+              ...comfyDef,
+              inputs: {
+                image: "__konte:animatic:shot.01.key__",
+                endImage: "__konte:animatic:shot.01.end__",
+              },
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => buildDependencyGraph(video as any, animatic)).toThrow(
+      expect.objectContaining({
+        code: "UPSTREAM_UNPLACED",
+        items: ["  animatic:shot.01.end — consumed by video:shot.01.motion"],
+      }),
+    );
   });
 
   it("throws a targeted error when video references an undeveloped (pendingShot) animatic shot", () => {

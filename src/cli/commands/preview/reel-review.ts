@@ -25,6 +25,7 @@ import {
   parseShotAddress,
   assetNameOf,
   shotStemAssetNames,
+  shownShotAssetNames,
   type ShotStage,
 } from "../../../core/address.js";
 import {
@@ -535,11 +536,12 @@ function shotMoveIndex(
 function shotNotReady(
   manager: StateManager,
   stage: ShotStage,
+  shots: readonly ShotDefinition[],
   plan: ShotRenderPlan,
   shot: ShotDefinition | undefined,
 ): boolean {
   if (plan.pending || !shot) return false;
-  const ownNames = Object.keys(shot.assets);
+  const ownNames = shownShotAssetNames(stage, shots, shot);
   if (ownNames.some((name) => plan.resolvedVariants[name] === undefined)) return true;
   const ownPaths = new Set(ownNames.map((name) => formatAddress(stage, shot.id, name)));
   return (shot.compositionRefs ?? []).some(
@@ -674,14 +676,14 @@ export async function handleGetReelState(
   const shots = plan.shots.map((s, shotIdx) => {
     const { start: startTime, duration } = timing.spans[shotIdx]!;
     const shot = shotById(video.shots, s.shotId);
-    const notReady = shotNotReady(manager, stage, s, shot);
+    const notReady = shotNotReady(manager, stage, video.shots, s, shot);
     try {
       // Only the shot's video/image assets stay on the shot; audio splits off to its track,
       // so the shot (video) accept is fully independent of the per-asset audio accept.
       const assets: ReturnType<typeof buildAsset>[] = [];
       const audioAddresses = new Set<string>();
       if (shot) {
-        for (const assetName of Object.keys(shot.assets)) {
+        for (const assetName of shownShotAssetNames(stage, video.shots, shot)) {
           const addr = formatAddress(stage, s.shotId, assetName);
           const built = buildAsset(assetName, addr, s.resolvedVariants[assetName]);
           if (built.mediaKind === "audio") {

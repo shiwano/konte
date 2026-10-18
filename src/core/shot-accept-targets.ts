@@ -13,6 +13,7 @@ import {
   listShotStems,
   shotCueRefs,
   shotStemAssetNames,
+  shownShotAssetNames,
   tryParseAddress,
 } from "./address.js";
 import {
@@ -54,8 +55,8 @@ const EMPTY: ShotAcceptTargets = {
 
 /**
  * `resolvedVariants` is the render plan's, so `pictureAssets` names what the reviewer was shown.
- * Omitted (the read-back's shot shape), the shot's declared assets stand in, split by the media each
- * take on disk is.
+ * Omitted (the read-back's shot shape), the assets the shot's review shows stand in
+ * (`shownShotAssetNames`), split by the media each take on disk is.
  */
 export function shotAcceptTargets(
   manager: StateManager,
@@ -74,7 +75,9 @@ export function shotAcceptTargets(
 
   const assetNames = shot.resolvedVariants
     ? Object.keys(shot.resolvedVariants)
-    : Object.keys(definition?.assets ?? {});
+    : definition
+      ? shownShotAssetNames(stage, video.shots, definition)
+      : [];
   // Audio takes ride the stem's accept, never the picture path — even a cue that names a per-shot
   // asset.
   const pictureAssets = assetNames

@@ -15,6 +15,7 @@ import {
   formatTimelineStemAddress,
   listReviewableAssetPaths,
   listShotStems,
+  shownShotAssetNames,
   STEM_ASSET_NAME,
   tryParseAddress,
 } from "../../../core/address.js";
@@ -61,14 +62,19 @@ export function parseNoteOption(value: string, previous: HandoffNote[]): Handoff
 // with no ready variant is simply omitted (no throw). Used only to diff against
 // the review, so a full render plan is neither needed nor wanted here.
 function resolveCurrentVariantsByShot(
-  shots: Array<{ id: string; assets: Record<string, unknown> }>,
+  shots: Array<{
+    id: string;
+    assets: Record<string, unknown>;
+    shotFn?: unknown;
+    compositionRefs?: readonly string[];
+  }>,
   stage: ShotStage,
   manager: StateManager,
 ): Map<string, Record<string, string>> {
   const map = new Map<string, Record<string, string>>();
   for (const shot of shots) {
     const variants: Record<string, string> = {};
-    for (const assetName of Object.keys(shot.assets)) {
+    for (const assetName of shownShotAssetNames(stage, shots, shot)) {
       const result = manager.resolveReference(formatAddress(stage, shot.id, assetName));
       if (result) variants[assetName] = result.variantId;
     }
@@ -143,6 +149,7 @@ export function collectChangedAddresses(
     id: string;
     assets: Record<string, unknown>;
     shotFn?: unknown;
+    compositionRefs?: readonly string[];
     stemRefs?: readonly string[];
     narrationStemRefs?: readonly string[];
   }>,
@@ -215,7 +222,7 @@ export function collectChangedAddresses(
     // missing baseline as empty: signal (1) needs one and already skipped this shot
     // upstream, while (2)/(3) don't, so every fresh variant still qualifies.
     const reviewed = reviewedByShot.get(shot.id) ?? {};
-    for (const assetName of Object.keys(shot.assets)) {
+    for (const assetName of shownShotAssetNames(stage, shots, shot)) {
       const addr = formatAddress(stage, shot.id, assetName);
       const variants = manager.tryGetAssetState(addr)?.variants;
       if (!variants) continue;

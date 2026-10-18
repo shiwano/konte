@@ -11,6 +11,7 @@ import {
   formatAddress,
   formatShotAddress,
   patchSourceVariantIdOf,
+  shownShotAssetNames,
   type Stage,
 } from "../../../core/address.js";
 import {
@@ -1124,7 +1125,7 @@ export function buildAnimaticReviewContext(
 ): Array<{ shotId: string; duration: number; variants: Record<string, string> }> {
   return animatic.shots.map((shot) => {
     const variants: Record<string, string> = {};
-    for (const assetName of Object.keys(shot.assets)) {
+    for (const assetName of shownShotAssetNames("animatic", animatic.shots, shot)) {
       const addr = formatAddress("animatic", shot.id, assetName);
       const displayed = manager.selectVariant(addr, { includeStale: true });
       if (displayed) {
