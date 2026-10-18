@@ -840,14 +840,15 @@ function buildAssetFiles(resolvedFiles: Record<string, string>): Record<string, 
 }
 
 // HyperFrames serves `assetFiles` by key, so an out-of-shot ref needs a workspace filename of its
-// own. Only `:` is rewritten: the name goes into a `src` attribute, where a leading `video:` would
-// read as a URL scheme. `.`, `-` and `_` are all legal in a filename and are kept, which keeps the
+// own. The name goes into a `src` attribute, where a leading `video:` would read as a URL scheme and
+// a reserved name's `#` as a fragment, so `:` becomes `.` and `#` becomes `~`, a character no
+// identifier holds. `.`, `-` and `_` are all legal in a filename and are kept, which keeps the
 // mapping injective — a shot id and an asset name may each contain `-`/`_`, so collapsing those too
 // would map `shot.a-b.c`, `shot.a.b-c` and `shot.a_b.c` onto one file. It also cannot collide with a
 // shot's own `<assetName><ext>` key: the name carries a `<stage>.` prefix and an asset name may not
 // contain `.`.
 function refFileName(assetPath: string, filePath: string): string {
-  return `${assetPath.replace(/:/g, ".")}${path.extname(filePath)}`;
+  return `${assetPath.replace(/:/g, ".").replace(/#/g, "~")}${path.extname(filePath)}`;
 }
 
 interface ShotRenderInputs {

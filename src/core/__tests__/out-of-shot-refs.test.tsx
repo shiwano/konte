@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
-import { Composition, Image, Video } from "../dsl/composition/index.js";
+import { Audio, Composition, Image, Video } from "../dsl/composition/index.js";
 import { defineDirection, defineAnimatic, defineVideo, asset, Panel } from "../dsl/index.js";
 import { buildRenderPlan } from "../render-plan.js";
 import { buildShotRenderInputs } from "../render-video.js";
@@ -24,6 +24,13 @@ const imageComfy = defineComfyAsset({
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
   outputs: { result: { nodeId: "9", type: "image" } },
+});
+
+const ttsComfy = defineComfyAsset({
+  workflow: "tts.json",
+  description: "test adapter",
+  inputs: { text: { nodeId: "3", field: "text", type: "string" } },
+  outputs: { result: { nodeId: "9", type: "audio" } },
 });
 
 const SIZE = { width: 1024, height: 576 };
@@ -191,6 +198,59 @@ describe("buildShotRenderInputs — out-of-shot refs", () => {
     const staged = "animatic.shot.01.first.png";
     expect(compositionHtml).toContain(`src="${staged}"`);
     expect(assetFiles[staged]).toBe(path.resolve(tmpDir, "assets/sb.01.first/frame.png"));
+  });
+
+  // A reserved name's `#` in a `src` would read as a URL fragment, cutting the path at the address.
+  it("stages a reserved-name ref under a filename with no `#`", () => {
+    const animatic = defineAnimatic(
+      testDirection({
+        fps: 24,
+        size: { megapixels: (SIZE.width * SIZE.height) / 1e6, delivery: SIZE },
+      }),
+      {
+        timeline: () =>
+          animaticTimeline([
+            shot("01", {
+              duration: 5,
+              build: () => {
+                const first = asset("first", imageComfy, { prompt: "a wide establishing frame" });
+                return (
+                  <Composition>
+                    <Panel src={first} {...moves} />
+                    <Audio src={asset("line", ttsComfy, { text: "hello" })} />
+                  </Composition>
+                );
+              },
+            }),
+          ]),
+      },
+    );
+    const video = defineVideo(
+      testDirection({
+        fps: 30,
+        size: { megapixels: (SIZE.width * SIZE.height) / 1e6, delivery: SIZE },
+      }),
+      {
+        timeline: () =>
+          videoTimeline([
+            shot("01", {
+              duration: 5,
+              build: () => (
+                <Composition>
+                  <Audio id="line" src={animatic.shot("01").stem} />
+                </Composition>
+              ),
+            }),
+          ]),
+      },
+    );
+    setupAccepted("animatic:shot.01#stem", "assets/sb.01.stem/stem.wav");
+
+    const { compositionHtml, assetFiles } = renderInputs(video, "01");
+
+    const staged = "animatic.shot.01~stem.wav";
+    expect(compositionHtml).toContain(`src="${staged}"`);
+    expect(assetFiles[staged]).toBe(path.resolve(tmpDir, "assets/sb.01.stem/stem.wav"));
   });
 
   // `-` and `_` are both legal in a shot id and an asset name, so a staged filename that collapsed
