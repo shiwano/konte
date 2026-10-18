@@ -257,12 +257,6 @@ async function buildCompositionCells(
         timestamps = [...timestamps, ...added.slice(0, room)].sort((a, b) => a - b);
       }
     }
-    // Drawn from whatever resolves, so a layer with no take leaves a hole. Say which, or the cell
-    // reads as the shot composing to that.
-    const blank = unresolvedPictureRefs(manager, shot);
-    if (blank.length > 0) {
-      skipped.push(`${shotAddress} (drawn without ${blank.join(", ")} — no take resolves)`);
-    }
     let frames: Awaited<ReturnType<typeof captureCompositionFrames>>;
     try {
       frames = await captureCompositionFrames({
@@ -297,6 +291,12 @@ async function buildCompositionCells(
       if (err.code === "FRAME_CAPTURE_FAILED") process.exitCode = 1;
       skipped.push(`${shotAddress} (${err.message})`);
       continue;
+    }
+    // Drawn from whatever resolves, so a layer with no take leaves a hole. Say which, or the cell
+    // reads as the shot composing to that. A shot that drew nothing already said so above.
+    const blank = unresolvedPictureRefs(manager, shot);
+    if (blank.length > 0) {
+      skipped.push(`${shotAddress} (drawn without ${blank.join(", ")} — no take resolves)`);
     }
     for (const [i, frame] of frames.entries()) {
       // The shot's address, not the composition's: `#composition` is the same on every cell of the
