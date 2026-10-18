@@ -35,6 +35,7 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - dev-render 10,750 → 10,800 (agreed by a human): what it held over budget.
 // - video 35,350 → 35,400, music-video 36,950 → 37,000: a panel's role — a frame's only panel is its
 //   key, the moment the shot reads, handed to the video as a reference.
 // - video 38,750 → 35,350, music-video 39,800 → 36,950 (agreed by a human): cut to the measured
@@ -248,7 +249,7 @@ const DEV_JOURNEYS = [
   // the same render plan chooses between per shot.
   {
     name: "dev-render",
-    budget: 10_750,
+    budget: 10_800,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-delivery-guide/SKILL.md`,
