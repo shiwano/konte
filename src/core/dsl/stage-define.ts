@@ -11,7 +11,7 @@ import type {
 import { KonteError } from "../errors.js";
 import type { AnyShotInput, MediaKind, SoundtrackEntry } from "./builders.js";
 import type { OverlayDefinition } from "../types/index.js";
-import { shotSongStem, spanSongContext, timedShot } from "./direction.js";
+import { endsOnSeam, shotSongStem, spanSongContext, timedShot } from "./direction.js";
 import { isAsideShotInput, isPendingShotInput } from "./builders.js";
 import { Composition } from "./composition/index.js";
 import type { DirectionIndex } from "./direction.js";
@@ -143,7 +143,12 @@ export function defineStage(args: DefineStageArgs): StageBuild {
         aside: true as const,
       };
     }
-    const buildFormat = { ...format, duration: input.options.duration, typography };
+    const buildFormat = {
+      ...format,
+      duration: input.options.duration,
+      ...(endsOnSeam(index, input.id) ? { endsOnSeam: true } : {}),
+      typography,
+    };
     const context: RenderContext = {
       shotId: input.id,
       width: format.size.width,

@@ -157,7 +157,7 @@ export const videoMinimaxH3R2v = defineComfyAsset({
       pin: { end: { nodeId: "168", field: "frame_idx" } },
       branch: [{ nodeId: "168", passThrough: "positive" }],
       description:
-        "Pins the frame just past the shot to this image; the take lands on it instead of wherever the prompt takes it.",
+        "Pins the shot's last frame to this image — at a continuous seam, the frame just past it, which the next shot opens on; the take lands on it instead of wherever the prompt takes it.",
     },
     // MiniMaxH3ReferenceToVideo → SamplerCustomAdvanced.latent_image, BasicGuider.conditioning
     prompt: {

@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { Composition } from "../dsl/composition/composition.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
-import { Video, asset, defineReference, defineVideo, definePatch } from "../dsl/index.js";
+import { Cutin, Video, asset, defineReference, defineVideo, definePatch } from "../dsl/index.js";
 import { checkPins } from "../pin-check.js";
 import { listVideoShotPins } from "../graph.js";
 import { harvestShotPictureCues } from "../composition-builder.js";
 import { pendingShot, shot, videoTimeline } from "./helpers/shot.js";
-import { testDirection, plainDirection } from "./helpers/direction.js";
+import { defineDirection } from "../dsl/direction.js";
+import { directionDefaults, testDirection, plainDirection } from "./helpers/direction.js";
 
 const FORMAT = { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } };
 
@@ -250,8 +251,7 @@ describe("listVideoShotPins windows", () => {
     expect([w.opensAt, w.closesAt, w.from, w.to]).toEqual([0, 2.5, 0, 2.5]);
   });
 
-  // The workflow anchors the image at the frame past the shot, and konte writes that frame.
-  it("lands an anchored end image at the frame past the shot", () => {
+  describe("an end image the workflow anchors by frame index", () => {
     const anchored = defineComfyAsset({
       workflow: "anchored-motion.json",
       description: "test motion adapter anchoring its end image by frame index",
@@ -274,21 +274,106 @@ describe("listVideoShotPins windows", () => {
       },
       outputs: { result: { nodeId: "9", type: "video" } },
     });
-    const v = defineVideo(testDirection(FORMAT), {
-      timeline: () =>
-        videoTimeline([
-          shot("01", {
-            duration: 2.5,
-            build: () => {
-              const key = asset("key", imageComfy, { prompt: "a lit desk" });
-              return el(cue(asset("motion", anchored, { prompt: "she turns", endImage: key })));
-            },
-          }),
-        ]),
+    const landing = (direction: Parameters<typeof defineVideo>[0], inCutin = false) => {
+      const placed = (take: React.ReactElement) =>
+        inCutin
+          ? ({ type: Cutin, props: { children: take } } as unknown as React.ReactElement)
+          : take;
+      const v = defineVideo(direction, {
+        timeline: () =>
+          videoTimeline([
+            shot("01", {
+              duration: 2.5,
+              build: () => {
+                const key = asset("key", imageComfy, { prompt: "a lit desk" });
+                return el(
+                  placed(cue(asset("motion", anchored, { prompt: "she turns", endImage: key }))),
+                );
+              },
+            }),
+            shot("02", { duration: 2.5, build: () => el(...(inCutin ? [placed(el())] : [])) }),
+          ]),
+      });
+      return listVideoShotPins(v, (id) => harvestShotPictureCues(v, id)).find(
+        (s) => s.shotId === "01" && s.pins.length > 0,
+      )!.pins[0]!.window!;
+    };
+
+    it("lands on the shot's last played frame", () => {
+      const w = landing(testDirection(FORMAT));
+      expect(w.landsAt).toBeCloseTo(59 / 24);
+      expect(w.to).toBeCloseTo(2.5);
     });
-    const w = listVideoShotPins(v, (id) => harvestShotPictureCues(v, id))[0]!.pins[0]!.window!;
-    expect(w.landsAt).toBeCloseTo(60 / 24);
-    expect(w.to).toBeCloseTo(2.5);
+
+    // The next shot opens on the image, so the take before lands on the frame it never plays.
+    it("lands on the frame past the shot where the next shot runs on from it", () => {
+      const longTake = defineDirection({
+        ...directionDefaults,
+        policy: { ...directionDefaults.policy, format: FORMAT },
+        sequence: {
+          lens: "mini-drama",
+          pleasure: "cute",
+          shots: [
+            {
+              id: "01",
+              role: "ordinary",
+              action: "she waits",
+              setup: "front",
+              duration: 2.5,
+              lineup: [],
+            },
+            {
+              id: "02",
+              role: "disruption",
+              action: "she turns",
+              setup: "front",
+              join: "continuous",
+              duration: 2.5,
+              lineup: [],
+            },
+          ],
+        },
+      });
+      const w = landing(longTake);
+      expect(w.landsAt).toBeCloseTo(60 / 24);
+      expect(w.to).toBeCloseTo(2.5);
+    });
+
+    // A graphic shot has no main frame, so its cutin is the lane a take plays in.
+    it("lands on the frame past a graphic shot whose cutin runs on into the next", () => {
+      const wipe = (join?: "continuous") => ({
+        setup: "front",
+        lineup: [],
+        ...(join ? { join } : {}),
+      });
+      const longWipe = defineDirection({
+        ...directionDefaults,
+        policy: { ...directionDefaults.policy, format: FORMAT },
+        sequence: {
+          lens: "mini-drama",
+          pleasure: "cute",
+          shots: [
+            {
+              id: "01",
+              kind: "graphic",
+              role: "ordinary",
+              action: "the screen",
+              duration: 2.5,
+              cutin: wipe(),
+            },
+            {
+              id: "02",
+              kind: "graphic",
+              role: "disruption",
+              action: "the next screen",
+              duration: 2.5,
+              cutin: wipe("continuous"),
+            },
+          ],
+        },
+      });
+      expect(landing(longWipe, true).landsAt).toBeCloseTo(60 / 24);
+    });
   });
 
   // The shot cuts at its end, whatever duration the cue declares.

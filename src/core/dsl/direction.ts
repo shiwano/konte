@@ -1220,6 +1220,14 @@ export function getDirectionIndex(direction: DirectionEntry<unknown>): Direction
   return (direction as Record<symbol, DirectionIndex>)[DIRECTION_KEY]!;
 }
 
+// Whether a take in the shot ends on the seam the next shot opens on. A take is declared before the
+// composition places it, so the lane is the shot's only one — a graphic shot's cutin — else its main
+// frame.
+export function endsOnSeam(index: DirectionIndex, shotId: string): boolean {
+  const continued = index.continuedById.get(shotId);
+  return (index.graphicIds.has(shotId) ? continued?.cutin : continued?.main) !== undefined;
+}
+
 // The `shot` injected into a stage's timeline ctx — one starter type for both, since both stages
 // author a shot the same way. `id` is pinned to `FirstShotId<D>` (the walk begins at the first shot)
 // and it returns a chain whose `.nextShot` mints the successor shot; order and full coverage are

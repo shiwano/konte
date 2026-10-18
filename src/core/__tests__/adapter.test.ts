@@ -1287,7 +1287,7 @@ describe("max (the model's ceiling)", () => {
   });
 });
 
-describe("pin: { end } (an end image anchored past the shot)", () => {
+describe("pin: { end } (an end image anchored by frame index)", () => {
   const anchoredAdapter = defineComfyAsset({
     workflow: "anchored.json",
     description: "test adapter",
@@ -1314,9 +1314,9 @@ describe("pin: { end } (an end image anchored past the shot)", () => {
 
   function buildWith(
     duration: number | undefined,
-    inputs: { endImage?: boolean; length?: number } = {},
+    inputs: { endImage?: boolean; length?: number; endsOnSeam?: boolean } = {},
   ) {
-    const { endImage = true, length } = inputs;
+    const { endImage = true, length, endsOnSeam } = inputs;
     const { assets } = runTimelineInDiscoveryMode(
       "video",
       () => {
@@ -1331,21 +1331,35 @@ describe("pin: { end } (an end image anchored past the shot)", () => {
         size: { width: 1280, height: 720 },
         fps: 30,
         ...(duration !== undefined ? { duration } : {}),
+        ...(endsOnSeam ? { endsOnSeam } : {}),
       },
     );
     return assets["m"] as ComfyAssetDefinition;
   }
 
-  it("anchors the end image on the first frame past the shot", () => {
-    // 5s * 24 = 120 shown; 121 → 124 on the grid, so frame 120 exists and is never played.
+  it("anchors the end image on the shot's last played frame", () => {
+    // 5s * 24 = 120 shown → 124 on the grid; the shot ends on frame 119.
     const def = buildWith(5);
+    expect(def.inputs["1.length"]).toBe(124);
+    expect(def.inputs["21.frame_idx"]).toBe(119);
+  });
+
+  it("derives no extra frame where the shot lands exactly on the grid", () => {
+    const def = buildWith(8);
+    expect(def.inputs["1.length"]).toBe(192);
+    expect(def.inputs["21.frame_idx"]).toBe(191);
+  });
+
+  it("anchors the end image on the first frame past a shot that ends on a seam", () => {
+    // 5s * 24 = 120 shown; 121 → 124 on the grid, so frame 120 exists and is never played.
+    const def = buildWith(5, { endsOnSeam: true });
     expect(def.inputs["1.length"]).toBe(124);
     expect(def.inputs["21.frame_idx"]).toBe(120);
   });
 
-  it("derives one frame more where the shot lands exactly on the grid", () => {
+  it("derives one frame more where a seam shot lands exactly on the grid", () => {
     // 8s * 24 = 192 is a grid point; the anchor needs frame 192, so the clip takes the next rung.
-    const def = buildWith(8);
+    const def = buildWith(8, { endsOnSeam: true });
     expect(def.inputs["1.length"]).toBe(209);
     expect(def.inputs["21.frame_idx"]).toBe(192);
   });
@@ -1356,9 +1370,11 @@ describe("pin: { end } (an end image anchored past the shot)", () => {
     expect(def.inputs["21.frame_idx"]).toBeUndefined();
   });
 
-  it("anchors at the clip's last frame when a passed length leaves no frame past the shot", () => {
+  it("anchors at the clip's last frame when a passed length is too short to hold the landing", () => {
     expect(buildWith(5, { length: 107 }).inputs["21.frame_idx"]).toBe(-1);
-    expect(buildWith(5, { length: 141 }).inputs["21.frame_idx"]).toBe(120);
+    expect(buildWith(5, { length: 141 }).inputs["21.frame_idx"]).toBe(119);
+    expect(buildWith(5, { length: 107, endsOnSeam: true }).inputs["21.frame_idx"]).toBe(-1);
+    expect(buildWith(5, { length: 141, endsOnSeam: true }).inputs["21.frame_idx"]).toBe(120);
   });
 
   it("writes no anchor outside a shot", () => {

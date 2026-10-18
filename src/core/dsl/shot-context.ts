@@ -22,6 +22,9 @@ export interface BuildFormat {
   size: { width: number; height: number };
   fps?: number;
   duration?: number;
+  // A take in the active shot runs on into the next shot in one take (`endsOnSeam`), so its last
+  // frame is the seam the next shot opens on.
+  endsOnSeam?: boolean;
   // How the stage typesets a document (`lang`, the declared Google Fonts), so an adapter that
   // renders its own HTML — `jsxImage` — resolves the same faces the compositions do. Absent
   // outside a stage that declares one (a delivery upscale).

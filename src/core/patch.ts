@@ -9,7 +9,14 @@ import {
   assetNameOf,
 } from "./address.js";
 import { computeDefinitionHash } from "./definition-hash.js";
-import { resolveDirectionFormat, resolveDirectionTimeline, timedShot } from "./dsl/direction.js";
+import {
+  endsOnSeam,
+  getDirectionIndex,
+  resolveDirectionFormat,
+  resolveDirectionTimeline,
+  timedShot,
+  type DirectionEntry,
+} from "./dsl/direction.js";
 import type { PatchBuild } from "./dsl/patch.js";
 import type { BuildFormat } from "./dsl/shot-context.js";
 import { KonteError, errorMessage } from "./errors.js";
@@ -392,6 +399,7 @@ async function loadDirectionCanvas(
   // Every shot, aside included: a patch corrects a take at an address, and an aside has assets to
   // correct like any other video shot.
   const timeline = resolveDirectionTimeline(direction);
+  const index = getDirectionIndex(direction as unknown as DirectionEntry<unknown>);
   return (sourceAddress) => {
     const parsed = parseAddress(sourceAddress);
     const shotId = parsed.kind === "shot" ? parsed.shotId : null;
@@ -401,6 +409,7 @@ async function loadDirectionCanvas(
       ...(typography ? { typography } : {}),
       ...(parsed.stage === "video" ? { fps: format.fps } : {}),
       ...(timing ? { duration: timedShot(timeline, timing).duration } : {}),
+      ...(timing && endsOnSeam(index, shotId!) ? { endsOnSeam: true } : {}),
     };
   };
 }

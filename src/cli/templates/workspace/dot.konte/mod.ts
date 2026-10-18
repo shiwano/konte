@@ -476,6 +476,7 @@ export interface BuildFormat {
   };
   fps?: number;
   duration?: number;
+  endsOnSeam?: boolean;
   typography?: Typography;
 }
 declare const AnimaticFormatSchema: z.ZodObject<

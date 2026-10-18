@@ -111,9 +111,10 @@ interface AdapterInputDefBase {
   // which reads this. `"image"` inputs only, one input per end.
   //
   // `{ end: { nodeId, field } }` is an end the workflow anchors by frame index, written to that
-  // target. The image then lands on the first frame past the shot: the clip is derived one frame
-  // longer than the shot, and the frames past it are never played. Only a clip at least one frame
-  // longer than the shot has that frame; a shorter one is anchored at its last (`-1`).
+  // target. The image lands on the shot's last played frame, or, where the shot ends on a seam, on
+  // the first frame past it — the next shot opens on that image, so the clip is derived one frame
+  // longer than the shot and the frames past it are never played. A clip too short to hold that
+  // frame is anchored at its last (`-1`).
   pin?: DeclaredPin;
   // The take's own soundtrack, which the model times its picture to (lips, a beat). On a video shot
   // of a piece cut to its song konte fills it with the board's `#songStem` and refuses anything
@@ -459,7 +460,9 @@ export function defineComfyAsset<
             userValue !== undefined
               ? userValue
               : (derived?.length ??
-                (fromShot !== undefined && anchored ? fromShot + 1 : fromShot) ??
+                (fromShot !== undefined && anchored && format?.endsOnSeam
+                  ? fromShot + 1
+                  : fromShot) ??
                 resolveDefault(def.default));
         } else if (isMedia) {
           value = userValue !== undefined ? (userValue as MediaAsset).src : undefined;
@@ -570,9 +573,10 @@ export function defineComfyAsset<
         const perSecond = clipUnitsPerSecond(lengthDef) ?? format.fps;
         if (typeof length === "number" && perSecond !== undefined) {
           const shown = Math.round(format.duration * perSecond);
+          const at = format.endsOnSeam ? shown : shown - 1;
           const { nodeId, field } = (anchored[1].pin as Exclude<DeclaredPin, string>).end;
-          inputs[`${nodeId}.${field}`] = length > shown ? shown : -1;
-          anchorFrame = length > shown ? shown : length - 1;
+          inputs[`${nodeId}.${field}`] = length > at ? at : -1;
+          anchorFrame = length > at ? at : length - 1;
         }
       }
 
