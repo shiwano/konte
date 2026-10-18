@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as path from "node:path";
 import { watch, type FSWatcher } from "node:fs";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -53,6 +54,7 @@ export class JobWatcher {
   readonly videoRoot: string;
   private readonly videoName: string;
   private readonly jobManager: JobManager;
+  private readonly workerId = `w-${crypto.randomBytes(8).toString("hex")}`;
   private readonly watchingVariants = new Set<string>();
   private watcher: FSWatcher | null = null;
   private scanTimer: ReturnType<typeof setTimeout> | null = null;
@@ -606,6 +608,7 @@ export class JobWatcher {
 
       const definitions = await this.loadDefinitions();
       const result = await waitForJob(this.jobManager, variantId, this.roots, definitions, {
+        workerId: this.workerId,
         onProgress: (p) =>
           this.sendLog("debug", {
             event: "job_progress",
@@ -779,30 +782,34 @@ export class JobWatcher {
 
       // A submit that fails is stamped "failed" on the job itself by submitReadyPendingJobs, so
       // the CLI reads it off disk and the daemon needs no record of its own.
-      const { submitted, released } = await submitReadyPendingJobs(
+      // Submitting under the watcher's own worker id lets its waiter take over the submit lease;
+      // each job is waited on as it commits, not after the whole pass.
+      const { released } = await submitReadyPendingJobs(
         this.jobManager,
         this.roots,
         this.backendCache,
         resolveBackend,
         () => this.loadDefinitions(),
+        {
+          workerId: this.workerId,
+          onSubmitted: (vid) => {
+            // Logged once per variant: overlapping cascade passes (see runCascadeSubmit) can report
+            // the same submission twice. startWaitingForJob is idempotent on its own, so it stays
+            // outside the guard.
+            if (!this.loggedSubmissions.has(vid)) {
+              this.loggedSubmissions.add(vid);
+              this.sendLog("debug", {
+                event: "pending_job_submitted",
+                variantId: vid,
+              });
+            }
+            this.startWaitingForJob(vid);
+          },
+        },
       );
       if (released.length > 0) await this.jobManager.flushLogs();
       for (const release of released) {
         this.onStaleDefinitions({ kind: "generation", ...release });
-      }
-
-      for (const vid of submitted) {
-        // Logged once per variant: overlapping cascade passes (see runCascadeSubmit) can report
-        // the same submission twice. startWaitingForJob is idempotent on its own, so it stays
-        // outside the guard.
-        if (!this.loggedSubmissions.has(vid)) {
-          this.loggedSubmissions.add(vid);
-          this.sendLog("debug", {
-            event: "pending_job_submitted",
-            variantId: vid,
-          });
-        }
-        this.startWaitingForJob(vid);
       }
     } catch (err) {
       const msg = errorMessage(err);

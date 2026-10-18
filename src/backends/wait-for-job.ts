@@ -81,6 +81,9 @@ export type WaitForJobResult = {
 
 type WaitForJobHooks = {
   timeoutMs?: number;
+  // The worker id this wait claims under; a live lease the same worker already holds (its own
+  // submit's) is taken over rather than monitored out.
+  workerId?: string;
   onProgress?: (p: {
     variantId: string;
     address: string;
@@ -138,7 +141,7 @@ export async function waitForJob(
     }
   }
 
-  const workerId = `w-${crypto.randomBytes(8).toString("hex")}`;
+  const workerId = hooks.workerId ?? `w-${crypto.randomBytes(8).toString("hex")}`;
   const deadline = hooks.timeoutMs ? Date.now() + hooks.timeoutMs : undefined;
 
   // Claim-or-monitor loop. The run lease makes exactly ONE process the OWNER that runs the

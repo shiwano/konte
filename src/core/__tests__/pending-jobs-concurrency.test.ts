@@ -249,6 +249,32 @@ describe("submitReadyPendingJobs concurrency", () => {
     expect(result.submitted).toEqual([variantId]);
     expect(counts.get(variantId)).toBe(1);
   });
+
+  it("leaves a submitted job leased to its submitter, for its waiter to take over", async () => {
+    await StateManager.init(tmpDir);
+    const variantId = "v-handoff1";
+    await jobManager.createJob({
+      address: "video:timeline.character",
+      variantId,
+      resolvedDeps: {},
+      backendKind: "comfy",
+    });
+    const submitted: string[] = [];
+    await submitReadyPendingJobs(
+      jobManager,
+      roots,
+      new Map(),
+      async () => new CountingBackend(new Map(), 0),
+      async () => ({ video: buildVideo(), animatic: emptyAnimatic(), reference: emptyReference() }),
+      { workerId: "w-daemon", onSubmitted: (vid) => submitted.push(vid) },
+    );
+    expect(submitted).toEqual([variantId]);
+    const job = await jobManager.getJob(variantId);
+    expect(job.lease?.owner).toBe("w-daemon");
+    expect(Date.parse(job.lease!.expiresAt)).toBeGreaterThan(Date.now());
+    expect(await jobManager.claimJobForRun(variantId, "w-other", 60_000)).toBeNull();
+    expect(await jobManager.claimJobForRun(variantId, "w-daemon", 60_000)).not.toBeNull();
+  });
   it("submits each pending job exactly once across concurrent submitters", async () => {
     const video = buildVideo();
 

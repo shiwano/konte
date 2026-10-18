@@ -26,7 +26,7 @@ When several daemons of the workspace await the same running job, a **run lease*
 
 Waiting is unbounded, except comfy, whose prompt lives in the server process: it fails after `comfy.comfyui.unreachableTimeoutMinutes` of silence (default 15, 0 = never).
 
-Before calling a backend, `submissionStartedAt` is persisted under the submit lease. A reclaimed external job with that stamp and no backend id fails with `SUBMISSION_UNCONFIRMED`: check the backend before rerolling. A claim that never began submission and a local operation may retry.
+Before calling a backend, `submissionStartedAt` is persisted under the submit lease. A reclaimed external job with that stamp and no backend id fails with `SUBMISSION_UNCONFIRMED`: check the backend before rerolling. A claim that never began submission and a local operation may retry. A committed submit keeps the submit lease, and the daemon submits and waits under one worker id (`workerId`), so its waiter takes that lease over and the job is never unwatched between submit and wait.
 
 Transient result-fetch and download-stream failures retry against the existing backend id. A wait timeout releases the run lease; the next waiter resumes retrieval.
 

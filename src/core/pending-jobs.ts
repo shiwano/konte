@@ -64,12 +64,20 @@ function judgeIdentity(): string {
   return `konte${args ? ` ${args}` : ""}, pid ${process.pid}`;
 }
 
+// A submitted job keeps its submit lease for one TTL, so a waiter claiming under the submitter's
+// `workerId` takes it over with no unwatched gap between the commit and its wait.
+export type Submitter = {
+  workerId: string;
+  onSubmitted: (variantId: string) => void;
+};
+
 export async function submitReadyPendingJobs(
   jobManager: JobManager,
   roots: VideoRoots,
   backendCache: Map<BackendKind, GenerationBackend>,
   resolveBackendFn: ResolveBackendFn,
   loadDefinitions: LoadDefinitionsFn,
+  submitter?: Submitter,
 ): Promise<SubmitReadyPendingJobsResult> {
   const videoRoot = roots.video;
   const submitted: string[] = [];
@@ -103,7 +111,7 @@ export async function submitReadyPendingJobs(
       const evaluation = evaluateJob(job, manager, jobIndex);
 
       if (evaluation.action === "submit") {
-        const workerId = `w-${crypto.randomBytes(8).toString("hex")}`;
+        const workerId = submitter?.workerId ?? `w-${crypto.randomBytes(8).toString("hex")}`;
         const claimed = await jobManager.claimForSubmission(
           job.variantId,
           workerId,
@@ -130,6 +138,7 @@ export async function submitReadyPendingJobs(
           // A successful submit changes no other job's evaluation: the address already
           // counted as actively producing while pending, so no re-scan is needed for it.
           submitted.push(claimed.variantId);
+          submitter?.onSubmitted(claimed.variantId);
         } else if (outcome === "failed") {
           // A failure can doom dependents (their upstream lost its producer), which the
           // next pass discovers against a fresh job listing.
@@ -462,14 +471,16 @@ async function trySubmitJob(
       request,
     );
 
-    // Commit the backendJobId and release the submit lease, handing off to the wait/run
-    // phase — but only if we still own the lease. If a slow submit outran the lease and a
-    // reclaimer took over, finishIfOwner returns false: don't clobber its work (this leaves
+    // Commit the backendJobId and refresh the lease for the waiter that takes it over — but only
+    // if we still own the lease. If a slow submit outran the lease and a reclaimer took over, finishIfOwner returns false: don't clobber its work (this leaves
     // our backend job orphaned, the rare cost of a submit that outlived RUN_LEASE_TTL_MS).
     const committed = await jobManager.finishIfOwner(job.variantId, workerId, {
       status: "running",
       backendJobId,
-      lease: null,
+      lease: {
+        owner: workerId,
+        expiresAt: new Date(Date.now() + RUN_LEASE_TTL_MS).toISOString(),
+      },
       metadata,
       provenance: {
         ...job.provenance,

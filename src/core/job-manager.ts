@@ -717,8 +717,9 @@ export class JobManager {
    * time-bounded lease. Claimable when "pending", or when "running" with an expired/absent
    * lease (its previous owner crashed). A live owner renews its lease (see renewLease), so
    * its job is never reclaimed — this is what makes recovery safe with multiple concurrent
-   * watchers. Returns the updated record, or null if the job is owned by a live worker (or
-   * already terminal).
+   * watchers. A worker already holding the live lease — a submitter handing its job to its own
+   * waiter — claims it again. Returns the updated record, or null if the job is owned by another
+   * live worker (or already terminal).
    */
   async claimJobForRun(
     id: string,
@@ -729,7 +730,9 @@ export class JobManager {
       const job = this.readOrThrow(id);
       const now = Date.now();
       const leaseValid = job.lease != null && Date.parse(job.lease.expiresAt) > now;
-      const claimable = job.status === "pending" || (job.status === "running" && !leaseValid);
+      const claimable =
+        job.status === "pending" ||
+        (job.status === "running" && (!leaseValid || job.lease?.owner === workerId));
       if (!claimable) return null;
       return this.apply(job, {
         status: "running",
