@@ -95,10 +95,9 @@ function direction(opts: {
 const noStage: StagingStageState = {
   panelSlots: [],
   panelReach: [],
-  plateUses: [],
   plateRecrops: [],
   panelPrompts: [],
-  platePrompts: {},
+  plateTexts: {},
   videoPins: [],
   shotPanels: [],
 };
@@ -376,7 +375,6 @@ describe("character-unconsumed", () => {
   const reach = (refsHeld: string[], generative = true): StagingStageState => ({
     ...noStage,
     panelSlots: [],
-    plateUses: [],
     plateRecrops: [],
     panelReach: [
       { shotId: "01", lane: "main", panel: "animatic:shot.01.first", refs: refsHeld, generative },
@@ -418,7 +416,6 @@ describe("character-unconsumed", () => {
     const findings = found(moved, {
       ...noStage,
       panelSlots: [],
-      plateUses: [],
       plateRecrops: [],
       panelReach: [
         {
@@ -475,7 +472,6 @@ describe("character-unconsumed", () => {
     const findings = found(moved, {
       ...noStage,
       panelSlots: [],
-      plateUses: [],
       plateRecrops: [],
       panelReach: [
         { shotId: "01", lane: "main", panel: "animatic:shot.01.first", refs: [], generative: true },
@@ -508,7 +504,6 @@ describe("slot-order-mismatch", () => {
       stagingStage: {
         ...noStage,
         panelReach: [],
-        plateUses: [],
         plateRecrops: [],
         panelSlots: [
           {
@@ -529,7 +524,6 @@ describe("slot-order-mismatch", () => {
       stagingStage: {
         ...noStage,
         panelReach: [],
-        plateUses: [],
         plateRecrops: [],
         panelSlots: [
           {
@@ -552,7 +546,6 @@ describe("slot-order-mismatch", () => {
       stagingStage: {
         ...noStage,
         panelReach: [],
-        plateUses: [],
         plateRecrops: [],
         panelSlots: [
           { shotId: "01", lane: "main", panel: "animatic:shot.01.first", slots: ["ane", "imouto"] },
@@ -574,7 +567,6 @@ describe("slot-order-mismatch", () => {
       stagingStage: {
         ...noStage,
         panelReach: [],
-        plateUses: [],
         plateRecrops: [],
         panelSlots: [
           { shotId: "01", lane: "main", panel: "animatic:shot.01.first", slots: ["ane", "imouto"] },
@@ -589,7 +581,6 @@ describe("slot-order-mismatch", () => {
       stagingStage: {
         ...noStage,
         panelReach: [],
-        plateUses: [],
         plateRecrops: [],
         panelSlots: [
           { shotId: "01", lane: "main", panel: "animatic:shot.01.first", slots: ["imouto"] },
@@ -678,46 +669,6 @@ describe("the staging class is waivable and gates a spend", () => {
     });
     expect(codes(dir, "lineup-flipped")).toEqual([]);
     expect(checkDirection(dir).waived.map((f) => f.code)).toContain("lineup-flipped");
-  });
-});
-
-describe("plate-undescribed", () => {
-  const dir = direction({ shots: [shot("01", "deck", { lineup: [] })] });
-  const state = (use: Partial<StagingStageState["plateUses"][number]>): StagingStageState => ({
-    ...noStage,
-    panelSlots: [],
-    panelReach: [],
-    plateUses: [{ setupId: "deck", shotId: "01", lane: "main", describes: true, ...use }],
-    plateRecrops: [],
-  });
-  const found = (stagingStage: StagingStageState) =>
-    checkDirection(dir, { stagingStage }).active.filter((f) => f.code === "plate-undescribed");
-
-  it("says nothing of a shot whose prompt carries the plate's sentence", () => {
-    expect(found(state({}))).toEqual([]);
-  });
-
-  it("flags a shot whose prompt does not carry the plate's sentence", () => {
-    const findings = found(state({ describes: false }));
-    expect(findings.map((f) => f.subject)).toEqual(["deck"]);
-    expect(findings[0]?.message).toContain("`plates.deck.prompt`");
-  });
-
-  // The sentence is the plate's, so one waiver answers for the frame rather than for one shot on it.
-  it("is waived by the setup's key", () => {
-    const waived = direction({
-      shots: [shot("01", "deck", { lineup: [] })],
-      waivers: { "plate-undescribed_deck": "the crop is unmistakable on its own" },
-    });
-    expect(
-      checkDirection(waived, { stagingStage: state({ describes: false }) }).active.filter(
-        (f) => f.code === "plate-undescribed",
-      ),
-    ).toEqual([]);
-  });
-
-  it("stays silent with no board to read", () => {
-    expect(checkDirection(dir).active.filter((f) => f.code === "plate-undescribed")).toEqual([]);
   });
 });
 
@@ -1156,21 +1107,72 @@ describe("prop-unnamed", () => {
   });
 });
 
+describe("landmark-unnamed", () => {
+  const dir = direction({ shots: [shot("01", "stern", { lineup: [] })] });
+  const state = (
+    panels: { texts: string[]; generative?: boolean }[],
+    plateTexts: Record<string, string[]> = {},
+  ): StagingStageState => ({
+    ...noStage,
+    plateTexts,
+    panelPrompts: panels.map((p, i) => ({
+      shotId: "01",
+      lane: "main",
+      panel: `animatic:shot.01.p${i}`,
+      texts: p.texts,
+      generative: p.generative ?? true,
+    })),
+  });
+  const found = (d: Direction, stagingStage: StagingStageState) =>
+    checkDirection(d, { stagingStage }).active.filter((f) => f.code === "landmark-unnamed");
+
+  it("flags a keyframe on an unplated setup that does not ask for what its frame holds", () => {
+    const findings = found(dir, state([{ texts: ["the boat from the stern, the bench"] }]));
+    expect(findings.map((f) => f.subject)).toEqual(["01.mast"]);
+  });
+
+  it("says nothing once every keyframe names each landmark", () => {
+    expect(found(dir, state([{ texts: ["the bench and the mast"] }]))).toEqual([]);
+  });
+
+  it("holds every generative keyframe of the frame to it", () => {
+    const panels = [{ texts: ["the bench and the mast"] }, { texts: ["she sits on the bench"] }];
+    expect(found(dir, state(panels)).map((f) => f.subject)).toEqual(["01.mast"]);
+  });
+
+  it("asks nothing of a keyframe that generates nothing", () => {
+    expect(found(dir, state([{ texts: [], generative: false }]))).toEqual([]);
+  });
+
+  it("asks nothing of a keyframe conditioned on no text", () => {
+    expect(found(dir, state([{ texts: [] }]))).toEqual([]);
+  });
+
+  // The plate's own prompt is `plate-unnamed`'s.
+  it("asks nothing of a frame whose setup has a plate", () => {
+    expect(found(dir, state([{ texts: ["she sits"] }], { stern: [] }))).toEqual([]);
+  });
+
+  it("stays silent with no board to read", () => {
+    expect(checkDirection(dir).active.filter((f) => f.code === "landmark-unnamed")).toEqual([]);
+  });
+});
+
 describe("plate-unnamed", () => {
   const dir = direction({ shots: [shot("01", "deck", { lineup: [] })] });
-  const state = (platePrompts: Record<string, string>): StagingStageState => ({
+  const state = (plateTexts: Record<string, string>): StagingStageState => ({
     ...noStage,
-    platePrompts,
+    plateTexts: Object.fromEntries(Object.entries(plateTexts).map(([id, text]) => [id, [text]])),
   });
   const found = (d: Direction, stagingStage: StagingStageState) =>
     checkDirection(d, { stagingStage }).active.filter((f) => f.code === "plate-unnamed");
 
-  it("flags a sentence that does not say what its frame holds", () => {
+  it("flags a plate prompt that does not ask for what its frame holds", () => {
     const findings = found(dir, state({ deck: "the boat, empty, from across the water" }));
     expect(findings.map((f) => f.subject)).toEqual(["deck.bench"]);
   });
 
-  it("says nothing once the sentence names it", () => {
+  it("says nothing once the prompt names it", () => {
     expect(found(dir, state({ deck: "the empty bench down the port side" }))).toEqual([]);
   });
 
@@ -1179,7 +1181,7 @@ describe("plate-unnamed", () => {
     expect(findings.map((f) => f.subject)).toEqual(["stern.bench", "stern.mast"]);
   });
 
-  it("asks nothing of a setup with no plate", () => {
+  it("asks nothing of a setup whose plate reads no prompt", () => {
     expect(found(dir, state({}))).toEqual([]);
   });
 

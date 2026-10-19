@@ -41,10 +41,9 @@ const direction = entry as unknown as Direction;
 const noStage: StagingStageState = {
   panelSlots: [],
   panelReach: [],
-  plateUses: [],
   plateRecrops: [],
   panelPrompts: [],
-  platePrompts: {},
+  plateTexts: {},
   videoPins: [],
   shotPanels: [],
 };

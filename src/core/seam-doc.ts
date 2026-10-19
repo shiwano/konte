@@ -107,10 +107,9 @@ const graphic = (id: string): Shot =>
 const noStage: StagingStageState = {
   panelSlots: [],
   panelReach: [],
-  plateUses: [],
   plateRecrops: [],
   panelPrompts: [],
-  platePrompts: {},
+  plateTexts: {},
   videoPins: [],
   shotPanels: [],
 };

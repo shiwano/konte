@@ -18,7 +18,6 @@ import {
   panelRole,
   reportableDirectionFindings,
   validateDirectionStructure,
-  type StagingStageState,
 } from "../direction.js";
 import type {
   Character,
@@ -997,27 +996,6 @@ describe("checkDirection meta arc (sequenced)", () => {
     expect(res.active.filter((f) => f.code === "missing-role").map(directionWaiverKey)).toEqual([
       "missing-role_act3.disruption",
     ]);
-    expect(res.staleWaivers).toEqual([]);
-  });
-
-  // A setup's finding names no act, so a sequenced direction waives it once, at the top.
-  it("waives a setup's staging finding on a sequenced direction without calling it stale", () => {
-    const dir = threeActDirection(balancedSequences, {
-      "plate-undescribed_here-wide": "the crop is unmistakable on its own",
-    });
-    const stagingStage: StagingStageState = {
-      panelSlots: [],
-      panelReach: [],
-      plateUses: [{ setupId: "here-wide", shotId: "a1", lane: "main", describes: false }],
-      plateRecrops: [],
-      panelPrompts: [],
-      platePrompts: {},
-      videoPins: [],
-      shotPanels: [],
-    };
-    const res = checkDirection(dir, { stagingStage });
-    expect(res.active.map((f) => f.code)).not.toContain("plate-undescribed");
-    expect(res.waived.map(directionWaiverKey)).toEqual(["plate-undescribed_here-wide"]);
     expect(res.staleWaivers).toEqual([]);
   });
 

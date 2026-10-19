@@ -33,15 +33,11 @@ export function isPendingAnimaticShot(shot: AnimaticShotDefinition): boolean {
  * `timeline`. Same split as the reference stage's `topLevelAssets` / `exposedAssetNames`: a
  * declared-but-unreturned plate is an intermediate another plate consumes, generated and tracked
  * like any other but never review work, and no accept is ever owed on it.
- *
- * `platePrompts` is keyed by the same exposed ids — the sentence the author wrote for that frame.
- * Only a returned plate says what it holds.
  */
 export const AnimaticDefinitionSchema = StageDefinitionSchema.extend({
   stage: z.literal("animatic"),
   plates: z.record(z.string(), AssetDefinitionSchema).optional(),
   exposedPlateIds: z.array(z.string()).optional(),
-  platePrompts: z.record(z.string(), z.string()).optional(),
 });
 
 export type AnimaticDefinition = z.infer<typeof AnimaticDefinitionSchema>;

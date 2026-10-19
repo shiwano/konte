@@ -172,7 +172,7 @@ export default defineAnimatic(direction, {
     });
 
     const still = (canvas: string, body: string) => ({
-      subjectDefinitions: [\`<Picture 1> is \${canvas}.\`, "<Picture 2> is the creator."],
+      subjectDefinitions: [\`<Picture 1> is \${canvas}, the studio mark on the wall behind.\`, "<Picture 2> is the creator."],
       summary: {
         tasks: ["keyframe completion"] as ["keyframe completion"],
         text: "The shot is drawn onto the canvas.",

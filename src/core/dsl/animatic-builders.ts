@@ -361,11 +361,9 @@ export type StageTimelineReturn<Ids extends string = string, D = unknown> = {
 export type SetupIdOf<D> = D extends { setups: infer S } ? Extract<keyof S, string> : string;
 
 /**
- * One plate as `plates` returns it: the picture, and one English sentence saying what that frame
- * holds. The sentence is required because the picture cannot be read — a crop of a master is bytes
- * konte never looks inside, and two setups cut from one place hold different things.
+ * One plate as `plates` returns it: the picture of that frame with nobody in it.
  */
-export type AnimaticPlate = { image: MediaAsset<"image">; prompt: string };
+export type AnimaticPlate = MediaAsset<"image">;
 
 /**
  * The plates a `plates` callback may return: one per shared camera position, keyed by its `setups`
@@ -385,13 +383,8 @@ export interface DefineAnimaticOptions<
   // (`setup-unrealized`), refuses to spend on a panel that ignores the anchor its setup carries —
   // the plate, or the location reference where there is none (`setup-unconsumed`) — and demands the
   // plate itself be built from that reference (`plate-unanchored`). It runs before `timeline`, which
-  // receives the plates it returned.
-  //
-  // Each plate is returned as `{ image, prompt }`: the picture, and one English sentence saying what
-  // that frame holds, which `timeline` receives unchanged. Every keyframe on that setup writes the
-  // sentence into its own prompt, in its adapter's own notation (`plate-undescribed`). An asset
-  // declared here and not returned is an intermediate the plates are built from and carries no
-  // prompt.
+  // receives the plates it returned. An asset declared here and not returned is an intermediate
+  // the plates are built from.
   plates?: (args: { format: import("../types/index.js").VideoFormat }) => TPlates;
   // Prompt findings this stage accepts, keyed the way `konte status` prints them
   // (`prompt-negation:<hash>`) over the reason each is right for the model it is written for. One
@@ -410,7 +403,7 @@ export interface DefineAnimaticOptions<
     pendingShot: StagePendingShotStarter<D, "animatic">;
     // The aside starter. It takes the id alone; konte fills the span with a labelled slug.
     asideShot: StageAsideShotStarter<D>;
-    // The plates `plates` returned, each as `{ image, prompt }` — `{}` when it declared none.
+    // The plates `plates` returned — `{}` when it declared none.
     plates: TPlates;
   }) => StageTimelineReturn<Ids, D>;
 }
@@ -497,7 +490,6 @@ export function defineAnimatic<
   if (plates.assets) {
     definition.plates = plates.assets;
     definition.exposedPlateIds = plates.exposed;
-    definition.platePrompts = plates.prompts;
   }
 
   assertRespellings(definition.respellings, index.scriptById);
@@ -581,9 +573,6 @@ function assertScriptVoiced(
 // the plates are built from, on the reference stage's terms (`AnimaticDefinition`). Its name may not
 // be a roster id, or the address a setup's plate would occupy would be taken by a picture no shot
 // can reach.
-//
-// Returning also states what the frame holds, in the author's own sentence; konte stores it and
-// never writes prompt text of its own.
 function buildPlates<D>(
   direction: DirectionEntry<D>,
   index: DirectionIndex,
@@ -592,9 +581,8 @@ function buildPlates<D>(
   assets: Record<string, AssetDefinition> | undefined;
   returned: object;
   exposed: string[];
-  prompts: Record<string, string>;
 } {
-  if (!fn) return { assets: undefined, returned: {}, exposed: [], prompts: {} };
+  if (!fn) return { assets: undefined, returned: {}, exposed: [] };
   const declared = new Set(
     Object.keys((direction as { setups?: Record<string, unknown> }).setups ?? {}),
   );
@@ -605,7 +593,6 @@ function buildPlates<D>(
   });
   const declaredPlates = discovery.result as Record<string, unknown>;
 
-  const prompts: Record<string, string> = {};
   const returned: Record<string, AnimaticPlate> = {};
   for (const id of Object.keys(declaredPlates)) {
     if (!declared.has(id)) {
@@ -615,22 +602,11 @@ function buildPlates<D>(
           `under the roster id it holds still, so its key must be one of: ${[...declared].join(", ")}`,
       );
     }
-    const entry = declaredPlates[id] as { image?: unknown; prompt?: unknown } | null | undefined;
-    const image = entry?.image as { src?: unknown } | undefined;
+    const image = declaredPlates[id] as { src?: unknown } | null | undefined;
     if (typeof image?.src !== "string") {
       throw new KonteError(
         "INVALID_PLATE",
-        `defineAnimatic: plates."${id}" must return { image, prompt } — the asset() handle under ` +
-          `\`image\`, and one English sentence under \`prompt\` saying what that frame holds.`,
-      );
-    }
-    const prompt = entry?.prompt;
-    if (typeof prompt !== "string" || prompt.trim() === "") {
-      throw new KonteError(
-        "INVALID_PLATE",
-        `defineAnimatic: plates."${id}" declares no \`prompt\`. Say in one English sentence what ` +
-          `this frame holds — konte cannot read the picture, and two setups cut from one place hold ` +
-          `different things. Write the contents only: every framing decision is the picture's.`,
+        `defineAnimatic: plates."${id}" must return the asset() handle of its picture.`,
       );
     }
     // Matching key SETS is not enough: two plates filed under each other's ids would pass that and
@@ -661,8 +637,7 @@ function buildPlates<D>(
           `on the wrong frame.`,
       );
     }
-    prompts[id] = prompt;
-    returned[id] = { image: image as MediaAsset<"image">, prompt };
+    returned[id] = image as MediaAsset<"image">;
   }
   for (const name of Object.keys(discovery.assets)) {
     if (!Object.hasOwn(declaredPlates, name) && declared.has(name)) {
@@ -679,6 +654,5 @@ function buildPlates<D>(
     assets: Object.keys(discovery.assets).length > 0 ? discovery.assets : undefined,
     returned,
     exposed: Object.keys(returned),
-    prompts,
   };
 }

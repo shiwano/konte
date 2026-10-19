@@ -32,8 +32,8 @@ import {
   listPanelPromptText,
   listPanelReferenceReach,
   listPanelReferenceSlots,
-  listPlateDescriptionUses,
   listPlateRecrops,
+  listPlateTexts,
   listSetupAnchorGaps,
   listSetupNestGaps,
   listShotContinuity,
@@ -605,10 +605,9 @@ export async function loadStagingStageState(
   return {
     panelSlots: listPanelReferenceSlots(animatic),
     panelReach: listPanelReferenceReach(animatic),
-    plateUses: listPlateDescriptionUses(animatic, frames),
     plateRecrops: listPlateRecrops(animatic, frames),
     panelPrompts: listPanelPromptText(animatic),
-    platePrompts: animatic.platePrompts ?? {},
+    plateTexts: listPlateTexts(animatic),
     videoPins: video
       ? listVideoShotPins(
           video,

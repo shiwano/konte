@@ -28,9 +28,10 @@ import {
   type VideoShotPins,
   type PanelPrompts,
   type PlateNaming,
+  type LandmarkFrame,
+  type HeldLandmark,
   type PropNamingRef,
   type PlateRecrop,
-  type PlateUse,
   type ShotPanels,
   type AxisCut,
   type PanelSeam,
@@ -47,6 +48,7 @@ import {
   checkRoutes,
   checkNarrator,
   checkPlateNaming,
+  checkLandmarkNaming,
   checkPropNaming,
   checkProps,
   checkSetups,
@@ -55,6 +57,7 @@ import type {
   Direction,
   DirectionNode,
   GraphicShot,
+  Landmark,
   NarrativeShot,
   Setup,
   Shot,
@@ -143,7 +146,6 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "location-backtrack": "staging",
   "character-unconsumed": "staging",
   "slot-order-mismatch": "staging",
-  "plate-undescribed": "staging",
   "plate-recropped": "staging",
   "landmark-flipped": "staging",
   "subject-unnamed": "staging",
@@ -151,6 +153,7 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "passer-unconsumed": "staging",
   "passer-unnamed": "staging",
   "plate-unnamed": "staging",
+  "landmark-unnamed": "staging",
   "join-lineup-mismatch": "staging",
   "join-unpinned": "staging",
   "join-unshown": "staging",
@@ -211,7 +214,6 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "location-backtrack": "shot",
   "character-unconsumed": "shot",
   "slot-order-mismatch": "shot",
-  "plate-undescribed": null,
   "plate-recropped": "shot",
   "landmark-flipped": null,
   "subject-unnamed": "shot",
@@ -219,6 +221,7 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "passer-unconsumed": "shot",
   "passer-unnamed": "shot",
   "plate-unnamed": null,
+  "landmark-unnamed": "shot",
   "join-lineup-mismatch": "shot",
   "join-unpinned": "shot",
   "join-unshown": "shot",
@@ -948,17 +951,15 @@ export type StagingStageState = {
   // keyframe answers for what it was handed, which is why `character-unconsumed` reads this and
   // `slot-order-mismatch` reads the slots.
   panelReach: readonly PanelReach[];
-  // One entry per developed shot standing on a plated setup: whether its panels' prompts carry the
-  // plate's own sentence.
-  plateUses: readonly PlateUse[];
   // The keyframes that crop their setup's plate instead of standing on its frame.
   plateRecrops: readonly PlateRecrop[];
-  // A fourth reading of the same panels: the conditioning text each one stands on, which
+  // A third reading of the same panels: the conditioning text each one stands on, which
   // `subject-unnamed` looks for the frame's subjects in.
   panelPrompts: readonly PanelPrompts[];
-  // The sentence each returned plate was written with, keyed by setup id — what `plate-unnamed`
-  // reads for the landmarks that frame declares it holds.
-  platePrompts: Readonly<Record<string, string>>;
+  // The positive prompts each returned plate is generated with, keyed by setup id — what
+  // `plate-unnamed` reads for the landmarks that frame declares it holds. Every returned plate has an
+  // entry, so a setup with none is one whose keyframes `landmark-unnamed` reads instead.
+  plateTexts: Readonly<Record<string, readonly string[]>>;
   // The one reading that comes off the VIDEO rather than the board: which frames each developed
   // video shot pins, so `join-unpinned` can ask whether a declared long take is carried across its
   // seam and `opening-key` whether a key opens a take. Empty where video.tsx could not be read —
@@ -1066,7 +1067,6 @@ function checkStaging(
         ? {
             panelSlots: stage.panelSlots,
             panelReach: stage.panelReach,
-            plateUses: stage.plateUses,
             plateRecrops: stage.plateRecrops,
             panelPrompts: stage.panelPrompts,
             subjectPromptDepictions: subjectPromptDepictions(direction),
@@ -1080,7 +1080,10 @@ function checkStaging(
     ...checkRoutes(shots),
     // The setups roster alone: a landmark's place on screen is the camera's, not a shot's.
     ...checkLandmarkOrder(holdsSetupRefs(direction)),
-    ...(stage ? checkPlateNaming(plateNamings(direction, stage.platePrompts)) : []),
+    ...(stage ? checkPlateNaming(plateNamings(direction, stage.plateTexts)) : []),
+    ...(stage
+      ? checkLandmarkNaming(unplatedFrames(direction, stage.plateTexts), stage.panelPrompts)
+      : []),
     ...(stage ? checkJoinPins(shots, stage.videoPins, stage.shotPanels) : []),
     ...(stage ? checkKeyPins(shots, stage.videoPins, stage.shotPanels) : []),
     ...(stage ? checkPanelLinks(panelSeams(direction, stage.shotPanels)) : []),
@@ -1156,27 +1159,56 @@ function holdsSetupRefs(direction: Direction): HoldsSetupRef[] {
   }));
 }
 
-// Each returned plate paired with what its setup declares that frame holds. A setup with no plate has
-// no sentence to read, and one holding nothing (an `insert`) has nothing to look for.
+/**
+ * The landmarks a setup's frame holds, left to right; null for a setup the roster does not declare.
+ * `landmark` is absent for an id the place does not declare (`holds-unknown-id`) — own keys only, so
+ * an inherited name is not read as one.
+ */
+export function setupHolds(
+  direction: Direction,
+  setupId: string,
+): { id: string; landmark?: Landmark }[] | null {
+  const setup = direction.setups?.[setupId];
+  if (!setup) return null;
+  const landmarks = direction.locations?.[setup.location]?.landmarks ?? {};
+  return (setup.holds ?? []).map((id) =>
+    Object.hasOwn(landmarks, id) ? { id, landmark: landmarks[id]! } : { id },
+  );
+}
+
+// The landmarks a setup's frame holds, with the noun each is asked for by.
+function heldLandmarks(direction: Direction, setupId: string): HeldLandmark[] {
+  const location = direction.setups?.[setupId]?.location ?? "";
+  return (setupHolds(direction, setupId) ?? []).flatMap(({ id, landmark }) =>
+    landmark ? [{ id, location, promptDepiction: landmark.promptDepiction ?? "" }] : [],
+  );
+}
+
+// Each returned plate paired with what its setup declares that frame holds. A plate made with no
+// prompt has nothing to read, and a setup holding nothing (an `insert`) has nothing to look for.
 function plateNamings(
   direction: Direction,
-  platePrompts: Readonly<Record<string, string>>,
+  plateTexts: Readonly<Record<string, readonly string[]>>,
 ): PlateNaming[] {
   const out: PlateNaming[] = [];
-  for (const [setupId, prompt] of Object.entries(platePrompts)) {
-    const setup = direction.setups?.[setupId];
-    if (!setup) continue;
-    const landmarks = direction.locations?.[setup.location]?.landmarks ?? {};
-    const holds = (setup.holds ?? []).flatMap((id) => {
-      // An id the place does not declare is `holds-unknown-id`, a structural error; own keys only,
-      // so an inherited name is not read as one.
-      if (!Object.hasOwn(landmarks, id)) return [];
-      return [{ id, promptDepiction: landmarks[id]!.promptDepiction ?? "" }];
-    });
-    if (holds.length === 0) continue;
-    out.push({ setupId, prompt, holds });
+  for (const [setupId, texts] of Object.entries(plateTexts)) {
+    const holds = heldLandmarks(direction, setupId);
+    if (texts.length === 0 || holds.length === 0) continue;
+    out.push({ setupId, texts, holds });
   }
   return out;
+}
+
+// The frames whose setup has no returned plate, each with what it holds.
+function unplatedFrames(
+  direction: Direction,
+  plateTexts: Readonly<Record<string, readonly string[]>>,
+): LandmarkFrame[] {
+  return collectShotFrames(direction).flatMap((frame) => {
+    if (Object.hasOwn(plateTexts, frame.setup)) return [];
+    const holds = heldLandmarks(direction, frame.setup);
+    return holds.length === 0 ? [] : [{ id: frame.shotId, frame: frame.lane, holds }];
+  });
 }
 
 function axisCuts(direction: Direction): AxisCut[] {
@@ -1912,10 +1944,10 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
     }
   }
 
-  // Both naming checks read a prompt for a declared depiction anywhere in it, so one contained in
+  // The naming checks read a prompt for a declared depiction anywhere in it, so one contained in
   // another is undecidable: a prompt that says only "girl in a purple hoodie" also answers for a
-  // bare "girl". One depiction space across both rosters, since a panel's prompt carries its plate's
-  // sentence as well.
+  // bare "girl". One depiction space across the three rosters, since a panel's chain carries its
+  // plate's own prompt as well.
   for (let i = 0; i < declaredDepictions.length; i++) {
     for (let j = i + 1; j < declaredDepictions.length; j++) {
       const first = declaredDepictions[i]!;

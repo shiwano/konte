@@ -360,7 +360,7 @@ const imageComfy = defineComfyAsset({
 export default defineAnimatic(direction, {
   timeline: ({ shot }) =>
     ({ shots: shot("01", () => {
-        const kf = asset("keyframe", imageComfy, { prompt: "a cat" });
+        const kf = asset("keyframe", imageComfy, { prompt: "a cat by the mark" });
         return <Composition>
 <Panel src={kf} blocking="the cat rises to sit" camera="fixed" />
 </Composition>;
@@ -504,7 +504,7 @@ const imageComfy = defineComfyAsset({
 export default defineAnimatic(direction, {
   timeline: ({ shot }) =>
     ({ shots: shot("01", () => {
-      const kf = asset("keyframe", imageComfy, { prompt: "a cat" });
+      const kf = asset("keyframe", imageComfy, { prompt: "a cat by the mark" });
       return <Composition>
 <Panel src={kf} blocking="the cat rises to sit" camera="fixed" />
 </Composition>;
@@ -604,11 +604,11 @@ export const TEST_CROSS_STAGE_STEM_ANIMATIC_TS = TEST_CROSS_STAGE_ANIMATIC_TS.re
 const imageComfy = defineComfyAsset({`,
   )
   .replace(
-    `      const kf = asset("keyframe", imageComfy, { prompt: "a cat" });
+    `      const kf = asset("keyframe", imageComfy, { prompt: "a cat by the mark" });
       return <Composition>
 <Panel src={kf} blocking="the cat rises to sit" camera="fixed" />
 </Composition>;`,
-    `      const kf = asset("keyframe", imageComfy, { prompt: "a cat" });
+    `      const kf = asset("keyframe", imageComfy, { prompt: "a cat by the mark" });
       const voice = asset("voice", ttsComfy, { text: "hello" });
       return <Composition>
 <Panel src={kf} blocking="the cat rises to sit" camera="fixed" />

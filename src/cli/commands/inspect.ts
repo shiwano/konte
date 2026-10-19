@@ -1,4 +1,4 @@
-import { deriveShotHinges } from "../../core/dsl/direction.js";
+import { type Direction, deriveShotHinges } from "../../core/dsl/direction.js";
 import type { Command } from "commander";
 import {
   isOverlayAddress,
@@ -32,7 +32,7 @@ import {
   formatDefinitionValue,
   readDefinitionSnapshot,
 } from "../../core/definition-snapshot.js";
-import { collectShots, continuousFrameKeys, panelRole } from "../../core/direction.js";
+import { collectShots, continuousFrameKeys, panelRole, setupHolds } from "../../core/direction.js";
 import { isAsideShot, isGraphicShot, resolveDirectionTimeline } from "../../core/dsl/direction.js";
 import { formatShotSpan } from "../../core/format-duration.js";
 import { directionShotCascadeTargets } from "../../core/direction-acceptance.js";
@@ -170,9 +170,8 @@ interface DefinitionWithDuration {
   timelineSoundtracks?: readonly unknown[];
   prompts?: readonly PromptOccurrence[];
   respellings?: readonly Respelling[];
-  // Animatic only: the returned plates, in return order, and the sentence each says it holds.
+  // Animatic only: the returned plates, in return order.
   exposedPlateIds?: string[];
-  platePrompts?: Record<string, string>;
 }
 
 // A materialized leaf (composition / stem) as a listing row. It has no AssetDefinition — it is
@@ -381,8 +380,7 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
   }
 
   const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
-  const platePrompt = platePromptOf(animatic, address);
-  const plateWithin = platePrompt === null ? null : await plateWithinOf(videoRoot, address);
+  const plateFrame = await plateFrameOfAddress(videoRoot, animatic, address);
   const definition = await loadDefinitionForAddress(videoRoot, address);
 
   let manager = await loadManager(videoRoot);
@@ -438,9 +436,12 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
   }));
   console.log(`Address: ${address}`);
   console.log(`Kind: ${assetDef.kind}`);
-  if (platePrompt !== null) {
-    console.log(`Within: ${plateWithin ?? "root"}`);
-    console.log(`Plate: ${platePrompt}`);
+  if (plateFrame !== null) {
+    console.log(`Within: ${plateFrame.within ?? "root"}`);
+    console.log(`Framing: ${plateFrame.framing}`);
+    if (plateFrame.set.length > 0) {
+      console.log(`Set: ${plateFrame.set.map((l) => l.label).join(" | ")}`);
+    }
   }
 
   if ("inputs" in assetDef && assetDef.inputs) {
@@ -1074,8 +1075,13 @@ async function inspectPrompts(
     first = false;
     console.log(plate.address);
     printGeneration(plate.address);
-    console.log(`  within: ${plate.within ?? "root"}`);
-    console.log(`  plate: ${plate.prompt}`);
+    if (plate.frame) {
+      console.log(`  within: ${plate.frame.within ?? "root"}`);
+      console.log(`  framing: ${plate.frame.framing}`);
+      if (plate.frame.set.length > 0) {
+        console.log(`  set: ${plate.frame.set.map((l) => l.label).join(" | ")}`);
+      }
+    }
     printOccurrences(byAddress.get(plate.address) ?? []);
   }
 
@@ -1177,24 +1183,46 @@ function cutinLaneAddresses(stage: AssetStage, definition: DefinitionWithDuratio
   return out;
 }
 
-// The wider frame a plate's setup declares itself a window of; null at the root of its own camera
-// axis, and for any address that is not a plate.
-async function plateWithinOf(videoRoot: string, address: string): Promise<string | null> {
-  const parsed = tryParseAddress(address);
-  if (!parsed || parsed.kind !== "plate") return null;
-  const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
-  return direction?.setups?.[parsed.assetName]?.within ?? null;
+// The landmarks a setup's frame carries, left to right, labelled `<name> (<id>)`; an id the place
+// does not declare stands as itself.
+function holdsLabels(
+  direction: Direction,
+  setupId: string,
+): { id: string; label: string }[] | null {
+  return (
+    setupHolds(direction, setupId)?.map(({ id, landmark }) => ({
+      id,
+      label: landmark ? `${landmark.name} (${id})` : id,
+    })) ?? null
+  );
 }
 
-// What a returned plate says it holds, for a plate address; null for any other address or an
-// intermediate the plates callback did not return.
-function platePromptOf(
+// What a plate's setup declares of its frame — the wider frame it is a window of (null at the root
+// of its own camera axis), its size, and what it holds.
+type PlateFrame = {
+  within: string | null;
+  framing: string;
+  set: { id: string; label: string }[];
+};
+
+function plateFrameOf(direction: Direction, setupId: string): PlateFrame | null {
+  const setup = direction.setups?.[setupId];
+  const set = holdsLabels(direction, setupId);
+  if (!setup || !set) return null;
+  return { within: setup.within ?? null, framing: setup.framing, set };
+}
+
+// Null for any address that is not a returned plate.
+async function plateFrameOfAddress(
+  videoRoot: string,
   animatic: DefinitionWithDuration | null | undefined,
   address: string,
-): string | null {
+): Promise<PlateFrame | null> {
   const parsed = tryParseAddress(address);
   if (!parsed || parsed.kind !== "plate") return null;
-  return animatic?.platePrompts?.[parsed.assetName] ?? null;
+  if (!animatic?.exposedPlateIds?.includes(parsed.assetName)) return null;
+  const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
+  return direction ? plateFrameOf(direction, parsed.assetName) : null;
 }
 
 async function inspectPlates(videoRoot: string): Promise<void> {
@@ -1216,16 +1244,14 @@ function platesUnderScope(
   definition: DefinitionWithDuration | null,
   scope: PromptScope,
   promptShots: PromptShots | null,
-): { address: string; prompt: string; within: string | null }[] {
-  if (!definition?.platePrompts) return [];
+): { address: string; frame: PlateFrame | null }[] {
+  if (!definition?.exposedPlateIds) return [];
   if (scope.level === "shot" || scope.level === "direction") return [];
-  const out: { address: string; prompt: string; within: string | null }[] = [];
-  for (const id of definition.exposedPlateIds ?? []) {
-    const prompt = definition.platePrompts[id];
-    if (prompt === undefined) continue;
+  const out: { address: string; frame: PlateFrame | null }[] = [];
+  for (const id of definition.exposedPlateIds) {
     const address = formatPlateAssetPath(id);
     if (scope.level === "asset" && scope.address !== address) continue;
-    out.push({ address, prompt, within: promptShots?.within.get(id) ?? null });
+    out.push({ address, frame: promptShots?.plateFrame.get(id) ?? null });
   }
   return out;
 }
@@ -1249,10 +1275,8 @@ interface PromptShots {
   join: Map<string, string>;
   // The frames a `continuous` seam runs into, keyed `<shotId>/<lane>`.
   continuous: Set<string>;
-  // Per SETUP id, not per shot: the wider frame that one steps in from, null where there is
-  // none — a frame that declared nothing answers as a root here, and the two are told apart on the
-  // direction's own surfaces.
-  within: Map<string, string | null>;
+  // Per SETUP id, not per shot: what each plate's frame declares.
+  plateFrame: Map<string, PlateFrame>;
   // Printed above the addresses only the `<Cutin>` reaches, in place of the shot's own frame.
   cutin: Map<
     string,
@@ -1288,23 +1312,14 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
   const set = new Map<string, { id: string; label: string }[]>();
   const setup = new Map<string, string>();
   const join = new Map<string, string>();
-  const within = new Map<string, string | null>(
-    Object.entries(direction.setups ?? {}).map(([id, s]) => [id, s.within ?? null]),
+  const plateFrame = new Map<string, PlateFrame>(
+    Object.keys(direction.setups ?? {}).flatMap((id) => {
+      const frame = plateFrameOf(direction, id);
+      return frame ? [[id, frame] as const] : [];
+    }),
   );
   const script = new Map<string, { speaker: string; text: string; acting: string | null }[]>();
   const cutin: PromptShots["cutin"] = new Map();
-  // A critic cannot read direction.ts, so what the plate's sentence and the prompt are read against
-  // is printed here rather than looked up. An id the place does not declare is `holds-unknown-id`,
-  // a structural error, and stands as itself.
-  const holdsOf = (setupId: string): { id: string; label: string }[] | null => {
-    const setup = direction.setups?.[setupId];
-    if (!setup) return null;
-    const landmarks = direction.locations?.[setup.location]?.landmarks ?? {};
-    return (setup.holds ?? []).map((id) => ({
-      id,
-      label: Object.hasOwn(landmarks, id) ? `${landmarks[id]!.name} (${id})` : id,
-    }));
-  };
   const action = new Map<string, string>();
   const hinge: PromptShots["hinge"] = new Map();
   const passing: PromptShots["passing"] = new Map();
@@ -1329,7 +1344,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
         setup: shot.cutin.setup,
         lineup: shot.cutin.lineup ?? [],
         lineupTo: shot.cutin.lineupTo ?? null,
-        set: holdsOf(shot.cutin.setup),
+        set: holdsLabels(direction, shot.cutin.setup),
         join: shot.cutin.join ?? null,
       });
     }
@@ -1341,7 +1356,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
       if (shot.lineup) {
         lineup.set(shot.id, { lineup: shot.lineup, lineupTo: shot.lineupTo ?? null });
       }
-      const held = holdsOf(shot.setup);
+      const held = holdsLabels(direction, shot.setup);
       if (held) set.set(shot.id, held);
     }
     const lines = (shot.script ?? []).map((line) => ({
@@ -1366,7 +1381,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
     setup,
     join,
     continuous: continuousFrameKeys(direction),
-    within,
+    plateFrame,
     cutin,
     script,
     label,

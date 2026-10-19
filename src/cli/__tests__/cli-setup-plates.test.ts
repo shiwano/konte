@@ -43,17 +43,14 @@ export default defineDirection({
 `;
 
   const PLATE = `plates: ({ format }) => ({
-    front: {
-      image: asset("front", internalTestImage, { width: format.size.width, height: format.size.height }),
-      prompt: "the studio, its window along the far wall",
-    },
+    front: asset("front", internalTestImage, { width: format.size.width, height: format.size.height }),
   }),`;
 
-  const FROM_PLATE = `asset("first", internalTestImage, { image: plates.front.image, width: 32, height: 32 })`;
+  const FROM_PLATE = `asset("first", internalTestImage, { image: plates.front, width: 32, height: 32 })`;
   const FROM_NOTHING = `asset("first", internalTestImage, { width: 32, height: 32 })`;
   // Declared beside a keyframe built from nothing, and never rendered: unused, so it must not stand
   // in for the keyframe.
-  const DECOY = `(() => { asset("decoy", internalTestImage, { image: plates.front.image, width: 8, height: 8 }); return ${FROM_NOTHING}; })()`;
+  const DECOY = `(() => { asset("decoy", internalTestImage, { image: plates.front, width: 8, height: 8 }); return ${FROM_NOTHING}; })()`;
 
   // `blocking`/`camera` on every panel: an accept cascade skips a dep whose review prerequisites are
   // unwritten, so a board without them never reaches the plate.
@@ -177,23 +174,23 @@ export default defineAnimatic(direction, {
   });
 
   // A plate cut or resized from a master reads no prompt, so `--prompts` would list nothing for it.
-  it("lists what each plate holds under --prompts, prompt or not", async () => {
+  it("lists what each plate's setup declares under --prompts, prompt or not", async () => {
     const projectDir = await project(PENDING);
     const { stdout } = await run(["inspect", "animatic:plate", "--prompts"], projectDir);
     expect(stdout).toContain("animatic:plate.front");
-    expect(stdout).toContain("plate: the studio, its window along the far wall");
+    expect(stdout).toContain("framing: medium");
+    expect(stdout).toContain("set: the window (studioWindow)");
 
     const { stdout: one } = await run(["inspect", "animatic:plate.front"], projectDir);
-    expect(one).toContain("Plate: the studio, its window along the far wall");
+    expect(one).toContain("Framing: medium");
+    expect(one).toContain("Set: the window (studioWindow)");
   });
 
   // A keyframe can take the frame before the cut ahead of its own plate, so the plate a panel
   // stands on is named apart from the conditioning chain.
   it("names the plate each panel stands on under --prompts", async () => {
     const projectDir = await project(
-      DEVELOPED(
-        `asset("first", promptedImage, { prompt: "she turns", image: plates.front.image })`,
-      ),
+      DEVELOPED(`asset("first", promptedImage, { prompt: "she turns", image: plates.front })`),
     );
     const animaticPath = path.join(projectDir, "animatic.tsx");
     const source = await fs.readFile(animaticPath, "utf-8");
@@ -239,7 +236,7 @@ export default`,
   // Nor by a layer the shot DOES render: an overlay drawn over the frame says nothing about the
   // frame the keyframe was drawn on, so `compositionRefs` is too wide a root.
   it("is not satisfied by a rendered overlay that takes the plate", async () => {
-    const overlay = `<Image src={asset("overlay", internalTestImage, { image: plates.front.image, width: 8, height: 8 })} />
+    const overlay = `<Image src={asset("overlay", internalTestImage, { image: plates.front, width: 8, height: 8 })} />
 `;
     const projectDir = await project(DEVELOPED(FROM_NOTHING, overlay));
     const { stdout, stderr } = await runCapture(["generate", "animatic"], projectDir);
@@ -281,21 +278,15 @@ export default defineDirection({
 });
 `;
 
-const TWO_SETUP_KEYFRAME = `asset("first", internalTestImage, { image: plates.front.image, width: 32, height: 32 })`;
+const TWO_SETUP_KEYFRAME = `asset("first", internalTestImage, { image: plates.front, width: 32, height: 32 })`;
 
 const TWO_SETUP_ANIMATIC = `import { defineAnimatic, asset, internalTestImage, Composition, Panel } from "konte";
 import direction from "./direction";
 
 export default defineAnimatic(direction, {
   plates: ({ format }) => ({
-    front: {
-      image: asset("front", internalTestImage, { width: format.size.width, height: format.size.height }),
-      prompt: "the studio, its window along the far wall",
-    },
-    side: {
-      image: asset("side", internalTestImage, { width: format.size.width, height: format.size.height }),
-      prompt: "the studio from the side, the door behind",
-    },
+    front: asset("front", internalTestImage, { width: format.size.width, height: format.size.height }),
+    side: asset("side", internalTestImage, { width: format.size.width, height: format.size.height }),
   }),
   timeline: ({ shot, pendingShot, plates }) => ({
     shots: shot("01", () => <Composition><Panel src={${TWO_SETUP_KEYFRAME}} blocking="a" camera="fixed" /></Composition>)

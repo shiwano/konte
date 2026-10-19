@@ -93,7 +93,7 @@ export type DirectionFindingCode =
   // place. Four settle a RELATION between two subjects across two shots; the two the board feeds
   // settle the declared frame against what the keyframe was conditioned on — who it took
   // (`character-unconsumed`) and in what order (`slot-order-mismatch`). The last settles the frame
-  // itself: the plate's own sentence against the prompts of the panels standing on it.
+  // itself: a keyframe that crops the plate it stands on.
   | "lineup-flipped"
   | "lineup-gap"
   | "lineup-vacuous"
@@ -102,7 +102,6 @@ export type DirectionFindingCode =
   | "location-backtrack"
   | "character-unconsumed"
   | "slot-order-mismatch"
-  | "plate-undescribed"
   | "plate-recropped"
   // The seam a `continuous` join declares: one take across a shot boundary, so the frame at the end
   // of the one and the start of the next is a single frame — the opening keyframe of the shot that
@@ -116,16 +115,18 @@ export type DirectionFindingCode =
   | "opening-key"
   // A cut along one camera axis: the camera does not move, so the frame does not restart.
   | "panel-unlinked"
-  // The set's own three. `landmark-flipped` is the `lineup-flipped` of things that do not move, read
-  // across the setups of one place; the two `-unnamed` are the naming twins of `character-unconsumed`
-  // and `plate-undescribed` — those ask whether the picture was passed in, these whether the text
-  // calls it by the name the direction declared.
+  // `landmark-flipped` is the `lineup-flipped` of things that do not move, read across the setups
+  // of one place. Each `-unnamed` asks whether the text calls a thing by the name the direction
+  // declared: a frame's subjects and props in its keyframes' prompts, a passer in the take's, and a
+  // landmark the frame holds in the prompt that first draws the frame — its plate's, or its
+  // keyframes' where the setup has none.
   | "landmark-flipped"
   | "subject-unnamed"
   | "prop-unnamed"
   | "passer-unconsumed"
   | "passer-unnamed"
   | "plate-unnamed"
+  | "landmark-unnamed"
   // The song's: the song the piece is cut to is not a reference asset, and a lyric line no reading
   // of the take places.
   | "song-unreferenced"
@@ -1003,9 +1004,6 @@ export function checkLineups(
     // The board's keyframe reference reach, in panel order. Undefined leaves `character-unconsumed`
     // silent.
     panelReach?: readonly PanelReach[];
-    // How each developed shot on a plated setup carries its plate's own sentence. Undefined leaves
-    // `plate-undescribed` silent.
-    plateUses?: readonly PlateUse[];
     // The keyframes that crop their setup's plate. Undefined leaves `plate-recropped` silent.
     plateRecrops?: readonly PlateRecrop[];
     // The conditioning text behind each keyframe, in panel order. Undefined leaves `subject-unnamed`
@@ -1137,7 +1135,6 @@ export function checkLineups(
       ...checkCharacterAnchors(shots, options.panelReach, options.referenceAssetNames ?? []),
     );
   }
-  if (options.plateUses) findings.push(...checkPlateDescriptions(options.plateUses));
   if (options.plateRecrops) findings.push(...checkPlateRecrops(options.plateRecrops));
   if (options.panelPrompts) {
     findings.push(
@@ -1466,42 +1463,6 @@ export function checkPropNaming(
 }
 
 /**
- * One plated setup read for its own sentence: the `plates.<id>.prompt` its author wrote, and the
- * landmarks that frame declares it carries. Assembled by the caller from the direction and the board.
- */
-export type PlateNaming = {
-  setupId: string;
-  prompt: string;
-  holds: readonly { id: string; promptDepiction: string }[];
-};
-
-// The plate's sentence against what its frame declares it holds. `plate-undescribed` asks whether
-// the shots on a plate carry that sentence at all; this asks whether the sentence says what is in
-// the frame — the finding that E1c settled, where a room stayed a room only once the line named
-// what only that room has.
-//
-// Reported per landmark, keyed `<setupId>.<landmarkId>`: a waiver written for a lamp that is out of
-// this crop must not also waive the desk that is in it.
-export function checkPlateNaming(namings: readonly PlateNaming[]): DirectionFinding[] {
-  const findings: DirectionFinding[] = [];
-  for (const naming of namings) {
-    for (const landmark of naming.holds) {
-      if (landmark.promptDepiction.trim() === "") continue;
-      if (namesIn([naming.prompt], landmark.promptDepiction)) continue;
-      findings.push({
-        code: "plate-unnamed",
-        subject: `${naming.setupId}.${landmark.id}`,
-        message:
-          `the sentence for plate "${naming.setupId}" does not say "${landmark.promptDepiction}", which ` +
-          `its \`holds\` declares the frame carries — write the contents into the sentence, or crop ` +
-          `the frame where the thing is not`,
-      });
-    }
-  }
-  return findings;
-}
-
-/**
  * One developed board shot as the seam check reads it. Built by the CLI off the board and handed in,
  * like `PanelSlots`.
  */
@@ -1559,6 +1520,88 @@ export function checkPanelLinks(seams: readonly PanelSeam[]): DirectionFinding[]
 }
 
 /**
+ * A landmark a frame holds, with the place that declares it and the noun it is asked for by.
+ */
+export type HeldLandmark = { id: string; location: string; promptDepiction: string };
+
+/**
+ * One plated setup read for its own generation: the positive prompts its plate is generated with,
+ * and the landmarks that frame declares it carries. Assembled by the caller from the direction and
+ * the board.
+ */
+export type PlateNaming = {
+  setupId: string;
+  texts: readonly string[];
+  holds: readonly HeldLandmark[];
+};
+
+const landmarkDepictionPath = (landmark: HeldLandmark): string =>
+  `locations.${landmark.location}.landmarks.${landmark.id}.promptDepiction`;
+
+// Reported per landmark, keyed `<setupId>.<landmarkId>`.
+export function checkPlateNaming(namings: readonly PlateNaming[]): DirectionFinding[] {
+  const findings: DirectionFinding[] = [];
+  for (const naming of namings) {
+    for (const landmark of naming.holds) {
+      if (landmark.promptDepiction.trim() === "") continue;
+      if (namesIn(naming.texts, landmark.promptDepiction)) continue;
+      findings.push({
+        code: "plate-unnamed",
+        subject: `${naming.setupId}.${landmark.id}`,
+        message:
+          `the prompt plate "${naming.setupId}" is generated with does not say ` +
+          `"${landmark.promptDepiction}", which its \`holds\` declares the frame carries — ask for it ` +
+          `by that noun, or take it out of \`holds\` where the frame does not carry it; to call it ` +
+          `by other words, change ${landmarkDepictionPath(landmark)}`,
+      });
+    }
+  }
+  return findings;
+}
+
+/**
+ * One frame on a setup with no plate, read for the landmarks it holds. Assembled by the caller from
+ * the direction and the board.
+ */
+export type LandmarkFrame = {
+  id: string;
+  frame: FrameLane;
+  holds: readonly HeldLandmark[];
+};
+
+// Read only on a setup with no plate. Every panel whose chain reads a prompt answers, its text read
+// down that whole chain.
+//
+// One finding per landmark, keyed `<shotId>.<landmarkId>` (`<shotId>.cutin.<landmarkId>` for a
+// wipe).
+export function checkLandmarkNaming(
+  frames: readonly LandmarkFrame[],
+  panelPrompts: readonly PanelPrompts[],
+): DirectionFinding[] {
+  const panelsOf = panelsByFrame(panelPrompts);
+  const findings: DirectionFinding[] = [];
+  for (const frame of frames) {
+    const panels = (panelsOf(frame) ?? []).filter(
+      (panel) => panel.generative && panel.texts.length > 0,
+    );
+    for (const landmark of frame.holds) {
+      if (landmark.promptDepiction.trim() === "") continue;
+      if (panels.every((panel) => namesIn(panel.texts, landmark.promptDepiction))) continue;
+      findings.push({
+        code: "landmark-unnamed",
+        subject: `${frameSubject(frame)}.${landmark.id}`,
+        message:
+          `${frameName(frame)} holds "${landmark.id}" but a keyframe drawing it has no prompt ` +
+          `containing "${landmark.promptDepiction}" (verbatim, case-insensitive) — its setup has no ` +
+          `plate, so the keyframe draws the set: ask for it by that noun; to call it by other ` +
+          `words, change ${landmarkDepictionPath(landmark)}`,
+      });
+    }
+  }
+  return findings;
+}
+
+/**
  * One setup as the landmark accumulation reads it: the place it is set in, and what its frame holds
  * left to right.
  */
@@ -1604,44 +1647,8 @@ export function checkLandmarkOrder(setups: readonly HoldsSetupRef[]): DirectionF
 }
 
 /**
- * How one developed shot on a plated setup carries its plate in text. Built by the CLI off the
- * board and handed in, like `PanelSlots`.
- */
-export type PlateUse = {
-  setupId: string;
-  shotId: string;
-  lane: FrameLane;
-  describes: boolean;
-};
-
-// The text half of the anchor rule, paired with `setup-unconsumed`: that one asks whether the shot
-// stands on the plate, this one whether it says what the plate holds. Presence of the sentence is
-// all it reads — which input slot the picture arrives in and how the prompt names it are the
-// adapter's grammar, and the prompt critic's.
-//
-// Reported per setup: the sentence is the plate's, so one waiver answers for the frame rather than
-// for one shot on it.
-function checkPlateDescriptions(uses: readonly PlateUse[]): DirectionFinding[] {
-  const bySetup = new Map<string, string[]>();
-  for (const use of uses) {
-    if (use.describes) continue;
-    const shots = bySetup.get(use.setupId) ?? [];
-    shots.push(use.lane === "cutin" ? `"${use.shotId}" (cutin)` : `"${use.shotId}"`);
-    bySetup.set(use.setupId, shots);
-  }
-  return [...bySetup].map(([setupId, shots]) => ({
-    code: "plate-undescribed" as const,
-    subject: setupId,
-    message:
-      `shot ${shots.join(", ")} carries no \`plates.${setupId}.prompt\` in ` +
-      `its prompt — write the sentence into the keyframe's own prompt, or the frame survives only ` +
-      `as long as the model keeps the picture`,
-  }));
-}
-
-/**
  * A keyframe on a plated setup that crops the plate on its way in. Built by the CLI off the board
- * and handed in, like `PlateUse`.
+ * and handed in, like `PanelSlots`.
  */
 export type PlateRecrop = {
   setupId: string;

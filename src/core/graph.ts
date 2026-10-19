@@ -1008,73 +1008,6 @@ export function listSetupNestGaps(
   return out;
 }
 
-/**
- * How one developed shot on a plated setup carries its plate in TEXT — the half `setup-unconsumed`
- * cannot see.
- */
-export type PlateDescriptionUse = {
-  setupId: string;
-  shotId: string;
-  lane: PanelLane;
-  // A panel that was handed the plate carries the plate's own sentence verbatim.
-  describes: boolean;
-};
-
-// The sentence is read off every step BETWEEN a panel and the plate — the panel itself, and the
-// intermediates it is derived from that still stand on the plate. A wrapper panel carries no text of
-// its own, so reading the panel address alone would exempt a shot whose real keyframe took the plate
-// and dropped the sentence. A step off that path is not read: the plate's own generation prompt and
-// its upstream reach the plate from nowhere, and a sibling branch conditions a picture the plate
-// never entered.
-//
-// Exempt on the same two conditions as `setup-unconsumed`: a shot with nothing generative in its
-// chain has no prompt to write the sentence in, and one that never reaches the plate is that
-// finding's to report, not this one's. One more is this finding's own — a shot whose path to the
-// plate conditions on no text at all has no body the sentence could go in.
-export function listPlateDescriptionUses(
-  animatic: AnimaticDefinition,
-  frames: readonly BoardFrame[],
-): PlateDescriptionUse[] {
-  const platePrompts = animatic.platePrompts ?? {};
-  if (Object.keys(platePrompts).length === 0) return [];
-  const entryOf = animaticEntryResolver(animatic);
-  const shotById = new Map(animatic.shots.map((shot) => [shot.id, shot]));
-  const out: PlateDescriptionUse[] = [];
-  for (const frame of frames) {
-    const shot = shotById.get(frame.shotId);
-    if (shot === undefined || isPendingAnimaticShot(shot)) continue;
-    const setupId = frame.setup;
-    const platePrompt = platePrompts[setupId];
-    if (platePrompt === undefined) continue;
-    const panels = lanePanels(shot, frame.lane).map((panel) => panel.assetPath);
-    const plate = formatPlateAssetPath(setupId);
-    if (!walkPictureChain(panels, plate, entryOf).generative) continue;
-
-    const standsOnPlate = (address: string) => chainAddresses([address], entryOf).has(plate);
-    const prompts: string[] = [];
-    let plated = false;
-    for (const panel of panels) {
-      const chain = chainAddresses([panel], entryOf);
-      if (!chain.has(plate)) continue;
-      // A window of the plate is not the plate's frame, so its sentence is not owed (`plate-recropped`).
-      if (recropsPlate(chain, plate, entryOf)) continue;
-      plated = true;
-      for (const address of chain) {
-        if (address === plate || !standsOnPlate(address)) continue;
-        prompts.push(...positivePromptsAt(animatic, address));
-      }
-    }
-    if (!plated || prompts.length === 0) continue;
-    out.push({
-      setupId,
-      shotId: shot.id,
-      lane: frame.lane,
-      describes: prompts.some((text) => text.includes(platePrompt)),
-    });
-  }
-  return out;
-}
-
 function statedFrameSize(entry: AssetDefinition): { width: number; height: number } | undefined {
   if (entry.kind !== "local" || entry.operation !== "resize") return parentFrameSize(entry);
   const { width, height } = entry.inputs;
@@ -1183,6 +1116,25 @@ export function listPanelPromptText(animatic: AnimaticDefinition): PanelPromptTe
 }
 
 /**
+ * The positive prompts each returned plate is generated with, keyed by setup id: its own, and those
+ * of the intermediates it is built from. The walk stops at another returned plate. Every returned
+ * plate has an entry; one whose chain reads no prompt — a crop of the master, a file handed over
+ * whole — has an empty one.
+ */
+export function listPlateTexts(animatic: AnimaticDefinition): Record<string, string[]> {
+  const entryOf = animaticEntryResolver(animatic);
+  const ids = exposedPlateIdsOf(animatic);
+  const plates = new Set(ids.map((id) => formatPlateAssetPath(id)));
+  return Object.fromEntries(
+    ids.map((id) => {
+      const plate = formatPlateAssetPath(id);
+      const chain = orderedChainAddresses([plate], entryOf, (a) => a !== plate && plates.has(a));
+      return [id, chain.flatMap((address) => positivePromptsAt(animatic, address))];
+    }),
+  );
+}
+
+/**
  * Which prompts make each keyframe: one entry per `<Panel>` usage, with the addresses behind it that
  * declare a positive prompt, in declaration order.
  */
@@ -1241,15 +1193,18 @@ function chainAddresses(
 }
 
 // The same walk, kept in declaration order: the root, then each input as the definition passes it.
+// An address `stopAt` matches is neither listed nor walked through.
 function orderedChainAddresses(
   roots: readonly string[],
   entryOf: (address: string) => AssetDefinition | undefined,
+  stopAt?: (address: string) => boolean,
 ): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   const visit = (address: string): void => {
     if (seen.has(address)) return;
     seen.add(address);
+    if (stopAt?.(address)) return;
     out.push(address);
     const entry = entryOf(address);
     if (entry) for (const ref of extractRefs(entry)) visit(ref);

@@ -201,10 +201,6 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     flags: "A keyframe passes its reference images in an order its `lineup` does not declare.",
     subject: "frame",
   },
-  "plate-undescribed": {
-    flags: "A shot on a plated setup carries no `plates.<id>.prompt` in its prompt.",
-    subject: "setup id",
-  },
   "plate-recropped": {
     flags: "A keyframe on a plated setup crops the plate, a frame its setup does not declare.",
     subject: "frame",
@@ -233,8 +229,14 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     subject: "`<shotId>.<propId>`",
   },
   "plate-unnamed": {
-    flags: "A plate's sentence omits a landmark its setup's `holds` declares.",
+    flags:
+      "No prompt a plate is generated with contains the `promptDepiction` of a landmark its setup's `holds` declares, verbatim (case-insensitive).",
     subject: "`<setupId>.<landmarkId>`",
+  },
+  "landmark-unnamed": {
+    flags:
+      "On a setup with no plate, a keyframe's prompts omit the `promptDepiction` of a landmark the frame holds, verbatim (case-insensitive).",
+    subject: "`<frame>.<landmarkId>`",
   },
   "join-lineup-mismatch": {
     flags: "A `continuous` shot opens on a different order than the shot before it leaves.",

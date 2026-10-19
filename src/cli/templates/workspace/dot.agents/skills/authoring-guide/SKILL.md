@@ -59,20 +59,18 @@ import reference from "./reference";
 
 export default defineAnimatic(direction, {
   plates: () => ({
-    cabinWide: {
-      image: asset("cabinWide", imageGen, {
-        image1: reference.cabin,
-        prompt: "the cabin from a low three-quarter angle, wide, empty",
-      }),
-      prompt: "a bare cabin, the bunk left, the window at the far end",
-    },
+    cabinWide: asset("cabinWide", imageGen, {
+      image1: reference.cabin,
+      prompt:
+        "the cabin from a low three-quarter angle, wide, empty, the bunk left, the window at the far end",
+    }),
   }),
   timeline: ({ shot, plates }) => ({
     shots: shot("01", ({ script }) => {
       const key = asset("key", imageGen, {
-        image1: plates.cabinWide.image,
+        image1: plates.cabinWide,
         image2: reference.character,
-        prompt: `<Picture 1> is the empty frame: ${plates.cabinWide.prompt}. … the character at the window, back to the room`,
+        prompt: "<Picture 1> is the empty frame. … the character at the window, back to the room",
       });
       return (
         <Composition>
@@ -90,7 +88,7 @@ export default defineAnimatic(direction, {
 ```
 
 - **`defineAnimatic(direction, { plates?, timeline })`** — the animatic derives its working `{ size, fps }` from the direction. `timeline` receives `{ format }`, the injected `shot`/`pendingShot` starters and what `plates` returned, declares shared assets at the top, and returns `{ shots, soundtracks? }`.
-- **`plates` returns `{ image, prompt }` by setup id** — addressed `animatic:plate.<id>`, handed to `timeline` unchanged.
+- **`plates` returns one image asset per setup id** — addressed `animatic:plate.<id>`, handed to `timeline` unchanged.
 - **Shots come from the direction** — the injected `shot(id, …).nextShot(id, …)` is the only way to mint a shot; the shot's `duration` and `script` are injected into the build, never written here.
 - **`pendingShot(id)` / `.nextPendingShot(id)`** — the undeveloped shot, injected into `timeline` alongside `shot`. It carries nothing of its own (the shot's duration, action and script are the direction's) and declares nothing. Develop it by swapping in `shot(id, …)` / `.nextShot(id, …)`.
 - **`asideShot(id)` / `.nextAsideShot(id)`** — the `kind: "aside"` shot (`direction-guide`). The animatic's takes no build; the video's takes one — `asideShot(id, ({ duration, label }) => …)`.

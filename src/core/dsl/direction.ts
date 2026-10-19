@@ -140,9 +140,9 @@ export type Location = {
 // it may not collide with a character, a prop, a location, or a landmark of another place
 // (`landmark-id-conflict`).
 //
-// `promptDepiction` is the noun a prompt calls it by, exactly as a character's is —
-// `plate-unnamed` reads the plate's own sentence for it. `description` is where it stands and what
-// it looks like.
+// `promptDepiction` is the noun a prompt calls it by, exactly as a character's is — `plate-unnamed`
+// reads the plate's own generation prompt for it. `description` is where it stands and what it
+// looks like.
 export type Landmark = { name: string; promptDepiction: string; description: string };
 
 // A framing — the size of the `action`'s mover in the frame, a controlled vocabulary so the size

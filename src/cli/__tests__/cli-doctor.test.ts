@@ -382,21 +382,15 @@ export default defineReference(direction, () => {
 `;
 
   const PLATE = `plates: () => ({
-    front: {
-      image: asset("front", internalTestImage, { image: reference.studio, width: 64, height: 64 }),
-      prompt: "the studio, its window along the far wall",
-    },
+    front: asset("front", internalTestImage, { image: reference.studio, width: 64, height: 64 }),
   }),`;
   // The same plate with nothing under it: the frame it fixes was invented.
   const PLATE_UNANCHORED = `plates: () => ({
-    front: {
-      image: asset("front", internalTestImage, { width: 64, height: 64 }),
-      prompt: "the studio, its window along the far wall",
-    },
+    front: asset("front", internalTestImage, { width: 64, height: 64 }),
   }),`;
 
   // `keyframe` builds one shot's panel: from the plate, from the location, or from nothing.
-  const FROM_PLATE = `asset("first", internalTestImage, { image: plates.front.image, width: 64, height: 64 })`;
+  const FROM_PLATE = `asset("first", internalTestImage, { image: plates.front, width: 64, height: 64 })`;
   const FROM_NOTHING = `asset("first", internalTestImage, { width: 64, height: 64 })`;
   // One outcome, so nothing an anchor could hold still.
   const DETERMINISTIC = `asset("first", internalTestPlate, { width: 64, height: 64, color: "#fff" })`;

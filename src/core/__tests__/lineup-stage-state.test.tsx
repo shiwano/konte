@@ -13,8 +13,8 @@ import {
   listPanelPromptText,
   listPanelReferenceReach,
   listPanelReferenceSlots,
-  listPlateDescriptionUses,
   listPlateRecrops,
+  listPlateTexts,
   listShotContinuity,
 } from "../graph.js";
 import { plainDirection, testDirection } from "./helpers/direction.js";
@@ -97,10 +97,7 @@ describe("listPanelReferenceReach", () => {
   const board = (build: Parameters<typeof shot>[1]["build"]) =>
     defineAnimatic(testDirection(format), {
       plates: () => ({
-        front: {
-          image: asset("front", keyframe, { prompt: "the deck, empty", place: sheets.ferryDeck }),
-          prompt: "the ferry deck, the rail along its far side",
-        },
+        front: asset("front", keyframe, { prompt: "the deck, empty", place: sheets.ferryDeck }),
       }),
       timeline: () => animaticTimeline([shot("01", { duration: 5, build })]),
     });
@@ -232,8 +229,9 @@ describe("listPanelReferenceReach", () => {
   });
 });
 
-// The plate's own sentence against the panels standing on it — the text half of the anchor rule.
-describe("listPlateDescriptionUses", () => {
+// The text half of the same panels — what `subject-unnamed` reads for each subject's
+// `promptDepiction`.
+describe("listPlateRecrops", () => {
   const plated = defineComfyAsset({
     workflow: "plated.json",
     description: "test keyframe adapter taking its pictures in numbered slots",
@@ -245,349 +243,82 @@ describe("listPlateDescriptionUses", () => {
     outputs: { result: { nodeId: "9", type: "image" } },
   });
 
-  const PLATE_PROMPT = "a plain studio, the desk under the window at the right edge";
   const frames = [{ shotId: "01", lane: "main" as const, setup: "front" }];
 
   // The build closure captures the plates `timeline` was handed, which the terse `shot()` helper
   // cannot pass itself.
-  const board = (build: (plate: { image: never; prompt: string }) => React.ReactElement) =>
+  const board = (build: (plate: never) => React.ReactElement) =>
     defineAnimatic(testDirection(format), {
       plates: () => ({
-        front: {
-          image: asset("front", keyframe, { prompt: "the studio, empty", place: sheets.ferryDeck }),
-          prompt: PLATE_PROMPT,
-        },
+        front: asset("front", keyframe, { prompt: "the studio, empty", place: sheets.ferryDeck }),
       }),
       timeline: ({ plates }) =>
         animaticTimeline([
           shot("01", {
             duration: 5,
-            build: () => build(plates.front as unknown as { image: never; prompt: string }),
+            build: () => build(plates.front as never),
           }),
         ]),
     });
 
-  it("reads a panel whose prompt carries the plate's sentence", () => {
+  const window = { x: 0, y: 0, width: 32, height: 32 };
+
+  it("lists a keyframe that crops the plate", () => {
     const animatic = board((plate) => (
       <Composition>
         <Panel
           src={asset("first", plated, {
-            image1: plate.image,
-            prompt: `<Picture 1> is the empty frame: ${plate.prompt}. She is at the desk.`,
+            image1: asset("stage", adapters.imageCrop, { image: plate, ...window }),
+            prompt: "her at the desk",
           })}
           {...moves}
         />
       </Composition>
     ));
 
-    expect(listPlateDescriptionUses(animatic, frames)).toEqual([
-      { setupId: "front", shotId: "01", lane: "main", describes: true },
+    expect(listPlateRecrops(animatic, frames)).toEqual([
+      { setupId: "front", shotId: "01", lane: "main", panel: "animatic:shot.01.first" },
     ]);
   });
 
-  // Which slot the picture arrives in is the adapter's grammar, not this finding's.
-  it("reads the sentence whatever slot the plate arrives in", () => {
+  it("lists a panel that is the crop itself", () => {
+    const animatic = board((plate) => (
+      <Composition>
+        <Panel src={asset("first", adapters.imageCrop, { image: plate, ...window })} {...moves} />
+      </Composition>
+    ));
+
+    expect(listPlateRecrops(animatic, frames)).toEqual([
+      { setupId: "front", shotId: "01", lane: "main", panel: "animatic:shot.01.first" },
+    ]);
+  });
+
+  it("says nothing of a keyframe that takes the plate whole", () => {
     const animatic = board((plate) => (
       <Composition>
         <Panel
           src={asset("first", plated, {
-            image2: plate.image,
-            prompt: `<Picture 2> is the empty frame: ${plate.prompt}.`,
+            image1: asset("fit", adapters.imageResize, {
+              image: plate,
+              width: 64,
+              height: 64,
+            }),
+            prompt: "her at the desk",
           })}
           {...moves}
         />
       </Composition>
     ));
 
-    expect(listPlateDescriptionUses(animatic, frames)).toEqual([
-      { setupId: "front", shotId: "01", lane: "main", describes: true },
-    ]);
+    expect(listPlateRecrops(animatic, frames)).toEqual([]);
   });
 
-  // The author rewrote the sentence and left the panel behind, or never wrote it in.
-  it("marks a panel whose prompt does not carry the sentence", () => {
-    const animatic = board((plate) => (
-      <Composition>
-        <Panel
-          src={asset("first", plated, {
-            image1: plate.image,
-            prompt: "the studio, her at the desk",
-          })}
-          {...moves}
-        />
-      </Composition>
-    ));
-
-    expect(listPlateDescriptionUses(animatic, frames)).toEqual([
-      { setupId: "front", shotId: "01", lane: "main", describes: false },
-    ]);
-  });
-
-  // Which panel reaches the plate is the shot's business; the sentence is read only off the panels
-  // that DO reach it, since one written into a panel the plate never reached conditions nothing.
-  it("does not let a panel outside the plate's reach carry the sentence", () => {
-    const animatic = defineAnimatic(testDirection(format), {
-      plates: () => ({
-        front: {
-          image: asset("front", keyframe, { prompt: "the studio, empty", place: sheets.ferryDeck }),
-          prompt: PLATE_PROMPT,
-        },
-      }),
-      timeline: ({ plates }) =>
-        animaticTimeline([
-          shot("01", {
-            duration: 5,
-            build: () => (
-              <Composition>
-                <Panel
-                  src={asset("first", plated, {
-                    image1: (plates.front as unknown as { image: never }).image,
-                    prompt: "her at the desk",
-                  })}
-                  {...moves}
-                />
-                <Panel
-                  src={asset("last", plated, {
-                    image1: sheets.ane,
-                    prompt: `she stands: ${PLATE_PROMPT}`,
-                  })}
-                />
-              </Composition>
-            ),
-          }),
-        ]),
-    });
-
-    expect(listPlateDescriptionUses(animatic, frames)).toEqual([
-      { setupId: "front", shotId: "01", lane: "main", describes: false },
-    ]);
-  });
-
-  // A wrapper panel carries no text of its own, so reading the panel address alone would exempt a
-  // shot whose real keyframe took the plate and dropped the sentence.
-  it("reads the sentence off an intermediate the panel is derived from", () => {
-    const board = (prompt: string) =>
+  // A crop of the plate's whole stated frame changes nothing in it.
+  it("says nothing of a crop that takes the whole plate", () => {
+    const croppedPlate = (crop: { x: number; y: number; width: number; height: number }) =>
       defineAnimatic(testDirection(format), {
         plates: () => ({
-          front: {
-            image: asset("front", keyframe, {
-              prompt: "the studio, empty",
-              place: sheets.ferryDeck,
-            }),
-            prompt: PLATE_PROMPT,
-          },
-        }),
-        timeline: ({ plates }) =>
-          animaticTimeline([
-            shot("01", {
-              duration: 5,
-              build: () => {
-                const base = asset("base", plated, {
-                  image1: (plates.front as unknown as { image: never }).image,
-                  prompt,
-                });
-                return (
-                  <Composition>
-                    <Panel
-                      src={asset("first", adapters.imageResize, {
-                        image: base,
-                        width: 64,
-                        height: 64,
-                      })}
-                      {...moves}
-                    />
-                  </Composition>
-                );
-              },
-            }),
-          ]),
-      });
-
-    expect(listPlateDescriptionUses(board("her at the desk"), frames)).toEqual([
-      { setupId: "front", shotId: "01", lane: "main", describes: false },
-    ]);
-    expect(listPlateDescriptionUses(board(`the frame holds ${PLATE_PROMPT}`), frames)).toEqual([
-      { setupId: "front", shotId: "01", lane: "main", describes: true },
-    ]);
-  });
-
-  // A branch the plate never entered conditions a picture of its own, so its prompt does not answer
-  // for the frame.
-  it("does not read a sibling branch that never stands on the plate", () => {
-    const animatic = defineAnimatic(testDirection(format), {
-      plates: () => ({
-        front: {
-          image: asset("front", keyframe, { prompt: "the studio, empty", place: sheets.ferryDeck }),
-          prompt: PLATE_PROMPT,
-        },
-      }),
-      timeline: ({ plates }) =>
-        animaticTimeline([
-          shot("01", {
-            duration: 5,
-            build: () => {
-              const aside = asset("aside", plated, { prompt: `she stands: ${PLATE_PROMPT}` });
-              return (
-                <Composition>
-                  <Panel
-                    src={asset("first", plated, {
-                      image1: (plates.front as unknown as { image: never }).image,
-                      image2: aside,
-                      prompt: "her at the desk",
-                    })}
-                    {...moves}
-                  />
-                </Composition>
-              );
-            },
-          }),
-        ]),
-    });
-
-    expect(listPlateDescriptionUses(animatic, frames)).toEqual([
-      { setupId: "front", shotId: "01", lane: "main", describes: false },
-    ]);
-  });
-
-  // No text the sentence could go in.
-  it("steps over a keyframe that conditions on no prompt", () => {
-    const animatic = board((plate) => (
-      <Composition>
-        <Panel
-          src={asset("first", adapters.imageResize, { image: plate.image, width: 64, height: 64 })}
-          {...moves}
-        />
-      </Composition>
-    ));
-
-    expect(listPlateDescriptionUses(animatic, frames)).toEqual([]);
-  });
-
-  describe("listPlateRecrops", () => {
-    const window = { x: 0, y: 0, width: 32, height: 32 };
-
-    it("lists a keyframe that crops the plate, and owes it no sentence", () => {
-      const animatic = board((plate) => (
-        <Composition>
-          <Panel
-            src={asset("first", plated, {
-              image1: asset("stage", adapters.imageCrop, { image: plate.image, ...window }),
-              prompt: "her at the desk",
-            })}
-            {...moves}
-          />
-        </Composition>
-      ));
-
-      expect(listPlateRecrops(animatic, frames)).toEqual([
-        { setupId: "front", shotId: "01", lane: "main", panel: "animatic:shot.01.first" },
-      ]);
-      expect(listPlateDescriptionUses(animatic, frames)).toEqual([]);
-    });
-
-    it("lists a panel that is the crop itself", () => {
-      const animatic = board((plate) => (
-        <Composition>
-          <Panel
-            src={asset("first", adapters.imageCrop, { image: plate.image, ...window })}
-            {...moves}
-          />
-        </Composition>
-      ));
-
-      expect(listPlateRecrops(animatic, frames)).toEqual([
-        { setupId: "front", shotId: "01", lane: "main", panel: "animatic:shot.01.first" },
-      ]);
-    });
-
-    it("says nothing of a keyframe that takes the plate whole", () => {
-      const animatic = board((plate) => (
-        <Composition>
-          <Panel
-            src={asset("first", plated, {
-              image1: asset("fit", adapters.imageResize, {
-                image: plate.image,
-                width: 64,
-                height: 64,
-              }),
-              prompt: `her at the desk: ${PLATE_PROMPT}`,
-            })}
-            {...moves}
-          />
-        </Composition>
-      ));
-
-      expect(listPlateRecrops(animatic, frames)).toEqual([]);
-    });
-
-    // A crop of the plate's whole stated frame changes nothing in it.
-    it("says nothing of a crop that takes the whole plate", () => {
-      const croppedPlate = (crop: { x: number; y: number; width: number; height: number }) =>
-        defineAnimatic(testDirection(format), {
-          plates: () => ({
-            front: {
-              image: asset("front", adapters.imageCrop, { image: sheets.ferryDeck, ...window }),
-              prompt: PLATE_PROMPT,
-            },
-          }),
-          timeline: ({ plates }) =>
-            animaticTimeline([
-              shot("01", {
-                duration: 5,
-                build: () => (
-                  <Composition>
-                    <Panel
-                      src={asset("first", adapters.imageCrop, {
-                        image: (plates.front as unknown as { image: never }).image,
-                        ...crop,
-                      })}
-                      {...moves}
-                    />
-                  </Composition>
-                ),
-              }),
-            ]),
-        });
-
-      expect(
-        listPlateRecrops(croppedPlate({ x: 0, y: 0, width: 640, height: 480 }), frames),
-      ).toEqual([]);
-      expect(
-        listPlateRecrops(croppedPlate({ x: 0, y: 0, width: 320, height: 240 }), frames),
-      ).toHaveLength(1);
-    });
-
-    it("reads a resize's stated size as the frame a crop takes whole", () => {
-      const animatic = board((plate) => (
-        <Composition>
-          <Panel
-            src={asset("first", adapters.imageCrop, {
-              image: asset("fit", adapters.imageResize, {
-                image: plate.image,
-                width: 320,
-                height: 240,
-              }),
-              x: 0,
-              y: 0,
-              width: 320,
-              height: 240,
-            })}
-            {...moves}
-          />
-        </Composition>
-      ));
-
-      expect(listPlateRecrops(animatic, frames)).toEqual([]);
-    });
-
-    // The plate's own window of its master is the setup's frame.
-    it("does not count the crop the plate itself is", () => {
-      const animatic = defineAnimatic(testDirection(format), {
-        plates: () => ({
-          front: {
-            image: asset("front", adapters.imageCrop, { image: sheets.ferryDeck, ...window }),
-            prompt: PLATE_PROMPT,
-          },
+          front: asset("front", adapters.imageCrop, { image: sheets.ferryDeck, ...window }),
         }),
         timeline: ({ plates }) =>
           animaticTimeline([
@@ -596,9 +327,9 @@ describe("listPlateDescriptionUses", () => {
               build: () => (
                 <Composition>
                   <Panel
-                    src={asset("first", plated, {
-                      image1: (plates.front as unknown as { image: never }).image,
-                      prompt: `her at the desk: ${PLATE_PROMPT}`,
+                    src={asset("first", adapters.imageCrop, {
+                      image: plates.front,
+                      ...crop,
                     })}
                     {...moves}
                   />
@@ -608,13 +339,123 @@ describe("listPlateDescriptionUses", () => {
           ]),
       });
 
-      expect(listPlateRecrops(animatic, frames)).toEqual([]);
+    expect(listPlateRecrops(croppedPlate({ x: 0, y: 0, width: 640, height: 480 }), frames)).toEqual(
+      [],
+    );
+    expect(
+      listPlateRecrops(croppedPlate({ x: 0, y: 0, width: 320, height: 240 }), frames),
+    ).toHaveLength(1);
+  });
+
+  it("reads a resize's stated size as the frame a crop takes whole", () => {
+    const animatic = board((plate) => (
+      <Composition>
+        <Panel
+          src={asset("first", adapters.imageCrop, {
+            image: asset("fit", adapters.imageResize, {
+              image: plate,
+              width: 320,
+              height: 240,
+            }),
+            x: 0,
+            y: 0,
+            width: 320,
+            height: 240,
+          })}
+          {...moves}
+        />
+      </Composition>
+    ));
+
+    expect(listPlateRecrops(animatic, frames)).toEqual([]);
+  });
+
+  // The plate's own window of its master is the setup's frame.
+  it("does not count the crop the plate itself is", () => {
+    const animatic = defineAnimatic(testDirection(format), {
+      plates: () => ({
+        front: asset("front", adapters.imageCrop, { image: sheets.ferryDeck, ...window }),
+      }),
+      timeline: ({ plates }) =>
+        animaticTimeline([
+          shot("01", {
+            duration: 5,
+            build: () => (
+              <Composition>
+                <Panel
+                  src={asset("first", plated, {
+                    image1: plates.front,
+                    prompt: "her at the desk",
+                  })}
+                  {...moves}
+                />
+              </Composition>
+            ),
+          }),
+        ]),
+    });
+
+    expect(listPlateRecrops(animatic, frames)).toEqual([]);
+  });
+});
+
+// What `plate-unnamed` reads: the prompts a plate is generated with.
+describe("listPlateTexts", () => {
+  it("reads the plate's own prompt and those of the intermediates it is built from", () => {
+    const animatic = defineAnimatic(testDirection(format), {
+      plates: () => {
+        const master = asset("master", keyframe, {
+          prompt: "the whole deck",
+          place: sheets.ferryDeck,
+        });
+        return { front: asset("front", keyframe, { prompt: "the bench, close", place: master }) };
+      },
+      timeline: () => animaticTimeline([]),
+    });
+
+    expect(listPlateTexts(animatic)).toEqual({ front: ["the bench, close", "the whole deck"] });
+  });
+
+  it("gives a plate whose chain reads no prompt an empty entry", () => {
+    const animatic = defineAnimatic(testDirection(format), {
+      plates: () => ({
+        front: asset("front", adapters.imageCrop, {
+          image: sheets.ferryDeck,
+          x: 0,
+          y: 0,
+          width: 32,
+          height: 32,
+        }),
+      }),
+      timeline: () => animaticTimeline([]),
+    });
+
+    expect(listPlateTexts(animatic)).toEqual({ front: [] });
+  });
+
+  // A child plate cut in from its parent's frame.
+  it("stops at another returned plate", () => {
+    const occurrence = (address: string, value: string) => ({ address, input: "prompt", value });
+    const nested = {
+      shots: [],
+      plates: {
+        wide: { kind: "comfy", inputs: { image: "__konte:reference:ferryDeck__" } },
+        close: { kind: "comfy", inputs: { image: "__konte:animatic:plate.wide__" } },
+      },
+      exposedPlateIds: ["wide", "close"],
+      prompts: [
+        occurrence("animatic:plate.wide", "the deck, the bench and the mast"),
+        occurrence("animatic:plate.close", "in on the bench"),
+      ],
+    } as unknown as Parameters<typeof listPlateTexts>[0];
+
+    expect(listPlateTexts(nested)).toEqual({
+      wide: ["the deck, the bench and the mast"],
+      close: ["in on the bench"],
     });
   });
 });
 
-// The text half of the same panels — what `subject-unnamed` reads for each subject's
-// `promptDepiction`.
 describe("listPanelPromptText", () => {
   it("carries the prompts of every step behind a panel, panels in panel order", () => {
     const animatic = defineAnimatic(testDirection(format), {
@@ -775,10 +616,7 @@ describe("a plate's own model is not the shot's", () => {
   it("does not report carries for a panel whose model reads no previous panel", () => {
     const animatic = defineAnimatic(testDirection(format), {
       plates: () => ({
-        front: {
-          image: asset("front", platePrevPanel, { prompt: "the deck, empty" }),
-          prompt: "an empty deck",
-        },
+        front: asset("front", platePrevPanel, { prompt: "the deck, empty" }),
       }),
       timeline: ({ plates }) =>
         animaticTimeline([
@@ -787,7 +625,7 @@ describe("a plate's own model is not the shot's", () => {
             build: () => (
               <Composition>
                 <Panel
-                  src={asset("first", keyframe, { prompt: "her", place: plates.front.image })}
+                  src={asset("first", keyframe, { prompt: "her", place: plates.front })}
                   {...moves}
                 />
               </Composition>

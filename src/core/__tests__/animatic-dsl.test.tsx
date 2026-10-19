@@ -40,7 +40,7 @@ describe("defineAnimatic plates", () => {
     fps: 24,
     size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } },
   });
-  const animatic = (plates: () => Record<string, { image: MediaAsset<"image">; prompt: string }>) =>
+  const animatic = (plates: () => Record<string, MediaAsset<"image">>) =>
     defineAnimatic(direction, {
       plates: plates as never,
       timeline: () => animaticTimeline([]),
@@ -50,10 +50,7 @@ describe("defineAnimatic plates", () => {
     let handed: unknown;
     const sb = defineAnimatic(direction, {
       plates: () => ({
-        front: {
-          image: asset("front", imageComfy, { prompt: "the empty frame" }),
-          prompt: "a plain studio, the desk at the right edge",
-        },
+        front: asset("front", imageComfy, { prompt: "the empty frame" }),
       }),
       timeline: ({ plates }) => {
         handed = plates.front;
@@ -61,19 +58,13 @@ describe("defineAnimatic plates", () => {
       },
     });
     expect(Object.keys(sb.plates ?? {})).toEqual(["front"]);
-    // The sentence reaches `timeline` as the author wrote it — konte stores it and writes no prompt
-    // text of its own.
-    expect(handed).toEqual({
-      image: expect.objectContaining({ src: "__konte:animatic:plate.front__" }),
-      prompt: "a plain studio, the desk at the right edge",
-    });
-    expect(sb.platePrompts?.front).toBe("a plain studio, the desk at the right edge");
+    expect(handed).toEqual(expect.objectContaining({ src: "__konte:animatic:plate.front__" }));
   });
 
   it("rejects a key naming no declared setup", () => {
     expect(() =>
       animatic(() => ({
-        nope: { image: asset("nope", imageComfy, { prompt: "x" }), prompt: "a plain studio" },
+        nope: asset("nope", imageComfy, { prompt: "x" }),
       })),
     ).toThrow(/not a setup direction.ts declares/);
   });
@@ -101,8 +92,8 @@ describe("defineAnimatic plates", () => {
           const front = asset("front", imageComfy, { prompt: "the front frame" });
           const back = asset("back", imageComfy, { prompt: "the back frame" });
           return {
-            front: { image: back, prompt: "a plain studio" },
-            back: { image: front, prompt: "a plain studio" },
+            front: back,
+            back: front,
           } as never;
         },
         timeline: () => animaticTimeline([]),
@@ -113,7 +104,7 @@ describe("defineAnimatic plates", () => {
   it("points a plate returned under a renamed intermediate at konte rename", () => {
     expect(() =>
       animatic(() => ({
-        front: { image: asset("frontOld", imageComfy, { prompt: "x" }), prompt: "a plain studio" },
+        front: asset("frontOld", imageComfy, { prompt: "x" }),
       })),
     ).toThrow(
       /returns asset\("frontOld", …\).*konte rename animatic:plate\.front animatic:plate\.frontOld/,
@@ -125,7 +116,7 @@ describe("defineAnimatic plates", () => {
     const sb = animatic(() => {
       const master = asset("master", imageComfy, { prompt: "the whole room" });
       return {
-        front: { image: asset("front", editComfy, { image: master }), prompt: "a plain studio" },
+        front: asset("front", editComfy, { image: master }),
       } as never;
     });
     expect(Object.keys(sb.plates ?? {}).sort()).toEqual(["front", "master"]);
@@ -134,19 +125,10 @@ describe("defineAnimatic plates", () => {
     expect(front.inputs["1.image"]).toBe("__konte:animatic:plate.master__");
   });
 
-  // konte cannot look inside a crop, so what the frame holds reaches the model only through this.
-  it("rejects a plate returned with no sentence saying what it holds", () => {
-    expect(() =>
-      animatic(() => ({
-        front: { image: asset("front", imageComfy, { prompt: "x" }) } as never,
-      })),
-    ).toThrow(/declares no `prompt`/);
-  });
-
-  it("rejects a bare asset handle where a plate is owed", () => {
-    expect(() =>
-      animatic(() => ({ front: asset("front", imageComfy, { prompt: "x" }) as never })),
-    ).toThrow(/must return \{ image, prompt \}/);
+  it("rejects a plate that is not an asset handle", () => {
+    expect(() => animatic(() => ({ front: { image: "front" } as never }))).toThrow(
+      /must return the asset\(\) handle/,
+    );
   });
 
   // An intermediate under a roster id would take the address that setup's plate occupies.

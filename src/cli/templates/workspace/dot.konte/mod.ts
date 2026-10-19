@@ -1939,7 +1939,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
       >
     >;
     exposedPlateIds: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-    platePrompts: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
   },
   "strip",
   z.ZodTypeAny,
@@ -2246,7 +2245,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
         >
       | undefined;
     exposedPlateIds?: string[] | undefined;
-    platePrompts?: Record<string, string> | undefined;
   },
   {
     stage: "animatic";
@@ -2551,7 +2549,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
         >
       | undefined;
     exposedPlateIds?: string[] | undefined;
-    platePrompts?: Record<string, string> | undefined;
   }
 >;
 export type AnimaticDefinition = z.infer<typeof AnimaticDefinitionSchema>;
@@ -2749,7 +2746,6 @@ export type DirectionFindingCode =
   | "location-backtrack"
   | "character-unconsumed"
   | "slot-order-mismatch"
-  | "plate-undescribed"
   | "plate-recropped"
   | "join-lineup-mismatch"
   | "join-unpinned"
@@ -2762,6 +2758,7 @@ export type DirectionFindingCode =
   | "passer-unconsumed"
   | "passer-unnamed"
   | "plate-unnamed"
+  | "landmark-unnamed"
   | "song-unreferenced"
   | "lyric-unplaced"
   | "song-overrun";
@@ -4427,14 +4424,9 @@ export type SetupIdOf<D> = D extends {
   ? Extract<keyof S, string>
   : string;
 /**
- * One plate as `plates` returns it: the picture, and one English sentence saying what that frame
- * holds. The sentence is required because the picture cannot be read — a crop of a master is bytes
- * konte never looks inside, and two setups cut from one place hold different things.
+ * One plate as `plates` returns it: the picture of that frame with nobody in it.
  */
-export type AnimaticPlate = {
-  image: MediaAsset<"image">;
-  prompt: string;
-};
+export type AnimaticPlate = MediaAsset<"image">;
 /**
  * The plates a `plates` callback may return: one per shared camera position, keyed by its `setups`
  * roster id. Partial — a setup only one shot names has nothing to hold together and owes none.

@@ -15,11 +15,6 @@ import { imageMinimaxH3R2i } from "konte/workspace/adapters/comfy/image_minimax_
 import direction from "./direction";
 import reference from "./reference";
 
-const KITCHEN_WIDE = "a sunny kitchen, the window at left, the stove at centre, the table at right";
-const KITCHEN_MEDIUM = "the stove at left and the table at right under warm light";
-const YARD_WIDE = "a back yard, the blue gate at left and the apple tree at right";
-const KITCHEN_CLOSE = "the table top under warm light";
-
 type Still = {
   task: "reference generation" | "keyframe completion";
   defines: readonly string[];
@@ -53,69 +48,54 @@ export default defineAnimatic(direction, {
       height: 1248,
     });
     return {
-      kitchenWide: {
-        image: asset("kitchenWide", adapters.imageCrop, {
-          image: master,
-          x: 140,
-          y: 0,
-          width: 2216,
-          height: 1248,
-          outWidth: format.size.width,
-          outHeight: format.size.height,
-        }),
-        prompt: KITCHEN_WIDE,
-      },
-      kitchenMedium: {
-        image: asset("kitchenMedium", adapters.imageCrop, {
-          image: master,
-          x: 560,
-          y: 100,
-          width: 1420,
-          height: 800,
-        }),
-        prompt: KITCHEN_MEDIUM,
-      },
-      kitchenClose: {
-        image: asset("kitchenClose", adapters.imageCrop, {
-          image: master,
-          x: 900,
-          y: 240,
-          width: 780,
-          height: 440,
-        }),
-        prompt: KITCHEN_CLOSE,
-      },
-      yardWide: {
-        image: asset("yardWide", adapters.imageCrop, {
-          image: reference.yard,
-          x: 140,
-          y: 0,
-          width: 2216,
-          height: 1248,
-          outWidth: format.size.width,
-          outHeight: format.size.height,
-        }),
-        prompt: YARD_WIDE,
-      },
+      kitchenWide: asset("kitchenWide", adapters.imageCrop, {
+        image: master,
+        x: 140,
+        y: 0,
+        width: 2216,
+        height: 1248,
+        outWidth: format.size.width,
+        outHeight: format.size.height,
+      }),
+      kitchenMedium: asset("kitchenMedium", adapters.imageCrop, {
+        image: master,
+        x: 560,
+        y: 100,
+        width: 1420,
+        height: 800,
+      }),
+      kitchenClose: asset("kitchenClose", adapters.imageCrop, {
+        image: master,
+        x: 900,
+        y: 240,
+        width: 780,
+        height: 440,
+      }),
+      yardWide: asset("yardWide", adapters.imageCrop, {
+        image: reference.yard,
+        x: 140,
+        y: 0,
+        width: 2216,
+        height: 1248,
+        outWidth: format.size.width,
+        outHeight: format.size.height,
+      }),
     };
   },
   timeline: ({ shot, plates }) => ({
     shots: shot("01", ({ script, lineup, duration }) => {
       const first = asset("first", imageMinimaxH3R2i, {
         image1: reference.cook,
-        image2: plates.kitchenWide.image,
+        image2: plates.kitchenWide,
         prompt: still({
           task: "reference generation",
-          defines: [
-            "<Subject 1> is the boy in <Picture 1>.",
-            `<Picture 2> is the empty frame: ${KITCHEN_WIDE}.`,
-          ],
+          defines: ["<Subject 1> is the boy in <Picture 1>.", "<Picture 2> is the empty frame."],
           retains: [
             kept("<Subject 1>", "his face and apron."),
             kept("<Picture 2>", "the framing and the room."),
           ],
           summary: "The boy flips eggs at the stove.",
-          described: `A wide shot of ${KITCHEN_WIDE}; <Subject 1> stands at the stove flipping eggs.`,
+          described: "A wide shot; <Subject 1> stands at the stove flipping eggs.",
         }),
       });
       const last = asset("last", imageMinimaxH3R2i, {
@@ -130,7 +110,7 @@ export default defineAnimatic(direction, {
             kept("<Picture 2>", "the framing and the room."),
           ],
           summary: "The boy lifts the eggs onto a plate.",
-          described: `The same wide shot of ${KITCHEN_WIDE}; the boy lifts the eggs onto a plate.`,
+          described: "The same wide shot; the boy lifts the eggs onto a plate.",
         }),
       });
       const line = asset("line", audioZonos2VoiceClone, {
@@ -161,19 +141,16 @@ export default defineAnimatic(direction, {
         // no previous panel is taken.
         const first = asset("first", imageMinimaxH3R2i, {
           image1: reference.cook,
-          image2: plates.kitchenWide.image,
+          image2: plates.kitchenWide,
           prompt: still({
             task: "reference generation",
-            defines: [
-              "<Subject 1> is the boy in <Picture 1>.",
-              `<Picture 2> is the empty frame: ${KITCHEN_WIDE}.`,
-            ],
+            defines: ["<Subject 1> is the boy in <Picture 1>.", "<Picture 2> is the empty frame."],
             retains: [
               kept("<Subject 1>", "his face and apron."),
               kept("<Picture 2>", "the framing and the room."),
             ],
             summary: "The boy keeps cooking as smoke starts to rise.",
-            described: `${KITCHEN_WIDE}; the boy at the stove as a thin line of smoke rises.`,
+            described: "The boy at the stove as a thin line of smoke rises.",
           }),
         });
         const last = asset("last", imageMinimaxH3R2i, {
@@ -193,7 +170,7 @@ export default defineAnimatic(direction, {
               kept("<Picture 3>", "the framing and the room."),
             ],
             summary: "The woman has walked in and stands left of the boy.",
-            described: `${KITCHEN_WIDE}; the woman stands at left, sniffing, the boy at right.`,
+            described: "The woman stands at left, sniffing, the boy at right.",
           }),
         });
         const line = asset("line", audioZonos2VoiceClone, {
@@ -216,14 +193,14 @@ export default defineAnimatic(direction, {
         const key = asset("key", imageMinimaxH3R2i, {
           image1: reference.rival,
           image2: reference.cook,
-          image3: plates.kitchenMedium.image,
+          image3: plates.kitchenMedium,
           image4: shot("02").image("last"),
           prompt: still({
             task: "reference generation",
             defines: [
               "<Subject 1> is the woman in <Picture 1>.",
               "<Subject 2> is the boy in <Picture 2>.",
-              `<Picture 3> is the empty frame: ${KITCHEN_MEDIUM}.`,
+              "<Picture 3> is the empty frame.",
               "<Picture 4> is the frame this take continues from.",
             ],
             retains: [
@@ -234,7 +211,7 @@ export default defineAnimatic(direction, {
             ],
             summary: "Smoke billows between the woman and the boy.",
             cutFrom: "The frame of <Picture 4>.",
-            described: `${KITCHEN_MEDIUM}; the woman at left and the boy at right wave at the smoke.`,
+            described: "a medium shot, the woman at left and the boy at right waving at the smoke.",
           }),
         });
         const insert = asset("insert", imageMinimaxH3R2i, {
@@ -280,19 +257,16 @@ export default defineAnimatic(direction, {
         });
         const wipe = asset("wipe", imageMinimaxH3R2i, {
           image1: reference.cook,
-          image2: plates.kitchenClose.image,
+          image2: plates.kitchenClose,
           prompt: still({
             task: "reference generation",
-            defines: [
-              "<Subject 1> is the boy in <Picture 1>.",
-              `<Picture 2> is the empty frame: ${KITCHEN_CLOSE}.`,
-            ],
+            defines: ["<Subject 1> is the boy in <Picture 1>.", "<Picture 2> is the empty frame."],
             retains: [
               kept("<Subject 1>", "his face and apron."),
               kept("<Picture 2>", "the framing and the room."),
             ],
             summary: "The boy leans over the table.",
-            described: `${KITCHEN_CLOSE}; the boy leans in, reading the recipe.`,
+            described: "The boy leans in over the table, reading the recipe.",
           }),
         });
         const narration = asset("narration", audioZonos2VoiceClone, {
@@ -314,19 +288,19 @@ export default defineAnimatic(direction, {
           <Panel
             src={asset("key", imageMinimaxH3R2i, {
               image1: reference.cook,
-              image2: plates.kitchenClose.image,
+              image2: plates.kitchenClose,
               prompt: still({
                 task: "reference generation",
                 defines: [
                   "<Subject 1> is the boy in <Picture 1>.",
-                  `<Picture 2> is the empty frame: ${KITCHEN_CLOSE}.`,
+                  "<Picture 2> is the empty frame.",
                 ],
                 retains: [
                   kept("<Subject 1>", "his face and apron."),
                   kept("<Picture 2>", "the framing and the room."),
                 ],
                 summary: "The boy grins over the plate of eggs he has set down.",
-                described: `${KITCHEN_CLOSE}; the plate of eggs on the table, the boy grinning over it.`,
+                described: "The plate of eggs on the table, the boy grinning over it.",
               }),
             })}
             alt={`${setup} ${framing} ${location}`}
@@ -338,19 +312,20 @@ export default defineAnimatic(direction, {
       .nextShot("06", () => {
         const key = asset("key", imageMinimaxH3R2i, {
           image1: reference.rival,
-          image2: plates.yardWide.image,
+          image2: plates.yardWide,
           prompt: still({
             task: "reference generation",
             defines: [
               "<Subject 1> is the woman in <Picture 1>.",
-              `<Picture 2> is the empty frame: ${YARD_WIDE}.`,
+              "<Picture 2> is the empty frame.",
             ],
             retains: [
               kept("<Subject 1>", "her face and cardigan."),
               kept("<Picture 2>", "the framing and the yard."),
             ],
             summary: "The woman holds up a slice of burnt toast in the yard.",
-            described: `A wide shot of ${YARD_WIDE}; <Subject 1> stands between them holding burnt toast.`,
+            described:
+              "A wide shot; <Subject 1> stands between the gate and the tree holding burnt toast.",
           }),
         });
         return (
@@ -367,13 +342,13 @@ export default defineAnimatic(direction, {
               src={asset("key", imageMinimaxH3R2i, {
                 image1: reference.rival,
                 image2: reference.cook,
-                image3: plates.kitchenMedium.image,
+                image3: plates.kitchenMedium,
                 prompt: still({
                   task: "reference generation",
                   defines: [
                     "<Subject 1> is the woman in <Picture 1>.",
                     "<Subject 2> is the boy in <Picture 2>.",
-                    `<Picture 3> is the empty frame: ${KITCHEN_MEDIUM}.`,
+                    "<Picture 3> is the empty frame.",
                   ],
                   retains: [
                     kept("<Subject 1>", "her face and cardigan."),
@@ -381,7 +356,7 @@ export default defineAnimatic(direction, {
                     kept("<Picture 3>", "the framing and the room."),
                   ],
                   summary: "The boy laughs, the fresh pan in his hands.",
-                  described: `${KITCHEN_MEDIUM}; the woman at left, the boy at right holding the fresh pan, laughing.`,
+                  described: "The woman at left, the boy at right holding the fresh pan, laughing.",
                 }),
               })}
               blocking="She hands it over; he laughs."

@@ -1451,8 +1451,9 @@ function LocationGroup({
         <td className="dir-col-holds" />
         <td className="dir-col-syn">
           {description}
-          {/* What only this place has — what a setup's `holds` names and a plate's sentence must
-              say. Reviewed with the place, so they carry no Accept of their own. */}
+          {/* What only this place has — what a setup's `holds` names and the prompt that first
+              draws the frame must ask for. Reviewed with the place, so they carry no Accept of
+              their own. */}
           {landmarks.length > 0 && (
             <ul className="dir-landmarks">
               {landmarks.map((l) => (

@@ -111,10 +111,9 @@ function direction(shots: Shot[], extra: Partial<Direction> = {}): Direction {
 const noStage: StagingStageState = {
   panelSlots: [],
   panelReach: [],
-  plateUses: [],
   plateRecrops: [],
   panelPrompts: [],
-  platePrompts: {},
+  plateTexts: {},
   videoPins: [],
   shotPanels: [],
 };
