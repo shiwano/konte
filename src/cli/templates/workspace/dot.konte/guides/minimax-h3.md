@@ -30,8 +30,7 @@ prompt: {
 - **Labels are numbered per type from 1** — `<Subject N>` is reusable visible content (a person, a set, a costume, a prop, a style, an action), `<Picture N>` a reference image serving as a concrete frame or composition anchor. The decode's guide names the other types it takes.
 - **`<Picture N>` is the N-th image actually passed** — `image1` → `<Picture 1>`, `image2` → `<Picture 2>`. Fill numbered input slots upward from 1 with no gaps; the adapter rejects skipped slots.
 - **An image that only defines a character, set, costume or style gets no standalone `<Picture N>` line** — cite it inside the `<Subject N>` it defines: `<Subject 1> is the young woman in <Picture 1>, with long dark hair, a blue cardigan, and a thin silver necklace.` One subject may draw on several assets (`appearance comes from <Picture 1>, the costume from <Picture 2>`). A cast held as bare `<Picture N>` in the body comes back with the written action dropped, a named figure absent, and similar characters blended into each other.
-- **Write the identity out as well as tagging it.**
-- **Name the garments at every appearance, in the same words** — a tag does not hold wardrobe, which drifts from shot to shot and from take to take.
+- **Describe a `<Subject N>` at its first clear appearance, within what is visible in the shot** — its referenced characteristics, its place in the frame, its action. Later shots of the same prompt use the label without redefining it.
 
 ## Task Type and Retention
 

@@ -4,7 +4,7 @@ One still frame decoded from a short burst.
 
 ## Length
 
-- **Write the frame out until nothing in it is left unnamed**, then stop. 150–250 English words covers a shot carrying a full reference set.
+- **150–250 English words** covers a shot carrying a full reference set.
 
 ## References
 
