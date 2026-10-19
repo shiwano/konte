@@ -852,8 +852,8 @@ const VALIDATORS_PLACEHOLDER = [
 
 // The other half the workflow cannot say (see `promptExemptions`).
 const PROMPT_EXEMPTIONS_PLACEHOLDER = [
-  `  // Negations this model is MEANT to be written with (a freeze clause), if any:`,
-  `  // promptExemptions: [/\\bnothing\\s+(?:moves|slides|turns)\\b/i],`,
+  `  // Negations this model is MEANT to be written with, if any:`,
+  `  // promptExemptions: [/…/i],`,
 ];
 
 async function fileExists(p: string): Promise<boolean> {

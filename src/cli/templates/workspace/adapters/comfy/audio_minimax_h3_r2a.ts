@@ -234,9 +234,5 @@ export const audioMinimaxH3R2a = defineComfyAsset({
       },
     }),
   ],
-  promptExemptions: [
-    /\bnothing\b[^.,;]*\b(?:moves|slides|turns|tilts|enters|leaves|shifts|changes)\b/i,
-    /\bdoes\s+not\s+move\b/i,
-  ],
   spokenTextPattern: minimaxH3Dialogue,
 });

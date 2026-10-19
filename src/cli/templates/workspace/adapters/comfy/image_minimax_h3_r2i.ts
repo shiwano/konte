@@ -198,8 +198,4 @@ export const imageMinimaxH3R2i = defineComfyAsset({
     }),
   ],
   readsPrevPanel: true,
-  promptExemptions: [
-    /\bnothing\b[^.,;]*\b(?:moves|slides|turns|tilts|enters|leaves|shifts|changes)\b/i,
-    /\bdoes\s+not\s+move\b/i,
-  ],
 });

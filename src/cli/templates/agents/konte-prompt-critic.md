@@ -31,7 +31,7 @@ Write the reads as an intermediate message. Your final message starts at `Findin
 
 - **Every finding carries four fields**: `target` (the address, e.g. `video:shot.12.motion`), `problem` (a code from the vocabulary below), `evidence` (the phrase that breaks), `smallest-fix` (the least rewrite that clears it).
 - **A `smallest-fix` writes what the frame or the sound carries**, never an `action:` or `acting:` phrase carried over — a model draws no "as if nothing had happened".
-- **A negation is judged against its model.** The machine check (`konte status`, the spend gate) stops the plain ones; what you add is the rest — a freeze clause the adapter exempts, a comparative, a "has not moved yet". Ask whether its guide says that phrasing works, and say which side you land on; a quoted `script` line is never one.
+- **A negation is judged against its model.** The machine check (`konte status`, the spend gate) stops the plain ones; what you add is the rest — a negation the adapter exempts, a comparative, a "has not moved yet". Ask whether its guide says that phrasing works, and say which side you land on; a quoted `script` line is never one.
 - **Whatever `brief.tolerances` accepts is never a finding.**
 - **Change nothing.** No edit to a definition or state, and no konte command that writes: `generate`, `reroll`, `accept`, `clean`, `review`, `export`.
 - **A roster hole is not yours** — a prop or character named in several shots but absent from the direction's rosters is `konte-direction-critic`'s finding.

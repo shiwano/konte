@@ -46,19 +46,12 @@ Motion type, then amplitude, then speed — written as a natural English action 
 - **Amplitude** — `with small amplitude` / `with large amplitude`.
 - **Speed** — `at slow speed` / `at fast speed`.
 - **Amplitude does not size a push-in.** `small` and `medium` land in the same extreme close-up, and a seed reroll reproduces it. Size the move by the frame it ends on instead — what is still in shot at the last frame, and how much larger it has grown.
+- **The move still overshoots on some shots** with the landing frame written out. The fallback is a locked-off frame and no move at all.
 
 ```
 The camera pushes in with small amplitude at slow speed toward the folded letter in her hands.
 The camera holds a static shot as the runner exits the frame.
 ```
-
-## Static Subject, Moving Camera
-
-- **Freeze by enumeration** — name every object in the frame, each holding the position, angle and place it has in the first frame, and close on `and nothing slides, turns, tilts, enters or leaves`. A short freeze ("nothing in the scene moves", "this is a completely frozen still picture") leaves the subject drifting.
-- **Then move, named as the exception** — `The camera, however, does move:` keeps the freeze off the camera.
-- **`static` stops the camera too, wherever it sits** — write `the camera holds a static shot` beside a freeze clause only when a locked-off frame is the shot.
-- **The move still overshoots on some shots** with the landing frame written out. The fallback is a locked-off frame and no move at all.
-- **The freeze clause is the one exclusion the adapter lets through.**
 
 ## Lips
 

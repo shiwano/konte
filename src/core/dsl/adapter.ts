@@ -99,9 +99,9 @@ export interface AdapterMeta {
   // Where `asset()` may declare this adapter, when it is not every site. An edit model works on a
   // take that has to exist first, so it names `patch` and `reference`. Enforced in `registerAsset`.
   allowedIn?: readonly AssetDeclarationSite[];
-  // The negations this model reads as an instruction rather than as an exclusion — H3's freeze
-  // clause (`nothing slides, turns, tilts`). A span one of these matches is cut out of a `prompt`
-  // or `negativePrompt` value before the prompt check reads it.
+  // The negations this model reads as an instruction rather than as an exclusion. A span one of
+  // these matches is cut out of a `prompt` or `negativePrompt` value before the prompt check reads
+  // it.
   promptExemptions?: readonly RegExp[];
   // Where the spoken words sit inside a `"prompt"` value, for a model whose lines are written
   // into its conditioning instead of into a `"spokenText"` input (H3's `<d>[Japanese] …</d>`).
