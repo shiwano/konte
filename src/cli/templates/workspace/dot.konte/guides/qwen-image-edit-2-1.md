@@ -6,7 +6,7 @@ Reference style conversion: `Render <image1> as [medium], using [line treatment,
 
 New pose or view: `The [subject] from <image1>, [the new pose, view or outfit], [framing], on a plain backdrop. Keep the same [face, hair, outfit, line] as in <image1>.`
 
-Next keyframe: `In <image1>, [the subject's new pose and gaze, down to the contact point]. Keep [the subject] as in <image2>, and keep everything else in <image1> unchanged.`
+Same-camera keyframe: `In <image1>, [the subject's new pose and gaze, down to the contact point]. Keep [the subject] as in <image2>, and keep everything else in <image1> unchanged.`
 
 Describe only the change. Name what stays by its role, in one blanket clause; re-describing its look reads as a change.
 
@@ -24,9 +24,9 @@ Use in `reference.tsx` for a new pose, view or outfit of a subject an accepted r
 - **A new outfit is the change** — name it, and keep the face and hair.
 - **A second subject or a style example goes in `image2`**, its role named with `<image2>`.
 
-## Next Keyframe
+## Same-Camera Keyframe
 
-Use in a shot to draw a keyframe from the one before it on the same camera: a shot's last panel from its first, or, across a `continuous` join, the opening keyframe from the previous shot's last panel (`shot("<id>").image("<name>")`). Pass that keyframe as `image1` and the character reference as `image2`.
+Use in a shot to draw a keyframe from another on the same camera: one of a shot's panels from the other, or, across a `continuous` join, the opening keyframe from the previous shot's last panel (`shot("<id>").image("<name>")`). Pass that keyframe as `image1` and the character reference as `image2`.
 
 Name where a reach ends: "the paw pad touches the glass at the center of the screen", not "reaches toward the screen".
 

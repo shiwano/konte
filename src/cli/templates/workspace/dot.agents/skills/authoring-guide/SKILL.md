@@ -94,7 +94,7 @@ export default defineAnimatic(direction, {
 - **`asideShot(id)` / `.nextAsideShot(id)`** — the `kind: "aside"` shot (`direction-guide`). The animatic's takes no build; the video's takes one — `asideShot(id, ({ duration, label }) => …)`.
 - **`<Panel>` is a keyframe; `<Image>` is a layer** — only a `<Panel>` gets a part name, a movement and a contact-sheet frame.
 - **`<Panel start>` is when it takes over** — omitted, the panels split the shot evenly. Each holds to the next one's start and then cuts; konte never interpolates, so write a dissolve with `<Animate>`.
-- **When the delta is a removal, wire the reverse** — `first` derives from `last` (`production-guide`).
+- **When `last` holds the detail — a removal, a build-up — wire the reverse** — `first` derives from `last` (`production-guide`).
 
 ### video.tsx — defineVideo()
 
