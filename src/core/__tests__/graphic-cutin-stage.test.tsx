@@ -209,14 +209,14 @@ describe("the graphic starters", () => {
       {
         shotId: "01",
         lane: "main",
-        pins: [{ pin: "start", reaches: ["animatic:shot.01.first"] }],
+        pins: [{ pin: "start", input: "startImage", reaches: ["animatic:shot.01.first"] }],
         slots: ["start"],
       },
       { shotId: "02", lane: "main", pins: [], slots: [] },
       {
         shotId: "02",
         lane: "cutin",
-        pins: [{ pin: "start", reaches: ["animatic:shot.02.presenter"] }],
+        pins: [{ pin: "start", input: "startImage", reaches: ["animatic:shot.02.presenter"] }],
         slots: ["start"],
       },
       { shotId: "03", lane: "main", pins: [], slots: [] },
@@ -281,7 +281,7 @@ describe("the graphic starters", () => {
           .nextGraphicShot("03", bareBoard),
       }),
     });
-    const pinned = [{ pin: "start", reaches: ["animatic:shot.02.presenter"] }];
+    const pinned = [{ pin: "start", input: "startImage", reaches: ["animatic:shot.02.presenter"] }];
     expect(listVideoShotPins(video).filter((p) => p.shotId === "02")).toEqual([
       { shotId: "02", lane: "main", pins: pinned, slots: ["start"] },
       { shotId: "02", lane: "cutin", pins: pinned, slots: ["start"] },

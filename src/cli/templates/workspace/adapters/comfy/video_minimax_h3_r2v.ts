@@ -147,7 +147,7 @@ export const videoMinimaxH3R2v = defineComfyAsset({
       pin: "start",
       branch: [{ nodeId: "166", passThrough: "positive" }],
       description:
-        "Pins the first frame to this image pixel for pixel, with or without a reference. It takes no `<Picture N>` tag — pass the same panel as `image1` to name it in the prompt (keyframe completion).",
+        "Pins the first frame to this image pixel for pixel, with or without a reference — an opening panel or a seam frame; a shot's key goes to `image1` alone. It takes no `<Picture N>` tag — pass the same panel as `image1` to name it in the prompt (keyframe completion).",
     },
     // LoadImage → MiniMaxH3AddGuide.image at frame_idx (→ BasicGuider.conditioning)
     endImage: {

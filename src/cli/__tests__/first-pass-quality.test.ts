@@ -18,7 +18,7 @@ const board = { shots: [], topLevelAssets: {} } as unknown as AnimaticDefinition
 afterEach(() => vi.resetAllMocks());
 
 describe("passing stage loading", () => {
-  it("loads video only for passers or continuous seams", async () => {
+  it("reads passers off the video only where a frame passes one", async () => {
     vi.mocked(loader.loadAnimatic).mockResolvedValue(board);
     const loadVideo = vi
       .mocked(loader.loadVideoDefinition)
@@ -35,21 +35,15 @@ describe("passing stage loading", () => {
       ...directionDefaults,
       sequence: { lens: "mini-drama", pleasure: "cute", shots: [shot] },
     } as Direction;
-    await loadStagingStageState("/tmp/first-pass", direction);
-    expect(loadVideo).not.toHaveBeenCalled();
+    const loaded = await loadStagingStageState("/tmp/first-pass", direction);
+    expect(loadVideo).toHaveBeenCalledOnce();
+    expect(loaded?.videoPassers).toBeUndefined();
     direction.sequence.shots = [{ ...shot, passing: ["crow"] }];
     expect((await loadStagingStageState("/tmp/first-pass", direction))?.videoPassers).toEqual([]);
-    expect(loadVideo).toHaveBeenCalledOnce();
-    loadVideo.mockClear();
     direction.sequence.shots = [
       { ...shot, cutin: { setup: "front", lineup: [], passing: ["crow"] } },
     ];
-    await loadStagingStageState("/tmp/first-pass", direction);
-    expect(loadVideo).toHaveBeenCalledOnce();
-    loadVideo.mockClear();
-    direction.sequence.shots = [{ ...shot, join: "continuous" }];
-    await loadStagingStageState("/tmp/first-pass", direction);
-    expect(loadVideo).toHaveBeenCalledOnce();
+    expect((await loadStagingStageState("/tmp/first-pass", direction))?.videoPassers).toEqual([]);
   });
 });
 

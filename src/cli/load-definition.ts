@@ -62,6 +62,8 @@ import type {
 } from "../core/types/index.js";
 import { compositionClassSubjects, harvestShotPictureCues } from "../core/composition-builder.js";
 import { STAGE_ENTRY_FILE, stageEntryPath } from "../core/roots.js";
+import { computeAcceptedStaleness } from "../core/staleness.js";
+import { definitionHashForAddress } from "../core/composition-resource.js";
 
 // The direction (direction.ts). Absent file => null; an existing but invalid file throws.
 export function loadDirectionIfPresent(videoRoot: string): Promise<Direction | null> {
@@ -597,12 +599,9 @@ export async function loadStagingStageState(
   const animatic = await loadAnimatic(videoRoot).catch(() => null);
   if (!animatic) return undefined;
   const frames = collectShotFrames(direction);
-  const seams = frames.some((f) => f.join === "continuous");
   const passers = frames.some((f) => (f.passing?.length ?? 0) > 0);
-  const video =
-    seams || passers
-      ? await loadVideoDefinition(stageEntryPath(videoRoot, "video")).catch(() => null)
-      : null;
+  const video = await loadVideoDefinition(stageEntryPath(videoRoot, "video")).catch(() => null);
+  const manager = video ? await StateManager.load(videoRoot).catch(() => null) : null;
   return {
     panelSlots: listPanelReferenceSlots(animatic),
     panelReach: listPanelReferenceReach(animatic),
@@ -610,7 +609,13 @@ export async function loadStagingStageState(
     plateRecrops: listPlateRecrops(animatic, frames),
     panelPrompts: listPanelPromptText(animatic),
     platePrompts: animatic.platePrompts ?? {},
-    videoPins: video ? listVideoShotPins(video, (id) => harvestShotPictureCues(video, id)) : [],
+    videoPins: video
+      ? listVideoShotPins(
+          video,
+          (id) => harvestShotPictureCues(video, id),
+          manager ? (address) => isSignedOff(manager, video, address) : undefined,
+        )
+      : [],
     ...(passers && video
       ? {
           videoPassers: listVideoPasserInputs(video, animatic, (id) =>
@@ -620,6 +625,17 @@ export async function loadStagingStageState(
       : {}),
     shotPanels: listShotContinuity(animatic),
   };
+}
+
+// An accept whose inputs alone moved stands.
+function isSignedOff(manager: StateManager, video: VideoDefinition, address: string): boolean {
+  const accepted = computeAcceptedStaleness(
+    manager.getState(),
+    address,
+    definitionHashForAddress(video, address),
+    manager.stalenessCache(),
+  );
+  return accepted.variantId !== null && !accepted.definitionStale;
 }
 
 export async function loadVideoAndAnimatic(

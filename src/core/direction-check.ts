@@ -112,6 +112,8 @@ export type DirectionFindingCode =
   | "join-unpinned"
   // The seam frame is pinned, and the composition's window over the take leaves it out.
   | "join-unshown"
+  // A frame's key pinned as the first frame of a take whose model could have taken it as a reference.
+  | "opening-key"
   // A cut along one camera axis: the camera does not move, so the frame does not restart.
   | "panel-unlinked"
   // The set's own three. `landmark-flipped` is the `lineup-flipped` of things that do not move, read
@@ -834,7 +836,16 @@ export type VideoShotPins = {
   lane: FrameLane;
   // The ends this take actually pins, each with every address the pinned source's chain reaches —
   // the source itself, and the frame behind a wrapper such as a resize.
-  pins: readonly { pin: "start" | "end"; reaches: readonly string[]; window?: PinWindow }[];
+  pins: readonly {
+    pin: "start" | "end";
+    input?: string;
+    reaches: readonly string[];
+    window?: PinWindow;
+    // The take's model also takes an unpinned image (`PinOccurrence.referable`).
+    referable?: true;
+    // The take is accepted with its definition unchanged.
+    signedOff?: true;
+  }[];
   // The ends its adapter declares a slot for, wired or not — what says the take COULD carry a seam.
   slots: readonly ("start" | "end")[];
 };
@@ -1232,6 +1243,39 @@ export function checkJoinPins(
           : `pins its end to another frame (${pinnedFrame})`) +
         `. Pin its end to \`${seam}\` in video.tsx; landing anywhere else, the seam is a cut with ` +
         `no cut in it`,
+    });
+  }
+  return findings;
+}
+
+// A frame boarded on one keyframe is its key unless it runs on from the frame before.
+export function checkKeyPins(
+  shots: readonly LineupShot[],
+  videoPins: readonly VideoShotPins[],
+  shotPanels: readonly ShotPanels[],
+): DirectionFinding[] {
+  const findings: DirectionFinding[] = [];
+  const pinsOf = new Map(videoPins.map((s) => [`${s.shotId}/${s.lane}`, s]));
+  const panelsOf = new Map(shotPanels.map((s) => [`${s.shotId}/${s.lane}`, s]));
+  for (const shot of shots) {
+    if (shot.join === "continuous") continue;
+    const panels = panelsOf.get(`${shot.id}/${shot.frame}`);
+    if (!panels || panels.firstPanel !== panels.lastPanel) continue;
+    const key = panels.firstPanel;
+    const pinned = pinsOf
+      .get(`${shot.id}/${shot.frame}`)
+      ?.pins.find(
+        (p) => p.pin === "start" && p.referable && !p.signedOff && p.reaches.includes(key),
+      );
+    if (!pinned) continue;
+    const takes = shot.frame === "cutin" ? "cutin take" : "take";
+    findings.push({
+      code: "opening-key",
+      subject: frameSubject(shot),
+      message:
+        `the ${takes} of video:shot.${shot.id} opens on ${frameName(shot)}'s key \`${key}\`` +
+        `${pinned.input ? ` (\`${pinned.input}\`)` : ""} and moves past the moment it holds — ` +
+        `pass the key to a reference input alone`,
     });
   }
   return findings;

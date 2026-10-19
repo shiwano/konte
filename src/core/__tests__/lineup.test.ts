@@ -1911,4 +1911,68 @@ describe("location-backtrack", () => {
     });
     expect(codes(dir, "location-backtrack")).toEqual([]);
   });
+
+  describe("opening-key", () => {
+    const keyed = (opts: { join?: "continuous"; panels?: [string, string] } = {}) => {
+      const dir = direction({
+        shots: [shot("01", "deck"), shot("02", "deck", opts.join ? { join: opts.join } : {})],
+      });
+      const [firstPanel, lastPanel] = opts.panels ?? [
+        "animatic:shot.02.key",
+        "animatic:shot.02.key",
+      ];
+      return (pins: StagingStageState["videoPins"][number]["pins"]) =>
+        checkDirection(dir, {
+          stagingStage: {
+            ...noStage,
+            videoPins: [{ shotId: "02", lane: "main", pins, slots: ["start", "end"] }],
+            shotPanels: [
+              { shotId: "02", lane: "main", firstPanel, lastPanel, carries: false, linked: [] },
+            ],
+          },
+        }).active.filter((f) => f.code === "opening-key");
+    };
+    const key = "animatic:shot.02.key";
+
+    it("flags a key pinned as the first frame of a take that has a reference slot", () => {
+      const found = keyed()([
+        { pin: "start", input: "startImage", reaches: ["video:shot.02.key", key], referable: true },
+      ]);
+      expect(found).toHaveLength(1);
+      expect(found[0]!.subject).toBe("02");
+      expect(found[0]!.message).toContain(key);
+      expect(found[0]!.message).toContain("`startImage`");
+    });
+
+    it("passes a take accepted against its current definition", () => {
+      expect(keyed()([{ pin: "start", reaches: [key], referable: true, signedOff: true }])).toEqual(
+        [],
+      );
+    });
+
+    // A model that takes no reference takes the key as its first frame.
+    it("passes a key pinned on a model with no reference slot", () => {
+      expect(keyed()([{ pin: "start", reaches: [key] }])).toEqual([]);
+    });
+
+    it("passes a key pinned only at the end", () => {
+      expect(keyed()([{ pin: "end", reaches: [key], referable: true }])).toEqual([]);
+    });
+
+    it("passes the opening panel of a frame boarded on two", () => {
+      const first = "animatic:shot.02.first";
+      expect(
+        keyed({ panels: [first, "animatic:shot.02.last"] })([
+          { pin: "start", reaches: [first], referable: true },
+        ]),
+      ).toEqual([]);
+    });
+
+    // The one panel of a frame that runs on from the one before is the seam the take opens on.
+    it("passes the one panel of a continuous frame", () => {
+      expect(
+        keyed({ join: "continuous" })([{ pin: "start", reaches: [key], referable: true }]),
+      ).toEqual([]);
+    });
+  });
 });

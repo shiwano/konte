@@ -1361,6 +1361,7 @@ export function listVideoPasserInputs(
 export function listVideoShotPins(
   video: VideoDefinition,
   cuesOf?: (shotId: string) => readonly PictureCueLike[] | null,
+  signedOff?: (address: string) => boolean,
 ): VideoShotPins[] {
   const byFrame = new Map<
     string,
@@ -1394,7 +1395,10 @@ export function listVideoShotPins(
     for (const lane of reached.length > 0 ? reached : (["main"] as const)) {
       byFrame.get(`${parsed.shotId}/${lane}`)?.pins.push({
         pin: pin.pin,
+        input: pin.input,
         reaches,
+        ...(pin.referable ? { referable: true as const } : {}),
+        ...(signedOff?.(pin.address) ? { signedOff: true as const } : {}),
         ...(window ? { window } : {}),
       });
     }

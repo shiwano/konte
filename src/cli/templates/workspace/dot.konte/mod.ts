@@ -368,6 +368,7 @@ export type PinOccurrence = {
     frameSec: number;
     landsAt: number;
   };
+  referable?: true;
 };
 export type PinFinding = {
   code: PinFindingCode;
@@ -2753,6 +2754,7 @@ export type DirectionFindingCode =
   | "join-lineup-mismatch"
   | "join-unpinned"
   | "join-unshown"
+  | "opening-key"
   | "panel-unlinked"
   | "landmark-flipped"
   | "subject-unnamed"

@@ -33,6 +33,7 @@ export function recordPinInputs(
   clip?: PinOccurrence["clip"],
 ): void {
   if (!sink) return;
+  const referable = Object.values(meta.inputs).some((def) => def.type === "image" && !def.pin);
   for (const [name, def] of Object.entries(meta.inputs)) {
     if (!def.pin) continue;
     const value = inputs[name];
@@ -50,6 +51,7 @@ export function recordPinInputs(
       pin: def.pin,
       ...(source !== undefined ? { source } : {}),
       ...(clip ? { clip } : {}),
+      ...(referable ? { referable: true as const } : {}),
     });
   }
 }

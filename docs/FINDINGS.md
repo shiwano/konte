@@ -104,7 +104,7 @@ Gates: every spend. Deferred.
 | `unused-setup`     | No shot points at a setup.                                                                                          | setup id               | —                     |
 | `setup-atomized`   | A location holds many shots but almost none share a frame.                                                          | location id            | —                     |
 
-### staging (19)
+### staging (20)
 
 Gates: every spend.
 
@@ -128,6 +128,7 @@ Gates: every spend.
 | `join-lineup-mismatch` | A `continuous` shot opens on a different order than the shot before it leaves.                                                                                                                                                                                     | frame                                      | —                                     |
 | `join-unpinned`        | The video take before a `continuous` seam does not pin its end to the opening keyframe of the shot after it, where its model has an end slot.                                                                                                                      | frame                                      | —                                     |
 | `join-unshown`         | A take pinned to a `continuous` seam is played off that frame: the take before does not cut on the frame its end image lands on, or the take after does not open its shot on its first (`mediaStart`, `duration`).                                                 | frame                                      | —                                     |
+| `opening-key`          | A frame boarded on one keyframe, not running on from the frame before, has that key pinned as the first frame of a video take whose model also takes an unpinned image, unless that take is accepted against its current definition.                               | frame                                      | Fix in `video.tsx`, Video spends only |
 | `panel-unlinked`       | A keyframe opening a cut along one `within` axis, on a model that reads a previous panel (`readsPrevPanel`), takes no previous panel, or another frame, among its image inputs. A cut between two frames whose lineups hold subjects but none in common is exempt. | seam (`<from>-<id>`, `.cutin` for a cutin) | —                                     |
 
 ### typesetting (1)

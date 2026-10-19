@@ -32,6 +32,8 @@ export type PinOccurrence = {
   // image lands — the frame index a workflow anchors it at, else the take's last frame. What says
   // whether a composition that plays the take cuts on the landing.
   clip?: { sec: number; frameSec: number; landsAt: number };
+  // The adapter also takes an image that is not pinned.
+  referable?: true;
 };
 
 // The unit is the pinned SOURCE: one sheet pinned across thirty shots is one finding listing thirty

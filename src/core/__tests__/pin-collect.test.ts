@@ -77,12 +77,14 @@ describe("pin collection", () => {
         input: "startImage",
         pin: "start",
         source: "video:shot.01.key",
+        referable: true,
       },
       {
         address: "video:shot.01.motion",
         input: "endImage",
         pin: "end",
         source: "reference:hero",
+        referable: true,
       },
     ]);
     // The sheet is a finding; the shot's own keyframe is not, and neither is the sheet at `image1`.
@@ -110,8 +112,9 @@ describe("pin collection", () => {
         input: "startImage",
         pin: "start",
         source: "video:shot.01.motion",
+        referable: true,
       },
-      { address: "video:patch.v-abc.fixed", input: "endImage", pin: "end" },
+      { address: "video:patch.v-abc.fixed", input: "endImage", pin: "end", referable: true },
     ]);
   });
 
@@ -183,7 +186,7 @@ describe("listVideoShotPins", () => {
       {
         shotId: "01",
         lane: "main",
-        pins: [{ pin: "end", reaches: ["video:shot.01.key"] }],
+        pins: [{ pin: "end", input: "endImage", reaches: ["video:shot.01.key"], referable: true }],
         slots: ["start", "end"],
       },
       { shotId: "02", lane: "main", pins: [], slots: ["start", "end"] },

@@ -250,6 +250,11 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
       "A take pinned to a `continuous` seam is played off that frame: the take before does not cut on the frame its end image lands on, or the take after does not open its shot on its first (`mediaStart`, `duration`).",
     subject: "frame",
   },
+  "opening-key": {
+    flags:
+      "A frame boarded on one keyframe, not running on from the frame before, has that key pinned as the first frame of a video take whose model also takes an unpinned image, unless that take is accepted against its current definition.",
+    subject: "frame",
+  },
   "panel-unlinked": {
     flags:
       "A keyframe opening a cut along one `within` axis, on a model that reads a previous panel (`readsPrevPanel`), takes no previous panel, or another frame, among its image inputs. A cut between two frames whose lineups hold subjects but none in common is exempt.",

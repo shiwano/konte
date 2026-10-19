@@ -35,6 +35,7 @@ import {
   type AxisCut,
   type PanelSeam,
   checkJoinPins,
+  checkKeyPins,
   checkPanelLinks,
   type HoldsSetupRef,
   checkArc,
@@ -153,6 +154,7 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "join-lineup-mismatch": "staging",
   "join-unpinned": "staging",
   "join-unshown": "staging",
+  "opening-key": "staging",
   "panel-unlinked": "staging",
   // The song the piece is cut to. Never deferred.
   "song-unreferenced": "song",
@@ -220,6 +222,7 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "join-lineup-mismatch": "shot",
   "join-unpinned": "shot",
   "join-unshown": "shot",
+  "opening-key": "shot",
   "panel-unlinked": "boundary",
   "song-unreferenced": null,
   "lyric-unplaced": null,
@@ -244,6 +247,7 @@ const FIX_STAGE: Partial<Record<DirectionFindingCode, FindingFixStage>> = {
   "song-unreferenced": "reference",
   "passer-unconsumed": "video",
   "passer-unnamed": "video",
+  "opening-key": "video",
 };
 
 export type FindingFixStage = "direction" | "reference" | "animatic" | "video";
@@ -957,9 +961,9 @@ export type StagingStageState = {
   platePrompts: Readonly<Record<string, string>>;
   // The one reading that comes off the VIDEO rather than the board: which frames each developed
   // video shot pins, so `join-unpinned` can ask whether a declared long take is carried across its
-  // seam. Empty where the direction declares no seam to judge, and empty too where video.tsx could
-  // not be read — which is the one place stale-waiver detection is imprecise, since the class is
-  // marked evaluated by the BOARD: a `join-unpinned` waiver reads stale while the video is broken.
+  // seam and `opening-key` whether a key opens a take. Empty where video.tsx could not be read —
+  // which is the one place stale-waiver detection is imprecise, since the class is marked evaluated
+  // by the BOARD: a `join-unpinned` or `opening-key` waiver reads stale while the video is broken.
   videoPins: readonly VideoShotPins[];
   videoPassers?: readonly {
     shotId: string;
@@ -1078,6 +1082,7 @@ function checkStaging(
     ...checkLandmarkOrder(holdsSetupRefs(direction)),
     ...(stage ? checkPlateNaming(plateNamings(direction, stage.platePrompts)) : []),
     ...(stage ? checkJoinPins(shots, stage.videoPins, stage.shotPanels) : []),
+    ...(stage ? checkKeyPins(shots, stage.videoPins, stage.shotPanels) : []),
     ...(stage ? checkPanelLinks(panelSeams(direction, stage.shotPanels)) : []),
     ...checkPassers(direction, stage?.videoPassers, referenceAssetNames),
   ];
@@ -2528,8 +2533,7 @@ export function findingGatesSpend(
   command: SpendCommand,
   stage: Stage,
 ): boolean {
-  if (stage !== "video" && (code === "passer-unconsumed" || code === "passer-unnamed"))
-    return false;
+  if (stage !== "video" && findingFixStage(code) === "video") return false;
   return gatedClasses(command, stage).has(classifyDirectionFinding(code));
 }
 
