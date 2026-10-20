@@ -16,6 +16,7 @@ import {
   listPlateRecrops,
   listPlateTexts,
   listShotContinuity,
+  listShownReferences,
 } from "../graph.js";
 import { plainDirection, testDirection } from "./helpers/direction.js";
 import { animaticTimeline, moves, shot } from "./helpers/shot.js";
@@ -526,6 +527,41 @@ describe("listPanelPromptText", () => {
     });
 
     expect(listPanelPromptText(animatic)[0]).toMatchObject({ texts: [], generative: false });
+  });
+});
+
+describe("listShownReferences", () => {
+  it("keeps a reference reaching the picture through no generative step", () => {
+    const animatic = defineAnimatic(testDirection(format), {
+      timeline: () =>
+        animaticTimeline([
+          shot("01", {
+            duration: 5,
+            build: () => {
+              // Resized and then handed to a model: on screen only as the model redrew it.
+              const fed = asset("fed", adapters.imageResize, {
+                image: sheets.imouto,
+                width: 640,
+                height: 480,
+              });
+              const first = asset("first", keyframe, { prompt: "the deck", place: fed });
+              const shown = asset("shown", adapters.imageResize, {
+                image: sheets.ane,
+                width: 640,
+                height: 480,
+              });
+              return (
+                <Composition>
+                  <Panel src={first} {...moves} />
+                  <Panel src={shown} />
+                </Composition>
+              );
+            },
+          }),
+        ]),
+    });
+
+    expect(listShownReferences(animatic)).toEqual({ "01": ["ane"] });
   });
 });
 

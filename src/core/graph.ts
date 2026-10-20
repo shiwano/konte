@@ -1135,6 +1135,36 @@ export function listPlateTexts(animatic: AnimaticDefinition): Record<string, str
 }
 
 /**
+ * The `reference:<id>` assets each developed animatic shot puts on screen as they are, keyed by shot
+ * id: reached from the shot's picture through no generative step.
+ */
+export function listShownReferences(animatic: AnimaticDefinition): Record<string, string[]> {
+  const entryOf = animaticEntryResolver(animatic);
+  const out: Record<string, string[]> = {};
+  for (const shot of animatic.shots) {
+    if (isPendingAnimaticShot(shot)) continue;
+    const seen = new Set<string>();
+    const refs: string[] = [];
+    const stack = [...(shot.pictureRefs ?? [])];
+    while (stack.length > 0) {
+      const address = stack.pop()!;
+      if (seen.has(address)) continue;
+      seen.add(address);
+      const parsed = tryParseAddress(address);
+      if (parsed?.stage === "reference" && parsed.kind === "reference") {
+        if (!refs.includes(parsed.assetName)) refs.push(parsed.assetName);
+        continue;
+      }
+      const entry = entryOf(address);
+      if (!entry || entry.deterministic !== true) continue;
+      stack.push(...extractRefs(entry));
+    }
+    if (refs.length > 0) out[shot.id] = refs;
+  }
+  return out;
+}
+
+/**
  * Which prompts make each keyframe: one entry per `<Panel>` usage, with the addresses behind it that
  * declare a positive prompt, in declaration order.
  */

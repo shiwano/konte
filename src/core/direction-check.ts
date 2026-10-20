@@ -1437,6 +1437,7 @@ export type PropNamingRef = { id: string; name: string; promptDepiction: string 
 export function checkPropNaming(
   shots: readonly { id: string; action: string }[],
   panelPrompts: readonly PanelPrompts[],
+  shownReferences: Readonly<Record<string, readonly string[]>>,
   props: readonly PropNamingRef[],
 ): DirectionFinding[] {
   const findings: DirectionFinding[] = [];
@@ -1444,9 +1445,11 @@ export function checkPropNaming(
     const panels = panelPrompts.filter((p) => p.shotId === shot.id && p.generative);
     if (panels.length === 0) continue;
     const texts = panels.flatMap((p) => p.texts);
+    const shown = shownReferences[shot.id] ?? [];
     for (const prop of props) {
       if (prop.name.trim() === "" || prop.promptDepiction.trim() === "") continue;
       if (!shot.action.includes(prop.name)) continue;
+      if (shown.includes(prop.id)) continue;
       if (namesIn(texts, prop.promptDepiction)) continue;
       findings.push({
         code: "prop-unnamed",

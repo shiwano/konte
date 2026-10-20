@@ -960,6 +960,9 @@ export type StagingStageState = {
   // `plate-unnamed` reads for the landmarks that frame declares it holds. Every returned plate has an
   // entry, so a setup with none is one whose keyframes `landmark-unnamed` reads instead.
   plateTexts: Readonly<Record<string, readonly string[]>>;
+  // The reference ids each developed shot puts on screen as they are, keyed by shot id — what
+  // `prop-unnamed` drops.
+  shownReferences: Readonly<Record<string, readonly string[]>>;
   // The one reading that comes off the VIDEO rather than the board: which frames each developed
   // video shot pins, so `join-unpinned` can ask whether a declared long take is carried across its
   // seam and `opening-key` whether a key opens a take. Empty where video.tsx could not be read —
@@ -1075,7 +1078,12 @@ function checkStaging(
       ...(referenceAssetNames ? { referenceAssetNames } : {}),
     }),
     ...(stage
-      ? checkPropNaming(collectArcShots(direction), stage.panelPrompts, propRefs(direction))
+      ? checkPropNaming(
+          collectArcShots(direction),
+          stage.panelPrompts,
+          stage.shownReferences,
+          propRefs(direction),
+        )
       : []),
     ...checkRoutes(shots),
     // The setups roster alone: a landmark's place on screen is the camera's, not a shot's.

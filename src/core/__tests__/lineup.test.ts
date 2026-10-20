@@ -98,6 +98,7 @@ const noStage: StagingStageState = {
   plateRecrops: [],
   panelPrompts: [],
   plateTexts: {},
+  shownReferences: {},
   videoPins: [],
   shotPanels: [],
 };
@@ -1100,6 +1101,11 @@ describe("prop-unnamed", () => {
 
   it("asks nothing of a shot whose keyframes generate nothing", () => {
     expect(found(dir, prompts([{ texts: [], generative: false }]))).toEqual([]);
+  });
+
+  it("asks nothing of a prop the shot shows as its own reference picture", () => {
+    const stage = prompts([{ lane: "cutin", texts: ["the elder sister, close"] }]);
+    expect(found(dir, { ...stage, shownReferences: { "01": ["ame"] } })).toEqual([]);
   });
 
   it("stays silent with no board to read", () => {

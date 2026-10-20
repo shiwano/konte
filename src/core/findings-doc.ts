@@ -225,7 +225,7 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
   },
   "prop-unnamed": {
     flags:
-      "A shot's `action` names a prop, but no prompt behind its keyframes contains the prop's `promptDepiction`, verbatim (case-insensitive).",
+      "A shot's `action` names a prop, but no prompt behind its keyframes contains the prop's `promptDepiction`, verbatim (case-insensitive), and the shot does not put the prop's reference on screen through no generative step.",
     subject: "`<shotId>.<propId>`",
   },
   "plate-unnamed": {

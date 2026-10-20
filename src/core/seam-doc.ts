@@ -110,6 +110,7 @@ const noStage: StagingStageState = {
   plateRecrops: [],
   panelPrompts: [],
   plateTexts: {},
+  shownReferences: {},
   videoPins: [],
   shotPanels: [],
 };

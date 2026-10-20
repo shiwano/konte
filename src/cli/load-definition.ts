@@ -37,6 +37,7 @@ import {
   listSetupAnchorGaps,
   listSetupNestGaps,
   listShotContinuity,
+  listShownReferences,
   listVideoShotPins,
   listVideoPasserInputs,
   type DependencyGraph,
@@ -608,6 +609,7 @@ export async function loadStagingStageState(
     plateRecrops: listPlateRecrops(animatic, frames),
     panelPrompts: listPanelPromptText(animatic),
     plateTexts: listPlateTexts(animatic),
+    shownReferences: listShownReferences(animatic),
     videoPins: video
       ? listVideoShotPins(
           video,
