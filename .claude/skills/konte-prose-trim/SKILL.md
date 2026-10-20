@@ -5,7 +5,7 @@ user-invocable: true
 argument-hint: "[path | git-ref]"
 ---
 
-Delete the explanation an agent adds by reflex, in any doc or comment. Done = every changed `.md` line and comment carries only facts the reader acts on, and `bun run check` passes. Scoring a whole skill is `konte-skill-quality-review`'s.
+Delete the explanation an agent adds by reflex, in any doc or comment. Done = every changed `.md` line and comment carries only facts the reader acts on, and `bun run check` passes. A pass over every skill is `konte-skill-audit`'s.
 
 ## Scope
 

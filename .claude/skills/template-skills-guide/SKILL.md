@@ -4,7 +4,7 @@ description: Conventions for authoring the skills konte ships into user projects
 user-invocable: false
 ---
 
-Conventions for the skills `konte workspace new` writes into every user project (`src/cli/templates/workspace/dot.agents/skills/<skill>/`), not this repo's dev skills. Done = single-purpose, terse-first, and passing `skills:check` and `konte-skill-quality-review`.
+Conventions for the skills `konte workspace new` writes into every user project (`src/cli/templates/workspace/dot.agents/skills/<skill>/`), not this repo's dev skills. Done = single-purpose, terse-first, and passing `skills:check`.
 
 Audience: the agent in a user's konte project, mid-task — never the konte maintainer or the human. Write what that agent needs to act; never explain the doc's structure or why content sits where it does.
 
@@ -83,4 +83,4 @@ Across both:
 
 - Budget — `bun run skills:check` (`.waza.yaml`): each `SKILL.md` and `src/cli/templates/agents/*.md` ≤ 3000, each `references/*.md` ≤ 1500. Over budget = inlined detail to route into `references/`, don't pad.
 - Journey budget — the same command runs `scripts/check-journeys.ts`, which defines each journey's files and budget. Renaming or splitting a journey file means updating its entry; a new shipped subagent with no journey fails the check.
-- Quality — run `konte-skill-quality-review` and fix its findings before shipping.
+- Prose — run `konte-prose-trim` on what changed.
