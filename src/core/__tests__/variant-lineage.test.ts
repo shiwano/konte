@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { KonteState, VariantState } from "../types/index.js";
-import { collectDescendants, hasAcceptedDescendant, isReviewLeaf } from "../variant-lineage.js";
+import {
+  acceptedConsumers,
+  collectDescendants,
+  hasAcceptedDescendant,
+  isProtectedVariant,
+  isReviewLeaf,
+} from "../variant-lineage.js";
 
 function variant(overrides: Partial<VariantState> = {}): VariantState {
   return {
@@ -83,5 +89,75 @@ describe("hasAcceptedDescendant", () => {
   it("does not protect anything when the lineage is unaccepted", () => {
     const state = chainState();
     expect(hasAcceptedDescendant(state, ADDR, "v-a")).toBe(false);
+  });
+});
+
+describe("acceptedConsumers", () => {
+  // reference:cat v-c -> animatic:shot.01.first v-k -> video:shot.01.motion v-m (accepted)
+  function madeFromState(motionStatus: VariantState["status"]): KonteState {
+    return {
+      schemaVersion: 5,
+      assets: {
+        "reference:cat": {
+          variants: {
+            "v-c": variant({ outputHash: "h-cat" }),
+            "v-c2": variant({ outputHash: "h-cat2", status: "accepted" }),
+          },
+        },
+        [ADDR]: {
+          variants: {
+            "v-k": variant({
+              outputHash: "h-key",
+              inputFingerprints: { "reference:cat": "h-cat" },
+            }),
+          },
+        },
+        "video:shot.01.motion": {
+          variants: {
+            "v-m": variant({ status: motionStatus, inputFingerprints: { [ADDR]: "h-key" } }),
+          },
+        },
+      },
+    };
+  }
+
+  it("traces an accepted take back through every take it was made from", () => {
+    const consumers = acceptedConsumers(madeFromState("accepted"));
+    const root = [{ address: "video:shot.01.motion", variantId: "v-m" }];
+    expect(consumers.get(`${ADDR} v-k`)).toEqual(root);
+    expect(consumers.get("reference:cat v-c")).toEqual(root);
+    expect(consumers.has("reference:cat v-c2")).toBe(false);
+  });
+
+  it("protects what an accepted take was made from, whatever its own status", () => {
+    const state = madeFromState("accepted");
+    expect(isProtectedVariant(state, "reference:cat", "v-c")).toBe(true);
+    expect(isProtectedVariant(madeFromState("none"), "reference:cat", "v-c")).toBe(false);
+  });
+
+  // An accepted patched take carries its source's kept inputs, not what the source was made from.
+  it("traces a patched take back through the take it corrected", () => {
+    const state: KonteState = {
+      schemaVersion: 5,
+      assets: {
+        "reference:cat": {
+          variants: {
+            "v-old": variant({ outputHash: "old" }),
+            "v-new": variant({ outputHash: "new", status: "accepted" }),
+          },
+        },
+        [ADDR]: {
+          variants: {
+            "v-src": variant({ outputHash: "src", inputFingerprints: { "reference:cat": "old" } }),
+            "v-fix": variant({
+              status: "accepted",
+              derivedFrom: "v-src",
+              inputFingerprints: { "reference:cat": "new" },
+            }),
+          },
+        },
+      },
+    };
+    expect(isProtectedVariant(state, "reference:cat", "v-old")).toBe(true);
   });
 });

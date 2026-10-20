@@ -13,7 +13,11 @@ import {
 import { activeGenerationVariantIds, patchChainTargets, patchFilePath } from "../../core/patch.js";
 import { listThumbnailAddressDirs } from "../../core/thumbnail.js";
 import { variantDir, variantsHostedBy } from "../../core/variant-dir.js";
-import { collectDescendants, isProtectedVariant } from "../../core/variant-lineage.js";
+import {
+  acceptedConsumers,
+  collectDescendants,
+  isProtectedVariant,
+} from "../../core/variant-lineage.js";
 import { JobManager } from "../../core/job-manager.js";
 import { StateManager } from "../../core/state/index.js";
 import type { AnimaticDefinition, VideoDefinition } from "../../core/types/index.js";
@@ -164,21 +168,26 @@ async function executeClean(opts: CleanOptions): Promise<void> {
   const collected: CollectedVariant[] = [];
   const skipped: { address: string; reason: string }[] = [];
   let keptUnaccepted = 0;
+  const consumers = acceptedConsumers(state);
 
   for (const address of filteredAddresses) {
     const target = state.assets[address];
     if (!target) continue;
 
     for (const [variantId, variant] of Object.entries(target.variants ?? {})) {
-      // A variant patched into an accepted one is not itself accepted, yet its file is the patch's
-      // input: dropping it would strand the accepted correction with nothing to re-derive from.
-      if (isProtectedVariant(state, address, variantId)) {
-        if (variant.status !== "accepted") {
-          skipped.push({
-            address,
-            reason: `variant ${variantId} is the source of an accepted patch`,
-          });
-        }
+      // An accepted take's patch source or input is not itself accepted, yet dropping it would
+      // leave the accepted take with nothing to re-derive it from.
+      if (isProtectedVariant(state, address, variantId, consumers)) {
+        const madeFrom = consumers.get(`${address} ${variantId}`);
+        if (variant.status === "accepted") continue;
+        skipped.push({
+          address,
+          reason: madeFrom
+            ? `variant ${variantId} is what accepted ${madeFrom
+                .map((r) => `${r.address} (${r.variantId})`)
+                .join(", ")} was made from`
+            : `variant ${variantId} is the source of an accepted patch`,
+        });
         continue;
       }
 
@@ -366,12 +375,15 @@ async function executeClean(opts: CleanOptions): Promise<void> {
           }
         }
         const toRemove: CollectedVariant[] = [];
+        const freshConsumers = acceptedConsumers(freshState);
         for (const entry of collected) {
           const target = freshState.assets[entry.address];
           if (!target) continue;
           const v = target.variants?.[entry.variantId];
           if (!v) continue;
-          if (isProtectedVariant(freshState, entry.address, entry.variantId)) continue;
+          if (isProtectedVariant(freshState, entry.address, entry.variantId, freshConsumers)) {
+            continue;
+          }
           // A file-bearing variant collected without --delete-unaccepted was collected only
           // because it was a dead composition/stem leftover; require it to still be dead under
           // the lock.
@@ -480,7 +492,8 @@ export function registerCleanCommand(program: Command): void {
       `
 Removes failed/cancelled variants and dead composition/stem leftovers, freeing their
 generated files, jobs, logs, and caches. Accepted variants are always kept, and so is
-every unaccepted take that holds generated media — those are reported as kept.
+every take an accepted one was made from, and every unaccepted take that holds generated
+media — those are reported as kept.
 --delete-unaccepted adds them to the deletion, discarding finished takes — including ones
 whose media is not in this checkout.
 

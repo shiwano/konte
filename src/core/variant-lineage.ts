@@ -1,4 +1,6 @@
 import type { KonteState, VariantState } from "./types/index.js";
+import * as path from "node:path";
+import { variantDir } from "./variant-dir.js";
 
 /**
  * A patch produces a new variant at the same address, pointing back at the take it corrected
@@ -72,14 +74,78 @@ export function hasAcceptedDescendant(
   );
 }
 
+export type VariantRef = { address: string; variantId: string };
+
 /**
- * Whether a variant is a decision to keep: accepted, or the source of an accepted patch. What `clean`
- * never deletes and what `assets/.gitignore` lets git track (see `assets-gitignore.ts`).
+ * `<address> <variantId>` of a take -> the accepted takes made from it, directly or through the
+ * takes they consumed: an `inputFingerprints` entry matched against a take's `outputHash`. A patched
+ * take's fingerprints are merged rather than consumed, so its provenance also runs through the take
+ * it corrected and the step that owns its file.
  */
-export function isProtectedVariant(state: KonteState, address: string, variantId: string): boolean {
+export function acceptedConsumers(state: KonteState): Map<string, VariantRef[]> {
+  const out = new Map<string, VariantRef[]>();
+  // The `variantOwningFile` rule, indexed once: a file inside its own variant's directory.
+  const owners = new Map<string, VariantRef>();
+  for (const [address, asset] of Object.entries(state.assets)) {
+    for (const [variantId, variant] of Object.entries(asset.variants ?? {})) {
+      if (!variant.file) continue;
+      const file = path.join(variant.file);
+      try {
+        if (file.startsWith(`${variantDir("", address, variantId)}${path.sep}`)) {
+          owners.set(file, { address, variantId });
+        }
+      } catch {
+        // unparseable address: owns no directory
+      }
+    }
+  }
+  for (const [address, asset] of Object.entries(state.assets)) {
+    for (const [variantId, variant] of Object.entries(asset.variants ?? {})) {
+      if (variant.status !== "accepted") continue;
+      const root = { address, variantId };
+      const seen = new Set<string>([`${address} ${variantId}`]);
+      const visit = (at: string, id: string, v: VariantState | undefined) => {
+        const key = `${at} ${id}`;
+        if (!v || seen.has(key)) return;
+        seen.add(key);
+        out.set(key, [...(out.get(key) ?? []), root]);
+        walk(at, v);
+      };
+      const walk = (at: string, consumer: VariantState) => {
+        for (const [dep, hash] of Object.entries(consumer.inputFingerprints ?? {})) {
+          for (const [depId, depVariant] of Object.entries(variantsOf(state, dep))) {
+            if (depVariant.outputHash === hash) visit(dep, depId, depVariant);
+          }
+        }
+        if (consumer.derivedFrom) {
+          visit(at, consumer.derivedFrom, variantsOf(state, at)[consumer.derivedFrom]);
+        }
+        const owner = consumer.file ? owners.get(path.join(consumer.file)) : undefined;
+        if (owner) {
+          visit(owner.address, owner.variantId, variantsOf(state, owner.address)[owner.variantId]);
+        }
+      };
+      walk(address, variant);
+    }
+  }
+  return out;
+}
+
+/**
+ * Whether a variant is a decision to keep: accepted, the source of an accepted patch, or what an
+ * accepted take was made from. What `clean` never deletes and what `assets/.gitignore` lets git
+ * track (see `assets-gitignore.ts`). Pass `consumers` when asking about many variants of one state.
+ */
+export function isProtectedVariant(
+  state: KonteState,
+  address: string,
+  variantId: string,
+  consumers: Map<string, VariantRef[]> = acceptedConsumers(state),
+): boolean {
   return (
     variantsOf(state, address)[variantId]?.status === "accepted" ||
-    hasAcceptedDescendant(state, address, variantId)
+    hasAcceptedDescendant(state, address, variantId) ||
+    consumers.has(`${address} ${variantId}`)
   );
 }
 

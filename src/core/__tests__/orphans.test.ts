@@ -140,4 +140,55 @@ describe("buildOrphanContext", () => {
     // A leaf for a shot the board no longer declares is still an orphan.
     expect(isOrphan("animatic:shot.09#composition")).toBe(true);
   });
+
+  it("keeps an undeclared address an accepted take at a declared one was made from", () => {
+    const state = (consumerAddress: string, status: string) =>
+      ({
+        assets: {
+          "animatic:shot.01.gone": { variants: { "v-k": { status: "none", outputHash: "h" } } },
+          [consumerAddress]: {
+            variants: { "v-m": { status, inputFingerprints: { "animatic:shot.01.gone": "h" } } },
+          },
+        },
+      }) as unknown as KonteState;
+    const kept = buildOrphanContext(
+      video,
+      animatic,
+      undefined,
+      undefined,
+      state("video:shot.01.motion", "accepted"),
+    );
+    expect(kept.isOrphan("animatic:shot.01.gone")).toBe(false);
+    expect(kept.acceptedMadeFrom("animatic:shot.01.gone")).toEqual([
+      { address: "video:shot.01.motion", variantId: "v-m" },
+    ]);
+    // Undecided, or itself undeclared and pruned alongside: nothing to keep it for.
+    for (const [consumer, status] of [
+      ["video:shot.01.motion", "none"],
+      ["video:shot.99.motion", "accepted"],
+    ] as const) {
+      expect(
+        buildOrphanContext(video, animatic, undefined, undefined, state(consumer, status)).isOrphan(
+          "animatic:shot.01.gone",
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("does not keep an undeclared address for a patch step accepted inside its own chain", () => {
+    const step = "animatic:patch.v-k.wide";
+    const state = {
+      assets: {
+        "animatic:shot.01.gone": { variants: { "v-k": { status: "none", outputHash: "h" } } },
+        [step]: {
+          variants: {
+            "v-s": { status: "accepted", inputFingerprints: { "animatic:shot.01.gone": "h" } },
+          },
+        },
+      },
+    } as unknown as KonteState;
+    const { isOrphan } = buildOrphanContext(video, animatic, undefined, new Set(["v-k"]), state);
+    expect(isOrphan(step)).toBe(false);
+    expect(isOrphan("animatic:shot.01.gone")).toBe(true);
+  });
 });

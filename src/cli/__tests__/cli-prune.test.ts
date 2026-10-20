@@ -86,6 +86,26 @@ describe("prune command", () => {
     await expect(fs.access(path.join(projectDir, `assets/video/${orphanBare}`))).rejects.toThrow();
   });
 
+  it("keeps an orphaned target an accepted take was made from, and says so", async () => {
+    const { orphanVid, validVid } = await setupOrphan();
+    const sm = await StateManager.load(projectDir);
+    sm.getAssetState(orphanAddress).variants![orphanVid]!.status = "none";
+    sm.getAssetState(orphanAddress).variants![orphanVid]!.outputHash = "h-old";
+    sm.getAssetState(validAddress).variants![validVid]!.inputFingerprints = {
+      [orphanAddress]: "h-old",
+    };
+    await sm.save();
+
+    const { stdout } = await run(["prune", "--yes"], projectDir);
+
+    expect(prunedAddresses(stdout)).toEqual([]);
+    expect(stdout).toContain(
+      `Kept: ${orphanAddress} (accepted ${validAddress} ${validVid} was made from it;`,
+    );
+    const after = await StateManager.load(projectDir);
+    expect(after.getAssetState(orphanAddress).variants![orphanVid]).toBeDefined();
+  });
+
   it("prunes an orphaned job whose variant is gone from state", async () => {
     const jm = new JobManager(projectDir);
     const orphanJobVid = "v-orphanedjob01";

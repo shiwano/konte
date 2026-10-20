@@ -28,7 +28,7 @@ import {
   variantDir,
   variantsHostedBy,
 } from "../../core/variant-dir.js";
-import { collectDescendants } from "../../core/variant-lineage.js";
+import { collectDescendants, type VariantRef } from "../../core/variant-lineage.js";
 import { confirmDeletion, printAborted } from "../confirm.js";
 import { loadDirectionIfPresent, loadStageDefinitions } from "../load-definition.js";
 import { directionPartHashes } from "../../core/direction-hash.js";
@@ -144,21 +144,29 @@ async function executePrune(opts: PruneOptions): Promise<void> {
   // Recorded, absent variants included: an orphaned target takes them with it, and their directories
   // are not stray.
   const state = manager.getRecordedState();
-  const { validCompositionAddresses, isOrphan } = buildOrphanContext(
+  const directionParts = direction ? [...directionPartHashes(direction).keys()] : [];
+  const { validCompositionAddresses, isOrphan, acceptedMadeFrom } = buildOrphanContext(
     video,
     animatic,
     reference,
     patchScriptIds,
     state,
-    direction ? directionPartHashes(direction).keys() : [],
+    directionParts,
   );
 
   if (opts.addressScope) assertValidAddressScope(opts.addressScope);
 
-  const orphanAddresses = Object.keys(state.assets).filter(isOrphan);
-  const scoped = opts.addressScope
-    ? orphanAddresses.filter((addr) => matchesAddressScope(addr, opts.addressScope!))
-    : orphanAddresses;
+  const inScope = (addr: string) =>
+    !opts.addressScope || matchesAddressScope(addr, opts.addressScope);
+  const scoped = Object.keys(state.assets).filter(isOrphan).filter(inScope);
+  // Undeclared, yet what an accepted take was made from: kept, and said so, since the user ran
+  // prune expecting it gone.
+  const keptForAccepted: Array<{ address: string; madeFrom: VariantRef[] }> = Object.keys(
+    state.assets,
+  )
+    .filter(inScope)
+    .map((address) => ({ address, madeFrom: acceptedMadeFrom(address) }))
+    .filter((kept) => kept.madeFrom.length > 0);
 
   // Feedback now lives in per-stream files, not on the asset state — count it up front so the
   // prune summary can still report how much feedback each pruned target sheds.
@@ -171,10 +179,7 @@ async function executePrune(opts: PruneOptions): Promise<void> {
   // definition (e.g. whole-shot notes on a shot deleted from direction). The state-orphan pass
   // can't see these — they have no variants — so gather them to prune their stream entries too.
   const feedbackOnlyOrphans = [...feedbackCounts.keys()].filter(
-    (addr) =>
-      !state.assets[addr] &&
-      isOrphan(addr) &&
-      (!opts.addressScope || matchesAddressScope(addr, opts.addressScope)),
+    (addr) => !state.assets[addr] && isOrphan(addr) && inScope(addr),
   );
 
   // Orphaned composition caches: a shot was removed from the definition (or lost its shotFn),
@@ -344,7 +349,8 @@ async function executePrune(opts: PruneOptions): Promise<void> {
     orphanedPatches.length === 0 &&
     // Held-back-by-a-live-job is not "nothing matched" — saying so would send the user looking
     // for a scope typo instead of waiting for the job.
-    skippedActivePatches.length === 0
+    skippedActivePatches.length === 0 &&
+    keptForAccepted.length === 0
   ) {
     const msg = `No orphaned assets matching "${opts.addressScope}"`;
     console.warn(msg);
@@ -540,12 +546,26 @@ async function executePrune(opts: PruneOptions): Promise<void> {
         // may have reserved a new variant on one of these targets and put its job in flight, so the
         // active-job guard is re-applied on a fresh listing before anything is dropped.
         const freshActive = activeGenerationVariantIds(await jobManager.listJobs());
+        // An accept in that window can make a target what an accepted take was made from.
+        const fresh = buildOrphanContext(
+          video,
+          animatic,
+          reference,
+          patchScriptIds,
+          mgr.getRecordedState(),
+          directionParts,
+        );
         for (const entry of collected) {
           const target = mgr.getRecordedState().assets[entry.address];
           if (!target) continue;
           const variantIds = Object.keys(target.variants ?? {});
           if (variantIds.some((id) => freshActive.has(id))) {
             skippedActive.push(entry.address);
+            continue;
+          }
+          const madeFrom = fresh.acceptedMadeFrom(entry.address);
+          if (madeFrom.length > 0) {
+            keptForAccepted.push({ address: entry.address, madeFrom });
             continue;
           }
           mgr.removeAsset(entry.address);
@@ -742,6 +762,13 @@ async function executePrune(opts: PruneOptions): Promise<void> {
     { dryRun: opts.dryRun },
   );
 
+  const keptLines = keptForAccepted.map(
+    ({ address, madeFrom }) =>
+      `Kept: ${address} (accepted ${madeFrom
+        .map((r) => `${r.address} ${r.variantId}`)
+        .join(", ")} was made from it; prunable once another take is accepted there)`,
+  );
+
   const totalCount = removed.length + cascadeFailed.length;
   const cacheCount = removedCompositionCaches.length;
   const feedbackOnlyCount = removedFeedbackOnly.length;
@@ -764,6 +791,7 @@ async function executePrune(opts: PruneOptions): Promise<void> {
     } else {
       console.log("Nothing to prune.");
     }
+    for (const line of keptLines) console.log(line);
     return;
   }
 
@@ -826,6 +854,7 @@ async function executePrune(opts: PruneOptions): Promise<void> {
       `Skipped ${skippedHosting.length} orphaned target(s) still holding a live variant's file: ${skippedHosting.join(", ")} — widen the scope to take both.`,
     );
   }
+  for (const line of keptLines) console.log(line);
 }
 
 export function registerPruneCommand(program: Command): void {
@@ -841,7 +870,8 @@ export function registerPruneCommand(program: Command): void {
 Removes the orphaned leftovers \`konte doctor\` surfaces, plus job records nothing needs:
   - orphaned targets: an address no longer in the definition (e.g. after deleting a
     shot/asset from video.tsx) — the entire target goes: every variant (including
-    accepted), its feedback, generated files, and the state entry
+    accepted), its feedback, generated files, and the state entry. One an accepted take
+    at a live address was made from is kept and listed instead
   - orphaned jobs: a job file whose variant is already gone from state, left behind with
     its logs and caches (active jobs are never touched)
   - spent provisioning jobs: settled comfy model-download / node-install / node-activate

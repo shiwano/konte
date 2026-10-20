@@ -41,7 +41,7 @@ import { listPatchVariantIds } from "../../core/patch.js";
 import { collectStaleVariants } from "../../core/staleness.js";
 import { StateManager } from "../../core/state/index.js";
 import { typeCheckWorkspace } from "../../core/tsc.js";
-import { isProtectedVariant } from "../../core/variant-lineage.js";
+import { acceptedConsumers, isProtectedVariant } from "../../core/variant-lineage.js";
 import { checkForUpdate } from "../../core/update-check.js";
 import pkg from "../../../package.json" with { type: "json" };
 import type {
@@ -959,6 +959,7 @@ async function checkMissingAssets(videoRoot: string): Promise<CheckResult> {
   const protectedMissing: string[] = [];
   const otherMissing: string[] = [];
   let protectedPointers = 0;
+  const consumers = acceptedConsumers(state);
   for (const [address, target] of Object.entries(state.assets)) {
     for (const [variantId, variant] of Object.entries(target.variants ?? {})) {
       if (!variant.file) continue;
@@ -966,7 +967,7 @@ async function checkMissingAssets(videoRoot: string): Promise<CheckResult> {
       if (head !== null && head !== LFS_POINTER_PREFIX) continue;
       const isPointer = head !== null;
       const line = `${address} ${variantId}: ${variant.file}${isPointer ? " (Git LFS pointer)" : ""}`;
-      if (isProtectedVariant(state, address, variantId)) {
+      if (isProtectedVariant(state, address, variantId, consumers)) {
         protectedMissing.push(line);
         if (isPointer) protectedPointers += 1;
       } else {
@@ -986,7 +987,7 @@ async function checkMissingAssets(videoRoot: string): Promise<CheckResult> {
     return {
       name: "missing assets",
       status: "FAIL",
-      message: `${protectedMissing.length} accepted take(s) or patch source(s) missing their media — ${cause}`,
+      message: `${protectedMissing.length} accepted take(s), patch source(s) or inputs of accepted takes missing their media — ${cause}`,
       details: protectedMissing,
     };
   }

@@ -11,6 +11,7 @@ import {
 import { listRemovedShotStemAddresses } from "./composition-resource.js";
 import { deliveryAddressIsValid } from "./delivery.js";
 import { listVariantDirsOnDisk, variantDir } from "./variant-dir.js";
+import { acceptedConsumers, type VariantRef } from "./variant-lineage.js";
 import type {
   ReferenceDefinition,
   AnimaticDefinition,
@@ -21,6 +22,9 @@ import type {
 type OrphanContext = {
   validCompositionAddresses: Set<string>;
   isOrphan: (address: string) => boolean;
+  // The accepted takes, at declared addresses, made from a take at this undeclared address — what
+  // keeps it from being an orphan.
+  acceptedMadeFrom: (address: string) => VariantRef[];
 };
 
 // Single source of truth for "is this state address an orphan" — shared by `prune`
@@ -37,7 +41,8 @@ export function buildOrphanContext(
   // "declaration gone" and take its steps' real variants with it. Undefined means "not looked up",
   // so every patch step is protected rather than guessed at.
   patchScriptIds?: ReadonlySet<string>,
-  // Keeps a stem still accepted after its shot stopped sounding anything.
+  // Keeps a stem still accepted after its shot stopped sounding anything, and an address an accepted
+  // take was made from.
   state?: KonteState,
   // The direction's part addresses (`directionPartHashes`), each a feedback-only target.
   directionParts?: Iterable<string>,
@@ -82,7 +87,7 @@ export function buildOrphanContext(
   for (const addr of listFrameDeliverySources(video)) frameDeliverySources.add(addr);
   const validDeliverySources = new Set([...validAddresses, ...frameDeliverySources]);
 
-  const isOrphan = (address: string): boolean => {
+  const isUndeclared = (address: string): boolean => {
     const patchSource = patchSourceVariantIdOf(address);
     if (patchSource !== null) {
       return patchScriptIds !== undefined && !patchScriptIds.has(patchSource);
@@ -94,7 +99,37 @@ export function buildOrphanContext(
     );
   };
 
-  return { validCompositionAddresses, isOrphan };
+  // A patch step lives on its script, but is no take of its own to keep: what counts is whether
+  // the take it corrects stands at a declared address.
+  const addressOfVariant = new Map<string, string>();
+  for (const [address, asset] of Object.entries(state?.assets ?? {})) {
+    for (const variantId of Object.keys(asset.variants ?? {})) {
+      addressOfVariant.set(variantId, address);
+    }
+  }
+  const isLiveConsumer = (address: string): boolean => {
+    const patchSource = patchSourceVariantIdOf(address);
+    if (patchSource === null) return !isUndeclared(address);
+    const sourceAddress = addressOfVariant.get(patchSource);
+    return sourceAddress !== undefined && !isUndeclared(sourceAddress);
+  };
+
+  const madeFrom = new Map<string, VariantRef[]>();
+  for (const [key, roots] of state ? acceptedConsumers(state) : []) {
+    const address = key.slice(0, key.lastIndexOf(" "));
+    if (!isUndeclared(address)) continue;
+    for (const root of roots) {
+      if (!isLiveConsumer(root.address)) continue;
+      const refs = madeFrom.get(address) ?? [];
+      if (!refs.some((r) => r.address === root.address && r.variantId === root.variantId)) {
+        madeFrom.set(address, [...refs, root]);
+      }
+    }
+  }
+  const acceptedMadeFrom = (address: string): VariantRef[] => madeFrom.get(address) ?? [];
+  const isOrphan = (address: string): boolean => isUndeclared(address) && !madeFrom.has(address);
+
+  return { validCompositionAddresses, isOrphan, acceptedMadeFrom };
 }
 
 /**

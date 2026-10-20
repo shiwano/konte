@@ -108,6 +108,23 @@ describe("clean command", () => {
     await expect(fs.access(path.join(projectDir, `.konte/logs/${v2}.log`))).rejects.toThrow();
   });
 
+  it("keeps an unaccepted take an accepted one was made from, under --delete-unaccepted", async () => {
+    const { v1, v2, v3 } = await setupVariants();
+    const upstream = "reference:cat";
+    const sm = await StateManager.load(projectDir);
+    const source = sm.reserveVariantId(upstream);
+    sm.getAssetState(upstream).variants![source]!.outputHash = "h-cat";
+    sm.getAssetState(address).variants![v1]!.inputFingerprints = { [upstream]: "h-cat" };
+    await sm.save();
+
+    const { stdout } = await run(["clean", "--delete-unaccepted", "--yes"], projectDir);
+
+    expect(removedVariantIds(stdout).sort()).toEqual([v2, v3].sort());
+    expect(stdout).toContain(`variant ${source} is what accepted ${address} (${v1}) was made from`);
+    const after = await StateManager.load(projectDir);
+    expect(after.getAssetState(upstream).variants![source]).toBeDefined();
+  });
+
   it("reclaims a dead composition leftover without --delete-unaccepted", async () => {
     // A ghost: a composition variant whose upstream motion/voice were never generated, so the
     // current definition can no longer materialize it. It is pure garbage, so plain `clean`

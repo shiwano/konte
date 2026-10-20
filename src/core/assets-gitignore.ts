@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import type { KonteState } from "./types/index.js";
 import { ASSET_STAGES, variantDir } from "./variant-dir.js";
-import { isProtectedVariant } from "./variant-lineage.js";
+import { acceptedConsumers, isProtectedVariant } from "./variant-lineage.js";
 
 const ASSETS_PREFIX = `assets${path.sep}`;
 
@@ -39,9 +39,10 @@ export function assetsGitTracking(state: KonteState): AssetsGitTracking {
   };
 
   const keptDirs = new Set<string>();
+  const consumers = acceptedConsumers(state);
   for (const [address, asset] of Object.entries(state.assets)) {
     for (const [variantId, variant] of Object.entries(asset.variants ?? {})) {
-      if (!variant.file || !isProtectedVariant(state, address, variantId)) continue;
+      if (!variant.file || !isProtectedVariant(state, address, variantId, consumers)) continue;
       const dir = holdingDir(variant.file);
       if (dir) keptDirs.add(dir);
     }
