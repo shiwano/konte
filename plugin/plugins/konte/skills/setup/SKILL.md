@@ -7,7 +7,7 @@ Done = the workspace's setup script succeeds and the user receives the restart s
 
 ## 1. Choose the directory
 
-- **Use the requested workspace directory.** Create it if needed, then enter it.
+- Use the requested workspace directory. Create it if needed, then enter it.
 - Inside an existing workspace → use its root (the directory holding `konte.config.json`).
 - No destination given: an empty directory or fresh Git repository → use cwd; other files → ask for the destination.
 
@@ -31,7 +31,7 @@ Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/shiwano/kon
 & $konteSetupScript
 ```
 
-- **Continue only after a successful download and script exit.**
+- Continue only after a successful download and script exit.
 - Version: `KONTE_VERSION` override → committed `konte.version` → latest. For a requested version, set `KONTE_VERSION` for the script invocation; PowerShell: restore the previous environment value afterward.
 - Nonempty destination approved by the user → pass `--yes` (sh) / `-Yes` (PowerShell).
 - Checksum or download failure → retry once; still failing → report and stop.
@@ -43,4 +43,4 @@ Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/shiwano/kon
 2. Accept the MCP server prompt (Claude Code) / trust the project config (Codex).
 3. Run `/konte-checkin` (Claude Code) / `$konte-checkin` (Codex).
 
-**End here.** Video creation and production belong to the workspace's skills after restart.
+End here. Video creation and production belong to the workspace's skills after restart.

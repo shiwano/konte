@@ -26,7 +26,7 @@ English and Chinese are the trained prompt languages.
 
 ## Negative Prompt
 
-- **Exposed and effective.** Fill it with short generic artifact terms ("blurry, extra fingers, watermark, text"), not scene content.
+- Exposed and effective. Fill it with short generic artifact terms ("blurry, extra fingers, watermark, text"), not scene content.
 - A scene exclusion belongs in `prompt` as what fills the space instead. A custom adapter may differ — check its schema.
 
 ## Avoid

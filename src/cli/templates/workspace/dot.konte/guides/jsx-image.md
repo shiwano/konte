@@ -2,9 +2,9 @@
 
 Text and exact geometry, rendered instead of generated.
 
-**Material that carries text or a shape that has to be right — a card, a label, a plate, a framing guide — is worth building here rather than prompting for.** Its own edges need not be beautiful: when the still is a conditioning image, the generation downstream paints the piece's look over it.
+Material that carries text or a shape that has to be right — a card, a label, a plate, a framing guide — is worth building here rather than prompting for. Its own edges need not be beautiful: when the still is a conditioning image, the generation downstream paints the piece's look over it.
 
-Text **delivered on screen** belongs in the shot's own `<Composition>` JSX. Text **fed into a generation** is what this is for.
+Text delivered on screen belongs in the shot's own `<Composition>` JSX. Text fed into a generation is what this is for.
 
 ## What it renders
 
@@ -44,7 +44,7 @@ const plate = asset("plate", adapters.jsxImage, {
 });
 ```
 
-`fill` is `position: absolute` at 100% × 100% with `object-fit: cover`, so it fills the nearest **positioned** ancestor — `#stage` (the whole canvas) at the top level, and a box of your own only when that box is positioned. Inside a plain static `<div>` it escapes to the canvas and covers everything painted before it.
+`fill` is `position: absolute` at 100% × 100% with `object-fit: cover`, so it fills the nearest positioned ancestor — `#stage` (the whole canvas) at the top level, and a box of your own only when that box is positioned. Inside a plain static `<div>` it escapes to the canvas and covers everything painted before it.
 
 Being positioned, it also paints over anything in normal flow, so put text and layout over a `fill` background in positioned elements too.
 
@@ -78,8 +78,8 @@ const lowerThird = asset("nameplate", adapters.jsxImage, {
 
 Many generators take their output size from an input image rather than from a size parameter. Omit `build` and the image is `background` alone at the resolved canvas size — a solid plate for exactly that.
 
-- **A ComfyUI workflow with no width/height knob** — wire one in as its sized latent/canvas input. To pin from an existing picture instead, resize that picture with `imageResize`.
-- **An image-edit model with no size parameter** — pass the plate as the first reference and the real subject as a second, and say which is which in the prompt:
+- A ComfyUI workflow with no width/height knob — wire one in as its sized latent/canvas input. To pin from an existing picture instead, resize that picture with `imageResize`.
+- An image-edit model with no size parameter — pass the plate as the first reference and the real subject as a second, and say which is which in the prompt:
 
   ```
   image 1 is a blank canvas that only sets output size; use only the subject in image 2

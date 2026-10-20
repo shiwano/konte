@@ -6,15 +6,15 @@ user-invocable: false
 
 How konte supplies its external tools — each a version-pinned build fetched on first use — and where each one's override/fallback diverges.
 
-The tools: **ffmpeg/ffprobe** (local media ops, rendering, audio muxing), **Chromium** (HyperFrames rendering), **tsc** (type-checking user workspaces — the native TypeScript build, shipped as the platform package `@typescript/typescript-<platform>-<arch>`), **cloudflared** (`konte preview --tunnel`), **sherpa-onnx** + its models (song analysis, line hearing), and the embedded **hyperframes** runtime assets.
+The tools: ffmpeg/ffprobe (local media ops, rendering, audio muxing), Chromium (HyperFrames rendering), tsc (type-checking user workspaces — the native TypeScript build, shipped as the platform package `@typescript/typescript-<platform>-<arch>`), cloudflared (`konte preview --tunnel`), sherpa-onnx + its models (song analysis, line hearing), and the embedded hyperframes runtime assets.
 
-- **ffmpeg/ffprobe** default to the managed build; override with `KONTE_FFMPEG_PATH` / `KONTE_FFPROBE_PATH`, or `local.ffmpegPath` / `local.ffprobePath` in `konte.config.json` (an override is version-checked; there is no automatic PATH fallback).
+- ffmpeg/ffprobe default to the managed build; override with `KONTE_FFMPEG_PATH` / `KONTE_FFPROBE_PATH`, or `local.ffmpegPath` / `local.ffprobePath` in `konte.config.json` (an override is version-checked; there is no automatic PATH fallback).
   - konte's own calls spawn the absolute path, but HyperFrames hardcodes `spawn("ffmpeg")` with no path option, so `ensureHyperFrames` calls `leadPathWithFfmpeg()` to put the resolved binaries' directory at the head of `PATH`. It skips an override a PATH lookup cannot honor (a bare name is already one; a renamed `ffmpeg-7` is not a name to look up), so `vitest.setup.ts`'s bare-name override leaves `PATH` untouched.
-- **cloudflared** defaults to the managed build, fetched on the first tunnel; override with `KONTE_CLOUDFLARED_PATH` (not version-checked).
-- **tsc** defaults to the managed build; override with `KONTE_TSC_PATH` (not version-checked). The type-check passes `--noEmit --pretty` (which the JS `tsc` also accepts, so the test suite pins the override at the repo's `tsc` to keep a cold cache offline); `konte lsp` passes `--lsp -stdio`, which only the native build takes.
-- **sherpa-onnx**: its models fetched on first use; override `KONTE_SHERPA_SEPARATION_PATH` / `KONTE_SHERPA_RECOGNIZER_PATH` / `KONTE_SPLEETER_MODEL_DIR` / `KONTE_SENSE_VOICE_MODEL_DIR`.
-- **Beat This!**: model fetched on first use, `onnxruntime-web` WASM embedded; override `KONTE_BEAT_THIS_MODEL_DIR`.
-- **Chromium** defaults to the managed `chrome-headless-shell`, installed by `@puppeteer/browsers` into `chromium-<buildId>/`; override with `KONTE_CHROMIUM_PATH` (not version-checked). The build id is pinned to puppeteer's own `PUPPETEER_REVISIONS`, since HyperFrames drives the shell over CDP through its bundled puppeteer.
+- cloudflared defaults to the managed build, fetched on the first tunnel; override with `KONTE_CLOUDFLARED_PATH` (not version-checked).
+- tsc defaults to the managed build; override with `KONTE_TSC_PATH` (not version-checked). The type-check passes `--noEmit --pretty` (which the JS `tsc` also accepts, so the test suite pins the override at the repo's `tsc` to keep a cold cache offline); `konte lsp` passes `--lsp -stdio`, which only the native build takes.
+- sherpa-onnx: its models fetched on first use; override `KONTE_SHERPA_SEPARATION_PATH` / `KONTE_SHERPA_RECOGNIZER_PATH` / `KONTE_SPLEETER_MODEL_DIR` / `KONTE_SENSE_VOICE_MODEL_DIR`.
+- Beat This!: model fetched on first use, `onnxruntime-web` WASM embedded; override `KONTE_BEAT_THIS_MODEL_DIR`.
+- Chromium defaults to the managed `chrome-headless-shell`, installed by `@puppeteer/browsers` into `chromium-<buildId>/`; override with `KONTE_CHROMIUM_PATH` (not version-checked). The build id is pinned to puppeteer's own `PUPPETEER_REVISIONS`, since HyperFrames drives the shell over CDP through its bundled puppeteer.
   - `ensureChromium` also exports `PRODUCER_HEADLESS_SHELL_PATH`, the env var HyperFrames reads before falling back to `~/.cache/puppeteer`, which only `bun install` fills — so the managed build cannot be optional.
 
 ## Checksums

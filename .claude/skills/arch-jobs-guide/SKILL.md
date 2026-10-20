@@ -12,17 +12,17 @@ A job records its backend kind and the addresses it depends on, and auto-submits
 
 A `defineComfyAsset` adapter declares its ComfyUI dependencies so konte provisions them before generating: `models` (weights — konte writes them into ComfyUI's model root when reachable, `HF_TOKEN` as bearer; gated repos need that, else Manager) and `nodes` (custom node packs via ComfyUI-Manager, by registry `cnr_id` only — a pack outside it is not auto-installed, and its `id` is the `custom_nodes` directory konte looks for). `konte adapter comfy import` scaffolds both blocks commented-out from an imported workflow.
 
-- **comfy model downloads** — deduped by install target (`type` + `savePath` + `filename`), so one filename across savePaths gets a job each; reuse refreshes the declaration and resets any terminal job, completed included, so a fixed `url` or a deleted file retries.
+- comfy model downloads — deduped by install target (`type` + `savePath` + `filename`), so one filename across savePaths gets a job each; reuse refreshes the declaration and resets any terminal job, completed included, so a fixed `url` or a deleted file retries.
   Presence is read from the loader combos in `/object_info`, falling back to the `savePath` root's `/api/models/<root>` listing for a model no node exposes as a combo.
-- **comfy node installs** — shared/deduped per pack, install-to-disk only — paired with an **activate** job that reboots ComfyUI once (under a server-wide reboot lock keyed by baseUrl) so the new nodes load. Deduped per pack set (one per run, not per asset), reset like the installs above. A generation job that needs nodes depends on the activate job, so nothing generates mid-reboot.
-- **`export` jobs** — a leaf render job (see `arch-delivery-guide`).
-- **`song-analysis`** — see `arch-direction-guide`.
+- comfy node installs — shared/deduped per pack, install-to-disk only — paired with an activate job that reboots ComfyUI once (under a server-wide reboot lock keyed by baseUrl) so the new nodes load. Deduped per pack set (one per run, not per asset), reset like the installs above. A generation job that needs nodes depends on the activate job, so nothing generates mid-reboot.
+- `export` jobs — a leaf render job (see `arch-delivery-guide`).
+- `song-analysis` — see `arch-direction-guide`.
 
 A reboot is destructive (a server not under a relauncher won't return): on failure konte raises `COMFY_NODE_RESTART_REQUIRED` for a manual restart; shared servers set `comfy.comfyui.autoRebootAfterNodeInstall: false`. Activation also holds while any comfy job (generation, model-download, node-install) is running workspace-wide, or the reboot orphans it.
 
 ## Leader-elected waiting
 
-When several daemons of the workspace await the same running job, a **run lease** (`job.lease`) makes exactly one the _owner_ — it runs the backend wait, downloads/normalizes the output, and commits the terminal state; the rest only _monitor_ the job record. If the owner crashes, its lease lapses and a monitor reclaims and re-attaches via the persisted backend job id (every backend job is re-observable by id). The same lease protects export and model-download workers.
+When several daemons of the workspace await the same running job, a run lease (`job.lease`) makes exactly one the _owner_ — it runs the backend wait, downloads/normalizes the output, and commits the terminal state; the rest only _monitor_ the job record. If the owner crashes, its lease lapses and a monitor reclaims and re-attaches via the persisted backend job id (every backend job is re-observable by id). The same lease protects export and model-download workers.
 
 Waiting is unbounded, except comfy, whose prompt lives in the server process: it fails after `comfy.comfyui.unreachableTimeoutMinutes` of silence (default 15, 0 = never).
 
@@ -40,7 +40,7 @@ Every daemon of the workspace appends to `.konte/logs/mcp.log` (`src/mcp/mcp-log
 
 ## What a judge reads
 
-A cascade pass lists jobs, then reloads the definitions (`reloadLoadedDefinitions`), per iteration — no job is judged by definitions older than itself. A job records a **source fingerprint** at creation (`definition-source.ts`). On a hash mismatch, fingerprint moved → the definition changed and the job fails; unchanged → the judge is stale: it **releases** the job (`releaseIfOwner`) and the daemon restarts (`RESTART_EXIT_CODE`, `supervise.ts`); a second stale judge fails it. Exports do the same via `planDigest` / `decideExportRender`.
+A cascade pass lists jobs, then reloads the definitions (`reloadLoadedDefinitions`), per iteration — no job is judged by definitions older than itself. A job records a source fingerprint at creation (`definition-source.ts`). On a hash mismatch, fingerprint moved → the definition changed and the job fails; unchanged → the judge is stale: it releases the job (`releaseIfOwner`) and the daemon restarts (`RESTART_EXIT_CODE`, `supervise.ts`); a second stale judge fails it. Exports do the same via `planDigest` / `decideExportRender`.
 
 ## Keyframe normalization
 

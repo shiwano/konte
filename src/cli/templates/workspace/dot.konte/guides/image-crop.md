@@ -2,9 +2,9 @@
 
 Cuts a window out of one image and scales it to the working canvas, in one step. Free, deterministic — no take to pick.
 
-**What it is for: the root of a camera axis, and small steps in from it.** The location's reference sheet is the master, drawn from the axis' camera position wide enough to hold the widest frame; a window cut out of it keeps that position, so what two windows overlap is pixel-identical.
+What it is for: the root of a camera axis, and small steps in from it. The location's reference sheet is the master, drawn from the axis' camera position wide enough to hold the widest frame; a window cut out of it keeps that position, so what two windows overlap is pixel-identical.
 
-**A window falls inside the window of the setup its `within` names**, and konte checks the plates against it (`plate-unnested`). A window is a zoom: the set is enlarged, never seen from nearer. A `close` is a cut from its parent's plate instead (the staging guide's plates reference).
+A window falls inside the window of the setup its `within` names, and konte checks the plates against it (`plate-unnested`). A window is a zoom: the set is enlarged, never seen from nearer. A `close` is a cut from its parent's plate instead (the staging guide's plates reference).
 
 ```tsx
 // The master is the location's own reference sheet, sized by konte (2048×1024 off a 1024×576 canvas).
@@ -39,7 +39,7 @@ Cut every window out of the master, not out of the plate above it — a plate ha
 
 ## Where to cut
 
-**Cut every window on something only this place has.** The tighter the window, the more of it is blank surface, and a blank surface reads as a different room.
+Cut every window on something only this place has. The tighter the window, the more of it is blank surface, and a blank surface reads as a different room.
 
 A location sheet is already sized for this (2:1 at twice the canvas' long edge). Cut a window much tighter than the canvas and texture dissolves: cork becomes plaster.
 

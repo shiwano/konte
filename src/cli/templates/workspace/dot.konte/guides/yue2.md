@@ -12,8 +12,8 @@ Two fields: `style` describes the music, `lyrics` carries the sung words with se
 
 Example: `English, synth pop, bright female vocal, 120 BPM, 4/4, four-on-the-floor kick, analog synth bass, shimmering arpeggios, polished modern production`
 
-- **Lead with the language the lyrics are sung in** (`English`, `Japanese`, …).
-- **State the same BPM as `bpm`** — the score's tempo comes from `bpm`, and a different figure in `style` works against it.
+- Lead with the language the lyrics are sung in (`English`, `Japanese`, …).
+- State the same BPM as `bpm` — the score's tempo comes from `bpm`, and a different figure in `style` works against it.
 - Name instruments and vocal timbre concretely; mood words without them steer nothing.
 
 ## Lyrics
@@ -28,13 +28,13 @@ Hit the light, hit the light
 ```
 
 - Tags: `[Verse]`, `[Chorus]`, `[Bridge]`, `[Outro]`. A blank line between sections.
-- **Instrumental → leave `lyrics` empty and name no voice in `style`**, not even to exclude one.
+- Instrumental → leave `lyrics` empty and name no voice in `style`, not even to exclude one.
 - Musical direction goes in `style`, never in `lyrics`.
 
 ## Length
 
-- **`style`: ~8–12 descriptors** in one line.
-- **Lyric lines short and singable** (~4–8 words).
+- `style`: ~8–12 descriptors in one line.
+- Lyric lines short and singable (~4–8 words).
 
 ## Duration
 
@@ -44,7 +44,7 @@ The planned score sets the length, not a requested running time: four sections o
 
 ## Negative Prompt
 
-- **None.** Steer by editing `style`.
+- None. Steer by editing `style`.
 
 ## Avoid
 

@@ -1,12 +1,12 @@
 # Stable Audio 3 Medium
 
-Makes **music** or **SFX / ambience**, selected by `category`. The single `prompt` field _describes_ the sound — a style line for music, a discrete sound/soundscape for SFX.
+Makes music or SFX / ambience, selected by `category`. The single `prompt` field _describes_ the sound — a style line for music, a discrete sound/soundscape for SFX.
 
 ## Prompt Shape
 
 Pick the mode, then write `prompt` to match:
 
-- **Music** — a dense comma-list of sonic descriptors:
+- Music — a dense comma-list of sonic descriptors:
 
   ```
   [genre/subgenre], [instrumentation], [mood], [tempo/feel], [production]
@@ -14,7 +14,7 @@ Pick the mode, then write `prompt` to match:
 
   Example: `tropical house, marimba and steel drums, soft synths and smooth bass, sunny and chilled, layered percussion`
 
-- **SFX / ambience** — describe the _source_, the _material/action_, and the _acoustic space_:
+- SFX / ambience — describe the _source_, the _material/action_, and the _acoustic space_:
 
   ```
   heavy wooden door creaking open slowly in a stone hall, distant echo
@@ -24,8 +24,8 @@ A dense comma-list of descriptors, not narrative prose. Name concrete instrument
 
 ## Length
 
-- **~5–12 descriptors** — density beats length; describe the sound, not a scene.
-- **SFX: one coherent sound** — generate multiple effects separately and mix in the composition.
+- ~5–12 descriptors — density beats length; describe the sound, not a scene.
+- SFX: one coherent sound — generate multiple effects separately and mix in the composition.
 
 ## Duration
 

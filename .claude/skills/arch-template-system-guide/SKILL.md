@@ -39,7 +39,7 @@ Managed files are always-overwrite except `HOUSE_RULES.md`. Agent settings remai
 
 `konte.version` is not a template: `template-sync.ts` writes it at the workspace root on every run, ahead of the fast path. It is committed; the lock's copy of the version is not.
 
-**A managed file (`MANAGED_TEMPLATES`) must be a workspace file.** `syncManagedTemplates` writes every managed key relative to the workspace root, so a managed key under `videos/` would land a video's file at the workspace root on the next upgrade. `embed-templates.ts` asserts this.
+A managed file (`MANAGED_TEMPLATES`) must be a workspace file. `syncManagedTemplates` writes every managed key relative to the workspace root, so a managed key under `videos/` would land a video's file at the workspace root on the next upgrade. `embed-templates.ts` asserts this.
 
 ## Type-checking
 

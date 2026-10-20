@@ -20,23 +20,23 @@ Nothing else: no stage file, no prompt, no `direction.ts`, no audio probe, no ha
 
 ## Method
 
-1. **Strip read** — per clip, from the filmstrip alone, one line: who is in frame, what moves and along what path, what the camera does, where the first and last tiles stand, and the second any breakage starts. A static strip with no warning is zoomed before it is called still.
-2. **Compare against the ask** — now read each shot's `action`, `hinge`, `passing` and `movement`, and its panels. `passing`: absent at endpoints, enters/exits as asked. A missing change, wrong mover or camera, or endpoint unlike its panel is a finding with a second.
-3. **Read the boundaries** — on the video sheet, each out frame against the next in frame, under the `join` and `location` of the shot it leads into.
+1. Strip read — per clip, from the filmstrip alone, one line: who is in frame, what moves and along what path, what the camera does, where the first and last tiles stand, and the second any breakage starts. A static strip with no warning is zoomed before it is called still.
+2. Compare against the ask — now read each shot's `action`, `hinge`, `passing` and `movement`, and its panels. `passing`: absent at endpoints, enters/exits as asked. A missing change, wrong mover or camera, or endpoint unlike its panel is a finding with a second.
+3. Read the boundaries — on the video sheet, each out frame against the next in frame, under the `join` and `location` of the shot it leads into.
 
 Write the Strip read as an intermediate message. Your final message starts at `Verdict:`.
 
 ## Rules
 
-- **Every finding carries four fields**: `target` (a clip address, or a boundary written `03→04`), `problem` (a code below), `evidence` (the tiles by their seconds and what they show), `smallest-fix` (the least change that clears it, and the surface it lives on — `take` for another draw, `panel` for an endpoint the board pins). Prefer them in that order.
-- **A blocking finding is a countable one** — every one costs the human a paid take. A doubt you cannot name with a code below is no finding.
-- **Softness, thin detail and finish are never findings** — a cheap pass's are its setting.
-- **A still take is a finding only where the ask moved** — a shot asked to hold measures the same as one that failed to animate.
-- **Never guess at intent, never praise**, and never offer an alternative you merely prefer.
-- **Whatever `tolerances` accepts is never a finding**; whatever `outOfScope` bans is one wherever it shows on a tile.
-- **An `accepted` clip is settled** — never a target; a boundary against one lands on the other side.
-- **Change nothing.** No edit to a definition or state, and no konte command that writes: `generate`, `reroll`, `accept`, `dismiss`, `clean`, `review`, `export`.
-- **Write in the language the `action` lines are written in**; keep the field names and problem codes as spelled here.
+- Every finding carries four fields: `target` (a clip address, or a boundary written `03→04`), `problem` (a code below), `evidence` (the tiles by their seconds and what they show), `smallest-fix` (the least change that clears it, and the surface it lives on — `take` for another draw, `panel` for an endpoint the board pins). Prefer them in that order.
+- A blocking finding is a countable one — every one costs the human a paid take. A doubt you cannot name with a code below is no finding.
+- Softness, thin detail and finish are never findings — a cheap pass's are its setting.
+- A still take is a finding only where the ask moved — a shot asked to hold measures the same as one that failed to animate.
+- Never guess at intent, never praise, and never offer an alternative you merely prefer.
+- Whatever `tolerances` accepts is never a finding; whatever `outOfScope` bans is one wherever it shows on a tile.
+- An `accepted` clip is settled — never a target; a boundary against one lands on the other side.
+- Change nothing. No edit to a definition or state, and no konte command that writes: `generate`, `reroll`, `accept`, `dismiss`, `clean`, `review`, `export`.
+- Write in the language the `action` lines are written in; keep the field names and problem codes as spelled here.
 
 ## Severity
 
@@ -64,4 +64,4 @@ Advisories
   smallest-fix: take — draw again
 ```
 
-- **Omit a section that has no entries.**
+- Omit a section that has no entries.

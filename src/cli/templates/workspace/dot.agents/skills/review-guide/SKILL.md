@@ -8,32 +8,32 @@ Every human review runs the same two steps — preview with a handoff, read the 
 
 ## 1. Preview with a handoff
 
-- **`konte preview <scope> --summary "<line>" --note <address>=<text> …`** — the handoff: beside each changed item, a note saying what you changed and why. `--note` (on a shot: `video:shot.02`) repeats and splits on the first `=`.
-- **Write summary and notes in the human's language** — they show in the review UI.
-- **Reopening a closed page → `konte preview <scope>` alone** — it shows the newest handoff until a submitted review has shown it.
-- **Never delete or overwrite a file under `review/<stage>/handoffs/`** — each one records what an earlier round changed and why.
-- **Default → no flag** — preview opens its browser on this machine.
-- **The human says they review on another device → `--tunnel`** — a public https URL on the startup line, with a 4-digit PIN they must enter. Hand them both; it dies with the command.
-- **`konte preview <scope>` opens the browser itself and runs until the human submits or closes it** — run it without extra confirmation, and wait for it to exit. Background it if your harness notifies you when a background command exits; otherwise **never close a turn while it has not exited**. Never open a browser yourself or start a second one while it's up.
-- **Lost a running preview's output → `konte review record list`** — a record newer than the preview is its submit.
-- **An idle, unanswered preview is normal** — don't kill it, and don't `konte job wait` on it.
-- **What the human sees** — per part for `direction`; a flat pool grouped by media kind for `reference`; per shot for `animatic`/`video` (accept toggle + pin/text comments; a pin (`x`/`y` 0-1 of the frame) captures the frame as `[image: <path>]`). The soundtrack is its own target: comments land on `timeline#stem`, timed, never pinned.
-- **The `overlay` is signed off by the shot accepts** — only one changed after every shot was accepted shows on its own, on the reel page as `<stage>:timeline#overlay`.
-- **A video shot badged `Animatic: not made yet` is standing in with the board** — its picture has not been generated, so it has nothing to sign off and its toggle is closed. Comments stay on the shot and survive into the finished take.
+- `konte preview <scope> --summary "<line>" --note <address>=<text> …` — the handoff: beside each changed item, a note saying what you changed and why. `--note` (on a shot: `video:shot.02`) repeats and splits on the first `=`.
+- Write summary and notes in the human's language — they show in the review UI.
+- Reopening a closed page → `konte preview <scope>` alone — it shows the newest handoff until a submitted review has shown it.
+- Never delete or overwrite a file under `review/<stage>/handoffs/` — each one records what an earlier round changed and why.
+- Default → no flag — preview opens its browser on this machine.
+- The human says they review on another device → `--tunnel` — a public https URL on the startup line, with a 4-digit PIN they must enter. Hand them both; it dies with the command.
+- `konte preview <scope>` opens the browser itself and runs until the human submits or closes it — run it without extra confirmation, and wait for it to exit. Background it if your harness notifies you when a background command exits; otherwise never close a turn while it has not exited. Never open a browser yourself or start a second one while it's up.
+- Lost a running preview's output → `konte review record list` — a record newer than the preview is its submit.
+- An idle, unanswered preview is normal — don't kill it, and don't `konte job wait` on it.
+- What the human sees — per part for `direction`; a flat pool grouped by media kind for `reference`; per shot for `animatic`/`video` (accept toggle + pin/text comments; a pin (`x`/`y` 0-1 of the frame) captures the frame as `[image: <path>]`). The soundtrack is its own target: comments land on `timeline#stem`, timed, never pinned.
+- The `overlay` is signed off by the shot accepts — only one changed after every shot was accepted shows on its own, on the reel page as `<stage>:timeline#overlay`.
+- A video shot badged `Animatic: not made yet` is standing in with the board — its picture has not been generated, so it has nothing to sign off and its toggle is closed. Comments stay on the shot and survive into the finished take.
 
 ## 2. Read the record
 
-- **Once `konte preview` exits, read its exit line** — one of `submitted` (followed by the `konte review record show` command that reads it, then any `konte generate` to run), `submitted, but nothing to record (no changes)`, or `not submitted (closed without submitting)`.
-- **`konte review record show <file>`** — every decision the review made, plus any target the submit could not settle and, for `direction`, where the acceptance gate stood at submit.
-- **Read it whole** — never `head`/`tail` it; a cut drops the human's comments silently.
-- **`--contact-sheet` tiles every commented frame into one image** — cells captioned with comment id + shot-local time. Triage only: judge any single comment off its own `[image: <path>]`.
-- **Never restate the record to the human** — they just made those decisions; before acting, say only how you read what it leaves open (below).
+- Once `konte preview` exits, read its exit line — one of `submitted` (followed by the `konte review record show` command that reads it, then any `konte generate` to run), `submitted, but nothing to record (no changes)`, or `not submitted (closed without submitting)`.
+- `konte review record show <file>` — every decision the review made, plus any target the submit could not settle and, for `direction`, where the acceptance gate stood at submit.
+- Read it whole — never `head`/`tail` it; a cut drops the human's comments silently.
+- `--contact-sheet` tiles every commented frame into one image — cells captioned with comment id + shot-local time. Triage only: judge any single comment off its own `[image: <path>]`.
+- Never restate the record to the human — they just made those decisions; before acting, say only how you read what it leaves open (below).
 
 ## What a submitted review means
 
-- **It may be partial** — targets the human didn't touch are unchanged, **not** implicitly accepted; reconcile with `konte status`.
-- **A stage accept signs off the direction** — accepting a shot accepts the `direction:` parts describing it (its own, and the acts bracketing it), shown under Accepted as `direction:… (via <stage>:shot.<id>)`.
-- **There is no "reject"** — a target needing work is one they left **feedback** on and did **not** accept. The comment is the instruction; act on it.
-- **Accepted with a comment on it — read the comment, not the toggle** — a comment asking for a change is the instruction, accept or no; one that only reacts leaves the accept as the verdict; `feedback list` keeps it until the next review.
-- **An `Overall:` comment is feedback on the bare stage (`video`)** — an instruction like any other, standing until the stage's next review; act on it.
-- **A target left undecided with no comment is a deliberate hold** — submit listed it and the human went ahead anyway. Don't regenerate or guess: ask, or carry it forward.
+- It may be partial — targets the human didn't touch are unchanged, not implicitly accepted; reconcile with `konte status`.
+- A stage accept signs off the direction — accepting a shot accepts the `direction:` parts describing it (its own, and the acts bracketing it), shown under Accepted as `direction:… (via <stage>:shot.<id>)`.
+- There is no "reject" — a target needing work is one they left feedback on and did not accept. The comment is the instruction; act on it.
+- Accepted with a comment on it — read the comment, not the toggle — a comment asking for a change is the instruction, accept or no; one that only reacts leaves the accept as the verdict; `feedback list` keeps it until the next review.
+- An `Overall:` comment is feedback on the bare stage (`video`) — an instruction like any other, standing until the stage's next review; act on it.
+- A target left undecided with no comment is a deliberate hold — submit listed it and the human went ahead anyway. Don't regenerate or guess: ask, or carry it forward.

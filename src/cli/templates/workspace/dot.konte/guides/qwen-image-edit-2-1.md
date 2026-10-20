@@ -20,9 +20,9 @@ Start with `image1` alone. Add `image2` and then `image3` for style examples, na
 
 Use in `reference.tsx` for a new pose, view or outfit of a subject an accepted reference already holds. Pass that reference as `image1`; its framing and backdrop are not kept.
 
-- **Name what stays as attributes** — "the same face, hair and line"; an attribute left out drifts.
-- **A new outfit is the change** — name it, and keep the face and hair.
-- **A second subject or a style example goes in `image2`**, its role named with `<image2>`.
+- Name what stays as attributes — "the same face, hair and line"; an attribute left out drifts.
+- A new outfit is the change — name it, and keep the face and hair.
+- A second subject or a style example goes in `image2`, its role named with `<image2>`.
 
 ## Same-Camera Keyframe
 

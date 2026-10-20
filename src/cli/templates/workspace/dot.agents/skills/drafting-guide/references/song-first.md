@@ -4,16 +4,16 @@ The song take is accepted before any shot is written. Fields → `direction-guid
 
 ## 1. Declare the song and the lyrics, no shots
 
-- **Before writing or revising lyrics, read `scenario-guide`'s [song.md](../../scenario-guide/references/song.md)** — finish its lyric pass before review.
-- **`policy.song`, `lyrics`, and `sequence.shots: []`.**
+- Before writing or revising lyrics, read `scenario-guide`'s [song.md](../../scenario-guide/references/song.md) — finish its lyric pass before review.
+- `policy.song`, `lyrics`, and `sequence.shots: []`.
 
 ## 2. Review the brief, policy and lyrics
 
-- **Per `review-guide`, scope `direction`** — the song is refused until they are accepted.
+- Per `review-guide`, scope `direction` — the song is refused until they are accepted.
 
 ## 3. Make the song
 
-- **Generated → a `reference.tsx` asset at `policy.song`'s id, returned under it, its lyrics fed from the direction** — the words laid out per the model's guide; the tempo and meter are your decision, written as the guide asks:
+- Generated → a `reference.tsx` asset at `policy.song`'s id, returned under it, its lyrics fed from the direction — the words laid out per the model's guide; the tempo and meter are your decision, written as the guide asks:
 
 ```tsx
 import { lyricText } from "konte";
@@ -27,16 +27,16 @@ const song = asset(direction.policy.song!, audioYue2, {
 });
 ```
 
-- **Brought → a `file` asset at that id; in parts → `adapters.audioConcat` of them, in order.**
-- **`konte generate reference`, then `konte job wait`** — the wait covers the reading of each take.
-- **A reading failed → `konte song analyze`** — the first run downloads the beat tracker and the vocal separator. It re-reads the current take, keeping every `konte song set` correction on it.
+- Brought → a `file` asset at that id; in parts → `adapters.audioConcat` of them, in order.
+- `konte generate reference`, then `konte job wait` — the wait covers the reading of each take.
+- A reading failed → `konte song analyze` — the first run downloads the beat tracker and the vocal separator. It re-reads the current take, keeping every `konte song set` correction on it.
 
 ## 4. Check the lines, then accept
 
-- **Preview the song and listen with its lines laid over it before accepting** — a line may be placed a line off.
-- **A wrong or unplaced line is the human's to fix on the song's review page** — they drag it to where it is sung.
-- **Settle the song before any animatic spend** — a new take, a same-path file swap or a `konte song set --first-beat` moves the cuts, and every shot they move is then remade.
+- Preview the song and listen with its lines laid over it before accepting — a line may be placed a line off.
+- A wrong or unplaced line is the human's to fix on the song's review page — they drag it to where it is sung.
+- Settle the song before any animatic spend — a new take, a same-path file swap or a `konte song set --first-beat` moves the cuts, and every shot they move is then remade.
 
 ## 5. Write the shots in beats
 
-- **Back to step 7** — `beats` per shot, one section's idea at a time.
+- Back to step 7 — `beats` per shot, one section's idea at a time.

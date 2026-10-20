@@ -2,16 +2,16 @@
 
 ## Built-in catalog
 
-The **bold** payoff role is the climax; `escalation` and the trailing roles (`release` / `after-glow` / `fade` / `call-to-action` / `resolution-act`) are optional.
+The bold payoff role is the climax; `escalation` and the trailing roles (`release` / `after-glow` / `fade` / `call-to-action` / `resolution-act`) are optional.
 
-- `mini-drama` — ordinary → disruption → pressure → **hero** → release
-- `comedy` — setup → violation → escalation → **button** (caps the joke)
-- `satisfying-process` — before → method → rhythm → **completion** → after-glow
-- `mood-piece` — atmosphere → motif → variation → **peak** → fade
-- `transformation` — before → process → **reveal** → after-glow
-- `product-demo` — problem → solution → demonstration → **result** → call-to-action; the demonstration is usually `graphic` shots (the UI itself) with the presenter as their `cutin`
-- `kishotenketsu` — ki → sho → ten → **ketsu** (set up → develop → twist → reconcile); the one shape with no conflict in it, so reach for it when there is no antagonist: the turn comes late and the payoff reframes it rather than winning a fight
-- `three-act` — setup-act → confrontation-act → **climax-act** → resolution-act; named and budgeted for acts (a first act past ~40% is front-loaded, a climax under ~15% is rushed), so it is the one to reach for on a long piece's root ([long-form.md](long-form.md))
+- `mini-drama` — ordinary → disruption → pressure → hero → release
+- `comedy` — setup → violation → escalation → button (caps the joke)
+- `satisfying-process` — before → method → rhythm → completion → after-glow
+- `mood-piece` — atmosphere → motif → variation → peak → fade
+- `transformation` — before → process → reveal → after-glow
+- `product-demo` — problem → solution → demonstration → result → call-to-action; the demonstration is usually `graphic` shots (the UI itself) with the presenter as their `cutin`
+- `kishotenketsu` — ki → sho → ten → ketsu (set up → develop → twist → reconcile); the one shape with no conflict in it, so reach for it when there is no antagonist: the turn comes late and the payoff reframes it rather than winning a fight
+- `three-act` — setup-act → confrontation-act → climax-act → resolution-act; named and budgeted for acts (a first act past ~40% is front-loaded, a climax under ~15% is rushed), so it is the one to reach for on a long piece's root ([long-form.md](long-form.md))
 
 ## Pleasure vocabulary — closed, no custom values
 
@@ -30,6 +30,6 @@ The emotional reward a node aims for — orthogonal to the lens (a `mini-drama` 
 
 ## Custom lenses — a last resort
 
-- **`defineLens({ name, payoff, roles })`** — in `defineDirection`'s `lenses`, referenced by `name` from any node.
-- **Each entry of `roles` declares its `role` and dramatic `fn`** (`ground` / `turn` / `build` / `payoff` / `settle`; omit for a container role).
-- **Keep them rare and shaped like the built-ins.**
+- `defineLens({ name, payoff, roles })` — in `defineDirection`'s `lenses`, referenced by `name` from any node.
+- Each entry of `roles` declares its `role` and dramatic `fn` (`ground` / `turn` / `build` / `payoff` / `settle`; omit for a container role).
+- Keep them rare and shaped like the built-ins.

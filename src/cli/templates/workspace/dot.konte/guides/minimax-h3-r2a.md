@@ -17,35 +17,35 @@ prompt: {
 }
 ```
 
-- **Write the shot as fully as a video take** — the voice, the room and every effect all come out of the described action.
-- **Keep the cuts, drop the camera moves** — a cut changes what is heard, a move rarely does.
+- Write the shot as fully as a video take — the voice, the room and every effect all come out of the described action.
+- Keep the cuts, drop the camera moves — a cut changes what is heard, a move rarely does.
 
 ## Length
 
-- **250–350 English words** — write the room and its small business out as well as the line.
+- 250–350 English words — write the room and its small business out as well as the line.
 
 ## References
 
-- **`audio1` → `<Audio 1>`, `audio2` → `<Audio 2>`.** No `<Video N>`.
+- `audio1` → `<Audio 1>`, `audio2` → `<Audio 2>`. No `<Video N>`.
 
 ## Task Type
 
-- **`reference generation`, `audio reuse`, `audio reference`**, several together where they apply.
+- `reference generation`, `audio reuse`, `audio reference`, several together where they apply.
 
 ## Casting
 
-- **The canvas is heard, though no frame is decoded** — `width`/`height` set the voice as well. Raise both to 256 for a line that still breaks at 128, never to the project canvas.
-- **A take with no reference designs the voice** — the description alone casts it, so it comes back a different person on every seed. Make the character's voice sample this way, as `prompt-guide` describes it, rerolling until the voice is right.
-- **Pass the accepted sample as `audio1`** — on every line the character speaks, marked `weak_reference`.
-- **A line a mouth has to match is made here** — accept the R2A take as the shot's `<Audio>` on the board.
+- The canvas is heard, though no frame is decoded — `width`/`height` set the voice as well. Raise both to 256 for a line that still breaks at 128, never to the project canvas.
+- A take with no reference designs the voice — the description alone casts it, so it comes back a different person on every seed. Make the character's voice sample this way, as `prompt-guide` describes it, rerolling until the voice is right.
+- Pass the accepted sample as `audio1` — on every line the character speaks, marked `weak_reference`.
+- A line a mouth has to match is made here — accept the R2A take as the shot's `<Audio>` on the board.
 
 ## Clip Length
 
-- **Omit `length`** — set it by hand only after hearing a take.
-- **Never give a line the shot's `length`** — a 1.5s line handed five seconds comes back said two or three times over. One rung long stretches the read instead: the same words slower, playing whole on their own and cut mid-word by the `<Audio>` window in the composition.
-- **The rungs are `17k + 5` frames on a 24fps clock** — a value between them rounds up.
+- Omit `length` — set it by hand only after hearing a take.
+- Never give a line the shot's `length` — a 1.5s line handed five seconds comes back said two or three times over. One rung long stretches the read instead: the same words slower, playing whole on their own and cut mid-word by the `<Audio>` window in the composition.
+- The rungs are `17k + 5` frames on a 24fps clock — a value between them rounds up.
 
 ## Cost ladder
 
-- **`steps` is nearly free** — leave it at 20 and spend on references instead.
-- **A line take is picked, not written** — the seed moves a take further than `length` does, and the wording not at all. Take several with `konte reroll --count` and choose by ear.
+- `steps` is nearly free — leave it at 20 and spend on references instead.
+- A line take is picked, not written — the seed moves a take further than `length` does, and the wording not at all. Take several with `konte reroll --count` and choose by ear.

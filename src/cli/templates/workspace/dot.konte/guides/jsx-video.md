@@ -36,10 +36,10 @@ Place it like any clip: `<Video src={race} />`.
 
 ## The clock
 
-- **One `requestAnimationFrame` callback per frame** — advance state by `now - last`, never by a fixed step per callback.
-- **`performance.now`, `Date`, `setTimeout` and `setInterval` run on the frame clock**; `Math.random` and `crypto.getRandomValues` draw from a fixed seed.
-- **Inputs through `<Animate data>`, pictures through `<Image>`** — anything fetched at bake time is outside the definition hash, so changing it never stales the take.
-- **No sound** — the clip is silent; a `<Video>` or `<Audio>` fails the load.
+- One `requestAnimationFrame` callback per frame — advance state by `now - last`, never by a fixed step per callback.
+- `performance.now`, `Date`, `setTimeout` and `setInterval` run on the frame clock; `Math.random` and `crypto.getRandomValues` draw from a fixed seed.
+- Inputs through `<Animate data>`, pictures through `<Image>` — anything fetched at bake time is outside the definition hash, so changing it never stales the take.
+- No sound — the clip is silent; a `<Video>` or `<Audio>` fails the load.
 
 ## Determinism
 

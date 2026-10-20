@@ -9,13 +9,13 @@ A release is one commit that moves `package.json`'s `version`, tagged `v<version
 
 ## Procedure
 
-1. **Start on a green `main`** — clean tree, even with `origin/main`, and the latest `ci` run on `main` succeeded (`gh run list --branch main --workflow ci.yml --limit 1`).
-2. **The version is the human's** — `$ARGUMENTS`, else ask. Nothing else in the repo carries it: the plugin's `version` under `plugin/` is the plugin's own.
-3. **Set `version` in `package.json`.** That is the whole diff.
-4. **Commit with the subject `🎬 Cut v<version>` and no body.** The commit-msg hook refuses any other subject on a commit that moves the version.
-5. **Tag and push together** — `git tag v<version> && git push origin main v<version>`. The workflow refuses a tag that disagrees with `package.json`.
-6. **Wait for `release.yml`** — `gh run watch` on the run `gh run list --workflow release.yml --limit 1` names. The release is created as a draft and flipped to published only after every asset is up.
-7. **Report the release URL.**
+1. Start on a green `main` — clean tree, even with `origin/main`, and the latest `ci` run on `main` succeeded (`gh run list --branch main --workflow ci.yml --limit 1`).
+2. The version is the human's — `$ARGUMENTS`, else ask. Nothing else in the repo carries it: the plugin's `version` under `plugin/` is the plugin's own.
+3. Set `version` in `package.json`. That is the whole diff.
+4. Commit with the subject `🎬 Cut v<version>` and no body. The commit-msg hook refuses any other subject on a commit that moves the version.
+5. Tag and push together — `git tag v<version> && git push origin main v<version>`. The workflow refuses a tag that disagrees with `package.json`.
+6. Wait for `release.yml` — `gh run watch` on the run `gh run list --workflow release.yml --limit 1` names. The release is created as a draft and flipped to published only after every asset is up.
+7. Report the release URL.
 
 The notes are the subjects of the commits since the previous tag that touch what ships — `src/` outside its tests, `plugin/`, the setup scripts, the dependencies.
 

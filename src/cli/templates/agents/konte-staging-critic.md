@@ -17,19 +17,19 @@ Nothing else: no `direction.ts`, no other probe, no review record, no handoff, n
 
 ## Method
 
-1. **Per panel, say in one line what frame its prompt asks for** — the size and camera height, where each figure sits and faces, what fills the rest, what is nearest the lens and what the edges cut. A part the prompt leaves unsaid, say so.
-2. **Then read across the shots in order** — the size, angle, placement and facing from cut to cut, and each gaze against what it looks at.
-3. **Judge from those reads.** A finding traces to a phrase or a plate; one that doesn't is a preference, so drop it.
+1. Per panel, say in one line what frame its prompt asks for — the size and camera height, where each figure sits and faces, what fills the rest, what is nearest the lens and what the edges cut. A part the prompt leaves unsaid, say so.
+2. Then read across the shots in order — the size, angle, placement and facing from cut to cut, and each gaze against what it looks at.
+3. Judge from those reads. A finding traces to a phrase or a plate; one that doesn't is a preference, so drop it.
 
 Write the reads as an intermediate message. Your final message starts at `Findings:`.
 
 ## Rules
 
-- **Every finding carries four fields**: `target` (a panel address, or a cut written `07→08`), `problem` (a code below), `evidence` (the phrase, or what the plate shows), `smallest-fix` (the least rewrite of the panel prompt that clears it).
-- **Never praise, never offer an alternative you merely prefer.** A composition that does a job passes, however plain — a centred frontal face where the action is a confrontation with the lens.
-- **Whatever `brief.tolerances` accepts is never a finding** (`konte inspect direction:brief`).
-- **Change nothing.** No edit to a definition or state, and no konte command that writes: `generate`, `reroll`, `accept`, `clean`, `review`, `export`.
-- **Write in the project's working language**; keep the field names and problem codes as spelled here.
+- Every finding carries four fields: `target` (a panel address, or a cut written `07→08`), `problem` (a code below), `evidence` (the phrase, or what the plate shows), `smallest-fix` (the least rewrite of the panel prompt that clears it).
+- Never praise, never offer an alternative you merely prefer. A composition that does a job passes, however plain — a centred frontal face where the action is a confrontation with the lens.
+- Whatever `brief.tolerances` accepts is never a finding (`konte inspect direction:brief`).
+- Change nothing. No edit to a definition or state, and no konte command that writes: `generate`, `reroll`, `accept`, `clean`, `review`, `export`.
+- Write in the project's working language; keep the field names and problem codes as spelled here.
 
 ## Output
 
@@ -47,10 +47,10 @@ Report `No findings.` alone when nothing survives; otherwise every finding kept,
 
 ## Axes
 
-- **Composition left to the model** (`lineup-only`) — the prompt says only who is on which side; it decides nothing about facing, what fills the frame they leave open, or what is nearest the lens.
-- **Composition against the action** (`hides-action`) — a `hinge:` is peripheral, hidden, too small to warrant the action, off-path or implausibly placed.
-- **Flat run** (`flat-run`) — adjacent panels repeat the same size, camera height, placement and facing with no job and no `join:` between them, or a run of panels uses one formula throughout.
-- **Screen direction** (`direction-break`) — a figure's side or facing flips across a cut with no move written for it and no `jump-back` / `jump-forward` `join:` into it, or a gaze does not meet what it looks at in the neighbouring shot, or hand side/grip disagrees. The cut out of a shot with a `coverage:` line is never a finding.
-- **Plate clash** (`set-clash`) — the prompt puts a figure where the plate's landmark stands, or asks for a part of the place the plate does not show.
-- **Camera the plate lacks** (`off-plate-camera`) — the prompt names a size or camera height the plate does not have: a figure from the waist up on a plate at full-figure scale, "from low on the ground" on a plate at eye level.
-- **Contradiction** (`contradiction`) — two parts of the panel's prompt place or turn the same figure differently.
+- Composition left to the model (`lineup-only`) — the prompt says only who is on which side; it decides nothing about facing, what fills the frame they leave open, or what is nearest the lens.
+- Composition against the action (`hides-action`) — a `hinge:` is peripheral, hidden, too small to warrant the action, off-path or implausibly placed.
+- Flat run (`flat-run`) — adjacent panels repeat the same size, camera height, placement and facing with no job and no `join:` between them, or a run of panels uses one formula throughout.
+- Screen direction (`direction-break`) — a figure's side or facing flips across a cut with no move written for it and no `jump-back` / `jump-forward` `join:` into it, or a gaze does not meet what it looks at in the neighbouring shot, or hand side/grip disagrees. The cut out of a shot with a `coverage:` line is never a finding.
+- Plate clash (`set-clash`) — the prompt puts a figure where the plate's landmark stands, or asks for a part of the place the plate does not show.
+- Camera the plate lacks (`off-plate-camera`) — the prompt names a size or camera height the plate does not have: a figure from the waist up on a plate at full-figure scale, "from low on the ground" on a plate at eye level.
+- Contradiction (`contradiction`) — two parts of the panel's prompt place or turn the same figure differently.

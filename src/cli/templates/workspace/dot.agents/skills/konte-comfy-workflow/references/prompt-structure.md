@@ -37,27 +37,27 @@ prompt: {
 },
 ```
 
-- **`structure` goes on a `"prompt"` input only**.
-- **`join` is required.**
-- **Fields render in declaration order**; a field with no value is left out, `join` between the rest.
-- **`render`'s parameter type is the caller's type for that field** — annotate it; an unannotated parameter is `never`. An array or tuple in it is `readonly`, so a value kept `as const` passes.
-- **`render: () => "…"` is a constant section** — always written, never passed.
-- **`required: true`** — the caller cannot omit it.
-- **`description`** — printed under the input by `adapter show`.
-- **`formatCutTime(seconds)`** — `mm:ss.mmm`, rounded to the millisecond; throws on a negative or non-finite value.
+- `structure` goes on a `"prompt"` input only.
+- `join` is required.
+- Fields render in declaration order; a field with no value is left out, `join` between the rest.
+- `render`'s parameter type is the caller's type for that field — annotate it; an unannotated parameter is `never`. An array or tuple in it is `readonly`, so a value kept `as const` passes.
+- `render: () => "…"` is a constant section — always written, never passed.
+- `required: true` — the caller cannot omit it.
+- `description` — printed under the input by `adapter show`.
+- `formatCutTime(seconds)` — `mm:ss.mmm`, rounded to the millisecond; throws on a negative or non-finite value.
 
 ## What to structure
 
-- **Structure what the grammar fixes and an author can get wrong** — section headers, their order, brackets, `+` joins, `[Shot N]` numbering, the cut-time format.
-- **Type a closed set as a union or tuple** — task types, a shot count (`[string] | [string, Cut]`). The validator check it replaces can go.
-- **Leave prose as `string`** — reference tags (`<Picture N>`), dialogue marks (`<d>…</d>`), descriptions. Those stay with `promptReferenceTags`, `spokenTextPattern` and the model's validator.
-- **A label another field cites stays written by the author** — `<Subject 1>` is written into its own line, never numbered by `render`, so adding or reordering a line keeps every citation.
-- **Two shapes of one prompt** (H3 R2A with or without a reference) — declare every field of both, none `required` but the shared ones, and let a validator refuse a mix.
+- Structure what the grammar fixes and an author can get wrong — section headers, their order, brackets, `+` joins, `[Shot N]` numbering, the cut-time format.
+- Type a closed set as a union or tuple — task types, a shot count (`[string] | [string, Cut]`). The validator check it replaces can go.
+- Leave prose as `string` — reference tags (`<Picture N>`), dialogue marks (`<d>…</d>`), descriptions. Those stay with `promptReferenceTags`, `spokenTextPattern` and the model's validator.
+- A label another field cites stays written by the author — `<Subject 1>` is written into its own line, never numbered by `render`, so adding or reordering a line keeps every citation.
+- Two shapes of one prompt (H3 R2A with or without a reference) — declare every field of both, none `required` but the shared ones, and let a validator refuse a mix.
 
 ## Pitfalls
 
-- **A `render` parameter with a default value** (`(x = …) => …`) is read as a constant at run time — never give one a default.
-- **`render` throws** → the load fails with `INVALID_ADAPTER_INPUT`, naming the asset and field.
+- A `render` parameter with a default value (`(x = …) => …`) is read as a constant at run time — never give one a default.
+- `render` throws → the load fails with `INVALID_ADAPTER_INPUT`, naming the asset and field.
 
 ## Verify
 

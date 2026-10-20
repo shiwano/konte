@@ -18,8 +18,8 @@ Use `falNanoBanana2Edit` to change existing frame(s) instead of generating from 
 
 ## Tips
 
-- **Multilingual text** — renders Japanese, Chinese, Korean, and Arabic text directly; include the desired text in the prompt.
-- **Style separation** — put persistent style ("Studio Ghibli watercolor") in `systemPrompt`, keep the main prompt on subject + composition.
+- Multilingual text — renders Japanese, Chinese, Korean, and Arabic text directly; include the desired text in the prompt.
+- Style separation — put persistent style ("Studio Ghibli watercolor") in `systemPrompt`, keep the main prompt on subject + composition.
 
 ## Avoid
 

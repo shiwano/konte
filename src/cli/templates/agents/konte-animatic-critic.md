@@ -18,21 +18,21 @@ Nothing else: no stage file, no prompt (the plate pass reads only the lines it n
 
 ## Method
 
-1. **Viewer read** — walk the sheet once, in order, and say panel by panel what you take to have happened: who is in frame, where they stand, what they are doing, what changed since the panel before. One line per panel; on a shot with two panels, what the pair makes you expect to move between them. Then, per line on the audio timeline, who you take to be speaking and over which picture. Never close a gap with what `direction.ts` intends; a gap you had to close is the finding.
-2. **Compare against the promise** — now read each shot's `action`, `lineup`, `lineupTo`, `passing` and `script` against your lines for it. A misread action, invisible change, misplaced person or line is a finding with a panel.
-3. **Judge from that read** — every finding traces to a specific panel or cut in it. A finding with no counterpart there is a preference, so drop it.
+1. Viewer read — walk the sheet once, in order, and say panel by panel what you take to have happened: who is in frame, where they stand, what they are doing, what changed since the panel before. One line per panel; on a shot with two panels, what the pair makes you expect to move between them. Then, per line on the audio timeline, who you take to be speaking and over which picture. Never close a gap with what `direction.ts` intends; a gap you had to close is the finding.
+2. Compare against the promise — now read each shot's `action`, `lineup`, `lineupTo`, `passing` and `script` against your lines for it. A misread action, invisible change, misplaced person or line is a finding with a panel.
+3. Judge from that read — every finding traces to a specific panel or cut in it. A finding with no counterpart there is a preference, so drop it.
 
 Write the Viewer read as an intermediate message. Your final message starts at `Verdict:`.
 
 ## Rules
 
-- **Every finding carries four fields**: `target` (a shot id, a panel address, or a cut written `03→04`), `problem` (a code below), `evidence` (the cell and what you read in it), `smallest-fix` (the least change that clears it, and the surface it lives on — `panel` for a restaged or redrawn keyframe, `plate` for a size, a camera height or angle, or a stretch of the set the panel's setup does not give it, `window` for a `<Panel start>`, `cue` for an `<Audio start>`, `direction` for a shot). Prefer them in that order; name `direction` only when no panel could carry the shot.
-- **Never guess at intent, never praise**, and never offer an alternative you merely prefer.
-- **A choice that reads as doing a job passes**, however unconventional — a held frame that loads the next shot, a reveal by the witness, a match cut.
-- **Whatever `brief.tolerances` accepts is never a finding**; whatever `brief.outOfScope` bans is one wherever it shows on a panel.
-- **What the human accepted is settled** — an accepted panel unchanged since is never a finding's target; when settled and unsettled panels clash, the finding lands on the unsettled side.
-- **Change nothing.** No edit to a definition or state, and no konte command that writes: `generate`, `reroll`, `accept`, `clean`, `review`, `export`.
-- **Write in the project's working language** (the language `direction.ts` is written in); keep the field names and problem codes as spelled here.
+- Every finding carries four fields: `target` (a shot id, a panel address, or a cut written `03→04`), `problem` (a code below), `evidence` (the cell and what you read in it), `smallest-fix` (the least change that clears it, and the surface it lives on — `panel` for a restaged or redrawn keyframe, `plate` for a size, a camera height or angle, or a stretch of the set the panel's setup does not give it, `window` for a `<Panel start>`, `cue` for an `<Audio start>`, `direction` for a shot). Prefer them in that order; name `direction` only when no panel could carry the shot.
+- Never guess at intent, never praise, and never offer an alternative you merely prefer.
+- A choice that reads as doing a job passes, however unconventional — a held frame that loads the next shot, a reveal by the witness, a match cut.
+- Whatever `brief.tolerances` accepts is never a finding; whatever `brief.outOfScope` bans is one wherever it shows on a panel.
+- What the human accepted is settled — an accepted panel unchanged since is never a finding's target; when settled and unsettled panels clash, the finding lands on the unsettled side.
+- Change nothing. No edit to a definition or state, and no konte command that writes: `generate`, `reroll`, `accept`, `clean`, `review`, `export`.
+- Write in the project's working language (the language `direction.ts` is written in); keep the field names and problem codes as spelled here.
 
 ## Severity
 
@@ -61,8 +61,8 @@ Advisories
 
 A plate fix is made on the plate the panel stands on, never in its prompt — staging-guide's plates.md.
 
-- **Omit a section that has no entries.**
-- **The closing line stands only where a fix names `plate`.**
+- Omit a section that has no entries.
+- The closing line stands only where a fix names `plate`.
 
 ## Plate pass
 
@@ -72,15 +72,15 @@ Called with `plates`, before any shot stands on them. Read `konte probe contact-
 
 ## Axes
 
-- **Coverage** — a `coverage: true` shot is boarded on its opening frame alone; a second panel's absence and the cut out of it are never findings. Does its `blocking` carry the whole flow, and its `camera` the path from the opening?
-- **Hook** — does the first panel put something on screen a viewer wants answered?
-- **Shot** — does a shot's only panel show the moment its `action` is read by — a change landed, a continuing action or a state as itself? Where a `continuous` join runs into the shot, that panel is the seam and shows the loaded instant instead. On a two-panel shot, does the first show the loaded instant — the instant before the change, or the change under way where it would not finish inside the shot at real-world speed — and can you draw the one path between the pair? A pair you could read as a jump cut will morph.
-- **Who and where** — does the panel hold everyone the shot's `lineup` names, in that order, and is the mover the frame's most salient element?
-- **Cut** — on each pair of adjacent panels: does size or angle change, does the subject's screen direction hold, does the space still assemble? A pair that changes nothing is a jump; a pair that swaps a subject's side is an axis break.
-- **Continuity** — is a recurring character, costume, prop or set the same thing from panel to panel, and does the world's ledger hold (what broke stays broken, what was picked up is in hand)?
-- **Look** — does one panel's palette, register or scale break from the board?
-- **Lines** — does each line play over the picture of the shot that carries it, on the speaker the `script` names, inside that shot's window?
-- **Ending** — does the last panel carry `brief.audience`'s takeaway on its own?
+- Coverage — a `coverage: true` shot is boarded on its opening frame alone; a second panel's absence and the cut out of it are never findings. Does its `blocking` carry the whole flow, and its `camera` the path from the opening?
+- Hook — does the first panel put something on screen a viewer wants answered?
+- Shot — does a shot's only panel show the moment its `action` is read by — a change landed, a continuing action or a state as itself? Where a `continuous` join runs into the shot, that panel is the seam and shows the loaded instant instead. On a two-panel shot, does the first show the loaded instant — the instant before the change, or the change under way where it would not finish inside the shot at real-world speed — and can you draw the one path between the pair? A pair you could read as a jump cut will morph.
+- Who and where — does the panel hold everyone the shot's `lineup` names, in that order, and is the mover the frame's most salient element?
+- Cut — on each pair of adjacent panels: does size or angle change, does the subject's screen direction hold, does the space still assemble? A pair that changes nothing is a jump; a pair that swaps a subject's side is an axis break.
+- Continuity — is a recurring character, costume, prop or set the same thing from panel to panel, and does the world's ledger hold (what broke stays broken, what was picked up is in hand)?
+- Look — does one panel's palette, register or scale break from the board?
+- Lines — does each line play over the picture of the shot that carries it, on the speaker the `script` names, inside that shot's window?
+- Ending — does the last panel carry `brief.audience`'s takeaway on its own?
 
 Problems: `weak-hook` (nothing to want answered in the first panel), `misread-shot` (another subject/event than `action`, or a passer at an endpoint; an opening's instant before the change is exempt), `invisible-change` (the shot's change cannot be seen: its only panel does not show it landed — starting, where a `continuous` join runs into the shot — or, on a two-panel shot, no panel shows it starting or landing), `absent-subject` (a panel does not hold someone its endpoint `lineup` / `lineupTo` or `action` needs; a `passing` figure is absent at both endpoints), `lineup-misplaced` (the frame holds them in another order than the `lineup`), `jump-cut` (an adjacent pair changing neither size nor angle, with no job and no `join` declared between them), `axis-break` (a pair swapping a subject's side or direction), `continuity-drift` (a recurring thing that is not the same thing across panels, changed possession or holding hand, or a ledger reset — never across a `jump-back` / `jump-forward`), `look-drift` (a panel whose palette, register or scale breaks from the board), `wrong-speaker` (a line playing over a picture that does not carry its speaker or its shot), `line-misplaced` (a line outside its shot's window, or on the wrong instant of it), `flat-ending` (a last panel that carries nothing), `thin-coverage-note` (a coverage shot's `blocking` / `camera` stops short of the shot).
 

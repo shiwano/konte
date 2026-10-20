@@ -1,6 +1,6 @@
 # ACE-Step 1.5 XL Turbo
 
-ACE-Step splits the request across **two fields**: `tags` describes the _music_ (genre, mood, instrumentation), `lyrics` carries the _sung words_ with structure tags.
+ACE-Step splits the request across two fields: `tags` describes the _music_ (genre, mood, instrumentation), `lyrics` carries the _sung words_ with structure tags.
 
 ## Prompt Shape
 
@@ -26,12 +26,12 @@ Shout it out, I'm alive tonight
 ```
 
 - Common tags: `[Intro]`, `[Verse]`, `[Pre-Chorus]`, `[Chorus]`, `[Hook]`, `[Bridge]`, `[Outro]`. Separate lines with `\n`.
-- **Instrumental?** Leave `lyrics` empty — don't write "instrumental" into `tags`.
+- Instrumental? Leave `lyrics` empty — don't write "instrumental" into `tags`.
 
 ## Length Heuristic
 
-- **`tags`: a tight ~6–12 descriptors** — density beats length.
-- **Lyric lines short and singable** (~4–8 words).
+- `tags`: a tight ~6–12 descriptors — density beats length.
+- Lyric lines short and singable (~4–8 words).
 
 ## Duration
 
@@ -39,7 +39,7 @@ Shout it out, I'm alive tonight
 
 ## Negative Prompt
 
-- **None.** Steer by editing `tags`, not by listing things to avoid. A custom adapter may differ — check its schema.
+- None. Steer by editing `tags`, not by listing things to avoid. A custom adapter may differ — check its schema.
 
 ## Tips
 
