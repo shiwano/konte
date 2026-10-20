@@ -122,6 +122,13 @@ export const ReviewRecordSchema = z.object({
   // composition and audio stem via the shot (`video:shot.<id>`), and each audio source via its stem
   // (`shot.<id>#stem` / `timeline#stem`) — e.g. a BGM bed under `timeline#stem`.
   cascadeAccepted: z.array(z.object({ address: z.string(), via: z.string() })).optional(),
+  // Takes this review accepted that an earlier accept or `konte dismiss` had dismissed, with the
+  // accept each one displaced.
+  overturned: z
+    .array(
+      z.object({ address: z.string(), variantId: z.string(), displaced: z.string().optional() }),
+    )
+    .optional(),
   // Accepted takes this review kept against a newer upstream (`keptInputs`).
   kept: z.array(z.string()).optional(),
   // Accepted takes the reviewer decided to regenerate against a newer upstream.
@@ -537,6 +544,14 @@ export function formatReviewRecord(
       lines.push("");
       lines.push("Accept withdrawn:");
       for (const addr of unaccepted) lines.push(`  ${addr}`);
+    }
+  }
+
+  if ((record.overturned ?? []).length > 0) {
+    lines.push("");
+    lines.push("Overturned an earlier dismissal:");
+    for (const { address, variantId, displaced } of record.overturned ?? []) {
+      lines.push(`  ${address} ${variantId}${displaced ? ` (displacing ${displaced})` : ""}`);
     }
   }
 

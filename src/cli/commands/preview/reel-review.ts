@@ -117,6 +117,7 @@ import {
   withShotLocalTime,
   applyFeedbackMutations,
   storeOverallComment,
+  noteOverturned,
 } from "./review-shared.js";
 import type { ReportOutcome } from "./review-outcome.js";
 import { createAssetInfoBuilder } from "./asset-info.js";
@@ -329,6 +330,7 @@ export async function acceptDisplayedStemSources(
   // unwritten `blocking`/`camera` — so the panel would be signed off sideways, past the gate its own
   // accept has to clear.
   opts: { video: StageDefinition; animatic?: AnimaticDefinition | null },
+  overturned?: NonNullable<ReviewRecord["overturned"]>,
 ): Promise<string[]> {
   const accepted: string[] = [];
   for (const depPath of sourcePaths) {
@@ -341,6 +343,7 @@ export async function acceptDisplayedStemSources(
       continue;
     }
     {
+      if (overturned) noteOverturned(manager, srcAddr, sel, overturned);
       manager.setAccepted(srcAddr, sel, { dismiss: candidates[srcAddr] ?? [] });
       accepted.push(srcAddr);
       // forceAllowAudio: the source is audio being signed off via the stem, so its own audio
@@ -1446,6 +1449,7 @@ export async function handleReelSubmit(
   // Audio sources accepted only as a side effect of a stem accept, tagged with the stem they were
   // signed off through — persisted on the record so `review record show` can surface them.
   const cascadeAccepted: Array<{ address: string; via: string }> = [];
+  const overturned: NonNullable<ReviewRecord["overturned"]> = [];
   const unacceptedAssets: string[] = [];
   const jobManager = new JobManager(videoRoot);
 
@@ -1492,6 +1496,7 @@ export async function handleReelSubmit(
       for (const { address, variantId, dismiss } of toAccept) {
         try {
           const previousAccepted = mgr.getAcceptedVariant(address);
+          noteOverturned(mgr, address, variantId, overturned);
           // Always (re)accept: re-accepting the same variant is how the reviewer settles the rivals
           // they chose against. Cascade/report only when the accepted id actually changed.
           mgr.setAccepted(address, variantId, { dismiss });
@@ -1542,6 +1547,7 @@ export async function handleReelSubmit(
             displayed,
             candidates,
             { video, animatic },
+            overturned,
           );
           acceptedAssets.push(...sources);
           cascadeAccepted.push(...sources.map((address) => ({ address, via: via(address) })));
@@ -1768,6 +1774,7 @@ export async function handleReelSubmit(
             displayed,
             candidates,
             { video, animatic },
+            overturned,
           );
           acceptedAssets.push(...sources);
           cascadeAccepted.push(
@@ -1866,6 +1873,7 @@ export async function handleReelSubmit(
             const sel = displayed[ref];
             if (!sel) continue;
             const previousRef = mgr.getAcceptedVariant(ref);
+            noteOverturned(mgr, ref, sel, overturned);
             mgr.setAccepted(ref, sel, { dismiss: candidates[ref] ?? [] });
             if (previousRef === sel) continue;
             acceptedAssets.push(ref);
@@ -1977,6 +1985,7 @@ export async function handleReelSubmit(
   }
 
   if (cascadeAccepted.length > 0) record.cascadeAccepted = cascadeAccepted;
+  if (overturned.length > 0) record.overturned = overturned;
 
   // The materialized-leaf content baseline (each composition / stem) — the state this review
   // concluded in, so a refused handoff note can name a later edit. Computed here, after the

@@ -1476,3 +1476,23 @@ describe("formatReviewRecord (keep or regenerate)", () => {
     expect(hasFeedback({ ...record, kept: [] })).toBe(true);
   });
 });
+
+describe("formatReviewRecord (overturned dismissals)", () => {
+  const record: ReviewRecord = {
+    mode: "video-preview",
+    stage: "video",
+    createdAt: "2026-05-16T12:00:00.000Z",
+    context: { shots: [] },
+    decisions: {},
+    overturned: [
+      { address: "video:shot.05.motion", variantId: "v-old", displaced: "v-new" },
+      { address: "video:shot.06.motion", variantId: "v-back" },
+    ],
+  };
+
+  it("names each take accepted back and the accept it displaced", () => {
+    expect(formatReviewRecord(record)).toContain(
+      "Overturned an earlier dismissal:\n  video:shot.05.motion v-old (displacing v-new)\n  video:shot.06.motion v-back",
+    );
+  });
+});

@@ -758,3 +758,56 @@ describe("handleReelSubmit — the overlay under the shot accepts", () => {
     expect(record.overlayDecision).toBe("accepted");
   });
 });
+
+describe("handleReelSubmit — an accept over a dismissal", () => {
+  // Shot 01 holds two takes: the newer accepted, the older dismissed by that accept.
+  async function dismissedOlder(): Promise<{ videoRoot: string; older: string; newer: string }> {
+    const { videoRoot, variantId: older } = await project();
+    const sm = await StateManager.load(videoRoot);
+    const newer = sm.reserveVariantId(SHOT_01_MOTION);
+    sm.getAssetState(SHOT_01_MOTION).variants![newer]!.file = "assets/motion-new.mp4";
+    sm.setAccepted(SHOT_01_MOTION, newer, { dismiss: [older] });
+    await sm.save();
+    return { videoRoot, older, newer };
+  }
+
+  it("records the dismissed take it accepted and the accept it displaced", async () => {
+    const { videoRoot, older, newer } = await dismissedOlder();
+
+    const { payload } = await submit(videoRoot, {
+      stage: "video",
+      decisions: { "01": "accepted" },
+      displayedVariants: { [SHOT_01_MOTION]: older },
+      displayedStandInShotIds: [],
+    });
+
+    expect((await StateManager.load(videoRoot)).getAcceptedVariant(SHOT_01_MOTION)).toBe(older);
+    const record = JSON.parse(await fs.readFile(payload.filePath as string, "utf-8")) as {
+      overturned?: unknown[];
+    };
+    expect(record.overturned).toEqual([
+      { address: SHOT_01_MOTION, variantId: older, displaced: newer },
+    ]);
+  });
+
+  it("records nothing when the accept moves to an undecided take", async () => {
+    const { videoRoot, variantId: older } = await project();
+    const sm = await StateManager.load(videoRoot);
+    sm.setAccepted(SHOT_01_MOTION, older);
+    const newer = sm.reserveVariantId(SHOT_01_MOTION);
+    sm.getAssetState(SHOT_01_MOTION).variants![newer]!.file = "assets/motion-new.mp4";
+    await sm.save();
+
+    const { payload } = await submit(videoRoot, {
+      stage: "video",
+      decisions: { "01": "accepted" },
+      displayedVariants: { [SHOT_01_MOTION]: newer },
+      displayedStandInShotIds: [],
+    });
+
+    const record = JSON.parse(await fs.readFile(payload.filePath as string, "utf-8")) as {
+      overturned?: unknown[];
+    };
+    expect(record.overturned).toBeUndefined();
+  });
+});

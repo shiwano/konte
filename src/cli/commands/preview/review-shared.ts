@@ -74,6 +74,18 @@ import { inferMediaType } from "../../../core/media-type.js";
 // video root — not the workspace. That puts the workspace's credentials structurally out of reach.
 // A handler that serves a file's *contents* uses the symlink-aware `isWithinRootReal` instead:
 // a link under assets/ is lexically inside the video and still reads whatever it points at.
+// Read before the accept lands: `setAccepted` overwrites the dismissal it records.
+export function noteOverturned(
+  mgr: StateManager,
+  address: string,
+  variantId: string,
+  overturned: NonNullable<ReviewRecord["overturned"]>,
+): void {
+  if (mgr.tryGetAssetState(address)?.variants?.[variantId]?.status !== "dismissed") return;
+  const displaced = mgr.getAcceptedVariant(address);
+  overturned.push({ address, variantId, ...(displaced ? { displaced } : {}) });
+}
+
 export function isWithinVideoRoot(filePath: string, videoRoot: string): boolean {
   return isWithinRoot(filePath, videoRoot);
 }
@@ -844,6 +856,7 @@ type AddressReviewOutcome = {
   // Upstream deps signed off as a side effect of an accept, tagged with the address they rode in
   // on — persisted so `review record show` names them.
   cascadeAccepted: Array<{ address: string; via: string }>;
+  overturned: NonNullable<ReviewRecord["overturned"]>;
   // The verdicts that did NOT land, reported back so the page holds itself open instead of closing
   // on a success that state does not back.
   skippedDecisions: NonNullable<ReviewRecord["skippedDecisions"]>;
@@ -880,6 +893,7 @@ export async function applyAddressReview(
 ): Promise<AddressReviewOutcome> {
   const acceptedAssets: string[] = [];
   const cascadeAccepted: AddressReviewOutcome["cascadeAccepted"] = [];
+  const overturned: AddressReviewOutcome["overturned"] = [];
   const skippedDecisions: AddressReviewOutcome["skippedDecisions"] = [];
   // The accepts that actually landed. A decision the loop below drops — a made-up address, a
   // variant pruned since the page loaded, a target whose review prerequisites are unwritten —
@@ -949,6 +963,7 @@ export async function applyAddressReview(
               `Cannot accept ${override.address}`,
             );
             const previousAccepted = mgr.getAcceptedVariant(override.address);
+            noteOverturned(mgr, override.address, override.variantId, overturned);
             // Always (re)accept: it settles the rivals the reviewer chose against; cascade/report
             // only when the accepted id actually changed.
             mgr.setAccepted(override.address, override.variantId, {
@@ -1017,7 +1032,15 @@ export async function applyAddressReview(
     });
   });
 
-  return { acceptedAssets, cascadeAccepted, skippedDecisions, decisions, kept, regenerate };
+  return {
+    acceptedAssets,
+    cascadeAccepted,
+    overturned,
+    skippedDecisions,
+    decisions,
+    kept,
+    regenerate,
+  };
 }
 
 /**

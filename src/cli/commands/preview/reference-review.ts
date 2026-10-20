@@ -308,6 +308,7 @@ export async function handleReferenceSubmit(
     context: { shots: [], timeline },
     decisions: outcome.decisions,
     ...(outcome.cascadeAccepted.length > 0 ? { cascadeAccepted: outcome.cascadeAccepted } : {}),
+    ...(outcome.overturned.length > 0 ? { overturned: outcome.overturned } : {}),
     ...(outcome.kept.length > 0 ? { kept: outcome.kept } : {}),
     ...(outcome.regenerate.length > 0 ? { regenerate: outcome.regenerate } : {}),
     ...(outcome.skippedDecisions.length > 0 ? { skippedDecisions: outcome.skippedDecisions } : {}),
