@@ -21,9 +21,9 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 ### The brief
 
 - Keep it short — only what stays true across the piece. Pacing goes in as _intent_ (cut rhythm, where it builds), not a per-shot second count.
-- `hook` is the first two seconds as one sentence — what the opening frame puts on screen that stops a scroll: the collision, the prop that will fire, a face wanting something. The first shot's `action` realizes it — a ground role establishes who and where, never calm before anything happens.
+- `hook` is the first two seconds as one sentence — what the opening frame puts on screen to stop a scroll: the collision, the prop that will fire, a face wanting something. The first shot's `action` realizes it — a ground role establishes who and where, never calm before anything happens.
 - `look` names the medium first — live action, anime, 3DCG, stop motion — then palette, framing, cut rhythm.
-- `tolerances` — a flaw the whole piece will carry (a brand mark that wanders into frame, unreadable fine text), agreed like any other field. "This take is fine, move on" is an accept.
+- `tolerances` — a flaw the whole piece will carry (a brand mark wandering into frame, unreadable fine text), agreed with the human. "This take is fine, move on" is an accept.
 
 ### Shape
 
@@ -42,24 +42,23 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 
 ### The arc
 
-- The lens fixes the role order (its payoff role is the climax); `pleasure` names the feeling it aims for — pick each from the catalogs in [lenses.md](references/lenses.md); `pleasure` is a closed vocabulary, a custom `defineLens` a last resort (rules there too).
+- The lens fixes the role order (its payoff role is the climax); `pleasure` names the feeling it aims for — pick each from [lenses.md](references/lenses.md).
 - A building role must actually repeat — `rhythm` and `process` each need at least two consecutive, varied shots (a copy is not variation); `comedy`'s optional `escalation` escalates across shots rather than holding one.
-- Write the hinge roles as a change, and earn the climax — on a turn (`disruption`/`violation`/`solution` — the inciting incident at this scale) and the payoff, the `action` must state a change of state: name the two concrete, visible states it moves between ("the calm sill; the ball rolls in").
+- A hinge's `action` states a change — on a turn (`disruption`/`violation`/`solution`, the inciting incident at this scale) and the payoff, name the two concrete, visible states it moves between ("the calm sill; the ball rolls in").
 
 ### Writing the shots
 
 - Write an action's relied-on landmark or prop with its exact roster `name`.
-
-- One action per shot — one sentence, one mover, one motion — a second sentence, a second mover, or a then-pivot is the next shot's `action`. Test: if it splits into two sentences that each still stage something, it's two shots. A role is a phase, not a shot count — expect the shot list to outnumber the lens's roles. A coverage shot is the one exception.
-- A gag or turn is a shot chain, never one shot — trigger → reaction (→ collateral): the thing that moves (the rolling tureen) gets its own shot before the subject responds, and the reaction shot is often the stronger one. Expand the chain as you draft, never as a later split of one row.
-- A key action is a chain too — never one take — anticipation, the motion elided in the cut, the result landed; this and the other idioms are [cut-idioms.md](references/cut-idioms.md).
+- One action per shot — one sentence, one mover, one motion — a second sentence, a second mover, or a then-pivot is the next shot's `action`. If it splits into two sentences that each still stage something, it's two shots. A role is a phase — expect more shots than the lens has roles. A coverage shot is the one exception.
+- A gag or turn is a shot chain — trigger → reaction (→ collateral): the thing that moves (the rolling tureen) gets its own shot before the subject responds, and the reaction shot is often the stronger one. Expand the chain as you draft, never as a later split of one row.
+- A key action is a chain too — anticipation, the motion elided in the cut, the result landed; this and the other idioms → [cut-idioms.md](references/cut-idioms.md).
 - Hold the take where a cut would spend the moment — a beat living on uncut time (an awkward silence, a wait for an answer, a build), or an event whose real-time run in one frame is the show: one `setup`, `join: "continuous"` on each shot after the first. Anywhere else, cut.
 - Hand the cuts to the model where the exchange is the show — an unbroken run of blows, dodges and counters whose momentum outweighs each angle: one `coverage: true` shot, `action` beat after beat, `setup` / `lineup` its opening frame. Split it by setup only where an angle must land exactly.
-- Keep one ledger of the world's state — where each character is, what they hold, what broke: damage never resets. A state may change in the cut — the next shot's opening just has to make it read (an aftermath `insert`, a sound, the prop now in hand); only a continuous-space stretch owes each transit a shot of its own.
-- Constructive space is the default — build the space in the viewer's head from fragments (`medium`/`close`/`insert` glued by eyelines, screen direction, and recurring anchors): geography never shown whole is never asked to match, the grammar generation holds best.
+- Keep one ledger of the world's state — where each character is, what they hold, what broke: damage never resets. A state may change in the cut if the next shot's opening makes it read (an aftermath `insert`, a sound, the prop now in hand); only a continuous-space stretch owes each transit a shot of its own.
+- Constructive space is the default — build the space in the viewer's head from fragments (`medium`/`close`/`insert` glued by eyelines, screen direction and recurring anchors): geography never shown whole is never asked to match, which generation holds best.
 - Continuity is the marked spend — one connected space, cause and effect crossing frames, every transit on screen; choose it only when the physical path _is_ the content (a chase, the tureen rolling for the rail), since it binds backgrounds and direction across every cut it spans.
-- A montage (`escalation`, `rhythm`, `pressure`) juxtaposes parallel instances of one idea — the Kuleshov effect supplies the link (three unconnected shots of havoc read as "chaos grows"); an invented physical link is contrived and the hardest thing to stage. It still varies and ascends to the peak, and the ledger holds through it.
-- The direction check covers structure, not the frame — on-screen legibility is yours: a _visible_ `pressure` (a queue, a timer), a payoff you read at a glance, a shot's movement legible on its own.
+- A montage (`escalation`, `rhythm`, `pressure`) juxtaposes parallel instances of one idea — the juxtaposition is the link (three unconnected shots of havoc read as "chaos grows"); never invent a physical link, the hardest thing to stage. It still varies and ascends to the peak, and the ledger holds through it.
+- The direction check covers structure only — on-screen legibility is yours: a _visible_ `pressure` (a queue, a timer), a payoff you read at a glance, a shot's movement legible on its own.
 
 ## Clearing direction findings
 
@@ -72,9 +71,9 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 ## Pacing — rhythm, not uniform length
 
 - A shot's span is the window the render cuts the take to — use the adapter's supported length and let the window cut it.
-- A cut's pleasure lives in the _contrast_ between shot lengths — equal-length cuts read as a metronome: choose each length against its neighbors — staccato shots build pressure, a held frame releases; accelerate into a peak, ease after.
+- Choose each length against its neighbors — equal-length cuts read as a metronome: staccato shots build pressure, a held frame releases; accelerate into a peak, ease after.
 - `wide` is a spend — establish once per act, when the space itself is content.
 - Vary the framing size against its neighbors — hold `medium`, push to `close`/`insert` before a payoff. A gag/turn's trigger is often an `insert`/`close`, its reaction a `close`.
 - A one-step size change inside one `location` invites background matching — adjacent `wide`→`medium` (or `medium`→`close`) keeps most of the set in both frames, a match generation can't hold: jump two sizes (`wide`→`close`/`insert`), break the pair with an `insert` or a reaction shot, or, when the match _is_ the cut (an axial punch-in), declare the pair on one camera axis with `within`.
-- A held, low-change frame holds attention ~3s; earn a longer hold with change — motion, an `<Animate>` move, or an overlay reveal buys seconds, and what dulls tempo is a frame held past its content. A comedy `button` cuts on the laugh, never past it.
+- A held, low-change frame holds attention ~3s; earn a longer hold with change — motion, an `<Animate>` move or an overlay reveal; a frame held past its content dulls tempo. A comedy `button` cuts on the laugh, never past it.
 - Each shot advances the feeling, never restates it — a long fight or a montage that repeats one shot is one motif stretched thin.

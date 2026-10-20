@@ -6,7 +6,7 @@
 - Name characters and props by exact roster `name` in the actions that use them — choose a distinctive phrase ("the black cat"); konte matches literal substrings. `characters` is required, `props` optional; only characters are named speakers.
 - Choose a drawable, discriminative `promptDepiction` for each character and prop — `chef`, not a story role or invented name; `tabby` for one cat, `girl in a purple hoodie` to distinguish two girls. Use the model's language, without adapter notation. A keyframe of a shot whose `action` names a prop says its `promptDepiction` (`prop-unnamed`).
 - `locations` is required — a shot reaches one through its setup.
-- A location declares `landmarks`, what only this place has — required and non-empty, keyed by id, each `{ name, promptDepiction, description }` — its `promptDepiction` under the same rule as a character's, in the same one depiction space. A frame with nothing particular to the set comes back as another room. A landmark anchors on no `reference:<id>`; the plate is its anchor. Its id shares the direction's one id space, so it may not collide with a character, a prop, a place, or a landmark elsewhere.
+- A location declares `landmarks`, what only this place has — required and non-empty, keyed by id, each `{ name, promptDepiction, description }`, its `promptDepiction` under a character's rule. A frame with nothing particular to the set comes back as another room. A landmark anchors on its plate, never a `reference:<id>`. Its id shares the one id space — no collision with a character, prop, place or another landmark.
 
 ## Casting voices — `voice`, `narrator`
 

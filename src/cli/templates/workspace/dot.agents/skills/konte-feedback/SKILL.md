@@ -38,9 +38,7 @@ Done = one post, approved by the human, handed over as paste-ready text with its
 - The piece is the human's — prompts, the brief, dialogue and generated media stay out unless the bug needs them; ask before quoting any, and prefer a placeholder (`"prompt": "<a 40-word scene prompt>"`).
 - Home paths — replace `/home/<user>` and `/Users/<user>` with `~`.
 
-## 5. Write it — in English
-
-Always English, whatever language the session runs in.
+## 5. Write it — in English, whatever the session's language
 
 Tags — pick one kind:
 
@@ -101,7 +99,6 @@ reproduces: yes | seen once; exit=<code if CLI>
 
 - Show the whole post with a summary in the human's language when that is not English, and name the tags.
 - The human posts — after their yes, hand over the title, tags and body as shown, with the forum link: `https://discord.gg/2b7UwFE2Yy`, channel `#support`.
-- Done = the post, its tags and the link handed over.
 
 ## Confirm before
 

@@ -11,7 +11,7 @@
 
 ## Build by repetition and intensification
 
-- A return never comes back unchanged — it raises scale, speed, light, the number of figures, or the camera's distance; the same frame with one thing changed reads as a return, an unchanged copy as a loop.
+- A return never comes back unchanged — it raises scale, speed, light, the number of figures or the camera's distance; one thing changed reads as a return, an unchanged copy as a loop.
 - The peak is the motif at its most — the most distinct frame and the fastest cutting. Spend nothing bigger before it.
 - A quiet stretch before the peak — a held frame; the peak is measured against it.
 

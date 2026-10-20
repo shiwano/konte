@@ -1,11 +1,11 @@
 # Critique with no subagent
 
-The pass you run yourself when the human sends you on without a subagent — narrower than `konte-direction-critic`'s. Done = every finding below fixed, or kept on purpose in `brief.tolerances` with its reason; an _(advisory)_ one taken or said why not.
+The pass you run yourself when the human sends you on without a subagent. Done = every finding below fixed, or kept on purpose in `brief.tolerances` with its reason; an _(advisory)_ one taken or said why not.
 
 ## Out of reach
 
 - Don't judge whether a shot reads — an action unambiguous, a payoff landing, a sequence rising: its evidence is a first viewer's impression, and you already know what every shot means.
-- Don't hand that gap to the human — "please check whether shot 03 reads" is your missing pass wearing a question mark.
+- Don't hand that gap to the human as a question ("please check whether shot 03 reads").
 
 ## What still holds — artifact against artifact
 
@@ -25,6 +25,6 @@ An axis survives when both sides are on the page, and the check is whether they 
 
 ## How to look
 
-- Re-open `direction.ts` and read the shots in order, as written — never from memory; memory is where your intent lives.
+- Re-open `direction.ts` and read the shots in order, as written — never from memory.
 - Report a shot only when it is formally valid and still weak as a cut — `framing`, `duration`, lens `role`, roster ids and the pacing lines are the direction check's.
-- What the human already accepted is settled — `konte inspect direction`. It is the fixed reference the rest must meet, so where settled and unsettled work clash the finding lands on the unsettled side.
+- What the human already accepted is settled (`konte inspect direction`) — where settled and unsettled work clash, the finding lands on the unsettled side.

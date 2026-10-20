@@ -39,8 +39,8 @@ Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/shiwano/kon
 
 ## 3. Hand off
 
-1. Tell the user to restart the agent in the workspace directory. For a GUI app, fully quit and relaunch it to restart the app process; opening a new chat or closing the window is insufficient.
+1. Tell the user to restart the agent in the workspace directory. A GUI app must be fully quit and relaunched — a new chat or a closed window is not a restart.
 2. Accept the MCP server prompt (Claude Code) / trust the project config (Codex).
 3. Run `/konte-checkin` (Claude Code) / `$konte-checkin` (Codex).
 
-End here. Video creation and production belong to the workspace's skills after restart.
+End here — video creation belongs to the workspace's skills after restart.

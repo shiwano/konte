@@ -5,18 +5,18 @@ user-invocable: true
 argument-hint: "[path | git-ref]"
 ---
 
-Delete the explanation an agent adds by reflex. Done = every changed `.md` line and every changed comment carries only facts the reader acts on, and `bun run check` passes. Scoring a whole skill across six dimensions is `konte-skill-quality-review`'s; this one only deletes, and covers any doc or comment.
+Delete the explanation an agent adds by reflex, in any doc or comment. Done = every changed `.md` line and comment carries only facts the reader acts on, and `bun run check` passes. Scoring a whole skill is `konte-skill-quality-review`'s.
 
 ## Scope
 
 - Default: the working diff — `git diff HEAD` plus untracked files. `$ARGUMENTS` overrides with a path, or a ref to diff against (`main`, `HEAD~3`).
-- In scope: `*.md` (skills, `references/`, `src/core/dsl/adapters/guides/`, `dot.konte/guides/`, `AGENTS.md`, `docs/`) and comments in changed `*.ts` / `*.tsx`.
+- In scope: `*.md` (skills, `references/`, `dot.konte/guides/`, `AGENTS.md`, `docs/`) and comments in changed `*.ts` / `*.tsx`.
 - Only lines the diff touched — untouched prose is out of scope unless `$ARGUMENTS` names the file.
 - Never edit `dot.claude/skills/` — generated twins; fix the `dot.agents/` source.
 
 ## Cut
 
-Each is a deletion, not a rewrite — the surrounding sentence almost always already says the thing.
+Delete each — the surrounding sentence almost always already says the thing.
 
 - Contrastive definitions — "a bad draw, not a bad prompt", "it reads as an X and is not one". Keep the assertion, drop the foil.
 - Rationale clauses — "so that…", "which means…", "because…" hung off a rule that stands without them.
@@ -41,7 +41,7 @@ Each is a deletion, not a rewrite — the surrounding sentence almost always alr
 
 1. List the changed files in scope.
 2. Read each file in full, then judge only the changed lines against Cut.
-3. Apply deletions with Edit. Fold the remainder into the surrounding line; never leave a stub.
+3. Apply deletions with Edit, folding the remainder into the surrounding line; never leave a stub.
 4. Re-read each edited passage cold. If a cut took a fact with it, restore that fact alone.
 5. `bun run check`.
 6. Report one line per file: what was cut.

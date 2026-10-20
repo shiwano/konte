@@ -8,26 +8,21 @@ An adapter's craft guide teaches the agent how to drive one adapter — for a mo
 
 ## Where things live
 
-Bundled model adapters live under `src/cli/templates/workspace/adapters/{comfy,fal}/`. All bundled craft guides, including local operations, live under `src/cli/templates/workspace/dot.konte/guides/`, specified as `guide: "konte/guides/<name>.md"`.
-
-- Share a guide where the prompting rules hold across modes/backends; split where they differ. Each adapter's `guide` field names its guide, or lists several read in order — the shared grammar first, the mode's own last — so no rule is written twice.
-
+- Bundled model adapters: `src/cli/templates/workspace/adapters/{comfy,fal}/`. All bundled craft guides, including local operations: `src/cli/templates/workspace/dot.konte/guides/`, set as `guide: "konte/guides/<name>.md"` (managed, re-synced on upgrade).
+- Share a guide where the prompting rules hold across modes/backends; split where they differ. An adapter's `guide` names one guide, or lists several read in order — the shared grammar first, the mode's own last — so no rule is written twice.
 - FAL — hand-written: add `guide: "konte/guides/<model>.md"` to each export, and a one-line `description` to each non-obvious input.
 - ComfyUI (bundled) — a re-emit drops the hand-edited `guide` field and input descriptions; restore them through `konte-comfy-workflow`.
 - ComfyUI (a user's own import) — `konte adapter comfy import` scaffolds a sibling `adapters/comfy/<name>.md` and emits `guide: "./<name>.md"` in the adapter.
-- Read/audit against `konte adapter show <adapter>` — it names the guide's file and renders the input schema (with descriptions).
 - Read `inputs`, `promptExemptions`, and `validators` for each adapter the guide covers. For ComfyUI, also trace the conditioning in the workflow `.json`.
 
 ## The guide: craft prose only
 
-No parameter table. Sections in order, omitting any that doesn't apply: `# <the model's name>`, `## Prompt Shape` (template line + gloss), `## Length`, model-specific sections as warranted (`## I2V`/`## FLF2V`/`## IA2V`, `## Edit Mode`, `## Multi-Image Editing`), `## Cost ladder`, `## Known failures`, `## Avoid`.
+No parameter table — parameter catalogs stay in the schema/descriptions; the guide may recommend which value to choose, when, and what it changes. Sections in order, omitting any that doesn't apply: `# <the model's name>`, `## Prompt Shape` (template line + gloss), `## Length`, model-specific sections as warranted (`## I2V`/`## FLF2V`/`## IA2V`, `## Edit Mode`, `## Multi-Image Editing`), `## Cost ladder`, `## Known failures`, `## Avoid`.
 
 - Carry only what the schema can't: phrasing, length sweet spot, mode anchoring, model strengths/weaknesses. Concrete (kinetic verbs, visible physical detail, hex colors), never evaluative ("high quality").
-- `## Prompt Shape` stays prose — the agent copies its template line + gloss.
-- Length, mode notes, Avoid are terse — one rule per line, why inline. `## Avoid` includes this model's negative-phrasing rule.
+- `## Prompt Shape` stays prose — the agent copies its template line + gloss; the rest is terse, one rule per line, why inline. `## Avoid` includes this model's negative-phrasing rule.
 - `## Cost ladder` when the schema offers rungs (resolution, steps, a tier, per-reference cost) — the rung to open on and what each higher one buys.
 - `## Known failures` from observed takes only — `- symptom — the change that cleared it`; never a general belief about generation. Only a symptom that reaches the agent (feedback, command output) and a change to a prompt or input the agent makes; not one a default or another section already covers.
-- Keep parameter catalogs in the schema/descriptions — the guide may recommend which value to choose, when, and what it changes.
 
 ## Parameters: input descriptions
 
@@ -60,11 +55,9 @@ FAL:
 3. Add a `description` to each non-obvious input; document the negative-prompt/audio policy above.
 4. Verify.
 
-ComfyUI (bundled): use the same guide placement and sharing rules; restore the wiring after a re-emit.
-
 ## Auditing an existing guide
 
-Run `konte adapter show <adapter>`, read the guide it points at and the adapter source alongside the displayed schema, flag:
+Run `konte adapter show <adapter>` (the guide's path and the input schema with descriptions), read that guide and the adapter source beside it, and flag:
 
 - a non-obvious input with no `description` and uncovered by the guide — the recurring miss is `negativePrompt`, `generateAudio`, a `mode`/tier field;
 - a `description` with the wrong key or stale values/scope (schema wins);

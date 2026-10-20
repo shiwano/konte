@@ -20,7 +20,7 @@ Read the state of one video and check in, in plain language, on where it stands 
 
 - `konte status` — review status (accepted / none), staleness, jobs in flight, and its Next steps.
 - Run the reads its Next steps name — `konte review feedback list` for the comments that still stand, a review's overall comment among them; `konte job show <id>` for a job that is not progressing. Running, failed or stuck jobs outrank everything else you'd raise.
-- Translate, don't re-derive — render what these commands report (state + Next steps) into human language; never reason your way to a different conclusion about what is stale, accepted, or needed.
+- Translate, don't re-derive — render what these commands report into human language; never reason your way to a different conclusion about what is stale, accepted, or needed.
 
 ## 3. Decide what to raise (priority order)
 
@@ -34,16 +34,16 @@ Read the state of one video and check in, in plain language, on where it stands 
 
 ## 4. Write the check-in (human-facing, in the project's language)
 
-- Short and scannable — a few lines: where things stand, what you'd do next, what to decide. Skip any point with nothing real to say.
-- Cover as needed — where things stand; what you'd suggest (a proposal, not a decision made); what it leaves untouched (only when there's accepted work to protect); what to decide (a choice, not a yes/no).
+- Short and scannable — a few lines; skip any point with nothing real to say.
+- Cover as needed — where things stand; what you'd suggest (a proposal, not a decision made); what it leaves untouched (only when there's accepted work to protect); what to decide (section 5).
 - Don't re-narrate the design — the human authored it; reference the piece in a phrase ("the 3-shot intro"), not a shot-by-shot synopsis.
 - Approval is only for what you propose that is destructive or touches accepted work — never re-confirm what the human already asked for.
 
 ## 5. Offer choices, not a yes/no
 
 - First decide whether there's a real choice at all — if the only sensible next step needs no gating and paths don't diverge, state it in one line, ask a simple go-ahead, carry on.
-- When there is one, present it from the human's seat — they haven't seen current footage, so don't ask for creative direction (look, pacing, mood) they can't judge from text; recommend a path, then surface the choices this moment actually offers, read from the real situation, not a fixed menu.
-- Use the runtime's native choice UI when it has one, and reserve it for the final question alone — present the recommended path first; with no such tool, a compact numbered list, one line each. Keep the explanation in prose.
+- When there is one, present it from the human's seat — they haven't seen current footage, so don't ask for creative direction (look, pacing, mood) they can't judge from text; recommend a path, then the choices the real situation offers, not a fixed menu.
+- Use the runtime's native choice UI for the final question alone, the recommended path first; with none, a compact numbered list, one line each. Keep the explanation in prose.
 
 ## 6. After approval
 

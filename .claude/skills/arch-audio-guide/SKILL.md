@@ -23,7 +23,7 @@ The preview runtime plays `<audio>` only: it schedules `audio[data-start]` into 
 
 The runtime bounds a clip inside a nested composition by its host's window, so the reel lifts each shot's `<audio>` out of its template (`liftShotAudio`) into the full-span `#embedded-audio` group, beside the mirrors, at its master-clock start; an `<Audio>` crosses the cut there as in the mux.
 
-`boundOpenAudio` bounds every open-ended preview `<audio>` to its take's recorded length less `data-media-start`; the runtime's seek sync would otherwise seek it past its source and error it for good.
+`boundOpenAudio` bounds every open-ended preview `<audio>` to its take's recorded length less `data-media-start` — else the runtime's seek sync seeks it past its source and errors it for good.
 
 The reel's preroll (`preview-preroll.ts`) moves the picture alone: a shot's opening `<video>` opens its window a lead early, hidden by its shot host's window, so the cut reveals a clip already running. The shift comes out of `data-media-start`; a clip on its take's first frame gets a cached picture-only copy (`padVideoClip`) holding that frame in front, with a cloned tail keeping EOF clear of the window. A late start stays late past the cut (the runtime never re-syncs a playing `<video>`), so the reel's warm-up seeks each clip to its in-point before its window, waking one the browser suspended.
 
@@ -40,4 +40,10 @@ Ducks and a bed's fades reach the preview as a volume lane (`bedVolumeLane`, `da
 
 ## Stems
 
-Audio's review/accept identity lives in stems — no-job materialized leaves alongside the shot compositions: a per-shot `shot.<id>#stem` (the shot's `<Audio>`/`<Video hasAudio>` cues) and one `timeline#stem` (the `soundtrack()` beds). At discovery each shot's refs are partitioned (`partitionShotRefs`) into `pictureRefs` (feed the composition) and `stemRefs` (feed the stem); a `<Video hasAudio>` source is in both. A stem's definition hash is the resolution-independent audio structure; its input fingerprints track the resolved audio sources — so it goes stale (and its accept re-opens) when an audio source changes, independent of the picture. `timeline#stem` covers the beds alone (`timelineStemRefs`); a duck envelope is signed off on the lines' shot stems. A shot whose last cue is removed keeps its accepted stem as review work (`removedShotStemAddresses`) until the shot's accept releases it. With `policy.clock` a board `#stem` also mixes, unplayed, the shot's span of the song (`songCue`); a `<Video>` of a take built on it gets a derived `mediaStart` (`song-window.ts`). Accept is folded: accepting a shot accepts its composition and its stems; the beds are accepted via `timeline#stem`. Accept/cascade rules: see `arch-review-system-guide`.
+Audio's review/accept identity lives in stems — a per-shot `shot.<id>#stem` (the shot's `<Audio>`/`<Video hasAudio>` cues) and one `timeline#stem` (the `soundtrack()` beds). Accept and cascade rules → `arch-review-system-guide`.
+
+- At discovery each shot's refs are partitioned (`partitionShotRefs`) into `pictureRefs` (feed the composition) and `stemRefs` (feed the stem); a `<Video hasAudio>` source is in both.
+- A stem's definition hash is the resolution-independent audio structure; its input fingerprints track the resolved audio sources — it goes stale (and its accept re-opens) when an audio source changes, independent of the picture.
+- `timeline#stem` covers the beds alone (`timelineStemRefs`); a duck envelope is signed off on the lines' shot stems.
+- A shot whose last cue is removed keeps its accepted stem as review work (`removedShotStemAddresses`) until the shot's accept releases it.
+- With `policy.clock` a board `#stem` also mixes, unplayed, the shot's span of the song (`songCue`); a `<Video>` of a take built on it gets a derived `mediaStart` (`song-window.ts`).

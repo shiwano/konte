@@ -77,7 +77,7 @@ export default defineDirection({
       description: "At counter height, the mug filling frame against the edge.",
       location: "kitchen",
       framing: "insert",
-      holds: [], // an insert is the one framing that holds nothing
+      holds: [],
     },
     standoffMedium: {
       name: "the stand-off",
@@ -129,8 +129,7 @@ export default defineDirection({
         duration: 1.5,
         lineup: ["owner", "cat"],
         lineupTo: ["owner"],
-        // `join: "continuous" | "jump-back" | "jump-forward"` sits here — required where the
-        // shot before is on the same `setup`.
+        // `join` sits here when the shot before is on the same `setup`.
         script: [{ character: "owner", text: "Don't.", acting: "Flat, barely voiced." }],
       },
       {

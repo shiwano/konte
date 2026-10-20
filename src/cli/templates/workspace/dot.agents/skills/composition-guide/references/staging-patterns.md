@@ -1,7 +1,5 @@
 # Staging patterns
 
-A `<Composition>` is a web page on the shot's clock: any HTML element, Tailwind class, inline `style`, CSS `filter`, inline SVG and GSAP tween works in it.
-
 ## Layers
 
 - A frame, vignette, letterbox or badge over a clip — an `absolute inset-0` element after the `<Video>`.
@@ -17,7 +15,7 @@ A `<Composition>` is a web page on the shot's clock: any HTML element, Tailwind 
 - A title never delays the hook — it rides over the first shot or lands after it.
 - A telop lands on a hold — where the frame is still, for as long as it takes to read twice.
 - Place a `<Subtitle>` with `bottom-[12%]` / `right-[36%]` — a box behind the text goes on `lineClassName`.
-- A text entrance — give the element an `id` and tween it `from` its off state (`opacity`, `yPercent`).
+- A text entrance — tween the element `from` its off state (`opacity`, `yPercent`).
 
 ## One layer over every shot: `overlay`
 

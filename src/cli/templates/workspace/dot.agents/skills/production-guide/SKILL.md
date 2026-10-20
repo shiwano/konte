@@ -10,11 +10,10 @@ Choose each shot's production method; done = its required anchors and duration a
 
 The shot names its anchors; the anchors pick the adapter.
 
-1. Does it need AI generation at all? A Ken Burns push/pan/zoom over a static image, a subtitle / UI / card reveal, or trimming and placing existing footage → staged in `<Composition>` (`composition-guide`), wired as a `file` asset, or done with a `local` adapter (`imageResize`, `imageCrop`, `videoTrim`) — not generated. (A camera move that should also stir parallax, hair, light or background is generated motion — step 4.) A `graphic` shot's picture always stops here; its `cutin` is routed from step 2 separately.
+1. Does it need AI generation at all? A Ken Burns push/pan/zoom over a static image, a subtitle / UI / card reveal, or trimming and placing existing footage → staged in `<Composition>` (`composition-guide`), wired as a `file` asset, or done with a `local` adapter (`imageResize`, `imageCrop`, `videoTrim`). (A camera move that should also stir parallax, hair, light or background is generated motion — step 4.) A `graphic` shot's picture always stops here; its `cutin` is routed from step 2 separately.
 2. Is a performance the driver? A spoken line, singing, dance, an instrument, any motion timed to a track → the sound and the picture have to come out of one pass. Decide this before step 4 — a performance can have a clear end and still belong here.
    - The stem rides in one of two ways — as the take's own track (the given recording, exact timing; the input takes one file, the shot's `animatic.stem`) or as a voice reference (re-spoken by the model in that timbre, on its own timing). A line a mouth has to match takes the first.
-   - Muxing an authored voice over a take that generated its own audio is not the fallback — see Pitfalls.
-3. Does it carry material or continuity? A recurring character, a specific product / logo / real person, a look matching an already-accepted visual → anchor on generated material, never text alone. A general style or world tone alone can still be text alone.
+3. Does it carry material or continuity? A recurring character, a specific product / logo / real person, a look matching an already-accepted visual → anchor on generated material, never text alone. A general style or world tone alone can be text.
 4. Which anchors does the shot need — the ones it needs, not the ones already drawn.
    - One panel, passed as a reference — the default (below).
    - Two panels, pinned at both ends → only where the viewer must see that exact picture (below).
@@ -33,7 +32,7 @@ The shot names its anchors; the anchors pick the adapter.
 
 ## One panel, passed as a reference — the default
 
-- One `<Panel>` per shot, its key (`staging-guide`), passed as a reference — the take moves into it and lands there. A model with no reference input takes it as its first frame. A board where most shots carry two panels is over-pinned.
+- One `<Panel>` per shot, its key, passed as a reference — the take moves into it and lands there. A model with no reference input takes it as its first frame. A board where most shots carry two panels is over-pinned.
 - Cheapest, and often more stable than pinning both ends — short ambient cuts, generated camera moves, and shots where a natural expression or texture matters more than a precise end pose.
 
 ## Pinning both ends
@@ -46,14 +45,14 @@ Pin the last frame only where no plausible landing will do:
 - a transform's finished state
 - a set arrangement of several elements, or an expression the prompt keeps failing to reach — only after a reroll actually misses it
 
-"The action completes" never qualifies — any plausible landing reads, and a cut hides endpoint imprecision that interpolation can't; a leap, a draw, a waking face all land on their own. Test: could the prompt say where it ends, and would any plausible landing do? Yes → don't pin the end.
+"The action completes" never qualifies — a cut hides endpoint imprecision that interpolation can't; a leap, a draw, a waking face all land on their own. If the prompt can say where it ends and any plausible landing would do, don't pin the end.
 
 - Two pinned frames are less control, not more — the model must thread a constrained path, and the authored `last` (an image edit plus its review) is paid before any motion.
 - The pair decides the quality — if a viewer couldn't draw the one obvious trajectory between the frames, the model can't either, and the clip morphs.
 - The two ends are one step apart, never independent generations — derive one from the other by an image edit changing only the intended delta; every unintended difference (lighting, lens, a background detail) is spent mid-clip as identity morph. Wire: the animatic shot declares two `<Panel>`s, the adapter takes them as its first/last-frame anchors.
 - A declared long take has one frame at its seam — the shot after declares `join: "continuous"`, so pin this take's end to that shot's first panel (`endImage: animatic.shot("02").image("first")`) and open that shot's take on the same frame (`startImage`).
 - Generate the end that holds the detail; derive the other by an edit that need not invent it — a removal: generate the uncovered state as `last`, derive `first` by adding the covering element. A build-up — a drawing finished, a dish plated, a model assembled: generate the finished state as `last`, derive `first` by taking the work back (a sketch, a bare canvas).
-- One axis of change, composition overlapping (`staging-guide`'s one-mover rule). Flip test before paying for motion: toggle the two frames rapidly — "the same shot a moment later" interpolates; "a jump cut" morphs.
+- One axis of change, composition overlapping. Flip test before paying for motion: toggle the two frames rapidly — "the same shot a moment later" interpolates; "a jump cut" morphs.
 - Match clip length to the action's real time — over-long for the delta invents idle drift, too short warps.
 - The change spreads evenly over the clip and no prompt retimes it — produce "action + hold" as a short pinned clip plus a composition trim/hold (live-rendered, free), not one stretched clip.
 - Far-apart endpoints are a shot smell — usually two actions in one shot: add a mid keyframe, or split the shot at the direction.

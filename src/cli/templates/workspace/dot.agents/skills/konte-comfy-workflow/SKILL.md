@@ -42,18 +42,18 @@ The generated adapter (`adapters/comfy/*.ts` with the `// @generated` marker) us
 - Improve field names to be descriptive, using the `// NodeClass → Target.field` comment above each input as guidance; keep the `// …` comments — they document the data flow.
 - Resolve the `// TODO: type the model's natural-language conditioning inputs` line — type those inputs per the Types section of the rename conventions.
 - Field keys are lowerCamelCase (e.g. `clipName`); the `field` property keeps the original ComfyUI name (`field: "clip_name"`) — never change it.
-- The concrete conventions — canonical prompt keys, auto-numbered → role-based names, `AdapterInputType` values and retyping, combo `values`, model grids, format-derived `default` functions — are in [rename-conventions.md](references/rename-conventions.md). If other already-fixed adapters exist (no `// @generated`), match their conventions so `adapters/comfy/` stays consistent.
+- Naming, typing, combo `values`, grids, format-derived defaults and branches → [rename-conventions.md](references/rename-conventions.md). Match any already-fixed adapters (no `// @generated`) so `adapters/comfy/` stays consistent.
 
 ### 2.3 Fill in the Dependency Blocks
 
-- If the adapter has a commented-out `models: [...]` block, decide whether to enable it — uncomment and fill each `url` with a direct-download URL; exact formats (public/gated HuggingFace, Civitai), `savePath`, and when to drop an entry are in [model-downloads.md](references/model-downloads.md).
-- Same call on the `nodes: [...]` block — uncomment the packs konte should install; registry IDs, non-registry packs and restart behavior are in the same reference.
+- A commented-out `models: [...]` block — decide whether to enable it; uncomment and fill each `url` with a direct-download URL. URL formats, `savePath` and when to drop an entry → [model-downloads.md](references/model-downloads.md).
+- Same call on the `nodes: [...]` block — uncomment the packs konte should install; ids and restart behavior are in the same reference.
 - Never paste a raw token — always use `${VAR_NAME}` and tell the user which env var to set.
 
 ### 2.4 Remove Unnecessary Inputs
 
 - Remove internal settings users typically don't change — weight dtype (`weightDtype`), device, internal type selectors (`type` for CLIPLoader), model sampling params (`shift` for ModelSamplingSD3), `batchSize` when always 1.
-- Ask the user before removing inputs the workflow change newly introduced — re-removing the same inputs as a previous fix (2.1) needs no confirmation.
+- Ask the user before removing inputs the workflow change newly introduced.
 
 ### 2.5 Expose Useful Hidden Inputs
 
@@ -73,8 +73,8 @@ A prebuilt adapter may contain a commented-out block:
 
 The import emits `description: "TODO: what this generates, and when to pick it"` and scaffolds a `adapters/comfy/<name>.md` guide with a TODO body.
 
-- `description` — one line: what the adapter generates, and when to pick it over its neighbours (mode, look lean, length lean). This is what `konte adapter list` shows, so a TODO left in place makes the adapter invisible to the next session. Match the phrasing of the already-fixed adapters, so the listing reads as one table.
-- A non-obvious input takes a one-line `description` — printed beside its type and default, so it carries what those can't (units, gotchas). One input's own knowledge; the table gives it one unwrapped line.
+- `description` — one line: what the adapter generates, and when to pick it over its neighbours (mode, look lean, length lean). `konte adapter list` shows it — a TODO left in place hides the adapter from the next session. Match the already-fixed adapters' phrasing.
+- A non-obvious input takes a one-line `description` — printed beside its type and default, it carries what those can't (units, gotchas).
 - `<name>.md` — the prompt-craft guide `konte adapter show` points at: prompt shape, length, mode/reference notes, and what to avoid. Use the model's official documentation and the adapter's actual schema; document only controls it exposes. Keep per-input facts in input descriptions.
 
 ### 2.7 Declare What the Schema Can't Type

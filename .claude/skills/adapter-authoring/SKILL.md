@@ -4,28 +4,28 @@ description: Add or audit a shipped FAL (fal.ai) adapter — defineFalAsset, the
 user-invocable: false
 ---
 
-A shipped adapter is a typed wrapper around one hosted model, seeded into every workspace under `adapters/<backend>/` and used as `asset(name, adapter, inputs)` after a named import. Done = the endpoint id and `inputs` match the live provider schema exactly, its `description` states the lean an author picks on, and `bun run check` passes. The adapter's craft guide (`guide`) is `prompt-guide-authoring`'s.
+A shipped adapter is a typed wrapper around one hosted model, seeded into every workspace under `adapters/<backend>/` and used as `asset(name, adapter, inputs)` after a named import. Done = the endpoint id and `inputs` match the live provider schema exactly, its `description` states the lean an author picks on, and `bun run check` passes.
 
 ## Where things live
 
 - Adapter: `src/cli/templates/workspace/adapters/fal/<model>.ts` — one file may export several modes (e.g. `falSeedance25T2v` / `falSeedance25I2v`). Template seed: written once by `konte workspace new`, never re-synced.
-- Guide: `dot.konte/guides/<name>.md`, imported as `konte/guides/<name>.md` — managed and re-synced on upgrade.
 - Builder: `defineFalAsset` (`src/core/dsl/fal-asset.ts`) — read it once; it is the source of truth for input semantics.
-- Export barrel: none — a named `export` suffices.
-- Discovery: none to update — `konte adapter list` walks `adapters/**/*.ts` plus the built-ins and tables each adapter's `meta`, filtered to the configured backends (plus `file`/`local`); a broken adapter file is reported, not fatal. `adapter show <adapter>` adds the full input schema and the craft guide's absolute path, never its body. So the `description` and input `description`s you write here _are_ the docs.
+- Export barrel and discovery: none to update — a named `export` suffices; `konte adapter list` tables every `adapters/**/*.ts` adapter's `meta`, and `adapter show <adapter>` adds the input schema and the craft guide's path, never its body. The `description` and input `description`s you write _are_ the docs.
 
 ## Verify the schema first — never from memory
 
-Confirm against the live schema page; when unclear, fan out a research agent on the provider's docs.
+Confirm against the live schema; when unclear, fan out a research agent on the provider's docs.
 
 - FAL — `fal.ai/models/<endpoint>/api`. Get the exact endpoint id. A successor may sit under the same path (`.../sound-effects` → `.../sound-effects/v2`) or move namespace entirely (`fal-ai/minimax-music/v2.6` → `minimax/music-3`), so search the model by name — never append a guessed version to the old id.
   - `curl "https://fal.ai/api/openapi/queue/openapi.json?endpoint_id=<id>" | jq .components.schemas` is the authoritative input schema — field names, types, defaults, enums, min/max, and which are required.
   - `curl -X POST https://queue.fal.run/<id> -d {}` confirms the route: 401 exists, 404 does not.
 
-- Every input's exact API field name (snake_case as sent), type, default, and — for enums — the allowed-value list.
-- The prompt/text field name varies by model: music-style models use `prompt`, speech and SFX models often use `text`. Map the konte key accordingly.
-- The output media kind → becomes `mediaType`.
-- Whether a field is free-form or a closed enum (MiniMax `voice_id` / `language_boost` are large open sets — model them as plain `string`).
+Capture:
+
+- Every input's exact API field name (snake_case as sent), type, default, and an enum's allowed values.
+- The prompt/text field name — music-style models use `prompt`, speech and SFX models often `text`; map the konte key accordingly.
+- The output media kind → `mediaType`.
+- Free-form vs closed enum — MiniMax `voice_id` / `language_boost` are large open sets, modeled as plain `string`.
 
 ## The adapter shape
 
@@ -46,8 +46,6 @@ export const falMyModel = defineFalAsset({
 });
 ```
 
-`description` is required on the config.
-
 ### Input def rules
 
 - `type`: `"string" | "prompt" | "negativePrompt" | "spokenText" | "number" | "boolean" | "seed" | "image" | "video" | "audio"`.
@@ -64,21 +62,21 @@ export const falMyModel = defineFalAsset({
 - `array: true` — media inputs only. The user passes an array of media assets and each `.src` is sent as a list element. Use it for a model whose media field takes a list (`image_urls`, `input_images`).
 - Nested fields use a dotted `field` path. `"audio_setting.format"` expands into `{ audio_setting: { format } }`, and sibling leaves merge under the shared parent — so a provider's nested object is modeled as several flat konte keys, each with its own type/default/values. Placeholders, seeds and media resolve at any depth, so a nested path may carry a media or seed input. Only arrays-of-objects are unsupported.
 - `fixed: true` pins a provider field the adapter owns: `default` is always sent, the key is absent from the call options and from `adapter show`, and no runtime value for it is read. For a field that selects _which adapter this is_ — one endpoint serving several modes, split into one export each — never for one a caller may want to set. Always pair it with a `default`.
-- `promptExemptions` (config level) lists the negations this model is MEANT to be written with, as RegExps — every span one matches is cut out of a checked value before the prompt check reads it, as is a `script` line quoted verbatim inside an adapter's marked line span. Only where the model's own guide says so. The check's unit is the phrase; a finding is waived by its key in the stage's own `waivers` (a patch declares none), and `status` lists both the findings and the waivers whose phrase is gone.
+- `promptExemptions` (config level) lists the negations this model is meant to be written with, as RegExps — every span one matches is cut out of a checked value before the prompt check reads it, as is a `script` line quoted verbatim inside an adapter's marked line span. Only where the model's own guide says so. The check's unit is the phrase; a finding is waived by its key in the stage's own `waivers` (a patch declares none), and `status` lists both the findings and the waivers whose phrase is gone.
 - `allowedIn` (config level) names the `asset()` sites the adapter may be declared in — an edit model works on a take that has to exist first, so a shot refuses it and a patch takes it.
-- `deterministic: true` (config level, not per-input) marks the adapter's output as reproducible; set it only when the model genuinely is.
+- `deterministic: true` (config level) marks the output reproducible; set it only when the model genuinely is.
 - `validators` (config level, one validator or an array) rejects an input combination the schema cannot type: `promptReferenceTags({ tags })` for a model naming references by ordinal (it reads the adapter's one `"prompt"` input; pass `prompt:` only where there are two), `inertInputs({ inputs, when, reason, fix })` for one the model won't read in this configuration, `requireOneOf({ inputs, reason })` for a group where at least one must be set, else a pure function of the resolved inputs (keyed by input name) returning why it rejects them, or nothing when they pass. It runs on every definition build, so read only which inputs are present — never a media value's contents.
 
 ### Naming
 
-Export `fal<Model>` in PascalCase after the prefix. For multi-mode models suffix the mode: `T2v` / `I2v` (text-/image-to-video). Match the casing of existing exports.
+Export `fal<Model>` in PascalCase after the prefix, matching existing exports' casing; a multi-mode model suffixes the mode (`T2v` / `I2v` / `R2v`).
 
 ## Steps to add one
 
-1. Verify the endpoint id + input schema against the provider's docs (above).
+1. Verify the endpoint id + input schema (above).
 2. Create `src/cli/templates/workspace/adapters/fal/<model>.ts`, mapping each konte key → provider field.
 3. Write the `description` so it states the lean an author picks on (look, motion character, mode).
-4. `bun run build:embed-templates` — re-embeds the template tree so `konte workspace new` ships the new adapter.
+4. `bun run build:embed-templates` — so `konte workspace new` ships the new adapter.
 5. Verify (below).
 
 ## Auditing an existing adapter
@@ -87,6 +85,6 @@ Read the adapter and the live schema side by side and flag every divergence: a d
 
 ## Verify
 
-- `bun run check` (typecheck + template type-check + lint + format) — must pass; it verifies the `konte/guides/…` import resolves on disk.
+- `bun run check` — must pass; it also verifies the `konte/guides/…` import resolves on disk.
 - `konte adapter show <adapter>` in a workspace renders the final schema as an agent will read it.
 - No live-API smoke test; schema-correctness against the docs is the gate.

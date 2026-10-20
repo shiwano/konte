@@ -5,7 +5,7 @@ user-invocable: true
 argument-hint: "[show|drive] [video|animatic|reference|direction]"
 ---
 
-`konte preview` serves the review UI as a React SPA. Generation needs real backends (fal/comfy), so offline we hand-craft project state + dummy media to exercise it, then optionally drive it with headless Chrome. Run everything from the repo root; the driver and fixture script live in `.claude/skills/konte-run/`.
+`konte preview` serves the review UI as a React SPA. Offline there is no backend to `konte generate` with, so a hand-crafted fixture state + dummy media exercises it, optionally driven with headless Chrome. Run everything from the repo root.
 
 ## Routing (`$ARGUMENTS`)
 
@@ -14,15 +14,11 @@ The first argument picks the mode, an optional second the stage (`video` default
 - `show` → serve a live preview for the human, hand over the URL, leave the server up. No driver.
 - `drive` → agent path: headless Chrome screenshots / clicks via `drive.mjs`.
 
-Both need a fixture first (step 1). Always Build first if `src/pages/preview/` changed.
+`bun`, `google-chrome`, `ffmpeg` are on PATH. `bun install` if `node_modules` is absent.
 
-## Prerequisites
+## Build — required after any `src/pages/preview/` edit
 
-`bun`, `google-chrome`, `ffmpeg` are already on PATH here. `bun install` if `node_modules` is absent.
-
-## Build (REQUIRED before the UI reflects source changes)
-
-The preview server serves the embedded bundle (`src/core/generated/ui-assets.ts`), not `src/pages/preview/dist/`. Building only `dist` shows a stale UI:
+The server serves the embedded bundle (`src/core/generated/ui-assets.ts`); building only `dist/` screenshots the old UI. Restart a running server after rebuilding.
 
 ```bash
 bun run build:ui:preview  # bundle SPA -> src/pages/preview/dist/
@@ -32,15 +28,15 @@ bun run build:embed-ui    # embed dist -> src/core/generated/ui-assets.ts
 
 ## Run — show the preview to the human
 
-1. Have something to preview. If the user's own workspace already has generated media, run `konte preview` with `--cwd` pointing at that video dir (`<workspace>/videos/<name>/`). Otherwise craft a fixture (step 1 below).
-2. Serve it in the background. `--no-auto-close` is essential — without it the server exits the moment the auto-opened browser disconnects, before the user looks.
+1. If the user's workspace already has generated media, `--cwd` is that video dir (`<workspace>/videos/<name>/`); otherwise make a fixture (agent path step 1).
+2. Serve it in the background. `--no-auto-close` is essential — without it the server exits when the auto-opened browser disconnects, before the user looks.
 
    ```bash
    bun run konte --cwd <video-dir> preview video --no-auto-close --port 4655 &
    for i in $(seq 1 30); do curl -sf http://127.0.0.1:4655/api/state -o /dev/null && break; sleep 0.5; done
    ```
 
-3. Give the user the URL (`http://localhost:4655`) and leave the server running. On this WSL2 box localhost-forwarding is on by default, so a Windows browser reaches the WSL-bound server directly. konte also tries to auto-open a desktop browser; the URL is the reliable path either way.
+3. Give the user the URL (`http://localhost:4655`) and leave the server running — WSL2 localhost-forwarding lets a Windows browser reach it; konte's own browser auto-open is unreliable.
 
 ## Run — agent path (drive the review UI)
 
@@ -50,18 +46,15 @@ bun run build:embed-ui    # embed dist -> src/core/generated/ui-assets.ts
 bun .claude/skills/konte-run/setup-fixture.ts   # [workspace-dir] [video-name]
 ```
 
-It scaffolds a workspace (`/tmp/konte-run-fixture/ws`) and a video in it from `fixture-video.ts`, then crafts that video's `konte.state.json` + review stream so all four previewable stages render offline. It prints the video dir — that is the `--cwd` every command below takes.
+It scaffolds a workspace (`/tmp/konte-run-fixture/ws`) and a video from `fixture-video.ts`, then crafts its `konte.state.json` + review stream so all four stages render offline. It prints the video dir — the `--cwd` below.
 
 - direction — the fixture video's `direction.ts`, left un-accepted, so the per-section acceptance gate is exercisable.
 - video — two dummy clips (navy `old.mp4` accepted, crimson `new.mp4` the reroll); `shot.01.motion` gets both, shots 02/03 a single accepted take so the render plan resolves. Each shot also gets a `bg` image layer + `narration`/`sfx` audio, un-accepted so the audio track needs review.
 - animatic — each shot's `first`/`last` panel gets one accepted flat-color PNG.
-- reference — `character.png` / `bgm.mp3` / `reference-clip.mp4` are `file` assets registered by file-sync, which the fixture runs itself. All are ffmpeg-generated, overwriting the fixture video's media so none of it reaches state.
+- reference — `character.png` / `bgm.mp3` / `reference-clip.mp4` are `file` assets registered by file-sync, which the fixture runs. All media is ffmpeg-generated, overwriting the fixture video's media.
+- shot-01 feedback and a handoff per stage, so notes render inline in every UI.
 
-It also seeds shot-01 feedback and a handoff per stage, so notes render inline in every UI.
-
-### 2. Start the preview server (background)
-
-`--cwd` is the video dir printed by step 1 (cwd inside a video selects it; the workspace is found above it):
+### 2. Start the preview servers (background)
 
 ```bash
 V=/tmp/konte-run-fixture/ws/videos/main
@@ -72,9 +65,9 @@ bun run konte --cwd $V preview direction  --no-auto-close --port 4658 &
 for i in $(seq 1 60); do curl -sf http://127.0.0.1:4655/api/state -o /dev/null && break; sleep 1; done
 ```
 
-Stop a server by its port, never by a name pattern: `lsof -ti:<port> | xargs -r kill`. `pkill -f konte`/`pkill -f preview` is system-wide (it kills another session's server) and `-f` matches your own shell's command line, killing it (a spurious `exit 144`). Cleanup: `for p in 4655 4656 4657 4658; do lsof -ti:$p | xargs -r kill; done`.
+**Stop a server by its port, never by a name pattern** — `pkill -f konte` is system-wide (kills another session's server) and matches your own shell's command line (a spurious `exit 144`). Cleanup: `for p in 4655 4656 4657 4658; do lsof -ti:$p | xargs -r kill; done`.
 
-Inspect server-side state directly — each stage has its own shape:
+Inspect server-side state — each stage has its own shape:
 
 ```bash
 # video: shots[].assets[] — the reroll-vs-accepted flow
@@ -100,7 +93,7 @@ bun .claude/skills/konte-run/drive.mjs --url http://127.0.0.1:4655 --out /tmp/ac
   --probe "document.querySelectorAll('.rt-shot--accepted').length"
 ```
 
-`drive.mjs` launches its own headless Chrome, navigates, optionally clicks the first `<button>` whose text contains `--click`, evaluates `--probe`, and writes the PNG to `--out`. Open the PNG and look at it — a blank/error frame means it didn't render. A driver-free shot also works:
+`drive.mjs` launches headless Chrome, clicks the first `<button>` whose text contains `--click`, evaluates `--probe`, and writes `--out`. Open the PNG — a blank/error frame means it didn't render. Driver-free:
 
 ```bash
 google-chrome --headless=new --disable-gpu --no-sandbox --window-size=1400,900 \
@@ -109,20 +102,13 @@ google-chrome --headless=new --disable-gpu --no-sandbox --window-size=1400,900 \
 
 ## Gotchas
 
-- Embedded bundle, not `dist/`. After any `src/pages/preview/` edit you MUST run `build:embed-ui` (or `bun run build`) or you'll screenshot the old UI.
-- The render plan needs every shot ready (video only). `video` preview's `/api/state` returns `RENDER_PLAN_FAILED: Assets without ready variants: …` if any shot's motion has no ready variant. `animatic` and `reference` previews are per-asset and tolerant: an asset with no ready variant renders empty.
-- Workspace ≠ video. A workspace (`konte.config.json`) holds N videos under `videos/<name>/`; state, media and reviews are the video's. Point `--cwd` at the video dir.
-- No backend offline. You can't `konte generate`; craft `konte.state.json` by hand (setup-fixture does this).
-- Feedback is not in `konte.state.json`. Comments live per review stream in `review/<stage>/feedback.json` (keyed by full address), handoffs in `review/<stage>/handoffs/*.json`. Annotation coords are normalized to the frame (0–1), not pixels.
-- file-sync registers `file` assets undecided. The fixture accepts every one but the audio, so the audio track begins needing review.
-- Crafted variants must read non-stale. Staleness fires only on a non-null `definitionHash` mismatch or a changed `inputFingerprints` entry — so dummy variants use `definitionHash: null` + `inputFingerprints: {}`.
-- "Newer take" is a `status` question: a take surfaces as new while its `status` is `"none"` beside an accepted one. An accept settles the rest as `"dismissed"`, so a crafted fixture flips `status` to control what needs review.
-- setup-fixture patches the fixture video by string replace. Changing its `reference.tsx`/`video.tsx` shape can silently no-op a replace — if a fixture asset is missing, check those first.
-
-## Troubleshooting
-
-- `RENDER_PLAN_FAILED` from `/api/state` → a shot has no ready variant; add one (see fixture).
-- UI change not visible in a screenshot → you skipped `build:embed-ui`; re-run it and restart the server.
-- `drive.mjs` prints `NO_BUTTON` → the `--click` text didn't match any `<button>`; check exact visible text.
-- `exit 144` (signal 16) → a `pkill -f`/`pgrep -f` whose pattern matched the running shell's own command line. Stop servers by port.
-- Chrome warns about `Crash Reports`/`UPower` D-Bus → benign in a container; ignore.
+- Video preview needs every shot ready — `/api/state` returns `RENDER_PLAN_FAILED: Assets without ready variants: …` if any shot's motion has no ready variant; add one. `animatic` / `reference` render an asset with no ready variant empty.
+- Feedback is not in `konte.state.json` — comments live in `review/<stage>/feedback.json` (keyed by full address), handoffs in `review/<stage>/handoffs/*.json`. Annotation coords are frame-normalized (0–1).
+- file-sync registers `file` assets undecided; the fixture accepts all but the audio, so the audio track needs review.
+- Crafted variants must read non-stale — staleness fires only on a non-null `definitionHash` mismatch or a changed `inputFingerprints` entry, so dummy variants use `definitionHash: null` + `inputFingerprints: {}`.
+- A take surfaces as new while its `status` is `"none"` beside an accepted one; an accept settles the rest as `"dismissed"`. Flip `status` to control what needs review.
+- setup-fixture patches the fixture video by string replace — a changed `reference.tsx`/`video.tsx` shape can silently no-op it; check those first if a fixture asset is missing.
+- UI change not in the screenshot → rebuild (Build) and restart the server.
+- `drive.mjs` prints `NO_BUTTON` → the `--click` text matched no `<button>`; check the exact visible text.
+- `exit 144` (signal 16) → a `pkill -f`/`pgrep -f` matched your own shell; stop servers by port.
+- Chrome `Crash Reports`/`UPower` D-Bus warnings → benign; ignore.

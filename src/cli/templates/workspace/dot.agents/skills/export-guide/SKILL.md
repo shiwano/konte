@@ -6,7 +6,7 @@ user-invocable: false
 
 Export the accepted cut; done = the render job finishes and `konte probe export` confirms the deliverable. Unaccepted shots return to `generation-loop-guide`.
 
-- Don't use a delivery export to stand in for the human's review of the shots — to let them watch the assembled cut you open `konte preview`; your own per-shot checks go through `konte probe`.
+- An export never stands in for the human's review — they watch the assembled cut in `konte preview`; your own per-shot checks are `konte probe`.
 
 ## Run the export
 
@@ -16,7 +16,7 @@ Export the accepted cut; done = the render job finishes and `konte probe export`
 konte export video
 ```
 
-- Async like generation — registers a render job and returns; `konte job wait` blocks for it (`generation-loop-guide` step 3).
+- Async — registers a render job and returns; `konte job wait` blocks for it.
 - Output — `video.mp4` + `manifest.json` into `dist/video/<timestamp>/`. When it completes, run `konte probe export` to read the deliverable's real resolution/duration/fps/audio — report those and the path.
 - Then offer `konte clean` and `konte prune`. Add `--delete-unaccepted` only once the human calls the video finished — a deleted take is lost spend.
 - `--allow-unaccepted` renders unaccepted variants — only when the human explicitly asks for a rough-cut file.
@@ -25,4 +25,4 @@ konte export video
 
 - If `export.delivery` is declared, export first runs the upscale chain at reserved `#delivery` addresses, then assembles at delivery resolution — `video:shot.<id>.motion#delivery` (per-layer) or `…composition#delivery` (per-frame).
 - `#delivery` targets are ordinary visible assets, cached on the composition's identity — an unchanged shot is never re-upscaled.
-- To add or change a delivery/upscale config the treatment did not agree, confirm the target resolution with the human first, then set `size.delivery` on the direction (`direction.policy.format`) and wire the matching `export.delivery.upscale: { video | frame }` in video.tsx per the `authoring-guide` skill.
+- A delivery/upscale config the treatment did not agree → confirm the target resolution with the human first, then set `direction.policy.format.size.delivery` and wire `export.delivery.upscale` per `authoring-guide`.

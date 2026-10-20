@@ -2,7 +2,7 @@
 
 ## Built-in catalog
 
-The bold payoff role is the climax; `escalation` and the trailing roles (`release` / `after-glow` / `fade` / `call-to-action` / `resolution-act`) are optional.
+The payoff role is the climax — the last role before the optional trailing one (`release` / `after-glow` / `fade` / `call-to-action` / `resolution-act`), else the last; `escalation` is optional too.
 
 - `mini-drama` — ordinary → disruption → pressure → hero → release
 - `comedy` — setup → violation → escalation → button (caps the joke)
@@ -10,12 +10,12 @@ The bold payoff role is the climax; `escalation` and the trailing roles (`releas
 - `mood-piece` — atmosphere → motif → variation → peak → fade
 - `transformation` — before → process → reveal → after-glow
 - `product-demo` — problem → solution → demonstration → result → call-to-action; the demonstration is usually `graphic` shots (the UI itself) with the presenter as their `cutin`
-- `kishotenketsu` — ki → sho → ten → ketsu (set up → develop → twist → reconcile); the one shape with no conflict in it, so reach for it when there is no antagonist: the turn comes late and the payoff reframes it rather than winning a fight
-- `three-act` — setup-act → confrontation-act → climax-act → resolution-act; named and budgeted for acts (a first act past ~40% is front-loaded, a climax under ~15% is rushed), so it is the one to reach for on a long piece's root ([long-form.md](long-form.md))
+- `kishotenketsu` — ki → sho → ten → ketsu (set up → develop → twist → reconcile); the one shape with no conflict — reach for it when there is no antagonist: the turn comes late and the payoff reframes it
+- `three-act` — setup-act → confrontation-act → climax-act → resolution-act; budgeted for acts (a first act past ~40% is front-loaded, a climax under ~15% is rushed) — the one for a long piece's root ([long-form.md](long-form.md))
 
 ## Pleasure vocabulary — closed, no custom values
 
-The emotional reward a node aims for — orthogonal to the lens (a `mini-drama` can be `cute` or `scary`). Every node names one, root and child alike; an act that keeps the feeling of the act above it repeats it. Only these ten:
+The emotional reward a node aims for, independent of the lens (a `mini-drama` can be `cute` or `scary`). Every node names one, root and child alike; an act keeping its parent's feeling repeats it.
 
 - `cute` — warmth and affection for the subject
 - `funny` — laughter

@@ -16,7 +16,7 @@
 
 ## Chain events with therefore/but, never and-then
 
-- Each event's consequence is the next event's situation — the "but/therefore" rule.
+- Each event's consequence is the next event's situation.
 - Test: delete an event — if nothing downstream breaks, rewire or cut.
 - Within an event, shots chain too unless they are a montage.
 

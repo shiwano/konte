@@ -10,7 +10,7 @@ Configure the required backends and editor; done = those backends pass `konte do
 
 1. Run `konte doctor --backends` — each unconfigured backend prints the variable name and where to obtain it.
    - WARN = survey only — configure only the backends you'll use; plain `konte doctor` FAILs on one an asset uses.
-2. Run `konte settings --tab credentials` in the background and ask the user to enter the listed keys — you cannot read or edit `konte.credentials.json`. Name the keys and the source URL from the message.
+2. Run `konte settings --tab credentials` in the background and ask the user to enter the listed keys, naming each key and its source URL from the message.
 3. Once the user has saved the keys, re-run `konte doctor --backends` to confirm the backends you need now report connected.
 
 - An adapter missing from `konte adapter list` → its backend is unconfigured (`--all` shows it); `generate` refuses it. `file`/`local` assets need no backend.
@@ -44,7 +44,7 @@ Configure the required backends and editor; done = those backends pass `konte do
 
 ## Comfy API deployment
 
-konte builds a deployment's Build and release; the user creates and deletes the deployment on the Build page — konte never does.
+konte builds a deployment's Build and release; only the user creates and deletes the deployment, on the Build page.
 
 1. Run `konte adapter comfy build` in the background — a changed Build takes several minutes. Exit 0 → ready; done.
 2. Exit 1 → it opened the Build page and printed its URL. Tell the user, with that URL:

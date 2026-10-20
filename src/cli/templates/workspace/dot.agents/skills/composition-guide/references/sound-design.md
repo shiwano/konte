@@ -12,13 +12,13 @@
 - A piece cut to a song skips this section → [song.md](song.md).
 - Enter on a turn, never at frame zero by default — the lens's turn (`disruption` / `violation` / `solution`) or the first shot of a build; opening on ambience alone makes the entrance an event.
 - Change on the hinge — the payoff gets its own cue or a lift (a second bed, a stronger section via `mediaStart`).
-- Resolve on the last cut or after it — a bed that runs to the last frame and stops mid-phrase reads as a broken file; `fadeOut` of a second or more, or end it on the last cut and let ambience carry the final image.
+- Resolve on the last cut or after it — a bed stopping mid-phrase on the last frame reads as a broken file; `fadeOut` a second or more, or end it on the last cut and let ambience carry the final image.
 - Silence is a cue — pulling every bed out for a moment (before the hit, on the reveal) lands harder than any swell. Once per piece.
 - One score identity — every cue from one adapter and one prompt lineage (`prompt-guide`); a second style is a second piece.
 
 ## Under dialogue
 
-- `duck: true` drops the bed under every line it plays under — tune the curve with `duck: { depth, attack, release, hold }` in place of `true`. A character's and a narrator's line duck a bed; a mob's never does.
+- Tune a duck's curve with `duck: { depth, attack, release, hold }` in place of `true`. A character's and a narrator's line duck a bed; a mob's never does.
 
 ```tsx
 soundtracks: [
@@ -27,8 +27,8 @@ soundtracks: [
 ],
 ```
 
-- It is only audible on the reel — a bed is in no shot's `#stem`, so the duck shows in `konte preview` and `konte probe reel-audio`, not in a shot's own review.
-- Ambience never drops — it is the floor; a floor that moves with the lines is heard as a pump. Write `duck: false` for it.
+- A duck is audible only on the reel — a bed is in no shot's `#stem`, so it shows in `konte preview` and `konte probe reel-audio`, not a shot's own review.
+- Ambience never ducks — it is the floor; a floor that moves with the lines is heard as a pump.
 - No SE on a line's syllables — unless the action is the line's point; shift the cue to the breath before or the pause after.
 
 ## Across cuts

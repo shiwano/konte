@@ -47,23 +47,23 @@ Developing a shot = swapping its pending form for the real one — `pendingShot(
 
 - Delegate the mechanics — routing each shot's motion and panel count, before its panels are drawn → `production-guide`; each shot's staging, fixed before its prompt → `staging-guide`; DSL → `authoring-guide`; adapters → `konte adapter list` / `show`; prompts → `prompt-guide`; `<Composition>` JSX → `composition-guide`.
 - One pass = one direction leaf sequence, in story order — its shots and nothing outside it; a short piece is a single leaf, so it is one pass.
-- A `join: "continuous"` pair is developed together — the second shot's picture is derived from the first's, so leaving one of them a `pendingShot` leaves the other nothing to build on. Take the pair in one pass even where a sequence boundary falls between them.
+- A `join: "continuous"` pair is developed together, in one pass even across a sequence boundary — the second shot's picture derives from the first's.
 - Carry a sequence through both stages before laying out the next — its panels accepted, then its video shots developed and accepted. A video shot's motion prompt is written from the accepted frames; the next sequence's prompts from what this one settled — the adapter, the prompt pattern, each recurring subject's look.
-- Write each panel prompt against the plate on screen — it places the subjects in that frame and restates nothing the picture shows. Written from the roster prose instead, the text describes another frame than the picture: `setup-unconsumed` passes and the frame drifts anyway.
+- Write each panel prompt against the plate on screen — it places the subjects in that frame and restates nothing the picture shows. Written from the roster prose, it describes another frame: `setup-unconsumed` passes and the frame drifts anyway.
 - Leave `blocking`/`camera` off every `<Panel>` — they are written from the take, in `generation-loop-guide`'s self-review. The shot's `script` is sounded with `<Audio>`, not written onto a panel.
 - An animatic `pendingShot` may stay for good only under a shot that spends nothing — one staged in composition or assembled from `file`/`local` takes; name the deferral in the handoff. A text-to-video take of a narrative shot is refused (`ANIMATIC_UNCONSUMED`).
-- Editing a definition copied from another video is writing it — read the guides above before the first edit; a carried-over prompt holds the other piece's staging and adapter choices.
+- Editing a definition copied from another video is writing it — read the guides above first; a carried-over prompt holds the other piece's staging and adapter choices.
 
 ## 8. Self-check the sequence
 
 Every pass reads the files you just wrote, never your memory of what you meant.
 
 - For pending panels, spawn `konte-staging-critic` on `animatic.tsx`, then fix its findings before the prompt pass.
-- A match pass on what no critic reads, definition against definition — each reference prompt against its roster entry and the job it holds as an anchor (single subject, clean ground, identifying features in frame); each motion prompt against the shot's `duration`; each bed against `brief.tone`. A promise the prompt drops, or an element it invents, is a rewrite now — after generating it is a reroll.
+- A match pass on what no critic reads — each reference prompt against its roster entry and the job it holds as an anchor (single subject, clean ground, identifying features in frame); each motion prompt against the shot's `duration`; each bed against `brief.tone`. A promise the prompt drops, or an element it invents, is a rewrite now — after generating it is a reroll.
 - Then spawn `konte-prompt-critic` on the definition before the first spend on new or rewritten prompts. A reroll on unchanged definitions skips both critics.
 - Revising after the human's review, no critic runs — read the rewritten prompts against their shots yourself:
   - each panel prompt against its shot (`action`, `script`, and the size/place its `setup` carries) and the anchors it conditions on — the `reference:<id>`s, and the setup's plate where it has one; each motion prompt against the panel's `blocking` / `camera`; each voice asset word for word against the shot's `script` line, a character line's delivery against that shot's `action`
-  - each opening panel against the motion it must launch — is the condition its `action` lands true in the frame the prompt fixes? Untrue, or half true, is a rewrite, unless that shot opens on the tail by choice
+  - each opening panel against the motion it must launch — is the condition its `action` lands true in the frame the prompt fixes? Untrue or half true is a rewrite, unless the shot opens on the tail by choice
   - each key panel — is it the moment its `action` is read by?
   - a run-through, shot against shot — `konte inspect <stage>:shot.<id> --prompts`, in order, opening from the last accepted shot before it, against `staging-guide`'s frame and cut rules: every subject by its `promptDepiction` in `lineup:` order, each `set:` landmark on its side, each recurring element's wording side by side across shots
   - `brief.outOfScope` is a rewrite wherever it shows; what `brief.tolerances` accepts is never a finding
@@ -72,7 +72,7 @@ Every pass reads the files you just wrote, never your memory of what you meant.
 
 - Typecheck with `konte status`.
 - Report in plain language — structure, developed shots, runtime, remaining `pendingShot`s per stage; for a revision, what you touched.
-- Next — carry straight into `generation-loop-guide` for what you just developed; report the layout, don't stop for a go-ahead.
+- Carry straight into `generation-loop-guide` for what you just developed — don't stop for a go-ahead.
 
 ## Confirm before
 
