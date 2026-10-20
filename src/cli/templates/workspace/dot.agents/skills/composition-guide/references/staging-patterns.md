@@ -53,4 +53,4 @@ Each is an `<Animate>` tween on the clip's `id`.
 - **Crossfade between two clips in one shot** — overlap them with `start`, then tween one's `opacity` down and the other's up across the overlap.
 - **Ken Burns (slow zoom / pan)** — tween `scale` / `xPercent` / `yPercent` with `ease: "none"`; `transformOrigin` steers the zoom anchor. px offsets change with the canvas size.
 - **Fade in / out** — an `opacity` tween at the head and at the tail.
-- **Flash on a hit** — a full-frame white `<div>` at `opacity-0`, `set` visible at the hit and tweened back to 0. A `fromTo`/`from` holds its start values from the shot's head until it plays, so a `fromTo` flash covers the frame until its hit.
+- **Flash on a hit** — a full-frame white `<div>` at `opacity-0`, `set` visible at the hit and tweened back to 0.

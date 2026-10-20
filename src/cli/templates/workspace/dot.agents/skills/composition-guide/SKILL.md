@@ -20,7 +20,7 @@ Compose layers, captions, animation and sound in `animatic.tsx` or `video.tsx`; 
 
 - **No rerolls** — it's your code: edit the JSX and it re-renders.
 - **An upstream clip change makes it `input-stale`** — it returns to `konte status -v`'s **Needs review**; `konte inspect video:shot.<id>#composition` names the changed input.
-- **Feedback lands on `video:shot.<id>`, not `#composition`** — `konte review feedback list video:shot.<id>`; the cause is the JSX or an upstream clip, and fixing either marks it addressed on the next accept.
+- **Feedback lands on `video:shot.<id>`, not `#composition`** — `konte review feedback list video:shot.<id>`; fixing the JSX or the upstream clip marks it addressed on the next accept.
 
 ## Components
 
@@ -51,10 +51,11 @@ Plus **any HTML element** styled with **Tailwind v4** classes or inline `style` 
 Gotchas:
 
 - **A component prop that takes any asset is `MediaAsset<"image">` / `<"video">` / `<"audio">`**
-- **Fixed px font sizes change apparent size when the canvas size changes** — the canvas renders at `format.size`'s actual pixel size. Use `text-[Nvmax]` (1% of the longer edge) to keep text a constant fraction.
+- **A px font size is a different fraction of each canvas size** — use `text-[Nvmax]` (1% of the longer edge) to keep text a constant fraction.
 - **A clip's own audio needs `hasAudio`** — without it the track is dropped: `<Video src={motion} hasAudio volume={0.8} />`.
 - **`volume` is relative gain, 0–3.98 (+12 dB), 1 = unity** — same on `<Audio>`, `<Video>`, `soundtrack()`. Omit for the default level.
-- **`<Animate>` does not auto-assign ids** — give the element your own `id`/`className` and target it by CSS selector (`"#title"`, `".badge"`). Each shot's animation is scoped to that shot, so a selector never reaches another shot's element. Sibling `<Animate>`s each start at 0 of the shot's clock, so a component can carry its own.
+- **`<Animate>` does not auto-assign ids** — give the element your own `id`/`className` and target it by CSS selector (`"#title"`, `".badge"`). A selector never reaches another shot's element. Sibling `<Animate>`s each start at 0 of the shot's clock, so a component can carry its own.
+- **A `fromTo` / `from` timed after 0 renders its start values from the shot's head** — pass `immediateRender: false` and put the pre-cue state in the element's CSS (`opacity-0`), or `set` the start values at the cue and `to` from there.
 - **`<Animate script>` is serialized to source and run in the browser, closing over nothing** — an import, a module constant, a helper, a value from the shot callback (`script`, an asset): each is a `ReferenceError` there and nothing flags it here. Inline every value or pass it as `data`; keep the callback an arrow or function expression. A synchronous throw drops the tweens after it and paints a red banner over the shot; one from a `timeline.call` callback or an `async` script fires later, uncaught.
 
 ## Graphic shots
