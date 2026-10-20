@@ -5,7 +5,7 @@ import { defineComfyAsset } from "konte";
 export const audioYue2 = defineComfyAsset({
   workflow: "audio_yue2.json",
   description:
-    "YuE2 — a sung song, or an instrumental with lyrics left empty, from a style line and tagged lyrics, planned as a score and played at the given bpm; length follows the lyrics. The first pick for a song or a bed.",
+    "YuE2 — a sung song, or an instrumental with lyrics left empty, from a style line and tagged lyrics, planned as a score and played at the given bpm; length follows the lyrics, and an instrumental often ends short of maxDuration. The first pick for a song or a bed.",
   guide: "konte/guides/yue2.md",
   models: [
     {

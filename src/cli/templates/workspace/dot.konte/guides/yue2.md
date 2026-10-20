@@ -40,7 +40,7 @@ Hit the light, hit the light
 
 The planned score sets the length, not a requested running time: four sections of four lines ran 113–198 s at 92–120 BPM, with long instrumental intros and outros around ~60–100 s of singing.
 
-`maxDuration` is a ceiling that cuts the take mid-phrase — leave it high for a song and trim in the composition. For a bed that has to fill a shot, it follows the shot's duration, so an instrumental take ends exactly there.
+`maxDuration` is a ceiling that cuts the take mid-phrase — leave it high for a song and trim in the composition. An instrumental often ends short of it, and a reroll runs no longer; join takes with `adapters.audioConcat` to fill a bed.
 
 ## Negative Prompt
 
