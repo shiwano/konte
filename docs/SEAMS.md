@@ -8,7 +8,7 @@ Fixtures: one room with `wide` (the axis root), `medium` (`within: "wide"`) and 
 
 ## Declaring the boundary
 
-`join` is the boundary INTO a shot. Omitted is an ordinary cut; `jump-back` / `jump-forward` are cuts that move story time; `continuous` is one unbroken take with the shot before it. A take can run on only from the shot just before on the clock, narrative, on the same setup: there the boundary must be declared, and nowhere else can it be `continuous`. Both are structural errors, never waived; a literal `continuous` written elsewhere is refused by the type layer first.
+`join` is the boundary INTO a shot. Omitted is an ordinary cut; `jump-back` / `jump-forward` are cuts that move story time; `continuous` is one unbroken take with the shot before it. A take can run on only from the shot just before on the clock, narrative and no coverage shot, on the same setup: there the boundary must be declared, and nowhere else can it be `continuous`. Both are structural errors, never waived; a literal `continuous` written elsewhere is refused by the type layer first.
 
 | Case                                                        | Direction                                                                      | Board | Video | Result                              |
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------ | ----- | ----- | ----------------------------------- |
@@ -19,12 +19,14 @@ Fixtures: one room with `wide` (the axis root), `medium` (`within: "wide"`) and 
 | `continuous` opening the piece                              | 01 wide `continuous` [a]                                                       | none  | none  | `join-impossible` (01, error)       |
 | `continuous` after an aside                                 | 01 wide [a] → ec (aside) → 02 wide `continuous` [a]                            | none  | none  | `join-impossible` (02, error)       |
 | `continuous` after a graphic shot                           | 01 wide [a] → card (graphic) → 02 wide `continuous` [a]                        | none  | none  | `join-impossible` (02, error)       |
+| Same setup after a coverage shot, nothing declared          | 01 wide (coverage) [a] → 02 wide [a]                                           | none  | none  | none                                |
+| `continuous` after a coverage shot                          | 01 wide (coverage) [a] → 02 wide `continuous` [a]                              | none  | none  | `join-impossible` (02, error)       |
 | A cutin runs on from the cutin before it                    | 01 wide [a] + cutin reverse [b] → 02 yard [a] + cutin reverse `continuous` [b] | none  | none  | none                                |
 | A cutin `continuous` where the shot before carries no cutin | 01 wide [a] → 02 yard [a] + cutin reverse `continuous` [b]                     | none  | none  | `join-impossible` (02.cutin, error) |
 
 ## The lineup across the boundary
 
-Who a frame holds, left to right, accumulates per place across ordinary cuts. A jump empties every place. One take has one frame at its seam, so the shot before's `lineupTo ?? lineup` must be the next shot's `lineup`.
+Who a frame holds, left to right, accumulates per place across ordinary cuts. A jump empties every place; a coverage shot empties its own after its opening frame is read. One take has one frame at its seam, so the shot before's `lineupTo ?? lineup` must be the next shot's `lineup`.
 
 | Case                                             | Direction                                      | Board | Video | Result                      |
 | ------------------------------------------------ | ---------------------------------------------- | ----- | ----- | --------------------------- |
@@ -32,23 +34,25 @@ Who a frame holds, left to right, accumulates per place across ordinary cuts. A 
 | One take, the two shots wanting different frames | 01 wide [a] → 02 wide `continuous` [b,a]       | none  | none  | `join-lineup-mismatch` (02) |
 | An ordinary cut reversing a pair                 | 01 wide [a,b] → 02 medium [b,a]                | none  | none  | `lineup-flipped` (02)       |
 | A jump reversing a pair                          | 01 wide [a,b] → 02 medium `jump-forward` [b,a] | none  | none  | none                        |
+| A cut after a coverage shot reversing a pair     | 01 wide (coverage) [a,b] → 02 medium [b,a]     | none  | none  | none                        |
 
 ## The board's frame across a cut along one axis
 
-An omitted join between two setups sharing a `within` root: the opening keyframe takes the previous shot's last panel in one of its image inputs. Judged where both shots are on the board and the keyframe's model reads a previous panel (`readsPrevPanel`), unless both frames hold subjects and share none. A long take asks the board for nothing.
+An omitted join between two setups sharing a `within` root: the opening keyframe takes the previous shot's last panel in one of its image inputs. Judged where both shots are on the board and the keyframe's model reads a previous panel (`readsPrevPanel`), unless both frames hold subjects and share none. A long take, and a cut from a coverage shot (its panel is its opening frame), ask the board for nothing.
 
-| Case                                          | Direction                                  | Board                                             | Video | Result                   |
-| --------------------------------------------- | ------------------------------------------ | ------------------------------------------------- | ----- | ------------------------ |
-| Push in, handed the frame before              | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 previous panel ← 01.last | none  | none                     |
-| Push in, handed no previous panel             | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 handed no previous panel | none  | `panel-unlinked` (01-02) |
-| Push in, handed another shot's frame          | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 previous panel ← 07.last | none  | `panel-unlinked` (01-02) |
-| Push in, a model that reads no previous panel | 01 wide [a] → 02 medium [a]                | on the board: 01, 02                              | none  | none                     |
-| Push in, the shot before not yet on the board | 01 wide [a] → 02 medium [a]                | on the board: 02; 02 handed no previous panel     | none  | none                     |
-| Push in across a story-time jump              | 01 wide [a] → 02 medium `jump-forward` [a] | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
-| Push in from one subject to another           | 01 wide [a] → 02 medium [b]                | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
-| Two cameras in one room                       | 01 wide [a] → 02 reverse [a]               | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
-| Push in with an aside between                 | 01 wide [a] → ec (aside) → 02 medium [a]   | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
-| One take, handed no previous panel            | 01 wide [a] → 02 wide `continuous` [a]     | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
+| Case                                                   | Direction                                  | Board                                             | Video | Result                   |
+| ------------------------------------------------------ | ------------------------------------------ | ------------------------------------------------- | ----- | ------------------------ |
+| Push in, handed the frame before                       | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 previous panel ← 01.last | none  | none                     |
+| Push in, handed no previous panel                      | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 handed no previous panel | none  | `panel-unlinked` (01-02) |
+| Push in, handed another shot's frame                   | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 previous panel ← 07.last | none  | `panel-unlinked` (01-02) |
+| Push in, a model that reads no previous panel          | 01 wide [a] → 02 medium [a]                | on the board: 01, 02                              | none  | none                     |
+| Push in, the shot before not yet on the board          | 01 wide [a] → 02 medium [a]                | on the board: 02; 02 handed no previous panel     | none  | none                     |
+| Push in across a story-time jump                       | 01 wide [a] → 02 medium `jump-forward` [a] | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
+| Push in from one subject to another                    | 01 wide [a] → 02 medium [b]                | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
+| Two cameras in one room                                | 01 wide [a] → 02 reverse [a]               | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
+| Push in with an aside between                          | 01 wide [a] → ec (aside) → 02 medium [a]   | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
+| Push in from a coverage shot, handed no previous panel | 01 wide (coverage) [a] → 02 medium [a]     | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
+| One take, handed no previous panel                     | 01 wide [a] → 02 wide `continuous` [a]     | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
 
 ## The video's frame across a long take
 

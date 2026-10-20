@@ -85,6 +85,8 @@ function projectShotShape(shot: Shot): unknown {
     // The boundary into this shot rides with the shape too: whether the cut before it is there at
     // all, and whether story time breaks across it, is the arc's own cadence rather than prose.
     join: shot.join ?? null,
+    // Whether the model cuts inside the take is the arc's cadence too.
+    ...(shot.coverage ? { coverage: true } : {}),
     ...cutin,
   };
 }

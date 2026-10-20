@@ -144,6 +144,8 @@ export type DirectionPartContent =
       lineupTo: readonly string[];
       passing: readonly string[];
       join: "continuous" | "jump-back" | "jump-forward" | null;
+      // A shot the model cuts inside, its frame columns the opening one.
+      coverage: boolean;
       cutin: DirectionCutinContent | null;
     }
   // A shot of the arc with no camera — a UI screen, a motion graphic.
@@ -317,6 +319,7 @@ export function directionPartContents(direction: Direction): Map<string, Directi
                   lineupTo: s.lineupTo ?? [],
                   passing: s.passing ?? [],
                   join: s.join ?? null,
+                  coverage: s.coverage === true,
                   cutin: cutinContent(s.cutin),
                 },
         );

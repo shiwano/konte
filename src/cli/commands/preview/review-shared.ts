@@ -755,6 +755,7 @@ interface ShotFacts {
   asideLabel: string | null;
   // The boundary into this shot. Null on an ordinary cut, a graphic shot and an aside.
   join: ShotInfo["join"];
+  coverage: boolean;
 }
 
 // A shot reaches its size and its place through its setup, so every view that shows either resolves
@@ -796,6 +797,7 @@ export function shotFactsIndex(direction: Direction | null): Map<string, ShotFac
           telop: [...(shot.telop ?? [])],
           asideLabel: shot.label,
           join: null,
+          coverage: false,
         });
         continue;
       }
@@ -812,6 +814,7 @@ export function shotFactsIndex(direction: Direction | null): Map<string, ShotFac
         telop: [...(shot.telop ?? [])],
         asideLabel: null,
         join: own?.join ?? null,
+        coverage: own?.coverage === true,
       });
     }
     for (const child of node.sequences ?? []) walk(child);

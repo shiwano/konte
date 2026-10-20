@@ -1273,6 +1273,8 @@ interface PromptShots {
   setup: Map<string, string>;
   // The declared boundary into the shot's own frame; an ordinary one has no entry.
   join: Map<string, string>;
+  // The coverage shots — one take the model cuts inside, its lineup the opening frame.
+  coverage: Set<string>;
   // The frames a `continuous` seam runs into, keyed `<shotId>/<lane>`.
   continuous: Set<string>;
   // Per SETUP id, not per shot: what each plate's frame declares.
@@ -1312,6 +1314,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
   const set = new Map<string, { id: string; label: string }[]>();
   const setup = new Map<string, string>();
   const join = new Map<string, string>();
+  const coverage = new Set<string>();
   const plateFrame = new Map<string, PlateFrame>(
     Object.keys(direction.setups ?? {}).flatMap((id) => {
       const frame = plateFrameOf(direction, id);
@@ -1353,6 +1356,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
       hinge.set(shot.id, deriveShotHinges(direction, shot.action, shot.setup));
       passing.set(shot.id, shot.passing ?? []);
       if (shot.join) join.set(shot.id, shot.join);
+      if (shot.coverage) coverage.add(shot.id);
       if (shot.lineup) {
         lineup.set(shot.id, { lineup: shot.lineup, lineupTo: shot.lineupTo ?? null });
       }
@@ -1380,6 +1384,7 @@ async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
     set,
     setup,
     join,
+    coverage,
     continuous: continuousFrameKeys(direction),
     plateFrame,
     cutin,
@@ -1453,6 +1458,9 @@ function promptShotLines(
   }
   const join = cutin ? undefined : promptShots.join.get(shotId);
   if (join) out.push(`join: ${join}`);
+  if (!cutin && promptShots.coverage.has(shotId)) {
+    out.push("coverage: one take the model cuts inside — the lineup is its opening frame");
+  }
   const declared = cutin ? undefined : promptShots.lineup.get(shotId);
   if (declared) {
     const to = declared.lineupTo ? ` → ${order(declared.lineupTo)}` : "";

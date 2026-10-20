@@ -3215,6 +3215,7 @@ export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "duration"> & {
   passing?: readonly string[];
   join?: "continuous" | "jump-back" | "jump-forward";
   cutin?: Cutin;
+  coverage?: true;
 };
 export type Cutin = {
   setup: string;
@@ -3225,7 +3226,7 @@ export type Cutin = {
 };
 export type GraphicShot = Omit<
   NarrativeShot,
-  "kind" | "setup" | "lineup" | "lineupTo" | "passing" | "join"
+  "kind" | "setup" | "lineup" | "lineupTo" | "passing" | "join" | "coverage"
 > & {
   kind: "graphic";
   cutin?: Cutin;
@@ -3292,6 +3293,7 @@ export type NarrativeShotShape = {
   passing?: readonly string[];
   join?: "continuous" | "jump-back" | "jump-forward";
   cutin?: CutinShape;
+  coverage?: true;
 };
 export type CutinShape = {
   setup: string;
@@ -3315,6 +3317,7 @@ export type GraphicShotShape = {
   lineupTo?: never;
   passing?: never;
   join?: never;
+  coverage?: never;
 };
 export type AsideShotShape = {
   id: string;
@@ -3645,16 +3648,45 @@ export type CutinRunsOnFrom<P, S> = [P] extends [never]
       }
     ? SameSetup<PS, S>
     : false;
+export type IsCoverage<P> = [P] extends [never]
+  ? false
+  : P extends {
+        coverage: true;
+      }
+    ? true
+    : false;
 export type ConstrainJoin<B, Shots> = B extends {
   join: "continuous";
   id: infer Id extends string;
   setup: infer S;
 }
-  ? RunsOnFrom<ShotBefore<Shots, Id>, S> extends true
-    ? unknown
-    : {
-        join: DirectionViolation<"konte: `continuous` is one unbroken take with the shot before it on the clock, so that shot is a narrative shot on this same setup \u2014 declare a jump, or drop the join">;
+  ? IsCoverage<ShotBefore<Shots, Id>> extends true
+    ? {
+        join: DirectionViolation<"konte: the shot before is a coverage shot, whose camera ends wherever the model cut to, so no take runs on from it \u2014 drop the join, or declare a jump">;
       }
+    : RunsOnFrom<ShotBefore<Shots, Id>, S> extends true
+      ? unknown
+      : {
+          join: DirectionViolation<"konte: `continuous` is one unbroken take with the shot before it on the clock, so that shot is a narrative shot on this same setup \u2014 declare a jump, or drop the join">;
+        }
+  : unknown;
+export type ConstrainCoverage<B> = B extends {
+  coverage: true;
+}
+  ? (B extends {
+      lineupTo: readonly string[];
+    }
+      ? {
+          lineupTo: DirectionViolation<"konte: a coverage shot's frame after the opening is the model's cut, so it declares no `lineupTo`">;
+        }
+      : unknown) &
+      (B extends {
+        cutin: object;
+      }
+        ? {
+            cutin: DirectionViolation<"konte: a coverage shot cuts inside its own take, so it carries no `cutin`">;
+          }
+        : unknown)
   : unknown;
 export type ConstrainCutinJoin<B, Shots> = B extends {
   id: infer Id extends string;
@@ -3694,6 +3726,7 @@ export type ConstrainShotIds<
     ConstrainRole<Arr[K], Roles> &
     ConstrainJoin<Arr[K], Shots> &
     ConstrainCutinJoin<Arr[K], Shots> &
+    ConstrainCoverage<Arr[K]> &
     (Arr[K] extends {
       cutin: infer C;
     }
@@ -4005,6 +4038,7 @@ export interface DirectionIndex {
     }
   >;
   graphicIds: Set<string>;
+  coverageIds: Set<string>;
   cutinById: Map<string, Cutin>;
   cutinFrameById: Map<
     string,

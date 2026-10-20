@@ -35,6 +35,10 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - video 35,750 → 36,100, music-video 37,350 → 37,700, konte-direction-critic 3,950 → 4,050,
+//   konte-animatic-critic 3,600 → 3,750, konte-video-critic 2,700 → 2,850, dev-direction 17,100 →
+//   17,200, dev-render 10,800 → 10,850 (agreed by a human): the coverage shot — one take the model
+//   cuts inside, boarded on its opening frame and rehearsed on a turbo take before the full one.
 // - video 35,700 → 35,750, music-video 37,300 → 37,350 (agreed by a human): the piece's motion
 //   grammar written once where every shot reads it.
 // - video 35,600 → 35,700, music-video 37,200 → 37,300 (agreed by a human): when a long take is
@@ -103,7 +107,7 @@ const DEV_ALWAYS = ["CLAUDE.md", "AGENTS.md"];
 const SHIPPED_JOURNEYS = [
   {
     name: "konte-direction-critic",
-    budget: 3_950,
+    budget: 4_050,
     files: [...ALWAYS, `${AGENTS}/konte-direction-critic.md`],
   },
   {
@@ -113,7 +117,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "konte-animatic-critic",
-    budget: 3_600,
+    budget: 3_750,
     files: [...ALWAYS, `${AGENTS}/konte-animatic-critic.md`],
   },
   {
@@ -123,12 +127,12 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "konte-video-critic",
-    budget: 2_700,
+    budget: 2_850,
     files: [...ALWAYS, `${AGENTS}/konte-video-critic.md`],
   },
   {
     name: "video",
-    budget: 35_750,
+    budget: 36_100,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
@@ -163,7 +167,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "music-video",
-    budget: 37_350,
+    budget: 37_700,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
@@ -242,7 +246,7 @@ const DEV_JOURNEYS = [
   // part hashes, so the review guide comes along.
   {
     name: "dev-direction",
-    budget: 17_100,
+    budget: 17_200,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-direction-guide/SKILL.md`,
@@ -256,7 +260,7 @@ const DEV_JOURNEYS = [
   // the same render plan chooses between per shot.
   {
     name: "dev-render",
-    budget: 10_800,
+    budget: 10_850,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-delivery-guide/SKILL.md`,

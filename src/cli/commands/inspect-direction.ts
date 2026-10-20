@@ -314,7 +314,9 @@ function printContent(
       console.log(`  Role:     ${content.role}`);
       if (content.kind === "shot") {
         const setup = direction.setups?.[content.setup];
-        console.log(`  Setup:    ${content.setup}`);
+        console.log(
+          `  Setup:    ${content.setup}${content.coverage ? " (coverage — the opening frame)" : ""}`,
+        );
         if (setup) {
           console.log(`  Framing:  ${setup.framing}`);
           console.log(`  Location: ${setup.location}`);

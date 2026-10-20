@@ -23,6 +23,8 @@ interface MotionIntent {
   shotId: string;
   action: string | null;
   boundary: ShotBoundary | null;
+  // One take the model cuts inside: a cut in the picture is the ask, and its last tile is no panel.
+  coverage?: boolean;
   moves: MotionMove[];
   frames?: {
     lane: ShotFrame["lane"];
@@ -136,6 +138,7 @@ export function createMotionIntentLoader(
       shotId,
       action,
       boundary: boundaries.get(shotId) ?? null,
+      ...(frames.some((f) => f.coverage) ? { coverage: true } : {}),
       moves,
       frames: frameIntents,
     };
@@ -156,6 +159,8 @@ export function formatMotionIntent(intent: MotionIntent): string[] {
         `  ${`hinge${suffix}`.padEnd(9)} ${frame.hinge.map((h) => `${h.name}${h.notInSet ? " (not in set)" : ""}`).join(" | ")}`,
       );
   }
+  if (intent.coverage)
+    lines.push(`  coverage  one take the model cuts inside from the opening panel`);
   if (intent.boundary?.join) lines.push(`  join      ${intent.boundary.join}`);
   if (intent.boundary?.location) {
     const { from, to } = intent.boundary.location;

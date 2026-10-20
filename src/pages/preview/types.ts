@@ -149,6 +149,8 @@ export interface ShotInfo {
   script: ScriptLineView[];
   // The boundary into this shot, from the direction. Null on an ordinary cut.
   join: "continuous" | "jump-back" | "jump-forward" | null;
+  // One take the model cuts inside, so a cut in its picture is the ask.
+  coverage: boolean;
   // The movement the board declared for this shot, one entry per panel that carries one, in panel
   // order. `video.tsx` wrote its motion prompt from this prose, so it is the claim the motion is
   // watched against. Empty when the board has no shot of this id or none of its panels declares one.
@@ -495,6 +497,8 @@ export interface DirectionShotInfo extends DirectionPartInfo {
   // into a flashback, `jump-forward` out of one or past a gap. Null is an ordinary cut. Drawn
   // between the rows, since it is about the boundary rather than the shot.
   join: "continuous" | "jump-back" | "jump-forward" | null;
+  // A shot the model cuts inside: its frame columns are the opening frame.
+  coverage: boolean;
   // The second camera frame laid over the shot (a wipe), read through its own setup like the shot's
   // frame, with who it holds as names and its own boundary. Null where the shot declares none.
   cutin: {

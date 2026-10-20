@@ -20,6 +20,7 @@ Choose each shot's production method; done = its required anchors and duration a
    - **Two panels, pinned at both ends** → only where the viewer must see that exact picture (below).
    - **Carried subjects, a recorded move or a voice** — several recurring figures in one frame, an identity holding across sheets, a look no panel drew → references.
    - **The stem as the take's own track** — from step 2.
+   - **A `coverage: true` shot** → one panel, its opening frame, passed as a reference; only an adapter whose guide writes cuts inside one take.
    - **No panel to open on** (an aside, which the board never draws) → text alone, or references by step 3.
 5. **Pick the adapter that offers every anchor named, and reaches the shot's length** — `konte adapter list --backend <kind>`, then `konte adapter show <adapter>` for its inputs. **None on the backend offers them all → change adapter, or drop an anchor deliberately and say which.** A shot longer than the model's maximum clip → Past the model's clip cap.
 6. **Keep iteration cheap** — see Cost ladder.

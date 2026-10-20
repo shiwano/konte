@@ -733,6 +733,10 @@ function ShotRow({
             as a shot whose frame went missing. */}
           {shot.graphic && <span className="dir-framing dir-framing--graphic">graphic</span>}
           <Frame location={shot.location} framing={shot.framing} setup={shot.setup} />
+          {/* The frame above is where the take opens; the model cuts the rest. */}
+          {shot.coverage && (
+            <span className="dir-coverage">coverage · the model cuts after this frame</span>
+          )}
           {/* The wipe over the shot is a frame of its own, set apart under the shot's. */}
           {shot.cutin && (
             <span className="dir-cutin">

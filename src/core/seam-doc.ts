@@ -179,7 +179,7 @@ export const SEAM_SECTIONS: readonly SeamSection[] = [
   {
     title: "Declaring the boundary",
     intro:
-      "`join` is the boundary INTO a shot. Omitted is an ordinary cut; `jump-back` / `jump-forward` are cuts that move story time; `continuous` is one unbroken take with the shot before it. A take can run on only from the shot just before on the clock, narrative, on the same setup: there the boundary must be declared, and nowhere else can it be `continuous`. Both are structural errors, never waived; a literal `continuous` written elsewhere is refused by the type layer first.",
+      "`join` is the boundary INTO a shot. Omitted is an ordinary cut; `jump-back` / `jump-forward` are cuts that move story time; `continuous` is one unbroken take with the shot before it. A take can run on only from the shot just before on the clock, narrative and no coverage shot, on the same setup: there the boundary must be declared, and nowhere else can it be `continuous`. Both are structural errors, never waived; a literal `continuous` written elsewhere is refused by the type layer first.",
     cases: [
       {
         title: "Same setup, nothing declared",
@@ -215,6 +215,17 @@ export const SEAM_SECTIONS: readonly SeamSection[] = [
         ]),
       },
       {
+        title: "Same setup after a coverage shot, nothing declared",
+        direction: direction([shot("01", "wide", { coverage: true }), shot("02", "wide")]),
+      },
+      {
+        title: "`continuous` after a coverage shot",
+        direction: direction([
+          shot("01", "wide", { coverage: true }),
+          shot("02", "wide", { join: "continuous" }),
+        ]),
+      },
+      {
         title: "A cutin runs on from the cutin before it",
         direction: direction([
           shot("01", "wide", { cutin: { setup: "reverse", lineup: ["b"] } }),
@@ -237,7 +248,7 @@ export const SEAM_SECTIONS: readonly SeamSection[] = [
   {
     title: "The lineup across the boundary",
     intro:
-      "Who a frame holds, left to right, accumulates per place across ordinary cuts. A jump empties every place. One take has one frame at its seam, so the shot before's `lineupTo ?? lineup` must be the next shot's `lineup`.",
+      "Who a frame holds, left to right, accumulates per place across ordinary cuts. A jump empties every place; a coverage shot empties its own after its opening frame is read. One take has one frame at its seam, so the shot before's `lineupTo ?? lineup` must be the next shot's `lineup`.",
     cases: [
       {
         title: "One take, the seam agreed on",
@@ -267,12 +278,19 @@ export const SEAM_SECTIONS: readonly SeamSection[] = [
           shot("02", "medium", { lineup: ["b", "a"], join: "jump-forward" }),
         ]),
       },
+      {
+        title: "A cut after a coverage shot reversing a pair",
+        direction: direction([
+          shot("01", "wide", { lineup: ["a", "b"], coverage: true }),
+          shot("02", "medium", { lineup: ["b", "a"] }),
+        ]),
+      },
     ],
   },
   {
     title: "The board's frame across a cut along one axis",
     intro:
-      "An omitted join between two setups sharing a `within` root: the opening keyframe takes the previous shot's last panel in one of its image inputs. Judged where both shots are on the board and the keyframe's model reads a previous panel (`readsPrevPanel`), unless both frames hold subjects and share none. A long take asks the board for nothing.",
+      "An omitted join between two setups sharing a `within` root: the opening keyframe takes the previous shot's last panel in one of its image inputs. Judged where both shots are on the board and the keyframe's model reads a previous panel (`readsPrevPanel`), unless both frames hold subjects and share none. A long take, and a cut from a coverage shot (its panel is its opening frame), ask the board for nothing.",
     cases: [
       boardCase("Push in, handed the frame before", pushIn, [
         boarded("01"),
@@ -310,6 +328,11 @@ export const SEAM_SECTIONS: readonly SeamSection[] = [
       boardCase(
         "Push in with an aside between",
         direction([shot("01", "wide"), aside("ec"), shot("02", "medium")]),
+        [boarded("01"), boarded("02", { reads: true })],
+      ),
+      boardCase(
+        "Push in from a coverage shot, handed no previous panel",
+        direction([shot("01", "wide", { coverage: true }), shot("02", "medium")]),
         [boarded("01"), boarded("02", { reads: true })],
       ),
       boardCase("One take, handed no previous panel", longTake, [
@@ -433,7 +456,7 @@ function describeDirection(dir: Direction): string {
       else {
         const n = s as NarrativeShot;
         parts.push(
-          `${n.id} ${n.setup}${n.join ? ` \`${n.join}\`` : ""} [${n.lineup.join(",")}${n.lineupTo ? ` ⇒ ${n.lineupTo.join(",")}` : ""}]`,
+          `${n.id} ${n.setup}${n.coverage ? " (coverage)" : ""}${n.join ? ` \`${n.join}\`` : ""} [${n.lineup.join(",")}${n.lineupTo ? ` ⇒ ${n.lineupTo.join(",")}` : ""}]`,
         );
       }
       const cutin = (s as NarrativeShot).cutin;

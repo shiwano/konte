@@ -1922,6 +1922,12 @@ body.fill-mode .fab-submit-wrap {
   color: rgb(160, 152, 240);
 }
 
+/* A shot the model cuts inside: a fact about the take, not a state to act on. */
+.status-badge--coverage {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
 .status-badge--regenerate {
   background: var(--orange-soft);
   color: var(--orange);
@@ -5080,6 +5086,16 @@ body.fill-mode .fab-submit-wrap {
   font-size: 0.62rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* A coverage shot's frame is its opening one — set under the frame, never boxed as a second camera. */
+.dir-coverage {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.62rem;
+  font-style: italic;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
 }
 

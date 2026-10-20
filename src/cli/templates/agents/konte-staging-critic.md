@@ -50,7 +50,7 @@ Report `No findings.` alone when nothing survives; otherwise every finding kept,
 - **Composition left to the model** (`lineup-only`) — the prompt says only who is on which side; it decides nothing about facing, what fills the frame they leave open, or what is nearest the lens.
 - **Composition against the action** (`hides-action`) — a `hinge:` is peripheral, hidden, too small to warrant the action, off-path or implausibly placed.
 - **Flat run** (`flat-run`) — adjacent panels repeat the same size, camera height, placement and facing with no job and no `join:` between them, or a run of panels uses one formula throughout.
-- **Screen direction** (`direction-break`) — a figure's side or facing flips across a cut with no move written for it and no `jump-back` / `jump-forward` `join:` into it, or a gaze does not meet what it looks at in the neighbouring shot, or hand side/grip disagrees.
+- **Screen direction** (`direction-break`) — a figure's side or facing flips across a cut with no move written for it and no `jump-back` / `jump-forward` `join:` into it, or a gaze does not meet what it looks at in the neighbouring shot, or hand side/grip disagrees. The cut out of a shot with a `coverage:` line is never a finding.
 - **Plate clash** (`set-clash`) — the prompt puts a figure where the plate's landmark stands, or asks for a part of the place the plate does not show.
 - **Camera the plate lacks** (`off-plate-camera`) — the prompt names a size or camera height the plate does not have: a figure from the waist up on a plate at full-figure scale, "from low on the ground" on a plate at eye level.
 - **Contradiction** (`contradiction`) — two parts of the panel's prompt place or turn the same figure differently.

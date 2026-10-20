@@ -119,6 +119,14 @@ export function ShotList({
                 {shot.pending && <StatusBadge status="pending" label="Pending" />}
                 {/* Not work waiting to be done — a shot the board deliberately does not draw. */}
                 {shot.aside && <StatusBadge status="pending" label="Aside" />}
+                {/* The cuts inside this take were asked for, so they read as no fault. */}
+                {shot.coverage && (
+                  <StatusBadge
+                    status="coverage"
+                    label="Coverage"
+                    title="One take the model cuts inside, from the opening panel"
+                  />
+                )}
                 {/* The one thing a reviewer cannot see for themselves: this shot is standing in
                     with the board, not the finished picture — so it reads as done otherwise. */}
                 {shot.showingStandIn && (

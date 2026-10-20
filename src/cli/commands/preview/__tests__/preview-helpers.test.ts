@@ -881,6 +881,16 @@ describe("shotFactsIndex", () => {
     expect(shotFactsIndex(direction).get("01")?.framing).toBe("medium");
   });
 
+  it("marks a coverage shot, so its page says the cuts inside the take were asked for", () => {
+    expect(shotFactsIndex(direction).get("01")?.coverage).toBe(false);
+    const sequence = direction.sequence as { shots: object[] };
+    const covered = {
+      ...direction,
+      sequence: { ...sequence, shots: [{ ...sequence.shots[0], coverage: true }] },
+    } as unknown as Direction;
+    expect(shotFactsIndex(covered).get("01")?.coverage).toBe(true);
+  });
+
   it("is empty without a direction, so a board with no direction.ts still renders", () => {
     expect(shotFactsIndex(null).size).toBe(0);
   });

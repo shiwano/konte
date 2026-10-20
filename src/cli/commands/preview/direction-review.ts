@@ -191,6 +191,7 @@ export async function handleGetDirectionState(
         lineupTo: [],
         passing: [],
         join: null,
+        coverage: false,
         cutin: null,
         telop: [...(s.telop ?? [])],
         ...spanOf(s),
@@ -229,6 +230,7 @@ export async function handleGetDirectionState(
       lineupTo: subjectNames(own?.lineupTo),
       passing: subjectNames(own?.passing),
       join: own?.join ?? null,
+      coverage: own?.coverage === true,
       cutin,
       // The shot's unspoken on-screen text. Bare strings — telop carries no speaker to resolve.
       telop: [...(s.telop ?? [])],

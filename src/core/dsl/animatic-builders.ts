@@ -472,6 +472,15 @@ export function defineAnimatic<
             `at least one image with <Panel>; a plain <Image> is a layer, not a keyframe.`,
         );
       }
+      if (index.coverageIds.has(input.id) && panels.length > 1) {
+        throw new KonteError(
+          "ANIMATIC_INVALID",
+          `Animatic shot "${input.id}" is a coverage shot, but it declares ${panels.length} ` +
+            `<Panel>s. Its board is the opening frame alone — the cuts after it are the model's. ` +
+            `Keep one <Panel>, and write the shot's whole flow in its \`blocking\` and the camera's ` +
+            `path from the opening in its \`camera\`.`,
+        );
+      }
       if (cutin && cutinPanels.length === 0) {
         throw new KonteError(
           "PANEL_REQUIRED",

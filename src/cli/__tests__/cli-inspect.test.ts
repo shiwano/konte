@@ -210,6 +210,18 @@ describe("inspect --prompts", () => {
     );
   });
 
+  it("marks a coverage shot above its prompts", async () => {
+    const file = path.join(projectDir, "direction.ts");
+    const source = (await fs.readFile(file, "utf8")).replace(
+      'setup: "deskWide",\n        lineup: [],',
+      'setup: "deskWide",\n        lineup: [],\n        coverage: true,',
+    );
+    await fs.writeFile(file, source);
+    await fs.writeFile(path.join(projectDir, "animatic.tsx"), TEST_EMPTY_ANIMATIC_TSX);
+    const { stdout } = await run(["inspect", "video:shot.01.motion", "--prompts"], projectDir);
+    expect(stdout).toContain("coverage: one take the model cuts inside");
+  });
+
   it("prints action hinges and passing characters", async () => {
     const file = path.join(projectDir, "direction.ts");
     const source = (await fs.readFile(file, "utf8"))

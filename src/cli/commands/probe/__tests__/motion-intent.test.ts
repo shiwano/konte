@@ -84,4 +84,19 @@ describe("formatMotionIntent", () => {
       "  hinge     gap (not in set) | bun",
     ]);
   });
+
+  it("marks a coverage shot, whose picture cuts by design", () => {
+    expect(
+      formatMotionIntent({
+        shotId: "01",
+        action: "they trade blows",
+        boundary: null,
+        coverage: true,
+        moves: [],
+      }),
+    ).toEqual([
+      "  action    they trade blows",
+      "  coverage  one take the model cuts inside from the opening panel",
+    ]);
+  });
 });

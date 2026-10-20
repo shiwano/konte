@@ -36,6 +36,7 @@ Picture and stereo audio decoded from one take.
 
 - **Cut verbs** — `the camera cuts to`, `the shot cuts to`, `the shot transitions to`, `the shot changes to`, `the shot switches to`. Cross-dissolve, fade and wipe only when the shot asks for one.
 - **A cut has to bring new information** — subject, space, state, viewpoint or time. If only the distance or the angle shifts, move the camera instead.
+- **A coverage shot is one `[Shot N]` string, its cuts written inside it** — `quick detail cuts: Rue's narrowed eyes, Mina's tightening glove, the swinging dog tag, then the camera dives under her spin kick`. Never place them with `at`: the model times its own cuts, landing late on a pinned second. Its opening panel goes in as `image1`, no end frame, so "favour one shot" does not apply. The 350–1200 words still hold.
 
 ## Camera Motion
 

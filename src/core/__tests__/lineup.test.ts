@@ -1984,3 +1984,101 @@ describe("location-backtrack", () => {
     });
   });
 });
+
+describe("coverage shot", () => {
+  const errorCodes = (dir: Direction) => validateDirectionStructure(dir).map((e) => e.code);
+  const coverage = (id: string, setup: string, extra: Partial<NarrativeShot> = {}) =>
+    shot(id, setup, { coverage: true, ...extra });
+
+  it("reads its action as beats, not as fused shots", () => {
+    const dir = direction({
+      shots: [
+        coverage("01", "deck", { action: "The sister grabs the sweet. The little one lunges." }),
+        shot("02", "stern", { action: "The mother turns. She laughs." }),
+      ],
+    });
+    expect(codes(dir, "multi-sentence-action").map((f) => f.subject)).toEqual(["02"]);
+  });
+
+  it("reads its opening frame, then forgets the place's order", () => {
+    const dir = direction({
+      shots: [
+        coverage("01", "deck", { lineup: ["ane", "imouto"] }),
+        shot("02", "stern", { lineup: ["imouto", "ane"] }),
+      ],
+    });
+    expect(codes(dir, "lineup-flipped")).toEqual([]);
+  });
+
+  it("holds its opening frame to what the place declared before it", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "stern", { lineup: ["ane", "imouto"] }),
+        coverage("02", "deck", { lineup: ["imouto", "ane"] }),
+      ],
+    });
+    expect(codes(dir, "lineup-flipped").map((f) => f.subject)).toEqual(["02"]);
+  });
+
+  it("forgets only its own place", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "shore", { lineup: ["ane", "imouto"] }),
+        coverage("02", "deck", { lineup: ["mother"] }),
+        shot("03", "shore", { lineup: ["imouto", "ane"] }),
+      ],
+    });
+    expect(codes(dir, "lineup-flipped").map((f) => f.subject)).toEqual(["03"]);
+  });
+
+  it("refuses a long take run on from it", () => {
+    const dir = direction({
+      shots: [coverage("01", "deck"), shot("02", "deck", { join: "continuous" })],
+    });
+    const errors = validateDirectionStructure(dir).filter((e) => e.code === "join-impossible");
+    expect(errors.map((e) => e.subject)).toEqual(["02"]);
+    expect(errors[0]!.message).toContain("coverage shot");
+  });
+
+  it("asks no join of the shot after it on the same setup", () => {
+    const dir = direction({ shots: [coverage("01", "deck"), shot("02", "deck")] });
+    expect(errorCodes(dir)).not.toContain("join-undeclared");
+  });
+
+  it("refuses a frame declared after its opening", () => {
+    const dir = direction({
+      shots: [
+        coverage("01", "deck", {
+          lineup: ["ane"],
+          lineupTo: ["imouto"],
+          cutin: { setup: "stern", lineup: [] },
+        }),
+      ],
+    });
+    const errors = validateDirectionStructure(dir).filter(
+      (e) => e.code === "coverage-overdeclared",
+    );
+    expect(errors.map((e) => e.message.match(/`(\w+)`/)?.[1])).toEqual(["lineupTo", "cutin"]);
+  });
+
+  it("asks the cut after it to carry no panel across an axis", () => {
+    const dir = direction({
+      setups: { stern: { ...stern, within: null }, deck: { ...deck, within: "stern" }, shore },
+      shots: [coverage("01", "stern"), shot("02", "deck")],
+    });
+    const stagingStage: StagingStageState = {
+      ...noStage,
+      shotPanels: ["01", "02"].map((shotId) => ({
+        shotId,
+        lane: "main" as const,
+        firstPanel: `animatic:shot.${shotId}.first`,
+        lastPanel: `animatic:shot.${shotId}.first`,
+        carries: true,
+        linked: [],
+      })),
+    };
+    expect(
+      checkDirection(dir, { stagingStage }).active.filter((f) => f.code === "panel-unlinked"),
+    ).toEqual([]);
+  });
+});

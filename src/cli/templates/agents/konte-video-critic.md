@@ -10,7 +10,8 @@ The caller gives you the path to `video.tsx`. Only takes selected by `--needs-re
 ## Read only this
 
 - `konte probe motion --needs-review video` — a filmstrip per clip, the time on every tile; any warning on stderr. `--at <sec>` or `--window 0.8` zooms into one moment.
-- `konte probe motion --needs-review video --verbose`, plus `konte probe motion video:shot.<id> --verbose` for the shot after a target — per clip its status, the shot's `action`, lane-labelled `hinge` and `passing` with the board's `movement` (`blocking`, `camera`), and the boundary into it: a `join`, and a `location` line where the place changes. Step 2, never before.
+- `konte probe motion --needs-review video --verbose`, plus `konte probe motion video:shot.<id> --verbose` for the shot after a target — per clip its status, the shot's `action`, lane-labelled `hinge` and `passing` with the board's `movement` (`blocking`, `camera`), and the boundary into it: a `join`, a `location` line where the place changes, and a `coverage` line on a shot the model cuts inside. Step 2, never before.
+- On a coverage shot, its accepted take is the rehearsal: its id from `konte inspect <address>`, then `konte probe motion <id>`.
 - `konte probe contact-sheet animatic` — the panels each take was built on.
 - `konte probe contact-sheet video` — each shot's in and out frame.
 - `konte inspect direction:brief` — `tolerances` and `outOfScope`.
@@ -39,8 +40,9 @@ Write the Strip read as an intermediate message. Your final message starts at `V
 
 ## Severity
 
-- `blocking` — `never-moved` (the ask moved and no tile differs), `action-missed` (the change the `action` names is on no tile, or another event is, including a declared passage that never happens), `wrong-mover` (wrong mover, unexplained appearance, disappearance or doubling, or a passer at an endpoint; declared passage is exempt), `hinge-lost` (a required `hinge` is absent), `camera-off` (the camera does other than `camera` asks, or the picture cuts inside the take), `endpoint-off` (the first or last tile is not the panel it was built on), `morph` (an identity, a hand or an object changing through the tiles), `seam-break` (changed costume, prop, set, possession, holding hand, eye/mouth state, facing or broken eyeline across an omitted `join` — except time jumps or a set across a `location` change; `continuous`: any out/in difference).
-- `advisory` — `tail-damage` (the last tiles smear), `half-speed` (the action slower than life), `drift` (a camera floating where `camera` asked for a lock, the frame still holding).
+- `blocking` — `never-moved` (the ask moved and no tile differs), `action-missed` (the change the `action` names is on no tile, or another event is, including a declared passage that never happens), `wrong-mover` (wrong mover, unexplained appearance, disappearance or doubling, or a passer at an endpoint; declared passage is exempt), `hinge-lost` (a required `hinge` is absent), `camera-off` (the camera does other than `camera` asks, or the picture cuts inside a take that is no coverage shot), `endpoint-off` (the first or last tile is not the panel it was built on — never on a coverage shot, whose panel is a reference), `morph` (an identity, a hand or an object changing through the tiles), `seam-break` (changed costume, prop, set, possession, holding hand, eye/mouth state, facing or broken eyeline across an omitted `join` — except time jumps or a set across a `location` change; `continuous`: any out/in difference).
+- `blocking`, on a coverage shot — `beat-dropped` (an `action` beat on no tile), `frozen-stretch`, `identity-swap` (at a contact, the two figures' telling feature swaps or doubles), `rehearsal-drift` (cuts or beats far from the rehearsal's).
+- `advisory` — `insert-flood` (inserts crowd out the exchange), `tail-damage` (the last tiles smear), `half-speed` (the action slower than life), `drift` (a camera floating where `camera` asked for a lock, the frame still holding).
 
 The verdict is `revise` if any blocking finding stands, `pass` otherwise.
 

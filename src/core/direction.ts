@@ -444,6 +444,9 @@ type DirectionErrorCode =
   // `continuous` at a boundary no unbroken take could cross.
   | "join-undeclared"
   | "join-impossible"
+  // A coverage shot declaring a frame after its opening one — a `lineupTo` or a `cutin`, where the
+  // camera after the opening is the model's cut.
+  | "coverage-overdeclared"
   // A shot whose span is not the one the policy counts in: `beats` on a direction with
   // `policy.song`, `duration` on one without, and never both.
   | "shot-span-mismatch"
@@ -523,6 +526,8 @@ export type ShotFrame = {
   lineupTo?: readonly string[];
   passing?: readonly string[];
   join?: "continuous" | "jump-back" | "jump-forward";
+  // A coverage shot's main frame: its opening frame, with the camera after it the model's.
+  coverage?: true;
 };
 
 // A frame as a finding or an error names it: the shot's own frame is the shot, a cutin is
@@ -574,6 +579,7 @@ export function shotFrames(s: ArcShot): ShotFrame[] {
       ...(s.lineupTo ? { lineupTo: s.lineupTo } : {}),
       ...(s.passing ? { passing: s.passing } : {}),
       ...(s.join ? { join: s.join } : {}),
+      ...(s.coverage ? { coverage: true as const } : {}),
     });
   }
   if (s.cutin) {
@@ -894,6 +900,8 @@ function countSentenceBreaks(action: string): number {
 function checkFusedShots(direction: Direction): DirectionFinding[] {
   const findings: DirectionFinding[] = [];
   for (const s of collectArcShots(direction)) {
+    // A coverage shot's action is the run of beats the model cuts between.
+    if (!isGraphicShot(s) && s.coverage) continue;
     const breaks = countSentenceBreaks(s.action);
     if (breaks > 0) {
       findings.push({
@@ -986,7 +994,7 @@ export type StagingStageState = {
 // included, since an eyecatch dropped between two shots is a cut the narrative-only walk cannot
 // see), that shot's frame in the same lane, and the frame this one could run on from in one unbroken
 // take — that same frame, when it is on the same DECLARED setup. A main frame runs on only from a
-// narrative shot, a cutin only from a cutin. An undeclared setup yields none: `setup-unknown`
+// narrative shot that is no coverage shot, a cutin only from a cutin. An undeclared setup yields none: `setup-unknown`
 // owns that frame, and two frames naming one missing id are not two frames of anything.
 type JoinBoundary = {
   frame: ShotFrame;
@@ -1006,6 +1014,7 @@ function joinBoundaries(direction: Direction): JoinBoundary[] {
       const runOn =
         previousFrame !== undefined &&
         previousFrame.setup === frame.setup &&
+        !previousFrame.coverage &&
         direction.setups?.[frame.setup] !== undefined
           ? previousFrame
           : undefined;
@@ -1036,6 +1045,7 @@ function lineupShots(direction: Direction): LineupShot[] {
     // error rather than a mismatch at a seam the piece does not have.
     ...(frame.join && (frame.join !== "continuous" || runOn) ? { join: frame.join } : {}),
     ...(continuedBy.has(frameKey(frame)) ? { continuedBy: continuedBy.get(frameKey(frame)) } : {}),
+    ...(frame.coverage ? { coverage: true as const } : {}),
   }));
 }
 
@@ -1290,8 +1300,9 @@ function nestingChain(
 // `"continuous"` owes the board nothing here: the seam is the next shot's opening keyframe, and the
 // take before landing on it is the video's to answer (`join-unpinned`). A story-time jump
 // carries nothing (she may have moved), a second axis is a different camera, two frames holding no
-// subject in common have no subject to carry, and an aside between the two shots is a card the take
-// does not run through. A seam is judged only where both shots are on the board and the opening
+// subject in common have no subject to carry, an aside between the two shots is a card the take
+// does not run through, and a coverage shot's panel is its opening frame, not where its camera
+// ended. A seam is judged only where both shots are on the board and the opening
 // keyframe has a slot for the frame — the rest is not this finding's to report.
 //
 // Each lane is its own camera: a wipe carries across the seam from the wipe before it, and a main
@@ -1301,7 +1312,7 @@ function panelSeams(direction: Direction, continuity: readonly ShotPanels[]): Pa
   const byFrame = new Map(continuity.map((entry) => [`${entry.shotId}/${entry.lane}`, entry]));
   const out: PanelSeam[] = [];
   for (const { frame, previousFrame } of joinBoundaries(direction)) {
-    if (previousFrame === undefined) continue;
+    if (previousFrame === undefined || previousFrame.coverage) continue;
     const here = byFrame.get(`${frame.shotId}/${frame.lane}`);
     const before = byFrame.get(`${previousFrame.shotId}/${previousFrame.lane}`);
     if (!here?.carries || !before) continue;
@@ -2127,6 +2138,24 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
     }
   }
 
+  // The type layer refuses both on a literal; this catches a computed direction.
+  for (const s of collectCameraShots(direction)) {
+    if (!s.coverage) continue;
+    for (const [field, declared] of [
+      ["lineupTo", s.lineupTo !== undefined],
+      ["cutin", s.cutin !== undefined],
+    ] as const) {
+      if (!declared) continue;
+      errors.push({
+        code: "coverage-overdeclared",
+        subject: s.id,
+        message:
+          `shot "${s.id}" is a coverage shot and declares \`${field}\` — its camera after the ` +
+          `opening frame is the model's cut, so only the opening \`setup\` and \`lineup\` are declared`,
+      });
+    }
+  }
+
   // Where a long take is possible, omission is the one reading nothing could mean, so the boundary
   // has to choose one of the three.
   for (const { frame, previous, previousFrame, runOn } of joinBoundaries(direction)) {
@@ -2145,9 +2174,12 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
               ? frame.lane === "cutin"
                 ? `"${previous.id}" before it carries no cutin, so there is no wipe to run on from`
                 : `"${previous.id}" before it is a graphic shot, and a take does not run through one`
-              : `it sits on setup "${frame.setup}" while ${frameLabel(previousFrame)} before it is ` +
-                `on "${previousFrame.setup}" — one take is one camera position, so a hold that ` +
-                `moves is written as two panels inside one shot`;
+              : previousFrame.coverage
+                ? `"${previous.id}" before it is a coverage shot, whose camera ends wherever the ` +
+                  `model cut to — drop the join, or declare a jump`
+                : `it sits on setup "${frame.setup}" while ${frameLabel(previousFrame)} before it is ` +
+                  `on "${previousFrame.setup}" — one take is one camera position, so a hold that ` +
+                  `moves is written as two panels inside one shot`;
       errors.push({
         code: "join-impossible",
         subject: frameSubject(frame),

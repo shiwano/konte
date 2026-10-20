@@ -550,6 +550,68 @@ describe("defineDirection", () => {
     });
   });
 
+  // A coverage shot's camera after its opening frame is the model's cut, so nothing declares where
+  // it ends. The runtime `coverage-overdeclared` and `join-impossible` have their own cases.
+  it("accepts a coverage shot with a cut after it", () => {
+    defineDirection({
+      ...directionDefaults,
+      setups: twoSetups,
+      sequence: {
+        lens: "mini-drama",
+        pleasure: "cute",
+        shots: [
+          { ...onSetup("01", "front"), coverage: true },
+          onSetup("02", "front"),
+          { ...onSetup("03", "front"), join: "jump-forward" },
+        ],
+      },
+    });
+  });
+
+  it("refuses a long take run on from a coverage shot", () => {
+    defineDirection({
+      ...directionDefaults,
+      setups: twoSetups,
+      sequence: {
+        lens: "mini-drama",
+        pleasure: "cute",
+        shots: [
+          { ...onSetup("01", "front"), coverage: true },
+          // @ts-expect-error the coverage shot's camera ends wherever the model cut to
+          { ...onSetup("02", "front"), join: "continuous" },
+        ],
+      },
+    });
+  });
+
+  it("refuses a `lineupTo` on a coverage shot", () => {
+    defineDirection({
+      ...directionDefaults,
+      setups: twoSetups,
+      sequence: {
+        lens: "mini-drama",
+        pleasure: "cute",
+        // @ts-expect-error its end is not on the board
+        shots: [{ ...onSetup("01", "front"), coverage: true, lineupTo: ["hero"] }],
+      },
+    });
+  });
+
+  it("refuses a `cutin` on a coverage shot", () => {
+    defineDirection({
+      ...directionDefaults,
+      setups: twoSetups,
+      sequence: {
+        lens: "mini-drama",
+        pleasure: "cute",
+        shots: [
+          // @ts-expect-error it cuts inside its own take
+          { ...onSetup("01", "front"), coverage: true, cutin: { setup: "back", lineup: [] } },
+        ],
+      },
+    });
+  });
+
   // The `within` axis is checked against the whole `setups` roster, so the named entry is looked up
   // and its place and size read back out. A one-shot sequence throughout: these are type assertions,
   // and the runtime `within-*` errors have their own cases.

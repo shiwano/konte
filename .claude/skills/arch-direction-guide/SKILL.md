@@ -118,6 +118,10 @@ A cut along one camera axis is the other boundary the frame does not restart acr
 
 A `cutin` is declared as `cutin: { setup, lineup, lineupTo?, join? }` on a narrative or graphic shot; `cutin.join`, the seam frame and the previous panel run on the wipe's own lane, and a jump in either frame empties every place.
 
+## Coverage shots
+
+A narrative shot with `coverage: true` is one take the model cuts inside: `setup` and `lineup` are its opening frame, and the camera positions after it are the model's, declared nowhere. So it declares no `lineupTo` or `cutin`, and no take runs on from it — `ConstrainCoverage` / `ConstrainJoin` refuse a literal, `coverage-overdeclared` and `join-impossible` a computed one. `ShotFrame.coverage` is what the readers branch on: `joinBoundaries` gives the frame after it no `runOn` (so no `join-undeclared` either), `panelSeams` skips it as the frame before, `checkLineups` empties its place after reading its opening frame (`LineupShot.coverage`), and `checkFusedShots` reads no `multi-sentence-action` off its `action`. Everything read off the opening frame — `slot-order-mismatch`, `character-unconsumed`, `subject-unnamed`, the setup counts — stands. `coverage` rides `projectShotShape`. The board holds it to one `<Panel>` (`DirectionIndex.coverageIds`).
+
 `docs/SEAMS.md` is every rule above run over fixtures (`seam-doc.ts`, regenerated or the test fails).
 
 ## Words

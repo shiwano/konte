@@ -812,6 +812,9 @@ export type LineupShot = {
   // The shot whose frame in this lane runs on from this one in one take (`join: "continuous"`,
   // where it is possible). This frame's last panel then answers for no `lineupTo`.
   continuedBy?: string;
+  // A coverage shot's frame: its `lineup` is the opening, and where anyone stands after the model's
+  // cuts is unknown.
+  coverage?: true;
 };
 
 // A cutin's subject is `<shotId>.cutin`, so a waiver for the main frame never silences the wipe.
@@ -1002,9 +1005,9 @@ const formatFrame = (lineup: readonly string[]): string =>
  *
  * The state is one `Map` of pairs per LOCATION — "a is left of b", with the shot that said so. A
  * shot's `lineup` is checked against it, then written into it, then its `lineupTo` over that; a
- * `join` of `jump-back`/`jump-forward` empties every place, because given time people move anywhere.
- * There is no carry-over of the LIST: each shot states only what its own frame holds, and the pairs
- * are what remember.
+ * `join` of `jump-back`/`jump-forward` empties every place, because given time people move anywhere,
+ * and a coverage shot empties its own after its opening frame is read. There is no carry-over of
+ * the LIST: each shot states only what its own frame holds, and the pairs are what remember.
  */
 export function checkLineups(
   shots: readonly LineupShot[],
@@ -1137,6 +1140,7 @@ export function checkLineups(
       state.clear();
       writePairs(state, shot.lineupTo ?? shot.lineup, shot.id);
     }
+    if (shot.coverage) byLocation.delete(shot.location);
   }
 
   if (options.panelSlots) findings.push(...checkSlotOrder(shots, options.panelSlots));

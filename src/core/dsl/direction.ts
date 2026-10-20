@@ -3,7 +3,7 @@ import type { CanvasBudget, CanvasSize, ReferenceShape } from "../canvas.js";
 import { CANVAS_GRID, deriveCanvasBase, idealSize } from "../canvas.js";
 import { ratioOf } from "../aspect.js";
 import type { ScriptLine } from "../types/script.js";
-import type { Typography } from "../types/definition.js";
+import type { PanelLane, Typography } from "../types/definition.js";
 import type { ArcItem, LensSpec } from "../direction-check.js";
 import type { PendingShotInput, ShotHandle, ShotInput, StageShots } from "./builders.js";
 import type { DiscoveryResult, ShotFunction } from "./shot-context.js";
@@ -55,6 +55,7 @@ import { placeLyricLines } from "../song-lyrics.js";
 import { songBeatAt, songBeatSec, type SongTake } from "../song-take.js";
 import { KonteError } from "../errors.js";
 import { songTakeAt } from "./song-context.js";
+import { continuedFrames } from "../direction.js";
 
 // Re-export the arc layer so the DSL surface (index.ts / template-entry.ts) has one import point.
 export type { Pleasure } from "../lenses.js";
@@ -341,6 +342,10 @@ export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "duration"> & {
   // A second camera frame laid over this shot's picture (a wipe in the corner, a reaction over the
   // main frame). See `Cutin`.
   cutin?: Cutin;
+  // A shot the model cuts inside: `setup` and `lineup` are its opening frame, and `action` may run
+  // beat after beat. It declares no `lineupTo` or `cutin`, and the shot after it cannot run on from
+  // it (`join: "continuous"`).
+  coverage?: true;
 };
 
 // A second camera frame over a shot — who a wipe holds and where its camera stands. Read by every
@@ -367,7 +372,7 @@ export type Cutin = {
 // character on screen is a `cutin` over it, never part of the graphic.
 export type GraphicShot = Omit<
   NarrativeShot,
-  "kind" | "setup" | "lineup" | "lineupTo" | "passing" | "join"
+  "kind" | "setup" | "lineup" | "lineupTo" | "passing" | "join" | "coverage"
 > & {
   kind: "graphic";
   cutin?: Cutin;
@@ -529,6 +534,7 @@ type NarrativeShotShape = {
   passing?: readonly string[];
   join?: "continuous" | "jump-back" | "jump-forward";
   cutin?: CutinShape;
+  coverage?: true;
 };
 type CutinShape = {
   setup: string;
@@ -555,6 +561,7 @@ type GraphicShotShape = {
   lineupTo?: never;
   passing?: never;
   join?: never;
+  coverage?: never;
 };
 type AsideShotShape = {
   id: string;
@@ -859,6 +866,7 @@ type CutinRunsOnFrom<P, S> = [P] extends [never]
   : P extends { cutin: { setup: infer PS } }
     ? SameSetup<PS, S>
     : false;
+type IsCoverage<P> = [P] extends [never] ? false : P extends { coverage: true } ? true : false;
 // `join-impossible`, on a literal `continuous`: the shot before on the clock has to be one the take
 // could run on from. Blamed in the `join` position; a widened join or shot list passes through.
 type ConstrainJoin<B, Shots> = B extends {
@@ -866,11 +874,29 @@ type ConstrainJoin<B, Shots> = B extends {
   id: infer Id extends string;
   setup: infer S;
 }
-  ? RunsOnFrom<ShotBefore<Shots, Id>, S> extends true
-    ? unknown
-    : {
-        join: DirectionViolation<"konte: `continuous` is one unbroken take with the shot before it on the clock, so that shot is a narrative shot on this same setup — declare a jump, or drop the join">;
+  ? IsCoverage<ShotBefore<Shots, Id>> extends true
+    ? {
+        join: DirectionViolation<"konte: the shot before is a coverage shot, whose camera ends wherever the model cut to, so no take runs on from it — drop the join, or declare a jump">;
       }
+    : RunsOnFrom<ShotBefore<Shots, Id>, S> extends true
+      ? unknown
+      : {
+          join: DirectionViolation<"konte: `continuous` is one unbroken take with the shot before it on the clock, so that shot is a narrative shot on this same setup — declare a jump, or drop the join">;
+        }
+  : unknown;
+// A coverage shot's board is its opening frame alone, so nothing declares where it ends or what a
+// second camera over it holds.
+type ConstrainCoverage<B> = B extends { coverage: true }
+  ? (B extends { lineupTo: readonly string[] }
+      ? {
+          lineupTo: DirectionViolation<"konte: a coverage shot's frame after the opening is the model's cut, so it declares no `lineupTo`">;
+        }
+      : unknown) &
+      (B extends { cutin: object }
+        ? {
+            cutin: DirectionViolation<"konte: a coverage shot cuts inside its own take, so it carries no `cutin`">;
+          }
+        : unknown)
   : unknown;
 type ConstrainCutinJoin<B, Shots> = B extends {
   id: infer Id extends string;
@@ -901,6 +927,7 @@ type ConstrainShotIds<
     ConstrainRole<Arr[K], Roles> &
     ConstrainJoin<Arr[K], Shots> &
     ConstrainCutinJoin<Arr[K], Shots> &
+    ConstrainCoverage<Arr[K]> &
     (Arr[K] extends { cutin: infer C }
       ? { cutin: Omit<C, "lineup" | "lineupTo" | "passing"> & ConstrainFrameLineups<C, Subjects> }
       : unknown);
@@ -1185,6 +1212,8 @@ export interface DirectionIndex {
   // The graphic shots — arc shots with no camera, so `actionById` and `scriptById` hold them and
   // the camera maps above do not.
   graphicIds: Set<string>;
+  // The coverage shots — one take the model cuts inside, boarded on its opening frame alone.
+  coverageIds: Set<string>;
   // The second camera frame each shot declares, on either kind of arc shot, and the framing and
   // location resolved through its setup as a shot's own are — absent where the setup is undeclared.
   cutinById: Map<string, Cutin>;
@@ -2132,9 +2161,9 @@ export function defineDirection<const D extends DirectionInput>(
   const scriptById = new Map<string, readonly ScriptLine[]>();
   const lineupById = new Map<string, readonly string[]>();
   const lineupToById = new Map<string, readonly string[]>();
-  const joinById = new Map<string, string>();
   const setupById = new Map<string, string>();
   const graphicIds = new Set<string>();
+  const coverageIds = new Set<string>();
   const cutinById = new Map<string, Cutin>();
   const cutinFrameById = new Map<string, { framing: Framing; location: string }>();
   const asideIds = new Set<string>();
@@ -2176,6 +2205,7 @@ export function defineDirection<const D extends DirectionInput>(
       return;
     }
     setupById.set(s.id, s.setup);
+    if (s.coverage) coverageIds.add(s.id);
     hingeById.set(s.id, deriveShotHinges(dir, s.action, s.setup));
     const setup = (dir.setups ?? {})[s.setup];
     if (setup) {
@@ -2184,7 +2214,6 @@ export function defineDirection<const D extends DirectionInput>(
     }
     if (s.lineup) lineupById.set(s.id, s.lineup);
     if (s.lineupTo) lineupToById.set(s.id, s.lineupTo);
-    if (s.join) joinById.set(s.id, s.join);
   };
   // Walk the arc tree depth-first so `durationById` fills in direction order (its key order IS the shot
   // order the chain walks). A leaf indexes its shots; a branch recurses into its child nodes.
@@ -2197,36 +2226,10 @@ export function defineDirection<const D extends DirectionInput>(
   };
   indexNode(dir.sequence);
 
-  // The clock walk, asides included: a take runs on only from the shot just before it, in the same
-  // lane, on the same declared setup (what `join-impossible` enforces).
   const continuedById = new Map<string, { main?: string; cutin?: string }>();
-  let previousFrames: { id: string; lane: "main" | "cutin"; setup: string }[] = [];
-  for (const id of durationById.keys()) {
-    const frames: { id: string; lane: "main" | "cutin"; setup: string; join?: string }[] = [];
-    if (!asideIds.has(id)) {
-      const mainSetup = setupById.get(id);
-      const main = mainSetup === undefined ? undefined : (dir.setups ?? {})[mainSetup];
-      if (mainSetup !== undefined && main) {
-        const join = joinById.get(id);
-        frames.push({ id, lane: "main", setup: mainSetup, ...(join ? { join } : {}) });
-      }
-      const cutin = cutinById.get(id);
-      if (cutin && (dir.setups ?? {})[cutin.setup]) {
-        frames.push({
-          id,
-          lane: "cutin",
-          setup: cutin.setup,
-          ...(cutin.join ? { join: cutin.join } : {}),
-        });
-      }
-    }
-    for (const frame of frames) {
-      if (frame.join !== "continuous") continue;
-      const before = previousFrames.find((f) => f.lane === frame.lane);
-      if (!before || before.setup !== frame.setup) continue;
-      continuedById.set(before.id, { ...continuedById.get(before.id), [frame.lane]: id });
-    }
-    previousFrames = frames;
+  for (const [key, nextId] of continuedFrames(dir)) {
+    const [id, lane] = key.split("/") as [string, PanelLane];
+    continuedById.set(id, { ...continuedById.get(id), [lane]: nextId });
   }
 
   for (const id of Object.keys(dir.characters)) referenceShapeById.set(id, "portrait");
@@ -2252,6 +2255,7 @@ export function defineDirection<const D extends DirectionInput>(
     lineupToById,
     continuedById,
     graphicIds,
+    coverageIds,
     cutinById,
     cutinFrameById,
     asideIds,
