@@ -20,7 +20,7 @@ prompt: {
 }
 ```
 
-- **`style` is one or two sentences.** Name it from `Cinematic`, `live-action`, `2D-animated`, `3D CG`, `claymation`, `watercolor`, `vintage film` — derived from the reference image wherever a frame or a sheet is passed, and from the shot's own text where none is.
+- **`style` opens on the medium** — `Cinematic`, `live-action`, `2D-animated`, `3D CG`, `claymation`, `watercolor`, `vintage film`, derived from the reference image wherever a frame or a sheet is passed, and from the shot's own text where none is — **then the piece's motion grammar where it has one**: what motion leaves on screen (smears, speed lines, a flash or a background colour change on a hit) and how the camera behaves; a shot's own moves stay in its text.
 - **English is the body language.** Only dialogue, lyrics and text visible in frame keep their source language.
 - **`shots[0]` is `[Shot 1]`; every later shot is `{ at, text }`** — `at` the cut time in seconds, strictly increasing and inside the take's duration.
 - **Refer back in words (`the previous shot`), never with `[Shot N]` inside a shot's text.** Other fields cite a shot as `[Shot N]`, N its position in `shots`.

@@ -35,8 +35,9 @@ When writing or editing a prompt-like field (`prompt`, `text`, `lyrics`) in an `
 - **Two characters' lines in one call only work on a model that takes speaker tags** — on any other, give each speaker its own take.
 - **Either kind's words** — pass the injected `script.<who>[n]` as it stands; a paraphrase, a retyped copy or a wording fix is a `direction.ts` edit. A word THIS model reads wrong is respelled at the take with `respell(script.<who>[n], "…")`. A `ja` line's notation is `direction-guide`'s `japanese-notation.md`.
 - **motion** — realize the movement the panel's `blocking`/`camera` fixed; read them in `animatic.tsx`. The prompt names what moves and what the motion reveals — on a key, from its start to the key's landing.
-  - **Open each beat on where the last one lands** — its end state or its momentum: `out of the stumble she snaps a front kick`. A beat written from rest plays a pause before it.
+  - **Open each beat on where the last one lands**, unless a pause is the point — its end state or its momentum: `out of the stumble she snaps a front kick`. A beat written from rest plays a pause before it.
   - **Write a camera move as a path** — where it starts, what it passes, where it lands, and the subject it travels with: `rises off the floor between the two runners, rides the lead runner's shoulder into a medium shot`.
+  - **A piece with its own motion grammar writes it once, where every shot reads it** — what motion leaves on screen and how the camera behaves: `fast limbs smear and trail speed lines, every landed hit flashes the background hot pink; the camera keeps moving, riding a fist within inches of the lens`. Unwritten, a moment no shot moves holds still.
 - **BGM** — take the mood from `direction.ts` (`brief.tone`, the sequence's `pleasure`).
 - **SFX** — name the source event in the frame it lands on, one event per asset.
 

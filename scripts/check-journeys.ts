@@ -35,6 +35,8 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - video 35,700 → 35,750, music-video 37,300 → 37,350 (agreed by a human): the piece's motion
+//   grammar written once where every shot reads it.
 // - video 35,600 → 35,700, music-video 37,200 → 37,300 (agreed by a human): when a long take is
 //   the cut — a beat or event living on uncut time held on one setup with `join: "continuous"`.
 // - dev-render 10,750 → 10,800 (agreed by a human): what it held over budget.
@@ -126,7 +128,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "video",
-    budget: 35_700,
+    budget: 35_750,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
@@ -161,7 +163,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "music-video",
-    budget: 37_300,
+    budget: 37_350,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
