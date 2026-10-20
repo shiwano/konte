@@ -221,8 +221,8 @@ Examples:
         ?.outputHash;
       const digest = (value: unknown): string =>
         createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 12);
-      // One directory and one pair of sheets per image argument.
-      const key = digest(address);
+      // One directory and one pair of sheets per take the image argument resolves to.
+      const key = digest(variantId);
       const cropDir = path.join(videoRoot, ".konte", "cache", "crops", key);
       await fs.mkdir(cropDir, { recursive: true });
       const sourceKey = [source.variantId, sourceHash ?? null];
