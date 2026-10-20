@@ -19,7 +19,7 @@ Done = one post, approved by the human, handed over as paste-ready text with its
 - `konte doctor` first — if an environment problem it identifies fully explains the failure, treat it as support rather than a konte bug.
 - Reproduce when safe — rerun the exact CLI command and record its exit code (`konte …; echo "exit=$?"`), or repeat the review UI steps. Once only → still worth posting with the available evidence; mark it `seen once`.
 - Minimize — the smallest command or UI steps, and the smallest edit to the definition, that still triggers it.
-- Don't rerun a paid generation to reproduce — for a job, report from what already ran.
+- A paid generation — report from what already ran; rerun it only after the human confirms.
 
 ## 3. Collect the facts
 

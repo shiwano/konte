@@ -6,7 +6,7 @@ user-invocable: false
 
 How konte supplies its external tools — each a version-pinned build fetched on first use — and where each one's override/fallback diverges.
 
-The tools: ffmpeg/ffprobe (local media ops, rendering, audio muxing), Chromium (HyperFrames rendering), tsc (type-checking user workspaces — the native TypeScript build, platform package `@typescript/typescript-<platform>-<arch>`), cloudflared (`konte preview --tunnel`), sherpa-onnx + its models (song analysis, line hearing), and the embedded hyperframes runtime assets.
+The tools: ffmpeg/ffprobe (local media ops, rendering, audio muxing), Chromium (HyperFrames rendering), tsc (type-checking user workspaces — the native TypeScript build, platform package `@typescript/typescript-<platform>-<arch>`), cloudflared (`konte preview --tunnel`), sherpa-onnx + its models (song analysis, line hearing), Beat This! (song beat tracking), and the embedded hyperframes runtime assets.
 
 - ffmpeg/ffprobe — managed by default; override `KONTE_FFMPEG_PATH` / `KONTE_FFPROBE_PATH` or `local.ffmpegPath` / `local.ffprobePath` in `konte.config.json` (version-checked; no automatic PATH fallback).
   - konte spawns the absolute path, but HyperFrames hardcodes `spawn("ffmpeg")`, so `ensureHyperFrames` calls `leadPathWithFfmpeg()` to put the resolved binaries' directory at the head of `PATH`. It skips an override a PATH lookup cannot honor (a bare name already is one; a renamed `ffmpeg-7` is not), so `vitest.setup.ts`'s bare-name override leaves `PATH` untouched.
