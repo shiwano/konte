@@ -708,6 +708,11 @@ export function checkSetups(
   const unanchored = animatic === undefined ? undefined : new Set(animatic.unanchoredPlateIds);
   const unnested = animatic === undefined ? undefined : new Set(animatic.unnestedPlateIds);
   const anchored = referenceAssetNames === undefined ? undefined : new Set(referenceAssetNames);
+  const shotsPerLocation = new Map<string, number>();
+  for (const setup of setups) {
+    const n = (shotsPerLocation.get(setup.location) ?? 0) + (shotsPerSetup.get(setup.id) ?? 0);
+    shotsPerLocation.set(setup.location, n);
+  }
   for (const setup of setups) {
     const shots = shotsPerSetup.get(setup.id) ?? 0;
     if (shots === 0) {
@@ -766,8 +771,13 @@ export function checkSetups(
             `take \`plates.${setup.id}\` as an input image, or the frame is only as steady as the ` +
             `prompt happens to be`
           : `shot ${shotList} sits on setup "${setup.id}", which has no plate, but no keyframe is ` +
-            `built from its location — take \`reference.${setup.location}\` as an input image, or ` +
-            `the place is only as steady as the prompt happens to be`,
+            `built from its location — take \`reference.${setup.location}\` as an input image` +
+            // One frame sees the place, so the reference can be that frame.
+            (shotsPerLocation.get(setup.location) === 1
+              ? `, or regenerate \`reference.${setup.location}\` to hold what the shot needs and ` +
+                `show it as the keyframe`
+              : "") +
+            `; otherwise the place is only as steady as the prompt happens to be`,
       });
     }
   }

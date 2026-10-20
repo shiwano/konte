@@ -1526,6 +1526,52 @@ describe("checkDirection setups", () => {
     expect(unconsumed.map((f) => f.subject)).toEqual(["solo"]);
     expect(unconsumed[0]?.message).toContain("reference.here");
     expect(unconsumed[0]?.message).not.toContain("plates.solo");
+    expect(unconsumed[0]?.message).not.toContain("regenerate");
+  });
+
+  // Seen by no other shot, the location reference can be the frame itself.
+  it("offers regenerating the location reference when one shot alone sees the place", () => {
+    const lone = leaf({
+      shots: [
+        { ...shot("01", "ordinary", 3), setup: "wall" },
+        { ...shot("02", "disruption", 2), setup: "wall" },
+        { ...shot("03", "pressure", 3), setup: "faraway" },
+        { ...shot("04", "hero", 4), setup: "wall" },
+      ],
+      locations: {
+        ...defaultLocations,
+        there: {
+          name: "the far place",
+          description: "seen once",
+          landmarks: {
+            thereMark: { name: "the far mark", promptDepiction: "tower", description: "a tower" },
+          },
+        },
+      },
+      setups: {
+        wall: {
+          name: "the wall",
+          description: "flat on",
+          location: "here",
+          framing: "medium",
+          holds: ["hereMark"],
+        },
+        faraway: {
+          name: "the far view",
+          description: "wide",
+          location: "there",
+          framing: "wide",
+          holds: ["thereMark"],
+        },
+      },
+    });
+    const { active } = checkDirection(lone, {
+      referenceAssetNames: ["here", "there"],
+      animaticSetups: plates(["wall"], { ignoring: { faraway: ["03"] } }),
+    });
+    const unconsumed = active.filter((f) => f.code === "setup-unconsumed");
+    expect(unconsumed.map((f) => f.subject)).toEqual(["faraway"]);
+    expect(unconsumed[0]?.message).toContain("regenerate `reference.there`");
   });
 
   it("names the plate, not the location, once the setup has one", () => {
