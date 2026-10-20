@@ -36,6 +36,9 @@ import { execFileSync } from "node:child_process";
 //
 // Budget log:
 // - dev-render 10,750 → 10,800 (agreed by a human): what it held over budget.
+// - video 35,400 → 35,600, music-video 37,000 → 37,200 (agreed by a human): motion beats chained
+//   on the last one's landing, a camera move written as a path, figures in contact told apart by one
+//   visible axis.
 // - video 35,350 → 35,400, music-video 36,950 → 37,000: a panel's role — a frame's only panel is its
 //   key, the moment the shot reads, handed to the video as a reference.
 // - video 38,750 → 35,350, music-video 39,800 → 36,950 (agreed by a human): cut to the measured
@@ -121,7 +124,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "video",
-    budget: 35_400,
+    budget: 35_600,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
@@ -156,7 +159,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "music-video",
-    budget: 37_000,
+    budget: 37_200,
     files: [
       ...ALWAYS,
       HOUSE_RULES,
