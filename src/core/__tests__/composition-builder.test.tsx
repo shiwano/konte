@@ -1247,6 +1247,17 @@ describe("Video/Audio data attributes", () => {
     expect(html).not.toMatch(/<video[^>]*data-end=/);
   });
 
+  it("serializes playbackRate to data-playback-rate", async () => {
+    const html = await buildSingle(
+      singleShot((motion) => (
+        <Composition>
+          <Video src={motion} playbackRate={1.625} />
+        </Composition>
+      )),
+    );
+    expect(html).toMatch(/<video[^>]*data-playback-rate="1.625"/);
+  });
+
   it("serializes hasAudio to the string data-has-audio the engine expects", async () => {
     const on = await buildSingle(
       singleShot((motion) => (

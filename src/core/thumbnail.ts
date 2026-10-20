@@ -600,6 +600,7 @@ interface CompositionVideo {
   start: number;
   end: number;
   mediaStart: number;
+  rate: number;
   loop: boolean;
 }
 
@@ -622,6 +623,7 @@ export function harvestCompositionVideos(html: string): CompositionVideo[] {
       // No data-duration means an unbounded clip — the runtime plays it to the composition's end.
       end: Number.isFinite(duration) ? start + duration : Infinity,
       mediaStart: Number(attr("data-media-start") ?? 0),
+      rate: Number(attr("data-playback-rate") ?? 1),
       loop: /\sloop\b/.test(tag),
     });
   }
@@ -695,7 +697,7 @@ async function buildVideoFrameInjector(
     const payloads = new Map<string, { framePath: string; frameIndex: number }>();
     for (const video of videos) {
       if (time < video.start || time >= video.end) continue;
-      let mediaTime = time - video.start + video.mediaStart;
+      let mediaTime = (time - video.start) * video.rate + video.mediaStart;
       // Past the source's end a `loop` clip restarts at mediaStart, matching how the runtime
       // wraps a looping element's currentTime. Without this the extract lands beyond the file,
       // finds no frame, and the shot falls back to the black <video> this hook exists to avoid.

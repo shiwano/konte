@@ -522,8 +522,15 @@ describe("harvestCompositionVideos", () => {
       `<video id="v0" src="/a.mp4" data-start="1.5" data-duration="2" data-media-start="0.25"></video>`,
     );
     expect(videos).toEqual([
-      { id: "v0", src: "/a.mp4", start: 1.5, end: 3.5, mediaStart: 0.25, loop: false },
+      { id: "v0", src: "/a.mp4", start: 1.5, end: 3.5, mediaStart: 0.25, rate: 1, loop: false },
     ]);
+  });
+
+  it("reads the clip's playback rate", () => {
+    const [video] = harvestCompositionVideos(
+      `<video id="v0" src="/a.mp4" data-start="0" data-duration="1" data-playback-rate="1.625"></video>`,
+    );
+    expect(video?.rate).toBe(1.625);
   });
 
   it("reads the bare `loop` attribute — a looping clip wraps instead of running off its source", () => {

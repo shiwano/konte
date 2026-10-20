@@ -430,6 +430,22 @@ describe("the window of a take cut to the song", () => {
     ).rejects.toMatchObject({ code: "SONG_WINDOW_INVALID" });
   });
 
+  it("refuses a written playbackRate", async () => {
+    await expect(
+      onSong(() => {
+        const animatic = clockedAnimatic();
+        return videoOpeningWith(() => (
+          <Composition>
+            <Video
+              src={asset("clip", stemComfy, { image: animatic.shot("01").image("first") })}
+              playbackRate={1.5}
+            />
+          </Composition>
+        ));
+      }),
+    ).rejects.toMatchObject({ code: "SONG_WINDOW_INVALID" });
+  });
+
   it("refuses a place on the song before the take starts", async () => {
     await expect(
       onSong(() => {

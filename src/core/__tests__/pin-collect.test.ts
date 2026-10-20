@@ -254,6 +254,29 @@ describe("listVideoShotPins windows", () => {
     expect([w.opensAt, w.closesAt, w.from, w.to]).toEqual([0, 2.5, 0, 2.5]);
   });
 
+  it("scales the take's seconds by the clip's playbackRate", () => {
+    const fast = defineVideo(testDirection(FORMAT), {
+      timeline: () =>
+        videoTimeline([
+          shot("01", {
+            duration: 2.5,
+            build: () => {
+              const key = asset("key", imageComfy, { prompt: "a lit desk" });
+              return el(
+                cue(asset("motion", gridMotion, { prompt: "she turns", endImage: key }), {
+                  playbackRate: 1.25,
+                }),
+              );
+            },
+          }),
+        ]),
+    });
+    const [entry] = listVideoShotPins(fast, (id) => harvestShotPictureCues(fast, id));
+    const w = entry!.pins[0]!.window!;
+    expect(w.closesAt).toBeCloseTo(73 / 24 / 1.25);
+    expect(w.to).toBeCloseTo(73 / 24);
+  });
+
   describe("an end image the workflow anchors by frame index", () => {
     const anchored = defineComfyAsset({
       workflow: "anchored-motion.json",

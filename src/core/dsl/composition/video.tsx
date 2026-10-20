@@ -1,6 +1,7 @@
 import type { MediaAsset } from "../builders.js";
 import { getRenderContext } from "../../jsx-html.js";
 import { assertAudioGain } from "../../audio-gain.js";
+import { assertPlaybackRate } from "../../playback-rate.js";
 import { applyLevelGain } from "../../audio-level.js";
 import { KonteError } from "../../errors.js";
 import { songSpanOf, songWindowStart } from "../song-window.js";
@@ -18,6 +19,11 @@ export type VideoProps = Omit<VideoElementProps, "src"> & {
    * the song, and refuses one written there.
    */
   mediaStart?: number;
+  /**
+   * Source seconds played per timeline second (data-playback-rate), 0.1–10: 1.625 fits a 1.625 s
+   * take into a 1 s clip. Refused with hasAudio and on a take cut to the song.
+   */
+  playbackRate?: number;
   /** Include the video's audio in the mix (data-has-audio). Refused on a take cut to the song. */
   hasAudio?: boolean;
   /** Audio gain 0–MAX_AUDIO_GAIN (+12 dB), 1 = unity (data-volume). Only applies when hasAudio is true. */
@@ -34,6 +40,7 @@ export function Video({
   start,
   duration,
   mediaStart,
+  playbackRate,
   hasAudio,
   volume,
   className,
@@ -55,12 +62,17 @@ export function Video({
   // a gain at all). A clip with no gain for its src emits the declared value untouched.
   const levelled = applyLevelGain(src.src, gain);
   const clipStart = start ?? raw["data-start"] ?? 0;
+  const clipHasAudio =
+    hasAudio ?? (raw["data-has-audio"] === true || raw["data-has-audio"] === "true");
+  const rate = playbackRate ?? raw["data-playback-rate"];
+  assertPlaybackRate(rate, clipHasAudio, `Shot "${shotId}" <Video>`);
   const window = songClipWindow({
     src,
     shotId,
     start: Number(clipStart),
     mediaStart: mediaStart ?? raw["data-media-start"],
-    hasAudio: hasAudio ?? (raw["data-has-audio"] === true || raw["data-has-audio"] === "true"),
+    rate,
+    hasAudio: clipHasAudio,
   });
 
   return (
@@ -74,6 +86,7 @@ export function Video({
       data-duration={duration ?? raw["data-duration"] ?? shotDuration}
       data-end={undefined}
       data-media-start={window ?? mediaStart ?? raw["data-media-start"]}
+      data-playback-rate={rate}
       data-has-audio={hasAudio === undefined ? raw["data-has-audio"] : hasAudio ? "true" : "false"}
       data-volume={levelled}
     >
@@ -89,6 +102,7 @@ function songClipWindow(clip: {
   shotId: string;
   start: number;
   mediaStart: unknown;
+  rate: unknown;
   hasAudio: boolean;
 }): number | undefined {
   const span = songSpanOf(clip.src);
@@ -99,6 +113,13 @@ function songClipWindow(clip: {
       "SONG_DOUBLED",
       `${label} takes the audio of a take cut to the song, which the song bed already plays. Drop ` +
         `hasAudio, and place the shot's lines with <Audio>.`,
+    );
+  }
+  if (clip.rate !== undefined && clip.rate !== null && Number(clip.rate) !== 1) {
+    throw new KonteError(
+      "SONG_WINDOW_INVALID",
+      `${label} writes a playbackRate on a take cut to the song. The take is cut to the song at ` +
+        `its own speed — drop playbackRate.`,
     );
   }
   if (span.start === null) return undefined;

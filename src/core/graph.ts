@@ -1366,6 +1366,7 @@ export type PictureCueLike = {
   start: number | null;
   duration: number | null;
   mediaStart: number | null;
+  playbackRate?: number | null;
 };
 
 // Fallback frame for a take whose adapter declares no clock.
@@ -1385,10 +1386,11 @@ function pinWindow(
     .map((c) => {
       const opensAt = c.start ?? 0;
       const from = c.mediaStart ?? 0;
+      const rate = c.playbackRate ?? 1;
       // The shot cuts at its end whatever the cue declares, and the take runs out at its own.
       let played = Math.min(c.duration ?? shotSec - opensAt, shotSec - opensAt);
-      if (clipSec !== undefined) played = Math.min(played, clipSec - from);
-      return { opensAt, closesAt: opensAt + played, from, to: from + played };
+      if (clipSec !== undefined) played = Math.min(played, (clipSec - from) / rate);
+      return { opensAt, closesAt: opensAt + played, from, to: from + played * rate };
     });
   if (windows.length === 0) return undefined;
   const pick =

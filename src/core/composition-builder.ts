@@ -759,6 +759,7 @@ export interface PictureCue {
   start: number | null;
   duration: number | null;
   mediaStart: number | null;
+  playbackRate: number | null;
 }
 
 // The shot's own `<Video>` cues, via its discovery render. Null when the shot has no render function.
@@ -776,6 +777,7 @@ export function harvestShotPictureCues(
       start: toNum(props["data-start"]),
       duration: toNum(props["data-duration"]),
       mediaStart: toNum(props["data-media-start"]),
+      playbackRate: toNum(props["data-playback-rate"]),
     });
   });
   return cues;

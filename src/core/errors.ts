@@ -156,8 +156,8 @@ export type KonteErrorCode =
   // An adapter's `stem` input written on a video shot of a piece cut to its song, where konte fills
   // it with the board's `#songStem`.
   | "SONG_STEM_OVERRIDDEN"
-  // A `<Video>` of a take cut to the song whose window konte cannot fill: a `mediaStart` written
-  // on it, or a place on the song before the take starts.
+  // A `<Video>` of a take cut to the song whose window konte cannot fill: a `mediaStart` or a
+  // `playbackRate` written on it, or a place on the song before the take starts.
   | "SONG_WINDOW_INVALID"
   // A shot the direction gives spoken lines to whose animatic shot plays no audio. Without a voice
   // take the piece comes out silent, with no failure until it is watched.
@@ -192,6 +192,9 @@ export type KonteErrorCode =
   // A `volume` outside 0–MAX_AUDIO_GAIN on an <Audio>, <Video> or soundtrack().
   // The preview would clamp it and the mux would not, so it is refused before either sees it.
   | "AUDIO_GAIN_INVALID"
+  // A `<Video playbackRate>` outside the bounds the render clamps to, or one other than 1 with
+  // `hasAudio`, whose track the mux plays at the take's own speed.
+  | "PLAYBACK_RATE_INVALID"
   // An `audioRetime` whose target `duration` moves the take further than a voice carries unheard,
   // with no `waiver` declared.
   | "RETIME_RATE_EXCEEDED"
