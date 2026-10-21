@@ -285,6 +285,17 @@ export function computeLastExports(
   ];
 }
 
+// The newest export when it failed: nothing has since replaced it, so it is still the answer to
+// the last `konte export`.
+export function latestFailedExport(jobs: JobRecord[]): ExportJob | null {
+  let latest: ExportJob | null = null;
+  for (const job of jobs) {
+    if (job.kind !== "export") continue;
+    if (!latest || job.createdAt > latest.createdAt) latest = job;
+  }
+  return latest?.status === "failed" ? latest : null;
+}
+
 export function buildAddressInfo(
   address: string,
   state: KonteState,
@@ -557,10 +568,10 @@ export function detectOrphans(state: KonteState, allJobs: JobRecord[]): OrphanIn
 export function computeStatusSections(
   infos: AddressInfo[],
   orphans?: OrphanInfo,
-  // Standalone failed jobs not tied to an asset variant — comfy model downloads and
-  // custom node install/activate jobs. They block the generation jobs that depend on
-  // them, so surface them by their own label (e.g. the model filename or node id). `what`
-  // names the kind of job for the detail line (defaults to "model download").
+  // Standalone failed jobs not tied to an asset variant — comfy model downloads, custom
+  // node install/activate jobs and the latest export — surfaced by their own label (e.g.
+  // the model filename or node id). `what` names the kind of job for the detail line
+  // (defaults to "model download").
   failedJobs?: { jobId: string; label: string; error: string | null; what?: string }[],
 ): StatusSection[] {
   const sections: StatusSection[] = [];

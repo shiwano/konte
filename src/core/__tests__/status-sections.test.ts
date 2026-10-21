@@ -4,6 +4,7 @@ import {
   buildAddressInfo,
   computeExportReadiness,
   computeLastExports,
+  latestFailedExport,
   computeStatusSections,
   detectOrphans,
 } from "../status-sections.js";
@@ -1773,6 +1774,30 @@ describe("computeLastExports", () => {
   it("ignores generation jobs", () => {
     const jobs = [makeJob({ variantId: "v-abc12345", status: "completed" })];
     expect(computeLastExports(true, jobs)).toEqual([]);
+  });
+
+  describe("latestFailedExport", () => {
+    it("returns the newest export when it failed", () => {
+      const failed = makeExportJob({
+        completedAt: "2026-01-02T00:00:00.000Z",
+        status: "failed",
+        outputFile: null,
+      });
+      const jobs = [makeExportJob({ completedAt: "2026-01-01T00:00:00.000Z" }), failed];
+      expect(latestFailedExport(jobs)).toBe(failed);
+    });
+
+    it("drops a failure a later export replaced", () => {
+      const jobs = [
+        makeExportJob({ completedAt: "2026-01-01T00:00:00.000Z", status: "failed" }),
+        makeExportJob({
+          completedAt: null,
+          status: "running",
+          createdAt: "2026-01-02T00:00:00.000Z",
+        }),
+      ];
+      expect(latestFailedExport(jobs)).toBeNull();
+    });
   });
 });
 

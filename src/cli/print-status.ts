@@ -57,6 +57,7 @@ import {
   computeLastExports,
   computeStatusSections,
   detectOrphans,
+  latestFailedExport,
 } from "../core/status-sections.js";
 import { type SuggestedAction, formatSuggestedActions } from "../core/suggested-actions.js";
 import type {
@@ -80,7 +81,7 @@ export interface StatusReport {
    */
   orphanJobIds: string[];
   /** Job ids of failed comfy provisioning jobs — model downloads and node install/activate. */
-  provisioningFailureJobIds: string[];
+  standaloneFailureJobIds: string[];
   /** Patch scripts that failed to load. Keyed by file path, which is not an address. */
   patchErrors: { filePath: string; message: string }[];
   /** The prompts and pins each outstanding patch would spend on, with the file that holds them. */
@@ -231,13 +232,17 @@ export async function buildStatusReport(
     stalenessCache,
   );
 
-  // Status is asset/variant-oriented. comfy-model-download jobs carry no asset
-  // address (their `address` is a sentinel), so they don't fit the per-asset
-  // sections — but a failed one blocks the generation jobs that depend on it, so
-  // surface those failures on their own.
+  // Status is asset/variant-oriented. Provisioning and export jobs carry no asset
+  // address, so they don't fit the per-asset sections — but a failed provisioning job
+  // blocks the generation jobs that depend on it, and a failed export is the outcome of
+  // the last `konte export`, so surface those failures on their own.
   const allJobs = everyJob.filter((job): job is GenerationJob => job.kind === "generation");
-  const modelDownloadFailures = everyJob.flatMap((job) => {
+  const failedExport = latestFailedExport(everyJob);
+  const jobFailures = everyJob.flatMap((job) => {
     if (job.status !== "failed") return [];
+    if (job === failedExport) {
+      return [{ jobId: job.id, label: "video", error: job.error, what: "export" }];
+    }
     if (job.kind === "comfy-model-download") {
       return [
         { jobId: job.id, label: job.model.filename, error: job.error, what: "model download" },
@@ -426,7 +431,7 @@ export async function buildStatusReport(
   }
 
   const orphans = detectOrphans(state, allJobs);
-  const sections = computeStatusSections(infos, orphans, modelDownloadFailures);
+  const sections = computeStatusSections(infos, orphans, jobFailures);
   // Declared but not yet realized — the same status as an ungenerated asset, so it gets its own
   // block rather than hiding inside "Needs review" (there is nothing to review yet). `konte
   // generate` picks these up, so the fix is the command the author was going to run anyway.
@@ -496,7 +501,7 @@ export async function buildStatusReport(
     readiness,
     lastExports,
     orphanJobIds: orphans.orphanJobs.map((j) => j.variantId),
-    provisioningFailureJobIds: modelDownloadFailures.map((f) => f.jobId),
+    standaloneFailureJobIds: jobFailures.map((f) => f.jobId),
     patchPrompts: pendingPatches
       .filter((p) => (p.prompts?.length ?? 0) > 0 || (p.pins?.length ?? 0) > 0)
       .map((p) => ({

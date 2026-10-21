@@ -100,17 +100,7 @@ describe("job wait command", () => {
     // A reported failure is prior history. Exit 0 — nothing failed here.
     const { stdout } = await run(["job", "wait"], projectDir);
 
-    expect(stdout).toContain("No running, queued, or pending jobs");
-  });
-
-  it("notes prior failures in the human-readable output instead of listing them (no ids)", async () => {
-    await createFailedJob("Backend rejected: bad node", { reported: true });
-
-    const { stdout } = await run(["job", "wait"], projectDir);
-
-    expect(stdout).toContain(
-      "No running, queued, or pending jobs, 1 failed before this wait — run `konte status`",
-    );
+    expect(stdout).toContain("No running, queued, or pending jobs — run `konte status`");
     expect(stdout).not.toContain("Job video:shot.01.motion (v-fail0001): failed");
   });
 
@@ -139,9 +129,7 @@ describe("job wait command", () => {
     expect(err.stdout).toContain("1 job(s) settled: 0 completed, 1 failed");
 
     const { stdout } = await run(["job", "wait"], projectDir);
-    expect(stdout).toContain(
-      "No running, queued, or pending jobs, 1 failed before this wait — run `konte status`",
-    );
+    expect(stdout).toContain("No running, queued, or pending jobs — run `konte status`");
   });
 
   // A fresh job sits "queued" with no backendJobId between createJob and its creator's claim, and
@@ -168,7 +156,6 @@ describe("job wait command", () => {
   it("still reports an empty result when there are genuinely no jobs (no ids)", async () => {
     const { stdout } = await run(["job", "wait"], projectDir);
     expect(stdout).toContain("No running, queued, or pending jobs");
-    expect(stdout).not.toContain("failed before this wait");
   });
 
   it("exits 1 on a job that already failed, named by id", async () => {

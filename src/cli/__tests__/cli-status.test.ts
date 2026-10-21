@@ -374,6 +374,24 @@ describe("status command", () => {
     expect(stdout).toContain(`konte job logs ${id}`);
   });
 
+  it("points a failed export at its log", async () => {
+    const jobManager = new JobManager(projectDir);
+    const { id } = await jobManager.createExportJob({
+      outputDir: "dist/video/20260101T000000000",
+      allowUnaccepted: false,
+    });
+    await jobManager.updateJob(id, {
+      status: "failed",
+      error: "ffmpeg exited with code 1",
+      completedAt: new Date().toISOString(),
+    });
+
+    const { stdout } = await run(["status"], projectDir);
+    expect(stdout).toContain(`konte job logs ${id}`);
+    const verbose = await run(["status", "-v"], projectDir);
+    expect(verbose.stdout).toContain("export job failed: ffmpeg exited with code 1");
+  });
+
   // An activate job's id derives from the packs it activates, so a re-run reuses the record rather
   // than leaving an earlier run's failure standing beside it. What remains is one live job per pack
   // set, and every one of those failures is current — none is an older run's ghost.

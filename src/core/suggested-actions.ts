@@ -134,7 +134,7 @@ function suggestOrphanJobCancel(actions: SuggestedAction[], jobIds: readonly str
 
 // A failed comfy provisioning job — a model download, a node install, a node activate. The retry
 // needs no step of its own: the next `konte generate` resets a failed one to pending.
-function suggestProvisioningLogs(actions: SuggestedAction[], jobIds: readonly string[]): void {
+function suggestStandaloneFailureLogs(actions: SuggestedAction[], jobIds: readonly string[]): void {
   for (const jobId of jobIds) {
     actions.push({ command: `konte job logs ${jobId}` });
   }
@@ -596,8 +596,8 @@ interface SuggestStatusInput {
   missingFilePaths?: readonly string[];
   /** Job ids from the report's orphan jobs — in flight, with no variant left in state. */
   orphanJobIds?: readonly string[];
-  /** Job ids of the report's failed comfy provisioning jobs. */
-  provisioningFailureJobIds?: readonly string[];
+  /** Job ids of the report's failed provisioning jobs and failed latest export. */
+  standaloneFailureJobIds?: readonly string[];
   /** Patch scripts the report could not load, each with its error. */
   patchErrors?: readonly { filePath: string; message: string }[];
   /**
@@ -722,7 +722,7 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   // The rest of "Problems": none of these has a variant for `clean` to act on.
   suggestMissingFiles(actions, input.missingFilePaths ?? []);
   suggestOrphanJobCancel(actions, input.orphanJobIds ?? []);
-  suggestProvisioningLogs(actions, input.provisioningFailureJobIds ?? []);
+  suggestStandaloneFailureLogs(actions, input.standaloneFailureJobIds ?? []);
 
   suggestDefinitionRestores(actions, input.definitionRestores ?? []);
   suggestStaleRefresh(

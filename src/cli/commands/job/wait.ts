@@ -71,7 +71,7 @@ Examples:
         await runner.stop();
       }
       const elapsedMs = Date.now() - startedAt;
-      const { results, priorFailedCount, settledBefore } = observed;
+      const { results, settledBefore } = observed;
 
       if (jobIds.length > 0) {
         // Named ids get a line each: the caller asked about exactly these jobs.
@@ -79,8 +79,7 @@ Examples:
         console.log("");
         console.log(formatWaitSummary(results, elapsedMs, 0));
       } else if (results.length === 0) {
-        const prior = priorFailedCount > 0 ? `, ${priorFailedCount} failed before this wait` : "";
-        console.log(`No running, queued, or pending jobs${prior} — run \`konte status\``);
+        console.log("No running, queued, or pending jobs — run `konte status`");
       } else {
         // Problems first, outcome last: the outcome line is the one a piped caller keeps.
         if (printProblemLines(results)) console.log("");
@@ -105,7 +104,6 @@ interface Outcome {
 
 interface Observed {
   results: Outcome[];
-  priorFailedCount: number;
   settledBefore: number;
 }
 
@@ -118,13 +116,9 @@ async function observe(
   warnings: DaemonWarnings,
   pollIntervalMs: number,
 ): Promise<Observed> {
-  // An outcome already reported is history; the caller notes the reported failures' count when
-  // there was otherwise nothing to do. One terminal but unreported is this wait's to report,
+  // An outcome already reported is history. One terminal but unreported is this wait's to report,
   // counted as settled before it.
   const jobsAtStart = await jobManager.listJobs();
-  const priorFailedCount = jobsAtStart.filter(
-    (j) => j.status === "failed" && j.reportedAt != null,
-  ).length;
   const terminalAtStart = new Set(
     jobsAtStart.filter((j) => isJobTerminal(j.status)).map((j) => j.id),
   );
@@ -179,7 +173,7 @@ async function observe(
     }
   }
   const settledBefore = results.filter((r) => terminalAtStart.has(r.id)).length;
-  return { results, priorFailedCount, settledBefore };
+  return { results, settledBefore };
 }
 
 async function queueSongReadings(jobManager: JobManager): Promise<string[]> {

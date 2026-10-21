@@ -589,7 +589,7 @@ export function registerStatusCommand(program: Command): void {
         definitionRestores,
         missingFilePaths,
         orphanJobIds: report.orphanJobIds,
-        provisioningFailureJobIds: report.provisioningFailureJobIds,
+        standaloneFailureJobIds: report.standaloneFailureJobIds,
         patchErrors: report.patchErrors,
         // Hand Next steps the report's own conclusions rather than leaving it to re-derive them
         // from `state`: only these see a never-generated asset (which has no state entry at all),

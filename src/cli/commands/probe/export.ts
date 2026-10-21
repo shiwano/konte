@@ -11,7 +11,7 @@ import {
 import { coverScale, coverSize } from "../../../core/delivery.js";
 import { computeExportSignature } from "../../../core/export-signature.js";
 import { JobManager } from "../../../core/job-manager.js";
-import { computeLastExports } from "../../../core/status-sections.js";
+import { computeLastExports, latestFailedExport } from "../../../core/status-sections.js";
 import { parseAddress } from "../../../core/address.js";
 import { StateManager } from "../../../core/state/index.js";
 import { loadVideoDefinition } from "../../../core/loader.js";
@@ -109,6 +109,14 @@ async function resolveTarget(
     };
   }
 
+  const failed = latestFailedExport(jobs);
+  if (failed) {
+    throw new KonteError(
+      "EXPORT_FAILED",
+      `The latest export (${failed.id}) failed: ${failed.error ?? "no error recorded"}\n` +
+        `Run "konte job logs ${failed.id}" for its log, or pass an output file to probe an earlier export.`,
+    );
+  }
   const last = lastExports[0];
   if (!last) {
     throw new KonteError(
@@ -133,9 +141,9 @@ export function registerProbeExportCommand(program: Command): void {
       `
 Reads the produced MP4 back with ffprobe — the actual bytes, not the render plan — so a delivery
 size or mux length that drifted from what was intended shows up here. With no argument it probes the
-latest completed export, including a --no-delivery working-size render. Pass a project-relative
-or absolute path to probe a specific file. Also reports whether the deliverable is
-out of date against the current definition, and reads the sibling manifest.json — when it renders,
+latest completed export, including a --no-delivery working-size render; when the latest export
+failed, it names that job instead. Pass a project-relative or absolute path to probe a specific
+file. Also reports whether the deliverable is out of date against the current definition, and reads the sibling manifest.json — when it renders,
 what it was rendered with, and whether it is a rough cut.
 
 Examples:

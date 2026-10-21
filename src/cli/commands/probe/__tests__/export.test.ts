@@ -46,7 +46,21 @@ function completedExportJob(outputFile: string) {
     outputFile,
     noDelivery: false,
     exportSignature: null,
+    error: null,
+    createdAt: "2026-07-16T00:00:00.000Z",
     completedAt: "2026-07-16T00:00:00.000Z",
+  };
+}
+
+function failedExportJob() {
+  return {
+    ...completedExportJob(""),
+    id: "exp-failed01",
+    status: "failed",
+    outputFile: null,
+    error: "ffmpeg exited with code 1",
+    createdAt: "2026-07-17T00:00:00.000Z",
+    completedAt: "2026-07-17T00:00:00.000Z",
   };
 }
 
@@ -254,6 +268,22 @@ describe("probe export", () => {
   it("fails with NO_EXPORT_FOUND when there is no completed export", async () => {
     data.jobs = [];
     await expect(runExport([])).rejects.toMatchObject({ code: "NO_EXPORT_FOUND" });
+  });
+
+  it("names the latest export's job when it failed, over an earlier completed one", async () => {
+    data.jobs = [completedExportJob(outputRel), failedExportJob()];
+    await expect(runExport([])).rejects.toMatchObject({
+      code: "EXPORT_FAILED",
+      message: expect.stringContaining("exp-failed01) failed: ffmpeg exited with code 1"),
+    });
+  });
+
+  it("probes the latest completed export once a later one succeeds the failure", async () => {
+    data.jobs = [
+      failedExportJob(),
+      { ...completedExportJob(outputRel), createdAt: "2026-07-18T00:00:00.000Z" },
+    ];
+    expect(await runExport([])).toContain("1920×1080");
   });
 
   it("fails with NO_EXPORT_FOUND when the resolved file is gone", async () => {
