@@ -1012,7 +1012,41 @@ describe("inspect <variantId>", () => {
   it("points a definition-stale take at its own report from the asset listing", async () => {
     const vid = await seedTakeOnOldPrompt();
     const { stdout } = await run(["inspect", motionAddr], projectDir);
+    expect(stdout).toContain("definition-stale: definition changed (1 field)");
     expect(stdout).toContain(`the definition it was made from, in full: konte inspect ${vid}`);
+  });
+
+  it("names the adapter a take moved off instead of every input it no longer shares", async () => {
+    const definition = await loadDefinitionForAddress(projectDir, motionAddr);
+    const current = getAssetEntryByAddress(definition, motionAddr) as ComfyAssetDefinition;
+    const sm = await StateManager.load(projectDir);
+    const vid = sm.reserveVariantId(motionAddr);
+    sm.getAssetState(motionAddr).variants![vid]!.file = "/tmp/motion.mp4";
+    sm.getAssetState(motionAddr).variants![vid]!.definitionHash = "hash-before-the-edit";
+    await sm.save();
+    writeDefinitionSnapshot(projectDir, motionAddr, vid, {
+      ...current,
+      workflow: "older_workflow.json",
+      inputs: { "99.text": oldPrompt },
+    });
+
+    const { stdout } = await run(["inspect", motionAddr], projectDir);
+    expect(stdout).toContain(
+      `definition-stale: adapter changed (older_workflow.json → ${current.workflow})`,
+    );
+    expect(stdout).not.toContain("inputs.99.text");
+  });
+
+  it("leaves out what a dismissed take differs by", async () => {
+    const vid = await seedTakeOnOldPrompt();
+    const sm = await StateManager.load(projectDir);
+    sm.getAssetState(motionAddr).variants![vid]!.status = "dismissed";
+    await sm.save();
+
+    const { stdout } = await run(["inspect", motionAddr], projectDir);
+    expect(stdout).toContain(`${vid}: dismissed (definition-stale)`);
+    expect(stdout).not.toContain("inputs.3.text");
+    expect(stdout).not.toContain("Suggested:");
   });
 
   it("refuses --prompts on a variant id", async () => {

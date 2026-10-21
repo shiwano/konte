@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  adapterChange,
   diffDefinitions,
   formatDefinitionValue,
   readDefinitionSnapshot,
@@ -67,6 +68,18 @@ describe("diffDefinitions", () => {
   it("ignores function values dropped by JSON normalization", () => {
     const withFn = { ...baseDef(), inputs: { prompt: "a cat", duration: 5, fn: () => 1 } };
     expect(diffDefinitions(baseDef(), withFn)).toEqual([]);
+  });
+});
+
+describe("adapterChange", () => {
+  it("names the endpoint a take moved off", () => {
+    const newDef = { ...baseDef(), endpointId: "fal-ai/veo" } as AssetDefinition;
+    expect(adapterChange(baseDef(), newDef)).toEqual({ old: "fal-ai/kling", new: "fal-ai/veo" });
+  });
+
+  it("is null when only the inputs moved", () => {
+    const newDef = { ...baseDef(), inputs: { prompt: "a dog" } } as AssetDefinition;
+    expect(adapterChange(baseDef(), newDef)).toBeNull();
   });
 });
 

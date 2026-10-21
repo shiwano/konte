@@ -76,6 +76,30 @@ function walk(prefix: string, a: unknown, b: unknown, out: DefinitionChange[]): 
   out.push({ path: prefix, old: a, new: b });
 }
 
+// A take from another adapter differs in every backend-keyed input, so its field diff names
+// nothing a reader can act on.
+export function adapterChange(
+  oldDef: AssetDefinition,
+  newDef: AssetDefinition,
+): { old: string; new: string } | null {
+  const before = adapterLabel(oldDef);
+  const after = adapterLabel(newDef);
+  return before === after ? null : { old: before, new: after };
+}
+
+function adapterLabel(def: AssetDefinition): string {
+  switch (def.kind) {
+    case "comfy":
+      return def.workflow;
+    case "fal":
+      return def.endpointId;
+    case "local":
+      return `local ${def.operation}`;
+    case "file":
+      return "file";
+  }
+}
+
 export function formatDefinitionValue(value: unknown, maxLen = 60): string {
   if (value === undefined) return "(absent)";
   const s = typeof value === "string" ? JSON.stringify(value) : stableStringify(value);

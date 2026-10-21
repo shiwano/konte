@@ -28,6 +28,7 @@ import { definitionHashForAddress } from "../../core/composition-resource.js";
 import { shotById } from "../../core/shot-index.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import {
+  adapterChange,
   diffDefinitions,
   formatDefinitionValue,
   readDefinitionSnapshot,
@@ -538,6 +539,8 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
         }
         const errMsg = typeof v.metadata?.error === "string" ? v.metadata.error : null;
         if (errMsg) console.log(`    error: ${errMsg}`);
+        // Decided against: nothing it differs by is review work.
+        if (v.status === "dismissed") continue;
         for (const ci of staleness.changedInputs) {
           console.log(
             `    input-stale: ${ci.assetPath} changed (${ci.recorded.slice(0, 8)} → ${(ci.current ?? "none").slice(0, 8)})`,
@@ -550,10 +553,14 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
         }
         if (staleness.definitionStale) {
           const snapshot = readDefinitionSnapshot(videoRoot, address, vid);
+          const adapter = snapshot ? adapterChange(snapshot, assetDef) : null;
           const changes = snapshot ? diffDefinitions(snapshot, assetDef) : null;
-          if (changes && changes.length > 0) {
-            const fields = changes.map((c) => c.path).join(", ");
-            console.log(`    definition-stale: definition changed (${fields})`);
+          if (adapter) {
+            console.log(`    definition-stale: adapter changed (${adapter.old} → ${adapter.new})`);
+          } else if (changes && changes.length > 0) {
+            console.log(
+              `    definition-stale: definition changed (${changes.length} field${changes.length === 1 ? "" : "s"})`,
+            );
             for (const c of changes.slice(0, 10)) {
               console.log(
                 `      ${c.path}: ${formatDefinitionValue(c.old)} → ${formatDefinitionValue(c.new)}`,
@@ -657,11 +664,14 @@ async function inspectVariant(videoRoot: string, variantId: string): Promise<voi
       snapshot && !isPatchAddress(address) && !isDeliveryAddress(address)
         ? currentAssetDefinition(await loadStageDefinitions(videoRoot), address)
         : null;
+    const adapter = snapshot && current ? adapterChange(snapshot, current) : null;
     const changes = snapshot && current ? diffDefinitions(snapshot, current) : [];
     console.log(
-      changes.length > 0
-        ? `definition-stale: changed since this take (${changes.map((c) => c.path).join(", ")})`
-        : "definition-stale: definition changed since this take was generated",
+      adapter
+        ? `definition-stale: adapter changed (${adapter.old} → ${adapter.new})`
+        : changes.length > 0
+          ? `definition-stale: changed since this take (${changes.map((c) => c.path).join(", ")})`
+          : "definition-stale: definition changed since this take was generated",
     );
   }
 
