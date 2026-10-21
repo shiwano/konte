@@ -28,7 +28,7 @@ import {
   variantDir,
   variantsHostedBy,
 } from "../../core/variant-dir.js";
-import { collectDescendants, type VariantRef } from "../../core/variant-lineage.js";
+import { collectDescendants } from "../../core/variant-lineage.js";
 import { confirmDeletion, printAborted } from "../confirm.js";
 import { loadDirectionIfPresent, loadStageDefinitions } from "../load-definition.js";
 import { directionPartHashes } from "../../core/direction-hash.js";
@@ -161,12 +161,9 @@ async function executePrune(opts: PruneOptions): Promise<void> {
   const scoped = Object.keys(state.assets).filter(isOrphan).filter(inScope);
   // Undeclared, yet what an accepted take was made from: kept, and said so, since the user ran
   // prune expecting it gone.
-  const keptForAccepted: Array<{ address: string; madeFrom: VariantRef[] }> = Object.keys(
-    state.assets,
-  )
+  const keptForAccepted: string[] = Object.keys(state.assets)
     .filter(inScope)
-    .map((address) => ({ address, madeFrom: acceptedMadeFrom(address) }))
-    .filter((kept) => kept.madeFrom.length > 0);
+    .filter((address) => acceptedMadeFrom(address).length > 0);
 
   // Feedback now lives in per-stream files, not on the asset state — count it up front so the
   // prune summary can still report how much feedback each pruned target sheds.
@@ -306,7 +303,7 @@ async function executePrune(opts: PruneOptions): Promise<void> {
     // would strand that job or re-orphan its ancestors. Reported rather than dropped, so a run
     // that cleaned nothing says why instead of "nothing to prune".
     if ([...stranded].some((id) => activeJobVariantIds.has(id))) {
-      if (stranded.size > 0) skippedActivePatches.push(`${address} (${stranded.size} variant(s))`);
+      if (stranded.size > 0) skippedActivePatches.push(address);
       continue;
     }
     for (const variantId of stranded) {
@@ -407,11 +404,7 @@ async function executePrune(opts: PruneOptions): Promise<void> {
         .filter((ref) => !removedVariantKeys.has(`${ref.address} ${ref.variantId}`));
       if (stillPointing.length === 0) continue;
       survivingAddresses.add(address);
-      skippedHosting.push(
-        `${address} (holds the file of ${stillPointing
-          .map((r) => `${r.address} ${r.variantId}`)
-          .join(", ")})`,
-      );
+      skippedHosting.push(address);
       changed = true;
     }
   }
@@ -563,9 +556,8 @@ async function executePrune(opts: PruneOptions): Promise<void> {
             skippedActive.push(entry.address);
             continue;
           }
-          const madeFrom = fresh.acceptedMadeFrom(entry.address);
-          if (madeFrom.length > 0) {
-            keptForAccepted.push({ address: entry.address, madeFrom });
+          if (fresh.acceptedMadeFrom(entry.address).length > 0) {
+            keptForAccepted.push(entry.address);
             continue;
           }
           mgr.removeAsset(entry.address);
@@ -694,7 +686,7 @@ async function executePrune(opts: PruneOptions): Promise<void> {
           ];
           if (lineage.some((id) => stillActive.has(id))) {
             skippedPatches.add(patch.variantId);
-            skippedActivePatches.push(`${patch.address} ${patch.variantId}`);
+            skippedActivePatches.push(patch.variantId);
             continue;
           }
           // Remove the whole lineage as it stands NOW, not just the surveyed id: a child added
@@ -762,12 +754,10 @@ async function executePrune(opts: PruneOptions): Promise<void> {
     { dryRun: opts.dryRun },
   );
 
-  const keptLines = keptForAccepted.map(
-    ({ address, madeFrom }) =>
-      `Kept: ${address} (accepted ${madeFrom
-        .map((r) => `${r.address} ${r.variantId}`)
-        .join(", ")} was made from it; prunable once another take is accepted there)`,
-  );
+  const keptLine =
+    keptForAccepted.length > 0
+      ? `Kept ${keptForAccepted.length} orphaned target(s) an accepted take was made from — prunable once another take is accepted there.`
+      : null;
 
   const totalCount = removed.length + cascadeFailed.length;
   const cacheCount = removedCompositionCaches.length;
@@ -783,46 +773,17 @@ async function executePrune(opts: PruneOptions): Promise<void> {
     removedPatches.length === 0 &&
     removedStrayDirs.length === 0
   ) {
-    if (skippedActive.length > 0 || skippedActivePatches.length > 0) {
-      const held = [...skippedActive, ...skippedActivePatches];
-      console.log(
-        `Nothing to prune. Skipped ${held.length} leftover(s) with an active job: ${held.join(", ")} — retry once it settles.`,
-      );
-    } else {
-      console.log("Nothing to prune.");
-    }
-    for (const line of keptLines) console.log(line);
+    const held = skippedActive.length + skippedActivePatches.length;
+    console.log(
+      held > 0
+        ? `Nothing to prune. Skipped ${held} leftover(s) with an active job — retry once it settles.`
+        : "Nothing to prune.",
+    );
+    if (keptLine) console.log(keptLine);
     return;
   }
 
   const label = opts.dryRun ? "Would prune" : "Pruned";
-  for (const entry of removed) {
-    const parts = [`${entry.variantCount} variant(s)`];
-    if (entry.feedbackCount > 0) parts.push(`${entry.feedbackCount} feedback`);
-    console.log(`${label}: ${entry.address} (${parts.join(", ")})`);
-  }
-  for (const entry of cascadeFailed) {
-    console.log(`${label}: ${entry.address} ${entry.variantId} (${entry.status})`);
-  }
-  for (const dir of removedCompositionCaches) {
-    console.log(`${label}: ${path.resolve(videoRoot, dir)} (composition cache)`);
-  }
-  for (const entry of removedFeedbackOnly) {
-    console.log(`${label}: ${entry.address} (${entry.feedbackCount} feedback)`);
-  }
-  for (const job of removedJobs) {
-    console.log(`${label}: ${job.address} ${job.variantId} (orphaned job)`);
-  }
-  for (const job of removedProvisioningJobs) {
-    console.log(`${label}: ${job.jobId} ${job.label} (spent provisioning job)`);
-  }
-  for (const patch of removedPatches) {
-    const what = patch.kind === "script" ? "orphaned patch script" : "patch output with no script";
-    console.log(`${label}: ${patch.address ?? "-"} ${patch.variantId} (${what})`);
-  }
-  for (const dir of removedStrayDirs) {
-    console.log(`${label}: ${dir} (stray variant directory)`);
-  }
   const summaryParts: string[] = [];
   if (totalCount > 0) {
     summaryParts.push(
@@ -838,23 +799,23 @@ async function executePrune(opts: PruneOptions): Promise<void> {
     summaryParts.push(`${removedPatches.length} orphaned patch leftover(s)`);
   if (removedStrayDirs.length > 0)
     summaryParts.push(`${removedStrayDirs.length} stray variant director(ies)`);
-  console.log(`\n${label} ${summaryParts.join(", ")}.`);
+  console.log(`${label} ${summaryParts.join(", ")}.`);
   if (skippedActive.length > 0) {
     console.log(
-      `Skipped ${skippedActive.length} orphaned target(s) with an active job: ${skippedActive.join(", ")} — retry once it settles.`,
+      `Skipped ${skippedActive.length} orphaned target(s) with an active job — retry once it settles.`,
     );
   }
   if (skippedActivePatches.length > 0) {
     console.log(
-      `Skipped ${skippedActivePatches.length} patch leftover(s) whose lineage has an active job: ${skippedActivePatches.join(", ")} — retry once it settles.`,
+      `Skipped ${skippedActivePatches.length} patch leftover(s) whose lineage has an active job — retry once it settles.`,
     );
   }
   if (skippedHosting.length > 0) {
     console.log(
-      `Skipped ${skippedHosting.length} orphaned target(s) still holding a live variant's file: ${skippedHosting.join(", ")} — widen the scope to take both.`,
+      `Skipped ${skippedHosting.length} orphaned target(s) still holding a live variant's file — widen the scope to take both.`,
     );
   }
-  for (const line of keptLines) console.log(line);
+  if (keptLine) console.log(keptLine);
 }
 
 export function registerPruneCommand(program: Command): void {

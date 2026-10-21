@@ -160,7 +160,6 @@ describe("patch command", () => {
 
       // No `job wait`: the chain is in flight.
       const { stdout } = await run(["clean", "--delete-unaccepted", "-y"], projectDir);
-      expect(stdout).not.toContain(`Removed: reference:latentA ${sourceId}`);
       expect(stdout).toContain("has a patch applying");
       expect((await variantsOf(projectDir, "reference:latentA"))[sourceId]).toBeDefined();
     });

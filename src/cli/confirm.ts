@@ -26,6 +26,17 @@ export async function confirmAction(
 
 type DeletionBreakdown = { label: string; count: number }[];
 
+// One indented `<label>  <count>` line per non-zero item, labels and counts aligned.
+export function formatBreakdown(breakdown: DeletionBreakdown): string[] {
+  const items = breakdown.filter((item) => item.count > 0);
+  if (items.length === 0) return [];
+  const labelWidth = Math.max(...items.map((item) => item.label.length));
+  const countWidth = Math.max(...items.map((item) => String(item.count).length));
+  return items.map(
+    (item) => `  ${item.label.padEnd(labelWidth)}  ${String(item.count).padStart(countWidth)}`,
+  );
+}
+
 function formatDeletionSummary(opts: {
   subjects: string[];
   totalSize: number;
@@ -34,16 +45,9 @@ function formatDeletionSummary(opts: {
 }): string {
   const note = opts.note ? `, ${opts.note}` : "";
   const head = `${opts.subjects.join(" and ")} (${formatBytes(opts.totalSize)} total${note}) will be deleted`;
-  const items = (opts.breakdown ?? []).filter((item) => item.count > 0);
-  if (items.length === 0) return `${head}.`;
-  const labelWidth = Math.max(...items.map((item) => item.label.length));
-  const countWidth = Math.max(...items.map((item) => String(item.count).length));
-  return [
-    `${head}:`,
-    ...items.map(
-      (item) => `  ${item.label.padEnd(labelWidth)}  ${String(item.count).padStart(countWidth)}`,
-    ),
-  ].join("\n");
+  const lines = formatBreakdown(opts.breakdown ?? []);
+  if (lines.length === 0) return `${head}.`;
+  return [`${head}:`, ...lines].join("\n");
 }
 
 // The shared deletion prompt for clean/prune/patch remove: "<subjects> (<size> total) will be

@@ -15,13 +15,6 @@ vi.setConfig({ testTimeout: 15000 });
 
 useTempWorkspace();
 
-// "Removed: <address> <variantId> (<status>)" — the one line clean prints per reclaimed variant.
-const removedLines = (stdout: string) => [
-  ...stdout.matchAll(/^(?:Removed|Would remove): (\S+) (v-\S+) \(/gm),
-];
-const removedVariantIds = (stdout: string) => removedLines(stdout).map((m) => m[2]!);
-const removedAddresses = (stdout: string) => removedLines(stdout).map((m) => m[1]!);
-
 describe("clean command", () => {
   let projectDir: string;
   const address = "video:shot.01.motion";
@@ -88,7 +81,7 @@ describe("clean command", () => {
 
     const { stdout } = await run(["clean", "--delete-unaccepted", "--yes"], projectDir);
 
-    expect(removedVariantIds(stdout).sort()).toEqual([v2, v3].sort());
+    expect(stdout).toContain("Removed 2 variant(s).");
 
     const sm = await StateManager.load(projectDir);
     const target = sm.getAssetState(address);
@@ -109,7 +102,7 @@ describe("clean command", () => {
   });
 
   it("keeps an unaccepted take an accepted one was made from, under --delete-unaccepted", async () => {
-    const { v1, v2, v3 } = await setupVariants();
+    const { v1 } = await setupVariants();
     const upstream = "reference:cat";
     const sm = await StateManager.load(projectDir);
     const source = sm.reserveVariantId(upstream);
@@ -119,8 +112,8 @@ describe("clean command", () => {
 
     const { stdout } = await run(["clean", "--delete-unaccepted", "--yes"], projectDir);
 
-    expect(removedVariantIds(stdout).sort()).toEqual([v2, v3].sort());
-    expect(stdout).toContain(`variant ${source} is what accepted ${address} (${v1}) was made from`);
+    expect(stdout).toContain("Removed 2 variant(s).");
+    expect(stdout).toMatch(/an accepted take was made from it\s+1/);
     const after = await StateManager.load(projectDir);
     expect(after.getAssetState(upstream).variants![source]).toBeDefined();
   });
@@ -144,8 +137,7 @@ describe("clean command", () => {
       "<html>",
     );
 
-    const { stdout } = await run(["clean", "--yes"], projectDir);
-    expect(removedVariantIds(stdout)).toContain(ghost);
+    await run(["clean", "--yes"], projectDir);
 
     const after = await StateManager.load(projectDir);
     expect(after.tryGetAssetState(compAddr)?.variants?.[ghost]).toBeUndefined();
@@ -191,7 +183,7 @@ describe("clean command", () => {
 
     const { stdout } = await run(["clean", "--yes"], projectDir);
 
-    expect(stdout.match(/\(composition cache\)/g)).toHaveLength(1);
+    expect(stdout).toContain("Removed 1 composition cache(s).");
     await expect(
       fs.access(path.join(projectDir, ".konte/cache/thumbnails/video/shot.01#composition")),
     ).rejects.toThrow();
@@ -208,7 +200,7 @@ describe("clean command", () => {
 
     const { stdout } = await run(["clean", "video:shot.01", "--yes"], projectDir);
 
-    expect(stdout.match(/\(composition cache\)/g)).toHaveLength(1);
+    expect(stdout).toContain("Removed 1 composition cache(s).");
     await expect(
       fs.access(path.join(projectDir, ".konte/cache/thumbnails/video/shot.01#composition")),
     ).rejects.toThrow();
@@ -223,12 +215,12 @@ describe("clean command", () => {
     }
 
     it("is discarded with --delete-unaccepted", async () => {
-      const { v1, v2, v3 } = await setupVariants();
+      const { v1, v2 } = await setupVariants();
       await fs.rm(path.join(projectDir, `assets/video/${bareAddress}/${v2}`), { recursive: true });
 
       const { stdout } = await run(["clean", "--delete-unaccepted", "--yes"], projectDir);
 
-      expect(removedVariantIds(stdout).sort()).toEqual([v2, v3].sort());
+      expect(stdout).toContain("Removed 2 variant(s).");
       expect(await recordedVariantIds()).toEqual([v1]);
     });
 
@@ -248,9 +240,9 @@ describe("clean command", () => {
 
     const { stdout } = await run(["clean"], projectDir);
 
-    expect(removedVariantIds(stdout)).toEqual([]);
-    expect(stdout).toContain("unaccepted take holding generated media");
-    expect(stdout).toContain("2 unaccepted take(s) with media kept.");
+    expect(stdout).toContain("Nothing to clean.");
+    expect(stdout).toContain("Kept 2 variant(s):");
+    expect(stdout).toMatch(/unaccepted take holding generated media\s+2/);
     expect(stdout).not.toContain("--delete-unaccepted");
 
     const sm = await StateManager.load(projectDir);
@@ -265,7 +257,8 @@ describe("clean command", () => {
 
     const { stdout } = await run(["clean", "--delete-unaccepted", "--dry-run"], projectDir);
 
-    expect(stdout.match(/^Would remove: /gm)).toHaveLength(2);
+    expect(stdout).toContain("Would remove 2 variant(s):");
+    expect(stdout).toMatch(/unaccepted \(has media\)\s+2/);
 
     const sm = await StateManager.load(projectDir);
     const target = sm.getAssetState(address);
@@ -302,8 +295,8 @@ describe("clean command", () => {
 
     const { stdout } = await run(["clean"], projectDir);
 
-    expect(removedVariantIds(stdout)).toEqual([]);
-    expect(stdout).toContain("is generating");
+    expect(stdout).toContain("Nothing to clean.");
+    expect(stdout).toMatch(/generating\s+1/);
   });
 
   it("removes orphaned (no file, no active job) variants", async () => {
@@ -313,7 +306,9 @@ describe("clean command", () => {
 
     const { stdout } = await run(["clean", "--yes"], projectDir);
 
-    expect(removedVariantIds(stdout)).toEqual([vid]);
+    expect(stdout).toContain("Removed 1 variant(s).");
+    const after = await StateManager.load(projectDir);
+    expect(after.getAssetState(address).variants![vid]).toBeUndefined();
   });
 
   it("removes failed (file=null with error metadata) variants", async () => {
@@ -328,7 +323,7 @@ describe("clean command", () => {
 
     const { stdout } = await run(["clean", "--yes"], projectDir);
 
-    expect(removedVariantIds(stdout)).toEqual([vid]);
+    expect(stdout).toContain("Removed 1 variant(s).");
 
     const sm2 = await StateManager.load(projectDir);
     const target = sm2.getAssetState(address);
@@ -350,8 +345,7 @@ describe("clean command", () => {
     await fs.mkdir(path.join(projectDir, `${rel}/${ghost}`), { recursive: true });
     await fs.writeFile(path.join(projectDir, `${rel}/${ghost}/stem.json`), "{}");
 
-    const { stdout } = await run(["clean", "--yes"], projectDir);
-    expect(removedVariantIds(stdout)).toContain(ghost);
+    await run(["clean", "--yes"], projectDir);
 
     const reloaded = await StateManager.load(projectDir);
     expect(reloaded.tryGetAssetState(stemAddr)?.variants?.[ghost]).toBeUndefined();
@@ -369,7 +363,7 @@ describe("clean command", () => {
 
     const { stdout } = await run(["clean", "--yes"], projectDir);
 
-    expect(removedVariantIds(stdout)).toEqual([vid]);
+    expect(stdout).toContain("Removed 1 variant(s).");
 
     const sm2 = await StateManager.load(projectDir);
     const target = sm2.getAssetState(address);
@@ -377,7 +371,7 @@ describe("clean command", () => {
   });
 
   it("filters by target (shot scope)", async () => {
-    await setupVariants();
+    const { v2, v3 } = await setupVariants();
 
     const sm = await StateManager.load(projectDir);
     const voiceAddr = "video:shot.01.voice";
@@ -386,14 +380,16 @@ describe("clean command", () => {
 
     const { stdout } = await run(["clean", "--delete-unaccepted", address, "--yes"], projectDir);
 
-    expect(removedAddresses(stdout).every((a) => a === address)).toBe(true);
+    expect(stdout).toContain("Removed 2 variant(s).");
 
     const sm2 = await StateManager.load(projectDir);
     expect(sm2.getAssetState(voiceAddr).variants![voiceVid]!).toBeDefined();
+    expect(sm2.getAssetState(address).variants![v2]).toBeUndefined();
+    expect(sm2.getAssetState(address).variants![v3]).toBeUndefined();
   });
 
   it("filters by target (asset scope)", async () => {
-    await setupVariants();
+    const { v2 } = await setupVariants();
 
     const sm = await StateManager.load(projectDir);
     const voiceAddr = "video:shot.01.voice";
@@ -412,7 +408,10 @@ describe("clean command", () => {
 
     const { stdout } = await run(["clean", "--delete-unaccepted", voiceAddr, "--yes"], projectDir);
 
-    expect(removedAddresses(stdout)).toEqual([voiceAddr]);
+    expect(stdout).toContain("Removed 1 variant(s).");
+    const after = await StateManager.load(projectDir);
+    expect(after.getAssetState(voiceAddr).variants![voiceVid]).toBeUndefined();
+    expect(after.getAssetState(address).variants![v2]).toBeDefined();
   });
 
   it("exits non-zero when no assets match target", async () => {
@@ -517,8 +516,7 @@ describe("clean command (the board's stem)", () => {
     await fs.mkdir(path.join(board, `${rel}/${ghost}`), { recursive: true });
     await fs.writeFile(path.join(board, `${rel}/${ghost}/stem.wav`), "");
 
-    const { stdout } = await run(["clean", "--yes"], board);
-    expect(removedVariantIds(stdout)).toContain(ghost);
+    await run(["clean", "--yes"], board);
     expect(
       (await StateManager.load(board)).tryGetAssetState(stemAddr)?.variants?.[ghost],
     ).toBeUndefined();

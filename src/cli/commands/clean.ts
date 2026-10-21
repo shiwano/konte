@@ -21,7 +21,7 @@ import {
 import { JobManager } from "../../core/job-manager.js";
 import { StateManager } from "../../core/state/index.js";
 import type { AnimaticDefinition, VideoDefinition } from "../../core/types/index.js";
-import { confirmDeletion, printAborted } from "../confirm.js";
+import { confirmDeletion, formatBreakdown, printAborted } from "../confirm.js";
 import { loadVideoAndAnimatic } from "../load-definition.js";
 import {
   type CascadeFailedJob,
@@ -58,18 +58,36 @@ const CATEGORY_LABELS: Record<CleanCategory, string> = {
   unaccepted: "unaccepted (has media)",
 };
 
+// Why a variant in scope is kept.
+const KEEP_REASONS = [
+  "made-from",
+  "accepted-patch-source",
+  "generating",
+  "patch-applying",
+  "unaccepted",
+  "file-host",
+  "kept-patch-source",
+] as const;
+type KeepReason = (typeof KEEP_REASONS)[number];
+
+const KEEP_REASON_LABELS: Record<KeepReason, string> = {
+  "made-from": "an accepted take was made from it",
+  "accepted-patch-source": "source of an accepted patch",
+  generating: "generating",
+  "patch-applying": "has a patch applying",
+  unaccepted: "unaccepted take holding generated media",
+  "file-host": "holds the file of a kept take",
+  "kept-patch-source": "source of a kept patch",
+};
+
 type CleanedVariant = {
   address: string;
-  variantId: string;
-  status: string;
   category: CleanCategory;
-  deletedPaths: string[];
 };
 
 type CleanResult = {
   removed: CleanedVariant[];
   removedCompositionCaches: string[];
-  skipped: { address: string; reason: string }[];
 };
 
 interface CleanOptions {
@@ -99,7 +117,6 @@ async function executeClean(opts: CleanOptions): Promise<void> {
   type CollectedVariant = {
     address: string;
     variantId: string;
-    status: string;
     category: CleanCategory;
     paths: string[];
   };
@@ -166,8 +183,7 @@ async function executeClean(opts: CleanOptions): Promise<void> {
 
   // Pass 1: collect candidates
   const collected: CollectedVariant[] = [];
-  const skipped: { address: string; reason: string }[] = [];
-  let keptUnaccepted = 0;
+  const kept: KeepReason[] = [];
   const consumers = acceptedConsumers(state);
 
   for (const address of filteredAddresses) {
@@ -178,22 +194,14 @@ async function executeClean(opts: CleanOptions): Promise<void> {
       // An accepted take's patch source or input is not itself accepted, yet dropping it would
       // leave the accepted take with nothing to re-derive it from.
       if (isProtectedVariant(state, address, variantId, consumers)) {
-        const madeFrom = consumers.get(`${address} ${variantId}`);
         if (variant.status === "accepted") continue;
-        skipped.push({
-          address,
-          reason: madeFrom
-            ? `variant ${variantId} is what accepted ${madeFrom
-                .map((r) => `${r.address} (${r.variantId})`)
-                .join(", ")} was made from`
-            : `variant ${variantId} is the source of an accepted patch`,
-        });
+        kept.push(consumers.has(`${address} ${variantId}`) ? "made-from" : "accepted-patch-source");
         continue;
       }
 
       if (!variant.file && !variant.metadata?.error && !variant.metadata?.cancelledAt) {
         if (activeJobVariantIds.has(variantId)) {
-          skipped.push({ address, reason: `variant ${variantId} is generating` });
+          kept.push("generating");
           continue;
         }
       }
@@ -205,21 +213,13 @@ async function executeClean(opts: CleanOptions): Promise<void> {
         .map((t) => t.variantId)
         .filter((id) => activeJobVariantIds.has(id));
       if (applying.length > 0) {
-        skipped.push({
-          address,
-          reason: `variant ${variantId} has a patch applying (${applying.join(", ")})`,
-        });
+        kept.push("patch-applying");
         continue;
       }
 
       const isDeadLeaf = deadLeafKeys.has(`${address} ${variantId}`);
       if (!opts.deleteUnaccepted && variant.file && !isDeadLeaf) {
-        // Names what was kept, not the flag that would delete it — `--help` carries that.
-        skipped.push({
-          address,
-          reason: `variant ${variantId} is an unaccepted take holding generated media`,
-        });
-        keptUnaccepted += 1;
+        kept.push("unaccepted");
         continue;
       }
 
@@ -253,7 +253,7 @@ async function executeClean(opts: CleanOptions): Promise<void> {
               ? "unaccepted"
               : "incomplete";
 
-      collected.push({ address, variantId, status: variant.status, category, paths });
+      collected.push({ address, variantId, category, paths });
     }
   }
 
@@ -270,12 +270,7 @@ async function executeClean(opts: CleanOptions): Promise<void> {
     if (orphaned.length === 0) continue;
     collectedKeys.delete(`${entry.address} ${entry.variantId}`);
     collected.splice(collected.indexOf(entry), 1);
-    skipped.push({
-      address: entry.address,
-      reason: `variant ${entry.variantId} holds the file of ${orphaned
-        .map((r) => `${r.address} (${r.variantId})`)
-        .join(", ")}`,
-    });
+    kept.push("file-host");
   }
 
   // A lineage is deleted as a unit. Anything kept above (accepted, still generating, file-bearing
@@ -292,10 +287,7 @@ async function executeClean(opts: CleanOptions): Promise<void> {
       if (stranded.length === 0) continue;
       collectedKeys.delete(key);
       collected.splice(collected.indexOf(entry), 1);
-      skipped.push({
-        address: entry.address,
-        reason: `variant ${entry.variantId} is the source of a kept patch (${stranded.join(", ")})`,
-      });
+      kept.push("kept-patch-source");
       changed = true;
     }
   }
@@ -337,17 +329,11 @@ async function executeClean(opts: CleanOptions): Promise<void> {
   }
 
   // Pass 2: state mutation inside lock + filesystem deletion
-  const result: CleanResult = { removed: [], removedCompositionCaches: [], skipped };
+  const result: CleanResult = { removed: [], removedCompositionCaches: [] };
 
   if (opts.dryRun) {
     for (const entry of collected) {
-      result.removed.push({
-        address: entry.address,
-        variantId: entry.variantId,
-        status: entry.status,
-        category: entry.category,
-        deletedPaths: entry.paths,
-      });
+      result.removed.push({ address: entry.address, category: entry.category });
     }
     result.removedCompositionCaches = [...compositionCaches];
   } else {
@@ -413,18 +399,9 @@ async function executeClean(opts: CleanOptions): Promise<void> {
       });
 
       for (const entry of confirmed) {
-        const deletedPaths: string[] = [];
-        for (const p of entry.paths) {
-          if (await removePathSafely(p)) deletedPaths.push(p);
-        }
+        for (const p of entry.paths) await removePathSafely(p);
         await jobManager.deleteJob(entry.variantId);
-        result.removed.push({
-          address: entry.address,
-          variantId: entry.variantId,
-          status: entry.status,
-          category: entry.category,
-          deletedPaths,
-        });
+        result.removed.push({ address: entry.address, category: entry.category });
       }
     }
 
@@ -445,30 +422,25 @@ async function executeClean(opts: CleanOptions): Promise<void> {
   const totalCount = result.removed.length + cascadeFailed.length;
   const cacheCount = result.removedCompositionCaches.length;
 
-  const keptLine =
-    keptUnaccepted > 0 ? ` ${keptUnaccepted} unaccepted take(s) with media kept.` : "";
-
   // A variant this run deliberately left behind is this run's outcome too: without it a caller
   // reads the summary as "everything in scope is gone".
-  for (const entry of result.skipped) {
-    console.log(`Kept: ${entry.address} — ${entry.reason}`);
+  if (kept.length > 0) {
+    console.log(`Kept ${kept.length} variant(s):`);
+    for (const line of formatBreakdown(
+      KEEP_REASONS.map((r) => ({
+        label: KEEP_REASON_LABELS[r],
+        count: kept.filter((k) => k === r).length,
+      })),
+    )) {
+      console.log(line);
+    }
   }
 
   if (totalCount === 0 && cacheCount === 0) {
-    console.log(`Nothing to clean.${keptLine}`);
+    console.log("Nothing to clean.");
     return;
   }
 
-  const label = opts.dryRun ? "Would remove" : "Removed";
-  for (const entry of result.removed) {
-    console.log(`${label}: ${entry.address} ${entry.variantId} (${entry.status})`);
-  }
-  for (const entry of cascadeFailed) {
-    console.log(`${label}: ${entry.address} ${entry.variantId} (${entry.status})`);
-  }
-  for (const dir of result.removedCompositionCaches) {
-    console.log(`${label}: ${path.resolve(videoRoot, dir)} (composition cache)`);
-  }
   const summaryParts: string[] = [];
   if (totalCount > 0) {
     summaryParts.push(
@@ -476,7 +448,18 @@ async function executeClean(opts: CleanOptions): Promise<void> {
     );
   }
   if (cacheCount > 0) summaryParts.push(`${cacheCount} composition cache(s)`);
-  console.log(`\n${label} ${summaryParts.join(", ")}.`);
+  if (!opts.dryRun) {
+    console.log(`Removed ${summaryParts.join(", ")}.`);
+    return;
+  }
+  // A real run itemized the classes in its confirmation; a dry run has none.
+  const removedCounts = countByCategory(result.removed);
+  console.log(`Would remove ${summaryParts.join(", ")}:`);
+  for (const line of formatBreakdown(
+    CLEAN_CATEGORIES.map((c) => ({ label: CATEGORY_LABELS[c], count: removedCounts[c] })),
+  )) {
+    console.log(line);
+  }
 }
 
 export function registerCleanCommand(program: Command): void {
