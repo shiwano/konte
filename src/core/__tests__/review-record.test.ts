@@ -1054,7 +1054,7 @@ describe("formatReviewRecord", () => {
     expect(undecided).not.toContain("video:timeline.bgm");
   });
 
-  it("names an accepted shot's placed and mixed takes, and the timeline's", () => {
+  it("names an accepted shot's own takes and the timeline's, and the upstream ones apart", () => {
     const record: ReviewRecord = {
       mode: "video-preview",
       stage: "video",
@@ -1084,12 +1084,87 @@ describe("formatReviewRecord", () => {
       [
         "Accepted: 1 of 1 shot (01), video:timeline#stem",
         "  video:shot.01.motion (v-aaaaaaaa)",
-        "  animatic:shot.01.line (v-cccccccc)",
         "  video:timeline.bgm (v-bbbbbbbb)",
-        "  reference:theme (v-dddddddd)",
+        "",
+        "Upstream takes seen or heard:",
+        "  animatic:shot.01.line (v-cccccccc) — in shot.01",
+        "  reference:theme (v-dddddddd) — in timeline#stem",
       ].join("\n"),
     );
     expect(out).not.toContain("video:shot.01.first");
+  });
+
+  it("names an upstream take two accepted shots share once, and one accepted as its own not at all", () => {
+    const record: ReviewRecord = {
+      mode: "animatic-preview",
+      stage: "animatic",
+      createdAt: "2026-05-16T12:00:00.000Z",
+      context: {
+        shots: [
+          {
+            shotId: "30",
+            start: 0,
+            duration: 3,
+            variants: { screen: "v-30aaaaaa" },
+            takes: {
+              "animatic:shot.28.screen": "v-28aaaaaa",
+              "animatic:shot.30.screen": "v-30aaaaaa",
+            },
+          },
+          {
+            shotId: "34",
+            start: 3,
+            duration: 3,
+            variants: { line: "v-34aaaaaa" },
+            takes: {
+              "animatic:shot.28.screen": "v-28aaaaaa",
+              "animatic:shot.30.screen": "v-30aaaaaa",
+              "animatic:shot.34.line": "v-34aaaaaa",
+              "reference:flyer": "v-ffffffff",
+            },
+          },
+        ],
+      },
+      decisions: { "30": "accepted", "34": "accepted" },
+      cascadeAccepted: [{ address: "reference:flyer", via: "animatic:shot.34#stem" }],
+    };
+
+    expect(formatReviewRecord(record)).toContain(
+      [
+        "Accepted: 2 of 2 shots (30–34)",
+        "  animatic:shot.30.screen (v-30aaaaaa)",
+        "  animatic:shot.34.line (v-34aaaaaa)",
+        "",
+        "Upstream takes seen or heard:",
+        "  animatic:shot.28.screen (v-28aaaaaa) — in shot.30, shot.34",
+        "  reference:flyer (v-ffffffff) — in shot.34, accepted via animatic:shot.34#stem",
+      ].join("\n"),
+    );
+  });
+
+  it("names a shot composed only from upstream takes as composition only", () => {
+    const record: ReviewRecord = {
+      mode: "video-preview",
+      stage: "video",
+      createdAt: "2026-05-16T12:00:00.000Z",
+      context: {
+        shots: [
+          {
+            shotId: "27",
+            start: 0,
+            duration: 3,
+            variants: {},
+            takes: { "animatic:shot.27.screen": "v-27aaaaaa" },
+          },
+        ],
+        contentHashes: { "video:shot.27#composition": "h-27" },
+      },
+      decisions: { "27": "accepted" },
+    };
+
+    const out = formatReviewRecord(record);
+    expect(out).toContain("Accepted: 1 of 1 shot (27)\n  video:shot.27 (composition only)");
+    expect(out).toContain("  animatic:shot.27.screen (v-27aaaaaa) — in shot.27");
   });
 
   it("names the beds a timeline stem accept heard while a shot is left undecided", () => {

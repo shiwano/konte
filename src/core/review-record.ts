@@ -516,10 +516,13 @@ export function formatReviewRecord(
 
   // Outcome, not gesture, is the axis: accept / un-accept / comment. Reporting outcomes separately
   // keeps a feedback-only review from ever reading as a set of approvals. A reel review heads each
-  // outcome with its decided shots on one line, then names the takes the reviewer saw or heard; what
-  // an accept signed off along with them (a composition, a stem, an upstream a take consumed) is not
-  // listed.
-  const { accepted, unaccepted, feedback } = collectReviewSections(record, opts.noteFrames);
+  // outcome with its decided shots on one line, then names each decided shot's own takes; the other
+  // takes an accepted shot placed or mixed are listed apart, once each, with the shots that showed
+  // them. A composition or stem an accept materialized is not listed.
+  const { accepted, unaccepted, upstream, feedback } = collectReviewSections(
+    record,
+    opts.noteFrames,
+  );
 
   const reelSummary = summarizeReelDecisions(record);
   lines.push("");
@@ -545,6 +548,12 @@ export function formatReviewRecord(
       lines.push("Accept withdrawn:");
       for (const addr of unaccepted) lines.push(`  ${addr}`);
     }
+  }
+
+  if (upstream.length > 0) {
+    lines.push("");
+    lines.push("Upstream takes seen or heard:");
+    for (const line of upstream) lines.push(`  ${line}`);
   }
 
   if ((record.overturned ?? []).length > 0) {
@@ -723,10 +732,18 @@ function collectReviewSections(
 ): {
   accepted: string[];
   unaccepted: string[];
+  upstream: string[];
   feedback: FeedbackGroup[];
 } {
   const accepted: string[] = [];
   const unaccepted: string[] = [];
+  const ownAccepted = new Set<string>();
+  const upstreamByAddress = new Map<string, { variantId: string; shownIn: string[] }>();
+  const pushUpstream = (address: string, variantId: string, shownIn: string) => {
+    const entry = upstreamByAddress.get(address);
+    if (entry) entry.shownIn.push(shownIn);
+    else upstreamByAddress.set(address, { variantId, shownIn: [shownIn] });
+  };
   const pushDecision = (status: "accepted" | "none", line: string) => {
     (status === "accepted" ? accepted : unaccepted).push(line);
   };
@@ -762,8 +779,9 @@ function collectReviewSections(
     }
   } else {
     // A reel stage's decisions are per-shot accepted/none; expand each, in timeline order, into
-    // `<address> (<variantId>)` lines: an accept into the takes the reviewer saw or heard, an
-    // un-accept into the shot's own takes it released.
+    // `<address> (<variantId>)` lines of the shot's own takes: an accept's as the reviewer saw or
+    // heard them, an un-accept's as it released them. The rest of an accepted shot's takes are
+    // upstream of it.
     const stage = reviewStage(record) === "animatic" ? "animatic" : "video";
     const shotDecisions = (record.decisions as Record<string, "accepted" | "none"> | null) ?? {};
     const shotsById = new Map(record.context.shots.map((s) => [s.shotId, s]));
@@ -771,13 +789,24 @@ function collectReviewSections(
       const status = shotDecisions[shotId];
       if (!status) continue;
       const shot = shotsById.get(shotId);
-      const takes: Array<[string, string]> =
-        status === "accepted" && shot?.takes
-          ? Object.entries(shot.takes)
-          : Object.entries(shot?.variants ?? {}).map(([assetName, variantId]) => [
-              formatAddress(stage, shotId, assetName),
-              variantId,
-            ]);
+      let takes: Array<[string, string]>;
+      if (status === "accepted" && shot?.takes) {
+        const ownPrefix = `${stage}:shot.${shotId}.`;
+        takes = [];
+        for (const [address, variantId] of Object.entries(shot.takes)) {
+          if (address.startsWith(ownPrefix)) {
+            takes.push([address, variantId]);
+            ownAccepted.add(address);
+          } else {
+            pushUpstream(address, variantId, `shot.${shotId}`);
+          }
+        }
+      } else {
+        takes = Object.entries(shot?.variants ?? {}).map(([assetName, variantId]) => [
+          formatAddress(stage, shotId, assetName),
+          variantId,
+        ]);
+      }
       if (takes.length > 0) {
         for (const [address, variantId] of takes) pushDecision(status, `${address} (${variantId})`);
       } else {
@@ -803,8 +832,11 @@ function collectReviewSections(
       }
     }
     if (record.timelineStemDecision === "accepted") {
+      const ownPrefix = `${stage}:timeline.`;
       for (const [address, variantId] of Object.entries(record.context.timelineSources ?? {})) {
-        if (!listed.has(address)) pushDecision("accepted", `${address} (${variantId})`);
+        if (listed.has(address)) continue;
+        if (address.startsWith(ownPrefix)) pushDecision("accepted", `${address} (${variantId})`);
+        else pushUpstream(address, variantId, "timeline#stem");
       }
     }
 
@@ -817,7 +849,15 @@ function collectReviewSections(
     }
   }
 
-  return { accepted, unaccepted, feedback: groups };
+  const cascadeVia = new Map((record.cascadeAccepted ?? []).map((c) => [c.address, c.via]));
+  const upstream = [...upstreamByAddress]
+    .filter(([address]) => !ownAccepted.has(address))
+    .map(([address, { variantId, shownIn }]) => {
+      const via = cascadeVia.get(address);
+      return `${address} (${variantId}) — in ${shownIn.join(", ")}${via ? `, accepted via ${via}` : ""}`;
+    });
+
+  return { accepted, unaccepted, upstream, feedback: groups };
 }
 
 // Why a video shot's decision line names no variant. The record itself says which: a composition
