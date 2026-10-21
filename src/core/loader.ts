@@ -332,7 +332,8 @@ function underDefinitionLock<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 // Import a definition entry (fresh — evicting the project's modules first — or from the registry)
-// and hand the module to its parser; a failed import is a LOAD_FAILED naming the file.
+// and hand the module to its parser. A failed import names the file; a KonteError it threw keeps
+// its code, anything else is a LOAD_FAILED.
 async function importDefinition<T>(
   filePath: string,
   label: string,
@@ -361,8 +362,9 @@ async function importDefinition<T>(
     // that threw poisons its importers too, so evict the whole project subtree: the next load
     // re-evaluates and says it again.
     await underReloadLock(async () => bustProjectModuleCache(path.dirname(filePath)));
-    // A board or video cut to a song no take of is read waits on that song, which the code names.
-    if (err instanceof KonteError && err.code === "SONG_UNREAD") throw err;
+    if (err instanceof KonteError) {
+      throw new KonteError(err.code, `${label} file "${filePath}": ${err.headline}`, err.items);
+    }
     throw new KonteError(
       "LOAD_FAILED",
       `Failed to ${fresh ? "reload" : "load"} ${label} file "${filePath}": ${errorMessage(err)}`,

@@ -13,10 +13,11 @@ import {
 
 const fixturesDir = path.resolve(import.meta.dirname, "fixtures");
 const badSchemaPath = path.join(fixturesDir, "bad-schema-video.ts");
+const throwingPath = path.join(fixturesDir, "throwing-video.ts");
 
 afterAll(() => {
-  if (fs.existsSync(badSchemaPath)) {
-    fs.unlinkSync(badSchemaPath);
+  for (const p of [badSchemaPath, throwingPath]) {
+    if (fs.existsSync(p)) fs.unlinkSync(p);
   }
 });
 
@@ -52,6 +53,25 @@ describe("loadVideoDefinition", () => {
     }
     expect(error).toBeInstanceOf(KonteError);
     expect((error as KonteError).code).toBe("LOAD_FAILED");
+  });
+
+  it("keeps the code of a KonteError the definition throws, naming the file", async () => {
+    fs.writeFileSync(
+      throwingPath,
+      'import { KonteError } from "../../errors.js";\n' +
+        'throw new KonteError("ADAPTER_OUT_OF_SCOPE", "out of scope", ["item"]);\n',
+    );
+    let error: unknown;
+    try {
+      await loadVideoDefinition(throwingPath);
+      expect.unreachable("Expected to throw");
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(KonteError);
+    expect((error as KonteError).code).toBe("ADAPTER_OUT_OF_SCOPE");
+    expect((error as KonteError).headline).toBe(`video file "${throwingPath}": out of scope`);
+    expect((error as KonteError).items).toEqual(["item"]);
   });
 
   it("throws VALIDATION_FAILED for duplicate shot IDs", async () => {
