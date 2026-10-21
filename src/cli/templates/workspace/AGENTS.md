@@ -57,7 +57,7 @@ Truncating an address from the right gives a scope, and a command takes one of t
 
 Each asset holds one or more **variants** (alternative generations) at its address. At most one variant is `accepted`; accepting one **dismisses** the takes it was chosen among, so they stop being offered and stop counting as work. A variant goes **stale** when its own definition changed, or an input it consumed has been superseded — a different variant accepted there, or, with nothing accepted, a newer one from a patch or reroll (`konte inspect` names the cause).
 
-Acceptance **cascades to the inputs it consumed within its stage**, never across stages: an upstream stage's assets are accepted in its own `konte preview <stage>` before a later stage generates from them.
+Acceptance **cascades**, across stages too, to each unaccepted take the accepted one was built from or shows — except a cast reference, accepted only in `konte preview reference`, and a video composition's audio, accepted by its stem. A spend needs the upstream assets it builds on accepted in their own `konte preview <stage>` first.
 
 ## Status
 

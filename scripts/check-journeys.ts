@@ -35,6 +35,8 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - konte-direction-critic 4,050 → 4,100, konte-animatic-critic 3,750 → 3,800, konte-staging-critic
+//   2,450 → 2,500 (agreed by a human): the workspace AGENTS.md's acceptance cascading across stages.
 // - video 35,750 → 36,100, music-video 37,350 → 37,700, konte-direction-critic 3,950 → 4,050,
 //   konte-animatic-critic 3,600 → 3,750, konte-video-critic 2,700 → 2,850, dev-direction 17,100 →
 //   17,200, dev-render 10,800 → 10,850 (agreed by a human): the coverage shot — one take the model
@@ -107,7 +109,7 @@ const DEV_ALWAYS = ["CLAUDE.md", "AGENTS.md"];
 const SHIPPED_JOURNEYS = [
   {
     name: "konte-direction-critic",
-    budget: 4_050,
+    budget: 4_100,
     files: [...ALWAYS, `${AGENTS}/konte-direction-critic.md`],
   },
   {
@@ -117,12 +119,12 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "konte-animatic-critic",
-    budget: 3_750,
+    budget: 3_800,
     files: [...ALWAYS, `${AGENTS}/konte-animatic-critic.md`],
   },
   {
     name: "konte-staging-critic",
-    budget: 2_450,
+    budget: 2_500,
     files: [...ALWAYS, `${AGENTS}/konte-staging-critic.md`],
   },
   {
