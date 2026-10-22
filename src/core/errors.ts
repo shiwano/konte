@@ -233,7 +233,7 @@ export type KonteErrorCode =
   | "GIT_ERROR"
   | "LOCK_TIMEOUT"
   | "COMPOSITION_BUILD_FAILED"
-  // Rendered markup carries a class Tailwind generates nothing for, or one setting a font family.
+  // Rendered markup carries a class setting a font family.
   | "COMPOSITION_CLASS_INVALID"
   | "FRAME_CAPTURE_FAILED"
   | "FFMPEG_SETUP_FAILED"

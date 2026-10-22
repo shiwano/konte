@@ -423,7 +423,7 @@ describe("the overlay's classes", () => {
         timeline: ({ shot }) => ({
           shots: shot("01", () => (
             <Composition>
-              <div className="text-whit" />
+              <div className="font-[Inter]" />
             </Composition>
           )),
           overlay: () => (
@@ -436,8 +436,8 @@ describe("the overlay's classes", () => {
     );
     const findings = await checkTailwindClasses(compositionClassSubjects(video));
     expect(findings).toEqual([
-      { label: "video:shot.01#composition", unknown: ["text-whit"], fontFamily: [] },
-      { label: "video:timeline#overlay", unknown: [], fontFamily: ["font-['Cinzel']"] },
+      { label: "video:shot.01#composition", fontFamily: ["font-[Inter]"] },
+      { label: "video:timeline#overlay", fontFamily: ["font-['Cinzel']"] },
     ]);
   });
 });

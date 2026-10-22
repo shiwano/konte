@@ -1159,17 +1159,17 @@ describe("Video/Audio data attributes", () => {
     ).html;
   }
 
-  it("refuses a composition whose class Tailwind generates nothing for", async () => {
+  it("refuses a composition whose class sets a font family", async () => {
     const video = singleShot((motion) => (
       <Composition>
         <Video src={motion} />
-        <div className="absolute inset-0 text-whit" />
+        <div className="absolute inset-0 font-[Inter]" />
       </Composition>
     ));
-    await expect(buildSingle(video)).rejects.toThrow(/video:shot\.01#composition: text-whit/);
+    await expect(buildSingle(video)).rejects.toThrow(/video:shot\.01#composition: font-\[Inter\]/);
     await expect(
       buildFullCompositionHtml({ video, manager, assetBaseUrl: ASSET_BASE }),
-    ).rejects.toThrow(/video:shot\.01#composition: text-whit/);
+    ).rejects.toThrow(/video:shot\.01#composition: font-\[Inter\]/);
   });
 
   it("makes every video a clip, with the author's classes after it", async () => {

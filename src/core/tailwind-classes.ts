@@ -7,12 +7,8 @@ type DesignSystem = Awaited<ReturnType<typeof __unstable__loadDesignSystem>>;
 
 let designSystem: Promise<DesignSystem> | undefined;
 
-// konte's own classes: `.konte-clip` is styled by the document head, which a nested shot does not carry.
-const KONTE_CLASSES = new Set(["konte-clip", "konte-subtitle"]);
-
-const EMBEDDED_BLOCK = /<(script|style)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+const EMBEDDED_BLOCK = /<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi;
 const CLASS_ATTR = /\sclass="([^"]*)"/g;
-const CLASS_SELECTOR = /\.(-?[A-Za-z_][\w-]*)/g;
 const LITERAL_FONT_FAMILY = /font-family:(?!\s*var\()/;
 
 export interface ClassSubject {
@@ -23,7 +19,6 @@ export interface ClassSubject {
 
 export interface ClassFindings {
   label: string;
-  unknown: string[];
   fontFamily: string[];
 }
 
@@ -35,45 +30,25 @@ function decodeAttr(value: string): string {
     .replace(/&amp;/g, "&");
 }
 
-function findClassProblems(subject: ClassSubject, system: DesignSystem): ClassFindings {
-  // A class a `<style>` rule or an `<Animate>` selector names is the author's own, not Tailwind's.
-  const selected = new Set<string>();
-  const markup = subject.html.replace(EMBEDDED_BLOCK, (_, _tag: string, body: string) => {
-    for (const match of body.matchAll(CLASS_SELECTOR)) selected.add(match[1]!);
-    return "";
-  });
-
+function findFontFamilyClasses(subject: ClassSubject, system: DesignSystem): ClassFindings {
+  const markup = subject.html.replace(EMBEDDED_BLOCK, "");
   const classes = new Set<string>();
   for (const match of markup.matchAll(CLASS_ATTR)) {
     for (const name of decodeAttr(match[1]!).split(/\s+/)) {
-      if (name && !KONTE_CLASSES.has(name) && !selected.has(name)) classes.add(name);
+      if (name) classes.add(name);
     }
   }
 
   const candidates = [...classes];
   const css = system.candidatesToCss(candidates);
-  const unknown: string[] = [];
-  const fontFamily: string[] = [];
-  candidates.forEach((name, i) => {
+  const fontFamily = candidates.filter((_, i) => {
     const rule = css[i];
-    if (rule == null) unknown.push(name);
-    else if (LITERAL_FONT_FAMILY.test(rule)) fontFamily.push(name);
+    return rule != null && LITERAL_FONT_FAMILY.test(rule);
   });
-  return { label: subject.label, unknown, fontFamily };
+  return { label: subject.label, fontFamily };
 }
 
-function formatFindings(
-  findings: readonly ClassFindings[],
-  pick: "unknown" | "fontFamily",
-): string {
-  return findings
-    .filter((f) => f[pick].length > 0)
-    .map((f) => `    ${f.label}: ${f[pick].join(", ")}`)
-    .join("\n");
-}
-
-// The subjects carrying a class Tailwind generates nothing for, or one that sets a font family the
-// export cannot embed.
+// The subjects carrying a class that sets a font family the export cannot embed.
 export async function checkTailwindClasses(
   subjects: readonly ClassSubject[],
 ): Promise<ClassFindings[]> {
@@ -81,31 +56,19 @@ export async function checkTailwindClasses(
   designSystem ??= __unstable__loadDesignSystem(tailwindCss);
   const system = await designSystem;
   return subjects
-    .map((s) => findClassProblems(s, system))
-    .filter((f) => f.unknown.length > 0 || f.fontFamily.length > 0);
+    .map((s) => findFontFamilyClasses(s, system))
+    .filter((f) => f.fontFamily.length > 0);
 }
 
 // Abort with COMPOSITION_CLASS_INVALID on any finding of checkTailwindClasses.
 export async function assertTailwindClasses(subjects: readonly ClassSubject[]): Promise<void> {
   const findings = await checkTailwindClasses(subjects);
+  if (findings.length === 0) return;
 
-  const blocks: string[] = [];
-  if (findings.some((f) => f.unknown.length > 0)) {
-    blocks.push(
-      `  Tailwind generates nothing for these classes — fix the typo, or name a class of your own in a <style> rule or an <Animate> selector:\n${formatFindings(findings, "unknown")}`,
-    );
-  }
-  if (findings.some((f) => f.fontFamily.length > 0)) {
-    blocks.push(
-      `  A class cannot set a font family — declare it on direction.policy.fonts; the export embeds faces by reading the HTML, and a class's CSS does not exist until the browser has run:\n${formatFindings(findings, "fontFamily")}`,
-    );
-  }
-  if (blocks.length === 0) return;
-
-  const count = findings.reduce((n, f) => n + f.unknown.length + f.fontFamily.length, 0);
+  const count = findings.reduce((n, f) => n + f.fontFamily.length, 0);
   throw new KonteError(
     "COMPOSITION_CLASS_INVALID",
-    `Rendered markup has ${count} invalid class(es) — fix each in the composition that renders it`,
-    blocks,
+    `Rendered markup has ${count} class(es) setting a font family — declare it on direction.policy.fonts; the export embeds faces by reading the HTML, and a class's CSS does not exist until the browser has run`,
+    findings.map((f) => `  ${f.label}: ${f.fontFamily.join(", ")}`),
   );
 }

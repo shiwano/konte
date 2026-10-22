@@ -119,7 +119,6 @@ export type PinStaleWaiverLine = { key: string; where: string; reason: string };
 export type ClassFindingLine = {
   where: string;
   label: string;
-  unknown: string[];
   fontFamily: string[];
 };
 
@@ -708,15 +707,11 @@ export function printStatusReport(
   if (classFindings.length > 0) {
     console.log();
     console.log(
-      `Class findings: ${classFindings.length} — a class Tailwind builds nothing for, or one setting a font family (declare fonts on direction.policy.fonts)`,
+      `Class findings: ${classFindings.length} — a class setting a font family (declare fonts on direction.policy.fonts)`,
     );
     printCapped(
       classFindings,
-      (f) =>
-        `${f.label} (${f.where}) ${[
-          ...(f.unknown.length > 0 ? [`unknown: ${f.unknown.join(", ")}`] : []),
-          ...(f.fontFamily.length > 0 ? [`font family: ${f.fontFamily.join(", ")}`] : []),
-        ].join("; ")}`,
+      (f) => `${f.label} (${f.where}) font family: ${f.fontFamily.join(", ")}`,
       { verbose: options?.verbose },
     );
   }

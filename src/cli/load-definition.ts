@@ -141,7 +141,7 @@ export async function gateDirectionForStage(opts: {
 
 // The stage-file gates, run beside the direction gate at every spend: a `"prompt"` input still
 // naming an exclusion aborts with PROMPT_CHECK_FAILED, a `pin` input wired to something that is not
-// a frame with PIN_CHECK_FAILED, a class Tailwind cannot build — in a `jsxImage`, a shot's
+// a frame with PIN_CHECK_FAILED, a class setting a font family — in a `jsxImage`, a shot's
 // composition or the overlay — with COMPOSITION_CLASS_INVALID. Stage-scoped like the direction
 // gate — an untouched stage never blocks a spend on this one. A finding points the author at the
 // stage's entry file.

@@ -96,7 +96,7 @@ export function registerStatusCommand(program: Command): void {
         "  Stale direction waivers  Waivers whose finding is gone — remove them from direction.ts\n" +
         "  Prompt findings     Prompts naming what to leave out, each with its waiver key\n" +
         "  Stale prompt waivers     Prompt waivers whose phrase is gone — remove them\n" +
-        "  Class findings      Classes Tailwind builds nothing for, or setting a font family — not waivable\n" +
+        "  Class findings      Classes setting a font family — not waivable\n" +
         "  Needs authoring  Targets holding output whose review still needs something written\n" +
         "  Needs retiming   Shots whose animatic narration runs past the duration written for them\n" +
         "  Needs review     Anything awaiting a review and accept\n" +
@@ -231,7 +231,6 @@ export function registerStatusCommand(program: Command): void {
           classFindings.push({
             where,
             label: f.label,
-            unknown: f.unknown,
             fontFamily: f.fontFamily,
           });
         }

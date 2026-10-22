@@ -21,26 +21,11 @@ describe("assertTailwindClasses", () => {
     ).toBeNull();
   });
 
-  it("names each class Tailwind generates nothing for, under its label", async () => {
-    const found = await codeOf(`<div class="flex text-whit justify-centre"></div>`);
-    expect(found?.code).toBe("COMPOSITION_CLASS_INVALID");
-    expect(found?.message).toContain("video:shot.01#composition: text-whit, justify-centre");
-    expect(found?.message).not.toMatch(/: flex\b/);
-  });
-
-  it("passes a class a <style> rule or an <Animate> selector names", async () => {
+  it("passes a class Tailwind generates nothing for", async () => {
     expect(
       await codeOf(
-        `<style>.badge { color: red; }</style><div class="badge title"></div>` +
-          `<script>timeline.fromTo(".title", { opacity: 0 }, { opacity: 1 }, 0);</script>`,
-      ),
-    ).toBeNull();
-  });
-
-  it("passes konte's own classes, which a nested shot carries without their styles", async () => {
-    expect(
-      await codeOf(
-        `<video class="konte-clip"></video><div class="konte-clip konte-subtitle"></div>`,
+        `<div class="text-whit step-0 step-1 konte-clip"></div>` +
+          "<script>[0, 1].forEach((i) => timeline.to(`.step-${i}`, { opacity: 1 }, i));</script>",
       ),
     ).toBeNull();
   });
