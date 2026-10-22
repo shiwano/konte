@@ -4652,34 +4652,15 @@ body.fill-mode .fab-submit-wrap {
 }
 
 /* Baseline-align the one-line cells with the first line of the prose beside them. */
-.dir-table td.dir-col-id,
-.dir-table td.dir-col-role,
 .dir-table td.dir-col-name,
 .dir-table td.dir-col-frame,
 .dir-table td.dir-col-holds,
-.dir-table td.dir-col-where,
-.dir-table td.dir-col-lineup,
-.dir-table td.dir-col-dur,
 .dir-table td.dir-col-syn {
   padding-top: 0.62rem;
 }
 
 .dir-table tbody tr:last-child td {
   border-bottom: none;
-}
-
-.dir-row--focused > td {
-  background: var(--accent-soft);
-}
-
-/* An act row bands the shots under it. A nested act reads as a lighter band inside the one above:
-   the top-level acts carry the piece's shape, the rest divide it. */
-.dir-row-seq > td {
-  background: var(--bg-elevated);
-}
-
-.dir-row-seq--nested > td {
-  background: var(--bg-panel);
 }
 
 .dir-seq-cell {
@@ -4701,21 +4682,6 @@ body.fill-mode .fab-submit-wrap {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-}
-
-.dir-col-id {
-  width: 1%;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  color: var(--accent-hover);
-  white-space: nowrap;
-}
-
-/* Indented by the row's own level in the arc tree (`--dir-depth`, set per row), so an act reads as
-   sitting inside its parent and a shot under the act that holds it, however deep the tree nests.
-   Qualified by `td` to outrank the `.dir-table td` padding shorthand. */
-.dir-table td.dir-col-id {
-  padding-left: calc(0.7rem + var(--dir-depth, 0) * 1.25rem);
 }
 
 .dir-col-name {
@@ -4807,12 +4773,6 @@ body.fill-mode .fab-submit-wrap {
   color: var(--text-secondary);
 }
 
-/* Holds one badge: what this shot does ("rising", "payoff"). Never the craft role. */
-.dir-col-role {
-  width: 1%;
-  white-space: nowrap;
-}
-
 .dir-col-syn {
   color: var(--text-secondary);
   white-space: normal;
@@ -4844,11 +4804,6 @@ body.fill-mode .fab-submit-wrap {
   margin-top: 4px;
   color: var(--text-secondary);
   font-size: 0.68rem;
-}
-
-.dir-col-where {
-  width: 1%;
-  white-space: nowrap;
 }
 
 /* The location chip: a place badge read down the space column so a run of the same location on
@@ -4922,61 +4877,6 @@ body.fill-mode .fab-submit-wrap {
   opacity: 0.5;
 }
 
-.dir-col-dur {
-  width: 1%;
-  white-space: nowrap;
-  text-align: right;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-/* A shot's spoken/narrated lines, listed under its action. */
-.dir-script {
-  margin: 0.35rem 0 0;
-  padding: 0;
-  list-style: none;
-  font-size: 0.85rem;
-}
-.dir-script-line {
-  color: var(--text-secondary);
-}
-.dir-script-line--narration {
-  font-style: italic;
-  color: var(--text-muted);
-}
-.dir-script-speaker {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.dir-script-speaker::after {
-  content: "：";
-}
-
-/* The acting note, under the words it is said with. Quieter and set in italic: it is direction for
-   the performance, not part of the line, and a reader skimming the dialogue must not read it as
-   something anyone says out loud. */
-.dir-script-acting {
-  display: block;
-  margin-top: 1px;
-  font-size: 0.74rem;
-  font-style: italic;
-  color: var(--text-muted);
-}
-.dir-script-acting::before {
-  content: "▸ ";
-}
-
-/* The lineup column: the frame's own left-to-right order, and the order the shot leaves behind.
-   Held narrow so it never crowds the action beside it, and wrapping inside that width — a frame of
-   four is a list of names, and a column that refuses to break would push the prose off the page. */
-.dir-col-lineup {
-  width: 1%;
-  min-width: 8.5rem;
-  max-width: 12rem;
-  white-space: normal;
-  font-size: 0.72rem;
-}
 .dir-lineup {
   display: block;
   color: var(--text-secondary);
@@ -5006,36 +4906,304 @@ body.fill-mode .fab-submit-wrap {
   color: var(--text-muted);
 }
 
-/* What the boundary between two shots is, drawn between the rows it separates — it is about the
-   boundary, so it reads as a rule across the table rather than as a cell of the shot below it. */
-.dir-row-jump td {
-  padding: 0.15rem 0 0.15rem 0;
-  border-bottom: none;
-}
-.dir-jump {
-  display: block;
-  font-size: 0.7rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  border-top: 1px dashed var(--border);
-  padding-top: 0.2rem;
-}
-/* A `join: "continuous"` boundary is the row rule above the shot. */
-.dir-table tr:has(+ .dir-row--continues) > td {
-  border-bottom-color: color-mix(in srgb, var(--border) 35%, transparent);
+/* The shots as a screenplay: the clock in the left gutter, the shot in the column, its comments in
+   the right margin. The margin wraps under the shot on a narrow page. */
+.dir-sc {
+  position: relative;
+  container-type: inline-size;
+  margin-top: 1.5rem;
+  line-height: 1.7;
 }
 
-/* Telop under the same action, set apart from the spoken lines: bracketed and quieter, so a title
-   card is never mistaken for a line someone says. */
-.dir-telop-line {
+.dir-sc-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.25rem;
+}
+
+.dir-sc-gutter {
+  flex: none;
+  width: 5.5rem;
+  padding-top: 0.7rem;
+  text-align: right;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.dir-sc-id {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.dir-sc-time .direction-policy-gloss {
+  display: block;
+  margin-left: 0;
+  font-size: 0.7rem;
+}
+
+/* Inset by the staging toggle's width, so the toggle hangs in the margin and the prose of every shot
+   starts on one edge. The stripe is the shot's dramatic function — the direction map's colour. */
+.dir-sc-body {
+  flex: 1 1 26rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.6rem 0 0.6rem 2.2rem;
+  border-left: 3px solid var(--fn-color, transparent);
+}
+
+/* A fixed column against the right edge: the shot takes whatever width the notes leave. */
+.dir-sc-notes {
+  flex: 0 1 18rem;
+  min-width: 0;
+  margin-left: auto;
+  padding: 0.6rem 0;
+}
+
+/* Shown on the row a pointer is over, so a page of empty threads is not a column of buttons. A device
+   with no hover always shows it. */
+@media (hover: hover) {
+  .dir-sc-notes .comment-add-btn {
+    opacity: 0;
+  }
+  .dir-sc-row:hover .comment-add-btn,
+  .dir-sc-notes .comment-add-btn:focus-visible {
+    opacity: 1;
+  }
+}
+
+/* Text no quote can mark: a selection skips it, so a quote holds only the shot's own words. */
+.dir-sc-unquotable {
+  user-select: none;
+}
+
+.dir-sc-shot--focused .dir-sc-body {
+  background: var(--accent-soft);
+}
+
+.dir-sc-scene {
+  padding-top: 1.6rem;
+  padding-bottom: 0.2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.dir-sc-scene::before {
+  content: "○ ";
+}
+
+.dir-sc-join {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+.dir-sc-join::before {
+  content: "— ";
+}
+
+.dir-sc-act .dir-sc-body {
+  padding-top: 1.4rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dir-sc-action {
+  position: relative;
+  margin: 0;
+}
+
+.dir-sc-staging-btn {
+  position: absolute;
+  left: -2.1rem;
+  top: -0.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.dir-sc-staging-btn:hover,
+.dir-sc-staging-btn--open {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+.dir-sc-staging-btn svg {
+  transition: transform 0.12s;
+}
+.dir-sc-staging-btn--open svg {
+  transform: rotate(90deg);
+}
+
+.dir-sc-kind {
+  margin-right: 0.5rem;
+  padding: 0 0.4rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: 4px;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  vertical-align: 1px;
+}
+
+.dir-sc-line {
+  display: flex;
+  flex-direction: column;
+  margin: 0.5rem 0 0.1rem 3em;
+  max-width: 30em;
+}
+.dir-sc-speaker {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--accent-hover);
+}
+.dir-sc-acting {
+  font-size: 0.8rem;
   color: var(--text-muted);
 }
-.dir-telop-line .dir-script-text::before {
-  content: "［";
+.dir-sc-acting::before {
+  content: "（";
 }
-.dir-telop-line .dir-script-text::after {
-  content: "］";
+.dir-sc-acting::after {
+  content: "）";
+}
+.dir-sc-text {
+  font-size: 1rem;
+}
+.dir-sc-line--narration .dir-sc-text {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.dir-sc-aside-line {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.dir-sc-label {
+  margin-right: 0.5rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dir-sc-staging {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.9rem;
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+}
+.dir-sc-staging dt {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding-top: 0.15rem;
+}
+.dir-sc-staging dd {
+  margin: 0;
+}
+
+.dir-sc-mark {
+  background: var(--yellow-soft);
+  color: inherit;
+  border-bottom: 2px solid var(--yellow);
+}
+
+/* Too narrow for the notes beside the shot: the clock, the shot and its notes stack, and the stripe
+   runs down the whole stack so it does not break where the column wraps. */
+@container (max-width: 52rem) {
+  .dir-sc-row {
+    gap: 0;
+  }
+  .dir-sc-shot {
+    border-left: 3px solid var(--fn-color, transparent);
+  }
+  .dir-sc-body {
+    flex-basis: 100%;
+    border-left: none;
+  }
+  .dir-sc-gutter {
+    display: flex;
+    flex: 1 1 100%;
+    align-items: baseline;
+    gap: 0.5rem;
+    width: auto;
+    padding: 0.6rem 0 0 2.2rem;
+    text-align: left;
+  }
+  .dir-sc-gutter:empty {
+    display: none;
+  }
+  .dir-sc-id {
+    display: inline;
+  }
+  .dir-sc-shot .dir-sc-body {
+    padding-top: 0.2rem;
+  }
+  .dir-sc-notes {
+    flex-basis: 100%;
+    margin-left: 0;
+    padding: 0 0 0.6rem 2.2rem;
+  }
+  .dir-sc-notes:empty {
+    display: none;
+  }
+}
+
+.dir-sc-quote-panel {
+  position: absolute;
+  z-index: 15;
+  max-width: 100%;
+  padding: 0.5rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-pop);
+}
+
+.dir-sc-quote-tip {
+  position: fixed;
+  z-index: 20;
+  transform: translate(-50%, calc(-100% - 6px));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 32px;
+  padding: 0 0.7rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-pop);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.comment-card-quote,
+.comment-card-line {
+  display: block;
+}
+.comment-card-quote {
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--yellow);
+  color: var(--text-secondary);
 }
 
 /* The machine contract, demoted: a reader never needs it, a bug report always does. */
@@ -5072,23 +5240,6 @@ body.fill-mode .fab-submit-wrap {
   --fn-soft: var(--bg-panel);
 }
 
-/* An aside carries no dramatic function, so it takes no function color — muted, to read as outside
-   the arc the rows around it form. */
-/* The wipe over a shot, set under the shot's own frame in the same cell. */
-.dir-cutin {
-  display: block;
-  margin-top: 0.35rem;
-  padding-left: 0.5rem;
-  border-left: 2px solid var(--border);
-}
-.dir-cutin-label {
-  display: block;
-  font-size: 0.62rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
 /* A coverage shot's frame is its opening one — set under the frame, never boxed as a second camera. */
 .dir-coverage {
   display: block;
@@ -5101,12 +5252,6 @@ body.fill-mode .fab-submit-wrap {
 
 .dir-framing--graphic {
   border-style: dashed;
-  color: var(--text-muted);
-}
-
-.dir-role--aside {
-  --fn-color: var(--border);
-  --fn-soft: transparent;
   color: var(--text-muted);
 }
 
@@ -5192,10 +5337,6 @@ body.fill-mode .fab-submit-wrap {
 }
 
 @media (max-width: 800px) {
-  .dir-table td.dir-col-id {
-    padding-left: calc(0.7rem + var(--dir-depth, 0) * 0.7rem);
-  }
-
   /* Narrow enough for a table to outgrow the card: reaching the columns that ran off the edge beats
      pinning the header of the ones that did not. Restores the scroll container, which is what the
      sticky headers above give up. */
@@ -5209,8 +5350,7 @@ body.fill-mode .fab-submit-wrap {
 }
 
 /* Phone width: the widest table's min-content outruns the screen, so the row stops being a row.
-   The chips — id, role, frame, place, lineup, duration — hold one line; the prose and the thread
-   take the width under them. The column headers go with the columns they named. */
+   The chips hold one line; the prose and the thread take the width under them. The column headers go with the columns they named. */
 @media (max-width: 640px) {
   .dir-table,
   .dir-table thead,
@@ -5229,14 +5369,13 @@ body.fill-mode .fab-submit-wrap {
   }
 
   /* The row draws its own rule and band: a `td` background stops at the cell's content, and a
-     collapsed border does not survive the table formatting going away. Indented by arc depth, so a
-     nested shot's whole block sits inside its act. */
+     collapsed border does not survive the table formatting going away. */
   .dir-table tr {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
     gap: 0.15rem 0.85rem;
-    padding: 0.55rem 0.2rem 0.55rem calc(0.2rem + var(--dir-depth, 0) * 0.7rem);
+    padding: 0.55rem 0.2rem;
     border-bottom: 1px solid var(--border);
   }
 
@@ -5245,14 +5384,9 @@ body.fill-mode .fab-submit-wrap {
   }
 
   .dir-table td,
-  .dir-table td.dir-col-id,
-  .dir-table td.dir-col-role,
   .dir-table td.dir-col-name,
   .dir-table td.dir-col-frame,
   .dir-table td.dir-col-holds,
-  .dir-table td.dir-col-where,
-  .dir-table td.dir-col-lineup,
-  .dir-table td.dir-col-dur,
   .dir-table td.dir-col-syn,
   .dir-table td.dir-col-notes,
   .dir-table .dir-row--voice > td,
@@ -5262,46 +5396,16 @@ body.fill-mode .fab-submit-wrap {
     border-bottom: none;
   }
 
-  .dir-table td.dir-col-lineup {
-    min-width: 0;
-    max-width: none;
-  }
-
-  .dir-table td.dir-col-dur {
-    margin-left: auto;
-  }
-
-  /* The place and the frame taken in it read across, wrapping once a long setup name asks. */
-  .dir-table td.dir-col-where {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.2rem 0.45rem;
-  }
-
-  .dir-col-where .dir-setup-line {
-    margin-top: 0;
-  }
-
   /* A cell holding nothing would still cost the line a gap. */
   .dir-table td:empty {
     display: none;
   }
 
-  /* Prose, and any cell that spanned the table (an act's synopsis, a time jump), run the full
-     width. `order` keeps the duration up on the id and role's line; the rest falls below them. */
+  /* Prose, and any cell that spans the table, run the full width below the chips. */
   .dir-table td.dir-col-syn,
   .dir-table td:not([class]) {
     order: 1;
     flex: 1 1 100%;
-  }
-
-  .dir-table td.dir-col-where {
-    order: 2;
-  }
-
-  .dir-table td.dir-col-lineup {
-    order: 3;
   }
 
   .dir-table td.dir-col-notes {
@@ -5311,23 +5415,12 @@ body.fill-mode .fab-submit-wrap {
   }
 
   /* Bands, moved off the cells onto the row. */
-  .dir-row-seq > td,
-  .dir-row--place > td,
-  .dir-row--focused > td {
+  .dir-row--place > td {
     background: none;
   }
 
-  .dir-row-seq,
   .dir-row--place {
     background: var(--bg-elevated);
-  }
-
-  .dir-row-seq--nested {
-    background: var(--bg-panel);
-  }
-
-  .dir-row--focused {
-    background: var(--accent-soft);
   }
 
   /* A character and the voice cast for them stay one entry over two rows. */
@@ -5343,12 +5436,6 @@ body.fill-mode .fab-submit-wrap {
   /* The frames under a set, indented as a group. */
   .dir-table .dir-row--setup {
     padding-left: 1.5rem;
-  }
-
-  /* No table left to rule across: a line of its own between the two shots. */
-  .dir-table .dir-row-jump {
-    padding: 0.15rem 0;
-    border-bottom: none;
   }
 }
 

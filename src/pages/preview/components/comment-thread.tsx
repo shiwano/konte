@@ -12,6 +12,7 @@ import {
   VolumeIcon,
   XIcon,
 } from "./icons.js";
+import { isQuoteLine } from "../review/quote.js";
 import { NoteInput } from "./note-input.js";
 
 export interface PendingFeedbackItem {
@@ -242,7 +243,9 @@ export function CommentCard({
           )}
           {time !== undefined && <span className="comment-card-time">{formatTimecode(time)}</span>}
         </span>
-        <span className="comment-card-body">{text}</span>
+        <span className="comment-card-body">
+          <CommentText text={text} />
+        </span>
       </button>
       {(onEdit || onDelete) && (
         <span className="comment-card-actions">
@@ -271,6 +274,26 @@ export function CommentCard({
         </span>
       )}
     </div>
+  );
+}
+
+function CommentText({ text }: { text: string }): React.ReactElement {
+  const lines = text.split("\n");
+  if (!lines.some(isQuoteLine)) return <>{text}</>;
+  return (
+    <>
+      {lines.map((line, i) =>
+        isQuoteLine(line) ? (
+          <span key={i} className="comment-card-quote">
+            {line.slice(2)}
+          </span>
+        ) : (
+          <span key={i} className="comment-card-line">
+            {line}
+          </span>
+        ),
+      )}
+    </>
   );
 }
 

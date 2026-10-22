@@ -1,7 +1,25 @@
 import type React from "react";
-import { Fragment, createContext, useCallback, useContext, useMemo, useState } from "react";
+import {
+  Fragment,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { submitDirectionReview } from "../api.js";
+import { formatTimecode } from "../format-time.js";
 import { bulkAcceptState } from "../review/bulk-accept.js";
+import {
+  type MarkRange,
+  isQuoteLine,
+  markFragments,
+  quoteLines,
+  uniqueQuote,
+  quotedFragments,
+} from "../review/quote.js";
 import { ReviewShell, type ShortcutRows } from "../review/review-shell.js";
 import { commentedAddresses } from "../review/undecided.js";
 import { type SubmitInput, useReviewSession } from "../review/use-review-session.js";
@@ -30,7 +48,8 @@ import type {
 } from "../types.js";
 import { CommentThread } from "./comment-thread.js";
 import { DirectionMap } from "./direction-map.js";
-import { CheckIcon } from "./icons.js";
+import { CheckIcon, ChevronRightIcon, CommentIcon } from "./icons.js";
+import { NoteInput } from "./note-input.js";
 import { ReviewHeaderActions } from "./review-header-actions.js";
 import { StatusBadge } from "./status-badge.js";
 import { formatSeconds } from "../../../core/format-duration.js";
@@ -76,7 +95,7 @@ function acceptanceBadge(
 }
 
 export function DirectionPreview({ state }: { state: DirectionPreviewState }): React.ReactElement {
-  // The shot last picked on the direction map — its row below is highlighted and scrolled to.
+  // The shot last picked on the direction map — it is highlighted below and scrolled to.
   const [focusedShotId, setFocusedShotId] = useState<string | null>(null);
   // The verdicts staged so far. They ride with the notes to a single submit rather than saving on
   // click: a reviewer's Accept on the characters and their note on shot 3 are one act of review, and
@@ -86,6 +105,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
   // The box the keyboard acts on. An index into the sections the page actually renders, so J/K walk
   // the boxes the reviewer can see rather than the ones the vocabulary happens to name.
   const [focusIdx, setFocusIdx] = useState(0);
+  const [stagingOpen, setStagingOpen] = useState<Record<string, boolean>>({});
 
   const session = useReviewSession({ hasExtraChanges: decisionCount > 0 });
 
@@ -122,7 +142,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
   );
   const handleSubmit = session.openSubmit;
 
-  // Every table's Notes column holds the part's live thread — nothing to unfold, so the whole
+  // Every part's notes hold its live thread — nothing to unfold, so the whole
   // review (what was written where, and where nothing was) is legible in one pass.
   const renderNotes = useCallback(
     (part: DirectionPartInfo) => (
@@ -142,6 +162,18 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
         onCancelPin={() => {}}
       />
     ),
+    [session],
+  );
+
+  // The words the part's live comments quote, for the script to mark where they still stand.
+  const quotesFor = useCallback(
+    (part: DirectionPartInfo) =>
+      quotedFragments([
+        ...part.feedback
+          .filter((f) => !session.deletedFeedbackIds.has(f.id) && !(session.hideStale && f.stale))
+          .map((f) => session.editedTextById.get(f.id) ?? f.text),
+        ...(session.pendingFeedback[part.address] ?? []).map((p) => p.text),
+      ]),
     [session],
   );
 
@@ -435,7 +467,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
 
         {/* Flow and Shots are one box: the flow is the shape a person without craft vocabulary can
             review (where the piece rises, where it lands, how long each shot holds, the feeling it
-            chases), and the table is those same shots in detail. Splitting a shot re-shapes the flow,
+            chases), and the script is those same shots in detail. Splitting a shot re-shapes the flow,
             so they are inseparable — one arc note lives on the direction map, one Accept covers both. */}
         {sectionBox(
           "Flow & Shots",
@@ -455,41 +487,18 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
             />
             {renderNotes(state.sequence)}
             <SongMeterContext.Provider value={state.song}>
-              <table className="dir-table">
-                <thead>
-                  <tr>
-                    <th className="dir-col-id">#</th>
-                    <th className="dir-col-role">Does</th>
-                    <th className="dir-col-syn">Action</th>
-                    <th className="dir-col-where">Where</th>
-                    <th className="dir-col-lineup">Lineup (L→R)</th>
-                    <th className="dir-col-dur">{state.song === null ? "Dur" : "Beats"}</th>
-                    <th className="dir-col-notes">Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {state.kind === "sequenced"
-                    ? (state.sequences ?? []).map((seq) => (
-                        <SequenceGroup
-                          key={seq.id}
-                          sequence={seq}
-                          depth={0}
-                          parentPleasure={state.pleasure.name}
-                          focusedShotId={focusedShotId}
-                          renderNotes={renderNotes}
-                        />
-                      ))
-                    : (state.shots ?? []).map((shot) => (
-                        <ShotRow
-                          key={shot.id}
-                          shot={shot}
-                          depth={0}
-                          focused={focusedShotId === shot.id}
-                          renderNotes={renderNotes}
-                        />
-                      ))}
-                </tbody>
-              </table>
+              <ShotScript
+                kind={state.kind}
+                shots={state.shots}
+                sequences={state.sequences}
+                rootPleasure={state.pleasure.name}
+                focusedShotId={focusedShotId}
+                renderNotes={renderNotes}
+                quotesFor={quotesFor}
+                isStagingOpen={(id) => stagingOpen[id] ?? false}
+                onToggleStaging={(id) => setStagingOpen((prev) => ({ ...prev, [id]: !prev[id] }))}
+                onAddComment={(address, text) => session.addPending(address, text)}
+              />
             </SongMeterContext.Provider>
           </>,
         )}
@@ -642,148 +651,545 @@ const JOIN_LABEL: Record<NonNullable<DirectionShotInfo["join"]>, string> = {
   "jump-forward": "time jumps forward",
 };
 
-function ShotRow({
-  shot,
-  depth,
-  focused,
-  renderNotes,
-}: {
-  shot: DirectionShotInfo;
-  depth: number;
-  focused: boolean;
+interface ScriptContext {
+  focusedShotId: string | null;
   renderNotes: NotesRenderer;
+  quotesFor: (part: DirectionPartInfo) => string[];
+  isStagingOpen: (shotId: string) => boolean;
+  onToggleStaging: (shotId: string) => void;
+  // The shots that open a scene (a camera's location differs from the last camera shot's), and each
+  // shot's start on the clock — null from the first shot with no span on.
+  sceneOpeners: ReadonlySet<string>;
+  starts: ReadonlyMap<string, number | null>;
+}
+
+// The shots as a screenplay: a scene heading where the location changes, each shot's action and
+// lines, its staging folded away. A graphic shot or an aside heads no scene — it plays inside the
+// scene around it. Selecting words in a shot offers to comment on them in a panel under the selection.
+function ShotScript({
+  kind,
+  shots,
+  sequences,
+  rootPleasure,
+  focusedShotId,
+  renderNotes,
+  quotesFor,
+  isStagingOpen,
+  onToggleStaging,
+  onAddComment,
+}: {
+  kind: DirectionPreviewState["kind"];
+  shots: DirectionShotInfo[] | undefined;
+  sequences: DirectionSequenceInfo[] | undefined;
+  rootPleasure: string;
+  focusedShotId: string | null;
+  renderNotes: NotesRenderer;
+  quotesFor: (part: DirectionPartInfo) => string[];
+  isStagingOpen: (shotId: string) => boolean;
+  onToggleStaging: (shotId: string) => void;
+  onAddComment: (address: string, text: string) => void;
+}): React.ReactElement {
+  const { sceneOpeners, starts } = useMemo(() => {
+    const ordered = kind === "sequenced" ? (sequences ?? []).flatMap(collectShots) : (shots ?? []);
+    const openers = new Set<string>();
+    const startById = new Map<string, number | null>();
+    let location: string | null = null;
+    let clock: number | null = 0;
+    for (const shot of ordered) {
+      if (!shot.graphic && !shot.aside && shot.location !== null && shot.location !== location) {
+        openers.add(shot.id);
+        location = shot.location;
+      }
+      startById.set(shot.id, clock);
+      clock = clock === null || shot.duration === null ? null : clock + shot.duration;
+    }
+    return { sceneOpeners: openers, starts: startById };
+  }, [kind, shots, sequences]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const composer = useQuoteComposer(containerRef, onAddComment);
+
+  const ctx: ScriptContext = {
+    focusedShotId,
+    renderNotes,
+    // The words the open panel quotes stay marked while the comment is written.
+    quotesFor: (part) =>
+      composer.address === part.address
+        ? [...quotesFor(part), ...composer.quotes]
+        : quotesFor(part),
+    isStagingOpen,
+    onToggleStaging,
+    sceneOpeners,
+    starts,
+  };
+
+  return (
+    <div className="dir-sc" ref={containerRef}>
+      {kind === "sequenced"
+        ? (sequences ?? []).map((seq) => (
+            <ScriptSequence
+              key={seq.id}
+              sequence={seq}
+              depth={0}
+              parentPleasure={rootPleasure}
+              ctx={ctx}
+            />
+          ))
+        : (shots ?? []).map((shot) => <ScriptShot key={shot.id} shot={shot} ctx={ctx} />)}
+      <QuoteTip accepts={composer.accepts} onQuote={composer.quote} />
+      {composer.panel}
+    </div>
+  );
+}
+
+const QUOTE_PANEL_WIDTH = 360;
+
+// The comment panel a quote opens, placed under the selection and scrolling with the script. A panel
+// holding nothing but quotes closes on a click elsewhere; one with words written stays, takes further
+// quotes from its own shot, and refuses quotes from any other.
+function useQuoteComposer(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  onAddComment: (address: string, text: string) => void,
+): {
+  address: string | null;
+  quotes: string[];
+  accepts: (address: string) => boolean;
+  quote: (address: string, text: string, anchor: { x: number; y: number }) => void;
+  panel: React.ReactNode;
+} {
+  const [state, setState] = useState<{
+    key: number;
+    address: string;
+    quotes: string[];
+    insert: { text: string; nonce: number };
+    top: number;
+    left: number;
+  } | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const draft = useRef("");
+  const written = () => draft.current.split("\n").some((l) => l.trim() && !isQuoteLine(l));
+
+  const close = useCallback(() => {
+    draft.current = "";
+    setState(null);
+  }, []);
+
+  const accepts = useCallback(
+    (address: string) => !(state && state.address !== address && written()),
+    [state],
+  );
+
+  const quote = useCallback(
+    (address: string, text: string, anchor: { x: number; y: number }) => {
+      const insert = { text, nonce: Date.now() };
+      setState((prev) => {
+        if (prev && written()) {
+          if (prev.address !== address) return prev;
+          return { ...prev, quotes: [...prev.quotes, ...quotedFragments([text])], insert };
+        }
+        const box = containerRef.current?.getBoundingClientRect();
+        if (!box) return prev;
+        draft.current = "";
+        return {
+          key: insert.nonce,
+          address,
+          quotes: quotedFragments([text]),
+          insert,
+          top: anchor.y - box.top,
+          left: Math.max(0, Math.min(anchor.x - box.left, box.width - QUOTE_PANEL_WIDTH)),
+        };
+      });
+    },
+    [containerRef],
+  );
+
+  useEffect(() => {
+    if (!state) return;
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (panelRef.current?.contains(target) || target?.closest(".dir-sc-quote-tip")) return;
+      if (!written()) close();
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [state, close]);
+
+  const panel = state && (
+    <div
+      ref={panelRef}
+      className="dir-sc-quote-panel"
+      style={{ top: state.top, left: state.left, width: QUOTE_PANEL_WIDTH }}
+    >
+      <NoteInput
+        key={state.key}
+        insert={state.insert}
+        placeholder="Comment on the quoted words…"
+        onTextChange={(text) => {
+          draft.current = text;
+        }}
+        onSave={(text) => {
+          onAddComment(state.address, text);
+          close();
+        }}
+        onCancel={close}
+      />
+    </div>
+  );
+
+  return {
+    address: state?.address ?? null,
+    quotes: state?.quotes ?? [],
+    accepts,
+    quote,
+    panel,
+  };
+}
+
+// What a selection quotes in each `data-quote-field` of a part it crosses, each made to name one
+// place in the part (see `uniqueQuote`). A field's index is its position in `markFragments`' fields.
+function selectedQuotes(scope: HTMLElement, range: Range): string[] {
+  const els = [...scope.querySelectorAll<HTMLElement>("[data-quote-field]")];
+  const texts: string[] = [];
+  for (const el of els) texts[Number(el.dataset.quoteField)] = el.textContent ?? "";
+  const fields = Array.from(texts, (t) => t ?? "");
+  return els.flatMap((el) => {
+    if (!range.intersectsNode(el)) return [];
+    const offsetIn = (node: Node, offset: number) => {
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      r.setEnd(node, offset);
+      return r.toString().length;
+    };
+    const field = Number(el.dataset.quoteField);
+    const start = el.contains(range.startContainer)
+      ? offsetIn(range.startContainer, range.startOffset)
+      : 0;
+    const end = el.contains(range.endContainer)
+      ? offsetIn(range.endContainer, range.endOffset)
+      : (fields[field] ?? "").length;
+    const quote = uniqueQuote(fields, { field, start, end });
+    return quote ? [quote] : [];
+  });
+}
+
+// The "Comment" button floated at a selection inside one part's quotable text. Its own component, so
+// a selection moving re-renders the button alone rather than every shot.
+function QuoteTip({
+  accepts,
+  onQuote,
+}: {
+  accepts: (address: string) => boolean;
+  onQuote: (address: string, quote: string, anchor: { x: number; y: number }) => void;
+}): React.ReactElement | null {
+  const [tip, setTip] = useState<{
+    address: string;
+    quote: string;
+    top: number;
+    left: number;
+    anchor: { x: number; y: number };
+  } | null>(null);
+  const acceptsRef = useRef(accepts);
+  acceptsRef.current = accepts;
+
+  useEffect(() => {
+    const read = () => {
+      const sel = window.getSelection();
+      const range = sel && !sel.isCollapsed && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+      const node = range?.commonAncestorContainer;
+      const el = node instanceof Element ? node : node?.parentElement;
+      const scope = el?.closest<HTMLElement>("[data-quote-address]");
+      const address = scope?.dataset.quoteAddress;
+      const lines = range && scope ? selectedQuotes(scope, range) : [];
+      if (!range || !address || lines.length === 0 || !acceptsRef.current(address)) {
+        setTip(null);
+        return;
+      }
+      const quote = quoteLines(lines);
+      const rect = range.getBoundingClientRect();
+      // Where the drag ended: under the selection's last line.
+      const rects = range.getClientRects();
+      const last = rects[rects.length - 1] ?? rect;
+      setTip((prev) =>
+        prev?.address === address &&
+        prev.quote === quote &&
+        prev.top === rect.top &&
+        prev.left === rect.right
+          ? prev
+          : {
+              address,
+              quote,
+              top: rect.top,
+              left: rect.right,
+              anchor: { x: last.right - 24, y: last.bottom + 6 },
+            },
+      );
+    };
+    // A touch selection ends with no mouseup, so a selection left still for a moment is read too.
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    const onSelectionChange = () => {
+      clearTimeout(settle);
+      if (window.getSelection()?.isCollapsed ?? true) setTip(null);
+      else settle = setTimeout(read, 400);
+    };
+    const hide = () => setTip(null);
+    document.addEventListener("mouseup", read);
+    document.addEventListener("keyup", read);
+    document.addEventListener("selectionchange", onSelectionChange);
+    window.addEventListener("scroll", hide, true);
+    return () => {
+      clearTimeout(settle);
+      document.removeEventListener("mouseup", read);
+      document.removeEventListener("keyup", read);
+      document.removeEventListener("selectionchange", onSelectionChange);
+      window.removeEventListener("scroll", hide, true);
+    };
+  }, []);
+
+  if (!tip) return null;
+  return (
+    <button
+      type="button"
+      className="dir-sc-quote-tip"
+      style={{ top: tip.top, left: tip.left }}
+      // Keeps the selection: the click that quotes it must not clear it first.
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={() => {
+        onQuote(tip.address, tip.quote, tip.anchor);
+        window.getSelection()?.removeAllRanges();
+        setTip(null);
+      }}
+    >
+      <CommentIcon size={13} /> Comment
+    </button>
+  );
+}
+
+function ScriptSequence({
+  sequence,
+  depth,
+  parentPleasure,
+  ctx,
+}: {
+  sequence: DirectionSequenceInfo;
+  depth: number;
+  parentPleasure: string;
+  ctx: ScriptContext;
 }): React.ReactElement {
   return (
-    <Fragment>
-      {/* The boundary is about what happens BETWEEN this shot and the one before it, not about the
-          shot, so it is drawn between the rows rather than inside one. An ordinary cut draws
-          nothing — it is what a boundary is unless the shot says otherwise — and a continuous one
-          only fades the row rule above. */}
-      {shot.join && shot.join !== "continuous" && (
-        <tr className="dir-row-jump">
-          <td colSpan={7}>
-            <span className={`dir-jump dir-jump--${shot.join}`}>{JOIN_LABEL[shot.join]}</span>
-          </td>
-        </tr>
-      )}
-      <tr
-        data-shot-id={shot.id}
-        className={`dir-row${focused ? " dir-row--focused" : ""}${
-          shot.join === "continuous" ? " dir-row--continues" : ""
-        }`}
-        style={{ "--dir-depth": depth } as React.CSSProperties}
-      >
-        <td className="dir-col-id">{shot.id}</td>
-        <td className="dir-col-role">
-          {/* An aside performs no dramatic function, so the column that would name one says what the
-            row is instead — otherwise it reads as a shot whose role went missing. */}
-          {shot.aside ? (
-            <span className="dir-role dir-role--aside">aside</span>
-          ) : (
-            shot.roleFunctionLabel && (
-              <span className={`dir-role direction-fn--${shot.beatFunction ?? "ground"}`}>
-                {shot.roleFunctionLabel}
-              </span>
-            )
-          )}
-        </td>
-        <td className="dir-col-syn">
-          {shot.action}
-          {shot.script.length > 0 && (
-            <ul className="dir-script">
-              {/* Keyed by position: a shot can repeat the same line, so the content is not unique
-                — but the order is fixed by the direction. */}
-              {shot.script.map((line, i) => (
-                <li
-                  key={i}
-                  className={`dir-script-line${line.speaker === null ? " dir-script-line--narration" : ""}`}
-                >
-                  {line.speaker !== null && (
-                    <span className="dir-script-speaker">{line.speaker}</span>
-                  )}
-                  <span className="dir-script-text">{line.text}</span>
-                  {/* How the line is said, under the words it is said with — one line, read once by
-                    the reviewer instead of reinvented by whoever writes the next take. */}
-                  {line.acting && <span className="dir-script-acting">{line.acting}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-          {/* Telop reads as a separate block from the script: nobody says it, so it carries no
-            speaker column and is set apart rather than mixed into the lines above. */}
-          {shot.telop.length > 0 && (
-            <ul className="dir-script dir-telop">
-              {shot.telop.map((text, i) => (
-                <li key={i} className="dir-script-line dir-telop-line">
-                  <span className="dir-script-text">{text}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </td>
-        {/* The frame this shot is taken from, all of it in one cell: the place on top, the size and
-          the setup it resolves through underneath. Both cadences are read down the column — adjacent
-          rows sharing a location are one continuous set and a cut in location is a scene change;
-          adjacent rows sharing a size are flat coverage — so both chips sit at
-          the cell's own left edge, on lines of their own, and neither is shifted by the length of
-          the other. The setup rides under the place because the coverage question ("which shots
-          share a frame") is asked inside a set, not across sets. */}
-        <td className="dir-col-where">
-          {/* A graphic shot is taken from no camera, so the cell says what it is instead of reading
-            as a shot whose frame went missing. */}
-          {shot.graphic && <span className="dir-framing dir-framing--graphic">graphic</span>}
-          <Frame location={shot.location} framing={shot.framing} setup={shot.setup} />
-          {/* The frame above is where the take opens; the model cuts the rest. */}
-          {shot.coverage && (
-            <span className="dir-coverage">coverage · the model cuts after this frame</span>
-          )}
-          {/* The wipe over the shot is a frame of its own, set apart under the shot's. */}
-          {shot.cutin && (
-            <span className="dir-cutin">
-              <span className="dir-cutin-label">
-                cutin{shot.cutin.join ? ` · ${JOIN_LABEL[shot.cutin.join]}` : ""}
-              </span>
-              <Frame
-                location={shot.cutin.location}
-                framing={shot.cutin.framing}
-                setup={shot.cutin.setup}
-              />
-            </span>
-          )}
-        </td>
-        {/* Who the frame holds, left to right — the one row on this page every prompt taken from the
-          shot is held to. `lineupTo` is drawn after an arrow, so a shot the frame changes inside
-          reads as a move rather than as two unrelated lists. */}
-        <td className="dir-col-lineup">
-          {shot.lineup.length > 0 && <Lineup names={shot.lineup} />}
-          {shot.lineupTo.length > 0 && <Lineup names={shot.lineupTo} exit />}
-          {shot.passing.length > 0 && (
-            <span className="dir-cutin">
-              <span className="dir-cutin-label">passing</span>
-              {shot.passing.join(" · ")}
-            </span>
-          )}
-          {shot.cutin &&
-            (shot.cutin.lineup.length > 0 ||
-              shot.cutin.lineupTo.length > 0 ||
-              shot.cutin.passing.length > 0) && (
-              <span className="dir-cutin">
-                <span className="dir-cutin-label">cutin</span>
-                {shot.cutin.lineup.length > 0 && <Lineup names={shot.cutin.lineup} />}
-                {shot.cutin.lineupTo.length > 0 && <Lineup names={shot.cutin.lineupTo} exit />}
-                {shot.cutin.passing.length > 0 && (
-                  <span>passing: {shot.cutin.passing.join(" · ")}</span>
-                )}
-              </span>
-            )}
-        </td>
-        <td className="dir-col-dur">
-          <Span seconds={shot.duration} beats={shot.beats} />
-        </td>
-        <td className="dir-col-notes">{renderNotes(shot)}</td>
-      </tr>
-    </Fragment>
+    <>
+      <div className={`dir-sc-row dir-sc-act${depth > 0 ? " dir-sc-act--nested" : ""}`}>
+        <div className="dir-sc-gutter">
+          <span className="dir-sc-id">{sequence.id}</span>
+          <span className="dir-sc-time">
+            <SequenceSpan sequence={sequence} />
+          </span>
+        </div>
+        <div className="dir-sc-body">
+          <SequenceSummary sequence={sequence} parentPleasure={parentPleasure} />
+        </div>
+        <div className="dir-sc-notes">{ctx.renderNotes(sequence)}</div>
+      </div>
+      {sequence.shots
+        ? sequence.shots.map((shot) => <ScriptShot key={shot.id} shot={shot} ctx={ctx} />)
+        : (sequence.sequences ?? []).map((child) => (
+            <ScriptSequence
+              key={child.id}
+              sequence={child}
+              depth={depth + 1}
+              parentPleasure={sequence.pleasure.name}
+              ctx={ctx}
+            />
+          ))}
+    </>
   );
+}
+
+function ScriptShot({
+  shot,
+  ctx,
+}: {
+  shot: DirectionShotInfo;
+  ctx: ScriptContext;
+}): React.ReactElement {
+  const open = ctx.isStagingOpen(shot.id);
+  const start = ctx.starts.get(shot.id) ?? null;
+  // The quotable text in reading order: the action, each line's acting and words, the telop.
+  const fields = [
+    shot.action,
+    ...shot.script.flatMap((line) => [line.acting ?? "", line.text]),
+    ...shot.telop,
+  ];
+  const marks = markFragments(fields, ctx.quotesFor(shot));
+  const marksAt = (i: number): MarkRange[] => marks[i] ?? [];
+  return (
+    <>
+      {shot.join && shot.join !== "continuous" && (
+        <div className="dir-sc-row">
+          <div className="dir-sc-gutter" />
+          <div className="dir-sc-body">
+            <span className="dir-sc-join">{JOIN_LABEL[shot.join]}</span>
+          </div>
+          <div className="dir-sc-notes" />
+        </div>
+      )}
+      {ctx.sceneOpeners.has(shot.id) && (
+        <div className="dir-sc-row">
+          <div className="dir-sc-gutter" />
+          <h3 className="dir-sc-body dir-sc-scene">{shot.location}</h3>
+        </div>
+      )}
+      <div
+        data-shot-id={shot.id}
+        className={`dir-sc-row dir-sc-shot${
+          shot.beatFunction ? ` direction-fn--${shot.beatFunction}` : ""
+        }${ctx.focusedShotId === shot.id ? " dir-sc-shot--focused" : ""}`}
+      >
+        <div className="dir-sc-gutter">
+          <span className="dir-sc-id">{shot.id}</span>
+          <span className="dir-sc-time">
+            {start !== null && <>{formatTimecode(start)} · </>}
+            <Span seconds={shot.duration} beats={shot.beats} />
+          </span>
+        </div>
+        <div className="dir-sc-body" data-quote-address={shot.address}>
+          <p className="dir-sc-action">
+            <button
+              type="button"
+              className={`dir-sc-staging-btn dir-sc-unquotable${open ? " dir-sc-staging-btn--open" : ""}`}
+              aria-expanded={open}
+              aria-label={`Staging of shot ${shot.id}`}
+              onClick={() => ctx.onToggleStaging(shot.id)}
+            >
+              <ChevronRightIcon size={18} />
+            </button>
+            {shot.aside && <span className="dir-sc-kind dir-sc-unquotable">aside</span>}
+            {shot.graphic && <span className="dir-sc-kind dir-sc-unquotable">graphic</span>}
+            <span data-quote-field={0}>
+              <Marked text={shot.action} ranges={marksAt(0)} />
+            </span>
+          </p>
+          {shot.script.map((line, i) => (
+            // Keyed by position: a shot can repeat the same line.
+            <div
+              key={i}
+              className={`dir-sc-line${line.speaker === null ? " dir-sc-line--narration" : ""}`}
+            >
+              {line.speaker !== null && (
+                <span className="dir-sc-speaker dir-sc-unquotable">{line.speaker}</span>
+              )}
+              {line.acting && (
+                <span className="dir-sc-acting" data-quote-field={1 + i * 2}>
+                  <Marked text={line.acting} ranges={marksAt(1 + i * 2)} />
+                </span>
+              )}
+              <span className="dir-sc-text" data-quote-field={2 + i * 2}>
+                <Marked text={line.text} ranges={marksAt(2 + i * 2)} />
+              </span>
+            </div>
+          ))}
+          {shot.telop.map((text, j) => (
+            <p key={j} className="dir-sc-aside-line">
+              <span className="dir-sc-label dir-sc-unquotable">Telop</span>
+              <span data-quote-field={1 + shot.script.length * 2 + j}>
+                <Marked text={text} ranges={marksAt(1 + shot.script.length * 2 + j)} />
+              </span>
+            </p>
+          ))}
+          {shot.cutin && (
+            <p className="dir-sc-aside-line dir-sc-unquotable">
+              <span className="dir-sc-label">Cutin</span>
+              {[shot.cutin.setup, ...shot.cutin.lineup].join(" · ")}
+            </p>
+          )}
+          {open && <ShotStaging shot={shot} />}
+        </div>
+        <div className="dir-sc-notes">{ctx.renderNotes(shot)}</div>
+      </div>
+    </>
+  );
+}
+
+// Where the shot is taken from and who it holds, folded under its action.
+function ShotStaging({ shot }: { shot: DirectionShotInfo }): React.ReactElement {
+  const hasLineup = shot.lineup.length > 0 || shot.lineupTo.length > 0 || shot.passing.length > 0;
+  return (
+    <dl className="dir-sc-staging dir-sc-unquotable">
+      {(shot.roleFunctionLabel || shot.aside) && (
+        <>
+          <dt>Does</dt>
+          <dd>{shot.aside ? "aside" : shot.roleFunctionLabel}</dd>
+        </>
+      )}
+      <dt>Where</dt>
+      <dd>
+        {shot.graphic ? (
+          <span className="dir-framing dir-framing--graphic">graphic</span>
+        ) : (
+          <Frame location={shot.location} framing={shot.framing} setup={shot.setup} />
+        )}
+        {shot.coverage && (
+          <span className="dir-coverage">coverage · the model cuts after this frame</span>
+        )}
+      </dd>
+      {/* The jumps head the shot in the script; an unbroken take into it is only told here. */}
+      {shot.join === "continuous" && (
+        <>
+          <dt>Join</dt>
+          <dd>continuous from the shot before</dd>
+        </>
+      )}
+      {hasLineup && (
+        <>
+          <dt>Lineup (L→R)</dt>
+          <dd>
+            {shot.lineup.length > 0 && <Lineup names={shot.lineup} />}
+            {shot.lineupTo.length > 0 && <Lineup names={shot.lineupTo} exit />}
+            {shot.passing.length > 0 && <span>passing: {shot.passing.join(" · ")}</span>}
+          </dd>
+        </>
+      )}
+      {shot.cutin && (
+        <>
+          <dt>Cutin{shot.cutin.join ? ` · ${JOIN_LABEL[shot.cutin.join]}` : ""}</dt>
+          <dd>
+            <Frame
+              location={shot.cutin.location}
+              framing={shot.cutin.framing}
+              setup={shot.cutin.setup}
+            />
+            {shot.cutin.lineup.length > 0 && <Lineup names={shot.cutin.lineup} />}
+            {shot.cutin.lineupTo.length > 0 && <Lineup names={shot.cutin.lineupTo} exit />}
+            {shot.cutin.passing.length > 0 && (
+              <span>passing: {shot.cutin.passing.join(" · ")}</span>
+            )}
+          </dd>
+        </>
+      )}
+    </dl>
+  );
+}
+
+function Marked({
+  text,
+  ranges,
+}: {
+  text: string;
+  ranges: readonly MarkRange[];
+}): React.ReactElement {
+  if (ranges.length === 0) return <>{text}</>;
+  const parts: React.ReactNode[] = [];
+  let at = 0;
+  ranges.forEach(([start, end], i) => {
+    if (start > at) parts.push(text.slice(at, start));
+    parts.push(
+      <mark key={i} className="dir-sc-mark">
+        {text.slice(start, end)}
+      </mark>,
+    );
+    at = end;
+  });
+  if (at < text.length) parts.push(text.slice(at));
+  return <>{parts}</>;
 }
 
 // The meter a span is read in bars by — null on a piece with no song, whose spans are seconds.
@@ -836,8 +1242,8 @@ function Frame({
   );
 }
 
-// One frame's order, name by name. Each name carries its own separator so a list too long for the
-// column breaks AFTER a slash rather than starting a line with one.
+// One frame's order, name by name. Each name carries its own separator so a list too long for its
+// line breaks AFTER a slash rather than starting a line with one.
 function Lineup({ names, exit }: { names: string[]; exit?: boolean }): React.ReactElement {
   return (
     <span className={`dir-lineup${exit ? " dir-lineup--to" : ""}`}>
@@ -856,65 +1262,12 @@ function collectShots(node: DirectionSequenceInfo): DirectionShotInfo[] {
   return node.shots ?? (node.sequences ?? []).flatMap(collectShots);
 }
 
-// A sequence and everything under it: the act's own row, then its shots (a leaf act) or its child
-// acts rendered recursively (a branch act), so the table mirrors the arc tree however deep it nests.
-// `depth` is what makes that tree legible — every row is indented by its own level, so an act reads
-// as sitting inside the act above it rather than beside it.
-function SequenceGroup({
+function SequenceSummary({
   sequence,
-  depth,
   parentPleasure,
-  focusedShotId,
-  renderNotes,
 }: {
   sequence: DirectionSequenceInfo;
-  depth: number;
   parentPleasure: string;
-  focusedShotId: string | null;
-  renderNotes: NotesRenderer;
-}): React.ReactElement {
-  return (
-    <Fragment>
-      <SequenceRow
-        sequence={sequence}
-        depth={depth}
-        parentPleasure={parentPleasure}
-        renderNotes={renderNotes}
-      />
-      {sequence.shots
-        ? sequence.shots.map((shot) => (
-            <ShotRow
-              key={shot.id}
-              shot={shot}
-              depth={depth + 1}
-              focused={focusedShotId === shot.id}
-              renderNotes={renderNotes}
-            />
-          ))
-        : (sequence.sequences ?? []).map((child) => (
-            <SequenceGroup
-              key={child.id}
-              sequence={child}
-              depth={depth + 1}
-              parentPleasure={sequence.pleasure.name}
-              focusedShotId={focusedShotId}
-              renderNotes={renderNotes}
-            />
-          ))}
-    </Fragment>
-  );
-}
-
-function SequenceRow({
-  sequence,
-  depth,
-  parentPleasure,
-  renderNotes,
-}: {
-  sequence: DirectionSequenceInfo;
-  depth: number;
-  parentPleasure: string;
-  renderNotes: NotesRenderer;
 }): React.ReactElement {
   // Every act names the feeling it aims for, so most repeat the one above them and one — the act
   // that turns the piece — does not. Both are stated (an act whose feeling the reader has to derive
@@ -922,41 +1275,36 @@ function SequenceRow({
   // gloss, so the eye lands on it without the page relying on colour to make the point.
   const shifts = sequence.pleasure.name !== parentPleasure;
   return (
-    <tr
-      className={`dir-row-seq${depth > 0 ? " dir-row-seq--nested" : ""}`}
-      style={{ "--dir-depth": depth } as React.CSSProperties}
-    >
-      <td className="dir-col-id">{sequence.id}</td>
-      <td colSpan={4}>
-        <span className="dir-seq-cell">
-          {sequence.roleFunctionLabel && (
-            <span className={`dir-role dir-role--seq direction-fn--${sequence.beatFunction}`}>
-              {sequence.roleFunctionLabel}
-            </span>
-          )}
-          <span className="dir-col-syn">{sequence.synopsis}</span>
-          {/* Trails the synopsis: what the act *is* reads before what it is chasing. */}
-          <span className={`dir-seq-pleasure${shifts ? " dir-seq-pleasure--shift" : ""}`}>
-            <span className="dir-inline-label">{shifts ? "Shifts to" : "Aiming for"}</span>
-            {sequence.pleasure.name}
-            {shifts && <span className="dir-seq-pleasure-gloss">{sequence.pleasure.gloss}</span>}
-          </span>
+    <span className="dir-seq-cell">
+      {sequence.roleFunctionLabel && (
+        <span className={`dir-role dir-role--seq direction-fn--${sequence.beatFunction}`}>
+          {sequence.roleFunctionLabel}
         </span>
-      </td>
-      <td className="dir-col-dur">
-        <Span
-          seconds={collectShots(sequence).reduce<number | null>(
-            (acc, s) => (acc === null || s.duration === null ? null : acc + s.duration),
-            0,
-          )}
-          beats={collectShots(sequence).reduce<number | null>(
-            (acc, s) => (acc === null || s.beats === null ? null : acc + s.beats),
-            0,
-          )}
-        />
-      </td>
-      <td className="dir-col-notes">{renderNotes(sequence)}</td>
-    </tr>
+      )}
+      <span className="dir-col-syn">{sequence.synopsis}</span>
+      {/* Trails the synopsis: what the act *is* reads before what it is chasing. */}
+      <span className={`dir-seq-pleasure${shifts ? " dir-seq-pleasure--shift" : ""}`}>
+        <span className="dir-inline-label">{shifts ? "Shifts to" : "Aiming for"}</span>
+        {sequence.pleasure.name}
+        {shifts && <span className="dir-seq-pleasure-gloss">{sequence.pleasure.gloss}</span>}
+      </span>
+    </span>
+  );
+}
+
+function SequenceSpan({ sequence }: { sequence: DirectionSequenceInfo }): React.ReactElement {
+  const shots = collectShots(sequence);
+  return (
+    <Span
+      seconds={shots.reduce<number | null>(
+        (acc, s) => (acc === null || s.duration === null ? null : acc + s.duration),
+        0,
+      )}
+      beats={shots.reduce<number | null>(
+        (acc, s) => (acc === null || s.beats === null ? null : acc + s.beats),
+        0,
+      )}
+    />
   );
 }
 
@@ -1477,8 +1825,7 @@ function LocationGroup({
 }
 
 // One camera position under the set it looks at. `Frame` is the size every shot taken on it inherits
-// — the column the shot table's size cadence is read against, with the wider frame this one is a
-// window of beneath it — and `Holds` is what of the place this frame carries, left to right, which is
+// — with the wider frame this one is a window of beneath it — and `Holds` is what of the place this frame carries, left to right, which is
 // what makes it recognizable as that place at all.
 function SetupRow({
   setup,

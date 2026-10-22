@@ -113,6 +113,14 @@ export function PlusIcon({ size }: { size?: number }): React.ReactElement {
   );
 }
 
+export function ChevronRightIcon({ size }: { size?: number }): React.ReactElement {
+  return (
+    <Svg size={size}>
+      <path d="m9 6 6 6-6 6" />
+    </Svg>
+  );
+}
+
 export function PencilIcon({ size }: { size?: number }): React.ReactElement {
   return (
     <Svg size={size}>
