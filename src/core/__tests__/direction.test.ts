@@ -62,6 +62,7 @@ function setupsFor(shots: readonly NarrativeShot[]): Record<string, Setup> {
       description: `a ${framing} of ${location}`,
       location,
       framing,
+      view: "front",
       // Every terse location declares one landmark, minted the same way (see `locationsFor`).
       holds: framing === "insert" ? [] : [`${location}Mark`],
       // One landmark held by every frame of the place makes each narrower one a `within` candidate.
@@ -392,6 +393,7 @@ describe("validateDirectionStructure", () => {
           description: "some other frame",
           location: "here",
           framing: "wide",
+          view: "front",
           holds: ["hereMark"],
         },
       },
@@ -414,6 +416,7 @@ describe("validateDirectionStructure", () => {
           description: "ok",
           location: "here",
           framing: "wide",
+          view: "front",
           holds: ["hereMark"],
         },
         empty: {
@@ -421,6 +424,7 @@ describe("validateDirectionStructure", () => {
           description: "",
           location: "here",
           framing: "wide",
+          view: "front",
           holds: ["hereMark"],
         },
       },
@@ -443,6 +447,7 @@ describe("validateDirectionStructure", () => {
           description: "low",
           location: "here",
           framing: "close",
+          view: "front",
           holds: ["hereMark"],
         },
       },
@@ -1205,6 +1210,9 @@ describe("checkDirection setups", () => {
       unnested?: readonly string[];
       ignoring?: Record<string, string[]>;
       deterministic?: Record<string, number>;
+      unviewed?: readonly string[];
+      unviewedBy?: Record<string, string[]>;
+      unanchoredViews?: readonly string[];
     } = {},
   ): AnimaticSetupState => ({
     plateIds: ids,
@@ -1212,6 +1220,9 @@ describe("checkDirection setups", () => {
     unnestedPlateIds: gaps.unnested ?? [],
     unconsumedBy: new Map(Object.entries(gaps.ignoring ?? {})),
     deterministicShotsPerSetup: new Map(Object.entries(gaps.deterministic ?? {})),
+    unviewedPlateIds: gaps.unviewed ?? [],
+    unviewedBy: new Map(Object.entries(gaps.unviewedBy ?? {})),
+    unanchoredViews: gaps.unanchoredViews ?? [],
   });
 
   // Two shots on one frame, one shot on another: exactly the split `setup-unrealized` draws.
@@ -1228,6 +1239,7 @@ describe("checkDirection setups", () => {
         description: "flat on",
         location: "here",
         framing: "medium",
+        view: "front",
         holds: ["hereMark"],
       },
       solo: {
@@ -1235,6 +1247,7 @@ describe("checkDirection setups", () => {
         description: "in close",
         location: "here",
         framing: "close",
+        view: "front",
         holds: ["hereMark"],
       },
       solo2: {
@@ -1242,6 +1255,7 @@ describe("checkDirection setups", () => {
         description: "wide",
         location: "here",
         framing: "wide",
+        view: "front",
         holds: ["hereMark"],
       },
     },
@@ -1257,6 +1271,7 @@ describe("checkDirection setups", () => {
           description: "from the door",
           location: "here",
           framing: "wide",
+          view: "front",
           holds: ["hereMark"],
           within: null,
         },
@@ -1274,6 +1289,7 @@ describe("checkDirection setups", () => {
           description: "from the window",
           location: "here",
           framing: "medium",
+          view: "front",
           holds: ["hereMark"],
           within: null,
         },
@@ -1392,6 +1408,7 @@ describe("checkDirection setups", () => {
           description: "b",
           location: "here",
           framing: "wide",
+          view: "front",
           holds: ["hereMark"],
         },
         spare: {
@@ -1399,6 +1416,7 @@ describe("checkDirection setups", () => {
           description: "unused",
           location: "here",
           framing: "close",
+          view: "front",
           holds: ["hereMark"],
           within: null,
         },
@@ -1422,6 +1440,7 @@ describe("checkDirection setups", () => {
           description: "flat on",
           location: "here",
           framing: "medium",
+          view: "front",
           holds: ["hereMark"],
         },
       },
@@ -1460,6 +1479,7 @@ describe("checkDirection setups", () => {
         description: "flat on",
         location: "here",
         framing: "medium",
+        view: "front",
         holds: ["hereMark"],
         within: null,
       },
@@ -1554,6 +1574,7 @@ describe("checkDirection setups", () => {
           description: "flat on",
           location: "here",
           framing: "medium",
+          view: "front",
           holds: ["hereMark"],
         },
         faraway: {
@@ -1561,6 +1582,7 @@ describe("checkDirection setups", () => {
           description: "wide",
           location: "there",
           framing: "wide",
+          view: "front",
           holds: ["thereMark"],
         },
       },
@@ -1625,6 +1647,7 @@ describe("checkDirection setups", () => {
           description: "flat on",
           location: "here",
           framing: "medium",
+          view: "front",
           holds: ["hereMark"],
         },
       },
@@ -1653,6 +1676,7 @@ describe("checkDirection setups", () => {
     description: `a ${framing} of ${location}`,
     location,
     framing,
+    view: "front",
     holds,
   });
 
@@ -1719,6 +1743,114 @@ describe("checkDirection setups", () => {
     expect(checkDirection(atomized(8, 2)).active.map((f) => f.code)).not.toContain(
       "setup-atomized",
     );
+  });
+
+  describe("views", () => {
+    // `desk` faces the master's way; `top` looks straight down on the desk and `topClose` is a
+    // window of it, so it faces down too.
+    const viewed = leaf({
+      shots: [
+        { ...shot("01", "ordinary", 3), setup: "desk" },
+        { ...shot("02", "disruption", 2), setup: "top" },
+        { ...shot("03", "pressure", 3), setup: "top" },
+        { ...shot("04", "hero", 4), setup: "topClose" },
+      ],
+      setups: {
+        desk: {
+          name: "the desk",
+          description: "straight on",
+          location: "here",
+          framing: "medium",
+          view: "front",
+          holds: ["hereMark"],
+          within: null,
+        },
+        top: {
+          name: "the desk from above",
+          description: "straight down",
+          location: "here",
+          framing: "medium",
+          view: "top",
+          holds: ["hereMark"],
+          within: null,
+        },
+        topClose: {
+          name: "the desk top",
+          description: "in from above",
+          location: "here",
+          framing: "close",
+          holds: ["hereMark"],
+          within: "top",
+        },
+      },
+    });
+    const codes = (
+      d: Direction,
+      referenceAssetNames: readonly string[],
+      state: AnimaticSetupState = plates(["top"]),
+    ) =>
+      checkDirection(d, { referenceAssetNames, animaticSetups: state }).active.filter((f) =>
+        ["view-unrealized", "plate-unviewed", "view-unanchored"].includes(f.code),
+      );
+
+    it("demands an image of every way a used setup faces but front", () => {
+      const findings = codes(viewed, ["here"]);
+      expect(findings.map((f) => [f.code, f.subject])).toEqual([["view-unrealized", "here.top"]]);
+      expect(findings[0]?.message).toContain('"top"');
+      expect(findings[0]?.message).toContain("`views`");
+    });
+
+    it("is satisfied by the view image the reference stage files", () => {
+      expect(codes(viewed, ["here", "view.here.top"])).toEqual([]);
+    });
+
+    it("waits for the board", () => {
+      const findings = checkDirection(viewed, { referenceAssetNames: ["here"] }).active;
+      expect(findings.map((f) => f.code)).not.toContain("view-unrealized");
+    });
+
+    it("demands a plate stand on its own view's image", () => {
+      const findings = codes(
+        viewed,
+        ["here", "view.here.top"],
+        plates(["top"], { unviewed: ["top"] }),
+      );
+      expect(findings.map((f) => [f.code, f.subject])).toEqual([["plate-unviewed", "top"]]);
+      expect(findings[0]?.message).toContain("views.here.top");
+    });
+
+    it("holds a plate-less setup's keyframes to its view's image", () => {
+      const findings = codes(
+        viewed,
+        ["here", "view.here.top"],
+        plates(["top"], { unviewedBy: { desk: ["01"] } }),
+      );
+      expect(findings.map((f) => [f.code, f.subject])).toEqual([["plate-unviewed", "desk"]]);
+      expect(findings[0]?.message).toContain('"01"');
+    });
+
+    it("waits for the view image before naming it", () => {
+      const findings = codes(viewed, ["here"], plates(["top"], { unviewed: ["top"] }));
+      expect(findings.map((f) => f.code)).toEqual(["view-unrealized"]);
+    });
+
+    it("demands a view image be made from its location's master", () => {
+      const findings = codes(
+        viewed,
+        ["here", "view.here.top"],
+        plates(["top"], { unanchoredViews: ["here.top"] }),
+      );
+      expect(findings.map((f) => [f.code, f.subject])).toEqual([["view-unanchored", "here.top"]]);
+      expect(findings[0]?.message).toContain("reference.here");
+    });
+
+    it("names the image of the way a setup faces as its anchor, before it exists", () => {
+      const findings = checkDirection(viewed, {
+        referenceAssetNames: ["here"],
+        animaticSetups: plates(["top"], { unanchored: ["top"] }),
+      }).active.filter((f) => f.code === "plate-unanchored");
+      expect(findings[0]?.message).toContain("views.here.top");
+    });
   });
 });
 

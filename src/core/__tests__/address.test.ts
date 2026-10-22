@@ -471,9 +471,11 @@ describe("listAssetPaths", () => {
 });
 
 describe("listReviewableAssetPaths", () => {
-  const reference = defineReference(plainDirection, () => {
-    const character = asset("character", imageFile, { path: "assets/files/character.png" });
-    return { character };
+  const reference = defineReference(plainDirection, {
+    references: () => {
+      const character = asset("character", imageFile, { path: "assets/files/character.png" });
+      return { character };
+    },
   });
   const videoWithReference: VideoDefinition = defineVideo(
     testDirection({

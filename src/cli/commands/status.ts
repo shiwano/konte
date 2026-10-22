@@ -153,7 +153,7 @@ export function registerStatusCommand(program: Command): void {
       const directionCheck = direction
         ? checkDirection(direction, {
             referenceAssetNames: reference?.exposedAssetNames ?? [],
-            animaticSetups: await loadAnimaticSetupState(videoRoot, direction),
+            animaticSetups: await loadAnimaticSetupState(videoRoot, direction, reference),
             stagingStage: await loadStagingStageState(videoRoot, direction),
             songTake: await loadSongTakeState(videoRoot, direction),
           })

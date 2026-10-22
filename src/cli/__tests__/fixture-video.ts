@@ -53,6 +53,7 @@ export default defineDirection({
       description: "The whole desk from across the room, eye level.",
       location: "studio",
       framing: "wide",
+      view: "front",
       holds: ["studioMark"],
     },
     deskMedium: {
@@ -129,7 +130,7 @@ export default defineDirection({
 export const EMPTY_REFERENCE_TSX = `import { defineReference } from "konte";
 import direction from "./direction";
 
-export default defineReference(direction, () => ({}));
+export default defineReference(direction, { references: () => ({}) });
 `;
 
 const REFERENCE_TS = `import { defineReference, asset, adapters } from "konte";
@@ -137,7 +138,7 @@ const REFERENCE_TS = `import { defineReference, asset, adapters } from "konte";
 import { internalTestPlate } from "konte";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, {
     path: "assets/files/character.png",
   });
@@ -153,7 +154,7 @@ export default defineReference(direction, () => {
   });
 
   return { character, bgm, studio };
-});
+} });
 `;
 
 const ANIMATIC_TS = `import { defineAnimatic, asset, adapters, Composition, Panel } from "konte";

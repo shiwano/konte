@@ -82,7 +82,7 @@ export default defineAnimatic(direction, {
       }),
     };
   },
-  timeline: ({ shot, plates }) => ({
+  timeline: ({ shot, plates, views }) => ({
     shots: shot("01", ({ script, lineup, duration }) => {
       const first = asset("first", imageMinimaxH3R2i, {
         image1: reference.cook,
@@ -216,7 +216,7 @@ export default defineAnimatic(direction, {
         });
         const insert = asset("insert", imageMinimaxH3R2i, {
           image1: reference.pan,
-          image2: reference.kitchen,
+          image2: views.kitchen.top,
           prompt: still({
             task: "reference generation",
             defines: [

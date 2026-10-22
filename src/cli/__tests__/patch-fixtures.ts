@@ -14,13 +14,13 @@ import direction from "./direction";
 // @ts-expect-error konte's own fixture adapter — deliberately outside the workspace type surface
 import { internalTestImage, internalTestPlate } from "konte";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
   const latentA = asset("latentA", internalTestImage, { width: 64, height: 64 });
   const latentB = asset("latentB", internalTestPlate, { width: 48, height: 48, color: "#00ff00" });
   return { character, bgm, latentA, latentB };
-});
+} });
 `;
 
 // imageResize stands in for an image-edit model: it takes the source image and emits a new one.

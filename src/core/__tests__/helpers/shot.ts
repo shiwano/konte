@@ -133,5 +133,7 @@ export function emptyAnimatic(): AnimaticDefinition {
 // An empty shared pool: what a test hands to something that requires a `reference` but does not
 // exercise it.
 export function emptyReference(): ReferenceDefinition {
-  return defineReference(testDirection(directionDefaults.policy.format), () => ({}));
+  return defineReference(testDirection(directionDefaults.policy.format), {
+    references: () => ({}),
+  });
 }

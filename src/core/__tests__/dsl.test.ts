@@ -544,9 +544,11 @@ describe("comfy via asset()", () => {
 
 describe("file via defineReference(plainDirection, )", () => {
   it("creates a FileAssetDefinition in reference discovery context", () => {
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        return { bg };
+      },
     });
     const p = reference.topLevelAssets!.bg;
     expect(p).toBeDefined();
@@ -556,9 +558,11 @@ describe("file via defineReference(plainDirection, )", () => {
   });
 
   it("returns MediaAsset with reference placeholder src", () => {
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        return { bg };
+      },
     });
     const props: MediaAsset = reference.bg;
     expect(props).toBeDefined();

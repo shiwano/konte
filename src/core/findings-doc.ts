@@ -150,6 +150,19 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     flags: "A location holds many shots but almost none share a frame.",
     subject: "location id",
   },
+  "view-unrealized": {
+    flags: "A used setup faces a view of its location that has no view image.",
+    subject: "`<locationId>.<view>`",
+  },
+  "plate-unviewed": {
+    flags:
+      "A plate, or a keyframe on a setup with no plate, reaches its location through another view's image, not its own view's.",
+    subject: "setup id",
+  },
+  "view-unanchored": {
+    flags: "A view image is built from no location master.",
+    subject: "`<locationId>.<view>`",
+  },
   "unexpected-script": {
     flags:
       "A shot's `script` contradicts `policy.speech`: any line under `none`, a spoken line under `no-dialogue`.",

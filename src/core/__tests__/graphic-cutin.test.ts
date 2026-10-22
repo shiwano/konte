@@ -26,6 +26,7 @@ const setups: Record<string, Setup> = {
     description: "straight on at the desk",
     location: "studio",
     framing: "medium",
+    view: "front",
     holds: ["deskTop"],
     within: null,
   },
@@ -34,6 +35,7 @@ const setups: Record<string, Setup> = {
     description: "across the room, at the sofa",
     location: "studio",
     framing: "medium",
+    view: "front",
     holds: ["couch"],
     within: null,
   },
@@ -42,6 +44,7 @@ const setups: Record<string, Setup> = {
     description: "from the door",
     location: "studio",
     framing: "wide",
+    view: "front",
     holds: ["deskTop", "couch"],
     within: null,
   },
@@ -50,6 +53,7 @@ const setups: Record<string, Setup> = {
     description: "in on the desk",
     location: "studio",
     framing: "close",
+    view: "front",
     holds: ["deskTop"],
     within: null,
   },
@@ -373,6 +377,9 @@ describe("cutin setups", () => {
     unnestedPlateIds: [],
     unconsumedBy: new Map(),
     deterministicShotsPerSetup: new Map(),
+    unviewedPlateIds: [],
+    unviewedBy: new Map(),
+    unanchoredViews: [],
   });
 
   it("counts a wipe as a shot on its setup", () => {
@@ -407,7 +414,7 @@ describe("cutin setups", () => {
         graphic("01", { cutin: wipe({ setup: "wide", lineup: [] }) }),
         graphic("02", { cutin: wipe({ setup: "desk" }) }),
       ],
-      { setups: { ...setups, desk: { ...setups.desk!, within: "wide" } } },
+      { setups: { ...setups, desk: { ...setups.desk!, within: "wide", view: undefined } } },
     );
     expect(
       active(onAxis, "axis-unrealized", {

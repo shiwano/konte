@@ -160,7 +160,7 @@ describe("shipped Qwen Image 2.1 reference adapter", () => {
 import { imageQwenImageEdit21 } from "konte/workspace/adapters/comfy/image_qwen_image_edit_2_1.js";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const source = asset("source", adapters.imageFile, { path: "assets/files/character.png" });
   const illustration = asset("illustration", imageQwenImageEdit21, {
     image1: source,
@@ -169,7 +169,7 @@ export default defineReference(direction, () => {
     height: 1024,
   });
   return { illustration };
-});
+} });
 `,
     );
     const reference = await loadReference(projectDir);

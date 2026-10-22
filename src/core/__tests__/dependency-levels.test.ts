@@ -151,9 +151,11 @@ describe("computeDependencyLevels", () => {
   });
 
   it("handles three-level dependency chain", () => {
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        return { bg };
+      },
     });
     const video = defineVideo(
       testDirection({

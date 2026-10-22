@@ -91,6 +91,7 @@ export default defineDirection({
       description: "From the doorway at eye level.",
       location: "kitchen",
       framing: "wide",
+      view: "front",
       holds: ["window", "stove", "table"],
       within: null,
     },
@@ -112,9 +113,10 @@ export default defineDirection({
     },
     panInsert: {
       name: "the pan, insert",
-      description: "The pan filling the frame.",
+      description: "Straight down on the pan filling the frame.",
       location: "kitchen",
       framing: "insert",
+      view: "top",
       holds: [],
     },
     yardWide: {
@@ -122,6 +124,7 @@ export default defineDirection({
       description: "From the back step.",
       location: "yard",
       framing: "wide",
+      view: "front",
       holds: ["gate", "tree"],
     },
   },

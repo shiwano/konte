@@ -206,9 +206,11 @@ describe("AnimaticRef", () => {
   });
 
   it("a panel built from a reference asset resolves to its reference address", () => {
-    const reference = defineReference(plainDirection, () => ({
-      bg: asset("bg", imageComfy, { prompt: "background" }),
-    }));
+    const reference = defineReference(plainDirection, {
+      references: () => ({
+        bg: asset("bg", imageComfy, { prompt: "background" }),
+      }),
+    });
 
     const animatic = defineAnimatic(
       testDirection({
@@ -263,9 +265,11 @@ describe("AnimaticRef", () => {
   });
 
   it("rejects two panels in one shot that claim the same part name from different assets", () => {
-    const reference = defineReference(plainDirection, () => ({
-      first: asset("first", imageComfy, { prompt: "shared" }),
-    }));
+    const reference = defineReference(plainDirection, {
+      references: () => ({
+        first: asset("first", imageComfy, { prompt: "shared" }),
+      }),
+    });
     expect(() =>
       defineAnimatic(
         testDirection({

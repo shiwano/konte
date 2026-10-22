@@ -32,14 +32,19 @@ Shared building blocks: characters, backgrounds, BGM/SFX, any `file` ref.
 import { defineReference, asset, adapters } from "konte";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
-  const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
-  const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
-  return { character, bgm }; // exposed to other stages as reference.character / reference.bgm
+export default defineReference(direction, {
+  references: () => {
+    const character = asset("character", adapters.imageFile, {
+      path: "assets/files/character.png",
+    });
+    const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
+    return { character, bgm }; // exposed to other stages as reference.character / reference.bgm
+  },
 });
 ```
 
-- `defineReference(direction, build)` — the callback receives `{ format }` and declares assets with `asset()` (both `file` and generative adapters); returning one exposes it as `reference.<name>`. Address: `reference:<name>`.
+- `defineReference(direction, { references, views?, waivers? })` — `references` receives `{ format }` and declares assets with `asset()` (both `file` and generative adapters); returning one exposes it as `reference.<name>`. Address: `reference:<name>`.
+- `views` receives `{ format, reference }` and returns a location's view images, `{ <locationId>: { back | side | top: asset(…) } }`, each at `reference:view.<locationId>.<view>` — authoring → staging-guide.
 - Generated once and shared across every stage. A reference asset may depend only on other reference assets, never on an animatic/video asset.
 - Return only what other stages consume — an asset used solely as an input to another reference asset (a blank `latent` feeding a generated `key`) is left un-returned; it still generates, but is never reviewed.
 - Return each character, prop, location and cast voice under its roster id — a `lineup`'s `cat` needs `reference:cat`; other shared assets (`bgm`) are fine. Setups and landmarks are declared on the animatic.

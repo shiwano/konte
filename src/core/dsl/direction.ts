@@ -182,14 +182,31 @@ export type Framing = "wide" | "medium" | "close" | "insert";
 // (`within-undeclared`). An `insert` holds nothing, so it is outside the axis entirely. What the
 // declaration buys is `plate-unnested`: the plate must be built from the parent's plate — a cut from
 // it or a window inside it — so the set's scale is carried rather than re-invented per plate.
+//
+// `view` is the way the camera faces in its location. A setup with no `within: "<id>"` declares it,
+// an insert included (the view is where the camera points); a window inherits its parent's and
+// cannot write one. A location whose setups face anything but `front` owes that view's reference
+// image (`views` in reference.tsx), and a plate stands on its own view's image.
 export type Setup = {
   name: string;
   description: string;
   location: string;
   framing: Framing;
   holds: readonly string[];
-  within?: string | null;
-};
+} & ({ within: string; view?: never } | { within?: null; view: View });
+
+export { VIEWS, type View } from "../view.js";
+import type { View } from "../view.js";
+
+// The `locations` roster ids this direction declares.
+export type LocationIdOf<D> = D extends { locations: infer L } ? Extract<keyof L, string> : string;
+
+// The views the setups set in location `L` face, read off the roots — a window faces its parent's.
+export type ViewsAtOf<D, L> = D extends { setups: infer S }
+  ? {
+      [K in keyof S]: S[K] extends { location: L; view: infer V extends View } ? V : never;
+    }[keyof S]
+  : View;
 
 // The agreed concept — what the piece is, for whom, and how it should feel — captured from the
 // shaping conversation and reviewed in `konte preview direction` alongside the shots it

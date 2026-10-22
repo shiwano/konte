@@ -52,6 +52,8 @@ import {
   checkPropNaming,
   checkProps,
   checkSetups,
+  checkViewAnchors,
+  placeRefOf,
 } from "./direction-check.js";
 import type {
   Direction,
@@ -61,7 +63,9 @@ import type {
   NarrativeShot,
   Setup,
   Shot,
+  View,
 } from "./dsl/direction.js";
+import { VIEWS, isView } from "./view.js";
 import {
   isAsideShot,
   isGraphicShot,
@@ -133,6 +137,9 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "setup-unconsumed": "setups",
   "unused-setup": "setups",
   "setup-atomized": "setups",
+  "view-unrealized": "setups",
+  "plate-unviewed": "setups",
+  "view-unanchored": "setups",
   // A direction content check (like empty-synopsis): it gates generate and is never deferred.
   "unexpected-script": "arc",
   // A fused-shot content check on the action prose — likewise gates generate and is never deferred.
@@ -203,6 +210,9 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "setup-unconsumed": null,
   "unused-setup": null,
   "setup-atomized": null,
+  "view-unrealized": null,
+  "plate-unviewed": null,
+  "view-unanchored": null,
   "unexpected-script": "shot",
   "multi-sentence-action": "shot",
   "off-grid-duration": "shot",
@@ -247,6 +257,9 @@ const FIX_STAGE: Partial<Record<DirectionFindingCode, FindingFixStage>> = {
   "plate-unnested": "animatic",
   "axis-unrealized": "animatic",
   "setup-unconsumed": "animatic",
+  "view-unrealized": "reference",
+  "plate-unviewed": "animatic",
+  "view-unanchored": "reference",
   "song-unreferenced": "reference",
   "passer-unconsumed": "video",
   "passer-unnamed": "video",
@@ -422,6 +435,11 @@ type DirectionErrorCode =
   | "within-undeclared"
   | "within-impossible"
   | "within-cyclic"
+  // The way the camera faces: declared by every frame that is no window, inherited by every window,
+  // and one of the four `VIEWS`.
+  | "view-missing"
+  | "view-on-window"
+  | "view-unknown"
   // A single id declared in more than one of the characters / props / locations rosters — all three
   // share the `reference:<id>` namespace, so a collision names one reference asset for two entities.
   | "reference-id-conflict"
@@ -669,13 +687,18 @@ function setupRefs(
       >
     | undefined,
 ): SetupRef[] {
-  return Object.entries(roster ?? {}).map(([id, s]) => ({
-    id,
-    name: s.name,
-    location: s.location,
-    framing: s.framing,
-    ...(s.within != null ? { within: s.within } : {}),
-  }));
+  const setups = (roster ?? {}) as Record<string, Setup>;
+  return Object.entries(roster ?? {}).map(([id, s]) => {
+    const view = setupView(setups, id);
+    return {
+      id,
+      name: s.name,
+      location: s.location,
+      framing: s.framing,
+      ...(s.within != null ? { within: s.within } : {}),
+      ...(view ? { view } : {}),
+    };
+  });
 }
 
 // Character ids that speak in some shot's script — an unambiguous "used" signal for the characters check
@@ -1081,6 +1104,7 @@ function checkStaging(
             panelSlots: stage.panelSlots,
             panelReach: stage.panelReach,
             plateRecrops: stage.plateRecrops,
+            placeRefs: new Map(setupRefs(direction.setups).map((s) => [s.id, placeRefOf(s)])),
             panelPrompts: stage.panelPrompts,
             subjectPromptDepictions: subjectPromptDepictions(direction),
           }
@@ -1463,6 +1487,13 @@ export function withinRoot(
   return undefined;
 }
 
+// The way a setup's camera faces: its own `view`, or a window's root's. Undefined where the chain
+// names no root or the root declares none (both structural errors).
+export function setupView(setups: Readonly<Record<string, Setup>>, id: string): View | undefined {
+  const root = withinRoot(setups, id);
+  return root === undefined ? undefined : (setups[root]?.view ?? undefined);
+}
+
 // The `within` axis: a window declares the frame it is cut out of, and konte checks the declaration
 // rather than deriving it.
 function withinErrors(direction: Direction): DirectionStructureError[] {
@@ -1539,6 +1570,43 @@ function withinErrors(direction: Direction): DirectionStructureError[] {
       subject: id,
       message: `setup "${id}" is cut out of itself — its \`within\` chain leads back to it`,
     });
+  }
+  return errors;
+}
+
+function viewErrors(direction: Direction): DirectionStructureError[] {
+  const errors: DirectionStructureError[] = [];
+  for (const [id, setup] of Object.entries(direction.setups ?? {})) {
+    const view = (setup as { view?: unknown }).view;
+    if (typeof setup.within === "string") {
+      if (view === undefined) continue;
+      errors.push({
+        code: "view-on-window",
+        subject: id,
+        message:
+          `setup "${id}" declares \`view\`, but it is a window of "${setup.within}" and faces the ` +
+          `way that frame does — drop the \`view\``,
+      });
+      continue;
+    }
+    if (view === undefined) {
+      errors.push({
+        code: "view-missing",
+        subject: id,
+        message:
+          `setup "${id}" declares no \`view\` — say which way its camera faces in ` +
+          `"${setup.location}": ${VIEWS.map((v) => `"${v}"`).join(", ")} ("front" is the way ` +
+          `reference.${setup.location} faces)`,
+      });
+      continue;
+    }
+    if (!isView(view)) {
+      errors.push({
+        code: "view-unknown",
+        subject: id,
+        message: `setup "${id}" declares view "${String(view)}", which is not one of ${VIEWS.join(", ")}`,
+      });
+    }
   }
   return errors;
 }
@@ -1816,11 +1884,14 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
   // declarant is a collision rather than a second thing of the same name.
   const seenLandmarkLocations = new Map<string, string[]>();
   for (const [id, location] of Object.entries(direction.locations ?? {})) {
-    if (!isIdentifier(id)) {
+    if (!isIdentifier(id) || id === "view") {
       errors.push({
         code: "location-invalid-id",
         subject: id,
-        message: `location id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _) so it can map to reference:${id}`,
+        message:
+          id === "view"
+            ? `location id "view" is reserved — it heads the view images, reference:view.<locationId>.<view>`
+            : `location id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _) so it can map to reference:${id}`,
       });
     }
     seenLocationIds.add(id);
@@ -2048,7 +2119,7 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
     }
   }
 
-  errors.push(...withinErrors(direction));
+  errors.push(...withinErrors(direction), ...viewErrors(direction));
 
   // Every shot is taken from somewhere: `shot.setup` is required and must resolve to a declared setup.
   // An empty roster (while shots exist) is `setup-empty` — reported once rather than as one
@@ -2612,6 +2683,25 @@ export function findingGatesSpend(
 // The gate: abort with DIRECTION_CHECK_FAILED when the running command's scope has an unwaived
 // structural problem. Structural definition bugs abort unconditionally; otherwise only the scoped
 // finding classes count, so an untouched downstream stage never blocks an upstream generate.
+// The one direction finding a reference spend answers to.
+export function assertViewsAnchored(
+  direction: Direction,
+  unanchoredViews: readonly string[],
+  referenceAssetNames: readonly string[],
+): void {
+  const waivers = direction.waivers ?? {};
+  const blocking = checkViewAnchors(unanchoredViews, new Set(referenceAssetNames)).filter(
+    (f) => !(directionWaiverKey(f) in waivers),
+  );
+  if (blocking.length === 0) return;
+  throw new KonteError(
+    "DIRECTION_CHECK_FAILED",
+    `reference.tsx has ${blocking.length} view image(s) built from no location master — fix ` +
+      `\`views\` in reference.tsx or add a reason to direction.waivers`,
+    blocking.map((f) => `  [${directionWaiverKey(f)}] ${f.message}`),
+  );
+}
+
 export function assertDirectionGate(
   direction: Direction,
   options: {

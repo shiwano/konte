@@ -50,9 +50,11 @@ function videoConsuming(animatic: AnimaticRef) {
 
 describe("shared-scope panels resolve cross-stage", () => {
   it("a reference-backed panel is referenceable from video via reference:<name>", () => {
-    const reference = defineReference(plainDirection, () => ({
-      shared: asset("shared", imageComfy, { prompt: "background" }),
-    }));
+    const reference = defineReference(plainDirection, {
+      references: () => ({
+        shared: asset("shared", imageComfy, { prompt: "background" }),
+      }),
+    });
     const animatic = defineAnimatic(
       testDirection({
         fps: 24,

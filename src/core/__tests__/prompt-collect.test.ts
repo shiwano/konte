@@ -212,9 +212,11 @@ describe("prompt collection", () => {
   });
 
   it("collects the reference stage's prompts", () => {
-    const reference = defineReference(plainDirection, () => ({
-      hero: asset("hero", imageComfy, { prompt: "a woman in a red coat", styleNote: "ink wash" }),
-    }));
+    const reference = defineReference(plainDirection, {
+      references: () => ({
+        hero: asset("hero", imageComfy, { prompt: "a woman in a red coat", styleNote: "ink wash" }),
+      }),
+    });
     expect(reference.prompts).toEqual([
       {
         address: "reference:hero",
@@ -257,9 +259,11 @@ describe("prompt collection", () => {
       inputs: { image: { nodeId: "1", field: "image", type: "image" } },
       outputs: { result: { nodeId: "9", type: "image" } },
     });
-    const reference = defineReference(plainDirection, () => ({
-      plate: asset("plate", promptless, {}),
-    }));
+    const reference = defineReference(plainDirection, {
+      references: () => ({
+        plate: asset("plate", promptless, {}),
+      }),
+    });
     expect(reference.prompts).toBeUndefined();
   });
 });

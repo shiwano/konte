@@ -68,6 +68,8 @@ A plate fix is made on the plate the panel stands on, never in its prompt — st
 
 Called with `plates`, before any shot stands on them. Read `konte probe contact-sheet animatic:plate`, the `within:`, `framing:` and `set:` lines of each address in `konte inspect animatic:plate --prompts` (skip any prompt body under it), and each plate's setup and location in `direction.ts`. Per plate, say what place and what stretch of it you see, at what size, and what in it could only be this place; then compare against those lines and the setup. Findings are all `blocking`, `target` the plate address: `plate-mismatch` (a landmark its `set:` line lists is missing, or the frame holds another landmark of the place), `unplaced` (nothing in it fixes the location — a wall any room could have), `occupied` (a figure or a pose in it), `unstyled` (no line, texture or object of the piece's look — a blank field, a gradient, a blur enlarged from its parent), `off-framing` (not the size its setup declares). `smallest-fix` names `plate` (a regenerated frame).
 
+Then lay each location's view images (`konte probe contact-sheet reference:view.<location>`) beside `reference:<location>`: `view-drift` (furniture built differently, a wall holding another's things, an object or the light turned). `smallest-fix` names `view` (its text rewritten — the same text returns the same picture).
+
 `off-framing` is raised on every plate. A `within:` line naming another setup says konte has checked this plate is built from that one's (`plate-unnested`), which fixes neither the size of the step nor its direction: a `close` cut a hair inside its `medium` still reads as a `medium`. Read each beside its parent.
 
 ## Axes

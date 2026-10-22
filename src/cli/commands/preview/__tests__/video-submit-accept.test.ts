@@ -18,7 +18,7 @@ export default defineDirection({
   characters: {},
   locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
   setups: {
-    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
+    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
   sequence: {
@@ -666,10 +666,10 @@ const still = defineComfyAsset({
   outputs: { result: { nodeId: "9", type: "image" } },
 });
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const logo = asset("logo", still, { prompt: "a logo" });
   return { logo };
-});
+} });
 `;
 
 const VIDEO_REFERENCE_OVERLAY_TSX = VIDEO_TSX.replace(

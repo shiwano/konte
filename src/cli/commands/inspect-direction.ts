@@ -125,7 +125,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
   const reference = await loadReference(videoRoot).catch(() => null);
   const check = checkDirection(direction, {
     referenceAssetNames: reference?.exposedAssetNames ?? [],
-    animaticSetups: await loadAnimaticSetupState(videoRoot, direction),
+    animaticSetups: await loadAnimaticSetupState(videoRoot, direction, reference),
     stagingStage: await loadStagingStageState(videoRoot, direction),
     songTake: await loadSongTakeState(videoRoot, direction),
   });
@@ -289,6 +289,7 @@ function printContent(
       console.log(`  Location:    ${content.location}`);
       console.log(`  Framing:     ${content.framing}`);
       console.log(`  Holds:       ${content.holds.join(" | ") || "(nothing — an insert)"}`);
+      console.log(`  View:        ${content.view ?? "(its window's parent's)"}`);
       console.log(
         `  Within:      ${content.within === undefined ? "(not declared)" : (content.within ?? "(root of its own camera axis)")}`,
       );

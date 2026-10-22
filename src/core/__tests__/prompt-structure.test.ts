@@ -41,9 +41,11 @@ const structured = defineComfyAsset({
 });
 
 function build(prompt: unknown): ComfyAssetDefinition {
-  const reference = defineReference(plainDirection, () => ({
-    still: asset("still", structured, prompt as Parameters<typeof asset>[2]),
-  }));
+  const reference = defineReference(plainDirection, {
+    references: () => ({
+      still: asset("still", structured, prompt as Parameters<typeof asset>[2]),
+    }),
+  });
   return reference.topLevelAssets!.still as ComfyAssetDefinition;
 }
 
@@ -76,11 +78,13 @@ describe("a structured prompt", () => {
   });
 
   it("hands the prompt check the assembled string", () => {
-    const reference = defineReference(plainDirection, () => ({
-      still: asset("still", structured, {
-        prompt: { subjects: ["<Subject 1>"], summary: { tasks: ["a"], text: "x" } },
+    const reference = defineReference(plainDirection, {
+      references: () => ({
+        still: asset("still", structured, {
+          prompt: { subjects: ["<Subject 1>"], summary: { tasks: ["a"], text: "x" } },
+        }),
       }),
-    }));
+    });
     expect(reference.prompts?.map((o) => o.value)).toEqual([
       "subjects: <Subject 1>\n\nsummary: [a] x\n\nsilence: N/A",
     ]);

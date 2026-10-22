@@ -32,3 +32,10 @@ One still frame decoded from a short burst.
 - Say the light and colour are `<Picture 1>`'s — a cut left to itself comes back dimmer.
 - Place the camera by the set — "at the height of the sofa's seat". A creature named in a plate's prompt, even as a measure, is drawn into it.
 - A bare surface gets filled — a wall with little on it comes back with a figure or a stain. Take several seeds.
+
+## Views
+
+- A view image (`views` in reference.tsx) is the master from a new camera position — pass `reference.<location>` as `image1`, mark it `attribute_transfer` with "the camera position is new".
+- `summary` is that picture's instant — "the room seen from straight above the desk", never "from a new camera position".
+- Write the camera's height, then near to far what is in frame by its share of the frame — "the desk top fills the lower half; the chair's seat the upper left quarter".
+- The reverse of a room shows the wall behind the master's camera — name what is on it, or it comes back as the master walked around.

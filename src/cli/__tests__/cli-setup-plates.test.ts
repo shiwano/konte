@@ -26,7 +26,7 @@ export default defineDirection({
   characters: {},
   locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioWindow: { name: "the window", promptDepiction: "window", description: "the tall window along the far wall" } } } },
   setups: {
-    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioWindow"] },
+    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioWindow"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } } }, lang: "en", speech: "free" },
   lenses: [defineLens({ name: "two-beat", payoff: "beat", roles: [{ role: "beat" }, { role: "beat" }] })],
@@ -257,8 +257,8 @@ export default defineDirection({
   characters: {},
   locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioWindow: { name: "the window", promptDepiction: "window", description: "the tall window along the far wall" }, studioDoor: { name: "the door", promptDepiction: "door", description: "the door in the near wall" } } } },
   setups: {
-    front: { name: "f", description: "straight on", location: "studio", framing: "medium", holds: ["studioWindow"] },
-    side: { name: "s", description: "from the side", location: "studio", framing: "wide", holds: ["studioDoor"] },
+    front: { name: "f", description: "straight on", location: "studio", framing: "medium", view: "front", holds: ["studioWindow"] },
+    side: { name: "s", description: "from the side", location: "studio", framing: "wide", view: "front", holds: ["studioDoor"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } } }, lang: "en", speech: "free" },
   lenses: [defineLens({ name: "four", payoff: "beat", roles: [{ role: "beat" }, { role: "beat" }, { role: "beat" }, { role: "beat" }] })],

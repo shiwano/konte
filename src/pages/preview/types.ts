@@ -451,6 +451,9 @@ export type RoleFunction = "ground" | "turn" | "build" | "payoff" | "settle";
 // table so the size cadence reads at a glance beside the durations.
 export type Framing = "wide" | "medium" | "close" | "insert";
 
+// The way a setup's camera faces — mirrors `View` in core/view.ts.
+export type View = "front" | "back" | "side" | "top";
+
 // The feeling a stretch of the piece aims for. The only controlled vocabulary the page prints in
 // full, because it is the only one a reviewer can take a position on.
 export interface DirectionPleasureInfo {
@@ -610,6 +613,8 @@ export interface DirectionSetupInfo extends DirectionPartInfo {
   // legal only where no wider frame could be its parent, and `within-undeclared` otherwise, so the
   // page must not read it back as a root the author never wrote.
   within?: string | null;
+  // The way the camera faces — a window's is its parent's. Absent where no root declares one.
+  view?: View;
 }
 
 export type DirectionBriefField =

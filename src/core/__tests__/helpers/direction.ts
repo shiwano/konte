@@ -38,6 +38,7 @@ export const directionDefaults: {
       description: "straight on, eye level",
       location: "studio",
       framing: "medium",
+      view: "front",
       holds: ["desk"],
     },
   },

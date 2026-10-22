@@ -1839,6 +1839,7 @@ function SetupRow({
       <td className="dir-col-name">{setup.name}</td>
       <td className="dir-col-frame">
         <span className={`dir-framing dir-framing--${setup.framing}`}>{setup.framing}</span>
+        {setup.view ? <span className="dir-view">{setup.view}</span> : null}
         <span className="dir-within">
           {setup.within === undefined ? "—" : setup.within === null ? "root" : `▸ ${setup.within}`}
         </span>

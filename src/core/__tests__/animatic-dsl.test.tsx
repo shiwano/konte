@@ -81,6 +81,7 @@ describe("defineAnimatic plates", () => {
           description: "from behind",
           location: "studio",
           framing: "wide",
+          view: "front",
           holds: ["studioMark"],
         },
       },

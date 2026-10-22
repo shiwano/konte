@@ -46,5 +46,6 @@ The defaults, `cfg: 4` at 40 steps, are the rung to keep. `cfg: 1` at 25 steps t
 
 - A new viewpoint, a cut, a change of framing or a new composition in a shot; draw those with `imageMinimaxH3R2i`.
 - Style conversion in a shot; settle the look in the reference stage.
+- Another view of a location (`views` in `reference.tsx`); its walls and furniture move between views. The adapter is refused there; draw one with `imageMinimaxH3R2i`.
 - Negative phrasing in `prompt`; describe the desired result affirmatively.
 - A nonempty `negativePrompt` at `cfg: 1`; the adapter rejects it. At the default `cfg: 4`, target observed artifacts with short terms.

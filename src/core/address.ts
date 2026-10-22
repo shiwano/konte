@@ -1,4 +1,5 @@
 import { assertNever } from "./assert.js";
+import { IMAGED_VIEWS, VIEW_NAME_BODY, viewAssetName, type ImagedView } from "./view.js";
 import { KonteError } from "./errors.js";
 import type { PinOccurrence } from "./pin-check.js";
 import type { PromptOccurrence } from "./prompt-check.js";
@@ -65,7 +66,9 @@ const TIMELINE_SUFFIX_PATTERN = new RegExp(
 // nor the `#delivery` alternation applies — matched before the delivery strip, so `plate.x#delivery`
 // falls through and is rejected rather than silently read as a derivative.
 const PLATE_SUFFIX_PATTERN = new RegExp(`^plate\\.(${NAME_BODY})$`);
-const REFERENCE_SUFFIX_PATTERN = /^([a-zA-Z0-9_-]+)$/;
+// A location's view image, `view.<locationId>.<view>`, filed under that key by `defineReference`'s
+// `views`.
+const REFERENCE_SUFFIX_PATTERN = new RegExp(`^(${NAME_BODY}|${VIEW_NAME_BODY})$`);
 // Non-capturing forms, for the scope patterns.
 const NAME_SLOT = `(?:\\.${NAME_BODY}|${RESERVED_NAME_BODY})`;
 const VARIANT_ID_BODY = "v-[a-zA-Z0-9]+";
@@ -271,7 +274,7 @@ function parseSuffix(
   if (stage === "reference") {
     const refMatch = REFERENCE_SUFFIX_PATTERN.exec(suffix);
     if (refMatch) {
-      return { kind: "reference", assetName: refMatch[1]!, delivery: false };
+      return { kind: "reference", assetName: suffix, delivery: false };
     }
     throw new KonteError("INVALID_ADDRESS", `Invalid reference address format: "${original}"`);
   }
@@ -382,8 +385,11 @@ const ADDRESS_SCOPE_PATTERN = new RegExp(
   `^(?:(?:animatic|video)(?::(?:shot\\.${NAME_BODY}(?:${NAME_SLOT}(?:#delivery)?)?|timeline(?:${NAME_SLOT}(?:#delivery)?)?|${PATCH_SCOPE_BODY}))?|animatic:plate(?:\\.${NAME_BODY})?)$`,
 );
 
-// A reference scope: the whole stage `reference`, one asset `reference:<name>`, or its patch axis.
-const REFERENCE_SCOPE_PATTERN = new RegExp(`^reference(:([a-zA-Z0-9_-]+|${PATCH_SCOPE_BODY}))?$`);
+// A reference scope: the whole stage `reference`, one asset `reference:<name>`, a location's views
+// (`reference:view.<locationId>`) or one of them, or its patch axis.
+const REFERENCE_SCOPE_PATTERN = new RegExp(
+  `^reference(:([a-zA-Z0-9_-]+|view\\.${NAME_BODY}(\\.(${IMAGED_VIEWS.join("|")}))?|${PATCH_SCOPE_BODY}))?$`,
+);
 
 // A direction scope: the whole stage `direction`, one feedback part `direction:<part>`, or a
 // container prefix over several of them.
@@ -584,6 +590,11 @@ export function formatReferenceAssetPath(assetName: string): string {
 }
 
 export const formatReferenceAddress = formatReferenceAssetPath;
+
+// A view image's address.
+export function formatViewAddress(locationId: string, view: ImagedView): string {
+  return formatReferenceAssetPath(viewAssetName(locationId, view));
+}
 
 // The direction stage's reviewable parts — feedback attaches to one address per part, and a part is
 // the field path of the thing it reviews (see DIRECTION_SCOPE_BODY). Every part of the arc tree hangs

@@ -27,6 +27,7 @@ Bring each file under `assets/files/` in as `file` kind — no generation. Pick 
 ## 4. Wire the rosters
 
 - Expose a `reference:<id>` per character, prop, location, and cast voice in `reference.tsx` — the deferred roster findings gate generation from here on.
+- Return a view image from `views` for every way but `front` a location's setups face (staging-guide's plates reference) — each is accepted before a plate on it can spend.
 - Run the reference pool through `generation-loop-guide` and return once accepted.
 
 ## 5. Lay out every shot

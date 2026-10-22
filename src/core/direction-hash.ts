@@ -187,7 +187,7 @@ function projectLocations(locations: Record<string, Location> | undefined): unkn
 }
 
 // The setups roster in full — its prose plus the structural values it carries: the place and size
-// every shot on it reads, what the frame holds, and the wider frame it is a window of.
+// every shot on it reads, what the frame holds, the wider frame it is a window of, and the way it faces.
 function projectSetups(setups: Record<string, Setup> | undefined): unknown[] {
   return projectRoster(setups, (s) => ({
     name: s.name,
@@ -199,6 +199,7 @@ function projectSetups(setups: Record<string, Setup> | undefined): unknown[] {
     // `within: null` on a frame that was already one re-asks the reviewer nothing. Only the authoring
     // surfaces tell them apart, since only the absent form can be `within-undeclared`.
     within: s.within ?? null,
+    view: s.view ?? null,
   }));
 }
 
@@ -457,6 +458,7 @@ export function directionPartHashes(direction: Direction): Map<string, string> {
         framing: s.framing,
         holds: [...(s.holds ?? [])],
         within: s.within ?? null,
+        view: s.view ?? null,
       }),
     );
   }

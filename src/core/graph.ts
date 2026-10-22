@@ -22,7 +22,9 @@ import {
   isMaterializedLeafAssetPath,
   isNarrationStemAddress,
   isPlateAddress,
+  formatViewAddress,
 } from "./address.js";
+import { isImagedView, parseViewName, type View } from "./view.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
 import type { PinWindow, VideoShotPins } from "./direction-check.js";
 import type { PinOccurrence } from "./pin-check.js";
@@ -786,11 +788,19 @@ function topologicalSort(
 //
 // A cutin is one more shot on its setup: its keyframes are read against that setup's anchor, and a
 // deterministic one drops out of the plate demand the same way.
+//
+// A view image of the location counts as the location. Where the setup's `view` is known, a picture
+// that reaches the location but not its own view's image (`front`: the master itself) is a gap of
+// its own: a plate, or a shot on a setup with no plate.
 export type SetupAnchorGaps = {
   // Setup ids whose plate stands on no location reference — bar one built from no reference at all.
   unanchoredPlates: string[];
   // Shot ids that reach neither anchor, keyed by the setup they sit on.
   unanchoredShots: Map<string, string[]>;
+  // Setup ids whose plate reaches its location through another view's image only.
+  unviewedPlates: string[];
+  // Shot ids on a setup with no plate that reach their location through another view's image only.
+  unviewedShots: Map<string, string[]>;
   // Developed frames with no generative step, keyed by setup, so the plate demand can drop them too.
   // A `pendingShot` is not among them: it declares nothing yet, so it still counts toward a plate.
   deterministicShots: Map<string, number>;
@@ -800,24 +810,37 @@ export function listSetupAnchorGaps(
   animatic: AnimaticDefinition,
   frames: readonly BoardFrame[],
   locationBySetup: ReadonlyMap<string, string>,
+  viewBySetup: ReadonlyMap<string, View> = new Map(),
 ): SetupAnchorGaps {
   const plates = platesOf(animatic);
   const entryOf = animaticEntryResolver(animatic);
+  const viewImageOf = (setupId: string, location: string): string | undefined => {
+    const view = viewBySetup.get(setupId);
+    if (view === undefined) return undefined;
+    return isImagedView(view)
+      ? formatViewAddress(location, view)
+      : formatReferenceAssetPath(location);
+  };
 
   const unanchoredPlates: string[] = [];
+  const unviewedPlates: string[] = [];
   for (const setupId of Object.keys(plates)) {
     // An unknown setup id is the direction's own finding (`unused-setup` / a plate keyed off-roster);
     // reporting it again as unanchored would name the wrong fix.
     const location = locationBySetup.get(setupId);
     if (location === undefined) continue;
+    const viewImage = viewImageOf(setupId, location);
     const walk = walkPictureChain(
       [formatPlateAssetPath(setupId)],
       formatReferenceAssetPath(location),
       entryOf,
+      viewImage,
     );
     if ((walk.generative || walk.touchedReference) && !walk.reached) unanchoredPlates.push(setupId);
+    if (walk.reached && viewImage !== undefined && !walk.reachedView) unviewedPlates.push(setupId);
   }
 
+  const unviewedShots = new Map<string, string[]>();
   const unanchoredShots = new Map<string, string[]>();
   const deterministicShots = new Map<string, number>();
   const shotById = new Map(animatic.shots.map((shot) => [shot.id, shot]));
@@ -841,22 +864,30 @@ export function listSetupAnchorGaps(
     // an overlay or a sound that happens to take the anchor says nothing about the frame the keyframe
     // was drawn on. Everything legitimately reachable — a shot asset the panel consumes, a timeline
     // asset, a `shot(…)` chain — is reached from a panel.
+    const viewImage =
+      setupId in plates || location === undefined ? undefined : viewImageOf(setupId, location);
     const walk = walkPictureChain(
       lanePanels(shot, frame.lane).map((panel) => panel.assetPath),
       target,
       entryOf,
+      viewImage,
     );
     if (!walk.generative) {
       deterministicShots.set(setupId, (deterministicShots.get(setupId) ?? 0) + 1);
       continue;
     }
-    if (walk.reached) continue;
-    const shots = unanchoredShots.get(setupId) ?? [];
+    const gaps = !walk.reached
+      ? unanchoredShots
+      : viewImage !== undefined && !walk.reachedView
+        ? unviewedShots
+        : undefined;
+    if (!gaps) continue;
+    const shots = gaps.get(setupId) ?? [];
     if (!shots.includes(shot.id)) shots.push(shot.id);
-    unanchoredShots.set(setupId, shots);
+    gaps.set(setupId, shots);
   }
 
-  return { unanchoredPlates, unanchoredShots, deterministicShots };
+  return { unanchoredPlates, unanchoredShots, unviewedPlates, unviewedShots, deterministicShots };
 }
 
 /**
@@ -1686,19 +1717,27 @@ function animaticEntryResolver(
 // One walk over a picture's inputs, answering both halves at once: whether `target` is in the chain,
 // and whether anything in it generates. Never short-circuits on `reached` — `generative` is only
 // true of the whole chain once the whole chain has been seen.
+//
+// A view image of a location (`reference:view.<id>.<view>`) is that location: reaching one reaches
+// `reference:<id>`. `view`, where given, is the one image `reachedView` asks for exactly.
 function walkPictureChain(
   roots: readonly string[],
   target: string,
   entryOf: (address: string) => AssetDefinition | undefined,
-): { reached: boolean; generative: boolean; touchedReference: boolean } {
+  view?: string,
+): { reached: boolean; reachedView: boolean; generative: boolean; touchedReference: boolean } {
   const seen = new Set<string>();
   const stack = [...roots];
   let reached = false;
+  let reachedView = false;
   let generative = false;
   let touchedReference = false;
   while (stack.length > 0) {
     const address = stack.pop()!;
-    if (address === target) reached = true;
+    if (address === target || `reference:${parseViewName(address)?.location}` === target) {
+      reached = true;
+    }
+    if (address === view) reachedView = true;
     if (seen.has(address)) continue;
     seen.add(address);
     // Before the entry lookup: a reference asset is a leaf on this walk, so it has none here.
@@ -1709,5 +1748,35 @@ function walkPictureChain(
     if (entry.deterministic !== true) generative = true;
     stack.push(...extractRefs(entry));
   }
-  return { reached, generative, touchedReference };
+  return { reached, reachedView, generative, touchedReference };
+}
+
+// The view images in the reference pool that are built from no `reference:<location>` of their
+// own location, as `<locationId>.<view>`. A view handed over whole (a `file`) is exempt.
+export function listViewAnchorGaps(reference: {
+  topLevelAssets?: Record<string, AssetDefinition>;
+}): string[] {
+  const assets = reference.topLevelAssets ?? {};
+  const entryOf = (address: string): AssetDefinition | undefined => {
+    const parsed = tryParseAddress(address);
+    return parsed?.stage === "reference" && parsed.kind === "reference"
+      ? assets[parsed.assetName]
+      : undefined;
+  };
+  const out: string[] = [];
+  for (const name of Object.keys(assets)) {
+    const view = parseViewName(name);
+    if (!view) continue;
+    const own = assets[name]!;
+    const walk = walkPictureChain(
+      extractRefs(own),
+      formatReferenceAssetPath(view.location),
+      entryOf,
+    );
+    const generative = walk.generative || own.deterministic !== true;
+    if ((generative || walk.touchedReference) && !walk.reached) {
+      out.push(`${view.location}.${view.view}`);
+    }
+  }
+  return out;
 }

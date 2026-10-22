@@ -151,12 +151,12 @@ describe("file asset path containment", () => {
   const ESCAPING_REFERENCE_TS = `import { defineReference, asset, adapters } from "konte";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
   const leak = asset("leak", adapters.imageFile, { path: "assets/files/../../../konte.credentials.json" });
   return { character, bgm, leak };
-});
+} });
 `;
 
   it("refuses a file asset whose path escapes the video, rather than hashing the workspace credentials", async () => {

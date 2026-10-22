@@ -457,7 +457,7 @@ export async function loadReference(
     throw new KonteError(
       "REFERENCE_NOT_FOUND",
       `No ${STAGE_ENTRY_FILE.reference} found in the video root — every video holds a shared pool. ` +
-        `Create it with \`defineReference(direction, () => ({}))\`.`,
+        `Create it with \`defineReference(direction, { references: () => ({}) })\`.`,
     );
   }
   return opts?.reload ? reloadReferenceDefinition(filePath) : loadReferenceDefinition(filePath);

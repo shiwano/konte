@@ -6,6 +6,7 @@
 // vocabulary or function map; the engine reads `fn` off the matched role.
 
 import { formatSeconds, formatSecondsRange } from "./format-duration.js";
+import { parseViewName } from "./view.js";
 
 /**
  * The dramatic function a role performs — the five-stage skeleton the classical arc schemas share
@@ -85,6 +86,11 @@ export type DirectionFindingCode =
   | "axis-unrealized"
   | "unused-setup"
   | "setup-atomized"
+  // The views: a way a setup faces with no image of it, a plate standing on another view's image,
+  // and a view image drawn from nothing of its location.
+  | "view-unrealized"
+  | "plate-unviewed"
+  | "view-unanchored"
   | "unexpected-script"
   | "multi-sentence-action"
   | "off-grid-duration"
@@ -351,6 +357,8 @@ export type SetupRef = AnchoredEntityRef & {
   // The wider frame this one steps in from, `null` at the root of its axis. Read by
   // `plate-unnested`, which names it as the plate to build from.
   within?: string | null;
+  // The way the camera faces, a window's resolved through its root.
+  view?: string;
 };
 
 export type AxisCut = {
@@ -367,12 +375,18 @@ export type AxisCut = {
 // on no location reference, and which developed shots reach neither anchor. Assembled by the CLI (see
 // loadAnimaticSetupState); undefined stands for "the animatic could not be read", the same contract
 // `referenceAssetNames` carries for the rosters.
+//
+// The view half rides along: which plates and plate-less shots reach their location through another
+// view's image only, and which view images (`<locationId>.<view>`) stand on no location master.
 export type AnimaticSetupState = {
   plateIds: readonly string[];
   unanchoredPlateIds: readonly string[];
   unnestedPlateIds: readonly string[];
   unconsumedBy: ReadonlyMap<string, readonly string[]>;
   deterministicShotsPerSetup: ReadonlyMap<string, number>;
+  unviewedPlateIds: readonly string[];
+  unviewedBy: ReadonlyMap<string, readonly string[]>;
+  unanchoredViews: readonly string[];
 };
 type CharacterRef = AnchoredEntityRef;
 
@@ -693,6 +707,26 @@ function checkAtomizedSetups(
   return findings;
 }
 
+// The view images the reference stage files, as `<locationId>.<view>` (`reference:view.…`).
+function viewImagesOf(referenceAssetNames: readonly string[] | undefined): Set<string> {
+  return new Set(
+    (referenceAssetNames ?? []).flatMap((name) => {
+      const view = parseViewName(name);
+      return view ? [`${view.location}.${view.view}`] : [];
+    }),
+  );
+}
+
+/**
+ * What a fix names as the picture a setup stands on in its place: the image of the way it faces,
+ * whether or not it exists yet, else the location's master.
+ */
+export function placeRefOf(setup: Pick<SetupRef, "location" | "view">): string {
+  return setup.view && setup.view !== "front"
+    ? `views.${setup.location}.${setup.view}`
+    : `reference.${setup.location}`;
+}
+
 // `animatic` is undefined when the board could not be read, in which case the whole class stays
 // silent rather than reporting every setup as unrealized. `referenceAssetNames` carries the rosters'
 // own contract: undefined = "the reference stage could not be read", so the anchor findings hold.
@@ -708,6 +742,13 @@ export function checkSetups(
   const unanchored = animatic === undefined ? undefined : new Set(animatic.unanchoredPlateIds);
   const unnested = animatic === undefined ? undefined : new Set(animatic.unnestedPlateIds);
   const anchored = referenceAssetNames === undefined ? undefined : new Set(referenceAssetNames);
+  const viewImages = viewImagesOf(referenceAssetNames);
+  const placeRef = placeRefOf;
+  const hasOwnView = (setup: SetupRef): boolean =>
+    setup.view === "front"
+      ? (anchored?.has(setup.location) ?? false)
+      : viewImages.has(`${setup.location}.${setup.view}`);
+  const unviewed = animatic === undefined ? undefined : new Set(animatic.unviewedPlateIds);
   const shotsPerLocation = new Map<string, number>();
   for (const setup of setups) {
     const n = (shotsPerLocation.get(setup.location) ?? 0) + (shotsPerSetup.get(setup.id) ?? 0);
@@ -743,8 +784,30 @@ export function checkSetups(
         subject: setup.id,
         message:
           `the plate for setup "${setup.id}" is built from no location reference — take ` +
-          `\`reference.${setup.location}\` as an input image, or every shot on this setup is held ` +
+          `\`${placeRef(setup)}\` as an input image, or every shot on this setup is held ` +
           `to a place the plate invented`,
+      });
+    }
+    if (plated && hasOwnView(setup) && unviewed!.has(setup.id)) {
+      findings.push({
+        code: "plate-unviewed",
+        subject: setup.id,
+        message:
+          `the plate for setup "${setup.id}" faces "${setup.view}" but stands on another view of ` +
+          `"${setup.location}" — build it from \`views.${setup.location}.${setup.view}\` (or cut ` +
+          `in from a plate that is), or the side of the place it shows is invented per take`,
+      });
+    }
+    const unviewedShots = plated ? [] : (animatic!.unviewedBy.get(setup.id) ?? []);
+    if (!plated && hasOwnView(setup) && unviewedShots.length > 0) {
+      findings.push({
+        code: "plate-unviewed",
+        subject: setup.id,
+        message:
+          `shot ${unviewedShots.map((id) => `"${id}"`).join(", ")} sits on setup "${setup.id}", ` +
+          `which faces "${setup.view}", but its keyframe stands on another view of ` +
+          `"${setup.location}" — build it from \`views.${setup.location}.${setup.view}\`, or the ` +
+          `side of the place it shows is invented per take`,
       });
     }
     if (plated && setup.within && unnested!.has(setup.id)) {
@@ -771,7 +834,7 @@ export function checkSetups(
             `take \`plates.${setup.id}\` as an input image, or the frame is only as steady as the ` +
             `prompt happens to be`
           : `shot ${shotList} sits on setup "${setup.id}", which has no plate, but no keyframe is ` +
-            `built from its location — take \`reference.${setup.location}\` as an input image` +
+            `built from its location — take \`${placeRef(setup)}\` as an input image` +
             // One frame sees the place, so the reference can be that frame.
             (shotsPerLocation.get(setup.location) === 1
               ? `, or regenerate \`reference.${setup.location}\` to hold what the shot needs and ` +
@@ -784,7 +847,68 @@ export function checkSetups(
   findings.push(...checkAtomizedSetups(setups, shotsPerSetup));
   // Board-gated like the three anchor findings: with no plates read there is nothing to be missing.
   if (plates) findings.push(...checkAxisCuts(axisCuts, plates));
+  if (animatic && referenceAssetNames !== undefined) {
+    findings.push(...checkViews(setups, shotsPerSetup, viewImages, anchored!, animatic));
+  }
   return findings;
+}
+
+// A way a used setup faces is owed an image of it, made from the location's master. `front` is the
+// master itself. Keyed `<locationId>.<view>`.
+function checkViews(
+  setups: readonly SetupRef[],
+  shotsPerSetup: ReadonlyMap<string, number>,
+  viewImages: ReadonlySet<string>,
+  anchored: ReadonlySet<string>,
+  animatic: AnimaticSetupState,
+): DirectionFinding[] {
+  const facing = new Map<string, string[]>();
+  for (const setup of setups) {
+    if (!setup.view || setup.view === "front" || (shotsPerSetup.get(setup.id) ?? 0) === 0) continue;
+    const key = `${setup.location}.${setup.view}`;
+    facing.set(key, [...(facing.get(key) ?? []), setup.id]);
+  }
+  const findings: DirectionFinding[] = [];
+  for (const [key, ids] of [...facing].sort((a, b) => a[0].localeCompare(b[0]))) {
+    if (viewImages.has(key)) continue;
+    const [location, view] = key.split(".") as [string, string];
+    findings.push({
+      code: "view-unrealized",
+      subject: key,
+      message:
+        `setup ${ids.map((id) => `"${id}"`).join(", ")} ${ids.length === 1 ? "faces" : "face"} ` +
+        `"${view}" in "${location}", which has no image of that view — return \`${location}: ` +
+        `{ ${view}: asset(…) }\` from \`views\` in reference.tsx, made from ` +
+        `\`reference.${location}\`, or every plate on ${ids.length === 1 ? "it" : "them"} invents ` +
+        `the side of the place the master does not show`,
+    });
+  }
+  findings.push(...checkViewAnchors(animatic.unanchoredViews, anchored));
+  return findings;
+}
+
+/**
+ * `view-unanchored` over the view images `listViewAnchorGaps` names (`<locationId>.<view>`), held
+ * back for a location with no master yet.
+ */
+export function checkViewAnchors(
+  unanchoredViews: readonly string[],
+  anchored: ReadonlySet<string>,
+): DirectionFinding[] {
+  return unanchoredViews.flatMap((key) => {
+    const [location, view] = key.split(".") as [string, string];
+    if (!anchored.has(location)) return [];
+    return [
+      {
+        code: "view-unanchored" as const,
+        subject: key,
+        message:
+          `the view image \`views.${location}.${view}\` is built from no \`reference.${location}\` — ` +
+          `take it as an input image, or the view is a place of its own rather than the other side ` +
+          `of this one`,
+      },
+    ];
+  });
 }
 
 /**
@@ -1019,6 +1143,8 @@ export function checkLineups(
     panelReach?: readonly PanelReach[];
     // The keyframes that crop their setup's plate. Undefined leaves `plate-recropped` silent.
     plateRecrops?: readonly PlateRecrop[];
+    // What `plate-recropped` names as the picture each setup stands on in its place (`placeRefOf`).
+    placeRefs?: ReadonlyMap<string, string>;
     // The conditioning text behind each keyframe, in panel order. Undefined leaves `subject-unnamed`
     // silent.
     panelPrompts?: readonly PanelPrompts[];
@@ -1149,7 +1275,9 @@ export function checkLineups(
       ...checkCharacterAnchors(shots, options.panelReach, options.referenceAssetNames ?? []),
     );
   }
-  if (options.plateRecrops) findings.push(...checkPlateRecrops(options.plateRecrops));
+  if (options.plateRecrops) {
+    findings.push(...checkPlateRecrops(options.plateRecrops, options.placeRefs));
+  }
   if (options.panelPrompts) {
     findings.push(
       ...checkSubjectNaming(
@@ -1675,7 +1803,10 @@ export type PlateRecrop = {
 };
 
 // Reported per frame: the shot is what has to move onto a setup of its own.
-function checkPlateRecrops(recrops: readonly PlateRecrop[]): DirectionFinding[] {
+function checkPlateRecrops(
+  recrops: readonly PlateRecrop[],
+  placeRefs: ReadonlyMap<string, string> = new Map(),
+): DirectionFinding[] {
   const byFrame = new Map<string, PlateRecrop[]>();
   for (const recrop of recrops) {
     const subject = frameSubject({ id: recrop.shotId, frame: recrop.lane });
@@ -1692,7 +1823,7 @@ function checkPlateRecrops(recrops: readonly PlateRecrop[]): DirectionFinding[] 
         `${panels} — a window of the plate is a frame setup "${setupId}" does not declare, so its ` +
         `\`holds\` no longer say what is in it. Declare a setup for that frame, holding what it ` +
         `shows, and move the shot onto it; one shot alone needs no plate, and stands on a crop of ` +
-        `\`reference:<location>\``,
+        `\`${placeRefs.get(setupId) ?? "reference.<location>"}\``,
     };
   });
 }

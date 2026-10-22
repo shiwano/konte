@@ -49,4 +49,4 @@ Try a window before writing it: `konte probe crop <master|plate> --rect x,y,widt
 
 ## When not to use it
 
-A setup that moves the camera — a reverse, an over-the-shoulder from the other side, an overhead — is not a window on this master. It declares `within: null` and is a root of its own: generate its plate from the master with the framing declared new, or give that axis a master of its own. An insert a fixed camera cannot reach is the same case.
+A setup that moves the camera — a reverse, an over-the-shoulder from the other side, an overhead — is not a window on this master. It declares `within: null` and a `view` of its own: generate its plate from that view's image (`views.<location>.<view>`), or crop it out of that image. An insert a fixed camera cannot reach is the same case.

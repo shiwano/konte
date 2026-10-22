@@ -78,12 +78,12 @@ const REFERENCE_EXPOSED_UNREFERENCED_TS = `import { defineReference, asset, adap
 import { internalTestPlate } from "konte";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
   const latent = asset("latent", internalTestPlate, { width: 64, height: 64, color: "#ffffff" });
   return { character, bgm, latent };
-});
+} });
 `;
 
 describe("generate reference (standalone building blocks)", () => {
@@ -94,13 +94,13 @@ describe("generate reference (standalone building blocks)", () => {
 import { internalTestPlate } from "konte";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
   const latent = asset("latent", internalTestPlate, { width: 64, height: 64, color: "#ffffff" });
   const key = asset("key", adapters.imageResize, { image: latent, width: 32, height: 32 });
   return { character, bgm, key };
-});
+} });
 `;
 
   // `orphan` is neither returned nor consumed — unused, so `generate reference` skips it,
@@ -110,12 +110,12 @@ export default defineReference(direction, () => {
 import { internalTestPlate } from "konte";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
   const orphan = asset("orphan", internalTestPlate, { width: 64, height: 64, color: "#ffffff" });
   return { character, bgm };
-});
+} });
 `;
 
   it("plans an exposed reference asset even when nothing references it yet", async () => {
@@ -217,10 +217,10 @@ export default defineReference(direction, () => {
 import { internalTestPlate } from "konte";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const song = asset("song", internalTestPlate, { width: 64, height: 64, color: "#ffffff" });
   return { song };
-});
+} });
 `,
     );
 
@@ -256,7 +256,7 @@ export default defineReference(direction, () => {
         )
         .replace(
           "setups: {},",
-          'setups: { front: { name: "front", description: "straight on", location: "studio", framing: "medium", holds: [] } },',
+          'setups: { front: { name: "front", description: "straight on", location: "studio", framing: "medium", view: "front", holds: [] } },',
         )
         .replace('speech: "free",', 'speech: "free",\n    song: "song",')
         .replace(
@@ -281,10 +281,10 @@ export default defineAnimatic(direction, {
 import { internalTestPlate } from "konte";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const song = asset("song", internalTestPlate, { width: 64, height: 64, color: "#ffffff" });
   return { song };
-});
+} });
 `,
     );
     await acceptDirection(projectDir);
@@ -395,13 +395,13 @@ const plateAdapter = defineComfyAsset({
   outputs: { result: { nodeId: "9", type: "image" } },
 });
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
   const latent = asset("latent", internalTestPlate, { width: 64, height: 64, color: "#ffffff" });
   const plate = asset("plate", plateAdapter, {});
   return { character, bgm, latent, plate };
-});
+} });
 `;
 
   // A variant carrying a definition hash that no longer matches reference.tsx — exactly the state
@@ -873,10 +873,10 @@ const imageComfy = defineComfyAsset({
   outputs: { result: { nodeId: "9", type: "image" } },
 });
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const plate = asset("plate", imageComfy, { prompt: "a plain studio" });
   return { plate };
-});
+} });
 `;
 
 const SHEET_ANIMATIC_TS = `import { defineComfyAsset, defineAnimatic, asset, Composition, Panel } from "konte";
@@ -1050,8 +1050,8 @@ export default defineDirection({
   characters: {},
   locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
   setups: {
-    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
-    detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", holds: ["studioMark"], within: null },
+    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
+    detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", view: "front", holds: ["studioMark"], within: null },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
   waivers: {

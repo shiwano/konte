@@ -29,31 +29,37 @@ const direction = defineDirection({
 describe("the song's words", () => {
   it("carry every lyric line", () => {
     expect(() =>
-      defineReference(direction, () => ({
-        song: asset("song", music, {
-          tags: "synth-pop",
-          lyrics: "[Chorus]\nHit the light\nWatch me move",
+      defineReference(direction, {
+        references: () => ({
+          song: asset("song", music, {
+            tags: "synth-pop",
+            lyrics: "[Chorus]\nHit the light\nWatch me move",
+          }),
         }),
-      })),
+      }),
     ).not.toThrow();
   });
 
   it("refuse a song that does not sing a declared line", () => {
     expect(() =>
-      defineReference(direction, () => ({
-        song: asset("song", music, { tags: "synth-pop", lyrics: "[Chorus]\nHit the light" }),
-      })),
+      defineReference(direction, {
+        references: () => ({
+          song: asset("song", music, { tags: "synth-pop", lyrics: "[Chorus]\nHit the light" }),
+        }),
+      }),
     ).toThrow(/is not given 1 lyric line\(s\)[\s\S]*“Watch me move”/);
   });
 
   it("take a line in the spelling a respell() gives it", () => {
     expect(() =>
-      defineReference(direction, () => ({
-        song: asset("song", music, {
-          tags: "synth-pop",
-          lyrics: `Hit the light\n${respell("Watch me move", "Watch me mooove")}`,
+      defineReference(direction, {
+        references: () => ({
+          song: asset("song", music, {
+            tags: "synth-pop",
+            lyrics: `Hit the light\n${respell("Watch me move", "Watch me mooove")}`,
+          }),
         }),
-      })),
+      }),
     ).not.toThrow();
   });
 });
@@ -61,9 +67,11 @@ describe("the song's words", () => {
 describe("a song handed no words", () => {
   it("is not held to the lyrics — a file brings its own singing", () => {
     expect(() =>
-      defineReference(direction, () => ({
-        song: asset("song", music, { tags: "synth-pop" }),
-      })),
+      defineReference(direction, {
+        references: () => ({
+          song: asset("song", music, { tags: "synth-pop" }),
+        }),
+      }),
     ).not.toThrow();
   });
 });

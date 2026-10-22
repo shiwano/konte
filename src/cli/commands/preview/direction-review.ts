@@ -28,7 +28,12 @@ import {
   loadStagingStageState,
   loadSongTakeState,
 } from "../../load-definition.js";
-import { checkDirection, directionWaiverKey, resolveLens } from "../../../core/direction.js";
+import {
+  checkDirection,
+  directionWaiverKey,
+  resolveLens,
+  setupView,
+} from "../../../core/direction.js";
 import { ROLE_FUNCTION_LABEL, PLEASURE_GLOSS } from "../../../core/lenses.js";
 import { directionHash, directionPartHashes } from "../../../core/direction-hash.js";
 import {
@@ -130,7 +135,7 @@ export async function handleGetDirectionState(
 
   const check = checkDirection(direction, {
     referenceAssetNames: reference?.exposedAssetNames ?? [],
-    animaticSetups: await loadAnimaticSetupState(videoRoot, direction),
+    animaticSetups: await loadAnimaticSetupState(videoRoot, direction, reference),
     stagingStage: await loadStagingStageState(videoRoot, direction),
     songTake: await loadSongTakeState(videoRoot, direction),
   });
@@ -425,23 +430,27 @@ export async function handleGetDirectionState(
     // Grouped under their location on the page, so both are sent: the id it groups by, and the NAME
     // it reads against the space column rather than against the roster key. `holds` resolves the same
     // way, to its location's landmark names.
-    setups: Object.entries(direction.setups ?? {}).map(([id, s]) => ({
-      id,
-      name: s.name,
-      description: s.description,
-      locationId: s.location,
-      location: direction.locations?.[s.location]?.name ?? s.location,
-      framing: s.framing,
-      holds: (s.holds ?? []).map(
-        (holdId) => direction.locations?.[s.location]?.landmarks?.[holdId]?.name ?? holdId,
-      ),
-      // The name, like `location` above. Sent only where the author declared one, so an undeclared
-      // frame is not shown as a root while `within-undeclared` is asking it to choose.
-      ...(s.within !== undefined
-        ? { within: s.within ? (direction.setups?.[s.within]?.name ?? s.within) : null }
-        : {}),
-      ...partView(formatDirectionSetupAddress(id)),
-    })),
+    setups: Object.entries(direction.setups ?? {}).map(([id, s]) => {
+      const view = setupView(direction.setups ?? {}, id);
+      return {
+        id,
+        name: s.name,
+        description: s.description,
+        locationId: s.location,
+        location: direction.locations?.[s.location]?.name ?? s.location,
+        framing: s.framing,
+        holds: (s.holds ?? []).map(
+          (holdId) => direction.locations?.[s.location]?.landmarks?.[holdId]?.name ?? holdId,
+        ),
+        // The name, like `location` above. Sent only where the author declared one, so an undeclared
+        // frame is not shown as a root while `within-undeclared` is asking it to choose.
+        ...(s.within !== undefined
+          ? { within: s.within ? (direction.setups?.[s.within]?.name ?? s.within) : null }
+          : {}),
+        ...(view ? { view } : {}),
+        ...partView(formatDirectionSetupAddress(id)),
+      };
+    }),
     waivers,
     ...(handoff?.summary ? { handoffSummary: handoff.summary } : {}),
   };

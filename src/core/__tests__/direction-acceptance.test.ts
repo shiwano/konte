@@ -25,6 +25,7 @@ const setups = {
     description: "straight on, eye level",
     location: "bedroom",
     framing: "medium",
+    view: "front",
     holds: ["bedroomMark"],
   },
   "bedroom-close": {
@@ -32,6 +33,7 @@ const setups = {
     description: "in on the face",
     location: "bedroom",
     framing: "close",
+    view: "front",
     holds: ["bedroomMark"],
   },
   "bedroom-wide": {
@@ -39,6 +41,7 @@ const setups = {
     description: "the whole room",
     location: "bedroom",
     framing: "wide",
+    view: "front",
     holds: ["bedroomMark"],
   },
 } as const;

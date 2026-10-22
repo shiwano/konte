@@ -67,9 +67,11 @@ const direction = defineDirection({
   },
 });
 
-const reference = defineReference(direction, () => ({
-  nazuna: asset("nazuna", imageComfy, { prompt: "a girl in a maid apron" }),
-}));
+const reference = defineReference(direction, {
+  references: () => ({
+    nazuna: asset("nazuna", imageComfy, { prompt: "a girl in a maid apron" }),
+  }),
+});
 const REF = reference.nazuna;
 
 const narrativeBoard = () => (

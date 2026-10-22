@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkDirection, validateDirectionStructure } from "../direction.js";
+import { checkDirection, setupView, validateDirectionStructure } from "../direction.js";
 import type { StagingStageState } from "../direction.js";
 import type { PinWindow } from "../direction-check.js";
 import { defineDirection } from "../dsl/direction.js";
@@ -13,6 +13,7 @@ const deck: Setup = {
   description: "in the boat, across at the port bench",
   location: "ferryDeck",
   framing: "medium",
+  view: "front",
   holds: ["bench"],
 };
 const stern: Setup = {
@@ -20,6 +21,7 @@ const stern: Setup = {
   description: "from the stern seat, the whole bench",
   location: "ferryDeck",
   framing: "wide",
+  view: "front",
   holds: ["bench", "mast"],
 };
 const shore: Setup = {
@@ -27,6 +29,7 @@ const shore: Setup = {
   description: "on the jetty, looking back at the boat",
   location: "landing",
   framing: "wide",
+  view: "front",
   holds: ["jetty"],
 };
 
@@ -720,7 +723,7 @@ describe("panel-unlinked", () => {
   // out of it. `shore` is a second place and stands on its own axis.
   const axis: Record<string, Setup> = {
     stern: { ...stern, within: null },
-    deck: { ...deck, within: "stern" },
+    deck: { ...deck, within: "stern", view: undefined },
     shore: { ...shore, within: null },
   };
   // A second frame of the bench from its own camera position — same place and wider than `deck`, and
@@ -864,7 +867,7 @@ const aside = (id: string) =>
 describe("an aside between two same-axis frames", () => {
   const axis: Record<string, Setup> = {
     stern: { ...stern, within: null },
-    deck: { ...deck, within: "stern" },
+    deck: { ...deck, within: "stern", view: undefined },
   };
   const across = direction({
     setups: axis,
@@ -896,6 +899,7 @@ describe("landmark-flipped", () => {
     description: "from the bow seat, back down the bench",
     location: "ferryDeck",
     framing: "wide",
+    view: "front",
     holds: ["mast", "bench"],
   };
 
@@ -921,6 +925,7 @@ describe("landmark-flipped", () => {
       description: "across at the port bench",
       location: "ferryDeck",
       framing: "medium",
+      view: "front",
       holds,
     });
     const dir = direction({
@@ -954,6 +959,7 @@ describe("landmark-flipped", () => {
       description: "on the boards",
       location: "landing",
       framing: "close",
+      view: "front",
       holds: ["jetty"],
     };
     const dir = direction({
@@ -1197,6 +1203,7 @@ describe("plate-unnamed", () => {
       description: "the sweet filling frame",
       location: "ferryDeck",
       framing: "insert",
+      view: "front",
       holds: [],
     };
     const withInsert = direction({
@@ -1787,7 +1794,7 @@ describe("the within axis", () => {
     const dir = direction({
       shots: [shot("01", "deck", { lineup: [] })],
       setups: {
-        deck: { ...deck, within: "stern" },
+        deck: { ...deck, within: "stern", view: undefined },
         stern,
         shore,
         page: {
@@ -1809,7 +1816,13 @@ describe("the within axis", () => {
         direction({
           shots: [shot("01", "deck", { lineup: [] })],
           setups: {
-            deck: { ...deck, framing, holds: framing === "insert" ? [] : deck.holds, within },
+            deck: {
+              ...deck,
+              framing,
+              holds: framing === "insert" ? [] : deck.holds,
+              within,
+              view: undefined,
+            },
             stern,
             shore,
           },
@@ -1840,12 +1853,41 @@ describe("the within axis", () => {
     const dir = direction({
       shots: [shot("01", "deck", { lineup: [] })],
       setups: {
-        deck: { ...deck, within: "stern" },
-        stern: { ...stern, within: "deck" as string },
+        deck: { ...deck, within: "stern", view: undefined },
+        stern: { ...stern, within: "deck" as string, view: undefined },
         shore,
       },
     });
     expect(errorCodes(dir).filter((c) => c === "within-cyclic")).toHaveLength(2);
+  });
+});
+
+describe("view", () => {
+  const errorCodes = (dir: Direction) => validateDirectionStructure(dir).map((e) => e.code);
+  const withSetups = (setups: Record<string, Setup>) =>
+    direction({ shots: [shot("01", "deck", { lineup: [] })], setups: { stern, shore, ...setups } });
+
+  it("asks a frame that is no window which way it faces", () => {
+    const dir = withSetups({ deck: { ...deck, view: undefined } as unknown as Setup });
+    expect(errorCodes(dir)).toContain("view-missing");
+  });
+
+  it("refuses a view on a window, which faces its parent's way", () => {
+    const dir = withSetups({ deck: { ...deck, within: "stern" } as unknown as Setup });
+    expect(errorCodes(dir)).toContain("view-on-window");
+  });
+
+  it("refuses a view outside the four", () => {
+    const dir = withSetups({ deck: { ...deck, view: "left" } as unknown as Setup });
+    expect(errorCodes(dir)).toContain("view-unknown");
+  });
+
+  it("resolves a window's view through its root", () => {
+    const setups = {
+      stern: { ...stern, view: "back" as const, within: null },
+      deck: { ...deck, within: "stern", view: undefined },
+    };
+    expect(setupView(setups, "deck")).toBe("back");
   });
 });
 
@@ -2063,7 +2105,11 @@ describe("coverage shot", () => {
 
   it("asks the cut after it to carry no panel across an axis", () => {
     const dir = direction({
-      setups: { stern: { ...stern, within: null }, deck: { ...deck, within: "stern" }, shore },
+      setups: {
+        stern: { ...stern, within: null },
+        deck: { ...deck, within: "stern", view: undefined },
+        shore,
+      },
       shots: [coverage("01", "stern"), shot("02", "deck")],
     });
     const stagingStage: StagingStageState = {

@@ -42,9 +42,11 @@ describe("syncFileAssets (reference stage)", () => {
   it("creates an undecided variant for reference file assets", async () => {
     await writeAsset(tmpDir, "assets/files/bg.mp4", "video-data");
 
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        return { bg };
+      },
     });
 
     const manager = await StateManager.init(tmpDir);
@@ -59,9 +61,11 @@ describe("syncFileAssets (reference stage)", () => {
   it("skips file assets already synced", async () => {
     await writeAsset(tmpDir, "assets/files/bg.mp4", "video-data");
 
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        return { bg };
+      },
     });
 
     const manager = await StateManager.init(tmpDir);
@@ -76,10 +80,12 @@ describe("syncFileAssets (reference stage)", () => {
   it("ignores generative reference assets", async () => {
     await writeAsset(tmpDir, "assets/files/bg.mp4", "video-data");
 
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      const motion = asset("motion", simpleComfy, {});
-      return { bg, motion };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        const motion = asset("motion", simpleComfy, {});
+        return { bg, motion };
+      },
     });
 
     const manager = await StateManager.init(tmpDir);
@@ -91,9 +97,11 @@ describe("syncFileAssets (reference stage)", () => {
   });
 
   it("validates file existence when validate option is true", async () => {
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/nonexistent.mp4" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/nonexistent.mp4" });
+        return { bg };
+      },
     });
 
     const manager = await StateManager.init(tmpDir);
@@ -108,9 +116,11 @@ describe("syncFileAssets (reference stage)", () => {
   it("stores outputHash from file content", async () => {
     await writeAsset(tmpDir, "assets/files/bg.mp4", "video-content");
 
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        return { bg };
+      },
     });
 
     const manager = await StateManager.init(tmpDir);
@@ -123,9 +133,11 @@ describe("syncFileAssets (reference stage)", () => {
   it("updates contentHash in-place and drops the accept when file content changes", async () => {
     await writeAsset(tmpDir, "assets/files/bg.mp4", "original-content");
 
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        return { bg };
+      },
     });
 
     const manager = await StateManager.init(tmpDir);
@@ -151,9 +163,11 @@ describe("syncFileAssets (reference stage)", () => {
 
   it("drops what was read off a song take whose file content changes", async () => {
     await writeAsset(tmpDir, "assets/files/song.mp3", "v1");
-    const reference = defineReference(plainDirection, () => {
-      const song = asset("song", audioFile, { path: "assets/files/song.mp3" });
-      return { song };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const song = asset("song", audioFile, { path: "assets/files/song.mp3" });
+        return { song };
+      },
     });
     const manager = await StateManager.init(tmpDir);
     await syncFileAssets({ reference }, manager);
@@ -168,9 +182,11 @@ describe("syncFileAssets (reference stage)", () => {
   it("makes dependents input-stale when file content changes", async () => {
     await writeAsset(tmpDir, "assets/files/bg.mp4", "original");
 
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        return { bg };
+      },
     });
 
     const manager = await StateManager.init(tmpDir);
@@ -195,9 +211,11 @@ describe("syncFileAssets (reference stage)", () => {
     await writeAsset(tmpDir, "assets/files/bg.mp4", "original");
 
     const makeReference = (filePath: `assets/files/${string}`) =>
-      defineReference(plainDirection, () => {
-        const bg = asset("bg", videoFile, { path: filePath });
-        return { bg };
+      defineReference(plainDirection, {
+        references: () => {
+          const bg = asset("bg", videoFile, { path: filePath });
+          return { bg };
+        },
       });
 
     const manager = await StateManager.init(tmpDir);
@@ -222,9 +240,11 @@ describe("syncFileAssets (reference stage)", () => {
   it("does not change outputHash when file content is unchanged", async () => {
     await writeAsset(tmpDir, "assets/files/bg.mp4", "same-content");
 
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        return { bg };
+      },
     });
 
     const manager = await StateManager.init(tmpDir);

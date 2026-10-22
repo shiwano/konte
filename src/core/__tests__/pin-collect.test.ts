@@ -48,9 +48,11 @@ const stillMotion = defineComfyAsset({
 
 describe("pin collection", () => {
   it("collects a video stage's pins, addressed, and nothing else", () => {
-    const reference = defineReference(plainDirection, () => ({
-      hero: asset("hero", imageComfy, { prompt: "a woman in a red coat" }),
-    }));
+    const reference = defineReference(plainDirection, {
+      references: () => ({
+        hero: asset("hero", imageComfy, { prompt: "a woman in a red coat" }),
+      }),
+    });
 
     const video = defineVideo(testDirection(FORMAT), {
       timeline: () =>

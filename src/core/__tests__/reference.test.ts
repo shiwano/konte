@@ -55,10 +55,12 @@ const animate = defineComfyAsset({
 });
 
 // A reference definition mixing a file asset (bgm) with a generative one (character).
-const reference = defineReference(plainDirection, () => {
-  const bgm = asset("bgm", audioFile, { path: "assets/files/bgm.mp3" });
-  const character = asset("character", imageGen, { prompt: "a girl" });
-  return { bgm, character };
+const reference = defineReference(plainDirection, {
+  references: () => {
+    const bgm = asset("bgm", audioFile, { path: "assets/files/bgm.mp3" });
+    const character = asset("character", imageGen, { prompt: "a girl" });
+    return { bgm, character };
+  },
 });
 
 describe("defineReference(plainDirection, ) builder", () => {
@@ -75,27 +77,33 @@ describe("defineReference(plainDirection, ) builder", () => {
 
   it("rejects an asset returned under a reserved name", () => {
     expect(() =>
-      defineReference(plainDirection, () => {
-        const shots = asset("shots", imageGen, { prompt: "x" });
-        return { shots };
+      defineReference(plainDirection, {
+        references: () => {
+          const shots = asset("shots", imageGen, { prompt: "x" });
+          return { shots };
+        },
       }),
     ).toThrow("reserved name");
   });
 
   it("rejects a returned name that was not declared via asset()", () => {
     expect(() =>
-      defineReference(plainDirection, () => {
-        const a = asset("a", imageGen, { prompt: "x" });
-        return { a, b: a };
+      defineReference(plainDirection, {
+        references: () => {
+          const a = asset("a", imageGen, { prompt: "x" });
+          return { a, b: a };
+        },
       }),
     ).toThrow();
   });
 
   it("allows a declared asset consumed as an input without returning it", () => {
-    const ref = defineReference(plainDirection, () => {
-      const latent = asset("latent", imageGen, { prompt: "blank" });
-      const key = asset("key", compose, { prompt: "scene", image: latent });
-      return { key };
+    const ref = defineReference(plainDirection, {
+      references: () => {
+        const latent = asset("latent", imageGen, { prompt: "blank" });
+        const key = asset("key", compose, { prompt: "scene", image: latent });
+        return { key };
+      },
     });
 
     // `latent` is generatable (in topLevelAssets) and consumed by `key`, but not exposed on
@@ -111,10 +119,12 @@ describe("defineReference(plainDirection, ) builder", () => {
   // A declared-but-orphaned asset no longer fails the load; it is reported as unused by
   // `generate`/`doctor` instead (covered by the CLI E2E suite), mirroring video/animatic.
   it("does not throw for a declared asset that is neither returned nor consumed", () => {
-    const ref = defineReference(plainDirection, () => {
-      const key = asset("key", imageGen, { prompt: "scene" });
-      asset("orphan", imageGen, { prompt: "unused" });
-      return { key };
+    const ref = defineReference(plainDirection, {
+      references: () => {
+        const key = asset("key", imageGen, { prompt: "scene" });
+        asset("orphan", imageGen, { prompt: "unused" });
+        return { key };
+      },
     });
     expect(ref.topLevelAssets?.orphan).toBeDefined();
     expect(ref.exposedAssetNames).toEqual(["key"]);
@@ -139,10 +149,12 @@ describe("reference address helpers", () => {
   // An intermediate (declared, never returned) is generated and tracked, but is not review work:
   // the review surfaces list the exposed pool only.
   it("lists only the exposed assets as review targets", () => {
-    const ref = defineReference(plainDirection, () => {
-      const latent = asset("latent", imageGen, { prompt: "blank" });
-      const key = asset("key", compose, { prompt: "scene", image: latent });
-      return { key };
+    const ref = defineReference(plainDirection, {
+      references: () => {
+        const latent = asset("latent", imageGen, { prompt: "blank" });
+        const key = asset("key", compose, { prompt: "scene", image: latent });
+        return { key };
+      },
     });
 
     expect(listReferenceAssetPaths(ref)).toEqual(["reference:latent", "reference:key"]);
@@ -205,9 +217,11 @@ describe("buildDependencyGraph (reference purity)", () => {
         },
       },
     );
-    const ref = defineReference(plainDirection, () => {
-      const bad = asset("bad", imageGen, { prompt: "y" });
-      return { bad };
+    const ref = defineReference(plainDirection, {
+      references: () => {
+        const bad = asset("bad", imageGen, { prompt: "y" });
+        return { bad };
+      },
     });
     // A reference asset reaching a video asset is illegal — references are an upstream root.
     (ref.topLevelAssets!.bad as { inputs: Record<string, unknown> }).inputs.image =
@@ -226,9 +240,11 @@ describe("buildDependencyGraph (reference purity)", () => {
   });
 
   it("allows a video asset to depend on a reference asset", () => {
-    const ref = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      return { bg };
+    const ref = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        return { bg };
+      },
     });
     const v = defineVideo(
       testDirection({
@@ -252,10 +268,12 @@ describe("buildDependencyGraph (reference purity)", () => {
   });
 
   it("allows a reference asset to depend on another reference asset", () => {
-    const ref = defineReference(plainDirection, () => {
-      const plate = asset("plate", imageFile, { path: "assets/files/plate.png" }); // file
-      const gen = asset("gen", compose, { prompt: "a", image: plate }); // reference → reference file
-      return { plate, gen };
+    const ref = defineReference(plainDirection, {
+      references: () => {
+        const plate = asset("plate", imageFile, { path: "assets/files/plate.png" }); // file
+        const gen = asset("gen", compose, { prompt: "a", image: plate }); // reference → reference file
+        return { plate, gen };
+      },
     });
     const v = defineVideo(
       testDirection({
@@ -355,12 +373,14 @@ describe("reference canvas", () => {
     );
 
   it("stands a character sheet up, widens a location into a master, squares everything else", () => {
-    const def = defineReference(rostered, () => {
-      const hana = asset("hana", sized, { prompt: "the traveller" });
-      const katana = asset("katana", sized, { prompt: "a plain blade" });
-      const studio = asset("studio", sized, { prompt: "the room" });
-      const look = asset("look", sized, { prompt: "the world under this light" });
-      return { hana, katana, studio, look };
+    const def = defineReference(rostered, {
+      references: () => {
+        const hana = asset("hana", sized, { prompt: "the traveller" });
+        const katana = asset("katana", sized, { prompt: "a plain blade" });
+        const studio = asset("studio", sized, { prompt: "the room" });
+        const look = asset("look", sized, { prompt: "the world under this light" });
+        return { hana, katana, studio, look };
+      },
     });
 
     expect(sizesOf(def.topLevelAssets ?? {})).toEqual({
@@ -386,9 +406,11 @@ describe("reference canvas", () => {
       sequence: { lens: "mini-drama", pleasure: "cute", shots: [] },
     });
 
-    const def = defineReference(portrait, () => {
-      const hana = asset("hana", sized, { prompt: "the traveller" });
-      return { hana };
+    const def = defineReference(portrait, {
+      references: () => {
+        const hana = asset("hana", sized, { prompt: "the traveller" });
+        return { hana };
+      },
     });
 
     expect(sizesOf(def.topLevelAssets ?? {})).toEqual({ hana: [672, 1024] });
@@ -406,27 +428,33 @@ describe("reference canvas", () => {
       sequence: { lens: "mini-drama", pleasure: "cute", shots: [] },
     });
 
-    const def = defineReference(portrait, () => {
-      const studio = asset("studio", sized, { prompt: "the room" });
-      return { studio };
+    const def = defineReference(portrait, {
+      references: () => {
+        const studio = asset("studio", sized, { prompt: "the room" });
+        return { studio };
+      },
     });
 
     expect(sizesOf(def.topLevelAssets ?? {})).toEqual({ studio: [2048, 1376] });
   });
 
   it("takes a declared size over the derived one", () => {
-    const def = defineReference(rostered, () => {
-      const hana = asset("hana", sized, { prompt: "the traveller", width: 768, height: 768 });
-      return { hana };
+    const def = defineReference(rostered, {
+      references: () => {
+        const hana = asset("hana", sized, { prompt: "the traveller", width: 768, height: 768 });
+        return { hana };
+      },
     });
 
     expect(sizesOf(def.topLevelAssets ?? {})).toEqual({ hana: [768, 768] });
   });
 
   it("hands the callback the canvas the shots render at", () => {
-    const def = defineReference(rostered, ({ format }) => {
-      const frame = asset("frame", sized, { prompt: "a gilt frame", ...format.size });
-      return { frame };
+    const def = defineReference(rostered, {
+      references: ({ format }) => {
+        const frame = asset("frame", sized, { prompt: "a gilt frame", ...format.size });
+        return { frame };
+      },
     });
 
     expect(sizesOf(def.topLevelAssets ?? {})).toEqual({ frame: [1024, 576] });

@@ -117,4 +117,8 @@ export function validateAssetName(name: string): void {
   if (name === "patch") {
     throw new Error(`Asset name "patch" is reserved. It heads the patch address axis.`);
   }
+  // `view` heads the view images (`reference:view.<locationId>.<view>`) the same way.
+  if (name === "view") {
+    throw new Error(`Asset name "view" is reserved. It heads the view image address axis.`);
+  }
 }

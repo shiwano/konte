@@ -444,6 +444,8 @@ export type Language = (typeof LANGUAGES)[number];
  * stripped: for Chinese a region IS a script (`zh-CN` is Simplified), so dropping it loses the glyphs.
  */
 export type LanguageTag = Language | `${Language}-${string}`;
+declare const VIEWS: readonly ["front", "back", "side", "top"];
+export type View = (typeof VIEWS)[number];
 /**
  * A reference is the shared upstream stage: a flat pool of named assets (characters, backgrounds,
  * bgm) shared across the animatic and video stages. Assets are stored in `topLevelAssets` (the
@@ -2735,6 +2737,9 @@ export type DirectionFindingCode =
   | "axis-unrealized"
   | "unused-setup"
   | "setup-atomized"
+  | "view-unrealized"
+  | "plate-unviewed"
+  | "view-unanchored"
   | "unexpected-script"
   | "multi-sentence-action"
   | "off-grid-duration"
@@ -3166,8 +3171,33 @@ export type Setup = {
   location: string;
   framing: Framing;
   holds: readonly string[];
-  within?: string | null;
-};
+} & (
+  | {
+      within: string;
+      view?: never;
+    }
+  | {
+      within?: null;
+      view: View;
+    }
+);
+export type LocationIdOf<D> = D extends {
+  locations: infer L;
+}
+  ? Extract<keyof L, string>
+  : string;
+export type ViewsAtOf<D, L> = D extends {
+  setups: infer S;
+}
+  ? {
+      [K in keyof S]: S[K] extends {
+        location: L;
+        view: infer V extends View;
+      }
+        ? V
+        : never;
+    }[keyof S]
+  : View;
 export type BriefReference = {
   clip: string;
   link?: string;
@@ -4466,12 +4496,23 @@ export type AnimaticPlate = MediaAsset<"image">;
  * roster id. Partial — a setup only one shot names has nothing to hold together and owes none.
  */
 export type AnimaticPlates<D> = Partial<Record<SetupIdOf<D>, AnimaticPlate>>;
+/**
+ * Each location's view images, as `plates` and `timeline` receive them: `front` is the location's
+ * `reference:<id>`, every other view its setups face is `reference:view.<id>.<view>`.
+ */
+export type AnimaticViews<D> = {
+  [L in LocationIdOf<D>]: {
+    front: MediaAsset<"image">;
+  } & {
+    [V in Exclude<ViewsAtOf<D, L>, "front">]: MediaAsset<"image">;
+  };
+};
 export interface DefineAnimaticOptions<
   D = unknown,
   Ids extends string = string,
   TPlates extends AnimaticPlates<D> = AnimaticPlates<D>,
 > {
-  plates?: (args: { format: VideoFormat }) => TPlates;
+  plates?: (args: { format: VideoFormat; views: AnimaticViews<D> }) => TPlates;
   waivers?: Record<string, string>;
   timeline: (args: {
     format: VideoFormat;
@@ -4480,6 +4521,7 @@ export interface DefineAnimaticOptions<
     pendingShot: StagePendingShotStarter<D, "animatic">;
     asideShot: StageAsideShotStarter<D>;
     plates: TPlates;
+    views: AnimaticViews<D>;
   }) => StageTimelineReturn<Ids, D>;
 }
 /**
@@ -8180,10 +8222,10 @@ export interface PromptStructureMeta {
 export declare function formatCutTime(seconds: number): string;
 export type AdapterBackendKind = "comfy" | "fal" | "local" | "file";
 /**
- * The five places `asset()` can be called from. A stage build reaches exactly one — a shot build
- * clears the timeline context.
+ * The six places `asset()` can be called from. A stage build reaches exactly one — a shot build
+ * clears the timeline context. `view` is `defineReference`'s `views`.
  */
-export type AssetDeclarationSite = "patch" | "plate" | "reference" | "timeline" | "shot";
+export type AssetDeclarationSite = "patch" | "plate" | "reference" | "view" | "timeline" | "shot";
 export interface AdapterMetaInput {
   type: string;
   required: boolean;
@@ -8499,23 +8541,33 @@ export type ReferenceAssetMap = Record<string, MediaAsset<MediaKind>>;
 export type ReferenceRef<TAssets extends ReferenceAssetMap> = {
   readonly [K in keyof TAssets]: TAssets[K];
 };
-export interface DefineReferenceOptions {
+/**
+ * The view images a `views` callback may return: per location, one image per way its setups face
+ * other than `front`, which is the location's own `reference:<id>`.
+ */
+export type ReferenceViews<D> = {
+  [L in LocationIdOf<D>]?: {
+    [V in Exclude<ViewsAtOf<D, L>, "front">]?: MediaAsset<"image">;
+  };
+};
+export interface DefineReferenceOptions<TAssets extends ReferenceAssetMap, D = unknown> {
+  references: (args: { format: VideoFormat }) => TAssets;
+  views?: (args: { format: VideoFormat; reference: ReferenceRef<TAssets> }) => ReferenceViews<D>;
   waivers?: Record<string, string>;
 }
 /**
- * Declares the reference stage: the direction, then a flat callback that returns a named map of
- * asset()s. The returned object IS both the ReferenceDefinition (loaded by konte) and the ref used by
- * animatic/video to fabricate `reference:<name>` placeholders.
+ * Declares the reference stage: the direction, then `references` (a flat callback returning a named
+ * map of asset()s) and `views`. The returned object IS both the ReferenceDefinition (loaded by konte)
+ * and the ref used by animatic/video to fabricate `reference:<name>` placeholders.
  *
  * The direction is taken for its typesetting (`policy.lang` + `policy.fonts`) and for the canvas
  * each sheet is sized off: its long edge, at the shape the asset's roster asks for
- * (`deriveReferenceSize`). An adapter's `width`/`height` are therefore filled in like a stage's;
- * passing them overrides. `format` is the working canvas the other stages render at.
+ * (`deriveReferenceSize`); a view image takes its location's. An adapter's `width`/`height` are
+ * therefore filled in like a stage's; passing them overrides.
  */
-export declare function defineReference<TAssets extends ReferenceAssetMap>(
-  direction: DirectionEntry<unknown>,
-  fn: (args: { format: VideoFormat }) => TAssets,
-  opts?: DefineReferenceOptions,
+export declare function defineReference<const D, TAssets extends ReferenceAssetMap>(
+  direction: DirectionEntry<D>,
+  opts: DefineReferenceOptions<TAssets, D>,
 ): ReferenceDefinition & ReferenceRef<TAssets>;
 /**
  * What a patch file's callback receives. `source` is the variant being patched, as a MediaAsset

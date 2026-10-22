@@ -16,11 +16,11 @@ import { videoMinimaxH3R2v } from "konte/workspace/adapters/comfy/video_minimax_
 import { audioMinimaxH3R2a } from "konte/workspace/adapters/comfy/audio_minimax_h3_r2a.js";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
 ${body}
-});
+} });
 `;
 
 const ASSETS = `

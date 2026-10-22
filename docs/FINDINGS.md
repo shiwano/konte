@@ -90,19 +90,22 @@ Gates: every spend. Deferred.
 | `location-unreferenced` | A location has no `reference:<id>` asset.       | location id    | Fix in `reference.tsx` |
 | `unused-location`       | No setup a shot points at is set in a location. | location id    | —                      |
 
-### setups (7)
+### setups (10)
 
 Gates: every spend. Deferred.
 
-| Code               | Flags                                                                                                               | Waiver subject         | Notes                 |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------- | ---------------------- | --------------------- |
-| `setup-unrealized` | A setup two or more generated shots share has no plate.                                                             | setup id               | Fix in `animatic.tsx` |
-| `plate-unanchored` | A plate is built from no location reference.                                                                        | setup id               | Fix in `animatic.tsx` |
-| `plate-unnested`   | A plate is neither a cut from, nor a window inside, the plate of the setup it is `within`.                          | setup id               | Fix in `animatic.tsx` |
-| `axis-unrealized`  | Two sizes cut along one `within` axis lack the plates that nest them.                                               | setup pair (`<a>.<b>`) | Fix in `animatic.tsx` |
-| `setup-unconsumed` | A developed shot builds no keyframe from its setup's plate, or from the location reference where there is no plate. | setup id               | Fix in `animatic.tsx` |
-| `unused-setup`     | No shot points at a setup.                                                                                          | setup id               | —                     |
-| `setup-atomized`   | A location holds many shots but almost none share a frame.                                                          | location id            | —                     |
+| Code               | Flags                                                                                                                   | Waiver subject         | Notes                  |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------- |
+| `setup-unrealized` | A setup two or more generated shots share has no plate.                                                                 | setup id               | Fix in `animatic.tsx`  |
+| `plate-unanchored` | A plate is built from no location reference.                                                                            | setup id               | Fix in `animatic.tsx`  |
+| `plate-unnested`   | A plate is neither a cut from, nor a window inside, the plate of the setup it is `within`.                              | setup id               | Fix in `animatic.tsx`  |
+| `axis-unrealized`  | Two sizes cut along one `within` axis lack the plates that nest them.                                                   | setup pair (`<a>.<b>`) | Fix in `animatic.tsx`  |
+| `setup-unconsumed` | A developed shot builds no keyframe from its setup's plate, or from the location reference where there is no plate.     | setup id               | Fix in `animatic.tsx`  |
+| `unused-setup`     | No shot points at a setup.                                                                                              | setup id               | —                      |
+| `setup-atomized`   | A location holds many shots but almost none share a frame.                                                              | location id            | —                      |
+| `view-unrealized`  | A used setup faces a view of its location that has no view image.                                                       | `<locationId>.<view>`  | Fix in `reference.tsx` |
+| `plate-unviewed`   | A plate, or a keyframe on a setup with no plate, reaches its location through another view's image, not its own view's. | setup id               | Fix in `animatic.tsx`  |
+| `view-unanchored`  | A view image is built from no location master.                                                                          | `<locationId>.<view>`  | Fix in `reference.tsx` |
 
 ### staging (20)
 

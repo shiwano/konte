@@ -4806,6 +4806,13 @@ body.fill-mode .fab-submit-wrap {
   font-size: 0.68rem;
 }
 
+/* The way the camera faces, beside the size chip. */
+.dir-view {
+  margin-left: 6px;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+}
+
 /* The location chip: a place badge read down the space column so a run of the same location on
    adjacent rows reads as one continuous set and a change reads as a scene cut. Tinted with the
    accent (unlike the neutral framing chip) so the two cadences — size and space — do not blur into

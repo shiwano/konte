@@ -247,8 +247,8 @@ describe("inspect --prompts", () => {
         "the creator crosses the mark",
       )
       .replace(
-        'framing: "wide",\n      holds: ["studioMark"],',
-        'framing: "insert",\n      holds: [],',
+        'framing: "wide",\n      view: "front",\n      holds: ["studioMark"],',
+        'framing: "insert",\n      view: "front",\n      holds: [],',
       );
     await fs.writeFile(file, source);
     const { stdout } = await run(["inspect", "video:shot.01.motion", "--prompts"], projectDir);
@@ -279,8 +279,10 @@ describe("inspect --prompts", () => {
     const file = path.join(projectDir, "direction.ts");
     const staged = (await fs.readFile(file, "utf8")).replace(
       `      framing: "wide",
+      view: "front",
       holds: ["studioMark"],`,
       `      framing: "insert",
+      view: "front",
       holds: [],`,
     );
     await fs.writeFile(file, staged);
@@ -907,12 +909,12 @@ describe("inspect command (why-stale)", () => {
 import { internalTestPlate } from "konte";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
   const latent = asset("latent", internalTestPlate, { width: 64, height: 64, color: "#ffffff" });
   return { character, bgm, latent };
-});
+} });
 `,
     );
     const latentAddr = "reference:latent";

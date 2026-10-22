@@ -65,7 +65,10 @@ export interface TimelineContext {
 // Its canvas is per asset rather than one for the stage: the shape is the roster's
 // (`deriveReferenceSize`). `format` therefore takes the name being registered, which `asset()`
 // publishes in `activeAssetName` for the length of one `createDefinition` call.
+//
+// `views` runs under one of its own (`site: "view"`).
 export interface ReferenceContext {
+  site: "reference" | "view";
   assets: Map<string, AssetDefinition>;
   format: (assetName?: string) => BuildFormat;
   activeAssetName?: string;
@@ -390,8 +393,9 @@ export function runInPlateDiscoveryMode<T>(
 export function runInReferenceDiscoveryMode<T>(
   fn: () => T,
   format: (assetName?: string) => BuildFormat,
+  site: ReferenceContext["site"] = "reference",
 ): TimelineDiscoveryResult {
-  const ctx: ReferenceContext = { assets: new Map(), format };
+  const ctx: ReferenceContext = { site, assets: new Map(), format };
   const prev = currentReferenceContext;
   currentReferenceContext = ctx;
   try {

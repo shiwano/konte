@@ -18,9 +18,11 @@ const imageComfy = defineComfyAsset({
 // address and yields null.
 describe("reference panel def-hash selection", () => {
   it("the reference definition yields a hash where the animatic definition yields null", () => {
-    const reference = defineReference(plainDirection, () => ({
-      bg: asset("bg", imageComfy, { prompt: "background" }),
-    }));
+    const reference = defineReference(plainDirection, {
+      references: () => ({
+        bg: asset("bg", imageComfy, { prompt: "background" }),
+      }),
+    });
     const animatic = defineAnimatic(
       testDirection({
         fps: 24,

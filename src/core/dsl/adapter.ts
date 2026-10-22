@@ -38,10 +38,10 @@ import { shiftSongSpan, songSpanOfInputs, withSongSpan } from "./song-window.js"
 export type AdapterBackendKind = "comfy" | "fal" | "local" | "file";
 
 /**
- * The five places `asset()` can be called from. A stage build reaches exactly one — a shot build
- * clears the timeline context.
+ * The six places `asset()` can be called from. A stage build reaches exactly one — a shot build
+ * clears the timeline context. `view` is `defineReference`'s `views`.
  */
-export type AssetDeclarationSite = "patch" | "plate" | "reference" | "timeline" | "shot";
+export type AssetDeclarationSite = "patch" | "plate" | "reference" | "view" | "timeline" | "shot";
 
 export interface AdapterMetaInput {
   type: string;
@@ -334,7 +334,8 @@ export function asset<TName extends string, TAdapter extends AssetAdapter<any, a
 function declarationSite(): AssetDeclarationSite | undefined {
   if (getPatchContext()) return "patch";
   if (getPlatePoolContext()) return "plate";
-  if (getReferenceContext()) return "reference";
+  const referenceCtx = getReferenceContext();
+  if (referenceCtx) return referenceCtx.site;
   if (getTimelineContext()) return "timeline";
   if (getShotContext()) return "shot";
   return undefined;
@@ -346,7 +347,9 @@ function assetLocation(): string {
   const patchCtx = getPatchContext();
   if (patchCtx) return `patch "${patchCtx.sourceVariantId}"`;
   if (getPlatePoolContext()) return "the animatic's plates";
-  if (getReferenceContext()) return "the reference stage";
+  const referenceCtx = getReferenceContext();
+  if (referenceCtx)
+    return referenceCtx.site === "view" ? "the reference views" : "the reference stage";
   const timelineCtx = getTimelineContext();
   if (timelineCtx) return `the ${timelineCtx.stage} timeline`;
   const shotCtx = getShotContext();
@@ -411,7 +414,8 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
   // adapter builds, under the same site precedence the branches below register by. Restored rather
   // than cleared: an adapter may declare assets of its own while building — a `jsxImage` whose
   // `build` calls `asset()` — and the outer name has to survive that.
-  const referenceCtx = declarationSite() === "reference" ? getReferenceContext() : null;
+  const site = declarationSite();
+  const referenceCtx = site === "reference" || site === "view" ? getReferenceContext() : null;
   const outerAssetName = referenceCtx?.activeAssetName;
   if (referenceCtx) referenceCtx.activeAssetName = name;
   try {

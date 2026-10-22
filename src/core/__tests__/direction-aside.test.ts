@@ -31,6 +31,7 @@ const setups: Record<string, Setup> = {
     description: "head on",
     location: "here",
     framing: "medium",
+    view: "front",
     holds: ["hereMark"],
   },
 };

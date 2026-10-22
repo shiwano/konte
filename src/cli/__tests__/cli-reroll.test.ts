@@ -40,7 +40,7 @@ import direction from "./direction";
 // @ts-expect-error konte's own fixture adapter — deliberately outside the workspace type surface
 import { internalTestImage } from "konte";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
   const latentA = asset("latentA", internalTestImage, { width: 64, height: 64 });
@@ -48,7 +48,7 @@ export default defineReference(direction, () => {
   const keyed = asset("keyed", internalTestImage, { image: latentA, width: 32, height: 32 });
   const derived = asset("derived", adapters.imageResize, { image: latentA, width: 16, height: 16 });
   return { character, bgm, latentA, latentB, keyed, derived };
-});
+} });
 `;
 
   async function initRerollProject(): Promise<string> {
@@ -83,13 +83,13 @@ const plateAdapter = defineComfyAsset({
   outputs: { result: { nodeId: "9", type: "image" } },
 });
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
   const latent = asset("latent", internalTestPlate, { width: 64, height: 64, color: "#ffffff" });
   const plate = asset("plate", plateAdapter, {});
   return { character, bgm, latent, plate };
-});
+} });
 `;
 
   async function initComfyRerollProject(name: string, comfyui: unknown): Promise<string> {
@@ -437,7 +437,7 @@ export default defineDirection({
   characters: {},
   locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
   setups: {
-    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
+    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
   waivers: {

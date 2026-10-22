@@ -20,7 +20,7 @@ export default defineDirection({
   characters: { konte: { name: "Konte", promptDepiction: "girl", description: "the singer" } },
   locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
   setups: {
-    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
+    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
   policy: {
     format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
@@ -43,9 +43,9 @@ const music = defineComfyAsset({
   outputs: { result: { nodeId: "9", type: "audio" } },
 });
 
-export default defineReference(direction, () => ({
+export default defineReference(direction, { references: () => ({
   song: asset("song", music, { lyrics: "Hit the light\\nWatch me move" }),
-}));
+}) });
 `;
 
 async function project(): Promise<{ videoRoot: string; variantId: string }> {

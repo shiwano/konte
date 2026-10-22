@@ -348,6 +348,7 @@ describe("defineDirection", () => {
           description: "straight on, eye level",
           location: "studio",
           framing: "medium",
+          view: "front",
           // @ts-expect-error "sofa" is not a landmark of "studio"
           holds: ["desk", "sofa"],
         },
@@ -385,6 +386,7 @@ describe("defineDirection", () => {
           description: "the page filling the frame",
           location: "studio",
           framing: "insert",
+          view: "front",
           // @ts-expect-error "sofa" is not a landmark of "studio"
           holds: ["sofa"],
         },
@@ -408,6 +410,7 @@ describe("defineDirection", () => {
           description: "straight on, eye level",
           location: "studio",
           framing: "medium",
+          view: "front",
           // @ts-expect-error a frame that is not an insert carries something of its place
           holds: [],
         },
@@ -434,6 +437,7 @@ describe("defineDirection", () => {
           description: "straight on, eye level",
           location: "studio",
           framing: chooseFraming(),
+          view: "front",
           holds: [],
         },
       },
@@ -450,6 +454,7 @@ describe("defineDirection", () => {
       description: "from behind",
       location: "studio",
       framing: "wide",
+      view: "front",
       holds: ["desk"],
     },
   } as const;
@@ -661,6 +666,7 @@ describe("defineDirection", () => {
           description: "the length of it",
           location: "hall",
           framing: "wide",
+          view: "front",
           holds: ["door"],
         },
         front: {
@@ -686,6 +692,7 @@ describe("defineDirection", () => {
           description: "from the side",
           location: "studio",
           framing: "medium",
+          view: "front",
           holds: ["desk"],
           within: null,
         },
@@ -713,6 +720,7 @@ describe("defineDirection", () => {
           description: "the whole room",
           location: "studio",
           framing: "wide",
+          view: "front",
           holds: ["desk"],
         },
         front: {
@@ -740,6 +748,7 @@ describe("defineDirection", () => {
           description: "the whole room",
           location: "studio",
           framing: "wide",
+          view: "front",
           holds: ["desk"],
           within: null,
         },
@@ -798,6 +807,7 @@ describe("defineDirection", () => {
           description: "filling the frame",
           location: "studio",
           framing: "insert",
+          view: "front",
           holds: [],
         },
       },
@@ -840,6 +850,7 @@ describe("defineDirection", () => {
           description: "the whole room",
           location: "studio",
           framing: "wide",
+          view: "front",
           holds: ["studioMark"],
         },
       },

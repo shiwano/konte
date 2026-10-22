@@ -10,6 +10,7 @@ import {
   collectTransitiveDependents,
   listBoardlessVideoShots,
   listSetupAnchorGaps,
+  listViewAnchorGaps,
   listSetupNestGaps,
   listUnusedAssetPaths,
   videoDependentsHoldVerdicts,
@@ -501,9 +502,11 @@ describe("buildDependencyGraph", () => {
   });
 
   it("reference file asset has no dependencies (leaf node)", () => {
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        return { bg };
+      },
     });
     const video = defineVideo(
       testDirection({
@@ -521,9 +524,11 @@ describe("buildDependencyGraph", () => {
   });
 
   it("other assets can depend on a reference file via MediaAsset", () => {
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        return { bg };
+      },
     });
     const video = defineVideo(
       testDirection({
@@ -1733,6 +1738,70 @@ describe("listSetupAnchorGaps", () => {
       listSetupAnchorGaps(board1(fixed({ image: STUDIO })), oneShot, inStudio).unanchoredPlates,
     ).toEqual([]);
   });
+
+  describe("views", () => {
+    const TOP = "__konte:reference:view.studio.top__";
+    const plated = (
+      plate: AssetDefinition,
+      panelInput: string = "__konte:animatic:plate.front__",
+    ) =>
+      board(
+        [
+          {
+            id: "01",
+            duration: 5,
+            action: "shot",
+            assets: { first: comfy({ image: panelInput }) },
+            panels: [panel("animatic:shot.01.first")],
+          },
+        ] as unknown as AnimaticDefinition["shots"],
+        { plates: { front: plate } },
+      );
+
+    it("reads a view image of the location as the location", () => {
+      const gaps = listSetupAnchorGaps(plated(comfy({ image: TOP })), oneShot, inStudio);
+      expect(gaps.unanchoredPlates).toEqual([]);
+    });
+
+    it("holds a plate to its own view's image", () => {
+      const facingTop = new Map([["front", "top" as const]]);
+      expect(
+        listSetupAnchorGaps(plated(comfy({ image: STUDIO })), oneShot, inStudio, facingTop)
+          .unviewedPlates,
+      ).toEqual(["front"]);
+      expect(
+        listSetupAnchorGaps(plated(comfy({ image: TOP })), oneShot, inStudio, facingTop)
+          .unviewedPlates,
+      ).toEqual([]);
+    });
+
+    it("holds a front plate to the master itself", () => {
+      const facingFront = new Map([["front", "front" as const]]);
+      expect(
+        listSetupAnchorGaps(plated(comfy({ image: TOP })), oneShot, inStudio, facingFront)
+          .unviewedPlates,
+      ).toEqual(["front"]);
+    });
+
+    it("holds a plate-less setup's keyframes to its view's image", () => {
+      const gaps = listSetupAnchorGaps(
+        board([
+          {
+            id: "01",
+            duration: 5,
+            action: "shot",
+            assets: { first: comfy({ image: STUDIO }) },
+            panels: [panel("animatic:shot.01.first")],
+          },
+        ] as unknown as AnimaticDefinition["shots"]),
+        oneShot,
+        inStudio,
+        new Map([["front", "top" as const]]),
+      );
+      expect(gaps.unanchoredShots.size).toBe(0);
+      expect(gaps.unviewedShots.get("front")).toEqual(["01"]);
+    });
+  });
 });
 
 // The containment walk behind `plate-unnested`. The finding itself is `checkSetups`' business
@@ -1980,5 +2049,41 @@ describe("videoDependentsHoldVerdicts", () => {
 
   it("does not hold when no video take is reached", () => {
     expect(videoDependentsHoldVerdicts(graph, "video:shot.01.motion", verdicts({}))).toBe(false);
+  });
+});
+
+describe("listViewAnchorGaps", () => {
+  const comfy = (inputs: Record<string, unknown>): AssetDefinition =>
+    ({ kind: "comfy", workflow: "a.json", inputs }) as unknown as AssetDefinition;
+
+  it("names a view image built from no master of its location", () => {
+    expect(
+      listViewAnchorGaps({
+        topLevelAssets: {
+          room: comfy({}),
+          other: comfy({}),
+          "view.room.top": comfy({ image: "__konte:reference:other__" }),
+          "view.room.back": comfy({}),
+        },
+      }),
+    ).toEqual(["room.top", "room.back"]);
+  });
+
+  it("follows the chain to the master and passes a file handed over whole", () => {
+    expect(
+      listViewAnchorGaps({
+        topLevelAssets: {
+          room: comfy({}),
+          step: comfy({ image: "__konte:reference:room__" }),
+          "view.room.top": comfy({ image: "__konte:reference:step__" }),
+          "view.room.back": {
+            kind: "file",
+            path: "assets/files/back.png",
+            type: "image",
+            deterministic: true,
+          } as unknown as AssetDefinition,
+        },
+      }),
+    ).toEqual([]);
   });
 });

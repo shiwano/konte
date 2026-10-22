@@ -403,9 +403,11 @@ describe("defineComfyAsset()", () => {
 
 describe("file adapters with type field", () => {
   it("imageFile sets type to image", () => {
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", imageFile, { path: "assets/files/bg.png" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", imageFile, { path: "assets/files/bg.png" });
+        return { bg };
+      },
     });
     const p = reference.topLevelAssets!.bg as Record<string, unknown>;
     expect(p.kind).toBe("file");
@@ -413,9 +415,11 @@ describe("file adapters with type field", () => {
   });
 
   it("videoFile sets type to video", () => {
-    const reference = defineReference(plainDirection, () => {
-      const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
-      return { bg };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const bg = asset("bg", videoFile, { path: "assets/files/bg.mp4" });
+        return { bg };
+      },
     });
     const p = reference.topLevelAssets!.bg as Record<string, unknown>;
     expect(p.kind).toBe("file");
@@ -640,9 +644,11 @@ describe("audioTrim adapter", () => {
       }),
       {
         timeline: () => {
-          const reference = defineReference(plainDirection, () => {
-            const bgmRaw = asset("bgmRaw", videoFile, { path: "assets/files/bgm.wav" });
-            return { bgmRaw };
+          const reference = defineReference(plainDirection, {
+            references: () => {
+              const bgmRaw = asset("bgmRaw", videoFile, { path: "assets/files/bgm.wav" });
+              return { bgmRaw };
+            },
           });
           asset("bgm", audioTrim, { source: reference.bgmRaw as any, start: 10, duration: 5 });
           return videoTimeline([]);
@@ -1607,9 +1613,11 @@ describe("allowedIn", () => {
   });
 
   it("declares in the reference stage", () => {
-    const reference = defineReference(plainDirection, () => {
-      const sheet = asset("sheet", editAdapter, { image1: makeMediaAsset<"image">("raw.png") });
-      return { sheet };
+    const reference = defineReference(plainDirection, {
+      references: () => {
+        const sheet = asset("sheet", editAdapter, { image1: makeMediaAsset<"image">("raw.png") });
+        return { sheet };
+      },
     });
     expect(Object.keys(reference.topLevelAssets!)).toEqual(["sheet"]);
   });

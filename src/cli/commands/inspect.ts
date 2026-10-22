@@ -1,4 +1,4 @@
-import { type Direction, deriveShotHinges } from "../../core/dsl/direction.js";
+import { type Direction, type View, deriveShotHinges } from "../../core/dsl/direction.js";
 import type { Command } from "commander";
 import {
   isOverlayAddress,
@@ -32,7 +32,13 @@ import {
   formatDefinitionValue,
   readDefinitionSnapshot,
 } from "../../core/definition-snapshot.js";
-import { collectShots, continuousFrameKeys, panelRole, setupHolds } from "../../core/direction.js";
+import {
+  collectShots,
+  continuousFrameKeys,
+  panelRole,
+  setupHolds,
+  setupView,
+} from "../../core/direction.js";
 import { isAsideShot, isGraphicShot, resolveDirectionTimeline } from "../../core/dsl/direction.js";
 import { formatShotSpan } from "../../core/format-duration.js";
 import { directionShotCascadeTargets } from "../../core/direction-acceptance.js";
@@ -439,6 +445,7 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
   if (plateFrame !== null) {
     console.log(`Within: ${plateFrame.within ?? "root"}`);
     console.log(`Framing: ${plateFrame.framing}`);
+    if (plateFrame.view) console.log(`View: ${plateFrame.view}`);
     if (plateFrame.set.length > 0) {
       console.log(`Set: ${plateFrame.set.map((l) => l.label).join(" | ")}`);
     }
@@ -1078,6 +1085,7 @@ async function inspectPrompts(
     if (plate.frame) {
       console.log(`  within: ${plate.frame.within ?? "root"}`);
       console.log(`  framing: ${plate.frame.framing}`);
+      if (plate.frame.view) console.log(`  view: ${plate.frame.view}`);
       if (plate.frame.set.length > 0) {
         console.log(`  set: ${plate.frame.set.map((l) => l.label).join(" | ")}`);
       }
@@ -1202,6 +1210,7 @@ function holdsLabels(
 type PlateFrame = {
   within: string | null;
   framing: string;
+  view: View | undefined;
   set: { id: string; label: string }[];
 };
 
@@ -1209,7 +1218,12 @@ function plateFrameOf(direction: Direction, setupId: string): PlateFrame | null 
   const setup = direction.setups?.[setupId];
   const set = holdsLabels(direction, setupId);
   if (!setup || !set) return null;
-  return { within: setup.within ?? null, framing: setup.framing, set };
+  return {
+    within: setup.within ?? null,
+    framing: setup.framing,
+    view: setupView(direction.setups ?? {}, setupId),
+    set,
+  };
 }
 
 // Null for any address that is not a returned plate.

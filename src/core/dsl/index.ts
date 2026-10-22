@@ -69,6 +69,7 @@ export {
   defineReference,
   type DefineReferenceOptions,
   type ReferenceRef,
+  type ReferenceViews,
 } from "./reference-builders.js";
 export { definePatch, type PatchBuild, type PatchContext, type PatchDefinition } from "./patch.js";
 export type { PromptFinding, PromptFindingCode, PromptOccurrence } from "../prompt-check.js";
@@ -145,6 +146,7 @@ export {
   type DefineAnimaticOptions,
   type SetupIdOf,
   type AnimaticPlates,
+  type AnimaticViews,
   type ShotClockContext,
   type StageChain,
   type StageTerminal,
@@ -175,6 +177,7 @@ export {
   type Landmark,
   type Setup,
   type Framing,
+  type View,
   type DirectionBrief,
   type BriefReference,
   type CanvasSize,

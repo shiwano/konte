@@ -262,9 +262,9 @@ describe("gateDirectionForStage voice scope", () => {
         },
         locations: { here: { name: "H", description: "h", landmarks: { hereMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
         setups: {
-          near: { name: "near", description: "in close", location: "here", framing: "close", holds: ["hereMark"], within: null },
-          wide: { name: "wide", description: "the room", location: "here", framing: "medium", holds: ["hereMark"] },
-          thing: { name: "the thing", description: "filling the frame", location: "here", framing: "insert", holds: [] },
+          near: { name: "near", description: "in close", location: "here", framing: "close", view: "front", holds: ["hereMark"], within: null },
+          wide: { name: "wide", description: "the room", location: "here", framing: "medium", view: "front", holds: ["hereMark"] },
+          thing: { name: "the thing", description: "filling the frame", location: "here", framing: "insert", view: "front", holds: [] },
         },
         policy: { format: { fps: 24, size: { megapixels: 0.001024, delivery: { width: 32, height: 32 } } }, lang: "en", speech: "free" },
         sequence: {

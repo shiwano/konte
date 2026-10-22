@@ -34,7 +34,7 @@ import { internalTestPlate } from "konte";
 import { videoMinimaxH3R2v } from "konte/workspace/adapters/comfy/video_minimax_h3_r2v.js";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
   const studio = asset("studio", internalTestPlate, { width: 512, height: 512, color: "#f3eefb" });
@@ -48,7 +48,7 @@ export default defineReference(direction, () => {
     prompt: ${JSON.stringify(prompt)},
   });
   return { character, bgm, studio, bare, synced };
-});
+} });
 `;
 
 // A clip and its own soundtrack. `video1` carries no track, so the first `<Audio N>` is `video2`'s.
@@ -56,7 +56,7 @@ const CLIP_TSX = (slots: string) => `import { defineReference, asset, adapters }
 import { videoMinimaxH3R2v } from "konte/workspace/adapters/comfy/video_minimax_h3_r2v.js";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
   const clip = asset("clip", adapters.videoFile, { path: "assets/files/clip.mp4" });
@@ -70,7 +70,7 @@ export default defineReference(direction, () => {
     )},
   });
   return { character, bgm, clip, gapped };
-});
+} });
 `;
 
 async function inspectDefinition(videoRoot: string, name: string): Promise<ComfyAssetDefinition> {

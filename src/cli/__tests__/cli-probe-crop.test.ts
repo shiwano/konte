@@ -13,7 +13,7 @@ const REFERENCE_TS = `import { defineReference, asset, adapters } from "konte";
 import { internalTestPlate } from "konte";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const studio = asset("studio", internalTestPlate, { width: 64, height: 64, color: "#eee" });
   const desk = asset("desk", adapters.imageCrop, {
     image: studio,
@@ -25,7 +25,7 @@ export default defineReference(direction, () => {
     outHeight: 16,
   });
   return { studio, desk };
-});
+} });
 `;
 
 const ANIMATIC_TSX = `import { defineAnimatic } from "konte";
@@ -41,7 +41,7 @@ const direction = defineDirection({
   characters: {},
   locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
   setups: {
-    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
+    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
   policy: {
     format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },

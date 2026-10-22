@@ -24,6 +24,7 @@ import type {
   Direction,
   DirectionNode,
   Framing,
+  View,
   Landmark,
   Pleasure,
   Shot,
@@ -104,6 +105,8 @@ export type DirectionPartContent =
       // The setup id this frame steps in from; `null` where the author declared this frame
       // a root, absent where they declared neither.
       within?: string | null;
+      // The way the camera faces; absent on a window, which faces its parent's way.
+      view?: View;
     }
   // A cast voice. `characterId`/`name` are the character it belongs to, both null for the narrator —
   // who is cast piece-wide and has no roster entry. `assetId` is the `reference:<id>` holding the
@@ -410,6 +413,7 @@ export function directionPartContents(direction: Direction): Map<string, Directi
       framing: s.framing,
       holds: [...(s.holds ?? [])],
       ...(s.within !== undefined ? { within: s.within } : {}),
+      ...(s.view ? { view: s.view } : {}),
     });
   }
 

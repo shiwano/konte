@@ -1,11 +1,11 @@
 import { adapters, asset, defineReference, seed } from "konte";
+import { imageMinimaxH3R2i } from "konte/workspace/adapters/comfy/image_minimax_h3_r2i.js";
 import { imageQwenImageEdit21 } from "konte/workspace/adapters/comfy/image_qwen_image_edit_2_1.js";
 import { falNanoBanana2, falNanoBanana2Edit } from "konte/workspace/adapters/fal/nano-banana-2.js";
 import direction from "./direction";
 
-export default defineReference(
-  direction,
-  () => {
+export default defineReference(direction, {
+  references: () => {
     const photo = asset("photo", adapters.imageFile, { path: "assets/files/photo.png" });
     const tone = asset("tone", adapters.audioFile, { path: "assets/files/tone.mp3" });
     const clip = asset("clip", adapters.videoFile, { path: "assets/files/clip.mp4" });
@@ -62,5 +62,28 @@ export default defineReference(
       narratorVoice,
     };
   },
-  { waivers: {} },
-);
+  views: ({ reference }) => ({
+    kitchen: {
+      top: asset("kitchenTop", imageMinimaxH3R2i, {
+        image1: reference.kitchen,
+        prompt: {
+          subjectDefinitions: ["<Picture 1> is the kitchen."],
+          summary: {
+            tasks: ["reference generation"],
+            text: "The kitchen seen from straight above the stove.",
+          },
+          retentionAnalysis: [
+            "<Picture 1> (appears in [Shot 1]): attribute_transfer - the camera position is new; its palette and light are kept.",
+          ],
+          detailedDescription: {
+            style: "2D-animated.",
+            shots: [
+              "From above the stove, looking straight down: the hob fills the lower two thirds of the frame, the wooden counter the top third.",
+            ],
+          },
+        },
+      }),
+    },
+  }),
+  waivers: {},
+});

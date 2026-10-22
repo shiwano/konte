@@ -10,8 +10,10 @@ import {
 import { assertNever } from "../core/assert.js";
 import {
   assertDirectionGate,
+  assertViewsAnchored,
   collectFramedCharacterIds,
   collectShotFrames,
+  setupView,
   type SongTakeState,
   type SpendCommand,
   type StagingStageState,
@@ -35,6 +37,7 @@ import {
   listPlateRecrops,
   listPlateTexts,
   listSetupAnchorGaps,
+  listViewAnchorGaps,
   listSetupNestGaps,
   listShotContinuity,
   listShownReferences,
@@ -73,15 +76,27 @@ export function loadDirectionIfPresent(videoRoot: string): Promise<Direction | n
 
 // The spend-command gate: load direction.ts and abort (DIRECTION_CHECK_FAILED) when the running
 // command's scope has an unresolved structural problem. `realizedIds` is the stage's realized shot
-// order (undefined skips the stage/completeness checks). The reference stage carries no direction,
-// so it is never gated. A missing direction.ts is itself a hard failure for animatic/video.
+// order (undefined skips the stage/completeness checks). The reference stage answers only to
+// `view-unanchored`, for the view images it generates. A missing direction.ts is itself a hard
+// failure for animatic/video.
 export async function gateDirectionForStage(opts: {
   videoRoot: string;
   command: SpendCommand;
   stage: Stage;
   realizedIds?: readonly string[];
 }): Promise<void> {
-  if (opts.stage === "reference") return;
+  if (opts.stage === "reference") {
+    const direction = await loadDirectionIfPresent(opts.videoRoot);
+    const reference = direction ? await loadReference(opts.videoRoot).catch(() => null) : null;
+    if (direction && reference) {
+      assertViewsAnchored(
+        direction,
+        listViewAnchorGaps(reference),
+        reference.exposedAssetNames ?? [],
+      );
+    }
+    return;
+  }
   const direction = await loadDirectionIfPresent(opts.videoRoot);
   if (!direction) {
     throw new KonteError(
@@ -100,7 +115,7 @@ export async function gateDirectionForStage(opts: {
     stage: opts.stage,
     realizedIds: opts.realizedIds,
     referenceAssetNames: reference?.exposedAssetNames ?? [],
-    animaticSetups: await loadAnimaticSetupState(opts.videoRoot, direction),
+    animaticSetups: await loadAnimaticSetupState(opts.videoRoot, direction, reference),
     stagingStage: await loadStagingStageState(opts.videoRoot, direction),
     songTake: manager ? songTakeState(manager, direction) : undefined,
     directionAccepted: isDirectionSpendGateSatisfied(direction, acceptance ?? null),
@@ -547,13 +562,24 @@ export function assertAnimaticConsumed(opts: {
 export async function loadAnimaticSetupState(
   videoRoot: string,
   direction: Direction,
+  reference: ReferenceDefinition | null,
 ): Promise<AnimaticSetupState | undefined> {
   const animatic = await loadAnimatic(videoRoot).catch(() => null);
   if (!animatic) return undefined;
-  const locationBySetup = new Map(
-    Object.entries(direction.setups ?? {}).map(([id, s]) => [id, s.location]),
+  const setups = direction.setups ?? {};
+  const locationBySetup = new Map(Object.entries(setups).map(([id, s]) => [id, s.location]));
+  const viewBySetup = new Map(
+    Object.keys(setups).flatMap((id) => {
+      const view = setupView(setups, id);
+      return view ? [[id, view] as const] : [];
+    }),
   );
-  const gaps = listSetupAnchorGaps(animatic, collectShotFrames(direction), locationBySetup);
+  const gaps = listSetupAnchorGaps(
+    animatic,
+    collectShotFrames(direction),
+    locationBySetup,
+    viewBySetup,
+  );
   // Only the declared windows: a root (`within: null`) and an undeclared one are cut from whatever
   // they like.
   const withinBySetup = new Map(
@@ -567,6 +593,9 @@ export async function loadAnimaticSetupState(
     unnestedPlateIds: listSetupNestGaps(animatic, withinBySetup),
     unconsumedBy: gaps.unanchoredShots,
     deterministicShotsPerSetup: gaps.deterministicShots,
+    unviewedPlateIds: gaps.unviewedPlates,
+    unviewedBy: gaps.unviewedShots,
+    unanchoredViews: reference ? listViewAnchorGaps(reference) : [],
   };
 }
 

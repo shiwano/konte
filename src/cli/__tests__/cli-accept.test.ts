@@ -558,7 +558,7 @@ import direction from "./direction";
 // @ts-expect-error konte's own fixture adapter — deliberately outside the workspace type surface
 import { internalTestImage, internalTestPlate } from "konte";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
   const source = asset("source", internalTestPlate, { width: 64, height: 64, color: "#ff0000" });
@@ -569,7 +569,7 @@ export default defineReference(direction, () => {
     build: () => <h1>title</h1>,
   });
   return { character, bgm, source, derived, card };
-});
+} });
 `;
 
   async function initProject(): Promise<{
@@ -1009,7 +1009,7 @@ export default defineDirection({
   characters: {},
   locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
   setups: {
-    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
+    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
   waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
@@ -1256,7 +1256,7 @@ export default defineDirection({
   characters: {},
   locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
   setups: {
-    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
+    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
   sequence: { lens: "mini-drama", pleasure: "cute", shots: [] },

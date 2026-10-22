@@ -23,13 +23,13 @@ describe("probe reel-audio command", () => {
 import { internalTestPlate } from "konte";
 import direction from "./direction";
 
-export default defineReference(direction, () => {
+export default defineReference(direction, { references: () => {
   const character = asset("character", adapters.imageFile, { path: "assets/files/character.png" });
   const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
   // The fixture direction anchors its shots to the "studio" location, so expose it here.
   const studio = asset("studio", internalTestPlate, { width: 64, height: 64, color: "#eee" });
   return { character, bgm, studio };
-});
+} });
 `;
 
   const AUDIO_VIDEO_TSX = `import { Audio, Composition, defineVideo, soundtrack, defineDirection } from "konte";
@@ -40,8 +40,8 @@ const direction = defineDirection({
   characters: {},
   locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
   setups: {
-    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", holds: ["studioMark"] },
-    detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", holds: ["studioMark"], within: null },
+    front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
+    detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", view: "front", holds: ["studioMark"], within: null },
   },
   policy: {
       format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },

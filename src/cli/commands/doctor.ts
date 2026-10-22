@@ -1132,7 +1132,7 @@ async function checkDirectionHealth(videoRoot: string): Promise<CheckResult[]> {
     staleWaivers,
   } = checkDirection(direction, {
     referenceAssetNames: reference?.exposedAssetNames ?? [],
-    animaticSetups: await loadAnimaticSetupState(videoRoot, direction),
+    animaticSetups: await loadAnimaticSetupState(videoRoot, direction, reference),
     stagingStage: await loadStagingStageState(videoRoot, direction),
     songTake: await loadSongTakeState(videoRoot, direction),
   });

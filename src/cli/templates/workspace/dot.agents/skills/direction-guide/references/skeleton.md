@@ -69,6 +69,7 @@ export default defineDirection({
       description: "From the doorway at eye level, the whole counter.",
       location: "kitchen",
       framing: "wide",
+      view: "front",
       within: null,
       holds: ["counter", "window"],
     },
@@ -77,6 +78,7 @@ export default defineDirection({
       description: "At counter height, the mug filling frame against the edge.",
       location: "kitchen",
       framing: "insert",
+      view: "front",
       holds: [],
     },
     standoffMedium: {
@@ -84,6 +86,7 @@ export default defineDirection({
       description: "Side on, both of them in one frame from the waist up.",
       location: "kitchen",
       framing: "medium",
+      view: "side",
       within: null,
       holds: ["counter"],
     },

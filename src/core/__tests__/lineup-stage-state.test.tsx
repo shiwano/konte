@@ -38,11 +38,13 @@ const keyframe = defineComfyAsset({
 
 const format = { fps: 24, size: { megapixels: 0.3072, delivery: { width: 640, height: 480 } } };
 
-const sheets = defineReference(plainDirection, () => ({
-  ferryDeck: asset("ferryDeck", keyframe, { prompt: "the deck, empty" }),
-  ane: asset("ane", keyframe, { prompt: "the elder sister" }),
-  imouto: asset("imouto", keyframe, { prompt: "the younger sister" }),
-}));
+const sheets = defineReference(plainDirection, {
+  references: () => ({
+    ferryDeck: asset("ferryDeck", keyframe, { prompt: "the deck, empty" }),
+    ane: asset("ane", keyframe, { prompt: "the elder sister" }),
+    imouto: asset("imouto", keyframe, { prompt: "the younger sister" }),
+  }),
+});
 
 describe("listPanelReferenceSlots", () => {
   it("reads each keyframe's reference inputs in declaration order, panels in panel order", () => {

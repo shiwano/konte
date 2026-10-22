@@ -188,6 +188,7 @@ describe("commentSubjectAddresses", () => {
           description: "straight on, eye level",
           location: "studio",
           framing: "medium",
+          view: "front",
           holds: ["studioMark"],
         },
       },

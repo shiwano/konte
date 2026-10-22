@@ -29,6 +29,7 @@ const SETUPS: Record<string, Setup> = {
     description: "the whole room from the door",
     location: "room",
     framing: "wide",
+    view: "front",
     holds: ["desk", "window"],
     within: null,
   },
@@ -45,6 +46,7 @@ const SETUPS: Record<string, Setup> = {
     description: "turned round, from the desk to the window",
     location: "room",
     framing: "medium",
+    view: "back",
     holds: ["window"],
     within: null,
   },
@@ -53,6 +55,7 @@ const SETUPS: Record<string, Setup> = {
     description: "the yard from the back step",
     location: "yard",
     framing: "wide",
+    view: "front",
     holds: ["gate"],
   },
 };
