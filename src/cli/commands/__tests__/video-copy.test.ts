@@ -112,7 +112,7 @@ describe("video copy", () => {
         expect(await fs.readFile(path.join(destination, variant!.file!), "utf8")).toBe(
           `${address}:accepted`,
         );
-        expect(await fs.readdir(variantDir(destination, address, id!))).toEqual([
+        expect((await fs.readdir(variantDir(destination, address, id!))).sort()).toEqual([
           "definition.json",
           "output.png",
         ]);
