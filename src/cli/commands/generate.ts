@@ -32,6 +32,7 @@ import {
   formatStaleCause,
 } from "../../core/staleness.js";
 import { StateManager } from "../../core/state/index.js";
+import { type StaleRefreshStep, staleRefreshStep } from "../stale-refresh-step.js";
 import type { AssetDefinition } from "../../core/types/index.js";
 import {
   assertAnimaticConsumed,
@@ -152,10 +153,21 @@ export function registerGenerateCommand(program: Command): void {
             collectTransitiveDependents(graph, address).map((assetPath) => ({ assetPath })),
             def,
           );
+          const variantId = manager.getAcceptedVariant(address);
+          const step = variantId
+            ? staleRefreshStep({
+                manager,
+                address,
+                variantId,
+                patchHashes: manager.patchHashes(),
+                animatic,
+                cache: manager.stalenessCache(),
+              })
+            : ({ kind: "reroll" } as const);
           return {
             address,
             cause,
-            command: `konte reroll ${address}`,
+            ...describeAcceptedStaleStep(step, variantId),
             ...(fork ? { fork } : {}),
           };
         });
@@ -589,10 +601,6 @@ export function registerGenerateCommand(program: Command): void {
         console.log(`\nReading the song: ${songReadings.join(", ")}`);
       }
       const hasWork = summary.started > 0 || summary.waiting > 0 || songReadings.length > 0;
-      const rerollCommand =
-        acceptedStale.length > 0
-          ? `konte reroll ${acceptedStale.map((a) => a.address).join(" ")}`
-          : null;
       const takesNotice = formatUndecidedUpstreamTakesNotice(undecidedUpstreamTakes);
       if (takesNotice) console.warn(`\n${takesNotice}`);
       const staleNotice = formatAcceptedStaleNotice(acceptedStale);
@@ -641,13 +649,7 @@ export function registerGenerateCommand(program: Command): void {
       }
       // The outcome and the one command that answers it share the last line, so a caller piping
       // through `tail -1` keeps both.
-      const next = rerollCommand
-        ? hasWork
-          ? `run \`${rerollCommand}\`, then \`konte job wait\``
-          : `run \`${rerollCommand}\``
-        : hasWork
-          ? "run `konte job wait`"
-          : "nothing to wait on; run `konte status`";
+      const next = hasWork ? "run `konte job wait`" : "nothing to wait on; run `konte status`";
       console.log(
         `\n${summary.started} started, ${summary.waiting} waiting, ${summary.synced} synced, ${summary.failed} failed, ${summary.skipped} skipped${skipBreakdown}${heldCount > 0 ? `, ${heldCount} held` : ""} — ${next}`,
       );
@@ -656,4 +658,40 @@ export function registerGenerateCommand(program: Command): void {
         process.exitCode = 1;
       }
     });
+}
+
+function describeAcceptedStaleStep(
+  step: StaleRefreshStep,
+  variantId: string | null,
+): Pick<AcceptedStaleAsset, "step" | "reroll"> {
+  switch (step.kind) {
+    case "restore":
+      return {
+        step: `the accept stands — restore the definition in ${step.file} to what made it (\`konte inspect ${variantId}\`) to keep it current`,
+        reroll: true,
+      };
+    case "reroll":
+      return { step: null, reroll: true };
+    case "patch-apply":
+      return { step: `konte patch apply ${step.sourceVariantId}`, reroll: false };
+    case "prune":
+      return { step: "konte prune (its patch script is gone)", reroll: false };
+    case "accept":
+      return {
+        step: `konte accept ${step.variantId} (already generated, matches the current definition)`,
+        reroll: false,
+      };
+    case "prerequisite":
+      return {
+        step: `write ${step.missing.join("/")} in ${step.writeIn}, then konte accept ${step.variantId} (already generated, matches the current definition)`,
+        reroll: false,
+      };
+    case "generate":
+      return { step: `konte generate ${step.stage}`, reroll: false };
+    case "review":
+      return { step: `konte preview ${step.stage}`, reroll: false };
+    case "stands":
+    case "none":
+      return { step: "the accept stands", reroll: false };
+  }
 }

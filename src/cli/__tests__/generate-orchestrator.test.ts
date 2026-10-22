@@ -120,16 +120,33 @@ describe("formatAcceptedStaleNotice", () => {
     expect(formatAcceptedStaleNotice([])).toBeNull();
   });
 
-  it("names each address with its cause and the command that replaces it", () => {
+  it("names each address with its cause, its step and the reroll that takes the edit", () => {
     const notice = formatAcceptedStaleNotice([
       {
         address: "video:shot.01.motion",
         cause: "definition-stale",
-        command: "konte reroll video:shot.01.motion",
+        step: "the accept stands",
+        reroll: true,
       },
     ]);
     expect(notice).toContain("video:shot.01.motion: definition-stale");
-    expect(notice).toContain("konte reroll video:shot.01.motion");
+    expect(notice).toContain("  the accept stands");
+    expect(notice).toContain(
+      "for a take of the edited definition: konte reroll video:shot.01.motion",
+    );
+  });
+
+  it("names no reroll when the step settles the take", () => {
+    const notice = formatAcceptedStaleNotice([
+      {
+        address: "video:shot.01.motion",
+        cause: "definition-stale",
+        step: "konte patch apply v-src",
+        reroll: false,
+      },
+    ]);
+    expect(notice).toContain("konte patch apply v-src");
+    expect(notice).not.toContain("reroll");
   });
 
   it("offers the fork beside the reroll for a plate two shots stand on", () => {
@@ -137,7 +154,8 @@ describe("formatAcceptedStaleNotice", () => {
       {
         address: "animatic:plate.deckLow",
         cause: "definition-stale",
-        command: "konte reroll animatic:plate.deckLow",
+        step: null,
+        reroll: true,
         fork: { setupId: "deckLow", shotIds: ["06", "22"] },
       },
     ]);

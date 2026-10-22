@@ -36,7 +36,7 @@ import type { AnimaticDefinition } from "../core/types/index.js";
  * alternative beside it — or the asset is deterministic and a matching take already resolves in
  * place of its accept.
  */
-type StaleRefreshStep =
+export type StaleRefreshStep =
   | { kind: "none" }
   | { kind: "patch-apply"; sourceVariantId: string }
   | { kind: "prune" }

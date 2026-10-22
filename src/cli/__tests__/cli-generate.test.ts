@@ -493,12 +493,12 @@ export default defineReference(direction, { references: () => {
 
   // generate fills holes; a rival to an accepted take is reroll's job. A variant generated under a
   // standing accept would not resolve anyway.
-  it("leaves an accepted asset alone when its definition changed, and points at reroll", async () => {
+  it("leaves an accepted asset alone when its definition changed, and says the accept stands", async () => {
     const projectDir = await withDefinitionStaleVariant(true);
     const { stdout } = await run(["generate", "reference", "--plan"], projectDir);
     const latent = planEntries(stdout).find((e) => e.address === address);
     expect(latent?.action).toBe("skip");
-    expect(latent?.detail).toContain("reroll");
+    expect(latent?.detail).toContain("the accept stands");
   });
 
   // The plan gets the run's own notice, not one `skip (...)` line inside a listing of every asset
@@ -515,16 +515,19 @@ export default defineReference(direction, { references: () => {
     const { stdout, stderr } = await run(["generate", "reference"], projectDir);
     expect(stderr).toContain(address);
     expect(stderr).toContain("definition-stale");
-    expect(stderr).toContain("konte reroll");
+    expect(stderr).toContain("the accept stands — restore the definition in reference.tsx");
+    expect(stderr).toContain(`for a take of the edited definition: konte reroll ${address}`);
     expect(stdout).toContain("1 accepted but stale");
   });
 
-  // An agent reads the last line (`generate … | tail -1`); the notice above it is cut.
-  it("names the reroll on the summary line and in nextSuggestedActions", async () => {
+  // A human accept is the human's pick; the reroll that would draw a rival beside it is spend the
+  // summary line, which an agent follows, must not order.
+  it("leaves the reroll off the summary line", async () => {
     const projectDir = await withDefinitionStaleVariant(true);
     const { stdout } = await run(["generate", "reference"], projectDir);
     const lastLine = stdout.trim().split("\n").at(-1);
-    expect(lastLine).toContain(`konte reroll ${address}`);
+    expect(lastLine).toContain("1 accepted but stale");
+    expect(lastLine).not.toContain("reroll");
   });
 
   // The exception: a deterministic take has no other outcome to pick. Re-running the op IS the

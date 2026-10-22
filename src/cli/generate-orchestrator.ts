@@ -71,7 +71,7 @@ export type LevelResult = {
  * between them is the human's. Generating under a standing accept would spend on a variant
  * resolution never picks (the accepted one wins), so an accepted asset is skipped even when
  * stale. One whose upstream alone moved stands as "accepted"; one whose definition moved is
- * "accepted-stale", named with the reroll that replaces it. A deterministic take is the exception: there is nothing else to pick, so re-running the op IS the
+ * "accepted-stale", and its accept stands too. A deterministic take is the exception: there is nothing else to pick, so re-running the op IS the
  * correction — unless a take matching the current definition is already there.
  *
  * Everything else turns on readiness, both axes of it: pass the asset's current definition
@@ -125,7 +125,7 @@ export function assetSkipReason(
 const SKIP_REASON_TEXT: Record<SkipReason, string> = {
   active: "active job(s) exist",
   accepted: "accepted",
-  "accepted-stale": "accepted but stale — reroll to replace",
+  "accepted-stale": "accepted but stale — the accept stands",
   ready: "already ready",
 };
 
@@ -430,29 +430,34 @@ export function formatUndecidedUpstreamTakesNotice(
 export type AcceptedStaleAsset = {
   address: string;
   cause: string;
-  /** What replaces this take. */
-  command: string;
+  /** The `staleRefreshStep` for the accepted take, when it is not a reroll. */
+  step: string | null;
+  /** Whether a reroll is what takes the edited definition. */
+  reroll: boolean;
   /** Set only for a plate two or more shots stand on. */
   fork?: SetupFork;
 };
 
 // The assets this run skipped because their accepted take is stale — the one skip a user is
 // liable to read as a silent no-op ("I edited the prompt and nothing happened"), so it names
-// each address with its stale cause and the command that settles it. A plate carries a second
-// door: the edit is charged to every shot on that setup. Null when clean.
+// each address with its stale cause and what settles it. A plate carries a second door: the edit
+// is charged to every shot on that setup. Null when clean.
 export function formatAcceptedStaleNotice(assets: readonly AcceptedStaleAsset[]): string | null {
   if (assets.length === 0) return null;
   const lines: string[] = [];
   for (const a of assets) {
     const shared = a.fork ? ` — shared frame for shots ${a.fork.shotIds.join(", ")}` : "";
     lines.push(a.cause ? `${a.address}: ${a.cause}${shared}` : `${a.address}${shared}`);
+    if (a.step) lines.push(`  ${a.step}`);
+    if (!a.reroll) continue;
+    const reroll = `konte reroll ${a.address}`;
     if (a.fork) {
       lines.push(
         "  for one shot: fork the setup — add one to `setups` in direction.ts, point that shot's `setup` at it, declare its plate in `plates` in animatic.tsx",
       );
-      lines.push(`  for all ${a.fork.shotIds.length}: ${a.command}`);
+      lines.push(`  for all ${a.fork.shotIds.length}: ${reroll}`);
     } else {
-      lines.push(`  ${a.command}`);
+      lines.push(`  for a take of the edited definition: ${reroll}`);
     }
   }
   return formatNotice(
