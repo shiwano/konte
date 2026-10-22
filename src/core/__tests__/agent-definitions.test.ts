@@ -52,7 +52,7 @@ describe("generated agent definitions", () => {
   // self-check instead — so there is no per-stage contract to carry. The negative assertion is the
   // point: a stage split creeping back in would leave the critic reading media it must never see.
   it("contracts the direction alone, with the shared frame and output fields", () => {
-    expect(claudeBody).toContain("the **target**, the path to `direction.ts`");
+    expect(claudeBody).toContain("the target, the path to `direction.ts`");
     expect(claudeBody).not.toContain("## Stage contract");
     for (const field of ["target:", "problem:", "evidence:", "smallest-fix:"]) {
       expect(claudeBody).toContain(field);
