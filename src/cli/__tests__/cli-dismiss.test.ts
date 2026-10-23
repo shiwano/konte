@@ -75,10 +75,27 @@ describe("dismiss command", () => {
     await run(["dismiss", newer], projectDir);
 
     const { stdout } = await run(["dismiss", newer, "--off"], projectDir);
-    expect(stdout).toContain(`Undecided: ${address} → ${newer} (now showing ${newer})`);
+    expect(stdout).toContain(
+      `Undecided: ${address} → ${newer} (now showing ${newer}; still undecided: ${older})`,
+    );
 
     const sm = await StateManager.load(projectDir);
     expect(sm.getAssetState(address).variants![newer]!.status).toBe("none");
+  });
+
+  it("names the takes left undecided beside the accept", async () => {
+    const sm = await StateManager.load(projectDir);
+    sm.setAccepted(address, older);
+    const newest = sm.reserveVariantId(address);
+    sm.getAssetState(address).variants![newest]!.file = "/tmp/motion3.mp4";
+    const extra = sm.reserveVariantId(address);
+    sm.getAssetState(address).variants![extra]!.file = "/tmp/motion4.mp4";
+    await sm.save();
+
+    const { stdout } = await run(["dismiss", extra], projectDir);
+    expect(stdout).toContain(
+      `Dismissed: ${address} → ${extra} (now showing ${older}; still undecided: ${newest}, ${newer})`,
+    );
   });
 
   it("refuses --off on a take carrying no dismissal", async () => {

@@ -117,7 +117,10 @@ Examples:
         const showing = new Map(
           items.map(({ address }) => [
             address,
-            manager.selectVariant(address, { includeStale: true }, cache)?.variantId ?? null,
+            {
+              now: manager.selectVariant(address, { includeStale: true }, cache)?.variantId ?? null,
+              undecided: manager.readyUndecidedTakes(address, cache),
+            },
           ]),
         );
         return { showing, staleMarked };
@@ -125,9 +128,11 @@ Examples:
 
       const label = dismissed ? "Dismissed" : "Undecided";
       for (const { address, variantId } of items) {
-        const now = showing.get(address) ?? null;
+        const { now, undecided } = showing.get(address)!;
+        const rivals = undecided.filter((id) => id !== now);
+        const still = rivals.length > 0 ? `; still undecided: ${rivals.join(", ")}` : "";
         const suffix = now
-          ? `(now showing ${now})`
+          ? `(now showing ${now}${still})`
           : "(nothing resolves now — konte generate rebuilds it)";
         console.log(`${label}: ${address} → ${variantId} ${suffix}`);
       }
