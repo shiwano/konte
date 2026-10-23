@@ -14,7 +14,7 @@ import { toolPin } from "./tool-checksums.js";
 import { execFileAsync } from "./exec-file.js";
 
 // Pinned cloudflared release; the version names its tool-cache dir.
-const CLOUDFLARED_VERSION = "2026.8.3";
+const CLOUDFLARED_VERSION = "2026.10.3";
 
 let cloudflaredPath: string | null = null;
 let provisioning: Promise<void> | null = null;

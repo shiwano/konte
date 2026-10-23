@@ -17,16 +17,16 @@ export const TOOL_CHECKSUMS: Readonly<Record<string, string>> = {
     "273abb45f3f9f76c303e35ff39f5bb6c23c163ae65f6244a32b7d4a7f6cf0616",
   "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-08-31-13-27/ffmpeg-n8.1.2-50-g1a748fe2cd-winarm64-gpl-8.1.zip":
     "722be613f4fdb0b114671515c44a747edd86b814d4e367ca11b10df4539e6e74",
-  "https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-darwin-amd64.tgz":
-    "61e1316266a00fd70ce40da011d612badc805367fb65293dd1925f938f704c99",
-  "https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-darwin-arm64.tgz":
-    "40c9144d86df8937c5b43293a1f7d2d2107029aa74725023dd46b1b27154352f",
-  "https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-linux-amd64":
-    "f29324fe934d1e100617484c78deef803c4dc2cd351d645bbde42e96b4fccc5e",
-  "https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-linux-arm64":
-    "4bcfd35521a7cbc545ebfd5d57334a71ee180e2a64874981f374c81472118391",
-  "https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-windows-amd64.exe":
-    "83e726ed18ea78c5ad5213c4c3a3a27051393950d2bc8ed4de69bec12d14eaae",
+  "https://github.com/cloudflare/cloudflared/releases/download/2026.10.3/cloudflared-darwin-amd64.tgz":
+    "81b7b85f2376815c4f59b1aa323887b62e16ce8b67555c2e1577dc23f2a82000",
+  "https://github.com/cloudflare/cloudflared/releases/download/2026.10.3/cloudflared-darwin-arm64.tgz":
+    "1165d14b6f6360a3b8c283d7d1100024d6ec7cd9bc9e32519e96150645f3ec55",
+  "https://github.com/cloudflare/cloudflared/releases/download/2026.10.3/cloudflared-linux-amd64":
+    "053b80b0a23031a038fdbf3c073f59f82b8f1f152aa67971d7383ffafc0dbab0",
+  "https://github.com/cloudflare/cloudflared/releases/download/2026.10.3/cloudflared-linux-arm64":
+    "89297ebfb9e8c99c0dc013a1140601453cf3798d8306c5591651f4a3f5210be8",
+  "https://github.com/cloudflare/cloudflared/releases/download/2026.10.3/cloudflared-windows-amd64.exe":
+    "76b2805253d0d6ffacb092a7acfbee99e7af6917835c0c5410e23f3ef5052da2",
   "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-arm64.gz":
     "8923876afa8db5585022d7860ec7e589af192f441c56793971276d450ed3bbfa",
   "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-darwin-arm64.gz":
