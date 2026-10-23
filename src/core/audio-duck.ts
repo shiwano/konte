@@ -217,6 +217,8 @@ export function duckGainAt(
  * A ramp running off either end of the bed is evaluated AT the end: ffmpeg starts the bed part-way
  * down when a line opens over its first moments.
  *
+ * `window` cuts out the stretch one element of a looped bed plays, re-based to that element's clock.
+ *
  * Null when the bed has neither a duck nor a fade.
  */
 export function bedVolumeLane(opts: {
@@ -226,20 +228,24 @@ export function bedVolumeLane(opts: {
   depth: number;
   fadeIn?: number;
   fadeOut?: number;
+  window?: { from: number; to: number };
 }): BedAutomation | null {
   const { span, volume, steps, depth } = opts;
   const fadeIn = opts.fadeIn && opts.fadeIn > 0 ? Math.min(opts.fadeIn, span) : 0;
   const fadeOut = opts.fadeOut && opts.fadeOut > 0 ? Math.min(opts.fadeOut, span) : 0;
   if (steps.length === 0 && !fadeIn && !fadeOut) return null;
+  const from = opts.window?.from ?? 0;
+  const to = opts.window?.to ?? span;
+  const inside = (t: number): boolean => t > from && t < to;
 
-  const times = new Set<number>([0, span]);
+  const times = new Set<number>([from, to]);
   for (const step of steps) {
     for (const t of [step.a, step.b, step.c, step.d]) {
-      if (t > 0 && t < span) times.add(t);
+      if (inside(t)) times.add(t);
     }
   }
-  if (fadeIn) times.add(fadeIn);
-  if (fadeOut) times.add(span - fadeOut);
+  if (fadeIn && inside(fadeIn)) times.add(fadeIn);
+  if (fadeOut && inside(span - fadeOut)) times.add(span - fadeOut);
 
   // `volume` then the fades, the order `trackFilter` applies them in.
   const fadeAt = (t: number): number =>
@@ -250,7 +256,10 @@ export function bedVolumeLane(opts: {
 
   const points = [...times]
     .sort((x, y) => x - y)
-    .map((t) => ({ t: round(t), v: round(duckGainAt(t, steps, volume, depth) * fadeAt(t)) }));
+    .map((t) => ({
+      t: round(t - from),
+      v: round(duckGainAt(t, steps, volume, depth) * fadeAt(t)),
+    }));
   return { version: 1, lanes: [{ target: "volume", points }] };
 }
 

@@ -65,7 +65,7 @@ import { shotById } from "./shot-index.js";
 import { assertTailwindClasses, type ClassSubject } from "./tailwind-classes.js";
 import { GSAP_SCRIPT_SRCS } from "./gsap-version.js";
 import { TAILWIND_BROWSER_SRC } from "./tailwind-version.js";
-import { resolveSoundtrackSpan } from "./timeline-audio.js";
+import { bedPasses, resolveSoundtrackSpan } from "./timeline-audio.js";
 import { mediaDurationSec } from "./variant-media.js";
 import type { StateManager } from "./state/index.js";
 import type { StageDefinition } from "./types/index.js";
@@ -1385,31 +1385,39 @@ export async function buildFullCompositionHtml(
       const steps = settings
         ? buildDuckEnvelope({ bed: { start, end }, triggers: voiceSpans, settings })
         : [];
-      // The lane carries the duck and the declared fades (see bedVolumeLane).
-      const automation = bedVolumeLane({
+      const passes = bedPasses({
         span,
-        volume,
-        steps,
-        depth: settings?.depth ?? 1,
-        fadeIn: st.options.fadeIn,
-        fadeOut: st.options.fadeOut,
+        mediaStart,
+        sourceSec: level?.durationSec,
+        loop: st.options.loop,
       });
-
-      const attrs = [
-        `data-konte-track="soundtrack"`,
-        `src="${escapeAttr(st.src.src)}"`,
-        `data-start="${start}"`,
-        // data-duration bounds both the clip's contribution to the composition duration and the
-        // preview transport's playback of it; without it the clip counts as infinite and stretches
-        // the timeline. Span = end - start.
-        `data-duration="${span}"`,
-        `data-media-start="${mediaStart}"`,
-        `data-volume="${volume}"`,
-        automation ? `data-automation="${escapeAttr(JSON.stringify(automation))}"` : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
-      els.push(`<audio ${attrs}></audio>`);
+      for (const pass of passes) {
+        // The lane carries the duck and the declared fades (see bedVolumeLane).
+        const automation = bedVolumeLane({
+          span,
+          volume,
+          steps,
+          depth: settings?.depth ?? 1,
+          fadeIn: st.options.fadeIn,
+          fadeOut: st.options.fadeOut,
+          window: { from: pass.at, to: pass.at + pass.duration },
+        });
+        const attrs = [
+          `data-konte-track="soundtrack"`,
+          `src="${escapeAttr(st.src.src)}"`,
+          `data-start="${start + pass.at}"`,
+          // data-duration bounds both the clip's contribution to the composition duration and the
+          // preview transport's playback of it; without it the clip counts as infinite and stretches
+          // the timeline.
+          `data-duration="${pass.duration}"`,
+          `data-media-start="${pass.mediaStart}"`,
+          `data-volume="${volume}"`,
+          automation ? `data-automation="${escapeAttr(JSON.stringify(automation))}"` : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        els.push(`<audio ${attrs}></audio>`);
+      }
     }
     if (els.length > 0) {
       stageFragments.push(

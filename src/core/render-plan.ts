@@ -500,6 +500,7 @@ export interface BedLevel {
   gain: number;
   adjustment: AudioLevelling;
   loudness: AudioLoudness | undefined;
+  durationSec: number | undefined;
 }
 
 /**
@@ -527,9 +528,11 @@ export function computeBedLevels(
       (parsed?.kind === "timeline" ? timelineResolvedVariants[parsed.assetName] : undefined);
     const variantId = overridden ?? manager.resolveReference(address)?.variantId;
     if (!variantId) continue;
-    const loudness = loudnessOf(manager.getState().assets[address]?.variants?.[variantId]?.media);
+    const media = manager.getState().assets[address]?.variants?.[variantId]?.media;
+    const loudness = loudnessOf(media);
     const adjustment = audioLevelling(st.song ? "song" : "bed", loudness);
-    levels[st.id] = { gain: adjustment.gain, adjustment, loudness };
+    const durationSec = media && media.kind !== "image" ? media.durationSec : undefined;
+    levels[st.id] = { gain: adjustment.gain, adjustment, loudness, durationSec };
   }
   return levels;
 }

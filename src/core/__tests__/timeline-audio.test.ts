@@ -6,6 +6,7 @@ vi.mock("../video-probe.js", () => ({
 }));
 
 import {
+  bedPasses,
   buildTimelineTracks,
   type RawShotAudio,
   resolveSoundtrackSpan,
@@ -252,6 +253,30 @@ describe("buildTimelineTracks — timeline soundtracks", () => {
       soundtracks: [bed({ fadeIn: 1, fadeOut: 2 })], // span 0→10, source 5s
     });
     expect(tracks[0]).toMatchObject({ loop: true, fadeIn: 1, fadeOut: 2 });
+  });
+});
+
+describe("bedPasses", () => {
+  it("laps a short source from mediaStart, then from its head, to the span's end", () => {
+    expect(bedPasses({ span: 10, mediaStart: 1, sourceSec: 4, loop: undefined })).toEqual([
+      { at: 0, mediaStart: 1, duration: 3 },
+      { at: 3, mediaStart: 0, duration: 4 },
+      { at: 7, mediaStart: 0, duration: 3 },
+    ]);
+  });
+
+  it("plays the span in one piece when it does not loop or the source length is unknown", () => {
+    const whole = [{ at: 0, mediaStart: 0, duration: 10 }];
+    expect(bedPasses({ span: 10, mediaStart: 0, sourceSec: 20, loop: undefined })).toEqual(whole);
+    expect(bedPasses({ span: 10, mediaStart: 0, sourceSec: 4, loop: false })).toEqual(whole);
+    expect(bedPasses({ span: 10, mediaStart: 0, sourceSec: undefined, loop: true })).toEqual(whole);
+  });
+
+  it("laps a source that fills the span within slack only when loop is declared", () => {
+    expect(bedPasses({ span: 10, mediaStart: 0, sourceSec: 9.75, loop: true })).toEqual([
+      { at: 0, mediaStart: 0, duration: 9.75 },
+      { at: 9.75, mediaStart: 0, duration: 0.25 },
+    ]);
   });
 });
 

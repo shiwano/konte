@@ -672,6 +672,80 @@ describe("buildFullCompositionHtml", () => {
     expect(result.html).toContain('data-volume="0.3"');
   });
 
+  it.each([
+    {
+      sourceSec: 1.5,
+      loop: undefined,
+      passes: [
+        ["0", "0", "1.5"],
+        ["1.5", "0", "1.5"],
+        ["3", "0", "1"],
+      ],
+    },
+    { sourceSec: 10, loop: undefined, passes: [["0", "0", "4"]] },
+    { sourceSec: 1.5, loop: false, passes: [["0", "0", "4"]] },
+  ])(
+    "lays a $sourceSec s bed over a 4 s span lap by lap when loop is $loop",
+    async ({ sourceSec, loop, passes }) => {
+      const audioComfy = defineComfyAsset({
+        workflow: "tts.json",
+        description: "test adapter",
+        inputs: { text: { nodeId: "3", field: "text", type: "string" } },
+        outputs: { result: { nodeId: "9", type: "audio" } },
+      });
+      const video = defineVideo(
+        testDirection({
+          fps: 30,
+          size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
+        }),
+        {
+          timeline: () => {
+            const bgm = asset("bgm", audioComfy, { text: "music" });
+            return videoTimeline(
+              [
+                shot("01", {
+                  duration: 4,
+                  build: () => {
+                    const motion = asset("motion", animateComfy, { prompt: "a" });
+                    return (
+                      <Composition>
+                        <Video src={motion} />
+                      </Composition>
+                    );
+                  },
+                }),
+              ],
+              [soundtrack("bed", bgm, { duck: false, ...(loop !== undefined ? { loop } : {}) })],
+            );
+          },
+        },
+      );
+      const bgm = setupAudioTake(
+        manager,
+        "video:timeline.bgm",
+        "assets/timeline.bgm/b.mp3",
+        sourceSec,
+      );
+      manager.setAccepted("video:timeline.bgm", bgm);
+      setupAccepted(manager, "video:shot.01.motion", "assets/shot.01.motion/m.mp4");
+
+      const result = await buildFullCompositionHtml({
+        video,
+        manager,
+        assetBaseUrl: ASSET_BASE,
+      });
+
+      const tags = result.html.match(/<audio[^>]*data-konte-track="soundtrack"[^>]*>/g) ?? [];
+      expect(
+        tags.map((tag) =>
+          ["data-start", "data-media-start", "data-duration"].map(
+            (attr) => tag.match(new RegExp(`${attr}="([^"]*)"`))?.[1],
+          ),
+        ),
+      ).toEqual(passes);
+    },
+  );
+
   it("honors a variant override for a timeline soundtrack", async () => {
     const audioComfyLocal = defineComfyAsset({
       workflow: "tts.json",

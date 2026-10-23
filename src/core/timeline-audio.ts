@@ -181,6 +181,38 @@ export function shouldAutoLoop(usableSource: number, span: number): boolean {
   return usableSource < span - LOOP_UNDERRUN_SLACK;
 }
 
+/** One lap of a bed: where on its span it starts, where in the source, and how long it plays. */
+export interface BedPass {
+  at: number;
+  mediaStart: number;
+  duration: number;
+}
+
+// A bed's span as the laps the mux plays it in: the first from `mediaStart`, each later one from the
+// source's head (ffmpeg's -stream_loop rewinds to the file start, not to -ss). The preview places
+// one element per lap because HyperFrames ends an audio clip at its source's end, `loop` or not.
+export function bedPasses(opts: {
+  span: number;
+  mediaStart: number;
+  sourceSec: number | undefined;
+  loop: boolean | undefined;
+}): BedPass[] {
+  const { span, mediaStart, sourceSec } = opts;
+  const whole = [{ at: 0, mediaStart, duration: span }];
+  if (sourceSec == null || sourceSec - mediaStart <= 0) return whole;
+  if (!(opts.loop ?? shouldAutoLoop(sourceSec - mediaStart, span))) return whole;
+  const passes: BedPass[] = [];
+  let at = 0;
+  let from = mediaStart;
+  while (span - at > 1e-6) {
+    const duration = Math.min(sourceSec - from, span - at);
+    passes.push({ at, mediaStart: from, duration });
+    at += duration;
+    from = 0;
+  }
+  return passes;
+}
+
 // Resolve audio into absolute-timeline mux tracks. Offsets accumulate from the ACTUAL rendered
 // shot durations (ffprobed), so placement is sample-accurate even when a shot renders a frame or
 // two off its nominal length. Per-shot `<Audio>` and embedded clips become one independent

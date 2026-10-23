@@ -213,6 +213,23 @@ describe("bedVolumeLane", () => {
     ]);
   });
 
+  it("cuts one lap's stretch out of the bed's lane, on that lap's own clock", () => {
+    const lap = bedVolumeLane({
+      span: 10,
+      volume: 1,
+      steps: [],
+      depth: 1,
+      fadeIn: 2,
+      fadeOut: 4,
+      window: { from: 4, to: 8 },
+    })!;
+    expect(lap.lanes[0].points).toEqual([
+      { t: 0, v: 1 },
+      { t: 2, v: 1 },
+      { t: 4, v: 0.5 },
+    ]);
+  });
+
   it("is nothing at all for a bed with neither a duck nor a fade", () => {
     expect(bedVolumeLane({ span: 20, volume: 1, steps: [], depth: 1 })).toBeNull();
   });
