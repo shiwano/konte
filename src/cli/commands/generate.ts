@@ -544,9 +544,10 @@ export function registerGenerateCommand(program: Command): void {
         }
       }
 
-      // Heads-up: an upstream this run consumes has an undecided take (e.g. a reroll) that
-      // resolution won't use — it binds the accepted variant, so this run builds on the accepted
-      // frame until that take is accepted in its place.
+      // Heads-up: a same-stage upstream this run consumes has an undecided take (e.g. a reroll)
+      // that resolution won't use — it binds the accepted variant, so this run builds on the
+      // accepted frame until that take is accepted in its place. A cross-stage one holds the asset
+      // instead (`holdForUpstreamAcceptance`).
       const undecidedUpstreamTakes = collectUndecidedUpstreamTakes(
         manager.getState(),
         [...generatedDepPaths],

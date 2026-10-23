@@ -461,10 +461,16 @@ Examples:
           if (remixed.accepted.length > 0) manager = await StateManager.load(videoRoot);
           printRemixedBoardStems(remixed);
         }
+        // Only an upstream redone as one take pins its downstreams to it (`newVariantByAddress`).
+        const redone = new Set(
+          workItems
+            .filter((w) => getBackendKind(w.def) && (w.isPrimary ? variantCount : 1) === 1)
+            .map((w) => w.assetPath),
+        );
         for (const stage of ["animatic", "video"] as const) {
           const assetPaths = workItems.filter((w) => w.stage === stage).map((w) => w.assetPath);
           if (assetPaths.length === 0) continue;
-          assertUpstreamAccepted({ manager, graph, assetPaths, stage, animatic });
+          assertUpstreamAccepted({ manager, graph, assetPaths, stage, animatic, redone });
         }
         await assertSongDirectionAccepted({
           videoRoot,

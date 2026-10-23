@@ -66,7 +66,7 @@ import type {
 } from "../core/types/index.js";
 import { compositionClassSubjects, harvestShotPictureCues } from "../core/composition-builder.js";
 import { STAGE_ENTRY_FILE, stageEntryPath } from "../core/roots.js";
-import { computeAcceptedStaleness } from "../core/staleness.js";
+import { collectUndecidedUpstreamTakes, computeAcceptedStaleness } from "../core/staleness.js";
 import { definitionHashForAddress } from "../core/composition-resource.js";
 
 // The direction (direction.ts). Absent file => null; an existing but invalid file throws.
@@ -372,22 +372,28 @@ const GATED_UPSTREAM: ReadonlyArray<{ stage: Stage; review: string; generate: st
   { stage: "animatic", review: "konte preview animatic", generate: "konte generate animatic" },
 ];
 
-// The reviewed upstream work a spend would build on, mapped to whether each has an output to review
-// yet — the cross-stage twin of `assertDirectionAccepted`. Acceptance only: a stale accepted
-// upstream still passes, staleness having its own reporting. `stage` is the stage doing the
+type UpstreamBlocker =
+  | { kind: "unaccepted"; hasOutput: boolean }
+  | { kind: "undecided"; acceptedVariantId: string; undecidedVariantId: string };
+
+// The reviewed upstream work a spend would build on, mapped to what holds each back — the
+// cross-stage twin of `assertDirectionAccepted`. A stale accepted upstream still passes, staleness
+// having its own reporting. `stage` is the stage doing the
 // spending: its own nodes are walked through (so a `animatic → video → video` chain cannot slip
 // past by targeting the far end), as are the deterministic ones. The walk stops at every gated
 // upstream node — its own upstreams were reviewed as part of it, which is why accepting a board
 // does not re-ask for the sheets under it. `extraRefs` carries addresses consumed by something with
-// no graph node of its own, i.e. a patch definition's refs.
+// no graph node of its own, i.e. a patch definition's refs. `redone` names upstreams this same run
+// makes a fresh take of, which the spend builds on in place of the undecided one.
 export function unacceptedUpstreamDeps(opts: {
   manager: StateManager;
   graph: DependencyGraph;
   assetPaths: Iterable<string>;
   stage: Stage;
   extraRefs?: Iterable<string>;
-}): Map<string, boolean> {
-  const blocking = new Map<string, boolean>();
+  redone?: ReadonlySet<string>;
+}): Map<string, UpstreamBlocker> {
+  const blocking = new Map<string, UpstreamBlocker>();
   const seen = new Set<string>();
   const queue: string[] = [...(opts.extraRefs ?? [])];
   for (const assetPath of opts.assetPaths) {
@@ -403,13 +409,28 @@ export function unacceptedUpstreamDeps(opts: {
       queue.push(...(opts.graph.dependencies.get(dep) ?? []));
       continue;
     }
-    if (acceptedForSpend(opts.manager, dep)) continue;
+    if (acceptedForSpend(opts.manager, dep)) {
+      if (opts.redone?.has(dep)) continue;
+      const [take] = collectUndecidedUpstreamTakes(
+        opts.manager.getState(),
+        [dep],
+        opts.manager.stalenessCache(),
+      );
+      if (take) {
+        blocking.set(dep, {
+          kind: "undecided",
+          acceptedVariantId: take.acceptedVariantId,
+          undecidedVariantId: take.undecidedVariantId,
+        });
+      }
+      continue;
+    }
     const variants = Object.values(opts.manager.getState().assets[dep]?.variants ?? {});
-    blocking.set(
-      dep,
+    blocking.set(dep, {
+      kind: "unaccepted",
       // A dismissed take is not output awaiting a verdict: that upstream needs regenerating.
-      variants.some((v) => v.file && v.status !== "dismissed"),
-    );
+      hasOutput: variants.some((v) => v.file && v.status !== "dismissed"),
+    });
   }
   return blocking;
 }
@@ -420,6 +441,7 @@ type UpstreamGateOpts = {
   assetPaths: Iterable<string>;
   stage: Stage;
   extraRefs?: Iterable<string>;
+  redone?: ReadonlySet<string>;
   animatic: AnimaticDefinition | null;
 };
 
@@ -438,7 +460,7 @@ function assertUpstreamPrerequisites(opts: UpstreamGateOpts): void {
 // The upstream-most blockers alone: accepting a board built on an unaccepted sheet is not the fix,
 // so naming both would send the human at the wrong one. GATED_UPSTREAM is in pipeline order, so the
 // first entry with a blocker is the upstream-most.
-function upstreamMostBlockers(blocking: Map<string, boolean>): {
+function upstreamMostBlockers(blocking: Map<string, UpstreamBlocker>): {
   upstream: (typeof GATED_UPSTREAM)[number];
   lines: string[];
 } | null {
@@ -449,19 +471,25 @@ function upstreamMostBlockers(blocking: Map<string, boolean>): {
   const lines = [...blocking]
     .filter(([address]) => getStage(address) === upstream.stage)
     .map(
-      ([address, hasOutput]) =>
+      ([address, blocker]) =>
         `  ${address} — ${
-          isMaterializedLeafAddress(address)
-            ? `run \`konte accept ${address}\`, which materializes it`
-            : hasOutput
-              ? `review and accept it in \`${upstream.review}\``
-              : `nothing generated yet — run \`${upstream.generate}\` first`
+          blocker.kind === "undecided"
+            ? `${blocker.undecidedVariantId} is undecided beside accepted ` +
+              `${blocker.acceptedVariantId} — review it in \`${upstream.review}\``
+            : isMaterializedLeafAddress(address)
+              ? `run \`konte accept ${address}\`, which materializes it`
+              : blocker.hasOutput
+                ? `review and accept it in \`${upstream.review}\``
+                : `nothing generated yet — run \`${upstream.generate}\` first`
         }`,
     );
   return { upstream, lines };
 }
 
-function upstreamAcceptanceError(stage: Stage, blocking: Map<string, boolean>): KonteError | null {
+function upstreamAcceptanceError(
+  stage: Stage,
+  blocking: Map<string, UpstreamBlocker>,
+): KonteError | null {
   const named = upstreamMostBlockers(blocking);
   if (!named) return null;
   const count = named.lines.length;
@@ -481,7 +509,7 @@ function upstreamAcceptanceError(stage: Stage, blocking: Map<string, boolean>): 
 }
 
 // The upstream twin of the direction acceptance gate: a spend must not build on work no human has
-// accepted. Two levels of the same rule — a video spend needs its boards accepted, and either
+// accepted, nor past a take still undecided beside an accept. Two levels of the same rule — a video spend needs its boards accepted, and either
 // creative stage needs the `reference:` sheets it conditions on accepted, since a sheet is where
 // every take downstream of it gets its identity from and is never settled implicitly by whatever
 // consumed it first. A targeted spend refuses on any blocker: every asset in it was asked for.
@@ -495,8 +523,8 @@ export function assertUpstreamAccepted(opts: UpstreamGateOpts): void {
 // dependent of a held asset reaches the same blocker, so it is held too.
 export function heldByUpstreamAcceptance(
   opts: Omit<UpstreamGateOpts, "animatic" | "extraRefs">,
-): Map<string, Map<string, boolean>> {
-  const held = new Map<string, Map<string, boolean>>();
+): Map<string, Map<string, UpstreamBlocker>> {
+  const held = new Map<string, Map<string, UpstreamBlocker>>();
   for (const assetPath of opts.assetPaths) {
     const blocking = unacceptedUpstreamDeps({ ...opts, assetPaths: [assetPath] });
     if (blocking.size > 0) held.set(assetPath, blocking);

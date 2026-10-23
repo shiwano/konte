@@ -1405,6 +1405,48 @@ export default definePatch<"video">(({ source }) => asset("patched", edit, { ima
       stderr: expect.stringContaining("ANIMATIC_ACCEPTANCE_REQUIRED"),
     });
   });
+
+  it("holds the shot whose board has a take undecided beside its accept", async () => {
+    const projectDir = await initTwoShotProject("undecidedboardproj");
+    const acceptedId = await seedVariant(projectDir, "animatic:shot.01.keyframe", {
+      accept: true,
+    });
+    const undecidedId = await seedVariant(projectDir, "animatic:shot.01.keyframe", {
+      accept: false,
+    });
+    await seedVariant(projectDir, "animatic:shot.02.keyframe", { accept: true });
+
+    const { stdout: planOut } = await run(["generate", "video", "--plan"], projectDir);
+    const planned = planEntries(planOut).map((e) => e.address);
+    expect(planned).toContain("video:shot.02.motion");
+    expect(planned).not.toContain("video:shot.01.motion");
+    expect(planOut).toContain(
+      `  animatic:shot.01.keyframe — ${undecidedId} is undecided beside accepted ${acceptedId} — ` +
+        "review it in `konte preview animatic`",
+    );
+
+    await expect(run(["reroll", "video:shot.01.motion"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("ANIMATIC_ACCEPTANCE_REQUIRED"),
+    });
+
+    // Redone as several takes, the board has no one take to pin the motion to.
+    await expect(
+      run(
+        ["reroll", "animatic:shot.01.keyframe", "video:shot.01.motion", "--count", "2"],
+        projectDir,
+      ),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining("ANIMATIC_ACCEPTANCE_REQUIRED"),
+    });
+
+    // Redone in the same run, the board's fresh take is what the motion builds on.
+    const { stdout } = await run(
+      ["reroll", "animatic:shot.01.keyframe", "video:shot.01.motion"],
+      projectDir,
+    ).catch((e: { stdout: string }) => e);
+    expect(stdout).not.toContain("ANIMATIC_ACCEPTANCE_REQUIRED");
+    expect(stdout).toMatch(/video:shot\.01\.motion: \S+ → v-/);
+  });
 });
 
 // The prompt gate's twin over wiring: a pinned image that the picture never shows.
