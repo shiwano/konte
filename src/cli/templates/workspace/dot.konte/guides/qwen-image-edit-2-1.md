@@ -24,6 +24,10 @@ Use in `reference.tsx` for a new pose, view or outfit of a subject an accepted r
 - A new outfit is the change — name it, and keep the face and hair.
 - A second subject or a style example goes in `image2`, its role named with `<image2>`.
 
+## Shared Picture
+
+Use at the top of a stage's `timeline` to change a picture several shots show — a painting, a screen, a page — when the change keeps its composition. Pass the picture as `image1`, and keep everything else in `<image1>` unchanged.
+
 ## Same-Camera Keyframe
 
 Use in a shot to draw a keyframe from another on the same camera: one of a shot's panels from the other, or, across a `continuous` join, the opening keyframe from the previous shot's last panel (`shot("<id>").image("<name>")`). Pass that keyframe as `image1` and the character reference as `image2`.

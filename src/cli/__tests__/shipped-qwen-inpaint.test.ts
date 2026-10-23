@@ -195,7 +195,7 @@ export default defineReference(direction, { references: () => {
       0,
     ]);
     const { stdout } = await run(["adapter", "show", "imageQwenImageEdit21"], projectDir);
-    expect(stdout).toContain("declared in reference, shot only");
+    expect(stdout).toContain("declared in reference, timeline, shot only");
     expect(stdout).toContain("qwen-image-edit-2-1.md");
   });
 
@@ -218,7 +218,7 @@ export default defineReference(direction, { references: () => {
         .replace("image_qwen_image_edit_2_1_inpaint.js", "image_qwen_image_edit_2_1.js"),
     );
     await expect(stepDefinition(projectDir, sourceId)).rejects.toThrow(
-      /may only be declared in reference or shot/,
+      /may only be declared in reference or timeline or shot/,
     );
   });
 });
