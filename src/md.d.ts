@@ -20,3 +20,13 @@ declare module "onnxruntime-web/ort-wasm-simd-threaded.wasm" {
   const file: string;
   export default file;
 }
+
+// The browser scripts every composition inlines (see core/composition-scripts.ts).
+declare module "@tailwindcss/browser" {
+  const content: string;
+  export default content;
+}
+declare module "gsap/dist/*.min.js" {
+  const content: string;
+  export default content;
+}

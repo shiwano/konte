@@ -33,6 +33,7 @@ import {
 } from "./audio-duck.js";
 import type { AudioLoudness } from "./audio-loudness.js";
 import { buildFallbackComposition } from "./composition-fallback.js";
+import { COMPOSITION_SCRIPTS } from "./composition-scripts.js";
 import { jsx } from "react/jsx-runtime";
 import { Composition } from "./dsl/composition/composition.js";
 import {
@@ -63,8 +64,6 @@ import {
 } from "./render-plan.js";
 import { shotById } from "./shot-index.js";
 import { assertTailwindClasses, type ClassSubject } from "./tailwind-classes.js";
-import { GSAP_SCRIPT_SRCS } from "./gsap-version.js";
-import { TAILWIND_BROWSER_SRC } from "./tailwind-version.js";
 import { bedPasses, resolveSoundtrackSpan } from "./timeline-audio.js";
 import { mediaDurationSec } from "./variant-media.js";
 import type { StateManager } from "./state/index.js";
@@ -1466,7 +1465,7 @@ export async function buildFullCompositionHtml(
 <meta name="viewport" content="width=${width}, height=${height}" />
 <meta data-composition-id="full-video" data-width="${width}" data-height="${height}" data-duration="${totalDuration}" />
 <title>Video Preview</title>
-${fontsHref ? `<link rel="stylesheet" href="${escapeAttr(fontsHref)}" />\n` : ""}${GSAP_SCRIPT_SRCS.map((src) => `<script src="${src}"></script>\n`).join("")}<script src="${TAILWIND_BROWSER_SRC}"></script>
+${fontsHref ? `<link rel="stylesheet" href="${escapeAttr(fontsHref)}" />\n` : ""}${COMPOSITION_SCRIPTS.map((source) => `<script>${source}</script>\n`).join("")}
 <style>
 @layer theme, base, components, utilities;
 @layer base { * { margin: 0; padding: 0; box-sizing: border-box; } }

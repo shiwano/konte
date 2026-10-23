@@ -8,14 +8,21 @@ import { TRANSPILER_CACHE_DISABLED, TRANSPILER_CACHE_ENV } from "./src/cli/trans
 // An adapter imports its craft guide, and a served page its markup, via
 // `import x from "./y.md" with { type: "text" }` — Bun's runtime and bundler inline the file as a
 // string, but vite/esbuild would try to parse it as JS. Load it as a default-string export instead
-// so the test transform matches runtime behavior.
+// so the test transform matches runtime behavior. A composition's browser scripts are JS imported
+// the same way (see src/core/composition-scripts.ts).
 const TEXT_IMPORT_EXTS = [".md", ".html", ".css"];
+const TEXT_IMPORT_DIRS = ["/node_modules/gsap/dist/", "/node_modules/@tailwindcss/browser/dist/"];
 const fileAsText: Plugin = {
   name: "file-as-text",
   enforce: "pre",
   load(id) {
     const file = id.split("?")[0]!;
-    if (!TEXT_IMPORT_EXTS.some((ext) => file.endsWith(ext))) return null;
+    if (
+      !TEXT_IMPORT_EXTS.some((ext) => file.endsWith(ext)) &&
+      !TEXT_IMPORT_DIRS.some((dir) => file.includes(dir))
+    ) {
+      return null;
+    }
     return `export default ${JSON.stringify(readFileSync(file, "utf8"))};`;
   },
 };
@@ -163,7 +170,12 @@ export default defineConfig({
       },
       {
         extends: true,
-        test: { name: "mocking", include: mockingTests },
+        test: {
+          name: "mocking",
+          include: mockingTests,
+          // Inlined so fileAsText loads them; an externalized import runs the JS.
+          server: { deps: { inline: [/\/node_modules\/(gsap|@tailwindcss\/browser)\/dist\//] } },
+        },
       },
     ],
   },

@@ -1,6 +1,5 @@
+import { COMPOSITION_SCRIPTS } from "../../composition-scripts.js";
 import { getRenderContext } from "../../jsx-html.js";
-import { GSAP_SCRIPT_SRCS } from "../../gsap-version.js";
-import { TAILWIND_BROWSER_SRC } from "../../tailwind-version.js";
 import { fontFamilyStack, googleFontsHref } from "../../typography.js";
 import { resetPanelCursor } from "../panel-collect.js";
 
@@ -42,10 +41,9 @@ export function Composition({ children }: { children?: React.ReactNode }): React
         />
         <title>{`Shot ${shotId}`}</title>
         {fontsHref ? <link rel="stylesheet" href={fontsHref} /> : null}
-        {GSAP_SCRIPT_SRCS.map((src) => (
-          <script key={src} src={src} />
+        {COMPOSITION_SCRIPTS.map((source, i) => (
+          <script key={i} dangerouslySetInnerHTML={{ __html: source }} />
         ))}
-        <script src={TAILWIND_BROWSER_SRC} />
         {/* Layered under Tailwind's utilities: an unlayered rule beats every layered one, so an
             author's `w-1/3` or `p-4` would otherwise lose to the reset or `.konte-clip`. */}
         <style>{`

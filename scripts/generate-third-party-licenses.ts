@@ -31,6 +31,7 @@ const TEXT_FALLBACKS: Record<string, string> = {
   "quickjs-wasi": "MIT",
   "onnxruntime-common": "MIT",
   "onnxruntime-web": "MIT",
+  gsap: "LicenseRef-GSAP-Standard",
 };
 
 // The copyright holder for a vendored text, for a package whose manifest names no author or names
@@ -72,9 +73,14 @@ const TEXT_SIGNATURES: [RegExp, string][] = [
   [/SIL OPEN FONT LICENSE Version 1\.1/, "OFL-1.1"],
 ];
 
+// A license SPDX has no id for, as its package.json declares it, named as an SPDX `LicenseRef-`.
+const LICENSE_REFS: Record<string, string> = {
+  "Standard 'no charge' license: https://gsap.com/standard-license.": "LicenseRef-GSAP-Standard",
+};
+
 function declaredSpdx(manifest: { license?: unknown }): string | null {
   const { license } = manifest;
-  if (typeof license === "string") return license;
+  if (typeof license === "string") return LICENSE_REFS[license] ?? license;
   if (license && typeof license === "object" && "type" in license) {
     return String((license as { type: unknown }).type);
   }

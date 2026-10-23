@@ -18,7 +18,7 @@ function head(typography: Typography): string {
     height: 1080,
     duration: 5,
     typography,
-  });
+  }).replace(/<script>[\s\S]*?<\/script>/g, "");
 }
 
 describe("googleFontsHref", () => {
