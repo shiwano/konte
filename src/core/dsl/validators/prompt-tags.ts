@@ -94,6 +94,7 @@ export function promptReferenceTags(spec: PromptReferenceTagsSpec): AdapterValid
         inputs,
         form,
         context?.shotId,
+        context?.panels,
       );
     }
   };
@@ -210,11 +211,15 @@ function checkOrdinals(
 }
 
 // A panel of a shot other than the one declaring this asset. A panel of the same shot (`first` →
-// `last`) is no cut.
-function otherShotPanel(value: unknown, shotId: string | undefined): string | undefined {
+// `last`) is no cut, and neither is any other asset of another shot.
+function otherShotPanel(
+  value: unknown,
+  shotId: string | undefined,
+  panels: ReadonlySet<string> | undefined,
+): string | undefined {
   if (typeof value !== "string") return undefined;
   const address = parsePlaceholder(value);
-  if (address === null) return undefined;
+  if (address === null || !panels?.has(address)) return undefined;
   const parsed = tryParseAddress(address);
   if (parsed?.stage !== "animatic" || parsed.kind !== "shot" || parsed.shotId === shotId) {
     return undefined;
@@ -229,12 +234,13 @@ function checkPrevPanel(
   inputs: Readonly<Record<string, unknown>>,
   form: "bracketed" | "bare",
   shotId: string | undefined,
+  panels: ReadonlySet<string> | undefined,
 ): string | undefined {
   const write = (n: number) => (form === "bare" ? `${group.tag} ${n}` : `<${group.tag} ${n}>`);
   const carried = group.slots
     .filter((name) => inputs[name] !== undefined)
     .flatMap((name, i) => {
-      const panel = otherShotPanel(inputs[name], shotId);
+      const panel = otherShotPanel(inputs[name], shotId, panels);
       return panel === undefined ? [] : [{ name, panel, ordinal: i + 1 }];
     });
   if (carried.length === 0) return;

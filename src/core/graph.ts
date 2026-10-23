@@ -1534,16 +1534,22 @@ export function listShotContinuity(animatic: AnimaticDefinition): ShotContinuity
 }
 
 // Per `readsPrevPanel` address, the sources of its image inputs that are another shot's panel,
-// passed as is — what `promptReferenceTags`' `prevPanel` check sees. A wrapped panel is an ordinary
-// input.
+// passed as is — what `promptReferenceTags`' `prevPanel` check sees. A wrapped panel, and any other
+// asset of another shot, is an ordinary input.
 function prevPanelSources(animatic: AnimaticDefinition): Map<string, Set<string>> {
   const readers = new Set(animatic.prevPanelReaders ?? []);
+  const panels = new Set(
+    animatic.shots.flatMap((shot) =>
+      LANES.flatMap((lane) => lanePanels(shot, lane).map((panel) => panel.assetPath)),
+    ),
+  );
   const out = new Map<string, Set<string>>();
   for (const input of animatic.imageInputs ?? []) {
     if (!readers.has(input.address)) continue;
     const reader = tryParseAddress(input.address);
     const shotId = reader?.stage === "animatic" && reader.kind === "shot" ? reader.shotId : null;
     for (const source of input.sources) {
+      if (!panels.has(source)) continue;
       const parsed = tryParseAddress(source);
       if (parsed?.stage !== "animatic" || parsed.kind !== "shot" || parsed.shotId === shotId) {
         continue;

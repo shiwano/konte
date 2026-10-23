@@ -60,3 +60,39 @@ export function resetPanelCursor(): void {
 export function nextPanelIndex(lane: PanelLane): number {
   return cursors[lane]++;
 }
+
+// The keyframes of the animatic shots read so far, by address: what a `readsPrevPanel` validator
+// takes as another shot's panel. Kept per direction, so a video sees its own animatic's panels
+// whatever was loaded in between; a patch is checked against none.
+const placedByDirection = new WeakMap<object, Set<string>>();
+let placed: Set<string> | undefined;
+
+function withPlaced<T>(panels: Set<string> | undefined, build: () => T): T {
+  const outer = placed;
+  placed = panels;
+  try {
+    return build();
+  } finally {
+    placed = outer;
+  }
+}
+
+// `defineAnimatic`'s build, recording its panels under `direction`.
+export function collectPlacedPanels<T>(direction: object, build: () => T): T {
+  const panels = new Set<string>();
+  placedByDirection.set(direction, panels);
+  return withPlaced(panels, build);
+}
+
+// `defineVideo`'s build, under the panels its direction's animatic recorded.
+export function withPlacedPanels<T>(direction: object, build: () => T): T {
+  return withPlaced(placedByDirection.get(direction), build);
+}
+
+export function recordPlacedPanels(addresses: Iterable<string>): void {
+  for (const address of addresses) placed?.add(address);
+}
+
+export function placedPanels(): ReadonlySet<string> | undefined {
+  return placed;
+}

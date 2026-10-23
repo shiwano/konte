@@ -2,6 +2,7 @@ import type { FalAssetDefinition } from "../types/index.js";
 import { KonteError } from "../errors.js";
 import type { MediaKind, MediaAsset } from "./builders.js";
 import { getActiveFormat, getShotContext, seed } from "./shot-context.js";
+import { placedPanels } from "./panel-collect.js";
 import { setFieldPath } from "./set-field-path.js";
 import {
   assertFixedInputs,
@@ -263,6 +264,7 @@ export function defineFalAsset<
       runValidators(config.validators, resolved, {
         promptInput,
         shotId: getShotContext()?.shotId,
+        panels: placedPanels(),
       });
 
       return {

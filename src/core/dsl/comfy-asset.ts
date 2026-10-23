@@ -6,6 +6,7 @@ import type {
 import { KonteError } from "../errors.js";
 import type { MediaKind, MediaAsset } from "./builders.js";
 import { getActiveFormat, getShotContext, seed, type BuildFormat } from "./shot-context.js";
+import { placedPanels } from "./panel-collect.js";
 import { estimateSpeechSec } from "../speech-duration.js";
 import { OVERFLOW_FLOOR, recordClipLength } from "./clip-length-collect.js";
 import {
@@ -398,7 +399,11 @@ export function defineComfyAsset<
       const prunedNodes: string[] = [];
       const prunedPassThroughs: Record<string, string> = {};
       const format = getActiveFormat();
-      const validatorContext = { promptInput, shotId: getShotContext()?.shotId };
+      const validatorContext = {
+        promptInput,
+        shotId: getShotContext()?.shotId,
+        panels: placedPanels(),
+      };
       const resolveDefault = (
         d: AdapterInputDefault | undefined,
       ): string | number | boolean | undefined => (typeof d === "function" ? d(format) : d);

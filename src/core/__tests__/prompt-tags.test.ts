@@ -335,7 +335,12 @@ describe("the previous panel", () => {
     prevPanel: { tag: "Picture", within },
   });
   const panel = (address: string) => `__konte:${address}__`;
-  const inShot = (inputs: Record<string, unknown>) => tags(inputs, { shotId: "02" });
+  const panels = new Set([
+    "animatic:shot.00.last",
+    "animatic:shot.01.last",
+    "animatic:shot.02.first",
+  ]);
+  const inShot = (inputs: Record<string, unknown>) => tags(inputs, { shotId: "02", panels });
 
   it("accepts another shot's panel named where the cut comes from", () => {
     expect(
@@ -389,12 +394,25 @@ describe("the previous panel", () => {
 
   it("reads every shot's panel as another's outside a shot", () => {
     expect(
-      tags({
+      tags(
+        {
+          prompt: "<Picture 1> <Picture 2>",
+          image1: "a",
+          image2: panel("animatic:shot.02.first"),
+        },
+        { panels },
+      ),
+    ).toContain("has no place");
+  });
+
+  it("reads another shot's asset that is no panel as no cut", () => {
+    expect(
+      inShot({
         prompt: "<Picture 1> <Picture 2>",
         image1: "a",
-        image2: panel("animatic:shot.02.first"),
+        image2: panel("animatic:shot.01.painting"),
       }),
-    ).toContain("has no place");
+    ).toBeUndefined();
   });
 
   it("refuses a tag the spec does not declare", () => {

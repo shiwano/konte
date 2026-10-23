@@ -9,6 +9,7 @@ import type { ShotScript } from "./shot-script.js";
 import type { AnyShotInput, MediaAsset, OverlayContext, SoundtrackEntry } from "./builders.js";
 import { makeMediaAsset } from "./builders.js";
 import { readAnimaticShot } from "./animatic.js";
+import { collectPlacedPanels, recordPlacedPanels } from "./panel-collect.js";
 import { type AnimaticRef, createAnimaticRef } from "./animatic-ref.js";
 import type {
   DirectionEntry,
@@ -461,68 +462,71 @@ export function defineAnimatic<
   // by the time the chain is walked. Prompt collection already spans both.
   const views = viewsOf(direction) as AnimaticViews<D>;
   const plates = buildPlates(direction, index, opts.plates, views);
-  const built = defineStage({
-    stage: "animatic",
-    index,
-    runTimeline: (format) =>
-      opts.timeline({
-        format,
-        shot,
-        graphicShot,
-        pendingShot,
-        asideShot,
-        plates: plates.returned as TPlates,
-        views,
-      }),
-    waivers: opts.waivers,
-    perShot: ({ input, element, context, cutin }) => {
-      const continuedBy = index.continuedById.get(input.id);
-      const { panels, cutinPanels } = readAnimaticShot({
-        shotId: input.id,
-        element,
-        context,
-        ...(continuedBy ? { continuedBy } : {}),
-      });
-      if (index.graphicIds.has(input.id)) {
-        if (panels.length > 0) {
+  const built = collectPlacedPanels(index, () =>
+    defineStage({
+      stage: "animatic",
+      index,
+      runTimeline: (format) =>
+        opts.timeline({
+          format,
+          shot,
+          graphicShot,
+          pendingShot,
+          asideShot,
+          plates: plates.returned as TPlates,
+          views,
+        }),
+      waivers: opts.waivers,
+      perShot: ({ input, element, context, cutin }) => {
+        const continuedBy = index.continuedById.get(input.id);
+        const { panels, cutinPanels } = readAnimaticShot({
+          shotId: input.id,
+          element,
+          context,
+          ...(continuedBy ? { continuedBy } : {}),
+        });
+        recordPlacedPanels([...panels, ...cutinPanels].map((panel) => panel.assetPath));
+        if (index.graphicIds.has(input.id)) {
+          if (panels.length > 0) {
+            throw new KonteError(
+              "ANIMATIC_INVALID",
+              `Animatic shot "${input.id}" is a graphic shot, but it declares <Panel> ` +
+                `"${panels[0]!.assetName}" outside a <Cutin>. A graphic shot has no camera: place ` +
+                `its images as <Image> layers and move them with <Animate>. A keyframe belongs inside ` +
+                `the <Cutin> of a shot that declares a \`cutin\`.`,
+            );
+          }
+        } else if (panels.length === 0) {
           throw new KonteError(
-            "ANIMATIC_INVALID",
-            `Animatic shot "${input.id}" is a graphic shot, but it declares <Panel> ` +
-              `"${panels[0]!.assetName}" outside a <Cutin>. A graphic shot has no camera: place ` +
-              `its images as <Image> layers and move them with <Animate>. A keyframe belongs inside ` +
-              `the <Cutin> of a shot that declares a \`cutin\`.`,
+            "PANEL_REQUIRED",
+            `Animatic shot "${input.id}" declares no <Panel>. A board shot IS its keyframes — mark ` +
+              `at least one image with <Panel>; a plain <Image> is a layer, not a keyframe.`,
           );
         }
-      } else if (panels.length === 0) {
-        throw new KonteError(
-          "PANEL_REQUIRED",
-          `Animatic shot "${input.id}" declares no <Panel>. A board shot IS its keyframes — mark ` +
-            `at least one image with <Panel>; a plain <Image> is a layer, not a keyframe.`,
-        );
-      }
-      if (index.coverageIds.has(input.id) && panels.length > 1) {
-        throw new KonteError(
-          "ANIMATIC_INVALID",
-          `Animatic shot "${input.id}" is a coverage shot, but it declares ${panels.length} ` +
-            `<Panel>s. Its board is the opening frame alone — the cuts after it are the model's. ` +
-            `Keep one <Panel>, and write the shot's whole flow in its \`blocking\` and the camera's ` +
-            `path from the opening in its \`camera\`.`,
-        );
-      }
-      if (cutin && cutinPanels.length === 0) {
-        throw new KonteError(
-          "PANEL_REQUIRED",
-          `Animatic shot "${input.id}" renders a <Cutin> with no <Panel> inside it. A cutin is a ` +
-            `camera frame, and a board frame IS its keyframes — mark its image with <Panel>.`,
-        );
-      }
-      return {
-        ...(panels.length > 0 || !index.graphicIds.has(input.id) ? { panels } : {}),
-        ...(cutin ? { cutin: { ...cutin, panels: cutinPanels } } : {}),
-        ...(continuedBy ? { continuedBy } : {}),
-      };
-    },
-  });
+        if (index.coverageIds.has(input.id) && panels.length > 1) {
+          throw new KonteError(
+            "ANIMATIC_INVALID",
+            `Animatic shot "${input.id}" is a coverage shot, but it declares ${panels.length} ` +
+              `<Panel>s. Its board is the opening frame alone — the cuts after it are the model's. ` +
+              `Keep one <Panel>, and write the shot's whole flow in its \`blocking\` and the camera's ` +
+              `path from the opening in its \`camera\`.`,
+          );
+        }
+        if (cutin && cutinPanels.length === 0) {
+          throw new KonteError(
+            "PANEL_REQUIRED",
+            `Animatic shot "${input.id}" renders a <Cutin> with no <Panel> inside it. A cutin is a ` +
+              `camera frame, and a board frame IS its keyframes — mark its image with <Panel>.`,
+          );
+        }
+        return {
+          ...(panels.length > 0 || !index.graphicIds.has(input.id) ? { panels } : {}),
+          ...(cutin ? { cutin: { ...cutin, panels: cutinPanels } } : {}),
+          ...(continuedBy ? { continuedBy } : {}),
+        };
+      },
+    }),
+  );
   const definition = built.definition as AnimaticDefinition;
   if (plates.assets) {
     definition.plates = plates.assets;

@@ -8,6 +8,8 @@ import {
   asset,
   defineAnimatic,
   defineReference,
+  defineVideo,
+  promptReferenceTags,
 } from "../dsl/index.js";
 import {
   listPanelPromptText,
@@ -19,7 +21,7 @@ import {
   listShownReferences,
 } from "../graph.js";
 import { plainDirection, testDirection } from "./helpers/direction.js";
-import { animaticTimeline, moves, shot } from "./helpers/shot.js";
+import { animaticTimeline, moves, shot, videoTimeline } from "./helpers/shot.js";
 
 // The stage-side half of the staging class — what `loadStagingStageState` hands `checkDirection`.
 // Built through the real DSL rather than by hand, since the order a panel's inputs arrive in is
@@ -593,7 +595,12 @@ describe("listShotContinuity", () => {
                   src={asset("first", seamKeyframe, { prompt: "the two of them" })}
                   {...moves}
                 />
-                <Panel src={asset("last", seamKeyframe, { prompt: "she is alone" })} />
+                <Panel
+                  src={asset("last", seamKeyframe, {
+                    prompt: "she is alone",
+                    place: asset("painting", keyframe, { prompt: "a painting" }),
+                  })}
+                />
               </Composition>
             ),
           }),
@@ -634,6 +641,98 @@ describe("listShotContinuity", () => {
   it("links nothing through an input that carries no other shot's panel", () => {
     const read = listShotContinuity(board("reference:ferryDeck"));
     expect(read[1]?.linked).toEqual([]);
+  });
+
+  it("links nothing through another shot's asset that is no panel", () => {
+    const read = listShotContinuity(board("animatic:shot.01.painting"));
+    expect(read[1]?.linked).toEqual([]);
+  });
+});
+
+describe("the frame a cut comes from", () => {
+  const cutKeyframe = defineComfyAsset({
+    workflow: "cut.json",
+    description: "test cut keyframe adapter",
+    inputs: {
+      prompt: { nodeId: "1", field: "text", type: "prompt" },
+      image1: { nodeId: "2", field: "image", type: "image" },
+    },
+    outputs: { result: { nodeId: "9", type: "image" } },
+    readsPrevPanel: true,
+    validators: promptReferenceTags({
+      tags: { Picture: ["image1"] },
+      prevPanel: { tag: "Picture", within: (prompt) => /FROM:(.*?)TO:/s.exec(prompt)?.[1] },
+    }),
+  });
+  const board = (handed: string, direction = testDirection(format)) =>
+    defineAnimatic(direction, {
+      timeline: () =>
+        animaticTimeline([
+          shot("01", {
+            duration: 5,
+            build: () => (
+              <Composition>
+                <Panel
+                  src={asset("last", keyframe, {
+                    prompt: "she is alone",
+                    place: asset("painting", keyframe, { prompt: "a painting" }),
+                  })}
+                  {...moves}
+                />
+              </Composition>
+            ),
+          }),
+          shot("02", {
+            duration: 5,
+            build: () => (
+              <Composition>
+                <Panel
+                  src={asset("first", cutKeyframe, {
+                    prompt: "<Picture 1> on the wall",
+                    image1: makeMediaAsset<"image">(`__konte:${handed}__`),
+                  })}
+                  {...moves}
+                />
+              </Composition>
+            ),
+          }),
+        ]),
+    });
+
+  it("is asked of another shot's panel", () => {
+    expect(() => board("animatic:shot.01.last")).toThrow(
+      "has no place for the frame a cut comes from",
+    );
+  });
+
+  it("is not asked of another shot's asset that is no panel", () => {
+    expect(() => board("animatic:shot.01.painting")).not.toThrow();
+  });
+
+  it("is asked in a video of its own animatic's panel, whatever was built since", () => {
+    const direction = testDirection(format);
+    board("animatic:shot.01.painting", direction);
+    defineAnimatic(testDirection(format), { timeline: () => animaticTimeline([]) });
+    const video = (handed: string) =>
+      defineVideo(direction, {
+        timeline: () =>
+          videoTimeline([
+            shot("02", {
+              duration: 5,
+              build: () => {
+                asset("first", cutKeyframe, {
+                  prompt: "<Picture 1> on the wall",
+                  image1: makeMediaAsset<"image">(`__konte:${handed}__`),
+                });
+                return <Composition />;
+              },
+            }),
+          ]),
+      });
+    expect(() => video("animatic:shot.01.last")).toThrow(
+      "has no place for the frame a cut comes from",
+    );
+    expect(() => video("animatic:shot.01.painting")).not.toThrow();
   });
 });
 
@@ -706,11 +805,23 @@ describe("a board reading no previous panel still lists its panels", () => {
   });
 });
 
+// Shot 00, whose last panel the seam tests below hand on.
+const prevShot = () =>
+  shot("00", {
+    duration: 5,
+    build: () => (
+      <Composition>
+        <Panel src={asset("last", keyframe, { prompt: "her" })} {...moves} />
+      </Composition>
+    ),
+  });
+
 describe("a wrapped keyframe still answers for the seam", () => {
   it("reads the previous panel through a resize declared in the same shot", () => {
     const animatic = defineAnimatic(testDirection(format), {
       timeline: () =>
         animaticTimeline([
+          prevShot(),
           shot("01", {
             duration: 5,
             build: () => {
@@ -734,7 +845,7 @@ describe("a wrapped keyframe still answers for the seam", () => {
           }),
         ]),
     });
-    const read = listShotContinuity(animatic)[0];
+    const read = listShotContinuity(animatic)[1];
     expect(read?.firstPanel).toBe("animatic:shot.01.wrapped");
     expect(read?.carries).toBe(true);
     expect(read?.linked).toContain("animatic:shot.00.last");
@@ -746,6 +857,7 @@ describe("the previous panel handed through a wrapper", () => {
     defineAnimatic(testDirection(format), {
       timeline: () =>
         animaticTimeline([
+          prevShot(),
           shot("01", {
             duration: 5,
             build: () => (
@@ -769,7 +881,7 @@ describe("the previous panel handed through a wrapper", () => {
           height: 64,
         }),
       ),
-    )[0];
+    )[1];
     expect(read?.linked).toEqual([]);
   });
 
@@ -781,7 +893,7 @@ describe("the previous panel handed through a wrapper", () => {
           place: makeMediaAsset<"image">("__konte:animatic:shot.00.last__"),
         }),
       ),
-    )[0];
+    )[1];
     expect(read?.linked).toEqual([]);
   });
 });

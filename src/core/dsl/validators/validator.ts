@@ -21,8 +21,13 @@ export type AdapterValidator = ((
 /**
  * The adapter's own shape: `promptInput` is the name of its one `"prompt"` input, undefined when it
  * declares none or several. `shotId` is the shot the asset is declared in, undefined outside one.
+ * `panels` are the addresses of the animatic's keyframes, as far as it has been read.
  */
-export type AdapterValidatorContext = { promptInput?: string; shotId?: string };
+export type AdapterValidatorContext = {
+  promptInput?: string;
+  shotId?: string;
+  panels?: ReadonlySet<string>;
+};
 
 // The adapter's single `"prompt"` input, or undefined when it has none or more than one. A
 // `"negativePrompt"` is not one of them.
