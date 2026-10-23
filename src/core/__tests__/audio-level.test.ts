@@ -10,7 +10,7 @@ import {
   shotCueLevels,
 } from "../audio-level.js";
 import type { KonteState } from "../types/index.js";
-import { parseEbur128Summary, parseLeadIn } from "../audio-loudness.js";
+import { parseEbur128Summary, parseLeadIn, parseSilent } from "../audio-loudness.js";
 
 const SUMMARY = `[Parsed_ebur128_0 @ 0x55f] Summary:
 
@@ -61,6 +61,21 @@ describe("parseLeadIn", () => {
   it("is 0 for digital silence and for output it cannot read", () => {
     expect(parseLeadIn(windows(["-inf", "-inf"]))).toBe(0);
     expect(parseLeadIn("")).toBe(0);
+  });
+});
+
+describe("parseSilent", () => {
+  it("reads digital silence and a noise floor as silent", () => {
+    expect(parseSilent(windows(["-inf", "-inf"]))).toBe(true);
+    expect(parseSilent(windows(["-inf", "-70", "-58"]))).toBe(true);
+  });
+
+  it("reads one window above the floor as sound", () => {
+    expect(parseSilent(windows(["-inf", "-40", "-inf"]))).toBe(false);
+  });
+
+  it("is null for output it cannot read", () => {
+    expect(parseSilent("")).toBeNull();
   });
 });
 

@@ -215,6 +215,9 @@ export type KonteErrorCode =
   // is built on it — never implicitly, by whatever consumed it first.
   | "REFERENCE_ACCEPTANCE_REQUIRED"
   | "REVIEW_PREREQUISITE_MISSING"
+  // A review opened on a take with a variant finding — silent, or not saying its line — that nobody
+  // has dismissed or vouched for.
+  | "VARIANT_CHECK_FAILED"
   | "BACKEND_NOT_CONFIGURED"
   | "DELIVERY_UPSCALE_REQUIRED"
   | "NOT_A_KONTE_WORKSPACE"

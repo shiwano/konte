@@ -3,14 +3,18 @@ import type { Command } from "commander";
 import { formatDuration } from "../../../core/format-duration.js";
 import { isJobTerminal, JobManager } from "../../../core/job-manager.js";
 import { sleep } from "../../../core/sleep.js";
+import { linesOwedAt, readHeardSpeech } from "../../../core/speech-hearing.js";
+import { checkVariant, formatFindings, measuredSilent } from "../../../core/variant-check.js";
+import { speechLangOf } from "../../../core/select-definition.js";
 import { queueSongAnalyses } from "../../../core/song-queue.js";
 import { StateManager } from "../../../core/state/index.js";
+import type { PatchFinalize } from "../../../core/patch-output.js";
 import type { JobRecord } from "../../../core/types/index.js";
 import { mcpLogEnd, readMcpLogSince } from "../../../mcp/mcp-log.js";
 import { parsePositiveInt } from "../../parse-option.js";
 import { requireVideoRoots } from "../../context.js";
 import { JobRunnerGuard } from "../../job-runner.js";
-import { loadDirectionIfPresent } from "../../load-definition.js";
+import { loadDirectionIfPresent, loadStageDefinitions } from "../../load-definition.js";
 
 const POLL_INTERVAL_MS = 1000;
 
@@ -22,8 +26,9 @@ export function registerJobWaitCommand(program: Command, pollIntervalMs = POLL_I
     .addHelpText(
       "after",
       `
-Blocks until the jobs settle, then prints what broke and, on the last line, the outcome
-and the command that answers it. Generation and export are async, so this is how a run ends.
+Blocks until the jobs settle, then prints what broke — a failed job, or a variant finding: a
+take silent, or heard to drop or change its line — and, on the last line, the outcome and the
+command that answers it. Generation and export are async, so this is how a run ends.
 
 The workspace's konte daemon (\`konte mcp serve\`) runs the jobs. With none running, this wait
 starts one and stops it when the wait ends. With no arguments it waits on every active job of
@@ -72,17 +77,18 @@ Examples:
       }
       const elapsedMs = Date.now() - startedAt;
       const { results, settledBefore } = observed;
+      const found = await findingsOf(roots.video, results);
 
       if (jobIds.length > 0) {
         // Named ids get a line each: the caller asked about exactly these jobs.
-        for (const r of results) printResultLine(r);
+        for (const r of results) printResultLine(r, found.get(r.id));
         console.log("");
         console.log(formatWaitSummary(results, elapsedMs, 0));
       } else if (results.length === 0) {
         console.log("No running, queued, or pending jobs — run `konte status`");
       } else {
         // Problems first, outcome last: the outcome line is the one a piped caller keeps.
-        if (printProblemLines(results)) console.log("");
+        if (printProblemLines(results, found)) console.log("");
         for (const r of results) printExportOutput(r);
         console.log(formatWaitSummary(results, elapsedMs, settledBefore));
       }
@@ -98,6 +104,8 @@ interface Outcome {
   status: JobRecord["status"];
   outputFiles: string[];
   error: string | null;
+  // The take a patch step's output becomes, whose lines it owes; absent on every other job.
+  patchSourceAddress?: string;
   // Still in flight when the deadline passed — not a failure.
   timedOut: boolean;
 }
@@ -202,7 +210,13 @@ function outcomeOf(job: JobRecord, timedOut: boolean): Outcome {
             : [],
     error: timedOut ? null : job.error,
     timedOut,
+    ...(patchSourceOf(job) ? { patchSourceAddress: patchSourceOf(job) } : {}),
   };
+}
+
+function patchSourceOf(job: JobRecord): string | undefined {
+  if (job.kind !== "generation") return undefined;
+  return (job.metadata.patchFinalize as PatchFinalize | undefined)?.output?.sourceAddress;
 }
 
 // What a standalone job is called in the results: the thing it installs, since it has no address.
@@ -311,17 +325,60 @@ function formatWaitSummary(results: Outcome[], elapsedMs: number, settledBefore:
 }
 
 // Only what the caller may have to act on — naming all 60 completions buries the two that broke.
-function printProblemLines(results: Outcome[]): boolean {
+function printProblemLines(results: Outcome[], found: ReadonlyMap<string, string>): boolean {
   let printed = false;
   for (const r of results) {
-    if (!r.timedOut && r.status === "completed") continue;
-    printResultLine(r);
+    if (!r.timedOut && r.status === "completed" && !found.has(r.id)) continue;
+    printResultLine(r, found.get(r.id));
     printed = true;
   }
   return printed;
 }
 
-function printResultLine(r: Outcome): void {
+// The variant check's findings on each completed variant, by id: it landed, but not as written.
+async function findingsOf(
+  videoRoot: string,
+  results: readonly Outcome[],
+): Promise<Map<string, string>> {
+  const landed = results.filter(
+    (r) => r.kind === "generation" && !r.timedOut && r.status === "completed",
+  );
+  if (landed.length === 0) return new Map();
+  const state = (await StateManager.load(videoRoot)).getState();
+  const takes = landed.flatMap((r) => {
+    const variant = state.assets[r.address]?.variants?.[r.id];
+    return variant ? [{ r, variant }] : [];
+  });
+  // Only a take heard, measured silent, or a video with no track can carry a finding, and only it
+  // needs the definition.
+  const checkable = takes.filter(
+    ({ r, variant }) =>
+      readHeardSpeech(videoRoot, r.address, r.id, variant.outputHash) !== null ||
+      measuredSilent(variant) ||
+      (variant.media?.kind === "video" && variant.media.audio === null),
+  );
+  if (checkable.length === 0) return new Map();
+  // The lines are the definition's: a wait that cannot load it has nothing to read the takes against.
+  const definitions = await loadStageDefinitions(videoRoot).catch(() => null);
+  if (!definitions) return new Map();
+  const lang = speechLangOf(definitions);
+  const found = new Map<string, string>();
+  for (const { r, variant } of checkable) {
+    const findings = checkVariant({
+      videoRoot,
+      state,
+      address: r.address,
+      variantId: r.id,
+      variant,
+      lines: linesOwedAt(definitions, r.patchSourceAddress ?? r.address),
+      lang,
+    });
+    if (findings.length > 0) found.set(r.id, formatFindings(findings));
+  }
+  return found;
+}
+
+function printResultLine(r: Outcome, found?: string): void {
   if (r.timedOut) {
     console.log(`Job ${r.id}: still running (stopped waiting — timeout reached)`);
     console.log(
@@ -330,7 +387,7 @@ function printResultLine(r: Outcome): void {
     return;
   }
   const label = r.address ? `${r.address} (${r.id})` : r.id;
-  console.log(`Job ${label}: ${r.status}`);
+  console.log(`Job ${label}: ${r.status}${found ? `, but ${found}` : ""}`);
   printExportOutput(r);
   if (r.error) {
     console.log(`  Error: ${r.error}`);

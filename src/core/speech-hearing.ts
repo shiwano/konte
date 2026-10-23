@@ -2,6 +2,9 @@ import { mkdirSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
+import { definitionForAddress, type StageDefinitions } from "./definition-hashes.js";
+import { lineMishearing } from "./line-hearing.js";
+import { spokenLinesAt } from "./prompt-check.js";
 import { execFileAsync } from "./exec-file.js";
 import { ffmpegBin } from "./ffmpeg-binary.js";
 import { type HeardTokens, recognizeSpeech } from "./sherpa-binary.js";
@@ -127,4 +130,35 @@ export function readHeardSpeech(
   const parsed = HeardSpeechSchema.safeParse(raw);
   if (!parsed.success || parsed.data.outputHash !== outputHash) return null;
   return parsed.data.heard;
+}
+
+export function heardText(heard: HeardSpeech["heard"]): string {
+  return heard
+    .map((t) => t.text)
+    .join("")
+    .trim();
+}
+
+// The lines a take at `address` owes, read off the stage that defines it.
+export function linesOwedAt(definitions: StageDefinitions, address: string): string[] {
+  const def = definitionForAddress(definitions, address);
+  return def ? spokenLinesAt(def.prompts ?? [], address) : [];
+}
+
+// What a take gets wrong of the `lines` it owes, written in `lang`, as `heard "…" — <what>`, or null
+// where it says them or was never heard.
+export function takeMishearing(
+  videoRoot: string,
+  address: string,
+  variantId: string,
+  outputHash: string | null | undefined,
+  lines: readonly string[],
+  lang: string,
+): string | null {
+  if (lines.length === 0) return null;
+  const heard = readHeardSpeech(videoRoot, address, variantId, outputHash);
+  if (!heard) return null;
+  const words = heardText(heard);
+  const wrong = lineMishearing(lines.join(" "), words, lang);
+  return wrong ? `heard "${words}" — ${wrong}` : null;
 }

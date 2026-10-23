@@ -26,6 +26,9 @@ const AudioLoudnessSchema = z.object({
   leadInSec: z.number().nonnegative().optional(),
 });
 
+// Whether no 10 ms of the audio rises above the noise floor. Absent means UNMEASURED.
+const SilentSchema = z.boolean().optional();
+
 export const VariantMediaSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("image"),
@@ -44,6 +47,7 @@ export const VariantMediaSchema = z.discriminatedUnion("kind", [
         channels: z.number().positive(),
         sampleRate: z.number().positive(),
         loudness: AudioLoudnessSchema.optional(),
+        silent: SilentSchema,
       })
       .nullable(),
   }),
@@ -53,6 +57,7 @@ export const VariantMediaSchema = z.discriminatedUnion("kind", [
     channels: z.number().positive(),
     sampleRate: z.number().positive(),
     loudness: AudioLoudnessSchema.optional(),
+    silent: SilentSchema,
   }),
 ]);
 
@@ -164,6 +169,9 @@ export const VariantStateSchema = z.object({
   // staleness only while the take is accepted; `inputFingerprints` stays the record of what the take
   // was made from.
   keptInputs: z.record(z.string(), z.string()).optional(),
+  // When an agent vouched for this take past its variant findings (`konte vouch`, ISO 8601),
+  // letting its review open.
+  vouchedAt: z.string().optional(),
   // The seed injected into this generation, captured so a variant can be reproduced (a future
   // `konte restore`). One seed per job, reused across every `__konte:seed__` occurrence; absent
   // when the definition declares no seed placeholder (or for non-generation variants). Not a

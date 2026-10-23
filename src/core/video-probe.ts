@@ -1,4 +1,4 @@
-import { measureAudioLoudness } from "./audio-loudness.js";
+import { measureAudio } from "./audio-loudness.js";
 import { ffprobeBin } from "./ffmpeg-binary.js";
 import { inferMediaType } from "./media-type.js";
 import type { VariantMedia } from "./types/index.js";
@@ -162,18 +162,19 @@ export async function probeMediaInfo(absPath: string): Promise<VariantMedia | nu
   return media ? withAudioLoudness(media, absPath) : null;
 }
 
-// A second decode pass, taken once when the file lands, for the levels the mix needs. A still and a
-// silent video have no audio to measure and skip it; a failed measurement leaves the record without
-// one rather than dropping the whole thing.
+// A second decode pass, taken once when the file lands, for the levels the mix needs and whether
+// anything is heard at all. A still and a video with no audio stream have no audio to measure and
+// skip it; a failed measurement leaves the record without it.
 async function withAudioLoudness(media: VariantMedia, absPath: string): Promise<VariantMedia> {
   if (media.kind === "image") return media;
   if (media.kind === "video" && media.audio === null) return media;
-  if (media.kind === "audio") {
-    const loudness = await measureAudioLoudness(absPath);
-    return loudness ? { ...media, loudness } : media;
-  }
-  const loudness = await measureAudioLoudness(absPath);
-  return loudness && media.audio ? { ...media, audio: { ...media.audio, loudness } } : media;
+  const { loudness, silent } = await measureAudio(absPath);
+  const measured = {
+    ...(loudness ? { loudness } : {}),
+    ...(silent !== null ? { silent } : {}),
+  };
+  if (media.kind === "audio") return { ...media, ...measured };
+  return media.audio ? { ...media, audio: { ...media.audio, ...measured } } : media;
 }
 
 interface MediaDetail {

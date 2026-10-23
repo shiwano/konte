@@ -1,4 +1,5 @@
 import { staleSupersededLeaves } from "../core/board-leaves.js";
+import { formatVariantFindings, type VariantFindings } from "../core/variant-check.js";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import {
@@ -546,6 +547,7 @@ export function printStatusReport(
     directionStaleWaivers?: DirectionStaleWaiverLine[];
     promptFindings?: PromptFindingLine[];
     promptStaleWaivers?: PromptStaleWaiverLine[];
+    variantFindings?: readonly VariantFindings[];
     pinFindings?: PinFindingLine[];
     pinStaleWaivers?: PinStaleWaiverLine[];
     classFindings?: ClassFindingLine[];
@@ -687,6 +689,15 @@ export function printStatusReport(
     printCapped(promptFindings, (f) => `[${f.key}] (${f.where}) ${f.detail}`, {
       verbose: options?.verbose,
     });
+  }
+
+  const variantFindings = options?.variantFindings ?? [];
+  if (variantFindings.length > 0) {
+    console.log();
+    console.log(
+      `Variant findings: ${variantFindings.length} — a take that is silent or does not say its line holds its stage's review`,
+    );
+    printCapped(variantFindings, formatVariantFindings, { verbose: options?.verbose });
   }
 
   const promptStaleWaivers = options?.promptStaleWaivers ?? [];

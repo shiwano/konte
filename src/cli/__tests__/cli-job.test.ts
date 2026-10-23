@@ -1,9 +1,18 @@
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ComfyUIBackend } from "../../comfyui/backend.js";
 import { JobManager } from "../../core/job-manager.js";
 import type { JobRecord } from "../../core/types/index.js";
 import { StateManager } from "../../core/state/manager.js";
-import { useTempWorkspace, initWithTestVideo, run, runCapture } from "./cli-fixtures.js";
+import { writeHeardSpeech } from "../../core/speech-hearing.js";
+import {
+  TEST_VIDEO_TSX,
+  useTempWorkspace,
+  initWithTestVideo,
+  run,
+  runCapture,
+} from "./cli-fixtures.js";
 
 vi.setConfig({ testTimeout: 15000 });
 
@@ -27,12 +36,18 @@ describe("job wait command", () => {
 
   async function createSettledJob(
     variantId: string,
-    opts: { status: "completed" | "failed"; error?: string; reported: boolean },
+    opts: {
+      status: "completed" | "failed";
+      error?: string;
+      reported: boolean;
+      address?: string;
+      metadata?: Record<string, unknown>;
+    },
   ): Promise<string> {
     const jobManager = new JobManager(projectDir);
     const now = new Date().toISOString();
     const job = await jobManager.createJob({
-      address,
+      address: opts.address ?? address,
       variantId,
       resolvedDeps: {},
       backendKind: "comfy",
@@ -42,6 +57,7 @@ describe("job wait command", () => {
       error: opts.error ?? null,
       completedAt: now,
       reportedAt: opts.reported ? now : null,
+      ...(opts.metadata ? { metadata: opts.metadata } : {}),
     });
     return job.variantId;
   }
@@ -115,6 +131,72 @@ describe("job wait command", () => {
 
     const again = await run(["job", "wait"], projectDir);
     expect(again.stdout).toContain("No running, queued, or pending jobs — run `konte status`");
+  });
+
+  describe("a landed take heard to drop words of its line", () => {
+    const voice = "video:shot.01.voice";
+
+    // A completed take at `at`, heard to say less than the voice's line.
+    async function landShortTake(at: string, metadata?: Record<string, unknown>): Promise<string> {
+      await fs.writeFile(
+        path.join(projectDir, "video.tsx"),
+        TEST_VIDEO_TSX.replace(
+          `inputs: { text: { nodeId: "3", field: "text", type: "string" } }`,
+          `inputs: { text: { nodeId: "3", field: "text", type: "spokenText" } }`,
+        ).replace(
+          `asset("voice", ttsComfy, { text: "hello" })`,
+          `asset("voice", ttsComfy, { text: "Bigger! She should fill the sky!" })`,
+        ),
+      );
+      const variantId = await createSettledJob("v-line0001", {
+        status: "completed",
+        reported: false,
+        address: at,
+        ...(metadata ? { metadata } : {}),
+      });
+      const manager = await StateManager.load(projectDir);
+      manager.ensureAssetState(at).variants = {
+        [variantId]: {
+          status: "none",
+          file: "take.mp4",
+          definitionHash: null,
+          outputHash: "take-bytes",
+          createdAt: "2026-01-01T00:00:01.000Z",
+          readyAt: "2026-01-01T00:00:01.000Z",
+          inputFingerprints: {},
+          metadata: {},
+        },
+      };
+      await manager.save();
+      await writeHeardSpeech(projectDir, at, variantId, {
+        outputHash: "take-bytes",
+        heard: [
+          { text: " she", startSec: 0.2 },
+          { text: " should fill the sky", startSec: 0.5 },
+        ],
+      });
+      return variantId;
+    }
+
+    it("is named on landing (no ids)", async () => {
+      const variantId = await landShortTake(voice);
+      const { stdout } = await run(["job", "wait"], projectDir);
+      expect(stdout).toContain(
+        `Job ${voice} (${variantId}): completed, but heard "she should fill the sky" — drops the opening "Bigger!"`,
+      );
+      expect(stdout.trimEnd().split("\n").at(-1)).toContain("1 job(s) settled: 1 completed");
+    });
+
+    it("is read against the lines of the take a patch step corrects (no ids)", async () => {
+      const step = "video:patch.v-src.fixed";
+      const variantId = await landShortTake(step, {
+        patchFinalize: {
+          output: { sourceAddress: voice, sourceVariantId: "v-src", patchHash: "patch" },
+        },
+      });
+      const { stdout } = await run(["job", "wait"], projectDir);
+      expect(stdout).toContain(`Job ${step} (${variantId}): completed, but heard`);
+    });
   });
 
   it("reports a failure no command reported yet, then keeps it as history (no ids)", async () => {

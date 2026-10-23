@@ -339,6 +339,31 @@ describe("waitForJob line hearing", () => {
     expect(readHeardSpeech(tmpDir, LINE_ADDRESS, variantId, "other-bytes")).toBeNull();
   });
 
+  it("hears the step a patched take comes from against the lines of the take it corrects", async () => {
+    recognizeSpeech.mockResolvedValue([{ tokens: ["おは", "よう"], timestamps: [0.2, 0.6] }]);
+    const step = "video:patch.v-src.fixed";
+    const { jobManager, variantId } = await setupLocalRunningJob(step, writeSpeech);
+    let sourceVariantId = "";
+    await StateManager.withLock(tmpDir, async (m) => {
+      sourceVariantId = m.reserveVariantId(LINE_ADDRESS);
+      m.getAssetState(LINE_ADDRESS).variants![sourceVariantId]!.file = "source.wav";
+    });
+    await jobManager.updateJob(variantId, {
+      metadata: {
+        patchFinalize: {
+          output: { sourceAddress: LINE_ADDRESS, sourceVariantId, patchHash: "patch" },
+        },
+      },
+    });
+
+    const result = await waitForJob(jobManager, variantId, roots, definitions());
+
+    expect(result.status).toBe("completed");
+    expect(recognizeSpeech).toHaveBeenCalled();
+    const variant = (await StateManager.load(tmpDir)).getAssetState(step).variants![variantId]!;
+    expect(readHeardSpeech(tmpDir, step, variantId, variant.outputHash)).not.toBeNull();
+  });
+
   it("completes a take whose line could not be recognized", async () => {
     recognizeSpeech.mockRejectedValue(new Error("no recognizer"));
     const { jobManager, variantId } = await setupLocalRunningJob(LINE_ADDRESS, writeSpeech);

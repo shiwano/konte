@@ -34,17 +34,23 @@ const VOWELS = new Set([..."aeiouy"]);
 
 // What is compared of a text: its letters and digits, case and kana folded.
 function letters(text: string): string[] {
-  return [
-    ...text
-      .replace(/<\|[^|]*\|>/g, "")
-      .normalize("NFKC")
-      .toLowerCase(),
-  ]
-    .filter((ch) => /[\p{L}\p{N}]/u.test(ch))
-    .map((ch) => {
-      const code = ch.codePointAt(0)!;
-      return code >= 0x30a1 && code <= 0x30f6 ? String.fromCodePoint(code - 0x60) : ch;
-    });
+  return lettersAt(text).map((l) => l.ch);
+}
+
+const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+// Each compared letter of `text` and the [at, end) of the text it is read off.
+export function lettersAt(text: string): { ch: string; at: number; end: number }[] {
+  const untagged = text.replace(/<\|[^|]*\|>/g, (tag) => " ".repeat(tag.length));
+  return [...segmenter.segment(untagged)].flatMap(({ segment, index }) =>
+    [...segment.normalize("NFKC").toLowerCase()]
+      .filter((ch) => /[\p{L}\p{N}]/u.test(ch))
+      .map((ch) => {
+        const code = ch.codePointAt(0)!;
+        const folded = code >= 0x30a1 && code <= 0x30f6 ? String.fromCodePoint(code - 0x60) : ch;
+        return { ch: folded, at: index, end: index + segment.length };
+      }),
+  );
 }
 
 // Every heard letter and the second it is sung at, a token's letters spread over the time to the
@@ -67,7 +73,7 @@ function mismatch(a: string, b: string): number {
 
 // For each sung letter, the heard letter it is matched to exactly, or -1: the cheapest alignment of
 // the two in order.
-function matchLetters(sung: readonly string[], heard: readonly string[]): Int32Array {
+export function matchLetters(sung: readonly string[], heard: readonly string[]): Int32Array {
   const n = sung.length;
   const m = heard.length;
   const cost = new Float32Array((n + 1) * (m + 1));

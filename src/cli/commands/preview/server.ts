@@ -19,6 +19,7 @@ import {
 } from "../../page-host/http.js";
 import { findLatestHandoff, loadHandoff } from "../../../core/loader.js";
 import { loadPreviewDefinitions, reloadStageDefinition } from "./load-definitions.js";
+import { assertNoVariantFindings, unvouchedFindings } from "../../../core/variant-check.js";
 import { KonteStateSchema, type Handoff } from "../../../core/types/index.js";
 import { songReadingsOf } from "../../../core/song-take.js";
 import { REVIEW_DIR, reviewShowedHandoff } from "../../../core/review-record.js";
@@ -142,6 +143,19 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
         findUnmetPrerequisites(stage, { animatic }, m.getState()),
         `Cannot open the ${stage} review`,
       );
+      const lang = video?.typography.lang ?? direction?.policy.lang;
+      if (lang && stage !== "direction") {
+        assertNoVariantFindings(
+          unvouchedFindings({
+            videoRoot,
+            manager: m,
+            definitions: { reference, animatic, video },
+            lang,
+            stage,
+          }),
+          `Cannot open the ${stage} review`,
+        );
+      }
     }
   });
 

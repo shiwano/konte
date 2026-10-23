@@ -25,6 +25,11 @@ export function songOfDefinitions(defs: LoadedDefinitions): string | undefined {
   return song === undefined ? undefined : formatReferenceAddress(song);
 }
 
+// The language the piece's lines are written and heard in.
+export function speechLangOf(defs: LoadedDefinitions): string {
+  return defs.video ? defs.video.typography.lang : defs.direction.policy.lang;
+}
+
 // The definitions with the board and the video loaded, else the song they wait on.
 export function requireShotStages(defs: LoadedDefinitions): ShotStageDefinitions {
   if (defs.video === null) throw defs.songUnread;

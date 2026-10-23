@@ -40,11 +40,8 @@ export function parseEbur128Summary(stderr: string): AudioLoudness | null {
   return { integratedLufs: Number.isFinite(lufs) ? lufs : null, truePeakDb };
 }
 
-/**
- * Where the sound begins, from the per-window RMS levels `ametadata` prints to stdout. 0 for a file
- * that never rises out of digital silence.
- */
-export function parseLeadIn(stdout: string): number {
+// The per-window RMS levels `ametadata` prints to stdout, digital silence at -Infinity.
+function windowLevels(stdout: string): { at: number; level: number }[] {
   const windows: { at: number; level: number }[] = [];
   let at: number | null = null;
   for (const line of stdout.split("\n")) {
@@ -55,22 +52,48 @@ export function parseLeadIn(stdout: string): number {
     }
     const level = /RMS_level=(.+)$/.exec(line);
     if (level && at !== null) {
-      const value = Number.parseFloat(level[1] ?? "");
-      if (Number.isFinite(value)) windows.push({ at, level: value });
+      const raw = level[1]!.trim();
+      const value = raw === "-inf" ? -Infinity : Number.parseFloat(raw);
+      if (!Number.isNaN(value)) windows.push({ at, level: value });
       at = null;
     }
   }
+  return windows;
+}
+
+/**
+ * Where the sound begins, from the per-window RMS levels `ametadata` prints to stdout. 0 for a file
+ * that never rises out of digital silence.
+ */
+export function parseLeadIn(stdout: string): number {
+  const windows = windowLevels(stdout).filter((w) => Number.isFinite(w.level));
   if (windows.length === 0) return 0;
   const loudest = Math.max(...windows.map((w) => w.level));
   return windows.find((w) => w.level >= loudest - LEAD_IN_FLOOR_DB)?.at ?? 0;
 }
 
+// The floor `probe audio` reads digital silence under (`SILENCE_ABS_FLOOR`, -55 dBFS).
+const SILENT_FLOOR_DB = -55;
+
+/**
+ * Whether no window of the per-window RMS levels `ametadata` prints to stdout rises above the noise
+ * floor; null where it printed none.
+ */
+export function parseSilent(stdout: string): boolean | null {
+  const windows = windowLevels(stdout);
+  if (windows.length === 0) return null;
+  return windows.every((w) => w.level <= SILENT_FLOOR_DB);
+}
+
 /**
  * Measure one file with a decode pass (`-f null`): the ebur128 summary on stderr, the lead-in's
- * per-window levels on stdout. Null on any failure — a file with no audio stream, an unreadable one,
- * a missing ffmpeg — which callers read as "unmeasured".
+ * and silence's per-window levels on stdout. Null on any failure — a file with no audio stream, an
+ * unreadable one, a missing ffmpeg — which callers read as "unmeasured". A file of digital silence
+ * has no loudness, so it is measured as silent alone.
  */
-export async function measureAudioLoudness(absPath: string): Promise<AudioLoudness | null> {
+export async function measureAudio(
+  absPath: string,
+): Promise<{ loudness: AudioLoudness | null; silent: boolean | null }> {
   try {
     const ffmpeg = await ffmpegBin();
     const windows =
@@ -97,8 +120,15 @@ export async function measureAudioLoudness(absPath: string): Promise<AudioLoudne
       "-",
     ]);
     const loudness = parseEbur128Summary(stderr);
-    return loudness ? { ...loudness, leadInSec: parseLeadIn(stdout) } : null;
+    // The windows are read off a mono downmix, where channels in opposite phase cancel; the true
+    // peak is per channel, so a sound heard on either one is not silence.
+    const quiet = parseSilent(stdout);
+    return {
+      loudness: loudness ? { ...loudness, leadInSec: parseLeadIn(stdout) } : null,
+      silent:
+        quiet === null ? null : quiet && (loudness?.truePeakDb ?? -Infinity) <= SILENT_FLOOR_DB,
+    };
   } catch {
-    return null;
+    return { loudness: null, silent: null };
   }
 }

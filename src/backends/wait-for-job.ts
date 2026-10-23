@@ -26,6 +26,7 @@ import {
   type LoadedDefinitions,
   selectDefinition,
   songOfDefinitions,
+  speechLangOf,
 } from "../core/select-definition.js";
 import { StateManager } from "../core/state/index.js";
 import { ensureVariantThumbnails, type ThumbnailInfo } from "../core/thumbnail.js";
@@ -236,6 +237,13 @@ async function runAsOwner(
       // below would find nothing. Everything it needs was snapshotted at submit time (see
       // patchFinalizeOf), including whether this step is the one the patched take comes from.
       patchOutput = patchFinalize.output ?? null;
+      // The step a patched take is made from owes the lines of the take it corrects.
+      if (patchOutput) {
+        const source = selectDefinition(getStage(patchOutput.sourceAddress), definitions).def;
+        owesLine =
+          patchOutput.sourceAddress !== songOfDefinitions(definitions) &&
+          spokenLinesAt(source.prompts ?? [], patchOutput.sourceAddress).length > 0;
+      }
       if (backend instanceof ComfyUIBackend || backend instanceof ComfyApiBackend) {
         backend.setOutputNodeId(backendJobId, patchFinalize.outputNodeId);
       }
@@ -430,9 +438,7 @@ async function runAsOwner(
     // The one probe of these bytes, where the file has just landed.
     const media = outputFile ? await probeMediaInfo(path.resolve(videoRoot, outputFile)) : null;
     const durationSec = mediaDurationSec(media);
-    const lang = definitions.video
-      ? definitions.video.typography.lang
-      : definitions.direction.policy.lang;
+    const lang = speechLangOf(definitions);
     if (owesLine && !recognizesSpeechIn(lang)) {
       jobManager.appendLog(
         variantId,

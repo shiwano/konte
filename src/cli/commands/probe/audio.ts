@@ -11,7 +11,9 @@ import { openProbeTargets } from "./resolve-arg.js";
 import { loadDirectionIfPresent } from "../../load-definition.js";
 import { songAnalysisOf } from "../../../core/song-reading.js";
 import { recognizesSpeechIn } from "../../../core/sherpa-binary.js";
-import { readHeardSpeech } from "../../../core/speech-hearing.js";
+import { heardText, readHeardSpeech } from "../../../core/speech-hearing.js";
+import { lineMishearing } from "../../../core/line-hearing.js";
+import { variantOwningFile } from "../../../core/variant-dir.js";
 import { formatSongTempo, songAddressOf, songBeatSec, songTempo } from "../../../core/song-take.js";
 import { barAt, songBars } from "../../../core/song-report.js";
 import type { SongAnalysis } from "../../../core/types/index.js";
@@ -71,7 +73,8 @@ stretches is a model that padded the box it was given.
 
 The heard row under it is the speech recognized in the take when it landed, in \`policy.lang\`: a
 line said twice, cut short, misread or followed by words nobody wrote shows there as text. It is a
-machine hearing — a near-homophone or a kanji/kana difference is not a wrong take.
+machine hearing — a near-homophone or a kanji/kana difference is not a wrong take. A take that
+drops the opening or closing words of its line, or says other words, is named so after the text.
 
 The spans line appears when the sound breaks up, listing each audible stretch — a generated take
 padded out past the content it had comes back as several with both its edges short, which the ⚠ line
@@ -113,16 +116,26 @@ Examples:
       const songAddress = songAddressOf(direction);
 
       const lang = direction?.policy.lang;
-      const heardRow = (address: string, variantId: string): string => {
+      const heardRow = (address: string, variantId: string, lines: string[]): string => {
         if (lang && !recognizesSpeechIn(lang))
           return `unknown — speech in ${lang} is not recognized`;
-        const variant = manager.getState().assets[address]?.variants?.[variantId];
-        const words = readHeardSpeech(videoRoot, address, variantId, variant?.outputHash)
-          ?.map((t) => t.text)
-          .join("")
-          .trim();
-        if (words === undefined) return "unknown — the take was not recognized when it landed";
-        return words ? quoteLine(words) : "nothing";
+        const state = manager.getState();
+        const variant = state.assets[address]?.variants?.[variantId];
+        // A patched take points at its chain's returned step, which was heard when it landed.
+        const owner = (variant?.file && variantOwningFile(state, variant.file)) || {
+          address,
+          variantId,
+        };
+        const heard = readHeardSpeech(
+          videoRoot,
+          owner.address,
+          owner.variantId,
+          variant?.outputHash,
+        );
+        if (!heard) return "unknown — the take was not recognized when it landed";
+        const words = heardText(heard);
+        const wrong = lang ? lineMishearing(lines.join(" "), words, lang) : null;
+        return `${words ? quoteLine(words) : "nothing"}${wrong ? ` — ${wrong}` : ""}`;
       };
 
       await probeEach(targets, async (variantId) => {
@@ -143,7 +156,7 @@ Examples:
           console.log(`  line      ${quoteLine(line)}`);
         }
         if (lines.length > 0 && wf.address !== songAddress) {
-          console.log(`  heard     ${heardRow(wf.address, variantId)}`);
+          console.log(`  heard     ${heardRow(wf.address, variantId, lines)}`);
         }
         if (wf.onset) {
           console.log(

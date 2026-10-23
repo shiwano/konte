@@ -158,6 +158,35 @@ describe("suggestForStatus", () => {
     ).toBe(false);
   });
 
+  it("probes a variant finding in place of the review it holds", () => {
+    const actions = suggestForStatus({
+      state: makeState({}),
+      pendingReviewAddresses: ["animatic:shot.35.line"],
+      variantFindings: [
+        {
+          address: "animatic:shot.35.line",
+          variantId: "v-a",
+          findings: [
+            {
+              type: "line-misheard",
+              detail: 'heard "she should fill the sky" — drops the opening "Bigger!"',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(actions).toEqual([
+      {
+        command: "konte probe audio v-a",
+        details: [
+          'animatic:shot.35.line v-a: heard "she should fill the sky" — drops the opening "Bigger!"',
+          "Dismiss a broken take (reroll for another beside it); `konte vouch <variantId>` one that is fine",
+        ],
+      },
+    ]);
+  });
+
   it("suggests preview animatic for animatic pending variants", () => {
     const state = makeState({
       "animatic:shot.01.first": {

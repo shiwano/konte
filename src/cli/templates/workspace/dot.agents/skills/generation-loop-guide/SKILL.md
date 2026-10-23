@@ -86,6 +86,7 @@ Reroll:
 ### Before handoff
 
 - Animatic: write each panel's movement from its settled take — preview reports `REVIEW_PREREQUISITE_MISSING` while any is missing; re-check after a reroll. Where that take departs from `action`, `action` follows it.
+- A variant finding — a take silent, or heard to drop or change its line — holds the review (`VARIANT_CHECK_FAILED`). Compare `line` with `heard` in `konte probe audio <variantId>`: dismiss a broken take (a reroll leaves it standing); `konte vouch <variantId>` one whose difference is only spelling (kanji for kana, a name, digits).
 
 ## 5. Human review
 

@@ -627,6 +627,29 @@ export class StateManager {
     return true;
   }
 
+  /**
+   * Record that an agent vouched for a take past its variant findings (`konte vouch`).
+   * Returns whether it moved: a take already vouched for keeps its `vouchedAt`.
+   */
+  setVouched(address: string, variantId: string): boolean {
+    const variant = this.state.assets[address]?.variants?.[variantId];
+    if (!variant) {
+      throw new KonteError(
+        "VARIANT_NOT_FOUND",
+        `Variant "${variantId}" not found for address "${address}"`,
+      );
+    }
+    if (variant.file === null) {
+      throw new KonteError(
+        "VARIANT_NOT_REVIEWABLE",
+        `Variant "${variantId}" has no output to vouch for — its job is still running, or it failed`,
+      );
+    }
+    if (variant.vouchedAt) return false;
+    variant.vouchedAt = new Date().toISOString();
+    return true;
+  }
+
   setUnaccepted(address: string, variantId: string): void {
     const target = this.state.assets[address];
     if (!target?.variants?.[variantId]) {

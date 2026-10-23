@@ -47,4 +47,4 @@ Exports do the same via `planDigest` / `decideExportRender`.
 ## Finalizing a take
 
 - Keyframe normalization — a produced video whose keyframes are sparser than ~2s apart is re-encoded (before hashing) to add a keyframe roughly every second, so HyperFrames seeks reliably. It skips non-videos, already-dense videos, and alpha/HDR sources (a re-encode would degrade them), logging what it did.
-- Speech hearing — a take owing a line, bar the song, is heard by SenseVoice into `heard.json` (`speech-hearing.ts`).
+- Variant check — a take owing a line, bar the song, is heard by SenseVoice into `heard.json`; an audio-bearing one is measured `silent` in its media record. `variant-check.ts` finds a silent audio or line take and one whose heard words miss its line (`line-hearing.ts`). `job wait` names a finding on landing; undecided and unvouched (`konte vouch`), it is `status`'s "Variant findings" and `konte preview` refuses (`VARIANT_CHECK_FAILED`).

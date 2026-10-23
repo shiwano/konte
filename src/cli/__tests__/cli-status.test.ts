@@ -25,6 +25,7 @@ import { FeedbackManager, generateFeedbackId } from "../../core/feedback/index.j
 import { directionPartHashes } from "../../core/direction-hash.js";
 import { JobManager } from "../../core/job-manager.js";
 import { saveReviewRecord } from "../../core/review-record.js";
+import { writeHeardSpeech } from "../../core/speech-hearing.js";
 import { loadDirectionIfPresent } from "../load-definition.js";
 import { panelMoveHashes } from "../../core/panel-move-hash.js";
 
@@ -302,6 +303,92 @@ describe("status command", () => {
     // The block a caller runs has to survive `konte status | head -N`, so it is bounded by
     // Progress alone — one line per stage — not by however many sections follow.
     expect(stdout.slice(0, next).split("\n").length).toBeLessThan(15);
+  });
+
+  describe("a variant finding", () => {
+    const voice = "video:shot.01.voice";
+
+    beforeEach(async () => {
+      await fs.writeFile(
+        path.join(projectDir, "video.tsx"),
+        TEST_VIDEO_TSX.replace(
+          `inputs: { text: { nodeId: "3", field: "text", type: "string" } }`,
+          `inputs: { text: { nodeId: "3", field: "text", type: "spokenText" } }`,
+        ).replace(
+          `asset("voice", ttsComfy, { text: "hello" })`,
+          `asset("voice", ttsComfy, { text: "Bigger! She should fill the sky!" })`,
+        ),
+      );
+      await acceptDirection(projectDir);
+      await acceptFileAssets(projectDir);
+    });
+
+    const take = async (heard: string | null, media?: Record<string, unknown>) => {
+      const sm = await StateManager.load(projectDir);
+      const id = sm.reserveVariantId(voice);
+      Object.assign(sm.getAssetState(voice).variants![id]!, {
+        file: `/tmp/${id}.wav`,
+        outputHash: `${id}-bytes`,
+        ...(media ? { media } : {}),
+      });
+      await sm.save();
+      if (heard !== null) {
+        await writeHeardSpeech(projectDir, voice, id, {
+          outputHash: `${id}-bytes`,
+          heard: [{ text: heard, startSec: 0.1 }],
+        });
+      }
+      return id;
+    };
+
+    it("holds the review until it is vouched for", async () => {
+      const short = await take(" she should fill the sky");
+      const { stdout } = await run(["status", "-v"], projectDir);
+      expect(stdout).toContain(`konte probe audio ${short}`);
+      expect(stdout).toContain(
+        `${voice} ${short}: heard "she should fill the sky" — drops the opening "Bigger!"`,
+      );
+      expect(stdout).not.toContain("konte preview video");
+      expect(stdout).toContain("Variant findings: 1");
+
+      await run(["vouch", short], projectDir);
+      const { stdout: after } = await run(["status"], projectDir);
+      expect(after).not.toContain("Variant findings");
+      expect(after).toContain("konte preview video");
+    });
+
+    it("refuses to open the review it holds", async () => {
+      await take(" she should fill the sky");
+      await expect(run(["preview", "video"], projectDir)).rejects.toMatchObject({
+        stderr: expect.stringContaining("VARIANT_CHECK_FAILED"),
+      });
+    });
+
+    it("leaves out an address the definition no longer holds", async () => {
+      const sm = await StateManager.load(projectDir);
+      const gone = "video:shot.01.removed";
+      const id = sm.reserveVariantId(gone);
+      Object.assign(sm.getAssetState(gone).variants![id]!, {
+        file: `/tmp/${id}.wav`,
+        outputHash: `${id}-bytes`,
+        media: { kind: "audio", durationSec: 2, channels: 1, sampleRate: 48000, silent: true },
+      });
+      await sm.save();
+      const { stdout } = await run(["status"], projectDir);
+      expect(stdout).not.toContain("Variant findings");
+    });
+
+    it("finds a silent take", async () => {
+      const silent = await take(null, {
+        kind: "audio",
+        durationSec: 2,
+        channels: 1,
+        sampleRate: 48000,
+        silent: true,
+      });
+      const { stdout } = await run(["status"], projectDir);
+      expect(stdout).toContain(`${voice} ${silent}: is silent`);
+    });
   });
 
   // status is read in a loop, so the default carries only what changes what the reader does next.

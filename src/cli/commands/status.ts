@@ -36,6 +36,7 @@ import {
   type SongPending,
   suggestForStatus,
 } from "../../core/suggested-actions.js";
+import { unvouchedFindings } from "../../core/variant-check.js";
 import { unreadSongTakes } from "../../core/song-queue.js";
 import { isJobTerminal, JobManager } from "../../core/job-manager.js";
 import { jobStatusFlags } from "../../core/job-diagnosis.js";
@@ -355,6 +356,12 @@ export function registerStatusCommand(program: Command): void {
       const pendingReviewAddresses = [
         ...new Set([...needsReviewItems(report).map((i) => i.address), ...waiverShotAddresses]),
       ];
+      const variantFindings = unvouchedFindings({
+        videoRoot,
+        manager,
+        definitions: { reference, animatic, video },
+        lang: video.typography.lang,
+      });
       // Derive clean candidates from the address infos, not the "Problems" section: the
       // section also lists orphan jobs and model-download failures, which have no state
       // variant for `clean` to act on — suggesting clean for them would be a no-op. Mirror
@@ -578,6 +585,7 @@ export function registerStatusCommand(program: Command): void {
         unmetPrerequisites,
         animaticOverflows,
         pendingReviewAddresses,
+        variantFindings,
         problemAddresses,
         failedJobVariantIds,
         // The whole list, blocked ones included: the bare `konte patch apply` takes every pending
@@ -633,6 +641,7 @@ export function registerStatusCommand(program: Command): void {
         directionStaleWaivers,
         promptFindings,
         promptStaleWaivers,
+        variantFindings,
         pinFindings,
         pinStaleWaivers,
         classFindings,

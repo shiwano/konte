@@ -14,6 +14,7 @@ import { STAGE_ENTRY_FILE } from "./roots.js";
 import type { ExportReadiness, LastExport } from "./status-sections.js";
 import type { AssetState, KonteState, VariantState } from "./types/index.js";
 import { formatSeconds } from "./format-duration.js";
+import { formatFindings, type VariantFindings } from "./variant-check.js";
 
 // One step: a runnable command, or — when no command performs it — a `label` naming the edit it
 // takes, parenthesized on the page so it never reads as something to run.
@@ -202,6 +203,22 @@ function suggestCompositionReReview(
   for (const scope of distinctScopes(compositionAddresses)) {
     actions.push({ command: `konte preview ${scope}` });
   }
+}
+
+// A variant finding blocks its stage's `konte preview` (VARIANT_CHECK_FAILED), so the step is the
+// probe that shows the line beside what was heard, above the review it gates.
+function prependVariantFindings(
+  actions: SuggestedAction[],
+  found: readonly VariantFindings[],
+): void {
+  if (found.length === 0) return;
+  actions.unshift({
+    command: `konte probe audio ${found.map((v) => v.variantId).join(" ")}`,
+    details: [
+      ...found.map((v) => `${v.address} ${v.variantId}: ${formatFindings(v.findings)}`),
+      "Dismiss a broken take (reroll for another beside it); `konte vouch <variantId>` one that is fine",
+    ],
+  });
 }
 
 // A human accept whose own definition moved. The take is the human's pick, so the step is writing
@@ -565,6 +582,8 @@ interface SuggestStatusInput {
    * `hasFreshPending` heuristic, which cannot see it.
    */
   pendingReviewAddresses?: readonly string[];
+  /** The variant check's findings on variants awaiting review (see `unvouchedFindings`). */
+  variantFindings?: readonly VariantFindings[];
   /**
    * The report's job-aware "Problems" addresses. The state-only fallback cannot see job state, so it
    * wrongly flags a still-running variant (no file yet, no error) as a problem.
@@ -678,7 +697,11 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   const videoCastBlocked = cast.some((c) => c.blocks === "video");
   const upstreamBlocked = new Set(input.upstreamReviewBlockedStages ?? []);
   const unmetPrerequisites = input.unmetPrerequisites ?? [];
-  const prerequisiteBlocked = new Set(unmetPrerequisites.map((u) => u.stage as string));
+  const found = input.variantFindings ?? [];
+  const prerequisiteBlocked = new Set([
+    ...unmetPrerequisites.map((u) => u.stage as string),
+    ...found.map((v) => getStage(v.address) as string),
+  ]);
   // The prompt gate is per stage and reaches the reference stage too — its prompts are spent on by
   // `generate reference`, which the direction gate never touches.
   const promptBlocked = new Set((input.promptBlockedStages ?? []).map((p) => p.stage));
@@ -758,6 +781,7 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   suggestExport(actions, readiness, input.lastExports, stageBlocked);
 
   prependPrerequisiteEdits(actions, unmetPrerequisites);
+  prependVariantFindings(actions, found);
   // Above the prerequisites: those hold a review back, this one moves the shot every review of the
   // shot is judged against.
   prependAnimaticRetimes(actions, input.animaticOverflows ?? []);
