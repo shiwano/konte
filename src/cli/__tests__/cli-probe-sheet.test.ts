@@ -159,7 +159,12 @@ export default defineVideo(direction, {
     const state = JSON.parse(await fs.readFile(statePath, "utf-8"));
     const variants = state.assets[address].variants as Record<string, Record<string, unknown>>;
     const source = Object.values(variants)[0]!;
-    const at = new Date(Date.now() + Object.keys(variants).length * 1000).toISOString();
+    const latest = Math.max(
+      ...Object.values(variants).flatMap((v) =>
+        [v.createdAt, v.decidedAt].filter((t) => typeof t === "string").map((t) => Date.parse(t)),
+      ),
+    );
+    const at = new Date(latest + 1000).toISOString();
     variants[variantId] = {
       ...source,
       status: "none",
