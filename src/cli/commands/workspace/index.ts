@@ -115,7 +115,7 @@ Examples:
         if (
           foreign.length &&
           !(await confirmAction(
-            `The current directory already holds ${foreign.slice(0, 5).join(", ")}. Create the workspace here anyway?`,
+            `The current directory already holds ${foreign.slice(0, 5).join(", ")}; the workspace will be created beside them.`,
             options,
           ))
         ) {

@@ -232,8 +232,9 @@ async function runDirectionAcceptance(
   // Clearing several sign-offs discards reads a human made, and each one costs a read to make
   // again. A single part is one re-read, so it goes through unprompted like the variant path.
   if (opts.off && decisions.size > 1) {
-    console.log(`This will clear ${decisions.size} direction part sign-off(s).`);
-    if (!(await confirmAction("Continue?", { yes: opts.yes, no: opts.no }))) {
+    const consequence = `This will clear ${decisions.size} direction part sign-off(s).`;
+    if (opts.yes || opts.no) console.log(consequence);
+    if (!(await confirmAction(consequence, { yes: opts.yes, no: opts.no }))) {
       printAborted();
       return;
     }

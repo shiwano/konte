@@ -20,7 +20,7 @@ export function registerFeedbackDeleteCommand(program: Command): void {
       const { stage, address } = found;
 
       const confirmed = await confirmAction(
-        `Feedback "${feedbackId}" on ${address} will be deleted. Continue?`,
+        `Feedback "${feedbackId}" on ${address} will be deleted.`,
         { yes: opts.yes, no: opts.no },
       );
       if (!confirmed) {

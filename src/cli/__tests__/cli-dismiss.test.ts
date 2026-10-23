@@ -216,7 +216,9 @@ describe("dismiss command (stale warning)", () => {
     const m2 = await setupStaleScenario();
 
     await expect(run(["dismiss", m2], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("CONFIRMATION_REQUIRED"),
+      stderr: expect.stringContaining(
+        `This will mark 1 asset(s) stale (--verbose to list). Not run without a TTY to confirm on — to proceed: konte dismiss ${m2} --yes`,
+      ),
     });
 
     const sm = await StateManager.load(projectDir);

@@ -189,8 +189,8 @@ export function registerJobCancelCommand(program: Command): void {
 
       const confirmed = await confirmAction(
         ids.length === 1
-          ? `Job "${ids[0]}" will be cancelled. Continue?`
-          : `${ids.length} jobs will be cancelled: ${ids.join(", ")}. Continue?`,
+          ? `Job "${ids[0]}" will be cancelled.`
+          : `${ids.length} jobs will be cancelled: ${ids.join(", ")}.`,
         { yes: opts.yes, no: opts.no },
       );
       if (!confirmed) {

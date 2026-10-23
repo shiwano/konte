@@ -8,6 +8,7 @@ import { syncFileAssets } from "../../core/file-sync.js";
 import { StateManager } from "../../core/state/index.js";
 import { SCHEMA_VERSION } from "../../core/types/index.js";
 import { VideoRegistry } from "../../mcp/video-registry.js";
+import { setInvocation } from "../context.js";
 import { jobRunnerHooks } from "../job-runner.js";
 import { buildProgram, formatKonteError } from "../program.js";
 import { loadDirectionIfPresent, loadStageDefinitions } from "../load-definition.js";
@@ -108,6 +109,7 @@ export async function run(
   try {
     const program = buildProgram({ skipProjectChecks: true, jobPollIntervalMs: 20 });
     program.exitOverride();
+    setInvocation(args);
     await program.parseAsync(args, { from: "user" });
     exitCode = process.exitCode ? Number(process.exitCode) : 0;
   } catch (err) {

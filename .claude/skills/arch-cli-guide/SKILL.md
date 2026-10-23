@@ -25,7 +25,7 @@ Write every CLI output for an agent to act on, not for a human to read.
 ## Output conventions
 
 - Next steps — `status` turns computed staleness/review/problem state and any standing comment into ready-to-run commands, printed as a `Next steps:` block. The sections are `-v` only: every state in them has a step here.
-- Confirmation — a destructive or stale-propagating action (e.g. `clean`) prompts first and takes `-y, --yes` / `--no`. With no TTY on stdin and neither flag, fail instead of hanging.
+- Confirmation — a destructive or stale-propagating action (e.g. `clean`) prompts first and takes `-y, --yes` / `--no`. With no TTY on stdin and neither flag, fail instead of hanging: `CONFIRMATION_REQUIRED` carries the consequence and the invocation re-run with `--yes`. `confirmAction` takes the consequence as a statement and asks the question itself.
 - Selection — a command offering a choice (e.g. `video new`'s template) takes a flag to supply it (`--template`); with no TTY and no flag it fails.
 - List commands (e.g. `job list`) — newest-first, 50 rows by default, `--limit <n>` / `--all`.
 - Help text — `.description()` is one concise line, no trailing period; detail goes in `.addHelpText("after", …)`: a short prose paragraph of what the command does and its argument/scope semantics, then an aligned `Examples:` block (command left, what it does right). See `prune` / `status`.

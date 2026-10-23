@@ -6,6 +6,7 @@ import type { KonteRoots, VideoRoots } from "../core/roots.js";
 // from process.cwd().
 
 let roots: KonteRoots | null = null;
+let invocation: readonly string[] = process.argv.slice(2);
 
 export function setRoots(next: KonteRoots | null): void {
   roots = next;
@@ -13,6 +14,15 @@ export function setRoots(next: KonteRoots | null): void {
 
 export function currentRoots(): KonteRoots | null {
   return roots;
+}
+
+// The arguments konte was run with, after the program name.
+export function setInvocation(args: readonly string[]): void {
+  invocation = args;
+}
+
+export function currentInvocation(): readonly string[] {
+  return invocation;
 }
 
 export function requireWorkspaceRoot(): string {

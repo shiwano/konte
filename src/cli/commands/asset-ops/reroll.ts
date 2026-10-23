@@ -538,7 +538,7 @@ Examples:
           const pricing = `${takeCount} take(s) will be generated across ${workItems.length} asset(s): ${capped(workItems.map((w) => w.address))}.`;
           // --yes waives the question, not the disclosure.
           if (opts.yes) console.log(pricing);
-          const proceed = await confirmAction(`${pricing}\nContinue?`, {
+          const proceed = await confirmAction(pricing, {
             yes: opts.yes,
             no: opts.no,
           });
