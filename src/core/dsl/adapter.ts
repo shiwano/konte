@@ -331,6 +331,17 @@ export function asset<TName extends string, TAdapter extends AssetAdapter<any, a
   return withSongSpan(registered, span);
 }
 
+// What moving a refused declaration to each site entails.
+const SITE_REACH: Record<AssetDeclarationSite, string> = {
+  reference:
+    "upstream of every stage, so it takes no plate, timeline or shot asset: what it is built from moves there with it",
+  timeline: "at the top of a stage's timeline, reached by every shot of that stage",
+  shot: 'one shot\'s own, reached by a later shot with shot("<id>")',
+  plate: "in defineAnimatic's plates callback, one setup's frame",
+  view: "in reference.tsx's views, one location's view",
+  patch: "a correction of one take, in patches/<variantId>.ts",
+};
+
 function declarationSite(): AssetDeclarationSite | undefined {
   if (getPatchContext()) return "patch";
   if (getPlatePoolContext()) return "plate";
@@ -383,6 +394,7 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
         "ADAPTER_OUT_OF_SCOPE",
         `Asset "${name}" in ${assetLocation()}: ${adapter.meta.ref} may only be declared in ` +
           allowedIn.join(" or "),
+        allowedIn.map((allowed) => `${allowed} — ${SITE_REACH[allowed]}`),
       );
     }
   }

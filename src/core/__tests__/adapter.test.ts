@@ -1602,6 +1602,10 @@ describe("allowedIn", () => {
     expect((error as KonteError).code).toBe("ADAPTER_OUT_OF_SCOPE");
     expect((error as Error).message).toMatch(/Asset "panel" in the animatic timeline/);
     expect((error as Error).message).toMatch(/may only be declared in patch or reference/);
+    expect((error as KonteError).items).toEqual([
+      expect.stringMatching(/^patch — /),
+      expect.stringMatching(/^reference — .*what it is built from moves there with it/),
+    ]);
   });
 
   it("declares in a patch", () => {
