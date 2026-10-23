@@ -37,7 +37,8 @@ export interface Span {
  * bottomed out that much before a word is said.
  *
  * `leadInSec` is measured from the file's head (`AudioLoudness.leadInSec`), so a cue that already
- * skips part of it with `mediaStart` trims only the rest. Null when the trim leaves no span at all:
+ * skips part of it with `mediaStart` trims only the rest, and a cue played at `rate` reaches it sooner
+ * or later by that rate. Null when the trim leaves no span at all:
  * a take that never rises out of silence ducks nothing.
  *
  * The one reader of this, shared by the mux, the preview and the probe so the three cannot disagree
@@ -47,9 +48,10 @@ export function voiceTriggerSpan(opts: {
   start: number;
   end: number;
   mediaStart: number;
+  rate: number;
   leadInSec: number | undefined;
 }): Span | null {
-  const onset = Math.max(0, (opts.leadInSec ?? 0) - opts.mediaStart);
+  const onset = Math.max(0, (opts.leadInSec ?? 0) - opts.mediaStart) / opts.rate;
   const start = opts.start + onset;
   return start < opts.end ? { start, end: opts.end } : null;
 }

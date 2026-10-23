@@ -21,7 +21,8 @@ export type VideoProps = Omit<VideoElementProps, "src"> & {
   mediaStart?: number;
   /**
    * Source seconds played per timeline second (data-playback-rate), 0.1–10: 1.625 fits a 1.625 s
-   * take into a 1 s clip. Refused with hasAudio and on a take cut to the song.
+   * take into a 1 s clip; a hasAudio track plays at the same rate, its pitch kept. Refused on a take
+   * cut to the song.
    */
   playbackRate?: number;
   /** Include the video's audio in the mix (data-has-audio). Refused on a take cut to the song. */
@@ -65,7 +66,7 @@ export function Video({
   const clipHasAudio =
     hasAudio ?? (raw["data-has-audio"] === true || raw["data-has-audio"] === "true");
   const rate = playbackRate ?? raw["data-playback-rate"];
-  assertPlaybackRate(rate, clipHasAudio, `Shot "${shotId}" <Video>`);
+  assertPlaybackRate(rate, `Shot "${shotId}" <Video>`);
   const window = songClipWindow({
     src,
     shotId,

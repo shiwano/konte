@@ -5,6 +5,7 @@ const track = (over: Partial<MuxAudioTrack> = {}): MuxAudioTrack => ({
   file: "/abs/bgm.mp3",
   start: 0,
   mediaStart: 0,
+  rate: 1,
   duration: 10,
   volume: 1,
   loop: false,
@@ -38,6 +39,17 @@ describe("buildMuxArgs", () => {
     expect(fc).toContain("adelay=3000|3000");
     // clip-prevention limiter, no loudness normalization.
     expect(fc).toContain("alimiter=level=false:limit=0.95");
+  });
+
+  it("runs a track off its own speed through atempo before the trim, so the trim is timeline time", () => {
+    const fc = filterGraph(buildMuxArgs("/v.mp4", "/o.mp4", [track({ rate: 1.6, duration: 4 })]));
+    expect(fc).toContain("[1:a]atempo=1.6,atrim=0:4,");
+    const fast = filterGraph(buildMuxArgs("/v.mp4", "/o.mp4", [track({ rate: 3 })]));
+    expect(fast).toContain("atempo=2,atempo=1.5,atrim");
+  });
+
+  it("leaves a track at its own speed untouched by atempo", () => {
+    expect(filterGraph(buildMuxArgs("/v.mp4", "/o.mp4", [track()]))).not.toContain("atempo");
   });
 
   it("loops a bed shorter than its span with -stream_loop", () => {

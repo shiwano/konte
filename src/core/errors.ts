@@ -195,8 +195,7 @@ export type KonteErrorCode =
   // A `volume` outside 0–MAX_AUDIO_GAIN on an <Audio>, <Video> or soundtrack().
   // The preview would clamp it and the mux would not, so it is refused before either sees it.
   | "AUDIO_GAIN_INVALID"
-  // A `<Video playbackRate>` outside the bounds the render clamps to, or one other than 1 with
-  // `hasAudio`, whose track the mux plays at the take's own speed.
+  // A `<Video playbackRate>` outside the bounds the render clamps to.
   | "PLAYBACK_RATE_INVALID"
   // An `audioRetime` whose target `duration` moves the take further than a voice carries unheard,
   // with no `waiver` declared.

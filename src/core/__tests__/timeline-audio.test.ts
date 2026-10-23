@@ -28,6 +28,7 @@ const cue = (over: Partial<RawShotAudio> & Pick<RawShotAudio, "role" | "file">):
   localStart: 0,
   localEnd: null,
   mediaStart: 0,
+  rate: 1,
   volume: 1,
   cueId: null,
   ...over,
@@ -53,6 +54,28 @@ describe("buildTimelineTracks", () => {
       duration: 0.5,
       loop: false,
     });
+  });
+});
+
+describe("buildTimelineTracks — playback rate", () => {
+  it("carries a clip's rate onto its track", async () => {
+    const tracks = await buildTimelineTracks({
+      shotOrder: order,
+      actualDurations: durations,
+      audioByShot: new Map([["01", [cue({ role: "embedded", file: "/clip.mp4", rate: 1.6 })]]]),
+    });
+    expect(tracks[0]).toMatchObject({ file: "/clip.mp4", rate: 1.6, duration: 3 });
+  });
+
+  it("plays an open-ended sound out in its source length over its rate", async () => {
+    const tracks = await buildTimelineTracks({
+      shotOrder: order,
+      actualDurations: durations,
+      audioByShot: new Map([
+        ["01", [cue({ role: "sound", file: "/a.mp3", mediaStart: 2, rate: 2 })]],
+      ]),
+    });
+    expect(tracks[0]).toMatchObject({ rate: 2, duration: 5 });
   });
 });
 

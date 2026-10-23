@@ -34,6 +34,8 @@ export interface RawShotAudio {
   localStart: number;
   localEnd: number | null; // shot-local timeline end; null means "to the shot/source end"
   mediaStart: number;
+  // Source seconds per timeline second (`data-playback-rate`).
+  rate: number;
   volume: number;
   fadeIn?: number;
   fadeOut?: number;
@@ -136,6 +138,7 @@ export function collectShotAudioCues(opts: {
           localStart: start,
           localEnd: dataDuration != null ? start + dataDuration : null,
           mediaStart: Math.max(0, toNum(props["data-media-start"]) ?? 0),
+          rate: toNum(props["data-playback-rate"]) ?? 1,
           volume: toNum(props["data-volume"]) ?? 1,
           fadeIn: toNum(props["data-fade-in"]) ?? undefined,
           fadeOut: toNum(props["data-fade-out"]) ?? undefined,
@@ -271,13 +274,14 @@ export async function buildTimelineTracks(opts: {
         duration = Math.max(0, shotDur - raw.localStart);
       } else {
         const len = await sourceDuration(raw.file);
-        duration = len != null ? Math.max(0, len - raw.mediaStart) : null;
+        duration = len != null ? Math.max(0, len - raw.mediaStart) / raw.rate : null;
       }
       if (isVoiceKind(raw.kind) && duration != null && duration > 0) {
         const trigger = voiceTriggerSpan({
           start,
           end: start + duration,
           mediaStart: raw.mediaStart,
+          rate: raw.rate,
           leadInSec: loudnessOf(mediaOf?.(raw.file))?.leadInSec,
         });
         if (trigger) voiceSpans.push(trigger);
@@ -302,6 +306,7 @@ export async function buildTimelineTracks(opts: {
       file: raw.file,
       start,
       mediaStart: raw.mediaStart,
+      rate: raw.rate,
       duration,
       volume: raw.volume,
       ...(duck ? { duck } : {}),
@@ -337,6 +342,7 @@ export async function buildTimelineTracks(opts: {
       file: st.file,
       start: spanStart,
       mediaStart: st.mediaStart,
+      rate: 1,
       duration: spanDuration,
       volume: st.volume,
       ...(settings && steps.length > 0 ? { duck: { steps, depth: settings.depth } } : {}),

@@ -835,6 +835,7 @@ export async function inspectTimelineAudio(opts: {
           localStart: 0,
           localEnd: null,
           mediaStart: 0,
+          rate: 1,
           volume: 1,
           cueId: null,
         });
@@ -874,9 +875,12 @@ export async function inspectTimelineAudio(opts: {
     } else if (raw.role === "embedded") {
       duration = Math.max(0, shotDur - raw.localStart);
     } else {
-      duration = sourceDuration != null ? Math.max(0, sourceDuration - raw.mediaStart) : null;
+      duration =
+        sourceDuration != null ? Math.max(0, sourceDuration - raw.mediaStart) / raw.rate : null;
     }
     const end = start + (duration ?? 0);
+    // The source seconds the track plays through.
+    const sourceSpan = duration != null ? duration * raw.rate : null;
 
     const warnings: string[] = [];
     const notes: string[] = [];
@@ -890,9 +894,10 @@ export async function inspectTimelineAudio(opts: {
       warnings.push(`extends ${formatSeconds(end - totalDuration, 2)} past timeline end`);
     }
     if (sourceProfile) {
-      const played = playedRms(sourceProfile, raw.mediaStart, duration, false);
+      const played = playedRms(sourceProfile, raw.mediaStart, sourceSpan, false);
+      const playedRate = sourceProfile.rate * raw.rate;
       // A cue's own silence is dead air only when nothing else sounds there — findMixSilences'.
-      for (const w of summarizeAudioSilence(played, sourceProfile.rate, null, "window")) {
+      for (const w of summarizeAudioSilence(played, playedRate, null, "window")) {
         notes.push(w.message);
       }
       if (raw.volume > 0) {
@@ -900,7 +905,7 @@ export async function inspectTimelineAudio(opts: {
           start,
           duration: duration ?? 0,
           rms: played,
-          rate: sourceProfile.rate,
+          rate: playedRate,
           loop: false,
         });
       }
@@ -908,7 +913,7 @@ export async function inspectTimelineAudio(opts: {
         sourceProfile.rms,
         sourceProfile.rate,
         raw.mediaStart,
-        duration,
+        sourceSpan,
         raw,
         endsOnShotCut(raw, shotDur),
       )) {
@@ -921,7 +926,7 @@ export async function inspectTimelineAudio(opts: {
     const buckets = envelopeBuckets(duration ?? 0);
     const drawable = sourceProfile != null && duration != null && duration > 0;
     const envelope = drawable
-      ? sliceEnvelope(sourceProfile, raw.mediaStart, duration!, false, buckets)
+      ? sliceEnvelope(sourceProfile, raw.mediaStart, sourceSpan!, false, buckets)
       : new Array<number>(buckets).fill(0);
 
     const lufs = playedLufs(loudnessByFile.get(absFile), raw.volume);
@@ -930,6 +935,7 @@ export async function inspectTimelineAudio(opts: {
         start,
         end,
         mediaStart: raw.mediaStart,
+        rate: raw.rate,
         leadInSec: loudnessByFile.get(absFile)?.leadInSec,
       });
       if (trigger) voices.push({ ...trigger, lufs });

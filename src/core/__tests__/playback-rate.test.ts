@@ -20,22 +20,15 @@ describe("assertPlaybackRate", () => {
       "2",
       konte.MAX_PLAYBACK_RATE,
     ]) {
-      expect(() => konte.assertPlaybackRate(v, false, "x")).not.toThrow();
+      expect(() => konte.assertPlaybackRate(v, "x")).not.toThrow();
     }
   });
 
   it("refuses an out-of-bounds or non-numeric rate with PLAYBACK_RATE_INVALID", () => {
     for (const v of [0, -1, 0.05, 11, Number.NaN, "fast"]) {
-      expect(() => konte.assertPlaybackRate(v, false, `clip ${String(v)}`)).toThrow(
+      expect(() => konte.assertPlaybackRate(v, `clip ${String(v)}`)).toThrow(
         expect.objectContaining({ code: "PLAYBACK_RATE_INVALID" }),
       );
     }
-  });
-
-  it("refuses a rate other than 1 on a clip that plays its own audio", () => {
-    expect(() => konte.assertPlaybackRate(1, true, "x")).not.toThrow();
-    expect(() => konte.assertPlaybackRate(1.5, true, "x")).toThrow(
-      expect.objectContaining({ code: "PLAYBACK_RATE_INVALID" }),
-    );
   });
 });

@@ -69,13 +69,13 @@ function cueSpan(
   if (sourceDuration === null) return "unmeasured";
 
   const mediaStart = cue.mediaStart ?? cueLeadIn(kind, variant?.media);
-  const available = Math.max(0, sourceDuration - mediaStart);
+  const available = Math.max(0, sourceDuration - mediaStart) / cue.rate;
   return {
     src: cue.src,
     start,
     end: start + (cue.duration != null ? Math.min(cue.duration, available) : available),
     sourceSec: sourceDuration,
-    untrimmed: cue.duration == null && mediaStart === 0,
+    untrimmed: cue.duration == null && mediaStart === 0 && cue.rate === 1,
   };
 }
 

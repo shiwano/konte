@@ -161,6 +161,29 @@ const embeddedAudioVideo = defineVideo(
   },
 );
 
+const fastEmbeddedAudioVideo = defineVideo(
+  testDirection({
+    fps: 30,
+    size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
+  }),
+  {
+    timeline: () =>
+      videoTimeline([
+        shot("01", {
+          duration: 3,
+          build: () => {
+            const motion = asset("motion", animateComfy, { prompt: "a dog running" });
+            return (
+              <Composition>
+                <Video src={motion} hasAudio playbackRate={1.6} />
+              </Composition>
+            );
+          },
+        }),
+      ]),
+  },
+);
+
 // Shot 02's clip under a narration cue at 1→2s of the shot.
 const narratedVideo = (() => {
   const video = defineVideo(
@@ -416,6 +439,21 @@ describe("buildShotCompositionHtml", () => {
     );
     expect(result.html.indexOf('id="embedded-audio"')).toBeLessThan(
       result.html.lastIndexOf("</body>"),
+    );
+  });
+
+  it("mirrors a hasAudio clip at the clip's playbackRate", async () => {
+    setupAccepted(manager, "video:shot.01.motion", "assets/shot.01.motion/output.mp4");
+
+    const result = await buildShotCompositionHtml({
+      video: fastEmbeddedAudioVideo,
+      manager,
+      shotId: "01",
+      assetBaseUrl: ASSET_BASE,
+    });
+
+    expect(result.html).toMatch(
+      /<audio[^>]*data-konte-track="embedded"[^>]*data-playback-rate="1.6"/,
     );
   });
 

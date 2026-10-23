@@ -517,6 +517,7 @@ function songStemEntry(cue: NonNullable<ShotDefinition["songCue"]>): StemAudioEn
     start: 0,
     duration: cue.duration,
     mediaStart: cue.mediaStart,
+    rate: 1,
     volume: null,
     fadeIn: null,
     fadeOut: null,
@@ -696,6 +697,7 @@ async function mixStemToStaging(
       // Levelled and lead-in trimmed exactly as the render does: this file is what an audio-driven
       // model consumes and what the reviewer signed off in the preview.
       mediaStart: cue.mediaStart ?? (kind === "song" ? 0 : cueLeadIn(kind, media)),
+      rate: cue.rate,
       duration: cue.duration != null ? Math.max(0, cue.duration) : null,
       volume: clampEffectiveGain((cue.volume ?? 1) * levellingGain(kind, loudnessOf(media))),
       loop: false,

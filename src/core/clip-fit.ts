@@ -60,14 +60,15 @@ function* clipCues(
 // it, but neither pads: the source bounds the cue either way.
 function cueEnd(cue: StemAudioEntry, clipSec: number): number {
   const start = cue.start ?? 0;
-  const available = Math.max(0, clipSec - (cue.mediaStart ?? 0));
+  const available = Math.max(0, clipSec - (cue.mediaStart ?? 0)) / cue.rate;
   return start + (cue.duration != null ? Math.min(cue.duration, available) : available);
 }
 
 // What the cue's window leaves of the shot, in the clip's units, landed on the clip's grid or whole
 // frames.
 function heldInWindow(clip: ClipLength, duration: number, cue: StemAudioEntry): number {
-  const allowed = (duration - (cue.start ?? 0) + (cue.mediaStart ?? 0)) * clip.perSecond;
+  const allowed =
+    ((duration - (cue.start ?? 0)) * cue.rate + (cue.mediaStart ?? 0)) * clip.perSecond;
   return clip.grid
     ? floorToGrid(allowed, clip.grid)
     : clip.unit === "frames"

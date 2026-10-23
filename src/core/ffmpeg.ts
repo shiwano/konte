@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { KonteError, errorMessage } from "./errors.js";
 import { duckVolumeExpr, type DuckStep } from "./audio-duck.js";
+import { atempoChain } from "./audio-retime.js";
 import { ffmpegBin } from "./ffmpeg-binary.js";
 import { probeHasAudio } from "./video-probe.js";
 import { execFileAsync } from "./exec-file.js";
@@ -180,6 +181,8 @@ export interface MuxAudioTrack {
   start: number;
   /** Offset into the source media in seconds. */
   mediaStart: number;
+  /** Source seconds played per timeline second; the pitch is kept. */
+  rate: number;
   /** Played length in seconds; null plays the source to its end. */
   duration: number | null;
   /** Gain 0–MAX_AUDIO_GAIN, 1 = unity; checked upstream by `assertAudioGain`. */
@@ -201,11 +204,13 @@ function pushTrackInput(args: string[], track: MuxAudioTrack): void {
   args.push("-ss", String(track.mediaStart), "-i", track.file);
 }
 
-// The filtergraph segment for one track: trim, volume, fades, then place it on the timeline.
-// afade operates on the trimmed stream (st relative to its start), before adelay shifts it onto the
+// The filtergraph segment for one track: tempo, trim, volume, fades, then place it on the timeline.
+// The tempo runs first, so the trim and everything after it are on the timeline's clock. afade
+// operates on the trimmed stream (st relative to its start), before adelay shifts it onto the
 // timeline. Out-fade needs a known duration to place its start; skip it for play-to-end.
 function trackFilter(track: MuxAudioTrack, inputIdx: number, label: string): string {
   const startMs = Math.round(track.start * 1000);
+  const tempo = track.rate !== 1 ? `${atempoChain(track.rate)},` : "";
   const trim = track.duration != null ? `atrim=0:${track.duration},asetpts=PTS-STARTPTS,` : "";
   const fades: string[] = [];
   if (track.fadeIn != null && track.fadeIn > 0) {
@@ -220,7 +225,7 @@ function trackFilter(track: MuxAudioTrack, inputIdx: number, label: string): str
   const volume = track.duck
     ? `volume=volume='${duckVolumeExpr(track.volume, track.duck.steps, track.duck.depth)}':eval=frame`
     : `volume=${track.volume}`;
-  return `[${inputIdx}:a]${trim}${volume},${fade}adelay=${startMs}|${startMs}[${label}]`;
+  return `[${inputIdx}:a]${tempo}${trim}${volume},${fade}adelay=${startMs}|${startMs}[${label}]`;
 }
 
 // Build the ffmpeg args that lay timeline audio tracks over a video's picture. Video is taken
@@ -353,6 +358,7 @@ export async function muxTimelineAudio(options: {
           file: chunkFile,
           start: 0,
           mediaStart: 0,
+          rate: 1,
           duration: null,
           volume: 1,
           loop: false,

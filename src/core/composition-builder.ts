@@ -278,6 +278,9 @@ function buildEmbeddedAudioTags(html: string, offset: number, duckUnder?: ClipDu
       `data-start="${start}"`,
       attr("data-duration") != null ? `data-duration="${attr("data-duration")}"` : "",
       attr("data-media-start") != null ? `data-media-start="${attr("data-media-start")}"` : "",
+      attr("data-playback-rate") != null
+        ? `data-playback-rate="${attr("data-playback-rate")}"`
+        : "",
       attr("data-volume") != null ? `data-volume="${attr("data-volume")}"` : "",
       automation ? `data-automation="${escapeAttr(JSON.stringify(automation))}"` : "",
     ].filter(Boolean);
@@ -578,6 +581,8 @@ export interface StemAudioEntry {
   start: number | null;
   duration: number | null;
   mediaStart: number | null;
+  // Source seconds per timeline second.
+  rate: number;
   volume: number | null;
   fadeIn: number | null;
   fadeOut: number | null;
@@ -585,7 +590,7 @@ export interface StemAudioEntry {
 
 /** What the take resolved for a voice cue tells the duck. */
 export interface VoiceTake {
-  /** The cue's played length (the take's duration less its `mediaStart`); null when unmeasured. */
+  /** The take's duration less the cue's `mediaStart`, in source seconds; null when unmeasured. */
   length: number | null;
   /** The silence the take opens with, from the file's head (see `voiceTriggerSpan`). */
   leadInSec: number | undefined;
@@ -614,6 +619,7 @@ export function harvestAudioStructure(
       start: toNum(props["data-start"]),
       duration: toNum(props["data-duration"]),
       mediaStart: toNum(props["data-media-start"]),
+      rate: toNum(props["data-playback-rate"]) ?? 1,
       volume: toNum(props["data-volume"]),
       fadeIn: toNum(props["data-fade-in"]),
       fadeOut: toNum(props["data-fade-out"]),
@@ -665,12 +671,14 @@ function standInVoiceSpans(
         if (!isVoiceKind(kind)) continue;
         const start = cue.start ?? 0;
         const take = voiceTake(cue);
-        const length = cue.duration ?? take?.length ?? Math.max(0, standIn.duration - start);
+        const played = take?.length != null ? take.length / cue.rate : null;
+        const length = cue.duration ?? played ?? Math.max(0, standIn.duration - start);
         if (length <= 0) continue;
         const span = voiceTriggerSpan({
           start: offset + start,
           end: offset + start + length,
           mediaStart: cue.mediaStart ?? 0,
+          rate: cue.rate,
           leadInSec: take?.leadInSec,
         });
         if (span) spans.push({ ...span, address: cue.src, kind: kind!, track: cue.track });
@@ -724,12 +732,14 @@ export function declaredVoiceSpans(
       if (!isVoiceKind(kind)) continue;
       const start = cue.start ?? 0;
       const take = voiceTake?.(cue) ?? null;
-      const length = cue.duration ?? take?.length ?? Math.max(0, shot.duration - start);
+      const played = take?.length != null ? take.length / cue.rate : null;
+      const length = cue.duration ?? played ?? Math.max(0, shot.duration - start);
       if (length <= 0) continue;
       const span = voiceTriggerSpan({
         start: offset + start,
         end: offset + start + length,
         mediaStart: cue.mediaStart ?? 0,
+        rate: cue.rate,
         leadInSec: take?.leadInSec,
       });
       if (span)

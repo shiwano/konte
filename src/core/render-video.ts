@@ -698,6 +698,7 @@ async function applyTimelineAudio(opts: {
             localStart: 0,
             localEnd: null,
             mediaStart: 0,
+            rate: 1,
             volume: 1,
             cueId: null,
           },
