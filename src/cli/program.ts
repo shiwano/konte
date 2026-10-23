@@ -139,11 +139,6 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
         if (changed > 0) {
           console.error(`konte: synced ${changed} file(s) to v${pkg.version}`);
         }
-        if (sync.skipped.length > 0) {
-          console.error(
-            `konte: kept ${sync.skipped.length} locally-modified file(s): ${sync.skipped.join(", ")}`,
-          );
-        }
       }
     }
 

@@ -1,9 +1,7 @@
-import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import pkg from "../../package.json" with { type: "json" };
 import {
-  ALWAYS_OVERWRITE_TEMPLATES,
   loadManagedTemplateContents,
   MANAGED_TEMPLATES,
   TEMPLATE_HASH,
@@ -16,18 +14,11 @@ interface TemplateLock {
   hash: string;
   version: string;
   updatedAt: string;
-  // key -> sha256 of the content konte last wrote for that file (its provenance).
-  files: Record<string, string>;
 }
 
 interface TemplateSyncResult {
   created: string[];
   updated: string[];
-  skipped: string[];
-}
-
-function sha256(content: string): string {
-  return crypto.createHash("sha256").update(content).digest("hex");
 }
 
 async function readFileOrNull(filePath: string): Promise<string | null> {
@@ -54,12 +45,7 @@ async function readLock(workspaceRoot: string): Promise<TemplateLock | null> {
   if (raw === null) return null;
   try {
     const parsed = JSON.parse(raw);
-    if (
-      parsed &&
-      typeof parsed.hash === "string" &&
-      parsed.files &&
-      typeof parsed.files === "object"
-    ) {
+    if (parsed && typeof parsed.hash === "string") {
       return parsed as TemplateLock;
     }
   } catch {
@@ -68,12 +54,11 @@ async function readLock(workspaceRoot: string): Promise<TemplateLock | null> {
   return null;
 }
 
-async function writeLock(workspaceRoot: string, files: Record<string, string>): Promise<void> {
+async function writeLock(workspaceRoot: string): Promise<void> {
   const lock: TemplateLock = {
     hash: TEMPLATE_HASH,
     version: pkg.version,
     updatedAt: new Date().toISOString(),
-    files,
   };
   const lockPath = path.join(workspaceRoot, LOCK_FILE);
   await fs.mkdir(path.dirname(lockPath), { recursive: true });
@@ -95,28 +80,20 @@ async function writeVersionFile(workspaceRoot: string): Promise<void> {
 }
 
 /**
- * Records the current templates as the lock provenance. Called by `init` right
- * after all template files are written verbatim, so on-disk content matches.
+ * Records the current templates as synced. Called by `init` right after all
+ * template files are written verbatim.
  */
 export async function writeTemplateLock(workspaceRoot: string): Promise<void> {
-  const files: Record<string, string> = {};
-  const contents = await loadManagedTemplateContents();
-  for (const key of MANAGED_TEMPLATES) {
-    const content = contents[key];
-    if (content !== undefined) files[key] = sha256(content);
-  }
-  await writeLock(workspaceRoot, files);
+  await writeLock(workspaceRoot);
   await writeVersionFile(workspaceRoot);
 }
 
 /**
- * Re-syncs konte-managed template files into an existing project when the
+ * Overwrites konte-managed template files in an existing project when the
  * embedded templates change. Cheap fast-path: returns null when the lock hash
- * already matches the current template hash AND every always-overwrite file is
- * present (these are gitignored generated stubs required by type-checking, so
- * we restore them even on the fast path). Otherwise applies a per-file 3-way
- * decision (pristine files updated, user-edited files skipped) and rewrites the
- * lock.
+ * already matches the current template hash AND every managed file is present
+ * (some are gitignored generated stubs required by type-checking, so they are
+ * restored even on the fast path).
  */
 export async function syncManagedTemplates(
   workspaceRoot: string,
@@ -130,53 +107,27 @@ export async function syncManagedTemplates(
   if (
     !options.force &&
     lock?.hash === TEMPLATE_HASH &&
-    (await allPresent(workspaceRoot, ALWAYS_OVERWRITE_TEMPLATES))
+    (await allPresent(workspaceRoot, MANAGED_TEMPLATES))
   ) {
     return null;
   }
 
   const created: string[] = [];
   const updated: string[] = [];
-  const skipped: string[] = [];
-  const files: Record<string, string> = {};
   const contents = await loadManagedTemplateContents();
 
   for (const key of MANAGED_TEMPLATES) {
     const desired = contents[key];
     if (desired === undefined) continue;
-    const desiredHash = sha256(desired);
-    const recorded = lock?.files[key];
     const fullPath = path.join(workspaceRoot, key);
     const current = await readFileOrNull(fullPath);
+    if (current === desired) continue;
 
-    if (current === null) {
-      await fs.mkdir(path.dirname(fullPath), { recursive: true });
-      await fs.writeFile(fullPath, desired, "utf-8");
-      created.push(key);
-      files[key] = desiredHash;
-      continue;
-    }
-
-    const currentHash = sha256(current);
-    if (currentHash === desiredHash) {
-      files[key] = desiredHash;
-      continue;
-    }
-
-    const isPristine = ALWAYS_OVERWRITE_TEMPLATES.has(key) || currentHash === recorded;
-    if (isPristine) {
-      await fs.writeFile(fullPath, desired, "utf-8");
-      updated.push(key);
-      files[key] = desiredHash;
-      continue;
-    }
-
-    // User-edited or unknown provenance: leave the file untouched and carry
-    // forward the old provenance so it stays protected on future upgrades.
-    skipped.push(key);
-    if (recorded !== undefined) files[key] = recorded;
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, desired, "utf-8");
+    (current === null ? created : updated).push(key);
   }
 
-  await writeLock(workspaceRoot, files);
-  return { created, updated, skipped };
+  await writeLock(workspaceRoot);
+  return { created, updated };
 }

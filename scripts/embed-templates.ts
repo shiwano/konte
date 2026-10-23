@@ -12,14 +12,14 @@ import {
 
 const outDir = path.resolve(import.meta.dirname, "../src/core/generated");
 
-// Managed templates are re-synced into existing workspaces when konte is upgraded.
-// A prefix matches a directory subtree, and every one is always-overwrite. A user who wants their
+// Managed templates are overwritten in existing workspaces when konte is upgraded.
+// A prefix matches a directory subtree. A user who wants their
 // own skill or reviewer adds it under a different name; an adapter takes a custom guide by
 // re-pointing its `konte/guides/…` import at a file under adapters/comfy/.
 // Agent settings are rendered separately during workspace setup.
 // User-owned escape hatches: personal Claude Code overrides go in
 // .claude/settings.local.json (gitignored, never shipped/managed), and project
-// content (video.tsx, konte.config.json, adapters/**, .gitignore) stays seed.
+// content (video.tsx, konte.config.json, HOUSE_RULES.md, adapters/**, .gitignore) stays seed.
 const MANAGED_PREFIXES = [
   ".claude/skills/",
   ".agents/skills/",
@@ -27,14 +27,7 @@ const MANAGED_PREFIXES = [
   ".claude/agents/",
   ".codex/agents/",
 ];
-const MANAGED_EXACTS = [
-  ".konte/mod.ts",
-  "AGENTS.md",
-  "CLAUDE.md",
-  "HOUSE_RULES.md",
-  "tsconfig.json",
-];
-const ALWAYS_OVERWRITE_EXACTS = [".konte/mod.ts", "AGENTS.md", "CLAUDE.md", "tsconfig.json"];
+const MANAGED_EXACTS = [".konte/mod.ts", "AGENTS.md", "CLAUDE.md", "tsconfig.json"];
 
 function isManaged(key: string): boolean {
   if (key === ".claude/skills/konte-lsp/.claude-plugin/plugin.json") return false;
@@ -257,12 +250,7 @@ for (const [key, { content, isBinary }] of workspaceFiles) {
 }
 managedKeys.sort();
 
-const alwaysOverwrite = [
-  ...ALWAYS_OVERWRITE_EXACTS,
-  ...managedKeys.filter((key) => MANAGED_PREFIXES.some((p) => key.startsWith(p))),
-];
 const shippedManagedKeys = managedKeys.filter((key) => !isDevSkillKey(key));
-const shippedAlwaysOverwrite = alwaysOverwrite.filter((key) => !isDevSkillKey(key));
 
 // syncManagedTemplates writes every managed key relative to the WORKSPACE root, so a managed key
 // under videos/ would land a video's file at the workspace root on the next upgrade. The
@@ -366,9 +354,6 @@ emit(
     `export const MANAGED_TEMPLATES: ReadonlySet<string> = new Set(${COMPILED}`,
     `  ? ${JSON.stringify(shippedManagedKeys)}`,
     `  : ${JSON.stringify(managedKeys)});`,
-    `export const ALWAYS_OVERWRITE_TEMPLATES: ReadonlySet<string> = new Set(${COMPILED}`,
-    `  ? ${JSON.stringify(shippedAlwaysOverwrite)}`,
-    `  : ${JSON.stringify(alwaysOverwrite)});`,
     `export const TEMPLATE_HASH = ${COMPILED}`,
     `  ? ${JSON.stringify(templateHashOf(shippedManagedKeys))}`,
     `  : ${JSON.stringify(templateHashOf(managedKeys))};`,

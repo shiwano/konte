@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALWAYS_OVERWRITE_TEMPLATES, MANAGED_TEMPLATES } from "../generated/template-assets.js";
+import { MANAGED_TEMPLATES } from "../generated/template-assets.js";
 import { WORKSPACE_TEMPLATE } from "../generated/template-workspace-files.js";
 
 // Both shipped forms are generated from one contract under src/cli/templates/agents/, so a critic
@@ -60,10 +60,9 @@ describe("generated agent definitions", () => {
     expect(claudeBody).toContain("Verdict: pass | revise");
   });
 
-  it("is konte-owned: managed and never edited in place", () => {
+  it("is konte-owned: managed", () => {
     for (const key of [CLAUDE_KEY, CODEX_KEY]) {
       expect(MANAGED_TEMPLATES.has(key)).toBe(true);
-      expect(ALWAYS_OVERWRITE_TEMPLATES.has(key)).toBe(true);
     }
   });
 });
@@ -89,13 +88,12 @@ describe("generated konte-prompt-critic definition", () => {
     expect(body).not.toContain("Verdict:");
   });
 
-  it("is konte-owned: managed and never edited in place", () => {
+  it("is konte-owned: managed", () => {
     for (const key of [
       ".claude/agents/konte-prompt-critic.md",
       ".codex/agents/konte-prompt-critic.toml",
     ]) {
       expect(MANAGED_TEMPLATES.has(key)).toBe(true);
-      expect(ALWAYS_OVERWRITE_TEMPLATES.has(key)).toBe(true);
     }
   });
 });
