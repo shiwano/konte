@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { makeMediaAsset, type MediaAsset } from "../dsl/builders.js";
+import { makeMediaAsset, type MediaAsset, type StageShots } from "../dsl/builders.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import {
   Composition,
@@ -7,6 +7,7 @@ import {
   adapters,
   asset,
   defineAnimatic,
+  defineDirection,
   defineReference,
   defineVideo,
   promptReferenceTags,
@@ -20,8 +21,8 @@ import {
   listShotContinuity,
   listShownReferences,
 } from "../graph.js";
-import { plainDirection, testDirection } from "./helpers/direction.js";
-import { animaticTimeline, moves, shot, videoTimeline } from "./helpers/shot.js";
+import { directionDefaults, plainDirection, testDirection } from "./helpers/direction.js";
+import { animaticTimeline, moves, shot } from "./helpers/shot.js";
 
 // The stage-side half of the staging class — what `loadStagingStageState` hands `checkDirection`.
 // Built through the real DSL rather than by hand, since the order a panel's inputs arrive in is
@@ -649,6 +650,7 @@ describe("listShotContinuity", () => {
   });
 });
 
+// Built on a real two-shot direction: `shot(id)` and `animatic.shot(id)` are what mark a panel.
 describe("the frame a cut comes from", () => {
   const cutKeyframe = defineComfyAsset({
     workflow: "cut.json",
@@ -664,75 +666,96 @@ describe("the frame a cut comes from", () => {
       prevPanel: { tag: "Picture", within: (prompt) => /FROM:(.*?)TO:/s.exec(prompt)?.[1] },
     }),
   });
-  const board = (handed: string, direction = testDirection(format)) =>
+  const direction = defineDirection({
+    ...directionDefaults,
+    sequence: {
+      lens: "mini-drama",
+      pleasure: "cute",
+      shots: [
+        {
+          id: "01",
+          role: "ordinary",
+          action: "calm open",
+          setup: "front",
+          duration: 5,
+          lineup: [],
+        },
+        { id: "02", role: "hero", action: "the payoff", setup: "front", duration: 3, lineup: [] },
+      ],
+    },
+  });
+  const cut = (image1: MediaAsset<"image">) =>
+    asset("first", cutKeyframe, { prompt: "<Picture 1> on the wall", image1 });
+  const board = (handed: (shot: StageShots) => MediaAsset<"image">) =>
     defineAnimatic(direction, {
-      timeline: () =>
-        animaticTimeline([
-          shot("01", {
-            duration: 5,
-            build: () => (
-              <Composition>
-                <Panel
-                  src={asset("last", keyframe, {
-                    prompt: "she is alone",
-                    place: asset("painting", keyframe, { prompt: "a painting" }),
-                  })}
-                  {...moves}
-                />
-              </Composition>
-            ),
-          }),
-          shot("02", {
-            duration: 5,
-            build: () => (
-              <Composition>
-                <Panel
-                  src={asset("first", cutKeyframe, {
-                    prompt: "<Picture 1> on the wall",
-                    image1: makeMediaAsset<"image">(`__konte:${handed}__`),
-                  })}
-                  {...moves}
-                />
-              </Composition>
-            ),
-          }),
-        ]),
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel
+              src={asset("last", keyframe, {
+                prompt: "she is alone",
+                place: asset("painting", keyframe, { prompt: "a painting" }),
+              })}
+              {...moves}
+            />
+          </Composition>
+        )).nextShot("02", ({ shot }) => (
+          <Composition>
+            <Panel src={cut(handed(shot as StageShots))} {...moves} />
+          </Composition>
+        )),
+      }),
     });
 
   it("is asked of another shot's panel", () => {
-    expect(() => board("animatic:shot.01.last")).toThrow(
+    expect(() => board((shot) => shot("01").image("last"))).toThrow(
       "has no place for the frame a cut comes from",
     );
   });
 
   it("is not asked of another shot's asset that is no panel", () => {
-    expect(() => board("animatic:shot.01.painting")).not.toThrow();
+    expect(() => board((shot) => shot("01").image("painting"))).not.toThrow();
   });
 
-  it("is asked in a video of its own animatic's panel, whatever was built since", () => {
-    const direction = testDirection(format);
-    board("animatic:shot.01.painting", direction);
-    defineAnimatic(testDirection(format), { timeline: () => animaticTimeline([]) });
-    const video = (handed: string) =>
+  it("is asked in a video of the animatic's panel", () => {
+    const animatic = board((shot) => shot("01").image("painting"));
+    const video = (name: string) =>
       defineVideo(direction, {
-        timeline: () =>
-          videoTimeline([
-            shot("02", {
-              duration: 5,
-              build: () => {
-                asset("first", cutKeyframe, {
-                  prompt: "<Picture 1> on the wall",
-                  image1: makeMediaAsset<"image">(`__konte:${handed}__`),
-                });
-                return <Composition />;
-              },
-            }),
-          ]),
+        timeline: ({ shot }) => ({
+          shots: shot("01", () => <Composition />).nextShot("02", () => {
+            cut(animatic.shot("01").image(name));
+            return <Composition />;
+          }),
+        }),
       });
-    expect(() => video("animatic:shot.01.last")).toThrow(
-      "has no place for the frame a cut comes from",
-    );
-    expect(() => video("animatic:shot.01.painting")).not.toThrow();
+    expect(() => video("last")).toThrow("has no place for the frame a cut comes from");
+    expect(() => video("painting")).not.toThrow();
+  });
+
+  it("is asked in a video of a panel a shot shares from another", () => {
+    const animatic = defineAnimatic(direction, {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel src={asset("last", keyframe, { prompt: "she is alone" })} {...moves} />
+          </Composition>
+        )).nextShot("02", ({ shot }) => (
+          <Composition>
+            <Panel src={shot("01").image("last")} {...moves} />
+          </Composition>
+        )),
+      }),
+    });
+    expect(() =>
+      defineVideo(direction, {
+        timeline: ({ shot }) => ({
+          shots: shot("01", () => <Composition />).nextShot("02", () => {
+            cut(animatic.shot("02").image("last"));
+            return <Composition />;
+          }),
+        }),
+      }),
+    ).toThrow("has no place for the frame a cut comes from");
   });
 });
 

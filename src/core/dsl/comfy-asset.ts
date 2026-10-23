@@ -6,7 +6,7 @@ import type {
 import { KonteError } from "../errors.js";
 import type { MediaKind, MediaAsset } from "./builders.js";
 import { getActiveFormat, getShotContext, seed, type BuildFormat } from "./shot-context.js";
-import { placedPanels } from "./panel-collect.js";
+import { panelInputs } from "./panel-collect.js";
 import { estimateSpeechSec } from "../speech-duration.js";
 import { OVERFLOW_FLOOR, recordClipLength } from "./clip-length-collect.js";
 import {
@@ -402,7 +402,7 @@ export function defineComfyAsset<
       const validatorContext = {
         promptInput,
         shotId: getShotContext()?.shotId,
-        panels: placedPanels(),
+        panels: panelInputs(userInputs),
       };
       const resolveDefault = (
         d: AdapterInputDefault | undefined,

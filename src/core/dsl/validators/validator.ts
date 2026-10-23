@@ -21,7 +21,7 @@ export type AdapterValidator = ((
 /**
  * The adapter's own shape: `promptInput` is the name of its one `"prompt"` input, undefined when it
  * declares none or several. `shotId` is the shot the asset is declared in, undefined outside one.
- * `panels` are the addresses of the animatic's keyframes, as far as it has been read.
+ * `panels` are the addresses of the inputs handed on as a panel by `shot(id)` or `animatic.shot(id)`.
  */
 export type AdapterValidatorContext = {
   promptInput?: string;

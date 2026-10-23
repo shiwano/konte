@@ -10,7 +10,6 @@ import { KonteError } from "../errors.js";
 import { beginPromptCollection } from "./prompt-collect.js";
 import { assertRespellings, beginRespellCollection } from "./respell.js";
 import { scriptTexts } from "./shot-script.js";
-import { withPlacedPanels } from "./panel-collect.js";
 import { attachCueKinds } from "../spoken-text.js";
 import { assertNarrationStemsHeard } from "../narration-stem.js";
 import type { ShotFunction } from "./shot-context.js";
@@ -300,21 +299,19 @@ export function defineVideo<const D, Ids extends string = string>(
 
   beginPromptCollection(scriptTexts(index.scriptById));
   beginRespellCollection();
-  const { definition } = withPlacedPanels(index, () =>
-    defineStage({
-      stage: "video",
-      index,
-      runTimeline: (format) =>
-        opts.timeline({
-          format,
-          shot,
-          graphicShot,
-          pendingShot,
-          asideShot,
-        }),
-      waivers: opts.waivers,
-    }),
-  );
+  const { definition } = defineStage({
+    stage: "video",
+    index,
+    runTimeline: (format) =>
+      opts.timeline({
+        format,
+        shot,
+        graphicShot,
+        pendingShot,
+        asideShot,
+      }),
+    waivers: opts.waivers,
+  });
 
   assertRespellings(definition.respellings, index.scriptById);
   if (index.timeline.song) assertLinesPlacedOverSong(definition, index.scriptById);

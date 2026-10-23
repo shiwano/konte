@@ -15,6 +15,7 @@ import {
   withShotSongStem,
 } from "./shot-context.js";
 import { withSongSpan } from "./song-window.js";
+import { markPanel, shotPanelsOf } from "./panel-collect.js";
 import type { ShotStage } from "../address.js";
 import type { ShotScript } from "./shot-script.js";
 import { makeShotScript } from "./shot-script.js";
@@ -50,7 +51,7 @@ import {
 } from "./builders.js";
 import { assertFontFamilies, assertLanguageTag, type LanguageTag } from "../typography.js";
 import { isIdentifier, validateShotId, type ValidatedIdentifier } from "./validate-identifier.js";
-import { formatReferenceAddress, formatSongStemAddress } from "../address.js";
+import { formatAssetPath, formatReferenceAddress, formatSongStemAddress } from "../address.js";
 import { placeLyricLines } from "../song-lyrics.js";
 import { songBeatAt, songBeatSec, type SongTake } from "../song-take.js";
 import { KonteError } from "../errors.js";
@@ -1341,8 +1342,12 @@ const makeStageShots = (stage: ShotStage, placed: readonly AnyShotInput[]): Stag
           `${[...byId.keys()].join(", ") || "(none)"}.`,
       );
     }
-    return makeAssetNameHandle(stage, `shot("${shotId}")`, shotId, () =>
-      shotDeclarations(stage, target),
+    return makeAssetNameHandle(
+      stage,
+      `shot("${shotId}")`,
+      shotId,
+      () => shotDeclarations(stage, target),
+      shotPanelsOf(target),
     );
   };
 };
@@ -1401,6 +1406,7 @@ const makeAssetNameHandle = (
   label: string,
   shotId: string,
   declarations: () => ShotDeclarations,
+  panels?: ReadonlySet<string>,
 ): ShotHandle => {
   const get = <T extends MediaKind>(assetName: string, want: T): MediaAsset<T> => {
     const { assetKinds, songSpans } = declarations();
@@ -1418,10 +1424,11 @@ const makeAssetNameHandle = (
           `${found}, not ${want}. Use ${label}.${found}("${assetName}").`,
       );
     }
-    return withSongSpan(
+    const handed = withSongSpan(
       makeMediaAsset<T>(makePlaceholder(stage, shotId, assetName)),
       songSpans.get(assetName),
     );
+    return panels?.has(formatAssetPath(stage, shotId, assetName)) ? markPanel(handed) : handed;
   };
   return {
     video: (assetName) => get(assetName, "video"),

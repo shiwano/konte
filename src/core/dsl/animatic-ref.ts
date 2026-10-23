@@ -10,6 +10,7 @@ import type { AnimaticDefinition } from "../types/animatic.js";
 import type { MediaAsset, MediaKind, NarrationStem, ShotHandle } from "./builders.js";
 import { makeMediaAsset } from "./builders.js";
 import { withSongSpan } from "./song-window.js";
+import { markPanel } from "./panel-collect.js";
 import {
   getPatchContext,
   getShotContext,
@@ -88,6 +89,9 @@ export function createAnimaticRef(
           .filter((p) => !p.assetPath.startsWith(`animatic:shot.${id}.`))
           .map((p) => [p.assetName, p.assetPath] as const),
       );
+      const ownPanels = new Set(
+        [...(shot.panels ?? []), ...(shot.cutin?.panels ?? [])].map((p) => p.assetPath),
+      );
       const get = <T extends MediaKind>(assetName: string, want: T): MediaAsset<T> => {
         const shared = panelPaths.get(assetName);
         if (shared !== undefined) {
@@ -98,7 +102,7 @@ export function createAnimaticRef(
                 `is an image. Use .image("${assetName}").`,
             );
           }
-          return makeMediaAsset<T>(makeAddressPlaceholder(shared));
+          return markPanel(makeMediaAsset<T>(makeAddressPlaceholder(shared)));
         }
         const found = kinds.get(assetName);
         if (found === undefined) {
@@ -116,9 +120,9 @@ export function createAnimaticRef(
               `"${assetName}" is ${found}, not ${want}. Use .${found}("${assetName}").`,
           );
         }
-        return makeMediaAsset<T>(
-          makeAddressPlaceholder(formatAssetPath("animatic", id, assetName)),
-        );
+        const address = formatAssetPath("animatic", id, assetName);
+        const handed = makeMediaAsset<T>(makeAddressPlaceholder(address));
+        return ownPanels.has(address) ? markPanel(handed) : handed;
       };
       return {
         video: (assetName) => get(assetName, "video"),
