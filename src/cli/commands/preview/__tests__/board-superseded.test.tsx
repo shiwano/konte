@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  boardCompositionSuperseded,
+  boardLeafSuperseded,
   materializeCompositionVariant,
 } from "../../../../core/composition-resource.js";
 import { Audio, Composition, Image } from "../../../../core/dsl/composition/index.js";
@@ -212,7 +212,7 @@ describe("a graphic shot's board composition once the video develops the shot", 
   });
 
   it("is never claimed for the video's own composition or without the video", () => {
-    expect(boardCompositionSuperseded(manager, board(4), null, BOARD)).toBe(false);
-    expect(boardCompositionSuperseded(manager, board(4), cut(4), CUT)).toBe(false);
+    expect(boardLeafSuperseded(manager, board(4), null, BOARD)).toBe(false);
+    expect(boardLeafSuperseded(manager, board(4), cut(4), CUT)).toBe(false);
   });
 });

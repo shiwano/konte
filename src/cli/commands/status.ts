@@ -584,6 +584,10 @@ export function registerStatusCommand(program: Command): void {
         // patch, so what is offered depends on all of them, not on the appliable subset.
         pendingPatchAddresses,
         blockedPatchAddresses: [...promptBlockedPatches],
+        boardRemixAddresses:
+          report.sections
+            .find((s) => s.title === "Board stems to re-mix")
+            ?.items.map((i) => i.address) ?? [],
         staleAddresses,
         deterministicStaleAddresses,
         definitionRestores,

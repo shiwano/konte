@@ -49,7 +49,7 @@ Never the delivered stem into a motion model — it may contain audio generated 
 
 No animatic-specific spend gate — `GATED_UPSTREAM` lists `[reference, animatic]` and `assertUpstreamAccepted` gates exactly what a spend consumes: a video asset consuming `animatic:shot.01.first` needs that keyframe accepted, one consuming `animatic:shot.01#stem` the stem.
 
-A stale accept does not pass — though the mix is reviewed at the board, every stem is deterministic (`isDeterministicAddress`), and strict resolution refuses a stale accept on either axis (`selectResolvedVariant`, via `ResolutionDefinitions.isDeterministic`). Re-picking a voice take or editing a cue ages the stem out, `status` lists it under Needs review, and the shot's next accept re-mixes it — no `generate` in between.
+A stale accept does not pass — though the mix is reviewed at the board, every stem is deterministic (`isDeterministicAddress`), and strict resolution refuses a stale accept on either axis (`selectResolvedVariant`, via `ResolutionDefinitions.isDeterministic`). Re-picking a voice take or editing a cue ages the stem out, `status` lists it under Needs review, and the shot's next accept re-mixes it — no `generate` in between. Once the video develops the shot past the board, the stem is konte's to keep current instead (below).
 
 The cast is gated here too — `assertVoicesAccepted` runs for `animatic` as for `video`; only `reference`, where the sample is made, is exempt.
 
@@ -65,7 +65,9 @@ Three differences:
 
 - No stand-in.
 - Needs retiming reads the shot's cues against the clamp.
-- A graphic shot's accepted composition outlives its own edits once the video develops it (`boardCompositionSuperseded`).
+- A board shot's composition and stems leave its review once the video develops the shot past the board (`boardLeafSuperseded`).
+
+Past the board means the leaf holds an accept and the video holds a take of the shot — or, for a graphic shot's composition, the video places it. From then on a definition edit — a retime, a cue moved — is the video's review to judge, and konte re-makes and accepts the leaf (`remakeSupersededBoardLeaves`): its stems before `generate` / `reroll` / `patch apply` gate a video spend and before `konte preview video` draws the reel, both leaves when that review accepts the shot. Until then `status` lists an aged-out stem under Board stems to re-mix, with `konte generate video` as the step. A moved or new input, an unaccepted take under the leaf, and a stem whose line the clamp cuts stay the board's.
 
 On the video side the only trace left is the stand-in: a shot whose delivered composition cannot be drawn yet plays the board's same shot (`RenderPlan.standInPlan`). Display only — no address, no verdict: a decision on one is dropped at submit. Which shots stood in comes from the client (`displayedStandInShotIds`), never re-derived: a dependency finishing mid-review would otherwise accept a composition nobody watched.
 

@@ -1,3 +1,5 @@
+import { consumedBoardStems, remakeSupersededBoardLeaves } from "../../../core/board-leaves.js";
+import { printRemixedBoardStems } from "../../generation-selection.js";
 import type { Command } from "commander";
 import {
   type AssetStage,
@@ -276,7 +278,7 @@ Examples:
         // write, and read every decision below off the one post-sync snapshot it returns. It runs
         // before the gates rather than after them because `--failed` judges against it: an unsynced
         // read would call an address ready that `status` has already moved to Problems.
-        const manager = await StateManager.withLock(videoRoot, async (m) => {
+        let manager = await StateManager.withLock(videoRoot, async (m) => {
           await syncFileAssets({ reference, animatic, video }, m, { measure: true });
           return m;
         });
@@ -445,6 +447,20 @@ Examples:
         // gate: the board a take builds on and the sheets it conditions on are reviewed before the
         // take is redone. The `reference` stage is exempt: rerolling a sheet is how it gets to
         // review in the first place.
+        // The board stems the video takes being redone consume, re-mixed before the gate asks for
+        // them accepted.
+        const videoPaths = workItems.filter((w) => w.stage === "video").map((w) => w.assetPath);
+        if (video && animatic && videoPaths.length > 0) {
+          const remixed = await remakeSupersededBoardLeaves({
+            videoRoot,
+            board: animatic,
+            video,
+            addresses: consumedBoardStems(graph, videoPaths),
+            include: "stems",
+          });
+          if (remixed.accepted.length > 0) manager = await StateManager.load(videoRoot);
+          printRemixedBoardStems(remixed);
+        }
         for (const stage of ["animatic", "video"] as const) {
           const assetPaths = workItems.filter((w) => w.stage === stage).map((w) => w.assetPath);
           if (assetPaths.length === 0) continue;

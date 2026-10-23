@@ -36,6 +36,7 @@ import {
   type CueKind,
 } from "./audio-level.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
+import { findShotOverflows } from "./animatic-overflow.js";
 import { songParts } from "./song-parts.js";
 import { KonteError } from "./errors.js";
 import { mixAudioTracks, type MuxAudioTrack } from "./ffmpeg.js";
@@ -46,6 +47,7 @@ import { stableStringify } from "./stable-stringify.js";
 import type { StateManager } from "./state/index.js";
 import {
   isPendingShot,
+  type AnimaticDefinition,
   type AssetDefinition,
   type AssetState,
   type KonteState,
@@ -620,7 +622,7 @@ export function listRemovedShotStemAddresses(state: KonteState, video: StageDefi
   return video.shots.flatMap((shot) => removedShotStemAddresses(state, video, shot.id));
 }
 
-interface StemIdentity {
+export interface StemIdentity {
   definitionHash: string;
   inputFingerprints: Record<string, string>;
 }
@@ -752,6 +754,15 @@ function shotStemIdentity(
       inputFingerprints: compositionInputFingerprints(manager, stem.refs),
     },
   };
+}
+
+/** The identity a shot stem materialized now would carry; null when it cannot be made yet. */
+export function shotStemIdentityFor(
+  manager: StateManager,
+  video: StageDefinition,
+  address: string,
+): StemIdentity | null {
+  return shotStemIdentity(manager, video, address)?.identity ?? null;
 }
 
 // Ready a shot stem (only when it has cues) without touching state: an existing variant whose
@@ -911,7 +922,7 @@ export function shotAcceptsStand(
     .every((s) => {
       const address = formatCompositionAddress(video.stage, s.id);
       return (
-        boardCompositionSuperseded(manager, video, downstreamVideo, address) ||
+        boardLeafSuperseded(manager, video, downstreamVideo, address) ||
         (manager.getAcceptedVariant(address) !== null &&
           !isAcceptedStale(manager, address, definitionHashForAddress(video, address)))
       );
@@ -1092,23 +1103,33 @@ export function materializedLeafReviewStatus(
   };
 }
 
-// A graphic shot's board composition accepted on the board, once the video develops that shot and
-// only the composition's own definition has moved since. The video places the component the board
-// draws, so the video's review is where that picture is signed off. A first review, a moved input or
-// a new one stays the board's: its accept is what decides the takes the composition draws.
-export function boardCompositionSuperseded(
+// A board shot's composition or stem once the video develops the shot past the board: the board was
+// reviewed (the leaf holds an accept) and the video has spent on it (a take of the shot), or, for a
+// graphic shot, places the component the board draws. From then on the video's review is where the
+// shot is judged, and konte keeps the leaf current itself (`remakeSupersededBoardLeaves`) — over the
+// takes its accept recorded: a moved or new input, and what it is made from left unaccepted, stay
+// the board's. So does a stem whose line the clamp cuts.
+export function boardLeafSuperseded(
   manager: StateManager,
   board: StageDefinition | null,
   video: StageDefinition | null,
   address: string,
 ): boolean {
   if (board?.stage !== "animatic" || video?.stage !== "video") return false;
-  if (!isCompositionAddress(address)) return false;
+  const composition = isCompositionAddress(address);
+  if (!composition && !isStemAddress(address)) return false;
   const parsed = parseAddress(address);
   if (parsed.stage !== "animatic" || parsed.kind !== "shot") return false;
   const shot = shotById(video.shots, parsed.shotId);
   const boardShot = shotById(board.shots, parsed.shotId);
-  if (shot?.graphic !== true || !shot.shotFn || !boardShot?.shotFn) return false;
+  if (!shot?.shotFn || !boardShot?.shotFn) return false;
+  if (manager.getAcceptedVariant(address) === null) return false;
+  if (!(composition && shot.graphic === true) && !videoShotHasTake(manager, video, shot)) {
+    return false;
+  }
+  const refs = leafReadinessRefs(board, address);
+  if (refs === null) return false;
+  if (refs.some((ref) => !manager.resolveReference(ref, { requireAccepted: true }))) return false;
   const accepted = computeAcceptedStaleness(
     manager.getState(),
     address,
@@ -1118,7 +1139,29 @@ export function boardCompositionSuperseded(
   if (accepted.variantId === null || accepted.inputStale) return false;
   const recorded =
     manager.tryGetAssetState(address)?.variants?.[accepted.variantId]?.inputFingerprints ?? {};
-  return compositionFingerprintRefs(board, boardShot).every((ref) => ref in recorded);
+  const fingerprinted = composition
+    ? compositionFingerprintRefs(board, boardShot)
+    : (shotStemOf(board, address)?.refs ?? []);
+  if (!fingerprinted.every((ref) => ref in recorded)) return false;
+  if (composition) return true;
+  return !findShotOverflows(board as AnimaticDefinition, manager, boardShot).some(
+    (o) => o.address === address,
+  );
+}
+
+// Whether the video has spent on a shot: a take of one of its generated assets.
+function videoShotHasTake(
+  manager: StateManager,
+  video: StageDefinition,
+  shot: ShotDefinition,
+): boolean {
+  return Object.entries(shot.assets ?? {}).some(
+    ([name, asset]) =>
+      asset.kind !== "file" &&
+      Object.values(
+        manager.tryGetAssetState(formatAddress(video.stage, shot.id, name))?.variants ?? {},
+      ).some((v) => v.file),
+  );
 }
 
 // Whether a materialized leaf is signed off as of right now: reviewable, and accepted at its current

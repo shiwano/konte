@@ -2,6 +2,7 @@ import {
   cascadeAcceptConsumedDeps,
   cascadeDirectionShotAccepts,
 } from "../../../core/accept-cascade.js";
+import { remakeSupersededBoardLeaves } from "../../../core/board-leaves.js";
 import { buildDependencyGraph } from "../../../core/graph.js";
 import { shotById } from "../../../core/shot-index.js";
 import {
@@ -36,7 +37,7 @@ import {
 } from "../../../core/composition-builder.js";
 import { resolveCompositionRef } from "../../../core/composition-refs.js";
 import {
-  boardCompositionSuperseded,
+  boardLeafSuperseded,
   compositionDefinitionHashForAddress,
   definitionHashForAddress,
   timelineStemRefs,
@@ -589,6 +590,18 @@ export async function handleGetReelState(
   downstreamVideo: StageDefinition | null = null,
 ): Promise<Response> {
   const stage = video.stage;
+  // The board stems the video has taken over, re-mixed so a shot that plays one can be drawn.
+  if (stage === "video" && animatic) {
+    const { failed } = await remakeSupersededBoardLeaves({
+      videoRoot,
+      board: animatic,
+      video,
+      include: "stems",
+    });
+    for (const { address, reason } of failed) {
+      console.error(`Could not re-mix ${address}: ${reason}`);
+    }
+  }
   const manager = await StateManager.load(videoRoot);
   const feedbackMgr = await FeedbackManager.load(videoRoot, stage);
   const patchCatalog = await loadPatchCatalog(videoRoot, manager.getState());
@@ -714,7 +727,7 @@ export async function handleGetReelState(
       let compositionNeedsReview = false;
       const compositionSuperseded =
         compositionAddress !== null &&
-        boardCompositionSuperseded(manager, video, downstreamVideo, compositionAddress);
+        boardLeafSuperseded(manager, video, downstreamVideo, compositionAddress);
       if (compositionAddress) {
         // Unaccepted or stale both count as needing review (see materializedLeafReviewStatus).
         ({ variantId: compositionVariantId, needsReview: compositionNeedsReview } =
@@ -731,10 +744,13 @@ export async function handleGetReelState(
         .filter((leaf) => isStemAddress(leaf.address))
         .map(({ address }) => {
           const definitionHash = definitionHashForAddress(video, address);
+          const status = materializedLeafReviewStatus(manager, address, definitionHash);
           return {
             address,
             definitionHash,
-            ...materializedLeafReviewStatus(manager, address, definitionHash),
+            ...status,
+            needsReview:
+              status.needsReview && !boardLeafSuperseded(manager, video, downstreamVideo, address),
           };
         });
 
@@ -1479,6 +1495,27 @@ export async function handleReelSubmit(
     unacceptShotIds.delete(id);
   }
 
+  // The board leaves the video has taken over, re-made for the shots this review accepts — before
+  // any video leaf is built over a stem among them. One that cannot be made is reported with the
+  // review's other skips.
+  const boardLeafFailures: Array<{ shotId: string; address: string; reason: string }> = [];
+  if (stage === "video" && animatic && okShotIds.size > 0) {
+    const remade = await remakeSupersededBoardLeaves({
+      videoRoot,
+      board: animatic,
+      video,
+      shotIds: okShotIds,
+      include: "all",
+    });
+    for (const { shotId, address } of remade.accepted) {
+      acceptedAssets.push(address);
+      cascadeAccepted.push({ address, via: formatShotAddress(stage, shotId) });
+    }
+    for (const { shotId, address, reason } of remade.failed) {
+      boardLeafFailures.push({ shotId, address, reason: `could not be re-made — ${reason}` });
+    }
+  }
+
   const toAccept: Array<{ address: string; variantId: string; dismiss: string[] }> = [];
 
   // Accept only the variant the reviewer saw (from `displayed`). An asset
@@ -1698,7 +1735,7 @@ export async function handleReelSubmit(
   //
   // Both verdicts are read back, not just the accept: `unacceptReelShots` swallows per-address
   // failures the same way, so a "none" that did not take must not be recorded as a release either.
-  const skippedDecisions: NonNullable<ReviewRecord["skippedDecisions"]> = [];
+  const skippedDecisions: NonNullable<ReviewRecord["skippedDecisions"]> = [...boardLeafFailures];
   if (okShotIds.size > 0 || unacceptShotIds.size > 0) {
     const postAccept = await StateManager.load(videoRoot);
     for (const shot of plan.shots) {

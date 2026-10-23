@@ -10,9 +10,14 @@ import {
   getStage,
   listAddresses,
 } from "../../../../core/address.js";
+import {
+  consumedBoardStems,
+  planSupersededStemRemakes,
+  remakeSupersededBoardLeaves,
+} from "../../../../core/board-leaves.js";
 import { compositionInputFingerprints } from "../../../../core/composition-resource.js";
 import { computeDefinitionHash } from "../../../../core/definition-hash.js";
-import { extractRefs } from "../../../../core/graph.js";
+import { buildDependencyGraph, extractRefs } from "../../../../core/graph.js";
 import { stageReviewDecidableAddresses } from "../../../../core/shot-accept-targets.js";
 import { stableStringify } from "../../../../core/stable-stringify.js";
 import type { AssetDefinition } from "../../../../core/types/index.js";
@@ -144,6 +149,35 @@ export default defineVideo(direction, {
   }),
 });
 `;
+
+// Shot 02's stem-driven motion placed through a trim of it.
+const TRIMMED_VIDEO_TSX = VIDEO_TSX.replace(
+  "import { Composition, Video, defineVideo, defineFalAsset, asset }",
+  "import { Composition, Video, adapters, defineVideo, defineFalAsset, asset }",
+).replace(
+  `      const motion = asset("motion", ia2v, {
+        prompt: "she steps through",
+        audio: animaticStage.shot("02").stem,
+      });`,
+  `      const raw = asset("raw", ia2v, {
+        prompt: "she steps through",
+        audio: animaticStage.shot("02").stem,
+      });
+      const motion = asset("motion", adapters.videoTrim, { source: raw, start: 0, duration: 2 });`,
+);
+
+// Shot 02 also plays the board's mix under its picture.
+const STEM_PLAYED_VIDEO_TSX = VIDEO_TSX.replace(
+  "import { Composition, Video, defineVideo, defineFalAsset, asset }",
+  "import { Audio, Composition, Video, defineVideo, defineFalAsset, asset }",
+).replace(
+  `      return <Composition><Video src={motion} /></Composition>;
+    }),
+  }),`,
+  `      return <Composition><Video src={motion} /><Audio src={animaticStage.shot("02").stem} /></Composition>;
+    }),
+  }),`,
+);
 
 // One asset row of the review page — a per-shot take or an audio-track cue.
 interface Row {
@@ -399,6 +433,9 @@ async function settledShotIds(
     null,
     defs.direction,
     defs.animatic,
+    null,
+    // The board page is told the video, as the preview server tells it.
+    stage === "animatic" ? defs.video : null,
   );
   const page = (await res.json()) as {
     shots: Array<{ shotId: string; needsVerdict?: boolean; showingStandIn?: boolean }>;
@@ -430,7 +467,7 @@ async function reelPage(
 
 async function outstanding(
   videoRoot: string,
-): Promise<{ needsReview: string[]; problems: string[] }> {
+): Promise<{ needsReview: string[]; problems: string[]; remixes: string[] }> {
   const defs = await loadPreviewDefinitions({
     videoRoot,
     videoPath: path.join(videoRoot, "video.tsx"),
@@ -448,6 +485,9 @@ async function outstanding(
     needsReview: needsReviewItems(report).map((i) => i.address),
     problems: (report.sections.find((s) => s.title === "Problems")?.items ?? []).map(
       (i) => `${i.address} ${i.detail}`,
+    ),
+    remixes: (report.sections.find((s) => s.title === "Board stems to re-mix")?.items ?? []).map(
+      (i) => i.address,
     ),
   };
 }
@@ -553,12 +593,11 @@ describe("video review closure", () => {
     expect(await reel()).not.toBe(await reel([]));
   });
 
-  // The mix's definition moves under its accept — a retime, a volume change in animatic.tsx — while
-  // everything else stays signed off. Recorded here as the hash an earlier animatic.tsx produced,
-  // since this harness cannot re-import an edited stage file. No generate is owed: the page mixes
-  // the cues live, so the shot re-opens for a verdict, and its accept materializes the new mix. The
-  // motion built over the old one is what the lap regenerates.
-  it("re-opens the shot when its mix is edited, and the next review closes it", async () => {
+  // The mix's definition moves under its accept — a retime, a volume change in animatic.tsx — after
+  // the video spent on it. Recorded here as the hash an earlier animatic.tsx produced, since this
+  // harness cannot re-import an edited stage file. The video develops the shot past the board, so
+  // the mix is konte's to re-make on the next spend.
+  it("leaves a mix edited after the video spent on it off the board's review", async () => {
     const videoRoot = await project();
     expect(await settle(videoRoot)).toBe(2);
 
@@ -568,15 +607,168 @@ describe("video review closure", () => {
     manager.getAssetState(stem).variants![before]!.definitionHash = "an earlier animatic.tsx";
     await manager.save();
 
-    expect((await outstanding(videoRoot)).needsReview).toContain(stem);
-    const page = await reelPage(videoRoot, "animatic");
-    expect(page.find((s) => s.shotId === "02")?.notReady).toBe(false);
-    expect(await settledShotIds(videoRoot, "animatic")).not.toContain("02");
-    expect(await settle(videoRoot)).toBeLessThanOrEqual(2);
+    expect((await outstanding(videoRoot)).needsReview).not.toContain(stem);
     expect(await settledShotIds(videoRoot, "animatic")).toContain("02");
+    expect((await outstanding(videoRoot)).remixes).toEqual([stem]);
+  });
+
+  // A retime ages out shot 02's board composition and mix after the video spent on them. The
+  // video review's accept re-makes the board's leaves, before any video leaf is built over the mix.
+  it.each([
+    { through: "the motion it places", videoTsx: VIDEO_TSX },
+    { through: "a trim of it", videoTsx: TRIMMED_VIDEO_TSX },
+    { through: "the mix it plays", videoTsx: STEM_PLAYED_VIDEO_TSX },
+  ])("closes a retime with the video review alone ($through)", async ({ videoTsx }) => {
+    const videoRoot = await project("here we go", videoTsx);
+    await settle(videoRoot);
+    // This harness records no jobs, so no accept cascades into the take a trim was cut from.
+    const seeded = await StateManager.load(videoRoot);
+    for (const address of ["video:shot.02.raw"]) {
+      const take = seeded.resolveReference(address);
+      if (take && !take.isAccepted) seeded.setAccepted(address, take.variantId);
+    }
+    await seeded.save();
+    expect(await outstanding(videoRoot)).toEqual({ needsReview: [], problems: [], remixes: [] });
+
+    const board = ["animatic:shot.02#composition", "animatic:shot.02#stem"];
+    const before = board.map((address) => seeded.getAcceptedVariant(address));
+    await fs.writeFile(
+      path.join(videoRoot, "direction.ts"),
+      DIRECTION_TS.replace(
+        '"she steps through", setup: "front", duration: 2',
+        '"she steps through", setup: "front", duration: 3',
+      ),
+    );
+    await generateAll(videoRoot);
+    expect(await settledShotIds(videoRoot, "animatic")).toContain("02");
+
+    await acceptAll(videoRoot, "video");
+
+    expect(await outstanding(videoRoot)).toEqual({ needsReview: [], problems: [], remixes: [] });
+    const after = await StateManager.load(videoRoot);
+    for (const [i, address] of board.entries()) {
+      expect(after.getAcceptedVariant(address)).not.toBe(before[i]);
+    }
+  });
+
+  // What `generate` / `reroll` / `patch apply` run before their gate: the mix a spend consumes,
+  // re-made once the video has taken it over.
+  it("re-mixes a board stem the video has taken over for the next spend", async () => {
+    const videoRoot = await project();
+    expect(await settle(videoRoot)).toBe(2);
+
+    const stem = "animatic:shot.02#stem";
+    const manager = await StateManager.load(videoRoot);
+    const before = manager.getAcceptedVariant(stem)!;
+    manager.getAssetState(stem).variants![before]!.definitionHash = "an earlier animatic.tsx";
+    await manager.save();
+
+    const defs = await loadPreviewDefinitions({
+      videoRoot,
+      videoPath: path.join(videoRoot, "video.tsx"),
+      mode: "video-preview",
+    });
+    const remixed = await remakeSupersededBoardLeaves({
+      videoRoot,
+      board: defs.animatic!,
+      video: defs.video!,
+      include: "stems",
+    });
+
+    expect(remixed).toEqual({ accepted: [{ shotId: "02", address: stem }], failed: [] });
     const after = await StateManager.load(videoRoot);
     expect(after.getAcceptedVariant(stem)).not.toBe(before);
-    expect(after.getAssetState(stem).variants![before]!.status).toBe("none");
+    expect(after.selectVariant(stem, { requireAccepted: true })).not.toBeNull();
+  });
+
+  // `reroll` / `patch apply` re-mix only the stems what they redo reaches.
+  it("re-mixes only the board stems a targeted spend consumes", async () => {
+    const videoRoot = await project();
+    expect(await settle(videoRoot)).toBe(2);
+
+    const stem = "animatic:shot.02#stem";
+    const manager = await StateManager.load(videoRoot);
+    const before = manager.getAcceptedVariant(stem)!;
+    manager.getAssetState(stem).variants![before]!.definitionHash = "an earlier animatic.tsx";
+    await manager.save();
+
+    const defs = await loadPreviewDefinitions({
+      videoRoot,
+      videoPath: path.join(videoRoot, "video.tsx"),
+      mode: "video-preview",
+    });
+    const graph = buildDependencyGraph(defs.video!, defs.animatic!, null);
+    expect([...consumedBoardStems(graph, ["video:shot.02.motion"])]).toEqual([stem]);
+    expect([...consumedBoardStems(graph, ["video:shot.01.motion"])]).toEqual([]);
+
+    const untouched = await remakeSupersededBoardLeaves({
+      videoRoot,
+      board: defs.animatic!,
+      video: defs.video!,
+      addresses: consumedBoardStems(graph, ["video:shot.01.motion"]),
+      include: "stems",
+    });
+    expect(untouched).toEqual({ accepted: [], failed: [] });
+    expect((await StateManager.load(videoRoot)).getAcceptedVariant(stem)).toBe(before);
+  });
+
+  // A plan prices the run: the mix stands re-made in memory, so what consumes it reads as the run
+  // will leave it, and nothing is written.
+  it("stands a plan's re-mix in memory, aging out what consumes it", async () => {
+    const videoRoot = await project();
+    expect(await settle(videoRoot)).toBe(2);
+
+    const stem = "animatic:shot.02#stem";
+    const motion = "video:shot.02.motion";
+    const saved = await StateManager.load(videoRoot);
+    const before = saved.getAcceptedVariant(stem)!;
+    saved.getAssetState(stem).variants![before]!.definitionHash = "an earlier animatic.tsx";
+    await saved.save();
+
+    const defs = await loadPreviewDefinitions({
+      videoRoot,
+      videoPath: path.join(videoRoot, "video.tsx"),
+      mode: "video-preview",
+    });
+    const manager = await StateManager.load(videoRoot);
+    const planned = planSupersededStemRemakes(manager, defs.animatic!, defs.video!);
+
+    expect(planned).toEqual([{ shotId: "02", address: stem }]);
+    expect(manager.selectVariant(stem, { requireAccepted: true })).not.toBeNull();
+    const take = manager.getAcceptedVariant(motion)!;
+    expect(manager.variantStaleness(motion, take)?.inputStale).toBe(true);
+    expect((await StateManager.load(videoRoot)).getAcceptedVariant(stem)).toBe(before);
+  });
+
+  it("names the mix it could not re-make, and why", async () => {
+    const videoRoot = await project();
+    expect(await settle(videoRoot)).toBe(2);
+
+    const stem = "animatic:shot.02#stem";
+    const manager = await StateManager.load(videoRoot);
+    const before = manager.getAcceptedVariant(stem)!;
+    manager.getAssetState(stem).variants![before]!.definitionHash = "an earlier animatic.tsx";
+    await manager.save();
+    const line = manager.resolveReference("animatic:shot.02.vo")!;
+    await fs.writeFile(line.file, "not audio");
+
+    const defs = await loadPreviewDefinitions({
+      videoRoot,
+      videoPath: path.join(videoRoot, "video.tsx"),
+      mode: "video-preview",
+    });
+    const remixed = await remakeSupersededBoardLeaves({
+      videoRoot,
+      board: defs.animatic!,
+      video: defs.video!,
+      include: "stems",
+    });
+
+    expect(remixed.accepted).toEqual([]);
+    expect(remixed.failed).toEqual([
+      { shotId: "02", address: stem, reason: expect.stringMatching(/\S/) },
+    ]);
+    expect((await StateManager.load(videoRoot)).getAcceptedVariant(stem)).toBe(before);
   });
 
   // A waiver written on a shot after the piece was accepted whole changes no picture, so only the

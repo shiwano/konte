@@ -17,7 +17,7 @@ import {
   tryParseAddress,
 } from "./address.js";
 import {
-  boardCompositionSuperseded,
+  boardLeafSuperseded,
   definitionHashForAddress,
   materializedLeafReviewStatus,
   removedShotStemAddresses,
@@ -147,7 +147,7 @@ export function shotNeedsVerdict(
   const takes = [...targets.pictureAssets, ...targets.stemSources];
   if (takes.length === 0 && targets.leaves.length === 0) return true;
   const leafSettled = (address: string) =>
-    boardCompositionSuperseded(manager, video, downstreamVideo, address) ||
+    boardLeafSuperseded(manager, video, downstreamVideo, address) ||
     !materializedLeafReviewStatus(manager, address, definitionHashForAddress(video, address))
       .needsReview;
   if (targets.leaves.some(({ address }) => !leafSettled(address))) return true;

@@ -101,6 +101,17 @@ describe("suggestForStatus", () => {
     expect(actions.some((a) => a.command?.includes("preview animatic"))).toBe(false);
   });
 
+  it("offers the video spend that re-mixes a board stem the video took over", () => {
+    const actions = suggestForStatus({
+      state: makeState({}),
+      boardRemixAddresses: ["animatic:shot.02#stem"],
+    });
+    expect(actions.map((a) => a.command)).toContain("konte generate video");
+    expect(
+      suggestForStatus({ state: makeState({}), boardRemixAddresses: [] }).map((a) => a.command),
+    ).not.toContain("konte generate video");
+  });
+
   it("merges the details of every twin of a command, saying a repeated one once", () => {
     const result = formatSuggestedActions(
       dedupeCommands([

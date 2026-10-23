@@ -5,7 +5,7 @@ import { harvestShotAudioStructure, type StemAudioEntry } from "./composition-bu
 import { OVERFLOW_FLOOR } from "./dsl/clip-length-collect.js";
 import { selectResolvedVariant, type StalenessCache } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
-import type { AnimaticDefinition, KonteState } from "./types/index.js";
+import type { AnimaticDefinition, KonteState, ShotDefinition } from "./types/index.js";
 import { mediaDurationSec } from "./variant-media.js";
 import { formatSeconds } from "./format-duration.js";
 
@@ -105,41 +105,49 @@ export function findAnimaticOverflows(
   // the manager's carries whatever definitions were registered for the video.
   cache: StalenessCache = manager.stalenessCache(),
 ): AnimaticOverflow[] {
+  return animatic.shots.flatMap((shot) => findShotOverflows(animatic, manager, shot, cache));
+}
+
+/** The stems of one board shot whose lines the clamp cuts. */
+export function findShotOverflows(
+  animatic: AnimaticDefinition,
+  manager: StateManager,
+  shot: ShotDefinition,
+  cache: StalenessCache = manager.stalenessCache(),
+): AnimaticOverflow[] {
   const state = manager.getState();
+  const stems = listShotStems("animatic", shot);
+  if (stems.length === 0) return [];
+  const cues = harvestShotAudioStructure(animatic, shot.id);
+  if (cues === null || cues.length === 0) return [];
+  const durationSec = shot.duration;
+
   const overflows: AnimaticOverflow[] = [];
-  for (const shot of animatic.shots) {
-    const stems = listShotStems("animatic", shot);
-    if (stems.length === 0) continue;
-    const cues = harvestShotAudioStructure(animatic, shot.id);
-    if (cues === null || cues.length === 0) continue;
-    const durationSec = shot.duration;
-
-    for (const stem of stems) {
-      let neededSec = 0;
-      let unmeasuredCues = 0;
-      const spans: CueSpan[] = [];
-      for (const cue of cues) {
-        if (!stem.refs.includes(cue.src)) continue;
-        const span = cueSpan(cue, shot.cueKinds?.[cue.src], state, cache);
-        if (span === "unmeasured") unmeasuredCues++;
-        else if (span !== "silent") {
-          spans.push(span);
-          neededSec = Math.max(neededSec, span.end);
-        }
+  for (const stem of stems) {
+    let neededSec = 0;
+    let unmeasuredCues = 0;
+    const spans: CueSpan[] = [];
+    for (const cue of cues) {
+      if (!stem.refs.includes(cue.src)) continue;
+      const span = cueSpan(cue, shot.cueKinds?.[cue.src], state, cache);
+      if (span === "unmeasured") unmeasuredCues++;
+      else if (span !== "silent") {
+        spans.push(span);
+        neededSec = Math.max(neededSec, span.end);
       }
-
-      const overflowSec = neededSec - durationSec;
-      if (overflowSec <= OVERFLOW_FLOOR) continue;
-      overflows.push({
-        shotId: shot.id,
-        address: stem.address,
-        durationSec,
-        neededSec,
-        overflowSec,
-        unmeasuredCues,
-        retime: unmeasuredCues === 0 ? retimeFor(spans, durationSec) : null,
-      });
     }
+
+    const overflowSec = neededSec - durationSec;
+    if (overflowSec <= OVERFLOW_FLOOR) continue;
+    overflows.push({
+      shotId: shot.id,
+      address: stem.address,
+      durationSec,
+      neededSec,
+      overflowSec,
+      unmeasuredCues,
+      retime: unmeasuredCues === 0 ? retimeFor(spans, durationSec) : null,
+    });
   }
   return overflows;
 }

@@ -61,7 +61,8 @@ import {
   registerJobs,
   type VariantReservationRequest,
 } from "../generate-orchestrator.js";
-import { selectGenerationAssets } from "../generation-selection.js";
+import { printRemixedBoardStems, selectGenerationAssets } from "../generation-selection.js";
+import { planSupersededStemRemakes, remakeSupersededBoardLeaves } from "../../core/board-leaves.js";
 import { requireVideoRoots } from "../context.js";
 import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
 
@@ -135,6 +136,24 @@ export function registerGenerateCommand(program: Command): void {
         });
       }
 
+      // The board stems the video has taken over, re-mixed before the gate asks for them accepted.
+      // A plan stands them in, in memory, so it prices what consumes them as the run will.
+      if (stage === "video" && video && animatic) {
+        if (opts.plan) {
+          const accepted = planSupersededStemRemakes(manager, animatic, video);
+          printRemixedBoardStems({ accepted }, { plan: true });
+        } else {
+          const result = await remakeSupersededBoardLeaves({
+            videoRoot,
+            board: animatic,
+            video,
+            include: "stems",
+          });
+          if (result.accepted.length > 0) manager = await StateManager.load(videoRoot);
+          printRemixedBoardStems(result);
+        }
+      }
+
       const graph = buildDependencyGraph(video, animatic, reference);
 
       // Shared by the plan and the run, which must price the same command.
@@ -181,7 +200,12 @@ export function registerGenerateCommand(program: Command): void {
       const { levels } = computeDependencyLevels(graph);
 
       const { stageAssetPaths, skippedUnused, spending, heldLines, heldCount } =
-        selectGenerationAssets({ definitions: defs, stage: loaded.stage, manager, graph });
+        selectGenerationAssets({
+          definitions: defs,
+          stage: loaded.stage,
+          manager,
+          graph,
+        });
       const spend = await assertSpendAllowed(
         spending.map((address) => ({ label: address, def: assetEntryOf(address) })),
         config,

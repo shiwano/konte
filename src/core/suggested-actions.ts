@@ -581,6 +581,8 @@ interface SuggestStatusInput {
   blockedPatchAddresses?: readonly string[];
   /** Addresses with a declared-but-unrealized patch, from the report's "Pending patches". */
   pendingPatchAddresses?: readonly string[];
+  /** Board stems a video spend re-mixes first, from the report's "Board stems to re-mix". */
+  boardRemixAddresses?: readonly string[];
   /**
    * The report's accepted-and-stale addresses, minus the ones another step already owns (a fresh
    * take awaiting accept, a patch to re-apply, a `#delivery` only `export` can rebuild).
@@ -747,6 +749,9 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
     if (distinctScopes(pendingPatches).length > 0) actions.push({ command: "konte patch apply" });
   }
   suggestPatchScriptEdits(actions, input.patchErrors ?? []);
+  if ((input.boardRemixAddresses ?? []).length > 0 && !stageBlocked("video")) {
+    actions.push({ command: "konte generate video" });
+  }
 
   const readiness = input.readiness ?? [];
   suggestGenerate(actions, readiness, stageBlocked);

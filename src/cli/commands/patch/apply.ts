@@ -1,3 +1,5 @@
+import { consumedBoardStems, remakeSupersededBoardLeaves } from "../../../core/board-leaves.js";
+import { printRemixedBoardStems } from "../../generation-selection.js";
 import type { Command } from "commander";
 import { requireShotStages } from "../../../core/select-definition.js";
 import { loadKonteConfig } from "../../../core/config.js";
@@ -196,6 +198,23 @@ export async function gatePatchApply(
       return m;
     });
     const graph = buildDependencyGraph(video, animatic, reference);
+    // The board stems the video patches consume, re-mixed before the gate asks for them accepted.
+    const videoPatches = gatedPatches.filter((p) => getStage(p.sourceAddress) === "video");
+    if (videoPatches.length > 0) {
+      const remixed = await remakeSupersededBoardLeaves({
+        videoRoot,
+        board: animatic,
+        video,
+        addresses: consumedBoardStems(
+          graph,
+          videoPatches.map((p) => p.sourceAddress),
+          videoPatches.flatMap((p) => Object.values(p.assets).flatMap((def) => extractRefs(def))),
+        ),
+        include: "stems",
+      });
+      if (remixed.accepted.length > 0) manager = await StateManager.load(videoRoot);
+      printRemixedBoardStems(remixed);
+    }
     // A patch spends like a generate, so it meets the same wiring gate. The spend is the patch's
     // own steps, not the definition's: a footage shot the definition calls no spender is one a
     // comfy step still spends on. A timeline source belongs to no one shot, so there the whole

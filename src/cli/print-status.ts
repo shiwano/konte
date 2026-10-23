@@ -1,3 +1,4 @@
+import { staleSupersededLeaves } from "../core/board-leaves.js";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import {
@@ -19,7 +20,7 @@ import {
   listStemAddresses,
 } from "../core/address.js";
 import {
-  boardCompositionSuperseded,
+  boardLeafSuperseded,
   collectDeadCompositionVariants,
   collectDeadStemVariants,
   definitionHashForAddress,
@@ -325,7 +326,7 @@ export async function buildStatusReport(
     // The overlay is signed off by the shot accepts under it, and reviewed on its own only once they
     // all stand.
     const overlayStage = isOverlayAddress(addr) ? (leafStages.get(getStage(addr)) ?? null) : null;
-    const superseded = boardCompositionSuperseded(
+    const superseded = boardLeafSuperseded(
       manager,
       def as unknown as VideoDefinition | null,
       options?.videoDefinition ?? null,
@@ -453,6 +454,21 @@ export async function buildStatusReport(
           detail: truncateSingleLine(e.message, ERROR_GLIMPSE_WIDTH),
         })),
       ],
+    });
+  }
+  // A board stem the video develops past the board, aged out by an edit. The video spend that
+  // consumes it re-mixes it first.
+  const board = leafStages.get("animatic") ?? null;
+  const developing = options?.videoDefinition ?? null;
+  const remixes =
+    board && developing ? staleSupersededLeaves(manager, board, developing, null, "stems") : [];
+  if (remixes.length > 0) {
+    sections.push({
+      title: "Board stems to re-mix",
+      items: remixes.map(({ address }) => ({
+        address,
+        detail: "the video develops the shot past the board",
+      })),
     });
   }
   // Undeveloped shots (pendingShot) carry no address, so they never reach `infos` — but the stage
