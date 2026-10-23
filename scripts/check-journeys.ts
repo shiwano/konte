@@ -35,6 +35,8 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - dev-session-analysis (new, 8,450): the CLI friction a session hit, and the video's quality read
+//   from its review records.
 // - konte-direction-critic 4,050 → 4,100, konte-animatic-critic 3,750 → 3,800, konte-staging-critic
 //   2,450 → 2,500 (agreed by a human): the workspace AGENTS.md's acceptance cascading across stages.
 // - video 35,750 → 36,100, music-video 37,350 → 37,700, konte-direction-critic 3,950 → 4,050,
@@ -285,6 +287,18 @@ const DEV_JOURNEYS = [
       `${DEV}/konte-skill-audit/SKILL.md`,
       `${DEV}/konte-claude-session-analysis/SKILL.md`,
       `${DEV}/konte-codex-session-analysis/SKILL.md`,
+    ],
+  },
+  // Reading a production session for what to improve in konte: the transcript
+  // analysis, then the video's review records as the measure of its quality.
+  {
+    name: "dev-session-analysis",
+    budget: 8_450,
+    files: [
+      ...DEV_ALWAYS,
+      `${DEV}/konte-claude-session-analysis/SKILL.md`,
+      `${DEV}/konte-codex-session-analysis/SKILL.md`,
+      `${DEV}/quality-analysis-guide/SKILL.md`,
     ],
   },
   // The init template tree — where a file goes, and the conventions for the

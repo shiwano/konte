@@ -1,11 +1,11 @@
 ---
 name: konte-claude-session-analysis
-description: Analyze a real Claude Code session transcript — where its context went, which guides actually loaded, and what that says about konte's CLI and skill design. Use to interpret /context output, validate a JOURNEY, or diagnose a routing miss.
+description: Analyze a real Claude Code session transcript — where its context went, which guides actually loaded, where the CLI tripped the agent, and what the video's reviews say about its quality. Use to interpret /context output, validate a JOURNEY, diagnose a routing miss, or find what to improve in konte from a production session.
 user-invocable: true
 argument-hint: "[workspace-path]"
 ---
 
-Done when every number is attributed to a real consumer from the transcript, and each konte design signal names the command it implicates.
+Done when every number is attributed to a real consumer from the transcript, each konte design signal and CLI failure names the command it implicates, and the video's quality findings are reported per `quality-analysis-guide`.
 
 ## 0. First rule — `/context` names sizes, not causes
 
@@ -89,6 +89,23 @@ jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="text")|.tex
 - Seen ≫ 0, written 0 = confirmed miss — the agent read the pointer and never followed it.
 - The variable is what the pointer hangs on, not its phrasing — pointers tied to an artifact the agent must write (DSL, adapter, prompt, JSX) fire; pointers tied to a judgment it never notices making (fixing intent, choosing a production method) don't. Fix by re-anchoring to the artifact, not by rewording.
 - A self-assessed gate never fires — `Intent not yet fixed → read X` asks the agent to detect the very lapse the guide exists to prevent. Make it unconditional.
+
+## 9. CLI friction
+
+```sh
+jq -r 'select(.type=="user") | .message.content[]? | select(.type=="tool_result" and .is_error==true)
+  | [.tool_use_id, ((.content | tostring)[0:200] | gsub("[\n\t]";" "))] | @tsv' "$T" > /tmp/errors.tsv   # join to /tmp/uses.tsv on id
+```
+
+- A rejected tool use is the human's veto, not konte's; an `Exit code` from a compound command may belong to a non-konte part.
+- Classify each konte failure: a `KonteErrorCode` refusal, a usage error (wrong flag, address or scope), a crash (stack trace — a konte bug).
+- A usage error, or the same subcommand retried with varied arguments → the agent guessed the surface; name what the help text or the refusal should have said.
+- A refusal followed at once by the right action is a working gate; one followed by a waiver or a detour → test it against `AGENTS.md`'s three questions.
+- The next konte command differs from the previous output's `Next steps` with no stated reason → that line did not fit the state.
+
+## 10. Video quality
+
+Read `quality-analysis-guide`, then run it over the session's video — §3's `/tmp/uses.tsv` is the transcript side of its checks.
 
 ## Don't
 
