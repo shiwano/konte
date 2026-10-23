@@ -89,15 +89,15 @@ hit whose attack must land on the frame).
 To lay out the whole assembled timeline instead (silence warnings per track), use \`konte probe
 reel-audio <animatic|video>\`.
 
-Takes a variant id (v-…), an address (resolved to its canonical variant, like konte path), or an
-address-scope. A container scope (stage, shot, timeline) sweeps every source under it (stills, which
-carry no audio, are skipped), so one command replaces looping over each address; a patch chain's
-steps are swept only by a patch scope (<stage>:patch…). Several of any of those can be passed at
-once — they are probed in argument order, each variant once.
+Takes a variant id (v-…), an address (the take it resolves to, then every ready take awaiting a
+verdict beside it), or an address-scope. A container scope (stage, shot, timeline) sweeps every
+source under it (stills, which carry no audio, are skipped), so one command replaces looping over
+each address; a patch chain's steps are swept only by a patch scope (<stage>:patch…). Several of any
+of those can be passed at once — they are probed in argument order, each variant once.
 
 Examples:
   konte probe audio v-iuQeCrR2                    Waveform + info for that variant
-  konte probe audio video:timeline.bgm            Resolve the address to its canonical variant, then probe
+  konte probe audio video:timeline.bgm            The take the address resolves to, and any undecided beside it
   konte probe audio video                         Every audio-bearing source in the video stage
   konte probe audio video:shot.01                 Every audio-bearing source under shot 01
   konte probe audio reference:bgm reference:rain  Just those two sources

@@ -101,14 +101,14 @@ low frame-diff can include small subject movements. Judge the intended motion fr
 The profile is cached per variant (.konte/cache/motion/<variantId>/). An image variant reports "not a
 video".
 
-Takes a variant id (v-…), an address (resolved to its canonical variant, like konte path), or an
-address-scope. A container scope (stage, shot, timeline) sweeps every video source under it (stills
-are skipped) and prints one strip path per clip, so one command replaces looping over each shot's
-motion; a patch chain's steps are swept only by a patch scope (<stage>:patch…). Several of any of
-those can be passed at once — they are probed in argument order, each variant once. In sweep mode
-each strip is preceded by a "# <address>" header line; the single-target form still prints only the
-strip path. A sweep spanning several shots ends with a Next steps line: those shots side by side on
-one sheet is probe contact-sheet.
+Takes a variant id (v-…), an address (the take it resolves to, then every ready take awaiting a
+verdict beside it), or an address-scope. A container scope (stage, shot, timeline) sweeps every
+video source under it (stills are skipped) and prints one strip path per clip, so one command
+replaces looping over each shot's motion; a patch chain's steps are swept only by a patch scope
+(<stage>:patch…). Several of any of those can be passed at once — they are probed in argument order,
+each variant once. In sweep mode each strip is preceded by a "# <address>" header line; the
+single-target form still prints only the strip path. A sweep spanning several shots ends with a Next
+steps line: those shots side by side on one sheet is probe contact-sheet.
 
 A composition address (<stage>:shot.<id>#composition) draws that shot as its live definition
 renders it, clips included — the read for an <Animate> move's speed, easing and continuity, which a
@@ -122,7 +122,7 @@ including undecided alternatives beside an accepted take. It takes at most one a
 Examples:
   konte probe motion --needs-review video                     Every video take awaiting review
   konte probe motion v-iuQeCrR2                                 Full-clip filmstrip path to stdout (warnings only on stderr)
-  konte probe motion video:shot.01.motion                       Resolve the address to its canonical variant, then probe
+  konte probe motion video:shot.01.motion                       The take the address resolves to, and any undecided beside it
   konte probe motion video                                      Every motion clip in the video stage, one strip each
   konte probe motion video:shot.01                              Every video source under shot 01
   konte probe motion video:shot.01.motion video:shot.04.motion  Just those two clips

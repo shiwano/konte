@@ -121,11 +121,11 @@ Renders two sheets and prints their paths — Read both. The first is the source
 outlined in its own color; the second is each window as imageCrop would render it, scaled to the
 output size, its cell naming its color and geometry. Writes nothing to the definition or state.
 
-<image> is a variant id (v-…) or an address, resolved like konte path. When it is an imageCrop asset
-(a plate cut from a master), its master is the source, its own window is shown as "current", and
-every --rect is on the master and rendered at that asset's output size. Otherwise the image
-itself is the source and each window is rendered at the animatic's canvas (the video's, with no
-animatic). A window whose aspect differs from the output's is reported: imageCrop stretches it.
+<image> is a variant id (v-…) or an address, standing for the take it resolves to. When it is an
+imageCrop asset (a plate cut from a master), its master is the source, its own window is shown as
+"current", and every --rect is on the master and rendered at that asset's output size. Otherwise
+the image itself is the source and each window is rendered at the animatic's canvas (the video's,
+with no animatic). A window whose aspect differs from the output's is reported: imageCrop stretches it.
 
 Each --rect value is source pixels or, with %, a percent of the source's width (x, width) or height
 (y, height).
@@ -138,11 +138,11 @@ Examples:
     )
     .action(async (image: string, opts: { rect: string[]; force?: boolean }) => {
       const rects = opts.rect.map(parseRect);
-      const { videoRoot, manager, definitions, variantIds, multi } = await openProbeTargets(
+      const { videoRoot, manager, definitions, variantIds, resolved } = await openProbeTargets(
         [image],
         { mediaKinds: ["image"], definitions: true },
       );
-      if (multi) {
+      if (resolved.some((take) => take.scope !== undefined)) {
         throw new KonteError(
           "INVALID_OPTION",
           `"${image}" is a scope — probe crop takes one image, a variant id or an address`,

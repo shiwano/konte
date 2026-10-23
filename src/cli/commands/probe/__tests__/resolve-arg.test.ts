@@ -4,7 +4,7 @@ import type { StateManager } from "../../../../core/state/index.js";
 import { resolveProbeTargets } from "../resolve-arg.js";
 
 function fakeManager(overrides: Partial<StateManager>): StateManager {
-  return overrides as unknown as StateManager;
+  return { readyUndecidedTakes: () => [], ...overrides } as unknown as StateManager;
 }
 
 describe("resolveProbeTargets", () => {
@@ -33,6 +33,22 @@ describe("resolveProbeTargets", () => {
       resolved: [{ address: "video:shot.01.motion", variantId: "v-canon" }],
     });
     expect(resolveReference).toHaveBeenCalledWith("video:shot.01.motion", { includeStale: true });
+  });
+
+  it("follows a full address's take with every take undecided beside it", () => {
+    const resolveReference = vi
+      .fn()
+      .mockReturnValue({ variantId: "v-shown", file: "/x.mp4", isAccepted: false });
+    const readyUndecidedTakes = vi.fn().mockReturnValue(["v-shown", "v-rival"]);
+    const manager = fakeManager({ resolveReference, readyUndecidedTakes });
+    const result = resolveProbeTargets(manager, ["video:shot.01.motion"], {
+      mediaKinds: ["video"],
+    });
+    expect(result).toEqual({
+      variantIds: ["v-shown", "v-rival"],
+      multi: true,
+      resolved: [{ address: "video:shot.01.motion", variantId: "v-shown" }],
+    });
   });
 
   it("throws VARIANT_NOT_FOUND when a full address has no ready variant", () => {

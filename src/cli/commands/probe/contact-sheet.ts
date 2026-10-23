@@ -498,8 +498,7 @@ async function buildNeedsReviewCells(
 async function buildStillCells(
   args: readonly string[],
   videoRoot: string,
-  opts: { takes?: boolean } = {},
-): Promise<{ cells: ContactSheetCell[]; moreTakes: string[] }> {
+): Promise<ContactSheetCell[]> {
   const manager = await StateManager.load(videoRoot);
   const definitions = await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
 
@@ -526,34 +525,19 @@ async function buildStillCells(
         variant.media?.kind === "image" ? variant.media.width / variant.media.height : undefined,
     };
   };
-  const isImage = (variantId: string): boolean => {
-    const address = manager.resolveVariantAddress(variantId);
-    const file = manager.getAssetState(address).variants?.[variantId]?.file;
-    return !!file && inferMediaType(file) === "image";
-  };
 
   // Resolve one argument at a time and sort within it: a scope's own sweep needs the shot
   // order, but the order the arguments were written in is the caller's, and it is the only
   // way to lay out ids that carry no number. Sorting the whole set would discard it.
   const cells: ContactSheetCell[] = [];
   const seen = new Set<string>();
-  const moreTakes: string[] = [];
   const resolvedTakes: ResolvedTake[] = [];
   const onScreen = new Set<string>();
   for (const arg of args) {
     const { variantIds, resolved } = resolveProbeTargets(manager, [arg], { mediaKinds: ["image"] });
     resolvedTakes.push(...resolved);
-    const ids: string[] = [];
-    for (const id of variantIds) {
-      ids.push(id);
-      if (arg.startsWith("v-")) continue;
-      onScreen.add(id);
-      const address = manager.resolveVariantAddress(id);
-      const rivals = manager.readyUndecidedTakes(address).filter((r) => r !== id && isImage(r));
-      if (opts.takes) ids.push(...rivals);
-      else if (rivals.length > 0 && arg === address) moreTakes.push(address);
-    }
-    const group = ids.filter((id) => !seen.has(id));
+    for (const take of resolved) onScreen.add(take.variantId);
+    const group = variantIds.filter((id) => !seen.has(id));
     for (const id of group) seen.add(id);
     cells.push(...group.map(toCell).sort((a, b) => compareNatural(a.label, b.label)));
   }
@@ -569,19 +553,16 @@ async function buildStillCells(
   const labelCounts = new Map<string, number>();
   for (const cell of cells) labelCounts.set(cell.label, (labelCounts.get(cell.label) ?? 0) + 1);
   for (const cell of cells) {
-    if ((labelCounts.get(cell.label) ?? 0) > 1) cell.label = `${cell.label} ${cell.variantId}`;
-  }
-  if (opts.takes) {
-    for (const cell of cells) {
-      const address = manager.resolveVariantAddress(cell.variantId!);
-      if (manager.getAssetState(address).variants?.[cell.variantId!]?.status === "accepted") {
-        cell.label = `${cell.label} (accepted)`;
-      } else if (onScreen.has(cell.variantId!)) {
-        cell.label = `${cell.label} (resolved)`;
-      }
+    if ((labelCounts.get(cell.label) ?? 0) <= 1) continue;
+    cell.label = `${cell.label} ${cell.variantId}`;
+    const address = manager.resolveVariantAddress(cell.variantId!);
+    if (manager.getAssetState(address).variants?.[cell.variantId!]?.status === "accepted") {
+      cell.label = `${cell.label} (accepted)`;
+    } else if (onScreen.has(cell.variantId!)) {
+      cell.label = `${cell.label} (resolved)`;
     }
   }
-  return { cells, moreTakes };
+  return cells;
 }
 
 interface RenderedSheets {
@@ -696,7 +677,7 @@ async function renderSheets(
 function reportSheets(
   { results }: RenderedSheets,
   cellCount: number,
-  opts: { prefix: string; cellWidth?: number; takes?: boolean; skipped: string | null },
+  opts: { prefix: string; cellWidth?: number; skipped: string | null },
 ): void {
   for (const result of results) console.log(result.path);
   const { layout } = results[0]!;
@@ -708,9 +689,7 @@ function reportSheets(
   if (reused > 0) {
     console.error(
       `${opts.prefix}${reused} of ${results.length} sheet(s) unchanged since the last run ` +
-        (opts.takes
-          ? "(each address shows every take in play)"
-          : "(each address shows its accepted take, else its newest ready one)"),
+        "(each swept address shows its accepted take, else its newest ready one)",
     );
   }
   if (opts.skipped) console.error(`${opts.prefix}${opts.skipped}`);
@@ -724,7 +703,6 @@ export function registerProbeContactSheetCommand(program: Command): void {
     .command("contact-sheet [variantOrScope...]")
     .description("Tile stills, or a shot's composition over time, into one labelled sheet")
     .option("--needs-review", "Tile everything awaiting a review instead, whatever stage it is in")
-    .option("--takes", "Tile every take in play at each address, not just the one it resolves to")
     .option("--max-cells <n>", `Cells per sheet (default ${DEFAULT_MAX_CELLS})`)
     .option("--cell-width <px>", "Make every cell at least this wide, fitting fewer per sheet")
     .option(
@@ -742,12 +720,12 @@ export function registerProbeContactSheetCommand(program: Command): void {
 Tiles frames into one sheet and prints its path — Read it to judge the shots against each other:
 character consistency, screen direction, palette drift.
 
-Takes one or more (in any mix) of a variant id (v-…), an address (resolved to its canonical variant,
-like konte path), or an address-scope that sweeps every still under it. Stills only: a scope skips
-non-image variants, and a named variant id or address that is not one is rejected. A patch chain's
-steps are swept only by a patch scope (<stage>:patch…). --takes widens each address (named or swept)
-to every take in play there — the one it resolves to, marked (accepted) or (resolved), and every
-ready take awaiting a verdict — to compare rerolls side by side; a named variant id stays one cell.
+Takes one or more (in any mix) of a variant id (v-…), an address (the take it resolves to, then
+every ready take awaiting a verdict beside it), or an address-scope that sweeps every still under
+it. Stills only: a scope skips non-image variants, and a named variant id or address that is not one
+is rejected. A patch chain's steps are swept only by a patch scope (<stage>:patch…). An address
+contributing several takes marks the one it resolves to (accepted) or (resolved); a named variant id
+stays one cell.
 
 A reel scope (animatic, video, <stage>:shot.<id>) instead tiles the shots' COMPOSITIONS — rendered
 live from the definition, accepted at <address>#composition. On the ANIMATIC each shot contributes
@@ -788,7 +766,7 @@ Examples:
   konte probe contact-sheet animatic:shot.01         One shot's panels
   konte probe contact-sheet animatic:plate           Every setup plate
   konte probe contact-sheet reference                  Every shared reference still
-  konte probe contact-sheet reference:look --takes     Every take of one reference, side by side
+  konte probe contact-sheet reference:look             Every take of one reference in play, side by side
   konte probe contact-sheet video                      Every shot's in, out and subtitle frames
   konte probe contact-sheet video:shot.02              One shot's composition, in and out
   konte probe contact-sheet video --frames-per-shot 3  Add a mid frame to each shot
@@ -803,7 +781,6 @@ Examples:
         variantOrScopes: string[],
         opts: {
           needsReview?: boolean;
-          takes?: boolean;
           maxCells?: string;
           cellWidth?: string;
           framesPerShot?: string;
@@ -829,14 +806,6 @@ Examples:
 
         const boards = opts.needsReview ? [] : splitBoards(variantOrScopes);
         const composition = boards.some((board) => board.kind !== "stills");
-        if (opts.takes && (opts.needsReview || composition)) {
-          throw new KonteError(
-            "INVALID_OPTION",
-            opts.needsReview
-              ? "--needs-review already tiles every take awaiting a verdict — drop --takes"
-              : "--takes applies to stills only — a reel scope tiles compositions, which have no takes",
-          );
-        }
 
         if (opts.maxCells !== undefined && opts.cellWidth !== undefined) {
           throw new KonteError(
@@ -918,13 +887,9 @@ Examples:
         // Every board is built and laid out before any is rendered, so a bad argument or option
         // fails the call before a sheet is written.
         const built = [];
-        const moreTakes: string[] = [];
         for (const board of boards) {
           if (board.kind === "stills") {
-            const { cells, moreTakes: more } = await buildStillCells(board.args, videoRoot, {
-              takes: opts.takes,
-            });
-            moreTakes.push(...more);
+            const cells = await buildStillCells(board.args, videoRoot);
             built.push({ board, cells, skipped: [], groups: null });
             continue;
           }
@@ -939,7 +904,7 @@ Examples:
         const planned = [];
         for (const entry of built) {
           const plan = await planSheets(entry.cells, {
-            args: opts.takes ? [...entry.board.args, "--takes"] : entry.board.args,
+            args: entry.board.args,
             groups: entry.groups,
             framesPerTake: null,
             maxCells,
@@ -960,18 +925,8 @@ Examples:
           reportSheets(sheets, cells.length, {
             prefix,
             cellWidth,
-            takes: opts.takes,
             skipped: skipped.length > 0 ? `skipped: ${skipped.join(", ")}` : null,
           });
-        }
-
-        // An address tiles the one take it resolves to; comparing its rerolls needs --takes.
-        if (moreTakes.length > 0) {
-          const stills = boards.filter((b) => b.kind === "stills").flatMap((b) => b.args);
-          console.error("\nNext steps:");
-          console.error(
-            `  konte probe contact-sheet ${stills.join(" ")} --takes   Tile every take in play at ${moreTakes.join(", ")}, not just the one shown`,
-          );
         }
       },
     );

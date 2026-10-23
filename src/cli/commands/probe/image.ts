@@ -27,9 +27,10 @@ export function registerProbeImageCommand(program: Command): void {
     .addHelpText(
       "after",
       `
-Takes variant ids, addresses or address-scopes. Addresses resolve as konte path does; scopes keep
-only still images. Prints one absolute JPEG path per variant, in argument order, each variant once;
-with several, each path follows its address and variant id on stderr.
+Takes variant ids, addresses or address-scopes. An address gives the take it resolves to, then every
+ready take awaiting a verdict beside it; scopes keep only still images. Prints one absolute JPEG path
+per variant, in argument order, each variant once; with several, each path follows its address and
+variant id on stderr.
 Images fit within 1280px on the longest edge and 512 KiB, with transparency over light gray.
 Cached by source content; originals and acceptance state are unchanged. Use probe crop for detail.
 --grid labels each line with its percent of the source.

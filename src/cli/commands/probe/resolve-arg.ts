@@ -19,10 +19,8 @@ type ProbeMediaKind = "video" | "image" | "audio";
 
 export interface ProbeTargets {
   variantIds: string[];
-  // A container scope resolves to a *set* of variants, and so does any multi-argument
-  // call; a single argument naming a variant id or full address names exactly one. Callers vary
-  // their output shape on this (a sweep prints per-target headers and emits a JSON array; a single
-  // target keeps the one-object form).
+  // More than one variant: a container scope, a multi-argument call, or an address with takes
+  // undecided beside the one it resolves to. Callers print a header per target on this.
   multi: boolean;
   // The takes an address or scope resolved to.
   resolved: ResolvedTake[];
@@ -32,9 +30,10 @@ export interface ProbeTargets {
  * Resolve a probe argument into the ordered set of variant ids to probe. The argument is one of:
  *
  * - a variant id (`v-…`) — that one variant, probed as-is (no media filtering; the caller named it).
- * - a full address (`<stage>:shot.<id>.<name>`, `<stage>:timeline.<name>`, `reference:<name>`) — its
- *   canonical variant, like `konte path`. Kept distinct from a broadening scope so the single-probe
- *   output (informative "not a video"/"no audio") and the targeted not-found error survive.
+ * - a full address (`<stage>:shot.<id>.<name>`, `<stage>:timeline.<name>`, `reference:<name>`) — the
+ *   take on screen, stale included, then every take still undecided beside it. Kept distinct from a
+ *   broadening scope so the informative "not a video"/"no audio" output and the targeted not-found
+ *   error survive.
  * - a container address-scope (`video`, `video:shot.01`, `animatic:timeline`, `reference`) — every
  *   asset under it, each resolved to its canonical variant and kept only if this probe can read its
  *   media (`mediaKinds`), so `probe motion video` sweeps the video stage's motion clips without
@@ -58,7 +57,6 @@ function resolveOne(
   }
 
   if (isFullAddress) {
-    // An address is the take on screen, stale included — what `konte path` prints.
     const resolved = manager.resolveReference(arg, { includeStale: true });
     if (!resolved) {
       throw new KonteError(
@@ -66,9 +64,10 @@ function resolveOne(
         `No ready variant for "${arg}" — pass a specific variant id (see \`konte inspect ${arg}\`)`,
       );
     }
+    const rivals = manager.readyUndecidedTakes(arg).filter((id) => id !== resolved.variantId);
     return {
-      variantIds: [resolved.variantId],
-      multi: false,
+      variantIds: [resolved.variantId, ...rivals],
+      multi: rivals.length > 0,
       resolved: [{ address: arg, variantId: resolved.variantId }],
     };
   }

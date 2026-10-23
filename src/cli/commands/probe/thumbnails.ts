@@ -37,15 +37,15 @@ export function registerProbeThumbnailsCommand(program: Command): void {
     .addHelpText(
       "after",
       `
-Takes a variant id (v-…), an address (resolved to its canonical variant, like konte path), or an
-address-scope. A container scope (stage, shot, timeline) sweeps every visual source under it
-(audio-only sources are skipped), so one command replaces looping over each address; a patch chain's
-steps are swept only by a patch scope (<stage>:patch…). Several of any of those can be passed at
-once — they are probed in argument order, each variant once.
+Takes a variant id (v-…), an address (the take it resolves to, then every ready take awaiting a
+verdict beside it), or an address-scope. A container scope (stage, shot, timeline) sweeps every
+visual source under it (audio-only sources are skipped), so one command replaces looping over each
+address; a patch chain's steps are swept only by a patch scope (<stage>:patch…). Several of any of
+those can be passed at once — they are probed in argument order, each variant once.
 
 Examples:
   konte probe thumbnails v-iuQeCrR2                   Scene-detected frames for that variant
-  konte probe thumbnails video:shot.01.motion         Resolve the address to its canonical variant, then probe
+  konte probe thumbnails video:shot.01.motion         The take the address resolves to, and any undecided beside it
   konte probe thumbnails video                        Every visual source in the video stage
   konte probe thumbnails video:shot.01                Every visual source under shot 01
   konte probe thumbnails video:shot.01 video:shot.04  Just those two shots
