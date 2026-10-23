@@ -8,10 +8,10 @@ Compose layers, captions, animation and sound in `animatic.tsx` or `video.tsx`; 
 
 ## Routing
 
-- Writing a `soundtracks` entry, an `<Audio>` cue, or `<Video hasAudio>` → [audio-patterns.md](references/audio-patterns.md), then [sound-design.md](references/sound-design.md) before placing any of them
+- Choosing or placing any sound — an `<Audio>` cue, a `soundtracks` bed, `<Video hasAudio>` → [sound-design.md](references/sound-design.md) before the first one; [audio-patterns.md](references/audio-patterns.md) for its props and stems
 - A piece cut to a song (`policy.song`) → [song.md](references/song.md) before any sound, beat-timed move or lyric
 - A graphic shot, or type / shapes / a chart that move — a title's entrance, a count-up, a line drawn → [motion-craft.md](references/motion-craft.md) before its `<Animate>`
-- Anything beyond one full-frame `<Video>` — a layer over every shot (`overlay`), a title / lower-third, a crossfade, Ken Burns, a fade or flash → [staging-patterns.md](references/staging-patterns.md)
+- Any HTML element over or beside the clip — a date or caption card, a title / lower-third, a layer over every shot (`overlay`), a crossfade, Ken Burns, a fade or flash → [staging-patterns.md](references/staging-patterns.md) before writing it
 - Whether a shot gets that `duration` or that sound at all → `direction-guide`
 
 ## The composition is a reviewable target
