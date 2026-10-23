@@ -77,7 +77,7 @@ async function stealStaleLock(lockPath: string, staleMs: number): Promise<void> 
 }
 
 async function acquireLock(lockPath: string, timeoutMs: number, staleMs: number): Promise<string> {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = performance.now() + timeoutMs;
   const nonce = makeNonce();
 
   while (true) {
@@ -94,7 +94,7 @@ async function acquireLock(lockPath: string, timeoutMs: number, staleMs: number)
 
     await stealStaleLock(lockPath, staleMs);
 
-    if (Date.now() >= deadline) {
+    if (performance.now() >= deadline) {
       throw new KonteError("LOCK_TIMEOUT", `Timed out waiting for lock: ${lockPath}`);
     }
 
