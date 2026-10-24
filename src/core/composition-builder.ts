@@ -33,9 +33,8 @@ import {
 } from "./audio-duck.js";
 import type { AudioLoudness } from "./audio-loudness.js";
 import { buildFallbackComposition } from "./composition-fallback.js";
-import { COMPOSITION_SCRIPTS } from "./composition-scripts.js";
 import { jsx } from "react/jsx-runtime";
-import { Composition } from "./dsl/composition/composition.js";
+import { Composition, CompositionHead } from "./dsl/composition/composition.js";
 import {
   injectOverlay,
   OVERLAY_COMPOSITION_ID,
@@ -54,7 +53,6 @@ import {
 import { KonteError } from "./errors.js";
 import { HYPERFRAME_RUNTIME } from "./generated/hyperframes-assets.js";
 import { type HostVisitor, type RenderContext, renderToHtml } from "./jsx-html.js";
-import { fontFamilyStack, googleFontsHref } from "./typography.js";
 import {
   buildRenderPlan,
   computeBedLevels,
@@ -1475,27 +1473,21 @@ export async function buildFullCompositionHtml(
     );
   }
 
-  // The same <head> `Composition` emits for a single shot, hand-written because this document hosts
-  // every shot as a nested composition instead of being one. Both must stay in step.
-  const fontsHref = googleFontsHref(plan.typography.fonts);
-  const fontStack = fontFamilyStack(plan.typography.fonts);
+  const head = renderToHtml(
+    jsx(CompositionHead, {
+      compositionId: "full-video",
+      title: "Video Preview",
+      frame: { width, height },
+      stage: { x: 0, y: 0, width, height },
+      duration: totalDuration,
+      typography: plan.typography,
+    }),
+    { shotId: "full-video", width, height, duration: totalDuration, typography: plan.typography },
+  );
 
   const mergedHtml = `<!doctype html>
 <html lang="${escapeAttr(plan.typography.lang)}">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=${width}, height=${height}" />
-<meta data-composition-id="full-video" data-width="${width}" data-height="${height}" data-duration="${totalDuration}" />
-<title>Video Preview</title>
-${fontsHref ? `<link rel="stylesheet" href="${escapeAttr(fontsHref)}" />\n` : ""}${COMPOSITION_SCRIPTS.map((source) => `<script>${source}</script>\n`).join("")}
-<style>
-@layer theme, base, components, utilities;
-@layer base { * { margin: 0; padding: 0; box-sizing: border-box; } }
-html, body { width: ${width}px; height: ${height}px; overflow: hidden; background: #000;${fontStack ? ` font-family: ${fontStack};` : ""} }
-#stage { position: absolute; top: 0px; left: 0px; width: ${width}px; height: ${height}px; overflow: hidden; }
-@layer components { .konte-clip { position: absolute; top: 0; left: 0; width: 100%; height: 100%; visibility: hidden; object-fit: cover; } .konte-subtitle { inset: 0; width: auto; height: auto; display: flex; align-items: flex-end; justify-content: center; text-align: center; color: #fff; font-weight: 600; filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.15)); padding-bottom: 5%; font-size: 1.875vmax; } @media (orientation: portrait) { .konte-subtitle { padding-bottom: 15vh; font-size: 3.25vmax; } } }
-</style>
-</head>
+${head}
 <body>
 <div id="stage">
 ${stageFragments.join("\n")}
