@@ -55,6 +55,107 @@ describe("dismiss command", () => {
     ]);
   });
 
+  it("dismisses every other take at the address with --except", async () => {
+    const sm = await StateManager.load(projectDir);
+    const newest = sm.reserveVariantId(address);
+    sm.getAssetState(address).variants![newest]!.file = "/tmp/motion3.mp4";
+    const running = sm.reserveVariantId(address);
+    await sm.save();
+
+    const { stdout } = await run(["dismiss", "--except", older], projectDir);
+    expect(stdout.trim().split("\n")).toEqual([
+      `Dismissed: ${address} → ${newer} (now showing ${older})`,
+      `Dismissed: ${address} → ${newest} (now showing ${older})`,
+    ]);
+
+    const after = await StateManager.load(projectDir);
+    expect(after.getAssetState(address).variants![older]!.status).toBe("none");
+    expect(after.getAssetState(address).variants![running]!.status).toBe("none");
+  });
+
+  it("keeps the take an address is showing with --except", async () => {
+    const { stdout } = await run(["dismiss", "--except", address], projectDir);
+    expect(stdout).toContain(`Dismissed: ${address} → ${older} (now showing ${newer})`);
+  });
+
+  it("says so when --except leaves nothing to dismiss", async () => {
+    await run(["dismiss", older], projectDir);
+    const { stdout } = await run(["dismiss", "--except", newer], projectDir);
+    expect(stdout).toContain("Nothing to dismiss");
+  });
+
+  it("refuses --except while another take is accepted", async () => {
+    const sm = await StateManager.load(projectDir);
+    sm.setAccepted(address, newer);
+    await sm.save();
+
+    await expect(run(["dismiss", "--except", older], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("VARIANT_ACCEPTED"),
+    });
+  });
+
+  it("refuses --except on a dismissed take", async () => {
+    await run(["dismiss", older], projectDir);
+    await expect(run(["dismiss", "--except", older], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("VARIANT_NOT_REVIEWABLE"),
+    });
+  });
+
+  it("refuses --except with two takes of one address", async () => {
+    await expect(run(["dismiss", "--except", older, newer], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("TARGETS_CONFLICT"),
+    });
+  });
+
+  it("aborts --except when the kept take is dismissed before the lock", async () => {
+    const realWithLock = StateManager.withLock.bind(StateManager);
+    const spy = vi
+      .spyOn(StateManager, "withLock")
+      .mockImplementation(async <T>(root: string, fn: (m: StateManager) => Promise<T>) => {
+        spy.mockRestore();
+        await realWithLock(root, async (m) => {
+          m.setDismissed(address, older, true);
+        });
+        return realWithLock(root, fn);
+      });
+
+    await expect(run(["dismiss", "--except", older, "--yes"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("VARIANT_NOT_REVIEWABLE"),
+    });
+
+    const after = await StateManager.load(projectDir);
+    expect(after.getAssetState(address).variants![newer]!.status).toBe("none");
+  });
+
+  it("aborts --except when a take lands beside the kept one before the lock", async () => {
+    let landed = "";
+    const realWithLock = StateManager.withLock.bind(StateManager);
+    const spy = vi
+      .spyOn(StateManager, "withLock")
+      .mockImplementation(async <T>(root: string, fn: (m: StateManager) => Promise<T>) => {
+        spy.mockRestore();
+        await realWithLock(root, async (m) => {
+          landed = m.reserveVariantId(address);
+          m.getAssetState(address).variants![landed]!.file = "/tmp/motion3.mp4";
+        });
+        return realWithLock(root, fn);
+      });
+
+    await expect(run(["dismiss", "--except", older, "--yes"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("CONFIRMATION_REQUIRED"),
+    });
+
+    const after = await StateManager.load(projectDir);
+    expect(after.getAssetState(address).variants![newer]!.status).toBe("none");
+    expect(after.getAssetState(address).variants![landed]!.status).toBe("none");
+  });
+
+  it("refuses --except beside targets", async () => {
+    await expect(run(["dismiss", newer, "--except", older], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("INVALID_OPTION"),
+    });
+  });
+
   it("says so when the address is left resolving to nothing", async () => {
     await run(["dismiss", newer], projectDir);
     const { stdout } = await run(["dismiss", older], projectDir);
