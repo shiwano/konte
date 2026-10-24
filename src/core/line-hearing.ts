@@ -7,6 +7,9 @@ import { lettersAt, matchLetters } from "./song-lyrics.js";
 // The shortest run at an end of the line that counts as dropped: a recognizer's slip at a word
 // boundary (`a` heard as `1`, `whoa` as `wow`) leaves one letter unmatched, a lost word several.
 const MIN_DROPPED_LETTERS = 3;
+// A whole word lost at an end, with nothing heard in its place, is dropped however short (`Oh!`): a
+// slip leaves part of a word matched, or a word of one letter unheard.
+const MIN_DROPPED_WORD_LETTERS = 2;
 // The kana a kanji heard in a Japanese line's place stands for, near the 1.8 morae
 // `estimateSpeechSec` reads it as.
 const KANA_PER_KANJI = 2;
@@ -148,16 +151,20 @@ export function lineMishearing(line: string, heard: string, lang: string): strin
     heardLetters
       .slice(from, to)
       .reduce((n, l) => n + (ja && /\p{Script=Han}/u.test(l.ch) ? KANA_PER_KANJI : 1), 0);
+  // Whether the letters at `i` and `i + 1` belong to two words of the line.
+  const wordBreak = (i: number) => /\s/u.test(line.slice(said[i]!.end, said[i + 1]!.at));
+  const dropped = (run: number, standingIn: number, breakAt: number) =>
+    run - standingIn >= MIN_DROPPED_LETTERS ||
+    (standingIn === 0 && run >= MIN_DROPPED_WORD_LETTERS && wordBreak(breakAt));
   const opening = unheardRun(0, 1, heardAt);
-  if (opening - standIns(0, matched[opening]!) >= MIN_DROPPED_LETTERS) {
+  if (dropped(opening, standIns(0, matched[opening]!), opening - 1)) {
     const head = unheardRun(0, 1, anchored);
     return `drops the opening "${extendToWordEnd(line, said[head - 1]!.end)}"`;
   }
   const last = said.length - 1;
   const closing = unheardRun(last, -1, heardAt);
   if (
-    closing - standIns(matched[last - closing]! + 1, heardLetters.length) >=
-    MIN_DROPPED_LETTERS
+    dropped(closing, standIns(matched[last - closing]! + 1, heardLetters.length), last - closing)
   ) {
     const tail = unheardRun(last, -1, anchored);
     return `drops the closing "${line.slice(said[said.length - tail]!.at).trim()}"`;

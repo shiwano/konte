@@ -8,6 +8,16 @@ describe("lineMishearing", () => {
     ).toBe('drops the opening "Bigger!"');
   });
 
+  it("names a short whole word a take drops at an end", () => {
+    expect(lineMishearing("Oh! Not bad!", "not bad", "en")).toBe('drops the opening "Oh!"');
+    expect(lineMishearing("Not bad, eh?", "not bad", "en")).toBe('drops the closing "eh?"');
+  });
+
+  it("passes a one-letter word or a word heard in another spelling at an end", () => {
+    expect(lineMishearing("I did it!", "did it", "en")).toBeNull();
+    expect(lineMishearing("Oh! Not bad!", "a not bad", "en")).toBeNull();
+  });
+
   it("names the closing words a take drops", () => {
     expect(
       lineMishearing(
