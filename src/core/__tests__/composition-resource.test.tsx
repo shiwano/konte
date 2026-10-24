@@ -12,6 +12,8 @@ import {
   unresolvedPictureRefs,
 } from "../composition-resource.js";
 import { compositionStructureHtml } from "../composition-builder.js";
+import { COMPOSITION_SCRIPTS } from "../composition-scripts.js";
+import { HYPERFRAME_RUNTIME } from "../generated/hyperframes-assets.js";
 import { Audio, Composition, Video } from "../dsl/composition/index.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { defineVideo, asset } from "../dsl/index.js";
@@ -304,6 +306,23 @@ describe("materializeCompositionVariant", () => {
     const html = await fs.readFile(path.join(tmpDir, v.file!), "utf-8");
     expect(html).toContain("konte://asset");
     expect(html).not.toMatch(/https?:\/\/localhost/);
+  });
+
+  it("records the body without konte's head or runtime", async () => {
+    setupAccepted("video:shot.01.motion", "assets/m/output.mp4", "hash-motion");
+
+    const variantId = await materializeCompositionVariant({
+      manager,
+      video: testVideo,
+      shotId: "01",
+    });
+
+    const v = manager.getAssetState("video:shot.01#composition").variants![variantId!]!;
+    const html = await fs.readFile(path.join(tmpDir, v.file!), "utf-8");
+    expect(html).toContain('<div id="stage">');
+    expect(html).not.toMatch(/<head>|<body>/);
+    expect(html).not.toContain(COMPOSITION_SCRIPTS[0]!);
+    expect(html).not.toContain(HYPERFRAME_RUNTIME);
   });
 
   // The live variant is the one the current definition + resolved inputs would keep; every other

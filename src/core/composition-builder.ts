@@ -224,6 +224,18 @@ function injectRuntime(compositionHtml: string): string {
   return compositionHtml + runtimeTag;
 }
 
+/**
+ * What a materialized leaf's file holds: the document's body without the runtime. The file is never
+ * rendered from.
+ */
+export function compositionRecord(compositionHtml: string): string {
+  const open = compositionHtml.indexOf("<body>");
+  const close = compositionHtml.lastIndexOf("</body>");
+  const body =
+    open === -1 || close === -1 ? compositionHtml : compositionHtml.slice(open + 6, close);
+  return body.replace(`<script>${HYPERFRAME_RUNTIME}</script>\n`, "");
+}
+
 // The runtime drives the composition clock from a captured gsap timeline. A shot
 // without an <Animate> registers none, leaving the runtime's currentTime undefined
 // and every timed element hidden. Guarantee a capturable timeline spanning the shot
@@ -1129,7 +1141,7 @@ export async function buildShotCompositionHtml(
 }
 
 /**
- * The overlay on its own, over the whole timeline: what its materialized variant holds. A
+ * The overlay on its own, over the whole timeline: what its materialized variant records. A
  * standalone document hosting the overlay as the nested composition every render lays it as.
  */
 export async function buildOverlayCompositionHtml(options: {

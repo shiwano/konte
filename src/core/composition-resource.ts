@@ -21,6 +21,7 @@ import {
 import {
   buildOverlayCompositionHtml,
   buildShotCompositionHtml,
+  compositionRecord,
   compositionStructureHtml,
   harvestShotAudioStructure,
   type StemAudioEntry,
@@ -376,12 +377,13 @@ export async function materializeCompositionVariant(
     COMPOSITION_HTML_FILE,
   );
   await fs.mkdir(path.dirname(htmlPath), { recursive: true });
-  await fs.writeFile(htmlPath, built.html, "utf-8");
+  const record = compositionRecord(built.html);
+  await fs.writeFile(htmlPath, record, "utf-8");
 
   const variant = manager.getAssetState(compAddress).variants![variantId]!;
   variant.file = path.relative(manager.videoRoot, htmlPath);
   variant.readyAt = new Date().toISOString();
-  variant.outputHash = sha256Hex(built.html);
+  variant.outputHash = sha256Hex(record);
   variant.definitionHash = definitionHash;
   variant.inputFingerprints = inputFingerprints;
 
@@ -951,11 +953,13 @@ export async function materializeOverlayVariant(opts: {
     const match = findMatchingCompositionVariant(existing, definitionHash, inputFingerprints);
     if (match) return match;
   }
-  const html = await buildOverlayCompositionHtml({
-    video,
-    manager,
-    assetBaseUrl: CANONICAL_ASSET_BASE,
-  });
+  const html = compositionRecord(
+    await buildOverlayCompositionHtml({
+      video,
+      manager,
+      assetBaseUrl: CANONICAL_ASSET_BASE,
+    }),
+  );
   const variantId = manager.reserveVariantId(address);
   const htmlPath = path.join(variantDir(manager.videoRoot, address, variantId), OVERLAY_HTML_FILE);
   await fs.mkdir(path.dirname(htmlPath), { recursive: true });
