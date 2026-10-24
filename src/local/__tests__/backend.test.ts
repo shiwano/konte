@@ -537,12 +537,14 @@ describe("LocalBackend frame", () => {
   });
 });
 
+const typography = { lang: "en" };
+
 describe("LocalBackend render", () => {
-  const html =
+  const stage =
     '<div class="konte-clip"></div><img class="konte-clip" src="__konte:reference:plate__">';
 
   function renderDef(refs: string[]) {
-    return localDef("render", "image", { html, width: 32, height: 24, refs });
+    return localDef("render", "image", { stage, width: 32, height: 24, typography, refs });
   }
 
   it("hands the capture the declared size and a .png to write", async () => {
@@ -564,8 +566,8 @@ describe("LocalBackend render", () => {
     await generate(renderDef(["__konte:reference:plate__"]), { "reference:plate": source });
 
     const call = captureHtmlToImageMock.mock.calls[0]![0];
-    expect(call.html).toBe(
-      '<div class="konte-clip"></div><img class="konte-clip" src="asset-0.png">',
+    expect(call.html).toContain(
+      '<div id="stage"><div class="konte-clip"></div><img class="konte-clip" src="asset-0.png"></div>',
     );
     expect(call.assetFiles).toEqual({ "asset-0.png": source });
   });
@@ -578,9 +580,10 @@ describe("LocalBackend render", () => {
 
     await generate(
       localDef("render", "image", {
-        html: overlapping,
+        stage: overlapping,
         width: 32,
         height: 24,
+        typography,
         refs: ["__konte:reference:a__", "__konte:reference:a__b__"],
       }),
       { "reference:a": short, "reference:a__b": long },
@@ -592,7 +595,7 @@ describe("LocalBackend render", () => {
       Object.entries(call.assetFiles).find(([, f]) => f === short)![0],
       Object.entries(call.assetFiles).find(([, f]) => f === long)![0],
     ];
-    expect(call.html).toBe(`<img src="${shortName}"><img src="${longName}">`);
+    expect(call.html).toContain(`<img src="${shortName}"><img src="${longName}">`);
   });
 
   it("refuses a ref resolving outside the video root", async () => {
@@ -609,11 +612,18 @@ describe("LocalBackend render", () => {
 });
 
 describe("LocalBackend render (video)", () => {
-  const html = '<html><body><div id="stage"><canvas></canvas></div></body></html>';
+  const stage = "<canvas></canvas>";
 
   it("bakes by screenshot on one worker, the clock installed before the document's own scripts", async () => {
     const file = await generate(
-      localDef("render", "video", { html, width: 32, height: 24, duration: 2, fps: 24 }),
+      localDef("render", "video", {
+        stage,
+        width: 32,
+        height: 24,
+        typography,
+        duration: 2,
+        fps: 24,
+      }),
     );
 
     expect(path.basename(file)).toBe("output.mp4");
@@ -626,7 +636,7 @@ describe("LocalBackend render (video)", () => {
       workers: 1,
       screenshotCapture: true,
     });
-    expect(call.compositionHtml).toMatch(/^<html><body><script>\(function \(\) \{\n {2}var seed/);
+    expect(call.compositionHtml).toMatch(/<body><script>\(function \(\) \{\n {2}var seed/);
     expect(call.compositionHtml).toContain('"shot-clip"');
     expect(call.compositionHtml).toContain("tl.set({},{},2)");
   });
@@ -640,7 +650,14 @@ describe("LocalBackend render (video)", () => {
     const backend = new LocalBackend(videoRoot);
     await backend.submit({
       ...request(
-        localDef("render", "video", { html, width: 32, height: 24, duration: 1, fps: 24 }),
+        localDef("render", "video", {
+          stage,
+          width: 32,
+          height: 24,
+          typography,
+          duration: 1,
+          fps: 24,
+        }),
       ),
       onLog: (line) => lines.push(line),
     });

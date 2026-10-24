@@ -166,7 +166,7 @@ export function stageClassSubjects(
   const images = listAssetPaths(definition, stage).flatMap((address) => {
     const entry = getAssetEntryByAddress(definition, address);
     return entry.kind === "local" && entry.operation === "render"
-      ? [{ label: address, html: entry.inputs.html as string }]
+      ? [{ label: address, html: entry.inputs.stage as string }]
       : [];
   });
   const compositions =

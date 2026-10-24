@@ -13,9 +13,9 @@ import {
   parseAddress,
 } from "../../../core/address.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
-import { computeDefinitionHash } from "../../../core/definition-hash.js";
 import { KonteError } from "../../../core/errors.js";
-import { asJsxStillInputs, renderJsxStill } from "../../../core/jsx-render.js";
+import { jsxDocumentHtml } from "../../../core/dsl/adapters/jsx-document.js";
+import { asJsxStillInputs, type JsxStillInputs, renderJsxStill } from "../../../core/jsx-render.js";
 import { requireFileWithinRoot } from "../../../core/path-containment.js";
 import { parsePlaceholder } from "../../../core/dsl/shot-context.js";
 import { StateManager } from "../../../core/state/index.js";
@@ -115,9 +115,9 @@ function selectAddresses(args: readonly string[], declared: DeclaredAssets): str
 
 // Everything that determines the picture. An unresolved ref is keyed as such, so the tile is
 // replaced the moment its upstream lands.
-function cacheKey(assetDef: LocalAssetDefinition, refFingerprints: Record<string, string>): string {
+function cacheKey(inputs: JsxStillInputs, refFingerprints: Record<string, string>): string {
   return createHash("sha256")
-    .update(JSON.stringify([computeDefinitionHash(assetDef), refFingerprints]))
+    .update(JSON.stringify([jsxDocumentHtml("jsxImage", inputs), refFingerprints]))
     .digest("hex")
     .slice(0, 12);
 }
@@ -190,7 +190,7 @@ Examples:
       await assertTailwindClasses(
         addresses.map((address) => ({
           label: address,
-          html: asJsxStillInputs(declared.jsx.get(address)!.inputs).html,
+          html: asJsxStillInputs(declared.jsx.get(address)!.inputs).stage,
         })),
       );
 
@@ -225,7 +225,7 @@ Examples:
             `${resolved.outputHash ?? resolved.variantId}:${stat.size}:${stat.mtimeMs}`;
         }
 
-        const key = cacheKey(assetDef, fingerprints);
+        const key = cacheKey(inputs, fingerprints);
         const dir = path.join(
           videoRoot,
           ".konte",

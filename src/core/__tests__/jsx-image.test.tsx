@@ -9,6 +9,8 @@ import {
 } from "../dsl/shot-context.js";
 import { extractRefs } from "../graph.js";
 import type { LocalAssetDefinition } from "../types/index.js";
+import { jsxDocumentHtml } from "../dsl/adapters/jsx-document.js";
+import { asJsxStillInputs } from "../jsx-render.js";
 
 const plate = (src: string): MediaAsset<"image"> => ({ src });
 
@@ -29,7 +31,8 @@ function define(
   return def;
 }
 
-const htmlOf = (def: LocalAssetDefinition): string => (def.inputs as { html: string }).html;
+const htmlOf = (def: LocalAssetDefinition): string =>
+  jsxDocumentHtml("jsxImage", asJsxStillInputs(def.inputs));
 
 describe("jsxImage", () => {
   it("builds a deterministic local 'render' definition", () => {
@@ -42,6 +45,13 @@ describe("jsxImage", () => {
       deterministic: true,
     });
     expect(jsxImage.type).toBe("image");
+  });
+
+  it("leaves the document head out of the definition", () => {
+    const def = define({ build: () => <h1>title</h1> });
+
+    expect(JSON.stringify(def.inputs)).not.toMatch(/<head>|<script/);
+    expect(htmlOf(def)).toContain("<head>");
   });
 
   it("takes its canvas from the stage, and hands the same numbers to the build", () => {

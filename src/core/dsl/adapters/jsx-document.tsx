@@ -1,7 +1,8 @@
 import { isAssetPath } from "../../composition-refs.js";
 import { KonteError } from "../../errors.js";
-import { type HostVisitor, renderToHtml } from "../../jsx-html.js";
-import { Composition } from "../composition/composition.js";
+import { type HostVisitor, type RenderContext, renderToHtml } from "../../jsx-html.js";
+import type { Typography } from "../../types/definition.js";
+import { Composition, CompositionDocument } from "../composition/composition.js";
 import {
   collectPlaceholderRefs,
   getActiveFormat,
@@ -14,7 +15,7 @@ import { type ColorString, parseColorString } from "./local.js";
 // A whole `__konte:<address>__` placeholder, for the leftover check below.
 const PLACEHOLDER_PATTERN = /__konte:([A-Za-z0-9_.:#-]*?)__/g;
 
-type JsxRenderAdapter = "jsxImage" | "jsxVideo";
+export type JsxRenderAdapter = "jsxImage" | "jsxVideo";
 
 // The capture passes no video-frame injector, so a `<video>` yields the black rectangle headless
 // Chromium hands back under a deterministic seek, and an `<audio>` pulls its source in as a
@@ -103,20 +104,57 @@ export function resolveJsxCanvas(
   return { width, height };
 }
 
+// The composition ids the documents carry. Constant, so a shot rename leaves every jsxImage and
+// jsxVideo in it current. The bake keys a jsxVideo's timeline by its id.
+const JSX_IMAGE_SHOT_ID = "still";
+export const JSX_VIDEO_SHOT_ID = "clip";
+
+// A jsxImage document's declared length. A still is captured at t=0, but `<Image>`/`<Subtitle>`
+// default their clip window to the render context's duration, and a zero-length window shows nothing.
+const JSX_IMAGE_DURATION = 1;
+
+/** What a `jsxImage` / `jsxVideo` definition carries to lay its document out from. */
+export interface JsxDocumentInputs {
+  /** The stage, rendered in nested mode. */
+  stage: string;
+  width: number;
+  height: number;
+  typography: Typography;
+  /** jsxVideo only, in seconds. */
+  duration?: number;
+}
+
+const renderContextOf = (
+  adapter: JsxRenderAdapter,
+  inputs: Omit<JsxDocumentInputs, "stage">,
+): RenderContext => ({
+  shotId: adapter === "jsxImage" ? JSX_IMAGE_SHOT_ID : JSX_VIDEO_SHOT_ID,
+  width: inputs.width,
+  height: inputs.height,
+  duration: inputs.duration ?? JSX_IMAGE_DURATION,
+  ...(adapter === "jsxImage" ? { still: true } : { virtualClock: true }),
+  typography: inputs.typography,
+});
+
+/** The whole `<Composition>` document a `jsxImage` / `jsxVideo` is captured from. */
+export function jsxDocumentHtml(adapter: JsxRenderAdapter, inputs: JsxDocumentInputs): string {
+  return renderToHtml(
+    <CompositionDocument stageHtml={inputs.stage} />,
+    renderContextOf(adapter, inputs),
+  );
+}
+
 /**
- * Render a build's tree to the `<Composition>` document a `jsxImage` / `jsxVideo` definition
- * carries, with the placeholders of every asset it references.
+ * Render a build's tree to the stage a `jsxImage` / `jsxVideo` definition carries, with the
+ * placeholders of every asset it references.
  */
-export function buildJsxDocument(opts: {
+export function buildJsxStage(opts: {
   adapter: JsxRenderAdapter;
-  shotId: string;
   canvas: JsxCanvas;
-  duration: number;
+  duration?: number;
   content: React.ReactElement | null;
   background: ColorString | "transparent";
-  still?: boolean;
-  virtualClock?: boolean;
-}): { html: string; refs: string[] } {
+}): JsxDocumentInputs & { refs: string[] } {
   const { adapter, canvas } = opts;
   // A png capture forces html/body transparent (the engine's own alpha path), so an opaque ground
   // has to be painted inside the stage. As a rule on `#stage` rather than as a full-bleed element:
@@ -141,25 +179,23 @@ export function buildJsxDocument(opts: {
     if (parsed && isAssetPath(parsed)) refs.add(parsed);
   };
 
-  const html = renderToHtml(
+  const layout: Omit<JsxDocumentInputs, "stage"> = {
+    width: canvas.width,
+    height: canvas.height,
+    typography: getActiveTypography() ?? { lang: "en" },
+    ...(opts.duration !== undefined && { duration: opts.duration }),
+  };
+  const stage = renderToHtml(
     <Composition>
       {backdrop}
       {opts.content}
     </Composition>,
-    {
-      shotId: opts.shotId,
-      width: canvas.width,
-      height: canvas.height,
-      duration: opts.duration,
-      ...(opts.still && { still: true }),
-      ...(opts.virtualClock && { virtualClock: true }),
-      typography: getActiveTypography() ?? { lang: "en" },
-    },
+    { ...renderContextOf(adapter, layout), nested: true },
     visitor,
   );
 
-  assertNoRawMediaTag(adapter, html, seenAudio);
+  assertNoRawMediaTag(adapter, stage, seenAudio);
   const placeholders = [...refs].map(makeAddressPlaceholder);
-  assertEveryPlaceholderHarvested(adapter, html, placeholders);
-  return { html, refs: placeholders };
+  assertEveryPlaceholderHarvested(adapter, stage, placeholders);
+  return { stage, ...layout, refs: placeholders };
 }

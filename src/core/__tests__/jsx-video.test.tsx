@@ -4,6 +4,8 @@ import { jsxVideo } from "../dsl/adapters/index.js";
 import { runInReferenceDiscoveryMode, runTimelineInDiscoveryMode } from "../dsl/shot-context.js";
 import { extractRefs } from "../graph.js";
 import type { LocalAssetDefinition } from "../types/index.js";
+import { jsxDocumentHtml } from "../dsl/adapters/jsx-document.js";
+import { asJsxClipInputs } from "../jsx-render.js";
 
 const SHOT = { size: { width: 1920, height: 1080 }, fps: 30, duration: 4 };
 
@@ -19,7 +21,8 @@ function define(
   return result as LocalAssetDefinition;
 }
 
-const htmlOf = (def: LocalAssetDefinition): string => (def.inputs as { html: string }).html;
+const htmlOf = (def: LocalAssetDefinition): string =>
+  jsxDocumentHtml("jsxVideo", asJsxClipInputs(def.inputs));
 
 const loop = () => (
   <Animate

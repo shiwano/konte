@@ -1,15 +1,7 @@
 import type { LocalAssetDefinition } from "../../types/index.js";
 import type { AssetAdapter } from "../adapter.js";
-import { buildJsxDocument, type JsxCanvas, resolveJsxCanvas } from "./jsx-document.js";
+import { buildJsxStage, type JsxCanvas, resolveJsxCanvas } from "./jsx-document.js";
 import type { ColorString } from "./local.js";
-
-// The composition id the document carries. Constant, not the surrounding shot's: the HTML is what
-// the definition hash is taken over, so a shot rename would otherwise stale every jsxImage in it.
-const STILL_SHOT_ID = "still";
-
-// The document's declared length. A still is captured at t=0, but `<Image>`/`<Subtitle>` default
-// their clip window to the render context's duration, and a zero-length window shows nothing.
-const STILL_DURATION = 1;
 
 /** The canvas the build lays out against — the resolved pixel size of the image it returns. */
 export type JsxImageCanvas = JsxCanvas;
@@ -65,14 +57,14 @@ export const jsxImage: AssetAdapter<JsxImageInputs, "image"> = {
   },
   createDefinition(inputs: JsxImageInputs): LocalAssetDefinition {
     const canvas = resolveJsxCanvas("jsxImage", inputs);
-    const { html, refs } = buildJsxDocument({
+    // The graph reads a dependency off a whole-string placeholder (graph.ts `collectRefs`), and the
+    // ones this asset consumes are buried inside `stage` attributes. `refs` lists them so the edges
+    // are found and the backend is handed the files to substitute in.
+    const document = buildJsxStage({
       adapter: "jsxImage",
-      shotId: STILL_SHOT_ID,
       canvas,
-      duration: STILL_DURATION,
       content: inputs.build?.(canvas) ?? null,
       background: inputs.background ?? "#000000",
-      still: true,
     });
 
     return {
@@ -80,15 +72,7 @@ export const jsxImage: AssetAdapter<JsxImageInputs, "image"> = {
       operation: "render",
       mediaType: "image",
       deterministic: true,
-      inputs: {
-        html,
-        width: canvas.width,
-        height: canvas.height,
-        // The graph reads a dependency off a whole-string placeholder (graph.ts `collectRefs`), and
-        // the ones this asset consumes are buried inside `html` attributes. List them here so the
-        // edges are found and the backend is handed the files to substitute in.
-        refs,
-      },
+      inputs: { ...document },
     };
   },
 };

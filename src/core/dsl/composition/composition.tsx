@@ -4,7 +4,6 @@ import { fontFamilyStack, googleFontsHref } from "../../typography.js";
 import { resetPanelCursor } from "../panel-collect.js";
 
 export function Composition({ children }: { children?: React.ReactNode }): React.ReactElement {
-  const { shotId, width, height, duration, nested, still, typography, crop } = getRenderContext();
   // A shot's keyframes are paired with their recorded windows by position (see nextPanelIndex), so
   // the cursor restarts as each shot's composition does.
   resetPanelCursor();
@@ -14,10 +13,25 @@ export function Composition({ children }: { children?: React.ReactNode }): React
   // [data-composition-id] host. The HyperFrames runtime mounts that template,
   // scoping selectors and getElementById per composition (so duplicate ids across
   // shots stay isolated) and sequencing each shot's timeline at its host's data-start.
-  if (nested) {
+  if (getRenderContext().nested) {
     return <>{children}</>;
   }
 
+  return <CompositionDocument>{children}</CompositionDocument>;
+}
+
+/**
+ * The document around a composition's stage. `stageHtml` is a stage rendered beforehand in nested
+ * mode, standing in for `children`.
+ */
+export function CompositionDocument({
+  children,
+  stageHtml,
+}: {
+  children?: React.ReactNode;
+  stageHtml?: string;
+}): React.ReactElement {
+  const { shotId, width, height, duration, still, typography, crop } = getRenderContext();
   const fontsHref = googleFontsHref(typography.fonts);
   const fontStack = fontFamilyStack(typography.fonts);
 
@@ -55,7 +69,11 @@ html, body { width: ${frameWidth}px; height: ${frameHeight}px; overflow: hidden;
 `}</style>
       </head>
       <body>
-        <div id="stage">{children}</div>
+        {stageHtml === undefined ? (
+          <div id="stage">{children}</div>
+        ) : (
+          <div id="stage" dangerouslySetInnerHTML={{ __html: stageHtml }} />
+        )}
       </body>
     </html>
   );

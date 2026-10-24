@@ -1,15 +1,18 @@
 import * as path from "node:path";
 import { injectBaseTimeline } from "./composition-builder.js";
-import { JSX_VIDEO_SHOT_ID } from "./dsl/adapters/jsx-video.js";
+import {
+  JSX_VIDEO_SHOT_ID,
+  type JsxDocumentInputs,
+  type JsxRenderAdapter,
+  jsxDocumentHtml,
+} from "./dsl/adapters/jsx-document.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import { compositeWithHyperFrames, ensureHyperFrames } from "./hyperframes.js";
 import { captureHtmlToImage } from "./still-capture.js";
+import type { Typography } from "./types/definition.js";
 
 /** The inputs a `jsxImage` definition carries (see `dsl/adapters/jsx-image.tsx`). */
-export interface JsxStillInputs {
-  html: string;
-  width: number;
-  height: number;
+export interface JsxStillInputs extends JsxDocumentInputs {
   refs?: readonly string[];
 }
 
@@ -21,9 +24,10 @@ export interface JsxClipInputs extends JsxStillInputs {
 
 export function asJsxStillInputs(inputs: Record<string, unknown>): JsxStillInputs {
   return {
-    html: inputs.html as string,
+    stage: inputs.stage as string,
     width: inputs.width as number,
     height: inputs.height as number,
+    typography: inputs.typography as Typography,
     refs: (inputs.refs ?? []) as readonly string[],
   };
 }
@@ -74,10 +78,11 @@ type ResolveRef = (placeholder: string) => Promise<string | null>;
  * for it. Generation never passes `null`; the tile is a read surface's affordance only.
  */
 async function substituteRefs(
+  adapter: JsxRenderAdapter,
   inputs: JsxStillInputs,
   resolveRef: ResolveRef,
 ): Promise<{ html: string; assetFiles: Record<string, string>; unresolved: string[] }> {
-  let html = inputs.html;
+  let html = jsxDocumentHtml(adapter, inputs);
   const assetFiles: Record<string, string> = {};
   const unresolved: string[] = [];
   const refs = [...(inputs.refs ?? [])]
@@ -106,7 +111,11 @@ export async function renderJsxStill(opts: {
   videoRoot: string;
   resolveRef: ResolveRef;
 }): Promise<{ unresolved: string[] }> {
-  const { html, assetFiles, unresolved } = await substituteRefs(opts.inputs, opts.resolveRef);
+  const { html, assetFiles, unresolved } = await substituteRefs(
+    "jsxImage",
+    opts.inputs,
+    opts.resolveRef,
+  );
 
   await captureHtmlToImage({
     html,
@@ -209,7 +218,11 @@ export async function renderJsxVideo(opts: {
 }): Promise<{ unresolved: string[]; warnings: string[] }> {
   const { inputs } = opts;
   await ensureHyperFrames();
-  const { html, assetFiles, unresolved } = await substituteRefs(inputs, opts.resolveRef);
+  const { html, assetFiles, unresolved } = await substituteRefs(
+    "jsxVideo",
+    inputs,
+    opts.resolveRef,
+  );
   const clocked = html.replace(BODY_OPEN, (open) => `${open}${JSX_VIDEO_CLOCK_SCRIPT}`);
 
   const warnings = await compositeWithHyperFrames({

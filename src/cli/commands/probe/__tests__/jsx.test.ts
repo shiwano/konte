@@ -42,13 +42,13 @@ const captureMock = captureHtmlToImage as unknown as Mock;
 
 let videoRoot: string;
 
-function jsxDef(html: string, refs: string[] = []) {
+function jsxDef(stage: string, refs: string[] = []) {
   return {
     kind: "local",
     operation: "render",
     mediaType: "image",
     deterministic: true,
-    inputs: { html, width: 32, height: 24, refs },
+    inputs: { stage, width: 32, height: 24, typography: { lang: "en" }, refs },
   };
 }
 

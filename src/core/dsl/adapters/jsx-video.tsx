@@ -2,12 +2,8 @@ import { KonteError } from "../../errors.js";
 import type { LocalAssetDefinition } from "../../types/index.js";
 import type { AssetAdapter } from "../adapter.js";
 import { getActiveFormat } from "../shot-context.js";
-import { buildJsxDocument, type JsxCanvas, resolveJsxCanvas } from "./jsx-document.js";
+import { buildJsxStage, type JsxCanvas, resolveJsxCanvas } from "./jsx-document.js";
 import type { ColorString } from "./local.js";
-
-// The composition id the document carries — constant for the reason `jsxImage`'s is. The bake keys
-// the timeline it registers by it.
-export const JSX_VIDEO_SHOT_ID = "clip";
 
 export type JsxVideoInputs = {
   /** `(canvas) => JSX` — the document body; an `<Animate>` in it may run its own clock. */
@@ -77,14 +73,12 @@ export const jsxVideo: AssetAdapter<JsxVideoInputs, "video"> = {
       );
     }
     const canvas = resolveJsxCanvas("jsxVideo", inputs);
-    const { html, refs } = buildJsxDocument({
+    const document = buildJsxStage({
       adapter: "jsxVideo",
-      shotId: JSX_VIDEO_SHOT_ID,
       canvas,
       duration,
       content: inputs.build(canvas),
       background: inputs.background ?? "#000000",
-      virtualClock: true,
     });
 
     return {
@@ -92,7 +86,7 @@ export const jsxVideo: AssetAdapter<JsxVideoInputs, "video"> = {
       operation: "render",
       mediaType: "video",
       deterministic: true,
-      inputs: { html, width: canvas.width, height: canvas.height, duration, fps, refs },
+      inputs: { ...document, fps },
     };
   },
 };
