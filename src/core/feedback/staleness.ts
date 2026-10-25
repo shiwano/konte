@@ -58,7 +58,8 @@ export interface FeedbackStaleContext {
 /**
  * A comment is stale when it no longer stands, which happens two ways. The reviewer **signed off
  * over it**: an accept landed on its target at or after it was written (see `signedOffOver`) — on
- * the reviewer's page at once, elsewhere once a later review is in (see `answeredBySignOff`). Or
+ * the reviewer's page at once, from the CLI at once (`closedAt`), elsewhere once a later review is
+ * in (see `answeredBySignOff`). Or
  * its **subject moved**: what it was written against is no longer what the preview shows.
  *
  * For a media target the subject is the *resolved* variant — the one actually displayed (accepted if any,
@@ -83,6 +84,7 @@ export function feedbackStaleness(
   state: KonteState,
   ctx: FeedbackStaleContext = {},
 ): FeedbackStaleness {
+  if (entry.closedAt !== undefined) return "stale";
   const writtenAt = Date.parse(entry.createdAt);
   const stage = parseStageAddress(address);
   if (stage !== null) {
@@ -195,7 +197,11 @@ function shotSignOffAddresses(
  * so an accept and a comment submitted together compare as accept-after-comment whatever order the
  * handler writes them in.
  */
-function signedOffOver(entry: FeedbackEntry, address: string, state: KonteState): number | null {
+export function signedOffOver(
+  entry: FeedbackEntry,
+  address: string,
+  state: KonteState,
+): number | null {
   const writtenAt = Date.parse(entry.createdAt);
   if (Number.isNaN(writtenAt)) return null;
   // Parsed, not compared as strings: both fields are bare `z.string()`, and `…:00Z` sorts AFTER

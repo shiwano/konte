@@ -54,6 +54,8 @@ export const FeedbackEntrySchema = z.object({
   text: z.string(),
   createdAt: z.string(),
   createdBy: z.string().default("local"),
+  // When a `konte accept` from the CLI signed off over the comment.
+  closedAt: z.string().optional(),
 });
 export type FeedbackEntry = z.infer<typeof FeedbackEntrySchema>;
 

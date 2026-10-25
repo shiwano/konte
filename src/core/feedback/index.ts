@@ -12,4 +12,5 @@ export {
   type FeedbackWithStaleness,
   generateFeedbackId,
   getFeedbackWithStaleness,
+  signedOffOver,
 } from "./staleness.js";

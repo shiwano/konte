@@ -201,6 +201,13 @@ export class FeedbackManager {
     return true;
   }
 
+  closeFeedback(address: string, feedbackId: string, closedAt: string): boolean {
+    const entry = this.stream.feedback[address]?.find((f) => f.id === feedbackId);
+    if (!entry) return false;
+    entry.closedAt = closedAt;
+    return true;
+  }
+
   // Drop every comment on an address — its asset is being pruned.
   removeAddress(address: string): void {
     delete this.stream.feedback[address];

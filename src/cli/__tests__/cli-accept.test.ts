@@ -16,6 +16,8 @@ import {
   CROSS_STAGE_DIRECTION_TS,
   writeSilentWav,
   initWorkspace,
+  readFeedback,
+  seedFeedback,
   TEST_EMPTY_ANIMATIC_TSX,
   TEST_VIDEO_WITH_DEPS_TSX,
   run,
@@ -114,6 +116,46 @@ describe("accept command", () => {
     expect(stdout).toContain("Accepted");
     expect(stdout).toContain(address);
     expect(stdout).toContain(variantId);
+  });
+
+  it("closes a standing comment it signs off over, and names it", async () => {
+    await seedFeedback(projectDir, address, {
+      id: "fb-question",
+      displayedVariants: { [address]: variantId },
+      annotation: null,
+      text: "Where is this used?",
+      createdAt: new Date(Date.now() - 60_000).toISOString(),
+      createdBy: "local",
+    });
+
+    const { stdout } = await run(["accept", variantId], projectDir);
+    expect(stdout).toContain(`Closed: ${address} [fb-question] Where is this used?`);
+    const [entry] = await readFeedback(projectDir, address);
+    expect(entry?.closedAt).toBeDefined();
+
+    const { stdout: list } = await run(["review", "feedback", "list"], projectDir);
+    expect(list).not.toContain("fb-question");
+  });
+
+  // Accepting another take moves the comment's subject, which answers it already.
+  it("leaves a comment on a take it decides against unclosed", async () => {
+    await seedFeedback(projectDir, address, {
+      id: "fb-old",
+      displayedVariants: { [address]: variantId },
+      annotation: null,
+      text: "Too dark",
+      createdAt: new Date(Date.now() - 60_000).toISOString(),
+      createdBy: "local",
+    });
+    const sm = await StateManager.load(projectDir);
+    const newer = sm.reserveVariantId(address);
+    sm.getAssetState(address).variants![newer]!.file = "/tmp/motion2.mp4";
+    await sm.save();
+
+    const { stdout } = await run(["accept", newer], projectDir);
+    expect(stdout).not.toContain("Closed:");
+    const [entry] = await readFeedback(projectDir, address);
+    expect(entry?.closedAt).toBeUndefined();
   });
 
   // The review surfaces fall back to a stale take, so an accept made by address lands on that one.

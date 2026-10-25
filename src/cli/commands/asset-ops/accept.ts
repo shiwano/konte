@@ -44,6 +44,7 @@ import { variantDir } from "../../../core/variant-dir.js";
 import { confirmAction, printAborted } from "../../confirm.js";
 import { loadDirectionIfPresent, loadStageDefinitions } from "../../load-definition.js";
 import { assertSongLinesPlaced } from "../../../core/direction.js";
+import { closeSignedOffFeedback } from "./close-feedback.js";
 import { resolveVariantArg } from "./resolve-variant-arg.js";
 import {
   assertConsentedStale,
@@ -89,6 +90,8 @@ renews a part accepted earlier and since changed; after, it settles never-read
 parts too, so a shot added mid-production is signed off by the take that plays it.
 Clearing acceptance likewise restales downstream consumers. Stale propagation
 requires confirmation (-y to proceed, --no to abort).
+
+A standing comment the accept signs off over is closed, and named.
 
 Several takes are decided together: all resolved before anything is written,
 accepted dependencies first, under one confirmation. Two takes of one address
@@ -240,6 +243,7 @@ async function runDirectionAcceptance(
     }
   }
 
+  const since = Date.now();
   const result = await StateManager.withLock(videoRoot, async (manager) => {
     const applied = applyDirectionPartDecisions(
       direction,
@@ -290,6 +294,7 @@ async function runDirectionAcceptance(
     if (result.revoked.length > 0) printAddresses("Cleared parts", result.revoked, true);
     if (held.length > 0) printAddresses("Held flow parts", held, true);
   }
+  if (!opts.off) await closeSignedOffFeedback(videoRoot, since);
 }
 
 type TakeTarget = { address: string; variantId: string };
@@ -484,6 +489,7 @@ async function runAccept(targets: string[], opts: AcceptOptions): Promise<void> 
   // Exactly which assets the user consented to restale: the set the prompt above showed them.
   // `--yes` is blanket consent, so it needs no set.
   const consentedStale = opts.yes ? null : new Set(previewStaleMarked);
+  const since = Date.now();
 
   // Re-derive previous-accepted, cascade, and stale set from inside the lock (like clean does), so
   // the committed figures — and the reported previousAccepted — reflect the real locked state, not
@@ -603,6 +609,7 @@ async function runAccept(targets: string[], opts: AcceptOptions): Promise<void> 
       printAddresses("Still accepted on the older upstream", staleAccepted, true);
     }
   }
+  await closeSignedOffFeedback(videoRoot, since);
 }
 
 // Clearing acts on what is accepted, which for a leaf is not always what the address resolves to —
