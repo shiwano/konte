@@ -35,6 +35,7 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - dev-demo-ui (new, 4,400): syncing konte-demo's review-UI rebuilds with konte's pages.
 // - dev-session-analysis (new, 8,450): the CLI friction a session hit, and the video's quality read
 //   from its review records.
 // - konte-direction-critic 4,050 → 4,100, konte-animatic-critic 3,750 → 3,800, konte-staging-critic
@@ -343,6 +344,12 @@ const DEV_JOURNEYS = [
     name: "dev-release",
     budget: 3_700,
     files: [...DEV_ALWAYS, `${DEV}/konte-release/SKILL.md`],
+  },
+  // Syncing konte-demo's JSX rebuilds of the review UI with konte's real pages.
+  {
+    name: "dev-demo-ui",
+    budget: 4_400,
+    files: [...DEV_ALWAYS, `${DEV}/konte-demo-ui-sync/SKILL.md`],
   },
 ];
 
