@@ -51,7 +51,7 @@ import {
   StepBackIcon,
   StepForwardIcon,
 } from "./icons.js";
-import { CommentsPanel, type DisplayComment, type NoteDraft } from "./comments-panel.js";
+import { TargetPanel, type DisplayComment, type NoteDraft } from "./target-panel.js";
 import { NextUnreviewedButton, ReviewHeaderActions } from "./review-header-actions.js";
 import { ReviewTimeline, type ReviewTimelineRef } from "./review-timeline.js";
 import { StatusBadge } from "./status-badge.js";
@@ -1765,8 +1765,8 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
         </div>
 
         <div className="vp-side">
-          <div className="vp-col vp-col-notes">
-            <CommentsPanel
+          <div className="vp-col vp-col-target">
+            <TargetPanel
               subject={spanTarget ? spanTarget.label : focusedShot && `Shot ${focusedShot.shotId}`}
               pinnable={!spanTarget}
               script={spanTarget ? undefined : focusedShot?.script}

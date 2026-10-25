@@ -32,18 +32,18 @@ export interface NoteDraft {
 }
 
 /**
- * The video review's feedback sidebar: the focused target's comments as they were written,
- * drafts last, each carrying its timecode and — when pinned — the same number as its on-frame
- * marker.
- * Clicking a comment seeks to it. The shot's spoken lines, the board's declared movement and the
- * agent handoff sit pinned on top as read-only context, and an "Add note" composer sits at the
- * bottom, matching the animatic/reference threads. The composer's target is the caller's
+ * The reel review's sidebar for the focused target, titled by it. The shot's spoken lines, the
+ * board's declared movement, its waivers and the agent handoff sit on top as read-only context;
+ * under them, the target's comments as they were written, drafts last, each carrying its timecode
+ * and — when pinned — the same number as its on-frame marker.
+ * Clicking a comment seeks to it. An "Add note" composer sits at the bottom, matching the
+ * animatic/reference threads. The composer's target is the caller's
  * `draft` — the instant it opened at, and the pin if one was placed on the frame.
  *
  * The target is a shot, or a target spanning shots (the soundtrack, an overlay) — which takes timed
  * comments but no pin.
  */
-export function CommentsPanel({
+export function TargetPanel({
   subject,
   pinnable = true,
   script,
@@ -61,7 +61,7 @@ export function CommentsPanel({
   onOpenComposer,
   onCloseComposer,
 }: {
-  // What the panel is pointed at, shown beside the title (e.g. "Shot 03", "Soundtrack").
+  // What the panel is pointed at, shown as its title (e.g. "Shot 03", "Soundtrack").
   subject?: string;
   pinnable?: boolean;
   script?: ScriptLineView[];
@@ -88,20 +88,14 @@ export function CommentsPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
 
   return (
-    <div className="comments-panel">
-      <div className="panel-title-row">
-        <h3 className="panel-title">
-          Feedback
-          {subject && <span className="panel-title-sub">{subject}</span>}
-        </h3>
-        {comments.length > 0 && <span className="comments-panel-count">{comments.length}</span>}
-      </div>
+    <div className="target-panel">
+      {subject && <h3 className="panel-title">{subject}</h3>}
 
       {(scriptLines.length > 0 ||
         moveCards.length > 0 ||
         waiverCards.length > 0 ||
         (handoffNotes && handoffNotes.length > 0)) && (
-        <div className="comments-panel-context">
+        <div className="target-panel-context">
           {scriptLines.length > 0 && <ScriptCard script={scriptLines} />}
           {moveCards.map((m) => (
             <MoveCard
@@ -128,14 +122,21 @@ export function CommentsPanel({
         </div>
       )}
 
+      <div className="target-panel-comments-head">
+        <span className="target-panel-comments-label">Feedback</span>
+        {comments.length > 0 && (
+          <span className="target-panel-comments-count">{comments.length}</span>
+        )}
+      </div>
+
       {comments.length === 0 ? (
-        <p className="comments-panel-empty">
+        <p className="target-panel-comments-empty">
           {pinnable
             ? "No notes on this shot yet. Add one below, or click the frame to pin one."
             : `No notes on the ${subject?.toLowerCase() ?? "soundtrack"} yet. Add one below at the moment you mean.`}
         </p>
       ) : (
-        <div className="comments-panel-list">
+        <div className="target-panel-comments-list">
           {comments.map((c) =>
             editingId === c.id ? (
               <NoteInput
