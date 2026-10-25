@@ -48,6 +48,7 @@ export function CommentsPanel({
   pinnable = true,
   script,
   moves,
+  board = false,
   waivers,
   handoffNotes,
   comments,
@@ -66,6 +67,8 @@ export function CommentsPanel({
   script?: ScriptLineView[];
   // One card per board panel that declares a movement.
   moves?: ShotMoveInfo[];
+  // The moves are judged against the animatic's stills, so each card names its panel and role.
+  board?: boolean;
   waivers?: ShotWaiverInfo[];
   handoffNotes?: string[];
   comments: DisplayComment[];
@@ -103,9 +106,9 @@ export function CommentsPanel({
           {moveCards.map((m) => (
             <MoveCard
               key={m.panel}
-              panel={moveCards.length > 1 || m.cutin ? m.panel : undefined}
+              panel={board && (moveCards.length > 1 || m.cutin) ? m.panel : undefined}
               cutin={m.cutin}
-              role={m.role}
+              role={board ? m.role : undefined}
               blocking={m.blocking}
               camera={m.camera}
             />

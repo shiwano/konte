@@ -66,12 +66,13 @@ export function MoveCard({
   blocking,
   camera,
 }: {
-  // Which board panel the movement starts from. Passed only where a shot has more than one, or the
-  // panel is its cutin's.
+  // Which board panel the movement starts from. Passed only on the board, where a shot has more than
+  // one, or the panel is its cutin's.
   panel?: string;
   // The panel keys the wipe laid over the shot rather than the shot's own picture.
   cutin?: boolean;
-  role: PanelRole;
+  // Passed only on the board, whose stills are judged as their role.
+  role?: PanelRole;
   blocking: string;
   camera: string;
 }): React.ReactElement {
@@ -87,10 +88,12 @@ export function MoveCard({
             <span className="comment-move-text">{panel}</span>
           </span>
         )}
-        <span className="comment-move-row">
-          <span className="comment-move-label">Position</span>
-          <span className="comment-move-text">{ROLE_TEXT[role]}</span>
-        </span>
+        {role && (
+          <span className="comment-move-row">
+            <span className="comment-move-label">Position</span>
+            <span className="comment-move-text">{ROLE_TEXT[role]}</span>
+          </span>
+        )}
         <span className="comment-move-row">
           <span className="comment-move-label">Blocking</span>
           <span className="comment-move-text">{blocking}</span>
