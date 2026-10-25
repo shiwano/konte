@@ -19,6 +19,7 @@ import type { JobManager } from "./job-manager.js";
 import { variantOwningFile } from "./variant-dir.js";
 import { inferMediaType } from "./media-type.js";
 import { findAllUnmetPrerequisites } from "./review-prerequisites.js";
+import { isAcceptedStale } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
 import type { StageDefinition } from "./types/index.js";
 import type { AnimaticDefinition } from "./types/animatic.js";
@@ -234,9 +235,16 @@ export async function cascadeAcceptConsumedDeps(
       // Respect an existing accept — never overwrite it — but keep walking THROUGH it, at the take
       // that accept names rather than the one this root consumed: that take is what the address
       // stands for now, and what its own inputs are judged against. Stopping here instead made a
-      // sign-off depend on the order takes happened to be accepted in.
+      // sign-off depend on the order takes happened to be accepted in. A stale deterministic accept
+      // is no verdict but konte's own, and the re-bake this root consumed replaces it.
       const acceptedDepVariantId = manager.getAcceptedVariant(depAddress);
-      if (acceptedDepVariantId) {
+      const rebaked =
+        acceptedDepVariantId !== null &&
+        acceptedDepVariantId !== depVariantId &&
+        !isMaterializedLeafAddress(depAddress) &&
+        !holdsHumanVerdict(manager, depAddress) &&
+        isAcceptedStale(manager, depAddress, manager.registeredDefinitionHash(depAddress));
+      if (acceptedDepVariantId && !rebaked) {
         await walk(depAddress, acceptedDepVariantId, allowAudio);
         continue;
       }

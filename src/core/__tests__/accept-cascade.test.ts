@@ -274,6 +274,50 @@ describe("cascadeAcceptConsumedDeps", () => {
     expect(manager.getAcceptedVariant(logo)).toBe(chosenVid);
   });
 
+  it("replaces a stale deterministic accept with the re-bake a composition consumed", async () => {
+    const comp = "video:shot.01#composition";
+    const screen = "animatic:shot.01.screen";
+    const oldVid = addReadyVariant(screen, "old.png");
+    manager.getAssetState(screen).variants![oldVid]!.definitionHash = "OLD";
+    manager.setAccepted(screen, oldVid);
+    const rebakedVid = addReadyVariant(screen, "new.png");
+    manager.getAssetState(screen).variants![rebakedVid]!.definitionHash = "CURRENT";
+    manager.useResolutionDefinitions({
+      definitionHash: (address) => (address === screen ? "CURRENT" : null),
+      isDeterministic: (address) => address === screen,
+    });
+    const compVid = addReadyVariant(comp, "comp.html");
+
+    const accepted = await cascadeAcceptConsumedDeps(manager, jobManager, comp, compVid, {
+      video: videoWith([screen]),
+    });
+
+    expect(accepted).toEqual([screen]);
+    expect(manager.getAcceptedVariant(screen)).toBe(rebakedVid);
+  });
+
+  it("keeps a stale accept on a generated dep — that one is a human's verdict", async () => {
+    const comp = "video:shot.01#composition";
+    const key = "animatic:shot.01.key";
+    const oldVid = addReadyVariant(key, "old.png");
+    manager.getAssetState(key).variants![oldVid]!.definitionHash = "OLD";
+    manager.setAccepted(key, oldVid);
+    const newVid = addReadyVariant(key, "new.png");
+    manager.getAssetState(key).variants![newVid]!.definitionHash = "CURRENT";
+    manager.useResolutionDefinitions({
+      definitionHash: (address) => (address === key ? "CURRENT" : null),
+      isDeterministic: () => false,
+    });
+    const compVid = addReadyVariant(comp, "comp.html");
+
+    const accepted = await cascadeAcceptConsumedDeps(manager, jobManager, comp, compVid, {
+      video: videoWith([key]),
+    });
+
+    expect(accepted).toEqual([]);
+    expect(manager.getAcceptedVariant(key)).toBe(oldVid);
+  });
+
   it("recurses from a composition through its dep's own generation provenance", async () => {
     const comp = "video:shot.01#composition";
     const character = "video:timeline.character";
