@@ -32,7 +32,7 @@ describe("assertTailwindClasses", () => {
 
   it("refuses a class that sets a literal font family, and passes a theme one", async () => {
     const found = await codeOf(`<div class="font-[Inter] [font-family:Inter] font-sans"></div>`);
-    expect(found?.code).toBe("COMPOSITION_CLASS_INVALID");
+    expect(found?.code).toBe("REVIEW_HELD");
     expect(found?.message).toContain("direction.policy.fonts");
     expect(found?.message).toContain(
       "video:shot.01#composition: font-[Inter], [font-family:Inter]",

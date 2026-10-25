@@ -37,7 +37,7 @@ export function Cutin({
   const { shotId, width, lane } = getRenderContext();
   if (lane === "cutin") {
     throw new KonteError(
-      "CUTIN_UNDECLARED",
+      "CUTIN_INVALID",
       `Shot "${shotId}" nests a <Cutin> inside another. A shot declares one cutin frame.`,
     );
   }

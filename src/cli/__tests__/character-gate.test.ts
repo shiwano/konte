@@ -3,17 +3,13 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Direction } from "../../core/dsl/direction.js";
-import { KonteError } from "../../core/errors.js";
 import { StateManager } from "../../core/state/index.js";
-import type { ReferenceDefinition } from "../../core/types/index.js";
 import {
-  assertCharactersAccepted,
-  assertVoicesAccepted,
-  gateDirectionForStage,
   loadDirectionIfPresent,
   unsatisfiedCharacters,
   unsatisfiedVoices,
 } from "../load-definition.js";
+import { loadCheckContext, spendGate } from "../finding-gates.js";
 import { DIRECTION_SECTIONS } from "../../core/address.js";
 import { applyDirectionSectionDecisions } from "../../core/direction-acceptance.js";
 
@@ -38,15 +34,6 @@ function directionWith(ids: string[], unframed: string[] = []): Direction {
   } as unknown as Direction;
 }
 
-function referenceWith(kinds: Record<string, "file" | "comfy">): ReferenceDefinition {
-  const topLevelAssets: Record<string, unknown> = {};
-  for (const [id, kind] of Object.entries(kinds)) {
-    topLevelAssets[id] =
-      kind === "file" ? { kind: "file", path: `assets/files/${id}.png` } : { kind: "comfy" };
-  }
-  return { shots: [], topLevelAssets } as unknown as ReferenceDefinition;
-}
-
 // With an output file: nothing resolves to a fileless take, so the gate reads one as unsatisfied.
 function accept(id: string): void {
   const address = `reference:${id}`;
@@ -62,128 +49,70 @@ async function provideFile(id: string): Promise<void> {
 }
 
 describe("unsatisfiedCharacters", () => {
-  it("flags a generative character with no accepted variant", async () => {
-    const unsatisfied = await unsatisfiedCharacters({
-      videoRoot: dir,
+  it("flags a generative character with no accepted variant", () => {
+    const unsatisfied = unsatisfiedCharacters({
       manager,
       direction: directionWith(["hero"]),
-      reference: referenceWith({ hero: "comfy" }),
     });
     expect(unsatisfied.map((c) => c.id)).toEqual(["hero"]);
   });
 
-  it("requires acceptance for a character passing through a shot", async () => {
+  it("requires acceptance for a character passing through a shot", () => {
     const direction = directionWith(["hero"], ["crow"]);
     direction.sequence.shots![0] = {
       ...direction.sequence.shots![0]!,
       passing: ["crow"],
     } as NonNullable<Direction["sequence"]["shots"]>[number];
     accept("hero");
-    await expect(
-      assertCharactersAccepted({
-        videoRoot: dir,
-        manager,
-        direction,
-        reference: referenceWith({ hero: "comfy", crow: "comfy" }),
-      }),
-    ).rejects.toMatchObject({ code: "CHARACTER_ACCEPTANCE_REQUIRED" });
+    expect(unsatisfiedCharacters({ manager, direction }).map((c) => c.id)).toEqual(["crow"]);
     accept("crow");
-    await expect(
-      assertCharactersAccepted({
-        videoRoot: dir,
-        manager,
-        direction,
-        reference: referenceWith({ hero: "comfy", crow: "comfy" }),
-      }),
-    ).resolves.toBeUndefined();
+    expect(unsatisfiedCharacters({ manager, direction })).toEqual([]);
   });
 
-  it("clears a generative character once it has an accepted variant", async () => {
+  it("clears a generative character once it has an accepted variant", () => {
     accept("hero");
-    const unsatisfied = await unsatisfiedCharacters({
-      videoRoot: dir,
+    const unsatisfied = unsatisfiedCharacters({
       manager,
       direction: directionWith(["hero"]),
-      reference: referenceWith({ hero: "comfy" }),
     });
     expect(unsatisfied).toEqual([]);
   });
 
   it("flags a file character whose file is on disk but unaccepted", async () => {
     await provideFile("hero");
-    const unsatisfied = await unsatisfiedCharacters({
-      videoRoot: dir,
+    const unsatisfied = unsatisfiedCharacters({
       manager,
       direction: directionWith(["hero"]),
-      reference: referenceWith({ hero: "file" }),
     });
     expect(unsatisfied.map((c) => c.id)).toEqual(["hero"]);
   });
 
-  it("flags a file character whose file is missing", async () => {
-    const unsatisfied = await unsatisfiedCharacters({
-      videoRoot: dir,
+  it("flags a file character whose file is missing", () => {
+    const unsatisfied = unsatisfiedCharacters({
       manager,
       direction: directionWith(["hero"]),
-      reference: referenceWith({ hero: "file" }),
     });
     expect(unsatisfied.map((c) => c.id)).toEqual(["hero"]);
   });
 
-  it("asks nothing of a character no frame's lineup holds", async () => {
-    const unsatisfied = await unsatisfiedCharacters({
-      videoRoot: dir,
+  it("asks nothing of a character no frame's lineup holds", () => {
+    const unsatisfied = unsatisfiedCharacters({
       manager,
       direction: directionWith(["hero"], ["singer"]),
-      reference: referenceWith({ hero: "comfy" }),
     });
     expect(unsatisfied.map((c) => c.id)).toEqual(["hero"]);
   });
 
-  it("returns nothing when no characters are declared", async () => {
-    const unsatisfied = await unsatisfiedCharacters({
-      videoRoot: dir,
+  it("returns nothing when no characters are declared", () => {
+    const unsatisfied = unsatisfiedCharacters({
       manager,
       direction: directionWith([]),
-      reference: null,
     });
     expect(unsatisfied).toEqual([]);
   });
 });
 
-describe("assertCharactersAccepted", () => {
-  it("throws CHARACTER_ACCEPTANCE_REQUIRED naming each unsatisfied character", async () => {
-    const err = await assertCharactersAccepted({
-      videoRoot: dir,
-      manager,
-      direction: directionWith(["hero", "rival"]),
-      reference: referenceWith({ hero: "comfy", rival: "comfy" }),
-    }).then(
-      () => null,
-      (e) => e,
-    );
-    expect(err).toBeInstanceOf(KonteError);
-    expect((err as KonteError).code).toBe("CHARACTER_ACCEPTANCE_REQUIRED");
-    expect((err as KonteError).message).toContain("reference:hero");
-    expect((err as KonteError).message).toContain("reference:rival");
-  });
-
-  it("resolves when every character is accepted", async () => {
-    accept("hero");
-    accept("rival");
-    await expect(
-      assertCharactersAccepted({
-        videoRoot: dir,
-        manager,
-        direction: directionWith(["hero", "rival"]),
-        reference: referenceWith({ hero: "comfy", rival: "file" }),
-      }),
-    ).resolves.toBeUndefined();
-  });
-});
-
-// A cast voice is a reference asset like a character's look, satisfied the same way. What
-// differs is where it is enforced — `gateDirectionForStage` calls this on the video stage only.
+// A cast voice is a reference asset like a character's look, satisfied the same way.
 describe("unsatisfiedVoices", () => {
   function voicedDirection(): Direction {
     return {
@@ -201,56 +130,52 @@ describe("unsatisfiedVoices", () => {
     } as unknown as Direction;
   }
 
-  it("flags every cast sample with no accepted variant, and nothing for an uncast character", async () => {
-    const unsatisfied = await unsatisfiedVoices({
-      videoRoot: dir,
+  it("flags every cast sample with no accepted variant, and nothing for an uncast character", () => {
+    const unsatisfied = unsatisfiedVoices({
       manager,
       direction: voicedDirection(),
-      reference: referenceWith({ heroVoice: "comfy", narratorVoice: "comfy" }),
     });
     expect(unsatisfied.map((v) => v.assetId)).toEqual(["heroVoice", "narratorVoice"]);
   });
 
-  it("clears each sample once it is accepted, a file one included", async () => {
+  it("clears each sample once it is accepted, a file one included", () => {
     accept("heroVoice");
     accept("narratorVoice");
-    const unsatisfied = await unsatisfiedVoices({
-      videoRoot: dir,
+    const unsatisfied = unsatisfiedVoices({
       manager,
       direction: voicedDirection(),
-      reference: referenceWith({ heroVoice: "comfy", narratorVoice: "file" }),
     });
     expect(unsatisfied).toEqual([]);
   });
 
-  it("says nothing when the direction casts no voice at all", async () => {
+  it("says nothing when the direction casts no voice at all", () => {
     expect(
-      await unsatisfiedVoices({
-        videoRoot: dir,
+      unsatisfiedVoices({
         manager,
         direction: directionWith(["hero"]),
-        reference: referenceWith({ hero: "comfy" }),
       }),
     ).toEqual([]);
   });
 
-  it("aborts with VOICE_ACCEPTANCE_REQUIRED, naming who each sample belongs to", async () => {
-    const err = await assertVoicesAccepted({
-      videoRoot: dir,
-      manager,
-      direction: voicedDirection(),
-      reference: referenceWith({ heroVoice: "comfy", narratorVoice: "comfy" }),
-    }).catch((e: unknown) => e as KonteError);
-    expect(err).toBeInstanceOf(KonteError);
-    expect((err as KonteError).code).toBe("VOICE_ACCEPTANCE_REQUIRED");
-    expect((err as KonteError).message).toContain("reference:heroVoice");
-    expect((err as KonteError).message).toContain("the narrator");
+  it("names who each sample belongs to", () => {
+    expect(unsatisfiedVoices({ manager, direction: voicedDirection() })).toEqual([
+      { assetId: "heroVoice", who: "hero (hero)" },
+      { assetId: "narratorVoice", who: "the narrator" },
+    ]);
   });
 });
 
-// The stage scope lives in `gateDirectionForStage`, not in `assertVoicesAccepted` — testing the
-// assert alone would leave the conditional free to be removed or reversed unnoticed.
-describe("gateDirectionForStage voice scope", () => {
+// The stage scope lives in the spend gate, not in `unsatisfiedVoices` — testing the list alone would
+// leave the scope free to be removed or reversed unnoticed.
+describe("the spend gate's voice scope", () => {
+  const gate = async (root: string, stage: "reference" | "animatic" | "video") =>
+    spendGate(await loadCheckContext({ videoRoot: root }), {
+      command: "generate",
+      stage,
+      assetPaths: [],
+      targeted: false,
+    });
+
   async function project(): Promise<string> {
     const root = await fs.mkdtemp(path.join(tmpdir(), "konte-voicegate-"));
     await fs.writeFile(
@@ -322,24 +247,24 @@ describe("gateDirectionForStage voice scope", () => {
   // only the video would let every line be cloned from a sample nobody listened to.
   it("aborts an animatic spend while a cast voice sample is missing", async () => {
     const root = await project();
-    await expect(
-      gateDirectionForStage({ videoRoot: root, command: "generate", stage: "animatic" }),
-    ).rejects.toMatchObject({ code: "VOICE_ACCEPTANCE_REQUIRED" });
+    await expect(gate(root, "animatic")).rejects.toMatchObject({
+      code: "SPEND_HELD",
+      message: expect.stringContaining("reference:heroVoice"),
+    });
   });
 
   it("aborts a video spend on the same project", async () => {
     const root = await project();
-    await expect(
-      gateDirectionForStage({ videoRoot: root, command: "generate", stage: "video" }),
-    ).rejects.toMatchObject({ code: "VOICE_ACCEPTANCE_REQUIRED" });
+    await expect(gate(root, "video")).rejects.toMatchObject({
+      code: "SPEND_HELD",
+      message: expect.stringContaining("reference:heroVoice"),
+    });
   });
 
   // The reference stage is where the sample itself is made, so it is exempt — gating it would leave
   // no way to produce the thing the gate demands.
   it("lets a reference spend through", async () => {
     const root = await project();
-    await expect(
-      gateDirectionForStage({ videoRoot: root, command: "generate", stage: "reference" }),
-    ).resolves.toBeUndefined();
+    await expect(gate(root, "reference")).resolves.toBeDefined();
   });
 });

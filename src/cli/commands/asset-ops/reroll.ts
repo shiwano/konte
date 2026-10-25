@@ -17,7 +17,6 @@ import {
   validateAddress,
 } from "../../../core/address.js";
 import { assertSpendAllowed } from "../../../core/backend-policy.js";
-import { isVendorBackendAsset } from "../../../core/vendor-backend.js";
 import { loadKonteConfig } from "../../../core/config.js";
 import { KonteError, errorMessage } from "../../../core/errors.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
@@ -41,15 +40,9 @@ import { buildAddressInfo, isProblemAddress } from "../../../core/status-section
 import { StateManager } from "../../../core/state/index.js";
 import type { AssetDefinition, JobRecord } from "../../../core/types/index.js";
 import { getBackendKind } from "../../../backends/resolve-backend.js";
-import { requireShotStages, selectDefinition } from "../../../core/select-definition.js";
-import {
-  assertAnimaticConsumed,
-  assertUpstreamAccepted,
-  assertSongDirectionAccepted,
-  gateDirectionForStage,
-  gateStageChecks,
-  loadStageDefinitions,
-} from "../../load-definition.js";
+import { selectDefinition } from "../../../core/select-definition.js";
+import { loadStageDefinitions } from "../../load-definition.js";
+import { loadCheckContext, spendGate } from "../../finding-gates.js";
 import { capList, printCapped } from "../../format-list.js";
 import { confirmAction, printAborted } from "../../confirm.js";
 import { parsePositiveInt } from "../../parse-option.js";
@@ -378,20 +371,6 @@ Examples:
           });
         }
 
-        // reroll spends like generate (it can produce a declared asset from scratch), so it passes
-        // through the same direction gate — closing the "reroll one shot at a time" bypass. Gate
-        // once per distinct stage the addresses touch.
-        for (const stage of new Set(primaries.map((p) => p.stage))) {
-          const definition = selectDefinition(stage, definitions).def;
-          await gateDirectionForStage({
-            videoRoot,
-            command: "reroll",
-            stage,
-            realizedIds: stage === "reference" ? undefined : definition.shots.map((s) => s.id),
-          });
-          await gateStageChecks(definition, stage);
-        }
-
         // Combined work list, keyed by address so overlapping cascades (or an address that is
         // another's dependent) collapse to one item. Primaries are seeded first, so a listed
         // address always wins over a merely-collected dependent (it keeps its --count). With
@@ -443,10 +422,6 @@ Examples:
           (a, b) => (topoIndex.get(a.assetPath) ?? 0) - (topoIndex.get(b.assetPath) ?? 0),
         );
 
-        // reroll spends like generate, so its creative-stage items pass the same upstream-acceptance
-        // gate: the board a take builds on and the sheets it conditions on are reviewed before the
-        // take is redone. The `reference` stage is exempt: rerolling a sheet is how it gets to
-        // review in the first place.
         // The board stems the video takes being redone consume, re-mixed before the gate asks for
         // them accepted.
         const videoPaths = workItems.filter((w) => w.stage === "video").map((w) => w.assetPath);
@@ -467,34 +442,25 @@ Examples:
             .filter((w) => getBackendKind(w.def) && (w.isPrimary ? variantCount : 1) === 1)
             .map((w) => w.assetPath),
         );
-        for (const stage of ["animatic", "video"] as const) {
-          const assetPaths = workItems.filter((w) => w.stage === stage).map((w) => w.assetPath);
-          if (assetPaths.length === 0) continue;
-          assertUpstreamAccepted({ manager, graph, assetPaths, stage, animatic, redone });
-        }
-        await assertSongDirectionAccepted({
-          videoRoot,
-          manager,
-          spending: workItems.map((w) => w.assetPath),
-        });
-        // Same reason, one level out: a video take rerolled off a shot that consumes no board never
-        // meets the gate above. Asked of what this run spends on, not of the definition, which may
-        // pass over the asset being redone. A timeline asset belongs to no one shot, so there the
-        // whole definition answers.
-        const vendorVideo = workItems.filter(
-          (w) => w.stage === "video" && isVendorBackendAsset(w.def.kind),
-        );
-        if (vendorVideo.length > 0) {
-          const shotIds = vendorVideo
-            .map((w) => tryParseAddress(w.assetPath))
-            .flatMap((parsed) => (parsed?.kind === "shot" ? [parsed.shotId] : []));
-          const timelineSpend = shotIds.length < vendorVideo.length;
-          assertAnimaticConsumed({
-            ...requireShotStages(definitions),
+        // reroll spends like generate, so it passes the same spend gate, per stage it touches.
+        // Every asset was asked for, so any hold refuses the run.
+        await spendGate(
+          await loadCheckContext({
+            videoRoot,
+            definitions: { reference, animatic, video },
+            manager,
             graph,
-            ...(timelineSpend ? {} : { spendingShotIds: shotIds }),
-          });
-        }
+          }),
+          [...new Set(workItems.map((w) => w.stage))]
+            .filter((stage) => stage !== "direction")
+            .map((stage) => ({
+              command: "reroll" as const,
+              stage,
+              assetPaths: workItems.filter((w) => w.stage === stage).map((w) => w.assetPath),
+              targeted: true,
+              redone,
+            })),
+        );
 
         // A dependency this run rerolls, or one another run is still generating, is waited on as
         // `generate` waits on it: the job pends until the upstream lands. Every other dependency must

@@ -55,15 +55,15 @@ describe("the song", () => {
     expect(codes(clocked(arc()), ["song"])).not.toContain("song-unreferenced");
   });
 
-  it("flags a span that is not a positive whole number of beats", () => {
+  it("flags a cut off the beat, and a span that is not positive", () => {
     const result = checkDirection(clocked(arc(1.5)));
-    expect(result.active.find((f) => f.code === "off-grid-duration")?.subject).toBe("02");
+    expect(result.active.find((f) => f.code === "off-beat-cut")?.subject).toBe("02");
     expect(codes(clocked(arc(0)))).toContain("off-grid-duration");
   });
 
   it("lets a half-beat cut through with a waiver", () => {
-    const result = checkDirection(clocked(arc(1.5), { "off-grid-duration_02": "a pickup" }));
-    expect(result.waived.map(directionWaiverKey)).toContain("off-grid-duration_02");
+    const result = checkDirection(clocked(arc(1.5), { "off-beat-cut_02": "a pickup" }));
+    expect(result.waived.map(directionWaiverKey)).toContain("off-beat-cut_02");
   });
 
   it("refuses a shot whose span is not the one the policy counts in", () => {
@@ -197,19 +197,12 @@ describe("the song take", () => {
   const check = (direction: Direction, song: SongTakeState) =>
     checkDirection(direction, { referenceAssetNames: ["song"], songTake: song }).active;
 
-  it("flags a timeline that runs past the end of the take, on a stage pass", () => {
+  it("flags a timeline that runs past the end of the take", () => {
     // 32 beats at 120 BPM after a 0.5s lead end the timeline at 16.5s.
     const overrun = (durationSec: number) =>
-      checkDirection(clocked(arc()), {
-        realizedIds: ["01", "02", "03", "04"],
-        referenceAssetNames: ["song"],
-        songTake: { ...take(120), durationSec },
-      }).active.map((f) => f.code);
+      check(clocked(arc()), { ...take(120), durationSec }).map((f) => f.code);
     expect(overrun(16.5)).not.toContain("song-overrun");
     expect(overrun(16)).toContain("song-overrun");
-    expect(
-      check(clocked(arc()), { ...take(120), durationSec: 16 }).map((f) => f.code),
-    ).not.toContain("song-overrun");
   });
 
   const singers = {

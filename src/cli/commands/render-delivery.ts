@@ -12,8 +12,9 @@ import {
   deliveryPromptSubject,
   synthesizeDeliveryAssetDefinition,
 } from "../../core/delivery.js";
-import { assertPinGate } from "../../core/pin-check.js";
-import { assertPromptGate } from "../../core/prompt-check.js";
+import { pinFindings } from "../../core/pin-check.js";
+import { promptFindings } from "../../core/prompt-check.js";
+import { assertNoSpendFindings } from "../finding-gates.js";
 import { JobIndex } from "../../core/job-index.js";
 import type { JobManager } from "../../core/job-manager.js";
 import { collectDeliveryLayers, renderShotCompositeToFile } from "../../core/render-video.js";
@@ -109,9 +110,7 @@ export async function planDelivery(opts: {
 
       const assetDef = synthesizeDeliveryAssetDefinition(video, deliveryAddr, target);
       const comfyTarget = await gateSpend(assetDef, deliveryAddr);
-      const subject = deliveryPromptSubject(video, deliveryAddr, target);
-      assertPromptGate(subject, "video.tsx");
-      assertPinGate(subject, "video.tsx");
+      assertDeliveryPrompts(deliveryPromptSubject(video, deliveryAddr, target));
 
       const compositeAbs = path.resolve(
         videoRoot,
@@ -175,9 +174,7 @@ export async function planDelivery(opts: {
 
     const assetDef = synthesizeDeliveryAssetDefinition(video, layer.deliveryAddress, layer.target);
     const comfyTarget = await gateSpend(assetDef, layer.deliveryAddress);
-    const subject = deliveryPromptSubject(video, layer.deliveryAddress, layer.target);
-    assertPromptGate(subject, "video.tsx");
-    assertPinGate(subject, "video.tsx");
+    assertDeliveryPrompts(deliveryPromptSubject(video, layer.deliveryAddress, layer.target));
     const result = await registerJobs({
       address: layer.deliveryAddress,
       assetDef,
@@ -194,4 +191,15 @@ export async function planDelivery(opts: {
   }
 
   return { deliveryAddresses, submittedJobIds, inProgress };
+}
+
+// The prompts and pins an upscale function builds, held to the spend gate like the stage's own.
+function assertDeliveryPrompts(subject: ReturnType<typeof deliveryPromptSubject>): void {
+  const fixIn = { stage: "video" as const };
+  assertNoSpendFindings([...promptFindings(subject, fixIn), ...pinFindings(subject, fixIn)], {
+    command: "export",
+    stage: "video",
+    assetPaths: [],
+    targeted: false,
+  });
 }

@@ -225,7 +225,7 @@ export default defineReference(direction, { references: () => {
     );
 
     await expect(run(["generate", "reference", "--plan"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringMatching(/DIRECTION_ACCEPTANCE_REQUIRED[\s\S]*direction:lyrics/),
+      stderr: expect.stringMatching(/SPEND_HELD[\s\S]*direction:lyrics/),
     });
 
     const statePath = path.join(projectDir, "konte.state.json");
@@ -317,7 +317,7 @@ export default defineReference(direction, { references: () => {
     // Without a recorded acceptance the spend gate refuses, pointing at the review command and
     // naming the parts that block it — "not accepted" alone would leave the author to guess.
     await expect(run(["generate", "animatic"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("DIRECTION_ACCEPTANCE_REQUIRED"),
+      stderr: expect.stringContaining("SPEND_HELD"),
     });
 
     // Acceptance is per part, so a reviewer who settled some of the page has not opened the gate:
@@ -331,7 +331,7 @@ export default defineReference(direction, { references: () => {
     });
     await fs.writeFile(statePath, JSON.stringify(partial, null, 2));
     await expect(run(["generate", "animatic"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("DIRECTION_ACCEPTANCE_REQUIRED"),
+      stderr: expect.stringContaining("SPEND_HELD"),
     });
 
     // After the reviewer accepts every section, generation proceeds.
@@ -374,7 +374,7 @@ export default defineReference(direction, { references: () => {
     parts["direction:brief.logline"]!.partHash = "stale11111111";
     await fs.writeFile(statePath, JSON.stringify(accepted, null, 2));
     await expect(run(["generate", "animatic"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("DIRECTION_ACCEPTANCE_REQUIRED"),
+      stderr: expect.stringContaining("SPEND_HELD"),
     });
   });
 });
@@ -636,7 +636,7 @@ describe("animatic acceptance gate", () => {
 
     // Nothing generated on the animatic yet: the gate names the board and points at generating.
     await expect(run(["generate", "video", "--plan"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("ANIMATIC_ACCEPTANCE_REQUIRED"),
+      stderr: expect.stringContaining("SPEND_HELD"),
     });
 
     // A generated-but-unreviewed board still blocks — the human accept is the gate, not the file.
@@ -651,7 +651,7 @@ describe("animatic acceptance gate", () => {
 
     // reroll is the same spend, so it hits the same gate.
     await expect(run(["reroll", "video:shot.01.motion"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("ANIMATIC_ACCEPTANCE_REQUIRED"),
+      stderr: expect.stringContaining("SPEND_HELD"),
     });
 
     // Accepting the board opens the gate.
@@ -681,15 +681,15 @@ describe("animatic wiring gate", () => {
     await acceptDirection(projectDir);
 
     await expect(run(["generate", "video", "--plan"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("ANIMATIC_UNCONSUMED"),
+      stderr: expect.stringContaining("animatic-unconsumed"),
     });
 
     // reroll and export spend on the same wiring, so both refuse it too.
     await expect(run(["reroll", "video:shot.01.motion"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("ANIMATIC_UNCONSUMED"),
+      stderr: expect.stringContaining("animatic-unconsumed"),
     });
     await expect(run(["export", "video"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("ANIMATIC_UNCONSUMED"),
+      stderr: expect.stringContaining("animatic-unconsumed"),
     });
   });
 
@@ -711,7 +711,7 @@ describe("animatic wiring gate", () => {
     await acceptDirection(projectDir);
 
     await expect(run(["reroll", "video:timeline.bed"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("ANIMATIC_UNCONSUMED"),
+      stderr: expect.stringContaining("animatic-unconsumed"),
     });
   });
 
@@ -757,7 +757,57 @@ export default definePatch<"image">(({ source }) => asset("patched", editComfy, 
     );
 
     await expect(run(["patch", "apply"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("ANIMATIC_UNCONSUMED"),
+      stderr: expect.stringContaining("animatic-unconsumed"),
+    });
+  });
+
+  it("refuses a patch whose step spends on a timeline asset a boardless shot draws", async () => {
+    const projectDir = await initWithCrossStageVideo();
+    await writeWorkspaceConfig(projectDir, {
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
+    });
+    await fs.writeFile(path.join(projectDir, "direction.ts"), CROSS_STAGE_DIRECTION_TS);
+    await fs.writeFile(
+      path.join(projectDir, "video.tsx"),
+      TEST_LOCAL_PICTURE_VIDEO_TSX.replace(
+        '  timeline: ({ shot }) => ({\n    shots: shot("01", () => {\n      const still = asset("still", internalTestImage, { width: 64, height: 64 });\n      return <Composition><Image src={still} /></Composition>;\n    }),\n  }),',
+        '  timeline: ({ shot }) => {\n    const still = asset("still", internalTestImage, { width: 64, height: 64 });\n    return { shots: shot("01", () => <Composition><Image src={still} /></Composition>) };\n  },',
+      ),
+    );
+    await acceptDirection(projectDir);
+
+    // The local picture is not a vendor spend, so the gate lets this through.
+    await run(["generate", "video"], projectDir);
+    await run(["job", "wait"], projectDir).catch(() => undefined);
+    const sm = await StateManager.load(projectDir);
+    const variants = sm.getState().assets["video:timeline.still"]?.variants ?? {};
+    const takeId = Object.entries(variants).find(([, v]) => v.file)?.[0];
+    expect(takeId).toBeDefined();
+
+    await run(["patch", "new", takeId!], projectDir);
+    await fs.writeFile(
+      path.join(projectDir, "patches", `${takeId}.ts`),
+      `import { asset, definePatch, defineComfyAsset } from "konte";
+
+const editComfy = defineComfyAsset({
+  workflow: "edit.json",
+  description: "test adapter",
+  inputs: { image: { nodeId: "1", field: "image", type: "image" } },
+  outputs: { result: { nodeId: "9", type: "image" } },
+});
+
+export default definePatch<"image">(({ source }) => asset("patched", editComfy, { image: source }));
+`,
+    );
+
+    await expect(run(["patch", "apply"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("animatic-unconsumed"),
     });
   });
 });
@@ -813,7 +863,7 @@ describe("animatic stem gate", () => {
     await sm2.save();
 
     await expect(run(["generate", "video", "--plan"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("ANIMATIC_ACCEPTANCE_REQUIRED"),
+      stderr: expect.stringContaining("SPEND_HELD"),
     });
 
     // Re-baking the mix over the chosen take, and re-accepting it, opens the gate again.
@@ -858,7 +908,7 @@ describe("animatic stem gate", () => {
     await sm.save();
 
     const err = await run(["generate", "video", "--plan"], projectDir).catch((e) => e);
-    expect(err.stderr).toContain("ANIMATIC_ACCEPTANCE_REQUIRED");
+    expect(err.stderr).toContain("SPEND_HELD");
     expect(err.stderr).toContain("run `konte accept animatic:shot.01#stem`");
     expect(err.stderr).not.toContain("konte generate animatic");
   });
@@ -954,7 +1004,7 @@ describe("reference acceptance gate", () => {
     // Nothing generated on the reference stage yet: the gate names the sheet and points at
     // generating it.
     await expect(run(["generate", "animatic", "--plan"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("REFERENCE_ACCEPTANCE_REQUIRED"),
+      stderr: expect.stringContaining("SPEND_HELD"),
     });
 
     // A generated-but-unreviewed sheet still blocks — the human accept is the gate, not the file.
@@ -969,7 +1019,7 @@ describe("reference acceptance gate", () => {
 
     // reroll is the same spend, so it hits the same gate.
     await expect(run(["reroll", "animatic:shot.01.keyframe"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("REFERENCE_ACCEPTANCE_REQUIRED"),
+      stderr: expect.stringContaining("SPEND_HELD"),
     });
 
     // The reference stage itself is where the sheet is made, so it is never held by its own gate.
@@ -1038,7 +1088,7 @@ describe("reference acceptance gate", () => {
     sm2.setUnaccepted(sheet, acceptedVariants[sheet]!);
     await sm2.save();
     await expect(run(["generate", "video", "--plan"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("REFERENCE_ACCEPTANCE_REQUIRED"),
+      stderr: expect.stringContaining("SPEND_HELD"),
     });
   });
 });
@@ -1402,7 +1452,7 @@ export default definePatch<"video">(({ source }) => asset("patched", edit, { ima
 
     // A named reroll asked for the held shot, so it refuses.
     await expect(run(["reroll", "video:shot.01.motion"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("ANIMATIC_ACCEPTANCE_REQUIRED"),
+      stderr: expect.stringContaining("SPEND_HELD"),
     });
   });
 
@@ -1426,7 +1476,7 @@ export default definePatch<"video">(({ source }) => asset("patched", edit, { ima
     );
 
     await expect(run(["reroll", "video:shot.01.motion"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("ANIMATIC_ACCEPTANCE_REQUIRED"),
+      stderr: expect.stringContaining("SPEND_HELD"),
     });
 
     // Redone as several takes, the board has no one take to pin the motion to.
@@ -1436,7 +1486,7 @@ export default definePatch<"video">(({ source }) => asset("patched", edit, { ima
         projectDir,
       ),
     ).rejects.toMatchObject({
-      stderr: expect.stringContaining("ANIMATIC_ACCEPTANCE_REQUIRED"),
+      stderr: expect.stringContaining("SPEND_HELD"),
     });
 
     // Redone in the same run, the board's fresh take is what the motion builds on.
@@ -1444,7 +1494,7 @@ export default definePatch<"video">(({ source }) => asset("patched", edit, { ima
       ["reroll", "animatic:shot.01.keyframe", "video:shot.01.motion"],
       projectDir,
     ).catch((e: { stdout: string }) => e);
-    expect(stdout).not.toContain("ANIMATIC_ACCEPTANCE_REQUIRED");
+    expect(stdout).not.toContain("SPEND_HELD");
     expect(stdout).toMatch(/video:shot\.01\.motion: \S+ → v-/);
   });
 });
@@ -1487,39 +1537,25 @@ describe("pin gate", () => {
   it("refuses a spend that pins a reference sheet", async () => {
     const projectDir = await project(pinSheet);
     await expect(run(["generate", "video"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringMatching(/PIN_CHECK_FAILED[\s\S]*reference:character/),
+      stderr: expect.stringMatching(/SPEND_HELD[\s\S]*\[pin-unanchored\] reference:character/),
     });
   });
 
-  it("reports the finding and its key in status, and holds back the generate step", async () => {
+  it("reports the finding under its file in status, and holds back the generate step", async () => {
     const projectDir = await project(pinSheet);
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).toContain("Pin findings: 1");
-    expect(stdout).toMatch(/^ {2}\[pin-unanchored:[0-9a-f]{8}\] \(video\.tsx\) /m);
+    expect(stdout).toMatch(
+      /^Findings: 1\n {2}video\.tsx\n {4}\[pin-unanchored\] reference:character — /m,
+    );
     expect(stdout).toContain("reference:character");
     expect(stdout).toContain("video:shot.01.motion.startImage");
     expect(stdout).not.toContain("konte generate video");
   });
 
-  it("lets the spend through once the stage waives the source", async () => {
-    const withFinding = await project(pinSheet);
-    const { stdout } = await run(["status"], withFinding);
-    const key = stdout.match(/\[(pin-unanchored:[0-9a-f]{8})\]/)![1]!;
-
-    const projectDir = await project((source) =>
-      pinSheet(source).replace(
-        "export default defineVideo(direction, {",
-        `export default defineVideo(direction, {\n  waivers: { "${key}": "the shot opens on the sheet by design" },`,
-      ),
-    );
-    const { stdout: statusOut } = await run(["status"], projectDir);
-    expect(statusOut).not.toContain("Pin findings:");
-  });
-
   it("leaves the fixture's own board pins alone", async () => {
     const projectDir = await project((source) => source);
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).not.toContain("Pin findings:");
+    expect(stdout).not.toContain("pin-unanchored");
   });
 });
 
@@ -1571,7 +1607,7 @@ describe("prompt gate", () => {
   it("refuses a spend on a prompt that names what to leave out", async () => {
     const projectDir = await project(NEGATED_VIDEO_TSX);
     await expect(run(["generate", "video"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringMatching(/PROMPT_CHECK_FAILED[\s\S]*no outlines/),
+      stderr: expect.stringMatching(/SPEND_HELD[\s\S]*no outlines/),
     });
   });
 
@@ -1582,43 +1618,76 @@ describe("prompt gate", () => {
       (e) => e,
     );
     expect(err.stderr.trimEnd().split("\n").at(-1)).toMatch(
-      /^Error \[PROMPT_CHECK_FAILED\]: video\.tsx has 1 unresolved prompt finding\(s\)\. .*meant to be written: [^;]+: \[prompt-negation:[0-9a-f]{8}\] .*no outlines/,
+      /^Error \[SPEND_HELD\]: Cannot generate video — it is held: .*: video\.tsx: \[prompt-negation\] "no outlines" — video:shot\.01\.motion — /,
     );
   });
 
-  it("reports the finding and its key in status, and holds back the generate step", async () => {
+  it("reports the finding under its file in status, and holds back the generate step", async () => {
     const projectDir = await project(NEGATED_VIDEO_TSX);
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).toContain("Prompt findings: 1");
-    expect(stdout).toMatch(/^ {2}\[prompt-negation:[0-9a-f]{8}\] \(video\.tsx\) .*no outlines/m);
+    expect(stdout).toMatch(/^Findings: 1\n {2}video\.tsx\n {4}\[prompt-negation\] .*no outlines/m);
     expect(stdout).not.toContain("konte generate video");
   });
+});
 
-  it("lets the spend through once the stage waives the phrase", async () => {
-    const withFinding = await project(NEGATED_VIDEO_TSX);
-    const { stdout } = await run(["status"], withFinding);
-    const key = stdout.match(/\[(prompt-negation:[0-9a-f]{8})\]/)![1]!;
-
-    const projectDir = await project(
-      NEGATED_VIDEO_TSX.replace(
-        `defineVideo(direction, {`,
-        `defineVideo(direction, {\n  waivers: { "${key}": "the model's own style vocabulary" },`,
-      ),
+// A shot replaced by one still undeveloped: what is built on it waits, the rest of the stage spends
+// — so a reference is never pointed at some other shot to get past a refusal.
+describe("a reference into a pendingShot", () => {
+  async function project(): Promise<string> {
+    const inited = await initWorkspace(path.join(ctx.dir, `pendingref-${Math.random()}`));
+    const projectDir = inited.video;
+    const file = path.join(projectDir, "animatic.tsx");
+    const source = await fs.readFile(file, "utf8");
+    await fs.writeFile(
+      file,
+      source
+        .replace("timeline: ({ format, shot }) => {", "timeline: ({ format, pendingShot }) => {")
+        .replace(
+          "const shotFn = (id: string, first: string, next: string) => () => {",
+          "const shotFn = (id: string, first: string, next: string, from?: () => unknown) => () => {",
+        )
+        .replace("image1: latent,", "image1: (from?.() ?? latent) as typeof latent,")
+        .replace(
+          /shots: shot\("01", shotFn\("01", ("[^"]*"), ("[^"]*")\)\)\n\s*\.nextShot\("02", shotFn\("02", ("[^"]*"), ("[^"]*")\)\)/,
+          'shots: pendingShot("01")\n        .nextShot("02", ({ shot }) => shotFn("02", $3, $4, () => shot("01").image("first"))())',
+        ),
     );
-    const { stdout: planOut } = await run(["generate", "video", "--plan"], projectDir);
-    expect(planOut).toContain("Plan:");
+    await writeWorkspaceConfig(projectDir, {
+      comfy: {
+        comfyui: {
+          url: "http://127.0.0.1:8188",
+          autoInstallModels: false,
+          autoInstallNodes: false,
+        },
+      },
+    });
+    await acceptDirection(projectDir);
+    await acceptFileAssets(projectDir);
+    return projectDir;
+  }
+
+  it("holds what is built on the pending shot and plans the rest", async () => {
+    const projectDir = await project();
+    const { stdout } = await run(["generate", "animatic", "--plan"], projectDir);
+    expect(stdout).toMatch(/Held: 2 asset\(s\)/);
+    expect(stdout).toContain("[pending-reference] animatic:shot.02.first");
+    expect(stdout).toContain("animatic:shot.03.first");
   });
 
-  it("reports a waiver key that can never cancel anything as stale, holding back no spend", async () => {
-    const projectDir = await project(
-      TEST_VIDEO_TSX.replace(
-        `defineVideo(direction, {`,
-        `defineVideo(direction, {\n  waivers: { "prompt-negation": "no hash" },`,
-      ),
-    );
+  it("reports it under the file writing the reference", async () => {
+    const projectDir = await project();
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).toContain("Stale prompt waivers: 1");
-    expect(stdout).toContain("[prompt-negation] (video.tsx) no hash");
-    expect(stdout).not.toContain("PROMPT_CHECK_FAILED");
+    expect(stdout).toMatch(
+      /^ {2}animatic\.tsx\n(?: {4}.*\n)* {4}\[pending-reference\] animatic:shot\.02\.first — is built on animatic:shot\.01\.first/m,
+    );
+  });
+
+  it("refuses a reroll of what it holds", async () => {
+    const projectDir = await project();
+    await expect(run(["reroll", "animatic:shot.02.first"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(
+        /SPEND_HELD[\s\S]*\[pending-reference\] animatic:shot\.02\.first/,
+      ),
+    });
   });
 });

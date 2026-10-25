@@ -10,6 +10,7 @@ import {
   DIRECTION_ROOT_PATH,
   type DirectionSection,
   directionChildNodePath,
+  directionSectionOf,
   formatDirectionCharacterAddress,
   formatDirectionCharacterVoiceAddress,
   formatDirectionLocationAddress,
@@ -90,6 +91,8 @@ import {
   storeOverallComment,
 } from "./review-shared.js";
 import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
+import { loadCheckContext, reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
+import { collectFindings } from "../../../core/checks.js";
 
 // A direction part's feedback address is `direction:<part>`, the same form a handoff note carries.
 function handoffNoteForDirection(handoff: Handoff | null, address: string): string | undefined {
@@ -511,7 +514,7 @@ export async function handleDirectionSubmit(
   }
 
   const currentHash = directionHash(direction);
-  const sectionDecisions: DirectionSectionDecisions = body.sectionDecisions ?? {};
+  const sectionDecisions: DirectionSectionDecisions = { ...body.sectionDecisions };
   const accepting = Object.values(sectionDecisions).some((v) => v === true);
   // An Accept signs off the box the reviewer saw; if direction.ts changed since the page loaded,
   // refuse rather than record a hash the human never reviewed. The guard is whole-direction even
@@ -565,6 +568,28 @@ export async function handleDirectionSubmit(
   ) {
     reportOutcome?.(emptyOutcome("direction"));
     return jsonResponse({ saved: false, filePath: null, accepted: false });
+  }
+
+  // A box holding a part a finding to fix sits on is not signed off. Only that box's accept is dropped; the rest of the review still lands.
+  const skippedDecisions: NonNullable<ReviewRecord["skippedDecisions"]> = [];
+  const acceptedSections = DIRECTION_SECTIONS.filter((s) => sectionDecisions[s] === true);
+  if (acceptedSections.length > 0) {
+    const ctx = await loadCheckContext({ videoRoot, direction });
+    const findings = await collectFindings(ctx, (t) => t.holds.accept === true);
+    for (const section of acceptedSections) {
+      const held = reviewHeldError(
+        `Cannot accept the direction's ${section}`,
+        reviewHeldFindings(
+          findings,
+          [...subjectHashes.keys()]
+            .filter((address) => directionSectionOf(address) === section)
+            .map((address) => ({ op: "accept", address })),
+        ),
+      );
+      if (!held) continue;
+      delete sectionDecisions[section];
+      skippedDecisions.push({ address: `direction:${section}`, reason: held.message });
+    }
   }
 
   const addedFeedbackIds = new Set<string>();
@@ -643,7 +668,10 @@ export async function handleDirectionSubmit(
     ...(body.overallComment ? { overallComment: body.overallComment } : {}),
     ...handoffRecordFields(handoff),
   };
-  const filePath = await saveReviewRecord(videoRoot, record);
+  if (skippedDecisions.length > 0) record.skippedDecisions = skippedDecisions;
+  const filePath = await saveReviewRecord(videoRoot, record, {
+    force: skippedDecisions.length > 0,
+  });
   if (filePath) await storeOverallComment(videoRoot, "direction", record);
 
   reportOutcome?.({ stage: "direction", filePath });
@@ -652,5 +680,6 @@ export async function handleDirectionSubmit(
     saved: filePath !== null,
     filePath,
     accepted: summary.status === "accepted",
+    ...(skippedDecisions.length > 0 ? { skippedDecisions } : {}),
   });
 }

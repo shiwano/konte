@@ -346,21 +346,20 @@ describe("status command", () => {
       const { stdout } = await run(["status", "-v"], projectDir);
       expect(stdout).toContain(`konte probe audio ${short}`);
       expect(stdout).toContain(
-        `${voice} ${short}: heard "she should fill the sky" — drops the opening "Bigger!"`,
+        `[line-misheard] ${short} — ${voice} heard "she should fill the sky" — drops the opening "Bigger!"`,
       );
       expect(stdout).not.toContain("konte preview video");
-      expect(stdout).toContain("Variant findings: 1");
 
       await run(["vouch", short], projectDir);
       const { stdout: after } = await run(["status"], projectDir);
-      expect(after).not.toContain("Variant findings");
+      expect(after).not.toContain("[line-misheard]");
       expect(after).toContain("konte preview video");
     });
 
     it("refuses to open the review it holds", async () => {
       await take(" she should fill the sky");
       await expect(run(["preview", "video"], projectDir)).rejects.toMatchObject({
-        stderr: expect.stringContaining("VARIANT_CHECK_FAILED"),
+        stderr: expect.stringContaining("REVIEW_HELD"),
       });
     });
 
@@ -375,7 +374,7 @@ describe("status command", () => {
       });
       await sm.save();
       const { stdout } = await run(["status"], projectDir);
-      expect(stdout).not.toContain("Variant findings");
+      expect(stdout).not.toContain("[take-silent]");
     });
 
     it("finds a silent take", async () => {
@@ -387,7 +386,7 @@ describe("status command", () => {
         silent: true,
       });
       const { stdout } = await run(["status"], projectDir);
-      expect(stdout).toContain(`${voice} ${silent}: is silent`);
+      expect(stdout).toContain(`[take-silent] ${silent} — ${voice} is silent`);
     });
   });
 
@@ -552,7 +551,23 @@ describe("status command", () => {
   // is neither a review candidate nor a stale ACCEPT — so status named it nowhere while `generate`
   // still had it on its work list.
   it("names a stale unaccepted take, and offers the generate that replaces it", async () => {
+    // The shot builds on its own accepted board, so nothing but the stale take stands in the way.
+    await fs.writeFile(
+      path.join(projectDir, "video.tsx"),
+      TEST_VIDEO_TSX.replace(
+        `import { Composition, Video, Audio,`,
+        `import { Composition, Image, Video, Audio,`,
+      )
+        .replace(`} from "konte";`, `} from "konte";\nimport animatic from "./animatic";`)
+        .replace(
+          `<Audio src={voice} /></Composition>`,
+          `<Audio src={voice} /><Image src={animatic.shot("01").image("first")} /></Composition>`,
+        ),
+    );
     const sm = await StateManager.load(projectDir);
+    const panel = sm.reserveVariantId("animatic:shot.01.first");
+    sm.getAssetState("animatic:shot.01.first").variants![panel]!.file = "/tmp/panel.png";
+    sm.setAccepted("animatic:shot.01.first", panel);
     const up = sm.reserveVariantId(UPSTREAM);
     Object.assign(sm.getAssetState(UPSTREAM).variants![up]!, {
       status: "accepted",
@@ -910,8 +925,9 @@ describe("status command", () => {
     await fs.writeFile(directionPath, source.replace('action: "', 'action: "Stop. Go. '));
 
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).toContain("Direction findings: 1");
-    expect(stdout).toContain("[multi-sentence-action_01] (arc)");
+    expect(stdout).toMatch(
+      /^ {2}direction\.ts\n {4}\[multi-sentence-action_01\] shot 01's action/m,
+    );
 
     const { stdout: doctorOut } = await runCapture(["doctor"], projectDir);
     expect(doctorOut).toContain("[multi-sentence-action_01] (arc)");
@@ -925,10 +941,9 @@ describe("status command", () => {
     await fs.writeFile(directionPath, source.replace('id: "02"', 'id: "01"'));
 
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).toContain("Direction errors: 1");
     expect(stdout).toContain("[duplicate-id]");
-    // Next steps leads with the error rather than routing past it.
-    expect(stdout).toContain("direction errors");
+    // Next steps leads with the edit rather than routing past it.
+    expect(stdout).toMatch(/^Next steps:\n {2}\(edit direction\.ts\)/m);
   });
 
   it("flags a stale direction waiver whose finding is gone", async () => {
@@ -940,8 +955,9 @@ describe("status command", () => {
     );
 
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).toContain("Stale direction waivers: 1");
-    expect(stdout).toContain("[multi-sentence-action_01] gone");
+    expect(stdout).toContain(
+      "[multi-sentence-action_01] stale waiver — its finding is gone; remove it (gone)",
+    );
   });
 
   it("counts the ungenerated addresses on the stage line instead of naming them", async () => {

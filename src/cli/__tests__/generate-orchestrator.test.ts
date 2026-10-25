@@ -30,6 +30,7 @@ function graphOf(deps: Record<string, string[]>): DependencyGraph {
     dependencies: new Map(Object.entries(deps)),
     dependents: new Map(),
     topologicalOrder: Object.keys(deps),
+    pendingReferences: [],
   };
 }
 

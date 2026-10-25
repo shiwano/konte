@@ -10,10 +10,10 @@ import {
 import type { Pleasure } from "../lenses.js";
 import { defineLens } from "../lenses.js";
 import {
-  assertDirectionGate,
   checkDirection,
   classifyDirectionFinding,
   continuousFrameKeys,
+  directionFindings,
   directionWaiverKey,
   panelRole,
   reportableDirectionFindings,
@@ -30,6 +30,24 @@ import type {
 import type { NarrativeShot, ScriptLine } from "../dsl/direction.js";
 import { assertCanvasFormat } from "../dsl/direction.js";
 import { deriveCanvasBase } from "../canvas.js";
+import type { AssetStage } from "../address.js";
+import { type SpendCommand, findingTraits, formatFindingLine, spendHold } from "../finding.js";
+
+// What a spend on `stage` is held by, from the direction check alone: one line per finding.
+function spendHeldBy(
+  dir: Direction,
+  opts: { command: SpendCommand; stage: AssetStage; directionAccepted: boolean } & Parameters<
+    typeof checkDirection
+  >[1],
+): string {
+  return directionFindings(checkDirection(dir, opts), dir)
+    .filter(
+      (f) => opts.directionAccepted || findingTraits(f.code).onset !== "after-direction-accepted",
+    )
+    .filter((f) => spendHold(f, { command: opts.command, stage: opts.stage }) !== null)
+    .map(formatFindingLine)
+    .join("\n");
+}
 
 // Framing defaults by cycling the id's numeric suffix through the four sizes. Pass `framing` to
 // override.
@@ -674,13 +692,6 @@ describe("checkDirection waivers", () => {
     expect(checkDirection(dir).staleWaivers.map((w) => w.key)).toContain("missing-role_disruption");
   });
 
-  it("does not flag a completeness waiver stale on a direction-only pass", () => {
-    const dir = withWaivers(completeMiniDrama, {
-      unrealized_04: "shot dropped from this stage on purpose",
-    });
-    expect(checkDirection(dir).staleWaivers).toEqual([]);
-  });
-
   it("flags a waiver key naming no finding code stale, never a structural error", () => {
     const dir = withWaivers(completeMiniDrama, {
       role_overweight_problem: "deliberate overrun",
@@ -779,14 +790,14 @@ describe("defineLens (custom lenses)", () => {
   });
 });
 
-describe("assertDirectionGate", () => {
+describe("the direction findings holding a spend", () => {
   it("aborts on an unwaived arc hole", () => {
     const dir = leaf({
       shots: [shot("01", "ordinary", 3), shot("03", "pressure", 2), shot("04", "hero", 4)],
     });
-    expect(() =>
-      assertDirectionGate(dir, { command: "generate", stage: "video", directionAccepted: true }),
-    ).toThrow(/missing-role_disruption/);
+    expect(
+      spendHeldBy(dir, { command: "generate", stage: "video", directionAccepted: true }),
+    ).toMatch(/missing-role_disruption/);
   });
 
   it("passes once the arc hole is waived", () => {
@@ -794,104 +805,20 @@ describe("assertDirectionGate", () => {
       shots: [shot("01", "ordinary", 3), shot("03", "pressure", 2), shot("04", "hero", 4)],
       waivers: { "missing-role_disruption": "ok" },
     });
-    expect(() =>
-      assertDirectionGate(dir, { command: "generate", stage: "video", directionAccepted: true }),
-    ).not.toThrow();
-  });
-
-  it("allows partial coverage on generate but enforces it on a video export", () => {
-    const realizedIds = ["01", "02", "03"]; // 04 (hero) not yet realized
-    expect(() =>
-      assertDirectionGate(completeMiniDrama, {
-        command: "generate",
-        stage: "video",
-        realizedIds,
-        directionAccepted: true,
-      }),
-    ).not.toThrow();
-    expect(() =>
-      assertDirectionGate(completeMiniDrama, {
-        command: "export",
-        stage: "video",
-        realizedIds,
-        directionAccepted: true,
-      }),
-    ).toThrow(/unrealized_04/);
+    expect(spendHeldBy(dir, { command: "generate", stage: "video", directionAccepted: true })).toBe(
+      "",
+    );
   });
 
   it("aborts on a structural error regardless of scope", () => {
     const dir = leaf({ shots: [] });
-    expect(() =>
-      assertDirectionGate(dir, {
+    expect(
+      spendHeldBy(dir, {
         command: "generate",
         stage: "animatic",
         directionAccepted: true,
       }),
-    ).toThrow(/empty-direction/);
-  });
-
-  it("qualifies a stage-order finding by stage so a per-stage waiver matches", () => {
-    const realizedIds = ["02", "01", "03", "04"]; // reordered vs the direction
-    expect(() =>
-      assertDirectionGate(completeMiniDrama, {
-        command: "generate",
-        stage: "video",
-        realizedIds,
-        directionAccepted: true,
-      }),
-    ).toThrow(/stage-order-mismatch_video/);
-
-    const waived = withWaivers(completeMiniDrama, {
-      "stage-order-mismatch_video": "intentional re-cut",
-    });
-    expect(() =>
-      assertDirectionGate(waived, {
-        command: "generate",
-        stage: "video",
-        realizedIds,
-        directionAccepted: true,
-      }),
-    ).not.toThrow();
-  });
-
-  it("enforces completeness on a sequenced video export but not on generate", () => {
-    const sequenced = branch({
-      lens: "one-act",
-      lenses: [ONE_ACT],
-      pleasure: "cute",
-      sequences: [
-        {
-          id: "act1",
-          role: "whole",
-          synopsis: "open",
-          lens: "mini-drama",
-          pleasure: "cute",
-          shots: [
-            shot("01", "ordinary"),
-            shot("02", "disruption", 2),
-            shot("03", "pressure"),
-            shot("04", "hero", 4),
-          ],
-        },
-      ],
-    });
-    const realizedIds = ["01", "02", "03"]; // 04 (hero) not yet realized
-    expect(() =>
-      assertDirectionGate(sequenced, {
-        command: "generate",
-        stage: "video",
-        realizedIds,
-        directionAccepted: true,
-      }),
-    ).not.toThrow();
-    expect(() =>
-      assertDirectionGate(sequenced, {
-        command: "export",
-        stage: "video",
-        realizedIds,
-        directionAccepted: true,
-      }),
-    ).toThrow(/unrealized_04/);
+    ).toMatch(/empty-direction/);
   });
 });
 
@@ -1071,9 +998,9 @@ describe("checkDirection camera choices", () => {
       ],
     });
     expect(checkDirection(dir).active).toEqual([]);
-    expect(() =>
-      assertDirectionGate(dir, { command: "generate", stage: "animatic", directionAccepted: true }),
-    ).not.toThrow();
+    expect(
+      spendHeldBy(dir, { command: "generate", stage: "animatic", directionAccepted: true }),
+    ).toBe("");
   });
 
   it("allows repeated wide shots within one role", () => {
@@ -1087,9 +1014,9 @@ describe("checkDirection camera choices", () => {
       ],
     });
     expect(checkDirection(dir).active).toEqual([]);
-    expect(() =>
-      assertDirectionGate(dir, { command: "generate", stage: "animatic", directionAccepted: true }),
-    ).not.toThrow();
+    expect(
+      spendHeldBy(dir, { command: "generate", stage: "animatic", directionAccepted: true }),
+    ).toBe("");
   });
 });
 
@@ -1428,6 +1355,40 @@ describe("checkDirection setups", () => {
     ]);
   });
 
+  it("counts a master as used when a setup a shot stands on is a window of it", () => {
+    const masters = leaf({
+      shots: [shot("01", "hero", 3, "shot", "close")],
+      setups: {
+        master: {
+          name: "the room",
+          description: "the whole room",
+          location: "here",
+          framing: "wide",
+          view: "front",
+          holds: ["hereMark"],
+          within: null,
+        },
+        "here-close": {
+          name: "in close",
+          description: "in on the table",
+          location: "here",
+          framing: "close",
+          holds: ["hereMark"],
+          within: "master",
+        },
+      },
+    });
+    const { active } = checkDirection(masters, { referenceAssetNames: ["here"] });
+    expect(active.map((f) => f.code)).not.toContain("unused-setup");
+    expect(active.map((f) => f.code)).not.toContain("unused-location");
+  });
+
+  it("says nothing unused before any shot is written", () => {
+    const shotless = leaf({ shots: [], setups: setupsFor([shot("01", "hero")]) });
+    const codes = checkDirection(shotless, { referenceAssetNames: [] }).active.map((f) => f.code);
+    expect(codes.filter((c) => c.startsWith("unused-"))).toEqual([]);
+  });
+
   it("waives a setup finding via the root waivers", () => {
     const waived = leaf({
       shots: [
@@ -1697,9 +1658,9 @@ describe("checkDirection setups", () => {
       },
     });
     expect(checkDirection(dir).active).toEqual([]);
-    expect(() =>
-      assertDirectionGate(dir, { command: "generate", stage: "animatic", directionAccepted: true }),
-    ).not.toThrow();
+    expect(
+      spendHeldBy(dir, { command: "generate", stage: "animatic", directionAccepted: true }),
+    ).toBe("");
   });
 
   // One shot per frame across eight shots in one room: the place is lived in and no frame is ever
@@ -1997,6 +1958,28 @@ describe("checkDirection characters", () => {
     expect(active.map((f) => f.code)).not.toContain("unused-character");
   });
 
+  it("counts a character a frame holds as used, whatever the action names", () => {
+    const framed = leaf({
+      characters: { cat },
+      shots: [{ ...shot("01", "ordinary", 3, "the sill at dawn"), lineup: ["cat"] }],
+    });
+    const { active } = checkDirection(framed, { referenceAssetNames: ["cat"] });
+    expect(active.map((f) => f.code)).not.toContain("unused-character");
+  });
+
+  it("reports an unused character before the direction is accepted, on its part", () => {
+    const unused = leaf({
+      characters: { cat },
+      shots: [shot("01", "ordinary", 3, "the sill at dawn")],
+    });
+    const findings = directionFindings(
+      checkDirection(unused, { referenceAssetNames: ["cat"] }),
+      unused,
+    ).filter((f) => f.code === "unused-character");
+    expect(findings.map((f) => f.targets)).toEqual([["direction:characters.cat"]]);
+    expect(reportableDirectionFindings(findings, false)).toHaveLength(1);
+  });
+
   it("waives an unreferenced character via the root waivers", () => {
     const waived = withWaivers(withCat, {
       "character-unreferenced_cat": "the file arrives later",
@@ -2039,32 +2022,32 @@ describe("checkDirection characters", () => {
   });
 });
 
-describe("assertDirectionGate characters", () => {
+describe("the characters findings holding a spend", () => {
   it("blocks generate when a declared character has no reference asset", () => {
-    expect(() =>
-      assertDirectionGate(withCat, {
+    expect(
+      spendHeldBy(withCat, {
         command: "generate",
         stage: "animatic",
         referenceAssetNames: [],
         directionAccepted: true,
       }),
-    ).toThrow(/character-unreferenced_cat/);
+    ).toMatch(/character-unreferenced_cat/);
   });
 
   it("defers a characters finding while the direction is unaccepted", () => {
-    expect(() =>
-      assertDirectionGate(withCat, {
+    expect(
+      spendHeldBy(withCat, {
         command: "generate",
         stage: "animatic",
         referenceAssetNames: [],
         directionAccepted: false,
       }),
-    ).not.toThrow();
+    ).toBe("");
   });
 
   it("passes once the reference asset is exposed", () => {
-    expect(() =>
-      assertDirectionGate(withCat, {
+    expect(
+      spendHeldBy(withCat, {
         command: "generate",
         stage: "animatic",
         // The default location `here` is a roster entry too, so expose it alongside the character —
@@ -2072,17 +2055,17 @@ describe("assertDirectionGate characters", () => {
         referenceAssetNames: ["cat", "here"],
         directionAccepted: true,
       }),
-    ).not.toThrow();
+    ).toBe("");
   });
 
   it("does not enforce the characters when reference names are unavailable", () => {
-    expect(() =>
-      assertDirectionGate(withCat, {
+    expect(
+      spendHeldBy(withCat, {
         command: "generate",
         stage: "animatic",
         directionAccepted: true,
       }),
-    ).not.toThrow();
+    ).toBe("");
   });
 });
 
@@ -2114,8 +2097,6 @@ describe("classifyDirectionFinding", () => {
     expect(classifyDirectionFinding("missing-role")).toBe("arc");
     expect(classifyDirectionFinding("unearned-payoff")).toBe("arc");
     expect(classifyDirectionFinding("role-overweight")).toBe("pacing");
-    expect(classifyDirectionFinding("stage-order-mismatch")).toBe("stage");
-    expect(classifyDirectionFinding("unrealized")).toBe("completeness");
     expect(classifyDirectionFinding("character-unreferenced")).toBe("characters");
     expect(classifyDirectionFinding("unused-character")).toBe("characters");
     expect(classifyDirectionFinding("prop-unreferenced")).toBe("props");
@@ -2266,20 +2247,22 @@ describe("checkDirection speech", () => {
     );
   });
 
-  it("is waivable via unexpected-script_<shotId>", () => {
+  it("is not cancelled by a waiver, which is reported as one only a fix clears", () => {
     const dir = withWaivers(withScript("none", [{ narration: "morning light" }]), {
       "unexpected-script_02": "one deliberate title card",
     });
     const res = checkDirection(dir);
-    expect(res.active.map((f) => f.code)).not.toContain("unexpected-script");
-    expect(res.waived.map(directionWaiverKey)).toContain("unexpected-script_02");
+    expect(res.active.map(directionWaiverKey)).toContain("unexpected-script_02");
+    expect(res.staleWaivers).toEqual([
+      { key: "unexpected-script_02", reason: "one deliberate title card", fixOnly: true },
+    ]);
   });
 
   it("blocks generate as an arc-class finding until waived", () => {
     const dir = withScript("none", [{ narration: "morning light" }]);
-    expect(() =>
-      assertDirectionGate(dir, { command: "generate", stage: "video", directionAccepted: true }),
-    ).toThrow(/unexpected-script_02/);
+    expect(
+      spendHeldBy(dir, { command: "generate", stage: "video", directionAccepted: true }),
+    ).toMatch(/unexpected-script_02/);
   });
 });
 
@@ -2383,9 +2366,9 @@ describe("checkDirection fused shots", () => {
 
   it("blocks generate as an arc-class finding until waived", () => {
     const dir = withAction("扉が開く。少女が驚く。");
-    expect(() =>
-      assertDirectionGate(dir, { command: "generate", stage: "video", directionAccepted: true }),
-    ).toThrow(/multi-sentence-action_02/);
+    expect(
+      spendHeldBy(dir, { command: "generate", stage: "video", directionAccepted: true }),
+    ).toMatch(/multi-sentence-action_02/);
   });
 });
 
@@ -2428,23 +2411,23 @@ describe("checkDirection off-grid durations", () => {
     expect(codes).toHaveLength(1);
   });
 
-  it("is waivable via off-grid-duration_<shotId>", () => {
+  it("is not cancelled by a waiver", () => {
     const dir = withWaivers(withDuration(1.2), {
       "off-grid-duration_02": "trimmed from a 2s take",
     });
     const res = checkDirection(dir);
-    expect(res.active.map((f) => f.code)).not.toContain("off-grid-duration");
-    expect(res.waived.map(directionWaiverKey)).toContain("off-grid-duration_02");
+    expect(res.active.map(directionWaiverKey)).toContain("off-grid-duration_02");
+    expect(res.staleWaivers.map((w) => w.key)).toEqual(["off-grid-duration_02"]);
   });
 
   it("blocks generate as a pacing-class finding until waived", () => {
-    expect(() =>
-      assertDirectionGate(withDuration(1.2), {
+    expect(
+      spendHeldBy(withDuration(1.2), {
         command: "generate",
         stage: "video",
         directionAccepted: true,
       }),
-    ).toThrow(/off-grid-duration_02/);
+    ).toMatch(/off-grid-duration_02/);
   });
 });
 

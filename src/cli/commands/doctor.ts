@@ -1049,7 +1049,7 @@ function checkCrossStageConsistency(
   }
 
   // A shot that spends is blocking work — `generate video`, `reroll`, `export` and `patch apply` all
-  // refuse it (ANIMATIC_UNCONSUMED). One built from footage or konte's own ffmpeg ops has no input a
+  // refuse it (`animatic-unconsumed`). One built from footage or konte's own ffmpeg ops has no input a
   // board could be wired into, so no gate refuses it; it is still a board reviewed and then left out
   // of the piece. A `pendingShot` is listed by neither.
   const boardless = listBoardlessVideoShots(video, animatic, graph);
@@ -1097,9 +1097,8 @@ function collectUsedKinds(
   return kinds;
 }
 
-// Reports the direction's structural validity and direction-level arc/pacing findings (report-only —
-// the generate/reroll/export gate is what enforces them). Stage/completeness findings are
-// command-scoped and left to the gate, so doctor runs the direction-only pass (no realizedIds).
+// Reports the direction's structural validity and its findings (report-only — the spend gate is what
+// enforces them).
 async function checkDirectionHealth(videoRoot: string): Promise<CheckResult[]> {
   let direction: Awaited<ReturnType<typeof loadDirectionIfPresent>>;
   try {

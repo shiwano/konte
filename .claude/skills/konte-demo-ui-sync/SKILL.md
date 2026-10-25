@@ -49,7 +49,7 @@ The fixture lacks some states the promo shows: spoken lines, staging folded open
 
 ## 3. Edit
 
-- `className` takes only Tailwind or classes in the file's `CSS` constant; anything else stops `generate` with `COMPOSITION_CLASS_INVALID`. Prefix new classes `kr-`.
+- `className` takes only Tailwind or classes in the file's `CSS` constant; anything else stops `generate` with a `class-font-family` finding. Prefix new classes `kr-`.
 - Use the real page's wording verbatim.
 - No backward compatibility: rename or drop a prop when the real page did, then fix every call in `videos/promo/reference.tsx`.
 - Update the README sections for every prop that changed.

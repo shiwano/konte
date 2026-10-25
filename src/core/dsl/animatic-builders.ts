@@ -1,6 +1,12 @@
-import { formatShotStemAddress, formatViewAddress } from "../address.js";
+import {
+  formatPlateAssetPath,
+  formatShotAddress,
+  formatShotStemAddress,
+  formatViewAddress,
+} from "../address.js";
 import type { ShotStage } from "../address.js";
 import { KonteError } from "../errors.js";
+import type { BuildFinding } from "../finding.js";
 import type { AnimaticDefinition } from "../types/animatic.js";
 import type { AssetDefinition, VideoFormat } from "../types/index.js";
 import type { ScriptLine } from "../types/script.js";
@@ -468,10 +474,6 @@ export interface DefineAnimaticOptions<
     // The view image a plate stands on: its setup's view of its location.
     views: AnimaticViews<D>;
   }) => TPlates;
-  // Prompt findings this stage accepts, keyed the way `konte status` prints them
-  // (`prompt-negation:<hash>`) over the reason each is right for the model it is written for. One
-  // key covers every address a shared phrase reaches; never a fixable one — rewrite that prompt.
-  waivers?: Record<string, string>;
   // The single authoring surface: declare any timeline assets with asset() at the top, then walk the
   // direction — `shot(firstId, …).nextShot(…)…` — and return it under `shots`, optionally with
   // timeline-spanning `soundtracks` (a temp bed to judge the pacing against). The chain must be
@@ -531,7 +533,6 @@ export function defineAnimatic<
         plates: plates.returned as TPlates,
         views,
       }),
-    waivers: opts.waivers,
     perShot: ({ input, element, context, cutin }) => {
       const continuedBy = index.continuedById.get(input.id);
       const { panels, cutinPanels } = readAnimaticShot({
@@ -591,7 +592,12 @@ export function defineAnimatic<
   }
 
   assertRespellings(definition.respellings, index.scriptById);
-  assertScriptVoiced(definition, index);
+  const buildFindings = [
+    ...(definition.buildFindings ?? []),
+    ...plates.findings,
+    ...scriptFindings(definition, index),
+  ];
+  if (buildFindings.length > 0) definition.buildFindings = buildFindings;
   tightenDerivedClipLengths(definition, built.clipLengths);
   assertCuesFitShot(definition, built.clipLengths);
   assertNarrationAttributable(definition, index.scriptById);
@@ -616,28 +622,31 @@ function splitNarrationStems(definition: AnimaticDefinition): void {
   }
 }
 
-// A shot the direction gives spoken lines to must sound them. The same class of definition error as
-// a cycle or a missing ref, and reported the same way by every command that loads the animatic:
-// without a voice take the piece comes out silent, with no failure until it is watched.
-// State-independent by design — it turns only on whether the direction gives the shot lines and
-// whether animatic.tsx answers with audio. A pending shot is exempt; a `telop`-only shot is not
-// scripted, so it never applies.
-function assertScriptVoiced(
+// A shot the direction gives spoken lines to must sound them. State-independent: it turns only on
+// whether the direction gives the shot lines and whether animatic.tsx answers with audio. A pending
+// shot is exempt; a `telop`-only shot is not scripted, so it never applies.
+function scriptFindings(
   definition: AnimaticDefinition,
   index: { scriptById: ReadonlyMap<string, readonly ScriptLine[]> },
-): void {
+): BuildFinding[] {
+  const findings: BuildFinding[] = [];
   for (const shot of definition.shots) {
     if (shot.pending) continue;
     const lines = index.scriptById.get(shot.id) ?? [];
     if (lines.length === 0) continue;
+    const subject = formatShotAddress("animatic", shot.id);
     if ((shot.stemRefs?.length ?? 0) === 0) {
-      throw new KonteError(
-        "SCRIPT_UNVOICED",
-        `Animatic shot "${shot.id}" has spoken lines in the direction but plays no audio. Place them ` +
-          `with <Audio src={asset("vo", …)}> in its <Composition>: the lines are what the motion is ` +
-          `driven by, so they are recorded and reviewed before the shot is spent on. ` +
-          `(${formatShotStemAddress("animatic", shot.id)} is derived from those cues.)`,
-      );
+      findings.push({
+        code: "script-unvoiced",
+        subject,
+        message:
+          `has spoken lines in the direction but plays no audio — place them with ` +
+          `<Audio src={asset("vo", …)}> in its <Composition>: the lines are what the motion is ` +
+          `driven by, so they are recorded and reviewed before the shot is spent on ` +
+          `(${formatShotStemAddress("animatic", shot.id)} is derived from those cues)`,
+        targets: [subject],
+      });
+      continue;
     }
     // Per LINE, not per shot: a two-hander whose second line was never wired plays back short, and
     // the whole-shot rule passes it.
@@ -653,15 +662,19 @@ function assertScriptVoiced(
     // declared for them.
     const unmatched = lines.filter((line) => !saysLine(definition, shot.id, voiced, line));
     if (unmatched[0]) {
-      throw new KonteError(
-        "SCRIPT_UNVOICED",
-        `Animatic shot "${shot.id}" never voices the line \u201c${lineText(unmatched[0])}\u201d. Every ` +
-          `line the direction gives the shot owes an <Audio src={asset(…)}> carrying it — add one, or ` +
-          `move the words to \`telop\` if nobody says them. A model that misreads the words takes ` +
-          `respell(script.<who>[n], "…") in their place.`,
-      );
+      findings.push({
+        code: "script-unvoiced",
+        subject,
+        message:
+          `never voices the line \u201c${lineText(unmatched[0])}\u201d — every line the direction ` +
+          `gives the shot owes an <Audio src={asset(…)}> carrying it: add one, or move the words to ` +
+          `\`telop\` if nobody says them. A model that misreads the words takes ` +
+          `respell(script.<who>[n], "…") in their place`,
+        targets: [subject],
+      });
     }
   }
+  return findings;
 }
 
 // Per location, `front` and every other view its setups face, each the placeholder of its image.
@@ -699,8 +712,9 @@ function buildPlates<D>(
   assets: Record<string, AssetDefinition> | undefined;
   returned: object;
   exposed: string[];
+  findings: BuildFinding[];
 } {
-  if (!fn) return { assets: undefined, returned: {}, exposed: [] };
+  if (!fn) return { assets: undefined, returned: {}, exposed: [], findings: [] };
   const declared = new Set(
     Object.keys((direction as { setups?: Record<string, unknown> }).setups ?? {}),
   );
@@ -712,13 +726,19 @@ function buildPlates<D>(
   const declaredPlates = discovery.result as Record<string, unknown>;
 
   const returned: Record<string, AnimaticPlate> = {};
+  const findings: BuildFinding[] = [];
   for (const id of Object.keys(declaredPlates)) {
+    // A setup removed or renamed in the direction leaves its plate behind: filed under nothing, it
+    // is no setup's plate until it is moved or dropped, though the timeline may still draw it.
     if (!declared.has(id)) {
-      throw new KonteError(
-        "INVALID_PLATE",
-        `defineAnimatic: plates."${id}" is not a setup direction.ts declares. A plate is filed ` +
+      findings.push({
+        code: "plate-undeclared-setup",
+        subject: formatPlateAssetPath(id),
+        message:
+          `is filed under "${id}", which is not a setup direction.ts declares — a plate is filed ` +
           `under the roster id it holds still, so its key must be one of: ${[...declared].join(", ")}`,
-      );
+        targets: [formatPlateAssetPath(id)],
+      });
     }
     const image = declaredPlates[id] as { src?: unknown } | null | undefined;
     if (typeof image?.src !== "string") {
@@ -771,6 +791,7 @@ function buildPlates<D>(
   return {
     assets: Object.keys(discovery.assets).length > 0 ? discovery.assets : undefined,
     returned,
-    exposed: Object.keys(returned),
+    exposed: Object.keys(returned).filter((id) => declared.has(id)),
+    findings,
   };
 }

@@ -140,9 +140,7 @@ describe("prompt collection", () => {
         ]),
     });
 
-    expect(checkPrompts(video.prompts ?? []).active.map((f) => f.phrase)).toContain(
-      "I don't want to",
-    );
+    expect(checkPrompts(video.prompts ?? []).map((f) => f.phrase)).toContain("I don't want to");
   });
 
   it("carries the adapter's exemptions into the check", () => {
@@ -162,7 +160,7 @@ describe("prompt collection", () => {
         ]),
     });
 
-    expect(checkPrompts(video.prompts ?? []).active).toEqual([]);
+    expect(checkPrompts(video.prompts ?? [])).toEqual([]);
   });
 
   it("stamps the direction's spoken lines, so a quoted line is not a negation", () => {
@@ -200,15 +198,7 @@ describe("prompt collection", () => {
     });
 
     expect(video.prompts?.[0]?.script).toEqual(["I don't want to."]);
-    expect(checkPrompts(video.prompts ?? []).active).toEqual([]);
-  });
-
-  it("carries a stage's waivers onto the definition", () => {
-    const video = defineVideo(testDirection(FORMAT), {
-      waivers: { "prompt-negation:abcd1234": "the model's own vocabulary" },
-      timeline: () => videoTimeline([]),
-    });
-    expect(video.waivers).toEqual({ "prompt-negation:abcd1234": "the model's own vocabulary" });
+    expect(checkPrompts(video.prompts ?? [])).toEqual([]);
   });
 
   it("collects the reference stage's prompts", () => {

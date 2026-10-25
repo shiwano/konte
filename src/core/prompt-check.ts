@@ -5,27 +5,23 @@
 // of any DSL/runtime import (like direction-check.ts) so the gate, status and unit tests can pull
 // it in standalone. English only.
 
-import { KonteError } from "./errors.js";
-import {
-  STAGE_FINDING_CODES,
-  unknownWaiverKeys,
-  waiverKey,
-  type StageFindingCode,
-} from "./waiver-keys.js";
+import type { Finding, SourceFile } from "./finding.js";
 
 /**
- * The classes this check reports, its slice of the waiver namespace (see waiver-keys.ts).
+ * The codes this check reports.
  *   - prompt-negation: the prompt names something to leave out.
  *   - prompt-not-yet: the prompt describes what has not happened — time talk in a still frame, or a
  *     motion prompt written as a state to hold rather than a move to make.
  *   - prompt-double-negative: a negativePrompt names an exclusion negatively ("no watermark"),
  *     which cancels it.
  */
-export type PromptFindingCode = Extract<StageFindingCode, `prompt-${string}`>;
+export const PROMPT_FINDING_CODES = [
+  "prompt-negation",
+  "prompt-not-yet",
+  "prompt-double-negative",
+] as const;
 
-const FINDING_CODES: readonly PromptFindingCode[] = STAGE_FINDING_CODES.filter(
-  (code): code is PromptFindingCode => code.startsWith("prompt-"),
-);
+export type PromptFindingCode = (typeof PROMPT_FINDING_CODES)[number];
 
 // One `"prompt"` / `"negativePrompt"` / `"spokenText"` input's value, as declared at one address.
 // `negative` marks the second kind, which reverses which phrasing is the finding; `spoken` the
@@ -63,18 +59,8 @@ export function spokenLinesAt(occurrences: readonly PromptOccurrence[], address:
 // constant thirty prompts share. `addresses` is where the phrase is written, in declaration order.
 export type PromptFinding = {
   code: PromptFindingCode;
-  key: string;
   phrase: string;
   addresses: readonly string[];
-};
-
-type PromptStaleWaiver = { key: string; reason: string };
-
-type PromptCheckResult = {
-  active: PromptFinding[];
-  waived: PromptFinding[];
-  // A waiver that cancels nothing: its phrase is gone, or its code half names no finding class.
-  staleWaivers: PromptStaleWaiver[];
 };
 
 // A clause — the unit a finding is keyed at, and what reappears verbatim across prompts.
@@ -138,10 +124,9 @@ function cutScript(occurrence: PromptOccurrence): string {
   return out;
 }
 
-// Keyed on the phrase with its casing and spacing taken out — one waiver covers every way it was
-// typed.
-export function promptWaiverKey(code: PromptFindingCode, phrase: string): string {
-  return waiverKey(code, phrase.toLowerCase().replace(/\s+/g, " ").trim());
+// One finding per phrase, with its casing and spacing taken out — every way it was typed.
+function phraseKey(code: PromptFindingCode, phrase: string): string {
+  return `${code}:${phrase.toLowerCase().replace(/\s+/g, " ").trim()}`;
 }
 
 // The clauses of one prompt value that a negation survives, each with the class it falls in.
@@ -166,17 +151,13 @@ function findingsIn(
   return out;
 }
 
-// Reports findings; it never throws and never decides severity — the caller (the spend gate,
-// status) owns waivers and abort policy.
-export function checkPrompts(
-  occurrences: readonly PromptOccurrence[],
-  waivers: Readonly<Record<string, string>> = {},
-): PromptCheckResult {
+// Reports findings; it never throws and never decides severity — the gates own that.
+export function checkPrompts(occurrences: readonly PromptOccurrence[]): PromptFinding[] {
   const byKey = new Map<string, PromptFinding & { addresses: string[] }>();
   for (const occurrence of occurrences) {
     if (occurrence.spoken) continue;
     for (const { code, phrase } of findingsIn(occurrence)) {
-      const key = promptWaiverKey(code, phrase);
+      const key = phraseKey(code, phrase);
       const existing = byKey.get(key);
       if (existing) {
         if (!existing.addresses.includes(occurrence.address)) {
@@ -184,84 +165,52 @@ export function checkPrompts(
         }
         continue;
       }
-      byKey.set(key, { code, key, phrase, addresses: [occurrence.address] });
+      byKey.set(key, { code, phrase, addresses: [occurrence.address] });
     }
   }
-
-  const active: PromptFinding[] = [];
-  const waived: PromptFinding[] = [];
-  for (const finding of byKey.values()) {
-    (finding.key in waivers ? waived : active).push(finding);
-  }
-
-  const unknownWaivers = new Set(unknownWaiverKeys(waivers));
-  const staleWaivers: PromptStaleWaiver[] = [];
-  for (const [key, reason] of Object.entries(waivers)) {
-    if (unknownWaivers.has(key)) {
-      staleWaivers.push({ key, reason });
-      continue;
-    }
-    // Another check's class, not this one's: its own gate answers for it.
-    if (!FINDING_CODES.includes(key.slice(0, key.indexOf(":")) as PromptFindingCode)) continue;
-    if (!byKey.has(key)) staleWaivers.push({ key, reason });
-  }
-
-  return { active, waived, staleWaivers };
+  return [...byKey.values()];
 }
 
 const PHRASE_DISPLAY_LIMIT = 80;
 const ADDRESS_DISPLAY_LIMIT = 3;
 
-export function formatPromptFinding(finding: PromptFinding): string {
-  const phrase =
-    finding.phrase.length > PHRASE_DISPLAY_LIMIT
-      ? `${finding.phrase.slice(0, PHRASE_DISPLAY_LIMIT - 1)}…`
-      : finding.phrase;
-  const shown = finding.addresses.slice(0, ADDRESS_DISPLAY_LIMIT).join(", ");
-  const hidden = finding.addresses.length - ADDRESS_DISPLAY_LIMIT;
-  return `"${phrase}" — ${shown}${hidden > 0 ? `, +${hidden} more` : ""}`;
+function displayPhrase(phrase: string): string {
+  return phrase.length > PHRASE_DISPLAY_LIMIT
+    ? `${phrase.slice(0, PHRASE_DISPLAY_LIMIT - 1)}…`
+    : phrase;
 }
 
-// What a stage or a patch declares for the check to read: the prompt values it built, and the
-// waivers standing against them.
+function formatAddresses(addresses: readonly string[]): string {
+  const shown = addresses.slice(0, ADDRESS_DISPLAY_LIMIT).join(", ");
+  const hidden = addresses.length - ADDRESS_DISPLAY_LIMIT;
+  return `${shown}${hidden > 0 ? `, +${hidden} more` : ""}`;
+}
+
+export function formatPromptFinding(finding: PromptFinding): string {
+  return `"${displayPhrase(finding.phrase)}" — ${formatAddresses(finding.addresses)}`;
+}
+
+// What a stage or a patch declares for the check to read: the prompt values it built.
 export type PromptCheckSubject = {
   prompts?: readonly PromptOccurrence[];
-  waivers?: Readonly<Record<string, string>>;
 };
 
 // What to do about a finding, by the polarity of the input it was written in.
 const REMEDY: Record<PromptFindingCode, string> = {
-  "prompt-negation":
-    "a model conditions on what the prompt names, so describe what occupies the space instead of naming what to leave out",
-  "prompt-not-yet":
-    "a model conditions on what the prompt names, so describe the state the frame is in instead of what has not happened",
+  "prompt-negation": "describe what occupies the space instead of naming what to leave out",
+  "prompt-not-yet": "describe the state the frame is in instead of what has not happened",
   "prompt-double-negative":
-    "a negativePrompt is already the exclusion, so a negation inside it re-admits what it names — keep the term, drop the negation",
+    "a negativePrompt is already the exclusion — keep the term, drop the negation",
 };
 
-// The gate: abort with PROMPT_CHECK_FAILED when a prompt about to be spent on still names an
-// exclusion. `where` is the file that holds both the prompts and their waivers.
-export function assertPromptGate(subject: PromptCheckSubject, where: string): void {
-  const { active } = checkPrompts(subject.prompts ?? [], subject.waivers ?? {});
-
-  if (active.length === 0) return;
-
-  // Grouped by remedy, in the fixed order of the finding contract, so a stage mixing the two
-  // polarities is told both things once rather than per line.
-  const blocks = FINDING_CODES.flatMap((code) => {
-    const findings = active.filter((f) => f.code === code);
-    if (findings.length === 0) return [];
-    return [
-      `  ${REMEDY[code]}:\n${findings
-        .map((f) => `    [${f.key}] ${formatPromptFinding(f)}`)
-        .join("\n")}`,
-    ];
-  });
-
-  throw new KonteError(
-    "PROMPT_CHECK_FAILED",
-    `${where} has ${active.length} unresolved prompt finding(s). Fix each, or add a reason to ` +
-      `\`waivers\` in ${where} when the phrasing is how this model is meant to be written`,
-    blocks,
-  );
+// The findings in the prompts `subject` declares, fixed in `fixIn` — the file that writes them.
+export function promptFindings(subject: PromptCheckSubject, fixIn: SourceFile): Finding[] {
+  return checkPrompts(subject.prompts ?? []).map((f) => ({
+    code: f.code,
+    subject: `"${displayPhrase(f.phrase)}"`,
+    fixIn,
+    message: `${formatAddresses(f.addresses)} — ${REMEDY[f.code]}`,
+    // A patch's prompt is the patch's alone.
+    targets: fixIn.patch === undefined ? f.addresses : [],
+  }));
 }

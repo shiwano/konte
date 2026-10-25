@@ -4,17 +4,12 @@ import {
   isMaterializedLeafAddress,
   isStageScope,
 } from "./address.js";
-import type { AnimaticOverflow } from "./animatic-overflow.js";
-import type { DirectionFindingCode } from "./direction-check.js";
-import { type FindingFixStage, findingFixStage, findingGatesSpend } from "./direction.js";
+import { type Finding, findingTraits, groupByFixIn } from "./finding.js";
 import { isVariantStale, type StalenessCache } from "./staleness.js";
 import { ERROR_GLIMPSE_WIDTH, truncateSingleLine } from "./truncate.js";
-import type { UnmetPrerequisite } from "./review-prerequisites.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
 import type { ExportReadiness, LastExport } from "./status-sections.js";
 import type { AssetState, KonteState, VariantState } from "./types/index.js";
-import { formatSeconds } from "./format-duration.js";
-import { formatFindings, type VariantFindings } from "./variant-check.js";
 
 // One step: a runnable command, or — when no command performs it — a `label` naming the edit it
 // takes, parenthesized on the page so it never reads as something to run.
@@ -205,20 +200,31 @@ function suggestCompositionReReview(
   }
 }
 
-// A variant finding blocks its stage's `konte preview` (VARIANT_CHECK_FAILED), so the step is the
-// probe that shows the line beside what was heard, above the review it gates.
-function prependVariantFindings(
-  actions: SuggestedAction[],
-  found: readonly VariantFindings[],
-): void {
-  if (found.length === 0) return;
-  actions.unshift({
-    command: `konte probe audio ${found.map((v) => v.variantId).join(" ")}`,
+// The findings, one step per file they are fixed in — the edit, which no command performs. A take
+// found wrong is cleared by hearing it instead: the probe that shows its line beside what was heard.
+function prependFindings(actions: SuggestedAction[], findings: readonly Finding[]): void {
+  const vouchable = findings.filter((f) => findingTraits(f.code).clears === "vouch");
+  const steps: SuggestedAction[] = groupByFixIn(
+    findings.filter((f) => findingTraits(f.code).clears !== "vouch"),
+  ).map(({ file, findings: group }) => ({
+    command: null,
+    label: `edit ${file}`,
     details: [
-      ...found.map((v) => `${v.address} ${v.variantId}: ${formatFindings(v.findings)}`),
-      "Dismiss a broken take (reroll for another beside it); `konte vouch <variantId>` one that is fine",
+      `Fix the ${group.length} finding(s) listed under it below` +
+        (group.some((f) => findingTraits(f.code).clears === "waive")
+          ? `, or waive a waivable one by its key in ${STAGE_ENTRY_FILE.direction}`
+          : ""),
     ],
-  });
+  }));
+  if (vouchable.length > 0) {
+    steps.push({
+      command: `konte probe audio ${[...new Set(vouchable.map((f) => f.subject))].join(" ")}`,
+      details: [
+        "Dismiss a broken take (reroll for another beside it); `konte vouch <variantId>` one that is fine",
+      ],
+    });
+  }
+  actions.unshift(...steps);
 }
 
 // A human accept whose own definition moved. The take is the human's pick, so the step is the
@@ -316,71 +322,11 @@ function prependDirectionReview(
   actions.unshift({ command: "konte preview direction" });
 }
 
-// A target whose review prerequisites are unwritten blocks its stage's `konte preview`
-// (REVIEW_PREREQUISITE_MISSING), so the step is the edit that unblocks it, above the review it
-// gates. There is no command for it — the fields are authored by hand, read off the output. One
-// note per definition file, naming the fields and where they are owed.
-function prependPrerequisiteEdits(
-  actions: SuggestedAction[],
-  unmet: readonly UnmetPrerequisite[],
-): void {
-  const byFile = new Map<string, UnmetPrerequisite[]>();
-  for (const u of unmet) {
-    const group = byFile.get(u.writeIn);
-    if (group) group.push(u);
-    else byFile.set(u.writeIn, [u]);
-  }
-  for (const [writeIn, group] of [...byFile].reverse()) {
-    const fields = [...new Set(group.flatMap((u) => u.missing))].join("/");
-    const takes = [...new Set(group.map((u) => u.variantId))].join(", ");
-    const where = [...new Set(group.map((u) => u.shotId ?? u.address))].join(", ");
-    actions.unshift({
-      command: null,
-      label: `edit ${writeIn}`,
-      details: [`Write ${fields} from the output of ${takes} on ${where}`],
-    });
-  }
-}
-
-// A shot whose animatic audio the clamp cuts. No command for it either. A cut one retime can fit
-// is fixed in animatic.tsx, leaving the direction alone; the rest need the shot's `duration` or
-// the lines written against it, both in direction.ts.
-function prependAnimaticRetimes(
-  actions: SuggestedAction[],
-  overflows: readonly Pick<AnimaticOverflow, "shotId" | "overflowSec" | "retime">[],
-): void {
-  const unfit = overflows.filter((o) => o.retime === null);
-  if (unfit.length > 0) {
-    const worst = Math.max(...unfit.map((o) => o.overflowSec));
-    actions.unshift({
-      command: null,
-      label: `edit ${STAGE_ENTRY_FILE.direction}`,
-      details: [
-        `Lengthen the duration of shot ${unfit.map((o) => o.shotId).join(", ")} or shorten the ` +
-          `script — the narration runs past the shot (up to ${formatSeconds(worst)}) and is cut`,
-      ],
-    });
-  }
-  const fits = overflows.flatMap((o) => (o.retime ? [o.retime] : []));
-  if (fits.length > 0) {
-    actions.unshift({
-      command: null,
-      label: `edit ${STAGE_ENTRY_FILE.animatic}`,
-      details: fits.map(
-        (r) =>
-          `Put ${r.src} through adapters.audioRetime with duration ${r.roomSec.toFixed(2)} ` +
-          `(${r.rate.toFixed(3)}x) and play that in its place — it fits without cutting the tail`,
-      ),
-    });
-  }
-}
-
 // A cast reference — a character's look or a cast voice's sample — whose `reference:<id>` asset is
 // not yet accepted. `missingFile` carries the declared path of a `file` asset, which is satisfied by
 // putting media there — never generated. `declared` is whether reference.tsx exposes the asset; one
-// it does not has no step here, since no command makes it. `blocks` is which spends it actually
-// gates: a look aborts every animatic/video spend, a voice only video (`assertVoicesAccepted`), so an
-// uncast voice must not hold back the animatic work that would still run.
+// it does not has no step here, since no command makes it. `blocks` is "all" for a look, which every
+// shot is drawn from: developing more shots waits on it, never on a voice.
 type UnacceptedCastRef = {
   id: string;
   declared: boolean;
@@ -388,8 +334,8 @@ type UnacceptedCastRef = {
   blocks: "all" | "video";
 };
 
-// The cast gates animatic/video spend exactly as the direction does (see assertCharactersAccepted /
-// assertVoicesAccepted), so it sits directly under the direction review and above any per-asset step.
+// The cast holds animatic/video spend exactly as the direction does (the spend gate's cast), so it
+// sits directly under the direction review and above any per-asset step.
 // Which step it is depends on where the reference stalled: a `file` one is waiting on its media, a
 // generated one on its first `generate`, and one that already has an output only on its accept.
 function prependCastGate(
@@ -425,37 +371,6 @@ function prependCastGate(
   // A plain `konte generate reference` may already be in the body; unshifting here puts the gate's
   // copy first and `dedupeCommands` drops the later twin, so the gate keeps its priority.
   actions.unshift(...steps);
-}
-
-// An unresolved structural finding aborts generate/reroll/export with DIRECTION_CHECK_FAILED, so the
-// step is to edit a definition file — no command does it. Which file is each finding's own answer
-// (`findingFixStage`): pointing a missing reference asset or plate at direction.ts would send the
-// author to the one file that is already right. So one step per file, direction first. A structural
-// error is never fixed elsewhere and may be what the other findings follow from, so it takes the
-// whole block back to direction.ts. Skipped for a shotless direction: the "write your direction"
-// note already says the same thing (and `empty-direction` is itself one of the findings).
-function prependDirectionFindings(
-  actions: SuggestedAction[],
-  block: DirectionBlock | undefined,
-  empty: boolean | undefined,
-): void {
-  if (!block || empty) return;
-  const stages = block.hasStructureErrors
-    ? new Set<FindingFixStage>(["direction"])
-    : new Set(block.findingCodes.map(findingFixStage));
-  const waive = `or waive a finding by its key in ${STAGE_ENTRY_FILE.direction}`;
-  const details: Record<FindingFixStage, string> = {
-    direction: `Resolve the direction errors and findings below in ${STAGE_ENTRY_FILE.direction} — fix each, or waive a finding by its key`,
-    reference: `Expose the missing reference assets in ${STAGE_ENTRY_FILE.reference} — one per finding below, ${waive}`,
-    animatic: `Build the plates and keyframe inputs the setup findings below ask for in ${STAGE_ENTRY_FILE.animatic}, ${waive}`,
-    video: `Wire and name the passing characters the findings below ask for in ${STAGE_ENTRY_FILE.video}, ${waive}`,
-  };
-  const order: readonly FindingFixStage[] = ["direction", "reference", "animatic", "video"];
-  actions.unshift(
-    ...order
-      .filter((stage) => stages.has(stage))
-      .map((stage) => ({ command: null, label: "edit", details: [details[stage]] })),
-  );
 }
 
 // `generate` is stage-scoped and skips whatever is accepted, ready, or already in flight, so one
@@ -565,13 +480,6 @@ export function formatSuggestedActions(actions: SuggestedAction[]): string {
   return lines.join("\n");
 }
 
-interface DirectionBlock {
-  /** The unresolved waivable findings. */
-  findingCodes: readonly DirectionFindingCode[];
-  /** True when a structural error is among the blockers — unwaivable, and always direction-side. */
-  hasStructureErrors: boolean;
-}
-
 interface SuggestStatusInput {
   state: KonteState;
   /**
@@ -585,8 +493,12 @@ interface SuggestStatusInput {
    * `hasFreshPending` heuristic, which cannot see it.
    */
   pendingReviewAddresses?: readonly string[];
-  /** The variant check's findings on variants awaiting review (see `unvouchedFindings`). */
-  variantFindings?: readonly VariantFindings[];
+  /** Every finding standing (see `collectFindings`). */
+  findings?: readonly Finding[];
+  /** Stages whose `generate` the spend gate would refuse right now. */
+  spendHeldStages?: readonly string[];
+  /** Stages whose `konte preview` the review gate would refuse right now. */
+  previewHeldStages?: readonly string[];
   /**
    * The report's job-aware "Problems" addresses. The state-only fallback cannot see job state, so it
    * wrongly flags a still-running variant (no file yet, no error) as a problem.
@@ -597,8 +509,8 @@ interface SuggestStatusInput {
   /** The report's last export, so a current deliverable isn't re-suggested. */
   lastExports?: readonly LastExport[];
   /**
-   * Pending patches this function cannot judge on its own — a patch whose own prompt findings block
-   * it. Its caller has the patch catalog; this one has only stages and addresses.
+   * Pending patches this function cannot judge on its own — a patch whose own findings hold it. Its
+   * caller has the patch catalog; this one has only stages and addresses.
    */
   blockedPatchAddresses?: readonly string[];
   /** Addresses with a declared-but-unrealized patch, from the report's "Pending patches". */
@@ -624,11 +536,6 @@ interface SuggestStatusInput {
   standaloneFailureJobIds?: readonly string[];
   /** Patch scripts the report could not load, each with its error. */
   patchErrors?: readonly { filePath: string; message: string }[];
-  /**
-   * What is aborting generate/reroll/export on the direction — absent when nothing is. The finding
-   * codes rather than a flag: which file the edit step names is decided per code.
-   */
-  directionBlock?: DirectionBlock;
   /** True when the direction is unaccepted or changed since acceptance. Surfaced first. */
   directionReviewNeeded?: boolean;
   /** The direction's cast — character looks and voice samples — whose reference asset is not yet accepted. */
@@ -645,19 +552,6 @@ interface SuggestStatusInput {
   stuckJobIds?: readonly string[];
   /** Takes of the song no job is reading — `konte song analyze` reads them. */
   songUnread?: boolean;
-  /** Stages whose spend the upstream-acceptance gate would refuse — a board or a sheet they consume lacks an accepted variant. */
-  upstreamReviewBlockedStages?: readonly string[];
-  /** Stages whose spend the prompt gate would refuse, each with the file holding its prompts. */
-  promptBlockedStages?: readonly { stage: string; where: string }[];
-  /**
-   * Stages whose spend the class gate would refuse, each with the file holding the markup; `review`
-   * when a composition's class also refuses `konte preview <stage>`.
-   */
-  classBlockedStages?: readonly { stage: string; where: string; review: boolean }[];
-  /** Targets holding output whose review prerequisites are not written yet. */
-  unmetPrerequisites?: readonly UnmetPrerequisite[];
-  /** Shots whose animatic narration the stem's clamp cuts (see `findAnimaticOverflows`). */
-  animaticOverflows?: readonly Pick<AnimaticOverflow, "shotId" | "overflowSec" | "retime">[];
   /**
    * Addresses whose comments still stand — a stale one has already been answered by whatever aged
    * it (the take moved under it, or an accept was stamped over it), so it asks for nothing.
@@ -688,44 +582,13 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   const { state } = input;
   const actions: SuggestedAction[] = [];
 
-  // Every spend command shares one gate (gateDirectionForStage): an unresolved finding, an
-  // unaccepted direction, or an unaccepted cast reference each abort generate/reroll/export — and the
-  // reference stage returns before all three, being where the cast is made. Suggesting a command
-  // that would abort is worse than suggesting nothing, so the same gate decides what is offered.
+  // The spend gate and the review gate decide what is offered.
   const cast = input.unacceptedCast ?? [];
+  // Developing more shots waits on the direction and the cast every shot is built from.
   const gated = input.directionReviewNeeded === true || cast.some((c) => c.blocks === "all");
-  // Either creative stage aborts with ANIMATIC_/REFERENCE_ACCEPTANCE_REQUIRED while upstream work
-  // it consumes is unaccepted; the video stage has one gate more, VOICE_ACCEPTANCE_REQUIRED while a
-  // cast voice sample is, so those suggestions are held back too.
-  const videoCastBlocked = cast.some((c) => c.blocks === "video");
-  const upstreamBlocked = new Set(input.upstreamReviewBlockedStages ?? []);
-  const unmetPrerequisites = input.unmetPrerequisites ?? [];
-  const found = input.variantFindings ?? [];
-  const prerequisiteBlocked = new Set([
-    ...unmetPrerequisites.map((u) => u.stage as string),
-    ...found.map((v) => getStage(v.address) as string),
-  ]);
-  // The prompt gate is per stage and reaches the reference stage too — its prompts are spent on by
-  // `generate reference`, which the direction gate never touches.
-  const promptBlocked = new Set((input.promptBlockedStages ?? []).map((p) => p.stage));
-  const classBlocked = input.classBlockedStages ?? [];
-  const classBlockedStages = new Set(classBlocked.map((c) => c.stage));
-  const reviewClassBlocked = new Set(classBlocked.filter((c) => c.review).map((c) => c.stage));
-  const directionBlocked = (s: string) => {
-    const block = input.directionBlock;
-    if (!block || (s !== "animatic" && s !== "video")) return false;
-    return (
-      block.hasStructureErrors ||
-      block.findingCodes.some((code) => findingGatesSpend(code, "generate", s))
-    );
-  };
-  const stageBlocked = (s: string) =>
-    directionBlocked(s) ||
-    (gated && s !== "reference") ||
-    upstreamBlocked.has(s) ||
-    promptBlocked.has(s) ||
-    classBlockedStages.has(s) ||
-    (s === "video" && videoCastBlocked);
+  const spendHeld = new Set(input.spendHeldStages ?? []);
+  const previewHeld = new Set(input.previewHeldStages ?? []);
+  const stageBlocked = (s: string) => spendHeld.has(s);
   const addressBlocked = (addr: string) => stageBlocked(getStage(addr));
 
   // Ahead of the review suggestions: what the human already asked for outranks showing them more.
@@ -737,9 +600,8 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
       .filter(([addr, a]) => hasFreshPending(state, addr, a, input.stalenessCache))
       .map(([addr]) => addr);
   for (const scope of distinctScopes(pendingAddresses)) {
-    // `konte preview <stage>` aborts while that stage has an unmet prerequisite, and suggesting a
-    // command that would abort is worse than suggesting nothing — the edit note stands in for it.
-    if (prerequisiteBlocked.has(scope) || reviewClassBlocked.has(scope)) continue;
+    // The edit step for what holds it stands in for a refused review.
+    if (previewHeld.has(scope)) continue;
     actions.push({ command: `konte preview ${scope}` });
   }
 
@@ -758,7 +620,7 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
     [...(input.staleAddresses ?? [])],
     [...(input.deterministicStaleAddresses ?? [])],
     addressBlocked,
-    (addr) => reviewClassBlocked.has(getStage(addr)),
+    (addr) => previewHeld.has(getStage(addr)),
     isMaterializedLeafAddress,
   );
 
@@ -783,11 +645,6 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   suggestGenerate(actions, readiness, stageBlocked);
   suggestExport(actions, readiness, input.lastExports, stageBlocked);
 
-  prependPrerequisiteEdits(actions, unmetPrerequisites);
-  prependVariantFindings(actions, found);
-  // Above the prerequisites: those hold a review back, this one moves the shot every review of the
-  // shot is judged against.
-  prependAnimaticRetimes(actions, input.animaticOverflows ?? []);
   prependCastGate(actions, state, input.unacceptedCast);
   prependDirectionReview(
     actions,
@@ -805,9 +662,9 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
     actions.unshift({ command: `konte job show ${id}` });
   }
   if (input.songUnread) actions.unshift({ command: "konte song analyze" });
-  prependDirectionFindings(actions, input.directionBlock, input.directionEmpty);
-  prependPromptFindings(actions, input.promptBlockedStages ?? []);
-  prependClassFindings(actions, classBlocked);
+  // A shotless direction's one finding is that it has no shots, which the "write your direction"
+  // step already says.
+  if (!input.directionEmpty) prependFindings(actions, input.findings ?? []);
   if (!gated) {
     suggestDevelopment(
       actions,
@@ -848,34 +705,5 @@ function suggestDevelopment(
     command: null,
     label: "edit",
     details: [`Develop the next sequence: ${parts.join(", ")}`],
-  });
-}
-
-function prependClassFindings(
-  actions: SuggestedAction[],
-  blocked: readonly { stage: string; where: string }[],
-): void {
-  if (blocked.length === 0) return;
-  const files = [...new Set(blocked.map((b) => b.where))].join(", ");
-  actions.unshift({
-    command: null,
-    label: "edit",
-    details: [`Fix the flagged classes in ${files}`],
-  });
-}
-
-// Above the direction block. The file named is where both the rewrite and the waiver go.
-function prependPromptFindings(
-  actions: SuggestedAction[],
-  blocked: readonly { stage: string; where: string }[],
-): void {
-  if (blocked.length === 0) return;
-  const files = [...new Set(blocked.map((b) => b.where))].join(", ");
-  actions.unshift({
-    command: null,
-    label: "edit",
-    details: [
-      `Rewrite the flagged prompts in ${files} — say what occupies the space instead of what to leave out, or waive a finding by its key`,
-    ],
   });
 }

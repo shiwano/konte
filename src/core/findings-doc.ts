@@ -1,22 +1,20 @@
 import { format } from "oxfmt";
 import type { Stage } from "./address.js";
 import type { DirectionFindingCode } from "./direction-check.js";
+import { type DirectionErrorCode, findingFixStage } from "./direction.js";
 import {
-  type DirectionFindingClass,
-  type SpendCommand,
-  classifyDirectionFinding,
-  gatedClasses,
-  findingGatesSpend,
-  isDeferredUntilAcceptedFinding,
-  findingFixStage,
-} from "./direction.js";
+  DIRECTION_FINDING_CODES,
+  type FindingCode,
+  type FindingTraits,
+  findingTraits,
+  spendStages,
+} from "./finding.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
-import type { StageFindingCode } from "./waiver-keys.js";
 
 // The source of `docs/FINDINGS.md`. Each record is keyed by the finding code set, so a new code with
 // no entry here is a compile error, and `findings-doc.test.ts` fails until the document is
 // regenerated (`bun run build:generate-findings-doc`). Only what the code cannot say is written by
-// hand; the class, the gates, deferral and where the fix lives are read off the checks themselves.
+// hand; what a finding reads, clears by, holds and sets in with are read off the registry.
 
 type DirectionFindingDoc = {
   flags: string;
@@ -58,16 +56,6 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
   "role-underweight": {
     flags: "A role holds less of the runtime than its `minShare`.",
     subject: "role",
-  },
-  "stage-order-mismatch": {
-    flags: "A stage realizes the direction's shots in a different order.",
-    subject: null,
-    typeLevel: true,
-  },
-  unrealized: {
-    flags: "A direction shot that no stage shot realizes.",
-    subject: "shot id",
-    typeLevel: true,
   },
   "song-unreferenced": {
     flags: "`policy.song` names no `reference:<id>` asset.",
@@ -175,9 +163,14 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
   },
   "off-grid-duration": {
     flags:
-      "A shot's `duration` is not a positive multiple of 0.5s, or on `policy.song` its `beats` is not a positive whole number.",
+      "A shot's `duration` is not a positive multiple of 0.5s, or on `policy.song` its `beats` is not positive.",
     subject: "shot id",
     typeLevel: true,
+  },
+  "off-beat-cut": {
+    flags:
+      "On `policy.song`, a shot's `beats` is not a whole number, so the cut after it lands off the beat.",
+    subject: "shot id",
   },
   "fonts-undeclared": {
     flags: "`policy.lang` is in a script no default face covers, and `policy.fonts` is empty.",
@@ -277,50 +270,176 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
   },
 };
 
-export const STAGE_FINDING_DOCS: Record<StageFindingCode, { flags: string }> = {
-  "prompt-negation": { flags: "A prompt names something to leave out." },
+export const DIRECTION_ERROR_DOCS: Record<DirectionErrorCode, string> = {
+  "direction-missing": "The video has no `direction.ts`.",
+  "empty-direction": "The direction declares no shot.",
+  "duplicate-id": "An id is declared more than once.",
+  "unknown-lens": "A node names a lens that is neither built in nor declared.",
+  "payoff-not-in-roles": "A lens's payoff is not one of its roles.",
+  "payoff-function-mismatch": "A lens's payoff role is not a payoff-function role.",
+  "empty-roles": "A lens declares no roles.",
+  "invalid-share": "A role's `minShare` / `maxShare` is not a fraction in [0, 1].",
+  "character-invalid-id": "A character id is not a valid asset name.",
+  "character-empty-name": "A character has an empty `name`.",
+  "character-empty-description": "A character has an empty `description`.",
+  "character-empty-prompt-depiction": "A character has an empty `promptDepiction`.",
+  "character-voice-invalid-id": "A character's voice id is not a valid asset name.",
+  "character-voice-empty-description": "A character's voice has an empty `description`.",
+  "narrator-invalid-id": "The narrator's voice id is not a valid asset name.",
+  "narrator-empty-description": "The narrator's voice has an empty `description`.",
+  "prop-invalid-id": "A prop id is not a valid asset name.",
+  "prop-empty-name": "A prop has an empty `name`.",
+  "prop-empty-description": "A prop has an empty `description`.",
+  "prop-empty-prompt-depiction": "A prop has an empty `promptDepiction`.",
+  "location-invalid-id": "A location id is not a valid asset name.",
+  "location-empty-name": "A location has an empty `name`.",
+  "location-empty-description": "A location has an empty `description`.",
+  "location-empty": "The direction declares no location.",
+  "landmarks-empty": "A location declares no `landmarks`.",
+  "landmark-invalid-id": "A landmark id is not a valid identifier.",
+  "landmark-empty-name": "A landmark has an empty `name`.",
+  "landmark-empty-description": "A landmark has an empty `description`.",
+  "landmark-empty-prompt-depiction": "A landmark has an empty `promptDepiction`.",
+  "landmark-id-conflict":
+    "A landmark id is also a roster id, or a landmark id of another location.",
+  "prompt-depiction-conflict":
+    "One declared `promptDepiction` contains another, so a substring scan cannot tell them apart.",
+  "setup-invalid-id": "A setup id is not a valid asset name.",
+  "setup-empty-name": "A setup has an empty `name`.",
+  "setup-empty-description": "A setup has an empty `description`.",
+  "setup-empty": "A frame is declared with no setup roster to name.",
+  "setup-unknown": "A frame names a setup that is not declared.",
+  "setup-unknown-location": "A setup is set in a location that is not declared.",
+  "holds-empty": "A setup other than an `insert` holds no landmark.",
+  "holds-unknown-id": "A setup holds an id that is not a landmark of its location.",
+  "within-undeclared": "A setup that could be cut from a wider one does not say whether it is.",
+  "within-impossible": "A setup's `within` names a frame it could not be cut from.",
+  "within-cyclic": "A setup's `within` chain leads back to itself.",
+  "view-missing": "A setup that is no window declares no `view`.",
+  "view-on-window": "A window declares a `view`, which it inherits.",
+  "view-unknown": "A setup's `view` is not one of the four views.",
+  "reference-id-conflict": "One id is declared in two rosters that share `reference:<id>`.",
+  "script-empty-text": "A script line has an empty text or `acting` note.",
+  "script-unknown-character": "A script line is spoken by an undeclared character.",
+  "telop-empty-text": "A telop entry has empty text.",
+  "aside-empty-label": "An aside has an empty `label`.",
+  "lineup-missing": "A frame declares no `lineup`.",
+  "lineup-unknown-id": "A lineup names an id in no roster.",
+  "lineup-duplicate": "A lineup lists one subject twice.",
+  "passing-overlap": "A subject is both passing and in an endpoint lineup.",
+  "join-undeclared": "A boundary a long take could cross does not say whether it is one (`join`).",
+  "join-impossible": "A `continuous` join sits at a boundary no unbroken take could cross.",
+  "coverage-overdeclared": "A coverage shot declares a frame after its opening one.",
+  "shot-span-mismatch":
+    "A shot's span is not counted in the policy's unit: `beats` without `policy.song`, `duration` with it, or both.",
+  "lyrics-without-song": "`lyrics` are declared with no `policy.song`.",
+  "lyrics-singer-unknown": "A lyric singer is not a declared character.",
+  "lyrics-singer-empty": "A lyric line is sung by nobody.",
+  "lyrics-empty-line": "A lyric line has no words.",
+};
+
+type OtherCode = Exclude<FindingCode, DirectionFindingCode | DirectionErrorCode>;
+
+// Where each is fixed, where the code alone does not say: a narration overflow one retime fits is
+// fixed in `animatic.tsx`, the rest in `direction.ts`.
+export const STAGE_FINDING_DOCS: Record<OtherCode, { flags: string; fixIn: string }> = {
+  "prompt-negation": {
+    flags: "A prompt names something to leave out.",
+    fixIn: "the stage file or patch writing it",
+  },
   "prompt-not-yet": {
     flags:
       "A prompt describes what has not happened: time talk in a still, or a state to hold where a motion prompt needs a move.",
+    fixIn: "the stage file or patch writing it",
   },
   "prompt-double-negative": {
     flags: "A `negativePrompt` names an exclusion negatively, which cancels it.",
+    fixIn: "the stage file or patch writing it",
   },
   "pin-unanchored": {
     flags: "A pin input takes a reference sheet or a plate instead of a frame of the picture.",
+    fixIn: "the stage file or patch wiring it",
+  },
+  "class-font-family": {
+    flags: "A `jsxImage`'s markup carries a class setting a font family.",
+    fixIn: "the stage file",
+  },
+  "composition-class-font-family": {
+    flags: "A shot's composition or the overlay carries a class setting a font family.",
+    fixIn: "`animatic.tsx` / `video.tsx`",
+  },
+  "movement-unwritten": {
+    flags:
+      "A panel with a take has no `blocking` or `camera` — the transit out of its frame, written from the take.",
+    fixIn: "`animatic.tsx`",
+  },
+  "take-silent": {
+    flags:
+      "A take awaiting review is silent, or a video owing a line has no audio track. Cleared by dismissing it or `konte vouch`.",
+    fixIn: "the take's stage",
+  },
+  "line-misheard": {
+    flags:
+      "A take awaiting review does not say the line it owes, as heard. Cleared by dismissing it or `konte vouch`.",
+    fixIn: "the take's stage",
+  },
+  "narration-overflow": {
+    flags: "An animatic shot's lines run past its `duration`, so its stem's clamp cuts them.",
+    fixIn: "`animatic.tsx` where one retime fits, else `direction.ts`",
+  },
+  "animatic-unconsumed": {
+    flags: "A video shot spends without building on the board shot it develops.",
+    fixIn: "`video.tsx`",
+  },
+  "script-unvoiced": {
+    flags:
+      "A shot the direction gives lines to plays no audio, or no `<Audio>` says one of its lines; on `policy.song` a video shot places none.",
+    fixIn: "`animatic.tsx` / `video.tsx`",
+  },
+  "cutin-required": {
+    flags: "A shot renders no `<Cutin>`, but the direction declares a `cutin` on it.",
+    fixIn: "`animatic.tsx` / `video.tsx`",
+  },
+  "cutin-undeclared": {
+    flags: "A shot renders a `<Cutin>`, but the direction declares no `cutin` on it.",
+    fixIn: "`animatic.tsx` / `video.tsx`",
+  },
+  "plate-undeclared-setup": {
+    flags: "A plate is filed under a key that is not a setup the direction declares.",
+    fixIn: "`animatic.tsx`",
+  },
+  "soundtrack-anchor-unknown": {
+    flags: "A soundtrack's `from` / `until` names a shot the timeline does not hold.",
+    fixIn: "`animatic.tsx` / `video.tsx`",
+  },
+  "pending-reference": {
+    flags:
+      "An asset is built on a shot that is still a `pendingShot`; it and what is built on it wait, the rest of the stage spends.",
+    fixIn: "the stage file writing the reference",
   },
 };
 
-const CLASS_ORDER: readonly DirectionFindingClass[] = [
-  "arc",
-  "pacing",
-  "stage",
-  "completeness",
-  "characters",
-  "props",
-  "locations",
-  "setups",
-  "staging",
-  "typesetting",
-];
+const REACH_WORDS: Record<NonNullable<FindingTraits["holds"]["spend"]>["reach"], string> = {
+  stage: "its stage",
+  "stage+downstream": "its stage and downstream",
+  downstream: "downstream",
+  edge: "its assets and what is built on them",
+};
 
-const SPEND_COMMANDS: readonly SpendCommand[] = ["generate", "reroll", "patch", "export"];
-const SPEND_STAGES: readonly Stage[] = ["animatic", "video"];
-
-function gatesOf(cls: DirectionFindingClass): string {
-  const gated = SPEND_COMMANDS.flatMap((command) =>
-    SPEND_STAGES.filter((stage) => gatedClasses(command, stage).has(cls)).map(
-      (stage) => `\`${command}\` (${stage})`,
-    ),
-  );
-  return gated.length === SPEND_COMMANDS.length * SPEND_STAGES.length
-    ? "every spend"
-    : gated.join(", ");
-}
-
-function fixNote(code: DirectionFindingCode): string | null {
-  const stage = findingFixStage(code);
-  return stage === "direction" ? null : `Fix in \`${STAGE_ENTRY_FILE[stage]}\``;
+// What a code holds. `stage` names the spend stages a direction finding fixed in `stage` reaches;
+// the codes of other checks are stated by reach, their stage being the file of each instance.
+function holdsOf(traits: FindingTraits, stage: Stage | null): string {
+  const out: string[] = [];
+  const spend = traits.holds.spend;
+  if (spend) {
+    const commands = spend.commands ? ` (${spend.commands.join(", ")})` : "";
+    const where =
+      stage === null ? REACH_WORDS[spend.reach] : spendStages(stage, spend.reach).join(", ");
+    out.push(`spend: ${where}${commands}`);
+  }
+  if (traits.holds.accept) out.push("accept");
+  if (traits.holds.preview) out.push("preview");
+  return out.length > 0 ? out.join("; ") : "—";
 }
 
 function table(header: readonly string[], rows: readonly (readonly string[])[]): string[] {
@@ -341,67 +460,74 @@ export async function renderFindingsDoc(): Promise<string> {
 }
 
 function renderFindingsMarkdown(): string {
-  const codes = Object.keys(DIRECTION_FINDING_DOCS) as DirectionFindingCode[];
   const lines: string[] = [
     "# Findings",
     "",
     "<!-- Generated from src/core/findings-doc.ts by `bun run build:generate-findings-doc`. Do not edit by hand: src/core/__tests__/findings-doc.test.ts fails when this file and the code disagree. -->",
     "",
-    "Every machine finding konte reports. An unwaived one aborts a spend; clearing it means fixing it, or waiving it with the reason it is right, which a reviewer reads.",
+    "Every machine finding konte reports, by what it reads, how it clears, what it holds and when it sets in. `konte status` prints every one standing under `Findings`, grouped by the file it is fixed in.",
+    "",
+    "- **Reads** — `definition`: the definitions alone; `take`: a landed take too.",
+    "- **Clears** — `fix`: only by fixing it; `waive`: by a reason in `direction.waivers`, which the human signs on the direction page; `vouch`: by `konte vouch` on the take, once heard.",
+    "- **Holds** — `spend`: `generate` / `reroll` / `patch apply` / `export` on the stages named (`SPEND_HELD`); `accept`: the accept of what it sits on; `preview`: `konte preview` of its stage (both `REVIEW_HELD`).",
+    "- **Onset** — `always`; `after-direction-accepted`: silent until the direction is accepted; `after-take`: owed once the take it is written from lands.",
     "",
     "## Direction findings",
     "",
-    "Reported by the direction check over `direction.ts` and the stages built on it. An unwaived one aborts a spend with `DIRECTION_CHECK_FAILED`. A waiver sits in the direction's top-level `waivers`, keyed `<code>` or `<code>_<subject>`; on a child sequence's own arc, a role subject (or none) is prefixed with the sequence id: `missing-role_<sequenceId>.<role>`, `no-payoff_<sequenceId>`.",
+    "Reported by the direction check over `direction.ts` and the stages built on it. A waiver is keyed `<code>` or `<code>_<subject>`; on a child sequence's own arc, a role subject (or none) is prefixed with the sequence id: `missing-role_<sequenceId>.<role>`, `no-payoff_<sequenceId>`. **Type-level**: a literal value is also a type error, so it stops at the startup type-check; a computed value reaches the finding instead.",
     "",
-    "- **Deferred** — silent until the direction is accepted.",
-    "- **Fix in `reference.tsx`** — the roster entry is right; a reference asset is missing.",
-    "- **Fix in `animatic.tsx`** — the setup is right; its plate or a keyframe's input is missing or misbuilt.",
-    "- **Video spends only** — does not gate animatic work.",
-    "- **Type-level** — a literal value is also a type error, so it stops at the startup type-check; a computed value reaches the finding instead.",
-  ];
-
-  for (const cls of CLASS_ORDER) {
-    const inClass = codes.filter((code) => classifyDirectionFinding(code) === cls);
-    if (inClass.length === 0) continue;
-    const deferred = inClass.every(isDeferredUntilAcceptedFinding);
-    lines.push(
-      "",
-      `### ${cls} (${inClass.length})`,
-      "",
-      `Gates: ${gatesOf(cls)}.${deferred ? " Deferred." : ""}`,
-      "",
-      ...table(
-        ["Code", "Flags", "Waiver subject", "Notes"],
-        inClass.map((code) => {
-          const doc = DIRECTION_FINDING_DOCS[code];
-          const notes = [
-            fixNote(code),
-            doc.typeLevel ? "Type-level" : null,
-            !findingGatesSpend(code, "generate", "animatic") &&
-            findingGatesSpend(code, "generate", "video")
-              ? "Video spends only"
-              : null,
-          ].filter((note) => note !== null);
-          return [`\`${code}\``, doc.flags, doc.subject ?? "—", notes.join(", ") || "—"];
-        }),
-      ),
-    );
-  }
-
-  lines.push(
+    ...table(
+      ["Code", "Flags", "Waiver subject", "Fix in", "Reads", "Clears", "Holds", "Onset"],
+      DIRECTION_FINDING_CODES.map((code) => {
+        const doc = DIRECTION_FINDING_DOCS[code];
+        const traits = findingTraits(code);
+        const stage = findingFixStage(code);
+        return [
+          `\`${code}\``,
+          doc.typeLevel ? `${doc.flags} Type-level.` : doc.flags,
+          traits.clears === "waive" ? (doc.subject ?? "—") : "—",
+          `\`${STAGE_ENTRY_FILE[stage]}\``,
+          traits.reads,
+          traits.clears,
+          holdsOf(traits, stage),
+          traits.onset,
+        ];
+      }),
+    ),
     "",
-    "## Stage findings",
+    "## Direction structure",
     "",
-    "Reported over the prompt and pin inputs a stage or a patch declares. An unwaived prompt finding aborts a spend with `PROMPT_CHECK_FAILED`, a pin finding with `PIN_CHECK_FAILED`. A waiver sits in the `waivers` of `defineReference`, `defineAnimatic` or `defineVideo`, keyed `<code>:<hash>` as `konte status` prints it.",
+    `Definition errors in \`direction.ts\`, each fixed there. Every one reads the definition, clears by a fix, holds ${holdsOf(findingTraits("duplicate-id"), "direction")} of the part it sits on, and is always reported.`,
     "",
     ...table(
       ["Code", "Flags"],
-      (Object.keys(STAGE_FINDING_DOCS) as StageFindingCode[]).map((code) => [
+      (Object.keys(DIRECTION_ERROR_DOCS) as DirectionErrorCode[]).map((code) => [
         `\`${code}\``,
-        STAGE_FINDING_DOCS[code].flags,
+        DIRECTION_ERROR_DOCS[code],
       ]),
     ),
     "",
-  );
+    "## Stage and take findings",
+    "",
+    "Reported over what a stage file or a patch script declares, and over the takes that landed.",
+    "",
+    ...table(
+      ["Code", "Flags", "Fix in", "Reads", "Clears", "Holds", "Onset"],
+      (Object.keys(STAGE_FINDING_DOCS) as OtherCode[]).map((code) => {
+        const doc = STAGE_FINDING_DOCS[code];
+        const traits = findingTraits(code);
+        return [
+          `\`${code}\``,
+          doc.flags,
+          doc.fixIn,
+          traits.reads,
+          traits.clears,
+          holdsOf(traits, code === "animatic-unconsumed" ? "video" : null),
+          traits.onset,
+        ];
+      }),
+    ),
+    "",
+  ];
   return lines.join("\n");
 }

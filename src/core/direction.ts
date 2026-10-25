@@ -1,17 +1,23 @@
-// The direction doctor + generate gate. Sits on top of the arc engine (`direction-check.ts`): it
-// resolves a loaded `Direction` to its lens(es), runs the generic `checkArc`, then folds in
-// `direction.waivers` to split findings into active (unwaived) and waived, and flags stale waivers
-// (a waiver whose finding has gone). `doctor` reports the result; the generate/reroll/export gate
-// turns the scoped, unwaived subset into a hard `DIRECTION_CHECK_FAILED`. The two share this one
-// finding pass so "report" and "enforce" can never diverge.
+// The direction check. Sits on top of the arc engine (`direction-check.ts`): it resolves a loaded
+// `Direction` to its lens(es), runs the generic `checkArc`, then folds in `direction.waivers` to split
+// findings into active (unwaived) and waived, and flags stale waivers (a waiver whose finding has
+// gone). `directionFindings` hands the result to the finding registry, whose gates and `status` act
+// on it.
 
 import {
+  DIRECTION_NARRATOR_ADDRESS,
   DIRECTION_ROOT_PATH,
   directionChildNodePath,
+  formatDirectionCharacterAddress,
+  formatDirectionCharacterVoiceAddress,
+  formatDirectionLocationAddress,
+  formatDirectionPolicyAddress,
+  formatDirectionPropAddress,
+  formatDirectionSequenceAddress,
+  formatDirectionSetupAddress,
+  formatDirectionShotAddress,
   formatDirectionWaiverAddress,
-  type Stage,
 } from "./address.js";
-import { STAGE_ENTRY_FILE } from "./roots.js";
 import { findBuiltinLens } from "./lenses.js";
 import {
   type AnchoredEntityRef,
@@ -52,8 +58,8 @@ import {
   checkPropNaming,
   checkProps,
   checkSetups,
-  checkViewAnchors,
   placeRefOf,
+  usedSetupIds,
 } from "./direction-check.js";
 import type {
   Direction,
@@ -87,14 +93,12 @@ import { isIdentifier } from "./dsl/validate-identifier.js";
 import { scriptOf } from "./typography.js";
 import { KonteError } from "./errors.js";
 import { formatSeconds } from "./format-duration.js";
+import { type Finding, type FindingCode, findingTraits } from "./finding.js";
 
-// A waivable finding's class. The gate looks at a scope-specific subset of these (a `generate`
-// allows partial coverage so it ignores `completeness`; only `export` enforces it).
+// A finding's class: what a pass must have read to evaluate it, so its waivers may be called stale.
 export type DirectionFindingClass =
   | "arc"
   | "pacing"
-  | "stage"
-  | "completeness"
   | "characters"
   | "props"
   | "locations"
@@ -113,8 +117,6 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "unearned-payoff": "arc",
   "role-overweight": "pacing",
   "role-underweight": "pacing",
-  "stage-order-mismatch": "stage",
-  unrealized: "completeness",
   "character-unreferenced": "characters",
   "unused-character": "characters",
   // The voice checks are cast drift like their look siblings, so they ride the same class: deferred
@@ -145,6 +147,7 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   // A fused-shot content check on the action prose — likewise gates generate and is never deferred.
   "multi-sentence-action": "arc",
   "off-grid-duration": "pacing",
+  "off-beat-cut": "pacing",
   "fonts-undeclared": "typesetting",
   "lineup-flipped": "staging",
   "lineup-gap": "staging",
@@ -169,7 +172,7 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   // The song the piece is cut to. Never deferred.
   "song-unreferenced": "song",
   "lyric-unplaced": "song",
-  "song-overrun": "stage",
+  "song-overrun": "song",
 };
 
 export function classifyDirectionFinding(code: DirectionFindingCode): DirectionFindingClass {
@@ -189,8 +192,6 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "unearned-payoff": null,
   "role-overweight": null,
   "role-underweight": null,
-  "stage-order-mismatch": null,
-  unrealized: null,
   "character-unreferenced": null,
   "unused-character": null,
   "character-voice-missing": null,
@@ -216,6 +217,7 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "unexpected-script": "shot",
   "multi-sentence-action": "shot",
   "off-grid-duration": "shot",
+  "off-beat-cut": "shot",
   "fonts-undeclared": null,
   "lineup-flipped": "shot",
   "lineup-gap": "shot",
@@ -274,29 +276,15 @@ export function findingFixStage(code: DirectionFindingCode): FindingFixStage {
 
 const EXPOSED_FRAMINGS: readonly string[] = ["wide", "medium"];
 
-// Characters, prop, and location findings point at post-acceptance work — anchoring an entity to a
-// reference asset — and the direction review may still change the roster, so while the direction is
-// not currently accepted they are premature and derail the review (an agent treats a FAIL as "fix
-// now"). Every surface that reports or gates findings (doctor, preview, spend gate) drops them until
-// acceptance stands; structural findings stay — they are what the review judges. Waiver
+// The findings a surface reports or gates on: a finding whose onset is the direction's acceptance
+// (the roster wiring) waits for it. Waiver
 // reconciliation is untouched: a waived roster finding still counts as waived, never as stale.
-const DEFERRED_UNTIL_ACCEPTED: ReadonlySet<DirectionFindingClass> = new Set([
-  "characters",
-  "props",
-  "locations",
-  "setups",
-]);
-
-export function isDeferredUntilAcceptedFinding(code: DirectionFindingCode): boolean {
-  return DEFERRED_UNTIL_ACCEPTED.has(classifyDirectionFinding(code));
-}
-
-export function reportableDirectionFindings(
-  active: DirectionFinding[],
+export function reportableDirectionFindings<F extends { code: FindingCode }>(
+  active: F[],
   directionAccepted: boolean,
-): DirectionFinding[] {
+): F[] {
   if (directionAccepted) return active;
-  return active.filter((f) => !DEFERRED_UNTIL_ACCEPTED.has(classifyDirectionFinding(f.code)));
+  return active.filter((f) => findingTraits(f.code).onset !== "after-direction-accepted");
 }
 
 // The waiver key that cancels a finding: `<code>` for subject-less findings (no-payoff) or
@@ -318,8 +306,13 @@ function waiverKeyCode(key: string): string {
   return sep === -1 ? key : key.slice(0, sep);
 }
 
+// A code a waiver can cancel: one whose rule a work may rightly break. A waiver naming any other
+// cancels nothing, and is stale.
 function isWaivableCode(code: string): code is DirectionFindingCode {
-  return Object.hasOwn(FINDING_CLASS, code);
+  return (
+    Object.hasOwn(FINDING_CLASS, code) &&
+    findingTraits(code as DirectionFindingCode).clears === "waive"
+  );
 }
 
 // A waiver read by watching a shot: its review address, what it waives, and the shots it plays in —
@@ -370,9 +363,9 @@ export function directionShotWaivers(direction: Direction): ShotWaiver[] {
   return out;
 }
 
-// Definition bugs — not creative judgement, so they are hard FAILs and never waivable. Kept apart
-// from `DirectionFindingCode` (the waivable set).
-type DirectionErrorCode =
+// Definition bugs: fixed, never waived. Kept apart from
+// `DirectionFindingCode`, the codes the arc and roster checks report.
+export type DirectionErrorCode =
   | "direction-missing"
   | "empty-direction"
   | "duplicate-id"
@@ -481,12 +474,14 @@ type DirectionStructureError = {
   message: string;
 };
 
-type StaleWaiver = {
+export type StaleWaiver = {
   key: string;
   reason: string;
+  // It names a finding that is only ever fixed, which no reason cancels.
+  fixOnly?: true;
 };
 
-type DirectionCheckResult = {
+export type DirectionCheckResult = {
   structureErrors: DirectionStructureError[];
   active: DirectionFinding[];
   waived: DirectionFinding[];
@@ -640,12 +635,6 @@ export function collectFramedCharacterIds(direction: Direction): Set<string> {
   );
 }
 
-// The set of setup ids the frames point at — the `unused-setup` check's "used" signal (exact id
-// membership, since a frame is named by id in `shot.setup`, not in the action prose).
-function collectUsedSetupIds(direction: Direction): Set<string> {
-  return new Set(collectShotFrames(direction).map((f) => f.setup));
-}
-
 // How many frames each setup is named by. The `setup-unrealized` check reads it: a frame two or more
 // shots share is one they must be held to, a frame one shot uses has nothing to hold together. A
 // cutin counts as one more shot on its setup.
@@ -657,11 +646,11 @@ function countShotsPerSetup(direction: Direction): Map<string, number> {
   return counts;
 }
 
-// The set of location ids the shots reach — through their setups, since a shot names no place of its
-// own. The `unused-location` check's "used" signal.
+// The set of location ids the shots reach — through their setups and the masters those are windows
+// of, since a shot names no place of its own. The `unused-location` check's "used" signal.
 function collectUsedLocationIds(direction: Direction): Set<string> {
   const used = new Set<string>();
-  for (const id of collectUsedSetupIds(direction)) {
+  for (const id of usedSetupIds(setupRefs(direction.setups), countShotsPerSetup(direction))) {
     const location = direction.setups?.[id]?.location;
     if (location !== undefined) used.add(location);
   }
@@ -947,12 +936,19 @@ function checkDurations(direction: Direction): DirectionFinding[] {
   if (direction.policy?.song) {
     for (const s of collectShots(direction)) {
       if (s.beats === undefined) continue;
-      if (s.beats > 0 && Number.isInteger(s.beats)) continue;
-      findings.push({
-        code: "off-grid-duration",
-        subject: s.id,
-        message: `shot ${s.id} runs ${s.beats} beats — a shot's span on the song is a positive whole number of beats, so every cut lands on a beat; round it, or waive a deliberate off-beat cut`,
-      });
+      if (s.beats <= 0) {
+        findings.push({
+          code: "off-grid-duration",
+          subject: s.id,
+          message: `shot ${s.id} runs ${s.beats} beats — a shot's span on the song is a positive number of beats`,
+        });
+      } else if (!Number.isInteger(s.beats)) {
+        findings.push({
+          code: "off-beat-cut",
+          subject: s.id,
+          message: `shot ${s.id} runs ${s.beats} beats, so the cut after it lands off the beat — round it, or waive a deliberate off-beat cut`,
+        });
+      }
     }
     return findings;
   }
@@ -2361,12 +2357,6 @@ type ArcNode = {
   noun: string;
   path: readonly string[];
   items?: ArcItem<string>[];
-  // Every shot this node declares, in direction order, asides included — what the stage-coverage
-  // checks compare `realizedIds` against. Kept apart from `items` (narrative only): dropping an
-  // aside from `items` must not also drop it from coverage. A branch has no shots and leaves it
-  // undefined; the engine then covers its `items`, which are its children.
-  coverageIds?: readonly string[];
-  realizedIds?: readonly string[];
   nodes?: ArcNode[];
 };
 
@@ -2379,14 +2369,13 @@ function nodeDuration(node: ArcNode): number {
 }
 
 // Normalize a loaded direction's node tree into the arc tree. A leaf node (`shots`) → a leaf arc
-// checked against its lens, seeing `realizedIds` so its stage/completeness checks run. A branch node
+// checked against its lens. A branch node
 // (`sequences`) → an internal arc over one child per sub-node, checked against its lens. The
 // recursion is depth-agnostic, so an act of acts just nests one level deeper. Only a *child* node
 // carries an `item` (its place in its parent's arc).
 function buildArcNode(
   node: DirectionNode,
   lenses: readonly LensSpec<string>[] | undefined,
-  realizedIds: readonly string[] | undefined,
   // The song, so a shot's span is counted in the unit it was written in.
   song: string | undefined,
   // The node's field path in direction.ts — the same path its review addresses are built from.
@@ -2406,8 +2395,7 @@ function buildArcNode(
         synopsis: s.action,
         duration: shotSpan(s, song),
       }));
-    const coverageIds = node.shots.map((s) => s.id);
-    return { item, lens, noun: "shot", path, items, coverageIds, realizedIds };
+    return { item, lens, noun: "shot", path, items };
   }
   return {
     item,
@@ -2415,23 +2403,15 @@ function buildArcNode(
     noun: "sequence",
     path,
     nodes: (node.sequences ?? []).map((child) =>
-      buildArcNode(
-        child,
-        lenses,
-        realizedIds,
-        song,
-        directionChildNodePath(path, child.id ?? ""),
-        false,
-      ),
+      buildArcNode(child, lenses, song, directionChildNodePath(path, child.id ?? ""), false),
     ),
   };
 }
 
-function buildArcTree(direction: Direction, realizedIds?: readonly string[]): ArcNode {
+function buildArcTree(direction: Direction): ArcNode {
   return buildArcNode(
     direction.sequence,
     direction.lenses,
-    realizedIds,
     direction.policy?.song,
     DIRECTION_ROOT_PATH,
     true,
@@ -2449,15 +2429,13 @@ const NODE_SCOPED_CODES: ReadonlySet<DirectionFindingCode> = new Set([
   "unearned-payoff",
   "role-overweight",
   "role-underweight",
-  "stage-order-mismatch",
 ]);
 
 // Walk the tree depth-first, checking each node that has a resolvable lens. An internal node checks
 // its children as arc items with derived durations (so pacing reads each scale); a leaf checks its
-// shots, plus the stage-coverage checks when given a realized id set. `stage` stamps
-// stage-order-mismatch so its waiver reads per stage. A node's own findings come before its
-// children's (meta arc before the per-sequence shot arcs).
-function walkArcTree(node: ArcNode, stage: Stage | undefined, out: DirectionFinding[]): void {
+// shots. A node's own findings come before its children's (meta arc before the per-sequence shot
+// arcs).
+function walkArcTree(node: ArcNode, out: DirectionFinding[]): void {
   if (node.lens) {
     const items: ArcItem<string>[] =
       node.items ??
@@ -2468,15 +2446,11 @@ function walkArcTree(node: ArcNode, stage: Stage | undefined, out: DirectionFind
         duration: nodeDuration(child),
       }));
     const findings = checkArc(node.lens, items, {
-      realizedIds: node.realizedIds,
-      coverageIds: node.coverageIds,
       noun: node.noun,
       // A leaf's shot text is a shot's `action`; a branch's is a sequence's `synopsis`.
       textLabel: node.noun === "shot" ? "action" : "synopsis",
     }).map((f) => {
-      // stage-order-mismatch's qualifier is the stage (so a waiver reads `stage-order-mismatch_video`
-      // and never suppresses the other stage). The arc engine is stage-agnostic, so stamp it here.
-      const subject = f.code === "stage-order-mismatch" && stage ? stage : f.subject;
+      const subject = f.subject;
       const nodeId = node.item?.id;
       return {
         ...f,
@@ -2491,18 +2465,14 @@ function walkArcTree(node: ArcNode, stage: Stage | undefined, out: DirectionFind
     });
     out.push(...findings);
   }
-  for (const child of node.nodes ?? []) walkArcTree(child, stage, out);
+  for (const child of node.nodes ?? []) walkArcTree(child, out);
 }
 
-// Run the arc checks and fold in waivers. With `realizedIds` (a stage's realized shot order) the
-// stage-class checks (unrealized / stage-order-mismatch) also run; without it only the direction-level
-// arc/pacing checks do — and stale-waiver detection is scoped to the classes actually evaluated, so
-// a stage/completeness waiver is never wrongly flagged stale by a direction-only pass (e.g. doctor).
+// Run the arc checks and fold in waivers. Stale-waiver detection is scoped to the classes actually
+// evaluated, so a pass that could not read a stage never flags that stage's waivers stale.
 export function checkDirection(
   direction: Direction,
   options: {
-    realizedIds?: readonly string[];
-    stage?: Stage;
     referenceAssetNames?: readonly string[];
     // The board's plates and which shots ignore them. Supplied on the same terms as
     // `referenceAssetNames`: undefined means the animatic could not be read, so the setups class is
@@ -2519,9 +2489,7 @@ export function checkDirection(
 ): DirectionCheckResult {
   const structureErrors = validateDirectionStructure(direction);
 
-  const evaluatedClasses: Set<DirectionFindingClass> = options.realizedIds
-    ? new Set(["arc", "pacing", "stage", "completeness", "typesetting"])
-    : new Set(["arc", "pacing", "typesetting"]);
+  const evaluatedClasses = new Set<DirectionFindingClass>(["arc", "pacing", "typesetting"]);
   // The characters and prop checks cross-reference the reference stage, so they run only when the caller
   // supplies its asset names (undefined = "can't evaluate the roster", so their waivers are never
   // flagged stale).
@@ -2549,13 +2517,15 @@ export function checkDirection(
   // A direction with no shots yet is one being written after its song: `empty-direction` says so,
   // and an arc of nothing would only list every role as missing.
   if (directionHasShots(direction)) {
-    walkArcTree(buildArcTree(direction, options.realizedIds), options.stage, findings);
+    walkArcTree(buildArcTree(direction), findings);
   }
 
   if (evaluatedClasses.has("characters")) {
-    // A singer is on screen singing whatever the actions say; singing needs no cast voice.
+    // A singer is on screen singing whatever the actions say; singing needs no cast voice. A
+    // character a frame holds is in the picture whatever the action prose names.
     const alwaysUsed = collectScriptCharacterIds(direction);
     for (const id of lyricSingerIds(direction)) alwaysUsed.add(id);
+    for (const id of collectFramedCharacterIds(direction)) alwaysUsed.add(id);
     findings.push(
       ...checkCharacters(
         entityRefs(direction.characters),
@@ -2573,7 +2543,7 @@ export function checkDirection(
     );
   }
 
-  if (evaluatedClasses.has("stage") && options.songTake !== undefined) {
+  if (options.songTake !== undefined) {
     findings.push(...checkSongOverrun(direction, options.songTake));
   }
 
@@ -2620,14 +2590,18 @@ export function checkDirection(
     // A shot's length must be a whole second to survive a backend's frame grid.
     ...checkDurations(direction),
   );
+  // Before any shot is written a roster entry is not unused, only not reached yet.
+  const reported = directionHasShots(direction)
+    ? findings
+    : findings.filter((f) => !f.code.startsWith("unused-"));
 
   const waivers = direction.waivers ?? {};
   const active: DirectionFinding[] = [];
   const waived: DirectionFinding[] = [];
   const matched = new Set<string>();
-  for (const finding of findings) {
+  for (const finding of reported) {
     const key = directionWaiverKey(finding);
-    if (key in waivers) {
+    if (key in waivers && isWaivableCode(finding.code)) {
       matched.add(key);
       waived.push(finding);
     } else {
@@ -2639,110 +2613,90 @@ export function checkDirection(
   for (const [key, reason] of Object.entries(waivers)) {
     if (matched.has(key)) continue;
     const code = waiverKeyCode(key);
-    // Flag a waiver stale only for a class this pass evaluated: a direction-only pass must not
-    // mislabel a still-valid stage/completeness waiver. A code no finding has is stale in any pass.
+    // Flag a waiver stale only for a class this pass evaluated: a pass that could not read a stage
+    // must not mislabel a still-valid waiver of it. A code no finding has is stale in any pass.
     if (isWaivableCode(code) && !evaluatedClasses.has(FINDING_CLASS[code])) continue;
-    staleWaivers.push({ key, reason });
+    staleWaivers.push({
+      key,
+      reason,
+      ...(Object.hasOwn(FINDING_CLASS, code) && !isWaivableCode(code) ? { fixOnly: true } : {}),
+    });
   }
 
   return { structureErrors, active, waived, staleWaivers };
 }
 
-// Every command that can spend on a backend, and so must clear the direction gate first.
-export type SpendCommand = "generate" | "reroll" | "patch" | "export";
-
-// The finding classes a command enforces. A `generate`/`reroll`/`patch` allows partial coverage
-// mid-build, so it ignores `completeness` (unrealized); only a video `export` — the final
-// assembly — enforces it.
-export function gatedClasses(command: SpendCommand, stage: Stage): Set<DirectionFindingClass> {
-  const base: DirectionFindingClass[] = [
-    "arc",
-    "pacing",
-    "stage",
-    "characters",
-    "props",
-    "locations",
-    "setups",
-    "staging",
-    "typesetting",
-    "song",
-  ];
-  if (command === "export" && stage === "video") base.push("completeness");
-  return new Set(base);
+// The part address of every shot and every child node, by id — what a finding on an item sits on.
+function itemPartAddresses(direction: Direction): Map<string, string> {
+  const out = new Map<string, string>();
+  const walk = (node: DirectionNode, path: readonly string[]) => {
+    for (const shot of node.shots ?? [])
+      out.set(shot.id, formatDirectionShotAddress(path, shot.id));
+    for (const child of node.sequences ?? []) {
+      const childPath = directionChildNodePath(path, child.id ?? "");
+      out.set(child.id ?? "", formatDirectionSequenceAddress(childPath));
+      walk(child, childPath);
+    }
+  };
+  walk(direction.sequence, DIRECTION_ROOT_PATH);
+  return out;
 }
 
-export function findingGatesSpend(
-  code: DirectionFindingCode,
-  command: SpendCommand,
-  stage: Stage,
-): boolean {
-  if (stage !== "video" && findingFixStage(code) === "video") return false;
-  return gatedClasses(command, stage).has(classifyDirectionFinding(code));
-}
-
-// The gate: abort with DIRECTION_CHECK_FAILED when the running command's scope has an unwaived
-// structural problem. Structural definition bugs abort unconditionally; otherwise only the scoped
-// finding classes count, so an untouched downstream stage never blocks an upstream generate.
-// The one direction finding a reference spend answers to.
-export function assertViewsAnchored(
-  direction: Direction,
-  unanchoredViews: readonly string[],
-  referenceAssetNames: readonly string[],
-): void {
-  const waivers = direction.waivers ?? {};
-  const blocking = checkViewAnchors(unanchoredViews, new Set(referenceAssetNames)).filter(
-    (f) => !(directionWaiverKey(f) in waivers),
-  );
-  if (blocking.length === 0) return;
-  throw new KonteError(
-    "DIRECTION_CHECK_FAILED",
-    `reference.tsx has ${blocking.length} view image(s) built from no location master — fix ` +
-      `\`views\` in reference.tsx or add a reason to direction.waivers`,
-    blocking.map((f) => `  [${directionWaiverKey(f)}] ${f.message}`),
-  );
-}
-
-export function assertDirectionGate(
-  direction: Direction,
-  options: {
-    command: SpendCommand;
-    stage: Stage;
-    realizedIds?: readonly string[];
-    referenceAssetNames?: readonly string[];
-    animaticSetups?: AnimaticSetupState;
-    stagingStage?: StagingStageState;
-    songTake?: SongTakeState;
-    // Pre-acceptance, characters findings are deferred (see reportableDirectionFindings) so the
-    // acceptance gate that runs after this one surfaces the actionable error instead.
-    directionAccepted: boolean;
-  },
-): void {
-  const { structureErrors, active: allActive } = checkDirection(direction, {
-    realizedIds: options.realizedIds,
-    stage: options.stage,
-    referenceAssetNames: options.referenceAssetNames,
-    animaticSetups: options.animaticSetups,
-    stagingStage: options.stagingStage,
-    songTake: options.songTake,
-  });
-  const active = reportableDirectionFindings(allActive, options.directionAccepted);
-
-  if (structureErrors.length > 0) {
-    throw new KonteError(
-      "DIRECTION_CHECK_FAILED",
-      `direction.ts has ${structureErrors.length} structural error(s) — fix direction.ts`,
-      structureErrors.map((e) => `  [${e.code}] ${e.message}`),
-    );
+// The direction part a finding to fix sits on, which its accept hold matches. Undefined where no one
+// part carries it, which holds every part.
+function findingPart(
+  finding: DirectionFinding,
+  items: ReadonlyMap<string, string>,
+): string | undefined {
+  const subject = finding.subject ?? "";
+  switch (finding.code) {
+    case "unused-character":
+      return formatDirectionCharacterAddress(subject);
+    case "unused-character-voice":
+      return formatDirectionCharacterVoiceAddress(subject);
+    case "unused-narrator":
+      return DIRECTION_NARRATOR_ADDRESS;
+    case "unused-prop":
+      return formatDirectionPropAddress(subject);
+    case "unused-location":
+      return formatDirectionLocationAddress(subject);
+    case "unused-setup":
+      return formatDirectionSetupAddress(subject);
+    case "song-unreferenced":
+      return formatDirectionPolicyAddress("song");
+    default:
+      // A shot, a frame of one (`<id>.cutin`) or a child node.
+      return items.get(subject.split(".")[0] ?? "");
   }
+}
 
-  const blocking = active.filter((f) => findingGatesSpend(f.code, options.command, options.stage));
-  if (blocking.length === 0) return;
-  const files = [...new Set(blocking.map((f) => STAGE_ENTRY_FILE[findingFixStage(f.code)]))];
-
-  throw new KonteError(
-    "DIRECTION_CHECK_FAILED",
-    `direction has ${blocking.length} unresolved finding(s) — fix ${files.join(" / ")} or add a reason to ` +
-      "direction.waivers",
-    blocking.map((f) => `  [${directionWaiverKey(f)}] ${f.message}`),
-  );
+// The check's result as the finding registry reads it: each structural error and each unwaived
+// finding, with the file it is fixed in, the key a waiver would cancel it by, and the part it sits
+// on.
+export function directionFindings(result: DirectionCheckResult, direction: Direction): Finding[] {
+  const items = itemPartAddresses(direction);
+  return [
+    ...result.structureErrors.map(
+      (e): Finding => ({
+        code: e.code,
+        subject: e.subject ?? "",
+        fixIn: { stage: "direction" },
+        message: e.message,
+        // A shotless direction is one being written after its song: its brief, policy and lyrics are
+        // still accepted on their own.
+        ...(e.code === "empty-direction" ? { targets: [] } : {}),
+      }),
+    ),
+    ...result.active.map((f): Finding => {
+      const part = findingTraits(f.code).clears === "fix" ? findingPart(f, items) : undefined;
+      return {
+        code: f.code,
+        subject: f.subject ?? "",
+        fixIn: { stage: findingFixStage(f.code) },
+        message: f.message,
+        key: directionWaiverKey(f),
+        ...(part ? { targets: [part] } : {}),
+      };
+    }),
+  ];
 }

@@ -1587,7 +1587,8 @@ describe("the join", () => {
       expect(found([before({}), after({})])).toEqual([]);
     });
 
-    it("is waived by the seam's key like the other join findings", () => {
+    // A deliberate jump is a join that is not `continuous`, so no reason cancels it.
+    it("is not cancelled by a waiver", () => {
       const waived = direction({
         shots: [shot("01", "deck"), shot("02", "deck", { join: "continuous" })],
         waivers: { "join-unshown_02": "the jump is the joke" },
@@ -1600,7 +1601,7 @@ describe("the join", () => {
             shotPanels,
           },
         }).active.filter((f) => f.code === "join-unshown"),
-      ).toEqual([]);
+      ).toHaveLength(2);
     });
   });
 

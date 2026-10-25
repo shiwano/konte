@@ -259,9 +259,10 @@ describe("cutin staging", () => {
       "lineup-vacuous_01.cutin",
     ]);
 
+    // Fixed, never waived — a waiver of one frame cancels neither.
     const waived = direction(shots);
     waived.waivers = { "lineup-vacuous_01": "kept on purpose" };
-    expect(active(waived, "lineup-vacuous").map((f) => f.subject)).toEqual(["01.cutin"]);
+    expect(active(waived, "lineup-vacuous").map((f) => f.subject)).toEqual(["01", "01.cutin"]);
   });
 
   it("reads a continuous wipe's seam against the wipe before it, not the main frame between", () => {

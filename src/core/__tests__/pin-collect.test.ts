@@ -90,7 +90,7 @@ describe("pin collection", () => {
       },
     ]);
     // The sheet is a finding; the shot's own keyframe is not, and neither is the sheet at `image1`.
-    expect(checkPins(video.pins ?? []).active.map((f) => f.source)).toEqual(["reference:hero"]);
+    expect(checkPins(video.pins ?? []).map((f) => f.source)).toEqual(["reference:hero"]);
   });
 
   // A slot the adapter declares and the call left empty is recorded with no `source`: that is what

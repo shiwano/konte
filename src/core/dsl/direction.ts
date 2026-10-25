@@ -401,8 +401,7 @@ export type GraphicShot = Omit<
 // The arc and pacing checks skip it, so a 90-second OP never dilutes the act ratios around it. The
 // animatic never boards it: `asideShot(id)` places it there with no build and konte fills the span
 // with a labelled slug, so the reel's clock still matches the video's. The video DOES author it
-// (`asideShot(id, …)`, usually a `file`), and the coverage checks still watch it: a declared aside
-// nobody realizes is `unrealized` at export like any other shot.
+// (`asideShot(id, …)`, usually a `file`): the stage chain covers it like any other shot.
 //
 // It carries no `script`. A spoken line demands a cast voice and an `<Audio>` on the animatic shot,
 // and an aside has no animatic shot to carry one — words over an aside are `telop`, or already
@@ -769,21 +768,11 @@ type ConstrainDuration<B> = B extends { kind: "aside" }
             }
           : unknown
     : unknown;
-// On the song a span is a positive whole number of beats, an aside's included. A computed value passes through to `off-grid-duration`.
-type ConstrainBeats<B> = B extends { beats: infer N }
-  ? number extends N
-    ? unknown
-    : `${N & number}` extends `${string}.${string}` | `-${string}` | "0"
-      ? {
-          beats: DirectionViolation<"konte: a shot's span is a positive whole number of beats — a half-beat cut is a computed value with an off-grid-duration waiver">;
-        }
-      : unknown
-  : unknown;
 // Which span a shot owes: `beats` on a direction with `policy.song`, `duration` without one, and
 // never both. A computed policy (`Clocked` widened to `boolean`) checks only the grid of what was
 // written and leaves which one to `shot-span-mismatch`.
 type ConstrainSpan<B, Clocked extends boolean> = boolean extends Clocked
-  ? ConstrainBeats<B> & ConstrainDuration<B>
+  ? ConstrainDuration<B>
   : Clocked extends true
     ? (B extends { duration: number }
         ? {
@@ -791,7 +780,7 @@ type ConstrainSpan<B, Clocked extends boolean> = boolean extends Clocked
           }
         : unknown) &
         (B extends { beats: number }
-          ? ConstrainBeats<B>
+          ? unknown
           : {
               beats: DirectionViolation<"konte: this direction is cut to policy.song, so every shot declares its span in `beats`">;
             })
@@ -1340,6 +1329,9 @@ const makeStageShots = (stage: ShotStage, placed: readonly AnyShotInput[]): Stag
           `${[...byId.keys()].join(", ") || "(none)"}.`,
       );
     }
+    // An undeveloped shot declares nothing to check against: the address is minted as asked, and the
+    // graph finds the asset built on it (`pending-reference`) until the shot is developed.
+    if (isPendingShotInput(target)) return pendingShotHandle(stage, shotId);
     return makeAssetNameHandle(
       stage,
       `shot("${shotId}")`,
@@ -1348,6 +1340,12 @@ const makeStageShots = (stage: ShotStage, placed: readonly AnyShotInput[]): Stag
       shotPanelsOf(target),
     );
   };
+};
+
+const pendingShotHandle = (stage: ShotStage, shotId: string): ShotHandle => {
+  const get = <T extends MediaKind>(assetName: string): MediaAsset<T> =>
+    makeMediaAsset<T>(makePlaceholder(stage, shotId, assetName));
+  return { video: get, image: get, audio: get };
 };
 
 // Learning what a shot's build declared means running it — the chain holds only its closure. It is a
@@ -1359,15 +1357,12 @@ type ShotDeclarations = Pick<DiscoveryResult, "assetKinds" | "songSpans">;
 
 const declarationsByInput = new WeakMap<AnyShotInput, ShotDeclarations>();
 
-const shotDeclarations = (stage: ShotStage, input: AnyShotInput): ShotDeclarations => {
+const shotDeclarations = (
+  stage: ShotStage,
+  input: Exclude<AnyShotInput, PendingShotInput>,
+): ShotDeclarations => {
   const cached = declarationsByInput.get(input);
   if (cached) return cached;
-  if (isPendingShotInput(input)) {
-    throw new Error(
-      `shot("${input.id}"): ${stage} shot "${input.id}" is still an undeveloped pendingShot and ` +
-        `declares no assets. Develop it (swap pendingShot for shot) before referencing it.`,
-    );
-  }
   if (input.fn === undefined) {
     throw new Error(
       `shot("${input.id}"): ${stage} shot "${input.id}" is an aside the ${stage} does not board, ` +

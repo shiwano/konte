@@ -223,7 +223,7 @@ describe("type inference", () => {
     void bad;
   });
 
-  it("rejects a soundtrack anchored to an unknown shot at runtime", () => {
+  it("leaves out, and finds, a soundtrack anchored to an unknown shot at runtime", () => {
     const audioComfy = defineComfyAsset({
       workflow: "tts.json",
       description: "test adapter",
@@ -235,23 +235,26 @@ describe("type inference", () => {
       props: { children: [] },
     })) as unknown as ShotFunction;
 
-    expect(() =>
-      defineVideo(
-        testDirection({
-          fps: 24,
-          size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
-        }),
-        {
-          timeline: () => {
-            const bgm = asset("bgm", audioComfy, { text: "music" });
-            return videoTimeline(
-              [shot("01", { duration: 3, build: mkFn })],
-              // cast bypasses the compile-time check to exercise the runtime guard
-              [soundtrack("bad", bgm, { duck: false, until: { shot: "99" } })] as never,
-            );
-          },
+    const video = defineVideo(
+      testDirection({
+        fps: 24,
+        size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
+      }),
+      {
+        timeline: () => {
+          const bgm = asset("bgm", audioComfy, { text: "music" });
+          return videoTimeline(
+            [shot("01", { duration: 3, build: mkFn })],
+            // cast bypasses the compile-time check to exercise the runtime guard
+            [soundtrack("bad", bgm, { duck: false, until: { shot: "99" } })] as never,
+          );
         },
-      ),
-    ).toThrow(/unknown shot "99"/);
+      },
+    );
+    expect(video.timelineSoundtracks).toBeUndefined();
+    expect(video.buildFindings?.map((f) => [f.code, f.subject, f.targets])).toEqual([
+      ["soundtrack-anchor-unknown", "bad", ["video:timeline#stem"]],
+    ]);
+    expect(video.buildFindings?.[0]?.message).toContain('shot "99"');
   });
 });

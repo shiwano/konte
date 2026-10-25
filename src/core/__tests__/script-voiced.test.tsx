@@ -12,6 +12,7 @@ import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { minimaxH3Dialogue } from "../dsl/validators/index.js";
 import type { ScriptLine } from "../dsl/direction.js";
 import { directionDefaults } from "./helpers/direction.js";
+import type { AnimaticDefinition } from "../types/index.js";
 
 const image = defineComfyAsset({
   workflow: "image.json",
@@ -123,50 +124,68 @@ function board(cues: () => void) {
     });
 }
 
+// What the board finds of a shot that does not voice its lines, one per line of text.
+function unvoiced(build: () => AnimaticDefinition): string {
+  return (build().buildFindings ?? [])
+    .filter((f) => f.code === "script-unvoiced")
+    .map((f) => `${f.subject} ${f.message}`)
+    .join("\n");
+}
+
 describe("a shot's lines are voiced per line", () => {
   it("takes one take per line", () => {
     expect(
-      board(() => {
-        asset("vo", tts, { script: LINES[0].text });
-        asset("vo2", tts, { script: LINES[1].text });
-      }),
-    ).not.toThrow();
+      unvoiced(
+        board(() => {
+          asset("vo", tts, { script: LINES[0].text });
+          asset("vo2", tts, { script: LINES[1].text });
+        }),
+      ),
+    ).toBe("");
   });
 
   it("refuses a shot whose second line no take carries", () => {
     expect(
-      board(() => {
-        asset("vo", tts, { script: LINES[0].text });
-        asset("vo2", tts, { script: "a line nobody wrote" });
-      }),
-    ).toThrow(/never voices the line/);
+      unvoiced(
+        board(() => {
+          asset("vo", tts, { script: LINES[0].text });
+          asset("vo2", tts, { script: "a line nobody wrote" });
+        }),
+      ),
+    ).toMatch(/never voices the line/);
   });
 
   it("does not read an audio processor's prompt as the words it carries", () => {
     expect(
-      board(() => {
-        const raw = asset("raw", recording, { gain: 1 });
-        asset("vo", cleanup, { prompt: "a clean studio read", source: raw });
-        asset("vo2", cleanup, { prompt: "a clean studio read", source: raw });
-      }),
-    ).not.toThrow();
+      unvoiced(
+        board(() => {
+          const raw = asset("raw", recording, { gain: 1 });
+          asset("vo", cleanup, { prompt: "a clean studio read", source: raw });
+          asset("vo2", cleanup, { prompt: "a clean studio read", source: raw });
+        }),
+      ),
+    ).toBe("");
   });
 
   it("falls back to the whole-shot rule as soon as one cue is unreadable", () => {
     // The lines are split across a generated take and a recording. konte cannot read a waveform, so
     // it can say neither which lines that cue holds nor how many — including both of them.
     expect(
-      board(() => {
-        asset("vo", tts, { script: LINES[0].text });
-        asset("vo2", recording, { gain: 1 });
-      }),
-    ).not.toThrow();
+      unvoiced(
+        board(() => {
+          asset("vo", tts, { script: LINES[0].text });
+          asset("vo2", recording, { gain: 1 });
+        }),
+      ),
+    ).toBe("");
     expect(
-      board(() => {
-        asset("vo", recording, { gain: 1 });
-        asset("vo2", recording, { gain: 1 });
-      }),
-    ).not.toThrow();
+      unvoiced(
+        board(() => {
+          asset("vo", recording, { gain: 1 });
+          asset("vo2", recording, { gain: 1 });
+        }),
+      ),
+    ).toBe("");
   });
 });
 
@@ -176,40 +195,48 @@ describe("a model taking its lines in the prompt answers for them", () => {
 
   it("reads the words inside <d>, not the prose around them", () => {
     expect(
-      board(() => {
-        asset("vo", dialogueInPrompt, { prompt: take(LINES[0].text) });
-        asset("vo2", dialogueInPrompt, { prompt: take(LINES[1].text) });
-      }),
-    ).not.toThrow();
+      unvoiced(
+        board(() => {
+          asset("vo", dialogueInPrompt, { prompt: take(LINES[0].text) });
+          asset("vo2", dialogueInPrompt, { prompt: take(LINES[1].text) });
+        }),
+      ),
+    ).toBe("");
   });
 
   it("refuses a shot whose second line no take speaks", () => {
     expect(
-      board(() => {
-        asset("vo", dialogueInPrompt, { prompt: take(LINES[0].text) });
-        asset("vo2", dialogueInPrompt, { prompt: take("a line nobody wrote") });
-      }),
-    ).toThrow(/never voices the line/);
+      unvoiced(
+        board(() => {
+          asset("vo", dialogueInPrompt, { prompt: take(LINES[0].text) });
+          asset("vo2", dialogueInPrompt, { prompt: take("a line nobody wrote") });
+        }),
+      ),
+    ).toMatch(/never voices the line/);
   });
 
   it("does not accept a line quoted outside <d>", () => {
     expect(
-      board(() => {
-        asset("vo", dialogueInPrompt, {
-          prompt: `${take(LINES[0].text)} Her sister has just said ${LINES[1].text}`,
-        });
-        asset("vo2", dialogueInPrompt, { prompt: take("a line nobody wrote") });
-      }),
-    ).toThrow(/never voices the line/);
+      unvoiced(
+        board(() => {
+          asset("vo", dialogueInPrompt, {
+            prompt: `${take(LINES[0].text)} Her sister has just said ${LINES[1].text}`,
+          });
+          asset("vo2", dialogueInPrompt, { prompt: take("a line nobody wrote") });
+        }),
+      ),
+    ).toMatch(/never voices the line/);
   });
 
   it("stays opaque without the pattern, falling back to the whole-shot rule", () => {
     expect(
-      board(() => {
-        asset("vo", undeclaredDialogue, { prompt: take(LINES[0].text) });
-        asset("vo2", undeclaredDialogue, { prompt: take("a line nobody wrote") });
-      }),
-    ).not.toThrow();
+      unvoiced(
+        board(() => {
+          asset("vo", undeclaredDialogue, { prompt: take(LINES[0].text) });
+          asset("vo2", undeclaredDialogue, { prompt: take("a line nobody wrote") });
+        }),
+      ),
+    ).toBe("");
   });
 });
 
@@ -218,29 +245,35 @@ describe("a line respelled for the model saying it", () => {
 
   it("takes a cue carrying the declared spelling", () => {
     expect(
-      board(() => {
-        asset("vo", tts, { script: respell(LINES[0].text, RESPELT) });
-        asset("vo2", tts, { script: LINES[1].text });
-      }),
-    ).not.toThrow();
+      unvoiced(
+        board(() => {
+          asset("vo", tts, { script: respell(LINES[0].text, RESPELT) });
+          asset("vo2", tts, { script: LINES[1].text });
+        }),
+      ),
+    ).toBe("");
   });
 
   it("still refuses the same words undeclared", () => {
     expect(
-      board(() => {
-        asset("vo", tts, { script: RESPELT });
-        asset("vo2", tts, { script: LINES[1].text });
-      }),
-    ).toThrow(/never voices the line/);
+      unvoiced(
+        board(() => {
+          asset("vo", tts, { script: RESPELT });
+          asset("vo2", tts, { script: LINES[1].text });
+        }),
+      ),
+    ).toMatch(/never voices the line/);
   });
 
   it("holds a spelling per take, so two models may want two", () => {
     expect(
-      board(() => {
-        asset("vo", tts, { script: respell(LINES[0].text, RESPELT) });
-        asset("vo2", tts, { script: respell(LINES[1].text, "あたしにも！") });
-      }),
-    ).not.toThrow();
+      unvoiced(
+        board(() => {
+          asset("vo", tts, { script: respell(LINES[0].text, RESPELT) });
+          asset("vo2", tts, { script: respell(LINES[1].text, "あたしにも！") });
+        }),
+      ),
+    ).toBe("");
   });
 
   it("refuses a respelling of words the direction never wrote", () => {
@@ -312,31 +345,33 @@ describe("a line respelled for the model saying it", () => {
       },
     });
 
-    expect(() =>
-      defineAnimatic(twoShots, {
-        timeline: ({ shot }) => ({
-          shots: shot("01", () => {
-            asset("first", image, { prompt: "the sister on a deck" });
-            asset("vo", tts, { script: respell(SHARED, "ハイ。") });
-            return (
-              <Composition>
-                <Panel src={{ src: "__konte:animatic:shot.01.first__" } as never} />
-                <Audio src={{ src: "__konte:animatic:shot.01.vo__" } as never} />
-              </Composition>
-            );
-          }).nextShot("02", () => {
-            asset("first", image, { prompt: "the sister on a deck again" });
-            asset("vo", tts, { script: "ハイ。" });
-            return (
-              <Composition>
-                <Panel src={{ src: "__konte:animatic:shot.02.first__" } as never} />
-                <Audio src={{ src: "__konte:animatic:shot.02.vo__" } as never} />
-              </Composition>
-            );
+    expect(
+      unvoiced(() =>
+        defineAnimatic(twoShots, {
+          timeline: ({ shot }) => ({
+            shots: shot("01", () => {
+              asset("first", image, { prompt: "the sister on a deck" });
+              asset("vo", tts, { script: respell(SHARED, "ハイ。") });
+              return (
+                <Composition>
+                  <Panel src={{ src: "__konte:animatic:shot.01.first__" } as never} />
+                  <Audio src={{ src: "__konte:animatic:shot.01.vo__" } as never} />
+                </Composition>
+              );
+            }).nextShot("02", () => {
+              asset("first", image, { prompt: "the sister on a deck again" });
+              asset("vo", tts, { script: "ハイ。" });
+              return (
+                <Composition>
+                  <Panel src={{ src: "__konte:animatic:shot.02.first__" } as never} />
+                  <Audio src={{ src: "__konte:animatic:shot.02.vo__" } as never} />
+                </Composition>
+              );
+            }),
           }),
         }),
-      }),
-    ).toThrow(/shot "02" never voices the line/);
+      ),
+    ).toMatch(/^animatic:shot\.02 never voices the line/);
   });
 
   it("refuses a blank spelling", () => {

@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { dedupeCommands, formatSuggestedActions, suggestForStatus } from "../suggested-actions.js";
 import type { ExportReadiness } from "../status-sections.js";
 import type { KonteState } from "../types/index.js";
+import type { Finding, FindingCode } from "../finding.js";
+import type { Stage } from "../address.js";
+
+function finding(code: FindingCode, stage: Stage, extra: Partial<Finding> = {}): Finding {
+  return { code, subject: "", fixIn: { stage }, message: "m", ...extra };
+}
 
 // The report's per-stage readiness — the only thing that knows an asset was never generated
 // (an ungenerated asset has no state entry to find).
@@ -48,34 +54,24 @@ function problemVariant() {
 }
 
 describe("suggestForStatus", () => {
-  it("fits a cut line in animatic.tsx and sends the rest to direction.ts", () => {
+  it("gives each file a finding is fixed in its own edit step, direction first", () => {
     const actions = suggestForStatus({
       state: { schemaVersion: 2, assets: {} },
-      animaticOverflows: [
-        {
-          shotId: "09",
-          overflowSec: 0.2,
-          retime: { src: "animatic:shot.09.narration", roomSec: 2, rate: 1.1 },
-        },
-        { shotId: "10", overflowSec: 1.5, retime: null },
+      findings: [
+        finding("narration-overflow", "animatic", { subject: "animatic:shot.09#stem" }),
+        finding("narration-overflow", "direction", { subject: "animatic:shot.10#stem" }),
       ],
     });
     expect(actions.slice(0, 2)).toEqual([
       {
         command: null,
-        label: "edit animatic.tsx",
-        details: [
-          "Put animatic:shot.09.narration through adapters.audioRetime with duration 2.00 " +
-            "(1.100x) and play that in its place — it fits without cutting the tail",
-        ],
+        label: "edit direction.ts",
+        details: ["Fix the 1 finding(s) listed under it below"],
       },
       {
         command: null,
-        label: "edit direction.ts",
-        details: [
-          "Lengthen the duration of shot 10 or shorten the script — the narration runs past the " +
-            "shot (up to 1.5s) and is cut",
-        ],
+        label: "edit animatic.tsx",
+        details: ["Fix the 1 finding(s) listed under it below"],
       },
     ]);
   });
@@ -163,25 +159,19 @@ describe("suggestForStatus", () => {
     const actions = suggestForStatus({
       state: makeState({}),
       pendingReviewAddresses: ["animatic:shot.35.line"],
-      variantFindings: [
-        {
-          address: "animatic:shot.35.line",
-          variantId: "v-a",
-          findings: [
-            {
-              type: "line-misheard",
-              detail: 'heard "she should fill the sky" — drops the opening "Bigger!"',
-            },
-          ],
-        },
+      findings: [
+        finding("line-misheard", "animatic", {
+          subject: "v-a",
+          targets: ["animatic:shot.35.line"],
+        }),
       ],
+      previewHeldStages: ["animatic"],
     });
 
     expect(actions).toEqual([
       {
         command: "konte probe audio v-a",
         details: [
-          'animatic:shot.35.line v-a: heard "she should fill the sky" — drops the opening "Bigger!"',
           "Dismiss a broken take (reroll for another beside it); `konte vouch <variantId>` one that is fine",
         ],
       },
@@ -618,7 +608,7 @@ describe("suggestForStatus", () => {
   });
 
   it("holds back video suggestions while a consumed board is unaccepted", () => {
-    // `generate video` would abort with ANIMATIC_ACCEPTANCE_REQUIRED, so it must not be offered;
+    // `generate video` would be held by the spend gate, so it must not be offered;
     // the animatic's own suggestions stay live — they are the way through the gate.
     const state = makeState({
       "animatic:shot.01.first": { variants: {} },
@@ -631,15 +621,15 @@ describe("suggestForStatus", () => {
         readinessFor("animatic", ["shot.01.first"]),
         readinessFor("video", ["shot.01.motion"]),
       ],
-      upstreamReviewBlockedStages: ["video"],
+      spendHeldStages: ["video"],
     });
     expect(actions.some((a) => a.command?.includes("generate animatic"))).toBe(true);
     expect(actions.some((a) => a.command?.includes("generate video"))).toBe(false);
   });
 
   it("holds back animatic suggestions while a consumed sheet is unaccepted", () => {
-    // The same gate one stage up: `generate animatic` would abort with
-    // REFERENCE_ACCEPTANCE_REQUIRED, so only the reference stage's own suggestions stay live.
+    // The same gate one stage up: `generate animatic` would be held, so only the reference stage's
+    // own suggestions stay live.
     const state = makeState({
       "reference:ferry": { variants: {} },
       "animatic:shot.01.first": { variants: {} },
@@ -651,7 +641,7 @@ describe("suggestForStatus", () => {
         readinessFor("reference", ["ferry"]),
         readinessFor("animatic", ["shot.01.first"]),
       ],
-      upstreamReviewBlockedStages: ["animatic", "video"],
+      spendHeldStages: ["animatic", "video"],
     });
     expect(actions.some((a) => a.command?.includes("generate reference"))).toBe(true);
     expect(actions.some((a) => a.command?.includes("generate animatic"))).toBe(false);
@@ -665,11 +655,19 @@ describe("suggestForStatus", () => {
         readiness: [readinessFor("video", ["shot.01.motion"])],
         pendingReviewAddresses: ["video:shot.01.motion"],
         staleAddresses: ["video:shot.02#composition"],
-        classBlockedStages: [{ stage: "video", where: "video.tsx", review }],
+        findings: [
+          finding(review ? "composition-class-font-family" : "class-font-family", "video"),
+        ],
+        spendHeldStages: ["video"],
+        previewHeldStages: review ? ["video"] : [],
       });
 
     const refused = suggest(true);
-    expect(refused[0]?.details).toEqual(["Fix the flagged classes in video.tsx"]);
+    expect(refused[0]).toEqual({
+      command: null,
+      label: "edit video.tsx",
+      details: ["Fix the 1 finding(s) listed under it below"],
+    });
     expect(refused.some((a) => a.command?.includes("generate video"))).toBe(false);
     expect(refused.some((a) => a.command === "konte preview video")).toBe(false);
 
@@ -828,53 +826,56 @@ describe("direction review is surfaced first", () => {
 
 // The edit step names the file the fix is written in, and that is not always the direction: a roster
 // entry with no reference asset is answered in reference.tsx, and the roster itself is already right.
-describe("the direction edit step names the file the fix belongs in", () => {
+describe("the finding edit step names the file the fix belongs in", () => {
   const editSteps = (input: Parameters<typeof suggestForStatus>[0]) =>
     suggestForStatus(input).filter(
       (a): a is { command: null; label: string; details: readonly string[] } =>
-        a.command === null && a.label === "edit",
+        a.command === null && a.label.startsWith("edit "),
     );
-  const editStep = (block: Parameters<typeof suggestForStatus>[0]["directionBlock"]) =>
-    editSteps({ state: makeState({}), directionBlock: block })[0]?.details.join("\n");
 
-  it("points at reference.tsx when every finding is an unanchored roster entry", () => {
-    const description = editStep({
-      findingCodes: ["character-unreferenced", "location-unreferenced", "narrator-unreferenced"],
-      hasStructureErrors: false,
+  it("points at reference.tsx, keeping the waiver's file as the other way out", () => {
+    const [step] = editSteps({
+      state: makeState({}),
+      findings: [
+        finding("character-unreferenced", "reference"),
+        finding("narrator-unreferenced", "reference"),
+      ],
     });
-    expect(description).toContain("reference.tsx");
-    // The waiver still lives on the direction, so the escape hatch keeps naming its file.
-    expect(description).toContain("direction.ts");
+    expect(step?.label).toBe("edit reference.tsx");
+    expect(step?.details.join("\n")).toContain("waive a waivable one by its key in direction.ts");
   });
 
-  // Next steps prints ABOVE the direction blocks (print-status), so every file's step has to send
-  // the reader the same way — they drifted apart once already.
+  // Next steps prints ABOVE the Findings block (print-status), so every step sends the reader down.
   it("points every file's step down the page at the findings", () => {
-    const codes = ["character-unreferenced", "setup-unrealized", "multi-sentence-action"] as const;
-    const steps = codes.map((code) =>
-      editStep({ findingCodes: [code], hasStructureErrors: false }),
-    );
-    for (const step of steps) expect(step).toContain("below");
-    expect(steps.join("")).not.toContain("above");
-  });
-
-  it("points at animatic.tsx when every finding is a setup the board realizes", () => {
-    const description = editStep({
-      findingCodes: ["setup-unrealized", "setup-unconsumed"],
-      hasStructureErrors: false,
+    const steps = editSteps({
+      state: makeState({}),
+      findings: [
+        finding("character-unreferenced", "reference"),
+        finding("setup-unrealized", "animatic"),
+        finding("multi-sentence-action", "direction"),
+      ],
     });
-    expect(description).toContain("animatic.tsx");
-    expect(description).toContain("waive a finding by its key in direction.ts");
-    expect(description).not.toContain("Resolve the direction errors");
+    expect(steps.map((s) => s.label)).toEqual([
+      "edit direction.ts",
+      "edit reference.tsx",
+      "edit animatic.tsx",
+    ]);
+    for (const step of steps) expect(step.details.join("")).toContain("below");
   });
 
-  it("keeps offering animatic generation while only video passer findings stand", () => {
+  it("names no waiver where no finding in the file is waivable", () => {
+    const [step] = editSteps({
+      state: makeState({}),
+      findings: [finding("duplicate-id", "direction")],
+    });
+    expect(step?.details).toEqual(["Fix the 1 finding(s) listed under it below"]);
+  });
+
+  it("keeps offering animatic generation while only video findings hold", () => {
     const actions = suggestForStatus({
       state: makeState({}),
-      directionBlock: {
-        findingCodes: ["passer-unconsumed", "passer-unnamed"],
-        hasStructureErrors: false,
-      },
+      findings: [finding("passer-unconsumed", "video"), finding("passer-unnamed", "video")],
+      spendHeldStages: ["video"],
       readiness: [
         readinessFor("animatic", ["shot.01.first"]),
         readinessFor("video", ["shot.01.motion"]),
@@ -884,64 +885,17 @@ describe("the direction edit step names the file the fix belongs in", () => {
     expect(actions).not.toContainEqual({ command: "konte generate video" });
   });
 
-  it("sends passer findings to video.tsx", () => {
-    const description = editStep({
-      findingCodes: ["passer-unconsumed", "passer-unnamed"],
-      hasStructureErrors: false,
-    });
-    expect(description).toContain("video.tsx");
-    expect(description).toContain("findings below");
-    expect(description).not.toContain("Resolve the direction errors");
-  });
-
-  it("gives one step per file when the findings split across files, direction first", () => {
+  it("omits the steps for a shotless direction, which has its own note", () => {
     const steps = editSteps({
       state: makeState({}),
-      directionBlock: {
-        findingCodes: ["setup-unrealized", "character-unreferenced", "multi-sentence-action"],
-        hasStructureErrors: false,
-      },
-    }).map((s) => s.details.join("\n"));
-    expect(steps).toHaveLength(3);
-    expect(steps[0]).toContain("Resolve the direction errors and findings below in direction.ts");
-    expect(steps[1]).toContain("reference.tsx");
-    expect(steps[2]).toContain("animatic.tsx");
-  });
-
-  it("points only at direction.ts when a structural error rides along", () => {
-    const steps = editSteps({
-      state: makeState({}),
-      directionBlock: {
-        findingCodes: ["character-unreferenced", "setup-unrealized"],
-        hasStructureErrors: true,
-      },
-    });
-    expect(steps).toHaveLength(1);
-    expect(steps[0]?.details.join("\n")).toContain(
-      "Resolve the direction errors and findings below in direction.ts",
-    );
-  });
-
-  it("points at direction.ts when a structural error is the only blocker", () => {
-    const description = editStep({ findingCodes: [], hasStructureErrors: true });
-    expect(description).toContain(
-      "Resolve the direction errors and findings below in direction.ts",
-    );
-  });
-
-  it("omits the step for a shotless direction, which has its own note", () => {
-    const steps = editSteps({
-      state: makeState({}),
-      directionBlock: { findingCodes: ["character-unreferenced"], hasStructureErrors: false },
+      findings: [finding("character-unreferenced", "reference")],
       directionEmpty: true,
     });
     expect(steps).toHaveLength(0);
   });
 });
 
-// The cast gate is not one gate: a character's look aborts every animatic/video spend, a cast
-// voice only video (`assertVoicesAccepted`). Suggesting a command that would abort is worse than
-// suggesting nothing — but so is withholding one that would run.
+// Which step the cast asks for turns on where its reference stalled.
 describe("suggestForStatus cast gate scope", () => {
   const readiness = [
     readinessFor("animatic", ["animatic:shot.01.first"]),
@@ -953,20 +907,6 @@ describe("suggestForStatus cast gate scope", () => {
     suggestForStatus({ state: makeState({}), readiness, unacceptedCast: cast })
       .map((a) => ("command" in a ? a.command : null))
       .filter((c): c is string => c !== null);
-
-  it("holds back only the video stage while a cast voice is unaccepted", () => {
-    const offered = commands([
-      { id: "heroVoice", declared: true, missingFile: null, blocks: "video" },
-    ]);
-    expect(offered).toContain("konte generate animatic");
-    expect(offered).not.toContain("konte generate video");
-  });
-
-  it("holds back both stages while a character's look is unaccepted", () => {
-    const offered = commands([{ id: "hero", declared: true, missingFile: null, blocks: "all" }]);
-    expect(offered).not.toContain("konte generate animatic");
-    expect(offered).not.toContain("konte generate video");
-  });
 
   // A sheet whose only take was decided against has nothing to go and look at: the way out is
   // another generate, not a review of the picture the reviewer already said no to.

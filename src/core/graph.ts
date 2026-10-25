@@ -47,7 +47,12 @@ export interface DependencyGraph {
   dependencies: ReadonlyMap<string, readonly string[]>;
   dependents: ReadonlyMap<string, readonly string[]>;
   topologicalOrder: readonly string[];
+  // Each asset built on a shot that is still a pendingShot, with the address it reaches for. No edge
+  // hangs on it until the shot is developed.
+  pendingReferences: readonly PendingReference[];
 }
+
+export type PendingReference = { from: string; ref: string };
 
 function collectRefs(value: unknown, refs: string[]): void {
   if (value === null || value === undefined) {
@@ -154,13 +159,12 @@ export function buildDependencyGraph(
     }
   }
 
-  // Animatic shots that are still undeveloped (a pendingShot). An asset that references one of
-  // these has nothing to build on, so we surface a targeted error rather than the generic
-  // "non-existent path". Threaded into every edge pass that can reach an animatic shot path.
-  const pendingAnimaticShots = new Set<string>();
-  if (animatic) {
-    for (const s of animatic.shots) {
-      if (isPendingAnimaticShot(s)) pendingAnimaticShots.add(s.id);
+  // Shots that are still undeveloped (a pendingShot), as `<stage>:<id>`. An asset that references
+  // one has nothing to build on yet: it is recorded, not refused, so the rest of the graph stands.
+  const pending: PendingShots = { shots: new Set(), references: [] };
+  for (const { def, stage } of stages) {
+    for (const s of def.shots) {
+      if (s.pending) pending.shots.add(`${stage}:${s.id}`);
     }
   }
 
@@ -202,7 +206,7 @@ export function buildDependencyGraph(
         allAssetPaths,
         dependencies,
         dependents,
-        pendingAnimaticShots,
+        pending,
       );
     }
 
@@ -213,7 +217,7 @@ export function buildDependencyGraph(
         allAssetPaths,
         dependencies,
         dependents,
-        pendingAnimaticShots,
+        pending,
       );
     }
 
@@ -225,7 +229,7 @@ export function buildDependencyGraph(
           allAssetPaths,
           dependencies,
           dependents,
-          pendingAnimaticShots,
+          pending,
         );
       }
     }
@@ -244,7 +248,7 @@ export function buildDependencyGraph(
         allAssetPaths,
         dependencies,
         dependents,
-        pendingAnimaticShots,
+        pending,
       );
     }
 
@@ -253,14 +257,7 @@ export function buildDependencyGraph(
     // `.narrationStem`), so those are leaves of their stage with dependents on the next.
     for (const s of def.shots) {
       for (const stem of listShotStems(stage, s)) {
-        addEdges(
-          stem.address,
-          stem.refs,
-          allAssetPaths,
-          dependencies,
-          dependents,
-          pendingAnimaticShots,
-        );
+        addEdges(stem.address, stem.refs, allAssetPaths, dependencies, dependents, pending);
       }
     }
     if ((def.timelineSoundtracks?.length ?? 0) > 0) {
@@ -272,7 +269,7 @@ export function buildDependencyGraph(
         allAssetPaths,
         dependencies,
         dependents,
-        pendingAnimaticShots,
+        pending,
       );
     }
     if (def.overlay) {
@@ -282,7 +279,7 @@ export function buildDependencyGraph(
         allAssetPaths,
         dependencies,
         dependents,
-        pendingAnimaticShots,
+        pending,
       );
     }
   }
@@ -297,7 +294,7 @@ export function buildDependencyGraph(
 
   const topologicalOrder = topologicalSort(allAssetPaths, dependencies, dependents);
 
-  return { dependencies, dependents, topologicalOrder };
+  return { dependencies, dependents, topologicalOrder, pendingReferences: pending.references };
 }
 
 // The reference stage is the shared upstream root: animatic/video may consume reference assets,
@@ -605,6 +602,9 @@ export function listBoardlessVideoShots(
     const seen = new Set<string>();
     let consumesBoard = false;
     let spends = false;
+    // A reference to its own board shot, still a pendingShot, is a board it builds on that has no take
+    // yet — `pending-reference` holds what is built on it.
+    const ownBoard = new RegExp(`^animatic:shot\\.${s.id}[.#]`);
     while (stack.length > 0) {
       const node = stack.pop()!;
       if (seen.has(node)) continue;
@@ -612,7 +612,12 @@ export function listBoardlessVideoShots(
       // Every video shot over a narrated shot places its `#narrationStem`, whatever it builds its
       // picture on — so that builds nothing on the board.
       if (isNarrationStemAddress(node)) continue;
-      if (board.has(node)) {
+      if (
+        board.has(node) ||
+        graph.pendingReferences.some(
+          (r) => r.from === node && ownBoard.test(r.ref) && !isNarrationStemAddress(r.ref),
+        )
+      ) {
         consumesBoard = true;
         break;
       }
@@ -626,25 +631,20 @@ export function listBoardlessVideoShots(
   return boardless;
 }
 
+type PendingShots = { shots: Set<string>; references: PendingReference[] };
+
 function addDependencyEdges(
   assetPath: string,
   entry: AssetDefinition,
   allAssetPaths: Set<string>,
   dependencies: Map<string, string[]>,
   dependents: Map<string, string[]>,
-  pendingAnimaticShots?: ReadonlySet<string>,
+  pending?: PendingShots,
 ): void {
-  addEdges(
-    assetPath,
-    extractRefs(entry),
-    allAssetPaths,
-    dependencies,
-    dependents,
-    pendingAnimaticShots,
-  );
+  addEdges(assetPath, extractRefs(entry), allAssetPaths, dependencies, dependents, pending);
 }
 
-const ANIMATIC_SHOT_REF = /^animatic:shot\.([^.]+)\./;
+const SHOT_REF = /^(animatic|video):shot\.([^.#]+)[.#]/;
 
 function addEdges(
   assetPath: string,
@@ -652,17 +652,14 @@ function addEdges(
   allAssetPaths: Set<string>,
   dependencies: Map<string, string[]>,
   dependents: Map<string, string[]>,
-  pendingAnimaticShots?: ReadonlySet<string>,
+  pending?: PendingShots,
 ): void {
   for (const refPath of new Set(refs)) {
     if (!allAssetPaths.has(refPath)) {
-      const pendingMatch = pendingAnimaticShots && ANIMATIC_SHOT_REF.exec(refPath);
-      if (pendingMatch && pendingAnimaticShots.has(pendingMatch[1]!)) {
-        throw new KonteError(
-          "INVALID_REFERENCE",
-          `Asset "${assetPath}" references "${refPath}", but animatic shot "${pendingMatch[1]}" is still a pendingShot (undeveloped). ` +
-            `Develop that animatic shot first (swap pendingShot for shot via layout-guide) before depending on it.`,
-        );
+      const shot = SHOT_REF.exec(refPath);
+      if (pending && shot && pending.shots.has(`${shot[1]}:${shot[2]}`)) {
+        pending.references.push({ from: assetPath, ref: refPath });
+        continue;
       }
       throw new KonteError(
         "INVALID_REFERENCE",

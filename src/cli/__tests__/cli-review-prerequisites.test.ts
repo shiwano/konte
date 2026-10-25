@@ -44,7 +44,9 @@ describe("review prerequisite gates", () => {
       await unbind(projectDir);
 
       await expect(run(["accept", variantId], projectDir)).rejects.toMatchObject({
-        stderr: expect.stringContaining(`${ADDRESS} (${variantId}) — no blocking, no camera`),
+        stderr: expect.stringContaining(
+          `[movement-unwritten] ${ADDRESS} — no blocking, no camera — write blocking/camera from the output of ${variantId}`,
+        ),
       });
     });
 
@@ -80,7 +82,7 @@ describe("review prerequisite gates", () => {
       await unbind(projectDir);
 
       await expect(run(["preview", "animatic"], projectDir)).rejects.toMatchObject({
-        stderr: expect.stringContaining("REVIEW_PREREQUISITE_MISSING"),
+        stderr: expect.stringMatching(/REVIEW_HELD[\s\S]*\[movement-unwritten\]/),
       });
     });
   });
@@ -94,13 +96,9 @@ describe("review prerequisite gates", () => {
 
       const { stdout } = await run(["status"], projectDir);
       expect(stdout).toContain("edit animatic.tsx");
-      expect(stdout).toContain(`from the output of ${variantId} on 01`);
+      expect(stdout).toContain(`[movement-unwritten] ${ADDRESS} — no blocking, no camera`);
+      expect(stdout).toContain(`from the output of ${variantId}`);
       expect(stdout).not.toContain("konte preview animatic");
-
-      // The section itself is behind `-v`: the default drops what Next steps already names.
-      const { stdout: verbose } = await run(["status", "-v"], projectDir);
-      expect(verbose).toContain("Needs authoring");
-      expect(verbose).toContain(ADDRESS);
     });
 
     // The control for the assertion above: with the movement written, the same take does reach the
@@ -111,7 +109,7 @@ describe("review prerequisite gates", () => {
       await acceptDirection(projectDir);
 
       const { stdout } = await run(["status", "-v"], projectDir);
-      expect(stdout).not.toContain("Needs authoring");
+      expect(stdout).not.toContain("[movement-unwritten]");
       expect(stdout).toContain("konte preview animatic");
     });
 
@@ -121,7 +119,7 @@ describe("review prerequisite gates", () => {
       await acceptDirection(projectDir);
 
       const { stdout } = await run(["status", "-v"], projectDir);
-      expect(stdout).not.toContain("Needs authoring");
+      expect(stdout).not.toContain("[movement-unwritten]");
     });
   });
 
@@ -140,7 +138,7 @@ describe("review prerequisite gates", () => {
       await acceptFileAssets(projectDir);
 
       await expect(run(["generate", "video"], projectDir)).rejects.toMatchObject({
-        stderr: expect.stringContaining("REVIEW_PREREQUISITE_MISSING"),
+        stderr: expect.stringMatching(/SPEND_HELD[\s\S]*\[movement-unwritten\]/),
       });
     });
   });

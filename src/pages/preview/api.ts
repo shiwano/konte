@@ -157,11 +157,16 @@ export function submitDirectionReview(payload: {
   // `accepted` reports the WHOLE direction's standing after the submit (the spend gate's question),
   // not whether the sections in this payload were accepted.
 }): Promise<{ saved: boolean; filePath: string | null; accepted: boolean }> {
-  return request("/api/direction/submit", {
+  return request<{
+    saved: boolean;
+    filePath: string | null;
+    accepted: boolean;
+    skippedDecisions?: Array<{ address: string; reason: string }>;
+  }>("/api/direction/submit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  });
+  }).then(rejectSkippedDecisions);
 }
 
 export function submitReferenceReview(payload: {

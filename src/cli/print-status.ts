@@ -1,5 +1,4 @@
 import { staleSupersededLeaves } from "../core/board-leaves.js";
-import { formatVariantFindings, type VariantFindings } from "../core/variant-check.js";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import {
@@ -70,8 +69,8 @@ import type {
   VideoDefinition,
 } from "../core/types/index.js";
 import type { Stage } from "../core/address.js";
-import type { PinOccurrence } from "../core/pin-check.js";
-import type { PromptOccurrence } from "../core/prompt-check.js";
+import type { PatchSubject, StaleWaiverLine } from "../core/checks.js";
+import { type Finding, formatFindingLine, groupByFixIn } from "../core/finding.js";
 
 export interface StatusReport {
   infos: AddressInfo[];
@@ -87,13 +86,8 @@ export interface StatusReport {
   standaloneFailureJobIds: string[];
   /** Patch scripts that failed to load. Keyed by file path, which is not an address. */
   patchErrors: { filePath: string; message: string }[];
-  /** The prompts and pins each outstanding patch would spend on, with the file that holds them. */
-  patchPrompts: {
-    file: string;
-    sourceAddress: string;
-    prompts: readonly PromptOccurrence[];
-    pins: readonly PinOccurrence[];
-  }[];
+  /** What each outstanding patch would spend on, for the checks to read. */
+  patchSubjects: PatchSubject[];
 }
 
 import type {
@@ -102,29 +96,6 @@ import type {
 } from "../core/direction-acceptance.js";
 
 export type { DirectionAcceptanceStatus, DirectionAcceptanceSummary };
-
-// An unresolved structural finding, keyed by the waiver key that would silence it.
-type DirectionFindingLine = { key: string; class: string; message: string };
-type DirectionStructureErrorLine = { code: string; message: string };
-type DirectionStaleWaiverLine = { key: string; reason: string };
-// A prompt finding as reported: the phrase and where it is written, plus the file that holds both
-// it and the waiver that would cancel it.
-export type PromptFindingLine = { key: string; where: string; detail: string };
-export type PromptStaleWaiverLine = {
-  key: string;
-  where: string;
-  reason: string;
-};
-// A pin finding as reported: the image pinned and the sites pinning it, plus the file that holds
-// both the wiring and the waiver that would cancel it.
-export type PinFindingLine = { key: string; where: string; detail: string };
-export type PinStaleWaiverLine = { key: string; where: string; reason: string };
-// A class finding as reported: the markup it is rendered in, and the file that writes it.
-export type ClassFindingLine = {
-  where: string;
-  label: string;
-  fontFamily: string[];
-};
 
 // The direction is the one project-wide, variant-less accept, and it gates every animatic/video
 // spend — so it heads the progress block, above the per-stage asset ratios it precedes.
@@ -521,14 +492,13 @@ export async function buildStatusReport(
     lastExports,
     orphanJobIds: orphans.orphanJobs.map((j) => j.variantId),
     standaloneFailureJobIds: jobFailures.map((f) => f.jobId),
-    patchPrompts: pendingPatches
-      .filter((p) => (p.prompts?.length ?? 0) > 0 || (p.pins?.length ?? 0) > 0)
-      .map((p) => ({
-        file: patchFileLabel(p.filePath),
-        sourceAddress: p.sourceAddress,
-        prompts: p.prompts ?? [],
-        pins: p.pins ?? [],
-      })),
+    patchSubjects: pendingPatches.map((p) => ({
+      sourceVariantId: p.sourceVariantId,
+      sourceAddress: p.sourceAddress,
+      prompts: p.prompts ?? [],
+      pins: p.pins ?? [],
+      assets: p.assets,
+    })),
     patchErrors: patchCatalog.errors.map((e) => ({
       filePath: patchFileLabel(e.filePath),
       message: e.message,
@@ -544,15 +514,8 @@ export function printStatusReport(
     verbose?: boolean;
     directionAcceptance?: DirectionAcceptanceSummary | null;
     directionEmpty?: boolean;
-    directionFindings?: DirectionFindingLine[];
-    directionStructureErrors?: DirectionStructureErrorLine[];
-    directionStaleWaivers?: DirectionStaleWaiverLine[];
-    promptFindings?: PromptFindingLine[];
-    promptStaleWaivers?: PromptStaleWaiverLine[];
-    variantFindings?: readonly VariantFindings[];
-    pinFindings?: PinFindingLine[];
-    pinStaleWaivers?: PinStaleWaiverLine[];
-    classFindings?: ClassFindingLine[];
+    findings?: readonly Finding[];
+    staleWaivers?: readonly StaleWaiverLine[];
   },
 ): void {
   const { sections, readiness, lastExports } = report;
@@ -658,100 +621,31 @@ export function printStatusReport(
   // (`konte status | head -20`) loses a trailing block. Progress is one bounded line per stage.
   if (formatted) console.log(`\n${formatted}`);
 
-  // Above the findings: a structural error breaks the definition itself, so nothing below it can
-  // be trusted until it is fixed.
-  const structureErrors = options?.directionStructureErrors ?? [];
-  if (structureErrors.length > 0) {
+  // Printed whenever there is one: every finding is on the path of the command that reads status,
+  // whether it holds anything or not. Grouped by the file each is fixed in.
+  const findings = options?.findings ?? [];
+  const staleWaivers = options?.staleWaivers ?? [];
+  if (findings.length > 0 || staleWaivers.length > 0) {
     console.log();
-    console.log(`Direction errors: ${structureErrors.length}`);
-    printCapped(structureErrors, (e) => `[${e.code}] ${e.message}`, { verbose: options?.verbose });
-  }
-
-  const findings = options?.directionFindings ?? [];
-  if (findings.length > 0) {
-    console.log();
-    console.log(`Direction findings: ${findings.length}`);
-    printCapped(findings, (f) => `[${f.key}] (${f.class}) ${f.message}`, {
-      verbose: options?.verbose,
-    });
-  }
-
-  const staleWaivers = options?.directionStaleWaivers ?? [];
-  if (staleWaivers.length > 0) {
-    console.log();
-    console.log(
-      `Stale direction waivers: ${staleWaivers.length} — the finding is gone; remove the waiver`,
-    );
-    printCapped(staleWaivers, (w) => `[${w.key}] ${w.reason}`, { verbose: options?.verbose });
-  }
-
-  // Beside the direction blocks: an unresolved prompt finding aborts generate/reroll/export.
-  const promptFindings = options?.promptFindings ?? [];
-  if (promptFindings.length > 0) {
-    console.log();
-    console.log(
-      `Prompt findings: ${promptFindings.length} — a negation working against the input it is written in`,
-    );
-    printCapped(promptFindings, (f) => `[${f.key}] (${f.where}) ${f.detail}`, {
-      verbose: options?.verbose,
-    });
-  }
-
-  const variantFindings = options?.variantFindings ?? [];
-  if (variantFindings.length > 0) {
-    console.log();
-    console.log(
-      `Variant findings: ${variantFindings.length} — a take that is silent or does not say its line holds its stage's review`,
-    );
-    printCapped(variantFindings, formatVariantFindings, { verbose: options?.verbose });
-  }
-
-  const promptStaleWaivers = options?.promptStaleWaivers ?? [];
-  if (promptStaleWaivers.length > 0) {
-    console.log();
-    console.log(
-      `Stale prompt waivers: ${promptStaleWaivers.length} — the finding is gone; remove the waiver`,
-    );
-    printCapped(promptStaleWaivers, (w) => `[${w.key}] (${w.where}) ${w.reason}`, {
-      verbose: options?.verbose,
-    });
-  }
-
-  // The prompt findings' twin over wiring: a pinned image that is not a frame of the picture.
-  const pinFindings = options?.pinFindings ?? [];
-  if (pinFindings.length > 0) {
-    console.log();
-    console.log(
-      `Pin findings: ${pinFindings.length} — an image pinned as a frame that the picture never shows`,
-    );
-    printCapped(pinFindings, (f) => `[${f.key}] (${f.where}) ${f.detail}`, {
-      verbose: options?.verbose,
-    });
-  }
-
-  const pinStaleWaivers = options?.pinStaleWaivers ?? [];
-  if (pinStaleWaivers.length > 0) {
-    console.log();
-    console.log(
-      `Stale pin waivers: ${pinStaleWaivers.length} — the image is no longer pinned; remove the waiver`,
-    );
-    printCapped(pinStaleWaivers, (w) => `[${w.key}] (${w.where}) ${w.reason}`, {
-      verbose: options?.verbose,
-    });
-  }
-
-  // Not waivable: every spend on the stage aborts, and a composition's every review too.
-  const classFindings = options?.classFindings ?? [];
-  if (classFindings.length > 0) {
-    console.log();
-    console.log(
-      `Class findings: ${classFindings.length} — a class setting a font family (declare fonts on direction.policy.fonts)`,
-    );
-    printCapped(
-      classFindings,
-      (f) => `${f.label} (${f.where}) font family: ${f.fontFamily.join(", ")}`,
-      { verbose: options?.verbose },
-    );
+    console.log(`Findings: ${findings.length + staleWaivers.length}`);
+    const groups = groupByFixIn(findings);
+    if (staleWaivers.length > 0 && !groups.some((g) => g.file === "direction.ts")) {
+      groups.unshift({ file: "direction.ts", findings: [] });
+    }
+    for (const { file, findings: group } of groups) {
+      console.log(`  ${file}`);
+      const lines = [
+        ...group.map(formatFindingLine),
+        ...(file === "direction.ts"
+          ? staleWaivers.map((w) =>
+              w.fixOnly
+                ? `[${w.key}] waiver of a finding only a fix clears — remove it, and fix the finding (${w.reason})`
+                : `[${w.key}] stale waiver — its finding is gone; remove it (${w.reason})`,
+            )
+          : []),
+      ];
+      printCapped(lines, (line) => `  ${line}`, { verbose: options?.verbose });
+    }
   }
 
   if (lastExports.length > 0) {

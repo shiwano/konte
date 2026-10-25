@@ -11,7 +11,6 @@ import { deliveryUpscalerMissing } from "../../core/delivery.js";
 import { KonteError } from "../../core/errors.js";
 import { computeExportPlanDigest } from "../../core/export-signature.js";
 import { syncFileAssets } from "../../core/file-sync.js";
-import { buildDependencyGraph } from "../../core/graph.js";
 import { JobManager } from "../../core/job-manager.js";
 import { buildRenderPlan } from "../../core/render-plan.js";
 import { StateManager } from "../../core/state/index.js";
@@ -20,12 +19,8 @@ import type {
   AnimaticDefinition,
   VideoDefinition,
 } from "../../core/types/index.js";
-import {
-  assertAnimaticConsumed,
-  gateDirectionForStage,
-  gateStageChecks,
-  loadStageDefinitions,
-} from "../load-definition.js";
+import { loadStageDefinitions } from "../load-definition.js";
+import { loadCheckContext, spendGate } from "../finding-gates.js";
 import { requireShotStages } from "../../core/select-definition.js";
 import { planDelivery } from "./render-delivery.js";
 import { formatSuggestedActions } from "../../core/suggested-actions.js";
@@ -62,14 +57,6 @@ async function registerVideoExport(opts: {
   // Store the base output dir on the job; the render worker picks a fresh timestamped
   // subdir per attempt (so a reclaimed render never collides with a stalled prior one).
   const outputDirRel = path.join("dist", "video");
-
-  // `generate video` refuses the same wiring gap; a ref removed after the motion was generated would
-  // reach export unspent.
-  assertAnimaticConsumed({
-    video,
-    animatic,
-    graph: buildDependencyGraph(video, animatic, reference),
-  });
 
   const plan = buildRenderPlan(video, manager, {
     outputDir: path.resolve(videoRoot, outputDirRel),
@@ -239,15 +226,12 @@ Examples:
         definitions: { video, animatic, reference },
       });
 
-      // Gate on the direction before rendering the deliverable. A video export is the final
-      // assembly, so it also enforces completeness — every direction id must be realized.
-      await gateDirectionForStage({
-        videoRoot,
-        command: "export",
-        stage,
-        realizedIds: video.shots.map((s) => s.id),
-      });
-      await gateStageChecks(video, stage);
+      // The spend gate before rendering the deliverable. An export builds on what is already
+      // accepted, so it is held by findings and the cast alone; its own acceptance check follows.
+      await spendGate(
+        await loadCheckContext({ videoRoot, definitions: { reference, animatic, video } }),
+        { command: "export", stage, assetPaths: [], targeted: false },
+      );
 
       // A delivery upscale is the one part of an export that spends, and unaccepted material is
       // by definition not what it is spent on — so the rough cut never reaches it.

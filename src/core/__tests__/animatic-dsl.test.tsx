@@ -61,12 +61,14 @@ describe("defineAnimatic plates", () => {
     expect(handed).toEqual(expect.objectContaining({ src: "__konte:animatic:plate.front__" }));
   });
 
-  it("rejects a key naming no declared setup", () => {
-    expect(() =>
-      animatic(() => ({
-        nope: asset("nope", imageComfy, { prompt: "x" }),
-      })),
-    ).toThrow(/not a setup direction.ts declares/);
+  it("finds a plate filed under no declared setup, and files it as no setup's plate", () => {
+    const board = animatic(() => ({
+      nope: asset("nope", imageComfy, { prompt: "x" }),
+    }));
+    expect(board.buildFindings?.map((f) => [f.code, f.subject])).toEqual([
+      ["plate-undeclared-setup", "animatic:plate.nope"],
+    ]);
+    expect(board.exposedPlateIds).toEqual([]);
   });
 
   // Matching key SETS is not enough — two plates filed under each other's ids would pass that and
@@ -662,8 +664,8 @@ describe("panel movement position rule", () => {
     expect(sb.shots[1]!.continuedBy).toBeUndefined();
   });
 
-  // Movement is written from the take, so an unbound panel is a state discovery accepts; the review
-  // gates (REVIEW_PREREQUISITE_MISSING) are what require it.
+  // Movement is written from the take, so an unbound panel is a state discovery accepts; its finding
+  // (`movement-unwritten`) is what requires it.
   it("accepts a keyframe that declares no movement yet", () => {
     const sb = board(() => {
       const a = asset("first", imageComfy, { prompt: "a" });

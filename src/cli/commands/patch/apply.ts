@@ -1,7 +1,6 @@
 import { consumedBoardStems, remakeSupersededBoardLeaves } from "../../../core/board-leaves.js";
 import { printRemixedBoardStems } from "../../generation-selection.js";
 import type { Command } from "commander";
-import { requireShotStages } from "../../../core/select-definition.js";
 import { loadKonteConfig } from "../../../core/config.js";
 import { JobManager } from "../../../core/job-manager.js";
 import {
@@ -16,22 +15,15 @@ import {
 import { StateManager } from "../../../core/state/index.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
 import { requireVideoRoots } from "../../context.js";
-import { getStage, isPatchAddress, tryParseAddress } from "../../../core/address.js";
+import { getStage, isPatchAddress } from "../../../core/address.js";
 import type { SpendRoutes } from "../../../core/backend-policy.js";
-import { isVendorBackendAsset } from "../../../core/vendor-backend.js";
 import { buildDependencyGraph, extractRefs } from "../../../core/graph.js";
-import {
-  assertAnimaticConsumed,
-  assertUpstreamAccepted,
-  gateDirectionForStage,
-  loadDefinitionForAddress,
-  loadStageDefinitions,
-} from "../../load-definition.js";
-import type { SpendCommand } from "../../../core/direction.js";
+import { loadStageDefinitions } from "../../load-definition.js";
+import { loadCheckContext, loadStageDefsTolerant, spendGate } from "../../finding-gates.js";
+import { loadReference } from "../../../core/loader.js";
+import type { SpendCommand } from "../../../core/finding.js";
 import type { VideoRoots } from "../../../core/roots.js";
 import type { KonteConfig } from "../../../core/types/index.js";
-import { assertPinGate } from "../../../core/pin-check.js";
-import { assertPromptGate } from "../../../core/prompt-check.js";
 import { applyPatch, assertPatchSpendAllowed } from "../../patch-orchestrator.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { errorMessage } from "../../../core/errors.js";
@@ -138,8 +130,9 @@ Examples:
 }
 
 /**
- * The gates a patch spend passes before anything is reserved: the vendor allowlist per chain, the
- * prompt and pin gates, the direction gate per stage, and the upstream-acceptance gate.
+ * The gates a patch spend passes before anything is reserved: the vendor allowlist per chain, then the
+ * spend gate per patch — its own prompts and pins, the findings over its stage, and the upstream it
+ * builds on.
  */
 export async function gatePatchApply(
   roots: VideoRoots,
@@ -149,110 +142,64 @@ export async function gatePatchApply(
   command: SpendCommand,
 ): Promise<Map<LoadedPatch, SpendRoutes>> {
   const videoRoot = roots.video;
-  let manager = await StateManager.load(videoRoot);
   const spends = new Map<LoadedPatch, SpendRoutes>();
   for (const patch of targets) {
     spends.set(patch, await assertPatchSpendAllowed(patch, config, roots.workspace));
   }
-  // A correction's own prompts and pins, gated like a stage's. A patch declares no waivers of
-  // its own.
-  for (const patch of targets) {
-    assertPromptGate(patch, `patches/${patch.sourceVariantId}.ts`);
-    assertPinGate(patch, `patches/${patch.sourceVariantId}.ts`);
-  }
-  for (const stage of new Set(targets.map((p) => getStage(p.sourceAddress)))) {
-    const definition =
-      stage === "reference"
-        ? null
-        : await loadDefinitionForAddress(
-            videoRoot,
-            targets.find((p) => getStage(p.sourceAddress) === stage)!.sourceAddress,
-          );
-    await gateDirectionForStage({
-      videoRoot,
-      command,
-      stage,
-      realizedIds: definition?.shots.map((s) => s.id),
-    });
-  }
-  // A patch spends on top of its take's upstream, so it passes the same acceptance gate
-  // generate does. A patch script resolves its own refs beyond the source take (see applyPatch),
-  // and those have no graph node, so they are gated alongside the source address.
-  // Creative stages only, for the same reason reroll's gate skips the other one: a `reference`
-  // sheet has no reviewed upstream.
-  const gatedPatches = targets.filter((p) => {
-    const stage = getStage(p.sourceAddress);
-    return stage === "animatic" || stage === "video";
+  // A reference patch builds on no shot stage, so a shot stage that will not load does not stop it.
+  const definitions = targets.some((p) => getStage(p.sourceAddress) !== "reference")
+    ? await loadStageDefinitions(videoRoot)
+    : { ...(await loadStageDefsTolerant(videoRoot)), reference: await loadReference(videoRoot) };
+  const { video, animatic, reference } = definitions;
+  await applyResolutionDefinitions({
+    videoRoot,
+    definitions,
+    patchHashes: patchHashesOf(catalog),
   });
-  if (gatedPatches.length > 0) {
-    const { video, animatic, reference } = requireShotStages(await loadStageDefinitions(videoRoot));
-    await applyResolutionDefinitions({
+  // Sync `file` assets under the state lock, as generate and reroll do, before asking what is
+  // accepted.
+  let manager = await StateManager.withLock(videoRoot, async (m) => {
+    await syncFileAssets({ reference, animatic, video }, m, { measure: true });
+    return m;
+  });
+  const graph = video && animatic ? buildDependencyGraph(video, animatic, reference) : null;
+  // The board stems the video patches consume, re-mixed before the gate asks for them accepted.
+  const videoPatches = targets.filter((p) => getStage(p.sourceAddress) === "video");
+  if (video && animatic && graph && videoPatches.length > 0) {
+    const remixed = await remakeSupersededBoardLeaves({
       videoRoot,
-      definitions: { video, animatic, reference },
-      patchHashes: patchHashesOf(catalog),
-    });
-    // Sync `file` assets under the state lock, as generate and reroll do, before asking what is
-    // accepted.
-    manager = await StateManager.withLock(videoRoot, async (m) => {
-      await syncFileAssets({ reference, animatic, video }, m, { measure: true });
-      return m;
-    });
-    const graph = buildDependencyGraph(video, animatic, reference);
-    // The board stems the video patches consume, re-mixed before the gate asks for them accepted.
-    const videoPatches = gatedPatches.filter((p) => getStage(p.sourceAddress) === "video");
-    if (videoPatches.length > 0) {
-      const remixed = await remakeSupersededBoardLeaves({
-        videoRoot,
-        board: animatic,
-        video,
-        addresses: consumedBoardStems(
-          graph,
-          videoPatches.map((p) => p.sourceAddress),
-          videoPatches.flatMap((p) => Object.values(p.assets).flatMap((def) => extractRefs(def))),
-        ),
-        include: "stems",
-      });
-      if (remixed.accepted.length > 0) manager = await StateManager.load(videoRoot);
-      printRemixedBoardStems(remixed);
-    }
-    // A patch spends like a generate, so it meets the same wiring gate. The spend is the patch's
-    // own steps, not the definition's: a footage shot the definition calls no spender is one a
-    // comfy step still spends on. A timeline source belongs to no one shot, so there the whole
-    // definition answers.
-    const vendorPatches = gatedPatches.filter(
-      (p) =>
-        getStage(p.sourceAddress) === "video" &&
-        Object.values(p.assets).some((def) => isVendorBackendAsset(def.kind)),
-    );
-    if (vendorPatches.length > 0) {
-      const shotIds = vendorPatches
-        .map((p) => tryParseAddress(p.sourceAddress))
-        .flatMap((parsed) => (parsed?.kind === "shot" ? [parsed.shotId] : []));
-      const timelineSpend = shotIds.length < vendorPatches.length;
-      assertAnimaticConsumed({
-        video,
-        animatic,
+      board: animatic,
+      video,
+      addresses: consumedBoardStems(
         graph,
-        ...(timelineSpend ? {} : { spendingShotIds: shotIds }),
-      });
-    }
-    for (const stage of new Set(gatedPatches.map((p) => getStage(p.sourceAddress)))) {
-      const staged = gatedPatches.filter((p) => getStage(p.sourceAddress) === stage);
-      assertUpstreamAccepted({
-        manager,
-        graph,
-        animatic,
-        stage,
-        assetPaths: staged.map((p) => p.sourceAddress),
-        // A chain's own steps are not upstream work — they are produced by this very
-        // application, so they are excluded from the gate.
-        extraRefs: staged.flatMap((p) =>
-          Object.values(p.assets)
-            .flatMap((def) => extractRefs(def))
-            .filter((ref) => !isPatchAddress(ref)),
-        ),
-      });
-    }
+        videoPatches.map((p) => p.sourceAddress),
+        videoPatches.flatMap((p) => Object.values(p.assets).flatMap((def) => extractRefs(def))),
+      ),
+      include: "stems",
+    });
+    if (remixed.accepted.length > 0) manager = await StateManager.load(videoRoot);
+    printRemixedBoardStems(remixed);
   }
+  const ctx = await loadCheckContext({
+    videoRoot,
+    definitions: { reference, animatic, video },
+    manager,
+    graph,
+    patches: targets,
+  });
+  await spendGate(
+    ctx,
+    targets.map((patch) => ({
+      command,
+      stage: getStage(patch.sourceAddress) as "reference" | "animatic" | "video",
+      patch: patch.sourceVariantId,
+      assetPaths: [patch.sourceAddress],
+      targeted: true,
+      // A chain's own steps are produced by this very application, so they are not upstream work.
+      extraRefs: Object.values(patch.assets)
+        .flatMap((def) => extractRefs(def))
+        .filter((ref) => !isPatchAddress(ref)),
+    })),
+  );
   return spends;
 }

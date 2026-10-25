@@ -12,21 +12,12 @@ import {
   listAssetPaths,
   parseAddress,
 } from "../../core/address.js";
-import { findAnimaticOverflows, formatAnimaticOverflow } from "../../core/animatic-overflow.js";
 import { definitionDriftFields, isDeterministicAddress } from "../../core/definition-hashes.js";
 import { holdsHumanVerdict } from "../../core/accept-cascade.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import { assetSkipReason } from "../generate-orchestrator.js";
-import {
-  checkDirection,
-  classifyDirectionFinding,
-  directionHasShots,
-  directionWaiverKey,
-  leafSequenceShotIds,
-  reportableDirectionFindings,
-} from "../../core/direction.js";
+import { directionHasShots, leafSequenceShotIds } from "../../core/direction.js";
 import { syncFileAssets } from "../../core/file-sync.js";
-import { findAllUnmetPrerequisites, prerequisiteShot } from "../../core/review-prerequisites.js";
 import { StateManager } from "../../core/state/index.js";
 import { feedbackStaleness, listAllFeedback } from "../../core/feedback/index.js";
 import { directionPartHashes } from "../../core/direction-hash.js";
@@ -36,7 +27,6 @@ import {
   type SongPending,
   suggestForStatus,
 } from "../../core/suggested-actions.js";
-import { unvouchedFindings } from "../../core/variant-check.js";
 import { unreadSongTakes } from "../../core/song-queue.js";
 import { isJobTerminal, JobManager } from "../../core/job-manager.js";
 import { jobStatusFlags } from "../../core/job-diagnosis.js";
@@ -46,30 +36,13 @@ import { isPendingShot, isPendingAnimaticShot } from "../../core/types/index.js"
 import {
   loadDirectionIfPresent,
   loadStageDefinitions,
-  loadAnimaticSetupState,
-  loadStagingStageState,
-  heldByUpstreamAcceptance,
   unsatisfiedCharacters,
   unsatisfiedVoices,
-  loadSongTakeState,
-  stageClassSubjects,
 } from "../load-definition.js";
-import { checkPins, formatPinFinding, type PinCheckSubject } from "../../core/pin-check.js";
-import { STAGE_ENTRY_FILE } from "../../core/roots.js";
-import { checkTailwindClasses } from "../../core/tailwind-classes.js";
-import {
-  checkPrompts,
-  formatPromptFinding,
-  type PromptCheckSubject,
-} from "../../core/prompt-check.js";
-import {
-  printStatusReport,
-  type ClassFindingLine,
-  type PinFindingLine,
-  type PinStaleWaiverLine,
-  type PromptFindingLine,
-  type PromptStaleWaiverLine,
-} from "../print-status.js";
+import { collectFindings } from "../../core/checks.js";
+import { reviewHold } from "../../core/finding.js";
+import { judgeSpend, loadCheckContext, spendHeldError } from "../finding-gates.js";
+import { printStatusReport } from "../print-status.js";
 import { buildAssetStatus, needsReviewItems } from "../asset-status.js";
 import { isProblemAddress } from "../../core/status-sections.js";
 import {
@@ -92,21 +65,14 @@ export function registerStatusCommand(program: Command): void {
         "\nSections:\n" +
         "  Progress         The direction's acceptance, then per-stage counts\n" +
         "                   (the video stage is marked ready to export when all accepted)\n" +
-        "  Direction errors    Structural errors in direction.ts — generate refuses them; not waivable\n" +
-        "  Direction findings  Unresolved structural findings on the direction, each with its waiver key\n" +
-        "  Stale direction waivers  Waivers whose finding is gone — remove them from direction.ts\n" +
-        "  Prompt findings     Prompts naming what to leave out, each with its waiver key\n" +
-        "  Stale prompt waivers     Prompt waivers whose phrase is gone — remove them\n" +
-        "  Class findings      Classes setting a font family — not waivable\n" +
-        "  Needs authoring  Targets holding output whose review still needs something written\n" +
-        "  Needs retiming   Shots whose animatic narration runs past the duration written for them\n" +
+        "  Findings         Every machine finding, grouped by the file it is fixed in, each by its\n" +
+        "                   waiver key or code — and every waiver whose finding is gone\n" +
         "  Needs review     Anything awaiting a review and accept\n" +
         "  Problems         A dead variant, a failed job, or a declared file that is not on disk\n" +
         "  Needs regenerate Assets whose every take is stale and unaccepted — `generate` remakes them\n" +
         "  Stale            Accepted variants whose inputs or definition have changed, unless the accept stands\n" +
         "\nThe sections are `-v` only: every state they report, Next steps names a command or an\n" +
-        "edit for. Progress, Next steps and the direction, prompt and\n" +
-        "class blocks always print.\n" +
+        "edit for. Progress, Next steps and Findings always print.\n" +
         "\nRunning, queued and pending jobs are not listed — `konte job list` reports them.",
     )
     .option("-v, --verbose", "Print the sections — every address behind the counts and steps above")
@@ -119,9 +85,9 @@ export function registerStatusCommand(program: Command): void {
         await loadStageDefinitions(videoRoot),
       );
       // The direction gates animatic/video generation, so status flags an unaccepted (or
-      // changed-since-accepted) direction as the first next step. Tolerant: a broken direction.ts
-      // surfaces via the gate/doctor, not here.
-      const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
+      // changed-since-accepted) direction as the first next step. A broken direction.ts fails here,
+      // as the stages built on it already have — it is never reported as missing.
+      const direction = await loadDirectionIfPresent(videoRoot);
       // File assets are synced in memory only, like `generate --plan`: status reports what is on
       // disk and writes nothing — neither the state nor assets/.gitignore.
       const manager = await StateManager.load(videoRoot);
@@ -144,112 +110,17 @@ export function registerStatusCommand(program: Command): void {
         ? summarizeDirectionAcceptance(direction, acceptance)
         : null;
       const acceptanceView = direction ? directionAcceptanceView(direction, acceptance) : null;
-      // The parts short of accepted, named. The counts above only tally them; a caller scripting
-      // against it (or an agent deciding what to put in front of the human) needs to know
-      // WHICH, and a count alone would send it back to diff the direction itself. Both lists ship —
-      // they part company once the piece has been accepted whole.
-      // An unresolved finding aborts generate/reroll/export with DIRECTION_CHECK_FAILED, so the
-      // orientation point lists them beside the acceptance instead of deferring to doctor. Characters
-      // findings only become reportable once the direction is accepted (reportableDirectionFindings).
-      const directionCheck = direction
-        ? checkDirection(direction, {
-            referenceAssetNames: reference?.exposedAssetNames ?? [],
-            animaticSetups: await loadAnimaticSetupState(videoRoot, direction, reference),
-            stagingStage: await loadStagingStageState(videoRoot, direction),
-            songTake: await loadSongTakeState(videoRoot, direction),
-          })
-        : null;
-      const reportedFindings = directionCheck
-        ? reportableDirectionFindings(directionCheck.active, acceptanceView?.gateSatisfied ?? false)
-        : [];
-      const directionFindings = reportedFindings.map((f) => ({
-        key: directionWaiverKey(f),
-        class: classifyDirectionFinding(f.code),
-        message: f.message,
-      }));
-      // Structural errors abort generate outright and are not waivable, so they get their own block
-      // rather than folding into the findings list. `empty-direction` means "not started", which
-      // `directionEmpty` below already carries as a next step, not an error.
-      const directionStructureErrors = directionCheck
-        ? directionCheck.structureErrors
-            .filter((e) => e.code !== "empty-direction")
-            .map((e) => ({ code: e.code, message: e.message }))
-        : [];
-      const directionStaleWaivers = directionCheck
-        ? directionCheck.staleWaivers.map((w) => ({ key: w.key, reason: w.reason }))
-        : [];
-
-      // The two stage-file gates' twin of the block above: each aborts every spend on its stage.
-      // Per stage, since each folds against its own `waivers`.
-      const promptFindings: PromptFindingLine[] = [];
-      const promptStaleWaivers: PromptStaleWaiverLine[] = [];
-      const pinFindings: PinFindingLine[] = [];
-      const pinStaleWaivers: PinStaleWaiverLine[] = [];
-      const promptBlockedStages: Array<{ stage: string; where: string }> = [];
-      const collectStageChecks = (
-        where: string,
-        subject: PromptCheckSubject & PinCheckSubject,
-      ): boolean => {
-        const result = checkPrompts(subject.prompts ?? [], subject.waivers ?? {});
-        for (const finding of result.active) {
-          promptFindings.push({ key: finding.key, where, detail: formatPromptFinding(finding) });
-        }
-        for (const waiver of result.staleWaivers) {
-          promptStaleWaivers.push({ key: waiver.key, where, reason: waiver.reason });
-        }
-        const pinResult = checkPins(subject.pins ?? [], subject.waivers ?? {});
-        for (const finding of pinResult.active) {
-          pinFindings.push({ key: finding.key, where, detail: formatPinFinding(finding) });
-        }
-        for (const waiver of pinResult.staleWaivers) {
-          pinStaleWaivers.push({ key: waiver.key, where, reason: waiver.reason });
-        }
-        return result.active.length > 0 || pinResult.active.length > 0;
-      };
-      for (const [stage, def] of [
-        ["reference", reference],
-        ["animatic", animatic],
-        ["video", video],
-      ] as const) {
-        if (!def) continue;
-        const where = STAGE_ENTRY_FILE[stage];
-        if (collectStageChecks(where, def)) promptBlockedStages.push({ stage, where });
-      }
-      // The class gate's twin: a composition's finding also refuses the review, which renders it.
-      const classFindings: ClassFindingLine[] = [];
-      const classBlockedStages: Array<{ stage: string; where: string; review: boolean }> = [];
-      for (const [stage, def] of [
-        ["reference", reference],
-        ["animatic", animatic],
-        ["video", video],
-      ] as const) {
-        if (!def) continue;
-        const where = STAGE_ENTRY_FILE[stage];
-        const { images, compositions } = stageClassSubjects(def, stage);
-        const imageFindings = await checkTailwindClasses(images);
-        const compositionFindings = await checkTailwindClasses(compositions);
-        for (const f of [...imageFindings, ...compositionFindings]) {
-          classFindings.push({
-            where,
-            label: f.label,
-            fontFamily: f.fontFamily,
-          });
-        }
-        if (imageFindings.length > 0 || compositionFindings.length > 0) {
-          classBlockedStages.push({ stage, where, review: compositionFindings.length > 0 });
-        }
-      }
       // The cast gate: a character's look, plus every cast voice sample (the video stage's own
       // gate — surfaced here too, or Next steps would keep offering a `generate video` that aborts).
       // A `file` reference is satisfied by its media landing on disk, never by generating it, so
       // carry the declared path along for the step that says where to put it. One already on disk
       // was synced above and waits only on its accept, like a generated one with output.
       const unacceptedCast = [
-        ...(await unsatisfiedCharacters({ videoRoot, manager, direction, reference })).map((c) => ({
+        ...unsatisfiedCharacters({ manager, direction }).map((c) => ({
           id: c.id,
           blocks: "all" as const,
         })),
-        ...(await unsatisfiedVoices({ videoRoot, manager, direction, reference })).map((v) => ({
+        ...unsatisfiedVoices({ manager, direction }).map((v) => ({
           id: v.assetId,
           blocks: "video" as const,
         })),
@@ -305,12 +176,18 @@ export function registerStatusCommand(program: Command): void {
         }
       }
 
-      // Would `generate <stage>` abort on ANIMATIC_/REFERENCE_ACCEPTANCE_REQUIRED right now? It does
-      // only when the gate holds every used asset that run would submit, so Next steps never offers
-      // a spend the gate would refuse, nor withholds one it would allow.
-      const upstreamReviewBlockedStages = (["animatic", "video"] as const).filter((stage) => {
-        const def = stage === "video" ? video : animatic;
-        if (graph === null || !def) return false;
+      // Every finding, and what each spend and review it holds — the same judgement the gates make.
+      const checkContext = await loadCheckContext({
+        videoRoot,
+        definitions: { reference, animatic, video },
+        direction,
+        manager,
+        graph,
+        patches: report.patchSubjects,
+      });
+      const findingReport = await collectFindings(checkContext);
+      const spendHeldStages = (["reference", "animatic", "video"] as const).filter((stage) => {
+        const def = stage === "video" ? video : stage === "animatic" ? animatic : reference;
         const spending = listAssetPaths(def, stage).filter((assetPath) => {
           if (unusedPaths.has(assetPath)) return false;
           const assetDef = getAssetEntry(def, assetPath);
@@ -324,12 +201,12 @@ export function registerStatusCommand(program: Command): void {
             )
           );
         });
-        return (
-          spending.length > 0 &&
-          heldByUpstreamAcceptance({ manager, graph, stage, assetPaths: spending }).size ===
-            spending.length
-        );
+        const req = { command: "generate", stage, assetPaths: spending, targeted: false } as const;
+        return spendHeldError(req, judgeSpend(checkContext, findingReport, req)) !== null;
       });
+      const previewHeldStages = (["reference", "animatic", "video"] as const).filter((stage) =>
+        findingReport.findings.some((f) => reviewHold(f, { op: "preview", stage })),
+      );
 
       // Feed Next steps the report's definition-aware "Needs review" and job-aware
       // "Problems" sets so it never suggests previewing a composition the section itself
@@ -356,12 +233,6 @@ export function registerStatusCommand(program: Command): void {
       const pendingReviewAddresses = [
         ...new Set([...needsReviewItems(report).map((i) => i.address), ...waiverShotAddresses]),
       ];
-      const variantFindings = unvouchedFindings({
-        videoRoot,
-        manager,
-        definitions: { reference, animatic, video },
-        lang: video.typography.lang,
-      });
       // Derive clean candidates from the address infos, not the "Problems" section: the
       // section also lists orphan jobs and model-download failures, which have no state
       // variant for `clean` to act on — suggesting clean for them would be a no-op. Mirror
@@ -422,15 +293,18 @@ export function registerStatusCommand(program: Command): void {
             }) ?? [],
         ),
       ];
-      // Patch scripts are the second definition source a spend reaches, and `patch apply` gates
-      // them on their own — so a correction whose delta names an exclusion, or which pins a frame
-      // the picture never shows, is reported here too, and carried to Next steps as blocked, which
-      // withholds `konte patch apply` for the whole set.
-      const promptBlockedPatches = new Set(
-        report.patchPrompts
-          .filter((p) => collectStageChecks(p.file, { prompts: p.prompts, pins: p.pins }))
-          .map((p) => p.sourceAddress),
-      );
+      // A patch whose own prompt or pin finding holds it withholds `konte patch apply` for the set.
+      const heldPatchAddresses = [
+        ...new Set(
+          findingReport.findings.flatMap((f) =>
+            f.fixIn.patch === undefined
+              ? []
+              : report.patchSubjects
+                  .filter((p) => p.sourceVariantId === f.fixIn.patch)
+                  .map((p) => p.sourceAddress),
+          ),
+        ),
+      ];
 
       const isPatchOutput = (address: string, variantId: string): boolean =>
         state.assets[address]?.variants?.[variantId]?.derivedFrom != null;
@@ -492,40 +366,6 @@ export function registerStatusCommand(program: Command): void {
           info.address,
         );
       }
-      // A target holding output whose review prerequisites are unwritten. It sits above "Needs
-      // review" because it is what the review is waiting on: `konte preview <stage>` aborts with
-      // REVIEW_PREREQUISITE_MISSING until every one of these is written.
-      const unmetPrerequisites = findAllUnmetPrerequisites({ animatic }, state);
-      if (unmetPrerequisites.length > 0) {
-        const at = report.sections.findIndex((s) => s.title === "Needs review");
-        report.sections.splice(at === -1 ? report.sections.length : at, 0, {
-          title: "Needs authoring",
-          items: unmetPrerequisites.map((u) => {
-            const shot = prerequisiteShot(u);
-            return {
-              address: u.address,
-              detail:
-                `${shot ? `${shot}: ` : ""}has output (${u.variantId}) but no ${u.missing.join(", no ")}` +
-                ` — write it in ${u.writeIn}`,
-            };
-          }),
-        });
-      }
-
-      // Above "Needs review": the fix is a retime, not a verdict.
-      const animaticOverflows = findAnimaticOverflows(animatic, manager);
-      if (animaticOverflows.length > 0) {
-        const at = report.sections.findIndex((s) => s.title === "Needs review");
-        report.sections.splice(at === -1 ? report.sections.length : at, 0, {
-          title: "Needs retiming",
-          // The address names the shot; the detail says only what the address cannot.
-          items: animaticOverflows.map((o) => ({
-            address: o.address,
-            detail: formatAnimaticOverflow(o),
-          })),
-        });
-      }
-
       // The human's own words are the one input Next steps had no way to see. A comment counts
       // while it still stands — once it is stale, whatever aged it already answered it. Every
       // address counts, variant-bearing or not: the step is to read the words.
@@ -582,16 +422,16 @@ export function registerStatusCommand(program: Command): void {
         state,
         stalenessCache: readCache,
         feedbackAddresses: [...feedbackAddresses],
-        unmetPrerequisites,
-        animaticOverflows,
+        findings: findingReport.findings.filter((f) => f.code !== "empty-direction"),
+        spendHeldStages,
+        previewHeldStages,
         pendingReviewAddresses,
-        variantFindings,
         problemAddresses,
         failedJobVariantIds,
         // The whole list, blocked ones included: the bare `konte patch apply` takes every pending
         // patch, so what is offered depends on all of them, not on the appliable subset.
         pendingPatchAddresses,
-        blockedPatchAddresses: [...promptBlockedPatches],
+        blockedPatchAddresses: heldPatchAddresses,
         boardRemixAddresses:
           report.sections
             .find((s) => s.title === "Board stems to re-mix")
@@ -608,13 +448,6 @@ export function registerStatusCommand(program: Command): void {
         // a job already in flight, and the gates that would abort the command being suggested.
         readiness: report.readiness,
         lastExports: report.lastExports,
-        directionBlock:
-          reportedFindings.length > 0 || directionStructureErrors.length > 0
-            ? {
-                findingCodes: reportedFindings.map((f) => f.code),
-                hasStructureErrors: directionStructureErrors.length > 0,
-              }
-            : undefined,
         directionReviewNeeded,
         unacceptedCast,
         directionEmpty,
@@ -623,9 +456,6 @@ export function registerStatusCommand(program: Command): void {
         jobsInFlight: activeJobs.length > 0,
         stuckJobIds,
         songUnread,
-        upstreamReviewBlockedStages,
-        promptBlockedStages,
-        classBlockedStages,
         boardedPendingVideoShots,
         ...(nextSequencePendingShots ? { nextSequencePendingShots } : {}),
       });
@@ -636,15 +466,8 @@ export function registerStatusCommand(program: Command): void {
         verbose: opts.verbose,
         directionAcceptance,
         directionEmpty,
-        directionFindings,
-        directionStructureErrors,
-        directionStaleWaivers,
-        promptFindings,
-        promptStaleWaivers,
-        variantFindings,
-        pinFindings,
-        pinStaleWaivers,
-        classFindings,
+        findings: findingReport.findings.filter((f) => f.code !== "empty-direction"),
+        staleWaivers: findingReport.staleWaivers,
       });
     });
 }

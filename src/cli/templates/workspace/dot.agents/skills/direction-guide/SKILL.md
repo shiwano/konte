@@ -62,11 +62,11 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 
 ## Clearing direction findings
 
-- Run `konte status` — each finding carries a cause and a waiver key in `[brackets]`. Roster and setup findings are deferred until direction acceptance.
+- Run `konte status` — its `Findings` block lists each under the file it is fixed in, with a cause and its code or waiver key in `[brackets]`. Roster wiring findings are deferred until direction acceptance.
 - Role, pacing, or roster declaration finding → fix the named field; an unused roster entry must be used or removed.
 - Missing reference asset → `authoring-guide`; expose the named roster id in `reference.tsx`.
 - Plate, landmark, keyframe input or prompt finding → `staging-guide`; fix the named animatic asset; `passer-unconsumed` / `passer-unnamed` name a video take.
-- Deliberate structural exception → copy the bracketed key into the direction's top-level `waivers` with a reason. Never waive a fixable defect; remove stale waivers reported by status.
+- Deliberate structural exception → copy the bracketed key into the direction's top-level `waivers` with a reason. A contradiction, an empty field or an unused entry is only fixed — a waiver of it is reported stale; remove stale waivers.
 
 ## Pacing — rhythm, not uniform length
 

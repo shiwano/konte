@@ -35,14 +35,7 @@ export type ReferenceRef<TAssets extends ReferenceAssetMap> = {
 };
 
 // Keys the merged result reserves for the ReferenceDefinition itself — an asset may not take one.
-const RESERVED_NAMES = new Set([
-  "shots",
-  "topLevelAssets",
-  "exposedAssetNames",
-  "prompts",
-  "pins",
-  "waivers",
-]);
+const RESERVED_NAMES = new Set(["shots", "topLevelAssets", "exposedAssetNames", "prompts", "pins"]);
 
 /**
  * The view images a `views` callback may return: per location, one image per way its setups face
@@ -60,9 +53,6 @@ export interface DefineReferenceOptions<TAssets extends ReferenceAssetMap, D = u
   // `reference:view.<locationId>.<view>` whatever its asset is named. Runs after `references`, which
   // it receives. Its own declaration site (`view`): an adapter whose `allowedIn` lacks it is refused.
   views?: (args: { format: VideoFormat; reference: ReferenceRef<TAssets> }) => ReferenceViews<D>;
-  // Prompt findings this stage accepts, keyed the way `konte status` prints them
-  // (`prompt-negation:<hash>`) over the reason each is right; never a fixable one.
-  waivers?: Record<string, string>;
 }
 
 /**
@@ -144,7 +134,6 @@ export function defineReference<const D, TAssets extends ReferenceAssetMap>(
     exposedAssetNames: [...Object.keys(returned), ...viewNames],
     ...(prompts.length > 0 ? { prompts } : {}),
     ...(pins.length > 0 ? { pins } : {}),
-    ...(opts.waivers ? { waivers: opts.waivers } : {}),
   };
 
   // `returned` already maps each name to its makeReferencePlaceholder() MediaAsset.

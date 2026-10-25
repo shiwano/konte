@@ -60,8 +60,6 @@ export type DirectionFindingCode =
   | "too-few-consecutive"
   | "empty-synopsis"
   | "unearned-payoff"
-  | "unrealized"
-  | "stage-order-mismatch"
   | "role-overweight"
   | "role-underweight"
   | "character-unreferenced"
@@ -94,6 +92,7 @@ export type DirectionFindingCode =
   | "unexpected-script"
   | "multi-sentence-action"
   | "off-grid-duration"
+  | "off-beat-cut"
   | "fonts-undeclared"
   // The staging class: who the frame holds, left to right, declared per shot and accumulated per
   // place. Four settle a RELATION between two subjects across two shots; the two the board feeds
@@ -142,7 +141,7 @@ export type DirectionFindingCode =
 
 export type DirectionFinding = {
   code: DirectionFindingCode;
-  // role / shot id / id-range, depending on the code; omitted for no-payoff and stage-order-mismatch.
+  // role / shot id / id-range, depending on the code; omitted for no-payoff.
   subject?: string;
   // The field path of the arc node the finding fired on — `["sequence"]` at the root, one
   // `["sequences", <id>]` pair deeper per level (the same path its review address is built from).
@@ -152,11 +151,6 @@ export type DirectionFinding = {
 };
 
 export type CheckArcOptions = {
-  // The stage's realized id order; enables the stage-coverage checks (unrealized / order).
-  realizedIds?: readonly string[];
-  // The ids coverage is measured over, in direction order — defaults to `items`. They come apart at
-  // leaf scale, where `items` excludes asides from role and share checks. Coverage includes them.
-  coverageIds?: readonly string[];
   // The scale's item word woven into messages ("shot" for a run of shots, "sequence" for a run of
   // sequences) so the same engine reads naturally at every scale — the finding *codes* stay identical.
   noun?: string;
@@ -172,7 +166,7 @@ export function checkArc<Role extends string>(
   items: ArcItem<Role>[],
   options: CheckArcOptions = {},
 ): DirectionFinding[] {
-  const { realizedIds, noun = "shot", textLabel = "synopsis" } = options;
+  const { noun = "shot", textLabel = "synopsis" } = options;
   const findings: DirectionFinding[] = [];
 
   const roleIndex = new Map<string, number>();
@@ -316,28 +310,6 @@ export function checkArc<Role extends string>(
           });
         }
       }
-    }
-  }
-
-  if (realizedIds) {
-    const realizedSet = new Set(realizedIds);
-    const directionIds = options.coverageIds ?? items.map((it) => it.id);
-    for (const id of directionIds) {
-      if (!realizedSet.has(id)) {
-        findings.push({
-          code: "unrealized",
-          subject: id,
-          message: `${noun}.${id} is declared in direction but never realized`,
-        });
-      }
-    }
-    const expectedOrder = directionIds.filter((id) => realizedSet.has(id));
-    const actualOrder = realizedIds.filter((id) => directionIds.includes(id));
-    if (expectedOrder.join("\0") !== actualOrder.join("\0")) {
-      findings.push({
-        code: "stage-order-mismatch",
-        message: "realized stage order differs from direction order",
-      });
     }
   }
 
@@ -727,6 +699,24 @@ export function placeRefOf(setup: Pick<SetupRef, "location" | "view">): string {
     : `reference.${setup.location}`;
 }
 
+// The setups a shot is taken on, and every wider frame one of them is a window of — a master no
+// shot stands on is still what its windows' plates are cut out of.
+export function usedSetupIds(
+  setups: readonly Pick<SetupRef, "id" | "within">[],
+  shotsPerSetup: ReadonlyMap<string, number>,
+): Set<string> {
+  const within = new Map(setups.map((s) => [s.id, s.within]));
+  const used = new Set<string>();
+  for (const [id, shots] of shotsPerSetup) {
+    let next: string | null | undefined = shots > 0 ? id : undefined;
+    while (typeof next === "string" && !used.has(next)) {
+      used.add(next);
+      next = within.get(next);
+    }
+  }
+  return used;
+}
+
 // `animatic` is undefined when the board could not be read, in which case the whole class stays
 // silent rather than reporting every setup as unrealized. `referenceAssetNames` carries the rosters'
 // own contract: undefined = "the reference stage could not be read", so the anchor findings hold.
@@ -754,14 +744,17 @@ export function checkSetups(
     const n = (shotsPerLocation.get(setup.location) ?? 0) + (shotsPerSetup.get(setup.id) ?? 0);
     shotsPerLocation.set(setup.location, n);
   }
+  const used = usedSetupIds(setups, shotsPerSetup);
   for (const setup of setups) {
     const shots = shotsPerSetup.get(setup.id) ?? 0;
     if (shots === 0) {
-      findings.push({
-        code: "unused-setup",
-        subject: setup.id,
-        message: `setup "${setup.id}" is declared but no shot's setup points at it`,
-      });
+      if (!used.has(setup.id)) {
+        findings.push({
+          code: "unused-setup",
+          subject: setup.id,
+          message: `setup "${setup.id}" is declared but no shot's setup points at it, nor the \`within\` of a setup one does`,
+        });
+      }
       continue;
     }
     if (!plates) continue;

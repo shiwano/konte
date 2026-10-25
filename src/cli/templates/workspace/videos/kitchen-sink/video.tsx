@@ -59,7 +59,6 @@ const pinned = (id: "02" | "06" | "08", first: string, last: string, text: strin
   });
 
 export default defineVideo(direction, {
-  waivers: {},
   export: {
     delivery: {
       upscale: {

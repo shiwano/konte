@@ -87,24 +87,6 @@ describe("an aside shot", () => {
     expect(withIt).toEqual(withoutCard);
   });
 
-  it("is still a shot the stage must realize", () => {
-    const { active } = checkDirection(direction(withCard), {
-      realizedIds: ["01", "02", "03", "04"],
-      stage: "video",
-    });
-    const unrealized = active.filter((f) => f.code === "unrealized");
-    expect(unrealized.map((f) => f.subject)).toEqual(["card"]);
-  });
-
-  it("keeps its place in the realized order", () => {
-    const { active } = checkDirection(direction(withCard), {
-      realizedIds: ["01", "card", "02", "03", "04"],
-      stage: "video",
-    });
-    expect(active.map((f) => f.code)).not.toContain("unrealized");
-    expect(active.map((f) => f.code)).not.toContain("stage-order-mismatch");
-  });
-
   it("is rejected with an empty label", () => {
     const codes = validateDirectionStructure(
       direction([narrative[0]!, aside("card", "  ", 5), ...narrative.slice(1)]),

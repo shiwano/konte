@@ -264,7 +264,7 @@ describe("the span a shot owes", () => {
     });
   });
 
-  it("is a whole number of beats", () => {
+  it("takes a half-beat cut, which `off-beat-cut` reports", () => {
     defineDirection({
       ...directionDefaults,
       policy: clocked,
@@ -277,7 +277,6 @@ describe("the span a shot owes", () => {
             role: "ordinary",
             action: "a",
             setup: "front",
-            // @ts-expect-error -- a half-beat cut is a computed value with a waiver
             beats: 1.5,
             lineup: [],
           },

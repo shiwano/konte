@@ -545,8 +545,10 @@ describe("the lines of a video shot on a piece cut to its song", () => {
       });
     });
 
-  it("refuses a shot the direction gives lines to that places no <Audio>", async () => {
-    await expect(videoOf(false)).rejects.toMatchObject({ code: "SCRIPT_UNVOICED" });
-    await expect(videoOf(true)).resolves.toBeDefined();
+  it("finds a shot the direction gives lines to that places no <Audio>", async () => {
+    const codes = async (placed: boolean) =>
+      ((await videoOf(placed)).buildFindings ?? []).map((f) => `${f.code} ${f.subject}`);
+    expect(await codes(false)).toEqual(["script-unvoiced video:shot.02"]);
+    expect(await codes(true)).toEqual([]);
   });
 });

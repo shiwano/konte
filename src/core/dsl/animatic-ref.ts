@@ -46,6 +46,19 @@ export interface AnimaticRef {
 // kind check reads this instead.
 export type AssetKindsByShot = ReadonlyMap<string, ReadonlyMap<string, MediaKind>>;
 
+function pendingShotRef(id: string): AnimaticShotRef {
+  const get = <T extends MediaKind>(assetName: string): MediaAsset<T> =>
+    makeMediaAsset<T>(makeAddressPlaceholder(formatAssetPath("animatic", id, assetName)));
+  return {
+    video: get,
+    image: get,
+    audio: get,
+    stem: makeMediaAsset<"audio">(makeAddressPlaceholder(formatShotStemAddress("animatic", id))),
+    narrationStem: { src: makeAddressPlaceholder(formatNarrationStemAddress(id)) },
+    songStem: makeMediaAsset<"audio">(makeAddressPlaceholder(formatSongStemAddress(id))),
+  };
+}
+
 export function createAnimaticRef(
   definition: AnimaticDefinition,
   assetKindsByShot: AssetKindsByShot,
@@ -72,13 +85,9 @@ export function createAnimaticRef(
             `Declared: ${[...shotsById.keys()].join(", ") || "(none)"}.`,
         );
       }
-      if (shot.pending) {
-        throw new KonteError(
-          "ANIMATIC_INVALID",
-          `animatic.shot("${id}"): animatic shot "${id}" is still an undeveloped pendingShot and ` +
-            `declares nothing. Develop it (swap pendingShot for shot) before referencing it.`,
-        );
-      }
+      // An undeveloped shot declares nothing to check against: the address is minted as asked, and
+      // the graph finds the asset built on it (`pending-reference`) until the shot is developed.
+      if (shot.pending) return pendingShotRef(id);
       const kinds = assetKindsByShot.get(id) ?? new Map<string, MediaKind>();
       // A keyframe backed by a SHARED asset — an `animatic:timeline.<name>` asset, a
       // `reference:<name>` image — is declared by the `<Panel>`, not by an `asset()` in this shot,

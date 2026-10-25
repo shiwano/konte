@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { KonteError } from "../errors.js";
 import {
-  assertPromptGate,
   checkPrompts,
-  promptWaiverKey,
+  promptFindings,
   spokenLinesAt,
   type PromptOccurrence,
 } from "../prompt-check.js";
@@ -17,11 +15,11 @@ function negative(address: string, value: string): PromptOccurrence {
 }
 
 function phrases(occurrences: readonly PromptOccurrence[]): string[] {
-  return checkPrompts(occurrences).active.map((f) => f.phrase);
+  return checkPrompts(occurrences).map((f) => f.phrase);
 }
 
 function codes(occurrences: readonly PromptOccurrence[]): string[] {
-  return checkPrompts(occurrences).active.map((f) => f.code);
+  return checkPrompts(occurrences).map((f) => f.code);
 }
 
 // The three classes: a style exclusion, an absence, and a negative definition.
@@ -236,7 +234,7 @@ describe("checkPrompts script", () => {
 // addresses, not thirty findings.
 describe("checkPrompts grouping", () => {
   it("collapses one phrase across addresses, in declaration order", () => {
-    const { active } = checkPrompts([
+    const active = checkPrompts([
       at("video:shot.01.motion", "watercolor, no outlines"),
       at("video:shot.02.motion", "ink wash, no outlines"),
       at("video:shot.03.motion", "no outlines"),
@@ -249,40 +247,21 @@ describe("checkPrompts grouping", () => {
     ]);
   });
 
-  it("keys a phrase past its casing and spacing", () => {
-    expect(promptWaiverKey("prompt-negation", "No  Outlines")).toEqual(
-      promptWaiverKey("prompt-negation", "no outlines"),
-    );
+  it("reads a phrase past its casing and spacing", () => {
+    expect(
+      checkPrompts([
+        at("video:shot.01.motion", "No  Outlines"),
+        at("video:shot.02.motion", "no outlines"),
+      ]),
+    ).toHaveLength(1);
   });
 
   it("names one address once, however many of its prompts carry the phrase", () => {
-    const { active } = checkPrompts([
+    const active = checkPrompts([
       at("video:shot.01.motion", "no outlines"),
       { address: "video:shot.01.motion", input: "stylePrompt", value: "no outlines" },
     ]);
     expect(active[0]!.addresses).toEqual(["video:shot.01.motion"]);
-  });
-});
-
-describe("checkPrompts waivers", () => {
-  const occurrences = [at("video:shot.01.motion", "no outlines")];
-  const key = promptWaiverKey("prompt-negation", "no outlines");
-
-  it("moves a waived finding out of the active set", () => {
-    const result = checkPrompts(occurrences, { [key]: "the model's own style vocabulary" });
-    expect(result.active).toEqual([]);
-    expect(result.waived).toHaveLength(1);
-    expect(result.staleWaivers).toEqual([]);
-  });
-
-  it("reports a waiver whose phrase is gone as stale", () => {
-    const result = checkPrompts([], { [key]: "answered" });
-    expect(result.staleWaivers).toEqual([{ key, reason: "answered" }]);
-  });
-
-  it("reports a key naming no finding class as stale", () => {
-    const result = checkPrompts(occurrences, { "prompt-negations:abcd1234": "typo" });
-    expect(result.staleWaivers).toEqual([{ key: "prompt-negations:abcd1234", reason: "typo" }]);
   });
 });
 
@@ -300,7 +279,7 @@ describe("checkPrompts on a negativePrompt", () => {
     ]);
   });
 
-  it("keys it on its own class, so a waiver written for a prompt cannot cancel it", () => {
+  it("reports it under its own code", () => {
     expect(codes([negative("video:shot.01.motion", "no watermark")])).toEqual([
       "prompt-double-negative",
     ]);
@@ -314,66 +293,51 @@ describe("checkPrompts on a negativePrompt", () => {
   });
 });
 
-describe("assertPromptGate", () => {
-  it("passes a stage whose prompts name only what is there", () => {
-    expect(() =>
-      assertPromptGate({ prompts: [at("video:shot.01.motion", "flat watercolor")] }, "video.tsx"),
-    ).not.toThrow();
-  });
-
-  it("aborts on an unwaived finding, naming the key, the phrase and the file", () => {
-    try {
-      assertPromptGate({ prompts: [at("video:shot.01.motion", "no outlines")] }, "video.tsx");
-      throw new Error("expected a rejection");
-    } catch (err) {
-      expect(err).toBeInstanceOf(KonteError);
-      const error = err as KonteError;
-      expect(error.code).toBe("PROMPT_CHECK_FAILED");
-      expect(error.message).toContain(promptWaiverKey("prompt-negation", "no outlines"));
-      expect(error.message).toContain('"no outlines"');
-      expect(error.message).toContain("video:shot.01.motion");
-      expect(error.message).toContain("video.tsx");
-    }
-  });
-
-  it("passes a waiver key that can never cancel anything", () => {
-    expect(() =>
-      assertPromptGate({ prompts: [], waivers: { "prompt-negation": "no hash" } }, "video.tsx"),
-    ).not.toThrow();
-  });
-
-  it("gives each polarity its own remedy when a stage mixes them", () => {
-    try {
-      assertPromptGate(
-        {
-          prompts: [
-            at("video:shot.01.motion", "no outlines"),
-            negative("video:shot.01.motion", "no watermark"),
-          ],
-        },
-        "video.tsx",
-      );
-      throw new Error("expected a rejection");
-    } catch (err) {
-      const { message } = err as KonteError;
-      expect(message).toContain("describe what occupies the space");
-      expect(message).toContain("keep the term, drop the negation");
-      expect(message).toContain(promptWaiverKey("prompt-double-negative", "no watermark"));
-    }
-  });
-
-  it("lets a waived finding through", () => {
-    expect(() =>
-      assertPromptGate(
-        {
-          prompts: [at("video:shot.01.motion", "no outlines")],
-          waivers: {
-            [promptWaiverKey("prompt-negation", "no outlines")]: "the model's vocabulary",
-          },
-        },
-        "video.tsx",
+describe("promptFindings", () => {
+  it("reports nothing for a stage whose prompts name only what is there", () => {
+    expect(
+      promptFindings(
+        { prompts: [at("video:shot.01.motion", "flat watercolor")] },
+        { stage: "video" },
       ),
-    ).not.toThrow();
+    ).toEqual([]);
+  });
+
+  it("names the phrase, where it is written, and the file it is fixed in", () => {
+    const [finding] = promptFindings(
+      { prompts: [at("video:shot.01.motion", "no outlines")] },
+      { stage: "video" },
+    );
+    expect(finding).toMatchObject({
+      code: "prompt-negation",
+      subject: '"no outlines"',
+      fixIn: { stage: "video" },
+      targets: ["video:shot.01.motion"],
+    });
+    expect(finding!.message).toContain("video:shot.01.motion");
+    expect(finding!.message).toContain("describe what occupies the space");
+  });
+
+  it("gives each polarity its own remedy", () => {
+    const messages = promptFindings(
+      {
+        prompts: [
+          at("video:shot.01.motion", "no outlines"),
+          negative("video:shot.01.motion", "no watermark"),
+        ],
+      },
+      { stage: "video" },
+    ).map((f) => f.message);
+    expect(messages.join("\n")).toContain("describe what occupies the space");
+    expect(messages.join("\n")).toContain("keep the term, drop the negation");
+  });
+
+  it("sits a patch's finding on nothing an accept could take", () => {
+    const [finding] = promptFindings(
+      { prompts: [at("video:shot.01.motion", "no outlines")] },
+      { stage: "video", patch: "v-abc" },
+    );
+    expect(finding!.targets).toEqual([]);
   });
 });
 

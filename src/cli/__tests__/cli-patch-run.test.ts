@@ -230,9 +230,11 @@ export default definePatch<"image">(({ source }) =>
       await writePatch(projectDir, sourceId, negatedPatch);
 
       const { stdout } = await run(["status"], projectDir);
-      const finding = stdout.split("\n").find((line) => line.includes(`patches/${sourceId}.ts`));
 
-      expect(finding).toContain("no chip");
+      expect(stdout).toContain(`(edit patches/${sourceId}.ts)`);
+      expect(stdout).toMatch(
+        new RegExp(`^ {2}patches/${sourceId}\\.ts\\n {4}\\[prompt-negation\\] "no chip"`, "m"),
+      );
       expect(stdout).not.toContain("konte patch apply");
     });
 
@@ -247,7 +249,7 @@ export default definePatch<"image">(({ source }) =>
       await writePatch(projectDir, sourceId, negatedPatch);
 
       await expect(run(["patch", "apply", sourceId], projectDir)).rejects.toMatchObject({
-        stderr: expect.stringMatching(/PROMPT_CHECK_FAILED[\s\S]*no chip/),
+        stderr: expect.stringMatching(/SPEND_HELD[\s\S]*no chip/),
       });
     });
   });

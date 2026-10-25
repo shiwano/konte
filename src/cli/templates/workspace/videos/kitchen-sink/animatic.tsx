@@ -40,7 +40,6 @@ const kept = (label: string, what: string) =>
   `${label} (appears in [Shot 1]): fully_preserved - ${what}`;
 
 export default defineAnimatic(direction, {
-  waivers: {},
   plates: ({ format }) => {
     const master = asset("kitchenMaster", adapters.imageResize, {
       image: reference.kitchen,

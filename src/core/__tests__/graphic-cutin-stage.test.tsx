@@ -339,27 +339,34 @@ describe("the cutin agreement", () => {
       }),
     });
 
-  it("refuses a shot declaring a cutin its composition never draws", () => {
-    expect(() =>
-      withBuilds(() => (
-        <Composition>
-          <div>dashboard</div>
-        </Composition>
-      )),
-    ).toThrow(expect.objectContaining({ code: "CUTIN_REQUIRED" }));
+  const found = (def: { buildFindings?: readonly { code: string; subject: string }[] }) =>
+    (def.buildFindings ?? []).map((f) => `${f.code} ${f.subject}`);
+
+  it("finds a shot declaring a cutin its composition never draws", () => {
+    expect(
+      found(
+        withBuilds(() => (
+          <Composition>
+            <div>dashboard</div>
+          </Composition>
+        )),
+      ),
+    ).toEqual(["cutin-required animatic:shot.02"]);
   });
 
-  it("refuses a cutin the shot does not declare", () => {
-    expect(() =>
-      withBuilds(wipeBoard, () => (
-        <Composition>
-          <Panel src={asset("first", imageComfy, { prompt: "a desk" })} />
-          <Cutin>
-            <Panel src={asset("wipe", imageComfy, { prompt: "a girl" })} />
-          </Cutin>
-        </Composition>
-      )),
-    ).toThrow(expect.objectContaining({ code: "CUTIN_UNDECLARED" }));
+  it("finds a cutin the shot does not declare", () => {
+    expect(
+      found(
+        withBuilds(wipeBoard, () => (
+          <Composition>
+            <Panel src={asset("first", imageComfy, { prompt: "a desk" })} />
+            <Cutin>
+              <Panel src={asset("wipe", imageComfy, { prompt: "a girl" })} />
+            </Cutin>
+          </Composition>
+        )),
+      ),
+    ).toEqual(["cutin-undeclared animatic:shot.01"]);
   });
 
   it("refuses a keyframe in a graphic shot's own picture", () => {
@@ -387,22 +394,24 @@ describe("the cutin agreement", () => {
     ).toThrow(expect.objectContaining({ code: "PANEL_REQUIRED" }));
   });
 
-  it("refuses a cutin on the video the shot does not declare", () => {
-    expect(() =>
-      defineVideo(direction, {
-        timeline: ({ shot }) => ({
-          shots: shot("01", () => (
-            <Composition>
-              <Cutin>
-                <Video src={asset("wipe", motionComfy, { prompt: "x" })} />
-              </Cutin>
-            </Composition>
-          ))
-            .nextPendingShot("02")
-            .nextPendingShot("03"),
+  it("finds a cutin on the video the shot does not declare", () => {
+    expect(
+      found(
+        defineVideo(direction, {
+          timeline: ({ shot }) => ({
+            shots: shot("01", () => (
+              <Composition>
+                <Cutin>
+                  <Video src={asset("wipe", motionComfy, { prompt: "x" })} />
+                </Cutin>
+              </Composition>
+            ))
+              .nextPendingShot("02")
+              .nextPendingShot("03"),
+          }),
         }),
-      }),
-    ).toThrow(expect.objectContaining({ code: "CUTIN_UNDECLARED" }));
+      ),
+    ).toEqual(["cutin-undeclared video:shot.01"]);
   });
 });
 

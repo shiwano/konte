@@ -430,7 +430,6 @@ function parseReferenceModule(mod: Record<string, unknown>, filePath: string): R
     topLevelAssets: parsed.topLevelAssets,
     exposedAssetNames: parsed.exposedAssetNames,
     prompts: parsed.prompts,
-    waivers: parsed.waivers,
   };
   assertUnique(listReferenceAssetPaths(reference), "asset path", "Reference");
   return reference;

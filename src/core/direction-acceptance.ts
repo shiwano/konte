@@ -507,7 +507,7 @@ export function directionCascadeReferenceIds(addresses: Iterable<string>): Set<s
 //
 // Which parts it may sign off turns on R1 (`restampDirectionParts`). What the machine check keeps
 // for itself either way are the arc claims hidden inside a sequence — a rewritten `role` or `lens` —
-// since those re-shape the findings `assertDirectionGate` reads.
+// since those re-shape the direction findings the spend gate reads.
 //
 // Returns the input record untouched when nothing moved, so a caller can skip the write.
 export function applyDirectionShotCascade(
@@ -515,6 +515,7 @@ export function applyDirectionShotCascade(
   acceptance: DirectionAcceptance | null,
   shotIds: Iterable<string>,
   now: Date = new Date(),
+  held?: (address: string) => boolean,
 ): { acceptance: DirectionAcceptance | null; restamped: string[] } {
   if (!acceptance) return { acceptance, restamped: [] };
   const targets = directionShotCascadeTargets(direction);
@@ -522,7 +523,12 @@ export function applyDirectionShotCascade(
   for (const shotId of shotIds) {
     for (const address of targets.get(shotId) ?? []) addresses.push(address);
   }
-  return restampDirectionParts(direction, acceptance, addresses, now);
+  return restampDirectionParts(
+    direction,
+    acceptance,
+    addresses.filter((address) => !held?.(address)),
+    now,
+  );
 }
 
 // The reference-stage twin of the shot cascade: accepting a `reference:<id>` image re-reads the
@@ -536,6 +542,7 @@ export function applyDirectionReferenceCascade(
   acceptance: DirectionAcceptance | null,
   referenceIds: Iterable<string>,
   now: Date = new Date(),
+  held?: (address: string) => boolean,
 ): { acceptance: DirectionAcceptance | null; restamped: string[] } {
   if (!acceptance) return { acceptance, restamped: [] };
   const targets = directionReferenceCascadeTargets(direction);
@@ -543,7 +550,12 @@ export function applyDirectionReferenceCascade(
   for (const id of referenceIds) {
     addresses.push(...(targets.get(id) ?? []));
   }
-  return restampDirectionParts(direction, acceptance, addresses, now);
+  return restampDirectionParts(
+    direction,
+    acceptance,
+    addresses.filter((address) => !held?.(address)),
+    now,
+  );
 }
 
 // The shared restamp both cascades run: sign off each named part at its live hash. An address not in

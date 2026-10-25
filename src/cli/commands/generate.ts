@@ -21,8 +21,8 @@ import {
 } from "../../core/patch.js";
 import { JobIndex } from "../../core/job-index.js";
 import { type PendingReason, describePendingJob } from "../../core/pending-jobs.js";
-import { assertPinGate } from "../../core/pin-check.js";
-import { assertPromptGate } from "../../core/prompt-check.js";
+import { pinFindings } from "../../core/pin-check.js";
+import { promptFindings } from "../../core/prompt-check.js";
 import { applyPatch, assertPatchSpendAllowed } from "../patch-orchestrator.js";
 import { selectDefinition } from "../../core/select-definition.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
@@ -34,14 +34,8 @@ import {
 import { StateManager } from "../../core/state/index.js";
 import { type StaleRefreshStep, staleRefreshStep } from "../stale-refresh-step.js";
 import type { AssetDefinition } from "../../core/types/index.js";
-import {
-  assertAnimaticConsumed,
-  assertSongDirectionAccepted,
-  gateDirectionForStage,
-  gateStageChecks,
-  loadStageDefinitions,
-  loadDirectionIfPresent,
-} from "../load-definition.js";
+import { loadStageDefinitions, loadDirectionIfPresent } from "../load-definition.js";
+import { assertNoSpendFindings, loadCheckContext, spendGate } from "../finding-gates.js";
 import { errorMessage } from "../../core/errors.js";
 import {
   type AcceptedStaleAsset,
@@ -88,24 +82,11 @@ export function registerGenerateCommand(program: Command): void {
 
       const assetEntryOf = (address: string): AssetDefinition => getAssetEntry(def, address);
 
-      // Before the gates: they ask strict resolution what counts as accepted upstream work.
+      // Before the gate: it asks strict resolution what counts as accepted upstream work.
       await applyResolutionDefinitions({
         videoRoot,
         definitions: defs,
       });
-
-      // Gate on the direction before spending: an unresolved arc hole for this stage's scope aborts
-      // with DIRECTION_CHECK_FAILED. realizedIds is this stage's realized shot order.
-      await gateDirectionForStage({
-        videoRoot,
-        command: "generate",
-        stage,
-        realizedIds: stage === "reference" ? undefined : def.shots.map((s) => s.id),
-      });
-
-      // The prompts this stage would spend on and the frames it would pin, before any job is
-      // created.
-      await gateStageChecks(def, loaded.stage);
 
       const config = await loadKonteConfig(roots.workspace);
 
@@ -191,21 +172,32 @@ export function registerGenerateCommand(program: Command): void {
           };
         });
 
-      // The acceptance gate below only reaches what a spend consumes, so a video shot wired to no
-      // board routes around it.
-      if (stage === "video" && video && animatic) {
-        assertAnimaticConsumed({ video, animatic, graph });
-      }
-
       const { levels } = computeDependencyLevels(graph);
 
-      const { stageAssetPaths, skippedUnused, spending, heldLines, heldCount } =
-        selectGenerationAssets({
-          definitions: defs,
+      const selected = selectGenerationAssets({
+        definitions: defs,
+        stage: loaded.stage,
+        manager,
+        graph,
+      });
+      const { stageAssetPaths, skippedUnused } = selected;
+      // Before any job is created: a finding or an unaccepted upstream holding the whole stage refuses
+      // the run; one holding only some assets leaves them out.
+      const { held } = await spendGate(
+        await loadCheckContext({ videoRoot, definitions: defs, manager, graph }),
+        {
+          command: "generate",
           stage: loaded.stage,
-          manager,
-          graph,
-        });
+          assetPaths: selected.spending,
+          targeted: false,
+        },
+      );
+      const spending = selected.spending.filter((address) => !held.has(address));
+      for (const address of held.keys()) stageAssetPaths.delete(address);
+      const heldCount = selected.spending.length - spending.length;
+      const heldLines = [
+        ...new Set(selected.spending.flatMap((address) => held.get(address) ?? [])),
+      ];
       const spend = await assertSpendAllowed(
         spending.map((address) => ({ label: address, def: assetEntryOf(address) })),
         config,
@@ -215,9 +207,6 @@ export function registerGenerateCommand(program: Command): void {
         console.log(
           `Skipping ${skippedUnused.length} unused asset(s) (used by no composition, panel, or reference export): ${skippedUnused.join(", ")}`,
         );
-      }
-      if (stage === "reference") {
-        await assertSongDirectionAccepted({ videoRoot, manager, spending });
       }
       const printHeld = () => {
         if (heldCount === 0) return;
@@ -519,8 +508,14 @@ export function registerGenerateCommand(program: Command): void {
       for (const patch of pendingPatches) {
         try {
           const patchSpend = await assertPatchSpendAllowed(patch, config, roots.workspace);
-          assertPromptGate(patch, `patches/${patch.sourceVariantId}.ts`);
-          assertPinGate(patch, `patches/${patch.sourceVariantId}.ts`);
+          const fixIn = { stage: loaded.stage, patch: patch.sourceVariantId };
+          assertNoSpendFindings([...promptFindings(patch, fixIn), ...pinFindings(patch, fixIn)], {
+            command: "patch",
+            stage: loaded.stage,
+            patch: patch.sourceVariantId,
+            assetPaths: [patch.sourceAddress],
+            targeted: true,
+          });
           const result = await applyPatch(patch, roots, jobManager, config, patchSpend);
           for (const job of result.jobs) {
             patchApplications.push({
@@ -547,7 +542,7 @@ export function registerGenerateCommand(program: Command): void {
       // Heads-up: a same-stage upstream this run consumes has an undecided take (e.g. a reroll)
       // that resolution won't use — it binds the accepted variant, so this run builds on the
       // accepted frame until that take is accepted in its place. A cross-stage one holds the asset
-      // instead (`holdForUpstreamAcceptance`).
+      // instead (the spend gate).
       const undecidedUpstreamTakes = collectUndecidedUpstreamTakes(
         manager.getState(),
         [...generatedDepPaths],

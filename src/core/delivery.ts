@@ -180,11 +180,10 @@ export function synthesizeDeliveryAssetDefinition(
   return { ...def, deterministic: true } as AssetDefinition;
 }
 
-// What the two stage-file gates read before an export submits a delivery upscale: the `"prompt"`
+// What the prompt and pin checks read before an export submits a delivery upscale: the `"prompt"`
 // values and `pin` wiring the author's upscale function built, stamped with the `#delivery` address
-// they will be spent at, over the video stage's own waivers (the function is written in
-// `video.tsx`). The function is pure by contract, so it is run a second time here under a
-// collection.
+// they will be spent at (the function is written in `video.tsx`). The function is pure by contract,
+// so it is run a second time here under a collection.
 export function deliveryPromptSubject(
   video: VideoDefinition,
   deliveryAddress: string,
@@ -205,7 +204,6 @@ export function deliveryPromptSubject(
   return {
     prompts: prompts.map((p) => ({ ...p, address: deliveryAddress })),
     pins: pins.map((p) => ({ ...p, address: deliveryAddress })),
-    waivers: video.waivers,
   };
 }
 

@@ -4,7 +4,6 @@
 
 import { type AssetStage, listAssetPaths } from "./address.js";
 import type { StageDefinitions } from "./definition-hashes.js";
-import { KonteError } from "./errors.js";
 import { linesOwedAt, takeMishearing } from "./speech-hearing.js";
 import type { StateManager } from "./state/index.js";
 import type { KonteState, VariantState } from "./types/index.js";
@@ -110,14 +109,4 @@ export function formatFindings(findings: readonly VariantFinding[]): string {
 
 export function formatVariantFindings(v: VariantFindings): string {
   return `${v.address} ${v.variantId}: ${formatFindings(v.findings)}`;
-}
-
-export function assertNoVariantFindings(found: readonly VariantFindings[], blocked: string): void {
-  if (found.length === 0) return;
-  throw new KonteError(
-    "VARIANT_CHECK_FAILED",
-    `${blocked} — the variant check found ${found.length} take(s) wrong; dismiss a broken one ` +
-      `(reroll for another beside it), or \`konte vouch <variantId>\` one that is fine`,
-    found.map((v) => `  ${formatVariantFindings(v)}`),
-  );
 }

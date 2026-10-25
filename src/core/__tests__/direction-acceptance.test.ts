@@ -1095,6 +1095,22 @@ describe("applyDirectionReferenceCascade", () => {
     );
   });
 
+  it("leaves unsigned a roster entry whose accept a finding holds", () => {
+    const accepted = acceptAll(makeDirection());
+
+    const grown = makeDirection();
+    grown.props!.key = { name: "the key", promptDepiction: "key", description: "a small iron key" };
+
+    const { restamped } = applyDirectionReferenceCascade(
+      grown,
+      accepted,
+      ["key"],
+      new Date(),
+      (address) => address === "direction:props.key",
+    );
+    expect(restamped).not.toContain("direction:props.key");
+  });
+
   // An unchanged entry was not re-decided by this review, so its `acceptedAt` must not move.
   // The sweep can be the ONLY thing a cascade changes, and callers decide whether to persist by
   // identity — `restamped` is empty here, so keying the write on its length would drop the sweep and

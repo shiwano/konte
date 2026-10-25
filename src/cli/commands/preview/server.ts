@@ -19,16 +19,12 @@ import {
 } from "../../page-host/http.js";
 import { findLatestHandoff, loadHandoff } from "../../../core/loader.js";
 import { loadPreviewDefinitions, reloadStageDefinition } from "./load-definitions.js";
-import { assertNoVariantFindings, unvouchedFindings } from "../../../core/variant-check.js";
 import { KonteStateSchema, type Handoff } from "../../../core/types/index.js";
 import { songReadingsOf } from "../../../core/song-take.js";
 import { REVIEW_DIR, reviewShowedHandoff } from "../../../core/review-record.js";
 import { StateManager } from "../../../core/state/index.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
-import {
-  assertPrerequisitesMet,
-  findUnmetPrerequisites,
-} from "../../../core/review-prerequisites.js";
+import { loadCheckContext, reviewGate } from "../../finding-gates.js";
 import { isWithinRootReal } from "../../../core/path-containment.js";
 import { PREROLL_ASSET_BASE, prerollCacheDir } from "../../../core/preview-preroll.js";
 import type { StageDefinition } from "../../../core/types/index.js";
@@ -139,23 +135,16 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
     // being opened, unlike the accept gate: another stage's unwritten movement is not this page's
     // to answer for, and the accept it would reach is gated on submit.
     if (stage) {
-      assertPrerequisitesMet(
-        findUnmetPrerequisites(stage, { animatic }, m.getState()),
+      await reviewGate(
+        await loadCheckContext({
+          videoRoot,
+          definitions: { reference, animatic, video },
+          direction,
+          manager: m,
+        }),
+        [{ op: "preview", stage }],
         `Cannot open the ${stage} review`,
       );
-      const lang = video?.typography.lang ?? direction?.policy.lang;
-      if (lang && stage !== "direction") {
-        assertNoVariantFindings(
-          unvouchedFindings({
-            videoRoot,
-            manager: m,
-            definitions: { reference, animatic, video },
-            lang,
-            stage,
-          }),
-          `Cannot open the ${stage} review`,
-        );
-      }
     }
   });
 
@@ -359,6 +348,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
                 req,
                 reportOutcome,
                 mode === "animatic-preview" ? video : null,
+                reference,
               ),
             );
           }

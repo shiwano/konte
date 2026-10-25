@@ -2,12 +2,7 @@ import { z } from "zod";
 import type { PinOccurrence } from "../pin-check.js";
 import type { PromptOccurrence } from "../prompt-check.js";
 import type { AssetDefinition } from "./definition.js";
-import {
-  AssetDefinitionSchema,
-  PinsSchema,
-  PromptsSchema,
-  PromptWaiversSchema,
-} from "./definition.js";
+import { AssetDefinitionSchema, PinsSchema, PromptsSchema } from "./definition.js";
 
 /**
  * A reference is the shared upstream stage: a flat pool of named assets (characters, backgrounds,
@@ -25,7 +20,6 @@ export interface ReferenceDefinition {
   exposedAssetNames?: string[];
   prompts?: readonly PromptOccurrence[];
   pins?: readonly PinOccurrence[];
-  waivers?: Record<string, string>;
 }
 
 // Validation gate for a user's `reference.tsx` default export. Extra keys (the ReferenceRef
@@ -36,5 +30,4 @@ export const ReferenceDefinitionSchema = z.object({
   exposedAssetNames: z.array(z.string()).optional(),
   prompts: PromptsSchema,
   pins: PinsSchema,
-  waivers: PromptWaiversSchema,
 });

@@ -603,6 +603,22 @@ describe("cascadeAcceptConsumedDeps — review prerequisites", () => {
     expect(manager.getAcceptedVariant(timeline)).toBe(timelineVid);
   });
 
+  it("holds back a dependency whose accept a finding holds", async () => {
+    const panel = "animatic:shot.01.key";
+    const timeline = "animatic:timeline.character";
+    addReadyVariant(timeline, "char.png");
+    const panelVid = addReadyVariant(panel, "key.png");
+    await addJob(panel, panelVid, { "animatic:timeline.character": "char.png" });
+
+    const accepted = await cascadeAcceptConsumedDeps(manager, jobManager, panel, panelVid, {
+      animatic: boardWith({ blocking: "she steps to the window", camera: "fixed" }),
+      held: (address) => address === timeline,
+    });
+
+    expect(accepted).toEqual([]);
+    expect(manager.getAcceptedVariant(timeline)).toBeNull();
+  });
+
   // A patched take's chain leads back to the take it corrects — the walk's own root address.
   it("signs off what the source take consumed when accepting a patched take", async () => {
     const panel = "animatic:shot.01.key";

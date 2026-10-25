@@ -214,8 +214,8 @@ function resolvePanelWindows(
 // `blocking`/`camera` describe the span STARTING at their panel, so whether a panel can carry them
 // at all is fixed by document position. Nothing moves out of the landing frame, so the last panel of
 // a multi-panel shot can never declare either — unless the next shot runs on from this frame in one
-// take (`continued`). Declaring them is otherwise optional here: they are written from the chosen take, and required
-// only at the review gates (REVIEW_PREREQUISITE_MISSING).
+// take (`continued`). Declaring them is otherwise optional here: they are written from the chosen take, and owed
+// once it lands (`movement-unwritten`).
 function assertPanelMoves(
   shotId: string,
   index: number,

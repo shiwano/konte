@@ -11,6 +11,7 @@ import {
 } from "../dsl/index.js";
 import { directionDefaults, testDirection } from "./helpers/direction.js";
 import { moves } from "./helpers/shot.js";
+import { buildDependencyGraph } from "../graph.js";
 
 const imageComfy = defineComfyAsset({
   workflow: "image.json",
@@ -46,24 +47,25 @@ describe("animatic shot chain", () => {
     expect(sb.shots.map((s) => s.action)).toEqual(["a", "b"]);
   });
 
-  it("rejects a reference into an undeveloped predecessor, which declares no panel", () => {
-    expect(() =>
-      defineAnimatic(direction, {
-        timeline: ({ pendingShot }) => ({
-          shots: pendingShot("01").nextShot("02", ({ shot }) => {
-            const next = asset("next", imageComfy, {
-              prompt: "b",
-              image: shot("01").image("first"),
-            });
-            return (
-              <Composition>
-                <Panel src={next} {...moves} />
-              </Composition>
-            );
-          }),
+  it("builds on an undeveloped predecessor, leaving the reference for the graph to find", () => {
+    const sb = defineAnimatic(direction, {
+      timeline: ({ pendingShot }) => ({
+        shots: pendingShot("01").nextShot("02", ({ shot }) => {
+          const next = asset("next", imageComfy, {
+            prompt: "b",
+            image: shot("01").image("first"),
+          });
+          return (
+            <Composition>
+              <Panel src={next} {...moves} />
+            </Composition>
+          );
         }),
       }),
-    ).toThrow(/undeveloped pendingShot/);
+    });
+    expect(buildDependencyGraph(sb, sb).pendingReferences).toEqual([
+      { from: "animatic:shot.02.next", ref: "animatic:shot.01.first" },
+    ]);
   });
 
   it("walks the direction in order and reaches an earlier shot's panels through shot()", () => {
@@ -199,8 +201,16 @@ describe("animatic shot chain", () => {
       'konte: shot "99" is not in direction.ts — remove this step';
     const pastTheEnd: StepId<D, [], "99", "shot", false> =
       'konte: shot "99" is not in direction.ts — remove this step';
-    expect([placed, wrongKind, skipped, skippedAside, skippedFirst, earlier, removed, pastTheEnd])
-      .toHaveLength(8);
+    expect([
+      placed,
+      wrongKind,
+      skipped,
+      skippedAside,
+      skippedFirst,
+      earlier,
+      removed,
+      pastTheEnd,
+    ]).toHaveLength(8);
 
     const resumed: [StepRest<Rest, "03">, StepRest<Rest, "99">] = [["04"], ["02", "03", "04"]];
     expect(resumed).toHaveLength(2);

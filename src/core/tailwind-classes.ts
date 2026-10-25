@@ -60,14 +60,18 @@ export async function checkTailwindClasses(
     .filter((f) => f.fontFamily.length > 0);
 }
 
-// Abort with COMPOSITION_CLASS_INVALID on any finding of checkTailwindClasses.
-export async function assertTailwindClasses(subjects: readonly ClassSubject[]): Promise<void> {
+// The render-time backstop under the class check: markup about to be drawn that sets a font family
+// refuses the render, as a review (REVIEW_HELD) or a spend (SPEND_HELD) of it.
+export async function assertTailwindClasses(
+  subjects: readonly ClassSubject[],
+  held: "REVIEW_HELD" | "SPEND_HELD" = "REVIEW_HELD",
+): Promise<void> {
   const findings = await checkTailwindClasses(subjects);
   if (findings.length === 0) return;
 
   const count = findings.reduce((n, f) => n + f.fontFamily.length, 0);
   throw new KonteError(
-    "COMPOSITION_CLASS_INVALID",
+    held,
     `Rendered markup has ${count} class(es) setting a font family — declare it on direction.policy.fonts; the export embeds faces by reading the HTML, and a class's CSS does not exist until the browser has run`,
     findings.map((f) => `  ${f.label}: ${f.fontFamily.join(", ")}`),
   );

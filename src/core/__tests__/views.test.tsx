@@ -8,9 +8,11 @@ import {
 import { parseViewName } from "../view.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { asset, defineAnimatic, defineReference } from "../dsl/index.js";
-import { defineDirection } from "../dsl/direction.js";
-import { assertViewsAnchored } from "../direction.js";
+import { type Direction, defineDirection } from "../dsl/direction.js";
+import { checkViewAnchors } from "../direction-check.js";
 import { buildDependencyGraph, listViewAnchorGaps } from "../graph.js";
+import { collectFindings } from "../checks.js";
+import { spendHold } from "../finding.js";
 import { animaticTimeline } from "./helpers/shot.js";
 import { directionDefaults } from "./helpers/direction.js";
 
@@ -209,7 +211,7 @@ describe("defineAnimatic views", () => {
   });
 });
 
-describe("assertViewsAnchored", () => {
+describe("view-unanchored", () => {
   const drawn = (image1?: unknown) =>
     defineReference(direction, {
       references: () => ({ studio: asset("studio", imageGen, { prompt: "the studio" }) }),
@@ -221,19 +223,34 @@ describe("assertViewsAnchored", () => {
         },
       }),
     });
-  const gate = (ref: ReturnType<typeof drawn>, waivers: Record<string, string> = {}) =>
-    assertViewsAnchored(
-      { ...direction, waivers } as never,
-      listViewAnchorGaps(ref),
-      ref.exposedAssetNames ?? [],
+  const findings = (ref: ReturnType<typeof drawn>) =>
+    checkViewAnchors(listViewAnchorGaps(ref), new Set(ref.exposedAssetNames ?? [])).map(
+      (f) => `${f.code}_${f.subject}`,
     );
 
-  it("refuses a reference spend on a view drawn from nothing of its place", () => {
-    expect(() => gate(drawn())).toThrow(/view-unanchored_studio\.top/);
+  it("flags a view drawn from nothing of its place", () => {
+    expect(findings(drawn())).toEqual(["view-unanchored_studio.top"]);
   });
 
-  it("passes a view made from the master, and a waived one", () => {
-    expect(() => gate(drawn(true))).not.toThrow();
-    expect(() => gate(drawn(), { "view-unanchored_studio.top": "drawn by hand" })).not.toThrow();
+  it("passes a view made from the master", () => {
+    expect(findings(drawn(true))).toEqual([]);
+  });
+
+  it("holds the reference spend before the direction is accepted or a board exists", async () => {
+    const { findings: found } = await collectFindings({
+      videoRoot: "",
+      direction: direction as unknown as Direction,
+      directionAccepted: false,
+      reference: drawn(),
+      animatic: null,
+      video: null,
+      manager: null,
+      graph: null,
+      patches: [],
+      lang: null,
+    });
+    const view = found.filter((f) => f.code === "view-unanchored");
+    expect(view.map((f) => f.key)).toEqual(["view-unanchored_studio.top"]);
+    expect(spendHold(view[0]!, { command: "generate", stage: "reference" })).toBe("whole");
   });
 });

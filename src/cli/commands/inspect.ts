@@ -102,6 +102,7 @@ import {
 } from "../../core/definition-hashes.js";
 import { syncFileAssets } from "../../core/file-sync.js";
 import { selectGenerationAssets } from "../generation-selection.js";
+import { loadCheckContext, spendHeldAssets } from "../finding-gates.js";
 import { staleRefreshStep } from "../stale-refresh-step.js";
 
 type InspectScope =
@@ -1018,7 +1019,12 @@ async function inspectPrompts(
       definitions.animatic,
       definitions.reference,
     );
-    pending = new Set(selectGenerationAssets({ definitions, stage, manager, graph }).spending);
+    const { spending } = selectGenerationAssets({ definitions, stage, manager, graph });
+    const held = await spendHeldAssets(
+      await loadCheckContext({ videoRoot, definitions, manager, graph }),
+      { command: "generate", stage, assetPaths: spending, targeted: false },
+    );
+    pending = new Set(spending.filter((address) => !held.has(address)));
     const addresses = new Set([
       ...matches.map((p) => p.address),
       ...plates.map((p) => p.address),

@@ -35,9 +35,12 @@ import { buildDependencyGraph } from "../../../core/graph.js";
 import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
 import { JobManager } from "../../../core/job-manager.js";
 import {
-  assertPrerequisitesMet,
-  findAllUnmetPrerequisites,
-} from "../../../core/review-prerequisites.js";
+  loadCheckContext,
+  reviewGate,
+  reviewHeldError,
+  reviewHeldFindings,
+} from "../../finding-gates.js";
+import { collectFindings } from "../../../core/checks.js";
 import { readyUndecidedTakes } from "../../../core/staleness.js";
 import { StateManager } from "../../../core/state/index.js";
 import { variantDir } from "../../../core/variant-dir.js";
@@ -153,10 +156,7 @@ Examples:
 // applies: there is nothing to materialize, no downstream consumer to restale, and no cascade to
 // run. What it writes is the same per-part record `konte preview direction` writes.
 //
-// It is gated on nothing. The machine's verdict on the direction (`assertDirectionGate`) and the
-// human's (`assertDirectionAccepted`) are two independent gates that `konte generate` enforces in
-// order, so folding the check in here would duplicate a judgement that this command's result cannot
-// keep true anyway — the next edit to direction.ts moves the findings without moving the sign-off.
+// A part a finding to fix sits on is held (REVIEW_HELD); a waivable finding holds nothing here.
 async function runDirectionAcceptance(
   scopes: readonly string[],
   opts: AcceptOptions,
@@ -230,6 +230,14 @@ async function runDirectionAcceptance(
       if (view.parts.has(part) || !inScope(part) || !acceptable(part)) continue;
       decisions.set(part, false);
     }
+  }
+
+  if (!opts.off) {
+    await reviewGate(
+      await loadCheckContext({ videoRoot, direction, manager: previewManager }),
+      [...decisions].filter(([, accept]) => accept).map(([address]) => ({ op: "accept", address })),
+      "Cannot accept the direction",
+    );
   }
 
   // Clearing several sign-offs discards reads a human made, and each one costs a read to make
@@ -401,12 +409,26 @@ async function runAccept(targets: string[], opts: AcceptOptions): Promise<void> 
       : resolveAcceptTargets(previewManager, targets, graph.topologicalOrder);
   const addresses = items.map((item) => item.address);
   // An accept signs off everything the review page shows for that target, so it cannot land while
-  // the target's review prerequisites are unwritten. Asked across every stage, not just the one
-  // owning the address — see findAllUnmetPrerequisites.
-  assertPrerequisitesMet(
-    findAllUnmetPrerequisites({ animatic }, previewManager.getState(), new Set(addresses)),
-    `Cannot accept ${addresses.join(", ")}`,
+  // a finding to fix sits on it.
+  // A dep the cascade reaches that one holds is left for its own accept.
+  const findings = await collectFindings(
+    await loadCheckContext({
+      videoRoot,
+      definitions: { reference, animatic, video },
+      direction,
+      manager: previewManager,
+      graph,
+    }),
+    (t) => t.holds.accept === true,
   );
+  const held = reviewHeldError(
+    `Cannot accept ${addresses.join(", ")}`,
+    reviewHeldFindings(
+      findings,
+      addresses.map((address) => ({ op: "accept", address })),
+    ),
+  );
+  if (held) throw held;
   for (const item of items) {
     assertSongLinesPlaced(
       videoRoot,
@@ -433,7 +455,11 @@ async function runAccept(targets: string[], opts: AcceptOptions): Promise<void> 
     }[getAssetStage(address)] as DefinitionLike | null;
     return stageDef ? definitionHashForAddress(stageDef, address) : null;
   };
-  const cascadeOpts = { ...(video ? { video } : {}), animatic };
+  const cascadeOpts = {
+    ...(video ? { video } : {}),
+    animatic,
+    held: (address: string) => reviewHeldFindings(findings, [{ op: "accept", address }]).length > 0,
+  };
   const jobManager = new JobManager(videoRoot);
 
   // Preview (no persist) which downstream assets this accept would restale, to drive the prompt.
@@ -566,11 +592,17 @@ async function runAccept(targets: string[], opts: AcceptOptions): Promise<void> 
       // carries the roster entry it anchors.
       const accepted = [...new Set(results.flatMap((r) => [r.address, ...r.cascadeAccepted]))];
       const directionParts = [
-        ...cascadeDirectionShotAccepts(manager, direction, directionCascadeShotIds(accepted)),
+        ...cascadeDirectionShotAccepts(
+          manager,
+          direction,
+          directionCascadeShotIds(accepted),
+          cascadeOpts.held,
+        ),
         ...cascadeDirectionReferenceAccepts(
           manager,
           direction,
           directionCascadeReferenceIds(accepted),
+          cascadeOpts.held,
         ),
       ];
       return { results, staleMarked, directionParts, staleAccepted };

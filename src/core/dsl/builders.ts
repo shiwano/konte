@@ -6,7 +6,8 @@ import type {
   VideoDefinition,
   VideoFormat,
 } from "../types/index.js";
-import { KonteError } from "../errors.js";
+import type { BuildFinding } from "../finding.js";
+import { formatShotAddress } from "../address.js";
 import { beginPromptCollection } from "./prompt-collect.js";
 import { assertRespellings, beginRespellCollection } from "./respell.js";
 import { scriptTexts } from "./shot-script.js";
@@ -192,22 +193,28 @@ export function soundtrack<const TId extends string = never>(
 
 // On a piece cut to its song a take's own audio is never heard — the song bed plays in its place —
 // so a shot the direction gives lines to sounds them with an `<Audio>` of its own.
-function assertLinesPlacedOverSong(
+function linesPlacedOverSong(
   definition: StageDefinition,
   scriptById: ReadonlyMap<string, readonly unknown[]>,
-): void {
-  for (const shot of definition.shots) {
-    if (shot.pending || !shot.shotFn || (scriptById.get(shot.id)?.length ?? 0) === 0) continue;
+): BuildFinding[] {
+  return definition.shots.flatMap((shot): BuildFinding[] => {
+    if (shot.pending || !shot.shotFn || (scriptById.get(shot.id)?.length ?? 0) === 0) return [];
     const picture = new Set(shot.pictureRefs ?? []);
-    if ((shot.stemRefs ?? []).some((ref) => !picture.has(ref))) continue;
-    throw new KonteError(
-      "SCRIPT_UNVOICED",
-      `Video shot "${shot.id}" has spoken lines in the direction but places no <Audio>. On a piece ` +
-        `cut to its song only the song bed plays under the takes, so place each line where the ` +
-        `animatic does: <Audio src={animatic.shot("${shot.id}").audio("<name>")} start={…}>, or ` +
-        `the reference voice it was made from.`,
-    );
-  }
+    if ((shot.stemRefs ?? []).some((ref) => !picture.has(ref))) return [];
+    const subject = formatShotAddress("video", shot.id);
+    return [
+      {
+        code: "script-unvoiced",
+        subject,
+        message:
+          "has spoken lines in the direction but places no <Audio> — on a piece cut to its song " +
+          "only the song bed plays under the takes, so place each line where the animatic does: " +
+          `<Audio src={animatic.shot("${shot.id}").audio("<name>")} start={…}>, or the reference ` +
+          "voice it was made from",
+        targets: [subject],
+      },
+    ];
+  });
 }
 
 /**
@@ -253,10 +260,6 @@ export interface DefineVideoExport {
 }
 
 export interface DefineVideoOptions<D = unknown, Ids extends string = string> {
-  // Prompt findings this stage accepts, keyed the way `konte status` prints them
-  // (`prompt-negation:<hash>`) over the reason each is right for the model it is written for. One
-  // key covers every address a shared phrase reaches; never a fixable one — rewrite that prompt.
-  waivers?: Record<string, string>;
   // Export-time upscale wiring. Never read while building the creative graph.
   export?: DefineVideoExport;
   // The single authoring surface: declare any timeline assets with asset() at the top, then walk the
@@ -310,11 +313,15 @@ export function defineVideo<const D, Ids extends string = string>(
         pendingShot,
         asideShot,
       }),
-    waivers: opts.waivers,
   });
 
   assertRespellings(definition.respellings, index.scriptById);
-  if (index.timeline.song) assertLinesPlacedOverSong(definition, index.scriptById);
+  if (index.timeline.song) {
+    const unplaced = linesPlacedOverSong(definition, index.scriptById);
+    if (unplaced.length > 0) {
+      definition.buildFindings = [...(definition.buildFindings ?? []), ...unplaced];
+    }
+  }
   attachCueKinds(definition, index.scriptById);
 
   const video: VideoDefinition = {

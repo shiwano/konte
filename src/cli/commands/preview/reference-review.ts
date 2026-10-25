@@ -54,6 +54,8 @@ import {
   type SongLineBody,
 } from "./review-shared.js";
 import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
+import { loadCheckContext } from "../../finding-gates.js";
+import { collectFindings } from "../../../core/checks.js";
 import { createAssetInfoBuilder } from "./asset-info.js";
 
 // Handoff note (AI -> reviewer) attached to a reference asset path (`reference:<name>`).
@@ -273,6 +275,16 @@ export async function handleReferenceSubmit(
 
   const outcome = await applyAddressReview(videoRoot, "reference", body, reviewedAt, {
     animatic,
+    findings: async (mgr) =>
+      collectFindings(
+        await loadCheckContext({
+          videoRoot,
+          definitions: { reference, animatic, video: null },
+          direction,
+          manager: mgr,
+        }),
+        (t) => t.holds.accept === true,
+      ),
     placeSongLines: (mgr) => placeSongLines(mgr, direction, body.songLines ?? []),
     refuseAccept: (address, variantId, mgr) =>
       songLinesRefusal(mgr.videoRoot, direction, mgr.getState(), address, variantId),
@@ -282,13 +294,15 @@ export async function handleReferenceSubmit(
     // re-read on this page, beside the picture. Keyed on the DECISION, not on the variant
     // changing — a roster description reworded mid-review leaves the image untouched, and
     // re-confirming that same image is how the human signs off the rewording.
-    cascadeDirection: (mgr, appliedAccepts) =>
+    cascadeDirection: (mgr, appliedAccepts, held) =>
       [...directionCascadeReferenceIds(appliedAccepts)].flatMap((id) => {
         const via = formatReferenceAddress(id);
-        return cascadeDirectionReferenceAccepts(mgr, direction, new Set([id])).map((address) => ({
-          address,
-          via,
-        }));
+        return cascadeDirectionReferenceAccepts(mgr, direction, new Set([id]), held).map(
+          (address) => ({
+            address,
+            via,
+          }),
+        );
       }),
   });
 

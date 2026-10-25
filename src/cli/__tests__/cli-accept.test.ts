@@ -1179,6 +1179,24 @@ describe("accept direction", () => {
     projectDir = await initWithTestVideo();
   });
 
+  it("holds the part a finding to fix sits on, and only that part", async () => {
+    const directionPath = path.join(projectDir, "direction.ts");
+    const source = await fs.readFile(directionPath, "utf-8");
+    await fs.writeFile(
+      directionPath,
+      source.replace(
+        "  locations: {",
+        '  props: { cup: { name: "the cup", description: "a chipped cup", promptDepiction: "cup" } },\n  locations: {',
+      ),
+    );
+
+    await expect(run(["accept", "direction:props.cup"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(/REVIEW_HELD[\s\S]*\[unused-prop_cup\]/),
+    });
+    await run(["accept", "direction:brief"], projectDir);
+    expect(await statusOf("direction:brief.logline")).toBe("accepted");
+  });
+
   it("signs off every part, the waivers included", async () => {
     const { stdout } = await run(["accept", "direction", "--verbose"], projectDir);
 

@@ -116,7 +116,7 @@ describe("workspace new command", () => {
       template: "kitchen-sink",
     });
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).not.toContain("Direction findings:");
+    expect(stdout).not.toMatch(/^ {2}direction\.ts$/m);
   });
 
   it("scaffolds the blank template without assets", async () => {

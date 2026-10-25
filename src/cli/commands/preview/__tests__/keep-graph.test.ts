@@ -36,7 +36,7 @@ function graphOf(edges: Array<[string, string]>): DependencyGraph {
   const dependents = new Map(
     nodes.map((n) => [n, edges.filter(([from]) => from === n).map(([, to]) => to)]),
   );
-  return { dependencies, dependents, topologicalOrder: nodes };
+  return { dependencies, dependents, topologicalOrder: nodes, pendingReferences: [] };
 }
 
 let manager: StateManager;

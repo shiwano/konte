@@ -64,7 +64,9 @@ A command acts on the video cwd sits inside, else the workspace's **current vide
 
 The direction's vocabulary, each a declaration konte never derives (see `arch-direction-guide`): a shot names a **setup** — one camera position, with `location`, `framing`, `holds` (the landmarks in frame) and `within` (the wider frame it is a window of); its **`lineup`** / **`lineupTo`** name who the frame holds, left to right; **`join`** states the boundary into it (cut, `jump-back`, `jump-forward`, `continuous`); a **`cutin`** is a second camera frame over the shot; `promptDepiction` is the noun a prompt calls a character or landmark by. A setup is realized by a **plate** (`animatic:plate.<setupId>`, from `defineAnimatic`'s `plates` callback), not a `reference:<id>`; a plate stands on the image of its **`view`** (`front`: the master). A shot is narrative (default), `kind: "graphic"` (no camera), or `kind: "aside"` (on the clock, outside the arc; the animatic never boards one).
 
-Two gates precede any animatic/video spend: a machine check over the direction (findings, waivable by key in each stage's `waivers`) and a per-part human acceptance (`konte preview direction` / `konte accept direction[:<part>]`). A spend also aborts on an upstream it consumes with no accepted variant, and on a negation the **prompt check** finds in a `"prompt"` / `"negativePrompt"` input — `inspect <address-scope> --prompts` lists that text; an adapter's `promptExemptions` cut out the negations its model is written with.
+### Findings and gates
+
+Every machine check reports a **finding**; its code alone fixes how it clears (fix; waive, by a reason in `direction.waivers` a human signs; vouch, on the take) and what it holds (`src/core/finding.ts`, `docs/FINDINGS.md` generated). The spend and review gates refuse on it — the spend gate also on what the human has not accepted. A load error is only what the loaded file settles alone; a demand spanning two files is a finding. `inspect <scope> --prompts` lists what the prompt check reads.
 
 ### Backends and adapters
 

@@ -1,5 +1,4 @@
 import { type Stage, tryParseAddress } from "./address.js";
-import { KonteError } from "./errors.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
 import { selectResolvedVariant } from "./staleness.js";
 import type { KonteState } from "./types/index.js";
@@ -7,8 +6,8 @@ import type { AnimaticDefinition } from "./types/animatic.js";
 
 // A review prerequisite is a definition field that no backend consumes, that a human needs beside
 // the media to review it, and that cannot be written until the media exists. It is therefore absent
-// by design until output lands, and owed from the moment it does — which is why it is a gate at
-// `konte preview` / `konte accept` rather than a check at discovery.
+// by design until output lands, and owed from the moment it does — which is why its finding
+// (`movement-unwritten`) sets in with the take.
 export interface UnmetPrerequisite {
   stage: Stage;
   address: string;
@@ -67,21 +66,6 @@ export function prerequisiteShot(u: UnmetPrerequisite): string | null {
   const parsed = tryParseAddress(u.address);
   const carriesShot = parsed?.kind === "shot" && parsed.shotId === u.shotId;
   return u.shotId && !carriesShot ? `shot ${u.shotId}` : null;
-}
-
-export function assertPrerequisitesMet(unmet: readonly UnmetPrerequisite[], blocked: string): void {
-  if (unmet.length === 0) return;
-  const lines = unmet.map((u) => {
-    const shot = prerequisiteShot(u);
-    return `  ${u.address} (${u.variantId}${shot ? `, ${shot}` : ""}) — no ${u.missing.join(", no ")}`;
-  });
-  const writeIn = [...new Set(unmet.map((u) => u.writeIn))].join(", ");
-  throw new KonteError(
-    "REVIEW_PREREQUISITE_MISSING",
-    `${blocked} — ${unmet.length} target(s) have output but are missing what their review ` +
-      `needs; write each in ${writeIn}, from the output it now has`,
-    lines,
-  );
 }
 
 // animatic — a panel's `blocking`/`camera`: the transit out of that frame, written from the take.

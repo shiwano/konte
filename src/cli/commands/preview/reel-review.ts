@@ -81,6 +81,7 @@ import type {
   ReferenceDefinition,
   ShotDefinition,
   StageDefinition,
+  VideoDefinition,
 } from "../../../core/types/index.js";
 import {
   type RenderPlan,
@@ -121,6 +122,9 @@ import {
   noteOverturned,
 } from "./review-shared.js";
 import type { ReportOutcome } from "./review-outcome.js";
+import { loadCheckContext, reviewHeldFindings } from "../../finding-gates.js";
+import { collectFindings } from "../../../core/checks.js";
+import { type Finding, formatFindingLine } from "../../../core/finding.js";
 import { createAssetInfoBuilder } from "./asset-info.js";
 import { buildKeepGraph } from "./keep-graph.js";
 
@@ -330,7 +334,11 @@ export async function acceptDisplayedStemSources(
   // adapter that consumed one), and without the board `findAllUnmetPrerequisites` cannot see an
   // unwritten `blocking`/`camera` — so the panel would be signed off sideways, past the gate its own
   // accept has to clear.
-  opts: { video: StageDefinition; animatic?: AnimaticDefinition | null },
+  opts: {
+    video: StageDefinition;
+    animatic?: AnimaticDefinition | null;
+    held?: (address: string) => boolean;
+  },
   overturned?: NonNullable<ReviewRecord["overturned"]>,
 ): Promise<string[]> {
   const accepted: string[] = [];
@@ -338,7 +346,7 @@ export async function acceptDisplayedStemSources(
     // A dep path is the upstream asset's address directly.
     const srcAddr = depPath;
     const sel = displayed[srcAddr];
-    if (!sel) continue;
+    if (!sel || opts.held?.(srcAddr)) continue;
     if (manager.getAcceptedVariant(srcAddr) === sel) {
       manager.dismissTakes(srcAddr, candidates[srcAddr] ?? [], sel);
       continue;
@@ -1301,6 +1309,7 @@ export async function handleReelSubmit(
   reportOutcome?: ReportOutcome,
   // The video, when the reel is the board.
   downstreamVideo: StageDefinition | null = null,
+  reference: ReferenceDefinition | null = null,
 ): Promise<Response> {
   // Stamped before anything is written, so every comment this review carries predates the
   // accepts it was submitted with (see applyFeedbackMutations). The record carries it too: a
@@ -1495,6 +1504,42 @@ export async function handleReelSubmit(
     unacceptShotIds.delete(id);
   }
 
+  // A shot whose accept a finding holds is not signed off. A dep a cascade reaches that one holds is left for its own accept.
+  const report = await collectFindings(
+    await loadCheckContext({
+      videoRoot,
+      definitions: {
+        reference,
+        animatic,
+        video: (stage === "video" ? video : downstreamVideo) as VideoDefinition | null,
+      },
+      direction,
+      manager,
+    }),
+    (t) => t.holds.accept === true,
+  );
+  const heldFor = (addresses: readonly string[]) =>
+    reviewHeldFindings(
+      report,
+      addresses.map((address) => ({ op: "accept", address })),
+    );
+  const held = (address: string) => heldFor([address]).length > 0;
+  const heldReason = (findings: readonly Finding[]) =>
+    `held — ${findings.map(formatFindingLine).join("; ")}`;
+  const heldShots: Array<{ shotId: string; address: string; reason: string }> = [];
+  for (const shot of plan.shots) {
+    if (!okShotIds.has(shot.shotId)) continue;
+    const address = formatShotAddress(stage, shot.shotId);
+    const findings = heldFor([address, ...shotAcceptTargets(manager, video, shot).stemSources]);
+    if (findings.length === 0) continue;
+    okShotIds.delete(shot.shotId);
+    heldShots.push({
+      shotId: shot.shotId,
+      address,
+      reason: heldReason(findings),
+    });
+  }
+
   // The board leaves the video has taken over, re-made for the shots this review accepts: the stems
   // before any video leaf is built over one, the compositions once the video's own have signed off
   // what they draw. One that cannot be made is reported with the review's other skips.
@@ -1546,6 +1591,7 @@ export async function handleReelSubmit(
             const cascaded = await cascadeAcceptConsumedDeps(mgr, jobManager, address, variantId, {
               video,
               animatic,
+              held,
             });
             acceptedAssets.push(...cascaded);
           }
@@ -1587,7 +1633,7 @@ export async function handleReelSubmit(
             targets.stemSources,
             displayed,
             candidates,
-            { video, animatic },
+            { video, animatic, held },
             overturned,
           );
           acceptedAssets.push(...sources);
@@ -1657,7 +1703,7 @@ export async function handleReelSubmit(
               jobManager,
               stemAddress,
               variantId,
-              { video, animatic },
+              { video, animatic, held },
             );
             acceptedAssets.push(...cascaded);
             cascadeAccepted.push(...cascaded.map((address) => ({ address, via: stemAddress })));
@@ -1706,7 +1752,7 @@ export async function handleReelSubmit(
               jobManager,
               compAddress,
               variantId,
-              { video, animatic },
+              { video, animatic, held },
             );
             acceptedAssets.push(...cascaded);
           }
@@ -1738,7 +1784,10 @@ export async function handleReelSubmit(
   //
   // Both verdicts are read back, not just the accept: `unacceptReelShots` swallows per-address
   // failures the same way, so a "none" that did not take must not be recorded as a release either.
-  const skippedDecisions: NonNullable<ReviewRecord["skippedDecisions"]> = [...boardLeafFailures];
+  const skippedDecisions: NonNullable<ReviewRecord["skippedDecisions"]> = [
+    ...heldShots,
+    ...boardLeafFailures,
+  ];
   if (okShotIds.size > 0 || unacceptShotIds.size > 0) {
     const postAccept = await StateManager.load(videoRoot);
     for (const shot of plan.shots) {
@@ -1790,7 +1839,7 @@ export async function handleReelSubmit(
     await StateManager.withLock(videoRoot, async (mgr) => {
       for (const shotId of okShotIds) {
         const via = formatShotAddress(stage, shotId);
-        const parts = cascadeDirectionShotAccepts(mgr, direction, new Set([shotId]));
+        const parts = cascadeDirectionShotAccepts(mgr, direction, new Set([shotId]), held);
         cascadeAccepted.push(...parts.map((address) => ({ address, via })));
       }
     });
@@ -1800,7 +1849,20 @@ export async function handleReelSubmit(
   // materializes `timeline#stem` and cascades its bed sources (including a reference BGM), so the
   // beds gain a baseline. Per-shot audio is handled via each shot's stem accept above. "none"
   // un-accepts. Runs independent of the render plan.
-  if (timelineStemDecision && (video.timelineSoundtracks?.length ?? 0) > 0) {
+  const timelineStemHeld =
+    timelineStemDecision === "accepted"
+      ? heldFor([
+          formatTimelineStemAddress(stage),
+          ...(video.timelineSoundtracks ?? [])
+            .map((st) => parsePlaceholder(st.src.src))
+            .filter((p): p is string => p !== null),
+        ])
+      : [];
+  if (
+    timelineStemDecision &&
+    timelineStemHeld.length === 0 &&
+    (video.timelineSoundtracks?.length ?? 0) > 0
+  ) {
     const timelineStemAddress = formatTimelineStemAddress(stage);
     await StateManager.withLock(videoRoot, async (mgr) => {
       try {
@@ -1815,7 +1877,7 @@ export async function handleReelSubmit(
               .filter((p): p is string => p !== null),
             displayed,
             candidates,
-            { video, animatic },
+            { video, animatic, held },
             overturned,
           );
           acceptedAssets.push(...sources);
@@ -1836,7 +1898,7 @@ export async function handleReelSubmit(
                 jobManager,
                 timelineStemAddress,
                 variantId,
-                { video, animatic },
+                { video, animatic, held },
               );
               acceptedAssets.push(...cascaded);
               cascadeAccepted.push(
@@ -1859,11 +1921,20 @@ export async function handleReelSubmit(
 
   // The beds' post-condition, the same read-back as the shots': the block above swallows its own
   // failure, so neither verdict may be written down without confirming it in state.
-  const timelineVerdict = timelineStemVerdict(
-    timelineStemDecision ? await StateManager.load(videoRoot) : manager,
-    video,
-    timelineStemDecision,
-  );
+  const timelineVerdict =
+    timelineStemHeld.length > 0
+      ? {
+          landed: undefined,
+          skipped: {
+            address: formatTimelineStemAddress(stage),
+            reason: heldReason(timelineStemHeld),
+          },
+        }
+      : timelineStemVerdict(
+          timelineStemDecision ? await StateManager.load(videoRoot) : manager,
+          video,
+          timelineStemDecision,
+        );
   if (timelineVerdict.skipped) skippedDecisions.push(timelineVerdict.skipped);
 
   // The overlay is signed off by the shot accepts under it: accepted with the review that leaves
@@ -1884,7 +1955,10 @@ export async function handleReelSubmit(
     ).needsReview
       ? "accepted"
       : undefined);
-  if (video.overlay && overlayDecision) {
+  const overlayHeld = overlayDecision === "accepted" ? heldFor([overlayAddress]) : [];
+  if (overlayHeld.length > 0) {
+    skippedDecisions.push({ address: overlayAddress, reason: heldReason(overlayHeld) });
+  } else if (video.overlay && overlayDecision) {
     const overlayDef = video.overlay;
     // What the overlay shows from outside its timeline whose take moved since the page loaded: it
     // is not accepted here, so the overlay would be built over a picture nobody saw.
@@ -1922,6 +1996,7 @@ export async function handleReelSubmit(
             const cascadedRef = await cascadeAcceptConsumedDeps(mgr, jobManager, ref, sel, {
               video,
               animatic,
+              held,
             });
             acceptedAssets.push(...cascadedRef);
             cascadeAccepted.push(
@@ -1939,7 +2014,7 @@ export async function handleReelSubmit(
             jobManager,
             overlayAddress,
             variantId,
-            { video, animatic },
+            { video, animatic, held },
           );
           acceptedAssets.push(...cascaded);
           cascadeAccepted.push(...cascaded.map((dep) => ({ address: dep, via: overlayAddress })));

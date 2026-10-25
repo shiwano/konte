@@ -733,7 +733,7 @@ describe("buildDependencyGraph", () => {
     );
   });
 
-  it("throws a targeted error when video references an undeveloped (pendingShot) animatic shot", () => {
+  it("records, without an edge, an asset built on an undeveloped (pendingShot) animatic shot", () => {
     const sbDef = {
       stage: "animatic" as const,
       format: { size: { width: 1920, height: 1080 }, fps: 1 },
@@ -770,10 +770,14 @@ describe("buildDependencyGraph", () => {
       },
     );
 
-    expect(() => buildDependencyGraph(video, sbDef as any)).toThrowError(/pendingShot/i);
+    const graph = buildDependencyGraph(video, sbDef as any);
+    expect(graph.pendingReferences).toEqual([
+      { from: "video:shot.01.motion", ref: "animatic:shot.01.keyframe" },
+    ]);
+    expect(graph.dependencies.get("video:shot.01.motion")).toEqual([]);
   });
 
-  it("throws the same targeted error from a video TIMELINE asset, not just a shot asset", () => {
+  it("records the same from a video TIMELINE asset, not just a shot asset", () => {
     const sbDef = {
       stage: "animatic" as const,
       format: { size: { width: 1920, height: 1080 }, fps: 1 },
@@ -796,7 +800,9 @@ describe("buildDependencyGraph", () => {
       },
     );
 
-    expect(() => buildDependencyGraph(video, sbDef as any)).toThrowError(/pendingShot/i);
+    expect(buildDependencyGraph(video, sbDef as any).pendingReferences).toEqual([
+      { from: "video:timeline.plate", ref: "animatic:shot.01.keyframe" },
+    ]);
   });
 
   it("adds a composition node depending on the assets its shotFn renders", () => {
@@ -1230,6 +1236,21 @@ describe("listBoardlessVideoShots", () => {
 
     expect(listBoardlessVideoShots(video, animatic, graph)).toEqual([
       { shotId: "01", spends: true },
+    ]);
+  });
+
+  it("counts a pending own-board reference as consuming, but not one to its narrationStem", () => {
+    const animatic = developedAnimatic(["01"]);
+    const video = videoWithShots([{ id: "01", refsAnimatic: false }]);
+    const graph = buildDependencyGraph(video, animatic);
+    const pendingTo = (ref: string) => ({
+      ...graph,
+      pendingReferences: [{ from: "video:shot.01.motion", ref }],
+    });
+
+    expect(boardlessIds(video, animatic, pendingTo("animatic:shot.01.first"))).toEqual([]);
+    expect(boardlessIds(video, animatic, pendingTo("animatic:shot.01#narrationStem"))).toEqual([
+      "01",
     ]);
   });
 
@@ -2022,6 +2043,7 @@ describe("videoDependentsHoldVerdicts", () => {
       ["video:shot.01.motion", ["video:shot.01#composition"]],
     ]),
     topologicalOrder: [],
+    pendingReferences: [],
   };
   const verdicts =
     (overrides: Record<string, "holds" | "rebakes" | "open">) =>

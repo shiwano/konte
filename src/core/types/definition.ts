@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { PinOccurrence } from "../pin-check.js";
 import type { ImageInputOccurrence } from "../image-inputs.js";
 import type { PromptOccurrence } from "../prompt-check.js";
+import type { BuildFinding } from "../finding.js";
 import { FONT_FAMILY_PATTERN, isLanguageTag, type LanguageTag } from "../typography.js";
 import type { MediaAsset, SoundtrackEntry } from "../dsl/builders.js";
 import type { ShotFunction } from "../dsl/shot-context.js";
@@ -148,7 +149,7 @@ export const PanelDefinitionSchema = z.object({
   // back, so it is absent until bound; the last panel of a multi-panel shot is the landing frame
   // and never carries it (see assertPanelMoves) unless the next shot runs on from this lane in one
   // take (`continuedBy`), and every other panel must carry it before the board reaches review
-  // (REVIEW_PREREQUISITE_MISSING).
+  // (`movement-unwritten`).
   blocking: z.string().optional(),
   // The camera's behaviour over that same transit. Same position rule as `blocking`. A subject
   // leaving frame because the camera moved off it belongs here.
@@ -349,14 +350,10 @@ export const TypographySchema = z.object({
 });
 export type Typography = z.infer<typeof TypographySchema>;
 
-// The prompt check's two fields, carried by every stage entry alike: `prompts` is what the stage's
-// `"prompt"` inputs were built with, `waivers` the reasons standing against their findings, keyed
-// the way `status` prints them. Both are read by the spend gate; neither is hashed.
+// What the stage's `"prompt"` inputs were built with, read by the prompt check. Not hashed.
 export const PromptsSchema = z.custom<readonly PromptOccurrence[]>().optional();
-export const PromptWaiversSchema = z.record(z.string(), z.string()).optional();
 
-// The pin check's half of the same pair — what the stage's `pin` inputs were wired to. `waivers`
-// above is the one record both classes are keyed in (see waiver-keys.ts). Not hashed either.
+// What the stage's `pin` inputs were wired to, read by the pin check. Not hashed either.
 export const PinsSchema = z.custom<readonly PinOccurrence[]>().optional();
 
 // `panel-unlinked`'s and `plate-unnested`'s half — every wired image input the stage declared. Not
@@ -399,8 +396,9 @@ export const StageDefinitionSchema = z.object({
   pins: PinsSchema,
   imageInputs: ImageInputsSchema,
   prevPanelReaders: PrevPanelReadersSchema,
-  waivers: PromptWaiversSchema,
   respellings: RespellingsSchema,
+  // What the build found of itself instead of refusing to load (see `BuildFinding`).
+  buildFindings: z.custom<readonly BuildFinding[]>().optional(),
 });
 
 export type StageDefinition = z.infer<typeof StageDefinitionSchema>;

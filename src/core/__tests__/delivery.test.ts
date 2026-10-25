@@ -13,8 +13,8 @@ import {
 } from "../delivery.js";
 import type { AssetAdapter } from "../dsl/adapter.js";
 import { upscale } from "../dsl/delivery-upscale.js";
-import { assertPinGate, pinWaiverKey } from "../pin-check.js";
-import { assertPromptGate, promptWaiverKey } from "../prompt-check.js";
+import { pinFindings } from "../pin-check.js";
+import { promptFindings } from "../prompt-check.js";
 import type { DeliveryUpscaleFn, KonteState, VideoDefinition } from "../types/index.js";
 
 // A minimal upscale adapter that records the injected source + scale + target dims.
@@ -316,11 +316,10 @@ describe("deliveryPromptSubject", () => {
     },
   };
 
-  function videoWithPromptUpscale(prompt: string, waivers?: Record<string, string>) {
-    return {
-      ...videoWithDelivery(({ video, scale }) => upscale(promptUpscale, { video, scale, prompt })),
-      waivers,
-    } as VideoDefinition;
+  function videoWithPromptUpscale(prompt: string) {
+    return videoWithDelivery(({ video, scale }) =>
+      upscale(promptUpscale, { video, scale, prompt }),
+    );
   }
 
   it("collects the upscaler's prompt under the delivery address it is spent at", () => {
@@ -344,17 +343,9 @@ describe("deliveryPromptSubject", () => {
       "video:shot.01.motion#delivery",
       TARGET,
     );
-    expect(() => assertPromptGate(subject, "video.tsx")).toThrow(/no artifacts/);
-  });
-
-  it("folds against the video stage's own waivers", () => {
-    const key = promptWaiverKey("prompt-negation", "no artifacts");
-    const subject = deliveryPromptSubject(
-      videoWithPromptUpscale("sharpen, no artifacts", { [key]: "the upscaler's own vocabulary" }),
-      "video:shot.01.motion#delivery",
-      TARGET,
-    );
-    expect(() => assertPromptGate(subject, "video.tsx")).not.toThrow();
+    expect(promptFindings(subject, { stage: "video" }).map((f) => f.subject)).toEqual([
+      '"no artifacts"',
+    ]);
   });
 
   // The pin half of the same seam: an upscaler that pins a frame is spent on at export like any
@@ -367,13 +358,10 @@ describe("deliveryPromptSubject", () => {
     },
   };
 
-  function videoWithPinUpscale(source: string, waivers?: Record<string, string>) {
-    return {
-      ...videoWithDelivery(({ video, scale }) =>
-        upscale(pinUpscale, { video, scale, startImage: { src: `__konte:${source}__` } }),
-      ),
-      waivers,
-    } as VideoDefinition;
+  function videoWithPinUpscale(source: string) {
+    return videoWithDelivery(({ video, scale }) =>
+      upscale(pinUpscale, { video, scale, startImage: { src: `__konte:${source}__` } }),
+    );
   }
 
   it("collects the upscaler's pin under the delivery address it is spent at", () => {
@@ -398,17 +386,9 @@ describe("deliveryPromptSubject", () => {
       "video:shot.01.motion#delivery",
       TARGET,
     );
-    expect(() => assertPinGate(subject, "video.tsx")).toThrow(/reference:hero/);
-  });
-
-  it("folds a pin finding against the video stage's own waivers", () => {
-    const key = pinWaiverKey("pin-unanchored", "reference:hero");
-    const subject = deliveryPromptSubject(
-      videoWithPinUpscale("reference:hero", { [key]: "the delivery opens on the sheet" }),
-      "video:shot.01.motion#delivery",
-      TARGET,
-    );
-    expect(() => assertPinGate(subject, "video.tsx")).not.toThrow();
+    expect(pinFindings(subject, { stage: "video" }).map((f) => f.subject)).toEqual([
+      "reference:hero",
+    ]);
   });
 });
 

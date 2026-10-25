@@ -2,35 +2,24 @@ import {
   type DefinitionLike,
   type Stage,
   formatReferenceAddress,
-  getAssetEntryByAddress,
   getStage,
   isMaterializedLeafAddress,
-  listAssetPaths,
 } from "../core/address.js";
 import { assertNever } from "../core/assert.js";
 import {
-  assertDirectionGate,
-  assertViewsAnchored,
   collectFramedCharacterIds,
   collectShotFrames,
   setupView,
   type SongTakeState,
-  type SpendCommand,
   type StagingStageState,
 } from "../core/direction.js";
 import { resolveSongTake, songAddressOf } from "../core/song-take.js";
 import { mediaDurationSec } from "../core/variant-media.js";
-import {
-  directionAcceptanceView,
-  isDirectionSpendGateSatisfied,
-  songGateBlocking,
-} from "../core/direction-acceptance.js";
 import { StateManager } from "../core/state/index.js";
 import type { Character, Direction } from "../core/dsl/direction.js";
 import { KonteError } from "../core/errors.js";
 import { type LoadedDefinitions, loadShotStages } from "../core/select-definition.js";
 import {
-  listBoardlessVideoShots,
   listPanelPromptText,
   listPanelReferenceReach,
   listPanelReferenceSlots,
@@ -46,11 +35,7 @@ import {
   type DependencyGraph,
 } from "../core/graph.js";
 import type { AnimaticSetupState } from "../core/direction-check.js";
-import { assertPinGate, type PinCheckSubject } from "../core/pin-check.js";
 import { assertNarrationStemsPlaced } from "../core/narration-stem.js";
-import { assertPromptGate, type PromptCheckSubject } from "../core/prompt-check.js";
-import { assertTailwindClasses, type ClassSubject } from "../core/tailwind-classes.js";
-import { assertPrerequisitesMet, findUnmetPrerequisites } from "../core/review-prerequisites.js";
 import {
   loadAnimatic,
   loadDirectionDefinition,
@@ -61,185 +46,16 @@ import {
 import type {
   ReferenceDefinition,
   AnimaticDefinition,
-  StageDefinition,
   VideoDefinition,
 } from "../core/types/index.js";
-import { compositionClassSubjects, harvestShotPictureCues } from "../core/composition-builder.js";
-import { STAGE_ENTRY_FILE, stageEntryPath } from "../core/roots.js";
+import { harvestShotPictureCues } from "../core/composition-builder.js";
+import { stageEntryPath } from "../core/roots.js";
 import { collectUndecidedUpstreamTakes, computeAcceptedStaleness } from "../core/staleness.js";
 import { definitionHashForAddress } from "../core/composition-resource.js";
 
 // The direction (direction.ts). Absent file => null; an existing but invalid file throws.
 export function loadDirectionIfPresent(videoRoot: string): Promise<Direction | null> {
   return loadIfPresent(stageEntryPath(videoRoot, "direction"), loadDirectionDefinition);
-}
-
-// The spend-command gate: load direction.ts and abort (DIRECTION_CHECK_FAILED) when the running
-// command's scope has an unresolved structural problem. `realizedIds` is the stage's realized shot
-// order (undefined skips the stage/completeness checks). The reference stage answers only to
-// `view-unanchored`, for the view images it generates. A missing direction.ts is itself a hard
-// failure for animatic/video.
-export async function gateDirectionForStage(opts: {
-  videoRoot: string;
-  command: SpendCommand;
-  stage: Stage;
-  realizedIds?: readonly string[];
-}): Promise<void> {
-  if (opts.stage === "reference") {
-    const direction = await loadDirectionIfPresent(opts.videoRoot);
-    const reference = direction ? await loadReference(opts.videoRoot).catch(() => null) : null;
-    if (direction && reference) {
-      assertViewsAnchored(
-        direction,
-        listViewAnchorGaps(reference),
-        reference.exposedAssetNames ?? [],
-      );
-    }
-    return;
-  }
-  const direction = await loadDirectionIfPresent(opts.videoRoot);
-  if (!direction) {
-    throw new KonteError(
-      "DIRECTION_CHECK_FAILED",
-      "No direction.ts found — declare the video's direction (lens + shots) before generating. [direction-missing]",
-    );
-  }
-  // The characters checks need the reference pool's exposed asset names; an unreadable reference.tsx
-  // yields an empty list, so any declared character is (correctly) reported as unreferenced.
-  const reference = await loadReference(opts.videoRoot).catch(() => null);
-  // A broken/absent state can't be gated here — later steps fail on it — so skip those gates.
-  const manager = await StateManager.load(opts.videoRoot).catch(() => null);
-  const acceptance = manager?.getDirectionAcceptance();
-  assertDirectionGate(direction, {
-    command: opts.command,
-    stage: opts.stage,
-    realizedIds: opts.realizedIds,
-    referenceAssetNames: reference?.exposedAssetNames ?? [],
-    animaticSetups: await loadAnimaticSetupState(opts.videoRoot, direction, reference),
-    stagingStage: await loadStagingStageState(opts.videoRoot, direction),
-    songTake: manager ? songTakeState(manager, direction) : undefined,
-    directionAccepted: isDirectionSpendGateSatisfied(direction, acceptance ?? null),
-  });
-
-  // The character-acceptance gate rides the same spend-command gate, so generate/reroll/export all
-  // enforce it (the reference stage already returned above — it is where a character is made and
-  // accepted).
-  if (manager) {
-    assertDirectionAccepted({ manager, direction });
-    await assertCharactersAccepted({
-      videoRoot: opts.videoRoot,
-      manager,
-      direction,
-      reference,
-    });
-    // Both composition stages sound the shot's lines, so both spend on TTS and both are gated.
-    if (opts.stage === "animatic" || opts.stage === "video") {
-      await assertVoicesAccepted({ videoRoot: opts.videoRoot, manager, direction, reference });
-    }
-  }
-}
-
-// The stage-file gates, run beside the direction gate at every spend: a `"prompt"` input still
-// naming an exclusion aborts with PROMPT_CHECK_FAILED, a `pin` input wired to something that is not
-// a frame with PIN_CHECK_FAILED, a class setting a font family — in a `jsxImage`, a shot's
-// composition or the overlay — with COMPOSITION_CLASS_INVALID. Stage-scoped like the direction
-// gate — an untouched stage never blocks a spend on this one. A finding points the author at the
-// stage's entry file.
-export async function gateStageChecks(
-  definition: PromptCheckSubject & PinCheckSubject & DefinitionLike,
-  stage: Stage,
-): Promise<void> {
-  const where = STAGE_ENTRY_FILE[stage];
-  assertPromptGate(definition, where);
-  assertPinGate(definition, where);
-  if (stage === "direction") return;
-  const { images, compositions } = stageClassSubjects(definition, stage);
-  await assertTailwindClasses([...images, ...compositions]);
-}
-
-// The markup the class gate reads on a stage: each `jsxImage`'s, and on a composition stage each
-// developed shot's composition and the overlay — which a review renders too.
-export function stageClassSubjects(
-  definition: DefinitionLike,
-  stage: Exclude<Stage, "direction">,
-): { images: ClassSubject[]; compositions: ClassSubject[] } {
-  const images = listAssetPaths(definition, stage).flatMap((address) => {
-    const entry = getAssetEntryByAddress(definition, address);
-    return entry.kind === "local" && entry.operation === "render"
-      ? [{ label: address, html: entry.inputs.stage as string }]
-      : [];
-  });
-  const compositions =
-    stage === "reference" ? [] : compositionClassSubjects(definition as unknown as StageDefinition);
-  return { images, compositions };
-}
-
-// The direction must be reviewed and accepted by a human (in `konte preview direction`) before any
-// animatic/video spend — the gate mirrors `assertCharactersAccepted`. Which parts it demands
-// narrows once the piece has been signed off end to end; `directionAcceptanceView` owns that split.
-//
-// The blocking parts are named, with both ways to clear one: the page is where a reviewer reads a
-// whole box, but a single part settled elsewhere is a one-liner.
-export function assertDirectionAccepted(opts: {
-  manager: StateManager;
-  direction: Direction;
-}): void {
-  const acceptance = opts.manager.getDirectionAcceptance();
-  if (isDirectionSpendGateSatisfied(opts.direction, acceptance)) return;
-
-  const { gateBlocking } = directionAcceptanceView(opts.direction, acceptance);
-  const clear = "`konte preview direction`, or `konte accept <part>...`";
-  if (gateBlocking.length === 0) {
-    // Nothing live is blocking, so what re-blocked the gate is a part that was DELETED since it was
-    // accepted — there is no address to point at, only the fact that the page changed shape.
-    throw new KonteError(
-      "DIRECTION_ACCEPTANCE_REQUIRED",
-      `The direction lost a part that was accepted — review and re-accept it before this spend: ${clear} (\`--off\` clears a deleted part's sign-off).`,
-    );
-  }
-  const lines = gateBlocking.map(
-    ({ address, status }) =>
-      `  ${address} — ${status === "stale" ? "changed since it was accepted" : "never accepted"}`,
-  );
-  throw new KonteError(
-    "DIRECTION_ACCEPTANCE_REQUIRED",
-    `${gateBlocking.length} part(s) of the direction must be reviewed and accepted before this ` +
-      `spend — ${clear}`,
-    lines,
-  );
-}
-
-// The reference stage carries no direction gate, but the song take is generated from the direction's
-// brief, clock and lyrics: a run that would spend on it waits for a human to have read those three.
-// `spending` is what the run would really submit.
-export async function assertSongDirectionAccepted(opts: {
-  videoRoot: string;
-  manager: StateManager;
-  spending: Iterable<string>;
-}): Promise<void> {
-  const direction = await loadDirectionIfPresent(opts.videoRoot);
-  const song = songAddressOf(direction);
-  if (!direction || song === null || ![...opts.spending].includes(song)) return;
-  const blocking = songGateBlocking(direction, opts.manager.getDirectionAcceptance());
-  if (blocking.length === 0) return;
-
-  const lines = blocking.map(
-    ({ address, status }) =>
-      `  ${address} — ${
-        status === "stale"
-          ? "changed since it was accepted"
-          : status === "deleted"
-            ? "deleted since it was accepted"
-            : "never accepted"
-      }`,
-  );
-  throw new KonteError(
-    "DIRECTION_ACCEPTANCE_REQUIRED",
-    `${song} is generated from the direction's brief, policy and lyrics — ${blocking.length} ` +
-      "part(s) must be reviewed and accepted before it is made: `konte preview direction`, or " +
-      "`konte accept <part>...`",
-    lines,
-  );
 }
 
 // Sign-off a spend may build on: strict resolution's own verdict, which is what the spend then
@@ -250,43 +66,27 @@ function acceptedForSpend(manager: StateManager, address: string): boolean {
   return manager.selectVariant(address, { requireAccepted: true }) !== null;
 }
 
-// A cast reference asset is "satisfied" when `reference:<id>` has an accepted variant.
-async function isCastReferenceSatisfied(
-  id: string,
-  opts: {
-    videoRoot: string;
-    manager: StateManager;
-    reference: ReferenceDefinition | null;
-  },
-): Promise<boolean> {
-  return acceptedForSpend(opts.manager, formatReferenceAddress(id));
-}
-
-// The characters some frame's lineup holds whose `reference:<id>` look anchor is not satisfied yet.
-export async function unsatisfiedCharacters(opts: {
-  videoRoot: string;
+// The characters some frame's lineup holds whose `reference:<id>` look anchor is not accepted yet.
+export function unsatisfiedCharacters(opts: {
   manager: StateManager;
   direction: Direction | null;
-  reference: ReferenceDefinition | null;
-}): Promise<Array<{ id: string } & Character>> {
+}): Array<{ id: string } & Character> {
   if (!opts.direction) return [];
   const framed = collectFramedCharacterIds(opts.direction);
   const out: Array<{ id: string } & Character> = [];
   for (const [id, c] of Object.entries(opts.direction.characters ?? {})) {
     if (!framed.has(id)) continue;
-    if (!(await isCastReferenceSatisfied(id, opts))) out.push({ id, ...c });
+    if (!acceptedForSpend(opts.manager, formatReferenceAddress(id))) out.push({ id, ...c });
   }
   return out;
 }
 
-// The cast voices whose sample is not satisfied yet — every declared character voice plus the
+// The cast voices whose sample is not accepted yet — every declared character voice plus the
 // narrator's, each labelled by who it belongs to.
-export async function unsatisfiedVoices(opts: {
-  videoRoot: string;
+export function unsatisfiedVoices(opts: {
   manager: StateManager;
   direction: Direction | null;
-  reference: ReferenceDefinition | null;
-}): Promise<Array<{ assetId: string; who: string }>> {
+}): Array<{ assetId: string; who: string }> {
   // One sample may be cast twice (a narrator who is the protagonist, twins), and it is one asset to
   // accept — so it is named once, by everyone who is cast on it.
   const whoById = new Map<string, string[]>();
@@ -302,82 +102,28 @@ export async function unsatisfiedVoices(opts: {
 
   const out: Array<{ assetId: string; who: string }> = [];
   for (const [assetId, who] of whoById) {
-    if (!(await isCastReferenceSatisfied(assetId, opts))) {
+    if (!acceptedForSpend(opts.manager, formatReferenceAddress(assetId))) {
       out.push({ assetId, who: who.join(", ") });
     }
   }
   return out;
 }
 
-// A `direction` character is anchored to a `reference:<id>` asset that must be reviewed and
-// accepted in `konte preview reference` — never implicitly through a shot that consumes it — so a
-// spend command consuming an un-accepted character aborts with CHARACTER_ACCEPTANCE_REQUIRED.
-export async function assertCharactersAccepted(opts: {
-  videoRoot: string;
-  manager: StateManager;
-  direction: Direction | null;
-  reference: ReferenceDefinition | null;
-}): Promise<void> {
-  const unsatisfied = await unsatisfiedCharacters(opts);
-  if (unsatisfied.length === 0) return;
-
-  const lines = unsatisfied.map((c) => {
-    const hint =
-      opts.reference?.topLevelAssets?.[c.id]?.kind === "file"
-        ? "place its file under assets/files/, then accept it in `konte preview reference`"
-        : "review and accept it in `konte preview reference`";
-    return `  ${formatReferenceAddress(c.id)} — ${hint}`;
-  });
-  throw new KonteError(
-    "CHARACTER_ACCEPTANCE_REQUIRED",
-    `${unsatisfied.length} character reference(s) must be accepted before this spend — a character ` +
-      "is never accepted implicitly through a shot that uses it",
-    lines,
-  );
-}
-
-// The audio twin of `assertCharactersAccepted`: cloning a voice from a sample nobody listened to is
-// the failure the look gate exists to prevent, one stage over. Both composition stages — the lines
-// are recorded on the animatic, and a video build may still call an audio adapter of its own.
-export async function assertVoicesAccepted(opts: {
-  videoRoot: string;
-  manager: StateManager;
-  direction: Direction | null;
-  reference: ReferenceDefinition | null;
-}): Promise<void> {
-  const unsatisfied = await unsatisfiedVoices(opts);
-  if (unsatisfied.length === 0) return;
-
-  const lines = unsatisfied.map((v) => {
-    const hint =
-      opts.reference?.topLevelAssets?.[v.assetId]?.kind === "file"
-        ? "place its file under assets/files/, then accept it in `konte preview reference`"
-        : "review and accept it in `konte preview reference`";
-    return `  ${formatReferenceAddress(v.assetId)} — ${v.who}: ${hint}`;
-  });
-  throw new KonteError(
-    "VOICE_ACCEPTANCE_REQUIRED",
-    `${unsatisfied.length} cast voice sample(s) must be accepted before this spend — how someone ` +
-      "sounds is a human call, never settled implicitly by a shot that speaks",
-    lines,
-  );
-}
-
 // The stages that can sit upstream of a spend and are reviewed by a human, in pipeline order — so
 // the ones a spend below them must find accepted, and the step that clears each. `direction` is
-// absent because its acceptance is `assertDirectionAccepted`'s; `video` because nothing is
+// absent because its acceptance is per part (`directionAcceptanceView`); `video` because nothing is
 // downstream of it.
 const GATED_UPSTREAM: ReadonlyArray<{ stage: Stage; review: string; generate: string }> = [
   { stage: "reference", review: "konte preview reference", generate: "konte generate reference" },
   { stage: "animatic", review: "konte preview animatic", generate: "konte generate animatic" },
 ];
 
-type UpstreamBlocker =
+export type UpstreamBlocker =
   | { kind: "unaccepted"; hasOutput: boolean }
   | { kind: "undecided"; acceptedVariantId: string; undecidedVariantId: string };
 
 // The reviewed upstream work a spend would build on, mapped to what holds each back — the
-// cross-stage twin of `assertDirectionAccepted`. A stale accepted upstream still passes, staleness
+// cross-stage twin of the direction's acceptance. A stale accepted upstream still passes, staleness
 // having its own reporting. `stage` is the stage doing the
 // spending: its own nodes are walked through (so a `animatic → video → video` chain cannot slip
 // past by targeting the far end), as are the deterministic ones. The walk stops at every gated
@@ -435,32 +181,10 @@ export function unacceptedUpstreamDeps(opts: {
   return blocking;
 }
 
-type UpstreamGateOpts = {
-  manager: StateManager;
-  graph: DependencyGraph;
-  assetPaths: Iterable<string>;
-  stage: Stage;
-  extraRefs?: Iterable<string>;
-  redone?: ReadonlySet<string>;
-  animatic: AnimaticDefinition | null;
-};
-
-// Whole-stage, matching the refusal of `konte preview animatic`: a board with an unwritten panel is
-// not reviewable, whatever this spend reaches. Only the stages upstream of the spend.
-function assertUpstreamPrerequisites(opts: UpstreamGateOpts): void {
-  for (const { stage } of GATED_UPSTREAM) {
-    if (stage === opts.stage) break;
-    assertPrerequisitesMet(
-      findUnmetPrerequisites(stage, { animatic: opts.animatic }, opts.manager.getState()),
-      `Cannot spend on ${opts.stage}`,
-    );
-  }
-}
-
 // The upstream-most blockers alone: accepting a board built on an unaccepted sheet is not the fix,
 // so naming both would send the human at the wrong one. GATED_UPSTREAM is in pipeline order, so the
 // first entry with a blocker is the upstream-most.
-function upstreamMostBlockers(blocking: Map<string, UpstreamBlocker>): {
+export function upstreamMostBlockers(blocking: Map<string, UpstreamBlocker>): {
   upstream: (typeof GATED_UPSTREAM)[number];
   lines: string[];
 } | null {
@@ -486,102 +210,6 @@ function upstreamMostBlockers(blocking: Map<string, UpstreamBlocker>): {
   return { upstream, lines };
 }
 
-function upstreamAcceptanceError(
-  stage: Stage,
-  blocking: Map<string, UpstreamBlocker>,
-): KonteError | null {
-  const named = upstreamMostBlockers(blocking);
-  if (!named) return null;
-  const count = named.lines.length;
-  return named.upstream.stage === "reference"
-    ? new KonteError(
-        "REFERENCE_ACCEPTANCE_REQUIRED",
-        `${count} reference asset(s) this ${stage} spend conditions on must be accepted first — a ` +
-          "sheet is never accepted implicitly through what consumes it",
-        named.lines,
-      )
-    : new KonteError(
-        "ANIMATIC_ACCEPTANCE_REQUIRED",
-        `${count} animatic asset(s) this video spend builds on must be accepted first — the board ` +
-          "and the lines that drive the motion are reviewed before motion is spent on them",
-        named.lines,
-      );
-}
-
-// The upstream twin of the direction acceptance gate: a spend must not build on work no human has
-// accepted, nor past a take still undecided beside an accept. Two levels of the same rule — a video spend needs its boards accepted, and either
-// creative stage needs the `reference:` sheets it conditions on accepted, since a sheet is where
-// every take downstream of it gets its identity from and is never settled implicitly by whatever
-// consumed it first. A targeted spend refuses on any blocker: every asset in it was asked for.
-export function assertUpstreamAccepted(opts: UpstreamGateOpts): void {
-  assertUpstreamPrerequisites(opts);
-  const error = upstreamAcceptanceError(opts.stage, unacceptedUpstreamDeps(opts));
-  if (error) throw error;
-}
-
-// The assets of a spend an unaccepted upstream holds back, each with what holds it. Every same-stage
-// dependent of a held asset reaches the same blocker, so it is held too.
-export function heldByUpstreamAcceptance(
-  opts: Omit<UpstreamGateOpts, "animatic" | "extraRefs">,
-): Map<string, Map<string, UpstreamBlocker>> {
-  const held = new Map<string, Map<string, UpstreamBlocker>>();
-  for (const assetPath of opts.assetPaths) {
-    const blocking = unacceptedUpstreamDeps({ ...opts, assetPaths: [assetPath] });
-    if (blocking.size > 0) held.set(assetPath, blocking);
-  }
-  return held;
-}
-
-// The whole-stage form of the gate: the assets it would hold are returned for the spend to leave
-// out, and it refuses only when it would hold every one, so a review still pending on one shot does
-// not stop the shots whose upstream is accepted.
-export function holdForUpstreamAcceptance(opts: UpstreamGateOpts): {
-  held: Set<string>;
-  lines: string[];
-} {
-  assertUpstreamPrerequisites(opts);
-  const assetPaths = [...opts.assetPaths];
-  const held = heldByUpstreamAcceptance({ ...opts, assetPaths });
-  if (held.size > 0 && held.size === assetPaths.length) {
-    const merged = new Map([...held.values()].flatMap((blocking) => [...blocking]));
-    const error = upstreamAcceptanceError(opts.stage, merged);
-    if (error) throw error;
-  }
-  const lines = new Set(
-    [...held.values()].flatMap((blocking) => upstreamMostBlockers(blocking)?.lines ?? []),
-  );
-  return { held: new Set(held.keys()), lines: [...lines] };
-}
-
-// The gate above only reaches the boards a video spend consumes, so a shot that consumes none at all
-// routes around it. A shot the video is not ready to wire stays a `pendingShot`, which
-// `PENDING_SHOTS` holds at export.
-export function assertAnimaticConsumed(opts: {
-  video: VideoDefinition;
-  animatic: AnimaticDefinition;
-  graph: DependencyGraph;
-  // The shots this run will put a vendor spend on. A whole-stage spend (`generate video`, `export`)
-  // omits it and each shot's own `spends` answers. A targeted run (`reroll`, `patch apply`) names
-  // them: what it spends on is not what the definition carries — one rerolled asset, a patch step —
-  // and naming them also keeps a boardless shot it is not touching from blocking it.
-  spendingShotIds?: Iterable<string>;
-}): void {
-  const named = opts.spendingShotIds ? new Set(opts.spendingShotIds) : null;
-  // Only a shot that spends is refused — see `BoardlessVideoShot.spends`.
-  const boardless = listBoardlessVideoShots(opts.video, opts.animatic, opts.graph)
-    .filter((s) => (named ? named.has(s.shotId) : s.spends))
-    .map((s) => s.shotId);
-  if (boardless.length === 0) return;
-  throw new KonteError(
-    "ANIMATIC_UNCONSUMED",
-    `${boardless.length} video shot(s) spend without building on the board they develop — build ` +
-      "each from its own board shot (a panel image, `.stem` — not `.narrationStem`, which builds " +
-      "nothing), developing that board shot first if it is still a pendingShot, or leave the " +
-      'shot as pendingShot("<id>") in video.tsx until it is wired',
-    boardless.map((id) => `  video:shot.${id} — animatic:shot.${id}`),
-  );
-}
-
 // What the setups class reads off the board: which setups have a plate, which plates stand on no
 // location reference, and which developed shots reach neither anchor. **undefined when the board
 // could not be read**, and that distinction is the contract: an unreadable board cannot owe plates,
@@ -593,7 +221,15 @@ export async function loadAnimaticSetupState(
   reference: ReferenceDefinition | null,
 ): Promise<AnimaticSetupState | undefined> {
   const animatic = await loadAnimatic(videoRoot).catch(() => null);
-  if (!animatic) return undefined;
+  return animatic ? animaticSetupState(direction, animatic, reference) : undefined;
+}
+
+// The same off a board already read.
+export function animaticSetupState(
+  direction: Direction,
+  animatic: AnimaticDefinition,
+  reference: ReferenceDefinition | null,
+): AnimaticSetupState {
   const setups = direction.setups ?? {};
   const locationBySetup = new Map(Object.entries(setups).map(([id, s]) => [id, s.location]));
   const viewBySetup = new Map(
@@ -656,10 +292,20 @@ export async function loadStagingStageState(
 ): Promise<StagingStageState | undefined> {
   const animatic = await loadAnimatic(videoRoot).catch(() => null);
   if (!animatic) return undefined;
-  const frames = collectShotFrames(direction);
-  const passers = frames.some((f) => (f.passing?.length ?? 0) > 0);
   const video = await loadVideoDefinition(stageEntryPath(videoRoot, "video")).catch(() => null);
   const manager = video ? await StateManager.load(videoRoot).catch(() => null) : null;
+  return stagingStageState(direction, animatic, video, manager);
+}
+
+// The same off the stages already read.
+export function stagingStageState(
+  direction: Direction,
+  animatic: AnimaticDefinition,
+  video: VideoDefinition | null,
+  manager: StateManager | null,
+): StagingStageState {
+  const frames = collectShotFrames(direction);
+  const passers = frames.some((f) => (f.passing?.length ?? 0) > 0);
   return {
     panelSlots: listPanelReferenceSlots(animatic),
     panelReach: listPanelReferenceReach(animatic),

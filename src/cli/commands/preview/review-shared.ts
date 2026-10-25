@@ -54,10 +54,8 @@ import {
 } from "../../../core/feedback/index.js";
 import { StateManager } from "../../../core/state/index.js";
 import { JobManager } from "../../../core/job-manager.js";
-import {
-  assertPrerequisitesMet,
-  findAllUnmetPrerequisites,
-} from "../../../core/review-prerequisites.js";
+import type { FindingReport } from "../../../core/checks.js";
+import { reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
 import { clampUnit } from "../../../core/types/index.js";
 import type {
   AssetDefinition,
@@ -879,8 +877,10 @@ export async function applyAddressReview(
   body: AddressReviewBody,
   reviewedAt: string,
   hooks: {
-    // The prerequisite/cascade context: the animatic whose panels are (or back) the targets.
+    // The cascade context: the animatic whose panels are (or back) the targets.
     animatic: AnimaticDefinition | null;
+    // The findings standing when the decisions land — an accept a finding holds is dropped.
+    findings: (mgr: StateManager) => Promise<FindingReport>;
     // Definition hashes the comments' stale flags are read against.
     staleDefinitionHashes?: ReadonlyMap<string, string>;
     // A reason to refuse an accept made on this page, or null to let it through.
@@ -892,6 +892,7 @@ export async function applyAddressReview(
     cascadeDirection: (
       mgr: StateManager,
       appliedAccepts: ReadonlySet<string>,
+      held: (address: string) => boolean,
     ) => Array<{ address: string; via: string }>;
   },
 ): Promise<AddressReviewOutcome> {
@@ -943,6 +944,9 @@ export async function applyAddressReview(
       });
 
       skippedDecisions.push(...(hooks.placeSongLines?.(mgr) ?? []));
+      const findings = await hooks.findings(mgr);
+      const isHeld = (address: string) =>
+        reviewHeldFindings(findings, [{ op: "accept", address }]).length > 0;
 
       for (const override of body.decisions ?? []) {
         try {
@@ -955,17 +959,14 @@ export async function applyAddressReview(
             continue;
           }
           if (override.status === "accepted") {
-            // A target whose review prerequisites are unwritten cannot be signed off. Thrown, not
-            // skipped inline: the decision loop's catch is what drops this one accept while the
-            // feedback written above it — and every other decision — still commits.
-            assertPrerequisitesMet(
-              findAllUnmetPrerequisites(
-                { animatic: hooks.animatic },
-                mgr.getState(),
-                new Set([override.address]),
-              ),
+            // A target a finding holds cannot be signed off. Thrown, not skipped inline: the
+            // decision loop's catch is what drops this one accept while the feedback written above
+            // it — and every other decision — still commits.
+            const held = reviewHeldError(
               `Cannot accept ${override.address}`,
+              reviewHeldFindings(findings, [{ op: "accept", address: override.address }]),
             );
+            if (held) throw held;
             const previousAccepted = mgr.getAcceptedVariant(override.address);
             noteOverturned(mgr, override.address, override.variantId, overturned);
             // Always (re)accept: it settles the rivals the reviewer chose against; cascade/report
@@ -982,7 +983,7 @@ export async function applyAddressReview(
                 jobManager,
                 override.address,
                 override.variantId,
-                { animatic: hooks.animatic },
+                { animatic: hooks.animatic, held: isHeld },
               );
               acceptedAssets.push(...cascaded);
               cascadeAccepted.push(
@@ -1009,7 +1010,7 @@ export async function applyAddressReview(
         }
       }
 
-      cascadeAccepted.push(...hooks.cascadeDirection(mgr, appliedAccepts));
+      cascadeAccepted.push(...hooks.cascadeDirection(mgr, appliedAccepts, isHeld));
       kept.push(...applyKeepDecisions(mgr, body.keep ?? [], body.regenerate));
       regenerate.push(...applyRegenerateDecisions(mgr, body.regenerate));
 

@@ -325,18 +325,22 @@ describe("defineAnimatic", () => {
 });
 
 describe("animatic definition errors", () => {
-  it("refuses a scripted shot that plays no audio", () => {
-    expect(() =>
-      defineAnimatic(direction(), {
-        timeline: ({ shot }) => ({
-          shots: shot("01", () => (
-            <Composition>
-              <Panel src={asset("still", stillComfy, { prompt: "a cat" })} />
-            </Composition>
-          )),
-        }),
+  it("finds a scripted shot that plays no audio", () => {
+    const board = defineAnimatic(direction(), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel src={asset("still", stillComfy, { prompt: "a cat" })} />
+          </Composition>
+        )),
       }),
-    ).toThrow(/has spoken lines in the direction but plays no audio/);
+    });
+    expect(board.buildFindings?.map((f) => [f.code, f.subject, f.targets])).toEqual([
+      ["script-unvoiced", "animatic:shot.01", ["animatic:shot.01"]],
+    ]);
+    expect(board.buildFindings?.[0]?.message).toMatch(
+      /has spoken lines in the direction but plays no audio/,
+    );
   });
 
   it("lets a telop-only shot through silent — nobody speaks it", () => {

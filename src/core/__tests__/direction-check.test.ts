@@ -22,8 +22,8 @@ function seq(id: string, role: string, duration: number, synopsis = "act"): ArcI
   return { id, role, synopsis, duration };
 }
 
-function codes(items: ArcItem<string>[], realizedIds?: string[]): DirectionFindingCode[] {
-  return checkArc(miniDrama, items, { realizedIds }).map((f) => f.code);
+function codes(items: ArcItem<string>[]): DirectionFindingCode[] {
+  return checkArc(miniDrama, items).map((f) => f.code);
 }
 
 describe("checkArc", () => {
@@ -126,31 +126,6 @@ describe("checkArc", () => {
     ];
     const finding = checkArc(miniDrama, items).find((f) => f.code === "empty-synopsis");
     expect(finding?.subject).toBe("01");
-  });
-
-  it("flags unrealized direction ids against a stage's realized set", () => {
-    const items = [
-      shot("01", "ordinary", 3),
-      shot("02", "disruption", 2),
-      shot("03", "pressure", 3),
-      shot("04", "hero", 4),
-    ];
-    const finding = checkArc(miniDrama, items, { realizedIds: ["01", "02", "04"] }).find(
-      (f) => f.code === "unrealized",
-    );
-    expect(finding?.subject).toBe("03");
-  });
-
-  it("flags a stage order that differs from the direction order", () => {
-    const items = [
-      shot("01", "ordinary", 3),
-      shot("02", "disruption", 2),
-      shot("03", "pressure", 3),
-      shot("04", "hero", 4),
-    ];
-    expect(
-      checkArc(miniDrama, items, { realizedIds: ["02", "01", "03", "04"] }).map((f) => f.code),
-    ).toContain("stage-order-mismatch");
   });
 });
 

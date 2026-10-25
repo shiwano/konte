@@ -52,8 +52,8 @@ import type { AnimaticDefinition } from "./types/animatic.js";
 //
 // Cast references (`reference:<id>` for a `direction` character's look, and every cast voice
 // sample) are skipped for the same reason: the cast is reviewed and accepted only in
-// `konte preview reference`, never implicitly through a shot that consumes it. The generate gate
-// (see assertCharactersAccepted / assertVoicesAccepted) guarantees the cast is already accepted
+// `konte preview reference`, never implicitly through a shot that consumes it. The spend gate
+// (`judgeSpend`, the cast it holds on) guarantees the cast is already accepted
 // before any downstream is generated, so skipping here only closes the reverse hole — an
 // un-accepted cast reference being silently re-accepted by a later downstream accept. A voice
 // sample needs the rule of its own: it is audio, so a stem-rooted walk (which signs off the audio
@@ -84,6 +84,8 @@ export async function cascadeAcceptConsumedDeps(
     // SOURCE (an audio take) as part of the stem sign-off, so the source's own audio sub-deps are
     // accepted too rather than skipped as they would be under a picture/generation root.
     forceAllowAudio?: boolean;
+    // A dep whose accept a finding holds; skipped like an unwritten prerequisite.
+    held?: (address: string) => boolean;
   },
 ): Promise<string[]> {
   const accepted: string[] = [];
@@ -231,6 +233,7 @@ export async function cascadeAcceptConsumedDeps(
       if (findAllUnmetPrerequisites(defs, manager.getState(), new Set([depAddress])).length > 0) {
         continue;
       }
+      if (opts.held?.(depAddress)) continue;
 
       // Respect an existing accept — never overwrite it — but keep walking THROUGH it, at the take
       // that accept names rather than the one this root consumed: that take is what the address
@@ -315,10 +318,18 @@ export function cascadeDirectionShotAccepts(
   manager: StateManager,
   direction: Direction | null,
   shotIds: ReadonlySet<string>,
+  // A part whose accept a finding holds; left unsigned.
+  held?: (address: string) => boolean,
 ): string[] {
   if (!direction || shotIds.size === 0) return [];
   const prior = manager.getDirectionAcceptance();
-  const { acceptance, restamped } = applyDirectionShotCascade(direction, prior, shotIds);
+  const { acceptance, restamped } = applyDirectionShotCascade(
+    direction,
+    prior,
+    shotIds,
+    new Date(),
+    held,
+  );
   // Identity, not `restamped.length`: the cascade also sweeps orphans the gate has stopped reading,
   // and a write that only swept has an empty `restamped` with a record that really did change.
   if (acceptance && acceptance !== prior) manager.setDirectionAcceptance(acceptance);
@@ -333,10 +344,18 @@ export function cascadeDirectionReferenceAccepts(
   manager: StateManager,
   direction: Direction | null,
   referenceIds: ReadonlySet<string>,
+  // A part whose accept a finding holds; left unsigned.
+  held?: (address: string) => boolean,
 ): string[] {
   if (!direction || referenceIds.size === 0) return [];
   const prior = manager.getDirectionAcceptance();
-  const { acceptance, restamped } = applyDirectionReferenceCascade(direction, prior, referenceIds);
+  const { acceptance, restamped } = applyDirectionReferenceCascade(
+    direction,
+    prior,
+    referenceIds,
+    new Date(),
+    held,
+  );
   // Identity, not `restamped.length` — see `cascadeDirectionShotAccepts`.
   if (acceptance && acceptance !== prior) manager.setDirectionAcceptance(acceptance);
   return restamped;

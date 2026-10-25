@@ -12,4 +12,4 @@
 
 - A script line demands a voice — a `{ character }` line requires `voice` on that roster entry, a `{ narration }` line the top-level `narrator`. `{ speaker }` lines are unchecked.
 - `id` is its own `reference:<id>` sample, never the look anchor; `description` is how they sound (sex, age, timbre, pace) — an empty one is a hard error. One voice heard twice (a narrator who is the protagonist, twins) names one `id` twice, each with its own `description`.
-- Text on screen is `telop`, which asks for no voice. `konte generate animatic` and `konte generate video` both abort with `VOICE_ACCEPTANCE_REQUIRED` until each sample is accepted.
+- Text on screen is `telop`, which asks for no voice. `konte generate animatic` and `konte generate video` are both held until each sample is accepted.

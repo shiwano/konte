@@ -15,17 +15,14 @@ export default defineDirection({
   locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
-    detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", view: "front", holds: ["studioMark"], within: null },
   },
   policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
   // A fixture direction is one shot with no arc to check: no built-in lens declares a function-less
   // beat, so it brings its own container lens rather than staging a whole mini-drama.
   lenses: [defineLens({ name: "one-beat", payoff: "beat", roles: [{ role: "beat" }] })],
   // No reference stage in this fixture, so the sole location has no reference:studio to anchor on.
-  // \`detail\` is here for the two-shot variant below, which swaps the shots line and nothing else.
   waivers: {
     "location-unreferenced_studio": "fixture has no reference stage",
-    "unused-setup_detail": "declared for the two-shot variant of this fixture",
   },
   sequence: {
     lens: "one-beat",
@@ -37,6 +34,12 @@ export default defineDirection({
 
 // Two shots in the direction, the second still a pendingShot in the video stage.
 const DIRECTION_WITH_PENDING_TS = DIRECTION_TS.replace(
+  `holds: ["studioMark"] },
+  },`,
+  `holds: ["studioMark"] },
+    detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", view: "front", holds: ["studioMark"], within: null },
+  },`,
+).replace(
   `shots: [{ id: "01", role: "beat", action: "test shot", setup: "front", duration: 5 , lineup: [] }],`,
   `shots: [
       { id: "01", role: "beat", action: "test shot", setup: "front", duration: 5 , lineup: [] },
@@ -46,7 +49,7 @@ const DIRECTION_WITH_PENDING_TS = DIRECTION_TS.replace(
 
 // The board every fixture video develops. Its one panel is a `local` plate, so the board
 // itself reaches no vendor backend, and each video below composites it — a video shot that spent
-// on nothing from its own board is refused (ANIMATIC_UNCONSUMED).
+// on nothing from its own board is refused (`animatic-unconsumed`).
 const BOARD_ANIMATIC_TS = `import { defineAnimatic, adapters, asset, Composition, Panel } from "konte";
 // @ts-expect-error konte's fixture adapter is runtime-only, outside the workspace's generated types.
 import { internalTestPlate } from "konte";
@@ -302,7 +305,9 @@ describe("export video", () => {
     projectDir = await initProject({ video: VIDEO_TSX });
 
     await expect(run(["export", "video"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("DIRECTION_ACCEPTANCE_REQUIRED"),
+      stderr: expect.stringMatching(
+        /SPEND_HELD[\s\S]*part\(s\) of the direction to review and accept/,
+      ),
     });
   });
 

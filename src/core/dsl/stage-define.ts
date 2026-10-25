@@ -1,4 +1,10 @@
-import { formatReferenceAddress, type ShotStage } from "../address.js";
+import {
+  formatReferenceAddress,
+  formatShotAddress,
+  formatTimelineStemAddress,
+  type ShotStage,
+} from "../address.js";
+import type { BuildFinding } from "../finding.js";
 import { partitionShotRefs } from "../composition-refs.js";
 import { renderToHtml, type RenderContext } from "../jsx-html.js";
 import type {
@@ -81,7 +87,6 @@ export interface DefineStageArgs {
   stage: ShotStage;
   index: DirectionIndex;
   runTimeline: (format: VideoFormat) => unknown;
-  waivers?: Record<string, string>;
   perShot?: PerShotHook;
 }
 
@@ -110,7 +115,13 @@ export function defineStage(args: DefineStageArgs): StageBuild {
   const topLevelAssets = discovery.assets;
   const normalized = normalizeStageTimeline(discovery.result);
   const shotInputs = normalized.shots;
-  const timelineSoundtracks = normalized.soundtracks;
+  const buildFindings: BuildFinding[] = [];
+  const timelineSoundtracks = placeableSoundtracks(
+    stage,
+    shotInputs,
+    normalized.soundtracks,
+    buildFindings,
+  );
   const song = index.timeline.song ? formatReferenceAddress(index.timeline.song) : undefined;
   if (song) assertSongNotInSoundtracks(song, timelineSoundtracks);
 
@@ -177,7 +188,8 @@ export function defineStage(args: DefineStageArgs): StageBuild {
       context,
       collectPlaceholderRefs(element),
     );
-    if (cutin) assertCutinDeclared(stage, input.id, index, cutin.count);
+    const cutinFinding = cutinAgreement(stage, input.id, index, cutin?.count ?? 0);
+    if (cutinFinding) buildFindings.push(cutinFinding);
     const cutinDefinition =
       cutin && cutin.count > 0
         ? {
@@ -215,8 +227,6 @@ export function defineStage(args: DefineStageArgs): StageBuild {
       ...perShot({ input, element, context, assets, compositionRefs, cutin: cutinDefinition }),
     };
   });
-
-  assertSoundtrackAnchors(shotInputs, timelineSoundtracks);
 
   const overlay = normalized.overlay
     ? defineOverlay(stage, index, normalized.overlay, { ...format, typography })
@@ -259,45 +269,54 @@ export function defineStage(args: DefineStageArgs): StageBuild {
       pins: pins.length > 0 ? pins : undefined,
       imageInputs: imageInputs.length > 0 ? imageInputs : undefined,
       prevPanelReaders: prevPanelReaders.length > 0 ? prevPanelReaders : undefined,
-      waivers: args.waivers,
       respellings,
+      ...(buildFindings.length > 0 ? { buildFindings } : {}),
     },
     assetKindsByShot,
     clipLengths,
   };
 }
 
-// A composition and its direction agree on whether the shot has a second camera frame.
-function assertCutinDeclared(
+// A composition and its direction agree on whether the shot has a second camera frame. Two
+// `<Cutin>`s is the composition's own error; a disagreement with the direction is a finding.
+function cutinAgreement(
   stage: ShotStage,
   shotId: string,
   index: DirectionIndex,
   rendered: number,
-): void {
+): BuildFinding | null {
   const label = `${stage === "video" ? "Video" : "Animatic"} shot "${shotId}"`;
-  const declared = index.cutinById.has(shotId);
-  if (declared && rendered === 0) {
-    throw new KonteError(
-      "CUTIN_REQUIRED",
-      `${label} renders no <Cutin>, but direction.ts declares a \`cutin\` on this shot. Place ` +
-        `the wipe's ${stage === "video" ? "<Video>" : "<Panel>"} inside <Cutin>, or drop the ` +
-        `\`cutin\` from the shot.`,
-    );
-  }
-  if (!declared && rendered > 0) {
-    throw new KonteError(
-      "CUTIN_UNDECLARED",
-      `${label} renders a <Cutin>, but direction.ts declares no \`cutin\` on this shot. Declare ` +
-        `it — \`cutin: { setup, lineup }\` — so its frame is checked like any other, or place the ` +
-        `layer as an <Image> instead.`,
-    );
-  }
   if (rendered > 1) {
     throw new KonteError(
-      "CUTIN_UNDECLARED",
+      "CUTIN_INVALID",
       `${label} renders ${rendered} <Cutin>s. A shot declares one cutin frame.`,
     );
   }
+  const declared = index.cutinById.has(shotId);
+  const targets = [formatShotAddress(stage, shotId)];
+  if (declared && rendered === 0) {
+    return {
+      code: "cutin-required",
+      subject: formatShotAddress(stage, shotId),
+      message:
+        `renders no <Cutin>, but direction.ts declares a \`cutin\` on this shot — place the ` +
+        `wipe's ${stage === "video" ? "<Video>" : "<Panel>"} inside <Cutin>, or drop the \`cutin\` ` +
+        "from the shot",
+      targets,
+    };
+  }
+  if (!declared && rendered > 0) {
+    return {
+      code: "cutin-undeclared",
+      subject: formatShotAddress(stage, shotId),
+      message:
+        "renders a <Cutin>, but direction.ts declares no `cutin` on this shot — declare it " +
+        "(`cutin: { setup, lineup }`) so its frame is checked like any other, or place the layer as " +
+        "an <Image> instead",
+      targets,
+    };
+  }
+  return null;
 }
 
 // konte lays the song under the timeline itself; a soundtrack of it would play it twice.
@@ -311,23 +330,31 @@ function assertSongNotInSoundtracks(song: string, soundtracks: readonly Soundtra
   );
 }
 
-// Validate soundtrack anchors against the declared shots. The shot-id types are checked at compile
-// time (NoInfer in the timeline return), but a computed id or an out-of-range `at` only surfaces
-// here, so fail fast at definition time rather than at render.
-function assertSoundtrackAnchors(
+// The soundtracks the timeline can place. One anchored to a shot the timeline does not hold — the
+// direction lost it — is left out and found; an `at` outside its shot is the timeline's own error.
+// The shot-id types are checked at compile time (NoInfer in the timeline return), but a computed id
+// only surfaces here.
+function placeableSoundtracks(
+  stage: ShotStage,
   shotInputs: ReadonlyArray<AnyShotInput>,
   soundtracks: readonly SoundtrackEntry[],
-): void {
+  findings: BuildFinding[],
+): SoundtrackEntry[] {
   const shotDurations = new Map(shotInputs.map((s) => [s.id, s.options.duration]));
-  for (const st of soundtracks) {
+  return soundtracks.filter((st) => {
     for (const anchor of [st.options.from, st.options.until]) {
       if (!anchor) continue;
       const dur = shotDurations.get(anchor.shot);
       if (dur === undefined) {
-        throw new Error(
-          `soundtrack "${st.id}" anchors to unknown shot "${anchor.shot}". ` +
-            `Valid shots: ${[...shotDurations.keys()].join(", ") || "(none)"}.`,
-        );
+        findings.push({
+          code: "soundtrack-anchor-unknown",
+          subject: st.id,
+          message:
+            `anchors to shot "${anchor.shot}", which the timeline does not hold, so it is left out ` +
+            `of the mix — anchor it to one of: ${[...shotDurations.keys()].join(", ") || "(none)"}`,
+          targets: [formatTimelineStemAddress(stage)],
+        });
+        return false;
       }
       if (anchor.at !== undefined && (anchor.at < 0 || anchor.at > dur)) {
         throw new Error(
@@ -336,7 +363,8 @@ function assertSoundtrackAnchors(
         );
       }
     }
-  }
+    return true;
+  });
 }
 
 type OverlayBuild = (ctx: never) => React.ReactElement;

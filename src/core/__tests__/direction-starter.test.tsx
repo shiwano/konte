@@ -1587,7 +1587,7 @@ describe("video shot", () => {
     );
   });
 
-  it("throws when the named shot is an undeveloped pendingShot", () => {
+  it("mints the address of an undeveloped pendingShot's asset unchecked, for the graph to find", () => {
     const direction = defineDirection({
       ...directionDefaults,
       sequence: {
@@ -1633,9 +1633,10 @@ describe("video shot", () => {
           <Video src={shot("02").video("motion")} />
         </Composition>
       ));
-    expect(() => (chain.__shots[2] as { fn: () => unknown }).fn()).toThrow(
-      /shot "02" is still an undeveloped pendingShot/,
-    );
+    const element = (chain.__shots[2] as { fn: () => React.ReactElement }).fn() as {
+      props: { children: { props: { src: { src: string } } } };
+    };
+    expect(element.props.children.props.src.src).toBe("__konte:video:shot.02.motion__");
   });
 
   it("reaches back past the immediate predecessor", () => {

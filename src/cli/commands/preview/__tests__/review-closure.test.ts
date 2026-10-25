@@ -68,8 +68,8 @@ export default defineDirection({
     lens: "mini-drama",
     pleasure: "cute",
     shots: [
-      { id: "01", role: "hero", action: "she opens the door", setup: "front", duration: 2 },
-      { id: "02", role: "beat", action: "she steps through", setup: "front", duration: 2 },
+      { id: "01", role: "hero", action: "she opens the door", setup: "front", lineup: [], duration: 2 },
+      { id: "02", role: "pressure", action: "she steps through", setup: "front", lineup: [], join: "continuous", duration: 2 },
     ],
   },
 });
@@ -634,10 +634,7 @@ describe("video review closure", () => {
     const before = board.map((address) => seeded.getAcceptedVariant(address));
     await fs.writeFile(
       path.join(videoRoot, "direction.ts"),
-      DIRECTION_TS.replace(
-        '"she steps through", setup: "front", duration: 2',
-        '"she steps through", setup: "front", duration: 3',
-      ),
+      DIRECTION_TS.replace('join: "continuous", duration: 2', 'join: "continuous", duration: 3'),
     );
     await generateAll(videoRoot);
     expect(await settledShotIds(videoRoot, "animatic")).toContain("02");

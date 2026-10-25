@@ -107,8 +107,6 @@ export type KonteErrorCode =
   | "NO_EXPORT_FOUND"
   | "UNACCEPTED_ASSETS"
   | "PENDING_SHOTS"
-  | "CHARACTER_ACCEPTANCE_REQUIRED"
-  | "VOICE_ACCEPTANCE_REQUIRED"
   | "INVALID_TIMECODE"
   | "HYPERFRAMES_NOT_FOUND"
   | "HYPERFRAMES_ERROR"
@@ -117,14 +115,11 @@ export type KonteErrorCode =
   | "TSC_SETUP_FAILED"
   | "TYPE_CHECK_FAILED"
   | "DIRECTION_LANG_INVALID"
-  | "DIRECTION_CHECK_FAILED"
-  // A `"prompt"` input about to be spent on still names an exclusion (or the stage waives a finding
-  // that no longer exists). The direction gate's twin one layer down: text, checked before spend.
-  | "PROMPT_CHECK_FAILED"
-  // A `pin` input about to be spent on is wired to something that is not a frame of the picture —
-  // a reference sheet, a plate. The prompt check's twin over wiring rather than text.
-  | "PIN_CHECK_FAILED"
-  | "DIRECTION_ACCEPTANCE_REQUIRED"
+  // A spend that a finding or an unaccepted upstream holds — each named on its own line, a finding
+  // by its code or waiver key.
+  | "SPEND_HELD"
+  // A review or an accept that a finding holds.
+  | "REVIEW_HELD"
   // `konte accept --off` was pointed at a direction part carrying no sign-off to clear. The variant
   // path's VARIANT_NOT_ACCEPTED, for the stage that has no variants.
   | "DIRECTION_PART_NOT_ACCEPTED"
@@ -133,11 +128,8 @@ export type KonteErrorCode =
   // A developed animatic shot whose composition declares no `<Panel>`. A board shot IS its
   // keyframes; a plain `<Image>` is a layer.
   | "PANEL_REQUIRED"
-  // A shot over a shot whose direction declares a `cutin`, rendering no `<Cutin>` — and its twin, a
-  // `<Cutin>` (or a second one) on a shot that declares none. The wipe's frame is what the staging
-  // checks read, so a composition and its direction must agree on whether there is one.
-  | "CUTIN_REQUIRED"
-  | "CUTIN_UNDECLARED"
+  // A composition rendering a second `<Cutin>`, or one nested in another: a shot has one cutin frame.
+  | "CUTIN_INVALID"
   // An `animatic.tsx` `plates` block that does not file its plates by roster id — a key naming no
   // declared setup, or an asset declared there and not returned as one.
   | "INVALID_PLATE"
@@ -162,10 +154,7 @@ export type KonteErrorCode =
   // A `<Video>` of a take cut to the song whose window konte cannot fill: a `mediaStart` or a
   // `playbackRate` written on it, or a place on the song before the take starts.
   | "SONG_WINDOW_INVALID"
-  // A shot the direction gives spoken lines to whose animatic shot plays no audio. Without a voice
-  // take the piece comes out silent, with no failure until it is watched.
   | "DUCK_INVALID"
-  | "SCRIPT_UNVOICED"
   // A board shot with a narration line no readable take carries, and a recording konte reads no
   // words from beside it: that recording may be the narration or a sound in the frame, and the two
   // go to different stems. Or one take saying both a narration and another line.
@@ -201,22 +190,8 @@ export type KonteErrorCode =
   // with no `waiver` declared.
   | "RETIME_RATE_EXCEEDED"
   | "FONT_FAMILY_INVALID"
-  // A spend builds on an `animatic:` address no human has accepted — the board is reviewed before
-  // motion is spent on it. Also reroll's counterpart to the per-asset skip `generate` reports.
-  | "ANIMATIC_ACCEPTANCE_REQUIRED"
-  // A video shot that generates something and builds it on nothing from the board it develops. The
-  // gate above only reaches what a spend consumes, so such a shot would route around it entirely.
-  | "ANIMATIC_UNCONSUMED"
   // A take one stage consumes from another that its own stage's review never shows.
   | "UPSTREAM_UNPLACED"
-  // The same gate one stage up: a spend consumes a `reference:` asset no human has accepted. A
-  // sheet is what every downstream take derives its identity from, so it is settled before anything
-  // is built on it — never implicitly, by whatever consumed it first.
-  | "REFERENCE_ACCEPTANCE_REQUIRED"
-  | "REVIEW_PREREQUISITE_MISSING"
-  // A review opened on a take with a variant finding — silent, or not saying its line — that nobody
-  // has dismissed or vouched for.
-  | "VARIANT_CHECK_FAILED"
   | "BACKEND_NOT_CONFIGURED"
   | "DELIVERY_UPSCALE_REQUIRED"
   | "NOT_A_KONTE_WORKSPACE"
@@ -235,8 +210,6 @@ export type KonteErrorCode =
   | "GIT_ERROR"
   | "LOCK_TIMEOUT"
   | "COMPOSITION_BUILD_FAILED"
-  // Rendered markup carries a class setting a font family.
-  | "COMPOSITION_CLASS_INVALID"
   | "FRAME_CAPTURE_FAILED"
   | "FFMPEG_SETUP_FAILED"
   | "FFPROBE_NOT_FOUND"

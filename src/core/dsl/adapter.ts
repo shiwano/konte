@@ -106,7 +106,7 @@ export interface AdapterMeta {
   // Where the spoken words sit inside a `"prompt"` value, for a model whose lines are written
   // into its conditioning instead of into a `"spokenText"` input (H3's `<d>[Japanese] …</d>`).
   // Capture group 1 is the words. Without it konte cannot say which line a take carries: the
-  // per-line SCRIPT_UNVOICED rule falls back to the whole-shot one, and the prompt check reads a
+  // per-line `script-unvoiced` rule falls back to the whole-shot one, and the prompt check reads a
   // quoted line as prompt text.
   spokenTextPattern?: RegExp;
   // The model reads the previous shot's last panel, passed to one of its image inputs, as the frame

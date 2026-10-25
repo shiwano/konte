@@ -39,11 +39,10 @@ export interface DefinitionLike {
   exposedPlateIds?: string[];
   // Reference stage only: the asset names its callback returned (see listExposedReferenceAssetPaths).
   exposedAssetNames?: string[];
-  // What the prompt and pin gates read off a stage entry, whichever one this is (see
-  // prompt-check.ts, pin-check.ts). `waivers` is the one record both are keyed in.
+  // What the prompt and pin checks read off a stage entry, whichever one this is (see
+  // prompt-check.ts, pin-check.ts).
   prompts?: readonly PromptOccurrence[];
   pins?: readonly PinOccurrence[];
-  waivers?: Record<string, string>;
 }
 
 const ADDRESS_PATTERN = /^(animatic|video|reference):(.+)$/;

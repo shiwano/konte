@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   checkDirection,
-  assertDirectionGate,
+  directionFindings,
   directionWaiverKey,
   collectFramedCharacterIds,
   validateDirectionStructure,
@@ -16,6 +16,7 @@ import {
   type Direction,
 } from "../dsl/direction.js";
 import { listVideoPasserInputs } from "../graph.js";
+import { type SpendCommand, spendHold } from "../finding.js";
 import type { AnimaticDefinition, VideoDefinition } from "../types/index.js";
 import { directionDefaults } from "./helpers/direction.js";
 
@@ -250,8 +251,6 @@ describe("passing", () => {
         ...noStage,
         videoPassers: listVideoPasserInputs(video([], []), board, cuesOf),
       },
-      realizedIds: ["01"],
-      directionAccepted: true,
     };
     const d = {
       ...direction,
@@ -261,13 +260,13 @@ describe("passing", () => {
           .map((f) => [directionWaiverKey(f), "fixture"]),
       ),
     };
+    const held = (command: SpendCommand, stage: "animatic" | "video") =>
+      directionFindings(checkDirection(d, options), d)
+        .filter((f) => spendHold(f, { command, stage }) !== null)
+        .map((f) => f.code);
     for (const command of ["generate", "reroll", "patch", "export"] as const) {
-      expect(() =>
-        assertDirectionGate(d, { ...options, command, stage: "animatic" }),
-      ).not.toThrow();
-      expect(() => assertDirectionGate(d, { ...options, command, stage: "video" })).toThrow(
-        "passer-unconsumed",
-      );
+      expect(held(command, "animatic")).toEqual([]);
+      expect(held(command, "video")).toContain("passer-unconsumed");
     }
   });
 

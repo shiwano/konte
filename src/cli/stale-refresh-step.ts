@@ -113,7 +113,7 @@ export function staleRefreshStep(opts: {
     kind: "prerequisite",
     variantId: matching,
     missing: [...new Set(unmet.flatMap((u) => u.missing))],
-    // Every file they are owed in, as `assertPrerequisitesMet` names them.
+    // Every file they are owed in.
     writeIn: [...new Set(unmet.map((u) => u.writeIn))].join(", "),
   };
 }

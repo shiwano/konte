@@ -1022,9 +1022,10 @@ async function renderShotPlan(
         ...(options.timelineFiles ? { timelineFiles: options.timelineFiles } : {}),
       },
     );
-    await assertTailwindClasses([
-      { label: formatCompositionAddress(shotPlan.stage, shotPlan.shotId), html: compositionHtml },
-    ]);
+    await assertTailwindClasses(
+      [{ label: formatCompositionAddress(shotPlan.stage, shotPlan.shotId), html: compositionHtml }],
+      "SPEND_HELD",
+    );
 
     return await compositeWithHyperFrames({
       onLog: options.onLog,
