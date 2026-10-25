@@ -22,7 +22,7 @@ export function staleSupersededLeaves(
   board: StageDefinition,
   video: StageDefinition,
   shotIds: ReadonlySet<string> | null,
-  include: "stems" | "all",
+  include: "stems" | "compositions",
   addresses: ReadonlySet<string> | null = null,
 ): Array<{ shotId: string; address: string }> {
   return board.shots
@@ -30,7 +30,7 @@ export function staleSupersededLeaves(
     .flatMap((shot) =>
       shotAcceptTargets(manager, board, { shotId: shot.id, pending: false, shotFn: shot.shotFn })
         .leaves.map(({ address }) => address)
-        .filter((address) => include === "all" || isStemAddress(address))
+        .filter((address) => isStemAddress(address) === (include === "stems"))
         .filter((address) => !addresses || addresses.has(address))
         .filter(
           (address) =>
@@ -66,8 +66,7 @@ export function consumedBoardStems(
 
 /**
  * Re-makes and accepts the board leaves the video has taken over that have aged out — the stems a
- * spend or a video leaf is about to consume, and with `include: "all"` the compositions a video
- * shot's accept settles. Stems are mixed outside the state lock; a leaf no longer superseded by the
+ * spend or a video leaf is about to consume, or the compositions a video shot's accept settles. Stems are mixed outside the state lock; a leaf no longer superseded by the
  * commit is left alone. Returns what was accepted, and what could not be made with why.
  */
 export async function remakeSupersededBoardLeaves(opts: {
@@ -77,7 +76,7 @@ export async function remakeSupersededBoardLeaves(opts: {
   shotIds?: Iterable<string>;
   // Only these leaves — what a targeted spend consumes (`consumedBoardStems`).
   addresses?: Iterable<string>;
-  include: "stems" | "all";
+  include: "stems" | "compositions";
 }): Promise<{ accepted: BoardLeaf[]; failed: Array<BoardLeaf & { reason: string }> }> {
   const { videoRoot, board, video, include } = opts;
   const shotIds = opts.shotIds ? new Set(opts.shotIds) : null;

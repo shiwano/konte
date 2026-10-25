@@ -96,12 +96,13 @@ beforeEach(async () => {
   manager = await StateManager.init(dir);
 });
 
-function acceptTake(address: string, name: string): void {
+function acceptTake(address: string, name: string): string {
   const id = manager.reserveVariantId(address);
   const take = manager.getAssetState(address).variants![id]!;
   take.file = `assets/${name}`;
   take.outputHash = `out-${id}`;
   manager.setAccepted(address, id);
+  return id;
 }
 
 async function acceptComposition(def: StageDefinition, address: string): Promise<void> {
@@ -214,5 +215,51 @@ describe("a graphic shot's board composition once the video develops the shot", 
   it("is never claimed for the video's own composition or without the video", () => {
     expect(boardLeafSuperseded(manager, board(4), null, BOARD)).toBe(false);
     expect(boardLeafSuperseded(manager, board(4), cut(4), CUT)).toBe(false);
+  });
+});
+
+describe("a graphic shot's board composition over a take the video draws too", () => {
+  const SCREEN = "animatic:shot.01.screen";
+  const screenBoard = (size: number) =>
+    defineAnimatic(direction, {
+      timeline: ({ graphicShot }) => ({
+        shots: graphicShot("01", () => (
+          <Composition>
+            <Card size={size} />
+            <Image src={asset("screen", still, { prompt: "a screen" })} />
+          </Composition>
+        )),
+      }),
+    });
+  const screenCut = (size: number) => {
+    const animatic = screenBoard(size);
+    return defineVideo(direction, {
+      timeline: ({ graphicShot }) => ({
+        shots: graphicShot("01", () => (
+          <Composition>
+            <Image src={animatic.shot("01").image("screen")} />
+          </Composition>
+        )),
+      }),
+    });
+  };
+
+  it("is no review work once the video's signed-off composition drew the moved take", async () => {
+    const first = acceptTake(SCREEN, "screen-1.png");
+    await acceptComposition(screenBoard(4), BOARD);
+    manager.setAccepted(SCREEN, acceptTake(SCREEN, "screen-2.png"), { dismiss: [first] });
+    await acceptComposition(screenCut(6), CUT);
+
+    expect((await needsReview(screenBoard(6), screenCut(6))).needsReview).toEqual([]);
+  });
+
+  it("is review work while the video's composition drew an older take", async () => {
+    acceptTake(SCREEN, "screen-1.png");
+    await acceptComposition(screenBoard(4), BOARD);
+    await acceptComposition(screenCut(6), CUT);
+    acceptTake(SCREEN, "screen-2.png");
+    await manager.save();
+
+    expect((await needsReview(screenBoard(6), screenCut(6))).needsReview).toContain(BOARD);
   });
 });

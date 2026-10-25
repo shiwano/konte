@@ -1495,17 +1495,18 @@ export async function handleReelSubmit(
     unacceptShotIds.delete(id);
   }
 
-  // The board leaves the video has taken over, re-made for the shots this review accepts — before
-  // any video leaf is built over a stem among them. One that cannot be made is reported with the
-  // review's other skips.
+  // The board leaves the video has taken over, re-made for the shots this review accepts: the stems
+  // before any video leaf is built over one, the compositions once the video's own have signed off
+  // what they draw. One that cannot be made is reported with the review's other skips.
   const boardLeafFailures: Array<{ shotId: string; address: string; reason: string }> = [];
-  if (stage === "video" && animatic && okShotIds.size > 0) {
+  const remakeBoardLeaves = async (include: "stems" | "compositions"): Promise<void> => {
+    if (stage !== "video" || !animatic || okShotIds.size === 0) return;
     const remade = await remakeSupersededBoardLeaves({
       videoRoot,
       board: animatic,
       video,
       shotIds: okShotIds,
-      include: "all",
+      include,
     });
     for (const { shotId, address } of remade.accepted) {
       acceptedAssets.push(address);
@@ -1514,7 +1515,8 @@ export async function handleReelSubmit(
     for (const { shotId, address, reason } of remade.failed) {
       boardLeafFailures.push({ shotId, address, reason: `could not be re-made — ${reason}` });
     }
-  }
+  };
+  await remakeBoardLeaves("stems");
 
   const toAccept: Array<{ address: string; variantId: string; dismiss: string[] }> = [];
 
@@ -1715,6 +1717,7 @@ export async function handleReelSubmit(
       }
     });
   }
+  await remakeBoardLeaves("compositions");
 
   if (unacceptShotIds.size > 0) {
     await StateManager.withLock(videoRoot, async (mgr) => {

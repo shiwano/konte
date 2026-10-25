@@ -1114,7 +1114,8 @@ export function materializedLeafReviewStatus(
 // graphic shot, places the component the board draws. From then on the video's review is where the
 // shot is judged, and konte keeps the leaf current itself (`remakeSupersededBoardLeaves`) — over the
 // takes its accept recorded: a moved or new input, and what it is made from left unaccepted, stay
-// the board's. So does a stem whose line the clamp cuts.
+// the board's, bar one a graphic shot's signed-off video composition drew at the take it resolves to
+// now. So does a stem whose line the clamp cuts.
 export function boardLeafSuperseded(
   manager: StateManager,
   board: StageDefinition | null,
@@ -1142,16 +1143,41 @@ export function boardLeafSuperseded(
     null,
     manager.stalenessCache(),
   );
-  if (accepted.variantId === null || accepted.inputStale) return false;
+  if (accepted.variantId === null) return false;
+  const drawnByVideo =
+    composition && shot.graphic === true ? signedOffFingerprints(manager, video, shot.id) : {};
+  const judgedOnVideo = (ref: string, current: string | null | undefined): boolean =>
+    current != null && drawnByVideo[ref] === current;
+  if (!accepted.changedInputs.every((i) => judgedOnVideo(i.assetPath, i.current))) return false;
   const recorded =
     manager.tryGetAssetState(address)?.variants?.[accepted.variantId]?.inputFingerprints ?? {};
   const fingerprinted = composition
     ? compositionFingerprintRefs(board, boardShot)
     : (shotStemOf(board, address)?.refs ?? []);
-  if (!fingerprinted.every((ref) => ref in recorded)) return false;
+  if (
+    !fingerprinted.every(
+      (ref) => ref in recorded || judgedOnVideo(ref, manager.resolveReference(ref)?.outputHash),
+    )
+  ) {
+    return false;
+  }
   if (composition) return true;
   return !findShotOverflows(board as AnimaticDefinition, manager, boardShot).some(
     (o) => o.address === address,
+  );
+}
+
+// The inputs a stage's shot composition was signed off over, by ref; empty while it stands unsigned.
+function signedOffFingerprints(
+  manager: StateManager,
+  stage: StageDefinition,
+  shotId: string,
+): Record<string, string> {
+  const address = formatCompositionAddress(stage.stage, shotId);
+  if (!leafSignedOff(manager, stage, address)) return {};
+  const variantId = manager.getAcceptedVariant(address);
+  return (
+    (variantId && manager.tryGetAssetState(address)?.variants?.[variantId]?.inputFingerprints) || {}
   );
 }
 
