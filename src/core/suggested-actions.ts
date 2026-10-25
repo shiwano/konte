@@ -332,11 +332,12 @@ function prependPrerequisiteEdits(
   }
   for (const [writeIn, group] of [...byFile].reverse()) {
     const fields = [...new Set(group.flatMap((u) => u.missing))].join("/");
+    const takes = [...new Set(group.map((u) => u.variantId))].join(", ");
     const where = [...new Set(group.map((u) => u.shotId ?? u.address))].join(", ");
     actions.unshift({
       command: null,
       label: `edit ${writeIn}`,
-      details: [`Write ${fields} from the output on ${where}`],
+      details: [`Write ${fields} from the output of ${takes} on ${where}`],
     });
   }
 }

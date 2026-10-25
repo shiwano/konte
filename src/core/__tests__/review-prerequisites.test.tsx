@@ -69,6 +69,7 @@ describe("findUnmetPrerequisites — animatic panel movement", () => {
         stage: "animatic",
         shotId: "01",
         address: "animatic:shot.01.first",
+        variantId: "v-take0",
         missing: ["blocking", "camera"],
         writeIn: "animatic.tsx",
       },

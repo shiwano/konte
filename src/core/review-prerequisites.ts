@@ -12,6 +12,8 @@ import type { AnimaticDefinition } from "./types/animatic.js";
 export interface UnmetPrerequisite {
   stage: Stage;
   address: string;
+  /** The take they are written from — what `konte path` resolves the address to. */
+  variantId: string;
   /** The definition fields still to be written. */
   missing: readonly string[];
   /** The file they are written in, so a step can name where to go. */
@@ -71,7 +73,7 @@ export function assertPrerequisitesMet(unmet: readonly UnmetPrerequisite[], bloc
   if (unmet.length === 0) return;
   const lines = unmet.map((u) => {
     const shot = prerequisiteShot(u);
-    return `  ${u.address}${shot ? ` (${shot})` : ""} — no ${u.missing.join(", no ")}`;
+    return `  ${u.address} (${u.variantId}${shot ? `, ${shot}` : ""}) — no ${u.missing.join(", no ")}`;
   });
   const writeIn = [...new Set(unmet.map((u) => u.writeIn))].join(", ");
   throw new KonteError(
@@ -110,10 +112,12 @@ function collectPanelMovement(
           p.camera === undefined ? "camera" : null,
         ].filter((n) => n !== null);
         if (missing.length === 0) continue;
-        if (!selectResolvedVariant(state, p.assetPath, { includeStale: true })) continue;
+        const resolved = selectResolvedVariant(state, p.assetPath, { includeStale: true });
+        if (!resolved) continue;
         unmet.push({
           stage: "animatic",
           address: p.assetPath,
+          variantId: resolved.variantId,
           missing,
           writeIn: STAGE_ENTRY_FILE.animatic,
           shotId: shot.id,

@@ -44,7 +44,7 @@ describe("review prerequisite gates", () => {
       await unbind(projectDir);
 
       await expect(run(["accept", variantId], projectDir)).rejects.toMatchObject({
-        stderr: expect.stringContaining("REVIEW_PREREQUISITE_MISSING"),
+        stderr: expect.stringContaining(`${ADDRESS} (${variantId}) — no blocking, no camera`),
       });
     });
 
@@ -88,12 +88,13 @@ describe("review prerequisite gates", () => {
   describe("status", () => {
     it("lists the unbound panel and points Next steps at writing it, not at the review", async () => {
       const projectDir = await initWithCrossStageVideo();
-      await seedTake(projectDir);
+      const variantId = await seedTake(projectDir);
       await unbind(projectDir);
       await acceptDirection(projectDir);
 
       const { stdout } = await run(["status"], projectDir);
       expect(stdout).toContain("edit animatic.tsx");
+      expect(stdout).toContain(`from the output of ${variantId} on 01`);
       expect(stdout).not.toContain("konte preview animatic");
 
       // The section itself is behind `-v`: the default drops what Next steps already names.

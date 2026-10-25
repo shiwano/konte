@@ -505,7 +505,7 @@ export function registerStatusCommand(program: Command): void {
             return {
               address: u.address,
               detail:
-                `${shot ? `${shot}: ` : ""}has output but no ${u.missing.join(", no ")}` +
+                `${shot ? `${shot}: ` : ""}has output (${u.variantId}) but no ${u.missing.join(", no ")}` +
                 ` — write it in ${u.writeIn}`,
             };
           }),
