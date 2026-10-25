@@ -383,6 +383,25 @@ describe("export video", () => {
     expect(await new JobManager(projectDir).listJobs()).toHaveLength(1);
   });
 
+  it("holds status's ready to export to the board take the composition draws", async () => {
+    projectDir = await initProject({ video: VIDEO_TSX });
+    await acceptDirection(projectDir);
+    await seedAcceptedCut(projectDir);
+    expect((await run(["status"], projectDir)).stdout).toContain("ready to export");
+
+    const manager = await StateManager.load(projectDir);
+    const panel = "animatic:shot.01.first";
+    manager.setUnaccepted(panel, manager.getAcceptedVariant(panel)!);
+    await manager.save();
+
+    const { stdout } = await run(["status"], projectDir);
+    expect(stdout).not.toContain("ready to export");
+    expect(stdout).toContain("1 upstream asset(s) it composites not accepted");
+    await expect(run(["export", "video"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(/UNACCEPTED_ASSETS.*animatic:shot\.01\.first/),
+    });
+  });
+
   it("renders the ready variants of an unaccepted video with --allow-unaccepted", async () => {
     projectDir = await initProject({ video: VIDEO_TSX });
     await acceptDirection(projectDir);

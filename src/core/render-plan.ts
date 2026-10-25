@@ -146,6 +146,27 @@ export function shotSpans(
   return { spans, total: frames / fps };
 }
 
+// Everything a shot's composition consumes from outside the shot, the overlay laid over it
+// included — it renders with the shot.
+export function outsideShotRefs(
+  video: StageDefinition,
+  shot: StageDefinition["shots"][number],
+): string[] {
+  if (!shot.shotFn || isPendingShot(shot)) return [];
+  const ownPaths = new Set(
+    Object.keys(shot.assets).map((name) => formatAssetPath(video.stage, shot.id, name)),
+  );
+  return [
+    ...new Set([...(shot.compositionRefs ?? []), ...(video.overlay?.compositionRefs ?? [])]),
+  ].filter((ref) => !ownPaths.has(ref));
+}
+
+// The out-of-shot refs export refuses on: each resolves to no take, or to one not accepted.
+export function unacceptedOutsideRefs(video: StageDefinition, manager: StateManager): string[] {
+  const refs = new Set(video.shots.flatMap((shot) => outsideShotRefs(video, shot)));
+  return [...refs].filter((ref) => !resolveCompositionRef(manager, ref)?.isAccepted);
+}
+
 // The strict resolver's verdict, for the reason `hasReadyVariant` is: an accept alone is not what
 // strict resolution takes. It rejects an accepted take with no file, and one konte accepted itself
 // that has since gone stale (`generate` re-bakes that).
@@ -362,14 +383,9 @@ export function buildRenderPlan(
         }
       }
 
-      // Everything the composition consumes from outside the shot, resolved the way the render will
-      // resolve it. Reported, never thrown on — see the field comments.
-      const ownPaths = new Set(
-        Object.keys(shot.assets).map((name) => formatAssetPath(stage, shot.id, name)),
-      );
-      // The overlay laid over the shot renders with it.
-      for (const ref of new Set([...(shot.compositionRefs ?? []), ...overlayRefs])) {
-        if (ownPaths.has(ref)) continue;
+      // Resolved the way the render will resolve them. Reported, never thrown on — see the field
+      // comments.
+      for (const ref of outsideShotRefs(video, shot)) {
         const resolved = resolveCompositionRef(manager, ref, { includeStale: allowNotReady });
         if (!resolved) plan.unresolvedRefs.push(ref);
         else if (!resolved.isAccepted) plan.unacceptedRefs.push(resolved.address);

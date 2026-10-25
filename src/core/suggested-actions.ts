@@ -500,7 +500,7 @@ function suggestExport(
   // An undeveloped shot carries no address, so it never shows in the ratio — but export refuses
   // while one remains.
   if (video.pendingShots > 0) return;
-  if (video.accepted !== video.total || video.leavesUnsigned) return;
+  if (video.accepted !== video.total || video.leavesUnsigned || video.refsUnaccepted > 0) return;
   const reel = video.reel;
   if (
     reel &&

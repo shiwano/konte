@@ -215,6 +215,12 @@ export interface ExportReadiness {
    */
   leavesUnsigned: boolean;
   /**
+   * The refs video compositions consume from outside their shots (an animatic panel, a reference
+   * asset) that resolve to no accepted take — export refuses with UNACCEPTED_ASSETS. Populated by
+   * the status builder; computeExportReadiness leaves it 0.
+   */
+  refsUnaccepted: number;
+  /**
    * The accept count a composition stage reports, in its reel review's units. Null on the reference
    * stage, which has no reel. Seeded by computeExportReadiness from its `reelByStage` argument.
    */
@@ -920,6 +926,7 @@ export function computeExportReadiness(
       unacceptedCast: [],
       deliveryUpscalerMissing: false,
       leavesUnsigned: false,
+      refsUnaccepted: 0,
       reel: reelByStage?.[label as Stage] ?? null,
     });
   }

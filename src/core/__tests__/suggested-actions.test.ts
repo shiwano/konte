@@ -26,6 +26,7 @@ function readinessFor(
     unacceptedCast: [],
     deliveryUpscalerMissing: false,
     leavesUnsigned: false,
+    refsUnaccepted: 0,
     reel: null,
   };
 }

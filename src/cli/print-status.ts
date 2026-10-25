@@ -31,6 +31,7 @@ import {
   shotAcceptsStand,
 } from "../core/composition-resource.js";
 import { computeDefinitionHash } from "../core/definition-hash.js";
+import { unacceptedOutsideRefs } from "../core/render-plan.js";
 import { type DependencyGraph, videoDependentsHoldVerdicts } from "../core/graph.js";
 import { shotNeedsVerdict, stageReviewDecidableAddresses } from "../core/shot-accept-targets.js";
 import { computeExportSignature } from "../core/export-signature.js";
@@ -508,6 +509,7 @@ export async function buildStatusReport(
       ...listStemAddresses(videoDef),
       ...listOverlayAddresses(videoDef),
     ].some((address) => !leafSignedOff(manager, videoDef, address));
+    videoLine.refsUnaccepted = unacceptedOutsideRefs(videoDef, manager).length;
   }
   const currentSignature = videoDef ? () => computeExportSignature(videoDef) : undefined;
   const lastExports = computeLastExports(videoDef != null, everyJob, currentSignature);
@@ -624,6 +626,7 @@ export function printStatusReport(
             !reel?.soundtrackUnsigned &&
             !reel?.overlayUnsigned &&
             !r.leavesUnsigned &&
+            r.refsUnaccepted === 0 &&
             !r.deliveryUpscalerMissing;
           parts.push(
             `all ${acceptTotal}${unit} accepted${ready ? " — ready to export" : ""}${staleSuffix}`,
@@ -632,6 +635,9 @@ export function printStatusReport(
       }
       if (reel?.soundtrackUnsigned) parts.push("soundtrack not accepted");
       if (reel?.overlayUnsigned) parts.push("overlay not accepted");
+      if (r.refsUnaccepted > 0) {
+        parts.push(`${r.refsUnaccepted} upstream asset(s) it composites not accepted`);
+      }
       if (undeveloped > 0) {
         parts.push(`${undeveloped} shot${undeveloped === 1 ? "" : "s"} undeveloped`);
       }
