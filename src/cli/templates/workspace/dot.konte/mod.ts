@@ -4088,40 +4088,40 @@ export type DirectionHandle<D> = DirectionIndex & {
 export type DirectionEntry<D> = D & {
   readonly [DIRECTION]: DirectionHandle<D>;
 };
-export type StageShotStarter<D, TStage extends ShotStage> = <
-  TId extends NarrativeIdOf<D, FirstShotId<D>>,
->(
-  id: TId,
+export type StageShotStarter<D, TStage extends ShotStage> = <TId extends string>(
+  id: StepId<D, DirectionIdTuple<D>, TId, "shot", true>,
   build: (
     ctx: StageShotContext<ScriptOf<D, TId>, LineupOf<D, TId>, LineupToOf<D, TId>, CutinOf<D, TId>> &
       ShotSongOf<D> & {
         shot: StageShots<never>;
       },
   ) => ReturnType<ShotFunction>,
-) => StageChain<D, ChainRest<D>, TId, TStage>;
-export type StageGraphicShotStarter<D, TStage extends ShotStage> = <
-  TId extends GraphicIdOf<D, FirstShotId<D>>,
->(
-  id: TId,
+) => StartChain<D, TId, TStage>;
+export type StageGraphicShotStarter<D, TStage extends ShotStage> = <TId extends string>(
+  id: StepId<D, DirectionIdTuple<D>, TId, "graphicShot", true>,
   build: (
     ctx: GraphicShotContext<ScriptOf<D, TId>, CutinOf<D, TId>> &
       ShotSongOf<D> & {
         shot: StageShots<never>;
       },
   ) => ReturnType<ShotFunction>,
-) => StageChain<D, ChainRest<D>, TId, TStage>;
-export type StagePendingShotStarter<D, TStage extends ShotStage> = <
-  TId extends ArcIdOf<D, FirstShotId<D>>,
->(
-  id: TId,
-) => StageChain<D, ChainRest<D>, TId, TStage>;
-export type StageAsideShotStarter<D> = <TId extends AsideIdOf<D, FirstShotId<D>>>(
-  id: TId,
-) => StageChain<D, ChainRest<D>, TId, "animatic">;
-export type VideoAsideShotStarter<D> = <TId extends AsideIdOf<D, FirstShotId<D>>>(
-  id: TId,
+) => StartChain<D, TId, TStage>;
+export type StagePendingShotStarter<D, TStage extends ShotStage> = <TId extends string>(
+  id: StepId<D, DirectionIdTuple<D>, TId, "pendingShot", true>,
+) => StartChain<D, TId, TStage>;
+export type StageAsideShotStarter<D> = <TId extends string>(
+  id: StepId<D, DirectionIdTuple<D>, TId, "asideShot", true>,
+) => StartChain<D, TId, "animatic">;
+export type VideoAsideShotStarter<D> = <TId extends string>(
+  id: StepId<D, DirectionIdTuple<D>, TId, "asideShot", true>,
   build: (ctx: AsideShotContext & ShotSongOf<D>) => ReturnType<ShotFunction>,
-) => StageChain<D, ChainRest<D>, TId, "video">;
+) => StartChain<D, TId, "video">;
+export type StartChain<D, TId extends string, TStage extends ShotStage> = StageChain<
+  D,
+  StepRest<DirectionIdTuple<D>, TId>,
+  StepIds<DirectionIdTuple<D>, TId>,
+  TStage
+>;
 export type TimedShotTiming = {
   start: number;
   duration: number;
@@ -4264,11 +4264,6 @@ export type CutinOf<D, TId extends string> = [ShotOf<D, TId>] extends [never]
           : null
       >
     : null;
-/**
- * The first direction shot — the only id a chain may start at. Everything after is computed, never typed.
- */
-export type FirstShotId<D> = Head<DirectionIdTuple<D>>;
-export type ChainRest<D> = Tail<DirectionIdTuple<D>>;
 export type Head<Ids extends readonly string[]> = Ids extends readonly [
   infer A extends string,
   ...string[],
@@ -4410,9 +4405,64 @@ export type ChainIncomplete<Missing extends string> =
 export type ChainComplete<TRest extends readonly string[]> = TRest extends readonly []
   ? true
   : ChainIncomplete<Head<TRest>>;
+export type StepKind = "shot" | "graphicShot" | "pendingShot" | "asideShot";
+export type FitsKind<D, TId extends string, K extends StepKind> = K extends "shot"
+  ? NarrativeIdOf<D, TId>
+  : K extends "graphicShot"
+    ? GraphicIdOf<D, TId>
+    : K extends "pendingShot"
+      ? ArcIdOf<D, TId>
+      : AsideIdOf<D, TId>;
+export type StepCall<TStart extends boolean, K extends StepKind> = TStart extends true
+  ? K
+  : `.next${Capitalize<K>}`;
+export type KindOf<D, TId extends string> =
+  IsAsideShot<D, TId> extends true
+    ? ["an aside", "asideShot"]
+    : IsGraphicShot<D, TId> extends true
+      ? ["a graphic", "graphicShot"]
+      : ["a narrative", "shot"];
+export type HoldCall<
+  TStart extends boolean,
+  D,
+  TId extends string,
+> = `${StepCall<TStart, IsAsideShot<D, TId> extends true ? "asideShot" : "pendingShot">}("${TId}")`;
+/**
+ * The `id` a step takes: `TId` itself when it is the direction's next shot and of the step's kind,
+ * else a message naming the fix, so the type error reads as the instruction.
+ */
+export type StepId<
+  D,
+  TRest extends readonly string[],
+  TId extends string,
+  K extends StepKind,
+  TStart extends boolean,
+> =
+  TId extends Head<TRest>
+    ? [FitsKind<D, TId, K>] extends [never]
+      ? `konte: shot "${TId}" is ${KindOf<D, TId>[0]} shot — place it with ${StepCall<TStart, KindOf<D, TId>[1]>}("${TId}")`
+      : TId
+    : TId extends TRest[number]
+      ? `konte: direction.ts places shot "${Head<TRest>}" before "${TId}" — add ${HoldCall<TStart, D, Head<TRest>>} ahead of this step`
+      : TId extends DirectionIdTuple<D>[number]
+        ? `konte: direction.ts places shot "${TId}" earlier — move this step up to its place`
+        : `konte: shot "${TId}" is not in direction.ts — remove this step`;
+export type StepRest<TRest extends readonly string[], TId extends string> =
+  TId extends Head<TRest> ? Tail<TRest> : TId extends TRest[number] ? After<TRest, TId> : TRest;
+export type After<TRest extends readonly string[], TId extends string> = TRest extends readonly [
+  infer A extends string,
+  ...infer R extends string[],
+]
+  ? A extends TId
+    ? R
+    : After<R, TId>
+  : [];
+export type StepIds<TRest extends readonly string[], TId extends string> = TId extends TRest[number]
+  ? TId
+  : never;
 /**
  * A stage's shot list, built by walking the direction with `.nextShot` / `.nextPendingShot`. The
- * injected `shot(firstId, …)` or `pendingShot(firstId)` starts it (id pinned to `FirstShotId`); each
+ * injected `shot(firstId, …)` or `pendingShot(firstId)` starts it (id pinned to the first shot); each
  * step mints the *successor* shot — its id is computed from the direction, never passed — and hands
  * every shot placed so far to the build as `shot`. `timeline` must return a chain whose `__complete` is
  * `true`, which only holds once the last shot is reached, so order and full coverage are both
@@ -4428,38 +4478,38 @@ export interface StageChain<
   readonly __complete: ChainComplete<TRest>;
   readonly __shots: readonly AnyShotInput[];
   readonly __shotIds: TIds;
-  nextShot(
-    id: NarrativeIdOf<D, Head<TRest>>,
+  nextShot<TId extends string>(
+    id: StepId<D, TRest, TId, "shot", false>,
     build: (
       ctx: StageShotContext<
-        ScriptOf<D, Head<TRest>>,
-        LineupOf<D, Head<TRest>>,
-        LineupToOf<D, Head<TRest>>,
-        CutinOf<D, Head<TRest>>
+        ScriptOf<D, TId>,
+        LineupOf<D, TId>,
+        LineupToOf<D, TId>,
+        CutinOf<D, TId>
       > &
         ShotSongOf<D> & {
           shot: StageShots<TIds>;
         },
     ) => ReturnType<ShotFunction>,
-  ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
-  nextGraphicShot(
-    id: GraphicIdOf<D, Head<TRest>>,
+  ): StageChain<D, StepRest<TRest, TId>, TIds | StepIds<TRest, TId>, TStage>;
+  nextGraphicShot<TId extends string>(
+    id: StepId<D, TRest, TId, "graphicShot", false>,
     build: (
-      ctx: GraphicShotContext<ScriptOf<D, Head<TRest>>, CutinOf<D, Head<TRest>>> &
+      ctx: GraphicShotContext<ScriptOf<D, TId>, CutinOf<D, TId>> &
         ShotSongOf<D> & {
           shot: StageShots<TIds>;
         },
     ) => ReturnType<ShotFunction>,
-  ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
-  nextPendingShot(
-    id: ArcIdOf<D, Head<TRest>>,
-  ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
-  nextAsideShot(
-    id: AsideIdOf<D, Head<TRest>>,
+  ): StageChain<D, StepRest<TRest, TId>, TIds | StepIds<TRest, TId>, TStage>;
+  nextPendingShot<TId extends string>(
+    id: StepId<D, TRest, TId, "pendingShot", false>,
+  ): StageChain<D, StepRest<TRest, TId>, TIds | StepIds<TRest, TId>, TStage>;
+  nextAsideShot<TId extends string>(
+    id: StepId<D, TRest, TId, "asideShot", false>,
     ...build: TStage extends "video"
       ? [build: (ctx: AsideShotContext & ShotSongOf<D>) => ReturnType<ShotFunction>]
       : []
-  ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
+  ): StageChain<D, StepRest<TRest, TId>, TIds | StepIds<TRest, TId>, TStage>;
 }
 /**
  * The structural witness a stage's `timeline.shots` requires: a chain that reached the end.

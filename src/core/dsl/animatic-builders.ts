@@ -129,17 +129,11 @@ export type CutinOf<D, TId extends string> = [ShotOf<D, TId>] extends [never]
       >
     : null;
 
-/**
- * The first direction shot — the only id a chain may start at. Everything after is computed, never typed.
- */
-export type FirstShotId<D> = Head<DirectionIdTuple<D>>;
-
-// The shots a chain has yet to cover, in direction order — the cursor both stages thread, and the
+// The shots a chain has yet to cover, in direction order, are the cursor both stages thread, and the
 // only thing they carry about the direction. A step reads its own id off the front (`Head`) and hands
 // the remainder on (`Tail`). Carrying the last *id* instead would make every step re-scan the id
 // tuple for the shot it just placed, so a long piece pays for the walk twice over.
-export type ChainRest<D> = Tail<DirectionIdTuple<D>>;
-// `never` on an empty rest, which is what closes the chain: `.nextShot`'s `id` becomes uncallable.
+// `never` on an empty rest, which is what closes the chain: no `id` is the next shot.
 export type Head<Ids extends readonly string[]> = Ids extends readonly [
   infer A extends string,
   ...string[],
@@ -280,11 +274,74 @@ export type ChainComplete<TRest extends readonly string[]> = TRest extends reado
   ? true
   : ChainIncomplete<Head<TRest>>;
 
+// What a step's `id` slot asks for, by the starter that fills it: `shot` a narrative shot, `graphicShot`
+// a graphic one, `pendingShot` either, `asideShot` an aside.
+export type StepKind = "shot" | "graphicShot" | "pendingShot" | "asideShot";
+type FitsKind<D, TId extends string, K extends StepKind> = K extends "shot"
+  ? NarrativeIdOf<D, TId>
+  : K extends "graphicShot"
+    ? GraphicIdOf<D, TId>
+    : K extends "pendingShot"
+      ? ArcIdOf<D, TId>
+      : AsideIdOf<D, TId>;
+// A starter is named as is; a chain step is its `.next…` twin.
+type StepCall<TStart extends boolean, K extends StepKind> = TStart extends true
+  ? K
+  : `.next${Capitalize<K>}`;
+type KindOf<D, TId extends string> =
+  IsAsideShot<D, TId> extends true
+    ? ["an aside", "asideShot"]
+    : IsGraphicShot<D, TId> extends true
+      ? ["a graphic", "graphicShot"]
+      : ["a narrative", "shot"];
+type HoldCall<TStart extends boolean, D, TId extends string> = `${StepCall<
+  TStart,
+  IsAsideShot<D, TId> extends true ? "asideShot" : "pendingShot"
+>}("${TId}")`;
+
+/**
+ * The `id` a step takes: `TId` itself when it is the direction's next shot and of the step's kind,
+ * else a message naming the fix, so the type error reads as the instruction.
+ */
+export type StepId<
+  D,
+  TRest extends readonly string[],
+  TId extends string,
+  K extends StepKind,
+  TStart extends boolean,
+> =
+  TId extends Head<TRest>
+    ? [FitsKind<D, TId, K>] extends [never]
+      ? `konte: shot "${TId}" is ${KindOf<D, TId>[0]} shot — place it with ${StepCall<TStart, KindOf<D, TId>[1]>}("${TId}")`
+      : TId
+    : TId extends TRest[number]
+      ? `konte: direction.ts places shot "${Head<TRest>}" before "${TId}" — add ${HoldCall<TStart, D, Head<TRest>>} ahead of this step`
+      : TId extends DirectionIdTuple<D>[number]
+        ? `konte: direction.ts places shot "${TId}" earlier — move this step up to its place`
+        : `konte: shot "${TId}" is not in direction.ts — remove this step`;
+
+// The shots left after a step. A misplaced step still advances: past its shot when the direction holds
+// it further on, not at all when the direction does not hold it — so a restructured direction fails
+// once per changed shot, not once per step after it.
+export type StepRest<TRest extends readonly string[], TId extends string> =
+  TId extends Head<TRest> ? Tail<TRest> : TId extends TRest[number] ? After<TRest, TId> : TRest;
+type After<TRest extends readonly string[], TId extends string> = TRest extends readonly [
+  infer A extends string,
+  ...infer R extends string[],
+]
+  ? A extends TId
+    ? R
+    : After<R, TId>
+  : [];
+export type StepIds<TRest extends readonly string[], TId extends string> = TId extends TRest[number]
+  ? TId
+  : never;
+
 export type { ShotHandle, StageShots } from "./builders.js";
 
 /**
  * A stage's shot list, built by walking the direction with `.nextShot` / `.nextPendingShot`. The
- * injected `shot(firstId, …)` or `pendingShot(firstId)` starts it (id pinned to `FirstShotId`); each
+ * injected `shot(firstId, …)` or `pendingShot(firstId)` starts it (id pinned to the first shot); each
  * step mints the *successor* shot — its id is computed from the direction, never passed — and hands
  * every shot placed so far to the build as `shot`. `timeline` must return a chain whose `__complete` is
  * `true`, which only holds once the last shot is reached, so order and full coverage are both
@@ -301,48 +358,47 @@ export interface StageChain<
   readonly __shots: readonly AnyShotInput[];
   readonly __shotIds: TIds;
   // `id` is required for legibility (each block self-labels which shot it is) and pinned to the
-  // direction's successor of the current shot — passing any other id is a type error, so the label can
-  // never drift from the order the chain actually walks. An aside successor makes this uncallable:
-  // there is no camera view to author, so the id resolves to `never` and `.nextAsideShot` is the
-  // only step that fits. A graphic successor likewise leaves `.nextGraphicShot` the only build.
-  nextShot(
-    id: NarrativeIdOf<D, Head<TRest>>,
+  // direction's successor of the current shot (`StepId`), so the label can never drift from the order
+  // the chain actually walks. An aside successor takes only `.nextAsideShot`, a graphic one only
+  // `.nextGraphicShot` or `.nextPendingShot`.
+  nextShot<TId extends string>(
+    id: StepId<D, TRest, TId, "shot", false>,
     build: (
       ctx: StageShotContext<
-        ScriptOf<D, Head<TRest>>,
-        LineupOf<D, Head<TRest>>,
-        LineupToOf<D, Head<TRest>>,
-        CutinOf<D, Head<TRest>>
+        ScriptOf<D, TId>,
+        LineupOf<D, TId>,
+        LineupToOf<D, TId>,
+        CutinOf<D, TId>
       > &
         ShotSongOf<D> & {
           shot: import("./builders.js").StageShots<TIds>;
         },
     ) => ReturnType<ShotFunction>,
-  ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
+  ): StageChain<D, StepRest<TRest, TId>, TIds | StepIds<TRest, TId>, TStage>;
   // The graphic successor: a shot of the arc with no camera. Its composition is the picture itself —
   // no `<Panel>` outside a `<Cutin>` on the board.
-  nextGraphicShot(
-    id: GraphicIdOf<D, Head<TRest>>,
+  nextGraphicShot<TId extends string>(
+    id: StepId<D, TRest, TId, "graphicShot", false>,
     build: (
-      ctx: GraphicShotContext<ScriptOf<D, Head<TRest>>, CutinOf<D, Head<TRest>>> &
+      ctx: GraphicShotContext<ScriptOf<D, TId>, CutinOf<D, TId>> &
         ShotSongOf<D> & {
           shot: import("./builders.js").StageShots<TIds>;
         },
     ) => ReturnType<ShotFunction>,
-  ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
+  ): StageChain<D, StepRest<TRest, TId>, TIds | StepIds<TRest, TId>, TStage>;
   // The undeveloped successor: everything about it is the direction's, so it takes nothing but the
   // id — a narrative or a graphic shot alike.
-  nextPendingShot(
-    id: ArcIdOf<D, Head<TRest>>,
-  ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
+  nextPendingShot<TId extends string>(
+    id: StepId<D, TRest, TId, "pendingShot", false>,
+  ): StageChain<D, StepRest<TRest, TId>, TIds | StepIds<TRest, TId>, TStage>;
   // The aside successor. The video builds it (usually a `file`); the animatic takes the id alone and
   // konte fills the span with a labelled slug.
-  nextAsideShot(
-    id: AsideIdOf<D, Head<TRest>>,
+  nextAsideShot<TId extends string>(
+    id: StepId<D, TRest, TId, "asideShot", false>,
     ...build: TStage extends "video"
       ? [build: (ctx: AsideShotContext & ShotSongOf<D>) => ReturnType<ShotFunction>]
       : []
-  ): StageChain<D, Tail<TRest>, TIds | Head<TRest>, TStage>;
+  ): StageChain<D, StepRest<TRest, TId>, TIds | StepIds<TRest, TId>, TStage>;
 }
 
 /**

@@ -20,19 +20,13 @@ import type { ShotStage } from "../address.js";
 import type { ShotScript } from "./shot-script.js";
 import { makeShotScript } from "./shot-script.js";
 import type {
-  ArcIdOf,
   AsideShotContext,
-  AsideIdOf,
-  ChainRest,
   CutinOf,
   DirectionShotTuple,
-  FirstShotId,
   DirectionIdTuple,
   GraphicShotContext,
-  GraphicIdOf,
   LineupOf,
   LineupToOf,
-  NarrativeIdOf,
   ScriptOf,
   ShotClockContext,
   ShotLyricsContext,
@@ -40,6 +34,9 @@ import type {
   StageShotContext,
   StageChain,
   StageCutinContext,
+  StepId,
+  StepIds,
+  StepRest,
 } from "./animatic-builders.js";
 import {
   isPendingShotInput,
@@ -1249,8 +1246,8 @@ export interface DirectionIndex {
 // The direction handle rides on the entry under two symbols with a division of labour. `DIRECTION` is a
 // type-only brand keying the handle in `DirectionEntry`'s type; its phantom `__direction` recovers
 // the direction's literal type `D` by inference at the `defineAnimatic`/`defineVideo` call site, so
-// the injected `shot` starter can pin ids to this exact direction (`FirstShotId<D>`,
-// `ChainRest<D>`). `DIRECTION_KEY` is the runtime storage key — a GLOBAL-registry symbol
+// the injected `shot` starter can pin ids to this exact direction (`StepId`). `DIRECTION_KEY` is the
+// runtime storage key — a GLOBAL-registry symbol
 // (`Symbol.for`) so it is the same key even when the loader evaluates a user's direction.ts and
 // animatic.tsx against separate konte module instances; a module-private `Symbol()` would differ
 // between them and `getDirectionIndex` would read `undefined`.
@@ -1276,13 +1273,11 @@ export function endsOnSeam(index: DirectionIndex, shotId: string): boolean {
 }
 
 // The `shot` injected into a stage's timeline ctx — one starter type for both, since both stages
-// author a shot the same way. `id` is pinned to `FirstShotId<D>` (the walk begins at the first shot)
-// and it returns a chain whose `.nextShot` mints the successor shot; order and full coverage are
-// enforced by the type (see StageChain). Its build returns a `<Composition>`.
-export type StageShotStarter<D, TStage extends ShotStage> = <
-  TId extends NarrativeIdOf<D, FirstShotId<D>>,
->(
-  id: TId,
+// author a shot the same way. `id` is pinned to the first direction shot (`StepId`) and it returns a
+// chain whose `.nextShot` mints the successor shot; order and full coverage are enforced by the type
+// (see StageChain). Its build returns a `<Composition>`.
+export type StageShotStarter<D, TStage extends ShotStage> = <TId extends string>(
+  id: StepId<D, DirectionIdTuple<D>, TId, "shot", true>,
   // `shot` is here so the ctx has one shape across the whole chain; its `TIds` is `never` at the
   // first shot, so there is no id it will take.
   build: (
@@ -1291,39 +1286,42 @@ export type StageShotStarter<D, TStage extends ShotStage> = <
         shot: StageShots<never>;
       },
   ) => ReturnType<ShotFunction>,
-) => StageChain<D, ChainRest<D>, TId, TStage>;
+) => StartChain<D, TId, TStage>;
 
 // The `graphicShot` injected alongside `shot`, for a shot of the arc with no camera. Its build
 // receives no frame, and returns a `<Composition>` whose picture is its own layers.
-export type StageGraphicShotStarter<D, TStage extends ShotStage> = <
-  TId extends GraphicIdOf<D, FirstShotId<D>>,
->(
-  id: TId,
+export type StageGraphicShotStarter<D, TStage extends ShotStage> = <TId extends string>(
+  id: StepId<D, DirectionIdTuple<D>, TId, "graphicShot", true>,
   build: (
     ctx: GraphicShotContext<ScriptOf<D, TId>, CutinOf<D, TId>> &
       ShotSongOf<D> & { shot: StageShots<never> },
   ) => ReturnType<ShotFunction>,
-) => StageChain<D, ChainRest<D>, TId, TStage>;
+) => StartChain<D, TId, TStage>;
 
 // The `pendingShot` injected alongside `shot`: starts the chain from an undeveloped shot (everything
 // about it — duration, action — is the direction's, so it takes nothing but the id), so a stage file
 // can mirror the whole direction before every shot is built. Swap it for `shot` or `graphicShot` to
 // develop.
-export type StagePendingShotStarter<D, TStage extends ShotStage> = <
-  TId extends ArcIdOf<D, FirstShotId<D>>,
->(
-  id: TId,
-) => StageChain<D, ChainRest<D>, TId, TStage>;
+export type StagePendingShotStarter<D, TStage extends ShotStage> = <TId extends string>(
+  id: StepId<D, DirectionIdTuple<D>, TId, "pendingShot", true>,
+) => StartChain<D, TId, TStage>;
 
 // The `asideShot` starters, one per stage, because the two place an aside differently (see
 // `AsideShotInput`). The animatic's takes the id alone; the video's builds the picture.
-export type StageAsideShotStarter<D> = <TId extends AsideIdOf<D, FirstShotId<D>>>(
-  id: TId,
-) => StageChain<D, ChainRest<D>, TId, "animatic">;
-export type VideoAsideShotStarter<D> = <TId extends AsideIdOf<D, FirstShotId<D>>>(
-  id: TId,
+export type StageAsideShotStarter<D> = <TId extends string>(
+  id: StepId<D, DirectionIdTuple<D>, TId, "asideShot", true>,
+) => StartChain<D, TId, "animatic">;
+export type VideoAsideShotStarter<D> = <TId extends string>(
+  id: StepId<D, DirectionIdTuple<D>, TId, "asideShot", true>,
   build: (ctx: AsideShotContext & ShotSongOf<D>) => ReturnType<ShotFunction>,
-) => StageChain<D, ChainRest<D>, TId, "video">;
+) => StartChain<D, TId, "video">;
+
+type StartChain<D, TId extends string, TStage extends ShotStage> = StageChain<
+  D,
+  StepRest<DirectionIdTuple<D>, TId>,
+  StepIds<DirectionIdTuple<D>, TId>,
+  TStage
+>;
 
 // The chain's `shot` — the by-name accessors below, resolving against an already-placed shot's
 // build. It cannot be a bare proxy: a stage discovers its shots only after `timeline()` has

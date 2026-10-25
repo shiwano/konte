@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { StepId, StepRest } from "../dsl/animatic-builders.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import {
   adapters,
@@ -158,14 +159,51 @@ describe("animatic shot chain", () => {
       }));
 
     // `.nextPendingShot`'s id is pinned to the direction's successor, exactly like `.nextShot`'s.
+    // A step naming a shot the direction does not hold places nothing, so the chain still owes "02".
     void (() =>
       defineAnimatic(direction, {
         timeline: ({ pendingShot }) => ({
           shots: pendingShot("01")
             // @ts-expect-error -- the shot after "01" is "02", not "99"
-            .nextPendingShot("99"),
+            .nextPendingShot("99")
+            .nextPendingShot("02"),
         }),
       }));
+  });
+
+  it("names the fix for a misplaced step in its type error", () => {
+    type D = {
+      sequence: {
+        shots: [
+          { id: "01" },
+          { id: "02"; kind: "graphic" },
+          { id: "03"; kind: "aside" },
+          { id: "04" },
+        ];
+      };
+    };
+    type Rest = ["02", "03", "04"];
+
+    const placed: StepId<D, Rest, "02", "pendingShot", false> = "02";
+    const wrongKind: StepId<D, Rest, "02", "shot", false> =
+      'konte: shot "02" is a graphic shot — place it with .nextGraphicShot("02")';
+    const skipped: StepId<D, Rest, "03", "pendingShot", false> =
+      'konte: direction.ts places shot "02" before "03" — add .nextPendingShot("02") ahead of this step';
+    const skippedAside: StepId<D, ["03", "04"], "04", "shot", false> =
+      'konte: direction.ts places shot "03" before "04" — add .nextAsideShot("03") ahead of this step';
+    const skippedFirst: StepId<D, ["01", "02", "03", "04"], "02", "graphicShot", true> =
+      'konte: direction.ts places shot "01" before "02" — add pendingShot("01") ahead of this step';
+    const earlier: StepId<D, Rest, "01", "shot", false> =
+      'konte: direction.ts places shot "01" earlier — move this step up to its place';
+    const removed: StepId<D, Rest, "99", "shot", false> =
+      'konte: shot "99" is not in direction.ts — remove this step';
+    const pastTheEnd: StepId<D, [], "99", "shot", false> =
+      'konte: shot "99" is not in direction.ts — remove this step';
+    expect([placed, wrongKind, skipped, skippedAside, skippedFirst, earlier, removed, pastTheEnd])
+      .toHaveLength(8);
+
+    const resumed: [StepRest<Rest, "03">, StepRest<Rest, "99">] = [["04"], ["02", "03", "04"]];
+    expect(resumed).toHaveLength(2);
   });
 
   // A shot's own asset names are invisible to the type system (its build returns JSX), so
