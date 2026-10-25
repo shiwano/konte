@@ -14,7 +14,7 @@ import {
   buildVariantCandidates,
   consumedTakePreviewUrl,
   displayedVariantStatus,
-  hasNewerReadyVariant,
+  hasUndecidedBesideAccepted,
   isValidSubmitPayload,
   patchChainTakes,
   recordFeedbackFor,
@@ -357,7 +357,7 @@ describe("buildVariantCandidates", () => {
     expect(candidates.find((c) => c.variantId === v2)?.stale).toBe(false);
   });
 
-  it("marks the fresh reroll as isNew (and the accepted one as not) in the candidate list", async () => {
+  it("marks the fresh reroll as undecidedBesideAccepted (and the accepted one as not) in the candidate list", async () => {
     const mgr = await StateManager.init(tmpDir);
     const addr = "video:shot.01.motion";
     const v1 = mgr.reserveVariantId(addr);
@@ -369,8 +369,8 @@ describe("buildVariantCandidates", () => {
     const candidates = buildVariantCandidates(mgr, addr, v1, null, (vid, v) =>
       videoVariantThumbUrl(tmpDir, addr, vid, v),
     );
-    expect(candidates.find((c) => c.variantId === v2)?.isNew).toBe(true);
-    expect(candidates.find((c) => c.variantId === v1)?.isNew).toBe(false);
+    expect(candidates.find((c) => c.variantId === v2)?.undecidedBesideAccepted).toBe(true);
+    expect(candidates.find((c) => c.variantId === v1)?.undecidedBesideAccepted).toBe(false);
   });
 
   it("flags a reroll standing undecided beside the accept, and clears once it is dismissed", async () => {
@@ -380,15 +380,15 @@ describe("buildVariantCandidates", () => {
     setReady(mgr, addr, v1, "v1.mp4", "2026-06-02T00:00:01.000Z");
     mgr.setAccepted(addr, v1);
     // No rival yet.
-    expect(hasNewerReadyVariant(mgr, addr, v1, null)).toBe(false);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v1, null)).toBe(false);
     // A reroll reserves a later variant; not ready until it has a file.
     const v2 = mgr.reserveVariantId(addr);
-    expect(hasNewerReadyVariant(mgr, addr, v1, null)).toBe(false);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v1, null)).toBe(false);
     setReady(mgr, addr, v2, "v2.mp4", "2026-06-02T00:00:02.000Z");
-    expect(hasNewerReadyVariant(mgr, addr, v1, null)).toBe(true);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v1, null)).toBe(true);
     // The human saw the reroll and kept the old take: re-accepting it dismisses the rival.
     mgr.setAccepted(addr, v1, { dismiss: [v2] });
-    expect(hasNewerReadyVariant(mgr, addr, v1, null)).toBe(false);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v1, null)).toBe(false);
   });
 
   it("detects a parallel reroll that finishes after a later-reserved accept", async () => {
@@ -401,9 +401,9 @@ describe("buildVariantCandidates", () => {
     const v2 = mgr.reserveVariantId(addr);
     setReady(mgr, addr, v2, "v2.mp4", "2026-06-02T00:00:01.000Z");
     mgr.setAccepted(addr, v2);
-    expect(hasNewerReadyVariant(mgr, addr, v2, null)).toBe(false);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v2, null)).toBe(false);
     setReady(mgr, addr, v1, "v1.mp4", "2026-06-02T00:00:02.000Z");
-    expect(hasNewerReadyVariant(mgr, addr, v2, null)).toBe(true);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v2, null)).toBe(true);
   });
 
   it("does not flag when nothing is accepted, or every rival was settled", async () => {
@@ -413,9 +413,9 @@ describe("buildVariantCandidates", () => {
     const v2 = mgr.reserveVariantId(addr);
     setReady(mgr, addr, v1, "v1.mp4", "2026-06-02T00:00:01.000Z");
     setReady(mgr, addr, v2, "v2.mp4", "2026-06-02T00:00:02.000Z");
-    expect(hasNewerReadyVariant(mgr, addr, null, null)).toBe(false);
+    expect(hasUndecidedBesideAccepted(mgr, addr, null, null)).toBe(false);
     mgr.setAccepted(addr, v2, { dismiss: [v1] });
-    expect(hasNewerReadyVariant(mgr, addr, v2, null)).toBe(false);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v2, null)).toBe(false);
   });
 
   it("keeps a dismissed take in the gallery, out of the recommended run", async () => {
@@ -432,7 +432,7 @@ describe("buildVariantCandidates", () => {
     );
     expect(candidates.map((c) => c.variantId)).toEqual([v2, v1]);
     expect(candidates.find((c) => c.variantId === v1)?.dismissed).toBe(true);
-    expect(candidates.find((c) => c.variantId === v1)?.isNew).toBe(false);
+    expect(candidates.find((c) => c.variantId === v1)?.undecidedBesideAccepted).toBe(false);
   });
 
   it("ignores a newer variant that is definition-stale", async () => {
@@ -444,7 +444,7 @@ describe("buildVariantCandidates", () => {
     setReady(mgr, addr, v2, "v2.mp4", "2026-06-02T00:00:02.000Z");
     mgr.ensureAssetState(addr).variants![v2]!.definitionHash = "old-hash";
     mgr.setAccepted(addr, v1);
-    expect(hasNewerReadyVariant(mgr, addr, v1, "live-hash")).toBe(false);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v1, "live-hash")).toBe(false);
   });
 });
 

@@ -1,9 +1,10 @@
 import type React from "react";
 import type { VariantInfo } from "../types.js";
-import { CheckIcon, GridIcon, StaleIcon } from "./icons.js";
+import { isNewVariant } from "../review/new-variant.js";
+import { CheckIcon, GridIcon } from "./icons.js";
 
 /**
- * Visual-only label: the variant count plus accepted/stale signals at a
+ * Visual-only label: the variant count plus new/accepted signals at a
  * glance. Carries no wrapper or click behavior so it can be dropped into any
  * trigger — a frame action, or the video track lane.
  *
@@ -12,15 +13,13 @@ import { CheckIcon, GridIcon, StaleIcon } from "./icons.js";
  */
 export function VariantSummaryLabel({
   variants,
-  hasNewerVariant,
   compact,
 }: {
   variants: VariantInfo[];
-  hasNewerVariant?: boolean;
   compact?: boolean;
 }): React.ReactElement {
-  const accepted = variants.filter((v) => v.variantStatus === "accepted").length;
-  const stale = variants.filter((v) => v.stale).length;
+  const newCount = variants.filter(isNewVariant).length;
+  const accepted = variants.some((v) => v.variantStatus === "accepted");
 
   return (
     <>
@@ -29,28 +28,21 @@ export function VariantSummaryLabel({
       </span>
       <span
         className="variant-summary-count"
-        title={compact ? `${variants.length} variants` : undefined}
+        title={compact ? `${variants.length} takes` : undefined}
       >
-        {compact
-          ? variants.length
-          : `${variants.length} variant${variants.length === 1 ? "" : "s"}`}
+        {compact ? variants.length : `${variants.length} take${variants.length === 1 ? "" : "s"}`}
       </span>
-      {hasNewerVariant && (
+      {newCount > 0 && (
         <span
           className="variant-summary-tag variant-summary-tag--new"
-          title="A newer variant is ready. Open to review and accept it"
+          title="Not yet accepted or dismissed"
         >
-          new
+          {newCount} new
         </span>
       )}
-      {accepted > 0 && (
+      {accepted && (
         <span className="variant-summary-tag variant-summary-tag--accepted" title="accepted">
-          <CheckIcon size={11} /> {accepted}
-        </span>
-      )}
-      {stale > 0 && (
-        <span className="variant-summary-tag variant-summary-tag--stale" title="stale">
-          {compact ? <StaleIcon size={11} /> : "stale"} {stale}
+          <CheckIcon size={11} />
         </span>
       )}
     </>

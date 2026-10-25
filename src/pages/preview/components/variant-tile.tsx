@@ -2,6 +2,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { formatRelativeTime } from "../format-time.js";
 import type { MediaKind, VariantInfo } from "../types.js";
+import { isNewVariant } from "../review/new-variant.js";
 import { CheckIcon, InfoIcon, VolumeIcon } from "./icons.js";
 
 // Touch/pen devices have no hover, so a hover-gated <video> would never play
@@ -71,7 +72,7 @@ export function VariantTile({
           ? "dismissed"
           : before
             ? "patched"
-            : variant.isNew
+            : isNewVariant(variant)
               ? "new"
               : null;
   // Only staleness dims a tile: a dismissed take is intact media, and its badge carries the

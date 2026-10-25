@@ -55,7 +55,7 @@ export interface AddressInfo {
    * The asset is accepted, but this ready, non-stale variant stands undecided beside it — a take
    * (e.g. from `reroll`) awaiting a verdict. Null when there is none, including when every rival
    * was dismissed. The newest such take, which is not necessarily newer than the accepted one.
-   * Mirrors the preview UI's `hasNewerReadyVariant`.
+   * Mirrors the preview UI's `hasUndecidedBesideAccepted`.
    */
   undecidedTakeVariantId: string | null;
   /**

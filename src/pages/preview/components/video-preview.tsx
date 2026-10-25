@@ -5,6 +5,8 @@ import { formatPlayerTime } from "../format-time.js";
 import { Playhead, usePlayheadTime } from "../review/playhead.js";
 import { ReviewShell, type ShortcutRows } from "../review/review-shell.js";
 import { bulkAcceptState } from "../review/bulk-accept.js";
+import { shotGalleryTabs, soundtrackGalleryTabs } from "../review/gallery-tabs.js";
+import { isNewVariant } from "../review/new-variant.js";
 import { reelAcceptUnits, type ReelUnit, shotAcceptable } from "../review/shot-acceptable.js";
 import { commentedAddresses } from "../review/undecided.js";
 import { useEffectiveVariants } from "../review/use-effective-variants.js";
@@ -59,7 +61,7 @@ import { TimedNoteOverlay, type TimedNote } from "./timed-note-overlay.js";
 import { ShotList } from "./shot-list.js";
 import { TheaterScrubber } from "./theater-scrubber.js";
 import { AssetInfoPanel, type InfoTake, takeInfo } from "./asset-info-panel.js";
-import { VariantGallery } from "./variant-gallery.js";
+import { type GalleryTab, VariantGallery } from "./variant-gallery.js";
 import { KeepOrRegenerateModal } from "./keep-or-regenerate-modal.js";
 import type { RegenerateMark } from "./regenerate-badge.js";
 
@@ -395,6 +397,46 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     }
     return map;
   }, [state.shots, state.audioAssets]);
+
+  // Each review target's gallery tabs. The focused target's own come first, so an asset placed in
+  // more than one shot opens among the shot the panel is pointed at.
+  const galleryTargets = useMemo(() => {
+    const shots = state.shots.map((s) => ({
+      subject: `Shot ${s.shotId}`,
+      tabs: shotGalleryTabs(s, state.audioAssets),
+    }));
+    const soundtrack = { subject: "Soundtrack", tabs: soundtrackGalleryTabs(state.audioAssets) };
+    const focused = soundtrackFocused
+      ? soundtrack
+      : focusedOverlay
+        ? null
+        : focusedShot && shots[focusedShotIdx];
+    return {
+      focused: focused ?? null,
+      all: [...(focused ? [focused] : []), ...shots, soundtrack],
+    };
+  }, [
+    state.shots,
+    state.audioAssets,
+    soundtrackFocused,
+    focusedOverlay,
+    focusedShot,
+    focusedShotIdx,
+  ]);
+  const galleryTabOf = useCallback(
+    (address: string): GalleryTab | null => {
+      const a = assetByAddress.get(address);
+      return a
+        ? {
+            address,
+            assetName: a.assetName,
+            variants: a.variants,
+          }
+        : null;
+    },
+    [assetByAddress],
+  );
+  const focusedGalleryTabs = galleryTargets.focused?.tabs ?? [];
 
   // The timeline's info button opens the take the reel is playing at that address.
   const infoOpener = useCallback(
@@ -1772,6 +1814,19 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
               script={spanTarget ? undefined : focusedShot?.script}
               moves={spanTarget ? undefined : focusedShot?.moves}
               board={reelStage === "animatic"}
+              variants={
+                focusedGalleryTabs.length > 0
+                  ? {
+                      newCount: focusedGalleryTabs.reduce(
+                        (n, address) =>
+                          n +
+                          (assetByAddress.get(address)?.variants.filter(isNewVariant).length ?? 0),
+                        0,
+                      ),
+                      onOpen: () => session.setGallery({ address: focusedGalleryTabs[0]! }),
+                    }
+                  : undefined
+              }
               waivers={spanTarget ? undefined : focusedShot?.waivers}
               handoffNotes={spanTarget ? undefined : focusedShot?.handoffNotes}
               comments={panelComments}
@@ -1898,8 +1953,13 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
           (() => {
             const asset = assetByAddress.get(session.gallery.address);
             if (!asset) return null;
+            const target = galleryTargets.all.find((t) => t.tabs.includes(asset.address));
             return (
               <VariantGallery
+                subject={target?.subject}
+                tabs={target?.tabs.flatMap((address) => galleryTabOf(address) ?? [])}
+                activeTab={asset.address}
+                onSelectTab={(address) => session.setGallery({ address })}
                 label={asset.assetName}
                 kind={asset.mediaKind}
                 variants={asset.variants}

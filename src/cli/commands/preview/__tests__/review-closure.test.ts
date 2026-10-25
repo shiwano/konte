@@ -183,7 +183,7 @@ const STEM_PLAYED_VIDEO_TSX = VIDEO_TSX.replace(
 interface Row {
   address: string;
   variantId: string | null;
-  variants?: Array<{ variantId: string; isNew?: boolean }>;
+  variants?: Array<{ variantId: string; undecidedBesideAccepted?: boolean }>;
 }
 
 const EXT: Record<string, string> = { image: ".png", video: ".mp4", audio: ".wav" };
@@ -320,7 +320,7 @@ async function acceptAll(
   // page rendered it, so an accept decides against what it passed over rather than leaving a rival
   // standing (which would read as "needs review" forever).
   const choose = (row: Row): void => {
-    const newest = row.variants?.find((v) => v.isNew)?.variantId ?? row.variantId;
+    const newest = row.variants?.find((v) => v.undecidedBesideAccepted)?.variantId ?? row.variantId;
     if (newest) displayedVariants[row.address] = newest;
     if (row.variants?.length) {
       displayedCandidates[row.address] = row.variants.map((v) => v.variantId);

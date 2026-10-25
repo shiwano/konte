@@ -50,7 +50,9 @@ describe("referenceDecisionFor", () => {
 
   it("sends a re-accept when a fresh take waits beside the accepted one", () => {
     const a = asset({
-      variants: [{ variantId: "v-2", isNew: true }] as ReferenceAssetInfo["variants"],
+      variants: [
+        { variantId: "v-2", undecidedBesideAccepted: true },
+      ] as ReferenceAssetInfo["variants"],
     });
     expect(referenceDecisionFor(a, { variantId: "v-1", status: "accepted" })?.status).toBe(
       "accepted",
@@ -110,7 +112,9 @@ describe("referenceEffectiveStatus", () => {
   // The re-accept cases stay undecided until pressed, so the row keeps prompting "Accept".
   it("reads none while a re-accept would still settle something", () => {
     const fresh = asset({
-      variants: [{ variantId: "v-2", isNew: true }] as ReferenceAssetInfo["variants"],
+      variants: [
+        { variantId: "v-2", undecidedBesideAccepted: true },
+      ] as ReferenceAssetInfo["variants"],
     });
     expect(referenceEffectiveStatus(fresh, "v-1", undefined)).toBe("none");
     expect(
@@ -207,8 +211,8 @@ describe("referenceBulkAccept", () => {
   it("counts a stale accept a fresh take waits beside, which an accept does settle", () => {
     const a = asset({
       variants: [
-        { variantId: "v-1", stale: true, isNew: false },
-        { variantId: "v-2", stale: false, isNew: true },
+        { variantId: "v-1", stale: true, undecidedBesideAccepted: false },
+        { variantId: "v-2", stale: false, undecidedBesideAccepted: true },
       ] as ReferenceAssetInfo["variants"],
     });
     expect(referenceBulkAccept([a], {}, {}).unaccepted.size).toBe(1);

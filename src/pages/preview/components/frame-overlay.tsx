@@ -10,7 +10,6 @@ import { VariantSummaryLabel } from "./variant-summary-button.js";
 export function FrameOverlay({
   assetName,
   variants,
-  hasNewerVariant,
   onOpenGallery,
   onOpenInfo,
   onEnlarge,
@@ -18,7 +17,6 @@ export function FrameOverlay({
 }: {
   assetName: string;
   variants?: VariantInfo[];
-  hasNewerVariant?: boolean;
   onOpenGallery?: () => void;
   onOpenInfo?: () => void;
   onEnlarge?: () => void;
@@ -38,9 +36,9 @@ export function FrameOverlay({
                 e.stopPropagation();
                 onOpenGallery();
               }}
-              title="Variant list"
+              title="Take list"
             >
-              <VariantSummaryLabel variants={variants} hasNewerVariant={hasNewerVariant} />
+              <VariantSummaryLabel variants={variants} />
             </button>
           )}
           {onOpenInfo && (

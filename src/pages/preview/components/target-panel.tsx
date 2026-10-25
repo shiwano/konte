@@ -3,7 +3,7 @@ import { useState } from "react";
 import { formatTimecode } from "../format-time.js";
 import type { ScriptLineView, ShotMoveInfo, ShotWaiverInfo } from "../types.js";
 import { CommentCard, HandoffCard, MoveCard, ScriptCard, WaiverCard } from "./comment-thread.js";
-import { PlusIcon } from "./icons.js";
+import { GridIcon, PlusIcon } from "./icons.js";
 import { NoteInput } from "./note-input.js";
 
 // One comment as the panel displays it — saved feedback and drafts merged, already filtered
@@ -49,6 +49,7 @@ export function TargetPanel({
   script,
   moves,
   board = false,
+  variants,
   waivers,
   handoffNotes,
   comments,
@@ -69,6 +70,9 @@ export function TargetPanel({
   moves?: ShotMoveInfo[];
   // The moves are judged against the animatic's stills, so each card names its panel and role.
   board?: boolean;
+  // Opens the target's variant gallery on its first asset. Absent when no asset has a take.
+  // `newCount` counts the new variants across those assets.
+  variants?: { newCount: number; onOpen: () => void };
   waivers?: ShotWaiverInfo[];
   handoffNotes?: string[];
   comments: DisplayComment[];
@@ -89,7 +93,24 @@ export function TargetPanel({
 
   return (
     <div className="target-panel">
-      {subject && <h3 className="panel-title">{subject}</h3>}
+      {subject && (
+        <div className="panel-title-row">
+          <h3 className="panel-title">{subject}</h3>
+          {variants && (
+            <button type="button" className="target-panel-variants" onClick={variants.onOpen}>
+              <GridIcon size={12} /> Takes
+              {variants.newCount > 0 && (
+                <span
+                  className="variant-summary-tag variant-summary-tag--new"
+                  title="Not yet accepted or dismissed"
+                >
+                  {variants.newCount} new
+                </span>
+              )}
+            </button>
+          )}
+        </div>
+      )}
 
       {(scriptLines.length > 0 ||
         moveCards.length > 0 ||

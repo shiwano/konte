@@ -831,9 +831,9 @@ function ReferenceRow({
 
   const isImage = asset.mediaKind === "image";
 
-  // A fresh reroll landed beside the accepted take (auto-shown by default) — surfaced on the
-  // variant pill so the reviewer knows the pending state is a newer take awaiting re-accept.
-  const hasNewerTake = asset.variants.some((v) => v.isNew);
+  // An undecided reroll stands beside the accepted variant (auto-shown by default) — badged
+  // Changed so the reviewer knows the pending state awaits a re-accept.
+  const undecidedBesideAccepted = asset.variants.some((v) => v.undecidedBesideAccepted);
 
   const pinIndexById = buildPinIndex(asset.feedback, pendingFeedback, {
     hideStale,
@@ -844,7 +844,6 @@ function ReferenceRow({
     <FrameOverlay
       assetName={asset.assetName}
       variants={asset.variants}
-      hasNewerVariant={hasNewerTake}
       onOpenGallery={onOpenGallery}
       onOpenInfo={onOpenInfo}
       onEnlarge={shown.imageUrl || shown.fileUrl ? onOpenDetail : undefined}
@@ -921,7 +920,7 @@ function ReferenceRow({
       {/* The decision gets its own column rather than an overlay on the media, so the accept
           control reads the same here as in the animatic review's panel list. */}
       <td className="review-col-accept">
-        {hasNewerTake && <StatusBadge status="changed" label="Changed" />}
+        {undecidedBesideAccepted && <StatusBadge status="changed" label="Changed" />}
         {regenerate && (
           <RegenerateBadge mark={regenerate} onKeep={onKeepAfterAll} onJumpToRow={onJumpToUnit} />
         )}
@@ -933,7 +932,7 @@ function ReferenceRow({
             title={
               effectiveStatus === "accepted"
                 ? "Click to unaccept"
-                : (acceptBlocked ?? "Accept this variant")
+                : (acceptBlocked ?? "Accept this take")
             }
             onClick={() => onAccept(selectedVariantId)}
           />

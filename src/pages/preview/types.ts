@@ -61,9 +61,9 @@ export interface VideoAssetInfo {
   address: string;
   variantId: string | null;
   variantStatus: VariantStatus;
-  // True when the accepted variant has a newer, ready, non-stale sibling (a reroll
-  // finished after the accept) — surfaced so the reviewer knows to re-accept.
-  hasNewerVariant: boolean;
+  // True when an undecided, ready, non-stale variant stands beside the accepted one (a reroll
+  // with no verdict) — surfaced so the reviewer knows to re-accept.
+  hasUndecidedBesideAccepted: boolean;
   mediaKind: MediaKind;
   fileUrl?: string;
   variants: VariantInfo[];
@@ -110,7 +110,7 @@ export interface AudioTrackAssetInfo {
   kind: "sound" | "soundtrack";
   variantId: string | null;
   variantStatus: VariantStatus;
-  hasNewerVariant: boolean;
+  hasUndecidedBesideAccepted: boolean;
   fileUrl?: string;
   variants: VariantInfo[];
   // Every placement of this asset on the timeline, in absolute seconds.
@@ -362,8 +362,8 @@ export interface VariantInfo {
   variantStatus: VariantStatus;
   stale: boolean;
   // An undecided, non-stale variant standing beside an accepted one (a reroll or a patch output
-  // with no verdict) — badged "New" so it's findable beside the accepted take.
-  isNew: boolean;
+  // with no verdict) — the take the reel shows in place of the accepted one until a verdict.
+  undecidedBesideAccepted: boolean;
   // The reviewer decided against this take (badged "not used"). Still listed at full weight,
   // sorted out of the live candidates.
   dismissed?: boolean;

@@ -104,7 +104,7 @@ import {
   buildVariantCandidates,
   shotFactsIndex,
   displayedVariantStatus,
-  hasNewerReadyVariant,
+  hasUndecidedBesideAccepted,
   variantMediaUrl,
   variantPreviewUrl,
   buildAddressFeedback,
@@ -366,7 +366,7 @@ interface AudioTrackAsset {
   kind: "sound" | "soundtrack";
   variantId: string | null;
   variantStatus: "none" | "accepted";
-  hasNewerVariant: boolean;
+  hasUndecidedBesideAccepted: boolean;
   fileUrl?: string;
   variants: ReturnType<typeof buildVariantCandidates>;
   // Each cue carries the shot that placed it (absent for a timeline bed), so accept and focus
@@ -391,7 +391,7 @@ export function buildAudioAssets<
     address: string;
     variantId: string | null;
     variantStatus: "none" | "accepted";
-    hasNewerVariant: boolean;
+    hasUndecidedBesideAccepted: boolean;
     fileUrl?: string;
     variants: ReturnType<typeof buildVariantCandidates>;
   },
@@ -486,7 +486,7 @@ export function buildAudioAssets<
       kind: group.kind,
       variantId: base.variantId,
       variantStatus: base.variantStatus,
-      hasNewerVariant: base.hasNewerVariant,
+      hasUndecidedBesideAccepted: base.hasUndecidedBesideAccepted,
       ...(base.fileUrl ? { fileUrl: base.fileUrl } : {}),
       variants: base.variants,
       cues: group.cues.sort((a, b) => a.start - b.start),
@@ -655,7 +655,7 @@ export async function handleGetReelState(
       address: addr,
       variantId,
       variantStatus,
-      hasNewerVariant: hasNewerReadyVariant(
+      hasUndecidedBesideAccepted: hasUndecidedBesideAccepted(
         manager,
         addr,
         acceptedId,

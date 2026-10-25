@@ -71,7 +71,7 @@ Inspect server-side state — each stage has its own shape:
 
 ```bash
 # video: shots[].assets[] — the reroll-vs-accepted flow
-curl -s http://127.0.0.1:4655/api/state | jq '.shots[0].assets[] | select(.assetName=="motion") | {hasNewerVariant, variants:[.variants[]|{variantId,variantStatus,isNew,stale}]}'
+curl -s http://127.0.0.1:4655/api/state | jq '.shots[0].assets[] | select(.assetName=="motion") | {hasUndecidedBesideAccepted, variants:[.variants[]|{variantId,variantStatus,undecidedBesideAccepted,stale}]}'
 # animatic: shots[].panels[] — one entry per panel image
 curl -s http://127.0.0.1:4656/api/state | jq '.shots[].panels[] | {assetName, variantStatus, hasImage: (.imageUrl!=null)}'
 # reference: flat assets[] — image/video/audio file pool
@@ -106,7 +106,7 @@ google-chrome --headless=new --disable-gpu --no-sandbox --window-size=1400,900 \
 - Feedback is not in `konte.state.json` — comments live in `review/<stage>/feedback.json` (keyed by full address), handoffs in `review/<stage>/handoffs/*.json`. Annotation coords are frame-normalized (0–1).
 - file-sync registers `file` assets undecided; the fixture accepts all but the audio, so the audio track needs review.
 - Crafted variants must read non-stale — staleness fires only on a non-null `definitionHash` mismatch or a changed `inputFingerprints` entry, so dummy variants use `definitionHash: null` + `inputFingerprints: {}`.
-- A take surfaces as new while its `status` is `"none"` beside an accepted one; an accept settles the rest as `"dismissed"`. Flip `status` to control what needs review.
+- A take is badged new while its `status` is `"none"` and it is not stale; beside an accepted one it is also `undecidedBesideAccepted`, which the reel shows in the accepted one's place. An accept settles the rest as `"dismissed"`. Flip `status` to control what needs review.
 - setup-fixture patches the fixture video by string replace — a changed `reference.tsx`/`video.tsx` shape can silently no-op it; check those first if a fixture asset is missing.
 - UI change not in the screenshot → rebuild (Build) and restart the server.
 - `drive.mjs` prints `NO_BUTTON` → the `--click` text matched no `<button>`; check the exact visible text.

@@ -266,7 +266,7 @@ describe("buildAudioAssets shotId tagging", () => {
               address,
               variantId: "v1",
               variantStatus: "none" as const,
-              hasNewerVariant: false,
+              hasUndecidedBesideAccepted: false,
               variants: [],
             },
           ],
@@ -277,7 +277,7 @@ describe("buildAudioAssets shotId tagging", () => {
         address,
         variantId: "v1",
         variantStatus: "none" as const,
-        hasNewerVariant: false,
+        hasUndecidedBesideAccepted: false,
         variants: [],
       }),
     });

@@ -6,7 +6,7 @@
 // sign-off: adding the first <Audio> to an accepted shot mints its stem unaccepted, which is a
 // change to what was signed off, not a fresh target.
 export function shotChangedSinceAccept(shot: {
-  assets: Array<{ hasNewerVariant: boolean }>;
+  assets: Array<{ hasUndecidedBesideAccepted: boolean }>;
   compositionVariantId: string | null;
   compositionNeedsReview: boolean;
   stems: Array<{ variantId: string | null; needsReview: boolean }>;
@@ -15,7 +15,7 @@ export function shotChangedSinceAccept(shot: {
   // Standing in with the board: nothing of what was signed off is on screen, so there is nothing
   // here to read as changed.
   if (shot.showingStandIn) return false;
-  if (shot.assets.some((a) => a.hasNewerVariant)) return true;
+  if (shot.assets.some((a) => a.hasUndecidedBesideAccepted)) return true;
   const signedOff =
     shot.compositionVariantId !== null || shot.stems.some((stem) => stem.variantId !== null);
   return signedOff && (shot.compositionNeedsReview || shot.stems.some((stem) => stem.needsReview));

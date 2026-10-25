@@ -44,7 +44,9 @@ describe("shotChangedSinceAccept", () => {
   });
 
   it("flags a newer take beside the accepted one", () => {
-    expect(shotChangedSinceAccept(shot({ assets: [{ hasNewerVariant: true }] }))).toBe(true);
+    expect(shotChangedSinceAccept(shot({ assets: [{ hasUndecidedBesideAccepted: true }] }))).toBe(
+      true,
+    );
   });
 
   it("stays quiet on an accepted silent shot", () => {
@@ -63,6 +65,8 @@ describe("shotChangedSinceAccept", () => {
   });
 
   it("stays quiet when no asset has a newer take", () => {
-    expect(shotChangedSinceAccept(shot({ assets: [{ hasNewerVariant: false }] }))).toBe(false);
+    expect(shotChangedSinceAccept(shot({ assets: [{ hasUndecidedBesideAccepted: false }] }))).toBe(
+      false,
+    );
   });
 });

@@ -95,8 +95,8 @@ type VariantCandidate = {
   variantStatus: "none" | "accepted";
   stale: boolean;
   // An undecided, non-stale variant standing beside an accepted one (a reroll or a patch output
-  // nobody has settled). Lets the gallery badge "New" so it is findable beside the accepted take.
-  isNew: boolean;
+  // nobody has settled) — the take the reel shows in place of the accepted one until a verdict.
+  undecidedBesideAccepted: boolean;
   // The reviewer decided against this take. Kept in the gallery — a decision can be revisited by
   // selecting it and accepting — but sorted after the live candidates.
   dismissed: boolean;
@@ -168,7 +168,8 @@ export function buildVariantCandidates(
           variantId: vid,
           variantStatus: (vid === acceptedId ? "accepted" : "none") as "none" | "accepted",
           stale,
-          isNew: hasAccepted && vid !== acceptedId && !stale && v.status === "none",
+          undecidedBesideAccepted:
+            hasAccepted && vid !== acceptedId && !stale && v.status === "none",
           dismissed: v.status === "dismissed",
           createdAt: v.createdAt,
           imageUrl: buildVariantUrl(vid, v),
@@ -218,7 +219,7 @@ export function displayedVariantStatus(
  * resolved/shown one and hides it, so the UI surfaces this to prompt a decision: accept the rival,
  * or re-accept the shown take, which dismisses it.
  */
-export function hasNewerReadyVariant(
+export function hasUndecidedBesideAccepted(
   manager: StateManager,
   addr: string,
   acceptedId: string | null,

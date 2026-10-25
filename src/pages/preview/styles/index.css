@@ -1367,7 +1367,7 @@ body.fill-mode .fab-submit-wrap {
 
 /* The variant-gallery trigger inside a clip — shared by the video and audio tracks so
    both open variants the same way. It carries the animatic's variant annotation
-   (count / accepted / stale), compacted to icons; the asset name sits to its
+   (count / new / accepted), compacted to icons; the asset name sits to its
    left, outside the button, and is what gives way first when the clip is narrow. */
 .rt-clip-open {
   display: inline-flex;
@@ -1762,8 +1762,26 @@ body.fill-mode .fab-submit-wrap {
   gap: 0.6rem;
 }
 
-.target-panel .panel-title {
+.target-panel .panel-title-row {
   margin-bottom: 0;
+}
+
+.target-panel-variants {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.target-panel-variants:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
 }
 
 .target-panel-comments-head {
@@ -1806,7 +1824,7 @@ body.fill-mode .fab-submit-wrap {
 }
 
 .target-panel-comments-empty {
-  margin: 0;
+  margin: -0.3rem 0 0;
   color: var(--text-muted);
   font-size: 0.78rem;
   line-height: 1.5;
@@ -2163,6 +2181,111 @@ body.fill-mode .fab-submit-wrap {
 
 .variant-gallery {
   width: min(1100px, 95vw);
+}
+
+.variant-gallery-tabbar {
+  position: relative;
+  flex-shrink: 0;
+  margin-top: -0.4rem;
+  margin-bottom: 0.25rem;
+  box-shadow: inset 0 -1px 0 var(--border-strong);
+}
+
+.variant-gallery-tabs {
+  display: flex;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: 32px;
+  scrollbar-width: none;
+  --fade-start: 0px;
+  --fade-end: 0px;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--fade-start),
+    #000 calc(100% - var(--fade-end)),
+    transparent
+  );
+}
+
+.variant-gallery-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.variant-gallery-tabs--fade-start {
+  --fade-start: 32px;
+}
+
+.variant-gallery-tabs--fade-end {
+  --fade-end: 32px;
+}
+
+.variant-gallery-tabs-scroll {
+  position: absolute;
+  top: 0;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.variant-gallery-tabs-scroll:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.variant-gallery-tabs-scroll--start {
+  left: 0;
+}
+
+.variant-gallery-tabs-scroll--end {
+  right: 0;
+}
+
+.variant-gallery-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  padding: 2px 12px 8px;
+  white-space: nowrap;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.variant-gallery-tab + .variant-gallery-tab::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 9px;
+  border-left: 1px solid var(--border-strong);
+}
+
+.variant-gallery-tab:hover {
+  color: var(--text-primary);
+}
+
+.variant-gallery-tab--active {
+  border-bottom-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.variant-gallery-tab-name {
+  font-weight: 600;
 }
 
 .variant-gallery-grid {
@@ -2793,10 +2916,6 @@ body.fill-mode .fab-submit-wrap {
 
 .variant-summary-tag--accepted {
   color: var(--green);
-}
-
-.variant-summary-tag--stale {
-  color: var(--yellow);
 }
 
 .variant-summary-tag--new {

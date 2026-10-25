@@ -19,7 +19,7 @@ export function acceptedVariantId(asset: ReferenceAssetInfo): string | null {
 // restamps all of them.
 export function reacceptIsMeaningful(asset: ReferenceAssetInfo): boolean {
   return (
-    asset.variants.some((v) => v.isNew) ||
+    asset.variants.some((v) => v.undecidedBesideAccepted) ||
     (asset.directionRoster?.some((part) => part.needsReview) ?? false)
   );
 }

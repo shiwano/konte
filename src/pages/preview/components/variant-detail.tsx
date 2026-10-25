@@ -2,6 +2,7 @@ import type React from "react";
 import { useState } from "react";
 import { formatRelativeTime } from "../format-time.js";
 import type { MediaKind, VariantInfo } from "../types.js";
+import { isNewVariant } from "../review/new-variant.js";
 import { CheckIcon, VolumeIcon } from "./icons.js";
 import { Modal } from "./modal.js";
 import { SongTrack } from "./song-track.js";
@@ -11,7 +12,7 @@ function badgeOf(v: VariantInfo): string | null {
   if (v.stale) return "stale";
   if (v.dismissed) return "dismissed";
   if (v.before) return "patched";
-  if (v.isNew) return "new";
+  if (isNewVariant(v)) return "new";
   return null;
 }
 

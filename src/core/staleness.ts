@@ -510,7 +510,7 @@ function selectResolvedVariantInternal(
  *
  * A variant that has been patched is not a candidate — it is the "before" of its correction.
  *
- * Single source of truth behind the preview UI's `hasNewerVariant`, `status`'s staleAwaitingAccept,
+ * Single source of truth behind the preview UI's `hasUndecidedBesideAccepted`, `status`'s staleAwaitingAccept,
  * and the generate/reroll upstream warning.
  */
 export function undecidedTakeBesideAccepted(

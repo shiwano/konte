@@ -70,18 +70,16 @@ function InfoButton({ assetName, onOpen }: { assetName: string; onOpen: () => vo
   );
 }
 
-// A clip's variant trigger: the same accepted/stale annotation the animatic shows
+// A clip's variant trigger: the same new/accepted annotation the animatic shows
 // under a panel, compacted to icon + count, opening the gallery on click. Null when the
 // asset has no variants (nothing to open).
 function VariantsButton({
   assetName,
   variants,
-  hasNewerVariant,
   onOpen,
 }: {
   assetName: string;
   variants: VariantInfo[];
-  hasNewerVariant: boolean;
   onOpen: () => void;
 }): React.ReactElement | null {
   if (variants.length === 0) return null;
@@ -89,14 +87,14 @@ function VariantsButton({
     <button
       type="button"
       className="rt-clip-open"
-      title={`${assetName}: open variants`}
+      title={`${assetName}: open takes`}
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation();
         onOpen();
       }}
     >
-      <VariantSummaryLabel variants={variants} hasNewerVariant={hasNewerVariant} compact />
+      <VariantSummaryLabel variants={variants} compact />
     </button>
   );
 }
@@ -369,7 +367,6 @@ export function ReviewTimeline({
           <VariantsButton
             assetName={asset.assetName}
             variants={asset.variants}
-            hasNewerVariant={asset.hasNewerVariant}
             onOpen={() => onOpenGallery(asset.address)}
           />
           {openInfo && <InfoButton assetName={asset.assetName} onOpen={openInfo} />}
@@ -427,7 +424,6 @@ export function ReviewTimeline({
               <VariantsButton
                 assetName={asset.assetName}
                 variants={asset.variants}
-                hasNewerVariant={asset.hasNewerVariant}
                 onOpen={() => onOpenGallery(addr)}
               />
             )}
