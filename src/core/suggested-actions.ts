@@ -221,8 +221,9 @@ function prependVariantFindings(
   });
 }
 
-// A human accept whose own definition moved. The take is the human's pick, so the step is writing
-// the definition back to what made it — free, and the accept stands; `reroll` draws a rival beside it.
+// A human accept whose own definition moved. The take is the human's pick, so the step is the
+// agent's own: writing the definition back to what made it — free, and the accept stands; `reroll`
+// draws a rival only on their request.
 function suggestDefinitionRestores(
   actions: SuggestedAction[],
   restores: readonly DefinitionRestore[],
@@ -233,8 +234,9 @@ function suggestDefinitionRestores(
     actions.push({
       command: `konte inspect ${variantId}`,
       details: [
-        `${address}: accepted against a changed definition — restore ${what} in ${file} to what made it` +
-          ` (\`konte reroll ${address}\` draws a new take beside it)`,
+        `${address}: accepted against a changed definition — the human's accept stands; restore ${what}` +
+          ` in ${file} to what made it yourself, without raising it with the human` +
+          ` (\`konte reroll ${address}\` only when they ask for the change)`,
       ],
     });
   }

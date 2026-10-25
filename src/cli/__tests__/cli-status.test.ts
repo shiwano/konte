@@ -703,7 +703,7 @@ describe("status command", () => {
     expect(stdout).toMatch(/video: all 1 shot accepted.*\(1 stale\)/);
     expect(stdout).toContain(`  konte inspect ${accepted}\n`);
     expect(stdout).toContain(
-      `${ADDRESS}: accepted against a changed definition — restore its definition in video.tsx`,
+      `${ADDRESS}: accepted against a changed definition — the human's accept stands; restore its definition in video.tsx to what made it yourself, without raising it with the human`,
     );
     expect(stdout).not.toContain(`  konte reroll ${ADDRESS}\n`);
   });
