@@ -1,5 +1,6 @@
 import { mixedSoundtracks } from "./song-bed.js";
-import { overlayDefinitionHash } from "./composition-resource.js";
+import { listCompositionAddresses, listStemAddresses } from "./address.js";
+import { definitionHashForAddress, overlayDefinitionHash } from "./composition-resource.js";
 import { shortHash } from "./content-hash.js";
 import type { VideoDefinition } from "./types/index.js";
 
@@ -12,17 +13,12 @@ import type { VideoDefinition } from "./types/index.js";
 //   - render: the video's render params (fps + working size). Export renders shots at these
 //     (render-video.ts), and fps in particular is in no other staleness hash, so an fps/size edit
 //     would otherwise have no export signal at all.
-//   - renderFns: the live shot/timeline render-fn sources. The export RE-RENDERS from these at
-//     export time (render-plan keeps `shot.shotFn`; the accepted composite artifact is for review
-//     only — render-plan.ts), so any edit to a render fn — picture OR per-shot `<Audio>` — changes
-//     the deliverable. Source-text based: it has the approximation that a non-pixel refactor flips
-//     it too, and the blind spot that changes in helpers/closures the source text doesn't reflect.
-//     (The composite's own definition hash is instead structural — rendered picture HTML — so the
-//     two now differ in that respect: this export line still tracks per-shot `<Audio>` source.)
+//   - leaves: each composition's and stem's definition hash — the rendered picture structure and
+//     the cue mix, the same identities the review signs off. The export re-renders from the
+//     definition, so an edit to either changes the deliverable.
 //   - soundtracks: the muxed timeline beds, the song bed among them (normalized, so robust to how
 //     they're authored).
-//   - overlay: the overlay's structural hash. Its build is bound inside the timeline run, so no
-//     source text reaches `renderFns`.
+//   - overlay: the overlay's structural hash.
 //   - delivery: the video's delivery resolution + upscale fns.
 //
 // Must be computed from the SAME definition the export actually renders — see run-export-job.ts,
@@ -31,17 +27,15 @@ import type { VideoDefinition } from "./types/index.js";
 //
 // Approximations (both consistent with the rest of konte):
 //   - soundtracks are read from `timelineSoundtracks`, which defineVideo bakes at discovery (as
-//     graph.ts / accept-cascade.ts also do). Their source edits are still caught via
-//     renderFns.timeline.
+//     graph.ts / accept-cascade.ts also do).
 //   - re-accepting a *layer* to a different variant changes the deliverable without touching any
 //     source here, so it isn't flagged on the export line — but it surfaces via the consuming
 //     composition going input-stale ("needs re-review"), which leads back to a re-export.
 export function computeExportSignature(video: VideoDefinition): string {
   const render = { fps: video.format.fps, size: video.format.size };
-  const renderFns = {
-    timeline: video.timelineFn?.toString() ?? null,
-    shots: video.shots.map((s) => [s.id, s.shotFn?.toString() ?? null] as const),
-  };
+  const leaves = [...listCompositionAddresses(video), ...listStemAddresses(video)].map(
+    (address) => [address, definitionHashForAddress(video, address)] as const,
+  );
   const soundtracks = mixedSoundtracks(video, video.timelineSoundtracks).map((st) => ({
     id: st.id,
     src: st.src.src,
@@ -58,7 +52,7 @@ export function computeExportSignature(video: VideoDefinition): string {
   const overlay = video.overlay ? overlayDefinitionHash(video) : null;
   return shortHash({
     render,
-    renderFns,
+    leaves,
     soundtracks,
     delivery: deliverySig,
     ...(overlay ? { overlay } : {}),
