@@ -14,7 +14,7 @@
 - Text stays 5% in from every edge — a 9:16 delivery also keeps the bottom sixth and the right edge clear for the platform's controls.
 - A title never delays the hook — it rides over the first shot or lands after it.
 - A telop lands on a hold — where the frame is still, for as long as it takes to read twice.
-- Place a `<Subtitle>` with `bottom-[12%]` / `right-[36%]` — a box behind the text goes on `lineClassName`.
+- A `<Subtitle>`'s default place already clears those margins; `bottom-[…]` / `right-[…]` moves it, measured from the canvas edge — a box behind the text goes on `lineClassName`.
 - A text entrance — tween the element `from` its off state (`opacity`, `yPercent`).
 
 ## One layer over every shot: `overlay`

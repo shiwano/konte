@@ -104,7 +104,7 @@ export function CompositionHead({
 @layer base { * { margin: 0; padding: 0; box-sizing: border-box; } }
 html, body { width: ${frame.width}px; height: ${frame.height}px; overflow: hidden; background: #000;${fontStack ? ` font-family: ${fontStack};` : ""} }
 #stage { position: absolute; top: ${stage.y}px; left: ${stage.x}px; width: ${stage.width}px; height: ${stage.height}px; overflow: hidden; }
-@layer components { .konte-clip { position: absolute; top: 0; left: 0; width: 100%; height: 100%; visibility: hidden; object-fit: cover; } .konte-subtitle { inset: 0; width: auto; height: auto; display: flex; align-items: flex-end; justify-content: center; text-align: center; color: #fff; font-weight: 600; filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.15)); padding-bottom: 5%; font-size: 1.875vmax; } @media (orientation: portrait) { .konte-subtitle { padding-bottom: 15vh; font-size: 3.25vmax; } } }
+@layer components { .konte-clip { position: absolute; top: 0; left: 0; width: 100%; height: 100%; visibility: hidden; object-fit: cover; } .konte-subtitle { inset: 0; width: auto; height: auto; display: flex; align-items: flex-end; justify-content: center; text-align: center; color: #fff; font-weight: 600; filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.15)); bottom: 5%; font-size: 1.875vmax; } @media (orientation: portrait) { .konte-subtitle { bottom: calc(100% / 6); font-size: 3.25vmax; } } }
 `}</style>
     </head>
   );
