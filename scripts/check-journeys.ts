@@ -35,6 +35,8 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - konte-animatic-critic 3,800 → 3,850 (agreed by a human): `fabricated-ui`, a real product's
+//   screen showing what it never displays, and `composition` as the surface of its fix.
 // - dev-demo-ui (new, 4,400): syncing konte-demo's review-UI rebuilds with konte's pages.
 // - dev-session-analysis (new, 8,450): the CLI friction a session hit, and the video's quality read
 //   from its review records.
@@ -122,7 +124,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "konte-animatic-critic",
-    budget: 3_800,
+    budget: 3_850,
     files: [...ALWAYS, `${AGENTS}/konte-animatic-critic.md`],
   },
   {
