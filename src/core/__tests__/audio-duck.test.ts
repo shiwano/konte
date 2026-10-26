@@ -65,7 +65,14 @@ describe("buildDuckEnvelope", () => {
 describe("voiceTriggerSpan", () => {
   it("ducks from where the take's sound starts, not from where the clip does", () => {
     expect(
-      voiceTriggerSpan({ start: 10, end: 13, mediaStart: 0, rate: 1, leadInSec: 0.3 }),
+      voiceTriggerSpan({
+        start: 10,
+        end: 13,
+        mediaStart: 0,
+        rate: 1,
+        leadInSec: 0.3,
+        soundEndSec: undefined,
+      }),
     ).toEqual({
       start: 10.3,
       end: 13,
@@ -73,7 +80,16 @@ describe("voiceTriggerSpan", () => {
   });
 
   it("leaves the placement alone when the take opens on sound", () => {
-    expect(voiceTriggerSpan({ start: 10, end: 13, mediaStart: 0, rate: 1, leadInSec: 0 })).toEqual({
+    expect(
+      voiceTriggerSpan({
+        start: 10,
+        end: 13,
+        mediaStart: 0,
+        rate: 1,
+        leadInSec: 0,
+        soundEndSec: undefined,
+      }),
+    ).toEqual({
       start: 10,
       end: 13,
     });
@@ -81,7 +97,14 @@ describe("voiceTriggerSpan", () => {
 
   it("spans the whole placement when the take was never measured", () => {
     expect(
-      voiceTriggerSpan({ start: 10, end: 13, mediaStart: 0, rate: 1, leadInSec: undefined }),
+      voiceTriggerSpan({
+        start: 10,
+        end: 13,
+        mediaStart: 0,
+        rate: 1,
+        leadInSec: undefined,
+        soundEndSec: undefined,
+      }),
     ).toEqual({
       start: 10,
       end: 13,
@@ -90,7 +113,14 @@ describe("voiceTriggerSpan", () => {
 
   it("trims only the lead-in the cue does not already skip", () => {
     expect(
-      voiceTriggerSpan({ start: 10, end: 13, mediaStart: 0.2, rate: 1, leadInSec: 0.3 }),
+      voiceTriggerSpan({
+        start: 10,
+        end: 13,
+        mediaStart: 0.2,
+        rate: 1,
+        leadInSec: 0.3,
+        soundEndSec: undefined,
+      }),
     ).toEqual({
       start: 10.1,
       end: 13,
@@ -99,7 +129,14 @@ describe("voiceTriggerSpan", () => {
 
   it("never pushes the span back when mediaStart clears the whole lead-in", () => {
     expect(
-      voiceTriggerSpan({ start: 10, end: 13, mediaStart: 0.5, rate: 1, leadInSec: 0.3 }),
+      voiceTriggerSpan({
+        start: 10,
+        end: 13,
+        mediaStart: 0.5,
+        rate: 1,
+        leadInSec: 0.3,
+        soundEndSec: undefined,
+      }),
     ).toEqual({
       start: 10,
       end: 13,
@@ -108,13 +145,79 @@ describe("voiceTriggerSpan", () => {
 
   it("reaches the lead-in on the timeline at the cue's rate", () => {
     expect(
-      voiceTriggerSpan({ start: 10, end: 13, mediaStart: 0.2, rate: 2, leadInSec: 0.6 }),
+      voiceTriggerSpan({
+        start: 10,
+        end: 13,
+        mediaStart: 0.2,
+        rate: 2,
+        leadInSec: 0.6,
+        soundEndSec: undefined,
+      }),
     ).toEqual({ start: 10.2, end: 13 });
+  });
+
+  it("stops ducking where the take's sound ends, not where the clip does", () => {
+    expect(
+      voiceTriggerSpan({
+        start: 10,
+        end: 13,
+        mediaStart: 0,
+        rate: 1,
+        leadInSec: 0.3,
+        soundEndSec: 1.6,
+      }),
+    ).toEqual({ start: 10.3, end: 11.6 });
+  });
+
+  it("reaches the sound's end on the timeline past mediaStart and at the cue's rate", () => {
+    expect(
+      voiceTriggerSpan({
+        start: 10,
+        end: 13,
+        mediaStart: 0.2,
+        rate: 2,
+        leadInSec: 0,
+        soundEndSec: 1.8,
+      }),
+    ).toEqual({ start: 10, end: 10.8 });
+  });
+
+  it("keeps the placement's end when the sound runs past it", () => {
+    expect(
+      voiceTriggerSpan({
+        start: 10,
+        end: 13,
+        mediaStart: 0,
+        rate: 1,
+        leadInSec: 0,
+        soundEndSec: 5,
+      }),
+    ).toEqual({ start: 10, end: 13 });
+  });
+
+  it("ducks nothing when mediaStart skips past the sound's end", () => {
+    expect(
+      voiceTriggerSpan({
+        start: 10,
+        end: 13,
+        mediaStart: 2,
+        rate: 1,
+        leadInSec: 0,
+        soundEndSec: 1.5,
+      }),
+    ).toBeNull();
   });
 
   it("ducks nothing for a take that never rises out of silence", () => {
     expect(
-      voiceTriggerSpan({ start: 10, end: 13, mediaStart: 0, rate: 1, leadInSec: 3 }),
+      voiceTriggerSpan({
+        start: 10,
+        end: 13,
+        mediaStart: 0,
+        rate: 1,
+        leadInSec: 3,
+        soundEndSec: undefined,
+      }),
     ).toBeNull();
   });
 });

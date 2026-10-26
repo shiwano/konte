@@ -277,12 +277,14 @@ export async function buildTimelineTracks(opts: {
         duration = len != null ? Math.max(0, len - raw.mediaStart) / raw.rate : null;
       }
       if (isVoiceKind(raw.kind) && duration != null && duration > 0) {
+        const loudness = loudnessOf(mediaOf?.(raw.file));
         const trigger = voiceTriggerSpan({
           start,
           end: start + duration,
           mediaStart: raw.mediaStart,
           rate: raw.rate,
-          leadInSec: loudnessOf(mediaOf?.(raw.file))?.leadInSec,
+          leadInSec: loudness?.leadInSec,
+          soundEndSec: loudness?.soundEndSec,
         });
         if (trigger) voiceSpans.push(trigger);
         if (trigger && raw.role === "sound" && raw.kind === "narration") {

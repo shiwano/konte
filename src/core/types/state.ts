@@ -19,11 +19,13 @@ const DeliveryTargetSchema = z.object({
 // What EBU R128 measured on the file's audio, so a later mix levels the take without re-decoding
 // it. Absent means UNMEASURED (the loudness pass failed, or the record predates it), which a mix
 // levels at unity. `integratedLufs` is null for content too short or too quiet to hold one.
-// `leadInSec` is the silence before the sound begins, absent on a record that predates it.
+// `leadInSec` is the silence before the sound begins and `soundEndSec` where the sound ends, each
+// absent on a record that predates it.
 const AudioLoudnessSchema = z.object({
   integratedLufs: z.number().nullable(),
   truePeakDb: z.number(),
   leadInSec: z.number().nonnegative().optional(),
+  soundEndSec: z.number().nonnegative().optional(),
 });
 
 // Whether no 10 ms of the audio rises above the noise floor. Absent means UNMEASURED.

@@ -4,7 +4,8 @@ import { execFileAsync } from "./exec-file.js";
 /**
  * What one decode pass measured on an audio-bearing file. `integratedLufs` is the program loudness a
  * dialogue/music cue is levelled by; `truePeakDb` is what a percussive cue is levelled by;
- * `leadInSec` is the silence an sfx cue skips and a line ducks a bed from the end of.
+ * `leadInSec` is the silence an sfx cue skips and a line ducks a bed from the end of; `soundEndSec`
+ * is where a line stops ducking a bed.
  */
 export interface AudioLoudness {
   /** Integrated loudness in LUFS; null for content too short or too quiet to hold one. */
@@ -13,12 +14,14 @@ export interface AudioLoudness {
   truePeakDb: number;
   /** Seconds before the sound begins; absent on a record measured before it was. */
   leadInSec?: number;
+  /** Seconds from the file's head to where the sound ends; absent on a record measured before it was. */
+  soundEndSec?: number;
 }
 
 // The `-inf` ffmpeg prints for digital silence parses to NaN and is rejected with it.
 const NUMBER = String.raw`(-?[\d.]+|-inf)`;
 
-// The sound begins at the first 10 ms window within this of the loudest one.
+// The sound begins at the first 10 ms window within this of the loudest one, and ends with the last.
 const LEAD_IN_FLOOR_DB = 30;
 const LEAD_IN_WINDOW = 480;
 const LEAD_IN_RATE = 48000;
@@ -72,6 +75,18 @@ export function parseLeadIn(stdout: string): number {
   return windows.find((w) => w.level >= loudest - LEAD_IN_FLOOR_DB)?.at ?? 0;
 }
 
+/**
+ * Where the sound ends, from the per-window RMS levels `ametadata` prints to stdout. Null for a file
+ * that never rises out of digital silence.
+ */
+export function parseSoundEnd(stdout: string): number | null {
+  const windows = windowLevels(stdout).filter((w) => Number.isFinite(w.level));
+  if (windows.length === 0) return null;
+  const loudest = Math.max(...windows.map((w) => w.level));
+  const last = windows.findLast((w) => w.level >= loudest - LEAD_IN_FLOOR_DB)!;
+  return last.at + LEAD_IN_WINDOW / LEAD_IN_RATE;
+}
+
 // The floor `probe audio` reads digital silence under (`SILENCE_ABS_FLOOR`, -55 dBFS).
 const SILENT_FLOOR_DB = -55;
 
@@ -123,8 +138,15 @@ export async function measureAudio(
     // The windows are read off a mono downmix, where channels in opposite phase cancel; the true
     // peak is per channel, so a sound heard on either one is not silence.
     const quiet = parseSilent(stdout);
+    const soundEndSec = parseSoundEnd(stdout);
     return {
-      loudness: loudness ? { ...loudness, leadInSec: parseLeadIn(stdout) } : null,
+      loudness: loudness
+        ? {
+            ...loudness,
+            leadInSec: parseLeadIn(stdout),
+            ...(soundEndSec !== null ? { soundEndSec } : {}),
+          }
+        : null,
       silent:
         quiet === null ? null : quiet && (loudness?.truePeakDb ?? -Infinity) <= SILENT_FLOOR_DB,
     };

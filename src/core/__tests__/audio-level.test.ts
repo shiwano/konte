@@ -10,7 +10,7 @@ import {
   shotCueLevels,
 } from "../audio-level.js";
 import type { KonteState } from "../types/index.js";
-import { parseEbur128Summary, parseLeadIn, parseSilent } from "../audio-loudness.js";
+import { parseEbur128Summary, parseLeadIn, parseSilent, parseSoundEnd } from "../audio-loudness.js";
 
 const SUMMARY = `[Parsed_ebur128_0 @ 0x55f] Summary:
 
@@ -61,6 +61,17 @@ describe("parseLeadIn", () => {
   it("is 0 for digital silence and for output it cannot read", () => {
     expect(parseLeadIn(windows(["-inf", "-inf"]))).toBe(0);
     expect(parseLeadIn("")).toBe(0);
+  });
+});
+
+describe("parseSoundEnd", () => {
+  it("ends the sound with the last window within 30 dB of its loudest", () => {
+    expect(parseSoundEnd(windows(["-18", "-12", "-30", "-50", "-inf"]))).toBeCloseTo(0.03);
+  });
+
+  it("is null for digital silence and for output it cannot read", () => {
+    expect(parseSoundEnd(windows(["-inf", "-inf"]))).toBeNull();
+    expect(parseSoundEnd("")).toBeNull();
   });
 });
 

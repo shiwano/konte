@@ -658,6 +658,8 @@ export interface VoiceTake {
   length: number | null;
   /** The silence the take opens with, from the file's head (see `voiceTriggerSpan`). */
   leadInSec: number | undefined;
+  /** Where the take's sound ends, from the file's head (see `voiceTriggerSpan`). */
+  soundEndSec: number | undefined;
 }
 
 // The ordered audio cues of an already-rendered composition element (<Audio> → "sound",
@@ -744,6 +746,7 @@ function standInVoiceSpans(
           mediaStart: cue.mediaStart ?? 0,
           rate: cue.rate,
           leadInSec: take?.leadInSec,
+          soundEndSec: take?.soundEndSec,
         });
         if (span) spans.push({ ...span, address: cue.src, kind: kind!, track: cue.track });
       }
@@ -771,9 +774,11 @@ function previewVoiceTake(
     const media =
       manager.getState().assets[resolved.address]?.variants?.[resolved.variantId]?.media ?? null;
     const recorded = mediaDurationSec(media);
+    const loudness = loudnessOf(media ?? undefined);
     return {
       length: recorded == null ? null : Math.max(0, recorded - (cue.mediaStart ?? 0)),
-      leadInSec: loudnessOf(media ?? undefined)?.leadInSec,
+      leadInSec: loudness?.leadInSec,
+      soundEndSec: loudness?.soundEndSec,
     };
   };
 }
@@ -805,6 +810,7 @@ export function declaredVoiceSpans(
         mediaStart: cue.mediaStart ?? 0,
         rate: cue.rate,
         leadInSec: take?.leadInSec,
+        soundEndSec: take?.soundEndSec,
       });
       if (span)
         spans.push({ ...span, address: cue.src, kind: kind!, track: cue.track, shotId: shot.id });

@@ -937,6 +937,7 @@ export async function inspectTimelineAudio(opts: {
         mediaStart: raw.mediaStart,
         rate: raw.rate,
         leadInSec: loudnessByFile.get(absFile)?.leadInSec,
+        soundEndSec: loudnessByFile.get(absFile)?.soundEndSec,
       });
       if (trigger) voices.push({ ...trigger, lufs });
       if (trigger && raw.role === "sound" && raw.kind === "narration") narration.push(trigger);

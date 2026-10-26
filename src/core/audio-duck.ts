@@ -31,18 +31,19 @@ export interface Span {
 }
 
 /**
- * The span a voice cue ducks a bed over: its placement, advanced to where the take's sound actually
- * starts. A line opens with silence more often than not, and the bed must yield to the VOICE, not to
- * the clip carrying it — without this a take that leads with 0.3s of room tone has the bed already
- * bottomed out that much before a word is said.
+ * The span a voice cue ducks a bed over: its placement, narrowed to where the take's sound actually
+ * starts and ends. A line opens and closes with silence more often than not, and the bed must yield
+ * to the VOICE, not to the clip carrying it — without this a take that leads with 0.3s of room tone
+ * has the bed already bottomed out that much before a word is said, and a stem padded to its shot's
+ * end holds the bed down across every cut.
  *
- * `leadInSec` is measured from the file's head (`AudioLoudness.leadInSec`), so a cue that already
- * skips part of it with `mediaStart` trims only the rest, and a cue played at `rate` reaches it sooner
- * or later by that rate. Null when the trim leaves no span at all:
+ * `leadInSec` and `soundEndSec` are measured from the file's head (`AudioLoudness`), so a cue that
+ * already skips part of the lead-in with `mediaStart` trims only the rest, and a cue played at `rate`
+ * reaches either sooner or later by that rate. Null when the trim leaves no span at all:
  * a take that never rises out of silence ducks nothing.
  *
  * The one reader of this, shared by the mux, the preview and the probe so the three cannot disagree
- * about where a line begins.
+ * about where a line begins and ends.
  */
 export function voiceTriggerSpan(opts: {
   start: number;
@@ -50,10 +51,18 @@ export function voiceTriggerSpan(opts: {
   mediaStart: number;
   rate: number;
   leadInSec: number | undefined;
+  soundEndSec: number | undefined;
 }): Span | null {
   const onset = Math.max(0, (opts.leadInSec ?? 0) - opts.mediaStart) / opts.rate;
   const start = opts.start + onset;
-  return start < opts.end ? { start, end: opts.end } : null;
+  const end =
+    opts.soundEndSec === undefined
+      ? opts.end
+      : Math.min(
+          opts.end,
+          opts.start + Math.max(0, opts.soundEndSec - opts.mediaStart) / opts.rate,
+        );
+  return start < end ? { start, end } : null;
 }
 
 /** One resolved dip: down across [a,b], held to c, back up by d. Times are the bed's own. */
