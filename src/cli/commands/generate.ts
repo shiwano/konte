@@ -56,7 +56,7 @@ import {
   type VariantReservationRequest,
 } from "../generate-orchestrator.js";
 import { printRemixedBoardStems, selectGenerationAssets } from "../generation-selection.js";
-import { planSupersededStemRemakes, remakeSupersededBoardLeaves } from "../../core/board-leaves.js";
+import { planSupersededStemRemakes, remakeSettledLeaves } from "../../core/board-leaves.js";
 import { requireVideoRoots } from "../context.js";
 import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
 
@@ -124,10 +124,10 @@ export function registerGenerateCommand(program: Command): void {
           const accepted = planSupersededStemRemakes(manager, animatic, video);
           printRemixedBoardStems({ accepted }, { plan: true });
         } else {
-          const result = await remakeSupersededBoardLeaves({
+          const result = await remakeSettledLeaves({
             videoRoot,
-            board: animatic,
-            video,
+            stage: animatic,
+            counterpart: video,
             include: "stems",
           });
           if (result.accepted.length > 0) manager = await StateManager.load(videoRoot);

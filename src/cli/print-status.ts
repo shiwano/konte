@@ -1,4 +1,4 @@
-import { staleSupersededLeaves } from "../core/board-leaves.js";
+import { staleSettledLeaves } from "../core/board-leaves.js";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import {
@@ -20,7 +20,8 @@ import {
   listStemAddresses,
 } from "../core/address.js";
 import {
-  boardLeafSuperseded,
+  boardCompositionAwaitsVideo,
+  leafSettledAcross,
   collectDeadCompositionVariants,
   collectDeadStemVariants,
   definitionHashForAddress,
@@ -128,7 +129,12 @@ function reelProgressByStage(
   if (videoDefinition) stages.set("video", videoDefinition);
   const out: Partial<Record<Stage, ReelProgress>> = {};
   for (const [stage, def] of stages) {
-    const downstreamVideo = stage === "animatic" ? videoDefinition : null;
+    const counterpart =
+      stage === "animatic"
+        ? videoDefinition
+        : stage === "video"
+          ? (stages.get("animatic") ?? null)
+          : null;
     // A board aside carries konte's slug, nothing of the author's to sign off.
     const shots = def.shots.filter((s) => !s.pending && !(s.aside && !s.shotFn));
     const acceptedShots = shots.filter(
@@ -138,7 +144,7 @@ function reelProgressByStage(
           manager,
           def,
           { shotId: s.id, pending: false, shotFn: s.shotFn ?? null },
-          downstreamVideo,
+          counterpart,
         ),
     ).length;
     const leafNeedsReview = (address: string) =>
@@ -152,7 +158,7 @@ function reelProgressByStage(
         (def.timelineSoundtracks?.length ?? 0) > 0 && leafNeedsReview(stemAddress),
       overlayUnsigned:
         def.overlay !== undefined &&
-        shotAcceptsStand(manager, def, downstreamVideo) &&
+        shotAcceptsStand(manager, def, counterpart) &&
         leafNeedsReview(formatTimelineOverlayAddress(def.stage)),
     };
   }
@@ -249,6 +255,13 @@ export async function buildStatusReport(
     const def = getDefinition(addr) as unknown as VideoDefinition | null;
     if (def) leafStages.set(stage, def);
   }
+  // The other shot stage, whose accept may settle a leaf of this one (`leafSettledAcross`).
+  const counterpartOf = (stage: string): VideoDefinition | null =>
+    stage === "animatic"
+      ? (options?.videoDefinition ?? null)
+      : stage === "video"
+        ? (leafStages.get("animatic") ?? null)
+        : null;
 
   // Dead composition leftover variants (e.g. ghosts from an earlier definition), keyed by
   // address, so they never count as "ready".
@@ -299,7 +312,14 @@ export async function buildStatusReport(
     // The overlay is signed off by the shot accepts under it, and reviewed on its own only once they
     // all stand.
     const overlayStage = isOverlayAddress(addr) ? (leafStages.get(getStage(addr)) ?? null) : null;
-    const superseded = boardLeafSuperseded(
+    const settledAcross = leafSettledAcross(
+      manager,
+      def as unknown as VideoDefinition | null,
+      counterpartOf(getStage(addr)),
+      addr,
+    );
+    // Reviewed on the video's page; status never sends anyone to the board's.
+    const awaitsVideo = boardCompositionAwaitsVideo(
       manager,
       def as unknown as VideoDefinition | null,
       options?.videoDefinition ?? null,
@@ -308,10 +328,11 @@ export async function buildStatusReport(
     const reviewTarget =
       (getStage(addr) !== "reference" || isDeliveryAddress(addr) || exposedReferences.has(addr)) &&
       !isPlateAddress(addr) &&
-      !superseded &&
+      !settledAcross &&
+      !awaitsVideo &&
       (!isOverlayAddress(addr) ||
         (overlayStage !== null &&
-          shotAcceptsStand(manager, overlayStage, options?.videoDefinition ?? null)));
+          shotAcceptsStand(manager, overlayStage, counterpartOf(overlayStage.stage))));
     if (def && isLeafAddress(addr)) {
       // A composition/stem/overlay has no AssetDefinition; it is a no-job leaf of its stage's
       // definition.
@@ -378,7 +399,7 @@ export async function buildStatusReport(
       reviewUnreachable,
       deterministic,
     );
-    if (superseded) info.staleAcceptStands = info.staleVariants.length > 0;
+    if (settledAcross) info.staleAcceptStands = info.staleVariants.length > 0;
     return info;
   });
 
@@ -434,7 +455,7 @@ export async function buildStatusReport(
   const board = leafStages.get("animatic") ?? null;
   const developing = options?.videoDefinition ?? null;
   const remixes =
-    board && developing ? staleSupersededLeaves(manager, board, developing, null, "stems") : [];
+    board && developing ? staleSettledLeaves(manager, board, developing, null, "stems") : [];
   if (remixes.length > 0) {
     sections.push({
       title: "Board stems to re-mix",

@@ -1,9 +1,9 @@
 import { getStage, isStemAddress } from "./address.js";
 import {
-  boardLeafSuperseded,
   commitShotStem,
   definitionHashForAddress,
   discardPreparedStem,
+  leafSettledAcross,
   materializeCompositionVariant,
   materializedLeafReviewStatus,
   prepareShotStem,
@@ -16,26 +16,27 @@ import { shotAcceptTargets } from "./shot-accept-targets.js";
 import { StateManager } from "./state/index.js";
 import { isPendingShot, type StageDefinition } from "./types/index.js";
 
-// The superseded board leaves (`boardLeafSuperseded`) that have aged out, by shot.
-export function staleSupersededLeaves(
+// The leaves of `stage` the other shot stage settles (`leafSettledAcross`) that have aged out, by
+// shot.
+export function staleSettledLeaves(
   manager: StateManager,
-  board: StageDefinition,
-  video: StageDefinition,
+  stage: StageDefinition,
+  counterpart: StageDefinition,
   shotIds: ReadonlySet<string> | null,
   include: "stems" | "compositions",
   addresses: ReadonlySet<string> | null = null,
 ): Array<{ shotId: string; address: string }> {
-  return board.shots
+  return stage.shots
     .filter((shot) => shot.shotFn && !isPendingShot(shot) && (!shotIds || shotIds.has(shot.id)))
     .flatMap((shot) =>
-      shotAcceptTargets(manager, board, { shotId: shot.id, pending: false, shotFn: shot.shotFn })
+      shotAcceptTargets(manager, stage, { shotId: shot.id, pending: false, shotFn: shot.shotFn })
         .leaves.map(({ address }) => address)
         .filter((address) => isStemAddress(address) === (include === "stems"))
         .filter((address) => !addresses || addresses.has(address))
         .filter(
           (address) =>
-            boardLeafSuperseded(manager, board, video, address) &&
-            materializedLeafReviewStatus(manager, address, definitionHashForAddress(board, address))
+            leafSettledAcross(manager, stage, counterpart, address) &&
+            materializedLeafReviewStatus(manager, address, definitionHashForAddress(stage, address))
               .needsReview,
         )
         .map((address) => ({ shotId: shot.id, address })),
@@ -65,24 +66,25 @@ export function consumedBoardStems(
 }
 
 /**
- * Re-makes and accepts the board leaves the video has taken over that have aged out — the stems a
- * spend or a video leaf is about to consume, or the compositions a video shot's accept settles. Stems are mixed outside the state lock; a leaf no longer superseded by the
+ * Re-makes and accepts the leaves of `stage` the other shot stage settles that have aged out — the
+ * board stems a spend or a video leaf is about to consume, or the compositions the other stage's
+ * accept or an export reads. Stems are mixed outside the state lock; a leaf no longer settled by the
  * commit is left alone. Returns what was accepted, and what could not be made with why.
  */
-export async function remakeSupersededBoardLeaves(opts: {
+export async function remakeSettledLeaves(opts: {
   videoRoot: string;
-  board: StageDefinition;
-  video: StageDefinition;
+  stage: StageDefinition;
+  counterpart: StageDefinition;
   shotIds?: Iterable<string>;
   // Only these leaves — what a targeted spend consumes (`consumedBoardStems`).
   addresses?: Iterable<string>;
   include: "stems" | "compositions";
 }): Promise<{ accepted: BoardLeaf[]; failed: Array<BoardLeaf & { reason: string }> }> {
-  const { videoRoot, board, video, include } = opts;
+  const { videoRoot, stage, counterpart, include } = opts;
   const shotIds = opts.shotIds ? new Set(opts.shotIds) : null;
   const addresses = opts.addresses ? new Set(opts.addresses) : null;
   const snapshot = await StateManager.load(videoRoot);
-  const pending = staleSupersededLeaves(snapshot, board, video, shotIds, include, addresses);
+  const pending = staleSettledLeaves(snapshot, stage, counterpart, shotIds, include, addresses);
   const failed: Array<BoardLeaf & { reason: string }> = [];
   if (pending.length === 0) return { accepted: [], failed };
 
@@ -91,7 +93,7 @@ export async function remakeSupersededBoardLeaves(opts: {
     for (const leaf of pending) {
       if (!isStemAddress(leaf.address)) continue;
       try {
-        const p = await prepareShotStem({ manager: snapshot, video: board, address: leaf.address });
+        const p = await prepareShotStem({ manager: snapshot, video: stage, address: leaf.address });
         if (p) prepared.set(leaf.address, p);
         else failed.push({ ...leaf, reason: "its cues do not resolve to a take" });
       } catch (err) {
@@ -100,7 +102,9 @@ export async function remakeSupersededBoardLeaves(opts: {
     }
     const accepted = await StateManager.withLock(videoRoot, async (mgr) => {
       const still = new Set(
-        staleSupersededLeaves(mgr, board, video, shotIds, include, addresses).map((l) => l.address),
+        staleSettledLeaves(mgr, stage, counterpart, shotIds, include, addresses).map(
+          (l) => l.address,
+        ),
       );
       const landed: BoardLeaf[] = [];
       for (const leaf of pending) {
@@ -111,13 +115,13 @@ export async function remakeSupersededBoardLeaves(opts: {
           const variantId = p
             ? await commitShotStem({
                 manager: mgr,
-                video: board,
+                video: stage,
                 address: leaf.address,
                 prepared: p,
               })
             : await materializeCompositionVariant({
                 manager: mgr,
-                video: board,
+                video: stage,
                 shotId: leaf.shotId,
               });
           if (!variantId) {
@@ -139,7 +143,7 @@ export async function remakeSupersededBoardLeaves(opts: {
 }
 
 /**
- * The run `remakeSupersededBoardLeaves` would make, in memory only, for a plan: each stale stem
+ * The run `remakeSettledLeaves` would make on the board's stems, in memory only, for a plan: each stale stem
  * stands accepted at its live identity, on a sentinel output, so what consumes it reads as the run
  * will leave it. Returns the stems it stood in for.
  */
@@ -148,7 +152,7 @@ export function planSupersededStemRemakes(
   board: StageDefinition,
   video: StageDefinition,
 ): BoardLeaf[] {
-  const pending = staleSupersededLeaves(manager, board, video, null, "stems");
+  const pending = staleSettledLeaves(manager, board, video, null, "stems");
   for (const { address } of pending) {
     const identity = shotStemIdentityFor(manager, board, address);
     const current = manager.getAcceptedVariant(address);

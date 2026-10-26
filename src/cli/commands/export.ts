@@ -6,6 +6,7 @@ import {
   listStemAddresses,
   parseStageScope,
 } from "../../core/address.js";
+import { remakeSettledLeaves } from "../../core/board-leaves.js";
 import { leafSignedOff } from "../../core/composition-resource.js";
 import { deliveryUpscalerMissing } from "../../core/delivery.js";
 import { KonteError } from "../../core/errors.js";
@@ -49,10 +50,19 @@ async function registerVideoExport(opts: {
 
   // Sync file assets under the state lock so the seconds-long media hashing cannot
   // clobber a concurrent watcher write; reuse the returned post-sync snapshot below.
-  const manager = await StateManager.withLock(videoRoot, async (m) => {
+  const synced = await StateManager.withLock(videoRoot, async (m) => {
     await syncFileAssets({ reference, animatic, video }, m, { measure: true });
     return m;
   });
+  // A graphic shot's composition the board's accept signed off is re-made and accepted before the
+  // gate reads it. One that cannot be made stays unsigned, and the gate names it.
+  const remade = await remakeSettledLeaves({
+    videoRoot,
+    stage: video,
+    counterpart: animatic,
+    include: "compositions",
+  });
+  const manager = remade.accepted.length > 0 ? await StateManager.load(videoRoot) : synced;
 
   // Store the base output dir on the job; the render worker picks a fresh timestamped
   // subdir per attempt (so a reclaimed render never collides with a stalled prior one).

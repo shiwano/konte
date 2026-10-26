@@ -17,8 +17,8 @@ import {
   tryParseAddress,
 } from "./address.js";
 import {
-  boardLeafSuperseded,
   definitionHashForAddress,
+  leafSettledAcross,
   materializedLeafReviewStatus,
   removedShotStemAddresses,
 } from "./composition-resource.js";
@@ -128,7 +128,7 @@ export function shotAcceptTargets(
  *
  * An address is settled when it carries an accepted take that is still current and no ready,
  * undecided take stands beside it; a materialized leaf, when it is accepted at its live definition
- * and inputs, or is a board composition `downstreamVideo` supersedes. A shot whose half signs off
+ * and inputs, or when the other shot stage, `counterpart`, settles it. A shot whose half signs off
  * nothing at all is never settled: an accept over nothing is vacuous.
  */
 export function shotNeedsVerdict(
@@ -140,14 +140,14 @@ export function shotNeedsVerdict(
     shotFn: unknown;
     resolvedVariants?: Record<string, string>;
   },
-  downstreamVideo: StageDefinition | null,
+  counterpart: StageDefinition | null,
 ): boolean {
   if (shot.pending) return false;
   const targets = shotAcceptTargets(manager, video, shot);
   const takes = [...targets.pictureAssets, ...targets.stemSources];
   if (takes.length === 0 && targets.leaves.length === 0) return true;
   const leafSettled = (address: string) =>
-    boardLeafSuperseded(manager, video, downstreamVideo, address) ||
+    leafSettledAcross(manager, video, counterpart, address) ||
     !materializedLeafReviewStatus(manager, address, definitionHashForAddress(video, address))
       .needsReview;
   if (targets.leaves.some(({ address }) => !leafSettled(address))) return true;

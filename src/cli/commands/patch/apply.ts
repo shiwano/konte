@@ -1,4 +1,4 @@
-import { consumedBoardStems, remakeSupersededBoardLeaves } from "../../../core/board-leaves.js";
+import { consumedBoardStems, remakeSettledLeaves } from "../../../core/board-leaves.js";
 import { printRemixedBoardStems } from "../../generation-selection.js";
 import type { Command } from "commander";
 import { loadKonteConfig } from "../../../core/config.js";
@@ -166,10 +166,10 @@ export async function gatePatchApply(
   // The board stems the video patches consume, re-mixed before the gate asks for them accepted.
   const videoPatches = targets.filter((p) => getStage(p.sourceAddress) === "video");
   if (video && animatic && graph && videoPatches.length > 0) {
-    const remixed = await remakeSupersededBoardLeaves({
+    const remixed = await remakeSettledLeaves({
       videoRoot,
-      board: animatic,
-      video,
+      stage: animatic,
+      counterpart: video,
       addresses: consumedBoardStems(
         graph,
         videoPatches.map((p) => p.sourceAddress),

@@ -1,4 +1,4 @@
-import { consumedBoardStems, remakeSupersededBoardLeaves } from "../../../core/board-leaves.js";
+import { consumedBoardStems, remakeSettledLeaves } from "../../../core/board-leaves.js";
 import { printRemixedBoardStems } from "../../generation-selection.js";
 import type { Command } from "commander";
 import {
@@ -426,10 +426,10 @@ Examples:
         // them accepted.
         const videoPaths = workItems.filter((w) => w.stage === "video").map((w) => w.assetPath);
         if (video && animatic && videoPaths.length > 0) {
-          const remixed = await remakeSupersededBoardLeaves({
+          const remixed = await remakeSettledLeaves({
             videoRoot,
-            board: animatic,
-            video,
+            stage: animatic,
+            counterpart: video,
             addresses: consumedBoardStems(graph, videoPaths),
             include: "stems",
           });

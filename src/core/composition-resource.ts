@@ -21,6 +21,7 @@ import {
 import {
   buildOverlayCompositionHtml,
   buildShotCompositionHtml,
+  compositionPictureNodes,
   compositionRecord,
   compositionStructureHtml,
   harvestShotAudioStructure,
@@ -914,11 +915,11 @@ export function overlayDefinitionHash(video: StageDefinition, rewrite?: HashInpu
 
 // Whether every shot accept on the stage stands: each developed shot's composition accepted at its
 // current definition, and no shot left to develop. The overlay is signed off by these; only once
-// they all stand is it reviewed on its own. `downstreamVideo` settles the board's superseded ones.
+// they all stand is it reviewed on its own. A composition `counterpart` settles stands too.
 export function shotAcceptsStand(
   manager: StateManager,
   video: StageDefinition,
-  downstreamVideo: StageDefinition | null = null,
+  counterpart: StageDefinition | null = null,
 ): boolean {
   if (video.shots.some((s) => s.pending)) return false;
   return video.shots
@@ -926,7 +927,7 @@ export function shotAcceptsStand(
     .every((s) => {
       const address = formatCompositionAddress(video.stage, s.id);
       return (
-        boardLeafSuperseded(manager, video, downstreamVideo, address) ||
+        leafSettledAcross(manager, video, counterpart, address) ||
         (manager.getAcceptedVariant(address) !== null &&
           !isAcceptedStale(manager, address, definitionHashForAddress(video, address)))
       );
@@ -1109,32 +1110,107 @@ export function materializedLeafReviewStatus(
   };
 }
 
-// A board shot's composition or stem once the video develops the shot past the board: the board was
-// reviewed (the leaf holds an accept) and the video has spent on it (a take of the shot), or, for a
-// graphic shot, places the component the board draws. From then on the video's review is where the
-// shot is judged, and konte keeps the leaf current itself (`remakeSupersededBoardLeaves`) — over the
-// takes its accept recorded: a moved or new input, and what it is made from left unaccepted, stay
-// the board's, bar one a graphic shot's signed-off video composition drew at the take it resolves to
-// now. So does a stem whose line the clamp cuts.
-export function boardLeafSuperseded(
+// A shot leaf one stage need not review because the other shot stage's accept already signs it off.
+export function leafSettledAcross(
+  manager: StateManager,
+  own: StageDefinition | null,
+  counterpart: StageDefinition | null,
+  address: string,
+): boolean {
+  if (!own || !counterpart) return false;
+  const stages = new Set([own.stage, counterpart.stage]);
+  if (!stages.has("animatic") || !stages.has("video")) return false;
+  const composition = isCompositionAddress(address);
+  if (!composition && !isStemAddress(address)) return false;
+  const parsed = parseAddress(address);
+  if (parsed.stage !== own.stage || parsed.kind !== "shot") return false;
+  const ownShot = shotById(own.shots, parsed.shotId);
+  const counterpartShot = shotById(counterpart.shots, parsed.shotId);
+  if (!ownShot?.shotFn || !counterpartShot?.shotFn) return false;
+  const videoShot = own.stage === "video" ? ownShot : counterpartShot;
+  if (composition && videoShot.graphic === true) {
+    return graphicCompositionCovered(manager, own, counterpart, ownShot, address);
+  }
+  if (own.stage !== "animatic") return false;
+  return boardLeafPastBoard(manager, own, counterpart, ownShot, counterpartShot, address);
+}
+
+// A graphic shot's composition whose picture the other stage's signed-off composition holds, drawn
+// over the same takes.
+function graphicCompositionCovered(
+  manager: StateManager,
+  own: StageDefinition,
+  counterpart: StageDefinition,
+  ownShot: ShotDefinition,
+  address: string,
+): boolean {
+  if (!pictureContains(counterpart, own, ownShot.id)) return false;
+  const drawn = signedOffFingerprints(manager, counterpart, ownShot.id);
+  if (drawn === null) return false;
+  return leafInputsJudged(manager, own, ownShot, address, drawn);
+}
+
+// A graphic shot's board composition the video's own pending verdict will settle: the video's
+// picture holds it over the takes it draws now, and the video's composition awaits review. Its
+// review is the video's to route to.
+export function boardCompositionAwaitsVideo(
   manager: StateManager,
   board: StageDefinition | null,
   video: StageDefinition | null,
   address: string,
 ): boolean {
   if (board?.stage !== "animatic" || video?.stage !== "video") return false;
-  const composition = isCompositionAddress(address);
-  if (!composition && !isStemAddress(address)) return false;
+  if (!isCompositionAddress(address)) return false;
   const parsed = parseAddress(address);
   if (parsed.stage !== "animatic" || parsed.kind !== "shot") return false;
-  const shot = shotById(video.shots, parsed.shotId);
   const boardShot = shotById(board.shots, parsed.shotId);
-  if (!shot?.shotFn || !boardShot?.shotFn) return false;
-  if (manager.getAcceptedVariant(address) === null) return false;
-  if (!(composition && shot.graphic === true) && !videoShotHasTake(manager, video, shot)) {
+  const videoShot = shotById(video.shots, parsed.shotId);
+  if (!boardShot?.shotFn || !videoShot?.shotFn || videoShot.graphic !== true) return false;
+  if (!pictureContains(video, board, parsed.shotId)) return false;
+  const videoAddress = formatCompositionAddress(video.stage, parsed.shotId);
+  if (
+    !leafReadyForReview(manager, video, videoAddress) ||
+    leafSignedOff(manager, video, videoAddress)
+  ) {
     return false;
   }
-  const refs = leafReadinessRefs(board, address);
+  const drawn = compositionInputFingerprints(manager, compositionFingerprintRefs(video, videoShot));
+  return leafInputsJudged(manager, board, boardShot, address, drawn);
+}
+
+// A board shot's composition or stem once the video develops the shot past the board: the board was
+// reviewed (the leaf holds an accept) and the video has spent on it (a take of the shot). From then
+// on the video's review is where the shot is judged, and konte keeps the leaf current itself
+// (`remakeSettledLeaves`) — over the takes its accept recorded: a moved or new input, and
+// what it is made from left unaccepted, stay the board's. So does a stem whose line the clamp cuts.
+function boardLeafPastBoard(
+  manager: StateManager,
+  board: StageDefinition,
+  video: StageDefinition,
+  boardShot: ShotDefinition,
+  videoShot: ShotDefinition,
+  address: string,
+): boolean {
+  if (manager.getAcceptedVariant(address) === null) return false;
+  if (!videoShotHasTake(manager, video, videoShot)) return false;
+  if (!leafInputsJudged(manager, board, boardShot, address, {})) return false;
+  if (isCompositionAddress(address)) return true;
+  return !findShotOverflows(board as AnimaticDefinition, manager, boardShot).some(
+    (o) => o.address === address,
+  );
+}
+
+// Whether every input a leaf consumes resolves to an accepted take, and every one it fingerprints
+// stands at the take the leaf's own accept recorded, or at the one `drawn` (another accept's
+// fingerprints) holds.
+function leafInputsJudged(
+  manager: StateManager,
+  stage: StageDefinition,
+  shot: ShotDefinition,
+  address: string,
+  drawn: Record<string, string>,
+): boolean {
+  const refs = leafReadinessRefs(stage, address);
   if (refs === null) return false;
   if (refs.some((ref) => !manager.resolveReference(ref, { requireAccepted: true }))) return false;
   const accepted = computeAcceptedStaleness(
@@ -1143,38 +1219,63 @@ export function boardLeafSuperseded(
     null,
     manager.stalenessCache(),
   );
-  if (accepted.variantId === null) return false;
-  const drawnByVideo =
-    composition && shot.graphic === true ? signedOffFingerprints(manager, video, shot.id) : {};
-  const judgedOnVideo = (ref: string, current: string | null | undefined): boolean =>
-    current != null && drawnByVideo[ref] === current;
-  if (!accepted.changedInputs.every((i) => judgedOnVideo(i.assetPath, i.current))) return false;
+  const judged = (ref: string, current: string | null | undefined): boolean =>
+    current != null && drawn[ref] === current;
+  if (!accepted.changedInputs.every((i) => judged(i.assetPath, i.current))) return false;
   const recorded =
-    manager.tryGetAssetState(address)?.variants?.[accepted.variantId]?.inputFingerprints ?? {};
-  const fingerprinted = composition
-    ? compositionFingerprintRefs(board, boardShot)
-    : (shotStemOf(board, address)?.refs ?? []);
-  if (
-    !fingerprinted.every(
-      (ref) => ref in recorded || judgedOnVideo(ref, manager.resolveReference(ref)?.outputHash),
-    )
-  ) {
-    return false;
-  }
-  if (composition) return true;
-  return !findShotOverflows(board as AnimaticDefinition, manager, boardShot).some(
-    (o) => o.address === address,
+    (accepted.variantId &&
+      manager.tryGetAssetState(address)?.variants?.[accepted.variantId]?.inputFingerprints) ||
+    {};
+  const fingerprinted = isCompositionAddress(address)
+    ? compositionFingerprintRefs(stage, shot)
+    : (shotStemOf(stage, address)?.refs ?? []);
+  return fingerprinted.every(
+    (ref) => ref in recorded || judged(ref, manager.resolveReference(ref)?.outputHash),
   );
 }
 
-// The inputs a stage's shot composition was signed off over, by ref; empty while it stands unsigned.
+// What a shot's composition puts on screen, and the frame it is put in.
+function compositionPicture(
+  video: StageDefinition,
+  shotId: string,
+): { frame: string; nodes: string[] } | null {
+  return memoizedInput(video, `picture:${shotId}`, () => {
+    const nodes = compositionPictureNodes(video, shotId);
+    if (nodes === null) return null;
+    const size = video.format.size;
+    const frame = stableStringify({
+      typography: video.typography,
+      duration: shotById(video.shots, shotId)?.duration,
+      width: size?.width,
+      height: size?.height,
+    });
+    return { frame, nodes };
+  }) as { frame: string; nodes: string[] } | null;
+}
+
+// Whether `outer`'s picture of a shot holds `inner`'s: the same frame, every node `inner` puts on
+// screen standing in `outer` in the same order, and no node only `outer` has carrying a style or
+// script.
+function pictureContains(outer: StageDefinition, inner: StageDefinition, shotId: string): boolean {
+  const o = compositionPicture(outer, shotId);
+  const i = compositionPicture(inner, shotId);
+  if (!o || !i || o.frame !== i.frame) return false;
+  let matched = 0;
+  for (const node of o.nodes) {
+    if (node === i.nodes[matched]) matched++;
+    else if (/<(?:style|script|link)\b/i.test(node)) return false;
+  }
+  return matched === i.nodes.length;
+}
+
+// The inputs a stage's shot composition was signed off over, by ref; null while it stands unsigned.
 function signedOffFingerprints(
   manager: StateManager,
   stage: StageDefinition,
   shotId: string,
-): Record<string, string> {
+): Record<string, string> | null {
   const address = formatCompositionAddress(stage.stage, shotId);
-  if (!leafSignedOff(manager, stage, address)) return {};
+  if (!leafSignedOff(manager, stage, address)) return null;
   const variantId = manager.getAcceptedVariant(address);
   return (
     (variantId && manager.tryGetAssetState(address)?.variants?.[variantId]?.inputFingerprints) || {}

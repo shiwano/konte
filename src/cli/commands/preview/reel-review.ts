@@ -2,7 +2,7 @@ import {
   cascadeAcceptConsumedDeps,
   cascadeDirectionShotAccepts,
 } from "../../../core/accept-cascade.js";
-import { remakeSupersededBoardLeaves } from "../../../core/board-leaves.js";
+import { remakeSettledLeaves } from "../../../core/board-leaves.js";
 import { buildDependencyGraph } from "../../../core/graph.js";
 import { shotById } from "../../../core/shot-index.js";
 import {
@@ -37,7 +37,7 @@ import {
 } from "../../../core/composition-builder.js";
 import { resolveCompositionRef } from "../../../core/composition-refs.js";
 import {
-  boardLeafSuperseded,
+  leafSettledAcross,
   compositionDefinitionHashForAddress,
   definitionHashForAddress,
   timelineStemRefs,
@@ -598,12 +598,13 @@ export async function handleGetReelState(
   downstreamVideo: StageDefinition | null = null,
 ): Promise<Response> {
   const stage = video.stage;
+  const counterpart = stage === "video" ? animatic : downstreamVideo;
   // The board stems the video has taken over, re-mixed so a shot that plays one can be drawn.
   if (stage === "video" && animatic) {
-    const { failed } = await remakeSupersededBoardLeaves({
+    const { failed } = await remakeSettledLeaves({
       videoRoot,
-      board: animatic,
-      video,
+      stage: animatic,
+      counterpart: video,
       include: "stems",
     });
     for (const { address, reason } of failed) {
@@ -735,7 +736,7 @@ export async function handleGetReelState(
       let compositionNeedsReview = false;
       const compositionSuperseded =
         compositionAddress !== null &&
-        boardLeafSuperseded(manager, video, downstreamVideo, compositionAddress);
+        leafSettledAcross(manager, video, counterpart, compositionAddress);
       if (compositionAddress) {
         // Unaccepted or stale both count as needing review (see materializedLeafReviewStatus).
         ({ variantId: compositionVariantId, needsReview: compositionNeedsReview } =
@@ -758,7 +759,7 @@ export async function handleGetReelState(
             definitionHash,
             ...status,
             needsReview:
-              status.needsReview && !boardLeafSuperseded(manager, video, downstreamVideo, address),
+              status.needsReview && !leafSettledAcross(manager, video, counterpart, address),
           };
         });
 
@@ -802,7 +803,7 @@ export async function handleGetReelState(
       // goes on asking for it.
       // A waiver the accept would sign off holds the verdict open too.
       const needsVerdict =
-        shotNeedsVerdict(manager, video, s, downstreamVideo) ||
+        shotNeedsVerdict(manager, video, s, counterpart) ||
         (waiversByShotId.get(s.shotId) ?? []).some((w) => w.needsReview);
 
       return {
@@ -925,7 +926,7 @@ export async function handleGetReelState(
           duration: video.overlay.duration,
           definitionHash,
           ...status,
-          offered: status.needsReview && shotAcceptsStand(manager, video, downstreamVideo),
+          offered: status.needsReview && shotAcceptsStand(manager, video, counterpart),
           feedback: buildAddressFeedback(feedbackMgr, manager.getState(), address, {
             cache: manager.stalenessCache(),
             definitionHashes: definitionHash ? new Map([[address, definitionHash]]) : new Map(),
@@ -1359,6 +1360,7 @@ export async function handleReelSubmit(
   const manager = await StateManager.load(videoRoot);
   const video = await reload();
   const stage = video.stage;
+  const counterpart = stage === "video" ? animatic : downstreamVideo;
 
   // The same plan handleGetReelState renders under (one builder, no options here).
   //
@@ -1540,16 +1542,18 @@ export async function handleReelSubmit(
     });
   }
 
-  // The board leaves the video has taken over, re-made for the shots this review accepts: the stems
-  // before any video leaf is built over one, the compositions once the video's own have signed off
-  // what they draw. One that cannot be made is reported with the review's other skips.
-  const boardLeafFailures: Array<{ shotId: string; address: string; reason: string }> = [];
-  const remakeBoardLeaves = async (include: "stems" | "compositions"): Promise<void> => {
-    if (stage !== "video" || !animatic || okShotIds.size === 0) return;
-    const remade = await remakeSupersededBoardLeaves({
+  // The other shot stage's leaves this review settles, re-made for the shots it accepts: the board's
+  // stems before any video leaf is built over one, and the compositions whose picture this stage's
+  // hold once those have signed it off. One that cannot be made is reported with the review's other
+  // skips.
+  const settledLeafFailures: Array<{ shotId: string; address: string; reason: string }> = [];
+  const remakeSettled = async (include: "stems" | "compositions"): Promise<void> => {
+    if (!counterpart || okShotIds.size === 0) return;
+    if (include === "stems" && stage !== "video") return;
+    const remade = await remakeSettledLeaves({
       videoRoot,
-      board: animatic,
-      video,
+      stage: counterpart,
+      counterpart: video,
       shotIds: okShotIds,
       include,
     });
@@ -1558,10 +1562,10 @@ export async function handleReelSubmit(
       cascadeAccepted.push({ address, via: formatShotAddress(stage, shotId) });
     }
     for (const { shotId, address, reason } of remade.failed) {
-      boardLeafFailures.push({ shotId, address, reason: `could not be re-made — ${reason}` });
+      settledLeafFailures.push({ shotId, address, reason: `could not be re-made — ${reason}` });
     }
   };
-  await remakeBoardLeaves("stems");
+  await remakeSettled("stems");
 
   const toAccept: Array<{ address: string; variantId: string; dismiss: string[] }> = [];
 
@@ -1763,7 +1767,7 @@ export async function handleReelSubmit(
       }
     });
   }
-  await remakeBoardLeaves("compositions");
+  await remakeSettled("compositions");
 
   if (unacceptShotIds.size > 0) {
     await StateManager.withLock(videoRoot, async (mgr) => {
@@ -1786,7 +1790,7 @@ export async function handleReelSubmit(
   // failures the same way, so a "none" that did not take must not be recorded as a release either.
   const skippedDecisions: NonNullable<ReviewRecord["skippedDecisions"]> = [
     ...heldShots,
-    ...boardLeafFailures,
+    ...settledLeafFailures,
   ];
   if (okShotIds.size > 0 || unacceptShotIds.size > 0) {
     const postAccept = await StateManager.load(videoRoot);
@@ -1947,7 +1951,7 @@ export async function handleReelSubmit(
     submittedOverlayDecision ??
     (video.overlay &&
     Object.values(submittedDecisions ?? {}).includes("accepted") &&
-    shotAcceptsStand(await StateManager.load(videoRoot), video, downstreamVideo) &&
+    shotAcceptsStand(await StateManager.load(videoRoot), video, counterpart) &&
     materializedLeafReviewStatus(
       await StateManager.load(videoRoot),
       overlayAddress,

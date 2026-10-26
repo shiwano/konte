@@ -556,6 +556,60 @@ export function compositionStructureHtml(video: StageDefinition, shotId: string)
   return video.stage === "animatic" ? html.replace(/\s+/g, " ").trim() : stripAudioFromHtml(html);
 }
 
+const VOID_TAGS = new Set([
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "param",
+  "source",
+  "track",
+  "wbr",
+]);
+const RAW_TEXT_TAGS = new Set(["style", "script"]);
+
+// What a shot's composition puts on screen, rendered from the definition alone: the top-level nodes
+// of its audio-stripped structure, in stacking order. Null when the shot has no render function.
+// Operates on the well-formed HTML our renderer emits, like `stripAudioFromHtml`.
+export function compositionPictureNodes(video: StageDefinition, shotId: string): string[] | null {
+  const structure = compositionStructureHtml(video, shotId);
+  if (structure === null) return null;
+  const html = stripAudioFromHtml(structure);
+  const nodes: string[] = [];
+  const pushText = (text: string) => {
+    if (text.trim() !== "") nodes.push(text.trim());
+  };
+  const tag = /<!--[\s\S]*?-->|<(\/?)([a-zA-Z][\w:-]*)\b[^>]*?(\/?)>/g;
+  let depth = 0;
+  let start = 0;
+  let last = 0;
+  for (let m = tag.exec(html); m; m = tag.exec(html)) {
+    if (depth === 0) {
+      pushText(html.slice(last, m.index));
+      start = m.index;
+    }
+    const name = m[2]?.toLowerCase();
+    if (name && !m[1] && !m[3] && RAW_TEXT_TAGS.has(name)) {
+      const close = html.toLowerCase().indexOf(`</${name}>`, tag.lastIndex);
+      tag.lastIndex = close === -1 ? html.length : close + name.length + 3;
+    } else if (name && !m[3] && !VOID_TAGS.has(name)) {
+      depth += m[1] ? -1 : 1;
+    }
+    if (depth === 0) {
+      nodes.push(html.slice(start, tag.lastIndex));
+      last = tag.lastIndex;
+    }
+  }
+  pushText(html.slice(last));
+  return nodes;
+}
+
 // Every developed shot's composition and the overlay, rendered from the definition alone.
 export function compositionClassSubjects(video: StageDefinition): ClassSubject[] {
   const subjects: ClassSubject[] = [];

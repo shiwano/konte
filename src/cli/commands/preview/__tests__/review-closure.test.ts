@@ -13,7 +13,7 @@ import {
 import {
   consumedBoardStems,
   planSupersededStemRemakes,
-  remakeSupersededBoardLeaves,
+  remakeSettledLeaves,
 } from "../../../../core/board-leaves.js";
 import { compositionInputFingerprints } from "../../../../core/composition-resource.js";
 import { computeDefinitionHash } from "../../../../core/definition-hash.js";
@@ -665,10 +665,10 @@ describe("video review closure", () => {
       videoPath: path.join(videoRoot, "video.tsx"),
       mode: "video-preview",
     });
-    const remixed = await remakeSupersededBoardLeaves({
+    const remixed = await remakeSettledLeaves({
       videoRoot,
-      board: defs.animatic!,
-      video: defs.video!,
+      stage: defs.animatic!,
+      counterpart: defs.video!,
       include: "stems",
     });
 
@@ -698,10 +698,10 @@ describe("video review closure", () => {
     expect([...consumedBoardStems(graph, ["video:shot.02.motion"])]).toEqual([stem]);
     expect([...consumedBoardStems(graph, ["video:shot.01.motion"])]).toEqual([]);
 
-    const untouched = await remakeSupersededBoardLeaves({
+    const untouched = await remakeSettledLeaves({
       videoRoot,
-      board: defs.animatic!,
-      video: defs.video!,
+      stage: defs.animatic!,
+      counterpart: defs.video!,
       addresses: consumedBoardStems(graph, ["video:shot.01.motion"]),
       include: "stems",
     });
@@ -754,10 +754,10 @@ describe("video review closure", () => {
       videoPath: path.join(videoRoot, "video.tsx"),
       mode: "video-preview",
     });
-    const remixed = await remakeSupersededBoardLeaves({
+    const remixed = await remakeSettledLeaves({
       videoRoot,
-      board: defs.animatic!,
-      video: defs.video!,
+      stage: defs.animatic!,
+      counterpart: defs.video!,
       include: "stems",
     });
 
