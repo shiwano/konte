@@ -145,11 +145,9 @@ export async function prepareAgentSettings(
         if (key === ".mcp.json") server.type = "stdio";
         else {
           server.cwd = workspaceRoot;
-          // Codex's Windows sandbox fails to start when a profile denies reads on a file.
-          if (platform === "win32") {
-            const roots = table(table(table(settings, "permissions"), "konte"), "filesystem");
-            delete table(roots, ":workspace_roots")["konte.credentials.json"];
-          }
+          // Codex's sandbox confines the konte its shell runs, which reads the credentials at startup.
+          const roots = table(table(table(settings, "permissions"), "konte"), "filesystem");
+          delete table(roots, ":workspace_roots")["konte.credentials.json"];
           leadPathWithBin(
             table(table(settings, "shell_environment_policy"), "set"),
             binDir,

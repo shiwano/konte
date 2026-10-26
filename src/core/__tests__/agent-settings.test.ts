@@ -109,15 +109,17 @@ describe("environment-specific agent settings", () => {
     },
   );
 
-  it("denies Codex the credentials file except on Windows", async () => {
-    const roots = (files: Record<string, string>) =>
-      codex(files).permissions.konte.filesystem[":workspace_roots"];
-    const linux = await prepareAgentSettings(root, "linux");
-    expect(roots(linux)["konte.credentials.json"]).toBe("deny");
-    await writeAgentSettings(root, linux);
-    const windows = roots(await prepareAgentSettings(root, "win32"));
-    expect(windows["konte.credentials.json"]).toBeUndefined();
-    expect(windows[".codex/config.toml"]).toBe("read");
+  it("leaves the credentials file readable to the konte Codex runs", async () => {
+    await fs.mkdir(path.join(root, ".codex"), { recursive: true });
+    await fs.writeFile(
+      path.join(root, ".codex/config.toml"),
+      '[permissions.konte.filesystem.":workspace_roots"]\n"konte.credentials.json" = "deny"\n',
+    );
+    const roots = codex(await prepareAgentSettings(root, "linux")).permissions.konte.filesystem[
+      ":workspace_roots"
+    ];
+    expect(roots["konte.credentials.json"]).toBeUndefined();
+    expect(roots[".codex/config.toml"]).toBe("read");
   });
 
   it("prepends the workspace bin to the inherited POSIX PATH", async () => {

@@ -65,4 +65,4 @@ After a batch of changes, run `konte status` — it type-checks the whole worksp
 
 ## Security
 
-- Agents **cannot** read or edit `konte.credentials.json` (via any tool: Read, Bash cat/head/tail/grep, env, source, etc.) and must **never** echo key values; the human sets them in `konte settings`.
+- Agents **must not** read or edit `konte.credentials.json` (via any tool: Read, Bash cat/head/tail/grep, env, source, etc.) and must **never** echo key values; the human sets them in `konte settings`.

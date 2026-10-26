@@ -36,7 +36,6 @@ approvals_reviewer = "auto_review"
 extends = ":workspace"
 
 [permissions.konte.filesystem.":workspace_roots"]
-"konte.credentials.json" = "deny"
 ".claude/settings.json" = "read"
 ".codex/config.toml" = "read"
 
