@@ -11,10 +11,11 @@ import { execFileSync } from "node:child_process";
 //
 // SHIPPED — what a user's agent loads in their konte project.
 // - `video` — the template skills loaded driving one video from reference →
-//   animatic → video → export. The chain is the fixed, always-loaded set;
-//   per-model and per-backend docs (one of each loads per project, ~2-3k
-//   tokens) are headroom inside the budget, not listed. `story.md` stands
-//   for whichever form reference scenario-guide routes to, the largest of them.
+//   animatic → video → export, then revising it. The chain is the fixed,
+//   always-loaded set; per-model and per-backend docs (one of each loads per
+//   project, ~2-3k tokens) are headroom inside the budget, not listed.
+//   `story.md` stands for whichever form reference scenario-guide routes to,
+//   the largest of them.
 // - `music-video` — the `video` chain for a mood piece cut to a song.
 // - `konte-direction-critic` / `konte-prompt-critic` — a subagent contract, loaded whole
 //   on every spawn. Its "Read only this" rules bar skills and records, so
@@ -170,6 +171,7 @@ const SHIPPED_JOURNEYS = [
       `${SKILLS}/composition-guide/references/audio-patterns.md`,
       `${SKILLS}/composition-guide/references/sound-design.md`,
       `${SKILLS}/export-guide/SKILL.md`,
+      `${SKILLS}/revision-guide/SKILL.md`,
     ],
   },
   {
@@ -209,6 +211,7 @@ const SHIPPED_JOURNEYS = [
       `${SKILLS}/composition-guide/references/audio-patterns.md`,
       `${SKILLS}/composition-guide/references/sound-design.md`,
       `${SKILLS}/export-guide/SKILL.md`,
+      `${SKILLS}/revision-guide/SKILL.md`,
     ],
   },
 ];
