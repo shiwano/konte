@@ -132,6 +132,20 @@ describe("a graphic shot", () => {
     expect(structure(direction([narrative("01"), graphic("02")]))).toEqual([]);
   });
 
+  it("needs no setup or location roster when no shot has a camera frame", () => {
+    const dir = direction([graphic("01"), graphic("02")], { setups: {}, locations: {} });
+    expect(structure(dir)).toEqual([]);
+    const rosterCodes = checkDirection(dir)
+      .active.map((f) => f.code)
+      .filter((code) => /setup|location/.test(code));
+    expect(rosterCodes).toEqual([]);
+  });
+
+  it("needs a setup roster once a cutin frames a graphic shot", () => {
+    const dir = direction([graphic("01", { cutin: wipe() })], { setups: {}, locations: {} });
+    expect(structure(dir)).toContain("setup-empty");
+  });
+
   it("breaks a main-frame long take: `continuous` after it is impossible", () => {
     const dir = direction([graphic("01"), narrative("02", { join: "continuous" })]);
     const errors = validateDirectionStructure(dir).filter((e) => e.code === "join-impossible");

@@ -2117,19 +2117,20 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
 
   errors.push(...withinErrors(direction), ...viewErrors(direction));
 
-  // Every shot is taken from somewhere: `shot.setup` is required and must resolve to a declared setup.
-  // An empty roster (while shots exist) is `setup-empty` — reported once rather than as one
-  // `setup-unknown` per shot; a non-empty roster reports each shot whose `setup` is not in it.
+  // Every frame is taken from somewhere: its `setup` must resolve to a declared setup. An empty roster
+  // (while frames exist) is `setup-empty` — reported once rather than as one `setup-unknown` per
+  // frame; a non-empty roster reports each frame whose `setup` is not in it.
+  const frames = collectShotFrames(direction);
   if (seenSetupIds.size === 0) {
-    if (shotIds.length > 0) {
+    if (frames.length > 0) {
       errors.push({
         code: "setup-empty",
         message:
-          "direction declares no setups — every shot points at one, so declare at least one setup",
+          "direction declares no setups — every camera frame points at one, so declare at least one setup",
       });
     }
   } else {
-    for (const f of collectShotFrames(direction)) {
+    for (const f of frames) {
       if (!seenSetupIds.has(f.setup)) {
         errors.push({
           code: "setup-unknown",

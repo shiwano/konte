@@ -495,13 +495,12 @@ export type Direction = {
   // piece may declare none (unlike `characters`, which is always the piece's roster) — so it defaults
   // to an empty roster. Keyed by id like `characters`.
   props?: Record<string, Prop>;
-  // The location roster, keyed by id (`id` -> location). Required and non-empty: every setup names
-  // one, so the roster must offer at least one. Keyed by id like `characters`, sharing the reference
+  // The location roster, keyed by id (`id` -> location). Non-empty once any setup is declared: every
+  // setup names one. Keyed by id like `characters`, sharing the reference
   // namespace (a collision with a character/prop id is a structural error).
   locations: Record<string, Location>;
-  // The camera-setup roster, keyed by id (`id` -> setup). Required and non-empty: every shot points at
-  // one via its `setup` field, so the roster must offer at least one — the review's frame and space
-  // columns and the unused-setup check all depend on it. Unlike the three identity rosters this one
+  // The camera-setup roster, keyed by id (`id` -> setup). Non-empty once any camera frame exists: a
+  // narrative shot and a cutin each point at one via its `setup` field. Unlike the three identity rosters this one
   // does NOT share the `reference:<id>` namespace: a setup's plate lives at `animatic:plate.<id>`, so
   // a setup id may equal a character/prop/location id without conflict.
   setups: Record<string, Setup>;
