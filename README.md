@@ -30,21 +30,13 @@ After setup, start a session with one skill:
 > /konte-checkin   # Codex: $konte-checkin
 ```
 
-The agent helps you develop a new idea or reviews an existing project's progress, then proposes the next step.
+The agent helps you develop a new idea or picks up an existing project where you left off, then proposes the next step.
 
-1. **Plan.** Discuss your idea with the agent and approve the shot plan.
-2. **Review assets.** Approve the shared characters, locations, and other references.
+1. **Plan.** Discuss your idea with the agent and accept the shot plan.
+2. **Review shared assets.** Accept the characters, locations, and other references.
 3. **Review the cut.** The agent builds a timed storyboard, then video, one sequence at a time.
 4. **Revise.** Choose takes and leave comments; the agent makes the changes.
-5. **Export.** When you approve the cut, the agent renders the MP4.
-
-## What konte keeps
-
-- **Compare takes.** Each generation adds a candidate and keeps earlier takes available.
-- **Track changes.** konte flags outputs affected by changed inputs; the agent asks before replacing accepted work.
-- **Reuse shared assets.** Character references, props, and music can serve multiple shots.
-- **Resume later.** Production files, accepted takes, and feedback stay in the workspace.
-- **Try other models.** The agent can switch models for selected assets, keeping the shot plan and review history.
+5. **Export.** When you accept the cut, the agent renders the MP4.
 
 ## Quick start
 
@@ -133,7 +125,7 @@ The agent writes four TypeScript files per video. They stay in code so they can 
 | `animatic.tsx`  | The timed storyboard, including still images and dialogue.       |
 | `video.tsx`     | The final shots, sound, subtitles, and overlays.                 |
 
-`konte.state.json` records takes and approvals; review comments are kept under `review/`. Each asset has an address such as `video:shot.01.motion`; konte tracks changes to its definition and inputs.
+`konte.state.json` records takes and which ones you accepted; review comments are kept under `review/`. Each asset has an address such as `video:shot.01.motion`; konte tracks changes to its definition and inputs. The agent asks before replacing a take you accepted.
 
 A shot in `video.tsx` references the animatic's keyframes and fills the model's prompt sections, all as typed fields:
 
@@ -171,7 +163,7 @@ konte is a pre-1.0 technical preview:
 
 - Project definitions and state formats can change without migration support.
 - Claude Code in the terminal with local ComfyUI is the most tested combination.
-- The review UI is minimal, with playback, take comparison, approval, and pinned comments.
+- The review UI is minimal, with playback, take comparison, acceptance, and pinned comments.
 - Film-scale productions have not been tested.
 
 Share feedback on [Discord](https://discord.gg/2b7UwFE2Yy) or [GitHub Discussions](https://github.com/shiwano/konte/discussions). The `konte-feedback` skill can draft a report.
