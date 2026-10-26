@@ -8,7 +8,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo \"export PATH=\\\"$CLAUDE_PROJECT_DIR/.konte/bin:\\$PATH\\\"\" >> \"$CLAUDE_ENV_FILE\""
+            "command": "printf \"export PATH='%s/.konte/bin':\\\"\\$PATH\\\"\\n\" \"$(printf '%s' \"$CLAUDE_PROJECT_DIR\" | sed \"s/'/'\\\\\\\\''/g\")\" >> \"$CLAUDE_ENV_FILE\""
           }
         ]
       }

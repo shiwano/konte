@@ -66,8 +66,8 @@ function leadPathWithBin(env: Settings, binDir: string, platform: NodeJS.Platfor
 // drive colon would split the PATH, so cygpath converts it.
 function pathHookCommand(platform: NodeJS.Platform): string {
   const projectDir =
-    platform === "win32" ? '$(cygpath -u \\"$CLAUDE_PROJECT_DIR\\")' : "$CLAUDE_PROJECT_DIR";
-  return `echo "export PATH=\\"${projectDir}/.konte/bin:\\$PATH\\"" >> "$CLAUDE_ENV_FILE"`;
+    platform === "win32" ? 'cygpath -u "$CLAUDE_PROJECT_DIR"' : `printf '%s' "$CLAUDE_PROJECT_DIR"`;
+  return String.raw`printf "export PATH='%s/.konte/bin':\"\$PATH\"\n" "$(${projectDir} | sed "s/'/'\\\\''/g")" >> "$CLAUDE_ENV_FILE"`;
 }
 
 function isPathHook(entry: unknown): boolean {

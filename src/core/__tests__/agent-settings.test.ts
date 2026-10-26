@@ -65,7 +65,7 @@ describe("environment-specific agent settings", () => {
     const expectedPath = `${windowsRoot}\\.konte\\bin;C:\\Windows\\System32;C:\\Program Files\\Git\\cmd`;
     expect(codex(files).shell_environment_policy.set.PATH).toBe(expectedPath);
     expect(pathHooks(files)).toEqual([
-      'echo "export PATH=\\"$(cygpath -u \\"$CLAUDE_PROJECT_DIR\\")/.konte/bin:\\$PATH\\"" >> "$CLAUDE_ENV_FILE"',
+      String.raw`printf "export PATH='%s/.konte/bin':\"\$PATH\"\n" "$(cygpath -u "$CLAUDE_PROJECT_DIR" | sed "s/'/'\\\\''/g")" >> "$CLAUDE_ENV_FILE"`,
     ]);
     expect(claude(files).env.PATH).toBeUndefined();
   });
@@ -116,7 +116,7 @@ describe("environment-specific agent settings", () => {
       `${root}/.konte/bin:/usr/local/bin:/usr/bin`,
     );
     expect(pathHooks(files)).toEqual([
-      'echo "export PATH=\\"$CLAUDE_PROJECT_DIR/.konte/bin:\\$PATH\\"" >> "$CLAUDE_ENV_FILE"',
+      String.raw`printf "export PATH='%s/.konte/bin':\"\$PATH\"\n" "$(printf '%s' "$CLAUDE_PROJECT_DIR" | sed "s/'/'\\\\''/g")" >> "$CLAUDE_ENV_FILE"`,
     ]);
   });
 
