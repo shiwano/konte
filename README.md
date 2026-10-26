@@ -40,7 +40,7 @@ The agent helps you develop a new idea or picks up an existing project where you
 
 https://github.com/user-attachments/assets/752ed713-a210-44b8-ba14-74973285ecb7
 
-<sup>Project files for this video: [konte-how-you-use-it-video-example](https://github.com/shiwano/konte-how-you-use-it-video-example).</sup>
+<sup>Project files for this video: [konte-demo-video-example](https://github.com/shiwano/konte-demo-video-example/tree/main/videos/how-you-use-it).</sup>
 
 ## Quick start
 
@@ -70,6 +70,15 @@ Then run setup:
 
 Restart as setup instructs, then run `/konte-checkin`.
 
+<details>
+<summary>Watch it in the desktop app</summary>
+
+https://github.com/user-attachments/assets/c10629d3-e1eb-4708-95da-c3720bac878f
+
+<sup>Project files for this video: [konte-demo-video-example](https://github.com/shiwano/konte-demo-video-example/tree/main/videos/claude-code-desktop-setup).</sup>
+
+</details>
+
 ### Codex
 
 Install from the **terminal**:
@@ -91,6 +100,15 @@ Then run setup:
 ```
 
 Restart as setup instructs, then run `$konte-checkin`.
+
+<details>
+<summary>Watch it in the desktop app</summary>
+
+https://github.com/user-attachments/assets/ac615568-6e7f-434a-aa34-e17c6381d57c
+
+<sup>Project files for this video: [konte-demo-video-example](https://github.com/shiwano/konte-demo-video-example/tree/main/videos/codex-desktop-setup).</sup>
+
+</details>
 
 ### Uninstall
 
