@@ -6,7 +6,11 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ensureFfmpeg } from "../../core/ffmpeg.js";
-import { ffmpegBin } from "../../core/ffmpeg-binary.js";
+import {
+  ffmpegBin,
+  SINGLE_FRAME_INPUT_ARGS,
+  SINGLE_FRAME_OUTPUT_ARGS,
+} from "../../core/ffmpeg-binary.js";
 import { StateManager } from "../../core/state/index.js";
 import {
   ctx,
@@ -339,12 +343,14 @@ describe("probe contact-sheet (reel scope)", () => {
       "-y",
       "-v",
       "error",
+      ...SINGLE_FRAME_INPUT_ARGS,
       "-f",
       "lavfi",
       "-i",
       "color=c=blue:size=1024x576",
       "-frames:v",
       "1",
+      ...SINGLE_FRAME_OUTPUT_ARGS,
       png,
     ]);
 

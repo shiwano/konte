@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { annotateFrameWithPin, pinReticleFilters, planPinReticle } from "../annotate-frame.js";
-import { ffmpegBin } from "../ffmpeg-binary.js";
+import { ffmpegBin, SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "../ffmpeg-binary.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -116,12 +116,14 @@ describe("annotateFrameWithPin", () => {
     const file = path.join(dir, "frame.jpg");
     await execFileAsync(await ffmpegBin(), [
       "-y",
+      ...SINGLE_FRAME_INPUT_ARGS,
       "-f",
       "lavfi",
       "-i",
       "color=c=gray:s=640x360",
       "-frames:v",
       "1",
+      ...SINGLE_FRAME_OUTPUT_ARGS,
       file,
     ]);
     return file;

@@ -4,7 +4,11 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it, vi } from "vitest";
 import { ensureFfmpeg } from "../../core/ffmpeg.js";
-import { ffmpegBin } from "../../core/ffmpeg-binary.js";
+import {
+  ffmpegBin,
+  SINGLE_FRAME_INPUT_ARGS,
+  SINGLE_FRAME_OUTPUT_ARGS,
+} from "../../core/ffmpeg-binary.js";
 import {
   ctx,
   useTempWorkspace,
@@ -54,12 +58,14 @@ export default defineVideo(direction, {
       "-y",
       "-v",
       "error",
+      ...SINGLE_FRAME_INPUT_ARGS,
       "-f",
       "lavfi",
       "-i",
       "mandelbrot=size=1024x576:rate=1",
       "-frames:v",
       "1",
+      ...SINGLE_FRAME_OUTPUT_ARGS,
       source,
     ]);
     const render = async (name: string, filters: string): Promise<void> => {

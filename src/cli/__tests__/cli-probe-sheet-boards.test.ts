@@ -6,7 +6,11 @@ import { promisify } from "node:util";
 import { describe, expect, it, vi } from "vitest";
 import { maxCellsForWidth } from "../../core/contact-sheet.js";
 import { ensureFfmpeg } from "../../core/ffmpeg.js";
-import { ffmpegBin } from "../../core/ffmpeg-binary.js";
+import {
+  ffmpegBin,
+  SINGLE_FRAME_INPUT_ARGS,
+  SINGLE_FRAME_OUTPUT_ARGS,
+} from "../../core/ffmpeg-binary.js";
 import { StateManager } from "../../core/state/index.js";
 import {
   acceptDirection,
@@ -50,12 +54,14 @@ async function writeStill(projectDir: string): Promise<void> {
     "-y",
     "-v",
     "error",
+    ...SINGLE_FRAME_INPUT_ARGS,
     "-f",
     "lavfi",
     "-i",
     "color=c=blue:size=1024x576",
     "-frames:v",
     "1",
+    ...SINGLE_FRAME_OUTPUT_ARGS,
     png,
   ]);
 }

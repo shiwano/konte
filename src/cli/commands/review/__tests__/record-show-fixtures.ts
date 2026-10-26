@@ -5,7 +5,11 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeEach } from "vitest";
 import { applyResolutionDefinitions } from "../../../../core/definition-hashes.js";
-import { ffmpegBin } from "../../../../core/ffmpeg-binary.js";
+import {
+  ffmpegBin,
+  SINGLE_FRAME_INPUT_ARGS,
+  SINGLE_FRAME_OUTPUT_ARGS,
+} from "../../../../core/ffmpeg-binary.js";
 import { type ReviewRecord, saveReviewRecord } from "../../../../core/review-record.js";
 import { StateManager } from "../../../../core/state/manager.js";
 import { feedbackFramePath } from "../../../../core/thumbnail.js";
@@ -94,12 +98,14 @@ export async function writeFrame(
   await fs.mkdir(path.dirname(file), { recursive: true });
   await execFileAsync(await ffmpegBin(), [
     "-y",
+    ...SINGLE_FRAME_INPUT_ARGS,
     "-f",
     "lavfi",
     "-i",
     "color=c=gray:s=192x108",
     "-frames:v",
     "1",
+    ...SINGLE_FRAME_OUTPUT_ARGS,
     file,
   ]);
 }

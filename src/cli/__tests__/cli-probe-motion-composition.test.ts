@@ -5,7 +5,11 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it, vi } from "vitest";
 import { ensureFfmpeg } from "../../core/ffmpeg.js";
-import { ffmpegBin } from "../../core/ffmpeg-binary.js";
+import {
+  ffmpegBin,
+  SINGLE_FRAME_INPUT_ARGS,
+  SINGLE_FRAME_OUTPUT_ARGS,
+} from "../../core/ffmpeg-binary.js";
 import {
   TEST_VIDEO_CHAINED_SHOTS_TSX,
   acceptDirection,
@@ -40,12 +44,14 @@ vi.mock("../../core/thumbnail.js", async (importOriginal) => {
             "-y",
             "-v",
             "error",
+            ...SINGLE_FRAME_INPUT_ARGS,
             "-f",
             "lavfi",
             "-i",
             "color=c=gray:s=128x72",
             "-frames:v",
             "1",
+            ...SINGLE_FRAME_OUTPUT_ARGS,
             file,
           ]);
           return { file: path.relative(options.videoRoot, file), timestamp };

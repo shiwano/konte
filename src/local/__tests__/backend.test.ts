@@ -5,7 +5,12 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import type { GenerationRequest } from "../../core/backend.js";
-import { ffmpegBin, ffprobeBin } from "../../core/ffmpeg-binary.js";
+import {
+  ffmpegBin,
+  ffprobeBin,
+  SINGLE_FRAME_INPUT_ARGS,
+  SINGLE_FRAME_OUTPUT_ARGS,
+} from "../../core/ffmpeg-binary.js";
 import type { AssetDefinition, LocalAssetDefinition } from "../../core/types/index.js";
 import { compositeWithHyperFrames } from "../../core/hyperframes.js";
 import { captureHtmlToImage } from "../../core/still-capture.js";
@@ -117,6 +122,7 @@ async function makeTwoToneImage(relPath: string): Promise<string> {
   await fs.mkdir(path.dirname(absolute), { recursive: true });
   await execFileAsync(await ffmpegBin(), [
     "-y",
+    ...SINGLE_FRAME_INPUT_ARGS,
     "-f",
     "lavfi",
     "-i",
@@ -129,6 +135,7 @@ async function makeTwoToneImage(relPath: string): Promise<string> {
     "hstack",
     "-frames:v",
     "1",
+    ...SINGLE_FRAME_OUTPUT_ARGS,
     absolute,
   ]);
   return absolute;

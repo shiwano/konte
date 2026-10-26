@@ -7,7 +7,11 @@ import { readDefinitionSnapshot } from "../../core/definition-snapshot.js";
 import { spendGateHooks } from "../../core/backend-policy.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import { getAssetEntry } from "../../core/address.js";
-import { ffmpegBin } from "../../core/ffmpeg-binary.js";
+import {
+  ffmpegBin,
+  SINGLE_FRAME_INPUT_ARGS,
+  SINGLE_FRAME_OUTPUT_ARGS,
+} from "../../core/ffmpeg-binary.js";
 import { applyDirectionSectionDecisions } from "../../core/direction-acceptance.js";
 import { hashFile } from "../../core/content-hash.js";
 import { StateManager } from "../../core/state/manager.js";
@@ -1213,12 +1217,14 @@ describe("animatic acceptance gate (multi-shot)", () => {
       }
       await execFileAsync(await ffmpegBin(), [
         "-y",
+        ...SINGLE_FRAME_INPUT_ARGS,
         "-f",
         "lavfi",
         "-i",
         `color=c=red:s=${opts.size}`,
         "-frames:v",
         "1",
+        ...SINGLE_FRAME_OUTPUT_ARGS,
         "-c:v",
         "png",
         "-f",
