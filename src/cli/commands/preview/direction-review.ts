@@ -627,6 +627,15 @@ export async function handleDirectionSubmit(
         cache: mgr.stalenessCache(),
         subjectHashes,
       });
+      // A revoke of a box holding no sign-off changes nothing, so it is no outcome to record.
+      const signedOff = new Set(
+        Object.keys(mgr.getDirectionAcceptance()?.parts ?? {}).map(directionSectionOf),
+      );
+      for (const section of DIRECTION_SECTIONS) {
+        if (sectionDecisions[section] === false && !signedOff.has(section)) {
+          delete sectionDecisions[section];
+        }
+      }
       if (Object.keys(sectionDecisions).length > 0) {
         mgr.setDirectionAcceptance(
           applyDirectionSectionDecisions(direction, mgr.getDirectionAcceptance(), sectionDecisions),

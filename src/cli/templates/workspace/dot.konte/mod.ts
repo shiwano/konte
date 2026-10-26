@@ -627,6 +627,7 @@ export type DirectionFinding = {
   subject?: string;
   path?: readonly string[];
   message: string;
+  signedOff?: true;
 };
 export type CheckArcOptions = {
   noun?: string;
