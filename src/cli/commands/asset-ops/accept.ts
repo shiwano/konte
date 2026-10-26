@@ -18,11 +18,14 @@ import {
 import {
   type DefinitionLike,
   directionSectionOf,
+  formatCompositionAddress,
   getAssetStage,
   isMaterializedLeafAddress,
+  listShotStems,
   matchesAddressScope,
   parseAddress,
   parseDirectionScope,
+  parseShotScope,
 } from "../../../core/address.js";
 import {
   commitLeafForAddress,
@@ -31,7 +34,8 @@ import {
   prepareLeafForAddress,
 } from "../../../core/composition-resource.js";
 import { KonteError } from "../../../core/errors.js";
-import { buildDependencyGraph } from "../../../core/graph.js";
+import { buildDependencyGraph, type DependencyGraph } from "../../../core/graph.js";
+import type { LoadedDefinitions } from "../../../core/select-definition.js";
 import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
 import { JobManager } from "../../../core/job-manager.js";
 import {
@@ -98,7 +102,10 @@ A standing comment the accept signs off over is closed, and named.
 
 Several takes are decided together: all resolved before anything is written,
 accepted dependencies first, under one confirmation. Two takes of one address
-refuse, as does a composition or stem beside another target.
+refuse, as does a composition or stem beside a target it is rendered from.
+
+A shot ("animatic:shot.01") stands for its composition and every stem; with
+--off, for those of them accepted.
 
 A take whose upstream changed since it was made is kept against the newer upstream:
 it stops reading stale, and nothing regenerates it. To replace it instead, run
@@ -121,6 +128,8 @@ Examples:
   konte accept v-abc123                    Accept the variant
   konte accept v-abc123 v-def456 -y        Accept several takes at once
   konte accept reference:bgm               Accept whatever that address resolves to
+  konte accept animatic:shot.01 animatic:shot.02 -y
+                                           Accept two shots' compositions and stems
   konte accept v-abc123 --off              Clear the variant's acceptance
   konte accept direction                   Sign off the whole direction
   konte accept direction:brief.logline     Sign off one direction part
@@ -306,6 +315,97 @@ async function runDirectionAcceptance(
 }
 
 type TakeTarget = { address: string; variantId: string };
+type MaterializedLeaf = TakeTarget & { fresh: boolean };
+type ShotStages = Pick<LoadedDefinitions, "video" | "animatic">;
+
+// A shot scope stands for what the shot's review page signs off with one accept.
+function shotScopeLeaves(stages: ShotStages, target: string): string[] | null {
+  const scope = parseShotScope(target);
+  if (!scope) return null;
+  const shot = (scope.stage === "animatic" ? stages.animatic : stages.video)?.shots.find(
+    (s) => s.id === scope.shotId,
+  );
+  const leaves = shot
+    ? [
+        ...(shot.shotFn ? [formatCompositionAddress(scope.stage, shot.id)] : []),
+        ...listShotStems(scope.stage, shot).map((stem) => stem.address),
+      ]
+    : [];
+  if (leaves.length === 0) {
+    throw new KonteError("ADDRESS_NOT_FOUND", `"${target}" has no composition or stem to accept`);
+  }
+  return leaves;
+}
+
+// A leaf is rendered from what its upstream resolves to before anything is accepted, so a batch that
+// also moves that upstream would hand it a take nobody signed off.
+function assertLeafUpstreamsUntouched(graph: DependencyGraph, addresses: readonly string[]): void {
+  const named = new Set(addresses);
+  for (const leaf of named) {
+    if (!isMaterializedLeafAddress(leaf)) continue;
+    const seen = new Set<string>();
+    const stack = [...(graph.dependencies.get(leaf) ?? [])];
+    while (stack.length > 0) {
+      const address = stack.pop()!;
+      if (seen.has(address)) continue;
+      seen.add(address);
+      if (named.has(address)) {
+        throw new KonteError(
+          "TARGETS_CONFLICT",
+          `${leaf} is rendered from ${address}, which this run also accepts — run \`konte accept ${address}\` first, then accept ${leaf}`,
+        );
+      }
+      stack.push(...(graph.dependencies.get(address) ?? []));
+    }
+  }
+}
+
+// Idempotent, reusing a matching variant.
+async function materializeLeaf(
+  videoRoot: string,
+  stages: ShotStages,
+  address: string,
+): Promise<MaterializedLeaf> {
+  // Rendered from the stage the address names: handing the video definition a board address writes
+  // to the wrong stage's shot, or finds nothing there.
+  const stage = parseAddress(address).stage === "animatic" ? stages.animatic : stages.video;
+  if (!stage) {
+    throw new KonteError(
+      "ADDRESS_NOT_FOUND",
+      `Cannot accept "${address}" — its stage has no definition loaded`,
+    );
+  }
+  // The board's stem is mixed here, outside the lock; the commit under it re-checks its inputs.
+  const prepared = await prepareLeafForAddress(await StateManager.load(videoRoot), stage, address);
+  const result = await StateManager.withLock(videoRoot, async (m) => {
+    const before = new Set(Object.keys(m.tryGetAssetState(address)?.variants ?? {}));
+    const id = prepared ? await commitLeafForAddress(m, stage, address, prepared) : null;
+    return { id, fresh: id !== null && !before.has(id) };
+  }).finally(() => discardPreparedLeaf(prepared));
+  if (!result.id) {
+    throw new KonteError(
+      "VARIANT_NOT_FOUND",
+      `Nothing to accept for "${address}" — its upstream refs are not ready, or it has no audio`,
+    );
+  }
+  return { address, variantId: result.id, fresh: result.fresh };
+}
+
+async function removeFreshLeaves(
+  videoRoot: string,
+  leaves: readonly MaterializedLeaf[],
+): Promise<void> {
+  const fresh = leaves.filter((leaf) => leaf.fresh);
+  if (fresh.length === 0) return;
+  await StateManager.withLock(videoRoot, async (m) => {
+    for (const leaf of fresh) m.removeVariant(leaf.address, leaf.variantId);
+  });
+  await Promise.all(
+    fresh.map((leaf) =>
+      fs.rm(variantDir(videoRoot, leaf.address, leaf.variantId), { recursive: true, force: true }),
+    ),
+  );
+}
 
 // Two names for one take (an id and the address showing it) are one target; two takes of one address
 // are a contradiction. Ordered dependencies first: a cascade never overwrites an accept, so a named
@@ -314,8 +414,9 @@ function resolveAcceptTargets(
   manager: StateManager,
   targets: readonly string[],
   topologicalOrder: readonly string[],
+  materialized: readonly TakeTarget[],
 ): TakeTarget[] {
-  const byAddress = new Map<string, TakeTarget>();
+  const byAddress = new Map<string, TakeTarget>(materialized.map((hit) => [hit.address, hit]));
   for (const target of targets) {
     const hit = resolveVariantArg(manager, target);
     const seen = byAddress.get(hit.address);
@@ -327,20 +428,12 @@ function resolveAcceptTargets(
     }
     byAddress.set(hit.address, hit);
   }
-  // A leaf named by its variant id escapes the raw-argument check in runAccept.
-  const leaf = [...byAddress.keys()].find((address) => isMaterializedLeafAddress(address));
-  if (leaf && byAddress.size > 1) {
-    throw new KonteError(
-      "TARGETS_CONFLICT",
-      `A composition or stem is accepted on its own — run \`konte accept ${leaf}\` separately`,
-    );
-  }
   const rank = new Map(topologicalOrder.map((address, i) => [address, i]));
   const rankOf = (address: string) => rank.get(address) ?? Number.MAX_SAFE_INTEGER;
   return [...byAddress.values()].sort((a, b) => rankOf(a.address) - rankOf(b.address));
 }
 
-async function runAccept(targets: string[], opts: AcceptOptions): Promise<void> {
+async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<void> {
   const videoRoot = requireVideoRoot();
   const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
   // Only for the direction cascade below, so a broken direction.ts must not take the accept down
@@ -351,297 +444,274 @@ async function runAccept(targets: string[], opts: AcceptOptions): Promise<void> 
   // An address argument lands on the take the address resolves to — "accept what was on screen".
   await applyResolutionDefinitions({ videoRoot, definitions: { video, animatic, reference } });
 
-  // A leaf is materialized below from what its upstream resolves to before the lock, so a batch that
-  // also moves that upstream would hand it a take nobody signed off.
-  const leafTarget = targets.find((t) => t.includes(":") && isMaterializedLeafAddress(t)) ?? null;
-  if (leafTarget && targets.length > 1) {
-    throw new KonteError(
-      "TARGETS_CONFLICT",
-      `A composition, stem or overlay is accepted on its own — run \`konte accept ${leafTarget}\` separately`,
-    );
-  }
+  const targets = [
+    ...new Set(rawTargets.flatMap((t) => shotScopeLeaves({ video, animatic }, t) ?? [t])),
+  ];
+  const isLeafArg = (t: string) => t.includes(":") && isMaterializedLeafAddress(t);
+  // A leaf named by its variant id is a leaf of the batch all the same.
+  const resolvingManager = await StateManager.load(videoRoot);
+  assertLeafUpstreamsUntouched(
+    graph,
+    targets.map((t) => (t.includes(":") ? t : resolvingManager.resolveVariantAddress(t))),
+  );
 
   // A composition/stem leaf is not pre-materialized — it is a graph leaf rendered from the live
-  // definition and materialized only when accepted. So materialize it here first (idempotent),
-  // then accept the exact variant it produced — the one this run rendered, which is not what the
-  // address would resolve to while an older accepted variant still sits beside it.
-  let forcedVariantId: string | null = null;
-  // A freshly-rendered leaf variant (not an idempotent reuse) must be undone if the user then
-  // declines the accept, so a rejected accept leaves no artifact behind (see the abort branch).
-  let materializedFresh = false;
-  if (leafTarget) {
-    // Rendered from the stage the address names: handing the video definition a board address
-    // writes to the wrong stage's shot, or finds nothing there.
-    const leafStage = parseAddress(leafTarget).stage === "animatic" ? animatic : video;
-    if (!leafStage) {
-      throw new KonteError(
-        "ADDRESS_NOT_FOUND",
-        `Cannot accept "${leafTarget}" — its stage has no definition loaded`,
+  // definition and materialized only when accepted. So materialize it here first, then accept the
+  // exact variant it produced — the one this run rendered, which is not what the address would
+  // resolve to while an older accepted variant still sits beside it.
+  const leaves: MaterializedLeaf[] = [];
+  // A leaf rendered here is undone unless the accept it was rendered for commits.
+  let committed = false;
+  try {
+    for (const target of targets.filter(isLeafArg)) {
+      leaves.push(await materializeLeaf(videoRoot, { video, animatic }, target));
+    }
+
+    // Compute (without persisting) which downstream assets this accept would
+    // make input-stale, by applying it to an in-memory copy of the state.
+    const previewManager = await StateManager.load(videoRoot);
+    const items = resolveAcceptTargets(
+      previewManager,
+      targets.filter((t) => !isLeafArg(t)),
+      graph.topologicalOrder,
+      leaves,
+    );
+    const addresses = items.map((item) => item.address);
+    // An accept signs off everything the review page shows for that target, so it cannot land while
+    // a finding to fix sits on it.
+    // A dep the cascade reaches that one holds is left for its own accept.
+    const findings = await collectFindings(
+      await loadCheckContext({
+        videoRoot,
+        definitions: { reference, animatic, video },
+        direction,
+        manager: previewManager,
+        graph,
+      }),
+      (t) => t.holds.accept === true,
+    );
+    const held = reviewHeldError(
+      `Cannot accept ${addresses.join(", ")}`,
+      reviewHeldFindings(
+        findings,
+        addresses.map((address) => ({ op: "accept", address })),
+      ),
+    );
+    if (held) throw held;
+    for (const item of items) {
+      assertSongLinesPlaced(
+        videoRoot,
+        direction,
+        previewManager.getState(),
+        item.address,
+        item.variantId,
       );
     }
-    // The board's stem is mixed here, outside the lock; the commit under it re-checks its inputs.
-    const prepared = await prepareLeafForAddress(
-      await StateManager.load(videoRoot),
-      leafStage,
-      leafTarget,
-    );
-    const result = await StateManager.withLock(videoRoot, async (m) => {
-      const before = new Set(Object.keys(m.tryGetAssetState(leafTarget)?.variants ?? {}));
-      const id = prepared ? await commitLeafForAddress(m, leafStage, leafTarget, prepared) : null;
-      return { id, fresh: id !== null && !before.has(id) };
-    }).finally(() => discardPreparedLeaf(prepared));
-    forcedVariantId = result.id;
-    materializedFresh = result.fresh;
-    if (!forcedVariantId) {
-      throw new KonteError(
-        "VARIANT_NOT_FOUND",
-        `Nothing to accept for "${leafTarget}" — its upstream refs are not ready, or it has no audio`,
-      );
-    }
-  }
 
-  // Compute (without persisting) which downstream assets this accept would
-  // make input-stale, by applying it to an in-memory copy of the state.
-  const previewManager = await StateManager.load(videoRoot);
-  const items: TakeTarget[] =
-    leafTarget && forcedVariantId
-      ? [{ address: leafTarget, variantId: forcedVariantId }]
-      : resolveAcceptTargets(previewManager, targets, graph.topologicalOrder);
-  const addresses = items.map((item) => item.address);
-  // An accept signs off everything the review page shows for that target, so it cannot land while
-  // a finding to fix sits on it.
-  // A dep the cascade reaches that one holds is left for its own accept.
-  const findings = await collectFindings(
-    await loadCheckContext({
-      videoRoot,
-      definitions: { reference, animatic, video },
-      direction,
-      manager: previewManager,
-      graph,
-    }),
-    (t) => t.holds.accept === true,
-  );
-  const held = reviewHeldError(
-    `Cannot accept ${addresses.join(", ")}`,
-    reviewHeldFindings(
-      findings,
-      addresses.map((address) => ({ op: "accept", address })),
-    ),
-  );
-  if (held) throw held;
-  for (const item of items) {
-    assertSongLinesPlaced(
-      videoRoot,
-      direction,
-      previewManager.getState(),
-      item.address,
-      item.variantId,
-    );
-  }
-
-  // A patch script is the second definition source a take can go stale against, so the candidate
-  // set below needs it as it needs the definition hash. A catalog that will not load is swallowed:
-  // accept spends nothing.
-  const patchHashes = await loadPatchCatalog(videoRoot, previewManager.getState())
-    .then(patchHashesOf)
-    .catch(() => undefined);
-  // The address's live definition, so a take the next `generate` will replace is not counted among
-  // the candidates this accept decides against.
-  const definitionHashOf = (address: string): string | null => {
-    const stageDef: DefinitionLike | null = {
-      video,
+    // A patch script is the second definition source a take can go stale against, so the candidate
+    // set below needs it as it needs the definition hash. A catalog that will not load is swallowed:
+    // accept spends nothing.
+    const patchHashes = await loadPatchCatalog(videoRoot, previewManager.getState())
+      .then(patchHashesOf)
+      .catch(() => undefined);
+    // The address's live definition, so a take the next `generate` will replace is not counted among
+    // the candidates this accept decides against.
+    const definitionHashOf = (address: string): string | null => {
+      const stageDef: DefinitionLike | null = {
+        video,
+        animatic,
+        reference,
+      }[getAssetStage(address)] as DefinitionLike | null;
+      return stageDef ? definitionHashForAddress(stageDef, address) : null;
+    };
+    const cascadeOpts = {
+      ...(video ? { video } : {}),
       animatic,
-      reference,
-    }[getAssetStage(address)] as DefinitionLike | null;
-    return stageDef ? definitionHashForAddress(stageDef, address) : null;
-  };
-  const cascadeOpts = {
-    ...(video ? { video } : {}),
-    animatic,
-    held: (address: string) => reviewHeldFindings(findings, [{ op: "accept", address }]).length > 0,
-  };
-  const jobManager = new JobManager(videoRoot);
+      held: (address: string) =>
+        reviewHeldFindings(findings, [{ op: "accept", address }]).length > 0,
+    };
+    const jobManager = new JobManager(videoRoot);
 
-  // Preview (no persist) which downstream assets this accept would restale, to drive the prompt.
-  // The reported figures are re-derived inside the lock below, so this is only a heads-up estimate.
-  const previewRoots: string[] = [];
-  for (const { address, variantId } of items) {
-    const previous = previewManager.getAcceptedVariant(address);
-    previewManager.setAccepted(address, variantId);
-    // A leaf's cascade signs off what the leaf DISPLAYS, resolved now — so re-accepting the same
-    // variant is not a no-op there: it is how a take swapped under an already-accepted leaf (a panel
-    // rerolled under an accepted animatic) gets signed off. A generation variant's cascade replays
-    // what its job consumed, so for one there is nothing new to sign and the shortcut stands.
-    const cascaded =
-      previous !== variantId || isMaterializedLeafAddress(address)
-        ? await cascadeAcceptConsumedDeps(
-            previewManager,
-            jobManager,
+    // Preview (no persist) which downstream assets this accept would restale, to drive the prompt.
+    // The reported figures are re-derived inside the lock below, so this is only a heads-up estimate.
+    const previewRoots: string[] = [];
+    for (const { address, variantId } of items) {
+      const previous = previewManager.getAcceptedVariant(address);
+      previewManager.setAccepted(address, variantId);
+      // A leaf's cascade signs off what the leaf DISPLAYS, resolved now — so re-accepting the same
+      // variant is not a no-op there: it is how a take swapped under an already-accepted leaf (a panel
+      // rerolled under an accepted animatic) gets signed off. A generation variant's cascade replays
+      // what its job consumed, so for one there is nothing new to sign and the shortcut stands.
+      const cascaded =
+        previous !== variantId || isMaterializedLeafAddress(address)
+          ? await cascadeAcceptConsumedDeps(
+              previewManager,
+              jobManager,
+              address,
+              variantId,
+              cascadeOpts,
+            )
+          : [];
+      keepAcceptedInputs(previewManager, address, variantId);
+      // Stale dependents of the accepted asset AND of every dependency we accept — a sibling consumer
+      // that used a different variant of an accepted dep becomes stale. An accept that changed nothing
+      // is no root of its own: its dependents' staleness predates this run.
+      previewRoots.push(...(previous === variantId ? cascaded : [address, ...cascaded]));
+    }
+    const previewStaleMarked = staleFrom(
+      previewManager,
+      previewRoots.map((address) => ({ address })),
+      graph.dependents,
+    );
+
+    // Asked off the computed set alone — a re-accept that moved nothing computes an empty one, while a
+    // leaf's re-accept can still cascade, and a cascade that propagates stale needs consent whether or
+    // not the accept it rode in on changed.
+    if (!(await consentToStale(previewStaleMarked, opts))) {
+      printAborted();
+      return;
+    }
+
+    // Exactly which assets the user consented to restale: the set the prompt above showed them.
+    // `--yes` is blanket consent, so it needs no set.
+    const consentedStale = opts.yes ? null : new Set(previewStaleMarked);
+    const since = Date.now();
+
+    // Re-derive previous-accepted, cascade, and stale set from inside the lock (like clean does), so
+    // the committed figures — and the reported previousAccepted — reflect the real locked state, not
+    // the pre-lock preview snapshot a concurrent accept could have invalidated.
+    const { results, staleMarked, directionParts, staleAccepted } = await StateManager.withLock(
+      videoRoot,
+      async (manager) => {
+        // A leaf was materialized in an earlier lock and the prompt above may have waited on a human:
+        // an input re-picked meanwhile makes it a take nobody signed off, so it is refused here rather
+        // than accepted stale.
+        for (const leaf of leaves) {
+          const staleness = manager.variantStaleness(leaf.address, leaf.variantId);
+          if (staleness?.inputStale || staleness?.definitionStale) {
+            throw new KonteError(
+              "DEPENDENCY_NOT_RESOLVED",
+              `Cannot accept ${leaf.address}: what it was materialized from changed meanwhile — run the accept again`,
+            );
+          }
+        }
+        const results = [];
+        const roots: string[] = [];
+        for (const { address, variantId } of items) {
+          const previousAccepted = manager.getAcceptedVariant(address);
+          // The takes this accept decides against: every other take at the address still awaiting a
+          // verdict, plus the accept this one moves off — naming another id IS the decision against it.
+          // Read inside the lock, so what is dismissed is what stands right now.
+          const dismissed = [
+            ...readyUndecidedTakes(
+              manager.getState(),
+              address,
+              definitionHashOf(address),
+              undefined,
+              patchHashes,
+              // The rivals settled are the ones the reviewer was shown — read by their resolution.
+              manager.stalenessCache(),
+            ),
+            ...(previousAccepted ? [previousAccepted] : []),
+          ].filter((id) => id !== variantId);
+          manager.setAccepted(address, variantId, { dismiss: dismissed });
+          const cascadeAccepted =
+            previousAccepted !== variantId || isMaterializedLeafAddress(address)
+              ? await cascadeAcceptConsumedDeps(
+                  manager,
+                  jobManager,
+                  address,
+                  variantId,
+                  cascadeOpts,
+                )
+              : [];
+          const keptAgainst = keepAcceptedInputs(manager, address, variantId);
+          roots.push(
+            ...(previousAccepted === variantId ? cascadeAccepted : [address, ...cascadeAccepted]),
+          );
+          results.push({
             address,
             variantId,
-            cascadeOpts,
-          )
-        : [];
-    keepAcceptedInputs(previewManager, address, variantId);
-    // Stale dependents of the accepted asset AND of every dependency we accept — a sibling consumer
-    // that used a different variant of an accepted dep becomes stale. An accept that changed nothing
-    // is no root of its own: its dependents' staleness predates this run.
-    previewRoots.push(...(previous === variantId ? cascaded : [address, ...cascaded]));
-  }
-  const previewStaleMarked = staleFrom(
-    previewManager,
-    previewRoots.map((address) => ({ address })),
-    graph.dependents,
-  );
-
-  // Asked off the computed set alone — a re-accept that moved nothing computes an empty one, while a
-  // leaf's re-accept can still cascade, and a cascade that propagates stale needs consent whether or
-  // not the accept it rode in on changed.
-  if (!(await consentToStale(previewStaleMarked, opts))) {
-    // Undo the leaf variant we rendered only to preview this accept — declining must not mutate.
-    if (leafTarget && materializedFresh && forcedVariantId) {
-      await StateManager.withLock(videoRoot, async (m) => {
-        m.removeVariant(leafTarget, forcedVariantId!);
-      });
-      await fs.rm(variantDir(videoRoot, leafTarget, forcedVariantId), {
-        recursive: true,
-        force: true,
-      });
-    }
-    printAborted();
-    return;
-  }
-
-  // Exactly which assets the user consented to restale: the set the prompt above showed them.
-  // `--yes` is blanket consent, so it needs no set.
-  const consentedStale = opts.yes ? null : new Set(previewStaleMarked);
-  const since = Date.now();
-
-  // Re-derive previous-accepted, cascade, and stale set from inside the lock (like clean does), so
-  // the committed figures — and the reported previousAccepted — reflect the real locked state, not
-  // the pre-lock preview snapshot a concurrent accept could have invalidated.
-  const { results, staleMarked, directionParts, staleAccepted } = await StateManager.withLock(
-    videoRoot,
-    async (manager) => {
-      // A leaf was materialized in an earlier lock and the prompt above may have waited on a human:
-      // an input re-picked meanwhile makes it a take nobody signed off, so it is refused here rather
-      // than accepted stale.
-      if (leafTarget && forcedVariantId) {
-        const staleness = manager.variantStaleness(leafTarget, forcedVariantId);
-        if (staleness?.inputStale || staleness?.definitionStale) {
-          throw new KonteError(
-            "DEPENDENCY_NOT_RESOLVED",
-            `Cannot accept ${leafTarget}: what it was materialized from changed meanwhile — run the accept again`,
-          );
+            previousAccepted,
+            cascadeAccepted,
+            dismissed,
+            keptAgainst,
+          });
         }
-      }
-      const results = [];
-      const roots: string[] = [];
-      for (const { address, variantId } of items) {
-        const previousAccepted = manager.getAcceptedVariant(address);
-        // The takes this accept decides against: every other take at the address still awaiting a
-        // verdict, plus the accept this one moves off — naming another id IS the decision against it.
-        // Read inside the lock, so what is dismissed is what stands right now.
-        const dismissed = [
-          ...readyUndecidedTakes(
-            manager.getState(),
-            address,
-            definitionHashOf(address),
-            undefined,
-            patchHashes,
-            // The rivals settled are the ones the reviewer was shown — read by their resolution.
-            manager.stalenessCache(),
-          ),
-          ...(previousAccepted ? [previousAccepted] : []),
-        ].filter((id) => id !== variantId);
-        manager.setAccepted(address, variantId, { dismiss: dismissed });
-        const cascadeAccepted =
-          previousAccepted !== variantId || isMaterializedLeafAddress(address)
-            ? await cascadeAcceptConsumedDeps(manager, jobManager, address, variantId, cascadeOpts)
-            : [];
-        const keptAgainst = keepAcceptedInputs(manager, address, variantId);
-        roots.push(
-          ...(previousAccepted === variantId ? cascadeAccepted : [address, ...cascadeAccepted]),
+        const staleMarked = staleFrom(
+          manager,
+          roots.map((address) => ({ address })),
+          graph.dependents,
         );
-        results.push({
-          address,
-          variantId,
-          previousAccepted,
-          cascadeAccepted,
-          dismissed,
-          keptAgainst,
+        assertConsentedStale(staleMarked, consentedStale);
+        // A human's accept stands against the upstream this one moved.
+        const staleAccepted = staleMarked.filter((a) => {
+          const id = manager.getAcceptedVariant(a);
+          return (
+            id !== null &&
+            holdsHumanVerdict(manager, a) &&
+            manager.variantStaleness(a, id)?.inputStale === true
+          );
         });
-      }
-      const staleMarked = staleFrom(
-        manager,
-        roots.map((address) => ({ address })),
-        graph.dependents,
-      );
-      assertConsentedStale(staleMarked, consentedStale);
-      // A human's accept stands against the upstream this one moved.
-      const staleAccepted = staleMarked.filter((a) => {
-        const id = manager.getAcceptedVariant(a);
-        return (
-          id !== null &&
-          holdsHumanVerdict(manager, a) &&
-          manager.variantStaleness(a, id)?.inputStale === true
-        );
-      });
-      // Sideways into the direction, after the graph cascade: the shots this accept settled carry it
-      // back to the direction parts that describe them, and an accepted reference image likewise
-      // carries the roster entry it anchors.
-      const accepted = [...new Set(results.flatMap((r) => [r.address, ...r.cascadeAccepted]))];
-      const directionParts = [
-        ...cascadeDirectionShotAccepts(
-          manager,
-          direction,
-          directionCascadeShotIds(accepted),
-          cascadeOpts.held,
-        ),
-        ...cascadeDirectionReferenceAccepts(
-          manager,
-          direction,
-          directionCascadeReferenceIds(accepted),
-          cascadeOpts.held,
-        ),
-      ];
-      return { results, staleMarked, directionParts, staleAccepted };
-    },
-  );
-
-  for (const r of results) {
-    const extras: string[] = [];
-    if (r.cascadeAccepted.length > 0) extras.push(`+${r.cascadeAccepted.length} consumed dep(s)`);
-    if (r.dismissed.length > 0) extras.push(`${r.dismissed.length} take(s) dismissed`);
-    const suffix = extras.length > 0 ? `  (${extras.join(", ")})` : "";
-    console.log(`Accepted: ${r.address} → ${r.variantId}${suffix}`);
-    if (r.keptAgainst.length > 0) console.log(`kept against newer: ${r.keptAgainst.join(", ")}`);
-  }
-  if (directionParts.length > 0) {
-    console.log(`Signed off: +${directionParts.length} direction part(s)`);
-  }
-  if (staleMarked.length > 0 && !opts.verbose) {
-    console.log(`${staleMarked.length} asset(s) now stale`);
-  }
-  if (staleAccepted.length > 0) {
-    console.log(
-      `${staleAccepted.length} accepted take(s) still on the older upstream (--verbose to list) — ask the human whether to keep them; to regenerate one, run \`konte accept <address> --off\` then \`konte generate <stage>\``,
+        // Sideways into the direction, after the graph cascade: the shots this accept settled carry it
+        // back to the direction parts that describe them, and an accepted reference image likewise
+        // carries the roster entry it anchors.
+        const accepted = [...new Set(results.flatMap((r) => [r.address, ...r.cascadeAccepted]))];
+        const directionParts = [
+          ...cascadeDirectionShotAccepts(
+            manager,
+            direction,
+            directionCascadeShotIds(accepted),
+            cascadeOpts.held,
+          ),
+          ...cascadeDirectionReferenceAccepts(
+            manager,
+            direction,
+            directionCascadeReferenceIds(accepted),
+            cascadeOpts.held,
+          ),
+        ];
+        return { results, staleMarked, directionParts, staleAccepted };
+      },
     );
-  }
-  if (opts.verbose) {
-    const cascaded = [...new Set(results.flatMap((r) => r.cascadeAccepted))];
-    const dismissed = results.flatMap((r) => r.dismissed);
-    if (cascaded.length > 0)
-      printAddresses("Also accepted (consumed dependencies)", cascaded, true);
-    if (directionParts.length > 0)
-      printAddresses("Also accepted (direction)", directionParts, true);
-    if (dismissed.length > 0) printAddresses("Dismissed takes", dismissed, true);
-    if (staleMarked.length > 0) printAddresses("Stale assets", staleMarked, true);
-    if (staleAccepted.length > 0) {
-      printAddresses("Still accepted on the older upstream", staleAccepted, true);
+    committed = true;
+
+    for (const r of results) {
+      const extras: string[] = [];
+      if (r.cascadeAccepted.length > 0) extras.push(`+${r.cascadeAccepted.length} consumed dep(s)`);
+      if (r.dismissed.length > 0) extras.push(`${r.dismissed.length} take(s) dismissed`);
+      const suffix = extras.length > 0 ? `  (${extras.join(", ")})` : "";
+      console.log(`Accepted: ${r.address} → ${r.variantId}${suffix}`);
+      if (r.keptAgainst.length > 0) console.log(`kept against newer: ${r.keptAgainst.join(", ")}`);
     }
+    if (directionParts.length > 0) {
+      console.log(`Signed off: +${directionParts.length} direction part(s)`);
+    }
+    if (staleMarked.length > 0 && !opts.verbose) {
+      console.log(`${staleMarked.length} asset(s) now stale`);
+    }
+    if (staleAccepted.length > 0) {
+      console.log(
+        `${staleAccepted.length} accepted take(s) still on the older upstream (--verbose to list) — ask the human whether to keep them; to regenerate one, run \`konte accept <address> --off\` then \`konte generate <stage>\``,
+      );
+    }
+    if (opts.verbose) {
+      const cascaded = [...new Set(results.flatMap((r) => r.cascadeAccepted))];
+      const dismissed = results.flatMap((r) => r.dismissed);
+      if (cascaded.length > 0)
+        printAddresses("Also accepted (consumed dependencies)", cascaded, true);
+      if (directionParts.length > 0)
+        printAddresses("Also accepted (direction)", directionParts, true);
+      if (dismissed.length > 0) printAddresses("Dismissed takes", dismissed, true);
+      if (staleMarked.length > 0) printAddresses("Stale assets", staleMarked, true);
+      if (staleAccepted.length > 0) {
+        printAddresses("Still accepted on the older upstream", staleAccepted, true);
+      }
+    }
+    await closeSignedOffFeedback(videoRoot, since);
+  } finally {
+    if (!committed) await removeFreshLeaves(videoRoot, leaves);
   }
-  await closeSignedOffFeedback(videoRoot, since);
 }
 
 // Clearing acts on what is accepted, which for a leaf is not always what the address resolves to —
@@ -679,7 +749,7 @@ function acceptedTakeOf(manager: StateManager, target: string): TakeTarget {
   return { address, variantId };
 }
 
-async function runUnaccept(targets: string[], opts: AcceptOptions): Promise<void> {
+async function runUnaccept(rawTargets: string[], opts: AcceptOptions): Promise<void> {
   const videoRoot = requireVideoRoot();
 
   // Registered before the target is resolved — without them resolution is blind to the definition
@@ -689,6 +759,18 @@ async function runUnaccept(targets: string[], opts: AcceptOptions): Promise<void
   const graph = buildDependencyGraph(video, animatic, reference);
 
   const previewManager = await StateManager.load(videoRoot);
+  const targets = rawTargets.flatMap((target) => {
+    const leaves = shotScopeLeaves({ video, animatic }, target);
+    if (!leaves) return [target];
+    const accepted = leaves.filter((leaf) => previewManager.getAcceptedVariant(leaf) !== null);
+    if (accepted.length === 0) {
+      throw new KonteError(
+        "VARIANT_NOT_ACCEPTED",
+        `"${target}" has no accepted composition/stem to clear`,
+      );
+    }
+    return accepted;
+  });
   // Resolved before anything is applied, so an unknown or unaccepted target fails with nothing
   // half-cleared.
   const resolved = new Map<string, TakeTarget>();

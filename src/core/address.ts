@@ -458,6 +458,14 @@ export function parseReelScope(scope: string): { stage: ShotStage; shotId?: stri
   return m[2] ? { stage, shotId: m[2] } : { stage };
 }
 
+const SHOT_SCOPE_PATTERN = new RegExp(`^(animatic|video):shot\\.(${NAME_BODY})$`);
+
+// `<stage>:shot.<id>` with no name slot, else null.
+export function parseShotScope(value: string): { stage: ShotStage; shotId: string } | null {
+  const m = SHOT_SCOPE_PATTERN.exec(value);
+  return m ? { stage: m[1] as ShotStage, shotId: m[2]! } : null;
+}
+
 // A stage is grouped by the SHAPE of the addresses it owns, which is what decides whether a given
 // formatter can produce a readable one. Three shapes, and every stage is in exactly one:
 //

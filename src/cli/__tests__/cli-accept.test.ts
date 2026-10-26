@@ -369,6 +369,93 @@ describe("accept command", () => {
   });
 });
 
+describe("accept command (shot scope)", () => {
+  let projectDir: string;
+  let motionVid: string;
+  const motionAddr = "video:shot.01.motion";
+  const compAddr = "video:shot.01#composition";
+  const stemAddr = "video:shot.01#stem";
+
+  beforeEach(async () => {
+    projectDir = await initWithTestVideo();
+    const sm = await StateManager.load(projectDir);
+    motionVid = sm.reserveVariantId(motionAddr);
+    sm.getAssetState(motionAddr).variants![motionVid]!.file = "/tmp/motion.mp4";
+    const voiceAddr = "video:shot.01.voice";
+    const voiceVid = sm.reserveVariantId(voiceAddr);
+    sm.getAssetState(voiceAddr).variants![voiceVid]!.file = "/tmp/voice.wav";
+    await sm.save();
+  });
+
+  it("accepts the shot's composition and stem", async () => {
+    const { stdout } = await run(["accept", "video:shot.01", "--yes"], projectDir);
+    expect([...stdout.matchAll(/^Accepted: (\S+) → /gm)].map((m) => m[1]).sort()).toEqual([
+      compAddr,
+      stemAddr,
+    ]);
+    const after = await StateManager.load(projectDir);
+    expect(after.getAcceptedVariant(compAddr)).not.toBeNull();
+    expect(after.getAcceptedVariant(stemAddr)).not.toBeNull();
+  });
+
+  it("refuses a take the composition is rendered from, materializing nothing", async () => {
+    await expect(
+      run(["accept", "video:shot.01", motionVid, "--yes"], projectDir),
+    ).rejects.toMatchObject({ stderr: expect.stringContaining("TARGETS_CONFLICT") });
+    const after = await StateManager.load(projectDir);
+    expect(after.tryGetAssetState(compAddr)?.variants ?? {}).toEqual({});
+    expect(after.tryGetAssetState(stemAddr)?.variants ?? {}).toEqual({});
+  });
+
+  it("undoes the leaves it rendered when another target does not resolve", async () => {
+    await expect(
+      run(["accept", "video:shot.01", "video:shot.99.motion", "--yes"], projectDir),
+    ).rejects.toMatchObject({ stderr: expect.stringContaining("VARIANT_NOT_FOUND") });
+    const after = await StateManager.load(projectDir);
+    expect(after.tryGetAssetState(compAddr)?.variants ?? {}).toEqual({});
+    expect(after.tryGetAssetState(stemAddr)?.variants ?? {}).toEqual({});
+  });
+
+  it("rejects a shot with nothing to accept", async () => {
+    await expect(run(["accept", "video:shot.99"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("ADDRESS_NOT_FOUND"),
+    });
+  });
+
+  it("clears the shot's accepted leaves with --off", async () => {
+    await run(["accept", "video:shot.01", "--yes"], projectDir);
+    const { stdout } = await run(["accept", "video:shot.01", "--off", "--yes"], projectDir);
+    expect(stdout.match(/^Unaccepted: /gm)).toHaveLength(2);
+    const after = await StateManager.load(projectDir);
+    expect(after.getAcceptedVariant(compAddr)).toBeNull();
+    expect(after.getAcceptedVariant(stemAddr)).toBeNull();
+  });
+
+  it("refuses --off on a shot with no accepted leaf", async () => {
+    await expect(run(["accept", "video:shot.01", "--off"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("VARIANT_NOT_ACCEPTED"),
+    });
+  });
+});
+
+describe("accept command (several leaves)", () => {
+  it("undoes the leaves it rendered when a later one cannot be", async () => {
+    const projectDir = await initWithTestVideo();
+    const sm = await StateManager.load(projectDir);
+    const voiceAddr = "video:shot.01.voice";
+    const voiceVid = sm.reserveVariantId(voiceAddr);
+    sm.getAssetState(voiceAddr).variants![voiceVid]!.file = "/tmp/voice.wav";
+    await sm.save();
+
+    // The stem needs only the voice; the composition also needs the motion, which has no take.
+    await expect(
+      run(["accept", "video:shot.01#stem", "video:shot.01#composition", "--yes"], projectDir),
+    ).rejects.toMatchObject({ stderr: expect.stringContaining("VARIANT_NOT_FOUND") });
+    const after = await StateManager.load(projectDir);
+    expect(after.tryGetAssetState("video:shot.01#stem")?.variants ?? {}).toEqual({});
+  });
+});
+
 describe("accept command (the board's stem)", () => {
   it("mixes and accepts animatic:shot.<id>#stem by address, reusing it on a re-accept", async () => {
     const projectDir = await initWithCrossStageStemVideo();
@@ -566,10 +653,11 @@ describe("accept command (several targets)", () => {
     expect((await StateManager.load(projectDir)).getAcceptedVariant(motionAddr)).toBeNull();
   });
 
-  it("refuses a composition beside another target", async () => {
-    await expect(
-      run(["accept", "video:shot.01#composition", m2, "--yes"], projectDir),
-    ).rejects.toMatchObject({ stderr: expect.stringContaining("TARGETS_CONFLICT") });
+  it("accepts a composition beside a take it does not render", async () => {
+    await run(["accept", "video:shot.01#composition", m2, "--yes"], projectDir);
+    const after = await StateManager.load(projectDir);
+    expect(after.getAcceptedVariant("video:shot.01#composition")).not.toBeNull();
+    expect(after.getAcceptedVariant(motionAddr)).toBe(m2);
   });
 
   it("refuses the direction beside another target", async () => {
