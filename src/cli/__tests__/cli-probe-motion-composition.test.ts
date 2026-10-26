@@ -8,6 +8,7 @@ import { ensureFfmpeg } from "../../core/ffmpeg.js";
 import { ffmpegBin } from "../../core/ffmpeg-binary.js";
 import {
   TEST_VIDEO_CHAINED_SHOTS_TSX,
+  acceptDirection,
   ctx,
   initWorkspace,
   run,
@@ -117,6 +118,52 @@ describe("probe motion on a composition", () => {
     expect(stdout).toContain("# video:shot.01#composition");
     expect(stdout).toContain("# video:shot.02#composition");
     expect(stdout).toMatch(/strip-full-f16\.jpg/);
+  });
+
+  it("sweeps under --needs-review only a composition that places no video take", async () => {
+    const projectDir = await setup();
+    const clip = path.join(projectDir, "assets", "files", "clip.mp4");
+    await fs.mkdir(path.dirname(clip), { recursive: true });
+    await promisify(execFile)(await ffmpegBin(), [
+      "-y",
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=blue:s=64x64:d=2:r=12",
+      "-pix_fmt",
+      "yuv420p",
+      clip,
+    ]);
+    await fs.writeFile(
+      path.join(projectDir, "video.tsx"),
+      TEST_VIDEO_CHAINED_SHOTS_TSX.replace(
+        "import { Composition,",
+        "import { adapters, Composition,",
+      ).replace(
+        /timeline: [\s\S]*$/,
+        `timeline: ({ shot }) => ({
+    shots: shot("01", () => {
+      const clip = asset("clip", adapters.videoFile, { path: "assets/files/clip.mp4" });
+      return <Composition><Video src={clip} /></Composition>;
+    }).nextShot("02", () => <Composition><div /></Composition>),
+  }),
+});
+`,
+      ),
+    );
+    await acceptDirection(projectDir);
+
+    const { stdout, stderr } = await run(
+      ["probe", "motion", "--needs-review", "video", "--verbose"],
+      projectDir,
+    );
+
+    expect(stdout).toContain("# video:shot.01.clip");
+    expect(stdout).not.toContain("# video:shot.01#composition");
+    expect(stdout).toContain("# video:shot.02#composition");
+    expect(stderr).toMatch(/video:shot\.02#composition .*\n {2}action {4}\S/);
   });
 
   it("refuses a window with no --at, and --fps", async () => {

@@ -1,6 +1,9 @@
 import { loadNeedsReviewTargets } from "../../asset-status.js";
 import { requireVideoRoot } from "../../context.js";
-import { inferMediaType } from "../../../core/media-type.js";
+import { inferMediaType, variantMediaKind } from "../../../core/media-type.js";
+import { shotById } from "../../../core/shot-index.js";
+import type { StateManager } from "../../../core/state/index.js";
+import type { AnimaticDefinition, VideoDefinition } from "../../../core/types/index.js";
 import * as path from "node:path";
 import type { Command } from "commander";
 import { KonteError } from "../../../core/errors.js";
@@ -48,6 +51,20 @@ function fmtSegments(wf: MotionWaveform): string {
   return parts.join("   ");
 }
 
+function drawsVideo(
+  stages: { video: VideoDefinition; animatic: AnimaticDefinition | null },
+  manager: StateManager,
+  address: string,
+): boolean {
+  const parsed = parseAddress(address);
+  if (parsed.stage === "reference" || parsed.kind !== "shot") return false;
+  const shot = shotById(compositionStage(stages, parsed.stage).shots, parsed.shotId);
+  return (shot?.pictureRefs ?? shot?.compositionRefs ?? []).some((ref) => {
+    const resolved = manager.resolveReference(ref, { includeStale: true });
+    return resolved != null && variantMediaKind(manager, ref, resolved.variantId) === "video";
+  });
+}
+
 interface MotionOptions {
   fps?: string;
   at?: string;
@@ -63,7 +80,7 @@ export function registerProbeMotionCommand(program: Command): void {
     .description("Render a tiled filmstrip of a video variant's or a shot composition's motion")
     .option(
       "--needs-review",
-      "Probe only video takes awaiting review, optionally narrowed by one address-scope",
+      "Probe only video takes, and compositions placing none, awaiting review; optionally one address-scope",
     )
     .option("--fps <fps>", "Override decode fps ('native' or a number; default min(nativeFps, 30))")
     .option(
@@ -116,11 +133,13 @@ contact sheet samples too sparsely to show. A scope never sweeps one in. Its fra
 composition's content, beside probe reel-thumbnails'. A composition has no decoded profile: no
 warnings, no motion peak (a window needs --at), and --fps is rejected.
 
---needs-review selects the same outstanding takes as probe contact-sheet --needs-review,
-including undecided alternatives beside an accepted take. It takes at most one address-scope.
+--needs-review selects the outstanding video takes probe contact-sheet --needs-review tiles,
+including undecided alternatives beside an accepted take, and each composition awaiting review whose
+picture places no video take — a shot whose motion lives only in its composition. It takes at most
+one address-scope.
 
 Examples:
-  konte probe motion --needs-review video                     Every video take awaiting review
+  konte probe motion --needs-review video                     Every video take, and composition moving without one, awaiting review
   konte probe motion v-iuQeCrR2                                 Full-clip filmstrip path to stdout (warnings only on stderr)
   konte probe motion video:shot.01.motion                       The take the address resolves to, and any undecided beside it
   konte probe motion video                                      Every motion clip in the video stage, one strip each
@@ -142,13 +161,18 @@ Examples:
         const review = await loadNeedsReviewTargets(requireVideoRoot(), targets[0]);
         reviewManager = review.manager;
         targets = review.items.flatMap((item) => {
-          if (!item.variantId) return [];
+          if (!item.variantId) {
+            if (!isCompositionAddress(item.address)) return [];
+            return drawsVideo(review.definitions, review.manager, item.address)
+              ? []
+              : [item.address];
+          }
           const file = review.manager.tryGetAssetState(item.address)?.variants?.[item.variantId]
             ?.file;
           return file && inferMediaType(file) === "video" ? [item.variantId] : [];
         });
         if (targets.length === 0) {
-          console.log("No video takes awaiting review under this scope.");
+          console.log("No video takes or compositions awaiting review under this scope.");
           return;
         }
       } else if (targets.length === 0) {
@@ -226,6 +250,8 @@ Examples:
               strip.window.start
             }s–${strip.window.end}s, ${strip.timestamps.length} frames`,
           );
+          const intent = await motionIntent(address);
+          for (const line of intent ? formatMotionIntent(intent) : []) console.error(line);
           console.error("  note      drawn from the definition, so no motion profile or warnings");
         }
       };

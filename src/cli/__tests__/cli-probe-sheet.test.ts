@@ -216,7 +216,9 @@ export default defineVideo(direction, {
     expect(stdout).not.toContain("reference:plateA");
 
     const empty = await run(["probe", "motion", "--needs-review", "animatic"], projectDir);
-    expect(empty.stdout.trim()).toBe("No video takes awaiting review under this scope.");
+    expect(empty.stdout.trim()).toBe(
+      "No video takes or compositions awaiting review under this scope.",
+    );
     await expect(
       run(["probe", "motion", "--needs-review", "reference", "video"], projectDir),
     ).rejects.toMatchObject({ stderr: expect.stringContaining("INVALID_OPTION") });
