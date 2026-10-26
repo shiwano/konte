@@ -38,6 +38,10 @@ The agent helps you develop a new idea or picks up an existing project where you
 4. **Revise.** Choose takes and leave comments; the agent makes the changes.
 5. **Export.** When you accept the cut, the agent renders the MP4.
 
+https://github.com/user-attachments/assets/752ed713-a210-44b8-ba14-74973285ecb7
+
+<sup>Project files for this video: [konte-how-you-use-it-video-example](https://github.com/shiwano/konte-how-you-use-it-video-example).</sup>
+
 ## Quick start
 
 Requires Claude Code or Codex and a [generation backend](#backends). Supports macOS, Linux, and Windows (including WSL). konte needs no Node.js or Python installation.
