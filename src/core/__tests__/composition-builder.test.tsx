@@ -468,8 +468,10 @@ describe("buildShotCompositionHtml", () => {
       assetBaseUrl: ASSET_BASE,
     });
 
-    // Down by 1s, held to 2.2s, back by 2.6s — at the default depth, 0.35 of the clip's 0.4.
-    expect(automationOf(result.html)).toEqual([
+    // Down by 1s, held to 2.2s, back by 2.6s — at the default depth, 0.35 of the clip's 0.4. The
+    // points between trace each ramp's curve.
+    const corners = [0, 0.85, 1, 2.2, 2.6, 3];
+    expect(automationOf(result.html)?.filter((p) => corners.includes(p.t))).toEqual([
       { t: 0, v: 0.4 },
       { t: 0.85, v: 0.4 },
       { t: 1, v: 0.14 },
@@ -654,7 +656,10 @@ describe("buildFullCompositionHtml", () => {
     });
 
     // The lane is on the clip's own clock, wherever the shot sits on the reel.
-    expect(automationOf(result.html)?.map((p) => p.t)).toEqual([0, 0.85, 1, 2.2, 2.6, 3]);
+    const times = automationOf(result.html)?.map((p) => p.t) ?? [];
+    expect(times[0]).toBe(0);
+    expect(times).toEqual(expect.arrayContaining([0.85, 1, 2.2, 2.6, 3]));
+    expect(times.at(-1)).toBe(3);
   });
 
   it("injects timeline soundtracks as a full-span audio group", async () => {

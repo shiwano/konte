@@ -3,6 +3,7 @@ import {
   assertDuck,
   buildDuckEnvelope,
   bedVolumeLane,
+  duckGainAt,
   duckSettings,
   duckVolumeExpr,
   voiceTriggerSpan,
@@ -254,9 +255,12 @@ describe("duckSettings", () => {
 });
 
 describe("duckVolumeExpr", () => {
-  it("scales the bed's own volume and bottoms out at the depth", () => {
+  it("scales the bed's own volume along the decibel curve down to the depth", () => {
     const expr = duckVolumeExpr(0.4, [{ a: 1, b: 2, c: 4, d: 5 }], 0.25);
-    expect(expr).toBe("0.4*(1-0.75*clip(min((t-1)/1,(5-t)/1),0,1))");
+    expect(expr).toBe(
+      "st(0,clip(min((t-1)/1,(5-t)/1),0,1));st(0,ld(0)*ld(0)*(3-2*ld(0)));" +
+        "0.4*(0.25+1*(pow(0.25,ld(0))-0.25))",
+    );
   });
 
   it("takes the deepest dip where two overlap", () => {
@@ -272,6 +276,27 @@ describe("duckVolumeExpr", () => {
   });
 });
 
+describe("duckGainAt", () => {
+  const dip = [{ a: 0, b: 1, c: 2, d: 3 }];
+  const db = (gain: number) => 20 * Math.log10(gain);
+
+  it("moves in decibels, halfway down at the ramp's middle", () => {
+    expect(db(duckGainAt(0.5, dip, 1, 0.25))).toBeCloseTo(db(0.25) / 2, 6);
+  });
+
+  it("leaves and lands on each level gently", () => {
+    const early = db(duckGainAt(0.1, dip, 1, 0.25));
+    const middle = db(duckGainAt(0.5, dip, 1, 0.25)) - db(duckGainAt(0.4, dip, 1, 0.25));
+    expect(Math.abs(early)).toBeLessThan(Math.abs(middle));
+  });
+
+  it("reaches a depth of 0, which the decibel curve alone never does", () => {
+    expect(duckGainAt(1.5, dip, 1, 0)).toBe(0);
+    expect(duckGainAt(0, dip, 1, 0)).toBe(1);
+    expect(duckGainAt(0.5, dip, 1, 0)).toBeGreaterThan(0);
+  });
+});
+
 describe("bedVolumeLane", () => {
   const steps = buildDuckEnvelope({
     bed: { start: 0, end: 20 },
@@ -281,17 +306,20 @@ describe("bedVolumeLane", () => {
   const lane = bedVolumeLane({ span: 20, volume: 0.4, steps, depth: settings.depth })!;
   const points = lane.lanes[0].points;
 
-  it("draws the dip as breakpoints a player interpolates, in the bed's own time", () => {
+  it("draws the dip as its corners and samples along each ramp, in the bed's own time", () => {
     expect(lane.version).toBe(1);
     expect(lane.lanes[0].target).toBe("volume");
-    expect(points).toEqual([
-      { t: 0, v: 0.4 },
-      { t: 4.9, v: 0.4 },
-      { t: 5, v: 0.12 },
-      { t: 7.2, v: 0.12 },
-      { t: 7.7, v: 0.4 },
-      { t: 20, v: 0.4 },
-    ]);
+    const at = (t: number) => points.find((p) => p.t === t)?.v;
+    expect(at(0)).toBe(0.4);
+    expect(at(4.9)).toBe(0.4);
+    expect(at(5)).toBe(0.12);
+    expect(at(7.2)).toBe(0.12);
+    expect(at(7.7)).toBe(0.4);
+    expect(at(20)).toBe(0.4);
+    expect(points.filter((p) => p.t > 7.2 && p.t < 7.7)).toHaveLength(8);
+    for (const p of points) {
+      expect(p.v).toBeCloseTo(duckGainAt(p.t, steps, 0.4, settings.depth), 5);
+    }
   });
 
   it("stays inside the bed's span and never runs backwards", () => {

@@ -21,9 +21,14 @@ const DEFAULTS = { depth: 0.35, attack: 0.15, release: 0.4, hold: 0.2 };
 // A ramp of zero length is a division by zero in the filter expression, and a step no ear wants.
 const MIN_RAMP = 0.001;
 
-// A volume lane holds 512 points and a dip costs four. Past this, dips are merged until they fit —
-// in the ENVELOPE, so the mux coarsens with the preview.
+// A volume lane holds 512 points and a dip's corners cost four. Past this, dips are merged until
+// they fit — in the ENVELOPE, so the mux coarsens with the preview.
 const MAX_DUCK_STEPS = 120;
+const LANE_MAX_POINTS = 512;
+// The points the lane spends inside one ramp to trace its curve, while the ceiling leaves room.
+const RAMP_SAMPLES = 8;
+// Where a depth of 0 bottoms out the decibel curve, −60 dB, before it is pulled the rest of the way.
+const DEPTH_FLOOR = 0.001;
 
 export interface Span {
   start: number;
@@ -175,8 +180,41 @@ export function narrationDuck(opts: {
 }
 
 /**
- * The envelope as an ffmpeg `volume` expression, `baseVolume` scaled by the dips. Its commas are
- * left bare: the caller quotes it inside the filtergraph.
+ * How far down the dips hold the bed at one moment, 0 (unducked) to 1 (at the depth): the deepest
+ * dip's trapezoid there.
+ */
+function duckProgress(t: number, steps: readonly DuckStep[]): number {
+  let peak = 0;
+  for (const { a, b, c, d } of steps) {
+    const rise = (t - a) / (b - a);
+    const fall = (d - t) / (d - c);
+    peak = Math.max(peak, Math.min(1, Math.max(0, Math.min(rise, fall))));
+  }
+  return peak;
+}
+
+// `floor ** s` traces the curve in decibels; `scale` stretches it from `floor` down to a `depth`
+// under DEPTH_FLOOR, and is 1 otherwise.
+function curveConstants(depth: number): { floor: number; scale: number } {
+  const floor = Math.max(depth, DEPTH_FLOOR);
+  return { floor, scale: (1 - depth) / (1 - floor) };
+}
+
+/**
+ * The ramp's shape: an S-curve in decibels, so the bed leaves and lands on each level gently and
+ * moves at an even pace in between. A straight line in gain loses only a few dB over most of the
+ * ramp and the rest in its last moments, heard as a sudden drop.
+ */
+function curvedGain(progress: number, depth: number): number {
+  if (progress <= 0 || depth >= 1) return 1;
+  const { floor, scale } = curveConstants(depth);
+  const s = progress * progress * (3 - 2 * progress);
+  return depth + scale * (floor ** s - floor);
+}
+
+/**
+ * The envelope as an ffmpeg `volume` expression, `baseVolume` scaled by the dips. Its commas and
+ * semicolons are left bare: the caller quotes it inside the filtergraph.
  */
 export function duckVolumeExpr(
   baseVolume: number,
@@ -187,7 +225,11 @@ export function duckVolumeExpr(
     ({ a, b, c, d }) => `clip(min((t-${f(a)})/${f(b - a)},(${f(d)}-t)/${f(d - c)}),0,1)`,
   );
   const peak = trapezoids.reduce((acc, one) => (acc ? `max(${acc},${one})` : one), "");
-  return `${f(baseVolume)}*(1-${f(1 - depth)}*${peak})`;
+  const { floor, scale } = curveConstants(depth);
+  return (
+    `st(0,${peak});st(0,ld(0)*ld(0)*(3-2*ld(0)));` +
+    `${f(baseVolume)}*(${f(depth)}+${f(scale)}*(pow(${f(floor)},ld(0))-${f(floor)}))`
+  );
 }
 
 // Trim float noise out of the expression.
@@ -211,19 +253,14 @@ export function duckGainAt(
   volume: number,
   depth: number,
 ): number {
-  let peak = 0;
-  for (const { a, b, c, d } of steps) {
-    const rise = (t - a) / (b - a);
-    const fall = (d - t) / (d - c);
-    peak = Math.max(peak, Math.min(1, Math.max(0, Math.min(rise, fall))));
-  }
-  return volume * (1 - (1 - depth) * peak);
+  return volume * curvedGain(duckProgress(t, steps), depth);
 }
 
 /**
  * A bed's whole gain shape as HyperFrames' volume lane: the duck, and the declared fades, which the
  * preview has no other reader for. The lane owns the element's gain, its `t` is clip-local, and it
- * interpolates linearly, so the points are the envelope's own corners.
+ * interpolates linearly, so the points are the envelope's own corners plus samples along each ramp's
+ * curve — as many as the lane's ceiling leaves room for, none on a reel that spends it on corners.
  *
  * A ramp running off either end of the bed is evaluated AT the end: ffmpeg starts the bed part-way
  * down when a line opens over its first moments.
@@ -257,6 +294,22 @@ export function bedVolumeLane(opts: {
   }
   if (fadeIn && inside(fadeIn)) times.add(fadeIn);
   if (fadeOut && inside(span - fadeOut)) times.add(span - fadeOut);
+  const ramps = steps.flatMap(
+    (step): Array<[number, number]> => [
+      [step.a, step.b],
+      [step.c, step.d],
+    ],
+  );
+  const samples =
+    ramps.length > 0
+      ? Math.min(RAMP_SAMPLES, Math.floor((LANE_MAX_POINTS - times.size) / ramps.length))
+      : 0;
+  for (const [rampStart, rampEnd] of ramps) {
+    for (let i = 1; i <= samples; i++) {
+      const t = rampStart + ((rampEnd - rampStart) * i) / (samples + 1);
+      if (inside(t)) times.add(t);
+    }
+  }
 
   // `volume` then the fades, the order `trackFilter` applies them in.
   const fadeAt = (t: number): number =>
