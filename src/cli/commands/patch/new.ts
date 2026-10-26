@@ -3,6 +3,7 @@ import type { Command } from "commander";
 import { isDeliveryAddress, isMaterializedLeafAddress } from "../../../core/address.js";
 import type { MediaKind } from "../../../core/dsl/builders.js";
 import { KonteError } from "../../../core/errors.js";
+import { syncFileAssets } from "../../../core/file-sync.js";
 import { inferMediaType } from "../../../core/media-type.js";
 import { assertPatchableTarget, patchFilePath, patchesDir } from "../../../core/patch.js";
 import { StateManager } from "../../../core/state/index.js";
@@ -64,9 +65,12 @@ Examples:
     .action(async (variantIdArgs: string[]) => {
       const roots = requireVideoRoots();
       const videoRoot = roots.video;
-      const manager = await StateManager.load(videoRoot);
       // An address argument resolves to the take the correction is written from.
-      await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
+      const definitions = await applyResolutionDefinitions({ videoRoot });
+      const manager = await StateManager.withLock(videoRoot, async (m) => {
+        await syncFileAssets(definitions, m);
+        return m;
+      });
 
       // Resolve and check every target first. A scaffold is cheap to write and impossible to
       // un-write without knowing which of the batch got that far, so the whole call either
@@ -74,7 +78,7 @@ Examples:
       const planned: Array<{ variantId: string; address: string; filePath: string; body: string }> =
         [];
       for (const arg of variantIdArgs) {
-        const { address, variantId } = resolveVariantArg(manager, arg);
+        const { address, variantId } = resolveVariantArg(manager, arg, definitions);
 
         // Two arguments can name one take (its id, and an address that resolves to it). That is a
         // way of writing the same target twice, not a second target to reject.

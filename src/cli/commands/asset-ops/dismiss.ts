@@ -1,6 +1,10 @@
 import type { Command } from "commander";
-import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
+import {
+  applyResolutionDefinitions,
+  type StageDefinitions,
+} from "../../../core/definition-hashes.js";
 import { KonteError } from "../../../core/errors.js";
+import { syncFileAssets } from "../../../core/file-sync.js";
 import { buildDependencyGraph } from "../../../core/graph.js";
 import { StateManager } from "../../../core/state/index.js";
 import { isReviewLeaf } from "../../../core/variant-lineage.js";
@@ -90,18 +94,21 @@ Examples:
         definitions: { video, animatic, reference },
       });
       const graph = buildDependencyGraph(video, animatic, reference);
+      await StateManager.withLock(videoRoot, (m) =>
+        syncFileAssets({ video, animatic, reference }, m),
+      );
 
       const previewManager = await StateManager.load(videoRoot);
       // Resolved before anything is applied, so a malformed or unknown target fails with nothing
       // half-decided. Two targets naming the same take (an id and the address showing it) are one
       // decision.
       const resolved = new Map<string, { address: string; variantId: string }>();
-      const kept = resolveKept(previewManager, opts.except ?? []);
+      const kept = resolveKept(previewManager, { video, animatic, reference }, opts.except ?? []);
       for (const item of rivalsOfKept(previewManager, kept)) {
         resolved.set(`${item.address}|${item.variantId}`, item);
       }
       for (const target of targets) {
-        const hit = resolveVariantArg(previewManager, target);
+        const hit = resolveVariantArg(previewManager, target, { video, animatic, reference });
         resolved.set(`${hit.address}|${hit.variantId}`, hit);
       }
       const items = [...resolved.values()];
@@ -181,10 +188,14 @@ Examples:
     });
 }
 
-function resolveKept(manager: StateManager, keptArgs: readonly string[]): Map<string, string> {
+function resolveKept(
+  manager: StateManager,
+  definitions: StageDefinitions,
+  keptArgs: readonly string[],
+): Map<string, string> {
   const kept = new Map<string, string>();
   for (const arg of keptArgs) {
-    const { address, variantId } = resolveVariantArg(manager, arg);
+    const { address, variantId } = resolveVariantArg(manager, arg, definitions);
     const other = kept.get(address);
     if (other !== undefined && other !== variantId) {
       throw new KonteError(

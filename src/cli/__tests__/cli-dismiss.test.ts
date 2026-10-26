@@ -109,9 +109,12 @@ describe("dismiss command", () => {
 
   it("aborts --except when the kept take is dismissed before the lock", async () => {
     const realWithLock = StateManager.withLock.bind(StateManager);
+    let locks = 0;
     const spy = vi
       .spyOn(StateManager, "withLock")
       .mockImplementation(async <T>(root: string, fn: (m: StateManager) => Promise<T>) => {
+        // The first lock syncs file assets.
+        if (++locks === 1) return realWithLock(root, fn);
         spy.mockRestore();
         await realWithLock(root, async (m) => {
           m.setDismissed(address, older, true);
@@ -130,9 +133,12 @@ describe("dismiss command", () => {
   it("aborts --except when a take lands beside the kept one before the lock", async () => {
     let landed = "";
     const realWithLock = StateManager.withLock.bind(StateManager);
+    let locks = 0;
     const spy = vi
       .spyOn(StateManager, "withLock")
       .mockImplementation(async <T>(root: string, fn: (m: StateManager) => Promise<T>) => {
+        // The first lock syncs file assets.
+        if (++locks === 1) return realWithLock(root, fn);
         spy.mockRestore();
         await realWithLock(root, async (m) => {
           landed = m.reserveVariantId(address);
@@ -380,9 +386,12 @@ describe("dismiss command (stale warning)", () => {
     fakeStdin.write("y\n");
 
     const realWithLock = StateManager.withLock.bind(StateManager);
+    let locks = 0;
     const spy = vi
       .spyOn(StateManager, "withLock")
       .mockImplementation(async <T>(root: string, fn: (m: StateManager) => Promise<T>) => {
+        // The first lock syncs file assets.
+        if (++locks === 1) return realWithLock(root, fn);
         spy.mockRestore();
         await realWithLock(root, async (m) => {
           const v = m.reserveVariantId(secondConsumer);

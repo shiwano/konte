@@ -5,6 +5,7 @@ import {
   renderAssetsGitignore,
   syncAssetsGitignore,
 } from "../assets-gitignore.js";
+import { isStageScope } from "../address.js";
 import { writeFileAtomic } from "../atomic-write.js";
 import { KonteError, errorMessage } from "../errors.js";
 import { withFileLock } from "../file-lock.js";
@@ -315,6 +316,12 @@ export class StateManager {
   resolveVariantAddress(variantId: string): string {
     const address = this.findVariantAddress(variantId);
     if (!address) {
+      if (isStageScope(variantId)) {
+        throw new KonteError(
+          "INVALID_ADDRESS",
+          `"${variantId}" is a stage, not a take — name a variant id or an address (\`konte inspect ${variantId}\` lists them)`,
+        );
+      }
       this.assertNotAbsent(variantId);
       throw new KonteError("VARIANT_NOT_FOUND", `Variant "${variantId}" not found in state`);
     }

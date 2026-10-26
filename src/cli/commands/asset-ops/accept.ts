@@ -60,7 +60,11 @@ import {
   staleFrom,
 } from "./stale-consent.js";
 import { requireVideoRoot } from "../../context.js";
-import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
+import {
+  applyResolutionDefinitions,
+  type StageDefinitions,
+} from "../../../core/definition-hashes.js";
+import { syncFileAssets } from "../../../core/file-sync.js";
 
 interface AcceptOptions {
   off?: boolean;
@@ -412,13 +416,14 @@ async function removeFreshLeaves(
 // take lands before a downstream target's cascade could sign off the one that target consumed.
 function resolveAcceptTargets(
   manager: StateManager,
+  definitions: StageDefinitions,
   targets: readonly string[],
   topologicalOrder: readonly string[],
   materialized: readonly TakeTarget[],
 ): TakeTarget[] {
   const byAddress = new Map<string, TakeTarget>(materialized.map((hit) => [hit.address, hit]));
   for (const target of targets) {
-    const hit = resolveVariantArg(manager, target);
+    const hit = resolveVariantArg(manager, target, definitions);
     const seen = byAddress.get(hit.address);
     if (seen && seen.variantId !== hit.variantId) {
       throw new KonteError(
@@ -443,6 +448,7 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
   const graph = buildDependencyGraph(video, animatic, reference);
   // An address argument lands on the take the address resolves to — "accept what was on screen".
   await applyResolutionDefinitions({ videoRoot, definitions: { video, animatic, reference } });
+  await StateManager.withLock(videoRoot, (m) => syncFileAssets({ video, animatic, reference }, m));
 
   const targets = [
     ...new Set(rawTargets.flatMap((t) => shotScopeLeaves({ video, animatic }, t) ?? [t])),
@@ -472,6 +478,7 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
     const previewManager = await StateManager.load(videoRoot);
     const items = resolveAcceptTargets(
       previewManager,
+      { video, animatic, reference },
       targets.filter((t) => !isLeafArg(t)),
       graph.topologicalOrder,
       leaves,
@@ -718,7 +725,11 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
 // an edited leaf's accepted variant goes stale and a fresh one can outrank it. Target the accepted
 // one directly; with none there is nothing to clear, said as such rather than reported as some
 // resolved variant being "not accepted".
-function acceptedTakeOf(manager: StateManager, target: string): TakeTarget {
+function acceptedTakeOf(
+  manager: StateManager,
+  definitions: StageDefinitions,
+  target: string,
+): TakeTarget {
   let address: string;
   let variantId: string;
   if (target.includes(":") && isMaterializedLeafAddress(target)) {
@@ -737,7 +748,7 @@ function acceptedTakeOf(manager: StateManager, target: string): TakeTarget {
     const accepted = target.includes(":") ? manager.getAcceptedVariant(target) : null;
     ({ address, variantId } = accepted
       ? { address: target, variantId: accepted }
-      : resolveVariantArg(manager, target));
+      : resolveVariantArg(manager, target, definitions));
   }
   const isAccepted = manager.getAssetState(address).variants?.[variantId]?.status === "accepted";
   if (!isAccepted) {
@@ -775,7 +786,7 @@ async function runUnaccept(rawTargets: string[], opts: AcceptOptions): Promise<v
   // half-cleared.
   const resolved = new Map<string, TakeTarget>();
   for (const target of targets) {
-    const hit = acceptedTakeOf(previewManager, target);
+    const hit = acceptedTakeOf(previewManager, { video, animatic, reference }, target);
     resolved.set(`${hit.address}|${hit.variantId}`, hit);
   }
   const items = [...resolved.values()];

@@ -19,6 +19,7 @@ import {
   readFeedback,
   seedFeedback,
   TEST_EMPTY_ANIMATIC_TSX,
+  TEST_VIDEO_TSX,
   TEST_VIDEO_WITH_DEPS_TSX,
   run,
 } from "./cli-fixtures.js";
@@ -305,6 +306,43 @@ describe("accept command", () => {
   it("reports a malformed address as INVALID_ADDRESS, not a variant id", async () => {
     await expect(run(["accept", "vide:shot.01.motion"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("INVALID_ADDRESS"),
+    });
+  });
+
+  it("reports a bare stage as INVALID_ADDRESS, naming the inspect that lists its takes", async () => {
+    await expect(run(["accept", "reference"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(/INVALID_ADDRESS.*konte inspect reference/s),
+    });
+  });
+
+  describe("a file asset", () => {
+    const voice = "video:shot.01.voice";
+
+    beforeEach(async () => {
+      await fs.writeFile(
+        path.join(projectDir, "video.tsx"),
+        TEST_VIDEO_TSX.replace(
+          'const voice = asset("voice", ttsComfy, { text: "hello" });',
+          'const voice = asset("voice", adapters.audioFile, { path: "assets/files/voice.wav" });',
+        ).replace('defineDirection } from "konte"', 'defineDirection, adapters } from "konte"'),
+      );
+    });
+
+    it("is accepted by address before anything registered it", async () => {
+      await fs.mkdir(path.join(projectDir, "assets", "files"), { recursive: true });
+      await writeSilentWav(path.join(projectDir, "assets", "files", "voice.wav"));
+
+      const { stdout } = await run(["accept", voice], projectDir);
+
+      const accepted = (await StateManager.load(projectDir)).getAcceptedVariant(voice);
+      expect(accepted).not.toBeNull();
+      expect(stdout).toContain(`Accepted: ${voice} → ${accepted}`);
+    });
+
+    it("names the path its file is missing from", async () => {
+      await expect(run(["accept", voice], projectDir)).rejects.toMatchObject({
+        stderr: expect.stringMatching(/VARIANT_NOT_FOUND.*assets\/files\/voice\.wav/s),
+      });
     });
   });
 
@@ -883,11 +921,13 @@ describe("accept command (stale warning)", () => {
     fakeStdin.write("y\n");
 
     const realWithLock = StateManager.withLock.bind(StateManager);
+    let locks = 0;
     const spy = vi
       .spyOn(StateManager, "withLock")
       .mockImplementation(async <T>(root: string, fn: (m: StateManager) => Promise<T>) => {
-        // Intercept only the commit lock; the injected write and the real commit both run
-        // through the unmocked implementation.
+        // The first lock syncs file assets. Intercept only the commit lock; the injected write and
+        // the real commit both run through the unmocked implementation.
+        if (++locks === 1) return realWithLock(root, fn);
         spy.mockRestore();
         await realWithLock(root, async (m) => {
           const v = m.reserveVariantId(secondConsumer);
