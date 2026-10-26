@@ -46,69 +46,67 @@ https://github.com/user-attachments/assets/752ed713-a210-44b8-ba14-74973285ecb7
 
 Requires Claude Code or Codex and a [generation backend](#backends). Supports macOS, Linux, and Windows (including WSL). konte needs no Node.js or Python installation.
 
-Create a workspace directory and open it in your agent. Install the plugin and run setup there (`$` = terminal, `>` = agent chat).
+Create a workspace directory, then install the plugin, run setup in a chat opened there, and check in (`$` = terminal, `>` = agent chat).
 
 ### Claude Code
 
-Install from the **terminal**:
+**1. Install** from the terminal:
 
 ```
 $ claude plugin marketplace add shiwano/konte@plugin
 $ claude plugin install konte@konte
 ```
 
-Or in the **desktop app**, open **Settings → Plugins → Add marketplace → Add from a repository**:
+Or in the desktop app, open **Settings → Plugins → Add marketplace → Add from a repository**, enter `shiwano/konte@plugin` as **URL**, and install **konte**.
 
-1. Enter `shiwano/konte@plugin` as **URL**.
-2. Install **konte** and start a new chat in your workspace.
-
-Then run setup:
+**2. Set up** in a new chat in your workspace, then restart as setup instructs:
 
 ```
 > /konte:setup
 ```
 
-Restart as setup instructs, then run `/konte-checkin`.
+**3. Check in** after the restart:
 
-<details>
-<summary>Watch it in the desktop app</summary>
+```
+> /konte-checkin
+```
 
 https://github.com/user-attachments/assets/c10629d3-e1eb-4708-95da-c3720bac878f
 
 <sup>Project files for this video: [konte-demo-video-example](https://github.com/shiwano/konte-demo-video-example/tree/main/videos/claude-code-desktop-setup).</sup>
 
-</details>
-
 ### Codex
 
-Install from the **terminal**:
+**1. Install** from the terminal:
 
 ```
 $ codex plugin marketplace add shiwano/konte@plugin
 $ codex plugin add konte@konte
 ```
 
-Or in the **desktop app**, open **Settings → Plugins → Add plugin marketplace**:
+Or in the desktop app, open **Settings → Plugins → Add plugin marketplace**, then:
 
-1. Enter `shiwano/konte` as **Source**, `origin/plugin` as **Git ref**, and leave **Sparse paths** empty.
-2. Install **konte** and start a new chat in your workspace.
+- **Source**: `shiwano/konte`
+- **Git ref**: `origin/plugin`
+- **Sparse paths**: leave empty
 
-Then run setup:
+Install **konte** from the added marketplace.
+
+**2. Set up** in a new chat in your workspace, then restart as setup instructs:
 
 ```
 > $konte:setup
 ```
 
-Restart as setup instructs, then run `$konte-checkin`.
+**3. Check in** after the restart:
 
-<details>
-<summary>Watch it in the desktop app</summary>
+```
+> $konte-checkin
+```
 
 https://github.com/user-attachments/assets/ac615568-6e7f-434a-aa34-e17c6381d57c
 
 <sup>Project files for this video: [konte-demo-video-example](https://github.com/shiwano/konte-demo-video-example/tree/main/videos/codex-desktop-setup).</sup>
-
-</details>
 
 ### Uninstall
 
@@ -173,11 +171,11 @@ Adapters define model inputs and prompting rules separately from the shot plan. 
 
 ## What konte is not
 
-- Not a generative model. It orchestrates the models you already use.
-- Not a ComfyUI replacement. Your workflows stay yours, wrapped as reproducible parts of a project.
-- Not a timeline editor. You direct through feedback and regeneration, not by moving clips on a timeline.
-- Not a taste machine. It records what was tried, accepted, and invalidated. It never decides what looks good.
-- Not for a one-off clip. konte pays off as shots, takes, and days of iteration accumulate.
+- **Not a generative model.** It orchestrates the models you already use.
+- **Not a ComfyUI replacement.** Your workflows stay yours, wrapped as reproducible parts of a project.
+- **Not a timeline editor.** You direct through feedback and regeneration, not by moving clips on a timeline.
+- **Not a taste machine.** It records what was tried, accepted, and invalidated. It never decides what looks good.
+- **Not for a one-off clip.** konte pays off as shots, takes, and days of iteration accumulate.
 
 ## Status
 
