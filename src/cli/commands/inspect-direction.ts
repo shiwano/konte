@@ -33,6 +33,7 @@ import {
   loadStagingStageState,
   loadSongTakeState,
 } from "../load-definition.js";
+import { formatDirectionRemainder } from "../print-status.js";
 import { loadReference } from "../../core/loader.js";
 import { type FeedbackView, feedbackLine, feedbackTag, printFeedback } from "./inspect-feedback.js";
 
@@ -179,7 +180,7 @@ function acceptanceLine(summary: ReturnType<typeof summarizeDirectionAcceptance>
     case "partial":
       return summary.gateBlocking > 0
         ? `partial — ${summary.gateBlocking} of ${summary.total} parts need review (${summary.blocking} not at their accepted hash)`
-        : `accepted — ${summary.blocking} of ${summary.total} parts changed since, none blocking`;
+        : `accepted — ${formatDirectionRemainder(summary, { sections: false })}, none blocking`;
     case "unaccepted":
       return `unaccepted (${summary.total} parts)`;
   }

@@ -111,10 +111,31 @@ function directionAcceptanceLine(summary: DirectionAcceptanceSummary, empty: boo
       // accepted whole is named without one.
       return summary.gateBlocking > 0
         ? `  ${label}: ${summary.gateBlocking} of ${summary.total} parts need review — re-accept`
-        : `  ${label}: accepted — ${summary.blocking} of ${summary.total} parts changed since, none blocking`;
+        : `  ${label}: accepted — ${formatDirectionRemainder(summary)}, none blocking`;
     case "unaccepted":
       return `  ${label}: not accepted`;
   }
+}
+
+// The parts short of accepted, by what happened to them: `46 of 81 parts not accepted (shots), 6
+// changed since (characters)`.
+export function formatDirectionRemainder(
+  summary: DirectionAcceptanceSummary,
+  { sections = true }: { sections?: boolean } = {},
+): string {
+  return (
+    [
+      ["not accepted", summary.unaccepted],
+      ["changed since", summary.changed],
+    ] as const
+  )
+    .filter(([, t]) => t.parts > 0)
+    .map(([label, t], i) => {
+      const count = i === 0 ? `${t.parts} of ${summary.total} parts` : `${t.parts}`;
+      const named = sections && t.sections.length > 0 ? ` (${t.sections.join(", ")})` : "";
+      return `${count} ${label}${named}`;
+    })
+    .join(", ");
 }
 
 // Each composition stage's accept count in its reel review's units, read by the review's own rules

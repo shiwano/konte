@@ -221,7 +221,21 @@ export type DirectionAcceptanceSummary = {
   // whole: a rewritten shot is still worth reporting, but it no longer stops a generation, so a
   // reader is told what changed without being told to go clear it.
   gateBlocking: number;
+  // `blocking` split by what a reader is told: a part never signed off (or whose sign-off was
+  // revoked), and one rewritten or deleted since it was.
+  unaccepted: DirectionPartTally;
+  changed: DirectionPartTally;
 };
+
+export type DirectionPartTally = { parts: number; sections: DirectionSection[] };
+
+function tally(addresses: readonly string[]): DirectionPartTally {
+  const present = new Set(addresses.map(directionSectionOf));
+  return {
+    parts: addresses.length,
+    sections: DIRECTION_SECTIONS.filter((s) => present.has(s)),
+  };
+}
 
 export function summarizeDirectionAcceptance(
   direction: Direction,
@@ -240,6 +254,11 @@ export function summarizeDirectionAcceptance(
     blocking,
     total,
     gateBlocking,
+    unaccepted: tally(view.blocking.filter((b) => b.status === "unaccepted").map((b) => b.address)),
+    changed: tally([
+      ...view.blocking.filter((b) => b.status === "stale").map((b) => b.address),
+      ...view.orphans,
+    ]),
   };
 }
 

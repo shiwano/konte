@@ -69,7 +69,9 @@ async function inspectDirection(projectDir: string): Promise<{
       const body = line.slice("Acceptance: ".length);
       const settled = body.match(/^(accepted|unaccepted) \((\d+) parts\)$/);
       const needsReview = body.match(/^partial — \d+ of (\d+) parts need review \((\d+) /);
-      const changed = body.match(/^accepted — (\d+) of (\d+) parts changed since/);
+      const changed = body.match(
+        /^accepted — (\d+) of (\d+) parts (?:not accepted|changed since)(?:, (\d+) changed since)?/,
+      );
       if (settled) {
         acceptance = { status: settled[1]!, blocking: 0, total: Number(settled[2]) };
       } else if (needsReview) {
@@ -81,7 +83,7 @@ async function inspectDirection(projectDir: string): Promise<{
       } else if (changed) {
         acceptance = {
           status: "partial",
-          blocking: Number(changed[1]),
+          blocking: Number(changed[1]) + Number(changed[3] ?? 0),
           total: Number(changed[2]),
         };
       }

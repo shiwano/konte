@@ -50,6 +50,7 @@ import { StateManager } from "../../../core/state/index.js";
 import { variantDir } from "../../../core/variant-dir.js";
 import { confirmAction, printAborted } from "../../confirm.js";
 import { loadDirectionIfPresent, loadStageDefinitions } from "../../load-definition.js";
+import { formatDirectionRemainder } from "../../print-status.js";
 import { assertSongLinesPlaced } from "../../../core/direction.js";
 import { closeSignedOffFeedback } from "./close-feedback.js";
 import { resolveVariantArg } from "./resolve-variant-arg.js";
@@ -308,7 +309,7 @@ async function runDirectionAcceptance(
       ? `Acceptance: accepted (${summary.total} parts)`
       : summary.gateBlocking > 0
         ? `Acceptance: ${summary.gateBlocking} of ${summary.total} part(s) need review`
-        : `Acceptance: nothing blocking (${summary.blocking} of ${summary.total} parts changed since accepted)`,
+        : `Acceptance: nothing blocking — ${formatDirectionRemainder(summary)}`,
   );
   if (opts.verbose) {
     if (result.accepted.length > 0) printAddresses("Accepted parts", result.accepted, true);

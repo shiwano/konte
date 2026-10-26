@@ -594,17 +594,21 @@ describe("summarizeDirectionAcceptance", () => {
     const direction = makeDirection();
     const total = directionPartHashes(direction).size;
 
-    expect(summarizeDirectionAcceptance(direction, null)).toEqual({
+    expect(summarizeDirectionAcceptance(direction, null)).toMatchObject({
       status: "unaccepted",
       blocking: total,
       gateBlocking: total,
       total,
+      unaccepted: { parts: total },
+      changed: { parts: 0, sections: [] },
     });
     expect(summarizeDirectionAcceptance(direction, acceptAll(direction))).toEqual({
       status: "accepted",
       blocking: 0,
       gateBlocking: 0,
       total,
+      unaccepted: { parts: 0, sections: [] },
+      changed: { parts: 0, sections: [] },
     });
 
     const partial = applyDirectionSectionDecisions(direction, null, { brief: true });
@@ -627,6 +631,22 @@ describe("summarizeDirectionAcceptance", () => {
     expect(summary.status).toBe("partial");
     expect(summary.blocking).toBe(1);
     expect(summary.gateBlocking).toBe(0);
+    expect(summary.changed).toEqual({ parts: 1, sections: ["shots"] });
+    expect(summary.unaccepted).toEqual({ parts: 0, sections: [] });
+  });
+
+  it("counts a revoked box as not accepted, not as changed", () => {
+    const direction = makeDirection();
+    const revoked = applyDirectionSectionDecisions(direction, acceptAll(direction), {
+      shots: false,
+    });
+
+    const summary = summarizeDirectionAcceptance(direction, revoked);
+    expect(summary.status).toBe("partial");
+    expect(summary.gateBlocking).toBe(0);
+    expect(summary.unaccepted.sections).toEqual(["shots"]);
+    expect(summary.unaccepted.parts).toBe(summary.blocking);
+    expect(summary.changed).toEqual({ parts: 0, sections: [] });
   });
 
   // A deleted part is not a live part, so it cannot be counted out of `total` — but it is still
@@ -642,6 +662,7 @@ describe("summarizeDirectionAcceptance", () => {
     const summary = summarizeDirectionAcceptance(cut, acceptance);
     expect(summary.status).toBe("partial");
     expect(summary.blocking).toBe(1);
+    expect(summary.changed).toEqual({ parts: 1, sections: ["brief"] });
   });
 });
 

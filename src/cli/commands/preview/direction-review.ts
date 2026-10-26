@@ -605,6 +605,8 @@ export async function handleDirectionSubmit(
     blocking: 0,
     total: 0,
     gateBlocking: 0,
+    unaccepted: { parts: 0, sections: [] },
+    changed: { parts: 0, sections: [] },
   };
 
   await StateManager.withLock(videoRoot, async (mgr) => {
