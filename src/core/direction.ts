@@ -2602,7 +2602,9 @@ export function checkDirection(
   const matched = new Set<string>();
   for (const finding of reported) {
     const key = directionWaiverKey(finding);
-    if (key in waivers && isWaivableCode(finding.code)) {
+    if (finding.signedOff) {
+      if (key in waivers) matched.add(key);
+    } else if (key in waivers && isWaivableCode(finding.code)) {
       matched.add(key);
       waived.push(finding);
     } else {

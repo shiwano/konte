@@ -1964,9 +1964,16 @@ describe("location-backtrack", () => {
   });
 
   describe("opening-key", () => {
-    const keyed = (opts: { join?: "continuous"; panels?: [string, string] } = {}) => {
+    const checked = (
+      opts: {
+        join?: "continuous";
+        panels?: [string, string];
+        waivers?: Record<string, string>;
+      } = {},
+    ) => {
       const dir = direction({
         shots: [shot("01", "deck"), shot("02", "deck", opts.join ? { join: opts.join } : {})],
+        ...(opts.waivers ? { waivers: opts.waivers } : {}),
       });
       const [firstPanel, lastPanel] = opts.panels ?? [
         "animatic:shot.02.key",
@@ -1981,8 +1988,12 @@ describe("location-backtrack", () => {
               { shotId: "02", lane: "main", firstPanel, lastPanel, carries: false, linked: [] },
             ],
           },
-        }).active.filter((f) => f.code === "opening-key");
+        });
     };
+    const keyed =
+      (opts: Parameters<typeof checked>[0] = {}) =>
+      (pins: StagingStageState["videoPins"][number]["pins"]) =>
+        checked(opts)(pins).active.filter((f) => f.code === "opening-key");
     const key = "animatic:shot.02.key";
 
     it("flags a key pinned as the first frame of a take that has a reference slot", () => {
@@ -1999,6 +2010,15 @@ describe("location-backtrack", () => {
       expect(keyed()([{ pin: "start", reaches: [key], referable: true, signedOff: true }])).toEqual(
         [],
       );
+    });
+
+    // A change to the take's definition brings the finding back; the waiver must still be there.
+    it("keeps the waiver of a take accepted against its current definition in use", () => {
+      const result = checked({ waivers: { "opening-key_02": "the key is the opening" } })([
+        { pin: "start", reaches: [key], referable: true, signedOff: true },
+      ]);
+      expect(result.staleWaivers).toEqual([]);
+      expect(result.waived).toEqual([]);
     });
 
     // A model that takes no reference takes the key as its first frame.

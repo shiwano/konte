@@ -148,6 +148,8 @@ export type DirectionFinding = {
   // The engine itself is path-blind; the caller that walks the tree stamps it.
   path?: readonly string[];
   message: string;
+  // An accept of the take it reads settles it: it holds nothing, and its waiver stays in use.
+  signedOff?: true;
 };
 
 export type CheckArcOptions = {
@@ -1394,11 +1396,10 @@ export function checkKeyPins(
     const panels = panelsOf.get(`${shot.id}/${shot.frame}`);
     if (!panels || panels.firstPanel !== panels.lastPanel) continue;
     const key = panels.firstPanel;
-    const pinned = pinsOf
+    const opening = pinsOf
       .get(`${shot.id}/${shot.frame}`)
-      ?.pins.find(
-        (p) => p.pin === "start" && p.referable && !p.signedOff && p.reaches.includes(key),
-      );
+      ?.pins.filter((p) => p.pin === "start" && p.referable && p.reaches.includes(key));
+    const pinned = opening?.find((p) => !p.signedOff) ?? opening?.[0];
     if (!pinned) continue;
     const takes = shot.frame === "cutin" ? "cutin take" : "take";
     findings.push({
@@ -1408,6 +1409,7 @@ export function checkKeyPins(
         `the ${takes} of video:shot.${shot.id} opens on ${frameName(shot)}'s key \`${key}\`` +
         `${pinned.input ? ` (\`${pinned.input}\`)` : ""} and moves past the moment it holds — ` +
         `pass the key to a reference input alone`,
+      ...(pinned.signedOff ? { signedOff: true as const } : {}),
     });
   }
   return findings;
