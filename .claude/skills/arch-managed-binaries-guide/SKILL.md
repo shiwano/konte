@@ -14,7 +14,7 @@ The tools: ffmpeg/ffprobe (local media ops, rendering, audio muxing), Chromium (
 - tsc — managed; override `KONTE_TSC_PATH` (not version-checked). The type-check passes `--noEmit --pretty`, which the JS `tsc` also accepts — the test suite pins the override at the repo's `tsc` to keep a cold cache offline; `konte lsp` passes `--lsp -stdio`, native build only.
 - sherpa-onnx — models fetched on first use; override `KONTE_SHERPA_SEPARATION_PATH` / `KONTE_SHERPA_RECOGNIZER_PATH` / `KONTE_SPLEETER_MODEL_DIR` / `KONTE_SENSE_VOICE_MODEL_DIR`.
 - Beat This! — model fetched on first use, `onnxruntime-web` WASM embedded; override `KONTE_BEAT_THIS_MODEL_DIR`.
-- Chromium — managed `chrome-headless-shell`, installed by `@puppeteer/browsers` into `chromium-<buildId>/`; override `KONTE_CHROMIUM_PATH` (not version-checked). The build id is pinned to puppeteer's `PUPPETEER_REVISIONS` — HyperFrames drives the shell over CDP through its bundled puppeteer.
+- Chromium — managed `chrome-headless-shell` (Chrome for Testing's `chrome.exe` on Windows, whose shell is a console binary that opens a console window per child process), installed by `@puppeteer/browsers` into `chromium-<buildId>/`; override `KONTE_CHROMIUM_PATH` (not version-checked). The build id is pinned to puppeteer's `PUPPETEER_REVISIONS` — HyperFrames drives the shell over CDP through its bundled puppeteer.
   - `ensureChromium` also exports `PRODUCER_HEADLESS_SHELL_PATH`, which HyperFrames reads before falling back to `~/.cache/puppeteer` (filled only by `bun install`) — so the managed build cannot be optional.
 
 ## Checksums

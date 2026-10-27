@@ -71,8 +71,8 @@ export const TOOL_CHECKSUMS: Readonly<Record<string, string>> = {
     "ef5d61434f13d9d2d9bdc7c9ab4bff92225979e196458cf846640862b25f127d",
   "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.54/mac-x64/chrome-headless-shell-mac-x64.zip":
     "a50c716727adf9e4af5b8861d19da23b672b4687a0d631ec4beebb3009d6db97",
-  "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.54/win64/chrome-headless-shell-win64.zip":
-    "e7ecbc129f9e5b9ba603a3a99dcee82f93b74cb3c9632be3b4b2a78335cc3faf",
+  "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.54/win64/chrome-win64.zip":
+    "91850065e6b80bba0c752e17a150fe1b9e39bba51ed705640c1273f565950dda",
 };
 
 /**

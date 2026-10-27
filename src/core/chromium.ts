@@ -37,21 +37,31 @@ const PUPPETEER_PLATFORMS: Record<string, BrowserPlatform> = {
   "win32-x64": BrowserPlatform.WIN64,
 };
 
-/** Where each platform/arch fetches its pinned chrome-headless-shell archive. Pure (for testing). */
+/**
+ * chrome-headless-shell everywhere but Windows, where it is a console-subsystem binary: each child
+ * process it starts (gpu, utility, renderer) opens a console window of its own, which nothing
+ * launching the shell can suppress. Chrome for Testing's `chrome.exe` is a GUI binary and runs the
+ * same build headless.
+ */
+export function chromiumBrowser(platform: NodeJS.Platform): Browser {
+  return platform === "win32" ? Browser.CHROME : Browser.CHROMEHEADLESSSHELL;
+}
+
+/** Where each platform/arch fetches its pinned Chromium archive. Pure (for testing). */
 export function chromiumDownloadUrl(platform: NodeJS.Platform, arch: string): string {
   const target = PUPPETEER_PLATFORMS[`${platform}-${arch}`];
   if (!target) {
     throw new KonteError(
       "CHROMIUM_SETUP_FAILED",
-      `No managed chrome-headless-shell build for ${platform}-${arch}. ` +
+      `No managed Chromium build for ${platform}-${arch}. ` +
         `Install Chrome/Chromium and set KONTE_CHROMIUM_PATH.`,
     );
   }
-  return getDownloadUrl(Browser.CHROMEHEADLESSSHELL, target, CHROMIUM_BUILD_ID).toString();
+  return getDownloadUrl(chromiumBrowser(platform), target, CHROMIUM_BUILD_ID).toString();
 }
 
 /**
- * Absolute path to a usable chrome-headless-shell, provisioning the managed build on first use if
+ * Absolute path to a usable Chromium, provisioning the managed build on first use if
  * needed. `KONTE_CHROMIUM_PATH` overrides it with a local binary, skipping the download.
  *
  * Also exported through `PRODUCER_HEADLESS_SHELL_PATH`, since HyperFrames resolves the browser
@@ -77,7 +87,7 @@ export async function ensureChromium(): Promise<string> {
 async function provision(): Promise<string> {
   const cacheDir = toolCacheDir(`chromium-${CHROMIUM_BUILD_ID}`);
   const options = {
-    browser: Browser.CHROMEHEADLESSSHELL,
+    browser: chromiumBrowser(process.platform),
     buildId: CHROMIUM_BUILD_ID,
     cacheDir,
   } as const;

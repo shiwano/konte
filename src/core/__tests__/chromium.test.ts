@@ -6,6 +6,7 @@ import { CHROMIUM_BUILD_ID } from "../chromium.js";
 // pick this build — it must be the one puppeteer pins. A `@hyperframes/producer` bump can carry a
 // new puppeteer without touching konte's constant, and the mismatch would surface as render
 // weirdness rather than a setup error. Fail here instead, at the bump.
-it("pins the chrome-headless-shell build that puppeteer pins", () => {
+it("pins the chrome-headless-shell and Chrome builds that puppeteer pins", () => {
   expect(CHROMIUM_BUILD_ID).toBe(PUPPETEER_REVISIONS["chrome-headless-shell"]);
+  expect(CHROMIUM_BUILD_ID).toBe(PUPPETEER_REVISIONS.chrome);
 });
