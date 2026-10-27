@@ -5,6 +5,7 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it, vi } from "vitest";
 import { maxCellsForWidth } from "../../core/contact-sheet.js";
+import { KonteError } from "../../core/errors.js";
 import { ensureFfmpeg } from "../../core/ffmpeg.js";
 import {
   ffmpegBin,
@@ -24,11 +25,14 @@ const STILL = "assets/files/kf.png";
 
 // Every composition frame is the fixture still, so a reel board renders without Chromium.
 const requested: number[][] = [];
+// Set, every capture rejects with it.
+const capture: { failure: Error | null } = { failure: null };
 vi.mock("../../core/thumbnail.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../core/thumbnail.js")>();
   return {
     ...actual,
     captureCompositionFrames: async (options: { captureOptions: { timestamps: number[] } }) => {
+      if (capture.failure) throw capture.failure;
       requested.push(options.captureOptions.timestamps);
       return options.captureOptions.timestamps.map((timestamp) => ({ file: STILL, timestamp }));
     },
@@ -68,6 +72,7 @@ async function writeStill(projectDir: string): Promise<void> {
 
 describe("probe contact-sheet with mixed arguments", () => {
   async function setup(): Promise<{ projectDir: string; keyframeId: string }> {
+    capture.failure = null;
     const projectDir = await initWithCrossStageVideo();
     await acceptDirection(projectDir);
     await writeStill(projectDir);
@@ -100,6 +105,17 @@ describe("probe contact-sheet with mixed arguments", () => {
     const sheets = stdout.trim().split("\n");
     expect(sheets).toHaveLength(3);
     for (const sheet of sheets) expect(existsSync(sheet)).toBe(true);
+  });
+
+  it("fails as a capture failure when every shot in the sweep failed to capture", async () => {
+    const { projectDir } = await setup();
+    capture.failure = new KonteError("FRAME_CAPTURE_FAILED", "browser launch failed");
+
+    await expect(run(["probe", "contact-sheet", "video"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "Error [FRAME_CAPTURE_FAILED]: No shot in scope was captured — 1 dropped out: video:shot.01 (browser launch failed)",
+      ),
+    });
   });
 
   it("prints every sheet path and names each board's summary", async () => {

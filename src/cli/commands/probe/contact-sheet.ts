@@ -201,6 +201,7 @@ async function buildCompositionCells(
   // What each shot actually contributed. On the board that is its panel count, which varies from
   // shot to shot, so pagination packs by these rather than assuming `framesPerShot`.
   const groups: number[] = [];
+  let captureFailed = false;
   for (const { id: shotId, named } of targets) {
     const shot = video.shots.find((s) => s.id === shotId)!;
     const address = formatCompositionAddress(stage, shotId);
@@ -288,7 +289,10 @@ async function buildCompositionCells(
         (err.code !== "COMPOSITION_BUILD_FAILED" && err.code !== "FRAME_CAPTURE_FAILED")
       )
         throw err;
-      if (err.code === "FRAME_CAPTURE_FAILED") process.exitCode = 1;
+      if (err.code === "FRAME_CAPTURE_FAILED") {
+        process.exitCode = 1;
+        captureFailed = true;
+      }
       skipped.push(`${shotAddress} (${err.message})`);
       continue;
     }
@@ -319,8 +323,10 @@ async function buildCompositionCells(
   // Every shot in scope dropped out: the reasons say more than an empty sheet would.
   if (cells.length === 0) {
     throw new KonteError(
-      "SHOT_NOT_FOUND",
-      `No keyframe in scope reaches a frame of the composition — ${skipped.length} dropped out`,
+      captureFailed ? "FRAME_CAPTURE_FAILED" : "SHOT_NOT_FOUND",
+      captureFailed
+        ? `No shot in scope was captured — ${skipped.length} dropped out`
+        : `No keyframe in scope reaches a frame of the composition — ${skipped.length} dropped out`,
       skipped.map((r) => `  ${r}`),
     );
   }
