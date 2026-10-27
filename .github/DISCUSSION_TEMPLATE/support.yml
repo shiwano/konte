@@ -25,6 +25,6 @@ body:
     id: body
     attributes:
       label: Report
-      description: What you were trying to do, what happened, what you expected, `konte --version` and `uname -sr`; a repro and the output when a command is involved.
+      description: What you were trying to do, what happened, what you expected, and the version in your workspace's `konte.version`; a repro and the output when a command is involved.
     validations:
       required: true
