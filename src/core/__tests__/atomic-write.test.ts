@@ -1,8 +1,13 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writeFileAtomic } from "../atomic-write.js";
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...actual, rename: vi.fn(actual.rename) };
+});
 
 let tmpDir: string;
 
@@ -47,5 +52,47 @@ describe("writeFileAtomic", () => {
     const entries = await fs.readdir(tmpDir);
     expect(entries.filter((e) => e.endsWith(".tmp"))).toEqual([]);
     expect(entries).toEqual(["out.bin"]);
+  });
+
+  describe("on Windows", () => {
+    beforeEach(() => {
+      vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    });
+
+    afterEach(async () => {
+      vi.restoreAllMocks();
+      const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+      vi.mocked(fs.rename).mockImplementation(actual.rename);
+    });
+
+    it("retries a rename refused while another process holds the target open", async () => {
+      const target = path.join(tmpDir, "out.json");
+      const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+      let refusals = 2;
+      vi.mocked(fs.rename)
+        .mockClear()
+        .mockImplementation(async (from, to) => {
+          if (refusals-- > 0) {
+            throw Object.assign(new Error("operation not permitted"), { code: "EPERM" });
+          }
+          return actual.rename(from, to);
+        });
+
+      await writeFileAtomic(target, "{}");
+
+      expect(await fs.readFile(target, "utf-8")).toBe("{}");
+      expect(fs.rename).toHaveBeenCalledTimes(3);
+    });
+
+    it("does not retry an error that is not a sharing refusal", async () => {
+      const target = path.join(tmpDir, "out.json");
+      vi.mocked(fs.rename)
+        .mockClear()
+        .mockRejectedValue(Object.assign(new Error("no space left"), { code: "ENOSPC" }));
+
+      await expect(writeFileAtomic(target, "{}")).rejects.toMatchObject({ code: "ENOSPC" });
+      expect(fs.rename).toHaveBeenCalledTimes(1);
+      expect(await fs.readdir(tmpDir)).toEqual([]);
+    });
   });
 });

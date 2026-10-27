@@ -21,10 +21,29 @@ async function withAtomicTemp(
   );
   try {
     await write(tmp);
-    await fs.rename(tmp, filePath);
+    await renameOverwriting(tmp, filePath);
   } catch (err) {
     await fs.unlink(tmp).catch(() => {});
     throw err;
+  }
+}
+
+const WINDOWS_RENAME_RETRY_MS = 5000;
+const WINDOWS_TRANSIENT_RENAME_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
+
+// Windows refuses to replace a file another process holds open (a preview or daemon reading it,
+// an antivirus scanning the temp) for as long as that handle lives.
+async function renameOverwriting(from: string, to: string): Promise<void> {
+  if (process.platform !== "win32") return fs.rename(from, to);
+  const deadline = Date.now() + WINDOWS_RENAME_RETRY_MS;
+  for (let delay = 10; ; delay = Math.min(delay * 2, 500)) {
+    try {
+      return await fs.rename(from, to);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (!code || !WINDOWS_TRANSIENT_RENAME_CODES.has(code) || Date.now() >= deadline) throw err;
+    }
+    await new Promise((resolve) => setTimeout(resolve, delay));
   }
 }
 
