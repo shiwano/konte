@@ -88,6 +88,48 @@ beforeEach(() => {
 });
 
 describe("captureCompositionFrames", () => {
+  it("names the shot when the renderer rejects with a message-less Error", async () => {
+    createCaptureSessionMock.mockRejectedValue(new Error(""));
+
+    await expect(
+      captureCompositionFrames({
+        video,
+        manager,
+        shotId: "01",
+        videoRoot: "/video",
+        outputDir: "/video/.konte/cache/thumbnails/animatic/shot.01",
+        captureOptions: { timestamps: [1.75], format: "jpeg", quality: 80, force: true },
+      }),
+    ).rejects.toMatchObject({
+      code: "FRAME_CAPTURE_FAILED",
+      message: expect.stringMatching(/^animatic:shot\.01#composition: Error — /),
+    });
+  });
+
+  // Puppeteer rejects a failed CDP WebSocket connect with the ws ErrorEvent itself.
+  it("reads the message off a rejected ErrorEvent", async () => {
+    class ErrorEvent {
+      message = "WebSocket connection to 'ws://127.0.0.1:9222/devtools/browser/x' failed";
+    }
+    createCaptureSessionMock.mockRejectedValue(new ErrorEvent());
+
+    await expect(
+      captureCompositionFrames({
+        video,
+        manager,
+        shotId: "01",
+        videoRoot: "/video",
+        outputDir: "/video/.konte/cache/thumbnails/animatic/shot.01",
+        captureOptions: { timestamps: [1.75], format: "jpeg", quality: 80, force: true },
+      }),
+    ).rejects.toMatchObject({
+      code: "FRAME_CAPTURE_FAILED",
+      message: expect.stringContaining(
+        "animatic:shot.01#composition: WebSocket connection to 'ws://127.0.0.1:9222/devtools/browser/x' failed",
+      ),
+    });
+  });
+
   // The page-side runtime quantizes every seek onto its own fps grid and falls back to 30 when the
   // server names none — which rounds a 24fps panel's start back over the cut before it, so the
   // frame captured FOR a keyframe is the one it cuts away from.

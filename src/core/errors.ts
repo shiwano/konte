@@ -261,5 +261,10 @@ export class KonteError extends Error {
 }
 
 export function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+  if (err instanceof Error) return err.message;
+  // An event rejected as-is — a WebSocket's ErrorEvent — stringifies to `[object ErrorEvent]`.
+  if (typeof err === "object" && err !== null && "message" in err) {
+    if (typeof err.message === "string") return err.message;
+  }
+  return String(err);
 }

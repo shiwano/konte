@@ -5,7 +5,7 @@ import {
   formatCompositionAddress,
   parseReelScope,
 } from "../../../core/address.js";
-import { errorMessage, KonteError } from "../../../core/errors.js";
+import { KonteError } from "../../../core/errors.js";
 import { buildShotCompositionHtml } from "../../../core/composition-builder.js";
 import { compositionAnimates } from "../../../core/dsl/composition/animate.js";
 import { StateManager } from "../../../core/state/index.js";
@@ -14,7 +14,6 @@ import {
   COMPOSITION_FRAME_FORMAT,
   COMPOSITION_FRAME_QUALITY,
   type CaptureCompositionOptions,
-  type ThumbnailInfo,
 } from "../../../core/thumbnail.js";
 import type { StageDefinition } from "../../../core/types/index.js";
 import { loadVideoAndAnimatic } from "../../load-definition.js";
@@ -48,13 +47,6 @@ async function shotAnimates(
   } catch {
     return false;
   }
-}
-
-// The renderer can reject with a message-less Error, which reads as no failure at all.
-function captureFailure(err: unknown): string {
-  const message = errorMessage(err).trim();
-  if (message) return message;
-  return err instanceof Error ? err.name : String(err);
 }
 
 export function registerProbeReelThumbnailsCommand(program: Command): void {
@@ -127,24 +119,14 @@ Examples:
         "thumbnails",
         ...addressToCacheSegments(address),
       );
-      let captured: ThumbnailInfo[];
-      try {
-        captured = await captureCompositionFrames({
-          video,
-          manager,
-          shotId,
-          videoRoot,
-          outputDir,
-          captureOptions,
-        });
-      } catch (err) {
-        // Wrapped, because a bundled stack names no shot.
-        if (err instanceof KonteError) throw err;
-        throw new KonteError(
-          "FRAME_CAPTURE_FAILED",
-          `${address}: ${captureFailure(err)} — re-run with KONTE_DEBUG=1 for the renderer's own diagnostics`,
-        );
-      }
+      const captured = await captureCompositionFrames({
+        video,
+        manager,
+        shotId,
+        videoRoot,
+        outputDir,
+        captureOptions,
+      });
       const thumbnails = withAbsoluteFiles(videoRoot, captured);
 
       console.log(`${address}: ${thumbnails.length} frames captured`);

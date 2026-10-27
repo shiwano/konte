@@ -820,14 +820,35 @@ async function resolveCompositionCacheDir(options: {
   return { compositionResult, cacheDir: path.join(outputDir, compHash) };
 }
 
-export async function captureCompositionFrames(options: {
+type CaptureCompositionFramesOptions = {
   video: import("./types/index.js").StageDefinition;
   manager: import("./state/index.js").StateManager;
   shotId: string;
   videoRoot: string;
   outputDir: string;
   captureOptions?: CaptureCompositionOptions;
-}): Promise<ThumbnailInfo[]> {
+};
+
+export async function captureCompositionFrames(
+  options: CaptureCompositionFramesOptions,
+): Promise<ThumbnailInfo[]> {
+  try {
+    return await captureCompositionFramesUnwrapped(options);
+  } catch (err) {
+    // Wrapped, because a bundled stack names no shot.
+    if (err instanceof KonteError) throw err;
+    // The renderer can reject with a message-less Error, which reads as no failure at all.
+    const message = errorMessage(err).trim() || (err instanceof Error ? err.name : String(err));
+    throw new KonteError(
+      "FRAME_CAPTURE_FAILED",
+      `${formatCompositionAddress(options.video.stage, options.shotId)}: ${message} — re-run with KONTE_DEBUG=1 for the renderer's own diagnostics`,
+    );
+  }
+}
+
+async function captureCompositionFramesUnwrapped(
+  options: CaptureCompositionFramesOptions,
+): Promise<ThumbnailInfo[]> {
   const { video, manager, shotId, videoRoot, outputDir, captureOptions } = options;
   const maxFrames = captureOptions?.maxFrames ?? 8;
   const sceneThreshold = captureOptions?.sceneThreshold ?? 0.3;
