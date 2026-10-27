@@ -24,6 +24,10 @@ if (!process.env.KONTE_FFPROBE_PATH) process.env.KONTE_FFPROBE_PATH = "ffprobe";
 // say. A test that wants fal configured stubs the variable itself.
 delete process.env.FAL_KEY;
 
+// The nix dev shell pins SOURCE_DATE_EPOCH, under which a fontconfig cache never reads as valid, so
+// each drawtext ffmpeg rescans every font.
+delete process.env.SOURCE_DATE_EPOCH;
+
 // doctor asks GitHub for the latest release once a day and caches the answer beside the binary
 // (~/.konte). Neither belongs in a test run.
 if (!process.env.KONTE_UPDATE_CHECK) process.env.KONTE_UPDATE_CHECK = "0";
