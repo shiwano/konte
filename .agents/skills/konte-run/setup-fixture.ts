@@ -16,7 +16,7 @@
 //                     audio. All are ffmpeg-generated in step 2c — the fixture video's
 //                     character.png/bgm.mp3 are overwritten so no template media reaches state.
 //
-// Usage:  bun .claude/skills/konte-run/setup-fixture.ts [workspace-dir] [video-name]
+// Usage:  bun .agents/skills/konte-run/setup-fixture.ts [workspace-dir] [video-name]
 //         (defaults: /tmp/konte-run-fixture/ws, video "main")
 // Prints the VIDEO dir — pass it to `konte --cwd <dir> preview …`.
 import { $ } from "bun";

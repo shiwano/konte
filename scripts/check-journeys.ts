@@ -108,7 +108,7 @@ import { execFileSync } from "node:child_process";
 const WORKSPACE = "src/cli/templates/workspace";
 const SKILLS = `${WORKSPACE}/dot.agents/skills`;
 const AGENTS = "src/cli/templates/agents";
-const DEV = ".claude/skills";
+const DEV = ".agents/skills";
 
 const ALWAYS = [`${WORKSPACE}/CLAUDE.md`, `${WORKSPACE}/AGENTS.md`];
 const HOUSE_RULES = `${WORKSPACE}/HOUSE_RULES.md`;

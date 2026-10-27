@@ -43,7 +43,7 @@ bun run build:embed-ui    # embed dist -> src/core/generated/ui-assets.ts
 ### 1. Make a fixture workspace + video
 
 ```bash
-bun .claude/skills/konte-run/setup-fixture.ts   # [workspace-dir] [video-name]
+bun .agents/skills/konte-run/setup-fixture.ts   # [workspace-dir] [video-name]
 ```
 
 It scaffolds a workspace (`/tmp/konte-run-fixture/ws`) and a video from `fixture-video.ts`, then crafts its `konte.state.json` + review stream so all four stages render offline. It prints the video dir — the `--cwd` below.
@@ -84,11 +84,11 @@ curl -s http://127.0.0.1:4658/api/state | jq '{sections, brief: [.brief[].field]
 
 ```bash
 # static screenshot of the default view
-bun .claude/skills/konte-run/drive.mjs --url http://127.0.0.1:4655 --out /tmp/default.png \
+bun .agents/skills/konte-run/drive.mjs --url http://127.0.0.1:4655 --out /tmp/default.png \
   --probe "document.querySelectorAll('.rt-clip-name').length + ' clips'"
 
 # click a button by visible text, then screenshot
-bun .claude/skills/konte-run/drive.mjs --url http://127.0.0.1:4655 --out /tmp/accepted.png \
+bun .agents/skills/konte-run/drive.mjs --url http://127.0.0.1:4655 --out /tmp/accepted.png \
   --click "Accept all" \
   --probe "document.querySelectorAll('.rt-shot--accepted').length"
 ```

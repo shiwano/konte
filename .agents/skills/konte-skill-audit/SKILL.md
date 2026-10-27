@@ -9,7 +9,7 @@ Done = every in-scope file trimmed with no fact, rule, why or judgment lost, the
 
 ## Scope
 
-- Default: template skills (`src/cli/templates/workspace/dot.agents/skills/`), dev skills (`.claude/skills/`) and plugin skills (`plugin/plugins/konte/skills/`). `$ARGUMENTS` narrows to one root or skill.
+- Default: template skills (`src/cli/templates/workspace/dot.agents/skills/`), dev skills (`.agents/skills/`) and plugin skills (`plugin/plugins/konte/skills/`). `$ARGUMENTS` narrows to one root or skill.
 - Subagent contracts (`src/cli/templates/agents/`) only when asked.
 - Never `dot.claude/skills/` — generated twins.
 

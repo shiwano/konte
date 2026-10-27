@@ -5,7 +5,7 @@
 // screenshot. Use it to SEE and DRIVE the review UI from a headless container.
 //
 // Usage:
-//   bun .claude/skills/konte-run/drive.mjs --url http://127.0.0.1:4651 --out /tmp/shot.png
+//   bun .agents/skills/konte-run/drive.mjs --url http://127.0.0.1:4651 --out /tmp/shot.png
 //   bun .../drive.mjs --url ... --out /tmp/after.png --click "View accepted" --probe \
 //     "document.querySelector('.vp-new-take-banner') ? 'banner' : 'gone'"
 //
