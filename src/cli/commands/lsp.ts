@@ -9,7 +9,7 @@ export function registerLspCommand(program: Command): void {
     .description("LSP server")
     .action(async () => {
       const tscBin = await ensureTsc();
-      const child = spawn(tscBin, ["--lsp", "-stdio"], { stdio: "inherit" });
+      const child = spawn(tscBin, ["--lsp", "-stdio"], { stdio: "inherit", windowsHide: true });
 
       const forward = (signal: NodeJS.Signals) => {
         if (!child.killed) child.kill(signal);

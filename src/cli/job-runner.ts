@@ -37,6 +37,7 @@ function spawnAttachedDaemon(workspaceRoot: string): AttachedRunner {
     env,
     stdio: ["pipe", "ignore", "pipe"],
     detached: ownGroup,
+    windowsHide: true,
   });
   const kill = (signal: NodeJS.Signals): void => {
     try {

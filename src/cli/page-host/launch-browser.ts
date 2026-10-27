@@ -20,7 +20,7 @@ export function launchBrowser(url: string, opts: { silent?: boolean } = {}): voi
   }
 
   try {
-    const child = spawn(command, args, { stdio: "ignore", detached: true });
+    const child = spawn(command, args, { stdio: "ignore", detached: true, windowsHide: true });
     child.once("error", reportFailure);
     child.once("exit", (code) => {
       if (code !== 0) reportFailure();

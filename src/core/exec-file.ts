@@ -50,7 +50,11 @@ export async function execFileAsync(
     let signal: string | null;
     try {
       [exitCode, signal] = await new Promise<[number | null, string | null]>((resolve, reject) => {
-        const child = spawn(file, args, { cwd: options.cwd, stdio: ["ignore", outFd, errFd] });
+        const child = spawn(file, args, {
+          cwd: options.cwd,
+          stdio: ["ignore", outFd, errFd],
+          windowsHide: true,
+        });
         child.once("error", (err) => reject(Object.assign(err, { stdout: "", stderr: "" })));
         child.once("close", (code, sig) => resolve([code, sig]));
       });

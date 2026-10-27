@@ -47,7 +47,7 @@ it.runIf(process.platform === "linux")("opens the Windows default browser under 
   expect(spawn).toHaveBeenCalledWith(
     "powershell.exe",
     ["-NoProfile", "-Command", "Start-Process 'http://127.0.0.1:4649/?q=''a''&b=1'"],
-    { stdio: "ignore", detached: true },
+    { stdio: "ignore", detached: true, windowsHide: true },
   );
 });
 
@@ -80,6 +80,7 @@ it("opens the browser when the Windows token cannot be queried", () => {
   expect(spawn).toHaveBeenCalledWith("cmd", ["/c", "start", "", url], {
     stdio: "ignore",
     detached: true,
+    windowsHide: true,
   });
 });
 
@@ -89,7 +90,11 @@ it("opens the URL through the OS without a shell or browser flags", () => {
   const command =
     process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
   const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
-  expect(spawn).toHaveBeenCalledWith(command, args, { stdio: "ignore", detached: true });
+  expect(spawn).toHaveBeenCalledWith(command, args, {
+    stdio: "ignore",
+    detached: true,
+    windowsHide: true,
+  });
   expect(child.unref).toHaveBeenCalled();
   child.emit("exit", 0);
   expect(console.log).not.toHaveBeenCalled();

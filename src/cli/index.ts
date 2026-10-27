@@ -49,7 +49,15 @@ if (import.meta.main) {
     // A daemon that finds its loaded definitions older than the files on disk exits asking to be
     // started again (see process-restart.ts); the child it gets keeps the same stdio.
     const code = await superviseChild(
-      () => Bun.spawn({ cmd, env, stdin: "inherit", stdout: "inherit", stderr: "inherit" }),
+      () =>
+        Bun.spawn({
+          cmd,
+          env,
+          stdin: "inherit",
+          stdout: "inherit",
+          stderr: "inherit",
+          windowsHide: true,
+        }),
       // A SIGINT aimed at this pid while a terminal is attached — of which a backgrounded
       // `konte preview &` is the real case — is not forwarded: it keeps the controlling terminal
       // but leaves the foreground group, so no Ctrl-C reaches it either. SIGTERM stops those.

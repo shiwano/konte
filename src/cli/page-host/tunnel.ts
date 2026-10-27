@@ -40,7 +40,7 @@ export async function startTunnel(port: number): Promise<Tunnel> {
       "--loglevel",
       "info",
     ],
-    { stdio: ["ignore", "pipe", "pipe"] },
+    { stdio: ["ignore", "pipe", "pipe"], windowsHide: true },
   );
 
   // Registered against the spawn, not the hostname: the wait below runs up to HOSTNAME_TIMEOUT_MS,
