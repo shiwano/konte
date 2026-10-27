@@ -36,6 +36,8 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - dev-release 3,700 → 3,800 (agreed by a human): bringing the seeded `comfyVersion` up to
+//   ComfyUI's latest release before the version commit.
 // - konte-animatic-critic 3,800 → 3,850 (agreed by a human): `fabricated-ui`, a real product's
 //   screen showing what it never displays, and `composition` as the surface of its fix.
 // - dev-demo-ui (new, 4,400): syncing konte-demo's review-UI rebuilds with konte's pages.
@@ -347,7 +349,7 @@ const DEV_JOURNEYS = [
   // publishes from it.
   {
     name: "dev-release",
-    budget: 3_700,
+    budget: 3_800,
     files: [...DEV_ALWAYS, `${DEV}/konte-release/SKILL.md`],
   },
   // Syncing konte-demo's JSX rebuilds of the review UI with konte's real pages.
