@@ -16,7 +16,7 @@ const outDir = path.resolve(import.meta.dirname, "../src/core/generated");
 // A prefix matches a directory subtree. A user who wants their
 // own skill or reviewer adds it under a different name; an adapter takes a custom guide by
 // re-pointing its `konte/guides/…` import at a file under adapters/comfy/.
-// Agent settings are rendered separately during workspace setup.
+// Agent settings are rendered per workspace by the workspace sync instead.
 // User-owned escape hatches: personal Claude Code overrides go in
 // .claude/settings.local.json (gitignored, never shipped/managed), and project
 // content (video.tsx, konte.config.json, HOUSE_RULES.md, adapters/**, .gitignore) stays seed.
@@ -28,9 +28,16 @@ const MANAGED_PREFIXES = [
   ".codex/agents/",
 ];
 const MANAGED_EXACTS = [".konte/mod.ts", "AGENTS.md", "CLAUDE.md", "tsconfig.json"];
+const AGENT_SETTINGS_KEYS = [
+  ".mcp.json",
+  ".claude/settings.json",
+  ".codex/config.toml",
+  ".codex/rules/konte.rules",
+  ".claude/skills/konte-lsp/.claude-plugin/plugin.json",
+];
 
 function isManaged(key: string): boolean {
-  if (key === ".claude/skills/konte-lsp/.claude-plugin/plugin.json") return false;
+  if (AGENT_SETTINGS_KEYS.includes(key)) return false;
   return MANAGED_EXACTS.includes(key) || MANAGED_PREFIXES.some((p) => key.startsWith(p));
 }
 
@@ -241,18 +248,14 @@ for (const [key, value] of allFiles) {
 }
 
 const managedKeys: string[] = [];
-const managedContents = new Map<string, string>();
-for (const [key, { content, isBinary }] of workspaceFiles) {
-  if (!isBinary && isManaged(key)) {
-    managedKeys.push(key);
-    managedContents.set(key, content);
-  }
+for (const [key, { isBinary }] of workspaceFiles) {
+  if (!isBinary && isManaged(key)) managedKeys.push(key);
 }
 managedKeys.sort();
 
 const shippedManagedKeys = managedKeys.filter((key) => !isDevSkillKey(key));
 
-// syncManagedTemplates writes every managed key relative to the WORKSPACE root, so a managed key
+// syncWorkspace writes every managed key relative to the WORKSPACE root, so a managed key
 // under videos/ would land a video's file at the workspace root on the next upgrade. The
 // partition above already guarantees this; assert it so a future move cannot quietly break it.
 for (const key of managedKeys) {
@@ -285,10 +288,16 @@ for (const name of videoTemplateNames) {
   videoTemplates[name] = entries;
 }
 
+// The workspace sync also renders these from their templates, so a change to one moves the hash.
+const syncedSeedKeys = [...AGENT_SETTINGS_KEYS, ".gitignore"];
+for (const key of syncedSeedKeys) {
+  if (!workspaceFiles.has(key)) throw new Error(`Workspace template is missing "${key}"`);
+}
+
 function templateHashOf(keys: readonly string[]): string {
   const hash = crypto.createHash("sha256");
   for (const key of keys) {
-    hash.update(`${key}\n${managedContents.get(key)}\n`);
+    hash.update(`${key}\n${workspaceFiles.get(key)!.content}\n`);
   }
   return hash.digest("hex");
 }
@@ -354,9 +363,10 @@ emit(
     `export const MANAGED_TEMPLATES: ReadonlySet<string> = new Set(${COMPILED}`,
     `  ? ${JSON.stringify(shippedManagedKeys)}`,
     `  : ${JSON.stringify(managedKeys)});`,
+    `export const AGENT_SETTINGS_FILES: ReadonlySet<string> = new Set(${JSON.stringify(AGENT_SETTINGS_KEYS)});`,
     `export const TEMPLATE_HASH = ${COMPILED}`,
-    `  ? ${JSON.stringify(templateHashOf(shippedManagedKeys))}`,
-    `  : ${JSON.stringify(templateHashOf(managedKeys))};`,
+    `  ? ${JSON.stringify(templateHashOf([...shippedManagedKeys, ...syncedSeedKeys]))}`,
+    `  : ${JSON.stringify(templateHashOf([...managedKeys, ...syncedSeedKeys]))};`,
     `export const VIDEO_TEMPLATE_NAMES: readonly string[] = ${COMPILED}`,
     `  ? ${JSON.stringify(shippedVideoTemplateNames)}`,
     `  : ${JSON.stringify(videoTemplateNames)};`,

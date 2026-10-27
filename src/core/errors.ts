@@ -197,6 +197,9 @@ export type KonteErrorCode =
   | "NOT_A_KONTE_WORKSPACE"
   | "WORKSPACE_ALREADY_EXISTS"
   | "INVALID_AGENT_SETTINGS"
+  // A command rewrote the agent settings or `.konte/bin` link a running coding agent loaded at
+  // its startup; the command did not run.
+  | "AGENT_RESTART_REQUIRED"
   | "VIDEO_NOT_SELECTED"
   | "VIDEO_NOT_FOUND"
   | "VIDEO_ALREADY_EXISTS"

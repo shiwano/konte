@@ -5,7 +5,7 @@ import pkg from "../../package.json" with { type: "json" };
 import { applyCredentials } from "../core/credentials.js";
 import { KonteError } from "../core/errors.js";
 import { resolveRoots } from "../core/roots.js";
-import { syncManagedTemplates } from "../core/template-sync.js";
+import { syncWorkspace } from "../core/template-sync.js";
 import { typeCheckWorkspace } from "../core/tsc.js";
 import { setWorkspaceRoot } from "../core/workspace-context.js";
 import { requireVideoRoots, setRoots } from "./context.js";
@@ -133,7 +133,7 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
     const videoRoot = roots.video.kind === "selected" ? roots.video.root : null;
 
     if (!skipSync) {
-      const sync = await syncManagedTemplates(workspaceRoot);
+      const sync = await syncWorkspace(workspaceRoot);
       if (sync) {
         const changed = sync.created.length + sync.updated.length;
         if (changed > 0) {
@@ -142,6 +142,12 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
         if (sync.unwritable.length > 0) {
           console.error(
             `konte: ${sync.unwritable.length} managed file(s) not writable, left behind v${pkg.version}: ${sync.unwritable.join(", ")} — run \`konte workspace setup\` where they are writable`,
+          );
+        }
+        if (sync.relaunch.length > 0) {
+          throw new KonteError(
+            "AGENT_RESTART_REQUIRED",
+            `Rewrote what the coding agent loads at startup for ${workspaceRoot} (${sync.relaunch.join(", ")}); its konte MCP server and settings are stale until it restarts — ask the human to restart the coding agent in ${workspaceRoot}, then run the command again`,
           );
         }
       }

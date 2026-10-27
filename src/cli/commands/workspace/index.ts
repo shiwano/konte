@@ -1,26 +1,20 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { Command } from "commander";
-import {
-  AGENT_SETTINGS_FILES,
-  linkWorkspaceBinary,
-  prepareAgentSettings,
-  writeAgentSettings,
-} from "../../../core/agent-settings.js";
+import { prepareAgentSettings } from "../../../core/agent-settings.js";
 import { KonteError } from "../../../core/errors.js";
 import {
+  AGENT_SETTINGS_FILES,
   loadWorkspaceTemplate,
   WORKSPACE_BINARY_FILES,
 } from "../../../core/generated/template-assets.js";
 import { resolveRoots } from "../../../core/roots.js";
-import { syncManagedTemplates, writeTemplateLock } from "../../../core/template-sync.js";
+import { syncWorkspace } from "../../../core/template-sync.js";
 import { setWorkspaceRoot } from "../../../core/workspace-context.js";
 import { confirmAction, printAborted } from "../../confirm.js";
 import { declareScope } from "../../scope.js";
 import { pathExists, writeTemplateFiles } from "../../template-files.js";
 import { prefetchManagedRuntimes } from "./prefetch.js";
-
-declare const KONTE_COMPILED: boolean | undefined;
 
 const FRESH_REPO_ENTRIES = new Set([
   ".git",
@@ -48,7 +42,8 @@ async function foreignEntries(dir: string): Promise<string[]> {
 }
 
 async function scaffold(root: string, existing: boolean): Promise<void> {
-  const settings = await prepareAgentSettings(root);
+  // Ahead of any write: settings it cannot merge refuse the whole scaffold.
+  await prepareAgentSettings(root);
   const template = await loadWorkspaceTemplate();
   const files: Record<string, string> = {};
   for (const [key, content] of Object.entries(template)) {
@@ -57,29 +52,13 @@ async function scaffold(root: string, existing: boolean): Promise<void> {
     files[key] = content;
   }
   await writeTemplateFiles(root, files, WORKSPACE_BINARY_FILES);
-  const ignorePath = path.join(root, ".gitignore");
-  const currentIgnore = (await pathExists(ignorePath)) ? await fs.readFile(ignorePath, "utf8") : "";
-  const lines = new Set(currentIgnore.split(/\r?\n/));
-  const missing = template[".gitignore"]!.split("\n").filter((line) => line && !lines.has(line));
-  if (missing.length) {
-    await fs.writeFile(
-      ignorePath,
-      `${currentIgnore}${currentIgnore && !currentIgnore.endsWith("\n") ? "\n" : ""}${missing.join("\n")}\n`,
+  const unwritable = (await syncWorkspace(root, { force: true }))?.unwritable ?? [];
+  if (unwritable.length > 0) {
+    throw new KonteError(
+      "TEMPLATE_SYNC_FAILED",
+      `${unwritable.length} managed file(s) not writable; grant write access and run konte workspace setup again`,
+      unwritable,
     );
-  }
-  if (existing) {
-    const unwritable = (await syncManagedTemplates(root, { force: true }))?.unwritable ?? [];
-    if (unwritable.length > 0) {
-      throw new KonteError(
-        "TEMPLATE_SYNC_FAILED",
-        `${unwritable.length} managed file(s) not writable; grant write access and run konte workspace setup again`,
-        unwritable,
-      );
-    }
-  } else await writeTemplateLock(root);
-  await writeAgentSettings(root, settings);
-  if (typeof KONTE_COMPILED !== "undefined" && KONTE_COMPILED) {
-    await linkWorkspaceBinary(root, process.execPath);
   }
 }
 

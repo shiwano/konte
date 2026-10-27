@@ -287,6 +287,16 @@ describe("workspace setup", () => {
     expect(await fs.readFile(path.join(moved, ".gitignore"), "utf8")).toBe(ignore);
   });
 
+  it("writes nothing when an existing agent setting cannot be merged", async () => {
+    const root = path.join(ctx.dir, "broken");
+    await fs.mkdir(root);
+    await fs.writeFile(path.join(root, ".mcp.json"), "{ invalid");
+    await expect(run(["workspace", "new", "-y"], root)).rejects.toMatchObject({
+      stderr: expect.stringContaining("INVALID_AGENT_SETTINGS"),
+    });
+    await expect(fs.access(path.join(root, "konte.config.json"))).rejects.toThrow();
+  });
+
   it("refuses setup outside a workspace", async () => {
     await expect(run(["workspace", "setup"])).rejects.toMatchObject({
       stderr: expect.stringContaining("NOT_A_KONTE_WORKSPACE"),

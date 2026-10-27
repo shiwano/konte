@@ -1,11 +1,16 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import pkg from "../../package.json" with { type: "json" };
+import { linkWorkspaceBinary, prepareAgentSettings, writeAgentSettings } from "./agent-settings.js";
 import {
+  AGENT_SETTINGS_FILES,
   loadManagedTemplateContents,
+  loadWorkspaceTemplate,
   MANAGED_TEMPLATES,
   TEMPLATE_HASH,
 } from "./generated/template-assets.js";
+
+declare const KONTE_COMPILED: boolean | undefined;
 
 const LOCK_FILE = ".konte/template.lock.json";
 const VERSION_FILE = "konte.version";
@@ -13,13 +18,16 @@ const VERSION_FILE = "konte.version";
 interface TemplateLock {
   hash: string;
   version: string;
+  root: string;
   updatedAt: string;
 }
 
-interface TemplateSyncResult {
+interface WorkspaceSyncResult {
   created: string[];
   updated: string[];
   unwritable: string[];
+  /** What a coding agent reads only at its startup: agent settings and the `.konte/bin` link. */
+  relaunch: string[];
 }
 
 function isUnwritable(err: unknown): boolean {
@@ -64,6 +72,7 @@ async function writeLock(workspaceRoot: string): Promise<void> {
   const lock: TemplateLock = {
     hash: TEMPLATE_HASH,
     version: pkg.version,
+    root: workspaceRoot,
     updatedAt: new Date().toISOString(),
   };
   const lockPath = path.join(workspaceRoot, LOCK_FILE);
@@ -85,29 +94,46 @@ async function writeVersionFile(workspaceRoot: string): Promise<void> {
   await fs.writeFile(filePath, desired, "utf-8");
 }
 
-/**
- * Records the current templates as synced. Called by `init` right after all
- * template files are written verbatim.
- */
-export async function writeTemplateLock(workspaceRoot: string): Promise<void> {
-  await writeLock(workspaceRoot);
-  await writeVersionFile(workspaceRoot);
+function linksBinary(): boolean {
+  return typeof KONTE_COMPILED !== "undefined" && KONTE_COMPILED && process.platform !== "win32";
+}
+
+async function binaryLinkLive(workspaceRoot: string): Promise<boolean> {
+  if (!linksBinary()) return true;
+  try {
+    await fs.stat(path.join(workspaceRoot, ".konte", "bin", "konte"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function appendMissingIgnores(workspaceRoot: string, template: string): Promise<void> {
+  const ignorePath = path.join(workspaceRoot, ".gitignore");
+  const current = (await readFileOrNull(ignorePath)) ?? "";
+  const lines = new Set(current.split(/\r?\n/));
+  const missing = template.split("\n").filter((line) => line && !lines.has(line));
+  if (missing.length === 0) return;
+  await fs.writeFile(
+    ignorePath,
+    `${current}${current && !current.endsWith("\n") ? "\n" : ""}${missing.join("\n")}\n`,
+  );
 }
 
 /**
- * Overwrites konte-managed template files in an existing project when the
- * embedded templates change. Cheap fast-path: returns null when the lock hash
- * already matches the current template hash AND every managed file is present
- * (some are gitignored generated stubs required by type-checking, so they are
- * restored even on the fast path).
+ * Brings a workspace up to this konte and this location: overwrites the managed template files,
+ * renders the agent settings for the workspace root, appends missing `.gitignore` lines and
+ * links `.konte/bin/konte`. Cheap fast-path: returns null when the lock names the current
+ * template hash and this root, every managed file and agent setting is present, and the
+ * `.konte/bin` link resolves.
  *
- * A file the OS refuses to write is left as it is and listed in `unwritable`;
+ * A managed file the OS refuses to write is left as it is and listed in `unwritable`;
  * the lock then stays unwritten, so the next run tries again.
  */
-export async function syncManagedTemplates(
+export async function syncWorkspace(
   workspaceRoot: string,
   options: { force?: boolean } = {},
-): Promise<TemplateSyncResult | null> {
+): Promise<WorkspaceSyncResult | null> {
   // Ahead of the fast path: a release that leaves the templates untouched still
   // moves the version.
   await writeVersionFile(workspaceRoot);
@@ -116,11 +142,15 @@ export async function syncManagedTemplates(
   if (
     !options.force &&
     lock?.hash === TEMPLATE_HASH &&
-    (await allPresent(workspaceRoot, MANAGED_TEMPLATES))
+    lock.root === workspaceRoot &&
+    (await allPresent(workspaceRoot, [...MANAGED_TEMPLATES, ...AGENT_SETTINGS_FILES])) &&
+    (await binaryLinkLive(workspaceRoot))
   ) {
     return null;
   }
 
+  // Ahead of any write: settings it cannot merge refuse the whole sync.
+  const settings = await prepareAgentSettings(workspaceRoot);
   const created: string[] = [];
   const updated: string[] = [];
   const unwritable: string[] = [];
@@ -144,6 +174,12 @@ export async function syncManagedTemplates(
     (current === null ? created : updated).push(key);
   }
 
+  await appendMissingIgnores(workspaceRoot, (await loadWorkspaceTemplate())[".gitignore"]!);
+  const relaunch = await writeAgentSettings(workspaceRoot, settings);
+  if (linksBinary() && (await linkWorkspaceBinary(workspaceRoot, process.execPath))) {
+    relaunch.push(".konte/bin/konte");
+  }
+
   if (unwritable.length === 0) await writeLock(workspaceRoot);
-  return { created, updated, unwritable };
+  return { created, updated, unwritable, relaunch };
 }

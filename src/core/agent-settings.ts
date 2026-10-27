@@ -2,15 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { KonteError } from "./errors.js";
-import { loadWorkspaceTemplate } from "./generated/template-assets.js";
-
-export const AGENT_SETTINGS_FILES = new Set([
-  ".mcp.json",
-  ".claude/settings.json",
-  ".codex/config.toml",
-  ".codex/rules/konte.rules",
-  ".claude/skills/konte-lsp/.claude-plugin/plugin.json",
-]);
+import { AGENT_SETTINGS_FILES, loadWorkspaceTemplate } from "./generated/template-assets.js";
 
 type Settings = Record<string, unknown>;
 const toml = Bun.TOML as typeof Bun.TOML & { stringify(value: Settings): string };
@@ -175,15 +167,15 @@ export async function linkWorkspaceBinary(
   workspaceRoot: string,
   executable: string,
   platform: NodeJS.Platform = process.platform,
-): Promise<void> {
-  if (platform === "win32") return;
+): Promise<boolean> {
+  if (platform === "win32") return false;
   const binDir = path.join(workspaceRoot, ".konte", "bin");
   const binary = path.join(binDir, "konte");
   const current = await fs.lstat(binary).catch((err: NodeJS.ErrnoException) => {
     if (err.code === "ENOENT") return null;
     throw err;
   });
-  if (current && !current.isSymbolicLink()) return;
+  if (current && !current.isSymbolicLink()) return false;
   const resolved = await fs.realpath(executable);
   await fs.mkdir(binDir, { recursive: true });
   const realBinDir = await fs.realpath(binDir);
@@ -198,17 +190,24 @@ export async function linkWorkspaceBinary(
     found && (await fs.realpath(found).catch(() => null)) === resolved
       ? path.resolve(found)
       : resolved;
+  if (current && (await fs.readlink(binary)) === target) return false;
   const staged = path.join(binDir, `.konte-${process.pid}.tmp`);
   await fs.rm(staged, { force: true });
   await fs.symlink(target, staged);
   await fs.rename(staged, binary);
+  return true;
 }
 
 export async function writeAgentSettings(
   workspaceRoot: string,
   settings: Record<string, string>,
-): Promise<void> {
+): Promise<string[]> {
+  const written: string[] = [];
   for (const [key, content] of Object.entries(settings)) {
-    await writeFileAtomic(path.join(workspaceRoot, key), content, { mode: 0o600 });
+    const file = path.join(workspaceRoot, key);
+    if ((await readOptional(file)) === content) continue;
+    await writeFileAtomic(file, content, { mode: 0o600 });
+    written.push(key);
   }
+  return written;
 }

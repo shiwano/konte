@@ -18,7 +18,7 @@ Write every CLI output for an agent to act on, not for a human to read.
 ## Scope and startup
 
 - Commands declare their scope: `none` (`workspace new`, `workspace setup`, `lsp`), `workspace` (`video *`, `adapter *`, `settings`, `mcp serve`), or `video` — the default, so a new command opts out explicitly.
-- The entry re-execs once to move Bun's transpiler cache into the workspace. The child resolves the roots, loads the workspace credentials into the environment, sets the tool-cache root, then runs the template sync and type-check.
+- The entry re-execs once to move Bun's transpiler cache into the workspace. The child resolves the roots, loads the workspace credentials into the environment, sets the tool-cache root, then runs the workspace sync (`arch-template-system-guide`; never `mcp serve`) and type-check.
 - The type-check covers the whole workspace, but only the current video's, the adapters' and the workspace's own diagnostics are fatal — a broken sibling video is reported and stepped over.
 - `generate` / `preview` / `export` are top-level commands; there is no `animatic` or `video` command group. `status` is always whole-project; a filter command like `clean` takes an `[address-scope]` to narrow to one stage.
 

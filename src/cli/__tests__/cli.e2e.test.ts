@@ -53,6 +53,12 @@ describe("CLI end-to-end (real binary)", () => {
     );
     await fs.writeFile(path.join(tmpDir, "adapters", "broken.ts"), 'const x: number = "bad";');
 
+    await expect(run(["video", "current"], tmpDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("AGENT_RESTART_REQUIRED"),
+    });
+    expect(JSON.parse(await fs.readFile(path.join(tmpDir, ".mcp.json"), "utf8"))).toMatchObject({
+      mcpServers: { konte: { args: ["--cwd", tmpDir, "mcp", "serve"] } },
+    });
     expect((await run(["video", "current"], tmpDir)).stdout).toContain("no videos");
     expect((await run(["video", "list"], tmpDir)).stdout).toContain("No videos yet");
     await expect(
