@@ -901,6 +901,7 @@ async function captureCompositionFramesUnwrapped(
   // Cache miss — resolve which timestamps to render.
   const {
     assertCaptureMediaLoaded,
+    embedFontFaces,
     ensureHyperFrames,
     linkIntoWorkspace,
     loadHyperFramesProducer,
@@ -971,7 +972,11 @@ async function captureCompositionFramesUnwrapped(
       // dir inside cacheDir — one filesystem, so moving a finished frame into place is atomic.
       captureDir = await fs.mkdtemp(path.join(cacheDir, ".capture-"));
       const captureHtml = withVideoElementIds(compositionResult.html);
-      await fs.writeFile(path.join(workspace, "index.html"), captureHtml, "utf-8");
+      await fs.writeFile(
+        path.join(workspace, "index.html"),
+        await embedFontFaces(captureHtml),
+        "utf-8",
+      );
 
       const state = manager.getState();
       for (const [address, assetState] of Object.entries(state.assets)) {

@@ -106,6 +106,38 @@ export async function linkIntoWorkspace(source: string, target: string): Promise
   }
 }
 
+const GOOGLE_FONTS_LINK = /<link\b[^>]*\bhref="https:\/\/fonts\.googleapis\.com\/[^"]*"[^>]*>/gi;
+
+/**
+ * Embed every face the page names as a woff2 data URI and drop its Google Fonts `<link>`, so the
+ * capture's browser fetches no font. A named family that cannot be fetched refuses the capture: the
+ * producer's own compile and a bare capture session each draw a fallback face and carry on.
+ */
+export async function embedFontFaces(
+  html: string,
+  onLog?: (line: string) => void,
+): Promise<string> {
+  const { injectDeterministicFontFaces, FontFetchError } = await loadHyperFramesProducer();
+  let embedded: string;
+  try {
+    embedded = await injectDeterministicFontFaces(html, {
+      failClosedFontFetch: true,
+      logger: {
+        warn: (message) => onLog?.(`warn: ${message}`),
+        info: (message) => onLog?.(`info: ${message}`),
+      },
+    });
+  } catch (err) {
+    if (!(err instanceof FontFetchError)) throw err;
+    const families = err.unresolvedFamilies.length > 0 ? err.unresolvedFamilies : [err.familyName];
+    throw new KonteError(
+      "FRAME_CAPTURE_FAILED",
+      `Capture refused, font failed to load: ${families.join(", ")} — check the family's Google Fonts name and the network, then re-run`,
+    );
+  }
+  return embedded.replace(GOOGLE_FONTS_LINK, "");
+}
+
 /**
  * Refuse a capture session whose media did not load: the producer only warns and draws the element
  * blank. A `src` still holding a `__konte:…__` placeholder is a layer that resolved to nothing,
@@ -236,7 +268,13 @@ export async function compositeWithHyperFrames(options: {
   const workspace = await makeCaptureWorkspace(options.videoRoot, "render-");
 
   try {
-    await fs.writeFile(path.join(workspace, "index.html"), compositionHtml, "utf-8");
+    const onLog = (line: string) =>
+      options.onLog?.(redactUrls(`[${path.basename(outputFile)}] ${line}`));
+    await fs.writeFile(
+      path.join(workspace, "index.html"),
+      await embedFontFaces(compositionHtml, onLog),
+      "utf-8",
+    );
 
     for (const [relativeName, absolutePath] of Object.entries(assetFiles)) {
       const source = path.resolve(absolutePath);
@@ -245,8 +283,6 @@ export async function compositeWithHyperFrames(options: {
     }
 
     const producer = await loadHyperFramesProducer();
-    const onLog = (line: string) =>
-      options.onLog?.(redactUrls(`[${path.basename(outputFile)}] ${line}`));
     const log = (level: string, message: string, meta?: Record<string, unknown>) => {
       onLog(`${level}: ${message}${meta ? ` ${JSON.stringify(meta)}` : ""}`);
     };

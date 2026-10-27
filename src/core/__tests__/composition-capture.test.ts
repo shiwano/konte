@@ -8,6 +8,8 @@ vi.mock("@hyperframes/producer", () => ({
   closeCaptureSession: vi.fn(),
   createVideoFrameInjector: vi.fn(),
   quantizeTimeToFrame: (time: number, fps: number) => Math.floor(time * fps + 1e-9) / fps,
+  injectDeterministicFontFaces: vi.fn(async (html: string) => html),
+  FontFetchError: class extends Error {},
 }));
 
 vi.mock("../hyperframes.js", async (importOriginal) => ({

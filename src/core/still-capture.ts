@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { KonteError, errorMessage } from "./errors.js";
 import {
   assertCaptureMediaLoaded,
+  embedFontFaces,
   ensureHyperFrames,
   linkIntoWorkspace,
   loadHyperFramesProducer,
@@ -44,7 +45,7 @@ export async function captureHtmlToImage(options: {
   const restoreLogs = silenceHyperFramesLogs();
   const workspace = await makeCaptureWorkspace(options.videoRoot, "still-");
   try {
-    await fs.writeFile(path.join(workspace, "index.html"), html, "utf-8");
+    await fs.writeFile(path.join(workspace, "index.html"), await embedFontFaces(html), "utf-8");
     for (const [relativeName, absolutePath] of Object.entries(assetFiles)) {
       const target = path.join(workspace, relativeName);
       await fs.mkdir(path.dirname(target), { recursive: true });

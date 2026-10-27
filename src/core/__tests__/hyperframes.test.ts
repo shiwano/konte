@@ -5,6 +5,8 @@ vi.mock("@hyperframes/producer", () => ({
   createRenderJob: vi.fn().mockReturnValue({ id: "mock-job", warnings: [] }),
   executeRenderJob: vi.fn().mockResolvedValue(undefined),
   resolveConfig: vi.fn((overrides: object) => ({ resolved: true, ...overrides })),
+  injectDeterministicFontFaces: vi.fn(),
+  FontFetchError: class extends Error {},
 }));
 
 vi.mock("../chromium.js", () => ({
@@ -36,12 +38,14 @@ import { compositeWithHyperFrames, ensureHyperFrames } from "../hyperframes.js";
 
 const createRenderJobMock = hfProducer.createRenderJob as unknown as Mock;
 const executeRenderJobMock = hfProducer.executeRenderJob as unknown as Mock;
+const injectFontsMock = hfProducer.injectDeterministicFontFaces as unknown as Mock;
 
 beforeEach(() => {
   vi.resetAllMocks();
 
   createRenderJobMock.mockReturnValue({ id: "mock-job", warnings: [] });
   executeRenderJobMock.mockResolvedValue(undefined);
+  injectFontsMock.mockImplementation(async (html: string) => html);
 
   (fsPromises.mkdir as Mock).mockResolvedValue(undefined);
   (fsPromises.mkdtemp as Mock).mockResolvedValue("/tmp/konte-hf-mock");
@@ -87,6 +91,31 @@ describe("compositeWithHyperFrames", () => {
     expect(fsPromises.symlink).toHaveBeenCalledWith(
       "/assets/audio.wav",
       "/tmp/konte-hf-mock/audio.wav",
+    );
+  });
+
+  it("writes the page with its fonts embedded, failing closed on a fetch", async () => {
+    injectFontsMock.mockResolvedValue("<html><head><style>@font-face{}</style></head></html>");
+
+    await compositeWithHyperFrames({
+      videoRoot: "/video",
+      compositionHtml: sampleHtml,
+      assetFiles: {},
+      outputFile: "/output/shot.mp4",
+      fps: 30,
+      size: { width: 1920, height: 1080 },
+      duration: 5,
+      quality: "draft",
+    });
+
+    expect(injectFontsMock).toHaveBeenCalledWith(
+      sampleHtml,
+      expect.objectContaining({ failClosedFontFetch: true }),
+    );
+    expect(fsPromises.writeFile).toHaveBeenCalledWith(
+      "/tmp/konte-hf-mock/index.html",
+      "<html><head><style>@font-face{}</style></head></html>",
+      "utf-8",
     );
   });
 

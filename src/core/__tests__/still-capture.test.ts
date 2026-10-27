@@ -6,6 +6,17 @@ vi.mock("@hyperframes/producer", () => ({
   initializeSession: vi.fn(),
   captureFrame: vi.fn(),
   closeCaptureSession: vi.fn(),
+  injectDeterministicFontFaces: vi.fn(),
+  FontFetchError: class extends Error {
+    unresolvedFamilies: readonly string[];
+    constructor(
+      readonly familyName: string,
+      unresolvedFamilies: readonly string[] = [],
+    ) {
+      super(`fetch failed for ${familyName}`);
+      this.unresolvedFamilies = unresolvedFamilies;
+    }
+  },
 }));
 
 vi.mock("../chromium.js", () => ({
@@ -43,6 +54,11 @@ const createFileServerMock = hfProducer.createFileServer as unknown as Mock;
 const createCaptureSessionMock = hfProducer.createCaptureSession as unknown as Mock;
 const captureFrameMock = hfProducer.captureFrame as unknown as Mock;
 const closeCaptureSessionMock = hfProducer.closeCaptureSession as unknown as Mock;
+const injectFontsMock = hfProducer.injectDeterministicFontFaces as unknown as Mock;
+const FontFetchError = hfProducer.FontFetchError as unknown as new (
+  familyName: string,
+  unresolvedFamilies?: readonly string[],
+) => Error;
 
 const closeServer = vi.fn();
 
@@ -67,6 +83,7 @@ beforeEach(() => {
   createCaptureSessionMock.mockResolvedValue({ id: "mock-session", warnings: [] });
   captureFrameMock.mockResolvedValue({ path: "/out/v-1/frame_000000.png" });
   closeCaptureSessionMock.mockResolvedValue(undefined);
+  injectFontsMock.mockImplementation(async (page: string) => page);
 
   (fsPromises.mkdir as Mock).mockResolvedValue(undefined);
   (fsPromises.mkdtemp as Mock).mockResolvedValue("/tmp/konte-still-mock");
@@ -135,6 +152,49 @@ describe("captureHtmlToImage", () => {
       message: expect.stringContaining("media failed to load: /assets/plate.png"),
     });
     expect(captureFrameMock).not.toHaveBeenCalled();
+  });
+
+  it("serves the page with its fonts embedded, failing closed on a fetch", async () => {
+    injectFontsMock.mockResolvedValue("<html><head><style>@font-face{}</style></head></html>");
+
+    await capture();
+
+    expect(injectFontsMock).toHaveBeenCalledWith(
+      html,
+      expect.objectContaining({ failClosedFontFetch: true }),
+    );
+    expect(fsPromises.writeFile).toHaveBeenCalledWith(
+      "/tmp/konte-still-mock/index.html",
+      "<html><head><style>@font-face{}</style></head></html>",
+      "utf-8",
+    );
+  });
+
+  it("drops the Google Fonts link once its faces are embedded", async () => {
+    injectFontsMock.mockResolvedValue(
+      '<html><head><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito&amp;display=block"/><style>@font-face{}</style></head></html>',
+    );
+
+    await capture();
+
+    expect(fsPromises.writeFile).toHaveBeenCalledWith(
+      "/tmp/konte-still-mock/index.html",
+      "<html><head><style>@font-face{}</style></head></html>",
+      "utf-8",
+    );
+  });
+
+  it.each([
+    ["an unresolved family", new FontFetchError("Nunito", ["Nunito"])],
+    ["a fetch that ran out of retries", new FontFetchError("Nunito")],
+  ])("refuses a capture on %s, naming the family", async (_, err) => {
+    injectFontsMock.mockRejectedValue(err);
+
+    await expect(capture()).rejects.toMatchObject({
+      code: "FRAME_CAPTURE_FAILED",
+      message: expect.stringContaining("font failed to load: Nunito"),
+    });
+    expect(createCaptureSessionMock).not.toHaveBeenCalled();
   });
 
   it("captures a single frame at t=0, as a png at the declared size", async () => {
