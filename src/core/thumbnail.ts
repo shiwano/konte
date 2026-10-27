@@ -1285,6 +1285,7 @@ async function detectCompositionKeyframes(
       shotId,
       outputDir: "",
       allowUnaccepted: true,
+      allowNotReady: true,
     });
   } catch {
     return [];

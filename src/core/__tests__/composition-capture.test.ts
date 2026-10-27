@@ -354,6 +354,28 @@ describe("captureCompositionFrames", () => {
     });
   });
 
+  it("samples a shot whose assets are not all ready yet", async () => {
+    const unready = {
+      ...video,
+      shots: [{ ...video.shots[0]!, assets: { first: {} } }],
+    } as unknown as StageDefinition;
+    const unreadyManager = {
+      getState: () => ({ assets: {} }),
+      resolveReference: () => null,
+    } as unknown as StateManager;
+
+    const frames = await captureCompositionFrames({
+      video: unready,
+      manager: unreadyManager,
+      shotId: "01",
+      videoRoot: "/video",
+      outputDir: "/video/.konte/cache/thumbnails/animatic/shot.01",
+      captureOptions: { maxFrames: 4, format: "jpeg", quality: 80, force: true },
+    });
+
+    expect(frames).toHaveLength(4);
+  });
+
   // The render leaves a clip its frames are injected for out of the media check; a clip it could
   // not extract is still on screen as its own <video>, so that one is checked.
   it("leaves only a clip the injector could not supply to the page's media check", async () => {
