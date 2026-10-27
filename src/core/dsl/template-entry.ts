@@ -111,6 +111,7 @@ export {
   defineReference,
   type DefineReferenceOptions,
   type ReferenceRef,
+  type ReferenceViewRef,
   type ReferenceViews,
 } from "./reference-builders.js";
 export { definePatch, type PatchBuild, type PatchContext, type PatchDefinition } from "./patch.js";
@@ -172,7 +173,6 @@ export {
   type DefineAnimaticOptions,
   type SetupIdOf,
   type AnimaticPlates,
-  type AnimaticViews,
   type StageShotContext,
   type AsideShotContext,
   type ShotClockContext,

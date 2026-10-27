@@ -1777,7 +1777,7 @@ describe("checkDirection setups", () => {
         plates(["top"], { unviewed: ["top"] }),
       );
       expect(findings.map((f) => [f.code, f.subject])).toEqual([["plate-unviewed", "top"]]);
-      expect(findings[0]?.message).toContain("views.here.top");
+      expect(findings[0]?.message).toContain("reference.view.here.top");
     });
 
     it("holds a plate-less setup's keyframes to its view's image", () => {
@@ -1788,6 +1788,7 @@ describe("checkDirection setups", () => {
       );
       expect(findings.map((f) => [f.code, f.subject])).toEqual([["plate-unviewed", "desk"]]);
       expect(findings[0]?.message).toContain('"01"');
+      expect(findings[0]?.message).toContain("`reference.here`");
     });
 
     it("waits for the view image before naming it", () => {
@@ -1810,7 +1811,7 @@ describe("checkDirection setups", () => {
         referenceAssetNames: ["here"],
         animaticSetups: plates(["top"], { unanchored: ["top"] }),
       }).active.filter((f) => f.code === "plate-unanchored");
-      expect(findings[0]?.message).toContain("views.here.top");
+      expect(findings[0]?.message).toContain("reference.view.here.top");
     });
   });
 });

@@ -1,6 +1,6 @@
 # Plates
 
-- Generate every plate from its view's image — `views.<location>.<view>` in `plates`, `front` being the `location` master itself (`plate-unviewed`, `plate-unanchored`). A view image is the room at full distance: cut a closer frame out of it (`imageCrop`) or in from a plate on it, and cut an insert or a night frame in from a plate of the same view. A root setup (`within: null`) declares its framing new. Carry the master's setting and light onto each camera axis.
+- Generate every plate from its view's image — `reference.view.<location>.<view>`, `front` being the `location` master itself (`plate-unviewed`, `plate-unanchored`). A view image is the room at full distance: cut a closer frame out of it (`imageCrop`) or in from a plate on it, and cut an insert or a night frame in from a plate of the same view. A root setup (`within: null`) declares its framing new. Carry the master's setting and light onto each camera axis.
 - Generate a child plate from its `within` setup's plate (`plate-unnested`) — pass the parent plate as is, beside the master, to a model that reads a previous frame (`cut` in `konte adapter show`), and write a cut in from that frame. Match its framing, camera height and perspective — the parent alone is enlarged to a blur.
 - A plate fixes how much of the set is in frame, and is passed at canvas size — a plate larger than the canvas reads as a picture inside the frame, its edges drawn as a window. Include the setup's `holds`, each asked for by its `promptDepiction` in the prompt the plate is generated with (`plate-unnamed`). Where the shot needs a frame the plate does not hold, generate another setup's plate; never crop the plate inside the keyframe (`plate-recropped`).
 - A setup two or more generated shots share owes a plate (`setup-unrealized`) — declared under `plates` in animatic.tsx and keyed by the roster id (`animatic:plate.<setupId>`). Feed `plates.<id>` as the keyframe's first image input; a setup one shot uses needs none, unless the piece cuts between it and the other exposed size of its `within` axis (`axis-unrealized`). An asset declared here and not returned is an intermediate — never review work, and its name may not be a setup id.
@@ -10,7 +10,7 @@
 
 ## View images
 
-A setup facing anything but `front` costs its location a view image (`view-unrealized`) — returned from `views` in reference.tsx, filed at `reference:view.<location>.<view>` whatever the asset is named, and accepted per view before its plates spend.
+A setup facing anything but `front` costs its location a view image (`view-unrealized`) — returned from `views` in reference.tsx, filed at `reference:view.<location>.<view>` whatever the asset is named and reached as `reference.view.<location>.<view>`, and accepted per view before its plates spend.
 
 ```tsx
 views: ({ reference }) => {

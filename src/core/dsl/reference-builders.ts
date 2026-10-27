@@ -1,5 +1,5 @@
 import type { ReferenceDefinition } from "../types/reference.js";
-import type { MediaAsset, MediaKind } from "./builders.js";
+import { makeMediaAsset, type MediaAsset, type MediaKind } from "./builders.js";
 import { endPinCollection } from "./pin-collect.js";
 import { beginPromptCollection, endPromptCollection } from "./prompt-collect.js";
 import { beginRespellCollection, endRespellCollection } from "./respell.js";
@@ -19,6 +19,7 @@ import {
   getDirectionIndex,
   type DirectionEntry,
   type LocationIdOf,
+  type Setup,
   type ViewsAtOf,
 } from "./direction.js";
 import { IMAGED_VIEWS, isImagedView, viewAssetName } from "../view.js";
@@ -32,6 +33,16 @@ type ReferenceAssetMap = Record<string, MediaAsset<MediaKind>>;
  */
 export type ReferenceRef<TAssets extends ReferenceAssetMap> = {
   readonly [K in keyof TAssets]: TAssets[K];
+};
+
+/**
+ * `reference.view.<locationId>.<view>`: per location, the image of each way its setups face other
+ * than `front`, which is `reference.<locationId>` itself.
+ */
+export type ReferenceViewRef<D> = {
+  readonly [L in LocationIdOf<D>]: {
+    readonly [V in Exclude<ViewsAtOf<D, L>, "front">]: MediaAsset<"image">;
+  };
 };
 
 // Keys the merged result reserves for the ReferenceDefinition itself — an asset may not take one.
@@ -58,7 +69,8 @@ export interface DefineReferenceOptions<TAssets extends ReferenceAssetMap, D = u
 /**
  * Declares the reference stage: the direction, then `references` (a flat callback returning a named
  * map of asset()s) and `views`. The returned object IS both the ReferenceDefinition (loaded by konte)
- * and the ref used by animatic/video to fabricate `reference:<name>` placeholders.
+ * and the ref used by animatic/video to fabricate `reference:<name>` placeholders, with
+ * `reference.view` holding the view images the direction's setups face.
  *
  * The direction is taken for its typesetting (`policy.lang` + `policy.fonts`) and for the canvas
  * each sheet is sized off: its long edge, at the shape the asset's roster asks for
@@ -68,7 +80,7 @@ export interface DefineReferenceOptions<TAssets extends ReferenceAssetMap, D = u
 export function defineReference<const D, TAssets extends ReferenceAssetMap>(
   direction: DirectionEntry<D>,
   opts: DefineReferenceOptions<TAssets, D>,
-): ReferenceDefinition & ReferenceRef<TAssets> {
+): ReferenceDefinition & ReferenceRef<TAssets> & { readonly view: ReferenceViewRef<D> } {
   const index = getDirectionIndex(direction);
   const base = index.format.size.base;
   const format = (assetName = ""): BuildFormat => ({
@@ -137,7 +149,27 @@ export function defineReference<const D, TAssets extends ReferenceAssetMap>(
   };
 
   // `returned` already maps each name to its makeReferencePlaceholder() MediaAsset.
-  return Object.assign(definition, returned) as ReferenceDefinition & ReferenceRef<TAssets>;
+  return Object.assign(definition, returned, {
+    view: viewRefOf(direction),
+  }) as ReferenceDefinition & ReferenceRef<TAssets> & { readonly view: ReferenceViewRef<D> };
+}
+
+// Per location, every view other than `front` its setups face, each the placeholder of its image —
+// read off the direction, so one `views` has not returned yet is still reachable.
+function viewRefOf(direction: DirectionEntry<unknown>): Record<string, Record<string, MediaAsset>> {
+  const { locations = {}, setups = {} } = direction as {
+    locations?: Record<string, unknown>;
+    setups?: Record<string, Setup>;
+  };
+  const out: Record<string, Record<string, MediaAsset>> = {};
+  for (const id of Object.keys(locations)) out[id] = {};
+  for (const setup of Object.values(setups)) {
+    const view = setup.view;
+    const byView = out[setup.location];
+    if (!byView || !isImagedView(view)) continue;
+    byView[view] = makeMediaAsset(makeReferencePlaceholder(viewAssetName(setup.location, view)));
+  }
+  return out;
 }
 
 // Every declared asset() is generatable (it lands in `topLevelAssets`); returning it is what

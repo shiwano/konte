@@ -7,13 +7,12 @@ import {
 } from "../address.js";
 import { parseViewName } from "../view.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
-import { asset, defineAnimatic, defineReference } from "../dsl/index.js";
+import { asset, defineReference } from "../dsl/index.js";
 import { type Direction, defineDirection } from "../dsl/direction.js";
 import { checkViewAnchors } from "../direction-check.js";
 import { buildDependencyGraph, listViewAnchorGaps } from "../graph.js";
 import { collectFindings } from "../checks.js";
 import { spendHold } from "../finding.js";
-import { animaticTimeline } from "./helpers/shot.js";
 import { directionDefaults } from "./helpers/direction.js";
 
 const imageGen = defineComfyAsset({
@@ -186,28 +185,18 @@ describe("defineReference views", () => {
   });
 });
 
-describe("defineAnimatic views", () => {
-  it("hands plates and timeline each location's front and the views its setups face", () => {
-    let fromPlates: unknown;
-    let fromTimeline: unknown;
-    defineAnimatic(direction, {
-      plates: ({ views }) => {
-        fromPlates = views;
-        return {};
-      },
-      timeline: ({ views }) => {
-        fromTimeline = views;
-        return animaticTimeline([]);
-      },
+describe("reference.view", () => {
+  it("holds the image of each view a location's setups face other than front", () => {
+    expect(reference.view).toEqual({
+      studio: { top: { src: "__konte:reference:view.studio.top__" } },
     });
-    const expected = {
-      studio: {
-        front: { src: "__konte:reference:studio__" },
-        top: { src: "__konte:reference:view.studio.top__" },
-      },
-    };
-    expect(fromPlates).toEqual(expected);
-    expect(fromTimeline).toEqual(expected);
+  });
+
+  it("is reachable before views returns the image", () => {
+    const bare = defineReference(direction, {
+      references: () => ({ studio: asset("studio", imageGen, { prompt: "the studio" }) }),
+    });
+    expect(bare.view.studio?.top).toEqual({ src: "__konte:reference:view.studio.top__" });
   });
 });
 

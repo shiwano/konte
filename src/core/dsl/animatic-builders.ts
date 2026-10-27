@@ -1,9 +1,4 @@
-import {
-  formatPlateAssetPath,
-  formatShotAddress,
-  formatShotStemAddress,
-  formatViewAddress,
-} from "../address.js";
+import { formatPlateAssetPath, formatShotAddress, formatShotStemAddress } from "../address.js";
 import type { ShotStage } from "../address.js";
 import { KonteError } from "../errors.js";
 import type { BuildFinding } from "../finding.js";
@@ -13,22 +8,17 @@ import type { ScriptLine } from "../types/script.js";
 import { lineText } from "../types/script.js";
 import type { ShotScript } from "./shot-script.js";
 import type { AnyShotInput, MediaAsset, OverlayContext, SoundtrackEntry } from "./builders.js";
-import { makeMediaAsset } from "./builders.js";
 import { readAnimaticShot } from "./animatic.js";
 import { setShotPanels } from "./panel-collect.js";
 import { type AnimaticRef, createAnimaticRef } from "./animatic-ref.js";
 import type {
   DirectionEntry,
   Framing,
-  LocationIdOf,
-  Setup,
   StageAsideShotStarter,
   StageGraphicShotStarter,
   StagePendingShotStarter,
   StageShotStarter,
-  ViewsAtOf,
 } from "./direction.js";
-import { isImagedView } from "../view.js";
 import {
   getDirectionIndex,
   makeAnimaticShotStarter,
@@ -37,13 +27,7 @@ import {
 } from "./direction.js";
 import { beginPromptCollection } from "./prompt-collect.js";
 import { assertRespellings, beginRespellCollection } from "./respell.js";
-import {
-  makeAddressPlaceholder,
-  makePlatePlaceholder,
-  makeReferencePlaceholder,
-  parsePlaceholder,
-  runInPlateDiscoveryMode,
-} from "./shot-context.js";
+import { makePlatePlaceholder, parsePlaceholder, runInPlateDiscoveryMode } from "./shot-context.js";
 import { scriptTexts } from "./shot-script.js";
 import type { ShotFunction } from "./shot-context.js";
 import { defineStage } from "./stage-define.js";
@@ -445,16 +429,6 @@ export type AnimaticPlate = MediaAsset<"image">;
  */
 export type AnimaticPlates<D> = Partial<Record<SetupIdOf<D>, AnimaticPlate>>;
 
-/**
- * Each location's view images, as `plates` and `timeline` receive them: `front` is the location's
- * `reference:<id>`, every other view its setups face is `reference:view.<id>.<view>`.
- */
-export type AnimaticViews<D> = {
-  [L in LocationIdOf<D>]: { front: MediaAsset<"image"> } & {
-    [V in Exclude<ViewsAtOf<D, L>, "front">]: MediaAsset<"image">;
-  };
-};
-
 export interface DefineAnimaticOptions<
   D = unknown,
   Ids extends string = string,
@@ -469,11 +443,7 @@ export interface DefineAnimaticOptions<
   // plate itself be built from that reference (`plate-unanchored`). It runs before `timeline`, which
   // receives the plates it returned. An asset declared here and not returned is an intermediate
   // the plates are built from.
-  plates?: (args: {
-    format: import("../types/index.js").VideoFormat;
-    // The view image a plate stands on: its setup's view of its location.
-    views: AnimaticViews<D>;
-  }) => TPlates;
+  plates?: (args: { format: import("../types/index.js").VideoFormat }) => TPlates;
   // The single authoring surface: declare any timeline assets with asset() at the top, then walk the
   // direction — `shot(firstId, …).nextShot(…)…` — and return it under `shots`, optionally with
   // timeline-spanning `soundtracks` (a temp bed to judge the pacing against). The chain must be
@@ -489,7 +459,6 @@ export interface DefineAnimaticOptions<
     asideShot: StageAsideShotStarter<D>;
     // The plates `plates` returned — `{}` when it declared none.
     plates: TPlates;
-    views: AnimaticViews<D>;
   }) => StageTimelineReturn<Ids, D>;
 }
 
@@ -518,8 +487,7 @@ export function defineAnimatic<
   beginRespellCollection();
   // Before the timeline: a shot's panel takes its plate as an input, so the placeholders must exist
   // by the time the chain is walked. Prompt collection already spans both.
-  const views = viewsOf(direction) as AnimaticViews<D>;
-  const plates = buildPlates(direction, index, opts.plates, views);
+  const plates = buildPlates(direction, index, opts.plates);
   const built = defineStage({
     stage: "animatic",
     index,
@@ -531,7 +499,6 @@ export function defineAnimatic<
         pendingShot,
         asideShot,
         plates: plates.returned as TPlates,
-        views,
       }),
     perShot: ({ input, element, context, cutin }) => {
       const continuedBy = index.continuedById.get(input.id);
@@ -677,25 +644,6 @@ function scriptFindings(
   return findings;
 }
 
-// Per location, `front` and every other view its setups face, each the placeholder of its image.
-function viewsOf(direction: DirectionEntry<unknown>): Record<string, Record<string, MediaAsset>> {
-  const { locations = {}, setups = {} } = direction as {
-    locations?: Record<string, unknown>;
-    setups?: Record<string, Setup>;
-  };
-  const out: Record<string, Record<string, MediaAsset>> = {};
-  for (const id of Object.keys(locations)) {
-    out[id] = { front: makeMediaAsset(makeReferencePlaceholder(id)) };
-  }
-  for (const setup of Object.values(setups)) {
-    const view = setup.view;
-    const byView = out[setup.location];
-    if (!byView || !isImagedView(view)) continue;
-    byView[view] = makeMediaAsset(makeAddressPlaceholder(formatViewAddress(setup.location, view)));
-  }
-  return out;
-}
-
 // Run the `plates` callback under its own discovery context and file each plate by setup id.
 //
 // Returning is what files a plate under a setup: a returned key must name a declared setup, and the
@@ -707,7 +655,6 @@ function buildPlates<D>(
   direction: DirectionEntry<D>,
   index: DirectionIndex,
   fn: DefineAnimaticOptions<D>["plates"],
-  views: AnimaticViews<D>,
 ): {
   assets: Record<string, AssetDefinition> | undefined;
   returned: object;
@@ -719,7 +666,7 @@ function buildPlates<D>(
     Object.keys((direction as { setups?: Record<string, unknown> }).setups ?? {}),
   );
   const format: VideoFormat = { size: index.format.size.base, fps: index.format.fps };
-  const discovery = runInPlateDiscoveryMode(() => fn({ format, views }), {
+  const discovery = runInPlateDiscoveryMode(() => fn({ format }), {
     ...format,
     typography: index.typography,
   });

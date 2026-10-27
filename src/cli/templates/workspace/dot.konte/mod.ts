@@ -2389,23 +2389,12 @@ export type AnimaticPlate = MediaAsset<"image">;
  * roster id. Partial — a setup only one shot names has nothing to hold together and owes none.
  */
 export type AnimaticPlates<D> = Partial<Record<SetupIdOf<D>, AnimaticPlate>>;
-/**
- * Each location's view images, as `plates` and `timeline` receive them: `front` is the location's
- * `reference:<id>`, every other view its setups face is `reference:view.<id>.<view>`.
- */
-export type AnimaticViews<D> = {
-  [L in LocationIdOf<D>]: {
-    front: MediaAsset<"image">;
-  } & {
-    [V in Exclude<ViewsAtOf<D, L>, "front">]: MediaAsset<"image">;
-  };
-};
 export interface DefineAnimaticOptions<
   D = unknown,
   Ids extends string = string,
   TPlates extends AnimaticPlates<D> = AnimaticPlates<D>,
 > {
-  plates?: (args: { format: VideoFormat; views: AnimaticViews<D> }) => TPlates;
+  plates?: (args: { format: VideoFormat }) => TPlates;
   timeline: (args: {
     format: VideoFormat;
     shot: StageShotStarter<D, "animatic">;
@@ -2413,7 +2402,6 @@ export interface DefineAnimaticOptions<
     pendingShot: StagePendingShotStarter<D, "animatic">;
     asideShot: StageAsideShotStarter<D>;
     plates: TPlates;
-    views: AnimaticViews<D>;
   }) => StageTimelineReturn<Ids, D>;
 }
 /**
@@ -8582,6 +8570,15 @@ export type ReferenceRef<TAssets extends ReferenceAssetMap> = {
   readonly [K in keyof TAssets]: TAssets[K];
 };
 /**
+ * `reference.view.<locationId>.<view>`: per location, the image of each way its setups face other
+ * than `front`, which is `reference.<locationId>` itself.
+ */
+export type ReferenceViewRef<D> = {
+  readonly [L in LocationIdOf<D>]: {
+    readonly [V in Exclude<ViewsAtOf<D, L>, "front">]: MediaAsset<"image">;
+  };
+};
+/**
  * The view images a `views` callback may return: per location, one image per way its setups face
  * other than `front`, which is the location's own `reference:<id>`.
  */
@@ -8597,7 +8594,8 @@ export interface DefineReferenceOptions<TAssets extends ReferenceAssetMap, D = u
 /**
  * Declares the reference stage: the direction, then `references` (a flat callback returning a named
  * map of asset()s) and `views`. The returned object IS both the ReferenceDefinition (loaded by konte)
- * and the ref used by animatic/video to fabricate `reference:<name>` placeholders.
+ * and the ref used by animatic/video to fabricate `reference:<name>` placeholders, with
+ * `reference.view` holding the view images the direction's setups face.
  *
  * The direction is taken for its typesetting (`policy.lang` + `policy.fonts`) and for the canvas
  * each sheet is sized off: its long edge, at the shape the asset's roster asks for
@@ -8607,7 +8605,10 @@ export interface DefineReferenceOptions<TAssets extends ReferenceAssetMap, D = u
 export declare function defineReference<const D, TAssets extends ReferenceAssetMap>(
   direction: DirectionEntry<D>,
   opts: DefineReferenceOptions<TAssets, D>,
-): ReferenceDefinition & ReferenceRef<TAssets>;
+): ReferenceDefinition &
+  ReferenceRef<TAssets> & {
+    readonly view: ReferenceViewRef<D>;
+  };
 /**
  * What a patch file's callback receives. `source` is the variant being patched, as a MediaAsset
  * whose placeholder is the variant's own address, so the adapter sees exactly the take named by the

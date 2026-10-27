@@ -697,7 +697,7 @@ function viewImagesOf(referenceAssetNames: readonly string[] | undefined): Set<s
  */
 export function placeRefOf(setup: Pick<SetupRef, "location" | "view">): string {
   return setup.view && setup.view !== "front"
-    ? `views.${setup.location}.${setup.view}`
+    ? `reference.view.${setup.location}.${setup.view}`
     : `reference.${setup.location}`;
 }
 
@@ -789,7 +789,7 @@ export function checkSetups(
         subject: setup.id,
         message:
           `the plate for setup "${setup.id}" faces "${setup.view}" but stands on another view of ` +
-          `"${setup.location}" — build it from \`views.${setup.location}.${setup.view}\` (or cut ` +
+          `"${setup.location}" — build it from \`${placeRef(setup)}\` (or cut ` +
           `in from a plate that is), or the side of the place it shows is invented per take`,
       });
     }
@@ -801,7 +801,7 @@ export function checkSetups(
         message:
           `shot ${unviewedShots.map((id) => `"${id}"`).join(", ")} sits on setup "${setup.id}", ` +
           `which faces "${setup.view}", but its keyframe stands on another view of ` +
-          `"${setup.location}" — build it from \`views.${setup.location}.${setup.view}\`, or the ` +
+          `"${setup.location}" — build it from \`${placeRef(setup)}\`, or the ` +
           `side of the place it shows is invented per take`,
       });
     }
@@ -898,7 +898,7 @@ export function checkViewAnchors(
         code: "view-unanchored" as const,
         subject: key,
         message:
-          `the view image \`views.${location}.${view}\` is built from no \`reference.${location}\` — ` +
+          `the view image \`reference.view.${location}.${view}\` is built from no \`reference.${location}\` — ` +
           `take it as an input image, or the view is a place of its own rather than the other side ` +
           `of this one`,
       },
