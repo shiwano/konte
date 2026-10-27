@@ -39,6 +39,10 @@ extends = ":workspace"
 ".claude/settings.json" = "read"
 ".codex/config.toml" = "read"
 
+[permissions.konte.network]
+enabled = true
+allow_local_binding = true
+
 [features]
 unified_exec = true
 
