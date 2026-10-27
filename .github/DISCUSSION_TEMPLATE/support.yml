@@ -1,8 +1,4 @@
 body:
-  - type: markdown
-    attributes:
-      value: |
-        In a konte workspace, the `konte-feedback` skill can draft a report for you.
   - type: dropdown
     id: kind
     attributes:
@@ -25,6 +21,6 @@ body:
     id: details
     attributes:
       label: Details
-      description: What you were trying to do, what happened, what you expected, and the version in your workspace's `konte.version`; a repro and the output when a command is involved.
+      description: Paste the draft from the `konte-feedback` skill, or write what you were trying to do, what happened, what you expected, and the version in your workspace's `konte.version`; a repro and the output when a command is involved.
     validations:
       required: true
