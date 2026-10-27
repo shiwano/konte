@@ -67,8 +67,16 @@ async function scaffold(root: string, existing: boolean): Promise<void> {
       `${currentIgnore}${currentIgnore && !currentIgnore.endsWith("\n") ? "\n" : ""}${missing.join("\n")}\n`,
     );
   }
-  if (existing) await syncManagedTemplates(root, { force: true });
-  else await writeTemplateLock(root);
+  if (existing) {
+    const unwritable = (await syncManagedTemplates(root, { force: true }))?.unwritable ?? [];
+    if (unwritable.length > 0) {
+      throw new KonteError(
+        "TEMPLATE_SYNC_FAILED",
+        `${unwritable.length} managed file(s) not writable; grant write access and run konte workspace setup again`,
+        unwritable,
+      );
+    }
+  } else await writeTemplateLock(root);
   await writeAgentSettings(root, settings);
   if (typeof KONTE_COMPILED !== "undefined" && KONTE_COMPILED) {
     await linkWorkspaceBinary(root, process.execPath);

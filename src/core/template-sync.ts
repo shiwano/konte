@@ -19,6 +19,12 @@ interface TemplateLock {
 interface TemplateSyncResult {
   created: string[];
   updated: string[];
+  unwritable: string[];
+}
+
+function isUnwritable(err: unknown): boolean {
+  const code = (err as NodeJS.ErrnoException).code;
+  return code === "EPERM" || code === "EACCES" || code === "EROFS";
 }
 
 async function readFileOrNull(filePath: string): Promise<string | null> {
@@ -94,6 +100,9 @@ export async function writeTemplateLock(workspaceRoot: string): Promise<void> {
  * already matches the current template hash AND every managed file is present
  * (some are gitignored generated stubs required by type-checking, so they are
  * restored even on the fast path).
+ *
+ * A file the OS refuses to write is left as it is and listed in `unwritable`;
+ * the lock then stays unwritten, so the next run tries again.
  */
 export async function syncManagedTemplates(
   workspaceRoot: string,
@@ -114,6 +123,7 @@ export async function syncManagedTemplates(
 
   const created: string[] = [];
   const updated: string[] = [];
+  const unwritable: string[] = [];
   const contents = await loadManagedTemplateContents();
 
   for (const key of MANAGED_TEMPLATES) {
@@ -123,11 +133,17 @@ export async function syncManagedTemplates(
     const current = await readFileOrNull(fullPath);
     if (current === desired) continue;
 
-    await fs.mkdir(path.dirname(fullPath), { recursive: true });
-    await fs.writeFile(fullPath, desired, "utf-8");
+    try {
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.writeFile(fullPath, desired, "utf-8");
+    } catch (err) {
+      if (!isUnwritable(err)) throw err;
+      unwritable.push(key);
+      continue;
+    }
     (current === null ? created : updated).push(key);
   }
 
-  await writeLock(workspaceRoot);
-  return { created, updated };
+  if (unwritable.length === 0) await writeLock(workspaceRoot);
+  return { created, updated, unwritable };
 }

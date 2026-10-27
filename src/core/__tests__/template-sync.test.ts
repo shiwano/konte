@@ -109,6 +109,23 @@ describe("syncManagedTemplates", () => {
     expect(await readFileAt(tmpDir, "HOUSE_RULES.md")).toBe("my rules");
   });
 
+  it("skips a managed file it cannot write and leaves the lock for the next run", async () => {
+    await writeFileAt(tmpDir, AGENT_KEY, "old agent");
+    await fs.chmod(path.join(tmpDir, AGENT_KEY), 0o444);
+    await writeLock(tmpDir, { hash: "stale" });
+
+    const result = await syncManagedTemplates(tmpDir);
+    expect(result?.unwritable).toEqual([AGENT_KEY]);
+    expect(result?.updated).not.toContain(AGENT_KEY);
+    expect(result?.created).toContain(MOD_KEY);
+    expect(await readFileAt(tmpDir, AGENT_KEY)).toBe("old agent");
+    expect(JSON.parse(await readFileAt(tmpDir, LOCK_FILE)).hash).toBe("stale");
+
+    await fs.chmod(path.join(tmpDir, AGENT_KEY), 0o644);
+    expect((await syncManagedTemplates(tmpDir))?.updated).toEqual([AGENT_KEY]);
+    expect(JSON.parse(await readFileAt(tmpDir, LOCK_FILE)).hash).toBe(TEMPLATE_HASH);
+  });
+
   it("leaves user-added files (not in the template set) untouched", async () => {
     const customKey = ".claude/skills/custom/SKILL.md";
     await writeFileAt(tmpDir, customKey, "my custom skill");

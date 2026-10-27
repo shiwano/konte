@@ -139,6 +139,11 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
         if (changed > 0) {
           console.error(`konte: synced ${changed} file(s) to v${pkg.version}`);
         }
+        if (sync.unwritable.length > 0) {
+          console.error(
+            `konte: ${sync.unwritable.length} managed file(s) not writable, left behind v${pkg.version}: ${sync.unwritable.join(", ")} — run \`konte workspace setup\` where they are writable`,
+          );
+        }
       }
     }
 

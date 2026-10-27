@@ -241,7 +241,8 @@ export type KonteErrorCode =
   | "CREDENTIALS_UNREADABLE"
   | "CONFIRMATION_REQUIRED"
   | "INVALID_TEMPLATE"
-  | "TEMPLATE_REQUIRED";
+  | "TEMPLATE_REQUIRED"
+  | "TEMPLATE_SYNC_FAILED";
 
 export class KonteError extends Error {
   readonly code: KonteErrorCode;
