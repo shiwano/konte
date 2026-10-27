@@ -186,7 +186,7 @@ konte is a pre-1.0 technical preview:
 - The review UI is minimal, with playback, take comparison, acceptance, and pinned comments.
 - Film-scale productions have not been tested.
 
-Share feedback on [Discord](https://discord.gg/2b7UwFE2Yy) or [GitHub Discussions](https://github.com/shiwano/konte/discussions). The `konte-feedback` skill can draft a report.
+Share feedback on [GitHub Discussions](https://github.com/shiwano/konte/discussions/new?category=support) or [Discord](https://discord.gg/2b7UwFE2Yy). The `konte-feedback` skill can draft a report.
 
 ## License
 

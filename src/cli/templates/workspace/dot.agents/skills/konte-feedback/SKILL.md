@@ -1,6 +1,6 @@
 ---
 name: konte-feedback
-description: Turn one konte bug, rough edge or unanswered question hit this session into a post for the konte Discord support forum — with reproduction details when available, version and relevant logs, secrets and the piece's content stripped, tagged. Use when the user says "report this", "file a bug", "send feedback", "ask the maintainers", a konte command printed a stack trace, or konte itself misbehaved and they want it reported.
+description: Turn one konte bug, rough edge or unanswered question hit this session into a post for the konte support forum — with reproduction details when available, version and relevant logs, secrets and the piece's content stripped, tagged. Use when the user says "report this", "file a bug", "send feedback", "ask the maintainers", a konte command printed a stack trace, or konte itself misbehaved and they want it reported.
 user-invocable: true
 argument-hint: [what to report]
 ---
@@ -98,7 +98,7 @@ reproduces: yes | seen once; exit=<code if CLI>
 ## 6. Hand it over
 
 - Show the whole post with a summary in the human's language when that is not English, and name the tags.
-- The human posts — after their yes, hand over the title, tags and body as shown, with the forum link: `https://discord.gg/2b7UwFE2Yy`, channel `#support`.
+- The human posts — after their yes, hand over the title, tags and body as shown, with both destinations: the GitHub Discussions form `https://github.com/shiwano/konte/discussions/new?category=support` (the kind and area tags are the form's Kind and Area fields), or the Discord forum `https://discord.gg/2b7UwFE2Yy`, channel `#support`.
 
 ## Confirm before
 
@@ -110,4 +110,4 @@ reproduces: yes | seen once; exit=<code if CLI>
 - Fix konte — no edits under `.konte/`, no patched binary; a workaround in the definition is fine and belongs in `## Notes`.
 - Pad — a `bug` post without a concrete reproduction path is not ready; drop it or keep gathering.
 - Report a model's creative miss — that is a reroll, a prompt edit, or feedback on the take.
-- Open a GitHub issue — the maintainers open them from `#support` posts.
+- Open a GitHub issue — the maintainers open them from support posts.

@@ -1,0 +1,100 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Title: `<command>: <symptom>` for the CLI, `review UI: <symptom>` for the review UI, or the question in one line. Redact credentials as `<redacted>` and replace home paths with `~`.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - bug
+        - feature
+        - docs
+        - help
+    validations:
+      required: true
+  - type: checkboxes
+    id: area
+    attributes:
+      label: Area
+      options:
+        - label: agent
+        - label: comfyui
+  - type: textarea
+    id: trying
+    attributes:
+      label: What I was trying to do
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What I expected
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro
+      value: |
+        1.
+        2.
+  - type: dropdown
+    id: reproduces
+    attributes:
+      label: Reproduces
+      options:
+        - "yes"
+        - seen once
+  - type: input
+    id: version
+    attributes:
+      label: konte version
+      description: "`konte --version`"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      description: "`uname -sr`"
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Agent
+      options:
+        - Claude Code
+        - Codex
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend
+      multiple: true
+      options:
+        - comfy
+        - fal
+        - local
+  - type: input
+    id: adapter
+    attributes:
+      label: Adapter
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: Command output and exit code, visible UI error text, or a log excerpt.
+      render: text
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Workaround; a suspected cause, labelled "guess".
