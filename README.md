@@ -44,7 +44,7 @@ https://github.com/user-attachments/assets/752ed713-a210-44b8-ba14-74973285ecb7
 
 ## Quick start
 
-Requires Claude Code or Codex and a [generation backend](#backends). Supports macOS, Linux, and Windows (including WSL). konte needs no Node.js or Python installation.
+**Requirements:** Claude Code or Codex and a [generation backend](#backends). Supports macOS, Linux, and Windows (including WSL). konte needs no Node.js, Python, or other runtime installation.
 
 Create a workspace directory, then install the plugin, run setup in a chat opened there, and check in (`$` = terminal, `>` = agent chat).
 
