@@ -10,7 +10,7 @@ konte treats the video as a software project, so Claude Code or Codex can run th
 
 https://github.com/user-attachments/assets/6e47740c-b12b-4a7e-aa88-8df246534436
 
-<sup>Project files for this video: [konte-readme-hero-example](https://github.com/shiwano/konte-readme-hero-example).</sup>
+<sup>Project files for this video: [konte-demo-video](https://github.com/shiwano/konte-demo-video/tree/main/videos/readme-hero).</sup>
 
 > **Early technical preview.** Expect rough edges and breaking changes. See [Status](#status).
 
@@ -40,7 +40,7 @@ The agent helps you develop a new idea or picks up an existing project where you
 
 https://github.com/user-attachments/assets/752ed713-a210-44b8-ba14-74973285ecb7
 
-<sup>Project files for this video: [konte-demo-video-example](https://github.com/shiwano/konte-demo-video-example/tree/main/videos/how-you-use-it).</sup>
+<sup>Project files for this video: [konte-demo-video](https://github.com/shiwano/konte-demo-video/tree/main/videos/how-you-use-it).</sup>
 
 ## Quick start
 
@@ -73,7 +73,7 @@ Or in the desktop app, open **Settings → Plugins → Add marketplace → Add f
 
 https://github.com/user-attachments/assets/c10629d3-e1eb-4708-95da-c3720bac878f
 
-<sup>Project files for this video: [konte-demo-video-example](https://github.com/shiwano/konte-demo-video-example/tree/main/videos/claude-code-desktop-setup).</sup>
+<sup>Project files for this video: [konte-demo-video](https://github.com/shiwano/konte-demo-video/tree/main/videos/claude-code-desktop-setup).</sup>
 
 ### Codex
 
@@ -106,7 +106,7 @@ Install **konte** from the added marketplace.
 
 https://github.com/user-attachments/assets/ac615568-6e7f-434a-aa34-e17c6381d57c
 
-<sup>Project files for this video: [konte-demo-video-example](https://github.com/shiwano/konte-demo-video-example/tree/main/videos/codex-desktop-setup).</sup>
+<sup>Project files for this video: [konte-demo-video](https://github.com/shiwano/konte-demo-video/tree/main/videos/codex-desktop-setup).</sup>
 
 ### Uninstall
 
