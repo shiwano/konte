@@ -22,9 +22,9 @@ body:
         - label: agent
         - label: comfyui
   - type: textarea
-    id: body
+    id: details
     attributes:
-      label: Report
+      label: Details
       description: What you were trying to do, what happened, what you expected, and the version in your workspace's `konte.version`; a repro and the output when a command is involved.
     validations:
       required: true
