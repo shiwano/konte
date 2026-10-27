@@ -29,11 +29,12 @@ A reboot is destructive — a server not under a relauncher won't return: on fai
 - A committed submit keeps the submit lease, and the daemon submits and waits under one `workerId`, so its waiter takes that lease over and the job is never unwatched between submit and wait.
 - Transient result-fetch and download-stream failures retry against the existing backend id. A wait timeout releases the run lease; the next waiter resumes retrieval.
 
-## One daemon, every video
+## One worker, every video
 
-- `konte mcp serve`'s `VideoRegistry` (`src/mcp/video-registry.ts`) keeps a `JobWatcher` per video under `videos/`, following videos as they appear and disappear (`fs.watch` plus a 5s reconcile poll — `fs.watch` drops events under WSL2). Credentials are re-applied each tick, dropping stale-keyed backends. `konte workspace new` configures it in `.mcp.json` (Claude Code) and `.codex/config.toml` (Codex).
-- `status` returns the daemon's version, instance id, pid, start time and watched videos. `konte job wait` reads job records and, with no daemon up, runs an attached one for as long as it waits.
-- Every daemon appends to `.konte/logs/mcp.log` (`src/mcp/mcp-log.ts`): its start and stop, the videos it watches, and each info-or-above event it sends its client, tagged with a per-daemon instance id, URLs redacted. Past 5 MB the file moves to `mcp.log.1`.
+- `mcp serve` elects one workspace worker under a file lock. Registrations use instance ids; local liveness uses pid/start time, foreign PID namespaces a 5s heartbeat (30s expiry). Registration and heartbeat survive the submit drain. EOF stops each connection.
+- Only the worker loads `VideoRegistry`: a `JobWatcher` per video, `fs.watch` plus a 5s poll, credentials refreshed before startup and each tick. `workspace new` configures `.mcp.json` and `.codex/config.toml`.
+- `status` includes locally watched videos (empty on standby). `job wait` starts an attached daemon when no worker is up.
+- `.konte/logs/mcp.log` records lifecycle, worker and job events, tagged by instance id, URLs redacted. It rotates to `mcp.log.1` at 5 MB.
 
 ## What a judge reads
 

@@ -31,6 +31,7 @@ export class VideoRegistry {
   private reconciling = false;
   private refreshing = false;
   private stopped = false;
+  private stopPromise: Promise<void> | undefined;
 
   constructor(
     server: McpServer,
@@ -53,7 +54,9 @@ export class VideoRegistry {
     // Create it up front so fs.watch can attach even to a workspace with no video yet.
     await fs.mkdir(videosDir, { recursive: true });
 
+    await applyCredentials(this.workspaceRoot);
     await this.reconcile();
+    if (this.stopped) return;
 
     try {
       this.videosWatcher = watch(videosDir, () => void this.reconcile());
@@ -73,6 +76,7 @@ export class VideoRegistry {
 
   /** Stops watching at once; settles when the jobs already running have finished. */
   stop(): Promise<void> {
+    if (this.stopPromise) return this.stopPromise;
     this.stopped = true;
     this.videosWatcher?.close();
     this.videosWatcher = null;
@@ -80,7 +84,8 @@ export class VideoRegistry {
     this.reconcileTimer = null;
     const retiring = [...this.watchers.values()].map((watcher) => this.retire(watcher));
     this.watchers.clear();
-    return Promise.all(retiring).then(() => {});
+    this.stopPromise = Promise.all(retiring).then(() => {});
+    return this.stopPromise;
   }
 
   private async retire(watcher: JobWatcher): Promise<void> {
@@ -133,6 +138,7 @@ export class VideoRegistry {
       }
 
       for (const name of present) {
+        if (this.stopped) return;
         if (this.watchers.has(name)) continue;
         const roots = {
           workspace: this.workspaceRoot,
@@ -145,6 +151,7 @@ export class VideoRegistry {
         this.watchers.set(name, jobs);
         this.log?.write("info", { video: name, event: "video_watched" });
         await jobs.start();
+        if (this.stopped) jobs.stop();
       }
     } catch {
       // Best-effort: a transient readdir failure is retried on the next poll.

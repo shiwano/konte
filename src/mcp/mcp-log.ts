@@ -18,13 +18,14 @@ export function mcpLogPath(workspaceRoot: string): string {
  * so the pid alone can collide.
  */
 export class McpLog {
-  readonly instanceId = crypto.randomBytes(3).toString("hex");
+  readonly instanceId: string;
   private readonly logPath: string;
   private readonly maxBytes: number;
   private readonly prefix: string;
   private queue: Promise<void> = Promise.resolve();
 
-  constructor(workspaceRoot: string, options: { maxBytes?: number } = {}) {
+  constructor(workspaceRoot: string, options: { maxBytes?: number; instanceId?: string } = {}) {
+    this.instanceId = options.instanceId ?? crypto.randomBytes(3).toString("hex");
     this.logPath = mcpLogPath(workspaceRoot);
     this.maxBytes = options.maxBytes ?? MAX_LOG_BYTES;
     this.prefix = `${this.instanceId} pid=${process.pid}`;

@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyCredentials, saveCredentials } from "../../core/credentials.js";
 import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/workspace.js";
-import type { JobWatcher } from "../job-watcher.js";
+import { JobWatcher } from "../job-watcher.js";
 import { VideoRegistry } from "../video-registry.js";
 
 // The registry only needs the one call the job watcher makes on a real McpServer.
@@ -49,12 +49,50 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await registry?.stop();
+  vi.restoreAllMocks();
   registry = null;
   delete process.env.KONTE_TEST_CRED;
   await ws.cleanup();
 });
 
 describe("VideoRegistry", () => {
+  it.each(["updated", undefined])(
+    "refreshes credentials before its first scan (%s)",
+    async (value) => {
+      await saveCredentials(ws.root, { KONTE_TEST_CRED: "old" });
+      await applyCredentials(ws.root);
+      await saveCredentials(ws.root, value ? { KONTE_TEST_CRED: value } : {});
+      let observed: string | undefined = "not-scanned";
+      vi.spyOn(JobWatcher.prototype, "start").mockImplementation(async () => {
+        observed = process.env.KONTE_TEST_CRED;
+      });
+      const { server } = makeFakeServer();
+      registry = new VideoRegistry(server as never, ws.root);
+      await registry.start();
+      expect(observed).toBe(value);
+    },
+  );
+
+  it("keeps every stop waiting for the same outstanding cleanup", async () => {
+    const { server } = makeFakeServer();
+    registry = new VideoRegistry(server as never, ws.root);
+    await registry.start();
+    const release = Promise.withResolvers<void>();
+    vi.spyOn(watchers(registry)[0]!, "settled").mockReturnValue(release.promise);
+    const first = registry.stop();
+    const second = registry.stop();
+    expect(second).toBe(first);
+    let stopped = false;
+    void second.then(() => {
+      stopped = true;
+    });
+    await Promise.resolve();
+    expect(stopped).toBe(false);
+    release.resolve();
+    await second;
+    expect(stopped).toBe(true);
+  });
+
   it("watches every video the workspace already has", async () => {
     const { server } = makeFakeServer();
     registry = new VideoRegistry(server as never, ws.root);
