@@ -26,7 +26,7 @@ Write the Viewer read as an intermediate message. Your final message starts at `
 
 ## Rules
 
-- Every finding carries four fields: `target` (a shot id, a panel address, or a cut written `03→04`), `problem` (a code below), `evidence` (the cell and what you read in it), `smallest-fix` (the least change that clears it, and the surface it lives on — `panel` for a restaged or redrawn keyframe, `plate` for a size, a camera height or angle, or a stretch of the set the panel's setup does not give it, `window` for a `<Panel start>`, `cue` for an `<Audio start>`, `composition` for a graphic shot's drawn screen, `direction` for a shot). Prefer them in that order; name `direction` only when no panel could carry the shot.
+- Every finding carries four fields: `target` (a shot id, a panel address, or a cut written `03→04`), `problem` (a code below), `evidence` (the cell and what you read in it), `smallest-fix` (the least change that clears it, and the surface it lives on — `panel` for a restaged or redrawn keyframe, `plate` for a size, a camera height or angle, or a stretch of the set the panel's setup does not give it — `panel` where the setup has no plate, `window` for a `<Panel start>`, `cue` for an `<Audio start>`, `composition` for a graphic shot's drawn screen, `direction` for a shot). Prefer them in that order; name `direction` only when no panel could carry the shot.
 - Never guess at intent, never praise, and never offer an alternative you merely prefer.
 - A choice that reads as doing a job passes, however unconventional — a held frame that loads the next shot, a reveal by the witness, a match cut.
 - Whatever `brief.tolerances` accepts is never a finding; whatever `brief.outOfScope` bans is one wherever it shows on a panel.

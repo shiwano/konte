@@ -391,6 +391,7 @@ describe("cutin setups", () => {
     unnestedPlateIds: [],
     unconsumedBy: new Map(),
     deterministicShotsPerSetup: new Map(),
+    deterministicPlateIds: [],
     unviewedPlateIds: [],
     unviewedBy: new Map(),
     unanchoredViews: [],

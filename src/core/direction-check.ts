@@ -82,6 +82,8 @@ export type DirectionFindingCode =
   // The axis read as a shared frame: a cut along one, with no plate holding its two ends to one
   // master.
   | "axis-unrealized"
+  // A plate neither of the two above asks for.
+  | "plate-unowed"
   | "unused-setup"
   | "setup-atomized"
   // The views: a way a setup faces with no image of it, a plate standing on another view's image,
@@ -357,6 +359,7 @@ export type AnimaticSetupState = {
   unnestedPlateIds: readonly string[];
   unconsumedBy: ReadonlyMap<string, readonly string[]>;
   deterministicShotsPerSetup: ReadonlyMap<string, number>;
+  deterministicPlateIds: readonly string[];
   unviewedPlateIds: readonly string[];
   unviewedBy: ReadonlyMap<string, readonly string[]>;
   unanchoredViews: readonly string[];
@@ -631,6 +634,37 @@ function checkAxisCuts(cuts: readonly AxisCut[], plates: ReadonlySet<string>): D
   return findings;
 }
 
+// The plates neither `setup-unrealized` nor `axis-unrealized` asks for: a setup at most one generated
+// shot stands on, cut along no axis that nests it. One with no generative step is exempt.
+function checkUnowedPlates(
+  setups: readonly SetupRef[],
+  shotsPerSetup: ReadonlyMap<string, number>,
+  animatic: AnimaticSetupState,
+  axisCuts: readonly AxisCut[],
+): DirectionFinding[] {
+  const byId = new Map(setups.map((setup) => [setup.id, setup]));
+  const nested = new Set(axisCuts.flatMap((cut) => cut.chain));
+  const deterministic = new Set(animatic.deterministicPlateIds);
+  const findings: DirectionFinding[] = [];
+  for (const id of animatic.plateIds) {
+    const setup = byId.get(id);
+    if (setup === undefined || nested.has(id) || deterministic.has(id)) continue;
+    const generated =
+      (shotsPerSetup.get(id) ?? 0) - (animatic.deterministicShotsPerSetup.get(id) ?? 0);
+    if (generated >= 2) continue;
+    findings.push({
+      code: "plate-unowed",
+      subject: id,
+      message:
+        `setup "${id}" has a plate, but ${generated === 1 ? "only one generated shot" : "no generated shot"} ` +
+        `stands on it and no cut along its \`within\` axis nests it — drop it from \`plates\` in ` +
+        `animatic.tsx and build a keyframe on this setup from \`${placeRefOf(setup)}\`; where ` +
+        `another plate is built from it, keep it as an intermediate under a name that is no setup id`,
+    });
+  }
+  return findings;
+}
+
 // A location the piece lives in and never returns to a frame of. A setup only one shot names owes no
 // plate, so a place built out of one-offs has nothing pinning it: every shot there works from the
 // location's `reference:<id>` alone, and a room re-invented that many times drifts.
@@ -841,6 +875,7 @@ export function checkSetups(
   findings.push(...checkAtomizedSetups(setups, shotsPerSetup));
   // Board-gated like the three anchor findings: with no plates read there is nothing to be missing.
   if (plates) findings.push(...checkAxisCuts(axisCuts, plates));
+  if (animatic) findings.push(...checkUnowedPlates(setups, shotsPerSetup, animatic, axisCuts));
   if (animatic && referenceAssetNames !== undefined) {
     findings.push(...checkViews(setups, shotsPerSetup, viewImages, anchored!, animatic));
   }

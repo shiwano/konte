@@ -801,6 +801,8 @@ export type SetupAnchorGaps = {
   // Developed frames with no generative step, keyed by setup, so the plate demand can drop them too.
   // A `pendingShot` is not among them: it declares nothing yet, so it still counts toward a plate.
   deterministicShots: Map<string, number>;
+  // Setup ids whose plate has no generative step.
+  deterministicPlates: string[];
 };
 
 export function listSetupAnchorGaps(
@@ -821,6 +823,7 @@ export function listSetupAnchorGaps(
 
   const unanchoredPlates: string[] = [];
   const unviewedPlates: string[] = [];
+  const deterministicPlates: string[] = [];
   for (const setupId of Object.keys(plates)) {
     // An unknown setup id is the direction's own finding (`unused-setup` / a plate keyed off-roster);
     // reporting it again as unanchored would name the wrong fix.
@@ -835,6 +838,7 @@ export function listSetupAnchorGaps(
     );
     if ((walk.generative || walk.touchedReference) && !walk.reached) unanchoredPlates.push(setupId);
     if (walk.reached && viewImage !== undefined && !walk.reachedView) unviewedPlates.push(setupId);
+    if (!walk.generative) deterministicPlates.push(setupId);
   }
 
   const unviewedShots = new Map<string, string[]>();
@@ -884,7 +888,14 @@ export function listSetupAnchorGaps(
     gaps.set(setupId, shots);
   }
 
-  return { unanchoredPlates, unanchoredShots, unviewedPlates, unviewedShots, deterministicShots };
+  return {
+    unanchoredPlates,
+    unanchoredShots,
+    unviewedPlates,
+    unviewedShots,
+    deterministicShots,
+    deterministicPlates,
+  };
 }
 
 /**

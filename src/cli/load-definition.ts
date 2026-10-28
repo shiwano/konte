@@ -257,6 +257,7 @@ export function animaticSetupState(
     unnestedPlateIds: listSetupNestGaps(animatic, withinBySetup),
     unconsumedBy: gaps.unanchoredShots,
     deterministicShotsPerSetup: gaps.deterministicShots,
+    deterministicPlateIds: gaps.deterministicPlates,
     unviewedPlateIds: gaps.unviewedPlates,
     unviewedBy: gaps.unviewedShots,
     unanchoredViews: reference ? listViewAnchorGaps(reference) : [],

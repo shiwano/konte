@@ -589,6 +589,7 @@ export type DirectionFindingCode =
   | "setup-unconsumed"
   | "plate-unnested"
   | "axis-unrealized"
+  | "plate-unowed"
   | "unused-setup"
   | "setup-atomized"
   | "view-unrealized"

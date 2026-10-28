@@ -38,7 +38,7 @@ Bring each file under `assets/files/` in as `file` kind — no generation. Pick 
 
 ## 6. Bake the plates
 
-- Wire plates → `staging-guide`; every shot stays pending through the bake.
+- Wire the plates the setups owe → `staging-guide`; every shot stays pending through the bake. None owed → step 7.
 - Spawn `konte-prompt-critic` on `animatic.tsx` before the bake.
 - `konte generate animatic`, `konte job wait`, then spawn `konte-animatic-critic` on `plates` — recut or reroll a wrong frame before any panel stands on it. Accept nothing: a plate is never review work; the accept of the first panel built on it signs it off.
 
@@ -50,7 +50,7 @@ Developing a shot = swapping its pending form for the real one — `pendingShot(
 - One pass = one direction leaf sequence, in story order — its shots and nothing outside it; a short piece is a single leaf, so it is one pass.
 - A `join: "continuous"` pair is developed together, in one pass even across a sequence boundary — the second shot's picture derives from the first's.
 - Carry a sequence through both stages before laying out the next — its panels accepted, then its video shots developed and accepted. A video shot's motion prompt is written from the accepted frames; the next sequence's prompts from what this one settled — the adapter, the prompt pattern, each recurring subject's look.
-- Write each panel prompt against the plate on screen — it places the subjects in that frame and restates nothing the picture shows. Written from the roster prose, it describes another frame: `setup-unconsumed` passes and the frame drifts anyway.
+- Write each panel prompt against its setup's plate on screen, where it has one — it places the subjects in that frame and restates nothing the picture shows. Written from the roster prose, it describes another frame: `setup-unconsumed` passes and the frame drifts anyway.
 - Leave `blocking`/`camera` off every `<Panel>` — they are written from the take, at self-review.
 - The shot's `script` is sounded with `<Audio>`, not written onto a panel.
 - An animatic `pendingShot` may stay for good only under a shot that spends nothing — one staged in composition or assembled from `file`/`local` takes; name the deferral in the handoff. A text-to-video take of a narrative shot holds the video spend (`animatic-unconsumed`).

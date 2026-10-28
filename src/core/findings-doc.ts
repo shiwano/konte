@@ -128,6 +128,11 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     flags: "Two sizes cut along one `within` axis lack the plates that nest them.",
     subject: "setup pair (`<a>.<b>`)",
   },
+  "plate-unowed": {
+    flags:
+      "A generated plate stands under at most one generated shot and on no axial cut that nests it.",
+    subject: "setup id",
+  },
   "setup-unconsumed": {
     flags:
       "A developed shot builds no keyframe from its setup's plate, or from the location reference where there is no plate.",

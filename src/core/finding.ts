@@ -134,6 +134,7 @@ const DIRECTION_FINDING_TRAITS: Record<DirectionFindingCode, FindingTraits> = {
   "plate-unanchored": waive("stage+downstream", ROSTER),
   "plate-unnested": waive("stage+downstream", ROSTER),
   "axis-unrealized": waive("stage+downstream", ROSTER),
+  "plate-unowed": waive("stage+downstream", ROSTER),
   "setup-unconsumed": waive("stage+downstream", ROSTER),
   "unused-setup": fixDirection,
   "setup-atomized": waive("stage+downstream", ROSTER),

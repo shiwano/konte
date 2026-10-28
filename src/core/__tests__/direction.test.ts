@@ -1132,6 +1132,7 @@ describe("checkDirection setups", () => {
       unnested?: readonly string[];
       ignoring?: Record<string, string[]>;
       deterministic?: Record<string, number>;
+      deterministicPlates?: readonly string[];
       unviewed?: readonly string[];
       unviewedBy?: Record<string, string[]>;
       unanchoredViews?: readonly string[];
@@ -1142,6 +1143,7 @@ describe("checkDirection setups", () => {
     unnestedPlateIds: gaps.unnested ?? [],
     unconsumedBy: new Map(Object.entries(gaps.ignoring ?? {})),
     deterministicShotsPerSetup: new Map(Object.entries(gaps.deterministic ?? {})),
+    deterministicPlateIds: gaps.deterministicPlates ?? [],
     unviewedPlateIds: gaps.unviewed ?? [],
     unviewedBy: new Map(Object.entries(gaps.unviewedBy ?? {})),
     unanchoredViews: gaps.unanchoredViews ?? [],
@@ -1319,6 +1321,51 @@ describe("checkDirection setups", () => {
       animaticSetups: plates([], { deterministic: { wall: 1 } }),
     });
     expect(active.map((f) => f.code)).not.toContain("setup-unrealized");
+  });
+
+  describe("plate-unowed", () => {
+    const unowed = (d: Direction, state: AnimaticSetupState) =>
+      checkDirection(d, { referenceAssetNames: ["here"], animaticSetups: state })
+        .active.filter((f) => f.code === "plate-unowed")
+        .map((f) => f.subject);
+
+    it("flags a plate only one generated shot stands on", () => {
+      expect(unowed(shared, plates(["wall", "solo"]))).toEqual(["solo"]);
+    });
+
+    it("says nothing of a plate two generated shots share", () => {
+      expect(unowed(shared, plates(["wall"]))).toEqual([]);
+    });
+
+    it("flags a shared plate once all but one of its shots are deterministic", () => {
+      expect(unowed(shared, plates(["wall"], { deterministic: { wall: 1 } }))).toEqual(["wall"]);
+    });
+
+    it("says nothing of a plate with no generative step", () => {
+      expect(unowed(shared, plates(["solo"], { deterministicPlates: ["solo"] }))).toEqual([]);
+    });
+
+    it("says nothing of the plates an axial cut nests, its ends and the frame between", () => {
+      const dir = axis([
+        { ...shot("01", "ordinary", 3), setup: "wide" },
+        { ...shot("02", "disruption", 2), setup: "medium" },
+      ]);
+      expect(unowed(dir, plates(["wide", "medium"]))).toEqual([]);
+    });
+
+    it("flags the parent plate of a window no axial cut reaches", () => {
+      const dir = axis([
+        { ...shot("01", "ordinary", 3), setup: "medium" },
+        { ...shot("02", "disruption", 2), setup: "across" },
+        { ...shot("03", "pressure", 3), setup: "medium" },
+      ]);
+      expect(unowed(dir, plates(["wide", "medium"]))).toEqual(["wide"]);
+    });
+
+    it("is waived by the setup's key", () => {
+      const waived = { ...shared, waivers: { "plate-unowed_solo": "a still held for a match" } };
+      expect(unowed(waived, plates(["wall", "solo"]))).toEqual([]);
+    });
   });
 
   it("flags a roster setup no shot points at", () => {
