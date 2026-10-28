@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process";
+import { loadAdapterCatalog } from "../src/core/adapter-catalog.js";
+import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.js";
 
 // Guards the *chain-level* token load of what an agent reads: per journey,
 // every file it loads end to end while doing its job. Each file can pass its
@@ -12,8 +14,8 @@ import { execFileSync } from "node:child_process";
 // SHIPPED — what a user's agent loads in their konte project.
 // - `video` — the template skills loaded driving one video from reference →
 //   animatic → video → export, then revising it. The chain is the fixed,
-//   always-loaded set; per-model and per-backend docs (one of each loads per
-//   project, ~2-3k tokens) are headroom inside the budget, not listed.
+//   always-loaded set; the adapter guides it reads on the way are budgeted per
+//   adapter (ADAPTER below), not listed.
 //   `story.md` stands for whichever form reference scenario-guide routes to,
 //   the largest of them.
 // - `music-video` — the `video` chain for a mood piece cut to a song.
@@ -21,6 +23,11 @@ import { execFileSync } from "node:child_process";
 //   on every spawn. Its "Read only this" rules bar skills and records, so
 //   contract plus `AGENTS.md` is the whole fixed load; what it reads (the
 //   direction, a stage file) is the variable part, in its own fresh context.
+//
+// ADAPTER — one journey per adapter that ships a guide: its `meta.guide` chain,
+// the files `konte adapter show` names, read in order. The chain is derived
+// from the adapter itself; only the budget is written here. Every bundled guide
+// must be named by an adapter.
 //
 // DEV — what an agent working *on* konte loads, charged this repo's own
 // `AGENTS.md`. One journey per kind of maintenance task, so the guides a task
@@ -36,6 +43,7 @@ import { execFileSync } from "node:child_process";
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - adapter journeys (new): each adapter's `meta.guide` chain at its measured load.
 // - dev-release 3,700 → 3,800 (agreed by a human): bringing the seeded `comfyVersion` up to
 //   ComfyUI's latest release before the version commit.
 // - konte-animatic-critic 3,800 → 3,850 (agreed by a human): `fabricated-ui`, a real product's
@@ -107,6 +115,7 @@ import { execFileSync } from "node:child_process";
 
 const WORKSPACE = "src/cli/templates/workspace";
 const SKILLS = `${WORKSPACE}/dot.agents/skills`;
+const GUIDES = `${WORKSPACE}/dot.konte/guides`;
 const AGENTS = "src/cli/templates/agents";
 const DEV = ".agents/skills";
 
@@ -360,9 +369,49 @@ const DEV_JOURNEYS = [
   },
 ];
 
+const ADAPTER_BUDGETS: Record<string, number> = {
+  audioAceStep15XlTurbo: 450,
+  audioMinimaxH3R2a: 3_400,
+  audioStableAudio3Medium: 400,
+  audioYue2: 450,
+  audioZonos2VoiceClone: 1_150,
+  imageKrea2TurboT2i: 250,
+  imageMinimaxH3R2i: 2_800,
+  imageQwenImageEdit21: 800,
+  imageQwenImageEdit21Inpaint: 300,
+  imageZImageBase: 350,
+  videoMinimaxH3R2v: 5_250,
+  videoSeedvr2Upscale: 550,
+  falMinimaxH3MaxI2v: 800,
+  falMinimaxH3MaxR2v: 800,
+  falMinimaxH3MaxT2v: 800,
+  falNanoBanana2: 200,
+  falNanoBanana2Edit: 200,
+  falSeedance25I2v: 550,
+  falSeedance25R2v: 550,
+  falSeedance25T2v: 550,
+  imageCrop: 650,
+  jsxImage: 1_100,
+  jsxVideo: 1_550,
+  videoFrame: 350,
+};
+
+const catalog = await loadAdapterCatalog(WORKSPACE);
+const ADAPTER_JOURNEYS = catalog.entries
+  .map((entry) => ({
+    name: entry.name,
+    budget: ADAPTER_BUDGETS[entry.name] ?? 0,
+    files: adapterGuides(entry.meta).map((specifier) =>
+      specifier.startsWith(GUIDE_SPECIFIER_PREFIX)
+        ? `${GUIDES}/${specifier.slice(GUIDE_SPECIFIER_PREFIX.length)}`
+        : specifier,
+    ),
+  }))
+  .filter((journey) => journey.files.length > 0);
+
 // Shipped last on purpose: it is the family that reaches users, so it is the
 // block still on screen when the check finishes.
-const JOURNEYS = [...DEV_JOURNEYS, ...SHIPPED_JOURNEYS];
+const JOURNEYS = [...DEV_JOURNEYS, ...ADAPTER_JOURNEYS, ...SHIPPED_JOURNEYS];
 
 const out = execFileSync(
   "waza",
@@ -371,6 +420,7 @@ const out = execFileSync(
     "tokens",
     "count",
     SKILLS,
+    GUIDES,
     AGENTS,
     DEV,
     ...ALWAYS,
@@ -404,6 +454,7 @@ for (const journey of JOURNEYS) {
     total += tokens;
     const label = file
       .replace(`${SKILLS}/`, "")
+      .replace(`${GUIDES}/`, "guides/")
       .replace(`${AGENTS}/`, "")
       .replace(`${WORKSPACE}/`, "")
       .replace(`${DEV}/`, "dev/");
@@ -428,13 +479,35 @@ for (const journey of JOURNEYS) {
   }
 }
 
-// Every shipped subagent and every dev skill must sit in a journey, or its
-// tokens escape this check entirely. Template skills are exempt: the `video`
-// chain is one route through them, not a roster of all of them.
+for (const { file, message } of catalog.errors.filter((e) => !e.message.startsWith("guide "))) {
+  failed = true;
+  process.stderr.write(`\nAdapter ${file} failed to load: ${message}\n`);
+}
+
+const unbudgeted = ADAPTER_JOURNEYS.filter((j) => !(j.name in ADAPTER_BUDGETS)).map((j) => j.name);
+const staleBudgets = Object.keys(ADAPTER_BUDGETS).filter(
+  (name) => !ADAPTER_JOURNEYS.some((j) => j.name === name),
+);
+for (const [label, names] of [
+  ["Adapters with a guide and no budget (add to ADAPTER_BUDGETS", unbudgeted],
+  ["ADAPTER_BUDGETS entries with no guided adapter (remove from ADAPTER_BUDGETS", staleBudgets],
+] as const) {
+  if (names.length === 0) continue;
+  failed = true;
+  process.stderr.write(
+    `\n${label} in ${import.meta.url}):\n` + names.map((n) => `  ${n}\n`).join(""),
+  );
+}
+
+// Every shipped subagent, bundled adapter guide and dev skill must sit in a
+// journey, or its tokens escape this check entirely. Template skills are
+// exempt: the `video` chain is one route through them, not a roster of all of
+// them.
 const budgeted = new Set(JOURNEYS.flatMap((j) => j.files));
-for (const [label, prefix] of [
-  ["Shipped subagents", `${AGENTS}/`],
-  ["Dev skills", `${DEV}/`],
+for (const [label, prefix, fix] of [
+  ["Shipped subagents", `${AGENTS}/`, `add one to JOURNEYS in ${import.meta.url}`],
+  ["Adapter guides", `${GUIDES}/`, "name it in an adapter's `guide`, or delete it"],
+  ["Dev skills", `${DEV}/`, `add one to JOURNEYS in ${import.meta.url}`],
 ] as const) {
   const orphans = [...tokensByFile.keys()]
     .filter((f) => f.startsWith(prefix))
@@ -442,8 +515,7 @@ for (const [label, prefix] of [
   if (orphans.length === 0) continue;
   failed = true;
   process.stderr.write(
-    `\n${label} with no journey (add one to JOURNEYS in ${import.meta.url}):\n` +
-      orphans.map((f) => `  ${f}\n`).join(""),
+    `\n${label} with no journey (${fix}):\n` + orphans.map((f) => `  ${f}\n`).join(""),
   );
 }
 

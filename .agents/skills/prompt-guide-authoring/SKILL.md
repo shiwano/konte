@@ -73,6 +73,7 @@ Fix in the guide `.md` and the input descriptions.
 
 - `konte adapter show <adapter>` in a workspace — verify the schema, descriptions, and resolved guide path.
 - `bun run check:templates` — checks workspace adapters' bundled guide files exist and type-checks the templates, including input descriptions.
+- `bun run skills:check` — each adapter's `guide` chain is a journey with its own budget in `scripts/check-journeys.ts`'s `ADAPTER_BUDGETS`.
 - Audit the guide's advice against the model and adapter behavior; automated checks do not establish its correctness.
 
 ## Scope
