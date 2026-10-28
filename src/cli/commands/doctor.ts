@@ -38,7 +38,6 @@ import { loadAnimatic, loadReference, loadVideoDefinition } from "../../core/loa
 import { readAssetsGitignore } from "../../core/assets-gitignore.js";
 import { buildOrphanContext, listStrayVariantDirs } from "../../core/orphans.js";
 import { listPatchVariantIds } from "../../core/patch.js";
-import { collectStaleVariants } from "../../core/staleness.js";
 import { StateManager } from "../../core/state/index.js";
 import { type TypeDiagnostic, typeCheckWorkspace } from "../../core/tsc.js";
 import { acceptedConsumers, isProtectedVariant } from "../../core/variant-lineage.js";
@@ -94,7 +93,7 @@ export function registerDoctorCommand(program: Command): void {
       "after",
       `
 Runs a battery of health checks over the project: state, type check, definitions,
-machine findings, staleness, orphaned jobs/targets, whether every declared asset's backend is
+machine findings, orphaned jobs/targets, whether every declared asset's backend is
 configured, the backends the project actually uses, and whether a newer konte release is out
 (checked once a day; KONTE_UPDATE_CHECK=0 turns it off).
 
@@ -232,7 +231,7 @@ type DoctorVideo = { name: string | null; root: string };
 
 // One video's own battery. `typeCheckFailed` skips every check that imports its definitions: when
 // the project does not type-check, those imports crash at runtime with errors unrelated to the real
-// cause, so the type check is pointed at instead. State-only checks (stale/orphaned/missing) read
+// cause, so the type check is pointed at instead. State-only checks (orphaned/missing) read
 // konte.state.json and run regardless.
 async function runVideoChecks(
   roots: VideoRoots,
@@ -297,7 +296,6 @@ async function runVideoChecks(
     checks.push(...(await checkFindings(videoRoot, defs)));
   }
 
-  checks.push(await checkStaleAssetsHealth(videoRoot));
   checks.push(await checkOrphanedJobs(videoRoot));
   checks.push(await checkOrphanedTargets(videoRoot));
   checks.push(await checkStrayVariantDirs(videoRoot));
@@ -1310,35 +1308,4 @@ async function checkConfiguredBackends(
     message:
       `[${configured.join(", ")}] configured` + (defs.length === 0 ? " (assets not checked)" : ""),
   };
-}
-
-async function checkStaleAssetsHealth(videoRoot: string): Promise<CheckResult> {
-  try {
-    const manager = await StateManager.load(videoRoot);
-    const state = manager.getState();
-    const staleAddresses: string[] = [];
-
-    // Only an accepted (resolved) variant being stale is worth flagging — mirror the
-    // accepted-only definition `status`' Stale section uses (collectStaleVariants). A stale
-    // non-accepted history variant is harmless (never resolved/used), so warning on it made
-    // doctor contradict `status` and read as "you broke something" when nothing was wrong.
-    for (const address of Object.keys(state.assets)) {
-      if (collectStaleVariants(state, address, null).length > 0) {
-        staleAddresses.push(address);
-      }
-    }
-
-    if (staleAddresses.length === 0) {
-      return { name: "stale assets", status: "PASS", message: "no stale assets" };
-    }
-    const preview = staleAddresses.slice(0, 3).join(", ");
-    const suffix = staleAddresses.length > 3 ? `, ... (+${staleAddresses.length - 3} more)` : "";
-    return {
-      name: "stale assets",
-      status: "WARN",
-      message: `${staleAddresses.length} stale asset(s): ${preview}${suffix}`,
-    };
-  } catch {
-    return { name: "stale assets", status: "PASS", message: "no state to check" };
-  }
 }
