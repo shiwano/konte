@@ -45,7 +45,6 @@ export const directionDefaults: {
   policy: {
     format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
     lang: "en",
-    speech: "free",
   },
 };
 

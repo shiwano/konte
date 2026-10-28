@@ -57,7 +57,6 @@ function flat(): Direction {
     policy: {
       format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
       lang: "en",
-      speech: "free",
     },
     sequence: {
       lens: "mini-drama",
@@ -107,7 +106,6 @@ function sequenced(): Direction {
     policy: {
       format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
       lang: "en",
-      speech: "free",
     },
     sequence: {
       lens: "three-act",
@@ -302,16 +300,6 @@ describe("directionHash", () => {
       ja.policy.lang = "ja";
       expect(directionHash(ja)).not.toBe(directionHash(flat()));
     });
-
-    it("reacts to declaring or changing the speech policy", () => {
-      const none = flat();
-      none.policy.speech = "none";
-      expect(directionHash(none)).not.toBe(directionHash(flat()));
-
-      const noDialogue = flat();
-      noDialogue.policy.speech = "no-dialogue";
-      expect(directionHash(noDialogue)).not.toBe(directionHash(none));
-    });
   });
 
   describe("branch-rooted direction", () => {
@@ -356,7 +344,6 @@ describe("directionPartHashes", () => {
       "direction:policy.fonts",
       "direction:policy.format",
       "direction:policy.lang",
-      "direction:policy.speech",
       sequence,
       shot01,
       "direction:sequence.shots.02",
@@ -367,23 +354,23 @@ describe("directionPartHashes", () => {
     ]);
   });
 
-  // The policy fields are always declared, so each is keyed unconditionally — a note on the speech
-  // rule ages out on a speech edit, not when the canvas changes.
+  // The policy fields are always declared, so each is keyed unconditionally — a note on the language
+  // ages out on a language edit, not when the canvas changes.
   it("moves only the edited policy field's hash, leaving its siblings standing", () => {
     const format = "direction:policy.format";
     const lang = "direction:policy.lang";
-    const speech = "direction:policy.speech";
+    const fonts = "direction:policy.fonts";
     const d = flat();
     d.policy.format.fps = 60;
     expect(directionPartHashes(d).get(format)).not.toBe(directionPartHashes(flat()).get(format));
-    expect(directionPartHashes(d).get(speech)).toBe(directionPartHashes(flat()).get(speech));
+    expect(directionPartHashes(d).get(fonts)).toBe(directionPartHashes(flat()).get(fonts));
     expect(directionPartHashes(d).get(lang)).toBe(directionPartHashes(flat()).get(lang));
 
     const retyped = flat();
     retyped.policy.lang = "ja";
     expect(directionPartHashes(retyped).get(lang)).not.toBe(directionPartHashes(flat()).get(lang));
     expect(directionPartHashes(retyped).get(format)).toBe(directionPartHashes(flat()).get(format));
-    expect(directionPartHashes(retyped).get(speech)).toBe(directionPartHashes(flat()).get(speech));
+    expect(directionPartHashes(retyped).get(fonts)).toBe(directionPartHashes(flat()).get(fonts));
   });
 
   it("moves only the rewritten brief field's hash, leaving its siblings and the sequence standing", () => {

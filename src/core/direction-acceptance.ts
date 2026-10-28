@@ -53,7 +53,7 @@ export function directionSectionAcceptable(
 
 // The sections whose sign-off no downstream media re-reads, so they are the ones the spend gate
 // keeps demanding for the life of the piece. `brief` is an agreement between people that never
-// enters generation; `policy.speech` and `waivers` are inputs to the machine check and appear in no
+// enters generation; `waivers` are inputs to the machine check and appear in no
 // frame; `policy.format` is the size and fps, where a mistake is expensive. Everything else — the
 // shots, the arc, the rosters — reaches a human as a panel, a shot or a `reference:<id>` image, so
 // once the piece has been signed off whole, the reviews of that media are the reading that counts.

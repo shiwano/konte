@@ -35,7 +35,6 @@ const songDirection = () =>
     policy: {
       format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
       lang: "en",
-      speech: "free",
       song: "song",
     },
     lyrics: [{ label: "chorus", singer: "konte", lines: ["Hit the light", "Watch me move"] }],

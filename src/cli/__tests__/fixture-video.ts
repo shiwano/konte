@@ -31,7 +31,6 @@ export default defineDirection({
       },
     },
     lang: "en",
-    speech: "free",
   },
   characters: {
     character: {

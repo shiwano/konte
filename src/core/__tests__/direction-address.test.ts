@@ -77,13 +77,13 @@ describe("direction addressing", () => {
     expect(() => assertValidAddressScope("direction:characters.alice")).not.toThrow();
     expect(() => assertValidAddressScope("direction:props.lantern")).not.toThrow();
     expect(() => assertValidAddressScope("direction:locations.studio")).not.toThrow();
-    expect(() => assertValidAddressScope("direction:policy.speech")).not.toThrow();
+    expect(() => assertValidAddressScope("direction:policy.fonts")).not.toThrow();
     expect(() => assertValidAddressScope("direction:bogus")).toThrow(KonteError);
     // The old profile-less parts are gone: a part is a field path or it is not an address.
     expect(() => assertValidAddressScope("direction:spine")).toThrow(KonteError);
     expect(() => assertValidAddressScope("direction:shot.01")).toThrow(KonteError);
     // A policy field is addressed under `policy.`; the bare field name is not an address.
-    expect(() => assertValidAddressScope("direction:speech")).toThrow(KonteError);
+    expect(() => assertValidAddressScope("direction:fonts")).toThrow(KonteError);
     expect(() => assertValidAddressScope("direction:sequences.s1")).toThrow(KonteError);
     expect(() => assertValidAddressScope("direction:timeline.x")).toThrow(KonteError);
     expect(() => assertValidAddressScope("direction:")).toThrow(KonteError);

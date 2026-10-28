@@ -26,7 +26,6 @@ export default defineDirection({
       },
     },
     lang: "en",
-    speech: "free",
   },
   sequence: {
     lens: "mini-drama",

@@ -594,7 +594,6 @@ export type DirectionFindingCode =
   | "view-unrealized"
   | "plate-unviewed"
   | "view-unanchored"
-  | "unexpected-script"
   | "multi-sentence-action"
   | "off-grid-duration"
   | "off-beat-cut"
@@ -1078,12 +1077,10 @@ export type ResolvedDirectionFormat = {
     base: CanvasSize;
   };
 };
-export type SpeechPolicy = "none" | "no-dialogue" | "free";
 export type DirectionPolicy = {
   format: DirectionFormat;
   lang: LanguageTag;
   fonts?: readonly string[];
-  speech: SpeechPolicy;
   song?: string;
 };
 export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "duration"> & {
@@ -1446,36 +1443,6 @@ export type ConstrainSynopsis<N> = N extends {
       }
     : unknown
   : unknown;
-export type SpokenLines<S> = Extract<
-  S,
-  | {
-      character: unknown;
-    }
-  | {
-      speaker: unknown;
-    }
->;
-export type ConstrainSpeech<B, Speech> = SpeechPolicy extends Speech
-  ? unknown
-  : B extends {
-        script: infer S extends readonly ScriptLine[];
-      }
-    ? IsWidenedArray<S> extends true
-      ? unknown
-      : [Speech] extends ["none"]
-        ? [S] extends [readonly []]
-          ? unknown
-          : {
-              script: DirectionViolation<'konte: policy.speech is "none", so no shot declares a script line'>;
-            }
-        : [Speech] extends ["no-dialogue"]
-          ? [SpokenLines<S[number]>] extends [never]
-            ? unknown
-            : {
-                script: DirectionViolation<'konte: policy.speech is "no-dialogue", so a shot narrates but nobody speaks'>;
-              }
-          : unknown
-    : unknown;
 export type ShotBefore<Shots, Id extends string, Prev = null> = Shots extends readonly [
   infer H extends {
     id: string;
@@ -1579,7 +1546,6 @@ export type ConstrainCutinJoin<B, Shots> = B extends {
 export type ConstrainShotIds<
   Arr,
   Subjects extends string,
-  Speech,
   Roles extends string,
   Shots,
   Clocked extends boolean,
@@ -1595,7 +1561,6 @@ export type ConstrainShotIds<
   } & ConstrainFrameLineups<Arr[K], Subjects> &
     ConstrainSpan<Arr[K], Clocked> &
     ConstrainAction<Arr[K]> &
-    ConstrainSpeech<Arr[K], Speech> &
     ConstrainRole<Arr[K], Roles> &
     ConstrainJoin<Arr[K], Shots> &
     ConstrainCutinJoin<Arr[K], Shots> &
@@ -1611,7 +1576,6 @@ export type ConstrainShotIds<
 export type ConstrainNodeIds<
   N,
   Subjects extends string,
-  Speech,
   Lenses,
   Shots,
   Clocked extends boolean,
@@ -1628,14 +1592,7 @@ export type ConstrainNodeIds<
     shots: infer S;
   }
     ? {
-        shots: ConstrainShotIds<
-          S,
-          Subjects,
-          Speech,
-          LensRolesOf<LensNameOf<N>, Lenses>,
-          Shots,
-          Clocked
-        >;
+        shots: ConstrainShotIds<S, Subjects, LensRolesOf<LensNameOf<N>, Lenses>, Shots, Clocked>;
       }
     : unknown) &
   (N extends {
@@ -1645,7 +1602,6 @@ export type ConstrainNodeIds<
         sequences: ConstrainSequenceIds<
           Q,
           Subjects,
-          Speech,
           Lenses,
           LensRolesOf<LensNameOf<N>, Lenses>,
           Shots,
@@ -1661,13 +1617,12 @@ export type LensNameOf<N> = N extends {
 export type ConstrainSequenceIds<
   Arr,
   Subjects extends string,
-  Speech,
   Lenses,
   ParentRoles extends string,
   Shots,
   Clocked extends boolean,
 > = {
-  [K in keyof Arr]: ConstrainNodeIds<Arr[K], Subjects, Speech, Lenses, Shots, Clocked> &
+  [K in keyof Arr]: ConstrainNodeIds<Arr[K], Subjects, Lenses, Shots, Clocked> &
     ConstrainRole<Arr[K], ParentRoles>;
 };
 export type ConstrainVoiceId<V> = V extends {
@@ -1801,11 +1756,6 @@ export type ConstrainSetupIds<D extends DirectionInput> = ConstrainRosterIds<D["
   [K in keyof D["setups"]]: ConstrainSetupHolds<D["setups"][K], LandmarkIdOf<D, D["setups"][K]>> &
     ConstrainSetupWithin<D["setups"][K], D["setups"]>;
 };
-export type SpeechOf<D extends DirectionInput> = D["policy"] extends {
-  speech: infer S;
-}
-  ? S
-  : SpeechPolicy;
 export type ClockedOf<D extends DirectionInput> = D["policy"] extends {
   song: string;
 }
@@ -1820,7 +1770,6 @@ export type ConstrainIds<D extends DirectionInput> = {
   sequence: ConstrainNodeIds<
     D["sequence"],
     SubjectIdOf<D>,
-    SpeechOf<D>,
     DeclaredLensNameOf<D>,
     DirectionShotTuple<D>,
     ClockedOf<D>

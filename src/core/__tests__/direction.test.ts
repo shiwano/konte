@@ -91,8 +91,8 @@ function setupsFor(shots: readonly NarrativeShot[]): Record<string, Setup> {
   return out;
 }
 
-// Build a leaf-root direction (one arc over shots). Piece-wide fields (characters/lenses, and the
-// speech rule under `policy`, waivers) stay at the top; the arc (lens/pleasure/shots) lives in the
+// Build a leaf-root direction (one arc over shots). Piece-wide fields (characters/lenses, waivers)
+// stay at the top; the arc (lens/pleasure/shots) lives in the
 // `sequence` root node.
 // The default location roster the terse fixtures satisfy: `shot()` points every shot at a frame set
 // in `here`, so a leaf/branch that does not override `locations` carries exactly this one entry —
@@ -120,7 +120,6 @@ function leaf(opts: {
   locations?: Record<string, Location>;
   setups?: Record<string, Setup>;
   narrator?: { id: string; description: string };
-  speech?: "none" | "no-dialogue";
   lenses?: unknown[];
 }): Direction {
   const node: DirectionNode = {
@@ -134,7 +133,6 @@ function leaf(opts: {
     locations: opts.locations ?? defaultLocations,
     setups: opts.setups ?? setupsFor(opts.shots),
     ...(opts.narrator ? { narrator: opts.narrator } : {}),
-    ...(opts.speech ? { policy: { speech: opts.speech } } : {}),
     ...(opts.lenses ? { lenses: opts.lenses } : {}),
     sequence: node,
   } as Direction;
@@ -643,12 +641,10 @@ describe("validateDirectionStructure", () => {
     expect(validateDirectionStructure(dir).map((e) => e.code)).toContain("telop-empty-text");
   });
 
-  // Telop is not speech, so it never demands a voice and never trips the speech policy — the case
-  // the old subtitles-only waiver existed for.
-  it("passes telop-only shots under speech: none, with no cast voice", () => {
+  // Telop is not speech, so it never demands a voice.
+  it("passes telop-only shots with no cast voice", () => {
     const dir = leaf({
       characters: { cat },
-      speech: "none",
       shots: [
         { ...shot("01", "ordinary", 3, "the cat wakes"), telop: ["第一話"] },
         shot("02", "disruption", 2),
@@ -657,7 +653,6 @@ describe("validateDirectionStructure", () => {
       ],
     });
     expect(validateDirectionStructure(dir)).toEqual([]);
-    expect(checkDirection(dir).active.map((f) => f.code)).not.toContain("unexpected-script");
   });
 
   it("passes a script line by a declared character, and a bare narration line", () => {
@@ -2104,7 +2099,6 @@ describe("classifyDirectionFinding", () => {
     expect(classifyDirectionFinding("unused-prop")).toBe("props");
     expect(classifyDirectionFinding("location-unreferenced")).toBe("locations");
     expect(classifyDirectionFinding("unused-location")).toBe("locations");
-    expect(classifyDirectionFinding("unexpected-script")).toBe("arc");
     expect(classifyDirectionFinding("multi-sentence-action")).toBe("arc");
     expect(classifyDirectionFinding("off-grid-duration")).toBe("pacing");
   });
@@ -2202,68 +2196,6 @@ describe("checkDirection typesetting", () => {
     const res = checkDirection(waived);
     expect(res.active.map((f) => f.code)).not.toContain("fonts-undeclared");
     expect(res.waived.map((f) => f.code)).toContain("fonts-undeclared");
-  });
-});
-
-describe("checkDirection speech", () => {
-  function withScript(speech: "none" | "no-dialogue", script: readonly ScriptLine[]): Direction {
-    return leaf({
-      speech,
-      shots: [
-        shot("01", "ordinary"),
-        { ...shot("02", "disruption", 2), script },
-        shot("03", "pressure"),
-        shot("04", "hero", 4),
-      ],
-    });
-  }
-
-  it('flags a shot with any script line under speech "none"', () => {
-    const dir = withScript("none", [{ narration: "morning light" }]);
-    expect(checkDirection(dir).active.find((f) => f.code === "unexpected-script")?.subject).toBe(
-      "02",
-    );
-  });
-
-  it("does not flag when no shot declares a script", () => {
-    const dir = leaf({
-      speech: "none",
-      shots: [
-        shot("01", "ordinary"),
-        shot("02", "disruption", 2),
-        shot("03", "pressure"),
-        shot("04", "hero", 4),
-      ],
-    });
-    expect(checkDirection(dir).active.map((f) => f.code)).not.toContain("unexpected-script");
-  });
-
-  it('under "no-dialogue" allows narration but flags a spoken line', () => {
-    const narrated = withScript("no-dialogue", [{ narration: "morning light" }]);
-    expect(checkDirection(narrated).active.map((f) => f.code)).not.toContain("unexpected-script");
-
-    const spoken = withScript("no-dialogue", [{ speaker: "受付", text: "いらっしゃいませ" }]);
-    expect(checkDirection(spoken).active.find((f) => f.code === "unexpected-script")?.subject).toBe(
-      "02",
-    );
-  });
-
-  it("is not cancelled by a waiver, which is reported as one only a fix clears", () => {
-    const dir = withWaivers(withScript("none", [{ narration: "morning light" }]), {
-      "unexpected-script_02": "one deliberate title card",
-    });
-    const res = checkDirection(dir);
-    expect(res.active.map(directionWaiverKey)).toContain("unexpected-script_02");
-    expect(res.staleWaivers).toEqual([
-      { key: "unexpected-script_02", reason: "one deliberate title card", fixOnly: true },
-    ]);
-  });
-
-  it("blocks generate as an arc-class finding until waived", () => {
-    const dir = withScript("none", [{ narration: "morning light" }]);
-    expect(
-      spendHeldBy(dir, { command: "generate", stage: "video", directionAccepted: true }),
-    ).toMatch(/unexpected-script_02/);
   });
 });
 

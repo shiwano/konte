@@ -20,7 +20,6 @@ export default defineDirection({
     },
     lang: "en-US",
     fonts: ["Inter", "Noto Sans JP"],
-    speech: "free",
   },
   lenses: [
     defineLens({

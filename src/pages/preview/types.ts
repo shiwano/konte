@@ -653,12 +653,12 @@ export interface BriefReferenceInfo {
   sheets: string[];
 }
 
-export type DirectionPolicyField = "format" | "lang" | "fonts" | "speech" | "song";
+export type DirectionPolicyField = "format" | "lang" | "fonts" | "song";
 
-// One machine-checked policy field — the canvas, the typesetting, the speech rule — reviewed as its
-// own feedback part below the brief. Structured rather than pre-formatted so the UI owns the labels
-// and glosses (as it does for the brief): `format` is the canvas, `lang` the BCP-47 language tag the
-// compositions render under, `fonts` the families they are set in, `speech` the declared speech rule.
+// One machine-checked policy field — the canvas, the typesetting, the song — reviewed as its own
+// feedback part below the brief. Structured rather than pre-formatted so the UI owns the labels and
+// glosses (as it does for the brief): `format` is the canvas, `lang` the BCP-47 language tag the
+// compositions render under, `fonts` the families they are set in, `song` the reference it is cut to.
 export type DirectionPolicyFieldInfo = DirectionPartInfo &
   (
     | {
@@ -673,7 +673,6 @@ export type DirectionPolicyFieldInfo = DirectionPartInfo &
       }
     | { field: "lang"; lang: string }
     | { field: "fonts"; fonts: string[] }
-    | { field: "speech"; speech: "none" | "no-dialogue" | "free" }
     | { field: "song"; song: string }
   );
 
@@ -730,7 +729,7 @@ export interface DirectionPreviewState {
   acceptableSections: DirectionSection[];
   // One entry per prose field the author filled in, plus both list fields — always, empty included.
   brief: DirectionBriefFieldInfo[];
-  // The policy fields (format, lang, fonts, speech, and the song where declared), each reviewed on
+  // The policy fields (format, lang, fonts, and the song where declared), each reviewed on
   // its own.
   policy: DirectionPolicyFieldInfo[];
   // On a direction cut to a song, the meter its read take plays in, which a shot's beats are shown

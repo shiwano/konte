@@ -148,7 +148,7 @@ export default defineDirection({
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
-  policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en" },
   waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
     lens: "mini-drama",
@@ -356,7 +356,7 @@ export default defineDirection({
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
-  policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en" },
   lenses: [defineLens({ name: "two-beat", payoff: "beat", roles: [{ role: "beat" }, { role: "beat" }] })],
   sequence: {
     lens: "two-beat",
@@ -496,7 +496,7 @@ export default defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
     side: { name: "the side angle", description: "in from the side", location: "studio", framing: "close", view: "front", holds: ["studioMark"], within: null },
   },
-  policy: { format: { fps: 30, size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } } }, lang: "en", speech: "free" },
+  policy: { format: { fps: 30, size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } } }, lang: "en" },
   lenses: [defineLens({ name: "two-beat", payoff: "beat", roles: [{ role: "beat" }, { role: "beat" }] })],
   sequence: {
     lens: "two-beat",

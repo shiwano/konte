@@ -208,7 +208,7 @@ export default defineReference(direction, { references: () => {
           "characters: {},",
           'characters: { mika: { name: "Mika", description: "a singer", promptDepiction: "mika" } },',
         )
-        .replace('speech: "free",', 'speech: "free",\n    song: "song",')
+        .replace('lang: "en",', 'lang: "en",\n    song: "song",')
         .replace(
           "  sequence: {",
           '  lyrics: [{ label: "Verse", singer: "mika", lines: ["lights down"] }],\n  sequence: {',
@@ -262,7 +262,7 @@ export default defineReference(direction, { references: () => {
           "setups: {},",
           'setups: { front: { name: "front", description: "straight on", location: "studio", framing: "medium", view: "front", holds: [] } },',
         )
-        .replace('speech: "free",', 'speech: "free",\n    song: "song",')
+        .replace('lang: "en",', 'lang: "en",\n    song: "song",')
         .replace(
           "shots: [],",
           'shots: [{ id: "01", role: "ordinary", action: "a", setup: "front", beats: 4, lineup: [] }],',
@@ -1110,7 +1110,7 @@ export default defineDirection({
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
     detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", view: "front", holds: ["studioMark"], within: null },
   },
-  policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en" },
   waivers: {
     "location-unreferenced_studio": "fixture has no reference stage exposing it",
     "setup-unconsumed_front": "fixture board is anchored on nothing",

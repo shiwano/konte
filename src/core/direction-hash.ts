@@ -305,7 +305,6 @@ function projectDirection(direction: Direction): unknown {
       format: projectFormat(direction),
       lang: direction.policy?.lang ?? null,
       fonts: projectFonts(direction.policy?.fonts),
-      speech: direction.policy?.speech ?? null,
       song: direction.policy?.song ?? null,
     },
     lyrics: projectLyrics(direction.lyrics),
@@ -360,11 +359,10 @@ export function directionPartHashes(direction: Direction): Map<string, string> {
   }
 
   // The policy fields are always declared, so each gets a key unconditionally — a note on the
-  // speech rule ages out only when the rule itself is retuned, not on a format edit.
+  // fonts ages out only when the fonts themselves are retuned, not on a format edit.
   out.set(formatDirectionPolicyAddress("format"), hash(projectFormat(direction)));
   out.set(formatDirectionPolicyAddress("lang"), hash(direction.policy?.lang ?? null));
   out.set(formatDirectionPolicyAddress("fonts"), hash(projectFonts(direction.policy?.fonts)));
-  out.set(formatDirectionPolicyAddress("speech"), hash(direction.policy?.speech ?? null));
   // The one optional policy field: a piece keeps seconds until it declares a song, and the part
   // exists only once it does.
   if (direction.policy?.song) {

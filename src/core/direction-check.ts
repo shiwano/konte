@@ -89,7 +89,6 @@ export type DirectionFindingCode =
   | "view-unrealized"
   | "plate-unviewed"
   | "view-unanchored"
-  | "unexpected-script"
   | "multi-sentence-action"
   | "off-grid-duration"
   | "off-beat-cut"

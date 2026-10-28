@@ -324,11 +324,6 @@ export async function handleGetDirectionState(
       fonts: [...(direction.policy.fonts ?? [])],
       ...partView(formatDirectionPolicyAddress("fonts")),
     },
-    {
-      field: "speech",
-      speech: direction.policy.speech,
-      ...partView(formatDirectionPolicyAddress("speech")),
-    },
     ...(song
       ? [{ field: "song" as const, song, ...partView(formatDirectionPolicyAddress("song")) }]
       : []),

@@ -182,7 +182,6 @@ export {
   type BriefReference,
   type CanvasSize,
   type DirectionFormat,
-  type SpeechPolicy,
   type DirectionPolicy,
   type Shot,
   type NarrativeShot,

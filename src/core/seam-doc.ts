@@ -86,7 +86,6 @@ function direction(shots: readonly Shot[]): Direction {
     policy: {
       format: { fps: 24, size: { megapixels: 0.5, delivery: { width: 1024, height: 576 } } },
       lang: "en",
-      speech: "free",
     },
     sequence: { lens: "mini-drama", pleasure: "cute", shots: [...shots] },
   } as unknown as Direction;

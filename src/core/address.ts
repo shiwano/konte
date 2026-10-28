@@ -103,11 +103,11 @@ export function isDirectionBriefListField(
   return (DIRECTION_BRIEF_LIST_FIELDS as readonly string[]).includes(field);
 }
 
-// The direction's machine-checked policy fields, each reviewed on its own so a note on the speech
-// rule is not aged out by an aspect-ratio change. Mirrors the members of `DirectionPolicy`
+// The direction's machine-checked policy fields, each reviewed on its own so a note on the fonts
+// is not aged out by an aspect-ratio change. Mirrors the members of `DirectionPolicy`
 // (dsl/direction); addressed as `direction:policy.<field>`, and the hash and preview builders index
 // them by these keys.
-export const DIRECTION_POLICY_FIELDS = ["format", "lang", "fonts", "speech", "song"] as const;
+export const DIRECTION_POLICY_FIELDS = ["format", "lang", "fonts", "song"] as const;
 
 export type DirectionPolicyField = (typeof DIRECTION_POLICY_FIELDS)[number];
 

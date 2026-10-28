@@ -195,7 +195,6 @@ describe("commentSubjectAddresses", () => {
       policy: {
         format: { fps: 30, size: { megapixels: 0.016384, delivery: { width: 128, height: 128 } } },
         lang: "en",
-        speech: "free",
       },
       sequence: {
         lens: "mini-drama",

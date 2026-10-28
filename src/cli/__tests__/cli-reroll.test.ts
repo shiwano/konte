@@ -439,7 +439,7 @@ export default defineDirection({
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
-  policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en", speech: "free" },
+  policy: { format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } }, lang: "en" },
   waivers: {
     "missing-role_ordinary": "single-shot offline fixture",
     "missing-role_disruption": "single-shot offline fixture",

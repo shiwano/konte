@@ -851,7 +851,6 @@ describe("shotFactsIndex", () => {
     policy: {
       format: { fps: 30, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
       lang: "en",
-      speech: "free",
     },
     sequence: {
       lens: "mini-drama",

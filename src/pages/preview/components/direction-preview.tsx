@@ -1439,12 +1439,6 @@ function DirectionBrief({
   );
 }
 
-const SPEECH_LABELS: Record<"none" | "no-dialogue" | "free", { label: string; gloss: string }> = {
-  none: { label: "None", gloss: "no spoken or narrated lines" },
-  "no-dialogue": { label: "No dialogue", gloss: "narration allowed; no spoken dialogue" },
-  free: { label: "Free", gloss: "any script allowed" },
-};
-
 // The value cell for one policy field, rendered from its structured shape. Each pairs a plain
 // value with a gloss a reviewer can take a position on — "any backend allowed", not a bare "all".
 function policyValue(field: DirectionPolicyFieldInfo): React.ReactElement {
@@ -1486,15 +1480,6 @@ function policyValue(field: DirectionPolicyFieldInfo): React.ReactElement {
         </>
       );
     }
-    case "speech": {
-      const { label, gloss } = SPEECH_LABELS[field.speech];
-      return (
-        <>
-          {label}
-          <span className="direction-policy-gloss">{gloss}</span>
-        </>
-      );
-    }
     case "song":
       return (
         <>
@@ -1522,13 +1507,12 @@ const POLICY_FIELD_LABELS: Record<DirectionPolicyFieldInfo["field"], string> = {
   format: "Format",
   lang: "Language",
   fonts: "Fonts",
-  speech: "Speech",
   song: "Song",
 };
 
-// The machine-checked constraints the piece renders under — canvas, language, speech rule. Each is a
+// The machine-checked constraints the piece renders under — canvas, language, fonts, song. Each is a
 // deliberate choice in the acceptance hash (editing one re-blocks the direction), so each is reviewed
-// on its own line: the reviewer can object to the speech rule without touching the canvas.
+// on its own line: the reviewer can object to the fonts without touching the canvas.
 function DirectionPolicy({
   fields,
   renderNotes,

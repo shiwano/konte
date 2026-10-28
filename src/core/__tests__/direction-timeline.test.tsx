@@ -156,7 +156,6 @@ describe("ctx.beat", () => {
       policy: {
         format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
         lang: "en",
-        speech: "free",
         song: "song",
       },
       sequence: {
@@ -212,7 +211,6 @@ describe("ctx.beat", () => {
       policy: {
         format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
         lang: "en",
-        speech: "free",
       },
       sequence: {
         lens: "mini-drama",
@@ -238,7 +236,6 @@ describe("the span a shot owes", () => {
   const clocked = {
     format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
     lang: "en",
-    speech: "free",
     song: "song",
   } as const;
 
@@ -291,7 +288,6 @@ describe("the span a shot owes", () => {
       policy: {
         format: clocked.format,
         lang: "en",
-        speech: "free",
       },
       sequence: {
         lens: "mini-drama",
@@ -355,7 +351,6 @@ describe("ctx.lyrics", () => {
               size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
             },
             lang: "en",
-            speech: "free",
             song: "song",
           },
           lyrics: [
@@ -407,7 +402,6 @@ describe("a build that reads ctx.lyrics", () => {
             size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
           },
           lang: "en",
-          speech: "free",
           song: "song",
         },
         lyrics: [{ label: "chorus", singer: "konte", lines: ["Hit the light, watch me move"] }],
@@ -469,7 +463,6 @@ describe("the singers the lyrics name", () => {
   const policy = {
     format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
     lang: "en",
-    speech: "free",
     song: "song",
   } as const;
   const characters = {

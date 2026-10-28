@@ -142,9 +142,8 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "view-unrealized": "setups",
   "plate-unviewed": "setups",
   "view-unanchored": "setups",
-  // A direction content check (like empty-synopsis): it gates generate and is never deferred.
-  "unexpected-script": "arc",
-  // A fused-shot content check on the action prose — likewise gates generate and is never deferred.
+  // A fused-shot content check on the action prose (like empty-synopsis): it gates generate and is
+  // never deferred.
   "multi-sentence-action": "arc",
   "off-grid-duration": "pacing",
   "off-beat-cut": "pacing",
@@ -214,7 +213,6 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "view-unrealized": null,
   "plate-unviewed": null,
   "view-unanchored": null,
-  "unexpected-script": "shot",
   "multi-sentence-action": "shot",
   "off-grid-duration": "shot",
   "off-beat-cut": "shot",
@@ -855,34 +853,6 @@ export function songLinesRefusal(
     `(${unplaced.map((l) => l.key).join(", ")}) — place them on the song's track in ` +
     "`konte preview reference`"
   );
-}
-
-// Shots whose script contradicts the declared speech policy. `none` forbids any script line;
-// `no-dialogue` forbids spoken lines (`{character}`/`{speaker}`) while allowing `{narration}`; `free`
-// imposes no constraint. A waivable finding (`unexpected-script_<shotId>`) so a deliberate exception
-// is recorded, not silent.
-function checkSpeech(direction: Direction): DirectionFinding[] {
-  const speech = direction.policy?.speech;
-  if (!speech || speech === "free") return [];
-  const findings: DirectionFinding[] = [];
-  for (const s of collectArcShots(direction)) {
-    const lines = s.script ?? [];
-    const offends =
-      speech === "none"
-        ? lines.length > 0
-        : lines.some((line) => "character" in line || "speaker" in line);
-    if (offends) {
-      findings.push({
-        code: "unexpected-script",
-        subject: s.id,
-        message:
-          speech === "none"
-            ? `shot ${s.id} declares script lines, but the direction's speech policy is "none" (no dialogue or narration)`
-            : `shot ${s.id} declares a spoken line, but the direction's speech policy is "no-dialogue" (narration only)`,
-      });
-    }
-  }
-  return findings;
 }
 
 // How many sentence boundaries a shot's `action` holds — the fused-shot signal. A boundary is a run
@@ -2582,8 +2552,6 @@ export function checkDirection(
     ),
     // Who each frame holds, left to right.
     ...checkStaging(direction, options.stagingStage, options.referenceAssetNames),
-    // The direction's script must honor the declared speech policy.
-    ...checkSpeech(direction),
     // A shot's action should land a single sentence, not an event-plus-reaction pair.
     ...checkFusedShots(direction),
     // A script no default face carries needs a family named.

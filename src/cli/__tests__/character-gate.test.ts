@@ -191,7 +191,7 @@ describe("the spend gate's voice scope", () => {
           wide: { name: "wide", description: "the room", location: "here", framing: "medium", view: "front", holds: ["hereMark"] },
           thing: { name: "the thing", description: "filling the frame", location: "here", framing: "insert", view: "front", holds: [] },
         },
-        policy: { format: { fps: 24, size: { megapixels: 0.001024, delivery: { width: 32, height: 32 } } }, lang: "en", speech: "free" },
+        policy: { format: { fps: 24, size: { megapixels: 0.001024, delivery: { width: 32, height: 32 } } }, lang: "en" },
         sequence: {
           lens: "mini-drama",
           pleasure: "cute",

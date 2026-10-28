@@ -140,7 +140,6 @@ const DIRECTION_FINDING_TRAITS: Record<DirectionFindingCode, FindingTraits> = {
   "view-unrealized": waive("downstream", ROSTER),
   "plate-unviewed": waive("stage+downstream", ROSTER),
   "view-unanchored": waive("stage+downstream"),
-  "unexpected-script": fixDirection,
   "multi-sentence-action": waive("stage+downstream"),
   "off-grid-duration": fixDirection,
   "off-beat-cut": waive("stage+downstream"),

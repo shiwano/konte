@@ -17,7 +17,7 @@ import {
   makeAnimaticShotStarter,
   makeVideoShotStarter,
 } from "../dsl/direction.js";
-import type { Framing, ScriptLine } from "../dsl/direction.js";
+import type { Framing } from "../dsl/direction.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { directionDefaults } from "./helpers/direction.js";
 import type { LanguageTag } from "../typography.js";
@@ -1183,8 +1183,8 @@ describe("defineDirection", () => {
 // shot's panel names do. `shot` therefore checks name and media kind against what the named shot's
 // build actually declared, and does it while the definition loads.
 // The shot-local declarations the type settles, each the front line of a waivable finding: the span
-// grid, the empty sentence, a `lineupTo` that repeats its `lineup`, and a line the speech policy
-// forbids. A computed value has no literal to blame and falls through to the finding.
+// grid, the empty sentence and a `lineupTo` that repeats its `lineup`. A computed value has no
+// literal to blame and falls through to the finding.
 describe("the shot a direction declares", () => {
   it("takes a span on the 0.5s grid", () => {
     defineDirection({
@@ -1332,52 +1332,6 @@ describe("the shot a direction declares", () => {
     });
   });
 
-  // A computed value has no literal to judge, so it reaches the runtime finding instead: an array typed
-  // `ScriptLine[]` or `string[]` may be empty or hold anything, and rejecting it at the startup
-  // type-check would block every command on a direction that is valid at runtime.
-  it("lets a computed script through under a speech policy", () => {
-    const noLines: ScriptLine[] = [];
-    const lines: readonly ScriptLine[] = [];
-    defineDirection({
-      ...directionDefaults,
-      policy: { ...directionDefaults.policy, speech: "none" },
-      sequence: {
-        lens: "mini-drama",
-        pleasure: "cute",
-        shots: [
-          {
-            id: "01",
-            role: "ordinary",
-            action: "calm",
-            setup: "front",
-            duration: 3,
-            lineup: [],
-            script: noLines,
-          },
-        ],
-      },
-    });
-    defineDirection({
-      ...directionDefaults,
-      policy: { ...directionDefaults.policy, speech: "no-dialogue" },
-      sequence: {
-        lens: "mini-drama",
-        pleasure: "cute",
-        shots: [
-          {
-            id: "01",
-            role: "ordinary",
-            action: "calm",
-            setup: "front",
-            duration: 3,
-            lineup: [],
-            script: lines,
-          },
-        ],
-      },
-    });
-  });
-
   it("lets a computed lineup pair through, mutable arrays included", () => {
     const opening: string[] = ["ane", "imouto"];
     const closing: string[] = ["imouto", "ane"];
@@ -1452,61 +1406,6 @@ describe("the shot a direction declares", () => {
                 lineup: [],
               },
             ],
-          },
-        ],
-      },
-    });
-  });
-
-  it("refuses a script line the speech policy forbids", () => {
-    defineDirection({
-      ...directionDefaults,
-      policy: { ...directionDefaults.policy, speech: "none" },
-      sequence: {
-        lens: "mini-drama",
-        pleasure: "cute",
-        shots: [
-          {
-            id: "01",
-            role: "ordinary",
-            action: "calm",
-            setup: "front",
-            duration: 3,
-            lineup: [],
-            // @ts-expect-error -- policy.speech is "none", so no shot declares a line
-            script: [{ narration: "she waits" }],
-          },
-        ],
-      },
-    });
-  });
-
-  it("lets narration through under no-dialogue and refuses a spoken line", () => {
-    defineDirection({
-      ...directionDefaults,
-      policy: { ...directionDefaults.policy, speech: "no-dialogue" },
-      sequence: {
-        lens: "mini-drama",
-        pleasure: "cute",
-        shots: [
-          {
-            id: "01",
-            role: "ordinary",
-            action: "calm",
-            setup: "front",
-            duration: 3,
-            lineup: [],
-            script: [{ narration: "she waits" }],
-          },
-          {
-            id: "02",
-            role: "hero",
-            action: "loud",
-            setup: "front",
-            duration: 3,
-            lineup: [],
-            // @ts-expect-error -- policy.speech is "no-dialogue", so nobody speaks
-            script: [{ speaker: "a voice", text: "wait" }],
           },
         ],
       },

@@ -151,12 +151,6 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     flags: "A view image is built from no location master.",
     subject: "`<locationId>.<view>`",
   },
-  "unexpected-script": {
-    flags:
-      "A shot's `script` contradicts `policy.speech`: any line under `none`, a spoken line under `no-dialogue`.",
-    subject: "shot id",
-    typeLevel: true,
-  },
   "multi-sentence-action": {
     flags: "A shot's `action` reads as two or more sentences.",
     subject: "shot id",

@@ -57,7 +57,6 @@ function direction(shots: Array<NarrativeShot | AsideShot>): Direction {
     policy: {
       format: { fps: 24, size: { megapixels: 0.52224, delivery: { width: 960, height: 544 } } },
       lang: "en",
-      speech: "free",
     },
     sequence: { lens: "mini-drama", pleasure: "cute", shots },
   };

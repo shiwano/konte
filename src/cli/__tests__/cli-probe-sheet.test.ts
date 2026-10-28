@@ -66,7 +66,6 @@ const direction = defineDirection({
   policy: {
     format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
     lang: "en",
-    speech: "free",
   },
   waivers: { "location-unreferenced_studio": "reference stage exposes no studio plate" },
   sequence: {

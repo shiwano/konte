@@ -10,11 +10,11 @@ How konte turns `direction.ts` into two verdicts the spend gate acts on: a machi
 
 `checkArc` (`direction-check.ts`) is the one engine at every scale of the arc tree (a run of shots, of sequences, of runs), generic over the role string: it reads each item's `fn` off the matched lens role (no global role vocabulary) and reports `DirectionFinding`s — it never throws and never decides severity. `walkArcTree` (`direction.ts`) runs it once per node with a resolvable lens (a leaf's shots, a branch's meta-arc over children); every finding then folds against `direction.waivers`.
 
-`ConstrainIds` (`dsl/direction.ts`) settles six in the type, each blamed in the field written:
+`ConstrainIds` (`dsl/direction.ts`) settles five in the type, each blamed in the field written:
 
 - `off-grid-duration` — asides outside it, as in `checkDurations`
 - `empty-synopsis` — `action` / `synopsis`
-- `lineup-vacuous`, `unexpected-script`
+- `lineup-vacuous`
 - `join-impossible` — `ConstrainJoin` / `ConstrainCutinJoin` read the shot before on the clock off `DirectionShotTuple`
 - `lens-role-mismatch` — `LensRolesOf` reads the node's own `lens`; a child node's `role` answers to its parent's; `defineLens` widens so a custom lens passes through
 - Write the `DirectionViolation<M>` inline — behind an alias the compiler prints the alias name, not the advice. A widened value passes through to the finding.
@@ -22,7 +22,7 @@ How konte turns `direction.ts` into two verdicts the spend gate acts on: a machi
 
 What a code clears by, holds and sets in with is the finding registry's (`findingTraits`, `finding.ts`); `directionFindings` hands the check's result to it, each finding with the file it is fixed in (`findingFixStage`) and, for one to fix, the part it sits on (`findingPart`), whose accept it holds.
 
-- Clears — `waive` only where following the rule can hurt a piece (the arc heuristics, `off-beat-cut`, …); a contradiction, an empty field or a declaration naming nothing (`unexpected-script`, `lineup-vacuous`, `off-grid-duration`, the `unused-*`, …) is `fix`: a waiver of one is reported stale (`fixOnly`).
+- Clears — `waive` only where following the rule can hurt a piece (the arc heuristics, `off-beat-cut`, …); a contradiction, an empty field or a declaration naming nothing (`lineup-vacuous`, `off-grid-duration`, the `unused-*`, …) is `fix`: a waiver of one is reported stale (`fixOnly`).
 - Onset — the roster wiring (`*-unreferenced`, the setups class bar `unused-setup` and `view-unanchored`) waits for the direction's acceptance (`reportableDirectionFindings`). The `unused-*` report always, bar a shotless direction.
 - Holds — a direction finding holds the two shot stages, never `reference`; one fixed in a stage file reaches from there (`spendStages`).
 - `pendingShot` — an address into one is minted unchecked; the graph records what is built on it (`pending-reference`, an `edge` hold).
@@ -163,7 +163,7 @@ A `Voice` is `{ id, description }`: `id` is its own exposed `reference:<id>` sam
 
 ## Per-part hashing
 
-`directionPartHashes` (`direction-hash.ts`) is the set of reviewable parts: what it emits is what the review page must offer an Accept for and the gate demands. Key: the part's `direction:<field-path>`; value: everything a reviewer sees on it. One part per: the root arc (`sequence`), each filled brief field, each policy field (`policy.format`/`policy.lang`/`policy.fonts`/`policy.speech`, always), each shot, each non-root node, each waiver, each roster entry (`setups` included), each cast character voice (`characters.<id>.voice`, only while cast) and `narrator`.
+`directionPartHashes` (`direction-hash.ts`) is the set of reviewable parts: what it emits is what the review page must offer an Accept for and the gate demands. Key: the part's `direction:<field-path>`; value: everything a reviewer sees on it. One part per: the root arc (`sequence`), each filled brief field, each policy field (`policy.format`/`policy.lang`/`policy.fonts`, always), each shot, each non-root node, each waiver, each roster entry (`setups` included), each cast character voice (`characters.<id>.voice`, only while cast) and `narrator`.
 
 - A character's hash excludes `voice` — look and voice are two assets accepted separately, each aging out on its own edit.
 - A shot's hash excludes its setup's framing/location and hashes the `setup` id — re-pointing a shot ages it out, re-describing a frame ages out only that setup's part.
@@ -197,8 +197,7 @@ The spend gate (`judgeSpend`, `cli/finding-gates.ts`) names every reason at once
 
 ## Policy fields
 
-`format`, `fonts` and `speech` are machine-checked, each in the acceptance hash and its own feedback part (`direction:policy.<field>`), each enforcing only what konte can check:
+`format` and `fonts` are machine-checked, each in the acceptance hash and its own feedback part (`direction:policy.<field>`), each enforcing only what konte can check:
 
 - `policy.format` (`{ fps, size: { megapixels, delivery } }`) — the canvas is derived. `deriveCanvasBase` (`core/canvas.ts`) resolves the budget against the delivery's aspect to the nearest 32-grid size, ranking aspect error above area error. `resolveDirectionFormat` is the one caller; `DirectionIndex.format` is the resolved form (`ResolvedDirectionFormat`), and every reader holding a bare `Direction` (`projectFormat`, `direction-parts`, `patch.ts`, the review page) goes through it. `assertCanvasFormat` checks only what is authored — a positive `delivery`, `megapixels` under `MAX_MEGAPIXELS` (unit-slip guard), a positive finite `fps`; no grid or aspect check. `DELIVERY_UPSCALE_REQUIRED` fires only above `UPSCALER_REQUIRED_ABOVE` (1.2×). The hash takes the derived canvas, never the budget, so a budget edit landing on the same canvas ages nothing. The grid remainder is cropped from the centre at export, never upscaled. A reference sheet is sized off the canvas' long edge: portrait for a character, a landscape master at twice it for a location, square otherwise. Changing the derivation moves every existing piece's canvas and stales what was built on it, so it needs a version pinned in `direction.ts` to opt into — none exists today.
 - `policy.lang` (one of the closed `LANGUAGES`, a script or region may ride along) + `policy.fonts` (Google Fonts family names) — the typesetting all three stages read, one `Typography` on `DirectionIndex`: `lang` on the document root, the fonts as one stylesheet `<link>` and the composition body's fallback stack. The preview loads the faces from that link; every capture and render first embeds each `font-family` the page names as `@font-face` data URIs (`embedFontFaces`), and a family that cannot be fetched refuses it with `FRAME_CAPTURE_FAILED`. `checkTypesetting` raises the waivable `fonts-undeclared` when `fonts` is empty and `scriptOf(lang)` (the tag's script subtag, else the language's `DEFAULT_SCRIPT`) is in `SCRIPTS_NEEDING_A_DECLARED_FACE`.
-- `policy.speech` (`"none"` / `"no-dialogue"` / `"free"`) — the waivable `unexpected-script` on a shot whose `script` contradicts it (`none` forbids any line, `no-dialogue` spoken lines but allows narration, `free` nothing).

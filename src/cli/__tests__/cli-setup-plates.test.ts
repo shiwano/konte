@@ -28,7 +28,7 @@ export default defineDirection({
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioWindow"] },
   },
-  policy: { format: { fps: 30, size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } } }, lang: "en", speech: "free" },
+  policy: { format: { fps: 30, size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } } }, lang: "en" },
   lenses: [defineLens({ name: "two-beat", payoff: "beat", roles: [{ role: "beat" }, { role: "beat" }] })],
   waivers: { "location-unreferenced_studio": "fixture has no reference stage exposing it" },
   sequence: {
@@ -260,7 +260,7 @@ export default defineDirection({
     front: { name: "f", description: "straight on", location: "studio", framing: "medium", view: "front", holds: ["studioWindow"] },
     side: { name: "s", description: "from the side", location: "studio", framing: "wide", view: "front", holds: ["studioDoor"] },
   },
-  policy: { format: { fps: 30, size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } } }, lang: "en", speech: "free" },
+  policy: { format: { fps: 30, size: { megapixels: 0.004096, delivery: { width: 64, height: 64 } } }, lang: "en" },
   lenses: [defineLens({ name: "four", payoff: "beat", roles: [{ role: "beat" }, { role: "beat" }, { role: "beat" }, { role: "beat" }] })],
   waivers: {
     "location-unreferenced_studio": "fixture has no reference stage exposing it",

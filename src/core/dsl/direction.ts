@@ -265,17 +265,10 @@ export type ResolvedDirectionFormat = {
   size: CanvasBudget & { base: CanvasSize };
 };
 
-// The declared speech policy for the whole piece. `none` forbids any script line (dialogue and
-// narration alike); `no-dialogue` allows `{narration}` but forbids spoken lines; `free` imposes no
-// constraint (any script is allowed). A shot whose `script` violates the policy raises the waivable
-// `unexpected-script` finding. The policy is a required, deliberate choice — there is no "unset"
-// state to default silently past review; pick `free` to allow anything.
-export type SpeechPolicy = "none" | "no-dialogue" | "free";
-
 // The piece-wide, machine-checked policy: the canvas (`format`), the typesetting (`lang`, `fonts`),
-// the speech rule (`speech`) and the song (`song`). All feed the acceptance hash, and each is
-// its own reviewed feedback part (`direction:policy.<field>`, see DIRECTION_POLICY_FIELDS), so a note
-// on the speech rule is not aged out by a canvas-size edit.
+// and the song (`song`). All feed the acceptance hash, and each is its own reviewed feedback part
+// (`direction:policy.<field>`, see DIRECTION_POLICY_FIELDS), so a note on the fonts is not aged out
+// by a canvas-size edit.
 export type DirectionPolicy = {
   format: DirectionFormat;
   // The language the piece is authored and rendered in. It becomes the composition document's root
@@ -288,7 +281,6 @@ export type DirectionPolicy = {
   // rendering machine has installed, which the definition hash does not cover. A `lang` whose script
   // no system face is guaranteed to cover raises `fonts-undeclared`.
   fonts?: readonly string[];
-  speech: SpeechPolicy;
   // The song the piece is cut to: the id of the `reference:<id>` asset that plays it. With a song
   // every shot's span is `beats`, counted on the beats a take of it is read to play, and the
   // timeline's 0s is the take's own start: the first shot also holds what the take plays before
@@ -482,7 +474,7 @@ export function lineSingers(section: LyricSection, line: LyricLine): readonly st
   return singersOf(typeof line === "string" ? section.singer : line.singer);
 }
 
-// The always-declared direction policy: `brief`, `characters`, and `policy` (canvas + speech rule)
+// The always-declared direction policy: `brief`, `characters`, and `policy` (canvas + typesetting)
 // are required so every session opens on the full, explicit prior agreement rather than a set of
 // silent defaults. `lenses` is the one exception — it is an extension mechanism (custom lenses on top
 // of the built-ins), not an agreement, so it stays optional.
@@ -512,7 +504,7 @@ export type Direction = {
   narrator?: Voice;
   // Custom lenses referenced by name from any node's `lens`, alongside the built-ins.
   lenses?: LensSpec<string>[];
-  // The machine-checked canvas + speech rule, each reviewed as its own feedback part.
+  // The machine-checked canvas + typesetting, each reviewed as its own feedback part.
   policy: DirectionPolicy;
   // The song's words, reviewed as one part (`direction:lyrics`).
   lyrics?: DirectionLyrics;
@@ -811,29 +803,6 @@ type ConstrainSynopsis<N> = N extends { synopsis: infer S }
     : unknown
   : unknown;
 
-// `policy.speech` read against the shot that contradicts it: `none` forbids every line, `no-dialogue`
-// forbids a spoken one and lets narration through. A widened policy passes through to
-// `unexpected-script`, as a widened roster does to its own finding.
-type SpokenLines<S> = Extract<S, { character: unknown } | { speaker: unknown }>;
-type ConstrainSpeech<B, Speech> = SpeechPolicy extends Speech
-  ? unknown
-  : B extends { script: infer S extends readonly ScriptLine[] }
-    ? IsWidenedArray<S> extends true
-      ? unknown
-      : [Speech] extends ["none"]
-        ? [S] extends [readonly []]
-          ? unknown
-          : {
-              script: DirectionViolation<'konte: policy.speech is "none", so no shot declares a script line'>;
-            }
-        : [Speech] extends ["no-dialogue"]
-          ? [SpokenLines<S[number]>] extends [never]
-            ? unknown
-            : {
-                script: DirectionViolation<'konte: policy.speech is "no-dialogue", so a shot narrates but nobody speaks'>;
-              }
-          : unknown
-    : unknown;
 // The shot just before `Id` on the clock, asides included, over the whole arc flattened. `null` at
 // the first shot; `never` where the tuple is widened or the id is not in it, which passes through.
 type ShotBefore<Shots, Id extends string, Prev = null> = Shots extends readonly [
@@ -916,7 +885,6 @@ type ConstrainCutinJoin<B, Shots> = B extends {
 type ConstrainShotIds<
   Arr,
   Subjects extends string,
-  Speech,
   Roles extends string,
   Shots,
   Clocked extends boolean,
@@ -926,7 +894,6 @@ type ConstrainShotIds<
   } & ConstrainFrameLineups<Arr[K], Subjects> &
     ConstrainSpan<Arr[K], Clocked> &
     ConstrainAction<Arr[K]> &
-    ConstrainSpeech<Arr[K], Speech> &
     ConstrainRole<Arr[K], Roles> &
     ConstrainJoin<Arr[K], Shots> &
     ConstrainCutinJoin<Arr[K], Shots> &
@@ -938,26 +905,12 @@ type ConstrainShotIds<
 // Preserve the full node (so the sibling-array covariance check still sees every field) and override
 // only the id-bearing positions, recursing through both node bodies to any depth. `Shots` is the
 // whole arc flattened, for the checks that read the shot before on the clock.
-type ConstrainNodeIds<
-  N,
-  Subjects extends string,
-  Speech,
-  Lenses,
-  Shots,
-  Clocked extends boolean,
-> = N &
+type ConstrainNodeIds<N, Subjects extends string, Lenses, Shots, Clocked extends boolean> = N &
   (N extends { id: infer I extends string } ? { id: ValidatedIdentifier<I> } : unknown) &
   ConstrainSynopsis<N> &
   (N extends { shots: infer S }
     ? {
-        shots: ConstrainShotIds<
-          S,
-          Subjects,
-          Speech,
-          LensRolesOf<LensNameOf<N>, Lenses>,
-          Shots,
-          Clocked
-        >;
+        shots: ConstrainShotIds<S, Subjects, LensRolesOf<LensNameOf<N>, Lenses>, Shots, Clocked>;
       }
     : unknown) &
   (N extends { sequences: infer Q }
@@ -965,7 +918,6 @@ type ConstrainNodeIds<
         sequences: ConstrainSequenceIds<
           Q,
           Subjects,
-          Speech,
           Lenses,
           LensRolesOf<LensNameOf<N>, Lenses>,
           Shots,
@@ -979,13 +931,12 @@ type LensNameOf<N> = N extends { lens: infer L } ? L : string;
 type ConstrainSequenceIds<
   Arr,
   Subjects extends string,
-  Speech,
   Lenses,
   ParentRoles extends string,
   Shots,
   Clocked extends boolean,
 > = {
-  [K in keyof Arr]: ConstrainNodeIds<Arr[K], Subjects, Speech, Lenses, Shots, Clocked> &
+  [K in keyof Arr]: ConstrainNodeIds<Arr[K], Subjects, Lenses, Shots, Clocked> &
     ConstrainRole<Arr[K], ParentRoles>;
 };
 // A cast voice's `id` is an address part like any other, but it sits in a value rather than a key, so
@@ -1094,11 +1045,6 @@ type ConstrainSetupIds<D extends DirectionInput> = ConstrainRosterIds<D["setups"
   [K in keyof D["setups"]]: ConstrainSetupHolds<D["setups"][K], LandmarkIdOf<D, D["setups"][K]>> &
     ConstrainSetupWithin<D["setups"][K], D["setups"]>;
 };
-// What the piece declares about its own lines, read off the literal policy; widened (a computed
-// policy) leaves every shot's `script` alone.
-type SpeechOf<D extends DirectionInput> = D["policy"] extends { speech: infer S }
-  ? S
-  : SpeechPolicy;
 // Whether the piece is cut to `policy.song`, read off the literal policy. A computed policy, whose
 // `song` may or may not be there, is `boolean` and leaves every span to the runtime.
 type ClockedOf<D extends DirectionInput> = D["policy"] extends { song: string }
@@ -1113,7 +1059,6 @@ type ConstrainIds<D extends DirectionInput> = {
   sequence: ConstrainNodeIds<
     D["sequence"],
     SubjectIdOf<D>,
-    SpeechOf<D>,
     DeclaredLensNameOf<D>,
     DirectionShotTuple<D>,
     ClockedOf<D>

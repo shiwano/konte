@@ -267,10 +267,6 @@ function printContent(
       heading("Policy: fonts");
       console.log(`  ${content.fonts.length > 0 ? content.fonts.join(", ") : "(none declared)"}`);
       return;
-    case "speech":
-      heading("Policy: speech");
-      console.log(`  ${content.speech}`);
-      return;
     case "roster":
       heading(`Roster: ${content.roster}.${content.id}`);
       console.log(`  Name:        ${content.name}`);

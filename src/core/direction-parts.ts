@@ -28,7 +28,6 @@ import type {
   Landmark,
   Pleasure,
   Shot,
-  SpeechPolicy,
 } from "./dsl/direction.js";
 import {
   isAsideShot,
@@ -65,7 +64,6 @@ export type DirectionPartContent =
   // The declared families in declaration order — empty when the piece declares none, which is a
   // position a reviewer takes (text falls to the rendering machine's own faces), so it stays a part.
   | { kind: "fonts"; fonts: readonly string[] }
-  | { kind: "speech"; speech: SpeechPolicy }
   | { kind: "song"; song: string }
   // The song's words by section and who sings each section; a line's own singers are null where
   // its section's sing it.
@@ -258,10 +256,6 @@ export function directionPartContents(direction: Direction): Map<string, Directi
   out.set(formatDirectionPolicyAddress("fonts"), {
     kind: "fonts",
     fonts: [...(direction.policy?.fonts ?? [])],
-  });
-  out.set(formatDirectionPolicyAddress("speech"), {
-    kind: "speech",
-    speech: direction.policy?.speech ?? "free",
   });
   const song = direction.policy?.song;
   if (song) out.set(formatDirectionPolicyAddress("song"), { kind: "song", song });

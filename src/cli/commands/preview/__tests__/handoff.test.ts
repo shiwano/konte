@@ -541,7 +541,6 @@ describe("collectAllDirectionAddresses", () => {
       "direction:policy.format",
       "direction:policy.lang",
       "direction:policy.fonts",
-      "direction:policy.speech",
       "direction:waivers.role-overweight",
       "direction:sequence.shots.01",
       "direction:sequence.shots.02",

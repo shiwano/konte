@@ -22,7 +22,6 @@ export default defineDirection({
     },
     lang: "en",
     fonts: ["Inter"],
-    speech: "free",
   },
   narrator: { id: "narratorVoice", description: "Male, forties, warm, close to the mic." },
   characters: {
