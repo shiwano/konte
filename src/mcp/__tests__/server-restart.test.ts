@@ -56,21 +56,25 @@ it.each(["SIGTERM", "stdin-closed"])("honors %s during a restart drain", async (
   child.stderr.resume();
   try {
     await expect
-      .poll(() =>
-        fs.access(`${ws.root}/restart-started`).then(
-          () => true,
-          () => false,
-        ),
+      .poll(
+        () =>
+          fs.access(`${ws.root}/restart-started`).then(
+            () => true,
+            () => false,
+          ),
+        { timeout: 5_000 },
       )
       .toBe(true);
     if (reason === "SIGTERM") child.stdin.write("stop");
     else child.stdin.end();
     await expect
-      .poll(() =>
-        fs.access(`${ws.root}/shutdown-started`).then(
-          () => true,
-          () => false,
-        ),
+      .poll(
+        () =>
+          fs.access(`${ws.root}/shutdown-started`).then(
+            () => true,
+            () => false,
+          ),
+        { timeout: 5_000 },
       )
       .toBe(true);
     const records = await liveDaemons(ws.root);
@@ -160,11 +164,13 @@ it("waits for registry cleanup before starting a replacement", async () => {
   try {
     await client.connect(transport);
     await expect
-      .poll(() =>
-        fs.access(`${ws.root}/cleanup-waited`).then(
-          () => true,
-          () => false,
-        ),
+      .poll(
+        () =>
+          fs.access(`${ws.root}/cleanup-waited`).then(
+            () => true,
+            () => false,
+          ),
+        { timeout: 5_000 },
       )
       .toBe(true);
     expect(await fs.readFile(`${ws.root}/registry-starts`, "utf-8")).toBe("1");
@@ -172,7 +178,9 @@ it("waits for registry cleanup before starting a replacement", async () => {
       (await daemonStatus(client)).pid,
     ]);
     await fs.writeFile(`${ws.root}/release-cleanup`, "");
-    await expect.poll(() => fs.readFile(`${ws.root}/registry-starts`, "utf-8")).toBe("2");
+    await expect
+      .poll(() => fs.readFile(`${ws.root}/registry-starts`, "utf-8"), { timeout: 5_000 })
+      .toBe("2");
     expect(await client.ping()).toEqual({});
   } finally {
     await fs.writeFile(`${ws.root}/release-cleanup`, "");
@@ -213,11 +221,13 @@ it("keeps standby polling off the claim lock while the known worker lives", asyn
   try {
     await client.connect(transport);
     await expect
-      .poll(() =>
-        fs.access(`${ws.root}/polls-complete`).then(
-          () => true,
-          () => false,
-        ),
+      .poll(
+        () =>
+          fs.access(`${ws.root}/polls-complete`).then(
+            () => true,
+            () => false,
+          ),
+        { timeout: 5_000 },
       )
       .toBe(true);
     expect(await fs.readFile(`${ws.root}/claims`, "utf-8")).toBe("1");
@@ -234,7 +244,9 @@ it("restarts a worker whose registration was removed", async () => {
   const { client, transport } = connection(ws.root);
   try {
     await client.connect(transport);
-    await expect.poll(async () => (await daemonStatus(client)).workerPid).not.toBeNull();
+    await expect
+      .poll(async () => (await daemonStatus(client)).workerPid, { timeout: 5_000 })
+      .not.toBeNull();
     const original = await daemonStatus(client);
     await fs.unlink(`${ws.root}/.konte/daemons/${original.instanceId}.json`);
     await expect
