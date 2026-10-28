@@ -172,7 +172,8 @@ export function judgeSpend(
     const hold = spendHold(f, op);
     if (req.targeted && findingTraits(f.code).holds.spend?.named && !named(f)) continue;
     if (hold === "whole") findings.push(f);
-    else if (hold === "edge") edgeFindings.push(f);
+    else if (hold === "edge" && (req.targeted || (f.targets ?? []).length > 0))
+      edgeFindings.push(f);
   }
 
   const unaccepted: Unaccepted[] = [];
@@ -189,6 +190,10 @@ export function judgeSpend(
       hold(target, line);
       if (!ctx.graph) continue;
       for (const dependent of collectTransitiveDependents(ctx.graph, target)) hold(dependent, line);
+    }
+    if (!req.targeted) continue;
+    for (const address of f.signedOff ?? []) {
+      if (req.assetPaths.includes(address)) hold(address, line);
     }
   }
 
@@ -369,7 +374,9 @@ export async function spendGate(
   ctx: CheckContext,
   reqs: SpendRequest | readonly SpendRequest[],
 ): Promise<{ held: Map<string, string[]> }> {
-  const report = await collectFindings(ctx, (traits) => traits.holds.spend !== undefined);
+  const report = await collectFindings(ctx, (traits) => traits.holds.spend !== undefined, {
+    signedOff: true,
+  });
   const held = new Map<string, string[]>();
   for (const req of Array.isArray(reqs) ? reqs : [reqs as SpendRequest]) {
     const verdict = judgeSpend(ctx, report, req);
@@ -386,14 +393,16 @@ export async function spendHeldAssets(
   ctx: CheckContext,
   req: SpendRequest,
 ): Promise<Map<string, string[]>> {
-  const report = await collectFindings(ctx, (traits) => traits.holds.spend !== undefined);
+  const report = await collectFindings(ctx, (traits) => traits.holds.spend !== undefined, {
+    signedOff: true,
+  });
   return judgeSpend(ctx, report, req).held;
 }
 
 // The findings alone, for a spend that reaches no graph — a delivery upscale's own prompts.
 export function assertNoSpendFindings(findings: readonly Finding[], req: SpendRequest): void {
   const error = spendHeldError(req, {
-    findings: findings.filter((f) => spendHold(f, req) === "whole"),
+    findings: findings.filter((f) => spendHold(f, req) !== null),
     edgeFindings: [],
     unaccepted: [],
     held: new Map(),

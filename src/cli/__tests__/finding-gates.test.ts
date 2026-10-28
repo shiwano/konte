@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type CheckContext, collectFindings } from "../../core/checks.js";
-import type { Finding } from "../../core/finding.js";
+import { type Finding, reviewHold } from "../../core/finding.js";
 import { buildDependencyGraph } from "../../core/graph.js";
 import type {
   AnimaticDefinition,
@@ -108,6 +108,40 @@ describe("judgeSpend", () => {
     });
     expect([...verdict.held.keys()]).toContain("video:shot.01.motion");
     expect(verdict.held.has("video:shot.02.motion")).toBe(false);
+  });
+});
+
+describe("judgeSpend on a prompt finding an accept signed off", () => {
+  const negation: Finding = {
+    code: "prompt-negation",
+    subject: '"no outlines"',
+    fixIn: { stage: "animatic" },
+    message: "",
+    targets: ["animatic:shot.02.first"],
+    signedOff: ["animatic:shot.01.first"],
+  };
+  const spend = (command: "generate" | "reroll", assetPaths: string[]) =>
+    judgeSpend(ctx, report([negation]), {
+      command,
+      stage: "animatic",
+      assetPaths,
+      targeted: command === "reroll",
+    });
+
+  it("leaves the signed-off address and what is built on it to a whole-stage spend", () => {
+    const verdict = spend("generate", ["animatic:shot.01.first", "animatic:shot.02.first"]);
+    expect(verdict.findings).toEqual([]);
+    expect([...verdict.held.keys()]).toEqual(["animatic:shot.02.first"]);
+  });
+
+  it("never holds the accept that signs it off", () => {
+    expect(reviewHold(negation, { op: "accept", address: "animatic:shot.02.first" })).toBe(false);
+  });
+
+  it("holds a reroll naming the signed-off address", () => {
+    expect(spend("reroll", ["animatic:shot.01.first"]).held.has("animatic:shot.01.first")).toBe(
+      true,
+    );
   });
 });
 

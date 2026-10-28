@@ -204,13 +204,26 @@ const REMEDY: Record<PromptFindingCode, string> = {
 };
 
 // The findings in the prompts `subject` declares, fixed in `fixIn` — the file that writes them.
-export function promptFindings(subject: PromptCheckSubject, fixIn: SourceFile): Finding[] {
-  return checkPrompts(subject.prompts ?? []).map((f) => ({
-    code: f.code,
-    subject: `"${displayPhrase(f.phrase)}"`,
-    fixIn,
-    message: `${formatAddresses(f.addresses)} — ${REMEDY[f.code]}`,
-    // A patch's prompt is the patch's alone.
-    targets: fixIn.patch === undefined ? f.addresses : [],
-  }));
+// `signedOff` is whether an address's accepted take was drawn from its definition as it stands.
+export function promptFindings(
+  subject: PromptCheckSubject,
+  fixIn: SourceFile,
+  signedOff: (address: string) => boolean = () => false,
+): Finding[] {
+  return checkPrompts(subject.prompts ?? []).map((f) => {
+    const accepted = fixIn.patch === undefined ? f.addresses.filter(signedOff) : [];
+    const live = f.addresses.filter((address) => !accepted.includes(address));
+    return {
+      code: f.code,
+      subject: `"${displayPhrase(f.phrase)}"`,
+      fixIn,
+      message:
+        live.length > 0
+          ? `${formatAddresses(live)} — ${REMEDY[f.code]}`
+          : `${formatAddresses(accepted)} — accepted as drawn; ${REMEDY[f.code]} before drawing it again`,
+      // A patch's prompt is the patch's alone.
+      targets: fixIn.patch === undefined ? live : [],
+      ...(accepted.length > 0 ? { signedOff: accepted } : {}),
+    };
+  });
 }

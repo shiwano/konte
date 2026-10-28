@@ -12,6 +12,7 @@ import {
 } from "./address.js";
 import { findAnimaticOverflows, formatAnimaticOverflow } from "./animatic-overflow.js";
 import { compositionClassSubjects } from "./composition-builder.js";
+import { definitionHashForAddress } from "./composition-resource.js";
 import { type AnimaticSetupState, checkViewAnchors } from "./direction-check.js";
 import {
   type SongTakeState,
@@ -38,6 +39,7 @@ import {
 import { type PinOccurrence, pinFindings } from "./pin-check.js";
 import { type PromptOccurrence, promptFindings } from "./prompt-check.js";
 import { findAllUnmetPrerequisites, prerequisiteShot } from "./review-prerequisites.js";
+import { computeAcceptedStaleness } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
 import { type ClassSubject, checkTailwindClasses } from "./tailwind-classes.js";
 import type {
@@ -191,11 +193,25 @@ const VIEW_ANCHOR_CHECK: Check = {
   },
 };
 
+// Whether the take accepted at `address` was drawn from its definition as it stands.
+function acceptedAsDefined(ctx: CheckContext, def: DefinitionLike, address: string): boolean {
+  if (!ctx.manager) return false;
+  const accepted = computeAcceptedStaleness(
+    ctx.manager.getState(),
+    address,
+    definitionHashForAddress(def, address),
+    ctx.manager.stalenessCache(),
+  );
+  return accepted.variantId !== null && !accepted.definitionStale;
+}
+
 const PROMPT_CHECK: Check = {
   codes: ["prompt-negation", "prompt-not-yet", "prompt-double-negative"],
   run: (ctx) => [
     ...stageDefinitions(ctx).flatMap(([stage, def]) =>
-      promptFindings(def as { prompts?: readonly PromptOccurrence[] }, { stage }),
+      promptFindings(def as { prompts?: readonly PromptOccurrence[] }, { stage }, (address) =>
+        acceptedAsDefined(ctx, def, address),
+      ),
     ),
     ...ctx.patches.flatMap((p) =>
       promptFindings(p, { stage: getStage(p.sourceAddress), patch: p.sourceVariantId }),
@@ -408,10 +424,12 @@ function reportsAny(check: Check, want: (traits: FindingTraits) => boolean): boo
 }
 
 // Every finding the checks report that has set in. `want` narrows the run to the checks reporting a
-// code it cares about — an accept needs no take heard.
+// code it cares about — an accept needs no take heard. `signedOff` keeps a finding every address of
+// which an accept signed off, for the spend gate to hold a targeted spend naming one.
 export async function collectFindings(
   ctx: CheckContext,
   want: (traits: FindingTraits) => boolean = () => true,
+  opts: { signedOff?: boolean } = {},
 ): Promise<FindingReport> {
   const findings: Finding[] = [];
   const staleWaivers: StaleWaiverLine[] = [];
@@ -421,6 +439,7 @@ export async function collectFindings(
       const traits = findingTraits(f.code);
       if (!want(traits)) continue;
       if (traits.onset === "after-direction-accepted" && !ctx.directionAccepted) continue;
+      if (f.targets?.length === 0 && f.signedOff && !opts.signedOff) continue;
       findings.push(f);
     }
     staleWaivers.push(...(check.staleWaivers?.(ctx) ?? []));

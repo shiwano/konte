@@ -61,7 +61,7 @@ export type SpendReach = "stage" | "stage+downstream" | "downstream" | "edge";
 
 export type FindingTraits = {
   reads: "definition" | "take";
-  clears: "fix" | "waive" | "vouch";
+  clears: "fix" | "waive" | "vouch" | "accept";
   holds: {
     // `named`: a targeted spend (`reroll`, `patch apply`) is held only when it names an asset under
     // the finding's targets, or one of no shot.
@@ -86,6 +86,9 @@ export type Finding = {
   // The addresses it sits on — what an accept hold and an `edge` hold match. Absent, it sits on its
   // whole stage.
   targets?: readonly string[];
+  // Addresses taken out of `targets` because their accepted take was drawn from the definition as it
+  // stands: a targeted spend naming one is still held.
+  signedOff?: readonly string[];
 };
 
 export function sourceFilePath(file: SourceFile): string {
@@ -189,13 +192,21 @@ const fixStage: FindingTraits = {
   onset: "always",
 };
 
+// A prompt is judged by the picture it draws: an accept of a take drawn from it signs off its address.
+const fixPrompt: FindingTraits = {
+  reads: "definition",
+  clears: "accept",
+  holds: { spend: { reach: "edge" } },
+  onset: "always",
+};
+
 const OTHER_TRAITS: Record<
   Exclude<FindingCode, DirectionFindingCode | DirectionErrorCode>,
   FindingTraits
 > = {
-  "prompt-negation": fixStage,
-  "prompt-not-yet": fixStage,
-  "prompt-double-negative": fixStage,
+  "prompt-negation": fixPrompt,
+  "prompt-not-yet": fixPrompt,
+  "prompt-double-negative": fixPrompt,
   "pin-unanchored": fixStage,
   "class-font-family": fixStage,
   "composition-class-font-family": {

@@ -339,6 +339,30 @@ describe("promptFindings", () => {
     );
     expect(finding!.targets).toEqual([]);
   });
+
+  it("takes an address whose accept signed it off out of what the finding sits on", () => {
+    const prompts = [
+      at("video:shot.01.motion", "no outlines"),
+      at("video:shot.02.motion", "no outlines"),
+    ];
+    const signedOff = (address: string) => address === "video:shot.01.motion";
+    const [finding] = promptFindings({ prompts }, { stage: "video" }, signedOff);
+    expect(finding).toMatchObject({
+      targets: ["video:shot.02.motion"],
+      signedOff: ["video:shot.01.motion"],
+    });
+    expect(finding!.message).not.toContain("video:shot.01.motion");
+  });
+
+  it("names the accepted addresses when every one is signed off", () => {
+    const [finding] = promptFindings(
+      { prompts: [at("video:shot.01.motion", "no outlines")] },
+      { stage: "video" },
+      () => true,
+    );
+    expect(finding).toMatchObject({ targets: [], signedOff: ["video:shot.01.motion"] });
+    expect(finding!.message).toContain("video:shot.01.motion — accepted as drawn");
+  });
 });
 
 describe("spokenLinesAt", () => {

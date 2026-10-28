@@ -467,7 +467,7 @@ function renderFindingsMarkdown(): string {
     "Every machine finding konte reports, by what it reads, how it clears, what it holds and when it sets in. `konte status` prints every one standing under `Findings`, grouped by the file it is fixed in.",
     "",
     "- **Reads** — `definition`: the definitions alone; `take`: a landed take too.",
-    "- **Clears** — `fix`: only by fixing it; `waive`: by a reason in `direction.waivers`, which the human signs on the direction page; `vouch`: by `konte vouch` on the take, once heard.",
+    "- **Clears** — `fix`: only by fixing it; `waive`: by a reason in `direction.waivers`, which the human signs on the direction page; `vouch`: by `konte vouch` on the take, once heard. `accept`: by fixing it, or at one address by accepting a take drawn from the definition as it stands — a `reroll` or `patch apply` naming that address is still held.",
     "- **Holds** — `spend`: `generate` / `reroll` / `patch apply` / `export` on the stages named (`SPEND_HELD`); `accept`: the accept of what it sits on; `preview`: `konte preview` of its stage (both `REVIEW_HELD`).",
     "- **Onset** — `always`; `after-direction-accepted`: silent until the direction is accepted; `after-take`: owed once the take it is written from lands.",
     "",

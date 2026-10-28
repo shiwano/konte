@@ -1610,29 +1610,59 @@ describe("prompt gate", () => {
     return projectDir;
   }
 
-  it("refuses a spend on a prompt that names what to leave out", async () => {
+  it("holds the asset whose prompt names what to leave out, and plans the rest", async () => {
     const projectDir = await project(NEGATED_VIDEO_TSX);
-    await expect(run(["generate", "video"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringMatching(/SPEND_HELD[\s\S]*no outlines/),
-    });
+    const { stdout } = await run(["generate", "video", "--plan"], projectDir);
+    expect(stdout).toMatch(/Held: 1 asset\(s\)/);
+    expect(stdout).toMatch(/\[prompt-negation\] "no outlines" — video:shot\.01\.motion/);
   });
 
-  it("puts the refusal, its findings included, on one line", async () => {
+  it("puts a reroll's refusal, its findings included, on one line", async () => {
     const projectDir = await project(NEGATED_VIDEO_TSX);
-    const err: { stderr: string } = await run(["generate", "video"], projectDir).then(
-      () => expect.fail("generate should refuse"),
+    const err: { stderr: string } = await run(["reroll", "video:shot.01.motion"], projectDir).then(
+      () => expect.fail("reroll should refuse"),
       (e) => e,
     );
     expect(err.stderr.trimEnd().split("\n").at(-1)).toMatch(
-      /^Error \[SPEND_HELD\]: Cannot generate video — it is held: .*: video\.tsx: \[prompt-negation\] "no outlines" — video:shot\.01\.motion — /,
+      /^Error \[SPEND_HELD\]: Cannot reroll video — it is held: .*: video\.tsx: \[prompt-negation\] "no outlines" — video:shot\.01\.motion — /,
     );
   });
 
-  it("reports the finding under its file in status, and holds back the generate step", async () => {
+  it("reports the finding under its file in status", async () => {
     const projectDir = await project(NEGATED_VIDEO_TSX);
     const { stdout } = await run(["status"], projectDir);
     expect(stdout).toMatch(/^Findings: 1\n {2}video\.tsx\n {4}\[prompt-negation\] .*no outlines/m);
-    expect(stdout).not.toContain("konte generate video");
+  });
+
+  describe("on an address whose accepted take was drawn from the prompt", () => {
+    async function accepted(): Promise<string> {
+      const projectDir = await project(NEGATED_VIDEO_TSX);
+      const { video } = await loadStageDefinitions(projectDir);
+      const address = "video:shot.01.motion";
+      const sm = await StateManager.load(projectDir);
+      const variantId = sm.reserveVariantId(address);
+      const variant = sm.getAssetState(address).variants![variantId]!;
+      variant.file = "/tmp/motion.mp4";
+      variant.definitionHash = computeDefinitionHash(getAssetEntry(video!, address));
+      sm.setAccepted(address, variantId);
+      await sm.save();
+      return projectDir;
+    }
+
+    it("reports no finding in status", async () => {
+      const { stdout } = await run(["status"], await accepted());
+      expect(stdout).not.toContain("prompt-negation");
+    });
+
+    it("still refuses a reroll of it", async () => {
+      await expect(run(["reroll", "video:shot.01.motion"], await accepted())).rejects.toMatchObject(
+        {
+          stderr: expect.stringMatching(
+            /SPEND_HELD[\s\S]*\[prompt-negation\] "no outlines" — video:shot\.01\.motion — accepted as drawn/,
+          ),
+        },
+      );
+    });
   });
 });
 
