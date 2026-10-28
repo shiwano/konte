@@ -8,7 +8,7 @@ import {
   loadWorkspaceTemplate,
   WORKSPACE_BINARY_FILES,
 } from "../../../core/generated/template-assets.js";
-import { resolveRoots } from "../../../core/roots.js";
+import { listVideos, resolveRoots } from "../../../core/roots.js";
 import { syncWorkspace } from "../../../core/template-sync.js";
 import { setWorkspaceRoot } from "../../../core/workspace-context.js";
 import { confirmAction, printAborted } from "../../confirm.js";
@@ -62,11 +62,14 @@ async function scaffold(root: string, existing: boolean): Promise<void> {
   }
 }
 
-async function finish(root: string, message: string): Promise<void> {
+async function finish(root: string, message: string, checkVideos: boolean): Promise<void> {
   setWorkspaceRoot(root);
   await prefetchManagedRuntimes();
   console.log(`${message}\n`);
   console.log("Next steps:");
+  if (checkVideos && (await listVideos(root)).length > 0) {
+    console.log("  Run `konte doctor --all-videos` to check every video against this konte.");
+  }
   console.log(`  Restart your coding agent in ${root}; agent settings and MCP load at startup.`);
   console.log("  Run the konte-checkin skill.");
 }
@@ -110,7 +113,7 @@ Examples:
           return;
         }
         await scaffold(root, false);
-        await finish(root, "Workspace created in the current directory.");
+        await finish(root, "Workspace created in the current directory.", false);
       }),
     { scope: "none" },
   );
@@ -134,7 +137,7 @@ Examples:
       .action(async () => {
         const { workspace: root } = await resolveRoots(process.cwd());
         await scaffold(root, true);
-        await finish(root, "Workspace setup complete.");
+        await finish(root, "Workspace setup complete.", true);
       }),
     { scope: "none" },
   );

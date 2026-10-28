@@ -287,6 +287,20 @@ describe("workspace setup", () => {
     expect(await fs.readFile(path.join(moved, ".gitignore"), "utf8")).toBe(ignore);
   });
 
+  it("offers doctor --all-videos after setting up a workspace with videos", async () => {
+    const workspace = path.join(ctx.dir, "ws");
+    await fs.mkdir(workspace);
+    const created = await run(["workspace", "new"], workspace);
+    expect(created.stdout).not.toContain("doctor --all-videos");
+    expect((await run(["workspace", "setup"], workspace)).stdout).not.toContain(
+      "doctor --all-videos",
+    );
+    await run(["video", "new", "main", "--template", "blank"], workspace);
+    expect((await run(["workspace", "setup"], workspace)).stdout).toContain(
+      "Run `konte doctor --all-videos`",
+    );
+  });
+
   it("writes nothing when an existing agent setting cannot be merged", async () => {
     const root = path.join(ctx.dir, "broken");
     await fs.mkdir(root);
