@@ -39,7 +39,7 @@ Bring each file under `assets/files/` in as `file` kind — no generation. Pick 
 ## 6. Bake the plates
 
 - Wire the plates the setups owe → `staging-guide`; every shot stays pending through the bake. None owed → step 7.
-- Spawn `konte-prompt-critic` on `animatic.tsx` before the bake.
+- Spawn `konte-prompt-critic` on `animatic.tsx` before the bake; a rewrite confined to what its findings name bakes without a second pass.
 - `konte generate animatic`, `konte job wait`, then spawn `konte-animatic-critic` on `plates` — recut or reroll a wrong frame before any panel stands on it. Accept nothing: a plate is never review work; the accept of the first panel built on it signs it off.
 
 ## 7. Develop one direction sequence at a time
@@ -59,9 +59,9 @@ Developing a shot = swapping its pending form for the real one — `pendingShot(
 ## 8. Self-check the sequence
 
 - Every pass reads the files you just wrote, never your memory of what you meant.
-- For pending panels, spawn `konte-staging-critic` on `animatic.tsx`, then fix its findings before the prompt pass.
+- For pending panels, spawn `konte-staging-critic` on `animatic.tsx`, then fix its findings before the prompt pass; a fix confined to what they name gets no second pass.
 - A match pass on what no critic reads — each reference prompt against its roster entry and the job it holds as an anchor (single subject, clean ground, identifying features in frame); each motion prompt against the shot's `duration`; each bed against `brief.tone`. A promise the prompt drops, or an element it invents, is a rewrite now — after generating it is a reroll.
-- Then spawn `konte-prompt-critic` on the definition before the first spend on new or rewritten prompts. A reroll on unchanged definitions skips both critics.
+- Then spawn `konte-prompt-critic` on the definition before the first spend on new or rewritten prompts; a rewrite confined to what its findings name goes to spend without a second pass. A reroll on unchanged definitions skips both critics.
 - Revising after the human's review, no critic runs — read the rewritten prompts against their shots yourself:
   - each panel prompt against its shot (`action`, `script`, and the size/place its `setup` carries) and the anchors it conditions on — the `reference:<id>`s, and the setup's plate where it has one; each motion prompt against the panel's `blocking` / `camera`; each voice asset word for word against the shot's `script` line, a character line's delivery against that shot's `action`
   - each opening panel against the motion it must launch — is the condition its `action` lands true in the frame the prompt fixes? Untrue or half true is a rewrite, unless the shot opens on the tail by choice
