@@ -40,7 +40,7 @@ export const jsxVideo: AssetAdapter<JsxVideoInputs, "video"> = {
     description:
       "Chromium bake of a JSX tree to an MP4 on a frame-stepped clock — a game, a simulation or a canvas drawn by requestAnimationFrame.",
     ref: "render",
-    guide: "konte/guides/jsx-video.md",
+    guide: ["konte/guides/jsx-image.md", "konte/guides/jsx-video.md"],
     inputs: {
       build: {
         type: "jsx",
