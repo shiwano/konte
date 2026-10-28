@@ -137,21 +137,21 @@ export const falSeedance25R2v = defineFalAsset({
       type: "image",
       array: true,
       description:
-        "Identity, style and composition references, addressed @Image1, @Image2, … in prompt order. Up to 30.",
+        "Identity, style and composition references, addressed @Image1, @Image2, … by array position. Up to 30.",
     },
     referenceVideos: {
       field: "video_urls",
       type: "video",
       array: true,
       description:
-        "Motion and editing references, addressed @Video1, @Video2, … in prompt order. Up to 10, each 1.8-30.2s, 30.2s combined.",
+        "Motion and editing references, addressed @Video1, @Video2, … by array position. Up to 10, each 1.8-30.2s, 30.2s combined.",
     },
     referenceAudios: {
       field: "audio_urls",
       type: "audio",
       array: true,
       description:
-        "Rhythm, timing and voice references driving lip-sync, addressed @Audio1, @Audio2, … in prompt order. Up to 10, each 1.8-30.2s, 30.2s combined.",
+        "Rhythm, timing and voice references driving lip-sync, addressed @Audio1, @Audio2, … by array position. Up to 10, each 1.8-30.2s, 30.2s combined.",
     },
     duration: { field: "duration", type: "seconds", default: "auto", values: DURATION_SECONDS },
     aspectRatio: {
