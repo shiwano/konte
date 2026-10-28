@@ -112,7 +112,8 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     subject: "location id",
   },
   "setup-unrealized": {
-    flags: "A setup two or more generated shots share has no plate.",
+    flags:
+      "A setup two or more generated shots share has no plate. Exempt once every keyframe of those shots is accepted against its current definition.",
     subject: "setup id",
   },
   "plate-unanchored": {
@@ -125,7 +126,8 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     subject: "setup id",
   },
   "axis-unrealized": {
-    flags: "Two sizes cut along one `within` axis lack the plates that nest them.",
+    flags:
+      "Two sizes cut along one `within` axis lack the plates that nest them. Exempt once every keyframe of the shots on both is accepted against its current definition.",
     subject: "setup pair (`<a>.<b>`)",
   },
   "plate-unowed": {
@@ -140,7 +142,8 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
   },
   "unused-setup": { flags: "No shot points at a setup.", subject: "setup id" },
   "setup-atomized": {
-    flags: "A location holds many shots but almost none share a frame.",
+    flags:
+      "A location holds many shots but almost none share a frame. Exempt once every keyframe of its shots is accepted against its current definition.",
     subject: "location id",
   },
   "view-unrealized": {

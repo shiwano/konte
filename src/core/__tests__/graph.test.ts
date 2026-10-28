@@ -1633,12 +1633,14 @@ describe("listSetupAnchorGaps", () => {
       const gaps = gapsWith(["animatic:shot.01.first"]);
       expect([...gaps.unanchoredShots]).toEqual([["front", ["01"]]]);
       expect(gaps.signedOffUnanchoredShots.size).toBe(0);
+      expect(gaps.signedOffShots.get("front")).toBe(1);
     });
 
     it("files the shot as signed off once every frame is", () => {
       const gaps = gapsWith(["animatic:shot.01.first", "animatic:shot.01.inset"]);
       expect(gaps.unanchoredShots.size).toBe(0);
       expect([...gaps.signedOffUnanchoredShots]).toEqual([["front", ["01"]]]);
+      expect(gaps.signedOffShots.get("front")).toBe(2);
     });
   });
 

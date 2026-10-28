@@ -361,6 +361,8 @@ export type AnimaticSetupState = {
   // The same shots whose every keyframe is signed off, apart from `unconsumedBy`.
   signedOffUnconsumedBy: ReadonlyMap<string, readonly string[]>;
   deterministicShotsPerSetup: ReadonlyMap<string, number>;
+  // Generated frames whose every keyframe is signed off, keyed by setup.
+  signedOffShotsPerSetup: ReadonlyMap<string, number>;
   deterministicPlateIds: readonly string[];
   unviewedPlateIds: readonly string[];
   unviewedBy: ReadonlyMap<string, readonly string[]>;
@@ -614,7 +616,11 @@ const ATOMIZED_LOCATION_SHOTS = 8;
 // Keyed by the two setups rather than the two shots, and joined on `.` like `plate-unnamed`'s: the
 // plates are what the fix declares, one pair cut four times is one piece of work, and a `-` would not
 // say where one id ends (a hyphen is a legal identifier character).
-function checkAxisCuts(cuts: readonly AxisCut[], plates: ReadonlySet<string>): DirectionFinding[] {
+function checkAxisCuts(
+  cuts: readonly AxisCut[],
+  plates: ReadonlySet<string>,
+  unsignedShots: (setupId: string) => number,
+): DirectionFinding[] {
   const findings: DirectionFinding[] = [];
   const seen = new Set<string>();
   for (const cut of cuts) {
@@ -633,6 +639,7 @@ function checkAxisCuts(cuts: readonly AxisCut[], plates: ReadonlySet<string>): D
         `${missing.length === 1 ? "has" : "have"} no plate, so nothing nests them. Declare ` +
         `${missing.length === 1 ? "it" : "them"} in \`plates\` in animatic.tsx, or waive the pair ` +
         `to cut it as two separate frames`,
+      ...signOff(cut.pair.every((id) => unsignedShots(id) === 0)),
     });
   }
   return findings;
@@ -689,19 +696,29 @@ function checkUnowedPlates(
 function checkAtomizedSetups(
   setups: readonly SetupRef[],
   shotsPerSetup: ReadonlyMap<string, number>,
+  unsignedShots: ((setupId: string) => number) | undefined,
 ): DirectionFinding[] {
-  const byLocation = new Map<string, { shots: number; onShared: number; frames: number }>();
+  const byLocation = new Map<
+    string,
+    { shots: number; onShared: number; frames: number; unsigned: number }
+  >();
   for (const setup of setups) {
     const shots = shotsPerSetup.get(setup.id) ?? 0;
     if (shots === 0) continue;
-    const entry = byLocation.get(setup.location) ?? { shots: 0, onShared: 0, frames: 0 };
+    const entry = byLocation.get(setup.location) ?? {
+      shots: 0,
+      onShared: 0,
+      frames: 0,
+      unsigned: 0,
+    };
     byLocation.set(setup.location, entry);
     entry.shots += shots;
+    entry.unsigned += unsignedShots ? unsignedShots(setup.id) : shots;
     entry.frames += 1;
     if (shots >= 2) entry.onShared += shots;
   }
   const findings: DirectionFinding[] = [];
-  for (const [location, { shots, onShared, frames }] of [...byLocation].sort((a, b) =>
+  for (const [location, { shots, onShared, frames, unsigned }] of [...byLocation].sort((a, b) =>
     a[0].localeCompare(b[0]),
   )) {
     if (shots < ATOMIZED_LOCATION_SHOTS || onShared * 2 >= shots) continue;
@@ -715,6 +732,7 @@ function checkAtomizedSetups(
         `${shots} on a shared frame, or almost nothing there earns a plate and nothing holds the ` +
         `room across ${frames} frames. Put a second shot on a frame the piece returns to, or the ` +
         `place is only as steady as \`reference.${location}\` and each prompt happen to be`,
+      ...signOff(unsigned === 0),
     });
   }
   return findings;
@@ -770,6 +788,14 @@ export function checkSetups(
 ): DirectionFinding[] {
   const findings: DirectionFinding[] = [];
   const plates = animatic === undefined ? undefined : new Set(animatic.plateIds);
+  // A frame not yet developed counts as unsigned.
+  const unsignedShots =
+    animatic === undefined
+      ? undefined
+      : (setupId: string): number =>
+          (shotsPerSetup.get(setupId) ?? 0) -
+          (animatic.deterministicShotsPerSetup.get(setupId) ?? 0) -
+          (animatic.signedOffShotsPerSetup.get(setupId) ?? 0);
   const unanchored = animatic === undefined ? undefined : new Set(animatic.unanchoredPlateIds);
   const unnested = animatic === undefined ? undefined : new Set(animatic.unnestedPlateIds);
   const anchored = referenceAssetNames === undefined ? undefined : new Set(referenceAssetNames);
@@ -808,6 +834,7 @@ export function checkSetups(
         message:
           `setup "${setup.id}" is shared by ${generated} generated shots but has no plate — declare ` +
           `it in \`plates\` in animatic.tsx for them to build their frame on`,
+        ...signOff(unsignedShots!(setup.id) === 0),
       });
       continue;
     }
@@ -885,9 +912,9 @@ export function checkSetups(
       });
     }
   }
-  findings.push(...checkAtomizedSetups(setups, shotsPerSetup));
+  findings.push(...checkAtomizedSetups(setups, shotsPerSetup, unsignedShots));
   // Board-gated like the three anchor findings: with no plates read there is nothing to be missing.
-  if (plates) findings.push(...checkAxisCuts(axisCuts, plates));
+  if (plates) findings.push(...checkAxisCuts(axisCuts, plates, unsignedShots!));
   if (animatic) findings.push(...checkUnowedPlates(setups, shotsPerSetup, animatic, axisCuts));
   if (animatic && referenceAssetNames !== undefined) {
     findings.push(...checkViews(setups, shotsPerSetup, viewImages, anchored!, animatic));

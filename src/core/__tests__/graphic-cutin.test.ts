@@ -393,6 +393,7 @@ describe("cutin setups", () => {
     unconsumedBy: new Map(),
     signedOffUnconsumedBy: new Map(),
     deterministicShotsPerSetup: new Map(),
+    signedOffShotsPerSetup: new Map(),
     deterministicPlateIds: [],
     unviewedPlateIds: [],
     unviewedBy: new Map(),

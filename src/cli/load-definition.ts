@@ -265,6 +265,7 @@ export function animaticSetupState(
     unconsumedBy: gaps.unanchoredShots,
     signedOffUnconsumedBy: gaps.signedOffUnanchoredShots,
     deterministicShotsPerSetup: gaps.deterministicShots,
+    signedOffShotsPerSetup: gaps.signedOffShots,
     deterministicPlateIds: gaps.deterministicPlates,
     unviewedPlateIds: gaps.unviewedPlates,
     unviewedBy: gaps.unviewedShots,

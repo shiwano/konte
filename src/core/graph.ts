@@ -804,6 +804,8 @@ export type SetupAnchorGaps = {
   // Developed frames with no generative step, keyed by setup, so the plate demand can drop them too.
   // A `pendingShot` is not among them: it declares nothing yet, so it still counts toward a plate.
   deterministicShots: Map<string, number>;
+  // Generated frames whose every keyframe is signed off, keyed by setup.
+  signedOffShots: Map<string, number>;
   // Setup ids whose plate has no generative step.
   deterministicPlates: string[];
 };
@@ -849,6 +851,7 @@ export function listSetupAnchorGaps(
   const unanchoredShots = new Map<string, string[]>();
   const signedOffUnanchoredShots = new Map<string, string[]>();
   const deterministicShots = new Map<string, number>();
+  const signedOffShots = new Map<string, number>();
   const shotById = new Map(animatic.shots.map((shot) => [shot.id, shot]));
   for (const frame of frames) {
     const shot = shotById.get(frame.shotId);
@@ -878,8 +881,10 @@ export function listSetupAnchorGaps(
       deterministicShots.set(setupId, (deterministicShots.get(setupId) ?? 0) + 1);
       continue;
     }
+    const signed = panels.every(signedOff);
+    if (signed) signedOffShots.set(setupId, (signedOffShots.get(setupId) ?? 0) + 1);
     const gaps = !walk.reached
-      ? panels.every(signedOff)
+      ? signed
         ? signedOffUnanchoredShots
         : unanchoredShots
       : viewImage !== undefined && !walk.reachedView
@@ -905,6 +910,7 @@ export function listSetupAnchorGaps(
     unviewedPlates,
     unviewedShots,
     deterministicShots,
+    signedOffShots,
     deterministicPlates,
   };
 }

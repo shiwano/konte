@@ -1133,6 +1133,7 @@ describe("checkDirection setups", () => {
       ignoring?: Record<string, string[]>;
       signedOffIgnoring?: Record<string, string[]>;
       deterministic?: Record<string, number>;
+      signedOff?: Record<string, number>;
       deterministicPlates?: readonly string[];
       unviewed?: readonly string[];
       unviewedBy?: Record<string, string[]>;
@@ -1146,6 +1147,7 @@ describe("checkDirection setups", () => {
     unconsumedBy: new Map(Object.entries(gaps.ignoring ?? {})),
     signedOffUnconsumedBy: new Map(Object.entries(gaps.signedOffIgnoring ?? {})),
     deterministicShotsPerSetup: new Map(Object.entries(gaps.deterministic ?? {})),
+    signedOffShotsPerSetup: new Map(Object.entries(gaps.signedOff ?? {})),
     deterministicPlateIds: gaps.deterministicPlates ?? [],
     unviewedPlateIds: gaps.unviewed ?? [],
     unviewedBy: new Map(Object.entries(gaps.unviewedBy ?? {})),
@@ -1258,6 +1260,16 @@ describe("checkDirection setups", () => {
     expect(found(axial, ["wide", "medium"])).toEqual([]);
   });
 
+  it("says nothing once every shot on both ends is signed off", () => {
+    const signed = (counts: Record<string, number>) =>
+      checkDirection(axial, {
+        referenceAssetNames: ["here"],
+        animaticSetups: plates([], { signedOff: counts }),
+      }).active.filter((f) => f.code === "axis-unrealized");
+    expect(signed({ wide: 1 }).map((f) => f.subject)).toEqual(["medium.wide"]);
+    expect(signed({ wide: 1, medium: 1 })).toEqual([]);
+  });
+
   it("says nothing of a cut between two cameras", () => {
     const dir = axis([
       { ...shot("01", "ordinary", 3), setup: "wide" },
@@ -1290,6 +1302,16 @@ describe("checkDirection setups", () => {
     });
     const unrealized = active.filter((f) => f.code === "setup-unrealized");
     expect(unrealized.map((f) => f.subject)).toEqual(["wall"]);
+  });
+
+  it("demands no plate once every shot sharing the frame is signed off", () => {
+    const unrealized = (counts: Record<string, number>) =>
+      checkDirection(shared, {
+        referenceAssetNames: ["here"],
+        animaticSetups: plates([], { signedOff: counts }),
+      }).active.filter((f) => f.code === "setup-unrealized");
+    expect(unrealized({ wall: 1 }).map((f) => f.subject)).toEqual(["wall"]);
+    expect(unrealized({ wall: 2 })).toEqual([]);
   });
 
   it("demands no plate for a frame only one shot uses", () => {
@@ -1779,6 +1801,16 @@ describe("checkDirection setups", () => {
     expect(checkDirection(atomized(8, 2)).active.map((f) => f.code)).not.toContain(
       "setup-atomized",
     );
+  });
+
+  it("says nothing once every shot in the place is signed off", () => {
+    const signedOff = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`solo${i}`, 1]));
+    const atomizedWith = (counts: Record<string, number>) =>
+      checkDirection(atomized(8, 0), {
+        animaticSetups: plates([], { signedOff: counts }),
+      }).active.filter((f) => f.code === "setup-atomized");
+    expect(atomizedWith({ ...signedOff, solo7: 0 }).map((f) => f.subject)).toEqual(["here"]);
+    expect(atomizedWith(signedOff)).toEqual([]);
   });
 
   describe("views", () => {
