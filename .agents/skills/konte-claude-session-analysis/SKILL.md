@@ -65,7 +65,7 @@ awk -F'\t' '$2=="Read"{print $3}' /tmp/uses.tsv | sort | uniq -c | sort -rn | aw
 
 ## 7. Validate the skill JOURNEY against what actually loaded
 
-A `konte-checkin`→export session is the chain `scripts/check-journeys.ts` models as the `video` journey — the only real test of that list.
+A `konte-checkin`→export session is the `video` journey in `scripts/check-journeys.ts`.
 
 ```sh
 jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="Skill") | .input.skill' "$T" | sort -u
@@ -76,8 +76,8 @@ jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_us
 
 - Grep nested paths — `references/video/wan-2-2.md` won't match `references/[a-z-]+\.md`; a too-narrow pattern invents "never loaded" findings.
 - Grep bare filenames after a `cd` — `cd .../direction-guide/references && cat skeleton.md rosters.md` names no `skills/` path; run `grep -oE '[a-z-]+\.md'` over Bash commands that `cd` into a `references` dir.
-- Loaded but not in JOURNEY = a budget hole its tokens escape. Add it and expect the raise, logged as an accounting fix.
-- In JOURNEY but never loaded = a routing miss. Never trim the list to match observation — that blesses the miss and drops a guide from the chain.
+- Loaded but not in JOURNEY = a budget hole its tokens escape — unless it is a per-model or per-backend doc, budgeted as headroom, or post-production work. Add it and expect the raise, logged as an accounting fix.
+- In JOURNEY but never loaded = a routing miss, once the branch's trigger applied and no containing result was truncated. Never trim the list to match observation — that blesses the miss and drops a guide from the chain.
 
 ## 8. Diagnose a routing miss
 
@@ -87,7 +87,7 @@ jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="text")|.tex
 ```
 
 - Seen ≫ 0, written 0 = confirmed miss — the agent read the pointer and never followed it.
-- The variable is what the pointer hangs on, not its phrasing — pointers tied to an artifact the agent must write (DSL, adapter, prompt, JSX) fire; pointers tied to a judgment it never notices making (fixing intent, choosing a production method) don't. Fix by re-anchoring to the artifact, not by rewording.
+- A pointer tied to an artifact the agent must write (DSL, adapter, prompt, JSX) fires; one tied to a judgment it never notices making (fixing intent, choosing a production method) doesn't. Fix by re-anchoring it to an artifact; rewording doesn't help.
 - A self-assessed gate never fires — `Intent not yet fixed → read X` asks the agent to detect the very lapse the guide exists to prevent. Make it unconditional.
 
 ## 9. CLI friction
@@ -109,5 +109,5 @@ Read `quality-analysis-guide`, then run it over the session's video — §3's `/
 
 ## Don't
 
-- Don't propose an `AGENTS.md` line on token grounds — every figure here is <1% of a session. Argue from what the agent does or doesn't know.
+- Don't propose an `AGENTS.md` line on token grounds — argue from what the agent does or doesn't know.
 - Don't A/B a prompt change on a synthetic read-only task — the behaviors worth measuring only appear in a real long session. Report the base rate and let the human dogfood it.

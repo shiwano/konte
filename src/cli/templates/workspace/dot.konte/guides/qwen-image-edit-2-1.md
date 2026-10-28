@@ -12,44 +12,42 @@ Describe only the change. Name what stays by its role, in one blanket clause; re
 
 ## Style Conversion
 
-Use in `reference.tsx` to redraw a source in the piece's medium — a photograph as an anime cel, brought footage's still as a painting — when it already has the required subject, pose and framing. Describe the rendering change in one or two sentences.
-
-Start with `image1` alone. Add `image2` and then `image3` for style examples, naming their roles with `<image2>` and `<image3>`. Their subjects and composition are not content to copy.
+- For a source that already has the required subject, pose and framing — a photograph as an anime cel, brought footage's still as a painting.
+- Describe the rendering change in one or two sentences.
+- Start with `image1` alone; add `image2` and then `image3` as style examples, naming their roles with `<image2>` and `<image3>`. Their subjects and composition are not content to copy.
 
 ## New Pose or View
 
-Use in `reference.tsx` for a new pose, view or outfit of a subject an accepted reference already holds. Pass that reference as `image1`; its framing and backdrop are not kept.
-
+- Pass the accepted reference as `image1`; its framing and backdrop are not kept.
 - Name what stays as attributes — "the same face, hair and line"; an attribute left out drifts.
 - A new outfit is the change — name it, and keep the face and hair.
 - A second subject or a style example goes in `image2`, its role named with `<image2>`.
 
 ## Shared Picture
 
-Use at the top of a stage's `timeline` to change a picture several shots show — a painting, a screen, a page — when the change keeps its composition. Pass the picture as `image1`, and keep everything else in `<image1>` unchanged.
+- At the top of a stage's `timeline`, for a picture several shots show — a painting, a screen, a page — when the change keeps its composition.
+- Pass the picture as `image1`, and keep everything else in `<image1>` unchanged.
 
 ## Same-Camera Keyframe
 
-Use in a shot to draw a keyframe from another on the same camera: one of a shot's panels from the other, or, across a `continuous` join, the opening keyframe from the previous shot's last panel (`shot("<id>").image("<name>")`). Pass that keyframe as `image1` and the character reference as `image2`.
-
-Name where a reach ends: "the paw pad touches the glass at the center of the screen", not "reaches toward the screen".
-
-Down a chain of keyframes, compare identity with the character reference at every link.
+- One of a shot's panels from the other, or, across a `continuous` join, the opening keyframe from the previous shot's last panel (`shot("<id>").image("<name>")`).
+- Pass that keyframe as `image1` and the character reference as `image2`.
+- Name where a reach ends: "the paw pad touches the glass at the center of the screen".
+- Down a chain of keyframes, compare identity with the character reference at every link.
 
 ## Size
 
-For a conversion or a keyframe, set `width` and `height` to `image1`'s size; for a new pose or view, to the reference's own shape. Both snap to a 32-pixel grid. Defaults follow the video's canvas.
-
-Before accepting, compare a conversion or a keyframe with `image1` for identity, silhouette, proportions, pose, placement and framing; a new pose or view for identity alone. Use `imageQwenImageEdit21Inpaint` in a patch for a local correction.
+- For a conversion or a keyframe, set `width` and `height` to `image1`'s size; for a new pose or view, to the reference's own shape. Defaults follow the video's canvas.
+- Before accepting, compare a conversion or a keyframe with `image1` for identity, silhouette, proportions, pose, placement and framing; a new pose or view for identity alone.
+- A local correction is `imageQwenImageEdit21Inpaint` in a patch.
 
 ## Cost ladder
 
-The defaults, `cfg: 4` at 40 steps, are the rung to keep. `cfg: 1` at 25 steps takes about a quarter of the time and came back with a limb added on a turn of the body.
+- The defaults, `cfg: 4` at 40 steps, are the rung to keep.
+- `cfg: 1` at 25 steps takes about a quarter of the time and can add a limb on a turn of the body.
 
 ## Avoid
 
-- A new viewpoint, a cut, a change of framing or a new composition in a shot; draw those with `imageMinimaxH3R2i`.
+- A new viewpoint, a cut, a change of framing or a new composition in a shot, or another view of a location — draw those with `imageMinimaxH3R2i`.
 - Style conversion in a shot; settle the look in the reference stage.
-- Another view of a location (`views` in `reference.tsx`); its walls and furniture move between views. The adapter is refused there; draw one with `imageMinimaxH3R2i`.
-- Negative phrasing in `prompt`; describe the desired result affirmatively.
 - A nonempty `negativePrompt` at `cfg: 1`; the adapter rejects it. At the default `cfg: 4`, target observed artifacts with short terms.

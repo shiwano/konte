@@ -15,10 +15,10 @@ What the decoded track reads from the prompt.
 - Carry the delivery on the verb — `snaps at them`, `shouts at them`, `drops her voice to a frightened whisper and says`. The voice itself is two or three adjectives on the speaker. A list of acoustic properties in its place comes back stiff.
 - Reach for a plain `says` unless the shot is about how she says it — a pressed or muttered delivery costs intelligibility.
 - Delivery costs stack — a small child's timbre, a lisp, a half-volume copy of what someone else just said: each is affordable on its own and the three together come back as mouth noise. The roster's `voice.description` and the shot's `acting` both reach the prompt, so read what they already spend before adding to the verb.
-- `<d>` holds the language tag and the words, nothing else — `<d>[English] I get off at the next station.</d>`. Every word verbatim; never translate a line into the body language. The tag is the English name of one of `policy.lang`'s languages. `Arabic` `Chinese` `English` `French` `German` `Italian` `Japanese` `Korean` `Portuguese` `Russian` `Spanish` are the stable eleven.
+- `<d>` holds the language tag and the words, nothing else — `<d>[English] I get off at the next station.</d>`. Every word verbatim. The tag is the English name of one of `policy.lang`'s languages. `Arabic` `Chinese` `English` `French` `German` `Italian` `Japanese` `Korean` `Portuguese` `Russian` `Spanish` are the stable eleven.
 - Punctuation inside `<d>` is normalized — `,` `.` `?` `!` closing every statement, question and exclamation before `</d>`; repeated tildes, emoji, bullets and decorative marks come out.
 - Voiceover has a fixed phrase — `says in an off-screen voiceover`.
-- A misread word is respelled with `respell(script.<who>[n], "…")`, whose return goes inside `<d>` — change the spelling until it reads right.
+- `respell(script.<who>[n], "…")`'s return goes inside `<d>`.
 - A line crossing a cut takes `<scenetrans>` at both connecting points, plus a continuity clause (`continues seamlessly across the cut`, `continues uninterrupted into the next shot`, `carries over from the previous shot`, `remains audible across the transition`). `<cutoff>` marks speech the end of the take truncates.
 
 ## Japanese Lines

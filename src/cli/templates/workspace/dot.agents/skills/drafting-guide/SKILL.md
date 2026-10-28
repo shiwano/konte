@@ -43,7 +43,7 @@ Your picks go into the treatment (step 6). Ask nothing here.
 
 ## 5. Pitch and pick
 
-- Read `scenario-guide` first — a vague concept is pitched under its cull, three loglines out of the wide set. A brought script or shot list (step 2) is never re-pitched.
+- Read `scenario-guide` first — a vague concept is pitched under its cull. A brought script or shot list (step 2) is never re-pitched.
 - Present each pitch with its cull answers — the human picks or blends.
 
 ## 6. Agree the treatment — the gate before any file
@@ -64,19 +64,19 @@ Nothing is written to disk until the human has said yes to the treatment, in so 
 - Then three passes the direction check can't make:
   - split — every `action` against the one-action rule; a first-draft split that changes nothing is suspect — in a story, find the fused trigger-reaction pair.
   - idiom — over the hinges and peaks: a key action staged as one take is a missed chain.
-  - continuity — walk the list as one continuous space; every "how did it get there?" is a missing shot.
+  - continuity — walk the world-state ledger across every cut; inside a continuous-space stretch, every "how did it get there?" is a missing shot.
 
 ## 8. Critique the cut
 
 A fresh `konte-direction-critic` subagent reads the cut and returns findings before the direction goes to review.
 
 - Two spawns in sequence — the second, fresh, reads the cut the first one's fixes rewrote.
-- Fix every blocking finding; take each advisory or say why not — or, keeping a blocking one on purpose, write it into `brief.tolerances` with its reason, never into the spawn prompt: the critic skips what the piece has agreed to carry.
+- Fix every blocking finding; take each advisory or say why not — or, keeping a blocking one on purpose, write it into `brief.tolerances` with its reason — the critic skips what the piece has agreed to carry.
 - A spawn that won't run is the human's call — ask, naming what the pass covers: unblock it, or go on without. Their go-ahead is what sends you to [self-critique.md](references/self-critique.md) — don't improvise that pass, and don't skip it.
 
 ## 9. Get it accepted
 
-- Get the direction accepted before authoring the stages — chat sign-off does not substitute; the animatic and video spends are gated on it.
+- Get the direction accepted before authoring the stages — chat sign-off does not substitute.
 - Run the review per `review-guide`, scope `direction`.
 - Iterate feedback here, not later — fix the direction (or waive with a reason), hand off again, re-preview; loop until accepted.
 - Once the direction is accepted end to end, don't reopen this preview — retuning a shot, a roster entry or the arc is an edit and a report; the human signs it off in the stage review of the panel or shot that realizes it. Only `brief`, `policy` and a waiver on no shot bring you back; `konte status` then offers `konte preview direction` under Next steps.

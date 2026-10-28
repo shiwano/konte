@@ -1,7 +1,7 @@
 # Lineup and boundaries
 
 - `lineup` lists a narrative frame's characters left to right — include a sleeve or shoulder visible at the edge; use `[]` for an empty frame or prop insert.
-- A prop is never lined up — the row has one axis and a prop sits in front of or behind as often as beside. Write where it is relative to whoever holds it or set it down, in the prompt.
+- A prop is never lined up — write where it is relative to whoever holds it or set it down, in the prompt.
 - Write the frame, not the roster — a push-in onto one person lists that person; konte accumulates "a is left of b" per location itself.
 - `lineupTo` is the frame the shot LEAVES, in full — declare it wherever the frame changes inside the shot: a move, an entrance, an exit, or a change meant to land on the next cut. List everyone the closing frame holds; whoever you leave out has walked out, their place unknown until a later frame holds them.
 - `passing` names characters that enter and exit during the shot — an unordered set on a narrative frame or `cutin`, absent from both endpoint lineups. Write the entrance/exit edges and where they cross in `action`.

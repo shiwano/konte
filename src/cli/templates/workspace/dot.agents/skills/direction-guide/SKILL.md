@@ -8,11 +8,13 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 
 ## Routing
 
+- A worked file with the common fields → [skeleton.md](references/skeleton.md).
 - Declaring characters, props, locations or voices → [rosters.md](references/rosters.md).
 - Declaring camera setups → [camera.md](references/camera.md).
 - Declaring who is in frame, a join or a cutin → [lineup.md](references/lineup.md).
 - A piece long enough for acts (several minutes up) → [long-form.md](references/long-form.md).
 - A piece cut to a song — `policy.song`, `lyrics`, spans in beats → [song.md](references/song.md).
+- Writing a Japanese `script` line → [japanese-notation.md](references/japanese-notation.md).
 
 ## Authoring the direction
 
@@ -27,7 +29,6 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 
 ### Shape
 
-- A worked file with the common fields — [skeleton.md](references/skeleton.md).
 - One `sequence` node — `lens`, `pleasure`, `shots[]` — the shots in order; the stages mint shots from these ids.
 - Pick each shot's kind:
   - a character in frame → narrative (default)
@@ -37,7 +38,7 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 - Author `format.size` as `{ megapixels, delivery: { width, height } }` — delivery sets the aspect; konte derives a 32-grid canvas from the pixel budget (`0.9` at 16:9 → `1248×704`). Lower `megapixels` for cheaper iteration; a delivery well above the canvas needs `export.delivery.upscale`. Start with `fps: 24`; adapter grids govern generated frame counts.
 - `fonts` are Google Fonts families in fallback order — text placement → `composition-guide`.
 - `speech` is `"none"`, `"no-dialogue"` or `"free"` — no lines, narration only, or unrestricted speech.
-- `script` holds spoken lines; `telop` holds unspoken screen text; `lyrics` holds sung words — a sung line shown on screen is in `lyrics` alone; a sign inside the world belongs in the image prompt. Stages receive `script` from the direction; notation for Japanese → [japanese-notation.md](references/japanese-notation.md).
+- `script` holds spoken lines; `telop` holds unspoken screen text; `lyrics` holds sung words — a sung line shown on screen is in `lyrics` alone; a sign inside the world belongs in the image prompt.
 - A character line requires one `acting` sentence — how it is said ("wheedling, drawn out, a shade too loud"), never a list of acoustic properties.
 
 ### The arc
@@ -49,7 +50,7 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 ### Writing the shots
 
 - Write an action's relied-on landmark or prop with its exact roster `name`.
-- One action per shot — one sentence, one mover, one motion — a second sentence, a second mover, or a then-pivot is the next shot's `action`. If it splits into two sentences that each still stage something, it's two shots. A role is a phase — expect more shots than the lens has roles. A coverage shot is the one exception.
+- One action per shot — one sentence, one mover, one motion — a second sentence, a second mover, or a then-pivot is the next shot's `action`. A role is a phase — expect more shots than the lens has roles. A coverage shot is the one exception.
 - A gag or turn is a shot chain — trigger → reaction (→ collateral): the thing that moves (the rolling tureen) gets its own shot before the subject responds, and the reaction shot is often the stronger one. Expand the chain as you draft, never as a later split of one row.
 - A key action is a chain too — anticipation, the motion elided in the cut, the result landed; this and the other idioms → [cut-idioms.md](references/cut-idioms.md).
 - Hold the take where a cut would spend the moment — a beat living on uncut time (an awkward silence, a wait for an answer, a build), or an event whose real-time run in one frame is the show: one `setup`, `join: "continuous"` on each shot after the first. Anywhere else, cut.
@@ -68,7 +69,7 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 - Plate, landmark, keyframe input or prompt finding → `staging-guide`; fix the named animatic asset; `passer-unconsumed` / `passer-unnamed` name a video take.
 - Deliberate structural exception → copy the bracketed key into the direction's top-level `waivers` with a reason. A contradiction, an empty field or an unused entry is only fixed — a waiver of it is reported stale; remove stale waivers.
 
-## Pacing — rhythm, not uniform length
+## Pacing
 
 - A shot's span is the window the render cuts the take to — use the adapter's supported length and let the window cut it.
 - Choose each length against its neighbors — equal-length cuts read as a metronome: staccato shots build pressure, a held frame releases; accelerate into a peak, ease after.

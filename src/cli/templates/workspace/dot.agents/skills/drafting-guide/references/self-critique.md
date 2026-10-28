@@ -9,8 +9,6 @@ The pass you run yourself when the human sends you on without a subagent. Done =
 
 ## What still holds — artifact against artifact
 
-An axis survives when both sides are on the page, and the check is whether they match:
-
 - Hook _(advisory)_ — shot 01's `action` puts `brief.hook` on screen.
 - Deletion — cut the shot: does anything downstream stop working?
 - Merge _(advisory)_ — are trigger and reaction separate shots that one action would carry?

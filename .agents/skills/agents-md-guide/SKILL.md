@@ -4,7 +4,7 @@ description: Conventions for this repo's root AGENTS.md — what earns a line th
 user-invocable: false
 ---
 
-Conventions for the repo's own root `AGENTS.md` (the shipped workspace one is `template-skills-guide`'s). It loads every turn, so a line earns its place only if it changes what the agent does and isn't trivially readable from the code — when in doubt, cut.
+Conventions for the repo's own root `AGENTS.md` (the shipped workspace one is `template-skills-guide`'s). It loads every turn — when in doubt, cut.
 
 ## Keep vs drop
 
@@ -23,7 +23,7 @@ Drop implementation detail — what the agent can read from the code when it nee
 - error codes — say a command fails; the code itself is grep-able (`KonteErrorCode`)
 - "how it works" mechanics (which function computes what, `fs.watch`, libx264, …)
 
-The test — does the concrete path or symbol identify where to edit or which contract to preserve? Keep it when it prevents an editing mistake.
+The test — keep a concrete path or symbol only when it names where to edit or which contract to preserve.
 
 Cut in one direction, but edit in both: an editing pass also adds the genuinely-missing concept.
 
@@ -47,7 +47,6 @@ Cut in one direction, but edit in both: an editing pass also adds the genuinely-
 ## AGENTS.md vs skills
 
 - Task-specific detail goes in a skill behind a one-line pointer; always-on rules (e.g. security) stay in AGENTS.md.
-- Omit silently, as in the skills — never justify a cut ("detail is in the code, so omitted").
 
 ## Check the cost
 

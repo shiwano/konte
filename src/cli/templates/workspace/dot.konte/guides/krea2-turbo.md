@@ -1,7 +1,5 @@
 # Krea 2 Turbo
 
-A drawn or stylized piece's references arrive at finish quality: the line, the palette, the shading and the deformation are the character information.
-
 ## Prompt Shape
 
 ```
@@ -20,15 +18,10 @@ One clause to ~250 words. Long and detailed lands best; a bare clause still come
 
 ## Size
 
-Trained for 1024–2048 px per side. Below ~1024 on the short edge composition loosens, so on a 16:9 canvas prefer 1920×1080 and bring it down with `imageResize`. Both dimensions snap up to a multiple of 16.
-
-## Negative Prompt
-
-- Absent.
-- A scene exclusion belongs in `prompt` as what fills the space instead. A custom adapter may differ — check its schema.
+- Trained for 1024–2048 px per side; below ~1024 on the short edge composition loosens.
+- On a 16:9 canvas, prefer 1920×1080 and bring it down with `imageResize`.
 
 ## Avoid
 
+- Naming an exclusion — no `negativePrompt`; describe what occupies the space.
 - Evaluative filler ("masterpiece, best quality, 8k").
-- Naming an exclusion — describe what occupies the space.
-- Embedding resolution, step count, or seed values in the prompt text.

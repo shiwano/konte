@@ -5,7 +5,7 @@ user-invocable: true
 argument-hint: "[skill root | skill name]"
 ---
 
-Done = every in-scope file trimmed with no fact, rule, why or judgment lost, the drift the pass found verified and fixed or reported, and `bun run check` passing; nothing committed unless asked. The criteria are `konte-prose-trim`'s Cut / Keep and `template-skills-guide`'s Body rules, applied to whole files.
+Done = every in-scope file trimmed with no fact, rule, why or judgment lost, the drift the pass found verified and fixed or reported, and `bun run check` passing; nothing committed unless asked.
 
 ## Scope
 

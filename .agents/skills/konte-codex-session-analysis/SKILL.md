@@ -7,7 +7,9 @@ Done when measurements name their accounting source and scope, findings cite rol
 
 ## Locate the production session
 
-Search `${CODEX_HOME:-$HOME/.codex}/sessions`, then `archived_sessions`. Match `session_meta.payload.cwd` to the workspace, then confirm user prompts, timestamps and the produced video — the newest file can be this investigation or a critic. List candidates by metadata only; never dump base instructions or image data:
+- Search `${CODEX_HOME:-$HOME/.codex}/sessions`, then `archived_sessions`.
+- Match `session_meta.payload.cwd` to the workspace, then confirm user prompts, timestamps and the produced video — the newest file can be this investigation or a critic.
+- List candidates by metadata only; never dump base instructions or image data.
 
 ```python
 import json, os
@@ -32,17 +34,18 @@ for folder in ("sessions", "archived_sessions"):
 
 ## Decode once
 
-Inspect the installed version's actual records before assuming a schema.
-
+- Inspect the installed version's actual records before assuming a schema.
 - `response_item` holds messages, `function_call` / `function_call_output`, and `custom_tool_call` / `custom_tool_call_output`. Join calls and results by `call_id`. Arguments may be JSON strings; custom inputs may be JavaScript.
-- `event_msg` can mirror messages and completion events. Count canonical response items once. `compacted.payload.replacement_history` is replacement context, not new tool activity.
+- `event_msg` can mirror messages and completion events. Count canonical response items once. `compacted.payload.replacement_history` is replacement context — don't count it as tool activity.
 - Code-mode `exec` wraps several calls — an `exec` count is not a shell-command count; inspect its source and returned blocks. Commands in loops, stored strings or generated code need tracing; a regex match is a mention until execution is confirmed. Never execute logged code to decode it.
 - Output is a string or text/image blocks; text can wrap a JSON shell result. Separate returned text length, image blocks and tool-reported pre-truncation size. Never print base64 or credential values.
 - Assistant phase may be `phase: "final_answer"` / `"commentary"` or `channel`. User skill expansion blocks, developer instructions and `world_state` snapshots are not additional human requests.
 
 ## Account for usage
 
-When present, sum `token_usage_record.payload.usage` once per `response_id` across the selected branch records; compare against `thread_token_usage`, allowing for inherited usage. Report discrepancies with `event_msg.token_count.info`; never add the two streams together. Compaction requests may appear in per-response records but not the event counter — reconcile against the records just before each `compacted`.
+- When present, sum `token_usage_record.payload.usage` once per `response_id` across the selected branch records; compare against `thread_token_usage`, allowing for inherited usage.
+- Report discrepancies with `event_msg.token_count.info`; never add the two streams together.
+- Compaction requests may appear in per-response records but not the event counter — reconcile against the records just before each `compacted`.
 
 ```sh
 jq -s '[.[] | select(.type == "token_usage_record") | .payload]
@@ -60,33 +63,24 @@ jq -s '[.[] | select(.type == "token_usage_record") | .payload]
 
 ## Attribute context and repeated reads
 
-Inventory calls, returned text size, image blocks, guide reads and compactions per agent. Separate production from feedback. Rank the largest outputs with their originating calls.
-
-For each suspected re-read, inspect the returned content and surrounding edits:
-
+- Inventory calls, returned text size, image blocks, guide reads and compactions per agent. Separate production from feedback. Rank the largest outputs with their originating calls.
+- For each suspected re-read, inspect the returned content and surrounding edits.
 - A path in a catalog, grep result or prompt is a pointer, not proof of a successful read. Record inline skill expansion, full read, partial/truncated read and pointer-only separately.
 - Track ranges, aliases (`.agents` / `.claude`), edits, forks and compactions. Reloading after a cut-off result or compaction is recovery; re-inspecting an edited stage is verification.
 - Code-mode has an outer output limit besides each nested tool's — several bounded results can overflow the wrapper. Attribute the truncation marker to its layer before recommending a larger shell limit.
-- Check shell `head` / `tail` / `sed`, JavaScript filtering and tool output limits; establish what was lost before claiming a warning was absent. A large `original_token_count` is source output, not necessarily what reached the model.
+- Check shell `head` / `tail` / `sed`, JavaScript filtering and tool output limits, and judge what was lost per `konte-claude-session-analysis` §6. A large `original_token_count` is source output, not necessarily what reached the model.
 
 ## Test the production journey
 
-Compare observed reads with `scripts/check-journeys.ts` and the workspace's installed guides, including nested references and model guides reached through `konte adapter show` — current repository text may differ from what the session received.
-
-- Loaded outside JOURNEY: check whether it is a declared variable cost (model/backend guides) or post-production work before calling it a budget hole.
-- Listed but unobserved: verify the branch's trigger and whether a containing result was truncated. Mark applicable missing reads as routing gaps; do not trim JOURNEY to fit observations.
+- Compare observed reads with `scripts/check-journeys.ts` and the workspace's installed guides, including nested references and model guides reached through `konte adapter show` — current repository text may differ from what the session received.
+- Classify each mismatch and routing miss per `konte-claude-session-analysis` §7–8.
 - A pointer present in context does not prove the agent understood or ignored it. Cite the required artifact/action and what happened before diagnosing the routing mechanism.
-
-Trace `preview` and `job wait` through process IDs, `write_stdin`, review submission and the next action. Distinguish human waiting, generation, short polling, lost process handles and an assistant ending its turn. After compaction, check whether the agent resumed the current objective or reactivated an old check-in. User status questions do not themselves cancel production.
+- Trace `preview` and `job wait` through process IDs, `write_stdin`, review submission and the next action. Distinguish human waiting, generation, short polling, lost process handles and an assistant ending its turn.
+- After compaction, check whether the agent resumed the current objective or reactivated an old check-in. User status questions do not themselves cancel production.
 
 ## CLI friction
 
-List every konte command whose result reports a nonzero exit, with its call and the next action.
-
-- Classify each: a `KonteErrorCode` refusal, a usage error (wrong flag, address or scope), a crash (stack trace — a konte bug). A rejected call is the human's veto, not konte's.
-- A usage error, or the same subcommand retried with varied arguments → the agent guessed the surface; name what the help text or the refusal should have said.
-- A refusal followed at once by the right action is a working gate; one followed by a waiver or a detour → test it against `AGENTS.md`'s three questions.
-- The next konte command differs from the previous output's `Next steps` with no stated reason → that line did not fit the state.
+List every konte command whose result reports a nonzero exit, with its call and the next action, and classify each per `konte-claude-session-analysis` §9.
 
 ## Video quality
 
@@ -94,4 +88,7 @@ Read `quality-analysis-guide`, then run it over the session's video — the deco
 
 ## Report
 
-For each finding, report observed behavior, evidence, consequence and a scoped improvement. Separate CLI defects, guide conflicts, agent mistakes and unresolved hypotheses. Verify earlier feedback against raw results — the agent's own retrospective is not independent proof. No product fixes unless requested.
+- Each finding: observed behavior, evidence, consequence and a scoped improvement.
+- Separate CLI defects, guide conflicts, agent mistakes and unresolved hypotheses.
+- Verify earlier feedback against raw results — the agent's own retrospective is not independent proof.
+- No product fixes unless requested.

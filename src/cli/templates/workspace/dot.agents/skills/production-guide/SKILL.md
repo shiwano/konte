@@ -8,8 +8,6 @@ Choose each shot's production method; done = its required anchors and duration a
 
 ## Routing — decide in this order
 
-The shot names its anchors; the anchors pick the adapter.
-
 1. Does it need AI generation at all? A Ken Burns push/pan/zoom over a static image, a subtitle / UI / card reveal, or trimming and placing existing footage → staged in `<Composition>` (`composition-guide`), wired as a `file` asset, or done with a `local` adapter (`imageResize`, `imageCrop`, `videoTrim`). (A camera move that should also stir parallax, hair, light or background is generated motion — step 4.) A `graphic` shot's picture always stops here; its `cutin` is routed from step 2 separately.
 2. Is a performance the driver? A spoken line, singing, dance, an instrument, any motion timed to a track → the sound and the picture have to come out of one pass. Decide this before step 4 — a performance can have a clear end and still belong here.
    - The stem rides in one of two ways — as the take's own track (the given recording, exact timing; the input takes one file, the shot's `animatic.stem`) or as a voice reference (re-spoken by the model in that timbre, on its own timing). A line a mouth has to match takes the first.
@@ -45,7 +43,7 @@ Pin the last frame only where no plausible landing will do:
 - a transform's finished state
 - a set arrangement of several elements, or an expression the prompt keeps failing to reach — only after a reroll actually misses it
 
-"The action completes" never qualifies — a cut hides endpoint imprecision that interpolation can't; a leap, a draw, a waking face all land on their own. If the prompt can say where it ends and any plausible landing would do, don't pin the end.
+"The action completes" never qualifies — a cut hides endpoint imprecision that interpolation can't; a leap, a draw, a waking face all land on their own.
 
 - Two pinned frames are less control, not more — the model must thread a constrained path, and the authored `last` (an image edit plus its review) is paid before any motion.
 - The pair decides the quality — if a viewer couldn't draw the one obvious trajectory between the frames, the model can't either, and the clip morphs.

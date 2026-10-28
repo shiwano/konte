@@ -1,7 +1,5 @@
 # ACE-Step 1.5 XL Turbo
 
-ACE-Step splits the request across two fields: `tags` describes the _music_ (genre, mood, instrumentation), `lyrics` carries the _sung words_ with structure tags.
-
 ## Prompt Shape
 
 `tags` is the musical direction — a dense comma- or sentence-list:
@@ -26,7 +24,7 @@ Shout it out, I'm alive tonight
 ```
 
 - Common tags: `[Intro]`, `[Verse]`, `[Pre-Chorus]`, `[Chorus]`, `[Hook]`, `[Bridge]`, `[Outro]`. Separate lines with `\n`.
-- Instrumental? Leave `lyrics` empty — don't write "instrumental" into `tags`.
+- Instrumental — leave `lyrics` empty, with no "instrumental" in `tags`.
 
 ## Length Heuristic
 
@@ -35,20 +33,15 @@ Shout it out, I'm alive tonight
 
 ## Duration
 
-`duration` follows the shot where one is in scope, and takes the adapter's default on the timeline — set it by hand for a bed that has to outlast its slot. The music sometimes ends before the requested duration, leaving a silent tail: probe the result and re-roll if it doesn't cover the slot.
-
-## Negative Prompt
-
-- None. Steer by editing `tags`, not by listing things to avoid. A custom adapter may differ — check its schema.
+- Set `duration` by hand for a bed that has to outlast its slot.
+- The music sometimes ends before the requested duration, leaving a silent tail — probe the result and reroll if it doesn't cover the slot.
 
 ## Tips
 
-- Name a clear vocal timbre in `tags` ("breathy female vocals") — it changes the result more than mood words.
 - For BGM under narration, leave `lyrics` empty so vocals don't compete with the voiceover.
-- Iterate by swapping one element in `tags`, not re-rolling an identical prompt.
+- Iterate by swapping one element in `tags`, not rerolling an identical prompt.
 
 ## Avoid
 
-- Baking tempo, key, duration, or seed into `tags` when a parameter controls them.
-- Phrasing things to avoid as negatives — there's no negative path; describe what you _want_.
+- Phrasing things to avoid as negatives — there's no negative path; steer by editing `tags`.
 - Vague mood words with no genre, instrumentation, or tempo.

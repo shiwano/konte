@@ -5,7 +5,7 @@ How a Japanese line must be written down so the model reads it aloud correctly �
 ## Standard orthography, always
 
 - Write every word the way it is normally written — 常用漢字 with ordinary okurigana (`交換`, `大昔`).
-- Never split a compound across kanji and kana (交ぜ書き: `交かん`, `大むかし`) — the segmenter loses the word, and that breaks the accent and phrasing of the whole line.
+- Never split a compound across kanji and kana (交ぜ書き: `交かん`, `大むかし`) — it breaks the accent and phrasing of the whole line.
 - Kana-fying for a young audience is a screen decision — keep `script[n].text` standard and put the easy notation on screen (`telop`, `<Subtitle>`).
 - 現代仮名遣い, never the pre-war forms — `ゐ`/`ゑ`/`せう` → `い`/`え`/`しょう`, the iteration marks `ゝ`/`〳〵` → the kana spelled out, large 拗促音 `ちよつと` → `ちょっと`.
 - Lengthen a vowel with `ー` — `おーい`, `ちょうだいよー`; the literary `おオい` is read as a second vowel.

@@ -16,9 +16,7 @@ Compose layers, captions, animation and sound in `animatic.tsx` or `video.tsx`; 
 
 ## The composition is a reviewable target
 
-`video:shot.<id>#composition` is reviewed apart from the clips it arranges.
-
-- No rerolls — it's your code: edit the JSX and it re-renders.
+- `video:shot.<id>#composition` is reviewed apart from the clips it arranges — no rerolls: edit the JSX and it re-renders.
 - An upstream clip change makes it `input-stale` — it returns to `konte status -v`'s Needs review; `konte inspect video:shot.<id>#composition` names the changed input.
 - Feedback lands on `video:shot.<id>`, not `#composition` — `konte review feedback list video:shot.<id>`; fixing the JSX or the upstream clip marks it addressed on the next accept.
 
@@ -53,7 +51,7 @@ Gotchas:
 - A component prop that takes any asset is `MediaAsset<"image">` / `<"video">` / `<"audio">`
 - A px font size is a different fraction of each canvas size — use `text-[Nvmax]` (1% of the longer edge) to keep text a constant fraction.
 - A clip's own audio needs `hasAudio` — without it the track is dropped: `<Video src={motion} hasAudio volume={0.8} />`.
-- `volume` is relative gain, 0–3.98 (+12 dB), 1 = unity — same on `<Audio>`, `<Video>`, `soundtrack()`. Omit for the default level.
+- `volume` is relative gain, 0–3.98 (+12 dB), 1 = unity — same on `<Audio>`, `<Video>`, `soundtrack()`.
 - `<Animate>` assigns no ids — give the element an `id`/`className` and target it by CSS selector (`"#title"`, `".badge"`). A selector never reaches another shot's element. Sibling `<Animate>`s each start at 0 of the shot's clock, so a component can carry its own.
 - A `fromTo` / `from` timed after 0 renders its start values from the shot's head — pass `immediateRender: false` and put the pre-cue state in the element's CSS (`opacity-0`), or `set` the start values at the cue and `to` from there.
 - `<Animate script>` is serialized to source and run in the browser, closing over nothing — an import, a module constant, a helper, a value from the shot callback (`script`, an asset): each is a `ReferenceError` there and nothing flags it here. Inline every value or pass it as `data`; keep the callback an arrow or function expression. A synchronous throw drops the tweens after it and paints a red banner over the shot; one from a `timeline.call` callback or an `async` script fires later, uncaught.
@@ -64,14 +62,13 @@ Gotchas:
 
 ## Fonts
 
-The piece's web fonts are declared on `direction.policy.fonts` — Google Fonts family names, every shipped weight requested, laid on the composition body.
-
+- The piece's web fonts are declared on `direction.policy.fonts` — Google Fonts family names, every shipped weight requested, laid on the composition body.
 - Never a Tailwind arbitrary-value class (`font-[Inter]`) — the export embeds faces by reading the HTML, and a class's CSS does not exist until the browser has run.
 
 ## Timing model
 
-Size/fps come from `format`, shot length from the shot's `duration` — components read them; don't pass them. Everything is in seconds on the shot's own clock, from `0`.
-
+- Size/fps come from `format`, shot length from the shot's `duration` — components read them; don't pass them.
+- Everything is in seconds on the shot's own clock, from `0`.
 - `start` — when the clip appears (default `0`).
 - `duration` — how long it shows. `<Video>`/`<Image>` default to the shot duration; `<Audio>` to the full source.
 - `mediaStart` — offset _into the source file_ (trim the head); sequence sub-clips of one take with it. Leave it unset on a take generated from its panels.
@@ -82,7 +79,8 @@ Size/fps come from `format`, shot length from the shot's `duration` — componen
 <Video src={b} start={1.5} duration={1.5} mediaStart={4} /> {/* shows 1.5–3s, from 4s into b */}
 ```
 
-GSAP `position` (3rd arg of `to`/`from`/...) uses the same clock: absolute seconds (`0`, `1.5`) or relative (`"+=0.5"`, `"<0.2"` = 0.2s after the previous tween starts). Relative positions count from the tweens added so far, never the shot's end — a tail move takes an absolute literal.
+- GSAP `position` (3rd arg of `to`/`from`/...) uses the same clock: absolute seconds (`0`, `1.5`) or relative (`"+=0.5"`, `"<0.2"` = 0.2s after the previous tween starts).
+- Relative positions count from the tweens added so far, never the shot's end — a tail move takes an absolute literal.
 
 ## Verify
 

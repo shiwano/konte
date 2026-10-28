@@ -1,10 +1,10 @@
 # SeedVR2
 
-A restoration upscaler with no prompt and no negative prompt — every control is an input.
+No negative prompt — every control is an input.
 
 ## Model Choice
 
-`ditModel` names the DiT weights. konte downloads only what the adapter's `models` block lists, so switching builds means editing that entry's `filename`/`url` too, not overriding `ditModel` alone.
+- `ditModel` names the DiT weights. konte downloads only what the adapter's `models` block lists, so switching builds means editing that entry's `filename`/`url` too.
 
 ## VRAM
 
@@ -24,18 +24,16 @@ At a 1080p or larger target, the VAE's encode and decode, not the DiT, are the p
 
 ### Tuning by card
 
-`konte doctor --backends` prints the ComfyUI GPU and its VRAM. Start from its row; if the job fails, move one row down.
+`konte doctor --backends` prints the ComfyUI GPU and its VRAM. Start from its row; if the job fails, move one row down. Settings over the defaults:
 
-| VRAM  | Settings over the defaults                                               |
-| ----- | ------------------------------------------------------------------------ |
-| 32GB+ | `encodeTileSize` / `decodeTileSize` at the shorter-edge size above       |
-| 24GB  | none                                                                     |
-| 16GB  | `vaeOffloadDevice: "cpu"`                                                |
-| 12GB  | the above, `ditOffloadDevice: "cpu"`, `blocksToSwap: 16`, tile sizes 768 |
-| 8GB   | the above, `blocksToSwap: 32`, tile sizes 512                            |
+- 32GB+ — `encodeTileSize` / `decodeTileSize` at the shorter-edge size above.
+- 24GB — none.
+- 16GB — `vaeOffloadDevice: "cpu"`.
+- 12GB — the above, `ditOffloadDevice: "cpu"`, `blocksToSwap: 16`, tile sizes 768.
+- 8GB — the above, `blocksToSwap: 32`, tile sizes 512.
 
 ## Sizing
 
-`width`/`height` size the frames fed into the model through ImageScale, which center-crops when `crop: "center"` and the aspect ratios differ. For delivery, pass the injected dimensions and set `resolution: Math.min(width, height)`.
-
-The workflow's temporal batch is fixed at 5 frames and is not exposed as an input. It governs temporal consistency and follows a 4n+1 rule (1, 5, 9, …), so raising it is an adapter edit.
+- `width`/`height` size the frames fed into the model; `crop: "center"` center-crops when the aspect ratios differ.
+- For delivery, pass the injected dimensions and set `resolution: Math.min(width, height)`.
+- The temporal batch is fixed at 5 frames, not an input. It governs temporal consistency and follows a 4n+1 rule (1, 5, 9, …); raising it is an adapter edit.

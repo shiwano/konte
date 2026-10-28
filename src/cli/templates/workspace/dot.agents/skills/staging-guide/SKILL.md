@@ -40,9 +40,11 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 - Pass them in the same order — the slot order is the other half of what decides who lands where.
 - `<Cutin>` keyframes answer `ctx.cutin.lineup` / `lineupTo` by the rules above and stand on that setup's plate.
 - `ctx.lineupTo` is a `blocking` note waiting to be written — the panel it changes out of says the move (`blocking`, above) and the last keyframe's slots take the new order.
-- Size and angle come from the shot's `setup` — change either by editing the setup. Low angle empowers, high diminishes, eye level observes — pick from the `action` and write it into the setup's `description`, so the next shot on it inherits the camera. Every panel prompt names the camera's height and angle — only the ones its plate has.
+- Size and angle come from the shot's `setup` — change either by editing the setup. Low angle empowers, high diminishes, eye level observes — pick from the `action` and write it into the setup's `description`, so the next shot on it inherits the camera.
+- Every panel prompt names the camera's height and angle — only the ones its plate has.
 - Say where each figure meets the floor — otherwise a keyframe on a plate comes back with the figures pasted in front of it. Further from the lens: feet higher in the frame, figure smaller.
-- A state the story changes is one `reference:` asset per state, each built from text — a window before and after it breaks is two; a page blank, scribbled, then washed is three. Feed each where shown: prose redraws the state every take. Count the states before the reference review — a reference accepted in one state a later shot contradicts stales every panel built on it.
+- A state the story changes is one `reference:` asset per state, each built from text — a window before and after it breaks is two; a page blank, scribbled, then washed is three. Feed each where shown: prose redraws the state every take.
+- Count the states before the reference review — a reference accepted in one state a later shot contradicts stales every panel built on it.
 - At `close`, anchor the subject and let the set fall to suggestion — shallow depth of field, one sliver of set behind carrying the setup's `holds`: it owes the location its material and light, and owes it no layout. `insert` holds nothing — it fills the frame with an object and shows no set.
 - Keep the set quiet — only what the shot reads against; every extra prop is background churn for motion to fail on. Keep the master sparse; dress a shot's prop in its panel.
 - The pose reads in silhouette — illegible as a black shape, no lighting or detail saves it; pick the angle that opens the pose.

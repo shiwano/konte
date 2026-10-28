@@ -1,8 +1,6 @@
 # Z Image
 
-A reference off this model is what the production reads. Write it for legibility — bone and build, hair, skin and eye colour, the cut and material of each garment, the props; a place, its layout and surfaces. One subject per asset, and one further asset per view a later model needs: a neutral full-length, a medium close-up, a profile, a costume detail.
-
-Leave out cinematic backlight, a strong grade and shallow depth of field — each buries the structure. Where the reference is the piece's own drawn look, take `imageKrea2TurboT2i`.
+Write a reference for legibility — bone and build, hair, skin and eye colour, the cut and material of each garment, the props; a place, its layout and surfaces. One subject per asset, and one further asset per view a later model needs: a neutral full-length, a medium close-up, a profile, a costume detail.
 
 ## Prompt Shape
 
@@ -27,11 +25,9 @@ English and Chinese are the trained prompt languages.
 ## Negative Prompt
 
 - Exposed and effective. Fill it with short generic artifact terms ("blurry, extra fingers, watermark, text"), not scene content.
-- A scene exclusion belongs in `prompt` as what fills the space instead. A custom adapter may differ — check its schema.
+- A scene exclusion belongs in `prompt` as what fills the space instead.
 
 ## Avoid
 
 - Keyword lists — this model reads prose.
 - Evaluative filler ("masterpiece, best quality, 8k").
-- Naming an exclusion in `prompt` — describe what occupies the space.
-- Embedding resolution, step count, or seed values in the prompt text.

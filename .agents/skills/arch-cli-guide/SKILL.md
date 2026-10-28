@@ -4,15 +4,15 @@ description: Read when adding or changing a CLI command — its scope and root r
 user-invocable: false
 ---
 
-Write every CLI output for an agent to act on, not for a human to read.
+Write every CLI output for an agent to act on.
 
 ## Which root
 
 - `konte.config.json` / `konte.credentials.json` / `konte.version` / `adapters/` / `tsconfig.json` / `node_modules/` / `.konte/{mod.ts,template.lock.json,tools,transpiler-cache,current-video}` → `workspaceRoot`.
 - `konte.state.json` / a definition file / `assets/` / `dist/` / `review/` / `patches/` / `.konte/{jobs.db,logs,cache,frame-src}` → `videoRoot`.
 - Only backend resolution and the ComfyUI backend take both (`VideoRoots`); the other backends take a bare `videoRoot`.
-- Video selection has no "auto-select the only video" rule; with neither a cwd video nor a current video, the command fails.
-- `konte video current` is the session opener: the current video, its logline, runtime, last review scope and last completed export. It is the one video command that never fails (no videos / none selected / current gone are states, not errors), and it omits the shot list, feedback and Next steps.
+- With neither a cwd video nor a current video, a video-scope command fails — it never auto-selects the only video.
+- `konte video current` is the session opener: the current video, its logline, runtime, last review scope and last completed export. It never fails — no videos / none selected / current gone each print as a state — and omits the shot list, feedback and Next steps.
 - `workspace new` creates in cwd; `workspace setup` resolves the enclosing workspace and repairs it without loading credentials or type-checking. Both generate agent settings before runtime prefetch.
 
 ## Scope and startup
@@ -20,7 +20,7 @@ Write every CLI output for an agent to act on, not for a human to read.
 - Commands declare their scope: `none` (`workspace new`, `workspace setup`, `lsp`), `workspace` (`video *`, `adapter *`, `settings`, `mcp serve`), or `video` — the default, so a new command opts out explicitly.
 - The entry re-execs once to move Bun's transpiler cache into the workspace. The child resolves the roots, loads the workspace credentials into the environment, sets the tool-cache root, then runs the workspace sync (`arch-template-system-guide`; never `mcp serve`) and type-check.
 - The type-check covers the whole workspace, but only the current video's, the adapters' and the workspace's own diagnostics are fatal — a broken sibling video is reported and stepped over.
-- `generate` / `preview` / `export` are top-level commands; there is no `animatic` or `video` command group. `status` is always whole-project; a filter command like `clean` takes an `[address-scope]` to narrow to one stage.
+- `generate` / `preview` / `export` are top-level commands — no per-stage command group. `status` is always whole-project; a filter command like `clean` takes an `[address-scope]` to narrow to one stage.
 
 ## Output conventions
 
@@ -47,4 +47,7 @@ Write every CLI output for an agent to act on, not for a human to read.
 
 ## Timestamps
 
-Always UTC, in two non-interchangeable forms: ISO 8601 for data fields (any `createdAt`), and compact sortable `YYYYMMDDTHHmmssSSS` for filenames (agent notes, review files, render/export outputs). A review file's id is the compact form of its `createdAt`.
+Always UTC, in two non-interchangeable forms:
+
+- ISO 8601 — data fields (any `createdAt`).
+- Compact sortable `YYYYMMDDTHHmmssSSS` — filenames (agent notes, review files, render/export outputs). A review file's id is the compact form of its `createdAt`.

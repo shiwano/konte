@@ -1,16 +1,14 @@
 # jsxImage
 
-Text and exact geometry, rendered instead of generated.
-
-Material that carries text or a shape that has to be right — a card, a label, a plate, a framing guide — is worth building here rather than prompting for. Its own edges need not be beautiful: when the still is a conditioning image, the generation downstream paints the piece's look over it.
-
-Text delivered on screen belongs in the shot's own `<Composition>` JSX. Text fed into a generation is what this is for.
+- Material that carries text or a shape that has to be right — a card, a label, a plate, a framing guide — is built here rather than prompted for.
+- A conditioning still's own edges need not be beautiful — the generation downstream paints the piece's look over it.
+- Text delivered on screen belongs in the shot's own `<Composition>` JSX.
 
 ## What it renders
 
 The same document a shot's composition renders into: `<Composition>`'s head, Tailwind, and the stage's declared Google Fonts over the direction's `lang`.
 
-The canvas is the stage's, unless `width`/`height` say otherwise. In `reference.tsx` it is the asset's roster shape, and square for an asset on no roster; `...format.size` gives the shots' canvas. The `build` callback receives the resolved size, so lay out against it:
+The canvas is the stage's, unless `width`/`height` say otherwise. In `reference.tsx` it is the asset's roster shape, and square for an asset on no roster; `...format.size` gives the shots' canvas.
 
 ```tsx
 const card = asset("titleCard", adapters.jsxImage, {
@@ -25,9 +23,9 @@ const card = asset("titleCard", adapters.jsxImage, {
 
 ## Fonts
 
-Declared on the direction, never here: `policy.fonts`, by Google Fonts family names, over `policy.lang`. Every stage typesets from that one pair. `composition-guide` has the rules.
-
-Declaring none leaves text on Tailwind's `ui-sans-serif, system-ui, sans-serif` — whatever faces the rendering machine has installed, which the definition hash does not cover. A `lang` in a script no default face carries raises `fonts-undeclared` before any spend.
+- Declared on the direction (`policy.fonts` over `policy.lang`), never here — `composition-guide` has the rules.
+- Declaring none leaves text on Tailwind's `ui-sans-serif, system-ui, sans-serif` — whatever faces the rendering machine has installed, which the definition hash does not cover.
+- A `lang` in a script no default face carries raises `fonts-undeclared` before any spend.
 
 ## Composing other assets in
 
@@ -95,6 +93,5 @@ A part this composites is placed, not cropped — size it for its slot in the la
 
 ## Determinism
 
-Editing the `build` stales the take and `generate` re-renders it. There is one outcome, so `reroll` and `dismiss` refuse.
-
-It is still review work: it surfaces under `konte status`'s Needs review and takes a `konte accept <variantId>` like any other take. Editing the `build` after that ages the accept out.
+- One outcome — `reroll` and `dismiss` refuse.
+- Still review work: it surfaces under `konte status`'s Needs review and takes a `konte accept <variantId>`.

@@ -9,7 +9,7 @@ Done = one post, approved by the human, handed over as paste-ready text with its
 
 ## 1. Decide whether it earns a post
 
-- konte's fault, not the model's — a crash or stack trace; an exit code that contradicts the output; two konte surfaces disagreeing (`status` vs `inspect`, the review UI vs the CLI); an error naming neither cause nor fix; a `Next steps` line that did not work; a guide or skill contradicting real behavior; a workaround you had to invent. Not a limit `HOUSE_RULES.md` or the direction chose.
+- konte's fault — a crash or stack trace; an exit code that contradicts the output; two konte surfaces disagreeing (`status` vs `inspect`, the review UI vs the CLI); an error naming neither cause nor fix; a `Next steps` line that did not work; a guide or skill contradicting real behavior; a workaround you had to invent. Not a limit `HOUSE_RULES.md` or the direction chose.
 - One post per cause — unrelated ones are posted one at a time.
 - Cosmetic, or a preference — batch them into one `feature` post, and only when the human asks for it.
 - A "how do I" — read the guide; what the guide did not answer is a `help` post.
@@ -17,7 +17,7 @@ Done = one post, approved by the human, handed over as paste-ready text with its
 ## 2. Reproduce before you write
 
 - `konte doctor` first — if an environment problem it identifies fully explains the failure, treat it as support rather than a konte bug.
-- Reproduce when safe — rerun the exact CLI command and record its exit code (`konte …; echo "exit=$?"`), or repeat the review UI steps. Once only → still worth posting with the available evidence; mark it `seen once`.
+- Reproduce when safe — rerun the exact CLI command and record its exit code (`konte …; echo "exit=$?"`), or repeat the review UI steps. Once only → post with the evidence you have, marked `seen once`.
 - Minimize — the smallest command or UI steps, and the smallest edit to the definition, that still triggers it.
 - A paid generation — report from what already ran; rerun it only after the human confirms.
 
@@ -98,16 +98,11 @@ reproduces: yes | seen once; exit=<code if CLI>
 ## 6. Hand it over
 
 - Show the whole post with a summary in the human's language when that is not English, and name the tags.
-- The human posts — after their yes, hand over the title, tags and body as shown, with both destinations: the GitHub Discussions form `https://github.com/shiwano/konte/discussions/new?category=support` (the kind and area tags are the form's Kind and Area fields), or the Discord forum `https://discord.gg/2b7UwFE2Yy`, channel `#support`.
-
-## Confirm before
-
-- Quoting any prompt, brief text or generated media.
-- Re-running a paid generation to reproduce.
+- The human posts — after their yes, hand over the title, tags and body as shown, with both destinations: the GitHub Discussions form `https://github.com/shiwano/konte/discussions/new?category=support` (the kind and area tags are the form's Kind and Area fields, the body its Details), or the Discord forum `https://discord.gg/2b7UwFE2Yy`, channel `#support`.
 
 ## Don't
 
 - Fix konte — no edits under `.konte/`, no patched binary; a workaround in the definition is fine and belongs in `## Notes`.
 - Pad — a `bug` post without a concrete reproduction path is not ready; drop it or keep gathering.
-- Report a model's creative miss — that is a reroll, a prompt edit, or feedback on the take.
+- Report a model's creative miss — reroll, edit the prompt, or leave feedback on the take.
 - Open a GitHub issue — the maintainers open them from support posts.

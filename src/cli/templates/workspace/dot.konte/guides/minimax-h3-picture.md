@@ -20,7 +20,7 @@ What a decoded frame reads from the prompt.
 ## Pose and Placement
 
 - A pose is read joint by joint, and only there — "pitched forward with the momentum of his run" comes back standing still; "the thigh angled backward toward image-right, the knee sharply bent, and the heel kicked up high behind him" comes back mid-leap.
-- A state word renders nothing — "she looks anxious" comes back neutral. Write what a camera would see: where the eyes go, what the hands close on, what the shoulders do, what stays still.
+- A state word renders nothing — "she looks anxious" comes back neutral.
 - The parts run in one fixed order — camera angle, torso, head, arms, legs, framing. One clause a limb: the upper arm's or thigh's direction, the elbow's or knee's bend, where the hand or foot ends up.
 - Angles are coarse words — `nearly vertical`, `nearly horizontal`, `nearly straight`, `sharply bent`, `nearly level`, `angled downward toward image-left`.
 - A prop of several parts is read along its length — what comes first from one end of the frame, what follows it, and which hand closes on which part: the scabbard in one fist at the lower right, the bare blade leaving its mouth, the guard, then the hilt in the other fist. "Drawing his sword" comes back with two swords.
@@ -28,7 +28,8 @@ What a decoded frame reads from the prompt.
 
 ## On-Screen Text
 
-A banner, sign, label, subtitle or neon that is actually legible in frame goes in English double quotes, verbatim and untranslated: `A red neon sign reading "営業中" glows above the doorway.` Name its face and its place in frame: `condensed`, `all-caps`, `serif`, `tracked wide`; `centred`, `lower third`.
+- A banner, sign, label, subtitle or neon that is actually legible in frame goes in English double quotes, verbatim: `A red neon sign reading "営業中" glows above the doorway.`
+- Name its face and its place in frame — `condensed`, `all-caps`, `serif`, `tracked wide`; `centred`, `lower third`.
 
 ## Canvas
 

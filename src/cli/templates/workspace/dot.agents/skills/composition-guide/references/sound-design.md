@@ -3,18 +3,18 @@
 ## Four layers, each with a job
 
 - Dialogue — the lines; everything else sits under them. The loudest line is the loudest thing in the piece.
-- SE — one sound per visible action, landing on the frame the action lands (a door, a plate, a step): an `<Audio>` per event, placed by `start`. An action the frame does not show gets no sound — unless it is the off-screen event the staging withheld (`staging-guide`), in which case the sound carries the shot and lands on the reaction.
-- Ambience — the place's constant sound: room tone, street, wind, a kitchen hum. One bed per `location`, entering on the first shot there and leaving on the last (`soundtrack()` with `from`/`until`, and `duck: false`), so a cut inside a place is seamless and a cut to another place is audible.
+- SE — one sound per visible action, landing on the frame the action lands (a door, a plate, a step): an `<Audio>` per event, placed by `start`. An action the frame does not show gets no sound — unless it is the off-screen event the staging withheld, in which case the sound carries the shot and lands on the reaction.
+- Ambience — the place's constant sound: room tone, street, wind, a kitchen hum. One bed per `location`, entering on the first shot there and leaving on the last (`soundtrack()` with `from`/`until`, and `duck: false` — a floor that moves with the lines is heard as a pump), so a cut inside a place is seamless and a cut to another place is audible.
 - Music — the emotion's carrier; the last layer added.
 
 ## Where music enters and leaves
 
-- A piece cut to a song skips this section → [song.md](song.md).
+- Skip this section on a piece cut to a song.
 - Enter on a turn, never at frame zero by default — the lens's turn (`disruption` / `violation` / `solution`) or the first shot of a build; opening on ambience alone makes the entrance an event.
 - Change on the hinge — the payoff gets its own cue or a lift (a second bed, a stronger section via `mediaStart`).
 - Resolve on the last cut or after it — a bed stopping mid-phrase on the last frame reads as a broken file; `fadeOut` a second or more, or end it on the last cut and let ambience carry the final image.
 - Silence is a cue — pulling every bed out for a moment (before the hit, on the reveal) lands harder than any swell. Once per piece.
-- One score identity — every cue from one adapter and one prompt lineage (`prompt-guide`); a second style is a second piece.
+- One score identity — every cue from one adapter and one prompt lineage; a second style is a second piece.
 
 ## Under dialogue
 
@@ -28,7 +28,6 @@ soundtracks: [
 ```
 
 - A duck is audible only on the reel — a bed is in no shot's `#stem`, so it shows in `konte preview` and `konte probe reel-audio`, not a shot's own review.
-- Ambience never ducks — it is the floor; a floor that moves with the lines is heard as a pump.
 - No SE on a line's syllables — unless the action is the line's point; shift the cue to the breath before or the pause after.
 
 ## Across cuts

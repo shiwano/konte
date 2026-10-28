@@ -1,11 +1,11 @@
 ---
 name: konte-dev-feedback
-description: Summarize konte's own rough edges hit while using it as developer-ready feedback to contribute back. Use when wrapping up a session to report konte's own friction back to its maintainers.
+description: Summarize every konte rough edge hit this session as a developer-ready list in the chat. Use when wrapping up a session to report konte's own friction back to its maintainers.
 user-invocable: true
 disable-model-invocation: true
 ---
 
-Turn hands-on konte usage into concrete feedback for improving konte itself, with enough specifics that a maintainer can act without re-deriving the context. Report in the chat; do not write a file.
+Done = every konte friction from this session reported in the chat, specific enough that a maintainer can act without re-deriving the context; no file written.
 
 ## 1. Gather the friction
 
@@ -30,23 +30,6 @@ Walk back through this session and collect every point where konte got in the wa
 
 ## 3. Report in the chat
 
-- Open with a Top 3 for this session — the highest-leverage fixes.
-
-Then group by category:
-
-- Bug
-- Missing feature
-- Confusing UX
-- Weak error
-- Truth mismatch
-- Docs & skills
-- Extra steps
-
-For each item (separate consecutive items with a `---` line):
-
-- Title
-- What I was doing → What happened → What I expected
-- Repro: exact `konte ...` command(s) and key output
-- Severity
-- Suggested fix
-- Confidence: confirmed / needs confirmation
+- Open with a Top 3 — the session's highest-leverage fixes.
+- Then group by category: Bug, Missing feature, Confusing UX, Weak error, Truth mismatch, Docs & skills, Extra steps.
+- Each item, separated from the next by a `---` line: title; what I was doing → what happened → what I expected; repro (exact `konte ...` command(s) and key output); severity; suggested fix; confidence (confirmed / needs confirmation).

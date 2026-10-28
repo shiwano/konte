@@ -10,7 +10,7 @@ How a comfy asset is routed off a ComfyUI, and how konte builds a Comfy API depl
 
 - Candidates — `comfy.adapters[<workflow without .json>] ?? comfy.adapters["*"] ?? ["comfyui", "comfyapi:cloud"]`; the first usable wins (`ComfyRouter`). A key naming no `adapters/comfy/<key>.json`, a `comfyapi:<name>` with no declaration, or a deployment declared as `cloud` (`COMFY_CLOUD_DEPLOYMENT` reserves it) is a config error.
 - Usable — `comfyui`: `comfy.comfyui.url` set. `comfyapi:cloud`: `COMFY_API_KEY` set and every `class_type` of the pruned graph is in Cloud's `/api/object_info` and every remaining model's `models/<folder>/<filename>` is in `/api/assets` (`ComfyCloudCatalog`, cached an hour in the workspace's `.konte/comfycloud.json`; `object_info`'s COMBO lists lag, so models are never read there). `comfyapi:<name>`: key set.
-- A deployment must be ready — the spend gate refuses with `COMFY_API_DEPLOYMENT_NOT_READY` instead of falling through when a deployment it reaches is `unbuilt`, `deploying` or `undeployed` (`deploymentReadiness`); `doctor` reports the same.
+- A deployment must be ready — the spend gate refuses with `COMFY_API_DEPLOYMENT_NOT_READY`, never falling through to the next candidate, when a deployment it reaches is `unbuilt`, `deploying` or `undeployed` (`deploymentReadiness`); `doctor` reports the same.
 - The route is never hashed — it rides the job (`comfyTarget`, backend kind `comfy-api`), decided once by the spend gate (`assertSpendAllowed` → `SpendRoutes.targetOf`).
 - Prereqs by route (`ensureComfyPrereqJobs`) — `comfyui`: model/node jobs; off a ComfyUI: none.
 
@@ -18,7 +18,7 @@ How a comfy asset is routed off a ComfyUI, and how konte builds a Comfy API depl
 
 - One v2 client for Cloud and a deployment's `endpointUrl`; `backendJobId` is `<target>|<jobId>` on Cloud and `<target>|<deploymentId>|<jobId>` on a deployment.
 - Inputs — blake3 → `HEAD by-hash` → `from-hash`, else multipart `POST /assets`; substituted into the graph as `core/ASSET` references.
-- Idempotency-Key = variant id — so `beginSubmission` lets a comfy-api job resubmit, under the first attempt's seed, input files and deployment (`chooseSubmissionSite`, recorded before the POST); a lost answer or `idempotency_key_reuse` is looked up in a deployment's `GET /jobs`, and is `SUBMISSION_UNCONFIRMED` on Cloud (no list). A 429 retries for 15 minutes.
+- Idempotency-Key = variant id; `beginSubmission` lets a comfy-api job resubmit, under the first attempt's seed, input files and deployment (`chooseSubmissionSite`, recorded before the POST); a lost answer or `idempotency_key_reuse` is looked up in a deployment's `GET /jobs`, and is `SUBMISSION_UNCONFIRMED` on Cloud (no list). A 429 retries for 15 minutes.
 - Outputs — the adapter's output node's, else every media output; `content`'s 302 is followed without the key. A failure writes `node_errors` and, on a deployment, the run's log to the job log.
 - A deployment submit goes to a ready deployment of the recorded release (`usableDeployment`); none is `COMFY_API_DEPLOYMENT_NOT_READY`.
 

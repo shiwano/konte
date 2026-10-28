@@ -14,7 +14,7 @@ Concise, direct descriptions work best — avoid over-elaboration.
 
 ## Edit Mode
 
-Use `falNanoBanana2Edit` to change existing frame(s) instead of generating from scratch. Prompt for the delta — say what to change and what to keep, not the full scene.
+- `falNanoBanana2Edit` — prompt for the delta: say what to change and what to keep.
 
 ## Tips
 
@@ -24,4 +24,3 @@ Use `falNanoBanana2Edit` to change existing frame(s) instead of generating from 
 ## Avoid
 
 - Negative phrasing — no `negativePrompt`; phrase exclusions as affirmative direction.
-- Embedding resolution or aspect ratio values in the prompt text.

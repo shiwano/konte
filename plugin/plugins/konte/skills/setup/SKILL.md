@@ -13,7 +13,7 @@ Done = the workspace's setup script succeeds and the user receives the restart s
 
 ## 2. Download and run
 
-Run from the chosen directory. Keep the downloaded script in a temporary directory outside the workspace.
+Run from the chosen directory; the script is downloaded outside it.
 
 macOS / Linux / WSL:
 

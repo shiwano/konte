@@ -15,7 +15,7 @@ const outDir = path.resolve(import.meta.dirname, "../src/core/generated");
 // Managed templates are overwritten in existing workspaces when konte is upgraded.
 // A prefix matches a directory subtree. A user who wants their
 // own skill or reviewer adds it under a different name; an adapter takes a custom guide by
-// re-pointing its `konte/guides/…` import at a file under adapters/comfy/.
+// re-pointing its `konte/guides/…` `guide` path at a file under adapters/comfy/.
 // Agent settings are rendered per workspace by the workspace sync instead.
 // User-owned escape hatches: personal Claude Code overrides go in
 // .claude/settings.local.json (gitignored, never shipped/managed), and project

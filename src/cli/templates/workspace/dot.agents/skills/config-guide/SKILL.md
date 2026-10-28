@@ -11,7 +11,7 @@ Configure the required backends and editor; done = those backends pass `konte do
 1. Run `konte doctor --backends` — each unconfigured backend prints the variable name and where to obtain it.
    - WARN = survey only — configure only the backends you'll use; plain `konte doctor` FAILs on one an asset uses.
 2. Run `konte settings --tab credentials` in the background and ask the user to enter the listed keys, naming each key and its source URL from the message.
-3. Once the user has saved the keys, re-run `konte doctor --backends` to confirm the backends you need now report connected.
+3. Once the user has saved the keys, re-run `konte doctor --backends` — the backends you need report connected.
 
 - An adapter missing from `konte adapter list` → its backend is unconfigured (`--all` shows it); `generate` refuses it. `file`/`local` assets need no backend.
 
@@ -58,7 +58,7 @@ konte builds a deployment's Build and release; only the user creates and deletes
 
 ## Editor type-checking
 
-`konte lsp` is a language server providing TypeScript diagnostics and completion in `video.tsx` / `animatic.tsx`.
+`konte lsp` is a language server providing TypeScript diagnostics and completion in the definition files.
 
 - Claude Code: automatic — `konte workspace new` ships a `konte-lsp` plugin under `.claude/skills/`. Accept the workspace trust prompt.
 - VSCode: no setup.

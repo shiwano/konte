@@ -1,6 +1,6 @@
 ---
 name: layout-guide
-description: Lay out an accepted direction into stage definitions — wire rosters and brought material, lay out every shot in animatic.tsx / video.tsx, bake the plates, then develop and self-check one direction sequence at a time. Read when the direction is accepted and stage files are missing, when developing pendingShot shots, adding shots, or restructuring a definition; human reviews use generation-loop-guide.
+description: Lay out an accepted direction into stage definitions — rosters, brought material, every shot, the plates, then one direction sequence at a time. Read when the direction is accepted and stage files are missing, when developing pendingShot shots, adding shots, or restructuring a definition; human reviews use generation-loop-guide.
 user-invocable: false
 ---
 
@@ -27,7 +27,7 @@ Bring each file under `assets/files/` in as `file` kind — no generation. Pick 
 ## 4. Wire the rosters
 
 - Expose a `reference:<id>` per character, prop, location, and cast voice in `reference.tsx` — the deferred roster findings gate generation from here on.
-- Return a view image from `views` for every way but `front` a location's setups face (staging-guide's plates reference) — each is accepted before a plate on it can spend.
+- Return a view image from `views` for every way but `front` a location's setups face — each is accepted before a plate on it can spend.
 - Run the reference pool through `generation-loop-guide` and return once accepted.
 
 ## 5. Lay out every shot
@@ -51,14 +51,14 @@ Developing a shot = swapping its pending form for the real one — `pendingShot(
 - A `join: "continuous"` pair is developed together, in one pass even across a sequence boundary — the second shot's picture derives from the first's.
 - Carry a sequence through both stages before laying out the next — its panels accepted, then its video shots developed and accepted. A video shot's motion prompt is written from the accepted frames; the next sequence's prompts from what this one settled — the adapter, the prompt pattern, each recurring subject's look.
 - Write each panel prompt against the plate on screen — it places the subjects in that frame and restates nothing the picture shows. Written from the roster prose, it describes another frame: `setup-unconsumed` passes and the frame drifts anyway.
-- Leave `blocking`/`camera` off every `<Panel>` — they are written from the take, in `generation-loop-guide`'s self-review. The shot's `script` is sounded with `<Audio>`, not written onto a panel.
+- Leave `blocking`/`camera` off every `<Panel>` — they are written from the take, at self-review.
+- The shot's `script` is sounded with `<Audio>`, not written onto a panel.
 - An animatic `pendingShot` may stay for good only under a shot that spends nothing — one staged in composition or assembled from `file`/`local` takes; name the deferral in the handoff. A text-to-video take of a narrative shot holds the video spend (`animatic-unconsumed`).
 - Editing a definition copied from another video is writing it — read the guides above first; a carried-over prompt holds the other piece's staging and adapter choices.
 
 ## 8. Self-check the sequence
 
-Every pass reads the files you just wrote, never your memory of what you meant.
-
+- Every pass reads the files you just wrote, never your memory of what you meant.
 - For pending panels, spawn `konte-staging-critic` on `animatic.tsx`, then fix its findings before the prompt pass.
 - A match pass on what no critic reads — each reference prompt against its roster entry and the job it holds as an anchor (single subject, clean ground, identifying features in frame); each motion prompt against the shot's `duration`; each bed against `brief.tone`. A promise the prompt drops, or an element it invents, is a rewrite now — after generating it is a reroll.
 - Then spawn `konte-prompt-critic` on the definition before the first spend on new or rewritten prompts. A reroll on unchanged definitions skips both critics.

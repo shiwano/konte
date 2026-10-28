@@ -6,7 +6,7 @@ user-invocable: false
 
 Conventions for the skills `konte workspace new` writes into every user project (`src/cli/templates/workspace/dot.agents/skills/<skill>/`), not this repo's dev skills. Done = single-purpose, terse-first, and passing `skills:check`.
 
-Audience: the agent in a user's konte project, mid-task — never the konte maintainer or the human. Write what that agent needs to act; never explain the doc's structure or why content sits where it does.
+Audience: the agent in a user's konte project, mid-task — never the konte maintainer or the human.
 
 - Ship as managed files (`.claude/skills/` in `MANAGED_PREFIXES`) — re-synced on `konte` upgrade, overwriting a user's local edits. Author here, never in a user project.
 
@@ -14,7 +14,9 @@ Audience: the agent in a user's konte project, mid-task — never the konte main
 
 - Author only under `dot.agents/skills/` — embed (`scripts/embed-templates.ts`) mirrors each skill's `SKILL.md` and `references/` verbatim to a `.claude/skills/` twin; sidecars aren't mirrored. Codex reads `dot.agents/skills/` directly; Claude Code reads the mirror.
 - Never touch `dot.claude/skills/` — embed throws on a hand-written `SKILL.md` there; only its `README.md` (ignored by embed) and the Claude-only `konte-lsp` plugin belong there.
-- Plugin skills live in `plugin/plugins/konte/skills/` — shipped by the marketplace, not `workspace new`; no `konte-` prefix (the namespace supplies it). The plugin ships only `setup` and `upgrade`, which install and update the binary inside one workspace. `.github/workflows/publish-plugin.yml` publishes `plugin/` to the orphan `plugin` branch users add (`shiwano/konte@plugin`), so main carries no marketplace at its root.
+- Plugin skills live in `plugin/plugins/konte/skills/` — shipped by the marketplace, not `workspace new`; no `konte-` prefix (the namespace supplies it).
+- The plugin ships only `setup` and `upgrade`, which install and update the binary inside one workspace.
+- `.github/workflows/publish-plugin.yml` publishes `plugin/` to the orphan `plugin` branch users add (`shiwano/konte@plugin`), so main carries no marketplace at its root.
 
 ## Subagents
 
@@ -47,9 +49,8 @@ argument-hint: <args> # optional, user-invocable skills that take an argument on
 
 ## Body
 
-Open every skill with one prose sentence that fixes its scope and definition of done — what "finished" means and what's out of scope. It is the one prose exemption.
-
-- Voice: terse-first — one rule per line, why as an inline clause (`rule — why`). Fewer tokens at the same effect — never drop a why or a judgment to save space. What to cut is `konte-prose-trim`'s Cut list.
+- Open every skill with one prose sentence fixing its scope and definition of done — the one prose exemption.
+- Voice: terse-first — one rule per line, why as an inline clause (`rule — why`). Fewer tokens at the same effect — never drop a why or a judgment to save space.
 - Branches are routing lists — an if-X-then-Y fork is a `- symptom/state → destination` bullet list.
 - No markdown tables — the formatter pads every cell, so a table costs more tokens than bullets. A row with N columns is one bullet: `- key (dimension; dimension) — the rest`.
 - Show the smallest correct DSL/CLI snippet, don't narrate it.
@@ -73,11 +74,9 @@ Reference skills — organized by topic (`composition-guide`, `authoring-guide`)
 Across both:
 
 - A "before every X" rule lives in the skill that owns X — a skill is read once per session, so a recurring directive parked upstream fires wherever the agent happened to be reading and stays silent at the X that mattered.
-- One owner per rule — every rule lives in exactly one skill; a sibling that needs it routes there by name (`read the staging-guide skill`), never restates it. Chain-level duplication blows the journey budget even when every file passes its own. Carve a guide out when two skills would repeat the same material.
-- The residue test — before shipping a line, ask: would the _executing_ agent act differently without it? Context you held while writing — design history, what a sibling already covers, reassurance, restated names/types — fails; cut it. Keep the why and judgment that change what the agent does.
+- One owner per rule — a sibling that needs it routes there by name (`read the staging-guide skill`), never restates it. Chain-level duplication blows the journey budget even when every file passes its own. Carve a guide out when two skills would repeat the same material.
 - Keep the shipped `AGENTS.md` minimal — it loads every turn. Push first-time/conditional knowledge into a `*-guide` behind a one-line pointer; only always-on rules (security) stay.
-- Omit silently — when something lives in `AGENTS.md` or another guide, leave it out; never add "X is in AGENTS.md, won't re-explain". Cross-reference only to send the reader somewhere to _act_ ("see staging-guide to fix the shot's staging"), never to justify a cut.
-- Link a sibling skill once per file, where the agent acts on it — the `## Routing` list (or the skill's designated routing bullet) is the router; a later step needing the same destination just states its rule. Cut the attribution (`(per staging-guide)` on a rule already stated in place), the re-route from a `references/` doc back to what its parent SKILL routes, and the back-link to the caller ("this feeds drafting-guide"). A `## Don't` / preflight-bail / Done-step pointer is a guardrail — keep it.
+- Link a sibling skill once per file, where the agent acts on it, never to justify a cut — the `## Routing` list (or the skill's designated routing bullet) is the router; a later step needing the same destination just states its rule. Cut the attribution (`(per staging-guide)` on a rule already stated in place), the re-route from a `references/` doc back to what its parent SKILL routes, and the back-link to the caller ("this feeds drafting-guide"). A `## Don't` / preflight-bail / Done-step pointer is a guardrail — keep it.
 
 ## Check before you ship
 

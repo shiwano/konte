@@ -1,6 +1,6 @@
 ---
 name: export-guide
-description: Render the final video deliverable after every shot is accepted — run konte export, wait out any delivery upscale chain, and report the output. Read when the user wants to export, render, or deliver the finished video.
+description: Render the accepted cut's deliverable — konte export, its delivery upscale chain, the report. Read when the user wants to export, render, or deliver the finished video.
 user-invocable: false
 ---
 
@@ -23,6 +23,6 @@ konte export video
 
 ## Delivery (upscale at export time)
 
-- If `export.delivery` is declared, export first runs the upscale chain at reserved `#delivery` addresses, then assembles at delivery resolution — `video:shot.<id>.motion#delivery` (per-layer) or `…composition#delivery` (per-frame).
+- If `export.delivery` is declared, export first runs the upscale chain at reserved `#delivery` addresses, then assembles at delivery resolution — `video:shot.<id>.motion#delivery` (per-layer) or `video:shot.<id>#composition#delivery` (per-frame).
 - `#delivery` targets are ordinary visible assets, cached on the composition's identity — an unchanged shot is never re-upscaled.
 - A delivery/upscale config the treatment did not agree → confirm the target resolution with the human first, then set `direction.policy.format.size.delivery` and wire `export.delivery.upscale` per `authoring-guide`.

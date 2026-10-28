@@ -10,8 +10,7 @@ Rewards richly detailed, multi-aspect prompts.
 
 - Sequence action beats chronologically — bundled simultaneous motions tend to get dropped.
 - Kinetic verbs ("snaps", "lunges", "erupts") over generic ones ("attacks", "hits").
-- Replace emotion words with visible physical causes ("nervous" → "fingers drumming on table, eyes darting to the door").
-- Name concrete sounds — gravel underfoot, rain on tin, a fan spinning down. They set the motion's implied timing, and with audio on they are what the soundtrack acts on.
+- Name concrete sounds — gravel underfoot, rain on tin, a fan spinning down. They set the motion's implied timing.
 
 ## Length
 
@@ -19,27 +18,21 @@ Hero shots: 200–400 words; inserts/cutaways: 80–150.
 
 ## One take, several beats
 
-A single generation carries several connected shots. Write the whole sequence — whatever you leave unordered, the model orders for you.
+Write the whole sequence — whatever you leave unordered, the model orders for you.
 
 - Stage the beats — one primary change per stage, and name what is on screen when the stage ends.
 - Or write a timed shot list ("0–6s …", "6–12s …"). A range allocates a share of screen time, not an exact frame.
 - Don't overlap the ranges or leave a gap between beats.
 
-## Dialogue
-
-Spoken lines go in double quotes — that is what triggers lip-sync.
-
 ## Image-to-video
 
-- Don't fully re-describe the source image — repeat only 3–6 key anchors (hair, clothing, age, silhouette, distinctive accessories).
+- Repeat only 3–6 key anchors of the source image (hair, clothing, age, silhouette, distinctive accessories).
 - No pronouns as sole subject references — "the silver-haired woman in the navy peacoat walks forward", not "she walks forward".
-- Describe progression — what changes from the start frame to the end state.
 - Name what the camera does hold — `one continuous take`, `a locked-off camera`.
 
 ## References
 
-References are addressed by ordinal, numbered by their position in the input array. Write the tag in the form that adapter's input description gives: `@Image1` on FAL.
-
+- A tag's ordinal is the reference's position in its input array.
 - Give each reference a role in the sentence — "@Image1 is the potter: her face, her dark green apron".
 - A reference no tag reaches is spend for nothing; a tag with no reference behind it lands on whichever reference took that ordinal.
 
@@ -47,14 +40,10 @@ References are addressed by ordinal, numbered by their position in the input arr
 
 - Open at `resolution: "480p"` — `"720p"` once the take holds, `"1080p"` only for the take that ships with no delivery upscale.
 - `bitrateMode: "high"` is an encode — the last rung, on the shipped take alone.
-- `generateAudio` costs the same either way — leave it on; turn it off only where the stem or the mux carries the sound.
-- Pass the shot's `duration`, a whole second at or above its span — `"auto"` lets the model pick.
+- Leave `generateAudio` on; turn it off only where the stem or the mux carries the sound.
+- Leave `duration` unset in a shot — konte passes the shortest length that holds it; `"auto"` lets the model pick.
 - On R2V, every reference is paid for — pass the ones the shot needs.
-
-## Negative Prompt
-
-- None. The model takes no negative text — phrase every exclusion affirmatively, as what fills the space instead. A custom adapter may differ — check its schema.
 
 ## Avoid
 
-- Baking duration, aspect ratio or resolution into the prompt text — those are inputs.
+- Negative text — the model takes none; phrase every exclusion as what fills the space instead.

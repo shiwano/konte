@@ -2,7 +2,7 @@
 
 ## Chaining past a model's maximum duration
 
-A motion model caps its clip length (Hailuo H3 tops out near 15s). To run a take longer, generate it in segments and condition each one on the frame the previous segment ends on, so the seam carries the exact pixels.
+A motion model caps its clip length (Hailuo H3 tops out near 15s). Generate a longer take in segments, each conditioned on the frame the previous one ends on.
 
 ```tsx
 const CUT_A = 14.5;
@@ -21,10 +21,10 @@ The segments are cut in the composition, not on disk — `at` and the clip's `du
 
 ## Where to cut
 
-A generative motion model degrades across its last frames. Cutting a shot short of the end — a few frames is enough — keeps that tail out of both the delivered clip and the next segment's conditioning, where it would otherwise compound across every seam.
-
-Default `at` to `"last"` only for a clip nothing continues from.
+- A generative motion model degrades across its last frames — cut a few frames short of the end, keeping that tail out of both the delivered clip and the next segment's conditioning, where it compounds across every seam.
+- Leave `at` at its `"last"` default only for a clip nothing continues from.
 
 ## When not to chain
 
-A seam frame buys continuity. Where the picture is meant to change — a costume change, a time jump, a new layout — author the discontinuity as an animatic panel and condition the next segment on that panel instead. Those segments also generate in parallel, where a chain must be accepted one link at a time.
+- Where the picture is meant to change — a costume change, a time jump, a new layout — author the discontinuity as an animatic panel and condition the next segment on that panel instead.
+- Those segments generate in parallel; a chain is accepted one link at a time.

@@ -8,69 +8,99 @@ The board on the direction's clock, with the shot's lines sounding over it. Not 
 
 ## One shape, two stages
 
-`defineAnimatic` and `defineVideo` are the same builder (`dsl/stage-define.ts`) over the same `StageDefinition`, which carries its own `stage` field, so every consumer formats the definition's own addresses. A leaf lister, predicate or cascade that hardcodes `video` silently does nothing for the board. Both walk the direction with the same chain and starter, both return `{ shots, soundtracks? }`, and both build a `<Composition>` per shot.
+- `defineAnimatic` and `defineVideo` are the same builder (`dsl/stage-define.ts`) over the same `StageDefinition`, which carries its own `stage` field — every consumer formats the definition's own addresses. A leaf lister, predicate or cascade that hardcodes `video` silently does nothing for the board.
+- Both walk the direction with the same chain and starter and build a `<Composition>` per shot.
 
-What differs is what may go inside:
+What may go inside differs:
 
-- `<Panel>` is the animatic's — it carries the part name `video.tsx` reaches it by, the slot it holds on the shot's clock, the movement leaving it, and the frame `probe contact-sheet` tiles. A plain `<Image>` beside it is a layer, not a keyframe. A developed narrative shot with none is `PANEL_REQUIRED`; a graphic shot may hold none, and one outside a `<Cutin>` there is `ANIMATIC_INVALID`; a coverage shot holds exactly one, its opening frame, and a second is `ANIMATIC_INVALID`.
-- `<Video>` is the video's — anywhere in an animatic it is `ANIMATIC_INVALID`, raw markup included. A graphic shot's picture is the composition's own layers, finished on the board, and the video places the same component.
+- `<Panel>` is the animatic's — it carries the part name `video.tsx` reaches it by, the slot it holds on the shot's clock, the movement leaving it, and the frame `probe contact-sheet` tiles. A plain `<Image>` beside it is a layer.
+- A developed narrative shot with no `<Panel>` is `PANEL_REQUIRED`.
+- A graphic shot may hold none; one outside a `<Cutin>` there is `ANIMATIC_INVALID`.
+- A coverage shot holds exactly one, its opening frame; a second is `ANIMATIC_INVALID`.
+- `<Video>` is the video's — anywhere in an animatic it is `ANIMATIC_INVALID`, raw markup included.
+- A graphic shot's picture is the composition's own layers, finished on the board; the video places the same component.
 
-`video.tsx` reaches the board through the imported ref — `animatic.shot("01").image("first")`, `.stem` — each checked against what that shot declared, so an unknown name or a kind mismatch throws at load. A video shot that spends yet builds nothing on the board it develops holds the video stage (`animatic-unconsumed`); one assembled from `file`/`local` takes no board input, so only `doctor` reports it. An undeveloped `pendingShot(id)` carries nothing of its own; its black tile is backed by the direction's `action` (and, on the board, its `script`).
+Across the stages:
 
-Asides. The video authors an aside like any shot (`asideShot(id, build)`, usually one `file`); the animatic never boards one (`asideShot(id)`) and konte fills the span with its own labelled slug. Each starter is pinned to its kind at the type level. A board aside carries no `shotFn`, so it is not review work there; it is not `pending` either, so export never refuses over it, `status` never asks for it to be developed, and `animatic-unconsumed` passes it over.
+- Each `animatic.shot(id)` ref `video.tsx` takes is checked against what that shot declared — an unknown name or a kind mismatch throws at load.
+- A video shot that spends yet builds nothing on the board it develops holds the video stage (`animatic-unconsumed`); one assembled from `file`/`local` takes no board input, so only `doctor` reports it.
+- An undeveloped `pendingShot(id)` carries nothing of its own; its black tile is backed by the direction's `action` (and, on the board, its `script`).
+
+Asides:
+
+- The video authors an aside like any shot (`asideShot(id, build)`, usually one `file`); the animatic never boards one (`asideShot(id)`) and konte fills the span with its own labelled slug. Each starter is pinned to its kind at the type level.
+- A board aside carries no `shotFn`, so it is not review work there. It is not `pending` either: export never refuses over it, `status` never asks for it to be developed, and `animatic-unconsumed` passes it over.
 
 ## Panel windows
 
-`<Panel start>` pins when a keyframe takes over, in shot-local seconds. Omitted, a panel divides what the pins bracketing it leave (the pinned panel opening a gap holds its first slot; the shot's ends stand in where there is no pin) — with nothing pinned, the even whole-shot division. So `[—, 5, —]` over a 6s shot is `[0, 5, 5.5]`. Each holds until the next one's `start` — the last to the shot's end — and then CUTS; konte never interpolates between two frames, so a dissolve is written with `<Animate>`. Non-monotonic pins, and any start outside `[0, duration)`, are load errors.
+- `<Panel start>` pins when a keyframe takes over, in shot-local seconds.
+- An omitted `start` divides what the pins bracketing it leave (the pinned panel opening a gap holds its first slot; the shot's ends stand in where there is no pin); with nothing pinned, the even whole-shot division. `[—, 5, —]` over a 6s shot is `[0, 5, 5.5]`.
+- Each panel holds until the next one's `start` — the last to the shot's end — and then CUTS; konte never interpolates between two frames, so a dissolve is written with `<Animate>`.
+- Non-monotonic pins, and any start outside `[0, duration)`, are load errors.
+- The windows are resolved once, by the definition, and paired back by position — `<Panel>` runs inside `renderToHtml`, where by the real render its `src` is a served URL the part name cannot pair. `Composition` resets a cursor as each shot begins and each panel takes the next (`panel-collect.ts`), in document order.
 
-The windows are resolved once, by the definition, and paired back by position — `<Panel>` runs inside `renderToHtml`, where by the real render its `src` is a served URL, so the part name cannot pair it with its entry. `Composition` resets a cursor as each shot begins and each panel takes the next (`panel-collect.ts`) — document order.
+A `<Cutin>` is a second lane:
 
-A `<Cutin>` is a second lane. It renders its children itself through `renderInContext` with `lane: "cutin"` — a component's returned element renders only after it returns — so a `<Panel>` inside records into the cutin lane, pairs against `cutinPanels` on its own cursor, and lands in `shot.cutin.panels`, windowed on the same clock. `partitionShotRefs` counts the `<Cutin>`s and collects the refs drawn inside (`shot.cutin.refs`, on both stages), which `defineStage` checks against the direction — a disagreement is a finding (`cutin-required` / `cutin-undeclared`). A part name is the shot's across both lanes.
+- It renders its children itself through `renderInContext` with `lane: "cutin"` — a component's returned element renders only after it returns. A `<Panel>` inside records into the cutin lane, pairs against `cutinPanels` on its own cursor, and lands in `shot.cutin.panels`, windowed on the same clock.
+- `partitionShotRefs` counts the `<Cutin>`s and collects the refs drawn inside (`shot.cutin.refs`, on both stages), which `defineStage` checks against the direction — a disagreement is a finding (`cutin-required` / `cutin-undeclared`).
+- A part name is the shot's across both lanes.
 
-`blocking` / `camera` never reach the HTML. They are the movement out of a panel — the subject, and the camera — across the span to the next keyframe, or, on a shot's only panel (its key, `panelRole`), the whole shot: prose in the working language that `video.tsx` reads when it writes its motion prompt, so they are written from the take, a review prerequisite gated at `preview` / `accept`. Discovery rejects them only on a multi-panel shot's last panel, the landing frame nothing moves out of — unless the next shot runs on from that lane in one take (`ShotDefinition.continuedBy`): the last panel then owes the transit like any other (`arch-direction-guide`, Join). They are collected the way `asset()`'s prompts are, so they fall outside the composition's definition hash. Rewriting a move after the take came back asks for no decision — no Needs review, no staleness, no re-accept, no reroll; it is hashed on its own axis (`panel-move-hash.ts`), read only by the comments written on the panel.
+`blocking` / `camera`:
+
+- They never reach the HTML. They are the movement out of a panel — the subject, and the camera — across the span to the next keyframe, or, on a shot's only panel (its key, `panelRole`), the whole shot.
+- Prose in the working language that `video.tsx` reads when it writes its motion prompt, written from the take — a review prerequisite gated at `preview` / `accept`.
+- Discovery rejects them only on a multi-panel shot's last panel, the landing frame nothing moves out of — unless the next shot runs on from that lane in one take (`ShotDefinition.continuedBy`): the last panel then owes the transit like any other (`arch-direction-guide`, Join).
+- Collected the way `asset()`'s prompts are, so they fall outside the composition's definition hash.
+- Rewriting a move after the take came back asks for no decision — no Needs review, no staleness, no re-accept, no reroll. It is hashed on its own axis (`panel-move-hash.ts`), read only by the comments written on the panel.
 
 ## The stem
 
-`animatic:shot.<id>#stem` is the shot's `<Audio>` cues mixed down and clamped to the shot's `duration` — a materialized leaf like `video:*#stem`, over the same `stemRefs` and the same structure hash (`stemDefinitionHash`; the board's folds the clamp in, so a retimed shot is a different stem). `video.tsx` takes it through `animatic.shot("01").stem`.
+- `animatic:shot.<id>#stem` is the shot's `<Audio>` cues mixed down and clamped to the shot's `duration` — a materialized leaf like `video:*#stem`, over the same `stemRefs` and the same structure hash (`stemDefinitionHash`; the board's folds the clamp in, so a retimed shot is a different stem). `video.tsx` takes it through `animatic.shot("01").stem`.
+- Narration is mixed apart into `#narrationStem`, which only `<Audio>` takes (`NARRATION_UNPLACED` wherever both stages load).
+- On a song, `#songStem` is what a motion model hears (`shotSongStem`): the vocals of the lines a character in frame sings, else the instrumental (`song-parts.ts`). `asset()` fills an adapter's `stem` input with it (`SONG_STEM_OVERRIDDEN`); `.stem` is refused.
+- The materialization is the one difference between the stages' stems: the delivered stem is a manifest (muxed at export), the board's is the real mix — `materializeShotStem` runs `mixAudioTracks` over the cues.
+- The shot's accept (or `konte accept animatic:shot.<id>#stem`) materializes it over the takes just signed off; an unchanged accept mints nothing.
+- The clamp is konte's — a motion model reads the clip length off its input audio, so an unclamped stem would let a TTS take decide how long the shot runs.
+- A sound that must cross a cut belongs in the video build's `<Audio>` (full length, never clamped).
+- Never feed the delivered stem into a motion model — it may contain audio generated from the picture, so `stem → motion → stem` would cycle. The video build is handed no handle to it; the only stem it reaches is the board's.
 
-Narration is mixed apart into `#narrationStem`, which only `<Audio>` takes (`NARRATION_UNPLACED` wherever both stages load).
+A truncated stem is exactly as long as the shot, so what the clamp cuts is caught either side of the spend:
 
-On a song, `#songStem` is what a motion model hears (`shotSongStem`): the vocals of the lines a character in frame sings, else the instrumental (`song-parts.ts`). `asset()` fills an adapter's `stem` input with it (`SONG_STEM_OVERRIDDEN`); `.stem` is refused.
-
-What the materialization writes is the one difference between the stages' stems: the delivered stem is a manifest (muxed at export), the board's is the real mix — `materializeShotStem` runs `mixAudioTracks` over the cues. The shot's accept (or `konte accept animatic:shot.<id>#stem`) materializes it over the takes just signed off; an unchanged accept mints nothing.
-
-The clamp is konte's, not the author's — a model of this kind reads the clip length off its input audio, so an unclamped stem would let a TTS take, not the direction, decide how long the shot runs. A sound that must cross a cut belongs in the video build's `<Audio>` (full length, never clamped).
-
-What the clamp cuts is caught either side of the spend — a truncated stem is exactly as long as the shot, so nothing downstream tells it from one that fits. `assertCuesFitShot` (`core/clip-fit.ts`) throws `CUE_OVERRUNS_SHOT` at load, off the declared length; `findAnimaticOverflows` (`core/animatic-overflow.ts`) measures recorded lengths after, surfacing as the `narration-overflow` finding and a `probe reel-audio` warning, counting an unmeasured cue. `tightenDerivedClipLengths` holds a `fill: "speech"` count inside the cue's window first, re-validating at what it narrowed to; it trips the check only where the grid fits nothing. A derived count left under half its line's estimate, the take's lead-in (`BASE_SEC`) included, throws `CUE_WINDOW_TOO_SHORT` from the same check — the take would come back rushed.
-
-Never the delivered stem into a motion model — it may contain audio generated from the picture, so `stem → motion → stem` would cycle. The video build is handed no handle to it; the only stem it reaches is the board's.
+- `assertCuesFitShot` (`core/clip-fit.ts`) throws `CUE_OVERRUNS_SHOT` at load, off the declared length.
+- `findAnimaticOverflows` (`core/animatic-overflow.ts`) measures recorded lengths after, surfacing as the `narration-overflow` finding and a `probe reel-audio` warning, counting an unmeasured cue.
+- `tightenDerivedClipLengths` first holds a `fill: "speech"` count inside the cue's window, re-validating at what it narrowed to; it trips the check only where the grid fits nothing.
+- A derived count left under half its line's estimate, the take's lead-in (`BASE_SEC`) included, throws `CUE_WINDOW_TOO_SHORT` from the same check — the take would come back rushed.
 
 ## The gate is the ordinary one
 
-No animatic-specific spend gate — `GATED_UPSTREAM` lists `[reference, animatic]` and the spend gate holds exactly what a spend consumes: a video asset consuming `animatic:shot.01.first` needs that keyframe accepted, one consuming `animatic:shot.01#stem` the stem.
-
-A stale accept does not pass — though the mix is reviewed at the board, every stem is deterministic (`isDeterministicAddress`), and strict resolution refuses a stale accept on either axis (`selectResolvedVariant`, via `ResolutionDefinitions.isDeterministic`). Re-picking a voice take or editing a cue ages the stem out; the shot's next accept re-mixes it — no `generate` in between. Once the video develops the shot past the board, the stem is konte's to keep current instead (below).
-
-The cast is gated here too — a voice holds `animatic` as `video`; only `reference`, where the sample is made, is exempt.
-
-A board with one unwritten `blocking`/`camera` (`movement-unwritten`) holds every video spend and the board's review.
+- No animatic-specific spend gate — `GATED_UPSTREAM` lists `[reference, animatic]` and the spend gate holds exactly what a spend consumes: a video asset consuming `animatic:shot.01.first` needs that keyframe accepted, one consuming `animatic:shot.01#stem` the stem.
+- A stale accept does not pass — every stem is deterministic (`isDeterministicAddress`), though the mix is reviewed at the board, and strict resolution refuses a stale accept on either axis (`selectResolvedVariant`, via `ResolutionDefinitions.isDeterministic`).
+- Re-picking a voice take or editing a cue ages the stem out; the shot's next accept re-mixes it, with no `generate` in between. Once the video develops the shot past the board, konte keeps the stem current instead (Review, below).
+- The cast voice gate is the direction's (`arch-direction-guide`).
+- A board with one unwritten `blocking`/`camera` (`movement-unwritten`) holds every video spend and the board's review.
 
 ## Review
 
-`konte preview animatic` is `konte preview video`'s page, handler and submit (`reel-review.ts`, told which stage by the definition it is handed): one reel played through, one verdict per shot folding its `#composition`, its stem and the takes they rest on, takes picked in the variant gallery, comments pinned at the playhead on `animatic:shot.<id>`.
+`konte preview animatic` is `konte preview video`'s page, handler and submit (`reel-review.ts`, told which stage by the definition it is handed): one reel played through, one verdict per shot folding its `#composition`, its stem and the takes they rest on, takes picked in the variant gallery, comments pinned at the playhead on `animatic:shot.<id>`. Both print the board's `blocking` / `camera` in the selected shot's detail, with each panel's role.
 
-Both print the board's `blocking` / `camera` in the selected shot's detail, with each panel's role.
-
-Three differences:
+Differences on the board:
 
 - No stand-in.
 - `narration-overflow` reads the shot's cues against the clamp.
 - A leaf the video's accept settles is not board review work (`leafSettledAcross`).
 
-Past the board: the leaf holds an accept and the video a take of the shot. From then on a definition edit (a retime, a moved cue) is the video's to judge, and konte re-makes and accepts the leaf (`remakeSettledLeaves`): its stems before `generate` / `reroll` / `patch apply` gate a video spend and before `konte preview video`, both leaves when that review accepts the shot, the composition after the video's. Until then `status` lists an aged-out stem under Board stems to re-mix (`konte generate video`). A moved or new input, an unaccepted take under the leaf, and a stem whose line the clamp cuts stay the board's.
+Past the board:
 
-A graphic shot's composition shows on both reviews; either signed-off one settles the other its picture (`compositionPictureNodes`) holds over the same takes, re-made then and on export. `status` routes a board one the video would settle to the video.
+- A shot is past the board once its leaf holds an accept and the video holds a take of the shot.
+- From then on a definition edit (a retime, a moved cue) is the video's to judge, and konte re-makes and accepts the leaf (`remakeSettledLeaves`): its stems before `generate` / `reroll` / `patch apply` gate a video spend and before `konte preview video`, both leaves when that review accepts the shot, the composition after the video's.
+- Until then `status` lists an aged-out stem under Board stems to re-mix (`konte generate video`).
+- A moved or new input, an unaccepted take under the leaf, and a stem whose line the clamp cuts stay the board's.
+- A graphic shot's composition shows on both reviews; either signed-off one settles the other its picture (`compositionPictureNodes`) holds over the same takes, re-made then and on export. `status` routes a board one the video would settle to the video.
 
-On the video side the only trace left is the stand-in: a shot whose delivered composition cannot be drawn yet plays the board's same shot (`RenderPlan.standInPlan`). Display only — no address, no verdict: a decision on one is dropped at submit. Which shots stood in comes from the client (`displayedStandInShotIds`), never re-derived: a dependency finishing mid-review would otherwise accept a composition nobody watched.
+On the video side the only trace left is the stand-in:
 
-Order matters inside a submit. The audio takes a stem is mixed from are accepted before any composition is materialized: an animatic composition's identity covers its audio, so building it first would fingerprint the take the reviewer replaced and read stale the moment the review saved.
+- A shot whose delivered composition cannot be drawn yet plays the board's same shot (`RenderPlan.standInPlan`).
+- Display only — no address, no verdict: a decision on one is dropped at submit.
+- Which shots stood in comes from the client (`displayedStandInShotIds`), never re-derived — a dependency finishing mid-review would otherwise accept a composition nobody watched.
+
+Inside a submit, the audio takes a stem is mixed from are accepted before any composition is materialized — an animatic composition's identity covers its audio, so building it first would fingerprint the take the reviewer replaced and read stale the moment the review saved.

@@ -1,7 +1,5 @@
 # Audio in a composition — BGM, source audio, SE
 
-Writing `prompt`/`script` → `prompt-guide`.
-
 - Adding audio auto-mints `stem` review targets — a shot's `<Audio>`/`<Video hasAudio>` grows `shot.<id>#stem`, `soundtrack()` beds a `timeline#stem`; both appear in `konte status` labelled `audio mix` and are reviewed like compositions.
 - An `<Audio>`'s optional `id` labels its block in the review timeline — name the dialogue lines so the human reads the track.
 - `soundtrack()` is a timeline-spanning bed — it goes in the `soundtracks` array of the `timeline()` return.
@@ -32,9 +30,8 @@ soundtracks: [
 
 ## The spoken lines live on the animatic
 
-On a piece cut to a song, the video places them again → [song.md](song.md).
-
-A shot the direction gives `script` lines must sound them there (`script-unvoiced` holds the shot otherwise) — an `<Audio>` per line in that shot's `animatic.tsx` composition. konte mixes the shot's cues, narration apart, into `animatic:shot.<id>#stem` — the one audio file an audio-driven model takes; play its take with `<Video hasAudio>`.
+- A shot the direction gives `script` lines must sound them there (`script-unvoiced` holds the shot otherwise) — an `<Audio>` per line in that shot's `animatic.tsx` composition.
+- konte mixes the shot's cues, narration apart, into `animatic:shot.<id>#stem` — the one audio file an audio-driven model takes; play its take with `<Video hasAudio>`.
 
 - Leave a line take's clip length unset — konte sizes it from the words, inside the window the `<Audio>` plays in. Set it by hand only after hearing a take come back rushed or padded.
 - A take that overruns its window is fitted, not cut — `asset("vo", adapters.audioRetime, { source: raw, duration: <the window> })` moves the tempo and leaves the pitch, so the clamp takes nothing off the tail. Past ±10% it needs a `waiver: "<reason>"` — the read itself has moved by then, which is the direction's call.

@@ -4,7 +4,7 @@ description: How to author the definition files — defineReference/defineAnimat
 user-invocable: false
 ---
 
-Declare shots, assets and dependencies in the stage files; done = `konte status` loads and typechecks them. Adapter choice, prompt text and composition contents follow the routing below.
+Declare shots, assets and dependencies in the stage files; done = `konte status` loads and typechecks them.
 
 ## Routing
 
@@ -18,11 +18,9 @@ Declare shots, assets and dependencies in the stage files; done = `konte status`
 
 ## The three definition files
 
-Each is a standalone entry file with a default export that konte loads directly; none is passed into another — a stage reaches another's assets by `import` + closure.
-
-Every DSL name is imported from `konte` — `define*`, `asset`, `panel`, `soundtrack`, the `<Composition>` components; none is ambient.
-
-A shot's words are keyed by who says them — `script.cat[0]`, and `script.speaker[0]` / `script.narration[0]` for the two variants that anchor to no roster (a mob's label is prose, never a key). Each is that speaker's lines in shot order.
+- Each file default-exports its definition; a stage reaches another's assets by `import` + closure, never by passing one into another.
+- Every DSL name is imported from `konte` — `define*`, `asset`, `panel`, `soundtrack`, the `<Composition>` components; none is ambient.
+- A shot's words are keyed by who says them — `script.cat[0]`, and `script.speaker[0]` / `script.narration[0]` for the two variants that anchor to no roster (a mob's label is prose, never a key). Each is that speaker's lines in shot order.
 
 ### reference.tsx — defineReference()
 
@@ -45,11 +43,11 @@ export default defineReference(direction, {
 
 - `defineReference(direction, { references, views? })` — `references` receives `{ format }` and declares assets with `asset()` (both `file` and generative adapters); returning one exposes it as `reference.<name>`. Address: `reference:<name>`.
 - `views` receives `{ format, reference }` and returns a location's view images, `{ <locationId>: { back | side | top: asset(…) } }`, each at `reference:view.<locationId>.<view>` and reached as `reference.view.<locationId>.<view>` — authoring → staging-guide.
-- Generated once and shared across every stage. A reference asset may depend only on other reference assets, never on an animatic/video asset.
+- A reference asset may depend only on other reference assets, never on an animatic/video asset.
 - Return only what other stages consume — an asset used solely as an input to another reference asset (a blank `latent` feeding a generated `key`) is left un-returned; it still generates, but is never reviewed.
 - Return each character, prop, location and cast voice under its roster id — a `lineup`'s `cat` needs `reference:cat`; other shared assets (`bgm`) are fine. Setups and landmarks are declared on the animatic.
 - Let konte size a generated reference — `width`/`height` derive off the canvas' long edge: portrait for a character, a landscape master at twice it for a location, square for the rest; pass neither. A canvas-shaped overlay takes `...format.size`.
-- Frame the subject tight — margin is pixels the shot never uses; ask for it filling the frame.
+- Frame the subject filling the frame — margin is pixels the shot never uses.
 
 ### animatic.tsx — defineAnimatic()
 
@@ -92,17 +90,17 @@ export default defineAnimatic(direction, {
 });
 ```
 
-- `defineAnimatic(direction, { plates?, timeline })` — the animatic derives its working `{ size, fps }` from the direction. `timeline` receives `{ format }`, the injected `shot`/`pendingShot` starters and what `plates` returned, declares shared assets at the top, and returns `{ shots, soundtracks? }`.
-- `plates` returns one image asset per setup id — addressed `animatic:plate.<id>`, handed to `timeline` unchanged.
+- `defineAnimatic(direction, { plates?, timeline })` — `{ size, fps }` derive from the direction. `timeline` receives `{ format }`, the injected `shot`/`graphicShot`/`pendingShot`/`asideShot` starters and what `plates` returned, declares shared assets at the top, and returns `{ shots, soundtracks?, overlay? }`.
+- `plates` receives `{ format }` and returns one image asset per setup id — addressed `animatic:plate.<id>`, handed to `timeline` unchanged.
 - Shots come from the direction — the injected `shot(id, …).nextShot(id, …)` is the only way to mint a shot; the shot's `duration` and `script` are injected into the build, never written here.
 - `pendingShot(id)` / `.nextPendingShot(id)` — the undeveloped shot, injected alongside `shot`; it declares nothing. Develop it by swapping in `shot(id, …)` / `.nextShot(id, …)`.
 - `asideShot(id)` / `.nextAsideShot(id)` — the `kind: "aside"` shot (`direction-guide`). The animatic's takes no build; the video's takes one — `asideShot(id, ({ duration, label }) => …)`.
 - `<Panel>` is a keyframe; `<Image>` is a layer — only a `<Panel>` gets a part name, a movement and a contact-sheet frame.
-- `<Panel start>` is when it takes over — omitted, the panels split the shot evenly. Each holds to the next one's start and then cuts; konte never interpolates, so write a dissolve with `<Animate>`.
+- `<Panel start>` is when it takes over — omitted, the panels split the shot evenly. Each holds to the next one's start and then cuts; a dissolve is an `<Animate>`.
 
 ### video.tsx — defineVideo()
 
-The final motion video. Same `asset()` / shot chain / closure as animatic.
+Same `asset()` / shot chain / closure as animatic.
 
 ```tsx
 import { defineVideo, asset, soundtrack, Composition, Video } from "konte";
@@ -130,13 +128,13 @@ export default defineVideo(direction, {
 });
 ```
 
-- `defineVideo(direction, { export?, timeline })` — the video derives its working `{ size, fps }` from the direction's canvas. `export.delivery.upscale` wires the upscaler.
+- `defineVideo(direction, { export?, timeline })` — `{ size, fps }` derive from the direction. `export.delivery.upscale` wires the upscaler.
 - What it takes from the board — `animatic.shot("01").image("<panel>")` for a keyframe, `.stem` for the mixed-down lines, `.narrationStem` for the narration (`<Audio>` only).
 
 ## Adapter inputs
 
 - The canvas and the generation request are independent axes — `format.size` / `format.fps` are what the composition renders at; an adapter's `width` / `height` / `fps` are what it asks the backend for.
-- Omit them and they auto-fill from the canvas — an input typed `width`/`height`/`fps`/`frames` resolves from `format` (frames also from the shot's duration). Pass a value only to override; konte does no resampling, so an overridden `fps` ships at that rate.
+- Omit them and they auto-fill — an input typed `width`/`height`/`fps`/`frames` resolves from `format` (frames also from the shot's duration). Pass a value only to override; konte does no resampling, so an overridden `fps` ships at that rate.
 - A `seed` input defaults to `seed()`, re-randomized per variant — pass a fixed number to pin a take. An adapter with no seed input pins nothing.
 - A pinned frame must be one the picture shows — an input marked `pin:start`/`pin:end` in `konte adapter show` is reproduced pixel for pixel, so it takes the board panel this shot develops, or the seam frame of the segment before it.
 

@@ -69,7 +69,7 @@ export type {
 } from "../direction-check.js";
 
 // A cast member's voice. `id` is an exposed `reference:<id>` asset name holding the sample —
-// separate from the look anchor, and never shared with another cast member. `description` is how
+// separate from the look anchor; two members may share one (twins). `description` is how
 // they sound (sex, age, timbre, pace, register), read by whoever writes the TTS/voice-clone prompt.
 //
 // Optional in the type, required in practice: a script line is what demands one, which no type can

@@ -21,10 +21,10 @@ Delete each — the surrounding sentence almost always already says the thing.
 - Contrastive definitions — "a bad draw, not a bad prompt", "it reads as an X and is not one". Keep the assertion, drop the foil.
 - Rationale clauses — "so that…", "which means…", "because…" hung off a rule that stands without them.
 - Evidence and provenance — measurements, benchmarks, "we found", "testing showed", how the conclusion was reached. The conclusion ships; the investigation does not.
-- Mechanism the reader cannot act on. Keep it only where it changes what they do.
+- Mechanism the reader cannot act on.
 - Restatement of a sibling skill, `AGENTS.md`, a type, a schema, or the code under the comment. Route to the owner in one line.
 - Meta-commentary on the document — "this section covers", "as mentioned above", "note that", "it's worth mentioning".
-- Self-justification — "this is deliberate", "not an oversight", "for clarity".
+- Self-justification — "this is deliberate", "not an oversight", "for clarity", and justifying an omission ("X is in AGENTS.md, won't re-explain") — leave it out silently.
 - Editorializing — "simply", "just", "powerful", "elegant", "of course".
 - Recap — "In summary", a closing paragraph that repeats the bullets above it.
 - A comment restating its code — the default is no comment; keep one only where intent cannot be recovered from the code.
@@ -33,7 +33,7 @@ Delete each — the surrounding sentence almost always already says the thing.
 
 - A fact that changes what the reader does.
 - A non-obvious constraint, failure mode, or footgun ("from 1.1 up the model drops phonemes").
-- A rule's inline why in the house form — `rule — why`, one line.
+- A rule's inline why — `rule — why`, one line.
 - A skill's opening scope/done sentence.
 - Anything the user asked for explicitly.
 
@@ -49,5 +49,4 @@ Delete each — the surrounding sentence almost always already says the thing.
 ## Don't
 
 - Don't rewrite for style, reorder, or reword — this skill only deletes.
-- Don't touch prose the change did not introduce unless `$ARGUMENTS` says so.
 - Don't cut a section for being long. Redundancy is the signal, length is not.

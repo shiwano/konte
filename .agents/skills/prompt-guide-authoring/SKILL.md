@@ -17,8 +17,8 @@ An adapter's craft guide teaches the agent how to drive one adapter — for a mo
 
 ## The guide: craft prose only
 
-No parameter table — parameter catalogs stay in the schema/descriptions; the guide may recommend which value to choose, when, and what it changes. Sections in order, omitting any that doesn't apply: `# <the model's name>`, `## Prompt Shape` (template line + gloss), `## Length`, model-specific sections as warranted (`## I2V`/`## FLF2V`/`## IA2V`, `## Edit Mode`, `## Multi-Image Editing`), `## Cost ladder`, `## Known failures`, `## Avoid`.
-
+- No parameter table — parameter catalogs stay in the schema/descriptions; the guide may recommend which value to choose, when, and what it changes.
+- Sections in order, omitting any that doesn't apply: `# <the model's name>`, `## Prompt Shape` (template line + gloss), `## Length`, model-specific sections as warranted (`## I2V`/`## FLF2V`/`## IA2V`, `## Edit Mode`, `## Multi-Image Editing`), `## Cost ladder`, `## Known failures`, `## Avoid`.
 - Carry only what the schema can't: phrasing, length sweet spot, mode anchoring, model strengths/weaknesses. Concrete (kinetic verbs, visible physical detail, hex colors), never evaluative ("high quality").
 - `## Prompt Shape` stays prose — the agent copies its template line + gloss; the rest is terse, one rule per line, why inline. `## Avoid` includes this model's negative-phrasing rule.
 - `## Cost ladder` when the schema offers rungs (resolution, steps, a tier, per-reference cost) — the rung to open on and what each higher one buys.
@@ -29,7 +29,7 @@ No parameter table — parameter catalogs stay in the schema/descriptions; the g
 From the adapter `inputs`, document each non-obvious control where it is durable:
 
 - One input's own knowledge → a one-line `description` on the input def. `adapter show` already prints type/required/default/values, so a description adds meaning beyond them — units, interactions, gotchas — or is omitted (skip `prompt`, `seed`, a `values`-bearing `aspectRatio`/`duration`).
-- A rule spanning several inputs, or the prompt → the guide prose. The table gives a description one unwrapped line.
+- A rule spanning several inputs, or the prompt → the guide prose.
 - Name by the konte input key, not the provider field (`guidance` not `guidance_scale`; `inputImage` not `image`; `steps` not `num_inference_steps`) — that is what the agent writes in `asset()`.
 - A `description` is only about the input it sits on — no "FAL only" / "T2V only" scoping. Cross-backend contrast (a comfy input vs its FAL twin) goes in the shared guide prose if anywhere.
 - `numImages`/`n`/batch — leave unset and undocumented — one image per variant; alternatives come from `reroll --count`.
@@ -37,7 +37,7 @@ From the adapter `inputs`, document each non-obvious control where it is durable
 
 ## Negative-prompt & audio policy
 
-Establish the field's availability from the adapter and workflow, and its use from model documentation or observed takes. Put an input-specific rule in its `description`, and rules spanning inputs or the prompt in the guide:
+Establish the field's availability from the adapter and workflow, and its use from model documentation or observed takes:
 
 - Exposed (`negativePrompt`) — state when to use it, what to target, which modes make it effective, and observed side effects.
 - Comfy, unexposed but wired — trace the sampler's `negative` in the `.json`: a real text node (even empty) can be exposed; a `ConditioningZeroOut` has no negative path.
@@ -77,5 +77,5 @@ Fix in the guide `.md` and the input descriptions.
 
 ## Scope
 
-- May edit guide prose, the `guide` field, and per-input `description`s. Keep descriptions selective and schema-true.
+- May edit guide prose, the `guide` field, and per-input `description`s.
 - Report required implementation changes separately — inputs, workflow, `promptExemptions`, and `validators` belong to an adapter change; use `konte-comfy-workflow` for workflow changes.

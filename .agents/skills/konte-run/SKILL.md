@@ -5,7 +5,7 @@ user-invocable: true
 argument-hint: "[show|drive] [video|animatic|reference|direction]"
 ---
 
-`konte preview` serves the review UI as a React SPA. Offline there is no backend to `konte generate` with, so a hand-crafted fixture state + dummy media exercises it, optionally driven with headless Chrome. Run everything from the repo root.
+Serve konte's review UI (`konte preview`, a React SPA) offline from a crafted fixture state and dummy media, for the human's browser or driven with headless Chrome. Run everything from the repo root.
 
 ## Routing (`$ARGUMENTS`)
 
@@ -65,7 +65,7 @@ bun run konte --cwd $V preview direction  --no-auto-close --port 4658 &
 for i in $(seq 1 60); do curl -sf http://127.0.0.1:4655/api/state -o /dev/null && break; sleep 1; done
 ```
 
-**Stop a server by its port, never by a name pattern** — `pkill -f konte` is system-wide (kills another session's server) and matches your own shell's command line (a spurious `exit 144`). Cleanup: `for p in 4655 4656 4657 4658; do lsof -ti:$p | xargs -r kill; done`.
+**Stop a server by its port, never by a name pattern** — `pkill -f konte` is system-wide (kills another session's server) and matches your own shell's command line (a spurious `exit 144`, signal 16). Cleanup: `for p in 4655 4656 4657 4658; do lsof -ti:$p | xargs -r kill; done`.
 
 Inspect server-side state — each stage has its own shape:
 
@@ -102,13 +102,11 @@ google-chrome --headless=new --disable-gpu --no-sandbox --window-size=1400,900 \
 
 ## Gotchas
 
-- Video preview needs every shot ready — `/api/state` returns `RENDER_PLAN_FAILED: Assets without ready variants: …` if any shot's motion has no ready variant; add one. `animatic` / `reference` render an asset with no ready variant empty.
+- Video preview needs every shot ready — `/api/state` returns `RENDER_PLAN_FAILED` (`N asset(s) have no ready variant`) if any shot's motion has no ready variant; add one. `animatic` / `reference` render an asset with no ready variant empty.
 - Feedback is not in `konte.state.json` — comments live in `review/<stage>/feedback.json` (keyed by full address), handoffs in `review/<stage>/handoffs/*.json`. Annotation coords are frame-normalized (0–1).
 - file-sync registers `file` assets undecided; the fixture accepts all but the audio, so the audio track needs review.
 - Crafted variants must read non-stale — staleness fires only on a non-null `definitionHash` mismatch or a changed `inputFingerprints` entry, so dummy variants use `definitionHash: null` + `inputFingerprints: {}`.
 - A take is badged new while its `status` is `"none"` and it is not stale; beside an accepted one it is also `undecidedBesideAccepted`, which the reel shows in the accepted one's place. An accept settles the rest as `"dismissed"`. Flip `status` to control what needs review.
 - setup-fixture patches the fixture video by string replace — a changed `reference.tsx`/`video.tsx` shape can silently no-op it; check those first if a fixture asset is missing.
-- UI change not in the screenshot → rebuild (Build) and restart the server.
 - `drive.mjs` prints `NO_BUTTON` → the `--click` text matched no `<button>`; check the exact visible text.
-- `exit 144` (signal 16) → a `pkill -f`/`pgrep -f` matched your own shell; stop servers by port.
 - Chrome `Crash Reports`/`UPower` D-Bus warnings → benign; ignore.

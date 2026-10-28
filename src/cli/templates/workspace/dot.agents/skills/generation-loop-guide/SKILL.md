@@ -10,7 +10,7 @@ One loop drives every stage to "every reviewable asset has an accepted variant."
 
 Substitute your stage's `<scope>` / `<address>` into every step below.
 
-- `reference` — scope `reference`; upstream gate: none; self-review image, audio; passes below; done = every returned generative asset accepted → the animatic
+- `reference` — scope `reference`; upstream gate: none; self-review image, audio; done = every returned generative asset accepted → the animatic
 - `animatic` — scope `animatic`; upstream gate: reference pool accepted; self-review image, audio; done = every developed shot accepted (`pendingShot` shots are undeveloped, not gaps) — an accepted sequence goes to `layout-guide` for that same sequence's video shots
 - `video` — scope `video`; upstream gate: this sequence's animatic frames accepted; self-review video frames, motion, audio; done = every developed shot accepted → `layout-guide` for the next sequence, or `export-guide` when none is left
 

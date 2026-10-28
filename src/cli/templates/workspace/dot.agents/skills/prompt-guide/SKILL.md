@@ -8,7 +8,7 @@ Turn fixed staging into `asset()` prompt text; done = the self-review below pass
 
 ## Before writing
 
-Before writing or editing a prompt-like field (`prompt`, `text`, `lyrics`) in an `asset()` call:
+Before writing or editing a prompt-like field (`prompt`, `text`, `lyrics`):
 
 1. Fix the shot's staging (`staging-guide`) — staging you never stated reads as fixed from inside the prompt.
 2. Run `konte adapter show <adapter>`, read every file its `guide` lines name, in order, and defer to them — they carry prompt shape, length and per-anchor advice; the input table's DESCRIPTION column documents the non-obvious parameters (negative-prompt and audio policy included). A model's decodes share their first files; read a shared one once. No guide or descriptions shown → read the adapter file's input schema.
@@ -24,7 +24,7 @@ Before writing or editing a prompt-like field (`prompt`, `text`, `lyrics`) in an
 
 ## Per kind
 
-- reference — no staging pass: plain background, even lighting, subject centred, ~10% margin, since background detail binds into the identity.
+- reference — no staging pass: plain background, even lighting, subject filling the frame, since background detail binds into the identity.
 - `brief.look`'s medium decides what a reference has to be — drawn or stylized, the reference is the look, so it arrives at finish quality: line weight, palette, shading and deformation are the character information. Live action, it is an identification asset — write build, garment cut and material, and leave out cinematic backlight, a strong grade and shallow depth of field, each of which buries the structure a later model reads off it.
 - voice sample — a cast voice's `reference:<id>` is a timbre specimen: an adapter whose description says it designs a voice, an everyday sentence with nothing to act, the roster's `voice.description` reduced to timbre. A delivery baked into the sample is inherited by every line pointed at it. Sex never moves — a male role needs a male sample.
 - spoken line — `{ narration }` is one voice held level across the piece, `{ character }` a person acting inside a shot. Narration takes a clone adapter pointed at the sample, so the timbre holds across every take; a character line takes one that acts, with the sample as its voice reference and the delivery written into the prompt — what the speaker is doing, at what volume, from where in the range, at what tempo, what the breath under it is doing. `konte adapter list` says which each adapter is; a clone's emotion and rate controls adjust a read, never build a performance.
@@ -68,7 +68,9 @@ Look at the actual upstream image before writing about it.
 - An animatic panel states the body in full — torso orientation, each visible arm and leg's direction and bend, hand and foot positions, and the surfaces visible from the staged camera. For an upward gaze: "torso faces the camera; head tilts back toward screen left, chin underside visible; pupils high and toward screen left, whites visible below; the raised hand is off the upper-left edge of frame."
 - Two figures in contact are told apart by one visible axis, written at every contact — the attribute that separates them at the staged scale (a red coat against a grey one), restated wherever their bodies cross, trade blows or overlap: `the gloved woman blocks; the bare-knuckled one ducks under`. Named only by name, they swap identities mid-contact.
 - An animatic panel places contacts, overlaps and gaps explicitly — name what touches what, which object is nearer the camera, what occludes what, and which frame edge crops each part. Describe a required gap by its visible shape, screen position and thickness relative to an object in frame, alongside the physical distance.
-- Sides are the frame's, never a figure's — `screen left`, `off the right edge of frame`; a hand recurring across adjacent shots has its side and grip written so (`image-left`, the thumb's direction). A figure turned toward the lens is mirrored: what sits on its left sits on the frame's right, so "the sword at his left hip" hangs it off the wrong side — a worn or carried object, and which hand reaches for it, as much as a gaze. A reverse cut holds its axis only if both halves name the edge the gaze leaves by; unstated, each subject renders squared up to the lens and the pair loses the line.
+- Sides are the frame's, never a figure's — `screen left`, `off the right edge of frame`; a hand recurring across adjacent shots has its side and grip written so (`image-left`, the thumb's direction).
+- A figure turned toward the lens is mirrored — what sits on its left sits on the frame's right, so "the sword at his left hip" hangs it off the wrong side; a worn or carried object, and which hand reaches for it, as much as a gaze.
+- A reverse cut holds its axis only if both halves name the edge the gaze leaves by — unstated, each subject renders squared up to the lens and the pair loses the line.
 
 ## Project-wide consistency
 

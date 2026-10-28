@@ -2,20 +2,14 @@
 
 Shipping above the canvas you generate and review at — the delivery size lives on the direction; `video.tsx` wires only how to reach it (`export.delivery.upscale`).
 
-- Raise `size.megapixels` to the delivery instead when native high-res generation looks better — upscaling is not free quality. A canvas that already meets the delivery owes no upscaler.
+- Raise `size.megapixels` to the delivery instead when native high-res generation looks better. A canvas that already meets the delivery owes no upscaler.
 - A delivery well above the canvas demands an upscaler — wiring none is an error.
 
 ```tsx
 // direction.ts:
-//   policy: {
-//     format: {
-//       fps: 24,
-//       size: {
-//         megapixels: 0.9,                          // budget → derives 1248×704, where you review
-//         delivery: { width: 1920, height: 1080 },  // shipped resolution, and the only aspect
-//       },
-//     },
-//     speech: "free",
+//   policy.format.size: {
+//     megapixels: 0.9,                          // budget → derives 1248×704, where you review
+//     delivery: { width: 1920, height: 1080 },  // shipped resolution, and the only aspect
 //   }
 
 // video.tsx

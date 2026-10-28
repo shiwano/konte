@@ -55,5 +55,5 @@ prompt: {
 
 - Keyword lists — this model reads prose.
 - Evaluative filler ("masterpiece, best quality, 8k").
-- Naming an exclusion — the model takes no negative text. Write what fills the space instead; a decode's own guide names any exclusion it lets through.
+- Naming an exclusion — the model takes no negative text.
 - Tagging a reference you did not pass — the tag lands on whichever reference took that ordinal. The adapter rejects it, along with a slot you passed and never tagged.

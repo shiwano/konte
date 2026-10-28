@@ -1,7 +1,5 @@
 # YuE2
 
-Two fields: `style` describes the music, `lyrics` carries the sung words with section tags. YuE2 first plans the song as a score from both, then renders the score as audio.
-
 ## Prompt Shape
 
 `style` is one line, language first:
@@ -38,14 +36,10 @@ Hit the light, hit the light
 
 ## Duration
 
-The planned score sets the length, not a requested running time: four sections of four lines ran 113–198 s at 92–120 BPM, with long instrumental intros and outros around ~60–100 s of singing.
-
-`maxDuration` is a ceiling that cuts the take mid-phrase — leave it high for a song and trim in the composition. An instrumental often ends short of it, and a reroll runs no longer; join takes with `adapters.audioConcat` to fill a bed.
-
-## Negative Prompt
-
-- None. Steer by editing `style`.
+- Four sections of four lines run 113–198 s at 92–120 BPM, with long instrumental intros and outros around ~60–100 s of singing.
+- Leave `maxDuration` high for a song and trim in the composition.
+- A reroll of a short instrumental runs no longer; join takes with `adapters.audioConcat` to fill a bed.
 
 ## Avoid
 
-- Phrasing things to avoid as negatives — there's no negative path, and naming what to leave out can bring it in; describe what you _want_.
+- Phrasing things to avoid as negatives — there's no negative path; steer by editing `style`.
