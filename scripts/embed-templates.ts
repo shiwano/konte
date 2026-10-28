@@ -27,7 +27,13 @@ const MANAGED_PREFIXES = [
   ".claude/agents/",
   ".codex/agents/",
 ];
-const MANAGED_EXACTS = [".konte/mod.ts", "AGENTS.md", "CLAUDE.md", "tsconfig.json"];
+const MANAGED_EXACTS = [
+  ".konte/mod.ts",
+  ".konte/codex.md",
+  "AGENTS.md",
+  "CLAUDE.md",
+  "tsconfig.json",
+];
 const AGENT_SETTINGS_KEYS = [
   ".mcp.json",
   ".claude/settings.json",
