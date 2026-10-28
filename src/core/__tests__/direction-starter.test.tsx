@@ -1177,6 +1177,54 @@ describe("defineDirection", () => {
     };
     void _framingIsTyped;
   });
+
+  it("refuses a field konte does not read, at any depth", () => {
+    // Type-only: never invoked.
+    const _unknownFieldIsTyped = () => {
+      defineDirection({
+        ...directionDefaults,
+        // @ts-expect-error `speech` is not a policy field
+        policy: { ...directionDefaults.policy, speech: "free" },
+        sequence: { lens: "mini-drama", pleasure: "cute", shots: [] },
+      });
+      defineDirection({
+        ...directionDefaults,
+        setups: {
+          front: {
+            name: "the front angle",
+            description: "straight on, eye level",
+            location: "studio",
+            framing: "medium",
+            view: "front",
+            // @ts-expect-error `hold` is not a setup field — `holds` is
+            hold: ["desk"],
+          },
+        },
+        sequence: { lens: "mini-drama", pleasure: "cute", shots: [] },
+      });
+      defineDirection({
+        ...directionDefaults,
+        sequence: {
+          lens: "mini-drama",
+          pleasure: "cute",
+          shots: [
+            { id: "01", role: "ordinary", action: "x", setup: "front", duration: 3, lineup: [] },
+            {
+              id: "02",
+              role: "ordinary",
+              action: "y",
+              setup: "front",
+              duration: 3,
+              lineup: [],
+              // @ts-expect-error `jion` is not a shot field — `join` is
+              jion: "continuous",
+            },
+          ],
+        },
+      });
+    };
+    void _unknownFieldIsTyped;
+  });
 });
 
 // A video build returns JSX, so its asset names never reach the type system the way an animatic

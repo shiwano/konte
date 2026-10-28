@@ -697,6 +697,57 @@ type IsWidenedArray<A> = A extends readonly unknown[]
 // A branded error in the offending field's own position, carrying its message in the type ARGUMENT
 // so the compiler prints the advice rather than an alias name — the form `WithinViolation` takes.
 type DirectionViolation<M extends string> = { [P in M]: never };
+// Every key of the literal against the keys its shape declares, at every depth — a const literal is
+// not checked for excess properties against a generic constraint, so without this a misspelled or
+// removed field would be accepted and silently ignored. A union shape admits the keys of any member;
+// a `Record<string, …>` roster admits every key. Only the path down to an unknown key is constrained
+// — everything else is `unknown` — so the intersection leaves the other constraints' errors where
+// they land.
+type ConstrainKnownFields<V, S> =
+  HasUnknownField<V, S> extends true
+    ? V extends readonly unknown[]
+      ? { [I in keyof V]: ConstrainKnownFields<V[I], ElementShapeOf<S>> }
+      : {
+          [K in keyof V as K extends ShapeKeyOf<NonNullable<S>>
+            ? HasUnknownField<V[K], ShapeValueOf<NonNullable<S>, K>> extends true
+              ? K
+              : never
+            : K]: K extends ShapeKeyOf<NonNullable<S>>
+            ? ConstrainKnownFields<V[K], ShapeValueOf<NonNullable<S>, K>>
+            : DirectionViolation<`konte: "${K & string}" is not a field konte reads here`>;
+        }
+    : unknown;
+// A value as wide as its shape (a computed direction) has no key to blame, and walking it would
+// recurse through the arc tree's own recursive shape.
+type HasUnknownField<V, S> = V extends
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | null
+  | undefined
+  ? false
+  : [NonNullable<S>] extends [V]
+    ? false
+    : V extends readonly unknown[]
+      ? true extends { [I in keyof V]: HasUnknownField<V[I], ElementShapeOf<S>> }[number]
+        ? true
+        : false
+      : V extends object
+        ? NonNullable<S> extends readonly unknown[] | string | number | boolean
+          ? false
+          : true extends {
+                [K in keyof V]-?: K extends ShapeKeyOf<NonNullable<S>>
+                  ? HasUnknownField<V[K], ShapeValueOf<NonNullable<S>, K>>
+                  : true;
+              }[keyof V]
+            ? true
+            : false
+        : false;
+type ElementShapeOf<S> = NonNullable<S> extends readonly (infer E)[] ? E : unknown;
+type ShapeKeyOf<S> = S extends unknown ? keyof S : never;
+type ShapeValueOf<S, K> = S extends unknown ? (K extends keyof S ? S[K] : never) : never;
 type ConstrainLineupTo<F, LT> = F extends { lineup: infer L extends readonly string[] }
   ? IsWidenedArray<L> extends true
     ? unknown
@@ -2112,7 +2163,7 @@ export function assertCanvasFormat(format: DirectionFormat): void {
 }
 
 export function defineDirection<const D extends DirectionInput>(
-  direction: D & ConstrainIds<D>,
+  direction: D & ConstrainIds<D> & NoInfer<ConstrainKnownFields<D, DirectionInput>>,
 ): DirectionEntry<D> {
   const durationById = new Map<string, number | null>();
   const actionById = new Map<string, string>();

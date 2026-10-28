@@ -1314,6 +1314,53 @@ export type IsWidenedArray<A> = A extends readonly unknown[]
 export type DirectionViolation<M extends string> = {
   [P in M]: never;
 };
+export type ConstrainKnownFields<V, S> =
+  HasUnknownField<V, S> extends true
+    ? V extends readonly unknown[]
+      ? {
+          [I in keyof V]: ConstrainKnownFields<V[I], ElementShapeOf<S>>;
+        }
+      : {
+          [K in keyof V as K extends ShapeKeyOf<NonNullable<S>>
+            ? HasUnknownField<V[K], ShapeValueOf<NonNullable<S>, K>> extends true
+              ? K
+              : never
+            : K]: K extends ShapeKeyOf<NonNullable<S>>
+            ? ConstrainKnownFields<V[K], ShapeValueOf<NonNullable<S>, K>>
+            : DirectionViolation<`konte: "${K & string}" is not a field konte reads here`>;
+        }
+    : unknown;
+export type HasUnknownField<V, S> = V extends
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | null
+  | undefined
+  ? false
+  : [NonNullable<S>] extends [V]
+    ? false
+    : V extends readonly unknown[]
+      ? true extends {
+          [I in keyof V]: HasUnknownField<V[I], ElementShapeOf<S>>;
+        }[number]
+        ? true
+        : false
+      : V extends object
+        ? NonNullable<S> extends readonly unknown[] | string | number | boolean
+          ? false
+          : true extends {
+                [K in keyof V]-?: K extends ShapeKeyOf<NonNullable<S>>
+                  ? HasUnknownField<V[K], ShapeValueOf<NonNullable<S>, K>>
+                  : true;
+              }[keyof V]
+            ? true
+            : false
+        : false;
+export type ElementShapeOf<S> = NonNullable<S> extends readonly (infer E)[] ? E : unknown;
+export type ShapeKeyOf<S> = S extends unknown ? keyof S : never;
+export type ShapeValueOf<S, K> = S extends unknown ? (K extends keyof S ? S[K] : never) : never;
 export type ConstrainLineupTo<F, LT> = F extends {
   lineup: infer L extends readonly string[];
 }
@@ -1957,7 +2004,7 @@ export type LyricPlacementEntry = {
     }
 );
 export declare function defineDirection<const D extends DirectionInput>(
-  direction: D & ConstrainIds<D>,
+  direction: D & ConstrainIds<D> & NoInfer<ConstrainKnownFields<D, DirectionInput>>,
 ): DirectionEntry<D>;
 export type MapIds<
   S extends readonly {
