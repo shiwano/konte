@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import { computeDefinitionHash } from "../../core/definition-hash.js";
 import type { DependencyGraph } from "../../core/graph.js";
 import { StateManager } from "../../core/state/index.js";
 import { comfyModelJobId } from "../../core/job-manager.js";
@@ -69,6 +70,17 @@ describe("assetSkipReason", () => {
   it("skips an unaccepted variant that is ready", async () => {
     const { manager } = await withReadyVariant();
     expect(assetSkipReason(manager, address, HASH)).toBe("ready");
+  });
+
+  it("generates a ready variant whose upstream the same run rebuilds", async () => {
+    const { manager } = await withReadyVariant();
+    expect(assetSkipReason(manager, address, HASH, false, true)).toBeNull();
+  });
+
+  it("keeps an accepted variant whose upstream the same run rebuilds", async () => {
+    const { manager, vid } = await withReadyVariant();
+    manager.setAccepted(address, vid);
+    expect(assetSkipReason(manager, address, HASH, false, true)).toBe("accepted");
   });
 
   it("generates when the only ready variant was dismissed", async () => {
@@ -250,6 +262,37 @@ describe("buildGeneratePlan", () => {
     expect(entries.find((e) => e.address === key)?.action).toBe("skip");
     expect(entries.find((e) => e.address === "video:shot.01.motion")?.action).toBe("start");
     expect(plan.summary).toMatchObject({ start: 1, skip: 1 });
+  });
+
+  it("marks a ready asset whose upstream this run rebuilds as wait", async () => {
+    const manager = await createManager();
+    const key = "video:shot.01.key";
+    const motion = "video:shot.01.motion";
+    const keyVid = manager.reserveVariantId(key);
+    Object.assign(manager.getAssetState(key).variants![keyVid]!, {
+      file: "key.png",
+      outputHash: "key-old",
+      definitionHash: "def-edited-away",
+    });
+    const motionVid = manager.reserveVariantId(motion);
+    Object.assign(manager.getAssetState(motion).variants![motionVid]!, {
+      file: "motion.mp4",
+      definitionHash: computeDefinitionHash(comfyDef),
+      inputFingerprints: { [key]: "key-old" },
+    });
+
+    const plan = buildGeneratePlan({
+      levels: [[key], [motion]],
+      graph: graphOf({ [key]: [], [motion]: [key] }),
+      manager,
+      stageAssetPaths: new Set([key, motion]),
+      variantCount: 1,
+      getAssetDef,
+    });
+
+    const entries = plan.levels.flatMap((l) => l.entries);
+    expect(entries.find((e) => e.address === key)?.action).toBe("start");
+    expect(entries.find((e) => e.address === motion)?.action).toBe("wait");
   });
 
   // A generated-but-in-flight upstream has a file only from a previous take; the real run makes

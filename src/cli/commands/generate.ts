@@ -221,6 +221,7 @@ export function registerGenerateCommand(program: Command): void {
 
       const levelResults: LevelResult[] = [];
       const generatedDepPaths = new Set<string>();
+      const rebuiltAssetPaths = new Set<string>();
       const pendingReasons = new Map<string, PendingReason>();
 
       // Present models/nodes get no job — their generation jobs wait on nothing; if ComfyUI is
@@ -372,19 +373,20 @@ export function registerGenerateCommand(program: Command): void {
             continue;
           }
 
+          const deps = graph.dependencies.get(assetPath) ?? [];
           // Readiness first, then the gate — see buildGeneratePlan for why that order.
           const skipReason = assetSkipReason(
             manager,
             address,
             computeDefinitionHash(assetDef),
             assetDef.deterministic === true,
+            deps.some((d) => rebuiltAssetPaths.has(d)),
           );
           if (skipReason) {
             assetResults.push({ address, status: "skipped", skipReason, jobs: [] });
             continue;
           }
 
-          const deps = graph.dependencies.get(assetPath) ?? [];
           for (const d of deps) generatedDepPaths.add(d);
           // A comfy asset's prerequisites are shared jobs the generation job depends on — on a
           // ComfyUI its models (comfy-model-download) and nodes (comfy-node-install gated by a
@@ -399,6 +401,7 @@ export function registerGenerateCommand(program: Command): void {
           for (const id of prereqJobIds) await addKnownJob(id);
 
           const slot = assetResults.push(null) - 1;
+          rebuiltAssetPaths.add(address);
           work.push({
             slot,
             address,

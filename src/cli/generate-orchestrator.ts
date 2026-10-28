@@ -76,12 +76,15 @@ export type LevelResult = {
  *
  * Everything else turns on readiness, both axes of it: pass the asset's current definition
  * hash so an edited definition ages its variant out here exactly as it does in `status`.
+ * `inputRebuilt` — an upstream is generated in the same run — voids readiness: the ready take
+ * goes input-stale the moment that job lands.
  */
 export function assetSkipReason(
   manager: StateManager,
   address: string,
   currentDefinitionHash: string,
   deterministic = false,
+  inputRebuilt = false,
 ): SkipReason | null {
   if (getActiveVariantIds(manager, address).length > 0) return "active";
   const target = manager.tryGetAssetState(address);
@@ -119,7 +122,7 @@ export function assetSkipReason(
       v.status !== "dismissed" &&
       !isVariantStale(state, address, v, currentDefinitionHash, undefined, cache),
   );
-  return hasReady ? "ready" : null;
+  return hasReady && !inputRebuilt ? "ready" : null;
 }
 
 const SKIP_REASON_TEXT: Record<SkipReason, string> = {
@@ -751,6 +754,7 @@ export function buildGeneratePlan(params: {
           address,
           computeDefinitionHash(assetDef),
           assetDef.deterministic === true,
+          deps.some((d) => notYetBuilt.has(d)),
         );
         if (skip) {
           action = "skip";

@@ -1,4 +1,9 @@
-import { getAssetEntry, listAssetPaths, type AssetStage } from "../core/address.js";
+import {
+  type DefinitionLike,
+  getAssetEntry,
+  listAssetPaths,
+  type AssetStage,
+} from "../core/address.js";
 import { computeDefinitionHash } from "../core/definition-hash.js";
 import { type DependencyGraph, listUnusedAssetPaths } from "../core/graph.js";
 import { selectDefinition, type LoadedDefinitions } from "../core/select-definition.js";
@@ -24,14 +29,32 @@ export function selectGenerationAssets(opts: {
     stageAssetPaths.has(p),
   );
   for (const p of skippedUnused) stageAssetPaths.delete(p);
-  const spending = [...stageAssetPaths].filter((address) => {
-    const asset = getAssetEntry(def, address);
-    return (
-      asset.kind !== "file" &&
-      !assetSkipReason(manager, address, computeDefinitionHash(asset), asset.deterministic === true)
-    );
-  });
+  const spending = listSpendingAssets(def, stageAssetPaths, manager, graph);
   return { stageAssetPaths, skippedUnused, spending };
+}
+
+// The assets a run over `assetPaths` generates, in their given order.
+export function listSpendingAssets(
+  def: DefinitionLike,
+  assetPaths: ReadonlySet<string>,
+  manager: StateManager,
+  graph: DependencyGraph | null,
+): string[] {
+  const spending = new Set<string>();
+  for (const address of graph?.topologicalOrder ?? assetPaths) {
+    if (!assetPaths.has(address)) continue;
+    const asset = getAssetEntry(def, address);
+    if (asset.kind === "file") continue;
+    const skip = assetSkipReason(
+      manager,
+      address,
+      computeDefinitionHash(asset),
+      asset.deterministic === true,
+      (graph?.dependencies.get(address) ?? []).some((d) => spending.has(d)),
+    );
+    if (!skip) spending.add(address);
+  }
+  return [...assetPaths].filter((address) => spending.has(address));
 }
 
 /** What a spend prints for the board stems it re-mixed before its gate, and the ones it could not. */

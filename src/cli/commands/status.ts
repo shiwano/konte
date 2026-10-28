@@ -6,7 +6,6 @@ import {
   formatAddress,
   formatReferenceAddress,
   formatShotAddress,
-  getAssetEntry,
   isDeliveryAddress,
   isMaterializedLeafAddress,
   listAssetPaths,
@@ -14,8 +13,7 @@ import {
 } from "../../core/address.js";
 import { definitionDriftFields, isDeterministicAddress } from "../../core/definition-hashes.js";
 import { holdsHumanVerdict } from "../../core/accept-cascade.js";
-import { computeDefinitionHash } from "../../core/definition-hash.js";
-import { assetSkipReason } from "../generate-orchestrator.js";
+import { listSpendingAssets } from "../generation-selection.js";
 import { directionHasShots, leafSequenceShotIds } from "../../core/direction.js";
 import { syncFileAssets } from "../../core/file-sync.js";
 import { StateManager } from "../../core/state/index.js";
@@ -188,19 +186,12 @@ export function registerStatusCommand(program: Command): void {
       const findingReport = await collectFindings(checkContext);
       const spendHeldStages = (["reference", "animatic", "video"] as const).filter((stage) => {
         const def = stage === "video" ? video : stage === "animatic" ? animatic : reference;
-        const spending = listAssetPaths(def, stage).filter((assetPath) => {
-          if (unusedPaths.has(assetPath)) return false;
-          const assetDef = getAssetEntry(def, assetPath);
-          return (
-            assetDef.kind !== "file" &&
-            !assetSkipReason(
-              manager,
-              assetPath,
-              computeDefinitionHash(assetDef),
-              assetDef.deterministic === true,
-            )
-          );
-        });
+        const spending = listSpendingAssets(
+          def,
+          new Set(listAssetPaths(def, stage).filter((p) => !unusedPaths.has(p))),
+          manager,
+          graph,
+        );
         const req = { command: "generate", stage, assetPaths: spending, targeted: false } as const;
         return spendHeldError(req, judgeSpend(checkContext, findingReport, req)) !== null;
       });
