@@ -40,7 +40,7 @@ import { buildOrphanContext, listStrayVariantDirs } from "../../core/orphans.js"
 import { listPatchVariantIds } from "../../core/patch.js";
 import { collectStaleVariants } from "../../core/staleness.js";
 import { StateManager } from "../../core/state/index.js";
-import { typeCheckWorkspace } from "../../core/tsc.js";
+import { type TypeDiagnostic, typeCheckWorkspace } from "../../core/tsc.js";
 import { acceptedConsumers, isProtectedVariant } from "../../core/variant-lineage.js";
 import { checkForUpdate } from "../../core/update-check.js";
 import pkg from "../../../package.json" with { type: "json" };
@@ -55,22 +55,13 @@ import type {
 import { VendorBackendKindSchema } from "../../core/types/index.js";
 import { resolveFalConfig } from "../../fal/config.js";
 import { FalHttpClient } from "../../fal/http-client.js";
-import {
-  checkDirection,
-  classifyDirectionFinding,
-  directionWaiverKey,
-  reportableDirectionFindings,
-} from "../../core/direction.js";
-import { isDirectionSpendGateSatisfied } from "../../core/direction-acceptance.js";
-import {
-  loadDirectionIfPresent,
-  loadAnimaticSetupState,
-  loadStagingStageState,
-  loadSongTakeState,
-} from "../load-definition.js";
+import { collectFindings, formatStaleWaiverLine } from "../../core/checks.js";
+import { formatFindingLine, groupByFixIn } from "../../core/finding.js";
+import { loadDirectionIfPresent } from "../load-definition.js";
+import { loadCheckContext } from "../finding-gates.js";
 import { currentRoots, requireWorkspaceRoot } from "../context.js";
 import type { VideoRoots, VideoSelection } from "../../core/roots.js";
-import { STAGE_ENTRY_FILE, stageEntryPath } from "../../core/roots.js";
+import { listVideos, STAGE_ENTRY_FILE, stageEntryPath, VIDEOS_DIR } from "../../core/roots.js";
 import { declareScope } from "../scope.js";
 
 // doctor is a quick health check; fail fast on an unreachable backend
@@ -85,6 +76,8 @@ type CheckResult = {
   // A backend connectivity/health check. Its passing form carries live diagnostics (GPU/VRAM,
   // queue depth) worth surfacing, so it is shown even when PASS if --backends asked to survey.
   backend?: boolean;
+  // The video a --all-videos check is about; absent for a workspace-level check.
+  video?: string;
 };
 
 export function registerDoctorCommand(program: Command): void {
@@ -95,17 +88,21 @@ export function registerDoctorCommand(program: Command): void {
       "--backends",
       "Also probe every backend's connectivity, not just the ones the project uses",
     )
-    .option("--all", "Show every check, including passing ones")
+    .option("--all-videos", "Check every video in the workspace, not just the current one")
+    .option("-v, --verbose", "Show every check, including passing ones")
     .addHelpText(
       "after",
       `
 Runs a battery of health checks over the project: state, type check, definitions,
-staleness, orphaned jobs/targets, whether every declared asset's backend is configured,
-the backends the project actually uses, and whether a newer konte release is out (checked once a
-day; KONTE_UPDATE_CHECK=0 turns it off).
+machine findings, staleness, orphaned jobs/targets, whether every declared asset's backend is
+configured, the backends the project actually uses, and whether a newer konte release is out
+(checked once a day; KONTE_UPDATE_CHECK=0 turns it off).
+
+By default only the current video is checked. Pass --all-videos to check every video in the
+workspace, each under its own heading; the workspace-level checks run once.
 
 By default only actionable checks (warnings and failures) are printed, followed by a
-summary; passing checks are hidden to keep the output terse. Pass --all to print
+summary; passing checks are hidden to keep the output terse. Pass -v to print
 every check.
 
 By default a backend is probed only if an asset uses it. Pass --backends to probe
@@ -116,100 +113,62 @@ never changes the exit code. --backends also shows passing backend checks (with
 their live GPU/queue diagnostics), which are otherwise hidden.
 
 Examples:
-  konte doctor              Health-check the project (problems only)
-  konte doctor --all        Show every check, including passing ones
-  konte doctor --backends   Also survey which backends are reachable/configured
+  konte doctor                Health-check the current video (problems only)
+  konte doctor --all-videos   Health-check every video in the workspace
+  konte doctor -v             Show every check, including passing ones
+  konte doctor --backends     Also survey which backends are reachable/configured
 `,
     )
-    .action(async (opts: { backends?: boolean; all?: boolean }) => {
+    .action(async (opts: { backends?: boolean; verbose?: boolean; allVideos?: boolean }) => {
       // Backend connectivity/credentials, ffmpeg and the type check over `adapters/` are
       // workspace-level concerns, so doctor runs without a selected video: the full project battery
       // when one is selected, and only the workspace-level checks otherwise (so `konte doctor
       // --backends` works before any video exists). The reduced scope is itself surfaced as a WARN.
       const workspaceRoot = requireWorkspaceRoot();
       const selection = currentRoots()?.video;
-      const videoRoot = selection?.kind === "selected" ? selection.root : null;
+      const targets: DoctorVideo[] = opts.allVideos
+        ? (await listVideos(workspaceRoot)).map((name) => ({
+            name,
+            root: path.join(workspaceRoot, VIDEOS_DIR, name),
+          }))
+        : selection?.kind === "selected"
+          ? [{ name: null, root: selection.root }]
+          : [];
       const checks: CheckResult[] = [];
-      let usedKinds = new Set<AssetDefinition["kind"]>();
-      // The definitions the backend check scans; null when they could not be loaded.
-      let defs: DefinitionSet | null = null;
+      const usedKinds = new Set<AssetDefinition["kind"]>();
+      // The definitions the backend check scans; a video whose definitions could not be loaded
+      // has none here.
+      const defs: VideoDefinitionSet[] = [];
 
-      const typeCheck = await checkTypeCheck(workspaceRoot, videoRoot);
-      checks.push(typeCheck);
+      // With --all-videos no single video is in scope, so each video's type errors come back under
+      // `otherVideos` and fail only that video.
+      const typeCheck = await checkTypeCheck(
+        workspaceRoot,
+        opts.allVideos ? null : (targets[0]?.root ?? null),
+      );
+      checks.push(typeCheck.check);
 
-      if (videoRoot) {
-        const roots: VideoRoots = { workspace: workspaceRoot, video: videoRoot };
-
-        checks.push(await checkStateJson(videoRoot));
-
-        // Every check below loads video.tsx/animatic.tsx/reference.tsx by importing them. When the
-        // project does not type-check, those imports crash at runtime with errors unrelated to the
-        // real cause (the type errors above), so skip them and point at the type check instead.
-        // State-only checks (stale/orphaned/missing) read konte.state.json and run regardless.
-        if (typeCheck.status === "FAIL") {
-          checks.push({
-            name: "definition checks",
-            status: "WARN",
-            message: "skipped — resolve the type errors above first",
-          });
-        } else {
-          const animaticResult = await checkAnimaticTs(videoRoot);
-          checks.push(animaticResult.check);
-
-          const videoResult = await checkVideoTs(videoRoot);
-          checks.push(videoResult.check);
-
-          const referenceResult = await checkReferenceTs(videoRoot);
-          checks.push(referenceResult.check);
-          const reference = referenceResult.reference;
-          usedKinds = collectUsedKinds(videoResult.video, animaticResult.animatic, reference);
-          defs = {
-            video: videoResult.video,
-            animatic: animaticResult.animatic,
-            reference,
-          };
-
-          checks.push(...(await runBackendChecks(workspaceRoot, videoRoot, usedKinds)));
-
-          if (videoResult.video) {
-            checks.push(
-              await checkWorkflowFiles(
-                roots,
-                videoResult.video,
-                animaticResult.animatic,
-                reference,
-              ),
-            );
-          }
-
-          if (videoResult.video && animaticResult.animatic) {
-            checks.push(
-              ...checkCrossStageConsistency(
-                videoResult.video,
-                animaticResult.animatic,
-                reference ?? undefined,
-              ),
-            );
-          }
-
-          if (videoResult.video) {
-            checks.push(
-              checkUnusedAssets(videoResult.video, animaticResult.animatic, reference ?? undefined),
-            );
-          }
-
-          checks.push(...(await checkDirectionHealth(videoRoot)));
-        }
-
-        checks.push(await checkStaleAssetsHealth(videoRoot));
-        checks.push(await checkOrphanedJobs(videoRoot));
-        checks.push(await checkOrphanedTargets(videoRoot));
-        checks.push(await checkStrayVariantDirs(videoRoot));
-        checks.push(await checkMissingAssets(videoRoot));
-        checks.push(await checkAssetsGitignore(videoRoot));
-      } else {
-        checks.push(reducedScopeCheck(selection));
+      for (const target of targets) {
+        const videoChecks: CheckResult[] = [];
+        const videoTypeCheck =
+          target.name === null ? null : videoTypeCheckOf(workspaceRoot, target, typeCheck);
+        if (videoTypeCheck) videoChecks.push(videoTypeCheck);
+        const result = await runVideoChecks(
+          { workspace: workspaceRoot, video: target.root },
+          typeCheck.check.status === "FAIL" || videoTypeCheck?.status === "FAIL",
+        );
+        videoChecks.push(...result.checks);
+        for (const kind of result.usedKinds) usedKinds.add(kind);
+        if (result.defs) defs.push({ name: target.name, ...result.defs });
+        checks.push(
+          ...videoChecks.map((check) =>
+            target.name === null ? check : { ...check, video: target.name },
+          ),
+        );
       }
+      if (targets.length === 0) checks.push(reducedScopeCheck(selection, opts.allVideos));
+
+      checks.push(...(await runBackendChecks(workspaceRoot, targets, usedKinds)));
 
       // --backends surveys the connectivity of every backend not already probed above (a project
       // with no adapters yet, or no video selected, uses none), so a backend can be weighed before
@@ -217,7 +176,7 @@ Examples:
       // the survey never changes the exit code.
       if (opts.backends) {
         const surveyed = new Set(ALL_BACKEND_KINDS.filter((kind) => !usedKinds.has(kind)));
-        checks.push(...(await runBackendChecks(workspaceRoot, videoRoot, surveyed, true)));
+        checks.push(...(await runBackendChecks(workspaceRoot, targets, surveyed, true)));
       }
 
       // Backend configuration is workspace-level, so this runs even with no video selected or
@@ -230,19 +189,26 @@ Examples:
       if (failCount > 0) process.exitCode = 1;
 
       // Surface only actionable checks (WARN/FAIL) by default, so neither a human nor an agent
-      // pays attention (or tokens) on a wall of PASS lines. --all shows everything; a passing
+      // pays attention (or tokens) on a wall of PASS lines. -v shows everything; a passing
       // backend check is kept when --backends explicitly asked to survey connectivity, since its
       // message carries live GPU/queue diagnostics.
       const visible = checks.filter(
-        (c) => opts.all || c.status !== "PASS" || (opts.backends && c.backend),
+        (c) => opts.verbose || c.status !== "PASS" || (opts.backends && c.backend),
       );
 
-      for (const check of visible) {
-        const icon = check.status === "PASS" ? "\u2713" : check.status === "WARN" ? "!" : "\u2717";
+      const printCheck = (check: CheckResult) => {
+        const icon = check.status === "PASS" ? "✓" : check.status === "WARN" ? "!" : "✗";
         console.log(`${icon} ${check.status} ${check.name}: ${check.message}`);
         for (const detail of check.details ?? []) {
           console.log(`    ${detail}`);
         }
+      };
+      visible.filter((c) => c.video === undefined).forEach(printCheck);
+      for (const target of targets) {
+        const group = visible.filter((c) => c.video !== undefined && c.video === target.name);
+        if (group.length === 0) continue;
+        console.log(`\nVideo: ${target.name}`);
+        group.forEach(printCheck);
       }
 
       const warnCount = checks.filter((c) => c.status === "WARN").length;
@@ -261,9 +227,98 @@ Examples:
   declareScope(doctor, { scope: "workspace", skipTypeCheck: true });
 }
 
+// A video doctor checks; `name` is null for the current video alone, whose checks print ungrouped.
+type DoctorVideo = { name: string | null; root: string };
+
+// One video's own battery. `typeCheckFailed` skips every check that imports its definitions: when
+// the project does not type-check, those imports crash at runtime with errors unrelated to the real
+// cause, so the type check is pointed at instead. State-only checks (stale/orphaned/missing) read
+// konte.state.json and run regardless.
+async function runVideoChecks(
+  roots: VideoRoots,
+  typeCheckFailed: boolean,
+): Promise<{
+  checks: CheckResult[];
+  usedKinds: Set<AssetDefinition["kind"]>;
+  defs: DefinitionSet | null;
+}> {
+  const videoRoot = roots.video;
+  const checks: CheckResult[] = [];
+  let usedKinds = new Set<AssetDefinition["kind"]>();
+  let defs: DefinitionSet | null = null;
+
+  checks.push(await checkStateJson(videoRoot));
+
+  if (typeCheckFailed) {
+    checks.push({
+      name: "definition checks",
+      status: "WARN",
+      message: "skipped — resolve the type errors above first",
+    });
+  } else {
+    const animaticResult = await checkAnimaticTs(videoRoot);
+    checks.push(animaticResult.check);
+
+    const videoResult = await checkVideoTs(videoRoot);
+    checks.push(videoResult.check);
+
+    const referenceResult = await checkReferenceTs(videoRoot);
+    checks.push(referenceResult.check);
+    const reference = referenceResult.reference;
+    usedKinds = collectUsedKinds(videoResult.video, animaticResult.animatic, reference);
+    defs = {
+      video: videoResult.video,
+      animatic: animaticResult.animatic,
+      reference,
+    };
+
+    if (videoResult.video) {
+      checks.push(
+        await checkWorkflowFiles(roots, videoResult.video, animaticResult.animatic, reference),
+      );
+    }
+
+    if (videoResult.video && animaticResult.animatic) {
+      checks.push(
+        ...checkCrossStageConsistency(
+          videoResult.video,
+          animaticResult.animatic,
+          reference ?? undefined,
+        ),
+      );
+    }
+
+    if (videoResult.video) {
+      checks.push(
+        checkUnusedAssets(videoResult.video, animaticResult.animatic, reference ?? undefined),
+      );
+    }
+
+    checks.push(...(await checkFindings(videoRoot, defs)));
+  }
+
+  checks.push(await checkStaleAssetsHealth(videoRoot));
+  checks.push(await checkOrphanedJobs(videoRoot));
+  checks.push(await checkOrphanedTargets(videoRoot));
+  checks.push(await checkStrayVariantDirs(videoRoot));
+  checks.push(await checkMissingAssets(videoRoot));
+  checks.push(await checkAssetsGitignore(videoRoot));
+  return { checks, usedKinds, defs };
+}
+
 // With no video selected, doctor drops to the workspace-level checks and says so: a WARN naming the
 // reduced scope, so the thinner output never reads as a clean bill of health for a video.
-function reducedScopeCheck(selection: VideoSelection | undefined): CheckResult {
+function reducedScopeCheck(
+  selection: VideoSelection | undefined,
+  allVideos: boolean | undefined,
+): CheckResult {
+  if (allVideos) {
+    return {
+      name: "video scope",
+      status: "WARN",
+      message: `this workspace has no videos. Run "konte video new <name>" to create one.`,
+    };
+  }
   const reason =
     selection?.kind === "not-found"
       ? `the current video "${selection.name}" no longer exists`
@@ -288,40 +343,67 @@ async function checkStateJson(videoRoot: string): Promise<CheckResult> {
   }
 }
 
+type TypeCheckOutcome = { check: CheckResult; otherVideos: TypeDiagnostic[] };
+
 async function checkTypeCheck(
   workspaceRoot: string,
   videoRoot: string | null,
-): Promise<CheckResult> {
+): Promise<TypeCheckOutcome> {
   try {
     await fs.access(path.join(workspaceRoot, "tsconfig.json"));
   } catch {
     return {
-      name: "type check",
-      status: "PASS",
-      message: "no tsconfig.json (skipped)",
+      check: { name: "type check", status: "PASS", message: "no tsconfig.json (skipped)" },
+      otherVideos: [],
     };
   }
   try {
     const result = await typeCheckWorkspace(workspaceRoot, videoRoot);
     if (result.success) {
-      return { name: "type check", status: "PASS", message: "passed" };
+      return {
+        check: { name: "type check", status: "PASS", message: "passed" },
+        otherVideos: result.otherVideos,
+      };
     }
-    const details = result.diagnostics.map(
-      (d) => `${d.file}(${d.line},${d.column}): ${d.code} ${d.message}`,
-    );
+    const details = result.diagnostics.map(formatDiagnostic);
     return {
-      name: "type check",
-      status: "FAIL",
-      message: `${result.errorCount} type error(s) found`,
-      details: details.length > 0 ? details : undefined,
+      check: {
+        name: "type check",
+        status: "FAIL",
+        message: `${result.errorCount} type error(s) found`,
+        details: details.length > 0 ? details : undefined,
+      },
+      otherVideos: result.otherVideos,
     };
   } catch (err) {
     return {
-      name: "type check",
-      status: "FAIL",
-      message: errorMessage(err),
+      check: { name: "type check", status: "FAIL", message: errorMessage(err) },
+      otherVideos: [],
     };
   }
+}
+
+// One video's share of a workspace type check run with no video in scope.
+function videoTypeCheckOf(
+  workspaceRoot: string,
+  target: DoctorVideo,
+  typeCheck: TypeCheckOutcome,
+): CheckResult {
+  const own = typeCheck.otherVideos.filter((d) => {
+    const rel = path.relative(target.root, path.resolve(workspaceRoot, d.file));
+    return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
+  });
+  if (own.length === 0) return { name: "type check", status: "PASS", message: "passed" };
+  return {
+    name: "type check",
+    status: "FAIL",
+    message: `${own.length} type error(s) found`,
+    details: own.map(formatDiagnostic),
+  };
+}
+
+function formatDiagnostic(d: TypeDiagnostic): string {
+  return `${d.file}(${d.line},${d.column}): ${d.code} ${d.message}`;
 }
 
 // Spell out the reviewable subset when `file` assets pad the raw count, so the
@@ -422,7 +504,7 @@ const ALL_BACKEND_KINDS: AssetDefinition["kind"][] = ["comfy", "local", "fal"];
 // unreachable backend is a survey finding, not a project error that should fail the command.
 async function runBackendChecks(
   workspaceRoot: string,
-  videoRoot: string | null,
+  videos: readonly DoctorVideo[],
   kinds: Set<AssetDefinition["kind"]>,
   advisory = false,
 ): Promise<CheckResult[]> {
@@ -440,9 +522,11 @@ async function runBackendChecks(
     if (connection.status === "PASS") {
       // The queue and stuck-job checks cross-reference konte's tracked jobs, which live per-video;
       // with no video selected there are none, so run only the video-agnostic manager check.
-      if (videoRoot) {
-        checks.push(await checkComfyUIQueue(config, videoRoot));
-        checks.push(await checkStuckComfyJobs(config, videoRoot));
+      for (const video of videos) {
+        const tag = (check: CheckResult): CheckResult =>
+          video.name === null ? check : { ...check, video: video.name };
+        checks.push(tag(await checkComfyUIQueue(config, video.root)));
+        checks.push(tag(await checkStuckComfyJobs(config, video.root)));
       }
       checks.push(await checkComfyUIManager(config));
     }
@@ -1048,20 +1132,12 @@ function checkCrossStageConsistency(
     return results;
   }
 
-  // A shot that spends is blocking work — `generate video`, `reroll`, `export` and `patch apply` all
-  // refuse it (`animatic-unconsumed`). One built from footage or konte's own ffmpeg ops has no input a
-  // board could be wired into, so no gate refuses it; it is still a board reviewed and then left out
-  // of the piece. A `pendingShot` is listed by neither.
-  const boardless = listBoardlessVideoShots(video, animatic, graph);
-  const spending = boardless.filter((s) => s.spends).map((s) => s.shotId);
-  const assembled = boardless.filter((s) => !s.spends).map((s) => s.shotId);
-  if (spending.length > 0) {
-    results.push({
-      name: "animatic wiring",
-      status: "FAIL",
-      message: `video shot(s) spend without building on the board they develop: ${spending.join(", ")}`,
-    });
-  }
+  // A shot that spends is the `animatic-unconsumed` finding. One built from footage or konte's own
+  // ffmpeg ops has no input a board could be wired into, so no gate refuses it; it is still a board
+  // reviewed and then left out of the piece. A `pendingShot` is listed by neither.
+  const assembled = listBoardlessVideoShots(video, animatic, graph)
+    .filter((s) => !s.spends)
+    .map((s) => s.shotId);
   if (assembled.length > 0) {
     results.push({
       name: "animatic wiring",
@@ -1097,91 +1173,47 @@ function collectUsedKinds(
   return kinds;
 }
 
-// Reports the direction's structural validity and its findings (report-only — the spend gate is what
-// enforces them).
-async function checkDirectionHealth(videoRoot: string): Promise<CheckResult[]> {
+// Every machine finding `status` reports, and every waiver that cancels nothing.
+async function checkFindings(videoRoot: string, defs: DefinitionSet): Promise<CheckResult[]> {
   let direction: Awaited<ReturnType<typeof loadDirectionIfPresent>>;
   try {
     direction = await loadDirectionIfPresent(videoRoot);
   } catch (err) {
-    return [
-      {
-        name: "direction",
-        status: "FAIL",
-        message: errorMessage(err),
-      },
-    ];
+    return [{ name: "direction", status: "FAIL", message: errorMessage(err) }];
   }
-  if (!direction) {
-    return [
-      {
-        name: "direction",
-        status: "FAIL",
-        message: "no direction.ts — declare the video's direction (lens + shots)",
-      },
-    ];
-  }
-
-  // Supply the reference pool so the characters checks (character-unreferenced / unused-character) run;
-  // an unreadable reference.tsx is an empty pool, so a declared character reports as unreferenced.
-  const reference = await loadReference(videoRoot).catch(() => null);
-  const {
-    structureErrors,
-    active: allActive,
-    staleWaivers,
-  } = checkDirection(direction, {
-    referenceAssetNames: reference?.exposedAssetNames ?? [],
-    animaticSetups: await loadAnimaticSetupState(videoRoot, direction, reference),
-    stagingStage: await loadStagingStageState(videoRoot, direction),
-    songTake: await loadSongTakeState(videoRoot, direction),
-  });
-  const manager = await StateManager.load(videoRoot).catch(() => null);
-  const acceptance = manager?.getDirectionAcceptance();
-  const active = reportableDirectionFindings(
-    allActive,
-    isDirectionSpendGateSatisfied(direction, acceptance ?? null),
+  const { findings: all, staleWaivers } = await collectFindings(
+    await loadCheckContext({ videoRoot, definitions: defs, direction }),
   );
   const results: CheckResult[] = [];
 
-  // An empty direction means "not started yet", not "wrong" — a fresh `konte workspace new` ships `shots: []`,
-  // so reporting it as a hard FAIL would make every brand-new project fail doctor. Surface it alone
-  // as a WARN (the `generate` gate still hard-blocks it). Any other structural error is a real
-  // definition bug and stays a FAIL.
-  const realErrors = structureErrors.filter((e) => e.code !== "empty-direction");
-  const emptyDirection = structureErrors.some((e) => e.code === "empty-direction");
-
-  if (realErrors.length > 0) {
-    results.push({
-      name: "direction",
-      status: "FAIL",
-      message: `${structureErrors.length} structural error(s)`,
-      details: structureErrors.map((e) => `[${e.code}] ${e.message}`),
-    });
-  } else if (emptyDirection) {
+  // A fresh video ships `shots: []`: a WARN alone (the `generate` gate still hard-blocks it).
+  if (all.some((f) => f.code === "empty-direction")) {
     results.push({
       name: "direction",
       status: "WARN",
       message: "direction is empty — declare at least one shot to begin",
     });
-  } else if (active.length > 0) {
+  }
+  const findings = all.filter((f) => f.code !== "empty-direction");
+  if (findings.length > 0) {
     results.push({
-      name: "direction",
+      name: "findings",
       status: "FAIL",
-      message: `${active.length} unresolved finding(s) — fix direction.ts or add a waiver`,
-      details: active.map(
-        (f) => `[${directionWaiverKey(f)}] (${classifyDirectionFinding(f.code)}) ${f.message}`,
+      message: `${findings.length} unresolved finding(s) — fix each in the file it is listed under, or waive it`,
+      details: groupByFixIn(findings).flatMap(({ file, findings: group }) =>
+        group.map((f) => `${file} ${formatFindingLine(f)}`),
       ),
     });
   } else {
-    results.push({ name: "direction", status: "PASS", message: "direction is sound" });
+    results.push({ name: "findings", status: "PASS", message: "no findings" });
   }
 
   if (staleWaivers.length > 0) {
     results.push({
       name: "direction waivers",
       status: "WARN",
-      message: `${staleWaivers.length} stale waiver(s) — the finding is gone; remove the waiver`,
-      details: staleWaivers.map((w) => `${w.key}: ${w.reason}`),
+      message: `${staleWaivers.length} waiver(s) to remove from direction.ts`,
+      details: staleWaivers.map(formatStaleWaiverLine),
     });
   }
 
@@ -1193,6 +1225,8 @@ type DefinitionSet = {
   animatic: AnimaticDefinition | null;
   reference: ReferenceDefinition | null;
 };
+
+type VideoDefinitionSet = DefinitionSet & { name: string | null };
 
 // The one network call doctor makes on konte's own behalf, cached a day beside the binary
 // (update-check.ts). Advisory — never a FAIL.
@@ -1226,11 +1260,11 @@ async function checkKonteRelease(): Promise<CheckResult> {
 // Every declared asset against the backends this workspace has configured. The
 // `generate` gate runs the same check, but only once the direction is accepted and a run is asked
 // for; it reads the definitions alone, so doctor can answer it before either — and, since backend
-// configuration is workspace-level, before any video exists. `defs` is null when the definitions
-// were not loaded (type errors, or no video selected), leaving the config itself to speak to.
+// configuration is workspace-level, before any video exists. `defs` is empty when no definitions
+// were loaded (type errors, or no video selected), leaving the config itself to speak to.
 async function checkConfiguredBackends(
   workspaceRoot: string,
-  defs: DefinitionSet | null,
+  defs: readonly VideoDefinitionSet[],
 ): Promise<CheckResult> {
   const name = "configured backends";
   const config = await loadKonteConfig(workspaceRoot);
@@ -1241,13 +1275,13 @@ async function checkConfiguredBackends(
     return { name, status: "FAIL", message: errorMessage(err) };
   }
 
-  const unconfigured = defs
-    ? [
-        ...(defs.animatic ? unconfiguredBackendAssets(defs.animatic, "animatic", config) : []),
-        ...(defs.video ? unconfiguredBackendAssets(defs.video, "video", config) : []),
-        ...(defs.reference ? unconfiguredBackendAssets(defs.reference, "reference", config) : []),
-      ]
-    : [];
+  const unconfigured = defs.flatMap((set) =>
+    [
+      ...(set.animatic ? unconfiguredBackendAssets(set.animatic, "animatic", config) : []),
+      ...(set.video ? unconfiguredBackendAssets(set.video, "video", config) : []),
+      ...(set.reference ? unconfiguredBackendAssets(set.reference, "reference", config) : []),
+    ].map((asset) => ({ ...asset, video: set.name })),
+  );
 
   if (unconfigured.length > 0) {
     return {
@@ -1256,7 +1290,9 @@ async function checkConfiguredBackends(
       message:
         `${unconfigured.length} asset(s) on a backend this workspace has not configured — ` +
         `generate will refuse them; ${backendSetupAdvice(unconfigured.map((v) => v.kind))}`,
-      details: unconfigured.map((v) => `${v.address} (${v.kind})`),
+      details: unconfigured.map(
+        (v) => `${v.video === null ? "" : `${v.video}: `}${v.address} (${v.kind})`,
+      ),
     };
   }
   if (configured.length === 0) {
@@ -1272,7 +1308,7 @@ async function checkConfiguredBackends(
     name,
     status: "PASS",
     message:
-      `[${configured.join(", ")}] configured` + (defs === null ? " (assets not checked)" : ""),
+      `[${configured.join(", ")}] configured` + (defs.length === 0 ? " (assets not checked)" : ""),
   };
 }
 

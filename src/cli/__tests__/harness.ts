@@ -208,12 +208,12 @@ export interface DoctorCheck {
 }
 
 // One check per "<icon> <STATUS> <name>: <message>" line, with its indented detail lines under it.
-// Always run with --all, so a check a test asks about is reported even when it passes.
+// Always run with -v, so a check a test asks about is reported even when it passes.
 export async function doctorChecks(
   projectDir: string,
   args: string[] = [],
 ): Promise<DoctorCheck[]> {
-  const { stdout } = await runCapture(["doctor", "--all", ...args], projectDir);
+  const { stdout } = await runCapture(["doctor", "-v", ...args], projectDir);
   const checks: DoctorCheck[] = [];
   for (const line of stdout.split("\n")) {
     const head = line.match(/^\S (PASS|WARN|FAIL) ([^:]+): (.*)$/);

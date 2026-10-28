@@ -930,7 +930,7 @@ describe("status command", () => {
     );
 
     const { stdout: doctorOut } = await runCapture(["doctor"], projectDir);
-    expect(doctorOut).toContain("[multi-sentence-action_01] (arc)");
+    expect(doctorOut).toContain("direction.ts [multi-sentence-action_01] shot 01's action");
   });
 
   it("surfaces a direction structural error and gates Next steps on it", async () => {

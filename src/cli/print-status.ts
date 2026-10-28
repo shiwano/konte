@@ -70,7 +70,7 @@ import type {
   VideoDefinition,
 } from "../core/types/index.js";
 import type { Stage } from "../core/address.js";
-import type { PatchSubject, StaleWaiverLine } from "../core/checks.js";
+import { formatStaleWaiverLine, type PatchSubject, type StaleWaiverLine } from "../core/checks.js";
 import { type Finding, formatFindingLine, groupByFixIn } from "../core/finding.js";
 
 export interface StatusReport {
@@ -678,13 +678,7 @@ export function printStatusReport(
       console.log(`  ${file}`);
       const lines = [
         ...group.map(formatFindingLine),
-        ...(file === "direction.ts"
-          ? staleWaivers.map((w) =>
-              w.fixOnly
-                ? `[${w.key}] waiver of a finding only a fix clears — remove it, and fix the finding (${w.reason})`
-                : `[${w.key}] stale waiver — its finding is gone; remove it (${w.reason})`,
-            )
-          : []),
+        ...(file === "direction.ts" ? staleWaivers.map(formatStaleWaiverLine) : []),
       ];
       printCapped(lines, (line) => `  ${line}`, { verbose: options?.verbose });
     }

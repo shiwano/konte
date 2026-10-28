@@ -36,7 +36,7 @@ export function tscDownloadUrl(platform: NodeJS.Platform, arch: string): string 
   return `https://registry.npmjs.org/@typescript/${pkg}/-/${pkg}-${TSC_VERSION}.tgz`;
 }
 
-interface TypeDiagnostic {
+export interface TypeDiagnostic {
   file: string;
   line: number;
   column: number;

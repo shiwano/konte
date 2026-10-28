@@ -84,6 +84,12 @@ export type CheckContext = {
 // A direction waiver whose finding is gone.
 export type StaleWaiverLine = StaleWaiver;
 
+export function formatStaleWaiverLine(w: StaleWaiverLine): string {
+  return w.fixOnly
+    ? `[${w.key}] waiver of a finding only a fix clears — remove it, and fix the finding (${w.reason})`
+    : `[${w.key}] stale waiver — its finding is gone; remove it (${w.reason})`;
+}
+
 export type FindingReport = {
   findings: Finding[];
   staleWaivers: StaleWaiverLine[];

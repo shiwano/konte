@@ -332,12 +332,52 @@ describe("doctor command (text output)", () => {
     expect(stdout).toMatch(/\d+ warning\(s\)\./);
   });
 
-  it("shows every check, including passing ones, with --all", async () => {
+  it("shows every check, including passing ones, with -v", async () => {
     const projectDir = await projectWithAWarning();
-    const { stdout } = await runCapture(["doctor", "--all"], projectDir);
+    const { stdout } = await runCapture(["doctor", "-v"], projectDir);
 
     expect(stdout).toContain("✓ PASS");
     expect(stdout).toContain("! WARN orphaned targets");
+  });
+});
+
+describe("doctor command (--all-videos)", () => {
+  it("checks every video under its own heading", async () => {
+    const projectDir = await initWithNoBackendVideo();
+    const workspace = path.dirname(path.dirname(projectDir));
+    await run(
+      ["video", "copy", path.basename(projectDir), "second", "--through", "video"],
+      workspace,
+    );
+    const sm = await StateManager.load(path.join(workspace, "videos", "second"));
+    const orphan = "video:shot.99.old";
+    sm.setAccepted(orphan, sm.reserveVariantId(orphan));
+    await sm.save();
+
+    const { stdout } = await runCapture(["doctor", "--all-videos"], projectDir);
+
+    const [workspaceLevel, second] = stdout.split("Video: second\n");
+    expect(workspaceLevel).not.toContain("orphaned targets");
+    expect(second).toContain("! WARN orphaned targets");
+  });
+
+  it("fails only the video whose definition does not type-check", async () => {
+    const projectDir = await initWithNoBackendVideo();
+    const workspace = path.dirname(path.dirname(projectDir));
+    await run(
+      ["video", "copy", path.basename(projectDir), "broken", "--through", "video"],
+      workspace,
+    );
+    await fs.appendFile(
+      path.join(workspace, "videos", "broken", "video.tsx"),
+      "\nconst broken: number = 'x';\n",
+    );
+
+    const { stdout } = await runCapture(["doctor", "--all-videos"], projectDir);
+
+    const [workspaceLevel, broken] = stdout.split("Video: broken\n");
+    expect(workspaceLevel).not.toContain("FAIL type check");
+    expect(broken).toMatch(/^✗ FAIL type check: 1 type error\(s\) found/);
   });
 });
 
@@ -428,7 +468,7 @@ export default defineAnimatic(direction, {
   }
 
   async function findingCodes(projectDir: string): Promise<string[]> {
-    return (await doctorCheck(projectDir, "direction"))?.details ?? [];
+    return (await doctorCheck(projectDir, "findings"))?.details ?? [];
   }
 
   it("demands a plate for a frame two shots share", async () => {
@@ -550,7 +590,7 @@ export default defineAnimatic(direction, {
     await fs.writeFile(path.join(projectDir, "reference.tsx"), REFERENCE_TSX);
     await fs.writeFile(path.join(projectDir, "animatic.tsx"), animaticWith(keyframe));
     await acceptDirection(projectDir);
-    return ((await doctorCheck(projectDir, "direction"))?.details ?? []).join("\n");
+    return ((await doctorCheck(projectDir, "findings"))?.details ?? []).join("\n");
   }
 
   it("demands the location reference of a keyframe whose setup has no plate", async () => {
