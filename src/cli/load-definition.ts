@@ -47,7 +47,6 @@ import {
 import type {
   ReferenceDefinition,
   AnimaticDefinition,
-  KonteState,
   VideoDefinition,
 } from "../core/types/index.js";
 import { harvestShotPictureCues } from "../core/composition-builder.js";
@@ -225,7 +224,7 @@ export async function loadAnimaticSetupState(
   const animatic = await loadAnimatic(videoRoot).catch(() => null);
   if (!animatic) return undefined;
   const manager = await StateManager.load(videoRoot).catch(() => null);
-  return animaticSetupState(direction, animatic, reference, manager?.getState() ?? null);
+  return animaticSetupState(direction, animatic, reference, manager);
 }
 
 // The same off a board already read.
@@ -233,8 +232,9 @@ export function animaticSetupState(
   direction: Direction,
   animatic: AnimaticDefinition,
   reference: ReferenceDefinition | null,
-  state: KonteState | null,
+  manager: StateManager | null,
 ): AnimaticSetupState {
+  const state = manager?.getState() ?? null;
   const setups = direction.setups ?? {};
   const locationBySetup = new Map(Object.entries(setups).map(([id, s]) => [id, s.location]));
   const viewBySetup = new Map(
@@ -248,6 +248,7 @@ export function animaticSetupState(
     collectShotFrames(direction),
     locationBySetup,
     viewBySetup,
+    (address) => manager !== null && isSignedOff(manager, animatic, address),
   );
   // Only the declared windows: a root (`within: null`) and an undeclared one are cut from whatever
   // they like.
@@ -262,6 +263,7 @@ export function animaticSetupState(
     unanchoredPlateIds: gaps.unanchoredPlates,
     unnestedPlateIds: listSetupNestGaps(animatic, withinBySetup),
     unconsumedBy: gaps.unanchoredShots,
+    signedOffUnconsumedBy: gaps.signedOffUnanchoredShots,
     deterministicShotsPerSetup: gaps.deterministicShots,
     deterministicPlateIds: gaps.deterministicPlates,
     unviewedPlateIds: gaps.unviewedPlates,
@@ -305,7 +307,7 @@ export async function loadStagingStageState(
   const animatic = await loadAnimatic(videoRoot).catch(() => null);
   if (!animatic) return undefined;
   const video = await loadVideoDefinition(stageEntryPath(videoRoot, "video")).catch(() => null);
-  const manager = video ? await StateManager.load(videoRoot).catch(() => null) : null;
+  const manager = await StateManager.load(videoRoot).catch(() => null);
   return stagingStageState(direction, animatic, video, manager);
 }
 
@@ -318,12 +320,17 @@ export function stagingStageState(
 ): StagingStageState {
   const frames = collectShotFrames(direction);
   const passers = frames.some((f) => (f.passing?.length ?? 0) > 0);
+  const signedOff = (address: string) =>
+    manager !== null && isSignedOff(manager, animatic, address);
+  const mark = (address: string) => (signedOff(address) ? { signedOff: true as const } : {});
+  const plateTexts = listPlateTexts(animatic);
   return {
     panelSlots: listPanelReferenceSlots(animatic),
-    panelReach: listPanelReferenceReach(animatic),
+    panelReach: listPanelReferenceReach(animatic).map((p) => ({ ...p, ...mark(p.panel) })),
     plateRecrops: listPlateRecrops(animatic, frames),
-    panelPrompts: listPanelPromptText(animatic),
-    plateTexts: listPlateTexts(animatic),
+    panelPrompts: listPanelPromptText(animatic).map((p) => ({ ...p, ...mark(p.panel) })),
+    plateTexts,
+    signedOffPlateIds: Object.keys(plateTexts).filter((id) => signedOff(formatPlateAssetPath(id))),
     shownReferences: listShownReferences(animatic),
     videoPins: video
       ? listVideoShotPins(
@@ -339,16 +346,20 @@ export function stagingStageState(
           ),
         }
       : {}),
-    shotPanels: listShotContinuity(animatic),
+    shotPanels: listShotContinuity(animatic).map((p) => ({ ...p, ...mark(p.firstPanel) })),
   };
 }
 
 // An accept whose inputs alone moved stands.
-function isSignedOff(manager: StateManager, video: VideoDefinition, address: string): boolean {
+function isSignedOff(
+  manager: StateManager,
+  def: VideoDefinition | AnimaticDefinition,
+  address: string,
+): boolean {
   const accepted = computeAcceptedStaleness(
     manager.getState(),
     address,
-    definitionHashForAddress(video, address),
+    definitionHashForAddress(def, address),
     manager.stalenessCache(),
   );
   return accepted.variantId !== null && !accepted.definitionStale;

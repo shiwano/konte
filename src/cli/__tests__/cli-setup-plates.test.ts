@@ -1,7 +1,10 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { getAssetEntry } from "../../core/address.js";
+import { computeDefinitionHash } from "../../core/definition-hash.js";
 import { StateManager } from "../../core/state/manager.js";
+import { loadStageDefinitions } from "../load-definition.js";
 import {
   acceptDirection,
   initWithNoBackendVideo,
@@ -241,6 +244,23 @@ export default`,
     const projectDir = await project(DEVELOPED(FROM_NOTHING, overlay));
     const { stdout, stderr } = await runCapture(["generate", "animatic"], projectDir);
     expect(`${stdout}${stderr}`).toContain("setup-unconsumed");
+  });
+
+  it("asks nothing of a keyframe accepted as drawn", async () => {
+    const projectDir = await project(DEVELOPED(FROM_NOTHING));
+    const { animatic } = await loadStageDefinitions(projectDir);
+    const sm = await StateManager.load(projectDir);
+    for (const shotId of ["01", "02"]) {
+      const address = `animatic:shot.${shotId}.first`;
+      const variantId = sm.reserveVariantId(address);
+      const variant = sm.getAssetState(address).variants![variantId]!;
+      variant.file = "/tmp/first.png";
+      variant.definitionHash = computeDefinitionHash(getAssetEntry(animatic!, address));
+      sm.setAccepted(address, variantId);
+    }
+    await sm.save();
+    const { stdout } = await run(["status"], projectDir);
+    expect(stdout).not.toContain("setup-unconsumed");
   });
 
   it("spends once the keyframes build from the plate", async () => {

@@ -101,6 +101,7 @@ const noStage: StagingStageState = {
   plateRecrops: [],
   panelPrompts: [],
   plateTexts: {},
+  signedOffPlateIds: [],
   shownReferences: {},
   videoPins: [],
   shotPanels: [],
@@ -403,6 +404,15 @@ describe("character-unconsumed", () => {
 
   it("asks nothing of a keyframe that generates nothing", () => {
     expect(found(dir, reach([], false))).toEqual([]);
+  });
+
+  it("says nothing of a keyframe that is signed off", () => {
+    const stage = reach(["ferryDeck", "ane"]);
+    const signed = {
+      ...stage,
+      panelReach: [{ ...stage.panelReach[0]!, signedOff: true as const }],
+    };
+    expect(found(dir, signed)).toEqual([]);
   });
 
   it("waits on the reference existing", () => {
@@ -734,16 +744,17 @@ describe("panel-unlinked", () => {
   };
 
   const board = (
-    ...entries: { shotId: string; carries?: boolean; linked?: string[] }[]
+    ...entries: { shotId: string; carries?: boolean; linked?: string[]; signedOff?: true }[]
   ): StagingStageState => ({
     ...noStage,
-    shotPanels: entries.map(({ shotId, carries = true, linked = [] }) => ({
+    shotPanels: entries.map(({ shotId, carries = true, linked = [], signedOff }) => ({
       shotId,
       lane: "main" as const,
       firstPanel: `animatic:shot.${shotId}.first`,
       lastPanel: `animatic:shot.${shotId}.last`,
       carries,
       linked,
+      ...(signedOff ? { signedOff } : {}),
     })),
   });
 
@@ -841,6 +852,10 @@ describe("panel-unlinked", () => {
 
   it("says nothing while the shot before it is still undeveloped", () => {
     expect(found(pushIn(), board({ shotId: "02" }))).toEqual([]);
+  });
+
+  it("says nothing of a seam whose opening keyframe is signed off", () => {
+    expect(found(pushIn(), board({ shotId: "01" }, { shotId: "02", signedOff: true }))).toEqual([]);
   });
 
   it("is waived by the seam's key", () => {
@@ -1050,6 +1065,20 @@ describe("subject-unnamed", () => {
     expect(findings.map((f) => f.subject)).toEqual(["01.imouto"]);
   });
 
+  it("says nothing of a keyframe that is signed off, and keeps its waiver in use", () => {
+    const waived = direction({
+      shots: [shot("01", "deck", { lineup: ["ane", "imouto"] })],
+      waivers: { "subject-unnamed_01.imouto": "this adapter names its subjects by slot" },
+    });
+    const stage = prompts(["the elder sister looks up"]);
+    const signed = {
+      ...stage,
+      panelPrompts: [{ ...stage.panelPrompts[0]!, signedOff: true as const }],
+    };
+    expect(found(dir, signed)).toEqual([]);
+    expect(checkDirection(waived, { stagingStage: signed }).staleWaivers).toEqual([]);
+  });
+
   it("stays silent with no board to read", () => {
     expect(checkDirection(dir).active.filter((f) => f.code === "subject-unnamed")).toEqual([]);
   });
@@ -1114,6 +1143,18 @@ describe("prop-unnamed", () => {
     expect(found(dir, { ...stage, shownReferences: { "01": ["ame"] } })).toEqual([]);
   });
 
+  it("says nothing once every keyframe of the shot is signed off", () => {
+    const stage = prompts([{ texts: ["a paper twist"] }, { texts: ["the bench"] }]);
+    const signed = (n: number) => ({
+      ...stage,
+      panelPrompts: stage.panelPrompts.map((p, i) =>
+        i < n ? { ...p, signedOff: true as const } : p,
+      ),
+    });
+    expect(found(dir, signed(1)).map((f) => f.subject)).toEqual(["01.ame"]);
+    expect(found(dir, signed(2))).toEqual([]);
+  });
+
   it("stays silent with no board to read", () => {
     expect(checkDirection(dir).active.filter((f) => f.code === "prop-unnamed")).toEqual([]);
   });
@@ -1165,6 +1206,21 @@ describe("landmark-unnamed", () => {
     expect(found(dir, state([{ texts: ["she sits"] }], { stern: [] }))).toEqual([]);
   });
 
+  it("says nothing once every keyframe lacking the landmark is signed off", () => {
+    const stage = state([
+      { texts: ["the bench and the mast"] },
+      { texts: ["she sits on the bench"] },
+    ]);
+    const signed = {
+      ...stage,
+      panelPrompts: [
+        stage.panelPrompts[0]!,
+        { ...stage.panelPrompts[1]!, signedOff: true as const },
+      ],
+    };
+    expect(found(dir, signed)).toEqual([]);
+  });
+
   it("stays silent with no board to read", () => {
     expect(checkDirection(dir).active.filter((f) => f.code === "landmark-unnamed")).toEqual([]);
   });
@@ -1191,6 +1247,11 @@ describe("plate-unnamed", () => {
   it("reports one finding per landmark, so a waiver covers only its own", () => {
     const findings = found(dir, state({ stern: "the boat, empty" }));
     expect(findings.map((f) => f.subject)).toEqual(["stern.bench", "stern.mast"]);
+  });
+
+  it("says nothing of a signed-off plate", () => {
+    const stage = state({ deck: "the boat, empty, from across the water" });
+    expect(found(dir, { ...stage, signedOffPlateIds: ["deck"] })).toEqual([]);
   });
 
   it("asks nothing of a setup whose plate reads no prompt", () => {

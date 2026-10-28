@@ -1610,6 +1610,38 @@ describe("listSetupAnchorGaps", () => {
     expect(gaps.unanchoredShots.size).toBe(0);
   });
 
+  describe("on a frame whose keyframes are signed off", () => {
+    // Main and cutin on one setup, neither built from the location.
+    const twoLanes = board([
+      {
+        id: "01",
+        duration: 5,
+        action: "shot",
+        assets: { first: comfy({}), inset: comfy({}) },
+        panels: [panel("animatic:shot.01.first")],
+        cutin: { panels: [panel("animatic:shot.01.inset")] },
+      },
+    ] as unknown as AnimaticDefinition["shots"]);
+    const frames = [
+      { shotId: "01", lane: "main" as const, setup: "front" },
+      { shotId: "01", lane: "cutin" as const, setup: "front" },
+    ];
+    const gapsWith = (signed: string[]) =>
+      listSetupAnchorGaps(twoLanes, frames, inStudio, new Map(), (a) => signed.includes(a));
+
+    it("keeps the shot unsigned while another of its frames is not", () => {
+      const gaps = gapsWith(["animatic:shot.01.first"]);
+      expect([...gaps.unanchoredShots]).toEqual([["front", ["01"]]]);
+      expect(gaps.signedOffUnanchoredShots.size).toBe(0);
+    });
+
+    it("files the shot as signed off once every frame is", () => {
+      const gaps = gapsWith(["animatic:shot.01.first", "animatic:shot.01.inset"]);
+      expect(gaps.unanchoredShots.size).toBe(0);
+      expect([...gaps.signedOffUnanchoredShots]).toEqual([["front", ["01"]]]);
+    });
+  });
+
   // A cycle is a load error one level up; the walk must terminate rather than hang on the way there.
   it("terminates on a cycle and reports the gap", () => {
     const gaps = listSetupAnchorGaps(

@@ -358,6 +358,8 @@ export type AnimaticSetupState = {
   unanchoredPlateIds: readonly string[];
   unnestedPlateIds: readonly string[];
   unconsumedBy: ReadonlyMap<string, readonly string[]>;
+  // The same shots whose every keyframe is signed off, apart from `unconsumedBy`.
+  signedOffUnconsumedBy: ReadonlyMap<string, readonly string[]>;
   deterministicShotsPerSetup: ReadonlyMap<string, number>;
   deterministicPlateIds: readonly string[];
   unviewedPlateIds: readonly string[];
@@ -855,7 +857,13 @@ export function checkSetups(
           `that plate's window with \`adapters.imageCrop\``,
       });
     }
-    const ignoring = plated || hasReference ? (animatic!.unconsumedBy.get(setup.id) ?? []) : [];
+    const unsigned = animatic!.unconsumedBy.get(setup.id) ?? [];
+    const ignoring =
+      plated || hasReference
+        ? unsigned.length > 0
+          ? unsigned
+          : (animatic!.signedOffUnconsumedBy.get(setup.id) ?? [])
+        : [];
     if (ignoring.length > 0) {
       const shotList = ignoring.map((id) => `"${id}"`).join(", ");
       findings.push({
@@ -873,6 +881,7 @@ export function checkSetups(
                 `show it as the keyframe`
               : "") +
             `; otherwise the place is only as steady as the prompt happens to be`,
+        ...signOff(unsigned.length === 0),
       });
     }
   }
@@ -1043,6 +1052,7 @@ export type PanelReach = {
   panel: string;
   refs: readonly string[];
   generative: boolean;
+  signedOff?: true;
 };
 
 function panelsByFrame<T extends { shotId: string; lane: FrameLane }>(
@@ -1531,7 +1541,10 @@ export type PanelPrompts = {
   texts: readonly string[];
   // False when nothing in the chain generates — a `file` keyframe has no prompt to name anyone in.
   generative: boolean;
+  signedOff?: true;
 };
+
+const signOff = (signed: boolean): { signedOff?: true } => (signed ? { signedOff: true } : {});
 
 // A declared noun is looked for as itself, case-blind and anywhere in the text: "desk" is named by
 // "the desk" and by "a wooden desk", and a prompt that opens on a subject and goes on with "she" has
@@ -1573,7 +1586,8 @@ function checkSubjectNaming(
     if (shot.lineupTo && panels.length > 1 && shot.continuedBy === undefined) {
       against.push({ panel: panels[panels.length - 1]!, order: shot.lineupTo });
     }
-    const missing: string[] = [];
+    // Per missing id: whether every panel lacking it is signed off.
+    const missing = new Map<string, boolean>();
     for (const { panel, order } of against) {
       if (!panel.generative) continue;
       for (const id of order) {
@@ -1582,11 +1596,11 @@ function checkSubjectNaming(
         // `promptDepiction` is `character-empty-prompt-depiction`. Neither is this finding's to
         // repeat.
         if (promptDepiction === undefined || promptDepiction.trim() === "") continue;
-        if (namesIn(panel.texts, promptDepiction) || missing.includes(id)) continue;
-        missing.push(id);
+        if (namesIn(panel.texts, promptDepiction)) continue;
+        missing.set(id, (missing.get(id) ?? true) && panel.signedOff === true);
       }
     }
-    for (const id of missing) {
+    for (const [id, signed] of missing) {
       findings.push({
         code: "subject-unnamed",
         subject: `${frameSubject(shot)}.${id}`,
@@ -1596,6 +1610,7 @@ function checkSubjectNaming(
           `holds by its promptDepiction, or the model decides for itself which sheet it was handed is ` +
           `the one the line is about; to call them by other words, change ` +
           `characters.${id}.promptDepiction`,
+        ...signOff(signed),
       });
     }
   }
@@ -1634,6 +1649,7 @@ export function checkPropNaming(
           `"${prop.promptDepiction}" (verbatim, case-insensitive) — call the prop by its ` +
           `promptDepiction, or each shot draws its own; to call it by other words, change ` +
           `props.${prop.id}.promptDepiction`,
+        ...signOff(panels.every((p) => p.signedOff)),
       });
     }
   }
@@ -1655,6 +1671,8 @@ export type ShotPanels = {
   carries: boolean;
   // Every address the previous panel it was handed reaches.
   linked: readonly string[];
+  // The opening keyframe is signed off.
+  signedOff?: true;
 };
 
 /**
@@ -1669,6 +1687,7 @@ export type PanelSeam = {
   fromPanel: string;
   // Every address this shot's opening keyframe was handed of the frame it cuts from.
   linked: readonly string[];
+  signedOff?: true;
 };
 
 // The frame across a cut along one camera axis — a push in or out along `within`: a keyframe drawn
@@ -1692,6 +1711,7 @@ export function checkPanelLinks(seams: readonly PanelSeam[]): DirectionFinding[]
         `the seam — and ${took}. Pass \`${seam.fromPanel}\` to one of the keyframe's image inputs ` +
         `and name it \`[Shot 1]\` in the prompt, or waive the seam where the cut is meant to re-open ` +
         `the frame`,
+      ...signOff(seam.signedOff === true),
     });
   }
   return findings;
@@ -1711,6 +1731,7 @@ export type PlateNaming = {
   setupId: string;
   texts: readonly string[];
   holds: readonly HeldLandmark[];
+  signedOff?: true;
 };
 
 const landmarkDepictionPath = (landmark: HeldLandmark): string =>
@@ -1731,6 +1752,7 @@ export function checkPlateNaming(namings: readonly PlateNaming[]): DirectionFind
           `"${landmark.promptDepiction}", which its \`holds\` declares the frame carries — ask for it ` +
           `by that noun, or take it out of \`holds\` where the frame does not carry it; to call it ` +
           `by other words, change ${landmarkDepictionPath(landmark)}`,
+        ...signOff(naming.signedOff === true),
       });
     }
   }
@@ -1764,7 +1786,8 @@ export function checkLandmarkNaming(
     );
     for (const landmark of frame.holds) {
       if (landmark.promptDepiction.trim() === "") continue;
-      if (panels.every((panel) => namesIn(panel.texts, landmark.promptDepiction))) continue;
+      const lacking = panels.filter((panel) => !namesIn(panel.texts, landmark.promptDepiction));
+      if (lacking.length === 0) continue;
       findings.push({
         code: "landmark-unnamed",
         subject: `${frameSubject(frame)}.${landmark.id}`,
@@ -1773,6 +1796,7 @@ export function checkLandmarkNaming(
           `containing "${landmark.promptDepiction}" (verbatim, case-insensitive) — its setup has no ` +
           `plate, so the keyframe draws the set: ask for it by that noun; to call it by other ` +
           `words, change ${landmarkDepictionPath(landmark)}`,
+        ...signOff(lacking.every((panel) => panel.signedOff)),
       });
     }
   }
@@ -1933,15 +1957,16 @@ function checkCharacterAnchors(
     if (shot.lineupTo && panels.length > 1 && shot.continuedBy === undefined) {
       against.push({ panel: panels[panels.length - 1]!, order: shot.lineupTo });
     }
-    const missing: string[] = [];
+    // Per missing id: whether every panel lacking it is signed off.
+    const missing = new Map<string, boolean>();
     for (const { panel, order } of against) {
       if (!panel.generative) continue;
       for (const id of order) {
-        if (!anchored.has(id) || panel.refs.includes(id) || missing.includes(id)) continue;
-        missing.push(id);
+        if (!anchored.has(id) || panel.refs.includes(id)) continue;
+        missing.set(id, (missing.get(id) ?? true) && panel.signedOff === true);
       }
     }
-    for (const id of missing) {
+    for (const [id, signed] of missing) {
       findings.push({
         code: "character-unconsumed",
         subject: `${frameSubject(shot)}.${id}`,
@@ -1949,6 +1974,7 @@ function checkCharacterAnchors(
           `${frameName(shot)} frames "${id}" but the keyframe holding them is built from no reference ` +
           `to them — take \`reference.${id}\` as an input image, or the look is only as steady as ` +
           `the prompt happens to be`,
+        ...signOff(signed),
       });
     }
   }

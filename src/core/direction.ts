@@ -960,6 +960,8 @@ export type StagingStageState = {
   // `plate-unnamed` reads for the landmarks that frame declares it holds. Every returned plate has an
   // entry, so a setup with none is one whose keyframes `landmark-unnamed` reads instead.
   plateTexts: Readonly<Record<string, readonly string[]>>;
+  // The setup ids whose plate is signed off.
+  signedOffPlateIds: readonly string[];
   // The reference ids each developed shot puts on screen as they are, keyed by shot id — what
   // `prop-unnamed` drops.
   shownReferences: Readonly<Record<string, readonly string[]>>;
@@ -1091,7 +1093,9 @@ function checkStaging(
     ...checkRoutes(shots),
     // The setups roster alone: a landmark's place on screen is the camera's, not a shot's.
     ...checkLandmarkOrder(holdsSetupRefs(direction)),
-    ...(stage ? checkPlateNaming(plateNamings(direction, stage.plateTexts)) : []),
+    ...(stage
+      ? checkPlateNaming(plateNamings(direction, stage.plateTexts, stage.signedOffPlateIds))
+      : []),
     ...(stage
       ? checkLandmarkNaming(unplatedFrames(direction, stage.plateTexts), stage.panelPrompts)
       : []),
@@ -1200,12 +1204,18 @@ function heldLandmarks(direction: Direction, setupId: string): HeldLandmark[] {
 function plateNamings(
   direction: Direction,
   plateTexts: Readonly<Record<string, readonly string[]>>,
+  signedOffPlateIds: readonly string[],
 ): PlateNaming[] {
   const out: PlateNaming[] = [];
   for (const [setupId, texts] of Object.entries(plateTexts)) {
     const holds = heldLandmarks(direction, setupId);
     if (texts.length === 0 || holds.length === 0) continue;
-    out.push({ setupId, texts, holds });
+    out.push({
+      setupId,
+      texts,
+      holds,
+      ...(signedOffPlateIds.includes(setupId) ? { signedOff: true as const } : {}),
+    });
   }
   return out;
 }
@@ -1317,6 +1327,7 @@ function panelSeams(direction: Direction, continuity: readonly ShotPanels[]): Pa
       from: previousFrame.shotId,
       fromPanel: before.lastPanel,
       linked: here.linked,
+      ...(here.signedOff ? { signedOff: true as const } : {}),
     });
   }
   return out;

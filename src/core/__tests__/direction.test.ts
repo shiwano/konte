@@ -1131,6 +1131,7 @@ describe("checkDirection setups", () => {
       unanchored?: readonly string[];
       unnested?: readonly string[];
       ignoring?: Record<string, string[]>;
+      signedOffIgnoring?: Record<string, string[]>;
       deterministic?: Record<string, number>;
       deterministicPlates?: readonly string[];
       unviewed?: readonly string[];
@@ -1143,6 +1144,7 @@ describe("checkDirection setups", () => {
     unanchoredPlateIds: gaps.unanchored ?? [],
     unnestedPlateIds: gaps.unnested ?? [],
     unconsumedBy: new Map(Object.entries(gaps.ignoring ?? {})),
+    signedOffUnconsumedBy: new Map(Object.entries(gaps.signedOffIgnoring ?? {})),
     deterministicShotsPerSetup: new Map(Object.entries(gaps.deterministic ?? {})),
     deterministicPlateIds: gaps.deterministicPlates ?? [],
     unviewedPlateIds: gaps.unviewed ?? [],
@@ -1608,6 +1610,26 @@ describe("checkDirection setups", () => {
     const unconsumed = active.filter((f) => f.code === "setup-unconsumed");
     expect(unconsumed.map((f) => f.subject)).toEqual(["faraway"]);
     expect(unconsumed[0]?.message).toContain("regenerate `reference.there`");
+  });
+
+  it("names only the shots whose keyframes are not signed off", () => {
+    const { active } = checkDirection(shared, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates(["wall"], {
+        ignoring: { wall: ["02"] },
+        signedOffIgnoring: { wall: ["01"] },
+      }),
+    });
+    const unconsumed = active.filter((f) => f.code === "setup-unconsumed");
+    expect(unconsumed.map((f) => f.message)).toEqual([expect.stringContaining('shot "02" sits')]);
+  });
+
+  it("says nothing once every shot ignoring the anchor is signed off", () => {
+    const { active } = checkDirection(shared, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates(["wall"], { signedOffIgnoring: { wall: ["01", "02"] } }),
+    });
+    expect(active.map((f) => f.code)).not.toContain("setup-unconsumed");
   });
 
   it("names the plate, not the location, once the setup has one", () => {

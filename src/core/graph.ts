@@ -794,6 +794,9 @@ export type SetupAnchorGaps = {
   unanchoredPlates: string[];
   // Shot ids that reach neither anchor, keyed by the setup they sit on.
   unanchoredShots: Map<string, string[]>;
+  // The same, where every keyframe of each frame that reaches neither is signed off; a shot with an
+  // unsigned frame is in `unanchoredShots` alone.
+  signedOffUnanchoredShots: Map<string, string[]>;
   // Setup ids whose plate reaches its location through another view's image only.
   unviewedPlates: string[];
   // Shot ids on a setup with no plate that reach their location through another view's image only.
@@ -810,6 +813,7 @@ export function listSetupAnchorGaps(
   frames: readonly BoardFrame[],
   locationBySetup: ReadonlyMap<string, string>,
   viewBySetup: ReadonlyMap<string, View> = new Map(),
+  signedOff: (address: string) => boolean = () => false,
 ): SetupAnchorGaps {
   const plates = platesOf(animatic);
   const entryOf = animaticEntryResolver(animatic);
@@ -843,6 +847,7 @@ export function listSetupAnchorGaps(
 
   const unviewedShots = new Map<string, string[]>();
   const unanchoredShots = new Map<string, string[]>();
+  const signedOffUnanchoredShots = new Map<string, string[]>();
   const deterministicShots = new Map<string, number>();
   const shotById = new Map(animatic.shots.map((shot) => [shot.id, shot]));
   for (const frame of frames) {
@@ -867,18 +872,16 @@ export function listSetupAnchorGaps(
     // asset, a `shot(…)` chain — is reached from a panel.
     const viewImage =
       setupId in plates || location === undefined ? undefined : viewImageOf(setupId, location);
-    const walk = walkPictureChain(
-      lanePanels(shot, frame.lane).map((panel) => panel.assetPath),
-      target,
-      entryOf,
-      viewImage,
-    );
+    const panels = lanePanels(shot, frame.lane).map((panel) => panel.assetPath);
+    const walk = walkPictureChain(panels, target, entryOf, viewImage);
     if (!walk.generative) {
       deterministicShots.set(setupId, (deterministicShots.get(setupId) ?? 0) + 1);
       continue;
     }
     const gaps = !walk.reached
-      ? unanchoredShots
+      ? panels.every(signedOff)
+        ? signedOffUnanchoredShots
+        : unanchoredShots
       : viewImage !== undefined && !walk.reachedView
         ? unviewedShots
         : undefined;
@@ -888,9 +891,17 @@ export function listSetupAnchorGaps(
     gaps.set(setupId, shots);
   }
 
+  for (const [setupId, shots] of signedOffUnanchoredShots) {
+    const unsigned = unanchoredShots.get(setupId) ?? [];
+    const signed = shots.filter((id) => !unsigned.includes(id));
+    if (signed.length > 0) signedOffUnanchoredShots.set(setupId, signed);
+    else signedOffUnanchoredShots.delete(setupId);
+  }
+
   return {
     unanchoredPlates,
     unanchoredShots,
+    signedOffUnanchoredShots,
     unviewedPlates,
     unviewedShots,
     deterministicShots,

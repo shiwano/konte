@@ -135,7 +135,7 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
   },
   "setup-unconsumed": {
     flags:
-      "A developed shot builds no keyframe from its setup's plate, or from the location reference where there is no plate.",
+      "A developed shot builds no keyframe from its setup's plate, or from the location reference where there is no plate. A keyframe accepted against its current definition is exempt.",
     subject: "setup id",
   },
   "unused-setup": { flags: "No shot points at a setup.", subject: "setup id" },
@@ -199,7 +199,8 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
     subject: "`<frame>.<characterId>`",
   },
   "character-unconsumed": {
-    flags: "A keyframe framing a character is built from no reference to them.",
+    flags:
+      "A keyframe framing a character is built from no reference to them. A keyframe accepted against its current definition is exempt.",
     subject: "`<frame>.<characterId>`",
   },
   "slot-order-mismatch": {
@@ -225,22 +226,22 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
   },
   "subject-unnamed": {
     flags:
-      "No prompt behind a keyframe contains the `promptDepiction` of a subject it frames, verbatim (case-insensitive).",
+      "No prompt behind a keyframe contains the `promptDepiction` of a subject it frames, verbatim (case-insensitive). A keyframe accepted against its current definition is exempt.",
     subject: "`<frame>.<characterId>`",
   },
   "prop-unnamed": {
     flags:
-      "A shot's `action` names a prop, but no prompt behind its keyframes contains the prop's `promptDepiction`, verbatim (case-insensitive), and the shot does not put the prop's reference on screen through no generative step.",
+      "A shot's `action` names a prop, but no prompt behind its keyframes contains the prop's `promptDepiction`, verbatim (case-insensitive), and the shot does not put the prop's reference on screen through no generative step. A keyframe accepted against its current definition is exempt.",
     subject: "`<shotId>.<propId>`",
   },
   "plate-unnamed": {
     flags:
-      "No prompt a plate is generated with contains the `promptDepiction` of a landmark its setup's `holds` declares, verbatim (case-insensitive).",
+      "No prompt a plate is generated with contains the `promptDepiction` of a landmark its setup's `holds` declares, verbatim (case-insensitive). A plate accepted against its current definition is exempt.",
     subject: "`<setupId>.<landmarkId>`",
   },
   "landmark-unnamed": {
     flags:
-      "On a setup with no plate, a keyframe's prompts omit the `promptDepiction` of a landmark the frame holds, verbatim (case-insensitive).",
+      "On a setup with no plate, a keyframe's prompts omit the `promptDepiction` of a landmark the frame holds, verbatim (case-insensitive). A keyframe accepted against its current definition is exempt.",
     subject: "`<frame>.<landmarkId>`",
   },
   "join-lineup-mismatch": {
@@ -264,7 +265,7 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
   },
   "panel-unlinked": {
     flags:
-      "A keyframe opening a cut along one `within` axis, on a model that reads a previous panel (`readsPrevPanel`), takes no previous panel, or another frame, among its image inputs. A cut between two frames whose lineups hold subjects but none in common is exempt.",
+      "A keyframe opening a cut along one `within` axis, on a model that reads a previous panel (`readsPrevPanel`), takes no previous panel, or another frame, among its image inputs. A cut between two frames whose lineups hold subjects but none in common is exempt. So is an opening keyframe accepted against its current definition.",
     subject: "seam (`<from>-<id>`, `.cutin` for a cutin)",
   },
 };
