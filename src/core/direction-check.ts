@@ -363,6 +363,8 @@ export type AnimaticSetupState = {
   unviewedPlateIds: readonly string[];
   unviewedBy: ReadonlyMap<string, readonly string[]>;
   unanchoredViews: readonly string[];
+  // Setup ids whose plate has an accepted take.
+  acceptedPlateIds: readonly string[];
 };
 type CharacterRef = AnchoredEntityRef;
 
@@ -635,7 +637,8 @@ function checkAxisCuts(cuts: readonly AxisCut[], plates: ReadonlySet<string>): D
 }
 
 // The plates neither `setup-unrealized` nor `axis-unrealized` asks for: a setup at most one generated
-// shot stands on, cut along no axis that nests it. One with no generative step is exempt.
+// shot stands on, cut along no axis that nests it. One with no generative step is exempt, and so is
+// one under a single generated shot once it is accepted.
 function checkUnowedPlates(
   setups: readonly SetupRef[],
   shotsPerSetup: ReadonlyMap<string, number>,
@@ -645,13 +648,14 @@ function checkUnowedPlates(
   const byId = new Map(setups.map((setup) => [setup.id, setup]));
   const nested = new Set(axisCuts.flatMap((cut) => cut.chain));
   const deterministic = new Set(animatic.deterministicPlateIds);
+  const accepted = new Set(animatic.acceptedPlateIds);
   const findings: DirectionFinding[] = [];
   for (const id of animatic.plateIds) {
     const setup = byId.get(id);
     if (setup === undefined || nested.has(id) || deterministic.has(id)) continue;
     const generated =
       (shotsPerSetup.get(id) ?? 0) - (animatic.deterministicShotsPerSetup.get(id) ?? 0);
-    if (generated >= 2) continue;
+    if (generated >= 2 || (generated === 1 && accepted.has(id))) continue;
     findings.push({
       code: "plate-unowed",
       subject: id,

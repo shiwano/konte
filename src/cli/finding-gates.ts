@@ -94,7 +94,12 @@ export async function loadCheckContext(opts: {
     lang: video?.typography.lang ?? direction?.policy.lang ?? null,
     ...(direction && animatic
       ? {
-          animaticSetups: animaticSetupState(direction, animatic, reference),
+          animaticSetups: animaticSetupState(
+            direction,
+            animatic,
+            reference,
+            manager?.getState() ?? null,
+          ),
           stagingStage: stagingStageState(direction, animatic, video, manager),
         }
       : {}),

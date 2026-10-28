@@ -1,6 +1,7 @@
 import {
   type DefinitionLike,
   type Stage,
+  formatPlateAssetPath,
   formatReferenceAddress,
   getStage,
   isMaterializedLeafAddress,
@@ -46,6 +47,7 @@ import {
 import type {
   ReferenceDefinition,
   AnimaticDefinition,
+  KonteState,
   VideoDefinition,
 } from "../core/types/index.js";
 import { harvestShotPictureCues } from "../core/composition-builder.js";
@@ -221,7 +223,9 @@ export async function loadAnimaticSetupState(
   reference: ReferenceDefinition | null,
 ): Promise<AnimaticSetupState | undefined> {
   const animatic = await loadAnimatic(videoRoot).catch(() => null);
-  return animatic ? animaticSetupState(direction, animatic, reference) : undefined;
+  if (!animatic) return undefined;
+  const manager = await StateManager.load(videoRoot).catch(() => null);
+  return animaticSetupState(direction, animatic, reference, manager?.getState() ?? null);
 }
 
 // The same off a board already read.
@@ -229,6 +233,7 @@ export function animaticSetupState(
   direction: Direction,
   animatic: AnimaticDefinition,
   reference: ReferenceDefinition | null,
+  state: KonteState | null,
 ): AnimaticSetupState {
   const setups = direction.setups ?? {};
   const locationBySetup = new Map(Object.entries(setups).map(([id, s]) => [id, s.location]));
@@ -251,8 +256,9 @@ export function animaticSetupState(
       typeof s.within === "string" ? [[id, s.within] as const] : [],
     ),
   );
+  const plateIds = animatic.exposedPlateIds ?? Object.keys(animatic.plates ?? {});
   return {
-    plateIds: animatic.exposedPlateIds ?? Object.keys(animatic.plates ?? {}),
+    plateIds,
     unanchoredPlateIds: gaps.unanchoredPlates,
     unnestedPlateIds: listSetupNestGaps(animatic, withinBySetup),
     unconsumedBy: gaps.unanchoredShots,
@@ -261,6 +267,11 @@ export function animaticSetupState(
     unviewedPlateIds: gaps.unviewedPlates,
     unviewedBy: gaps.unviewedShots,
     unanchoredViews: reference ? listViewAnchorGaps(reference) : [],
+    acceptedPlateIds: plateIds.filter((id) =>
+      Object.values(state?.assets[formatPlateAssetPath(id)]?.variants ?? {}).some(
+        (variant) => variant.status === "accepted",
+      ),
+    ),
   };
 }
 

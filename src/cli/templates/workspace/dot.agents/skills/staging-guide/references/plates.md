@@ -1,6 +1,6 @@
 # Plates
 
-- A plate holds one frame across the generated shots that stand on it — a setup two or more of them share owes one (`setup-unrealized`), and so does each setup nesting two `wide`/`medium` setups the piece cuts between along one `within` axis, both included (`axis-unrealized`). Any other setup gets none (`plate-unowed`): its keyframes stand on `reference:<location>`. Declare a plate under `plates` in animatic.tsx, keyed by the roster id (`animatic:plate.<setupId>`).
+- A plate holds one frame across the generated shots that stand on it — a setup two or more of them share owes one (`setup-unrealized`), and so does each setup nesting two `wide`/`medium` setups the piece cuts between along one `within` axis, both included (`axis-unrealized`). Any other setup gets none (`plate-unowed`): its keyframes stand on `reference:<location>`. An accepted plate left under one generated shot stays. Declare a plate under `plates` in animatic.tsx, keyed by the roster id (`animatic:plate.<setupId>`).
 - Generate every plate from its view's image — `reference.view.<location>.<view>`, `front` being the `location` master itself (`plate-unviewed`, `plate-unanchored`).
 - A view image is the room at full distance — cut a closer frame out of it (`imageCrop`) or in from a plate on it; cut an insert or a night frame in from a plate of the same view.
 - A root setup (`within: null`) declares its framing new — carry the master's setting and light onto each camera axis.

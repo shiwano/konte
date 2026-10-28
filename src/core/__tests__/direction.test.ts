@@ -1136,6 +1136,7 @@ describe("checkDirection setups", () => {
       unviewed?: readonly string[];
       unviewedBy?: Record<string, string[]>;
       unanchoredViews?: readonly string[];
+      accepted?: readonly string[];
     } = {},
   ): AnimaticSetupState => ({
     plateIds: ids,
@@ -1147,6 +1148,7 @@ describe("checkDirection setups", () => {
     unviewedPlateIds: gaps.unviewed ?? [],
     unviewedBy: new Map(Object.entries(gaps.unviewedBy ?? {})),
     unanchoredViews: gaps.unanchoredViews ?? [],
+    acceptedPlateIds: gaps.accepted ?? [],
   });
 
   // Two shots on one frame, one shot on another: exactly the split `setup-unrealized` draws.
@@ -1331,6 +1333,15 @@ describe("checkDirection setups", () => {
 
     it("flags a plate only one generated shot stands on", () => {
       expect(unowed(shared, plates(["wall", "solo"]))).toEqual(["solo"]);
+    });
+
+    it("says nothing of an accepted plate one generated shot stands on", () => {
+      expect(unowed(shared, plates(["wall", "solo"], { accepted: ["solo"] }))).toEqual([]);
+    });
+
+    it("flags an accepted plate no generated shot stands on", () => {
+      const state = plates(["wall"], { deterministic: { wall: 2 }, accepted: ["wall"] });
+      expect(unowed(shared, state)).toEqual(["wall"]);
     });
 
     it("says nothing of a plate two generated shots share", () => {

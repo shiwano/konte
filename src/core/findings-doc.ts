@@ -130,7 +130,7 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
   },
   "plate-unowed": {
     flags:
-      "A generated plate stands under at most one generated shot and on no axial cut that nests it.",
+      "A generated plate stands under no generated shot, or under one while the plate is unaccepted, and on no axial cut that nests it.",
     subject: "setup id",
   },
   "setup-unconsumed": {

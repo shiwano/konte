@@ -395,6 +395,7 @@ describe("cutin setups", () => {
     unviewedPlateIds: [],
     unviewedBy: new Map(),
     unanchoredViews: [],
+    acceptedPlateIds: [],
   });
 
   it("counts a wipe as a shot on its setup", () => {
