@@ -165,7 +165,7 @@ const DIRECTION_FINDING_TRAITS: Record<DirectionFindingCode, FindingTraits> = {
   "landmark-unnamed": waive("stage+downstream"),
   "join-lineup-mismatch": fixDirection,
   "join-unpinned": waive("stage+downstream"),
-  "join-unshown": fixDirection,
+  "join-unshown": waive("stage+downstream"),
   "opening-key": waive("stage", "always", "take"),
   "panel-unlinked": waive("stage+downstream"),
   "song-unreferenced": {
