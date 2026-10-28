@@ -1,10 +1,8 @@
 # Stable Audio 3 Medium
 
-Makes music or SFX / ambience, selected by `category`. The single `prompt` field _describes_ the sound — a style line for music, a discrete sound/soundscape for SFX.
-
 ## Prompt Shape
 
-Pick the mode, then write `prompt` to match:
+Write `prompt` in the shape of what it is:
 
 - Music — a dense comma-list of sonic descriptors:
 
@@ -25,18 +23,20 @@ A dense comma-list of descriptors, not narrative prose. Name concrete instrument
 ## Length
 
 - ~5–12 descriptors — density beats length; describe the sound, not a scene.
-- SFX: one coherent sound — generate multiple effects separately and mix in the composition.
+
+## Enhance and Category
+
+- `enhancePrompt: true` has an LLM rewrite `prompt` before encoding, from the system prompt `category` selects: `Music` a full track, `Instrument` a loop or stem, `SFX` an effect or ambience, `One-shot` an isolated 1–11 s hit.
+- Off (the default), `prompt` is encoded as written and `category` is read by nothing.
+
+## Negative Prompt
+
+- Leave `negativePrompt` empty — at the default `cfg: 1` the sampler ignores the negative conditioning.
 
 ## Duration
 
-- `duration` follows the shot where one is in scope, and takes the adapter's default on the timeline.
-- For looping ambience, set it by hand a little longer than the slot and loop it in the composition.
+- For looping ambience, set `duration` by hand a little longer than the slot and loop it in the composition.
 
 ## Tips
 
-- Match the mode to the content — a music-style prompt used as SFX (or vice versa) fights the model.
 - For music, include a tempo/feel word and name the lead instruments — they move the result most.
-
-## Avoid
-
-- Expecting vocals or lyrics — instrumental / SFX only.
