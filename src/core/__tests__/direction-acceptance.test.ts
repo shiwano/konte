@@ -493,6 +493,26 @@ describe("applyDirectionSectionDecisions", () => {
     expect(written.parts["direction:waivers.multi-sentence-action_02"]).toBeUndefined();
     expect(written.whole?.hash).toBe(directionHash(cut));
   });
+
+  it("owes no review for a part the direction can no longer declare, and sweeps it", () => {
+    const direction = makeDirection();
+    const accepted = acceptAll(direction);
+    const acceptance = {
+      ...accepted,
+      parts: {
+        ...accepted.parts,
+        "direction:policy.speech": { partHash: "h", acceptedAt: "2026-01-01T00:00:00.000Z" },
+      },
+    };
+
+    const view = directionAcceptanceView(direction, acceptance);
+    expect(view.orphans).toEqual([]);
+    expect(view.gateSatisfied).toBe(true);
+    expect(view.sections.get("policy")).toBe("accepted");
+
+    const written = applyDirectionSectionDecisions(direction, acceptance, { characters: true });
+    expect(written.parts["direction:policy.speech"]).toBeUndefined();
+  });
 });
 
 describe("applyDirectionPartDecisions", () => {

@@ -394,6 +394,10 @@ const REFERENCE_SCOPE_PATTERN = new RegExp(
 // container prefix over several of them.
 const DIRECTION_SCOPE_PATTERN = new RegExp(`^direction(:(${DIRECTION_SCOPE_BODY}))?$`);
 
+export function isDirectionScope(scope: string): boolean {
+  return DIRECTION_SCOPE_PATTERN.test(scope);
+}
+
 // The direction stage's own scope, resolved rather than merely validated: the whole direction
 // (`direction`) or a part scope (`direction:<part>` — one part, or the prefix over the parts under
 // it). A part scope is already an address, so it is returned as-is; the whole-stage form yields

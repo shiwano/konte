@@ -12,6 +12,7 @@ import {
   formatDirectionSequenceAddress,
   formatDirectionSetupAddress,
   formatDirectionShotAddress,
+  isDirectionScope,
   parseAddress,
 } from "./address.js";
 import type { Direction, DirectionNode } from "./dsl/direction.js";
@@ -70,9 +71,10 @@ const PIECE_WIDE_SECTIONS: ReadonlySet<DirectionSection> = new Set([
 const SONG_SECTIONS: ReadonlySet<DirectionSection> = new Set(["brief", "policy", "lyrics"]);
 
 // A deleted waiver owes no reader: removing one only puts its finding back in front of the machine
-// check, so its orphaned sign-off neither blocks nor is kept.
+// check, so its orphaned sign-off neither blocks nor is kept. Nor does a part the direction can no
+// longer declare — a field konte dropped was deleted by no author.
 function orphanOwesReview(address: string): boolean {
-  return directionSectionOf(address) !== "waivers";
+  return isDirectionScope(address) && directionSectionOf(address) !== "waivers";
 }
 
 // The sections the spend gate is still waiting on — every one until the direction has been accepted
