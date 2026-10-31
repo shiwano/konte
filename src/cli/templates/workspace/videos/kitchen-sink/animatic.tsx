@@ -1,6 +1,7 @@
 import {
   adapters,
   asset,
+  type AdapterInputs,
   Audio,
   Composition,
   Cutin,
@@ -24,17 +25,22 @@ type Still = {
   cutFrom?: string;
 };
 
-const still = ({ task, defines, retains, summary, described, cutFrom }: Still) => {
-  const shots: [string] | [string, string] = cutFrom
-    ? [cutFrom, `the camera cuts to ${described}`]
-    : [described];
-  return {
-    subjectDefinitions: [...defines],
-    summary: { tasks: [task] as [Still["task"]], text: summary },
-    retentionAnalysis: [...retains],
-    detailedDescription: { style: "2D-animated.", shots },
-  };
-};
+const still = ({
+  task,
+  defines,
+  retains,
+  summary,
+  described,
+  cutFrom,
+}: Still): AdapterInputs<typeof imageMinimaxH3R2i>["prompt"] => ({
+  subjectDefinitions: [...defines],
+  summary: { tasks: [task], text: summary },
+  retentionAnalysis: [...retains],
+  detailedDescription: {
+    style: "2D-animated.",
+    shots: cutFrom ? [cutFrom, `the camera cuts to ${described}`] : [described],
+  },
+});
 
 const kept = (label: string, what: string) =>
   `${label} (appears in [Shot 1]): fully_preserved - ${what}`;

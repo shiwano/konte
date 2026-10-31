@@ -2,6 +2,7 @@ import {
   adapters,
   Animate,
   asset,
+  type AdapterInputs,
   Audio,
   Composition,
   Cutin,
@@ -21,7 +22,11 @@ import animatic from "./animatic";
 import direction from "./direction";
 import reference from "./reference";
 
-const motionPrompt = (summary: string, described: string, frames: "pinned" | "key") => ({
+const motionPrompt = (
+  summary: string,
+  described: string,
+  frames: "pinned" | "key",
+): AdapterInputs<typeof videoMinimaxH3R2v>["prompt"] => ({
   subjectDefinitions:
     frames === "key"
       ? ["<Picture 1> is the key frame of [Shot 1]."]
@@ -29,7 +34,7 @@ const motionPrompt = (summary: string, described: string, frames: "pinned" | "ke
           "<Picture 1> is the first frame of [Shot 1].",
           "<Picture 2> is the last frame of [Shot 1].",
         ],
-  summary: { tasks: ["keyframe completion"] as ["keyframe completion"], text: summary },
+  summary: { tasks: ["keyframe completion"], text: summary },
   retentionAnalysis:
     frames === "key"
       ? [
@@ -39,7 +44,7 @@ const motionPrompt = (summary: string, described: string, frames: "pinned" | "ke
           "<Picture 1> ([Shot 1] first frame): fully_preserved - the opening frame.",
           "<Picture 2> ([Shot 1] last frame): fully_preserved - the closing frame.",
         ],
-  detailedDescription: { style: "2D-animated.", shots: [described] as [string] },
+  detailedDescription: { style: "2D-animated.", shots: [described] },
   overallSoundscape: "A quiet kitchen.",
   nonDiegeticMusic: "N/A",
 });
