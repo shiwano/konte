@@ -241,6 +241,10 @@ export type KonteErrorCode =
   | "CLIP_UNREADABLE"
   // `konte study clip` could not download the URL it was handed, or the URL is a page it cannot read.
   | "CLIP_DOWNLOAD_FAILED"
+  // A source's original is missing, or is no file its kind reads.
+  | "SOURCE_UNREADABLE"
+  // A comic whose binding neither ComicInfo.xml nor the PDF states, studied without `--binding`.
+  | "COMIC_BINDING_UNKNOWN"
   | "CREDENTIALS_UNREADABLE"
   | "CONFIRMATION_REQUIRED"
   | "INVALID_TEMPLATE"

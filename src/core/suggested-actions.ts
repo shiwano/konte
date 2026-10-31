@@ -544,6 +544,8 @@ interface SuggestStatusInput {
   directionEmpty?: boolean;
   /** The song `policy.song` names, while no take of it is accepted. */
   songPending?: SongPending;
+  /** What the span's digest still lacks, while the direction is not accepted. */
+  sourceGaps?: SourceGaps;
   /** Takes of the song waiting to be read — their analysis jobs run under `konte job wait`. */
   songReadingsPending?: boolean;
   /** A job is still running or queued — `konte job wait`. */
@@ -569,6 +571,21 @@ export type DefinitionRestore = {
   // The definition fields moved since the take was made; empty when the diff cannot be read.
   fields: readonly string[];
 };
+
+export type SourceGaps = {
+  source: string;
+  unread: readonly string[];
+};
+
+// A digest the direction is written from, with a hole in it: the readers it still owes.
+function prependSourceGaps(actions: SuggestedAction[], gaps: SourceGaps | undefined): void {
+  if (!gaps) return;
+  actions.unshift({
+    command: null,
+    label: "spawn one konte-source-reader with these chunks of the span to read",
+    details: [`${gaps.source}: ${gaps.unread.join(", ")}`],
+  });
+}
 
 export type SongPending = {
   address: string;
@@ -652,6 +669,7 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
     input.directionEmpty,
     input.songPending,
   );
+  prependSourceGaps(actions, input.sourceGaps);
   // Ahead of the reviews: the song's page lays a take's beats and lines over it, which a take not
   // read yet has neither.
   if (input.songReadingsPending || input.jobsInFlight) {

@@ -804,6 +804,27 @@ describe("formatSuggestedActions", () => {
   });
 });
 
+describe("a source's digest gaps", () => {
+  it("names the readers the span still owes, ahead of the direction review", () => {
+    const actions = suggestForStatus({
+      state: makeState({}),
+      directionReviewNeeded: true,
+      sourceGaps: {
+        source: "videos/main/source",
+        unread: ["c4"],
+      },
+    });
+    expect(formatSuggestedActions(actions.slice(0, 2))).toBe(
+      [
+        "Next steps:",
+        "  (spawn one konte-source-reader with these chunks of the span to read)",
+        "    videos/main/source: c4",
+        "  konte preview direction",
+      ].join("\n"),
+    );
+  });
+});
+
 describe("direction review is surfaced first", () => {
   it("prepends `konte preview direction` when the direction is unaccepted", () => {
     const actions = suggestForStatus({ state: makeState({}), directionReviewNeeded: true });

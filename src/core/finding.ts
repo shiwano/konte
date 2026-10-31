@@ -33,7 +33,9 @@ export type FindingCode =
   | "animatic-unconsumed"
   | BuildFindingCode
   // An asset built on a shot that is still a pendingShot: the edge it would hang on has no take.
-  | "pending-reference";
+  | "pending-reference"
+  // A locator of `brief.source` — a digest's `at`, or the span — past the original's chunks.
+  | "source-locator-out-of-range";
 
 // What a stage build finds of itself instead of refusing to load: a demand the direction makes that
 // the stage file has not caught up with, after an edit to the direction alone.
@@ -239,6 +241,7 @@ const OTHER_TRAITS: Record<
     holds: { spend: { reach: "edge" }, accept: true },
     onset: "always",
   },
+  "source-locator-out-of-range": fixStageAndDownstream,
 };
 
 export function findingTraits(code: FindingCode): FindingTraits {

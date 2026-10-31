@@ -36,7 +36,7 @@ export const MAX_CLIP_SEC = 30 * 60;
 // The picture is read off a copy whose short side is this long.
 const PROXY_SHORT_SIDE = 360;
 
-const SCENE_THRESHOLD = 0.3;
+export const SCENE_THRESHOLD = 0.3;
 const MIN_SHOT_SEC = 0.25;
 
 export const SHEET_CELLS = 30;
@@ -65,7 +65,7 @@ export function clipStudyDir(workspaceRoot: string, sha256: string): string {
   return path.join(studiesDir(workspaceRoot), `clip-${sha256}`);
 }
 
-async function sha256OfFile(file: string): Promise<string> {
+export async function sha256OfFile(file: string): Promise<string> {
   const hash = createHash("sha256");
   for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
   return hash.digest("hex");
@@ -106,7 +106,11 @@ export async function cachedClipStudy(
   return study ? { dir, study } : null;
 }
 
-export async function probeClip(file: string): Promise<VideoProbeResult> {
+/** `file`'s probe, refused where it holds no picture — or, unless `uncapped`, runs past `MAX_CLIP_SEC`. */
+export async function probeClip(
+  file: string,
+  opts: { uncapped?: boolean } = {},
+): Promise<VideoProbeResult> {
   if (!existsSync(file) || !statSync(file).isFile()) {
     throw new KonteError("CLIP_UNREADABLE", `No such file: ${file}`);
   }
@@ -119,7 +123,7 @@ export async function probeClip(file: string): Promise<VideoProbeResult> {
   if (probe.width <= 0 || probe.height <= 0 || probe.videoDuration <= 0) {
     throw new KonteError("CLIP_UNREADABLE", `${file} holds no picture`);
   }
-  if (probe.duration > MAX_CLIP_SEC) {
+  if (!opts.uncapped && probe.duration > MAX_CLIP_SEC) {
     throw new KonteError(
       "CLIP_TOO_LONG",
       `${file} runs ${formatClock(probe.duration)}, past the ${formatClock(MAX_CLIP_SEC)} a study reads`,
@@ -167,8 +171,10 @@ export function musicTempo(beats: readonly number[], durationSec: number): SongT
   return songTempo({ beats, firstBeat: 0, beatsPerBar: 4 });
 }
 
-/** The heard tokens as lines, each opened by the clock it starts at, broken at each pause. */
-export function heardLines(tokens: readonly { text: string; startSec: number }[]): string[] {
+export type HeardLine = { startSec: number; text: string };
+
+/** The heard tokens as lines, each with the clock it starts at, broken at each pause. */
+export function heardLineSpans(tokens: readonly { text: string; startSec: number }[]): HeardLine[] {
   const lines: { startSec: number; text: string }[] = [];
   let last = -Infinity;
   for (const token of tokens) {
@@ -178,10 +184,12 @@ export function heardLines(tokens: readonly { text: string; startSec: number }[]
     lines.at(-1)!.text += token.text;
     last = token.startSec;
   }
-  return lines
-    .map((l) => ({ ...l, text: l.text.trim() }))
-    .filter((l) => l.text !== "")
-    .map((l) => `[${formatClock(l.startSec)}] ${l.text}`);
+  return lines.map((l) => ({ ...l, text: l.text.trim() })).filter((l) => l.text !== "");
+}
+
+/** A heard line as a reference study's heard.txt writes it, opened by the clock it starts at. */
+export function formatHeardLine(line: HeardLine): string {
+  return `[${formatClock(line.startSec)}] ${line.text}`;
 }
 
 function sheetCellLabel(shot: { startSec: number; endSec: number }): string {
@@ -192,7 +200,7 @@ async function ffmpeg(args: string[]): Promise<void> {
   await execFileAsync(await ffmpegBin(), ["-v", "error", "-y", ...args]);
 }
 
-async function makeProxy(file: string, out: string): Promise<void> {
+export async function makeProxy(file: string, out: string): Promise<void> {
   const s = PROXY_SHORT_SIDE;
   await ffmpeg([
     "-i",
@@ -252,11 +260,11 @@ async function renderSheets(opts: {
 }
 
 // The words the clip's separated voice is heard to say, and the language most of them are in.
-async function hearVoice(
+export async function hearVoice(
   file: string,
   durationSec: number,
   workDir: string,
-): Promise<{ lang: string; lines: string[] } | null> {
+): Promise<{ lang: string; lines: HeardLine[] } | null> {
   await fs.mkdir(workDir, { recursive: true });
   const stereo = path.join(workDir, "mix.wav");
   await ffmpeg([
@@ -287,7 +295,7 @@ async function hearVoice(
   }
   const lang = [...byLang].sort((a, b) => b[1] - a[1])[0]?.[0];
   if (!lang) return null;
-  return { lang, lines: heardLines(tokens) };
+  return { lang, lines: heardLineSpans(tokens) };
 }
 
 /**
@@ -338,7 +346,13 @@ export async function studyClip(opts: {
       if (!heard) {
         progress("listening for a voice");
         const voice = await hearVoice(file, probe.duration, path.join(workDir, "voice"));
-        if (voice) heard = { ...voice, from: "voice" };
+        if (voice) {
+          heard = {
+            lang: voice.lang,
+            from: "voice",
+            lines: voice.lines.map(formatHeardLine),
+          };
+        }
       }
     }
     if (heard) await fs.writeFile(path.join(outDir, HEARD_FILE), `${heard.lines.join("\n")}\n`);

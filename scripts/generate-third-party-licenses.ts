@@ -42,6 +42,12 @@ const HOLDER_FALLBACKS: Record<string, string> = {
   "onnxruntime-web": "Microsoft Corporation",
 };
 
+// A file konte embeds from a package under a license of its own, beside the package's: appended to
+// the package's text.
+const EXTRA_TEXTS: Record<string, string[]> = {
+  "pdfjs-dist": ["cmaps/LICENSE"],
+};
+
 // MIT carries the copyright line inside the grant, so a vendored copy is only correct once the
 // holder is filled in.
 const HOLDER_PLACEHOLDER = "[[HOLDER]]";
@@ -176,12 +182,16 @@ for (const name of bundled) {
   if (manifest === null) continue;
 
   const declared = declaredSpdx(manifest);
-  const text = shippedText(name) ?? vendoredText(name, declared, manifest);
+  const own = shippedText(name) ?? vendoredText(name, declared, manifest);
+  const extra = (EXTRA_TEXTS[name] ?? []).map((f) =>
+    fs.readFileSync(path.join(modulesRoot, name, f), "utf-8").trimEnd(),
+  );
+  const text = own === null ? null : [own, ...extra].join("\n\n");
   if (text === null) {
     noText.push(name);
     continue;
   }
-  const id = declared ?? detectSpdx(text);
+  const id = declared ?? detectSpdx(own!);
   if (id === null) {
     noId.push(name);
     continue;

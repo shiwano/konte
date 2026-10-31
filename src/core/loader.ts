@@ -363,7 +363,12 @@ async function importDefinition<T>(
     // re-evaluates and says it again.
     await underReloadLock(async () => bustProjectModuleCache(path.dirname(filePath)));
     if (err instanceof KonteError) {
-      throw new KonteError(err.code, `${label} file "${filePath}": ${err.headline}`, err.items);
+      const origin = thrownIn(err, path.dirname(filePath));
+      const where =
+        origin && origin !== filePath
+          ? `"${origin}" (imported by ${label} file "${filePath}")`
+          : `${label} file "${filePath}"`;
+      throw new KonteError(err.code, `${where}: ${err.headline}`, err.items);
     }
     throw new KonteError(
       "LOAD_FAILED",
@@ -371,6 +376,18 @@ async function importDefinition<T>(
     );
   }
   return parse(mod, filePath);
+}
+
+// The project file whose evaluation threw `err`: its innermost stack frame under the project, outside
+// the generated `.konte/` module. Null where no frame is.
+function thrownIn(err: Error, videoRoot: string): string | null {
+  const prefixes = projectRootPrefixes(videoRoot);
+  for (const [, file] of (err.stack ?? "").matchAll(/(\/[^\s():]+):\d+:\d+/g)) {
+    const at = file!.startsWith("file://") ? fileURLToPath(file!) : file!;
+    if (at.includes(`${path.sep}.konte${path.sep}`)) continue;
+    if (prefixes.some((prefix) => at.startsWith(prefix))) return at;
+  }
+  return null;
 }
 
 // The default export of a stage entry, validated against its schema.

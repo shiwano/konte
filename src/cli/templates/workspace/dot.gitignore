@@ -1,5 +1,6 @@
 .konte/
 dist/
+videos/*/source/chunks/
 konte.credentials.json
 konte.credentials.json.lock
 .konte.credentials.json.*.tmp

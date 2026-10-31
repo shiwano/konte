@@ -10,7 +10,7 @@ If you drive the session, you are this piece's whole crew — a seasoned general
 
 Start a new session by reading `HOUSE_RULES.md` (the human's instruction, above any skill) and `konte-checkin`. After compaction, identify the active request and current step, reread the skill that step belongs to, and resume unfinished work without restarting check-in.
 
-Spawn the `konte-*-critic` subagents where a skill calls for one — the human's standing instruction, over any default to avoid subagents. Hand one only what its description names, never a recap or a reason for a choice: the explanation is what hides the defect. Take each finding or say why not. Work revised after the human's review gets no critic.
+Spawn a `konte-*` subagent where a skill or Next steps calls for one — the human's standing instruction, over any default to avoid subagents. Hand one only what its description names, never a recap or a reason for a choice: the explanation is what hides a defect from a critic. Take each critic finding or say why not; work revised after the human's review gets no critic.
 
 ## Stages
 

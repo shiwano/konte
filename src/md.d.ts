@@ -30,3 +30,9 @@ declare module "gsap/dist/*.min.js" {
   const content: string;
   export default content;
 }
+
+// pdf.js, served into the managed Chromium to draw a PDF page (see core/pdf-render.ts).
+declare module "pdfjs-dist/build/*.min.mjs" {
+  const content: string;
+  export default content;
+}

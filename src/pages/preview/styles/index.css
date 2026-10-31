@@ -4714,6 +4714,29 @@ body.fill-mode .fab-submit-wrap {
   border-radius: 4px;
 }
 
+.direction-brief-source {
+  line-height: 1.5;
+}
+
+.dir-source-span {
+  color: var(--text-primary);
+}
+
+.dir-source-group {
+  margin-top: 0.5rem;
+}
+
+.dir-source-group-label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dir-source-group-gloss {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 /* An empty list field's stand-in value — dimmer than the cell it sits in (which is already
    `--text-secondary`), so the row reads as a state to argue with rather than as text the author
    wrote. */

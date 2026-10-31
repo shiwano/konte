@@ -97,3 +97,28 @@ describe("generated konte-prompt-critic definition", () => {
     }
   });
 });
+
+// The source reader writes one digest file and judges nothing, so it is handed no context.
+describe("generated konte-source-reader definition", () => {
+  const readerClaude = WORKSPACE_TEMPLATE[".claude/agents/konte-source-reader.md"]!;
+  const readerCodex = WORKSPACE_TEMPLATE[".codex/agents/konte-source-reader.toml"]!;
+
+  it("carries the identical contract body in both", () => {
+    expect(codexInstructionsOf(readerCodex)).toBe(claudeBodyOf(readerClaude));
+  });
+
+  it("contracts one chunk's digest file", () => {
+    const body = claudeBodyOf(readerClaude);
+    expect(body).toContain("defineSourceChunk");
+    expect(body).toContain("`digest/<stem>.ts`");
+  });
+
+  it("is konte-owned: managed", () => {
+    for (const key of [
+      ".claude/agents/konte-source-reader.md",
+      ".codex/agents/konte-source-reader.toml",
+    ]) {
+      expect(MANAGED_TEMPLATES.has(key)).toBe(true);
+    }
+  });
+});

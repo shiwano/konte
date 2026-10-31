@@ -128,4 +128,8 @@ export {
   ClipSourceSchema,
   type ClipStudy,
   ClipStudySchema,
+  type SourceFileFingerprint,
+  SourceFileFingerprintSchema,
+  type SourceStudyIndex,
+  SourceStudyIndexSchema,
 } from "./study.js";

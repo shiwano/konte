@@ -1058,6 +1058,11 @@ export type BriefReference = {
   take: string;
   avoid: string;
 };
+export type BriefSource = {
+  span: string;
+  keep?: readonly string[];
+  drop?: readonly string[];
+};
 export type DirectionBrief = {
   logline: string;
   hook?: string;
@@ -1067,6 +1072,7 @@ export type DirectionBrief = {
   outOfScope?: readonly string[];
   tolerances?: readonly string[];
   references?: readonly BriefReference[];
+  source?: BriefSource;
 };
 export type DirectionFormat = {
   fps: number;
@@ -8558,6 +8564,61 @@ export declare function minimaxH3Prompt(spec: MinimaxH3PromptSpec): AdapterValid
  */
 export declare function minimaxH3CutSource(prompt: string): string | undefined;
 export declare const minimaxH3Dialogue: RegExp;
+export type SourceScene = {
+  at: string;
+  place: string;
+  present: readonly string[];
+  change: string;
+  interior?: boolean;
+  continues?: boolean;
+};
+export type SourceLook = {
+  of: string;
+  at: string;
+  text: string;
+};
+export type SourcePanelText =
+  | {
+      kind: "balloon" | "thought";
+      by: string | null;
+      text: string;
+    }
+  | {
+      kind: "caption" | "sfx" | "sign";
+      text: string;
+    };
+export type SourcePanel = {
+  picture: string;
+  text: readonly SourcePanelText[];
+};
+export type SourceChunk<C extends string = string, S extends string = string> = {
+  readonly chunk: C;
+  readonly scenes: Readonly<Record<S, SourceScene>>;
+  readonly looks: readonly SourceLook[];
+  readonly pages?: Readonly<Record<string, readonly SourcePanel[]>>;
+  readonly notes?: string;
+};
+export type PagesOf<C extends string> = C extends `${infer V}.b${number}`
+  ? {
+      pages: Readonly<Record<`${V}.p${number}`, readonly SourcePanel[]>>;
+    }
+  : {
+      pages?: never;
+    };
+export type SceneKeys<C extends string, S> = {
+  [K in keyof S]: K extends `${C}.s${number}` ? SourceScene : never;
+};
+export declare function defineSourceChunk<
+  const C extends string,
+  const S extends Record<string, SourceScene>,
+>(
+  digest: {
+    chunk: C;
+    scenes: S & SceneKeys<C, S>;
+    looks?: readonly SourceLook[];
+    notes?: string;
+  } & PagesOf<C>,
+): SourceChunk<C, Extract<keyof S, string>>;
 export type ReferenceAssetMap = Record<string, MediaAsset<MediaKind>>;
 /**
  * The ref surface: `reference.character` / `reference.bgm`, each a MediaAsset placeholder

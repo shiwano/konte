@@ -54,6 +54,7 @@ import { songBeatAt, songBeatSec, type SongTake } from "../song-take.js";
 import { KonteError } from "../errors.js";
 import { songTakeAt } from "./song-context.js";
 import { continuedFrames } from "../direction.js";
+import { parseSpan } from "../source-locator.js";
 
 // Re-export the arc layer so the DSL surface (index.ts / template-entry.ts) has one import point.
 export type { Pleasure } from "../lenses.js";
@@ -230,6 +231,15 @@ export type BriefReference = {
   avoid: string;
 };
 
+// `source` is the original the piece is adapted from, the video's `source/`: `span` the chunks the
+// piece covers, and `keep` / `drop` the adaptation map's summary — what the piece must carry over,
+// and what it leaves out.
+export type BriefSource = {
+  span: string;
+  keep?: readonly string[];
+  drop?: readonly string[];
+};
+
 export type DirectionBrief = {
   logline: string;
   hook?: string;
@@ -239,6 +249,7 @@ export type DirectionBrief = {
   outOfScope?: readonly string[];
   tolerances?: readonly string[];
   references?: readonly BriefReference[];
+  source?: BriefSource;
 };
 
 export type { CanvasSize };
@@ -2162,6 +2173,16 @@ export function assertCanvasFormat(format: DirectionFormat): void {
   }
 }
 
+// The span is written in the locator grammar; whether the chunks hold it is the locator check's.
+function assertSourceSpan(span: string): void {
+  if (!parseSpan(span)) {
+    throw new KonteError(
+      "VALIDATION_FAILED",
+      `brief.source.span "${span}" is no span — a chunk or a range of them (c3-c5, v1.b3-b5, w2-w4), or a story or volume (s5, v1)`,
+    );
+  }
+}
+
 export function defineDirection<const D extends DirectionInput>(
   direction: D & ConstrainIds<D> & NoInfer<ConstrainKnownFields<D, DirectionInput>>,
 ): DirectionEntry<D> {
@@ -2186,6 +2207,7 @@ export function defineDirection<const D extends DirectionInput>(
   if (dir.policy.fonts) assertFontFamilies(dir.policy.fonts);
   assertCanvasFormat(dir.policy.format);
   assertDirectionSong(dir.policy.song);
+  if (dir.brief.source) assertSourceSpan(dir.brief.source.span);
   const resolvedFormat = resolveDirectionFormat(dir);
   const song = dir.policy.song;
   const songTake = song ? songTakeAt(formatReferenceAddress(song)) : null;

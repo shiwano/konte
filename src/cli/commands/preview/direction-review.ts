@@ -66,6 +66,7 @@ import {
 import type { RoleFunction } from "../../../core/direction-check.js";
 import type {
   BriefReferenceInfo,
+  BriefSourceInfo,
   DirectionPolicyFieldInfo,
   DirectionLyricsInfo,
   DirectionSequenceInfo,
@@ -93,6 +94,7 @@ import {
 import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
 import { loadCheckContext, reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
 import { collectFindings } from "../../../core/checks.js";
+import { sourceViewOf, spanLabelOf } from "../../../core/source-direction.js";
 
 // A direction part's feedback address is `direction:<part>`, the same form a handoff note carries.
 function handoffNoteForDirection(handoff: Handoff | null, address: string): string | undefined {
@@ -101,6 +103,21 @@ function handoffNoteForDirection(handoff: Handoff | null, address: string): stri
 
 // Where the page fetches a study's sheets, under `<workspace>/.konte/studies/`.
 export const STUDY_SHEET_BASE = "/api/study-sheets";
+
+// The span by its chapter headings, else as written where the source cannot be read.
+async function briefSourceView(
+  direction: Direction,
+  videoRoot: string,
+): Promise<BriefSourceInfo | null> {
+  const brief = direction.brief.source;
+  if (!brief) return null;
+  const sv = await sourceViewOf(direction, videoRoot).catch(() => null);
+  return {
+    span: sv ? spanLabelOf(sv) : brief.span,
+    keep: [...(brief.keep ?? [])],
+    drop: [...(brief.drop ?? [])],
+  };
+}
 
 // A brief reference as the page shows it: the sheets of its study where one was made, never making
 // one.
@@ -291,6 +308,10 @@ export async function handleGetDirectionState(
               field,
               references: await Promise.all(references.map((r) => referenceView(videoRoot, r))),
             };
+          }
+          if (field === "source") {
+            const source = await briefSourceView(direction, videoRoot);
+            return source ? { ...view, field, source } : null;
           }
           if (isDirectionBriefListField(field)) {
             return { ...view, field, items: [...(brief[field] ?? [])] };

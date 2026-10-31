@@ -19,6 +19,7 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 //   `story.md` stands for whichever form reference scenario-guide routes to,
 //   the largest of them.
 // - `music-video` — the `video` chain for a mood piece cut to a song.
+// - `adaptation` — the `video` chain for a piece adapted from a source, plus adaptation.md.
 // - `konte-direction-critic` / `konte-prompt-critic` — a subagent contract, loaded whole
 //   on every spawn. Its "Read only this" rules bar skills and records, so
 //   contract plus `AGENTS.md` is the whole fixed load; what it reads (the
@@ -43,6 +44,12 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - konte-direction-critic 4,100 → 4,200 (agreed by a human): `lost-keep` — a `brief.source.keep`
+//   item the viewer read cannot recover.
+// - konte-source-reader (new, 2,350): the part of a source the human named, found, written down
+//   as its chunks' digests and reviewed.
+// - adaptation (new, 36,150): the `video` chain adapting a source — the digest read off subagents,
+//   the adaptation map and `brief.source`.
 // - adapter journeys (new): each adapter's `meta.guide` chain at its measured load.
 // - dev-release 3,700 → 3,800 (agreed by a human): bringing the seeded `comfyVersion` up to
 //   ComfyUI's latest release before the version commit.
@@ -51,6 +58,8 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // - dev-demo-ui (new, 4,400): syncing konte-demo's review-UI rebuilds with konte's pages.
 // - dev-session-analysis (new, 8,450): the CLI friction a session hit, and the video's quality read
 //   from its review records.
+// - konte-source-reader 2,350 → 2,450 (agreed by a human): a comic's `pages`, every panel's
+//   picture and text transcribed.
 // - konte-direction-critic 4,050 → 4,100, konte-animatic-critic 3,750 → 3,800, konte-staging-critic
 //   2,450 → 2,500 (agreed by a human): the workspace AGENTS.md's acceptance cascading across stages.
 // - video 35,750 → 36,100, music-video 37,350 → 37,700, konte-direction-critic 3,950 → 4,050,
@@ -123,10 +132,43 @@ const ALWAYS = [`${WORKSPACE}/CLAUDE.md`, `${WORKSPACE}/AGENTS.md`];
 const HOUSE_RULES = `${WORKSPACE}/HOUSE_RULES.md`;
 const DEV_ALWAYS = ["CLAUDE.md", "AGENTS.md"];
 
+const VIDEO_FILES = [
+  ...ALWAYS,
+  HOUSE_RULES,
+  `${SKILLS}/konte-checkin/SKILL.md`,
+  `${SKILLS}/drafting-guide/SKILL.md`,
+  `${SKILLS}/layout-guide/SKILL.md`,
+  `${SKILLS}/production-guide/SKILL.md`,
+  `${SKILLS}/scenario-guide/SKILL.md`,
+  `${SKILLS}/scenario-guide/references/story.md`,
+  `${SKILLS}/direction-guide/SKILL.md`,
+  `${SKILLS}/direction-guide/references/rosters.md`,
+  `${SKILLS}/direction-guide/references/camera.md`,
+  `${SKILLS}/direction-guide/references/lineup.md`,
+  `${SKILLS}/direction-guide/references/lenses.md`,
+  `${SKILLS}/direction-guide/references/skeleton.md`,
+  `${SKILLS}/direction-guide/references/cut-idioms.md`,
+  `${SKILLS}/direction-guide/references/long-form.md`,
+  `${SKILLS}/staging-guide/SKILL.md`,
+  `${SKILLS}/staging-guide/references/plates.md`,
+  `${SKILLS}/authoring-guide/SKILL.md`,
+  `${SKILLS}/authoring-guide/references/delivery.md`,
+  `${SKILLS}/prompt-guide/SKILL.md`,
+  `${SKILLS}/generation-loop-guide/SKILL.md`,
+  `${SKILLS}/review-guide/SKILL.md`,
+  `${SKILLS}/composition-guide/SKILL.md`,
+  `${SKILLS}/composition-guide/references/staging-patterns.md`,
+  `${SKILLS}/composition-guide/references/motion-craft.md`,
+  `${SKILLS}/composition-guide/references/audio-patterns.md`,
+  `${SKILLS}/composition-guide/references/sound-design.md`,
+  `${SKILLS}/export-guide/SKILL.md`,
+  `${SKILLS}/revision-guide/SKILL.md`,
+];
+
 const SHIPPED_JOURNEYS = [
   {
     name: "konte-direction-critic",
-    budget: 4_100,
+    budget: 4_200,
     files: [...ALWAYS, `${AGENTS}/konte-direction-critic.md`],
   },
   {
@@ -145,6 +187,11 @@ const SHIPPED_JOURNEYS = [
     files: [...ALWAYS, `${AGENTS}/konte-staging-critic.md`],
   },
   {
+    name: "konte-source-reader",
+    budget: 2_450,
+    files: [...ALWAYS, `${AGENTS}/konte-source-reader.md`],
+  },
+  {
     name: "konte-video-critic",
     budget: 2_850,
     files: [...ALWAYS, `${AGENTS}/konte-video-critic.md`],
@@ -152,38 +199,12 @@ const SHIPPED_JOURNEYS = [
   {
     name: "video",
     budget: 36_100,
-    files: [
-      ...ALWAYS,
-      HOUSE_RULES,
-      `${SKILLS}/konte-checkin/SKILL.md`,
-      `${SKILLS}/drafting-guide/SKILL.md`,
-      `${SKILLS}/layout-guide/SKILL.md`,
-      `${SKILLS}/production-guide/SKILL.md`,
-      `${SKILLS}/scenario-guide/SKILL.md`,
-      `${SKILLS}/scenario-guide/references/story.md`,
-      `${SKILLS}/direction-guide/SKILL.md`,
-      `${SKILLS}/direction-guide/references/rosters.md`,
-      `${SKILLS}/direction-guide/references/camera.md`,
-      `${SKILLS}/direction-guide/references/lineup.md`,
-      `${SKILLS}/direction-guide/references/lenses.md`,
-      `${SKILLS}/direction-guide/references/skeleton.md`,
-      `${SKILLS}/direction-guide/references/cut-idioms.md`,
-      `${SKILLS}/direction-guide/references/long-form.md`,
-      `${SKILLS}/staging-guide/SKILL.md`,
-      `${SKILLS}/staging-guide/references/plates.md`,
-      `${SKILLS}/authoring-guide/SKILL.md`,
-      `${SKILLS}/authoring-guide/references/delivery.md`,
-      `${SKILLS}/prompt-guide/SKILL.md`,
-      `${SKILLS}/generation-loop-guide/SKILL.md`,
-      `${SKILLS}/review-guide/SKILL.md`,
-      `${SKILLS}/composition-guide/SKILL.md`,
-      `${SKILLS}/composition-guide/references/staging-patterns.md`,
-      `${SKILLS}/composition-guide/references/motion-craft.md`,
-      `${SKILLS}/composition-guide/references/audio-patterns.md`,
-      `${SKILLS}/composition-guide/references/sound-design.md`,
-      `${SKILLS}/export-guide/SKILL.md`,
-      `${SKILLS}/revision-guide/SKILL.md`,
-    ],
+    files: VIDEO_FILES,
+  },
+  {
+    name: "adaptation",
+    budget: 36_150,
+    files: [...VIDEO_FILES, `${SKILLS}/scenario-guide/references/adaptation.md`],
   },
   {
     name: "music-video",

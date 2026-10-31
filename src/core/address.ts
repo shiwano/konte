@@ -87,6 +87,7 @@ export const DIRECTION_BRIEF_FIELDS = [
   "outOfScope",
   "tolerances",
   "references",
+  "source",
 ] as const;
 
 export type DirectionBriefField = (typeof DIRECTION_BRIEF_FIELDS)[number];

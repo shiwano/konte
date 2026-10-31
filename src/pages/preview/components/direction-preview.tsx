@@ -27,6 +27,7 @@ import { useReviewShortcuts } from "../review/use-review-shortcuts.js";
 import { DIRECTION_SECTIONS } from "../types.js";
 import type {
   BriefReferenceInfo,
+  BriefSourceInfo,
   DirectionBriefField,
   DirectionBriefFieldInfo,
   DirectionBriefListField,
@@ -1317,6 +1318,7 @@ const BRIEF_FIELD_LABELS: Record<DirectionBriefField, string> = {
   outOfScope: "Out of scope",
   tolerances: "Tolerances",
   references: "References",
+  source: "Adapted from",
 };
 
 // An empty list field still gets a row — "the piece bans nothing", "the piece tolerates nothing" is
@@ -1400,10 +1402,34 @@ function BriefReference({ reference }: { reference: BriefReferenceInfo }): React
   );
 }
 
+// The chapters the piece is adapted from, and the adaptation map's keep and drop, each glossed.
+function BriefSource({ source }: { source: BriefSourceInfo }): React.ReactElement {
+  const list = (label: string, gloss: string, items: string[]) =>
+    items.length > 0 && (
+      <div className="dir-source-group">
+        <span className="dir-source-group-label">{label}</span>
+        <span className="dir-source-group-gloss">{gloss}</span>
+        <ul className="direction-brief-list">
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+    );
+  return (
+    <div className="direction-brief-source">
+      <div className="dir-source-span">{source.span}</div>
+      {list("Keep", "must come through on screen", source.keep)}
+      {list("Drop", "left out of the piece", source.drop)}
+    </div>
+  );
+}
+
 function briefValue(f: DirectionBriefFieldInfo): React.ReactNode {
   if ("references" in f) {
     return f.references.map((r, i) => <BriefReference key={i} reference={r} />);
   }
+  if ("source" in f) return <BriefSource source={f.source} />;
   if (!("items" in f)) return f.text;
   return f.items.length > 0 ? (
     <ul className="direction-brief-list">

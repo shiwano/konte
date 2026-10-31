@@ -180,6 +180,7 @@ export {
   type View,
   type DirectionBrief,
   type BriefReference,
+  type BriefSource,
   type CanvasSize,
   type DirectionFormat,
   type DirectionPolicy,
@@ -196,6 +197,14 @@ export {
   type DirectionFinding,
   type DirectionFindingCode,
 } from "./direction.js";
+export {
+  defineSourceChunk,
+  type SourceChunk,
+  type SourceScene,
+  type SourceLook,
+  type SourcePanel,
+  type SourcePanelText,
+} from "./source.js";
 export { checkArc } from "../direction-check.js";
 export { BUILTIN_LENSES, findBuiltinLens } from "../lenses.js";
 

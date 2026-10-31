@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { evenPicks, formatClock, heardLines, musicTempo, shotsBetween } from "../study-clip.js";
+import {
+  evenPicks,
+  formatClock,
+  formatHeardLine,
+  heardLineSpans,
+  musicTempo,
+  shotsBetween,
+} from "../study-clip.js";
 
 describe("shotsBetween", () => {
   it("splits the clip at each cut", () => {
@@ -49,14 +56,14 @@ describe("musicTempo", () => {
   });
 });
 
-describe("heardLines", () => {
+describe("heardLineSpans", () => {
   it("opens a line at each pause, stamped with its clock", () => {
     expect(
-      heardLines([
+      heardLineSpans([
         { text: "今日", startSec: 4 },
         { text: "は", startSec: 4.3 },
         { text: "晴れ", startSec: 64 },
-      ]),
+      ]).map(formatHeardLine),
     ).toEqual(["[0:04] 今日は", "[1:04] 晴れ"]);
   });
 });

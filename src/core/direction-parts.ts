@@ -54,11 +54,18 @@ export type DirectionLandmarkContent = {
 export type DirectionPartContent =
   | {
       kind: "brief";
-      field: Exclude<DirectionBriefField, "references">;
+      field: Exclude<DirectionBriefField, "references" | "source">;
       text: string | null;
       items: readonly string[] | null;
     }
   | { kind: "references"; references: readonly BriefReference[] }
+  // The original the piece is adapted from: the span and the adaptation map.
+  | {
+      kind: "source";
+      span: string;
+      keep: readonly string[];
+      drop: readonly string[];
+    }
   | { kind: "format"; fps: number; base: CanvasSize; delivery: CanvasSize | null }
   | { kind: "lang"; lang: string }
   // The declared families in declaration order — empty when the piece declares none, which is a
@@ -220,6 +227,18 @@ export function directionPartContents(direction: Direction): Map<string, Directi
       const references = direction.brief?.references ?? [];
       if (references.length > 0) {
         out.set(formatDirectionBriefAddress(field), { kind: "references", references });
+      }
+      continue;
+    }
+    if (field === "source") {
+      const source = direction.brief?.source;
+      if (source) {
+        out.set(formatDirectionBriefAddress(field), {
+          kind: "source",
+          span: source.span,
+          keep: [...(source.keep ?? [])],
+          drop: [...(source.drop ?? [])],
+        });
       }
       continue;
     }

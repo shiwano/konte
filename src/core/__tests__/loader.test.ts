@@ -74,6 +74,24 @@ describe("loadVideoDefinition", () => {
     expect((error as KonteError).items).toEqual(["item"]);
   });
 
+  it("names the imported file a KonteError was thrown in", async () => {
+    const imported = path.join(fixturesDir, "throwing-import.ts");
+    fs.writeFileSync(
+      imported,
+      'import { KonteError } from "../../errors.js";\n' +
+        'throw new KonteError("VALIDATION_FAILED", "bad span");\n',
+    );
+    fs.writeFileSync(throwingPath, 'import "./throwing-import.ts";\n');
+    try {
+      const error = await loadVideoDefinition(throwingPath).catch((e: unknown) => e);
+      expect((error as KonteError).headline).toBe(
+        `"${imported}" (imported by video file "${throwingPath}"): bad span`,
+      );
+    } finally {
+      fs.unlinkSync(imported);
+    }
+  });
+
   it("throws VALIDATION_FAILED for duplicate shot IDs", async () => {
     let error: unknown;
     try {

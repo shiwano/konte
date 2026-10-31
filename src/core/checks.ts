@@ -49,6 +49,7 @@ import type {
   StageDefinition,
   VideoDefinition,
 } from "./types/index.js";
+import { checkSourceLocators } from "./source-direction.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
 import { unvouchedFindings } from "./variant-check.js";
 
@@ -405,8 +406,15 @@ const PENDING_REFERENCE_CHECK: Check = {
   },
 };
 
+// A source locator past the chunks of its original.
+const SOURCE_LOCATOR_CHECK: Check = {
+  codes: ["source-locator-out-of-range"],
+  run: (ctx) => (ctx.direction ? checkSourceLocators(ctx.direction, ctx.videoRoot) : []),
+};
+
 const CHECKS: readonly Check[] = [
   DIRECTION_CHECK,
+  SOURCE_LOCATOR_CHECK,
   VIEW_ANCHOR_CHECK,
   PROMPT_CHECK,
   PIN_CHECK,

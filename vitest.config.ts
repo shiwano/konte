@@ -11,7 +11,11 @@ import { TRANSPILER_CACHE_DISABLED, TRANSPILER_CACHE_ENV } from "./src/cli/trans
 // so the test transform matches runtime behavior. A composition's browser scripts are JS imported
 // the same way (see src/core/composition-scripts.ts).
 const TEXT_IMPORT_EXTS = [".md", ".html", ".css"];
-const TEXT_IMPORT_DIRS = ["/node_modules/gsap/dist/", "/node_modules/@tailwindcss/browser/dist/"];
+const TEXT_IMPORT_DIRS = [
+  "/node_modules/gsap/dist/",
+  "/node_modules/@tailwindcss/browser/dist/",
+  "/node_modules/pdfjs-dist/build/",
+];
 const fileAsText: Plugin = {
   name: "file-as-text",
   enforce: "pre",

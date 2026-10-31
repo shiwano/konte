@@ -24,7 +24,10 @@ import {
   type DefinitionRestore,
   type SongPending,
   suggestForStatus,
+  type SourceGaps,
 } from "../../core/suggested-actions.js";
+import { sourceViewOf, unreadChunks } from "../../core/source-direction.js";
+import { sourceDirLabel } from "../../core/source-study.js";
 import { unreadSongTakes } from "../../core/song-queue.js";
 import { isJobTerminal, JobManager } from "../../core/job-manager.js";
 import { jobStatusFlags } from "../../core/job-diagnosis.js";
@@ -252,6 +255,8 @@ export function registerStatusCommand(program: Command): void {
       // A shotless direction is the untouched template: the review step becomes "write it".
       const directionEmpty = direction !== null && !directionHasShots(direction);
       const songPending = pendingSong(manager, direction);
+      const sourceGaps =
+        directionReviewNeeded && direction ? await pendingSourceGaps(direction, videoRoot) : null;
       const jobs = await new JobManager(videoRoot).listJobs();
       const songReadingsPending = jobs.some(
         (j) => j.kind === "song-analysis" && (j.status === "pending" || j.status === "running"),
@@ -443,6 +448,7 @@ export function registerStatusCommand(program: Command): void {
         unacceptedCast,
         directionEmpty,
         ...(songPending ? { songPending } : {}),
+        ...(sourceGaps ? { sourceGaps } : {}),
         songReadingsPending,
         jobsInFlight: activeJobs.length > 0,
         stuckJobIds,
@@ -475,4 +481,16 @@ function pendingSong(manager: StateManager, direction: Direction | null): SongPe
     hasTake: variants.some((v) => v.file && v.status !== "dismissed"),
     directionReviewNeeded: songGateBlocking(direction, manager.getDirectionAcceptance()).length > 0,
   };
+}
+
+// What the digest the direction is written from still lacks; null where it lacks nothing.
+async function pendingSourceGaps(
+  direction: Direction,
+  videoRoot: string,
+): Promise<SourceGaps | null> {
+  // A source that cannot be read is the locator check's finding, not a stop here.
+  const sv = await sourceViewOf(direction, videoRoot).catch(() => null);
+  if (!sv) return null;
+  const unread = unreadChunks(sv);
+  return unread.length > 0 ? { source: sourceDirLabel(sv.ref), unread } : null;
 }

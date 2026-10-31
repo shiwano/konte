@@ -420,6 +420,11 @@ export const STAGE_FINDING_DOCS: Record<OtherCode, { flags: string; fixIn: strin
       "An asset is built on a shot that is still a `pendingShot`; it and what is built on it wait, the rest of the stage spends.",
     fixIn: "the stage file writing the reference",
   },
+  "source-locator-out-of-range": {
+    flags:
+      "A digest's `at` or `brief.source.span` points past the chunks `konte source import` counted in the original, or the video holds no source.",
+    fixIn: "`source/digest/<chunk>.ts` / `direction.ts`",
+  },
 };
 
 const REACH_WORDS: Record<NonNullable<FindingTraits["holds"]["spend"]>["reach"], string> = {

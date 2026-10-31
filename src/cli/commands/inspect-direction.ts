@@ -233,6 +233,13 @@ function printContent(
         console.log(`  ${content.text}`);
       }
       return;
+    case "source":
+      heading("Brief: source");
+      console.log(`  Span:   ${content.span}`);
+      for (const item of content.keep) console.log(`  keep:   ${item}`);
+      for (const item of content.drop) console.log(`  drop:   ${item}`);
+      console.log("  Read it with konte source show — never the original read through");
+      return;
     case "references":
       heading("Brief: references");
       content.references.forEach((ref, i) => {

@@ -625,7 +625,8 @@ export type DirectionBriefField =
   | "look"
   | "outOfScope"
   | "tolerances"
-  | "references";
+  | "references"
+  | "source";
 
 export type DirectionBriefListField = "outOfScope" | "tolerances";
 
@@ -636,12 +637,21 @@ export type DirectionBriefListField = "outOfScope" | "tolerances";
 export type DirectionBriefFieldInfo = DirectionPartInfo &
   (
     | {
-        field: Exclude<DirectionBriefField, DirectionBriefListField | "references">;
+        field: Exclude<DirectionBriefField, DirectionBriefListField | "references" | "source">;
         text: string;
       }
     | { field: DirectionBriefListField; items: string[] }
     | { field: "references"; references: BriefReferenceInfo[] }
+    | { field: "source"; source: BriefSourceInfo }
   );
+
+// The original the piece is adapted from: the span by its chapter headings, and the adaptation
+// map's summary.
+export interface BriefSourceInfo {
+  span: string;
+  keep: string[];
+  drop: string[];
+}
 
 // A clip a human brought as "make it like this": what the piece takes from it and refuses of it, and
 // the sheets of its study (`konte study clip`) where one was made — empty where none was.

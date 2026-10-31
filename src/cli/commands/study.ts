@@ -75,7 +75,7 @@ function printStudy(file: string, url: string | null, dir: string, study: ClipSt
 }
 
 export function registerStudyCommand(program: Command): void {
-  const study = program.command("study").description("Read what a human brought in as a reference");
+  const study = program.command("study").description("Read a reference a human brought in");
 
   declareScope(
     study

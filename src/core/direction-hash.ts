@@ -349,6 +349,11 @@ export function directionPartHashes(direction: Direction): Map<string, string> {
       if (references.length > 0) out.set(formatDirectionBriefAddress(field), hash(references));
       continue;
     }
+    if (field === "source") {
+      const source = direction.brief?.source;
+      if (source) out.set(formatDirectionBriefAddress(field), hash(source));
+      continue;
+    }
     const value = direction.brief?.[field];
     if (isDirectionBriefListField(field)) {
       out.set(formatDirectionBriefAddress(field), hash([...(value ?? [])]));

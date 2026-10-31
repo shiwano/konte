@@ -18,7 +18,7 @@
     "test:run": "bun --bun vitest run",
     "skills:check": "waza --no-update-check tokens count src/cli/templates/workspace/dot.agents/skills/ src/cli/templates/agents/ .agents/skills/ plugin/plugins/konte/skills/ && bun run scripts/check-journeys.ts",
     "build": "bun run build:embeds && bun run typecheck && bun run scripts/compile-binary.ts",
-    "build:embeds": "bun run build:ui:preview && bun run build:ui:settings && bun run build:embed-hyperframes && bun run build:embed-ui && bun run build:generate-template-mod && bun run build:embed-templates && bun run build:third-party-licenses",
+    "build:embeds": "bun run build:ui:preview && bun run build:ui:settings && bun run build:embed-hyperframes && bun run build:embed-pdfjs-cmaps && bun run build:embed-ui && bun run build:generate-template-mod && bun run build:embed-templates && bun run build:third-party-licenses",
     "build:ui:preview": "bun build src/pages/preview/index.tsx --outdir src/pages/preview/dist --minify --splitting && cp src/pages/preview/index.html src/pages/preview/dist/index.html && cp src/pages/preview/styles/index.css src/pages/preview/dist/index.css",
     "build:ui:settings": "bun build src/pages/settings/index.tsx --outdir src/pages/settings/dist --minify --splitting && cp src/pages/settings/index.html src/pages/settings/dist/index.html && cp src/pages/settings/styles/index.css src/pages/settings/dist/index.css",
     "build:generate-template-mod": "bun run scripts/generate-template-mod.ts",
@@ -28,6 +28,7 @@
     "build:embed-ui": "bun run scripts/embed-ui.ts",
     "build:third-party-licenses": "bun run scripts/generate-third-party-licenses.ts",
     "build:embed-hyperframes": "bun run scripts/embed-hyperframes.ts",
+    "build:embed-pdfjs-cmaps": "bun run scripts/embed-pdfjs-cmaps.ts",
     "sync:comfy-adapters": "bun run scripts/sync-comfy-adapters.ts",
     "check:comfy-templates": "bun run scripts/check-comfy-templates.ts",
     "update:tool-checksums": "bun run scripts/update-tool-checksums.ts"
@@ -41,7 +42,9 @@
     "commander": "^13",
     "gsap": "3.15.0",
     "onnxruntime-web": "1.30.0",
+    "pdfjs-dist": "4.10.38",
     "proxy-agent": "^8.0.2",
+    "puppeteer-core": "25.9.0",
     "tailwindcss": "^4.3.3",
     "yauzl": "^3.4.0",
     "zod": "^3"
