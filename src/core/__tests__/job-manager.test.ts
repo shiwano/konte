@@ -612,7 +612,7 @@ describe("releaseIfOwner", () => {
       dependsOnAssets: ["video:timeline.character"],
     });
     expect(await manager.claimForSubmission("v-rel00001", "w-1", 60_000)).not.toBeNull();
-    expect(await manager.releaseIfOwner("v-rel00001", "w-1")).toBe(true);
+    expect(await manager.releaseIfOwner("v-rel00001", "w-1", "stale")).toBe(true);
     const job = await manager.getJob("v-rel00001");
     expect(job.status).toBe("pending");
     expect(job.lease).toBeNull();
@@ -622,6 +622,21 @@ describe("releaseIfOwner", () => {
     expect(await manager.claimForSubmission("v-rel00001", "w-2", 60_000)).not.toBeNull();
   });
 
+  it("does not count a deferred release", async () => {
+    await manager.createJob({
+      address: "video:shot.01.motion",
+      variantId: "v-rel00003",
+      resolvedDeps: {},
+      backendKind: "comfy",
+    });
+    expect(await manager.claimForSubmission("v-rel00003", "w-1", 60_000)).not.toBeNull();
+    expect(await manager.releaseIfOwner("v-rel00003", "w-1", "deferred")).toBe(true);
+    const job = await manager.getJob("v-rel00003");
+    expect(job.status).toBe("pending");
+    expect(job.lease).toBeNull();
+    expect(job.staleReleases).toBe(0);
+  });
+
   it("refuses a worker that does not hold the lease, and a job past its claim", async () => {
     await manager.createJob({
       address: "video:shot.01.motion",
@@ -629,11 +644,11 @@ describe("releaseIfOwner", () => {
       resolvedDeps: {},
       backendKind: "comfy",
     });
-    expect(await manager.releaseIfOwner("v-rel00002", "w-none")).toBe(false);
+    expect(await manager.releaseIfOwner("v-rel00002", "w-none", "stale")).toBe(false);
     expect(await manager.claimForSubmission("v-rel00002", "w-1", 60_000)).not.toBeNull();
-    expect(await manager.releaseIfOwner("v-rel00002", "w-other")).toBe(false);
+    expect(await manager.releaseIfOwner("v-rel00002", "w-other", "stale")).toBe(false);
     await manager.updateJob("v-rel00002", { status: "completed" });
-    expect(await manager.releaseIfOwner("v-rel00002", "w-1")).toBe(false);
+    expect(await manager.releaseIfOwner("v-rel00002", "w-1", "stale")).toBe(false);
     expect((await manager.getJob("v-rel00002")).staleReleases).toBe(0);
   });
 });

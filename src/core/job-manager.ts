@@ -815,13 +815,19 @@ export class JobManager {
   }
 
   /**
-   * Hand a claimed job back to the queue: pending again, lease dropped, one more stale release on
-   * its record. For a judge that found its own loaded definitions older than the files on disk —
-   * it must neither submit from them (a stale workflow would be spent) nor fail the job (the job
-   * is right); a process reading fresh takes it next. Only the lease owner may release, and only
-   * a job still mid-claim — a concurrent cancel or a reclaimer's commit is honored instead.
+   * Hand a claimed job back to the queue: pending again, lease dropped. A "stale" release is a
+   * judge that found its own loaded definitions older than the files on disk — it must neither
+   * submit from them (a stale workflow would be spent) nor fail the job (the job is right); a
+   * process reading fresh takes it next, and the release is counted on the record. A "deferred"
+   * one is a job whose turn has not come; a later pass retries it. Only the lease owner may
+   * release, and only a job still mid-claim — a concurrent cancel or a reclaimer's commit is
+   * honored instead.
    */
-  async releaseIfOwner(id: string, workerId: string): Promise<boolean> {
+  async releaseIfOwner(
+    id: string,
+    workerId: string,
+    reason: "stale" | "deferred",
+  ): Promise<boolean> {
     return this.transaction(() => {
       const job = this.readOrThrow(id);
       if (job.lease?.owner !== workerId || job.status !== "running") return false;
@@ -829,7 +835,7 @@ export class JobManager {
         status: "pending",
         lease: null,
         startedAt: null,
-        staleReleases: job.staleReleases + 1,
+        staleReleases: job.staleReleases + (reason === "stale" ? 1 : 0),
       });
       return true;
     });

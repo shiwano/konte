@@ -12,7 +12,8 @@ import type { WaitOptions } from "../core/backend.js";
 import { hashFile } from "../core/content-hash.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { formatSeconds, formatDuration } from "../core/format-duration.js";
-import { type JobManager, RUN_LEASE_TTL_MS } from "../core/job-manager.js";
+import { isJobTerminal, type JobManager, RUN_LEASE_TTL_MS } from "../core/job-manager.js";
+import { startProgressWriter } from "./progress-writer.js";
 import { normalizeKeyframesIfSparse } from "../core/keyframe-normalize.js";
 import {
   type PatchFinalize,
@@ -116,7 +117,7 @@ export async function waitForJob(
 ): Promise<WaitForJobResult> {
   let job = requireGenerationJob(await jobManager.getJob(variantId));
 
-  if (isTerminalStatus(job.status)) return terminalResult(job, true);
+  if (isJobTerminal(job.status)) return terminalResult(job, true);
 
   // A job can briefly be in a non-terminal state with no backendJobId yet: it has
   // been claimed for submission (status "running") but backend.submit() has not
@@ -126,7 +127,7 @@ export async function waitForJob(
     while (!job.backendJobId && Date.now() < idDeadline) {
       await sleep(POLL_INTERVAL_MS);
       job = requireGenerationJob(await jobManager.getJob(variantId));
-      if (isTerminalStatus(job.status)) return terminalResult(job, true);
+      if (isJobTerminal(job.status)) return terminalResult(job, true);
     }
 
     if (!job.backendJobId) {
@@ -150,7 +151,7 @@ export async function waitForJob(
     if (deadline && Date.now() > deadline) return waitTimedOutResult(job);
 
     job = requireGenerationJob(await jobManager.getJob(variantId));
-    if (isTerminalStatus(job.status)) return terminalResult(job, false);
+    if (isJobTerminal(job.status)) return terminalResult(job, false);
     if (!job.backendJobId) return submitPendingResult(job);
 
     const claimed = await jobManager.claimJobForRun(variantId, workerId, RUN_LEASE_TTL_MS);
@@ -248,11 +249,6 @@ async function runAsOwner(
     // asset may have been removed from definition
   }
 
-  // Persist live progress (as an integer percent) to the job record so `job list`
-  // / `status` reflect it without a live waiter. Throttled to actual percent
-  // changes with at most one write in flight — bounding writes to ~100 per job
-  // instead of one per poll. Best-effort: a dropped/failed write self-heals on the
-  // next change, and the terminal update commits the final 100.
   // Stamp the run-window start the first time the backend reports actual work (onExecutionStarted),
   // after any serial-queue wait. This is what duration stats measure from, so a queued job's
   // per-job runtime isn't inflated by the jobs queued ahead of it; a backend that never reports it
@@ -269,22 +265,7 @@ async function runAsOwner(
       .catch(() => {});
   };
 
-  let lastPersistedPct = job.progress;
-  let persisting = false;
-  let lastPersistWrite: Promise<unknown> = Promise.resolve();
-  const persistProgress = (value: number, max: number): void => {
-    if (max <= 0 || persisting) return;
-    const pct = Math.min(100, Math.max(0, Math.round((value / max) * 100)));
-    if (pct === lastPersistedPct) return;
-    lastPersistedPct = pct;
-    persisting = true;
-    lastPersistWrite = jobManager
-      .updateJob(variantId, { progress: pct })
-      .catch(() => {})
-      .finally(() => {
-        persisting = false;
-      });
-  };
+  const progressWriter = startProgressWriter(jobManager, variantId, job.progress);
 
   const onUnconfirmedChange: NonNullable<WaitOptions["onUnconfirmedChange"]> = ({
     unconfirmed,
@@ -321,7 +302,7 @@ async function runAsOwner(
           outputNodeId,
           onExecutionStarted: () => stampProcessingStart(),
           onProgress: (progress) => {
-            persistProgress(progress.value, progress.max);
+            progressWriter.write(progress.value, progress.max);
             hooks.onProgress?.({
               variantId,
               address: job.address,
@@ -352,7 +333,7 @@ async function runAsOwner(
     // left re-observable; stop here and report "still running". This is a returned value, never
     // a thrown error, so it can never be caught-and-failed by the handler below.
     if (waitOutcome.kind === "timedOut") {
-      await Promise.all([lastPersistWrite, stampWrite]);
+      await Promise.all([progressWriter.settle(), stampWrite]);
       await jobManager.finishIfOwner(variantId, workerId, { lease: null });
       return waitTimedOutResult(job);
     }
@@ -360,7 +341,7 @@ async function runAsOwner(
 
     // Let any in-flight progress write settle before the terminal "completed" update,
     // so a late percent write can't land after it and leave a ready job at <100%.
-    await Promise.all([lastPersistWrite, stampWrite]);
+    await Promise.all([progressWriter.settle(), stampWrite]);
 
     // Confirm we still own the lease BEFORE the destructive work below. The backend wait can run
     // for many minutes; if this worker stalled and a reclaimer took over during it, an in-place
@@ -583,7 +564,7 @@ async function runAsOwner(
   } catch (err) {
     // A waiter timeout never reaches here — it is a returned value handled above, not a throw.
     // Only a genuine backend failure (or an externally cancelled/orphaned prompt) lands here.
-    await Promise.all([lastPersistWrite, stampWrite]);
+    await Promise.all([progressWriter.settle(), stampWrite]);
     const errorMsg = errorMessage(err);
     // A prompt that vanished after we saw it alive was cancelled/removed externally — not a
     // failure (cancelled). One lost to a ComfyUI crash/restart (COMFYUI_JOB_ORPHANED) never
@@ -630,10 +611,6 @@ async function runAsOwner(
       submitPending: false,
     };
   }
-}
-
-function isTerminalStatus(status: string): boolean {
-  return status === "completed" || status === "failed" || status === "cancelled";
 }
 
 function terminalResult(job: GenerationJob, alreadyTerminal: boolean): WaitForJobResult {
@@ -692,7 +669,7 @@ async function monitorJob(
 > {
   while (true) {
     const job = requireGenerationJob(await jobManager.getJob(variantId));
-    if (isTerminalStatus(job.status)) return { kind: "terminal", job };
+    if (isJobTerminal(job.status)) return { kind: "terminal", job };
     if (deadline && Date.now() > deadline) return { kind: "timedOut", job };
     const leaseValid = job.lease != null && Date.parse(job.lease.expiresAt) > Date.now();
     if (job.status === "running" && !leaseValid) return { kind: "stale" };

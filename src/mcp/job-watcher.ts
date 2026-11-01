@@ -430,9 +430,7 @@ export class JobWatcher {
       return false;
     }
     if (job.kind !== "generation") return false;
-    if (job.status !== "completed" && job.status !== "failed" && job.status !== "cancelled") {
-      return false;
-    }
+    if (!isJobTerminal(job.status)) return false;
     await this.emitCompleted(completionOf(job));
     return true;
   }

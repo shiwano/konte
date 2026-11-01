@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { KonteError, errorMessage } from "../core/errors.js";
-import type { JobManager } from "../core/job-manager.js";
+import { isJobTerminal, type JobManager } from "../core/job-manager.js";
 import { analyzeSongVariant } from "../core/song-analysis.js";
 import { readingOutdated } from "../core/song-queue.js";
 import { StateManager } from "../core/state/index.js";
@@ -30,7 +30,7 @@ export async function runSongAnalysisJob(
   if (job.kind !== "song-analysis") {
     throw new KonteError("VALIDATION_FAILED", `Job "${id}" is not a song analysis job`);
   }
-  if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
+  if (isJobTerminal(job.status)) {
     return { id, status: job.status };
   }
 

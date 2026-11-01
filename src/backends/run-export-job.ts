@@ -3,7 +3,7 @@ import { KonteError, errorMessage } from "../core/errors.js";
 import { computeDefinitionSourceFingerprint } from "../core/definition-source.js";
 import { computeExportPlanDigest, computeExportSignature } from "../core/export-signature.js";
 import { JobIndex, prerequisiteVerdict } from "../core/job-index.js";
-import type { JobManager } from "../core/job-manager.js";
+import { isJobTerminal, type JobManager } from "../core/job-manager.js";
 import { loadVideoAndAnimatic } from "../core/stage-definitions.js";
 import { renderVideoToFile } from "../core/render-video.js";
 import { runLeasedJob } from "./run-leased-job.js";
@@ -104,7 +104,7 @@ export async function runExportJob(
   if (job.kind !== "export") {
     throw new KonteError("VALIDATION_FAILED", `Job "${id}" is not an export job`);
   }
-  if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
+  if (isJobTerminal(job.status)) {
     return { id, status: job.status, outputFile: job.outputFile };
   }
 
@@ -155,7 +155,7 @@ export async function runExportJob(
           await computeDefinitionSourceFingerprint(videoRoot),
         );
         if (decision === "release") {
-          const released = await jobManager.releaseIfOwner(id, workerId);
+          const released = await jobManager.releaseIfOwner(id, workerId, "stale");
           jobManager.appendLog(
             id,
             `Released without rendering: this process (pid ${process.pid}) reloaded a definition ` +

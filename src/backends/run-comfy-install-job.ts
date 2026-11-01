@@ -4,10 +4,11 @@ import { resolveComfyUIConfig } from "../comfyui/config.js";
 import type { ManagerQueueStatus } from "../comfyui/manager-client.js";
 import type { ModelDownloadProgress } from "../comfyui/model-downloader.js";
 import { KonteError, errorMessage } from "../core/errors.js";
-import type { JobManager } from "../core/job-manager.js";
+import { isJobTerminal, type JobManager } from "../core/job-manager.js";
 import { TransientPollError } from "../core/poll-until-terminal.js";
 import type { ComfyModelDownloadJob, ComfyNodeInstallJob, JobRecord } from "../core/types/index.js";
 import { resolveUrlTokens } from "../comfyui/token-resolver.js";
+import { startProgressWriter } from "./progress-writer.js";
 import { runLeasedJob } from "./run-leased-job.js";
 import type { VideoRoots } from "../core/roots.js";
 
@@ -76,7 +77,7 @@ async function runComfyInstallJob<J extends JobRecord>(
   const typedJob = job as J;
   const label = spec.getLabel(typedJob);
 
-  if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
+  if (isJobTerminal(job.status)) {
     return { id, status: job.status };
   }
 
@@ -88,33 +89,7 @@ async function runComfyInstallJob<J extends JobRecord>(
       return { id, status: current?.status ?? "running" };
     },
     work: async ({ workerId, isCancelled }) => {
-      // Persist byte progress (as an integer percent) onto the job record, so `job list` /
-      // `status` show a large download advancing without a live waiter attached. Throttled to
-      // actual percent changes with at most one write in flight; a dropped write self-heals on
-      // the next percent.
-      let lastPersistedPct = typedJob.progress;
-      let persisting = false;
-      let settled = false;
-      let lastPersistWrite: Promise<unknown> = Promise.resolve();
-      const persistBytes = ({ received, total }: ModelDownloadProgress): void => {
-        if (settled || total === null || total <= 0 || persisting) return;
-        const pct = Math.min(100, Math.max(0, Math.round((received / total) * 100)));
-        if (pct === lastPersistedPct) return;
-        lastPersistedPct = pct;
-        persisting = true;
-        lastPersistWrite = jobManager
-          .updateJob(id, { progress: pct })
-          .catch(() => {})
-          .finally(() => {
-            persisting = false;
-          });
-      };
-      // Before any terminal state is committed: a stray sub-100 update landing afterwards would
-      // walk a completed job's progress backwards, or touch a record this worker no longer owns.
-      const settleProgress = async (): Promise<void> => {
-        settled = true;
-        await lastPersistWrite;
-      };
+      const progress = startProgressWriter(jobManager, id, typedJob.progress);
 
       try {
         hooks.onStarted?.({ id, label });
@@ -151,7 +126,7 @@ async function runComfyInstallJob<J extends JobRecord>(
               inProgress: status.in_progress_count,
             }),
           onBytes: (p) => {
-            persistBytes(p);
+            if (p.total !== null) progress.write(p.received, p.total);
             if (p.total !== null && p.total > 0) {
               hooks.onProgress?.({
                 id,
@@ -164,7 +139,7 @@ async function runComfyInstallJob<J extends JobRecord>(
           },
           shouldCancel: isCancelled,
         });
-        await settleProgress();
+        await progress.settle();
 
         if (outcome.kind === "cancelled" || (await isCancelled())) {
           return { id, status: "cancelled" };
@@ -193,7 +168,7 @@ async function runComfyInstallJob<J extends JobRecord>(
         jobManager.appendLog(id, `${spec.logNoun} completed: ${label}`);
         return { id, status: "completed" };
       } catch (err) {
-        await settleProgress();
+        await progress.settle();
         // A cancel that raced with the error wins — leave the cancelled state.
         if (await isCancelled()) {
           return { id, status: "cancelled" };

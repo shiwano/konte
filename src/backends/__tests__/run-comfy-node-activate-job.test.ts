@@ -297,4 +297,17 @@ describe("runComfyNodeActivateJob", () => {
     expect((await jobManager.getJob(activateId)).status).toBe("pending");
     expect((await jobManager.getJob(activateId)).lease).toBeNull();
   });
+
+  it("honors a cancel that lands while it activates", async () => {
+    const activateId = await makeReadyActivateJob();
+    activateNodesMock.mockImplementation(async () => {
+      await jobManager.updateJob(activateId, { status: "cancelled" });
+      return { rebooted: true };
+    });
+
+    const result = await runComfyNodeActivateJob(jobManager, roots, activateId);
+
+    expect(result.status).toBe("cancelled");
+    expect((await jobManager.getJob(activateId)).status).toBe("cancelled");
+  });
 });

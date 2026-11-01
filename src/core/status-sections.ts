@@ -6,6 +6,7 @@ import {
   parseAddress,
 } from "./address.js";
 import { JobIndex } from "./job-index.js";
+import { isJobTerminal } from "./job-manager.js";
 import { describePendingJob } from "./pending-jobs.js";
 import {
   type PatchHashes,
@@ -561,8 +562,7 @@ export function detectOrphans(state: KonteState, allJobs: JobRecord[]): OrphanIn
   for (const job of allJobs) {
     // Model-download jobs aren't tied to an asset variant, so they're never orphans.
     if (job.kind !== "generation") continue;
-    if (job.status === "completed" || job.status === "failed" || job.status === "cancelled")
-      continue;
+    if (isJobTerminal(job.status)) continue;
     if (!stateVariantIds.has(job.variantId)) {
       orphanJobs.push({ variantId: job.variantId, address: job.address, jobStatus: job.status });
     }

@@ -414,7 +414,7 @@ async function trySubmitJob(
           job.sourceFingerprint != null &&
           job.sourceFingerprint === (await computeDefinitionSourceFingerprint(videoRoot));
         if (sourceUnchanged && job.staleReleases === 0) {
-          if (await jobManager.releaseIfOwner(job.variantId, workerId)) {
+          if (await jobManager.releaseIfOwner(job.variantId, workerId, "stale")) {
             jobManager.appendLog(
               job.variantId,
               `Released without submitting: this process (${judgeIdentity()}) computed a ` +
