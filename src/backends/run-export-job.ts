@@ -2,7 +2,7 @@ import * as path from "node:path";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { computeDefinitionSourceFingerprint } from "../core/definition-source.js";
 import { computeExportPlanDigest, computeExportSignature } from "../core/export-signature.js";
-import { JobIndex } from "../core/job-index.js";
+import { JobIndex, prerequisiteVerdict } from "../core/job-index.js";
 import type { JobManager } from "../core/job-manager.js";
 import { loadVideoAndAnimatic } from "../core/stage-definitions.js";
 import { renderVideoToFile } from "../core/render-video.js";
@@ -71,20 +71,18 @@ export function evaluateExportJob(
   state: KonteState,
   jobs: JobIndex,
 ): ExportJobEvaluation {
-  for (const depJobId of job.dependsOnJobs) {
-    const depJob = jobs.get(depJobId);
-    if (!depJob) {
-      return { action: "fail", reason: `Prerequisite job ${depJobId} is gone (it was cleaned).` };
+  const prerequisites = prerequisiteVerdict(job.dependsOnJobs, (id) => jobs.get(id));
+  if (prerequisites.verdict === "wait") return { action: "wait" };
+  if (prerequisites.verdict === "doomed") {
+    const { depId, dep } = prerequisites;
+    if (!dep) {
+      return { action: "fail", reason: `Prerequisite job ${depId} is gone (it was cleaned).` };
     }
-    if (depJob.status === "completed") continue;
-    if (depJob.status === "failed" || depJob.status === "cancelled") {
-      const detail = depJob.error ? `: ${depJob.error}` : "";
-      return {
-        action: "fail",
-        reason: `Prerequisite job ${depJobId} ${depJob.status}${detail}, so the export cannot run.`,
-      };
-    }
-    return { action: "wait" };
+    const detail = dep.error ? `: ${dep.error}` : "";
+    return {
+      action: "fail",
+      reason: `Prerequisite job ${depId} ${dep.status}${detail}, so the export cannot run.`,
+    };
   }
 
   for (const depAddress of job.dependsOnAssets) {

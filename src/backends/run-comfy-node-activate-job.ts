@@ -8,6 +8,7 @@ import { resolveComfyUIConfig } from "../comfyui/config.js";
 import type { ComfyUIHttpClient } from "../comfyui/http-client.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { withFileLock } from "../core/file-lock.js";
+import { JobIndex, prerequisiteVerdict } from "../core/job-index.js";
 import { JobManager, RUN_LEASE_TTL_MS } from "../core/job-manager.js";
 import type { JobRecord } from "../core/types/index.js";
 import { startLeaseHeartbeat } from "./lease-heartbeat.js";
@@ -204,18 +205,14 @@ export async function runComfyNodeActivateJob(
   };
 
   // Gate on the install jobs this activation depends on.
-  const allJobs = await jobManager.listJobs();
-  for (const depJobId of job.dependsOnJobs) {
-    const depJob = allJobs.find((j) => j.id === depJobId);
-    if (!depJob) {
-      return failActivation(`Prerequisite node install ${depJobId} is gone (it was cleaned).`);
-    }
-    if (depJob.status === "completed") continue;
-    if (depJob.status === "failed" || depJob.status === "cancelled") {
-      const detail = depJob.error ? `: ${depJob.error}` : "";
-      return failActivation(`Prerequisite node install ${depJobId} ${depJob.status}${detail}.`);
-    }
-    return { id, status: "pending", ranActivate: false };
+  const allJobs = new JobIndex(await jobManager.listJobs());
+  const prerequisites = prerequisiteVerdict(job.dependsOnJobs, (id) => allJobs.get(id));
+  if (prerequisites.verdict === "wait") return { id, status: "pending", ranActivate: false };
+  if (prerequisites.verdict === "doomed") {
+    const { depId, dep } = prerequisites;
+    if (!dep) return failActivation(`Prerequisite node install ${depId} is gone (it was cleaned).`);
+    const detail = dep.error ? `: ${dep.error}` : "";
+    return failActivation(`Prerequisite node install ${depId} ${dep.status}${detail}.`);
   }
 
   // Gate on the ComfyUI server being idle: the reboot below kills whatever it is running. The

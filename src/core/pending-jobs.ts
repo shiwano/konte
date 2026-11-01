@@ -13,7 +13,7 @@ import { startLeaseHeartbeat } from "../backends/lease-heartbeat.js";
 import { computeDefinitionHash } from "./definition-hash.js";
 import { computeDefinitionSourceFingerprint } from "./definition-source.js";
 import { KonteError, errorMessage } from "./errors.js";
-import { JobIndex } from "./job-index.js";
+import { JobIndex, prerequisiteVerdict } from "./job-index.js";
 import { isStrandedSubmit, type JobManager, RUN_LEASE_TTL_MS } from "./job-manager.js";
 import { loadPatchStepDefinition } from "./patch.js";
 import { resolveRefs } from "./ref-resolver.js";
@@ -294,33 +294,29 @@ function evaluateJob(job: GenerationJob, manager: StateManager, jobs: JobIndex):
   const cache = manager.stalenessCache();
   const rerun = rerunHint(job.address);
 
-  // Every job this one depends on (e.g. a comfy-model-download) must be "completed"
-  // before it can submit. A failed/cancelled/missing dependency dooms the job.
-  for (const depJobId of job.dependsOnJobs) {
-    const depJob = jobs.get(depJobId);
-    if (!depJob) {
+  const prerequisites = prerequisiteVerdict(job.dependsOnJobs, (id) => jobs.get(id));
+  if (prerequisites.verdict === "wait") return { action: "wait" };
+  if (prerequisites.verdict === "doomed") {
+    const { depId, dep } = prerequisites;
+    if (!dep) {
       return {
         action: "fail",
-        reason: `Prerequisite job ${depJobId} is gone (it was likely cleaned). To recreate it, ${rerun}.`,
+        reason: `Prerequisite job ${depId} is gone (it was likely cleaned). To recreate it, ${rerun}.`,
       };
     }
-    if (depJob.status === "completed") continue;
-    if (depJob.status === "failed" || depJob.status === "cancelled") {
-      const what =
-        depJob.kind === "comfy-model-download"
-          ? `model download "${depJob.model.filename}"`
-          : depJob.kind === "comfy-node-install"
-            ? `node install "${depJob.node.id}"`
-            : depJob.kind === "comfy-node-activate"
-              ? `custom node activation`
-              : `job ${depJobId}`;
-      const detail = depJob.error ? `: ${depJob.error.replace(/\.$/, "")}` : "";
-      return {
-        action: "fail",
-        reason: `Prerequisite ${what} ${depJob.status}${detail}, so this job cannot run. Fix the cause, then ${rerun}.`,
-      };
-    }
-    return { action: "wait" };
+    const what =
+      dep.kind === "comfy-model-download"
+        ? `model download "${dep.model.filename}"`
+        : dep.kind === "comfy-node-install"
+          ? `node install "${dep.node.id}"`
+          : dep.kind === "comfy-node-activate"
+            ? `custom node activation`
+            : `job ${depId}`;
+    const detail = dep.error ? `: ${dep.error.replace(/\.$/, "")}` : "";
+    return {
+      action: "fail",
+      reason: `Prerequisite ${what} ${dep.status}${detail}, so this job cannot run. Fix the cause, then ${rerun}.`,
+    };
   }
 
   // A dep asset path IS its upstream address (address ≡ asset path).

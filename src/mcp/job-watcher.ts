@@ -9,6 +9,7 @@ import {
   isStrandedSubmit,
   jobsDbPath,
 } from "../core/job-manager.js";
+import { prerequisiteVerdict } from "../core/job-index.js";
 import { type StaleJudgeRelease, submitReadyPendingJobs } from "../core/pending-jobs.js";
 import { applyResolutionDefinitions } from "../core/definition-hashes.js";
 import { loadStageDefinitions } from "../core/stage-definitions.js";
@@ -744,10 +745,8 @@ export class JobWatcher {
   }
 
   // Whether any pending/stranded generation job is worth a cascade pass, decided from the
-  // job list alone (no definitions). Mirrors evaluateJob's prerequisite-job loop exactly: it
-  // returns on the FIRST non-completed dep — "doomed" (fail path) if that dep is missing or
-  // failed/cancelled, "wait" if it is still in flight. So a job is actionable when it can
-  // submit (all deps completed) OR must fail; only a "wait" verdict is skippable. The common
+  // job list alone (no definitions), by the prerequisite verdict evaluateJob gates on: a job is
+  // actionable when it can submit OR must fail; only a "wait" verdict is skippable. The common
   // model/node-install case is a "wait", so the expensive reload is skipped for the whole
   // download. Errs toward proceeding: returns true unless every pending job is a "wait".
   private hasActionablePendingJob(jobs: JobRecord[]): boolean {
@@ -758,23 +757,11 @@ export class JobWatcher {
         (j.status === "pending" || j.status === "queued" || isStrandedSubmit(j)),
     );
     for (const job of pending) {
-      if (this.dependsOnJobsVerdict(job, byId) !== "wait") return true;
+      if (prerequisiteVerdict(job.dependsOnJobs, (id) => byId.get(id)).verdict !== "wait") {
+        return true;
+      }
     }
     return false;
-  }
-
-  private dependsOnJobsVerdict(
-    job: GenerationJob,
-    byId: Map<string, JobRecord>,
-  ): "settled" | "wait" | "doomed" {
-    for (const depId of job.dependsOnJobs) {
-      const dep = byId.get(depId);
-      if (dep == null) return "doomed";
-      if (dep.status === "completed") continue;
-      if (dep.status === "failed" || dep.status === "cancelled") return "doomed";
-      return "wait";
-    }
-    return "settled";
   }
 
   private async runCascadeSubmitOnce(): Promise<void> {

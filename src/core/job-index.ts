@@ -69,3 +69,25 @@ export class JobIndex {
     return (this.activeGenerationByAddress.get(address) ?? 0) > 0;
   }
 }
+
+export type PrerequisiteVerdict =
+  | { verdict: "settled" | "wait" }
+  | { verdict: "doomed"; depId: string; dep: JobRecord | null };
+
+// The first prerequisite that has not completed decides: in flight is a wait, failed, cancelled
+// or missing (dep null) dooms the dependent.
+export function prerequisiteVerdict(
+  dependsOnJobs: readonly string[],
+  lookup: (id: string) => JobRecord | undefined,
+): PrerequisiteVerdict {
+  for (const depId of dependsOnJobs) {
+    const dep = lookup(depId);
+    if (!dep) return { verdict: "doomed", depId, dep: null };
+    if (dep.status === "completed") continue;
+    if (dep.status === "failed" || dep.status === "cancelled") {
+      return { verdict: "doomed", depId, dep };
+    }
+    return { verdict: "wait" };
+  }
+  return { verdict: "settled" };
+}
