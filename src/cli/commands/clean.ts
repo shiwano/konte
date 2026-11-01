@@ -22,7 +22,7 @@ import { JobManager } from "../../core/job-manager.js";
 import { StateManager } from "../../core/state/index.js";
 import type { AnimaticDefinition, VideoDefinition } from "../../core/types/index.js";
 import { confirmDeletion, formatBreakdown, printAborted } from "../confirm.js";
-import { loadVideoAndAnimatic } from "../load-definition.js";
+import { loadVideoAndAnimatic } from "../../core/stage-definitions.js";
 import {
   type CascadeFailedJob,
   cascadeFailPendingJobs,

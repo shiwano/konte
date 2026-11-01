@@ -19,12 +19,7 @@ import {
 import { assertSpendAllowed } from "../../../core/backend-policy.js";
 import { loadKonteConfig } from "../../../core/config.js";
 import { KonteError, errorMessage } from "../../../core/errors.js";
-import { syncFileAssets } from "../../../core/file-sync.js";
-import {
-  buildDependencyGraph,
-  collectRerollCascade,
-  listUnusedAssetPaths,
-} from "../../../core/graph.js";
+import { collectRerollCascade, listUnusedAssetPaths } from "../../../core/graph.js";
 import { JobIndex } from "../../../core/job-index.js";
 import {
   loadPatchCatalog,
@@ -41,7 +36,7 @@ import { StateManager } from "../../../core/state/index.js";
 import type { AssetDefinition, JobRecord } from "../../../core/types/index.js";
 import { getBackendKind } from "../../../backends/resolve-backend.js";
 import { selectDefinition } from "../../../core/select-definition.js";
-import { loadStageDefinitions } from "../../load-definition.js";
+import { openVideoSession } from "../../../core/video-session.js";
 import { loadCheckContext, spendGate } from "../../finding-gates.js";
 import { capList, printCapped } from "../../format-list.js";
 import { confirmAction, printAborted } from "../../confirm.js";
@@ -173,9 +168,14 @@ Examples:
           return;
         }
 
-        const definitions = await loadStageDefinitions(videoRoot);
+        // The file-asset sync is persisted under the state lock so it cannot clobber a concurrent
+        // watcher write, and every decision below reads the one post-sync snapshot. It runs before
+        // the gates because `--failed` judges against it: an unsynced read would call an address
+        // ready that `status` has already moved to Problems.
+        const session = await openVideoSession(videoRoot, { measure: true });
+        const { definitions, graph } = session;
+        let { manager } = session;
         const { video, animatic, reference } = definitions;
-        await applyResolutionDefinitions({ videoRoot, definitions });
         const variantCount = parsePositiveInt(opts.count, "--count");
 
         if (opts.withDependents && variantCount > 1) {
@@ -193,8 +193,6 @@ Examples:
         ];
         const definitionForAddress = (address: string): DefinitionLike =>
           selectDefinition(getStage(address), definitions).def;
-
-        const graph = buildDependencyGraph(video, animatic, reference);
 
         // Every declared asset of the video, so a scope sweep reads one list rather than one per
         // stage — a scope may name a stage, but `--failed` alone names none.
@@ -266,15 +264,6 @@ Examples:
             );
           }
         }
-
-        // Persist the file-asset sync under the state lock so it cannot clobber a concurrent watcher
-        // write, and read every decision below off the one post-sync snapshot it returns. It runs
-        // before the gates rather than after them because `--failed` judges against it: an unsynced
-        // read would call an address ready that `status` has already moved to Problems.
-        let manager = await StateManager.withLock(videoRoot, async (m) => {
-          await syncFileAssets({ reference, animatic, video }, m, { measure: true });
-          return m;
-        });
 
         const declaredPaths = [...declared.keys()];
         // `--failed` with no target sweeps the whole video: the retry an agent reaches for after a

@@ -140,7 +140,7 @@ async function submit(
   body: Record<string, unknown>,
 ): Promise<{ res: Response; payload: Record<string, unknown> }> {
   const videoPath = path.join(videoRoot, "video.tsx");
-  const defs = await loadPreviewDefinitions({ videoRoot, videoPath, mode: "video-preview" });
+  const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
   const res = await handleReelSubmit(
     videoRoot,
     () => reloadVideoDefinition(videoPath),
@@ -186,8 +186,7 @@ describe("handleReelSubmit — the subject a comment is persisted with", () => {
   // address and the submit dropped it for want of a value.
   it("is told by the GET which take each composition ref was drawn from", async () => {
     const { videoRoot, panelId } = await project();
-    const videoPath = path.join(videoRoot, "video.tsx");
-    const defs = await loadPreviewDefinitions({ videoRoot, videoPath, mode: "video-preview" });
+    const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
     const res = await handleGetReelState(
       videoRoot,
       defs.video!,

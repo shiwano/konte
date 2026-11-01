@@ -205,7 +205,6 @@ async function generateAll(videoRoot: string): Promise<void> {
   // fresh too, the way the preview watcher's reload does.
   const defs = await loadPreviewDefinitions({
     videoRoot,
-    videoPath: path.join(videoRoot, "video.tsx"),
     mode: "video-preview",
     reload: true,
   });
@@ -290,7 +289,7 @@ async function acceptAll(
   stage: "animatic" | "video" = "video",
 ): Promise<Record<string, unknown>> {
   const videoPath = path.join(videoRoot, "video.tsx");
-  const defs = await loadPreviewDefinitions({ videoRoot, videoPath, mode: "video-preview" });
+  const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
   const reel = stage === "animatic" ? defs.animatic! : defs.video!;
   const stateRes = await handleGetReelState(
     videoRoot,
@@ -378,7 +377,7 @@ async function submitDecision(
   stage: "animatic" | "video" = "video",
 ): Promise<Array<{ address: string; reason: string }>> {
   const videoPath = path.join(videoRoot, "video.tsx");
-  const defs = await loadPreviewDefinitions({ videoRoot, videoPath, mode: "video-preview" });
+  const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
   const stateRes = await handleGetReelState(
     videoRoot,
     stage === "animatic" ? defs.animatic! : defs.video!,
@@ -423,7 +422,6 @@ async function settledShotIds(
 ): Promise<string[]> {
   const defs = await loadPreviewDefinitions({
     videoRoot,
-    videoPath: path.join(videoRoot, "video.tsx"),
     mode: "video-preview",
   });
   const res = await handleGetReelState(
@@ -451,7 +449,6 @@ async function reelPage(
 ): Promise<Array<{ shotId: string; notReady: boolean; needsVerdict?: boolean }>> {
   const defs = await loadPreviewDefinitions({
     videoRoot,
-    videoPath: path.join(videoRoot, "video.tsx"),
     mode: "video-preview",
   });
   const res = await handleGetReelState(
@@ -470,7 +467,6 @@ async function outstanding(
 ): Promise<{ needsReview: string[]; problems: string[]; remixes: string[] }> {
   const defs = await loadPreviewDefinitions({
     videoRoot,
-    videoPath: path.join(videoRoot, "video.tsx"),
     mode: "video-preview",
   });
   const manager = await StateManager.load(videoRoot);
@@ -506,7 +502,6 @@ async function project(animaticLine = "here we go", videoTsx = VIDEO_TSX): Promi
 async function waiveAfterWhole(videoRoot: string, key: string): Promise<void> {
   const defs = await loadPreviewDefinitions({
     videoRoot,
-    videoPath: path.join(videoRoot, "video.tsx"),
     mode: "video-preview",
   });
   const manager = await StateManager.load(videoRoot);
@@ -565,8 +560,7 @@ describe("video review closure", () => {
     const videoRoot = await project();
     await acceptAll(videoRoot, "animatic");
     await generateAll(videoRoot);
-    const videoPath = path.join(videoRoot, "video.tsx");
-    const defs = await loadPreviewDefinitions({ videoRoot, videoPath, mode: "video-preview" });
+    const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
 
     const reel = async (standInShotIds?: string[]): Promise<string> =>
       (
@@ -662,7 +656,6 @@ describe("video review closure", () => {
 
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      videoPath: path.join(videoRoot, "video.tsx"),
       mode: "video-preview",
     });
     const remixed = await remakeSettledLeaves({
@@ -691,7 +684,6 @@ describe("video review closure", () => {
 
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      videoPath: path.join(videoRoot, "video.tsx"),
       mode: "video-preview",
     });
     const graph = buildDependencyGraph(defs.video!, defs.animatic!, null);
@@ -724,7 +716,6 @@ describe("video review closure", () => {
 
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      videoPath: path.join(videoRoot, "video.tsx"),
       mode: "video-preview",
     });
     const manager = await StateManager.load(videoRoot);
@@ -751,7 +742,6 @@ describe("video review closure", () => {
 
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      videoPath: path.join(videoRoot, "video.tsx"),
       mode: "video-preview",
     });
     const remixed = await remakeSettledLeaves({
@@ -780,7 +770,6 @@ describe("video review closure", () => {
     await acceptAll(videoRoot);
     const { direction } = await loadPreviewDefinitions({
       videoRoot,
-      videoPath: path.join(videoRoot, "video.tsx"),
       mode: "video-preview",
     });
     const after = await StateManager.load(videoRoot);
@@ -866,7 +855,6 @@ describe("video review closure", () => {
     await generateAll(videoRoot);
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      videoPath: path.join(videoRoot, "video.tsx"),
       mode: "video-preview",
     });
     const res = await handleGetReelState(
@@ -893,7 +881,6 @@ describe("video review closure", () => {
     const videoRoot = await project();
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      videoPath: path.join(videoRoot, "video.tsx"),
       mode: "video-preview",
     });
     const manager = await StateManager.load(videoRoot);

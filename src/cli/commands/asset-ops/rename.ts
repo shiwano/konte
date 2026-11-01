@@ -25,7 +25,7 @@ import { FeedbackManager } from "../../../core/feedback/index.js";
 import { isJobTerminal, JobManager } from "../../../core/job-manager.js";
 import { StateManager } from "../../../core/state/index.js";
 import { requireVideoRoot } from "../../context.js";
-import { loadStageDefinitions } from "../../load-definition.js";
+import { loadStageDefinitions } from "../../../core/stage-definitions.js";
 
 const FEEDBACK_STAGES = ["reference", "animatic", "video"] as const;
 

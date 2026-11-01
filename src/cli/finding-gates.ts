@@ -32,7 +32,6 @@ import {
   collectTransitiveDependents,
   type DependencyGraph,
 } from "../core/graph.js";
-import { loadAnimatic, loadReference } from "../core/loader.js";
 import { songAddressOf } from "../core/song-variant.js";
 import { StateManager } from "../core/state/index.js";
 import type {
@@ -43,7 +42,6 @@ import type {
 import {
   animaticSetupState,
   loadDirectionIfPresent,
-  loadVideoAndAnimatic,
   songVariantState,
   stagingStageState,
   unacceptedUpstreamDeps,
@@ -51,6 +49,7 @@ import {
   unsatisfiedVoices,
   upstreamMostBlockers,
 } from "./load-definition.js";
+import { loadStageDefinitions } from "../core/stage-definitions.js";
 
 type StageDefs = {
   reference: ReferenceDefinition | null;
@@ -72,7 +71,7 @@ export async function loadCheckContext(opts: {
   const { videoRoot } = opts;
   const direction =
     opts.direction !== undefined ? opts.direction : await loadDirectionIfPresent(videoRoot);
-  const defs = opts.definitions ?? (await loadStageDefsTolerant(videoRoot));
+  const defs = opts.definitions ?? (await loadStageDefinitions(videoRoot, { tolerant: true }));
   const manager =
     opts.manager !== undefined
       ? opts.manager
@@ -100,13 +99,6 @@ export async function loadCheckContext(opts: {
       : {}),
     ...(direction && manager ? { songVariant: songVariantState(manager, direction) } : {}),
   };
-}
-
-export async function loadStageDefsTolerant(videoRoot: string): Promise<StageDefs> {
-  const reference = await loadReference(videoRoot).catch(() => null);
-  const shots = await loadVideoAndAnimatic(videoRoot).catch(() => null);
-  if (shots) return { reference, ...shots };
-  return { reference, animatic: await loadAnimatic(videoRoot).catch(() => null), video: null };
 }
 
 // Over whichever stages loaded, so a board reviewed before video.tsx exists still has its edges.

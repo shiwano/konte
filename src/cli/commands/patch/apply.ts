@@ -18,9 +18,8 @@ import { requireVideoRoots } from "../../context.js";
 import { getStage, isPatchAddress } from "../../../core/address.js";
 import type { SpendRoutes } from "../../../core/backend-policy.js";
 import { buildDependencyGraph, extractRefs } from "../../../core/graph.js";
-import { loadStageDefinitions } from "../../load-definition.js";
-import { loadCheckContext, loadStageDefsTolerant, spendGate } from "../../finding-gates.js";
-import { loadReference } from "../../../core/loader.js";
+import { loadStageDefinitions } from "../../../core/stage-definitions.js";
+import { loadCheckContext, spendGate } from "../../finding-gates.js";
 import type { SpendCommand } from "../../../core/finding.js";
 import type { VideoRoots } from "../../../core/roots.js";
 import type { KonteConfig } from "../../../core/types/index.js";
@@ -149,7 +148,10 @@ export async function gatePatchApply(
   // A reference patch builds on no shot stage, so a shot stage that will not load does not stop it.
   const definitions = targets.some((p) => getStage(p.sourceAddress) !== "reference")
     ? await loadStageDefinitions(videoRoot)
-    : { ...(await loadStageDefsTolerant(videoRoot)), reference: await loadReference(videoRoot) };
+    : await loadStageDefinitions(videoRoot, { tolerant: true }).then(({ errors, ...defs }) => {
+        if (!defs.reference) throw errors.reference;
+        return { ...defs, reference: defs.reference };
+      });
   const { video, animatic, reference } = definitions;
   await applyResolutionDefinitions({
     videoRoot,

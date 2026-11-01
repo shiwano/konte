@@ -12,7 +12,8 @@ import { setInvocation } from "../context.js";
 import { jobRunnerHooks } from "../job-runner.js";
 import { formatKonteError } from "../error-output.js";
 import { buildProgram } from "../program.js";
-import { loadDirectionIfPresent, loadStageDefinitions } from "../load-definition.js";
+import { loadDirectionIfPresent } from "../load-definition.js";
+import { loadStageDefinitions } from "../../core/stage-definitions.js";
 import { writeFixtureVideo } from "./fixture-video.js";
 
 // In-process CLI runner shared by the command-level test suites. Instead of spawning

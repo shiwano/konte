@@ -19,7 +19,7 @@ const data = vi.hoisted(() => ({
   resolved: {} as Record<string, { variantId: string; file: string; outputHash?: string } | null>,
 }));
 
-vi.mock("../../../load-definition.js", () => ({
+vi.mock("../../../../core/stage-definitions.js", () => ({
   loadStageDefinitions: async () => data.definitions,
 }));
 vi.mock("../../../../core/definition-hashes.js", () => ({

@@ -19,7 +19,6 @@ import { mediaDurationSec } from "../core/variant-media.js";
 import { StateManager } from "../core/state/index.js";
 import type { Character, Direction } from "../core/dsl/direction.js";
 import { KonteError } from "../core/errors.js";
-import { type LoadedDefinitions, loadShotStages } from "../core/select-definition.js";
 import {
   listPanelPromptText,
   listPanelReferenceReach,
@@ -36,7 +35,6 @@ import {
   type DependencyGraph,
 } from "../core/graph.js";
 import type { AnimaticSetupState } from "../core/direction-check.js";
-import { assertNarrationStemsPlaced } from "../core/narration-stem.js";
 import {
   loadAnimatic,
   loadDirectionDefinition,
@@ -366,27 +364,6 @@ function isSignedOff(
     manager.stalenessCache(),
   );
   return accepted.variantId !== null && !accepted.definitionStale;
-}
-
-export async function loadVideoAndAnimatic(
-  videoRoot: string,
-): Promise<{ video: VideoDefinition; animatic: AnimaticDefinition }> {
-  // Load animatic before video, not in parallel: video.tsx statically imports the animatic
-  // module, so a failure during animatic evaluation otherwise resurfaces from video's import as
-  // an unrelated TDZ error ("Cannot access 'animatic' before initialization"). Surfacing the
-  // animatic error first keeps the diagnostic pointed at the real cause.
-  const animatic = await loadAnimatic(videoRoot);
-  const videoPath = stageEntryPath(videoRoot, "video");
-  const video = await loadVideoDefinition(videoPath);
-  assertNarrationStemsPlaced(video, animatic);
-  return { video, animatic };
-}
-
-// The three stage entries a video holds — what a whole-project read (status, generate, accept,
-// prune, …) loads before resolving addresses or building the dependency graph.
-export async function loadStageDefinitions(videoRoot: string): Promise<LoadedDefinitions> {
-  const shots = await loadShotStages(videoRoot, () => loadVideoAndAnimatic(videoRoot));
-  return { reference: await loadReference(videoRoot), ...shots };
 }
 
 export async function loadDefinitionForAddress(

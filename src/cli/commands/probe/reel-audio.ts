@@ -10,7 +10,7 @@ import { KonteError } from "../../../core/errors.js";
 import { StateManager } from "../../../core/state/index.js";
 import { buildTimeAxis, cell, resample } from "../../audio-sparkline.js";
 import { requireVideoRoot } from "../../context.js";
-import { loadVideoAndAnimatic } from "../../load-definition.js";
+import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 import { withAbsoluteFiles } from "./shared.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { formatSeconds, formatSecondsRange } from "../../../core/format-duration.js";

@@ -79,12 +79,9 @@ import { type ScriptLine, scriptLinesToView } from "../../core/types/script.js";
 import type { PanelDefinition, PanelLane, Respelling } from "../../core/types/definition.js";
 import type { AnimaticDefinition } from "../../core/types/animatic.js";
 import { spellingsOf } from "../../core/dsl/respell.js";
-import {
-  loadDefinitionForAddress,
-  loadDirectionIfPresent,
-  loadStageDefinitions,
-  loadVideoAndAnimatic,
-} from "../load-definition.js";
+import { loadDefinitionForAddress, loadDirectionIfPresent } from "../load-definition.js";
+import { loadStageDefinitions, loadVideoAndAnimatic } from "../../core/stage-definitions.js";
+import { openVideoSession } from "../../core/video-session.js";
 import { loadReference } from "../../core/loader.js";
 import { requireVideoRoot } from "../context.js";
 import { inspectDirection } from "./inspect-direction.js";
@@ -100,7 +97,6 @@ import {
   definitionForAddress,
   type StageDefinitions,
 } from "../../core/definition-hashes.js";
-import { syncFileAssets } from "../../core/file-sync.js";
 import { selectGenerationAssets } from "../generation-selection.js";
 import { loadCheckContext, spendHeldAssets } from "../finding-gates.js";
 import { staleRefreshStep } from "../stale-refresh-step.js";
@@ -1004,21 +1000,10 @@ async function inspectPrompts(
 
   let pending: Set<string> | undefined;
   if (pendingGeneration && stage) {
-    const definitions = await loadStageDefinitions(videoRoot);
-    const manager = await StateManager.load(videoRoot);
-    const syncDefinitions =
-      stage === "reference"
-        ? { reference: definitions.reference }
-        : stage === "animatic"
-          ? { reference: definitions.reference, animatic: definitions.animatic }
-          : definitions;
-    await syncFileAssets(syncDefinitions, manager);
-    await applyResolutionDefinitions({ videoRoot, definitions, state: manager.getState() });
-    const graph = buildDependencyGraph(
-      definitions.video,
-      definitions.animatic,
-      definitions.reference,
-    );
+    const { definitions, manager, graph } = await openVideoSession(videoRoot, {
+      sync: "memory",
+      through: stage,
+    });
     const { spending } = selectGenerationAssets({ definitions, stage, manager, graph });
     const held = await spendHeldAssets(
       await loadCheckContext({ videoRoot, definitions, manager, graph }),

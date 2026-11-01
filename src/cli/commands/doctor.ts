@@ -34,7 +34,7 @@ import {
   listUnusedAssetPaths,
 } from "../../core/graph.js";
 import { JobManager } from "../../core/job-manager.js";
-import { loadAnimatic, loadReference, loadVideoDefinition } from "../../core/loader.js";
+import { loadStageDefinitions } from "../../core/stage-definitions.js";
 import { readAssetsGitignore } from "../../core/assets-gitignore.js";
 import { buildOrphanContext, listStrayVariantDirs } from "../../core/orphans.js";
 import { listPatchVariantIds } from "../../core/patch.js";
@@ -60,7 +60,7 @@ import { loadDirectionIfPresent } from "../load-definition.js";
 import { loadCheckContext } from "../finding-gates.js";
 import { currentRoots, requireWorkspaceRoot } from "../context.js";
 import type { VideoRoots, VideoSelection } from "../../core/roots.js";
-import { listVideos, STAGE_ENTRY_FILE, stageEntryPath, VIDEOS_DIR } from "../../core/roots.js";
+import { listVideos, STAGE_ENTRY_FILE, VIDEOS_DIR } from "../../core/roots.js";
 import { declareScope } from "../scope.js";
 
 // doctor is a quick health check; fail fast on an unreachable backend
@@ -255,49 +255,39 @@ async function runVideoChecks(
       message: "skipped — resolve the type errors above first",
     });
   } else {
-    const animaticResult = await checkAnimaticTs(videoRoot);
-    checks.push(animaticResult.check);
+    const loaded = await loadStageDefinitions(videoRoot, { tolerant: true });
+    const { reference, animatic, video } = loaded;
+    checks.push(stageCheck("animatic", animatic, loaded.errors.animatic));
+    checks.push(
+      animatic
+        ? stageCheck("video", video, loaded.errors.video)
+        : {
+            name: "video",
+            status: "WARN",
+            message: "skipped — video.tsx imports animatic.tsx, which did not load",
+          },
+    );
+    checks.push(stageCheck("reference", reference, loaded.errors.reference));
+    usedKinds = collectUsedKinds(video, animatic, reference);
+    defs = { video, animatic, reference };
 
-    const videoResult = await checkVideoTs(videoRoot);
-    checks.push(videoResult.check);
-
-    const referenceResult = await checkReferenceTs(videoRoot);
-    checks.push(referenceResult.check);
-    const reference = referenceResult.reference;
-    usedKinds = collectUsedKinds(videoResult.video, animaticResult.animatic, reference);
-    defs = {
-      video: videoResult.video,
-      animatic: animaticResult.animatic,
-      reference,
-    };
-
-    if (videoResult.video) {
-      checks.push(
-        await checkWorkflowFiles(roots, videoResult.video, animaticResult.animatic, reference),
-      );
+    if (video) {
+      checks.push(await checkWorkflowFiles(roots, video, animatic, reference));
     }
 
-    if (videoResult.video && animaticResult.animatic) {
-      checks.push(
-        ...checkCrossStageConsistency(
-          videoResult.video,
-          animaticResult.animatic,
-          reference ?? undefined,
-        ),
-      );
+    if (video && animatic) {
+      checks.push(...checkCrossStageConsistency(video, animatic, reference ?? undefined));
     }
 
-    if (videoResult.video) {
-      checks.push(
-        checkUnusedAssets(videoResult.video, animaticResult.animatic, reference ?? undefined),
-      );
+    if (video) {
+      checks.push(checkUnusedAssets(video, animatic, reference ?? undefined));
     }
 
     checks.push(...(await checkFindings(videoRoot, defs)));
   }
 
   checks.push(await checkOrphanedJobs(videoRoot));
-  checks.push(await checkOrphanedTargets(videoRoot));
+  checks.push(await checkOrphanedTargets(videoRoot, defs));
   checks.push(await checkStrayVariantDirs(videoRoot));
   checks.push(await checkMissingAssets(videoRoot));
   checks.push(await checkAssetsGitignore(videoRoot));
@@ -415,84 +405,15 @@ function assetCountMessage(
   return reviewable < total ? `${total} assets, ${reviewable} reviewable` : `${total} assets`;
 }
 
-async function checkVideoTs(
-  videoRoot: string,
-): Promise<{ check: CheckResult; video: Awaited<ReturnType<typeof loadVideoDefinition>> | null }> {
-  try {
-    const videoPath = stageEntryPath(videoRoot, "video");
-    const video = await loadVideoDefinition(videoPath);
-    return {
-      check: {
-        name: "video",
-        status: "PASS",
-        message: `valid (${assetCountMessage(video, "video")})`,
-      },
-      video,
-    };
-  } catch (err) {
-    return {
-      check: {
-        name: "video",
-        status: "FAIL",
-        message: errorMessage(err),
-      },
-      video: null,
-    };
-  }
-}
-
-// A missing reference.tsx is a FAIL like a broken one: the shared pool is a required entry.
-async function checkReferenceTs(videoRoot: string): Promise<{
-  check: CheckResult;
-  reference: ReferenceDefinition | null;
-}> {
-  try {
-    const reference = await loadReference(videoRoot);
-    return {
-      check: {
-        name: "reference",
-        status: "PASS",
-        message: `valid (${assetCountMessage(reference, "reference")})`,
-      },
-      reference,
-    };
-  } catch (err) {
-    return {
-      check: {
-        name: "reference",
-        status: "FAIL",
-        message: errorMessage(err),
-      },
-      reference: null,
-    };
-  }
-}
-
-// A missing animatic.tsx is a FAIL like a broken one: the board is a required entry.
-async function checkAnimaticTs(videoRoot: string): Promise<{
-  check: CheckResult;
-  animatic: AnimaticDefinition | null;
-}> {
-  try {
-    const animatic = await loadAnimatic(videoRoot);
-    return {
-      check: {
-        name: "animatic",
-        status: "PASS",
-        message: `valid (${assetCountMessage(animatic, "animatic")})`,
-      },
-      animatic,
-    };
-  } catch (err) {
-    return {
-      check: {
-        name: "animatic",
-        status: "FAIL",
-        message: errorMessage(err),
-      },
-      animatic: null,
-    };
-  }
+// A missing reference.tsx or animatic.tsx is a FAIL like a broken one: both are required entries.
+function stageCheck(
+  stage: "video" | "animatic" | "reference",
+  definition: VideoDefinition | AnimaticDefinition | ReferenceDefinition | null,
+  error: unknown,
+): CheckResult {
+  return definition
+    ? { name: stage, status: "PASS", message: `valid (${assetCountMessage(definition, stage)})` }
+    : { name: stage, status: "FAIL", message: errorMessage(error) };
 }
 
 const ALL_BACKEND_KINDS: AssetDefinition["kind"][] = ["comfy", "local", "fal"];
@@ -826,7 +747,7 @@ function ffmpegToolCheck(
 
 async function checkWorkflowFiles(
   roots: VideoRoots,
-  video: Awaited<ReturnType<typeof loadVideoDefinition>>,
+  video: VideoDefinition,
   animatic: AnimaticDefinition | null,
   reference?: ReferenceDefinition | null,
 ): Promise<CheckResult> {
@@ -941,7 +862,10 @@ function checkUnusedAssets(
   };
 }
 
-async function checkOrphanedTargets(videoRoot: string): Promise<CheckResult> {
+async function checkOrphanedTargets(
+  videoRoot: string,
+  defs: DefinitionSet | null,
+): Promise<CheckResult> {
   const skip = (message: string): CheckResult => ({
     name: "orphaned targets",
     status: "PASS",
@@ -956,14 +880,9 @@ async function checkOrphanedTargets(videoRoot: string): Promise<CheckResult> {
     return skip("no state to check");
   }
 
-  let video: VideoDefinition;
-  try {
-    video = await loadVideoDefinition(stageEntryPath(videoRoot, "video"));
-  } catch {
-    return skip("cannot load definition (skipped)");
-  }
-  const animatic = await loadAnimatic(videoRoot).catch(() => null);
-  const reference = await loadReference(videoRoot).catch(() => null);
+  const { video, animatic, reference } =
+    defs ?? (await loadStageDefinitions(videoRoot, { tolerant: true }));
+  if (!video) return skip("cannot load definition (skipped)");
 
   // Reuse prune's orphan definition so doctor never warns about (and suggests pruning) a live
   // composition baseline or #delivery target that prune itself would correctly keep.

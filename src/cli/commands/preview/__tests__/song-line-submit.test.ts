@@ -74,7 +74,6 @@ async function project(): Promise<{ videoRoot: string; variantId: string }> {
 async function submit(videoRoot: string, body: Record<string, unknown>): Promise<Response> {
   const defs = await loadPreviewDefinitions({
     videoRoot,
-    videoPath: path.join(videoRoot, "video.tsx"),
     mode: "reference-preview",
   });
   return handleReferenceSubmit(

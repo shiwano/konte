@@ -10,8 +10,7 @@ import { assertSpendAllowed } from "../../core/backend-policy.js";
 import { loadKonteConfig } from "../../core/config.js";
 import { computeDependencyLevels } from "../../core/dependency-levels.js";
 import { printCapped } from "../format-list.js";
-import { syncFileAssets } from "../../core/file-sync.js";
-import { buildDependencyGraph, collectTransitiveDependents } from "../../core/graph.js";
+import { collectTransitiveDependents } from "../../core/graph.js";
 import { plateFork } from "../../core/stale-refresh.js";
 import { JobManager } from "../../core/job-manager.js";
 import {
@@ -34,7 +33,8 @@ import {
 import { StateManager } from "../../core/state/index.js";
 import { type StaleRefreshStep, staleRefreshStep } from "../stale-refresh-step.js";
 import type { AssetDefinition } from "../../core/types/index.js";
-import { loadStageDefinitions, loadDirectionIfPresent } from "../load-definition.js";
+import { loadDirectionIfPresent } from "../load-definition.js";
+import { openVideoSession } from "../../core/video-session.js";
 import { assertNoSpendFindings, loadCheckContext, spendGate } from "../finding-gates.js";
 import { errorMessage } from "../../core/errors.js";
 import {
@@ -58,7 +58,6 @@ import {
 import { printRemixedBoardStems, selectGenerationAssets } from "../generation-selection.js";
 import { planSupersededStemRemakes, remakeSettledLeaves } from "../../core/board-leaves.js";
 import { requireVideoRoots } from "../context.js";
-import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
 
 export function registerGenerateCommand(program: Command): void {
   program
@@ -70,8 +69,18 @@ export function registerGenerateCommand(program: Command): void {
       const { stage } = parseStageScope(scope);
       const roots = requireVideoRoots();
       const videoRoot = roots.video;
-      const defs = await loadStageDefinitions(videoRoot);
-      const { video, animatic, reference } = defs;
+      // The file-asset sync is persisted under the state lock so it cannot clobber a concurrent
+      // watcher write, and the run's read-only decisions reuse its post-sync snapshot (the
+      // orchestrator does its own locked writes). A plan syncs in memory only. Resolution is
+      // registered before the gate, which asks strict resolution what counts as accepted upstream.
+      const session = await openVideoSession(videoRoot, {
+        sync: opts.plan ? "memory" : "locked",
+        through: stage === "direction" ? "reference" : stage,
+        measure: true,
+      });
+      const { definitions: defs, graph } = session;
+      let { manager } = session;
+      const { video, animatic } = defs;
 
       // `selectDefinition` rejects the one scope with no assets (`direction`), so what it hands
       // back carries the stage already narrowed to one that owns them — which is what the
@@ -82,40 +91,9 @@ export function registerGenerateCommand(program: Command): void {
 
       const assetEntryOf = (address: string): AssetDefinition => getAssetEntry(def, address);
 
-      // Before the gate: it asks strict resolution what counts as accepted upstream work.
-      await applyResolutionDefinitions({
-        videoRoot,
-        definitions: defs,
-      });
-
       const config = await loadKonteConfig(roots.workspace);
 
       const variantCount = 1;
-
-      const syncForStage = async (m: StateManager) => {
-        if (stage === "reference") {
-          await syncFileAssets({ reference }, m, { measure: true });
-        } else if (stage === "animatic") {
-          await syncFileAssets({ reference, animatic }, m, { measure: true });
-        } else {
-          await syncFileAssets({ reference, animatic, video }, m, { measure: true });
-        }
-      };
-
-      let manager: StateManager;
-      if (opts.plan) {
-        // Dry-run: sync file assets in memory only, never persist.
-        manager = await StateManager.load(videoRoot);
-        await syncForStage(manager);
-      } else {
-        // Persist the file-asset sync under the state lock so it cannot clobber a
-        // concurrent watcher write; reuse the returned post-sync snapshot for the
-        // run's read-only decisions (the orchestrator does its own locked writes).
-        manager = await StateManager.withLock(videoRoot, async (m) => {
-          await syncForStage(m);
-          return m;
-        });
-      }
 
       // The board stems the video has taken over, re-mixed before the gate asks for them accepted.
       // A plan stands them in, in memory, so it prices what consumes them as the run will.
@@ -134,8 +112,6 @@ export function registerGenerateCommand(program: Command): void {
           printRemixedBoardStems(result);
         }
       }
-
-      const graph = buildDependencyGraph(video, animatic, reference);
 
       // Shared by the plan and the run, which must price the same command.
       const describeAcceptedStale = (addresses: readonly string[]): AcceptedStaleAsset[] =>

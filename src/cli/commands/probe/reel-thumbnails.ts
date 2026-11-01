@@ -16,7 +16,7 @@ import {
   type CaptureCompositionOptions,
 } from "../../../core/thumbnail.js";
 import type { StageDefinition } from "../../../core/types/index.js";
-import { loadVideoAndAnimatic } from "../../load-definition.js";
+import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 import { requireVideoRoot } from "../../context.js";
 import {
   addFrameCaptureOptions,

@@ -1,16 +1,11 @@
 import type { Command } from "commander";
-import {
-  applyResolutionDefinitions,
-  type StageDefinitions,
-} from "../../../core/definition-hashes.js";
+import type { StageDefinitions } from "../../../core/definition-hashes.js";
 import { KonteError } from "../../../core/errors.js";
-import { syncFileAssets } from "../../../core/file-sync.js";
-import { buildDependencyGraph } from "../../../core/graph.js";
 import { StateManager } from "../../../core/state/index.js";
 import { isReviewLeaf } from "../../../core/variant-lineage.js";
 import { printAborted } from "../../confirm.js";
 import { requireVideoRoot } from "../../context.js";
-import { loadStageDefinitions } from "../../load-definition.js";
+import { openVideoSession } from "../../../core/video-session.js";
 import { resolveVariantArg } from "./resolve-variant-arg.js";
 import { assertDismissable } from "./reviewable.js";
 import {
@@ -88,17 +83,11 @@ Examples:
 
       // Registered before anything resolves an address — without them resolution is blind to the
       // definition axis.
-      const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
-      await applyResolutionDefinitions({
-        videoRoot,
+      const {
         definitions: { video, animatic, reference },
-      });
-      const graph = buildDependencyGraph(video, animatic, reference);
-      await StateManager.withLock(videoRoot, (m) =>
-        syncFileAssets({ video, animatic, reference }, m),
-      );
-
-      const previewManager = await StateManager.load(videoRoot);
+        graph,
+        manager: previewManager,
+      } = await openVideoSession(videoRoot);
       // Resolved before anything is applied, so a malformed or unknown target fails with nothing
       // half-decided. Two targets naming the same take (an id and the address showing it) are one
       // decision.

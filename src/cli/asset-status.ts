@@ -1,6 +1,6 @@
 import { syncFileAssets } from "../core/file-sync.js";
 import { requireShotStages } from "../core/select-definition.js";
-import { loadStageDefinitions } from "./load-definition.js";
+import { loadStageDefinitions } from "../core/stage-definitions.js";
 import {
   assertValidAddressScope,
   matchesAddressScope,

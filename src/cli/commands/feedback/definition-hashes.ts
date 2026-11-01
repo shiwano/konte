@@ -11,7 +11,7 @@ import {
 import { panelMoveHashes } from "../../../core/panel-move-hash.js";
 import type { VideoDefinition } from "../../../core/types/index.js";
 import type { AnimaticDefinition } from "../../../core/types/animatic.js";
-import { loadVideoAndAnimatic } from "../../load-definition.js";
+import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 
 /**
  * The current live hash of everything a comment can snapshot that its take does not capture: each

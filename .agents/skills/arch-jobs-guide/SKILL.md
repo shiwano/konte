@@ -45,7 +45,7 @@ Activation:
 
 ## What a judge reads
 
-A cascade pass lists jobs, then reloads the definitions (`reloadLoadedDefinitions`), per iteration — no job is judged by definitions older than itself. A job records a source fingerprint at creation (`definition-source.ts`). On a hash mismatch:
+A cascade pass lists jobs, then reloads the definitions (`loadStageDefinitions` with `reload`), per iteration — no job is judged by definitions older than itself. A job records a source fingerprint at creation (`definition-source.ts`). On a hash mismatch:
 
 - fingerprint moved → the definition changed; the job fails.
 - fingerprint unchanged → the judge is stale: it releases the job (`releaseIfOwner`) and the worker exits (`WORKER_RESTART_EXIT_CODE`) and its host starts a fresh one; a second stale judge fails it.

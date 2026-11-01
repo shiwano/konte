@@ -7,12 +7,6 @@ import {
 } from "./address.js";
 import { definitionHashForAddress } from "./composition-resource.js";
 import { diffDefinitions, readDefinitionSnapshot } from "./definition-snapshot.js";
-import {
-  loadIfPresent,
-  loadReferenceDefinition,
-  loadAnimaticDefinition,
-  loadVideoDefinition,
-} from "./loader.js";
 import { loadPatchCatalog, patchHashesOf } from "./patch.js";
 import { StateManager } from "./state/index.js";
 import { registerResolutionDefinitions } from "./state/resolution-definitions.js";
@@ -23,7 +17,7 @@ import type {
   AnimaticDefinition,
   VideoDefinition,
 } from "./types/index.js";
-import { stageEntryPath } from "./roots.js";
+import { loadStageDefinitions } from "./stage-definitions.js";
 import { generatedOrigin } from "./variant-lineage.js";
 
 /**
@@ -131,21 +125,6 @@ function createResolutionDefinitions(
 }
 
 /**
- * One stage entry: the definition, `null` when the file is absent, `undefined` when it is there but
- * will not load. Tolerant on purpose — losing the definition axis costs accuracy where a throw would
- * cost the command, including in the commands whose job is to REPORT that the file is broken.
- *
- * Absent and unreadable are kept apart for the reference stage: "this project has no reference
- * pool" answers questions about it, "it could not be read" answers none.
- */
-function loadIfLoadable<T>(
-  file: string,
-  read: (p: string) => Promise<T>,
-): Promise<T | null | undefined> {
-  return loadIfPresent(file, (p) => read(p).catch(() => undefined));
-}
-
-/**
  * Load every stage entry of a video and register the resulting definition hashes for its root, so
  * resolution reads a take's own definition and not only its inputs (see `ResolutionDefinitions`).
  * Registered per root rather than per manager: `StateManager.withLock` makes its own manager, and
@@ -161,16 +140,9 @@ export async function applyResolutionDefinitions(opts: {
   patchHashes?: PatchHashes;
 }): Promise<StageDefinitions> {
   const { videoRoot } = opts;
-  const stages = opts.definitions ??
-    // Animatic before video, for the reason `loadVideoAndAnimatic` sequences them.
-    {
-      reference: await loadIfLoadable(
-        stageEntryPath(videoRoot, "reference"),
-        loadReferenceDefinition,
-      ),
-      animatic: await loadIfLoadable(stageEntryPath(videoRoot, "animatic"), loadAnimaticDefinition),
-      video: await loadIfLoadable(stageEntryPath(videoRoot, "video"), loadVideoDefinition),
-    };
+  // Tolerant: losing the definition axis costs accuracy where a throw would cost the command,
+  // including in the commands whose job is to report that a file is broken.
+  const stages = opts.definitions ?? (await loadStageDefinitions(videoRoot, { tolerant: true }));
   const state =
     opts.patchHashes !== undefined
       ? null

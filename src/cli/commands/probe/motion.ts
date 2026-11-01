@@ -23,7 +23,7 @@ import {
 import { ffprobeBin } from "../../../core/ffmpeg-binary.js";
 import { buildTimeAxis, cell, normalize, resample } from "../../audio-sparkline.js";
 import { parseNumberOption } from "../../parse-option.js";
-import { loadVideoAndAnimatic } from "../../load-definition.js";
+import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 import { createMotionIntentLoader, formatMotionIntent } from "./motion-intent.js";
 import { openProbeTargets, resolveProbeTargets } from "./resolve-arg.js";
 import { compositionStage, requireCompositionShot } from "./shared.js";

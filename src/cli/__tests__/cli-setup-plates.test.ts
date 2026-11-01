@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { getAssetEntry } from "../../core/address.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import { StateManager } from "../../core/state/manager.js";
-import { loadStageDefinitions } from "../load-definition.js";
+import { loadStageDefinitions } from "../../core/stage-definitions.js";
 import {
   acceptDirection,
   initWithNoBackendVideo,

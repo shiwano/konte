@@ -6,7 +6,7 @@ import { saveReviewRecord } from "../../../../core/review-record.js";
 import { StateManager } from "../../../../core/state/manager.js";
 import { feedbackFramePath, resolveShotFeedbackFrames } from "../../../../core/thumbnail.js";
 import { run } from "../../../__tests__/harness.js";
-import { loadVideoAndAnimatic } from "../../../load-definition.js";
+import { loadVideoAndAnimatic } from "../../../../core/stage-definitions.js";
 import {
   useReviewShowProject,
   projectDir,

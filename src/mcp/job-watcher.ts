@@ -10,7 +10,8 @@ import {
   jobsDbPath,
 } from "../core/job-manager.js";
 import { type StaleJudgeRelease, submitReadyPendingJobs } from "../core/pending-jobs.js";
-import { reloadLoadedDefinitions } from "../core/reload-definitions.js";
+import { applyResolutionDefinitions } from "../core/definition-hashes.js";
+import { loadStageDefinitions } from "../core/stage-definitions.js";
 import type {
   BackendKind,
   ComfyModelDownloadJob,
@@ -575,13 +576,17 @@ export class JobWatcher {
     });
   }
 
-  private loadDefinitions(): Promise<LoadedDefinitions> {
+  private async loadDefinitions(): Promise<LoadedDefinitions> {
     // The watcher is long-lived: video.tsx / reference.tsx can be edited (e.g. between `konte
     // generate` reserving a pending job's definitionHash and this daemon submitting it). A plain
     // import() caches the module forever, so every read is a cache-busted reload. A read that
     // still comes back older than the files is caught by the fingerprint a job carries, and the
     // worker restarts rather than judge or render from it (onStaleDefinitions).
-    return reloadLoadedDefinitions(this.videoRoot);
+    // Registered for resolution, so a submit resolves the job's inputs against the same
+    // definitions it judges the job by.
+    const definitions = await loadStageDefinitions(this.videoRoot, { reload: true });
+    await applyResolutionDefinitions({ videoRoot: this.videoRoot, definitions });
+    return definitions;
   }
 
   // Returns true if the job was already terminal and we notified for it. A job can

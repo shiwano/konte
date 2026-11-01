@@ -13,7 +13,7 @@ import {
 import { type ReviewRecord, saveReviewRecord } from "../../../../core/review-record.js";
 import { StateManager } from "../../../../core/state/manager.js";
 import { feedbackFramePath } from "../../../../core/thumbnail.js";
-import { loadVideoAndAnimatic } from "../../../load-definition.js";
+import { loadVideoAndAnimatic } from "../../../../core/stage-definitions.js";
 import { initWorkspace } from "../../../__tests__/harness.js";
 
 const execFileAsync = promisify(execFile);

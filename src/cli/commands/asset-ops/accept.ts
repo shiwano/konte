@@ -54,7 +54,6 @@ import {
   reelShotAcceptability,
 } from "../../../core/review-acceptability.js";
 import { KonteError } from "../../../core/errors.js";
-import { buildDependencyGraph } from "../../../core/graph.js";
 import type { LoadedDefinitions } from "../../../core/select-definition.js";
 import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
 import { JobManager } from "../../../core/job-manager.js";
@@ -69,7 +68,8 @@ import { readyUndecidedVariants } from "../../../core/staleness.js";
 import { StateManager } from "../../../core/state/index.js";
 import { variantDir } from "../../../core/variant-dir.js";
 import { confirmAction, printAborted } from "../../confirm.js";
-import { loadDirectionIfPresent, loadStageDefinitions } from "../../load-definition.js";
+import { loadDirectionIfPresent } from "../../load-definition.js";
+import { openVideoSession } from "../../../core/video-session.js";
 import { formatDirectionRemainder } from "../../print-status.js";
 import { assertSongLinesPlaced } from "../../../core/direction.js";
 import { closeSignedOffFeedback } from "./close-feedback.js";
@@ -81,11 +81,7 @@ import {
   staleFrom,
 } from "./stale-consent.js";
 import { requireVideoRoot } from "../../context.js";
-import {
-  applyResolutionDefinitions,
-  type StageDefinitions,
-} from "../../../core/definition-hashes.js";
-import { syncFileAssets } from "../../../core/file-sync.js";
+import type { StageDefinitions } from "../../../core/definition-hashes.js";
 import {
   isPendingShot,
   type StageDefinition,
@@ -713,18 +709,17 @@ function orderAcceptBatch(
 
 async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<void> {
   const videoRoot = requireVideoRoot();
-  const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
+  // An address argument lands on the take the address resolves to — "accept what was on screen".
+  const {
+    definitions: { video, animatic, reference },
+    graph,
+    manager: loaded,
+  } = await openVideoSession(videoRoot);
   const definitions = { video, animatic, reference };
   // Only for the direction cascade below, so a broken direction.ts must not take the accept down
   // with it — this is not a spend command, and the gate that does demand a loadable direction runs
   // elsewhere. Without one there is simply nothing to cascade into.
   const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
-  const graph = buildDependencyGraph(video, animatic, reference);
-  // An address argument lands on the take the address resolves to — "accept what was on screen".
-  await applyResolutionDefinitions({ videoRoot, definitions });
-  await StateManager.withLock(videoRoot, (m) => syncFileAssets(definitions, m));
-
-  const loaded = await StateManager.load(videoRoot);
   // An accept signs off everything the review page shows for that target, so it cannot land while
   // a finding to fix sits on it: a named target is refused, a stage's unit left out and named.
   // A dep the cascade reaches that one holds is left for its own accept.
@@ -1087,11 +1082,11 @@ async function runUnaccept(rawTargets: string[], opts: AcceptOptions): Promise<v
 
   // Registered before the target is resolved — without them resolution is blind to the definition
   // axis.
-  const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
-  await applyResolutionDefinitions({ videoRoot, definitions: { video, animatic, reference } });
-  const graph = buildDependencyGraph(video, animatic, reference);
-
-  const previewManager = await StateManager.load(videoRoot);
+  const {
+    definitions: { video, animatic, reference },
+    graph,
+    manager: previewManager,
+  } = await openVideoSession(videoRoot, { sync: "none" });
   const targets = rawTargets.flatMap((target) => {
     const stage = isStageScope(target) ? (target as VariantStage) : null;
     const scoped = stage

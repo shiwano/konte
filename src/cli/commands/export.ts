@@ -20,7 +20,7 @@ import type {
   AnimaticDefinition,
   VideoDefinition,
 } from "../../core/types/index.js";
-import { loadStageDefinitions } from "../load-definition.js";
+import { loadStageDefinitions } from "../../core/stage-definitions.js";
 import { loadCheckContext, spendGate } from "../finding-gates.js";
 import { requireShotStages } from "../../core/select-definition.js";
 import { planDelivery } from "./render-delivery.js";

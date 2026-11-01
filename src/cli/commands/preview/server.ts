@@ -81,7 +81,6 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
   // Reassigned by the watcher below, which re-reads the same set on a definition edit.
   let { reference, animatic, direction, video } = await loadPreviewDefinitions({
     videoRoot,
-    videoPath,
     mode,
   });
   // The stage the reel pages play: each mode loads its own entry fatally, so it is there whenever
@@ -500,7 +499,6 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
     try {
       ({ reference, animatic, direction, video } = await loadPreviewDefinitions({
         videoRoot,
-        videoPath,
         mode,
         reload: true,
       }));

@@ -22,7 +22,7 @@ import { StateManager } from "../../../core/state/index.js";
 import { assertTailwindClasses } from "../../../core/tailwind-classes.js";
 import type { AssetDefinition, LocalAssetDefinition } from "../../../core/types/index.js";
 import { requireVideoRoot } from "../../context.js";
-import { loadStageDefinitions } from "../../load-definition.js";
+import { loadStageDefinitions } from "../../../core/stage-definitions.js";
 
 // A `render` image is a `jsxImage`; a `render` video is a `jsxVideo`, baked by `generate`.
 function isJsxRender(entry: AssetDefinition): entry is LocalAssetDefinition {

@@ -30,7 +30,8 @@ import {
 } from "../../core/variant-dir.js";
 import { collectDescendants } from "../../core/variant-lineage.js";
 import { confirmDeletion, printAborted } from "../confirm.js";
-import { loadDirectionIfPresent, loadStageDefinitions } from "../load-definition.js";
+import { loadDirectionIfPresent } from "../load-definition.js";
+import { loadStageDefinitions } from "../../core/stage-definitions.js";
 import { directionPartHashes } from "../../core/direction-hash.js";
 import {
   type CascadeFailedJob,

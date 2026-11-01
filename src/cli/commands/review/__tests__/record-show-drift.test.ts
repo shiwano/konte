@@ -4,7 +4,7 @@ import { writeDefinitionSnapshot } from "../../../../core/definition-snapshot.js
 import { type ReviewRecord, saveReviewRecord } from "../../../../core/review-record.js";
 import { StateManager } from "../../../../core/state/manager.js";
 import type { AssetDefinition } from "../../../../core/types/index.js";
-import { loadVideoAndAnimatic } from "../../../load-definition.js";
+import { loadVideoAndAnimatic } from "../../../../core/stage-definitions.js";
 import { run } from "../../../__tests__/harness.js";
 import { projectDir, useReviewShowProject } from "./record-show-fixtures.js";
 

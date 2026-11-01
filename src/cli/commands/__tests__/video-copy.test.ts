@@ -12,7 +12,8 @@ import { syncFileAssets } from "../../../core/file-sync.js";
 import { StateManager } from "../../../core/state/index.js";
 import { variantDir } from "../../../core/variant-dir.js";
 import { initWorkspace, run } from "../../__tests__/harness.js";
-import { loadDirectionIfPresent, loadStageDefinitions } from "../../load-definition.js";
+import { loadDirectionIfPresent } from "../../load-definition.js";
+import { loadStageDefinitions } from "../../../core/stage-definitions.js";
 
 let tmp: string;
 let workspace: string;

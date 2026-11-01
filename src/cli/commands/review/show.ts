@@ -29,7 +29,7 @@ import {
 import { StateManager } from "../../../core/state/manager.js";
 import { resolveShotFeedbackFrames } from "../../../core/thumbnail.js";
 import { requireVideoRoot } from "../../context.js";
-import { loadVideoAndAnimatic } from "../../load-definition.js";
+import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 import { parseNumberOption } from "../../parse-option.js";
 
 /**

@@ -36,10 +36,10 @@ import type { Direction } from "../../core/dsl/direction.js";
 import { isPendingShot, isPendingAnimaticShot } from "../../core/types/index.js";
 import {
   loadDirectionIfPresent,
-  loadStageDefinitions,
   unsatisfiedCharacters,
   unsatisfiedVoices,
 } from "../load-definition.js";
+import { loadStageDefinitions } from "../../core/stage-definitions.js";
 import { collectFindings } from "../../core/checks.js";
 import { reviewHold } from "../../core/finding.js";
 import { judgeSpend, loadCheckContext, spendHeldError } from "../finding-gates.js";

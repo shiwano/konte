@@ -190,7 +190,7 @@ async function submit(
   body: Record<string, unknown>,
 ): Promise<{ res: Response; payload: Record<string, unknown> }> {
   const videoPath = path.join(videoRoot, "video.tsx");
-  const defs = await loadPreviewDefinitions({ videoRoot, videoPath, mode: "video-preview" });
+  const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
   const res = await handleReelSubmit(
     videoRoot,
     () => reloadVideoDefinition(videoPath),

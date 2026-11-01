@@ -118,7 +118,6 @@ describe("reference preview — definitions loaded", () => {
     const { videoRoot } = await project();
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      videoPath: path.join(videoRoot, "video.tsx"),
       mode: "reference-preview",
     });
     expect(defs.reference).not.toBeNull();
@@ -130,7 +129,6 @@ describe("reference preview — definitions loaded", () => {
     await fs.writeFile(path.join(videoRoot, "animatic.tsx"), "throw new Error('broken');\n");
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      videoPath: path.join(videoRoot, "video.tsx"),
       mode: "reference-preview",
     });
     expect(defs.reference).not.toBeNull();
@@ -144,7 +142,6 @@ describe("animatic preview — definitions loaded", () => {
     await fs.writeFile(path.join(videoRoot, "video.tsx"), 'export default "unterminated;\n');
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      videoPath: path.join(videoRoot, "video.tsx"),
       mode: "animatic-preview",
     });
     expect(defs.animatic).not.toBeNull();
@@ -157,7 +154,6 @@ describe("handleReferenceSubmit — review prerequisites", () => {
     const { videoRoot, variantId } = await project();
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      videoPath: path.join(videoRoot, "video.tsx"),
       mode: "reference-preview",
     });
 
@@ -201,7 +197,6 @@ describe("handleReferenceSubmit — review prerequisites", () => {
     );
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      videoPath: path.join(videoRoot, "video.tsx"),
       mode: "reference-preview",
     });
 

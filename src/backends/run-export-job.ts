@@ -4,7 +4,7 @@ import { computeDefinitionSourceFingerprint } from "../core/definition-source.js
 import { computeExportPlanDigest, computeExportSignature } from "../core/export-signature.js";
 import { JobIndex } from "../core/job-index.js";
 import type { JobManager } from "../core/job-manager.js";
-import { reloadVideoAndAnimatic } from "../core/reload-definitions.js";
+import { loadVideoAndAnimatic } from "../core/stage-definitions.js";
 import { renderVideoToFile } from "../core/render-video.js";
 import { runLeasedJob } from "./run-leased-job.js";
 import { buildTimestamp } from "../core/review-record.js";
@@ -163,7 +163,7 @@ export async function runExportJob(
         hooks.onStarted?.({ id, outputDir: job.outputDir });
         jobManager.appendLog(id, `Export render started (worker ${workerId})`);
 
-        const { video, animatic } = await reloadVideoAndAnimatic(videoRoot);
+        const { video, animatic } = await loadVideoAndAnimatic(videoRoot, { reload: true });
         const decision = decideExportRender(
           job,
           computeExportPlanDigest(video),
