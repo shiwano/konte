@@ -25,7 +25,7 @@ import {
   regenerateByUnit,
   regenerateDecisions,
   regenerateSummary,
-  takeNames,
+  variantNames,
   unitLabel,
   withoutUnits,
   type KeepChoice,
@@ -55,7 +55,7 @@ import { Modal } from "./modal.js";
 import { PinLayer } from "./pin-layer.js";
 import { ReviewHeaderActions } from "./review-header-actions.js";
 import { StatusBadge } from "./status-badge.js";
-import { AssetInfoPanel, type InfoTake, takeInfo } from "./asset-info-panel.js";
+import { AssetInfoPanel, type InfoVariant, variantInfo } from "./asset-info-panel.js";
 import { VariantGallery } from "./variant-gallery.js";
 import { KeepOrRegenerateModal } from "./keep-or-regenerate-modal.js";
 import { RegenerateBadge, type RegenerateMark } from "./regenerate-badge.js";
@@ -108,7 +108,7 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
   // the same per-address feedback state as the inline row.
   const [detail, setDetail] = useState<{ address: string } | null>(null);
   // The take whose declaration panel is open, stacked over whichever overlay opened it.
-  const [infoTake, setInfoTake] = useState<InfoTake | null>(null);
+  const [infoVariant, setInfoVariant] = useState<InfoVariant | null>(null);
   const [focusIdx, setFocusIdx] = useState(0);
   const [highlightedFeedbackId, setHighlightedFeedbackId] = useHighlightedFeedback();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -190,13 +190,13 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
       choices: readonly KeepChoice[],
     ): KeepContext => ({
       graph: keepGraph,
-      takeAccepted: (address) => {
+      variantAccepted: (address) => {
         const mark = overrides[address];
         return mark
           ? mark.status === "accepted"
           : keepGraph.addresses[address]?.acceptedVariantId != null;
       },
-      takeOf: (address) => {
+      variantOf: (address) => {
         const asset = state.assets.find((a) => a.address === address);
         return asset
           ? (effectiveVariants[address] ?? asset.variantId)
@@ -249,7 +249,7 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
           mark.follows === null
             ? null
             : { id: mark.follows, label: unitLabel(keepGraph, mark.follows, "reference") },
-        takes: takeNames(unit, mark.takes),
+        variants: variantNames(unit, mark.variants),
       });
     }
     return out;
@@ -387,7 +387,7 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
     blocked:
       !!session.gallery ||
       !!detail ||
-      infoTake !== null ||
+      infoVariant !== null ||
       session.submitOpen ||
       keepAsking !== null,
     onSubmit: handleSubmit,
@@ -513,9 +513,9 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
                           onHighlightPin={setHighlightedFeedbackId}
                           onOpenGallery={() => session.setGallery({ address: asset.address })}
                           onOpenInfo={
-                            selectedVariantId && takeInfo(asset.variants, selectedVariantId)
+                            selectedVariantId && variantInfo(asset.variants, selectedVariantId)
                               ? () =>
-                                  setInfoTake({
+                                  setInfoVariant({
                                     address: asset.address,
                                     variantId: selectedVariantId,
                                   })
@@ -549,8 +549,10 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
               variants={galleryAsset.variants}
               selectedVariantId={effectiveVariants[galleryAsset.address] ?? galleryAsset.variantId}
               onUse={(variantId) => handleUseVariant(galleryAsset.address, variantId)}
-              onOpenInfo={(variantId) => setInfoTake({ address: galleryAsset.address, variantId })}
-              infoOpen={infoTake !== null}
+              onOpenInfo={(variantId) =>
+                setInfoVariant({ address: galleryAsset.address, variantId })
+              }
+              infoOpen={infoVariant !== null}
               onClose={() => session.setGallery(null)}
             />
           )}
@@ -601,18 +603,18 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
             />
           )}
 
-          {infoTake &&
+          {infoVariant &&
             (() => {
-              const asset = state.assets.find((a) => a.address === infoTake.address);
-              const info = asset && takeInfo(asset.variants, infoTake.variantId);
+              const asset = state.assets.find((a) => a.address === infoVariant.address);
+              const info = asset && variantInfo(asset.variants, infoVariant.variantId);
               if (!asset || !info) return null;
               return (
                 <AssetInfoPanel
                   assetName={asset.assetName}
                   address={asset.address}
-                  variantId={infoTake.variantId}
+                  variantId={infoVariant.variantId}
                   info={info}
-                  onClose={() => setInfoTake(null)}
+                  onClose={() => setInfoVariant(null)}
                 />
               );
             })()}
@@ -1034,7 +1036,7 @@ function ReferenceDetailModal({
           )}
           {asset.variants.length > 1 && (
             <button type="button" className="ctrl-btn" onClick={onOpenGallery}>
-              <GridIcon size={14} /> Variants
+              <GridIcon size={14} /> Takes
             </button>
           )}
         </>

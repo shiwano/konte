@@ -73,7 +73,7 @@ export function App(): React.ReactElement {
     }
     function handleStateChanged() {
       if (submittingRef.current) return;
-      setBanner({ type: "update", message: "New variants available" });
+      setBanner({ type: "update", message: "New takes available" });
     }
     window.addEventListener("konte:submitting", handleSubmitting);
     window.addEventListener("konte:state-changed", handleStateChanged);

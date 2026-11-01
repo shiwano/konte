@@ -171,7 +171,7 @@ export function useReviewSession(opts: { hasExtraChanges?: boolean } = {}) {
       setSubmitting(true);
       isSubmittingRef.current = true;
       // Our own submit rewrites the state file, which the App banner would
-      // otherwise flash as "New variants available" during the close handshake.
+      // otherwise flash as "New takes available" during the close handshake.
       window.dispatchEvent(new CustomEvent("konte:submitting"));
       setError(null);
       try {
