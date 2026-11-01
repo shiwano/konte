@@ -180,9 +180,9 @@ export function classifyDirectionFinding(code: DirectionFindingCode): DirectionF
 }
 
 // Where what a waiver of the code lets through plays, read off its subject: inside one shot (the
-// shot, one of its frames, or a subject in one), across the boundary `<from>-<to>` between two, or
-// in no one shot (null).
-const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> = {
+// shot, one of its frames, or a subject in one), across the boundary `<from>-<to>` between two, in
+// every shot with a frame on the setup it names, or in no one shot (null).
+const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | "setup" | null> = {
   "missing-role": null,
   "no-payoff": null,
   "role-out-of-order": null,
@@ -209,7 +209,7 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | null> =
   "plate-unnested": null,
   "axis-unrealized": null,
   "plate-unowed": null,
-  "setup-unconsumed": null,
+  "setup-unconsumed": "setup",
   "unused-setup": null,
   "setup-atomized": null,
   "view-unrealized": null,
@@ -336,9 +336,19 @@ function shotBoundaries(direction: Direction): Map<string, [string, string]> {
   return out;
 }
 
+function shotsBySetup(direction: Direction): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const { shotId, setup } of collectShotFrames(direction)) {
+    const ids = out.get(setup) ?? [];
+    if (!ids.includes(shotId)) out.set(setup, [...ids, shotId]);
+  }
+  return out;
+}
+
 export function directionShotWaivers(direction: Direction): ShotWaiver[] {
   const shotIds = new Set(collectShots(direction).map((s) => s.id));
   const boundaries = shotBoundaries(direction);
+  const onSetup = shotsBySetup(direction);
   const out: ShotWaiver[] = [];
   for (const [key, reason] of Object.entries(direction.waivers ?? {})) {
     const sep = key.indexOf(WAIVER_KEY_SEPARATOR);
@@ -351,7 +361,13 @@ export function directionShotWaivers(direction: Direction): ShotWaiver[] {
     // A shot's subject opens with its id; an id holds no `.`.
     const head = subject.split(".")[0] ?? "";
     const ids =
-      on === "boundary" ? (boundaries.get(subject) ?? []) : shotIds.has(head) ? [head] : [];
+      on === "boundary"
+        ? (boundaries.get(subject) ?? [])
+        : on === "setup"
+          ? (onSetup.get(subject) ?? [])
+          : shotIds.has(head)
+            ? [head]
+            : [];
     if (ids.length === 0) continue;
     out.push({
       address: formatDirectionWaiverAddress(key),

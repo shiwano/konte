@@ -295,6 +295,7 @@ describe("isDirectionSpendGateSatisfied", () => {
     for (const edit of [
       (d: Direction) => (d.waivers!["multi-sentence-action_02"] = "reconsidered"),
       (d: Direction) => (d.waivers!["panel-unlinked_01-02"] = "the cut re-opens the frame"),
+      (d: Direction) => (d.waivers!["setup-unconsumed_bedroom-wide"] = "drawn by hand"),
     ]) {
       const edited = makeDirection();
       edit(edited);
@@ -771,7 +772,7 @@ function withThirdShot(): Direction {
 }
 
 describe("directionShotWaivers", () => {
-  it("resolves a shot, a frame, a frame's subject and a boundary to the shots they play in", () => {
+  it("resolves a shot, a frame, a frame's subject, a boundary and a setup to the shots they play in", () => {
     const direction = makeDirection();
     direction.waivers = {
       "multi-sentence-action_02": "a quiet shot",
@@ -786,6 +787,20 @@ describe("directionShotWaivers", () => {
       ["02", ["02"]],
       ["02.cutin.alice", ["02"]],
       ["01-02", ["01", "02"]],
+      ["bedroom-wide", ["02"]],
+    ]);
+  });
+
+  it("resolves a setup to every shot with a frame on it, main or cutin", () => {
+    const direction = withThirdShot();
+    const shots = direction.sequence.shots!;
+    shots[0] = { ...shots[0]!, cutin: { setup: "bedroom-close", lineup: [] } } as NarrativeShot;
+    direction.waivers = {
+      "setup-unconsumed_bedroom-close": "drawn by hand",
+      "setup-unconsumed_nowhere": "a setup no shot sits on",
+    };
+    expect(directionShotWaivers(direction).map((w) => [w.subject, w.shotIds])).toEqual([
+      ["bedroom-close", ["01", "03"]],
     ]);
   });
 
@@ -855,6 +870,19 @@ describe("applyDirectionShotCascade", () => {
       expect(restamped).toContain("direction:waivers.panel-unlinked_01-02");
       expect(directionAcceptanceView(waived, acceptance!).complete).toBe(true);
     }
+  });
+
+  it("signs off a waiver on a setup with the accept of a shot on it, and only such a shot", () => {
+    const accepted = acceptAll(makeDirection());
+
+    const waived = makeDirection();
+    waived.waivers!["setup-unconsumed_bedroom-wide"] = "drawn by hand";
+    expect(applyDirectionShotCascade(waived, accepted, ["01"]).restamped).not.toContain(
+      "direction:waivers.setup-unconsumed_bedroom-wide",
+    );
+    const { acceptance, restamped } = applyDirectionShotCascade(waived, accepted, ["02"]);
+    expect(restamped).toContain("direction:waivers.setup-unconsumed_bedroom-wide");
+    expect(directionAcceptanceView(waived, acceptance!).complete).toBe(true);
   });
 
   it("leaves a piece-wide waiver to the direction page", () => {
