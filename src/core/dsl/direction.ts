@@ -3,7 +3,7 @@ import type { CanvasBudget, CanvasSize, ReferenceShape } from "../canvas.js";
 import { CANVAS_GRID, deriveCanvasBase, idealSize } from "../canvas.js";
 import { ratioOf } from "../aspect.js";
 import type { ScriptLine } from "../types/script.js";
-import type { PanelLane, Typography } from "../types/definition.js";
+import type { PanelLane, ShotJoin, Typography } from "../types/definition.js";
 import type { ArcItem, LensSpec } from "../direction-check.js";
 import type { PendingShotInput, ShotHandle, ShotInput, StageShots } from "./builders.js";
 import type { DiscoveryResult, ShotFunction } from "./shot-context.js";
@@ -356,7 +356,7 @@ export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "duration"> & {
   // SAME setup — a literal elsewhere is a type error (`ConstrainJoin`), a computed one
   // `join-impossible` — and where it is possible those pairs must choose one of the three
   // (`join-undeclared`).
-  join?: "continuous" | "jump-back" | "jump-forward";
+  join?: ShotJoin;
   // A second camera frame laid over this shot's picture (a wipe in the corner, a reaction over the
   // main frame). See `Cutin`.
   cutin?: Cutin;
@@ -380,7 +380,7 @@ export type Cutin = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
-  join?: "continuous" | "jump-back" | "jump-forward";
+  join?: ShotJoin;
 };
 
 // A shot of the arc with no camera — a UI screen, a motion graphic, a chart. It carries everything
@@ -548,7 +548,7 @@ type NarrativeShotShape = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
-  join?: "continuous" | "jump-back" | "jump-forward";
+  join?: ShotJoin;
   cutin?: CutinShape;
   coverage?: true;
 };
@@ -557,7 +557,7 @@ type CutinShape = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
-  join?: "continuous" | "jump-back" | "jump-forward";
+  join?: ShotJoin;
 };
 // The camera fields a graphic shot does not have are `never` rather than merely absent: a const
 // literal is not checked for excess properties against a generic constraint, so without these a

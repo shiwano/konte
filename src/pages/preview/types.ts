@@ -2,6 +2,7 @@ import type { RoleFunction } from "../../core/direction-check.js";
 import type { DirectionSectionStatus } from "../../core/direction-acceptance.js";
 import type { PanelRole } from "../../core/direction.js";
 import type { Framing } from "../../core/dsl/direction.js";
+import type { ShotJoin } from "../../core/types/definition.js";
 import type { SongLineBody } from "../../core/types/review-submit.js";
 import type { ScriptLineView } from "../../core/types/script.js";
 import type { View } from "../../core/view.js";
@@ -158,7 +159,7 @@ export interface ShotInfo {
   // The shot's spoken/narrated lines, from the direction. Empty when the shot has none.
   script: ScriptLineView[];
   // The boundary into this shot, from the direction. Null on an ordinary cut.
-  join: "continuous" | "jump-back" | "jump-forward" | null;
+  join: ShotJoin | null;
   // One take the model cuts inside, so a cut in its picture is the ask.
   coverage: boolean;
   // The movement the board declared for this shot, one entry per panel that carries one, in panel
@@ -484,7 +485,7 @@ export interface DirectionShotInfo extends DirectionPartInfo {
   // What the boundary into this shot is — `continuous` for one unbroken take across it, `jump-back`
   // into a flashback, `jump-forward` out of one or past a gap. Null is an ordinary cut. Drawn
   // between the rows, since it is about the boundary rather than the shot.
-  join: "continuous" | "jump-back" | "jump-forward" | null;
+  join: ShotJoin | null;
   // A shot the model cuts inside: its frame columns are the opening frame.
   coverage: boolean;
   // The second camera frame laid over the shot (a wipe), read through its own setup like the shot's
@@ -496,7 +497,7 @@ export interface DirectionShotInfo extends DirectionPartInfo {
     lineup: string[];
     lineupTo: string[];
     passing: string[];
-    join: "continuous" | "jump-back" | "jump-forward" | null;
+    join: ShotJoin | null;
   } | null;
   // The shot's unspoken on-screen text (titles, lower thirds, speaker-less captions). Bare strings:
   // telop has no speaker to attribute. Empty when none.

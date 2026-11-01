@@ -164,6 +164,8 @@ export const PanelLaneSchema = z.enum(["main", "cutin"]);
 
 export type PanelLane = z.infer<typeof PanelLaneSchema>;
 
+export type ShotJoin = "continuous" | "jump-back" | "jump-forward";
+
 export const ShotDefinitionSchema = z.object({
   id: z.string(),
   duration: z.number(),

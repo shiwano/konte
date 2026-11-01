@@ -36,6 +36,7 @@ import {
   resolveDirectionTimeline,
   singersOf,
 } from "./dsl/direction.js";
+import type { ShotJoin } from "./types/definition.js";
 import type { ScriptLine } from "./types/script.js";
 
 // What each reviewable part of the direction actually holds — the read side of `directionPartHashes`,
@@ -151,7 +152,7 @@ export type DirectionPartContent =
       lineup: readonly string[];
       lineupTo: readonly string[];
       passing: readonly string[];
-      join: "continuous" | "jump-back" | "jump-forward" | null;
+      join: ShotJoin | null;
       // A shot the model cuts inside, its frame columns the opening one.
       coverage: boolean;
       cutin: DirectionCutinContent | null;
@@ -187,7 +188,7 @@ export type DirectionCutinContent = {
   lineup: readonly string[];
   lineupTo: readonly string[];
   passing: readonly string[];
-  join: "continuous" | "jump-back" | "jump-forward" | null;
+  join: ShotJoin | null;
 };
 
 function cutinContent(cutin: Cutin | undefined): DirectionCutinContent | null {

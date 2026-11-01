@@ -6,6 +6,7 @@
 // vocabulary or function map; the engine reads `fn` off the matched role.
 
 import { formatSeconds, formatSecondsRange } from "./format-duration.js";
+import type { PanelLane, ShotJoin } from "./types/definition.js";
 import { parseViewName } from "./view.js";
 
 /**
@@ -981,18 +982,13 @@ export function checkViewAnchors(
 }
 
 /**
- * Which camera frame of a shot an entry is: the shot's own picture, or the cutin laid over it.
- */
-export type FrameLane = "main" | "cutin";
-
-/**
  * One camera frame as the lineup checker reads it: the declarations, plus the place they are filed
  * under and the prose `lineup-missing` scans. A shot with a cutin arrives as two entries, its main
  * frame first; a graphic shot as its cutin alone. Asides never reach here — they declare none of it.
  */
 export type LineupShot = {
-  id: string;
-  frame: FrameLane;
+  shotId: string;
+  lane: PanelLane;
   // Resolved through the frame's setup. Undefined (an unknown setup, reported structurally) files
   // the frame under no place, so it neither reads nor writes an accumulated order.
   location: string | undefined;
@@ -1001,7 +997,7 @@ export type LineupShot = {
   lineupTo?: readonly string[];
   // Who enters and exits during the shot, absent at both ends.
   passing?: readonly string[];
-  join?: "continuous" | "jump-back" | "jump-forward";
+  join?: ShotJoin;
   // The shot whose frame in this lane runs on from this one in one take (`join: "continuous"`,
   // where it is possible). This frame's last panel then answers for no `lineupTo`.
   continuedBy?: string;
@@ -1010,11 +1006,14 @@ export type LineupShot = {
   coverage?: true;
 };
 
-// A cutin's subject is `<shotId>.cutin`, so a waiver for the main frame never silences the wipe.
-const frameSubject = (shot: Pick<LineupShot, "id" | "frame">): string =>
-  shot.frame === "cutin" ? `${shot.id}.cutin` : shot.id;
-const frameName = (shot: Pick<LineupShot, "id" | "frame">): string =>
-  shot.frame === "cutin" ? `the cutin over shot ${shot.id}` : `shot ${shot.id}`;
+type FrameRef = Pick<LineupShot, "shotId" | "lane">;
+
+// A frame as a finding or an error names it: the shot's own frame is the shot, a cutin is
+// `<shotId>.cutin`, so a waiver written for one never silences the other.
+export const frameSubject = (frame: FrameRef): string =>
+  frame.lane === "cutin" ? `${frame.shotId}.cutin` : frame.shotId;
+const frameName = (frame: FrameRef): string =>
+  frame.lane === "cutin" ? `the cutin over shot ${frame.shotId}` : `shot ${frame.shotId}`;
 
 /**
  * Where the composition plays a pinned take: `opensAt`/`closesAt` on the shot's clock, `from`/`to`
@@ -1040,7 +1039,7 @@ export type PinWindow = {
  */
 export type VideoShotPins = {
   shotId: string;
-  lane: FrameLane;
+  lane: PanelLane;
   // The ends this take actually pins, each with every address the pinned source's chain reaches —
   // the source itself, and the frame behind a wrapper such as a resize.
   pins: readonly {
@@ -1063,7 +1062,7 @@ export type VideoShotPins = {
  */
 export type PanelSlots = {
   shotId: string;
-  lane: FrameLane;
+  lane: PanelLane;
   panel: string;
   slots: readonly string[];
 };
@@ -1075,22 +1074,22 @@ export type PanelSlots = {
  */
 export type PanelReach = {
   shotId: string;
-  lane: FrameLane;
+  lane: PanelLane;
   panel: string;
   refs: readonly string[];
   generative: boolean;
   signedOff?: true;
 };
 
-function panelsByFrame<T extends { shotId: string; lane: FrameLane }>(
+function panelsByFrame<T extends { shotId: string; lane: PanelLane }>(
   panels: readonly T[],
-): (shot: Pick<LineupShot, "id" | "frame">) => T[] | undefined {
+): (frame: FrameRef) => T[] | undefined {
   const byFrame = new Map<string, T[]>();
   for (const panel of panels) {
     const key = `${panel.shotId}/${panel.lane}`;
     byFrame.set(key, [...(byFrame.get(key) ?? []), panel]);
   }
-  return (shot) => byFrame.get(`${shot.id}/${shot.frame}`);
+  return (frame) => byFrame.get(`${frame.shotId}/${frame.lane}`);
 }
 
 // "a is left of b", keyed so the pair reads the same however the two are ordered.
@@ -1229,9 +1228,9 @@ export function checkLineups(
   for (const [index, shot] of shots.entries()) {
     // A jump in either frame moves story time for the whole shot, so the places empty before its
     // first frame is read.
-    if (index === 0 || shots[index - 1]!.id !== shot.id) {
+    if (index === 0 || shots[index - 1]!.shotId !== shot.shotId) {
       let end = index;
-      while (end < shots.length && shots[end]!.id === shot.id) end++;
+      while (end < shots.length && shots[end]!.shotId === shot.shotId) end++;
       const frames = shots.slice(index, end);
       if (frames.some((b) => b.join === "jump-back" || b.join === "jump-forward")) {
         byLocation.clear();
@@ -1240,7 +1239,7 @@ export function checkLineups(
 
     const subject = frameSubject(shot);
     const name = frameName(shot);
-    const joinField = shot.frame === "cutin" ? "cutin.join" : "join";
+    const joinField = shot.lane === "cutin" ? "cutin.join" : "join";
 
     // Read the previous frame's exit the way every other check does (`lineupTo ?? lineup`), so a
     // frame that ends where it began is not asked to restate it. The frame before it IN ITS OWN
@@ -1248,7 +1247,7 @@ export function checkLineups(
     const previous = shots
       .slice(0, index)
       .reverse()
-      .find((b) => b.frame === shot.frame);
+      .find((b) => b.lane === shot.lane);
     if (shot.join === "continuous" && previous) {
       const seam = previous.lineupTo ?? previous.lineup;
       if (!sameOrder(seam, shot.lineup)) {
@@ -1256,8 +1255,8 @@ export function checkLineups(
           code: "join-lineup-mismatch",
           subject,
           message:
-            `${name} runs on from ${frameName(previous)} in one take, but ${previous.id} leaves ` +
-            `${formatFrame(seam)} and ${shot.id} opens on ${formatFrame(shot.lineup)} — one take has ` +
+            `${name} runs on from ${frameName(previous)} in one take, but ${previous.shotId} leaves ` +
+            `${formatFrame(seam)} and ${shot.shotId} opens on ${formatFrame(shot.lineup)} — one take has ` +
             `one frame at the seam. Make the two agree, or the boundary is a cut and \`${joinField}\` ` +
             `should say so`,
         });
@@ -1313,11 +1312,11 @@ export function checkLineups(
       });
     }
 
-    writePairs(state, shot.lineup, shot.id);
+    writePairs(state, shot.lineup, shot.shotId);
     if (shot.lineupTo) {
       const exits = shot.lineupTo;
       dropSubjects(state, new Set(shot.lineup.filter((id) => !exits.includes(id))));
-      writePairs(state, exits, shot.id);
+      writePairs(state, exits, shot.shotId);
     }
 
     const cycle = findCycle(state);
@@ -1334,7 +1333,7 @@ export function checkLineups(
       // one list, so a total order, so nothing cyclic survives. Without this, every later shot in
       // the place reports the same ring again.
       state.clear();
-      writePairs(state, shot.lineupTo ?? shot.lineup, shot.id);
+      writePairs(state, shot.lineupTo ?? shot.lineup, shot.shotId);
     }
     if (shot.coverage) byLocation.delete(shot.location);
   }
@@ -1370,8 +1369,8 @@ export function checkRoutes(shots: readonly LineupShot[]): DirectionFinding[] {
   const routes = new Map<string, { at: string; lastShot: string; left: Map<string, string> }>();
 
   for (const [index, shot] of shots.entries()) {
-    if (index === 0 || shots[index - 1]!.id !== shot.id) {
-      const frames = shots.filter((b) => b.id === shot.id);
+    if (index === 0 || shots[index - 1]!.shotId !== shot.shotId) {
+      const frames = shots.filter((b) => b.shotId === shot.shotId);
       if (frames.some((b) => b.join === "jump-back" || b.join === "jump-forward")) routes.clear();
     }
     if (shot.location === undefined) continue;
@@ -1379,7 +1378,7 @@ export function checkRoutes(shots: readonly LineupShot[]): DirectionFinding[] {
     for (const id of new Set([...shot.lineup, ...(shot.passing ?? []), ...(shot.lineupTo ?? [])])) {
       const route = routes.get(id);
       if (!route) {
-        routes.set(id, { at: shot.location, lastShot: shot.id, left: new Map() });
+        routes.set(id, { at: shot.location, lastShot: shot.shotId, left: new Map() });
         continue;
       }
       if (route.at !== shot.location) {
@@ -1398,7 +1397,7 @@ export function checkRoutes(shots: readonly LineupShot[]): DirectionFinding[] {
         route.left.set(route.at, route.lastShot);
         route.at = shot.location;
       }
-      route.lastShot = shot.id;
+      route.lastShot = shot.shotId;
     }
   }
   return findings;
@@ -1427,12 +1426,12 @@ export function checkJoinPins(
     const previous = shots
       .slice(0, index)
       .reverse()
-      .find((b) => b.frame === shot.frame);
+      .find((b) => b.lane === shot.lane);
     if (!previous) continue;
-    const before = pinsOf.get(`${previous.id}/${previous.frame}`);
-    const seam = panelsOf.get(`${shot.id}/${shot.frame}`)?.firstPanel;
+    const before = pinsOf.get(`${previous.shotId}/${previous.lane}`);
+    const seam = panelsOf.get(`${shot.shotId}/${shot.lane}`)?.firstPanel;
     if (seam === undefined) continue;
-    const after = pinsOf.get(`${shot.id}/${shot.frame}`);
+    const after = pinsOf.get(`${shot.shotId}/${shot.lane}`);
     findings.push(...checkSeamWindows(previous, shot, seam, before, after));
     if (!before) continue;
     if (!before.slots.includes("end")) continue;
@@ -1440,13 +1439,13 @@ export function checkJoinPins(
     const pinned = before.pins.find((p) => p.pin === "end");
     // The frame behind a wrapper declared in video.tsx, where there is one.
     const pinnedFrame = pinned?.reaches.find((a) => !a.startsWith("video:")) ?? pinned?.reaches[0];
-    const takes = shot.frame === "cutin" ? "cutin takes" : "takes";
+    const takes = shot.lane === "cutin" ? "cutin takes" : "takes";
     findings.push({
       code: "join-unpinned",
       subject: frameSubject(shot),
       message:
         `${frameName(previous)} and ${frameName(shot)} are declared one take, so the frame between ` +
-        `them is \`${seam}\` — and the ${takes} of video:shot.${previous.id} ` +
+        `them is \`${seam}\` — and the ${takes} of video:shot.${previous.shotId} ` +
         (pinnedFrame === undefined
           ? `pins nothing at its end`
           : `pins its end to another frame (${pinnedFrame})`) +
@@ -1468,20 +1467,20 @@ export function checkKeyPins(
   const panelsOf = new Map(shotPanels.map((s) => [`${s.shotId}/${s.lane}`, s]));
   for (const shot of shots) {
     if (shot.join === "continuous") continue;
-    const panels = panelsOf.get(`${shot.id}/${shot.frame}`);
+    const panels = panelsOf.get(`${shot.shotId}/${shot.lane}`);
     if (!panels || panels.firstPanel !== panels.lastPanel) continue;
     const key = panels.firstPanel;
     const opening = pinsOf
-      .get(`${shot.id}/${shot.frame}`)
+      .get(`${shot.shotId}/${shot.lane}`)
       ?.pins.filter((p) => p.pin === "start" && p.referable && p.reaches.includes(key));
     const pinned = opening?.find((p) => !p.signedOff) ?? opening?.[0];
     if (!pinned) continue;
-    const takes = shot.frame === "cutin" ? "cutin take" : "take";
+    const takes = shot.lane === "cutin" ? "cutin take" : "take";
     findings.push({
       code: "opening-key",
       subject: frameSubject(shot),
       message:
-        `the ${takes} of video:shot.${shot.id} opens on ${frameName(shot)}'s key \`${key}\`` +
+        `the ${takes} of video:shot.${shot.shotId} opens on ${frameName(shot)}'s key \`${key}\`` +
         `${pinned.input ? ` (\`${pinned.input}\`)` : ""} and moves past the moment it holds — ` +
         `pass the key to a reference input alone`,
       ...(pinned.signedOff ? { signedOff: true as const } : {}),
@@ -1494,8 +1493,8 @@ export function checkKeyPins(
 // close the shot on its last frame, the take after has to open the shot on its first. A `mediaStart`
 // or a `duration` that moves either off it turns the seam back into a jump.
 function checkSeamWindows(
-  previous: Pick<LineupShot, "id" | "frame">,
-  shot: Pick<LineupShot, "id" | "frame">,
+  previous: FrameRef,
+  shot: FrameRef,
   seam: string,
   before: VideoShotPins | undefined,
   after: VideoShotPins | undefined,
@@ -1563,7 +1562,7 @@ function checkSeamWindows(
  */
 export type PanelPrompts = {
   shotId: string;
-  lane: FrameLane;
+  lane: PanelLane;
   panel: string;
   texts: readonly string[];
   // False when nothing in the chain generates — a `file` keyframe has no prompt to name anyone in.
@@ -1690,7 +1689,7 @@ export function checkPropNaming(
 export type ShotPanels = {
   shotId: string;
   // Each lane is its own camera, so a shot with a cutin answers two seams.
-  lane: FrameLane;
+  lane: PanelLane;
   // The keyframe this shot opens on (the seam of a long take), and the one the next shot cuts from.
   firstPanel: string;
   lastPanel: string;
@@ -1708,7 +1707,7 @@ export type ShotPanels = {
 export type PanelSeam = {
   // The shot the cut lands in — the one that owns the boundary, as `join` does.
   id: string;
-  lane: FrameLane;
+  lane: PanelLane;
   // The shot before it, and the keyframe it ends on.
   from: string;
   fromPanel: string;
@@ -1791,8 +1790,8 @@ export function checkPlateNaming(namings: readonly PlateNaming[]): DirectionFind
  * the direction and the board.
  */
 export type LandmarkFrame = {
-  id: string;
-  frame: FrameLane;
+  shotId: string;
+  lane: PanelLane;
   holds: readonly HeldLandmark[];
 };
 
@@ -1882,7 +1881,7 @@ export function checkLandmarkOrder(setups: readonly HoldsSetupRef[]): DirectionF
 export type PlateRecrop = {
   setupId: string;
   shotId: string;
-  lane: FrameLane;
+  lane: PanelLane;
   panel: string;
 };
 
@@ -1893,7 +1892,7 @@ function checkPlateRecrops(
 ): DirectionFinding[] {
   const byFrame = new Map<string, PlateRecrop[]>();
   for (const recrop of recrops) {
-    const subject = frameSubject({ id: recrop.shotId, frame: recrop.lane });
+    const subject = frameSubject(recrop);
     byFrame.set(subject, [...(byFrame.get(subject) ?? []), recrop]);
   }
   return [...byFrame].map(([subject, [first, ...rest]]) => {
@@ -1903,7 +1902,7 @@ function checkPlateRecrops(
       code: "plate-recropped" as const,
       subject,
       message:
-        `${frameName({ id: first!.shotId, frame: first!.lane })} crops plate "${setupId}" in ` +
+        `${frameName(first!)} crops plate "${setupId}" in ` +
         `${panels} — a window of the plate is a frame setup "${setupId}" does not declare, so its ` +
         `\`holds\` no longer say what is in it. Declare a setup for that frame, holding what it ` +
         `shows, and move the shot onto it; one shot alone needs no plate, and stands on a crop of ` +

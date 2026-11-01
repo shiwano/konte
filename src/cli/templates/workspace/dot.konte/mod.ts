@@ -1101,7 +1101,7 @@ export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "duration"> & {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
-  join?: "continuous" | "jump-back" | "jump-forward";
+  join?: ShotJoin;
   cutin?: Cutin;
   coverage?: true;
 };
@@ -1110,7 +1110,7 @@ export type Cutin = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
-  join?: "continuous" | "jump-back" | "jump-forward";
+  join?: ShotJoin;
 };
 export type GraphicShot = Omit<
   NarrativeShot,
@@ -1179,7 +1179,7 @@ export type NarrativeShotShape = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
-  join?: "continuous" | "jump-back" | "jump-forward";
+  join?: ShotJoin;
   cutin?: CutinShape;
   coverage?: true;
 };
@@ -1188,7 +1188,7 @@ export type CutinShape = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
-  join?: "continuous" | "jump-back" | "jump-forward";
+  join?: ShotJoin;
 };
 export type GraphicShotShape = {
   id: string;
@@ -2970,12 +2970,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     mediaType: "image" | "video" | "audio";
                     operation:
                       | "concat"
-                      | "frame"
                       | "trim"
                       | "resize"
                       | "crop"
                       | "blank"
                       | "retime"
+                      | "frame"
                       | "render";
                     deterministic?: boolean | undefined;
                   },
@@ -2985,12 +2985,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     mediaType: "image" | "video" | "audio";
                     operation:
                       | "concat"
-                      | "frame"
                       | "trim"
                       | "resize"
                       | "crop"
                       | "blank"
                       | "retime"
+                      | "frame"
                       | "render";
                     deterministic?: boolean | undefined;
                   }
@@ -3277,12 +3277,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaType: "image" | "video" | "audio";
                 operation:
                   | "concat"
-                  | "frame"
                   | "trim"
                   | "resize"
                   | "crop"
                   | "blank"
                   | "retime"
+                  | "frame"
                   | "render";
                 deterministic?: boolean | undefined;
               }
@@ -3410,12 +3410,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaType: "image" | "video" | "audio";
                 operation:
                   | "concat"
-                  | "frame"
                   | "trim"
                   | "resize"
                   | "crop"
                   | "blank"
                   | "retime"
+                  | "frame"
                   | "render";
                 deterministic?: boolean | undefined;
               }
@@ -3731,12 +3731,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaType: "image" | "video" | "audio";
                 operation:
                   | "concat"
-                  | "frame"
                   | "trim"
                   | "resize"
                   | "crop"
                   | "blank"
                   | "retime"
+                  | "frame"
                   | "render";
                 deterministic?: boolean | undefined;
               },
@@ -3746,12 +3746,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaType: "image" | "video" | "audio";
                 operation:
                   | "concat"
-                  | "frame"
                   | "trim"
                   | "resize"
                   | "crop"
                   | "blank"
                   | "retime"
+                  | "frame"
                   | "render";
                 deterministic?: boolean | undefined;
               }
@@ -4056,12 +4056,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaType: "image" | "video" | "audio";
                 operation:
                   | "concat"
-                  | "frame"
                   | "trim"
                   | "resize"
                   | "crop"
                   | "blank"
                   | "retime"
+                  | "frame"
                   | "render";
                 deterministic?: boolean | undefined;
               },
@@ -4071,12 +4071,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaType: "image" | "video" | "audio";
                 operation:
                   | "concat"
-                  | "frame"
                   | "trim"
                   | "resize"
                   | "crop"
                   | "blank"
                   | "retime"
+                  | "frame"
                   | "render";
                 deterministic?: boolean | undefined;
               }
@@ -4152,12 +4152,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             mediaType: "image" | "video" | "audio";
             operation:
               | "concat"
-              | "frame"
               | "trim"
               | "resize"
               | "crop"
               | "blank"
               | "retime"
+              | "frame"
               | "render";
             deterministic?: boolean | undefined;
           }
@@ -4294,12 +4294,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               mediaType: "image" | "video" | "audio";
               operation:
                 | "concat"
-                | "frame"
                 | "trim"
                 | "resize"
                 | "crop"
                 | "blank"
                 | "retime"
+                | "frame"
                 | "render";
               deterministic?: boolean | undefined;
             }
@@ -4380,12 +4380,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               mediaType: "image" | "video" | "audio";
               operation:
                 | "concat"
-                | "frame"
                 | "trim"
                 | "resize"
                 | "crop"
                 | "blank"
                 | "retime"
+                | "frame"
                 | "render";
               deterministic?: boolean | undefined;
             }
@@ -4456,12 +4456,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             mediaType: "image" | "video" | "audio";
             operation:
               | "concat"
-              | "frame"
               | "trim"
               | "resize"
               | "crop"
               | "blank"
               | "retime"
+              | "frame"
               | "render";
             deterministic?: boolean | undefined;
           }
@@ -4598,12 +4598,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               mediaType: "image" | "video" | "audio";
               operation:
                 | "concat"
-                | "frame"
                 | "trim"
                 | "resize"
                 | "crop"
                 | "blank"
                 | "retime"
+                | "frame"
                 | "render";
               deterministic?: boolean | undefined;
             }
@@ -4684,12 +4684,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               mediaType: "image" | "video" | "audio";
               operation:
                 | "concat"
-                | "frame"
                 | "trim"
                 | "resize"
                 | "crop"
                 | "blank"
                 | "retime"
+                | "frame"
                 | "render";
               deterministic?: boolean | undefined;
             }
@@ -5080,14 +5080,14 @@ declare const LocalAssetDefinitionSchema: z.ZodObject<
     kind: "local";
     inputs: Record<string, unknown>;
     mediaType: "image" | "video" | "audio";
-    operation: "concat" | "frame" | "trim" | "resize" | "crop" | "blank" | "retime" | "render";
+    operation: "concat" | "trim" | "resize" | "crop" | "blank" | "retime" | "frame" | "render";
     deterministic?: boolean | undefined;
   },
   {
     kind: "local";
     inputs: Record<string, unknown>;
     mediaType: "image" | "video" | "audio";
-    operation: "concat" | "frame" | "trim" | "resize" | "crop" | "blank" | "retime" | "render";
+    operation: "concat" | "trim" | "resize" | "crop" | "blank" | "retime" | "frame" | "render";
     deterministic?: boolean | undefined;
   }
 >;
@@ -5334,14 +5334,14 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
         kind: "local";
         inputs: Record<string, unknown>;
         mediaType: "image" | "video" | "audio";
-        operation: "concat" | "frame" | "trim" | "resize" | "crop" | "blank" | "retime" | "render";
+        operation: "concat" | "trim" | "resize" | "crop" | "blank" | "retime" | "frame" | "render";
         deterministic?: boolean | undefined;
       },
       {
         kind: "local";
         inputs: Record<string, unknown>;
         mediaType: "image" | "video" | "audio";
-        operation: "concat" | "frame" | "trim" | "resize" | "crop" | "blank" | "retime" | "render";
+        operation: "concat" | "trim" | "resize" | "crop" | "blank" | "retime" | "frame" | "render";
         deterministic?: boolean | undefined;
       }
     >,
@@ -5377,6 +5377,7 @@ declare const PanelDefinitionSchema: z.ZodObject<
   }
 >;
 export type PanelDefinition = z.infer<typeof PanelDefinitionSchema>;
+export type ShotJoin = "continuous" | "jump-back" | "jump-forward";
 declare const ShotDefinitionSchema: z.ZodObject<
   {
     id: z.ZodString;
@@ -5628,12 +5629,12 @@ declare const ShotDefinitionSchema: z.ZodObject<
               mediaType: "image" | "video" | "audio";
               operation:
                 | "concat"
-                | "frame"
                 | "trim"
                 | "resize"
                 | "crop"
                 | "blank"
                 | "retime"
+                | "frame"
                 | "render";
               deterministic?: boolean | undefined;
             },
@@ -5643,12 +5644,12 @@ declare const ShotDefinitionSchema: z.ZodObject<
               mediaType: "image" | "video" | "audio";
               operation:
                 | "concat"
-                | "frame"
                 | "trim"
                 | "resize"
                 | "crop"
                 | "blank"
                 | "retime"
+                | "frame"
                 | "render";
               deterministic?: boolean | undefined;
             }
@@ -5935,12 +5936,12 @@ declare const ShotDefinitionSchema: z.ZodObject<
           mediaType: "image" | "video" | "audio";
           operation:
             | "concat"
-            | "frame"
             | "trim"
             | "resize"
             | "crop"
             | "blank"
             | "retime"
+            | "frame"
             | "render";
           deterministic?: boolean | undefined;
         }
@@ -6068,12 +6069,12 @@ declare const ShotDefinitionSchema: z.ZodObject<
           mediaType: "image" | "video" | "audio";
           operation:
             | "concat"
-            | "frame"
             | "trim"
             | "resize"
             | "crop"
             | "blank"
             | "retime"
+            | "frame"
             | "render";
           deterministic?: boolean | undefined;
         }
@@ -6212,12 +6213,12 @@ declare const DeliverySchema: z.ZodObject<
         "strip",
         z.ZodTypeAny,
         {
-          frame?: DeliveryUpscaleFn | undefined;
           video?: DeliveryUpscaleFn | undefined;
+          frame?: DeliveryUpscaleFn | undefined;
         },
         {
-          frame?: DeliveryUpscaleFn | undefined;
           video?: DeliveryUpscaleFn | undefined;
+          frame?: DeliveryUpscaleFn | undefined;
         }
       >
     >;
@@ -6233,8 +6234,8 @@ declare const DeliverySchema: z.ZodObject<
       | undefined;
     upscale?:
       | {
-          frame?: DeliveryUpscaleFn | undefined;
           video?: DeliveryUpscaleFn | undefined;
+          frame?: DeliveryUpscaleFn | undefined;
         }
       | undefined;
   },
@@ -6247,8 +6248,8 @@ declare const DeliverySchema: z.ZodObject<
       | undefined;
     upscale?:
       | {
-          frame?: DeliveryUpscaleFn | undefined;
           video?: DeliveryUpscaleFn | undefined;
+          frame?: DeliveryUpscaleFn | undefined;
         }
       | undefined;
   }
@@ -6324,12 +6325,12 @@ declare const ExportSchema: z.ZodObject<
               "strip",
               z.ZodTypeAny,
               {
-                frame?: DeliveryUpscaleFn | undefined;
                 video?: DeliveryUpscaleFn | undefined;
+                frame?: DeliveryUpscaleFn | undefined;
               },
               {
-                frame?: DeliveryUpscaleFn | undefined;
                 video?: DeliveryUpscaleFn | undefined;
+                frame?: DeliveryUpscaleFn | undefined;
               }
             >
           >;
@@ -6345,8 +6346,8 @@ declare const ExportSchema: z.ZodObject<
             | undefined;
           upscale?:
             | {
-                frame?: DeliveryUpscaleFn | undefined;
                 video?: DeliveryUpscaleFn | undefined;
+                frame?: DeliveryUpscaleFn | undefined;
               }
             | undefined;
         },
@@ -6359,8 +6360,8 @@ declare const ExportSchema: z.ZodObject<
             | undefined;
           upscale?:
             | {
-                frame?: DeliveryUpscaleFn | undefined;
                 video?: DeliveryUpscaleFn | undefined;
+                frame?: DeliveryUpscaleFn | undefined;
               }
             | undefined;
         }
@@ -6380,8 +6381,8 @@ declare const ExportSchema: z.ZodObject<
             | undefined;
           upscale?:
             | {
-                frame?: DeliveryUpscaleFn | undefined;
                 video?: DeliveryUpscaleFn | undefined;
+                frame?: DeliveryUpscaleFn | undefined;
               }
             | undefined;
         }
@@ -6398,8 +6399,8 @@ declare const ExportSchema: z.ZodObject<
             | undefined;
           upscale?:
             | {
-                frame?: DeliveryUpscaleFn | undefined;
                 video?: DeliveryUpscaleFn | undefined;
+                frame?: DeliveryUpscaleFn | undefined;
               }
             | undefined;
         }
@@ -6731,12 +6732,12 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     mediaType: "image" | "video" | "audio";
                     operation:
                       | "concat"
-                      | "frame"
                       | "trim"
                       | "resize"
                       | "crop"
                       | "blank"
                       | "retime"
+                      | "frame"
                       | "render";
                     deterministic?: boolean | undefined;
                   },
@@ -6746,12 +6747,12 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     mediaType: "image" | "video" | "audio";
                     operation:
                       | "concat"
-                      | "frame"
                       | "trim"
                       | "resize"
                       | "crop"
                       | "blank"
                       | "retime"
+                      | "frame"
                       | "render";
                     deterministic?: boolean | undefined;
                   }
@@ -7038,12 +7039,12 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 mediaType: "image" | "video" | "audio";
                 operation:
                   | "concat"
-                  | "frame"
                   | "trim"
                   | "resize"
                   | "crop"
                   | "blank"
                   | "retime"
+                  | "frame"
                   | "render";
                 deterministic?: boolean | undefined;
               }
@@ -7171,12 +7172,12 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 mediaType: "image" | "video" | "audio";
                 operation:
                   | "concat"
-                  | "frame"
                   | "trim"
                   | "resize"
                   | "crop"
                   | "blank"
                   | "retime"
+                  | "frame"
                   | "render";
                 deterministic?: boolean | undefined;
               }
@@ -7492,12 +7493,12 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 mediaType: "image" | "video" | "audio";
                 operation:
                   | "concat"
-                  | "frame"
                   | "trim"
                   | "resize"
                   | "crop"
                   | "blank"
                   | "retime"
+                  | "frame"
                   | "render";
                 deterministic?: boolean | undefined;
               },
@@ -7507,12 +7508,12 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 mediaType: "image" | "video" | "audio";
                 operation:
                   | "concat"
-                  | "frame"
                   | "trim"
                   | "resize"
                   | "crop"
                   | "blank"
                   | "retime"
+                  | "frame"
                   | "render";
                 deterministic?: boolean | undefined;
               }
@@ -7607,12 +7608,12 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     "strip",
                     z.ZodTypeAny,
                     {
-                      frame?: DeliveryUpscaleFn | undefined;
                       video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
                     },
                     {
-                      frame?: DeliveryUpscaleFn | undefined;
                       video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
                     }
                   >
                 >;
@@ -7628,8 +7629,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | undefined;
                 upscale?:
                   | {
-                      frame?: DeliveryUpscaleFn | undefined;
                       video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
                     }
                   | undefined;
               },
@@ -7642,8 +7643,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | undefined;
                 upscale?:
                   | {
-                      frame?: DeliveryUpscaleFn | undefined;
                       video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
                     }
                   | undefined;
               }
@@ -7663,8 +7664,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | undefined;
                 upscale?:
                   | {
-                      frame?: DeliveryUpscaleFn | undefined;
                       video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
                     }
                   | undefined;
               }
@@ -7681,8 +7682,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | undefined;
                 upscale?:
                   | {
-                      frame?: DeliveryUpscaleFn | undefined;
                       video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
                     }
                   | undefined;
               }
@@ -7756,12 +7757,12 @@ declare const VideoDefinitionSchema: z.ZodObject<
             mediaType: "image" | "video" | "audio";
             operation:
               | "concat"
-              | "frame"
               | "trim"
               | "resize"
               | "crop"
               | "blank"
               | "retime"
+              | "frame"
               | "render";
             deterministic?: boolean | undefined;
           }
@@ -7898,12 +7899,12 @@ declare const VideoDefinitionSchema: z.ZodObject<
               mediaType: "image" | "video" | "audio";
               operation:
                 | "concat"
-                | "frame"
                 | "trim"
                 | "resize"
                 | "crop"
                 | "blank"
                 | "retime"
+                | "frame"
                 | "render";
               deterministic?: boolean | undefined;
             }
@@ -7937,8 +7938,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | undefined;
                 upscale?:
                   | {
-                      frame?: DeliveryUpscaleFn | undefined;
                       video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
                     }
                   | undefined;
               }
@@ -8009,12 +8010,12 @@ declare const VideoDefinitionSchema: z.ZodObject<
             mediaType: "image" | "video" | "audio";
             operation:
               | "concat"
-              | "frame"
               | "trim"
               | "resize"
               | "crop"
               | "blank"
               | "retime"
+              | "frame"
               | "render";
             deterministic?: boolean | undefined;
           }
@@ -8151,12 +8152,12 @@ declare const VideoDefinitionSchema: z.ZodObject<
               mediaType: "image" | "video" | "audio";
               operation:
                 | "concat"
-                | "frame"
                 | "trim"
                 | "resize"
                 | "crop"
                 | "blank"
                 | "retime"
+                | "frame"
                 | "render";
               deterministic?: boolean | undefined;
             }
@@ -8190,8 +8191,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | undefined;
                 upscale?:
                   | {
-                      frame?: DeliveryUpscaleFn | undefined;
                       video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
                     }
                   | undefined;
               }

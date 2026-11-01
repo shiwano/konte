@@ -11,6 +11,7 @@ export type {
   Delivery,
   DeliveryUpscaleFn,
   DeliveryUpscaleInput,
+  ShotJoin,
 } from "../types/definition.js";
 export type { TrimInputs, AudioRetimeInputs, AudioConcatInputs } from "./adapters/index.js";
 export type { AnimaticDefinition, AnimaticFormat, PanelDefinition } from "../types/animatic.js";

@@ -141,6 +141,7 @@ export type {
   Delivery,
   DeliveryUpscaleFn,
   DeliveryUpscaleInput,
+  ShotJoin,
 } from "../types/definition.js";
 export {
   defineAnimatic,

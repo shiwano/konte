@@ -55,6 +55,7 @@ import {
   checkNarrator,
   checkPlateNaming,
   checkLandmarkNaming,
+  frameSubject,
   checkPropNaming,
   checkProps,
   checkSetups,
@@ -84,7 +85,7 @@ import {
 } from "./dsl/direction.js";
 import { songAnalysisOf } from "./song-reading.js";
 import { type SongVariant, songAddressOf } from "./song-variant.js";
-import type { PanelLane } from "./types/definition.js";
+import type { PanelLane, ShotJoin } from "./types/definition.js";
 import type { KonteState } from "./types/index.js";
 
 // A shot of the arc — every kind but an aside.
@@ -555,16 +556,10 @@ export type ShotFrame = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
-  join?: "continuous" | "jump-back" | "jump-forward";
+  join?: ShotJoin;
   // A coverage shot's main frame: its opening frame, with the camera after it the model's.
   coverage?: true;
 };
-
-// A frame as a finding or an error names it: the shot's own frame is the shot, a cutin is
-// `<shotId>.cutin`, so a waiver written for one never silences the other.
-export function frameSubject(frame: Pick<ShotFrame, "shotId" | "lane">): string {
-  return frame.lane === "cutin" ? `${frame.shotId}.cutin` : frame.shotId;
-}
 
 /**
  * The job a keyframe does in its frame. A frame's only panel is its key — the moment the shot reads —
@@ -1043,8 +1038,8 @@ function lineupShots(direction: Direction): LineupShot[] {
   const actionById = new Map(collectArcShots(direction).map((s) => [s.id, s.action]));
   const continuedBy = continuedFrames(direction);
   return joinBoundaries(direction).map(({ frame, runOn }) => ({
-    id: frame.shotId,
-    frame: frame.lane,
+    shotId: frame.shotId,
+    lane: frame.lane,
     location: direction.setups?.[frame.setup]?.location,
     action: actionById.get(frame.shotId) ?? "",
     lineup: frame.lineup ?? [],
@@ -1244,7 +1239,7 @@ function unplatedFrames(
   return collectShotFrames(direction).flatMap((frame) => {
     if (Object.hasOwn(plateTexts, frame.setup)) return [];
     const holds = heldLandmarks(direction, frame.setup);
-    return holds.length === 0 ? [] : [{ id: frame.shotId, frame: frame.lane, holds }];
+    return holds.length === 0 ? [] : [{ shotId: frame.shotId, lane: frame.lane, holds }];
   });
 }
 
