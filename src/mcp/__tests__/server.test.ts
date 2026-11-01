@@ -8,14 +8,9 @@ import { makeWorkspace } from "../../core/__tests__/helpers/workspace.js";
 import { mcpLogPath } from "../mcp-log.js";
 import { connection, daemonStatus, MODULES, scriptWorkerCommand } from "./server-fixtures.js";
 
-it.each([
-  { attached: false, immediate: false },
-  { attached: true, immediate: false },
-  { attached: false, immediate: true },
-  { attached: true, immediate: true },
-])(
-  "exits on stdin EOF (attached: $attached, immediate: $immediate)",
-  async ({ attached, immediate }) => {
+it.each([{ immediate: false }, { immediate: true }])(
+  "exits on stdin EOF (immediate: $immediate)",
+  async ({ immediate }) => {
     const ws = await makeWorkspace({ videos: ["main"] });
     const child = spawn(
       process.execPath,
@@ -25,7 +20,6 @@ it.each([
         ws.root,
         "mcp",
         "serve",
-        ...(attached ? ["--attached"] : []),
       ],
       { cwd: ws.root, stdio: ["pipe", "pipe", "pipe"], detached: process.platform !== "win32" },
     );

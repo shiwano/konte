@@ -216,50 +216,6 @@ it("waits for a failed worker's cleanup before starting a replacement", async ()
   }
 });
 
-it("exits an attached daemon whose worker fails", async () => {
-  const ws = await makeWorkspace();
-  const worker = scriptWorkerCommand(`
-    import { VideoRegistry } from ${JSON.stringify(MODULES.registry)};
-    import { runMcpWorker } from ${JSON.stringify(MODULES.worker)};
-    VideoRegistry.prototype.start = async function () {
-      throw new Error("initial scan failed");
-    };
-    await runMcpWorker(process.cwd());
-  `);
-  const child = spawn(
-    process.execPath,
-    [
-      "-e",
-      `
-    import { startMcpServer } from ${JSON.stringify(MODULES.server)};
-    await startMcpServer(process.cwd(), {
-      attached: true,
-      workerCommand: ${JSON.stringify(worker)},
-    });
-  `,
-    ],
-    { cwd: ws.root, stdio: ["pipe", "pipe", "pipe"], detached: process.platform !== "win32" },
-  );
-  let exitCode: number | null | undefined;
-  child.once("exit", (code) => {
-    exitCode = code;
-  });
-  let stderr = "";
-  child.stdout.resume();
-  child.stderr.on("data", (chunk: Buffer) => {
-    stderr += chunk.toString("utf-8");
-  });
-  try {
-    await expect.poll(() => exitCode, { timeout: 5_000 }).toBe(1);
-    expect(stderr).toContain("initial scan failed");
-    expect(await liveDaemons(ws.root)).toEqual([]);
-    expect(await fs.readFile(mcpLogPath(ws.root), "utf-8")).toContain('"signal":"worker-exited"');
-  } finally {
-    child.kill();
-    await ws.cleanup();
-  }
-});
-
 it("keeps standby polling off the claim lock while the known worker lives", async () => {
   const ws = await makeWorkspace();
   await registerDaemon(ws.root);

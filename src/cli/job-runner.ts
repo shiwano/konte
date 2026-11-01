@@ -1,82 +1,70 @@
-import { spawn } from "node:child_process";
-import { environmentWithoutCredentials } from "../core/credentials.js";
-import { liveDaemons } from "../core/daemon-registry.js";
+import { constants } from "node:os";
+import pkg from "../../package.json" with { type: "json" };
+import { DAEMON_INSTANCE_ID, liveDaemons } from "../core/daemon-registry.js";
 import { KonteError } from "../core/errors.js";
-import { selfCommand } from "../core/self-command.js";
-import { WORKER_STOP_GRACE_MS } from "../mcp/worker-protocol.js";
+import { McpLog } from "../mcp/mcp-log.js";
+import { startWorkerHost } from "../mcp/worker-host.js";
 
-// A daemon that dies this many times under one wait is not coming up.
+// A worker that dies this many times under one wait is not coming up.
 const MAX_STARTS = 3;
-// Past the daemon's own wait for its worker.
-const STOP_GRACE_MS = WORKER_STOP_GRACE_MS + 5_000;
-const STDERR_TAIL_BYTES = 4_096;
 
-/** A daemon running for one `konte job wait`. */
+/** The workspace's jobs run for one `konte job wait`. */
 export interface AttachedRunner {
-  /** Settles with the exit code once the daemon is gone. */
+  /** Settles with the exit code of the worker given up on, or 0 once stopped. */
   readonly exited: Promise<number>;
-  /** The end of what it printed on stderr, for a daemon that would not stay up. */
+  /** The end of what the worker printed on stderr, for a worker that would not stay up. */
   stderrTail(): string;
   stop(): Promise<void>;
 }
 
 export const jobRunnerHooks: { start: (workspaceRoot: string) => AttachedRunner } = {
-  start: spawnAttachedDaemon,
+  start: startAttachedRunner,
 };
 
-function spawnAttachedDaemon(workspaceRoot: string): AttachedRunner {
-  const [cmd, ...args] = selfCommand(["mcp", "serve", "--attached"]);
-  const env = environmentWithoutCredentials();
-  // Its own process group, which it ends on the way out, so nothing it started outlives it.
-  const ownGroup = process.platform !== "win32";
-  const child = spawn(cmd, args, {
-    cwd: workspaceRoot,
-    env,
-    stdio: ["pipe", "ignore", "pipe"],
-    detached: ownGroup,
-    windowsHide: true,
+function startAttachedRunner(workspaceRoot: string): AttachedRunner {
+  const log = new McpLog(workspaceRoot, { instanceId: DAEMON_INSTANCE_ID });
+  log.write("info", {
+    event: "daemon_started",
+    version: pkg.version,
+    workspace: workspaceRoot,
+    jobWait: true,
   });
-  const kill = (signal: NodeJS.Signals): void => {
-    try {
-      if (ownGroup && child.pid) process.kill(-child.pid, signal);
-      else child.kill(signal);
-    } catch {
-      // Already gone.
-    }
-  };
-  let tail = "";
-  child.stderr?.on("data", (chunk: Buffer) => {
-    tail = (tail + chunk.toString("utf-8")).slice(-STDERR_TAIL_BYTES);
-  });
-  const exited = new Promise<number>((resolve) => {
-    child.once("exit", (code, signal) => resolve(code ?? (signal ? 1 : 0)));
-    child.once("error", (err) => {
-      tail += err.message;
-      resolve(1);
-    });
+  const host = startWorkerHost(workspaceRoot, {
+    log,
+    stopOnWorkerFailure: true,
+    captureStderr: true,
   });
   return {
-    exited,
-    stderrTail: () => tail.trim(),
+    exited: host.exited,
+    stderrTail: () => host.stderrTail(),
     async stop() {
-      child.stdin?.end();
-      child.kill("SIGTERM");
-      const timer = setTimeout(() => kill("SIGKILL"), STOP_GRACE_MS);
-      await exited;
-      clearTimeout(timer);
+      await host.stop();
+      log.write("info", { event: "daemon_stopped", jobWait: true });
+      await log.flush();
     },
   };
 }
 
 /**
- * Keeps a daemon running the workspace's jobs for as long as a wait lasts: the workspace's own when
- * one is up, else one this wait starts and stops. Checked on every pass, since a daemon another
- * wait started goes away with that wait.
+ * Keeps the workspace's jobs running for as long as a wait lasts: by the workspace's daemon when
+ * one is up, else by a worker this wait hosts. Checked on every pass, since a worker another wait
+ * hosts goes away with that wait.
  */
 export class JobRunnerGuard {
   private runner: AttachedRunner | null = null;
   private running = false;
   private starts = 0;
+  private interrupted = false;
+  private stopping: Promise<void> | null = null;
+
+  // A first SIGINT/SIGTERM stops the worker it hosts, holding the registration through its drain;
+  // a second leaves at once.
+  private readonly onSignal = (signal: NodeJS.Signals): void => {
+    const code = 128 + (constants.signals[signal] ?? 0);
+    if (this.interrupted) process.exit(code);
+    this.interrupted = true;
+    void this.stop().finally(() => process.exit(code));
+  };
 
   constructor(
     private readonly workspaceRoot: string,
@@ -84,18 +72,22 @@ export class JobRunnerGuard {
   ) {}
 
   async ensure(): Promise<void> {
-    if (this.running) return;
+    if (this.running || this.interrupted) return;
     if ((await liveDaemons(this.workspaceRoot)).length > 0) return;
     if (this.starts >= MAX_STARTS) {
       const tail = this.runner?.stderrTail();
       throw new KonteError(
         "JOB_RUNNER_EXITED",
-        `The konte daemon this wait started exited ${this.starts} times — no job is being run. ` +
+        `The konte worker this wait started exited ${this.starts} times — no job is being run. ` +
           "Run `konte mcp serve` in the workspace to see why, or `konte job wait` again once fixed",
         tail ? tail.split("\n").map((l) => `  ${l}`) : [],
       );
     }
     this.starts++;
+    if (!this.runner) {
+      process.on("SIGINT", this.onSignal);
+      process.on("SIGTERM", this.onSignal);
+    }
     const runner = jobRunnerHooks.start(this.workspaceRoot);
     this.runner = runner;
     this.running = true;
@@ -105,10 +97,19 @@ export class JobRunnerGuard {
     this.onStart();
   }
 
-  async stop(): Promise<void> {
-    const runner = this.runner;
-    this.runner = null;
-    this.running = false;
-    await runner?.stop();
+  /** A stop while one is in flight joins it. */
+  stop(): Promise<void> {
+    this.stopping ??= (async () => {
+      const runner = this.runner;
+      this.runner = null;
+      this.running = false;
+      await runner?.stop();
+      if (!this.interrupted) {
+        process.off("SIGINT", this.onSignal);
+        process.off("SIGTERM", this.onSignal);
+      }
+      this.stopping = null;
+    })();
+    return this.stopping;
   }
 }

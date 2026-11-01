@@ -10,14 +10,14 @@ import {
 } from "./worker-protocol.js";
 
 /**
- * Runs every video's jobs for the daemon that spawned this process, over its IPC channel. Stops
+ * Runs every video's jobs for the process that spawned this one, over its IPC channel. Stops
  * when the channel closes or on SIGINT/SIGTERM, letting a submit already sent commit first.
  */
 export async function runMcpWorker(workspaceRoot: string): Promise<void> {
   if (!process.send) {
     throw new KonteError(
       "MCP_WORKER_UNSUPERVISED",
-      "`konte mcp worker` runs only under `konte mcp serve`",
+      "`konte mcp worker` runs only under `konte mcp serve` or `konte job wait`",
     );
   }
   const send = process.send.bind(process);
@@ -30,6 +30,19 @@ export async function runMcpWorker(workspaceRoot: string): Promise<void> {
   };
   const log = new McpLog(workspaceRoot, { instanceId: process.env[WORKER_INSTANCE_ENV] });
 
+  // The worker leads a process group of its own (worker-host.ts); what it started — an ffmpeg
+  // mid-render — ends with it, whether or not its host is still there.
+  const leave = (code: number): never => {
+    if (process.platform !== "win32") {
+      try {
+        process.kill(-process.pid, "SIGTERM");
+      } catch {
+        // Not a group leader, or nothing left to signal.
+      }
+    }
+    return process.exit(code);
+  };
+
   let exiting = false;
   const exit = (code: number): void => {
     if (exiting) return;
@@ -37,7 +50,7 @@ export async function runMcpWorker(workspaceRoot: string): Promise<void> {
     void registry.stop();
     void drainSubmissions(SUBMIT_DRAIN_MS)
       .then(() => log.flush())
-      .finally(() => process.exit(code));
+      .finally(() => leave(code));
   };
 
   const registry = new VideoRegistry(workspaceRoot, {
@@ -66,6 +79,6 @@ export async function runMcpWorker(workspaceRoot: string): Promise<void> {
     log.write("error", { event: "worker_start_failed", message: String(error) });
     process.stderr.write(`${String(error)}\n`);
     await log.flush();
-    process.exit(1);
+    leave(1);
   }
 }

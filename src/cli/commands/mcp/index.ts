@@ -1,4 +1,4 @@
-import { type Command, Option } from "commander";
+import type { Command } from "commander";
 import { requireWorkspaceRoot } from "../../context.js";
 import { declareScope } from "../../scope.js";
 
@@ -9,11 +9,9 @@ export function registerMcpCommand(program: Command): void {
     mcp
       .command("serve")
       .description("Start MCP server (stdio transport)")
-      // Run by a `konte job wait` that found no daemon in the workspace.
-      .addOption(new Option("--attached").hideHelp())
-      .action(async (opts: { attached?: boolean }) => {
+      .action(async () => {
         const { startMcpServer } = await import("../../../mcp/index.js");
-        await startMcpServer(requireWorkspaceRoot(), { attached: opts.attached === true });
+        await startMcpServer(requireWorkspaceRoot());
       }),
     // The daemon watches every video in the workspace, so it needs no video of its own. It must
     // start instantly and write nothing to stdout (that stream is the MCP transport), so it opts
@@ -24,7 +22,7 @@ export function registerMcpCommand(program: Command): void {
   declareScope(
     mcp
       .command("worker", { hidden: true })
-      .description("Run the workspace's jobs for the `mcp serve` that spawned this process")
+      .description("Run the workspace's jobs for the process that spawned this one over IPC")
       .action(async () => {
         const { runMcpWorker } = await import("../../../mcp/worker.js");
         await runMcpWorker(requireWorkspaceRoot());

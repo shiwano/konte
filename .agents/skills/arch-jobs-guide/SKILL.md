@@ -38,7 +38,7 @@ Activation:
 
 ## One worker, every video
 
-- `mcp serve` elects one workspace worker under a file lock. Registrations use instance ids; local liveness uses pid/start time, foreign PID namespaces a 5s heartbeat (30s expiry). The elected server runs the jobs in a child process (`mcp worker`) it talks to over IPC, and never loads a definition itself. Registration and heartbeat survive the worker's submit drain. EOF stops each connection; a lost registration stops only the worker.
+- `mcp serve`, and a `job wait` / `song` finding none up, elect one workspace worker under a file lock. Registrations use instance ids; local liveness uses pid/start time, foreign PID namespaces a 5s heartbeat (30s expiry). The elected process runs the jobs in a child (`mcp worker`, own process group) and loads no definition. Registration and heartbeat survive the worker's submit drain. EOF stops each connection; a lost registration stops only the worker.
 - Only the worker process loads `VideoRegistry`: a `JobWatcher` per video, `fs.watch` plus a 5s poll, credentials refreshed before startup and each tick.
 - `status` includes locally watched videos (empty on standby).
 - `.konte/logs/mcp.log` records lifecycle, worker and job events, tagged by instance id, URLs redacted. It rotates to `mcp.log.1` at 5 MB.
@@ -48,7 +48,7 @@ Activation:
 A cascade pass lists jobs, then reloads the definitions (`reloadLoadedDefinitions`), per iteration — no job is judged by definitions older than itself. A job records a source fingerprint at creation (`definition-source.ts`). On a hash mismatch:
 
 - fingerprint moved → the definition changed; the job fails.
-- fingerprint unchanged → the judge is stale: it releases the job (`releaseIfOwner`) and the worker exits (`WORKER_RESTART_EXIT_CODE`) and the server starts a fresh one; a second stale judge fails it.
+- fingerprint unchanged → the judge is stale: it releases the job (`releaseIfOwner`) and the worker exits (`WORKER_RESTART_EXIT_CODE`) and its host starts a fresh one; a second stale judge fails it.
 
 Exports do the same via `planDigest` / `decideExportRender`.
 
