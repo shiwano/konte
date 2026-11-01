@@ -230,6 +230,8 @@ export type KonteErrorCode =
   | "EXPORT_FAILED"
   | "INVALID_CWD"
   | "INVALID_OPTION"
+  // One argument of a variadic list holding several whitespace-separated values.
+  | "JOINED_ARGUMENTS"
   | "PORT_IN_USE"
   | "CLOUDFLARED_SETUP_FAILED"
   // The managed sherpa-onnx source separator or its spleeter model could not be provisioned.

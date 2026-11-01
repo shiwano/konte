@@ -1699,3 +1699,19 @@ describe("accept command (animatic leaves)", () => {
     expect(after.tryGetAssetState("video:shot.01#composition")).toBeUndefined();
   });
 });
+
+describe("accept with whitespace-joined targets", () => {
+  it("refuses one argument holding several addresses", async () => {
+    await expect(
+      run(["accept", "reference:bakerStreet reference:church"], ctx.dir),
+    ).rejects.toMatchObject({
+      stderr: expect.stringMatching(/JOINED_ARGUMENTS.*2 whitespace-separated values/),
+    });
+  });
+
+  it("refuses a variadic option value holding several targets", async () => {
+    await expect(
+      run(["dismiss", "video", "--except", "v-aaaa v-bbbb"], ctx.dir),
+    ).rejects.toMatchObject({ stderr: expect.stringContaining("JOINED_ARGUMENTS") });
+  });
+});

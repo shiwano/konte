@@ -92,6 +92,10 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
 
   applyUniversalYesFlag(program);
 
+  program.hook("preAction", (_thisCommand, actionCommand) => {
+    refuseJoinedArguments(actionCommand);
+  });
+
   program.hook("preAction", async (thisCommand) => {
     await applyCwdOption(thisCommand.opts<{ cwd?: string }>().cwd);
   });
@@ -148,6 +152,32 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
   });
 
   return program;
+}
+
+// Every variadic list takes addresses, scopes or ids, none of which holds whitespace.
+function refuseJoinedArguments(cmd: Command): void {
+  const lists: { label: string; values: unknown }[] = [
+    ...cmd.registeredArguments.flatMap((arg, i) =>
+      arg.variadic ? [{ label: `<${arg.name()}...>`, values: cmd.processedArgs[i] }] : [],
+    ),
+    ...cmd.options.flatMap((opt) =>
+      opt.variadic
+        ? [{ label: opt.long ?? opt.flags, values: cmd.getOptionValue(opt.attributeName()) }]
+        : [],
+    ),
+  ];
+  for (const { label, values } of lists) {
+    if (!Array.isArray(values)) continue;
+    for (const value of values) {
+      if (typeof value !== "string") continue;
+      const parts = value.trim().split(/\s+/);
+      if (parts.length < 2) continue;
+      throw new KonteError(
+        "JOINED_ARGUMENTS",
+        `${label} got one argument holding ${parts.length} whitespace-separated values: "${value}" — pass each as its own argument`,
+      );
+    }
+  }
 }
 
 // Every leaf command accepts -y/--yes so an agent can pass it uniformly (it's
