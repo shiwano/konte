@@ -46,7 +46,7 @@ export function reelShotAcceptability(
   manager: StateManager,
   video: StageDefinition,
   plan: RenderPlan,
-): Array<ShotAcceptabilityInput & { shotId: string; showingStandIn: boolean; notReady: boolean }> {
+): Array<Required<ShotAcceptabilityInput> & { shotId: string }> {
   return plan.shots.map((s) => ({
     shotId: s.shotId,
     pending: s.pending,

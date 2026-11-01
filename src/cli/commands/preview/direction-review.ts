@@ -69,6 +69,7 @@ import type {
   BriefSourceInfo,
   DirectionPolicyFieldInfo,
   DirectionLyricsInfo,
+  DirectionPreviewState,
   DirectionSequenceInfo,
   DirectionVoiceInfo,
 } from "../../../pages/preview/types.js";
@@ -79,12 +80,15 @@ import {
   type ReviewRecord,
   saveReviewRecord,
 } from "../../../core/review-record.js";
+import {
+  DirectionSubmitSchema,
+  type DirectionSubmitResponse,
+} from "../../../core/types/review-submit.js";
 import { FeedbackManager } from "../../../core/feedback/index.js";
 import { StateManager } from "../../../core/state/index.js";
 import {
   buildAddressFeedback,
   shotFrameResolver,
-  isValidSubmitPayload,
   applyFeedbackMutations,
   staleFlagsBeforeDecisions,
   recordFeedbackFor,
@@ -481,13 +485,13 @@ export async function handleGetDirectionState(
       ...base,
       kind: "sequenced",
       sequences: root.sequences.map((child) => mapChildNode(child, root.lens, DIRECTION_ROOT_PATH)),
-    });
+    } satisfies DirectionPreviewState);
   }
   return jsonResponse({
     ...base,
     kind: "flat",
     shots: (root.shots ?? []).map((s) => mapShot(s, root.lens, DIRECTION_ROOT_PATH)),
-  });
+  } satisfies DirectionPreviewState);
 }
 
 // Direction review submit (`/api/direction/submit`). Two orthogonal outcomes: per-part feedback
@@ -506,28 +510,15 @@ export async function handleDirectionSubmit(
   // accepts it was submitted with (see applyFeedbackMutations). The record carries it too: a
   // comment's own review is the one submitted at its createdAt.
   const reviewedAt = new Date().toISOString();
-  const body = await parseJsonBody<{
-    addedFeedback: Array<{
-      address: string;
-      text: string;
-      annotation: { kind: "pin"; x: number; y: number } | null;
-      displayedVariants?: Record<string, string>;
-    }>;
-    feedbackPatches: Array<{ op: "edit" | "delete"; id: string; address: string; text?: string }>;
-    // The staged verdicts, one per reviewed box: true signs off every part the section holds, false
-    // revokes them (the spend gate re-blocks on that box). An absent section is untouched.
-    sectionDecisions?: DirectionSectionDecisions;
-    // The direction hash the reviewer actually looked at — the optimistic-concurrency token that
-    // stops an Accept from signing off a version edited out from under the open review.
-    reviewedHash?: string;
-    overallComment?: string;
-  }>(req);
-  if (!body) {
+  const raw = await parseJsonBody<unknown>(req);
+  if (raw === null) {
     return errorResponse("Invalid request body", "INVALID_REQUEST", 400);
   }
-  if (!isValidSubmitPayload("direction", body)) {
+  const parsed = DirectionSubmitSchema.safeParse(raw);
+  if (!parsed.success) {
     return errorResponse("Invalid review payload", "INVALID_REQUEST", 400);
   }
+  const body = parsed.data;
 
   const currentHash = directionHash(direction);
   const sectionDecisions: DirectionSectionDecisions = { ...body.sectionDecisions };
@@ -583,7 +574,11 @@ export async function handleDirectionSubmit(
     !body.overallComment
   ) {
     reportOutcome?.(emptyOutcome("direction"));
-    return jsonResponse({ saved: false, filePath: null, accepted: false });
+    return jsonResponse({
+      saved: false,
+      filePath: null,
+      accepted: false,
+    } satisfies DirectionSubmitResponse);
   }
 
   // A box holding a part a finding to fix sits on is not signed off. Only that box's accept is dropped; the rest of the review still lands.
@@ -708,5 +703,5 @@ export async function handleDirectionSubmit(
     filePath,
     accepted: summary.status === "accepted",
     ...(skippedDecisions.length > 0 ? { skippedDecisions } : {}),
-  });
+  } satisfies DirectionSubmitResponse);
 }

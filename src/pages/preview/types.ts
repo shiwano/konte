@@ -1,3 +1,15 @@
+import type { RoleFunction } from "../../core/direction-check.js";
+import type { DirectionSectionStatus } from "../../core/direction-acceptance.js";
+import type { PanelRole } from "../../core/direction.js";
+import type { Framing } from "../../core/dsl/direction.js";
+import type { SongLineBody } from "../../core/types/review-submit.js";
+import type { ScriptLineView } from "../../core/types/script.js";
+import type { View } from "../../core/view.js";
+import type { DirectionSection } from "../../core/address.js";
+
+export { DIRECTION_SECTIONS, type DirectionSection } from "../../core/address.js";
+export type { DirectionSectionStatus, Framing, PanelRole, RoleFunction, ScriptLineView, View };
+
 export type VariantStatus = "none" | "accepted";
 
 export type MediaKind = "video" | "image" | "audio";
@@ -116,8 +128,6 @@ export interface AudioTrackAssetInfo {
   // Every placement of this asset on the timeline, in absolute seconds.
   cues: AudioCueInfo[];
 }
-
-export type PanelRole = "key" | "opening" | "landing" | "mid";
 
 // One panel's declared movement, carried into the video review under the panel it moves out of.
 export interface ShotMoveInfo {
@@ -351,11 +361,7 @@ export interface SongReadingInfo {
 }
 
 // A lyric line the reviewer placed on a take of the song, sent with the review.
-export interface SongLineEdit {
-  variantId: string;
-  key: string;
-  span: { startSec: number; endSec: number } | null;
-}
+export type SongLineEdit = SongLineBody;
 
 export interface VariantInfo {
   variantId: string;
@@ -374,16 +380,6 @@ export interface VariantInfo {
   info?: AssetInfo;
   // A take of the song `policy.song` names, once read.
   song?: SongReadingInfo;
-}
-
-// One rendered script line: the speaker's display label (a resolved character name or a mob label,
-// null for narration) and the line's text. Shared by direction shots and animatic panels.
-export interface ScriptLineView {
-  speaker: string | null;
-  text: string;
-  // How the line is said — one line of direction, written once and read by everyone. Null when the
-  // shot leaves it to the performer.
-  acting: string | null;
 }
 
 // One asset in the flat reference pool. Reference has no shots/compositions — so a reference
@@ -442,17 +438,6 @@ export interface DirectionPartInfo {
   feedback: FeedbackInfo[];
   handoffNote?: string;
 }
-
-// A role's dramatic function in its lens — the vocabulary the direction map's colors and arc
-// line derive from. Null when the shot's role is not one its lens declares (see core/lenses.ts).
-export type RoleFunction = "ground" | "turn" | "build" | "payoff" | "settle";
-
-// A shot's framing size — mirrors `Framing` in core/dsl/direction.ts. Shown as a chip in the shot
-// table so the size cadence reads at a glance beside the durations.
-export type Framing = "wide" | "medium" | "close" | "insert";
-
-// The way a setup's camera faces — mirrors `View` in core/view.ts.
-export type View = "front" | "back" | "side" | "top";
 
 // The feeling a stretch of the piece aims for. The only controlled vocabulary the page prints in
 // full, because it is the only one a reviewer can take a position on.
@@ -698,28 +683,6 @@ export interface DirectionWaiverInfo extends DirectionPartInfo {
   message: string;
   reason: string;
 }
-
-// The page's boxes — the unit a reviewer accepts in — in the order the page reads them. State is
-// finer (one entry per part, so a logline rewrite ages out the logline alone), but a person reads a
-// box and takes a position on it, so the Accept sits there and fans out to the parts underneath.
-// Mirrors `DIRECTION_SECTIONS` in core/address.ts, which is what the server keys its state by.
-export const DIRECTION_SECTIONS = [
-  "brief",
-  "policy",
-  "lyrics",
-  "characters",
-  "props",
-  "locations",
-  "shots",
-  "waivers",
-] as const;
-
-export type DirectionSection = (typeof DIRECTION_SECTIONS)[number];
-
-// A box's standing: `accepted` when every part in it is signed off at its current content, `stale`
-// when something in it was rewritten since, `unaccepted` when it was never read. A box with nothing
-// in it (an empty roster, no waivers) reads as accepted and is not rendered.
-export type DirectionSectionStatus = "accepted" | "stale" | "unaccepted";
 
 // A media-less review of the direction: what the piece aims for, every shot (and long-form
 // act), the characters, the rules the author waived, and how much of it a human has signed off

@@ -71,7 +71,13 @@ import { parsePlaceholder } from "../../../core/dsl/shot-context.js";
 import { KonteError, errorMessage } from "../../../core/errors.js";
 import { errorResponse, htmlResponse, jsonResponse, parseJsonBody } from "../../page-host/http.js";
 import type { Direction } from "../../../core/dsl/direction.js";
-import type { ClipInfo, ShotMoveInfo, ShotWaiverInfo } from "../../../pages/preview/types.js";
+import type {
+  ClipInfo,
+  ShotMoveInfo,
+  ShotWaiverInfo,
+  VideoPreviewState,
+} from "../../../pages/preview/types.js";
+import { ReelSubmitSchema, type ReelSubmitResponse } from "../../../core/types/review-submit.js";
 import { buildReelReviewPlan, reelShotAcceptability } from "../../../core/review-acceptability.js";
 import { continuousFrameKeys, directionShotWaivers, panelRole } from "../../../core/direction.js";
 import { shotWaiversAwaitingAccept } from "../../../core/direction-acceptance.js";
@@ -105,7 +111,6 @@ import {
   buildAddressFeedback,
   handoffNotesForShot,
   unroutedReelHandoffNotes,
-  ReelSubmitSchema,
   applyKeepDecisions,
   applyRegenerateDecisions,
   handoffRecordFields,
@@ -919,7 +924,7 @@ export async function handleGetReelState(
       stage,
       shots.map((s) => s.shotId),
     ),
-  });
+  } satisfies VideoPreviewState);
 }
 
 // Best-effort like the clips: a graph that will not build leaves the prompt nothing to ask.
@@ -1283,46 +1288,18 @@ export async function handleReelSubmit(
   // accepts it was submitted with (see applyFeedbackMutations). The record carries it too: a
   // comment's own review is the one submitted at its createdAt.
   const reviewedAt = new Date().toISOString();
-  const body = await parseJsonBody<{
-    decisions: unknown;
-    // The timeline audio stem (soundtrack beds) accept decision. Per-shot audio rides its shot's
-    // accept (which finalizes that shot's stem); the beds — spanning the whole video — are signed
-    // off here, via `timeline#stem`.
-    timelineStemDecision?: unknown;
-    overlayDecision?: unknown;
-    notes?: ReviewRecord["notes"];
-    addedFeedback?: Array<{
-      address: string;
-      text: string;
-      annotation: { kind: "pin"; x: number; y: number } | null;
-      time?: number;
-    }>;
-    feedbackPatches?: Array<{ op: "edit" | "delete"; id: string; address: string; text?: string }>;
-    // The variant the reviewer actually saw for every reviewable asset (keyed by
-    // address). Submit accepts exactly these — never a variant re-resolved at
-    // submit time, which could be a reroll that completed mid-review.
-    displayedVariants?: Record<string, string>;
-    // The live definition hash the page was served per materialized leaf (see ReelSubmitSchema).
-    displayedDefinitionHashes?: Record<string, string>;
-    // Every take the gallery offered per address (see DisplayedCandidatesSchema) — what an accept
-    // here dismisses the unchosen of.
-    displayedCandidates?: Record<string, string[]>;
-    // The shots the reviewer saw standing in (see ReelSubmitSchema).
-    displayedStandInShotIds?: string[];
-  }>(req);
-  if (!body) {
+  const raw = await parseJsonBody<unknown>(req);
+  if (raw === null) {
     return errorResponse("Invalid request body", "INVALID_REQUEST", 400);
   }
-  const payload = ReelSubmitSchema.safeParse(body);
-  if (!payload.success) {
+  const parsed = ReelSubmitSchema.safeParse(raw);
+  if (!parsed.success) {
     return errorResponse("Invalid review payload", "INVALID_REQUEST", 400);
   }
-  // Both go straight onto the persisted record, so take them from the validated payload rather than
-  // the raw body — a malformed one is rejected here, not written and then silently skipped by the
-  // read path (which would drop the whole review).
-  const submittedDecisions = payload.data.decisions ?? undefined;
-  const timelineStemDecision = payload.data.timelineStemDecision;
-  const submittedOverlayDecision = payload.data.overlayDecision;
+  const body = parsed.data;
+  const submittedDecisions = body.decisions ?? undefined;
+  const timelineStemDecision = body.timelineStemDecision;
+  const submittedOverlayDecision = body.overlayDecision;
 
   const manager = await StateManager.load(videoRoot);
   const video = await reload();
@@ -1348,7 +1325,7 @@ export async function handleReelSubmit(
     );
   }
 
-  const subjectOf = reelSubjectResolver(video, animatic, body.displayedStandInShotIds ?? []);
+  const subjectOf = reelSubjectResolver(video, animatic, body.displayedStandInShotIds);
   const unknownTargets = assertCommentTargets(subjectOf, body.addedFeedback ?? []);
   if (unknownTargets.length > 0) {
     return errorResponse(
@@ -1426,7 +1403,7 @@ export async function handleReelSubmit(
     decisions: submittedDecisions,
     ...(timelineStemDecision ? { timelineStemDecision } : {}),
     notes: body.notes,
-    ...(payload.data.overallComment ? { overallComment: payload.data.overallComment } : {}),
+    ...(body.overallComment ? { overallComment: body.overallComment } : {}),
     ...handoffRecordFields(handoff),
   };
 
@@ -1464,7 +1441,7 @@ export async function handleReelSubmit(
   // accepted unseen. Taken from the CLIENT, never re-derived here — a build dependency that
   // finished between load and submit flips the answer, and re-deriving would then sign off a
   // composition the reviewer never watched.
-  for (const id of payload.data.displayedStandInShotIds) {
+  for (const id of body.displayedStandInShotIds) {
     okShotIds.delete(id);
     unacceptShotIds.delete(id);
   }
@@ -2007,10 +1984,10 @@ export async function handleReelSubmit(
   // After every accept above, so each take is kept against the upstream this review settled.
   const kept: string[] = [];
   const regenerate: string[] = [];
-  if ((payload.data.keep ?? []).length > 0 || (payload.data.regenerate ?? []).length > 0) {
+  if ((body.keep ?? []).length > 0 || (body.regenerate ?? []).length > 0) {
     await StateManager.withLock(videoRoot, async (mgr) => {
-      kept.push(...applyKeepDecisions(mgr, payload.data.keep ?? [], payload.data.regenerate));
-      regenerate.push(...applyRegenerateDecisions(mgr, payload.data.regenerate));
+      kept.push(...applyKeepDecisions(mgr, body.keep ?? [], body.regenerate));
+      regenerate.push(...applyRegenerateDecisions(mgr, body.regenerate));
     });
   }
   if (kept.length > 0) record.kept = kept;
@@ -2106,5 +2083,5 @@ export async function handleReelSubmit(
     skippedDecisions,
     kept,
     regenerate,
-  });
+  } satisfies ReelSubmitResponse);
 }

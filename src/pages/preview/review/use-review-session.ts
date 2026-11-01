@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FeedbackPatchBody } from "../../../core/types/review-submit.js";
 import { ReviewSkippedError } from "../api.js";
 
 let pendingIdCounter = 0;
@@ -15,12 +16,7 @@ export interface PendingFeedback {
   shotId?: string;
 }
 
-export interface FeedbackPatch {
-  op: "edit" | "delete";
-  id: string;
-  address: string;
-  text?: string;
-}
+export type FeedbackPatch = FeedbackPatchBody;
 
 // What a view's submit receives: the session's drafts, to send with its own decisions.
 export interface SubmitInput {

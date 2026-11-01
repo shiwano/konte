@@ -15,7 +15,6 @@ import {
   consumedVariantPreviewUrl,
   displayedVariantStatus,
   hasUndecidedBesideAccepted,
-  isValidSubmitPayload,
   patchChainVariants,
   recordFeedbackFor,
   variantDefinitionSnapshot,
@@ -25,6 +24,11 @@ import {
 } from "../review-shared.js";
 import { unacceptReelShots } from "../reel-review.js";
 import { writeDefinitionSnapshot } from "../../../../core/definition-snapshot.js";
+import {
+  AddressReviewSubmitSchema,
+  DirectionSubmitSchema,
+  ReelSubmitSchema,
+} from "../../../../core/types/review-submit.js";
 import { variantDir } from "../../../../core/variant-dir.js";
 
 let tmpDir: string;
@@ -714,7 +718,17 @@ describe("unacceptReelShots", () => {
   });
 });
 
-describe("isValidSubmitPayload", () => {
+const SUBMIT_SCHEMAS = {
+  video: ReelSubmitSchema,
+  stage: AddressReviewSubmitSchema,
+  direction: DirectionSubmitSchema,
+};
+
+function isValidSubmitPayload(mode: keyof typeof SUBMIT_SCHEMAS, body: unknown): boolean {
+  return SUBMIT_SCHEMAS[mode].safeParse(body).success;
+}
+
+describe("submit payload schemas", () => {
   it("accepts what each preview mode actually posts", () => {
     expect(
       isValidSubmitPayload("video", {

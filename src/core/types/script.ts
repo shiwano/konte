@@ -28,6 +28,16 @@ export type ScriptLine = z.infer<typeof ScriptLineSchema>;
 export const lineText = (line: ScriptLine): string =>
   "narration" in line ? line.narration : line.text;
 
+// One rendered script line: the speaker's display label (a resolved character name or a mob label,
+// null for narration) and the line's text. Shared by direction shots and animatic panels.
+export interface ScriptLineView {
+  speaker: string | null;
+  text: string;
+  // How the line is said — one line of direction, written once and read by everyone. Null when the
+  // shot leaves it to the performer.
+  acting: string | null;
+}
+
 // A script line flattened for display: the speaker's label (a resolved character name, a mob label,
 // or null for narration), the words, and the line's acting note. `nameById` resolves character ids
 // to names when the roster is at hand (the direction preview, `konte inspect` on a shot); an
@@ -35,7 +45,7 @@ export const lineText = (line: ScriptLine): string =>
 export function scriptLinesToView(
   script: readonly ScriptLine[] | undefined,
   nameById?: ReadonlyMap<string, string>,
-): { speaker: string | null; text: string; acting: string | null }[] {
+): ScriptLineView[] {
   return (script ?? []).map((line) => {
     if ("character" in line) {
       return {

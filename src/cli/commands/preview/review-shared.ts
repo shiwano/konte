@@ -6,7 +6,6 @@ import {
   keepAcceptedInputs,
 } from "../../../core/accept-cascade.js";
 import {
-  DIRECTION_SECTIONS,
   addressToUrlPath,
   formatAddress,
   formatShotAddress,
@@ -29,22 +28,17 @@ import { resolveLens } from "../../../core/direction.js";
 import { ROLE_FUNCTION_LABEL } from "../../../core/lenses.js";
 import type { Direction, DirectionNode, Framing } from "../../../core/dsl/direction.js";
 import { isAsideShot, isGraphicShot } from "../../../core/dsl/direction.js";
-import type {
-  AssetInfo,
-  ScriptLineView,
-  ShotInfo,
-  SongReadingInfo,
-} from "../../../pages/preview/types.js";
-import { scriptLinesToView } from "../../../core/types/script.js";
+import type { AssetInfo, ShotInfo, SongReadingInfo } from "../../../pages/preview/types.js";
+import { scriptLinesToView, type ScriptLineView } from "../../../core/types/script.js";
 import type { Handoff, AnimaticDefinition } from "../../../core/types/index.js";
-import { z } from "zod";
 import {
-  ReviewAcceptDecisionSchema,
-  type ReviewDecisionEntry,
-  type ReviewRecord,
-  ReviewRecordSchema,
-  VideoReviewDecisionsSchema,
-} from "../../../core/review-record.js";
+  AddressReviewSubmitSchema,
+  type AddressReviewSubmitBody,
+  type FeedbackPatchBody,
+  type KeepEntryBody,
+  type RegenerateEntryBody,
+} from "../../../core/types/review-submit.js";
+import type { ReviewDecisionEntry, ReviewRecord } from "../../../core/review-record.js";
 import {
   feedbackStaleness,
   FeedbackManager,
@@ -241,153 +235,6 @@ export function hasUndecidedBesideAccepted(
   }
 }
 
-// What each submit handler takes from the preview client and then persists. Validated at the door,
-// before any mutation: feedback written unvalidated lands in the stream, whose next load parses it —
-// so one bad entry fails that load and takes every comment with it — and a malformed decision or
-// shown-variant map would only surface at saveReviewRecord, after the accepts and the feedback were
-// already committed. One schema per mode, since each handler's required fields differ.
-const CommentFieldsSchema = z.object({
-  address: z.string(),
-  text: z.string(),
-  annotation: z
-    .object({ kind: z.literal("pin"), x: z.number(), y: z.number() })
-    .nullable()
-    .optional(),
-  time: z.number().optional(),
-  shotTime: z.number().optional(),
-});
-
-const AddedFeedbackSchema = z.array(
-  CommentFieldsSchema.extend({
-    displayedVariants: z.record(z.string(), z.string()).optional(),
-    displayedDefinitionHashes: z.record(z.string(), z.string()).optional(),
-    subjectHash: z.string().optional(),
-  }),
-);
-
-// The reel's comments carry WHERE they were written and nothing about what they were written
-// against: which addresses a target perceives is a question about the definition, and the handler
-// answers it (see `commentSubjectAddresses`). A client cannot narrow the subject it does not send —
-// which is what a page reading it off one of its own asset arrays did, dropping every audio take.
-const ReelAddedFeedbackSchema = z.array(CommentFieldsSchema);
-
-const FeedbackPatchesSchema = z.array(
-  z.object({
-    op: z.enum(["edit", "delete"]),
-    id: z.string(),
-    address: z.string(),
-    text: z.string().optional(),
-  }),
-);
-
-// The variant the reviewer saw per address — recorded, and what an accept accepts.
-const DisplayedVariantsSchema = z.record(z.string(), z.string());
-
-// Every take the reviewer had in front of them per address — the gallery as the page rendered it.
-// An accept dismisses the ones it did not choose (see `StateManager.setAccepted`), so this cannot
-// be re-derived at submit time: a reroll that landed mid-review is in state but was never on
-// screen.
-const DisplayedCandidatesSchema = z.record(z.string(), z.array(z.string()));
-
-// The reviewer's word on the pass as a whole, from the submit dialog. Carried by every stage's
-// payload and persisted on the record — it is what a submit that settled nothing still says.
-const OverallCommentSchema = z.string();
-
-// The Keep-or-regenerate answers, expanded on the page: each take a Keep names with the upstream it
-// was kept against, and each take a Regenerate names.
-const KeepSchema = z.array(
-  z.object({
-    address: z.string(),
-    variantId: z.string(),
-    inputs: z.record(z.string(), z.string()),
-  }),
-);
-const RegenerateSchema = z.array(z.object({ address: z.string(), variantId: z.string() }));
-
-export type KeepEntryBody = z.infer<typeof KeepSchema>[number];
-export type RegenerateEntryBody = z.infer<typeof RegenerateSchema>[number];
-
-export const ReelSubmitSchema = z.object({
-  decisions: VideoReviewDecisionsSchema.nullish(),
-  timelineStemDecision: ReviewAcceptDecisionSchema.optional(),
-  // The overlay's accept decision, offered once every shot accept stands (see `overlayOffered`).
-  overlayDecision: ReviewAcceptDecisionSchema.optional(),
-  notes: ReviewRecordSchema.shape.notes,
-  addedFeedback: ReelAddedFeedbackSchema.optional(),
-  feedbackPatches: FeedbackPatchesSchema.optional(),
-  displayedVariants: DisplayedVariantsSchema.optional(),
-  // The live definition hash the page was served per materialized leaf (each shot's composition and
-  // stem, the timeline stem). A leaf renders from its definition and mints no variant until
-  // accepted, so a definition edit is invisible to the takes above; this is the axis that catches
-  // it. Whole-page, like `displayedVariants` — the handler selects the leaves each comment stands
-  // on.
-  displayedDefinitionHashes: DisplayedVariantsSchema.optional(),
-  displayedCandidates: DisplayedCandidatesSchema.optional(),
-  // The shot ids that stood in with the board instead of a picture that is not made yet, from the
-  // client. Same discipline as `displayedVariants`: what a shot showed cannot be re-derived at
-  // submit time, because a build dependency finishing mid-review flips the answer — and the verdict
-  // would then land on a composition nobody watched. Their verdicts are dropped: a stand-in carries
-  // nothing to sign off. REQUIRED, so a caller that cannot say what it displayed is rejected rather
-  // than silently falling back to a re-derivation with that exact bug.
-  displayedStandInShotIds: z.array(z.string()),
-  overallComment: OverallCommentSchema.optional(),
-  keep: KeepSchema.optional(),
-  regenerate: RegenerateSchema.optional(),
-});
-
-// The reference stage's shape: one decision entry per address, feedback always sent.
-const StageSubmitSchema = z.object({
-  addedFeedback: AddedFeedbackSchema,
-  feedbackPatches: FeedbackPatchesSchema,
-  decisions: z
-    .array(
-      z.object({
-        address: z.string(),
-        variantId: z.string(),
-        status: ReviewAcceptDecisionSchema,
-        // The other takes this decision was made among — see DisplayedCandidatesSchema.
-        candidateVariantIds: z.array(z.string()).optional(),
-      }),
-    )
-    .optional(),
-  overallComment: OverallCommentSchema.optional(),
-  keep: KeepSchema.optional(),
-  regenerate: RegenerateSchema.optional(),
-  songLines: z
-    .array(
-      z.object({
-        variantId: z.string(),
-        key: z.string(),
-        span: z.object({ startSec: z.number(), endSec: z.number() }).nullable(),
-      }),
-    )
-    .optional(),
-});
-
-// The review page accepts per SECTION (the boxes it renders), while state records per part — one
-// box's verdict fans out to every part it holds. A section the reviewer never touched is absent
-// rather than false, so a feedback-only submit revokes nothing.
-const DirectionSubmitSchema = z.object({
-  addedFeedback: AddedFeedbackSchema,
-  feedbackPatches: FeedbackPatchesSchema,
-  sectionDecisions: z.record(z.enum(DIRECTION_SECTIONS), z.boolean()).optional(),
-  reviewedHash: z.string().optional(),
-  overallComment: OverallCommentSchema.optional(),
-});
-
-export function isValidSubmitPayload(
-  mode: "video" | "stage" | "direction",
-  body: unknown,
-): boolean {
-  const schema =
-    mode === "video"
-      ? ReelSubmitSchema
-      : mode === "stage"
-        ? StageSubmitSchema
-        : DirectionSubmitSchema;
-  return schema.safeParse(body).success;
-}
-
 // The stale flag as the reviewer SAW it, per comment id — snapshotted before the session's own
 // decisions land. An accept stamped over a standing comment ages it, and a record computed after
 // would then hide the very comment its accept was made against.
@@ -491,14 +338,14 @@ export function applyFeedbackMutations(
   addedFeedback: Array<{
     address: string;
     text: string;
-    annotation: { kind: "pin"; x: number; y: number } | null;
+    annotation?: { kind: "pin"; x: number; y: number } | null;
     time?: number;
     shotTime?: number;
     displayedVariants?: Record<string, string>;
     displayedDefinitionHashes?: Record<string, string | null>;
     subjectHash?: string;
   }>,
-  feedbackPatches: Array<{ op: "edit" | "delete"; id: string; address: string; text?: string }>,
+  feedbackPatches: readonly FeedbackPatchBody[],
   // The review's own timestamp, stamped on every comment it carries. Taken from the handler rather
   // than read here so it precedes the accepts of the same submit whatever order they are written
   // in — see `acceptedOver`.
@@ -822,36 +669,6 @@ export function shotFactsIndex(direction: Direction | null): Map<string, ShotFac
   return byId;
 }
 
-// The submit payload of an address-keyed review (animatic / reference): comments and per-address
-// accept decisions.
-type AddressReviewBody = {
-  addedFeedback: Array<{
-    address: string;
-    text: string;
-    annotation: { kind: "pin"; x: number; y: number } | null;
-    displayedVariants?: Record<string, string>;
-  }>;
-  feedbackPatches: Array<{ op: "edit" | "delete"; id: string; address: string; text?: string }>;
-  decisions?: Array<{
-    address: string;
-    variantId: string;
-    status: "accepted" | "none";
-    candidateVariantIds?: string[];
-  }>;
-  overallComment?: string;
-  keep?: KeepEntryBody[];
-  regenerate?: RegenerateEntryBody[];
-  // Lyric lines the reviewer placed on a take of the song, or left to the reading again (`span`
-  // null) — see `setSongLine`.
-  songLines?: SongLineBody[];
-};
-
-export type SongLineBody = {
-  variantId: string;
-  key: string;
-  span: { startSec: number; endSec: number } | null;
-};
-
 // What lands and what does not, for an address-keyed review, before the stage builds its record.
 type AddressReviewOutcome = {
   acceptedAssets: string[];
@@ -874,7 +691,7 @@ type AddressReviewOutcome = {
 export async function applyAddressReview(
   videoRoot: string,
   stage: "animatic" | "reference",
-  body: AddressReviewBody,
+  body: AddressReviewSubmitBody,
   reviewedAt: string,
   hooks: {
     // The cascade context: the animatic whose panels are (or back) the targets.
@@ -1133,12 +950,14 @@ export function applyRegenerateDecisions(
 }
 
 // Parse and validate an address-keyed submit body; null when it is not one.
-export async function parseAddressReviewBody(req: Request): Promise<AddressReviewBody | null> {
-  const body = await parseJsonBody<AddressReviewBody>(req);
-  return body && isValidSubmitPayload("stage", body) ? body : null;
+export async function parseAddressReviewBody(
+  req: Request,
+): Promise<AddressReviewSubmitBody | null> {
+  const parsed = AddressReviewSubmitSchema.safeParse(await parseJsonBody<unknown>(req));
+  return parsed.success ? parsed.data : null;
 }
 
-export function addressReviewTouchesNothing(body: AddressReviewBody): boolean {
+export function addressReviewTouchesNothing(body: AddressReviewSubmitBody): boolean {
   return (
     (body.decisions ?? []).length === 0 &&
     body.addedFeedback.length === 0 &&

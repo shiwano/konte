@@ -1,5 +1,6 @@
 import { loadKonteConfig, saveKonteConfig } from "../../../core/config.js";
 import { KonteConfigSchema } from "../../../core/types/config.js";
+import type { CredentialsResponse } from "../../../pages/settings/types.js";
 import { UI_ASSETS } from "../../../core/generated/ui-assets.js";
 import { createAssetHandler } from "../../page-host/assets.js";
 import {
@@ -85,7 +86,9 @@ export async function createSettingsServer(opts: SettingsServerOptions): Promise
 
           if (pathname === "/api/credentials") {
             if (req.method === "GET") {
-              return jsonResponse({ entries: await credentialEntries(workspaceRoot) });
+              return jsonResponse({
+                entries: await credentialEntries(workspaceRoot),
+              } satisfies CredentialsResponse);
             }
             if (req.method === "PUT") {
               const patch = CredentialsPatchSchema.safeParse(await parseJsonBody<unknown>(req));
@@ -93,7 +96,9 @@ export async function createSettingsServer(opts: SettingsServerOptions): Promise
                 return errorResponse(patch.error.message, "VALIDATION_FAILED", 400);
               }
               return await lifecycle.track(async () =>
-                jsonResponse({ entries: await saveCredentialsPatch(workspaceRoot, patch.data) }),
+                jsonResponse({
+                  entries: await saveCredentialsPatch(workspaceRoot, patch.data),
+                } satisfies CredentialsResponse),
               );
             }
           }

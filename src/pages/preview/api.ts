@@ -1,5 +1,13 @@
-import type { KeepEntry, KeepVariant } from "./review/keep-or-regenerate.js";
-import type { DirectionSection, PreviewState, SongLineEdit } from "./types.js";
+import type {
+  AddressReviewSubmitBody,
+  AddressReviewSubmitResponse,
+  DirectionSubmitBody,
+  DirectionSubmitResponse,
+  ReelSubmitBody,
+  ReelSubmitResponse,
+  SkippedDecision,
+} from "../../core/types/review-submit.js";
+import type { PreviewState } from "./types.js";
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options);
@@ -46,59 +54,18 @@ export async function fetchCompositionHtml(
 }
 
 export function submitReview(
-  decisions: unknown,
-  notes:
-    | Array<{
-        time: number;
-        shotId?: string;
-        address?: string;
-        text: string;
-        x?: number;
-        y?: number;
-      }>
-    | undefined,
+  decisions: ReelSubmitBody["decisions"],
+  notes: ReelSubmitBody["notes"],
   stage: "animatic" | "video",
-  // Required, not optional: the endpoint rejects a submit that cannot say which shots stood in, so
-  // a caller that omits the whole object would compile and then 400.
-  extra: {
-    timelineStemDecision?: "accepted" | "none";
-    overlayDecision?: "accepted" | "none";
-    // Where each comment was written, and nothing about what it was written against: the endpoint
-    // derives the subject from the definition and the whole-view snapshots below, so a page cannot
-    // narrow it to the assets one of its own arrays happens to hold.
-    addedFeedback?: Array<{
-      address: string;
-      text: string;
-      annotation: { kind: "pin"; x: number; y: number } | null;
-      time?: number;
-    }>;
-    feedbackPatches?: Array<{ op: "edit" | "delete"; id: string; address: string; text?: string }>;
-    displayedVariants?: Record<string, string>;
-    // The live definition hash the page was served per materialized leaf (each shot's composition
-    // and stem, the timeline stem) — the axis no take carries.
-    displayedDefinitionHashes?: Record<string, string>;
-    // The takes the gallery offered per address. An accept dismisses the unchosen among them, so
-    // the list must come from the page rather than be re-derived at submit time.
-    displayedCandidates?: Record<string, string[]>;
-    // Required by the reel submit endpoint: which shots displayed the board in place of an unmade
-    // picture cannot be re-derived server-side, and their verdicts are dropped. Declared
-    // non-optional so a caller cannot compile its way to a runtime 400.
-    displayedStandInShotIds: string[];
-    // The reviewer's word on the pass as a whole, from the submit dialog. Sent only when written.
-    overallComment?: string;
-    // The Keep-or-regenerate answers (see `KeepEntry`).
-    keep?: KeepEntry[];
-    regenerate?: KeepVariant[];
-  },
-): Promise<{ saved: boolean; filePath: string | null }> {
-  return request<{
-    saved: boolean;
-    filePath: string | null;
-    skippedDecisions?: Array<{ shotId?: string; address: string; reason: string }>;
-  }>(`/api/${stage}/submit`, {
+  // `displayedStandInShotIds` is required: the endpoint rejects a submit that cannot say which shots
+  // stood in. The comments carry where they were written and nothing about what they were written
+  // against — the endpoint derives the subject from the definition and the whole-view snapshots.
+  extra: Omit<ReelSubmitBody, "decisions" | "notes">,
+): Promise<ReelSubmitResponse> {
+  return request<ReelSubmitResponse>(`/api/${stage}/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ decisions, notes, stage, ...extra }),
+    body: JSON.stringify({ decisions, notes, ...extra } satisfies ReelSubmitBody),
   }).then(rejectSkippedDecisions);
 }
 
@@ -109,7 +76,7 @@ export function submitReview(
 export class ReviewSkippedError extends Error {
   constructor(
     readonly saved: boolean,
-    readonly skipped: ReadonlyArray<{ address: string; reason: string }>,
+    readonly skipped: readonly SkippedDecision[],
   ) {
     super(
       `${saved ? "Review saved" : "Review not saved"}. ${skipped.length} target(s) could not be settled:\n${skipped
@@ -130,75 +97,26 @@ export class ReviewSkippedError extends Error {
 // Thrown so the session never treats a success state does not back as a clean one — the failure
 // mode that made a whole video review disappear silently.
 export function rejectSkippedDecisions<
-  T extends { saved: boolean; skippedDecisions?: Array<{ address: string; reason: string }> },
+  T extends { saved: boolean; skippedDecisions?: SkippedDecision[] },
 >(res: T): T {
   if (res.skippedDecisions?.length) throw new ReviewSkippedError(res.saved, res.skippedDecisions);
   return res;
 }
 
-export function submitDirectionReview(payload: {
-  addedFeedback: Array<{
-    address: string;
-    text: string;
-    annotation: { kind: "pin"; x: number; y: number } | null;
-    displayedVariants?: Record<string, string>;
-  }>;
-  feedbackPatches: Array<{
-    op: "edit" | "delete";
-    id: string;
-    address: string;
-    text?: string;
-  }>;
-  // The reviewer's verdict per box: true accepts every part it holds, false revokes them. A box they
-  // left alone is absent — a feedback-only submit must not revoke what was signed off earlier.
-  sectionDecisions?: Partial<Record<DirectionSection, boolean>>;
-  reviewedHash?: string;
-  overallComment?: string;
-  // `accepted` reports the WHOLE direction's standing after the submit (the spend gate's question),
-  // not whether the sections in this payload were accepted.
-}): Promise<{ saved: boolean; filePath: string | null; accepted: boolean }> {
-  return request<{
-    saved: boolean;
-    filePath: string | null;
-    accepted: boolean;
-    skippedDecisions?: Array<{ address: string; reason: string }>;
-  }>("/api/direction/submit", {
+export function submitDirectionReview(
+  payload: DirectionSubmitBody,
+): Promise<DirectionSubmitResponse> {
+  return request<DirectionSubmitResponse>("/api/direction/submit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   }).then(rejectSkippedDecisions);
 }
 
-export function submitReferenceReview(payload: {
-  addedFeedback: Array<{
-    address: string;
-    text: string;
-    annotation: { kind: "pin"; x: number; y: number } | null;
-    displayedVariants?: Record<string, string>;
-  }>;
-  feedbackPatches: Array<{
-    op: "edit" | "delete";
-    id: string;
-    address: string;
-    text?: string;
-  }>;
-  decisions?: Array<{
-    address: string;
-    variantId: string;
-    status: "accepted" | "none";
-    // The takes this decision was made among — see submitReview's `displayedCandidates`.
-    candidateVariantIds?: string[];
-  }>;
-  overallComment?: string;
-  keep?: KeepEntry[];
-  regenerate?: KeepVariant[];
-  // Lyric lines placed on a take of the song, or left to the reading again (`span` null).
-  songLines?: SongLineEdit[];
-}): Promise<{ saved: boolean }> {
-  return request<{
-    saved: boolean;
-    skippedDecisions?: Array<{ address: string; reason: string }>;
-  }>("/api/reference/submit", {
+export function submitReferenceReview(
+  payload: AddressReviewSubmitBody,
+): Promise<AddressReviewSubmitResponse> {
+  return request<AddressReviewSubmitResponse>("/api/reference/submit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

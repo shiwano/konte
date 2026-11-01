@@ -23,8 +23,11 @@ import { lyricLines, songLinesRefusal } from "../../../core/direction.js";
 import { KonteError } from "../../../core/errors.js";
 import { songAnalysisOf } from "../../../core/song-reading.js";
 import { setSongLines, songAddressOf } from "../../../core/song-variant.js";
-import type { SongReadingInfo } from "../../../pages/preview/types.js";
-import type { DirectionRosterKind } from "../../../pages/preview/types.js";
+import type {
+  DirectionRosterKind,
+  ReferencePreviewState,
+  SongReadingInfo,
+} from "../../../pages/preview/types.js";
 import type {
   DirectionAcceptance,
   Handoff,
@@ -52,8 +55,11 @@ import {
   applyAddressReview,
   handoffRecordFields,
   storeOverallComment,
-  type SongLineBody,
 } from "./review-shared.js";
+import type {
+  AddressReviewSubmitResponse,
+  SongLineBody,
+} from "../../../core/types/review-submit.js";
 import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
 import { loadCheckContext } from "../../finding-gates.js";
 import { collectFindings } from "../../../core/checks.js";
@@ -216,7 +222,7 @@ export async function handleGetReferenceState(
     size: { width: 1920, height: 1080 },
     keep: referenceKeepGraph(manager, reference, animatic, video),
     ...(handoff?.summary ? { handoffSummary: handoff.summary } : {}),
-  });
+  } satisfies ReferencePreviewState);
 }
 
 // Best-effort: a downstream stage that will not build leaves the prompt nothing to ask about it.
@@ -269,7 +275,7 @@ export async function handleReferenceSubmit(
   if (!body) return errorResponse("Invalid review payload", "INVALID_REQUEST", 400);
   if (addressReviewTouchesNothing(body)) {
     reportOutcome?.(emptyOutcome("reference"));
-    return jsonResponse({ saved: false, filePath: null });
+    return jsonResponse({ saved: false, filePath: null } satisfies AddressReviewSubmitResponse);
   }
 
   const outcome = await applyAddressReview(videoRoot, "reference", body, reviewedAt, {
@@ -345,7 +351,7 @@ export async function handleReferenceSubmit(
     skippedDecisions: outcome.skippedDecisions,
     kept: outcome.kept,
     regenerate: outcome.regenerate,
-  });
+  } satisfies AddressReviewSubmitResponse);
 }
 
 // The beats and lyric places a take of the song was read as, on the take's own clock — what its
