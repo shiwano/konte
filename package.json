@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "konte": "bun run src/cli/index.ts",
-    "check": "bun run typecheck && bun run check:templates && bun run check:plugin && bun run check:module-state && bun run skills:check && oxlint . && oxfmt --check .",
+    "check": "bun run typecheck && bun run check:templates && bun run check:plugin && bun run check:module-state && bun run skills:check && gh-actions-lock --verify-local && oxlint . && oxfmt --check .",
     "check:fix": "oxlint --fix . && oxfmt --write .",
     "check:templates": "bun run build:generate-template-mod && bun run scripts/check-templates.ts",
     "check:plugin": "bun run scripts/check-plugin.ts",
