@@ -160,3 +160,26 @@ export async function unpackTarballInto(
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
+
+/** Move the file called `name`, found anywhere under `dir`, to `dest`. */
+export function moveFoundBinary(dir: string, name: string, dest: string): void {
+  const stack = [dir];
+  while (stack.length > 0) {
+    const cur = stack.pop()!;
+    for (const entry of fs.readdirSync(cur, { withFileTypes: true })) {
+      const full = path.join(cur, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(full);
+      } else if (entry.name === name) {
+        fs.rmSync(dest, { force: true });
+        try {
+          fs.renameSync(full, dest);
+        } catch {
+          fs.copyFileSync(full, dest);
+        }
+        return;
+      }
+    }
+  }
+  throw new Error(`"${name}" not found in the downloaded archive`);
+}

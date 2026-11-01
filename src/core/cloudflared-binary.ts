@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { downloadFile } from "./download.js";
 import { endProgress, progressReporter } from "./download-progress.js";
 import { KonteError } from "./errors.js";
-import { provisionOnce, toolCacheDir } from "./tool-cache.js";
+import { moveFoundBinary, provisionOnce, toolCacheDir } from "./tool-cache.js";
 import { toolPin } from "./tool-checksums.js";
 import { execFileAsync } from "./exec-file.js";
 
@@ -85,32 +85,10 @@ async function fillManaged(dir: string, src: CloudflaredSource, dest: string): P
       await downloadFile(src.url, archive, progressReporter("cloudflared"));
       endProgress();
       await execFileAsync("tar", ["xzf", archive, "-C", tmp]);
-      relocate(findBinary(tmp, "cloudflared"), dest);
+      moveFoundBinary(tmp, "cloudflared", dest);
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
   }
   fs.chmodSync(dest, 0o755);
-}
-
-function findBinary(dir: string, name: string): string {
-  const stack = [dir];
-  while (stack.length > 0) {
-    const cur = stack.pop() as string;
-    for (const entry of fs.readdirSync(cur, { withFileTypes: true })) {
-      const full = path.join(cur, entry.name);
-      if (entry.isDirectory()) stack.push(full);
-      else if (entry.name === name) return full;
-    }
-  }
-  throw new KonteError("CLOUDFLARED_SETUP_FAILED", `"${name}" not found in the downloaded archive`);
-}
-
-function relocate(src: string, dest: string): void {
-  fs.rmSync(dest, { force: true });
-  try {
-    fs.renameSync(src, dest);
-  } catch {
-    fs.copyFileSync(src, dest);
-  }
 }

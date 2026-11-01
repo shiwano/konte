@@ -5,7 +5,7 @@ import { loadKonteConfig } from "./config.js";
 import { downloadFile } from "./download.js";
 import { endProgress, progressReporter } from "./download-progress.js";
 import { type KonteErrorCode, KonteError, errorMessage } from "./errors.js";
-import { provisionOnce, toolCacheDir, toolCacheReady } from "./tool-cache.js";
+import { moveFoundBinary, provisionOnce, toolCacheDir, toolCacheReady } from "./tool-cache.js";
 import { toolPin } from "./tool-checksums.js";
 import { workspaceRootOrNull } from "./workspace-context.js";
 import { execFileAsync } from "./exec-file.js";
@@ -269,8 +269,8 @@ async function fillManaged(
       await downloadFile(src.url, archive, progressReporter("ffmpeg + ffprobe"));
       endProgress();
       await extractArchive(archive, tmp);
-      relocate(findBinary(tmp, src.ffmpeg), fmDest);
-      relocate(findBinary(tmp, src.ffprobe), fpDest);
+      moveFoundBinary(tmp, src.ffmpeg, fmDest);
+      moveFoundBinary(tmp, src.ffprobe, fpDest);
     } else {
       await extractGzipped(src.ffmpegUrl, fmDest, "ffmpeg", tmp);
       await extractGzipped(src.ffprobeUrl, fpDest, "ffprobe", tmp);
@@ -299,28 +299,6 @@ async function extractGzipped(
   await downloadFile(url, gz, progressReporter(label));
   endProgress();
   fs.writeFileSync(dest, gunzipSync(fs.readFileSync(gz)));
-}
-
-function findBinary(dir: string, name: string): string {
-  const stack = [dir];
-  while (stack.length > 0) {
-    const cur = stack.pop() as string;
-    for (const entry of fs.readdirSync(cur, { withFileTypes: true })) {
-      const full = path.join(cur, entry.name);
-      if (entry.isDirectory()) stack.push(full);
-      else if (entry.name === name) return full;
-    }
-  }
-  throw new KonteError("FFMPEG_SETUP_FAILED", `"${name}" not found in the downloaded archive`);
-}
-
-function relocate(src: string, dest: string): void {
-  fs.rmSync(dest, { force: true });
-  try {
-    fs.renameSync(src, dest);
-  } catch {
-    fs.copyFileSync(src, dest);
-  }
 }
 
 async function assertBinVersion(
