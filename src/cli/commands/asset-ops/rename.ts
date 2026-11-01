@@ -86,14 +86,15 @@ Examples:
       if (!definition && definitions.video === null && parseAddress(to).stage !== "reference") {
         throw definitions.songUnread;
       }
+      const notDeclared = new KonteError(
+        "ADDRESS_NOT_FOUND",
+        `"${to}" is not declared — rename the asset in its stage file first`,
+      );
+      if (!definition) throw notDeclared;
       try {
-        if (!definition) throw new Error();
         getAssetEntryByAddress(definition, to);
       } catch {
-        throw new KonteError(
-          "ADDRESS_NOT_FOUND",
-          `"${to}" is not declared — rename the asset in its stage file first`,
-        );
+        throw notDeclared;
       }
 
       const moves = renameMoves(from, to);
