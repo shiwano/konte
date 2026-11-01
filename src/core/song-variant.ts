@@ -5,6 +5,9 @@ import { stableStringify } from "./stable-stringify.js";
 import { readSongReading, songAnalysisOf } from "./song-reading.js";
 import { nearestBeatIndex, type SongGridSource } from "./song-grid.js";
 import type { KonteState, SongAnalysis, SongRecord } from "./types/index.js";
+import type { SongVariantState } from "./direction.js";
+import type { StateManager } from "./state/index.js";
+import { mediaDurationSec } from "./variant-media.js";
 
 // The take of the song the piece is read against: the accepted one, else the newest analyzed take
 // nobody dismissed. Staleness is not asked.
@@ -150,4 +153,16 @@ export function setSongLines(
     );
   });
   return Object.keys(set).length > 0 ? { ...rest, lines: set } : rest;
+}
+
+// The take of the song the piece is read against, as the song class reads it.
+export function songVariantState(manager: StateManager, direction: Direction): SongVariantState {
+  const address = songAddressOf(direction);
+  const variant = address
+    ? resolveSongVariant(manager.videoRoot, manager.getState(), address)
+    : null;
+  const media = variant
+    ? manager.getState().assets[variant.address]?.variants?.[variant.variantId]?.media
+    : undefined;
+  return { variant, durationSec: mediaDurationSec(media ?? null) };
 }

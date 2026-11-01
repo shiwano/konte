@@ -1,6 +1,6 @@
 import * as readline from "node:readline";
 import { KonteError } from "../core/errors.js";
-import { formatBytes } from "./commands/clean-utils.js";
+import { formatBytes } from "../core/format-bytes.js";
 import { currentInvocation } from "./context.js";
 
 function confirmPrompt(message: string): Promise<boolean> {

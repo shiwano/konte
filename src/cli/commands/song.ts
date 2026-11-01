@@ -19,7 +19,7 @@ import type { SongAnalysis, SongRecord, VariantState } from "../../core/types/in
 import { sleep } from "../../core/sleep.js";
 import { requireVideoRoot, requireVideoRoots } from "../context.js";
 import { JobRunnerGuard } from "../job-runner.js";
-import { loadDirectionIfPresent } from "../load-definition.js";
+import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { loadReference } from "../../core/loader.js";
 
 function readSongVariant(

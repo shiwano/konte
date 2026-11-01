@@ -121,7 +121,8 @@ import {
   noteOverturned,
 } from "./review-shared.js";
 import type { ReportOutcome } from "./review-outcome.js";
-import { loadCheckContext, reviewHeldFindings } from "../../finding-gates.js";
+import { reviewHeldFindings } from "../../finding-gates.js";
+import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings } from "../../../core/checks.js";
 import { type Finding, formatFindingLine } from "../../../core/finding.js";
 import { createAssetInfoBuilder } from "./asset-info.js";

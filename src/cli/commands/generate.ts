@@ -32,14 +32,14 @@ import {
 import { StateManager } from "../../core/state/index.js";
 import { type StaleRefreshStep, staleRefreshStep } from "../stale-refresh-step.js";
 import type { AssetDefinition } from "../../core/types/index.js";
-import { loadDirectionIfPresent } from "../load-definition.js";
+import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { openVideoSession } from "../../core/video-session.js";
-import { assertNoSpendFindings, loadCheckContext, spendGate } from "../finding-gates.js";
+import { assertNoSpendFindings, spendGate } from "../finding-gates.js";
+import { loadCheckContext } from "../../core/check-context.js";
 import { errorMessage } from "../../core/errors.js";
 import {
   type AcceptedStaleAsset,
   type AssetResult,
-  assetSkipReason,
   buildGeneratePlan,
   formatAcceptedStaleNotice,
   formatGeneratePlan,
@@ -48,11 +48,15 @@ import {
   prepareSpend,
   printSpendNotices,
   reserveVariantsBatch,
-  type SkipReason,
   registerJobs,
   type VariantReservationRequest,
 } from "../generate-orchestrator.js";
-import { printRemixedBoardStems, selectGenerationAssets } from "../generation-selection.js";
+import { printRemixedBoardStems } from "../generation-selection.js";
+import {
+  type SkipReason,
+  assetSkipReason,
+  selectGenerationAssets,
+} from "../../core/generation-selection.js";
 import { planSupersededStemRemakes, remakeSettledLeaves } from "../../core/board-leaves.js";
 import { requireVideoRoots } from "../context.js";
 

@@ -1,4 +1,4 @@
-import { loadNeedsReviewTargets } from "../../asset-status.js";
+import { loadNeedsReviewTargets } from "../../../core/status-report.js";
 import { requireVideoRoot } from "../../context.js";
 import { inferMediaType, variantMediaKind } from "../../../core/media-type.js";
 import { shotById } from "../../../core/shot-index.js";

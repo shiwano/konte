@@ -6,7 +6,7 @@ import {
 } from "../../core/feedback/index.js";
 import { reviewTimes as readReviewTimes } from "../../core/review-record.js";
 import type { KonteState } from "../../core/types/index.js";
-import { liveDefinitionHashes } from "./feedback/definition-hashes.js";
+import { liveDefinitionHashes } from "../../core/feedback/definition-hashes.js";
 import type { StalenessCache } from "../../core/staleness.js";
 
 // Feedback as `inspect` reports it. A stale comment no longer stands — its subject moved, or an

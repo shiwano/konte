@@ -26,7 +26,7 @@ import { directionPartHashes } from "../../core/direction-hash.js";
 import { JobManager } from "../../core/job-manager.js";
 import { saveReviewRecord } from "../../core/review-record.js";
 import { writeHeardSpeech } from "../../core/speech-hearing.js";
-import { loadDirectionIfPresent } from "../load-definition.js";
+import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { panelMoveHashes } from "../../core/panel-move-hash.js";
 
 vi.setConfig({ testTimeout: 15000 });

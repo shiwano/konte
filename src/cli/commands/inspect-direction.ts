@@ -27,12 +27,8 @@ import { FeedbackManager, feedbackStaleness } from "../../core/feedback/index.js
 import { StateManager } from "../../core/state/index.js";
 import { reviewTimes as readReviewTimes } from "../../core/review-record.js";
 import { scriptLinesToView } from "../../core/types/script.js";
-import {
-  loadDirectionIfPresent,
-  loadAnimaticSetupState,
-  loadStagingStageState,
-  loadSongVariantState,
-} from "../load-definition.js";
+import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
+import { loadDirectionStageInputs } from "../../core/board-analysis.js";
 import { formatDirectionRemainder } from "../print-status.js";
 import { loadReference } from "../../core/loader.js";
 import { type FeedbackView, feedbackLine, feedbackTag, printFeedback } from "./inspect-feedback.js";
@@ -126,9 +122,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
   const reference = await loadReference(videoRoot).catch(() => null);
   const check = checkDirection(direction, {
     referenceAssetNames: reference?.exposedAssetNames ?? [],
-    animaticSetups: await loadAnimaticSetupState(videoRoot, direction, reference),
-    stagingStage: await loadStagingStageState(videoRoot, direction),
-    songVariant: await loadSongVariantState(videoRoot, direction),
+    ...(await loadDirectionStageInputs(videoRoot, direction, reference)),
   });
   const findings = reportableDirectionFindings(check.active, view.gateSatisfied).map((f) => ({
     key: directionWaiverKey(f),

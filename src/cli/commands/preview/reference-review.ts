@@ -61,7 +61,7 @@ import type {
   SongLineBody,
 } from "../../../core/types/review-submit.js";
 import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
-import { loadCheckContext } from "../../finding-gates.js";
+import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings } from "../../../core/checks.js";
 import { createAssetInfoBuilder } from "./asset-info.js";
 

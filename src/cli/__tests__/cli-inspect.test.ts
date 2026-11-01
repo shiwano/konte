@@ -5,7 +5,7 @@ import { getAssetEntryByAddress } from "../../core/address.js";
 import { writeDefinitionSnapshot } from "../../core/definition-snapshot.js";
 import { StateManager } from "../../core/state/manager.js";
 import type { ComfyAssetDefinition } from "../../core/types/index.js";
-import { loadDefinitionForAddress } from "../load-definition.js";
+import { loadDefinitionForAddress } from "../../core/stage-definitions.js";
 import { generateFeedbackId } from "../../core/feedback/index.js";
 import {
   acceptDirection,

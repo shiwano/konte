@@ -9,13 +9,11 @@ import {
   buildDependencyGraph,
   collectTransitiveDependents,
   listBoardlessVideoShots,
-  listSetupAnchorGaps,
-  listViewAnchorGaps,
-  listSetupNestGaps,
   listUnusedAssetPaths,
   videoDependentsHoldVerdicts,
   type DependencyGraph,
 } from "../graph.js";
+import { listSetupAnchorGaps, listViewAnchorGaps, listSetupNestGaps } from "../board-analysis.js";
 import type {
   AnimaticDefinition,
   AssetDefinition,

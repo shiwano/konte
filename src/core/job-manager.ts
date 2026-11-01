@@ -39,6 +39,11 @@ export function jobsDbPath(videoRoot: string): string {
   return path.join(videoRoot, KONTE_DIR, JOBS_DB_FILE);
 }
 
+export function jobLogPath(videoRoot: string, jobId: string): string {
+  assertSafeJobId(jobId);
+  return path.join(videoRoot, KONTE_DIR, LOGS_DIR, `${jobId}.log`);
+}
+
 // Run-lease policy for locally-executed jobs (export renders, comfy model downloads): the
 // running worker renews its lease every RUN_LEASE_HEARTBEAT_MS, and the lease is valid for
 // RUN_LEASE_TTL_MS — so a crashed worker's job becomes reclaimable after at most one TTL,
@@ -929,8 +934,7 @@ export class JobManager {
   }
 
   private logFilePath(id: string): string {
-    assertSafeJobId(id);
-    return path.join(this.logsDir, `${id}.log`);
+    return jobLogPath(this.videoRoot, id);
   }
 
   // --- Storage ---

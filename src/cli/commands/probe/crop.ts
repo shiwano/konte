@@ -15,7 +15,7 @@ import { KonteError } from "../../../core/errors.js";
 import { ensureFfmpeg } from "../../../core/ffmpeg.js";
 import { runFfmpeg } from "../../../core/ffmpeg-exec.js";
 import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "../../../core/ffmpeg-binary.js";
-import { cropWindowOf } from "../../../core/graph.js";
+import { cropWindowOf } from "../../../core/board-analysis.js";
 import { inferMediaType } from "../../../core/media-type.js";
 import type { StateManager } from "../../../core/state/index.js";
 import { probeMediaInfo } from "../../../core/video-probe.js";

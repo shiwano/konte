@@ -1,5 +1,5 @@
 import { directionPartHashes } from "../../../core/direction-hash.js";
-import { loadDirectionIfPresent } from "../../load-definition.js";
+import { loadDirectionIfPresent } from "../../../core/stage-definitions.js";
 
 /**
  * The current content hash of every direction feedback target — what a direction comment's snapshot

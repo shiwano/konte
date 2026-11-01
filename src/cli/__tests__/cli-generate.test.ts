@@ -15,8 +15,7 @@ import {
 import { applyDirectionSectionDecisions } from "../../core/direction-acceptance.js";
 import { hashFile } from "../../core/content-hash.js";
 import { StateManager } from "../../core/state/manager.js";
-import { loadDirectionIfPresent } from "../load-definition.js";
-import { loadStageDefinitions } from "../../core/stage-definitions.js";
+import { loadDirectionIfPresent, loadStageDefinitions } from "../../core/stage-definitions.js";
 import {
   ctx,
   useTempWorkspace,

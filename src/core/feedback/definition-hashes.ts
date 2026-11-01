@@ -3,15 +3,15 @@ import {
   formatCompositionAddress,
   formatTimelineStemAddress,
   listShotStems,
-} from "../../../core/address.js";
+} from "../address.js";
 import {
   compositionDefinitionHashForAddress,
   definitionHashForAddress,
-} from "../../../core/composition-resource.js";
-import { panelMoveHashes } from "../../../core/panel-move-hash.js";
-import type { VideoDefinition } from "../../../core/types/index.js";
-import type { AnimaticDefinition } from "../../../core/types/animatic.js";
-import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
+} from "../composition-resource.js";
+import { panelMoveHashes } from "../panel-move-hash.js";
+import type { VideoDefinition } from "../types/index.js";
+import type { AnimaticDefinition } from "../types/animatic.js";
+import { loadVideoAndAnimatic } from "../stage-definitions.js";
 
 /**
  * The current live hash of everything a comment can snapshot that its take does not capture: each

@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { handleGetDirectionState } from "../direction-review.js";
-import { loadDirectionIfPresent } from "../../../load-definition.js";
+import { loadDirectionIfPresent } from "../../../../core/stage-definitions.js";
 import type { DirectionPreviewState } from "../../../../pages/preview/types.js";
 import { ctx, initWorkspace, useTempWorkspace } from "../../../__tests__/cli-fixtures.js";
 

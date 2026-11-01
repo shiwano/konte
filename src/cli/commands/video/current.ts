@@ -6,7 +6,7 @@ import { JobManager } from "../../../core/job-manager.js";
 import { loadLatestReviewRecord, reviewStage } from "../../../core/review-record.js";
 import { listVideos } from "../../../core/roots.js";
 import { currentRoots, requireWorkspaceRoot } from "../../context.js";
-import { loadDirectionIfPresent } from "../../load-definition.js";
+import { loadDirectionIfPresent } from "../../../core/stage-definitions.js";
 import { declareScope } from "../../scope.js";
 
 // The digest `konte video current` prints: enough to decide whether this session continues the

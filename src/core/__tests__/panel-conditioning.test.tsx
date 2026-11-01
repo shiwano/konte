@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { defineAnimatic, asset, Composition, Panel } from "../dsl/index.js";
-import { listPanelConditioning } from "../graph.js";
+import { listPanelConditioning } from "../board-analysis.js";
 import { moves, shot, pendingAnimaticShot, animaticTimeline } from "./helpers/shot.js";
 import { testDirection } from "./helpers/direction.js";
 

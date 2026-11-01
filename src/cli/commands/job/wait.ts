@@ -14,8 +14,7 @@ import { mcpLogEnd, readMcpLogSince } from "../../../mcp/mcp-log.js";
 import { parsePositiveInt } from "../../parse-option.js";
 import { requireVideoRoots } from "../../context.js";
 import { JobRunnerGuard } from "../../job-runner.js";
-import { loadDirectionIfPresent } from "../../load-definition.js";
-import { loadStageDefinitions } from "../../../core/stage-definitions.js";
+import { loadDirectionIfPresent, loadStageDefinitions } from "../../../core/stage-definitions.js";
 
 const POLL_INTERVAL_MS = 1000;
 

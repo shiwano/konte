@@ -2,9 +2,9 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { JobManager } from "../../../core/job-manager.js";
-import { StateManager } from "../../../core/state/index.js";
-import { cascadeFailPendingJobs } from "../clean-utils.js";
+import { JobManager } from "../job-manager.js";
+import { StateManager } from "../state/index.js";
+import { cascadeFailPendingJobs } from "../job-cascade.js";
 
 describe("cascadeFailPendingJobs", () => {
   let tmpDir: string;

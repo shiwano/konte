@@ -1,8 +1,7 @@
 import type { Command } from "commander";
 import { parseStageScope } from "../../../core/address.js";
 import { KonteError } from "../../../core/errors.js";
-import { loadDirectionIfPresent } from "../../load-definition.js";
-import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
+import { loadDirectionIfPresent, loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 import { loadReference } from "../../../core/loader.js";
 import { requireVideoRoot } from "../../context.js";
 import type { HandoffNote } from "../../../core/types/index.js";

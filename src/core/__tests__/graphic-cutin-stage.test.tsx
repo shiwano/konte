@@ -12,14 +12,13 @@ import {
   defineReference,
   defineVideo,
 } from "../dsl/index.js";
+import { buildDependencyGraph, listBoardlessVideoShots } from "../graph.js";
 import {
-  buildDependencyGraph,
-  listBoardlessVideoShots,
   listPanelReferenceSlots,
   listShotContinuity,
   listVideoShotPins,
   shotLaneChains,
-} from "../graph.js";
+} from "../board-analysis.js";
 import { renderToHtml } from "../jsx-html.js";
 import { directionDefaults } from "./helpers/direction.js";
 

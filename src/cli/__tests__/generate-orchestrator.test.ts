@@ -8,13 +8,12 @@ import { StateManager } from "../../core/state/index.js";
 import { comfyModelJobId } from "../../core/job-manager.js";
 import type { AssetDefinition, ComfyModelDeclaration } from "../../core/types/index.js";
 import {
-  assetSkipReason,
   buildGeneratePlan,
   collectComfyDownloads,
   formatAcceptedStaleNotice,
   formatComfyDownloadNotice,
-  getActiveVariantIds,
 } from "../generate-orchestrator.js";
+import { assetSkipReason, getActiveVariantIds } from "../../core/generation-selection.js";
 
 async function createManager(): Promise<StateManager> {
   const dir = await fs.mkdtemp(path.join(tmpdir(), "konte-genorch-"));

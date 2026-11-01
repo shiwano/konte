@@ -45,13 +45,12 @@ import { formatShotSpan } from "../../core/format-duration.js";
 import { directionShotCascadeTargets } from "../../core/direction-acceptance.js";
 import { KonteError } from "../../core/errors.js";
 import type { PromptOccurrence } from "../../core/prompt-check.js";
+import { buildDependencyGraph, extractRefs } from "../../core/graph.js";
 import {
-  buildDependencyGraph,
-  extractRefs,
   listPanelConditioning,
   type PanelConditioning,
   shotLaneChains,
-} from "../../core/graph.js";
+} from "../../core/board-analysis.js";
 import { loadAnimatic } from "../../core/loader.js";
 import { loadPatch, patchStepDependents } from "../../core/patch.js";
 import {
@@ -79,8 +78,12 @@ import { type ScriptLine, scriptLinesToView } from "../../core/types/script.js";
 import type { PanelDefinition, PanelLane, Respelling } from "../../core/types/definition.js";
 import type { AnimaticDefinition } from "../../core/types/animatic.js";
 import { spellingsOf } from "../../core/dsl/respell.js";
-import { loadDefinitionForAddress, loadDirectionIfPresent } from "../load-definition.js";
-import { loadStageDefinitions, loadVideoAndAnimatic } from "../../core/stage-definitions.js";
+import {
+  loadDefinitionForAddress,
+  loadDirectionIfPresent,
+  loadStageDefinitions,
+  loadVideoAndAnimatic,
+} from "../../core/stage-definitions.js";
 import { openVideoSession } from "../../core/video-session.js";
 import { loadReference } from "../../core/loader.js";
 import { requireVideoRoot } from "../context.js";
@@ -97,8 +100,9 @@ import {
   definitionForAddress,
   type StageDefinitions,
 } from "../../core/definition-hashes.js";
-import { selectGenerationAssets } from "../generation-selection.js";
-import { loadCheckContext, spendHeldAssets } from "../finding-gates.js";
+import { selectGenerationAssets } from "../../core/generation-selection.js";
+import { spendHeldAssets } from "../finding-gates.js";
+import { loadCheckContext } from "../../core/check-context.js";
 import { staleRefreshStep } from "../stale-refresh-step.js";
 
 type InspectScope =

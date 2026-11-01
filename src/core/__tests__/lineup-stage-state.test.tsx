@@ -20,11 +20,11 @@ import {
   listPlateTexts,
   listShotContinuity,
   listShownReferences,
-} from "../graph.js";
+} from "../board-analysis.js";
 import { directionDefaults, plainDirection, testDirection } from "./helpers/direction.js";
 import { animaticTimeline, moves, shot } from "./helpers/shot.js";
 
-// The stage-side half of the staging class — what `loadStagingStageState` hands `checkDirection`.
+// The stage-side half of the staging class — what `stagingStageState` hands `checkDirection`.
 // Built through the real DSL rather than by hand, since the order a panel's inputs arrive in is
 // exactly what `slot-order-mismatch` reads.
 const keyframe = defineComfyAsset({

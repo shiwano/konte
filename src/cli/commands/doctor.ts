@@ -34,7 +34,7 @@ import {
   listUnusedAssetPaths,
 } from "../../core/graph.js";
 import { JobManager } from "../../core/job-manager.js";
-import { loadStageDefinitions } from "../../core/stage-definitions.js";
+import { loadStageDefinitions, loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { readAssetsGitignore } from "../../core/assets-gitignore.js";
 import { buildOrphanContext, listStrayVariantDirs } from "../../core/orphans.js";
 import { listPatchVariantIds } from "../../core/patch.js";
@@ -55,8 +55,7 @@ import { resolveFalConfig } from "../../fal/config.js";
 import { FalHttpClient } from "../../fal/http-client.js";
 import { collectFindings, formatStaleWaiverLine } from "../../core/checks.js";
 import { formatFindingLine, groupByFixIn } from "../../core/finding.js";
-import { loadDirectionIfPresent } from "../load-definition.js";
-import { loadCheckContext } from "../finding-gates.js";
+import { loadCheckContext } from "../../core/check-context.js";
 import { currentRoots, requireWorkspaceRoot } from "../context.js";
 import type { VideoRoots, VideoSelection } from "../../core/roots.js";
 import { listVideos, STAGE_ENTRY_FILE, VIDEOS_DIR } from "../../core/roots.js";

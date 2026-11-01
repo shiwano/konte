@@ -8,7 +8,7 @@ import { ffprobeBin } from "../../../core/ffmpeg-binary.js";
 import { type AudioStreamInfo, probeMediaDetail } from "../../../core/video-probe.js";
 import { buildTimeAxis, cell, normalize, resample } from "../../audio-sparkline.js";
 import { openProbeTargets } from "./resolve-arg.js";
-import { loadDirectionIfPresent } from "../../load-definition.js";
+import { loadDirectionIfPresent } from "../../../core/stage-definitions.js";
 import { songAnalysisOf } from "../../../core/song-reading.js";
 import { recognizesSpeechIn } from "../../../core/sherpa-binary.js";
 import { heardText, readHeardSpeech } from "../../../core/speech-hearing.js";

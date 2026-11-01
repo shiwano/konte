@@ -21,7 +21,8 @@ import type {
   VideoDefinition,
 } from "../../core/types/index.js";
 import { loadStageDefinitions } from "../../core/stage-definitions.js";
-import { loadCheckContext, spendGate } from "../finding-gates.js";
+import { spendGate } from "../finding-gates.js";
+import { loadCheckContext } from "../../core/check-context.js";
 import { requireShotStages } from "../../core/select-definition.js";
 import { planDelivery } from "./render-delivery.js";
 import { formatSuggestedActions } from "../../core/suggested-actions.js";

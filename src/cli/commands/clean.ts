@@ -23,12 +23,8 @@ import { StateManager } from "../../core/state/index.js";
 import type { AnimaticDefinition, VideoDefinition } from "../../core/types/index.js";
 import { confirmDeletion, formatBreakdown, printAborted } from "../confirm.js";
 import { loadVideoAndAnimatic } from "../../core/stage-definitions.js";
-import {
-  type CascadeFailedJob,
-  cascadeFailPendingJobs,
-  getPathSize,
-  removePathSafely,
-} from "./clean-utils.js";
+import { getPathSize, removePathSafely } from "./clean-utils.js";
+import { type CascadeFailedJob, cascadeFailPendingJobs } from "../../core/job-cascade.js";
 import { prerollVariantDir } from "../../core/preview-preroll.js";
 import { requireVideoRoot } from "../context.js";
 

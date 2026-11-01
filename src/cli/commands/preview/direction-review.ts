@@ -24,11 +24,7 @@ import {
   isDirectionBriefListField,
 } from "../../../core/address.js";
 import { errorResponse, jsonResponse, parseJsonBody } from "../../page-host/http.js";
-import {
-  loadAnimaticSetupState,
-  loadStagingStageState,
-  loadSongVariantState,
-} from "../../load-definition.js";
+import { loadDirectionStageInputs } from "../../../core/board-analysis.js";
 import {
   checkDirection,
   directionWaiverKey,
@@ -96,7 +92,8 @@ import {
   storeOverallComment,
 } from "./review-shared.js";
 import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
-import { loadCheckContext, reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
+import { reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
+import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings } from "../../../core/checks.js";
 import { sourceViewOf, spanLabelOf } from "../../../core/source-direction.js";
 
@@ -159,9 +156,7 @@ export async function handleGetDirectionState(
 
   const check = checkDirection(direction, {
     referenceAssetNames: reference?.exposedAssetNames ?? [],
-    animaticSetups: await loadAnimaticSetupState(videoRoot, direction, reference),
-    stagingStage: await loadStagingStageState(videoRoot, direction),
-    songVariant: await loadSongVariantState(videoRoot, direction),
+    ...(await loadDirectionStageInputs(videoRoot, direction, reference)),
   });
   const currentHash = directionHash(direction);
   const acceptanceView = directionAcceptanceView(direction, manager.getDirectionAcceptance());

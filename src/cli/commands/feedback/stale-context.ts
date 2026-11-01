@@ -3,7 +3,7 @@ import type { FeedbackStaleContext } from "../../../core/feedback/index.js";
 import { StateManager } from "../../../core/state/manager.js";
 import type { KonteState } from "../../../core/types/index.js";
 import { reviewTimes } from "../../../core/review-record.js";
-import { liveDefinitionHashes } from "./definition-hashes.js";
+import { liveDefinitionHashes } from "../../../core/feedback/definition-hashes.js";
 import { directionSubjectHashes } from "./subject-hashes.js";
 
 // The state and staleness context a read-only feedback command judges each comment against — the

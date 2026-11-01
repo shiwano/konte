@@ -4,12 +4,10 @@ import * as path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Direction } from "../../core/dsl/direction.js";
 import { StateManager } from "../../core/state/index.js";
-import {
-  loadDirectionIfPresent,
-  unsatisfiedCharacters,
-  unsatisfiedVoices,
-} from "../load-definition.js";
-import { loadCheckContext, spendGate } from "../finding-gates.js";
+import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
+import { unsatisfiedCharacters, unsatisfiedVoices } from "../../core/spend-gate.js";
+import { spendGate } from "../finding-gates.js";
+import { loadCheckContext } from "../../core/check-context.js";
 import { DIRECTION_SECTIONS } from "../../core/address.js";
 import { applyDirectionSectionDecisions } from "../../core/direction-acceptance.js";
 

@@ -57,18 +57,14 @@ import { KonteError } from "../../../core/errors.js";
 import type { LoadedDefinitions } from "../../../core/select-definition.js";
 import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
 import { JobManager } from "../../../core/job-manager.js";
-import {
-  loadCheckContext,
-  reviewGate,
-  reviewHeldError,
-  reviewHeldFindings,
-} from "../../finding-gates.js";
+import { reviewGate, reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
+import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings } from "../../../core/checks.js";
 import { readyUndecidedVariants } from "../../../core/staleness.js";
 import { StateManager } from "../../../core/state/index.js";
 import { variantDir } from "../../../core/variant-dir.js";
 import { confirmAction, printAborted } from "../../confirm.js";
-import { loadDirectionIfPresent } from "../../load-definition.js";
+import { loadDirectionIfPresent } from "../../../core/stage-definitions.js";
 import { openVideoSession } from "../../../core/video-session.js";
 import { formatDirectionRemainder } from "../../print-status.js";
 import { assertSongLinesPlaced } from "../../../core/direction.js";

@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateFeedbackId } from "../../core/feedback/index.js";
 import { directionPartHashes } from "../../core/direction-hash.js";
-import { loadDirectionIfPresent } from "../load-definition.js";
+import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { JobManager } from "../../core/job-manager.js";
 import { StateManager } from "../../core/state/manager.js";
 import {

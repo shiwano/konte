@@ -41,7 +41,7 @@ import { buildShotCompositionHtml } from "../../../core/composition-builder.js";
 import type { StageDefinition } from "../../../core/types/index.js";
 import { probeMediaInfo } from "../../../core/video-probe.js";
 import { unresolvedPictureRefs } from "../../../core/composition-resource.js";
-import { loadNeedsReviewTargets } from "../../asset-status.js";
+import { loadNeedsReviewTargets } from "../../../core/status-report.js";
 import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 import { parseNumberOption } from "../../parse-option.js";
 import { requireVideoRoot } from "../../context.js";

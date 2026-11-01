@@ -7,7 +7,8 @@ import type {
   AssetDefinition,
   VideoDefinition,
 } from "../../core/types/index.js";
-import { judgeSpend, loadCheckContext } from "../finding-gates.js";
+import { judgeSpend } from "../../core/spend-gate.js";
+import { loadCheckContext } from "../../core/check-context.js";
 
 const format = { size: { width: 100, height: 100 }, fps: 30 };
 const comfy = { kind: "comfy" as const, workflow: "x.json", inputs: {} };

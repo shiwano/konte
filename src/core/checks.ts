@@ -34,8 +34,8 @@ import {
   type DependencyGraph,
   collectTransitiveDependents,
   listBoardlessVideoShots,
-  listViewAnchorGaps,
 } from "./graph.js";
+import { listViewAnchorGaps } from "./board-analysis.js";
 import { type PinOccurrence, pinFindings } from "./pin-check.js";
 import { type PromptOccurrence, promptFindings } from "./prompt-check.js";
 import { findAllUnmetPrerequisites, prerequisiteShot } from "./review-prerequisites.js";

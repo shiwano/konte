@@ -30,15 +30,10 @@ import {
 } from "../../core/variant-dir.js";
 import { collectDescendants } from "../../core/variant-lineage.js";
 import { confirmDeletion, printAborted } from "../confirm.js";
-import { loadDirectionIfPresent } from "../load-definition.js";
-import { loadStageDefinitions } from "../../core/stage-definitions.js";
+import { loadDirectionIfPresent, loadStageDefinitions } from "../../core/stage-definitions.js";
 import { directionPartHashes } from "../../core/direction-hash.js";
-import {
-  type CascadeFailedJob,
-  cascadeFailPendingJobs,
-  getPathSize,
-  removePathSafely,
-} from "./clean-utils.js";
+import { getPathSize, removePathSafely } from "./clean-utils.js";
+import { type CascadeFailedJob, cascadeFailPendingJobs } from "../../core/job-cascade.js";
 import { matchesAddressScope } from "../../core/address.js";
 import { requireVideoRoot } from "../context.js";
 

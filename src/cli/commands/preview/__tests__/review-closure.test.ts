@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { loadPreviewDefinitions } from "../load-definitions.js";
 import { handleGetFullComposition, handleGetReelState, handleReelSubmit } from "../reel-review.js";
-import { buildAssetStatus, needsReviewItems } from "../../../asset-status.js";
+import { buildAssetStatus, needsReviewItems } from "../../../../core/status-report.js";
 import {
   type DefinitionLike,
   getAssetEntryByAddress,

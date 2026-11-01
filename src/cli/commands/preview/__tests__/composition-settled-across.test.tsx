@@ -15,7 +15,7 @@ import { asset, defineAnimatic, defineDirection, defineVideo } from "../../../..
 import { StateManager } from "../../../../core/state/index.js";
 import type { StageDefinition } from "../../../../core/types/index.js";
 import { directionDefaults } from "../../../../core/__tests__/helpers/direction.js";
-import { buildAssetStatus, needsReviewItems } from "../../../asset-status.js";
+import { buildAssetStatus, needsReviewItems } from "../../../../core/status-report.js";
 import { handleGetReelState } from "../reel-review.js";
 
 const voice = defineComfyAsset({

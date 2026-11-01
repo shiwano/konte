@@ -347,8 +347,8 @@ export type AxisCut = {
 };
 
 // What the setups class needs from the board: which setups have a plate, which of those plates stand
-// on no location reference, and which developed shots reach neither anchor. Assembled by the CLI (see
-// loadAnimaticSetupState); undefined stands for "the animatic could not be read", the same contract
+// on no location reference, and which developed shots reach neither anchor. Assembled by
+// `animaticSetupState`; undefined stands for "the animatic could not be read", the same contract
 // `referenceAssetNames` carries for the rosters.
 //
 // The view half rides along: which plates and plate-less shots reach their location through another

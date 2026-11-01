@@ -17,7 +17,7 @@ import { StateManager } from "../../../core/state/index.js";
 import { loadVideoDefinition } from "../../../core/loader.js";
 import { ffprobeBin } from "../../../core/ffmpeg-binary.js";
 import { probeContainerTags, probeMediaDetail } from "../../../core/video-probe.js";
-import { formatBytes } from "../clean-utils.js";
+import { formatBytes } from "../../../core/format-bytes.js";
 import { requireVideoRoot } from "../../context.js";
 import { stageEntryPath } from "../../../core/roots.js";
 import { formatSeconds } from "../../../core/format-duration.js";

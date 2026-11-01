@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { loadWorkflow, parameterizeWorkflow } from "../../comfyui/workflow.js";
 import { getAssetEntryByAddress } from "../../core/address.js";
 import type { ComfyAssetDefinition } from "../../core/types/index.js";
-import { loadDefinitionForAddress } from "../load-definition.js";
+import { loadDefinitionForAddress } from "../../core/stage-definitions.js";
 import { ctx, initWorkspace, run, useTempWorkspace } from "./cli-fixtures.js";
 
 vi.setConfig({ testTimeout: 30000 });

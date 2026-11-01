@@ -3,7 +3,7 @@ import { Composition } from "../dsl/composition/composition.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { Cutin, Video, asset, defineReference, defineVideo, definePatch } from "../dsl/index.js";
 import { checkPins } from "../pin-check.js";
-import { listVideoShotPins } from "../graph.js";
+import { listVideoShotPins } from "../board-analysis.js";
 import { harvestShotPictureCues } from "../composition-builder.js";
 import { pendingShot, shot, videoTimeline } from "./helpers/shot.js";
 import { defineDirection } from "../dsl/direction.js";

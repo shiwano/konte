@@ -4,7 +4,7 @@ import { deriveShotHinges, type Direction } from "../../../core/dsl/direction.js
 import type { StateManager } from "../../../core/state/index.js";
 import type { AnimaticDefinition } from "../../../core/types/index.js";
 import { loadAnimatic } from "../../../core/loader.js";
-import { loadDirectionIfPresent } from "../../load-definition.js";
+import { loadDirectionIfPresent } from "../../../core/stage-definitions.js";
 
 /** One panel's declared movement out of its frame. At least one side is present. */
 interface MotionMove {

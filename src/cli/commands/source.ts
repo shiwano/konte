@@ -45,7 +45,7 @@ import { getPathSize } from "./clean-utils.js";
 import { confirmDeletion, printAborted } from "../confirm.js";
 import { typeCheckWorkspace } from "../../core/tsc.js";
 import { requireVideoRoot, requireWorkspaceRoot } from "../context.js";
-import { loadDirectionIfPresent } from "../load-definition.js";
+import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { declareScope } from "../scope.js";
 
 const progress = (line: string) => console.error(`konte: ${line}…`);

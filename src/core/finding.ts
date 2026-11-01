@@ -317,6 +317,14 @@ export function formatFindingLine(finding: Finding): string {
   return `[${findingLabel(finding)}] ${subject}${finding.message}`;
 }
 
+// The findings under the file each is fixed in, as lines of a refusal.
+export function formatFindingGroups(findings: readonly Finding[]): string[] {
+  return groupByFixIn(findings).flatMap(({ file, findings: group }) => [
+    `  ${file}:`,
+    ...group.map((f) => `    ${formatFindingLine(f)}`),
+  ]);
+}
+
 // The findings grouped by the file each is fixed in, in pipeline order, each file's lines indented
 // under it.
 export function groupByFixIn(

@@ -1,6 +1,11 @@
-import type { AssetStage } from "./address.js";
+import { type AssetStage, type DefinitionLike, getStage } from "./address.js";
+import { assertNever } from "./assert.js";
+import type { Direction } from "./dsl/direction.js";
+import { KonteError } from "./errors.js";
 import {
   loadAnimatic,
+  loadDirectionDefinition,
+  loadIfPresent,
   loadReference,
   loadVideoDefinition,
   reloadVideoDefinition,
@@ -81,4 +86,31 @@ async function loadTolerant(
       })
     : null;
   return { reference, animatic, video, errors };
+}
+
+// The direction (direction.ts). Absent file => null; an existing but invalid file throws.
+export function loadDirectionIfPresent(videoRoot: string): Promise<Direction | null> {
+  return loadIfPresent(stageEntryPath(videoRoot, "direction"), loadDirectionDefinition);
+}
+
+export async function loadDefinitionForAddress(
+  videoRoot: string,
+  address: string,
+): Promise<DefinitionLike> {
+  const stage = getStage(address);
+  switch (stage) {
+    case "reference":
+      return loadReference(videoRoot);
+    case "animatic":
+      return loadAnimatic(videoRoot);
+    case "video":
+      return loadVideoDefinition(stageEntryPath(videoRoot, "video"));
+    case "direction":
+      throw new KonteError(
+        "INVALID_ADDRESS",
+        `Address "${address}" references the direction stage, which is feedback-only with no asset definition`,
+      );
+    default:
+      return assertNever(stage, "loadDefinitionForAddress");
+  }
 }
