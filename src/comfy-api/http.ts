@@ -1,5 +1,7 @@
+import { sendOnce as sendRequestOnce } from "../backends/http-util.js";
+import { rejectedCredentialMessage } from "../core/credentials.js";
 import { KonteError, type KonteErrorCode } from "../core/errors.js";
-import { API_REQUEST_TIMEOUT_MS, fetchWithRetry, TransientHttpError } from "../core/http-retry.js";
+import { fetchWithRetry } from "../core/http-retry.js";
 import { redactExternalBody } from "../core/redact.js";
 import { COMFY_API_KEY_ENV } from "./routing.js";
 
@@ -68,6 +70,7 @@ function codeFor(status: number, serverCode: string | null, body: string): Konte
   )
     return "COMFY_API_INSUFFICIENT_CREDITS";
   if (status === 403 && upper.includes("FEATURE_NOT_ENABLED")) return "COMFY_API_NOT_ENABLED";
+  if (status === 401 || status === 403) return "COMFY_API_UNAUTHORIZED";
   return "COMFY_API_ERROR";
 }
 
@@ -75,38 +78,31 @@ export async function toHttpError(res: Response, what: string): Promise<ComfyApi
   const body = redactExternalBody(await res.text().catch(() => ""), [`\${${COMFY_API_KEY_ENV}}`]);
   const { code: serverCode, message } = serverCodeOf(body);
   const detail = message ?? body;
+  const code = codeFor(res.status, serverCode, body);
+  const hint =
+    code === "COMFY_API_UNAUTHORIZED" ? `. ${rejectedCredentialMessage(COMFY_API_KEY_ENV)}` : "";
   return new ComfyApiHttpError(
-    codeFor(res.status, serverCode, body),
-    `${what} failed (${res.status}${serverCode ? ` ${serverCode}` : ""})${detail ? `: ${detail}` : ""}`,
+    code,
+    `${what} failed (${res.status}${serverCode ? ` ${serverCode}` : ""})${detail ? `: ${detail}` : ""}${hint}`,
     { status: res.status, serverCode, body },
   );
 }
 
-/**
- * One request that must not repeat on its own (a POST that may have landed). A network failure or a
- * 5xx is a `TransientHttpError`, which a caller reads as "outcome unknown".
- */
-export async function sendOnce(
+export function sendOnce(
   url: string,
   init: RequestInit & { auth: ComfyApiAuth },
   what: string,
 ): Promise<Response> {
   const { auth, headers, ...rest } = init;
-  let res: Response;
-  try {
-    res = await fetch(url, {
+  return sendRequestOnce(
+    url,
+    {
       ...rest,
       headers: { ...authHeaders(auth), ...(headers as Record<string, string> | undefined) },
-      signal: rest.signal ?? AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
-    });
-  } catch (cause) {
-    throw new TransientHttpError(`${what}: ${(cause as Error).message}`, { cause });
-  }
-  if (res.status >= 500) {
-    const err = await toHttpError(res, what);
-    throw new TransientHttpError(err.message, { status: res.status });
-  }
-  return res;
+    },
+    what,
+    async (res) => (await toHttpError(res, what)).message,
+  );
 }
 
 /** An idempotent request: retried on a transient failure, then thrown as `TransientHttpError`. */
@@ -124,15 +120,4 @@ export async function sendIdempotent(
     },
     options,
   );
-}
-
-export async function readJson<T>(res: Response, what: string): Promise<T> {
-  try {
-    return (await res.json()) as T;
-  } catch (cause) {
-    if (!(cause instanceof SyntaxError)) {
-      throw new TransientHttpError(`${what} response interrupted`, { cause });
-    }
-    throw new KonteError("COMFY_API_ERROR", `${what} returned a non-JSON response`);
-  }
 }

@@ -25,6 +25,12 @@ export function missingCredentialMessage(key: string): string {
   return `${key} is not set. Run "konte settings" and set it under Credentials (or export it in your environment).${where}`;
 }
 
+export function rejectedCredentialMessage(key: string): string {
+  const known = knownCredential(key);
+  const from = known ? ` from ${known.obtainUrl}` : "";
+  return `Replace ${key} in \`konte settings\` (Credentials tab) with a valid key${from}, then re-run the command.`;
+}
+
 /**
  * Reads `<workspaceRoot>/konte.credentials.json`. There is one per workspace; a video does not
  * carry its own.

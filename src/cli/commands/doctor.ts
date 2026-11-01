@@ -721,14 +721,7 @@ async function checkFalConnection(): Promise<CheckResult> {
       message: "cannot reach FAL API (key may be invalid)",
     };
   } catch (err) {
-    if (err instanceof KonteError && err.code === "FAL_AUTH_MISSING") {
-      return { name: "FAL connection", status: "FAIL", message: err.message };
-    }
-    return {
-      name: "FAL connection",
-      status: "FAIL",
-      message: errorMessage(err),
-    };
+    return { name: "FAL connection", status: "FAIL", message: errorMessage(err) };
   }
 }
 

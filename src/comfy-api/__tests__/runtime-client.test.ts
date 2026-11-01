@@ -154,6 +154,16 @@ describe("submitJob", () => {
     expect((err as TransientHttpError).status).toBe(429);
   });
 
+  it("is COMFY_API_UNAUTHORIZED when the key is rejected", async () => {
+    mockFetch(() => json({ error: { code: "unauthorized", message: "bad key" } }, 401));
+    const client = new ComfyApiRuntimeClient("https://dep.example", "key", "deployment");
+
+    await expect(client.submitJob({}, "v-abc")).rejects.toMatchObject({
+      code: "COMFY_API_UNAUTHORIZED",
+      status: 401,
+    });
+  });
+
   it("keeps the server's code on a refusal", async () => {
     mockFetch(() => json({ error: { code: "idempotency_key_reuse", message: "reused" } }, 409));
     const client = new ComfyApiRuntimeClient("https://dep.example", "key", "deployment");

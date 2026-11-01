@@ -1,12 +1,14 @@
 import { openAsBlob } from "node:fs";
 import * as path from "node:path";
-import { downloadToFile, guessContentType, parseApiResponse } from "../backends/http-util.js";
-import { KonteError } from "../core/errors.js";
 import {
-  API_REQUEST_TIMEOUT_MS,
-  fetchWithRetry,
-  mediaTransferTimeoutMs,
-} from "../core/http-retry.js";
+  downloadToFile,
+  guessContentType,
+  parseApiResponse,
+  sendOnce,
+} from "../backends/http-util.js";
+import { rejectedCredentialMessage } from "../core/credentials.js";
+import { KonteError, type KonteErrorCode } from "../core/errors.js";
+import { fetchWithRetry, mediaTransferTimeoutMs, TransientHttpError } from "../core/http-retry.js";
 import { redactExternalBody } from "../core/redact.js";
 import { backendCredential } from "../core/types/credentials.js";
 import {
@@ -25,8 +27,39 @@ function queueAppId(endpointId: string): string {
   return endpointId.split("/").slice(0, 2).join("/");
 }
 
-function redactFalBody(body: string): string {
-  return redactExternalBody(body, [`\${${backendCredential("fal")!.key}}`]);
+const FAL_KEY = backendCredential("fal")!.key;
+
+async function failureMessage(res: Response, what: string): Promise<string> {
+  const body = redactExternalBody(await res.text().catch(() => ""), [`\${${FAL_KEY}}`]);
+  return `${what} failed (${res.status}): ${body}`;
+}
+
+async function failure(res: Response, what: string, code: KonteErrorCode): Promise<KonteError> {
+  const message = await failureMessage(res, what);
+  if (res.status === 401 || res.status === 403) {
+    return new KonteError("FAL_UNAUTHORIZED", `${message}. ${rejectedCredentialMessage(FAL_KEY)}`);
+  }
+  return new KonteError(code, message);
+}
+
+function send(url: string, init: RequestInit, what: string): Promise<Response> {
+  return sendOnce(url, init, what, (res) => failureMessage(res, what));
+}
+
+// An upload or a cancel that could not be sent changes nothing on fal's side; only a submit's
+// outcome is left unknown.
+async function sendOrFail(
+  url: string,
+  init: RequestInit,
+  what: string,
+  code: KonteErrorCode,
+): Promise<Response> {
+  try {
+    return await send(url, init, what);
+  } catch (err) {
+    if (err instanceof TransientHttpError) throw new KonteError(code, err.message);
+    throw err;
+  }
 }
 
 export class FalHttpClient {
@@ -37,28 +70,24 @@ export class FalHttpClient {
   }
 
   async submit(endpointId: string, inputs: Record<string, unknown>): Promise<FalSubmitResponse> {
-    const url = `https://queue.fal.run/${endpointId}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: this.headers(),
-      body: JSON.stringify(inputs),
-      signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
-    });
-
-    if (!res.ok) {
-      const body = redactFalBody(await res.text().catch(() => ""));
-      if (res.status === 401 || res.status === 403) {
-        const credential = backendCredential("fal")!;
-        throw new KonteError(
-          "FAL_ERROR",
-          `FAL rejected ${credential.key} (${res.status}): ${body}. Replace it in \`konte settings\` ` +
-            `(Credentials tab) with a valid key from ${credential.obtainUrl}, then re-run the command.`,
-        );
-      }
-      throw new KonteError("FAL_ERROR", `FAL submit failed (${res.status}): ${body}`);
+    const what = "FAL submit";
+    let res: Response;
+    try {
+      res = await send(
+        `https://queue.fal.run/${endpointId}`,
+        { method: "POST", headers: this.headers(), body: JSON.stringify(inputs) },
+        what,
+      );
+    } catch (err) {
+      if (!(err instanceof TransientHttpError)) throw err;
+      throw new KonteError(
+        "SUBMISSION_UNCONFIRMED",
+        `The FAL submission's outcome is unknown (${err.message}). It may already be running; ` +
+          `automatic resubmission stopped. Check the requests on the fal.ai dashboard before rerolling.`,
+      );
     }
-
-    return parseApiResponse(res, FalSubmitResponseSchema, "FAL_ERROR", "FAL submit");
+    if (!res.ok) throw await failure(res, what, "FAL_ERROR");
+    return parseApiResponse(res, FalSubmitResponseSchema, "FAL_ERROR", what);
   }
 
   async getStatus(endpointId: string, requestId: string): Promise<FalStatusResponse> {
@@ -67,10 +96,7 @@ export class FalHttpClient {
     // the poll loop in waitForCompletion owns the retry cadence and unconfirmed detection.
     const res = await fetchWithRetry(url, { headers: this.headers() }, { maxRetries: 0 });
 
-    if (!res.ok) {
-      const body = redactFalBody(await res.text().catch(() => ""));
-      throw new KonteError("FAL_ERROR", `FAL status check failed (${res.status}): ${body}`);
-    }
+    if (!res.ok) throw await failure(res, "FAL status check", "FAL_ERROR");
 
     return parseApiResponse(res, FalStatusResponseSchema, "FAL_ERROR", "FAL status check");
   }
@@ -79,26 +105,20 @@ export class FalHttpClient {
     const url = `https://queue.fal.run/${queueAppId(endpointId)}/requests/${requestId}`;
     const res = await fetchWithRetry(url, { headers: this.headers() });
 
-    if (!res.ok) {
-      const body = redactFalBody(await res.text().catch(() => ""));
-      throw new KonteError("FAL_ERROR", `FAL result fetch failed (${res.status}): ${body}`);
-    }
+    if (!res.ok) throw await failure(res, "FAL result fetch", "FAL_ERROR");
 
     return parseApiResponse(res, FalResultResponseSchema, "FAL_ERROR", "FAL result fetch");
   }
 
   async cancel(endpointId: string, requestId: string): Promise<void> {
     const url = `https://queue.fal.run/${queueAppId(endpointId)}/requests/${requestId}/cancel`;
-    const res = await fetch(url, {
-      method: "PUT",
-      headers: this.headers(),
-      signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
-    });
-
-    if (!res.ok) {
-      const body = redactFalBody(await res.text().catch(() => ""));
-      throw new KonteError("FAL_ERROR", `FAL cancel failed (${res.status}): ${body}`);
-    }
+    const res = await sendOrFail(
+      url,
+      { method: "PUT", headers: this.headers() },
+      "FAL cancel",
+      "FAL_ERROR",
+    );
+    if (!res.ok) throw await failure(res, "FAL cancel", "FAL_ERROR");
   }
 
   async uploadFile(filePath: string): Promise<{ accessUrl: string }> {
@@ -108,26 +128,17 @@ export class FalHttpClient {
     // memory just to hand it to fetch is what an upload of one costs today.
     const fileData = await openAsBlob(filePath, { type: contentType });
 
-    const tokenRes = await fetch(
+    const tokenRes = await sendOrFail(
       "https://rest.alpha.fal.ai/storage/auth/token?storage_type=fal-cdn-v3",
       {
         method: "POST",
         headers: this.headers(),
-        body: JSON.stringify({
-          content_type: contentType,
-          file_name: fileName,
-        }),
-        signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
+        body: JSON.stringify({ content_type: contentType, file_name: fileName }),
       },
+      "FAL upload token",
+      "FAL_UPLOAD_FAILED",
     );
-
-    if (!tokenRes.ok) {
-      const body = redactFalBody(await tokenRes.text().catch(() => ""));
-      throw new KonteError(
-        "FAL_UPLOAD_FAILED",
-        `FAL upload token failed (${tokenRes.status}): ${body}`,
-      );
-    }
+    if (!tokenRes.ok) throw await failure(tokenRes, "FAL upload token", "FAL_UPLOAD_FAILED");
 
     const tokenData = await parseApiResponse(
       tokenRes,
@@ -136,24 +147,22 @@ export class FalHttpClient {
       "FAL upload token",
     );
 
-    const uploadRes = await fetch(`${tokenData.base_url}/files/upload`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${tokenData.token}`,
-        "Content-Type": contentType,
-        "X-Fal-File-Name": fileName,
+    const uploadRes = await sendOrFail(
+      `${tokenData.base_url}/files/upload`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${tokenData.token}`,
+          "Content-Type": contentType,
+          "X-Fal-File-Name": fileName,
+        },
+        body: fileData,
+        signal: AbortSignal.timeout(mediaTransferTimeoutMs(fileData.size)),
       },
-      body: fileData,
-      signal: AbortSignal.timeout(mediaTransferTimeoutMs(fileData.size)),
-    });
-
-    if (!uploadRes.ok) {
-      const body = redactFalBody(await uploadRes.text().catch(() => ""));
-      throw new KonteError(
-        "FAL_UPLOAD_FAILED",
-        `FAL file upload failed (${uploadRes.status}): ${body}`,
-      );
-    }
+      "FAL file upload",
+      "FAL_UPLOAD_FAILED",
+    );
+    if (!uploadRes.ok) throw await failure(uploadRes, "FAL file upload", "FAL_UPLOAD_FAILED");
 
     const uploadData = await parseApiResponse(
       uploadRes,

@@ -1,8 +1,9 @@
 import * as path from "node:path";
 import { z } from "zod";
 import { streamToFileAtomic, writeFileAtomic } from "../core/atomic-write.js";
-import { KonteError, type KonteErrorCode } from "../core/errors.js";
+import { KonteError, type KonteErrorCode, errorMessage } from "../core/errors.js";
 import {
+  API_REQUEST_TIMEOUT_MS,
   MEDIA_TRANSFER_TIMEOUT_MS,
   fetchWithRetry,
   TransientHttpError,
@@ -26,6 +27,31 @@ const CONTENT_TYPES: Record<string, string> = {
 export function guessContentType(fileName: string): string {
   const ext = path.extname(fileName).toLowerCase();
   return CONTENT_TYPES[ext] ?? "application/octet-stream";
+}
+
+/**
+ * One request that must not repeat on its own (a POST that may have landed). A network failure or a
+ * 5xx is a `TransientHttpError`, which a caller reads as "outcome unknown".
+ */
+export async function sendOnce(
+  url: string,
+  init: RequestInit,
+  what: string,
+  describeFailure: (res: Response) => Promise<string>,
+): Promise<Response> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...init,
+      signal: init.signal ?? AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
+    });
+  } catch (cause) {
+    throw new TransientHttpError(`${what}: ${errorMessage(cause)}`, { cause });
+  }
+  if (res.status >= 500) {
+    throw new TransientHttpError(await describeFailure(res), { status: res.status });
+  }
+  return res;
 }
 
 // A third-party API's JSON body is untrusted input. Validate it at the client boundary so a

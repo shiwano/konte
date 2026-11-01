@@ -3,7 +3,8 @@ import * as path from "node:path";
 import { z } from "zod";
 import { writeFileAtomic } from "../core/atomic-write.js";
 import { KonteError, errorMessage } from "../core/errors.js";
-import { COMFY_CLOUD_ORIGIN, readJson, sendIdempotent, toHttpError } from "./http.js";
+import { parseApiResponse } from "../backends/http-util.js";
+import { COMFY_CLOUD_ORIGIN, sendIdempotent, toHttpError } from "./http.js";
 
 const CACHE_FILE = path.join(".konte", "comfycloud.json");
 const CACHE_TTL_MS = 60 * 60 * 1000;
@@ -27,6 +28,8 @@ const AssetRowSchema = z
 const AssetPageSchema = z
   .object({ assets: z.array(AssetRowSchema), has_more: z.boolean().optional() })
   .passthrough();
+
+const NodeIndexSchema = z.record(z.string(), z.unknown());
 
 /**
  * What Comfy Cloud has installed: its node classes (`/api/object_info`) and its models
@@ -103,10 +106,7 @@ export class ComfyCloudCatalog {
         auth: { scheme: "x-api-key", key: this.apiKey },
       });
       if (!res.ok) throw await toHttpError(res, what);
-      const body = await readJson<unknown>(res, what);
-      if (typeof body !== "object" || body === null) {
-        throw new KonteError("COMFY_API_ERROR", `${what} is not an object`);
-      }
+      const body = await parseApiResponse(res, NodeIndexSchema, "COMFY_API_ERROR", what);
       classes = Object.keys(body);
     } catch (err) {
       throw unavailable(what, err);
@@ -138,14 +138,12 @@ export class ComfyCloudCatalog {
           auth: { scheme: "x-api-key", key: this.apiKey },
         });
         if (!res.ok) throw await toHttpError(res, what);
-        const parsed = AssetPageSchema.safeParse(await readJson<unknown>(res, what));
-        if (!parsed.success)
-          throw new KonteError("COMFY_API_ERROR", `${what} has an unexpected shape`);
-        if (parsed.data.assets.some((row) => row.file_path === filePath)) {
+        const page = await parseApiResponse(res, AssetPageSchema, "COMFY_API_ERROR", what);
+        if (page.assets.some((row) => row.file_path === filePath)) {
           present = true;
           break;
         }
-        if (!parsed.data.has_more) break;
+        if (!page.has_more) break;
       }
     } catch (err) {
       throw unavailable(what, err);

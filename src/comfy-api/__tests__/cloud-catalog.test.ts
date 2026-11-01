@@ -67,9 +67,16 @@ describe("nodeClasses", () => {
   });
 
   it("is COMFY_CLOUD_UNAVAILABLE when Cloud refuses the read", async () => {
-    mockFetch(() => json({ error: "unauthorized" }, 401));
+    mockFetch(() => json({ error: "not_found" }, 404));
     await expect(new ComfyCloudCatalog(tmpDir, "key").nodeClasses()).rejects.toMatchObject({
       code: "COMFY_CLOUD_UNAVAILABLE",
+    });
+  });
+
+  it("is COMFY_API_UNAUTHORIZED when Cloud rejects the key", async () => {
+    mockFetch(() => json({ error: "unauthorized" }, 401));
+    await expect(new ComfyCloudCatalog(tmpDir, "key").nodeClasses()).rejects.toMatchObject({
+      code: "COMFY_API_UNAUTHORIZED",
     });
   });
 

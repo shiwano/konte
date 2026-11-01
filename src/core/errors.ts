@@ -50,6 +50,8 @@ export type KonteErrorCode =
   | "COMFY_API_ERROR"
   // The account's Comfy API beta is not enabled (403 FEATURE_NOT_ENABLED).
   | "COMFY_API_NOT_ENABLED"
+  // 401/403 from a Comfy API layer: COMFY_API_KEY was rejected.
+  | "COMFY_API_UNAUTHORIZED"
   // A release could not be built: a model the builder cannot fetch, or `deployable: false`.
   | "COMFY_API_RELEASE_FAILED"
   // A model whose URL carries a credential, which a Build definition would keep.
@@ -210,7 +212,8 @@ export type KonteErrorCode =
   | "WORKFLOW_IMPORT_FAILED"
   | "FAL_ERROR"
   | "FAL_UNAVAILABLE"
-  | "FAL_AUTH_MISSING"
+  // 401/403 from fal.ai: FAL_KEY was rejected.
+  | "FAL_UNAUTHORIZED"
   | "FAL_UPLOAD_FAILED"
   | "GIT_ERROR"
   | "LOCK_TIMEOUT"

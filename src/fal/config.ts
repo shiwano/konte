@@ -8,7 +8,7 @@ export type FalConfig = {
 export async function resolveFalConfig(): Promise<FalConfig> {
   const apiKey = process.env.FAL_KEY;
   if (!apiKey) {
-    throw new KonteError("FAL_AUTH_MISSING", missingCredentialMessage("FAL_KEY"));
+    throw new KonteError("BACKEND_NOT_CONFIGURED", missingCredentialMessage("FAL_KEY"));
   }
   return { apiKey };
 }

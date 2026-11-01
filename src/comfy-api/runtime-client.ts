@@ -2,19 +2,21 @@ import { createReadStream, openAsBlob } from "node:fs";
 import * as path from "node:path";
 import { blake3 } from "@noble/hashes/blake3.js";
 import { z } from "zod";
-import { guessContentType, parseApiResponse, saveDownloadResponse } from "../backends/http-util.js";
+import {
+  downloadToFile,
+  guessContentType,
+  parseApiResponse,
+  saveDownloadResponse,
+} from "../backends/http-util.js";
 import { KonteError } from "../core/errors.js";
 import {
-  fetchWithRetry,
   MEDIA_TRANSFER_TIMEOUT_MS,
   mediaTransferTimeoutMs,
   TransientHttpError,
 } from "../core/http-retry.js";
-import { redactUrlSecret } from "../core/redact.js";
 import {
   type ComfyApiAuth,
   ComfyApiHttpError,
-  readJson,
   sendIdempotent,
   sendOnce,
   toHttpError,
@@ -95,7 +97,7 @@ const JobListSchema = z.union([
   z.object({ jobs: z.array(ComfyApiJobSchema) }).passthrough(),
 ]);
 
-const LogsSchema = z.object({ text: z.string() }).passthrough();
+const LogsSchema = z.object({ text: z.string() }).passthrough().nullable().catch(null);
 
 // The surfaces differ (cloud vs. deployment); `tags` is the one an upload depends on.
 export type ComfyApiSurface = "cloud" | "deployment";
@@ -229,9 +231,8 @@ export class ComfyApiRuntimeClient {
     });
     if (res.status === 204) return null;
     if (!res.ok) throw await toHttpError(res, "Comfy API job logs");
-    const text = (await readJson<unknown>(res, "Comfy API job logs")) ?? {};
-    const parsed = LogsSchema.safeParse(text);
-    return parsed.success ? parsed.data.text : null;
+    const body = await parseApiResponse(res, LogsSchema, "COMFY_API_ERROR", "Comfy API job logs");
+    return body?.text ?? null;
   }
 
   async cancelJob(jobId: string): Promise<void> {
@@ -259,16 +260,7 @@ export class ComfyApiRuntimeClient {
         throw new KonteError("COMFY_API_ERROR", `Output ${output.name} redirected nowhere`);
       }
       const signed = new URL(location, this.origin).toString();
-      const file = await fetchWithRetry(signed, undefined, {
-        timeoutMs: MEDIA_TRANSFER_TIMEOUT_MS,
-      });
-      if (!file.ok) {
-        throw new KonteError(
-          "COMFY_API_ERROR",
-          `Failed to download ${output.name} (${file.status}): ${redactUrlSecret(signed)}`,
-        );
-      }
-      await saveDownloadResponse(file, outputPath);
+      await downloadToFile(signed, outputPath, "COMFY_API_ERROR");
       return;
     }
     if (!res.ok) throw await toHttpError(res, `Comfy API download of ${output.name}`);
