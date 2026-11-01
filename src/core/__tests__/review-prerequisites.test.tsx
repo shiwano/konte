@@ -31,7 +31,7 @@ const board = (build: () => React.ReactElement) =>
   );
 
 // A take that resolves: an unaccepted variant with a file on disk.
-function stateWithTakes(...addresses: string[]): KonteState {
+function stateWithVariants(...addresses: string[]): KonteState {
   const assets: KonteState["assets"] = {};
   for (const [i, address] of addresses.entries()) {
     assets[address] = {
@@ -62,7 +62,7 @@ describe("findUnmetPrerequisites — animatic panel movement", () => {
       findUnmetPrerequisites(
         "animatic",
         { animatic: sb },
-        stateWithTakes("animatic:shot.01.first"),
+        stateWithVariants("animatic:shot.01.first"),
       ),
     ).toEqual([
       {
@@ -86,7 +86,7 @@ describe("findUnmetPrerequisites — animatic panel movement", () => {
       findUnmetPrerequisites(
         "animatic",
         { animatic: sb },
-        stateWithTakes("animatic:shot.01.first"),
+        stateWithVariants("animatic:shot.01.first"),
       )[0]?.missing,
     ).toEqual(["camera"]);
   });
@@ -100,7 +100,7 @@ describe("findUnmetPrerequisites — animatic panel movement", () => {
         <Panel src={asset("first", imageComfy, { prompt: "a" })} />
       </Composition>
     ));
-    expect(findUnmetPrerequisites("animatic", { animatic: sb }, stateWithTakes())).toEqual([]);
+    expect(findUnmetPrerequisites("animatic", { animatic: sb }, stateWithVariants())).toEqual([]);
   });
 
   it("ignores a bound panel", () => {
@@ -113,7 +113,7 @@ describe("findUnmetPrerequisites — animatic panel movement", () => {
       findUnmetPrerequisites(
         "animatic",
         { animatic: sb },
-        stateWithTakes("animatic:shot.01.first"),
+        stateWithVariants("animatic:shot.01.first"),
       ),
     ).toEqual([]);
   });
@@ -129,7 +129,7 @@ describe("findUnmetPrerequisites — animatic panel movement", () => {
       findUnmetPrerequisites(
         "animatic",
         { animatic: sb },
-        stateWithTakes("animatic:shot.01.first", "animatic:shot.01.last"),
+        stateWithVariants("animatic:shot.01.first", "animatic:shot.01.last"),
       ),
     ).toEqual([]);
   });
@@ -145,7 +145,7 @@ describe("findUnmetPrerequisites — animatic panel movement", () => {
       findUnmetPrerequisites(
         "animatic",
         { animatic: sb },
-        stateWithTakes("animatic:shot.01.first", "animatic:shot.01.last"),
+        stateWithVariants("animatic:shot.01.first", "animatic:shot.01.last"),
       ).map((u: UnmetPrerequisite) => u.address),
     ).toEqual(["animatic:shot.01.first"]);
   });
@@ -205,7 +205,11 @@ describe("findUnmetPrerequisites — animatic panel movement", () => {
       findUnmetPrerequisites(
         "animatic",
         { animatic: sb },
-        stateWithTakes("animatic:shot.01.first", "animatic:shot.01.last", "animatic:shot.02.first"),
+        stateWithVariants(
+          "animatic:shot.01.first",
+          "animatic:shot.01.last",
+          "animatic:shot.02.first",
+        ),
       ).map((u: UnmetPrerequisite) => u.address),
     ).toEqual(["animatic:shot.01.last"]);
   });
@@ -218,7 +222,7 @@ describe("findUnmetPrerequisites — animatic panel movement", () => {
       }),
       { timeline: () => animaticTimeline([pendingAnimaticShot("01", { duration: 5 })]) },
     );
-    expect(findUnmetPrerequisites("animatic", { animatic: sb }, stateWithTakes())).toEqual([]);
+    expect(findUnmetPrerequisites("animatic", { animatic: sb }, stateWithVariants())).toEqual([]);
   });
 
   it("narrows to the given addresses", () => {
@@ -229,7 +233,7 @@ describe("findUnmetPrerequisites — animatic panel movement", () => {
         <Panel src={asset("last", imageComfy, { prompt: "c" })} />
       </Composition>
     ));
-    const state = stateWithTakes(
+    const state = stateWithVariants(
       "animatic:shot.01.first",
       "animatic:shot.01.mid",
       "animatic:shot.01.last",
@@ -251,7 +255,7 @@ describe("findUnmetPrerequisites — stages with no collector", () => {
       <Panel src={asset("first", imageComfy, { prompt: "a" })} />
     </Composition>
   ));
-  const state = stateWithTakes("animatic:shot.01.first");
+  const state = stateWithVariants("animatic:shot.01.first");
 
   it.each(["reference", "video", "direction"] as const)("answers empty for %s", (stage) => {
     expect(findUnmetPrerequisites(stage, { animatic: sb }, state)).toEqual([]);
@@ -278,7 +282,7 @@ describe("findAllUnmetPrerequisites — a reference asset used as a panel", () =
       },
     ],
   };
-  const state = stateWithTakes(referencePanel);
+  const state = stateWithVariants(referencePanel);
 
   it("is invisible to the stage that owns its address", () => {
     expect(findUnmetPrerequisites("reference", { animatic: sb }, state)).toEqual([]);

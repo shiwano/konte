@@ -8,7 +8,7 @@ import { resolutionNotices, sweepNotices } from "../resolution-notice.js";
 
 const ADDRESS = "video:shot.12.motion";
 
-const currentTake = {
+const currentVariant = {
   stalenessCache: () => ({}),
   variantStaleness: () => ({ inputStale: false, definitionStale: false }),
 } as unknown as StateManager;
@@ -20,7 +20,7 @@ function job(variantId: string, address: string, status: GenerationJob["status"]
 describe("resolutionNotices", () => {
   it("names the take still generating at the address and the job to wait on", () => {
     const notices = resolutionNotices(
-      currentTake,
+      currentVariant,
       { address: ADDRESS, variantId: "v-eI11yofR" },
       undefined,
       [job("v-ZKquO93Y", ADDRESS, "running")],
@@ -32,7 +32,7 @@ describe("resolutionNotices", () => {
 
   it("says nothing about a current take with no job at its address", () => {
     const notices = resolutionNotices(
-      currentTake,
+      currentVariant,
       { address: ADDRESS, variantId: "v-eI11yofR" },
       undefined,
       [job("v-other000", "video:shot.13.motion", "queued")],
@@ -43,12 +43,12 @@ describe("resolutionNotices", () => {
 
 describe("sweepNotices", () => {
   it("folds a scope's generating addresses into one line naming every job to wait on", () => {
-    const takes = [
+    const variants = [
       { address: "video:shot.01.motion", variantId: "v-old00001", scope: "video" },
       { address: "video:shot.02.motion", variantId: "v-old00002", scope: "video" },
       { address: "video:shot.03.motion", variantId: "v-old00003", scope: "video" },
     ];
-    const notices = sweepNotices(currentTake, "video", takes, undefined, [
+    const notices = sweepNotices(currentVariant, "video", variants, undefined, [
       job("v-new00001", "video:shot.01.motion", "running"),
       job("v-new00002", "video:shot.02.motion", "pending"),
     ]);
@@ -79,11 +79,11 @@ describe("sweepNotices", () => {
         definitionHash: () => "CURRENT",
         isDeterministic: () => false,
       });
-      const takes = [
+      const variants = [
         { address: "video:shot.01.motion", variantId: "v-old00001", scope: "video" },
         { address: "video:shot.02.motion", variantId: "v-old00002", scope: "video" },
       ];
-      expect(sweepNotices(manager, "video", takes, undefined, [])).toEqual([
+      expect(sweepNotices(manager, "video", variants, undefined, [])).toEqual([
         "video: 2 stale take(s) shown — `konte inspect video` lists them",
       ]);
     } finally {

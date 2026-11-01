@@ -14,7 +14,7 @@ import type { SetupFork } from "../core/stale-refresh.js";
 import {
   computeVariantStaleness,
   isVariantStale,
-  type UndecidedUpstreamTake,
+  type UndecidedUpstreamVariant,
 } from "../core/staleness.js";
 import { StateManager } from "../core/state/index.js";
 import type {
@@ -415,11 +415,11 @@ export function formatComfyRouteNotice(
 // that this run will NOT use — dependency resolution binds the accepted variant, so the downstream
 // builds on the accepted frame until that take is accepted in its place. The take is not
 // necessarily newer than the accept, so the wording claims no order. Null when clean.
-export function formatUndecidedUpstreamTakesNotice(
-  takes: readonly UndecidedUpstreamTake[],
+export function formatUndecidedUpstreamVariantsNotice(
+  variants: readonly UndecidedUpstreamVariant[],
 ): string | null {
-  if (takes.length === 0) return null;
-  const lines = takes.map(
+  if (variants.length === 0) return null;
+  const lines = variants.map(
     (t) =>
       `${t.address}: ${t.undecidedVariantId} undecided — using accepted ${t.acceptedVariantId}`,
   );

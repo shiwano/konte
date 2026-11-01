@@ -50,9 +50,9 @@ import { assertFontFamilies, assertLanguageTag, type LanguageTag } from "../typo
 import { isIdentifier, validateShotId, type ValidatedIdentifier } from "./validate-identifier.js";
 import { formatAssetPath, formatReferenceAddress, formatSongStemAddress } from "../address.js";
 import { placeLyricLines } from "../song-lyrics.js";
-import { songBeatAt, songBeatSec, type SongTake } from "../song-take.js";
+import { songBeatAt, songBeatSec, type SongVariant } from "../song-variant.js";
 import { KonteError } from "../errors.js";
-import { songTakeAt } from "./song-context.js";
+import { songVariantAt } from "./song-context.js";
 import { continuedFrames } from "../direction.js";
 import { parseSpan } from "../source-locator.js";
 
@@ -1919,13 +1919,13 @@ export function timedShot(timeline: DirectionTimeline, timing: ShotTiming): Time
   return timing;
 }
 
-function leadFramesOf(take: SongTake | null, fps: number): number {
-  return take ? Math.max(0, Math.round(songBeatSec(take.analysis, 0) * fps)) : 0;
+function leadFramesOf(variant: SongVariant | null, fps: number): number {
+  return variant ? Math.max(0, Math.round(songBeatSec(variant.analysis, 0) * fps)) : 0;
 }
 
-function songGridOf(take: SongTake | null): DirectionTimeline["songGrid"] {
-  if (!take) return null;
-  const analysis = take.analysis;
+function songGridOf(variant: SongVariant | null): DirectionTimeline["songGrid"] {
+  if (!variant) return null;
+  const analysis = variant.analysis;
   return {
     beatSec: (beat) => songBeatSec(analysis, beat),
     beatAt: (sec) => songBeatAt(analysis, sec),
@@ -1942,12 +1942,12 @@ export function resolveDirectionTimeline(direction: Direction): DirectionTimelin
 
 export function readDirectionTimeline(
   direction: Direction,
-  take: SongTake | null,
+  variant: SongVariant | null,
 ): DirectionTimeline {
   const fps = direction.policy.format.fps;
   const song = direction.policy.song ?? null;
-  const songGrid = song ? songGridOf(take) : null;
-  const leadFrames = songGrid ? leadFramesOf(take, fps) : 0;
+  const songGrid = song ? songGridOf(variant) : null;
+  const leadFrames = songGrid ? leadFramesOf(variant, fps) : 0;
   const timings = new Map<string, ShotTiming>();
   let sum = 0;
   let edge = 0;
@@ -1991,12 +1991,12 @@ export type LyricPlacementEntry = {
 // place after beat 0 reads the same whatever lead the take has.
 export function placeDirectionLyrics(
   direction: Direction,
-  take: SongTake | null,
+  variant: SongVariant | null,
 ): LyricPlacementEntry[] {
   const lyrics = direction.lyrics;
   if (!direction.policy.song || !lyrics) return [];
   const fps = direction.policy.format.fps;
-  const setLines = take?.analysis.lines ?? {};
+  const setLines = variant?.analysis.lines ?? {};
   const lines = lyrics.flatMap((section, s) =>
     section.lines.map((line, l) => {
       const key = `${s + 1}.${l + 1}`;
@@ -2013,12 +2013,12 @@ export function placeDirectionLyrics(
       };
     }),
   );
-  const timeline = { songGrid: songGridOf(take), fps, leadFrames: leadFramesOf(take, fps) };
+  const timeline = { songGrid: songGridOf(variant), fps, leadFrames: leadFramesOf(variant, fps) };
   const onTimeline = (sec: number) => takeFrame(timeline, sec) / fps;
   const placements = placeLyricLines({
     lines: lines.map((line) => ({ text: line.text, ...(line.set ? { set: line.set } : {}) })),
-    heard: take?.analysis.heard ?? null,
-    phrases: take?.analysis.phrases ?? null,
+    heard: variant?.analysis.heard ?? null,
+    phrases: variant?.analysis.phrases ?? null,
   });
   return lines.map((line, i): LyricPlacementEntry => {
     const placed = placements[i] ?? null;
@@ -2210,9 +2210,9 @@ export function defineDirection<const D extends DirectionInput>(
   if (dir.brief.source) assertSourceSpan(dir.brief.source.span);
   const resolvedFormat = resolveDirectionFormat(dir);
   const song = dir.policy.song;
-  const songTake = song ? songTakeAt(formatReferenceAddress(song)) : null;
-  const timeline = readDirectionTimeline(dir, songTake);
-  const lyrics = dir.lyrics ? placeDirectionLyrics(dir, songTake) : null;
+  const songVariant = song ? songVariantAt(formatReferenceAddress(song)) : null;
+  const timeline = readDirectionTimeline(dir, songVariant);
+  const lyrics = dir.lyrics ? placeDirectionLyrics(dir, songVariant) : null;
   // A shot's framing/location are its setup's. An unknown setup id leaves both unindexed rather than
   // guessing: `validateDirectionStructure` reports it as `setup-unknown`, and `stageShotContext` throws
   // for the readers that run before that gate.

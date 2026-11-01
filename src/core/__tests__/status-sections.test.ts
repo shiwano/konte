@@ -45,7 +45,7 @@ function makeInfo(overrides: Partial<AddressInfo> & { address: string }): Addres
     reviewUnreachable: false,
     hasAccepted: false,
     hasOutputFile: false,
-    undecidedTakeVariantId: null,
+    undecidedVariantId: null,
     patchedAwaitingReview: null,
     readyVariantIds: [],
     undecidedVariantIds: [],
@@ -145,7 +145,7 @@ describe("buildAddressInfo", () => {
       state.assets[ADDR]!.variants!["v-fix"]!.status = "dismissed";
       const info = buildAddressInfo(ADDR, state, new Map(), "fal", "d1");
       expect(info.patchedAwaitingReview).toBeNull();
-      expect(info.undecidedTakeVariantId).toBeNull();
+      expect(info.undecidedVariantId).toBeNull();
       expect(info.readyCount).toBe(0);
     });
 
@@ -304,7 +304,7 @@ describe("buildAddressInfo", () => {
       },
     });
     const info = buildAddressInfo("video:shot.01.motion", state, new Map(), "fal");
-    expect(info.undecidedTakeVariantId).not.toBeNull();
+    expect(info.undecidedVariantId).not.toBeNull();
   });
 
   it("does not flag a newer variant that is itself definition-stale", () => {
@@ -339,7 +339,7 @@ describe("buildAddressInfo", () => {
       "fal",
       "current-definition",
     );
-    expect(info.undecidedTakeVariantId).toBeNull();
+    expect(info.undecidedVariantId).toBeNull();
   });
 
   it("stops reporting a rival take once it was dismissed", () => {
@@ -372,7 +372,7 @@ describe("buildAddressInfo", () => {
       },
     });
     const info = buildAddressInfo("video:shot.01.motion", state, new Map(), "fal");
-    expect(info.undecidedTakeVariantId).toBeNull();
+    expect(info.undecidedVariantId).toBeNull();
   });
 
   it("detects generating jobs", () => {
@@ -687,7 +687,7 @@ describe("computeStatusSections", () => {
         address: "video:shot.01.motion",
         assetKind: "fal",
         hasAccepted: true,
-        undecidedTakeVariantId: "v-undecided",
+        undecidedVariantId: "v-undecided",
         undecidedVariantIds: ["v-other", "v-undecided"],
       }),
     ];
@@ -698,7 +698,7 @@ describe("computeStatusSections", () => {
         address: "video:shot.01.motion",
         detail: "undecided take beside the accept",
         variantId: "v-undecided",
-        takes: [
+        variants: [
           { variantId: "v-undecided", detail: "undecided take beside the accept" },
           { variantId: "v-other", detail: "undecided take beside the accept" },
         ],
@@ -721,7 +721,7 @@ describe("computeStatusSections", () => {
         address: "video:shot.01.motion",
         detail: "patched — accept it, or konte patch remove v-src to drop the fix",
         variantId: "v-patch",
-        takes: [
+        variants: [
           {
             variantId: "v-patch",
             detail: "patched — accept it, or konte patch remove v-src to drop the fix",
@@ -737,13 +737,13 @@ describe("computeStatusSections", () => {
         address: "video:shot.01.motion",
         assetKind: "fal",
         hasAccepted: true,
-        undecidedTakeVariantId: "v-reroll",
+        undecidedVariantId: "v-reroll",
         undecidedVariantIds: ["v-reroll", "v-patch"],
         patchedAwaitingReview: { variantId: "v-patch", sourceVariantId: "v-src", hasScript: true },
       }),
     ];
     const review = computeStatusSections(infos).find((s) => s.title === "Needs review");
-    expect(review?.items[0]?.takes).toEqual([
+    expect(review?.items[0]?.variants).toEqual([
       {
         variantId: "v-patch",
         detail: "patched — accept it, or konte patch remove v-src to drop the fix",
@@ -761,7 +761,7 @@ describe("computeStatusSections", () => {
         address: "video:shot.01.motion",
         assetKind: "fal",
         hasAccepted: true,
-        undecidedTakeVariantId: "v-undecided",
+        undecidedVariantId: "v-undecided",
         patchedAwaitingReview: { variantId: "v-patch", sourceVariantId: "v-src", hasScript: true },
       }),
     ];
@@ -771,7 +771,7 @@ describe("computeStatusSections", () => {
         address: "video:shot.01.motion",
         detail: "patched — accept it, or konte patch remove v-src to drop the fix",
         variantId: "v-patch",
-        takes: [
+        variants: [
           {
             variantId: "v-patch",
             detail: "patched — accept it, or konte patch remove v-src to drop the fix",
@@ -787,7 +787,7 @@ describe("computeStatusSections", () => {
         address: "video:shot.01#composition",
         assetKind: "composition",
         hasAccepted: true,
-        undecidedTakeVariantId: "v-undecided",
+        undecidedVariantId: "v-undecided",
       }),
     ];
     const sections = computeStatusSections(infos);
@@ -899,7 +899,7 @@ describe("computeStatusSections", () => {
   // review candidate (nobody should judge a picture generate is about to discard) nor a stale
   // ACCEPT.
   describe("an address holding only stale unaccepted takes", () => {
-    const staleTake = () => ({
+    const staleVariant = () => ({
       variantId: "v-T7gCDJht",
       inputStale: true,
       definitionStale: false,
@@ -912,7 +912,7 @@ describe("computeStatusSections", () => {
         makeInfo({
           address: "video:shot.01.motion",
           hasOutputFile: true,
-          staleUnacceptedVariants: [staleTake()],
+          staleUnacceptedVariants: [staleVariant()],
         }),
       ]);
       expect(sections).toHaveLength(1);
@@ -929,7 +929,7 @@ describe("computeStatusSections", () => {
           address: "video:shot.01.motion",
           hasOutputFile: true,
           staleUnacceptedVariants: [
-            { ...staleTake(), variantId: "v-newest" },
+            { ...staleVariant(), variantId: "v-newest" },
             {
               variantId: "v-older",
               inputStale: false,
@@ -1009,7 +1009,7 @@ describe("computeStatusSections", () => {
           address: "video:shot.01.motion",
           hasOutputFile: true,
           readyCount: 1,
-          staleUnacceptedVariants: [staleTake()],
+          staleUnacceptedVariants: [staleVariant()],
         }),
       ]);
       expect(sections.map((s) => s.title)).not.toContain("Needs regenerate");
@@ -1021,7 +1021,7 @@ describe("computeStatusSections", () => {
           address: "video:shot.01.motion",
           hasAccepted: true,
           hasOutputFile: true,
-          staleUnacceptedVariants: [staleTake()],
+          staleUnacceptedVariants: [staleVariant()],
         }),
       ]);
       expect(sections.map((s) => s.title)).not.toContain("Needs regenerate");
@@ -1032,7 +1032,7 @@ describe("computeStatusSections", () => {
         makeInfo({
           address: "video:shot.01.motion",
           hasOutputFile: true,
-          staleUnacceptedVariants: [staleTake()],
+          staleUnacceptedVariants: [staleVariant()],
           generatingJobs: [{ variantId: "v-run", status: "running", progress: 10 }],
         }),
       ]);
@@ -1044,7 +1044,7 @@ describe("computeStatusSections", () => {
         makeInfo({
           address: "video:shot.01.motion",
           hasOutputFile: true,
-          staleUnacceptedVariants: [staleTake()],
+          staleUnacceptedVariants: [staleVariant()],
         }),
       ]);
       expect(readiness!.needsRegenerate).toEqual(["shot.01.motion"]);
@@ -1379,7 +1379,7 @@ describe("computeExportReadiness", () => {
         address: "video:shot.01.motion",
         assetKind: "comfy",
         hasAccepted: true,
-        undecidedTakeVariantId: "v-undecided",
+        undecidedVariantId: "v-undecided",
         staleVariants: [
           {
             variantId: "v-PRWl2g1h",

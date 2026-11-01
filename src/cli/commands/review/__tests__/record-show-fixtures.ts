@@ -29,7 +29,7 @@ export let projectDir: string;
  * A ready take for every shot asset of one stage, so its compositions build — which is what `show` needs
  * before it will look for (or render) any note frame.
  */
-export async function seedShotTakes(stage: "video" | "animatic" = "video"): Promise<void> {
+export async function seedShotVariants(stage: "video" | "animatic" = "video"): Promise<void> {
   const loaded = await loadVideoAndAnimatic(projectDir);
   await fs.mkdir(path.join(projectDir, "assets"), { recursive: true });
   const sm = await StateManager.load(projectDir);
@@ -49,7 +49,7 @@ export async function seedShotTakes(stage: "video" | "animatic" = "video"): Prom
 
 /** Take one shot's only input away, so its composition stops building — and its notes stop having a
  * frame at all, rendered or not. */
-export async function dropShotTakes(shotId: string): Promise<void> {
+export async function dropShotVariants(shotId: string): Promise<void> {
   const { video } = await loadVideoAndAnimatic(projectDir);
   const shot = video.shots.find((s) => s.id === shotId)!;
   const sm = await StateManager.load(projectDir);
@@ -69,7 +69,7 @@ export async function useSubtitleFreeProject(): Promise<void> {
   const file = path.join(projectDir, "video.tsx");
   const src = await fs.readFile(file, "utf-8");
   await fs.writeFile(file, src.replace(/<Subtitle[\s\S]*?\/>/g, ""));
-  await seedShotTakes();
+  await seedShotVariants();
 }
 
 /**
@@ -145,7 +145,7 @@ export function useReviewShowProject(): void {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-review-show-"));
     process.chdir(tmpDir);
     projectDir = (await initWorkspace(path.join(tmpDir, "testproject"))).video;
-    await seedShotTakes();
+    await seedShotVariants();
   });
 
   afterEach(async () => {

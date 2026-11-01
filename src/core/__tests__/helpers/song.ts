@@ -1,4 +1,4 @@
-import type { SongTake } from "../../song-take.js";
+import type { SongVariant } from "../../song-variant.js";
 import type { SongAnalysis } from "../../types/index.js";
 
 // A reading of a take that plays steadily at `bpm` from its start to `durationSec`, beat 0 at
@@ -25,6 +25,6 @@ export function steadySong(
   };
 }
 
-export function songTake(analysis: SongAnalysis, variantId = "v-song"): SongTake {
+export function songVariant(analysis: SongAnalysis, variantId = "v-song"): SongVariant {
   return { address: "reference:song", variantId, analysis };
 }

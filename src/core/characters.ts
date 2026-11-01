@@ -2,7 +2,7 @@ import { formatReferenceAddress } from "./address.js";
 import type { Direction } from "./dsl/direction.js";
 import { loadDirectionDefinition, loadIfPresent } from "./loader.js";
 import { stageEntryPath } from "./roots.js";
-import { songAddressOf } from "./song-take.js";
+import { songAddressOf } from "./song-variant.js";
 
 // Every `reference:<id>` the cast is anchored to: a character's look (the roster key equals the
 // exposed asset name) and every cast voice sample — each character's, and the narrator's — plus the

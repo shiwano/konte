@@ -8,7 +8,7 @@ export interface RegenerateMark {
   // The row this unit follows when the answer sits there: its id on this page, and its label.
   follows: { id: string; label: string } | null;
   // The names of its takes, as the list shows them.
-  takes: string[];
+  variants: string[];
 }
 
 /**
@@ -25,14 +25,14 @@ export function RegenerateBadge({
   onKeep: () => void;
   onJumpToRow: (id: string) => void;
 }): React.ReactElement {
-  const takes = mark.takes.length > 0 ? ` (${mark.takes.join(", ")})` : "";
+  const variants = mark.variants.length > 0 ? ` (${mark.variants.join(", ")})` : "";
   if (mark.follows) {
     const { id, label } = mark.follows;
     return (
       <button
         type="button"
         className="status-badge status-badge--regenerate status-badge--action"
-        title={`Made from ${label}, which regenerates, so this regenerates with it${takes}. Keep ${label} to keep this too. Click to go to ${label}`}
+        title={`Made from ${label}, which regenerates, so this regenerates with it${variants}. Keep ${label} to keep this too. Click to go to ${label}`}
         onClick={(e) => {
           e.stopPropagation();
           onJumpToRow(id);
@@ -46,7 +46,7 @@ export function RegenerateBadge({
     <button
       type="button"
       className="status-badge status-badge--regenerate status-badge--action"
-      title={`Regenerated after this review, since ${mark.origin} changed${takes}. Click to keep it instead`}
+      title={`Regenerated after this review, since ${mark.origin} changed${variants}. Click to keep it instead`}
       onClick={(e) => {
         e.stopPropagation();
         onKeep();

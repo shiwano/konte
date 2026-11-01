@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { sha256Hex } from "./content-hash.js";
-import { songReadingsOf } from "./song-take.js";
+import { songReadingsOf } from "./song-variant.js";
 import { KonteStateSchema } from "./types/state.js";
 import { STAGE_ENTRY_FILE, WORKSPACE_MARKER } from "./roots.js";
 

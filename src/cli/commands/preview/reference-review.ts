@@ -22,7 +22,7 @@ import { type Direction, placeDirectionLyrics } from "../../../core/dsl/directio
 import { lyricLines, songLinesRefusal } from "../../../core/direction.js";
 import { KonteError } from "../../../core/errors.js";
 import { songAnalysisOf } from "../../../core/song-reading.js";
-import { setSongLines, songAddressOf } from "../../../core/song-take.js";
+import { setSongLines, songAddressOf } from "../../../core/song-variant.js";
 import type { SongReadingInfo } from "../../../pages/preview/types.js";
 import type { DirectionRosterKind } from "../../../pages/preview/types.js";
 import type {
@@ -34,14 +34,14 @@ import type {
 } from "../../../core/types/index.js";
 import { type ReviewRecord, saveReviewRecord } from "../../../core/review-record.js";
 import { FeedbackManager } from "../../../core/feedback/index.js";
-import { displayedReferenceTake } from "../../../core/review-acceptability.js";
+import { displayedReferenceVariant } from "../../../core/review-acceptability.js";
 import { StateManager } from "../../../core/state/index.js";
 import type { VariantState } from "../../../core/types/index.js";
 import { inferMediaType, variantMediaKind } from "../../../core/media-type.js";
 import {
-  consumedTakePreviewUrl,
-  patchChainTakes,
-  takeDefinitionSnapshot,
+  consumedVariantPreviewUrl,
+  patchChainVariants,
+  variantDefinitionSnapshot,
   variantFileUrl,
   variantPreviewUrl,
   variantMediaUrl,
@@ -153,9 +153,9 @@ export async function handleGetReferenceState(
   const rosterEntries = referenceRosterEntries(direction, manager.getDirectionAcceptance());
   const assetInfo = createAssetInfoBuilder(
     [reference, ...patchCatalog.patches.values()].flatMap((d) => d.prompts ?? []),
-    (addr, vid) => takeDefinitionSnapshot(manager, videoRoot, addr, vid),
-    (addr, vid, ref) => consumedTakePreviewUrl(manager, videoRoot, addr, vid, ref, assetBaseUrl),
-    (addr, vid) => patchChainTakes(manager, addr, vid),
+    (addr, vid) => variantDefinitionSnapshot(manager, videoRoot, addr, vid),
+    (addr, vid, ref) => consumedVariantPreviewUrl(manager, videoRoot, addr, vid, ref, assetBaseUrl),
+    (addr, vid) => patchChainVariants(manager, addr, vid),
   );
 
   // Exposed assets only: an unreturned one is an intermediate another reference asset consumes, and
@@ -165,7 +165,7 @@ export async function handleGetReferenceState(
     const addr = formatReferenceAddress(assetName);
     const acceptedId = manager.getAcceptedVariant(addr);
 
-    const displayed = displayedReferenceTake(manager, addr);
+    const displayed = displayedReferenceVariant(manager, addr);
     const variantId: string | null = displayed?.variantId ?? null;
     const variantStatus: "none" | "accepted" = displayed?.isAccepted ? "accepted" : "none";
     const mediaKind = variantMediaKind(manager, addr, variantId);
@@ -393,8 +393,8 @@ function placeSongLines(
   }
   const lines = lyricLines(direction);
   const skipped: Array<{ address: string; reason: string }> = [];
-  const byTake = Map.groupBy(songLines, (edit) => edit.variantId);
-  for (const [variantId, edits] of byTake) {
+  const byVariant = Map.groupBy(songLines, (edit) => edit.variantId);
+  for (const [variantId, edits] of byVariant) {
     const variant = mgr.tryGetAssetState(songAddress)?.variants?.[variantId];
     try {
       if (!variant?.song || !songAnalysisOf(mgr.videoRoot, songAddress, variantId, variant.song)) {

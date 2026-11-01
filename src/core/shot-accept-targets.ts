@@ -22,7 +22,7 @@ import {
   materializedLeafReviewStatus,
   removedShotStemAddresses,
 } from "./composition-resource.js";
-import { newestReadyUndecidedTake } from "./staleness.js";
+import { newestReadyUndecidedVariant } from "./staleness.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import { extractRefs } from "./graph.js";
 import { variantMediaKind } from "./media-type.js";
@@ -144,26 +144,30 @@ export function shotNeedsVerdict(
 ): boolean {
   if (shot.pending) return false;
   const targets = shotAcceptTargets(manager, video, shot);
-  const takes = [...targets.pictureAssets, ...targets.stemSources];
-  if (takes.length === 0 && targets.leaves.length === 0) return true;
+  const assetAddresses = [...targets.pictureAssets, ...targets.stemSources];
+  if (assetAddresses.length === 0 && targets.leaves.length === 0) return true;
   const leafSettled = (address: string) =>
     leafSettledAcross(manager, video, counterpart, address) ||
     !materializedLeafReviewStatus(manager, address, definitionHashForAddress(video, address))
       .needsReview;
   if (targets.leaves.some(({ address }) => !leafSettled(address))) return true;
-  return takes.some((address) => !takeSettled(manager, video, address));
+  return assetAddresses.some((address) => !assetSettled(manager, video, address));
 }
 
-function takeSettled(manager: StateManager, video: StageDefinition, address: string): boolean {
+function assetSettled(manager: StateManager, video: StageDefinition, address: string): boolean {
   if (manager.getAcceptedVariant(address) === null) return false;
   // Whether a rival stands beside that accept is only answerable where this definition reaches. A
   // cross-stage source (a shared `reference:` SFX a shot plays, a board frame under a video shot) is
   // judged on its own stage's page.
   if (getStage(address) !== video.stage) return true;
-  return !hasUndecidedTake(manager, video, address);
+  return !hasUndecidedVariant(manager, video, address);
 }
 
-function hasUndecidedTake(manager: StateManager, video: StageDefinition, address: string): boolean {
+function hasUndecidedVariant(
+  manager: StateManager,
+  video: StageDefinition,
+  address: string,
+): boolean {
   let definitionHash: string | null = null;
   try {
     definitionHash = definitionHashForAddress(video, address);
@@ -172,7 +176,7 @@ function hasUndecidedTake(manager: StateManager, video: StageDefinition, address
     return false;
   }
   return (
-    newestReadyUndecidedTake(
+    newestReadyUndecidedVariant(
       manager.getState(),
       address,
       definitionHash,

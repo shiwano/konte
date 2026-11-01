@@ -8,7 +8,7 @@ import type { KonteState, SongAnalysis, SongRecord } from "./types/index.js";
 
 // The take of the song the piece is read against: the accepted one, else the newest analyzed take
 // nobody dismissed. Staleness is not asked.
-export type SongTake = { address: string; variantId: string; analysis: SongAnalysis };
+export type SongVariant = { address: string; variantId: string; analysis: SongAnalysis };
 
 export function songAddressOf(direction: Direction | null | undefined): string | null {
   const song = direction?.policy?.song;
@@ -16,7 +16,7 @@ export function songAddressOf(direction: Direction | null | undefined): string |
 }
 
 // The take a song address resolves to by its state alone, read or not on disk.
-function songTakeIdOf(state: KonteState, address: string): string | null {
+function songVariantIdOf(state: KonteState, address: string): string | null {
   const variants = Object.entries(state.assets[address]?.variants ?? {});
   const accepted = variants.find(([, v]) => v.status === "accepted");
   if (accepted) return accepted[1].song ? accepted[0] : null;
@@ -26,12 +26,12 @@ function songTakeIdOf(state: KonteState, address: string): string | null {
   return newest?.[0] ?? null;
 }
 
-export function resolveSongTake(
+export function resolveSongVariant(
   videoRoot: string,
   state: KonteState,
   address: string,
-): SongTake | null {
-  const variantId = songTakeIdOf(state, address);
+): SongVariant | null {
+  const variantId = songVariantIdOf(state, address);
   if (!variantId) return null;
   const record = state.assets[address]?.variants?.[variantId]?.song;
   const analysis = songAnalysisOf(videoRoot, address, variantId, record);
@@ -70,7 +70,7 @@ export function setSongFirstBeat(
 export function songReadingsOf(videoRoot: string, state: KonteState): string {
   const readings: string[] = [];
   for (const [address, asset] of Object.entries(state.assets)) {
-    const variantId = songTakeIdOf(state, address);
+    const variantId = songVariantIdOf(state, address);
     const record = variantId ? asset.variants?.[variantId]?.song : undefined;
     if (record && readSongReading(videoRoot, address, variantId!, record)) {
       readings.push(`${address}|${variantId}|${stableStringify(record)}`);
@@ -81,7 +81,7 @@ export function songReadingsOf(videoRoot: string, state: KonteState): string {
 
 // The take of the song a piece is cut against, read or not: the accepted one, else the newest with a
 // file nobody dismissed.
-export function currentSongTake(state: KonteState, address: string): string | null {
+export function currentSongVariant(state: KonteState, address: string): string | null {
   const variants = Object.entries(state.assets[address]?.variants ?? {});
   const accepted = variants.find(([, v]) => v.status === "accepted");
   if (accepted) return accepted[0];

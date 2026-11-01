@@ -27,7 +27,7 @@ import { errorResponse, jsonResponse, parseJsonBody } from "../../page-host/http
 import {
   loadAnimaticSetupState,
   loadStagingStageState,
-  loadSongTakeState,
+  loadSongVariantState,
 } from "../../load-definition.js";
 import {
   checkDirection,
@@ -129,7 +129,7 @@ async function referenceView(videoRoot: string, ref: BriefReference): Promise<Br
   return {
     clip: ref.clip,
     link: ref.link ?? null,
-    take: ref.take,
+    variant: ref.take,
     avoid: ref.avoid,
     sheets: study
       ? study.study.sheets.map(
@@ -157,7 +157,7 @@ export async function handleGetDirectionState(
     referenceAssetNames: reference?.exposedAssetNames ?? [],
     animaticSetups: await loadAnimaticSetupState(videoRoot, direction, reference),
     stagingStage: await loadStagingStageState(videoRoot, direction),
-    songTake: await loadSongTakeState(videoRoot, direction),
+    songVariant: await loadSongVariantState(videoRoot, direction),
   });
   const currentHash = directionHash(direction);
   const acceptanceView = directionAcceptanceView(direction, manager.getDirectionAcceptance());

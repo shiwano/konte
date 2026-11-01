@@ -29,16 +29,16 @@ const M14 = "video:shot.14.motion";
 const BG = "reference:bg";
 
 function graph(): KeepGraphInfo {
-  const take = (outputHash: string, inputs: Record<string, string[]> = {}) => ({
+  const variant = (outputHash: string, inputs: Record<string, string[]> = {}) => ({
     outputHash,
     inputs,
   });
   const at = (
     unit: string,
     acceptedVariantId: string,
-    takes: KeepGraphInfo["addresses"][string]["takes"],
+    variants: KeepGraphInfo["addresses"][string]["variants"],
     consumers: KeepGraphInfo["addresses"][string]["consumers"] = [],
-  ) => ({ unit, rerollable: true, acceptedVariantId, takes, consumers });
+  ) => ({ unit, rerollable: true, acceptedVariantId, variants, consumers });
   return {
     units: {
       "animatic:shot.12": { stage: "animatic", label: "Shot 12" },
@@ -50,31 +50,31 @@ function graph(): KeepGraphInfo {
       [BG]: { stage: "reference", label: "bg" },
     },
     addresses: {
-      [P12]: at("animatic:shot.12", "v12a", { v12a: take("h12a"), v12b: take("h12b") }, [
+      [P12]: at("animatic:shot.12", "v12a", { v12a: variant("h12a"), v12b: variant("h12b") }, [
         { address: P13, via: P12 },
         { address: M12, via: SMALL12 },
       ]),
       [P13]: at(
         "animatic:shot.13",
         "v13a",
-        { v13a: take("h13a", { [P12]: ["h12a"], [BG]: ["hbga"] }) },
+        { v13a: variant("h13a", { [P12]: ["h12a"], [BG]: ["hbga"] }) },
         [
           { address: P14, via: P13 },
           { address: M13, via: P13 },
         ],
       ),
-      [P14]: at("animatic:shot.14", "v14a", { v14a: take("h14a", { [P13]: ["h13a"] }) }),
-      [M12]: at("video:shot.12", "vm12", { vm12: take("hm12", { [SMALL12]: ["hs12a"] }) }),
+      [P14]: at("animatic:shot.14", "v14a", { v14a: variant("h14a", { [P13]: ["h13a"] }) }),
+      [M12]: at("video:shot.12", "vm12", { vm12: variant("hm12", { [SMALL12]: ["hs12a"] }) }),
       [M13]: at(
         "video:shot.13",
         "vm13",
-        { vm13: take("hm13", { [P13]: ["h13a"], [BG]: ["hbga"] }) },
+        { vm13: variant("hm13", { [P13]: ["h13a"], [BG]: ["hbga"] }) },
         [{ address: M14, via: M13 }],
       ),
       [M14]: at("video:shot.14", "vm14", {
-        vm14: take("hm14", { [M13]: ["hm13"], [BG]: ["hbga"] }),
+        vm14: variant("hm14", { [M13]: ["hm13"], [BG]: ["hbga"] }),
       }),
-      [BG]: at(BG, "bga", { bga: take("hbga"), bgb: take("hbgb") }, [
+      [BG]: at(BG, "bga", { bga: variant("hbga"), bgb: variant("hbgb") }, [
         { address: P13, via: BG },
         { address: M13, via: BG },
         { address: M14, via: BG },
@@ -87,8 +87,8 @@ function ctx(overrides: Partial<KeepContext> = {}): KeepContext {
   const g = overrides.graph ?? graph();
   return {
     graph: g,
-    takeAccepted: (address) => g.addresses[address]?.acceptedVariantId != null,
-    takeOf: (address) => g.addresses[address]?.acceptedVariantId ?? null,
+    variantAccepted: (address) => g.addresses[address]?.acceptedVariantId != null,
+    variantOf: (address) => g.addresses[address]?.acceptedVariantId ?? null,
     choices: [],
     ...overrides,
   };
@@ -100,9 +100,9 @@ const via12 = `via:${P12}=h12b`;
 
 const row = (
   unit: string,
-  takes: KeepTarget["takes"],
+  variants: KeepTarget["variants"],
   o: Partial<Omit<KeepTarget, "unit" | "takes">> = {},
-): KeepTarget => ({ unit, takes, decision: "keep", follows: [], madeFrom: [], ...o });
+): KeepTarget => ({ unit, variants, decision: "keep", follows: [], madeFrom: [], ...o });
 
 const choice = (o: Partial<KeepChoice> & Pick<KeepChoice, "origin">): KeepChoice => ({
   seq: 1,
@@ -130,7 +130,7 @@ describe("keepPromptFor", () => {
   it("asks one row per accepted unit made straight from what the accept changes, with what follows it", () => {
     const [entry] = keepPromptFor(ctx(), moveP12);
     expect(entry?.targets).toEqual([
-      row("animatic:shot.13", [T13], { follows: [{ unit: "animatic:shot.14", takes: [T14] }] }),
+      row("animatic:shot.13", [T13], { follows: [{ unit: "animatic:shot.14", variants: [T14] }] }),
       row("video:shot.12", [{ address: M12, variantId: "vm12" }]),
     ]);
     expect(entry?.keep[P13]).toEqual({
@@ -143,7 +143,7 @@ describe("keepPromptFor", () => {
   it("makes a unit in another stage its own row, made from the row upstream of it, not a follow", () => {
     const [entry] = keepPromptFor(ctx(), moveBg);
     expect(entry?.targets).toEqual([
-      row("animatic:shot.13", [T13], { follows: [{ unit: "animatic:shot.14", takes: [T14] }] }),
+      row("animatic:shot.13", [T13], { follows: [{ unit: "animatic:shot.14", variants: [T14] }] }),
       row("video:shot.13", [{ address: M13, variantId: "vm13" }], {
         madeFrom: ["animatic:shot.13"],
       }),
@@ -168,7 +168,7 @@ describe("keepPromptFor", () => {
   });
 
   it("asks about a stale unit whose upstream is not accepted, with no row to hang it on", () => {
-    const [entry] = keepPromptFor(ctx({ takeAccepted: (a) => a !== P13 && a !== P14 }), moveBg);
+    const [entry] = keepPromptFor(ctx({ variantAccepted: (a) => a !== P13 && a !== P14 }), moveBg);
     expect(entry?.targets.map((t) => [t.unit, t.madeFrom])).toEqual([
       ["video:shot.13", []],
       ["video:shot.14", ["video:shot.13"]],
@@ -191,9 +191,9 @@ describe("keepPromptFor", () => {
   });
 
   it("names no follow that is not accepted, and asks nothing when no row is", () => {
-    const [entry] = keepPromptFor(ctx({ takeAccepted: (a) => a !== P14 }), moveP12);
+    const [entry] = keepPromptFor(ctx({ variantAccepted: (a) => a !== P14 }), moveP12);
     expect(entry?.targets[0]?.follows).toEqual([]);
-    expect(keepPromptFor(ctx({ takeAccepted: (a) => a !== P13 && a !== M12 }), moveP12)).toEqual(
+    expect(keepPromptFor(ctx({ variantAccepted: (a) => a !== P13 && a !== M12 }), moveP12)).toEqual(
       [],
     );
   });
@@ -201,18 +201,18 @@ describe("keepPromptFor", () => {
   it("asks nothing about a take first accepted in this review", () => {
     const first = graph();
     for (const info of Object.values(first.addresses)) info.acceptedVariantId = null;
-    const takeOf = (address: string) =>
-      Object.keys(first.addresses[address]?.takes ?? {})[0] ?? null;
-    expect(keepPromptFor(ctx({ graph: first, takeAccepted: () => true, takeOf }), moveP12)).toEqual(
-      [],
-    );
+    const variantOf = (address: string) =>
+      Object.keys(first.addresses[address]?.variants ?? {})[0] ?? null;
+    expect(
+      keepPromptFor(ctx({ graph: first, variantAccepted: () => true, variantOf }), moveP12),
+    ).toEqual([]);
 
     const g = graph();
-    g.addresses[P13]!.takes.v13b = { outputHash: "h13b", inputs: { [P12]: ["h12a"] } };
+    g.addresses[P13]!.variants.v13b = { outputHash: "h13b", inputs: { [P12]: ["h12a"] } };
     const picked = keepPromptFor(
       ctx({
         graph: g,
-        takeOf: (a) => (a === P13 ? "v13b" : (g.addresses[a]?.acceptedVariantId ?? null)),
+        variantOf: (a) => (a === P13 ? "v13b" : (g.addresses[a]?.acceptedVariantId ?? null)),
       }),
       moveP12,
     );
@@ -232,14 +232,14 @@ describe("keepPromptFor", () => {
 
   it("does not ask about a take already kept against that upstream", () => {
     const g = graph();
-    g.addresses[P13]!.takes.v13a!.inputs[P12] = ["h12a", "h12b"];
-    g.addresses[M12]!.takes.vm12!.inputs[SMALL12] = ["hs12a", via12];
+    g.addresses[P13]!.variants.v13a!.inputs[P12] = ["h12a", "h12b"];
+    g.addresses[M12]!.variants.vm12!.inputs[SMALL12] = ["hs12a", via12];
     expect(keepPromptFor(ctx({ graph: g }), moveP12)).toEqual([]);
   });
 });
 
 describe("standing answers", () => {
-  const follow14 = { unit: "animatic:shot.14", takes: [T14] };
+  const follow14 = { unit: "animatic:shot.14", variants: [T14] };
   const keepP13 = (inputs: Record<string, string>) => ({
     [P13]: { address: P13, variantId: "v13a", inputs },
   });
@@ -253,10 +253,10 @@ describe("standing answers", () => {
     ];
     expect(regenerateByUnit(choices)).toEqual(
       new Map([
-        ["animatic:shot.13", { takes: [T13], origin: "animatic:shot.12", follows: null }],
+        ["animatic:shot.13", { variants: [T13], origin: "animatic:shot.12", follows: null }],
         [
           "animatic:shot.14",
-          { takes: [T14], origin: "animatic:shot.12", follows: "animatic:shot.13" },
+          { variants: [T14], origin: "animatic:shot.12", follows: "animatic:shot.13" },
         ],
       ]),
     );
@@ -329,7 +329,7 @@ describe("what the prompt and the submit dialog show", () => {
             {
               unit: "animatic:shot.13",
               label: "Shot 13",
-              takes: ["first"],
+              variants: ["first"],
               follows: ["Shot 14"],
               madeFrom: [],
               initial: "keep",
@@ -342,7 +342,7 @@ describe("what the prompt and the submit dialog show", () => {
             {
               unit: "video:shot.12",
               label: "Shot 12",
-              takes: ["motion"],
+              variants: ["motion"],
               follows: [],
               madeFrom: [],
               initial: "regenerate",
@@ -361,7 +361,7 @@ describe("what the prompt and the submit dialog show", () => {
   it("summarizes a Regenerate as its row with its follows under it", () => {
     const choices = answered(keepPromptFor(ctx(), moveP12), { "animatic:shot.13": "regenerate" });
     expect(regenerateSummary(graph(), choices, "animatic")).toEqual([
-      { label: "Shot 13", takes: ["first"], with: [{ label: "Shot 14", takes: ["first"] }] },
+      { label: "Shot 13", variants: ["first"], with: [{ label: "Shot 14", variants: ["first"] }] },
     ]);
   });
 });

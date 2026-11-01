@@ -13,7 +13,7 @@ export interface KeepOrigin {
 }
 
 /** One accepted take, as the page saw it. */
-export interface KeepTake {
+export interface KeepVariant {
   address: string;
   variantId: string;
 }
@@ -22,7 +22,7 @@ export interface KeepTake {
 export interface KeepTarget {
   unit: string;
   // Its accepted rerollable takes the change stales: what Keep keeps and Regenerate redoes.
-  takes: KeepTake[];
+  variants: KeepVariant[];
   decision: KeepDecision;
   // Accepted units in its stage made from it, rows excepted, that one `generate` re-makes with it.
   follows: KeepFollow[];
@@ -32,11 +32,11 @@ export interface KeepTarget {
 
 export interface KeepFollow {
   unit: string;
-  takes: KeepTake[];
+  variants: KeepVariant[];
 }
 
 /** What a Keep asks the submit to record for one take. */
-export interface KeepEntry extends KeepTake {
+export interface KeepEntry extends KeepVariant {
   // Per upstream, what the take is kept against: the output hash the page read, or `via:<upstream>=
   // <hash>,…` for an input konte re-makes from those upstream takes.
   inputs: Record<string, string>;
@@ -58,9 +58,9 @@ export interface KeepContext {
   graph: KeepGraphInfo;
   // Whether the take at an address stands accepted, with the marks the accept being asked about
   // would leave.
-  takeAccepted: (address: string) => boolean;
+  variantAccepted: (address: string) => boolean;
   // The take an address stands on, this session's picks included; null when it has none.
-  takeOf: (address: string) => string | null;
+  variantOf: (address: string) => string | null;
   choices: readonly KeepChoice[];
 }
 
@@ -119,7 +119,7 @@ function lastTouchByUnit(choices: readonly KeepChoice[]): Map<string, Touch> {
 
 /** One unit standing to be regenerated: its takes, and why. */
 export interface KeepRegenerate {
-  takes: KeepTake[];
+  variants: KeepVariant[];
   // The unit whose accept asked.
   origin: string;
   // The row this unit follows, when the answer was given there rather than on it.
@@ -131,7 +131,7 @@ export function regenerateByUnit(choices: readonly KeepChoice[]): Map<string, Ke
   for (const [unit, { choice, target, follow }] of lastTouchByUnit(choices)) {
     if (target.decision !== "regenerate") continue;
     out.set(unit, {
-      takes: follow ? follow.takes : target.takes,
+      variants: follow ? follow.variants : target.variants,
       origin: choice.origin,
       follows: follow ? target.unit : null,
     });
@@ -139,10 +139,10 @@ export function regenerateByUnit(choices: readonly KeepChoice[]): Map<string, Ke
   return out;
 }
 
-export function regenerateDecisions(choices: readonly KeepChoice[]): KeepTake[] {
-  const out = new Map<string, KeepTake>();
-  for (const { takes } of regenerateByUnit(choices).values()) {
-    for (const take of takes) out.set(take.address, take);
+export function regenerateDecisions(choices: readonly KeepChoice[]): KeepVariant[] {
+  const out = new Map<string, KeepVariant>();
+  for (const { variants } of regenerateByUnit(choices).values()) {
+    for (const variant of variants) out.set(variant.address, variant);
   }
   return [...out.values()];
 }
@@ -166,7 +166,7 @@ export function keepDecisions(choices: readonly KeepChoice[]): KeepEntry[] {
     for (const target of choice.targets) {
       if (target.decision !== "keep") continue;
       if (choice.seq < (lastRegenerate.get(target.unit) ?? -Infinity)) continue;
-      for (const { address } of target.takes) {
+      for (const { address } of target.variants) {
         const entry = choice.keep[address];
         if (!entry) continue;
         const prior = out.get(address);
@@ -210,7 +210,7 @@ export function withoutUnits(
         madeFrom: t.madeFrom.filter((u) => !drop.has(u)),
       }));
     if (targets.length === 0) return [];
-    const addresses = new Set(targets.flatMap((t) => t.takes.map((take) => take.address)));
+    const addresses = new Set(targets.flatMap((t) => t.variants.map((variant) => variant.address)));
     const keep = Object.fromEntries(Object.entries(choice.keep).filter(([a]) => addresses.has(a)));
     return [{ ...choice, targets, keep }];
   });
@@ -277,19 +277,20 @@ function promptEntry(
   const changed = new Map<string, string>();
   for (const [address, variantId] of Object.entries(origin.chosen)) {
     const info = graph.addresses[address];
-    const hash = info?.takes[variantId]?.outputHash;
+    const hash = info?.variants[variantId]?.outputHash;
     if (info && hash && variantId !== info.acceptedVariantId) changed.set(address, hash);
   }
   if (changed.size === 0) return null;
 
-  const takeOf = (address: string): string | null => origin.chosen[address] ?? ctx.takeOf(address);
+  const variantOf = (address: string): string | null =>
+    origin.chosen[address] ?? ctx.variantOf(address);
 
   const stale = new Map<string, Record<string, string>>();
   for (const [upstream, hash] of changed) {
     for (const { address, via } of graph.addresses[upstream]!.consumers) {
-      const variantId = takeOf(address);
+      const variantId = variantOf(address);
       const inputs = variantId
-        ? graph.addresses[address]?.takes[variantId]?.inputs[via]
+        ? graph.addresses[address]?.variants[variantId]?.inputs[via]
         : undefined;
       if (!inputs) continue;
       const keptInput = kept.get(address)?.inputs[via];
@@ -304,16 +305,16 @@ function promptEntry(
     }
   }
 
-  const byUnit = new Map<string, KeepTake[]>();
+  const byUnit = new Map<string, KeepVariant[]>();
   const keep: KeepPromptEntry["keep"] = {};
   for (const [address, inputs] of stale) {
     const info = graph.addresses[address];
-    const variantId = takeOf(address);
+    const variantId = variantOf(address);
     if (
       !info?.rerollable ||
       variantId === null ||
       variantId !== info.acceptedVariantId ||
-      !ctx.takeAccepted(address)
+      !ctx.variantAccepted(address)
     )
       continue;
     byUnit.set(info.unit, [...(byUnit.get(info.unit) ?? []), { address, variantId }]);
@@ -322,9 +323,9 @@ function promptEntry(
   if (byUnit.size === 0) return null;
   return {
     origin: origin.unit,
-    targets: [...byUnit].map(([unit, takes]) => ({
+    targets: [...byUnit].map(([unit, variants]) => ({
       unit,
-      takes,
+      variants,
       decision: "keep",
       follows: [],
       madeFrom: [],
@@ -349,7 +350,7 @@ function reachOf(
   const stage = graph.units[unit]?.stage;
   const queue = Object.keys(graph.addresses).filter((a) => graph.addresses[a]!.unit === unit);
   const seen = new Set(queue);
-  const follows = new Map<string, KeepTake[]>();
+  const follows = new Map<string, KeepVariant[]>();
   const madeFrom = new Set<string>();
   while (queue.length > 0) {
     const node = queue.shift()!;
@@ -367,14 +368,14 @@ function reachOf(
       }
       if (origins.has(info.unit) || graph.units[info.unit]?.stage !== stage) continue;
       queue.push(address);
-      const variantId = ctx.takeOf(address);
-      if (info.rerollable && variantId !== null && ctx.takeAccepted(address)) {
+      const variantId = ctx.variantOf(address);
+      if (info.rerollable && variantId !== null && ctx.variantAccepted(address)) {
         follows.set(info.unit, [...(follows.get(info.unit) ?? []), { address, variantId }]);
       }
     }
   }
   return {
-    follows: [...follows].map(([unit, takes]) => ({ unit, takes })),
+    follows: [...follows].map(([unit, variants]) => ({ unit, variants })),
     rows: [...madeFrom],
   };
 }
@@ -382,8 +383,8 @@ function reachOf(
 const STAGES: readonly KeepStage[] = ["reference", "animatic", "video"];
 
 /** The names a unit's takes go by on screen: the address past the unit, none for the unit itself. */
-export function takeNames(unit: string, takes: readonly KeepTake[]): string[] {
-  return takes.flatMap(({ address }) =>
+export function variantNames(unit: string, variants: readonly KeepVariant[]): string[] {
+  return variants.flatMap(({ address }) =>
     address.startsWith(`${unit}.`)
       ? [address.slice(unit.length + 1)]
       : address === unit
@@ -404,7 +405,7 @@ export interface KeepPromptRow {
   unit: string;
   label: string;
   // The names of its takes the answer is about, when the unit holds more than one address.
-  takes: string[];
+  variants: string[];
   // What a Regenerate re-makes with it, by label.
   follows: string[];
   // The rows it is made from.
@@ -432,16 +433,16 @@ export function keepPrompt(
 ): KeepPrompt {
   const rows = new Map<
     string,
-    { takes: Set<string>; follows: Set<string>; madeFrom: Set<string> }
+    { variants: Set<string>; follows: Set<string>; madeFrom: Set<string> }
   >();
   for (const entry of entries) {
     for (const target of entry.targets) {
       const row = rows.get(target.unit) ?? {
-        takes: new Set(),
+        variants: new Set(),
         follows: new Set(),
         madeFrom: new Set(),
       };
-      for (const name of takeNames(target.unit, target.takes)) row.takes.add(name);
+      for (const name of variantNames(target.unit, target.variants)) row.variants.add(name);
       for (const f of target.follows) row.follows.add(f.unit);
       for (const u of target.madeFrom) row.madeFrom.add(u);
       rows.set(target.unit, row);
@@ -457,7 +458,7 @@ export function keepPrompt(
         .map(([unit, row]) => ({
           unit,
           label: unitLabel(graph, unit, stage),
-          takes: [...row.takes],
+          variants: [...row.variants],
           follows: [...row.follows].map((u) => unitLabel(graph, u, stage)),
           madeFrom: [...row.madeFrom].map((u) => ({
             unit: u,
@@ -473,8 +474,8 @@ export function keepPrompt(
 /** One unit the review will regenerate, with those that go with it, as the reviewer names them. */
 export interface RegenerateSummary {
   label: string;
-  takes: string[];
-  with: Array<{ label: string; takes: string[] }>;
+  variants: string[];
+  with: Array<{ label: string; variants: string[] }>;
 }
 
 /** What the submit dialog lists: every Regenerate standing, the rows first and their follows under them. */
@@ -488,15 +489,15 @@ export function regenerateSummary(
   const rowOf = (unit: string): RegenerateSummary => {
     let row = out.get(unit);
     if (!row) {
-      row = { label: unitLabel(graph, unit, from), takes: [], with: [] };
+      row = { label: unitLabel(graph, unit, from), variants: [], with: [] };
       out.set(unit, row);
     }
     return row;
   };
-  for (const [unit, { takes, follows }] of byUnit) {
-    const names = takeNames(unit, takes);
-    if (follows === null) rowOf(unit).takes = names;
-    else rowOf(follows).with.push({ label: unitLabel(graph, unit, from), takes: names });
+  for (const [unit, { variants, follows }] of byUnit) {
+    const names = variantNames(unit, variants);
+    if (follows === null) rowOf(unit).variants = names;
+    else rowOf(follows).with.push({ label: unitLabel(graph, unit, from), variants: names });
   }
   return [...out.values()];
 }

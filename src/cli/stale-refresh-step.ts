@@ -85,7 +85,7 @@ export function staleRefreshStep(opts: {
     }
   }
 
-  const matching = manager.matchingReadyTake(address, variantId, opts.cache);
+  const matching = manager.matchingReadyVariant(address, variantId, opts.cache);
   if (matching && !isMaterializedLeafAddress(address) && manager.registeredDeterministic(address)) {
     return { kind: "none" };
   }

@@ -148,6 +148,8 @@ export async function loadNeedsReviewTargets(videoRoot: string, scope?: string) 
   const { report } = await buildAssetStatus({ videoRoot, manager, ...definitions });
   const items = needsReviewItems(report)
     .filter((item) => scope === undefined || matchesAddressScope(item.address, scope))
-    .flatMap((item) => (item.takes ? item.takes.map((take) => ({ ...item, ...take })) : [item]));
+    .flatMap((item) =>
+      item.variants ? item.variants.map((variant) => ({ ...item, ...variant })) : [item],
+    );
   return { definitions, manager, items };
 }

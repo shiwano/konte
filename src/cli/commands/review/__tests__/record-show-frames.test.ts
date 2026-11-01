@@ -10,9 +10,9 @@ import { loadVideoAndAnimatic } from "../../../load-definition.js";
 import {
   useReviewShowProject,
   projectDir,
-  dropShotTakes,
+  dropShotVariants,
   record,
-  seedShotTakes,
+  seedShotVariants,
   writeFrame,
 } from "./record-show-fixtures.js";
 
@@ -176,7 +176,7 @@ describe("resolveShotFeedbackFrames", () => {
   // at all is unavailable (`compositionDrawsSomething`).
   it("still frames a note when the take is gone and the shot's own markup is not", async () => {
     const { video } = await loadVideoAndAnimatic(projectDir);
-    await dropShotTakes("01");
+    await dropShotVariants("01");
     // Seeded after the drop, so the cache key is the dropped shot's — a hit, and no headless capture.
     await writeFrame("fb-a", 1);
     const dropped = await StateManager.load(projectDir);
@@ -205,7 +205,7 @@ describe("review record show", () => {
       },
       { force: true },
     );
-    await seedShotTakes("animatic");
+    await seedShotVariants("animatic");
     await writeFrame("fb-board", 1, "01", "animatic");
 
     const { stdout } = await run(["review", "record", "show"], projectDir);

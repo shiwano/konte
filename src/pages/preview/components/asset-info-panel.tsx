@@ -63,12 +63,12 @@ function Value({ text }: { text: string }): React.ReactElement {
 }
 
 // The take whose info panel is open.
-export interface InfoTake {
+export interface InfoVariant {
   address: string;
   variantId: string;
 }
 
-export function takeInfo(
+export function variantInfo(
   variants: readonly VariantInfo[],
   variantId: string | null,
 ): AssetInfo | undefined {

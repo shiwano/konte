@@ -1066,7 +1066,7 @@ describe("formatReviewRecord", () => {
             start: 0,
             duration: 3,
             variants: { first: "v-eeeeeeee", motion: "v-aaaaaaaa" },
-            takes: {
+            sources: {
               "video:shot.01.motion": "v-aaaaaaaa",
               "animatic:shot.01.line": "v-cccccccc",
             },
@@ -1106,7 +1106,7 @@ describe("formatReviewRecord", () => {
             start: 0,
             duration: 3,
             variants: { screen: "v-30aaaaaa" },
-            takes: {
+            sources: {
               "animatic:shot.28.screen": "v-28aaaaaa",
               "animatic:shot.30.screen": "v-30aaaaaa",
             },
@@ -1116,7 +1116,7 @@ describe("formatReviewRecord", () => {
             start: 3,
             duration: 3,
             variants: { line: "v-34aaaaaa" },
-            takes: {
+            sources: {
               "animatic:shot.28.screen": "v-28aaaaaa",
               "animatic:shot.30.screen": "v-30aaaaaa",
               "animatic:shot.34.line": "v-34aaaaaa",
@@ -1154,7 +1154,7 @@ describe("formatReviewRecord", () => {
             start: 0,
             duration: 3,
             variants: {},
-            takes: { "animatic:shot.27.screen": "v-27aaaaaa" },
+            sources: { "animatic:shot.27.screen": "v-27aaaaaa" },
           },
         ],
         contentHashes: { "video:shot.27#composition": "h-27" },
@@ -1198,7 +1198,7 @@ describe("formatReviewRecord", () => {
             start: 0,
             duration: 3,
             variants: { first: "v-eeeeeeee", motion: "v-aaaaaaaa" },
-            takes: { "video:shot.01.motion": "v-aaaaaaaa" },
+            sources: { "video:shot.01.motion": "v-aaaaaaaa" },
           },
         ],
       },

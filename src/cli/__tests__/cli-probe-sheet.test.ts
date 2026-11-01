@@ -157,7 +157,7 @@ export default defineVideo(direction, {
   }
 
   // Another undecided take beside the address's existing one — the state a reroll leaves behind.
-  async function addTake(projectDir: string, address: string, variantId: string): Promise<void> {
+  async function addVariant(projectDir: string, address: string, variantId: string): Promise<void> {
     const statePath = path.join(projectDir, "konte.state.json");
     const state = JSON.parse(await fs.readFile(statePath, "utf-8"));
     const variants = state.assets[address].variants as Record<string, Record<string, unknown>>;
@@ -181,7 +181,7 @@ export default defineVideo(direction, {
   it("tiles every undecided take at an address, not just the newest", async () => {
     const projectDir = await initProject();
     await unaccept(projectDir, "reference:plateA");
-    await addTake(projectDir, "reference:plateA", "v-plateatake2");
+    await addVariant(projectDir, "reference:plateA", "v-plateatake2");
 
     const { stderr } = await run(
       ["probe", "contact-sheet", "--needs-review", "reference"],
@@ -192,8 +192,8 @@ export default defineVideo(direction, {
 
   it("tiles every undecided take beside an accept", async () => {
     const projectDir = await initProject();
-    await addTake(projectDir, "reference:plateA", "v-plateatake2");
-    await addTake(projectDir, "reference:plateA", "v-plateatake3");
+    await addVariant(projectDir, "reference:plateA", "v-plateatake2");
+    await addVariant(projectDir, "reference:plateA", "v-plateatake3");
 
     const { stderr } = await run(
       ["probe", "contact-sheet", "--needs-review", "reference"],
@@ -206,8 +206,8 @@ export default defineVideo(direction, {
     const projectDir = await initProject();
     const before = (await StateManager.load(projectDir)).getAssetState("reference:clip");
     const accepted = Object.keys(before.variants!)[0]!;
-    await addTake(projectDir, "reference:clip", "v-cliptake2");
-    await addTake(projectDir, "reference:clip", "v-clipdismissed");
+    await addVariant(projectDir, "reference:clip", "v-cliptake2");
+    await addVariant(projectDir, "reference:clip", "v-clipdismissed");
     const sm = await StateManager.load(projectDir);
     sm.getAssetState("reference:clip").variants!["v-clipdismissed"]!.status = "dismissed";
     await sm.save();
@@ -229,8 +229,8 @@ export default defineVideo(direction, {
 
   it("tiles a named address's rival takes beside the one it resolves to", async () => {
     const projectDir = await initProject();
-    await addTake(projectDir, "reference:plateA", "v-plateatake2");
-    await addTake(projectDir, "reference:plateA", "v-plateatake3");
+    await addVariant(projectDir, "reference:plateA", "v-plateatake2");
+    await addVariant(projectDir, "reference:plateA", "v-plateatake3");
 
     const named = await run(["probe", "contact-sheet", "reference:plateA"], projectDir);
     expect(named.stderr).toContain("3 cells, 1 sheet(s)");

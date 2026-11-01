@@ -13,9 +13,9 @@ export type SongParts = Record<SongPart, string>;
 // Kept under the video's cache by the take's output hash, so each take is separated once.
 export async function songParts(
   videoRoot: string,
-  take: { file: string; outputHash: string | null | undefined },
+  variant: { file: string; outputHash: string | null | undefined },
 ): Promise<SongParts> {
-  const hash = take.outputHash ?? sha256Hex(fs.readFileSync(take.file));
+  const hash = variant.outputHash ?? sha256Hex(fs.readFileSync(variant.file));
   const dir = path.join(videoRoot, ".konte", "cache", "song-parts", hash);
   const parts: SongParts = {
     vocals: path.join(dir, "vocals.wav"),
@@ -31,7 +31,7 @@ export async function songParts(
       "quiet",
       "-y",
       "-i",
-      take.file,
+      variant.file,
       "-map",
       "0:a:0",
       "-ac",

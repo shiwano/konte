@@ -91,7 +91,7 @@ describe("parseSilent", () => {
 });
 
 describe("cueLeadIn", () => {
-  const take = (leadInSec?: number) => ({
+  const variant = (leadInSec?: number) => ({
     kind: "audio" as const,
     durationSec: 1,
     channels: 2,
@@ -104,16 +104,16 @@ describe("cueLeadIn", () => {
   });
 
   it("skips an sfx take's measured lead-in", () => {
-    expect(cueLeadIn("sfx", take(0.105))).toBe(0.105);
+    expect(cueLeadIn("sfx", variant(0.105))).toBe(0.105);
   });
 
   it("leaves a line where its author put it", () => {
-    expect(cueLeadIn("voice", take(0.3))).toBe(0);
-    expect(cueLeadIn("mob", take(0.3))).toBe(0);
+    expect(cueLeadIn("voice", variant(0.3))).toBe(0);
+    expect(cueLeadIn("mob", variant(0.3))).toBe(0);
   });
 
   it("skips nothing on a take measured before lead-in was, or a clip's track", () => {
-    expect(cueLeadIn("sfx", take())).toBe(0);
+    expect(cueLeadIn("sfx", variant())).toBe(0);
     expect(cueLeadIn("sfx", undefined)).toBe(0);
     expect(
       cueLeadIn("sfx", {
@@ -252,7 +252,7 @@ describe("cueKindsBySrc", () => {
 });
 
 describe("shotCueLevels", () => {
-  const sfxTake = (leadInSec: number) => ({
+  const sfxVariant = (leadInSec: number) => ({
     variants: {
       "v-1": {
         media: {
@@ -267,10 +267,10 @@ describe("shotCueLevels", () => {
   });
   const state = {
     assets: {
-      "animatic:shot.01.slam": sfxTake(0.1),
-      "animatic:timeline.knock": sfxTake(0.2),
-      "reference:thump": sfxTake(0.3),
-      "animatic:shot.02#stem": sfxTake(0.4),
+      "animatic:shot.01.slam": sfxVariant(0.1),
+      "animatic:timeline.knock": sfxVariant(0.2),
+      "reference:thump": sfxVariant(0.3),
+      "animatic:shot.02#stem": sfxVariant(0.4),
     },
   } as unknown as KonteState;
   const levels = shotCueLevels({

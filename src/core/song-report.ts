@@ -1,4 +1,4 @@
-import { type SongGridSource, songBeatAt, songBeatSec } from "./song-take.js";
+import { type SongGridSource, songBeatAt, songBeatSec } from "./song-variant.js";
 
 // A song take's bar grid as the reader lays a take against it: where each bar head falls in the
 // take, and how loud the bar is.

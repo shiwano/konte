@@ -147,7 +147,7 @@ export function linesOwedAt(definitions: StageDefinitions, address: string): str
 
 // What a take gets wrong of the `lines` it owes, written in `lang`, as `heard "…" — <what>`, or null
 // where it says them or was never heard.
-export function takeMishearing(
+export function variantMishearing(
   videoRoot: string,
   address: string,
   variantId: string,

@@ -653,7 +653,7 @@ export interface StemAudioEntry {
 }
 
 /** What the take resolved for a voice cue tells the duck. */
-export interface VoiceTake {
+export interface VoiceVariant {
   /** The take's duration less the cue's `mediaStart`, in source seconds; null when unmeasured. */
   length: number | null;
   /** The silence the take opens with, from the file's head (see `voiceTriggerSpan`). */
@@ -707,7 +707,7 @@ export function harvestAudioStructure(
  */
 function standInVoiceSpans(
   plan: RenderPlan,
-  voiceTake: (cue: StemAudioEntry) => VoiceTake | null,
+  voiceVariant: (cue: StemAudioEntry) => VoiceVariant | null,
 ): VoiceSpan[] {
   const spans: VoiceSpan[] = [];
   let offset = 0;
@@ -736,8 +736,8 @@ function standInVoiceSpans(
         const kind = standIn.cueKinds?.[cue.src];
         if (!isVoiceKind(kind)) continue;
         const start = cue.start ?? 0;
-        const take = voiceTake(cue);
-        const played = take?.length != null ? take.length / cue.rate : null;
+        const variant = voiceVariant(cue);
+        const played = variant?.length != null ? variant.length / cue.rate : null;
         const length = cue.duration ?? played ?? Math.max(0, standIn.duration - start);
         if (length <= 0) continue;
         const span = voiceTriggerSpan({
@@ -745,8 +745,8 @@ function standInVoiceSpans(
           end: offset + start + length,
           mediaStart: cue.mediaStart ?? 0,
           rate: cue.rate,
-          leadInSec: take?.leadInSec,
-          soundEndSec: take?.soundEndSec,
+          leadInSec: variant?.leadInSec,
+          soundEndSec: variant?.soundEndSec,
         });
         if (span) spans.push({ ...span, address: cue.src, kind: kind!, track: cue.track });
       }
@@ -763,11 +763,11 @@ function isNarrationCue(span: VoiceSpan): boolean {
 }
 
 // What a cue's resolved take tells the duck, read off its measured media — no probe.
-function previewVoiceTake(
+function previewVoiceVariant(
   manager: StateManager,
   includeStale: boolean,
   overrideByAddress?: ReadonlyMap<string, string>,
-): (cue: StemAudioEntry) => VoiceTake | null {
+): (cue: StemAudioEntry) => VoiceVariant | null {
   return (cue) => {
     const resolved = resolveCompositionRef(manager, cue.src, { includeStale, overrideByAddress });
     if (!resolved) return null;
@@ -791,7 +791,7 @@ export function declaredVoiceSpans(
   // The take resolved for a cue. Given, an OPEN-ENDED cue spans what it will actually sound for,
   // and every cue ducks from where its sound starts. Omitted (the hash paths) the span falls back
   // to the whole placement, keeping those render- and take-free.
-  voiceTake?: (cue: StemAudioEntry) => VoiceTake | null,
+  voiceVariant?: (cue: StemAudioEntry) => VoiceVariant | null,
 ): Array<VoiceSpan & { shotId: string }> {
   const spans: Array<VoiceSpan & { shotId: string }> = [];
   let offset = 0;
@@ -800,8 +800,8 @@ export function declaredVoiceSpans(
       const kind = shot.cueKinds?.[cue.src];
       if (!isVoiceKind(kind)) continue;
       const start = cue.start ?? 0;
-      const take = voiceTake?.(cue) ?? null;
-      const played = take?.length != null ? take.length / cue.rate : null;
+      const variant = voiceVariant?.(cue) ?? null;
+      const played = variant?.length != null ? variant.length / cue.rate : null;
       const length = cue.duration ?? played ?? Math.max(0, shot.duration - start);
       if (length <= 0) continue;
       const span = voiceTriggerSpan({
@@ -809,8 +809,8 @@ export function declaredVoiceSpans(
         end: offset + start + length,
         mediaStart: cue.mediaStart ?? 0,
         rate: cue.rate,
-        leadInSec: take?.leadInSec,
-        soundEndSec: take?.soundEndSec,
+        leadInSec: variant?.leadInSec,
+        soundEndSec: variant?.soundEndSec,
       });
       if (span)
         spans.push({ ...span, address: cue.src, kind: kind!, track: cue.track, shotId: shot.id });
@@ -1155,7 +1155,7 @@ export async function buildShotCompositionHtml(
       : undefined;
     const narration = declaredVoiceSpans(
       video,
-      previewVoiceTake(manager, allowNotReady ?? false, shown),
+      previewVoiceVariant(manager, allowNotReady ?? false, shown),
     )
       .filter((v) => v.shotId === shotId && isNarrationCue(v))
       .map((v) => ({ start: v.start - shotStart, end: v.end - shotStart }));
@@ -1423,13 +1423,13 @@ export async function buildFullCompositionHtml(
   // lines are rendered to find them, so only for a reel with something to duck.
   const ducks =
     timelineSoundtracks.length > 0 || clipHosts.some((host) => HAS_CLIP_AUDIO.test(host.html));
-  const voiceTake = previewVoiceTake(manager, allowNotReady ?? false, overrideByAddress);
+  const voiceVariant = previewVoiceVariant(manager, allowNotReady ?? false, overrideByAddress);
   // The video shot a stand-in replaces contributes no lines of its own.
   const standInIds = new Set(plan.shots.filter((s) => s.showStandIn).map((s) => s.shotId));
   const voiceSpans = ducks
     ? [
-        ...declaredVoiceSpans(video, voiceTake).filter((v) => !standInIds.has(v.shotId)),
-        ...standInVoiceSpans(plan, voiceTake),
+        ...declaredVoiceSpans(video, voiceVariant).filter((v) => !standInIds.has(v.shotId)),
+        ...standInVoiceSpans(plan, voiceVariant),
       ]
     : [];
   const narration = voiceSpans.filter(isNarrationCue);

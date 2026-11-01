@@ -33,7 +33,7 @@ import {
   type DependencyGraph,
 } from "../core/graph.js";
 import { loadAnimatic, loadReference } from "../core/loader.js";
-import { songAddressOf } from "../core/song-take.js";
+import { songAddressOf } from "../core/song-variant.js";
 import { StateManager } from "../core/state/index.js";
 import type {
   AnimaticDefinition,
@@ -44,7 +44,7 @@ import {
   animaticSetupState,
   loadDirectionIfPresent,
   loadVideoAndAnimatic,
-  songTakeState,
+  songVariantState,
   stagingStageState,
   unacceptedUpstreamDeps,
   unsatisfiedCharacters,
@@ -98,7 +98,7 @@ export async function loadCheckContext(opts: {
           stagingStage: stagingStageState(direction, animatic, video, manager),
         }
       : {}),
-    ...(direction && manager ? { songTake: songTakeState(manager, direction) } : {}),
+    ...(direction && manager ? { songVariant: songVariantState(manager, direction) } : {}),
   };
 }
 
@@ -440,9 +440,11 @@ export async function reviewGate(
   const want = (t: ReturnType<typeof findingTraits>) =>
     (preview && t.holds.preview === true) || (accept && t.holds.accept === true);
   const previewStages = new Set(ops.flatMap((op) => (op.op === "preview" ? [op.stage] : [])));
-  const [takeStage] = previewStages;
+  const [variantStage] = previewStages;
   const report = await collectFindings(
-    !accept && previewStages.size === 1 && takeStage !== "direction" ? { ...ctx, takeStage } : ctx,
+    !accept && previewStages.size === 1 && variantStage !== "direction"
+      ? { ...ctx, variantStage }
+      : ctx,
     want,
   );
   const error = reviewHeldError(blocked, reviewHeldFindings(report, ops));

@@ -1,4 +1,4 @@
-import type { KeepEntry, KeepTake } from "./review/keep-or-regenerate.js";
+import type { KeepEntry, KeepVariant } from "./review/keep-or-regenerate.js";
 import type { DirectionSection, PreviewState, SongLineEdit } from "./types.js";
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
@@ -88,7 +88,7 @@ export function submitReview(
     overallComment?: string;
     // The Keep-or-regenerate answers (see `KeepEntry`).
     keep?: KeepEntry[];
-    regenerate?: KeepTake[];
+    regenerate?: KeepVariant[];
   },
 ): Promise<{ saved: boolean; filePath: string | null }> {
   return request<{
@@ -191,7 +191,7 @@ export function submitReferenceReview(payload: {
   }>;
   overallComment?: string;
   keep?: KeepEntry[];
-  regenerate?: KeepTake[];
+  regenerate?: KeepVariant[];
   // Lyric lines placed on a take of the song, or left to the reading again (`span` null).
   songLines?: SongLineEdit[];
 }): Promise<{ saved: boolean }> {

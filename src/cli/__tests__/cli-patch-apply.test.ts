@@ -95,13 +95,13 @@ export default definePatch<"image">(({ source }) => {
       );
       await run(["patch", "apply", sourceId], projectDir);
       await run(["job", "wait"], projectDir).catch(() => undefined);
-      const wideTakes = await variantsOf(projectDir, `reference:patch.${sourceId}.wide`);
+      const wideVariants = await variantsOf(projectDir, `reference:patch.${sourceId}.wide`);
 
       await run(["patch", "apply", sourceId], projectDir);
       await run(["job", "wait"], projectDir).catch(() => undefined);
 
       expect(Object.keys(await variantsOf(projectDir, `reference:patch.${sourceId}.wide`))).toEqual(
-        Object.keys(wideTakes),
+        Object.keys(wideVariants),
       );
     });
 

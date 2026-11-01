@@ -6,7 +6,7 @@ import type {
   AssetInfo,
   AssetPatchInfo,
 } from "../../../../pages/preview/types.js";
-import { type PatchChainTakes, createAssetInfoBuilder } from "../asset-info.js";
+import { type PatchChainVariants, createAssetInfoBuilder } from "../asset-info.js";
 
 const PROMPT = "a girl at a desk";
 const NEGATIVE = "blurry";
@@ -36,7 +36,7 @@ const PROMPTS: PromptOccurrence[] = [
 function chainBuilder(
   snapshots: Record<string, AssetDefinition>,
   prompts: PromptOccurrence[],
-  patchChainOf: (address: string, variantId: string) => PatchChainTakes | null,
+  patchChainOf: (address: string, variantId: string) => PatchChainVariants | null,
 ) {
   return createAssetInfoBuilder(
     prompts,

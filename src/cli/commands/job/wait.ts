@@ -345,13 +345,13 @@ async function findingsOf(
   );
   if (landed.length === 0) return new Map();
   const state = (await StateManager.load(videoRoot)).getState();
-  const takes = landed.flatMap((r) => {
+  const variants = landed.flatMap((r) => {
     const variant = state.assets[r.address]?.variants?.[r.id];
     return variant ? [{ r, variant }] : [];
   });
   // Only a take heard, measured silent, or a video with no track can carry a finding, and only it
   // needs the definition.
-  const checkable = takes.filter(
+  const checkable = variants.filter(
     ({ r, variant }) =>
       readHeardSpeech(videoRoot, r.address, r.id, variant.outputHash) !== null ||
       measuredSilent(variant) ||

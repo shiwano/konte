@@ -28,7 +28,7 @@ afterEach(async () => {
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
-function setupTake(
+function setupVariant(
   address: string,
   file: string,
   media: VariantMedia | null,
@@ -75,7 +75,7 @@ function reel(shots: Array<{ id: string; start: number; duration: number; body: 
 
 describe("planVideoPreroll", () => {
   it("frame-aligns the lead to the take's fps and keys the copy on the take's bytes", () => {
-    const v = setupTake("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
+    const v = setupVariant("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
     const html = reel([
       {
         id: "02",
@@ -98,7 +98,7 @@ describe("planVideoPreroll", () => {
 
   it("skips a clip that starts partway through its shot", () => {
     // Its host is already on screen through the run-up, so the shift would reveal it early.
-    const v = setupTake("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
+    const v = setupVariant("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
     const html = reel([
       {
         id: "02",
@@ -113,7 +113,7 @@ describe("planVideoPreroll", () => {
 
   it("skips a looping clip", () => {
     // The browser loops the padded source, so the run-up would replay as a held frame each cycle.
-    const v = setupTake("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
+    const v = setupVariant("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
     const html = reel([
       {
         id: "02",
@@ -128,7 +128,7 @@ describe("planVideoPreroll", () => {
 
   it("skips a clip played at a rate other than 1", () => {
     // The runtime scales the position by the rate, so the shift and the padding would scale too.
-    const v = setupTake("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
+    const v = setupVariant("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
     const html = reel([
       {
         id: "02",
@@ -145,7 +145,7 @@ describe("planVideoPreroll", () => {
   });
 
   it("skips a clip with no room before it for the run-up", () => {
-    const v = setupTake("video:shot.01.motion", "assets/a.mp4", videoMedia(24));
+    const v = setupVariant("video:shot.01.motion", "assets/a.mp4", videoMedia(24));
     const html = reel([
       {
         id: "01",
@@ -159,7 +159,7 @@ describe("planVideoPreroll", () => {
   });
 
   it("skips a take whose fps was never measured", () => {
-    const v = setupTake("video:shot.02.motion", "assets/a.mp4", null);
+    const v = setupVariant("video:shot.02.motion", "assets/a.mp4", null);
     const html = reel([
       {
         id: "02",
@@ -174,7 +174,7 @@ describe("planVideoPreroll", () => {
 
   it("skips a take whose bytes are unidentified", () => {
     // A `file` take keeps its id when its bytes are swapped, so an unhashed one cannot key a copy.
-    const v = setupTake("video:shot.02.motion", "assets/a.mp4", videoMedia(24), null);
+    const v = setupVariant("video:shot.02.motion", "assets/a.mp4", videoMedia(24), null);
     const html = reel([
       {
         id: "02",
@@ -202,7 +202,7 @@ describe("planVideoPreroll", () => {
 
   it("needs no copy when the take carries a lead-in before the in-point and a tail after", () => {
     // A clip cut out of the middle of a long source runs up through its own frames.
-    const v = setupTake("video:shot.02.motion", "assets/long.mp4", videoMedia(24, 7200));
+    const v = setupVariant("video:shot.02.motion", "assets/long.mp4", videoMedia(24, 7200));
     const body = videoTag(assetUrl("video:shot.02.motion", v), 0, 3).replace(
       ">",
       ' data-media-start="3600">',
@@ -217,7 +217,7 @@ describe("planVideoPreroll", () => {
   });
 
   it("bounds a copy to the window the clip plays plus a tail, not the whole source", () => {
-    const v = setupTake("video:shot.02.motion", "assets/long.mp4", videoMedia(24, 7200));
+    const v = setupVariant("video:shot.02.motion", "assets/long.mp4", videoMedia(24, 7200));
     const body = videoTag(assetUrl("video:shot.02.motion", v), 0, 3).replace(
       ">",
       ' data-media-start="0.1">',
@@ -235,7 +235,7 @@ describe("planVideoPreroll", () => {
   it("copies a mid-take clip whose take runs out within a tail of its window", () => {
     // The take has the run-up to spare but not the tail, so the copy starts a lead before the
     // in-point and clones the last frame past the source's end.
-    const v = setupTake("video:shot.02.motion", "assets/a.mp4", videoMedia(24, 5));
+    const v = setupVariant("video:shot.02.motion", "assets/a.mp4", videoMedia(24, 5));
     const body = videoTag(assetUrl("video:shot.02.motion", v), 0, 4).replace(
       ">",
       ' data-media-start="1">',
@@ -252,7 +252,7 @@ describe("planVideoPreroll", () => {
   });
 
   it("plans one entry per placement, and lets identical ones share a copy", () => {
-    const v = setupTake("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
+    const v = setupVariant("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
     const src = assetUrl("video:shot.02.motion", v);
     const html = reel([
       { id: "02", start: 1.5, duration: 2, body: videoTag(src, 0, 2) },
@@ -276,7 +276,7 @@ describe("applyVideoPreroll", () => {
   let src: string;
   let vid: string;
   beforeEach(() => {
-    vid = setupTake("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
+    vid = setupVariant("video:shot.02.motion", "assets/a.mp4", videoMedia(24));
     src = assetUrl("video:shot.02.motion", vid);
   });
 

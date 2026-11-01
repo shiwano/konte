@@ -13,10 +13,10 @@ import {
   computeVariantStaleness,
   createStalenessCache,
   keptViaMarker,
-  newestReadyUndecidedTake,
+  newestReadyUndecidedVariant,
   parseKeptVia,
   type PatchHashes,
-  readyUndecidedTakes,
+  readyUndecidedVariants,
   type ResolutionDefinitions,
   selectResolvedVariant,
   type StalenessCache,
@@ -470,15 +470,15 @@ export class StateManager {
 
   /**
    * The take already at `address` that matches the current definition and inputs, if any — what a
-   * stale take is refreshed BY when the material is already on disk (see `newestReadyUndecidedTake`).
+   * stale take is refreshed BY when the material is already on disk (see `newestReadyUndecidedVariant`).
    */
-  matchingReadyTake(
+  matchingReadyVariant(
     address: string,
     excludeVariantId?: string,
     cache?: StalenessCache,
   ): string | null {
     const definitions = this.definitionsFor(cache);
-    return newestReadyUndecidedTake(
+    return newestReadyUndecidedVariant(
       this.state,
       address,
       definitions?.definitionHash(address) ?? null,
@@ -488,12 +488,12 @@ export class StateManager {
     );
   }
 
-  /** Every take at `address` awaiting a verdict (see `readyUndecidedTakes`), newest ready first. */
-  readyUndecidedTakes(address: string, cache?: StalenessCache): string[] {
+  /** Every take at `address` awaiting a verdict (see `readyUndecidedVariants`), newest ready first. */
+  readyUndecidedVariants(address: string, cache?: StalenessCache): string[] {
     const definitions = this.definitionsFor(cache);
     const variants = this.state.assets[address]?.variants ?? {};
     const readyOf = (id: string) => variants[id]!.readyAt ?? variants[id]!.createdAt;
-    return readyUndecidedTakes(
+    return readyUndecidedVariants(
       this.state,
       address,
       definitions?.definitionHash(address) ?? null,
@@ -558,7 +558,7 @@ export class StateManager {
     variant.status = "accepted";
     variant.decidedAt = decidedAt;
 
-    this.dismissTakes(address, [...dismiss], variantId, decidedAt);
+    this.dismissVariants(address, [...dismiss], variantId, decidedAt);
   }
 
   /**
@@ -571,7 +571,7 @@ export class StateManager {
    * Public for the accept paths that keep a standing accept in place — a shot accept re-signing an
    * audio source it did not move still settles that source's rivals.
    */
-  dismissTakes(
+  dismissVariants(
     address: string,
     variantIds: readonly string[],
     chosenVariantId: string,
@@ -590,7 +590,7 @@ export class StateManager {
 
   /**
    * The verdict against one take, made without choosing another — what `konte dismiss` records, and
-   * `dismissTakes`'s standalone half. Where `dismissTakes` skips what it cannot settle, this throws:
+   * `dismissVariants`'s standalone half. Where `dismissVariants` skips what it cannot settle, this throws:
    * nothing is decided silently.
    *
    * Returns whether the verdict moved. A take already carrying it keeps its `decidedAt`.

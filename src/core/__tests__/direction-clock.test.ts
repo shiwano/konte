@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   checkDirection,
   directionWaiverKey,
-  type SongTakeState,
+  type SongVariantState,
   validateDirectionStructure,
 } from "../direction.js";
 import { directionPartHashes } from "../direction-hash.js";
 import { directionPartContents } from "../direction-parts.js";
 import type { Direction, LyricLine, NarrativeShot } from "../dsl/direction.js";
 import { placeDirectionLyrics } from "../dsl/direction.js";
-import { setSongFirstBeat, setSongLine, setSongLines } from "../song-take.js";
+import { setSongFirstBeat, setSongLine, setSongLines } from "../song-variant.js";
 import { steadySong } from "./helpers/song.js";
 import { directionDefaults } from "./helpers/direction.js";
 import { suggestForStatus } from "../suggested-actions.js";
@@ -46,7 +46,9 @@ const arc = (disruptionBeats = 8) => [
 const codes = (direction: Direction, referenceAssetNames?: readonly string[]) =>
   checkDirection(
     direction,
-    referenceAssetNames ? { referenceAssetNames, songTake: { take: null, durationSec: null } } : {},
+    referenceAssetNames
+      ? { referenceAssetNames, songVariant: { variant: null, durationSec: null } }
+      : {},
   ).active.map((f) => f.code);
 
 describe("the song", () => {
@@ -140,7 +142,7 @@ describe("Next steps before the song", () => {
       state,
       directionReviewNeeded: true,
       directionEmpty: true,
-      songPending: { address: "reference:song", hasTake: false, directionReviewNeeded: false },
+      songPending: { address: "reference:song", hasVariant: false, directionReviewNeeded: false },
     });
     expect(actions[0]).toMatchObject({ command: "konte generate reference" });
     expect(actions[1]!.details?.[0]).toMatch(/counted in beats, once reference:song is accepted/);
@@ -151,7 +153,7 @@ describe("Next steps before the song", () => {
       state,
       directionReviewNeeded: true,
       directionEmpty: true,
-      songPending: { address: "reference:song", hasTake: false, directionReviewNeeded: true },
+      songPending: { address: "reference:song", hasVariant: false, directionReviewNeeded: true },
     });
     expect(actions[0]).toMatchObject({ command: "konte preview direction" });
   });
@@ -161,7 +163,7 @@ describe("Next steps before the song", () => {
       state,
       directionReviewNeeded: true,
       directionEmpty: true,
-      songPending: { address: "reference:song", hasTake: true, directionReviewNeeded: false },
+      songPending: { address: "reference:song", hasVariant: true, directionReviewNeeded: false },
     });
     expect(actions[0]).toMatchObject({ command: "konte preview reference" });
   });
@@ -171,7 +173,7 @@ describe("Next steps before the song", () => {
       state,
       directionReviewNeeded: true,
       directionEmpty: true,
-      songPending: { address: "reference:song", hasTake: true, directionReviewNeeded: false },
+      songPending: { address: "reference:song", hasVariant: true, directionReviewNeeded: false },
       songUnread: true,
     });
     expect(actions.map((a) => a.command).slice(0, 2)).toEqual([
@@ -182,8 +184,8 @@ describe("Next steps before the song", () => {
 });
 
 describe("the song take", () => {
-  const take = (bpm: number, phrases: [number, number][] | null = []): SongTakeState => ({
-    take: {
+  const variant = (bpm: number, phrases: [number, number][] | null = []): SongVariantState => ({
+    variant: {
       address: "reference:song",
       variantId: "v-song",
       analysis: steadySong({
@@ -194,13 +196,13 @@ describe("the song take", () => {
     },
     durationSec: null,
   });
-  const check = (direction: Direction, song: SongTakeState) =>
-    checkDirection(direction, { referenceAssetNames: ["song"], songTake: song }).active;
+  const check = (direction: Direction, song: SongVariantState) =>
+    checkDirection(direction, { referenceAssetNames: ["song"], songVariant: song }).active;
 
   it("flags a timeline that runs past the end of the take", () => {
     // 32 beats at 120 BPM after a 0.5s lead end the timeline at 16.5s.
     const overrun = (durationSec: number) =>
-      check(clocked(arc()), { ...take(120), durationSec }).map((f) => f.code);
+      check(clocked(arc()), { ...variant(120), durationSec }).map((f) => f.code);
     expect(overrun(16.5)).not.toContain("song-overrun");
     expect(overrun(16)).toContain("song-overrun");
   });
@@ -216,13 +218,13 @@ describe("the song take", () => {
       lyrics: [{ label: "chorus", singer: "konte", lines }],
     }) as Direction;
   const withSet = (
-    base: SongTakeState,
+    base: SongVariantState,
     lines: Record<string, { text: string; startSec: number; endSec: number }>,
-  ): SongTakeState => ({
-    take: {
-      ...base.take!,
+  ): SongVariantState => ({
+    variant: {
+      ...base.variant!,
       analysis: {
-        ...base.take!.analysis,
+        ...base.variant!.analysis,
         lines,
       },
     },
@@ -230,7 +232,7 @@ describe("the song take", () => {
   });
 
   it("flags a line no reading of the take places, by its place in the sections", () => {
-    const findings = check(withLyrics(["Hit the light", "Watch me move"]), take(120, null));
+    const findings = check(withLyrics(["Hit the light", "Watch me move"]), variant(120, null));
     expect(findings.filter((f) => f.code === "lyric-unplaced").map(directionWaiverKey)).toEqual([
       "lyric-unplaced_1.1",
       "lyric-unplaced_1.2",
@@ -239,7 +241,7 @@ describe("the song take", () => {
 
   it("takes a line a person placed on the take as placed, while its words stand", () => {
     const direction = withLyrics(["Hit the light", "Watch me move"]);
-    const placed = withSet(take(120, null), {
+    const placed = withSet(variant(120, null), {
       "1.1": { text: "Hit the light", startSec: 0.5, endSec: 2 },
       "1.2": { text: "Watch me groove", startSec: 2.5, endSec: 4 },
     });
@@ -248,7 +250,7 @@ describe("the song take", () => {
         .filter((f) => f.code === "lyric-unplaced")
         .map(directionWaiverKey),
     ).toEqual(["lyric-unplaced_1.2"]);
-    const [line] = placeDirectionLyrics(direction, placed.take);
+    const [line] = placeDirectionLyrics(direction, placed.variant);
     expect(line).toMatchObject({ start: 0.5, end: 2, set: true });
   });
 
@@ -260,12 +262,12 @@ describe("the song take", () => {
         { label: "chorus", singer: ["konte", "mika"], lines: ["c"] },
       ],
     } as Direction;
-    const placed = withSet(take(120, null), {
+    const placed = withSet(variant(120, null), {
       "1.1": { text: "a", startSec: 0.5, endSec: 1 },
       "1.2": { text: "b", startSec: 1.5, endSec: 2 },
       "2.1": { text: "c", startSec: 2.5, endSec: 3 },
     });
-    expect(placeDirectionLyrics(direction, placed.take).map((l) => l.singer)).toEqual([
+    expect(placeDirectionLyrics(direction, placed.variant).map((l) => l.singer)).toEqual([
       ["konte"],
       ["mika"],
       ["konte", "mika"],
@@ -294,7 +296,7 @@ describe("the song take", () => {
     expect(
       checkDirection(direction, {
         referenceAssetNames: ["song", "konte", "mika"],
-        songTake: take(120),
+        songVariant: variant(120),
       }).active.map((f) => f.code),
     ).not.toContain("unused-character");
   });

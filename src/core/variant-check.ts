@@ -4,7 +4,7 @@
 
 import { type AssetStage, listAssetPaths } from "./address.js";
 import type { StageDefinitions } from "./definition-hashes.js";
-import { linesOwedAt, takeMishearing } from "./speech-hearing.js";
+import { linesOwedAt, variantMishearing } from "./speech-hearing.js";
 import type { StateManager } from "./state/index.js";
 import type { KonteState, VariantState } from "./types/index.js";
 import { variantOwningFile } from "./variant-dir.js";
@@ -51,7 +51,7 @@ export function checkVariant(opts: {
   }
   // A patched take points at its chain's returned step, which was heard when it landed.
   const heardAt = (variant.file && variantOwningFile(opts.state, variant.file)) || opts;
-  const wrong = takeMishearing(
+  const wrong = variantMishearing(
     opts.videoRoot,
     heardAt.address,
     heardAt.variantId,
@@ -85,7 +85,7 @@ export function unvouchedFindings(opts: {
   for (const address of addresses) {
     if (!state.assets[address]) continue;
     const lines = linesOwedAt(opts.definitions, address);
-    for (const variantId of opts.manager.readyUndecidedTakes(address, cache)) {
+    for (const variantId of opts.manager.readyUndecidedVariants(address, cache)) {
       const variant = state.assets[address]!.variants![variantId]!;
       if (variant.vouchedAt) continue;
       const findings = checkVariant({

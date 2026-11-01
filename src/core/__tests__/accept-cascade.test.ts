@@ -34,7 +34,7 @@ function variantFile(address: string, variantId: string, name: string): string {
 
 // A take a patch produced: it points at the returned step's file and records the take it corrects,
 // as `materializePatchOutput` writes it.
-function addPatchedTake(address: string, sourceVariantId: string, stepFile: string): string {
+function addPatchedVariant(address: string, sourceVariantId: string, stepFile: string): string {
   const vid = addReadyVariant(address, stepFile);
   manager.getAssetState(address).variants![vid]!.derivedFrom = sourceVariantId;
   return vid;
@@ -635,7 +635,7 @@ describe("cascadeAcceptConsumedDeps — review prerequisites", () => {
     manager.getAssetState(step).variants![stepVid]!.file = variantFile(step, stepVid, "fixed.png");
     await addJob(step, stepVid, { [panel]: sourceFile });
 
-    const patchedVid = addPatchedTake(panel, sourceVid, variantFile(step, stepVid, "fixed.png"));
+    const patchedVid = addPatchedVariant(panel, sourceVid, variantFile(step, stepVid, "fixed.png"));
 
     const accepted = await cascadeAcceptConsumedDeps(manager, jobManager, panel, patchedVid, {});
 
@@ -670,7 +670,7 @@ describe("cascadeAcceptConsumedDeps — review prerequisites", () => {
     manager.getAssetState(step).variants![stepVid]!.file = variantFile(step, stepVid, "fixed.png");
     await addJob(step, stepVid, { [resize]: variantFile(resize, resizeVid, "resized.png") });
 
-    const patchedVid = addPatchedTake(panel, sourceVid, variantFile(step, stepVid, "fixed.png"));
+    const patchedVid = addPatchedVariant(panel, sourceVid, variantFile(step, stepVid, "fixed.png"));
 
     const accepted = await cascadeAcceptConsumedDeps(manager, jobManager, panel, patchedVid, {});
 

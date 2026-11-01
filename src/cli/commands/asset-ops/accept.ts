@@ -50,7 +50,7 @@ import { shotById } from "../../../core/shot-index.js";
 import { shotAcceptable } from "../../../core/shot-acceptable.js";
 import {
   buildReelReviewPlan,
-  displayedReferenceTake,
+  displayedReferenceVariant,
   reelShotAcceptability,
 } from "../../../core/review-acceptability.js";
 import { KonteError } from "../../../core/errors.js";
@@ -65,7 +65,7 @@ import {
   reviewHeldFindings,
 } from "../../finding-gates.js";
 import { collectFindings } from "../../../core/checks.js";
-import { readyUndecidedTakes } from "../../../core/staleness.js";
+import { readyUndecidedVariants } from "../../../core/staleness.js";
 import { StateManager } from "../../../core/state/index.js";
 import { variantDir } from "../../../core/variant-dir.js";
 import { confirmAction, printAborted } from "../../confirm.js";
@@ -180,11 +180,11 @@ Examples:
       const isDirection = (t: string) => t === "direction" || t.startsWith("direction:");
       const direction = targets.find(isDirection);
       if (direction) {
-        const take = targets.find((t) => !isDirection(t));
-        if (take) {
+        const variant = targets.find((t) => !isDirection(t));
+        if (variant) {
           throw new KonteError(
             "TARGETS_CONFLICT",
-            `"${direction}" is a direction part and "${take}" a take — accept them in separate runs`,
+            `"${direction}" is a direction part and "${variant}" a take — accept them in separate runs`,
           );
         }
         await runDirectionAcceptance(targets, opts);
@@ -352,15 +352,15 @@ async function runDirectionAcceptance(
   if (!opts.off) await closeSignedOffFeedback(videoRoot, since);
 }
 
-type TakeTarget = { address: string; variantId: string };
+type VariantTarget = { address: string; variantId: string };
 // `record` is set when the render recorded a new take, which the commit adopts.
-type RenderedLeaf = TakeTarget & { record: VariantState | null };
+type RenderedLeaf = VariantTarget & { record: VariantState | null };
 // A conditional leaf (a stage's overlay) is accepted only if the batch before it leaves it owed one.
 type BatchEntry =
-  | (TakeTarget & { leaf: false })
+  | (VariantTarget & { leaf: false })
   | { address: string; leaf: true; conditional?: boolean };
 type ShotStages = Pick<LoadedDefinitions, "video" | "animatic">;
-type TakeStage = "reference" | "animatic" | "video";
+type VariantStage = "reference" | "animatic" | "video";
 
 type ShotDecision = { leaves: string[]; released: string[] };
 
@@ -418,13 +418,16 @@ function leafCauses(
 
 // Which take is meant there is the human's call: the review shows the newest take awaiting a
 // verdict beside an accept, while the batch would act on the accept.
-function takesBesideAccept(manager: StateManager, address: string): string[] {
-  return manager.getAcceptedVariant(address) ? manager.readyUndecidedTakes(address) : [];
+function variantsBesideAccept(manager: StateManager, address: string): string[] {
+  return manager.getAcceptedVariant(address) ? manager.readyUndecidedVariants(address) : [];
 }
 
-function upstreamTakesBesideAccept(manager: StateManager, addresses: readonly string[]): string[] {
+function upstreamVariantsBesideAccept(
+  manager: StateManager,
+  addresses: readonly string[],
+): string[] {
   return addresses.flatMap((address) => {
-    const rivals = takesBesideAccept(manager, address);
+    const rivals = variantsBesideAccept(manager, address);
     return rivals.length > 0
       ? [`${address}: ${rivals.join(", ")} await a verdict beside its accept`]
       : [];
@@ -438,7 +441,7 @@ function upstreamTakesBesideAccept(manager: StateManager, addresses: readonly st
 function stageUnits(
   manager: StateManager,
   definitions: StageDefinitions,
-  stage: TakeStage,
+  stage: VariantStage,
   dependencies: ReadonlyMap<string, readonly string[]>,
 ): StageUnit[] {
   if (stage === "reference") {
@@ -446,8 +449,8 @@ function stageUnits(
       throw new KonteError("ADDRESS_NOT_FOUND", "No reference.tsx found in the video root");
     }
     return listExposedReferenceAssetPaths(definitions.reference).map((address) => {
-      const variantId = displayedReferenceTake(manager, address)?.variantId;
-      const beside = takesBesideAccept(manager, address);
+      const variantId = displayedReferenceVariant(manager, address)?.variantId;
+      const beside = variantsBesideAccept(manager, address);
       return {
         label: address,
         addresses: [address],
@@ -469,7 +472,7 @@ function stageUnits(
     closed: string | null,
   ): StageUnit => {
     const waiting = leaves.filter((leaf) => !leafReadyForReview(manager, def, leaf));
-    const beside = upstreamTakesBesideAccept(manager, [
+    const beside = upstreamVariantsBesideAccept(manager, [
       ...new Set(leaves.flatMap((leaf) => dependencies.get(leaf) ?? [])),
     ]);
     const leftOut =
@@ -509,7 +512,7 @@ function stageUnits(
 
 function stageOverlay(
   stages: Pick<StageDefinitions, "video" | "animatic">,
-  stage: TakeStage,
+  stage: VariantStage,
 ): string[] {
   const def = stage === "animatic" ? stages.animatic : stage === "video" ? stages.video : null;
   return def ? listOverlayAddresses(def) : [];
@@ -520,7 +523,7 @@ function stageOverlay(
 function stageAddresses(
   manager: StateManager,
   definitions: StageDefinitions,
-  stage: TakeStage,
+  stage: VariantStage,
 ): string[] {
   if (stage === "reference") {
     if (!definitions.reference) {
@@ -542,7 +545,7 @@ function stageAddresses(
 function stageScopeTargets(
   manager: StateManager,
   definitions: StageDefinitions,
-  stage: TakeStage,
+  stage: VariantStage,
   dependencies: ReadonlyMap<string, readonly string[]>,
   heldFor: (addresses: readonly string[]) => Finding[],
 ): { targets: string[]; released: string[]; overlay: string | null; skipped: string[] } {
@@ -563,7 +566,7 @@ function stageScopeTargets(
   let overlay = stageOverlay(definitions, stage)[0] ?? null;
   if (overlay) {
     const held = heldFor([overlay]);
-    const beside = upstreamTakesBesideAccept(manager, dependencies.get(overlay) ?? []);
+    const beside = upstreamVariantsBesideAccept(manager, dependencies.get(overlay) ?? []);
     const leftOut =
       held.length > 0 ? heldReason(held) : beside.length > 0 ? beside.join("; ") : null;
     if (leftOut) {
@@ -633,7 +636,7 @@ type AcceptCascadeOpts = Parameters<typeof cascadeAcceptConsumedDeps>[4];
 async function applyAccept(
   manager: StateManager,
   jobManager: JobManager,
-  { address, variantId }: TakeTarget,
+  { address, variantId }: VariantTarget,
   cascadeOpts: AcceptCascadeOpts,
   dismiss: readonly string[] = [],
 ): Promise<{ previous: string | null; cascaded: string[]; keptAgainst: string[] }> {
@@ -652,11 +655,11 @@ async function applyAccept(
 }
 
 // An address naming a definition-stale accept means the take a reroll drew beside it.
-function replacementForStaleAccept(manager: StateManager, hit: TakeTarget): TakeTarget {
+function replacementForStaleAccept(manager: StateManager, hit: VariantTarget): VariantTarget {
   const variant = manager.getState().assets[hit.address]?.variants?.[hit.variantId];
   if (variant?.status !== "accepted") return hit;
   if (!manager.variantStaleness(hit.address, hit.variantId)?.definitionStale) return hit;
-  const rivals = manager.readyUndecidedTakes(hit.address);
+  const rivals = manager.readyUndecidedVariants(hit.address);
   if (rivals.length === 0) return hit;
   if (rivals.length > 1) {
     throw new KonteError(
@@ -744,7 +747,7 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
           const scoped = stageScopeTargets(
             loaded,
             definitions,
-            t as TakeStage,
+            t as VariantStage,
             graph.dependencies,
             heldFor,
           );
@@ -804,9 +807,9 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
   let committed = false;
   try {
     const preview = await StateManager.load(videoRoot);
-    const items: TakeTarget[] = [];
+    const items: VariantTarget[] = [];
     // A stem the shot stopped mixing into is released with the shot's decision.
-    const release = (manager: StateManager): TakeTarget[] =>
+    const release = (manager: StateManager): VariantTarget[] =>
       [...releasing].flatMap((address) => {
         const variantId = manager.getAcceptedVariant(address);
         if (!variantId) return [];
@@ -844,7 +847,7 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
           `${entry.variantId} shows ${entry.address} over takes this run moves — name ${entry.address} instead, to render it from them`,
         );
       }
-      let item: TakeTarget;
+      let item: VariantTarget;
       if (entry.leaf) {
         const leaf = await renderLeaf(preview, { video, animatic }, entry.address);
         rendered.push(leaf);
@@ -932,7 +935,7 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
           // verdict, plus the accept this one moves off — naming another id IS the decision against it.
           // Read inside the lock, so what is dismissed is what stands right now.
           const dismissed = [
-            ...readyUndecidedTakes(
+            ...readyUndecidedVariants(
               manager.getState(),
               address,
               definitionHashOf(address),
@@ -1044,11 +1047,11 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
 // an edited leaf's accepted variant goes stale and a fresh one can outrank it. Target the accepted
 // one directly; with none there is nothing to clear, said as such rather than reported as some
 // resolved variant being "not accepted".
-function acceptedTakeOf(
+function acceptedVariantOf(
   manager: StateManager,
   definitions: StageDefinitions,
   target: string,
-): TakeTarget {
+): VariantTarget {
   let address: string;
   let variantId: string;
   if (target.includes(":") && isMaterializedLeafAddress(target)) {
@@ -1090,7 +1093,7 @@ async function runUnaccept(rawTargets: string[], opts: AcceptOptions): Promise<v
 
   const previewManager = await StateManager.load(videoRoot);
   const targets = rawTargets.flatMap((target) => {
-    const stage = isStageScope(target) ? (target as TakeStage) : null;
+    const stage = isStageScope(target) ? (target as VariantStage) : null;
     const scoped = stage
       ? stageAddresses(previewManager, { video, animatic, reference }, stage)
       : (() => {
@@ -1108,9 +1111,9 @@ async function runUnaccept(rawTargets: string[], opts: AcceptOptions): Promise<v
   });
   // Resolved before anything is applied, so an unknown or unaccepted target fails with nothing
   // half-cleared.
-  const resolved = new Map<string, TakeTarget>();
+  const resolved = new Map<string, VariantTarget>();
   for (const target of targets) {
-    const hit = acceptedTakeOf(previewManager, { video, animatic, reference }, target);
+    const hit = acceptedVariantOf(previewManager, { video, animatic, reference }, target);
     resolved.set(`${hit.address}|${hit.variantId}`, hit);
   }
   const items = [...resolved.values()];

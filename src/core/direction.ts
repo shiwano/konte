@@ -83,7 +83,7 @@ import {
   shotSpan,
 } from "./dsl/direction.js";
 import { songAnalysisOf } from "./song-reading.js";
-import { type SongTake, songAddressOf } from "./song-take.js";
+import { type SongVariant, songAddressOf } from "./song-variant.js";
 import type { PanelLane } from "./types/definition.js";
 import type { KonteState } from "./types/index.js";
 
@@ -775,17 +775,17 @@ function checkTypesetting(direction: Direction): DirectionFinding[] {
 }
 
 // What the song class reads off state: the take of the song the piece is read against (see
-// `resolveSongTake`), null while no take has been read, and how long that take plays, null while
+// `resolveSongVariant`), null while no take has been read, and how long that take plays, null while
 // unmeasured. Undefined at a caller is "state could not be read", and the class is then not
 // evaluated.
-export type SongTakeState = { take: SongTake | null; durationSec: number | null };
+export type SongVariantState = { variant: SongVariant | null; durationSec: number | null };
 
 // The song the piece is cut to must be a reference asset, and every lyric line must be found in its
 // take or placed by hand.
 function checkSong(
   direction: Direction,
   referenceAssetNames: readonly string[],
-  song: SongTakeState,
+  song: SongVariantState,
 ): DirectionFinding[] {
   const id = direction.policy?.song;
   if (!id) return [];
@@ -799,18 +799,18 @@ function checkSong(
       },
     ];
   }
-  const take = song.take;
-  if (!take) return [];
+  const variant = song.variant;
+  if (!variant) return [];
   const findings: DirectionFinding[] = [];
-  for (const line of placeDirectionLyrics(direction, take)) {
+  for (const line of placeDirectionLyrics(direction, variant)) {
     if (line.start !== null) continue;
     findings.push({
       code: "lyric-unplaced",
       subject: line.key,
       message:
-        `lyric line ${line.key} ("${line.text}") is not clearly sung anywhere in ${take.address} ` +
-        `${take.variantId} — a person places it on the song's review page (\`konte preview ` +
-        `reference\`), or \`konte song set ${take.variantId} --line ${line.key} --start <sec> ` +
+        `lyric line ${line.key} ("${line.text}") is not clearly sung anywhere in ${variant.address} ` +
+        `${variant.variantId} — a person places it on the song's review page (\`konte preview ` +
+        `reference\`), or \`konte song set ${variant.variantId} --line ${line.key} --start <sec> ` +
         `--end <sec>\``,
     });
   }
@@ -818,10 +818,10 @@ function checkSong(
 }
 
 // The timeline a take of the song is cut on ends within a frame of the take.
-function checkSongOverrun(direction: Direction, song: SongTakeState): DirectionFinding[] {
-  const { take, durationSec } = song;
-  if (!direction.policy?.song || !take || durationSec === null) return [];
-  const timeline = readDirectionTimeline(direction, take);
+function checkSongOverrun(direction: Direction, song: SongVariantState): DirectionFinding[] {
+  const { variant, durationSec } = song;
+  if (!direction.policy?.song || !variant || durationSec === null) return [];
+  const timeline = readDirectionTimeline(direction, variant);
   const last = [...timeline.timings.values()].at(-1);
   const end = last?.start != null ? last.start + last.duration : 0;
   if (end - durationSec <= 1 / timeline.fps) return [];
@@ -829,7 +829,7 @@ function checkSongOverrun(direction: Direction, song: SongTakeState): DirectionF
     {
       code: "song-overrun",
       message:
-        `the timeline runs ${formatSeconds(end, 2)}, past the end of ${take.address} ${take.variantId} ` +
+        `the timeline runs ${formatSeconds(end, 2)}, past the end of ${variant.address} ${variant.variantId} ` +
         `(${formatSeconds(durationSec, 2)}) — shorten the cut, or accept a longer take of the song`,
     },
   ];
@@ -2485,7 +2485,7 @@ export function checkDirection(
     stagingStage?: StagingStageState;
     // The take of the song the piece is read against. Same contract again: undefined means state
     // could not be read, so the song class is not evaluated.
-    songTake?: SongTakeState;
+    songVariant?: SongVariantState;
   } = {},
 ): DirectionCheckResult {
   const structureErrors = validateDirectionStructure(direction);
@@ -2498,7 +2498,7 @@ export function checkDirection(
     evaluatedClasses.add("characters");
     evaluatedClasses.add("props");
     evaluatedClasses.add("locations");
-    if (options.songTake !== undefined) evaluatedClasses.add("song");
+    if (options.songVariant !== undefined) evaluatedClasses.add("song");
   }
   // `unused-setup` reads the direction alone, but the two plate findings need the board, and
   // stale-waiver detection is per CLASS: marking the class evaluated without it would flag a live
@@ -2544,12 +2544,12 @@ export function checkDirection(
     );
   }
 
-  if (options.songTake !== undefined) {
-    findings.push(...checkSongOverrun(direction, options.songTake));
+  if (options.songVariant !== undefined) {
+    findings.push(...checkSongOverrun(direction, options.songVariant));
   }
 
   if (evaluatedClasses.has("song")) {
-    findings.push(...checkSong(direction, options.referenceAssetNames ?? [], options.songTake!));
+    findings.push(...checkSong(direction, options.referenceAssetNames ?? [], options.songVariant!));
   }
 
   if (evaluatedClasses.has("props")) {

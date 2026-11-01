@@ -42,9 +42,9 @@ const composition = "video:shot.01#composition";
 
 describe("rename command", () => {
   let projectDir: string;
-  let take: string;
-  let consumerTake: string;
-  let compositionTake: string;
+  let variant: string;
+  let consumerVariantId: string;
+  let compositionVariantId: string;
 
   beforeEach(async () => {
     projectDir = await initWithDepsVideo();
@@ -53,29 +53,33 @@ describe("rename command", () => {
     const video = await loadVideoDefinition(videoFile);
 
     const sm = await StateManager.load(projectDir);
-    take = sm.reserveVariantId(from);
-    const file = path.join(path.relative(projectDir, assetDir(projectDir, from)), take, "out.mp4");
+    variant = sm.reserveVariantId(from);
+    const file = path.join(
+      path.relative(projectDir, assetDir(projectDir, from)),
+      variant,
+      "out.mp4",
+    );
     await fs.mkdir(path.dirname(path.join(projectDir, file)), { recursive: true });
     await fs.writeFile(path.join(projectDir, file), "take");
-    sm.getAssetState(from).variants![take]!.file = file;
-    sm.setAccepted(from, take);
+    sm.getAssetState(from).variants![variant]!.file = file;
+    sm.setAccepted(from, variant);
 
-    consumerTake = sm.reserveVariantId(consumer);
-    const consumerVariant = sm.getAssetState(consumer).variants![consumerTake]!;
+    consumerVariantId = sm.reserveVariantId(consumer);
+    const consumerVariant = sm.getAssetState(consumer).variants![consumerVariantId]!;
     consumerVariant.file = "/tmp/final.mp4";
     consumerVariant.definitionHash = definitionHashForAddress(video, consumer);
     consumerVariant.inputFingerprints = { [from]: "h-take" };
 
-    compositionTake = sm.reserveVariantId(composition);
-    const compositionVariant = sm.getAssetState(composition).variants![compositionTake]!;
+    compositionVariantId = sm.reserveVariantId(composition);
+    const compositionVariant = sm.getAssetState(composition).variants![compositionVariantId]!;
     compositionVariant.definitionHash = definitionHashForAddress(video, composition);
     compositionVariant.inputFingerprints = { [from]: "h-take" };
-    sm.setAccepted(composition, compositionTake);
+    sm.setAccepted(composition, compositionVariantId);
     await sm.save();
 
     await seedFeedback(projectDir, from, {
       id: "f1",
-      displayedVariants: { [from]: take },
+      displayedVariants: { [from]: variant },
       displayedDefinitionHashes: { [from]: "movement" },
       annotation: null,
       text: "keep this one",
@@ -88,12 +92,12 @@ describe("rename command", () => {
 
   it("moves the takes, their files and the accept to the new name", async () => {
     const { stdout } = await run(["rename", from, to], projectDir);
-    expect(stdout).toContain(`Renamed: ${from} → ${to} (1 take(s), accepted ${take})`);
+    expect(stdout).toContain(`Renamed: ${from} → ${to} (1 take(s), accepted ${variant})`);
 
     const sm = await StateManager.load(projectDir);
     expect(sm.tryGetAssetState(from)).toBeUndefined();
-    expect(sm.getAcceptedVariant(to)).toBe(take);
-    const file = sm.getAssetState(to).variants![take]!.file!;
+    expect(sm.getAcceptedVariant(to)).toBe(variant);
+    const file = sm.getAssetState(to).variants![variant]!.file!;
     expect(file.startsWith(path.relative(projectDir, assetDir(projectDir, to)))).toBe(true);
     expect(await fs.readFile(path.join(projectDir, file), "utf-8")).toBe("take");
     await expect(fs.access(assetDir(projectDir, from))).rejects.toThrow();
@@ -107,14 +111,14 @@ describe("rename command", () => {
     const video = await loadVideoDefinition(path.join(projectDir, "video.tsx"));
     const sm = await StateManager.load(projectDir);
     for (const [address, id] of [
-      [consumer, consumerTake],
-      [composition, compositionTake],
+      [consumer, consumerVariantId],
+      [composition, compositionVariantId],
     ] as const) {
       const variant = sm.getAssetState(address).variants![id]!;
       expect(variant.definitionHash).toBe(definitionHashForAddress(video, address));
       expect(variant.inputFingerprints).toEqual({ [to]: "h-take" });
     }
-    expect(sm.getAcceptedVariant(composition)).toBe(compositionTake);
+    expect(sm.getAcceptedVariant(composition)).toBe(compositionVariantId);
   });
 
   it("moves the comments on it", async () => {
@@ -123,26 +127,26 @@ describe("rename command", () => {
     expect(await readFeedback(projectDir, from)).toEqual([]);
     const [entry] = await readFeedback(projectDir, to);
     expect(entry!.text).toBe("keep this one");
-    expect(entry!.displayedVariants).toEqual({ [to]: take });
+    expect(entry!.displayedVariants).toEqual({ [to]: variant });
     expect(entry!.displayedDefinitionHashes).toEqual({ [to]: "movement" });
   });
 
   it("repoints the jobs that consumed it", async () => {
     const sm = await StateManager.load(projectDir);
-    const file = sm.getAssetState(from).variants![take]!.file!;
+    const file = sm.getAssetState(from).variants![variant]!.file!;
     const jobs = new JobManager(projectDir);
     await jobs.createJob({
       address: consumer,
-      variantId: consumerTake,
+      variantId: consumerVariantId,
       resolvedDeps: { [from]: file },
       backendKind: "comfy",
     });
-    await jobs.updateJob(consumerTake, { status: "completed" });
+    await jobs.updateJob(consumerVariantId, { status: "completed" });
 
     await run(["rename", from, to], projectDir);
 
-    const moved = (await StateManager.load(projectDir)).getAssetState(to).variants![take]!.file!;
-    const job = await new JobManager(projectDir).getJob(consumerTake);
+    const moved = (await StateManager.load(projectDir)).getAssetState(to).variants![variant]!.file!;
+    const job = await new JobManager(projectDir).getJob(consumerVariantId);
     expect(job.kind === "generation" && job.provenance.resolvedDependencies).toEqual({
       [to]: moved,
     });
@@ -150,20 +154,20 @@ describe("rename command", () => {
 
   it("repoints the files its own jobs produced", async () => {
     const sm = await StateManager.load(projectDir);
-    const file = sm.getAssetState(from).variants![take]!.file!;
+    const file = sm.getAssetState(from).variants![variant]!.file!;
     const jobs = new JobManager(projectDir);
     await jobs.createJob({
       address: from,
-      variantId: take,
+      variantId: variant,
       resolvedDeps: {},
       backendKind: "comfy",
     });
-    await jobs.updateJob(take, { status: "completed", outputFiles: [file] });
+    await jobs.updateJob(variant, { status: "completed", outputFiles: [file] });
 
     await run(["rename", from, to], projectDir);
 
-    const moved = (await StateManager.load(projectDir)).getAssetState(to).variants![take]!.file!;
-    const job = await new JobManager(projectDir).getJob(take);
+    const moved = (await StateManager.load(projectDir)).getAssetState(to).variants![variant]!.file!;
+    const job = await new JobManager(projectDir).getJob(variant);
     expect(job.kind === "generation" && [job.address, job.outputFiles]).toEqual([to, [moved]]);
   });
 
@@ -173,7 +177,7 @@ describe("rename command", () => {
       id: "job-song-1",
       status: "queued",
       address: from,
-      variantId: take,
+      variantId: variant,
       lang: "en",
       backendKind: "local",
       progress: null,
@@ -206,7 +210,7 @@ describe("rename command", () => {
   });
 
   it("refuses while a patch chain on one of its takes is still running", async () => {
-    const step = `video:patch.${take}.patched`;
+    const step = `video:patch.${variant}.patched`;
     const sm = await StateManager.load(projectDir);
     const running = sm.reserveVariantId(step);
     await sm.save();
@@ -258,7 +262,7 @@ describe("rename command", () => {
     await expect(run(["rename", from, to], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("RENAME_TARGET_TAKEN"),
     });
-    expect((await StateManager.load(projectDir)).getAcceptedVariant(from)).toBe(take);
+    expect((await StateManager.load(projectDir)).getAcceptedVariant(from)).toBe(variant);
   });
 
   it("refuses a move across stages", async () => {
@@ -348,8 +352,8 @@ export default definePatch<"image">(({ source }) => {
     const sm = await StateManager.load(projectDir);
     const before = (await loadPatch(projectDir, sm.getRecordedState(), sourceId))!;
     const step = `reference:patch.${sourceId}.extra`;
-    const stepTake = sm.reserveVariantId(step);
-    sm.getAssetState(step).variants![stepTake]!.definitionHash = computeDefinitionHash(
+    const stepVariant = sm.reserveVariantId(step);
+    sm.getAssetState(step).variants![stepVariant]!.definitionHash = computeDefinitionHash(
       before.assets.extra!,
     );
     const patched = sm.reserveVariantId("reference:latentA");
@@ -377,7 +381,7 @@ export default definePatch<"image">(({ source }) => {
     expect(after.getAssetState("reference:latentA").variants![patched]!.patchHash).toBe(
       live.patchHash,
     );
-    expect(after.getAssetState(step).variants![stepTake]!.definitionHash).toBe(
+    expect(after.getAssetState(step).variants![stepVariant]!.definitionHash).toBe(
       computeDefinitionHash(live.assets.extra!),
     );
   });

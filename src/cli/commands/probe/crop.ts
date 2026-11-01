@@ -142,7 +142,7 @@ Examples:
         [image],
         { mediaKinds: ["image"], definitions: true },
       );
-      if (resolved.some((take) => take.scope !== undefined)) {
+      if (resolved.some((entry) => entry.scope !== undefined)) {
         throw new KonteError(
           "INVALID_OPTION",
           `"${image}" is a scope — probe crop takes one image, a variant id or an address`,

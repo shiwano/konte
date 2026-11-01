@@ -34,7 +34,7 @@ import {
 } from "../../../core/patch.js";
 import { JobManager } from "../../../core/job-manager.js";
 import { resolveRefs } from "../../../core/ref-resolver.js";
-import { collectUndecidedUpstreamTakes } from "../../../core/staleness.js";
+import { collectUndecidedUpstreamVariants } from "../../../core/staleness.js";
 import { holdsHumanVerdict } from "../../../core/accept-cascade.js";
 import { buildAddressInfo, isProblemAddress } from "../../../core/status-sections.js";
 import { StateManager } from "../../../core/state/index.js";
@@ -51,7 +51,7 @@ import {
   ensureComfyPrereqJobs,
   formatComfyDownloadNotice,
   formatComfyRouteNotice,
-  formatUndecidedUpstreamTakesNotice,
+  formatUndecidedUpstreamVariantsNotice,
   preflightComfyAssets,
 } from "../../generate-orchestrator.js";
 import { requireVideoRoots } from "../../context.js";
@@ -500,8 +500,11 @@ Examples:
         // A sweep is priced before it runs: `konte reroll video` can be a hundred jobs, and whoever
         // typed a stage name enumerated none of them. A named address is its own enumeration.
         if (scopeTargets.length > 0 || uniqueTargets.length === 0) {
-          const takeCount = workItems.reduce((n, w) => n + (w.isPrimary ? variantCount : 1), 0);
-          const pricing = `${takeCount} take(s) will be generated across ${workItems.length} asset(s): ${capped(workItems.map((w) => w.address))}.`;
+          const totalVariantCount = workItems.reduce(
+            (n, w) => n + (w.isPrimary ? variantCount : 1),
+            0,
+          );
+          const pricing = `${totalVariantCount} take(s) will be generated across ${workItems.length} asset(s): ${capped(workItems.map((w) => w.address))}.`;
           // --yes waives the question, not the disclosure.
           if (opts.yes) console.log(pricing);
           const proceed = await confirmAction(pricing, {
@@ -604,24 +607,24 @@ Examples:
         // Heads-up: an upstream of a rerolled target has an undecided take that this reroll
         // won't use — it resolves the accepted variant. Skip deps that were regenerated in this
         // run (their downstreams pin to the fresh variant), and dedup across targets by address.
-        const undecidedUpstreamTakes: ReturnType<typeof collectUndecidedUpstreamTakes> = [];
-        const seenTake = new Set<string>();
+        const undecidedUpstreamVariants: ReturnType<typeof collectUndecidedUpstreamVariants> = [];
+        const seenVariant = new Set<string>();
         for (const p of primaries) {
           const remainingDeps = p.deps.filter((d) => !newVariantByAddress.has(d));
-          const takes = collectUndecidedUpstreamTakes(
+          const variants = collectUndecidedUpstreamVariants(
             manager.getState(),
             remainingDeps,
             manager.stalenessCache(),
           );
-          for (const t of takes) {
-            if (seenTake.has(t.address)) continue;
-            seenTake.add(t.address);
-            undecidedUpstreamTakes.push(t);
+          for (const t of variants) {
+            if (seenVariant.has(t.address)) continue;
+            seenVariant.add(t.address);
+            undecidedUpstreamVariants.push(t);
           }
         }
 
-        const takesNotice = formatUndecidedUpstreamTakesNotice(undecidedUpstreamTakes);
-        if (takesNotice) console.warn(`${takesNotice}\n`);
+        const variantsNotice = formatUndecidedUpstreamVariantsNotice(undecidedUpstreamVariants);
+        if (variantsNotice) console.warn(`${variantsNotice}\n`);
         const noticeText = formatComfyDownloadNotice(comfyDownloads);
         if (noticeText) console.log(`${noticeText}\n`);
         for (const row of jobRows) {

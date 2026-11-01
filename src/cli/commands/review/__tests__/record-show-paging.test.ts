@@ -7,7 +7,7 @@ import {
   useReviewShowProject,
   seedManyNotes,
   projectDir,
-  dropShotTakes,
+  dropShotVariants,
   useSubtitleFreeProject,
   writeFrame,
   record,
@@ -80,7 +80,7 @@ describe("review record show --contact-sheet", () => {
     const first = await sheetFiles();
     expect(first).toHaveLength(1);
 
-    await dropShotTakes("02");
+    await dropShotVariants("02");
 
     const { stdout } = await run(["review", "record", "show", "--contact-sheet"], projectDir);
 
@@ -97,7 +97,7 @@ describe("review record show --contact-sheet", () => {
     await run(["review", "record", "show", "--contact-sheet"], projectDir);
     expect(await sheetFiles()).toHaveLength(1);
 
-    await dropShotTakes("01");
+    await dropShotVariants("01");
     const { stdout } = await run(["review", "record", "show", "--contact-sheet"], projectDir);
 
     expect(await sheetFiles()).toEqual([]);

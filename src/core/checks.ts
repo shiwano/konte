@@ -15,7 +15,7 @@ import { compositionClassSubjects } from "./composition-builder.js";
 import { definitionHashForAddress } from "./composition-resource.js";
 import { type AnimaticSetupState, checkViewAnchors } from "./direction-check.js";
 import {
-  type SongTakeState,
+  type SongVariantState,
   type StaleWaiver,
   type StagingStageState,
   checkDirection,
@@ -78,10 +78,10 @@ export type CheckContext = {
   // The language the piece's lines are heard in.
   lang: string | null;
   // The one stage whose takes are heard; absent, every stage's.
-  takeStage?: AssetStage;
+  variantStage?: AssetStage;
   animaticSetups?: AnimaticSetupState;
   stagingStage?: StagingStageState;
-  songTake?: SongTakeState;
+  songVariant?: SongVariantState;
 };
 
 // A direction waiver whose finding is gone.
@@ -141,7 +141,7 @@ function directionCheckOf(ctx: CheckContext): ReturnType<typeof checkDirection> 
       referenceAssetNames: ctx.reference?.exposedAssetNames ?? [],
       animaticSetups: ctx.animaticSetups,
       stagingStage: ctx.stagingStage,
-      songTake: ctx.songTake,
+      songVariant: ctx.songVariant,
     });
     directionResult.set(ctx, result);
   }
@@ -290,7 +290,7 @@ const VARIANT_CHECK: Check = {
       manager: ctx.manager,
       definitions: { reference: ctx.reference, animatic: ctx.animatic, video: ctx.video },
       lang: ctx.lang,
-      ...(ctx.takeStage ? { stage: ctx.takeStage } : {}),
+      ...(ctx.variantStage ? { stage: ctx.variantStage } : {}),
     });
     return found.flatMap((v) =>
       v.findings.map(

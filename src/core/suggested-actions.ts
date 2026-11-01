@@ -310,7 +310,7 @@ function prependDirectionReview(
     });
     if (song) {
       actions.unshift({
-        command: song.hasTake
+        command: song.hasVariant
           ? "konte preview reference"
           : song.directionReviewNeeded
             ? "konte preview direction"
@@ -590,7 +590,7 @@ function prependSourceGaps(actions: SuggestedAction[], gaps: SourceGaps | undefi
 export type SongPending = {
   address: string;
   // Whether a take exists to hear — otherwise the song is still to be generated.
-  hasTake: boolean;
+  hasVariant: boolean;
   // Whether `generate reference` refuses the song until the brief, policy and lyrics are accepted.
   directionReviewNeeded: boolean;
 };

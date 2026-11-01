@@ -120,8 +120,8 @@ export function KeepOrRegenerateModal({
                     <div className="keep-modal-row-text">
                       <span className="keep-modal-row-label">
                         {row.label}
-                        {row.takes.length > 0 && (
-                          <span className="keep-modal-row-takes"> {row.takes.join(", ")}</span>
+                        {row.variants.length > 0 && (
+                          <span className="keep-modal-row-takes"> {row.variants.join(", ")}</span>
                         )}
                       </span>
                       {note && <span className="keep-modal-row-note">{note}</span>}

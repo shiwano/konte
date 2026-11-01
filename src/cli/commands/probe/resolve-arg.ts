@@ -13,7 +13,7 @@ import {
   type StageDefinitions,
 } from "../../../core/definition-hashes.js";
 import { requireVideoRoot } from "../../context.js";
-import { printResolutionNotices, type ResolvedTake } from "../../resolution-notice.js";
+import { printResolutionNotices, type ResolvedVariant } from "../../resolution-notice.js";
 
 type ProbeMediaKind = "video" | "image" | "audio";
 
@@ -23,7 +23,7 @@ export interface ProbeTargets {
   // undecided beside the one it resolves to. Callers print a header per target on this.
   multi: boolean;
   // The takes an address or scope resolved to.
-  resolved: ResolvedTake[];
+  resolved: ResolvedVariant[];
 }
 
 /**
@@ -64,7 +64,7 @@ function resolveOne(
         `No ready variant for "${arg}" — pass a specific variant id (see \`konte inspect ${arg}\`)`,
       );
     }
-    const rivals = manager.readyUndecidedTakes(arg).filter((id) => id !== resolved.variantId);
+    const rivals = manager.readyUndecidedVariants(arg).filter((id) => id !== resolved.variantId);
     return {
       variantIds: [resolved.variantId, ...rivals],
       multi: rivals.length > 0,
@@ -78,7 +78,7 @@ function resolveOne(
   // corrected take's own address, so keeping the steps would probe the same file twice.
   const patchAxis = isPatchScope(arg);
   const variantIds: string[] = [];
-  const takes: ResolvedTake[] = [];
+  const variants: ResolvedVariant[] = [];
   for (const address of Object.keys(state.assets).sort()) {
     if (!matchesAddressScope(address, arg)) continue;
     if (!patchAxis && isPatchAddress(address)) continue;
@@ -90,7 +90,7 @@ function resolveOne(
     const mediaType = inferMediaType(resolved.file);
     if (!mediaType || !opts.mediaKinds.includes(mediaType)) continue;
     variantIds.push(resolved.variantId);
-    takes.push({ address, variantId: resolved.variantId, scope: arg });
+    variants.push({ address, variantId: resolved.variantId, scope: arg });
   }
   if (variantIds.length === 0) {
     throw new KonteError(
@@ -98,7 +98,7 @@ function resolveOne(
       `No ${opts.mediaKinds.join("/")} variant to probe under scope "${arg}"`,
     );
   }
-  return { variantIds, multi: true, resolved: takes };
+  return { variantIds, multi: true, resolved: variants };
 }
 
 /**
@@ -120,7 +120,7 @@ export function resolveProbeTargets(
   // shape then follows from the command line alone, not from how many variants happened to match.
   let multi = args.length > 1;
   const variantIds: string[] = [];
-  const takes: ResolvedTake[] = [];
+  const variants: ResolvedVariant[] = [];
   const seen = new Set<string>();
   for (const arg of args) {
     const resolved = resolveOne(manager, arg, opts);
@@ -130,11 +130,11 @@ export function resolveProbeTargets(
       seen.add(variantId);
       variantIds.push(variantId);
     }
-    for (const take of resolved.resolved) {
-      if (!takes.some((t) => t.variantId === take.variantId)) takes.push(take);
+    for (const variant of resolved.resolved) {
+      if (!variants.some((t) => t.variantId === variant.variantId)) variants.push(variant);
     }
   }
-  return { variantIds, multi, resolved: takes };
+  return { variantIds, multi, resolved: variants };
 }
 
 interface OpenedProbeTargets extends ProbeTargets {
@@ -168,7 +168,7 @@ export async function openProbeTargets(
     videoRoot,
     manager,
     animatic: definitions?.animatic,
-    takes: targets.resolved,
+    variants: targets.resolved,
   });
   return { videoRoot, manager, definitions, ...targets };
 }

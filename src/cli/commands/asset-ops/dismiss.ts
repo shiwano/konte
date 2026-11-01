@@ -160,7 +160,7 @@ Examples:
             address,
             {
               now: manager.selectVariant(address, { includeStale: true }, cache)?.variantId ?? null,
-              undecided: manager.readyUndecidedTakes(address, cache),
+              undecided: manager.readyUndecidedVariants(address, cache),
             },
           ]),
         );

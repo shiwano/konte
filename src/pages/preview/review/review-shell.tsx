@@ -302,15 +302,15 @@ export function ReviewShell({
                     <li key={row.label} className="submit-dialog-regenerate">
                       <span>
                         {row.label}
-                        {row.takes.length > 0 && (
-                          <span className="submit-dialog-detail"> {row.takes.join(", ")}</span>
+                        {row.variants.length > 0 && (
+                          <span className="submit-dialog-detail"> {row.variants.join(", ")}</span>
                         )}
                       </span>
                       {row.with.map((f) => (
                         <span key={f.label} className="submit-dialog-with">
                           with {f.label}
-                          {f.takes.length > 0 && (
-                            <span className="submit-dialog-detail"> {f.takes.join(", ")}</span>
+                          {f.variants.length > 0 && (
+                            <span className="submit-dialog-detail"> {f.variants.join(", ")}</span>
                           )}
                         </span>
                       ))}

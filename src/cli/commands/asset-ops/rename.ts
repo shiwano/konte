@@ -98,7 +98,7 @@ Examples:
 
       const moves = renameMoves(from, to);
       const jobs = await new JobManager(videoRoot).listJobs();
-      const takesAtFrom = new Set(
+      const variantsAtFrom = new Set(
         Object.keys(
           (await StateManager.load(videoRoot)).getRecordedState().assets[from]?.variants ?? {},
         ),
@@ -112,7 +112,7 @@ Examples:
             (job.kind === "song-analysis" && moves.has(job.address)) ||
             (job.kind === "generation" &&
               ([job.address, ...job.dependsOnAssets].some((address) => moves.has(address)) ||
-                takesAtFrom.has(patchSourceVariantIdOf(job.address) ?? "")))),
+                variantsAtFrom.has(patchSourceVariantIdOf(job.address) ?? "")))),
       );
       if (active) {
         throw new KonteError(
@@ -124,8 +124,8 @@ Examples:
       const moveFile = createFileMover(moves);
       const moved = await StateManager.withLock(videoRoot, async (manager) => {
         const recorded = manager.getRecordedState();
-        const takes = Object.keys(recorded.assets[from]?.variants ?? {});
-        if (takes.length === 0) {
+        const variantIds = Object.keys(recorded.assets[from]?.variants ?? {});
+        if (variantIds.length === 0) {
           throw new KonteError("ASSET_NOT_FOUND", `"${from}" holds no takes`);
         }
         for (const target of moves.values()) {
@@ -141,11 +141,11 @@ Examples:
           manager.renameAddresses(moves, moveFile);
           const patches = await carryPatchHashes(videoRoot, manager.getRecordedState(), moves);
           await manager.save();
-          return { takes, accepted: manager.getAcceptedVariant(to), patches };
+          return { variantIds, accepted: manager.getAcceptedVariant(to), patches };
         } catch (err) {
           // A save that wrote the state and then failed has committed the move.
           const committed = await StateManager.load(videoRoot)
-            .then((m) => m.getRecordedState().assets[to]?.variants?.[takes[0]!] !== undefined)
+            .then((m) => m.getRecordedState().assets[to]?.variants?.[variantIds[0]!] !== undefined)
             .catch(() => false);
           if (!committed) await undoMove();
           throw err;
@@ -174,7 +174,7 @@ Examples:
       }
 
       console.log(
-        `Renamed: ${from} → ${to} (${moved.takes.length} take(s)${moved.accepted ? `, accepted ${moved.accepted}` : ""})`,
+        `Renamed: ${from} → ${to} (${moved.variantIds.length} take(s)${moved.accepted ? `, accepted ${moved.accepted}` : ""})`,
       );
       for (const address of [...carried, ...moved.patches]) {
         console.log(`  ${address}: still current under the new name`);

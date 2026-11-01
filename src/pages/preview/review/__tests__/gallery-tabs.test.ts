@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { shotGalleryTabs, soundtrackGalleryTabs } from "../gallery-tabs.js";
 
-const take = [{}];
+const variants = [{}];
 
 describe("shotGalleryTabs", () => {
   it("orders the shot's assets as the timeline stacks them", () => {
     const shot = {
       shotId: "01",
       assets: [
-        { address: "video:shot.01.bg", variants: take },
-        { address: "video:shot.01.motion", variants: take },
-        { address: "video:shot.01.title", variants: take },
+        { address: "video:shot.01.bg", variants: variants },
+        { address: "video:shot.01.motion", variants: variants },
+        { address: "video:shot.01.title", variants: variants },
       ],
       clips: [
         { address: "video:shot.01.title", mediaType: "image" as const, start: 1 },
@@ -23,19 +23,19 @@ describe("shotGalleryTabs", () => {
       {
         address: "reference:bgm",
         kind: "soundtrack" as const,
-        variants: take,
+        variants: variants,
         cues: [{ start: 0 }],
       },
       {
         address: "video:shot.01.sfx",
         kind: "sound" as const,
-        variants: take,
+        variants: variants,
         cues: [{ start: 0.6, shotId: "01" }],
       },
       {
         address: "video:shot.01.narration",
         kind: "sound" as const,
-        variants: take,
+        variants: variants,
         cues: [{ start: 0.2, shotId: "01" }],
       },
     ];
@@ -53,7 +53,7 @@ describe("shotGalleryTabs", () => {
       shotId: "02",
       assets: [
         { address: "video:shot.02.motion", variants: [] },
-        { address: "video:shot.02.bg", variants: take },
+        { address: "video:shot.02.bg", variants: variants },
       ],
       clips: [
         { address: "video:shot.02.motion", mediaType: "video" as const, start: 0 },
@@ -66,7 +66,7 @@ describe("shotGalleryTabs", () => {
       {
         address: "reference:whoosh",
         kind: "sound" as const,
-        variants: take,
+        variants: variants,
         cues: [
           { start: 0.5, shotId: "01" },
           { start: 3.5, shotId: "02" },
@@ -75,7 +75,7 @@ describe("shotGalleryTabs", () => {
       {
         address: "video:shot.01.sfx",
         kind: "sound" as const,
-        variants: take,
+        variants: variants,
         cues: [{ start: 1, shotId: "01" }],
       },
     ];
@@ -89,13 +89,13 @@ describe("soundtrackGalleryTabs", () => {
       {
         address: "reference:outro",
         kind: "soundtrack" as const,
-        variants: take,
+        variants: variants,
         cues: [{ start: 8 }],
       },
       {
         address: "reference:bgm",
         kind: "soundtrack" as const,
-        variants: take,
+        variants: variants,
         cues: [{ start: 0 }, { start: 12 }],
       },
       {
@@ -107,7 +107,7 @@ describe("soundtrackGalleryTabs", () => {
       {
         address: "video:shot.01.sfx",
         kind: "sound" as const,
-        variants: take,
+        variants: variants,
         cues: [{ start: 1, shotId: "01" }],
       },
     ];

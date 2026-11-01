@@ -93,8 +93,8 @@ export async function cascadeAcceptConsumedDeps(
   // The take a patched root corrects, named by the lineage rather than inferred from "some other
   // variant at this address": that edge is a patch's alone today, and reading `derivedFrom` says so
   // instead of trusting it. Null for an ordinary root, which closes the pass-through entirely.
-  const correctedTakeId = manager.tryGetAssetState(address)?.variants?.[variantId]?.derivedFrom;
-  let correctedTakeWalked = false;
+  const correctedVariantId = manager.tryGetAssetState(address)?.variants?.[variantId]?.derivedFrom;
+  let correctedVariantWalked = false;
   const defs = { animatic: opts.animatic };
   // Which loaded stage owns an address. Both composition stages have compositions and stems, so a
   // branch keyed on `opts.video` signs off nothing when the root is the board's.
@@ -204,9 +204,9 @@ export async function cascadeAcceptConsumedDeps(
       // step consumed `source`. The patched take inherits that take's inputs, so what it consumed
       // is what the correction rests on: walk through it without signing it off. Once only — a
       // lineage is one level deep, and the flag is what stops a state pointing a take at itself.
-      if (depAddress === address && depVariantId === correctedTakeId) {
-        if (correctedTakeWalked) continue;
-        correctedTakeWalked = true;
+      if (depAddress === address && depVariantId === correctedVariantId) {
+        if (correctedVariantWalked) continue;
+        correctedVariantWalked = true;
         await walk(depAddress, depVariantId, allowAudio);
         continue;
       }

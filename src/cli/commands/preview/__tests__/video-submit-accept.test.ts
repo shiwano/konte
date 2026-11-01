@@ -281,10 +281,10 @@ describe("handleReelSubmit — accepts land while another shot is not ready", ()
     });
 
     const record = JSON.parse(await fs.readFile(payload.filePath as string, "utf-8")) as {
-      context: { shots: Array<{ variants: Record<string, string>; takes?: unknown }> };
+      context: { shots: Array<{ variants: Record<string, string>; sources?: unknown }> };
     };
     expect(record.context.shots[0]!.variants).toEqual({ motion: variantId });
-    expect(record.context.shots[0]!.takes).toEqual({ [SHOT_01_MOTION]: variantId });
+    expect(record.context.shots[0]!.sources).toEqual({ [SHOT_01_MOTION]: variantId });
   });
 
   it("releases an accept on 'none' even while a sibling shot is not ready", async () => {

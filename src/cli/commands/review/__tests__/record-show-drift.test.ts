@@ -34,7 +34,7 @@ async function acceptingRecord(): Promise<{ record: ReviewRecord; address: strin
 
 // Age the take out of its definition: a hash the current one no longer matches, and a snapshot
 // that differs from the current definition at `field`.
-async function driftTake(address: string, vid: string, field: string): Promise<void> {
+async function driftVariant(address: string, vid: string, field: string): Promise<void> {
   const { video } = await loadVideoAndAnimatic(projectDir);
   const current = getAssetEntryByAddress(video, address) as AssetDefinition & {
     inputs?: Record<string, unknown>;
@@ -52,7 +52,7 @@ describe("review record show — accepted against a changed definition", () => {
   it("names a still-accepted take whose definition moved, with the fields that moved", async () => {
     const { record, address, vid } = await acceptingRecord();
     await saveReviewRecord(projectDir, record, { force: true });
-    await driftTake(address, vid, "prompt");
+    await driftVariant(address, vid, "prompt");
 
     const { stdout } = await run(["review", "record", "show"], projectDir);
 
@@ -72,7 +72,7 @@ describe("review record show — accepted against a changed definition", () => {
   it("drops a take a later accept replaced", async () => {
     const { record, address, vid } = await acceptingRecord();
     await saveReviewRecord(projectDir, record, { force: true });
-    await driftTake(address, vid, "prompt");
+    await driftVariant(address, vid, "prompt");
     const sm = await StateManager.load(projectDir);
     const newer = sm.reserveVariantId(address);
     sm.getAssetState(address).variants![newer]!.file =

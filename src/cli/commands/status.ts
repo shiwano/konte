@@ -28,7 +28,7 @@ import {
 } from "../../core/suggested-actions.js";
 import { sourceViewOf, unreadChunks } from "../../core/source-direction.js";
 import { sourceDirLabel } from "../../core/source-study.js";
-import { unreadSongTakes } from "../../core/song-queue.js";
+import { unreadSongVariants } from "../../core/song-queue.js";
 import { isJobTerminal, JobManager } from "../../core/job-manager.js";
 import { jobStatusFlags } from "../../core/job-diagnosis.js";
 import { reviewTimes as readReviewTimes } from "../../core/review-record.js";
@@ -173,7 +173,7 @@ export function registerStatusCommand(program: Command): void {
           (!savedOutputHashes.has(id) || savedOutputHashes.get(id) !== syncedOutputHashes.get(id))
         ) {
           delete item.variantId;
-          delete item.takes;
+          delete item.variants;
         }
       }
 
@@ -269,7 +269,7 @@ export function registerStatusCommand(program: Command): void {
         .map((j) => j.id);
       // A take no job is reading: placed as a file, failed, or read against another clock.
       const songUnread =
-        !songReadingsPending && unreadSongTakes(videoRoot, direction, state).length > 0;
+        !songReadingsPending && unreadSongVariants(videoRoot, direction, state).length > 0;
       // A broken patch is listed under the same section keyed by its FILE path, which is not an
       // address — Next steps parses these with `getStage`, so letting one through would turn a
       // report about a bad file into an INVALID_ADDRESS crash. They are offered as an edit instead
@@ -312,7 +312,7 @@ export function registerStatusCommand(program: Command): void {
         if (isDeliveryAddress(info.address)) return false;
         // A fresh non-stale take is already waiting beside the accept: the refresh is the review,
         // which "Needs review" routes to `konte preview <stage>`.
-        if (info.undecidedTakeVariantId !== null) return false;
+        if (info.undecidedVariantId !== null) return false;
         if (info.staleAcceptStands) return false;
         // A refresh is already running or queued here; another reroll would spend a second time.
         if (info.generatingJobs.length > 0 || info.blockedJobs.length > 0) return false;
@@ -478,7 +478,7 @@ function pendingSong(manager: StateManager, direction: Direction | null): SongPe
   const variants = Object.values(manager.getState().assets[address]?.variants ?? {});
   return {
     address,
-    hasTake: variants.some((v) => v.file && v.status !== "dismissed"),
+    hasVariant: variants.some((v) => v.file && v.status !== "dismissed"),
     directionReviewNeeded: songGateBlocking(direction, manager.getDirectionAcceptance()).length > 0,
   };
 }

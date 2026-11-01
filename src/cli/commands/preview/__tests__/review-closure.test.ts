@@ -624,8 +624,8 @@ describe("video review closure", () => {
     // This harness records no jobs, so no accept cascades into the take a trim was cut from.
     const seeded = await StateManager.load(videoRoot);
     for (const address of ["video:shot.02.raw"]) {
-      const take = seeded.resolveReference(address);
-      if (take && !take.isAccepted) seeded.setAccepted(address, take.variantId);
+      const variant = seeded.resolveReference(address);
+      if (variant && !variant.isAccepted) seeded.setAccepted(address, variant.variantId);
     }
     await seeded.save();
     expect(await outstanding(videoRoot)).toEqual({ needsReview: [], problems: [], remixes: [] });
@@ -732,8 +732,8 @@ describe("video review closure", () => {
 
     expect(planned).toEqual([{ shotId: "02", address: stem }]);
     expect(manager.selectVariant(stem, { requireAccepted: true })).not.toBeNull();
-    const take = manager.getAcceptedVariant(motion)!;
-    expect(manager.variantStaleness(motion, take)?.inputStale).toBe(true);
+    const variant = manager.getAcceptedVariant(motion)!;
+    expect(manager.variantStaleness(motion, variant)?.inputStale).toBe(true);
     expect((await StateManager.load(videoRoot)).getAcceptedVariant(stem)).toBe(before);
   });
 

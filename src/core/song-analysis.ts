@@ -5,7 +5,7 @@ import { execFileAsync } from "./exec-file.js";
 import { ffmpegBin } from "./ffmpeg-binary.js";
 import { ANALYSIS_RATE, readSongBeat, readSungPhrases } from "./song-beat.js";
 import { songParts } from "./song-parts.js";
-import { formatSongTempo, songTempo } from "./song-take.js";
+import { formatSongTempo, songTempo } from "./song-variant.js";
 import { recognizesSpeechIn } from "./sherpa-binary.js";
 import { hearSpeech } from "./speech-hearing.js";
 import type { SongReading } from "./types/index.js";
@@ -41,7 +41,7 @@ async function decodeMono(file: string): Promise<Float32Array> {
  * and `heard` null, a recognition that fails `heard` alone, and says why in `log`; the clock still
  * stands.
  */
-export async function analyzeSongTake(opts: {
+export async function analyzeSongVariant(opts: {
   file: string;
   outputHash: string | null | undefined;
   videoRoot: string;

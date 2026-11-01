@@ -137,7 +137,10 @@ describe("job wait command", () => {
     const voice = "video:shot.01.voice";
 
     // A completed take at `at`, heard to say less than the voice's line.
-    async function landShortTake(at: string, metadata?: Record<string, unknown>): Promise<string> {
+    async function landShortVariant(
+      at: string,
+      metadata?: Record<string, unknown>,
+    ): Promise<string> {
       await fs.writeFile(
         path.join(projectDir, "video.tsx"),
         TEST_VIDEO_TSX.replace(
@@ -179,7 +182,7 @@ describe("job wait command", () => {
     }
 
     it("is named on landing (no ids)", async () => {
-      const variantId = await landShortTake(voice);
+      const variantId = await landShortVariant(voice);
       const { stdout } = await run(["job", "wait"], projectDir);
       expect(stdout).toContain(
         `Job ${voice} (${variantId}): completed, but heard "she should fill the sky" — drops the opening "Bigger!"`,
@@ -189,7 +192,7 @@ describe("job wait command", () => {
 
     it("is read against the lines of the take a patch step corrects (no ids)", async () => {
       const step = "video:patch.v-src.fixed";
-      const variantId = await landShortTake(step, {
+      const variantId = await landShortVariant(step, {
         patchFinalize: {
           output: { sourceAddress: voice, sourceVariantId: "v-src", patchHash: "patch" },
         },

@@ -286,7 +286,7 @@ const crossingNarrationVideo = (() => {
   };
 })();
 
-function setupAudioTake(
+function setupAudioVariant(
   manager: StateManager,
   address: string,
   file: string,
@@ -483,9 +483,9 @@ describe("buildShotCompositionHtml", () => {
 
   it("ducks a shot's clip only under the narration its own document plays", async () => {
     setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
-    const prior = setupAudioTake(manager, "video:shot.01.narration", "prior.wav", 3);
+    const prior = setupAudioVariant(manager, "video:shot.01.narration", "prior.wav", 3);
     manager.setAccepted("video:shot.01.narration", prior);
-    const own = setupAudioTake(manager, "video:shot.02.narration", "own.wav", 1);
+    const own = setupAudioVariant(manager, "video:shot.02.narration", "own.wav", 1);
     manager.setAccepted("video:shot.02.narration", own);
 
     const result = await buildShotCompositionHtml({
@@ -501,9 +501,9 @@ describe("buildShotCompositionHtml", () => {
 
   it("ducks a shot's clip under the narration take the review swaps in", async () => {
     setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
-    const accepted = setupAudioTake(manager, "video:shot.02.narration", "old.wav", 1);
+    const accepted = setupAudioVariant(manager, "video:shot.02.narration", "old.wav", 1);
     manager.setAccepted("video:shot.02.narration", accepted);
-    const candidate = setupAudioTake(manager, "video:shot.02.narration", "fresh.wav", 2);
+    const candidate = setupAudioVariant(manager, "video:shot.02.narration", "fresh.wav", 2);
 
     const result = await buildShotCompositionHtml({
       video: crossingNarrationVideo,
@@ -763,7 +763,7 @@ describe("buildFullCompositionHtml", () => {
           },
         },
       );
-      const bgm = setupAudioTake(
+      const bgm = setupAudioVariant(
         manager,
         "video:timeline.bgm",
         "assets/timeline.bgm/b.mp3",

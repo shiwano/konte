@@ -76,7 +76,7 @@ export const ReviewRecordSchema = z.object({
         variants: z.record(z.string(), z.string()),
         // The takes the shot's composition places and its stems mix (address -> variantId), as the
         // reviewer saw and heard them. Absent on a shot with no composition.
-        takes: z.record(z.string(), z.string()).optional(),
+        sources: z.record(z.string(), z.string()).optional(),
       }),
     ),
     // Stage-level timeline assets (assetName -> variantId). Not shot-scoped, so
@@ -643,27 +643,27 @@ export function formatReviewRecord(
 
 // Every take the review accepted by variant id: a reel review's accepted shots' assets as the
 // reviewer saw them, a reference review's accepted entries.
-export function reviewAcceptedTakes(
+export function reviewAcceptedVariants(
   record: ReviewRecord,
 ): Array<{ address: string; variantId: string }> {
-  const takes: Array<{ address: string; variantId: string }> = [];
+  const variants: Array<{ address: string; variantId: string }> = [];
   if (record.mode === "animatic-preview" || record.mode === "video-preview") {
     const stage = reviewStage(record) === "animatic" ? "animatic" : "video";
     const shotDecisions = (record.decisions as Record<string, "accepted" | "none"> | null) ?? {};
     for (const shot of record.context.shots) {
       if (shotDecisions[shot.shotId] !== "accepted") continue;
       for (const [assetName, variantId] of Object.entries(shot.variants)) {
-        takes.push({ address: formatAddress(stage, shot.shotId, assetName), variantId });
+        variants.push({ address: formatAddress(stage, shot.shotId, assetName), variantId });
       }
     }
-    return takes;
+    return variants;
   }
   for (const d of (record.decisions as ReviewDecisionEntry[] | null) ?? []) {
     if (d.status === "accepted" && d.variantId) {
-      takes.push({ address: d.address, variantId: d.variantId });
+      variants.push({ address: d.address, variantId: d.variantId });
     }
   }
-  return takes;
+  return variants;
 }
 
 // A reel review's decisions as one line per outcome: the decided shots, counted against the reel
@@ -789,26 +789,27 @@ function collectReviewSections(
       const status = shotDecisions[shotId];
       if (!status) continue;
       const shot = shotsById.get(shotId);
-      let takes: Array<[string, string]>;
-      if (status === "accepted" && shot?.takes) {
+      let variants: Array<[string, string]>;
+      if (status === "accepted" && shot?.sources) {
         const ownPrefix = `${stage}:shot.${shotId}.`;
-        takes = [];
-        for (const [address, variantId] of Object.entries(shot.takes)) {
+        variants = [];
+        for (const [address, variantId] of Object.entries(shot.sources)) {
           if (address.startsWith(ownPrefix)) {
-            takes.push([address, variantId]);
+            variants.push([address, variantId]);
             ownAccepted.add(address);
           } else {
             pushUpstream(address, variantId, `shot.${shotId}`);
           }
         }
       } else {
-        takes = Object.entries(shot?.variants ?? {}).map(([assetName, variantId]) => [
+        variants = Object.entries(shot?.variants ?? {}).map(([assetName, variantId]) => [
           formatAddress(stage, shotId, assetName),
           variantId,
         ]);
       }
-      if (takes.length > 0) {
-        for (const [address, variantId] of takes) pushDecision(status, `${address} (${variantId})`);
+      if (variants.length > 0) {
+        for (const [address, variantId] of variants)
+          pushDecision(status, `${address} (${variantId})`);
       } else {
         // A shot that generates nothing of its own (its picture is composed entirely from
         // animatic/reference takes) has no variant to name. Beside sibling lines that all carry

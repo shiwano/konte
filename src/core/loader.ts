@@ -16,8 +16,8 @@ import type { Direction } from "./dsl/direction.js";
 import * as dsl from "./dsl/index.js";
 import type { PatchBuild, PatchBuildContext, PatchDefinition } from "./dsl/patch.js";
 import { KonteError, errorMessage } from "./errors.js";
-import { withSongTakes } from "./dsl/song-context.js";
-import { resolveSongTake, songReadingsOf, type SongTake } from "./song-take.js";
+import { withSongVariants } from "./dsl/song-context.js";
+import { resolveSongVariant, songReadingsOf, type SongVariant } from "./song-variant.js";
 import { KonteStateSchema } from "./types/state.js";
 import { extractRefs } from "./graph.js";
 import { STAGE_ENTRY_FILE, WORKSPACE_MARKER, stageEntryPath } from "./roots.js";
@@ -291,25 +291,25 @@ function videoRootOf(filePath: string): string | null {
 
 // The video's song takes as its state holds them now, for `defineDirection` to place its lyrics
 // with, and their reading (`songReadingsOf`). No state (a fresh video, a test fixture) is no take.
-async function songTakesFor(filePath: string): Promise<{
+async function songVariantsFor(filePath: string): Promise<{
   videoRoot: string | null;
-  takes: ((address: string) => SongTake | null) | null;
+  variants: ((address: string) => SongVariant | null) | null;
   reading: string;
 }> {
   const videoRoot = videoRootOf(filePath);
-  if (!videoRoot) return { videoRoot, takes: null, reading: "" };
+  if (!videoRoot) return { videoRoot, variants: null, reading: "" };
   try {
     const raw = await fs.readFile(path.join(videoRoot, "konte.state.json"), "utf-8");
     const parsed = KonteStateSchema.safeParse(JSON.parse(raw));
-    if (!parsed.success) return { videoRoot, takes: null, reading: "" };
+    if (!parsed.success) return { videoRoot, variants: null, reading: "" };
     const state = parsed.data;
     return {
       videoRoot,
-      takes: (address) => resolveSongTake(videoRoot, state, address),
+      variants: (address) => resolveSongVariant(videoRoot, state, address),
       reading: songReadingsOf(videoRoot, state),
     };
   } catch {
-    return { videoRoot, takes: null, reading: "" };
+    return { videoRoot, variants: null, reading: "" };
   }
 }
 
@@ -342,13 +342,13 @@ async function importDefinition<T>(
 ): Promise<T> {
   let mod: Record<string, unknown>;
   try {
-    const { videoRoot, takes, reading } = await songTakesFor(filePath);
+    const { videoRoot, variants, reading } = await songVariantsFor(filePath);
     const moved =
       videoRoot !== null &&
       evaluatedReading.has(videoRoot) &&
       evaluatedReading.get(videoRoot) !== reading;
     mod = await underDefinitionLock(() =>
-      withSongTakes(takes, () =>
+      withSongVariants(variants, () =>
         fresh || moved ? reloadFreshModule(filePath) : importModule(filePath),
       ),
     );

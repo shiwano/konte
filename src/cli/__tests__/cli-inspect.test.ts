@@ -130,9 +130,9 @@ describe("inspect --prompts", () => {
     for (const name of ["motion", "voice"]) {
       const address = `video:shot.01.${name}`;
       const id = sm.reserveVariantId(address);
-      const take = sm.getAssetState(address).variants![id]!;
-      take.file = `assets/${name}.${name === "motion" ? "mp4" : "wav"}`;
-      take.definitionHash = "old-definition";
+      const variant = sm.getAssetState(address).variants![id]!;
+      variant.file = `assets/${name}.${name === "motion" ? "mp4" : "wav"}`;
+      variant.definitionHash = "old-definition";
       if (name === "motion") sm.setAccepted(address, id);
     }
     await sm.save();
@@ -350,12 +350,12 @@ describe("inspect command", () => {
 
   it("lists each take's seed", async () => {
     const sm = await StateManager.load(projectDir);
-    const take = sm.reserveVariantId("video:shot.01.motion");
-    sm.getAssetState("video:shot.01.motion").variants![take]!.seed = 123456;
+    const variant = sm.reserveVariantId("video:shot.01.motion");
+    sm.getAssetState("video:shot.01.motion").variants![variant]!.seed = 123456;
     await sm.save();
 
     const { stdout } = await run(["inspect", "video:shot.01.motion"], projectDir);
-    expect(stdout).toContain(`  ${take}: none`);
+    expect(stdout).toContain(`  ${variant}: none`);
     expect(stdout).toContain("    seed: 123456");
   });
 
@@ -967,7 +967,7 @@ describe("inspect <variantId>", () => {
     projectDir = await initWithDepsVideo();
   });
 
-  async function seedTakeOnOldPrompt(): Promise<string> {
+  async function seedVariantOnOldPrompt(): Promise<string> {
     const definition = await loadDefinitionForAddress(projectDir, motionAddr);
     const current = getAssetEntryByAddress(definition, motionAddr) as ComfyAssetDefinition;
     const sm = await StateManager.load(projectDir);
@@ -983,7 +983,7 @@ describe("inspect <variantId>", () => {
   }
 
   it("prints the inputs the take was made from, in full, and what has changed since", async () => {
-    const vid = await seedTakeOnOldPrompt();
+    const vid = await seedVariantOnOldPrompt();
     const { stdout } = await run(["inspect", vid], projectDir);
     expect(stdout).toContain(`Variant: ${vid}`);
     expect(stdout).toContain(`Address: ${motionAddr}`);
@@ -994,7 +994,7 @@ describe("inspect <variantId>", () => {
   });
 
   it("reads a patched take's inputs off the take it was generated as", async () => {
-    const source = await seedTakeOnOldPrompt();
+    const source = await seedVariantOnOldPrompt();
     const sm = await StateManager.load(projectDir);
     const patched = sm.reserveVariantId(motionAddr);
     sm.getAssetState(motionAddr).variants![patched]!.file = "/tmp/patched.mp4";
@@ -1010,7 +1010,7 @@ describe("inspect <variantId>", () => {
   });
 
   it("points a definition-stale take at its own report from the asset listing", async () => {
-    const vid = await seedTakeOnOldPrompt();
+    const vid = await seedVariantOnOldPrompt();
     const { stdout } = await run(["inspect", motionAddr], projectDir);
     expect(stdout).toContain("definition-stale: definition changed (1 field)");
     expect(stdout).toContain(`the definition it was made from, in full: konte inspect ${vid}`);
@@ -1038,7 +1038,7 @@ describe("inspect <variantId>", () => {
   });
 
   it("leaves out what a dismissed take differs by", async () => {
-    const vid = await seedTakeOnOldPrompt();
+    const vid = await seedVariantOnOldPrompt();
     const sm = await StateManager.load(projectDir);
     sm.getAssetState(motionAddr).variants![vid]!.status = "dismissed";
     await sm.save();
@@ -1050,7 +1050,7 @@ describe("inspect <variantId>", () => {
   });
 
   it("refuses --prompts on a variant id", async () => {
-    const vid = await seedTakeOnOldPrompt();
+    const vid = await seedVariantOnOldPrompt();
     await expect(run(["inspect", vid, "--prompts"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("INVALID_OPTION"),
     });

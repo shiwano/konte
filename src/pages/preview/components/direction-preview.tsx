@@ -1372,7 +1372,7 @@ function BriefReference({ reference }: { reference: BriefReferenceInfo }): React
     <div className="direction-brief-ref">
       <div className="direction-brief-ref-text">
         <div>
-          <span className="dir-inline-label">Take</span> {reference.take}
+          <span className="dir-inline-label">Take</span> {reference.variant}
         </div>
         <div>
           <span className="dir-inline-label">Avoid</span> {reference.avoid}

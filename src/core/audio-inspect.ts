@@ -563,7 +563,7 @@ export interface MixLayer {
   rate: number;
   loop: boolean;
   /** A take's own audio: audible where it sounds, never a silence — the take's accept heard it. */
-  take: boolean;
+  variant: boolean;
 }
 
 // Where a placed cue or bed plays but nothing in the mix is audible, longer than MIN_EDGE_SILENCE. A
@@ -581,7 +581,7 @@ export function findMixSilences(
   for (const layer of layers) {
     const lo = Math.max(0, Math.round(layer.start * rate));
     const hi = Math.min(n, Math.round((layer.start + layer.duration) * rate));
-    if (!layer.take) for (let j = lo; j < hi; j++) placed[j] = true;
+    if (!layer.variant) for (let j = lo; j < hi; j++) placed[j] = true;
     if (layer.rms == null) {
       for (let j = lo; j < hi; j++) sounding[j] = true;
       continue;
@@ -911,7 +911,7 @@ export async function inspectTimelineAudio(opts: {
           rms: played,
           rate: playedRate,
           loop: false,
-          take: raw.role === "embedded",
+          variant: raw.role === "embedded",
         });
       }
       for (const w of detectWindowCuts(
@@ -931,7 +931,7 @@ export async function inspectTimelineAudio(opts: {
         rms: null,
         rate: PROFILE_RATE,
         loop: false,
-        take: raw.role === "embedded",
+        variant: raw.role === "embedded",
       });
     }
 
@@ -1044,7 +1044,7 @@ export async function inspectTimelineAudio(opts: {
           ? Math.round(mediaStart * sourceProfile.rate) % Math.max(1, played.length)
           : 0;
         const rms = k > 0 ? [...played.slice(k), ...played.slice(0, k)] : played;
-        layers.push({ start, duration, rms, rate: sourceProfile.rate, loop, take: false });
+        layers.push({ start, duration, rms, rate: sourceProfile.rate, loop, variant: false });
       }
       for (const w of summarizeAudioSilence(played, sourceProfile.rate, null, "window")) {
         warnings.push(
@@ -1064,7 +1064,7 @@ export async function inspectTimelineAudio(opts: {
         }
       }
     } else {
-      layers.push({ start, duration, rms: null, rate: PROFILE_RATE, loop: false, take: false });
+      layers.push({ start, duration, rms: null, rate: PROFILE_RATE, loop: false, variant: false });
     }
 
     const buckets = envelopeBuckets(duration);

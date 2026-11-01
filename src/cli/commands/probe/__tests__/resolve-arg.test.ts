@@ -4,7 +4,7 @@ import type { StateManager } from "../../../../core/state/index.js";
 import { resolveProbeTargets } from "../resolve-arg.js";
 
 function fakeManager(overrides: Partial<StateManager>): StateManager {
-  return { readyUndecidedTakes: () => [], ...overrides } as unknown as StateManager;
+  return { readyUndecidedVariants: () => [], ...overrides } as unknown as StateManager;
 }
 
 describe("resolveProbeTargets", () => {
@@ -39,8 +39,8 @@ describe("resolveProbeTargets", () => {
     const resolveReference = vi
       .fn()
       .mockReturnValue({ variantId: "v-shown", file: "/x.mp4", isAccepted: false });
-    const readyUndecidedTakes = vi.fn().mockReturnValue(["v-shown", "v-rival"]);
-    const manager = fakeManager({ resolveReference, readyUndecidedTakes });
+    const readyUndecidedVariants = vi.fn().mockReturnValue(["v-shown", "v-rival"]);
+    const manager = fakeManager({ resolveReference, readyUndecidedVariants });
     const result = resolveProbeTargets(manager, ["video:shot.01.motion"], {
       mediaKinds: ["video"],
     });

@@ -21,7 +21,7 @@ afterEach(async () => {
 
 // `v-old` was made under the definition that is current again (a reverted edit); `v-new` under the
 // edit that has since been undone.
-function twoTakes(): void {
+function twoVariants(): void {
   const target = manager.ensureAssetState(ADDRESS);
   target.variants = {
     "v-old": {
@@ -67,7 +67,7 @@ function boardWithMovement(blocking: string | undefined): AnimaticDefinition {
 
 describe("staleRefreshStep", () => {
   it("names the take that matches the current definition", () => {
-    twoTakes();
+    twoVariants();
     expect(
       staleRefreshStep({
         manager,
@@ -81,7 +81,7 @@ describe("staleRefreshStep", () => {
   it("names what the accept is owed rather than an accept that would be refused", () => {
     // The panel is still owed its `blocking`. Neither an accept nor a reroll is the step: the
     // material exists, and paying for another take would not write the movement.
-    twoTakes();
+    twoVariants();
     expect(
       staleRefreshStep({
         manager,
@@ -99,7 +99,7 @@ describe("staleRefreshStep", () => {
 
   it("offers no accept over a board that could not be read", () => {
     // undefined, not null: `konte accept` loads the board strictly and would refuse.
-    twoTakes();
+    twoVariants();
     expect(
       staleRefreshStep({ manager, address: ADDRESS, variantId: "v-new", animatic: undefined }),
     ).toEqual({ kind: "reroll" });
@@ -108,7 +108,7 @@ describe("staleRefreshStep", () => {
   // A deterministic asset has one outcome, so `reroll` refuses it; the stage generate is what
   // re-bakes it, over its accept included.
   it("re-bakes a deterministic take with generate rather than a reroll it would be refused", () => {
-    twoTakes();
+    twoVariants();
     delete manager.getAssetState(ADDRESS).variants!["v-old"];
     manager.useResolutionDefinitions({
       definitionHash: () => "CURRENT",
@@ -120,7 +120,7 @@ describe("staleRefreshStep", () => {
   });
 
   it("asks no accept of a deterministic take whose match already resolves", () => {
-    twoTakes();
+    twoVariants();
     manager.setAccepted(ADDRESS, "v-new");
     manager.useResolutionDefinitions({
       definitionHash: () => "CURRENT",
@@ -137,7 +137,7 @@ describe("staleRefreshStep", () => {
   });
 
   it("asks for nothing when the address's accepted take is itself current", () => {
-    twoTakes();
+    twoVariants();
     manager.setAccepted(ADDRESS, "v-old");
     expect(
       staleRefreshStep({
@@ -150,7 +150,7 @@ describe("staleRefreshStep", () => {
   });
 
   it("re-applies a patch output's correction rather than rerolling its original", () => {
-    twoTakes();
+    twoVariants();
     manager.getAssetState(ADDRESS).variants!["v-new"]!.derivedFrom = "v-old";
     expect(
       staleRefreshStep({
@@ -164,7 +164,7 @@ describe("staleRefreshStep", () => {
   });
 
   it("still re-applies a correction beside a healthy accept — `status` lists it either way", () => {
-    twoTakes();
+    twoVariants();
     manager.getAssetState(ADDRESS).variants!["v-new"]!.derivedFrom = "v-old";
     manager.setAccepted(ADDRESS, "v-old");
     expect(
@@ -179,7 +179,7 @@ describe("staleRefreshStep", () => {
   });
 
   it("prunes instead once the patch script it was made by is gone", () => {
-    twoTakes();
+    twoVariants();
     manager.getAssetState(ADDRESS).variants!["v-new"]!.derivedFrom = "v-old";
     expect(
       staleRefreshStep({

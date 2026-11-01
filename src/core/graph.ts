@@ -1484,7 +1484,7 @@ function pinWindow(
       ? windows.reduce((a, b) => (b.opensAt < a.opensAt ? b : a))
       : windows.reduce((a, b) => (b.closesAt > a.closesAt ? b : a));
   return {
-    take: pin.address,
+    address: pin.address,
     shotSec,
     ...pick,
     ...(clipSec !== undefined ? { clipSec } : {}),

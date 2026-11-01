@@ -102,11 +102,11 @@ beforeEach(async () => {
   manager = await StateManager.init(dir);
 });
 
-function acceptTake(address: string, name: string): string {
+function acceptVariant(address: string, name: string): string {
   const id = manager.reserveVariantId(address);
-  const take = manager.getAssetState(address).variants![id]!;
-  take.file = `assets/${name}`;
-  take.outputHash = `out-${id}`;
+  const variant = manager.getAssetState(address).variants![id]!;
+  variant.file = `assets/${name}`;
+  variant.outputHash = `out-${id}`;
   manager.setAccepted(address, id);
   return id;
 }
@@ -167,7 +167,7 @@ describe("a graphic shot's composition drawn on both stages", () => {
   });
 
   it("routes the review to both while the video's picture does not hold the board's", async () => {
-    acceptTake("animatic:timeline.logo", "logo.png");
+    acceptVariant("animatic:timeline.logo", "logo.png");
     await acceptComposition(board(4, { logo: true }), BOARD);
     await acceptComposition(cut(4), CUT);
 
@@ -175,10 +175,10 @@ describe("a graphic shot's composition drawn on both stages", () => {
   });
 
   it("routes the review to the board while a take only the board draws moved", async () => {
-    acceptTake("animatic:shot.01.line", "line-1.wav");
+    acceptVariant("animatic:shot.01.line", "line-1.wav");
     await acceptComposition(board(4, { line: true }), BOARD);
     await acceptComposition(cut(4), CUT);
-    acceptTake("animatic:shot.01.line", "line-2.wav");
+    acceptVariant("animatic:shot.01.line", "line-2.wav");
     await manager.save();
 
     expect((await needsReview(board(6, { line: true }), cut(6))).needsReview).toContain(BOARD);
@@ -214,7 +214,7 @@ describe("a graphic shot's composition drawn on both stages", () => {
   });
 
   it("is settled on the video by the board's accept when the board's picture holds the video's", async () => {
-    acceptTake("animatic:timeline.logo", "logo.png");
+    acceptVariant("animatic:timeline.logo", "logo.png");
     await acceptComposition(cut(4), CUT);
     await acceptComposition(board(6, { logo: true }), BOARD);
 
@@ -240,7 +240,7 @@ describe("a graphic shot's composition drawn on both stages", () => {
   });
 
   it("is review work on the board when the video's picture does not hold it", async () => {
-    acceptTake("animatic:timeline.logo", "logo.png");
+    acceptVariant("animatic:timeline.logo", "logo.png");
     await acceptComposition(board(4, { logo: true }), BOARD);
     await acceptComposition(cut(6), CUT);
 
@@ -264,7 +264,7 @@ describe("a graphic shot's composition drawn on both stages", () => {
   });
 
   it("is review work on its first review over a take only the board draws", async () => {
-    acceptTake("animatic:shot.01.line", "line.wav");
+    acceptVariant("animatic:shot.01.line", "line.wav");
     await manager.save();
 
     expect((await needsReview(board(6, { line: true }), cut(6))).needsReview).toContain(BOARD);
@@ -272,10 +272,10 @@ describe("a graphic shot's composition drawn on both stages", () => {
   });
 
   it("is review work on the board once a take only it draws moves", async () => {
-    acceptTake("animatic:timeline.logo", "logo-1.png");
+    acceptVariant("animatic:timeline.logo", "logo-1.png");
     await acceptComposition(board(4, { logo: true }), BOARD);
     await acceptComposition(cut(6), CUT);
-    acceptTake("animatic:timeline.logo", "logo-2.png");
+    acceptVariant("animatic:timeline.logo", "logo-2.png");
     await manager.save();
 
     expect((await needsReview(board(4, { logo: true }), cut(6))).needsReview).toContain(BOARD);
@@ -292,7 +292,7 @@ describe("a graphic shot's composition drawn on both stages", () => {
   });
 
   it("keeps the shot's own audio on the board's review", async () => {
-    acceptTake("animatic:shot.01.line", "line.wav");
+    acceptVariant("animatic:shot.01.line", "line.wav");
     await acceptComposition(board(4, { line: true }), BOARD);
     await acceptComposition(cut(6), CUT);
 
@@ -344,19 +344,19 @@ describe("a graphic shot's composition over a take both stages draw", () => {
   };
 
   it("is settled on the board once the video's signed-off composition drew the moved take", async () => {
-    const first = acceptTake(SCREEN, "screen-1.png");
+    const first = acceptVariant(SCREEN, "screen-1.png");
     await acceptComposition(screenBoard(4), BOARD);
-    manager.setAccepted(SCREEN, acceptTake(SCREEN, "screen-2.png"), { dismiss: [first] });
+    manager.setAccepted(SCREEN, acceptVariant(SCREEN, "screen-2.png"), { dismiss: [first] });
     await acceptComposition(screenCut(6), CUT);
 
     expect((await needsReview(screenBoard(6), screenCut(6))).needsReview).toEqual([]);
   });
 
   it("is review work on both pages, routed to the video, while the video drew an older take", async () => {
-    acceptTake(SCREEN, "screen-1.png");
+    acceptVariant(SCREEN, "screen-1.png");
     await acceptComposition(screenBoard(4), BOARD);
     await acceptComposition(screenCut(6), CUT);
-    acceptTake(SCREEN, "screen-2.png");
+    acceptVariant(SCREEN, "screen-2.png");
     await manager.save();
 
     const status = await needsReview(screenBoard(6), screenCut(6));

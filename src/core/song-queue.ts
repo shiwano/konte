@@ -1,7 +1,7 @@
 import type { Direction } from "./dsl/direction.js";
 import type { JobManager } from "./job-manager.js";
 import { readSongReading } from "./song-reading.js";
-import { songAddressOf } from "./song-take.js";
+import { songAddressOf } from "./song-variant.js";
 import type { KonteState, SongRecord } from "./types/index.js";
 
 // A reading taken against another declared language: the vocal track is heard in it, so it no
@@ -16,14 +16,14 @@ export function readingBasis(direction: Direction | null): { lang: string } | nu
   return { lang: direction.policy.lang };
 }
 
-export type UnreadSongTake = { address: string; variantId: string; outputHash: string | null };
+export type UnreadSongVariant = { address: string; variantId: string; outputHash: string | null };
 
 // Every take of the song that has landed and holds no reading of it in the declared language.
-export function unreadSongTakes(
+export function unreadSongVariants(
   videoRoot: string,
   direction: Direction | null,
   state: KonteState,
-): UnreadSongTake[] {
+): UnreadSongVariant[] {
   const basis = readingBasis(direction);
   const address = songAddressOf(direction);
   if (!basis || !address) return [];
@@ -40,7 +40,7 @@ export function unreadSongTakes(
 }
 
 /**
- * Queue an analysis for every unread take of the song (see `unreadSongTakes`). A take is read once
+ * Queue an analysis for every unread take of the song (see `unreadSongVariants`). A take is read once
  * under its bytes and the declared language: one whose job failed stays unread until
  * `konte song analyze`.
  */
@@ -53,8 +53,8 @@ export async function queueSongAnalyses(opts: {
   const basis = readingBasis(opts.direction);
   if (!basis) return [];
   const queued: string[] = [];
-  for (const take of unreadSongTakes(opts.videoRoot, opts.direction, opts.state)) {
-    const job = await opts.jobManager.ensureSongAnalysisJob({ ...take, ...basis });
+  for (const variant of unreadSongVariants(opts.videoRoot, opts.direction, opts.state)) {
+    const job = await opts.jobManager.ensureSongAnalysisJob({ ...variant, ...basis });
     if (job.status === "pending") queued.push(job.id);
   }
   return queued;

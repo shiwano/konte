@@ -28,7 +28,7 @@ async function unbind(projectDir: string): Promise<void> {
 }
 
 // The take the movement is written from — a ready variant with a file.
-async function seedTake(projectDir: string): Promise<string> {
+async function seedVariant(projectDir: string): Promise<string> {
   const sm = await StateManager.load(projectDir);
   const variantId = sm.reserveVariantId(ADDRESS);
   sm.getAssetState(ADDRESS).variants![variantId]!.file = "/tmp/keyframe.png";
@@ -40,7 +40,7 @@ describe("review prerequisite gates", () => {
   describe("accept", () => {
     it("refuses a take whose movement is not written yet", async () => {
       const projectDir = await initWithCrossStageVideo();
-      const variantId = await seedTake(projectDir);
+      const variantId = await seedVariant(projectDir);
       await unbind(projectDir);
 
       await expect(run(["accept", variantId], projectDir)).rejects.toMatchObject({
@@ -52,7 +52,7 @@ describe("review prerequisite gates", () => {
 
     it("names the halves that are missing", async () => {
       const projectDir = await initWithCrossStageVideo();
-      const variantId = await seedTake(projectDir);
+      const variantId = await seedVariant(projectDir);
       await fs.writeFile(
         path.join(projectDir, "animatic.tsx"),
         TEST_CROSS_STAGE_ANIMATIC_TS.replace(
@@ -68,7 +68,7 @@ describe("review prerequisite gates", () => {
 
     it("accepts once the movement is written", async () => {
       const projectDir = await initWithCrossStageVideo();
-      const variantId = await seedTake(projectDir);
+      const variantId = await seedVariant(projectDir);
 
       const { stdout } = await run(["accept", variantId], projectDir);
       expect(stdout).toContain(`Accepted: ${ADDRESS} → ${variantId}`);
@@ -78,7 +78,7 @@ describe("review prerequisite gates", () => {
   describe("preview", () => {
     it("refuses to open the animatic review while a take is unbound", async () => {
       const projectDir = await initWithCrossStageVideo();
-      await seedTake(projectDir);
+      await seedVariant(projectDir);
       await unbind(projectDir);
 
       await expect(run(["preview", "animatic"], projectDir)).rejects.toMatchObject({
@@ -90,7 +90,7 @@ describe("review prerequisite gates", () => {
   describe("status", () => {
     it("lists the unbound panel and points Next steps at writing it, not at the review", async () => {
       const projectDir = await initWithCrossStageVideo();
-      const variantId = await seedTake(projectDir);
+      const variantId = await seedVariant(projectDir);
       await unbind(projectDir);
       await acceptDirection(projectDir);
 
@@ -105,7 +105,7 @@ describe("review prerequisite gates", () => {
     // review suggestion — so its absence there is the binding note displacing it, not a no-op.
     it("suggests the review once the movement is written", async () => {
       const projectDir = await initWithCrossStageVideo();
-      await seedTake(projectDir);
+      await seedVariant(projectDir);
       await acceptDirection(projectDir);
 
       const { stdout } = await run(["status", "-v"], projectDir);
@@ -129,7 +129,7 @@ describe("review prerequisite gates", () => {
       await writeWorkspaceConfig(projectDir, {
         comfy: { comfyui: { url: "http://127.0.0.1:8188" } },
       });
-      const variantId = await seedTake(projectDir);
+      const variantId = await seedVariant(projectDir);
       const sm = await StateManager.load(projectDir);
       sm.setAccepted(ADDRESS, variantId);
       await sm.save();

@@ -190,15 +190,15 @@ describe("a shot's lines are voiced per line", () => {
 });
 
 describe("a model taking its lines in the prompt answers for them", () => {
-  const take = (line: string) =>
+  const variant = (line: string) =>
     `Out on open water, she turns to her mother and asks, <d>[Japanese] ${line}</d>`;
 
   it("reads the words inside <d>, not the prose around them", () => {
     expect(
       unvoiced(
         board(() => {
-          asset("vo", dialogueInPrompt, { prompt: take(LINES[0].text) });
-          asset("vo2", dialogueInPrompt, { prompt: take(LINES[1].text) });
+          asset("vo", dialogueInPrompt, { prompt: variant(LINES[0].text) });
+          asset("vo2", dialogueInPrompt, { prompt: variant(LINES[1].text) });
         }),
       ),
     ).toBe("");
@@ -208,8 +208,8 @@ describe("a model taking its lines in the prompt answers for them", () => {
     expect(
       unvoiced(
         board(() => {
-          asset("vo", dialogueInPrompt, { prompt: take(LINES[0].text) });
-          asset("vo2", dialogueInPrompt, { prompt: take("a line nobody wrote") });
+          asset("vo", dialogueInPrompt, { prompt: variant(LINES[0].text) });
+          asset("vo2", dialogueInPrompt, { prompt: variant("a line nobody wrote") });
         }),
       ),
     ).toMatch(/never voices the line/);
@@ -220,9 +220,9 @@ describe("a model taking its lines in the prompt answers for them", () => {
       unvoiced(
         board(() => {
           asset("vo", dialogueInPrompt, {
-            prompt: `${take(LINES[0].text)} Her sister has just said ${LINES[1].text}`,
+            prompt: `${variant(LINES[0].text)} Her sister has just said ${LINES[1].text}`,
           });
-          asset("vo2", dialogueInPrompt, { prompt: take("a line nobody wrote") });
+          asset("vo2", dialogueInPrompt, { prompt: variant("a line nobody wrote") });
         }),
       ),
     ).toMatch(/never voices the line/);
@@ -232,8 +232,8 @@ describe("a model taking its lines in the prompt answers for them", () => {
     expect(
       unvoiced(
         board(() => {
-          asset("vo", undeclaredDialogue, { prompt: take(LINES[0].text) });
-          asset("vo2", undeclaredDialogue, { prompt: take("a line nobody wrote") });
+          asset("vo", undeclaredDialogue, { prompt: variant(LINES[0].text) });
+          asset("vo2", undeclaredDialogue, { prompt: variant("a line nobody wrote") });
         }),
       ),
     ).toBe("");

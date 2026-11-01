@@ -27,7 +27,7 @@ import { applyPatch, assertPatchSpendAllowed } from "../patch-orchestrator.js";
 import { selectDefinition } from "../../core/select-definition.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import {
-  collectUndecidedUpstreamTakes,
+  collectUndecidedUpstreamVariants,
   computeAcceptedStaleness,
   formatStaleCause,
 } from "../../core/staleness.js";
@@ -47,7 +47,7 @@ import {
   formatAcceptedStaleNotice,
   formatComfyDownloadNotice,
   formatGeneratePlan,
-  formatUndecidedUpstreamTakesNotice,
+  formatUndecidedUpstreamVariantsNotice,
   type LevelResult,
   preflightComfyAssets,
   reserveVariantsBatch,
@@ -546,7 +546,7 @@ export function registerGenerateCommand(program: Command): void {
       // that resolution won't use — it binds the accepted variant, so this run builds on the
       // accepted frame until that take is accepted in its place. A cross-stage one holds the asset
       // instead (the spend gate).
-      const undecidedUpstreamTakes = collectUndecidedUpstreamTakes(
+      const undecidedUpstreamVariants = collectUndecidedUpstreamVariants(
         manager.getState(),
         [...generatedDepPaths],
         manager.stalenessCache(),
@@ -624,8 +624,8 @@ export function registerGenerateCommand(program: Command): void {
         console.log(`\nReading the song: ${songReadings.join(", ")}`);
       }
       const hasWork = summary.started > 0 || summary.waiting > 0 || songReadings.length > 0;
-      const takesNotice = formatUndecidedUpstreamTakesNotice(undecidedUpstreamTakes);
-      if (takesNotice) console.warn(`\n${takesNotice}`);
+      const variantsNotice = formatUndecidedUpstreamVariantsNotice(undecidedUpstreamVariants);
+      if (variantsNotice) console.warn(`\n${variantsNotice}`);
       const staleNotice = formatAcceptedStaleNotice(acceptedStale);
       if (staleNotice) console.warn(`\n${staleNotice}`);
       // Started and skipped work folds into the Summary counts below; only what the caller

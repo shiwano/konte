@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  collectUndecidedUpstreamTakes,
+  collectUndecidedUpstreamVariants,
   collectStaleDependents,
   collectStaleVariants,
   computeAcceptedStaleness,
@@ -9,9 +9,9 @@ import {
   formatStaleReason,
   isVariantStale,
   keptViaMarker,
-  newestReadyUndecidedTake,
-  undecidedTakeBesideAccepted,
-  readyUndecidedTakes,
+  newestReadyUndecidedVariant,
+  undecidedVariantBesideAccepted,
+  readyUndecidedVariants,
   resolvedStaleness,
   selectResolvedVariant,
 } from "../staleness.js";
@@ -639,7 +639,7 @@ describe("a dismissed take", () => {
 });
 
 // The candidate set an accept decides among — and so exactly the set it dismisses the rest of.
-describe("readyUndecidedTakes", () => {
+describe("readyUndecidedVariants", () => {
   const ADDR = "animatic:shot.02.frame";
 
   function pool(): KonteState {
@@ -656,11 +656,11 @@ describe("readyUndecidedTakes", () => {
   }
 
   it("lists the undecided takes holding a file, and nothing else", () => {
-    expect(readyUndecidedTakes(pool(), ADDR, "d1")).toEqual(["v-open"]);
+    expect(readyUndecidedVariants(pool(), ADDR, "d1")).toEqual(["v-open"]);
   });
 
   it("drops a take the current definition has aged out", () => {
-    expect(readyUndecidedTakes(pool(), ADDR, "d2")).toEqual([]);
+    expect(readyUndecidedVariants(pool(), ADDR, "d2")).toEqual([]);
   });
 
   // A correction whose script was edited is work to re-apply, so an accept elsewhere at the
@@ -673,9 +673,9 @@ describe("readyUndecidedTakes", () => {
       derivedFrom: "v-accepted",
       patchHash: "p1",
     });
-    expect(readyUndecidedTakes(state, ADDR, "d1")).toEqual(["v-open"]);
+    expect(readyUndecidedVariants(state, ADDR, "d1")).toEqual(["v-open"]);
     expect(
-      readyUndecidedTakes(state, ADDR, "d1", undefined, new Map([["v-accepted", "p2"]])),
+      readyUndecidedVariants(state, ADDR, "d1", undefined, new Map([["v-accepted", "p2"]])),
     ).toEqual([]);
   });
 
@@ -686,11 +686,11 @@ describe("readyUndecidedTakes", () => {
       definitionHash: "d1",
       derivedFrom: "v-open",
     });
-    expect(readyUndecidedTakes(state, ADDR, "d1")).toEqual(["v-fix"]);
+    expect(readyUndecidedVariants(state, ADDR, "d1")).toEqual(["v-fix"]);
   });
 });
 
-describe("undecidedTakeBesideAccepted", () => {
+describe("undecidedVariantBesideAccepted", () => {
   function frameWithReroll(): KonteState {
     return makeState({
       "animatic:shot.02.frame": {
@@ -712,7 +712,9 @@ describe("undecidedTakeBesideAccepted", () => {
   }
 
   it("returns the ready sibling awaiting a verdict", () => {
-    expect(undecidedTakeBesideAccepted(frameWithReroll(), "animatic:shot.02.frame")).toBe("v-new");
+    expect(undecidedVariantBesideAccepted(frameWithReroll(), "animatic:shot.02.frame")).toBe(
+      "v-new",
+    );
   });
 
   it("returns null when nothing is accepted", () => {
@@ -721,7 +723,7 @@ describe("undecidedTakeBesideAccepted", () => {
         variants: { "v-a": variant({ file: "a.png", readyAt: "2026-01-01T00:00:02.000Z" }) },
       },
     });
-    expect(undecidedTakeBesideAccepted(state, "animatic:shot.02.frame")).toBeNull();
+    expect(undecidedVariantBesideAccepted(state, "animatic:shot.02.frame")).toBeNull();
   });
 
   // A patched take is a "before", not a rival of the correction that replaced it.
@@ -732,7 +734,7 @@ describe("undecidedTakeBesideAccepted", () => {
       derivedFrom: "v-new",
       readyAt: "2026-01-01T00:00:03.000Z",
     });
-    expect(undecidedTakeBesideAccepted(state, "animatic:shot.02.frame")).toBe("v-fix");
+    expect(undecidedVariantBesideAccepted(state, "animatic:shot.02.frame")).toBe("v-fix");
   });
 
   // A correction of the ACCEPTED take is a candidate like any other: its verdict is carried by
@@ -745,13 +747,13 @@ describe("undecidedTakeBesideAccepted", () => {
       derivedFrom: "v-old",
       readyAt: "2026-01-01T00:00:03.000Z",
     });
-    expect(undecidedTakeBesideAccepted(state, "animatic:shot.02.frame")).toBe("v-fix");
+    expect(undecidedVariantBesideAccepted(state, "animatic:shot.02.frame")).toBe("v-fix");
   });
 
   it("returns null once the sibling was dismissed", () => {
     const state = frameWithReroll();
     state.assets["animatic:shot.02.frame"]!.variants!["v-new"]!.status = "dismissed";
-    expect(undecidedTakeBesideAccepted(state, "animatic:shot.02.frame")).toBeNull();
+    expect(undecidedVariantBesideAccepted(state, "animatic:shot.02.frame")).toBeNull();
   });
 
   // Nothing compares when a take landed against when the accept was made.
@@ -759,12 +761,12 @@ describe("undecidedTakeBesideAccepted", () => {
     const state = frameWithReroll();
     state.assets["animatic:shot.02.frame"]!.variants!["v-new"]!.readyAt =
       "2026-01-01T00:00:00.000Z";
-    expect(undecidedTakeBesideAccepted(state, "animatic:shot.02.frame")).toBe("v-new");
+    expect(undecidedVariantBesideAccepted(state, "animatic:shot.02.frame")).toBe("v-new");
   });
 
   it("ignores a newer sibling excluded by id (e.g. a dead composition leftover)", () => {
     expect(
-      undecidedTakeBesideAccepted(
+      undecidedVariantBesideAccepted(
         frameWithReroll(),
         "animatic:shot.02.frame",
         null,
@@ -774,7 +776,7 @@ describe("undecidedTakeBesideAccepted", () => {
   });
 });
 
-describe("collectUndecidedUpstreamTakes", () => {
+describe("collectUndecidedUpstreamVariants", () => {
   // The WORK.md scenario: an animatic frame was rerolled (new take unreviewed) while the
   // old take stays accepted; a video motion depends on it, so this run resolves the old one.
   it("flags an upstream frame with a newer unreviewed take for a cross-stage video dep", () => {
@@ -795,7 +797,7 @@ describe("collectUndecidedUpstreamTakes", () => {
         },
       },
     });
-    expect(collectUndecidedUpstreamTakes(state, ["animatic:shot.02.frame"])).toEqual([
+    expect(collectUndecidedUpstreamVariants(state, ["animatic:shot.02.frame"])).toEqual([
       {
         depPath: "animatic:shot.02.frame",
         address: "animatic:shot.02.frame",
@@ -818,7 +820,7 @@ describe("collectUndecidedUpstreamTakes", () => {
         },
       },
     });
-    expect(collectUndecidedUpstreamTakes(state, ["animatic:shot.02.frame"])).toEqual([]);
+    expect(collectUndecidedUpstreamVariants(state, ["animatic:shot.02.frame"])).toEqual([]);
   });
 });
 
@@ -1035,7 +1037,7 @@ describe("resolution against the current definition", () => {
 
   // Two takes at one address, made under different definitions. `CURRENT` is what the definition
   // says now: the older take's, the edit behind the newer one having been reverted.
-  function stateWithTwoTakes(overrides: Partial<VariantState> = {}): KonteState {
+  function stateWithTwoVariants(overrides: Partial<VariantState> = {}): KonteState {
     return makeState({
       [ADDR]: {
         variants: {
@@ -1065,12 +1067,12 @@ describe("resolution against the current definition", () => {
   it("resolves to the newest take when the walk is given no definitions", () => {
     // The state layer holds no definition hash of its own, so without one supplied the newest
     // take wins.
-    expect(selectResolvedVariant(stateWithTwoTakes(), ADDR)?.variantId).toBe("v-new");
+    expect(selectResolvedVariant(stateWithTwoVariants(), ADDR)?.variantId).toBe("v-new");
   });
 
   it("hands the address back to the older take whose definition still matches", () => {
     const resolved = selectResolvedVariant(
-      stateWithTwoTakes(),
+      stateWithTwoVariants(),
       ADDR,
       undefined,
       createStalenessCache(definitions),
@@ -1082,7 +1084,7 @@ describe("resolution against the current definition", () => {
     // An accept is a decision to protect, on this axis as on the input one — the way back to the
     // matching take is a new accept.
     const resolved = selectResolvedVariant(
-      stateWithTwoTakes({ status: "accepted" }),
+      stateWithTwoVariants({ status: "accepted" }),
       ADDR,
       undefined,
       createStalenessCache(definitions),
@@ -1091,19 +1093,19 @@ describe("resolution against the current definition", () => {
   });
 
   it("offers the matching take as the no-spend way out of a stale one", () => {
-    const state = stateWithTwoTakes({ status: "accepted" });
-    expect(newestReadyUndecidedTake(state, ADDR, "CURRENT", new Set(["v-new"]))).toBe("v-old");
+    const state = stateWithTwoVariants({ status: "accepted" });
+    expect(newestReadyUndecidedVariant(state, ADDR, "CURRENT", new Set(["v-new"]))).toBe("v-old");
   });
 
   it("offers nothing when no take at the address matches the current definition", () => {
-    const state = stateWithTwoTakes({ status: "accepted" });
-    expect(newestReadyUndecidedTake(state, ADDR, "REWRITTEN", new Set(["v-new"]))).toBeNull();
+    const state = stateWithTwoVariants({ status: "accepted" });
+    expect(newestReadyUndecidedVariant(state, ADDR, "REWRITTEN", new Set(["v-new"]))).toBeNull();
   });
 
   it("never offers a take the reviewer decided against", () => {
-    const state = stateWithTwoTakes({ status: "accepted" });
+    const state = stateWithTwoVariants({ status: "accepted" });
     state.assets[ADDR]!.variants!["v-old"]!.status = "dismissed";
-    expect(newestReadyUndecidedTake(state, ADDR, "CURRENT", new Set(["v-new"]))).toBeNull();
+    expect(newestReadyUndecidedVariant(state, ADDR, "CURRENT", new Set(["v-new"]))).toBeNull();
   });
 });
 

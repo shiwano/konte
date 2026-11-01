@@ -323,7 +323,7 @@ describe("status command", () => {
       await acceptFileAssets(projectDir);
     });
 
-    const take = async (heard: string | null, media?: Record<string, unknown>) => {
+    const addVariant = async (heard: string | null, media?: Record<string, unknown>) => {
       const sm = await StateManager.load(projectDir);
       const id = sm.reserveVariantId(voice);
       Object.assign(sm.getAssetState(voice).variants![id]!, {
@@ -342,7 +342,7 @@ describe("status command", () => {
     };
 
     it("holds the review until it is vouched for", async () => {
-      const short = await take(" she should fill the sky");
+      const short = await addVariant(" she should fill the sky");
       const { stdout } = await run(["status", "-v"], projectDir);
       expect(stdout).toContain(`konte probe audio ${short}`);
       expect(stdout).toContain(
@@ -357,7 +357,7 @@ describe("status command", () => {
     });
 
     it("refuses to open the review it holds", async () => {
-      await take(" she should fill the sky");
+      await addVariant(" she should fill the sky");
       await expect(run(["preview", "video"], projectDir)).rejects.toMatchObject({
         stderr: expect.stringContaining("REVIEW_HELD"),
       });
@@ -378,7 +378,7 @@ describe("status command", () => {
     });
 
     it("finds a silent take", async () => {
-      const silent = await take(null, {
+      const silent = await addVariant(null, {
         kind: "audio",
         durationSec: 2,
         channels: 1,

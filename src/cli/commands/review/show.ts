@@ -17,7 +17,7 @@ import {
   loadLatestReviewRecord,
   loadReviewRecordFile,
   type ReviewRecord,
-  reviewAcceptedTakes,
+  reviewAcceptedVariants,
   reviewNoteFrameTargets,
   reviewStage,
   toReviewFileId,
@@ -100,12 +100,12 @@ async function resolveDefinitionDrift(
   videoRoot: string,
   record: ReviewRecord,
 ): Promise<Array<{ address: string; variantId: string; fields: string[] }>> {
-  const takes = reviewAcceptedTakes(record);
-  if (takes.length === 0) return [];
+  const variants = reviewAcceptedVariants(record);
+  if (variants.length === 0) return [];
   const manager = await StateManager.load(videoRoot);
   const definitions = await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
   const drift: Array<{ address: string; variantId: string; fields: string[] }> = [];
-  for (const { address, variantId } of takes) {
+  for (const { address, variantId } of variants) {
     const variant = manager.getState().assets[address]?.variants?.[variantId];
     if (variant?.status !== "accepted") continue;
     const staleness = manager.variantStaleness(address, variantId);

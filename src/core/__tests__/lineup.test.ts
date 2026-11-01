@@ -1577,7 +1577,7 @@ describe("the join", () => {
         stagingStage: { ...noStage, videoPins: pins, shotPanels },
       }).active.filter((f) => f.code === "join-unshown");
     const window = (w: Partial<PinWindow>): PinWindow => ({
-      take: "video:shot.01.motion",
+      address: "video:shot.01.motion",
       shotSec: 2.5,
       opensAt: 0,
       closesAt: 2.5,
@@ -1599,7 +1599,7 @@ describe("the join", () => {
         {
           pin: "start",
           reaches: [seam],
-          window: window({ take: "video:shot.02.motion", shotSec: 2, closesAt: 2, to: 2, ...w }),
+          window: window({ address: "video:shot.02.motion", shotSec: 2, closesAt: 2, to: 2, ...w }),
         },
       ],
       slots: ["start", "end"],

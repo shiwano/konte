@@ -31,7 +31,7 @@ import {
   loadDirectionIfPresent,
   loadAnimaticSetupState,
   loadStagingStageState,
-  loadSongTakeState,
+  loadSongVariantState,
 } from "../load-definition.js";
 import { formatDirectionRemainder } from "../print-status.js";
 import { loadReference } from "../../core/loader.js";
@@ -128,7 +128,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
     referenceAssetNames: reference?.exposedAssetNames ?? [],
     animaticSetups: await loadAnimaticSetupState(videoRoot, direction, reference),
     stagingStage: await loadStagingStageState(videoRoot, direction),
-    songTake: await loadSongTakeState(videoRoot, direction),
+    songVariant: await loadSongVariantState(videoRoot, direction),
   });
   const findings = reportableDirectionFindings(check.active, view.gateSatisfied).map((f) => ({
     key: directionWaiverKey(f),

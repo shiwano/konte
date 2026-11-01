@@ -3,7 +3,7 @@ import type { StateManager } from "../core/state/index.js";
 import type { AnimaticDefinition, GenerationJob, JobRecord } from "../core/types/index.js";
 import { staleRefreshStep } from "./stale-refresh-step.js";
 
-export interface ResolvedTake {
+export interface ResolvedVariant {
   address: string;
   variantId: string;
   // The scope argument a sweep resolved this take under; its notices print as one line per scope.
@@ -71,29 +71,29 @@ export async function listActiveGenerationJobs(videoRoot: string): Promise<Gener
   return (await new JobManager(videoRoot).listJobs()).filter(isActiveGeneration);
 }
 
-function generatingIds(take: ResolvedTake, activeJobs: readonly GenerationJob[]): string[] {
-  return activeJobs.filter((j) => j.address === take.address).map((j) => j.variantId);
+function generatingIds(variant: ResolvedVariant, activeJobs: readonly GenerationJob[]): string[] {
+  return activeJobs.filter((j) => j.address === variant.address).map((j) => j.variantId);
 }
 
 function inFlightNotice(
-  take: ResolvedTake,
+  variant: ResolvedVariant,
   activeJobs: readonly GenerationJob[],
 ): string | undefined {
-  const ids = generatingIds(take, activeJobs);
+  const ids = generatingIds(variant, activeJobs);
   if (ids.length === 0) return undefined;
-  return `${take.address}: ${ids.join(", ")} still generating — this is the earlier take ${take.variantId}; \`konte job wait\` for the new one`;
+  return `${variant.address}: ${ids.join(", ")} still generating — this is the earlier take ${variant.variantId}; \`konte job wait\` for the new one`;
 }
 
 /** A take named by its variant id is the caller's pick and is never asked about. */
 export function resolutionNotices(
   manager: StateManager,
-  take: ResolvedTake,
+  variant: ResolvedVariant,
   animatic: AnimaticDefinition | null | undefined,
   activeJobs: readonly GenerationJob[],
 ): string[] {
   return [
-    inFlightNotice(take, activeJobs),
-    staleNotice(manager, take.address, take.variantId, animatic),
+    inFlightNotice(variant, activeJobs),
+    staleNotice(manager, variant.address, variant.variantId, animatic),
   ].filter((n) => n !== undefined);
 }
 
@@ -101,21 +101,21 @@ export async function printResolutionNotices(opts: {
   videoRoot: string;
   manager: StateManager;
   animatic: AnimaticDefinition | null | undefined;
-  takes: readonly ResolvedTake[];
+  variants: readonly ResolvedVariant[];
 }): Promise<void> {
-  if (opts.takes.length === 0) return;
+  if (opts.variants.length === 0) return;
   const activeJobs = await listActiveGenerationJobs(opts.videoRoot);
-  const swept = new Map<string, ResolvedTake[]>();
-  for (const take of opts.takes) {
-    if (take.scope !== undefined) {
-      swept.set(take.scope, [...(swept.get(take.scope) ?? []), take]);
+  const swept = new Map<string, ResolvedVariant[]>();
+  for (const variant of opts.variants) {
+    if (variant.scope !== undefined) {
+      swept.set(variant.scope, [...(swept.get(variant.scope) ?? []), variant]);
       continue;
     }
-    for (const notice of resolutionNotices(opts.manager, take, opts.animatic, activeJobs))
+    for (const notice of resolutionNotices(opts.manager, variant, opts.animatic, activeJobs))
       console.error(notice);
   }
-  for (const [scope, takes] of swept) {
-    for (const notice of sweepNotices(opts.manager, scope, takes, opts.animatic, activeJobs))
+  for (const [scope, variants] of swept) {
+    for (const notice of sweepNotices(opts.manager, scope, variants, opts.animatic, activeJobs))
       console.error(notice);
   }
 }
@@ -123,12 +123,12 @@ export async function printResolutionNotices(opts: {
 export function sweepNotices(
   manager: StateManager,
   scope: string,
-  takes: readonly ResolvedTake[],
+  variants: readonly ResolvedVariant[],
   animatic: AnimaticDefinition | null | undefined,
   activeJobs: readonly GenerationJob[],
 ): string[] {
-  const generating = takes.filter((t) => generatingIds(t, activeJobs).length > 0);
-  const stale = takes.filter(
+  const generating = variants.filter((t) => generatingIds(t, activeJobs).length > 0);
+  const stale = variants.filter(
     (t) => staleNotice(manager, t.address, t.variantId, animatic) !== undefined,
   );
   const notices: string[] = [];

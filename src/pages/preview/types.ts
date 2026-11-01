@@ -259,13 +259,13 @@ export interface KeepAddressInfo {
   // re-makes itself or a `file`, listed as an upstream an accept can change.
   rerollable: boolean;
   acceptedVariantId: string | null;
-  takes: Record<string, KeepTakeInfo>;
+  variants: Record<string, KeepVariantInfo>;
   // The rerollable addresses made from this one: directly (`via` is this address), or through takes
   // konte re-makes on its own — a deterministic intermediate, a stem (`via` is the one they consume).
   consumers: Array<{ address: string; via: string }>;
 }
 
-export interface KeepTakeInfo {
+export interface KeepVariantInfo {
   outputHash: string | null;
   // Per upstream address, what this take reads current against once accepted: the output hash it
   // was made from, and what an accept kept it against (a hash, or a `via:` marker).
@@ -658,7 +658,7 @@ export interface BriefSourceInfo {
 export interface BriefReferenceInfo {
   clip: string;
   link: string | null;
-  take: string;
+  variant: string;
   avoid: string;
   sheets: string[];
 }

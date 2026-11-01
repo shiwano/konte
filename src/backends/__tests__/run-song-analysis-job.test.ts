@@ -3,8 +3,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JobManager } from "../../core/job-manager.js";
-import { queueSongAnalyses, unreadSongTakes } from "../../core/song-queue.js";
-import { resolveSongTake, songReadingsOf } from "../../core/song-take.js";
+import { queueSongAnalyses, unreadSongVariants } from "../../core/song-queue.js";
+import { resolveSongVariant, songReadingsOf } from "../../core/song-variant.js";
 import { StateManager } from "../../core/state/index.js";
 import type { Direction } from "../../core/dsl/direction.js";
 import { directionDefaults } from "../../core/__tests__/helpers/direction.js";
@@ -117,12 +117,12 @@ describe("song analysis", () => {
     const results = await runPendingSongAnalyses(jobManager, videoRoot);
     expect(results.map((r) => r.status)).toEqual(["completed"]);
 
-    const take = resolveSongTake(videoRoot, await state(), "reference:song");
-    expect(take?.variantId).toBe("v-take1");
-    expect(take?.analysis.beatsPerBar).toBe(4);
-    expect(take!.analysis.beats[take!.analysis.firstBeat]).toBe(0.5);
+    const variant = resolveSongVariant(videoRoot, await state(), "reference:song");
+    expect(variant?.variantId).toBe("v-take1");
+    expect(variant?.analysis.beatsPerBar).toBe(4);
+    expect(variant!.analysis.beats[variant!.analysis.firstBeat]).toBe(0.5);
     // The separator is pinned to nothing in tests, so no line can be placed.
-    expect(take?.analysis.phrases).toBeNull();
+    expect(variant?.analysis.phrases).toBeNull();
     expect(await jobManager.readLog("song-v-take1")).toMatch(/could not be separated/);
 
     // Read once: a second pass queues nothing.
@@ -173,11 +173,11 @@ describe("song analysis", () => {
 
     const readings = songReadingsOf(videoRoot, await state());
     await fs.rm(path.join(videoRoot, "assets/reference/song/v-take1/song.json"));
-    expect(resolveSongTake(videoRoot, await state(), "reference:song")).toBeNull();
+    expect(resolveSongVariant(videoRoot, await state(), "reference:song")).toBeNull();
     expect(songReadingsOf(videoRoot, await state())).not.toBe(readings);
-    expect(unreadSongTakes(videoRoot, direction, await state()).map((t) => t.variantId)).toEqual([
-      "v-take1",
-    ]);
+    expect(unreadSongVariants(videoRoot, direction, await state()).map((t) => t.variantId)).toEqual(
+      ["v-take1"],
+    );
   });
 
   it("reads a take again once its file is replaced", async () => {
@@ -207,7 +207,7 @@ describe("song analysis", () => {
     const finish = jobManager.finishIfOwner.bind(jobManager);
     let onDisk: unknown = "unseen";
     jobManager.finishIfOwner = async (...args) => {
-      onDisk = resolveSongTake(videoRoot, await state(), "reference:song")?.analysis;
+      onDisk = resolveSongVariant(videoRoot, await state(), "reference:song")?.analysis;
       return finish(...args);
     };
     await runSongAnalysisJob(jobManager, videoRoot, id!);
@@ -224,7 +224,7 @@ describe("song analysis", () => {
     );
 
     const relanged = { ...direction, policy: { ...direction.policy, lang: "ja" } } as Direction;
-    expect(unreadSongTakes(videoRoot, relanged, await state()).map((t) => t.variantId)).toEqual([
+    expect(unreadSongVariants(videoRoot, relanged, await state()).map((t) => t.variantId)).toEqual([
       "v-take1",
     ]);
     expect(

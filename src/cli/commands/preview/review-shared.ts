@@ -18,7 +18,7 @@ import {
   isVariantStale,
   keptViaMarker,
   parseKeptVia,
-  undecidedTakeBesideAccepted,
+  undecidedVariantBesideAccepted,
   type PatchHashes,
 } from "../../../core/staleness.js";
 import { generatedOrigin, isReviewLeaf } from "../../../core/variant-lineage.js";
@@ -64,7 +64,7 @@ import type {
   VariantState,
 } from "../../../core/types/index.js";
 import { readDefinitionSnapshot } from "../../../core/definition-snapshot.js";
-import type { PatchChainTakes } from "./asset-info.js";
+import type { PatchChainVariants } from "./asset-info.js";
 import { readVariantThumbnails } from "../../../core/thumbnail.js";
 import { inferMediaType } from "../../../core/media-type.js";
 
@@ -227,7 +227,7 @@ export function hasUndecidedBesideAccepted(
   if (!acceptedId) return false;
   try {
     return (
-      undecidedTakeBesideAccepted(
+      undecidedVariantBesideAccepted(
         manager.getState(),
         addr,
         defHash,
@@ -623,7 +623,7 @@ export function variantPreviewUrl(
  * The definition a take's lineage was submitted with — its `definition.json` — or null when it is
  * gone.
  */
-export function takeDefinitionSnapshot(
+export function variantDefinitionSnapshot(
   manager: StateManager,
   videoRoot: string,
   address: string,
@@ -639,11 +639,11 @@ export function takeDefinitionSnapshot(
  * `inputFingerprints` recorded at an earlier step's address — what made this take, not what the
  * script declares now.
  */
-export function patchChainTakes(
+export function patchChainVariants(
   manager: StateManager,
   address: string,
   variantId: string,
-): PatchChainTakes | null {
+): PatchChainVariants | null {
   const state = manager.getState();
   const variant = state.assets[address]?.variants?.[variantId];
   const sourceVariantId = variant?.derivedFrom;
@@ -675,7 +675,7 @@ export function patchChainTakes(
  * the output hash its `inputFingerprints` recorded. Null when no take left in state carries those
  * bytes. What the asset info panel draws beside a consumed address.
  */
-export function consumedTakePreviewUrl(
+export function consumedVariantPreviewUrl(
   manager: StateManager,
   videoRoot: string,
   address: string,
@@ -1098,11 +1098,14 @@ function keepVia(mgr: StateManager, entry: KeepEntryBody): boolean {
   return wrote;
 }
 
-function acceptedVerdict(mgr: StateManager, take: { address: string; variantId: string }): boolean {
+function acceptedVerdict(
+  mgr: StateManager,
+  variant: { address: string; variantId: string },
+): boolean {
   return (
-    mgr.tryGetAssetState(take.address) !== undefined &&
-    mgr.getAcceptedVariant(take.address) === take.variantId &&
-    holdsHumanVerdict(mgr, take.address)
+    mgr.tryGetAssetState(variant.address) !== undefined &&
+    mgr.getAcceptedVariant(variant.address) === variant.variantId &&
+    holdsHumanVerdict(mgr, variant.address)
   );
 }
 

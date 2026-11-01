@@ -173,13 +173,13 @@ describe("detectAudioOnset", () => {
 });
 
 describe("findMixSilences", () => {
-  const layer = (start: number, rms: number[] | null, loop = false, take = false) => ({
+  const layer = (start: number, rms: number[] | null, loop = false, variant = false) => ({
     start,
     duration: rms ? rms.length / RATE : 5,
     rms,
     rate: RATE,
     loop,
-    take,
+    variant,
   });
 
   it("finds nothing where a bed covers a silent clip", () => {

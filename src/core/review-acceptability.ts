@@ -60,6 +60,6 @@ export function reelShotAcceptability(
 // The take a reference card shows, and so the one its accept and Accept all sign off: accepted,
 // else newest non-stale (stale only as a last resort so the card is never empty) — the same take
 // `konte path` prints.
-export function displayedReferenceTake(manager: StateManager, address: string) {
+export function displayedReferenceVariant(manager: StateManager, address: string) {
   return manager.selectVariant(address, { includeStale: true });
 }

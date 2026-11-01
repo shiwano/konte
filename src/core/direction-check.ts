@@ -1022,7 +1022,7 @@ const frameName = (shot: Pick<LineupShot, "id" | "frame">): string =>
  * last frame cannot be located. Absent altogether where no `<Video>` plays the take directly.
  */
 export type PinWindow = {
-  take: string;
+  address: string;
   shotSec: number;
   opensAt: number;
   closesAt: number;
@@ -1522,7 +1522,7 @@ function checkSeamWindows(
         code: "join-unshown",
         subject: frameSubject(shot),
         message:
-          `${frameName(previous)} and ${frameName(shot)} are one take, and ${landing.take} lands ` +
+          `${frameName(previous)} and ${frameName(shot)} are one take, and ${landing.address} lands ` +
           `on the seam \`${seam}\` ${formatSeconds(landing.landsAt, 2)} in — but ${frameName(previous)} plays ` +
           `${formatSecondsRange(landing.from, landing.to, 2)} of it` +
           (endsShot
@@ -1543,7 +1543,7 @@ function checkSeamWindows(
         code: "join-unshown",
         subject: frameSubject(shot),
         message:
-          `${frameName(previous)} and ${frameName(shot)} are one take, and ${opening.take} opens on ` +
+          `${frameName(previous)} and ${frameName(shot)} are one take, and ${opening.address} opens on ` +
           `the seam \`${seam}\` at its first frame — but ${frameName(shot)} ` +
           (opening.from > tol
             ? `starts it ${formatSeconds(opening.from, 2)} in (\`mediaStart\`)`

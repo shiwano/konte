@@ -513,7 +513,7 @@ function selectResolvedVariantInternal(
  * Single source of truth behind the preview UI's `hasUndecidedBesideAccepted`, `status`'s staleAwaitingAccept,
  * and the generate/reroll upstream warning.
  */
-export function undecidedTakeBesideAccepted(
+export function undecidedVariantBesideAccepted(
   state: KonteState,
   address: string,
   currentDefinitionHash: string | null = null,
@@ -525,7 +525,7 @@ export function undecidedTakeBesideAccepted(
     (v) => v.status === "accepted" && v.file !== null,
   );
   if (!accepted) return null;
-  return newestReadyUndecidedTake(
+  return newestReadyUndecidedVariant(
     state,
     address,
     currentDefinitionHash,
@@ -539,10 +539,10 @@ export function undecidedTakeBesideAccepted(
  * The newest take at an address still awaiting a verdict and non-stale on both axes — the way out
  * of a stale take that costs no spend, and what a reverted edit hands the address back to.
  *
- * Reads the same candidates as `readyUndecidedTakes`, so a dismissed take and a patched-off one are
+ * Reads the same candidates as `readyUndecidedVariants`, so a dismissed take and a patched-off one are
  * out. An accepted match is out too — it would already be what the address resolves to.
  */
-export function newestReadyUndecidedTake(
+export function newestReadyUndecidedVariant(
   state: KonteState,
   address: string,
   currentDefinitionHash: string | null = null,
@@ -553,7 +553,7 @@ export function newestReadyUndecidedTake(
   const variants = state.assets[address]?.variants;
   if (!variants) return null;
   const readyOf = (v: VariantState) => v.readyAt ?? v.createdAt;
-  const candidates = readyUndecidedTakes(
+  const candidates = readyUndecidedVariants(
     state,
     address,
     currentDefinitionHash,
@@ -578,7 +578,7 @@ export function newestReadyUndecidedTake(
  * file, a lineage leaf, and non-stale on both axes. These are the candidates a review is deciding
  * among — what an accept dismisses the rest of, and what `status` counts as review work.
  */
-export function readyUndecidedTakes(
+export function readyUndecidedVariants(
   state: KonteState,
   address: string,
   currentDefinitionHash: string | null = null,
@@ -601,7 +601,7 @@ export function readyUndecidedTakes(
   return ready;
 }
 
-export interface UndecidedUpstreamTake {
+export interface UndecidedUpstreamVariant {
   depPath: string;
   address: string;
   acceptedVariantId: string;
@@ -616,19 +616,19 @@ export interface UndecidedUpstreamTake {
  * every upstream's rivals are settled (or none is accepted). A dependency path IS the
  * upstream address.
  */
-export function collectUndecidedUpstreamTakes(
+export function collectUndecidedUpstreamVariants(
   state: KonteState,
   depPaths: readonly string[],
   cache?: StalenessCache,
-): UndecidedUpstreamTake[] {
-  const takes: UndecidedUpstreamTake[] = [];
+): UndecidedUpstreamVariant[] {
+  const variants: UndecidedUpstreamVariant[] = [];
   const seen = new Set<string>();
   const sharedCache = cache ?? createStalenessCache();
   for (const depPath of depPaths) {
     const address = depPath;
     if (seen.has(address)) continue;
     seen.add(address);
-    const undecidedVariantId = undecidedTakeBesideAccepted(
+    const undecidedVariantId = undecidedVariantBesideAccepted(
       state,
       address,
       // Off the cache's own definitions: a rival whose definition has moved is not one to accept.
@@ -642,9 +642,9 @@ export function collectUndecidedUpstreamTakes(
       ([, v]) => v.status === "accepted",
     )?.[0];
     if (!acceptedVariantId) continue;
-    takes.push({ depPath, address, acceptedVariantId, undecidedVariantId });
+    variants.push({ depPath, address, acceptedVariantId, undecidedVariantId });
   }
-  return takes;
+  return variants;
 }
 
 /**

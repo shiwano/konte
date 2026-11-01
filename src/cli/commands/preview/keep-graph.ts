@@ -14,7 +14,7 @@ import type { DependencyGraph } from "../../../core/graph.js";
 import type { StateManager } from "../../../core/state/index.js";
 import { isPendingShot, type StageDefinition } from "../../../core/types/index.js";
 import { isReviewLeaf } from "../../../core/variant-lineage.js";
-import type { KeepGraphInfo, KeepTakeInfo } from "../../../pages/preview/types.js";
+import type { KeepGraphInfo, KeepVariantInfo } from "../../../pages/preview/types.js";
 
 /**
  * What the Keep-or-regenerate prompt reads: every take an accept on a review page can change, and
@@ -103,8 +103,8 @@ export function buildKeepGraph(opts: {
     return out;
   };
 
-  const takesOf = (address: string): Record<string, KeepTakeInfo> => {
-    const takes: Record<string, KeepTakeInfo> = {};
+  const variantsOf = (address: string): Record<string, KeepVariantInfo> => {
+    const variants: Record<string, KeepVariantInfo> = {};
     for (const [variantId, variant] of Object.entries(state.assets[address]?.variants ?? {})) {
       if (!variant.file || !isReviewLeaf(state, address, variantId)) continue;
       const inputs: Record<string, string[]> = {};
@@ -112,9 +112,9 @@ export function buildKeepGraph(opts: {
         const kept = variant.keptInputs?.[dep];
         inputs[dep] = kept && kept !== made ? [made, kept] : [made];
       }
-      takes[variantId] = { outputHash: variant.outputHash ?? null, inputs };
+      variants[variantId] = { outputHash: variant.outputHash ?? null, inputs };
     }
-    return takes;
+    return variants;
   };
 
   const addresses: KeepGraphInfo["addresses"] = {};
@@ -123,7 +123,7 @@ export function buildKeepGraph(opts: {
       unit: unitOf(address)!,
       rerollable: targets.has(address),
       acceptedVariantId: manager.getAcceptedVariant(address),
-      takes: takesOf(address),
+      variants: variantsOf(address),
       consumers: consumersOf(address),
     };
   }

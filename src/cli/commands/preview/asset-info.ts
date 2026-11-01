@@ -152,7 +152,7 @@ function declaredValue(
 }
 
 /** The chain step takes a patched take was produced by, upstream first. */
-export interface PatchChainTakes {
+export interface PatchChainVariants {
   sourceVariantId: string;
   steps: ReadonlyArray<{ address: string; variantId: string }>;
 }
@@ -170,7 +170,7 @@ export function createAssetInfoBuilder(
   prompts: readonly PromptOccurrence[],
   snapshotOf: (address: string, variantId: string) => AssetDefinition | null,
   consumedPreviewUrl: (address: string, variantId: string, ref: string) => string | null,
-  patchChainOf: (address: string, variantId: string) => PatchChainTakes | null = () => null,
+  patchChainOf: (address: string, variantId: string) => PatchChainVariants | null = () => null,
 ): (address: string, variantId: string) => AssetInfo | undefined {
   const generation = (address: string, variantId: string): AssetGenerationInfo | undefined => {
     const def = snapshotOf(address, variantId);

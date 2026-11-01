@@ -4,14 +4,14 @@ import { isJobTerminal, JobManager } from "../../core/job-manager.js";
 import { lyricLines } from "../../core/direction.js";
 import { placeDirectionLyrics } from "../../core/dsl/direction.js";
 import { syncFileAssets } from "../../core/file-sync.js";
-import { unreadSongTakes } from "../../core/song-queue.js";
+import { unreadSongVariants } from "../../core/song-queue.js";
 import {
-  currentSongTake,
+  currentSongVariant,
   setSongFirstBeat,
   setSongLine,
   songAddressOf,
   songBeatSec,
-} from "../../core/song-take.js";
+} from "../../core/song-variant.js";
 import { printLyrics, printSongReading } from "./probe/audio.js";
 import { StateManager } from "../../core/state/index.js";
 import { songAnalysisOf } from "../../core/song-reading.js";
@@ -38,7 +38,7 @@ function readSongVariant(
   return { address, variant, record: variant.song, analysis };
 }
 
-function takeDurationSec(variant: VariantState): number {
+function variantDurationSec(variant: VariantState): number {
   return variant.media && variant.media.kind !== "image" ? variant.media.durationSec : Infinity;
 }
 
@@ -116,7 +116,7 @@ Examples:
           const lines = direction ? lyricLines(direction) : [];
           const address = await StateManager.withLock(videoRoot, async (manager) => {
             const { address, variant, record } = readSongVariant(manager, variantId);
-            variant.song = setSongLine(record, lines, key, span, takeDurationSec(variant));
+            variant.song = setSongLine(record, lines, key, span, variantDurationSec(variant));
             return address;
           });
           console.log(
@@ -136,7 +136,7 @@ Examples:
           videoRoot,
           async (manager) => {
             const { address, variant, record, analysis } = readSongVariant(manager, variantId);
-            const durationSec = takeDurationSec(variant);
+            const durationSec = variantDurationSec(variant);
             if (at !== null && at >= durationSec) {
               throw new KonteError(
                 "INVALID_OPTION",
@@ -192,8 +192,8 @@ Examples:
       const targets = await StateManager.withLock(videoRoot, async (manager) => {
         await syncFileAssets({ reference }, manager, { measure: true });
         const state = manager.getState();
-        const current = currentSongTake(state, songAddress);
-        const unread = unreadSongTakes(videoRoot, direction, state);
+        const current = currentSongVariant(state, songAddress);
+        const unread = unreadSongVariants(videoRoot, direction, state);
         const ids = [
           ...new Set([...(current ? [current] : []), ...unread.map((t) => t.variantId)]),
         ];

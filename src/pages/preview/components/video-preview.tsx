@@ -23,7 +23,7 @@ import {
   regenerateByUnit,
   regenerateDecisions,
   regenerateSummary,
-  takeNames,
+  variantNames,
   unitLabel,
   withoutUnits,
   type KeepChoice,
@@ -61,7 +61,7 @@ import { StatusBadge } from "./status-badge.js";
 import { TimedNoteOverlay, type TimedNote } from "./timed-note-overlay.js";
 import { ShotList } from "./shot-list.js";
 import { TheaterScrubber } from "./theater-scrubber.js";
-import { AssetInfoPanel, type InfoTake, takeInfo } from "./asset-info-panel.js";
+import { AssetInfoPanel, type InfoVariant, variantInfo } from "./asset-info-panel.js";
 import { type GalleryTab, VariantGallery } from "./variant-gallery.js";
 import { KeepOrRegenerateModal } from "./keep-or-regenerate-modal.js";
 import type { RegenerateMark } from "./regenerate-badge.js";
@@ -262,7 +262,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   const [noteTarget, setNoteTarget] = useState<"shot" | "soundtrack" | "overlay">("shot");
 
   // The take whose declaration panel is open, stacked over the gallery when opened from there.
-  const [infoTake, setInfoTake] = useState<InfoTake | null>(null);
+  const [infoVariant, setInfoVariant] = useState<InfoVariant | null>(null);
 
   // The comment being written: the instant it is about, and the pin on that frame if one was
   // placed. Non-null means the composer is open.
@@ -444,8 +444,8 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     (address: string): (() => void) | undefined => {
       const asset = assetByAddress.get(address);
       const variantId = effectiveVariants[address] ?? asset?.variantId ?? null;
-      if (!asset || !variantId || !takeInfo(asset.variants, variantId)) return undefined;
-      return () => setInfoTake({ address, variantId });
+      if (!asset || !variantId || !variantInfo(asset.variants, variantId)) return undefined;
+      return () => setInfoVariant({ address, variantId });
     },
     [assetByAddress, effectiveVariants],
   );
@@ -846,12 +846,12 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
       choices: readonly KeepChoice[],
     ): KeepContext => ({
       graph: keepGraph,
-      takeAccepted: (address) => {
+      variantAccepted: (address) => {
         const shotId = shotOfAddress.get(address);
         const mark = shotId === undefined ? undefined : markOf(shotId);
         return mark ? mark === "accepted" : keepGraph.addresses[address]?.acceptedVariantId != null;
       },
-      takeOf: (address) =>
+      variantOf: (address) =>
         resolvedByAddress.has(address)
           ? (effectiveVariants[address] ?? resolvedByAddress.get(address) ?? null)
           : (keepGraph.addresses[address]?.acceptedVariantId ?? null),
@@ -1048,7 +1048,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
                 follows: row
                   ? { id: row, label: unitLabel(keepGraph, mark.follows!, reelStage) }
                   : null,
-                takes: takeNames(shotFeedbackAddress(s.shotId), mark.takes),
+                variants: variantNames(shotFeedbackAddress(s.shotId), mark.variants),
               },
             ],
           ];
@@ -1494,7 +1494,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
 
   useReviewShortcuts({
     blocked:
-      session.gallery !== null || infoTake !== null || session.submitOpen || keepAsking !== null,
+      session.gallery !== null || infoVariant !== null || session.submitOpen || keepAsking !== null,
     onSubmit: handleSubmit,
     handlers: {
       " ": handlePlayPause,
@@ -1966,8 +1966,8 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
                 variants={asset.variants}
                 selectedVariantId={effectiveVariants[session.gallery.address] ?? asset.variantId}
                 onUse={(variantId) => session.useVariant(session.gallery!.address, variantId)}
-                onOpenInfo={(variantId) => setInfoTake({ address: asset.address, variantId })}
-                infoOpen={infoTake !== null}
+                onOpenInfo={(variantId) => setInfoVariant({ address: asset.address, variantId })}
+                infoOpen={infoVariant !== null}
                 onClose={() => session.setGallery(null)}
               />
             );
@@ -1981,18 +1981,18 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
           />
         )}
 
-        {infoTake &&
+        {infoVariant &&
           (() => {
-            const asset = assetByAddress.get(infoTake.address);
-            const info = asset && takeInfo(asset.variants, infoTake.variantId);
+            const asset = assetByAddress.get(infoVariant.address);
+            const info = asset && variantInfo(asset.variants, infoVariant.variantId);
             if (!asset || !info) return null;
             return (
               <AssetInfoPanel
                 assetName={asset.assetName}
                 address={asset.address}
-                variantId={infoTake.variantId}
+                variantId={infoVariant.variantId}
                 info={info}
-                onClose={() => setInfoTake(null)}
+                onClose={() => setInfoVariant(null)}
               />
             );
           })()}

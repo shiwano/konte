@@ -14,7 +14,12 @@ import { recognizesSpeechIn } from "../../../core/sherpa-binary.js";
 import { heardText, readHeardSpeech } from "../../../core/speech-hearing.js";
 import { lineMishearing } from "../../../core/line-hearing.js";
 import { variantOwningFile } from "../../../core/variant-dir.js";
-import { formatSongTempo, songAddressOf, songBeatSec, songTempo } from "../../../core/song-take.js";
+import {
+  formatSongTempo,
+  songAddressOf,
+  songBeatSec,
+  songTempo,
+} from "../../../core/song-variant.js";
 import { barAt, songBars } from "../../../core/song-report.js";
 import type { SongAnalysis } from "../../../core/types/index.js";
 import { type LyricPlacementEntry, placeDirectionLyrics } from "../../../core/dsl/direction.js";

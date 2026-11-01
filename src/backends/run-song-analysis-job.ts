@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { KonteError, errorMessage } from "../core/errors.js";
 import type { JobManager } from "../core/job-manager.js";
-import { analyzeSongTake } from "../core/song-analysis.js";
+import { analyzeSongVariant } from "../core/song-analysis.js";
 import { readingOutdated } from "../core/song-queue.js";
 import { StateManager } from "../core/state/index.js";
 import { readSongReading, writeSongReading } from "../core/song-reading.js";
@@ -55,17 +55,17 @@ export async function runSongAnalysisJob(
       };
       try {
         hooks.onStarted?.({ id, address: job.address });
-        const take = (await StateManager.load(videoRoot)).getState().assets[job.address]
+        const variant = (await StateManager.load(videoRoot)).getState().assets[job.address]
           ?.variants?.[job.variantId];
-        if (!take?.file) {
+        if (!variant?.file) {
           const msg = `${job.address} ${job.variantId} has no file to read.`;
           jobManager.appendLog(id, msg);
           return await settle("failed", msg);
         }
-        const outputHash = take.outputHash;
+        const outputHash = variant.outputHash;
         const reading = SongReadingSchema.parse(
-          await analyzeSongTake({
-            file: path.resolve(videoRoot, take.file),
+          await analyzeSongVariant({
+            file: path.resolve(videoRoot, variant.file),
             outputHash,
             videoRoot,
             lang: job.lang,

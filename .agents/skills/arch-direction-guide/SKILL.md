@@ -143,9 +143,9 @@ A narrative shot with `coverage: true` is one take the model cuts inside: `setup
 
 `lyrics` (`[{ label, singer, lines }]`): `singer` is a character id or list; a line is text or `{ text, singer }`. Structural: `lyrics-without-song`, `lyrics-singer-unknown`, `lyrics-singer-empty`, `lyrics-empty-line`. `direction:lyrics` is one piece-wide part with its own section: a lyric edit holds a spend after `whole`.
 
-`placeDirectionLyrics` puts each line on the take's clock — where a person placed it (`SongAnalysis.lines`), else `placeLyricLines` (`song-lyrics.ts`), matching against the words heard and leaving a line unplaced where its opening is not heard. `lyricsInSpan` hands a shot or overlay the lines under its span as `ctx.lyrics`, frame-rounded so an unmoved placement hashes the same. The definition loader injects each video's song take (`withSongTakes`, under the definition import's lock); `definition-source.ts` folds its reading into the source fingerprint.
+`placeDirectionLyrics` puts each line on the take's clock — where a person placed it (`SongAnalysis.lines`), else `placeLyricLines` (`song-lyrics.ts`), matching against the words heard and leaving a line unplaced where its opening is not heard. `lyricsInSpan` hands a shot or overlay the lines under its span as `ctx.lyrics`, frame-rounded so an unmoved placement hashes the same. The definition loader injects each video's song take (`withSongVariants`, under the definition import's lock); `definition-source.ts` folds its reading into the source fingerprint.
 
-The `song` class reads the take the piece is cut against (`resolveSongTake`: the accepted take, else the newest analyzed one not dismissed; staleness not asked), as `SongTakeState` (`loadSongTakeState`) on `animaticSetups`' contract, never deferred:
+The `song` class reads the take the piece is cut against (`resolveSongVariant`: the accepted take, else the newest analyzed one not dismissed; staleness not asked), as `SongVariantState` (`loadSongVariantState`) on `animaticSetups`' contract, never deferred:
 
 - `song-unreferenced` — `policy.song` names no exposed `reference:<id>`; fixed in the reference stage (`findingFixStage`).
 - `lyric-unplaced` — a line nobody places, keyed `<section>.<line>`; its take refuses accept (`SONG_LINES_UNPLACED`).

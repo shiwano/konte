@@ -123,14 +123,14 @@ async function project(videoTsx = VIDEO_TSX): Promise<{
   await fs.writeFile(path.join(videoRoot, "video.tsx"), videoTsx);
 
   const sm = await StateManager.load(videoRoot);
-  const take = (address: string, file: string): string => {
+  const addVariant = (address: string, file: string): string => {
     const id = sm.reserveVariantId(address);
     sm.getAssetState(address).variants![id]!.file = file;
     return id;
   };
-  const motionId = take(MOTION, "assets/motion.mp4");
-  const voId = take(VO, "assets/vo.wav");
-  const panelId = take(PANEL, "assets/frame.png");
+  const motionId = addVariant(MOTION, "assets/motion.mp4");
+  const voId = addVariant(VO, "assets/vo.wav");
+  const panelId = addVariant(PANEL, "assets/frame.png");
   await sm.save();
   return { videoRoot, motionId, voId, panelId };
 }

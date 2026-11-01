@@ -741,12 +741,12 @@ describe("animatic wiring gate", () => {
     await run(["job", "wait"], projectDir).catch(() => undefined);
     const sm = await StateManager.load(projectDir);
     const variants = sm.getState().assets["video:shot.01.still"]?.variants ?? {};
-    const takeId = Object.entries(variants).find(([, v]) => v.file)?.[0];
-    expect(takeId).toBeDefined();
+    const variantId = Object.entries(variants).find(([, v]) => v.file)?.[0];
+    expect(variantId).toBeDefined();
 
-    await run(["patch", "new", takeId!], projectDir);
+    await run(["patch", "new", variantId!], projectDir);
     await fs.writeFile(
-      path.join(projectDir, "patches", `${takeId}.ts`),
+      path.join(projectDir, "patches", `${variantId}.ts`),
       `import { asset, definePatch, defineComfyAsset } from "konte";
 
 const editComfy = defineComfyAsset({
@@ -791,12 +791,12 @@ export default definePatch<"image">(({ source }) => asset("patched", editComfy, 
     await run(["job", "wait"], projectDir).catch(() => undefined);
     const sm = await StateManager.load(projectDir);
     const variants = sm.getState().assets["video:timeline.still"]?.variants ?? {};
-    const takeId = Object.entries(variants).find(([, v]) => v.file)?.[0];
-    expect(takeId).toBeDefined();
+    const variantId = Object.entries(variants).find(([, v]) => v.file)?.[0];
+    expect(variantId).toBeDefined();
 
-    await run(["patch", "new", takeId!], projectDir);
+    await run(["patch", "new", variantId!], projectDir);
     await fs.writeFile(
-      path.join(projectDir, "patches", `${takeId}.ts`),
+      path.join(projectDir, "patches", `${variantId}.ts`),
       `import { asset, definePatch, defineComfyAsset } from "konte";
 
 const editComfy = defineComfyAsset({

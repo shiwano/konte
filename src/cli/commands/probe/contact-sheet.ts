@@ -46,7 +46,7 @@ import { loadVideoAndAnimatic } from "../../load-definition.js";
 import { parseNumberOption } from "../../parse-option.js";
 import { requireVideoRoot } from "../../context.js";
 import { resolveProbeTargets } from "./resolve-arg.js";
-import { printResolutionNotices, type ResolvedTake } from "../../resolution-notice.js";
+import { printResolutionNotices, type ResolvedVariant } from "../../resolution-notice.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { formatSeconds } from "../../../core/format-duration.js";
 
@@ -334,19 +334,19 @@ async function buildCompositionCells(
 }
 
 // Cells per clip on the needs-review board — the composition board's in/out pair.
-const DEFAULT_FRAMES_PER_TAKE = 2;
-const MAX_FRAMES_PER_TAKE = 12;
+const DEFAULT_FRAMES_PER_VARIANT = 2;
+const MAX_FRAMES_PER_VARIANT = 12;
 
 /**
  * Cells for everything `konte status` reports under "Needs review" — generated and not yet judged.
  *
  * Cells flow rather than aligning per take: a needs-review set mixes stills (one cell) with clips
- * (`framesPerTake`), and no column count groups both.
+ * (`framesPerVariant`), and no column count groups both.
  */
 async function buildNeedsReviewCells(
   videoRoot: string,
   scope: string | undefined,
-  opts: { framesPerTake: number; force?: boolean },
+  opts: { framesPerVariant: number; force?: boolean },
 ): Promise<{ cells: ContactSheetCell[]; skipped: string[] }> {
   const {
     definitions: { video, animatic },
@@ -403,7 +403,7 @@ async function buildNeedsReviewCells(
           timestamps: compositionSampleTimes(
             shot.duration,
             leafStage.format.fps,
-            opts.framesPerTake,
+            opts.framesPerVariant,
           ),
           format: COMPOSITION_FRAME_FORMAT,
           quality: COMPOSITION_FRAME_QUALITY,
@@ -459,7 +459,7 @@ async function buildNeedsReviewCells(
       skipped.push(`${item.address} (${item.variantId} could not be measured)`);
       continue;
     }
-    const timestamps = compositionSampleTimes(media.durationSec, media.fps, opts.framesPerTake);
+    const timestamps = compositionSampleTimes(media.durationSec, media.fps, opts.framesPerVariant);
     // Keyed by the variant's own content hash, so a re-take never reads a previous one's frames.
     const frameDir = path.join(
       videoRoot,
@@ -537,12 +537,12 @@ async function buildStillCells(
   // way to lay out ids that carry no number. Sorting the whole set would discard it.
   const cells: ContactSheetCell[] = [];
   const seen = new Set<string>();
-  const resolvedTakes: ResolvedTake[] = [];
+  const resolvedVariants: ResolvedVariant[] = [];
   const onScreen = new Set<string>();
   for (const arg of args) {
     const { variantIds, resolved } = resolveProbeTargets(manager, [arg], { mediaKinds: ["image"] });
-    resolvedTakes.push(...resolved);
-    for (const take of resolved) onScreen.add(take.variantId);
+    resolvedVariants.push(...resolved);
+    for (const variant of resolved) onScreen.add(variant.variantId);
     const group = variantIds.filter((id) => !seen.has(id));
     for (const id of group) seen.add(id);
     cells.push(...group.map(toCell).sort((a, b) => compareNatural(a.label, b.label)));
@@ -551,7 +551,7 @@ async function buildStillCells(
     videoRoot,
     manager,
     animatic: definitions.animatic,
-    takes: resolvedTakes,
+    variants: resolvedVariants,
   });
 
   // Two variants of one address (comparing rerolls) would otherwise carry the same label and
@@ -595,7 +595,7 @@ async function planSheets(
   opts: {
     args: readonly string[];
     groups: number[] | null;
-    framesPerTake: number | null;
+    framesPerVariant: number | null;
     maxCells: number;
     cellWidth?: number;
   },
@@ -630,7 +630,7 @@ async function planSheets(
   // One key per distinct invocation, so re-running a scope overwrites its sheets instead of
   // accumulating a copy per render.
   const cacheKey = createHash("sha256")
-    .update(JSON.stringify([opts.args, maxCells, groups, opts.framesPerTake]))
+    .update(JSON.stringify([opts.args, maxCells, groups, opts.framesPerVariant]))
     .digest("hex")
     .slice(0, 12);
 
@@ -717,7 +717,7 @@ export function registerProbeContactSheetCommand(program: Command): void {
     )
     .option(
       "--frames-per-take <n>",
-      `Cells per clip with --needs-review (default ${DEFAULT_FRAMES_PER_TAKE})`,
+      `Cells per clip with --needs-review (default ${DEFAULT_FRAMES_PER_VARIANT})`,
     )
     .option("--force", "Re-render even if a matching sheet is cached")
     .addHelpText(
@@ -748,8 +748,8 @@ on their own sheets, printed in the order each kind first appears.
 --needs-review tiles what \`konte status\` reports under "Needs review" — every take that has landed
 and nobody has judged, across all three stages, plus a fresh take beside an accepted one and a
 patch awaiting a verdict. Takes no argument, or one address-scope to narrow it. Each cell carries
-its VARIANT ID and why it is outstanding. A clip contributes ${DEFAULT_FRAMES_PER_TAKE} cells
-(--frames-per-take, 1..${MAX_FRAMES_PER_TAKE}) and a still one, so cells flow rather than aligning
+its VARIANT ID and why it is outstanding. A clip contributes ${DEFAULT_FRAMES_PER_VARIANT} cells
+(--frames-per-take, 1..${MAX_FRAMES_PER_VARIANT}) and a still one, so cells flow rather than aligning
 per take. Audio takes and stems are left off — review those in \`konte preview\`.
 
 Cells carry their address (plus the variant id where one address contributes several). Each argument
@@ -835,12 +835,12 @@ Examples:
             min: 1,
             max: MAX_FRAMES_PER_SHOT,
           }) ?? DEFAULT_FRAMES_PER_SHOT;
-        const framesPerTake =
+        const framesPerVariant =
           parseNumberOption("--frames-per-take", opts.framesPerTake, {
             integer: true,
             min: 1,
-            max: MAX_FRAMES_PER_TAKE,
-          }) ?? DEFAULT_FRAMES_PER_TAKE;
+            max: MAX_FRAMES_PER_VARIANT,
+          }) ?? DEFAULT_FRAMES_PER_VARIANT;
         if (!composition && opts.framesPerShot !== undefined) {
           throw new KonteError(
             "INVALID_OPTION",
@@ -871,13 +871,13 @@ Examples:
 
         if (opts.needsReview) {
           const { cells, skipped } = await buildNeedsReviewCells(videoRoot, variantOrScopes[0], {
-            framesPerTake,
+            framesPerVariant,
             force: opts.force,
           });
           const plan = await planSheets(cells, {
             args: variantOrScopes,
             groups: null,
-            framesPerTake,
+            framesPerVariant,
             maxCells,
             cellWidth,
           });
@@ -912,7 +912,7 @@ Examples:
           const plan = await planSheets(entry.cells, {
             args: entry.board.args,
             groups: entry.groups,
-            framesPerTake: null,
+            framesPerVariant: null,
             maxCells,
             cellWidth,
           });

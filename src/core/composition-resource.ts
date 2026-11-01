@@ -1206,7 +1206,7 @@ function boardLeafPastBoard(
   address: string,
 ): boolean {
   if (manager.getAcceptedVariant(address) === null) return false;
-  if (!videoShotHasTake(manager, video, videoShot)) return false;
+  if (!videoShotHasVariant(manager, video, videoShot)) return false;
   if (!leafInputsJudged(manager, board, boardShot, address, {})) return false;
   if (isCompositionAddress(address)) return true;
   return !findShotOverflows(board as AnimaticDefinition, manager, boardShot).some(
@@ -1297,7 +1297,7 @@ function signedOffFingerprints(
 }
 
 // Whether the video has spent on a shot: a take of one of its generated assets.
-function videoShotHasTake(
+function videoShotHasVariant(
   manager: StateManager,
   video: StageDefinition,
   shot: ShotDefinition,

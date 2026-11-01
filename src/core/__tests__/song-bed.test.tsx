@@ -9,7 +9,7 @@ import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { defineDirection } from "../dsl/direction.js";
 import { adapters, asset, defineAnimatic, defineVideo, soundtrack } from "../dsl/index.js";
 import { makeAddressPlaceholder } from "../dsl/shot-context.js";
-import { withSongTakes } from "../dsl/song-context.js";
+import { withSongVariants } from "../dsl/song-context.js";
 import type { ShotScript } from "../dsl/shot-script.js";
 import type { MediaAsset } from "../dsl/builders.js";
 import { SONG_BED_ID, mixedSoundtracks } from "../song-bed.js";
@@ -53,7 +53,7 @@ const stemComfy = defineComfyAsset({
 });
 
 // A half-second lead: shot 01 holds 0–2.5s, shot 02 2.5–4.5s.
-const songTake = () => ({
+const songVariant = () => ({
   address: "reference:song",
   variantId: "v-song",
   analysis: {
@@ -108,8 +108,8 @@ const board = (): React.ReactElement => (
 );
 
 const onSong = <T,>(fn: () => T): Promise<T> =>
-  withSongTakes(
-    (address) => (address === "reference:song" ? songTake() : null),
+  withSongVariants(
+    (address) => (address === "reference:song" ? songVariant() : null),
     async () => fn(),
   );
 
@@ -238,13 +238,13 @@ describe("a board shot's song stem", () => {
     endSec,
   });
   const onSungSong = <T,>(fn: () => T): Promise<T> =>
-    withSongTakes(
+    withSongVariants(
       (address) =>
         address === "reference:song"
           ? {
-              ...songTake(),
+              ...songVariant(),
               analysis: {
-                ...songTake().analysis,
+                ...songVariant().analysis,
                 lines: {
                   "1.1": line("la la", 1, 2),
                   "1.2": line("na na", 3, 3.5),

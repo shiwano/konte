@@ -85,7 +85,7 @@ beforeEach(async () => {
   manager = await StateManager.init(await fs.mkdtemp(path.join(tmpdir(), "konte-decidable-")));
 });
 
-function take(address: string, file: string): void {
+function addVariant(address: string, file: string): void {
   const variantId = manager.reserveVariantId(address);
   const variant = manager.getAssetState(address).variants![variantId]!;
   variant.file = file;
@@ -113,13 +113,13 @@ describe("stageReviewDecidableAddresses", () => {
   it("excludes an audio take no cue names, once its media is known", () => {
     expect(stageReviewDecidableAddresses(manager, video).has("video:shot.02.cond")).toBe(true);
 
-    take("video:shot.02.cond", "assets/cond.wav");
+    addVariant("video:shot.02.cond", "assets/cond.wav");
     expect(stageReviewDecidableAddresses(manager, video).has("video:shot.02.cond")).toBe(false);
   });
 
   it("keeps a take that is not audio, and one whose file type is unreadable", () => {
-    take("video:shot.02.motion", "assets/motion.mp4");
-    take("video:timeline.under", "assets/under.unknown");
+    addVariant("video:shot.02.motion", "assets/motion.mp4");
+    addVariant("video:timeline.under", "assets/under.unknown");
     const decidable = stageReviewDecidableAddresses(manager, video);
     expect(decidable.has("video:shot.02.motion")).toBe(true);
     expect(decidable.has("video:timeline.under")).toBe(true);
@@ -129,8 +129,8 @@ describe("stageReviewDecidableAddresses", () => {
   // Reached under the picture mode alone, the audio beneath it drops out of the set — and `status`
   // would report a konte bug about an address the shot's own accept signs off perfectly well.
   it("walks a shared intermediate under both modes, so audio beneath it survives", () => {
-    take("video:timeline.plate", "assets/plate.png");
-    take("video:timeline.under", "assets/under.wav");
+    addVariant("video:timeline.plate", "assets/plate.png");
+    addVariant("video:timeline.under", "assets/under.wav");
     const decidable = stageReviewDecidableAddresses(manager, video);
     expect(decidable.has("video:timeline.plate")).toBe(true);
     // Reached only through the line's audio-permitting branch. Keyed by address alone, the picture

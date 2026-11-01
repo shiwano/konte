@@ -11,10 +11,10 @@ import {
   collectFramedCharacterIds,
   collectShotFrames,
   setupView,
-  type SongTakeState,
+  type SongVariantState,
   type StagingStageState,
 } from "../core/direction.js";
-import { resolveSongTake, songAddressOf } from "../core/song-take.js";
+import { resolveSongVariant, songAddressOf } from "../core/song-variant.js";
 import { mediaDurationSec } from "../core/variant-media.js";
 import { StateManager } from "../core/state/index.js";
 import type { Character, Direction } from "../core/dsl/direction.js";
@@ -51,7 +51,7 @@ import type {
 } from "../core/types/index.js";
 import { harvestShotPictureCues } from "../core/composition-builder.js";
 import { stageEntryPath } from "../core/roots.js";
-import { collectUndecidedUpstreamTakes, computeAcceptedStaleness } from "../core/staleness.js";
+import { collectUndecidedUpstreamVariants, computeAcceptedStaleness } from "../core/staleness.js";
 import { definitionHashForAddress } from "../core/composition-resource.js";
 
 // The direction (direction.ts). Absent file => null; an existing but invalid file throws.
@@ -158,16 +158,16 @@ export function unacceptedUpstreamDeps(opts: {
     }
     if (acceptedForSpend(opts.manager, dep)) {
       if (opts.redone?.has(dep)) continue;
-      const [take] = collectUndecidedUpstreamTakes(
+      const [variant] = collectUndecidedUpstreamVariants(
         opts.manager.getState(),
         [dep],
         opts.manager.stalenessCache(),
       );
-      if (take) {
+      if (variant) {
         blocking.set(dep, {
           kind: "undecided",
-          acceptedVariantId: take.acceptedVariantId,
-          undecidedVariantId: take.undecidedVariantId,
+          acceptedVariantId: variant.acceptedVariantId,
+          undecidedVariantId: variant.undecidedVariantId,
         });
       }
       continue;
@@ -279,22 +279,24 @@ export function animaticSetupState(
 }
 
 // The take of the song the piece is read against, as the song class reads it.
-export function songTakeState(manager: StateManager, direction: Direction): SongTakeState {
+export function songVariantState(manager: StateManager, direction: Direction): SongVariantState {
   const address = songAddressOf(direction);
-  const take = address ? resolveSongTake(manager.videoRoot, manager.getState(), address) : null;
-  const media = take
-    ? manager.getState().assets[take.address]?.variants?.[take.variantId]?.media
+  const variant = address
+    ? resolveSongVariant(manager.videoRoot, manager.getState(), address)
+    : null;
+  const media = variant
+    ? manager.getState().assets[variant.address]?.variants?.[variant.variantId]?.media
     : undefined;
-  return { take, durationSec: mediaDurationSec(media ?? null) };
+  return { variant, durationSec: mediaDurationSec(media ?? null) };
 }
 
 // The same off a video root, undefined where its state cannot be read.
-export async function loadSongTakeState(
+export async function loadSongVariantState(
   videoRoot: string,
   direction: Direction,
-): Promise<SongTakeState | undefined> {
+): Promise<SongVariantState | undefined> {
   const manager = await StateManager.load(videoRoot).catch(() => null);
-  return manager ? songTakeState(manager, direction) : undefined;
+  return manager ? songVariantState(manager, direction) : undefined;
 }
 
 // The stage-side half of the staging class: the order the board hands each keyframe its references

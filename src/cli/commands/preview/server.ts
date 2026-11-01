@@ -20,7 +20,7 @@ import {
 import { findLatestHandoff, loadHandoff } from "../../../core/loader.js";
 import { loadPreviewDefinitions, reloadStageDefinition } from "./load-definitions.js";
 import { KonteStateSchema, type Handoff } from "../../../core/types/index.js";
-import { songReadingsOf } from "../../../core/song-take.js";
+import { songReadingsOf } from "../../../core/song-variant.js";
 import { REVIEW_DIR, reviewShowedHandoff } from "../../../core/review-record.js";
 import { StateManager } from "../../../core/state/index.js";
 import { syncFileAssets } from "../../../core/file-sync.js";

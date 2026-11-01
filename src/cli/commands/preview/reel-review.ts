@@ -93,9 +93,9 @@ import {
 import { StateManager } from "../../../core/state/index.js";
 import { JobManager } from "../../../core/job-manager.js";
 import {
-  consumedTakePreviewUrl,
-  patchChainTakes,
-  takeDefinitionSnapshot,
+  consumedVariantPreviewUrl,
+  patchChainVariants,
+  variantDefinitionSnapshot,
   buildVariantCandidates,
   shotFactsIndex,
   displayedVariantStatus,
@@ -342,7 +342,7 @@ export async function acceptDisplayedStemSources(
     const sel = displayed[srcAddr];
     if (!sel || opts.held?.(srcAddr)) continue;
     if (manager.getAcceptedVariant(srcAddr) === sel) {
-      manager.dismissTakes(srcAddr, candidates[srcAddr] ?? [], sel);
+      manager.dismissVariants(srcAddr, candidates[srcAddr] ?? [], sel);
       continue;
     }
     {
@@ -617,9 +617,9 @@ export async function handleGetReelState(
   // input is read once per address.
   const assetInfo = createAssetInfoBuilder(
     [video, animatic, reference, ...patchCatalog.patches.values()].flatMap((d) => d?.prompts ?? []),
-    (addr, vid) => takeDefinitionSnapshot(manager, videoRoot, addr, vid),
-    (addr, vid, ref) => consumedTakePreviewUrl(manager, videoRoot, addr, vid, ref, assetBaseUrl),
-    (addr, vid) => patchChainTakes(manager, addr, vid),
+    (addr, vid) => variantDefinitionSnapshot(manager, videoRoot, addr, vid),
+    (addr, vid, ref) => consumedVariantPreviewUrl(manager, videoRoot, addr, vid, ref, assetBaseUrl),
+    (addr, vid) => patchChainVariants(manager, addr, vid),
   );
 
   const buildAsset = (assetName: string, addr: string, resolvedVariantId: string | undefined) => {
@@ -1374,15 +1374,15 @@ export async function handleReelSubmit(
       ]),
     );
 
-  const displayedTakes = (refs: readonly string[]): Record<string, string> => {
-    const takes: Record<string, string> = {};
+  const displayedVariants = (refs: readonly string[]): Record<string, string> => {
+    const variants: Record<string, string> = {};
     for (const ref of refs) {
-      if (isMaterializedLeafAddress(ref) || takes[ref]) continue;
+      if (isMaterializedLeafAddress(ref) || variants[ref]) continue;
       const variantId =
         displayed[ref] ?? resolveCompositionRef(manager, ref, { includeStale: true })?.variantId;
-      if (variantId) takes[ref] = variantId;
+      if (variantId) variants[ref] = variantId;
     }
-    return takes;
+    return variants;
   };
 
   const timing = shotSpans(plan.shots, plan.fps);
@@ -1400,7 +1400,7 @@ export async function handleReelSubmit(
         ),
         ...(s.shotFn
           ? {
-              takes: displayedTakes([
+              sources: displayedVariants([
                 ...(shotById(video.shots, s.shotId)?.compositionRefs ?? []),
                 ...shotAcceptTargets(manager, video, s).stemSources,
               ]),
@@ -1415,7 +1415,7 @@ export async function handleReelSubmit(
       timeline: displayedByAsset(plan.timelineResolvedVariants, (name) =>
         formatTimelineAddress(stage, name),
       ),
-      timelineSources: displayedTakes(
+      timelineSources: displayedVariants(
         (video.timelineSoundtracks ?? [])
           .map((st) => parsePlaceholder(st.src.src))
           .filter((p): p is string => p !== null),

@@ -15,19 +15,19 @@ const image = defineComfyAsset({
 
 // A speech model shaped like H3's: its lines are marked inside the prompt, and its clip length is a
 // frame count on its own clock, landing on the same offset grid.
-const cutFitsTake: AdapterValidator = (inputs) => {
+const cutFitsVariant: AdapterValidator = (inputs) => {
   const at = /cut at (\d+)s/.exec(String(inputs.prompt ?? ""));
   const frames = inputs.length;
   if (!at || typeof frames !== "number") return undefined;
   const take = frames / 24;
   return Number(at[1]) >= take ? `cut at ${at[1]}s past a ${take.toFixed(2)}s take` : undefined;
 };
-cutFitsTake.inputs = ["prompt", "length"];
+cutFitsVariant.inputs = ["prompt", "length"];
 
 const speech = defineComfyAsset({
   workflow: "r2a.json",
   description: "test speech adapter",
-  validators: [cutFitsTake],
+  validators: [cutFitsVariant],
   inputs: {
     prompt: { nodeId: "1", field: "prompt", type: "prompt" },
     length: {

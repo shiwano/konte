@@ -12,13 +12,13 @@ import {
   shotFactsIndex,
   buildAddressFeedback,
   buildVariantCandidates,
-  consumedTakePreviewUrl,
+  consumedVariantPreviewUrl,
   displayedVariantStatus,
   hasUndecidedBesideAccepted,
   isValidSubmitPayload,
-  patchChainTakes,
+  patchChainVariants,
   recordFeedbackFor,
-  takeDefinitionSnapshot,
+  variantDefinitionSnapshot,
   variantPreviewUrl,
   videoVariantThumbUrl,
   withShotLocalTime,
@@ -175,12 +175,12 @@ describe("variantPreviewUrl", () => {
   });
 });
 
-describe("consumedTakePreviewUrl", () => {
+describe("consumedVariantPreviewUrl", () => {
   const BASE = "/api/assets";
   const UP = "animatic:shot.01.first";
   const DOWN = "video:shot.01.motion";
 
-  async function twoUpstreamTakes() {
+  async function twoUpstreamVariants() {
     const mgr = await StateManager.init(tmpDir);
     const used = mgr.reserveVariantId(UP);
     const newer = mgr.reserveVariantId(UP);
@@ -196,17 +196,17 @@ describe("consumedTakePreviewUrl", () => {
   }
 
   it("draws the upstream take whose bytes the take consumed, not the one resolving now", async () => {
-    const { mgr, used, newer, down } = await twoUpstreamTakes();
+    const { mgr, used, newer, down } = await twoUpstreamVariants();
     mgr.getAssetState(DOWN).variants![down]!.inputFingerprints = { [UP]: "h-used" };
     mgr.getAssetState(UP).variants![newer]!.status = "accepted";
 
-    expect(consumedTakePreviewUrl(mgr, tmpDir, DOWN, down, UP, BASE)).toBe(
+    expect(consumedVariantPreviewUrl(mgr, tmpDir, DOWN, down, UP, BASE)).toBe(
       `${BASE}/${addressToUrlPath(UP)}/${used}/a.png`,
     );
   });
 
   it("reads a patched take's consumed input off the take its lineage was generated from", async () => {
-    const { mgr, used, newer, down } = await twoUpstreamTakes();
+    const { mgr, used, newer, down } = await twoUpstreamVariants();
     mgr.getAssetState(DOWN).variants![down]!.inputFingerprints = { [UP]: "h-used" };
     const patched = mgr.reserveVariantId(DOWN);
     const variant = mgr.getAssetState(DOWN).variants![patched]!;
@@ -214,20 +214,20 @@ describe("consumedTakePreviewUrl", () => {
     variant.inputFingerprints = { [UP]: "h-newer" };
 
     expect(newer).not.toBe(used);
-    expect(consumedTakePreviewUrl(mgr, tmpDir, DOWN, patched, UP, BASE)).toBe(
+    expect(consumedVariantPreviewUrl(mgr, tmpDir, DOWN, patched, UP, BASE)).toBe(
       `${BASE}/${addressToUrlPath(UP)}/${used}/a.png`,
     );
   });
 
   it("draws nothing once the consumed take is gone", async () => {
-    const { mgr, down } = await twoUpstreamTakes();
+    const { mgr, down } = await twoUpstreamVariants();
     mgr.getAssetState(DOWN).variants![down]!.inputFingerprints = { [UP]: "h-cleaned" };
 
-    expect(consumedTakePreviewUrl(mgr, tmpDir, DOWN, down, UP, BASE)).toBeNull();
+    expect(consumedVariantPreviewUrl(mgr, tmpDir, DOWN, down, UP, BASE)).toBeNull();
   });
 });
 
-describe("takeDefinitionSnapshot", () => {
+describe("variantDefinitionSnapshot", () => {
   const ADDR = "video:shot.01.motion";
   const DEF = { kind: "fal", endpointId: "fal-ai/x", mediaType: "video", inputs: {} } as const;
 
@@ -238,22 +238,22 @@ describe("takeDefinitionSnapshot", () => {
     const patched = mgr.reserveVariantId(ADDR);
     mgr.getAssetState(ADDR).variants![patched]!.derivedFrom = origin;
 
-    expect(takeDefinitionSnapshot(mgr, tmpDir, ADDR, patched)).toEqual(DEF);
+    expect(variantDefinitionSnapshot(mgr, tmpDir, ADDR, patched)).toEqual(DEF);
   });
 
   it("reads nothing for a take whose snapshot is gone", async () => {
     const mgr = await StateManager.init(tmpDir);
     const vid = mgr.reserveVariantId(ADDR);
 
-    expect(takeDefinitionSnapshot(mgr, tmpDir, ADDR, vid)).toBeNull();
+    expect(variantDefinitionSnapshot(mgr, tmpDir, ADDR, vid)).toBeNull();
   });
 });
 
-describe("patchChainTakes", () => {
+describe("patchChainVariants", () => {
   const SHOT = "animatic:shot.01.first";
 
   // A take landed in its own directory, carrying `hash` and the hashes it consumed.
-  function take(
+  function addVariant(
     mgr: StateManager,
     addr: string,
     hash: string,
@@ -269,18 +269,18 @@ describe("patchChainTakes", () => {
 
   it("walks back from the step owning the patched take's file, upstream first", async () => {
     const mgr = await StateManager.init(tmpDir);
-    const source = take(mgr, SHOT, "h-source");
+    const source = addVariant(mgr, SHOT, "h-source");
     const card = `animatic:patch.${source}.card`;
     const clean = `animatic:patch.${source}.clean`;
-    take(mgr, card, "h-card-old", { [SHOT]: "h-source" });
-    const cardUsed = take(mgr, card, "h-card", { [SHOT]: "h-source" });
-    const cleanUsed = take(mgr, clean, "h-clean", { [card]: "h-card" });
+    addVariant(mgr, card, "h-card-old", { [SHOT]: "h-source" });
+    const cardUsed = addVariant(mgr, card, "h-card", { [SHOT]: "h-source" });
+    const cleanUsed = addVariant(mgr, clean, "h-clean", { [card]: "h-card" });
     const patched = mgr.reserveVariantId(SHOT);
     const variant = mgr.getAssetState(SHOT).variants![patched]!;
     variant.derivedFrom = source;
     variant.file = mgr.getAssetState(clean).variants![cleanUsed]!.file;
 
-    expect(patchChainTakes(mgr, SHOT, patched)).toEqual({
+    expect(patchChainVariants(mgr, SHOT, patched)).toEqual({
       sourceVariantId: source,
       steps: [
         { address: card, variantId: cardUsed },
@@ -291,9 +291,9 @@ describe("patchChainTakes", () => {
 
   it("is null for a take no patch produced", async () => {
     const mgr = await StateManager.init(tmpDir);
-    const vid = take(mgr, SHOT, "h");
+    const vid = addVariant(mgr, SHOT, "h");
 
-    expect(patchChainTakes(mgr, SHOT, vid)).toBeNull();
+    expect(patchChainVariants(mgr, SHOT, vid)).toBeNull();
   });
 });
 

@@ -16,7 +16,7 @@ import {
   formatStaleCause,
   formatStaleReason,
   isVariantStale,
-  undecidedTakeBesideAccepted,
+  undecidedVariantBesideAccepted,
   variantsNewestFirst,
 } from "./staleness.js";
 import { ERROR_GLIMPSE_WIDTH, truncateSingleLine } from "./truncate.js";
@@ -57,10 +57,10 @@ export interface AddressInfo {
    * was dismissed. The newest such take, which is not necessarily newer than the accepted one.
    * Mirrors the preview UI's `hasUndecidedBesideAccepted`.
    */
-  undecidedTakeVariantId: string | null;
+  undecidedVariantId: string | null;
   /**
    * The accepted take has this undecided patch output hanging off it; null when it has none.
-   * Tracked apart from `undecidedTakeVariantId` for its wording alone: the reviewer's question is
+   * Tracked apart from `undecidedVariantId` for its wording alone: the reviewer's question is
    * whether the fix landed, not whether an alternative is better. `sourceVariantId` is the take it
    * corrects — the id `konte patch remove` takes, and `hasScript` whether that script is still there.
    */
@@ -141,7 +141,7 @@ export interface StatusSection {
      */
     variantId?: string;
     /** Every take at the address awaiting a verdict, each with why, `variantId`'s first. */
-    takes?: { variantId: string; detail: string }[];
+    variants?: { variantId: string; detail: string }[];
   }[];
 }
 
@@ -341,7 +341,7 @@ export function buildAddressInfo(
 
   const hasAccepted = variants.some(([, v]) => v.status === "accepted");
   const hasOutputFile = variants.some(([, v]) => !!v.file);
-  const undecidedTakeVariantId = undecidedTakeBesideAccepted(
+  const undecidedVariantId = undecidedVariantBesideAccepted(
     state,
     address,
     currentDefinitionHash,
@@ -382,7 +382,7 @@ export function buildAddressInfo(
     (variantId) => target?.variants?.[variantId]?.status === "none",
   );
   // An accepted take with an undecided correction hanging off it. Reported apart from
-  // `undecidedTakeVariantId` for its wording alone — the reviewer's question is "did the fix land?",
+  // `undecidedVariantId` for its wording alone — the reviewer's question is "did the fix land?",
   // not "is this alternative better?". It clears the same three ways any rival does: accept it,
   // dismiss it (by accepting the original beside it), or `konte patch remove`.
   const patchedAwaitingReviewVariantId =
@@ -399,7 +399,7 @@ export function buildAddressInfo(
           return true;
         }
         // A stale correction is not review work: an accept beside it cannot dismiss it
-        // (`readyUndecidedTakes` skips a stale take), so the item would stand whatever the reviewer
+        // (`readyUndecidedVariants` skips a stale take), so the item would stand whatever the reviewer
         // decided. Its live script owns it under "Pending patches" — with no script left there is
         // no other owner, so it stays here, routed to `prune`.
         return (
@@ -478,7 +478,7 @@ export function buildAddressInfo(
     reviewUnreachable,
     hasAccepted,
     hasOutputFile,
-    undecidedTakeVariantId,
+    undecidedVariantId,
     patchedAwaitingReview,
     readyVariantIds,
     undecidedVariantIds,
@@ -526,7 +526,7 @@ function isGenerationAsset(kind: AddressKind | null): boolean {
   );
 }
 
-function hasTakes(kind: AddressKind | null): boolean {
+function hasVariants(kind: AddressKind | null): boolean {
   return kind === "file" || isGenerationAsset(kind);
 }
 
@@ -637,18 +637,18 @@ export function computeStatusSections(
           detail: `accepted take is ${formatStaleReason(sv)}`,
         });
       }
-    } else if (hasTakes(info.assetKind) && info.readyCount > 0 && !info.hasAccepted) {
+    } else if (hasVariants(info.assetKind) && info.readyCount > 0 && !info.hasAccepted) {
       needsReview.push({
         address: info.address,
         detail: "",
         ...(info.readyVariantIds[0]
           ? {
               variantId: info.readyVariantIds[0],
-              takes: info.readyVariantIds.map((variantId) => ({ variantId, detail: "" })),
+              variants: info.readyVariantIds.map((variantId) => ({ variantId, detail: "" })),
             }
           : {}),
       });
-    } else if (hasTakes(info.assetKind) && info.patchedAwaitingReview) {
+    } else if (hasVariants(info.assetKind) && info.patchedAwaitingReview) {
       // A correction of the accepted take is ready. Reported before the "newer take" branch and
       // on its own wording because the reviewer's question is different: not "is this alternative
       // better?" but "did the fix land?".
@@ -660,14 +660,14 @@ export function computeStatusSections(
         address: info.address,
         detail,
         variantId: patched.variantId,
-        takes: [
+        variants: [
           { variantId: patched.variantId, detail },
           ...info.undecidedVariantIds
             .filter((id) => id !== patched.variantId)
             .map((variantId) => ({ variantId, detail: UNDECIDED_BESIDE_ACCEPT })),
         ],
       });
-    } else if (hasTakes(info.assetKind) && info.undecidedTakeVariantId) {
+    } else if (hasVariants(info.assetKind) && info.undecidedVariantId) {
       // Accepted, but a take (e.g. from `reroll`) stands undecided beside it — offer it for
       // re-review without forcing an unaccept. It is not necessarily newer than the accept, so the
       // wording claims no order. (Composition re-review is handled by its own staleness-based
@@ -675,10 +675,10 @@ export function computeStatusSections(
       needsReview.push({
         address: info.address,
         detail: UNDECIDED_BESIDE_ACCEPT,
-        variantId: info.undecidedTakeVariantId,
-        takes: [
-          info.undecidedTakeVariantId,
-          ...info.undecidedVariantIds.filter((id) => id !== info.undecidedTakeVariantId),
+        variantId: info.undecidedVariantId,
+        variants: [
+          info.undecidedVariantId,
+          ...info.undecidedVariantIds.filter((id) => id !== info.undecidedVariantId),
         ].map((variantId) => ({ variantId, detail: UNDECIDED_BESIDE_ACCEPT })),
       });
     }
@@ -863,7 +863,7 @@ export function computeExportReadiness(
       // isn't reported as ready to export. Route by whether a non-stale take is already awaiting
       // a verdict: if so the refresh is `accept`, otherwise it's `reroll`.
       if (info.staleVariants.length > 0 && !info.staleAcceptStands) {
-        if (info.undecidedTakeVariantId !== null) entry.staleAwaitingAccept.push(suffix);
+        if (info.undecidedVariantId !== null) entry.staleAwaitingAccept.push(suffix);
         else entry.staleAwaitingReroll.push(suffix);
       }
     } else {

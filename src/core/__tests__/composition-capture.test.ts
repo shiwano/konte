@@ -253,7 +253,7 @@ describe("captureCompositionFrames", () => {
     (fsp.mkdtemp as unknown as Mock).mockResolvedValue("/tmp/konte-cap-mock");
     composition.html =
       '<html><body><img src="/animatic/shot.01.first/v-used/panel%201.png" data-start="0" data-duration="1.75" /></body></html>';
-    const withTakes = {
+    const withVariants = {
       getState: () => ({
         assets: {
           "animatic:shot.01.first": {
@@ -268,7 +268,7 @@ describe("captureCompositionFrames", () => {
 
     await captureCompositionFrames({
       video,
-      manager: withTakes,
+      manager: withVariants,
       shotId: "01",
       videoRoot: "/video",
       outputDir: "/video/.konte/cache/thumbnails/animatic/shot.01",
@@ -285,7 +285,7 @@ describe("captureCompositionFrames", () => {
   it("names a take by its address, variant and file", async () => {
     composition.html =
       '<html><body><img src="/animatic/shot.01.first/v-used/panel%201.png" data-start="0" data-duration="1.75" /></body></html>';
-    const withTake = {
+    const withVariant = {
       getState: () => ({
         assets: {
           "animatic:shot.01.first": {
@@ -310,7 +310,7 @@ describe("captureCompositionFrames", () => {
     await expect(
       captureCompositionFrames({
         video,
-        manager: withTake,
+        manager: withVariant,
         shotId: "01",
         videoRoot: "/video",
         outputDir: "/video/.konte/cache/thumbnails/animatic/shot.01",
@@ -331,7 +331,7 @@ describe("captureCompositionFrames", () => {
     );
     composition.html =
       '<html><body><img src="/animatic/shot.01.first/v-used/panel.png" data-start="0" data-duration="1.75" /></body></html>';
-    const withTake = {
+    const withVariant = {
       getState: () => ({
         assets: {
           "animatic:shot.01.first": {
@@ -344,7 +344,7 @@ describe("captureCompositionFrames", () => {
     await expect(
       captureCompositionFrames({
         video,
-        manager: withTake,
+        manager: withVariant,
         shotId: "01",
         videoRoot: "/video",
         outputDir: "/video/.konte/cache/thumbnails/animatic/shot.01",

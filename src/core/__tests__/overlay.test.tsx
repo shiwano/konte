@@ -22,7 +22,7 @@ import { commentSubjectAddresses } from "../feedback/subject.js";
 import { computeExportSignature } from "../export-signature.js";
 import { buildDependencyGraph, collectRerollCascade } from "../graph.js";
 import { computeDependencyLevels } from "../dependency-levels.js";
-import { withSongTakes } from "../dsl/song-context.js";
+import { withSongVariants } from "../dsl/song-context.js";
 import { injectOverlay, shiftTimedElements } from "../overlay-render.js";
 import { StateManager } from "../state/index.js";
 import { checkTailwindClasses } from "../tailwind-classes.js";
@@ -57,7 +57,7 @@ const songDirection = () =>
   });
 
 // A take whose two lines a person placed at 1s–3s and 3s–4s, its first beat at 0.
-const placedTake = (address: string) =>
+const placedVariant = (address: string) =>
   address === "reference:song"
     ? {
         address,
@@ -86,10 +86,10 @@ const placedTake = (address: string) =>
       }
     : null;
 
-// The direction as the loader reads it, under the take `placedTake` holds.
+// The direction as the loader reads it, under the take `placedVariant` holds.
 const clocked = () => {
   let direction!: ReturnType<typeof songDirection>;
-  void withSongTakes(placedTake, async () => {
+  void withSongVariants(placedVariant, async () => {
     direction = songDirection();
   });
   return direction;
@@ -100,7 +100,7 @@ const plain = () => <Composition />;
 describe("overlay", () => {
   it("hands its build the whole timeline: its length, its lines and its beats", async () => {
     let seen: { duration: number; lyrics: unknown; beat1: number } | null = null;
-    const video = await withSongTakes(placedTake, async () =>
+    const video = await withSongVariants(placedVariant, async () =>
       defineVideo(clocked(), {
         timeline: ({ shot }) => ({
           shots: shot("01", plain).nextShot("02", plain),
@@ -151,7 +151,7 @@ describe("overlay", () => {
 describe("a shot's lines", () => {
   it("cut a line sung from before the shot at its head", async () => {
     let seen: unknown = null;
-    await withSongTakes(placedTake, async () =>
+    await withSongVariants(placedVariant, async () =>
       defineVideo(clocked(), {
         timeline: ({ shot }) => ({
           shots: shot("01", plain).nextShot("02", (ctx) => {
@@ -342,15 +342,15 @@ describe("the overlay as a leaf", () => {
     const address = "video:timeline#overlay";
     const first = await materializeOverlayVariant({ manager, video });
     expect(await materializeOverlayVariant({ manager, video })).toBe(first);
-    const take = manager.getAssetState(address).variants![first!]!;
-    expect(path.basename(take.file!)).toBe("overlay.html");
-    expect(take.definitionHash).toBe(definitionHashForAddress(video, address));
+    const variant = manager.getAssetState(address).variants![first!]!;
+    expect(path.basename(variant.file!)).toBe("overlay.html");
+    expect(variant.definitionHash).toBe(definitionHashForAddress(video, address));
 
     manager.setAccepted(address, first!);
     expect(holdsHumanVerdict(manager, address)).toBe(false);
 
     const edited = withTitle("Goodbye");
-    expect(definitionHashForAddress(edited, address)).not.toBe(take.definitionHash);
+    expect(definitionHashForAddress(edited, address)).not.toBe(variant.definitionHash);
     expect(await materializeOverlayVariant({ manager, video: edited })).not.toBe(first);
   });
 
