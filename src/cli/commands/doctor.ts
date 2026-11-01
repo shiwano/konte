@@ -46,7 +46,6 @@ import pkg from "../../../package.json" with { type: "json" };
 import type {
   AssetDefinition,
   GenerationJob,
-  KonteState,
   ReferenceDefinition,
   AnimaticDefinition,
   VideoDefinition,
@@ -231,8 +230,8 @@ type DoctorVideo = { name: string | null; root: string };
 
 // One video's own battery. `typeCheckFailed` skips every check that imports its definitions: when
 // the project does not type-check, those imports crash at runtime with errors unrelated to the real
-// cause, so the type check is pointed at instead. State-only checks (orphaned/missing) read
-// konte.state.json and run regardless.
+// cause, so the type check is pointed at instead. konte.state.json and the definitions are each
+// loaded once and handed to every check; the state-only ones run regardless.
 async function runVideoChecks(
   roots: VideoRoots,
   typeCheckFailed: boolean,
@@ -246,7 +245,9 @@ async function runVideoChecks(
   let usedKinds = new Set<AssetDefinition["kind"]>();
   let defs: DefinitionSet | null = null;
 
-  checks.push(await checkStateJson(videoRoot));
+  const state = await checkStateJson(videoRoot);
+  checks.push(state.check);
+  const { manager } = state;
 
   if (typeCheckFailed) {
     checks.push({
@@ -283,14 +284,22 @@ async function runVideoChecks(
       checks.push(checkUnusedAssets(video, animatic, reference ?? undefined));
     }
 
-    checks.push(...(await checkFindings(videoRoot, defs)));
+    checks.push(...(await checkFindings(videoRoot, defs, manager)));
   }
 
-  checks.push(await checkOrphanedJobs(videoRoot));
-  checks.push(await checkOrphanedTargets(videoRoot, defs));
-  checks.push(await checkStrayVariantDirs(videoRoot));
-  checks.push(await checkMissingAssets(videoRoot));
-  checks.push(await checkAssetsGitignore(videoRoot));
+  if (manager) {
+    checks.push(await checkOrphanedJobs(videoRoot, manager));
+    checks.push(await checkOrphanedTargets(videoRoot, manager, defs));
+    checks.push(await checkStrayVariantDirs(videoRoot, manager));
+    checks.push(await checkMissingAssets(videoRoot, manager));
+    checks.push(await checkAssetsGitignore(videoRoot, manager));
+  } else {
+    checks.push(
+      ...STATE_CHECK_NAMES.map(
+        (name): CheckResult => ({ name, status: "PASS", message: "no state to check" }),
+      ),
+    );
+  }
   return { checks, usedKinds, defs };
 }
 
@@ -318,15 +327,24 @@ function reducedScopeCheck(
   };
 }
 
-async function checkStateJson(videoRoot: string): Promise<CheckResult> {
+const STATE_CHECK_NAMES = [
+  "orphaned jobs",
+  "orphaned targets",
+  "stray variant directories",
+  "missing assets",
+  "assets/.gitignore",
+] as const;
+
+async function checkStateJson(
+  videoRoot: string,
+): Promise<{ check: CheckResult; manager: StateManager | null }> {
   try {
-    await StateManager.load(videoRoot);
-    return { name: "konte.state.json", status: "PASS", message: "valid" };
+    const manager = await StateManager.load(videoRoot);
+    return { check: { name: "konte.state.json", status: "PASS", message: "valid" }, manager };
   } catch (err) {
     return {
-      name: "konte.state.json",
-      status: "FAIL",
-      message: errorMessage(err),
+      check: { name: "konte.state.json", status: "FAIL", message: errorMessage(err) },
+      manager: null,
     };
   }
 }
@@ -788,16 +806,9 @@ async function checkWorkflowFiles(
   };
 }
 
-async function checkOrphanedJobs(videoRoot: string): Promise<CheckResult> {
+async function checkOrphanedJobs(videoRoot: string, manager: StateManager): Promise<CheckResult> {
   try {
-    let state: KonteState;
-    try {
-      const manager = await StateManager.load(videoRoot);
-      state = manager.getState();
-    } catch {
-      return { name: "orphaned jobs", status: "PASS", message: "no state to check" };
-    }
-
+    const state = manager.getState();
     const jobManager = new JobManager(videoRoot);
     const jobs = await jobManager.listJobs();
     const orphaned: string[] = [];
@@ -864,25 +875,18 @@ function checkUnusedAssets(
 
 async function checkOrphanedTargets(
   videoRoot: string,
+  manager: StateManager,
   defs: DefinitionSet | null,
 ): Promise<CheckResult> {
-  const skip = (message: string): CheckResult => ({
-    name: "orphaned targets",
-    status: "PASS",
-    message,
-  });
-
-  let state: KonteState;
-  try {
-    const manager = await StateManager.load(videoRoot);
-    state = manager.getState();
-  } catch {
-    return skip("no state to check");
+  if (!defs?.video) {
+    return {
+      name: "orphaned targets",
+      status: "PASS",
+      message: "cannot load definition (skipped)",
+    };
   }
-
-  const { video, animatic, reference } =
-    defs ?? (await loadStageDefinitions(videoRoot, { tolerant: true }));
-  if (!video) return skip("cannot load definition (skipped)");
+  const { video, animatic, reference } = defs;
+  const state = manager.getState();
 
   // Reuse prune's orphan definition so doctor never warns about (and suggests pruning) a live
   // composition baseline or #delivery target that prune itself would correctly keep.
@@ -909,14 +913,11 @@ async function checkOrphanedTargets(
   };
 }
 
-async function checkStrayVariantDirs(videoRoot: string): Promise<CheckResult> {
-  let state: KonteState;
-  try {
-    state = (await StateManager.load(videoRoot)).getRecordedState();
-  } catch {
-    return { name: "stray variant directories", status: "PASS", message: "no state to check" };
-  }
-  const stray = await listStrayVariantDirs(videoRoot, state);
+async function checkStrayVariantDirs(
+  videoRoot: string,
+  manager: StateManager,
+): Promise<CheckResult> {
+  const stray = await listStrayVariantDirs(videoRoot, manager.getRecordedState());
   if (stray.length === 0) {
     return { name: "stray variant directories", status: "PASS", message: "none found" };
   }
@@ -949,13 +950,8 @@ async function readMediaHead(file: string): Promise<string | null> {
 
 // A protected variant's media is what git holds, so its absence is a FAIL. An absent variant never
 // reaches this check (see `StateManager.absentVariantIds`).
-async function checkMissingAssets(videoRoot: string): Promise<CheckResult> {
-  let state: KonteState;
-  try {
-    state = (await StateManager.load(videoRoot)).getState();
-  } catch {
-    return { name: "missing assets", status: "PASS", message: "no state to check" };
-  }
+async function checkMissingAssets(videoRoot: string, manager: StateManager): Promise<CheckResult> {
+  const state = manager.getState();
 
   const protectedMissing: string[] = [];
   const otherMissing: string[] = [];
@@ -1004,13 +1000,10 @@ async function checkMissingAssets(videoRoot: string): Promise<CheckResult> {
 
 // Repaired by the next state write; a drift here is a hand edit or a save that died after writing
 // the state.
-async function checkAssetsGitignore(videoRoot: string): Promise<CheckResult> {
-  let manager: StateManager;
-  try {
-    manager = await StateManager.load(videoRoot);
-  } catch {
-    return { name: "assets/.gitignore", status: "PASS", message: "no state to check" };
-  }
+async function checkAssetsGitignore(
+  videoRoot: string,
+  manager: StateManager,
+): Promise<CheckResult> {
   const actual = await readAssetsGitignore(videoRoot);
   if (actual === manager.renderAssetsGitignore()) {
     return { name: "assets/.gitignore", status: "PASS", message: "matches the state" };
@@ -1091,7 +1084,11 @@ function collectUsedKinds(
 }
 
 // Every machine finding `status` reports, and every waiver that cancels nothing.
-async function checkFindings(videoRoot: string, defs: DefinitionSet): Promise<CheckResult[]> {
+async function checkFindings(
+  videoRoot: string,
+  defs: DefinitionSet,
+  manager: StateManager | null,
+): Promise<CheckResult[]> {
   let direction: Awaited<ReturnType<typeof loadDirectionIfPresent>>;
   try {
     direction = await loadDirectionIfPresent(videoRoot);
@@ -1099,7 +1096,7 @@ async function checkFindings(videoRoot: string, defs: DefinitionSet): Promise<Ch
     return [{ name: "direction", status: "FAIL", message: errorMessage(err) }];
   }
   const { findings: all, staleWaivers } = await collectFindings(
-    await loadCheckContext({ videoRoot, definitions: defs, direction }),
+    await loadCheckContext({ videoRoot, definitions: defs, direction, manager }),
   );
   const results: CheckResult[] = [];
 
