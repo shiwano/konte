@@ -6,7 +6,6 @@ import {
   getStage,
   parseStageScope,
 } from "../../core/address.js";
-import { assertSpendAllowed } from "../../core/backend-policy.js";
 import { loadKonteConfig } from "../../core/config.js";
 import { computeDependencyLevels } from "../../core/dependency-levels.js";
 import { printCapped } from "../format-list.js";
@@ -22,7 +21,7 @@ import { JobIndex } from "../../core/job-index.js";
 import { type PendingReason, describePendingJob } from "../../core/pending-jobs.js";
 import { pinFindings } from "../../core/pin-check.js";
 import { promptFindings } from "../../core/prompt-check.js";
-import { applyPatch, assertPatchSpendAllowed } from "../patch-orchestrator.js";
+import { applyPatch, preparePatchSpend } from "../patch-orchestrator.js";
 import { selectDefinition } from "../../core/select-definition.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import {
@@ -42,14 +41,12 @@ import {
   type AssetResult,
   assetSkipReason,
   buildGeneratePlan,
-  ensureComfyPrereqJobs,
-  formatComfyRouteNotice,
   formatAcceptedStaleNotice,
-  formatComfyDownloadNotice,
   formatGeneratePlan,
   formatUndecidedUpstreamVariantsNotice,
   type LevelResult,
-  preflightComfyAssets,
+  prepareSpend,
+  printSpendNotices,
   reserveVariantsBatch,
   type SkipReason,
   registerJobs,
@@ -174,10 +171,10 @@ export function registerGenerateCommand(program: Command): void {
       const heldLines = [
         ...new Set(selected.spending.flatMap((address) => held.get(address) ?? [])),
       ];
-      const spend = await assertSpendAllowed(
+      const spend = await prepareSpend(
+        roots,
         spending.map((address) => ({ label: address, def: assetEntryOf(address) })),
         config,
-        roots.workspace,
       );
       if (skippedUnused.length > 0) {
         console.log(
@@ -200,29 +197,6 @@ export function registerGenerateCommand(program: Command): void {
       const rebuiltAssetPaths = new Set<string>();
       const pendingReasons = new Map<string, PendingReason>();
 
-      // Present models/nodes get no job — their generation jobs wait on nothing; if ComfyUI is
-      // unreachable everything is treated as missing, so jobs are created and no-op (or
-      // download/install) at run time.
-      const comfyEntries: Array<{ address: string; def: AssetDefinition }> = [];
-      for (const assetPath of spending) {
-        const assetDef = assetEntryOf(assetPath);
-        if (assetDef.kind === "comfy" && spend.targetOf(assetDef) === "comfyui") {
-          comfyEntries.push({ address: assetPath, def: assetDef });
-        }
-      }
-      const { missingModels, missingNodes, comfyDownloads } = await preflightComfyAssets(
-        roots,
-        comfyEntries,
-        config,
-      );
-
-      const routeNotice = formatComfyRouteNotice(
-        spending.flatMap((address) => {
-          const target = spend.targetOf(assetEntryOf(address));
-          return target ? [{ address, target }] : [];
-        }),
-      );
-
       if (opts.plan) {
         const plan = buildGeneratePlan({
           levels,
@@ -231,8 +205,8 @@ export function registerGenerateCommand(program: Command): void {
           stageAssetPaths,
           variantCount,
           getAssetDef: assetEntryOf,
-          missingModels: missingModels.ids,
-          missingNodes: missingNodes.ids,
+          missingModels: spend.missingModels,
+          missingNodes: spend.missingNodes,
           targetOf: (d) => spend.targetOf(d),
         });
         // The real run applies pending patches too, and each one spends. A plan that omitted them
@@ -261,15 +235,11 @@ export function registerGenerateCommand(program: Command): void {
             console.log(`  ${p.address} (patch of ${p.source})`);
           }
         }
-        const noticeText = formatComfyDownloadNotice(comfyDownloads);
-        if (noticeText) console.log(`\n${noticeText}`);
-        if (routeNotice) console.log(`\n${routeNotice}`);
+        printSpendNotices(spend);
         return;
       }
 
-      const noticeText = formatComfyDownloadNotice(comfyDownloads);
-      if (noticeText) console.log(`\n${noticeText}`);
-      if (routeNotice) console.log(`\n${routeNotice}`);
+      printSpendNotices(spend);
 
       // Number the levels shown to the user sequentially. The graph spans both
       // stages, so the global level index is sparse per stage (an animatic-only
@@ -367,13 +337,7 @@ export function registerGenerateCommand(program: Command): void {
           // A comfy asset's prerequisites are shared jobs the generation job depends on — on a
           // ComfyUI its models (comfy-model-download) and nodes (comfy-node-install gated by a
           // comfy-node-activate reboot) — so anything with one is pending until it is ready.
-          const prereqJobIds = await ensureComfyPrereqJobs(
-            assetDef,
-            spend.targetOf(assetDef),
-            jobManager,
-            missingModels,
-            missingNodes,
-          );
+          const prereqJobIds = await spend.prereqJobs(assetDef, jobManager);
           for (const id of prereqJobIds) await addKnownJob(id);
 
           const slot = assetResults.push(null) - 1;
@@ -486,7 +450,8 @@ export function registerGenerateCommand(program: Command): void {
       }
       for (const patch of pendingPatches) {
         try {
-          const patchSpend = await assertPatchSpendAllowed(patch, config, roots.workspace);
+          const patchSpend = await preparePatchSpend(patch, roots, config);
+          printSpendNotices(patchSpend);
           const fixIn = { stage: loaded.stage, patch: patch.sourceVariantId };
           assertNoSpendFindings([...promptFindings(patch, fixIn), ...pinFindings(patch, fixIn)], {
             command: "patch",
@@ -495,7 +460,7 @@ export function registerGenerateCommand(program: Command): void {
             assetPaths: [patch.sourceAddress],
             targeted: true,
           });
-          const result = await applyPatch(patch, roots, jobManager, config, patchSpend);
+          const result = await applyPatch(patch, roots, jobManager, patchSpend);
           for (const job of result.jobs) {
             patchApplications.push({
               source: patch.sourceVariantId,

@@ -1,4 +1,3 @@
-import { assertSpendAllowed, type SpendRoutes } from "../core/backend-policy.js";
 import { computeDefinitionHash } from "../core/definition-hash.js";
 import { KonteError } from "../core/errors.js";
 import { extractRefs } from "../core/graph.js";
@@ -24,25 +23,24 @@ import type {
 } from "../core/types/index.js";
 import {
   type AssetResult,
+  prepareSpend,
   registerJobs,
-  ensureComfyPrereqJobs,
-  resolveMissingComfyModels,
-  resolveMissingComfyNodes,
+  type SpendPlan,
 } from "./generate-orchestrator.js";
 
 // A patch's steps exist outside any stage, so its spend items are built from the chain itself.
-export function assertPatchSpendAllowed(
+export function preparePatchSpend(
   patch: LoadedPatch,
+  roots: VideoRoots,
   config: KonteConfig,
-  workspaceRoot: string,
-): Promise<SpendRoutes> {
-  return assertSpendAllowed(
+): Promise<SpendPlan> {
+  return prepareSpend(
+    roots,
     Object.entries(patch.assets).map(([name, def]) => ({
       label: `${patch.filePath} → ${name}`,
       def,
     })),
     config,
-    workspaceRoot,
   );
 }
 
@@ -73,9 +71,8 @@ export async function applyPatch(
   patch: LoadedPatch,
   roots: VideoRoots,
   jobManager: JobManager,
-  config: KonteConfig,
-  // What `assertPatchSpendAllowed` answered for this patch.
-  spend: SpendRoutes,
+  // What `preparePatchSpend` answered for this patch.
+  spend: SpendPlan,
   rerollStep?: string,
 ): Promise<AssetResult> {
   const videoRoot = roots.video;
@@ -184,7 +181,6 @@ export async function applyPatch(
       assetDef,
       roots,
       jobManager,
-      config,
       pin,
       dependsOnJobs: stepJobIds,
       output: isOutput ? origin : null,
@@ -294,14 +290,13 @@ async function launchStep(opts: {
   assetDef: AssetDefinition;
   roots: VideoRoots;
   jobManager: JobManager;
-  config: KonteConfig;
-  spend: SpendRoutes;
+  spend: SpendPlan;
   pin: Record<string, string>;
   dependsOnJobs: readonly string[];
   output: PatchOutputOrigin | null;
   fresh: boolean;
 }): Promise<AssetResult> {
-  const { address, assetDef, roots, jobManager, config } = opts;
+  const { address, assetDef, roots, jobManager } = opts;
   const videoRoot = roots.video;
 
   // Everything the step references besides what is already pinned resolves normally — a character
@@ -311,32 +306,12 @@ async function launchStep(opts: {
 
   // A comfy step needs its declared weights and node packs provisioned first, exactly as a comfy
   // asset does under `generate`. Without this the job submits against a ComfyUI that cannot run
-  // the workflow. Skipped entirely for every other backend, so the common (fal) patch pays no
-  // ComfyUI round-trip.
-  const prereqJobIds: string[] = [...opts.dependsOnJobs];
+  // the workflow.
+  const prereqJobIds = [
+    ...opts.dependsOnJobs,
+    ...(await opts.spend.prereqJobs(assetDef, jobManager)),
+  ];
   const comfyTarget = opts.spend.targetOf(assetDef);
-  if (assetDef.kind === "comfy") {
-    const onComfyUI = comfyTarget === "comfyui";
-    const missingModels = await resolveMissingComfyModels(
-      roots,
-      onComfyUI ? (assetDef.models ?? []) : [],
-      config.comfy?.comfyui?.autoInstallModels ?? true,
-    );
-    const missingNodes = await resolveMissingComfyNodes(
-      roots,
-      onComfyUI ? (assetDef.nodes ?? []).map((n) => n.id) : [],
-      config.comfy?.comfyui?.autoInstallNodes ?? true,
-    );
-    prereqJobIds.push(
-      ...(await ensureComfyPrereqJobs(
-        assetDef,
-        comfyTarget,
-        jobManager,
-        missingModels,
-        missingNodes,
-      )),
-    );
-  }
 
   const finalize = patchFinalizeOf(assetDef, opts.output ?? undefined);
   // The reservation re-runs the join question under the state lock, against a listing fresh enough

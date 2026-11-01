@@ -1,3 +1,4 @@
+import { assertSpendAllowed, type SpendItem, type SpendRoutes } from "../core/backend-policy.js";
 import { ComfyUIBackend } from "../comfyui/backend.js";
 import { resolveComfyUIConfig } from "../comfyui/config.js";
 import { resolveUrlTokens } from "../comfyui/token-resolver.js";
@@ -245,7 +246,7 @@ export async function reserveVariantsBatch(
 //
 // `confirmed` carries whether that answer was observed or assumed, because the two license
 // different actions downstream — see MissingComfyAssets.
-export async function resolveMissingComfyModels(
+async function resolveMissingComfyModels(
   roots: VideoRoots,
   models: readonly ComfyModelDeclaration[],
   autoInstallModels: boolean,
@@ -260,7 +261,7 @@ export async function resolveMissingComfyModels(
 // Which declared comfy node-pack cnr_ids are not yet installed in ComfyUI. Same best-effort
 // contract as resolveMissingComfyModels: empty only when auto-install is on AND ComfyUI
 // confirms every pack is present; otherwise all are reported missing.
-export async function resolveMissingComfyNodes(
+async function resolveMissingComfyNodes(
   roots: VideoRoots,
   cnrIds: readonly string[],
   autoInstallNodes: boolean,
@@ -338,18 +339,20 @@ export function collectComfyDownloads(
   return { models: [...models.values()], nodes: [...nodes.values()] };
 }
 
+type ComfyPreflight = {
+  missingModels: MissingComfyAssets;
+  missingNodes: MissingComfyNodeAssets;
+  downloads: ComfyDownloadNotice;
+};
+
 // Which declared comfy models/nodes the given comfy assets need that ComfyUI does not have (one
 // ComfyUI/Manager query for the whole list; a present one gets no job, an unreachable ComfyUI
 // reports all missing), plus the notice naming each missing one's consumers.
-export async function preflightComfyAssets(
+async function preflightComfyAssets(
   roots: VideoRoots,
   entries: ReadonlyArray<{ address: string; def: AssetDefinition }>,
   config: KonteConfig,
-): Promise<{
-  missingModels: MissingComfyAssets;
-  missingNodes: MissingComfyNodeAssets;
-  comfyDownloads: ComfyDownloadNotice;
-}> {
+): Promise<ComfyPreflight> {
   const declaredModels = new Map<string, ComfyModelDeclaration>();
   const declaredNodeIds = new Set<string>();
   for (const { def } of entries) {
@@ -370,8 +373,70 @@ export async function preflightComfyAssets(
   return {
     missingModels,
     missingNodes,
-    comfyDownloads: collectComfyDownloads(entries, missingModels.ids, missingNodes.ids),
+    downloads: collectComfyDownloads(entries, missingModels.ids, missingNodes.ids),
   };
+}
+
+/**
+ * What one run may spend and on what: the spend gate's routes, and the provisioning each comfy
+ * asset on a ComfyUI waits on.
+ */
+export class SpendPlan {
+  constructor(
+    private readonly routes: SpendRoutes,
+    private readonly preflight: ComfyPreflight,
+  ) {}
+
+  targetOf(def: AssetDefinition): ComfyTarget | null {
+    return this.routes.targetOf(def);
+  }
+
+  get missingModels(): ReadonlySet<string> {
+    return this.preflight.missingModels.ids;
+  }
+
+  get missingNodes(): ReadonlySet<string> {
+    return this.preflight.missingNodes.ids;
+  }
+
+  get downloads(): ComfyDownloadNotice {
+    return this.preflight.downloads;
+  }
+
+  /** The provisioning jobs an asset's generation job depends on, created if missing. */
+  prereqJobs(def: AssetDefinition, jobManager: JobManager): Promise<string[]> {
+    return ensureComfyPrereqJobs(
+      def,
+      this.targetOf(def),
+      jobManager,
+      this.preflight.missingModels,
+      this.preflight.missingNodes,
+    );
+  }
+
+  notices(): string[] {
+    return [
+      formatComfyDownloadNotice(this.downloads),
+      formatComfyRouteNotice(this.routes.routed),
+    ].filter((notice) => notice !== null);
+  }
+}
+
+/** The spend gate, then the ComfyUI presence sweep over what it routed to a ComfyUI. */
+export async function prepareSpend(
+  roots: VideoRoots,
+  items: readonly SpendItem[],
+  config: KonteConfig,
+): Promise<SpendPlan> {
+  const routes = await assertSpendAllowed(items, config, roots.workspace);
+  const onComfyUI = items
+    .filter((item) => item.def.kind === "comfy" && routes.targetOf(item.def) === "comfyui")
+    .map((item) => ({ address: item.label, def: item.def }));
+  return new SpendPlan(routes, await preflightComfyAssets(roots, onComfyUI, config));
+}
+
+export function printSpendNotices(plan: SpendPlan): void {
+  for (const notice of plan.notices()) console.log(`\n${notice}`);
 }
 
 // A concise English notice listing the comfy downloads/installs a run will trigger,
@@ -401,13 +466,13 @@ export function formatComfyDownloadNotice(notice: ComfyDownloadNotice): string |
  * Where this run's comfy assets go — the spend a reader cannot see from the definitions. Null when
  * nothing is routed off a ComfyUI.
  */
-export function formatComfyRouteNotice(
-  routed: ReadonlyArray<{ address: string; target: ComfyTarget }>,
+function formatComfyRouteNotice(
+  routed: ReadonlyArray<{ label: string; target: ComfyTarget }>,
 ): string | null {
   if (routed.every((r) => r.target === "comfyui")) return null;
   return formatNotice(
     "where this run's comfy assets go:",
-    routed.map((r) => `${r.address} → ${r.target}`),
+    routed.map((r) => `${r.label} → ${r.target}`),
   );
 }
 
@@ -507,7 +572,7 @@ export async function ensureComfyModelJobs(
 // nothing generates until the nodes are live. Returns [] when nothing is missing. Called per
 // asset, but every asset of a run is missing the same packs, so they all converge on one
 // activate job (see comfyNodeActivateJobId).
-export async function ensureComfyNodeJobs(
+async function ensureComfyNodeJobs(
   assetDef: AssetDefinition,
   jobManager: JobManager,
   missing: MissingComfyNodeAssets,
@@ -549,7 +614,7 @@ export async function ensureComfyNodeJobs(
  * The jobs a comfy asset waits on before it can submit: model and node provisioning on a ComfyUI,
  * nothing off one. Empty for every other kind.
  */
-export async function ensureComfyPrereqJobs(
+async function ensureComfyPrereqJobs(
   assetDef: AssetDefinition,
   target: ComfyTarget | null,
   jobManager: JobManager,

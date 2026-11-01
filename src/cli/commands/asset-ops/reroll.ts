@@ -16,7 +16,6 @@ import {
   tryParseAddress,
   validateAddress,
 } from "../../../core/address.js";
-import { assertSpendAllowed } from "../../../core/backend-policy.js";
 import { loadKonteConfig } from "../../../core/config.js";
 import { KonteError, errorMessage } from "../../../core/errors.js";
 import { collectRerollCascade, listUnusedAssetPaths } from "../../../core/graph.js";
@@ -42,12 +41,10 @@ import { capList, printCapped } from "../../format-list.js";
 import { confirmAction, printAborted } from "../../confirm.js";
 import { parsePositiveInt } from "../../parse-option.js";
 import {
-  registerJobs,
-  ensureComfyPrereqJobs,
-  formatComfyDownloadNotice,
-  formatComfyRouteNotice,
   formatUndecidedUpstreamVariantsNotice,
-  preflightComfyAssets,
+  prepareSpend,
+  printSpendNotices,
+  registerJobs,
 } from "../../generate-orchestrator.js";
 import { requireVideoRoots } from "../../context.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
@@ -508,26 +505,12 @@ Examples:
 
         const config = await loadKonteConfig(roots.workspace);
         // The spend gate, before a variant id is reserved or a job written.
-        const spend = await assertSpendAllowed(
+        const spend = await prepareSpend(
+          roots,
           workItems.map((w) => ({ label: w.address, def: w.def })),
           config,
-          roots.workspace,
         );
-        // Resolve which declared comfy models/nodes are missing once across the whole work list,
-        // then gate each comfy asset's job on its own subset — exactly as generate does. Missing
-        // ones make that asset pending until they install.
-        const { missingModels, missingNodes, comfyDownloads } = await preflightComfyAssets(
-          roots,
-          workItems.filter((w) => w.def.kind === "comfy" && spend.targetOf(w.def) === "comfyui"),
-          config,
-        );
-        const routeNotice = formatComfyRouteNotice(
-          workItems.flatMap((w) => {
-            const target = spend.targetOf(w.def);
-            return target ? [{ address: w.address, target }] : [];
-          }),
-        );
-        if (routeNotice) console.log(routeNotice);
+        printSpendNotices(spend);
 
         // Variant id (== job id) of each work item we just (re)created, keyed by its address so a
         // downstream item (possibly in another stage) can both wait on and pin to the new
@@ -551,13 +534,7 @@ Examples:
             continue;
           }
 
-          const prereqJobIds = await ensureComfyPrereqJobs(
-            w.def,
-            spend.targetOf(w.def),
-            jobManager,
-            missingModels,
-            missingNodes,
-          );
+          const prereqJobIds = await spend.prereqJobs(w.def, jobManager);
 
           // Upstreams within this run: wait on their new jobs and pin to their new variants so
           // this item builds on the fresh upstream, not an older accepted one.
@@ -613,9 +590,8 @@ Examples:
         }
 
         const variantsNotice = formatUndecidedUpstreamVariantsNotice(undecidedUpstreamVariants);
-        if (variantsNotice) console.warn(`${variantsNotice}\n`);
-        const noticeText = formatComfyDownloadNotice(comfyDownloads);
-        if (noticeText) console.log(`${noticeText}\n`);
+        if (variantsNotice) console.warn(`\n${variantsNotice}`);
+        if (jobRows.length > 0) console.log("");
         for (const row of jobRows) {
           console.log(`  ${row.address}: ${row.status} → ${row.variantId}`);
         }
@@ -628,8 +604,8 @@ Examples:
         const assetCount = new Set(jobRows.map((r) => r.address)).size;
         const parts = [
           `${jobRows.length} take(s) across ${assetCount} asset(s)`,
-          comfyDownloads.models.length > 0 || comfyDownloads.nodes.length > 0
-            ? `${comfyDownloads.models.length} model(s), ${comfyDownloads.nodes.length} custom node(s) to install first`
+          spend.downloads.models.length > 0 || spend.downloads.nodes.length > 0
+            ? `${spend.downloads.models.length} model(s), ${spend.downloads.nodes.length} custom node(s) to install first`
             : null,
           failures.length > 0 ? `${failures.length} failed` : null,
         ].filter((part) => part !== null);
@@ -711,6 +687,8 @@ async function rerollPatchSteps(
     "reroll",
   );
 
+  for (const spend of spends.values()) printSpendNotices(spend);
+
   const jobManager = new JobManager(videoRoot);
   const rows: Array<{ address: string; variantId: string; status: string }> = [];
   const failures: Array<{ address: string; error: string }> = [];
@@ -721,7 +699,6 @@ async function rerollPatchSteps(
           step.patch,
           roots,
           jobManager,
-          config,
           spends.get(step.patch)!,
           step.stepName,
         );
@@ -735,6 +712,7 @@ async function rerollPatchSteps(
     }
   }
 
+  if (rows.length > 0) console.log("");
   for (const row of rows) console.log(`  ${row.address}: ${row.status} → ${row.variantId}`);
   if (failures.length > 0) {
     console.log("\nFailed:");

@@ -1,4 +1,3 @@
-import { SpendRoutes } from "../../core/backend-policy.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/workspace.js";
@@ -8,12 +7,11 @@ import { patchAssetAddress } from "../../core/patch.js";
 import type { PatchOutputOrigin } from "../../core/patch-output.js";
 import type { VideoRoots } from "../../core/roots.js";
 import { StateManager } from "../../core/state/index.js";
-import type { AssetDefinition, KonteConfig } from "../../core/types/index.js";
+import type { AssetDefinition } from "../../core/types/index.js";
+import { prepareSpend, type SpendPlan } from "../generate-orchestrator.js";
 import { applyPatch } from "../patch-orchestrator.js";
 
 const SOURCE_ADDRESS = "animatic:shot.01.first";
-const CONFIG = { comfy: { comfyui: { url: "http://127.0.0.1:8188" } } } as KonteConfig;
-const NO_ROUTES = new SpendRoutes(new Map(), []);
 
 function resize(inputs: Record<string, unknown>): AssetDefinition {
   return { kind: "local", operation: "resize", mediaType: "image", inputs } as AssetDefinition;
@@ -23,11 +21,13 @@ let ws: Workspace;
 let roots: VideoRoots;
 let jobManager: JobManager;
 let sourceVariantId: string;
+let NO_SPEND: SpendPlan;
 
 beforeEach(async () => {
   ws = await makeWorkspace({ videos: ["v1"], seedState: false });
   roots = ws.videos.v1!;
   jobManager = new JobManager(roots.video);
+  NO_SPEND = await prepareSpend(roots, [], {});
 
   await StateManager.init(roots.video);
   sourceVariantId = await StateManager.withLock(roots.video, async (m) => {
@@ -105,7 +105,7 @@ describe("applyPatch in-flight steps", () => {
     const patch = chain("hash-a", "one");
     const running = await inFlightStep(patch, "patched", originOf(patch));
 
-    const result = await applyPatch(patch, roots, jobManager, CONFIG, NO_ROUTES);
+    const result = await applyPatch(patch, roots, jobManager, NO_SPEND);
 
     expect(result.jobs).toEqual([{ variantId: running, status: "running" }]);
     expect(await jobManager.listJobs()).toHaveLength(1);
@@ -117,7 +117,7 @@ describe("applyPatch in-flight steps", () => {
     const stale = chain("hash-old", "one");
     const running = await inFlightStep(stale, "patched", originOf(stale));
 
-    const result = await applyPatch(chain("hash-new", "one"), roots, jobManager, CONFIG, NO_ROUTES);
+    const result = await applyPatch(chain("hash-new", "one"), roots, jobManager, NO_SPEND);
 
     const launched = result.jobs[0]!.variantId;
     expect(launched).not.toBe(running);
@@ -137,7 +137,7 @@ describe("applyPatch in-flight steps", () => {
       patchHash: "hash-old",
     });
 
-    const result = await applyPatch(patch, roots, jobManager, CONFIG, NO_ROUTES);
+    const result = await applyPatch(patch, roots, jobManager, NO_SPEND);
 
     const launched = result.jobs[0]!.variantId;
     expect(launched).not.toBe(running);
@@ -179,7 +179,7 @@ describe("applyPatch rerollStep", () => {
     const patch = chain("hash-a", "two");
     const landed = await landedStep(patch, "flattened");
 
-    const result = await applyPatch(patch, roots, jobManager, CONFIG, NO_ROUTES);
+    const result = await applyPatch(patch, roots, jobManager, NO_SPEND);
 
     const job = await jobManager.getJob(result.jobs[0]!.variantId);
     if (job.kind !== "generation") throw new Error("expected a generation job");
@@ -194,7 +194,7 @@ describe("applyPatch rerollStep", () => {
     const landed = await landedStep(patch, "flattened");
     const flattenedAddress = patchAssetAddress(patch, "flattened");
 
-    const result = await applyPatch(patch, roots, jobManager, CONFIG, NO_ROUTES, "flattened");
+    const result = await applyPatch(patch, roots, jobManager, NO_SPEND, "flattened");
 
     const jobs = await jobManager.listJobs();
     const flattened = jobs.find((j) => j.kind === "generation" && j.address === flattenedAddress);
@@ -212,7 +212,7 @@ describe("applyPatch rerollStep", () => {
     const patch = chain("hash-a", "two");
     const running = await inFlightStep(patch, "flattened", null);
 
-    await applyPatch(patch, roots, jobManager, CONFIG, NO_ROUTES, "flattened");
+    await applyPatch(patch, roots, jobManager, NO_SPEND, "flattened");
 
     const flattenedAddress = patchAssetAddress(patch, "flattened");
     const flattened = (await jobManager.listJobs()).filter(
@@ -224,7 +224,7 @@ describe("applyPatch rerollStep", () => {
 
   it("refuses a step the script does not declare", async () => {
     await expect(
-      applyPatch(chain("hash-a", "two"), roots, jobManager, CONFIG, NO_ROUTES, "missing"),
+      applyPatch(chain("hash-a", "two"), roots, jobManager, NO_SPEND, "missing"),
     ).rejects.toMatchObject({ code: "ADDRESS_NOT_FOUND" });
   });
 });
