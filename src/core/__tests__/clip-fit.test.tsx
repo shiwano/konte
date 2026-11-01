@@ -56,6 +56,8 @@ const sfx = defineComfyAsset({
 });
 
 const LINE = "かあちゃん、飴だまちょうだい。";
+const RUNG_LINE = "ねえ、かあちゃん、あめだまちょうだいな。";
+const LONG_LINE = "ねえねえ、かあちゃん、あめだまちょうだい。";
 
 function directionOf(duration: number, line = LINE) {
   return defineDirection({
@@ -151,6 +153,23 @@ describe("a derived clip length", () => {
   it("keeps a count the shot check lets overrun", () => {
     // 56 frames from 1.7s ends 0.03s past the 4s shot, under the tenth the shot check allows.
     expect(framesOf(board({ duration: 4, start: 1.7 })())).toBe(56);
+  });
+
+  it("never lands under the words' estimate when the grid rounds up by nothing", () => {
+    // 15 morae, estimated at 2.40s: 56 frames (2.33s) is the rung just under it.
+    expect(framesOf(board({ duration: 4, line: RUNG_LINE })())).toBe(73);
+  });
+
+  it("is held to the largest count the shot check lets overrun", () => {
+    // 73 frames from 1.7s ends past the 4s shot; 56 ends 0.03s past it, which the check allows.
+    expect(framesOf(board({ duration: 4, start: 1.7, line: LONG_LINE })())).toBe(56);
+  });
+
+  it("is never held onto the overrun the shot check allows exactly", () => {
+    // 90 frames from 0.1s ends a tenth past the 3.75s shot, which reads as over it in floating point.
+    const build = board({ duration: 3.75, start: 0.1, line: `${LONG_LINE}${LONG_LINE}` });
+    expect(build).not.toThrow();
+    expect(framesOf(build())).toBe(73);
   });
 
   it("keeps a count that overruns the shot alone by under a tenth", () => {

@@ -8,7 +8,7 @@ import type { MediaKind, MediaAsset } from "./builders.js";
 import { getActiveFormat, getShotContext, seed, type BuildFormat } from "./shot-context.js";
 import { panelInputs } from "./panel-collect.js";
 import { estimateSpeechSec } from "../speech-duration.js";
-import { OVERFLOW_FLOOR, recordClipLength } from "./clip-length-collect.js";
+import { GRID_HOLD_OVERRUN, OVERFLOW_FLOOR, recordClipLength } from "./clip-length-collect.js";
 import {
   assertPinInputs,
   assertStemInputs,
@@ -730,11 +730,6 @@ function spokenWordsOf(
   return said.join(" ");
 }
 
-// The grid rounds up, so a derived count already carries half a step of slack on average — 0.35s at
-// H3's 17-frame step. Trimming the estimate by this keeps the two from both paying for the same
-// margin.
-const GRID_HEADROOM_SEC = 0.15;
-
 // The largest grid point at or below `value` — how a derived count is held inside a window. The
 // mirror of `snapToGrid`, which only ever raises.
 export function floorToGrid(value: number, grid: AdapterInputGrid): number {
@@ -760,15 +755,16 @@ function deriveSpeechLength(
   const wantSec = estimateSpeechSec(words, format?.typography?.lang);
   if (wantSec === null) return undefined;
   const grid = def.grid;
-  const raw = Math.max(0, wantSec - GRID_HEADROOM_SEC) * perSecond;
+  const raw = wantSec * perSecond;
   let length = grid ? snapToGrid(raw, grid) : raw;
   if (format?.duration !== undefined) {
     const window = format.duration * perSecond;
-    const held = grid ? floorToGrid(window, grid) : window;
+    const limit = grid ? window + GRID_HOLD_OVERRUN * perSecond : window;
+    const held = grid ? floorToGrid(limit, grid) : window;
     // A grid floors at its own offset, so the smallest count it can name may not fit either.
     // Nothing legal does then, and the words' own count stands: the load check reports the line the
     // author wrote rather than the stub konte would have shrunk it to.
-    if (length > window + OVERFLOW_FLOOR * perSecond && held > 0 && held <= window) length = held;
+    if (length > window + OVERFLOW_FLOOR * perSecond && held > 0 && held <= limit) length = held;
   }
   // A frame count is whole; seconds are not.
   return { length: def.type === "frames" ? Math.round(length) : length, wantSec };

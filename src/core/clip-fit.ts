@@ -1,6 +1,6 @@
 import { shotCueRefs, tryParseAddress } from "./address.js";
 import { harvestShotAudioStructure, type StemAudioEntry } from "./composition-builder.js";
-import { OVERFLOW_FLOOR, type ClipLength } from "./dsl/clip-length-collect.js";
+import { GRID_HOLD_OVERRUN, OVERFLOW_FLOOR, type ClipLength } from "./dsl/clip-length-collect.js";
 import { floorToGrid } from "./dsl/comfy-asset.js";
 import { KonteError } from "./errors.js";
 import type { AnimaticDefinition, AssetDefinition } from "./types/index.js";
@@ -65,10 +65,11 @@ function cueEnd(cue: StemAudioEntry, clipSec: number): number {
 }
 
 // What the cue's window leaves of the shot, in the clip's units, landed on the clip's grid or whole
-// frames.
+// frames. A grid count may take the overrun the shot check allows, or it falls a whole step.
 function heldInWindow(clip: ClipLength, duration: number, cue: StemAudioEntry): number {
+  const overrun = clip.grid ? GRID_HOLD_OVERRUN : 0;
   const allowed =
-    ((duration - (cue.start ?? 0)) * cue.rate + (cue.mediaStart ?? 0)) * clip.perSecond;
+    ((duration + overrun - (cue.start ?? 0)) * cue.rate + (cue.mediaStart ?? 0)) * clip.perSecond;
   return clip.grid
     ? floorToGrid(allowed, clip.grid)
     : clip.unit === "frames"
@@ -94,13 +95,13 @@ export function tightenDerivedClipLengths(
 ): void {
   for (const { duration, cue, clip } of clipCues(definition, clipLengths)) {
     if (clip.wantSec === undefined || cue.duration != null) continue;
-    if (cueEnd(cue, clip.length / clip.perSecond) <= duration + OVERFLOW_FLOOR) continue;
+    if (cueEnd(cue, clip.length / clip.perSecond) - duration <= OVERFLOW_FLOOR) continue;
     const held = heldInWindow(clip, duration, cue);
     if (held <= 0 || held === clip.length) continue;
     // A grid floors at its own offset, so the smallest length it can name may still end past the
     // shot. Nothing legal fits then, and the length is left where it is: `assertCuesFitShot` reports
     // the cue the author declared rather than one konte shrank, which is the one they can act on.
-    if (cueEnd(cue, held / clip.perSecond) > duration + OVERFLOW_FLOOR) continue;
+    if (cueEnd(cue, held / clip.perSecond) - duration > OVERFLOW_FLOOR) continue;
     clip.length = held;
     for (const target of clip.targets) clip.inputs[target] = held;
     clip.revalidate?.(held);

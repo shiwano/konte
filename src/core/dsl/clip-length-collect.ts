@@ -3,6 +3,10 @@ import type { AdapterInputGrid } from "./comfy-asset.js";
 // How far a cue may end past its shot before it counts as cut.
 export const OVERFLOW_FLOOR = 0.1;
 
+// How far a grid count konte holds inside a window may end past the shot: a hair under
+// `OVERFLOW_FLOOR`, since a count landing on it exactly reads as past it in floating point.
+export const GRID_HOLD_OVERRUN = OVERFLOW_FLOOR - 1e-6;
+
 /**
  * How long a clip each declared asset asks its model for, gathered while a stage is built.
  *
