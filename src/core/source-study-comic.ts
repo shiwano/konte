@@ -27,7 +27,7 @@ import {
   sourceChunksDir,
 } from "./source-study.js";
 import { pdfInfo, renderPdfPage } from "./pdf-render.js";
-import { probeVideo } from "./thumbnail.js";
+import { probeVideo } from "./video-probe.js";
 import type { SourceStudyIndex } from "./types/index.js";
 
 export const BUNDLE_PAGES = 12;

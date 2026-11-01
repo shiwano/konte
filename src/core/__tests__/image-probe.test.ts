@@ -6,7 +6,7 @@ import { hashFile } from "../content-hash.js";
 import { execFileAsync } from "../exec-file.js";
 import { ffmpegBin, SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "../ffmpeg-binary.js";
 import { probeImage } from "../image-probe.js";
-import { probeVideo } from "../thumbnail.js";
+import { probeVideo } from "../video-probe.js";
 
 let dir: string;
 beforeEach(async () => {

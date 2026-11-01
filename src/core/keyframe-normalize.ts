@@ -3,8 +3,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { ffmpegBin, ffprobeBin } from "./ffmpeg-binary.js";
 import { inferMediaType } from "./media-type.js";
-import { probeVideo } from "./thumbnail.js";
 import { execFileAsync } from "./exec-file.js";
+import { probeVideo, type VideoProbeResult } from "./video-probe.js";
 
 // HyperFrames seeks frame-by-frame during capture and render. When a source
 // video's keyframes are more than this many seconds apart, those seeks decode a
@@ -21,7 +21,10 @@ interface KeyframeNormalizeResult {
 }
 
 /** Largest interval between keyframes (incl. the tail to end-of-stream), or null if unprobeable. */
-async function maxKeyframeIntervalSeconds(absPath: string): Promise<number | null> {
+async function maxKeyframeIntervalSeconds(
+  absPath: string,
+  videoDuration: number,
+): Promise<number | null> {
   let stdout: string;
   try {
     const ffprobe = await ffprobeBin();
@@ -57,14 +60,9 @@ async function maxKeyframeIntervalSeconds(absPath: string): Promise<number | nul
   // The keyframes above come from the video stream, so the tail must be measured against
   // that stream's own length: a longer audio track would inflate the gap into a re-encode
   // the picture never needed.
-  let duration = 0;
-  try {
-    duration = (await probeVideo(absPath)).videoDuration;
-  } catch {
-    // duration unknown: fall back to inter-keyframe gaps only
-  }
-
-  let max = duration > 0 ? Math.max(0, duration - (timestamps[timestamps.length - 1] ?? 0)) : 0;
+  // An unknown duration (0) falls back to inter-keyframe gaps only.
+  let max =
+    videoDuration > 0 ? Math.max(0, videoDuration - (timestamps[timestamps.length - 1] ?? 0)) : 0;
   for (let i = 1; i < timestamps.length; i++) {
     const gap = (timestamps[i] ?? 0) - (timestamps[i - 1] ?? 0);
     if (gap > max) max = gap;
@@ -98,28 +96,9 @@ export function pixelFormatDegradeReason(info: PixelInfo): string | null {
   return null;
 }
 
-async function probePixelInfo(absPath: string): Promise<PixelInfo | null> {
-  try {
-    const ffprobe = await ffprobeBin();
-    const res = await execFileAsync(ffprobe, [
-      "-v",
-      "quiet",
-      "-select_streams",
-      "v:0",
-      "-show_entries",
-      "stream=pix_fmt,bits_per_raw_sample",
-      "-of",
-      "json",
-      absPath,
-    ]);
-    const stream = JSON.parse(res.stdout)?.streams?.[0];
-    if (!stream) return null;
-    const pixFmt = typeof stream.pix_fmt === "string" ? stream.pix_fmt.toLowerCase() : "";
-    const bits = Number.parseInt(stream.bits_per_raw_sample, 10);
-    return { pixFmt, bitsPerRawSample: Number.isFinite(bits) ? bits : null };
-  } catch {
-    return null;
-  }
+function pixelInfoOf(probe: VideoProbeResult | null): PixelInfo | null {
+  if (!probe || probe.pixFmt === null) return null;
+  return { pixFmt: probe.pixFmt, bitsPerRawSample: probe.bitsPerRawSample };
 }
 
 /**
@@ -138,7 +117,8 @@ export async function normalizeKeyframesIfSparse(
     return { normalized: false, skipReason: "not a video" };
   }
 
-  const maxInterval = await maxKeyframeIntervalSeconds(absPath);
+  const probe = await probeVideo(absPath).catch(() => null);
+  const maxInterval = await maxKeyframeIntervalSeconds(absPath, probe?.videoDuration ?? 0);
   if (maxInterval === null) {
     return { normalized: false, skipReason: "keyframe interval could not be probed" };
   }
@@ -148,20 +128,14 @@ export async function normalizeKeyframesIfSparse(
 
   // Can't confirm the format is a plain 8-bit non-alpha source — skip rather than risk an
   // 8-bit libx264 pass silently flattening alpha or HDR. Probe failure (null) lands here too.
-  const pixelInfo = await probePixelInfo(absPath);
+  const pixelInfo = pixelInfoOf(probe);
   const degradeReason =
     pixelInfo === null ? "pixel format could not be probed" : pixelFormatDegradeReason(pixelInfo);
   if (degradeReason !== null) {
     return { normalized: false, skipReason: degradeReason, maxIntervalSeconds: maxInterval };
   }
 
-  let fps = 30;
-  try {
-    fps = (await probeVideo(absPath)).fps || 30;
-  } catch {
-    // keep default fps
-  }
-  const gop = Math.max(1, Math.round(fps));
+  const gop = Math.max(1, Math.round(probe?.fps ?? 30));
 
   // Unique per process so concurrent normalizers (MCP watcher and `konte job wait`
   // both waiting the same job) never write the same temp or delete each other's,

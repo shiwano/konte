@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { addressToCacheSegments } from "../address.js";
-import { KonteError } from "../errors.js";
 import {
   compositionSampleTimes,
   panelSampleTime,
@@ -11,160 +10,11 @@ import {
   generateUniformTimestamps,
   harvestCompositionVideos,
   lastSeekableTime,
-  parseProbeOutput,
   parseShowInfoTimestamps,
   readVariantThumbnails,
   subsampleTimestamps,
   withVideoElementIds,
 } from "../thumbnail.js";
-
-describe("parseProbeOutput", () => {
-  it("parses video stream metadata", () => {
-    const output = JSON.stringify({
-      streams: [
-        {
-          codec_type: "video",
-          width: 1920,
-          height: 1080,
-          r_frame_rate: "30/1",
-          duration: "5.0",
-        },
-      ],
-      format: {
-        duration: "5.0",
-      },
-    });
-
-    const result = parseProbeOutput(output);
-    expect(result).toEqual({
-      duration: 5.0,
-      videoDuration: 5.0,
-      width: 1920,
-      height: 1080,
-      fps: 30,
-    });
-  });
-
-  it("reports the video stream's own duration separately from the container's", () => {
-    const output = JSON.stringify({
-      streams: [
-        {
-          codec_type: "video",
-          width: 768,
-          height: 1344,
-          r_frame_rate: "24/1",
-          duration: "3.041667",
-        },
-        { codec_type: "audio", duration: "3.042" },
-      ],
-      format: { duration: "3.042" },
-    });
-
-    const result = parseProbeOutput(output);
-    expect(result.duration).toBe(3.042);
-    expect(result.videoDuration).toBe(3.041667);
-  });
-
-  it("falls back to the container duration when the video stream declares none", () => {
-    const output = JSON.stringify({
-      streams: [{ codec_type: "video", width: 640, height: 480, r_frame_rate: "25/1" }],
-      format: { duration: "4.5" },
-    });
-
-    expect(parseProbeOutput(output).videoDuration).toBe(4.5);
-  });
-
-  it("reads an unknown duration as 0 rather than NaN", () => {
-    const output = JSON.stringify({
-      streams: [
-        { codec_type: "video", width: 640, height: 480, r_frame_rate: "25/1", duration: "N/A" },
-      ],
-      format: { duration: "N/A" },
-    });
-
-    const result = parseProbeOutput(output);
-    expect(result.duration).toBe(0);
-    expect(result.videoDuration).toBe(0);
-  });
-
-  it("handles fractional fps", () => {
-    const output = JSON.stringify({
-      streams: [
-        {
-          codec_type: "video",
-          width: 1280,
-          height: 720,
-          r_frame_rate: "24000/1001",
-        },
-      ],
-      format: { duration: "10.5" },
-    });
-
-    const result = parseProbeOutput(output);
-    expect(result.fps).toBeCloseTo(23.976, 2);
-  });
-
-  it("uses format duration over stream duration", () => {
-    const output = JSON.stringify({
-      streams: [
-        {
-          codec_type: "video",
-          width: 640,
-          height: 480,
-          r_frame_rate: "25/1",
-          duration: "3.0",
-        },
-      ],
-      format: { duration: "4.5" },
-    });
-
-    const result = parseProbeOutput(output);
-    expect(result.duration).toBe(4.5);
-  });
-
-  it("falls back to stream duration when format duration is missing", () => {
-    const output = JSON.stringify({
-      streams: [
-        {
-          codec_type: "video",
-          width: 640,
-          height: 480,
-          r_frame_rate: "25/1",
-          duration: "3.0",
-        },
-      ],
-      format: {},
-    });
-
-    const result = parseProbeOutput(output);
-    expect(result.duration).toBe(3.0);
-  });
-
-  it("throws when no video stream is found", () => {
-    const output = JSON.stringify({
-      streams: [{ codec_type: "audio" }],
-      format: { duration: "5.0" },
-    });
-
-    expect(() => parseProbeOutput(output)).toThrow(KonteError);
-  });
-
-  it("handles missing r_frame_rate gracefully", () => {
-    const output = JSON.stringify({
-      streams: [
-        {
-          codec_type: "video",
-          width: 1920,
-          height: 1080,
-        },
-      ],
-      format: { duration: "2.0" },
-    });
-
-    const result = parseProbeOutput(output);
-    expect(result.fps).toBe(30);
-  });
-});
 
 describe("lastSeekableTime", () => {
   // 73 frames at 24fps: the last one is presented at 3.0s, and ffprobe reports the stream as

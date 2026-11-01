@@ -17,15 +17,9 @@ import { ffmpegBin } from "./ffmpeg-binary.js";
 import { separateSong } from "./sherpa-binary.js";
 import { type SongTempo, songTempo } from "./song-grid.js";
 import { hearWindows, joinHeardWindows } from "./speech-hearing.js";
-import {
-  type VideoProbeResult,
-  detectSceneChanges,
-  extractFrameAt,
-  lastSeekableTime,
-  probeVideo,
-} from "./thumbnail.js";
+import { detectSceneChanges, extractFrameAt, lastSeekableTime } from "./thumbnail.js";
 import { type ClipStudy, ClipStudySchema } from "./types/index.js";
-import { probeHasAudio } from "./video-probe.js";
+import { probeHasAudio, probeVideo, type VideoProbeResult } from "./video-probe.js";
 import { formatSeconds } from "./format-duration.js";
 
 // Bumped whenever what a study reads, or how, changes: a study of another version is read again.

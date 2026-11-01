@@ -1,4 +1,5 @@
 import { measureAudio } from "./audio-loudness.js";
+import { KonteError, errorMessage } from "./errors.js";
 import { ffprobeBin } from "./ffmpeg-binary.js";
 import { inferMediaType } from "./media-type.js";
 import type { VariantMedia } from "./types/index.js";
@@ -107,24 +108,78 @@ export function buildVariantMedia(
 // so a file is never walked twice.
 const PROBE_ENTRIES =
   "format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate," +
-  "nb_frames,channels,channel_layout,sample_rate,bit_rate,duration";
+  "nb_frames,pix_fmt,bits_per_raw_sample,channels,channel_layout,sample_rate,bit_rate,duration";
+
+async function runFfprobe(absPath: string): Promise<RawProbe> {
+  const ffprobe = await ffprobeBin();
+  const res = await execFileAsync(ffprobe, [
+    "-v",
+    "quiet",
+    "-show_entries",
+    PROBE_ENTRIES,
+    "-of",
+    "json",
+    absPath,
+  ]);
+  return JSON.parse(res.stdout) as RawProbe;
+}
 
 async function ffprobeJson(absPath: string): Promise<RawProbe | null> {
   try {
-    const ffprobe = await ffprobeBin();
-    const res = await execFileAsync(ffprobe, [
-      "-v",
-      "quiet",
-      "-show_entries",
-      PROBE_ENTRIES,
-      "-of",
-      "json",
-      absPath,
-    ]);
-    return JSON.parse(res.stdout) as RawProbe;
+    return await runFfprobe(absPath);
   } catch {
     return null;
   }
+}
+
+// Assumed rate when a source declares none usable.
+const FALLBACK_FPS = 30;
+
+export interface VideoProbeResult {
+  duration: number;
+  /**
+   * The video stream's own duration — for arithmetic that must stay inside the picture. `duration`
+   * is the container's, which a longer audio track pushes past the last frame.
+   */
+  videoDuration: number;
+  width: number;
+  height: number;
+  fps: number;
+  pixFmt: string | null;
+  bitsPerRawSample: number | null;
+}
+
+// A video's first stream as frame arithmetic wants it: every number present, an unknown one read as
+// 0 (fps as FALLBACK_FPS). Throws FFPROBE_ERROR when ffprobe fails or the file holds no video stream.
+export async function probeVideo(absPath: string): Promise<VideoProbeResult> {
+  let raw: RawProbe;
+  try {
+    raw = await runFfprobe(absPath);
+  } catch (err) {
+    throw new KonteError("FFPROBE_ERROR", `ffprobe failed: ${errorMessage(err)}`);
+  }
+  return parseVideoProbe(raw);
+}
+
+export function parseVideoProbe(raw: unknown): VideoProbeResult {
+  const probe = (raw ?? {}) as RawProbe;
+  const streams = Array.isArray(probe.streams) ? probe.streams : [];
+  const video = streams.find((s) => s.codec_type === "video");
+  if (!video) throw new KonteError("FFPROBE_ERROR", "No video stream found");
+
+  const duration = positive(probe.format?.duration) ?? positive(video.duration) ?? 0;
+  // A stream that declares no duration leaves only the container's, which a longer audio track
+  // overstates — callers that must stay inside the picture treat the excess as best-effort.
+  const videoDuration = positive(video.duration) ?? duration;
+  return {
+    duration,
+    videoDuration,
+    width: positive(video.width) ?? 0,
+    height: positive(video.height) ?? 0,
+    fps: pickVideoFps(video) ?? FALLBACK_FPS,
+    pixFmt: typeof video.pix_fmt === "string" ? video.pix_fmt.toLowerCase() : null,
+    bitsPerRawSample: positive(video.bits_per_raw_sample),
+  };
 }
 
 // The container-level metadata tags of a media file — where an export's provenance is burned in

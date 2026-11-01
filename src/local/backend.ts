@@ -15,7 +15,7 @@ import {
   SINGLE_FRAME_INPUT_ARGS,
   SINGLE_FRAME_OUTPUT_ARGS,
 } from "../core/ffmpeg-binary.js";
-import { extractFrameAt, lastSeekableTime, probeVideo } from "../core/thumbnail.js";
+import { extractFrameAt, lastSeekableTime } from "../core/thumbnail.js";
 import { requireFileWithinRoot } from "../core/path-containment.js";
 import {
   asJsxStillInputs,
@@ -24,7 +24,7 @@ import {
   renderJsxVideo,
 } from "../core/jsx-render.js";
 import { trimVideo } from "../core/ffmpeg.js";
-import { probeMediaDuration } from "../core/video-probe.js";
+import { probeMediaDuration, probeVideo } from "../core/video-probe.js";
 import type { LocalAssetDefinition } from "../core/types/index.js";
 import { execFileAsync } from "../core/exec-file.js";
 import { formatSeconds } from "../core/format-duration.js";

@@ -22,10 +22,9 @@ import {
   COMPOSITION_FRAME_QUALITY,
   frameInterval,
   lastSeekableTime,
-  probeVideo,
   shotFrameDir,
-  type VideoProbeResult,
 } from "./thumbnail.js";
+import { probeVideo, type VideoProbeResult } from "./video-probe.js";
 import type { StageDefinition } from "./types/index.js";
 import { execFileAsync } from "./exec-file.js";
 import { formatSeconds } from "./format-duration.js";

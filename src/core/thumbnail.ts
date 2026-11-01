@@ -11,27 +11,11 @@ import { writeFileAtomic } from "./atomic-write.js";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { isWithinRoot } from "./path-containment.js";
 import { KonteError, errorMessage } from "./errors.js";
-import {
-  ffmpegBin,
-  ffprobeBin,
-  SINGLE_FRAME_INPUT_ARGS,
-  SINGLE_FRAME_OUTPUT_ARGS,
-} from "./ffmpeg-binary.js";
+import { ffmpegBin, SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
 import { inferMediaType } from "./media-type.js";
 import { shotById } from "./shot-index.js";
 import { execFileAsync } from "./exec-file.js";
-
-export interface VideoProbeResult {
-  duration: number;
-  /**
-   * The video stream's own duration — for arithmetic that must stay inside the picture. `duration`
-   * is the container's, which a longer audio track pushes past the last frame.
-   */
-  videoDuration: number;
-  width: number;
-  height: number;
-  fps: number;
-}
+import { probeVideo } from "./video-probe.js";
 
 interface ExtractKeyframesOptions {
   threshold?: number;
@@ -43,29 +27,6 @@ interface ExtractKeyframesOptions {
 export interface ThumbnailInfo {
   file: string;
   timestamp: number;
-}
-
-export async function probeVideo(videoPath: string): Promise<VideoProbeResult> {
-  const args = ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", videoPath];
-
-  const ffprobe = await ffprobeBin();
-  let stdout: string;
-  try {
-    const result = await execFileAsync(ffprobe, args);
-    stdout = result.stdout;
-  } catch (err) {
-    const message = errorMessage(err);
-    throw new KonteError("FFPROBE_ERROR", `ffprobe failed: ${message}`);
-  }
-
-  return parseProbeOutput(stdout);
-}
-
-// ffprobe reports an unknown duration as "N/A" (and omits the field entirely on some containers),
-// both of which parse to NaN and would poison every arithmetic downstream.
-function finiteSeconds(raw: string | undefined): number {
-  const n = Number.parseFloat(raw ?? "");
-  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 /** Whether a path holds a finished file — ffmpeg can exit 0 having written nothing. */
@@ -179,31 +140,6 @@ export function subtitleSampleTimes(html: string, durationSec: number, fps: numb
     if (!times.some((t) => Math.abs(t - time) < 1e-9)) times.push(time);
   }
   return times.sort((a, b) => a - b);
-}
-
-export function parseProbeOutput(stdout: string): VideoProbeResult {
-  const data = JSON.parse(stdout);
-
-  const videoStream = data.streams?.find((s: { codec_type?: string }) => s.codec_type === "video");
-
-  if (!videoStream) {
-    throw new KonteError("FFPROBE_ERROR", "No video stream found");
-  }
-
-  const duration = finiteSeconds(data.format?.duration ?? videoStream.duration);
-  // A stream that declares no duration (or "N/A") leaves only the container's, which a longer audio
-  // track overstates — callers that must stay inside the picture treat the excess as best-effort.
-  const videoDuration = finiteSeconds(videoStream.duration) || duration;
-  const width = videoStream.width ?? 0;
-  const height = videoStream.height ?? 0;
-
-  let fps = 30;
-  if (videoStream.r_frame_rate) {
-    const [num, den] = videoStream.r_frame_rate.split("/").map(Number);
-    if (num && den) fps = num / den;
-  }
-
-  return { duration, videoDuration, width, height, fps };
 }
 
 export function parseShowInfoTimestamps(stderr: string, minInterval: number): number[] {

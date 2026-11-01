@@ -73,8 +73,7 @@ import {
 import { shortId } from "./short-id.js";
 import pkg from "../../package.json" with { type: "json" };
 import { ensureVariantMedia, mediaByFile, mediaVisualSize } from "./variant-media.js";
-import { probeMediaDuration, probeVideoDimensions } from "./video-probe.js";
-import { probeVideo } from "./thumbnail.js";
+import { probeMediaDuration, probeVideo, probeVideoDimensions } from "./video-probe.js";
 import { applyResolutionDefinitions } from "./definition-hashes.js";
 
 type DeliveryLayer = {
