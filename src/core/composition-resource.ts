@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { acceptedVariantId } from "./accepted-variant.js";
 import {
   type DefinitionLike,
   formatAddress,
@@ -615,11 +616,7 @@ export function removedShotStemAddresses(
   const live = new Set(listShotStems(video.stage, shot).map((stem) => stem.address));
   return shotStemAssetNames(video.stage)
     .map((name) => formatAssetPath(video.stage, shotId, name))
-    .filter(
-      (address) =>
-        !live.has(address) &&
-        Object.values(state.assets[address]?.variants ?? {}).some((v) => v.status === "accepted"),
-    );
+    .filter((address) => !live.has(address) && acceptedVariantId(state, address) !== null);
 }
 
 export function listRemovedShotStemAddresses(state: KonteState, video: StageDefinition): string[] {

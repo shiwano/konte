@@ -1,3 +1,4 @@
+import { acceptedVariant, acceptedVariantId } from "./accepted-variant.js";
 import type { StateManager } from "./state/index.js";
 import type { KonteState, VariantState } from "./types/index.js";
 import { isReviewLeaf } from "./variant-lineage.js";
@@ -352,15 +353,14 @@ function resolveCore(state: KonteState, address: string, ctx: ResolveContext): R
     return CUTOFF_CORE;
   }
 
-  const acceptedEntry = Object.entries(target.variants).find(
-    ([, v]) => v.status === "accepted" && v.file !== null,
-  );
+  const found = acceptedVariant(state, address);
+  const accepted = found?.variant.file != null ? found : null;
   if (
-    acceptedEntry &&
-    !(acceptedEntry[1].derivedFrom == null && ctx.definitions?.isDeterministic(address) === true)
+    accepted &&
+    !(accepted.variant.derivedFrom == null && ctx.definitions?.isDeterministic(address) === true)
   ) {
     const result: ResolveCore = {
-      acceptedId: acceptedEntry[0],
+      acceptedId: accepted.variantId,
       newestFreshId: null,
       newestStaleId: null,
     };
@@ -380,18 +380,18 @@ function resolveCore(state: KonteState, address: string, ctx: ResolveContext): R
     // so keep reporting it as the accepted resolution rather than letting the scan below re-find it
     // as a plain take.
     if (
-      acceptedEntry &&
+      accepted &&
       !isVariantStaleInternal(
         state,
         address,
-        acceptedEntry[1],
+        accepted.variant,
         walkDefinitionHash(address, ctx),
         ctx.definitions?.patchHashes,
         ctx,
       )
     ) {
       const result: ResolveCore = {
-        acceptedId: acceptedEntry[0],
+        acceptedId: accepted.variantId,
         newestFreshId: null,
         newestStaleId: null,
       };
@@ -521,10 +521,7 @@ export function undecidedVariantBesideAccepted(
   patchHashes?: PatchHashes,
   cache?: StalenessCache,
 ): string | null {
-  const accepted = Object.values(state.assets[address]?.variants ?? {}).some(
-    (v) => v.status === "accepted" && v.file !== null,
-  );
-  if (!accepted) return null;
+  if (acceptedVariant(state, address)?.variant.file == null) return null;
   return newestReadyUndecidedVariant(
     state,
     address,
@@ -638,11 +635,9 @@ export function collectUndecidedUpstreamVariants(
       sharedCache,
     );
     if (!undecidedVariantId) continue;
-    const acceptedVariantId = Object.entries(state.assets[address]?.variants ?? {}).find(
-      ([, v]) => v.status === "accepted",
-    )?.[0];
-    if (!acceptedVariantId) continue;
-    variants.push({ depPath, address, acceptedVariantId, undecidedVariantId });
+    const acceptedId = acceptedVariantId(state, address);
+    if (!acceptedId) continue;
+    variants.push({ depPath, address, acceptedVariantId: acceptedId, undecidedVariantId });
   }
   return variants;
 }
@@ -771,16 +766,19 @@ export function computeAcceptedStaleness(
   currentDefinitionHash: string | null,
   cache?: StalenessCache,
 ): AcceptedStaleness {
-  const target = state.assets[address];
-  if (target?.variants) {
-    for (const [variantId, v] of Object.entries(target.variants)) {
-      if (v.status === "accepted") {
-        return {
-          variantId,
-          ...computeVariantStaleness(state, address, v, currentDefinitionHash, undefined, cache),
-        };
-      }
-    }
+  const accepted = acceptedVariant(state, address);
+  if (accepted) {
+    return {
+      variantId: accepted.variantId,
+      ...computeVariantStaleness(
+        state,
+        address,
+        accepted.variant,
+        currentDefinitionHash,
+        undefined,
+        cache,
+      ),
+    };
   }
   return {
     variantId: null,

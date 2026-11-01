@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import * as path from "node:path";
+import { acceptedVariant } from "./accepted-variant.js";
 import { holdsHumanVerdict } from "./accept-cascade.js";
 import {
   type DefinitionLike,
@@ -444,9 +445,7 @@ export async function buildStatusReport(
       const info = infoByAddress.get(address);
       if (!info) return null;
       if (!info.hasAccepted) return "open";
-      const accepted = Object.values(state.assets[address]?.variants ?? {}).find(
-        (v) => v.status === "accepted",
-      );
+      const accepted = acceptedVariant(state, address)?.variant;
       return deterministicAddresses.has(address) && accepted?.derivedFrom == null
         ? "rebakes"
         : "holds";
@@ -945,14 +944,15 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
   // `generate` skips an accepted asset even when stale ("accepted-stale") — except an unpatched
   // deterministic take, which it re-bakes over the accept. Read the same way `assetSkipReason` does, so the step named is one that does something:
   // `reroll` refuses a deterministic asset, and `generate` skips a human-accepted rerollable one.
-  const rebakesOnGenerate = (address: string): boolean =>
-    !isMaterializedLeafAddress(address) &&
-    Object.values(state.assets[address]?.variants ?? {}).some(
-      (v) =>
-        v.status === "accepted" &&
-        v.derivedFrom == null &&
-        isDeterministicAddress({ reference, animatic, video }, address),
+  const rebakesOnGenerate = (address: string): boolean => {
+    if (isMaterializedLeafAddress(address)) return false;
+    const accepted = acceptedVariant(state, address);
+    return (
+      accepted !== null &&
+      accepted.variant.derivedFrom == null &&
+      isDeterministicAddress({ reference, animatic, video }, address)
     );
+  };
   const staleAddresses: string[] = [];
   const deterministicStaleAddresses: string[] = [];
   const definitionRestores: DefinitionRestore[] = [];

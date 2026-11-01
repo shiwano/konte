@@ -1,3 +1,4 @@
+import { acceptedVariantId } from "./accepted-variant.js";
 import {
   formatReferenceAddress,
   getStage,
@@ -162,7 +163,7 @@ function hasFreshPending(
   // An accepted asset is settled: its remaining unpicked variants are alternatives,
   // not pending review. Mirror the "Needs review" section (readyCount > 0 && !hasAccepted)
   // so Next steps never nags to re-review a fully-accepted stage.
-  if (variants.some((v: VariantState) => v.status === "accepted")) return false;
+  if (acceptedVariantId(state, address) !== null) return false;
   return variants.some(
     (v: VariantState) =>
       v.status === "none" &&

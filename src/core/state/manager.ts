@@ -5,6 +5,7 @@ import {
   renderAssetsGitignore,
   syncAssetsGitignore,
 } from "../assets-gitignore.js";
+import { acceptedVariantId } from "../accepted-variant.js";
 import { isStageScope } from "../address.js";
 import { writeFileAtomic } from "../atomic-write.js";
 import { KonteError, errorMessage } from "../errors.js";
@@ -352,14 +353,7 @@ export class StateManager {
   }
 
   getAcceptedVariant(address: string): string | null {
-    const target = this.state.assets[address];
-    if (!target?.variants) return null;
-    for (const [variantId, v] of Object.entries(target.variants)) {
-      if (v.status === "accepted") {
-        return variantId;
-      }
-    }
-    return null;
+    return acceptedVariantId(this.state, address);
   }
 
   // The human's per-part sign-off on the direction (or null if nothing was ever accepted).

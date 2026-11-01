@@ -1,3 +1,4 @@
+import { acceptedVariant } from "./accepted-variant.js";
 import { type AssetStage, type DefinitionLike, getAssetEntry, listAssetPaths } from "./address.js";
 import { computeDefinitionHash } from "./definition-hash.js";
 import { type DependencyGraph, listUnusedAssetPaths } from "./graph.js";
@@ -39,8 +40,8 @@ export function assetSkipReason(
   // a deadlock: the skip is what would have repaired it.
   const cache = manager.stalenessCache();
 
-  const accepted = variants.find((v) => v.status === "accepted" && v.file);
-  if (accepted) {
+  const accepted = acceptedVariant(state, address)?.variant;
+  if (accepted?.file) {
     const staleness = computeVariantStaleness(
       state,
       address,

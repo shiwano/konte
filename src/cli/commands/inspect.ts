@@ -23,6 +23,7 @@ import {
   validateAddress,
   assetNameOf,
 } from "../../core/address.js";
+import { acceptedVariant, acceptedVariantId } from "../../core/accepted-variant.js";
 import { assertNever } from "../../core/assert.js";
 import { definitionHashForAddress } from "../../core/composition-resource.js";
 import { shotById } from "../../core/shot-index.js";
@@ -259,11 +260,6 @@ async function loadManager(videoRoot: string): Promise<StateManager | null> {
   }
 }
 
-function getAcceptedVariant(assetState: AssetState | null): string | null {
-  if (!assetState?.variants) return null;
-  return Object.entries(assetState.variants).find(([, v]) => v.status === "accepted")?.[0] ?? null;
-}
-
 function assetDefHash(assetDef: AssetDefinition): string | null {
   return assetDef.kind === "file" ? null : computeDefinitionHash(assetDef);
 }
@@ -279,26 +275,30 @@ function formatStaleLine(
   if (!stale) return "-";
   const cause = formatStaleCause(stale);
   const verdict = cause ? `yes — ${stale.variantId} (${cause})` : `no — ${stale.variantId}`;
-  const accepted = Object.entries(state.assets[address]?.variants ?? {}).find(
-    ([, v]) => v.status === "accepted",
-  );
-  if (!accepted || accepted[0] === stale.variantId) return verdict;
+  const accepted = acceptedVariant(state, address);
+  if (!accepted || accepted.variantId === stale.variantId) return verdict;
   const acceptedCause = formatStaleCause(
-    computeVariantStaleness(state, address, accepted[1], currentDefinitionHash, patchHashes, cache),
+    computeVariantStaleness(
+      state,
+      address,
+      accepted.variant,
+      currentDefinitionHash,
+      patchHashes,
+      cache,
+    ),
   );
-  return `${verdict}; resolves in place of the accepted ${accepted[0]} (${acceptedCause})`;
+  return `${verdict}; resolves in place of the accepted ${accepted.variantId} (${acceptedCause})`;
 }
 
 function formatAssetSummary(
   address: string,
   kind: string,
-  assetState: AssetState | null,
   state: KonteState | null,
   defHash: string | null,
   feedback: readonly FeedbackView[],
   cache?: StalenessCache,
 ): string {
-  const accepted = getAcceptedVariant(assetState);
+  const accepted = state ? acceptedVariantId(state, address) : null;
   const status = accepted ? `accepted: ${accepted}` : "-";
   const staleVariants = state
     ? collectStaleVariants(state, address, defHash, undefined, cache)
@@ -353,7 +353,7 @@ async function inspectComposition(videoRoot: string, address: string): Promise<v
   console.log("Dependents: none");
 
   if (variantEntries.length > 0) {
-    console.log(`Accepted: ${getAcceptedVariant(assetState) ?? "-"}`);
+    console.log(`Accepted: ${(state && acceptedVariantId(state, address)) ?? "-"}`);
     const staleLine = state
       ? formatStaleLine(state, address, stale, defHash, undefined, cache)
       : "-";
@@ -479,18 +479,8 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
   }
 
   if (assetState) {
-    const acceptedEntries: Array<string> = [];
-    for (const [vid, v] of Object.entries(assetState.variants ?? {})) {
-      if (v.status === "accepted") {
-        acceptedEntries.push(vid);
-      }
-    }
-    if (acceptedEntries.length > 0) {
-      console.log(`Accepted: ${acceptedEntries.join(", ")}`);
-    } else {
-      console.log("Accepted: -");
-    }
     const state = manager!.getState();
+    console.log(`Accepted: ${acceptedVariantId(state, address) ?? "-"}`);
     const stale = resolvedStaleness(state, address, currentDefHash, patchHashes, cache);
     console.log(
       `Stale: ${formatStaleLine(state, address, stale, currentDefHash, patchHashes, cache)}`,
@@ -821,8 +811,7 @@ async function inspectShot(videoRoot: string, stage: ShotStage, shotId: string):
 
   const assetEntries = Object.entries(shot.assets).map(([assetName, assetDef]) => {
     const address = formatAddress(stage, shotId, assetName);
-    const assetState = manager ? tryGetAssetState(manager, address) : null;
-    return { assetName, address, assetDef, assetState };
+    return { assetName, address, assetDef };
   });
 
   // The shot's no-job leaves (its composition, its audio stem) are reviewable targets alongside its
@@ -843,11 +832,11 @@ async function inspectShot(videoRoot: string, stage: ShotStage, shotId: string):
     console.log("Assets:");
     for (const entry of assetEntries) {
       console.log(
-        `  ${formatAssetSummary(entry.address, entry.assetDef.kind, entry.assetState, state, assetDefHash(entry.assetDef), readFeedback(entry.address))}`,
+        `  ${formatAssetSummary(entry.address, entry.assetDef.kind, state, assetDefHash(entry.assetDef), readFeedback(entry.address))}`,
       );
     }
     for (const leaf of leaves) {
-      console.log(`  ${formatLeafSummary(leaf, manager, state, readFeedback)}`);
+      console.log(`  ${formatLeafSummary(leaf, state, readFeedback)}`);
     }
   }
 
@@ -856,16 +845,13 @@ async function inspectShot(videoRoot: string, stage: ShotStage, shotId: string):
 
 function formatLeafSummary(
   leaf: LeafEntry,
-  manager: StateManager | null,
   state: KonteState | null,
   readFeedback: FeedbackReader,
   cache?: StalenessCache,
 ): string {
-  const leafState = manager ? tryGetAssetState(manager, leaf.address) : null;
   return formatAssetSummary(
     leaf.address,
     leaf.kind,
-    leafState,
     state,
     leaf.defHash,
     readFeedback(leaf.address),
@@ -891,13 +877,12 @@ function printShotBlock(
   );
   for (const [assetName, assetDef] of Object.entries(shot.assets)) {
     const address = formatAddress(stage, shot.id, assetName);
-    const assetState = manager ? tryGetAssetState(manager, address) : null;
     console.log(
-      `${indent}  ${formatAssetSummary(address, assetDef.kind, assetState, state, assetDefHash(assetDef), readFeedback(address), cache)}`,
+      `${indent}  ${formatAssetSummary(address, assetDef.kind, state, assetDefHash(assetDef), readFeedback(address), cache)}`,
     );
   }
   for (const leaf of shotLeafEntries(definition, stage, shot)) {
-    console.log(`${indent}  ${formatLeafSummary(leaf, manager, state, readFeedback, cache)}`);
+    console.log(`${indent}  ${formatLeafSummary(leaf, state, readFeedback, cache)}`);
   }
 }
 
@@ -922,13 +907,12 @@ function printTimelineBlock(
   console.log(`${indent}${heading}:`);
   for (const [assetName, assetDef] of Object.entries(definition.topLevelAssets ?? {})) {
     const address = poolAssetAddress(stage, assetName);
-    const assetState = manager ? tryGetAssetState(manager, address) : null;
     console.log(
-      `${indent}  ${formatAssetSummary(address, assetDef.kind, assetState, state, assetDefHash(assetDef), readFeedback(address), cache)}`,
+      `${indent}  ${formatAssetSummary(address, assetDef.kind, state, assetDefHash(assetDef), readFeedback(address), cache)}`,
     );
   }
   for (const leaf of timelineLeafEntries(definition, stage)) {
-    console.log(`${indent}  ${formatLeafSummary(leaf, manager, state, readFeedback, cache)}`);
+    console.log(`${indent}  ${formatLeafSummary(leaf, state, readFeedback, cache)}`);
   }
 }
 

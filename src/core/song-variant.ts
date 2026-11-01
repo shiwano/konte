@@ -1,3 +1,4 @@
+import { acceptedVariant } from "./accepted-variant.js";
 import { formatReferenceAddress } from "./address.js";
 import { KonteError } from "./errors.js";
 import type { Direction } from "./dsl/direction.js";
@@ -18,13 +19,17 @@ export function songAddressOf(direction: Direction | null | undefined): string |
   return song === undefined ? null : formatReferenceAddress(song);
 }
 
-// The take a song address resolves to by its state alone, read or not on disk.
-function songVariantIdOf(state: KonteState, address: string): string | null {
-  const variants = Object.entries(state.assets[address]?.variants ?? {});
-  const accepted = variants.find(([, v]) => v.status === "accepted");
-  if (accepted) return accepted[1].song ? accepted[0] : null;
-  const [newest] = variants
-    .filter(([, v]) => v.song && v.file && v.status !== "dismissed")
+// The take of the song a piece is cut against: the accepted one, else the newest with a file nobody
+// dismissed. `analyzed` holds both to a take with a song record, read or not on disk.
+export function currentSongVariant(
+  state: KonteState,
+  address: string,
+  { analyzed = false }: { analyzed?: boolean } = {},
+): string | null {
+  const accepted = acceptedVariant(state, address);
+  if (accepted) return !analyzed || accepted.variant.song ? accepted.variantId : null;
+  const [newest] = Object.entries(state.assets[address]?.variants ?? {})
+    .filter(([, v]) => (!analyzed || v.song) && v.file && v.status !== "dismissed")
     .sort(([, a], [, b]) => (a.createdAt < b.createdAt ? 1 : -1));
   return newest?.[0] ?? null;
 }
@@ -34,7 +39,7 @@ export function resolveSongVariant(
   state: KonteState,
   address: string,
 ): SongVariant | null {
-  const variantId = songVariantIdOf(state, address);
+  const variantId = currentSongVariant(state, address, { analyzed: true });
   if (!variantId) return null;
   const record = state.assets[address]?.variants?.[variantId]?.song;
   const analysis = songAnalysisOf(videoRoot, address, variantId, record);
@@ -73,25 +78,13 @@ export function setSongFirstBeat(
 export function songReadingsOf(videoRoot: string, state: KonteState): string {
   const readings: string[] = [];
   for (const [address, asset] of Object.entries(state.assets)) {
-    const variantId = songVariantIdOf(state, address);
+    const variantId = currentSongVariant(state, address, { analyzed: true });
     const record = variantId ? asset.variants?.[variantId]?.song : undefined;
     if (record && readSongReading(videoRoot, address, variantId!, record)) {
       readings.push(`${address}|${variantId}|${stableStringify(record)}`);
     }
   }
   return readings.sort().join("\n");
-}
-
-// The take of the song a piece is cut against, read or not: the accepted one, else the newest with a
-// file nobody dismissed.
-export function currentSongVariant(state: KonteState, address: string): string | null {
-  const variants = Object.entries(state.assets[address]?.variants ?? {});
-  const accepted = variants.find(([, v]) => v.status === "accepted");
-  if (accepted) return accepted[0];
-  const [newest] = variants
-    .filter(([, v]) => v.file && v.status !== "dismissed")
-    .sort(([, a], [, b]) => (a.createdAt < b.createdAt ? 1 : -1));
-  return newest?.[0] ?? null;
 }
 
 // A take's record with lyric line `key` placed on it by a person, or no longer placed by one

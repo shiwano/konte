@@ -1,3 +1,4 @@
+import { acceptedVariantId } from "./accepted-variant.js";
 import {
   type ShotStage,
   formatReferenceAssetPath,
@@ -1140,10 +1141,8 @@ export function animaticSetupState(
     unviewedPlateIds: gaps.unviewedPlates,
     unviewedBy: gaps.unviewedShots,
     unanchoredViews: reference ? listViewAnchorGaps(reference) : [],
-    acceptedPlateIds: plateIds.filter((id) =>
-      Object.values(state?.assets[formatPlateAssetPath(id)]?.variants ?? {}).some(
-        (variant) => variant.status === "accepted",
-      ),
+    acceptedPlateIds: plateIds.filter(
+      (id) => state != null && acceptedVariantId(state, formatPlateAssetPath(id)) !== null,
     ),
   };
 }

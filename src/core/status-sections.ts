@@ -1,3 +1,4 @@
+import { acceptedVariantId } from "./accepted-variant.js";
 import {
   type Stage,
   formatAssetPathSuffix,
@@ -340,7 +341,8 @@ export function buildAddressInfo(
   const target = state.assets[address];
   const variants = Object.entries(target?.variants ?? {});
 
-  const hasAccepted = variants.some(([, v]) => v.status === "accepted");
+  const acceptedId = acceptedVariantId(state, address);
+  const hasAccepted = acceptedId !== null;
   const hasOutputFile = variants.some(([, v]) => !!v.file);
   const undecidedVariantId = undecidedVariantBesideAccepted(
     state,
@@ -387,26 +389,23 @@ export function buildAddressInfo(
   // not "is this alternative better?". It clears the same three ways any rival does: accept it,
   // dismiss it (by accepting the original beside it), or `konte patch remove`.
   const patchedAwaitingReviewVariantId =
-    variants
-      .filter(([, v]) => v.status === "accepted")
-      .flatMap(([variantId]) => collectDescendants(state, address, variantId))
-      .find((id) => {
-        const child = target?.variants?.[id];
-        if (child?.file == null || child.status !== "none") return false;
-        if (!isReviewLeaf(state, address, id) || deadVariantIds.has(id)) return false;
-        if (
-          !isVariantStale(state, address, child, currentDefinitionHash, patchHashes, stalenessCache)
-        ) {
-          return true;
-        }
-        // A stale correction is not review work: an accept beside it cannot dismiss it
-        // (`readyUndecidedVariants` skips a stale take), so the item would stand whatever the reviewer
-        // decided. Its live script owns it under "Pending patches" — with no script left there is
-        // no other owner, so it stays here, routed to `prune`.
-        return (
-          patchHashes != null && child.derivedFrom != null && !patchHashes.has(child.derivedFrom)
-        );
-      }) ?? null;
+    (acceptedId ? collectDescendants(state, address, acceptedId) : []).find((id) => {
+      const child = target?.variants?.[id];
+      if (child?.file == null || child.status !== "none") return false;
+      if (!isReviewLeaf(state, address, id) || deadVariantIds.has(id)) return false;
+      if (
+        !isVariantStale(state, address, child, currentDefinitionHash, patchHashes, stalenessCache)
+      ) {
+        return true;
+      }
+      // A stale correction is not review work: an accept beside it cannot dismiss it
+      // (`readyUndecidedVariants` skips a stale take), so the item would stand whatever the reviewer
+      // decided. Its live script owns it under "Pending patches" — with no script left there is
+      // no other owner, so it stays here, routed to `prune`.
+      return (
+        patchHashes != null && child.derivedFrom != null && !patchHashes.has(child.derivedFrom)
+      );
+    }) ?? null;
   const patchedAwaitingReviewSource =
     patchedAwaitingReviewVariantId != null
       ? (target?.variants?.[patchedAwaitingReviewVariantId]?.derivedFrom ?? null)
