@@ -29,6 +29,8 @@ const { exitCode } = Bun.spawnSync(
     "build",
     "src/cli/index.ts",
     "--compile",
+    // Each dynamic import becomes a chunk that only a process reaching it loads.
+    "--splitting",
     // The entry re-execs itself and has to rebuild its own argv, which differs between a standalone
     // binary and `bun run`. Bun's virtual bundle root is spelled per platform, so the answer comes
     // from here rather than from sniffing that path.
