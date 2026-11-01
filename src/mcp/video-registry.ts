@@ -1,12 +1,11 @@
 import { type FSWatcher, watch } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { applyCredentials } from "../core/credentials.js";
 import { closeJobDatabase } from "../core/job-manager.js";
 import { listVideos, VIDEOS_DIR } from "../core/roots.js";
 import type { McpLog } from "./mcp-log.js";
-import { JobWatcher, type StaleDefinitionsInfo } from "./job-watcher.js";
+import { type JobNotifier, JobWatcher, type StaleDefinitionsInfo } from "./job-watcher.js";
 
 // fs.watch misses events under WSL2 (and on some network filesystems), so every watcher in konte
 // pairs it with a slow reconcile poll. Same discipline here: the poll is what makes the daemon
@@ -19,9 +18,10 @@ const RECONCILE_INTERVAL_MS = 5_000;
  * watched without restarting the daemon.
  */
 export class VideoRegistry {
-  private readonly server: McpServer;
   private readonly workspaceRoot: string;
+  private readonly notify: JobNotifier;
   private readonly onStaleDefinitions: (video: string, info: StaleDefinitionsInfo) => void;
+  private readonly onVideos: (videos: string[]) => void;
   private readonly reconcileIntervalMs: number;
   private readonly log: McpLog | undefined;
   private readonly watchers = new Map<string, JobWatcher>();
@@ -34,17 +34,19 @@ export class VideoRegistry {
   private stopPromise: Promise<void> | undefined;
 
   constructor(
-    server: McpServer,
     workspaceRoot: string,
     hooks: {
+      notify?: JobNotifier;
       onStaleDefinitions?: (video: string, info: StaleDefinitionsInfo) => void;
+      onVideos?: (videos: string[]) => void;
       reconcileIntervalMs?: number;
       log?: McpLog;
     } = {},
   ) {
-    this.server = server;
     this.workspaceRoot = workspaceRoot;
+    this.notify = hooks.notify ?? (() => {});
     this.onStaleDefinitions = hooks.onStaleDefinitions ?? (() => {});
+    this.onVideos = hooks.onVideos ?? (() => {});
     this.reconcileIntervalMs = hooks.reconcileIntervalMs ?? RECONCILE_INTERVAL_MS;
     this.log = hooks.log;
   }
@@ -134,6 +136,7 @@ export class VideoRegistry {
         if (present.has(name)) continue;
         void this.retire(watcher);
         this.watchers.delete(name);
+        this.onVideos(this.videos());
         this.log?.write("info", { video: name, event: "video_unwatched" });
       }
 
@@ -144,11 +147,12 @@ export class VideoRegistry {
           workspace: this.workspaceRoot,
           video: path.join(this.workspaceRoot, VIDEOS_DIR, name),
         };
-        const jobs = new JobWatcher(this.server, roots, name, {
+        const jobs = new JobWatcher(this.notify, roots, name, {
           onStaleDefinitions: (info) => this.onStaleDefinitions(name, info),
           log: this.log,
         });
         this.watchers.set(name, jobs);
+        this.onVideos(this.videos());
         this.log?.write("info", { video: name, event: "video_watched" });
         await jobs.start();
         if (this.stopped) jobs.stop();

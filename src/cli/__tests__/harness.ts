@@ -28,8 +28,7 @@ class ExitSignal extends Error {
 
 // The daemon a `job wait` starts runs in this process, where a test's backend stubs reach it.
 jobRunnerHooks.start = (workspaceRoot) => {
-  const server = { server: { sendLoggingMessage: async () => {} } };
-  const registry = new VideoRegistry(server as never, workspaceRoot);
+  const registry = new VideoRegistry(workspaceRoot);
   const started = registry.start().catch(() => {});
   let exit: (code: number) => void = () => {};
   const exited = new Promise<number>((resolve) => (exit = resolve));

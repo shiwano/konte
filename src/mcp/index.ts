@@ -1,6 +1,9 @@
+import { type ChildProcess, spawn } from "node:child_process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import pkg from "../../package.json" with { type: "json" };
+import { resolveTranspilerCachePath, TRANSPILER_CACHE_ENV } from "../cli/transpiler-cache.js";
+import { environmentWithoutCredentials } from "../core/credentials.js";
 import {
   claimDaemon,
   DAEMON_INSTANCE_ID,
@@ -9,13 +12,15 @@ import {
   heartbeatDaemon,
   unregisterDaemonSync,
 } from "../core/daemon-registry.js";
-import { RESTART_EXIT_CODE } from "../core/process-restart.js";
-import { drainSubmissions } from "../core/submission-drain.js";
+import { selfCommand } from "../core/self-command.js";
 import { McpLog } from "./mcp-log.js";
-import type { VideoRegistry } from "./video-registry.js";
+import {
+  WORKER_INSTANCE_ENV,
+  WORKER_RESTART_EXIT_CODE,
+  WORKER_STOP_GRACE_MS,
+  type WorkerMessage,
+} from "./worker-protocol.js";
 
-// How long a stopping daemon waits for a submit already sent to commit its backend job id.
-export const SUBMIT_DRAIN_MS = 60_000;
 const WORKER_CHECK_MS = 5_000;
 const IDENTITY_CHECK_MS = 60_000;
 
@@ -32,9 +37,14 @@ function stopProcessGroup(): void {
   }
 }
 
+/**
+ * The MCP server of one agent session. It never loads a definition: the elected one runs the
+ * workspace's jobs in a worker process (worker.ts) and starts a fresh worker whenever its
+ * definitions go stale.
+ */
 export async function startMcpServer(
   workspaceRoot: string,
-  opts: { attached?: boolean } = {},
+  opts: { attached?: boolean; workerCommand?: readonly string[] } = {},
 ): Promise<void> {
   const attached = opts.attached === true;
   const startedAt = new Date().toISOString();
@@ -54,35 +64,109 @@ export async function startMcpServer(
     ...(attached ? { attached } : {}),
   });
 
-  let registry: VideoRegistry | undefined;
   let worker: DaemonRecord | null = null;
+  let child: ChildProcess | null = null;
+  let childExited: Promise<void> = Promise.resolve();
+  let videos: string[] = [];
   let checkingWorker = false;
   let workerTimer: ReturnType<typeof setInterval> | undefined;
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   let stopping = false;
-  let restarting = false;
   let nextIdentityCheck = 0;
 
-  const restart = (data: { event: string; [key: string]: unknown }): void => {
-    if (stopping || restarting) return;
-    restarting = true;
-    clearInterval(workerTimer);
-    void registry?.stop();
-    log.write("info", data);
-    server.server
-      .sendLoggingMessage({ level: "info", logger: "konte", data: { pid: process.pid, ...data } })
-      .catch(() => undefined)
-      .then(() => drainSubmissions(SUBMIT_DRAIN_MS))
-      .then(() => log.flush())
-      .finally(() => {
-        if (!stopping) process.exit(RESTART_EXIT_CODE);
+  const notify = ({ level, data }: Extract<WorkerMessage, { type: "log" }>): void => {
+    server.server.sendLoggingMessage({ level, logger: "konte", data }).catch(() => undefined);
+  };
+
+  const leading = (): boolean => worker?.instanceId === DAEMON_INSTANCE_ID;
+
+  const relinquish = (): void => {
+    worker = null;
+    videos = [];
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = undefined;
+  };
+
+  const spawnWorker = (): void => {
+    const workerArgs = ["--cwd", workspaceRoot, "mcp", "worker"];
+    const [cmd, ...args] = opts.workerCommand ?? selfCommand(workerArgs);
+    const proc = spawn(cmd!, args, {
+      cwd: workspaceRoot,
+      // Equal to what the worker's entry resolves: an entry that re-execs leaves the IPC channel
+      // behind.
+      env: {
+        ...environmentWithoutCredentials(),
+        [TRANSPILER_CACHE_ENV]: resolveTranspilerCachePath(workerArgs),
+        [WORKER_INSTANCE_ENV]: DAEMON_INSTANCE_ID,
+      },
+      stdio: ["ignore", "ignore", "inherit", "ipc"],
+      windowsHide: true,
+    });
+    child = proc;
+    proc.on("message", (message: WorkerMessage) => {
+      if (message.type !== "videos") notify(message);
+      // A worker that exited or no longer leads may still have one queued.
+      else if (child === proc && leading()) videos = message.videos;
+    });
+    childExited = new Promise((resolve) => {
+      let done = false;
+      const exited = (code: number): void => {
+        if (done) return;
+        done = true;
+        onWorkerExit(proc, code);
+        resolve();
+      };
+      proc.once("exit", (code, signal) => exited(code ?? (signal ? 1 : 0)));
+      // Also emitted for a failed signal or IPC send to a worker that lives on; only a worker
+      // that never started has no pid.
+      proc.on("error", (error) => {
+        log.write("error", { event: "worker_process_error", message: String(error) });
+        if (proc.pid === undefined) exited(1);
       });
+    });
+  };
+
+  const onWorkerExit = (proc: ChildProcess, code: number): void => {
+    if (child !== proc) return;
+    child = null;
+    videos = [];
+    if (stopping || !leading()) return;
+    if (code === WORKER_RESTART_EXIT_CODE) {
+      spawnWorker();
+      return;
+    }
+    log.write("error", { event: "worker_exited", code });
+    // An attached daemon exits with its worker; the `konte job wait` that started it counts each
+    // exit against MAX_STARTS.
+    if (attached) {
+      stop("worker-exited", code);
+      return;
+    }
+    relinquish();
+    unregisterDaemonSync(workspaceRoot);
+  };
+
+  // Settles once the worker has let its in-flight submits commit and exited.
+  const stopWorker = (): Promise<void> => {
+    const proc = child;
+    if (!proc) return Promise.resolve();
+    if (proc.connected) proc.disconnect();
+    else proc.kill("SIGTERM");
+    const timer = setTimeout(() => proc.kill("SIGKILL"), WORKER_STOP_GRACE_MS);
+    return childExited.finally(() => clearTimeout(timer));
+  };
+
+  const loseRegistration = (): void => {
+    if (stopping || !leading()) return;
+    const data = { event: "worker_registration_lost" };
+    log.write("info", data);
+    notify({ type: "log", level: "info", data: { pid: process.pid, ...data } });
+    relinquish();
+    void stopWorker();
   };
 
   const ensureWorker = async (): Promise<void> => {
-    if (stopping || restarting) return;
-    if (registry) return;
-    if (checkingWorker) return;
+    if (stopping || leading() || child || checkingWorker) return;
     checkingWorker = true;
     try {
       if (
@@ -93,9 +177,7 @@ export async function startMcpServer(
         return;
       const next = await claimDaemon(workspaceRoot);
       nextIdentityCheck = Date.now() + IDENTITY_CHECK_MS;
-      if (stopping) {
-        return;
-      }
+      if (stopping) return;
       if (next.instanceId !== worker?.instanceId) {
         worker = next;
         log.write("info", {
@@ -108,31 +190,19 @@ export async function startMcpServer(
       heartbeatTimer = setInterval(() => {
         void heartbeatDaemon(workspaceRoot)
           .then((owned) => {
-            if (!owned) restart({ event: "worker_registration_lost" });
+            if (!owned) loseRegistration();
           })
           .catch((error: unknown) => {
             log.write("error", { event: "worker_heartbeat_failed", message: String(error) });
           });
       }, WORKER_CHECK_MS);
-
-      const { VideoRegistry } = await import("./video-registry.js");
-      if (stopping) return;
-      registry = new VideoRegistry(server, workspaceRoot, {
-        log,
-        onStaleDefinitions: (video, info) => {
-          restart({ video, event: "stale_definitions_restart", ...info });
-        },
-      });
-      await registry.start();
-      if (stopping || restarting) void registry.stop();
+      spawnWorker();
     } catch (error) {
-      await registry?.stop();
-      registry = undefined;
-      worker = null;
-      if (!stopping && !restarting) {
-        clearInterval(heartbeatTimer);
+      if (leading() && !stopping) {
+        relinquish();
         unregisterDaemonSync(workspaceRoot);
       }
+      worker = null;
       throw error;
     } finally {
       checkingWorker = false;
@@ -155,35 +225,32 @@ export async function startMcpServer(
         startedAt,
         workerPid: alive ? current.pid : null,
         workerInstanceId: alive ? current.instanceId : null,
-        videos: registry?.videos() ?? [],
+        videos,
       };
       return { content: [{ type: "text", text: JSON.stringify(status) }] };
     },
   );
 
-  const cleanup = () => {
-    clearInterval(workerTimer);
-    void registry?.stop();
-  };
-  const stop = (reason: string): void => {
+  // Registration and heartbeat hold until the worker has exited.
+  const stop = (reason: string, exitCode = 0): void => {
     if (stopping) return;
     stopping = true;
-    cleanup();
-    void drainSubmissions(SUBMIT_DRAIN_MS)
+    clearInterval(workerTimer);
+    void stopWorker()
       .then(() => {
         log.write("info", { event: "daemon_stopped", signal: reason });
         return log.flush();
       })
       .finally(() => {
         if (attached) stopProcessGroup();
-        process.exit(0);
+        process.exit(exitCode);
       });
   };
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.on(signal, () => stop(signal));
   }
   process.on("exit", () => {
-    cleanup();
+    clearInterval(workerTimer);
     clearInterval(heartbeatTimer);
     unregisterDaemonSync(workspaceRoot);
   });

@@ -6,16 +6,6 @@ import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/work
 import { JobWatcher } from "../job-watcher.js";
 import { VideoRegistry } from "../video-registry.js";
 
-// The registry only needs the one call the job watcher makes on a real McpServer.
-function makeFakeServer(): { server: unknown } {
-  const server = {
-    server: {
-      sendLoggingMessage: (): void => {},
-    },
-  };
-  return { server };
-}
-
 // Nothing in the daemon's own surface reports the watcher set.
 function watched(registry: VideoRegistry): string[] {
   return [...(registry as unknown as { watchers: Map<string, unknown> }).watchers.keys()];
@@ -66,16 +56,14 @@ describe("VideoRegistry", () => {
       vi.spyOn(JobWatcher.prototype, "start").mockImplementation(async () => {
         observed = process.env.KONTE_TEST_CRED;
       });
-      const { server } = makeFakeServer();
-      registry = new VideoRegistry(server as never, ws.root);
+      registry = new VideoRegistry(ws.root);
       await registry.start();
       expect(observed).toBe(value);
     },
   );
 
   it("keeps every stop waiting for the same outstanding cleanup", async () => {
-    const { server } = makeFakeServer();
-    registry = new VideoRegistry(server as never, ws.root);
+    registry = new VideoRegistry(ws.root);
     await registry.start();
     const release = Promise.withResolvers<void>();
     vi.spyOn(watchers(registry)[0]!, "settled").mockReturnValue(release.promise);
@@ -94,16 +82,14 @@ describe("VideoRegistry", () => {
   });
 
   it("watches every video the workspace already has", async () => {
-    const { server } = makeFakeServer();
-    registry = new VideoRegistry(server as never, ws.root);
+    registry = new VideoRegistry(ws.root);
     await registry.start();
 
     expect(watched(registry)).toEqual(["opening"]);
   });
 
   it("picks up a video created while the daemon is running", async () => {
-    const { server } = makeFakeServer();
-    registry = new VideoRegistry(server as never, ws.root);
+    registry = new VideoRegistry(ws.root);
     await registry.start();
 
     const ending = path.join(ws.root, "videos", "ending");
@@ -116,8 +102,7 @@ describe("VideoRegistry", () => {
   });
 
   it("drops the watcher of a video that is removed", async () => {
-    const { server } = makeFakeServer();
-    registry = new VideoRegistry(server as never, ws.root);
+    registry = new VideoRegistry(ws.root);
     await registry.start();
 
     await fs.rm(path.join(ws.root, "videos", "opening"), { recursive: true, force: true });
@@ -130,9 +115,8 @@ describe("VideoRegistry", () => {
   // `konte settings` after it started has to reach the environment it submits from — and every
   // backend already built from the old one has to go.
   it("picks up a credential set after it started, and drops the backends built without it", async () => {
-    const { server } = makeFakeServer();
     // The 5s production poll outruns waitFor under a loaded suite.
-    registry = new VideoRegistry(server as never, ws.root, { reconcileIntervalMs: 50 });
+    registry = new VideoRegistry(ws.root, { reconcileIntervalMs: 50 });
     await registry.start();
 
     const watcher = watchers(registry)[0]!;
@@ -148,8 +132,7 @@ describe("VideoRegistry", () => {
   // map it was handed. Clearing in place would let that write — a backend built on the old key —
   // land back in the live cache and stay until the next rotation.
   it("leaves a submit already resolving a backend writing into a map nothing reads again", async () => {
-    const { server } = makeFakeServer();
-    registry = new VideoRegistry(server as never, ws.root);
+    registry = new VideoRegistry(ws.root);
     await registry.start();
 
     const watcher = watchers(registry)[0]!;

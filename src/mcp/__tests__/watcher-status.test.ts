@@ -6,13 +6,6 @@ import { JobWatcher } from "../job-watcher.js";
 import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/workspace.js";
 import type { VideoRoots } from "../../core/roots.js";
 
-function makeFakeServer(): { server: { server: unknown } } {
-  const inner = {
-    sendLoggingMessage() {},
-  };
-  return { server: { server: inner } };
-}
-
 // The daemon exposes nothing to call, so both counters are read off its internals.
 function watching(watcher: JobWatcher): string[] {
   return [...(watcher as unknown as { watchingVariants: Set<string> }).watchingVariants];
@@ -38,8 +31,7 @@ afterEach(async () => {
 
 describe("JobWatcher active job counting", () => {
   it("reports no activity for an empty project", async () => {
-    const fake = makeFakeServer();
-    const watcher = new JobWatcher(fake.server as never, roots, "v1");
+    const watcher = new JobWatcher(() => {}, roots, "v1");
 
     expect(await countActive(watcher)).toBe(0);
     expect(watching(watcher)).toEqual([]);
@@ -60,8 +52,7 @@ describe("JobWatcher active job counting", () => {
       backendKind: "fal",
     });
 
-    const fake = makeFakeServer();
-    const watcher = new JobWatcher(fake.server as never, roots, "v1");
+    const watcher = new JobWatcher(() => {}, roots, "v1");
 
     expect(await countActive(watcher)).toBe(2);
     expect(watching(watcher)).toEqual([]);
@@ -72,8 +63,7 @@ describe("watcher startup creates its watched directory", () => {
   // A freshly-init'd project has no .konte; the watcher must create it (and the jobs database)
   // on start so fs.watch can attach (otherwise watch() throws and the first jobs are missed).
   it("JobWatcher.start creates .konte/jobs.db", async () => {
-    const fake = makeFakeServer();
-    const watcher = new JobWatcher(fake.server as never, roots, "v1");
+    const watcher = new JobWatcher(() => {}, roots, "v1");
     await watcher.start();
     watcher.stop();
 
@@ -86,8 +76,7 @@ describe("JobWatcher poll reconcile", () => {
   // The safety-net poll calls scanForNewJobs; it must pick up a running job even when
   // fs.watch delivered no event for it (the WSL2 / late-attach failure mode).
   it("starts waiting on a running job that fs.watch did not deliver", async () => {
-    const fake = makeFakeServer();
-    const watcher = new JobWatcher(fake.server as never, roots, "v1");
+    const watcher = new JobWatcher(() => {}, roots, "v1");
     await watcher.start();
     expect(watching(watcher)).toEqual([]);
 
@@ -114,8 +103,7 @@ describe("JobWatcher fs.watch fast path", () => {
   // watch on .konte has to fire on that. The row is inserted through a separate connection so the
   // in-process one cannot be what wakes the watcher; the 5s reconcile poll is well outside the wait.
   it("rescans when another connection writes the database", async () => {
-    const fake = makeFakeServer();
-    const watcher = new JobWatcher(fake.server as never, roots, "v1");
+    const watcher = new JobWatcher(() => {}, roots, "v1");
     await watcher.start();
     const scans = vi.spyOn(
       watcher as unknown as { scanForNewJobs(): Promise<void> },

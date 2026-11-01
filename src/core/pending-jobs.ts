@@ -53,7 +53,7 @@ export interface SubmitReadyPendingJobsResult {
   failed: string[];
   // Jobs handed back to the queue by this process because its loaded definitions proved older
   // than the files on disk. The process must not judge again from the same definitions — a
-  // daemon restarts, a wait re-reads on its next pass.
+  // daemon's worker restarts, a wait re-reads on its next pass.
   released: StaleJudgeRelease[];
 }
 

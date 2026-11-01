@@ -20,4 +20,15 @@ export function registerMcpCommand(program: Command): void {
     // out of both the template sync and the type-check.
     { scope: "workspace", skipSync: true, skipTypeCheck: true },
   );
+
+  declareScope(
+    mcp
+      .command("worker", { hidden: true })
+      .description("Run the workspace's jobs for the `mcp serve` that spawned this process")
+      .action(async () => {
+        const { runMcpWorker } = await import("../../../mcp/worker.js");
+        await runMcpWorker(requireWorkspaceRoot());
+      }),
+    { scope: "workspace", skipSync: true, skipTypeCheck: true },
+  );
 }

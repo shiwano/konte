@@ -3,12 +3,12 @@ import { environmentWithoutCredentials } from "../core/credentials.js";
 import { liveDaemons } from "../core/daemon-registry.js";
 import { KonteError } from "../core/errors.js";
 import { selfCommand } from "../core/self-command.js";
-import { TRANSPILER_CACHE_ENV } from "./transpiler-cache.js";
+import { WORKER_STOP_GRACE_MS } from "../mcp/worker-protocol.js";
 
 // A daemon that dies this many times under one wait is not coming up.
 const MAX_STARTS = 3;
-// Past the daemon's own wait for in-flight submits (SUBMIT_DRAIN_MS).
-const STOP_GRACE_MS = 65_000;
+// Past the daemon's own wait for its worker.
+const STOP_GRACE_MS = WORKER_STOP_GRACE_MS + 5_000;
 const STDERR_TAIL_BYTES = 4_096;
 
 /** A daemon running for one `konte job wait`. */
@@ -27,9 +27,6 @@ export const jobRunnerHooks: { start: (workspaceRoot: string) => AttachedRunner 
 function spawnAttachedDaemon(workspaceRoot: string): AttachedRunner {
   const [cmd, ...args] = selfCommand(["mcp", "serve", "--attached"]);
   const env = environmentWithoutCredentials();
-  // Unset, the daemon's entry re-execs under its own supervisor, which restarts it on stale
-  // definitions.
-  delete env[TRANSPILER_CACHE_ENV];
   // Its own process group, which it ends on the way out, so nothing it started outlives it.
   const ownGroup = process.platform !== "win32";
   const child = spawn(cmd, args, {

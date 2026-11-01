@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import { expect, it } from "vitest";
 import { daemonProcessExists, liveDaemons } from "../../core/daemon-registry.js";
 import { makeWorkspace } from "../../core/__tests__/helpers/workspace.js";
-import { connection, daemonStatus } from "./server-fixtures.js";
+import { cliWorkerCommand, connection, daemonStatus } from "./server-fixtures.js";
 
 it("keeps a foreign namespace's matching pid on standby until its heartbeat expires", async () => {
   const ws = await makeWorkspace();
@@ -17,7 +17,9 @@ it("keeps a foreign namespace's matching pid on standby until its heartbeat expi
       instanceId: "foreign", namespace: "foreign-namespace", pid: process.pid,
       startToken: null, startedAt: new Date().toISOString(),
     }));
-    await startMcpServer(process.cwd());
+    await startMcpServer(process.cwd(), {
+      workerCommand: ${JSON.stringify(cliWorkerCommand(ws.root))},
+    });
   `,
   ]);
   try {

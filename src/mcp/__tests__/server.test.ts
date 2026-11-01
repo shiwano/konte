@@ -6,7 +6,7 @@ import pkg from "../../../package.json" with { type: "json" };
 import { daemonProcessExists, liveDaemons } from "../../core/daemon-registry.js";
 import { makeWorkspace } from "../../core/__tests__/helpers/workspace.js";
 import { mcpLogPath } from "../mcp-log.js";
-import { connection, daemonStatus } from "./server-fixtures.js";
+import { connection, daemonStatus, MODULES, scriptWorkerCommand } from "./server-fixtures.js";
 
 it.each([
   { attached: false, immediate: false },
@@ -84,39 +84,36 @@ it("initializes over stdio and reports its status", async () => {
   }
 });
 
-it("reports status and checks ownership while the initial scan is blocked", async () => {
+it("stops a worker whose initial scan is blocked once its registration is lost", async () => {
   const ws = await makeWorkspace();
-  const registryModule = new URL("../video-registry.ts", import.meta.url).href;
-  const serverModule = new URL("../index.ts", import.meta.url).href;
+  const worker = scriptWorkerCommand(`
+    import { VideoRegistry } from ${JSON.stringify(MODULES.registry)};
+    import { runMcpWorker } from ${JSON.stringify(MODULES.worker)};
+    VideoRegistry.prototype.start = async function () {
+      await Bun.write("scan-started", String(process.pid));
+      await new Promise(() => {});
+    };
+    await runMcpWorker(process.cwd());
+  `);
   const { client, transport } = connection(ws.root, [
     "-e",
     `
-    import { VideoRegistry } from ${JSON.stringify(registryModule)};
-    import { startMcpServer } from ${JSON.stringify(serverModule)};
-    VideoRegistry.prototype.start = async function () {
-      await Bun.write("scan-started", "");
-      await new Promise(() => {});
-    };
-    await startMcpServer(process.cwd());
+    import { startMcpServer } from ${JSON.stringify(MODULES.server)};
+    await startMcpServer(process.cwd(), { workerCommand: ${JSON.stringify(worker)} });
   `,
   ]);
   try {
     await client.connect(transport);
     await expect
-      .poll(() =>
-        fs.access(`${ws.root}/scan-started`).then(
-          () => true,
-          () => false,
-        ),
-      )
-      .toBe(true);
-    const result = await client.callTool({ name: "status" }, undefined, { timeout: 1_000 });
-    const [content] = result.content as { text: string }[];
-    const status = JSON.parse(content!.text);
+      .poll(() => fs.readFile(`${ws.root}/scan-started`, "utf-8").catch(() => ""))
+      .not.toBe("");
+    const workerPid = Number(await fs.readFile(`${ws.root}/scan-started`, "utf-8"));
+    const status = await daemonStatus(client);
     expect(status.workerPid).toBe(status.pid);
-    expect(await client.ping()).toEqual({});
     await fs.unlink(`${ws.root}/.konte/daemons/${status.instanceId}.json`);
-    await expect.poll(() => daemonProcessExists(status.pid), { timeout: 10_000 }).toBe(false);
+    await expect.poll(() => daemonProcessExists(workerPid), { timeout: 10_000 }).toBe(false);
+    expect(daemonProcessExists(status.pid)).toBe(true);
+    expect(await client.ping()).toEqual({});
     expect(await fs.readFile(mcpLogPath(ws.root), "utf-8")).toContain(
       '"event":"worker_registration_lost"',
     );

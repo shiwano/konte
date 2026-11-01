@@ -64,6 +64,8 @@ export type KonteErrorCode =
   | "COMFY_API_DEPLOYMENT_NOT_READY"
   // The daemon a `konte job wait` started to run the jobs kept exiting.
   | "JOB_RUNNER_EXITED"
+  // `konte mcp worker` run without the `konte mcp serve` that spawns it.
+  | "MCP_WORKER_UNSUPERVISED"
   // Comfy Cloud's node or model index could not be read, so whether an adapter runs there is
   // unknown.
   | "COMFY_CLOUD_UNAVAILABLE"

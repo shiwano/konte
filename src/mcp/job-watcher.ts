@@ -1,7 +1,6 @@
 import * as crypto from "node:crypto";
 import * as path from "node:path";
 import { watch, type FSWatcher } from "node:fs";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { GenerationBackend } from "../core/backend.js";
 import {
   JOBS_DB_FILE,
@@ -42,14 +41,16 @@ import type { McpLog, McpLogLevel } from "./mcp-log.js";
 // timer and is correct even when the database only appears later.
 const POLL_INTERVAL_MS = 5000;
 
+export type JobNotifier = (level: McpLogLevel, data: object) => void;
+
 // What a judge in this process found when it stepped aside: the job it handed back and, for a
-// generation job, the two hashes that disagreed. The daemon's answer is to restart (mcp/index.ts).
+// generation job, the two hashes that disagreed. The worker's answer is to restart (mcp/worker.ts).
 export type StaleDefinitionsInfo =
   | ({ kind: "generation" } & StaleJudgeRelease)
   | { kind: "export"; jobId: string };
 
 export class JobWatcher {
-  private readonly server: McpServer;
+  private readonly notify: JobNotifier;
   private readonly roots: VideoRoots;
   readonly videoRoot: string;
   private readonly videoName: string;
@@ -82,12 +83,12 @@ export class JobWatcher {
   private readonly log: McpLog | undefined;
 
   constructor(
-    server: McpServer,
+    notify: JobNotifier,
     roots: VideoRoots,
     videoName: string,
     hooks: { onStaleDefinitions?: (info: StaleDefinitionsInfo) => void; log?: McpLog } = {},
   ) {
-    this.server = server;
+    this.notify = notify;
     this.roots = roots;
     this.videoRoot = roots.video;
     this.videoName = videoName;
@@ -579,7 +580,7 @@ export class JobWatcher {
     // generate` reserving a pending job's definitionHash and this daemon submitting it). A plain
     // import() caches the module forever, so every read is a cache-busted reload. A read that
     // still comes back older than the files is caught by the fingerprint a job carries, and the
-    // daemon restarts rather than judge or render from it (onStaleDefinitions).
+    // worker restarts rather than judge or render from it (onStaleDefinitions).
     return reloadLoadedDefinitions(this.videoRoot);
   }
 
@@ -834,14 +835,6 @@ export class JobWatcher {
   // One process serves every video in the workspace, so each log line names the video it came from.
   private sendLog(level: McpLogLevel, data: object): void {
     this.log?.write(level, { video: this.videoName, ...data });
-    try {
-      this.server.server.sendLoggingMessage({
-        level,
-        logger: "konte",
-        data: { video: this.videoName, ...data },
-      });
-    } catch {
-      // notification sending is best-effort
-    }
+    this.notify(level, { video: this.videoName, ...data });
   }
 }
