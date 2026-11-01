@@ -173,12 +173,13 @@ describe("detectAudioOnset", () => {
 });
 
 describe("findMixSilences", () => {
-  const layer = (start: number, rms: number[] | null, loop = false) => ({
+  const layer = (start: number, rms: number[] | null, loop = false, take = false) => ({
     start,
     duration: rms ? rms.length / RATE : 5,
     rms,
     rate: RATE,
     loop,
+    take,
   });
 
   it("finds nothing where a bed covers a silent clip", () => {
@@ -189,6 +190,26 @@ describe("findMixSilences", () => {
   it("reports a stretch no layer sounds in", () => {
     const layers = [layer(0, envelope(4, 0, 4)), layer(4, envelope(6, 2, 6))];
     expect(findMixSilences(layers, 10, RATE)).toEqual([{ start: 4, end: 6 }]);
+  });
+
+  it("leaves a stretch no layer is placed over alone", () => {
+    const layers = [layer(0, envelope(2, 0, 2)), layer(5, envelope(5, 0, 5))];
+    expect(findMixSilences(layers, 10, RATE)).toEqual([]);
+  });
+
+  it("reports only the placed part of a silence running into an unplaced stretch", () => {
+    const layers = [layer(0, envelope(5, 0, 1))];
+    expect(findMixSilences(layers, 10, RATE)).toEqual([{ start: 1, end: 5 }]);
+  });
+
+  it("leaves a take's own silence alone", () => {
+    const layers = [layer(0, envelope(5, 0, 1), false, true)];
+    expect(findMixSilences(layers, 5, RATE)).toEqual([]);
+  });
+
+  it("reports a silent bed a take's audio does not sound over", () => {
+    const layers = [layer(0, envelope(5, 0, 1), false, true), layer(0, new Array(500).fill(0))];
+    expect(findMixSilences(layers, 5, RATE)).toEqual([{ start: 1, end: 5 }]);
   });
 
   it("leaves a gap shorter than an edge silence alone", () => {

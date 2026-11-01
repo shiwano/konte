@@ -562,11 +562,13 @@ export interface MixLayer {
   rms: number[] | null;
   rate: number;
   loop: boolean;
+  /** A take's own audio: audible where it sounds, never a silence — the take's accept heard it. */
+  take: boolean;
 }
 
-// Where nothing in the mix is audible, longer than MIN_EDGE_SILENCE: what a listener hears as dead
-// air. A layer is audible by its own floor, summarizeAudioSilence's. Fades, gain and ducking are
-// not applied. Pure — unit-tested.
+// Where a placed cue or bed plays but nothing in the mix is audible, longer than MIN_EDGE_SILENCE. A
+// stretch only a take's own audio covers, or nothing at all, is never reported. A layer is audible by its own floor,
+// summarizeAudioSilence's. Fades, gain and ducking are not applied. Pure — unit-tested.
 export function findMixSilences(
   layers: readonly MixLayer[],
   totalDuration: number,
@@ -574,10 +576,12 @@ export function findMixSilences(
 ): AudibleSpan[] {
   const n = Math.round(totalDuration * rate);
   if (n <= 0) return [];
+  const placed = new Array<boolean>(n).fill(false);
   const sounding = new Array<boolean>(n).fill(false);
   for (const layer of layers) {
     const lo = Math.max(0, Math.round(layer.start * rate));
     const hi = Math.min(n, Math.round((layer.start + layer.duration) * rate));
+    if (!layer.take) for (let j = lo; j < hi; j++) placed[j] = true;
     if (layer.rms == null) {
       for (let j = lo; j < hi; j++) sounding[j] = true;
       continue;
@@ -596,7 +600,7 @@ export function findMixSilences(
   const gaps: AudibleSpan[] = [];
   let gapStart = -1;
   for (let j = 0; j <= n; j++) {
-    if (j < n && !sounding[j]) {
+    if (j < n && placed[j] && !sounding[j]) {
       if (gapStart < 0) gapStart = j;
       continue;
     }
@@ -907,6 +911,7 @@ export async function inspectTimelineAudio(opts: {
           rms: played,
           rate: playedRate,
           loop: false,
+          take: raw.role === "embedded",
         });
       }
       for (const w of detectWindowCuts(
@@ -920,7 +925,14 @@ export async function inspectTimelineAudio(opts: {
         (w.informational ? notes : warnings).push(w.message);
       }
     } else if (duration != null && (raw.role !== "embedded" || !fileExists)) {
-      layers.push({ start, duration, rms: null, rate: PROFILE_RATE, loop: false });
+      layers.push({
+        start,
+        duration,
+        rms: null,
+        rate: PROFILE_RATE,
+        loop: false,
+        take: raw.role === "embedded",
+      });
     }
 
     const buckets = envelopeBuckets(duration ?? 0);
@@ -1032,7 +1044,7 @@ export async function inspectTimelineAudio(opts: {
           ? Math.round(mediaStart * sourceProfile.rate) % Math.max(1, played.length)
           : 0;
         const rms = k > 0 ? [...played.slice(k), ...played.slice(0, k)] : played;
-        layers.push({ start, duration, rms, rate: sourceProfile.rate, loop });
+        layers.push({ start, duration, rms, rate: sourceProfile.rate, loop, take: false });
       }
       for (const w of summarizeAudioSilence(played, sourceProfile.rate, null, "window")) {
         warnings.push(
@@ -1052,7 +1064,7 @@ export async function inspectTimelineAudio(opts: {
         }
       }
     } else {
-      layers.push({ start, duration, rms: null, rate: PROFILE_RATE, loop: false });
+      layers.push({ start, duration, rms: null, rate: PROFILE_RATE, loop: false, take: false });
     }
 
     const buckets = envelopeBuckets(duration);

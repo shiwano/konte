@@ -216,11 +216,15 @@ export default defineVideo(direction, {
     expect(stdout).toContain("⚠ mix silent 2–7s (5s): no track is audible there");
   });
 
-  it("notes the animatic's silent stretch instead of warning", async () => {
+  it("notes the animatic's silent line instead of warning", async () => {
     const { video: projectDir } = await initWorkspace(path.join(ctx.dir, "testproject"));
-    await fs.writeFile(path.join(projectDir, "reference.tsx"), AUDIO_REFERENCE_TS);
+    await fs.writeFile(path.join(projectDir, "assets", "files", "early.wav"), toneThenSilenceWav());
+    await fs.writeFile(
+      path.join(projectDir, "reference.tsx"),
+      AUDIO_REFERENCE_TS.replace("assets/files/bgm.mp3", "assets/files/early.wav"),
+    );
     await fs.writeFile(path.join(projectDir, "video.tsx"), AUDIO_VIDEO_TSX);
-    // The board's one line plays 0.5–2.3s; the rest of the 7s timeline is silent.
+    // The board's one line plays 0.5–2.3s from the source's silent 3s on; nothing is placed after it.
     await fs.writeFile(
       path.join(projectDir, "animatic.tsx"),
       `import { Audio, Composition, Panel, defineAnimatic } from "konte";
@@ -232,7 +236,7 @@ export default defineAnimatic(direction, {
     shots: shot("01", () => (
       <Composition>
         <Panel src={reference.character} />
-        <Audio src={reference.bgm} id="vo" start={0.5} duration={1.8} />
+        <Audio src={reference.bgm} id="vo" start={0.5} duration={1.8} mediaStart={3} />
       </Composition>
     )).nextShot("02", () => (
       <Composition>
@@ -250,7 +254,7 @@ export default defineAnimatic(direction, {
     const { stdout } = await run(["probe", "reel-audio", "animatic"], projectDir);
     const mix = stdout.split("\n").filter((line) => line.includes("mix silent"));
     expect(mix.map((line) => line.trim())).toEqual([
-      "mix silent 2.3–7s (4.7s): no track is audible there",
+      "mix silent 0.5–2.3s (1.8s): no track is audible there",
     ]);
   });
 

@@ -45,4 +45,4 @@ soundtracks: [
 
 ## Verify
 
-- `konte probe reel-audio video` — no ⚠ silence at the head or the tail; every SE inside its shot's window on the frame it names; beds entering and leaving on the moments chosen; the floor present under every shot.
+- `konte probe reel-audio video` — no ⚠ silence — it marks a cue or bed placed where nothing is heard, never a take's own audio or a stretch nothing is placed over; every SE inside its shot's window on the frame it names; beds entering and leaving on the moments chosen; the floor present under every shot but the silence cue.
