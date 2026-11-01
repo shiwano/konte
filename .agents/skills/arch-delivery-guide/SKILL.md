@@ -4,7 +4,7 @@ description: Read when touching export, upscaling or delivery resolution — ups
 user-invocable: false
 ---
 
-How a video's optional `export.delivery` turns the working graph into a higher-resolution export — export-time only, never part of generation or review.
+How a video's optional `export.delivery` turns the working graph into a higher-resolution export.
 
 ## Delivery declaration
 
