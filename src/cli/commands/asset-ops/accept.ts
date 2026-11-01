@@ -90,8 +90,9 @@ direction part; the two are accepted in separate runs.
 
 A take: a variant id, or an address — which lands on the take that address
 resolves to now (accepted, else the newest ready one), so name the id to sign off
-an older take. Accepting settles the address: every other take of it still awaiting a
-verdict is recorded as dismissed, so nothing asks about them again, and an address left
+an older take. An accept made under an older definition resolves instead to the one
+ready take beside it; with several, name its id. Accepting settles the address: every
+other take of it still awaiting a verdict is recorded as dismissed, so nothing asks about them again, and an address left
 holding only dismissed takes is generated afresh. Accepting also propagates: dependencies
 the variant consumed are
 accepted, downstream consumers that relied on the previous output become stale, and the
@@ -412,6 +413,22 @@ async function removeFreshLeaves(
   );
 }
 
+// An address naming a definition-stale accept means the take a reroll drew beside it.
+function replacementForStaleAccept(manager: StateManager, hit: TakeTarget): TakeTarget {
+  const variant = manager.getState().assets[hit.address]?.variants?.[hit.variantId];
+  if (variant?.status !== "accepted") return hit;
+  if (!manager.variantStaleness(hit.address, hit.variantId)?.definitionStale) return hit;
+  const rivals = manager.readyUndecidedTakes(hit.address);
+  if (rivals.length === 0) return hit;
+  if (rivals.length > 1) {
+    throw new KonteError(
+      "VARIANT_AMBIGUOUS",
+      `${hit.address}'s accept ${hit.variantId} predates its definition and ${rivals.length} takes stand beside it — pass a variant id instead. Candidates: ${rivals.join(", ")}`,
+    );
+  }
+  return { address: hit.address, variantId: rivals[0]! };
+}
+
 // Two names for one take (an id and the address showing it) are one target; two takes of one address
 // are a contradiction. Ordered dependencies first: a cascade never overwrites an accept, so a named
 // take lands before a downstream target's cascade could sign off the one that target consumed.
@@ -424,7 +441,8 @@ function resolveAcceptTargets(
 ): TakeTarget[] {
   const byAddress = new Map<string, TakeTarget>(materialized.map((hit) => [hit.address, hit]));
   for (const target of targets) {
-    const hit = resolveVariantArg(manager, target, definitions);
+    const named = resolveVariantArg(manager, target, definitions);
+    const hit = target.includes(":") ? replacementForStaleAccept(manager, named) : named;
     const seen = byAddress.get(hit.address);
     if (seen && seen.variantId !== hit.variantId) {
       throw new KonteError(

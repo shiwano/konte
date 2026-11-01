@@ -263,6 +263,53 @@ describe("accept command", () => {
     expect(after.getAssetState(address).variants![stale]!.status).toBe("none");
   });
 
+  it("accepts by address the take drawn beside a definition-stale accept", async () => {
+    const sm = await StateManager.load(projectDir);
+    sm.getAssetState(address).variants![variantId]!.definitionHash = "an-older-definition";
+    sm.setAccepted(address, variantId);
+    const rerolled = sm.reserveVariantId(address);
+    sm.getAssetState(address).variants![rerolled]!.file = "/tmp/motion2.mp4";
+    await sm.save();
+
+    const { stdout } = await run(["accept", address, "--yes"], projectDir);
+    expect(stdout).toContain(`Accepted: ${address} → ${rerolled}`);
+
+    const after = await StateManager.load(projectDir);
+    expect(after.getAcceptedVariant(address)).toBe(rerolled);
+    expect(after.getAssetState(address).variants![variantId]!.status).toBe("dismissed");
+  });
+
+  it("refuses an address whose definition-stale accept has several takes beside it", async () => {
+    const sm = await StateManager.load(projectDir);
+    sm.getAssetState(address).variants![variantId]!.definitionHash = "an-older-definition";
+    sm.setAccepted(address, variantId);
+    for (const file of ["/tmp/motion2.mp4", "/tmp/motion3.mp4"]) {
+      sm.getAssetState(address).variants![sm.reserveVariantId(address)]!.file = file;
+    }
+    await sm.save();
+
+    await expect(run(["accept", address, "--yes"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("VARIANT_AMBIGUOUS"),
+    });
+    const after = await StateManager.load(projectDir);
+    expect(after.getAcceptedVariant(address)).toBe(variantId);
+  });
+
+  it("re-accepts a definition-stale accept named by its variant id", async () => {
+    const sm = await StateManager.load(projectDir);
+    sm.getAssetState(address).variants![variantId]!.definitionHash = "an-older-definition";
+    sm.setAccepted(address, variantId);
+    const rerolled = sm.reserveVariantId(address);
+    sm.getAssetState(address).variants![rerolled]!.file = "/tmp/motion2.mp4";
+    await sm.save();
+
+    await run(["accept", variantId, "--yes"], projectDir);
+
+    const after = await StateManager.load(projectDir);
+    expect(after.getAcceptedVariant(address)).toBe(variantId);
+    expect(after.getAssetState(address).variants![rerolled]!.status).toBe("dismissed");
+  });
+
   it("fails for non-existent variant", async () => {
     await expect(run(["accept", "v999"], projectDir)).rejects.toThrow();
   });
