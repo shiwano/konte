@@ -60,16 +60,12 @@ describe("runComfyModelDownloadJob", () => {
     const { id } = await jobManager.ensureComfyModelDownloadJob(MODEL);
 
     const started: string[] = [];
-    const settled: string[] = [];
     const result = await runComfyModelDownloadJob(jobManager, roots, id, {
       onStarted: ({ label }) => started.push(label),
-      onSettled: ({ status }) => settled.push(status),
     });
 
     expect(result.status).toBe("completed");
-    expect(result.ranInstall).toBe(true);
     expect(started).toEqual([MODEL.filename]);
-    expect(settled).toEqual(["completed"]);
     expect((await jobManager.getJob(id)).status).toBe("completed");
   });
 
@@ -89,13 +85,9 @@ describe("runComfyModelDownloadJob", () => {
     installModelMock.mockResolvedValue({ kind: "timedOut" });
     const { id } = await jobManager.ensureComfyModelDownloadJob(MODEL);
 
-    const settled: string[] = [];
-    const result = await runComfyModelDownloadJob(jobManager, roots, id, {
-      onSettled: ({ status }) => settled.push(status),
-    });
+    const result = await runComfyModelDownloadJob(jobManager, roots, id);
 
     expect(result.status).toBe("running");
-    expect(settled).toEqual([]);
     const job = await jobManager.getJob(id);
     expect(job.status).toBe("running");
     expect(job.error).toBeNull();
@@ -105,13 +97,9 @@ describe("runComfyModelDownloadJob", () => {
     installModelMock.mockRejectedValue(new TransientHttpError("HTTP 503", { status: 503 }));
     const { id } = await jobManager.ensureComfyModelDownloadJob(MODEL);
 
-    const settled: string[] = [];
-    const result = await runComfyModelDownloadJob(jobManager, roots, id, {
-      onSettled: ({ status }) => settled.push(status),
-    });
+    const result = await runComfyModelDownloadJob(jobManager, roots, id);
 
     expect(result.status).toBe("running");
-    expect(settled).toEqual([]);
     const job = await jobManager.getJob(id);
     expect(job.status).toBe("running");
     expect(job.error).toBeNull();
@@ -145,13 +133,11 @@ describe("runComfyModelDownloadJob", () => {
     });
     const { id } = await jobManager.ensureComfyModelDownloadJob(MODEL);
 
-    const [a, b] = await Promise.all([
+    await Promise.all([
       runComfyModelDownloadJob(jobManager, roots, id),
       runComfyModelDownloadJob(jobManager, roots, id),
     ]);
 
-    const ranInstall = [a, b].filter((r) => r.ranInstall);
-    expect(ranInstall).toHaveLength(1);
     expect(installModelMock).toHaveBeenCalledTimes(1);
     expect((await jobManager.getJob(id)).status).toBe("completed");
   });

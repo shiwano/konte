@@ -10,14 +10,11 @@ import { runLeasedJob } from "./run-leased-job.js";
 
 type SongAnalysisHooks = {
   onStarted?: (info: { id: string; address: string }) => void;
-  onSettled?: (info: { id: string; status: "completed" | "failed"; error: string | null }) => void;
 };
 
 type RunSongAnalysisResult = {
   id: string;
   status: JobRecord["status"];
-  // True only when THIS caller claimed the job and read the take.
-  ranAnalysis: boolean;
 };
 
 // Read one take of the song under a run lease and record what it says on the variant. The record
@@ -34,24 +31,23 @@ export async function runSongAnalysisJob(
     throw new KonteError("VALIDATION_FAILED", `Job "${id}" is not a song analysis job`);
   }
   if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
-    return { id, status: job.status, ranAnalysis: false };
+    return { id, status: job.status };
   }
 
   return runLeasedJob<RunSongAnalysisResult>(jobManager, id, {
     onClaimFailed: async () => {
       const current = await jobManager.getJob(id).catch(() => null);
-      return { id, status: current?.status ?? "running", ranAnalysis: false };
+      return { id, status: current?.status ?? "running" };
     },
     work: async ({ workerId }) => {
       const settle = async (status: "completed" | "failed", error: string | null) => {
-        const committed = await jobManager.finishIfOwner(id, workerId, {
+        await jobManager.finishIfOwner(id, workerId, {
           status,
           error,
           progress: status === "completed" ? 100 : null,
           completedAt: new Date().toISOString(),
         });
-        if (committed) hooks.onSettled?.({ id, status, error });
-        return { id, status, ranAnalysis: true };
+        return { id, status };
       };
       try {
         hooks.onStarted?.({ id, address: job.address });
@@ -114,10 +110,9 @@ export async function runSongAnalysisJob(
         });
         if (!committed) {
           const current = await jobManager.getJob(id).catch(() => null);
-          return { id, status: current?.status ?? "running", ranAnalysis: true };
+          return { id, status: current?.status ?? "running" };
         }
-        hooks.onSettled?.({ id, status: "completed", error: null });
-        return { id, status: "completed", ranAnalysis: true };
+        return { id, status: "completed" };
       } catch (err) {
         const msg = errorMessage(err);
         jobManager.appendLog(id, `Song analysis failed: ${msg}`);

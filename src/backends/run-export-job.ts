@@ -13,25 +13,15 @@ import type { ExportJob, JobRecord, KonteState } from "../core/types/index.js";
 
 type ExportJobHooks = {
   onStarted?: (info: { id: string; outputDir: string }) => void;
-  onSettled?: (info: {
-    id: string;
-    status: "completed" | "failed";
-    outputFile: string | null;
-    error: string | null;
-  }) => void;
 };
 
 type RunExportJobResult = {
   id: string;
   status: JobRecord["status"];
   outputFile: string | null;
-  // True only when THIS caller claimed the job and performed the render.
-  ranRender: boolean;
   // True when this caller claimed the job and handed it back unrendered because its own loaded
   // definitions proved older than the files on disk (see decideExportRender).
   released?: boolean;
-  // Why a "pending" result is pending when the job itself is runnable — surfaced by `job wait`.
-  pendingReason?: string;
 };
 
 export type ExportRenderDecision = "render" | "release";
@@ -103,7 +93,7 @@ export function evaluateExportJob(
 // so it is never reclaimed; a crashed render's lease lapses and another worker reclaims it.
 // Each attempt renders into its own timestamped dir and only commits the result if it still
 // owns the lease — so a stalled-but-alive owner cannot collide with or clobber a reclaimer.
-// A not-yet-ready job returns status "pending" (ranRender: false); a later pass retries.
+// A not-yet-ready job returns status "pending"; a later pass retries.
 export async function runExportJob(
   jobManager: JobManager,
   videoRoot: string,
@@ -115,14 +105,14 @@ export async function runExportJob(
     throw new KonteError("VALIDATION_FAILED", `Job "${id}" is not an export job`);
   }
   if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
-    return { id, status: job.status, outputFile: job.outputFile, ranRender: false };
+    return { id, status: job.status, outputFile: job.outputFile };
   }
 
   const manager = await StateManager.load(videoRoot);
   const allJobs = await jobManager.listJobs();
   const evaluation = evaluateExportJob(job, manager.getState(), new JobIndex(allJobs));
   if (evaluation.action === "wait") {
-    return { id, status: "pending", outputFile: null, ranRender: false };
+    return { id, status: "pending", outputFile: null };
   }
   if (evaluation.action === "fail") {
     // Compare-and-set so a concurrent worker/cancel that already finished this job isn't
@@ -138,11 +128,9 @@ export async function runExportJob(
         id,
         status: current?.status ?? "failed",
         outputFile: current?.kind === "export" ? current.outputFile : null,
-        ranRender: false,
       };
     }
-    hooks.onSettled?.({ id, status: "failed", outputFile: null, error: evaluation.reason });
-    return { id, status: "failed", outputFile: null, ranRender: true };
+    return { id, status: "failed", outputFile: null };
   }
 
   return runLeasedJob<RunExportJobResult>(jobManager, id, {
@@ -153,7 +141,6 @@ export async function runExportJob(
         id,
         status: current?.status ?? "running",
         outputFile: current?.kind === "export" ? current.outputFile : null,
-        ranRender: false,
       };
     },
     work: async ({ workerId }) => {
@@ -181,10 +168,7 @@ export async function runExportJob(
             id,
             status: released ? "pending" : (current?.status ?? "running"),
             outputFile: null,
-            ranRender: false,
             released,
-            pendingReason:
-              "this process loaded a stale definition and stepped aside; a fresh process renders it",
           };
         }
         // Render into a fresh per-attempt dir under the job's base output dir, so a reclaimer
@@ -228,13 +212,11 @@ export async function runExportJob(
             id,
             status: current?.status ?? "running",
             outputFile: current?.kind === "export" ? current.outputFile : null,
-            ranRender: true,
           };
         }
         jobManager.appendLog(id, `Export rendered: ${outputFileRel}`);
         for (const w of result.warnings) jobManager.appendLog(id, `Warning: ${w}`);
-        hooks.onSettled?.({ id, status: "completed", outputFile: outputFileRel, error: null });
-        return { id, status: "completed", outputFile: outputFileRel, ranRender: true };
+        return { id, status: "completed", outputFile: outputFileRel };
       } catch (err) {
         const msg = errorMessage(err);
         const committed = await jobManager.finishIfOwner(id, workerId, {
@@ -244,9 +226,8 @@ export async function runExportJob(
         });
         if (committed) {
           jobManager.appendLog(id, `Export failed: ${msg}`);
-          hooks.onSettled?.({ id, status: "failed", outputFile: null, error: msg });
         }
-        return { id, status: "failed", outputFile: null, ranRender: true };
+        return { id, status: "failed", outputFile: null };
       }
     },
   });

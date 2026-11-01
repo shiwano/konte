@@ -13,12 +13,7 @@ import { prerequisiteVerdict } from "../core/job-index.js";
 import { type StaleJudgeRelease, submitReadyPendingJobs } from "../core/pending-jobs.js";
 import { applyResolutionDefinitions } from "../core/definition-hashes.js";
 import { loadStageDefinitions } from "../core/stage-definitions.js";
-import type {
-  BackendKind,
-  ComfyModelDownloadJob,
-  GenerationJob,
-  JobRecord,
-} from "../core/types/index.js";
+import type { BackendKind, GenerationJob, JobRecord } from "../core/types/index.js";
 import { resolveBackend } from "../backends/resolve-backend.js";
 import {
   runComfyModelDownloadJob,
@@ -51,6 +46,32 @@ export type StaleDefinitionsInfo =
   | ({ kind: "generation" } & StaleJudgeRelease)
   | { kind: "export"; jobId: string };
 
+type StandaloneKind = Exclude<JobRecord["kind"], "generation">;
+
+type JobCompletion = {
+  variantId: string;
+  kind: JobRecord["kind"];
+  status: string;
+  error: string | null;
+} & Record<string, unknown>;
+
+function completionOf(job: JobRecord): JobCompletion {
+  const base = { variantId: job.id, kind: job.kind, status: job.status, error: job.error };
+  switch (job.kind) {
+    case "generation":
+    case "song-analysis":
+      return { ...base, address: job.address };
+    case "comfy-model-download":
+      return { ...base, model: job.model.filename };
+    case "comfy-node-install":
+      return { ...base, node: job.node.id };
+    case "export":
+      return { ...base, outputFile: job.outputFile };
+    case "comfy-node-activate":
+      return base;
+  }
+}
+
 export class JobWatcher {
   private readonly notify: JobNotifier;
   private readonly roots: VideoRoots;
@@ -58,7 +79,9 @@ export class JobWatcher {
   private readonly videoName: string;
   private readonly jobManager: JobManager;
   private readonly workerId = `w-${crypto.randomBytes(8).toString("hex")}`;
-  private readonly watchingVariants = new Set<string>();
+  // Every job this watcher is driving — a generation job's wait or a standalone job's run — so a
+  // later scan never drives one twice.
+  private readonly running = new Map<string, Promise<void>>();
   private watcher: FSWatcher | null = null;
   private scanTimer: ReturnType<typeof setTimeout> | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -72,12 +95,6 @@ export class JobWatcher {
   // session (e.g. finished by a concurrent `konte job wait` before a waiter attached), so it still
   // fires. In-memory only; a fresh start re-seeds.
   private readonly startupTerminalIds = new Set<string>();
-  private readonly modelJobsInFlight = new Set<string>();
-  private readonly nodeInstallJobsInFlight = new Set<string>();
-  private readonly nodeActivateJobsInFlight = new Set<string>();
-  private readonly exportJobsInFlight = new Set<string>();
-  private readonly songJobsInFlight = new Set<string>();
-  private readonly work = new Set<Promise<unknown>>();
   private cascadeRunning = false;
   private cascadeRerunRequested = false;
 
@@ -143,12 +160,19 @@ export class JobWatcher {
 
   /** Settles once no job this watcher started is still running, including ones they start. */
   async settled(): Promise<void> {
-    while (this.work.size > 0) await Promise.allSettled([...this.work]);
+    while (this.running.size > 0) await Promise.allSettled([...this.running.values()]);
   }
 
-  private track(promise: Promise<unknown>): void {
-    this.work.add(promise);
-    void promise.finally(() => this.work.delete(promise));
+  // The entry is released on every exit, a throw included, so a job whose drive failed is driven
+  // again by the next scan rather than skipped until the daemon restarts.
+  private drive(id: string, work: () => Promise<void>): void {
+    if (this.running.has(id)) return;
+    this.running.set(
+      id,
+      work()
+        .catch(() => {})
+        .finally(() => this.running.delete(id)),
+    );
   }
 
   // A job already terminal before this session started is never recorded — nothing here watches a
@@ -164,33 +188,9 @@ export class JobWatcher {
       }
       let hasPending = false;
       for (const job of jobs) {
-        if (job.kind === "comfy-model-download") {
+        if (job.kind !== "generation") {
           if (job.status === "pending" || job.status === "running") {
-            this.startComfyModelJob(job.id);
-          }
-          continue;
-        }
-        if (job.kind === "comfy-node-install") {
-          if (job.status === "pending" || job.status === "running") {
-            this.startComfyNodeInstallJob(job.id);
-          }
-          continue;
-        }
-        if (job.kind === "comfy-node-activate") {
-          if (job.status === "pending" || job.status === "running") {
-            this.startComfyNodeActivateJob(job.id);
-          }
-          continue;
-        }
-        if (job.kind === "export") {
-          if (job.status === "pending" || job.status === "running") {
-            this.startExportJob(job.id);
-          }
-          continue;
-        }
-        if (job.kind === "song-analysis") {
-          if (job.status === "pending" || job.status === "running") {
-            this.startSongAnalysisJob(job.id);
+            this.startStandaloneJob(job.id, job.kind);
           }
           continue;
         }
@@ -278,57 +278,25 @@ export class JobWatcher {
       this.pruneDedupState(jobs);
       let hasPending = false;
       for (const job of jobs) {
-        if (job.kind === "comfy-model-download") {
+        if (job.kind !== "generation") {
           if (job.status === "pending" || job.status === "running") {
-            this.startComfyModelJob(job.id);
-          }
-          continue;
-        }
-        if (job.kind === "comfy-node-install") {
-          if (job.status === "pending" || job.status === "running") {
-            this.startComfyNodeInstallJob(job.id);
-          }
-          continue;
-        }
-        if (job.kind === "comfy-node-activate") {
-          if (job.status === "pending" || job.status === "running") {
-            this.startComfyNodeActivateJob(job.id);
-          }
-          continue;
-        }
-        if (job.kind === "export") {
-          if (job.status === "pending" || job.status === "running") {
-            this.startExportJob(job.id);
-          }
-          continue;
-        }
-        if (job.kind === "song-analysis") {
-          if (job.status === "pending" || job.status === "running") {
-            this.startSongAnalysisJob(job.id);
+            this.startStandaloneJob(job.id, job.kind);
           }
           continue;
         }
         // A generation job first seen terminal here — never caught running/queued by this watcher
         // (e.g. finished by a concurrent `konte job wait` before a waiter attached) — is recorded
-        // unless it predates the session (startupTerminalIds, skipped). handleJobCompleted dedups
+        // unless it predates the session (startupTerminalIds, skipped). emitCompleted dedups
         // via handledJobs, so this never double-fires with the normal waiter path.
         if (
           isJobTerminal(job.status) &&
           !this.startupTerminalIds.has(job.id) &&
           !this.handledJobs.has(job.id)
         ) {
-          await this.handleJobCompleted(
-            job.id,
-            job.address,
-            job.status as "completed" | "failed" | "cancelled",
-            job.error,
-          );
+          await this.emitCompleted(completionOf(job));
           continue;
         }
-        if (
-          (job.status === "running" || job.status === "queued") &&
-          !this.watchingVariants.has(job.id)
-        ) {
+        if (job.status === "running" || job.status === "queued") {
           this.startWaitingForJob(job.id);
         }
         // See initialScan: a "queued" job and a stranded submit both need the cascade
@@ -350,83 +318,74 @@ export class JobWatcher {
   // their backends — and every dependent blocked behind them. Bounding this fan-out needs
   // slice-polling (short leases per waiter), not a gate around the whole wait.
   private startWaitingForJob(variantId: string): void {
-    if (this.watchingVariants.has(variantId)) return;
-    this.watchingVariants.add(variantId);
-    this.track(this.processJob(variantId).catch(() => {}));
+    this.drive(variantId, () => this.processJob(variantId));
   }
 
-  // Run a comfy-model-download job concurrently. Unlike the serial cascade, this
-  // does NOT block other jobs while a multi-GB model downloads — only the
-  // generation jobs that depend on this model wait. The in-flight set dedups
-  // re-spawns across scans/polls.
-  private startComfyModelJob(id: string): void {
-    if (this.modelJobsInFlight.has(id)) return;
-    this.modelJobsInFlight.add(id);
-    this.track(
-      this.processComfyModelJob(id)
-        .catch(() => {})
-        .finally(() => this.modelJobsInFlight.delete(id)),
-    );
+  // A standalone job runs concurrently with everything else: only the jobs that depend on it wait
+  // on it. A runner whose job is not ready yet returns it non-terminal, and a later scan retries.
+  private startStandaloneJob(id: string, kind: StandaloneKind): void {
+    this.drive(id, () => this.runStandaloneJob(id, kind));
   }
 
-  // Run a comfy-node-install job concurrently (installs the pack to disk). Like a model
-  // download, this doesn't block unrelated jobs; only the activate job that depends on it
-  // waits. The in-flight set dedups re-spawns across scans/polls.
-  private startComfyNodeInstallJob(id: string): void {
-    if (this.nodeInstallJobsInFlight.has(id)) return;
-    this.nodeInstallJobsInFlight.add(id);
-    this.track(
-      this.processComfyNodeInstallJob(id)
-        .catch(() => {})
-        .finally(() => this.nodeInstallJobsInFlight.delete(id)),
-    );
-  }
+  private readonly runners: Record<
+    StandaloneKind,
+    (id: string) => Promise<{ status: JobRecord["status"]; released?: boolean }>
+  > = {
+    "comfy-model-download": (id) =>
+      runComfyModelDownloadJob(this.jobManager, this.roots, id, {
+        onProgress: ({ label, done, total }) =>
+          this.sendLog("debug", {
+            event: "job_progress",
+            variantId: id,
+            model: label,
+            progress: done,
+            progressMax: total,
+          }),
+      }),
+    "comfy-node-install": (id) =>
+      runComfyNodeInstallJob(this.jobManager, this.roots, id, {
+        onProgress: ({ label, done, total }) =>
+          this.sendLog("debug", {
+            event: "job_progress",
+            variantId: id,
+            node: label,
+            progress: done,
+            progressMax: total,
+          }),
+      }),
+    // A hold by a SIBLING video's comfy job changes no file this watcher watches, so a deferred
+    // activation is retried by the periodic poll, not fs.watch.
+    "comfy-node-activate": (id) =>
+      runComfyNodeActivateJob(this.jobManager, this.roots, id, {
+        onLog: (line) => this.sendLog("debug", { event: "node_activate", variantId: id, line }),
+        onDeferred: ({ reason }) =>
+          this.sendLog("debug", { event: "node_activate_deferred", variantId: id, line: reason }),
+      }),
+    export: (id) =>
+      runExportJob(this.jobManager, this.videoRoot, id, {
+        onStarted: ({ outputDir }) =>
+          this.sendLog("debug", { event: "export_started", variantId: id, outputDir }),
+      }),
+    "song-analysis": (id) =>
+      runSongAnalysisJob(this.jobManager, this.videoRoot, id, {
+        onStarted: ({ address }) =>
+          this.sendLog("debug", { event: "song_analysis_started", variantId: id, address }),
+      }),
+  };
 
-  // Run a comfy-node-activate job concurrently. It gates on its install deps internally
-  // (returns "pending" without rebooting if they are not ready) and reboots ComfyUI once
-  // under a server-wide lock when activation is needed. The in-flight set dedups re-spawns.
-  private startComfyNodeActivateJob(id: string): void {
-    if (this.nodeActivateJobsInFlight.has(id)) return;
-    this.nodeActivateJobsInFlight.add(id);
-    this.track(
-      this.processComfyNodeActivateJob(id)
-        .catch(() => {})
-        .finally(() => this.nodeActivateJobsInFlight.delete(id)),
-    );
-  }
-
-  private async processComfyNodeInstallJob(id: string): Promise<void> {
-    await runComfyNodeInstallJob(this.jobManager, this.roots, id, {
-      onProgress: ({ label, done, total }) =>
-        this.sendLog("debug", {
-          event: "job_progress",
-          variantId: id,
-          node: label,
-          progress: done,
-          progressMax: total,
-        }),
-    });
-    // Let the cascade re-evaluate the activate job (and any dependents) once this settles.
-    await this.runCascadeSubmit();
-  }
-
-  private async processComfyNodeActivateJob(id: string): Promise<void> {
-    const result = await runComfyNodeActivateJob(this.jobManager, this.roots, id, {
-      onLog: (line) => this.sendLog("debug", { event: "node_activate", variantId: id, line }),
-      onDeferred: ({ reason }) =>
-        this.sendLog("debug", { event: "node_activate_deferred", variantId: id, line: reason }),
-    });
-    if (
-      result.status === "completed" ||
-      result.status === "failed" ||
-      result.status === "cancelled"
-    ) {
-      // Generation jobs depend on this; cascade so they submit (or fail) now that it settled.
+  private async runStandaloneJob(id: string, kind: StandaloneKind): Promise<void> {
+    const result = await this.runners[kind](id);
+    if (result.released) {
+      await this.jobManager.flushLogs();
+      this.onStaleDefinitions({ kind: "export", jobId: id });
+      return;
+    }
+    const job = await this.jobManager.getJob(id).catch(() => null);
+    if (job && isJobTerminal(job.status)) {
+      await this.emitCompleted(completionOf(job));
+    } else {
       await this.runCascadeSubmit();
     }
-    // "pending" (install deps not ready, or the ComfyUI server is not idle): drop the watch; a
-    // later scan retries. A hold by a SIBLING video's comfy job changes no file this watcher
-    // watches, so there it is the periodic poll — not fs.watch — that eventually re-triggers.
   }
 
   // A take of the song that landed since the last scan is queued for reading; the queued job
@@ -443,137 +402,6 @@ export class JobWatcher {
       direction,
       state,
       jobManager: this.jobManager,
-    });
-  }
-
-  private startSongAnalysisJob(id: string): void {
-    if (this.songJobsInFlight.has(id)) return;
-    this.songJobsInFlight.add(id);
-    const run = runSongAnalysisJob(this.jobManager, this.videoRoot, id, {
-      onStarted: ({ address }) =>
-        this.sendLog("debug", { event: "song_analysis_started", variantId: id, address }),
-    })
-      .then(async (result) => {
-        if (result.status !== "completed" && result.status !== "failed") return;
-        if (this.handledJobs.has(id)) return;
-        this.handledJobs.add(id);
-        const job = await this.jobManager.getJob(id).catch(() => null);
-        this.sendLog("info", {
-          event: "job_completed",
-          variantId: id,
-          kind: "song-analysis",
-          status: result.status,
-          error: job?.error ?? null,
-          remainingActiveJobs: await this.countActiveJobs(),
-        });
-      })
-      .catch(() => {})
-      .finally(() => this.songJobsInFlight.delete(id));
-    this.track(run);
-  }
-
-  // Run an export (render) job concurrently, like a model download. runExportJob gates
-  // on its dependencies internally: if they are not ready it returns "pending" without
-  // rendering, and a later scan (after a dependency completes and rewrites its job file)
-  // re-triggers. The in-flight set dedups re-spawns across scans/polls.
-  private startExportJob(id: string): void {
-    if (this.exportJobsInFlight.has(id)) return;
-    this.exportJobsInFlight.add(id);
-    this.track(
-      this.processExportJob(id)
-        .catch(() => {})
-        .finally(() => this.exportJobsInFlight.delete(id)),
-    );
-  }
-
-  private async processExportJob(id: string): Promise<void> {
-    const result = await runExportJob(this.jobManager, this.videoRoot, id, {
-      onStarted: ({ outputDir }) =>
-        this.sendLog("debug", { event: "export_started", variantId: id, outputDir }),
-    });
-    if (result.released) {
-      await this.jobManager.flushLogs();
-      this.onStaleDefinitions({ kind: "export", jobId: id });
-      return;
-    }
-    if (
-      result.status === "completed" ||
-      result.status === "failed" ||
-      result.status === "cancelled"
-    ) {
-      await this.emitExportJobCompleted(id, result.status, result.outputFile);
-    }
-    // "pending" (deps not ready yet): drop silently; a later scan retries.
-  }
-
-  private async emitExportJobCompleted(
-    id: string,
-    status: "completed" | "failed" | "cancelled",
-    outputFile: string | null,
-  ): Promise<void> {
-    if (this.handledJobs.has(id)) return;
-    this.handledJobs.add(id);
-
-    const job = await this.jobManager.getJob(id).catch(() => null);
-    const error = job?.error ?? null;
-
-    const remainingActiveJobs = await this.countActiveJobs();
-
-    this.sendLog("info", {
-      event: "job_completed",
-      variantId: id,
-      kind: "export",
-      status,
-      outputFile,
-      error,
-      remainingActiveJobs,
-    });
-  }
-
-  private async processComfyModelJob(id: string): Promise<void> {
-    // Model downloads are ordinary jobs — they ride the same generic job events as
-    // generation jobs (job_progress while downloading, job_completed on terminal),
-    // distinguished only by `kind`. No bespoke events.
-    await runComfyModelDownloadJob(this.jobManager, this.roots, id, {
-      onProgress: ({ label, done, total }) =>
-        this.sendLog("debug", {
-          event: "job_progress",
-          variantId: id,
-          model: label,
-          progress: done,
-          progressMax: total,
-        }),
-    });
-
-    const job = await this.jobManager.getJob(id).catch(() => null);
-    if (
-      job?.kind === "comfy-model-download" &&
-      (job.status === "completed" || job.status === "failed" || job.status === "cancelled")
-    ) {
-      await this.emitModelJobCompleted(job);
-    } else {
-      // Still running elsewhere — let the next cascade pass submit dependents.
-      await this.runCascadeSubmit();
-    }
-  }
-
-  // Log the generic job_completed event for a finished model-download job, and cascade so
-  // dependents can submit.
-  private async emitModelJobCompleted(job: ComfyModelDownloadJob): Promise<void> {
-    if (this.handledJobs.has(job.id)) return;
-    this.handledJobs.add(job.id);
-
-    await this.runCascadeSubmit();
-    const remainingActiveJobs = await this.countActiveJobs();
-
-    this.sendLog("info", {
-      event: "job_completed",
-      variantId: job.id,
-      kind: job.kind,
-      model: job.model.filename,
-      status: job.status,
-      error: job.error,
-      remainingActiveJobs,
     });
   }
 
@@ -605,7 +433,7 @@ export class JobWatcher {
     if (job.status !== "completed" && job.status !== "failed" && job.status !== "cancelled") {
       return false;
     }
-    await this.handleJobCompleted(variantId, job.address, job.status, job.error);
+    await this.emitCompleted(completionOf(job));
     return true;
   }
 
@@ -665,24 +493,16 @@ export class JobWatcher {
 
       // Notify regardless of alreadyTerminal: if the job completed during the slow
       // loadDefinitions window above, waitForJob returns alreadyTerminal but we still
-      // owe a notification. handleJobCompleted dedups so this fires exactly once.
-      await this.handleJobCompleted(
-        result.variantId,
-        result.address,
-        result.status as "completed" | "failed" | "cancelled",
-        result.error,
-      );
+      // owe a notification. emitCompleted dedups so this fires exactly once.
+      await this.emitCompleted({
+        variantId: result.variantId,
+        kind: "generation",
+        status: result.status,
+        error: result.error,
+        address: result.address,
+      });
     } catch (err) {
       this.reportWatchFailure(variantId, err);
-    } finally {
-      // Always release the watch slot, on every exit including a throw. loadDefinitions
-      // (a transient video.tsx load failure) or waitForJob (backend construction on a
-      // missing API key, outside its own try) can throw; without this the variant would
-      // stay in watchingVariants and every later scan would skip it until the daemon
-      // restarts. The entry is held for the whole await above, so a concurrent scan never
-      // double-watches an in-flight job; a terminal job is not re-added because
-      // scanForNewJobs only watches running/queued.
-      this.watchingVariants.delete(variantId);
     }
   }
 
@@ -700,32 +520,23 @@ export class JobWatcher {
     this.sendLog("warning", { event: "job_watch_failed", variantId, error });
   }
 
-  private async handleJobCompleted(
-    variantId: string,
-    address: string,
-    status: "completed" | "failed" | "cancelled",
-    error: string | null,
-  ): Promise<void> {
-    if (this.handledJobs.has(variantId)) return;
-    this.handledJobs.add(variantId);
+  // Every kind's terminal outcome is the one job_completed event, after a cascade pass so its
+  // dependents submit (or fail) first.
+  private async emitCompleted(completion: JobCompletion): Promise<void> {
+    if (this.handledJobs.has(completion.variantId)) return;
+    this.handledJobs.add(completion.variantId);
 
     await this.runCascadeSubmit();
 
-    const remainingActiveJobs = await this.countActiveJobs();
-
     this.sendLog("info", {
       event: "job_completed",
-      variantId,
-      address,
-      status,
-      kind: "generation",
-      error,
-      remainingActiveJobs,
+      ...completion,
+      remainingActiveJobs: await this.countActiveJobs(),
     });
   }
 
   private async runCascadeSubmit(): Promise<void> {
-    // Serialize cascade runs: runCascadeSubmit is triggered from both handleJobCompleted
+    // Serialize cascade runs: runCascadeSubmit is triggered from both emitCompleted
     // and scanForNewJobs, which can fire concurrently. Overlapping runs would each read
     // the same pending jobs and double-submit. A request arriving mid-run schedules
     // exactly one follow-up pass so no dependency completion is dropped.

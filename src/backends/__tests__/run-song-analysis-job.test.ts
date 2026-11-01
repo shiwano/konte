@@ -262,7 +262,6 @@ describe("song analysis", () => {
     });
     expect(await runSongAnalysisJob(jobManager, videoRoot, job.id)).toMatchObject({
       status: "completed",
-      ranAnalysis: true,
     });
     expect(await song()).toMatchObject({ firstBeatSet, lines });
     expect((await song())!.reading).toBe(before);
@@ -279,6 +278,6 @@ describe("song analysis", () => {
     });
     expect(await jobManager.claimJobForRun(id!, "w-dead", -1)).toBeTruthy();
     const result = await runSongAnalysisJob(jobManager, videoRoot, id!);
-    expect(result).toMatchObject({ status: "completed", ranAnalysis: true });
+    expect(result).toMatchObject({ status: "completed" });
   });
 });

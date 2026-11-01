@@ -50,16 +50,12 @@ describe("runComfyNodeInstallJob", () => {
     const { id } = await jobManager.ensureComfyNodeInstallJob(NODE);
 
     const started: string[] = [];
-    const settled: string[] = [];
     const result = await runComfyNodeInstallJob(jobManager, roots, id, {
       onStarted: ({ label }) => started.push(label),
-      onSettled: ({ status }) => settled.push(status),
     });
 
     expect(result.status).toBe("completed");
-    expect(result.ranInstall).toBe(true);
     expect(started).toEqual([NODE.id]);
-    expect(settled).toEqual(["completed"]);
     expect((await jobManager.getJob(id)).status).toBe("completed");
   });
 
@@ -79,13 +75,9 @@ describe("runComfyNodeInstallJob", () => {
     installNodeMock.mockResolvedValue({ kind: "timedOut" });
     const { id } = await jobManager.ensureComfyNodeInstallJob(NODE);
 
-    const settled: string[] = [];
-    const result = await runComfyNodeInstallJob(jobManager, roots, id, {
-      onSettled: ({ status }) => settled.push(status),
-    });
+    const result = await runComfyNodeInstallJob(jobManager, roots, id);
 
     expect(result.status).toBe("running");
-    expect(settled).toEqual([]);
     const job = await jobManager.getJob(id);
     expect(job.status).toBe("running");
     expect(job.error).toBeNull();
@@ -95,13 +87,9 @@ describe("runComfyNodeInstallJob", () => {
     installNodeMock.mockRejectedValue(new TransientHttpError("HTTP 503", { status: 503 }));
     const { id } = await jobManager.ensureComfyNodeInstallJob(NODE);
 
-    const settled: string[] = [];
-    const result = await runComfyNodeInstallJob(jobManager, roots, id, {
-      onSettled: ({ status }) => settled.push(status),
-    });
+    const result = await runComfyNodeInstallJob(jobManager, roots, id);
 
     expect(result.status).toBe("running");
-    expect(settled).toEqual([]);
     const job = await jobManager.getJob(id);
     expect(job.status).toBe("running");
     expect(job.error).toBeNull();
@@ -133,13 +121,11 @@ describe("runComfyNodeInstallJob", () => {
     });
     const { id } = await jobManager.ensureComfyNodeInstallJob(NODE);
 
-    const [a, b] = await Promise.all([
+    await Promise.all([
       runComfyNodeInstallJob(jobManager, roots, id),
       runComfyNodeInstallJob(jobManager, roots, id),
     ]);
 
-    const ranInstall = [a, b].filter((r) => r.ranInstall);
-    expect(ranInstall).toHaveLength(1);
     expect(installNodeMock).toHaveBeenCalledTimes(1);
     expect((await jobManager.getJob(id)).status).toBe("completed");
   });

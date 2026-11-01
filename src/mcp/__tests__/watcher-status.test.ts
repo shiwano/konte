@@ -8,7 +8,7 @@ import type { VideoRoots } from "../../core/roots.js";
 
 // The daemon exposes nothing to call, so both counters are read off its internals.
 function watching(watcher: JobWatcher): string[] {
-  return [...(watcher as unknown as { watchingVariants: Set<string> }).watchingVariants];
+  return [...(watcher as unknown as { running: Map<string, Promise<void>> }).running.keys()];
 }
 
 function countActive(watcher: JobWatcher): Promise<number> {

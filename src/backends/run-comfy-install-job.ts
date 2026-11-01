@@ -30,20 +30,12 @@ type ComfyInstallHooks = {
     total: number;
     inProgress: number;
   }) => void;
-  onSettled?: (info: {
-    id: string;
-    label: string;
-    status: "completed" | "failed" | "cancelled";
-    error: string | null;
-  }) => void;
   onLog?: (line: string) => void;
 };
 
 type RunComfyInstallResult = {
   id: string;
   status: JobRecord["status"];
-  // True only when THIS caller claimed the job and performed the install.
-  ranInstall: boolean;
 };
 
 type ComfyInstallSpec<J extends JobRecord> = {
@@ -85,7 +77,7 @@ async function runComfyInstallJob<J extends JobRecord>(
   const label = spec.getLabel(typedJob);
 
   if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
-    return { id, status: job.status, ranInstall: false };
+    return { id, status: job.status };
   }
 
   return runLeasedJob<RunComfyInstallResult>(jobManager, id, {
@@ -93,7 +85,7 @@ async function runComfyInstallJob<J extends JobRecord>(
       // Owned by a live worker (lease valid) or just went terminal. Don't re-run; the owner
       // drives completion and the cascade. If the owner crashed, a later pass reclaims this job.
       const current = await jobManager.getJob(id).catch(() => null);
-      return { id, status: current?.status ?? "running", ranInstall: false };
+      return { id, status: current?.status ?? "running" };
     },
     work: async ({ workerId, isCancelled }) => {
       // Persist byte progress (as an integer percent) onto the job record, so `job list` /
@@ -175,8 +167,7 @@ async function runComfyInstallJob<J extends JobRecord>(
         await settleProgress();
 
         if (outcome.kind === "cancelled" || (await isCancelled())) {
-          hooks.onSettled?.({ id, label, status: "cancelled", error: null });
-          return { id, status: "cancelled", ranInstall: true };
+          return { id, status: "cancelled" };
         }
 
         // The waiter's deadline elapsed — NOT a failure. The Manager has no abort API, so the
@@ -189,7 +180,7 @@ async function runComfyInstallJob<J extends JobRecord>(
             id,
             `Stopped waiting for ${label}; the ${spec.runNoun} continues server-side and will be re-observed.`,
           );
-          return { id, status: "running", ranInstall: true };
+          return { id, status: "running" };
         }
 
         // finishIfOwner guards against a stalled-but-alive worker overwriting a reclaimer's
@@ -200,14 +191,12 @@ async function runComfyInstallJob<J extends JobRecord>(
           completedAt: new Date().toISOString(),
         });
         jobManager.appendLog(id, `${spec.logNoun} completed: ${label}`);
-        hooks.onSettled?.({ id, label, status: "completed", error: null });
-        return { id, status: "completed", ranInstall: true };
+        return { id, status: "completed" };
       } catch (err) {
         await settleProgress();
         // A cancel that raced with the error wins — leave the cancelled state.
         if (await isCancelled()) {
-          hooks.onSettled?.({ id, label, status: "cancelled", error: null });
-          return { id, status: "cancelled", ranInstall: true };
+          return { id, status: "cancelled" };
         }
         // A transient comms failure (Manager/ComfyUI briefly unreachable, 5xx) is NOT an install
         // failure — leave the job non-terminal (running; lease lapses) so a later pass re-observes
@@ -217,7 +206,7 @@ async function runComfyInstallJob<J extends JobRecord>(
             id,
             `Stopped on a transient comms failure (${err.message}); ${label} is re-observable and will be retried.`,
           );
-          return { id, status: "running", ranInstall: true };
+          return { id, status: "running" };
         }
         const msg = errorMessage(err);
         await jobManager.finishIfOwner(id, workerId, {
@@ -226,8 +215,7 @@ async function runComfyInstallJob<J extends JobRecord>(
           completedAt: new Date().toISOString(),
         });
         jobManager.appendLog(id, `${spec.logNoun} failed: ${msg}`);
-        hooks.onSettled?.({ id, label, status: "failed", error: msg });
-        return { id, status: "failed", ranInstall: true };
+        return { id, status: "failed" };
       }
     },
   });

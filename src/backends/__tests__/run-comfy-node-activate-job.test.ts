@@ -163,8 +163,10 @@ describe("runComfyNodeActivateJob", () => {
     const result = await runComfyNodeActivateJob(jobManager, roots, activateId, { onDeferred });
 
     expect(result.status).toBe("pending");
-    expect(result.pendingReason).toContain("1 prompt(s) in ComfyUI's queue");
-    expect(onDeferred).toHaveBeenCalledWith({ id: activateId, reason: result.pendingReason });
+    expect(onDeferred).toHaveBeenCalledWith({
+      id: activateId,
+      reason: expect.stringContaining("1 prompt(s) in ComfyUI's queue"),
+    });
     expect(activateNodesMock).not.toHaveBeenCalled();
     // Left claimable, not half-claimed: a later pass must be able to pick it up.
     expect((await jobManager.getJob(activateId)).status).toBe("pending");
@@ -180,10 +182,11 @@ describe("runComfyNodeActivateJob", () => {
       status: "running",
     });
 
-    const result = await runComfyNodeActivateJob(jobManager, roots, activateId);
+    const onDeferred = vi.fn();
+    const result = await runComfyNodeActivateJob(jobManager, roots, activateId, { onDeferred });
 
     expect(result.status).toBe("pending");
-    expect(result.pendingReason).toContain("v1/video:shot.01.v-submitting");
+    expect(onDeferred.mock.calls[0]![0].reason).toContain("v1/video:shot.01.v-submitting");
     expect(activateNodesMock).not.toHaveBeenCalled();
   });
 
@@ -196,10 +199,11 @@ describe("runComfyNodeActivateJob", () => {
       status: "running",
     });
 
-    const result = await runComfyNodeActivateJob(jobManager, roots, activateId);
+    const onDeferred = vi.fn();
+    const result = await runComfyNodeActivateJob(jobManager, roots, activateId, { onDeferred });
 
     expect(result.status).toBe("pending");
-    expect(result.pendingReason).toContain("v2/video:shot.01.v-sibling");
+    expect(onDeferred.mock.calls[0]![0].reason).toContain("v2/video:shot.01.v-sibling");
   });
 
   // A record left "running" by a waiter that died says nothing about the server. Trusting it over
@@ -280,14 +284,15 @@ describe("runComfyNodeActivateJob", () => {
         return realListJobs.call(this, filter);
       });
 
-    const result = await runComfyNodeActivateJob(jobManager, roots, activateId).finally(() =>
-      spy.mockRestore(),
-    );
+    const onDeferred = vi.fn();
+    const result = await runComfyNodeActivateJob(jobManager, roots, activateId, {
+      onDeferred,
+    }).finally(() => spy.mockRestore());
 
     expect(injected).toBe(true);
 
     expect(result.status).toBe("pending");
-    expect(result.pendingReason).toContain("v-late");
+    expect(onDeferred.mock.calls[0]![0].reason).toContain("v-late");
     expect(activateNodesMock).not.toHaveBeenCalled();
     expect((await jobManager.getJob(activateId)).status).toBe("pending");
     expect((await jobManager.getJob(activateId)).lease).toBeNull();

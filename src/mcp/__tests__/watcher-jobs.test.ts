@@ -45,7 +45,7 @@ function completions(events: LoggedEvent[]): Array<Record<string, unknown>> {
 }
 
 // processJob's loadDefinitions needs no video.tsx here: maybeNotifyTerminal emits without
-// loading definitions, and handleJobCompleted's cascade swallows the missing video.tsx error.
+// loading definitions, and emitCompleted's cascade swallows the missing video.tsx error.
 type TerminalNotifier = {
   maybeNotifyTerminal(id: string): Promise<boolean>;
 };
@@ -69,23 +69,25 @@ afterEach(async () => {
   await ws.cleanup();
 });
 
-type ExportNotifier = {
-  emitExportJobCompleted(
-    id: string,
-    status: "completed" | "failed" | "cancelled",
-    outputFile: string | null,
-  ): Promise<void>;
+type CompletionEmitter = {
+  emitCompleted(completion: Record<string, unknown>): Promise<void>;
 };
+
+const exportCompletion = (variantId: string, outputFile: string) => ({
+  variantId,
+  kind: "export",
+  status: "completed",
+  error: null,
+  outputFile,
+});
 
 describe("JobWatcher export-job completion", () => {
   it("emits the export as a first-class completion", async () => {
     const fake = makeNotifier();
     const watcher = new JobWatcher(fake.notify, roots, "v1");
 
-    await (watcher as unknown as ExportNotifier).emitExportJobCompleted(
-      "exp-abc123",
-      "completed",
-      "dist/final/20260101T000000000/video.mp4",
+    await (watcher as unknown as CompletionEmitter).emitCompleted(
+      exportCompletion("exp-abc123", "dist/final/20260101T000000000/video.mp4"),
     );
 
     // The deliverable stays video-root-relative, exactly as state stores it.
@@ -102,10 +104,10 @@ describe("JobWatcher export-job completion", () => {
   it("dedups a repeated export completion", async () => {
     const fake = makeNotifier();
     const watcher = new JobWatcher(fake.notify, roots, "v1");
-    const notifier = watcher as unknown as ExportNotifier;
+    const notifier = watcher as unknown as CompletionEmitter;
 
-    await notifier.emitExportJobCompleted("exp-dup", "completed", "dist/final/x/video.mp4");
-    await notifier.emitExportJobCompleted("exp-dup", "completed", "dist/final/x/video.mp4");
+    await notifier.emitCompleted(exportCompletion("exp-dup", "dist/final/x/video.mp4"));
+    await notifier.emitCompleted(exportCompletion("exp-dup", "dist/final/x/video.mp4"));
 
     expect(completions(fake.events)).toHaveLength(1);
   });
@@ -188,17 +190,16 @@ describe("JobWatcher terminal observation", () => {
     const fake = makeNotifier();
     const watcher = new JobWatcher(fake.notify, roots, "v1");
     const internals = watcher as unknown as {
-      watchingVariants: Set<string>;
-      processJob(id: string): Promise<void>;
+      running: Map<string, Promise<void>>;
+      startWaitingForJob(id: string): void;
     };
-    internals.watchingVariants.add("v-mid00001");
-
-    await internals.processJob("v-mid00001");
+    internals.startWaitingForJob("v-mid00001");
+    await watcher.settled();
 
     // Nothing emitted — not a completion. And the variant is un-watched so a later scan
     // re-attempts once the backendJobId commits (dedup is not poisoned).
     expect(completions(fake.events)).toEqual([]);
-    expect(internals.watchingVariants.has("v-mid00001")).toBe(false);
+    expect(internals.running.has("v-mid00001")).toBe(false);
   });
 
   it("reports a watch that could not attach, once per distinct error", async () => {
@@ -217,13 +218,13 @@ describe("JobWatcher terminal observation", () => {
     const fake = makeNotifier();
     const watcher = new JobWatcher(fake.notify, roots, "v1");
     const internals = watcher as unknown as {
-      watchingVariants: Set<string>;
-      processJob(id: string): Promise<void>;
+      running: Map<string, Promise<void>>;
+      startWaitingForJob(id: string): void;
     };
 
     for (let i = 0; i < 3; i++) {
-      internals.watchingVariants.add("v-broke001");
-      await internals.processJob("v-broke001");
+      internals.startWaitingForJob("v-broke001");
+      await watcher.settled();
     }
 
     const failures = fake.events.filter((e) => e.data.event === "job_watch_failed");
@@ -234,7 +235,7 @@ describe("JobWatcher terminal observation", () => {
       error: "video.tsx failed to load",
     });
     expect(completions(fake.events)).toEqual([]);
-    expect(internals.watchingVariants.has("v-broke001")).toBe(false);
+    expect(internals.running.has("v-broke001")).toBe(false);
   });
 
   it("keeps one job's failure standing while another job attaches fine", async () => {
@@ -268,14 +269,14 @@ describe("JobWatcher terminal observation", () => {
     const fake = makeNotifier();
     const watcher = new JobWatcher(fake.notify, roots, "v1");
     const internals = watcher as unknown as {
-      watchingVariants: Set<string>;
-      processJob(id: string): Promise<void>;
+      running: Map<string, Promise<void>>;
+      startWaitingForJob(id: string): void;
     };
 
     for (let i = 0; i < 3; i++) {
-      internals.watchingVariants.add("v-broke002");
-      internals.watchingVariants.add("v-fine0001");
-      await Promise.all([internals.processJob("v-broke002"), internals.processJob("v-fine0001")]);
+      internals.startWaitingForJob("v-broke002");
+      internals.startWaitingForJob("v-fine0001");
+      await watcher.settled();
     }
 
     expect(fake.events.filter((e) => e.data.event === "job_watch_failed")).toHaveLength(1);

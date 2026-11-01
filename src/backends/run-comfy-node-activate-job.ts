@@ -43,11 +43,6 @@ async function resolveRebootLockDir(): Promise<string> {
 
 type ComfyNodeActivateJobHooks = {
   onStarted?: (info: { id: string }) => void;
-  onSettled?: (info: {
-    id: string;
-    status: "completed" | "failed" | "cancelled";
-    error: string | null;
-  }) => void;
   // The activation was held back because the ComfyUI server is not idle. Fired on every pass a
   // caller polls, so a caller that surfaces it should de-duplicate.
   onDeferred?: (info: { id: string; reason: string }) => void;
@@ -57,11 +52,6 @@ type ComfyNodeActivateJobHooks = {
 type RunComfyNodeActivateJobResult = {
   id: string;
   status: JobRecord["status"];
-  // True only when THIS caller claimed the job and ran the activation.
-  ranActivate: boolean;
-  // Why a "pending" result is pending, when it is the idle gate rather than an unready
-  // install dependency. Absent on every other outcome.
-  pendingReason?: string;
 };
 
 /**
@@ -157,7 +147,7 @@ function describeBusy(busy: string[]): string {
  *
  * The reboot only happens while the ComfyUI server is IDLE workspace-wide (see
  * findComfyServerWork): rebooting under a live prompt orphans it, which is konte destroying its
- * own run. A busy server leaves the job "pending" with a `pendingReason`, same as an unready
+ * own run. A busy server leaves the job "pending", same as an unready
  * dependency — a later pass retries, and the comfy generation jobs that depend on this one simply
  * wait their turn.
  *
@@ -175,7 +165,7 @@ export async function runComfyNodeActivateJob(
     throw new KonteError("VALIDATION_FAILED", `Job "${id}" is not a comfy node activate job`);
   }
   if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
-    return { id, status: job.status, ranActivate: false };
+    return { id, status: job.status };
   }
 
   // Compare-and-set so a concurrent `job cancel` (or another worker) that already moved this job
@@ -188,10 +178,9 @@ export async function runComfyNodeActivateJob(
     });
     if (!committed) {
       const current = await jobManager.getJob(id).catch(() => null);
-      return { id, status: current?.status ?? "failed", ranActivate: false };
+      return { id, status: current?.status ?? "failed" };
     }
-    hooks.onSettled?.({ id, status: "failed", error: reason });
-    return { id, status: "failed", ranActivate: true };
+    return { id, status: "failed" };
   };
 
   // Hand an already-claimed job back to the queue. A deferral is neither a failure nor a
@@ -201,13 +190,13 @@ export async function runComfyNodeActivateJob(
     await jobManager.updateIfNotTerminal(id, { status: "pending", lease: null });
     jobManager.appendLog(id, `Node activation deferred: ${reason}`);
     hooks.onDeferred?.({ id, reason });
-    return { id, status: "pending", ranActivate: false, pendingReason: reason };
+    return { id, status: "pending" };
   };
 
   // Gate on the install jobs this activation depends on.
   const allJobs = new JobIndex(await jobManager.listJobs());
   const prerequisites = prerequisiteVerdict(job.dependsOnJobs, (id) => allJobs.get(id));
-  if (prerequisites.verdict === "wait") return { id, status: "pending", ranActivate: false };
+  if (prerequisites.verdict === "wait") return { id, status: "pending" };
   if (prerequisites.verdict === "doomed") {
     const { depId, dep } = prerequisites;
     if (!dep) return failActivation(`Prerequisite node install ${depId} is gone (it was cleaned).`);
@@ -222,14 +211,14 @@ export async function runComfyNodeActivateJob(
   if (busy.length > 0) {
     const reason = describeBusy(busy);
     hooks.onDeferred?.({ id, reason });
-    return { id, status: "pending", ranActivate: false, pendingReason: reason };
+    return { id, status: "pending" };
   }
 
   const workerId = `w-${crypto.randomBytes(8).toString("hex")}`;
   const claimed = await jobManager.claimJobForRun(id, workerId, RUN_LEASE_TTL_MS);
   if (!claimed) {
     const current = await jobManager.getJob(id).catch(() => null);
-    return { id, status: current?.status ?? "running", ranActivate: false };
+    return { id, status: current?.status ?? "running" };
   }
 
   const stopHeartbeat = startLeaseHeartbeat(jobManager, id, workerId);
@@ -283,8 +272,7 @@ export async function runComfyNodeActivateJob(
       completedAt: new Date().toISOString(),
     });
     jobManager.appendLog(id, `Node activation completed`);
-    hooks.onSettled?.({ id, status: "completed", error: null });
-    return { id, status: "completed", ranActivate: true };
+    return { id, status: "completed" };
   } catch (err) {
     const msg = errorMessage(err);
     await jobManager.finishIfOwner(id, workerId, {
@@ -293,8 +281,7 @@ export async function runComfyNodeActivateJob(
       completedAt: new Date().toISOString(),
     });
     jobManager.appendLog(id, `Node activation failed: ${msg}`);
-    hooks.onSettled?.({ id, status: "failed", error: msg });
-    return { id, status: "failed", ranActivate: true };
+    return { id, status: "failed" };
   } finally {
     stopHeartbeat();
   }
