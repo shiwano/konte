@@ -91,7 +91,7 @@ Reroll:
 
 ## 5. Human review
 
-- Hand off, preview, read the record → `review-guide`, with your stage's `<scope>`. Takes the human names to go back to are yours to record: `konte accept <variantId>... -y`.
+- Hand off, preview, read the record → `review-guide`, with your stage's `<scope>`. What the human signs off outside the review is yours to record: a take they name to go back to, `konte accept <variantId>... -y`; a whole shot, `konte accept <stage>:shot.<id> -y`; everything they have watched, `konte accept <stage> -y`.
 
 ## 6. Iterating on feedback
 

@@ -676,6 +676,13 @@ export class StateManager {
     variant.decidedAt = null;
   }
 
+  // A take recorded on another manager over the same video — its files already under its variant dir.
+  adoptVariant(address: string, variantId: string, variant: VariantState): void {
+    const target = this.ensureAssetState(address);
+    target.variants ??= {};
+    target.variants[variantId] = variant;
+  }
+
   // An absent variant is removable too: `getRecordedState` is what a deleting caller reads.
   removeVariant(address: string, variantId: string): void {
     const target = this.state.assets[address];

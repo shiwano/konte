@@ -18,10 +18,14 @@ import {
 import {
   type DefinitionLike,
   directionSectionOf,
-  formatCompositionAddress,
+  formatTimelineStemAddress,
   getAssetStage,
+  listCompositionAddresses,
+  listStemAddresses,
   isMaterializedLeafAddress,
-  listShotStems,
+  isStageScope,
+  listExposedReferenceAssetPaths,
+  listOverlayAddresses,
   matchesAddressScope,
   parseAddress,
   parseDirectionScope,
@@ -31,10 +35,26 @@ import {
   commitLeafForAddress,
   definitionHashForAddress,
   discardPreparedLeaf,
+  findMatchingCompositionVariant,
+  leafReadyForReview,
+  listRemovedShotStemAddresses,
+  overlayAwaitsAccept,
   prepareLeafForAddress,
+  removedShotStemAddresses,
+  shotAcceptsStand,
+  unresolvedLeafRefs,
 } from "../../../core/composition-resource.js";
+import { type Finding, formatFindingLine } from "../../../core/finding.js";
+import { shotAcceptTargets } from "../../../core/shot-accept-targets.js";
+import { shotById } from "../../../core/shot-index.js";
+import { shotAcceptable } from "../../../core/shot-acceptable.js";
+import {
+  buildReelReviewPlan,
+  displayedReferenceTake,
+  reelShotAcceptability,
+} from "../../../core/review-acceptability.js";
 import { KonteError } from "../../../core/errors.js";
-import { buildDependencyGraph, type DependencyGraph } from "../../../core/graph.js";
+import { buildDependencyGraph } from "../../../core/graph.js";
 import type { LoadedDefinitions } from "../../../core/select-definition.js";
 import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
 import { JobManager } from "../../../core/job-manager.js";
@@ -66,6 +86,11 @@ import {
   type StageDefinitions,
 } from "../../../core/definition-hashes.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
+import {
+  isPendingShot,
+  type StageDefinition,
+  type VariantState,
+} from "../../../core/types/index.js";
 
 interface AcceptOptions {
   off?: boolean;
@@ -107,11 +132,17 @@ requires confirmation (-y to proceed, --no to abort).
 A standing comment the accept signs off over is closed, and named.
 
 Several takes are decided together: all resolved before anything is written,
-accepted dependencies first, under one confirmation. Two takes of one address
-refuse, as does a composition or stem beside a target it is rendered from.
+accepted dependencies first, under one confirmation; a composition or stem is
+rendered from the takes the run accepts upstream of it. Two takes of one address
+refuse, as does one named by its id that the run's upstream accepts move.
 
-A shot ("animatic:shot.01") stands for its composition and every stem; with
---off, for those of them accepted.
+A shot ("animatic:shot.01") stands for its composition and every stem, and
+releases a stem still accepted after the shot stopped mixing into it. A stage
+("reference", "animatic", "video") stands for what its review's Accept all signs
+off — each reference card's take; each shot, the timeline stem, and the overlay
+once every shot accept stands — leaving out, and naming, each one not ready,
+held by a finding, or showing an accept a take beside it still awaits a verdict
+against. With --off, both stand for those of them accepted.
 
 A take whose upstream changed since it was made is kept against the newer upstream:
 it stops reading stale, and nothing regenerates it. To replace it instead, run
@@ -136,6 +167,7 @@ Examples:
   konte accept reference:bgm               Accept whatever that address resolves to
   konte accept animatic:shot.01 animatic:shot.02 -y
                                            Accept two shots' compositions and stems
+  konte accept video -y                    Accept every ready shot of the video
   konte accept v-abc123 --off              Clear the variant's acceptance
   konte accept direction                   Sign off the whole direction
   konte accept direction:brief.logline     Sign off one direction part
@@ -321,57 +353,228 @@ async function runDirectionAcceptance(
 }
 
 type TakeTarget = { address: string; variantId: string };
-type MaterializedLeaf = TakeTarget & { fresh: boolean };
+// `record` is set when the render recorded a new take, which the commit adopts.
+type RenderedLeaf = TakeTarget & { record: VariantState | null };
+// A conditional leaf (a stage's overlay) is accepted only if the batch before it leaves it owed one.
+type BatchEntry =
+  | (TakeTarget & { leaf: false })
+  | { address: string; leaf: true; conditional?: boolean };
 type ShotStages = Pick<LoadedDefinitions, "video" | "animatic">;
+type TakeStage = "reference" | "animatic" | "video";
+
+type ShotDecision = { leaves: string[]; released: string[] };
+
+// What one shot decision lands on, as `shotAcceptTargets` enumerates it: the leaves it accepts, and
+// the stems it releases — still accepted after the shot stopped mixing anything into them.
+function shotDecision(manager: StateManager, def: StageDefinition, shotId: string): ShotDecision {
+  const shot = shotById(def.shots, shotId);
+  if (!shot) return { leaves: [], released: [] };
+  const released = removedShotStemAddresses(manager.getState(), def, shotId);
+  const leaves = shotAcceptTargets(manager, def, {
+    shotId,
+    pending: isPendingShot(shot),
+    shotFn: shot.shotFn ?? null,
+  }).leaves.map((leaf) => leaf.address);
+  return { leaves: leaves.filter((leaf) => !released.includes(leaf)), released };
+}
 
 // A shot scope stands for what the shot's review page signs off with one accept.
-function shotScopeLeaves(stages: ShotStages, target: string): string[] | null {
+function shotScopeDecision(
+  manager: StateManager,
+  stages: ShotStages,
+  target: string,
+): ShotDecision | null {
   const scope = parseShotScope(target);
   if (!scope) return null;
-  const shot = (scope.stage === "animatic" ? stages.animatic : stages.video)?.shots.find(
-    (s) => s.id === scope.shotId,
-  );
-  const leaves = shot
-    ? [
-        ...(shot.shotFn ? [formatCompositionAddress(scope.stage, shot.id)] : []),
-        ...listShotStems(scope.stage, shot).map((stem) => stem.address),
-      ]
-    : [];
-  if (leaves.length === 0) {
+  const def = scope.stage === "animatic" ? stages.animatic : stages.video;
+  const decision = def ? shotDecision(manager, def, scope.shotId) : { leaves: [], released: [] };
+  if (decision.leaves.length === 0 && decision.released.length === 0) {
     throw new KonteError("ADDRESS_NOT_FOUND", `"${target}" has no composition or stem to accept`);
   }
-  return leaves;
+  return decision;
 }
 
-// A leaf is rendered from what its upstream resolves to before anything is accepted, so a batch that
-// also moves that upstream would hand it a take nobody signed off.
-function assertLeafUpstreamsUntouched(graph: DependencyGraph, addresses: readonly string[]): void {
-  const named = new Set(addresses);
-  for (const leaf of named) {
-    if (!isMaterializedLeafAddress(leaf)) continue;
-    const seen = new Set<string>();
-    const stack = [...(graph.dependencies.get(leaf) ?? [])];
-    while (stack.length > 0) {
-      const address = stack.pop()!;
-      if (seen.has(address)) continue;
-      seen.add(address);
-      if (named.has(address)) {
-        throw new KonteError(
-          "TARGETS_CONFLICT",
-          `${leaf} is rendered from ${address}, which this run also accepts — run \`konte accept ${address}\` first, then accept ${leaf}`,
-        );
-      }
-      stack.push(...(graph.dependencies.get(address) ?? []));
+// One accept toggle of a stage review: `targets` is what accepting it names (a reference card's
+// displayed take id, a shot's leaves), empty with `leftOut` set when the run cannot accept it.
+type StageUnit = {
+  label: string;
+  addresses: string[];
+  targets: string[];
+  released: string[];
+  leftOut: string | null;
+};
+
+function leafCauses(
+  manager: StateManager,
+  def: StageDefinition,
+  leaves: readonly string[],
+  fallback: string,
+): string {
+  const causes = leaves.flatMap((leaf) =>
+    unresolvedLeafRefs(manager, def, leaf).map((ref) => `${ref.address}: ${ref.cause}`),
+  );
+  return causes.length > 0 ? [...new Set(causes)].join(", ") : fallback;
+}
+
+// Which take is meant there is the human's call: the review shows the newest take awaiting a
+// verdict beside an accept, while the batch would act on the accept.
+function takesBesideAccept(manager: StateManager, address: string): string[] {
+  return manager.getAcceptedVariant(address) ? manager.readyUndecidedTakes(address) : [];
+}
+
+function upstreamTakesBesideAccept(manager: StateManager, addresses: readonly string[]): string[] {
+  return addresses.flatMap((address) => {
+    const rivals = takesBesideAccept(manager, address);
+    return rivals.length > 0
+      ? [`${address}: ${rivals.join(", ")} await a verdict beside its accept`]
+      : [];
+  });
+}
+
+// What the stage review's Accept all covers, read through the review's own rules: each reference
+// card's displayed take; each shot `shotAcceptable` admits, the timeline stem. The overlay is left
+// to the batch (see `overlayAwaitsAccept`). A pending shot or a board aside is no unit. A unit
+// whose verdict a take beside an accept still awaits is left out.
+function stageUnits(
+  manager: StateManager,
+  definitions: StageDefinitions,
+  stage: TakeStage,
+  dependencies: ReadonlyMap<string, readonly string[]>,
+): StageUnit[] {
+  if (stage === "reference") {
+    if (!definitions.reference) {
+      throw new KonteError("ADDRESS_NOT_FOUND", "No reference.tsx found in the video root");
+    }
+    return listExposedReferenceAssetPaths(definitions.reference).map((address) => {
+      const variantId = displayedReferenceTake(manager, address)?.variantId;
+      const beside = takesBesideAccept(manager, address);
+      return {
+        label: address,
+        addresses: [address],
+        targets: variantId && beside.length === 0 ? [variantId] : [],
+        released: [],
+        leftOut: !variantId
+          ? "no take yet"
+          : beside.length > 0
+            ? `${beside.join(", ")} await a verdict beside its accept`
+            : null,
+      };
+    });
+  }
+  const def = stage === "animatic" ? definitions.animatic : definitions.video;
+  if (!def) throw new KonteError("ADDRESS_NOT_FOUND", `No ${stage}.tsx found in the video root`);
+  const leafUnit = (
+    label: string,
+    { leaves, released }: ShotDecision,
+    closed: string | null,
+  ): StageUnit => {
+    const waiting = leaves.filter((leaf) => !leafReadyForReview(manager, def, leaf));
+    const beside = upstreamTakesBesideAccept(manager, [
+      ...new Set(leaves.flatMap((leaf) => dependencies.get(leaf) ?? [])),
+    ]);
+    const leftOut =
+      closed ??
+      (waiting.length > 0
+        ? leafCauses(manager, def, waiting, "not ready")
+        : beside.length > 0
+          ? beside.join("; ")
+          : null);
+    return {
+      label,
+      addresses: leaves,
+      targets: leftOut ? [] : leaves,
+      released: leftOut ? [] : released,
+      leftOut,
+    };
+  };
+  const plan = buildReelReviewPlan(manager, def, definitions.animatic ?? null);
+  const units: StageUnit[] = [];
+  for (const shot of reelShotAcceptability(manager, def, plan)) {
+    const decision = shotDecision(manager, def, shot.shotId);
+    if (decision.leaves.length === 0 && decision.released.length === 0) continue;
+    const label = `${stage}:shot.${shot.shotId}`;
+    if (shotAcceptable(shot)) {
+      units.push(leafUnit(label, decision, null));
+    } else if (shot.showingStandIn || shot.notReady) {
+      const fallback = shot.notReady ? "a track has no take yet" : "no picture of its own yet";
+      units.push(leafUnit(label, decision, leafCauses(manager, def, decision.leaves, fallback)));
     }
   }
+  if ((def.timelineSoundtracks?.length ?? 0) > 0) {
+    const stem = formatTimelineStemAddress(stage);
+    units.push(leafUnit(stem, { leaves: [stem], released: [] }, null));
+  }
+  return units;
 }
 
-// Idempotent, reusing a matching variant.
-async function materializeLeaf(
-  videoRoot: string,
-  stages: ShotStages,
-  address: string,
-): Promise<MaterializedLeaf> {
+function stageOverlay(
+  stages: Pick<StageDefinitions, "video" | "animatic">,
+  stage: TakeStage,
+): string[] {
+  const def = stage === "animatic" ? stages.animatic : stage === "video" ? stages.video : null;
+  return def ? listOverlayAddresses(def) : [];
+}
+
+// Every leaf a stage holds and its reference assets — what `--off` may clear, read off the
+// definition and the stems still accepted after their shot stopped mixing into them.
+function stageAddresses(
+  manager: StateManager,
+  definitions: StageDefinitions,
+  stage: TakeStage,
+): string[] {
+  if (stage === "reference") {
+    if (!definitions.reference) {
+      throw new KonteError("ADDRESS_NOT_FOUND", "No reference.tsx found in the video root");
+    }
+    return listExposedReferenceAssetPaths(definitions.reference);
+  }
+  const def = stage === "animatic" ? definitions.animatic : definitions.video;
+  if (!def) throw new KonteError("ADDRESS_NOT_FOUND", `No ${stage}.tsx found in the video root`);
+  return [
+    ...listCompositionAddresses(def),
+    ...listStemAddresses(def),
+    ...listRemovedShotStemAddresses(manager.getState(), def),
+    ...listOverlayAddresses(def),
+  ];
+}
+
+// A stage stands for every unit its review would sign off now, naming each one it leaves out.
+function stageScopeTargets(
+  manager: StateManager,
+  definitions: StageDefinitions,
+  stage: TakeStage,
+  dependencies: ReadonlyMap<string, readonly string[]>,
+  heldFor: (addresses: readonly string[]) => Finding[],
+): { targets: string[]; released: string[]; overlay: string | null; skipped: string[] } {
+  const targets: string[] = [];
+  const released: string[] = [];
+  const skipped: string[] = [];
+  const heldReason = (held: readonly Finding[]) =>
+    `held by a finding to fix — ${held.map(formatFindingLine).join("; ")}`;
+  for (const unit of stageUnits(manager, definitions, stage, dependencies)) {
+    const held = heldFor(unit.addresses);
+    if (unit.leftOut) skipped.push(`${unit.label} — ${unit.leftOut}`);
+    else if (held.length > 0) skipped.push(`${unit.label} — ${heldReason(held)}`);
+    else {
+      targets.push(...unit.targets);
+      released.push(...unit.released);
+    }
+  }
+  let overlay = stageOverlay(definitions, stage)[0] ?? null;
+  if (overlay) {
+    const held = heldFor([overlay]);
+    const beside = upstreamTakesBesideAccept(manager, dependencies.get(overlay) ?? []);
+    const leftOut =
+      held.length > 0 ? heldReason(held) : beside.length > 0 ? beside.join("; ") : null;
+    if (leftOut) {
+      skipped.push(`${overlay} — ${leftOut}`);
+      overlay = null;
+    }
+  }
+  return { targets, released, overlay, skipped };
+}
+
+function leafStage(stages: ShotStages, address: string): StageDefinition {
   // Rendered from the stage the address names: handing the video definition a board address writes
   // to the wrong stage's shot, or finds nothing there.
   const stage = parseAddress(address).stage === "animatic" ? stages.animatic : stages.video;
@@ -381,36 +584,71 @@ async function materializeLeaf(
       `Cannot accept "${address}" — its stage has no definition loaded`,
     );
   }
-  // The board's stem is mixed here, outside the lock; the commit under it re-checks its inputs.
-  const prepared = await prepareLeafForAddress(await StateManager.load(videoRoot), stage, address);
-  const result = await StateManager.withLock(videoRoot, async (m) => {
-    const before = new Set(Object.keys(m.tryGetAssetState(address)?.variants ?? {}));
-    const id = prepared ? await commitLeafForAddress(m, stage, address, prepared) : null;
-    return { id, fresh: id !== null && !before.has(id) };
-  }).finally(() => discardPreparedLeaf(prepared));
-  if (!result.id) {
+  return stage;
+}
+
+// Rendered on a manager that is never saved, from what the batch has accepted before it; reuses a
+// matching variant.
+async function renderLeaf(
+  manager: StateManager,
+  stages: ShotStages,
+  address: string,
+): Promise<RenderedLeaf> {
+  const stage = leafStage(stages, address);
+  const prepared = await prepareLeafForAddress(manager, stage, address);
+  const before = new Set(Object.keys(manager.tryGetAssetState(address)?.variants ?? {}));
+  const id = await (
+    prepared ? commitLeafForAddress(manager, stage, address, prepared) : Promise.resolve(null)
+  ).finally(() => discardPreparedLeaf(prepared));
+  if (!id) {
     throw new KonteError(
       "VARIANT_NOT_FOUND",
       `Nothing to accept for "${address}" — its upstream refs are not ready, or it has no audio`,
     );
   }
-  return { address, variantId: result.id, fresh: result.fresh };
+  const record = before.has(id)
+    ? null
+    : structuredClone(manager.getAssetState(address).variants![id]!);
+  return { address, variantId: id, record };
 }
 
-async function removeFreshLeaves(
+async function removeRenderedLeaves(
   videoRoot: string,
-  leaves: readonly MaterializedLeaf[],
+  leaves: readonly RenderedLeaf[],
 ): Promise<void> {
-  const fresh = leaves.filter((leaf) => leaf.fresh);
-  if (fresh.length === 0) return;
-  await StateManager.withLock(videoRoot, async (m) => {
-    for (const leaf of fresh) m.removeVariant(leaf.address, leaf.variantId);
-  });
   await Promise.all(
-    fresh.map((leaf) =>
-      fs.rm(variantDir(videoRoot, leaf.address, leaf.variantId), { recursive: true, force: true }),
-    ),
+    leaves
+      .filter((leaf) => leaf.record)
+      .map((leaf) =>
+        fs.rm(variantDir(videoRoot, leaf.address, leaf.variantId), {
+          recursive: true,
+          force: true,
+        }),
+      ),
   );
+}
+
+type AcceptCascadeOpts = Parameters<typeof cascadeAcceptConsumedDeps>[4];
+
+async function applyAccept(
+  manager: StateManager,
+  jobManager: JobManager,
+  { address, variantId }: TakeTarget,
+  cascadeOpts: AcceptCascadeOpts,
+  dismiss: readonly string[] = [],
+): Promise<{ previous: string | null; cascaded: string[]; keptAgainst: string[] }> {
+  const previous = manager.getAcceptedVariant(address);
+  manager.setAccepted(address, variantId, { dismiss });
+  // A leaf's cascade signs off what the leaf DISPLAYS, resolved now — so re-accepting the same
+  // variant is not a no-op there: it is how a take swapped under an already-accepted leaf (a panel
+  // rerolled under an accepted animatic) gets signed off. A generation variant's cascade replays
+  // what its job consumed, so for one there is nothing new to sign and the shortcut stands.
+  const cascaded =
+    previous !== variantId || isMaterializedLeafAddress(address)
+      ? await cascadeAcceptConsumedDeps(manager, jobManager, address, variantId, cascadeOpts)
+      : [];
+  const keptAgainst = keepAcceptedInputs(manager, address, variantId);
+  return { previous, cascaded, keptAgainst };
 }
 
 // An address naming a definition-stale accept means the take a reroll drew beside it.
@@ -431,161 +669,204 @@ function replacementForStaleAccept(manager: StateManager, hit: TakeTarget): Take
 
 // Two names for one take (an id and the address showing it) are one target; two takes of one address
 // are a contradiction. Ordered dependencies first: a cascade never overwrites an accept, so a named
-// take lands before a downstream target's cascade could sign off the one that target consumed.
-function resolveAcceptTargets(
+// take lands before a downstream target's cascade could sign off the one that target consumed, and
+// a leaf is rendered from the takes named upstream of it.
+function orderAcceptBatch(
   manager: StateManager,
   definitions: StageDefinitions,
   targets: readonly string[],
   topologicalOrder: readonly string[],
-  materialized: readonly TakeTarget[],
-): TakeTarget[] {
-  const byAddress = new Map<string, TakeTarget>(materialized.map((hit) => [hit.address, hit]));
-  for (const target of targets) {
+  conditional: readonly string[],
+): BatchEntry[] {
+  const isLeafArg = (t: string) => t.includes(":") && isMaterializedLeafAddress(t);
+  const byAddress = new Map<string, BatchEntry>();
+  for (const address of conditional)
+    byAddress.set(address, { address, leaf: true, conditional: true });
+  for (const address of targets.filter(isLeafArg)) byAddress.set(address, { address, leaf: true });
+  for (const target of targets.filter((t) => !isLeafArg(t))) {
     const named = resolveVariantArg(manager, target, definitions);
     const hit = target.includes(":") ? replacementForStaleAccept(manager, named) : named;
     const seen = byAddress.get(hit.address);
-    if (seen && seen.variantId !== hit.variantId) {
+    // A stage's overlay was never named: a take named for it stands instead.
+    if (
+      seen &&
+      !(seen.leaf && seen.conditional) &&
+      (seen.leaf || seen.variantId !== hit.variantId)
+    ) {
       throw new KonteError(
         "TARGETS_CONFLICT",
-        `${hit.address} is named twice (${seen.variantId}, ${hit.variantId}) — an address holds one accept`,
+        `${hit.address} is named twice (${seen.leaf ? "by its address" : seen.variantId}, ${hit.variantId}) — an address holds one accept`,
       );
     }
-    byAddress.set(hit.address, hit);
+    byAddress.set(hit.address, { ...hit, leaf: false });
   }
   const rank = new Map(topologicalOrder.map((address, i) => [address, i]));
-  const rankOf = (address: string) => rank.get(address) ?? Number.MAX_SAFE_INTEGER;
-  return [...byAddress.values()].sort((a, b) => rankOf(a.address) - rankOf(b.address));
+  const rankOf = (entry: BatchEntry) =>
+    entry.leaf && entry.conditional
+      ? Number.MAX_SAFE_INTEGER
+      : (rank.get(entry.address) ?? Number.MAX_SAFE_INTEGER - 1);
+  return [...byAddress.values()].sort((a, b) => rankOf(a) - rankOf(b));
 }
 
 async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<void> {
   const videoRoot = requireVideoRoot();
   const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
+  const definitions = { video, animatic, reference };
   // Only for the direction cascade below, so a broken direction.ts must not take the accept down
   // with it — this is not a spend command, and the gate that does demand a loadable direction runs
   // elsewhere. Without one there is simply nothing to cascade into.
   const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
   const graph = buildDependencyGraph(video, animatic, reference);
   // An address argument lands on the take the address resolves to — "accept what was on screen".
-  await applyResolutionDefinitions({ videoRoot, definitions: { video, animatic, reference } });
-  await StateManager.withLock(videoRoot, (m) => syncFileAssets({ video, animatic, reference }, m));
+  await applyResolutionDefinitions({ videoRoot, definitions });
+  await StateManager.withLock(videoRoot, (m) => syncFileAssets(definitions, m));
 
-  const targets = [
-    ...new Set(rawTargets.flatMap((t) => shotScopeLeaves({ video, animatic }, t) ?? [t])),
-  ];
-  const isLeafArg = (t: string) => t.includes(":") && isMaterializedLeafAddress(t);
-  // A leaf named by its variant id is a leaf of the batch all the same.
-  const resolvingManager = await StateManager.load(videoRoot);
-  assertLeafUpstreamsUntouched(
-    graph,
-    targets.map((t) => (t.includes(":") ? t : resolvingManager.resolveVariantAddress(t))),
+  const loaded = await StateManager.load(videoRoot);
+  // An accept signs off everything the review page shows for that target, so it cannot land while
+  // a finding to fix sits on it: a named target is refused, a stage's unit left out and named.
+  // A dep the cascade reaches that one holds is left for its own accept.
+  const findings = await collectFindings(
+    await loadCheckContext({ videoRoot, definitions, direction, manager: loaded, graph }),
+    (t) => t.holds.accept === true,
   );
+  const heldFor = (addresses: readonly string[]) =>
+    reviewHeldFindings(
+      findings,
+      addresses.map((address) => ({ op: "accept", address })),
+    );
+  const skipped: string[] = [];
+  const overlays: string[] = [];
+  const releasing = new Set<string>();
+  const targets = [
+    ...new Set(
+      rawTargets.flatMap((t) => {
+        if (isStageScope(t)) {
+          const scoped = stageScopeTargets(
+            loaded,
+            definitions,
+            t as TakeStage,
+            graph.dependencies,
+            heldFor,
+          );
+          skipped.push(...scoped.skipped);
+          if (scoped.overlay) overlays.push(scoped.overlay);
+          for (const stem of scoped.released) releasing.add(stem);
+          return scoped.targets;
+        }
+        const decision = shotScopeDecision(loaded, { video, animatic }, t);
+        if (!decision) return [t];
+        for (const stem of decision.released) releasing.add(stem);
+        return decision.leaves;
+      }),
+    ),
+  ];
+  const batch = orderAcceptBatch(
+    loaded,
+    definitions,
+    targets,
+    graph.topologicalOrder,
+    overlays.filter((overlay) => !targets.includes(overlay)),
+  );
+  const addresses = batch.flatMap((entry) =>
+    entry.leaf && entry.conditional ? [] : [entry.address],
+  );
+  const held = reviewHeldError(`Cannot accept ${addresses.join(", ")}`, heldFor(addresses));
+  if (held) throw held;
+  for (const entry of batch) {
+    if (entry.leaf) continue;
+    assertSongLinesPlaced(videoRoot, direction, loaded.getState(), entry.address, entry.variantId);
+  }
 
-  // A composition/stem leaf is not pre-materialized — it is a graph leaf rendered from the live
-  // definition and materialized only when accepted. So materialize it here first, then accept the
-  // exact variant it produced — the one this run rendered, which is not what the address would
-  // resolve to while an older accepted variant still sits beside it.
-  const leaves: MaterializedLeaf[] = [];
+  // A patch script is the second definition source a take can go stale against, so the candidate
+  // set below needs it as it needs the definition hash. A catalog that will not load is swallowed:
+  // accept spends nothing.
+  const patchHashes = await loadPatchCatalog(videoRoot, loaded.getState())
+    .then(patchHashesOf)
+    .catch(() => undefined);
+  // The address's live definition, so a take the next `generate` will replace is not counted among
+  // the candidates this accept decides against.
+  const definitionHashOf = (address: string): string | null => {
+    const stageDef = definitions[getAssetStage(address)] as DefinitionLike | null;
+    return stageDef ? definitionHashForAddress(stageDef, address) : null;
+  };
+  const cascadeOpts = {
+    ...(video ? { video } : {}),
+    animatic,
+    held: (address: string) => reviewHeldFindings(findings, [{ op: "accept", address }]).length > 0,
+  };
+  const jobManager = new JobManager(videoRoot);
+
+  // The batch run in order on a copy that is never saved: each leaf is rendered from the takes
+  // accepted before it, and what is left stale drives the prompt. The reported figures are
+  // re-derived inside the lock below.
+  const rendered: RenderedLeaf[] = [];
   // A leaf rendered here is undone unless the accept it was rendered for commits.
   let committed = false;
   try {
-    for (const target of targets.filter(isLeafArg)) {
-      leaves.push(await materializeLeaf(videoRoot, { video, animatic }, target));
-    }
-
-    // Compute (without persisting) which downstream assets this accept would
-    // make input-stale, by applying it to an in-memory copy of the state.
-    const previewManager = await StateManager.load(videoRoot);
-    const items = resolveAcceptTargets(
-      previewManager,
-      { video, animatic, reference },
-      targets.filter((t) => !isLeafArg(t)),
-      graph.topologicalOrder,
-      leaves,
-    );
-    const addresses = items.map((item) => item.address);
-    // An accept signs off everything the review page shows for that target, so it cannot land while
-    // a finding to fix sits on it.
-    // A dep the cascade reaches that one holds is left for its own accept.
-    const findings = await collectFindings(
-      await loadCheckContext({
-        videoRoot,
-        definitions: { reference, animatic, video },
-        direction,
-        manager: previewManager,
-        graph,
-      }),
-      (t) => t.holds.accept === true,
-    );
-    const held = reviewHeldError(
-      `Cannot accept ${addresses.join(", ")}`,
-      reviewHeldFindings(
-        findings,
-        addresses.map((address) => ({ op: "accept", address })),
-      ),
-    );
-    if (held) throw held;
-    for (const item of items) {
-      assertSongLinesPlaced(
-        videoRoot,
-        direction,
-        previewManager.getState(),
-        item.address,
-        item.variantId,
-      );
-    }
-
-    // A patch script is the second definition source a take can go stale against, so the candidate
-    // set below needs it as it needs the definition hash. A catalog that will not load is swallowed:
-    // accept spends nothing.
-    const patchHashes = await loadPatchCatalog(videoRoot, previewManager.getState())
-      .then(patchHashesOf)
-      .catch(() => undefined);
-    // The address's live definition, so a take the next `generate` will replace is not counted among
-    // the candidates this accept decides against.
-    const definitionHashOf = (address: string): string | null => {
-      const stageDef: DefinitionLike | null = {
-        video,
-        animatic,
-        reference,
-      }[getAssetStage(address)] as DefinitionLike | null;
-      return stageDef ? definitionHashForAddress(stageDef, address) : null;
-    };
-    const cascadeOpts = {
-      ...(video ? { video } : {}),
-      animatic,
-      held: (address: string) =>
-        reviewHeldFindings(findings, [{ op: "accept", address }]).length > 0,
-    };
-    const jobManager = new JobManager(videoRoot);
-
-    // Preview (no persist) which downstream assets this accept would restale, to drive the prompt.
-    // The reported figures are re-derived inside the lock below, so this is only a heads-up estimate.
-    const previewRoots: string[] = [];
-    for (const { address, variantId } of items) {
-      const previous = previewManager.getAcceptedVariant(address);
-      previewManager.setAccepted(address, variantId);
-      // A leaf's cascade signs off what the leaf DISPLAYS, resolved now — so re-accepting the same
-      // variant is not a no-op there: it is how a take swapped under an already-accepted leaf (a panel
-      // rerolled under an accepted animatic) gets signed off. A generation variant's cascade replays
-      // what its job consumed, so for one there is nothing new to sign and the shortcut stands.
-      const cascaded =
-        previous !== variantId || isMaterializedLeafAddress(address)
-          ? await cascadeAcceptConsumedDeps(
-              previewManager,
-              jobManager,
-              address,
-              variantId,
-              cascadeOpts,
-            )
-          : [];
-      keepAcceptedInputs(previewManager, address, variantId);
+    const preview = await StateManager.load(videoRoot);
+    const items: TakeTarget[] = [];
+    // A stem the shot stopped mixing into is released with the shot's decision.
+    const release = (manager: StateManager): TakeTarget[] =>
+      [...releasing].flatMap((address) => {
+        const variantId = manager.getAcceptedVariant(address);
+        if (!variantId) return [];
+        manager.setUnaccepted(address, variantId);
+        return [{ address, variantId }];
+      });
+    const previewRoots: string[] = release(preview).map((r) => r.address);
+    for (const entry of batch) {
+      if (entry.leaf && entry.conditional) {
+        const stage = leafStage({ video, animatic }, entry.address);
+        const counterpart = stage.stage === "video" ? animatic : video;
+        if (!overlayAwaitsAccept(preview, stage, counterpart)) {
+          if (!shotAcceptsStand(preview, stage, counterpart)) {
+            skipped.push(`${entry.address} — a shot's accept under it does not stand`);
+          }
+          continue;
+        }
+        if (!leafReadyForReview(preview, stage, entry.address)) {
+          skipped.push(
+            `${entry.address} — ${leafCauses(preview, stage, [entry.address], "not ready")}`,
+          );
+          continue;
+        }
+      }
+      // A leaf named by its id is the take it is: one this run's upstream accepts move out from under
+      // is not what the run renders, so it is refused.
+      if (
+        !entry.leaf &&
+        isMaterializedLeafAddress(entry.address) &&
+        preview.variantStaleness(entry.address, entry.variantId)?.inputStale &&
+        !loaded.variantStaleness(entry.address, entry.variantId)?.inputStale
+      ) {
+        throw new KonteError(
+          "TARGETS_CONFLICT",
+          `${entry.variantId} shows ${entry.address} over takes this run moves — name ${entry.address} instead, to render it from them`,
+        );
+      }
+      let item: TakeTarget;
+      if (entry.leaf) {
+        const leaf = await renderLeaf(preview, { video, animatic }, entry.address);
+        rendered.push(leaf);
+        item = { address: leaf.address, variantId: leaf.variantId };
+      } else {
+        item = { address: entry.address, variantId: entry.variantId };
+      }
+      items.push(item);
+      const { previous, cascaded } = await applyAccept(preview, jobManager, item, cascadeOpts);
       // Stale dependents of the accepted asset AND of every dependency we accept — a sibling consumer
       // that used a different variant of an accepted dep becomes stale. An accept that changed nothing
       // is no root of its own: its dependents' staleness predates this run.
-      previewRoots.push(...(previous === variantId ? cascaded : [address, ...cascaded]));
+      previewRoots.push(...(previous === item.variantId ? cascaded : [item.address, ...cascaded]));
+    }
+    if (items.length === 0 && releasing.size === 0) {
+      throw new KonteError(
+        "VARIANT_NOT_FOUND",
+        `Nothing is ready to accept${skipped.length > 0 ? ` — left unaccepted: ${skipped.join("; ")}` : ""}`,
+      );
     }
     const previewStaleMarked = staleFrom(
-      previewManager,
+      preview,
       previewRoots.map((address) => ({ address })),
       graph.dependents,
     );
@@ -602,28 +883,50 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
     // `--yes` is blanket consent, so it needs no set.
     const consentedStale = opts.yes ? null : new Set(previewStaleMarked);
     const since = Date.now();
+    const renderedByAddress = new Map(rendered.map((leaf) => [leaf.address, leaf]));
+    const superseded: RenderedLeaf[] = [];
 
     // Re-derive previous-accepted, cascade, and stale set from inside the lock (like clean does), so
     // the committed figures — and the reported previousAccepted — reflect the real locked state, not
     // the pre-lock preview snapshot a concurrent accept could have invalidated.
-    const { results, staleMarked, directionParts, staleAccepted } = await StateManager.withLock(
-      videoRoot,
-      async (manager) => {
-        // A leaf was materialized in an earlier lock and the prompt above may have waited on a human:
-        // an input re-picked meanwhile makes it a take nobody signed off, so it is refused here rather
-        // than accepted stale.
-        for (const leaf of leaves) {
-          const staleness = manager.variantStaleness(leaf.address, leaf.variantId);
-          if (staleness?.inputStale || staleness?.definitionStale) {
-            throw new KonteError(
-              "DEPENDENCY_NOT_RESOLVED",
-              `Cannot accept ${leaf.address}: what it was materialized from changed meanwhile — run the accept again`,
-            );
-          }
-        }
+    const { results, released, staleMarked, directionParts, staleAccepted } =
+      await StateManager.withLock(videoRoot, async (manager) => {
         const results = [];
-        const roots: string[] = [];
-        for (const { address, variantId } of items) {
+        const released = release(manager);
+        const roots: string[] = released.map((r) => r.address);
+        for (const item of items) {
+          const { address } = item;
+          let { variantId } = item;
+          const leaf = renderedByAddress.get(address);
+          if (leaf?.record) {
+            // Materialized elsewhere meanwhile (a review submit, another accept): that take is reused.
+            const existing = manager.tryGetAssetState(address);
+            const match =
+              existing && leaf.record.definitionHash
+                ? findMatchingCompositionVariant(
+                    existing,
+                    leaf.record.definitionHash,
+                    leaf.record.inputFingerprints,
+                  )
+                : null;
+            if (match) {
+              superseded.push(leaf);
+              variantId = match;
+            } else {
+              manager.adoptVariant(address, variantId, leaf.record);
+            }
+          }
+          // The prompt above may have waited on a human: an input re-picked meanwhile makes the leaf
+          // a take nobody signed off, so it is refused here rather than accepted stale.
+          if (leaf) {
+            const staleness = manager.variantStaleness(address, variantId);
+            if (staleness?.inputStale || staleness?.definitionStale) {
+              throw new KonteError(
+                "DEPENDENCY_NOT_RESOLVED",
+                `Cannot accept ${address}: what it was rendered from changed meanwhile — run the accept again`,
+              );
+            }
+          }
           const previousAccepted = manager.getAcceptedVariant(address);
           // The takes this accept decides against: every other take at the address still awaiting a
           // verdict, plus the accept this one moves off — naming another id IS the decision against it.
@@ -640,18 +943,13 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
             ),
             ...(previousAccepted ? [previousAccepted] : []),
           ].filter((id) => id !== variantId);
-          manager.setAccepted(address, variantId, { dismiss: dismissed });
-          const cascadeAccepted =
-            previousAccepted !== variantId || isMaterializedLeafAddress(address)
-              ? await cascadeAcceptConsumedDeps(
-                  manager,
-                  jobManager,
-                  address,
-                  variantId,
-                  cascadeOpts,
-                )
-              : [];
-          const keptAgainst = keepAcceptedInputs(manager, address, variantId);
+          const { cascaded: cascadeAccepted, keptAgainst } = await applyAccept(
+            manager,
+            jobManager,
+            { address, variantId },
+            cascadeOpts,
+            dismissed,
+          );
           roots.push(
             ...(previousAccepted === variantId ? cascadeAccepted : [address, ...cascadeAccepted]),
           );
@@ -697,11 +995,12 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
             cascadeOpts.held,
           ),
         ];
-        return { results, staleMarked, directionParts, staleAccepted };
-      },
-    );
+        return { results, released, staleMarked, directionParts, staleAccepted };
+      });
     committed = true;
+    await removeRenderedLeaves(videoRoot, superseded);
 
+    for (const r of released) console.log(`Unaccepted: ${r.address} → ${r.variantId}`);
     for (const r of results) {
       const extras: string[] = [];
       if (r.cascadeAccepted.length > 0) extras.push(`+${r.cascadeAccepted.length} consumed dep(s)`);
@@ -710,6 +1009,7 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
       console.log(`Accepted: ${r.address} → ${r.variantId}${suffix}`);
       if (r.keptAgainst.length > 0) console.log(`kept against newer: ${r.keptAgainst.join(", ")}`);
     }
+    for (const line of skipped) console.log(`Left unaccepted: ${line}`);
     if (directionParts.length > 0) {
       console.log(`Signed off: +${directionParts.length} direction part(s)`);
     }
@@ -736,7 +1036,7 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
     }
     await closeSignedOffFeedback(videoRoot, since);
   } finally {
-    if (!committed) await removeFreshLeaves(videoRoot, leaves);
+    if (!committed) await removeRenderedLeaves(videoRoot, rendered);
   }
 }
 
@@ -790,14 +1090,19 @@ async function runUnaccept(rawTargets: string[], opts: AcceptOptions): Promise<v
 
   const previewManager = await StateManager.load(videoRoot);
   const targets = rawTargets.flatMap((target) => {
-    const leaves = shotScopeLeaves({ video, animatic }, target);
-    if (!leaves) return [target];
-    const accepted = leaves.filter((leaf) => previewManager.getAcceptedVariant(leaf) !== null);
+    const stage = isStageScope(target) ? (target as TakeStage) : null;
+    const scoped = stage
+      ? stageAddresses(previewManager, { video, animatic, reference }, stage)
+      : (() => {
+          const decision = shotScopeDecision(previewManager, { video, animatic }, target);
+          return decision && [...decision.leaves, ...decision.released];
+        })();
+    if (!scoped) return [target];
+    const accepted = scoped.filter(
+      (address) => previewManager.getAcceptedVariant(address) !== null,
+    );
     if (accepted.length === 0) {
-      throw new KonteError(
-        "VARIANT_NOT_ACCEPTED",
-        `"${target}" has no accepted composition/stem to clear`,
-      );
+      throw new KonteError("VARIANT_NOT_ACCEPTED", `"${target}" has no accepted take to clear`);
     }
     return accepted;
   });

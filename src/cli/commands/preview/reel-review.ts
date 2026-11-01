@@ -27,7 +27,6 @@ import {
   assetNameOf,
   shotStemAssetNames,
   shownShotAssetNames,
-  type ShotStage,
 } from "../../../core/address.js";
 import {
   buildFullCompositionHtml,
@@ -49,7 +48,7 @@ import {
   type UnresolvedLeafRef,
   materializeCompositionVariant,
   materializeOverlayVariant,
-  shotAcceptsStand,
+  overlayAwaitsAccept,
   materializedLeafContentHash,
   commitShotStem,
   discardPreparedStem,
@@ -73,22 +72,17 @@ import { KonteError, errorMessage } from "../../../core/errors.js";
 import { errorResponse, htmlResponse, jsonResponse, parseJsonBody } from "../../page-host/http.js";
 import type { Direction } from "../../../core/dsl/direction.js";
 import type { ClipInfo, ShotMoveInfo, ShotWaiverInfo } from "../../../pages/preview/types.js";
+import { buildReelReviewPlan, reelShotAcceptability } from "../../../core/review-acceptability.js";
 import { continuousFrameKeys, directionShotWaivers, panelRole } from "../../../core/direction.js";
 import { shotWaiversAwaitingAccept } from "../../../core/direction-acceptance.js";
 import type {
   AnimaticDefinition,
   Handoff,
   ReferenceDefinition,
-  ShotDefinition,
   StageDefinition,
   VideoDefinition,
 } from "../../../core/types/index.js";
-import {
-  type RenderPlan,
-  type ShotRenderPlan,
-  buildStageReviewPlan,
-  shotSpans,
-} from "../../../core/render-plan.js";
+import { type RenderPlan, buildStageReviewPlan, shotSpans } from "../../../core/render-plan.js";
 import { resolveSoundtrackSpan } from "../../../core/timeline-audio.js";
 import { type ReviewRecord, saveReviewRecord } from "../../../core/review-record.js";
 import {
@@ -538,29 +532,6 @@ function shotMoveIndex(
   return byId;
 }
 
-/**
- * Whether a shot carries a track with no take yet — the timeline's dashed "Not ready" clip. The
- * shot's accept toggle is closed on it: a verdict there signs off a composition drawn over a
- * placeholder. Read off the definition rather than the harvested clips, which a render failure
- * leaves empty. A stem is not a track: the page mixes the cues live, and the accept materializes
- * the stem from the takes it signs off.
- */
-function shotNotReady(
-  manager: StateManager,
-  stage: ShotStage,
-  shots: readonly ShotDefinition[],
-  plan: ShotRenderPlan,
-  shot: ShotDefinition | undefined,
-): boolean {
-  if (plan.pending || !shot) return false;
-  const ownNames = shownShotAssetNames(stage, shots, shot);
-  if (ownNames.some((name) => plan.resolvedVariants[name] === undefined)) return true;
-  const ownPaths = new Set(ownNames.map((name) => formatAddress(stage, shot.id, name)));
-  return (shot.compositionRefs ?? []).some(
-    (ref) => !ownPaths.has(ref) && manager.resolveReference(ref, { includeStale: true }) === null,
-  );
-}
-
 function shotWaiverIndex(
   manager: StateManager,
   direction: Direction | null,
@@ -619,11 +590,8 @@ export async function handleGetReelState(
   const movesByShotId = shotMoveIndex(animatic, direction);
   const waiversByShotId = shotWaiverIndex(manager, direction);
 
-  const plan = buildStageReviewPlan(
-    video,
-    manager,
-    stage === "video" && animatic ? buildStageReviewPlan(animatic, manager) : null,
-  );
+  const plan = buildReelReviewPlan(manager, video, animatic);
+  const acceptability = reelShotAcceptability(manager, video, plan);
 
   // Per-shot composited clips (time ranges, layers, audio) for the UI's track view.
   // Rendering is best-effort: a failure must not blank the state response.
@@ -701,7 +669,7 @@ export async function handleGetReelState(
   const shots = plan.shots.map((s, shotIdx) => {
     const { start: startTime, duration } = timing.spans[shotIdx]!;
     const shot = shotById(video.shots, s.shotId);
-    const notReady = shotNotReady(manager, stage, video.shots, s, shot);
+    const { hasComposition, pending, aside, showingStandIn, notReady } = acceptability[shotIdx]!;
     try {
       // Only the shot's video/image assets stay on the shot; audio splits off to its track,
       // so the shot (video) accept is fully independent of the per-asset audio accept.
@@ -725,7 +693,6 @@ export async function handleGetReelState(
       // on the shot, not a "reroll the composition" instruction. Staleness still
       // tracks the composition through the variant snapshot taken when the comment
       // is saved (see video-preview's snapshot of compositionAddress).
-      const hasComposition = s.shotFn !== null;
       const feedbackAddress = formatShotAddress(stage, s.shotId);
 
       const compositionAddress = hasComposition ? formatCompositionAddress(stage, s.shotId) : null;
@@ -823,8 +790,8 @@ export async function handleGetReelState(
         needsVerdict,
         verdictAddresses,
         hasComposition,
-        pending: s.pending,
-        aside: s.aside,
+        pending,
+        aside,
         compositionAddress,
         compositionVariantId,
         compositionDefinitionHash,
@@ -835,7 +802,7 @@ export async function handleGetReelState(
           definitionHash,
           needsReview,
         })),
-        showingStandIn: s.showStandIn,
+        showingStandIn,
         notReady,
         handoffNotes: handoffNotesForShot(handoff, stage, s.shotId),
       };
@@ -859,15 +826,15 @@ export async function handleGetReelState(
         // let a verdict go unasked.
         needsVerdict: true,
         verdictAddresses: [],
-        hasComposition: s.shotFn !== null,
-        pending: s.pending,
-        aside: s.aside,
+        hasComposition,
+        pending,
+        aside,
         compositionAddress: null,
         compositionVariantId: null,
         compositionDefinitionHash: null,
         compositionNeedsReview: false,
         stems: [],
-        showingStandIn: s.showStandIn,
+        showingStandIn,
         notReady,
         handoffNotes: handoffNotesForShot(handoff, stage, s.shotId),
       };
@@ -926,7 +893,7 @@ export async function handleGetReelState(
           duration: video.overlay.duration,
           definitionHash,
           ...status,
-          offered: status.needsReview && shotAcceptsStand(manager, video, counterpart),
+          offered: overlayAwaitsAccept(manager, video, counterpart),
           feedback: buildAddressFeedback(feedbackMgr, manager.getState(), address, {
             cache: manager.stalenessCache(),
             definitionHashes: definitionHash ? new Map([[address, definitionHash]]) : new Map(),
@@ -1370,11 +1337,7 @@ export async function handleReelSubmit(
   // record full of "accepted" and answering 200.
   let plan: RenderPlan;
   try {
-    plan = buildStageReviewPlan(
-      video,
-      manager,
-      stage === "video" && animatic ? buildStageReviewPlan(animatic, manager) : null,
-    );
+    plan = buildReelReviewPlan(manager, video, animatic);
   } catch (error) {
     return errorResponse(
       `Failed to build the review plan — no part of this review was applied: ${errorMessage(
@@ -1949,14 +1912,8 @@ export async function handleReelSubmit(
   const overlayAddress = formatTimelineOverlayAddress(stage);
   const overlayDecision =
     submittedOverlayDecision ??
-    (video.overlay &&
-    Object.values(submittedDecisions ?? {}).includes("accepted") &&
-    shotAcceptsStand(await StateManager.load(videoRoot), video, counterpart) &&
-    materializedLeafReviewStatus(
-      await StateManager.load(videoRoot),
-      overlayAddress,
-      definitionHashForAddress(video, overlayAddress),
-    ).needsReview
+    (Object.values(submittedDecisions ?? {}).includes("accepted") &&
+    overlayAwaitsAccept(await StateManager.load(videoRoot), video, counterpart)
       ? "accepted"
       : undefined);
   const overlayHeld = overlayDecision === "accepted" ? heldFor([overlayAddress]) : [];

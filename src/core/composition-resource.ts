@@ -315,7 +315,7 @@ function fingerprintsEqual(a: Record<string, string>, b: Record<string, string>)
   return aKeys.every((k) => a[k] === b[k]);
 }
 
-function findMatchingCompositionVariant(
+export function findMatchingCompositionVariant(
   target: AssetState,
   definitionHash: string,
   inputFingerprints: Record<string, string>,
@@ -932,6 +932,20 @@ export function shotAcceptsStand(
           !isAcceptedStale(manager, address, definitionHashForAddress(video, address)))
       );
     });
+}
+
+/** Whether the overlay is owed an accept: it needs review, and every shot accept under it stands. */
+export function overlayAwaitsAccept(
+  manager: StateManager,
+  video: StageDefinition,
+  counterpart: StageDefinition | null = null,
+): boolean {
+  if (!video.overlay) return false;
+  const address = formatTimelineOverlayAddress(video.stage);
+  return (
+    materializedLeafReviewStatus(manager, address, definitionHashForAddress(video, address))
+      .needsReview && shotAcceptsStand(manager, video, counterpart)
+  );
 }
 
 /**

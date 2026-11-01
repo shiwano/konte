@@ -34,6 +34,7 @@ import type {
 } from "../../../core/types/index.js";
 import { type ReviewRecord, saveReviewRecord } from "../../../core/review-record.js";
 import { FeedbackManager } from "../../../core/feedback/index.js";
+import { displayedReferenceTake } from "../../../core/review-acceptability.js";
 import { StateManager } from "../../../core/state/index.js";
 import type { VariantState } from "../../../core/types/index.js";
 import { inferMediaType, variantMediaKind } from "../../../core/media-type.js";
@@ -164,9 +165,7 @@ export async function handleGetReferenceState(
     const addr = formatReferenceAddress(assetName);
     const acceptedId = manager.getAcceptedVariant(addr);
 
-    // Displayed variant: accepted, else newest non-stale (stale only as a last resort so
-    // the card is never empty) — the same take `konte path` prints.
-    const displayed = manager.selectVariant(addr, { includeStale: true });
+    const displayed = displayedReferenceTake(manager, addr);
     const variantId: string | null = displayed?.variantId ?? null;
     const variantStatus: "none" | "accepted" = displayed?.isAccepted ? "accepted" : "none";
     const mediaKind = variantMediaKind(manager, addr, variantId);

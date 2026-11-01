@@ -358,9 +358,17 @@ describe("accept command", () => {
     });
   });
 
-  it("reports a bare stage as INVALID_ADDRESS, naming the inspect that lists its takes", async () => {
-    await expect(run(["accept", "reference"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringMatching(/INVALID_ADDRESS.*konte inspect reference/s),
+  it("accepts a target named beside a stage with no shot ready", async () => {
+    const { stdout } = await run(["accept", "video", variantId, "--yes"], projectDir);
+    expect(stdout).toContain(`Accepted: ${address} → ${variantId}`);
+    expect(stdout).toContain("Left unaccepted: video:shot.01 — video:shot.01.voice: no take yet");
+  });
+
+  it("refuses a stage with no shot ready, naming what each waits on", async () => {
+    await expect(run(["accept", "video", "--yes"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(
+        /VARIANT_NOT_FOUND.*video:shot\.01 — video:shot\.01\.voice: no take yet/s,
+      ),
     });
   });
 
@@ -412,19 +420,17 @@ describe("accept command", () => {
     expect(reloaded.getAcceptedVariant(compAddr)).toBe(accepted);
   });
 
-  it("refuses a composition named by its variant id beside another target", async () => {
+  it("accepts a composition named by its variant id beside another target", async () => {
     const compAddr = "video:shot.01#composition";
     const sm = await StateManager.load(projectDir);
     const compVid = sm.reserveVariantId(compAddr);
     sm.getAssetState(compAddr).variants![compVid]!.file = "/tmp/composition.mp4";
     await sm.save();
 
-    await expect(run(["accept", compVid, variantId, "--yes"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("TARGETS_CONFLICT"),
-    });
+    await run(["accept", compVid, variantId, "--yes"], projectDir);
     const after = await StateManager.load(projectDir);
-    expect(after.getAcceptedVariant(compAddr)).toBeNull();
-    expect(after.getAcceptedVariant(address)).toBeNull();
+    expect(after.getAcceptedVariant(compAddr)).toBe(compVid);
+    expect(after.getAcceptedVariant(address)).toBe(variantId);
   });
 
   it("fails to accept a composition whose refs are not ready", async () => {
@@ -468,9 +474,11 @@ describe("accept command (shot scope)", () => {
     const sm = await StateManager.load(projectDir);
     motionVid = sm.reserveVariantId(motionAddr);
     sm.getAssetState(motionAddr).variants![motionVid]!.file = "/tmp/motion.mp4";
+    sm.getAssetState(motionAddr).variants![motionVid]!.outputHash = "motion-1";
     const voiceAddr = "video:shot.01.voice";
     const voiceVid = sm.reserveVariantId(voiceAddr);
     sm.getAssetState(voiceAddr).variants![voiceVid]!.file = "/tmp/voice.wav";
+    sm.getAssetState(voiceAddr).variants![voiceVid]!.outputHash = "voice-1";
     await sm.save();
   });
 
@@ -485,13 +493,160 @@ describe("accept command (shot scope)", () => {
     expect(after.getAcceptedVariant(stemAddr)).not.toBeNull();
   });
 
-  it("refuses a take the composition is rendered from, materializing nothing", async () => {
-    await expect(
-      run(["accept", "video:shot.01", motionVid, "--yes"], projectDir),
-    ).rejects.toMatchObject({ stderr: expect.stringContaining("TARGETS_CONFLICT") });
+  it("renders the composition from the take named beside it", async () => {
+    const sm = await StateManager.load(projectDir);
+    const newer = sm.reserveVariantId(motionAddr);
+    sm.getAssetState(motionAddr).variants![newer]!.file = "/tmp/motion2.mp4";
+    sm.getAssetState(motionAddr).variants![newer]!.outputHash = "motion-2";
+    await sm.save();
+
+    await run(["accept", "video:shot.01", motionVid, "--yes"], projectDir);
     const after = await StateManager.load(projectDir);
-    expect(after.tryGetAssetState(compAddr)?.variants ?? {}).toEqual({});
-    expect(after.tryGetAssetState(stemAddr)?.variants ?? {}).toEqual({});
+    expect(after.getAcceptedVariant(motionAddr)).toBe(motionVid);
+    const comp = after.getAcceptedVariant(compAddr)!;
+    expect(after.getAssetState(compAddr).variants![comp]!.keptInputs).toBeUndefined();
+    expect(after.variantStaleness(compAddr, comp)?.inputStale).toBe(false);
+  });
+
+  it("refuses a composition named by its id beside a take that moves what it shows", async () => {
+    await run(["accept", compAddr, "--yes"], projectDir);
+    const sm = await StateManager.load(projectDir);
+    const comp = sm.getAcceptedVariant(compAddr)!;
+    const newer = sm.reserveVariantId(motionAddr);
+    sm.getAssetState(motionAddr).variants![newer]!.file = "/tmp/motion2.mp4";
+    sm.getAssetState(motionAddr).variants![newer]!.outputHash = "motion-2";
+    await sm.save();
+
+    await expect(run(["accept", comp, newer, "--yes"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(/TARGETS_CONFLICT.*name video:shot\.01#composition instead/s),
+    });
+    expect((await StateManager.load(projectDir)).getAcceptedVariant(motionAddr)).toBe(motionVid);
+  });
+
+  it("accepts the overlay after the shot accepts under it", async () => {
+    await fs.writeFile(
+      path.join(projectDir, "video.tsx"),
+      TEST_VIDEO_TSX.replace("import { Composition,", "import { Composition, Subtitle,").replace(
+        "    }),\n  }),\n});",
+        '    }),\n    overlay: () => <Composition><Subtitle entries={[{ start: 1, end: 3, text: "hi" }]} /></Composition>,\n  }),\n});',
+      ),
+    );
+    const { stdout } = await run(["accept", "video", "--yes"], projectDir);
+    expect([...stdout.matchAll(/^Accepted: (\S+) → /gm)].map((m) => m[1]).at(-1)).toBe(
+      "video:timeline#overlay",
+    );
+  });
+
+  it("leaves out a shot over an accept with a take awaiting a verdict beside it", async () => {
+    const sm = await StateManager.load(projectDir);
+    sm.setAccepted(motionAddr, motionVid);
+    const rerolled = sm.reserveVariantId(motionAddr);
+    sm.getAssetState(motionAddr).variants![rerolled]!.file = "/tmp/motion2.mp4";
+    sm.getAssetState(motionAddr).variants![rerolled]!.outputHash = "motion-2";
+    await sm.save();
+
+    await expect(run(["accept", "video", "--yes"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        `video:shot.01 — ${motionAddr}: ${rerolled} await a verdict beside its accept`,
+      ),
+    });
+    expect((await StateManager.load(projectDir)).getAcceptedVariant(compAddr)).toBeNull();
+  });
+
+  it("leaves out an overlay whose own takes are not ready, accepting the shots", async () => {
+    await fs.writeFile(
+      path.join(projectDir, "video.tsx"),
+      TEST_VIDEO_TSX.replace("import { Composition,", "import { Composition, Image,").replace(
+        "    }),\n  }),\n});",
+        '    }),\n    overlay: () => <Composition><Image src="__konte:reference:studio__" /></Composition>,\n  }),\n});',
+      ),
+    );
+    const { stdout } = await run(["accept", "video", "--yes"], projectDir);
+    expect(stdout).toContain("Left unaccepted: video:timeline#overlay — reference:studio:");
+    expect((await StateManager.load(projectDir)).getAcceptedVariant(compAddr)).not.toBeNull();
+  });
+
+  it("leaves out a shot over a stale accept with a take drawn beside it", async () => {
+    const sm = await StateManager.load(projectDir);
+    sm.getAssetState(motionAddr).variants![motionVid]!.definitionHash = "an-older-definition";
+    sm.setAccepted(motionAddr, motionVid);
+    const rerolled = sm.reserveVariantId(motionAddr);
+    sm.getAssetState(motionAddr).variants![rerolled]!.file = "/tmp/motion2.mp4";
+    sm.getAssetState(motionAddr).variants![rerolled]!.outputHash = "motion-2";
+    await sm.save();
+
+    await expect(run(["accept", "video", "--yes"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        `video:shot.01 — ${motionAddr}: ${rerolled} await a verdict beside its accept`,
+      ),
+    });
+    const after = await StateManager.load(projectDir);
+    expect(after.getAcceptedVariant(compAddr)).toBeNull();
+    expect(after.getAssetState(motionAddr).variants![rerolled]!.status).toBe("none");
+  });
+
+  it("leaves out a reference card whose accept has a take awaiting a verdict beside it", async () => {
+    const studio = "reference:studio";
+    const sm = await StateManager.load(projectDir);
+    const first = sm.reserveVariantId(studio);
+    sm.getAssetState(studio).variants![first]!.file = "/tmp/studio1.png";
+    sm.setAccepted(studio, first);
+    const rerolled = sm.reserveVariantId(studio);
+    sm.getAssetState(studio).variants![rerolled]!.file = "/tmp/studio2.png";
+    await sm.save();
+
+    const { stdout } = await run(["accept", "reference", "--yes"], projectDir);
+    expect(stdout).toContain(
+      `Left unaccepted: ${studio} — ${rerolled} await a verdict beside its accept`,
+    );
+    const after = await StateManager.load(projectDir);
+    expect(after.getAssetState(studio).variants![rerolled]!.status).toBe("none");
+  });
+
+  it("refuses the address of a leaf beside its own variant id", async () => {
+    await run(["accept", compAddr, "--yes"], projectDir);
+    const comp = (await StateManager.load(projectDir)).getAcceptedVariant(compAddr)!;
+    await expect(run(["accept", compAddr, comp, "--yes"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("TARGETS_CONFLICT"),
+    });
+  });
+
+  it("accepts every ready shot of a stage", async () => {
+    await run(["accept", "video", "--yes"], projectDir);
+    const after = await StateManager.load(projectDir);
+    expect(after.getAcceptedVariant(compAddr)).not.toBeNull();
+    expect(after.getAcceptedVariant(stemAddr)).not.toBeNull();
+    expect(after.getAcceptedVariant(motionAddr)).toBe(motionVid);
+  });
+
+  it("releases the stem a shot stopped mixing into", async () => {
+    const sm = await StateManager.load(projectDir);
+    const stemVid = sm.reserveVariantId(stemAddr);
+    sm.getAssetState(stemAddr).variants![stemVid]!.file = "stem.json";
+    sm.setAccepted(stemAddr, stemVid);
+    await sm.save();
+    await fs.writeFile(
+      path.join(projectDir, "video.tsx"),
+      TEST_VIDEO_TSX.replace(
+        '      const voice = asset("voice", ttsComfy, { text: "hello" });\n',
+        "",
+      ).replace("<Audio src={voice} />", ""),
+    );
+
+    const { stdout } = await run(["accept", "video", "--yes"], projectDir);
+    expect(stdout).toContain(`Unaccepted: ${stemAddr} → ${stemVid}`);
+    const after = await StateManager.load(projectDir);
+    expect(after.getAcceptedVariant(stemAddr)).toBeNull();
+    expect(after.getAcceptedVariant(compAddr)).not.toBeNull();
+  });
+
+  it("clears a stage's accepted leaves with --off", async () => {
+    await run(["accept", "video", "--yes"], projectDir);
+    const { stdout } = await run(["accept", "video", "--off", "--yes"], projectDir);
+    expect(stdout.match(/^Unaccepted: /gm)).toHaveLength(2);
+    const after = await StateManager.load(projectDir);
+    expect(after.getAcceptedVariant(compAddr)).toBeNull();
+    expect(after.getAcceptedVariant(stemAddr)).toBeNull();
   });
 
   it("undoes the leaves it rendered when another target does not resolve", async () => {

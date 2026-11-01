@@ -1,7 +1,7 @@
 import type React from "react";
 import { useEffect, useRef } from "react";
 import { shotChangedSinceAccept } from "../review/changed-since-accept.js";
-import { shotAcceptable } from "../review/shot-acceptable.js";
+import { shotAcceptable } from "../../../core/shot-acceptable.js";
 import type { ShotInfo } from "../types.js";
 import { AcceptButton } from "./accept-button.js";
 import { CommentIcon } from "./icons.js";
