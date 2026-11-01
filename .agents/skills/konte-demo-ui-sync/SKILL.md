@@ -7,8 +7,8 @@ user-invocable: true
 Bring konte-demo's rebuilds up to the konte pages they copy; done when each changed screen renders beside its real screenshot and `synced-konte-commit` names `HEAD`.
 
 - `$DEMO` is the konte-demo workspace; ask the user for its path when it is not given.
-- `$DEMO/ui/review-ui.tsx` and `settings-ui.tsx` rebuild konte's review pages and `konte settings` as `jsxImage` components the promo video animates.
-- The promo screens using them are in `$DEMO/videos/promo/reference.tsx`; their props are documented in `$DEMO/README.md` (`## review-ui`, `## settings-ui`).
+- `$DEMO/ui/review-ui.tsx` and `settings-ui.tsx` rebuild konte's review pages and `konte settings` as React components; their props are the exported interfaces in those files.
+- The screens using them are the `ShotNN` components in `$DEMO/videos/how-you-use-it/screens.tsx`, each a shot of that video's `animatic.tsx` / `video.tsx`, scrolled and zoomed by its `ev` list.
 - `$DEMO/ui/synced-konte-commit` holds the konte commit the rebuilds last matched.
 
 ## 1. Find what changed
@@ -52,20 +52,18 @@ Rebuild part (`settings-ui.tsx`) → real source (`src/pages/settings/`):
 
 - `className` takes only Tailwind or classes in the file's `CSS` constant; anything else stops `generate` with a `class-font-family` finding. Prefix new classes `kr-`.
 - Use the real page's wording verbatim.
-- No backward compatibility: rename or drop a prop when the real page did, then fix every call in `videos/promo/reference.tsx`.
-- Update the README sections for every prop that changed.
+- No backward compatibility: rename or drop a prop when the real page did, then fix every call in `screens.tsx`.
 
 ## 4. Verify
 
 ```bash
 (cd $DEMO && .konte/tools/tsc-*/tsc -p tsconfig.json)
-bun run konte --cwd $DEMO/videos/promo probe jsx reference:<asset> --force
+bun run konte --cwd $DEMO/videos/how-you-use-it probe reel-thumbnails animatic:shot.<id> --at <sec>,… --force -y
 ```
 
-- `probe jsx` prints the PNG path; Read it beside the real screenshot.
-- Render one asset per changed screen (`directionFlow`, `directionShots`, `animaticRevision`, `videoNewTake`, `referenceCast`, `settingsConfig`, …).
+- Capture each changed screen at a moment its `ev` list has the change in frame; Read the printed JPEGs beside the real screenshot.
 - `--force` — the cache key may not cover an edit to `ui/`.
-- Running the dev CLI against the demo syncs its managed files to the dev version. If the demo's `direction.ts` / `reference.tsx` no longer type-check against the current DSL, report it to the user rather than fixing it.
+- Running the dev CLI against the demo syncs its managed files to the dev version; tell the user. If the demo's `direction.ts` / `animatic.tsx` / `video.tsx` no longer type-check against the current DSL, report it to the user rather than fixing it.
 
 ## 5. Record
 
