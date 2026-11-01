@@ -4,8 +4,6 @@ description: Read when touching the job pipeline — standalone job kinds (comfy
 user-invocable: false
 ---
 
-How konte schedules, waits on, and finalizes backend jobs.
-
 ## Job kinds
 
 A job records its backend kind and the addresses it depends on, and auto-submits once each has a ready variant.
