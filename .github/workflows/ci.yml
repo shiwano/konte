@@ -20,8 +20,8 @@ jobs:
       run:
         shell: nix develop --command bash -e {0}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      - uses: actions/checkout@v7.0.1
+      - uses: cachix/install-nix-action@v31.11.1
       - run: bun install --frozen-lockfile
 
       # src/core/generated/ is gitignored, and typecheck reads it.
@@ -38,10 +38,10 @@ jobs:
       run:
         shell: nix develop --command bash -e {0}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
-      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      - uses: cachix/install-nix-action@v31.11.1
       - run: bun scripts/check-commit-message.ts --range "$RANGE"
         env:
           RANGE: ${{ github.event.before }}..${{ github.sha }}
@@ -54,8 +54,8 @@ jobs:
       run:
         shell: nix develop --command bash -e {0}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      - uses: actions/checkout@v7.0.1
+      - uses: cachix/install-nix-action@v31.11.1
       - run: bun install --frozen-lockfile
 
       # src/core/generated/ is gitignored, and the CLI the suite spawns imports it.
