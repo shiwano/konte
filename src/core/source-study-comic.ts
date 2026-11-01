@@ -16,8 +16,8 @@ import {
 import { writeFileAtomic } from "./atomic-write.js";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { KonteError, errorMessage } from "./errors.js";
-import { execFileAsync } from "./exec-file.js";
-import { ffmpegBin, SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
+import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
+import { runFfmpeg } from "./ffmpeg-exec.js";
 import { type ParsedAt, parseAt } from "./source-locator.js";
 import {
   type SourceExcerpt,
@@ -301,16 +301,19 @@ async function readPageImage(page: PageSource): Promise<PageImage> {
 // ---------------------------------------------------------------------------------------------------
 // Writing pages.
 
-async function ffmpeg(args: string[]): Promise<void> {
-  await execFileAsync(await ffmpegBin(), [
-    "-v",
-    "error",
-    "-y",
-    ...SINGLE_FRAME_INPUT_ARGS,
-    ...args.slice(0, -1),
-    ...SINGLE_FRAME_OUTPUT_ARGS,
-    args.at(-1)!,
-  ]);
+async function ffmpeg(args: string[], what: string): Promise<void> {
+  await runFfmpeg(
+    [
+      "-v",
+      "error",
+      "-y",
+      ...SINGLE_FRAME_INPUT_ARGS,
+      ...args.slice(0, -1),
+      ...SINGLE_FRAME_OUTPUT_ARGS,
+      args.at(-1)!,
+    ],
+    what,
+  );
 }
 
 /** The page as a file ffmpeg reads: its own bytes, or its pixels encoded as a PNG. */
@@ -323,36 +326,42 @@ async function pageFile(image: PageImage, base: string): Promise<string> {
   const raw = `${base}.raw`;
   await fs.writeFile(raw, image.raw);
   const file = `${base}.png`;
-  await ffmpeg([
-    "-f",
-    "rawvideo",
-    "-pix_fmt",
-    image.pixFmt,
-    "-s",
-    `${image.width}x${image.height}`,
-    "-i",
-    raw,
-    "-frames:v",
-    "1",
-    file,
-  ]);
+  await ffmpeg(
+    [
+      "-f",
+      "rawvideo",
+      "-pix_fmt",
+      image.pixFmt,
+      "-s",
+      `${image.width}x${image.height}`,
+      "-i",
+      raw,
+      "-frames:v",
+      "1",
+      file,
+    ],
+    "ffmpeg could not encode the page",
+  );
   await fs.rm(raw, { force: true });
   return file;
 }
 
 async function writeScaled(input: string, out: string): Promise<void> {
   const s = ANALYSIS_SHORT_SIDE;
-  await ffmpeg([
-    "-i",
-    input,
-    "-vf",
-    `scale='if(gt(iw,ih),-2,trunc(min(${s},iw)/2)*2)':'if(gt(iw,ih),trunc(min(${s},ih)/2)*2,-2)'`,
-    "-frames:v",
-    "1",
-    "-q:v",
-    "3",
-    out,
-  ]);
+  await ffmpeg(
+    [
+      "-i",
+      input,
+      "-vf",
+      `scale='if(gt(iw,ih),-2,trunc(min(${s},iw)/2)*2)':'if(gt(iw,ih),trunc(min(${s},ih)/2)*2,-2)'`,
+      "-frames:v",
+      "1",
+      "-q:v",
+      "3",
+      out,
+    ],
+    "ffmpeg could not scale the page",
+  );
 }
 
 /** The width and height of a JPEG or PNG off its header; null for any other. */
@@ -524,7 +533,10 @@ async function writeChunk(
     const aspect = written[0]!.aspect;
     const binding = index.binding ?? "ltr";
     const blankFile = path.join(work, "blank.png");
-    await ffmpeg(["-f", "lavfi", "-i", "color=c=0x111111:s=16x16", "-frames:v", "1", blankFile]);
+    await ffmpeg(
+      ["-f", "lavfi", "-i", "color=c=0x111111:s=16x16", "-frames:v", "1", blankFile],
+      "ffmpeg could not make the blank cell",
+    );
     const blank: ContactSheetCell = { label: " ", file: blankFile, aspect };
     // A leading blank where the bundle opens on a lone page, rounded up to whole spreads.
     const count = Math.ceil((numbers.length + 1) / 2) * 2;

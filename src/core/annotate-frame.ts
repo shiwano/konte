@@ -1,10 +1,10 @@
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { ffmpegBin, SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
+import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
 import { clampUnit } from "./types/feedback.js";
 import { probeVideoDimensions } from "./video-probe.js";
-import { execFileAsync } from "./exec-file.js";
+import { runFfmpeg } from "./ffmpeg-exec.js";
 
 // The reticle is sized against the frame's short edge so it reads the same on any canvas, and wide
 // enough to survive the downscale a contact-sheet cell applies (a 1920-wide frame lands at 384).
@@ -95,21 +95,23 @@ export async function annotateFrameWithPin(options: {
   const ext = path.extname(outputFile);
   const tmpFile = `${outputFile.slice(0, outputFile.length - ext.length)}.partial${ext}`;
   try {
-    const ffmpeg = await ffmpegBin();
-    await execFileAsync(ffmpeg, [
-      "-y",
-      ...SINGLE_FRAME_INPUT_ARGS,
-      "-i",
-      sourceFile,
-      ...SINGLE_FRAME_OUTPUT_ARGS,
-      "-vf",
-      filters,
-      "-frames:v",
-      "1",
-      "-q:v",
-      "3",
-      tmpFile,
-    ]);
+    await runFfmpeg(
+      [
+        "-y",
+        ...SINGLE_FRAME_INPUT_ARGS,
+        "-i",
+        sourceFile,
+        ...SINGLE_FRAME_OUTPUT_ARGS,
+        "-vf",
+        filters,
+        "-frames:v",
+        "1",
+        "-q:v",
+        "3",
+        tmpFile,
+      ],
+      "ffmpeg pin reticle failed",
+    );
     if (!existsSync(tmpFile)) return false;
     await fs.rename(tmpFile, outputFile);
     return true;

@@ -1,9 +1,8 @@
 import { measureAudio } from "./audio-loudness.js";
-import { KonteError, errorMessage } from "./errors.js";
-import { ffprobeBin } from "./ffmpeg-binary.js";
+import { KonteError } from "./errors.js";
+import { runFfprobeJson } from "./ffmpeg-exec.js";
 import { inferMediaType } from "./media-type.js";
 import type { VariantMedia } from "./types/index.js";
-import { execFileAsync } from "./exec-file.js";
 
 // The pixel dimensions of a media file's first video stream (an image counts as one), or null if it
 // can't be probed (missing ffprobe, audio-only, corrupt file). Used to compute per-layer delivery
@@ -110,18 +109,8 @@ const PROBE_ENTRIES =
   "format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate," +
   "nb_frames,pix_fmt,bits_per_raw_sample,channels,channel_layout,sample_rate,bit_rate,duration";
 
-async function runFfprobe(absPath: string): Promise<RawProbe> {
-  const ffprobe = await ffprobeBin();
-  const res = await execFileAsync(ffprobe, [
-    "-v",
-    "quiet",
-    "-show_entries",
-    PROBE_ENTRIES,
-    "-of",
-    "json",
-    absPath,
-  ]);
-  return JSON.parse(res.stdout) as RawProbe;
+function runFfprobe(absPath: string): Promise<RawProbe> {
+  return runFfprobeJson<RawProbe>(["-show_entries", PROBE_ENTRIES, absPath]);
 }
 
 async function ffprobeJson(absPath: string): Promise<RawProbe | null> {
@@ -152,13 +141,7 @@ export interface VideoProbeResult {
 // A video's first stream as frame arithmetic wants it: every number present, an unknown one read as
 // 0 (fps as FALLBACK_FPS). Throws FFPROBE_ERROR when ffprobe fails or the file holds no video stream.
 export async function probeVideo(absPath: string): Promise<VideoProbeResult> {
-  let raw: RawProbe;
-  try {
-    raw = await runFfprobe(absPath);
-  } catch (err) {
-    throw new KonteError("FFPROBE_ERROR", `ffprobe failed: ${errorMessage(err)}`);
-  }
-  return parseVideoProbe(raw);
+  return parseVideoProbe(await runFfprobe(absPath));
 }
 
 export function parseVideoProbe(raw: unknown): VideoProbeResult {
@@ -187,17 +170,13 @@ export function parseVideoProbe(raw: unknown): VideoProbeResult {
 // for. Empty on any probe failure.
 export async function probeContainerTags(absPath: string): Promise<Record<string, string>> {
   try {
-    const ffprobe = await ffprobeBin();
-    const res = await execFileAsync(ffprobe, [
-      "-v",
-      "quiet",
-      "-show_entries",
-      "format_tags",
-      "-of",
-      "json",
-      absPath,
-    ]);
-    const tags = (JSON.parse(res.stdout) as { format?: { tags?: unknown } }).format?.tags;
+    const tags = (
+      await runFfprobeJson<{ format?: { tags?: unknown } }>([
+        "-show_entries",
+        "format_tags",
+        absPath,
+      ])
+    ).format?.tags;
     if (typeof tags !== "object" || tags === null) return {};
     return Object.fromEntries(
       Object.entries(tags as Record<string, unknown>).map(([k, v]) => [k, String(v)]),

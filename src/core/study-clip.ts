@@ -12,8 +12,7 @@ import {
   planContactSheetLayout,
 } from "./contact-sheet.js";
 import { KonteError, errorMessage } from "./errors.js";
-import { execFileAsync } from "./exec-file.js";
-import { ffmpegBin } from "./ffmpeg-binary.js";
+import { runFfmpeg } from "./ffmpeg-exec.js";
 import { separateSong } from "./sherpa-binary.js";
 import { type SongTempo, songTempo } from "./song-grid.js";
 import { hearWindows, joinHeardWindows } from "./speech-hearing.js";
@@ -190,28 +189,31 @@ function sheetCellLabel(shot: { startSec: number; endSec: number }): string {
   return `${formatClock(shot.startSec)}  ${formatSeconds(shot.endSec - shot.startSec)}`;
 }
 
-async function ffmpeg(args: string[]): Promise<void> {
-  await execFileAsync(await ffmpegBin(), ["-v", "error", "-y", ...args]);
+async function ffmpeg(args: string[], what: string): Promise<void> {
+  await runFfmpeg(["-v", "error", "-y", ...args], what);
 }
 
 export async function makeProxy(file: string, out: string): Promise<void> {
   const s = PROXY_SHORT_SIDE;
-  await ffmpeg([
-    "-i",
-    file,
-    "-map",
-    "0:v:0",
-    "-an",
-    "-vf",
-    `scale='if(gt(iw,ih),-2,trunc(min(${s},iw)/2)*2)':'if(gt(iw,ih),trunc(min(${s},ih)/2)*2,-2)'`,
-    "-c:v",
-    "libx264",
-    "-preset",
-    "ultrafast",
-    "-crf",
-    "26",
-    out,
-  ]);
+  await ffmpeg(
+    [
+      "-i",
+      file,
+      "-map",
+      "0:v:0",
+      "-an",
+      "-vf",
+      `scale='if(gt(iw,ih),-2,trunc(min(${s},iw)/2)*2)':'if(gt(iw,ih),trunc(min(${s},ih)/2)*2,-2)'`,
+      "-c:v",
+      "libx264",
+      "-preset",
+      "ultrafast",
+      "-crf",
+      "26",
+      out,
+    ],
+    "ffmpeg could not make the study proxy",
+  );
 }
 
 async function renderSheets(opts: {
@@ -261,19 +263,10 @@ export async function hearVoice(
 ): Promise<{ lang: string; lines: HeardLine[] } | null> {
   await fs.mkdir(workDir, { recursive: true });
   const stereo = path.join(workDir, "mix.wav");
-  await ffmpeg([
-    "-i",
-    file,
-    "-map",
-    "0:a:0",
-    "-ac",
-    "2",
-    "-ar",
-    "44100",
-    "-c:a",
-    "pcm_s16le",
-    stereo,
-  ]);
+  await ffmpeg(
+    ["-i", file, "-map", "0:a:0", "-ac", "2", "-ar", "44100", "-c:a", "pcm_s16le", stereo],
+    "ffmpeg could not extract the clip's audio",
+  );
   const vocals = path.join(workDir, "vocals.wav");
   await separateSong(stereo, {
     vocalsWav: vocals,

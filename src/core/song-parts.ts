@@ -1,8 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { sha256Hex } from "./content-hash.js";
-import { execFileAsync } from "./exec-file.js";
-import { ffmpegBin } from "./ffmpeg-binary.js";
+import { runFfmpeg } from "./ffmpeg-exec.js";
 import { separateSong } from "./sherpa-binary.js";
 
 export type SongPart = "vocals" | "instrumental";
@@ -26,22 +25,25 @@ export async function songParts(
   const staging = fs.mkdtempSync(`${dir}-`);
   try {
     const stereo = path.join(staging, "song.wav");
-    await execFileAsync(await ffmpegBin(), [
-      "-v",
-      "quiet",
-      "-y",
-      "-i",
-      variant.file,
-      "-map",
-      "0:a:0",
-      "-ac",
-      "2",
-      "-ar",
-      "44100",
-      "-c:a",
-      "pcm_s16le",
-      stereo,
-    ]);
+    await runFfmpeg(
+      [
+        "-v",
+        "quiet",
+        "-y",
+        "-i",
+        variant.file,
+        "-map",
+        "0:a:0",
+        "-ac",
+        "2",
+        "-ar",
+        "44100",
+        "-c:a",
+        "pcm_s16le",
+        stereo,
+      ],
+      "ffmpeg could not decode the song",
+    );
     await separateSong(stereo, {
       vocalsWav: path.join(staging, "vocals.wav"),
       instrumentalWav: path.join(staging, "instrumental.wav"),

@@ -12,6 +12,7 @@ import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { isWithinRoot } from "./path-containment.js";
 import { KonteError, errorMessage } from "./errors.js";
 import { ffmpegBin, SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
+import { hasBytes, runFfmpeg } from "./ffmpeg-exec.js";
 import { inferMediaType } from "./media-type.js";
 import { shotById } from "./shot-index.js";
 import { execFileAsync } from "./exec-file.js";
@@ -27,15 +28,6 @@ interface ExtractKeyframesOptions {
 export interface ThumbnailInfo {
   file: string;
   timestamp: number;
-}
-
-/** Whether a path holds a finished file — ffmpeg can exit 0 having written nothing. */
-async function hasBytes(file: string): Promise<boolean> {
-  try {
-    return (await fs.stat(file)).size > 0;
-  } catch {
-    return false;
-  }
 }
 
 // How many frame intervals back from the reported duration the last seekable moment sits. A duration
@@ -288,20 +280,15 @@ export async function extractFrameAt(
     tmpPath,
   ];
 
-  const ffmpeg = await ffmpegBin();
   try {
-    await execFileAsync(ffmpeg, args);
-    if (!(await hasBytes(tmpPath))) {
+    await runFfmpeg(args, `Frame extraction failed at ${timestamp}s`);
+    if (!hasBytes(tmpPath)) {
       throw new KonteError(
         "FFMPEG_ERROR",
         `Frame extraction produced no frame at ${timestamp}s (seek past end of clip?)`,
       );
     }
     await fs.rename(tmpPath, outputPath);
-  } catch (err) {
-    if (err instanceof KonteError) throw err;
-    const message = errorMessage(err);
-    throw new KonteError("FFMPEG_ERROR", `Frame extraction failed at ${timestamp}s: ${message}`);
   } finally {
     await fs.rm(tmpPath, { force: true });
   }

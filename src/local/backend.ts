@@ -10,12 +10,9 @@ import type {
 } from "../core/backend.js";
 import { assertRetimeRate, atempoChain, retimeRate } from "../core/audio-retime.js";
 import { parsePlaceholder } from "../core/dsl/shot-context.js";
-import { KonteError, errorMessage } from "../core/errors.js";
-import {
-  ffmpegBin,
-  SINGLE_FRAME_INPUT_ARGS,
-  SINGLE_FRAME_OUTPUT_ARGS,
-} from "../core/ffmpeg-binary.js";
+import { KonteError } from "../core/errors.js";
+import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "../core/ffmpeg-binary.js";
+import { runFfmpeg } from "../core/ffmpeg-exec.js";
 import { extractFrameAt, lastSeekableTime } from "../core/thumbnail.js";
 import { requireFileWithinRoot } from "../core/path-containment.js";
 import {
@@ -27,7 +24,6 @@ import {
 import { trimVideo } from "../core/ffmpeg.js";
 import { probeMediaDuration, probeVideo } from "../core/video-probe.js";
 import type { LocalAssetDefinition } from "../core/types/index.js";
-import { execFileAsync } from "../core/exec-file.js";
 import { formatSeconds } from "../core/format-duration.js";
 
 // A middle take carries a fade at each end, the first and last one at one.
@@ -207,13 +203,7 @@ export class LocalBackend implements GenerationBackend {
 
     const args = ["-y", "-i", inputFile, "-vf", `scale=${width}:${height}`, outputFile];
 
-    const ffmpeg = await ffmpegBin();
-    try {
-      await execFileAsync(ffmpeg, args);
-    } catch (err) {
-      const message = errorMessage(err);
-      throw new KonteError("FFMPEG_ERROR", `ffmpeg resizeImage failed: ${message}`);
-    }
+    await runFfmpeg(args, "ffmpeg resizeImage failed");
   }
 
   private async cropImage(
@@ -244,13 +234,7 @@ export class LocalBackend implements GenerationBackend {
       outputFile,
     ];
 
-    const ffmpeg = await ffmpegBin();
-    try {
-      await execFileAsync(ffmpeg, args);
-    } catch (err) {
-      const message = errorMessage(err);
-      throw new KonteError("FFMPEG_ERROR", `ffmpeg cropImage failed: ${message}`);
-    }
+    await runFfmpeg(args, "ffmpeg cropImage failed");
   }
 
   // konte's own primitive, reachable only through the `internalTestImage` fixture — there is no
@@ -286,13 +270,7 @@ export class LocalBackend implements GenerationBackend {
       outputFile,
     ];
 
-    const ffmpeg = await ffmpegBin();
-    try {
-      await execFileAsync(ffmpeg, args);
-    } catch (err) {
-      const message = errorMessage(err);
-      throw new KonteError("FFMPEG_ERROR", `ffmpeg createBlankImage failed: ${message}`);
-    }
+    await runFfmpeg(args, "ffmpeg createBlankImage failed");
   }
 
   private async trimMedia(
@@ -356,12 +334,7 @@ export class LocalBackend implements GenerationBackend {
       outputFile,
     ];
 
-    const ffmpeg = await ffmpegBin();
-    try {
-      await execFileAsync(ffmpeg, args);
-    } catch (err) {
-      throw new KonteError("FFMPEG_ERROR", `ffmpeg retimeMedia failed: ${errorMessage(err)}`);
-    }
+    await runFfmpeg(args, "ffmpeg retimeMedia failed");
   }
 
   private async concatAudio(
@@ -409,12 +382,7 @@ export class LocalBackend implements GenerationBackend {
       outputFile,
     ];
 
-    const ffmpeg = await ffmpegBin();
-    try {
-      await execFileAsync(ffmpeg, args);
-    } catch (err) {
-      throw new KonteError("FFMPEG_ERROR", `ffmpeg concatAudio failed: ${errorMessage(err)}`);
-    }
+    await runFfmpeg(args, "ffmpeg concatAudio failed");
   }
 
   private async extractFrame(

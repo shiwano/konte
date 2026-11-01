@@ -11,19 +11,15 @@ import {
   renderContactSheet,
 } from "../../../core/contact-sheet.js";
 import { definitionForAddress } from "../../../core/definition-hashes.js";
-import { KonteError, errorMessage } from "../../../core/errors.js";
+import { KonteError } from "../../../core/errors.js";
 import { ensureFfmpeg } from "../../../core/ffmpeg.js";
-import {
-  ffmpegBin,
-  SINGLE_FRAME_INPUT_ARGS,
-  SINGLE_FRAME_OUTPUT_ARGS,
-} from "../../../core/ffmpeg-binary.js";
+import { runFfmpeg } from "../../../core/ffmpeg-exec.js";
+import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "../../../core/ffmpeg-binary.js";
 import { cropWindowOf } from "../../../core/graph.js";
 import { inferMediaType } from "../../../core/media-type.js";
 import type { StateManager } from "../../../core/state/index.js";
 import { probeMediaInfo } from "../../../core/video-probe.js";
 import { openProbeTargets } from "./resolve-arg.js";
-import { execFileAsync } from "../../../core/exec-file.js";
 
 const BOX_COLORS = ["red", "lime", "cyan", "yellow", "magenta", "orange", "white", "dodgerblue"];
 
@@ -88,14 +84,6 @@ async function imageSize(
     throw new KonteError("FFMPEG_ERROR", `Could not measure ${address} (${variantId})`);
   }
   return probed;
-}
-
-async function runFfmpeg(args: string[], what: string): Promise<void> {
-  try {
-    await execFileAsync(await ffmpegBin(), args);
-  } catch (err) {
-    throw new KonteError("FFMPEG_ERROR", `${what}: ${errorMessage(err)}`);
-  }
 }
 
 function describeWindow(w: Window): string {

@@ -1,8 +1,7 @@
 import * as fs from "node:fs";
 import { detectBeats } from "./beat-this.js";
 import { errorMessage } from "./errors.js";
-import { execFileAsync } from "./exec-file.js";
-import { ffmpegBin } from "./ffmpeg-binary.js";
+import { runFfmpeg } from "./ffmpeg-exec.js";
 import { ANALYSIS_RATE, readSongBeat, readSungPhrases } from "./song-beat.js";
 import { songParts } from "./song-parts.js";
 import { formatSongTempo, songTempo } from "./song-variant.js";
@@ -11,8 +10,7 @@ import { hearSpeech } from "./speech-hearing.js";
 import type { SongReading } from "./types/index.js";
 
 async function decodeMono(file: string): Promise<Float32Array> {
-  const { stdout } = await execFileAsync(
-    await ffmpegBin(),
+  const { stdout } = await runFfmpeg(
     [
       "-v",
       "quiet",
@@ -28,6 +26,7 @@ async function decodeMono(file: string): Promise<Float32Array> {
       "f32le",
       "-",
     ],
+    "ffmpeg could not decode the audio",
     { encoding: "buffer" },
   );
   const copy = new Uint8Array(stdout.byteLength - (stdout.byteLength % 4));

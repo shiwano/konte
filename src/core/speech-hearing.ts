@@ -5,8 +5,7 @@ import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { definitionForAddress, type StageDefinitions } from "./definition-hashes.js";
 import { lineMishearing } from "./line-hearing.js";
 import { spokenLinesAt } from "./prompt-check.js";
-import { execFileAsync } from "./exec-file.js";
-import { ffmpegBin } from "./ffmpeg-binary.js";
+import { runFfmpeg } from "./ffmpeg-exec.js";
 import { type HeardTokens, recognizeSpeech } from "./sherpa-binary.js";
 import { type HeardSpeech, HeardSpeechSchema } from "./types/index.js";
 import { variantDir } from "./variant-dir.js";
@@ -72,26 +71,29 @@ export async function hearWindows(
   mkdirSync(workDir, { recursive: true });
   const wavs = await mapConcurrent(starts, FFMPEG_CONCURRENCY, async (startSec, i) => {
     const wav = path.join(workDir, `heard-${i}.wav`);
-    await execFileAsync(await ffmpegBin(), [
-      "-v",
-      "quiet",
-      "-y",
-      "-ss",
-      String(startSec),
-      "-t",
-      String(HEARING_WINDOW_SEC),
-      "-i",
-      file,
-      "-map",
-      "0:a:0",
-      "-ac",
-      "1",
-      "-ar",
-      "16000",
-      "-c:a",
-      "pcm_s16le",
-      wav,
-    ]);
+    await runFfmpeg(
+      [
+        "-v",
+        "quiet",
+        "-y",
+        "-ss",
+        String(startSec),
+        "-t",
+        String(HEARING_WINDOW_SEC),
+        "-i",
+        file,
+        "-map",
+        "0:a:0",
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        "-c:a",
+        "pcm_s16le",
+        wav,
+      ],
+      "ffmpeg could not cut the hearing window",
+    );
     return wav;
   });
   return { starts, heard: await recognizeSpeech(wavs, lang) };

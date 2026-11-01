@@ -1,18 +1,11 @@
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { KonteError, errorMessage } from "./errors.js";
 import { ffmpegBin, SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
+import { hasBytes, runFfmpeg } from "./ffmpeg-exec.js";
 import { inferMediaType } from "./media-type.js";
 import { shotById } from "./shot-index.js";
 import type { StateManager } from "./state/index.js";
@@ -252,15 +245,9 @@ async function decodeMotionProfile(absFile: string, fps: number): Promise<Motion
     "-",
   ];
 
-  const ffmpeg = await ffmpegBin();
-  let buf: Buffer;
-  try {
-    const res = await execFileAsync(ffmpeg, args, { encoding: "buffer" });
-    buf = res.stdout;
-  } catch (err) {
-    const message = errorMessage(err);
-    throw new KonteError("FFMPEG_ERROR", `Failed to decode video for motion analysis: ${message}`);
-  }
+  const { stdout: buf } = await runFfmpeg(args, "Failed to decode video for motion analysis", {
+    encoding: "buffer",
+  });
 
   const frameSize = w * h;
   const frames = Math.floor(buf.length / frameSize);
@@ -715,23 +702,12 @@ const STRIP_FRAME_WIDTH = 320;
 // that overshot by a frame or two, not one facing an arbitrary gap.
 const MAX_SEEK_STEPBACK = 2;
 
-// ffmpeg can exit 0 having written nothing, or leave a truncated file behind when it dies mid-write,
-// so "the path exists" is never enough to call an image finished.
-function hasBytes(file: string): boolean {
-  try {
-    return statSync(file).size > 0;
-  } catch {
-    return false;
-  }
-}
-
 // The binary is pinned for the process's lifetime, so its filter list is asked for once.
 let drawtextSupport: Promise<boolean> | undefined;
 function ffmpegHasDrawtext(): Promise<boolean> {
   drawtextSupport ??= (async () => {
     try {
-      const ffmpeg = await ffmpegBin();
-      const res = await execFileAsync(ffmpeg, ["-hide_banner", "-filters"]);
+      const res = await runFfmpeg(["-hide_banner", "-filters"], "ffmpeg -filters failed");
       return /\bdrawtext\b/.test(res.stdout);
     } catch {
       return false;
@@ -803,13 +779,7 @@ async function tileStripFrames(
     "3",
     tilePath,
   ];
-  const ffmpeg = await ffmpegBin();
-  try {
-    await execFileAsync(ffmpeg, tileArgs);
-  } catch (err) {
-    const message = errorMessage(err);
-    throw new KonteError("FFMPEG_ERROR", `Failed to tile motion strip: ${message}`);
-  }
+  await runFfmpeg(tileArgs, "Failed to tile motion strip");
   if (!hasBytes(tilePath)) {
     throw new KonteError("FFMPEG_ERROR", "ffmpeg wrote no motion strip");
   }

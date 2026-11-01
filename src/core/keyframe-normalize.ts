@@ -1,7 +1,8 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { ffmpegBin, ffprobeBin } from "./ffmpeg-binary.js";
+import { ffprobeBin } from "./ffmpeg-binary.js";
+import { runFfmpeg } from "./ffmpeg-exec.js";
 import { inferMediaType } from "./media-type.js";
 import { execFileAsync } from "./exec-file.js";
 import { probeVideo, type VideoProbeResult } from "./video-probe.js";
@@ -150,29 +151,31 @@ export async function normalizeKeyframesIfSparse(
     // -map 0 + default -c copy keeps every audio/subtitle/data track (multi-language audio,
     // captions); only the video stream is re-encoded for denser keyframes. Output keeps the
     // source container (same extension), so copying the other streams back is always valid.
-    const ffmpeg = await ffmpegBin();
-    await execFileAsync(ffmpeg, [
-      "-y",
-      "-i",
-      absPath,
-      "-map",
-      "0",
-      "-c",
-      "copy",
-      "-c:v",
-      "libx264",
-      "-preset",
-      "veryfast",
-      "-crf",
-      "18",
-      "-g",
-      String(gop),
-      "-keyint_min",
-      String(gop),
-      "-movflags",
-      "+faststart",
-      tmpPath,
-    ]);
+    await runFfmpeg(
+      [
+        "-y",
+        "-i",
+        absPath,
+        "-map",
+        "0",
+        "-c",
+        "copy",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "18",
+        "-g",
+        String(gop),
+        "-keyint_min",
+        String(gop),
+        "-movflags",
+        "+faststart",
+        tmpPath,
+      ],
+      "ffmpeg keyframe normalization failed",
+    );
     await fs.rename(tmpPath, absPath);
   } finally {
     await fs.rm(tmpPath, { force: true });

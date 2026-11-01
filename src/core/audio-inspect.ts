@@ -22,7 +22,7 @@ import {
 import type { AudioLoudness } from "./audio-loudness.js";
 import { parsePlaceholder, runTimelineInRenderMode } from "./dsl/shot-context.js";
 import { KonteError } from "./errors.js";
-import { ffmpegBin } from "./ffmpeg-binary.js";
+import { runFfmpeg } from "./ffmpeg-exec.js";
 import { inferMediaType } from "./media-type.js";
 import { computeBedLevels } from "./render-plan.js";
 import type { StateManager } from "./state/index.js";
@@ -34,7 +34,6 @@ import {
 } from "./timeline-audio.js";
 import type { StageDefinition } from "./types/index.js";
 import { probeMediaDuration } from "./video-probe.js";
-import { execFileAsync } from "./exec-file.js";
 import { formatSeconds, formatSecondsRange } from "./format-duration.js";
 
 // One audio track laid on the timeline, with its identity preserved (which shot/cue/bed it came
@@ -179,8 +178,7 @@ async function decodeSourceProfile(absFile: string): Promise<SourceProfile | nul
 
   let buf: Buffer;
   try {
-    const ffmpeg = await ffmpegBin();
-    const res = await execFileAsync(ffmpeg, args, { encoding: "buffer" });
+    const res = await runFfmpeg(args, "ffmpeg could not decode the audio", { encoding: "buffer" });
     buf = res.stdout;
   } catch {
     return null;

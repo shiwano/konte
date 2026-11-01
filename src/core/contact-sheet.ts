@@ -5,9 +5,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
-import { KonteError, errorMessage } from "./errors.js";
-import { ffmpegBin, SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
-import { execFileAsync } from "./exec-file.js";
+import { KonteError } from "./errors.js";
+import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
+import { runFfmpeg } from "./ffmpeg-exec.js";
 
 // A sheet exists to be Read by an agent, so its geometry is bounded by what a vision model keeps:
 // past a ~1568px long edge or ~1.15M pixels the image is downscaled on the way in, shrinking every
@@ -271,16 +271,6 @@ export function escapeFilterPath(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/:/g, "\\:").replace(/'/g, "\\'");
 }
 
-async function runFfmpeg(args: string[], what: string): Promise<void> {
-  const ffmpeg = await ffmpegBin();
-  try {
-    await execFileAsync(ffmpeg, args);
-  } catch (err) {
-    const message = errorMessage(err);
-    throw new KonteError("FFMPEG_ERROR", `${what}: ${message}`);
-  }
-}
-
 // Every cell is pinned to one pixel format. `tile` accumulates columns*rows frames before it emits,
 // and a format change part-way through the image sequence reinitializes the filtergraph, discarding
 // everything accumulated so far — so a sheet mixing a source-derived cell (yuvj444p from a PNG) with
@@ -318,21 +308,23 @@ async function canDrawText(layout: ContactSheetLayout, probeDir: string): Promis
   const outPath = path.join(probeDir, "probe.jpg");
   try {
     await fs.writeFile(labelFile, "probe", "utf-8");
-    const ffmpeg = await ffmpegBin();
-    await execFileAsync(ffmpeg, [
-      "-y",
-      ...SINGLE_FRAME_INPUT_ARGS,
-      "-f",
-      "lavfi",
-      "-i",
-      `color=c=${BACKGROUND}:s=${layout.cellWidth}x${layout.cellHeight}`,
-      ...SINGLE_FRAME_OUTPUT_ARGS,
-      "-vf",
-      cellFilters(layout, labelFile),
-      "-frames:v",
-      "1",
-      outPath,
-    ]);
+    await runFfmpeg(
+      [
+        "-y",
+        ...SINGLE_FRAME_INPUT_ARGS,
+        "-f",
+        "lavfi",
+        "-i",
+        `color=c=${BACKGROUND}:s=${layout.cellWidth}x${layout.cellHeight}`,
+        ...SINGLE_FRAME_OUTPUT_ARGS,
+        "-vf",
+        cellFilters(layout, labelFile),
+        "-frames:v",
+        "1",
+        outPath,
+      ],
+      "ffmpeg drawtext probe failed",
+    );
     return existsSync(outPath);
   } catch {
     return false;

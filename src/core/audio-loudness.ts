@@ -1,5 +1,4 @@
-import { ffmpegBin } from "./ffmpeg-binary.js";
-import { execFileAsync } from "./exec-file.js";
+import { runFfmpeg } from "./ffmpeg-exec.js";
 
 /**
  * What one decode pass measured on an audio-bearing file. `integratedLufs` is the program loudness a
@@ -110,30 +109,32 @@ export async function measureAudio(
   absPath: string,
 ): Promise<{ loudness: AudioLoudness | null; silent: boolean | null }> {
   try {
-    const ffmpeg = await ffmpegBin();
     const windows =
       `aformat=channel_layouts=mono,aresample=${LEAD_IN_RATE},` +
       `asetnsamples=n=${LEAD_IN_WINDOW}:p=0,` +
       "astats=metadata=1:reset=1:measure_perchannel=none:measure_overall=RMS_level," +
       "ametadata=mode=print:key=lavfi.astats.Overall.RMS_level:file=-";
-    const { stdout, stderr } = await execFileAsync(ffmpeg, [
-      "-nostats",
-      "-hide_banner",
-      "-i",
-      absPath,
-      "-filter_complex",
-      `asplit[a][b];[a]ebur128=peak=true[loudness];[b]${windows}[windows]`,
-      "-map",
-      "[loudness]",
-      "-f",
-      "null",
-      "-",
-      "-map",
-      "[windows]",
-      "-f",
-      "null",
-      "-",
-    ]);
+    const { stdout, stderr } = await runFfmpeg(
+      [
+        "-nostats",
+        "-hide_banner",
+        "-i",
+        absPath,
+        "-filter_complex",
+        `asplit[a][b];[a]ebur128=peak=true[loudness];[b]${windows}[windows]`,
+        "-map",
+        "[loudness]",
+        "-f",
+        "null",
+        "-",
+        "-map",
+        "[windows]",
+        "-f",
+        "null",
+        "-",
+      ],
+      "ffmpeg loudness measurement failed",
+    );
     const loudness = parseEbur128Summary(stderr);
     // The windows are read off a mono downmix, where channels in opposite phase cancel; the true
     // peak is per channel, so a sound heard on either one is not silence.

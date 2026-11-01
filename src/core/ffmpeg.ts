@@ -1,12 +1,12 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { KonteError, errorMessage } from "./errors.js";
+import { KonteError } from "./errors.js";
 import { duckVolumeExpr, type DuckStep } from "./audio-duck.js";
 import { atempoChain } from "./audio-retime.js";
 import { ffmpegBin } from "./ffmpeg-binary.js";
 import { probeHasAudio } from "./video-probe.js";
-import { execFileAsync } from "./exec-file.js";
+import { runFfmpeg } from "./ffmpeg-exec.js";
 
 /** Resolve a usable ffmpeg (provisioning the managed build on first use); returns its path. */
 export async function ensureFfmpeg(): Promise<string> {
@@ -54,13 +54,7 @@ export async function trimVideo(options: {
     outputFile,
   ];
 
-  const ffmpeg = await ffmpegBin();
-  try {
-    await execFileAsync(ffmpeg, args);
-  } catch (err) {
-    const message = errorMessage(err);
-    throw new KonteError("FFMPEG_ERROR", `ffmpeg trimVideo failed: ${message}`);
-  }
+  await runFfmpeg(args, "ffmpeg trimVideo failed");
 }
 
 export async function videoToVideo(options: {
@@ -111,13 +105,7 @@ export async function videoToVideo(options: {
     outputFile,
   );
 
-  const ffmpeg = await ffmpegBin();
-  try {
-    await execFileAsync(ffmpeg, args);
-  } catch (err) {
-    const message = errorMessage(err);
-    throw new KonteError("FFMPEG_ERROR", `ffmpeg videoToVideo failed: ${message}`);
-  }
+  await runFfmpeg(args, "ffmpeg videoToVideo failed");
 }
 
 export async function imageToVideo(options: {
@@ -165,13 +153,7 @@ export async function imageToVideo(options: {
     outputFile,
   ];
 
-  const ffmpeg = await ffmpegBin();
-  try {
-    await execFileAsync(ffmpeg, args);
-  } catch (err) {
-    const message = errorMessage(err);
-    throw new KonteError("FFMPEG_ERROR", `ffmpeg imageToVideo failed: ${message}`);
-  }
+  await runFfmpeg(args, "ffmpeg imageToVideo failed");
 }
 
 export interface MuxAudioTrack {
@@ -341,7 +323,7 @@ export async function muxTimelineAudio(options: {
 
   await fs.mkdir(path.dirname(outputFile), { recursive: true });
 
-  const ffmpeg = await ffmpegBin();
+  const what = "ffmpeg muxTimelineAudio failed";
   let muxTracks = tracks;
   let tmpDir: string | null = null;
   try {
@@ -351,7 +333,7 @@ export async function muxTimelineAudio(options: {
       for (let i = 0; i < tracks.length; i += MUX_CHUNK_SIZE) {
         const chunk = tracks.slice(i, i + MUX_CHUNK_SIZE);
         const chunkFile = path.join(tmpDir!, `chunk-${i / MUX_CHUNK_SIZE}.wav`);
-        await execFileAsync(ffmpeg, buildChunkMixArgs(chunk, chunkFile));
+        await runFfmpeg(buildChunkMixArgs(chunk, chunkFile), what);
         // A pre-mix is already placed on the timeline (adelay baked in), so it enters the
         // final pass as a bare full-length track at t=0.
         intermediates.push({
@@ -366,10 +348,7 @@ export async function muxTimelineAudio(options: {
       }
       muxTracks = intermediates;
     }
-    await execFileAsync(ffmpeg, buildMuxArgs(videoFile, outputFile, muxTracks, videoDuration));
-  } catch (err) {
-    const message = errorMessage(err);
-    throw new KonteError("FFMPEG_ERROR", `ffmpeg muxTimelineAudio failed: ${message}`);
+    await runFfmpeg(buildMuxArgs(videoFile, outputFile, muxTracks, videoDuration), what);
   } finally {
     if (tmpDir) await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   }
@@ -434,13 +413,7 @@ export async function mixAudioTracks(options: {
 
   await fs.mkdir(path.dirname(outputFile), { recursive: true });
 
-  const ffmpeg = await ffmpegBin();
-  try {
-    await execFileAsync(ffmpeg, buildAudioMixArgs(tracks, outputFile, duration));
-  } catch (err) {
-    const message = errorMessage(err);
-    throw new KonteError("FFMPEG_ERROR", `ffmpeg mixAudioTracks failed: ${message}`);
-  }
+  await runFfmpeg(buildAudioMixArgs(tracks, outputFile, duration), "ffmpeg mixAudioTracks failed");
 }
 
 export async function concatenateShots(options: {
@@ -501,13 +474,7 @@ export async function concatenateShots(options: {
       outputFile,
     ];
 
-    const ffmpeg = await ffmpegBin();
-    try {
-      await execFileAsync(ffmpeg, args);
-    } catch (err) {
-      const message = errorMessage(err);
-      throw new KonteError("FFMPEG_ERROR", `ffmpeg concatenateShots failed: ${message}`);
-    }
+    await runFfmpeg(args, "ffmpeg concatenateShots failed");
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -541,13 +508,11 @@ export async function tagDeliverable(options: {
     tmpFile,
   ];
 
-  const ffmpeg = await ffmpegBin();
   try {
-    await execFileAsync(ffmpeg, args);
+    await runFfmpeg(args, "ffmpeg tagDeliverable failed");
     await fs.rename(tmpFile, file);
-  } catch (err) {
+  } finally {
     await fs.rm(tmpFile, { force: true });
-    throw new KonteError("FFMPEG_ERROR", `ffmpeg tagDeliverable failed: ${errorMessage(err)}`);
   }
 }
 
@@ -597,11 +562,5 @@ export async function padVideoClip(options: {
     outputFile,
   ];
 
-  const ffmpeg = await ffmpegBin();
-  try {
-    await execFileAsync(ffmpeg, args);
-  } catch (err) {
-    const message = errorMessage(err);
-    throw new KonteError("FFMPEG_ERROR", `ffmpeg padVideoClip failed: ${message}`);
-  }
+  await runFfmpeg(args, "ffmpeg padVideoClip failed");
 }

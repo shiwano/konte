@@ -7,8 +7,7 @@ import ortWasm from "onnxruntime-web/ort-wasm-simd-threaded.wasm" with { type: "
 import { downloadFile } from "./download.js";
 import { endProgress, progressReporter } from "./download-progress.js";
 import { KonteError, errorMessage } from "./errors.js";
-import { execFileAsync } from "./exec-file.js";
-import { ffmpegBin } from "./ffmpeg-binary.js";
+import { runFfmpeg } from "./ffmpeg-exec.js";
 import {
   markToolCacheReady,
   resetToolCacheDir,
@@ -109,8 +108,7 @@ function loadModel(): Promise<BeatThisModel> {
 }
 
 async function decodeMono(file: string): Promise<Float32Array> {
-  const { stdout } = await execFileAsync(
-    await ffmpegBin(),
+  const { stdout } = await runFfmpeg(
     [
       "-v",
       "quiet",
@@ -126,6 +124,7 @@ async function decodeMono(file: string): Promise<Float32Array> {
       "f32le",
       "-",
     ],
+    "ffmpeg could not decode the audio",
     { encoding: "buffer" },
   );
   const copy = new Uint8Array(stdout.byteLength - (stdout.byteLength % 4));
