@@ -2,14 +2,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { downloadFile } from "./download.js";
 import { endProgress, progressReporter } from "./download-progress.js";
-import { KonteError, errorMessage } from "./errors.js";
-import {
-  markToolCacheReady,
-  resetToolCacheDir,
-  toolCacheDir,
-  toolCacheReady,
-  withToolCacheLock,
-} from "./tool-cache.js";
+import { KonteError } from "./errors.js";
+import { provisionOnce, toolCacheDir } from "./tool-cache.js";
 import { toolPin } from "./tool-checksums.js";
 import { execFileAsync } from "./exec-file.js";
 
@@ -17,7 +11,6 @@ import { execFileAsync } from "./exec-file.js";
 const CLOUDFLARED_VERSION = "2026.10.3";
 
 let cloudflaredPath: string | null = null;
-let provisioning: Promise<void> | null = null;
 
 /** Absolute path to a usable cloudflared, provisioning the managed build on first use if needed. */
 export async function cloudflaredBin(): Promise<string> {
@@ -29,11 +22,15 @@ export async function cloudflaredBin(): Promise<string> {
   }
   const dir = toolCacheDir(`cloudflared-${CLOUDFLARED_VERSION}`);
   const dest = path.join(dir, binName());
-  const pin = toolPin([cloudflaredDownloadSource(process.platform, process.arch).url]);
-  if (!toolCacheReady(dir, pin, [binName()])) {
-    if (!provisioning) provisioning = provision(dir, dest, pin);
-    await provisioning;
-  }
+  const src = cloudflaredDownloadSource(process.platform, process.arch);
+  await provisionOnce({
+    dir,
+    pin: toolPin([src.url]),
+    files: [binName()],
+    label: `cloudflared ${CLOUDFLARED_VERSION}`,
+    errorCode: "CLOUDFLARED_SETUP_FAILED",
+    fill: () => fillManaged(dir, src, dest),
+  });
   cloudflaredPath ??= dest;
   return cloudflaredPath;
 }
@@ -77,42 +74,23 @@ function unsupported(platform: string, arch: string): KonteError {
   );
 }
 
-async function provision(dir: string, dest: string, pin: string): Promise<void> {
-  try {
-    await withToolCacheLock(dir, async () => {
-      if (toolCacheReady(dir, pin, [binName()])) return; // another process got there first
-      await downloadAndUnpack(dir, dest, pin);
-    });
-  } catch (err) {
-    if (err instanceof KonteError) throw err;
-    throw new KonteError(
-      "CLOUDFLARED_SETUP_FAILED",
-      `cloudflared setup failed: ${errorMessage(err)}`,
-    );
-  }
-}
-
-async function downloadAndUnpack(dir: string, dest: string, pin: string): Promise<void> {
-  resetToolCacheDir(dir);
-  const src = cloudflaredDownloadSource(process.platform, process.arch);
-  console.error(`konte: provisioning cloudflared ${CLOUDFLARED_VERSION} → ${dir}`);
-  const tmp = fs.mkdtempSync(path.join(dir, ".dl-"));
-  try {
-    if (src.kind === "binary") {
-      await downloadFile(src.url, dest, progressReporter("cloudflared"));
-      endProgress();
-    } else {
+async function fillManaged(dir: string, src: CloudflaredSource, dest: string): Promise<void> {
+  if (src.kind === "binary") {
+    await downloadFile(src.url, dest, progressReporter("cloudflared"));
+    endProgress();
+  } else {
+    const tmp = fs.mkdtempSync(path.join(dir, ".dl-"));
+    try {
       const archive = path.join(tmp, "cloudflared.tgz");
       await downloadFile(src.url, archive, progressReporter("cloudflared"));
       endProgress();
       await execFileAsync("tar", ["xzf", archive, "-C", tmp]);
       relocate(findBinary(tmp, "cloudflared"), dest);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
     }
-    fs.chmodSync(dest, 0o755);
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
   }
-  await markToolCacheReady(dir, pin);
+  fs.chmodSync(dest, 0o755);
 }
 
 function findBinary(dir: string, name: string): string {

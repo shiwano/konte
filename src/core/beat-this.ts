@@ -6,15 +6,8 @@ import ortMjs from "onnxruntime-web/ort-wasm-simd-threaded.mjs" with { type: "fi
 import ortWasm from "onnxruntime-web/ort-wasm-simd-threaded.wasm" with { type: "file" };
 import { downloadFile } from "./download.js";
 import { endProgress, progressReporter } from "./download-progress.js";
-import { KonteError, errorMessage } from "./errors.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
-import {
-  markToolCacheReady,
-  resetToolCacheDir,
-  toolCacheDir,
-  toolCacheReady,
-  withToolCacheLock,
-} from "./tool-cache.js";
+import { provisionOnce, toolCacheDir } from "./tool-cache.js";
 import { toolPin } from "./tool-checksums.js";
 
 // Beat This! (CPJKU, ISMIR 2024), its `final0` checkpoint exported to ONNX, run on onnxruntime-web's
@@ -46,7 +39,6 @@ export type BeatThisFrontend = {
 };
 
 let modelDir: string | null = null;
-let provisioning: Promise<void> | null = null;
 
 /**
  * The directory holding `beat-this-final0.onnx` and `frontend.json`, downloading them on first use;
@@ -60,28 +52,19 @@ export async function beatThisModelDir(): Promise<string> {
     return override;
   }
   const dir = toolCacheDir("beat-this-final0");
-  const pin = toolPin(BEAT_THIS_URLS);
-  const files = [MODEL_FILE, FRONTEND_FILE];
-  if (!toolCacheReady(dir, pin, files)) {
-    provisioning ??= withToolCacheLock(dir, async () => {
-      if (toolCacheReady(dir, pin, files)) return;
-      resetToolCacheDir(dir);
-      console.error(`konte: provisioning the Beat This! model → ${dir}`);
+  await provisionOnce({
+    dir,
+    pin: toolPin(BEAT_THIS_URLS),
+    files: [MODEL_FILE, FRONTEND_FILE],
+    label: "Beat This! model",
+    errorCode: "BEAT_THIS_SETUP_FAILED",
+    fill: async () => {
       for (const url of BEAT_THIS_URLS) {
         await downloadFile(url, path.join(dir, path.basename(url)), progressReporter("beat-this"));
         endProgress();
       }
-      await markToolCacheReady(dir, pin);
-    }).catch((err) => {
-      provisioning = null;
-      if (err instanceof KonteError) throw err;
-      throw new KonteError(
-        "BEAT_THIS_SETUP_FAILED",
-        `Beat This! model setup failed: ${errorMessage(err)}`,
-      );
-    });
-    await provisioning;
-  }
+    },
+  });
   modelDir = dir;
   return dir;
 }

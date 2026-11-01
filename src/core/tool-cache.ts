@@ -2,6 +2,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
+import { downloadFile } from "./download.js";
+import { endProgress, progressReporter } from "./download-progress.js";
+import { type KonteErrorCode, KonteError, errorMessage } from "./errors.js";
+import { execFileAsync } from "./exec-file.js";
 import { withFileLock } from "./file-lock.js";
 import { workspaceRootOrNull } from "./workspace-context.js";
 
@@ -82,4 +86,77 @@ export function resetToolCacheDir(dir: string): void {
 /** Stamp `dir` as a finished install of `pin`. Call last, once every file is in place. */
 export function markToolCacheReady(dir: string, pin: string): Promise<void> {
   return writeFileAtomic(path.join(dir, READY_MARKER), pin);
+}
+
+export interface ToolCacheProvision {
+  dir: string;
+  pin: string;
+  files: readonly string[];
+  /** Names the runtime in the provisioning notice and the failure message (`tsc 7.0.2`). */
+  label: string;
+  errorCode: KonteErrorCode;
+  /** Appended to the failure message. */
+  hint?: string;
+  /** Fills the emptied `dir`; the readiness marker is written after it returns. */
+  fill: () => Promise<void>;
+}
+
+const provisioning = new Map<string, Promise<void>>();
+
+/**
+ * Provision `dir` unless it is ready, once per process and under the cross-process lock. A failure
+ * that is not already a `KonteError` surfaces as `errorCode`, and a failed provision is retried on
+ * the next call.
+ */
+export async function provisionOnce(spec: ToolCacheProvision): Promise<void> {
+  const { dir, pin, files } = spec;
+  if (toolCacheReady(dir, pin, files)) return;
+  let running = provisioning.get(dir);
+  if (!running) {
+    running = withToolCacheLock(dir, async () => {
+      if (toolCacheReady(dir, pin, files)) return;
+      resetToolCacheDir(dir);
+      console.error(`konte: provisioning ${spec.label} → ${dir}`);
+      await spec.fill();
+      await markToolCacheReady(dir, pin);
+    }).catch((err) => {
+      provisioning.delete(dir);
+      if (err instanceof KonteError) throw err;
+      const hint = spec.hint ? `. ${spec.hint}` : "";
+      throw new KonteError(
+        spec.errorCode,
+        `${spec.label} setup failed: ${errorMessage(err)}${hint}`,
+      );
+    });
+    provisioning.set(dir, running);
+  }
+  await running;
+}
+
+/**
+ * Download the tarball at `url` and move the contents of its root into `dest`: `inner` when given
+ * (a path inside the archive), else the archive's one top-level directory.
+ */
+export async function unpackTarballInto(
+  url: string,
+  dest: string,
+  progressLabel: string,
+  inner?: string,
+): Promise<void> {
+  const tmp = fs.mkdtempSync(path.join(dest, ".dl-"));
+  try {
+    const archive = path.join(tmp, path.basename(new URL(url).pathname));
+    await downloadFile(url, archive, progressReporter(progressLabel));
+    endProgress();
+    const out = path.join(tmp, "out");
+    fs.mkdirSync(out);
+    await execFileAsync("tar", ["xf", archive, "-C", out]);
+    const [top] = fs.readdirSync(out);
+    const root = inner ? path.join(out, inner) : top ? path.join(out, top) : out;
+    for (const entry of fs.readdirSync(root)) {
+      fs.renameSync(path.join(root, entry), path.join(dest, entry));
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 }

@@ -1,16 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { downloadFile } from "./download.js";
-import { endProgress, progressReporter } from "./download-progress.js";
-import { KonteError, errorMessage } from "./errors.js";
+import { KonteError } from "./errors.js";
 import { execFileAsync } from "./exec-file.js";
-import {
-  markToolCacheReady,
-  resetToolCacheDir,
-  toolCacheDir,
-  toolCacheReady,
-  withToolCacheLock,
-} from "./tool-cache.js";
+import { provisionOnce, toolCacheDir, unpackTarballInto } from "./tool-cache.js";
 import { toolPin } from "./tool-checksums.js";
 
 // Pinned sherpa-onnx release; the version names its tool-cache dir.
@@ -53,65 +45,24 @@ function exeName(name: string): string {
 let sherpaDir: string | null = null;
 let modelDir: string | null = null;
 let senseVoiceDir: string | null = null;
-const provisioning = new Map<string, Promise<void>>();
-
-// Provision one tool-cache dir under its lock, once per process.
-async function provisionOnce(
-  dir: string,
-  pin: string,
-  files: string[],
-  fill: () => Promise<void>,
-): Promise<void> {
-  if (toolCacheReady(dir, pin, files)) return;
-  let running = provisioning.get(dir);
-  if (!running) {
-    running = withToolCacheLock(dir, async () => {
-      if (toolCacheReady(dir, pin, files)) return;
-      resetToolCacheDir(dir);
-      await fill();
-      await markToolCacheReady(dir, pin);
-    }).catch((err) => {
-      provisioning.delete(dir);
-      if (err instanceof KonteError) throw err;
-      throw new KonteError("SHERPA_SETUP_FAILED", `sherpa-onnx setup failed: ${errorMessage(err)}`);
-    });
-    provisioning.set(dir, running);
-  }
-  await running;
-}
-
-// A `.tar.bz2` into `dest`, its one top-level directory flattened away.
-async function unpackInto(url: string, dest: string, label: string): Promise<void> {
-  const tmp = fs.mkdtempSync(path.join(dest, ".dl-"));
-  try {
-    const archive = path.join(tmp, "archive.tar.bz2");
-    await downloadFile(url, archive, progressReporter(label));
-    endProgress();
-    const out = path.join(tmp, "out");
-    fs.mkdirSync(out);
-    await execFileAsync("tar", ["xjf", archive, "-C", out]);
-    const [top] = fs.readdirSync(out);
-    const root = top ? path.join(out, top) : out;
-    for (const entry of fs.readdirSync(root)) {
-      fs.renameSync(path.join(root, entry), path.join(dest, entry));
-    }
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
-  }
-}
-
 // The managed sherpa-onnx build, provisioned on first use.
 async function managedSherpaDir(): Promise<string> {
   if (sherpaDir) return sherpaDir;
   const url = sherpaDownloadUrl(process.platform, process.arch);
   const dir = toolCacheDir(`sherpa-onnx-${SHERPA_VERSION}`);
   const bins = [SEPARATOR, RECOGNIZER].map((name) => path.join("bin", exeName(name)));
-  await provisionOnce(dir, toolPin([url]), bins, async () => {
-    console.error(`konte: provisioning sherpa-onnx ${SHERPA_VERSION} → ${dir}`);
-    await unpackInto(url, dir, "sherpa-onnx");
-    if (process.platform !== "win32") {
-      for (const bin of bins) fs.chmodSync(path.join(dir, bin), 0o755);
-    }
+  await provisionOnce({
+    dir,
+    pin: toolPin([url]),
+    files: bins,
+    label: `sherpa-onnx ${SHERPA_VERSION}`,
+    errorCode: "SHERPA_SETUP_FAILED",
+    fill: async () => {
+      await unpackTarballInto(url, dir, "sherpa-onnx");
+      if (process.platform !== "win32") {
+        for (const bin of bins) fs.chmodSync(path.join(dir, bin), 0o755);
+      }
+    },
   });
   sherpaDir = dir;
   return dir;
@@ -141,9 +92,13 @@ export async function spleeterModelDir(): Promise<string> {
     return override;
   }
   const dir = toolCacheDir("spleeter-2stems-fp16");
-  await provisionOnce(dir, toolPin([SPLEETER_URL]), SPLEETER_FILES, async () => {
-    console.error(`konte: provisioning the spleeter 2-stem model → ${dir}`);
-    await unpackInto(SPLEETER_URL, dir, "spleeter");
+  await provisionOnce({
+    dir,
+    pin: toolPin([SPLEETER_URL]),
+    files: SPLEETER_FILES,
+    label: "spleeter 2-stem model",
+    errorCode: "SHERPA_SETUP_FAILED",
+    fill: () => unpackTarballInto(SPLEETER_URL, dir, "spleeter"),
   });
   modelDir = dir;
   return dir;
@@ -161,9 +116,13 @@ export async function senseVoiceModelDir(): Promise<string> {
     return override;
   }
   const dir = toolCacheDir("sense-voice-int8-2024-07-17");
-  await provisionOnce(dir, toolPin([SENSE_VOICE_URL]), SENSE_VOICE_FILES, async () => {
-    console.error(`konte: provisioning the SenseVoice model → ${dir}`);
-    await unpackInto(SENSE_VOICE_URL, dir, "sense-voice");
+  await provisionOnce({
+    dir,
+    pin: toolPin([SENSE_VOICE_URL]),
+    files: SENSE_VOICE_FILES,
+    label: "SenseVoice model",
+    errorCode: "SHERPA_SETUP_FAILED",
+    fill: () => unpackTarballInto(SENSE_VOICE_URL, dir, "sense-voice"),
   });
   senseVoiceDir = dir;
   return dir;

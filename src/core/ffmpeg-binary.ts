@@ -5,13 +5,7 @@ import { loadKonteConfig } from "./config.js";
 import { downloadFile } from "./download.js";
 import { endProgress, progressReporter } from "./download-progress.js";
 import { type KonteErrorCode, KonteError, errorMessage } from "./errors.js";
-import {
-  markToolCacheReady,
-  resetToolCacheDir,
-  toolCacheDir,
-  toolCacheReady,
-  withToolCacheLock,
-} from "./tool-cache.js";
+import { provisionOnce, toolCacheDir, toolCacheReady } from "./tool-cache.js";
 import { toolPin } from "./tool-checksums.js";
 import { workspaceRootOrNull } from "./workspace-context.js";
 import { execFileAsync } from "./exec-file.js";
@@ -55,7 +49,6 @@ export const SINGLE_FRAME_OUTPUT_ARGS = ["-threads", "1"] as const;
 
 let ffmpegPath: string | null = null;
 let ffprobePath: string | null = null;
-let provisioning: Promise<void> | null = null;
 let configOverrides: { ffmpegPath?: string; ffprobePath?: string } | undefined;
 
 /** Absolute path to a usable ffmpeg, provisioning the managed build on first use if needed. */
@@ -185,11 +178,15 @@ async function ensureManaged(): Promise<void> {
   const dir = managedDir();
   const fm = path.join(dir, binName("ffmpeg"));
   const fp = path.join(dir, binName("ffprobe"));
-  const pin = toolPin(sourceUrls(ffmpegSource()));
-  if (!toolCacheReady(dir, pin, managedBinNames())) {
-    if (!provisioning) provisioning = provision(dir, fm, fp, pin);
-    await provisioning;
-  }
+  const src = ffmpegSource();
+  await provisionOnce({
+    dir,
+    pin: toolPin(sourceUrls(src)),
+    files: managedBinNames(),
+    label: `ffmpeg ${src.version}`,
+    errorCode: "FFMPEG_SETUP_FAILED",
+    fill: () => fillManaged(dir, src, fm, fp),
+  });
   // ??= so an already-resolved override path is never clobbered by the managed one.
   ffmpegPath ??= fm;
   ffprobePath ??= fp;
@@ -259,28 +256,12 @@ function unsupported(platform: string, arch: string): KonteError {
   );
 }
 
-async function provision(dir: string, fmDest: string, fpDest: string, pin: string): Promise<void> {
-  try {
-    await withToolCacheLock(dir, async () => {
-      if (toolCacheReady(dir, pin, managedBinNames())) return; // another process got there first
-      await downloadAndUnpack(dir, fmDest, fpDest, pin);
-    });
-  } catch (err) {
-    if (err instanceof KonteError) throw err;
-    const message = errorMessage(err);
-    throw new KonteError("FFMPEG_SETUP_FAILED", `ffmpeg setup failed: ${message}`);
-  }
-}
-
-async function downloadAndUnpack(
+async function fillManaged(
   dir: string,
+  src: FfmpegSource,
   fmDest: string,
   fpDest: string,
-  pin: string,
 ): Promise<void> {
-  resetToolCacheDir(dir);
-  const src = ffmpegSource();
-  console.error(`konte: provisioning ffmpeg ${src.version} → ${dir}`);
   const tmp = fs.mkdtempSync(path.join(dir, ".dl-"));
   try {
     if (src.kind === "archive") {
@@ -299,7 +280,6 @@ async function downloadAndUnpack(
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
-  await markToolCacheReady(dir, pin);
 }
 
 // bsdtar (libarchive) handles every archive konte downloads: .tar.xz on Linux and .zip on

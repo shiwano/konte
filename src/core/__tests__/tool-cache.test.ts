@@ -2,8 +2,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { KonteError } from "../errors.js";
 import {
   markToolCacheReady,
+  provisionOnce,
   resetToolCacheDir,
   toolCacheReady,
   withToolCacheLock,
@@ -101,5 +103,45 @@ describe("provisioning lock", () => {
       resetToolCacheDir(dir);
       expect(fs.existsSync(`${dir}.lock`)).toBe(true);
     });
+  });
+});
+
+describe("provisionOnce", () => {
+  const spec = (fill: () => Promise<void>) => ({
+    dir,
+    pin: "pin-a",
+    files: ["ffmpeg"],
+    label: "ffmpeg 1.0",
+    errorCode: "FFMPEG_SETUP_FAILED" as const,
+    fill,
+  });
+
+  it("fills an emptied directory once for concurrent callers, then marks it ready", async () => {
+    install("leftover");
+    let fills = 0;
+    const fill = async () => {
+      fills++;
+      expect(fs.readdirSync(dir)).toEqual([]);
+      fs.writeFileSync(path.join(dir, "ffmpeg"), "");
+    };
+    await Promise.all([provisionOnce(spec(fill)), provisionOnce(spec(fill))]);
+    expect(fills).toBe(1);
+    expect(toolCacheReady(dir, "pin-a", ["ffmpeg"])).toBe(true);
+    await provisionOnce(spec(fill));
+    expect(fills).toBe(1);
+  });
+
+  it("surfaces a failure as its error code and retries on the next call", async () => {
+    const failed = provisionOnce(
+      spec(async () => {
+        throw new Error("offline");
+      }),
+    );
+    await expect(failed).rejects.toBeInstanceOf(KonteError);
+    await expect(failed).rejects.toMatchObject({ code: "FFMPEG_SETUP_FAILED" });
+    expect(toolCacheReady(dir, "pin-a", ["ffmpeg"])).toBe(false);
+
+    await provisionOnce(spec(async () => fs.writeFileSync(path.join(dir, "ffmpeg"), "")));
+    expect(toolCacheReady(dir, "pin-a", ["ffmpeg"])).toBe(true);
   });
 });
