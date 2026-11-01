@@ -4,7 +4,7 @@
 
 - Dialogue — the lines; everything else sits under them. The loudest line is the loudest thing in the piece.
 - SE — one sound per visible action, landing on the frame the action lands (a door, a plate, a step): an `<Audio>` per event, placed by `start`. An action the frame does not show gets no sound — unless it is the off-screen event the staging withheld, in which case the sound carries the shot and lands on the reaction.
-- Ambience — the place's constant sound: room tone, street, wind, a kitchen hum. One bed per `location`, entering on the first shot there and leaving on the last (`soundtrack()` with `from`/`until`, and `duck: false` — a floor that moves with the lines is heard as a pump), so a cut inside a place is seamless and a cut to another place is audible.
+- Ambience — the place's constant sound: room tone, street, wind, a kitchen hum. Laid only where the picture carries none (a silent model's take, a still) or the story uses the place's sound (rain marking time); elsewhere the take's own audio is the ambience. One bed per such `location`, entering on the first shot there and leaving on the last (`soundtrack()` with `from`/`until`, and `duck: false` — a floor that moves with the lines is heard as a pump), so a cut inside a place is seamless and a cut to another place is audible.
 - Music — the emotion's carrier; the last layer added.
 
 ## Where music enters and leaves
