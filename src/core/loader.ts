@@ -244,7 +244,7 @@ let reloadLock: Promise<unknown> = Promise.resolve();
 
 // Evict the project's stale modules, then re-import `filePath` — serialized process-wide.
 // bustProjectModuleCache mutates the shared module registry, so two reloads in flight at once (e.g.
-// video + animatic via Promise.all in the export worker) let one's eviction delete modules the
+// the daemon's and an export worker's) let one's eviction delete modules the
 // other is mid-instantiation, and Bun throws "Requested module is not instantiated yet". Chaining
 // keeps each evict+import atomic; a rejection never wedges the chain.
 export function reloadFreshModule(filePath: string): Promise<Record<string, unknown>> {

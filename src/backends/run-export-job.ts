@@ -4,14 +4,12 @@ import { computeDefinitionSourceFingerprint } from "../core/definition-source.js
 import { computeExportPlanDigest, computeExportSignature } from "../core/export-signature.js";
 import { JobIndex } from "../core/job-index.js";
 import type { JobManager } from "../core/job-manager.js";
-import { loadAnimatic, reloadVideoDefinition } from "../core/loader.js";
-import { assertNarrationStemsPlaced } from "../core/narration-stem.js";
+import { reloadVideoAndAnimatic } from "../core/reload-definitions.js";
 import { renderVideoToFile } from "../core/render-video.js";
 import { runLeasedJob } from "./run-leased-job.js";
 import { buildTimestamp } from "../core/review-record.js";
 import { StateManager } from "../core/state/index.js";
 import type { ExportJob, JobRecord, KonteState } from "../core/types/index.js";
-import { stageEntryPath } from "../core/roots.js";
 
 type ExportJobHooks = {
   onStarted?: (info: { id: string; outputDir: string }) => void;
@@ -165,12 +163,7 @@ export async function runExportJob(
         hooks.onStarted?.({ id, outputDir: job.outputDir });
         jobManager.appendLog(id, `Export render started (worker ${workerId})`);
 
-        const videoPath = stageEntryPath(videoRoot, "video");
-        const [video, animatic] = await Promise.all([
-          reloadVideoDefinition(videoPath),
-          loadAnimatic(videoRoot, { reload: true }),
-        ]);
-        assertNarrationStemsPlaced(video, animatic);
+        const { video, animatic } = await reloadVideoAndAnimatic(videoRoot);
         const decision = decideExportRender(
           job,
           computeExportPlanDigest(video),
