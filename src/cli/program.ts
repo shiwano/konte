@@ -2,14 +2,12 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Command } from "commander";
 import pkg from "../../package.json" with { type: "json" };
-import { applyCredentials } from "../core/credentials.js";
 import { KonteError } from "../core/errors.js";
-import { resolveRoots } from "../core/roots.js";
 import { syncWorkspace } from "../core/template-sync.js";
 import { typeCheckWorkspace } from "../core/tsc.js";
-import { setWorkspaceRoot } from "../core/workspace-context.js";
-import { requireVideoRoots, setRoots } from "./context.js";
+import { exitWithError } from "./error-output.js";
 import { scopeOf } from "./scope.js";
+import { applyCwdOption, enterScope } from "./startup.js";
 import { registerAdapterCommand } from "./commands/adapter/index.js";
 import { registerPatchCommand } from "./commands/patch/index.js";
 import { registerCleanCommand } from "./commands/clean.js";
@@ -95,39 +93,13 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
   applyUniversalYesFlag(program);
 
   program.hook("preAction", async (thisCommand) => {
-    const cwd = thisCommand.opts<{ cwd?: string }>().cwd;
-    if (!cwd) return;
-    const target = path.resolve(cwd);
-    try {
-      const stat = await fs.stat(target);
-      if (!stat.isDirectory()) {
-        throw new KonteError("INVALID_CWD", `--cwd path is not a directory: ${cwd}`);
-      }
-    } catch (err) {
-      if (err instanceof KonteError) throw err;
-      throw new KonteError("INVALID_CWD", `--cwd path does not exist: ${cwd}`);
-    }
-    process.chdir(target);
+    await applyCwdOption(thisCommand.opts<{ cwd?: string }>().cwd);
   });
 
   program.hook("preAction", async (_thisCommand, actionCommand) => {
     const { scope, skipSync, skipTypeCheck } = scopeOf(actionCommand);
-
-    if (scope === "none") {
-      setRoots(null);
-      setWorkspaceRoot(null);
-      return;
-    }
-
-    const roots = await resolveRoots(process.cwd());
-    setRoots(roots);
-    // Before anything can provision a managed runtime (they land in <workspace>/.konte/tools/)
-    // or read process.env (the workspace's konte.credentials.json holds the backend credentials).
-    setWorkspaceRoot(roots.workspace);
-    await applyCredentials(roots.workspace);
-
-    // A command that needs a video says so, and finds out here rather than halfway through.
-    if (scope === "video") requireVideoRoots();
+    const roots = await enterScope(scope);
+    if (!roots) return;
 
     if (opts.skipProjectChecks) return;
 
@@ -194,29 +166,10 @@ function applyUniversalYesFlag(cmd: Command): void {
   }
 }
 
-export function formatKonteError(err: KonteError): string {
-  const prefix = `Error [${err.code}]: `;
-  if (err.items.length === 0) return `${prefix}${err.message}`;
-  const items = err.items
-    .flatMap((item) => item.split("\n"))
-    .map((line) => line.trim())
-    .filter((line) => line !== "")
-    .reduce((out, line) => (out === "" ? line : `${out}${out.endsWith(":") ? " " : "; "}${line}`));
-  return `${prefix}${err.headline}: ${items}`;
-}
-
 export async function run(): Promise<void> {
   try {
     await buildProgram().parseAsync(process.argv);
   } catch (err) {
-    if (err instanceof KonteError) {
-      console.error(formatKonteError(err));
-    } else {
-      // A non-KonteError is an unexpected bug: print its stack (not a rethrow, which would
-      // surface as an unhandled rejection with no exit code) and exit non-zero.
-      console.error(err instanceof Error ? (err.stack ?? err.message) : String(err));
-      console.error("\nThis is a bug in konte. The konte-feedback skill drafts the report.");
-    }
-    process.exit(1);
+    exitWithError(err);
   }
 }

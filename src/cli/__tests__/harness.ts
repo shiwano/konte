@@ -10,7 +10,8 @@ import { SCHEMA_VERSION } from "../../core/types/index.js";
 import { VideoRegistry } from "../../mcp/video-registry.js";
 import { setInvocation } from "../context.js";
 import { jobRunnerHooks } from "../job-runner.js";
-import { buildProgram, formatKonteError } from "../program.js";
+import { formatKonteError } from "../error-output.js";
+import { buildProgram } from "../program.js";
 import { loadDirectionIfPresent, loadStageDefinitions } from "../load-definition.js";
 import { writeFixtureVideo } from "./fixture-video.js";
 

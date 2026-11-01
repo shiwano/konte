@@ -33,8 +33,14 @@ if (import.meta.main) {
   const cache = resolveTranspilerCachePath(process.argv.slice(2));
 
   if (process.env[TRANSPILER_CACHE_ENV] === cache) {
-    const { run } = await import("./program.js");
-    await run();
+    const { mcpProgramOf, runMcpProgram } = await import("./program-mcp.js");
+    const mcp = mcpProgramOf(process.argv.slice(2));
+    if (mcp) {
+      await runMcpProgram(mcp);
+    } else {
+      const { run } = await import("./program.js");
+      await run();
+    }
   } else {
     // A standalone binary takes its arguments at argv[2..]; under `bun run`, argv[1] is this file
     // and has to be passed back so the child runs the CLI rather than a REPL. Which one this is
