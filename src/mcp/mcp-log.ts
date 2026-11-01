@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { withFileLock } from "../core/file-lock.js";
-import { redactUrls } from "../core/redact-url.js";
+import { redactUrls } from "../core/redact.js";
 
 export type McpLogLevel = "debug" | "info" | "warning" | "error";
 

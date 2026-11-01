@@ -7,7 +7,7 @@ import {
   fetchWithRetry,
   mediaTransferTimeoutMs,
 } from "../core/http-retry.js";
-import { redactErrorBody } from "../core/redact-url.js";
+import { redactExternalBody } from "../core/redact.js";
 import { backendCredential } from "../core/types/credentials.js";
 import {
   type FalStatusResponse,
@@ -23,6 +23,10 @@ import {
 // answers `owner/app/<subpath>/requests/…` with 405.
 function queueAppId(endpointId: string): string {
   return endpointId.split("/").slice(0, 2).join("/");
+}
+
+function redactFalBody(body: string): string {
+  return redactExternalBody(body, [`\${${backendCredential("fal")!.key}}`]);
 }
 
 export class FalHttpClient {
@@ -42,7 +46,7 @@ export class FalHttpClient {
     });
 
     if (!res.ok) {
-      const body = redactErrorBody(await res.text().catch(() => ""));
+      const body = redactFalBody(await res.text().catch(() => ""));
       if (res.status === 401 || res.status === 403) {
         const credential = backendCredential("fal")!;
         throw new KonteError(
@@ -64,7 +68,7 @@ export class FalHttpClient {
     const res = await fetchWithRetry(url, { headers: this.headers() }, { maxRetries: 0 });
 
     if (!res.ok) {
-      const body = redactErrorBody(await res.text().catch(() => ""));
+      const body = redactFalBody(await res.text().catch(() => ""));
       throw new KonteError("FAL_ERROR", `FAL status check failed (${res.status}): ${body}`);
     }
 
@@ -76,7 +80,7 @@ export class FalHttpClient {
     const res = await fetchWithRetry(url, { headers: this.headers() });
 
     if (!res.ok) {
-      const body = redactErrorBody(await res.text().catch(() => ""));
+      const body = redactFalBody(await res.text().catch(() => ""));
       throw new KonteError("FAL_ERROR", `FAL result fetch failed (${res.status}): ${body}`);
     }
 
@@ -92,7 +96,7 @@ export class FalHttpClient {
     });
 
     if (!res.ok) {
-      const body = redactErrorBody(await res.text().catch(() => ""));
+      const body = redactFalBody(await res.text().catch(() => ""));
       throw new KonteError("FAL_ERROR", `FAL cancel failed (${res.status}): ${body}`);
     }
   }
@@ -118,7 +122,7 @@ export class FalHttpClient {
     );
 
     if (!tokenRes.ok) {
-      const body = redactErrorBody(await tokenRes.text().catch(() => ""));
+      const body = redactFalBody(await tokenRes.text().catch(() => ""));
       throw new KonteError(
         "FAL_UPLOAD_FAILED",
         `FAL upload token failed (${tokenRes.status}): ${body}`,
@@ -144,7 +148,7 @@ export class FalHttpClient {
     });
 
     if (!uploadRes.ok) {
-      const body = redactErrorBody(await uploadRes.text().catch(() => ""));
+      const body = redactFalBody(await uploadRes.text().catch(() => ""));
       throw new KonteError(
         "FAL_UPLOAD_FAILED",
         `FAL file upload failed (${uploadRes.status}): ${body}`,

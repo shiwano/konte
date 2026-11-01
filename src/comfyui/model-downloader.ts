@@ -6,8 +6,7 @@ import { pipeline } from "node:stream/promises";
 import type { ReadableStream as NodeWebReadableStream } from "node:stream/web";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { withFileLock } from "../core/file-lock.js";
-import { redactErrorBody, redactUrlSecret } from "../core/redact-url.js";
-import { buildTokenRedactor } from "./token-resolver.js";
+import { redactExternalBody, redactUrlSecret } from "../core/redact.js";
 
 // Holds the bytes in flight. A root that registers no extension filter lists every file it holds,
 // so it is the name, not the suffix, that keeps a partial from reading as the model.
@@ -77,9 +76,8 @@ export async function downloadModelFile(opts: ModelDownloadOptions): Promise<Mod
   await fs.mkdir(path.dirname(destPath), { recursive: true });
 
   // Every string this function can put on disk goes through here. It covers the bearer token too,
-  // which lives only in a header and so is invisible to `redactErrorBody`'s URL matching.
-  const redactToken = buildTokenRedactor([declaredUrl, "${HF_TOKEN}"]);
-  const scrub = (text: string): string => redactErrorBody(redactToken(text));
+  // which lives only in a header and so is invisible to URL matching.
+  const scrub = (text: string): string => redactExternalBody(text, [declaredUrl, "${HF_TOKEN}"]);
 
   try {
     // The run lease already serializes jobs, but a lease is meant to lapse and be reclaimed, and

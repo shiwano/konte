@@ -7,7 +7,7 @@ import {
   fetchWithRetry,
   TransientHttpError,
 } from "../core/http-retry.js";
-import { redactUrlSecret } from "../core/redact-url.js";
+import { redactUrlSecret } from "../core/redact.js";
 
 const CONTENT_TYPES: Record<string, string> = {
   ".png": "image/png",

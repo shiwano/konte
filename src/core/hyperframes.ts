@@ -7,7 +7,7 @@ import { ensureChromium } from "./chromium.js";
 import { KonteError, errorMessage } from "./errors.js";
 import { leadPathWithFfmpeg } from "./ffmpeg-binary.js";
 import { ensureHyperFramesEnv } from "./hyperframes-env.js";
-import { redactUrls } from "./redact-url.js";
+import { redactUrls } from "./redact.js";
 
 export type { SrtEntry } from "./srt.js";
 export { parseSrt } from "./srt.js";

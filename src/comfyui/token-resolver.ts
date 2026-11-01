@@ -1,10 +1,9 @@
 import { KonteError } from "../core/errors.js";
+import { PLACEHOLDER_RE } from "../core/redact.js";
 
 interface TokenSource {
   env?: NodeJS.ProcessEnv;
 }
-
-const PLACEHOLDER_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 
 function substitute(text: string, env: NodeJS.ProcessEnv): { resolved: string; missing: string[] } {
   const missing: string[] = [];
@@ -46,34 +45,4 @@ export function resolveHeaderTokens(
     out[name] = resolved;
   }
   return out;
-}
-
-// Build a redactor that reverses resolved token values back to their `${VAR}` placeholders,
-// for scrubbing an external server's response before it is persisted (job file, log). Given the
-// unresolved templates a request was built from, it maps each substituted secret to `${VAR}` —
-// so a server that echoes a token-bearing URL never lands a live credential on disk.
-export function buildTokenRedactor(
-  templates: readonly string[],
-  source: TokenSource = {},
-): (text: string) => string {
-  const env = source.env ?? process.env;
-  const replacements: Array<{ value: string; placeholder: string }> = [];
-  for (const template of templates) {
-    for (const match of template.matchAll(PLACEHOLDER_RE)) {
-      const varName = match[1]!;
-      const value = env[varName];
-      if (typeof value === "string" && value.length > 0) {
-        replacements.push({ value, placeholder: `\${${varName}}` });
-      }
-    }
-  }
-  // Replace longest values first so a secret that contains another isn't left partly exposed.
-  replacements.sort((a, b) => b.value.length - a.value.length);
-  return (text: string): string => {
-    let out = text;
-    for (const { value, placeholder } of replacements) {
-      out = out.split(value).join(placeholder);
-    }
-    return out;
-  };
 }

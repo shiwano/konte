@@ -1,6 +1,7 @@
 import { KonteError, type KonteErrorCode } from "../core/errors.js";
 import { API_REQUEST_TIMEOUT_MS, fetchWithRetry, TransientHttpError } from "../core/http-retry.js";
-import { redactErrorBody } from "../core/redact-url.js";
+import { redactExternalBody } from "../core/redact.js";
+import { COMFY_API_KEY_ENV } from "./routing.js";
 
 export const COMFY_CLOUD_ORIGIN = "https://cloud.comfy.org";
 export const COMFY_PLATFORM_ORIGIN = "https://platformapi.comfy.org";
@@ -71,7 +72,7 @@ function codeFor(status: number, serverCode: string | null, body: string): Konte
 }
 
 export async function toHttpError(res: Response, what: string): Promise<ComfyApiHttpError> {
-  const body = redactErrorBody(await res.text().catch(() => ""));
+  const body = redactExternalBody(await res.text().catch(() => ""), [`\${${COMFY_API_KEY_ENV}}`]);
   const { code: serverCode, message } = serverCodeOf(body);
   const detail = message ?? body;
   return new ComfyApiHttpError(

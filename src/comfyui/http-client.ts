@@ -1,8 +1,8 @@
 import { parseApiResponse, saveDownloadResponse } from "../backends/http-util.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { MEDIA_TRANSFER_TIMEOUT_MS, fetchWithRetry } from "../core/http-retry.js";
-import { redactErrorBody } from "../core/redact-url.js";
-import { buildTokenRedactor, resolveHeaderTokens } from "./token-resolver.js";
+import { redactExternalBody } from "../core/redact.js";
+import { resolveHeaderTokens } from "./token-resolver.js";
 import {
   type ComfyUIHistoryEntry,
   type ComfyUIModelFolder,
@@ -57,11 +57,7 @@ export class ComfyUIHttpClient {
    * request it rejected, credential included.
    */
   redactBody(body: string, extraTemplates: readonly string[] = []): string {
-    const redactTokens = buildTokenRedactor([
-      ...Object.values(this.headerTemplates),
-      ...extraTemplates,
-    ]);
-    return redactTokens(redactErrorBody(body));
+    return redactExternalBody(body, [...Object.values(this.headerTemplates), ...extraTemplates]);
   }
 
   async queuePrompt(workflow: ComfyUIWorkflow): Promise<ComfyUIPromptResponse> {

@@ -9,9 +9,7 @@ import type {
 } from "../core/backend.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { requireFileWithinRoot } from "../core/path-containment.js";
-import { redactErrorBody } from "../core/redact-url.js";
 import type { VideoRoots } from "../core/roots.js";
-import { buildTokenRedactor } from "./token-resolver.js";
 import { sleep } from "../core/sleep.js";
 
 // The outcome of installing one model / node pack via ComfyUI-Manager. `timedOut` (the waiter's
@@ -359,10 +357,9 @@ export class ComfyUIBackend implements GenerationBackend {
     if (outcome && outcome.result !== "success") {
       // The Manager echoes the resolved download URL in its failure text, `${VAR}` tokens already
       // expanded; redact it back before this reaches the job file or log.
-      const redact = buildTokenRedactor([decl.url]);
       const detail = [outcome.result, outcome.errorMessage]
         .filter((part): part is string => !!part)
-        .map((part) => redactErrorBody(redact(part)))
+        .map((part) => this.httpClient.redactBody(part, [decl.url]))
         .join(": ");
       throw new KonteError(
         "COMFYUI_MANAGER_UNAVAILABLE",
@@ -459,7 +456,7 @@ export class ComfyUIBackend implements GenerationBackend {
     if (outcome && outcome.result !== "success") {
       const detail = [outcome.result, outcome.errorMessage]
         .filter((part): part is string => !!part)
-        .map((part) => redactErrorBody(part))
+        .map((part) => this.httpClient.redactBody(part))
         .join(": ");
       throw new KonteError(
         "COMFYUI_MANAGER_UNAVAILABLE",

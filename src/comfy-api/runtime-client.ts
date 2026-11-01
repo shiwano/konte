@@ -10,7 +10,7 @@ import {
   mediaTransferTimeoutMs,
   TransientHttpError,
 } from "../core/http-retry.js";
-import { redactUrlSecret } from "../core/redact-url.js";
+import { redactUrlSecret } from "../core/redact.js";
 import {
   type ComfyApiAuth,
   ComfyApiHttpError,
