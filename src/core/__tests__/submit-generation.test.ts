@@ -42,7 +42,7 @@ describe("submitToBackend", () => {
       chooseSubmissionSite: async () => "dep-1",
       submit: async (req: GenerationRequest) => {
         sentTo = req.submissionSite;
-        return "backend-site";
+        return { backendJobId: "backend-site" };
       },
     } as unknown as GenerationBackend;
     const begun: unknown[] = [];
@@ -70,7 +70,7 @@ describe("submitToBackend", () => {
       },
       submit: async (req: GenerationRequest) => {
         sentTo = req.submissionSite;
-        return "backend-site";
+        return { backendJobId: "backend-site" };
       },
     } as unknown as GenerationBackend;
     const first = { seed: 1, resolvedDependencies: {}, site: "dep-old" };
@@ -88,7 +88,7 @@ describe("submitToBackend", () => {
 
   it("stamps adapterKey for every submitted generation job", async () => {
     const backend = {
-      submit: async () => "backend-123",
+      submit: async () => ({ backendJobId: "backend-123" }),
     } as unknown as GenerationBackend;
 
     const { backendJobId, metadata } = await submitToBackend(
@@ -100,7 +100,25 @@ describe("submitToBackend", () => {
 
     expect(backendJobId).toBe("backend-123");
     expect(metadata[ADAPTER_KEY_METADATA_KEY]).toBe("resize");
-    expect(metadata.comfyClientId).toBeUndefined();
+  });
+
+  it("carries what the backend's submit recorded into the job's metadata", async () => {
+    const backend = {
+      submit: async () => ({
+        backendJobId: "backend-meta",
+        metadata: { comfyClientId: "client-1", [ADAPTER_KEY_METADATA_KEY]: "spoofed" },
+      }),
+    } as unknown as GenerationBackend;
+
+    const { metadata } = await submitToBackend(
+      fakeJobManager([]),
+      backend,
+      fakeJob(),
+      fakeRequest(),
+    );
+
+    expect(metadata.comfyClientId).toBe("client-1");
+    expect(metadata[ADAPTER_KEY_METADATA_KEY]).toBe("resize");
   });
 
   it("records the seed passed to submit when the definition uses a seed placeholder", async () => {
@@ -108,7 +126,7 @@ describe("submitToBackend", () => {
     const backend = {
       submit: async (_req: GenerationRequest, _job: GenerationJob, s: number) => {
         seenSeed = s;
-        return "backend-seed";
+        return { backendJobId: "backend-seed" };
       },
     } as unknown as GenerationBackend;
 
@@ -127,7 +145,9 @@ describe("submitToBackend", () => {
   });
 
   it("omits the seed for a definition with no seed placeholder", async () => {
-    const backend = { submit: async () => "backend-noseed" } as unknown as GenerationBackend;
+    const backend = {
+      submit: async () => ({ backendJobId: "backend-noseed" }),
+    } as unknown as GenerationBackend;
 
     const { metadata } = await submitToBackend(
       fakeJobManager([]),
@@ -142,7 +162,7 @@ describe("submitToBackend", () => {
   it("logs the backend submission", async () => {
     const logs: string[] = [];
     const backend = {
-      submit: async () => "backend-456",
+      submit: async () => ({ backendJobId: "backend-456" }),
     } as unknown as GenerationBackend;
 
     await submitToBackend(fakeJobManager(logs), backend, fakeJob(), fakeRequest());

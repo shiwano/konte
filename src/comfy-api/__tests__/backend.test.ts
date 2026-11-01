@@ -168,9 +168,9 @@ describe("submit", () => {
     const client = fakeClient("cloud");
     const { backend, endpoints } = backendWith(client);
 
-    const id = await backend.submit(request(), jobRecord("comfyapi:cloud"), 7);
+    const { backendJobId } = await backend.submit(request(), jobRecord("comfyapi:cloud"), 7);
 
-    expect(id).toBe("comfyapi:cloud|job-1");
+    expect(backendJobId).toBe("comfyapi:cloud|job-1");
     expect(endpoints).toEqual(["https://cloud.comfy.org"]);
     expect(client.uploadInput).toHaveBeenCalledWith(
       path.join(ws.videos.main!.video, "assets", "hero.png"),
@@ -216,9 +216,9 @@ describe("submit", () => {
     ]);
     const { backend, endpoints } = backendWith(client);
 
-    expect(await backend.submit(request(), jobRecord("comfyapi:main"), 7)).toBe(
-      "comfyapi:main|dep-1|job-7",
-    );
+    expect(await backend.submit(request(), jobRecord("comfyapi:main"), 7)).toEqual({
+      backendJobId: "comfyapi:main|dep-1|job-7",
+    });
     expect(endpoints).toEqual(["https://dep.example"]);
   });
 
@@ -242,7 +242,7 @@ describe("submit", () => {
         jobRecord("comfyapi:main"),
         7,
       ),
-    ).toBe("comfyapi:main|dep-old|job-1");
+    ).toEqual({ backendJobId: "comfyapi:main|dep-old|job-1" });
     expect(endpoints).toEqual(["https://old.example"]);
   });
 
@@ -336,9 +336,10 @@ describe("waitForCompletion", () => {
     const client = fakeClient("cloud");
     client.getJob.mockResolvedValue(job({ status: "succeeded", outputs }));
     const { backend } = backendWith(client);
-    backend.setOutputNodeId("comfyapi:cloud|job-1", "9");
 
-    const result = await backend.waitForCompletion("comfyapi:cloud|job-1", ws.videos.main!.video);
+    const result = await backend.waitForCompletion("comfyapi:cloud|job-1", ws.videos.main!.video, {
+      outputNodeId: "9",
+    });
 
     expect(result).toMatchObject({
       kind: "done",

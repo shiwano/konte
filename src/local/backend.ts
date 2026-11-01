@@ -4,6 +4,7 @@ import type {
   GenerationBackend,
   GenerationRequest,
   GenerationResult,
+  SubmitResult,
   WaitForCompletionResult,
   WaitOptions,
 } from "../core/backend.js";
@@ -60,9 +61,9 @@ export class LocalBackend implements GenerationBackend {
     this.videoRoot = videoRoot;
   }
 
-  async submit(request: GenerationRequest): Promise<string> {
+  async submit(request: GenerationRequest): Promise<SubmitResult> {
     await this.generate(request);
-    return `local-${request.variantId}`;
+    return { backendJobId: `local-${request.variantId}` };
   }
 
   // Local media ops run synchronously inside submit() (there is no external job to poll), so this

@@ -126,7 +126,7 @@ async function cancelOne(
   if (job.backendJobId) {
     try {
       const backendKind = getBackendKindFromJob(job);
-      const backend = await resolveBackend(backendKind, roots);
+      const backend = await resolveBackend(backendKind, roots, job);
       await backend.cancel(job.backendJobId);
     } catch (err) {
       // Cancellation on the backend is best-effort, but surface the failure so the

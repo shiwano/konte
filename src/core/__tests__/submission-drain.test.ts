@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, expect, it } from "vitest";
-import type { GenerationBackend, GenerationRequest, WaitForCompletionResult } from "../backend.js";
+import type {
+  GenerationBackend,
+  GenerationRequest,
+  SubmitResult,
+  WaitForCompletionResult,
+} from "../backend.js";
 import { computeDefinitionHash } from "../definition-hash.js";
 import { type DeliveryTarget, synthesizeDeliveryAssetDefinition } from "../delivery.js";
 import type { AssetAdapter } from "../dsl/adapter.js";
@@ -50,10 +55,10 @@ class GatedBackend implements GenerationBackend {
   open(): void {
     this.release();
   }
-  async submit(request: GenerationRequest): Promise<string> {
+  async submit(request: GenerationRequest): Promise<SubmitResult> {
     this.started.push(request.variantId);
     await this.gate;
-    return `fake-${request.variantId}`;
+    return { backendJobId: `fake-${request.variantId}` };
   }
   async waitForCompletion(): Promise<WaitForCompletionResult> {
     throw new Error("not used");

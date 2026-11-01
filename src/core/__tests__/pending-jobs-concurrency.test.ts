@@ -2,7 +2,12 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { waitForJob } from "../../backends/wait-for-job.js";
-import type { GenerationBackend, GenerationRequest, WaitForCompletionResult } from "../backend.js";
+import type {
+  GenerationBackend,
+  GenerationRequest,
+  SubmitResult,
+  WaitForCompletionResult,
+} from "../backend.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { asset, defineVideo } from "../dsl/index.js";
 import { Composition } from "../dsl/composition/composition.js";
@@ -80,11 +85,11 @@ class CountingBackend implements GenerationBackend {
     private readonly delayMs = 10,
   ) {}
 
-  async submit(request: GenerationRequest): Promise<string> {
+  async submit(request: GenerationRequest): Promise<SubmitResult> {
     if (this.delayMs > 0) await new Promise((r) => setTimeout(r, this.delayMs));
     const n = (this.counts.get(request.variantId) ?? 0) + 1;
     this.counts.set(request.variantId, n);
-    return `fake-${request.variantId}-${n}`;
+    return { backendJobId: `fake-${request.variantId}-${n}` };
   }
 
   async waitForCompletion(): Promise<WaitForCompletionResult> {

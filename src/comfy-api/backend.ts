@@ -3,6 +3,7 @@ import { loadWorkflow, parameterizeWorkflow } from "../comfyui/workflow.js";
 import type {
   GenerationBackend,
   GenerationRequest,
+  SubmitResult,
   WaitForCompletionResult,
   WaitOptions,
 } from "../core/backend.js";
@@ -70,7 +71,6 @@ function requireKey(): string {
  */
 export class ComfyApiBackend implements GenerationBackend {
   private readonly roots: VideoRoots;
-  private readonly outputNodeIds = new Map<string, string>();
   private readonly endpoints = new Map<string, string>();
   private readonly clientFactory: (
     endpoint: string,
@@ -92,10 +92,6 @@ export class ComfyApiBackend implements GenerationBackend {
     this.platformFactory = opts.platformFactory ?? (() => new ComfyPlatformClient(requireKey()));
   }
 
-  setOutputNodeId(backendJobId: string, nodeId: string | undefined): void {
-    if (nodeId) this.outputNodeIds.set(backendJobId, nodeId);
-  }
-
   // Where an observer reads a job: Cloud, or the endpoint of the deployment it was sent to.
   private async clientFor(site: ComfyApiSite): Promise<ComfyApiRuntimeClient> {
     if (site.deploymentId === null) return this.clientFactory(COMFY_CLOUD_ORIGIN, "cloud");
@@ -114,7 +110,11 @@ export class ComfyApiBackend implements GenerationBackend {
     return this.clientFactory(endpoint, "deployment");
   }
 
-  async submit(request: GenerationRequest, jobRecord: JobRecord, seed: number): Promise<string> {
+  async submit(
+    request: GenerationRequest,
+    jobRecord: JobRecord,
+    seed: number,
+  ): Promise<SubmitResult> {
     const def = request.assetDefinition;
     if (def.kind !== "comfy") {
       throw new KonteError("INVALID_ASSET_TYPE", `Expected comfy asset, got "${def.kind}"`);
@@ -134,9 +134,7 @@ export class ComfyApiBackend implements GenerationBackend {
     const site: ComfyApiSite = { target, deploymentId };
     const client = await this.clientFor(site);
     const jobId = await this.submitTo(client, request, seed, log);
-    const backendJobId = encodeComfyApiJobId(site, jobId);
-    this.setOutputNodeId(backendJobId, def.outputNodeId);
-    return backendJobId;
+    return { backendJobId: encodeComfyApiJobId(site, jobId) };
   }
 
   // The deployment a job on one goes to, recorded before it is sent.
@@ -300,7 +298,7 @@ export class ComfyApiBackend implements GenerationBackend {
     );
     if (poll.kind !== "done") return { kind: "timedOut" };
 
-    const outputs = selectOutputs(poll.value.outputs, this.outputNodeIds.get(backendJobId));
+    const outputs = selectOutputs(poll.value.outputs, options?.outputNodeId);
     if (outputs.length === 0) {
       throw new KonteError("COMFY_API_ERROR", `Comfy API job ${jobId} succeeded with no output`);
     }
@@ -316,7 +314,6 @@ export class ComfyApiBackend implements GenerationBackend {
       files.push(outputPath);
     }
     log(`Completed (${files.length} file(s))`);
-    this.outputNodeIds.delete(backendJobId);
     return {
       kind: "done",
       result: {

@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, expect, it } from "vitest";
-import type { GenerationBackend, GenerationRequest, WaitForCompletionResult } from "../backend.js";
+import type {
+  GenerationBackend,
+  GenerationRequest,
+  SubmitResult,
+  WaitForCompletionResult,
+} from "../backend.js";
 import { computeDefinitionHash } from "../definition-hash.js";
 import { type DeliveryTarget, synthesizeDeliveryAssetDefinition } from "../delivery.js";
 import type { AssetAdapter } from "../dsl/adapter.js";
@@ -47,9 +52,9 @@ const TARGET: DeliveryTarget = { scale: 1.5, width: 1920, height: 1080 };
 
 class RecordingBackend implements GenerationBackend {
   readonly requests: GenerationRequest[] = [];
-  async submit(request: GenerationRequest): Promise<string> {
+  async submit(request: GenerationRequest): Promise<SubmitResult> {
     this.requests.push(request);
-    return `fake-${request.variantId}`;
+    return { backendJobId: `fake-${request.variantId}` };
   }
   async waitForCompletion(): Promise<WaitForCompletionResult> {
     throw new Error("not used");

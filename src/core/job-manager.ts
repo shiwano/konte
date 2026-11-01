@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync, statSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { BACKEND_CAPS } from "./backend.js";
 import { computeDefinitionSourceFingerprint } from "./definition-source.js";
 import { KonteError, errorMessage } from "./errors.js";
 import { hashToShortId, shortId } from "./short-id.js";
@@ -757,13 +758,7 @@ export class JobManager {
       if (job.kind !== "generation" || job.status !== "running" || job.lease?.owner !== workerId) {
         throw new KonteError("GENERATION_FAILED", `Submission lease lost for ${id}`);
       }
-      // A comfy-api submission carries the variant id as its Idempotency-Key, so a repeat cannot
-      // create a second job; the backend finds the first one instead.
-      if (
-        job.submissionStartedAt &&
-        job.backendKind !== "local" &&
-        job.backendKind !== "comfy-api"
-      ) {
+      if (job.submissionStartedAt && !BACKEND_CAPS[job.backendKind].resubmitSafe) {
         throw new KonteError(
           "SUBMISSION_UNCONFIRMED",
           `Submission of ${id} to ${job.backendKind} began at ${job.submissionStartedAt}, ` +

@@ -27,15 +27,21 @@ export function getBackendKindFromJob(job: JobRecord): BackendKind {
 
 // Only the comfy backends span both roots: its workflows and adapters are workspace-wide, while
 // the files it reads and writes belong to one video. The others take the video root alone, so the
-// type stops them from reaching for the workspace later.
+// type stops them from reaching for the workspace later. Given the job, the backend is rebuilt as
+// the one it was submitted on, from what its submit recorded.
 export async function resolveBackend(
   kind: BackendKind,
   roots: VideoRoots,
+  job?: JobRecord,
 ): Promise<GenerationBackend> {
   switch (kind) {
     case "comfy": {
       const config = await resolveComfyUIConfig(roots.workspace);
-      return new ComfyUIBackend(config, roots);
+      const clientId = job?.metadata.comfyClientId;
+      return new ComfyUIBackend(
+        { ...config, clientId: typeof clientId === "string" ? clientId : undefined },
+        roots,
+      );
     }
     case "comfy-api":
       return new ComfyApiBackend(roots);

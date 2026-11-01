@@ -1,7 +1,12 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { GenerationBackend, GenerationRequest, WaitForCompletionResult } from "../backend.js";
+import type {
+  GenerationBackend,
+  GenerationRequest,
+  SubmitResult,
+  WaitForCompletionResult,
+} from "../backend.js";
 import { getAssetEntryByAddress } from "../address.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { asset, defineVideo } from "../dsl/index.js";
@@ -60,9 +65,9 @@ function buildVideo(): VideoDefinition {
 
 class RecordingBackend implements GenerationBackend {
   readonly submitted: string[] = [];
-  async submit(request: GenerationRequest): Promise<string> {
+  async submit(request: GenerationRequest): Promise<SubmitResult> {
     this.submitted.push(request.variantId);
-    return `fake-${request.variantId}`;
+    return { backendJobId: `fake-${request.variantId}` };
   }
   async waitForCompletion(): Promise<WaitForCompletionResult> {
     throw new Error("not used");

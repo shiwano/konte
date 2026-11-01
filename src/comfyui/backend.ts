@@ -4,6 +4,7 @@ import * as path from "node:path";
 import type {
   GenerationBackend,
   GenerationRequest,
+  SubmitResult,
   WaitForCompletionResult,
   WaitOptions,
 } from "../core/backend.js";
@@ -21,7 +22,6 @@ export type ComfyInstallOutcome =
   | { kind: "cancelled" }
   | { kind: "timedOut" };
 import type {
-  ComfyAssetDefinition,
   ComfyModelDeclaration,
   ComfyNodeDeclaration,
   JobRecord,
@@ -58,7 +58,6 @@ export class ComfyUIBackend implements GenerationBackend {
   readonly videoRoot: string;
   private readonly config: ComfyUIConfig;
   private readonly timing: ComfyUITiming;
-  private outputNodeIds = new Map<string, string>();
 
   constructor(config: ComfyUIConfig, roots: VideoRoots) {
     this.config = config;
@@ -78,13 +77,11 @@ export class ComfyUIBackend implements GenerationBackend {
     this.managerClient = new ComfyUIManagerClient(config.baseUrl, this.httpClient);
   }
 
-  setOutputNodeId(backendJobId: string, nodeId: string | undefined): void {
-    if (nodeId) {
-      this.outputNodeIds.set(backendJobId, nodeId);
-    }
-  }
-
-  async submit(request: GenerationRequest, _jobRecord: JobRecord, seed: number): Promise<string> {
+  async submit(
+    request: GenerationRequest,
+    _jobRecord: JobRecord,
+    seed: number,
+  ): Promise<SubmitResult> {
     if (request.assetDefinition.kind !== "comfy") {
       throw new KonteError(
         "INVALID_ASSET_TYPE",
@@ -115,12 +112,11 @@ export class ComfyUIBackend implements GenerationBackend {
 
     const promptRes = await this.httpClient.queuePrompt(parameterized);
 
-    const comfyDef = request.assetDefinition as ComfyAssetDefinition;
-    if (comfyDef.outputNodeId) {
-      this.outputNodeIds.set(promptRes.prompt_id, comfyDef.outputNodeId);
-    }
-
-    return promptRes.prompt_id;
+    // Progress events reach only the websocket of the client that queued the prompt.
+    return {
+      backendJobId: promptRes.prompt_id,
+      metadata: { comfyClientId: this.httpClient.clientId },
+    };
   }
 
   async waitForCompletion(
@@ -167,9 +163,7 @@ export class ComfyUIBackend implements GenerationBackend {
       throw err;
     }
 
-    const outputNodeId = this.outputNodeIds.get(backendJobId);
-
-    const outputFiles = selectOutputFiles(history.outputs, outputNodeId);
+    const outputFiles = selectOutputFiles(history.outputs, options?.outputNodeId);
     const savedFiles: string[] = [];
 
     for (const file of outputFiles) {
@@ -181,7 +175,6 @@ export class ComfyUIBackend implements GenerationBackend {
     }
 
     options?.onLog?.(`Completed (${savedFiles.length} file(s))`);
-    this.outputNodeIds.delete(backendJobId);
 
     return {
       kind: "done",

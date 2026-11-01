@@ -1,5 +1,4 @@
 import { hasSeedPlaceholder } from "../backends/prepare-inputs.js";
-import { ComfyUIBackend } from "../comfyui/backend.js";
 import { ADAPTER_KEY_METADATA_KEY, adapterKeyFor } from "./adapter-key.js";
 import type { GenerationBackend, GenerationRequest } from "./backend.js";
 import { type JobManager, recordedSubmissionAttempt } from "./job-manager.js";
@@ -39,7 +38,7 @@ export async function submitToBackend(
     site,
   });
   const { seed, resolvedDependencies } = sent;
-  const backendJobId = await backend.submit(
+  const submitted = await backend.submit(
     {
       ...request,
       resolvedDependencies,
@@ -51,6 +50,7 @@ export async function submitToBackend(
     job,
     seed,
   );
+  const { backendJobId } = submitted;
 
   jobManager.appendLog(
     job.variantId,
@@ -66,11 +66,9 @@ export async function submitToBackend(
     ...(job.metadata?.patchFinalize !== undefined
       ? { patchFinalize: job.metadata.patchFinalize }
       : {}),
+    ...submitted.metadata,
     [ADAPTER_KEY_METADATA_KEY]: adapterKeyFor(request.assetDefinition),
   };
-  if (backend instanceof ComfyUIBackend) {
-    metadata.comfyClientId = backend.httpClient.clientId;
-  }
   const def = request.assetDefinition;
   if ("inputs" in def && hasSeedPlaceholder(def.inputs)) {
     metadata.seed = seed;

@@ -1,9 +1,6 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { ComfyApiBackend } from "../comfy-api/backend.js";
-import { ComfyUIBackend } from "../comfyui/backend.js";
-import { resolveComfyUIConfig } from "../comfyui/config.js";
 import {
   type DefinitionLike,
   getAssetEntryByAddress,
@@ -11,7 +8,7 @@ import {
   isCompositionAddress,
   isDeliveryAddress,
 } from "../core/address.js";
-import type { GenerationBackend, WaitOptions } from "../core/backend.js";
+import type { WaitOptions } from "../core/backend.js";
 import { hashFile } from "../core/content-hash.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { formatSeconds, formatDuration } from "../core/format-duration.js";
@@ -212,21 +209,13 @@ async function runAsOwner(
   const backendJobId = job.backendJobId;
   if (!backendJobId) return null;
 
-  const backendKind = getBackendKindFromJob(job);
-
-  let backend: GenerationBackend;
-  if (backendKind === "comfy") {
-    const comfyClientId = (job.metadata.comfyClientId as string) ?? undefined;
-    const config = await resolveComfyUIConfig(roots.workspace);
-    backend = new ComfyUIBackend({ ...config, clientId: comfyClientId }, roots);
-  } else {
-    backend = await resolveBackend(backendKind, roots);
-  }
+  const backend = await resolveBackend(getBackendKindFromJob(job), roots, job);
 
   // A `#delivery` asset is synthesized (not in the definition) and is konte's to accept. Its
   // definition is built from the resolved source's real dimensions, which we don't re-probe here, so
   // we skip the comfy output-node hint.
   const isDelivery = isDeliveryAddress(job.address);
+  let outputNodeId: string | undefined;
   let patchOutput: PatchOutputOrigin | null = null;
   // A take that owes a line is heard when it lands; the song is heard off its vocal track instead.
   let owesLine = false;
@@ -244,9 +233,7 @@ async function runAsOwner(
           patchOutput.sourceAddress !== songOfDefinitions(definitions) &&
           spokenLinesAt(source.prompts ?? [], patchOutput.sourceAddress).length > 0;
       }
-      if (backend instanceof ComfyUIBackend || backend instanceof ComfyApiBackend) {
-        backend.setOutputNodeId(backendJobId, patchFinalize.outputNodeId);
-      }
+      outputNodeId = patchFinalize.outputNodeId;
     } else if (!isDelivery) {
       // Routed through selectDefinition so every stage that owns addresses is covered by one
       // exhaustive mapping.
@@ -255,12 +242,7 @@ async function runAsOwner(
       owesLine =
         job.address !== songOfDefinitions(definitions) &&
         spokenLinesAt(def.prompts ?? [], job.address).length > 0;
-      if (
-        (backend instanceof ComfyUIBackend || backend instanceof ComfyApiBackend) &&
-        assetDef.kind === "comfy"
-      ) {
-        backend.setOutputNodeId(backendJobId, assetDef.outputNodeId);
-      }
+      if (assetDef.kind === "comfy") outputNodeId = assetDef.outputNodeId;
     }
   } catch {
     // asset may have been removed from definition
@@ -271,22 +253,16 @@ async function runAsOwner(
   // changes with at most one write in flight — bounding writes to ~100 per job
   // instead of one per poll. Best-effort: a dropped/failed write self-heals on the
   // next change, and the terminal update commits the final 100.
-  // Stamp the run-window start the first time the backend reports actual work — for comfy, via
-  // onExecutionStarted, fired from whichever path observes execution begin (a WebSocket
-  // executing event, or the polling fallback seeing the prompt in queue_running / running-history)
-  // after any serial-queue wait. This is what duration stats measure from, so a comfy job's
-  // per-job runtime isn't inflated by the jobs queued ahead of it. Comfy-only: cloud backends
-  // (fal) are provider-parallel, so their submit-time startedAt is already the right
-  // basis and they never call onExecutionStarted. The write is set-once in JobManager (a
+  // Stamp the run-window start the first time the backend reports actual work (onExecutionStarted),
+  // after any serial-queue wait. This is what duration stats measure from, so a queued job's
+  // per-job runtime isn't inflated by the jobs queued ahead of it; a backend that never reports it
+  // keeps its submit-time startedAt as the basis. The write is set-once in JobManager (a
   // reclaimer can't overwrite an earlier true start); the local flag just avoids re-issuing it,
   // and stampWrite is awaited before the terminal commit so stats never race a still-null stamp.
-  // A deployment runs its jobs one after another too, so comfy-api stamps it from the job's
-  // `started_at`.
-  const stampsProcessingStart = backendKind === "comfy" || backendKind === "comfy-api";
   let processingStamped = job.processingStartedAt != null;
   let stampWrite: Promise<unknown> = Promise.resolve();
   const stampProcessingStart = (): void => {
-    if (processingStamped || !stampsProcessingStart) return;
+    if (processingStamped) return;
     processingStamped = true;
     stampWrite = jobManager
       .updateJob(variantId, { processingStartedAt: new Date().toISOString() })
@@ -342,6 +318,7 @@ async function runAsOwner(
       async () => ({
         state: "done" as const,
         result: await backend.waitForCompletion(backendJobId, outputDir, {
+          outputNodeId,
           onExecutionStarted: () => stampProcessingStart(),
           onProgress: (progress) => {
             persistProgress(progress.value, progress.max);

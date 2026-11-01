@@ -275,8 +275,11 @@ describe("ComfyUIBackend", () => {
       resolvedDependencies: {},
     };
 
-    const promptId = await backend.submit(request, makeJobRecord(), 42);
-    expect(promptId).toBe("test-prompt-id");
+    const submitted = await backend.submit(request, makeJobRecord(), 42);
+    expect(submitted).toEqual({
+      backendJobId: "test-prompt-id",
+      metadata: { comfyClientId: backend.httpClient.clientId },
+    });
   });
 
   it("waitForCompletion returns immediately for completed jobs", { timeout: 15_000 }, async () => {

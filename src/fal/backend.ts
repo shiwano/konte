@@ -2,6 +2,7 @@ import * as path from "node:path";
 import type {
   GenerationBackend,
   GenerationRequest,
+  SubmitResult,
   WaitForCompletionResult,
   WaitOptions,
 } from "../core/backend.js";
@@ -40,7 +41,11 @@ export class FalBackend implements GenerationBackend {
     this.httpClient = new FalHttpClient(config.apiKey);
   }
 
-  async submit(request: GenerationRequest, _jobRecord: JobRecord, seed: number): Promise<string> {
+  async submit(
+    request: GenerationRequest,
+    _jobRecord: JobRecord,
+    seed: number,
+  ): Promise<SubmitResult> {
     if (request.assetDefinition.kind !== "fal") {
       throw new KonteError(
         "INVALID_ASSET_TYPE",
@@ -52,7 +57,7 @@ export class FalBackend implements GenerationBackend {
     const inputs = await this.prepareInputs(falDef.inputs, request.resolvedDependencies, seed);
 
     const submitRes = await this.httpClient.submit(falDef.endpointId, inputs);
-    return encodeBackendJobId(falDef.endpointId, submitRes.request_id);
+    return { backendJobId: encodeBackendJobId(falDef.endpointId, submitRes.request_id) };
   }
 
   async waitForCompletion(

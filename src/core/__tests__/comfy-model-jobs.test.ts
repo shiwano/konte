@@ -1,7 +1,12 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { GenerationBackend, GenerationRequest, WaitForCompletionResult } from "../backend.js";
+import type {
+  GenerationBackend,
+  GenerationRequest,
+  SubmitResult,
+  WaitForCompletionResult,
+} from "../backend.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { asset, defineVideo } from "../dsl/index.js";
 import { Composition } from "../dsl/composition/composition.js";
@@ -69,10 +74,10 @@ const VAE: ComfyModelDeclaration = {
 /** Backend that records every submit() call, keyed by variant. */
 class CountingBackend implements GenerationBackend {
   constructor(private readonly counts: Map<string, number>) {}
-  async submit(request: GenerationRequest): Promise<string> {
+  async submit(request: GenerationRequest): Promise<SubmitResult> {
     const n = (this.counts.get(request.variantId) ?? 0) + 1;
     this.counts.set(request.variantId, n);
-    return `fake-${request.variantId}-${n}`;
+    return { backendJobId: `fake-${request.variantId}-${n}` };
   }
   async waitForCompletion(): Promise<WaitForCompletionResult> {
     throw new Error("not used");

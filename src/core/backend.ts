@@ -1,4 +1,4 @@
-import type { AssetDefinition, JobRecord } from "./types/index.js";
+import type { AssetDefinition, BackendKind, JobRecord } from "./types/index.js";
 
 export type GenerationRequest = {
   address: string;
@@ -32,7 +32,16 @@ export type WaitForCompletionResult =
   | { kind: "done"; result: GenerationResult }
   | { kind: "timedOut" };
 
+export type SubmitResult = {
+  backendJobId: string;
+  // Merged into the job's metadata, from which `resolveBackend` rebuilds the backend a reclaiming
+  // waiter observes the job on.
+  metadata?: Record<string, unknown>;
+};
+
 export type WaitOptions = {
+  // The workflow node whose outputs are the take; absent, the backend picks.
+  outputNodeId?: string;
   onProgress?: (progress: { value: number; max: number; node?: string }) => void;
   // Fired (possibly repeatedly — treat as set-once) the first time the backend reports the
   // job is actually executing, not merely queued. comfy reports it from its "executing" event,
@@ -54,7 +63,7 @@ export interface GenerationBackend {
   // `seed` is generated once per job at the submitToBackend seam and reused for every
   // `__konte:seed__` occurrence, so a variant's persisted seed reproduces the submission.
   // A backend whose definition declares no seed placeholder simply ignores it.
-  submit(request: GenerationRequest, jobRecord: JobRecord, seed: number): Promise<string>;
+  submit(request: GenerationRequest, jobRecord: JobRecord, seed: number): Promise<SubmitResult>;
   // Where this submission will be sent, when the backend picks among several; null otherwise.
   chooseSubmissionSite?(request: GenerationRequest, jobRecord: JobRecord): Promise<string | null>;
   waitForCompletion(
@@ -64,3 +73,16 @@ export interface GenerationBackend {
   ): Promise<WaitForCompletionResult>;
   cancel(jobId: string): Promise<void>;
 }
+
+export type BackendCaps = {
+  // A repeated submission cannot start a second backend job: local regenerates in place, and a
+  // comfy-api submission carries the variant id as its Idempotency-Key.
+  resubmitSafe: boolean;
+};
+
+export const BACKEND_CAPS: Record<BackendKind, BackendCaps> = {
+  comfy: { resubmitSafe: false },
+  "comfy-api": { resubmitSafe: true },
+  fal: { resubmitSafe: false },
+  local: { resubmitSafe: true },
+};

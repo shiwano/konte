@@ -4,6 +4,7 @@ import type {
   GenerationBackend,
   GenerationRequest,
   GenerationResult,
+  SubmitResult,
   WaitForCompletionResult,
   WaitOptions,
 } from "./backend.js";
@@ -66,10 +67,10 @@ export class FakeBackend implements GenerationBackend {
     };
   }
 
-  async submit(_request: GenerationRequest, _jobRecord: JobRecord): Promise<string> {
+  async submit(_request: GenerationRequest, _jobRecord: JobRecord): Promise<SubmitResult> {
     const jobId = `fake-job-${this.nextJobId++}`;
     this.activeJobs.add(jobId);
-    return jobId;
+    return { backendJobId: jobId };
   }
 
   async waitForCompletion(

@@ -1,6 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ComfyApiBackend } from "../../comfy-api/backend.js";
+import { ComfyUIBackend } from "../../comfyui/backend.js";
+import type { WaitForCompletionResult, WaitOptions } from "../../core/backend.js";
 import { FalHttpClient } from "../../fal/http-client.js";
 import { TransientHttpError } from "../../core/http-retry.js";
 import { defineComfyAsset } from "../../core/dsl/comfy-asset.js";
@@ -448,5 +451,116 @@ describe("waitForJob run lease (owner/monitor)", () => {
     expect(result.status).toBe("completed");
     const job = await jobManager.getJob(variantId);
     expect(job.lease?.owner).not.toBe("w-dead");
+  });
+});
+
+describe("waitForJob reattaching to the backend a reclaimed job was submitted on", () => {
+  type Attach = { clientId?: string; options?: WaitOptions };
+
+  // A submitter that died after committing its backendJobId: running, its lease lapsed.
+  async function setupReclaimable(update: Parameters<JobManager["updateJob"]>[1]) {
+    const { jobManager, variantId } = await setupLocalRunningJob();
+    await jobManager.updateJob(variantId, {
+      ...update,
+      lease: { owner: "w-dead", expiresAt: new Date(Date.now() - 1000).toISOString() },
+    });
+    return { jobManager, variantId };
+  }
+
+  function onAttach(attach: Attach, clientIdOf: (backend: object) => string | undefined) {
+    return async function (
+      this: object,
+      _backendJobId: string,
+      outputDir: string,
+      options?: WaitOptions,
+    ): Promise<WaitForCompletionResult> {
+      attach.clientId = clientIdOf(this);
+      attach.options = options;
+      return {
+        kind: "done",
+        result: { files: [path.join(outputDir, "output.png")], metadata: {}, durationMs: 1 },
+      };
+    };
+  }
+  const comfyClientIdOf = (b: object) => (b as ComfyUIBackend).httpClient.clientId;
+
+  const pickedComfy = defineComfyAsset({
+    workflow: "animate.json",
+    description: "test adapter with a preview output",
+    inputs: {},
+    outputs: {
+      preview: { nodeId: "10", type: "image" },
+      result: { nodeId: "9", type: "video" },
+    },
+    primary: "result",
+  });
+
+  const definitions = () => ({
+    video: defineVideo(testDirection(FORMAT, "en"), {
+      timeline: () =>
+        videoTimeline([
+          shot("01", {
+            duration: 5,
+            build: () => {
+              asset("motion", pickedComfy, {});
+              return el();
+            },
+          }),
+        ]),
+    }),
+    animatic: emptyAnimatic(),
+    reference: emptyReference(),
+  });
+
+  it("rebuilds the comfy backend on the client id its submit recorded", async () => {
+    const { jobManager, variantId } = await setupReclaimable({
+      backendKind: "comfy",
+      backendJobId: "prompt-1",
+      metadata: { comfyClientId: "client-of-submitter" },
+    });
+    const attach: Attach = {};
+    vi.spyOn(ComfyUIBackend.prototype, "waitForCompletion").mockImplementation(
+      onAttach(attach, comfyClientIdOf),
+    );
+
+    const result = await waitForJob(jobManager, variantId, roots, definitions());
+
+    expect(result.status).toBe("completed");
+    expect(attach.clientId).toBe("client-of-submitter");
+    expect(attach.options?.outputNodeId).toBe("9");
+  });
+
+  it("hands a comfy-api job the adapter's output node", async () => {
+    const { jobManager, variantId } = await setupReclaimable({
+      backendKind: "comfy-api",
+      backendJobId: "comfyapi:cloud|job-1",
+    });
+    const attach: Attach = {};
+    vi.spyOn(ComfyApiBackend.prototype, "waitForCompletion").mockImplementation(
+      onAttach(attach, () => undefined),
+    );
+
+    const result = await waitForJob(jobManager, variantId, roots, definitions());
+
+    expect(result.status).toBe("completed");
+    expect(attach.options?.outputNodeId).toBe("9");
+  });
+
+  it("hands a patch step the output node its finalize snapshotted", async () => {
+    const { jobManager, variantId } = await setupReclaimable({
+      backendKind: "comfy",
+      backendJobId: "prompt-2",
+      metadata: { comfyClientId: "client-p", patchFinalize: { outputNodeId: "42" } },
+    });
+    const attach: Attach = {};
+    vi.spyOn(ComfyUIBackend.prototype, "waitForCompletion").mockImplementation(
+      onAttach(attach, comfyClientIdOf),
+    );
+
+    const result = await waitForJob(jobManager, variantId, roots, definitions());
+
+    expect(result.status).toBe("completed");
+    expect(attach.clientId).toBe("client-p");
+    expect(attach.options?.outputNodeId).toBe("42");
   });
 });

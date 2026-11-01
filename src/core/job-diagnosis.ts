@@ -1,3 +1,4 @@
+import { BACKEND_CAPS } from "./backend.js";
 import { formatDuration } from "./format-duration.js";
 import { isJobTerminal, isStrandedSubmit } from "./job-manager.js";
 import type { JobStatBucket } from "./job-stats.js";
@@ -167,8 +168,7 @@ export function diagnoseJob(input: DiagnoseJobInput): string[] {
       "Claimed running but never recorded a backend job id, and its submit lease has lapsed — " +
         (job.kind === "generation" &&
         job.submissionStartedAt &&
-        job.backendKind !== "local" &&
-        job.backendKind !== "comfy-api"
+        !BACKEND_CAPS[job.backendKind].resubmitSafe
           ? "Submission may have reached the backend. Automatic resubmission is refused; check the backend before rerolling."
           : "The next worker can retry submission."),
     );
