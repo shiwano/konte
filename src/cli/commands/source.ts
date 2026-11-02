@@ -13,6 +13,7 @@ import {
   readDigest,
   sourceScenes,
   sourceViewIn,
+  sceneMeasure,
   spanChunks,
   spanMeasure,
   untranscribedPages,
@@ -232,9 +233,16 @@ async function printShow(sv: SourceView): Promise<void> {
     console.log(`  ${chunkLabel(sv.index, chunk)}${where}`);
     const own = scenes.filter((s) => s.chunk === chunk);
     if (own.length === 0) console.log("    (not read yet)");
-    for (const { id, scene } of own) {
+    for (const located of own) {
+      const { id, scene } = located;
       const present = scene.present.join(", ") || "no one";
-      console.log(`    ${id}  ${scene.at}  ${scene.place} — ${present} — ${scene.change}`);
+      const m = await sceneMeasure(sv, located);
+      const pace = !m
+        ? ""
+        : "runSec" in m
+          ? `  runs ${formatRun(m.runSec)}`
+          : `  speaks ${formatRun(m.spokenSec)}`;
+      console.log(`    ${id}  ${scene.at}${pace}  ${scene.place} — ${present} — ${scene.change}`);
     }
   }
   const looks = looksByName(sv.chunks);
@@ -398,7 +406,8 @@ export function registerSourceCommand(program: Command): void {
 Opens with the span at the original's pace: its scenes (one running on past a chunk counted once),
 what every line takes to say as written (a text's quotations, a comic's balloons), a comic's pages
 and a clip's run. Then, chapter by chapter, the chunk file holding the original's words and each
-scene the digest holds: its id, where it lies, its place, who is present and what changes. Then every
+scene the digest holds: its id, where it lies, what its lines take to say as written (a clip's: its
+run), its place, who is present and what changes. Then every
 look the digest holds by name, from the whole source, and the names it holds no look for. Before
 brief.source names a span, every chunk is listed.
 

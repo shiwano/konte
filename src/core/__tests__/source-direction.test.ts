@@ -11,6 +11,7 @@ import {
   excerptOf,
   looksByName,
   readDigest,
+  sceneMeasure,
   sourceScenes,
   type SourceView,
   sourceViewIn,
@@ -345,6 +346,38 @@ describe("spanMeasure", () => {
       pages: {},
     };
     expect(spanMeasure(comicView([b1], "v1"))).toMatchObject({ scenes: 1, unread: 1 });
+  });
+});
+
+describe("sceneMeasure", () => {
+  it("measures a text scene by the quotations of its own paragraphs", async () => {
+    writeDigest("c1.p2");
+    await studySource(ref, { progress: () => {} });
+    const sv = (await sourceViewIn(videoRoot, "c1-c2"))!;
+    const scenes = sourceScenes(sv.chunks);
+    const quoted = await sceneMeasure(sv, scenes.get("c1.s1")!);
+    expect(quoted).toEqual({ spokenSec: sv.index!.chunks.find((c) => c.id === "c1")!.spokenSec });
+    expect(await sceneMeasure(sv, scenes.get("c2.s1")!)).toEqual({ spokenSec: 0 });
+  });
+
+  it("measures a comic scene by the balloons of its pages, and a clip scene by its run", async () => {
+    const b1: SourceChunk = {
+      chunk: "v1.b1",
+      scenes: { "v1.b1.s1": scene("v1.p1"), "v1.b1.s2": scene("v1.p2") },
+      looks: [],
+      pages: {
+        "v1.p1": [{ picture: "居間", text: [{ kind: "balloon", by: "ホームズ", text: "やあ" }] }],
+        "v1.p2": [{ picture: "戸口", text: [{ kind: "sfx", text: "ガチャ" }] }],
+      },
+    };
+    const sv = comicView([b1], "v1.b1");
+    const scenes = sourceScenes(sv.chunks);
+    const first = await sceneMeasure(sv, scenes.get("v1.b1.s1")!);
+    expect(first).toEqual({ spokenSec: spanMeasure(sv).spokenSec });
+    expect(await sceneMeasure(sv, scenes.get("v1.b1.s2")!)).toEqual({ spokenSec: 0 });
+    expect(
+      await sceneMeasure(sv, { id: "w2.s1", chunk: "w2", scene: scene("01:10.0-01:25.5") }),
+    ).toEqual({ runSec: 15.5 });
   });
 });
 

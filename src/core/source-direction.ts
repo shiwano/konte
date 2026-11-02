@@ -6,10 +6,10 @@ import { createRequire } from "node:module";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Direction } from "./dsl/direction.js";
-import type { SourceChunk, SourceLook, SourceScene } from "./dsl/source.js";
+import type { SourceChunk, SourceLook, SourcePanel, SourceScene } from "./dsl/source.js";
 import { errorMessage } from "./errors.js";
 import type { Finding } from "./finding.js";
-import { speechLangOf, spokenSecOf } from "./source-speech.js";
+import { quotedSpans, speechLangOf, spokenSecOf } from "./source-speech.js";
 import { chunkKind, formatClipClock, parseAt, parseSpan, resolveSpan } from "./source-locator.js";
 import {
   DIGEST_DIR,
@@ -170,14 +170,7 @@ export function spanMeasure(sv: SourceView): SpanMeasure {
   let spokenSec: number | null = null;
   if (kind === "text") spokenSec = extents.reduce((sum, c) => sum + (c.spokenSec ?? 0), 0);
   if (kind === "comic") {
-    const balloons = chunks.flatMap((id) =>
-      Object.values(byId.get(id)?.pages ?? {}).flatMap((panels) =>
-        panels.flatMap((p) =>
-          p.text.filter((t) => t.kind === "balloon").map((t) => t.text.replace(/《[^》]*》/g, "")),
-        ),
-      ),
-    );
-    spokenSec = spokenSecOf(balloons, speechLangOf(balloons.join("")));
+    spokenSec = balloonSec(chunks.flatMap((id) => Object.values(byId.get(id)?.pages ?? {})));
   }
   return {
     scenes,
@@ -185,6 +178,44 @@ export function spanMeasure(sv: SourceView): SpanMeasure {
     spokenSec,
     runSec: kind === "clip" ? extents.reduce((sum, c) => sum + (c.to - c.from), 0) : null,
     pages: kind === "comic" ? extents.reduce((sum, c) => sum + (c.to - c.from + 1), 0) : null,
+  };
+}
+
+function balloonSec(pages: readonly (readonly SourcePanel[])[]): number {
+  const balloons = pages.flatMap((panels) =>
+    panels.flatMap((p) =>
+      p.text.filter((t) => t.kind === "balloon").map((t) => t.text.replace(/《[^》]*》/g, "")),
+    ),
+  );
+  return spokenSecOf(balloons, speechLangOf(balloons.join("")));
+}
+
+// One scene at the original's pace, as `spanMeasure` takes the span: what its lines take to say as
+// written (text, comic), or its run (clip).
+export type SceneMeasure = { spokenSec: number } | { runSec: number };
+
+export async function sceneMeasure(
+  sv: SourceView,
+  located: LocatedScene,
+): Promise<SceneMeasure | null> {
+  const kind = chunkKind(located.chunk);
+  const at = kind && parseAt(kind, located.scene.at);
+  if (!at) return null;
+  if (kind === "clip") return { runSec: at.to - at.from };
+  if (kind === "comic") {
+    const pages = Object.entries(sv.chunks.find((c) => c.chunk === located.chunk)?.pages ?? {})
+      .filter(([page]) => {
+        const p = parseAt("comic", page);
+        return p !== null && p.from >= at.from && p.to <= at.to;
+      })
+      .map(([, panels]) => panels);
+    return { spokenSec: balloonSec(pages) };
+  }
+  const excerpt = await excerptOf(sv, located.chunk, located.scene.at);
+  if (!excerpt || !("text" in excerpt)) return null;
+  const paragraphs = excerpt.text.map((line) => line.slice(line.indexOf(" ") + 1));
+  return {
+    spokenSec: spokenSecOf(paragraphs.flatMap(quotedSpans), speechLangOf(paragraphs.join(""))),
   };
 }
 
