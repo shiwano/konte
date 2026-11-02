@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { loadPreviewDefinitions } from "../load-definitions.js";
 import { handleGetReelState } from "../reel-review.js";
 import { handleReelSubmit } from "../reel-submit.js";
@@ -159,6 +159,25 @@ async function submit(
     }),
   );
   return { res, payload: (await res.json()) as Record<string, unknown> };
+}
+
+// A clock that only moves forward, a millisecond per reading. What a test asserts about the order of
+// two stamps then holds whatever the wall clock does between them.
+function useForwardClock(): void {
+  const RealDate = Date;
+  let now = RealDate.now();
+  vi.stubGlobal(
+    "Date",
+    new Proxy(RealDate, {
+      construct: (target, args) =>
+        args.length === 0 ? new target(++now) : Reflect.construct(target, args),
+      get: (target, prop, receiver) =>
+        prop === "now" ? () => ++now : Reflect.get(target, prop, receiver),
+    }),
+  );
+  onTestFinished(() => {
+    vi.unstubAllGlobals();
+  });
 }
 
 // The bug this covers end to end: a comment on a shot saved with only the picture in its subject, so
@@ -366,6 +385,7 @@ describe("handleReelSubmit — the overall comment", () => {
 
 describe("handleReelSubmit — a comment submitted with its shot's accept", () => {
   it("stands off the reviewer's page until the stage's next review", async () => {
+    useForwardClock();
     const { videoRoot, motionId } = await project();
     const body = {
       stage: "video",
@@ -373,11 +393,12 @@ describe("handleReelSubmit — a comment submitted with its shot's accept", () =
       displayedStandInShotIds: [],
     };
 
-    await submit(videoRoot, {
+    const { payload } = await submit(videoRoot, {
       ...body,
       addedFeedback: [{ address: "video:shot.01", text: "a take with the hand on the hilt" }],
       decisions: { "01": "accepted" },
     });
+    expect(payload.skippedDecisions).toEqual([]);
     const [entry] = await readFeedback(videoRoot, "video:shot.01");
     const staleness = async (ctx: { reviewerView?: boolean } = {}) =>
       feedbackStaleness(entry!, "video:shot.01", (await StateManager.load(videoRoot)).getState(), {
