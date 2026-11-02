@@ -118,7 +118,18 @@ async function acceptComposition(def: StageDefinition, address: string): Promise
 }
 
 async function boardReel(animatic: StageDefinition, video: StageDefinition | null) {
-  const res = await handleGetReelState(dir, animatic, "/assets", null, null, null, null, video);
+  const res = await handleGetReelState(
+    {
+      videoRoot: dir,
+      handoff: null,
+      direction: null,
+      animatic: null,
+      reference: null,
+      downstreamVideo: video,
+    },
+    animatic,
+    "/assets",
+  );
   return (await res.json()) as {
     shots: { needsVerdict: boolean; compositionNeedsReview: boolean }[];
     overlay: { offered: boolean } | null;
@@ -130,7 +141,18 @@ async function boardShot(animatic: StageDefinition, video: StageDefinition | nul
 }
 
 async function cutShot(animatic: StageDefinition, video: StageDefinition) {
-  const res = await handleGetReelState(dir, video, "/assets", null, null, animatic as never);
+  const res = await handleGetReelState(
+    {
+      videoRoot: dir,
+      handoff: null,
+      direction: null,
+      animatic: animatic as never,
+      reference: null,
+      downstreamVideo: null,
+    },
+    video,
+    "/assets",
+  );
   return ((await res.json()) as { shots: { needsVerdict: boolean }[] }).shots[0]!;
 }
 

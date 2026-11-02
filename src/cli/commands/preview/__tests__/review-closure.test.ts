@@ -2,7 +2,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { loadPreviewDefinitions } from "../load-definitions.js";
-import { handleGetFullComposition, handleGetReelState, handleReelSubmit } from "../reel-review.js";
+import { handleGetFullComposition, handleGetReelState } from "../reel-review.js";
+import { handleReelSubmit } from "../reel-submit.js";
 import { buildAssetStatus, needsReviewItems } from "../../../../core/status-report.js";
 import {
   type DefinitionLike,
@@ -292,12 +293,16 @@ async function acceptAll(
   const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
   const reel = stage === "animatic" ? defs.animatic! : defs.video!;
   const stateRes = await handleGetReelState(
-    videoRoot,
+    {
+      videoRoot,
+      handoff: null,
+      direction: defs.direction,
+      animatic: defs.animatic,
+      reference: null,
+      downstreamVideo: null,
+    },
     reel,
     "http://127.0.0.1/assets",
-    null,
-    defs.direction,
-    defs.animatic,
   );
   const page = (await stateRes.json()) as {
     shots: Array<{
@@ -334,11 +339,15 @@ async function acceptAll(
   for (const row of page.audioAssets ?? []) choose(row);
 
   const res = await handleReelSubmit(
-    videoRoot,
+    {
+      videoRoot,
+      handoff: null,
+      direction: defs.direction,
+      animatic: defs.animatic,
+      reference: null,
+      downstreamVideo: null,
+    },
     async () => (stage === "animatic" ? defs.animatic! : reloadVideoDefinition(videoPath)),
-    null,
-    defs.direction,
-    defs.animatic,
     new Request(`http://127.0.0.1/api/${stage}/submit`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -379,22 +388,30 @@ async function submitDecision(
   const videoPath = path.join(videoRoot, "video.tsx");
   const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
   const stateRes = await handleGetReelState(
-    videoRoot,
+    {
+      videoRoot,
+      handoff: null,
+      direction: defs.direction,
+      animatic: defs.animatic,
+      reference: null,
+      downstreamVideo: null,
+    },
     stage === "animatic" ? defs.animatic! : defs.video!,
     "http://127.0.0.1/assets",
-    null,
-    defs.direction,
-    defs.animatic,
   );
   const page = (await stateRes.json()) as {
     shots: Array<{ shotId: string; showingStandIn?: boolean }>;
   };
   const res = await handleReelSubmit(
-    videoRoot,
+    {
+      videoRoot,
+      handoff: null,
+      direction: defs.direction,
+      animatic: defs.animatic,
+      reference: null,
+      downstreamVideo: null,
+    },
     async () => (stage === "animatic" ? defs.animatic! : reloadVideoDefinition(videoPath)),
-    null,
-    defs.direction,
-    defs.animatic,
     new Request(`http://127.0.0.1/api/${stage}/submit`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -425,15 +442,17 @@ async function settledShotIds(
     mode: "video-preview",
   });
   const res = await handleGetReelState(
-    videoRoot,
+    // The board page is told the video, as the preview server tells it.
+    {
+      videoRoot,
+      handoff: null,
+      direction: defs.direction,
+      animatic: defs.animatic,
+      reference: null,
+      downstreamVideo: stage === "animatic" ? defs.video : null,
+    },
     stage === "animatic" ? defs.animatic! : defs.video!,
     "http://127.0.0.1/assets",
-    null,
-    defs.direction,
-    defs.animatic,
-    null,
-    // The board page is told the video, as the preview server tells it.
-    stage === "animatic" ? defs.video : null,
   );
   const page = (await res.json()) as {
     shots: Array<{ shotId: string; needsVerdict?: boolean; showingStandIn?: boolean }>;
@@ -452,12 +471,16 @@ async function reelPage(
     mode: "video-preview",
   });
   const res = await handleGetReelState(
-    videoRoot,
+    {
+      videoRoot,
+      handoff: null,
+      direction: defs.direction,
+      animatic: defs.animatic,
+      reference: null,
+      downstreamVideo: null,
+    },
     stage === "animatic" ? defs.animatic! : defs.video!,
     "http://127.0.0.1/assets",
-    null,
-    defs.direction,
-    defs.animatic,
   );
   return ((await res.json()) as { shots: Array<{ shotId: string; notReady: boolean }> }).shots;
 }
@@ -858,12 +881,16 @@ describe("video review closure", () => {
       mode: "video-preview",
     });
     const res = await handleGetReelState(
-      videoRoot,
+      {
+        videoRoot,
+        handoff: null,
+        direction: defs.direction,
+        animatic: defs.animatic,
+        reference: null,
+        downstreamVideo: null,
+      },
       defs.video!,
       "http://127.0.0.1/assets",
-      null,
-      defs.direction,
-      defs.animatic,
     );
     const page = (await res.json()) as {
       shots: Array<{ shotId: string; showingStandIn?: boolean; verdictAddresses?: string[] }>;

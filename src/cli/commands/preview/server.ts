@@ -49,9 +49,10 @@ import {
   handleGetReelState,
   handleGetFullComposition,
   handleGetShotComposition,
-  handleReelSubmit,
   warmReelPreroll,
+  type ReelReviewContext,
 } from "./reel-review.js";
+import { handleReelSubmit } from "./reel-submit.js";
 
 export interface PreviewServerOptions {
   videoRoot: string;
@@ -120,6 +121,14 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
       handoff = found.handoff;
     }
   }
+  const reelContext = (): ReelReviewContext => ({
+    videoRoot,
+    handoff,
+    direction,
+    animatic,
+    reference,
+    downstreamVideo: mode === "animatic-preview" ? video : null,
+  });
   // Sync file assets under the state lock so the seconds-long media hashing cannot
   // clobber a concurrent watcher write. Route handlers reload their own snapshot.
   await StateManager.withLock(videoRoot, async (m) => {
@@ -242,16 +251,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
             }
             // Both composition stages are one page and one handler; the reel it plays is the
             // stage the session was opened on.
-            return await handleGetReelState(
-              videoRoot,
-              currentReel(),
-              assetBaseUrl,
-              handoff,
-              direction,
-              animatic,
-              reference,
-              mode === "animatic-preview" ? video : null,
-            );
+            return await handleGetReelState(reelContext(), currentReel(), assetBaseUrl);
           }
 
           if (pathname === "/api/compositions/full" && req.method === "GET") {
@@ -340,15 +340,10 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
             }
             return await lifecycle.track(() =>
               handleReelSubmit(
-                videoRoot,
+                reelContext(),
                 () => reloadStageDefinition(videoRoot, videoPath, reelStage),
-                handoff,
-                direction,
-                animatic,
                 req,
                 reportOutcome,
-                mode === "animatic-preview" ? video : null,
-                reference,
               ),
             );
           }

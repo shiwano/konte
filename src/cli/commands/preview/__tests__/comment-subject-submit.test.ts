@@ -2,7 +2,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { loadPreviewDefinitions } from "../load-definitions.js";
-import { handleGetReelState, handleReelSubmit } from "../reel-review.js";
+import { handleGetReelState } from "../reel-review.js";
+import { handleReelSubmit } from "../reel-submit.js";
 import { reloadVideoDefinition } from "../../../../core/loader.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { feedbackStaleness } from "../../../../core/feedback/index.js";
@@ -142,11 +143,15 @@ async function submit(
   const videoPath = path.join(videoRoot, "video.tsx");
   const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
   const res = await handleReelSubmit(
-    videoRoot,
+    {
+      videoRoot,
+      handoff: null,
+      direction: defs.direction,
+      animatic: defs.animatic,
+      reference: null,
+      downstreamVideo: null,
+    },
     () => reloadVideoDefinition(videoPath),
-    null,
-    defs.direction,
-    defs.animatic,
     new Request("http://127.0.0.1/api/video/submit", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -188,13 +193,16 @@ describe("handleReelSubmit — the subject a comment is persisted with", () => {
     const { videoRoot, panelId } = await project();
     const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
     const res = await handleGetReelState(
-      videoRoot,
+      {
+        videoRoot,
+        handoff: null,
+        direction: defs.direction,
+        animatic: defs.animatic,
+        reference: defs.reference,
+        downstreamVideo: null,
+      },
       defs.video!,
       "http://127.0.0.1/assets",
-      null,
-      defs.direction,
-      defs.animatic,
-      defs.reference,
     );
     const state = (await res.json()) as { compositionRefVariants: Record<string, string> };
     expect(state.compositionRefVariants[PANEL]).toBe(panelId);

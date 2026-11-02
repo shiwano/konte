@@ -22,7 +22,7 @@ import {
   videoVariantThumbUrl,
   withShotLocalTime,
 } from "../review-shared.js";
-import { unacceptReelShots } from "../reel-review.js";
+import { unacceptReelShots } from "../reel-submit.js";
 import { writeDefinitionSnapshot } from "../../../../core/definition-snapshot.js";
 import {
   AddressReviewSubmitSchema,

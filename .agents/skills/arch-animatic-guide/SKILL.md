@@ -81,7 +81,7 @@ A truncated stem is exactly as long as the shot, so what the clamp cuts is caugh
 
 ## Review
 
-`konte preview animatic` is `konte preview video`'s page, handler and submit (`reel-review.ts`, told which stage by the definition it is handed): one reel played through, one verdict per shot folding its `#composition`, its stem and the takes they rest on, takes picked in the variant gallery, comments pinned at the playhead on `animatic:shot.<id>`. Both print the board's `blocking` / `camera` in the selected shot's detail, with each panel's role.
+`konte preview animatic` is `konte preview video`'s page, handler and submit (`reel-*.ts`, told which stage by the definition it is handed): one reel played through, one verdict per shot folding its `#composition`, its stem and the takes they rest on, takes picked in the variant gallery, comments pinned at the playhead on `animatic:shot.<id>`. Both print the board's `blocking` / `camera` in the selected shot's detail, with each panel's role.
 
 Differences on the board:
 

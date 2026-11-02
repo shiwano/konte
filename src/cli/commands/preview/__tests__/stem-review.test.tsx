@@ -16,13 +16,13 @@ import type { CompositionClip } from "../../../../core/composition-builder.js";
 import type { VideoDefinition } from "../../../../core/types/index.js";
 import {
   acceptDisplayedStemSources,
-  buildAudioAssets,
   overlayVerdict,
   timelineStemVerdict,
   unlandedLeafReason,
   unlandedShotLeaves,
   unreleasedShotLeaves,
-} from "../reel-review.js";
+} from "../reel-submit.js";
+import { buildAudioAssets } from "../reel-review.js";
 import { Audio, Composition, Image, Panel } from "../../../../core/dsl/composition/index.js";
 import { defineComfyAsset } from "../../../../core/dsl/comfy-asset.js";
 import { asset, defineAnimatic, defineDirection, defineVideo } from "../../../../core/dsl/index.js";

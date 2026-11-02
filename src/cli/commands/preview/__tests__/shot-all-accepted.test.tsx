@@ -107,7 +107,18 @@ async function acceptComposition(video: VideoDefinition, shotId: string): Promis
 
 async function shotState(video: VideoDefinition) {
   await manager.save();
-  const res = await handleGetReelState(dir, video, "/assets", null, null, animatic);
+  const res = await handleGetReelState(
+    {
+      videoRoot: dir,
+      handoff: null,
+      direction: null,
+      animatic,
+      reference: null,
+      downstreamVideo: null,
+    },
+    video,
+    "/assets",
+  );
   const body = (await res.json()) as { shots: { shotId: string; allAccepted: boolean }[] };
   return body.shots[0]!;
 }
@@ -176,7 +187,18 @@ describe("a shot whose motion is made from a still it never places", () => {
     acceptReadyVariant("video:shot.01.still", "assets/video/shot.01.still/s.png");
     acceptReadyVariant("video:shot.01.motion", "assets/video/shot.01.motion/m.mp4");
     await manager.save();
-    const res = await handleGetReelState(dir, stillVideo, "/assets", null, null, animatic);
+    const res = await handleGetReelState(
+      {
+        videoRoot: dir,
+        handoff: null,
+        direction: null,
+        animatic,
+        reference: null,
+        downstreamVideo: null,
+      },
+      stillVideo,
+      "/assets",
+    );
     const body = (await res.json()) as {
       shots: { notReady: boolean; assets: { assetName: string }[] }[];
     };
@@ -189,7 +211,18 @@ describe("a shot whose motion is made from a still it never places", () => {
 describe("shot moves", () => {
   it("carries the board's movement into the video review", async () => {
     await manager.save();
-    const res = await handleGetReelState(dir, motionVideo, "/assets", null, null, animatic);
+    const res = await handleGetReelState(
+      {
+        videoRoot: dir,
+        handoff: null,
+        direction: null,
+        animatic,
+        reference: null,
+        downstreamVideo: null,
+      },
+      motionVideo,
+      "/assets",
+    );
     const body = (await res.json()) as { shots: { moves: unknown[] }[] };
 
     expect(body.shots[0]!.moves).toEqual([{ panel: "first", cutin: false, role: "key", ...moves }]);
