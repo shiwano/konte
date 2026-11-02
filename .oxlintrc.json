@@ -6,5 +6,396 @@
   ],
   "rules": {
     "jsx-a11y/media-has-caption": "off"
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              },
+              {
+                "name": "crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "**/ffmpeg-binary.js"
+                ],
+                "importNames": [
+                  "ffmpegBin",
+                  "ffprobeBin"
+                ],
+                "message": "Run ffmpeg through src/core/ffmpeg-exec.ts (runFfmpeg, runFfprobeJson); provision with ensureFfmpeg / ensureFfprobe from src/core/ffmpeg.ts."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "fetch",
+            "message": "Send through src/core/http-retry.ts (fetchWithRetry) or src/backends/http-util.ts (sendOnce); a page through src/pages/shared/http.ts (request)."
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/core/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              },
+              {
+                "name": "crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "**/cli/**",
+                  "**/mcp/**",
+                  "**/backends/**",
+                  "**/comfyui/**",
+                  "**/comfy-api/**",
+                  "**/fal/**",
+                  "**/local/**",
+                  "**/pages/**"
+                ],
+                "message": "src/core is the bottom layer: move what it needs into src/core."
+              },
+              {
+                "group": [
+                  "**/ffmpeg-binary.js"
+                ],
+                "importNames": [
+                  "ffmpegBin",
+                  "ffprobeBin"
+                ],
+                "message": "Run ffmpeg through src/core/ffmpeg-exec.ts (runFfmpeg, runFfprobeJson); provision with ensureFfmpeg / ensureFfprobe from src/core/ffmpeg.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/backends/**",
+        "src/comfyui/**",
+        "src/comfy-api/**",
+        "src/fal/**",
+        "src/local/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              },
+              {
+                "name": "crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "**/cli/**",
+                  "**/mcp/**",
+                  "**/pages/**"
+                ],
+                "message": "A backend does not import the CLI, the daemon or a page: move what it needs into src/core."
+              },
+              {
+                "group": [
+                  "**/ffmpeg-binary.js"
+                ],
+                "importNames": [
+                  "ffmpegBin",
+                  "ffprobeBin"
+                ],
+                "message": "Run ffmpeg through src/core/ffmpeg-exec.ts (runFfmpeg, runFfprobeJson); provision with ensureFfmpeg / ensureFfprobe from src/core/ffmpeg.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/cli/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              },
+              {
+                "name": "crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "**/commands/**"
+                ],
+                "message": "Only src/cli/program.ts and src/cli/commands/** import a command module: move the shared piece out of src/cli/commands."
+              },
+              {
+                "group": [
+                  "**/ffmpeg-binary.js"
+                ],
+                "importNames": [
+                  "ffmpegBin",
+                  "ffprobeBin"
+                ],
+                "message": "Run ffmpeg through src/core/ffmpeg-exec.ts (runFfmpeg, runFfprobeJson); provision with ensureFfmpeg / ensureFfprobe from src/core/ffmpeg.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/cli/commands/**",
+        "src/cli/program.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              },
+              {
+                "name": "crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "**/ffmpeg-binary.js"
+                ],
+                "importNames": [
+                  "ffmpegBin",
+                  "ffprobeBin"
+                ],
+                "message": "Run ffmpeg through src/core/ffmpeg-exec.ts (runFfmpeg, runFfprobeJson); provision with ensureFfmpeg / ensureFfprobe from src/core/ffmpeg.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/pages/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/core/**",
+                  "!**/core/address.js",
+                  "!**/core/format-duration.js",
+                  "!**/core/shot-acceptable.js",
+                  "!**/core/song-grid.js",
+                  "!**/core/types/config.js"
+                ],
+                "allowTypeImports": true,
+                "message": "A page bundles for the browser: import core with `import type`, or add a browser-safe core module to the allowed list in .oxlintrc.json."
+              },
+              {
+                "group": [
+                  "**/cli/**",
+                  "**/mcp/**",
+                  "**/backends/**",
+                  "**/comfyui/**",
+                  "**/comfy-api/**",
+                  "**/fal/**",
+                  "**/local/**"
+                ],
+                "allowTypeImports": true,
+                "message": "A page reaches the server only over HTTP."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/core/content-hash.ts",
+        "src/core/short-id.ts",
+        "src/core/download.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/cli/**",
+                  "**/mcp/**",
+                  "**/backends/**",
+                  "**/comfyui/**",
+                  "**/comfy-api/**",
+                  "**/fal/**",
+                  "**/local/**",
+                  "**/pages/**"
+                ],
+                "message": "src/core is the bottom layer: move what it needs into src/core."
+              },
+              {
+                "group": [
+                  "**/ffmpeg-binary.js"
+                ],
+                "importNames": [
+                  "ffmpegBin",
+                  "ffprobeBin"
+                ],
+                "message": "Run ffmpeg through src/core/ffmpeg-exec.ts (runFfmpeg, runFfprobeJson); provision with ensureFfmpeg / ensureFfprobe from src/core/ffmpeg.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/core/ffmpeg-exec.ts",
+        "src/core/ffmpeg.ts",
+        "src/core/frame-extract.ts",
+        "src/core/motion-inspect.ts",
+        "src/core/keyframe-normalize.ts",
+        "src/core/clip-download.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              },
+              {
+                "name": "crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "**/cli/**",
+                  "**/mcp/**",
+                  "**/backends/**",
+                  "**/comfyui/**",
+                  "**/comfy-api/**",
+                  "**/fal/**",
+                  "**/local/**",
+                  "**/pages/**"
+                ],
+                "message": "src/core is the bottom layer: move what it needs into src/core."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/core/http-retry.ts",
+        "src/backends/http-util.ts",
+        "src/comfyui/http-client.ts",
+        "src/comfyui/model-downloader.ts",
+        "src/pages/shared/http.ts"
+      ],
+      "rules": {
+        "no-restricted-globals": "off"
+      }
+    },
+    {
+      "files": [
+        "**/__tests__/**",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "src/cli/templates/**"
+      ],
+      "rules": {
+        "no-restricted-imports": "off",
+        "no-restricted-globals": "off"
+      }
+    }
+  ]
 }

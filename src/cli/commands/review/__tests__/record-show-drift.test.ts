@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getAssetEntryByAddress } from "../../../../core/address.js";
+import { getAssetEntry } from "../../../../core/address.js";
 import { writeDefinitionSnapshot } from "../../../../core/definition-snapshot.js";
 import { type ReviewRecord, saveReviewRecord } from "../../../../core/review-record.js";
 import { StateManager } from "../../../../core/state/manager.js";
@@ -36,7 +36,7 @@ async function acceptingRecord(): Promise<{ record: ReviewRecord; address: strin
 // that differs from the current definition at `field`.
 async function driftVariant(address: string, vid: string, field: string): Promise<void> {
   const { video } = await loadVideoAndAnimatic(projectDir);
-  const current = getAssetEntryByAddress(video, address) as AssetDefinition & {
+  const current = getAssetEntry(video, address) as AssetDefinition & {
     inputs?: Record<string, unknown>;
   };
   writeDefinitionSnapshot(projectDir, address, vid, {

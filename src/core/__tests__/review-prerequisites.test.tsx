@@ -6,7 +6,7 @@ import type { KonteState } from "../types/index.js";
 import type { AnimaticDefinition } from "../types/animatic.js";
 import { defineDirection } from "../dsl/direction.js";
 import { directionDefaults, testDirection } from "./helpers/direction.js";
-import { moves, pendingAnimaticShot, shot, animaticTimeline } from "./helpers/shot.js";
+import { moves, pendingShot, shot, animaticTimeline } from "./helpers/shot.js";
 
 const imageComfy = defineComfyAsset({
   workflow: "image.json",
@@ -202,7 +202,7 @@ describe("findAllUnmetPrerequisites — animatic panel movement", () => {
         fps: 24,
         size: { megapixels: 0.016384, delivery: { width: 128, height: 128 } },
       }),
-      { timeline: () => animaticTimeline([pendingAnimaticShot("01", { duration: 5 })]) },
+      { timeline: () => animaticTimeline([pendingShot("01", { duration: 5 })]) },
     );
     expect(findAllUnmetPrerequisites({ animatic: sb }, stateWithVariants())).toEqual([]);
   });

@@ -6,7 +6,7 @@ import {
   formatAddress,
   formatCompositionAddress,
   formatTimelineStemAddress,
-  getAssetEntryByAddress,
+  getAssetEntry,
   isCompositionAddress,
   isNarrationStemAddress,
   isSongStemAddress,
@@ -14,7 +14,6 @@ import {
   listShotStems,
   parseAddress,
   shotStemAssetNames,
-  formatAssetPath,
   OVERLAY_HTML_FILE,
   formatTimelineOverlayAddress,
   isOverlayAddress,
@@ -192,7 +191,7 @@ export function definitionHashForAddress(
     return stemDefinitionHashForAddress(def as unknown as StageDefinition, address, rewrite);
   }
   try {
-    const entry = getAssetEntryByAddress(def, address);
+    const entry = getAssetEntry(def, address);
     if (entry.kind === "file") return null;
     return computeDefinitionHash(rewrite ? (rewrite(entry) as AssetDefinition) : entry);
   } catch {
@@ -615,7 +614,7 @@ export function removedShotStemAddresses(
   if (!shot || isPendingShot(shot)) return [];
   const live = new Set(listShotStems(video.stage, shot).map((stem) => stem.address));
   return shotStemAssetNames(video.stage)
-    .map((name) => formatAssetPath(video.stage, shotId, name))
+    .map((name) => formatAddress(video.stage, shotId, name))
     .filter((address) => !live.has(address) && acceptedVariantId(state, address) !== null);
 }
 
@@ -868,18 +867,6 @@ export async function commitShotStem(opts: {
   } finally {
     await discardPreparedStem(prepared);
   }
-}
-
-// Idempotently materialize a shot stem (only when it has cues), prepare and commit in one go — for
-// a caller already holding the lock over a single shot (`konte accept`).
-export async function materializeShotStem(opts: {
-  manager: StateManager;
-  video: StageDefinition;
-  address: string;
-}): Promise<string | null> {
-  const prepared = await prepareShotStem(opts);
-  if (!prepared) return null;
-  return commitShotStem({ ...opts, prepared });
 }
 
 // ── Overlay ──────────────────────────────────────────────────────────────────

@@ -25,7 +25,7 @@ import {
   listStemAddresses,
   isMaterializedLeafAddress,
   isStageScope,
-  listExposedReferenceAssetPaths,
+  listExposedReferenceAddresses,
   listOverlayAddresses,
   matchesAddressScope,
   parseAddress,
@@ -440,7 +440,7 @@ function stageUnits(
     if (!definitions.reference) {
       throw new KonteError("ADDRESS_NOT_FOUND", "No reference.tsx found in the video root");
     }
-    return listExposedReferenceAssetPaths(definitions.reference).map((address) => {
+    return listExposedReferenceAddresses(definitions.reference).map((address) => {
       const variantId = displayedReferenceVariant(manager, address)?.variantId;
       const beside = variantsBesideAccept(manager, address);
       return {
@@ -521,7 +521,7 @@ function stageAddresses(
     if (!definitions.reference) {
       throw new KonteError("ADDRESS_NOT_FOUND", "No reference.tsx found in the video root");
     }
-    return listExposedReferenceAssetPaths(definitions.reference);
+    return listExposedReferenceAddresses(definitions.reference);
   }
   const def = stage === "animatic" ? definitions.animatic : definitions.video;
   if (!def) throw new KonteError("ADDRESS_NOT_FOUND", `No ${stage}.tsx found in the video root`);

@@ -16,7 +16,7 @@ import { z } from "zod";
 // texture, so neither has a performance to direct. The other two branches spell the field out as
 // `never` rather than omitting it — TypeScript admits a key any constituent of a union declares, so
 // an omitted one would be accepted in silence.
-export const ScriptLineSchema = z.union([
+const ScriptLineSchema = z.union([
   z.object({ character: z.string(), text: z.string(), acting: z.string().optional() }),
   z.object({ speaker: z.string(), text: z.string(), acting: z.never().optional() }),
   z.object({ narration: z.string(), acting: z.never().optional() }),

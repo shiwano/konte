@@ -7,7 +7,7 @@ import { FONT_FAMILY_PATTERN, isLanguageTag, type LanguageTag } from "../typogra
 import type { MediaAsset, SoundtrackEntry } from "../dsl/builders.js";
 import type { ShotFunction } from "../dsl/shot-context.js";
 
-export const ComfyModelTypeSchema = z.enum([
+const ComfyModelTypeSchema = z.enum([
   "checkpoint",
   "lora",
   "VAE",
@@ -129,7 +129,7 @@ export type AssetDefinition = z.infer<typeof AssetDefinitionSchema>;
 /**
  * One keyframe of an ANIMATIC shot — what a `<Panel>` in its composition declared.
  */
-export const PanelDefinitionSchema = z.object({
+const PanelDefinitionSchema = z.object({
   // The part name — the leaf of `assetPath`. What the review page labels the frame with, and what
   // the contact sheet frames.
   assetName: z.string(),
@@ -160,7 +160,7 @@ export type PanelDefinition = z.infer<typeof PanelDefinitionSchema>;
 
 // Which camera frame of a shot a keyframe belongs to: the shot's own picture, or the second frame
 // a `<Cutin>` lays over it.
-export const PanelLaneSchema = z.enum(["main", "cutin"]);
+const PanelLaneSchema = z.enum(["main", "cutin"]);
 
 export type PanelLane = z.infer<typeof PanelLaneSchema>;
 
@@ -312,7 +312,7 @@ const deliveryUpscaleFnSchema = z.custom<DeliveryUpscaleFn>((v) => typeof v === 
  * stay native — sharp); `upscale.frame` upscales the whole composited shot (any upscaler, incl.
  * preset — text upscaled with the frame). A video with no `delivery` ships at working size.
  */
-export const DeliverySchema = z.object({
+const DeliverySchema = z.object({
   size: z.object({ width: z.number(), height: z.number() }).optional(),
   upscale: z
     .object({
@@ -337,7 +337,7 @@ export type VideoFormat = z.infer<typeof VideoFormatSchema>;
 /**
  * Export-time settings (delivery/upscale), read only when writing the final deliverable.
  */
-export const ExportSchema = z.object({
+const ExportSchema = z.object({
   delivery: DeliverySchema.optional(),
 });
 export type Export = z.infer<typeof ExportSchema>;
@@ -346,7 +346,7 @@ export type Export = z.infer<typeof ExportSchema>;
  * How a composition document is typeset: the direction's language on the document root, the piece's
  * fonts on its body.
  */
-export const TypographySchema = z.object({
+const TypographySchema = z.object({
   lang: z.custom<LanguageTag>((v) => typeof v === "string" && isLanguageTag(v)),
   fonts: z.array(z.string().regex(FONT_FAMILY_PATTERN)).optional(),
 });

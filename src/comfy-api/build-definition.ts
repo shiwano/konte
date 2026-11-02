@@ -1,10 +1,9 @@
-import { createHash } from "node:crypto";
 import { z } from "zod";
 import { modelPathSegments } from "../comfyui/model-destination.js";
 import { loadAdapterCatalog } from "../core/adapter-catalog.js";
 import { KonteError } from "../core/errors.js";
 import { API_REQUEST_TIMEOUT_MS, fetchWithRetry } from "../core/http-retry.js";
-import { stableStringify } from "../core/stable-stringify.js";
+import { stableHash } from "../core/content-hash.js";
 import type {
   ComfyModelDeclaration,
   ComfyNodeDeclaration,
@@ -41,7 +40,7 @@ export type VersionResolvers = {
 };
 
 export function hashOf(value: unknown): string {
-  return createHash("sha256").update(stableStringify(value)).digest("hex");
+  return stableHash(value);
 }
 
 /** Every comfy adapter in the workspace, with the declarations a Build installs. */

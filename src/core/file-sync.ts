@@ -1,5 +1,5 @@
 import * as fs from "node:fs/promises";
-import { type AssetStage, type DefinitionLike, getAssetEntry, listAssetPaths } from "./address.js";
+import { type AssetStage, type DefinitionLike, getAssetEntry, listAddresses } from "./address.js";
 import { hashFile } from "./content-hash.js";
 import { KonteError } from "./errors.js";
 import { resolveWithinRoot } from "./path-containment.js";
@@ -36,7 +36,7 @@ async function syncFileAssetsForDefinition(
   validate: boolean,
   measureMedia: boolean,
 ): Promise<string[]> {
-  const assetPaths = listAssetPaths(definition, stage);
+  const assetPaths = listAddresses(definition, stage);
   const changed: string[] = [];
 
   for (const assetPath of assetPaths) {

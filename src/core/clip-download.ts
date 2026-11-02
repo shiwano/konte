@@ -11,6 +11,7 @@ import {
 import { KonteError, errorMessage } from "./errors.js";
 import { execFileAsync } from "./exec-file.js";
 import { ffmpegBin } from "./ffmpeg-binary.js";
+import { fetchWithRetry, MEDIA_TRANSFER_TIMEOUT_MS } from "./http-retry.js";
 import {
   MAX_CLIP_SEC,
   clipSha256,
@@ -199,7 +200,10 @@ async function fetchClip(url: string, dir: string): Promise<string> {
 export async function fetchVideoFile(url: string, dir: string): Promise<string | null> {
   let res: Response;
   try {
-    res = await fetch(url);
+    res = await fetchWithRetry(url, undefined, {
+      maxRetries: 0,
+      timeoutMs: MEDIA_TRANSFER_TIMEOUT_MS,
+    });
   } catch (err) {
     throw new KonteError("CLIP_DOWNLOAD_FAILED", `Could not download ${url}: ${errorMessage(err)}`);
   }

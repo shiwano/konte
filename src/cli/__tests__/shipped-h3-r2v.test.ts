@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { loadWorkflow, parameterizeWorkflow } from "../../comfyui/workflow.js";
-import { getAssetEntryByAddress } from "../../core/address.js";
+import { getAssetEntry } from "../../core/address.js";
 import type { ComfyAssetDefinition } from "../../core/types/index.js";
 import { loadDefinitionForAddress } from "../../core/stage-definitions.js";
 import { ctx, initWorkspace, run, useTempWorkspace } from "./cli-fixtures.js";
@@ -76,7 +76,7 @@ export default defineReference(direction, { references: () => {
 async function inspectDefinition(videoRoot: string, name: string): Promise<ComfyAssetDefinition> {
   const address = `reference:${name}`;
   const definition = await loadDefinitionForAddress(videoRoot, address);
-  return getAssetEntryByAddress(definition, address) as ComfyAssetDefinition;
+  return getAssetEntry(definition, address) as ComfyAssetDefinition;
 }
 
 describe("shipped MiniMax H3 R2V adapter", () => {

@@ -403,7 +403,7 @@ export default defineVideo(direction, {
 
 // Composition-only definition with no AI/local backend assets, so `doctor`
 // runs zero backend connectivity checks and the test makes no real network requests.
-export const NO_BACKEND_VIDEO_TSX = `import { Composition, defineVideo, defineDirection } from "konte";
+const NO_BACKEND_VIDEO_TSX = `import { Composition, defineVideo, defineDirection } from "konte";
 
 const direction = defineDirection({
   brief: { logline: "test" },
@@ -588,7 +588,7 @@ import { internalTestImage } from "konte";`,
 // `animatic:shot.01#stem`, and the video's motion is driven by it. What the plain cross-stage pair
 // cannot show — the gate on a DETERMINISTIC upstream, whose accept is a human's and whose staleness
 // is what must close it again.
-export const TEST_CROSS_STAGE_STEM_ANIMATIC_TS = TEST_CROSS_STAGE_ANIMATIC_TS.replace(
+const TEST_CROSS_STAGE_STEM_ANIMATIC_TS = TEST_CROSS_STAGE_ANIMATIC_TS.replace(
   "defineAnimatic, asset, defineDirection, Composition, Panel }",
   "defineAnimatic, asset, defineDirection, Composition, Panel, Audio }",
 )
@@ -616,7 +616,7 @@ const imageComfy = defineComfyAsset({`,
 </Composition>;`,
   );
 
-export const TEST_CROSS_STAGE_STEM_VIDEO_TSX = TEST_CROSS_STAGE_VIDEO_TSX.replace(
+const TEST_CROSS_STAGE_STEM_VIDEO_TSX = TEST_CROSS_STAGE_VIDEO_TSX.replace(
   `  inputs: { image: { nodeId: "1", field: "image", type: "image" } },`,
   `  inputs: {
     image: { nodeId: "1", field: "image", type: "image" },

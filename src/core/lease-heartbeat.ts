@@ -1,4 +1,4 @@
-import { type JobManager, RUN_LEASE_HEARTBEAT_MS, RUN_LEASE_TTL_MS } from "../core/job-manager.js";
+import { type JobManager, RUN_LEASE_HEARTBEAT_MS, RUN_LEASE_TTL_MS } from "./job-manager.js";
 
 // Start renewing a job's run lease on an interval, returning an idempotent stop().
 //

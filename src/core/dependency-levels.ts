@@ -1,4 +1,4 @@
-import { isMaterializedLeafAssetPath } from "./address.js";
+import { isMaterializedLeafAddress } from "./address.js";
 import type { DependencyGraph } from "./graph.js";
 
 interface DependencyLevels {
@@ -13,7 +13,7 @@ export function computeDependencyLevels(graph: DependencyGraph): DependencyLevel
   const levelOf = new Map<string, number>();
 
   for (const node of graph.topologicalOrder) {
-    if (isMaterializedLeafAssetPath(node)) continue;
+    if (isMaterializedLeafAddress(node)) continue;
     const deps = graph.dependencies.get(node) ?? [];
     let maxDepLevel = -1;
     for (const dep of deps) {

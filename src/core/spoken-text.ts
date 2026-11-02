@@ -100,7 +100,7 @@ const lineKind = (line: ScriptLine): CueKind =>
  * Every unresolved case lands on `voice` — the level and the ducking a line already gets, so a
  * misread leaves the mix where it stands today instead of sinking a cue that should carry.
  */
-export function classifyShotCues(
+function classifyShotCues(
   definition: StageDefinition,
   shotId: string,
   stemRefs: readonly string[],

@@ -63,15 +63,3 @@ function isPlainObject(value: object): boolean {
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
 }
-
-// Whether a definition's inputs reference `__konte:seed__` anywhere. Mirrors the resolver's
-// recursion (arrays + plain objects) so the seam records a variant's seed only when it was
-// actually consumed — a seedless asset never gets a phantom seed that would mislead restore.
-export function hasSeedPlaceholder(value: unknown): boolean {
-  if (typeof value === "string") return parsePlaceholder(value) === "seed";
-  if (Array.isArray(value)) return value.some(hasSeedPlaceholder);
-  if (value && typeof value === "object" && isPlainObject(value)) {
-    return Object.values(value).some(hasSeedPlaceholder);
-  }
-  return false;
-}

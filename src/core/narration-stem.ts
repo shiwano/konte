@@ -1,5 +1,5 @@
 import {
-  formatAssetPath,
+  formatAddress,
   formatNarrationStemAddress,
   formatShotAddress,
   isNarrationStemAddress,
@@ -26,7 +26,7 @@ export function assertNarrationStemsHeard(video: VideoDefinition): void {
   };
   for (const shot of video.shots) {
     for (const [name, entry] of Object.entries(shot.assets)) {
-      check(extractRefs(entry), `input of ${formatAssetPath("video", shot.id, name)}`);
+      check(extractRefs(entry), `input of ${formatAddress("video", shot.id, name)}`);
     }
     check(shot.pictureRefs ?? [], `picture of ${formatShotAddress("video", shot.id)}`);
   }

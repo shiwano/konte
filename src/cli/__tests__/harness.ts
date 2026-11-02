@@ -275,15 +275,3 @@ export async function acceptFileAssets(projectDir: string): Promise<void> {
     }
   });
 }
-
-// Poll until `predicate` holds, so a test never races a fixed wall-clock sleep.
-export async function waitFor(
-  predicate: () => boolean | Promise<boolean>,
-  { timeoutMs = 10_000, intervalMs = 10 }: { timeoutMs?: number; intervalMs?: number } = {},
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!(await predicate())) {
-    if (Date.now() >= deadline) throw new Error("waitFor: timed out");
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
-  }
-}

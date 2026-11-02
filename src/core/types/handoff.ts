@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const HandoffNoteSchema = z.object({
+const HandoffNoteSchema = z.object({
   address: z.string(),
   text: z.string(),
 });

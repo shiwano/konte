@@ -82,7 +82,7 @@ export type Identifier<T extends string> = string extends T
  * A branded error carrying the offending id in a required property KEY, so a violation surfaces the
  * whole explanation verbatim ("Property 'konte: id "…" …' is missing").
  */
-export type IdentifierViolation<T extends string> = {
+type IdentifierViolation<T extends string> = {
   [P in `konte: id "${T}" must use only a-z A-Z 0-9 - _`]: never;
 };
 

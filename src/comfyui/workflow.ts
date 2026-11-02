@@ -1,8 +1,7 @@
-import { createHash } from "node:crypto";
 import * as fs from "node:fs/promises";
 import { parsePlaceholder } from "../core/dsl/shot-context.js";
 import { KonteError } from "../core/errors.js";
-import { stableStringify } from "../core/stable-stringify.js";
+import { stableHash } from "../core/content-hash.js";
 import type { ComfyUIWorkflow } from "./types.js";
 
 export async function loadWorkflow(workflowPath: string): Promise<ComfyUIWorkflow> {
@@ -154,13 +153,9 @@ function substituteInValue(
 }
 
 export function computeWorkflowHash(workflow: ComfyUIWorkflow): string {
-  const hash = createHash("sha256");
-  hash.update(stableStringify(workflow));
-  return hash.digest("hex");
+  return stableHash(workflow);
 }
 
 export function computeInputHash(inputs: Record<string, unknown>): string {
-  const hash = createHash("sha256");
-  hash.update(stableStringify(inputs));
-  return hash.digest("hex");
+  return stableHash(inputs);
 }

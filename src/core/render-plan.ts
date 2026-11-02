@@ -19,7 +19,6 @@ import type { ShotFunction } from "./dsl/shot-context.js";
 import type { ShotStage } from "./address.js";
 import {
   formatAddress,
-  formatAssetPath,
   formatTimelineAddress,
   shownShotAssetNames,
   tryParseAddress,
@@ -151,7 +150,7 @@ export function shotSpans(
 function outsideShotRefs(video: StageDefinition, shot: StageDefinition["shots"][number]): string[] {
   if (!shot.shotFn || isPendingShot(shot)) return [];
   const ownPaths = new Set(
-    Object.keys(shot.assets).map((name) => formatAssetPath(video.stage, shot.id, name)),
+    Object.keys(shot.assets).map((name) => formatAddress(video.stage, shot.id, name)),
   );
   return [
     ...new Set([...(shot.compositionRefs ?? []), ...(video.overlay?.compositionRefs ?? [])]),

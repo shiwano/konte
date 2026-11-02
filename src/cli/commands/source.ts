@@ -37,8 +37,7 @@ import {
 } from "../../core/source-study.js";
 import { prepareClipSource, sourceClipFrameAt } from "../../core/source-study-clip.js";
 import { comicPage } from "../../core/source-study-comic.js";
-import { ensureFfmpeg } from "../../core/ffmpeg.js";
-import { ffprobeBin } from "../../core/ffmpeg-binary.js";
+import { ensureFfmpeg, ensureFfprobe } from "../../core/ffmpeg.js";
 import { parseTimecode } from "../../core/timecode.js";
 import type { SourceStudyIndex } from "../../core/types/index.js";
 import { getPathSize } from "./clean-utils.js";
@@ -146,7 +145,7 @@ async function runImport(
   const src = await importOriginal(videoRoot, abs);
   if (kind === "clip") {
     await ensureFfmpeg();
-    await ffprobeBin();
+    await ensureFfprobe();
     await prepareClipSource(src, progress);
   }
   const { index } = await studySource(src, { progress, binding: opts.binding });
@@ -269,7 +268,7 @@ async function printAt(sv: SourceView, at: string): Promise<void> {
   }
   if (sv.index?.kind === "clip") {
     await ensureFfmpeg();
-    await ffprobeBin();
+    await ensureFfprobe();
     const sec = parseTimecode(at);
     const frame = await sourceClipFrameAt(sv.ref, sec);
     console.log(`${file} at ${formatClipClock(sec)}`);

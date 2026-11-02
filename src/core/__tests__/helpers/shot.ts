@@ -58,8 +58,6 @@ export function pendingShot<TId extends string>(
   return makeVideoShotStarter(index).pendingShot(id).__shots[0] as PendingShotInput<TId>;
 }
 
-export const pendingAnimaticShot = pendingShot;
-
 // Test-only terse `asideShot(id, { duration, label })` — the board's form, which takes no build, so
 // what it mints is a span konte fills with its own slug. Pass `build` for the video's form.
 export function asideShot<TId extends string>(
@@ -107,7 +105,7 @@ export const moves = { blocking: "she steps to the window", camera: "fixed" } as
 // stage's `timeline` expects, without walking a real multi-shot direction. Bypasses the
 // direction-order/completeness type gate (exercised separately in the type-inference tests), letting
 // a test declare an arbitrary shot list terse-ly.
-export function stageTimeline<const TShots extends readonly AnyShotInput[]>(
+function stageTimeline<const TShots extends readonly AnyShotInput[]>(
   shots: TShots,
   soundtracks?: readonly SoundtrackEntry<TShots[number]["id"]>[],
 ): StageTimelineReturn<TShots[number]["id"]> {

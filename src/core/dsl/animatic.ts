@@ -1,5 +1,5 @@
 import { harvestAudioStructure } from "../composition-builder.js";
-import { isAssetPath } from "../composition-refs.js";
+import { isConsumableAddress } from "../composition-refs.js";
 import { KonteError } from "../errors.js";
 import { type RenderContext, renderToHtml } from "../jsx-html.js";
 import type { PanelDefinition } from "../types/index.js";
@@ -245,7 +245,7 @@ function assertPanelMoves(
 // resolve has no place in it.
 function assertCuesMixable(shotId: string, entries: ReadonlyArray<{ src: string }>): void {
   for (const e of entries) {
-    if (isAssetPath(e.src)) continue;
+    if (isConsumableAddress(e.src)) continue;
     throw new KonteError(
       "ANIMATIC_INVALID",
       `Animatic shot "${shotId}" plays "${e.src}", which is not a konte asset. The stem that ` +

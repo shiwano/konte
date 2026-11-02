@@ -1,1 +1,1 @@
-export { StateManager, type ResolvedReference } from "./manager.js";
+export { StateManager } from "./manager.js";

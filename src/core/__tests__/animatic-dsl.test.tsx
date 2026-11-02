@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { defineAnimatic, asset, type MediaAsset, Composition, Image, Panel } from "../dsl/index.js";
-import { moves, pendingAnimaticShot, shot, animaticTimeline } from "./helpers/shot.js";
+import { moves, pendingShot, shot, animaticTimeline } from "./helpers/shot.js";
 import { directionDefaults, testDirection } from "./helpers/direction.js";
 import { defineDirection } from "../dsl/direction.js";
 import { AnimaticDefinitionSchema, isPendingAnimaticShot } from "../types/animatic.js";
@@ -503,7 +503,7 @@ describe("pendingShot", () => {
         size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
       }),
       {
-        timeline: () => animaticTimeline([pendingAnimaticShot("01", { duration: 5 })]),
+        timeline: () => animaticTimeline([pendingShot("01", { duration: 5 })]),
       },
     );
     const parsed = AnimaticDefinitionSchema.parse(sb);
@@ -520,9 +520,7 @@ describe("pendingShot", () => {
       }),
       {
         timeline: () =>
-          animaticTimeline([
-            pendingAnimaticShot("01", { duration: 5, action: "she opens the window" }),
-          ]),
+          animaticTimeline([pendingShot("01", { duration: 5, action: "she opens the window" })]),
       },
     );
     expect(sb.shots[0]!.duration).toBe(5);

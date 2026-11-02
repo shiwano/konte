@@ -9,7 +9,7 @@ import {
   buildDependencyGraph,
   collectTransitiveDependents,
   listBoardlessVideoShots,
-  listUnusedAssetPaths,
+  listUnusedAddresses,
   videoDependentsHoldVerdicts,
   type DependencyGraph,
 } from "../graph.js";
@@ -967,7 +967,7 @@ describe("buildDependencyGraph", () => {
   });
 });
 
-describe("listUnusedAssetPaths", () => {
+describe("listUnusedAddresses", () => {
   const format = { fps: 30, size: { megapixels: 0.016384, delivery: { width: 128, height: 128 } } };
 
   it("reports a timeline asset and a shot asset no composition uses", () => {
@@ -989,7 +989,7 @@ describe("listUnusedAssetPaths", () => {
 
     const graph = buildDependencyGraph(video);
 
-    expect(new Set(listUnusedAssetPaths(video, null, graph))).toEqual(
+    expect(new Set(listUnusedAddresses(video, null, graph))).toEqual(
       new Set(["video:timeline.bgm", "video:shot.01.extra"]),
     );
   });
@@ -1012,7 +1012,7 @@ describe("listUnusedAssetPaths", () => {
 
     const graph = buildDependencyGraph(video);
 
-    expect(listUnusedAssetPaths(video, null, graph)).toEqual([]);
+    expect(listUnusedAddresses(video, null, graph)).toEqual([]);
   });
 
   it("reports a whole dead chain transitively (unused depends on unused)", () => {
@@ -1034,7 +1034,7 @@ describe("listUnusedAssetPaths", () => {
 
     const graph = buildDependencyGraph(video);
 
-    expect(new Set(listUnusedAssetPaths(video, null, graph))).toEqual(
+    expect(new Set(listUnusedAddresses(video, null, graph))).toEqual(
       new Set(["video:timeline.base", "video:timeline.character"]),
     );
   });
@@ -1055,7 +1055,7 @@ describe("listUnusedAssetPaths", () => {
 
     const graph = buildDependencyGraph(video);
 
-    expect(listUnusedAssetPaths(video, null, graph)).toEqual([]);
+    expect(listUnusedAddresses(video, null, graph)).toEqual([]);
   });
 
   it("treats a timeline soundtrack's asset as used (muxed, not composition-referenced)", () => {
@@ -1076,7 +1076,7 @@ describe("listUnusedAssetPaths", () => {
 
     const graph = buildDependencyGraph(video);
 
-    expect(listUnusedAssetPaths(video, null, graph)).toEqual([]);
+    expect(listUnusedAddresses(video, null, graph)).toEqual([]);
   });
 
   const comfyDef = { kind: "comfy" as const, workflow: "x.json", inputs: {} };
@@ -1091,7 +1091,7 @@ describe("listUnusedAssetPaths", () => {
 
     const graph = buildDependencyGraph(video);
 
-    expect(listUnusedAssetPaths(video, null, graph)).toEqual([]);
+    expect(listUnusedAddresses(video, null, graph)).toEqual([]);
   });
 
   it("treats animatic panel assets as used and reports unpanelled animatic timeline", () => {
@@ -1121,7 +1121,7 @@ describe("listUnusedAssetPaths", () => {
 
     const graph = buildDependencyGraph(video, animatic);
 
-    expect(listUnusedAssetPaths(video, animatic, graph)).toEqual(["animatic:timeline.logo"]);
+    expect(listUnusedAddresses(video, animatic, graph)).toEqual(["animatic:timeline.logo"]);
   });
 });
 
@@ -1453,7 +1453,7 @@ describe("listBoardlessVideoShots", () => {
     expect(boardlessIds(video, animatic, graph)).toEqual(["01"]);
   });
 
-  // An asset the composition never draws is not generated (`listUnusedAssetPaths` drops it).
+  // An asset the composition never draws is not generated (`listUnusedAddresses` drops it).
   it("reads only what the composition draws", () => {
     const animatic = developedAnimatic(["01"]);
     const video: VideoDefinition = {

@@ -1,12 +1,12 @@
 import {
   type AssetStage,
   type DefinitionLike,
-  formatPlateAssetPath,
+  formatPlateAddress,
   formatShotAddress,
-  formatTimelineAssetPath,
+  formatTimelineAddress,
   getAssetEntry,
   isMaterializedLeafAddress,
-  listExposedReferenceAssetPaths,
+  listExposedReferenceAddresses,
   tryParseAddress,
 } from "../../../core/address.js";
 import { getBackendKind } from "../../../backends/resolve-backend.js";
@@ -33,7 +33,7 @@ export function buildKeepGraph(opts: {
   const units: KeepGraphInfo["units"] = {};
   const reference = definitionByStage.get("reference");
   if (reference) {
-    for (const address of listExposedReferenceAssetPaths(reference)) {
+    for (const address of listExposedReferenceAddresses(reference)) {
       units[address] = { stage: "reference", label: address.slice("reference:".length) };
     }
   }
@@ -46,12 +46,12 @@ export function buildKeepGraph(opts: {
     // A timeline asset and a plate are accepted through the shots that consume them — each is its own
     // unit.
     for (const name of Object.keys(definition?.topLevelAssets ?? {})) {
-      units[formatTimelineAssetPath(stage, name)] = { stage, label: `Timeline: ${name}` };
+      units[formatTimelineAddress(stage, name)] = { stage, label: `Timeline: ${name}` };
     }
     for (const setupId of Object.keys(
       (definition as { plates?: Record<string, unknown> } | null | undefined)?.plates ?? {},
     )) {
-      units[formatPlateAssetPath(setupId)] = { stage, label: `Plate: ${setupId}` };
+      units[formatPlateAddress(setupId)] = { stage, label: `Plate: ${setupId}` };
     }
   }
 

@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parseAssetPath } from "../address.js";
+import { parseAddress } from "../address.js";
 import { FakeBackend } from "../fake-backend.js";
 import { computeAcceptedStaleness, isAcceptedStale, isVariantStale } from "../staleness.js";
 import { StateManager } from "../state/index.js";
@@ -12,7 +12,7 @@ import videoDef from "./fixtures/valid-video.js";
 const video: VideoDefinition = videoDef;
 
 function getAssetDefinition(video: VideoDefinition, assetPath: string): AssetDefinition {
-  const parsed = parseAssetPath(assetPath);
+  const parsed = parseAddress(assetPath);
   if (parsed.kind !== "shot") throw new Error(`Expected shot address, got "${parsed.kind}"`);
   const shot = video.shots.find((s) => s.id === parsed.shotId);
   if (!shot) throw new Error(`Shot "${parsed.shotId}" not found`);

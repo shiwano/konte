@@ -89,7 +89,7 @@ The board state is `checkDirection`'s `animaticSetups` (`AnimaticSetupState`: `p
 
 `unconsumedBy` is `listSetupAnchorGaps(...).unanchoredShots` (board-analysis.ts), a walk over the animatic's own refs rooted at each developed shot's panels only. Not the declared pool (an unrendered asset taking the plate would clear it for a keyframe built from nothing), not `compositionRefs` (an overlay or sound taking the plate says nothing about the keyframe's frame). A plate reaching a keyframe through a shot asset, a timeline asset or a `shot(…)` chain is found from the panel.
 
-The plate is neither acceptance-gated (`unacceptedUpstreamDeps` walks self-stage nodes through) nor review work: it is judged inside its panels. It sits one level below the composition, reached through the keyframe's job provenance rather than `compositionRefs`, so accepting the first panel on it cascades onto it. `listReviewableAssetPaths` / `print-status` keep it out of "Needs review" and the accept ratio; `computeExportReadiness` still counts an unbaked or stale one as `generate` work. A handoff note may name it (`collectAllAddresses`).
+The plate is neither acceptance-gated (`unacceptedUpstreamDeps` walks self-stage nodes through) nor review work: it is judged inside its panels. It sits one level below the composition, reached through the keyframe's job provenance rather than `compositionRefs`, so accepting the first panel on it cascades onto it. `listReviewableAddresses` / `print-status` keep it out of "Needs review" and the accept ratio; `computeExportReadiness` still counts an unbaked or stale one as `generate` work. A handoff note may name it (`collectAllAddresses`).
 
 ## Lineup: the staging class
 

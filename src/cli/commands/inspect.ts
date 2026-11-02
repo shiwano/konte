@@ -5,12 +5,12 @@ import {
   type ShotStage,
   formatAddress,
   formatCompositionAddress,
-  formatPlateAssetPath,
+  formatPlateAddress,
   formatShotAddress,
   listShotStems,
   formatTimelineAddress,
   formatTimelineStemAddress,
-  getAssetEntryByAddress,
+  getAssetEntry,
   isDeliveryAddress,
   isMaterializedLeafAddress,
   isPatchAddress,
@@ -332,8 +332,8 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
   if (!patchStepDef) validateAddress(address, definition);
   const graph = buildDependencyGraph(video, animatic, reference);
 
-  const assetDef = patchStepDef ?? getAssetEntryByAddress(definition, address);
-  // A `#delivery` asset is synthesized, not authored — getAssetEntryByAddress resolves it to its
+  const assetDef = patchStepDef ?? getAssetEntry(definition, address);
+  // A `#delivery` asset is synthesized, not authored — getAssetEntry resolves it to its
   // SOURCE asset (the suffix is stripped), so hashing that here would compare the source definition to
   // the variant's delivery-upscale definition and always read as definition-stale. Its definition hash is
   // re-derived per-variant from the snapshotted target and enforced at export, so (like `status`)
@@ -611,7 +611,7 @@ function currentAssetDefinition(
   const definition = definitionForAddress(definitions, address);
   if (!definition) return null;
   try {
-    return getAssetEntryByAddress(definition, address);
+    return getAssetEntry(definition, address);
   } catch {
     return null;
   }
@@ -900,7 +900,7 @@ async function inspectPlates(videoRoot: string): Promise<void> {
   for (const id of ids) {
     if (!first) console.log("");
     first = false;
-    await inspectAsset(videoRoot, formatPlateAssetPath(id));
+    await inspectAsset(videoRoot, formatPlateAddress(id));
   }
 }
 

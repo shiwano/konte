@@ -1,7 +1,6 @@
 import { z } from "zod";
 import {
   AssetDefinitionSchema,
-  PanelDefinitionSchema,
   StageDefinitionSchema,
   VideoFormatSchema,
   type ShotDefinition,
@@ -12,11 +11,9 @@ import {
  * `defineAnimatic` derives both from the direction canvas (`direction.policy.format`) and stores them
  * here.
  */
-export const AnimaticFormatSchema = VideoFormatSchema;
+const AnimaticFormatSchema = VideoFormatSchema;
 
 export type AnimaticFormat = z.infer<typeof AnimaticFormatSchema>;
-
-export { PanelDefinitionSchema };
 export type { PanelDefinition } from "./definition.js";
 
 // An animatic shot is a video shot that also carries keyframes — same `<Composition>` build, same

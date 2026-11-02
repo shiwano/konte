@@ -3,8 +3,7 @@ import type { Command } from "commander";
 import { loadSourceWaveform } from "../../../core/audio-inspect.js";
 import { definitionForAddress } from "../../../core/definition-hashes.js";
 import { spokenLinesAt } from "../../../core/prompt-check.js";
-import { ensureFfmpeg } from "../../../core/ffmpeg.js";
-import { ffprobeBin } from "../../../core/ffmpeg-binary.js";
+import { ensureFfmpeg, ensureFfprobe } from "../../../core/ffmpeg.js";
 import { type AudioStreamInfo, probeMediaDetail } from "../../../core/video-probe.js";
 import { buildTimeAxis, cell, normalize, resample } from "../../audio-sparkline.js";
 import { openProbeTargets } from "./resolve-arg.js";
@@ -116,7 +115,7 @@ Examples:
       const { videoRoot, manager, definitions } = targets;
 
       await ensureFfmpeg();
-      await ffprobeBin();
+      await ensureFfprobe();
       const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
       const songAddress = songAddressOf(direction);
 

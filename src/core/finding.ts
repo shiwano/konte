@@ -39,7 +39,7 @@ export type FindingCode =
 
 // What a stage build finds of itself instead of refusing to load: a demand the direction makes that
 // the stage file has not caught up with, after an edit to the direction alone.
-export type BuildFindingCode =
+type BuildFindingCode =
   // A shot the direction gives lines to that does not sound them.
   | "script-unvoiced"
   // A shot whose `<Cutin>` and the direction's `cutin` disagree on whether there is one.

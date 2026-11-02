@@ -1,11 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import {
-  type AssetStage,
-  DELIVERY_SUFFIX,
-  formatAssetPathSuffix,
-  parseAddress,
-} from "./address.js";
+import { type AssetStage, DELIVERY_SUFFIX, formatAddressSuffix, parseAddress } from "./address.js";
 
 const PATCH_DIR = "patch";
 
@@ -23,7 +18,7 @@ export function assetDir(videoRoot: string, address: string): string {
       parsed.assetName,
     );
   }
-  const base = formatAssetPathSuffix(parsed);
+  const base = formatAddressSuffix(parsed);
   const rest = parsed.delivery ? `${base}${DELIVERY_SUFFIX}` : base;
   return path.join(videoRoot, "assets", parsed.stage, rest);
 }

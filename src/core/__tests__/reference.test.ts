@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   formatReferenceAddress,
-  formatReferenceAssetPath,
-  listExposedReferenceAssetPaths,
+  listExposedReferenceAddresses,
   listReferenceAddresses,
-  listReferenceAssetPaths,
-  listReviewableAssetPaths,
+  listReviewableAddresses,
   parseAddress,
 } from "../address.js";
 import { matchesAddressScope } from "../address.js";
@@ -133,12 +131,12 @@ describe("defineReference(plainDirection, ) builder", () => {
 
 describe("reference address helpers", () => {
   it("formats a reference asset path and address", () => {
-    expect(formatReferenceAssetPath("bgm")).toBe("reference:bgm");
+    expect(formatReferenceAddress("bgm")).toBe("reference:bgm");
     expect(formatReferenceAddress("bgm")).toBe("reference:bgm");
   });
 
   it("lists a reference definition's asset paths and addresses", () => {
-    expect(new Set(listReferenceAssetPaths(reference))).toEqual(
+    expect(new Set(listReferenceAddresses(reference))).toEqual(
       new Set(["reference:bgm", "reference:character"]),
     );
     expect(new Set(listReferenceAddresses(reference))).toEqual(
@@ -157,17 +155,17 @@ describe("reference address helpers", () => {
       },
     });
 
-    expect(listReferenceAssetPaths(ref)).toEqual(["reference:latent", "reference:key"]);
-    expect(listExposedReferenceAssetPaths(ref)).toEqual(["reference:key"]);
-    expect(listReviewableAssetPaths(ref, "reference")).toEqual(["reference:key"]);
+    expect(listReferenceAddresses(ref)).toEqual(["reference:latent", "reference:key"]);
+    expect(listExposedReferenceAddresses(ref)).toEqual(["reference:key"]);
+    expect(listReviewableAddresses(ref, "reference")).toEqual(["reference:key"]);
   });
 
   it("keeps an exposed deterministic asset in the review listing", () => {
-    expect(listExposedReferenceAssetPaths(reference)).toEqual([
+    expect(listExposedReferenceAddresses(reference)).toEqual([
       "reference:bgm",
       "reference:character",
     ]);
-    expect(listReviewableAssetPaths(reference, "reference")).toEqual([
+    expect(listReviewableAddresses(reference, "reference")).toEqual([
       "reference:bgm",
       "reference:character",
     ]);

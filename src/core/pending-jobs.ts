@@ -1,15 +1,10 @@
-import * as crypto from "node:crypto";
-import {
-  type DefinitionLike,
-  getAssetEntryByAddress,
-  getStage,
-  isDeliveryAddress,
-} from "./address.js";
+import { randomBytes } from "node:crypto";
+import { type DefinitionLike, getAssetEntry, getStage, isDeliveryAddress } from "./address.js";
 import { synthesizeDeliveryAssetDefinition } from "./delivery.js";
 import { variantDir } from "./variant-dir.js";
 import type { GenerationBackend } from "./backend.js";
 import { submitToBackend } from "./submit-generation.js";
-import { startLeaseHeartbeat } from "../backends/lease-heartbeat.js";
+import { startLeaseHeartbeat } from "./lease-heartbeat.js";
 import { computeDefinitionHash } from "./definition-hash.js";
 import { computeDefinitionSourceFingerprint } from "./definition-source.js";
 import { KonteError, errorMessage } from "./errors.js";
@@ -111,7 +106,7 @@ export async function submitReadyPendingJobs(
       const evaluation = evaluateJob(job, manager, jobIndex);
 
       if (evaluation.action === "submit") {
-        const workerId = submitter?.workerId ?? `w-${crypto.randomBytes(8).toString("hex")}`;
+        const workerId = submitter?.workerId ?? `w-${randomBytes(8).toString("hex")}`;
         const claimed = await jobManager.claimForSubmission(
           job.variantId,
           workerId,
@@ -394,7 +389,7 @@ async function trySubmitJob(
       patchDef ??
       (isDeliveryAddress(job.address)
         ? deliveryDefinition(job, manager, definitions)
-        : getAssetEntryByAddress(
+        : getAssetEntry(
             // A board or video job while the song it is cut to has no read take fails on
             // `SONG_UNREAD`.
             selectDefinition(getStage(job.address), definitions).def as DefinitionLike,

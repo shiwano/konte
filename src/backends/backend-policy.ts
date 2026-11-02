@@ -1,15 +1,20 @@
 import { resolveHeaderTokens } from "../comfyui/token-resolver.js";
-import { type AssetStage, type DefinitionLike, getAssetEntry, listAssetPaths } from "./address.js";
-import { KonteError } from "./errors.js";
-import { isVendorBackendAsset } from "./vendor-backend.js";
-import { backendCredential } from "./types/credentials.js";
-import { VendorBackendKindSchema } from "./types/job.js";
+import {
+  type AssetStage,
+  type DefinitionLike,
+  getAssetEntry,
+  listAddresses,
+} from "../core/address.js";
+import { KonteError } from "../core/errors.js";
+import { isVendorBackendAsset } from "../core/vendor-backend.js";
+import { backendCredential } from "../core/types/credentials.js";
+import { VendorBackendKindSchema } from "../core/types/job.js";
 import type {
   AssetDefinition,
   ComfyTarget,
   KonteConfig,
   VendorBackendKind,
-} from "./types/index.js";
+} from "../core/types/index.js";
 import { type DeploymentReadiness, deploymentReadiness } from "../comfy-api/deployment.js";
 import {
   COMFY_API_KEY_ENV,
@@ -74,7 +79,7 @@ export function unconfiguredBackendAssets(
   config: KonteConfig,
 ): UnconfiguredBackendAsset[] {
   const out: UnconfiguredBackendAsset[] = [];
-  for (const assetPath of listAssetPaths(def, stage)) {
+  for (const assetPath of listAddresses(def, stage)) {
     const kind = getAssetEntry(def, assetPath).kind;
     if (!isVendorBackendAsset(kind)) continue;
     if (!isBackendConfigured(kind, config)) {

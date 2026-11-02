@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getAssetEntryByAddress } from "../../core/address.js";
+import { getAssetEntry } from "../../core/address.js";
 import { writeDefinitionSnapshot } from "../../core/definition-snapshot.js";
 import { StateManager } from "../../core/state/manager.js";
 import type { ComfyAssetDefinition } from "../../core/types/index.js";
@@ -969,7 +969,7 @@ describe("inspect <variantId>", () => {
 
   async function seedVariantOnOldPrompt(): Promise<string> {
     const definition = await loadDefinitionForAddress(projectDir, motionAddr);
-    const current = getAssetEntryByAddress(definition, motionAddr) as ComfyAssetDefinition;
+    const current = getAssetEntry(definition, motionAddr) as ComfyAssetDefinition;
     const sm = await StateManager.load(projectDir);
     const vid = sm.reserveVariantId(motionAddr);
     sm.getAssetState(motionAddr).variants![vid]!.file = "/tmp/motion.mp4";
@@ -1018,7 +1018,7 @@ describe("inspect <variantId>", () => {
 
   it("names the adapter a take moved off instead of every input it no longer shares", async () => {
     const definition = await loadDefinitionForAddress(projectDir, motionAddr);
-    const current = getAssetEntryByAddress(definition, motionAddr) as ComfyAssetDefinition;
+    const current = getAssetEntry(definition, motionAddr) as ComfyAssetDefinition;
     const sm = await StateManager.load(projectDir);
     const vid = sm.reserveVariantId(motionAddr);
     sm.getAssetState(motionAddr).variants![vid]!.file = "/tmp/motion.mp4";

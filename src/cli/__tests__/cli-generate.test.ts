@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readDefinitionSnapshot } from "../../core/definition-snapshot.js";
-import { spendGateHooks } from "../../core/backend-policy.js";
+import { spendGateHooks } from "../../backends/backend-policy.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import { getAssetEntry } from "../../core/address.js";
 import {

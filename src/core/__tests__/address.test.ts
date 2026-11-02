@@ -7,14 +7,12 @@ import {
   assertValidAddressScope,
   deliveryAddressOf,
   formatAddress,
-  formatAssetPath,
   formatCompositionAddress,
-  formatPatchAssetPath,
-  formatAssetPathSuffix,
-  formatPlateAssetPath,
+  formatPatchAddress,
+  formatAddressSuffix,
+  formatPlateAddress,
   formatShotStemAddress,
   formatTimelineAddress,
-  formatTimelineAssetPath,
   formatTimelineStemAddress,
   getAssetEntry,
   getAssetStage,
@@ -25,14 +23,12 @@ import {
   isPatchAddress,
   isStemAddress,
   listAddresses,
-  listAssetPaths,
   listCompositionAddresses,
   listFrameDeliverySources,
   listStemAddresses,
-  listReviewableAssetPaths,
+  listReviewableAddresses,
   matchesAddressScope,
   parseAddress,
-  parseAssetPath,
   patchSourceVariantIdOf,
   parseStageScope,
   parseReelScope,
@@ -106,9 +102,9 @@ const testVideo: VideoDefinition = defineVideo(
   },
 );
 
-describe("parseAssetPath", () => {
+describe("parseAddress", () => {
   it("parses a valid video shot asset path", () => {
-    expect(parseAssetPath("video:shot.01.motion")).toEqual({
+    expect(parseAddress("video:shot.01.motion")).toEqual({
       stage: "video",
       kind: "shot",
       delivery: false,
@@ -118,7 +114,7 @@ describe("parseAssetPath", () => {
   });
 
   it("parses a valid animatic shot asset path", () => {
-    expect(parseAssetPath("animatic:shot.01.first")).toEqual({
+    expect(parseAddress("animatic:shot.01.first")).toEqual({
       stage: "animatic",
       kind: "shot",
       delivery: false,
@@ -128,7 +124,7 @@ describe("parseAssetPath", () => {
   });
 
   it("parses a valid video timeline asset path", () => {
-    expect(parseAssetPath("video:timeline.character")).toEqual({
+    expect(parseAddress("video:timeline.character")).toEqual({
       stage: "video",
       kind: "timeline",
       delivery: false,
@@ -137,7 +133,7 @@ describe("parseAssetPath", () => {
   });
 
   it("parses a valid animatic timeline asset path", () => {
-    expect(parseAssetPath("animatic:timeline.bgm")).toEqual({
+    expect(parseAddress("animatic:timeline.bgm")).toEqual({
       stage: "animatic",
       kind: "timeline",
       delivery: false,
@@ -146,14 +142,14 @@ describe("parseAssetPath", () => {
   });
 
   it("parses an asset path with hyphens and underscores", () => {
-    expect(parseAssetPath("video:shot.intro-01.background")).toEqual({
+    expect(parseAddress("video:shot.intro-01.background")).toEqual({
       stage: "video",
       kind: "shot",
       delivery: false,
       shotId: "intro-01",
       assetName: "background",
     });
-    expect(parseAssetPath("video:shot.intro_01.bg_main")).toEqual({
+    expect(parseAddress("video:shot.intro_01.bg_main")).toEqual({
       stage: "video",
       kind: "shot",
       delivery: false,
@@ -163,8 +159,8 @@ describe("parseAssetPath", () => {
   });
 
   it("throws on invalid asset path format", () => {
-    expect(() => parseAssetPath("invalid")).toThrow(KonteError);
-    expect(() => parseAssetPath("")).toThrow(KonteError);
+    expect(() => parseAddress("invalid")).toThrow(KonteError);
+    expect(() => parseAddress("")).toThrow(KonteError);
   });
 });
 
@@ -291,7 +287,7 @@ describe("patch addresses", () => {
   });
 
   it("round-trips through format and the cache segments", () => {
-    const address = formatPatchAssetPath("video", "v-abc123", "patched");
+    const address = formatPatchAddress("video", "v-abc123", "patched");
     expect(address).toBe("video:patch.v-abc123.patched");
     expect(isPatchAddress(address)).toBe(true);
     expect(patchSourceVariantIdOf(address)).toBe("v-abc123");
@@ -350,23 +346,23 @@ describe("getAssetStage", () => {
   });
 });
 
-describe("formatAssetPath", () => {
+describe("formatAddress", () => {
   it("formats a video shot asset path", () => {
-    expect(formatAssetPath("video", "01", "motion")).toBe("video:shot.01.motion");
+    expect(formatAddress("video", "01", "motion")).toBe("video:shot.01.motion");
   });
 
   it("formats an animatic shot asset path", () => {
-    expect(formatAssetPath("animatic", "01", "first")).toBe("animatic:shot.01.first");
+    expect(formatAddress("animatic", "01", "first")).toBe("animatic:shot.01.first");
   });
 });
 
-describe("formatTimelineAssetPath", () => {
+describe("formatTimelineAddress", () => {
   it("formats a video timeline asset path", () => {
-    expect(formatTimelineAssetPath("video", "character")).toBe("video:timeline.character");
+    expect(formatTimelineAddress("video", "character")).toBe("video:timeline.character");
   });
 
   it("formats an animatic timeline asset path", () => {
-    expect(formatTimelineAssetPath("animatic", "ref")).toBe("animatic:timeline.ref");
+    expect(formatTimelineAddress("animatic", "ref")).toBe("animatic:timeline.ref");
   });
 });
 
@@ -454,14 +450,14 @@ describe("listAddresses", () => {
   });
 });
 
-describe("listAssetPaths", () => {
+describe("listAddresses", () => {
   it("lists all asset paths with video stage prefix", () => {
-    const paths = listAssetPaths(testVideo, "video");
+    const paths = listAddresses(testVideo, "video");
     expect(paths).toEqual(["video:timeline.character", "video:shot.01.motion", "video:shot.02.bg"]);
   });
 
   it("lists asset paths with animatic stage prefix", () => {
-    const paths = listAssetPaths(testVideo, "animatic");
+    const paths = listAddresses(testVideo, "animatic");
     expect(paths).toEqual([
       "animatic:timeline.character",
       "animatic:shot.01.motion",
@@ -470,7 +466,7 @@ describe("listAssetPaths", () => {
   });
 });
 
-describe("listReviewableAssetPaths", () => {
+describe("listReviewableAddresses", () => {
   const reference = defineReference(plainDirection, {
     references: () => {
       const character = asset("character", imageFile, { path: "assets/files/character.png" });
@@ -497,15 +493,13 @@ describe("listReviewableAssetPaths", () => {
   );
 
   it("includes file assets", () => {
-    expect(listAssetPaths(reference, "reference")).toEqual(["reference:character"]);
-    expect(listReviewableAssetPaths(reference, "reference")).toEqual(["reference:character"]);
+    expect(listAddresses(reference, "reference")).toEqual(["reference:character"]);
+    expect(listReviewableAddresses(reference, "reference")).toEqual(["reference:character"]);
   });
 
-  it("equals listAssetPaths for a video", () => {
-    expect(listAssetPaths(videoWithReference, "video")).toEqual(["video:shot.01.motion"]);
-    expect(listReviewableAssetPaths(testVideo, "video")).toEqual(
-      listAssetPaths(testVideo, "video"),
-    );
+  it("equals listAddresses for a video", () => {
+    expect(listAddresses(videoWithReference, "video")).toEqual(["video:shot.01.motion"]);
+    expect(listReviewableAddresses(testVideo, "video")).toEqual(listAddresses(testVideo, "video"));
   });
 });
 
@@ -794,9 +788,9 @@ describe("setup addresses", () => {
   });
 
   it("formats and round-trips", () => {
-    const address = formatPlateAssetPath("deskWide");
+    const address = formatPlateAddress("deskWide");
     expect(address).toBe("animatic:plate.deskWide");
-    expect(formatAssetPathSuffix(parseAddress(address))).toBe("plate.deskWide");
+    expect(formatAddressSuffix(parseAddress(address))).toBe("plate.deskWide");
   });
 
   // A plate has no second name slot, so neither `#` axis applies to it.
@@ -831,7 +825,7 @@ describe("setup addresses", () => {
       kind: "file",
       path: "plate.png",
     });
-    expect(listAssetPaths(definition, "animatic")).toContain("animatic:plate.deskWide");
+    expect(listAddresses(definition, "animatic")).toContain("animatic:plate.deskWide");
   });
 });
 
@@ -843,8 +837,8 @@ describe("plate review", () => {
       plates: { front: { kind: "file", path: "front.png" } },
       exposedPlateIds: ["front"],
     };
-    expect(listAssetPaths(definition, "animatic")).toContain("animatic:plate.front");
-    expect(listReviewableAssetPaths(definition, "animatic")).not.toContain("animatic:plate.front");
+    expect(listAddresses(definition, "animatic")).toContain("animatic:plate.front");
+    expect(listReviewableAddresses(definition, "animatic")).not.toContain("animatic:plate.front");
   });
 });
 

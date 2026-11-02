@@ -1,4 +1,4 @@
-import { formatPlateAssetPath, formatShotAddress, formatShotStemAddress } from "../address.js";
+import { formatPlateAddress, formatShotAddress, formatShotStemAddress } from "../address.js";
 import type { ShotStage } from "../address.js";
 import { KonteError } from "../errors.js";
 import type { BuildFinding } from "../finding.js";
@@ -198,7 +198,7 @@ export type GraphicShotContext<
  * one.
  */
 export type ShotClockContext = { beat: (n: number) => number };
-export type ShotClockOf<D> = D extends { policy: { song: string } } ? ShotClockContext : {};
+type ShotClockOf<D> = D extends { policy: { song: string } } ? ShotClockContext : {};
 
 /**
  * `lyrics`: the lyric lines the shot hears, each with the `characters` ids singing it and its
@@ -208,7 +208,7 @@ export type ShotClockOf<D> = D extends { policy: { song: string } } ? ShotClockC
 export type ShotLyricsContext = {
   lyrics: readonly { text: string; singer: readonly string[]; start: number; end: number }[];
 };
-export type ShotLyricsOf<D> = D extends { lyrics: object } ? ShotLyricsContext : {};
+type ShotLyricsOf<D> = D extends { lyrics: object } ? ShotLyricsContext : {};
 // Everything a shot's build reads off the song: its beat grid and its lines.
 export type ShotSongOf<D> = ShotClockOf<D> & ShotLyricsOf<D>;
 
@@ -237,13 +237,13 @@ export type NarrativeIdOf<D, Id extends string> = [ShotOf<D, Id>] extends [never
     : IsGraphicShot<D, Id> extends true
       ? never
       : Id;
-export type GraphicIdOf<D, Id extends string> = [ShotOf<D, Id>] extends [never]
+type GraphicIdOf<D, Id extends string> = [ShotOf<D, Id>] extends [never]
   ? Id
   : IsGraphicShot<D, Id> extends true
     ? Id
     : never;
 // A shot of the arc of either kind — what `pendingShot` takes.
-export type ArcIdOf<D, Id extends string> = [ShotOf<D, Id>] extends [never]
+type ArcIdOf<D, Id extends string> = [ShotOf<D, Id>] extends [never]
   ? Id
   : IsAsideShot<D, Id> extends true
     ? never
@@ -258,9 +258,9 @@ export type AsideIdOf<D, Id extends string> = [ShotOf<D, Id>] extends [never]
  * A chain that has not yet reached the final direction shot carries this branded string as `__complete`
  * instead of `true`, so returning it from `timeline` fails with a message naming the first gap.
  */
-export type ChainIncomplete<Missing extends string> =
+type ChainIncomplete<Missing extends string> =
   `konte: shot chain is missing shot "${Missing}" — keep calling .nextShot until every direction shot is covered`;
-export type ChainComplete<TRest extends readonly string[]> = TRest extends readonly []
+type ChainComplete<TRest extends readonly string[]> = TRest extends readonly []
   ? true
   : ChainIncomplete<Head<TRest>>;
 
@@ -326,8 +326,6 @@ type After<TRest extends readonly string[], TId extends string> = TRest extends 
 export type StepIds<TRest extends readonly string[], TId extends string> = TId extends TRest[number]
   ? TId
   : never;
-
-export type { ShotHandle, StageShots } from "./builders.js";
 
 /**
  * A stage's shot list, built by walking the direction with `.nextShot` / `.nextPendingShot`. The
@@ -421,7 +419,7 @@ export type SetupIdOf<D> = D extends { setups: infer S } ? Extract<keyof S, stri
 /**
  * One plate as `plates` returns it: the picture of that frame with nobody in it.
  */
-export type AnimaticPlate = MediaAsset<"image">;
+type AnimaticPlate = MediaAsset<"image">;
 
 /**
  * The plates a `plates` callback may return: one per shared camera position, keyed by its `setups`
@@ -680,11 +678,11 @@ function buildPlates<D>(
     if (!declared.has(id)) {
       findings.push({
         code: "plate-undeclared-setup",
-        subject: formatPlateAssetPath(id),
+        subject: formatPlateAddress(id),
         message:
           `is filed under "${id}", which is not a setup direction.ts declares — a plate is filed ` +
           `under the roster id it holds still, so its key must be one of: ${[...declared].join(", ")}`,
-        targets: [formatPlateAssetPath(id)],
+        targets: [formatPlateAddress(id)],
       });
     }
     const image = declaredPlates[id] as { src?: unknown } | null | undefined;

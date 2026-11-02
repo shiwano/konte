@@ -1,7 +1,7 @@
 import { acceptedVariant } from "./accepted-variant.js";
-import { type AssetStage, type DefinitionLike, getAssetEntry, listAssetPaths } from "./address.js";
+import { type AssetStage, type DefinitionLike, getAssetEntry, listAddresses } from "./address.js";
 import { computeDefinitionHash } from "./definition-hash.js";
-import { type DependencyGraph, listUnusedAssetPaths } from "./graph.js";
+import { type DependencyGraph, listUnusedAddresses } from "./graph.js";
 import { type LoadedDefinitions, selectDefinition } from "./select-definition.js";
 import { computeVariantStaleness, isVariantStale } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
@@ -100,8 +100,8 @@ export function selectGenerationAssets(opts: {
   const { definitions, stage, manager, graph } = opts;
   const { video, animatic, reference } = definitions;
   const { def } = selectDefinition(stage, definitions);
-  const stageAssetPaths = new Set(listAssetPaths(def, stage));
-  const skippedUnused = listUnusedAssetPaths(video, animatic, graph, reference).filter((p) =>
+  const stageAssetPaths = new Set(listAddresses(def, stage));
+  const skippedUnused = listUnusedAddresses(video, animatic, graph, reference).filter((p) =>
     stageAssetPaths.has(p),
   );
   for (const p of skippedUnused) stageAssetPaths.delete(p);

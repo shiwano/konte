@@ -4,11 +4,11 @@ import { acceptedVariant } from "./accepted-variant.js";
 import { holdsHumanVerdict } from "./accept-cascade.js";
 import {
   type DefinitionLike,
-  getAssetEntryByAddress,
+  getAssetEntry,
   getStage,
   isDeliveryAddress,
   isPlateAddress,
-  listExposedReferenceAssetPaths,
+  listExposedReferenceAddresses,
   isMaterializedLeafAddress,
   isOverlayAddress,
   isPatchAddress,
@@ -26,7 +26,6 @@ import {
   listReferenceAddresses,
   formatAddress,
   formatShotAddress,
-  listAssetPaths,
   parseAddress,
 } from "./address.js";
 import { assertNever } from "./assert.js";
@@ -73,7 +72,7 @@ import {
   type DependencyGraph,
   videoDependentsHoldVerdicts,
   buildDependencyGraph,
-  listUnusedAssetPaths,
+  listUnusedAddresses,
 } from "./graph.js";
 import { jobStatusFlags } from "./job-diagnosis.js";
 import { JobIndex } from "./job-index.js";
@@ -203,7 +202,7 @@ function reelProgressByStage(
 // every section, the per-stage progress, and the last exports are
 // derived from the definition-supplied `addresses` so both renderings agree —
 // including assets with no variant yet (which carry no `state.assets` entry).
-export async function buildStatusReport(
+async function buildStatusReport(
   addresses: string[],
   manager: StateManager,
   jobManager: JobManager,
@@ -328,7 +327,7 @@ export async function buildStatusReport(
   const referenceAddr = addresses.find((a) => getStage(a) === "reference");
   const referenceDef = referenceAddr ? getDefinition(referenceAddr) : null;
   const exposedReferences = new Set(
-    referenceDef ? listExposedReferenceAssetPaths(referenceDef) : [],
+    referenceDef ? listExposedReferenceAddresses(referenceDef) : [],
   );
 
   const deterministicAddresses = new Set<string>();
@@ -341,7 +340,7 @@ export async function buildStatusReport(
     const def = getDefinition(addr);
     // An asset the stage declared without returning it is an intermediate: it is generated and
     // tracked, but no review surface lists it and no accept is owed on it (see
-    // `listExposedReferenceAssetPaths`). A plate is judged inside the panels drawn on it, whose
+    // `listExposedReferenceAddresses`). A plate is judged inside the panels drawn on it, whose
     // accept cascades onto it. Every other address is somebody's to decide.
     // The overlay is signed off by the shot accepts under it, and reviewed on its own only once they
     // all stand.
@@ -388,7 +387,7 @@ export async function buildStatusReport(
       // changed) still surfaces; definition-staleness for delivery is checked at export.
     } else if (def) {
       try {
-        const entry = getAssetEntryByAddress(def, addr) as AssetDefinition;
+        const entry = getAssetEntry(def, addr) as AssetDefinition;
         assetKind = entry.kind;
         if (entry.kind === "file") {
           const onDisk = options?.videoRoot
@@ -612,7 +611,7 @@ export async function buildAssetStatus(opts: {
   }
   // Drop assets no composition/panel consumes: they aren't part of any deliverable, so they must
   // not count toward acceptance or be nagged as needing review. `konte doctor` owns reporting them.
-  const unusedPaths = new Set(graph ? listUnusedAssetPaths(video, animatic, graph, reference) : []);
+  const unusedPaths = new Set(graph ? listUnusedAddresses(video, animatic, graph, reference) : []);
   if (graph) {
     addresses = addresses.filter((addr) => !unusedPaths.has(addr));
   }
@@ -804,7 +803,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     const def = stage === "video" ? video : stage === "animatic" ? animatic : reference;
     const spending = listSpendingAssets(
       def,
-      new Set(listAssetPaths(def, stage).filter((p) => !unusedPaths.has(p))),
+      new Set(listAddresses(def, stage).filter((p) => !unusedPaths.has(p))),
       manager,
       graph,
     );

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Hex } from "../../../core/content-hash.js";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -6,9 +6,9 @@ import type { Command } from "commander";
 import {
   addressToCacheSegments,
   assertValidAddressScope,
-  getAssetEntryByAddress,
+  getAssetEntry,
   isPatchAddress,
-  listAssetPaths,
+  listAddresses,
   matchesAddressScope,
   parseAddress,
 } from "../../../core/address.js";
@@ -47,9 +47,9 @@ async function listDeclaredAssets(videoRoot: string): Promise<DeclaredAssets> {
     ["video", video],
   ] as const) {
     if (!definition) continue;
-    for (const address of listAssetPaths(definition, stage)) {
+    for (const address of listAddresses(definition, stage)) {
       all.add(address);
-      const entry = getAssetEntryByAddress(definition, address);
+      const entry = getAssetEntry(definition, address);
       if (isJsxRender(entry)) jsx.set(address, entry);
     }
   }
@@ -112,10 +112,10 @@ function selectAddresses(args: readonly string[], declared: DeclaredAssets): str
 // Everything that determines the picture. An unresolved ref is keyed as such, so the tile is
 // replaced the moment its upstream lands.
 function cacheKey(inputs: JsxStillInputs, refFingerprints: Record<string, string>): string {
-  return createHash("sha256")
-    .update(JSON.stringify([jsxDocumentHtml("jsxImage", inputs), refFingerprints]))
-    .digest("hex")
-    .slice(0, 12);
+  return sha256Hex(JSON.stringify([jsxDocumentHtml("jsxImage", inputs), refFingerprints])).slice(
+    0,
+    12,
+  );
 }
 
 // One still per address: a superseded key is a previous edit's picture that nothing will ask for

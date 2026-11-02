@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertValidAddressScope,
   formatViewAddress,
-  listReviewableAssetPaths,
+  listReviewableAddresses,
   parseAddress,
 } from "../address.js";
 import { parseViewName } from "../view.js";
@@ -102,7 +102,7 @@ describe("defineReference views", () => {
   it("files a view image under its location and view, whatever its asset is named", () => {
     expect(Object.keys(reference.topLevelAssets!)).toEqual(["studio", "view.studio.top"]);
     expect(reference.exposedAssetNames).toEqual(["studio", "view.studio.top"]);
-    expect(listReviewableAssetPaths(reference, "reference")).toContain("reference:view.studio.top");
+    expect(listReviewableAddresses(reference, "reference")).toContain("reference:view.studio.top");
   });
 
   it("files the view's prompt under its address", () => {

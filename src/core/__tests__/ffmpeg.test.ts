@@ -31,6 +31,7 @@ import { ffmpegBin, ffprobeBin } from "../ffmpeg-binary.js";
 import {
   concatenateShots,
   ensureFfmpeg,
+  ensureFfprobe,
   imageToVideo,
   tagDeliverable,
   trimVideo,
@@ -74,9 +75,12 @@ beforeEach(() => {
   (fsPromises.mkdtemp as Mock).mockResolvedValue("/tmp/konte-concat-mock");
 });
 
-describe("ensureFfmpeg", () => {
-  it("resolves to the ffmpeg binary path", async () => {
-    await expect(ensureFfmpeg()).resolves.toBe("ffmpeg");
+describe("ensureFfmpeg / ensureFfprobe", () => {
+  it("provisions each binary", async () => {
+    await ensureFfmpeg();
+    await ensureFfprobe();
+    expect(ffmpegBin).toHaveBeenCalled();
+    expect(ffprobeBin).toHaveBeenCalled();
   });
 });
 

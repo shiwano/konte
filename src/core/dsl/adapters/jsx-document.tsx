@@ -1,4 +1,4 @@
-import { isAssetPath } from "../../composition-refs.js";
+import { isConsumableAddress } from "../../composition-refs.js";
 import { KonteError } from "../../errors.js";
 import { type HostVisitor, type RenderContext, renderToHtml } from "../../jsx-html.js";
 import type { Typography } from "../../types/definition.js";
@@ -74,7 +74,7 @@ function assertEveryPlaceholderHarvested(
   // unresolvable ref is a broken layer.
   const leftover = [...stripped.matchAll(PLACEHOLDER_PATTERN)]
     .map((m) => m[1] as string)
-    .find(isAssetPath);
+    .find(isConsumableAddress);
   if (leftover === undefined) return;
   throw new KonteError(
     "VALIDATION_FAILED",
@@ -168,7 +168,7 @@ export function buildJsxStage(opts: {
   // sees a ref passed as a prop to a user component, and only the render sees one a function
   // component pulls in from a closure — `function Layer() { return <Image src={reference.logo}/> }`
   // has no props at all. Missing one means a broken layer no gate catches.
-  const refs = new Set<string>(collectPlaceholderRefs(opts.content).filter(isAssetPath));
+  const refs = new Set<string>(collectPlaceholderRefs(opts.content).filter(isConsumableAddress));
   let seenAudio = 0;
   const visitor: HostVisitor = (tag, props) => {
     if (tag === "audio") seenAudio++;
@@ -176,7 +176,7 @@ export function buildJsxStage(opts: {
     const src = props.src;
     if (typeof src !== "string") return;
     const parsed = parsePlaceholder(src);
-    if (parsed && isAssetPath(parsed)) refs.add(parsed);
+    if (parsed && isConsumableAddress(parsed)) refs.add(parsed);
   };
 
   const layout: Omit<JsxDocumentInputs, "stage"> = {

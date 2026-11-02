@@ -1,7 +1,7 @@
 import { acceptedVariantId } from "./accepted-variant.js";
 import {
   type Stage,
-  formatAssetPathSuffix,
+  formatAddressSuffix,
   isPatchAddress,
   isPlateAddress,
   parseAddress,
@@ -890,7 +890,7 @@ export function computeExportReadiness(
       continue;
 
     const parsed = parseAddress(info.address);
-    const base = formatAssetPathSuffix(parsed);
+    const base = formatAddressSuffix(parsed);
     accumulate(ensure(stageMap, parsed.stage), info, base);
   }
 

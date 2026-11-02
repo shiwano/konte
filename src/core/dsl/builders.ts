@@ -54,7 +54,7 @@ export interface ShotOptions {
   duration: number;
 }
 
-export interface VideoShotOptions extends ShotOptions {
+interface VideoShotOptions extends ShotOptions {
   action: string;
 }
 
@@ -249,7 +249,7 @@ export type StageShots<TIds extends string = string> = (shotId: TIds) => ShotHan
  * `direction.policy.format.size.delivery`; here the author only wires HOW to reach it (the upscaler).
  * Provide `delivery.upscale` iff the direction declares a `size.delivery`.
  */
-export interface DefineVideoExport {
+interface DefineVideoExport {
   delivery?: { upscale: { video?: DeliveryUpscaleFn; frame?: DeliveryUpscaleFn } };
 }
 

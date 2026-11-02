@@ -14,15 +14,15 @@ import { assertComfyAdapterKeys, comfyApiKey, ComfyRouter } from "../../comfy-ap
 import type { ComfyUISystemStats } from "../../comfyui/types.js";
 import {
   getAssetEntry,
-  listAssetPaths,
-  listReferenceAssetPaths,
-  listReviewableAssetPaths,
+  listAddresses,
+  listReferenceAddresses,
+  listReviewableAddresses,
 } from "../../core/address.js";
 import {
   backendSetupAdvice,
   configuredVendorBackends,
   unconfiguredBackendAssets,
-} from "../../core/backend-policy.js";
+} from "../../backends/backend-policy.js";
 import { loadKonteConfig } from "../../core/config.js";
 import { isSecretHeader } from "../../core/types/config.js";
 import { KonteError, errorMessage } from "../../core/errors.js";
@@ -31,7 +31,7 @@ import {
   buildDependencyGraph,
   listBoardlessVideoShots,
   type DependencyGraph,
-  listUnusedAssetPaths,
+  listUnusedAddresses,
 } from "../../core/graph.js";
 import { JobManager } from "../../core/job-manager.js";
 import { loadStageDefinitions, loadDirectionIfPresent } from "../../core/stage-definitions.js";
@@ -417,8 +417,8 @@ function assetCountMessage(
   definition: VideoDefinition | AnimaticDefinition | ReferenceDefinition,
   stage: "video" | "animatic" | "reference",
 ): string {
-  const total = listAssetPaths(definition, stage).length;
-  const reviewable = listReviewableAssetPaths(definition, stage).length;
+  const total = listAddresses(definition, stage).length;
+  const reviewable = listReviewableAddresses(definition, stage).length;
   return reviewable < total ? `${total} assets, ${reviewable} reviewable` : `${total} assets`;
 }
 
@@ -762,12 +762,12 @@ async function checkWorkflowFiles(
   reference?: ReferenceDefinition | null,
 ): Promise<CheckResult> {
   const missing: string[] = [];
-  const addresses = listAssetPaths(video, "video");
+  const addresses = listAddresses(video, "video");
   if (animatic) {
-    addresses.push(...listAssetPaths(animatic, "animatic"));
+    addresses.push(...listAddresses(animatic, "animatic"));
   }
   if (reference) {
-    addresses.push(...listReferenceAssetPaths(reference));
+    addresses.push(...listReferenceAddresses(reference));
   }
 
   for (const addr of addresses) {
@@ -843,7 +843,7 @@ function checkUnusedAssets(
 ): CheckResult {
   let unused: string[];
   try {
-    unused = listUnusedAssetPaths(
+    unused = listUnusedAddresses(
       video,
       animatic,
       buildDependencyGraph(video, animatic ?? undefined, reference),
@@ -1058,17 +1058,17 @@ function collectUsedKinds(
 ): Set<AssetDefinition["kind"]> {
   const kinds = new Set<AssetDefinition["kind"]>();
   if (video) {
-    for (const addr of listAssetPaths(video, "video")) {
+    for (const addr of listAddresses(video, "video")) {
       kinds.add(getAssetEntry(video, addr).kind);
     }
   }
   if (animatic) {
-    for (const addr of listAssetPaths(animatic, "animatic")) {
+    for (const addr of listAddresses(animatic, "animatic")) {
       kinds.add(getAssetEntry(animatic, addr).kind);
     }
   }
   if (reference) {
-    for (const addr of listReferenceAssetPaths(reference)) {
+    for (const addr of listReferenceAddresses(reference)) {
       kinds.add(getAssetEntry(reference, addr).kind);
     }
   }

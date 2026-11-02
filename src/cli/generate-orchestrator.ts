@@ -1,4 +1,8 @@
-import { assertSpendAllowed, type SpendItem, type SpendRoutes } from "../core/backend-policy.js";
+import {
+  assertSpendAllowed,
+  type SpendItem,
+  type SpendRoutes,
+} from "../backends/backend-policy.js";
 import { ComfyUIBackend } from "../comfyui/backend.js";
 import { resolveComfyUIConfig } from "../comfyui/config.js";
 import { resolveUrlTokens } from "../comfyui/token-resolver.js";
@@ -644,7 +648,7 @@ export async function registerJobs(opts: JobRegistration): Promise<AssetResult> 
 
 type PlanAction = "start" | "wait" | "skip" | "synced";
 
-export type PlanEntry = {
+type PlanEntry = {
   address: string;
   action: PlanAction;
   reason?: string;

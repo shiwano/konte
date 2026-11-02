@@ -24,7 +24,7 @@ export default defineReference(direction, { references: () => {
 `;
 
 // imageResize stands in for an image-edit model: it takes the source image and emits a new one.
-export const patchScript = (extra = "") => `import { asset, definePatch, adapters } from "konte";
+const patchScript = (extra = "") => `import { asset, definePatch, adapters } from "konte";
 ${extra}
 export default definePatch<"image">(({ source }) =>
   asset("patched", adapters.imageResize, { image: source, width: 32, height: 32 }),

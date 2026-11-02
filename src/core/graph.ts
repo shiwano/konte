@@ -2,23 +2,23 @@ import { mixedSoundtracks } from "./song-bed.js";
 import {
   type ShotStage,
   COMPOSITION_ASSET_NAME,
-  formatAssetPath,
-  formatReferenceAssetPath,
-  formatPlateAssetPath,
-  formatTimelineAssetPath,
+  formatAddress,
+  formatReferenceAddress,
+  formatPlateAddress,
+  formatTimelineAddress,
   getStage,
-  listAssetPaths,
-  listReferenceAssetPaths,
+  listAddresses,
+  listReferenceAddresses,
   listShotStems,
   NARRATION_STEM_ASSET_NAME,
   SONG_STEM_ASSET_NAME,
-  parseAssetPath,
+  parseAddress,
   OVERLAY_ASSET_NAME,
   STEM_ASSET_NAME,
   assetNameOf,
   type DefinitionLike,
   getAssetEntry,
-  isMaterializedLeafAssetPath,
+  isMaterializedLeafAddress,
   isNarrationStemAddress,
 } from "./address.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
@@ -136,13 +136,13 @@ export function buildDependencyGraph(
 
   const allAssetPaths = new Set<string>();
   for (const { def, stage } of stages) {
-    for (const ap of listAssetPaths(def, stage)) allAssetPaths.add(ap);
+    for (const ap of listAddresses(def, stage)) allAssetPaths.add(ap);
   }
 
   // Reference assets are upstream roots that animatic/video consume; seed their paths so
   // a `reference:<name>` ref resolves to a real edge instead of failing as a missing path.
   if (reference) {
-    for (const ap of listReferenceAssetPaths(reference)) {
+    for (const ap of listReferenceAddresses(reference)) {
       allAssetPaths.add(ap);
     }
   }
@@ -162,13 +162,13 @@ export function buildDependencyGraph(
   // stage has soundtrack beds.
   for (const { def, stage } of stages) {
     for (const s of def.shots) {
-      if (s.shotFn) allAssetPaths.add(formatAssetPath(stage, s.id, COMPOSITION_ASSET_NAME));
+      if (s.shotFn) allAssetPaths.add(formatAddress(stage, s.id, COMPOSITION_ASSET_NAME));
       for (const stem of listShotStems(stage, s)) allAssetPaths.add(stem.address);
     }
     if ((def.timelineSoundtracks?.length ?? 0) > 0) {
-      allAssetPaths.add(formatTimelineAssetPath(stage, STEM_ASSET_NAME));
+      allAssetPaths.add(formatTimelineAddress(stage, STEM_ASSET_NAME));
     }
-    if (def.overlay) allAssetPaths.add(formatTimelineAssetPath(stage, OVERLAY_ASSET_NAME));
+    if (def.overlay) allAssetPaths.add(formatTimelineAddress(stage, OVERLAY_ASSET_NAME));
   }
 
   const dependencies = new Map<string, string[]>();
@@ -181,7 +181,7 @@ export function buildDependencyGraph(
 
   if (reference?.topLevelAssets) {
     for (const [assetName, entry] of Object.entries(reference.topLevelAssets)) {
-      const assetPath = formatReferenceAssetPath(assetName);
+      const assetPath = formatReferenceAddress(assetName);
       addDependencyEdges(assetPath, entry, allAssetPaths, dependencies, dependents);
     }
   }
@@ -189,7 +189,7 @@ export function buildDependencyGraph(
   for (const { def, stage } of stages) {
     for (const [assetName, entry] of Object.entries(def.topLevelAssets ?? {})) {
       addDependencyEdges(
-        formatTimelineAssetPath(stage, assetName),
+        formatTimelineAddress(stage, assetName),
         entry,
         allAssetPaths,
         dependencies,
@@ -200,7 +200,7 @@ export function buildDependencyGraph(
 
     for (const [setupId, entry] of Object.entries(platesOf(def))) {
       addDependencyEdges(
-        formatPlateAssetPath(setupId),
+        formatPlateAddress(setupId),
         entry,
         allAssetPaths,
         dependencies,
@@ -212,7 +212,7 @@ export function buildDependencyGraph(
     for (const s of def.shots) {
       for (const [assetName, entry] of Object.entries(s.assets)) {
         addDependencyEdges(
-          formatAssetPath(stage, s.id, assetName),
+          formatAddress(stage, s.id, assetName),
           entry,
           allAssetPaths,
           dependencies,
@@ -229,7 +229,7 @@ export function buildDependencyGraph(
     for (const s of def.shots) {
       if (!s.shotFn) continue;
       addEdges(
-        formatAssetPath(stage, s.id, COMPOSITION_ASSET_NAME),
+        formatAddress(stage, s.id, COMPOSITION_ASSET_NAME),
         stage === "animatic"
           ? (s.compositionRefs ?? [])
           : (s.pictureRefs ?? s.compositionRefs ?? []),
@@ -250,7 +250,7 @@ export function buildDependencyGraph(
     }
     if ((def.timelineSoundtracks?.length ?? 0) > 0) {
       addEdges(
-        formatTimelineAssetPath(stage, STEM_ASSET_NAME),
+        formatTimelineAddress(stage, STEM_ASSET_NAME),
         (def.timelineSoundtracks ?? [])
           .map((st) => parsePlaceholder(st.src.src))
           .filter((p): p is string => p !== null),
@@ -262,7 +262,7 @@ export function buildDependencyGraph(
     }
     if (def.overlay) {
       addEdges(
-        formatTimelineAssetPath(stage, OVERLAY_ASSET_NAME),
+        formatTimelineAddress(stage, OVERLAY_ASSET_NAME),
         def.overlay.compositionRefs,
         allAssetPaths,
         dependencies,
@@ -320,7 +320,7 @@ function reviewRoots(
   // stays unreachable and is reported as unused.
   if (reference) {
     for (const name of reference.exposedAssetNames ?? []) {
-      roots.push(formatReferenceAssetPath(name));
+      roots.push(formatReferenceAddress(name));
     }
   }
 
@@ -329,7 +329,7 @@ function reviewRoots(
   // declaring nothing, and reachability alone would call it unused. Same rule as an exposed
   // reference asset.
   for (const setupId of exposedPlateIdsOf(animatic)) {
-    roots.push(formatPlateAssetPath(setupId));
+    roots.push(formatPlateAddress(setupId));
   }
 
   // The animatic's own compositions are review roots of their own: each is what a human watches to
@@ -340,19 +340,19 @@ function reviewRoots(
     if (!def) continue;
     for (const s of def.shots) {
       if (s.shotFn) {
-        roots.push(formatAssetPath(def.stage, s.id, COMPOSITION_ASSET_NAME));
+        roots.push(formatAddress(def.stage, s.id, COMPOSITION_ASSET_NAME));
       } else {
         for (const assetName of Object.keys(s.assets)) {
-          roots.push(formatAssetPath(def.stage, s.id, assetName));
+          roots.push(formatAddress(def.stage, s.id, assetName));
         }
       }
       for (const stem of listShotStems(def.stage, s)) roots.push(stem.address);
     }
     if ((def.timelineSoundtracks?.length ?? 0) > 0) {
-      roots.push(formatTimelineAssetPath(def.stage, STEM_ASSET_NAME));
+      roots.push(formatTimelineAddress(def.stage, STEM_ASSET_NAME));
     }
     // The overlay is a leaf of its own: what it shows is used by it.
-    if (def.overlay) roots.push(formatTimelineAssetPath(def.stage, OVERLAY_ASSET_NAME));
+    if (def.overlay) roots.push(formatTimelineAddress(def.stage, OVERLAY_ASSET_NAME));
   }
   for (const s of animatic?.shots ?? []) {
     for (const panel of allPanels(s)) {
@@ -418,7 +418,7 @@ function assertUpstreamsPlaced(
 
 // Asset paths no deliverable consumes — defined but unreachable from any render/review root, so
 // they are not generated, not counted toward acceptance, and not needed for export.
-export function listUnusedAssetPaths(
+export function listUnusedAddresses(
   video: VideoDefinition | null,
   animatic: AnimaticDefinition | null,
   graph: DependencyGraph,
@@ -436,7 +436,7 @@ export function listUnusedAssetPaths(
   ]);
   const unused: string[] = [];
   for (const p of graph.dependencies.keys()) {
-    if (needed.has(p) || synthesized.has(assetNameOf(parseAssetPath(p)))) continue;
+    if (needed.has(p) || synthesized.has(assetNameOf(parseAddress(p)))) continue;
     unused.push(p);
   }
   return unused;
@@ -475,7 +475,7 @@ export function videoDependentsHoldVerdicts(
     const p = stack.pop();
     if (p === undefined || seen.has(p)) continue;
     seen.add(p);
-    if (getStage(p) === "video" && !isMaterializedLeafAssetPath(p)) {
+    if (getStage(p) === "video" && !isMaterializedLeafAddress(p)) {
       const verdict = verdictOf(p);
       if (verdict === "open") return false;
       if (verdict === "holds") held = true;
@@ -509,7 +509,7 @@ export function collectRerollCascade(
   }
   const cascade: Array<{ assetPath: string; def: AssetDefinition }> = [];
   for (const depPath of graph.topologicalOrder.filter((p) => reachable.has(p))) {
-    if (getStage(depPath) !== stage || isMaterializedLeafAssetPath(depPath)) continue;
+    if (getStage(depPath) !== stage || isMaterializedLeafAddress(depPath)) continue;
     const def = getAssetEntry(definition, depPath);
     if (def.kind === "file") continue;
     cascade.push({ assetPath: depPath, def });
@@ -523,14 +523,14 @@ export function collectRerollCascade(
 // address space.
 function boardNodesOf(shot: AnimaticDefinition["shots"][number]): Set<string> {
   const nodes = new Set<string>(
-    Object.keys(shot.assets).map((name) => formatAssetPath("animatic", shot.id, name)),
+    Object.keys(shot.assets).map((name) => formatAddress("animatic", shot.id, name)),
   );
   for (const panel of allPanels(shot)) nodes.add(panel.assetPath);
   if ((shot.stemRefs?.length ?? 0) > 0 || shot.songCue) {
-    nodes.add(formatAssetPath("animatic", shot.id, STEM_ASSET_NAME));
+    nodes.add(formatAddress("animatic", shot.id, STEM_ASSET_NAME));
   }
   if (shot.songCue && shot.songStem) {
-    nodes.add(formatAssetPath("animatic", shot.id, SONG_STEM_ASSET_NAME));
+    nodes.add(formatAddress("animatic", shot.id, SONG_STEM_ASSET_NAME));
   }
   return nodes;
 }
@@ -561,11 +561,11 @@ export function listBoardlessVideoShots(
   // `shot.assets` nor its own address space.
   const kindByAddress = new Map<string, AssetDefinition["kind"]>();
   for (const [name, entry] of Object.entries(video.topLevelAssets ?? {})) {
-    kindByAddress.set(formatTimelineAssetPath("video", name), entry.kind);
+    kindByAddress.set(formatTimelineAddress("video", name), entry.kind);
   }
   for (const s of video.shots) {
     for (const [name, entry] of Object.entries(s.assets)) {
-      kindByAddress.set(formatAssetPath("video", s.id, name), entry.kind);
+      kindByAddress.set(formatAddress("video", s.id, name), entry.kind);
     }
   }
 
@@ -577,14 +577,14 @@ export function listBoardlessVideoShots(
     if (s.aside === true) continue;
     const board = boardByShot.get(s.id) ?? new Set<string>();
 
-    // The roots `listUnusedAssetPaths` uses. A fallback shot has no composition to reach them
+    // The roots `listUnusedAddresses` uses. A fallback shot has no composition to reach them
     // through, so there its assets are the roots.
     const stack: string[] = [];
     if (s.shotFn) {
-      stack.push(formatAssetPath("video", s.id, COMPOSITION_ASSET_NAME));
+      stack.push(formatAddress("video", s.id, COMPOSITION_ASSET_NAME));
       for (const stem of listShotStems("video", s)) stack.push(stem.address);
     } else {
-      stack.push(...Object.keys(s.assets).map((name) => formatAssetPath("video", s.id, name)));
+      stack.push(...Object.keys(s.assets).map((name) => formatAddress("video", s.id, name)));
     }
 
     const seen = new Set<string>();

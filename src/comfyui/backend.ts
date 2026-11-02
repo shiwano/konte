@@ -1,4 +1,4 @@
-import * as crypto from "node:crypto";
+import { sha256Hex } from "../core/content-hash.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type {
@@ -685,6 +685,6 @@ function shellSingleQuote(value: string): string {
 function generateUploadFilename(filePath: string, data: Buffer | Uint8Array): string {
   const ext = path.extname(filePath);
   const base = path.basename(filePath, ext);
-  const hash = crypto.createHash("sha256").update(data).digest("hex").slice(0, 8);
+  const hash = sha256Hex(data).slice(0, 8);
   return `konte-${base}-${hash}${ext}`;
 }

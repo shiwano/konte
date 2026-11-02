@@ -1,5 +1,5 @@
 import {
-  formatAssetPath,
+  formatAddress,
   formatNarrationStemAddress,
   formatShotAddress,
   formatShotStemAddress,
@@ -49,7 +49,7 @@ type AssetKindsByShot = ReadonlyMap<string, ReadonlyMap<string, MediaKind>>;
 
 function pendingShotRef(id: string): AnimaticShotRef {
   const get = <T extends MediaKind>(assetName: string): MediaAsset<T> =>
-    makeMediaAsset<T>(makeAddressPlaceholder(formatAssetPath("animatic", id, assetName)));
+    makeMediaAsset<T>(makeAddressPlaceholder(formatAddress("animatic", id, assetName)));
   return {
     video: get,
     image: get,
@@ -130,7 +130,7 @@ export function createAnimaticRef(
               `"${assetName}" is ${found}, not ${want}. Use .${found}("${assetName}").`,
           );
         }
-        const address = formatAssetPath("animatic", id, assetName);
+        const address = formatAddress("animatic", id, assetName);
         const handed = makeMediaAsset<T>(makeAddressPlaceholder(address));
         return ownPanels.has(address) ? markPanel(handed) : handed;
       };

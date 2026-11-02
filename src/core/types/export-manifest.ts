@@ -9,7 +9,7 @@ import { z } from "zod";
 export const EXPORT_MANIFEST_FILE = "manifest.json";
 
 // Keyed by address in the manifest's `variants` map.
-export const ManifestVariantSchema = z.object({
+const ManifestVariantSchema = z.object({
   variantId: z.string(),
   // Whether this variant was accepted at render time. False does not imply a rough cut:
   // `allowUnaccepted` gates only what the render reached for, and the snapshot is wider.
@@ -21,12 +21,11 @@ export const ManifestVariantSchema = z.object({
 });
 export type ManifestVariant = z.infer<typeof ManifestVariantSchema>;
 
-export const ManifestShotSchema = z.object({
+const ManifestShotSchema = z.object({
   shotId: z.string(),
   duration: z.number(),
   warnings: z.array(z.string()),
 });
-export type ManifestShot = z.infer<typeof ManifestShotSchema>;
 
 export const ExportManifestSchema = z.object({
   // This render's own identity, burned into the deliverable's container metadata as

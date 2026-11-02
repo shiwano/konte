@@ -9,7 +9,7 @@ import {
   backendSetupAdvice,
   backendSetupHint,
   configuredVendorBackends,
-} from "../../../core/backend-policy.js";
+} from "../../../backends/backend-policy.js";
 import { loadKonteConfig } from "../../../core/config.js";
 import { KonteError, errorMessage } from "../../../core/errors.js";
 import { singleLine } from "../../../core/truncate.js";

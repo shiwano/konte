@@ -1,4 +1,4 @@
-import * as crypto from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { createWriteStream } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -17,7 +17,7 @@ async function withAtomicTemp(
   await fs.mkdir(dir, { recursive: true });
   const tmp = path.join(
     dir,
-    `.${path.basename(filePath)}.${process.pid}.${crypto.randomBytes(4).toString("hex")}.tmp`,
+    `.${path.basename(filePath)}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`,
   );
   try {
     await write(tmp);

@@ -1,8 +1,8 @@
 import { acceptedVariantId } from "./accepted-variant.js";
 import {
   type ShotStage,
-  formatReferenceAssetPath,
-  formatPlateAssetPath,
+  formatReferenceAddress,
+  formatPlateAddress,
   tryParseAddress,
   isPlateAddress,
   formatViewAddress,
@@ -109,7 +109,7 @@ export function listSetupAnchorGaps(
     if (view === undefined) return undefined;
     return isImagedView(view)
       ? formatViewAddress(location, view)
-      : formatReferenceAssetPath(location);
+      : formatReferenceAddress(location);
   };
 
   const unanchoredPlates: string[] = [];
@@ -122,8 +122,8 @@ export function listSetupAnchorGaps(
     if (location === undefined) continue;
     const viewImage = viewImageOf(setupId, location);
     const walk = walkPictureChain(
-      [formatPlateAssetPath(setupId)],
-      formatReferenceAssetPath(location),
+      [formatPlateAddress(setupId)],
+      formatReferenceAddress(location),
       entryOf,
       viewImage,
     );
@@ -147,9 +147,9 @@ export function listSetupAnchorGaps(
     // instead has taken the unframed anchor for the framed one.
     const target =
       setupId in plates
-        ? formatPlateAssetPath(setupId)
+        ? formatPlateAddress(setupId)
         : location !== undefined
-          ? formatReferenceAssetPath(location)
+          ? formatReferenceAddress(location)
           : undefined;
     if (target === undefined) continue;
 
@@ -306,10 +306,10 @@ export function listSetupNestGaps(
   const out: string[] = [];
   for (const [id, parentId] of withinBySetup) {
     if (!(id in plates) || !(parentId in plates)) continue;
-    const parentAddress = formatPlateAssetPath(parentId);
-    const chain = chainAddresses([formatPlateAssetPath(id)], entryOf);
+    const parentAddress = formatPlateAddress(parentId);
+    const chain = chainAddresses([formatPlateAddress(id)], entryOf);
     if ([...chain].some((address) => cutFrom.get(address)?.has(parentAddress))) continue;
-    const crops = cropsInChain(formatPlateAssetPath(id), entryOf);
+    const crops = cropsInChain(formatPlateAddress(id), entryOf);
     // Cutting the parent plate itself. The window is in the PARENT's pixels, so it is read against
     // the PARENT's frame — never the child's own output size, which is a scale. With no stated frame
     // the crop stands: `x`/`y` are non-negative by construction.
@@ -407,7 +407,7 @@ export function listPlateRecrops(
     const shot = shotById.get(frame.shotId);
     if (shot === undefined || isPendingAnimaticShot(shot)) continue;
     if (!(frame.setup in plates)) continue;
-    const plate = formatPlateAssetPath(frame.setup);
+    const plate = formatPlateAddress(frame.setup);
     for (const { assetPath } of lanePanels(shot, frame.lane)) {
       if (!recropsPlate(chainAddresses([assetPath], entryOf), plate, entryOf)) continue;
       out.push({ setupId: frame.setup, shotId: shot.id, lane: frame.lane, panel: assetPath });
@@ -465,10 +465,10 @@ export function listPanelPromptText(animatic: AnimaticDefinition): PanelPromptTe
 export function listPlateTexts(animatic: AnimaticDefinition): Record<string, string[]> {
   const entryOf = animaticEntryResolver(animatic);
   const ids = exposedPlateIdsOf(animatic);
-  const plates = new Set(ids.map((id) => formatPlateAssetPath(id)));
+  const plates = new Set(ids.map((id) => formatPlateAddress(id)));
   return Object.fromEntries(
     ids.map((id) => {
-      const plate = formatPlateAssetPath(id);
+      const plate = formatPlateAddress(id);
       const chain = orderedChainAddresses([plate], entryOf, (a) => a !== plate && plates.has(a));
       return [id, chain.flatMap((address) => positivePromptsAt(animatic, address))];
     }),
@@ -1084,11 +1084,7 @@ export function listViewAnchorGaps(reference: {
     const view = parseViewName(name);
     if (!view) continue;
     const own = assets[name]!;
-    const walk = walkPictureChain(
-      extractRefs(own),
-      formatReferenceAssetPath(view.location),
-      entryOf,
-    );
+    const walk = walkPictureChain(extractRefs(own), formatReferenceAddress(view.location), entryOf);
     const generative = walk.generative || own.deterministic !== true;
     if ((generative || walk.touchedReference) && !walk.reached) {
       out.push(`${view.location}.${view.view}`);
@@ -1142,7 +1138,7 @@ export function animaticSetupState(
     unviewedBy: gaps.unviewedShots,
     unanchoredViews: reference ? listViewAnchorGaps(reference) : [],
     acceptedPlateIds: plateIds.filter(
-      (id) => state != null && acceptedVariantId(state, formatPlateAssetPath(id)) !== null,
+      (id) => state != null && acceptedVariantId(state, formatPlateAddress(id)) !== null,
     ),
   };
 }
@@ -1167,7 +1163,7 @@ export function stagingStageState(
     plateRecrops: listPlateRecrops(animatic, frames),
     panelPrompts: listPanelPromptText(animatic).map((p) => ({ ...p, ...mark(p.panel) })),
     plateTexts,
-    signedOffPlateIds: Object.keys(plateTexts).filter((id) => signedOff(formatPlateAssetPath(id))),
+    signedOffPlateIds: Object.keys(plateTexts).filter((id) => signedOff(formatPlateAddress(id))),
     shownReferences: listShownReferences(animatic),
     videoPins: video
       ? listVideoShotPins(

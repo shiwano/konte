@@ -1,10 +1,4 @@
-import {
-  getAssetEntry,
-  getAssetEntryByAddress,
-  getStage,
-  isDeliveryAddress,
-  isStemAddress,
-} from "./address.js";
+import { getAssetEntry, getStage, isDeliveryAddress, isStemAddress } from "./address.js";
 import { definitionHashForAddress } from "./composition-resource.js";
 import { diffDefinitions, readDefinitionSnapshot } from "./definition-snapshot.js";
 import { loadPatchCatalog, patchHashesOf } from "./patch.js";
@@ -67,7 +61,7 @@ export function definitionDriftFields(
   const definition = definitionForAddress(definitions, address);
   let current: unknown = null;
   try {
-    current = definition ? getAssetEntryByAddress(definition, address) : null;
+    current = definition ? getAssetEntry(definition, address) : null;
   } catch {
     current = null;
   }

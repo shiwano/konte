@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import { workspaceRootOrNull } from "./workspace-context.js";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
+import { fetchWithRetry } from "./http-retry.js";
 
 /**
  * Is a newer konte release out? Asked by `konte doctor` only — `status` and every other
@@ -87,10 +88,11 @@ async function readFreshCache(cachePath: string, now: Date): Promise<string | nu
 }
 
 async function fetchLatestReleaseTag(): Promise<string> {
-  const response = await fetch(RELEASES_LATEST_URL, {
-    redirect: "manual",
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
+  const response = await fetchWithRetry(
+    RELEASES_LATEST_URL,
+    { redirect: "manual" },
+    { maxRetries: 0, timeoutMs: FETCH_TIMEOUT_MS },
+  );
   const location = response.headers.get("location");
   if (!location)
     throw new Error(`no redirect from ${RELEASES_LATEST_URL} (HTTP ${response.status})`);

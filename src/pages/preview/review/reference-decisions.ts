@@ -7,7 +7,7 @@ import { bulkAcceptState } from "./bulk-accept.js";
 // id — a decision dropped here is a sign-off that silently never happens.
 
 // The variant currently accepted on the server for this asset, or null when none is.
-export function acceptedVariantId(asset: ReferenceAssetInfo): string | null {
+function acceptedVariantId(asset: ReferenceAssetInfo): string | null {
   return asset.variantStatus === "accepted" ? asset.variantId : null;
 }
 

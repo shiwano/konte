@@ -2,7 +2,7 @@ import { mixedSoundtracks } from "./song-bed.js";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { formatAddress, formatTimelineAddress } from "./address.js";
-import { isAssetPath } from "./composition-refs.js";
+import { isConsumableAddress } from "./composition-refs.js";
 import {
   type AudioLevelling,
   clampEffectiveGain,
@@ -745,7 +745,7 @@ export async function inspectTimelineAudio(opts: {
   // src that is not a placeholder (a real file path) is returned untouched.
   const resolveAssetSrc = (src: string): string => {
     const assetPath = parsePlaceholder(src);
-    if (assetPath === null || !isAssetPath(assetPath)) return src;
+    if (assetPath === null || !isConsumableAddress(assetPath)) return src;
     // A dependency path IS its upstream address (address ≡ asset path).
     return resolveFile(assetPath) ?? src;
   };

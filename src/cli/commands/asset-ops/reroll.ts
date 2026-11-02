@@ -10,7 +10,7 @@ import {
   getStage,
   isMaterializedLeafAddress,
   isDeliveryAddress,
-  listAssetPaths,
+  listAddresses,
   isPatchAddress,
   matchesAddressScope,
   tryParseAddress,
@@ -18,7 +18,7 @@ import {
 } from "../../../core/address.js";
 import { loadKonteConfig } from "../../../core/config.js";
 import { KonteError, errorMessage } from "../../../core/errors.js";
-import { collectRerollCascade, listUnusedAssetPaths } from "../../../core/graph.js";
+import { collectRerollCascade, listUnusedAddresses } from "../../../core/graph.js";
 import { JobIndex } from "../../../core/job-index.js";
 import {
   loadPatchCatalog,
@@ -195,12 +195,12 @@ Examples:
         // stage — a scope may name a stage, but `--failed` alone names none.
         const declared = new Map<string, AssetStage>();
         for (const [stage, definition] of stageEntries) {
-          for (const assetPath of listAssetPaths(definition, stage)) declared.set(assetPath, stage);
+          for (const assetPath of listAddresses(definition, stage)) declared.set(assetPath, stage);
         }
         // Spending on an asset no deliverable consumes is waste whichever command asks for it, so a
         // sweep drops those exactly as `generate` does. A named one still rerolls: whoever typed
         // its address is looking at it.
-        const unused = new Set(listUnusedAssetPaths(video, animatic, graph, reference));
+        const unused = new Set(listUnusedAddresses(video, animatic, graph, reference));
         // What a sweep may spend on. A named asset failing any of these gets the message saying
         // which (below); reached through a scope it was never what was asked for, so it is dropped.
         // A take beside a human's accept is drawn only when its address is named.

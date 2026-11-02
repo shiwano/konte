@@ -1,4 +1,4 @@
-import * as crypto from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { type ComfyInstallOutcome, ComfyUIBackend } from "../comfyui/backend.js";
 import { resolveComfyUIConfig } from "../comfyui/config.js";
 import type { ManagerQueueStatus } from "../comfyui/manager-client.js";
@@ -104,7 +104,7 @@ async function runComfyInstallJob<J extends JobRecord>(
           typeof typedJob.metadata.comfyClientId === "string"
             ? typedJob.metadata.comfyClientId
             : undefined;
-        const clientId = persisted ?? crypto.randomUUID();
+        const clientId = persisted ?? randomUUID();
         if (!persisted) {
           await jobManager.updateJob(id, {
             metadata: { ...typedJob.metadata, comfyClientId: clientId },

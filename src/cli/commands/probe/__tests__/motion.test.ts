@@ -10,7 +10,10 @@ const { loadMotionWaveform, renderMotionStrip, resolveIntent } = vi.hoisted(() =
   resolveIntent: vi.fn(),
 }));
 
-vi.mock("../../../../core/ffmpeg.js", () => ({ ensureFfmpeg: async () => {} }));
+vi.mock("../../../../core/ffmpeg.js", () => ({
+  ensureFfmpeg: async () => {},
+  ensureFfprobe: async () => {},
+}));
 vi.mock("../../../../core/ffmpeg-binary.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../../core/ffmpeg-binary.js")>()),
   ffprobeBin: async () => "ffprobe",

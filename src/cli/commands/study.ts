@@ -2,8 +2,7 @@ import * as path from "node:path";
 import type { Command } from "commander";
 import { ratioOf } from "../../core/aspect.js";
 import { downloadClip, isClipUrl } from "../../core/clip-download.js";
-import { ensureFfmpeg } from "../../core/ffmpeg.js";
-import { ffprobeBin } from "../../core/ffmpeg-binary.js";
+import { ensureFfmpeg, ensureFfprobe } from "../../core/ffmpeg.js";
 import { formatSongTempo } from "../../core/song-grid.js";
 import {
   DESCRIPTION_FILE,
@@ -115,7 +114,7 @@ Examples:
       .action(async (arg: string, opts: { at?: string }) => {
         const workspaceRoot = requireWorkspaceRoot();
         await ensureFfmpeg();
-        await ffprobeBin();
+        await ensureFfprobe();
         const url = isClipUrl(arg) ? arg : null;
         const progress = (line: string) => console.error(`konte: ${line}…`);
         const abs = url ? await downloadClip(url, workspaceRoot, progress) : path.resolve(arg);

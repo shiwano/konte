@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Hex } from "../../../core/content-hash.js";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -205,8 +205,7 @@ Examples:
 
       const sourceHash = manager.getAssetState(source.address).variants?.[source.variantId]
         ?.outputHash;
-      const digest = (value: unknown): string =>
-        createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 12);
+      const digest = (value: unknown): string => sha256Hex(JSON.stringify(value)).slice(0, 12);
       // One directory and one pair of sheets per take the image argument resolves to.
       const key = digest(variantId);
       const cropDir = path.join(videoRoot, ".konte", "cache", "crops", key);

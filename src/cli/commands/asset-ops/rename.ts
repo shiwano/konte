@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import {
-  getAssetEntryByAddress,
+  getAssetEntry,
   isCompositionAddress,
   isOverlayAddress,
   isStemAddress,
@@ -92,7 +92,7 @@ Examples:
       );
       if (!definition) throw notDeclared;
       try {
-        getAssetEntryByAddress(definition, to);
+        getAssetEntry(definition, to);
       } catch {
         throw notDeclared;
       }

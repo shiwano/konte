@@ -179,11 +179,11 @@ export class FalHttpClient {
 
   async ping(): Promise<boolean> {
     try {
-      const res = await fetch("https://queue.fal.run", {
-        method: "HEAD",
-        headers: this.headers(),
-        signal: AbortSignal.timeout(5000),
-      });
+      const res = await fetchWithRetry(
+        "https://queue.fal.run",
+        { method: "HEAD", headers: this.headers() },
+        { maxRetries: 0, timeoutMs: 5000 },
+      );
       return res.ok || res.status === 404;
     } catch {
       return false;

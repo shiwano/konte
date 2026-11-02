@@ -1,7 +1,7 @@
 import {
   type AssetStage,
   type ShotStage,
-  formatPlateAssetPath,
+  formatPlateAddress,
   formatShotAddress,
   tryParseAddress,
 } from "../../core/address.js";
@@ -233,7 +233,7 @@ function panelPlate(k: PanelConditioning, promptShots: PromptShots | null): stri
   const setupId =
     k.lane === "cutin" ? promptShots?.cutin.get(k.shotId)?.setup : promptShots?.setup.get(k.shotId);
   if (!setupId) return null;
-  const plate = formatPlateAssetPath(setupId);
+  const plate = formatPlateAddress(setupId);
   return k.conditioning.includes(plate) ? plate : `(none — ${plate} is not in its conditioning)`;
 }
 
@@ -274,7 +274,7 @@ function platesUnderScope(
   if (scope.level === "shot" || scope.level === "direction") return [];
   const out: { address: string; frame: PlateFrame | null }[] = [];
   for (const id of definition.exposedPlateIds) {
-    const address = formatPlateAssetPath(id);
+    const address = formatPlateAddress(id);
     if (scope.level === "asset" && scope.address !== address) continue;
     out.push({ address, frame: promptShots?.plateFrame.get(id) ?? null });
   }

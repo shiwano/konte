@@ -8,14 +8,14 @@ import {
   unconfiguredBackendAssets,
 } from "../backend-policy.js";
 import type { DeploymentReadiness } from "../../comfy-api/deployment.js";
-import { defineComfyAsset } from "../dsl/comfy-asset.js";
-import { adapters, defineVideo, asset } from "../dsl/index.js";
-import { imageFile } from "../dsl/adapters/index.js";
-import { Composition } from "../dsl/composition/composition.js";
-import { shot, videoTimeline } from "./helpers/shot.js";
-import { testDirection } from "./helpers/direction.js";
-import type { ComfyAssetDefinition, KonteConfig, VideoDefinition } from "../types/index.js";
-import { makeWorkspace, type Workspace } from "./helpers/workspace.js";
+import { defineComfyAsset } from "../../core/dsl/comfy-asset.js";
+import { adapters, defineVideo, asset } from "../../core/dsl/index.js";
+import { imageFile } from "../../core/dsl/adapters/index.js";
+import { Composition } from "../../core/dsl/composition/composition.js";
+import { shot, videoTimeline } from "../../core/__tests__/helpers/shot.js";
+import { testDirection } from "../../core/__tests__/helpers/direction.js";
+import type { ComfyAssetDefinition, KonteConfig, VideoDefinition } from "../../core/types/index.js";
+import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/workspace.js";
 
 function el(): React.ReactElement {
   return { type: Composition, props: { children: [] } } as unknown as React.ReactElement;

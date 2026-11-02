@@ -8,8 +8,8 @@ import {
   formatDirectionLocationAddress,
   formatDirectionPropAddress,
   formatReferenceAddress,
-  listExposedReferenceAssetPaths,
-  listReviewableAssetPaths,
+  listExposedReferenceAddresses,
+  listReviewableAddresses,
 } from "../../../core/address.js";
 import { definitionHashForAddress } from "../../../core/composition-resource.js";
 import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
@@ -166,7 +166,7 @@ export async function handleGetReferenceState(
 
   // Exposed assets only: an unreturned one is an intermediate another reference asset consumes, and
   // it is read through that asset — there is nothing to decide about it here.
-  const assets = listExposedReferenceAssetPaths(reference).map((assetPath) => {
+  const assets = listExposedReferenceAddresses(reference).map((assetPath) => {
     const assetName = assetPath.slice("reference:".length);
     const addr = formatReferenceAddress(assetName);
     const acceptedId = manager.getAcceptedVariant(addr);
@@ -313,7 +313,7 @@ export async function handleReferenceSubmit(
 
   const manager = await StateManager.load(videoRoot);
   const timeline: Record<string, string> = {};
-  for (const assetPath of listReviewableAssetPaths(reference, "reference")) {
+  for (const assetPath of listReviewableAddresses(reference, "reference")) {
     const assetName = assetPath.slice("reference:".length);
     const addr = formatReferenceAddress(assetName);
     const resolved = manager.selectVariant(addr, { includeStale: true });

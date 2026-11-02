@@ -1,9 +1,9 @@
 import {
-  formatAssetPath,
+  formatAddress,
   type AssetStage,
   type ShotStage,
-  formatTimelineAssetPath,
-  formatPlateAssetPath,
+  formatTimelineAddress,
+  formatPlateAddress,
 } from "../address.js";
 import type { AssetDefinition, Typography } from "../types/index.js";
 import type { MediaAsset, MediaKind } from "./builders.js";
@@ -155,15 +155,15 @@ export function getActiveTypography(): Typography | undefined {
 }
 
 export function makePlaceholder(stage: ShotStage, shotId: string, assetName: string): string {
-  return `${PLACEHOLDER_PREFIX}${formatAssetPath(stage, shotId, assetName)}${PLACEHOLDER_SUFFIX}`;
+  return `${PLACEHOLDER_PREFIX}${formatAddress(stage, shotId, assetName)}${PLACEHOLDER_SUFFIX}`;
 }
 
 export function makeTimelinePlaceholder(stage: ShotStage, assetName: string): string {
-  return `${PLACEHOLDER_PREFIX}${formatTimelineAssetPath(stage, assetName)}${PLACEHOLDER_SUFFIX}`;
+  return `${PLACEHOLDER_PREFIX}${formatTimelineAddress(stage, assetName)}${PLACEHOLDER_SUFFIX}`;
 }
 
 export function makePlatePlaceholder(id: string): string {
-  return `${PLACEHOLDER_PREFIX}${formatPlateAssetPath(id)}${PLACEHOLDER_SUFFIX}`;
+  return `${PLACEHOLDER_PREFIX}${formatPlateAddress(id)}${PLACEHOLDER_SUFFIX}`;
 }
 
 export function makeReferencePlaceholder(assetName: string): string {
@@ -189,6 +189,21 @@ export function parsePlaceholder(value: string): string | null {
     return value.slice(PLACEHOLDER_PREFIX.length, -PLACEHOLDER_SUFFIX.length);
   }
   return null;
+}
+
+// Whether a definition's inputs reference `__konte:seed__` anywhere. Mirrors the resolver's
+// recursion (arrays + plain objects) so the seam records a variant's seed only when it was
+// actually consumed — a seedless asset never gets a phantom seed that would mislead restore.
+export function hasSeedPlaceholder(value: unknown): boolean {
+  if (typeof value === "string") return parsePlaceholder(value) === "seed";
+  if (Array.isArray(value)) return value.some(hasSeedPlaceholder);
+  if (value && typeof value === "object") {
+    const proto = Object.getPrototypeOf(value);
+    if (proto === Object.prototype || proto === null) {
+      return Object.values(value).some(hasSeedPlaceholder);
+    }
+  }
+  return false;
 }
 
 const REACT_ELEMENT_TYPE = Symbol.for("react.element");

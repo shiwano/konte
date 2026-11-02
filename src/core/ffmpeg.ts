@@ -4,13 +4,18 @@ import * as path from "node:path";
 import { KonteError } from "./errors.js";
 import { duckVolumeExpr, type DuckStep } from "./audio-duck.js";
 import { atempoChain } from "./audio-retime.js";
-import { ffmpegBin } from "./ffmpeg-binary.js";
+import { ffmpegBin, ffprobeBin } from "./ffmpeg-binary.js";
 import { probeHasAudio } from "./video-probe.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
 
-/** Resolve a usable ffmpeg (provisioning the managed build on first use); returns its path. */
-export async function ensureFfmpeg(): Promise<string> {
-  return ffmpegBin();
+/** Resolves a usable ffmpeg, provisioning the managed build on first use. */
+export async function ensureFfmpeg(): Promise<void> {
+  await ffmpegBin();
+}
+
+/** Resolves a usable ffprobe, provisioning the managed build on first use. */
+export async function ensureFfprobe(): Promise<void> {
+  await ffprobeBin();
 }
 
 function escapeConcatPath(filePath: string): string {

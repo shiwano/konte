@@ -10,7 +10,7 @@ import {
   formatAddress,
   formatCompositionAddress,
   formatTimelineAddress,
-  parseAssetPath,
+  parseAddress,
 } from "./address.js";
 import { asideSlugHtml } from "./aside-slug.js";
 import { injectBaseTimeline } from "./composition-builder.js";
@@ -865,9 +865,9 @@ interface ShotRenderInputs {
 // resolution. The #delivery variant always exists here: the asset is a video layer of its own shot,
 // so the export job already depended on its upscale.
 function siblingShotFile(shots: readonly ShotRenderPlan[], assetPath: string): string | null {
-  let parsed: ReturnType<typeof parseAssetPath>;
+  let parsed: ReturnType<typeof parseAddress>;
   try {
-    parsed = parseAssetPath(assetPath);
+    parsed = parseAddress(assetPath);
   } catch {
     return null;
   }

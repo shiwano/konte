@@ -1,4 +1,4 @@
-export { imageFile, videoFile, audioFile, type FileAdapterInputs } from "./file.js";
+export { imageFile, videoFile, audioFile } from "./file.js";
 export {
   internalTestImage,
   internalTestPlate,
@@ -15,11 +15,7 @@ export {
   audioRetime,
   audioConcat,
   videoFrame,
-  type ColorString,
-  type ImageResizeInputs,
-  type ImageCropInputs,
   type TrimInputs,
   type AudioRetimeInputs,
   type AudioConcatInputs,
-  type VideoFrameInputs,
 } from "./local.js";

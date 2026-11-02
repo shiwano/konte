@@ -1,5 +1,5 @@
 import { format } from "oxfmt";
-import { formatAssetPath } from "./address.js";
+import { formatAddress } from "./address.js";
 import type { DirectionFinding, ShotPanels, VideoShotPins } from "./direction-check.js";
 import { checkDirection, validateDirectionStructure, type StagingStageState } from "./direction.js";
 import type { Direction, NarrativeShot, Setup, Shot } from "./dsl/direction.js";
@@ -119,7 +119,7 @@ const noStage: StagingStageState = {
   shotPanels: [],
 };
 
-const panelAddress = (shotId: string, name: string) => formatAssetPath("animatic", shotId, name);
+const panelAddress = (shotId: string, name: string) => formatAddress("animatic", shotId, name);
 
 // A developed board shot: whether its opening keyframe's model reads a previous panel, and what it
 // was handed of one.

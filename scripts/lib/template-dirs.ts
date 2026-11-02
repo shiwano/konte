@@ -1,14 +1,14 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-export const templatesDir = path.resolve(import.meta.dirname, "../../src/cli/templates");
+const templatesDir = path.resolve(import.meta.dirname, "../../src/cli/templates");
 
 /**
  * The dev tree mirrors the layout it produces: `workspace/` is the workspace scaffold, and each
  * `workspace/videos/<name>/` is one video template. So `../../adapters/comfy/x` — the import a
  * video's video.tsx writes — is a literally correct path here too, with no rootDirs fiction.
  */
-export const WORKSPACE_DIR = "workspace";
+const WORKSPACE_DIR = "workspace";
 export const VIDEOS_DIR = "videos";
 
 export const workspaceDir = path.join(templatesDir, WORKSPACE_DIR);

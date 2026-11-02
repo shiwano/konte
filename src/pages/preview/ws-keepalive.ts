@@ -1,3 +1,5 @@
+import { request } from "../shared/http.js";
+
 const RECONNECT_DELAY_MS = 1000;
 
 // How long reconnecting runs before the page asks whether the server is there at all. A dropped
@@ -25,8 +27,8 @@ export function connectKeepAlive(): void {
   // here rather than in a verdict of its own.
   async function serverIsGone(): Promise<boolean> {
     try {
-      const res = await fetch("/api/ping", { cache: "no-store" });
-      return !res.ok;
+      await request("/api/ping", { cache: "no-store" });
+      return false;
     } catch {
       return true;
     }

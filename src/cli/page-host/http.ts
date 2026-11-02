@@ -70,7 +70,7 @@ const LOOPBACK_NAMES = new Set(["127.0.0.1", "localhost", "[::1]"]);
  * Whether a peer address is this machine. Wider than `isLoopbackBind`: a connection arrives from
  * anywhere in 127.0.0.0/8, and from an IPv4-mapped form when the bind is `::`.
  */
-export function isLoopbackAddress(address: string): boolean {
+function isLoopbackAddress(address: string): boolean {
   const bare = address
     .trim()
     .replace(/^\[|\]$/g, "")

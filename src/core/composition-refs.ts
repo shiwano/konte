@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { parseAssetPath } from "./address.js";
+import { parseAddress } from "./address.js";
 import { KonteError } from "./errors.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import {
@@ -17,10 +17,10 @@ const ASSET_PATH = /^(?:animatic|video|reference):/;
 // `alt`) can spell a placeholder that parses as nothing. A `#delivery` target is rejected too — it is
 // an export artifact, never authored into a composition, and its `#` would read as a URL fragment in
 // the `src` a ref is staged under.
-export function isAssetPath(value: string): boolean {
+export function isConsumableAddress(value: string): boolean {
   if (!ASSET_PATH.test(value)) return false;
   try {
-    return !parseAssetPath(value).delivery;
+    return !parseAddress(value).delivery;
   } catch {
     return false;
   }
@@ -63,7 +63,7 @@ export function partitionShotRefs(
     const raw = props.src;
     if (typeof raw !== "string") return;
     const path = parsePlaceholder(raw);
-    if (path === null || !isAssetPath(path)) return;
+    if (path === null || !isConsumableAddress(path)) return;
     rendered.add(path);
     if (getRenderContext().lane === "cutin") cutinRefs.add(path);
     else outsideRefs.add(path);
@@ -75,7 +75,7 @@ export function partitionShotRefs(
     }
   };
 
-  const valid = treeRefs.filter(isAssetPath);
+  const valid = treeRefs.filter(isConsumableAddress);
   try {
     renderToHtml(element, context, visitor);
   } catch (err) {
@@ -105,7 +105,7 @@ interface ResolvedCompositionRef {
 
 // Total by construction: `depPath` is whatever `parsePlaceholder` yielded, and a user's own text can
 // shape that (a literal `__konte:video:seed__` in a subtitle spells the placeholder syntax but names
-// no asset). `isAssetPath` rejects those, so the address machinery below never sees an unparseable
+// no asset). `isConsumableAddress` rejects those, so the address machinery below never sees an unparseable
 // path; an unresolvable ref yields null and the caller leaves the placeholder in place.
 export function resolveCompositionRef(
   manager: StateManager,
@@ -118,7 +118,7 @@ export function resolveCompositionRef(
     overrideByAddress?: ReadonlyMap<string, string>;
   } = {},
 ): ResolvedCompositionRef | null {
-  if (!isAssetPath(depPath)) return null;
+  if (!isConsumableAddress(depPath)) return null;
   const { includeStale, overrideByAddress } = options;
   // A dependency path IS its upstream address (address ≡ asset path).
   const address = depPath;
@@ -151,7 +151,7 @@ export function resolveCompositionRef(
 // (`shot("01").video("motion")`), or its own animatic's stem (`animatic.stem`). Each must be
 // substituted before the HTML reaches a browser or ffmpeg. The character class is the alphabet
 // `makePlaceholder`/`makeAddressPlaceholder` can mint — an asset path's `.`, `:` and reserved-name
-// `#` separators plus identifier characters. `#delivery` matches here but `isAssetPath` rejects it,
+// `#` separators plus identifier characters. `#delivery` matches here but `isConsumableAddress` rejects it,
 // so it is left in place like any other unresolvable ref.
 const ASSET_PLACEHOLDER = /__konte:((?:reference|animatic|video):[A-Za-z0-9_.#-]+)__/g;
 

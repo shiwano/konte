@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Hex } from "../../../core/content-hash.js";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import type { Command } from "commander";
@@ -624,10 +624,9 @@ async function planSheets(
 
   // One key per distinct invocation, so re-running a scope overwrites its sheets instead of
   // accumulating a copy per render.
-  const cacheKey = createHash("sha256")
-    .update(JSON.stringify([opts.args, maxCells, groups, opts.framesPerVariant]))
-    .digest("hex")
-    .slice(0, 12);
+  const cacheKey = sha256Hex(
+    JSON.stringify([opts.args, maxCells, groups, opts.framesPerVariant]),
+  ).slice(0, 12);
 
   // Pages are packed by whole shots, so a shot's cells never split across sheets.
   const pages = groups

@@ -7,7 +7,7 @@ import { handleReelSubmit } from "../reel-submit.js";
 import { buildAssetStatus, needsReviewItems } from "../../../../core/status-report.js";
 import {
   type DefinitionLike,
-  getAssetEntryByAddress,
+  getAssetEntry,
   getStage,
   listAddresses,
 } from "../../../../core/address.js";
@@ -220,7 +220,7 @@ async function generateAll(videoRoot: string): Promise<void> {
     for (const { stage, definition } of stages) {
       if (!definition) continue;
       for (const address of listAddresses(definition, stage)) {
-        const entry = getAssetEntryByAddress(definition, address);
+        const entry = getAssetEntry(definition, address);
         // Dependency order, the way generate registers a level at a time: seeding an address before
         // its inputs exist would record empty fingerprints and leave a rival take behind, which no
         // real run produces.

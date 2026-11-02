@@ -12,7 +12,7 @@ export const COMFY_PLATFORM_ORIGIN = "https://platformapi.comfy.org";
 // catalog routes as `X-API-Key`.
 export type ComfyApiAuth = { scheme: "bearer" | "x-api-key"; key: string };
 
-export function authHeaders(auth: ComfyApiAuth): Record<string, string> {
+function authHeaders(auth: ComfyApiAuth): Record<string, string> {
   return auth.scheme === "bearer"
     ? { Authorization: `Bearer ${auth.key}` }
     : { "X-API-Key": auth.key };

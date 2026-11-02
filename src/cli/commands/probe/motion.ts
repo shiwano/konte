@@ -7,7 +7,7 @@ import type { AnimaticDefinition, VideoDefinition } from "../../../core/types/in
 import * as path from "node:path";
 import type { Command } from "commander";
 import { KonteError } from "../../../core/errors.js";
-import { ensureFfmpeg } from "../../../core/ffmpeg.js";
+import { ensureFfmpeg, ensureFfprobe } from "../../../core/ffmpeg.js";
 import {
   formatShotAddress,
   isCompositionAddress,
@@ -20,7 +20,6 @@ import {
   renderCompositionMotionStrip,
   renderMotionStrip,
 } from "../../../core/motion-inspect.js";
-import { ffprobeBin } from "../../../core/ffmpeg-binary.js";
 import { buildTimeAxis, cell, normalize, resample } from "../../audio-sparkline.js";
 import { parseNumberOption } from "../../parse-option.js";
 import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
@@ -212,7 +211,7 @@ Examples:
       }
 
       await ensureFfmpeg();
-      await ffprobeBin();
+      await ensureFfprobe();
 
       const motionIntent = createMotionIntentLoader(videoRoot, manager);
 

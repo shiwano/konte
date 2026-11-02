@@ -1,5 +1,5 @@
 import * as fs from "node:fs/promises";
-import { parseAssetPath } from "./address.js";
+import { parseAddress } from "./address.js";
 import { isJobTerminal, type JobManager, jobLogPath } from "./job-manager.js";
 import { StateManager } from "./state/index.js";
 import type { GenerationJob, JobRecord } from "./types/index.js";
@@ -28,7 +28,7 @@ export async function cascadeFailPendingJobs(
   const cleanedAssetPaths = new Set(
     removedAddresses.flatMap((a) => {
       try {
-        parseAssetPath(a);
+        parseAddress(a);
         return [a];
       } catch {
         return [];

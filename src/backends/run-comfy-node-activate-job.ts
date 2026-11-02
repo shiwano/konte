@@ -1,4 +1,4 @@
-import * as crypto from "node:crypto";
+import { sha256Hex } from "../core/content-hash.js";
 import { constants as fsConstants } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
@@ -222,7 +222,7 @@ export async function runComfyNodeActivateJob(
         const lockDir = await resolveRebootLockDir();
         const lockPath = path.join(
           lockDir,
-          `comfy-reboot-${crypto.createHash("sha256").update(config.baseUrl).digest("hex").slice(0, 12)}.lock`,
+          `comfy-reboot-${sha256Hex(config.baseUrl).slice(0, 12)}.lock`,
         );
         // Mutated inside the lock rather than returned from it, so the deferral is handled after
         // the lock is released — the retry belongs to a later pass, not to this critical section.

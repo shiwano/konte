@@ -1,4 +1,4 @@
-import * as crypto from "node:crypto";
+import { randomBytes } from "node:crypto";
 import * as path from "node:path";
 import { watch, type FSWatcher } from "node:fs";
 import type { GenerationBackend } from "../core/backend.js";
@@ -78,7 +78,7 @@ export class JobWatcher {
   readonly videoRoot: string;
   private readonly videoName: string;
   private readonly jobManager: JobManager;
-  private readonly workerId = `w-${crypto.randomBytes(8).toString("hex")}`;
+  private readonly workerId = `w-${randomBytes(8).toString("hex")}`;
   // Every job this watcher is driving — a generation job's wait or a standalone job's run — so a
   // later scan never drives one twice.
   private readonly running = new Map<string, Promise<void>>();

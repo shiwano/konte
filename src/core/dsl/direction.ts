@@ -48,7 +48,7 @@ import {
 } from "./builders.js";
 import { assertFontFamilies, assertLanguageTag, type LanguageTag } from "../typography.js";
 import { isIdentifier, validateShotId, type ValidatedIdentifier } from "./validate-identifier.js";
-import { formatAssetPath, formatReferenceAddress, formatSongStemAddress } from "../address.js";
+import { formatAddress, formatReferenceAddress, formatSongStemAddress } from "../address.js";
 import { placeLyricLines } from "../song-lyrics.js";
 import { songBeatAt, songBeatSec, type SongVariant } from "../song-variant.js";
 import { KonteError } from "../errors.js";
@@ -194,7 +194,7 @@ export type Setup = {
   holds: readonly string[];
 } & ({ within: string; view?: never } | { within?: null; view: View });
 
-export { VIEWS, type View } from "../view.js";
+export { type View } from "../view.js";
 import type { View } from "../view.js";
 
 // The `locations` roster ids this direction declares.
@@ -1427,7 +1427,7 @@ const makeAssetNameHandle = (
       makeMediaAsset<T>(makePlaceholder(stage, shotId, assetName)),
       songSpans.get(assetName),
     );
-    return panels?.has(formatAssetPath(stage, shotId, assetName)) ? markPanel(handed) : handed;
+    return panels?.has(formatAddress(stage, shotId, assetName)) ? markPanel(handed) : handed;
   };
   return {
     video: (assetName) => get(assetName, "video"),
@@ -1466,7 +1466,7 @@ function shotDurationOf(index: DirectionIndex, shotId: string): number {
   return duration!;
 }
 
-export function songUnread(song: string): KonteError {
+function songUnread(song: string): KonteError {
   const address = formatReferenceAddress(song);
   return new KonteError(
     "SONG_UNREAD",
@@ -1842,7 +1842,7 @@ export type TimedShotTiming = {
   startBeat?: number;
   beats?: number;
 };
-export type BeatShotTiming = { start: null; duration: null; startBeat: number; beats: number };
+type BeatShotTiming = { start: null; duration: null; startBeat: number; beats: number };
 export type ShotTiming = TimedShotTiming | BeatShotTiming;
 
 // The one reading of the direction's clock every stage shares. Each cut lands on the frame nearest

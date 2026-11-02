@@ -1,6 +1,6 @@
-import * as crypto from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { type JobManager, RUN_LEASE_TTL_MS } from "../core/job-manager.js";
-import { startLeaseHeartbeat } from "./lease-heartbeat.js";
+import { startLeaseHeartbeat } from "../core/lease-heartbeat.js";
 
 type LeasedJobContext = {
   // The lease owner id — pass to finishIfOwner so only the current owner commits terminal state.
@@ -25,7 +25,7 @@ export async function runLeasedJob<T>(
     work: (ctx: LeasedJobContext) => Promise<T>;
   },
 ): Promise<T> {
-  const workerId = `w-${crypto.randomBytes(8).toString("hex")}`;
+  const workerId = `w-${randomBytes(8).toString("hex")}`;
   const claimed = await jobManager.claimJobForRun(id, workerId, RUN_LEASE_TTL_MS);
   if (!claimed) {
     return handlers.onClaimFailed();

@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { deliveryAddressOf, formatCompositionAddress } from "../../core/address.js";
-import { assertSpendAllowed } from "../../core/backend-policy.js";
+import { assertSpendAllowed } from "../../backends/backend-policy.js";
 import { deploymentNameOf } from "../../comfy-api/routing.js";
 import { loadKonteConfig } from "../../core/config.js";
 import { compositionCacheKey } from "../../core/composition-resource.js";

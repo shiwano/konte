@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { JobManager } from "../../core/job-manager.js";
+import type { JobManager } from "../job-manager.js";
 import { startLeaseHeartbeat } from "../lease-heartbeat.js";
 
 // RUN_LEASE_HEARTBEAT_MS is 20s; drive it with fake timers.

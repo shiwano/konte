@@ -7,7 +7,7 @@ import type {
   SubmitResult,
   WaitForCompletionResult,
 } from "../backend.js";
-import { getAssetEntryByAddress } from "../address.js";
+import { getAssetEntry } from "../address.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { asset, defineVideo } from "../dsl/index.js";
 import { Composition } from "../dsl/composition/composition.js";
@@ -86,9 +86,7 @@ let backend: RecordingBackend;
 let definitions: LoadedDefinitions;
 
 function currentHash(): string {
-  return computeDefinitionHash(
-    getAssetEntryByAddress(definitions.video!, ADDRESS) as AssetDefinition,
-  );
+  return computeDefinitionHash(getAssetEntry(definitions.video!, ADDRESS) as AssetDefinition);
 }
 
 async function createPendingJob(variantId: string, definitionHash: string): Promise<void> {

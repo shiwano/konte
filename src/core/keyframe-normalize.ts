@@ -1,4 +1,4 @@
-import * as crypto from "node:crypto";
+import { randomBytes } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { ffprobeBin } from "./ffmpeg-binary.js";
@@ -144,7 +144,7 @@ export async function normalizeKeyframesIfSparse(
   const ext = path.extname(absPath) || ".mp4";
   const tmpPath = path.join(
     path.dirname(absPath),
-    `.konte-reencode-${path.basename(absPath, ext)}.${process.pid}.${crypto.randomBytes(4).toString("hex")}${ext}`,
+    `.konte-reencode-${path.basename(absPath, ext)}.${process.pid}.${randomBytes(4).toString("hex")}${ext}`,
   );
 
   try {

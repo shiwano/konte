@@ -48,13 +48,9 @@ export function resolveSongVariant(
 
 export {
   formatSongTempo,
-  nearestBeatIndex,
-  songFirstBeat,
   type SongGridSource,
   songBeatAt,
   songBeatSec,
-  songGridBeats,
-  type SongTempo,
   songTempo,
 } from "./song-grid.js";
 

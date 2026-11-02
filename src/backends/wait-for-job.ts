@@ -1,9 +1,9 @@
-import * as crypto from "node:crypto";
+import { randomBytes } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
   type DefinitionLike,
-  getAssetEntryByAddress,
+  getAssetEntry,
   getStage,
   isCompositionAddress,
   isDeliveryAddress,
@@ -36,7 +36,7 @@ import { probeMediaInfo } from "../core/video-probe.js";
 import { spokenLinesAt } from "../core/prompt-check.js";
 import { recognizesSpeechIn } from "../core/sherpa-binary.js";
 import { hearSpeech, writeHeardSpeech } from "../core/speech-hearing.js";
-import { startLeaseHeartbeat } from "./lease-heartbeat.js";
+import { startLeaseHeartbeat } from "../core/lease-heartbeat.js";
 import { getBackendKindFromJob, resolveBackend } from "./resolve-backend.js";
 import type { VideoRoots } from "../core/roots.js";
 import { sleep } from "../core/sleep.js";
@@ -141,7 +141,7 @@ export async function waitForJob(
     }
   }
 
-  const workerId = hooks.workerId ?? `w-${crypto.randomBytes(8).toString("hex")}`;
+  const workerId = hooks.workerId ?? `w-${randomBytes(8).toString("hex")}`;
   const deadline = hooks.timeoutMs ? Date.now() + hooks.timeoutMs : undefined;
 
   // Claim-or-monitor loop. The run lease makes exactly ONE process the OWNER that runs the
@@ -240,7 +240,7 @@ async function runAsOwner(
       // Routed through selectDefinition so every stage that owns addresses is covered by one
       // exhaustive mapping.
       const def: DefinitionLike = selectDefinition(getStage(job.address), definitions).def;
-      const assetDef = getAssetEntryByAddress(def, job.address);
+      const assetDef = getAssetEntry(def, job.address);
       owesLine =
         job.address !== songOfDefinitions(definitions) &&
         spokenLinesAt(def.prompts ?? [], job.address).length > 0;

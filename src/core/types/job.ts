@@ -20,7 +20,7 @@ const RelativeDirSchema = z
     "must be a project-relative path without traversal",
   );
 
-export const ProvenanceSchema = z.object({
+const ProvenanceSchema = z.object({
   workflowHash: z.string().nullable(),
   inputHash: z.string().nullable(),
   resolvedDependencies: z.record(z.string(), z.string()),
@@ -31,11 +31,9 @@ export const ProvenanceSchema = z.object({
   compositionCacheKeys: z.record(z.string(), z.string()).default({}),
 });
 
-export type Provenance = z.infer<typeof ProvenanceSchema>;
-
 // `comfy-api` runs a comfy asset on Comfy Cloud or a Comfy API deployment; `comfy` on a ComfyUI
 // reached by URL.
-export const BackendKindSchema = z.enum(["comfy", "comfy-api", "fal", "local"]);
+const BackendKindSchema = z.enum(["comfy", "comfy-api", "fal", "local"]);
 export type BackendKind = z.infer<typeof BackendKindSchema>;
 
 // The backends an asset kind names — the ones that run someone else's model. `local` is konte's
@@ -63,7 +61,7 @@ export type VendorBackendKind = z.infer<typeof VendorBackendKindSchema>;
 // - "song-analysis": a standalone job that reads one take of the song `policy.song` names —
 //   its beats, meter, section boundaries and sung stretches — and records them on that
 //   variant (`song`). Queued when the take lands; run by `run-song-analysis-job`.
-export const JobKindSchema = z.enum([
+const JobKindSchema = z.enum([
   "generation",
   "comfy-model-download",
   "comfy-node-install",
@@ -128,7 +126,7 @@ const JobRecordBaseSchema = z.object({
   staleReleases: z.number().int().default(0),
 });
 
-export const GenerationJobSchema = JobRecordBaseSchema.extend({
+const GenerationJobSchema = JobRecordBaseSchema.extend({
   kind: z.literal("generation"),
   // The asset variant this job produces (a `v-…` id). Equals `id` for generation
   // jobs, but is a distinct concept: identity vs produced output.
@@ -143,23 +141,23 @@ export const GenerationJobSchema = JobRecordBaseSchema.extend({
   provenance: ProvenanceSchema,
 });
 
-export const ComfyModelDownloadJobSchema = JobRecordBaseSchema.extend({
+const ComfyModelDownloadJobSchema = JobRecordBaseSchema.extend({
   kind: z.literal("comfy-model-download"),
   model: ComfyModelDeclarationSchema,
 });
 
-export const ComfyNodeInstallJobSchema = JobRecordBaseSchema.extend({
+const ComfyNodeInstallJobSchema = JobRecordBaseSchema.extend({
   kind: z.literal("comfy-node-install"),
   node: ComfyNodeDeclarationSchema,
 });
 
-export const ComfyNodeActivateJobSchema = JobRecordBaseSchema.extend({
+const ComfyNodeActivateJobSchema = JobRecordBaseSchema.extend({
   kind: z.literal("comfy-node-activate"),
   // The cnr_ids whose loaded-state this job verifies (and reboots ComfyUI to load if needed).
   cnrIds: z.array(z.string()).default([]),
 });
 
-export const ExportJobSchema = JobRecordBaseSchema.extend({
+const ExportJobSchema = JobRecordBaseSchema.extend({
   kind: z.literal("export"),
   // Addresses (including #delivery targets) whose files the render consumes.
   dependsOnAssets: z.array(z.string()).default([]),

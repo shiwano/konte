@@ -24,7 +24,7 @@ import { Audio, Composition, Image, Panel, Video } from "../dsl/composition/inde
 import { defineDirection } from "../dsl/direction.js";
 import { asset, defineAnimatic, defineVideo, soundtrack } from "../dsl/index.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
-import { buildDependencyGraph, listUnusedAssetPaths } from "../graph.js";
+import { buildDependencyGraph, listUnusedAddresses } from "../graph.js";
 import { StateManager } from "../state/index.js";
 import { directionDefaults } from "./helpers/direction.js";
 import type { VariantMedia, VideoDefinition } from "../types/index.js";
@@ -318,9 +318,7 @@ describe("defineAnimatic", () => {
   it("counts the board's takes as used — its composition is a review root of its own", () => {
     const animatic = speakingAnimatic();
     const video = speakingVideo(animatic);
-    expect(listUnusedAssetPaths(video, animatic, buildDependencyGraph(video, animatic))).toEqual(
-      [],
-    );
+    expect(listUnusedAddresses(video, animatic, buildDependencyGraph(video, animatic))).toEqual([]);
   });
 });
 

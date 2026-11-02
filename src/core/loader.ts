@@ -6,9 +6,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as jsxRuntime from "react/jsx-runtime";
 import * as jsxDevRuntime from "react/jsx-dev-runtime";
 import {
-  formatPatchAssetPath,
-  listAssetPaths,
-  listReferenceAssetPaths,
+  formatPatchAddress,
+  listAddresses,
+  listReferenceAddresses,
   parseAddress,
   patchSourceVariantIdOf,
 } from "./address.js";
@@ -432,7 +432,7 @@ function parseVideoModule(mod: Record<string, unknown>, filePath: string): Video
     "shot ID",
     "Video",
   );
-  assertUnique(listAssetPaths(video, "video"), "asset path", "Video");
+  assertUnique(listAddresses(video, "video"), "asset path", "Video");
   return video;
 }
 
@@ -448,7 +448,7 @@ function parseReferenceModule(mod: Record<string, unknown>, filePath: string): R
     exposedAssetNames: parsed.exposedAssetNames,
     prompts: parsed.prompts,
   };
-  assertUnique(listReferenceAssetPaths(reference), "asset path", "Reference");
+  assertUnique(listReferenceAddresses(reference), "asset path", "Reference");
   return reference;
 }
 
@@ -488,7 +488,7 @@ function parseAnimaticModule(mod: Record<string, unknown>, filePath: string): An
     "shot ID",
     "Animatic",
   );
-  assertUnique(listAssetPaths(animatic, "animatic"), "asset path", "Animatic");
+  assertUnique(listAddresses(animatic, "animatic"), "asset path", "Animatic");
   return animatic;
 }
 
@@ -667,7 +667,7 @@ function parsePatchModule(
   // The returned step is the correction's output. A step consuming it would be spend beyond the
   // take, and is unreachable from the output — which the closure check below would report as
   // "nothing consumes it", the wrong way round for the author who wrote the chain.
-  const outputAddress = formatPatchAssetPath(ctx.stage, ctx.sourceVariantId, built.outputName);
+  const outputAddress = formatPatchAddress(ctx.stage, ctx.sourceVariantId, built.outputName);
   for (const [name, def] of Object.entries(assets)) {
     if (name === built.outputName) continue;
     if (extractRefs(def).includes(outputAddress)) {

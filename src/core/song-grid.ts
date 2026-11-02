@@ -25,7 +25,7 @@ export function nearestBeatIndex(beats: readonly number[], sec: number): number 
 }
 
 // The index in `beats` of beat 0.
-export function songFirstBeat(analysis: SongGridSource): number {
+function songFirstBeat(analysis: SongGridSource): number {
   return analysis.firstBeatSet !== undefined && analysis.beats.length > 0
     ? nearestBeatIndex(analysis.beats, analysis.firstBeatSet)
     : analysis.firstBeat;

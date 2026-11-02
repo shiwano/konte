@@ -31,7 +31,7 @@ const AudioLoudnessSchema = z.object({
 // Whether no 10 ms of the audio rises above the noise floor. Absent means UNMEASURED.
 const SilentSchema = z.boolean().optional();
 
-export const VariantMediaSchema = z.discriminatedUnion("kind", [
+const VariantMediaSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("image"),
     width: z.number().positive(),
@@ -103,7 +103,7 @@ export type SongReading = z.infer<typeof SongReadingSchema>;
 // --first-beat`), standing over the reading's `firstBeat`. `lines`
 // are the lyric lines a person placed on the take, keyed `<section>.<line>`, each with the words it
 // was placed as: a line whose words have changed since is read off the take again.
-export const SongRecordSchema = z.object({
+const SongRecordSchema = z.object({
   reading: z.string(),
   lang: z.string(),
   firstBeatSet: z.number().nonnegative().optional(),
@@ -135,11 +135,9 @@ export type SongAnalysis = SongReading & Omit<SongRecord, "reading">;
 // A dismissed take is out of resolution (`resolveCore`) and out of generation's skip test
 // (`assetSkipReason`): dismissing every take at an address means the same thing as having none.
 // The file stays on disk until `clean`/`prune` takes it.
-export const VariantStatusSchema = z.enum(["none", "accepted", "dismissed"]);
+const VariantStatusSchema = z.enum(["none", "accepted", "dismissed"]);
 
-export type VariantStatus = z.infer<typeof VariantStatusSchema>;
-
-export const VariantStateSchema = z.object({
+const VariantStateSchema = z.object({
   status: VariantStatusSchema,
   file: z.string().nullable(),
   definitionHash: z.string().nullable().default(null),
@@ -200,7 +198,7 @@ export const VariantStateSchema = z.object({
 
 export type VariantState = z.infer<typeof VariantStateSchema>;
 
-export const AssetStateSchema = z.object({
+const AssetStateSchema = z.object({
   variants: z.record(z.string(), VariantStateSchema).optional(),
 });
 
@@ -230,14 +228,12 @@ const DirectionPartAcceptanceSchema = z.object({
 // part can have changed (`projectDirection` subsumes every part hash), so the gate answers without
 // walking the tree. `acceptedAt` survives the hash going null; emptying `parts`
 // (`konte accept direction --off`) clears the record, the only way back to "never accepted".
-export const DirectionWholeAcceptanceSchema = z.object({
+const DirectionWholeAcceptanceSchema = z.object({
   hash: z.string().nullable(),
   acceptedAt: z.string(),
 });
 
-export type DirectionWholeAcceptance = z.infer<typeof DirectionWholeAcceptanceSchema>;
-
-export const DirectionAcceptanceSchema = z.object({
+const DirectionAcceptanceSchema = z.object({
   parts: z.record(z.string(), DirectionPartAcceptanceSchema).default({}),
   whole: DirectionWholeAcceptanceSchema.nullable().default(null),
 });

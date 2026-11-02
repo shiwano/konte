@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
-  formatPatchAssetPath,
+  formatPatchAddress,
   getAssetStage,
   parseAddress,
   patchSourceVariantIdOf,
@@ -102,7 +102,7 @@ export function patchStepEntries(patch: PatchBuild): Array<[string, AssetDefinit
 
 /** The address of one step of a patch's chain. */
 export function patchAssetAddress(patch: LoadedPatch, name: string): string {
-  return formatPatchAssetPath(getAssetStage(patch.sourceAddress), patch.sourceVariantId, name);
+  return formatPatchAddress(getAssetStage(patch.sourceAddress), patch.sourceVariantId, name);
 }
 
 /**

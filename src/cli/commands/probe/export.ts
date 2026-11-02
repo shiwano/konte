@@ -15,7 +15,7 @@ import { computeLastExports, latestFailedExport } from "../../../core/status-sec
 import { parseAddress } from "../../../core/address.js";
 import { StateManager } from "../../../core/state/index.js";
 import { loadVideoDefinition } from "../../../core/loader.js";
-import { ffprobeBin } from "../../../core/ffmpeg-binary.js";
+import { ensureFfprobe } from "../../../core/ffmpeg.js";
 import { probeContainerTags, probeMediaDetail } from "../../../core/video-probe.js";
 import { formatBytes } from "../../../core/format-bytes.js";
 import { requireVideoRoot } from "../../context.js";
@@ -162,7 +162,7 @@ Examples:
         );
       }
 
-      await ffprobeBin();
+      await ensureFfprobe();
       const [detail, stat, tags] = await Promise.all([
         probeMediaDetail(fileAbs),
         fs.stat(fileAbs),

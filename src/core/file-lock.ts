@@ -1,4 +1,4 @@
-import * as crypto from "node:crypto";
+import { randomBytes } from "node:crypto";
 import * as fs from "node:fs/promises";
 import { KonteError } from "./errors.js";
 import { sleep } from "./sleep.js";
@@ -18,7 +18,7 @@ interface FileLockOptions {
 // can prove ownership before removing or restoring it — a holder that stalled past staleMs
 // and had its lock stolen must not later unlink the new owner's lock.
 function makeNonce(): string {
-  return `${process.pid}-${crypto.randomBytes(8).toString("hex")}`;
+  return `${process.pid}-${randomBytes(8).toString("hex")}`;
 }
 
 async function readLockNonce(lockPath: string): Promise<string | null> {

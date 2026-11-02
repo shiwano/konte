@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Hex } from "../core/content-hash.js";
 import { accessSync, constants, existsSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { WORKSPACE_MARKER } from "../core/roots.js";
@@ -53,7 +53,7 @@ function findWorkspaceRoot(from: string): string | null {
 // not control, at startup, to reclaim disk inside a directory that is already ignored. Deleting
 // `.konte/transpiler-cache` by hand is the way to reclaim it.
 function generation(root: string): string {
-  return createHash("sha256").update(root).digest("hex").slice(0, 16);
+  return sha256Hex(root).slice(0, 16);
 }
 
 // True when `dir` would be created inside the workspace, resolving the nearest ancestor that

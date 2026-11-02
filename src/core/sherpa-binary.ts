@@ -204,5 +204,3 @@ export async function recognizeSpeech(
   }
   return results;
 }
-
-export { SHERPA_VERSION };

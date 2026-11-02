@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Hex } from "./content-hash.js";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -265,14 +265,11 @@ export async function resolveCompositionCacheDir(options: {
         ...(video.overlay?.compositionRefs ?? []),
       ])
     : {};
-  const compHash = createHash("sha256")
-    .update(compositionResult.html)
-    .update(
-      `|${compositionResult.size.width}x${compositionResult.size.height}|${compositionResult.fps}|${format}|${quality}`,
-    )
-    .update(`|${JSON.stringify(Object.entries(fingerprints).sort())}`)
-    .digest("hex")
-    .slice(0, 12);
+  const compHash = sha256Hex(
+    compositionResult.html,
+    `|${compositionResult.size.width}x${compositionResult.size.height}|${compositionResult.fps}|${format}|${quality}`,
+    `|${JSON.stringify(Object.entries(fingerprints).sort())}`,
+  ).slice(0, 12);
   return { compositionResult, cacheDir: path.join(outputDir, compHash) };
 }
 

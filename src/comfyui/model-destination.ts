@@ -1,4 +1,4 @@
-import * as crypto from "node:crypto";
+import { randomBytes } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ComfyModelDeclaration, ComfyModelType } from "../core/types/index.js";
@@ -158,7 +158,7 @@ export function toLocalPath(reported: string): string | null {
 export async function ensureWritableDir(dir: string, rootDir: string): Promise<boolean> {
   const probe = path.join(
     dir,
-    `.konte-write-probe.${process.pid}.${crypto.randomBytes(4).toString("hex")}`,
+    `.konte-write-probe.${process.pid}.${randomBytes(4).toString("hex")}`,
   );
   try {
     await fs.access(path.dirname(rootDir));

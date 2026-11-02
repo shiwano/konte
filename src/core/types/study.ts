@@ -64,7 +64,7 @@ export const ClipSourceSchema = z.object({ link: z.string(), file: z.string() })
 
 // One file of a source's original as `index.json` fingerprints it: its path under the source
 // directory, size, mtime and sha256.
-export const SourceFileFingerprintSchema = z.object({
+const SourceFileFingerprintSchema = z.object({
   path: z.string(),
   size: z.number().int(),
   mtimeMs: z.number(),

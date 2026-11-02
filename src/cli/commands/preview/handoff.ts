@@ -5,15 +5,14 @@ import {
   type DefinitionLike,
   formatAddress,
   formatCompositionAddress,
-  formatPlateAssetPath,
+  formatPlateAddress,
   formatShotAddress,
   type ShotStage,
   formatReferenceAddress,
   formatTimelineAddress,
-  formatTimelineAssetPath,
   formatTimelineOverlayAddress,
   formatTimelineStemAddress,
-  listReviewableAssetPaths,
+  listReviewableAddresses,
   listShotStems,
   shownShotAssetNames,
   STEM_ASSET_NAME,
@@ -193,7 +192,7 @@ export function collectChangedAddresses(
       hasFreshUnreviewedReady(variants, reviewedId, record.createdAt) ||
       acceptedStale
     ) {
-      timelinePaths.push(formatTimelineAssetPath(stage, assetName));
+      timelinePaths.push(formatTimelineAddress(stage, assetName));
     }
   }
 
@@ -201,7 +200,7 @@ export function collectChangedAddresses(
     (timelineSoundtracks?.length ?? 0) > 0 &&
     leafChangedSinceReview(manager, stageDef, formatTimelineStemAddress(stage), record)
   ) {
-    timelinePaths.push(formatTimelineAssetPath(stage, STEM_ASSET_NAME));
+    timelinePaths.push(formatTimelineAddress(stage, STEM_ASSET_NAME));
   }
 
   // The overlay is a leaf: its baseline is the content hash the review recorded.
@@ -268,13 +267,13 @@ export function collectAllAddresses(
   hasOverlay?: boolean,
 ): string[] {
   const ordered: string[] = [];
-  for (const setupId of plateIds ?? []) ordered.push(formatPlateAssetPath(setupId));
+  for (const setupId of plateIds ?? []) ordered.push(formatPlateAddress(setupId));
   for (const assetName of Object.keys(topLevelAssets ?? {})) {
-    ordered.push(formatTimelineAssetPath(stage, assetName));
+    ordered.push(formatTimelineAddress(stage, assetName));
   }
   if (hasOverlay) ordered.push(formatTimelineOverlayAddress(stage));
   if ((timelineSoundtracks?.length ?? 0) > 0) {
-    ordered.push(formatTimelineAssetPath(stage, STEM_ASSET_NAME));
+    ordered.push(formatTimelineAddress(stage, STEM_ASSET_NAME));
   }
   for (const shot of shots) ordered.push(formatShotAddress(stage, shot.id));
   return ordered;
@@ -293,7 +292,7 @@ export function collectChangedReferenceAddresses(
 ): string[] {
   const ordered: string[] = [];
   const reviewed = record.context.timeline ?? {};
-  for (const assetPath of listReviewableAssetPaths(reference, "reference")) {
+  for (const assetPath of listReviewableAddresses(reference, "reference")) {
     const assetName = assetPath.slice("reference:".length);
     const addr = formatReferenceAddress(assetName);
     const variants = manager.tryGetAssetState(addr)?.variants;
@@ -314,7 +313,7 @@ export function collectChangedReferenceAddresses(
 }
 
 export function collectAllReferenceAddresses(reference: ReferenceDefinition): string[] {
-  return listReviewableAssetPaths(reference, "reference");
+  return listReviewableAddresses(reference, "reference");
 }
 
 // The direction is media-less — no variants to diff — so "changed since the review"

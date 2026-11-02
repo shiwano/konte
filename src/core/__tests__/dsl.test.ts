@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatAssetPath,
+  formatAddress,
   formatCompositionAddress,
-  formatTimelineAssetPath,
+  formatTimelineAddress,
   formatTimelineStemAddress,
 } from "../address.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
@@ -307,9 +307,9 @@ describe("composition refs", () => {
 
     expect(Object.keys(video.topLevelAssets ?? {})).toEqual(["stem"]);
     expect(Object.keys(video.shots[0]!.assets)).toEqual(["composition", "stem"]);
-    expect(formatAssetPath("video", "01", "composition")).toBe("video:shot.01.composition");
+    expect(formatAddress("video", "01", "composition")).toBe("video:shot.01.composition");
     expect(formatCompositionAddress("video", "01")).toBe("video:shot.01#composition");
-    expect(formatTimelineAssetPath("video", "stem")).toBe("video:timeline.stem");
+    expect(formatTimelineAddress("video", "stem")).toBe("video:timeline.stem");
     expect(formatTimelineStemAddress("video")).toBe("video:timeline#stem");
   });
 });

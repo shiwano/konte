@@ -7,12 +7,9 @@ import { formatStaleWaiverLine, type StaleWaiverLine } from "../core/checks.js";
 import { type Finding, formatFindingLine, groupByFixIn } from "../core/finding.js";
 
 import type { StatusReport } from "../core/status-report.js";
-import type {
-  DirectionAcceptanceStatus,
-  DirectionAcceptanceSummary,
-} from "../core/direction-acceptance.js";
+import type { DirectionAcceptanceSummary } from "../core/direction-acceptance.js";
 
-export type { DirectionAcceptanceStatus, DirectionAcceptanceSummary };
+export type { DirectionAcceptanceSummary };
 
 // The direction is the one project-wide, variant-less accept, and it gates every animatic/video
 // spend — so it heads the progress block, above the per-stage asset ratios it precedes.

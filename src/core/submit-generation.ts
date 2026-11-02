@@ -1,9 +1,9 @@
-import { hasSeedPlaceholder } from "../backends/prepare-inputs.js";
 import { ADAPTER_KEY_METADATA_KEY, adapterKeyFor } from "./adapter-key.js";
 import type { GenerationBackend, GenerationRequest } from "./backend.js";
 import { type JobManager, recordedSubmissionAttempt } from "./job-manager.js";
 import type { GenerationJob } from "./types/index.js";
 import { KonteError } from "./errors.js";
+import { hasSeedPlaceholder } from "./dsl/shot-context.js";
 
 // The single seam where a generation job is handed to its backend: submit, log, and
 // build the run-time metadata every submitted job carries. The caller holds a submit lease

@@ -9,7 +9,7 @@ import type { View } from "../../core/view.js";
 import type { DirectionSection } from "../../core/address.js";
 
 export { DIRECTION_SECTIONS, type DirectionSection } from "../../core/address.js";
-export type { DirectionSectionStatus, Framing, PanelRole, RoleFunction, ScriptLineView, View };
+export type { DirectionSectionStatus, PanelRole, RoleFunction, ScriptLineView };
 
 export type VariantStatus = "none" | "accepted";
 
@@ -648,8 +648,6 @@ export interface BriefReferenceInfo {
   avoid: string;
   sheets: string[];
 }
-
-export type DirectionPolicyField = "format" | "lang" | "fonts" | "song";
 
 // One machine-checked policy field — the canvas, the typesetting, the song — reviewed as its own
 // feedback part below the brief. Structured rather than pre-formatted so the UI owns the labels and

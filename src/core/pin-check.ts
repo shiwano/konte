@@ -15,7 +15,7 @@ import type { Finding, SourceFile } from "./finding.js";
 export type PinFindingCode = "pin-unanchored";
 
 // What a pinned address turns out to be, when it is not a frame.
-export type PinSubject = "sheet" | "plate";
+type PinSubject = "sheet" | "plate";
 
 // One `pin` input's wiring, as declared at one address. `source` is the address it was passed, never
 // what that resolves to.

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Hex } from "../../../core/content-hash.js";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import type { Command } from "commander";
@@ -145,10 +145,9 @@ async function renderNoteSheets(
   // which is `renderContactSheet`'s contract. Keying on the cells would strand a sheet still
   // showing a deleted frame, which no cleanup path could then find. The record's own file id, so
   // two spellings of one `<file>` argument do not each claim a set.
-  const cacheKey = createHash("sha256")
-    .update(JSON.stringify(["review-notes", toReviewFileId(record.createdAt), maxCells]))
-    .digest("hex")
-    .slice(0, 12);
+  const cacheKey = sha256Hex(
+    JSON.stringify(["review-notes", toReviewFileId(record.createdAt), maxCells]),
+  ).slice(0, 12);
 
   const targets = reviewNoteFrameTargets(record);
   const cells: ContactSheetCell[] = [];

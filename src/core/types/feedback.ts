@@ -20,7 +20,7 @@ export const FeedbackAnnotationSchema = z.discriminatedUnion("kind", [
 ]);
 export type FeedbackAnnotation = z.infer<typeof FeedbackAnnotationSchema>;
 
-export const FeedbackEntrySchema = z.object({
+const FeedbackEntrySchema = z.object({
   id: z.string(),
   // The variant composition the comment was written against: asset address ->
   // variantId shown at authoring time. Drives staleness — a comment goes stale

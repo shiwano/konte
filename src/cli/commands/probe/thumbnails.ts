@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import * as path from "node:path";
 import type { Command } from "commander";
 import { KonteError } from "../../../core/errors.js";
-import { ffprobeBin } from "../../../core/ffmpeg-binary.js";
+import { ensureFfprobe } from "../../../core/ffmpeg.js";
 import { inferMediaType } from "../../../core/media-type.js";
 import {
   ensureVariantThumbnails,
@@ -54,7 +54,7 @@ Examples:
       const targets = await openProbeTargets(variantOrScopes, { mediaKinds: ["video", "image"] });
       const { videoRoot, manager } = targets;
 
-      await ffprobeBin();
+      await ensureFfprobe();
 
       const { threshold, maxFrames, timestamps } = parseFrameCaptureOptions(opts);
 

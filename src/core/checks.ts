@@ -6,9 +6,9 @@ import {
   type AssetStage,
   type DefinitionLike,
   formatShotAddress,
-  getAssetEntryByAddress,
+  getAssetEntry,
   getStage,
-  listAssetPaths,
+  listAddresses,
   tryParseAddress,
 } from "./address.js";
 import { findAnimaticOverflows, formatAnimaticOverflow } from "./animatic-overflow.js";
@@ -121,8 +121,8 @@ function stageClassSubjects(
   definition: DefinitionLike,
   stage: AssetStage,
 ): { images: ClassSubject[]; compositions: ClassSubject[] } {
-  const images = listAssetPaths(definition, stage).flatMap((address) => {
-    const entry = getAssetEntryByAddress(definition, address);
+  const images = listAddresses(definition, stage).flatMap((address) => {
+    const entry = getAssetEntry(definition, address);
     return entry.kind === "local" && entry.operation === "render"
       ? [{ label: address, html: entry.inputs.stage as string }]
       : [];

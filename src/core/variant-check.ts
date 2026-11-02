@@ -2,7 +2,7 @@
 // what was measured when it landed. A variant with a finding holds its stage's review until it is
 // dismissed or vouched for (`konte vouch`); a reroll draws a take beside it and settles nothing.
 
-import { type AssetStage, listAssetPaths } from "./address.js";
+import { type AssetStage, listAddresses } from "./address.js";
 import type { StageDefinitions } from "./definition-hashes.js";
 import { linesOwedAt, variantMishearing } from "./speech-hearing.js";
 import type { StateManager } from "./state/index.js";
@@ -80,7 +80,7 @@ export function unvouchedFindings(opts: {
   const found: VariantFindings[] = [];
   const addresses = (opts.stage ? [opts.stage] : ASSET_STAGES).flatMap((stage) => {
     const def = opts.definitions[stage];
-    return def ? listAssetPaths(def, stage) : [];
+    return def ? listAddresses(def, stage) : [];
   });
   for (const address of addresses) {
     if (!state.assets[address]) continue;

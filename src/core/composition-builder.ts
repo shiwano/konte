@@ -473,7 +473,7 @@ export function compositionDrawsSomething(html: string): boolean {
 // the audio-only attributes (`data-has-audio`, `data-volume`) on the remaining picture elements;
 // keeps `data-media-start` (it seeks the frame a <video> shows). Operates on the well-formed HTML
 // our renderer emits; collapses whitespace so the result is a stable hash input.
-export function stripAudioFromHtml(html: string): string {
+function stripAudioFromHtml(html: string): string {
   return html
     .replace(/<audio\b[^>]*>[\s\S]*?<\/audio>/g, "")
     .replace(/<audio\b[^>]*\/>/g, "")

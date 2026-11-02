@@ -34,5 +34,3 @@ export const FalUploadTokenResponseSchema = z.object({
 export const FalUploadResponseSchema = z.object({
   access_url: z.string(),
 });
-
-export type ProgressCallback = (progress: { value: number; max: number }) => void;

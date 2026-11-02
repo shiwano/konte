@@ -1,6 +1,5 @@
 import {
   formatAddress,
-  formatAssetPath,
   formatCompositionAddress,
   formatTimelineAddress,
   formatTimelineOverlayAddress,
@@ -106,7 +105,7 @@ export function shotAcceptTargets(
         ? [{ address: formatCompositionAddress(stage, shot.shotId), what: "the composition" }]
         : []),
       ...shotStemAssetNames(stage)
-        .map((name) => formatAssetPath(stage, shot.shotId, name))
+        .map((name) => formatAddress(stage, shot.shotId, name))
         .filter((address) => stems.has(address))
         .map((address) => ({
           address,

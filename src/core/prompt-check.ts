@@ -15,7 +15,7 @@ import type { Finding, SourceFile } from "./finding.js";
  *   - prompt-double-negative: a negativePrompt names an exclusion negatively ("no watermark"),
  *     which cancels it.
  */
-export const PROMPT_FINDING_CODES = [
+const PROMPT_FINDING_CODES = [
   "prompt-negation",
   "prompt-not-yet",
   "prompt-double-negative",

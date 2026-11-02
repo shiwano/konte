@@ -211,7 +211,7 @@ export function songGateBlocking(
 // part rewritten since it was accepted and a part never read both block, and both land in the count.
 // `unaccepted` is the distinct case where nothing has been signed off at all, which reads differently
 // to a person: they have a review ahead of them, not a correction.
-export type DirectionAcceptanceStatus = "accepted" | "partial" | "unaccepted";
+type DirectionAcceptanceStatus = "accepted" | "partial" | "unaccepted";
 
 export type DirectionAcceptanceSummary = {
   status: DirectionAcceptanceStatus;

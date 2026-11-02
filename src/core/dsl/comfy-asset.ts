@@ -63,7 +63,7 @@ export type AdapterInputType =
  * discovery pass (a delivery upscale) and `format.duration` is set only inside a video shot, so
  * guard for both and return a static fallback.
  */
-export type AdapterInputDefault =
+type AdapterInputDefault =
   | string
   | number
   | boolean

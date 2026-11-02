@@ -37,7 +37,7 @@ export interface DefinitionLike {
   plates?: Record<string, AssetDefinition>;
   // Animatic stage only: the plate names it returned (see isUnexposedPlateAddress).
   exposedPlateIds?: string[];
-  // Reference stage only: the asset names its callback returned (see listExposedReferenceAssetPaths).
+  // Reference stage only: the asset names its callback returned (see listExposedReferenceAddresses).
   exposedAssetNames?: string[];
   // What the prompt and pin checks read off a stage entry, whichever one this is (see
   // prompt-check.ts, pin-check.ts).
@@ -108,7 +108,7 @@ export function isDirectionBriefListField(
 // is not aged out by an aspect-ratio change. Mirrors the members of `DirectionPolicy`
 // (dsl/direction); addressed as `direction:policy.<field>`, and the hash and preview builders index
 // them by these keys.
-export const DIRECTION_POLICY_FIELDS = ["format", "lang", "fonts", "song"] as const;
+const DIRECTION_POLICY_FIELDS = ["format", "lang", "fonts", "song"] as const;
 
 export type DirectionPolicyField = (typeof DIRECTION_POLICY_FIELDS)[number];
 
@@ -315,10 +315,6 @@ export function parseAddress(address: string): ParsedAddress {
   return suffix.kind === "plate" ? { stage: "animatic", ...suffix } : { stage, ...suffix };
 }
 
-// Address and asset path are the same string form; kept as a distinct name for call sites that
-// speak in "asset paths" (placeholders, graph, dependency resolution).
-export const parseAssetPath = parseAddress;
-
 // The stage a feedback target belongs to, read from its `<stage>:` prefix only. Unlike
 // `parseAddress`, it does not parse the suffix, so it also accepts bare feedback targets
 // (e.g. `video:shot.01`, whole-shot feedback), direction parts (`direction:sequence`) and a bare
@@ -478,7 +474,7 @@ export function parseShotScope(value: string): { stage: ShotStage; shotId: strin
 //   flat name   `reference:<name>`                       reference
 //   field path  `direction:brief.logline`, …             direction
 //
-// Without this split every formatter takes the full `Stage`, so `formatAssetPath("direction", …)`
+// Without this split every formatter takes the full `Stage`, so `formatAddress("direction", …)`
 // type-checks and returns `direction:shot.01.x` — a string `parseAddress` rejects. The types below
 // are what make "which stage can be spelled this way" a fact the compiler holds rather than a
 // convention each call site is trusted to remember.
@@ -513,22 +509,22 @@ export function parseStageScope(scope: string): StageScope {
   return { stage: m[1] as Stage };
 }
 
-export function formatAssetPath(stage: ShotStage, shotId: string, assetName: string): string {
+export function formatAddress(stage: ShotStage, shotId: string, assetName: string): string {
   return `${stage}:${joinAssetName(`shot.${shotId}`, assetName)}`;
 }
 
-export function formatTimelineAssetPath(stage: ShotStage, assetName: string): string {
+export function formatTimelineAddress(stage: ShotStage, assetName: string): string {
   return `${stage}:${joinAssetName("timeline", assetName)}`;
 }
 
 // A setup's plate. No stage parameter: only the animatic owns one.
-export function formatPlateAssetPath(setupId: string): string {
+export function formatPlateAddress(setupId: string): string {
   return `animatic:plate.${setupId}`;
 }
 
 // A step of the patch chain declared in `patches/<sourceVariantId>.ts`. The stage is the source
 // take's, so a patch step is cleaned, pruned and grouped alongside the stage it corrects.
-export function formatPatchAssetPath(
+export function formatPatchAddress(
   stage: AssetStage,
   sourceVariantId: string,
   assetName: string,
@@ -554,29 +550,24 @@ export function patchSourceVariantIdOf(address: string): string | null {
   return m ? m[1]! : null;
 }
 
-// Address and asset path are the same form, so `formatAddress` === `formatAssetPath`; kept as a
-// distinct name for call sites that speak in "addresses".
-export const formatAddress = formatAssetPath;
-export const formatTimelineAddress = formatTimelineAssetPath;
-
 export function formatCompositionAddress(stage: ShotStage, shotId: string): string {
-  return formatAssetPath(stage, shotId, COMPOSITION_ASSET_NAME);
+  return formatAddress(stage, shotId, COMPOSITION_ASSET_NAME);
 }
 
 export function formatShotStemAddress(stage: ShotStage, shotId: string): string {
-  return formatAssetPath(stage, shotId, STEM_ASSET_NAME);
+  return formatAddress(stage, shotId, STEM_ASSET_NAME);
 }
 
 export function formatNarrationStemAddress(shotId: string): string {
-  return formatAssetPath("animatic", shotId, NARRATION_STEM_ASSET_NAME);
+  return formatAddress("animatic", shotId, NARRATION_STEM_ASSET_NAME);
 }
 
 export function formatSongStemAddress(shotId: string): string {
-  return formatAssetPath("animatic", shotId, SONG_STEM_ASSET_NAME);
+  return formatAddress("animatic", shotId, SONG_STEM_ASSET_NAME);
 }
 
 export function formatTimelineStemAddress(stage: ShotStage): string {
-  return formatTimelineAssetPath(stage, STEM_ASSET_NAME);
+  return formatTimelineAddress(stage, STEM_ASSET_NAME);
 }
 
 // The bare shot-level address (`<stage>:shot.<id>`) — a feedback-only target with no asset name.
@@ -597,15 +588,13 @@ export function parseShotAddress(address: string): { stage: ShotStage; shotId: s
 }
 
 // A reference asset's path is a bare name under the `reference` stage; its address is the same form.
-export function formatReferenceAssetPath(assetName: string): string {
+export function formatReferenceAddress(assetName: string): string {
   return `reference:${assetName}`;
 }
 
-export const formatReferenceAddress = formatReferenceAssetPath;
-
 // A view image's address.
 export function formatViewAddress(locationId: string, view: ImagedView): string {
-  return formatReferenceAssetPath(viewAssetName(locationId, view));
+  return formatReferenceAddress(viewAssetName(locationId, view));
 }
 
 // The direction stage's reviewable parts — feedback attaches to one address per part, and a part is
@@ -684,7 +673,7 @@ export function assetNameOf(parsed: ParsedAddress): string {
 // `<name>`. The single source of truth for this three-way mapping: an exhaustive switch so a new
 // `kind` is a compile error, never a forgotten `timeline.` fallback. Excludes the `#delivery`
 // marker — callers append it where the display calls for it.
-export function formatAssetPathSuffix(parsed: ParsedAddress): string {
+export function formatAddressSuffix(parsed: ParsedAddress): string {
   switch (parsed.kind) {
     case "shot":
       return joinAssetName(`shot.${parsed.shotId}`, parsed.assetName);
@@ -697,7 +686,7 @@ export function formatAssetPathSuffix(parsed: ParsedAddress): string {
     case "patch":
       return `patch.${parsed.sourceVariantId}.${parsed.assetName}`;
     default:
-      return assertNever(parsed, "formatAssetPathSuffix");
+      return assertNever(parsed, "formatAddressSuffix");
   }
 }
 
@@ -813,8 +802,6 @@ export function isMaterializedLeafAddress(address: string): boolean {
   return isCompositionAddress(address) || isStemAddress(address) || isOverlayAddress(address);
 }
 
-export const isMaterializedLeafAssetPath = isMaterializedLeafAddress;
-
 interface StemShotLike {
   id: string;
   stemRefs?: readonly string[];
@@ -895,7 +882,7 @@ export function shownShotAssetNames(
   const names = Object.keys(shot.assets);
   if (!shot.shotFn || !shot.compositionRefs) return names;
   const placed = placedRefs(shots);
-  return names.filter((name) => placed.has(formatAssetPath(stage, shot.id, name)));
+  return names.filter((name) => placed.has(formatAddress(stage, shot.id, name)));
 }
 
 // The stem leaves a stage declares: each shot's stems (`listShotStems`), plus the timeline stem
@@ -920,7 +907,7 @@ interface CompositionShotLike {
 // Composition addresses for every developed shot of a stage — both composition stages build one per
 // shot, so this takes the stage along with the shots rather than assuming video.
 export function formatTimelineOverlayAddress(stage: ShotStage): string {
-  return formatTimelineAssetPath(stage, OVERLAY_ASSET_NAME);
+  return formatTimelineAddress(stage, OVERLAY_ASSET_NAME);
 }
 
 // The file an overlay's variant is rendered to.
@@ -967,55 +954,49 @@ export function validateAddress(address: string, definition: DefinitionLike): vo
   void getAssetEntry(definition, address);
 }
 
-export function listAssetPaths(definition: DefinitionLike, stage: AssetStage): string[] {
+export function listAddresses(definition: DefinitionLike, stage: AssetStage): string[] {
   const paths: string[] = [];
   // A reference asset lives in `topLevelAssets` with no shot axis, keyed by its bare name.
   if (stage === "reference") {
     for (const assetName of Object.keys(definition.topLevelAssets ?? {})) {
-      paths.push(formatReferenceAssetPath(assetName));
+      paths.push(formatReferenceAddress(assetName));
     }
     return paths;
   }
   if (definition.topLevelAssets) {
     for (const assetName of Object.keys(definition.topLevelAssets)) {
-      paths.push(formatTimelineAssetPath(stage, assetName));
+      paths.push(formatTimelineAddress(stage, assetName));
     }
   }
   if (stage === "animatic") {
     for (const setupId of Object.keys(definition.plates ?? {})) {
-      paths.push(formatPlateAssetPath(setupId));
+      paths.push(formatPlateAddress(setupId));
     }
   }
   for (const s of definition.shots) {
     for (const assetName of Object.keys(s.assets)) {
-      paths.push(formatAssetPath(stage, s.id, assetName));
+      paths.push(formatAddress(stage, s.id, assetName));
     }
   }
   return paths;
 }
 
-// Address and asset path are the same form, so listing addresses for a stage is listing its asset
-// paths; kept as a distinct name for call sites that speak in "addresses".
-export const listAddresses = listAssetPaths;
-
 // A reference definition's assets, as asset paths / addresses (the same form).
-export function listReferenceAssetPaths(definition: DefinitionLike): string[] {
-  return listAssetPaths(definition, "reference");
+export function listReferenceAddresses(definition: DefinitionLike): string[] {
+  return listAddresses(definition, "reference");
 }
-
-export const listReferenceAddresses = listReferenceAssetPaths;
 
 // The reference assets the stage published — the ones its callback returned (`exposedAssetNames`).
 // A declared-but-unreturned asset is an intermediate another reference asset consumes: generated and
 // tracked like any other, but never review work — it is read through the asset that consumes it, the
 // way a patch chain's earlier step is, and no accept is ever owed on it. The review surfaces and the
 // accept accounting list this; `doctor`/`generate` keep listing them all.
-export function listExposedReferenceAssetPaths(definition: DefinitionLike): string[] {
+export function listExposedReferenceAddresses(definition: DefinitionLike): string[] {
   const exposed = definition.exposedAssetNames;
   // Only a definition that never went through `defineReference` lacks the field; it published all.
-  if (!exposed) return listReferenceAssetPaths(definition);
-  const names = new Set(exposed.map(formatReferenceAssetPath));
-  return listReferenceAssetPaths(definition).filter((p) => names.has(p));
+  if (!exposed) return listReferenceAddresses(definition);
+  const names = new Set(exposed.map(formatReferenceAddress));
+  return listReferenceAddresses(definition).filter((p) => names.has(p));
 }
 
 // A plate the `plates` callback declared without returning it under a setup id: an intermediate the
@@ -1039,14 +1020,14 @@ export function isPlateAddress(address: string): boolean {
 
 // The assets a review shows: every one but an intermediate read through what consumes it and a
 // plate.
-export function listReviewableAssetPaths(definition: DefinitionLike, stage: AssetStage): string[] {
+export function listReviewableAddresses(definition: DefinitionLike, stage: AssetStage): string[] {
   return stage === "reference"
-    ? listExposedReferenceAssetPaths(definition)
-    : listAssetPaths(definition, stage).filter((p) => !isPlateAddress(p));
+    ? listExposedReferenceAddresses(definition)
+    : listAddresses(definition, stage).filter((p) => !isPlateAddress(p));
 }
 
 export function getAssetEntry(definition: DefinitionLike, assetPath: string): AssetDefinition {
-  const parsed = parseAssetPath(assetPath);
+  const parsed = parseAddress(assetPath);
 
   if (parsed.kind === "plate") {
     const plate = definition.plates?.[parsed.assetName];
@@ -1094,6 +1075,3 @@ export function getAssetEntry(definition: DefinitionLike, assetPath: string): As
 
   return shotAsset;
 }
-
-// An address is already the asset-path form, so looking up by address is the same lookup.
-export const getAssetEntryByAddress = getAssetEntry;

@@ -1,4 +1,4 @@
-import * as crypto from "node:crypto";
+import { randomBytes } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { withFileLock } from "../core/file-lock.js";
@@ -25,7 +25,7 @@ export class McpLog {
   private queue: Promise<void> = Promise.resolve();
 
   constructor(workspaceRoot: string, options: { maxBytes?: number; instanceId?: string } = {}) {
-    this.instanceId = options.instanceId ?? crypto.randomBytes(3).toString("hex");
+    this.instanceId = options.instanceId ?? randomBytes(3).toString("hex");
     this.logPath = mcpLogPath(workspaceRoot);
     this.maxBytes = options.maxBytes ?? MAX_LOG_BYTES;
     this.prefix = `${this.instanceId} pid=${process.pid}`;
