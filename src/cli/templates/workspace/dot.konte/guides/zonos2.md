@@ -19,6 +19,7 @@ She read the last line twice, then closed the book. It was already too late.
 - Inferred from the `script`; there is no language input.
 - English, Mandarin and Japanese are the model's strongest tier; Korean, Russian, Italian, Portuguese, French and Spanish the next.
 - Mixed scripts in one line read unevenly — split them.
+- A wrong accent or intonation moves with the seed — reroll before respelling.
 
 ## The Reference Clip
 

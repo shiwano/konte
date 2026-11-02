@@ -13,10 +13,10 @@ How a Japanese line must be written down so the model reads it aloud correctly �
 
 ## A word whose reading won't settle
 
-- Respell a wrong reading, never a wrong accent — kana does not move the accent or intonation. Reroll first; past that, the adapter's guide names what moves it.
+- Respell a wrong reading. Reroll a wrong accent where the adapter's guide says the seed moves it, else respell it.
 - A low-frequency word has no stable reading — an archaic or technical term (`和同開珎`), an irregular name (`日下部`, `十六夜`). Respell it before generating.
 - Suspect the same class of word before generating — counters and dates (`一日` ついたち/いちにち, `三本`, `一人`), words with two live readings (`人気`, `方`), personal and place names, and any numeral next to a unit.
-- Respell in katakana — `和同開珎` → `ワドウカイチン`, the whole word, no spaces. Katakana keeps the word boundary.
+- Respell in katakana first — `和同開珎` → `ワドウカイチン`, the whole word, no spaces. Katakana keeps the word boundary. Still wrong → hiragana, or a homophone in other kanji.
 - Never gloss a reading in parentheses — `祇園精舎（ギオンショウジャ）` is spoken twice over. Annotate a reading only in a syntax the adapter's guide gives for it.
 - Respell at the take: `respell(script.<who>[n], "…")` — returns the spelling and files it as standing for that line; the voiced check takes either form, and `direction.ts` keeps the notation the subtitle and review show. Two takes of one line may spell it differently.
 

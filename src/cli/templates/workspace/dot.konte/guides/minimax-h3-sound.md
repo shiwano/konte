@@ -24,6 +24,7 @@ What the decoded track reads from the prompt.
 ## Japanese Lines
 
 - Keep figures in digits — a date, a time or an address in kana comes back garbled. Hold the ordinary orthography and write the numbers as digits: `2026年8月27日`, `午後3時15分`, `神南1丁目19番8号`.
+- A wrong accent or intonation is not moved by the seed — only a respelling moves it.
 
 ## Reference Audio
 
