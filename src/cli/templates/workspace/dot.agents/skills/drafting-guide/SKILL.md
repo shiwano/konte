@@ -8,7 +8,7 @@ Translate what a human wants to make into the direction every stage builds on �
 
 ## 1. Settle which piece
 
-- New piece → a new video, even when the workspace holds videos — never author one into an existing video's files; created at step 7. Ask when it isn't explicit.
+- New piece → a new video, even when the workspace holds videos — never author one into an existing video's files; created at step 7, a source's at step 2. Ask when it isn't explicit.
 - Deriving from a sibling video → still a new video; a copied `direction.ts` is a draft — re-author it against `direction-guide` before editing it.
 - Revising an existing video → `konte status` (shot IDs, what's accepted), then step 7; steps 2–6 shape a new piece only.
 
@@ -18,7 +18,7 @@ Ask which of four inputs they have:
 
 - Concept — a script/shot list (honor it; map onto konte's shape with minimal restructuring) or a vague idea (then you propose).
 - Material — their own media to put _in_ the video (footage, character/product/logo image, BGM/SE). Separate "already have" from "to generate"; `layout-guide` wires the files in.
-- Source — the story itself comes from an existing work (a novel, a comic, a play or film script, a film to remake); it stands in for the concept. A script written for this video is a concept, a clip shown as "make it like this" a reference. → `scenario-guide`'s adaptation.md.
+- Source — the story itself comes from an existing work (a novel, a comic, a play or film script, a film to remake); it stands in for the concept. A script written for this video is a concept, a clip shown as "make it like this" a reference. → `konte video new <name> --template blank`, then `scenario-guide`'s adaptation.md.
 - Reference — a link/video/image shown as "make it like this" → direction, not material to include. Pin down _what_ to emulate (form, tone, pacing, palette, framing, motion, subtitles); read what you can (a video or a link: `konte study clip <file|url>`), ask the rest.
 
 ## 3. Hear what they picture — before any pitch
@@ -49,7 +49,7 @@ Your picks go into the treatment (step 6). Ask nothing here.
 
 ## 6. Agree the treatment — the gate before any file
 
-Nothing is written to disk until the human has said yes to the treatment, in so many words. "Make a video about X" authorized the conversation, not the file.
+Nothing is written to disk until the human has said yes to the treatment, in so many words — bar a source's video and its import (step 2). "Make a video about X" authorized the conversation, not the file.
 
 - Develop the pick, or the brought script, into a treatment — tone, look, rough runtime (propose defaults, marked as yours; a source's is the human's pick), the recurring characters, props and places, and the frames the shots will share. Ask only for forks you can't guess past — live-action vs anime, aspect ratio, length. Never pitch a shot-by-shot cut in chat — it is authored in `direction.ts` and reviewed in the direction preview.
 - A source adds the adaptation map — scenes kept, cut, merged; how each interior shows; lines changed beyond translation; looks and style filled in — the translation policy, and "how I read it" (adaptation.md).
@@ -59,7 +59,7 @@ Nothing is written to disk until the human has said yes to the treatment, in so 
 ## 7. Author the direction
 
 - Read `direction-guide` first — and `scenario-guide`, entering here on a revision.
-- New piece → `konte video new <name> --template blank`, then copy the material already in hand to its `assets/files/`, a studied clip to `studies/` (`brief.references`).
+- New piece → `konte video new <name> --template blank` (a source's exists since step 2), then copy the material already in hand to its `assets/files/`, a studied clip to `studies/` (`brief.references`).
 - A piece derived from an existing one → `konte video copy <src> <dest> --through <stage>` — `--through direction` to revise the direction.
 - Cut to a song → [song-first.md](references/song-first.md) before writing any shot — the song is made and accepted first.
 - Write `direction.ts` — the `brief` is step 6's treatment (its hook is `hook`, step 3's refused direction is `outOfScope`); add rosters, `policy` and `sequence: { lens, pleasure, shots }`; clear `konte status`'s direction findings (fix or waive).
