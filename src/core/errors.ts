@@ -127,6 +127,8 @@ export type KonteErrorCode =
   // `konte accept --off` was pointed at a direction part carrying no sign-off to clear. The variant
   // path's VARIANT_NOT_ACCEPTED, for the stage that has no variants.
   | "DIRECTION_PART_NOT_ACCEPTED"
+  // A direction review's accept of a direction that changed since its page loaded it.
+  | "DIRECTION_CHANGED"
   // `konte accept` named the flow of a direction with no shots yet.
   | "DIRECTION_SHOTS_UNWRITTEN"
   // A developed animatic shot whose composition declares no `<Panel>`. A board shot IS its
@@ -242,6 +244,14 @@ export type KonteErrorCode =
   // The managed Beat This! model could not be provisioned.
   | "BEAT_THIS_SETUP_FAILED"
   | "TUNNEL_FAILED"
+  // A page server's refusal of a request, or its failure to serve one.
+  | "INVALID_REQUEST"
+  | "NOT_FOUND"
+  | "FORBIDDEN"
+  | "PIN_REQUIRED"
+  | "WS_UPGRADE_FAILED"
+  | "PAGE_SHUTTING_DOWN"
+  | "INTERNAL_ERROR"
   // `konte study clip` was handed a file running past the 30 minutes it reads.
   | "CLIP_TOO_LONG"
   // `konte study clip` was handed a file that is missing or holds no picture ffprobe can read.
@@ -257,6 +267,12 @@ export type KonteErrorCode =
   | "INVALID_TEMPLATE"
   | "TEMPLATE_REQUIRED"
   | "TEMPLATE_SYNC_FAILED";
+
+/** The body of a page server's non-2xx JSON answer. */
+export interface ErrorResponseBody {
+  error: string;
+  code: KonteErrorCode;
+}
 
 export class KonteError extends Error {
   readonly code: KonteErrorCode;

@@ -1,4 +1,5 @@
 import type React from "react";
+import { type LiveFeedbackFilter, liveFeedback } from "../review/live-feedback.js";
 import type { FeedbackInfo } from "../types.js";
 import { PinMarker } from "./pin-marker.js";
 
@@ -18,8 +19,7 @@ export function PinLayer({
   pins,
   pendingPins,
   pendingPin,
-  hideStale,
-  deletedFeedbackIds,
+  filter,
   pinIndexById,
   highlightedId,
   onPinClick,
@@ -27,14 +27,13 @@ export function PinLayer({
   pins: FeedbackInfo[];
   pendingPins: PendingPinNote[];
   pendingPin: { x: number; y: number } | null;
-  hideStale: boolean;
-  deletedFeedbackIds: Set<string>;
+  filter: LiveFeedbackFilter;
   // Number shown on each pin's marker — matches the comment list (see buildPinIndex).
   pinIndexById?: Map<string, number>;
   highlightedId?: string | null;
   onPinClick: (feedbackId: string) => void;
 }): React.ReactElement {
-  const visiblePins = pins.filter((p) => !deletedFeedbackIds.has(p.id) && (!hideStale || !p.stale));
+  const visiblePins = liveFeedback(pins, filter);
   return (
     <>
       {visiblePins.map((pin) =>

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { ReviewSession } from "./use-review-session.js";
+import type { CommentThreadBinding, ReviewSession } from "./use-review-session.js";
 
 /**
  * A pin being placed on one target's frame, awaiting its note text. Keyed by address so the
@@ -7,7 +7,7 @@ import type { ReviewSession } from "./use-review-session.js";
  * the detail modal alike. The note that lands next on that address takes the pin as its
  * annotation.
  */
-export function usePendingPin(session: Pick<ReviewSession, "addPending">) {
+export function usePendingPin(session: Pick<ReviewSession, "addPending" | "threadFor">) {
   const [pendingPin, setPendingPin] = useState<{ address: string; x: number; y: number } | null>(
     null,
   );
@@ -18,7 +18,7 @@ export function usePendingPin(session: Pick<ReviewSession, "addPending">) {
 
   const cancelPin = useCallback(() => setPendingPin(null), []);
 
-  const { addPending: addPendingNote } = session;
+  const { addPending: addPendingNote, threadFor: sessionThreadFor } = session;
   const addPending = useCallback(
     (address: string, text: string) => {
       const annotation =
@@ -38,5 +38,14 @@ export function usePendingPin(session: Pick<ReviewSession, "addPending">) {
     [pendingPin],
   );
 
-  return { pendingPin, placePin, cancelPin, addPending, pinFor };
+  // The session's thread for an address, its next note taking the pin placed on that frame.
+  const threadFor = useCallback(
+    (address: string): CommentThreadBinding => ({
+      ...sessionThreadFor(address),
+      addPending: (text) => addPending(address, text),
+    }),
+    [sessionThreadFor, addPending],
+  );
+
+  return { pendingPin, placePin, cancelPin, addPending, pinFor, threadFor };
 }

@@ -9,6 +9,7 @@ import { shotGalleryTabs, soundtrackGalleryTabs } from "../review/gallery-tabs.j
 import { isNewVariant } from "../review/new-variant.js";
 import { reelAcceptUnits, type ReelUnit } from "../review/shot-acceptable.js";
 import { shotAcceptable } from "../../../core/shot-acceptable.js";
+import { liveFeedback } from "../review/live-feedback.js";
 import { commentedAddresses } from "../review/undecided.js";
 import { useEffectiveVariants } from "../review/use-effective-variants.js";
 import { useFillLayout } from "../review/use-fill-layout.js";
@@ -20,15 +21,15 @@ import {
   keepDecisions,
   keepPrompt,
   keepPromptFor,
-  regenerateByUnit,
+  keepContext,
   regenerateDecisions,
+  regenerateMarks,
   regenerateSummary,
-  variantNames,
-  unitLabel,
   withoutUnits,
   type KeepChoice,
   type KeepContext,
   type KeepOrigin,
+  type RegenerateMark,
 } from "../review/keep-or-regenerate.js";
 import { useKeepChoices } from "../review/use-keep-choices.js";
 import type {
@@ -64,7 +65,6 @@ import { TheaterScrubber } from "./theater-scrubber.js";
 import { AssetInfoPanel, type InfoVariant, variantInfo } from "./asset-info-panel.js";
 import { type GalleryTab, VariantGallery } from "./variant-gallery.js";
 import { KeepOrRegenerateModal } from "./keep-or-regenerate-modal.js";
-import type { RegenerateMark } from "./regenerate-badge.js";
 
 // Keyboard shortcuts, surfaced on demand from the header's "?" button.
 const SHORTCUTS: ShortcutRows = [
@@ -833,19 +833,18 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     (
       markOf: (shotId: string) => "accepted" | "none" | undefined,
       choices: readonly KeepChoice[],
-    ): KeepContext => ({
-      graph: keepGraph,
-      variantAccepted: (address) => {
-        const shotId = shotOfAddress.get(address);
-        const mark = shotId === undefined ? undefined : markOf(shotId);
-        return mark ? mark === "accepted" : keepGraph.addresses[address]?.acceptedVariantId != null;
-      },
-      variantOf: (address) =>
-        resolvedByAddress.has(address)
-          ? (effectiveVariants[address] ?? resolvedByAddress.get(address) ?? null)
-          : (keepGraph.addresses[address]?.acceptedVariantId ?? null),
-      choices,
-    }),
+    ): KeepContext =>
+      keepContext(keepGraph, choices, {
+        accepted: (address) => {
+          const shotId = shotOfAddress.get(address);
+          const mark = shotId === undefined ? undefined : markOf(shotId);
+          return mark === undefined ? undefined : mark === "accepted";
+        },
+        shown: (address) =>
+          resolvedByAddress.has(address)
+            ? (effectiveVariants[address] ?? resolvedByAddress.get(address) ?? null)
+            : undefined,
+      }),
     [keepGraph, shotOfAddress, resolvedByAddress, effectiveVariants],
   );
 
@@ -1021,29 +1020,19 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     requestKeep,
   ]);
 
-  const regenerateUnits = useMemo(() => regenerateByUnit(keepChoices), [keepChoices]);
+  const regenerateUnits = useMemo(
+    () => regenerateMarks(keepGraph, keepChoices, reelStage, (unit) => shotOfUnit.get(unit)),
+    [keepGraph, keepChoices, reelStage, shotOfUnit],
+  );
   const regenerateByShot = useMemo<Record<string, RegenerateMark>>(
     () =>
       Object.fromEntries(
         state.shots.flatMap((s) => {
           const mark = regenerateUnits.get(shotFeedbackAddress(s.shotId));
-          if (!mark) return [];
-          const row = mark.follows === null ? null : shotOfUnit.get(mark.follows);
-          return [
-            [
-              s.shotId,
-              {
-                origin: unitLabel(keepGraph, mark.origin, reelStage),
-                follows: row
-                  ? { id: row, label: unitLabel(keepGraph, mark.follows!, reelStage) }
-                  : null,
-                variants: variantNames(shotFeedbackAddress(s.shotId), mark.variants),
-              },
-            ],
-          ];
+          return mark ? [[s.shotId, mark]] : [];
         }),
       ),
-    [state.shots, regenerateUnits, shotFeedbackAddress, shotOfUnit, keepGraph, reelStage],
+    [state.shots, regenerateUnits, shotFeedbackAddress],
   );
   const keepShotAfterAll = useCallback(
     (shotId: string) => keepUnitAfterAll(shotFeedbackAddress(shotId)),
@@ -1182,9 +1171,10 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
       shotId?: string,
     ) => {
       const target: DisplayComment[] = [];
-      for (const f of saved) {
-        if (session.deletedFeedbackIds.has(f.id)) continue;
-        if (session.hideStale && f.stale) continue;
+      for (const f of liveFeedback(saved, {
+        deletedFeedbackIds: session.deletedFeedbackIds,
+        hideStale: session.hideStale,
+      })) {
         target.push({
           id: f.id,
           address: f.address,

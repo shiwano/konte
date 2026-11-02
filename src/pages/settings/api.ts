@@ -1,39 +1,20 @@
 import type { KonteConfig } from "../../core/types/config.js";
 import type { CredentialsPatch } from "../../core/types/credentials.js";
+import { jsonBody, requestJson } from "../shared/http.js";
 import type { CredentialsResponse } from "./types.js";
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, options);
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error ?? `Request failed: ${res.status}`);
-  return body as T;
-}
-
-function put(body: unknown): RequestInit {
-  return {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  };
-}
-
 export function fetchConfig(): Promise<KonteConfig> {
-  return request<KonteConfig>("/api/config");
+  return requestJson<KonteConfig>("/api/config");
 }
 
 export function saveConfig(config: KonteConfig): Promise<KonteConfig> {
-  return request<KonteConfig>("/api/config", put(config));
+  return requestJson<KonteConfig>("/api/config", jsonBody("PUT", config));
 }
 
 export function fetchCredentials(): Promise<CredentialsResponse> {
-  return request<CredentialsResponse>("/api/credentials");
+  return requestJson<CredentialsResponse>("/api/credentials");
 }
 
 export function saveCredentials(patch: CredentialsPatch): Promise<CredentialsResponse> {
-  return request<CredentialsResponse>("/api/credentials", put(patch));
-}
-
-export async function closeSettings(): Promise<void> {
-  const res = await fetch("/api/close", { method: "POST" });
-  if (!res.ok) throw new Error(`Could not close settings: ${res.status}`);
+  return requestJson<CredentialsResponse>("/api/credentials", jsonBody("PUT", patch));
 }

@@ -1,4 +1,5 @@
 import type { FeedbackInfo } from "../types.js";
+import { liveFeedback } from "./live-feedback.js";
 import type { ReviewSession } from "./use-review-session.js";
 
 /**
@@ -20,8 +21,10 @@ export function commentedAddresses(
   session: Pick<ReviewSession, "pendingFeedback" | "deletedFeedbackIds">,
 ): Set<string> {
   const out = new Set<string>();
-  for (const f of saved) {
-    if (f.stale || session.deletedFeedbackIds.has(f.id)) continue;
+  for (const f of liveFeedback(saved, {
+    deletedFeedbackIds: session.deletedFeedbackIds,
+    hideStale: true,
+  })) {
     out.add(f.address);
   }
   for (const [address, drafts] of Object.entries(session.pendingFeedback)) {

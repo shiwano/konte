@@ -15,21 +15,25 @@ import { commentedAddresses } from "../review/undecided.js";
 import { useEffectiveVariants } from "../review/use-effective-variants.js";
 import { useHighlightedFeedback } from "../review/use-highlighted-feedback.js";
 import { usePendingPin } from "../review/use-pending-pin.js";
-import { type SubmitInput, useReviewSession } from "../review/use-review-session.js";
+import {
+  type CommentThreadBinding,
+  type SubmitInput,
+  useReviewSession,
+} from "../review/use-review-session.js";
 import { useReviewShortcuts } from "../review/use-review-shortcuts.js";
 import {
   EMPTY_KEEP_GRAPH,
   keepDecisions,
   keepPrompt,
   keepPromptFor,
-  regenerateByUnit,
+  keepContext,
   regenerateDecisions,
+  regenerateMarks,
   regenerateSummary,
-  variantNames,
-  unitLabel,
   withoutUnits,
   type KeepChoice,
   type KeepContext,
+  type RegenerateMark,
 } from "../review/keep-or-regenerate.js";
 import { useKeepChoices } from "../review/use-keep-choices.js";
 import type {
@@ -44,12 +48,7 @@ import type {
 import { AcceptButton } from "./accept-button.js";
 import { CheckIcon, GridIcon, VolumeIcon } from "./icons.js";
 import { SongLineEditsContext, SongSummary, SongTrack, unplacedLineCount } from "./song-track.js";
-import {
-  buildPinIndex,
-  CommentThread,
-  type PendingFeedbackItem,
-  RosterCard,
-} from "./comment-thread.js";
+import { buildPinIndex, CommentThread, RosterCard } from "./comment-thread.js";
 import { FrameOverlay } from "./frame-overlay.js";
 import { Modal } from "./modal.js";
 import { PinLayer } from "./pin-layer.js";
@@ -58,7 +57,7 @@ import { StatusBadge } from "./status-badge.js";
 import { AssetInfoPanel, type InfoVariant, variantInfo } from "./asset-info-panel.js";
 import { VariantGallery } from "./variant-gallery.js";
 import { KeepOrRegenerateModal } from "./keep-or-regenerate-modal.js";
-import { RegenerateBadge, type RegenerateMark } from "./regenerate-badge.js";
+import { RegenerateBadge } from "./regenerate-badge.js";
 
 const SHORTCUTS: ShortcutRows = [
   [["J", "K"], "Previous / next asset"],
@@ -188,22 +187,17 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
     (
       overrides: Record<string, { variantId: string; status: VariantStatus }>,
       choices: readonly KeepChoice[],
-    ): KeepContext => ({
-      graph: keepGraph,
-      variantAccepted: (address) => {
-        const mark = overrides[address];
-        return mark
-          ? mark.status === "accepted"
-          : keepGraph.addresses[address]?.acceptedVariantId != null;
-      },
-      variantOf: (address) => {
-        const asset = state.assets.find((a) => a.address === address);
-        return asset
-          ? (effectiveVariants[address] ?? asset.variantId)
-          : (keepGraph.addresses[address]?.acceptedVariantId ?? null);
-      },
-      choices,
-    }),
+    ): KeepContext =>
+      keepContext(keepGraph, choices, {
+        accepted: (address) => {
+          const mark = overrides[address];
+          return mark ? mark.status === "accepted" : undefined;
+        },
+        shown: (address) => {
+          const asset = state.assets.find((a) => a.address === address);
+          return asset ? (effectiveVariants[address] ?? asset.variantId) : undefined;
+        },
+      }),
     [keepGraph, state.assets, effectiveVariants],
   );
 
@@ -240,20 +234,10 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
     ],
   );
 
-  const regenerateMarks = useMemo(() => {
-    const out = new Map<string, RegenerateMark>();
-    for (const [unit, mark] of regenerateByUnit(keepChoices)) {
-      out.set(unit, {
-        origin: unitLabel(keepGraph, mark.origin, "reference"),
-        follows:
-          mark.follows === null
-            ? null
-            : { id: mark.follows, label: unitLabel(keepGraph, mark.follows, "reference") },
-        variants: variantNames(unit, mark.variants),
-      });
-    }
-    return out;
-  }, [keepChoices, keepGraph]);
+  const regenerateByAddress = useMemo(
+    () => regenerateMarks(keepGraph, keepChoices, "reference"),
+    [keepChoices, keepGraph],
+  );
 
   // The one answer behind every review affordance here — the unreviewed count, the N jump and
   // Accept all's label. See bulk-accept.ts.
@@ -500,14 +484,11 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
                           effectiveStatus={effectiveStatus}
                           focused={focusedAddress === asset.address}
                           hasOverride={asset.address in statusOverrides}
-                          regenerate={regenerateMarks.get(asset.address)}
+                          regenerate={regenerateByAddress.get(asset.address)}
                           onKeepAfterAll={() => keepUnitAfterAll(asset.address)}
                           onJumpToUnit={scrollToAsset}
-                          pendingFeedback={session.pendingFeedback[asset.address] ?? []}
+                          thread={pin.threadFor(asset.address)}
                           pendingPin={pin.pinFor(asset.address)}
-                          hideStale={session.hideStale}
-                          deletedFeedbackIds={session.deletedFeedbackIds}
-                          editedTextById={session.editedTextById}
                           highlightedFeedbackId={highlightedFeedbackId}
                           onFocus={() => setFocusIdx(orderedAssets.indexOf(asset))}
                           onHighlightPin={setHighlightedFeedbackId}
@@ -524,13 +505,6 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
                           onOpenDetail={() => setDetail({ address: asset.address })}
                           acceptBlocked={acceptBlockedOf(asset, selectedVariantId)}
                           onAccept={(variantId) => handleAcceptRow(asset, variantId)}
-                          onAddPending={(text) => pin.addPending(asset.address, text)}
-                          onRemovePending={(id) => session.removePending(asset.address, id)}
-                          onEditPending={(id, text) => session.editPending(asset.address, id, text)}
-                          onEditExisting={(id, text) =>
-                            session.editExisting(id, asset.address, text)
-                          }
-                          onDeleteExisting={(id) => session.deleteExisting(id, asset.address)}
                           onPinPlace={(x, y) => pin.placePin(asset.address, x, y)}
                           onCancelPin={pin.cancelPin}
                         />
@@ -573,22 +547,14 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
                     selectedVariantId,
                     effectiveStatus,
                   )}
-                  pendingFeedback={session.pendingFeedback[detailAsset.address] ?? []}
+                  thread={pin.threadFor(detailAsset.address)}
                   pendingPin={pin.pinFor(detailAsset.address)}
-                  hideStale={session.hideStale}
-                  deletedFeedbackIds={session.deletedFeedbackIds}
-                  editedTextById={session.editedTextById}
                   highlightedFeedbackId={highlightedFeedbackId}
                   onHighlightPin={setHighlightedFeedbackId}
                   onClose={() => setDetail(null)}
                   onOpenGallery={() => session.setGallery({ address: detailAsset.address })}
                   acceptBlocked={acceptBlockedOf(detailAsset, selectedVariantId)}
                   onAccept={(variantId) => handleAcceptRow(detailAsset, variantId)}
-                  onAddPending={(text) => pin.addPending(detailAsset.address, text)}
-                  onRemovePending={(id) => session.removePending(detailAsset.address, id)}
-                  onEditPending={(id, text) => session.editPending(detailAsset.address, id, text)}
-                  onEditExisting={(id, text) => session.editExisting(id, detailAsset.address, text)}
-                  onDeleteExisting={(id) => session.deleteExisting(id, detailAsset.address)}
                   onPinPlace={(x, y) => pin.placePin(detailAsset.address, x, y)}
                   onCancelPin={pin.cancelPin}
                 />
@@ -630,10 +596,8 @@ function ReferenceImageMedia({
   asset,
   imageUrl,
   pins,
-  pendingPins,
+  thread,
   pendingPin,
-  hideStale,
-  deletedFeedbackIds,
   pinIndexById,
   highlightedId,
   large,
@@ -644,10 +608,8 @@ function ReferenceImageMedia({
   asset: ReferenceAssetInfo;
   imageUrl: string | null;
   pins: FeedbackInfo[];
-  pendingPins: PendingFeedbackItem[];
+  thread: CommentThreadBinding;
   pendingPin: { x: number; y: number } | null;
-  hideStale: boolean;
-  deletedFeedbackIds: Set<string>;
   pinIndexById?: Map<string, number>;
   highlightedId?: string | null;
   large?: boolean;
@@ -682,10 +644,9 @@ function ReferenceImageMedia({
       )}
       <PinLayer
         pins={pins}
-        pendingPins={pendingPins}
+        pendingPins={thread.pendingFeedback}
         pendingPin={pendingPin}
-        hideStale={hideStale}
-        deletedFeedbackIds={deletedFeedbackIds}
+        filter={thread}
         pinIndexById={pinIndexById}
         highlightedId={highlightedId}
         onPinClick={onPinClick}
@@ -769,10 +730,7 @@ function ReferenceRow({
   regenerate,
   onKeepAfterAll,
   onJumpToUnit,
-  pendingFeedback,
-  hideStale,
-  deletedFeedbackIds,
-  editedTextById,
+  thread,
   highlightedFeedbackId,
   onFocus,
   onHighlightPin,
@@ -782,11 +740,6 @@ function ReferenceRow({
   acceptBlocked,
   onAccept,
   pendingPin,
-  onAddPending,
-  onRemovePending,
-  onEditPending,
-  onEditExisting,
-  onDeleteExisting,
   onPinPlace,
   onCancelPin,
 }: {
@@ -799,11 +752,8 @@ function ReferenceRow({
   regenerate?: RegenerateMark;
   onKeepAfterAll: () => void;
   onJumpToUnit: (address: string) => void;
-  pendingFeedback: PendingFeedbackItem[];
+  thread: CommentThreadBinding;
   pendingPin: { x: number; y: number } | null;
-  hideStale: boolean;
-  deletedFeedbackIds: Set<string>;
-  editedTextById: Map<string, string>;
   highlightedFeedbackId: string | null;
   onFocus: () => void;
   onHighlightPin: (id: string) => void;
@@ -813,11 +763,6 @@ function ReferenceRow({
   // Why the shown take cannot be accepted, or null.
   acceptBlocked: string | null;
   onAccept: (variantId: string) => void;
-  onAddPending: (text: string) => void;
-  onRemovePending: (id: string) => void;
-  onEditPending: (id: string, text: string) => void;
-  onEditExisting: (id: string, text: string) => void;
-  onDeleteExisting: (id: string) => void;
   onPinPlace: (x: number, y: number) => void;
   onCancelPin: () => void;
 }): React.ReactElement {
@@ -837,10 +782,7 @@ function ReferenceRow({
   // Changed so the reviewer knows the pending state awaits a re-accept.
   const undecidedBesideAccepted = asset.variants.some((v) => v.undecidedBesideAccepted);
 
-  const pinIndexById = buildPinIndex(asset.feedback, pendingFeedback, {
-    hideStale,
-    deletedFeedbackIds,
-  });
+  const pinIndexById = buildPinIndex(asset.feedback, thread.pendingFeedback, thread);
 
   const overlay = (
     <FrameOverlay
@@ -864,10 +806,8 @@ function ReferenceRow({
             asset={asset}
             imageUrl={shown.imageUrl}
             pins={asset.feedback}
-            pendingPins={pendingFeedback}
+            thread={thread}
             pendingPin={pendingPin}
-            hideStale={hideStale}
-            deletedFeedbackIds={deletedFeedbackIds}
             pinIndexById={pinIndexById}
             highlightedId={highlightedFeedbackId}
             overlay={overlay}
@@ -896,7 +836,7 @@ function ReferenceRow({
         ))}
         <CommentThread
           feedback={asset.feedback}
-          pendingFeedback={pendingFeedback}
+          thread={thread}
           pendingPin={pendingPin}
           handoffNotes={asset.handoffNote ? [asset.handoffNote] : undefined}
           emptyHint={
@@ -904,16 +844,8 @@ function ReferenceRow({
               ? "No notes on this asset yet. Add one below, or click the frame to pin one."
               : "No notes on this asset yet. Add one below."
           }
-          hideStale={hideStale}
-          deletedFeedbackIds={deletedFeedbackIds}
-          editedTextById={editedTextById}
           pinIndexById={pinIndexById}
           highlightedId={highlightedFeedbackId}
-          onAddPending={onAddPending}
-          onRemovePending={onRemovePending}
-          onEditPending={onEditPending}
-          onEditExisting={onEditExisting}
-          onDeleteExisting={onDeleteExisting}
           onHighlightPin={onHighlightPin}
           onCancelPin={onCancelPin}
         />
@@ -952,22 +884,14 @@ function ReferenceDetailModal({
   selectedVariantId,
   effectiveStatus,
   needsReviewNow,
-  pendingFeedback,
+  thread,
   pendingPin,
-  hideStale,
-  deletedFeedbackIds,
-  editedTextById,
   highlightedFeedbackId,
   onHighlightPin,
   onClose,
   onOpenGallery,
   acceptBlocked,
   onAccept,
-  onAddPending,
-  onRemovePending,
-  onEditPending,
-  onEditExisting,
-  onDeleteExisting,
   onPinPlace,
   onCancelPin,
 }: {
@@ -975,22 +899,14 @@ function ReferenceDetailModal({
   selectedVariantId: string | null;
   effectiveStatus: VariantStatus;
   needsReviewNow: boolean;
-  pendingFeedback: PendingFeedbackItem[];
+  thread: CommentThreadBinding;
   pendingPin: { x: number; y: number } | null;
-  hideStale: boolean;
-  deletedFeedbackIds: Set<string>;
-  editedTextById: Map<string, string>;
   highlightedFeedbackId: string | null;
   onHighlightPin: (id: string) => void;
   onClose: () => void;
   onOpenGallery: () => void;
   acceptBlocked: string | null;
   onAccept: (variantId: string) => void;
-  onAddPending: (text: string) => void;
-  onRemovePending: (id: string) => void;
-  onEditPending: (id: string, text: string) => void;
-  onEditExisting: (id: string, text: string) => void;
-  onDeleteExisting: (id: string) => void;
   onPinPlace: (x: number, y: number) => void;
   onCancelPin: () => void;
 }): React.ReactElement {
@@ -1003,10 +919,7 @@ function ReferenceDetailModal({
       song?: SongReadingInfo;
     });
 
-  const pinIndexById = buildPinIndex(asset.feedback, pendingFeedback, {
-    hideStale,
-    deletedFeedbackIds,
-  });
+  const pinIndexById = buildPinIndex(asset.feedback, thread.pendingFeedback, thread);
 
   return (
     <Modal
@@ -1049,10 +962,8 @@ function ReferenceDetailModal({
               asset={asset}
               imageUrl={shown.imageUrl}
               pins={asset.feedback}
-              pendingPins={pendingFeedback}
+              thread={thread}
               pendingPin={pendingPin}
-              hideStale={hideStale}
-              deletedFeedbackIds={deletedFeedbackIds}
               pinIndexById={pinIndexById}
               highlightedId={highlightedFeedbackId}
               large
@@ -1099,19 +1010,11 @@ function ReferenceDetailModal({
           ))}
           <CommentThread
             feedback={asset.feedback}
-            pendingFeedback={pendingFeedback}
+            thread={thread}
             pendingPin={pendingPin}
             handoffNotes={asset.handoffNote ? [asset.handoffNote] : undefined}
-            hideStale={hideStale}
-            deletedFeedbackIds={deletedFeedbackIds}
-            editedTextById={editedTextById}
             pinIndexById={pinIndexById}
             highlightedId={highlightedFeedbackId}
-            onAddPending={onAddPending}
-            onRemovePending={onRemovePending}
-            onEditPending={onEditPending}
-            onEditExisting={onEditExisting}
-            onDeleteExisting={onDeleteExisting}
             onHighlightPin={onHighlightPin}
             onCancelPin={onCancelPin}
           />

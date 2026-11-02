@@ -7,19 +7,11 @@ import type {
   ReelSubmitResponse,
   SkippedDecision,
 } from "../../core/types/review-submit.js";
+import { jsonBody, request, requestJson } from "../shared/http.js";
 import type { PreviewState } from "./types.js";
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, options);
-  const body = await res.json();
-  if (!res.ok) {
-    throw new Error(body.error ?? `Request failed: ${res.status}`);
-  }
-  return body as T;
-}
-
 export function fetchState(signal?: AbortSignal): Promise<PreviewState> {
-  return request<PreviewState>("/api/state", { signal });
+  return requestJson<PreviewState>("/api/state", { signal });
 }
 
 export async function fetchCompositionHtml(
@@ -48,9 +40,7 @@ export async function fetchCompositionHtml(
     for (const id of standInShotIds) search.append("standIn", id);
   }
   const qs = search.toString();
-  const res = await fetch(qs ? `${path}?${qs}` : path, { signal });
-  if (!res.ok) throw new Error(`Failed to fetch composition: ${res.status}`);
-  return res.text();
+  return (await request(qs ? `${path}?${qs}` : path, { signal })).text();
 }
 
 export function submitReview(
@@ -62,11 +52,10 @@ export function submitReview(
   // against — the endpoint derives the subject from the definition and the whole-view snapshots.
   extra: Omit<ReelSubmitBody, "decisions" | "notes">,
 ): Promise<ReelSubmitResponse> {
-  return request<ReelSubmitResponse>(`/api/${stage}/submit`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ decisions, notes, ...extra } satisfies ReelSubmitBody),
-  }).then(rejectSkippedDecisions);
+  return requestJson<ReelSubmitResponse>(
+    `/api/${stage}/submit`,
+    jsonBody("POST", { decisions, notes, ...extra } satisfies ReelSubmitBody),
+  ).then(rejectSkippedDecisions);
 }
 
 // A 200 whose accepts did not all land. `saved` says whether the record — and every note and accept
@@ -106,19 +95,17 @@ export function rejectSkippedDecisions<
 export function submitDirectionReview(
   payload: DirectionSubmitBody,
 ): Promise<DirectionSubmitResponse> {
-  return request<DirectionSubmitResponse>("/api/direction/submit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  }).then(rejectSkippedDecisions);
+  return requestJson<DirectionSubmitResponse>(
+    "/api/direction/submit",
+    jsonBody("POST", payload),
+  ).then(rejectSkippedDecisions);
 }
 
 export function submitReferenceReview(
   payload: AddressReviewSubmitBody,
 ): Promise<AddressReviewSubmitResponse> {
-  return request<AddressReviewSubmitResponse>("/api/reference/submit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  }).then(rejectSkippedDecisions);
+  return requestJson<AddressReviewSubmitResponse>(
+    "/api/reference/submit",
+    jsonBody("POST", payload),
+  ).then(rejectSkippedDecisions);
 }

@@ -1,5 +1,5 @@
 import * as os from "node:os";
-import { KonteError } from "../../core/errors.js";
+import { type ErrorResponseBody, type KonteErrorCode, KonteError } from "../../core/errors.js";
 
 // The frame-capture pipeline loads @hyperframes/producer, whose bundled
 // @hono/node-server replaces the global `Response`/`Request` with its own
@@ -17,8 +17,8 @@ export function jsonResponse(data: unknown, status = 200): Response {
   });
 }
 
-export function errorResponse(error: string, code: string, status: number): Response {
-  return jsonResponse({ error, code }, status);
+export function errorResponse(error: string, code: KonteErrorCode, status: number): Response {
+  return jsonResponse({ error, code } satisfies ErrorResponseBody, status);
 }
 
 /**

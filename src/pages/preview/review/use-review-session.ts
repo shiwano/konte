@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FeedbackPatchBody } from "../../../core/types/review-submit.js";
+import { closePage } from "../../shared/http.js";
 import { ReviewSkippedError } from "../api.js";
+import type { LiveFeedbackFilter } from "./live-feedback.js";
 
 let pendingIdCounter = 0;
 function generatePendingId(): string {
@@ -17,6 +19,17 @@ export interface PendingFeedback {
 }
 
 export type FeedbackPatch = FeedbackPatchBody;
+
+/** One address's comment thread: its drafts, what hides its saved comments, and the edits to both. */
+export interface CommentThreadBinding extends LiveFeedbackFilter {
+  pendingFeedback: PendingFeedback[];
+  editedTextById: Map<string, string>;
+  addPending: (text: string) => void;
+  removePending: (id: string) => void;
+  editPending: (id: string, text: string) => void;
+  editExisting: (id: string, text: string) => void;
+  deleteExisting: (id: string) => void;
+}
 
 // What a view's submit receives: the session's drafts, to send with its own decisions.
 export interface SubmitInput {
@@ -122,6 +135,31 @@ export function useReviewSession(opts: { hasExtraChanges?: boolean } = {}) {
     ]);
   }, []);
 
+  const threadFor = useCallback(
+    (address: string): CommentThreadBinding => ({
+      pendingFeedback: pendingFeedback[address] ?? [],
+      hideStale,
+      deletedFeedbackIds,
+      editedTextById,
+      addPending: (text) => addPending(address, text),
+      removePending: (id) => removePending(address, id),
+      editPending: (id, text) => editPending(address, id, text),
+      editExisting: (id, text) => editExisting(id, address, text),
+      deleteExisting: (id) => deleteExisting(id, address),
+    }),
+    [
+      pendingFeedback,
+      hideStale,
+      deletedFeedbackIds,
+      editedTextById,
+      addPending,
+      removePending,
+      editPending,
+      editExisting,
+      deleteExisting,
+    ],
+  );
+
   const useVariant = useCallback((address: string, variantId: string) => {
     setSelectedVariants((prev) => ({ ...prev, [address]: variantId }));
     setGallery(null);
@@ -176,7 +214,7 @@ export function useReviewSession(opts: { hasExtraChanges?: boolean } = {}) {
           feedbackPatches,
           overallComment: overallComment.trim(),
         });
-        fetch("/api/close", { method: "POST" }).catch(() => {});
+        closePage().catch(() => {});
         window.close();
         setSubmitted(true);
       } catch (err) {
@@ -192,7 +230,7 @@ export function useReviewSession(opts: { hasExtraChanges?: boolean } = {}) {
           setPendingFeedback({});
           setFeedbackPatches([]);
           setSubmitted(true);
-          fetch("/api/close", { method: "POST" }).catch(() => {});
+          closePage().catch(() => {});
           window.close();
         } else {
           isSubmittingRef.current = false;
@@ -237,6 +275,7 @@ export function useReviewSession(opts: { hasExtraChanges?: boolean } = {}) {
     editPending,
     editExisting,
     deleteExisting,
+    threadFor,
     selectedVariants,
     useVariant,
     gallery,

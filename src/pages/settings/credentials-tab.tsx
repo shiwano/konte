@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { closeSettings, fetchCredentials, saveCredentials } from "./api.js";
+import { fetchCredentials, saveCredentials } from "./api.js";
+import { closePage } from "../shared/http.js";
 import { Field, Section } from "./form.js";
 import type { CredentialsPatch } from "../../core/types/credentials.js";
 import type { CredentialEntry } from "./types.js";
@@ -117,7 +118,7 @@ export function CredentialsTab() {
       const res = await saveCredentials(patch);
       reset(res.entries);
       setStatus({ kind: "saved", text: "Saved to konte.credentials.json" });
-      if (closeAfterSave) await closeSettings();
+      if (closeAfterSave) await closePage();
     } catch (err) {
       setStatus({ kind: "error", text: (err as Error).message });
     } finally {

@@ -21,6 +21,7 @@ import {
   quotedFragments,
 } from "../review/quote.js";
 import { ReviewShell, type ShortcutRows } from "../review/review-shell.js";
+import { liveFeedback } from "../review/live-feedback.js";
 import { commentedAddresses } from "../review/undecided.js";
 import { type SubmitInput, useReviewSession } from "../review/use-review-session.js";
 import { useReviewShortcuts } from "../review/use-review-shortcuts.js";
@@ -149,17 +150,9 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
     (part: DirectionPartInfo) => (
       <CommentThread
         feedback={part.feedback}
-        pendingFeedback={session.pendingFeedback[part.address] ?? []}
+        thread={session.threadFor(part.address)}
         pendingPin={null}
         handoffNotes={part.handoffNote ? [part.handoffNote] : undefined}
-        hideStale={session.hideStale}
-        deletedFeedbackIds={session.deletedFeedbackIds}
-        editedTextById={session.editedTextById}
-        onAddPending={(text) => session.addPending(part.address, text)}
-        onRemovePending={(id) => session.removePending(part.address, id)}
-        onEditPending={(id, text) => session.editPending(part.address, id, text)}
-        onEditExisting={(id, text) => session.editExisting(id, part.address, text)}
-        onDeleteExisting={(id) => session.deleteExisting(id, part.address)}
         onCancelPin={() => {}}
       />
     ),
@@ -170,9 +163,9 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
   const quotesFor = useCallback(
     (part: DirectionPartInfo) =>
       quotedFragments([
-        ...part.feedback
-          .filter((f) => !session.deletedFeedbackIds.has(f.id) && !(session.hideStale && f.stale))
-          .map((f) => session.editedTextById.get(f.id) ?? f.text),
+        ...liveFeedback(part.feedback, session).map(
+          (f) => session.editedTextById.get(f.id) ?? f.text,
+        ),
         ...(session.pendingFeedback[part.address] ?? []).map((p) => p.text),
       ]),
     [session],

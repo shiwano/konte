@@ -5,7 +5,8 @@ import { shotAcceptable } from "../../../core/shot-acceptable.js";
 import type { ShotInfo } from "../types.js";
 import { AcceptButton } from "./accept-button.js";
 import { CommentIcon } from "./icons.js";
-import { RegenerateBadge, type RegenerateMark } from "./regenerate-badge.js";
+import type { RegenerateMark } from "../review/keep-or-regenerate.js";
+import { RegenerateBadge } from "./regenerate-badge.js";
 import { StatusBadge } from "./status-badge.js";
 
 export function ShotList({

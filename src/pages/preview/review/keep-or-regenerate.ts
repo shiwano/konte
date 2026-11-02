@@ -64,6 +64,32 @@ export interface KeepContext {
   choices: readonly KeepChoice[];
 }
 
+/**
+ * How a page reads an address under its own marks and picks; `undefined` for an address it does not
+ * hold, which reads as the graph has it.
+ */
+export interface KeepPageView {
+  accepted: (address: string) => boolean | undefined;
+  shown: (address: string) => string | null | undefined;
+}
+
+export function keepContext(
+  graph: KeepGraphInfo,
+  choices: readonly KeepChoice[],
+  page: KeepPageView,
+): KeepContext {
+  return {
+    graph,
+    variantAccepted: (address) =>
+      page.accepted(address) ?? graph.addresses[address]?.acceptedVariantId != null,
+    variantOf: (address) => {
+      const shown = page.shown(address);
+      return shown === undefined ? (graph.addresses[address]?.acceptedVariantId ?? null) : shown;
+    },
+    choices,
+  };
+}
+
 export const EMPTY_KEEP_GRAPH: KeepGraphInfo = { addresses: {}, units: {} };
 
 const VIA = "via:";
@@ -134,6 +160,38 @@ export function regenerateByUnit(choices: readonly KeepChoice[]): Map<string, Ke
       variants: follow ? follow.variants : target.variants,
       origin: choice.origin,
       follows: follow ? target.unit : null,
+    });
+  }
+  return out;
+}
+
+/** A unit the review will regenerate, as the list marks it. */
+export interface RegenerateMark {
+  // The unit whose accept asked, by label.
+  origin: string;
+  // The row this unit follows when the answer sits there: its id on this page, and its label.
+  follows: { id: string; label: string } | null;
+  // The names of its takes, as the list shows them.
+  variants: string[];
+}
+
+/** Per unit, its Regenerate mark; `rowId` is a followed row's id on the page, none when not listed. */
+export function regenerateMarks(
+  graph: KeepGraphInfo,
+  choices: readonly KeepChoice[],
+  from: KeepStage,
+  rowId: (unit: string) => string | undefined = (unit) => unit,
+): Map<string, RegenerateMark> {
+  const out = new Map<string, RegenerateMark>();
+  for (const [unit, mark] of regenerateByUnit(choices)) {
+    const id = mark.follows === null ? undefined : rowId(mark.follows);
+    out.set(unit, {
+      origin: unitLabel(graph, mark.origin, from),
+      follows:
+        mark.follows === null || id === undefined
+          ? null
+          : { id, label: unitLabel(graph, mark.follows, from) },
+      variants: variantNames(unit, mark.variants),
     });
   }
   return out;

@@ -1,15 +1,6 @@
 import type React from "react";
+import type { RegenerateMark } from "../review/keep-or-regenerate.js";
 import { XIcon } from "./icons.js";
-
-/** A unit the review will regenerate, as the list marks it. */
-export interface RegenerateMark {
-  // The unit whose accept asked, by label.
-  origin: string;
-  // The row this unit follows when the answer sits there: its id on this page, and its label.
-  follows: { id: string; label: string } | null;
-  // The names of its takes, as the list shows them.
-  variants: string[];
-}
 
 /**
  * The Regenerate mark on a list item, and the way back from it. A row's mark is a chip with an x:
