@@ -13,6 +13,8 @@ Picture and stereo audio decoded from one take.
 ## Keyframes
 
 - A panel passed as `image1` alone holds the composition without fixing it.
+- Describe the set only as far as that panel shows it. A wider set — the whole room over a medium panel — widens the frame to fit it in.
+- Its `retentionAnalysis` line holds the camera position, the framing and where each figure stands, and lets only poses and expressions move.
 - With `startImage` alone, develop forward — the pinned frame carries the set, composition and light; write the action's onset, its continuous development, and the result or reaction it lands on, and describe the set only where the motion reveals or changes it. Identity, clothing, colours, key objects and spatial relationships hold across all of it.
 - With both frames, favour one shot; cut only when the shot needs it. Write the path — the onset, the observable intermediate changes, the differences narrowing, the landing.
 - With `endImage` alone, converge on it — infer the state the shot opens in, then write the subjects, objects, camera and light closing on the pinned frame, landing on it in the last shot.

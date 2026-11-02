@@ -401,7 +401,7 @@ const ADAPTER_BUDGETS: Record<string, number> = {
   imageQwenImageEdit21: 800,
   imageQwenImageEdit21Inpaint: 300,
   imageZImageBase: 350,
-  videoMinimaxH3R2v: 5_250,
+  videoMinimaxH3R2v: 5_350,
   videoSeedvr2Upscale: 550,
   falMinimaxH3MaxI2v: 800,
   falMinimaxH3MaxR2v: 800,
