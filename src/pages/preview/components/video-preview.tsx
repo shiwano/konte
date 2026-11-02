@@ -1,13 +1,11 @@
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchCompositionHtml, submitReview } from "../api.js";
+import { submitReview } from "../api.js";
 import { formatPlayerTime } from "../format-time.js";
-import { Playhead, usePlayheadTime } from "../review/playhead.js";
+import { type Playhead, usePlayheadTime } from "../review/playhead.js";
 import { ReviewShell, type ShortcutRows } from "../review/review-shell.js";
-import { bulkAcceptState } from "../review/bulk-accept.js";
 import { shotGalleryTabs, soundtrackGalleryTabs } from "../review/gallery-tabs.js";
 import { isNewVariant } from "../review/new-variant.js";
-import { reelAcceptUnits, type ReelUnit } from "../review/shot-acceptable.js";
 import { shotAcceptable } from "../../../core/shot-acceptable.js";
 import { liveFeedback } from "../review/live-feedback.js";
 import { commentedAddresses } from "../review/undecided.js";
@@ -16,22 +14,19 @@ import { useFillLayout } from "../review/use-fill-layout.js";
 import { useHighlightedFeedback } from "../review/use-highlighted-feedback.js";
 import { type SubmitInput, useReviewSession } from "../review/use-review-session.js";
 import { useReviewShortcuts } from "../review/use-review-shortcuts.js";
-import {
-  EMPTY_KEEP_GRAPH,
-  keepDecisions,
-  keepPrompt,
-  keepPromptFor,
-  keepContext,
-  regenerateDecisions,
-  regenerateMarks,
-  regenerateSummary,
-  withoutUnits,
-  type KeepChoice,
-  type KeepContext,
-  type KeepOrigin,
-  type RegenerateMark,
-} from "../review/keep-or-regenerate.js";
+import { keepPrompt, regenerateSummary } from "../review/keep-or-regenerate.js";
 import { useKeepChoices } from "../review/use-keep-choices.js";
+import { buildReelSubmitPayload } from "../review/reel-submit-payload.js";
+import { useReelComposition } from "../review/use-reel-composition.js";
+import {
+  hasReelMarks,
+  NO_REEL_MARKS,
+  reelShotAddress,
+  useReelDecisions,
+  type ReelMarks,
+} from "../review/use-reel-decisions.js";
+import { findShotIdxAtTime, useReelPlayback } from "../review/use-reel-playback.js";
+import { useShotFrames } from "../review/use-shot-frames.js";
 import type {
   FeedbackInfo,
   MediaKind,
@@ -39,10 +34,7 @@ import type {
   VideoPreviewState,
   ShotInfo,
 } from "../types.js";
-import {
-  HyperFramesPlayerWrapper,
-  type HyperFramesPlayerRef,
-} from "./hyperframes-player-wrapper.js";
+import { HyperFramesPlayerWrapper } from "./hyperframes-player-wrapper.js";
 import { AcceptButton } from "./accept-button.js";
 import {
   CollapseIcon,
@@ -83,115 +75,6 @@ const SHORTCUTS: ShortcutRows = [
   [["⌘/Ctrl", "⏎"], "Submit review"],
 ];
 
-// At most this many frame captures run at once. Each capture loads the whole clip into a
-// hidden <video>, so the unbounded startup sweep decoded every clip on the timeline
-// simultaneously — on a large project that is hundreds of concurrent full-file loads.
-const CAPTURE_CONCURRENCY = 4;
-
-function limitConcurrency(limit: number): <T>(fn: () => Promise<T>) => Promise<T> {
-  let active = 0;
-  const queue: Array<() => void> = [];
-  return async (fn) => {
-    if (active >= limit) await new Promise<void>((resolve) => queue.push(resolve));
-    active++;
-    try {
-      return await fn();
-    } finally {
-      active--;
-      queue.shift()?.();
-    }
-  };
-}
-
-/**
- * Grab the first and last frame of a video file client-side via a hidden <video>
- * element (same-origin, so the canvas isn't tainted). No server-side rendering.
- */
-function captureFirstLastFrame(
-  url: string,
-): Promise<{ first: string | null; last: string | null }> {
-  return new Promise((resolve) => {
-    const video = document.createElement("video");
-    video.muted = true;
-    video.preload = "auto";
-    const canvas = document.createElement("canvas");
-    const out: { first: string | null; last: string | null } = { first: null, last: null };
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      try {
-        video.removeAttribute("src");
-        video.load();
-      } catch {
-        // ignore teardown errors
-      }
-      resolve(out);
-    };
-    const timer = setTimeout(finish, 8000);
-    const grab = (): string | null => {
-      try {
-        if (!video.videoWidth) return null;
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return null;
-        ctx.drawImage(video, 0, 0);
-        return canvas.toDataURL("image/jpeg", 0.7);
-      } catch {
-        return null;
-      }
-    };
-    let stage: "first" | "last" = "first";
-    const onSeeked = () => {
-      if (stage === "first") {
-        out.first = grab();
-        stage = "last";
-        const d = video.duration;
-        const lastT = Number.isFinite(d) && d > 0.2 ? d - 0.1 : video.currentTime;
-        if (lastT <= video.currentTime + 0.001) {
-          out.last = out.first;
-          finish();
-        } else {
-          video.currentTime = lastT;
-        }
-      } else {
-        out.last = grab();
-        finish();
-      }
-    };
-    video.addEventListener("seeked", onSeeked);
-    video.addEventListener(
-      "loadeddata",
-      () => {
-        video.currentTime = 0.04;
-      },
-      { once: true },
-    );
-    video.addEventListener("error", finish, { once: true });
-    video.src = url;
-  });
-}
-
-/**
- * Order the composition's <video> elements, keyed by file basename. `start` is
- * the konte <Video> `data-start` attribute (its timeline position — currently 0
- * by default, but specifiable in the future); `idx` is document order used as a
- * tiebreak. Ordering clips by (start, idx) yields timeline / authoring order.
- * Parsed via DOMParser (inert document: no script/resource loading).
- */
-function parseVideoOrder(html: string): Map<string, { start: number; idx: number }> {
-  const order = new Map<string, { start: number; idx: number }>();
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  doc.querySelectorAll("video").forEach((el, idx) => {
-    const base = el.getAttribute("src")?.split("/").pop();
-    const start = Number(el.getAttribute("data-start") ?? 0);
-    if (base && !order.has(base)) order.set(base, { start, idx });
-  });
-  return order;
-}
-
 // Everything the variant gallery needs to render one asset, indexed by address — motion/
 // background (per shot) and audio (per timeline asset) alike, so a clip on any track opens
 // its gallery through a single lookup.
@@ -201,14 +84,6 @@ interface GalleryAsset {
   mediaKind: MediaKind;
   variantId: string | null;
   variants: VariantInfo[];
-}
-
-function findShotIdxAtTime(shots: ShotInfo[], time: number): number {
-  for (let i = 0; i < shots.length; i++) {
-    const s = shots[i]!;
-    if (time >= s.startTime && time < s.startTime + s.duration) return i;
-  }
-  return shots.length > 0 ? shots.length - 1 : -1;
 }
 
 // The player's clock readout — the one control that must redraw every frame, so it subscribes
@@ -229,32 +104,7 @@ function PlayerTime({
   );
 }
 
-// Every accept mark this session holds. `undefined` is "no mark" — the unit reads at its baseline.
-type ReelMarks = {
-  shots: Record<string, "accepted" | "none">;
-  stem: "accepted" | "none" | undefined;
-  overlay: "accepted" | "none" | undefined;
-};
-
 export function VideoPreview({ state }: { state: VideoPreviewState }): React.ReactElement {
-  const [compositionHtml, setCompositionHtml] = useState<string | null>(null);
-  // Playback reports a new time ~30×/s. It lives outside React state so only the leaves that
-  // show it (the clock, the playhead line, the note overlay) redraw with it; the shot the
-  // playhead is *in* changes rarely, so that stays ordinary state.
-  const [playhead] = useState(() => new Playhead());
-  const [focusedShotIdx, setFocusedShotIdx] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [decisions, setDecisions] = useState<Record<string, "accepted" | "none">>({});
-  // The timeline audio stem (soundtrack beds) accept mark for this session; undefined = undecided.
-  const [timelineStemDecision, setTimelineStemDecision] = useState<"accepted" | "none" | undefined>(
-    undefined,
-  );
-  // The overlay's accept mark for this session; undefined = undecided. Only an offered overlay takes
-  // one (see OverlayInfo.offered).
-  const [overlayDecision, setOverlayDecision] = useState<"accepted" | "none" | undefined>(
-    undefined,
-  );
-
   // What the feedback panel is pointed at. "shot" follows the playhead; "soundtrack" and an overlay
   // are sticky picks (each spans shots, so seeking to hear or watch one must not snap the panel back
   // to whatever shot the playhead landed in). Only an explicit shot gesture — picking a card, J/K/N,
@@ -274,9 +124,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     seq: number;
   }>();
 
-  const [loopMode, setLoopMode] = useState<"off" | "all" | "shot">("off");
   const [showNotes, setShowNotes] = useState(true);
-  const [playbackRate, setPlaybackRate] = useState(1);
 
   // Theater: the review fills the window below the header, the frame taking every pixel the
   // controls, the timeline and the two side columns leave — the columns stay, so a note is still
@@ -294,47 +142,50 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   const { fill, bandSide } = useFillLayout(state.size.width / state.size.height);
   const immersive = theater || fill;
 
-  const {
-    choices: keepChoices,
-    asking: keepAsking,
-    request: requestKeep,
-    answer: answerKeep,
-    dropUnits: dropKeepUnits,
-    keepUnit: keepUnitAfterAll,
-    reset: resetKeep,
-  } = useKeepChoices();
+  const [marks, setMarks] = useState<ReelMarks>(NO_REEL_MARKS);
+  const keep = useKeepChoices();
+  const { choices: keepChoices, asking: keepAsking, answer: answerKeep } = keep;
   const session = useReviewSession({
-    hasExtraChanges:
-      Object.keys(decisions).length > 0 ||
-      timelineStemDecision !== undefined ||
-      overlayDecision !== undefined ||
-      keepChoices.length > 0,
+    hasExtraChanges: hasReelMarks(marks) || keepChoices.length > 0,
   });
 
-  const playerRef = useRef<HyperFramesPlayerRef>(null);
   const timelineRef = useRef<ReviewTimelineRef>(null);
-  const playbackRateRef = useRef(1);
-  // Read by the player's frame reports, which must not pull the review into a re-render per frame.
-  const noteDraftRef = useRef<NoteDraft | null>(null);
-  noteDraftRef.current = noteDraft;
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewportBox, setViewportBox] = useState({ width: 0, height: 0 });
-  const [shotFrames, setShotFrames] = useState<
-    Record<string, { first: string | null; last: string | null }>
-  >({});
 
   // Which reel this page is playing. One page serves both composition stages, so every address it
   // mints and the endpoint it submits to are the mode's.
   const reelStage = state.mode === "animatic-preview" ? "animatic" : "video";
 
   const shotFeedbackAddress = useCallback(
-    // Composite feedback attaches to the bare shot target (feedback-only, no
-    // variant), so a pin reads as an observation on the shot rather than a
-    // "reroll the composition" instruction. Staleness still tracks the
-    // composition via the variant snapshot recorded when the comment is saved.
-    (shotId: string) => `${reelStage}:shot.${shotId}`,
+    (shotId: string) => reelShotAddress(reelStage, shotId),
     [reelStage],
   );
+
+  const {
+    playhead,
+    playerRef,
+    focusedShotIdx,
+    isPlaying,
+    setIsPlaying,
+    loopMode,
+    setLoopMode,
+    playbackRate,
+    setPlaybackRate,
+    handleTimeUpdate,
+    handlePlayerReady,
+    pausePlayback,
+    handleSeek,
+    handleStepFrame,
+    handleArrowSeek,
+    handlePlayPause,
+  } = useReelPlayback({
+    shots: state.shots,
+    totalDuration: state.totalDuration,
+    fps: state.fps,
+    noteDraft,
+    setNoteDraft,
+  });
 
   const focusedShot = state.shots[focusedShotIdx];
 
@@ -355,11 +206,6 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     [soundtrackFocused, state.timelineStem, focusedOverlay],
   );
 
-  // A definition reload can shrink the timeline out from under the focused index.
-  useEffect(() => {
-    setFocusedShotIdx((i) => Math.min(i, Math.max(state.shots.length - 1, 0)));
-  }, [state.shots]);
-
   // Every asset with takes to show — the shots' and the audio beds' — for the player and the
   // submit snapshots.
   const allAssets = useMemo(
@@ -367,12 +213,6 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     [state.shots, state.audioAssets],
   );
   const effectiveVariants = useEffectiveVariants(allAssets, session.selectedVariants);
-
-  // The take each address resolves to, for telling an audition from what stands.
-  const resolvedByAddress = useMemo(
-    () => new Map(allAssets.map((a) => [a.address, a.variantId])),
-    [allAssets],
-  );
 
   const assetByAddress = useMemo(() => {
     const map = new Map<string, GalleryAsset>();
@@ -450,57 +290,20 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     [assetByAddress, effectiveVariants],
   );
 
-  const { setError } = session;
-  // The stand-ins this page was told about, as a stable key: the reel is re-fetched when the set
-  // moves (a shot whose picture just landed must redraw), and never merely because state was re-read.
-  const standInShotKey = useMemo(
-    () =>
-      state.shots
-        .filter((s) => s.showingStandIn)
-        .map((s) => s.shotId)
-        .join(","),
-    [state.shots],
-  );
-  useEffect(() => {
-    // Switching takes in quick succession (or a hot-reload landing on top of one) leaves two
-    // fetches in flight, and the slower one is not always the older one — abort the previous
-    // request so the composition on screen is always the one last asked for.
-    let controller: AbortController | null = null;
-    function load() {
-      controller?.abort();
-      controller = new AbortController();
-      const signal = controller.signal;
-      // Pinned to the same takes the submit will record, or the composite re-resolves its external
-      // refs against state loaded for THIS request — a reroll landing between the two draws one take
-      // and the comment written over it names another. A gallery pick still wins.
-      const pinned = { ...state.compositionRefVariants, ...effectiveVariants };
-      const overrides = Object.keys(pinned).length > 0 ? pinned : undefined;
-      fetchCompositionHtml(
-        undefined,
-        undefined,
-        overrides,
-        signal,
-        standInShotKey ? standInShotKey.split(",") : [],
-      )
-        .then(setCompositionHtml)
-        .catch((err) => {
-          if (signal.aborted) return;
-          setError(err.message);
-        });
-    }
-    // Auditioning a take is a comparison, so the reel keeps the instant it was switched at rather
-    // than dropping back to its head: the player pauses here and resumes at the playhead once the
-    // new composition is ready (see the wrapper's getStartTime). A reel that came back shorter
-    // reports the frame it actually landed on, which puts the playhead and the focused shot right.
-    playerRef.current?.pause();
-    setIsPlaying(false);
-    load();
-    window.addEventListener("konte:reload", load);
-    return () => {
-      controller?.abort();
-      window.removeEventListener("konte:reload", load);
-    };
-  }, [effectiveVariants, state.compositionRefVariants, setError, standInShotKey]);
+  // Auditioning a take is a comparison, so the reel keeps the instant it was switched at rather
+  // than dropping back to its head: the player pauses before each load and resumes at the playhead
+  // once the new composition is ready (see the wrapper's getStartTime). A reel that came back
+  // shorter reports the frame it actually landed on, which puts the playhead and the focused shot
+  // right.
+  const compositionHtml = useReelComposition({
+    shots: state.shots,
+    compositionRefVariants: state.compositionRefVariants,
+    effectiveVariants,
+    onLoad: pausePlayback,
+    onError: session.setError,
+  });
+
+  const shotFrames = useShotFrames(state.shots, compositionHtml, effectiveVariants);
 
   // Height as well as width: in theater the viewport's height is handed to it by the column
   // rather than derived from its width, so it has to be measured to scale the frame into it.
@@ -557,499 +360,28 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     void document.documentElement.requestFullscreen?.().catch(() => {});
   }, [exitTheater]);
 
-  // Capturing a frame means loading the whole video file, so each URL is captured once and
-  // remembered: switching one shot's take then re-captures that shot's clip alone, instead of
-  // re-loading every video in the timeline.
-  const frameCacheRef = useRef(
-    new Map<string, Promise<{ first: string | null; last: string | null }>>(),
-  );
-  const captureCached = useCallback((url: string) => {
-    const cached = frameCacheRef.current.get(url);
-    if (cached) return cached;
-    // Remember successes only. A capture that yielded nothing — a decode error, a file the server
-    // hadn't written yet — is a transient failure, and caching it would leave that shot's strip
-    // permanently blank for the rest of the session; evict so the next pass retries.
-    const capture = captureFirstLastFrame(url).then((frames) => {
-      if (!frames.first && !frames.last) frameCacheRef.current.delete(url);
-      return frames;
-    });
-    frameCacheRef.current.set(url, capture);
-    return capture;
-  }, []);
-
-  const videoOrder = useMemo(() => parseVideoOrder(compositionHtml ?? ""), [compositionHtml]);
-
-  useEffect(() => {
-    const shots = state.shots;
-    if (shots.length === 0) return;
-    let cancelled = false;
-    // Drop shots the reload removed; the rest are refreshed (from cache, mostly) below.
-    setShotFrames((p) => {
-      const live = Object.fromEntries(
-        Object.entries(p).filter(([id]) => shots.some((s) => s.shotId === id)),
-      );
-      return Object.keys(live).length === Object.keys(p).length ? p : live;
-    });
-    (async () => {
-      const FAR = { start: Number.MAX_SAFE_INTEGER, idx: Number.MAX_SAFE_INTEGER };
-      const sortKey = (url: string) => videoOrder.get(url.split("/").pop() ?? "") ?? FAR;
-      const limit = limitConcurrency(CAPTURE_CONCURRENCY);
-      await Promise.allSettled(
-        shots.map((shot) =>
-          limit(async () => {
-            if (cancelled) return;
-            const videoUrls = shot.assets
-              .filter((a) => a.mediaKind === "video")
-              // Capture the variant the reviewer is actually seeing (matches the player), not
-              // just the accepted one — so a shown reroll's frame is what the scrub preview uses.
-              .map((a) => {
-                const shownId = effectiveVariants[a.address] ?? a.variantId;
-                return a.variants.find((v) => v.variantId === shownId)?.fileUrl ?? a.fileUrl;
-              })
-              .filter((u): u is string => !!u)
-              .sort((a, b) => {
-                const ka = sortKey(a);
-                const kb = sortKey(b);
-                return ka.start - kb.start || ka.idx - kb.idx;
-              });
-            // A shot that lost its video (a reload, or a take with no ready file) must lose its
-            // scrub thumbnail too — the frames are no longer of anything on the timeline.
-            if (videoUrls.length === 0) {
-              if (!cancelled) {
-                setShotFrames((p) => {
-                  if (!(shot.shotId in p)) return p;
-                  const next = { ...p };
-                  delete next[shot.shotId];
-                  return next;
-                });
-              }
-              return;
-            }
-            const firstUrl = videoUrls[0]!;
-            const lastUrl = videoUrls[videoUrls.length - 1]!;
-            let frames: { first: string | null; last: string | null };
-            if (firstUrl === lastUrl) {
-              frames = await captureCached(firstUrl);
-            } else {
-              const [a, b] = await Promise.all([captureCached(firstUrl), captureCached(lastUrl)]);
-              frames = { first: a.first, last: b.last };
-            }
-            if (!cancelled) setShotFrames((p) => ({ ...p, [shot.shotId]: frames }));
-          }),
-        ),
-      );
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [state.shots, videoOrder, effectiveVariants, captureCached]);
-
-  const handleTimeUpdate = useCallback(
-    (time: number) => {
-      playhead.set(time);
-      setFocusedShotIdx(findShotIdxAtTime(state.shots, time));
-      // The panel names the shot at this instant, so an open composer moves with it whatever put
-      // the playhead here — a frame step, the player settling a seek onto its own 30fps grid, a
-      // reload resuming. Both sides then read one time, so a note cannot file off the shot shown.
-      const draft = noteDraftRef.current;
-      if (draft && draft.time !== time) setNoteDraft({ ...draft, time });
-      // A loop restart would undo the pause the composer opened with and carry a half-typed
-      // note off its shot, so the reel holds still while one is being written.
-      if (draft) return;
-      if (loopMode === "all" && time >= state.totalDuration - 0.05) {
-        playerRef.current?.seek(0);
-        playerRef.current?.play();
-      } else if (loopMode === "shot") {
-        // Loop whichever shot the playhead is currently in; checking 0.05s before
-        // its end keeps findShotIdxAtTime on the right shot at the boundary.
-        const shot = state.shots[findShotIdxAtTime(state.shots, time)];
-        if (shot && time >= shot.startTime + shot.duration - 0.05) {
-          playerRef.current?.seek(shot.startTime);
-          playerRef.current?.play();
-        }
-      }
-    },
-    [playhead, loopMode, state.totalDuration, state.shots],
-  );
-
-  const pausePlayback = useCallback(() => {
-    playerRef.current?.pause();
-    setIsPlaying(false);
-  }, []);
-
-  const handleSeek = useCallback(
-    (time: number) => {
-      playerRef.current?.seek(time);
-      playhead.set(time);
-      setFocusedShotIdx(findShotIdxAtTime(state.shots, time));
-      // Moving the playhead on purpose is the reviewer saying they now mean this frame, so an
-      // open composer follows — and drops a pin left on the frame it was placed on. Without
-      // this the note keeps the instant it opened at and files to the shot left behind.
-      setNoteDraft((draft) => (draft ? { time, pin: null } : null));
-    },
-    [playhead, state.shots],
-  );
-
-  const handleStepFrame = useCallback((delta: number) => {
-    setIsPlaying(false);
-    playerRef.current?.stepFrame(delta);
-    // Stepping is a deliberate move off the frame a pin was placed on; the instant follows in
-    // handleTimeUpdate, once the player reports where it landed.
-    setNoteDraft((draft) => (draft?.pin ? { ...draft, pin: null } : draft));
-  }, []);
-
-  // Arrow-key seek: one frame per press, so a tap nudges and a held key repeats at the OS
-  // key-repeat rate into a smooth ~1× scrub. Each repeat steps off the live playhead, which the
-  // store updates synchronously — reading a rendered value would make every repeat in a burst
-  // seek from the same stale instant.
-  const handleArrowSeek = useCallback(
-    (direction: -1 | 1) => {
-      if (isPlaying) {
-        playerRef.current?.pause();
-        setIsPlaying(false);
-      }
-      const next = Math.min(
-        Math.max(playhead.get() + direction / state.fps, 0),
-        state.totalDuration,
-      );
-      handleSeek(next);
-    },
-    [playhead, isPlaying, state.fps, state.totalDuration, handleSeek],
-  );
-
-  // Apply playback rate live; re-applied on composition reload via player onReady.
-  useEffect(() => {
-    playbackRateRef.current = playbackRate;
-    playerRef.current?.setPlaybackRate(playbackRate);
-  }, [playbackRate]);
-
-  const handlePlayPause = useCallback(() => {
-    if (isPlaying) {
-      playerRef.current?.pause();
-      setIsPlaying(false);
-    } else {
-      if (playhead.get() >= state.totalDuration - 0.25) {
-        playerRef.current?.seek(0);
-        playhead.set(0);
-        setFocusedShotIdx(0);
-      }
-      playerRef.current?.play();
-      setIsPlaying(true);
-    }
-  }, [playhead, isPlaying, state.totalDuration]);
-
-  // Where each shot stands before this session touched it. Whether anything it signs off is still
-  // undecided is the SERVER's answer (`needsVerdict`) — one rule for what settles a shot, shared
-  // with the accept it drives. Only the preview override is the page's own: auditioning a
-  // non-accepted take is a state of this session.
-  const baseShotAccepted = useMemo(() => {
-    const map: Record<string, boolean> = {};
-    for (const s of state.shots) {
-      // Standing in with the board: there is no accept to reflect.
-      if (s.showingStandIn) {
-        map[s.shotId] = false;
-        continue;
-      }
-      // Only the addresses this shot's verdict actually lands on (`verdictAddresses`), so
-      // auditioning a take the accept never touches does not read as an unsaved change.
-      const viewingNonAccepted = s.verdictAddresses.some((address) => {
-        const resolved = resolvedByAddress.get(address);
-        if (resolved === undefined) return false;
-        return (effectiveVariants[address] ?? resolved) !== resolved;
-      });
-      map[s.shotId] = !s.needsVerdict && !viewingNonAccepted;
-    }
-    return map;
-  }, [state.shots, effectiveVariants, resolvedByAddress]);
-
-  // The timeline audio stem (soundtrack beds): the persisted accept unless it is stale/unaccepted.
-  const baseTimelineStemAccepted = useMemo(() => {
-    const ts = state.timelineStem;
-    return !!ts && ts.variantId !== null && !ts.needsReview;
-  }, [state.timelineStem]);
-
-  // The overlay: the persisted accept unless it is stale/unaccepted.
-  const baseOverlayAccepted = useMemo(() => {
-    const o = state.overlay;
-    return !!o && o.variantId !== null && !o.needsReview;
-  }, [state.overlay]);
-
-  // The marks this session has made, as one value.
-  const marks: ReelMarks = useMemo(
-    () => ({ shots: decisions, stem: timelineStemDecision, overlay: overlayDecision }),
-    [decisions, timelineStemDecision, overlayDecision],
-  );
-
-  // Where one unit stands under a given set of marks: an explicit mark this session wins over the
-  // baseline. The page's ONE reader — every view below is this function.
-  const unitAccepted = useCallback(
-    (unit: ReelUnit, m: ReelMarks): boolean =>
-      unit.kind === "stem"
-        ? (m.stem ?? (baseTimelineStemAccepted ? "accepted" : "none")) === "accepted"
-        : unit.kind === "overlay"
-          ? (m.overlay ?? (baseOverlayAccepted ? "accepted" : "none")) === "accepted"
-          : (m.shots[unit.shotId] ?? (baseShotAccepted[unit.shotId] ? "accepted" : "none")) ===
-            "accepted",
-    [baseShotAccepted, baseTimelineStemAccepted, baseOverlayAccepted],
-  );
-
-  const shotAccepted = useMemo(() => {
-    const map: Record<string, boolean> = {};
-    for (const s of state.shots)
-      map[s.shotId] = unitAccepted({ kind: "shot", shotId: s.shotId }, marks);
-    return map;
-  }, [state.shots, unitAccepted, marks]);
-
-  const timelineStemAccepted = unitAccepted({ kind: "stem" }, marks);
-
-  // Every shot a review can sign off (see shotAcceptable) — the rest have their accept affordances
-  // disabled and are excluded from Accept all, the unreviewed count, and the review filters.
-  const acceptableShots = useMemo(() => state.shots.filter(shotAcceptable), [state.shots]);
-
-  const unacceptableShotIds = useMemo(
-    () => new Set(state.shots.filter((s) => !shotAcceptable(s)).map((s) => s.shotId)),
-    [state.shots],
-  );
-
-  // Accept is a toggle (un-accept on second click). A shot accept signs off both its picture
-  // (composition) and its audio (the shot's stem) server-side — no separate per-audio decision.
-  // Toggling back to the baseline drops the mark rather than recording a no-op decision, so
-  // Submit can tell "nothing to save" from "saved a change that happens to match".
-  const keepGraph = state.keep ?? EMPTY_KEEP_GRAPH;
-
-  // The shot whose verdict lands on each address this page accepts.
-  const shotOfAddress = useMemo(
-    () =>
-      new Map(state.shots.flatMap((s) => s.verdictAddresses.map((a) => [a, s.shotId] as const))),
-    [state.shots],
-  );
-  const shotOfUnit = useMemo(
-    () => new Map(state.shots.map((s) => [shotFeedbackAddress(s.shotId), s.shotId] as const)),
-    [state.shots, shotFeedbackAddress],
-  );
-
-  // What a Keep-or-regenerate prompt reads, under the shot marks the accept being asked about leaves.
-  const keepContextFor = useCallback(
-    (
-      markOf: (shotId: string) => "accepted" | "none" | undefined,
-      choices: readonly KeepChoice[],
-    ): KeepContext =>
-      keepContext(keepGraph, choices, {
-        accepted: (address) => {
-          const shotId = shotOfAddress.get(address);
-          const mark = shotId === undefined ? undefined : markOf(shotId);
-          return mark === undefined ? undefined : mark === "accepted";
-        },
-        shown: (address) =>
-          resolvedByAddress.has(address)
-            ? (effectiveVariants[address] ?? resolvedByAddress.get(address) ?? null)
-            : undefined,
-      }),
-    [keepGraph, shotOfAddress, resolvedByAddress, effectiveVariants],
-  );
-
-  const keepOriginOf = useCallback(
-    (shot: ShotInfo): KeepOrigin => ({
-      unit: shotFeedbackAddress(shot.shotId),
-      chosen: Object.fromEntries(
-        shot.verdictAddresses.flatMap((address) => {
-          const variantId = effectiveVariants[address] ?? resolvedByAddress.get(address);
-          return variantId ? [[address, variantId]] : [];
-        }),
-      ),
-    }),
-    [shotFeedbackAddress, effectiveVariants, resolvedByAddress],
-  );
-
-  const applyShotMark = useCallback(
-    (shotId: string, accepted: boolean) => {
-      setDecisions((prev) => {
-        const next = { ...prev };
-        if (accepted === baseShotAccepted[shotId]) delete next[shotId];
-        else next[shotId] = accepted ? "accepted" : "none";
-        return next;
-      });
-    },
-    [baseShotAccepted],
-  );
-
-  const markShot = useCallback(
-    (shotId: string, accepted: boolean) => {
-      // Guards the A shortcut too, which reaches no disabled button.
-      if (unacceptableShotIds.has(shotId)) return;
-      const unit = shotFeedbackAddress(shotId);
-      const shot = state.shots.find((s) => s.shotId === shotId);
-      if (!accepted || !shot) {
-        dropKeepUnits([unit]);
-        applyShotMark(shotId, accepted);
-        return;
-      }
-      const entries = keepPromptFor(
-        keepContextFor(
-          (id) => (id === shotId ? "accepted" : decisions[id]),
-          withoutUnits(keepChoices, [unit]),
-        ),
-        [keepOriginOf(shot)],
-      );
-      requestKeep(entries, () => applyShotMark(shotId, true), [unit]);
-    },
-    [
-      unacceptableShotIds,
-      shotFeedbackAddress,
-      state.shots,
-      dropKeepUnits,
-      applyShotMark,
-      keepContextFor,
-      decisions,
-      keepChoices,
-      keepOriginOf,
-      requestKeep,
-    ],
-  );
-
-  const toggleShotDecision = useCallback(
-    (shotId: string) => markShot(shotId, !shotAccepted[shotId]),
-    [markShot, shotAccepted],
-  );
-
-  // The beds' form of the shot's "Changed": the accept flipped back on its own, so say why.
-  const timelineStemChanged =
-    !!state.timelineStem && state.timelineStem.variantId !== null && state.timelineStem.needsReview;
-
-  const markTimelineStem = useCallback(
-    (accepted: boolean) => {
-      setTimelineStemDecision(
-        accepted === baseTimelineStemAccepted ? undefined : accepted ? "accepted" : "none",
-      );
-    },
-    [baseTimelineStemAccepted],
-  );
-
-  const toggleTimelineStem = useCallback(
-    () => markTimelineStem(!timelineStemAccepted),
-    [markTimelineStem, timelineStemAccepted],
-  );
-
-  const toggleOverlay = useCallback(() => {
-    const accepted = !unitAccepted({ kind: "overlay" }, marks);
-    setOverlayDecision(
-      accepted === baseOverlayAccepted ? undefined : accepted ? "accepted" : "none",
-    );
-  }, [unitAccepted, marks, baseOverlayAccepted]);
-
-  // Whether an audio asset still needs attention, for the "Needs review" filter. Each of its cues
-  // is signed off by the shot that placed it (a shot accept covers that shot's stem); a bed is
-  // signed off by the timeline stem. Like the rest of the filter it reads the baseline, not this
-  // session's marks: an accept is recorded only on Submit, so a row marked here stays in view.
-  const audioAccepted = useMemo(() => {
-    const map: Record<string, boolean> = {};
-    for (const a of state.audioAssets) {
-      map[a.address] =
-        a.kind === "soundtrack"
-          ? baseTimelineStemAccepted
-          : a.cues.every((c) => (c.shotId ? baseShotAccepted[c.shotId] : baseTimelineStemAccepted));
-    }
-    return map;
-  }, [state.audioAssets, baseShotAccepted, baseTimelineStemAccepted]);
-
-  const acceptUnits = useMemo(
-    () => reelAcceptUnits(state.shots, !!state.timelineStem, !!offeredOverlay),
-    [state.shots, state.timelineStem, offeredOverlay],
-  );
-
-  // Accept one unit. Toggling back to the baseline drops the mark rather than recording a no-op
-  // decision, so Submit can tell "nothing to save" from "saved a change that happens to match".
-  const acceptUnit = useCallback(
-    (unit: ReelUnit, m: ReelMarks): ReelMarks => {
-      if (unit.kind === "stem")
-        return { ...m, stem: baseTimelineStemAccepted ? undefined : "accepted" };
-      if (unit.kind === "overlay")
-        return { ...m, overlay: baseOverlayAccepted ? undefined : "accepted" };
-      const shots = { ...m.shots };
-      if (baseShotAccepted[unit.shotId]) delete shots[unit.shotId];
-      else shots[unit.shotId] = "accepted";
-      return { ...m, shots };
-    },
-    [baseShotAccepted, baseTimelineStemAccepted, baseOverlayAccepted],
-  );
-
-  // What the whole review still has to sign off, and whether "Accept all" would move anything.
-  // See bulk-accept.ts.
   const {
-    pending: pendingUnits,
-    done: everythingAccepted,
-    apply: acceptAllMarks,
-  } = useMemo(
-    () => bulkAcceptState(acceptUnits, marks, acceptUnit, unitAccepted),
-    [acceptUnits, marks, acceptUnit, unitAccepted],
-  );
-
-  // Nothing persists until Submit, so bulk-marking needs no confirm dialog — every mark stays
-  // individually reversible before the review is saved.
-  // Every shot it accepts asks through one prompt.
-  const handleAcceptAll = useCallback(() => {
-    const next = acceptAllMarks(marks);
-    const origins = state.shots
-      .filter(
-        (s) => unitAccepted({ kind: "shot", shotId: s.shotId }, next) && !shotAccepted[s.shotId],
-      )
-      .map(keepOriginOf);
-    const units = origins.map((o) => o.unit);
-    const entries = keepPromptFor(
-      keepContextFor((id) => next.shots[id], withoutUnits(keepChoices, units)),
-      origins,
-    );
-    requestKeep(
-      entries,
-      () => {
-        setDecisions(next.shots);
-        setTimelineStemDecision(next.stem);
-        setOverlayDecision(next.overlay);
-      },
-      units,
-    );
-  }, [
-    acceptAllMarks,
-    marks,
-    unitAccepted,
-    state.shots,
+    keepGraph,
+    baseShotAccepted,
+    baseTimelineStemAccepted,
+    baseOverlayAccepted,
     shotAccepted,
-    keepOriginOf,
-    keepContextFor,
-    keepChoices,
-    requestKeep,
-  ]);
-
-  const regenerateUnits = useMemo(
-    () => regenerateMarks(keepGraph, keepChoices, reelStage, (unit) => shotOfUnit.get(unit)),
-    [keepGraph, keepChoices, reelStage, shotOfUnit],
-  );
-  const regenerateByShot = useMemo<Record<string, RegenerateMark>>(
-    () =>
-      Object.fromEntries(
-        state.shots.flatMap((s) => {
-          const mark = regenerateUnits.get(shotFeedbackAddress(s.shotId));
-          return mark ? [[s.shotId, mark]] : [];
-        }),
-      ),
-    [state.shots, regenerateUnits, shotFeedbackAddress],
-  );
-  const keepShotAfterAll = useCallback(
-    (shotId: string) => keepUnitAfterAll(shotFeedbackAddress(shotId)),
-    [keepUnitAfterAll, shotFeedbackAddress],
-  );
-
-  // Shots still needing acceptance — every shot not currently accepted, whether that's an
-  // undecided one, a fresh reroll, or one the reviewer just un-accepted this session.
-  //
-  // Narrowed to shots because the "Next" button it drives is the shot list's own header control
-  // (`noun="shot"`): the beds sit in another panel and are reached by picking the Soundtrack card,
-  // so counting them here would send the reviewer looking for a shot that is not there. The beds
-  // are still a unit of `pendingUnits` above, which is what "Accept all" and its label read.
-  const unreviewedShotIds = useMemo(
-    () => pendingUnits.flatMap((u) => (u.kind === "shot" ? [u.shotId] : [])),
-    [pendingUnits],
-  );
+    timelineStemAccepted,
+    overlayAccepted,
+    timelineStemChanged,
+    acceptableShots,
+    audioAccepted,
+    everythingAccepted,
+    unreviewedShotIds,
+    regenerateUnits,
+    regenerateByShot,
+    toggleShotDecision,
+    toggleTimelineStem,
+    toggleOverlay,
+    acceptAll,
+    keepShotAfterAll,
+    reset: resetDecisions,
+  } = useReelDecisions({ state, reelStage, marks, setMarks, keep, effectiveVariants });
 
   // Picking a shot from the shot list seeks the player AND frames the shot on the timeline
   // (see ReviewTimeline's focusShotRequest). The playhead alone would leave a zoomed-out
@@ -1286,11 +618,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     ) {
       out.push("Soundtrack");
     }
-    if (
-      offeredOverlay &&
-      !unitAccepted({ kind: "overlay" }, marks) &&
-      !commented.has(offeredOverlay.address)
-    ) {
+    if (offeredOverlay && !overlayAccepted && !commented.has(offeredOverlay.address)) {
       out.push("Overlay");
     }
     return out;
@@ -1299,8 +627,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     state.timelineStem,
     state.overlay,
     offeredOverlay,
-    unitAccepted,
-    marks,
+    overlayAccepted,
     session,
     shotAccepted,
     timelineStemAccepted,
@@ -1349,104 +676,13 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   );
 
   const submitVideoReview = useCallback(
-    async ({ addedFeedback, feedbackPatches, overallComment }: SubmitInput) => {
-      // Where the comment was written, and nothing about what it was written against: the handler
-      // derives the subject from the definition and the whole-view snapshots below. The page cannot
-      // narrow a subject it does not send.
-      const added = addedFeedback.map((pf) => ({
-        address: pf.address,
-        text: pf.text,
-        annotation: pf.annotation,
-        time: pf.time,
-      }));
-      const notes = addedFeedback.map((pf) => ({
-        time: pf.time ?? 0,
-        shotId: pf.shotId,
-        address: pf.address,
-        text: pf.text,
-        ...(pf.annotation ? { x: pf.annotation.x, y: pf.annotation.y } : {}),
-      }));
-      // Snapshot the variant shown for every reviewable asset (preview override
-      // wins over the resolved/accepted variant), so submit accepts exactly what
-      // the reviewer saw — never a variant a reroll produced mid-review.
-      //
-      // Seeded with what the compositions were rendered from, since a composite draws addresses the
-      // arrays below do not carry (a board panel, a reference sheet). The loops then overwrite every
-      // address this page can switch a take on, so a gallery pick still wins.
-      const displayedVariants: Record<string, string> = { ...state.compositionRefVariants };
-      // Every take the gallery offered beside it. An accept dismisses the ones it did not choose,
-      // and only the page knows which were on screen — a reroll that landed mid-review is in state
-      // but was never a candidate this reviewer passed over.
-      const displayedCandidates: Record<string, string[]> = {};
-      for (const shot of state.shots) {
-        for (const a of shot.assets) {
-          const vid = effectiveVariants[a.address] ?? a.variantId;
-          if (vid) displayedVariants[a.address] = vid;
-          displayedCandidates[a.address] = a.variants.map((v) => v.variantId);
-        }
-      }
-      for (const a of state.audioAssets) {
-        const vid = effectiveVariants[a.address] ?? a.variantId;
-        if (vid) displayedVariants[a.address] = vid;
-        displayedCandidates[a.address] = a.variants.map((v) => v.variantId);
-      }
-      // The materialized leaves the page was served: their live definition, which no take carries,
-      // and — for a composition — the accepted variant it was showing. A stem's own take is left
-      // out: the preview renders it live, so the accepted variant is not what played.
-      const displayedDefinitionHashes: Record<string, string> = {};
-      for (const shot of state.shots) {
-        if (shot.compositionAddress) {
-          if (shot.compositionVariantId) {
-            displayedVariants[shot.compositionAddress] = shot.compositionVariantId;
-          }
-          if (shot.compositionDefinitionHash) {
-            displayedDefinitionHashes[shot.compositionAddress] = shot.compositionDefinitionHash;
-          }
-        }
-        for (const stem of shot.stems) {
-          if (stem.definitionHash) displayedDefinitionHashes[stem.address] = stem.definitionHash;
-        }
-      }
-      if (state.timelineStem?.definitionHash) {
-        displayedDefinitionHashes[state.timelineStem.address] = state.timelineStem.definitionHash;
-      }
-      if (state.overlay?.definitionHash) {
-        displayedDefinitionHashes[state.overlay.address] = state.overlay.definitionHash;
-      }
-      // Which shots stood in, snapshotted like `displayedVariants`: a build dependency finishing
-      // mid-review flips it, and submit drops any verdict on one — accepting it would sign off a
-      // composition nobody has seen.
-      const displayedStandInShotIds = state.shots
-        .filter((s) => s.showingStandIn)
-        .map((s) => s.shotId);
-      await submitReview(decisions, notes.length > 0 ? notes : undefined, reelStage, {
-        ...(timelineStemDecision ? { timelineStemDecision } : {}),
-        ...(overlayDecision ? { overlayDecision } : {}),
-        addedFeedback: added,
-        feedbackPatches,
-        displayedVariants,
-        displayedDefinitionHashes,
-        displayedCandidates,
-        displayedStandInShotIds,
-        ...(overallComment ? { overallComment } : {}),
-        ...(keepChoices.length > 0
-          ? { keep: keepDecisions(keepChoices), regenerate: regenerateDecisions(keepChoices) }
-          : {}),
-      });
+    async (input: SubmitInput) => {
+      await submitReview(
+        reelStage,
+        buildReelSubmitPayload({ state, marks, keepChoices, effectiveVariants, input }),
+      );
     },
-    [
-      keepChoices,
-      decisions,
-      timelineStemDecision,
-      overlayDecision,
-      effectiveVariants,
-      reelStage,
-      state.shots,
-      state.audioAssets,
-      state.timelineStem,
-      state.overlay,
-      state.compositionRefVariants,
-    ],
+    [reelStage, state, marks, keepChoices, effectiveVariants],
   );
   const handleSubmit = session.openSubmit;
 
@@ -1553,7 +789,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
                   accepted: soundtrackFocused
                     ? timelineStemAccepted
                     : focusedOverlay
-                      ? unitAccepted({ kind: "overlay" }, marks)
+                      ? overlayAccepted
                       : !!focusedShot && !!shotAccepted[focusedShot.shotId],
                   what: soundtrackFocused
                     ? "soundtrack"
@@ -1572,14 +808,12 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
           acceptAll={{
             done: everythingAccepted,
             what: "every shot and all audio",
-            onClick: handleAcceptAll,
+            onClick: acceptAll,
           }}
           reset={{
             disabled: !session.hasPendingChanges,
             onClick: () => {
-              setDecisions({});
-              setTimelineStemDecision(undefined);
-              resetKeep();
+              resetDecisions();
               session.reset();
             },
           }}
@@ -1626,7 +860,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
                 getStartTime={playhead.get}
                 onTimeUpdate={handleTimeUpdate}
                 onPlayingChange={setIsPlaying}
-                onReady={() => playerRef.current?.setPlaybackRate(playbackRateRef.current)}
+                onReady={handlePlayerReady}
                 playerRef={playerRef}
               />
               {focusedShot?.pending && (
@@ -1893,9 +1127,9 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
                   <StatusBadge status="changed" label="Changed" />
                 </h3>
                 <AcceptButton
-                  accepted={unitAccepted({ kind: "overlay" }, marks)}
+                  accepted={overlayAccepted}
                   title={
-                    unitAccepted({ kind: "overlay" }, marks)
+                    overlayAccepted
                       ? "Click to unaccept"
                       : "Accept the overlay over the whole video"
                   }
@@ -1911,7 +1145,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
                 total: acceptableShots.length,
               }}
               shotAccepted={shotAccepted}
-              decisions={decisions}
+              decisions={marks.shots}
               noteCounts={noteCounts}
               focusedShotId={focusedShot?.shotId}
               regenerate={regenerateByShot}

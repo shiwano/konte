@@ -44,18 +44,12 @@ export async function fetchCompositionHtml(
 }
 
 export function submitReview(
-  decisions: ReelSubmitBody["decisions"],
-  notes: ReelSubmitBody["notes"],
   stage: "animatic" | "video",
-  // `displayedStandInShotIds` is required: the endpoint rejects a submit that cannot say which shots
-  // stood in. The comments carry where they were written and nothing about what they were written
-  // against — the endpoint derives the subject from the definition and the whole-view snapshots.
-  extra: Omit<ReelSubmitBody, "decisions" | "notes">,
+  body: ReelSubmitBody,
 ): Promise<ReelSubmitResponse> {
-  return requestJson<ReelSubmitResponse>(
-    `/api/${stage}/submit`,
-    jsonBody("POST", { decisions, notes, ...extra } satisfies ReelSubmitBody),
-  ).then(rejectSkippedDecisions);
+  return requestJson<ReelSubmitResponse>(`/api/${stage}/submit`, jsonBody("POST", body)).then(
+    rejectSkippedDecisions,
+  );
 }
 
 // A 200 whose accepts did not all land. `saved` says whether the record — and every note and accept
