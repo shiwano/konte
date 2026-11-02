@@ -27,8 +27,7 @@ The workspace, shared by every video in it:
 
 - `AGENTS.md` and skills named `konte-*` or `*-guide` — managed by konte; do not edit.
 - `HOUSE_RULES.md` — what every piece here holds to; create or edit it to record the human's instructions
-- `konte.config.json` — Non-secret settings
-- `konte.credentials.json` — API keys
+- `konte.config.json` — non-secret settings
 - `adapters/` — model adapters
 - `videos/<name>/` — one video each
 - `.konte/` — managed by konte; do not edit anything under it
@@ -67,4 +66,4 @@ After a batch of changes, run `konte status` — it type-checks the whole worksp
 
 ## Security
 
-- Agents **must not** read or edit `konte.credentials.json` (via any tool: Read, Bash cat/head/tail/grep, env, source, etc.) and must **never** echo key values; the human sets them in `konte settings`.
+Never read or edit `konte.credentials.json`, by any tool (Read, `cat`, `grep`, `env`, `source`, …), and never echo a key value; the human sets them in `konte settings`.
