@@ -51,6 +51,12 @@ describe("source locators", () => {
       "c4",
     ]);
     expect(parseSpan("v1.b3-b5")).toEqual({ from: "v1.b3", to: "v1.b5" });
+    expect(parseSpan("c25.1-2")).toEqual({ from: "c25.1", to: "c25.2" });
+    expect(resolveSpan(parseSpan("c25.2-c26")!, ["c25.1", "c25.2", "c26", "c27"])).toEqual([
+      "c25.2",
+      "c26",
+    ]);
+    expect(parseSpan("s1.c2-s2")).toEqual({ from: "s1.c2", to: "s2" });
     expect(resolveSpan(parseSpan("w9")!, ["w1", "w2"])).toBeNull();
     expect(parseSpan("chapter 3")).toBeNull();
   });

@@ -117,9 +117,11 @@ export function parseSpan(span: string): ParsedSpan | null {
   const [from, short] = parts as [string, string];
   const head = from.split(".");
   const tail = short.split(".");
+  const letters = (seg: string | undefined) => /^[a-z]*/.exec(seg ?? "")![0];
+  const shared = head.length - tail.length;
   const to =
-    tail.length < head.length
-      ? [...head.slice(0, head.length - tail.length), ...tail].join(".")
+    shared > 0 && letters(tail[0]) === letters(head[shared])
+      ? [...head.slice(0, shared), ...tail].join(".")
       : short;
   return isSelector(from) && isSelector(to) ? { from, to } : null;
 }

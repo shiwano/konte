@@ -18,7 +18,12 @@ import {
   untranscribedPages,
   spanLabelOf,
 } from "../../core/source-direction.js";
-import { type SourceKind, formatClipClock, sourceKindOfFile } from "../../core/source-locator.js";
+import {
+  type SourceKind,
+  formatClipClock,
+  parseSpan,
+  sourceKindOfFile,
+} from "../../core/source-locator.js";
 import {
   DIGEST_DIR,
   INDEX_MD,
@@ -153,6 +158,12 @@ async function runImport(
 }
 
 async function requireSourceView(span: string | undefined): Promise<SourceView> {
+  if (span !== undefined && !parseSpan(span)) {
+    throw new KonteError(
+      "VALIDATION_FAILED",
+      `--span "${span}" is no span — a chunk or a range of them (c3-c5, v1.b3-b5, w2-w4), or a story or volume (s5, v1)`,
+    );
+  }
   const videoRoot = requireVideoRoot();
   const brief = span ?? (await loadDirectionIfPresent(videoRoot))?.brief.source?.span ?? null;
   const sv = await sourceViewIn(videoRoot, brief);
