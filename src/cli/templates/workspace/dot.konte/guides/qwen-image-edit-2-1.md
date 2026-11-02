@@ -12,7 +12,7 @@ Describe only the change. Name what stays by its role, in one blanket clause; re
 
 ## Style Conversion
 
-- For a source that already has the required subject, pose and framing — a photograph as an anime cel, brought footage's still as a painting.
+- For a live-action source that already has the required subject, pose and framing — a photograph as an anime cel, brought footage's still as a painting.
 - Describe the rendering change in one or two sentences.
 - Start with `image1` alone; add `image2` and then `image3` as style examples, naming their roles with `<image2>` and `<image3>`. Their subjects and composition are not content to copy.
 
@@ -50,4 +50,5 @@ Describe only the change. Name what stays by its role, in one blanket clause; re
 
 - A new viewpoint, a cut, a change of framing or a new composition in a shot, or another view of a location — draw those with `imageMinimaxH3R2i`.
 - Style conversion in a shot; settle the look in the reference stage.
+- A restyle of a picture already drawn, such as an anime sheet into the piece's look; redraw it from text in that look.
 - A nonempty `negativePrompt` at `cfg: 1`; the adapter rejects it. At the default `cfg: 4`, target observed artifacts with short terms.

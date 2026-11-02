@@ -5,7 +5,7 @@ import { defineComfyAsset, inertInputs } from "konte";
 export const imageQwenImageEdit21 = defineComfyAsset({
   workflow: "image_qwen_image_edit_2_1.json",
   description:
-    "Qwen Image 2.1 — edits from up to three images, keeping what the prompt does not change: in reference, a change of rendering medium (a photograph redrawn as anime) or a new pose or outfit of an existing subject, never another view of a location (`views`); in a timeline, a change to a picture several shots show; in a shot, a keyframe on the same camera from another already drawn, never a new viewpoint, a cut or a new composition.",
+    "Qwen Image 2.1 — edits from up to three images, keeping what the prompt does not change: in reference, live action redrawn in a drawn medium (a photograph as anime) or a new pose or outfit of an existing subject, never a restyle of a picture already drawn or another view of a location (`views`); in a timeline, a change to a picture several shots show; in a shot, a keyframe on the same camera from another already drawn, never a new viewpoint, a cut or a new composition.",
   guide: "konte/guides/qwen-image-edit-2-1.md",
   allowedIn: ["reference", "timeline", "shot"],
   models: [
