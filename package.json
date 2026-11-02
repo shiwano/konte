@@ -54,6 +54,7 @@
     "@types/node": "25.6.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/yauzl": "^3.4.0",
     "dts-bundle-generator": "^9.5.1",
     "oxfmt": "^0.47.0",
     "oxlint": "^1.62.0",
