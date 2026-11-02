@@ -179,6 +179,38 @@ describe("TEXT_STUDY", () => {
     expect(readStudyIndex(src)?.summary).toMatch(/· 2 stories · 3 chunks · dialogue \d+%$/);
   });
 
+  it("reads the stories a half-title's TOC entry holds as the chapters", async () => {
+    const epub = {
+      ...EPUB,
+      "OEBPS/content.opf": EPUB["OEBPS/content.opf"]
+        .replace(
+          '<item id="one"',
+          '<item id="half" href="text/halftitlepage.xhtml" media-type="application/xhtml+xml"/><item id="one"',
+        )
+        .replace('<itemref idref="one"/>', '<itemref idref="half"/><itemref idref="one"/>'),
+      "OEBPS/nav.xhtml": xhtml(
+        `<nav epub:type="toc"><ol>
+          <li><a href="text/titlepage.xhtml">Titlepage</a></li>
+          <li><a href="text/halftitlepage.xhtml">The Adventures</a><ol>
+            <li><a href="text/scandal.xhtml">A Scandal in Bohemia</a></li>
+            <li><a href="text/league.xhtml">The Red-Headed League</a></li>
+          </ol></li>
+        </ol></nav>`,
+        "frontmatter",
+      ),
+      "OEBPS/text/halftitlepage.xhtml": xhtml(
+        '<section epub:type="halftitlepage"><p>The Adventures</p></section>',
+        "frontmatter",
+      ),
+    };
+    const src = await source("book.epub", storedZip(epub));
+    const { index } = await studySource(src, { progress });
+    expect(index.chunks.map((c) => [c.id, c.from, c.to])).toEqual([
+      ["c1", 1, 3],
+      ["c2", 1, 2],
+    ]);
+  });
+
   it("reads a Shift_JIS Aozora text: its heading notes, ruby, and none of its front or back matter", async () => {
     const text = [
       "羅生門",

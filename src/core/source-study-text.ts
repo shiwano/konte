@@ -499,10 +499,18 @@ function anchorOf(stream: Stream, target: string): number | null {
 
 function bookOfToc(toc: readonly TocEntry[], stream: Stream, cjk: boolean): Book {
   const inMatter = (e: TocEntry) => stream.matter.has(e.target.split("#")[0]!);
+  // A matter entry over body entries (a half-title over the stories) gives way to them.
+  const entries = toc.flatMap((e) =>
+    inMatter(e) && e.children.some((c) => !inMatter(c)) ? e.children : [e],
+  );
   // Every entry down to the chapter level bounds the one before it, matter included.
-  const twoLevel = toc.some((e) => e.children.length > 0);
+  const twoLevel = entries.some((e) => e.children.length > 0);
   const bounds = new Set<number>();
   for (const e of toc) {
+    const at = anchorOf(stream, e.target);
+    if (at !== null) bounds.add(at);
+  }
+  for (const e of entries) {
     const at = anchorOf(stream, e.target);
     if (at !== null) bounds.add(at);
     if (twoLevel) {
@@ -517,7 +525,7 @@ function bookOfToc(toc: readonly TocEntry[], stream: Stream, cjk: boolean): Book
   const extent = (at: number) =>
     [at, sorted.find((b) => b > at) ?? stream.paragraphs.length] as const;
 
-  const body = toc.filter((e) => !inMatter(e) && anchorOf(stream, e.target) !== null);
+  const body = entries.filter((e) => !inMatter(e) && anchorOf(stream, e.target) !== null);
   if (body.length === 0) {
     return bookByLength(stream.paragraphs, "no table of contents: split by length", cjk);
   }
@@ -702,7 +710,7 @@ function chunkSize(chunk: TextChunk, cjk: boolean): string {
 export const TEXT_STUDY: SourceStudyKind = {
   excerptReadsChunk: true,
   kind: "text",
-  version: 2,
+  version: 1,
 
   async structure(src) {
     const { book, chunks, cjk } = await readBook(src);
