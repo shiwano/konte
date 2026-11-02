@@ -3,7 +3,7 @@ import { selectResolvedVariant } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
 
 export function resolveRefs(
-  assetPaths: readonly string[],
+  addresses: readonly string[],
   manager: StateManager,
   options: { strict?: boolean } = {},
 ): Record<string, string> {
@@ -12,8 +12,8 @@ export function resolveRefs(
   // The manager's cache, so a spend resolves its inputs by the definitions the command registered.
   const cache = manager.stalenessCache();
 
-  // A dependency path IS its upstream address (address ≡ asset path), so it resolves directly.
-  for (const depPath of assetPaths) {
+  // A dependency path IS its upstream address, so it resolves directly.
+  for (const depPath of addresses) {
     const selected = selectResolvedVariant(
       state,
       depPath,

@@ -81,7 +81,6 @@ type DeliveryLayer = {
   assetName: string;
   sourceAddress: string;
   deliveryAddress: string;
-  sourceAssetPath: string;
   sourceFileRel: string | null;
   sourceOutputHash: string | null;
   target: DeliveryTarget;
@@ -151,8 +150,6 @@ export async function collectDeliveryLayers(
         assetName,
         sourceAddress,
         deliveryAddress,
-        // Address ≡ asset path.
-        sourceAssetPath: sourceAddress,
         sourceFileRel: sourceVariant?.file ?? null,
         sourceOutputHash: sourceVariant?.outputHash ?? null,
         target,
@@ -296,9 +293,9 @@ export async function renderVideoToFile(opts: {
   // `<Video src={shot(…).x} hasAudio>` stem. Only a shot's own assets are resolved by the render pass; resolve the rest
   // from state here. A src that is not a placeholder (a real file path) is returned untouched.
   const resolveAssetSrc = (src: string): string => {
-    const assetPath = parsePlaceholder(src);
-    if (assetPath === null) return src;
-    const resolved = resolveCompositionRef(manager, assetPath);
+    const address = parsePlaceholder(src);
+    if (address === null) return src;
+    const resolved = resolveCompositionRef(manager, address);
     return resolved?.file ?? src;
   };
 
@@ -847,8 +844,8 @@ function buildAssetFiles(resolvedFiles: Record<string, string>): Record<string, 
 // would map `shot.a-b.c`, `shot.a.b-c` and `shot.a_b.c` onto one file. It also cannot collide with a
 // shot's own `<assetName><ext>` key: the name carries a `<stage>.` prefix and an asset name may not
 // contain `.`.
-function refFileName(assetPath: string, filePath: string): string {
-  return `${assetPath.replace(/:/g, ".").replace(/#/g, "~")}${path.extname(filePath)}`;
+function refFileName(address: string, filePath: string): string {
+  return `${address.replace(/:/g, ".").replace(/#/g, "~")}${path.extname(filePath)}`;
 }
 
 interface ShotRenderInputs {
@@ -857,17 +854,17 @@ interface ShotRenderInputs {
   assetFiles: Record<string, string>;
 }
 
-// The file a SIBLING shot's own render reads for `assetPath`, or null when the ref does not name one
+// The file a SIBLING shot's own render reads for `address`, or null when the ref does not name one
 // of this video's shot assets. Consulted before state so a cross-shot ref (`shot(…).video(…)`)
 // composites from the very file its owning shot composites from — including the upscaled #delivery
 // layer `applyDeliverySubstitutions` swapped into that shot's `resolvedFiles`. Resolving it from
 // state instead would hand back the working-size source and leave that one layer soft at delivery
 // resolution. The #delivery variant always exists here: the asset is a video layer of its own shot,
 // so the export job already depended on its upscale.
-function siblingShotFile(shots: readonly ShotRenderPlan[], assetPath: string): string | null {
+function siblingShotFile(shots: readonly ShotRenderPlan[], address: string): string | null {
   let parsed: ReturnType<typeof parseAddress>;
   try {
-    parsed = parseAddress(assetPath);
+    parsed = parseAddress(address);
   } catch {
     return null;
   }
@@ -969,11 +966,10 @@ function layOverlaysAndStage(
       shotDuration: shotPlan.duration,
     });
   }
-  html = substituteAssetPlaceholders(html, (assetPath) => {
-    const file =
-      siblingShotFile(shots, assetPath) ?? resolveCompositionRef(manager, assetPath)?.file;
+  html = substituteAssetPlaceholders(html, (address) => {
+    const file = siblingShotFile(shots, address) ?? resolveCompositionRef(manager, address)?.file;
     if (!file) return null;
-    const name = refFileName(assetPath, file);
+    const name = refFileName(address, file);
     assetFiles[name] = file;
     return name;
   });

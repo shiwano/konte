@@ -10,8 +10,7 @@ import type { AssetDefinition } from "./types/index.js";
 // targets.
 export type Stage = "animatic" | "video" | "reference" | "direction";
 
-// An address is a fully-qualified location — `<stage>:<suffix>`; an address and an asset path are
-// the same string form.
+// An address is a fully-qualified location — `<stage>:<suffix>`.
 export type ParsedAddress =
   | { stage: AssetStage; kind: "shot"; shotId: string; assetName: string; delivery: boolean }
   | { stage: AssetStage; kind: "timeline"; assetName: string; delivery: boolean }
@@ -730,7 +729,7 @@ export function sourceAddressOfDelivery(deliveryAddress: string): string {
     : deliveryAddress;
 }
 
-// Whether an address (or asset path) names a delivery derivative. `#` cannot appear
+// Whether an address names a delivery derivative. `#` cannot appear
 // anywhere else in an address, so a suffix test is sufficient.
 export function isDeliveryAddress(address: string): boolean {
   return address.endsWith(DELIVERY_SUFFIX);
@@ -981,7 +980,7 @@ export function listAddresses(definition: DefinitionLike, stage: AssetStage): st
   return paths;
 }
 
-// A reference definition's assets, as asset paths / addresses (the same form).
+// A reference definition's assets, as addresses.
 export function listReferenceAddresses(definition: DefinitionLike): string[] {
   return listAddresses(definition, "reference");
 }
@@ -1026,8 +1025,8 @@ export function listReviewableAddresses(definition: DefinitionLike, stage: Asset
     : listAddresses(definition, stage).filter((p) => !isPlateAddress(p));
 }
 
-export function getAssetEntry(definition: DefinitionLike, assetPath: string): AssetDefinition {
-  const parsed = parseAddress(assetPath);
+export function getAssetEntry(definition: DefinitionLike, address: string): AssetDefinition {
+  const parsed = parseAddress(address);
 
   if (parsed.kind === "plate") {
     const plate = definition.plates?.[parsed.assetName];
@@ -1056,7 +1055,7 @@ export function getAssetEntry(definition: DefinitionLike, assetPath: string): As
   if (parsed.kind === "patch") {
     throw new KonteError(
       "ADDRESS_NOT_FOUND",
-      `"${assetPath}" is a patch step — its definition lives in patches/${parsed.sourceVariantId}.ts, not in the stage definition`,
+      `"${address}" is a patch step — its definition lives in patches/${parsed.sourceVariantId}.ts, not in the stage definition`,
     );
   }
 

@@ -199,7 +199,7 @@ export async function gatePatchApply(
       command,
       stage: getStage(patch.sourceAddress) as "reference" | "animatic" | "video",
       patch: patch.sourceVariantId,
-      assetPaths: [patch.sourceAddress],
+      addresses: [patch.sourceAddress],
       targeted: true,
       // A chain's own steps are produced by this very application, so they are not upstream work.
       extraRefs: Object.values(patch.assets)

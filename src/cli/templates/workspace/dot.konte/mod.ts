@@ -3089,7 +3089,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               z.ZodObject<
                 {
                   assetName: z.ZodString;
-                  assetPath: z.ZodString;
+                  address: z.ZodString;
                   start: z.ZodNumber;
                   duration: z.ZodNumber;
                   blocking: z.ZodOptional<z.ZodString>;
@@ -3101,7 +3101,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   start: number;
                   duration: number;
                   assetName: string;
-                  assetPath: string;
+                  address: string;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 },
@@ -3109,7 +3109,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   start: number;
                   duration: number;
                   assetName: string;
-                  assetPath: string;
+                  address: string;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }
@@ -3145,7 +3145,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     z.ZodObject<
                       {
                         assetName: z.ZodString;
-                        assetPath: z.ZodString;
+                        address: z.ZodString;
                         start: z.ZodNumber;
                         duration: z.ZodNumber;
                         blocking: z.ZodOptional<z.ZodString>;
@@ -3157,7 +3157,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                         start: number;
                         duration: number;
                         assetName: string;
-                        assetPath: string;
+                        address: string;
                         blocking?: string | undefined;
                         camera?: string | undefined;
                       },
@@ -3165,7 +3165,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                         start: number;
                         duration: number;
                         assetName: string;
-                        assetPath: string;
+                        address: string;
                         blocking?: string | undefined;
                         camera?: string | undefined;
                       }
@@ -3183,7 +3183,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       start: number;
                       duration: number;
                       assetName: string;
-                      assetPath: string;
+                      address: string;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -3197,7 +3197,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       start: number;
                       duration: number;
                       assetName: string;
-                      assetPath: string;
+                      address: string;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -3292,7 +3292,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       start: number;
                       duration: number;
                       assetName: string;
-                      assetPath: string;
+                      address: string;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -3336,7 +3336,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 start: number;
                 duration: number;
                 assetName: string;
-                assetPath: string;
+                address: string;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -3425,7 +3425,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       start: number;
                       duration: number;
                       assetName: string;
-                      assetPath: string;
+                      address: string;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -3469,7 +3469,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 start: number;
                 duration: number;
                 assetName: string;
-                assetPath: string;
+                address: string;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -4167,7 +4167,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   start: number;
                   duration: number;
                   assetName: string;
-                  assetPath: string;
+                  address: string;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }[]
@@ -4211,7 +4211,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             start: number;
             duration: number;
             assetName: string;
-            assetPath: string;
+            address: string;
             blocking?: string | undefined;
             camera?: string | undefined;
           }[]
@@ -4471,7 +4471,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   start: number;
                   duration: number;
                   assetName: string;
-                  assetPath: string;
+                  address: string;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }[]
@@ -4515,7 +4515,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             start: number;
             duration: number;
             assetName: string;
-            assetPath: string;
+            address: string;
             blocking?: string | undefined;
             camera?: string | undefined;
           }[]
@@ -5348,7 +5348,7 @@ export type AssetDefinition = z.infer<typeof AssetDefinitionSchema>;
 declare const PanelDefinitionSchema: z.ZodObject<
   {
     assetName: z.ZodString;
-    assetPath: z.ZodString;
+    address: z.ZodString;
     start: z.ZodNumber;
     duration: z.ZodNumber;
     blocking: z.ZodOptional<z.ZodString>;
@@ -5360,7 +5360,7 @@ declare const PanelDefinitionSchema: z.ZodObject<
     start: number;
     duration: number;
     assetName: string;
-    assetPath: string;
+    address: string;
     blocking?: string | undefined;
     camera?: string | undefined;
   },
@@ -5368,7 +5368,7 @@ declare const PanelDefinitionSchema: z.ZodObject<
     start: number;
     duration: number;
     assetName: string;
-    assetPath: string;
+    address: string;
     blocking?: string | undefined;
     camera?: string | undefined;
   }
@@ -5748,7 +5748,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
         z.ZodObject<
           {
             assetName: z.ZodString;
-            assetPath: z.ZodString;
+            address: z.ZodString;
             start: z.ZodNumber;
             duration: z.ZodNumber;
             blocking: z.ZodOptional<z.ZodString>;
@@ -5760,7 +5760,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
             start: number;
             duration: number;
             assetName: string;
-            assetPath: string;
+            address: string;
             blocking?: string | undefined;
             camera?: string | undefined;
           },
@@ -5768,7 +5768,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
             start: number;
             duration: number;
             assetName: string;
-            assetPath: string;
+            address: string;
             blocking?: string | undefined;
             camera?: string | undefined;
           }
@@ -5804,7 +5804,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
               z.ZodObject<
                 {
                   assetName: z.ZodString;
-                  assetPath: z.ZodString;
+                  address: z.ZodString;
                   start: z.ZodNumber;
                   duration: z.ZodNumber;
                   blocking: z.ZodOptional<z.ZodString>;
@@ -5816,7 +5816,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
                   start: number;
                   duration: number;
                   assetName: string;
-                  assetPath: string;
+                  address: string;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 },
@@ -5824,7 +5824,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
                   start: number;
                   duration: number;
                   assetName: string;
-                  assetPath: string;
+                  address: string;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }
@@ -5842,7 +5842,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
                 start: number;
                 duration: number;
                 assetName: string;
-                assetPath: string;
+                address: string;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -5856,7 +5856,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
                 start: number;
                 duration: number;
                 assetName: string;
-                assetPath: string;
+                address: string;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -5951,7 +5951,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
                 start: number;
                 duration: number;
                 assetName: string;
-                assetPath: string;
+                address: string;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -5995,7 +5995,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
           start: number;
           duration: number;
           assetName: string;
-          assetPath: string;
+          address: string;
           blocking?: string | undefined;
           camera?: string | undefined;
         }[]
@@ -6084,7 +6084,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
                 start: number;
                 duration: number;
                 assetName: string;
-                assetPath: string;
+                address: string;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -6128,7 +6128,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
           start: number;
           duration: number;
           assetName: string;
-          assetPath: string;
+          address: string;
           blocking?: string | undefined;
           camera?: string | undefined;
         }[]
@@ -6851,7 +6851,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
               z.ZodObject<
                 {
                   assetName: z.ZodString;
-                  assetPath: z.ZodString;
+                  address: z.ZodString;
                   start: z.ZodNumber;
                   duration: z.ZodNumber;
                   blocking: z.ZodOptional<z.ZodString>;
@@ -6863,7 +6863,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   start: number;
                   duration: number;
                   assetName: string;
-                  assetPath: string;
+                  address: string;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 },
@@ -6871,7 +6871,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   start: number;
                   duration: number;
                   assetName: string;
-                  assetPath: string;
+                  address: string;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }
@@ -6907,7 +6907,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     z.ZodObject<
                       {
                         assetName: z.ZodString;
-                        assetPath: z.ZodString;
+                        address: z.ZodString;
                         start: z.ZodNumber;
                         duration: z.ZodNumber;
                         blocking: z.ZodOptional<z.ZodString>;
@@ -6919,7 +6919,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                         start: number;
                         duration: number;
                         assetName: string;
-                        assetPath: string;
+                        address: string;
                         blocking?: string | undefined;
                         camera?: string | undefined;
                       },
@@ -6927,7 +6927,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                         start: number;
                         duration: number;
                         assetName: string;
-                        assetPath: string;
+                        address: string;
                         blocking?: string | undefined;
                         camera?: string | undefined;
                       }
@@ -6945,7 +6945,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                       start: number;
                       duration: number;
                       assetName: string;
-                      assetPath: string;
+                      address: string;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -6959,7 +6959,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                       start: number;
                       duration: number;
                       assetName: string;
-                      assetPath: string;
+                      address: string;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -7054,7 +7054,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                       start: number;
                       duration: number;
                       assetName: string;
-                      assetPath: string;
+                      address: string;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -7098,7 +7098,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 start: number;
                 duration: number;
                 assetName: string;
-                assetPath: string;
+                address: string;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -7187,7 +7187,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                       start: number;
                       duration: number;
                       assetName: string;
-                      assetPath: string;
+                      address: string;
                       blocking?: string | undefined;
                       camera?: string | undefined;
                     }[]
@@ -7231,7 +7231,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 start: number;
                 duration: number;
                 assetName: string;
-                assetPath: string;
+                address: string;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
@@ -7772,7 +7772,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   start: number;
                   duration: number;
                   assetName: string;
-                  assetPath: string;
+                  address: string;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }[]
@@ -7816,7 +7816,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             start: number;
             duration: number;
             assetName: string;
-            assetPath: string;
+            address: string;
             blocking?: string | undefined;
             camera?: string | undefined;
           }[]
@@ -8025,7 +8025,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   start: number;
                   duration: number;
                   assetName: string;
-                  assetPath: string;
+                  address: string;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 }[]
@@ -8069,7 +8069,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             start: number;
             duration: number;
             assetName: string;
-            assetPath: string;
+            address: string;
             blocking?: string | undefined;
             camera?: string | undefined;
           }[]

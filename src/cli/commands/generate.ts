@@ -127,7 +127,7 @@ export function registerGenerateCommand(program: Command): void {
           const cause = formatStaleCause(staleness);
           const fork = plateFork(
             address,
-            collectTransitiveDependents(graph, address).map((assetPath) => ({ assetPath })),
+            collectTransitiveDependents(graph, address).map((address) => ({ address })),
             def,
           );
           const variantId = manager.getAcceptedVariant(address);
@@ -157,7 +157,7 @@ export function registerGenerateCommand(program: Command): void {
         manager,
         graph,
       });
-      const { stageAssetPaths, skippedUnused } = selected;
+      const { stageAddresses, skippedUnused } = selected;
       // Before any job is created: a finding or an unaccepted upstream holding the whole stage refuses
       // the run; one holding only some assets leaves them out.
       const { held } = await spendGate(
@@ -165,12 +165,12 @@ export function registerGenerateCommand(program: Command): void {
         {
           command: "generate",
           stage: loaded.stage,
-          assetPaths: selected.spending,
+          addresses: selected.spending,
           targeted: false,
         },
       );
       const spending = selected.spending.filter((address) => !held.has(address));
-      for (const address of held.keys()) stageAssetPaths.delete(address);
+      for (const address of held.keys()) stageAddresses.delete(address);
       const heldCount = selected.spending.length - spending.length;
       const heldLines = [
         ...new Set(selected.spending.flatMap((address) => held.get(address) ?? [])),
@@ -194,11 +194,11 @@ export function registerGenerateCommand(program: Command): void {
       };
 
       const jobManager = new JobManager(videoRoot);
-      const failedAssetPaths = new Set<string>();
+      const failedAddresses = new Set<string>();
 
       const levelResults: LevelResult[] = [];
       const generatedDepPaths = new Set<string>();
-      const rebuiltAssetPaths = new Set<string>();
+      const rebuiltAddresses = new Set<string>();
       const pendingReasons = new Map<string, PendingReason>();
 
       if (opts.plan) {
@@ -206,7 +206,7 @@ export function registerGenerateCommand(program: Command): void {
           levels,
           graph,
           manager,
-          stageAssetPaths,
+          stageAddresses,
           variantCount,
           getAssetDef: assetEntryOf,
           missingModels: spend.missingModels,
@@ -249,8 +249,8 @@ export function registerGenerateCommand(program: Command): void {
       // stages, so the global level index is sparse per stage (an animatic-only
       // level is empty for video and vice versa) — displaying it would skip numbers.
       const stageLevels = levels
-        .map((allAssetPaths) => allAssetPaths.filter((a) => stageAssetPaths.has(a)))
-        .filter((assetPaths) => assetPaths.length > 0);
+        .map((allAddresses) => allAddresses.filter((a) => stageAddresses.has(a)))
+        .filter((addresses) => addresses.length > 0);
 
       // One job-directory scan for the whole run; every job this run creates is added as it
       // is created, so pending-reason descriptions and later levels never re-read the directory
@@ -279,10 +279,10 @@ export function registerGenerateCommand(program: Command): void {
       };
 
       for (let levelIdx = 0; levelIdx < stageLevels.length; levelIdx++) {
-        const assetPaths = stageLevels[levelIdx]!;
+        const addresses = stageLevels[levelIdx]!;
 
         console.log(
-          `${levelIdx === 0 ? "\n" : ""}Level ${levelIdx + 1}/${stageLevels.length}: ${assetPaths.length} asset(s)`,
+          `${levelIdx === 0 ? "\n" : ""}Level ${levelIdx + 1}/${stageLevels.length}: ${addresses.length} asset(s)`,
         );
 
         const assetResults: (AssetResult | null)[] = [];
@@ -299,9 +299,8 @@ export function registerGenerateCommand(program: Command): void {
         }> = [];
         const reservations: VariantReservationRequest[] = [];
 
-        for (const assetPath of assetPaths) {
-          const assetDef = assetEntryOf(assetPath);
-          const address = assetPath;
+        for (const address of addresses) {
+          const assetDef = assetEntryOf(address);
 
           if (assetDef.kind === "file") {
             // file assets need no generation; both stages report them as synced.
@@ -309,11 +308,11 @@ export function registerGenerateCommand(program: Command): void {
             continue;
           }
 
-          const hasDependencyFailure = (graph.dependencies.get(assetPath) ?? []).some((dep) =>
-            failedAssetPaths.has(dep),
+          const hasDependencyFailure = (graph.dependencies.get(address) ?? []).some((dep) =>
+            failedAddresses.has(dep),
           );
           if (hasDependencyFailure) {
-            failedAssetPaths.add(assetPath);
+            failedAddresses.add(address);
             assetResults.push({
               address,
               status: "failed",
@@ -323,14 +322,14 @@ export function registerGenerateCommand(program: Command): void {
             continue;
           }
 
-          const deps = graph.dependencies.get(assetPath) ?? [];
+          const deps = graph.dependencies.get(address) ?? [];
           // Readiness first, then the gate — see buildGeneratePlan for why that order.
           const skipReason = assetSkipReason(
             manager,
             address,
             computeDefinitionHash(assetDef),
             assetDef.deterministic === true,
-            deps.some((d) => rebuiltAssetPaths.has(d)),
+            deps.some((d) => rebuiltAddresses.has(d)),
           );
           if (skipReason) {
             assetResults.push({ address, status: "skipped", skipReason, jobs: [] });
@@ -345,7 +344,7 @@ export function registerGenerateCommand(program: Command): void {
           for (const id of prereqJobIds) await addKnownJob(id);
 
           const slot = assetResults.push(null) - 1;
-          rebuiltAssetPaths.add(address);
+          rebuiltAddresses.add(address);
           work.push({
             slot,
             address,
@@ -383,7 +382,7 @@ export function registerGenerateCommand(program: Command): void {
               reservedVariantIds: reservedIds,
               comfyTarget: spend.targetOf(w.assetDef),
             });
-            if (result.status === "failed") failedAssetPaths.add(w.address);
+            if (result.status === "failed") failedAddresses.add(w.address);
             assetResults[w.slot] = result;
             for (const j of result.jobs) jobbedVariantIds.add(j.variantId);
             for (const id of w.prereqJobIds) await refreshKnownJob(id);
@@ -461,7 +460,7 @@ export function registerGenerateCommand(program: Command): void {
             command: "patch",
             stage: loaded.stage,
             patch: patch.sourceVariantId,
-            assetPaths: [patch.sourceAddress],
+            addresses: [patch.sourceAddress],
             targeted: true,
           });
           const result = await applyPatch(patch, roots, jobManager, patchSpend);

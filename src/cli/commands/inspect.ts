@@ -299,7 +299,7 @@ async function inspectComposition(videoRoot: string, address: string): Promise<v
       console.log(`  ${vid}: ${v.status}${tagStr}`);
       for (const ci of s.changedInputs) {
         console.log(
-          `    input-stale: ${ci.assetPath} changed (${ci.recorded.slice(0, 8)} → ${(ci.current ?? "none").slice(0, 8)})`,
+          `    input-stale: ${ci.address} changed (${ci.recorded.slice(0, 8)} → ${(ci.current ?? "none").slice(0, 8)})`,
         );
       }
     }
@@ -463,7 +463,7 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
         if (v.status === "dismissed") continue;
         for (const ci of staleness.changedInputs) {
           console.log(
-            `    input-stale: ${ci.assetPath} changed (${ci.recorded.slice(0, 8)} → ${(ci.current ?? "none").slice(0, 8)})`,
+            `    input-stale: ${ci.address} changed (${ci.recorded.slice(0, 8)} → ${(ci.current ?? "none").slice(0, 8)})`,
           );
         }
         if (staleness.patchStale) {
@@ -576,7 +576,7 @@ async function inspectVariant(videoRoot: string, variantId: string): Promise<voi
   }
   for (const ci of staleness?.changedInputs ?? []) {
     console.log(
-      `input-stale: ${ci.assetPath} changed (${ci.recorded.slice(0, 8)} → ${(ci.current ?? "none").slice(0, 8)})`,
+      `input-stale: ${ci.address} changed (${ci.recorded.slice(0, 8)} → ${(ci.current ?? "none").slice(0, 8)})`,
     );
   }
   if (staleness?.definitionStale && !staleness.patchStale) {

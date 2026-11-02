@@ -24,8 +24,8 @@ export async function cascadeFailPendingJobs(
   if (removedAddresses.length === 0) return cascadeFailed;
 
   // Feedback-only targets (bare shot-level addresses, no asset name) can't be a job dependency
-  // and don't parse as asset paths — drop them rather than treat them as a dependency.
-  const cleanedAssetPaths = new Set(
+  // and don't parse as addresses — drop them rather than treat them as a dependency.
+  const cleanedAddresses = new Set(
     removedAddresses.flatMap((a) => {
       try {
         parseAddress(a);
@@ -39,7 +39,7 @@ export async function cascadeFailPendingJobs(
     (j): j is GenerationJob =>
       j.kind === "generation" &&
       j.status === "pending" &&
-      j.dependsOnAssets.some((dep) => cleanedAssetPaths.has(dep)),
+      j.dependsOnAssets.some((dep) => cleanedAddresses.has(dep)),
   );
   if (affectedPending.length === 0) return cascadeFailed;
 

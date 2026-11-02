@@ -574,7 +574,7 @@ describe("buildAddressInfo", () => {
     const info = buildAddressInfo("video:shot.01.motion", state, new Map(), "fal");
     expect(info.staleVariants).toHaveLength(1);
     expect(info.staleVariants[0]!.changedInputs).toEqual([
-      { assetPath: "video:shot.01.bg", recorded: "old-hash", current: "current-hash" },
+      { address: "video:shot.01.bg", recorded: "old-hash", current: "current-hash" },
     ]);
   });
 
@@ -807,7 +807,7 @@ describe("computeStatusSections", () => {
             definitionStale: false,
             patchStale: false,
             changedInputs: [
-              { assetPath: "video:shot.01.audio", recorded: "audio-1", current: "audio-2" },
+              { address: "video:shot.01.audio", recorded: "audio-1", current: "audio-2" },
             ],
           },
         ],
@@ -883,7 +883,7 @@ describe("computeStatusSections", () => {
             inputStale: true,
             definitionStale: false,
             patchStale: false,
-            changedInputs: [{ assetPath: "video:shot.01.motion", recorded: "old", current: "new" }],
+            changedInputs: [{ address: "video:shot.01.motion", recorded: "old", current: "new" }],
           },
         ],
       }),
@@ -904,7 +904,7 @@ describe("computeStatusSections", () => {
       inputStale: true,
       definitionStale: false,
       patchStale: false,
-      changedInputs: [{ assetPath: "animatic:shot.01.first", recorded: "old", current: "new" }],
+      changedInputs: [{ address: "animatic:shot.01.first", recorded: "old", current: "new" }],
     });
 
     it("is reported under 'Needs regenerate' with what moved", () => {
@@ -1836,7 +1836,7 @@ describe("an accepted take whose upstream alone changed", () => {
           inputStale: true,
           definitionStale: false,
           patchStale: false,
-          changedInputs: [{ assetPath: "animatic:shot.12.first", recorded: "old", current: "new" }],
+          changedInputs: [{ address: "animatic:shot.12.first", recorded: "old", current: "new" }],
         },
       ],
       staleAcceptStands: true,

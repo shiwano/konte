@@ -293,7 +293,7 @@ export function keepAcceptedInputs(
   manager: StateManager,
   address: string,
   variantId: string,
-  keeps: (input: { assetPath: string; current: string | null }) => boolean = () => true,
+  keeps: (input: { address: string; current: string | null }) => boolean = () => true,
 ): string[] {
   if (manager.getAcceptedVariant(address) !== variantId) return [];
   if (!holdsHumanVerdict(manager, address)) return [];
@@ -303,9 +303,9 @@ export function keepAcceptedInputs(
   if (inputs.length === 0) return [];
   const variant = manager.getAssetState(address).variants![variantId]!;
   const kept = { ...variant.keptInputs };
-  for (const input of inputs) kept[input.assetPath] = input.current!;
+  for (const input of inputs) kept[input.address] = input.current!;
   variant.keptInputs = kept;
-  return inputs.map((input) => input.assetPath);
+  return inputs.map((input) => input.address);
 }
 
 // The second cascade an accept runs: sideways into the direction rather than upstream through the

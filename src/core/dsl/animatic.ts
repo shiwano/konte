@@ -102,11 +102,11 @@ export function readAnimaticShot(opts: {
   // takes no lane.
   for (const cutin of cutinPanels) {
     const main = panels.find((p) => p.assetName === cutin.assetName);
-    if (main && main.assetPath !== cutin.assetPath) {
+    if (main && main.address !== cutin.address) {
       throw new KonteError(
         "ANIMATIC_INVALID",
         `Animatic shot "${shotId}" has two panels named "${cutin.assetName}" from different assets ` +
-          `("${main.assetPath}" vs "${cutin.assetPath}"), one of them in its <Cutin>. Give one a ` +
+          `("${main.address}" vs "${cutin.address}"), one of them in its <Cutin>. Give one a ` +
           `distinct asset name.`,
       );
     }
@@ -191,18 +191,18 @@ function resolvePanelWindows(
     // Two panels in one shot claiming the same part name from different assets would make
     // `animatic.shot(id).image(name)` ambiguous, so reject at load.
     const existing = byName.get(o.assetName);
-    if (existing !== undefined && existing !== o.assetPath) {
+    if (existing !== undefined && existing !== o.address) {
       throw new KonteError(
         "ANIMATIC_INVALID",
         `Animatic shot "${shotId}" has two panels named "${o.assetName}" from different assets ` +
-          `("${existing}" vs "${o.assetPath}"). Give one a distinct asset name.`,
+          `("${existing}" vs "${o.address}"). Give one a distinct asset name.`,
       );
     }
-    byName.set(o.assetName, o.assetPath);
+    byName.set(o.assetName, o.address);
     assertPanelMoves(shotId, i, total, o, continued);
     return {
       assetName: o.assetName,
-      assetPath: o.assetPath,
+      address: o.address,
       start: starts[i]!,
       duration: (starts[i + 1] ?? duration) - starts[i]!,
       ...(o.blocking !== undefined ? { blocking: o.blocking } : {}),
@@ -240,7 +240,7 @@ function assertPanelMoves(
 
 // The shot's audio is mixed down — the `audio` input of an audio-driven motion model, and what the
 // video stage reaches through `animatic.shot("01").stem` / `.narrationStem`. `harvestAudioStructure`
-// yields a decoded asset path when the src was a placeholder and the raw string otherwise. Only the
+// yields a decoded address when the src was a placeholder and the raw string otherwise. Only the
 // first can be mixed: the stem is what an audio-driven model consumes, so a source konte cannot
 // resolve has no place in it.
 function assertCuesMixable(shotId: string, entries: ReadonlyArray<{ src: string }>): void {

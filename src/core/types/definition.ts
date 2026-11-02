@@ -130,13 +130,13 @@ export type AssetDefinition = z.infer<typeof AssetDefinitionSchema>;
  * One keyframe of an ANIMATIC shot — what a `<Panel>` in its composition declared.
  */
 const PanelDefinitionSchema = z.object({
-  // The part name — the leaf of `assetPath`. What the review page labels the frame with, and what
+  // The part name — the leaf of `address`. What the review page labels the frame with, and what
   // the contact sheet frames.
   assetName: z.string(),
-  // The panel's resolved asset path — exactly one of `animatic:shot.<id>.<name>`,
+  // The panel's resolved address — exactly one of `animatic:shot.<id>.<name>`,
   // `animatic:timeline.<name>`, or `reference:<name>`. Carries the scope the leaf `assetName`
   // alone loses, so every consumer resolves the panel's real target instead of guessing by name.
-  assetPath: z.string(),
+  address: z.string(),
   // The window the panel holds, in shot-local seconds — resolved by `defineAnimatic` from the
   // declared `<Panel start>`s (absent ones divide the shot's duration equally) and the shot's end.
   // Display only: the video stage reads a panel as a keyframe image, never its cut position.
@@ -173,7 +173,7 @@ export const ShotDefinitionSchema = z.object({
   action: z.string(),
   assets: z.record(z.string(), AssetDefinitionSchema),
   shotFn: z.custom<ShotFunction>().optional(),
-  // Asset paths the shot's composition (shotFn output) references, including
+  // Addresses the shot's composition (shotFn output) references, including
   // timeline assets pulled in via closure. Source of truth for composition deps.
   // Optional so raw ShotDefinition literals (tests, fallback shots) stay valid;
   // defineVideo always populates it. Consumers treat absent as [].

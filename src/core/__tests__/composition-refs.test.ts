@@ -19,10 +19,10 @@ afterEach(async () => {
 
 // `substituteAssetPlaceholders` hands the resolver whatever sits between `__konte:` and `__`, and a
 // user's own text can shape that — a subtitle or an alt attribute may contain a placeholder-shaped
-// literal that is not an asset path. `parseAddress` throws on those, so the resolver must absorb it
+// literal that is not an address. `parseAddress` throws on those, so the resolver must absorb it
 // rather than fail the whole render.
 describe("resolveCompositionRef", () => {
-  it("returns null for a placeholder-shaped literal that is not an asset path", () => {
+  it("returns null for a placeholder-shaped literal that is not an address", () => {
     for (const bogus of ["video:seed", "reference:foo.bar", "animatic:", "video:shot.01"]) {
       expect(resolveCompositionRef(manager, bogus)).toBeNull();
     }

@@ -508,7 +508,7 @@ export function defineAnimatic<
       });
       setShotPanels(
         input,
-        [...panels, ...cutinPanels].map((panel) => panel.assetPath),
+        [...panels, ...cutinPanels].map((panel) => panel.address),
       );
       if (index.graphicIds.has(input.id)) {
         if (panels.length > 0) {

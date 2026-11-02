@@ -181,7 +181,7 @@ export async function planDelivery(opts: {
       variantCount: 1,
       videoRoot,
       jobManager,
-      resolvedDeps: { [layer.sourceAssetPath]: layer.sourceFileRel },
+      resolvedDeps: { [layer.sourceAddress]: layer.sourceFileRel },
       // Snapshot the resolved target so the variant's definition hash is re-derived from these exact
       // dims at export time, never from a fresh probe (whose drift would falsely mark it stale).
       deliveryTarget: layer.target,
@@ -199,7 +199,7 @@ function assertDeliveryPrompts(subject: ReturnType<typeof deliveryPromptSubject>
   assertNoSpendFindings([...promptFindings(subject, fixIn), ...pinFindings(subject, fixIn)], {
     command: "export",
     stage: "video",
-    assetPaths: [],
+    addresses: [],
     targeted: false,
   });
 }

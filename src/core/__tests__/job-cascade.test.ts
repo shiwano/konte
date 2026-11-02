@@ -18,7 +18,7 @@ describe("cascadeFailPendingJobs", () => {
   });
 
   it("skips bare shot-level feedback targets instead of throwing INVALID_ADDRESS", async () => {
-    // A feedback-only target (no asset name) can't parse as an asset path; with no pending jobs
+    // A feedback-only target (no asset name) can't parse as an address; with no pending jobs
     // to cascade, this returns before touching the filesystem or job manager.
     const result = await cascadeFailPendingJobs(tmpDir, ["video:shot.02"], [], {} as JobManager, {
       dryRun: true,

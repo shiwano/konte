@@ -45,16 +45,16 @@ export function staleSettledLeaves(
 
 type BoardLeaf = { shotId: string; address: string };
 
-/** The board stems a spend on `assetPaths` (and on `extraRefs`) reaches through the graph. */
+/** The board stems a spend on `addresses` (and on `extraRefs`) reaches through the graph. */
 export function consumedBoardStems(
   graph: DependencyGraph,
-  assetPaths: Iterable<string>,
+  addresses: Iterable<string>,
   extraRefs: Iterable<string> = [],
 ): Set<string> {
   const stems = new Set<string>();
   const seen = new Set<string>();
   const queue = [...extraRefs];
-  for (const assetPath of assetPaths) queue.push(...(graph.dependencies.get(assetPath) ?? []));
+  for (const address of addresses) queue.push(...(graph.dependencies.get(address) ?? []));
   while (queue.length > 0) {
     const dep = queue.pop()!;
     if (seen.has(dep)) continue;

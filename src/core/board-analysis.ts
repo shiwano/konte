@@ -160,7 +160,7 @@ export function listSetupAnchorGaps(
     // asset, a `shot(…)` chain — is reached from a panel.
     const viewImage =
       setupId in plates || location === undefined ? undefined : viewImageOf(setupId, location);
-    const panels = lanePanels(shot, frame.lane).map((panel) => panel.assetPath);
+    const panels = lanePanels(shot, frame.lane).map((panel) => panel.address);
     const walk = walkPictureChain(panels, target, entryOf, viewImage);
     if (!walk.generative) {
       deterministicShots.set(setupId, (deterministicShots.get(setupId) ?? 0) + 1);
@@ -408,9 +408,9 @@ export function listPlateRecrops(
     if (shot === undefined || isPendingAnimaticShot(shot)) continue;
     if (!(frame.setup in plates)) continue;
     const plate = formatPlateAddress(frame.setup);
-    for (const { assetPath } of lanePanels(shot, frame.lane)) {
-      if (!recropsPlate(chainAddresses([assetPath], entryOf), plate, entryOf)) continue;
-      out.push({ setupId: frame.setup, shotId: shot.id, lane: frame.lane, panel: assetPath });
+    for (const { address } of lanePanels(shot, frame.lane)) {
+      if (!recropsPlate(chainAddresses([address], entryOf), plate, entryOf)) continue;
+      out.push({ setupId: frame.setup, shotId: shot.id, lane: frame.lane, panel: address });
     }
   }
   return out;
@@ -440,15 +440,15 @@ export function listPanelPromptText(animatic: AnimaticDefinition): PanelPromptTe
     for (const lane of LANES) {
       for (const panel of lanePanels(shot, lane)) {
         const texts: string[] = [];
-        for (const address of chainAddresses([panel.assetPath], entryOf)) {
+        for (const address of chainAddresses([panel.address], entryOf)) {
           texts.push(...positivePromptsAt(animatic, address));
         }
         out.push({
           shotId: shot.id,
           lane,
-          panel: panel.assetPath,
+          panel: panel.address,
           texts,
-          generative: walkReferenceReach(panel.assetPath, entryOf).generative,
+          generative: walkReferenceReach(panel.address, entryOf).generative,
         });
       }
     }
@@ -544,8 +544,8 @@ export function listPanelConditioning(animatic: PanelConditioningSource): PanelC
           lane,
           index: i + 1,
           of: panels.length,
-          panel: panel.assetPath,
-          conditioning: orderedChainAddresses([panel.assetPath], entryOf).filter(
+          panel: panel.address,
+          conditioning: orderedChainAddresses([panel.address], entryOf).filter(
             (address) => written.has(address) || isPlateAddress(address),
           ),
         });
@@ -627,9 +627,9 @@ export function shotLaneChains(
   return {
     main: walk([
       ...(shot.compositionRefs ?? []).filter((ref) => !cutinRefs.has(ref) || shared.has(ref)),
-      ...(shot.panels ?? []).map((p) => p.assetPath),
+      ...(shot.panels ?? []).map((p) => p.address),
     ]),
-    cutin: walk([...cutinRefs, ...(shot.cutin?.panels ?? []).map((p) => p.assetPath)]),
+    cutin: walk([...cutinRefs, ...(shot.cutin?.panels ?? []).map((p) => p.address)]),
   };
 }
 
@@ -824,7 +824,7 @@ export function listShotContinuity(animatic: AnimaticDefinition): ShotContinuity
   for (const shot of animatic.shots) {
     if (isPendingAnimaticShot(shot)) continue;
     for (const lane of LANES) {
-      const panels = lanePanels(shot, lane).map((panel) => panel.assetPath);
+      const panels = lanePanels(shot, lane).map((panel) => panel.address);
       const firstPanel = panels[0];
       const lastPanel = panels[panels.length - 1];
       if (firstPanel === undefined || lastPanel === undefined) continue;
@@ -850,7 +850,7 @@ function prevPanelSources(animatic: AnimaticDefinition): Map<string, Set<string>
   const readers = new Set(animatic.prevPanelReaders ?? []);
   const panels = new Set(
     animatic.shots.flatMap((shot) =>
-      LANES.flatMap((lane) => lanePanels(shot, lane).map((panel) => panel.assetPath)),
+      LANES.flatMap((lane) => lanePanels(shot, lane).map((panel) => panel.address)),
     ),
   );
   const out = new Map<string, Set<string>>();
@@ -921,7 +921,7 @@ export function listPanelReferenceSlots(animatic: AnimaticDefinition): PanelRefe
       for (const panel of lanePanels(shot, lane)) {
         // A keyframe may be a shot asset, a timeline asset or a plate — all three are one call whose
         // input order decides where a subject lands.
-        const entry = entryOf(panel.assetPath);
+        const entry = entryOf(panel.address);
         if (!entry) continue;
         const slots: string[] = [];
         for (const ref of extractRefs(entry)) {
@@ -930,7 +930,7 @@ export function listPanelReferenceSlots(animatic: AnimaticDefinition): PanelRefe
           if (slots.includes(target.assetName)) continue;
           slots.push(target.assetName);
         }
-        if (slots.length > 0) out.push({ shotId: shot.id, lane, panel: panel.assetPath, slots });
+        if (slots.length > 0) out.push({ shotId: shot.id, lane, panel: panel.address, slots });
       }
     }
   }
@@ -965,8 +965,8 @@ export function listPanelReferenceReach(animatic: AnimaticDefinition): PanelRefe
         out.push({
           shotId: shot.id,
           lane,
-          panel: panel.assetPath,
-          ...walkReferenceReach(panel.assetPath, entryOf),
+          panel: panel.address,
+          ...walkReferenceReach(panel.address, entryOf),
         });
       }
     }

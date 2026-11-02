@@ -874,7 +874,7 @@ export function applyKeepDecisions(
       mgr,
       entry.address,
       entry.variantId,
-      (input) => input.current === entry.inputs[input.assetPath],
+      (input) => input.current === entry.inputs[input.address],
     );
     const viaKept = keepVia(mgr, entry);
     if (direct.length > 0 || viaKept) kept.push(entry.address);

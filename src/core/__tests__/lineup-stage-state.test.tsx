@@ -152,7 +152,7 @@ describe("listPanelReferenceReach", () => {
       shots: [
         {
           id: "01",
-          panels: [{ assetPath: "animatic:shot.01.first" }],
+          panels: [{ address: "animatic:shot.01.first" }],
           assets: {
             first: { kind: "comfy", inputs: { image: "__konte:animatic:plate.front__" } },
           },
@@ -220,7 +220,7 @@ describe("listPanelReferenceReach", () => {
       shots: [
         {
           id: "01",
-          panels: [{ assetPath: "animatic:shot.01.a" }],
+          panels: [{ address: "animatic:shot.01.a" }],
           assets: {
             a: { kind: "comfy", inputs: { image: "__konte:animatic:shot.01.b__" } },
             b: { kind: "comfy", inputs: { image: "__konte:animatic:shot.01.a__" } },

@@ -562,12 +562,12 @@ describe("cascadeAcceptConsumedDeps — review prerequisites", () => {
         panels: [
           {
             assetName: "character",
-            assetPath: "animatic:timeline.character",
+            address: "animatic:timeline.character",
             ...characterMoves,
             start: 0,
             duration: 1,
           },
-          { assetName: "key", assetPath: "animatic:shot.01.key", start: 0, duration: 1 },
+          { assetName: "key", address: "animatic:shot.01.key", start: 0, duration: 1 },
         ],
       },
     ],

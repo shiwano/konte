@@ -108,7 +108,7 @@ describe("listPanelConditioning", () => {
       shots: [
         {
           id: "01",
-          panels: [{ assetPath: "animatic:shot.01.first" }],
+          panels: [{ address: "animatic:shot.01.first" }],
           assets: {
             first: {
               kind: "comfy",

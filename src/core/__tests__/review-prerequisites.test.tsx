@@ -244,7 +244,7 @@ describe("findAllUnmetPrerequisites — a reference asset used as a panel", () =
         duration: 5,
         action: "test shot",
         assets: {},
-        panels: [{ assetName: "bg", assetPath: referencePanel, start: 0, duration: 1 }],
+        panels: [{ assetName: "bg", address: referencePanel, start: 0, duration: 1 }],
       },
     ],
   };

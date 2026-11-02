@@ -85,7 +85,7 @@ describe("computeVariantStaleness", () => {
     const s = computeVariantStaleness(state, "video:shot.01.motion", downstream, null);
     expect(s.inputStale).toBe(true);
     expect(s.changedInputs).toEqual([
-      { assetPath: "video:shot.01.first", recorded: "old-hash", current: "new-hash" },
+      { address: "video:shot.01.first", recorded: "old-hash", current: "new-hash" },
     ]);
   });
 
@@ -201,7 +201,7 @@ describe("computeVariantStaleness", () => {
       const s = computeVariantStaleness(state, "animatic:shot.12.first", v, null);
       expect(s.inputStale).toBe(true);
       expect(s.changedInputs).toEqual([
-        { assetPath: "animatic:shot.12.last", recorded: "before", current: "after" },
+        { address: "animatic:shot.12.last", recorded: "before", current: "after" },
       ]);
     });
 
@@ -492,7 +492,7 @@ describe("collectStaleVariants", () => {
     expect(result[0]!.variantId).toBe("v-acc");
     expect(result[0]!.inputStale).toBe(true);
     expect(result[0]!.changedInputs).toEqual([
-      { assetPath: "video:shot.01.first", recorded: "old", current: "new" },
+      { address: "video:shot.01.first", recorded: "old", current: "new" },
     ]);
   });
 
@@ -566,15 +566,15 @@ describe("resolvedStaleness", () => {
 });
 
 describe("formatStaleReason", () => {
-  it("lists changed input asset paths for input-stale", () => {
+  it("lists changed input addresses for input-stale", () => {
     expect(
       formatStaleReason({
         inputStale: true,
         definitionStale: false,
         patchStale: false,
         changedInputs: [
-          { assetPath: "animatic:shot.01.first", recorded: "a", current: "b" },
-          { assetPath: "animatic:timeline.character", recorded: "c", current: "d" },
+          { address: "animatic:shot.01.first", recorded: "a", current: "b" },
+          { address: "animatic:timeline.character", recorded: "c", current: "d" },
         ],
       }),
     ).toBe("stale (input-stale: animatic:shot.01.first, animatic:timeline.character)");
@@ -586,7 +586,7 @@ describe("formatStaleReason", () => {
         inputStale: true,
         definitionStale: true,
         patchStale: false,
-        changedInputs: [{ assetPath: "video:shot.01.first", recorded: "a", current: "b" }],
+        changedInputs: [{ address: "video:shot.01.first", recorded: "a", current: "b" }],
       }),
     ).toBe("stale (input-stale: video:shot.01.first; definition-stale)");
   });
@@ -1154,7 +1154,7 @@ describe("keptInputs", () => {
       null,
     );
     expect(s.changedInputs).toEqual([
-      { assetPath: "animatic:shot.01.first", recorded: "newer", current: "newest" },
+      { address: "animatic:shot.01.first", recorded: "newer", current: "newest" },
     ]);
   });
 

@@ -94,7 +94,7 @@ export interface AddressInfo {
     inputStale: boolean;
     definitionStale: boolean;
     patchStale: boolean;
-    changedInputs: { assetPath: string; recorded: string; current: string | null }[];
+    changedInputs: { address: string; recorded: string; current: string | null }[];
   }[];
   /**
    * Stale takes nobody accepted, newest-first. Reported apart from `staleVariants` because the fix
@@ -106,7 +106,7 @@ export interface AddressInfo {
     inputStale: boolean;
     definitionStale: boolean;
     patchStale: boolean;
-    changedInputs: { assetPath: string; recorded: string; current: string | null }[];
+    changedInputs: { address: string; recorded: string; current: string | null }[];
   }[];
   /**
    * The accepted take is stale, yet the accept stands: it holds a human verdict (a generation or
@@ -813,7 +813,7 @@ export function computeExportReadiness(
     staleAwaitingAccept: string[];
     filesMissing: string[];
   };
-  // One group per stage — an address is its asset path, so a stage has a single implicit instance.
+  // One group per stage — a stage has a single implicit instance.
   const stageMap = new Map<string, Acc>();
 
   const ensure = (m: Map<string, Acc>, key: string): Acc => {

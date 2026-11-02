@@ -22,7 +22,7 @@ const animatic: AnimaticDefinition = {
     duration: 5,
     action: `shot ${id}`,
     assets: { first: comfy },
-    panels: [{ assetName: "first", assetPath: `animatic:shot.${id}.first`, start: 0, duration: 5 }],
+    panels: [{ assetName: "first", address: `animatic:shot.${id}.first`, start: 0, duration: 5 }],
   })),
 };
 
@@ -74,18 +74,18 @@ describe("judgeSpend", () => {
     const verdict = judgeSpend(ctx, report([unconsumed]), {
       command: "generate",
       stage: "video",
-      assetPaths: ["video:shot.01.motion", "video:shot.02.motion"],
+      addresses: ["video:shot.01.motion", "video:shot.02.motion"],
       targeted: false,
     });
     expect(verdict.findings).toEqual([unconsumed]);
   });
 
   it("holds a targeted spend only when it names the boardless shot or a timeline asset", () => {
-    const reroll = (assetPaths: string[]) =>
+    const reroll = (addresses: string[]) =>
       judgeSpend(ctx, report([unconsumed]), {
         command: "reroll",
         stage: "video",
-        assetPaths,
+        addresses,
         targeted: true,
       }).findings;
     expect(reroll(["video:shot.01.motion"])).toEqual([]);
@@ -104,7 +104,7 @@ describe("judgeSpend", () => {
     const verdict = judgeSpend(ctx, report([pending]), {
       command: "generate",
       stage: "video",
-      assetPaths: ["video:shot.01.motion", "video:shot.02.motion"],
+      addresses: ["video:shot.01.motion", "video:shot.02.motion"],
       targeted: false,
     });
     expect([...verdict.held.keys()]).toContain("video:shot.01.motion");
@@ -121,11 +121,11 @@ describe("judgeSpend on a prompt finding an accept signed off", () => {
     targets: ["animatic:shot.02.first"],
     signedOff: ["animatic:shot.01.first"],
   };
-  const spend = (command: "generate" | "reroll", assetPaths: string[]) =>
+  const spend = (command: "generate" | "reroll", addresses: string[]) =>
     judgeSpend(ctx, report([negation]), {
       command,
       stage: "animatic",
-      assetPaths,
+      addresses,
       targeted: command === "reroll",
     });
 

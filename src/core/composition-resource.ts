@@ -209,7 +209,7 @@ function compositionRefsResolvable(
   manager: StateManager,
   compositionRefs: readonly string[],
 ): boolean {
-  // A dependency path IS its upstream address (address ≡ asset path).
+  // A dependency path IS its upstream address.
   for (const depPath of compositionRefs) {
     if (!manager.resolveReference(depPath, { includeStale: false })) return false;
   }
@@ -217,7 +217,7 @@ function compositionRefsResolvable(
 }
 
 /**
- * Input fingerprints for a composition: each referenced asset path mapped to its
+ * Input fingerprints for a composition: each referenced address mapped to its
  * resolved variant's outputHash (accepted, else newest non-stale ready variant —
  * the same bar the composite render and the auto-materialize gate use). A composition
  * is materialized from ready upstreams, so the fingerprint tracks the resolved output;
@@ -230,7 +230,7 @@ export function compositionInputFingerprints(
   compositionRefs: readonly string[],
 ): Record<string, string> {
   const fingerprints: Record<string, string> = {};
-  // A dependency path IS its upstream address (address ≡ asset path).
+  // A dependency path IS its upstream address.
   for (const depPath of compositionRefs) {
     const resolved = manager.resolveReference(depPath);
     if (resolved?.outputHash) fingerprints[depPath] = resolved.outputHash;
@@ -1219,7 +1219,7 @@ function leafInputsJudged(
   );
   const judged = (ref: string, current: string | null | undefined): boolean =>
     current != null && drawn[ref] === current;
-  if (!accepted.changedInputs.every((i) => judged(i.assetPath, i.current))) return false;
+  if (!accepted.changedInputs.every((i) => judged(i.address, i.current))) return false;
   const recorded =
     (accepted.variantId &&
       manager.tryGetAssetState(address)?.variants?.[accepted.variantId]?.inputFingerprints) ||

@@ -4,7 +4,7 @@ import type { KonteState, VariantState } from "./types/index.js";
 import { isReviewLeaf } from "./variant-lineage.js";
 
 interface ChangedInput {
-  assetPath: string;
+  address: string;
   recorded: string;
   current: string | null;
 }
@@ -153,7 +153,7 @@ function isPatchStale(variant: VariantState, patchHashes: PatchHashes | undefine
  * input's address resolves to now. definition-stale: the variant's own definition
  * (definitionHash, or for a patch variant its patch script) differs from the current one.
  *
- * A dependency path IS its upstream address (address ≡ asset path), so each recorded input
+ * A dependency path IS its upstream address, so each recorded input
  * fingerprint is checked directly against that address's resolved output.
  */
 export function computeVariantStaleness(
@@ -193,7 +193,7 @@ function computeVariantStalenessInternal(
     if (current === null || current === recorded || current === made) continue;
     const via = parseKeptVia(recorded);
     if (via && resolvedMadeFrom(state, depPath, via, ctx)) continue;
-    changedInputs.push({ assetPath: depPath, recorded, current });
+    changedInputs.push({ address: depPath, recorded, current });
   }
 
   const patchStale = isPatchStale(variant, patchHashes);
@@ -734,7 +734,7 @@ export function resolvedStaleness(
 export function formatStaleCause(sv: VariantStaleness): string {
   const parts: string[] = [];
   if (sv.inputStale) {
-    const inputs = sv.changedInputs.map((ci) => ci.assetPath).join(", ");
+    const inputs = sv.changedInputs.map((ci) => ci.address).join(", ");
     parts.push(inputs ? `input-stale: ${inputs}` : "input-stale");
   }
   // A patch variant's `definitionHash` is inherited from its source, so "definition-stale" would
@@ -811,8 +811,8 @@ export function isAcceptedStale(
  * given the current state. Walks the dependents graph from `address`. Used to
  * surface "what this accept/reject made stale" without storing flags.
  *
- * The dependents graph is keyed by asset path, which is the address (address ≡ asset path),
- * so each reached path is a concrete address — no per-profile reconstruction.
+ * The dependents graph is keyed by address, so each reached node is a concrete address — no
+ * per-profile reconstruction.
  */
 export function collectStaleDependents(
   state: KonteState,

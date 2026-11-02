@@ -17,10 +17,10 @@ export function panelMoveHashes(
   const moves = new Map<string, Array<{ blocking: string | null; camera: string | null }>>();
   for (const shot of animatic?.shots ?? []) {
     for (const panel of [...(shot.panels ?? []), ...(shot.cutin?.panels ?? [])]) {
-      const list = moves.get(panel.assetPath);
+      const list = moves.get(panel.address);
       const entry = { blocking: panel.blocking ?? null, camera: panel.camera ?? null };
       if (list) list.push(entry);
-      else moves.set(panel.assetPath, [entry]);
+      else moves.set(panel.address, [entry]);
     }
   }
 

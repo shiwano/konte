@@ -242,7 +242,7 @@ Examples:
       // accepted, so it is held by findings and the cast alone; its own acceptance check follows.
       await spendGate(
         await loadCheckContext({ videoRoot, definitions: { reference, animatic, video } }),
-        { command: "export", stage, assetPaths: [], targeted: false },
+        { command: "export", stage, addresses: [], targeted: false },
       );
 
       // A delivery upscale is the one part of an export that spends, and unaccepted material is

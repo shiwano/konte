@@ -134,16 +134,16 @@ export function buildDependencyGraph(
     ...(video ? [{ def: video }] : []),
   ].map(({ def }) => ({ def, stage: def.stage }));
 
-  const allAssetPaths = new Set<string>();
+  const allAddresses = new Set<string>();
   for (const { def, stage } of stages) {
-    for (const ap of listAddresses(def, stage)) allAssetPaths.add(ap);
+    for (const ap of listAddresses(def, stage)) allAddresses.add(ap);
   }
 
   // Reference assets are upstream roots that animatic/video consume; seed their paths so
   // a `reference:<name>` ref resolves to a real edge instead of failing as a missing path.
   if (reference) {
     for (const ap of listReferenceAddresses(reference)) {
-      allAssetPaths.add(ap);
+      allAddresses.add(ap);
     }
   }
 
@@ -162,27 +162,27 @@ export function buildDependencyGraph(
   // stage has soundtrack beds.
   for (const { def, stage } of stages) {
     for (const s of def.shots) {
-      if (s.shotFn) allAssetPaths.add(formatAddress(stage, s.id, COMPOSITION_ASSET_NAME));
-      for (const stem of listShotStems(stage, s)) allAssetPaths.add(stem.address);
+      if (s.shotFn) allAddresses.add(formatAddress(stage, s.id, COMPOSITION_ASSET_NAME));
+      for (const stem of listShotStems(stage, s)) allAddresses.add(stem.address);
     }
     if ((def.timelineSoundtracks?.length ?? 0) > 0) {
-      allAssetPaths.add(formatTimelineAddress(stage, STEM_ASSET_NAME));
+      allAddresses.add(formatTimelineAddress(stage, STEM_ASSET_NAME));
     }
-    if (def.overlay) allAssetPaths.add(formatTimelineAddress(stage, OVERLAY_ASSET_NAME));
+    if (def.overlay) allAddresses.add(formatTimelineAddress(stage, OVERLAY_ASSET_NAME));
   }
 
   const dependencies = new Map<string, string[]>();
   const dependents = new Map<string, string[]>();
 
-  for (const ap of allAssetPaths) {
+  for (const ap of allAddresses) {
     dependencies.set(ap, []);
     dependents.set(ap, []);
   }
 
   if (reference?.topLevelAssets) {
     for (const [assetName, entry] of Object.entries(reference.topLevelAssets)) {
-      const assetPath = formatReferenceAddress(assetName);
-      addDependencyEdges(assetPath, entry, allAssetPaths, dependencies, dependents);
+      const address = formatReferenceAddress(assetName);
+      addDependencyEdges(address, entry, allAddresses, dependencies, dependents);
     }
   }
 
@@ -191,7 +191,7 @@ export function buildDependencyGraph(
       addDependencyEdges(
         formatTimelineAddress(stage, assetName),
         entry,
-        allAssetPaths,
+        allAddresses,
         dependencies,
         dependents,
         pending,
@@ -202,7 +202,7 @@ export function buildDependencyGraph(
       addDependencyEdges(
         formatPlateAddress(setupId),
         entry,
-        allAssetPaths,
+        allAddresses,
         dependencies,
         dependents,
         pending,
@@ -214,7 +214,7 @@ export function buildDependencyGraph(
         addDependencyEdges(
           formatAddress(stage, s.id, assetName),
           entry,
-          allAssetPaths,
+          allAddresses,
           dependencies,
           dependents,
           pending,
@@ -233,7 +233,7 @@ export function buildDependencyGraph(
         stage === "animatic"
           ? (s.compositionRefs ?? [])
           : (s.pictureRefs ?? s.compositionRefs ?? []),
-        allAssetPaths,
+        allAddresses,
         dependencies,
         dependents,
         pending,
@@ -245,7 +245,7 @@ export function buildDependencyGraph(
     // `.narrationStem`), so those are leaves of their stage with dependents on the next.
     for (const s of def.shots) {
       for (const stem of listShotStems(stage, s)) {
-        addEdges(stem.address, stem.refs, allAssetPaths, dependencies, dependents, pending);
+        addEdges(stem.address, stem.refs, allAddresses, dependencies, dependents, pending);
       }
     }
     if ((def.timelineSoundtracks?.length ?? 0) > 0) {
@@ -254,7 +254,7 @@ export function buildDependencyGraph(
         (def.timelineSoundtracks ?? [])
           .map((st) => parsePlaceholder(st.src.src))
           .filter((p): p is string => p !== null),
-        allAssetPaths,
+        allAddresses,
         dependencies,
         dependents,
         pending,
@@ -264,7 +264,7 @@ export function buildDependencyGraph(
       addEdges(
         formatTimelineAddress(stage, OVERLAY_ASSET_NAME),
         def.overlay.compositionRefs,
-        allAssetPaths,
+        allAddresses,
         dependencies,
         dependents,
         pending,
@@ -280,7 +280,7 @@ export function buildDependencyGraph(
     reference,
   );
 
-  const topologicalOrder = topologicalSort(allAssetPaths, dependencies, dependents);
+  const topologicalOrder = topologicalSort(allAddresses, dependencies, dependents);
 
   return { dependencies, dependents, topologicalOrder, pendingReferences: pending.references };
 }
@@ -289,15 +289,15 @@ export function buildDependencyGraph(
 // but a reference asset may depend only on other reference assets. A reference reaching into a
 // animatic/video asset would invert that layering — so reject it up front (in either direction).
 function validateReferencePurity(dependencies: ReadonlyMap<string, readonly string[]>): void {
-  for (const [assetPath, deps] of dependencies) {
-    if (getStage(assetPath) !== "reference") continue;
+  for (const [address, deps] of dependencies) {
+    if (getStage(address) !== "reference") continue;
     for (const dep of deps) {
       if (getStage(dep) !== "reference") {
         throw new KonteError(
           "INVALID_REFERENCE_DEPENDENCY",
-          `Reference asset "${assetPath}" depends on "${dep}". References are an upstream root and ` +
+          `Reference asset "${address}" depends on "${dep}". References are an upstream root and ` +
             `may depend only on other reference assets — move "${dep}" into defineReference(), or ` +
-            `consume "${assetPath}" from the animatic/video stage instead.`,
+            `consume "${address}" from the animatic/video stage instead.`,
         );
       }
     }
@@ -358,13 +358,13 @@ function reviewRoots(
     for (const panel of allPanels(s)) {
       // The panel's resolved path (shot-local / shared timeline / shared reference) is itself a
       // graph node key, so it is a render root directly — never reported unused.
-      roots.push(panel.assetPath);
+      roots.push(panel.address);
     }
   }
 
   // Timeline soundtracks are render roots too — a bed muxed onto the final video is
   // "used" even though no shot composition references it. Each entry's `src` is an
-  // audio asset placeholder resolved to its asset path.
+  // audio asset placeholder resolved to its address.
   for (const st of video ? mixedSoundtracks(video, video.timelineSoundtracks) : []) {
     const path = parsePlaceholder(st.src.src);
     if (path) roots.push(path);
@@ -416,7 +416,7 @@ function assertUpstreamsPlaced(
   );
 }
 
-// Asset paths no deliverable consumes — defined but unreachable from any render/review root, so
+// Addresses no deliverable consumes — defined but unreachable from any render/review root, so
 // they are not generated, not counted toward acceptance, and not needed for export.
 export function listUnusedAddresses(
   video: VideoDefinition | null,
@@ -458,18 +458,18 @@ export function collectTransitiveDependents(graph: DependencyGraph, root: string
 }
 
 /**
- * Whether every video take built on `assetPath` holds a human verdict, which a refresh of it leaves
+ * Whether every video take built on `address` holds a human verdict, which a refresh of it leaves
  * standing — false when none is reached. The walk passes through other stages' takes, materialized
  * leaves and a take konte re-bakes over its accept; `verdictOf` is null for an asset no deliverable
  * consumes.
  */
 export function videoDependentsHoldVerdicts(
   graph: DependencyGraph,
-  assetPath: string,
-  verdictOf: (assetPath: string) => "holds" | "rebakes" | "open" | null,
+  address: string,
+  verdictOf: (address: string) => "holds" | "rebakes" | "open" | null,
 ): boolean {
   const seen = new Set<string>();
-  const stack = [...(graph.dependents.get(assetPath) ?? [])];
+  const stack = [...(graph.dependents.get(address) ?? [])];
   let held = false;
   while (stack.length > 0) {
     const p = stack.pop();
@@ -487,32 +487,32 @@ export function videoDependentsHoldVerdicts(
 }
 
 /**
- * The dependents `konte reroll --with-dependents` rebuilds alongside `assetPath`, in dependency
+ * The dependents `konte reroll --with-dependents` rebuilds alongside `address`, in dependency
  * order. Cross-stage dependents are excluded — a downstream stage is regenerated through its own
  * review cycle. The walk stops at a dependent holding a human verdict (`holdsVerdict`): that take and
  * whatever is reached only through it are left out.
  */
 export function collectRerollCascade(
   graph: DependencyGraph,
-  assetPath: string,
+  address: string,
   definition: DefinitionLike,
-  holdsVerdict: (assetPath: string) => boolean,
-): Array<{ assetPath: string; def: AssetDefinition }> {
-  const stage = getStage(assetPath);
+  holdsVerdict: (address: string) => boolean,
+): Array<{ address: string; def: AssetDefinition }> {
+  const stage = getStage(address);
   const reachable = new Set<string>();
-  const stack = [...(graph.dependents.get(assetPath) ?? [])];
+  const stack = [...(graph.dependents.get(address) ?? [])];
   while (stack.length > 0) {
     const p = stack.pop();
     if (p === undefined || reachable.has(p) || holdsVerdict(p)) continue;
     reachable.add(p);
     for (const d of graph.dependents.get(p) ?? []) stack.push(d);
   }
-  const cascade: Array<{ assetPath: string; def: AssetDefinition }> = [];
+  const cascade: Array<{ address: string; def: AssetDefinition }> = [];
   for (const depPath of graph.topologicalOrder.filter((p) => reachable.has(p))) {
     if (getStage(depPath) !== stage || isMaterializedLeafAddress(depPath)) continue;
     const def = getAssetEntry(definition, depPath);
     if (def.kind === "file") continue;
-    cascade.push({ assetPath: depPath, def });
+    cascade.push({ address: depPath, def });
   }
   return cascade;
 }
@@ -525,7 +525,7 @@ function boardNodesOf(shot: AnimaticDefinition["shots"][number]): Set<string> {
   const nodes = new Set<string>(
     Object.keys(shot.assets).map((name) => formatAddress("animatic", shot.id, name)),
   );
-  for (const panel of allPanels(shot)) nodes.add(panel.assetPath);
+  for (const panel of allPanels(shot)) nodes.add(panel.address);
   if ((shot.stemRefs?.length ?? 0) > 0 || shot.songCue) {
     nodes.add(formatAddress("animatic", shot.id, STEM_ASSET_NAME));
   }
@@ -622,40 +622,40 @@ export function listBoardlessVideoShots(
 type PendingShots = { shots: Set<string>; references: PendingReference[] };
 
 function addDependencyEdges(
-  assetPath: string,
+  address: string,
   entry: AssetDefinition,
-  allAssetPaths: Set<string>,
+  allAddresses: Set<string>,
   dependencies: Map<string, string[]>,
   dependents: Map<string, string[]>,
   pending?: PendingShots,
 ): void {
-  addEdges(assetPath, extractRefs(entry), allAssetPaths, dependencies, dependents, pending);
+  addEdges(address, extractRefs(entry), allAddresses, dependencies, dependents, pending);
 }
 
 const SHOT_REF = /^(animatic|video):shot\.([^.#]+)[.#]/;
 
 function addEdges(
-  assetPath: string,
+  address: string,
   refs: readonly string[],
-  allAssetPaths: Set<string>,
+  allAddresses: Set<string>,
   dependencies: Map<string, string[]>,
   dependents: Map<string, string[]>,
   pending?: PendingShots,
 ): void {
   for (const refPath of new Set(refs)) {
-    if (!allAssetPaths.has(refPath)) {
+    if (!allAddresses.has(refPath)) {
       const shot = SHOT_REF.exec(refPath);
       if (pending && shot && pending.shots.has(`${shot[1]}:${shot[2]}`)) {
-        pending.references.push({ from: assetPath, ref: refPath });
+        pending.references.push({ from: address, ref: refPath });
         continue;
       }
       throw new KonteError(
         "INVALID_REFERENCE",
-        `Asset "${assetPath}" references non-existent path "${refPath}"`,
+        `Asset "${address}" references non-existent path "${refPath}"`,
       );
     }
-    dependencies.get(assetPath)?.push(refPath);
-    dependents.get(refPath)?.push(assetPath);
+    dependencies.get(address)?.push(refPath);
+    dependents.get(refPath)?.push(address);
   }
 }
 

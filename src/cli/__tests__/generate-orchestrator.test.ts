@@ -210,7 +210,7 @@ describe("buildGeneratePlan", () => {
     "video:shot.01.motion": comfyDef,
     "video:timeline.bgm": fileDef,
   };
-  const getAssetDef = (assetPath: string) => defs[assetPath]!;
+  const getAssetDef = (address: string) => defs[address]!;
 
   it("marks root assets as start and assets waiting on an upstream this run builds as wait", async () => {
     const manager = await createManager();
@@ -222,7 +222,7 @@ describe("buildGeneratePlan", () => {
       levels: [["video:shot.01.key"], ["video:shot.01.motion"]],
       graph,
       manager,
-      stageAssetPaths: new Set(["video:shot.01.key", "video:shot.01.motion"]),
+      stageAddresses: new Set(["video:shot.01.key", "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
     });
@@ -252,7 +252,7 @@ describe("buildGeneratePlan", () => {
         "video:shot.01.motion": ["video:shot.01.key"],
       }),
       manager,
-      stageAssetPaths: new Set([key, "video:shot.01.motion"]),
+      stageAddresses: new Set([key, "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
     });
@@ -284,7 +284,7 @@ describe("buildGeneratePlan", () => {
       levels: [[key], [motion]],
       graph: graphOf({ [key]: [], [motion]: [key] }),
       manager,
-      stageAssetPaths: new Set([key, motion]),
+      stageAddresses: new Set([key, motion]),
       variantCount: 1,
       getAssetDef,
     });
@@ -310,7 +310,7 @@ describe("buildGeneratePlan", () => {
         "video:shot.01.motion": ["video:shot.01.key"],
       }),
       manager,
-      stageAssetPaths: new Set([key, "video:shot.01.motion"]),
+      stageAddresses: new Set([key, "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
     });
@@ -333,7 +333,7 @@ describe("buildGeneratePlan", () => {
       levels: [[board], ["video:shot.01.motion"]],
       graph: graphOf({ "video:shot.01.motion": [board] }),
       manager,
-      stageAssetPaths: new Set(["video:shot.01.motion"]),
+      stageAddresses: new Set(["video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
     });
@@ -355,7 +355,7 @@ describe("buildGeneratePlan", () => {
         "video:shot.01.motion": ["video:timeline.bgm"],
       }),
       manager,
-      stageAssetPaths: new Set(["video:timeline.bgm", "video:shot.01.motion"]),
+      stageAddresses: new Set(["video:timeline.bgm", "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
     });
@@ -378,7 +378,7 @@ describe("buildGeneratePlan", () => {
         "video:shot.01.motion": [bgm],
       }),
       manager,
-      stageAssetPaths: new Set([bgm, "video:shot.01.motion"]),
+      stageAddresses: new Set([bgm, "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
     });
@@ -400,7 +400,7 @@ describe("buildGeneratePlan", () => {
       levels: [["video:shot.01.key", "video:shot.01.motion"]],
       graph: graphOf({ "video:shot.01.key": [], "video:shot.01.motion": [] }),
       manager,
-      stageAssetPaths: new Set(["video:shot.01.key", "video:shot.01.motion"]),
+      stageAddresses: new Set(["video:shot.01.key", "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
     });
@@ -426,7 +426,7 @@ describe("buildGeneratePlan", () => {
         "video:shot.01.motion": ["video:shot.01.key"],
       }),
       manager,
-      stageAssetPaths: new Set(["video:shot.01.key", "video:shot.01.motion"]),
+      stageAddresses: new Set(["video:shot.01.key", "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
     });
@@ -440,7 +440,7 @@ describe("buildGeneratePlan", () => {
       levels: [["video:timeline.bgm"]],
       graph: graphOf({ "video:timeline.bgm": [] }),
       manager,
-      stageAssetPaths: new Set(["video:timeline.bgm"]),
+      stageAddresses: new Set(["video:timeline.bgm"]),
       variantCount: 1,
       getAssetDef,
     } as const;

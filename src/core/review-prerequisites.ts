@@ -80,17 +80,17 @@ function collectPanelMovement(
       const continued = shot.continuedBy?.[lane] !== undefined;
       for (const [i, p] of panels.entries()) {
         if (total > 1 && i === total - 1 && !continued) continue;
-        if (addresses && !addresses.has(p.assetPath)) continue;
+        if (addresses && !addresses.has(p.address)) continue;
         const missing = [
           p.blocking === undefined ? "blocking" : null,
           p.camera === undefined ? "camera" : null,
         ].filter((n) => n !== null);
         if (missing.length === 0) continue;
-        const resolved = selectResolvedVariant(state, p.assetPath, { includeStale: true });
+        const resolved = selectResolvedVariant(state, p.address, { includeStale: true });
         if (!resolved) continue;
         unmet.push({
           stage: "animatic",
-          address: p.assetPath,
+          address: p.address,
           variantId: resolved.variantId,
           missing,
           writeIn: STAGE_ENTRY_FILE.animatic,

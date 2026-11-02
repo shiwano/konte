@@ -195,7 +195,7 @@ Examples:
         // stage — a scope may name a stage, but `--failed` alone names none.
         const declared = new Map<string, AssetStage>();
         for (const [stage, definition] of stageEntries) {
-          for (const assetPath of listAddresses(definition, stage)) declared.set(assetPath, stage);
+          for (const address of listAddresses(definition, stage)) declared.set(address, stage);
         }
         // Spending on an asset no deliverable consumes is waste whichever command asks for it, so a
         // sweep drops those exactly as `generate` does. A named one still rerolls: whoever typed
@@ -204,11 +204,11 @@ Examples:
         // What a sweep may spend on. A named asset failing any of these gets the message saying
         // which (below); reached through a scope it was never what was asked for, so it is dropped.
         // A take beside a human's accept is drawn only when its address is named.
-        const isSweepable = (assetPath: string): boolean => {
-          if (unused.has(assetPath)) return false;
-          if (holdsHumanVerdict(manager, assetPath)) return false;
-          if (isDeliveryAddress(assetPath) || isMaterializedLeafAddress(assetPath)) return false;
-          const assetDef = getAssetEntry(definitionForAddress(assetPath), assetPath);
+        const isSweepable = (address: string): boolean => {
+          if (unused.has(address)) return false;
+          if (holdsHumanVerdict(manager, address)) return false;
+          if (isDeliveryAddress(address) || isMaterializedLeafAddress(address)) return false;
+          const assetDef = getAssetEntry(definitionForAddress(address), address);
           return (
             assetDef.kind !== "file" &&
             assetDef.deterministic !== true &&
@@ -273,7 +273,7 @@ Examples:
           // a scope that did nothing, and reporting the union as non-empty would swallow it.
           for (const scope of scopeTargets) {
             const matched = declaredPaths.filter(
-              (assetPath) => matchesAddressScope(assetPath, scope) && isSweepable(assetPath),
+              (address) => matchesAddressScope(address, scope) && isSweepable(address),
             );
             if (matched.length === 0) {
               throw new KonteError(
@@ -334,7 +334,6 @@ Examples:
 
         type Primary = {
           address: string;
-          assetPath: string;
           def: AssetDefinition;
           stage: Stage;
           definition: DefinitionLike;
@@ -349,7 +348,6 @@ Examples:
           const assetDef = getAssetEntry(definition, address);
           primaries.push({
             address,
-            assetPath: address,
             def: assetDef,
             stage,
             definition,
@@ -367,7 +365,6 @@ Examples:
         // and file assets can't be rerolled, so both are skipped.
         type WorkItem = {
           address: string;
-          assetPath: string;
           def: AssetDefinition;
           deps: string[];
           stage: Stage;
@@ -380,18 +377,17 @@ Examples:
         }
         if (opts.withDependents) {
           for (const p of primaries) {
-            for (const { assetPath, def } of collectRerollCascade(
+            for (const { address, def } of collectRerollCascade(
               graph,
-              p.assetPath,
+              p.address,
               p.definition,
               (dependent) => holdsHumanVerdict(manager, dependent),
             )) {
-              if (workItemByAddress.has(assetPath)) continue;
-              workItemByAddress.set(assetPath, {
-                address: assetPath,
-                assetPath,
+              if (workItemByAddress.has(address)) continue;
+              workItemByAddress.set(address, {
+                address,
                 def,
-                deps: [...(graph.dependencies.get(assetPath) ?? [])],
+                deps: [...(graph.dependencies.get(address) ?? [])],
                 stage: p.stage,
                 definition: p.definition,
                 isPrimary: false,
@@ -405,12 +401,12 @@ Examples:
         const topoIndex = new Map<string, number>();
         graph.topologicalOrder.forEach((p, i) => topoIndex.set(p, i));
         const workItems = [...workItemByAddress.values()].sort(
-          (a, b) => (topoIndex.get(a.assetPath) ?? 0) - (topoIndex.get(b.assetPath) ?? 0),
+          (a, b) => (topoIndex.get(a.address) ?? 0) - (topoIndex.get(b.address) ?? 0),
         );
 
         // The board stems the video takes being redone consume, re-mixed before the gate asks for
         // them accepted.
-        const videoPaths = workItems.filter((w) => w.stage === "video").map((w) => w.assetPath);
+        const videoPaths = workItems.filter((w) => w.stage === "video").map((w) => w.address);
         if (video && animatic && videoPaths.length > 0) {
           const remixed = await remakeSettledLeaves({
             videoRoot,
@@ -426,7 +422,7 @@ Examples:
         const redone = new Set(
           workItems
             .filter((w) => getBackendKind(w.def) && (w.isPrimary ? variantCount : 1) === 1)
-            .map((w) => w.assetPath),
+            .map((w) => w.address),
         );
         // reroll spends like generate, so it passes the same spend gate, per stage it touches.
         // Every asset was asked for, so any hold refuses the run.
@@ -442,7 +438,7 @@ Examples:
             .map((stage) => ({
               command: "reroll" as const,
               stage,
-              assetPaths: workItems.filter((w) => w.stage === stage).map((w) => w.assetPath),
+              addresses: workItems.filter((w) => w.stage === stage).map((w) => w.address),
               targeted: true,
               redone,
             })),

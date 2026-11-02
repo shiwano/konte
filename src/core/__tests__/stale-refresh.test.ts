@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { plateFork } from "../stale-refresh.js";
 
 describe("plateFork", () => {
-  const cascadeOf = (...paths: string[]) => paths.map((assetPath) => ({ assetPath }));
+  const cascadeOf = (...paths: string[]) => paths.map((address) => ({ address }));
 
   it("names the setup and every shot standing on the plate", () => {
     expect(

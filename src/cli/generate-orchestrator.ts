@@ -569,7 +569,7 @@ interface JobRegistration {
   // Upstream addresses resolved when the daemon submits.
   deps?: readonly string[];
   dependsOnJobs?: readonly string[];
-  // Asset-path → variant-id of an upstream this job must consume specifically (not via the
+  // Address → variant-id of an upstream this job must consume specifically (not via the
   // newest-ready/accepted heuristic). Set by `reroll --with-dependents` so a cascaded
   // dependent builds on the freshly rerolled upstream variant even when an older one is
   // still accepted. Resolved to the variant's file at submit time (see trySubmitJob).
@@ -674,9 +674,9 @@ export function buildGeneratePlan(params: {
   levels: readonly (readonly string[])[];
   graph: DependencyGraph;
   manager: StateManager;
-  stageAssetPaths: ReadonlySet<string>;
+  stageAddresses: ReadonlySet<string>;
   variantCount: number;
-  getAssetDef: (assetPath: string) => AssetDefinition;
+  getAssetDef: (address: string) => AssetDefinition;
   missingModels?: ReadonlySet<string>;
   missingNodes?: ReadonlySet<string>;
   targetOf?: (def: AssetDefinition) => ComfyTarget | null;
@@ -685,7 +685,7 @@ export function buildGeneratePlan(params: {
     levels,
     graph,
     manager,
-    stageAssetPaths,
+    stageAddresses,
     variantCount,
     getAssetDef,
     missingModels = new Set<string>(),
@@ -713,18 +713,16 @@ export function buildGeneratePlan(params: {
   // Number the levels shown to the user sequentially — the cross-stage graph
   // leaves per-stage gaps that would otherwise skip displayed level numbers.
   const stageLevels = levels
-    .map((paths) => paths.filter((a) => stageAssetPaths.has(a)))
+    .map((paths) => paths.filter((a) => stageAddresses.has(a)))
     .filter((paths) => paths.length > 0);
 
   for (let levelIdx = 0; levelIdx < stageLevels.length; levelIdx++) {
-    const assetPaths = stageLevels[levelIdx]!;
+    const addresses = stageLevels[levelIdx]!;
 
     const entries: PlanEntry[] = [];
-    for (const assetPath of assetPaths) {
-      const assetDef = getAssetDef(assetPath);
-      // Address and asset path are the same string form.
-      const address = assetPath;
-      const deps = [...(graph.dependencies.get(assetPath) ?? [])];
+    for (const address of addresses) {
+      const assetDef = getAssetDef(address);
+      const deps = [...(graph.dependencies.get(address) ?? [])];
       const comfyTarget = targetOf(assetDef);
       const backendKind = jobBackendKind(assetDef, comfyTarget);
 

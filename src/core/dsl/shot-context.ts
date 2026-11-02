@@ -211,7 +211,7 @@ const REACT_ELEMENT_TYPE = Symbol.for("react.element");
 const ASSET_PATH = /^(?:animatic|video|reference):/;
 
 // Deep-walk a discovery-mode shotFn output (React element tree) and collect every
-// asset path it references via placeholders. This is the source of truth for a
+// address it references via placeholders. This is the source of truth for a
 // composition's dependencies: it captures both the shot's own asset() calls AND
 // timeline assets pulled in via closure (which never appear in shot.assets).
 export function collectPlaceholderRefs(node: unknown): string[] {

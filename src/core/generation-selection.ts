@@ -93,32 +93,32 @@ export function selectGenerationAssets(opts: {
   manager: StateManager;
   graph: DependencyGraph;
 }): {
-  stageAssetPaths: Set<string>;
+  stageAddresses: Set<string>;
   skippedUnused: string[];
   spending: string[];
 } {
   const { definitions, stage, manager, graph } = opts;
   const { video, animatic, reference } = definitions;
   const { def } = selectDefinition(stage, definitions);
-  const stageAssetPaths = new Set(listAddresses(def, stage));
+  const stageAddresses = new Set(listAddresses(def, stage));
   const skippedUnused = listUnusedAddresses(video, animatic, graph, reference).filter((p) =>
-    stageAssetPaths.has(p),
+    stageAddresses.has(p),
   );
-  for (const p of skippedUnused) stageAssetPaths.delete(p);
-  const spending = listSpendingAssets(def, stageAssetPaths, manager, graph);
-  return { stageAssetPaths, skippedUnused, spending };
+  for (const p of skippedUnused) stageAddresses.delete(p);
+  const spending = listSpendingAssets(def, stageAddresses, manager, graph);
+  return { stageAddresses, skippedUnused, spending };
 }
 
-// The assets a run over `assetPaths` generates, in their given order.
+// The assets a run over `addresses` generates, in their given order.
 export function listSpendingAssets(
   def: DefinitionLike,
-  assetPaths: ReadonlySet<string>,
+  addresses: ReadonlySet<string>,
   manager: StateManager,
   graph: DependencyGraph | null,
 ): string[] {
   const spending = new Set<string>();
-  for (const address of graph?.topologicalOrder ?? assetPaths) {
-    if (!assetPaths.has(address)) continue;
+  for (const address of graph?.topologicalOrder ?? addresses) {
+    if (!addresses.has(address)) continue;
     const asset = getAssetEntry(def, address);
     if (asset.kind === "file") continue;
     const skip = assetSkipReason(
@@ -130,5 +130,5 @@ export function listSpendingAssets(
     );
     if (!skip) spending.add(address);
   }
-  return [...assetPaths].filter((address) => spending.has(address));
+  return [...addresses].filter((address) => spending.has(address));
 }

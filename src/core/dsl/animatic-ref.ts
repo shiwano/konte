@@ -96,11 +96,11 @@ export function createAnimaticRef(
       // recorded where it really lives, so the accessor resolves it there.
       const panelPaths = new Map(
         [...(shot.panels ?? []), ...(shot.cutin?.panels ?? [])]
-          .filter((p) => !p.assetPath.startsWith(`${formatShotAddress("animatic", id)}.`))
-          .map((p) => [p.assetName, p.assetPath] as const),
+          .filter((p) => !p.address.startsWith(`${formatShotAddress("animatic", id)}.`))
+          .map((p) => [p.assetName, p.address] as const),
       );
       const ownPanels = new Set(
-        [...(shot.panels ?? []), ...(shot.cutin?.panels ?? [])].map((p) => p.assetPath),
+        [...(shot.panels ?? []), ...(shot.cutin?.panels ?? [])].map((p) => p.address),
       );
       const get = <T extends MediaKind>(assetName: string, want: T): MediaAsset<T> => {
         const shared = panelPaths.get(assetName);

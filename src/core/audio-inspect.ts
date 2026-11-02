@@ -89,8 +89,8 @@ export interface AudioInspectModel {
 // The mux's own cue, tagged with the shot it was harvested from.
 type RawPlacement = RawShotAudio & { shotId: string };
 
-// A source still unresolved at inspect time renders as a `__konte:<stage>:<assetPath>__` placeholder
-// rather than a file path. Surface it as the asset path ("not generated yet") instead of a bogus file.
+// A source still unresolved at inspect time renders as a `__konte:<stage>:<address>__` placeholder
+// rather than a file path. Surface it as the address ("not generated yet") instead of a bogus file.
 function interpretSource(
   raw: string,
   videoRoot: string,
@@ -744,10 +744,10 @@ export async function inspectTimelineAudio(opts: {
   // stem. The render pass only re-resolves a shot's own assets, so resolve the rest from state. A
   // src that is not a placeholder (a real file path) is returned untouched.
   const resolveAssetSrc = (src: string): string => {
-    const assetPath = parsePlaceholder(src);
-    if (assetPath === null || !isConsumableAddress(assetPath)) return src;
-    // A dependency path IS its upstream address (address ≡ asset path).
-    return resolveFile(assetPath) ?? src;
+    const address = parsePlaceholder(src);
+    if (address === null || !isConsumableAddress(address)) return src;
+    // A dependency path IS its upstream address.
+    return resolveFile(address) ?? src;
   };
 
   // Run the timeline in render mode (resolving what's available) to get the shot render fns and the

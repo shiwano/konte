@@ -12,7 +12,7 @@ Keep shared decision rules, terminology, contracts, and editing requirements:
 
 - design principles that guide changes across subsystems
 - non-obvious editing requirements — required companion edits and conventions
-- formats — address `<stage>:…`, asset paths, `__konte:…__` placeholders, id prefixes (`v-…`)
+- formats — address `<stage>:…`, `__konte:…__` placeholders, id prefixes (`v-…`)
 - CLI commands and public DSL API (`defineVideo`, `adapters.*`, `define*Asset`)
 - on-disk layout (`konte.state.json`, `.konte/…`, `review/…/handoffs/`)
 - behavioral rules — a stale deterministic accept re-bakes; secrets never persisted

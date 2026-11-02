@@ -258,8 +258,6 @@ export function findFreshDeliveryVariant(
 ): { variantId: string; file: string } | null {
   const target = state.assets[deliveryAddress];
   if (!target?.variants) return null;
-  // An address is its own asset-path form — inputFingerprints are keyed by it directly.
-  const sourceAssetPath = sourceAddress;
   const ids = Object.keys(target.variants);
   for (let i = ids.length - 1; i >= 0; i--) {
     const variantId = ids[i]!;
@@ -267,7 +265,7 @@ export function findFreshDeliveryVariant(
     if (!v?.file || !v.deliveryTarget) continue;
     const expectedDefinitionHash = deliveryDefinitionHash(video, deliveryAddress, v.deliveryTarget);
     if (v.definitionHash !== expectedDefinitionHash) continue;
-    if (v.inputFingerprints?.[sourceAssetPath] !== sourceOutputHash) continue;
+    if (v.inputFingerprints?.[sourceAddress] !== sourceOutputHash) continue;
     return { variantId, file: v.file };
   }
   return null;

@@ -284,7 +284,7 @@ export function collectAllAddresses(
 // `collectChangedAddresses` — resolved variant moved, a fresh unreviewed ready variant
 // became ready after the review, or the accepted variant went stale — apply per reviewable
 // reference asset.
-// Asset paths are already `reference:<name>`, the note address shape.
+// Addresses are already `reference:<name>`, the note address shape.
 export function collectChangedReferenceAddresses(
   reference: ReferenceDefinition,
   manager: StateManager,
@@ -292,8 +292,8 @@ export function collectChangedReferenceAddresses(
 ): string[] {
   const ordered: string[] = [];
   const reviewed = record.context.timeline ?? {};
-  for (const assetPath of listReviewableAddresses(reference, "reference")) {
-    const assetName = assetPath.slice("reference:".length);
+  for (const address of listReviewableAddresses(reference, "reference")) {
+    const assetName = address.slice("reference:".length);
     const addr = formatReferenceAddress(assetName);
     const variants = manager.tryGetAssetState(addr)?.variants;
     if (!variants) continue;
@@ -306,7 +306,7 @@ export function collectChangedReferenceAddresses(
       hasFreshUnreviewedReady(variants, reviewedId, record.createdAt) ||
       acceptedStale
     ) {
-      ordered.push(assetPath);
+      ordered.push(address);
     }
   }
   return ordered;

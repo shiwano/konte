@@ -165,12 +165,12 @@ describe("defineAnimatic", () => {
     expect(animatic.shots[0]!.panels).toEqual([
       {
         assetName: "first",
-        assetPath: "animatic:shot.01.first",
+        address: "animatic:shot.01.first",
         start: 0,
         duration: 2,
         blocking: "she turns",
       },
-      { assetName: "last", assetPath: "animatic:shot.01.last", start: 2, duration: 2 },
+      { assetName: "last", address: "animatic:shot.01.last", start: 2, duration: 2 },
     ]);
   });
 

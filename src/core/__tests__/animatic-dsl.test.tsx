@@ -229,7 +229,7 @@ describe("defineAnimatic", () => {
     expect(sb.shots[0]!.panels).toHaveLength(2);
     expect(sb.shots[0]!.panels![0]).toEqual({
       assetName: "first",
-      assetPath: "animatic:shot.01.first",
+      address: "animatic:shot.01.first",
       blocking: "she crosses the room",
       camera: "fixed",
       start: 0,
@@ -237,7 +237,7 @@ describe("defineAnimatic", () => {
     });
     expect(sb.shots[0]!.panels![1]).toEqual({
       assetName: "second",
-      assetPath: "animatic:shot.01.second",
+      address: "animatic:shot.01.second",
       start: 2.5,
       duration: 2.5,
     });
@@ -312,7 +312,7 @@ describe("defineAnimatic", () => {
     );
     expect(sb.shots[0]!.panels![0]).toEqual({
       assetName: "first",
-      assetPath: "animatic:shot.01.first",
+      address: "animatic:shot.01.first",
       blocking: "she crosses to the window and stops",
       camera: "fixed",
       start: 0,
@@ -321,7 +321,7 @@ describe("defineAnimatic", () => {
     // The landing keyframe has nothing after it, so it declares no movement.
     expect(sb.shots[0]!.panels![1]).toEqual({
       assetName: "last",
-      assetPath: "animatic:shot.01.last",
+      address: "animatic:shot.01.last",
       start: 1.5,
       duration: 1.5,
     });
@@ -469,7 +469,7 @@ describe("<Panel>", () => {
     ));
     expect(sb.shots[0]!.panels![0]).toMatchObject({
       assetName: "opening-frame",
-      assetPath: "animatic:shot.01.opening-frame",
+      address: "animatic:shot.01.opening-frame",
     });
   });
 
@@ -677,7 +677,7 @@ describe("panel movement position rule", () => {
     });
     expect(sb.shots[0]!.panels![0]).toEqual({
       assetName: "first",
-      assetPath: "animatic:shot.01.first",
+      address: "animatic:shot.01.first",
       start: 0,
       duration: 2.5,
     });
@@ -696,7 +696,7 @@ describe("panel movement position rule", () => {
     });
     expect(sb.shots[0]!.panels![0]).toEqual({
       assetName: "first",
-      assetPath: "animatic:shot.01.first",
+      address: "animatic:shot.01.first",
       blocking: "she walks out frame left",
       start: 0,
       duration: 2.5,

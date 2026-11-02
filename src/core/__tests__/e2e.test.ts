@@ -11,8 +11,8 @@ import videoDef from "./fixtures/valid-video.js";
 
 const video: VideoDefinition = videoDef;
 
-function getAssetDefinition(video: VideoDefinition, assetPath: string): AssetDefinition {
-  const parsed = parseAddress(assetPath);
+function getAssetDefinition(video: VideoDefinition, address: string): AssetDefinition {
+  const parsed = parseAddress(address);
   if (parsed.kind !== "shot") throw new Error(`Expected shot address, got "${parsed.kind}"`);
   const shot = video.shots.find((s) => s.id === parsed.shotId);
   if (!shot) throw new Error(`Shot "${parsed.shotId}" not found`);
@@ -91,7 +91,7 @@ describe("E2E: accept -> computed stale propagation -> reroll clears stale", () 
     const voiceStaleness = computeAcceptedStaleness(sm.getState(), voiceAddr, null);
     expect(voiceStaleness.variantId).toBe(voiceV1);
     expect(voiceStaleness.changedInputs).toEqual([
-      { assetPath: "video:shot.01.motion", recorded: "motion-h1", current: "motion-h2" },
+      { address: "video:shot.01.motion", recorded: "motion-h1", current: "motion-h2" },
     ]);
 
     // The newly accepted upstream itself is not stale.

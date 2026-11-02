@@ -11,7 +11,7 @@ export type SetupFork = { setupId: string; shotIds: readonly string[] };
  */
 export function plateFork(
   address: string,
-  cascade: ReadonlyArray<{ assetPath: string }>,
+  cascade: ReadonlyArray<{ address: string }>,
   definition?: DefinitionLike,
 ): SetupFork | null {
   const parsed = tryParseAddress(address);
@@ -20,7 +20,7 @@ export function plateFork(
   const shotIds = [
     ...new Set(
       cascade.flatMap((c) => {
-        const dep = tryParseAddress(c.assetPath);
+        const dep = tryParseAddress(c.address);
         return dep?.kind === "shot" ? [dep.shotId] : [];
       }),
     ),

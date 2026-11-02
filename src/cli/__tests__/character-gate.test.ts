@@ -170,7 +170,7 @@ describe("the spend gate's voice scope", () => {
     spendGate(await loadCheckContext({ videoRoot: root }), {
       command: "generate",
       stage,
-      assetPaths: [],
+      addresses: [],
       targeted: false,
     });
 

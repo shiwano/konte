@@ -254,8 +254,8 @@ describe("buildShotRenderInputs — out-of-shot refs", () => {
   });
 
   // `-` and `_` are both legal in a shot id and an asset name, so a staged filename that collapsed
-  // them (or the `.` separators) would map distinct asset paths onto one file.
-  it("keeps two refs apart when their asset paths differ only by separator character", () => {
+  // them (or the `.` separators) would map distinct addresses onto one file.
+  it("keeps two refs apart when their addresses differ only by separator character", () => {
     const direction = defineDirection({
       ...directionDefaults,
       sequence: {
@@ -311,7 +311,7 @@ describe("buildShotRenderInputs — out-of-shot refs", () => {
     expect(assetFiles["video.shot.01.b_c.mp4"]).toBe(path.resolve(tmpDir, underFile));
   });
 
-  // A ref's filename keeps the asset path's `.` separators, and an asset name may not contain `.`,
+  // A ref's filename keeps the address's `.` separators, and an asset name may not contain `.`,
   // so no legal asset name can name the same file. The shot's own assets are staged first; a ref
   // able to collide would silently overwrite one.
   it("cannot collide with a shot's own asset, whatever that asset is named", () => {

@@ -564,7 +564,7 @@ interface AssetStatus {
   addresses: string[];
   /** Null when the definitions do not form a valid graph (a bad ref); graph-derived views are then skipped. */
   graph: DependencyGraph | null;
-  /** Asset paths no composition or panel consumes. */
+  /** Addresses no composition or panel consumes. */
   unusedPaths: Set<string>;
 }
 
@@ -807,7 +807,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
       manager,
       graph,
     );
-    const req = { command: "generate", stage, assetPaths: spending, targeted: false } as const;
+    const req = { command: "generate", stage, addresses: spending, targeted: false } as const;
     return spendHeldError(req, judgeSpend(checkContext, findingReport, req)) !== null;
   });
   const previewHeldStages = (["reference", "animatic", "video"] as const).filter((stage) =>

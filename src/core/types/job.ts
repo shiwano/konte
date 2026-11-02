@@ -25,7 +25,7 @@ const ProvenanceSchema = z.object({
   inputHash: z.string().nullable(),
   resolvedDependencies: z.record(z.string(), z.string()),
   // For a frame-delivery upscale whose source is a composition: the source composition's
-  // cache key (compositionCacheKey) captured at submit time, keyed by composition asset path.
+  // cache key (compositionCacheKey) captured at submit time, keyed by composition address.
   // The key must reflect the composition that was actually upscaled — recomputing it from live
   // state at completion would record a moved composition's key onto an upscale of the old one.
   compositionCacheKeys: z.record(z.string(), z.string()).default({}),

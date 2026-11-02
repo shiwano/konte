@@ -432,7 +432,7 @@ function parseVideoModule(mod: Record<string, unknown>, filePath: string): Video
     "shot ID",
     "Video",
   );
-  assertUnique(listAddresses(video, "video"), "asset path", "Video");
+  assertUnique(listAddresses(video, "video"), "address", "Video");
   return video;
 }
 
@@ -448,7 +448,7 @@ function parseReferenceModule(mod: Record<string, unknown>, filePath: string): R
     exposedAssetNames: parsed.exposedAssetNames,
     prompts: parsed.prompts,
   };
-  assertUnique(listReferenceAddresses(reference), "asset path", "Reference");
+  assertUnique(listReferenceAddresses(reference), "address", "Reference");
   return reference;
 }
 
@@ -488,7 +488,7 @@ function parseAnimaticModule(mod: Record<string, unknown>, filePath: string): An
     "shot ID",
     "Animatic",
   );
-  assertUnique(listAddresses(animatic, "animatic"), "asset path", "Animatic");
+  assertUnique(listAddresses(animatic, "animatic"), "address", "Animatic");
   return animatic;
 }
 

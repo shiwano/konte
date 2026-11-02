@@ -264,7 +264,7 @@ writeFeedback("video", {
 
 // 7. Handoff (AI -> reviewer guidance): a summary + per-asset notes, loaded from the newest file
 //    under review/<stage>/handoffs/. Shown inline per shot/panel/part in the review UI.
-//    `address` is the asset path; a direction note addresses a direction part by its
+//    `address` is the asset's address; a direction note addresses a direction part by its
 //    field path in direction.ts.
 const writeHandoff = (
   stage: string,

@@ -120,7 +120,7 @@ export function resolveCompositionRef(
 ): ResolvedCompositionRef | null {
   if (!isConsumableAddress(depPath)) return null;
   const { includeStale, overrideByAddress } = options;
-  // A dependency path IS its upstream address (address ≡ asset path).
+  // A dependency path IS its upstream address.
   const address = depPath;
   const overrideVariantId = overrideByAddress?.get(address);
   if (overrideVariantId) {
@@ -150,7 +150,7 @@ export function resolveCompositionRef(
 // reference asset pulled in by closure (`reference.bgm`), or a prior video shot's asset
 // (`shot("01").video("motion")`), or its own animatic's stem (`animatic.stem`). Each must be
 // substituted before the HTML reaches a browser or ffmpeg. The character class is the alphabet
-// `makePlaceholder`/`makeAddressPlaceholder` can mint — an asset path's `.`, `:` and reserved-name
+// `makePlaceholder`/`makeAddressPlaceholder` can mint — an address's `.`, `:` and reserved-name
 // `#` separators plus identifier characters. `#delivery` matches here but `isConsumableAddress` rejects it,
 // so it is left in place like any other unresolvable ref.
 const ASSET_PLACEHOLDER = /__konte:((?:reference|animatic|video):[A-Za-z0-9_.#-]+)__/g;
@@ -159,7 +159,7 @@ const ASSET_PLACEHOLDER = /__konte:((?:reference|animatic|video):[A-Za-z0-9_.#-]
 // as-is, so it renders visibly broken rather than being silently dropped.
 export function substituteAssetPlaceholders(
   html: string,
-  resolve: (assetPath: string) => string | null,
+  resolve: (address: string) => string | null,
 ): string {
-  return html.replace(ASSET_PLACEHOLDER, (whole, assetPath: string) => resolve(assetPath) ?? whole);
+  return html.replace(ASSET_PLACEHOLDER, (whole, address: string) => resolve(address) ?? whole);
 }

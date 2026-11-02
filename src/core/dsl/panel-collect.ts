@@ -14,7 +14,7 @@ export interface PanelOccurrence {
   // The frame it keys: the shot's own picture, or its `<Cutin>`.
   lane: PanelLane;
   assetName: string;
-  assetPath: string;
+  address: string;
   // The declared `start` in shot-local seconds, or null when the panel takes its share of the shot.
   start: number | null;
   blocking?: string;

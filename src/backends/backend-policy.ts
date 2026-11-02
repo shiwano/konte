@@ -79,11 +79,11 @@ export function unconfiguredBackendAssets(
   config: KonteConfig,
 ): UnconfiguredBackendAsset[] {
   const out: UnconfiguredBackendAsset[] = [];
-  for (const assetPath of listAddresses(def, stage)) {
-    const kind = getAssetEntry(def, assetPath).kind;
+  for (const address of listAddresses(def, stage)) {
+    const kind = getAssetEntry(def, address).kind;
     if (!isVendorBackendAsset(kind)) continue;
     if (!isBackendConfigured(kind, config)) {
-      out.push({ address: assetPath, kind });
+      out.push({ address, kind });
     }
   }
   return out;

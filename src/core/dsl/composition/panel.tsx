@@ -49,30 +49,30 @@ export function Panel({
 
   // The address the panel names, while it still is one: `asset()` swaps it for a served file in
   // render mode, and only the discovery pass — the one that describes the definition — sees it.
-  const assetPath = parsePlaceholder(src.src);
+  const address = parsePlaceholder(src.src);
   let assetName = window?.assetName;
   if (isCollectingPanels()) {
     // A panel's art is any generatable image: a shot-local one (`animatic:shot.<id>.<name>`), a
     // shared timeline one (`animatic:timeline.<name>`), or a `reference:<name>` used as-is. Anything
     // else would mint a bogus part name.
     if (
-      assetPath === null ||
-      !(assetPath.startsWith("animatic:") || assetPath.startsWith("reference:"))
+      address === null ||
+      !(address.startsWith("animatic:") || address.startsWith("reference:"))
     ) {
       throw new KonteError(
         "ANIMATIC_INVALID",
         `<Panel> takes an animatic asset (declared with asset() inside a shot's build, or a shared ` +
-          `timeline asset()) or a reference asset, but received "${assetPath ?? src.src}".`,
+          `timeline asset()) or a reference asset, but received "${address ?? src.src}".`,
       );
     }
     // The part name is the asset's leaf. Timeline/shot paths are dot-separated (`…timeline.bg`,
     // `…shot.01.bg`); a reference path is colon-separated (`reference:bg`) — take whichever is last.
-    const sep = Math.max(assetPath.lastIndexOf("."), assetPath.lastIndexOf(":"));
-    assetName = assetPath.slice(sep + 1);
+    const sep = Math.max(address.lastIndexOf("."), address.lastIndexOf(":"));
+    assetName = address.slice(sep + 1);
     recordPanel({
       lane,
       assetName,
-      assetPath,
+      address,
       start: start ?? null,
       ...(blocking !== undefined ? { blocking } : {}),
       ...(camera !== undefined ? { camera } : {}),

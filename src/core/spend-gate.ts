@@ -101,7 +101,7 @@ type UpstreamBlocker =
 function unacceptedUpstreamDeps(opts: {
   manager: StateManager;
   graph: DependencyGraph;
-  assetPaths: Iterable<string>;
+  addresses: Iterable<string>;
   stage: Stage;
   extraRefs?: Iterable<string>;
   redone?: ReadonlySet<string>;
@@ -109,8 +109,8 @@ function unacceptedUpstreamDeps(opts: {
   const blocking = new Map<string, UpstreamBlocker>();
   const seen = new Set<string>();
   const queue: string[] = [...(opts.extraRefs ?? [])];
-  for (const assetPath of opts.assetPaths) {
-    queue.push(...(opts.graph.dependencies.get(assetPath) ?? []));
+  for (const address of opts.addresses) {
+    queue.push(...(opts.graph.dependencies.get(address) ?? []));
   }
 
   while (queue.length > 0) {
@@ -177,14 +177,14 @@ function upstreamMostBlockers(blocking: Map<string, UpstreamBlocker>): {
   return { upstream, lines };
 }
 
-// One spend as the gate judges it. `assetPaths` is what it would submit: a whole-stage spend
+// One spend as the gate judges it. `addresses` is what it would submit: a whole-stage spend
 // (`targeted: false`) leaves out what an `edge` finding or an unaccepted upstream holds and goes on
 // with the rest; a targeted one (`reroll`, `patch apply`) asked for every asset it names, so any
 // hold refuses it.
 export type SpendRequest = {
   command: SpendCommand;
   stage: AssetStage;
-  assetPaths: readonly string[];
+  addresses: readonly string[];
   targeted: boolean;
   // The take whose patch script is applied.
   patch?: string;
@@ -217,7 +217,7 @@ export function judgeSpend(
   const findings: Finding[] = [];
   const edgeFindings: Finding[] = [];
   const named = (f: Finding) =>
-    req.assetPaths.some((address) => {
+    req.addresses.some((address) => {
       const parsed = tryParseAddress(address);
       return (
         parsed?.kind !== "shot" ||
@@ -249,13 +249,13 @@ export function judgeSpend(
     }
     if (!req.targeted) continue;
     for (const address of f.signedOff ?? []) {
-      if (req.assetPaths.includes(address)) hold(address, line);
+      if (req.addresses.includes(address)) hold(address, line);
     }
   }
 
   if (ctx.manager && ctx.direction && req.stage === "reference") {
     const song = songAddressOf(ctx.direction);
-    if (song !== null && req.assetPaths.includes(song)) {
+    if (song !== null && req.addresses.includes(song)) {
       const blocking = songGateBlocking(ctx.direction, ctx.manager.getDirectionAcceptance());
       if (blocking.length > 0) {
         unaccepted.push({
@@ -282,15 +282,15 @@ export function judgeSpend(
       if (req.targeted) {
         const blocking = unacceptedUpstreamDeps({
           ...upstreamOpts,
-          assetPaths: req.assetPaths,
+          addresses: req.addresses,
           ...(req.extraRefs ? { extraRefs: req.extraRefs } : {}),
         });
         const named = upstreamMostBlockers(blocking);
         if (named) unaccepted.push(upstreamUnaccepted(req.stage, named));
       } else {
-        for (const assetPath of req.assetPaths) {
-          const blocking = unacceptedUpstreamDeps({ ...upstreamOpts, assetPaths: [assetPath] });
-          for (const line of upstreamMostBlockers(blocking)?.lines ?? []) hold(assetPath, line);
+        for (const address of req.addresses) {
+          const blocking = unacceptedUpstreamDeps({ ...upstreamOpts, addresses: [address] });
+          for (const line of upstreamMostBlockers(blocking)?.lines ?? []) hold(address, line);
         }
       }
     }
@@ -384,8 +384,8 @@ function upstreamUnaccepted(
 // The refusal a verdict amounts to, or null when the spend may go on with what is not held.
 export function spendHeldError(req: SpendRequest, verdict: SpendVerdict): KonteError | null {
   const allHeld =
-    req.assetPaths.length > 0 && req.assetPaths.every((address) => verdict.held.has(address));
-  const targetedHeld = req.targeted && req.assetPaths.some((address) => verdict.held.has(address));
+    req.addresses.length > 0 && req.addresses.every((address) => verdict.held.has(address));
+  const targetedHeld = req.targeted && req.addresses.some((address) => verdict.held.has(address));
   if (
     verdict.findings.length === 0 &&
     verdict.unaccepted.length === 0 &&
@@ -408,7 +408,7 @@ export function spendHeldError(req: SpendRequest, verdict: SpendVerdict): KonteE
       ? [
           "  Held:",
           ...[...verdict.held]
-            .filter(([address]) => req.assetPaths.includes(address))
+            .filter(([address]) => req.addresses.includes(address))
             .flatMap(([address, why]) => [`    ${address}`, ...why.map((l) => `    ${l}`)]),
         ]
       : []),

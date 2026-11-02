@@ -191,7 +191,7 @@ export function assetResolves(state: KonteState, address: string, cache?: Stalen
   return selected !== null && state.assets[address]?.variants?.[selected.variantId]?.file != null;
 }
 
-// A job's pinned upstream dependencies (asset-path → variant-id), set by
+// A job's pinned upstream dependencies (address → variant-id), set by
 // `reroll --with-dependents` so a cascaded dependent consumes the specific freshly
 // rerolled upstream variant rather than whatever newest-ready/accepted resolution
 // would pick. Absent for ordinary jobs.
@@ -222,7 +222,7 @@ export function resolveJobDeps(job: GenerationJob, manager: StateManager): Recor
   );
   const state = manager.getState();
   for (const [depPath, variantId] of Object.entries(pinned)) {
-    // A dep path is the upstream address directly (address ≡ asset path).
+    // A dep path is the upstream address directly.
     const file = state.assets[depPath]?.variants?.[variantId]?.file;
     if (!file) {
       throw new KonteError(
@@ -251,7 +251,7 @@ export function describePendingJob(
   const waitingOn: string[] = [];
   const pinned = readPinnedDeps(job);
 
-  // A dep asset path IS its upstream address (address ≡ asset path). A job producing the
+  // A dep path IS its upstream address. A job producing the
   // upstream counts as a wait even when a stale variant already has a file (see evaluateJob).
   // A pinned dep waits on its own producer instead, reported by the dependsOnJobs pass below.
   for (const depAddress of job.dependsOnAssets) {
@@ -314,7 +314,7 @@ function evaluateJob(job: GenerationJob, manager: StateManager, jobs: JobIndex):
     };
   }
 
-  // A dep asset path IS its upstream address (address ≡ asset path).
+  // A dep path IS its upstream address.
   const pinned = readPinnedDeps(job);
   for (const depAddress of job.dependsOnAssets) {
     // A pin names the variant outright, so what else is running at that address is not this job's

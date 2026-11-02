@@ -145,7 +145,7 @@ describe("buildDependencyGraph", () => {
     expect([...(graph.dependencies.get("video:shot.01.motion") ?? [])]).toEqual([]);
   });
 
-  it("registers a pending shot with no composition node and no asset paths", () => {
+  it("registers a pending shot with no composition node and no addresses", () => {
     const video = defineVideo(
       testDirection({
         fps: 30,
@@ -645,7 +645,7 @@ describe("buildDependencyGraph", () => {
         panels: [
           {
             assetName: "keyframe",
-            assetPath: "animatic:shot.01.keyframe",
+            address: "animatic:shot.01.keyframe",
             start: 0,
             duration: 5,
           },
@@ -698,7 +698,7 @@ describe("buildDependencyGraph", () => {
           assets: { key: comfyDef, end: comfyDef },
           shotFn: (() => null) as never,
           compositionRefs: ["animatic:shot.01.key"],
-          panels: [{ assetName: "key", assetPath: "animatic:shot.01.key", start: 0, duration: 5 }],
+          panels: [{ assetName: "key", address: "animatic:shot.01.key", start: 0, duration: 5 }],
         },
       ],
     };
@@ -1112,7 +1112,7 @@ describe("listUnusedAddresses", () => {
           action: "shot 01",
           assets: { first: comfyDef },
           panels: [
-            { assetName: "first", assetPath: "animatic:shot.01.first", start: 0, duration: 1 },
+            { assetName: "first", address: "animatic:shot.01.first", start: 0, duration: 1 },
           ],
         },
       ],
@@ -1148,7 +1148,7 @@ describe("listBoardlessVideoShots", () => {
         action: `shot ${id}`,
         assets: { first: comfy },
         panels: [
-          { assetName: "first", assetPath: `animatic:shot.${id}.first`, start: 0, duration: 5 },
+          { assetName: "first", address: `animatic:shot.${id}.first`, start: 0, duration: 5 },
         ],
       })),
     };
@@ -1306,7 +1306,7 @@ describe("listBoardlessVideoShots", () => {
           action: "shot 01",
           assets: {},
           panels: [
-            { assetName: "hero", assetPath: "animatic:timeline.shared", start: 0, duration: 5 },
+            { assetName: "hero", address: "animatic:timeline.shared", start: 0, duration: 5 },
           ],
         },
       ],
@@ -1532,10 +1532,10 @@ describe("listSetupAnchorGaps", () => {
       deterministic: true,
     }) as unknown as AssetDefinition;
 
-  const panel = (assetPath: string): PanelDefinition =>
+  const panel = (address: string): PanelDefinition =>
     ({
-      assetName: assetPath.split(".").pop()!,
-      assetPath,
+      assetName: address.split(".").pop()!,
+      address,
       start: 0,
       duration: 1,
     }) as PanelDefinition;

@@ -65,7 +65,7 @@ import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings } from "../../../core/checks.js";
 import { createAssetInfoBuilder } from "./asset-info.js";
 
-// Handoff note (AI -> reviewer) attached to a reference asset path (`reference:<name>`).
+// Handoff note (AI -> reviewer) attached to a reference address (`reference:<name>`).
 function handoffNoteForReference(handoff: Handoff | null, assetName: string): string | undefined {
   const path = `reference:${assetName}`;
   return (handoff?.notes ?? []).find((n) => n.address === path)?.text;
@@ -166,8 +166,8 @@ export async function handleGetReferenceState(
 
   // Exposed assets only: an unreturned one is an intermediate another reference asset consumes, and
   // it is read through that asset — there is nothing to decide about it here.
-  const assets = listExposedReferenceAddresses(reference).map((assetPath) => {
-    const assetName = assetPath.slice("reference:".length);
+  const assets = listExposedReferenceAddresses(reference).map((address) => {
+    const assetName = address.slice("reference:".length);
     const addr = formatReferenceAddress(assetName);
     const acceptedId = manager.getAcceptedVariant(addr);
 
@@ -313,8 +313,8 @@ export async function handleReferenceSubmit(
 
   const manager = await StateManager.load(videoRoot);
   const timeline: Record<string, string> = {};
-  for (const assetPath of listReviewableAddresses(reference, "reference")) {
-    const assetName = assetPath.slice("reference:".length);
+  for (const address of listReviewableAddresses(reference, "reference")) {
+    const assetName = address.slice("reference:".length);
     const addr = formatReferenceAddress(assetName);
     const resolved = manager.selectVariant(addr, { includeStale: true });
     if (resolved) timeline[assetName] = resolved.variantId;

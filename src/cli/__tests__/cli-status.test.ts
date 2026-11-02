@@ -232,7 +232,7 @@ describe("status command", () => {
             panels: [
               {
                 assetName: "keyframe",
-                assetPath: address,
+                address,
                 blocking: "the cat rises to sit",
                 camera: "fixed",
                 start: 0,

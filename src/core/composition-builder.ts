@@ -163,8 +163,8 @@ function resolveAssetPlaceholdersInHtml(
   includeStale: boolean,
   overrideByAddress?: ReadonlyMap<string, string>,
 ): string {
-  return substituteAssetPlaceholders(html, (assetPath) => {
-    const resolved = resolveCompositionRef(manager, assetPath, {
+  return substituteAssetPlaceholders(html, (address) => {
+    const resolved = resolveCompositionRef(manager, address, {
       includeStale,
       overrideByAddress,
     });
@@ -633,7 +633,7 @@ export function compositionClassSubjects(video: StageDefinition): ClassSubject[]
   return subjects;
 }
 
-// One audio cue harvested from a shot's composition: its source asset path (placeholder-decoded)
+// One audio cue harvested from a shot's composition: its source address (placeholder-decoded)
 // and shot-local placement/params. The identity of a shot's audio stem — audio-only, so a picture
 // edit never changes it (the mirror of stripAudioFromHtml).
 export interface StemAudioEntry {

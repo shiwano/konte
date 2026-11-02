@@ -36,15 +36,13 @@ async function syncFileAssetsForDefinition(
   validate: boolean,
   measureMedia: boolean,
 ): Promise<string[]> {
-  const assetPaths = listAddresses(definition, stage);
+  const addresses = listAddresses(definition, stage);
   const changed: string[] = [];
 
-  for (const assetPath of assetPaths) {
-    const entry = getAssetEntry(definition, assetPath);
+  for (const address of addresses) {
+    const entry = getAssetEntry(definition, address);
     if (entry.kind !== "file") continue;
 
-    // An address is the asset path, so the file asset is addressed by its path directly.
-    const address = assetPath;
     const filePath = entry.path;
 
     // A file asset's path is authored, and konte does two things with it that make an escape

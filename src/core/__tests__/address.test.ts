@@ -103,68 +103,6 @@ const testVideo: VideoDefinition = defineVideo(
 );
 
 describe("parseAddress", () => {
-  it("parses a valid video shot asset path", () => {
-    expect(parseAddress("video:shot.01.motion")).toEqual({
-      stage: "video",
-      kind: "shot",
-      delivery: false,
-      shotId: "01",
-      assetName: "motion",
-    });
-  });
-
-  it("parses a valid animatic shot asset path", () => {
-    expect(parseAddress("animatic:shot.01.first")).toEqual({
-      stage: "animatic",
-      kind: "shot",
-      delivery: false,
-      shotId: "01",
-      assetName: "first",
-    });
-  });
-
-  it("parses a valid video timeline asset path", () => {
-    expect(parseAddress("video:timeline.character")).toEqual({
-      stage: "video",
-      kind: "timeline",
-      delivery: false,
-      assetName: "character",
-    });
-  });
-
-  it("parses a valid animatic timeline asset path", () => {
-    expect(parseAddress("animatic:timeline.bgm")).toEqual({
-      stage: "animatic",
-      kind: "timeline",
-      delivery: false,
-      assetName: "bgm",
-    });
-  });
-
-  it("parses an asset path with hyphens and underscores", () => {
-    expect(parseAddress("video:shot.intro-01.background")).toEqual({
-      stage: "video",
-      kind: "shot",
-      delivery: false,
-      shotId: "intro-01",
-      assetName: "background",
-    });
-    expect(parseAddress("video:shot.intro_01.bg_main")).toEqual({
-      stage: "video",
-      kind: "shot",
-      delivery: false,
-      shotId: "intro_01",
-      assetName: "bg_main",
-    });
-  });
-
-  it("throws on invalid asset path format", () => {
-    expect(() => parseAddress("invalid")).toThrow(KonteError);
-    expect(() => parseAddress("")).toThrow(KonteError);
-  });
-});
-
-describe("parseAddress", () => {
   it("parses a valid video shot address", () => {
     expect(parseAddress("video:shot.01.motion")).toEqual({
       stage: "video",
@@ -347,26 +285,6 @@ describe("getAssetStage", () => {
 });
 
 describe("formatAddress", () => {
-  it("formats a video shot asset path", () => {
-    expect(formatAddress("video", "01", "motion")).toBe("video:shot.01.motion");
-  });
-
-  it("formats an animatic shot asset path", () => {
-    expect(formatAddress("animatic", "01", "first")).toBe("animatic:shot.01.first");
-  });
-});
-
-describe("formatTimelineAddress", () => {
-  it("formats a video timeline asset path", () => {
-    expect(formatTimelineAddress("video", "character")).toBe("video:timeline.character");
-  });
-
-  it("formats an animatic timeline asset path", () => {
-    expect(formatTimelineAddress("animatic", "ref")).toBe("animatic:timeline.ref");
-  });
-});
-
-describe("formatAddress", () => {
   it("formats a video shot address", () => {
     expect(formatAddress("video", "01", "motion")).toBe("video:shot.01.motion");
   });
@@ -450,22 +368,6 @@ describe("listAddresses", () => {
   });
 });
 
-describe("listAddresses", () => {
-  it("lists all asset paths with video stage prefix", () => {
-    const paths = listAddresses(testVideo, "video");
-    expect(paths).toEqual(["video:timeline.character", "video:shot.01.motion", "video:shot.02.bg"]);
-  });
-
-  it("lists asset paths with animatic stage prefix", () => {
-    const paths = listAddresses(testVideo, "animatic");
-    expect(paths).toEqual([
-      "animatic:timeline.character",
-      "animatic:shot.01.motion",
-      "animatic:shot.02.bg",
-    ]);
-  });
-});
-
 describe("listReviewableAddresses", () => {
   const reference = defineReference(plainDirection, {
     references: () => {
@@ -514,11 +416,6 @@ describe("composition addresses", () => {
     expect(isCompositionAddress("video:timeline.composition")).toBe(false);
     expect(isCompositionAddress("video:shot.01")).toBe(false);
     expect(isCompositionAddress("not-an-address")).toBe(false);
-  });
-
-  it("identifies composition asset paths", () => {
-    expect(isCompositionAddress("video:shot.01#composition")).toBe(true);
-    expect(isCompositionAddress("video:shot.01.motion")).toBe(false);
     expect(isCompositionAddress("video:timeline#composition")).toBe(false);
     // An author's asset named `composition` is a different target, and never the reserved leaf.
     expect(isCompositionAddress("video:shot.01.composition")).toBe(false);
@@ -661,7 +558,7 @@ describe("stem addresses", () => {
     expect(isStemAddress("not-an-address")).toBe(false);
   });
 
-  it("identifies stem asset paths", () => {
+  it("identifies stem addresses", () => {
     expect(isStemAddress("video:shot.01#stem")).toBe(true);
     expect(isStemAddress("video:timeline#stem")).toBe(true);
     expect(isStemAddress("video:shot.01.motion")).toBe(false);
@@ -883,21 +780,21 @@ describe("parseReelScope", () => {
 });
 
 describe("getAssetEntry", () => {
-  it("returns asset definition for shot asset path", () => {
+  it("returns asset definition for shot address", () => {
     const p = getAssetEntry(testVideo, "video:shot.01.motion");
     expect(p.kind).toBe("comfy");
   });
 
-  it("returns asset definition for timeline asset path", () => {
+  it("returns asset definition for timeline address", () => {
     const p = getAssetEntry(testVideo, "video:timeline.character");
     expect(p.kind).toBe("comfy");
   });
 
-  it("throws for non-existent shot asset path", () => {
+  it("throws for non-existent shot address", () => {
     expect(() => getAssetEntry(testVideo, "video:shot.99.motion")).toThrow(KonteError);
   });
 
-  it("throws for non-existent timeline asset path", () => {
+  it("throws for non-existent timeline address", () => {
     expect(() => getAssetEntry(testVideo, "video:timeline.nonexistent")).toThrow(KonteError);
   });
 });

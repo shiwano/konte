@@ -59,7 +59,7 @@ function boardWithMovement(blocking: string | undefined): AnimaticDefinition {
         id: "01",
         duration: 3,
         assets: {},
-        panels: [{ assetPath: ADDRESS, blocking, camera: "holds" }],
+        panels: [{ address: ADDRESS, blocking, camera: "holds" }],
       },
     ],
   } as unknown as AnimaticDefinition;

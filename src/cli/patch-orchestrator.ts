@@ -271,7 +271,7 @@ function currentPoolVariant(
       manager.stalenessCache(),
     );
     if (definitionStale) continue;
-    if (changedInputs.some((c) => c.assetPath !== pinned.address)) continue;
+    if (changedInputs.some((c) => c.address !== pinned.address)) continue;
     const recordedSource = variant.inputFingerprints?.[pinned.address];
     if (
       recordedSource !== undefined &&

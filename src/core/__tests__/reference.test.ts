@@ -130,15 +130,11 @@ describe("defineReference(plainDirection, ) builder", () => {
 });
 
 describe("reference address helpers", () => {
-  it("formats a reference asset path and address", () => {
-    expect(formatReferenceAddress("bgm")).toBe("reference:bgm");
+  it("formats a reference address", () => {
     expect(formatReferenceAddress("bgm")).toBe("reference:bgm");
   });
 
-  it("lists a reference definition's asset paths and addresses", () => {
-    expect(new Set(listReferenceAddresses(reference))).toEqual(
-      new Set(["reference:bgm", "reference:character"]),
-    );
+  it("lists a reference definition's addresses", () => {
     expect(new Set(listReferenceAddresses(reference))).toEqual(
       new Set(["reference:bgm", "reference:character"]),
     );

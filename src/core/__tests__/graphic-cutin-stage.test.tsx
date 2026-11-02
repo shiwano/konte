@@ -145,7 +145,7 @@ describe("the graphic starters", () => {
     expect(wiped!.graphic).toBe(true);
     expect(wiped!.action).toBe("the dashboard opens");
     expect(wiped!.panels).toBeUndefined();
-    expect(wiped!.cutin?.panels?.map((p) => [p.assetPath, p.start, p.duration])).toEqual([
+    expect(wiped!.cutin?.panels?.map((p) => [p.address, p.start, p.duration])).toEqual([
       ["animatic:shot.02.presenter", 0, 4],
     ]);
     expect(wiped!.cutin?.refs).toEqual(["animatic:shot.02.presenter"]);
@@ -302,7 +302,7 @@ describe("the graphic starters", () => {
   });
 
   it("windows a cutin keyframe against the cutin's own list when rendered", () => {
-    const window = { assetName: "presenter", assetPath: "animatic:shot.02.presenter" };
+    const window = { assetName: "presenter", address: "animatic:shot.02.presenter" };
     const element = (
       <Composition>
         <Panel src={{ src: "/files/screen.png" }} />
@@ -317,9 +317,7 @@ describe("the graphic starters", () => {
       height: 576,
       duration: 4,
       typography: { lang: "en" },
-      panels: [
-        { assetName: "screen", assetPath: "animatic:shot.02.screen", start: 0, duration: 4 },
-      ],
+      panels: [{ assetName: "screen", address: "animatic:shot.02.screen", start: 0, duration: 4 }],
       cutinPanels: [{ ...window, start: 1, duration: 3 }],
     });
     expect(html).toContain('data-konte-cutin=""');
