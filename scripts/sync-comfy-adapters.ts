@@ -279,13 +279,17 @@ function useUnswitchedModel(workflow: ComfyUIWorkflow): void {
 }
 
 // The template's turbo switch swaps the model and the step count but keeps the base sampler and
-// schedule; the turbo LoRA is trained on euler/simple at its own 4 steps. Switch the sampler and
+// schedule; the turbo LoRA is trained on euler/simple at its own step count. Switch the sampler and
 // the sigmas instead, the turbo schedule computed on the LoRA model, so `steps` feeds only the
 // base schedule.
+const H3_TURBO_LORA = "minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors";
+const H3_TURBO_STEPS = 8;
+
 function useTurboSamplerSchedule(workflow: ComfyUIWorkflow): void {
   const [, sampler] = onlyNode(workflow, "SamplerCustomAdvanced");
   const [, scheduler] = onlyNode(workflow, "BasicScheduler");
-  const [loraId] = onlyNode(workflow, "LoraLoaderModelOnly");
+  const [loraId, lora] = onlyNode(workflow, "LoraLoaderModelOnly");
+  lora.inputs.lora_name = H3_TURBO_LORA;
   const switchId = (scheduler.inputs.steps as [string, number])[0];
   const stepsSwitch = workflow[switchId];
   if (stepsSwitch?.class_type !== "ComfySwitchNode") {
@@ -298,7 +302,7 @@ function useTurboSamplerSchedule(workflow: ComfyUIWorkflow): void {
   const turboScheduleId = freeNodeId(workflow);
   workflow[turboScheduleId] = {
     class_type: "BasicScheduler",
-    inputs: { scheduler: "simple", steps: 4, denoise: 1, model: [loraId, 0] },
+    inputs: { scheduler: "simple", steps: H3_TURBO_STEPS, denoise: 1, model: [loraId, 0] },
   };
   stepsSwitch.inputs.on_false = sampler.inputs.sigmas;
   stepsSwitch.inputs.on_true = [turboScheduleId, 0];

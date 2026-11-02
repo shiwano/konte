@@ -62,9 +62,9 @@ export const videoMinimaxH3R2v = defineComfyAsset({
       url: "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors",
     },
     {
-      filename: "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+      filename: "minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
       type: "lora",
-      url: "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+      url: "https://huggingface.co/lightx2v/Minimax-h3-Turbo/resolve/main/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
     },
   ],
   inputs: {
@@ -234,7 +234,7 @@ export const videoMinimaxH3R2v = defineComfyAsset({
       field: "value",
       type: "number",
       default: 20,
-      description: "Not read under `useTurbo`, which samples through the 4-step turbo LoRA.",
+      description: "Not read under `useTurbo`, which samples through the 8-step turbo LoRA.",
     },
     // PrimitiveBoolean → ComfySwitchNode.switch, ComfySwitchNode.switch, ComfySwitchNode.switch
     useTurbo: {
@@ -243,7 +243,7 @@ export const videoMinimaxH3R2v = defineComfyAsset({
       type: "boolean",
       default: false,
       description:
-        "Samples through the 4-step turbo LoRA on its own euler/simple schedule instead of the base weights; `steps` is not read.",
+        "Samples through the 8-step turbo LoRA on its own euler/simple schedule instead of the base weights; `steps` is not read.",
     },
     // CreateVideo → SaveVideo.video
     //
@@ -283,7 +283,7 @@ export const videoMinimaxH3R2v = defineComfyAsset({
       nodeId: "145",
       field: "lora_name",
       type: "string",
-      default: "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+      default: "minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
     },
   },
   outputs: {
