@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  checkDirection,
-  directionWaiverKey,
-  type SongVariantState,
-  validateDirectionStructure,
-} from "../direction.js";
+import { checkDirection, type SongVariantState, validateDirectionStructure } from "../direction.js";
+import { directionWaiverKey } from "../direction-findings.js";
 import { directionPartHashes } from "../direction-hash.js";
 import { directionPartContents } from "../direction-parts.js";
 import type { Direction, LyricLine, NarrativeShot } from "../dsl/direction.js";

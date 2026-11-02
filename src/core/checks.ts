@@ -20,8 +20,8 @@ import {
   type StagingStageState,
   checkDirection,
   directionFindings,
-  directionWaiverKey,
 } from "./direction.js";
+import { directionWaiverKey } from "./direction-findings.js";
 import type { Direction } from "./dsl/direction.js";
 import {
   DIRECTION_FINDING_CODES,

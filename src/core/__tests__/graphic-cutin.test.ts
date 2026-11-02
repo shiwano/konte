@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { AnimaticSetupState } from "../direction-check.js";
 import {
   checkDirection,
-  directionWaiverKey,
   validateDirectionStructure,
   type StagingStageState,
 } from "../direction.js";
+import { directionWaiverKey } from "../direction-findings.js";
 import { directionShotCascadeTargets } from "../direction-acceptance.js";
 import { directionPartHashes } from "../direction-hash.js";
 import { directionPartContents } from "../direction-parts.js";

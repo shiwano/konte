@@ -1,7 +1,8 @@
 import { format } from "oxfmt";
 import type { Stage } from "./address.js";
 import type { DirectionFindingCode } from "./direction-check.js";
-import { type DirectionErrorCode, findingFixStage } from "./direction.js";
+import { type DirectionErrorCode } from "./direction.js";
+import { findingFixStage } from "./direction-findings.js";
 import {
   DIRECTION_FINDING_CODES,
   type FindingCode,

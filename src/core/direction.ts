@@ -94,228 +94,17 @@ import { isIdentifier } from "./dsl/validate-identifier.js";
 import { scriptOf } from "./typography.js";
 import { KonteError } from "./errors.js";
 import { formatSeconds } from "./format-duration.js";
-import { type Finding, type FindingCode, findingTraits } from "./finding.js";
-
-// A finding's class: what a pass must have read to evaluate it, so its waivers may be called stale.
-export type DirectionFindingClass =
-  | "arc"
-  | "pacing"
-  | "characters"
-  | "props"
-  | "locations"
-  | "setups"
-  | "staging"
-  | "typesetting"
-  | "song";
-
-const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
-  "missing-role": "arc",
-  "no-payoff": "arc",
-  "role-out-of-order": "arc",
-  "lens-role-mismatch": "arc",
-  "too-few-consecutive": "arc",
-  "empty-synopsis": "arc",
-  "unearned-payoff": "arc",
-  "role-overweight": "pacing",
-  "role-underweight": "pacing",
-  "character-unreferenced": "characters",
-  "unused-character": "characters",
-  // The voice checks are cast drift like their look siblings, so they ride the same class: deferred
-  // until the direction is accepted (they point at reference wiring, not at the shots under review),
-  // then gating every spend — which is what puts them in front of a TTS bill.
-  "character-voice-missing": "characters",
-  "character-voice-unreferenced": "characters",
-  "unused-character-voice": "characters",
-  "narrator-missing": "characters",
-  "narrator-unreferenced": "characters",
-  "unused-narrator": "characters",
-  "prop-unreferenced": "props",
-  "unused-prop": "props",
-  "location-unreferenced": "locations",
-  "unused-location": "locations",
-  "setup-unrealized": "setups",
-  "plate-unanchored": "setups",
-  "plate-unnested": "setups",
-  "axis-unrealized": "setups",
-  "plate-unowed": "setups",
-  "setup-unconsumed": "setups",
-  "unused-setup": "setups",
-  "setup-atomized": "setups",
-  "view-unrealized": "setups",
-  "plate-unviewed": "setups",
-  "view-unanchored": "setups",
-  // A fused-shot content check on the action prose (like empty-synopsis): it gates generate and is
-  // never deferred.
-  "multi-sentence-action": "arc",
-  "off-grid-duration": "pacing",
-  "off-beat-cut": "pacing",
-  "fonts-undeclared": "typesetting",
-  "lineup-flipped": "staging",
-  "lineup-gap": "staging",
-  "lineup-vacuous": "staging",
-  "lineup-inconsistent": "staging",
-  "location-backtrack": "staging",
-  "character-unconsumed": "staging",
-  "slot-order-mismatch": "staging",
-  "plate-recropped": "staging",
-  "landmark-flipped": "staging",
-  "subject-unnamed": "staging",
-  "prop-unnamed": "staging",
-  "passer-unconsumed": "staging",
-  "passer-unnamed": "staging",
-  "plate-unnamed": "staging",
-  "landmark-unnamed": "staging",
-  "join-lineup-mismatch": "staging",
-  "join-unpinned": "staging",
-  "join-unshown": "staging",
-  "opening-key": "staging",
-  "panel-unlinked": "staging",
-  // The song the piece is cut to. Never deferred.
-  "song-unreferenced": "song",
-  "lyric-unplaced": "song",
-  "song-overrun": "song",
-};
-
-export function classifyDirectionFinding(code: DirectionFindingCode): DirectionFindingClass {
-  return FINDING_CLASS[code];
-}
-
-// Where what a waiver of the code lets through plays, read off its subject: inside one shot (the
-// shot, one of its frames, or a subject in one), across the boundary `<from>-<to>` between two, in
-// every shot with a frame on the setup it names, or in no one shot (null).
-const WAIVER_ON_SHOT: Record<DirectionFindingCode, "shot" | "boundary" | "setup" | null> = {
-  "missing-role": null,
-  "no-payoff": null,
-  "role-out-of-order": null,
-  "lens-role-mismatch": null,
-  "too-few-consecutive": null,
-  "empty-synopsis": null,
-  "unearned-payoff": null,
-  "role-overweight": null,
-  "role-underweight": null,
-  "character-unreferenced": null,
-  "unused-character": null,
-  "character-voice-missing": null,
-  "character-voice-unreferenced": null,
-  "unused-character-voice": null,
-  "narrator-missing": null,
-  "narrator-unreferenced": null,
-  "unused-narrator": null,
-  "prop-unreferenced": null,
-  "unused-prop": null,
-  "location-unreferenced": null,
-  "unused-location": null,
-  "setup-unrealized": null,
-  "plate-unanchored": null,
-  "plate-unnested": null,
-  "axis-unrealized": null,
-  "plate-unowed": null,
-  "setup-unconsumed": "setup",
-  "unused-setup": null,
-  "setup-atomized": null,
-  "view-unrealized": null,
-  "plate-unviewed": null,
-  "view-unanchored": null,
-  "multi-sentence-action": "shot",
-  "off-grid-duration": "shot",
-  "off-beat-cut": "shot",
-  "fonts-undeclared": null,
-  "lineup-flipped": "shot",
-  "lineup-gap": "shot",
-  "lineup-vacuous": "shot",
-  "lineup-inconsistent": "shot",
-  "location-backtrack": "shot",
-  "character-unconsumed": "shot",
-  "slot-order-mismatch": "shot",
-  "plate-recropped": "shot",
-  "landmark-flipped": null,
-  "subject-unnamed": "shot",
-  "prop-unnamed": "shot",
-  "passer-unconsumed": "shot",
-  "passer-unnamed": "shot",
-  "plate-unnamed": null,
-  "landmark-unnamed": "shot",
-  "join-lineup-mismatch": "shot",
-  "join-unpinned": "shot",
-  "join-unshown": "shot",
-  "opening-key": "shot",
-  "panel-unlinked": "boundary",
-  "song-unreferenced": null,
-  "lyric-unplaced": null,
-  "song-overrun": null,
-};
-
-// The stage entry file a finding's fix is written in. A declared entity — a look or a cast voice —
-// with no reference asset is answered in `reference.tsx`; a setup the board realizes wrongly is
-// answered by its plates and keyframes in `animatic.tsx`. The direction entry naming either is
-// already correct, so it is edited only to waive one. Every other finding is direction-side.
-const FIX_STAGE: Partial<Record<DirectionFindingCode, FindingFixStage>> = {
-  "character-unreferenced": "reference",
-  "character-voice-unreferenced": "reference",
-  "narrator-unreferenced": "reference",
-  "prop-unreferenced": "reference",
-  "location-unreferenced": "reference",
-  "setup-unrealized": "animatic",
-  "plate-unanchored": "animatic",
-  "plate-unnested": "animatic",
-  "axis-unrealized": "animatic",
-  "plate-unowed": "animatic",
-  "setup-unconsumed": "animatic",
-  "view-unrealized": "reference",
-  "plate-unviewed": "animatic",
-  "view-unanchored": "reference",
-  "song-unreferenced": "reference",
-  "passer-unconsumed": "video",
-  "passer-unnamed": "video",
-  "opening-key": "video",
-};
-
-export type FindingFixStage = "direction" | "reference" | "animatic" | "video";
-
-export function findingFixStage(code: DirectionFindingCode): FindingFixStage {
-  return FIX_STAGE[code] ?? "direction";
-}
-
-const EXPOSED_FRAMINGS: readonly string[] = ["wide", "medium"];
-
-// The findings a surface reports or gates on: a finding whose onset is the direction's acceptance
-// (the roster wiring) waits for it. Waiver
-// reconciliation is untouched: a waived roster finding still counts as waived, never as stale.
-export function reportableDirectionFindings<F extends { code: FindingCode }>(
-  active: F[],
-  directionAccepted: boolean,
-): F[] {
-  if (directionAccepted) return active;
-  return active.filter((f) => findingTraits(f.code).onset !== "after-direction-accepted");
-}
-
-// The waiver key that cancels a finding: `<code>` for subject-less findings (no-payoff) or
-// `<code>_<subject>` for an instance (missing-role_disruption, lens-role-mismatch_08). No finding
-// code contains an underscore (they are all hyphenated), so the first one splits the key back apart
-// however the subject (role / shot id / id-range / stage) is spelled — and the key stays a single
-// segment of its review address (`waivers.<key>`), where a `:` would need escaping and a
-// `-` would be indistinguishable from the hyphens inside a code.
-const WAIVER_KEY_SEPARATOR = "_";
-
-export function directionWaiverKey(finding: Pick<DirectionFinding, "code" | "subject">): string {
-  return finding.subject
-    ? `${finding.code}${WAIVER_KEY_SEPARATOR}${finding.subject}`
-    : finding.code;
-}
-
-function waiverKeyCode(key: string): string {
-  const sep = key.indexOf(WAIVER_KEY_SEPARATOR);
-  return sep === -1 ? key : key.slice(0, sep);
-}
-
-// A code a waiver can cancel: one whose rule a work may rightly break. A waiver naming any other
-// cancels nothing, and is stale.
-function isWaivableCode(code: string): code is DirectionFindingCode {
-  return (
-    Object.hasOwn(FINDING_CLASS, code) &&
-    findingTraits(code as DirectionFindingCode).clears === "waive"
-  );
-}
+import { type Finding, findingTraits } from "./finding.js";
+import {
+  type DirectionFindingClass,
+  classifyDirectionFinding,
+  directionWaiverKey,
+  findingFixStage,
+  isDirectionFindingCode,
+  isWaivableCode,
+  splitWaiverKey,
+  waiverShotScope,
+} from "./direction-findings.js";
 
 // A waiver read by watching a shot: its review address, what it waives, and the shots it plays in —
 // one, or both sides of a boundary.
@@ -352,13 +141,10 @@ export function directionShotWaivers(direction: Direction): ShotWaiver[] {
   const onSetup = shotsBySetup(direction);
   const out: ShotWaiver[] = [];
   for (const [key, reason] of Object.entries(direction.waivers ?? {})) {
-    const sep = key.indexOf(WAIVER_KEY_SEPARATOR);
-    if (sep === -1) continue;
-    const code = key.slice(0, sep);
-    if (!isWaivableCode(code)) continue;
-    const on = WAIVER_ON_SHOT[code];
+    const { code, subject } = splitWaiverKey(key);
+    if (subject === undefined || !isWaivableCode(code)) continue;
+    const on = waiverShotScope(code);
     if (!on) continue;
-    const subject = key.slice(sep + 1);
     // A shot's subject opens with its id; an id holds no `.`.
     const head = subject.split(".")[0] ?? "";
     const ids =
@@ -1243,6 +1029,8 @@ function unplatedFrames(
   });
 }
 
+const EXPOSED_FRAMINGS: readonly string[] = ["wide", "medium"];
+
 function axisCuts(direction: Direction): AxisCut[] {
   const setups = direction.setups ?? {};
   const out: AxisCut[] = [];
@@ -1668,7 +1456,27 @@ function validateLyrics(direction: Direction): DirectionStructureError[] {
 
 // Hard, never-waivable structural validity (DirectionErrorCode). Returns errors instead of throwing
 // so doctor can report them and the gate can decide to abort.
-export function validateDirectionStructure(direction: Direction): DirectionStructureError[] {
+// The direction's ids in the `reference:<id>` namespace, by roster.
+function referenceRosterIds(direction: Direction): {
+  characters: Set<string>;
+  props: Set<string>;
+  locations: Set<string>;
+  voices: Set<string>;
+} {
+  const voices = new Set<string>();
+  for (const character of Object.values(direction.characters ?? {})) {
+    if (character.voice) voices.add(character.voice.id);
+  }
+  if (direction.narrator) voices.add(direction.narrator.id);
+  return {
+    characters: new Set(Object.keys(direction.characters ?? {})),
+    props: new Set(Object.keys(direction.props ?? {})),
+    locations: new Set(Object.keys(direction.locations ?? {})),
+    voices,
+  };
+}
+
+function validateShots(direction: Direction): DirectionStructureError[] {
   const errors: DirectionStructureError[] = [];
 
   const shots = collectShots(direction);
@@ -1698,8 +1506,11 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
         : `shot "${s.id}" must declare its span as \`duration\` in seconds and nothing else — \`beats\` counts on a policy.song this direction does not declare`,
     });
   }
+  return errors;
+}
 
-  errors.push(...validateLyrics(direction));
+function validateShotIds(direction: Direction): DirectionStructureError[] {
+  const errors: DirectionStructureError[] = [];
 
   const shotIds = collectShotIds(direction);
   if (shotIds.length === 0) {
@@ -1726,15 +1537,18 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
     }
     seen.add(id);
   }
+  return errors;
+}
+
+function validateRosters(direction: Direction): DirectionStructureError[] {
+  const errors: DirectionStructureError[] = [];
 
   // The characters are a hard contract: an `id` (the roster key) must be a valid asset name (it maps
   // to reference:<id>), and `name`/`description` must be non-empty — an empty `name` would make the
   // `unused-character` action scan silently pass (every string contains ""). The record key makes a
   // duplicate id structurally impossible, so there is no duplicate-id check here.
-  // Every cast voice's reference asset name, so the namespace conflict check below sees them too.
   // Two members sharing ONE id is deliberate and allowed — a narrator who is the protagonist, twins —
   // and their `description`s are two performance briefs on one sample, not a contradiction.
-  const seenVoiceIds = new Set<string>();
   const checkVoice = (
     voice: { id: string; description: string } | undefined,
     label: string,
@@ -1749,7 +1563,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
         message: `voice id "${voice.id}" (${label}) must be a valid asset name (a-z, A-Z, 0-9, -, _) so it can map to reference:${voice.id}`,
       });
     }
-    seenVoiceIds.add(voice.id);
     if (voice.description.trim() === "") {
       errors.push({
         code: codes.emptyDescription,
@@ -1759,14 +1572,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
     }
   };
 
-  const seenCharacterIds = new Set<string>();
-  // `key` is the form the naming checks match on.
-  const declaredDepictions: {
-    subject: string;
-    kind: "character" | "prop" | "landmark";
-    depiction: string;
-    key: string;
-  }[] = [];
   for (const [id, character] of Object.entries(direction.characters ?? {})) {
     if (!isIdentifier(id)) {
       errors.push({
@@ -1775,7 +1580,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
         message: `character id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _) so it can map to reference:${id}`,
       });
     }
-    seenCharacterIds.add(id);
     if (character.name.trim() === "") {
       errors.push({
         code: "character-empty-name",
@@ -1795,13 +1599,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
         code: "character-empty-prompt-depiction",
         subject: id,
         message: `character "${id}" has no \`promptDepiction\` — a prompt is written in the model's language and \`name\` is not, so declare a noun the model can draw them by (a role or a proper name is one it has no look for)`,
-      });
-    } else {
-      declaredDepictions.push({
-        subject: id,
-        kind: "character",
-        depiction: character.promptDepiction,
-        key: character.promptDepiction.trim().toLowerCase(),
       });
     }
     checkVoice(
@@ -1827,7 +1624,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
   // with the characters, so a prop id that collides with a character id would name the same reference
   // asset for two entities: a hard error, reported by the three-way conflict check below. As with
   // characters, the record key rules out a within-roster duplicate id.
-  const seenPropIds = new Set<string>();
   for (const [id, prop] of Object.entries(direction.props ?? {})) {
     if (!isIdentifier(id)) {
       errors.push({
@@ -1836,7 +1632,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
         message: `prop id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _) so it can map to reference:${id}`,
       });
     }
-    seenPropIds.add(id);
     if (prop.name.trim() === "") {
       errors.push({
         code: "prop-empty-name",
@@ -1857,23 +1652,12 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
         subject: id,
         message: `prop "${id}" has no \`promptDepiction\` — declare a noun the model can draw it by`,
       });
-    } else {
-      declaredDepictions.push({
-        subject: id,
-        kind: "prop",
-        depiction: prop.promptDepiction,
-        key: prop.promptDepiction.trim().toLowerCase(),
-      });
     }
   }
 
   // Locations are the same hard contract as the characters and props — an `id` (the roster key) maps
   // to reference:<id>, `name`/`description` are non-empty. The record key rules out a within-roster
   // duplicate id; cross-roster collisions are the three-way conflict check below.
-  const seenLocationIds = new Set<string>();
-  // Every landmark id, with the places that declare it — the direction has one id space, so a second
-  // declarant is a collision rather than a second thing of the same name.
-  const seenLandmarkLocations = new Map<string, string[]>();
   for (const [id, location] of Object.entries(direction.locations ?? {})) {
     if (!isIdentifier(id) || id === "view") {
       errors.push({
@@ -1885,7 +1669,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
             : `location id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _) so it can map to reference:${id}`,
       });
     }
-    seenLocationIds.add(id);
     if (location.name.trim() === "") {
       errors.push({
         code: "location-empty-name",
@@ -1911,7 +1694,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
       });
     }
     for (const [landmarkId, landmark] of landmarks) {
-      seenLandmarkLocations.set(landmarkId, [...(seenLandmarkLocations.get(landmarkId) ?? []), id]);
       const subject = `${id}.${landmarkId}`;
       if (!isIdentifier(landmarkId)) {
         errors.push({
@@ -1940,22 +1722,29 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
           subject,
           message: `landmark "${subject}" has no \`promptDepiction\` — declare a noun the model can draw it by`,
         });
-      } else {
-        declaredDepictions.push({
-          subject,
-          kind: "landmark",
-          depiction: landmark.promptDepiction,
-          key: landmark.promptDepiction.trim().toLowerCase(),
-        });
       }
+    }
+  }
+  return errors;
+}
+
+function validateIdNamespace(direction: Direction): DirectionStructureError[] {
+  const errors: DirectionStructureError[] = [];
+  const ids = referenceRosterIds(direction);
+  // Every landmark id, with the places that declare it — the direction has one id space, so a second
+  // declarant is a collision rather than a second thing of the same name.
+  const landmarkLocations = new Map<string, string[]>();
+  for (const [id, location] of Object.entries(direction.locations ?? {})) {
+    for (const landmarkId of Object.keys(location.landmarks ?? {})) {
+      landmarkLocations.set(landmarkId, [...(landmarkLocations.get(landmarkId) ?? []), id]);
     }
   }
 
   // Characters, props, and locations share the `reference:<id>` namespace, so one id declared in two
   // of the rosters would name the same reference asset for two entities. Report each collision once,
   // naming the two rosters it appears in.
-  for (const id of seenPropIds) {
-    if (seenCharacterIds.has(id)) {
+  for (const id of ids.props) {
+    if (ids.characters.has(id)) {
       errors.push({
         code: "reference-id-conflict",
         subject: id,
@@ -1963,15 +1752,15 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
       });
     }
   }
-  for (const id of seenLocationIds) {
-    if (seenCharacterIds.has(id)) {
+  for (const id of ids.locations) {
+    if (ids.characters.has(id)) {
       errors.push({
         code: "reference-id-conflict",
         subject: id,
         message: `id "${id}" is declared as both a character and a location — both map to reference:${id}`,
       });
     }
-    if (seenPropIds.has(id)) {
+    if (ids.props.has(id)) {
       errors.push({
         code: "reference-id-conflict",
         subject: id,
@@ -1981,12 +1770,12 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
   }
   // A cast voice names a reference asset too, so it shares that namespace with the three rosters: a
   // voice id equal to a roster id would make one asset both the look and the sound.
-  for (const id of seenVoiceIds) {
-    const roster = seenCharacterIds.has(id)
+  for (const id of ids.voices) {
+    const roster = ids.characters.has(id)
       ? "character"
-      : seenPropIds.has(id)
+      : ids.props.has(id)
         ? "prop"
-        : seenLocationIds.has(id)
+        : ids.locations.has(id)
           ? "location"
           : null;
     if (roster) {
@@ -2001,7 +1790,7 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
   // A landmark maps to no reference asset, so it joins none of the checks above — but the direction
   // keeps ONE id space, so a landmark named after a character, a prop, a place, or a landmark of
   // another place makes two things answer to one word in a prompt.
-  for (const [landmarkId, declaredIn] of seenLandmarkLocations) {
+  for (const [landmarkId, declaredIn] of landmarkLocations) {
     if (declaredIn.length > 1) {
       errors.push({
         code: "landmark-id-conflict",
@@ -2009,11 +1798,11 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
         message: `id "${landmarkId}" is declared as a landmark of ${declaredIn.map((id) => `"${id}"`).join(" and ")} — the direction has one id space, so give each its own`,
       });
     }
-    const roster = seenCharacterIds.has(landmarkId)
+    const roster = ids.characters.has(landmarkId)
       ? "character"
-      : seenPropIds.has(landmarkId)
+      : ids.props.has(landmarkId)
         ? "prop"
-        : seenLocationIds.has(landmarkId)
+        : ids.locations.has(landmarkId)
           ? "location"
           : null;
     if (roster) {
@@ -2024,15 +1813,59 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
       });
     }
   }
+  return errors;
+}
+
+// Every declared `promptDepiction`, characters, props, then landmarks; `key` is the form the naming
+// checks match on.
+function declaredDepictions(direction: Direction): {
+  subject: string;
+  kind: "character" | "prop" | "landmark";
+  depiction: string;
+  key: string;
+}[] {
+  const declared: {
+    subject: string;
+    kind: "character" | "prop" | "landmark";
+    depiction?: string;
+  }[] = [
+    ...Object.entries(direction.characters ?? {}).map(([id, c]) => ({
+      subject: id,
+      kind: "character" as const,
+      depiction: c.promptDepiction,
+    })),
+    ...Object.entries(direction.props ?? {}).map(([id, p]) => ({
+      subject: id,
+      kind: "prop" as const,
+      depiction: p.promptDepiction,
+    })),
+    ...Object.entries(direction.locations ?? {}).flatMap(([id, location]) =>
+      Object.entries(location.landmarks ?? {}).map(([landmarkId, l]) => ({
+        subject: `${id}.${landmarkId}`,
+        kind: "landmark" as const,
+        depiction: l.promptDepiction,
+      })),
+    ),
+  ];
+  return declared.flatMap(({ subject, kind, depiction }) =>
+    depiction !== undefined && depiction.trim() !== ""
+      ? [{ subject, kind, depiction, key: depiction.trim().toLowerCase() }]
+      : [],
+  );
+}
+
+function validatePromptDepictions(direction: Direction): DirectionStructureError[] {
+  const errors: DirectionStructureError[] = [];
+  const depictions = declaredDepictions(direction);
 
   // The naming checks read a prompt for a declared depiction anywhere in it, so one contained in
   // another is undecidable: a prompt that says only "girl in a purple hoodie" also answers for a
   // bare "girl". One depiction space across the three rosters, since a panel's chain carries its
   // plate's own prompt as well.
-  for (let i = 0; i < declaredDepictions.length; i++) {
-    for (let j = i + 1; j < declaredDepictions.length; j++) {
-      const first = declaredDepictions[i]!;
-      const second = declaredDepictions[j]!;
+  for (let i = 0; i < depictions.length; i++) {
+    for (let j = i + 1; j < depictions.length; j++) {
+      const first = depictions[i]!;
+      const second = depictions[j]!;
       const [outer, inner] =
         first.key.length >= second.key.length ? [first, second] : [second, first];
       if (!outer.key.includes(inner.key)) continue;
@@ -2047,11 +1880,17 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
       });
     }
   }
+  return errors;
+}
+
+function validateSetups(direction: Direction): DirectionStructureError[] {
+  const errors: DirectionStructureError[] = [];
+  const locationIds = new Set(Object.keys(direction.locations ?? {}));
+  const setupIds = new Set(Object.keys(direction.setups ?? {}));
 
   // Setups are the same hard contract minus the reference mapping — a setup's plate is an animatic
   // timeline asset, so its id lives in its own namespace and joins no conflict check above. The
   // `location` it names must still be a declared one: a frame is always somewhere.
-  const seenSetupIds = new Set<string>();
   for (const [id, setup] of Object.entries(direction.setups ?? {})) {
     if (!isIdentifier(id)) {
       errors.push({
@@ -2060,7 +1899,6 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
         message: `setup id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _) so it can map to animatic:plate.${id}`,
       });
     }
-    seenSetupIds.add(id);
     if (setup.name.trim() === "") {
       errors.push({
         code: "setup-empty-name",
@@ -2075,7 +1913,7 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
         message: `setup "${id}" has an empty description`,
       });
     }
-    if (seenLocationIds.size > 0 && !seenLocationIds.has(setup.location)) {
+    if (locationIds.size > 0 && !locationIds.has(setup.location)) {
       errors.push({
         code: "setup-unknown-location",
         subject: id,
@@ -2116,7 +1954,7 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
   // (while frames exist) is `setup-empty` — reported once rather than as one `setup-unknown` per
   // frame; a non-empty roster reports each frame whose `setup` is not in it.
   const frames = collectShotFrames(direction);
-  if (seenSetupIds.size === 0) {
+  if (setupIds.size === 0) {
     if (frames.length > 0) {
       errors.push({
         code: "setup-empty",
@@ -2126,7 +1964,7 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
     }
   } else {
     for (const f of frames) {
-      if (!seenSetupIds.has(f.setup)) {
+      if (!setupIds.has(f.setup)) {
         errors.push({
           code: "setup-unknown",
           subject: frameSubject(f),
@@ -2139,13 +1977,19 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
   // A location with no setup in it is unreachable — every shot arrives through a setup, so the roster
   // entry could never be used. Reported once the setups roster is non-empty (an empty one is already
   // `setup-empty`).
-  if (seenLocationIds.size === 0 && seenSetupIds.size > 0) {
+  if (locationIds.size === 0 && setupIds.size > 0) {
     errors.push({
       code: "location-empty",
       message:
         "direction declares no locations — every setup is set in one, so declare at least one location",
     });
   }
+  return errors;
+}
+
+function validateFrames(direction: Direction): DirectionStructureError[] {
+  const errors: DirectionStructureError[] = [];
+  const characterIds = new Set(Object.keys(direction.characters ?? {}));
 
   // The lineups. All three faults are "this declares nothing usable" — a shot with no `lineup` at
   // all, an id no character roster holds, a subject listed twice — so none is a creative call and
@@ -2170,7 +2014,7 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
       if (!lineup) continue;
       const seen = new Set<string>();
       for (const subjectId of lineup) {
-        if (!seenCharacterIds.has(subjectId)) {
+        if (!characterIds.has(subjectId)) {
           errors.push({
             code: "lineup-unknown-id",
             subject: `${frameSubject(f)}:${subjectId}`,
@@ -2259,6 +2103,12 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
       });
     }
   }
+  return errors;
+}
+
+function validateLines(direction: Direction): DirectionStructureError[] {
+  const errors: DirectionStructureError[] = [];
+  const characterIds = new Set(Object.keys(direction.characters ?? {}));
 
   // Script lines carry the shot's spoken words. Each must have non-empty text, and a line attributed
   // to a character must name a declared character (so it maps to reference:<id>).
@@ -2274,7 +2124,7 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
             message: `shot "${s.id}" has a script line with an empty \`acting\` note — say how it is said, or drop the field`,
           });
         }
-        if (!seenCharacterIds.has(line.character)) {
+        if (!characterIds.has(line.character)) {
           errors.push({
             code: "script-unknown-character",
             subject: `${s.id}:${line.character}`,
@@ -2319,6 +2169,11 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
       }
     }
   }
+  return errors;
+}
+
+function validateLenses(direction: Direction): DirectionStructureError[] {
+  const errors: DirectionStructureError[] = [];
 
   // Every node names a lens; resolve and validate each. A node's id (absent on the root) qualifies
   // the "unknown lens" message so a reader knows which node it fired on.
@@ -2336,8 +2191,22 @@ export function validateDirectionStructure(direction: Direction): DirectionStruc
       errors.push(...lensSpecErrors(lens, "lens"));
     }
   }
-
   return errors;
+}
+
+export function validateDirectionStructure(direction: Direction): DirectionStructureError[] {
+  return [
+    ...validateShots(direction),
+    ...validateLyrics(direction),
+    ...validateShotIds(direction),
+    ...validateRosters(direction),
+    ...validateIdNamespace(direction),
+    ...validatePromptDepictions(direction),
+    ...validateSetups(direction),
+    ...validateFrames(direction),
+    ...validateLines(direction),
+    ...validateLenses(direction),
+  ];
 }
 
 // One node of the arc tree the checker walks. A leaf carries shot `items`; an internal node carries
@@ -2608,14 +2477,14 @@ export function checkDirection(
   const staleWaivers: StaleWaiver[] = [];
   for (const [key, reason] of Object.entries(waivers)) {
     if (matched.has(key)) continue;
-    const code = waiverKeyCode(key);
+    const { code } = splitWaiverKey(key);
     // Flag a waiver stale only for a class this pass evaluated: a pass that could not read a stage
     // must not mislabel a still-valid waiver of it. A code no finding has is stale in any pass.
-    if (isWaivableCode(code) && !evaluatedClasses.has(FINDING_CLASS[code])) continue;
+    if (isWaivableCode(code) && !evaluatedClasses.has(classifyDirectionFinding(code))) continue;
     staleWaivers.push({
       key,
       reason,
-      ...(Object.hasOwn(FINDING_CLASS, code) && !isWaivableCode(code) ? { fixOnly: true } : {}),
+      ...(isDirectionFindingCode(code) && !isWaivableCode(code) ? { fixOnly: true } : {}),
     });
   }
 

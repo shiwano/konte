@@ -7,12 +7,12 @@ import {
   matchesAddressScope,
 } from "../../core/address.js";
 import { assertNever } from "../../core/assert.js";
+import { checkDirection } from "../../core/direction.js";
 import {
-  checkDirection,
   classifyDirectionFinding,
   directionWaiverKey,
   reportableDirectionFindings,
-} from "../../core/direction.js";
+} from "../../core/direction-findings.js";
 import {
   type DirectionPartStatus,
   directionAcceptanceView,

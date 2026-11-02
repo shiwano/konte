@@ -25,12 +25,8 @@ import {
 } from "../../../core/address.js";
 import { errorResponse, jsonResponse, parseJsonBody } from "../../page-host/http.js";
 import { loadDirectionStageInputs } from "../../../core/board-analysis.js";
-import {
-  checkDirection,
-  directionWaiverKey,
-  resolveLens,
-  setupView,
-} from "../../../core/direction.js";
+import { checkDirection, resolveLens, setupView } from "../../../core/direction.js";
+import { directionWaiverKey } from "../../../core/direction-findings.js";
 import { ROLE_FUNCTION_LABEL, PLEASURE_GLOSS } from "../../../core/lenses.js";
 import { directionHash, directionPartHashes } from "../../../core/direction-hash.js";
 import {

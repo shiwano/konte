@@ -11,14 +11,16 @@ import type { Pleasure } from "../lenses.js";
 import { defineLens } from "../lenses.js";
 import {
   checkDirection,
-  classifyDirectionFinding,
   continuousFrameKeys,
   directionFindings,
-  directionWaiverKey,
   panelRole,
-  reportableDirectionFindings,
   validateDirectionStructure,
 } from "../direction.js";
+import {
+  classifyDirectionFinding,
+  directionWaiverKey,
+  reportableDirectionFindings,
+} from "../direction-findings.js";
 import type {
   Character,
   Direction,

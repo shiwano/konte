@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   checkDirection,
   directionFindings,
-  directionWaiverKey,
   collectFramedCharacterIds,
   validateDirectionStructure,
   type StagingStageState,
 } from "../direction.js";
+import { directionWaiverKey } from "../direction-findings.js";
 import { directionShotCascadeTargets } from "../direction-acceptance.js";
 import { directionPartHashes } from "../direction-hash.js";
 import {
