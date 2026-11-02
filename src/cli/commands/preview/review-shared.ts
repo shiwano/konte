@@ -1,5 +1,4 @@
 import * as path from "node:path";
-import { isWithinRoot } from "../../../core/path-containment.js";
 import {
   cascadeAcceptConsumedDeps,
   holdsHumanVerdict,
@@ -60,10 +59,6 @@ import type { PatchChainVariants } from "./asset-info.js";
 import { readVariantThumbnails } from "../../../core/variant-thumbnails.js";
 import { inferMediaType } from "../../../core/media-type.js";
 
-// The preview server only ever serves a video's own media, so containment is checked against the
-// video root — not the workspace. That puts the workspace's credentials structurally out of reach.
-// A handler that serves a file's *contents* uses the symlink-aware `isWithinRootReal` instead:
-// a link under assets/ is lexically inside the video and still reads whatever it points at.
 // Read before the accept lands: `setAccepted` overwrites the dismissal it records.
 export function noteOverturned(
   mgr: StateManager,
@@ -74,10 +69,6 @@ export function noteOverturned(
   if (mgr.tryGetAssetState(address)?.variants?.[variantId]?.status !== "dismissed") return;
   const displaced = mgr.getAcceptedVariant(address);
   overturned.push({ address, variantId, ...(displaced ? { displaced } : {}) });
-}
-
-export function isWithinVideoRoot(filePath: string, videoRoot: string): boolean {
-  return isWithinRoot(filePath, videoRoot);
 }
 
 type VariantCandidate = {

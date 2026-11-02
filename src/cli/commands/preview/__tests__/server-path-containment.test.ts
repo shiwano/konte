@@ -1,68 +1,158 @@
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { describe, expect, it } from "vitest";
-import { isWithinVideoRoot } from "../review-shared.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { makeWorkspace, type Workspace } from "../../../../core/__tests__/helpers/workspace.js";
+import {
+  handleAssetRequest,
+  handlePrerollAssetRequest,
+  handleStudySheetRequest,
+  handleThumbnailAssetRequest,
+} from "../server.js";
 
-describe("isWithinVideoRoot", () => {
-  const videoRoot = "/home/user/project";
+const ADDR = "video:shot.01.motion";
+const VID = "v-abc";
 
-  it("allows a file inside the project root", () => {
-    expect(isWithinVideoRoot("/home/user/project/dist/video.mp4", videoRoot)).toBe(true);
+let ws: Workspace;
+let videoRoot: string;
+let credentials: string;
+
+beforeEach(async () => {
+  ws = await makeWorkspace({ videos: ["opening"] });
+  videoRoot = ws.videos.opening!.video;
+  credentials = path.join(ws.root, "konte.credentials.json");
+  await fs.writeFile(credentials, JSON.stringify({ FAL_KEY: "super-secret" }));
+});
+
+afterEach(async () => {
+  await ws.cleanup();
+});
+
+async function writeFile(file: string, content = "bytes"): Promise<void> {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, content);
+}
+
+async function symlink(target: string, link: string): Promise<void> {
+  await fs.mkdir(path.dirname(link), { recursive: true });
+  await fs.symlink(target, link);
+}
+
+async function setVariantFile(file: string): Promise<void> {
+  await fs.writeFile(
+    path.join(videoRoot, "konte.state.json"),
+    JSON.stringify({ schemaVersion: 1, assets: { [ADDR]: { variants: { [VID]: { file } } } } }),
+  );
+}
+
+describe("/api/assets", () => {
+  const request = (filename: string) =>
+    handleAssetRequest(videoRoot, `video/shot.01.motion/${VID}/${encodeURIComponent(filename)}`);
+
+  it("serves a variant's file inside the video", async () => {
+    const rel = `assets/video/shot.01/motion/${VID}/out.mp4`;
+    await writeFile(path.join(videoRoot, rel), "motion");
+    await setVariantFile(rel);
+
+    const res = request("out.mp4");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("motion");
   });
 
-  it("allows a deeply nested file", () => {
-    expect(
-      isWithinVideoRoot("/home/user/project/dist/profile/timestamp/video.mp4", videoRoot),
-    ).toBe(true);
+  it("refuses a variant file whose path escapes the video", async () => {
+    await setVariantFile("../../konte.credentials.json");
+    expect(request("konte.credentials.json").status).toBe(403);
   });
 
-  it("allows the project root itself", () => {
-    expect(isWithinVideoRoot("/home/user/project", videoRoot)).toBe(true);
+  it("refuses a variant file that is a symlink out of the video", async () => {
+    const rel = `assets/video/shot.01/motion/${VID}/out.mp4`;
+    await symlink(credentials, path.join(videoRoot, rel));
+    await setVariantFile(rel);
+
+    expect(request("out.mp4").status).toBe(403);
   });
 
-  it("rejects a path that shares a prefix but crosses a separator boundary", () => {
-    expect(isWithinVideoRoot("/home/user/project-evil/file.mp4", videoRoot)).toBe(false);
-  });
-
-  it("rejects a path traversal via ..", () => {
-    const traversalPath = path.resolve(videoRoot, "../outside/file.mp4");
-    expect(isWithinVideoRoot(traversalPath, videoRoot)).toBe(false);
-  });
-
-  it("rejects a completely unrelated path", () => {
-    expect(isWithinVideoRoot("/tmp/file.mp4", videoRoot)).toBe(false);
-  });
-
-  it("handles relative videoRoot by resolving it", () => {
-    const cwd = process.cwd();
-    const relativeRoot = "my-project";
-    const resolvedRoot = path.resolve(cwd, relativeRoot);
-    const filePath = path.join(resolvedRoot, "dist/video.mp4");
-    expect(isWithinVideoRoot(filePath, relativeRoot)).toBe(true);
-  });
-
-  it("rejects when relative path resolves outside project root", () => {
-    expect(isWithinVideoRoot("/home/user/project/../other/file.mp4", videoRoot)).toBe(false);
+  it("refuses a sibling directory sharing the video root's prefix", async () => {
+    await writeFile(`${videoRoot}-evil/out.mp4`);
+    await setVariantFile(`../${path.basename(videoRoot)}-evil/out.mp4`);
+    expect(request("out.mp4").status).toBe(403);
   });
 });
 
-// The thumbnail route confines reads to .konte/cache/thumbnails/ by passing that dir as the
-// containment root — a bare project-root check would still serve secrets like the credentials file.
-describe("thumbnail directory confinement", () => {
-  const thumbnailsDir = "/home/user/project/.konte/cache/thumbnails";
+describe("/api/thumbnail-assets", () => {
+  const thumbnails = () => path.join(videoRoot, ".konte", "cache", "thumbnails");
 
-  it("allows a file inside the thumbnails directory", () => {
-    expect(
-      isWithinVideoRoot("/home/user/project/.konte/cache/thumbnails/v1/frame.jpg", thumbnailsDir),
-    ).toBe(true);
+  it("serves a file in the thumbnail cache", async () => {
+    await writeFile(path.join(thumbnails(), VID, "frame.jpg"), "jpeg");
+
+    const res = handleThumbnailAssetRequest(videoRoot, `.konte/cache/thumbnails/${VID}/frame.jpg`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("jpeg");
   });
 
-  it("rejects a project-root file outside the thumbnails directory (e.g. the credentials)", () => {
-    expect(isWithinVideoRoot("/home/user/project/konte.credentials.json", thumbnailsDir)).toBe(
-      false,
+  it("refuses a file inside the video but outside the thumbnail cache", () => {
+    expect(handleThumbnailAssetRequest(videoRoot, "konte.state.json").status).toBe(403);
+  });
+
+  it("refuses a `..` escape to the workspace's credentials", () => {
+    expect(handleThumbnailAssetRequest(videoRoot, "../../konte.credentials.json").status).toBe(403);
+  });
+
+  it("refuses a symlink in the thumbnail cache pointing out of it", async () => {
+    await symlink(path.join(videoRoot, "konte.state.json"), path.join(thumbnails(), "x.jpg"));
+    expect(handleThumbnailAssetRequest(videoRoot, ".konte/cache/thumbnails/x.jpg").status).toBe(
+      403,
     );
   });
 
-  it("rejects a sibling .konte file outside thumbnails (e.g. state)", () => {
-    expect(isWithinVideoRoot("/home/user/project/.konte/jobs/x.json", thumbnailsDir)).toBe(false);
+  it("reports a missing file inside the cache as not found", () => {
+    expect(handleThumbnailAssetRequest(videoRoot, ".konte/cache/thumbnails/gone.jpg").status).toBe(
+      404,
+    );
+  });
+});
+
+describe("preroll assets", () => {
+  const preroll = () => path.join(videoRoot, ".konte", "cache", "preroll");
+
+  it("serves a file in the preroll cache", async () => {
+    await writeFile(path.join(preroll(), "a.wav"), "wave");
+
+    const res = handlePrerollAssetRequest(videoRoot, "a.wav");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("wave");
+  });
+
+  it("refuses an encoded `..` escape out of the preroll cache", () => {
+    expect(handlePrerollAssetRequest(videoRoot, "..%2F..%2Fkonte.state.json").status).toBe(403);
+  });
+
+  it("refuses a symlink in the preroll cache pointing out of it", async () => {
+    await symlink(credentials, path.join(preroll(), "a.wav"));
+    expect(handlePrerollAssetRequest(videoRoot, "a.wav").status).toBe(403);
+  });
+
+  it("rejects a malformed escape", () => {
+    expect(handlePrerollAssetRequest(videoRoot, "%zz.wav").status).toBe(400);
+  });
+});
+
+describe("study sheets", () => {
+  const studies = () => path.join(ws.root, ".konte", "studies");
+
+  it("serves a file in the workspace's studies", async () => {
+    await writeFile(path.join(studies(), "sheet.png"), "png");
+
+    const res = handleStudySheetRequest(ws.root, "sheet.png");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("png");
+  });
+
+  it("refuses a `..` escape to the workspace's credentials", () => {
+    expect(handleStudySheetRequest(ws.root, "..%2F..%2Fkonte.credentials.json").status).toBe(403);
+  });
+
+  it("refuses a symlink in the studies pointing out of them", async () => {
+    await symlink(credentials, path.join(studies(), "sheet.png"));
+    expect(handleStudySheetRequest(ws.root, "sheet.png").status).toBe(403);
   });
 });

@@ -362,9 +362,10 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
           if (pathname.startsWith(`${STUDY_SHEET_BASE}/`)) {
             const workspaceRoot = workspaceRootOrNull();
             if (!workspaceRoot) return errorResponse("File not found", "NOT_FOUND", 404);
-            const studies = studiesDir(workspaceRoot);
-            const rawPath = decodeURIComponent(pathname.slice(`${STUDY_SHEET_BASE}/`.length));
-            return serveContainedFile(path.resolve(studies, rawPath), studies);
+            return handleStudySheetRequest(
+              workspaceRoot,
+              pathname.slice(`${STUDY_SHEET_BASE}/`.length),
+            );
           }
 
           if (pathname.startsWith("/api/thumbnail-assets/")) {
@@ -547,7 +548,7 @@ export function parseAssetUrlPath(
   };
 }
 
-function handleAssetRequest(videoRoot: string, rawPath: string): Response {
+export function handleAssetRequest(videoRoot: string, rawPath: string): Response {
   const parsed = parseAssetUrlPath(rawPath);
   if (!parsed) {
     return errorResponse("Invalid asset path", "INVALID_REQUEST", 400);
@@ -584,7 +585,7 @@ function handleAssetRequest(videoRoot: string, rawPath: string): Response {
 
 // Confined to the preroll cache — these names come off the composition HTML, but the route reads a
 // path from the request either way.
-function handlePrerollAssetRequest(videoRoot: string, rawPath: string): Response {
+export function handlePrerollAssetRequest(videoRoot: string, rawPath: string): Response {
   const dir = prerollCacheDir(videoRoot);
   let name: string;
   try {
@@ -595,11 +596,16 @@ function handlePrerollAssetRequest(videoRoot: string, rawPath: string): Response
   return serveContainedFile(path.resolve(dir, name), dir);
 }
 
-function handleThumbnailAssetRequest(videoRoot: string, rawPath: string): Response {
+export function handleThumbnailAssetRequest(videoRoot: string, rawPath: string): Response {
   // Confine reads to .konte/cache/thumbnails/ — the only place legitimate thumbnail URLs
   // point. A bare project-root check would still serve e.g. the workspace credentials.
   const thumbnailsDir = path.join(videoRoot, ".konte", "cache", "thumbnails");
   return serveContainedFile(path.resolve(videoRoot, rawPath), thumbnailsDir);
+}
+
+export function handleStudySheetRequest(workspaceRoot: string, rawPath: string): Response {
+  const studies = studiesDir(workspaceRoot);
+  return serveContainedFile(path.resolve(studies, decodeURIComponent(rawPath)), studies);
 }
 
 // Serve a file, refusing one that resolves (symlinks followed) outside `root`.
