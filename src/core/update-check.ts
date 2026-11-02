@@ -18,7 +18,7 @@ const CACHE_FILE = "update-check.json";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 3_000;
 
-export type UpdateCheck =
+type UpdateCheck =
   | { kind: "current"; current: string; latest: string }
   | { kind: "outdated"; current: string; latest: string }
   | { kind: "unknown"; current: string; reason: string }
@@ -29,17 +29,17 @@ interface CacheEntry {
   latest: string;
 }
 
-export interface UpdateCheckOptions {
+interface UpdateCheckOptions {
   now?: () => Date;
   fetchLatestTag?: () => Promise<string>;
   cacheDir?: string;
 }
 
-export function updateCheckCacheDir(): string {
+function updateCheckCacheDir(): string {
   return path.join(workspaceRootOrNull() ?? process.cwd(), ".konte");
 }
 
-export function updateCheckEnabled(): boolean {
+function updateCheckEnabled(): boolean {
   return process.env.KONTE_UPDATE_CHECK !== "0";
 }
 
@@ -99,7 +99,7 @@ async function fetchLatestReleaseTag(): Promise<string> {
   return tag;
 }
 
-export function normalizeVersion(version: string): string {
+function normalizeVersion(version: string): string {
   return version.trim().replace(/^v/, "");
 }
 

@@ -22,15 +22,15 @@ const WORKER_CHECK_MS = 5_000;
 const IDENTITY_CHECK_MS = 60_000;
 const STDERR_TAIL_BYTES = 4_096;
 
-export type WorkerLogMessage = Extract<WorkerMessage, { type: "log" }>;
+type WorkerLogMessage = Extract<WorkerMessage, { type: "log" }>;
 
-export interface WorkerHostStatus {
+interface WorkerHostStatus {
   workerPid: number | null;
   workerInstanceId: string | null;
   videos: string[];
 }
 
-export interface WorkerHost {
+interface WorkerHost {
   /** Settles once the host has stopped: 0 on stop(), else the exit code of the worker it gave up on. */
   readonly exited: Promise<number>;
   status(): Promise<WorkerHostStatus>;
@@ -40,7 +40,7 @@ export interface WorkerHost {
   stop(): Promise<void>;
 }
 
-export interface WorkerHostOptions {
+interface WorkerHostOptions {
   log: McpLog;
   notify?: (message: WorkerLogMessage) => void;
   // A worker exiting other than to restart stops the host; without it, the host releases the

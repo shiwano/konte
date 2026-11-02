@@ -21,7 +21,7 @@ export type ComfyAdapterDeclarations = {
   nodes: readonly ComfyNodeDeclaration[];
 };
 
-export type BuildModel = { type: string; filename: string; sourceUri: string };
+type BuildModel = { type: string; filename: string; sourceUri: string };
 
 /** What a Build is made of before any version is resolved. */
 export type BuildInputs = {
@@ -30,7 +30,7 @@ export type BuildInputs = {
   comfyVersion: string;
 };
 
-export type BuildDefinition = {
+type BuildDefinition = {
   baseComfyVersion: string;
   models: BuildModel[];
   customNodes: Array<{ name: string; id: string; registryVersion: string }>;

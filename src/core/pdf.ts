@@ -15,26 +15,26 @@ export type PdfPageImage =
   | { bytes: Buffer; ext: ".jpg" }
   | { raw: Buffer; width: number; height: number; pixFmt: "gray" | "rgb24" };
 
-export class PdfName {
+class PdfName {
   constructor(readonly name: string) {}
 }
-export class PdfRef {
+class PdfRef {
   constructor(
     readonly num: number,
     readonly gen: number,
   ) {}
 }
-export class PdfString {
+class PdfString {
   constructor(readonly bytes: Buffer) {}
 }
-export class PdfStream {
+class PdfStream {
   constructor(
     readonly dict: PdfDict,
     readonly data: Buffer,
   ) {}
 }
 export type PdfDict = Map<string, PdfValue>;
-export type PdfValue =
+type PdfValue =
   | number
   | boolean
   | null
@@ -266,7 +266,7 @@ function name(v: PdfValue | undefined): string | null {
 }
 
 /** Undoes a PNG (10–15) or TIFF (2, 8-bit) predictor. */
-export function unpredict(data: Buffer, params: PdfDict | null): Buffer {
+function unpredict(data: Buffer, params: PdfDict | null): Buffer {
   const predictor = num(params?.get("Predictor")) || 1;
   if (predictor === 1) return data;
   const colors = num(params?.get("Colors")) || 1;

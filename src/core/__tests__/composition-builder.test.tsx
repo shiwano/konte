@@ -406,24 +406,6 @@ describe("buildShotCompositionHtml", () => {
     expect(result.html).toContain("if(!tl");
   });
 
-  it("applies variant override", async () => {
-    setupAccepted(manager, "video:shot.01.motion", "assets/shot.01.motion/original.mp4");
-
-    const altVariant = manager.reserveVariantId("video:shot.01.motion");
-    manager.getAssetState("video:shot.01.motion").variants![altVariant]!.file =
-      "assets/shot.01.motion/alternate.mp4";
-
-    const result = await buildShotCompositionHtml({
-      video: testVideo,
-      manager,
-      shotId: "01",
-      assetBaseUrl: ASSET_BASE,
-      variantOverride: { assetName: "motion", variantId: altVariant },
-    });
-
-    expect(result.html).toContain(`${ASSET_BASE}/video/shot.01.motion/${altVariant}/alternate.mp4`);
-  });
-
   it("mirrors a hasAudio clip as an <audio>, inside the document body", async () => {
     setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
 
@@ -497,24 +479,6 @@ describe("buildShotCompositionHtml", () => {
 
     // Shot 01's narration runs 2s into this shot but is not in this document; its own runs 0→1s.
     expect(automationOf(result.html)?.find((p) => p.v === 1 && p.t > 0)?.t).toBeCloseTo(1.6, 6);
-  });
-
-  it("ducks a shot's clip under the narration take the review swaps in", async () => {
-    setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
-    const accepted = setupAudioVariant(manager, "video:shot.02.narration", "old.wav", 1);
-    manager.setAccepted("video:shot.02.narration", accepted);
-    const candidate = setupAudioVariant(manager, "video:shot.02.narration", "fresh.wav", 2);
-
-    const result = await buildShotCompositionHtml({
-      video: crossingNarrationVideo,
-      manager,
-      shotId: "02",
-      assetBaseUrl: ASSET_BASE,
-      variantOverride: { assetName: "narration", variantId: candidate },
-    });
-
-    // The 2s candidate plays, so the clip comes back up 0.6s after 2s, not after 1s.
-    expect(automationOf(result.html)?.find((p) => p.v === 1 && p.t > 0)?.t).toBeCloseTo(2.6, 6);
   });
 
   it("throws COMPOSITION_BUILD_FAILED for non-existent shot", async () => {

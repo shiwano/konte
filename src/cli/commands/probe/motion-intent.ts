@@ -13,7 +13,7 @@ interface MotionMove {
 }
 
 /** The boundary into a shot, where it breaks story time or place. Either side may be absent. */
-export interface ShotBoundary {
+interface ShotBoundary {
   join: NonNullable<ShotFrame["join"]> | null;
   location: { from: string; to: string } | null;
 }

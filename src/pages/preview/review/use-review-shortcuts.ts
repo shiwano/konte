@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
 /** Handlers by `KeyboardEvent.key`; a lowercase letter matches its shifted form too. */
-export type ShortcutHandlers = Record<string, (e: KeyboardEvent) => void>;
+type ShortcutHandlers = Record<string, (e: KeyboardEvent) => void>;
 
 /**
  * The review pages' keyboard: ⌘/Ctrl+⏎ submits, every other bound key runs its handler with the

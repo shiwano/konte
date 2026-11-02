@@ -26,7 +26,7 @@ const CHUNK = 1500;
 const BORDER = 6;
 const MAX_THREADS = 8;
 
-export type BeatThisReading = { beats: number[]; downbeats: number[]; durationSec: number };
+type BeatThisReading = { beats: number[]; downbeats: number[]; durationSec: number };
 
 // The log-mel frontend `frontend.json` carries: torchaudio's own Hann window and slaney mel filters.
 export type BeatThisFrontend = {
@@ -44,7 +44,7 @@ let modelDir: string | null = null;
  * The directory holding `beat-this-final0.onnx` and `frontend.json`, downloading them on first use;
  * `KONTE_BEAT_THIS_MODEL_DIR` names one instead.
  */
-export async function beatThisModelDir(): Promise<string> {
+async function beatThisModelDir(): Promise<string> {
   if (modelDir) return modelDir;
   const override = process.env.KONTE_BEAT_THIS_MODEL_DIR;
   if (override) {
@@ -201,7 +201,7 @@ function fft(re: Float64Array, im: Float64Array, cos: Float64Array, sin: Float64
 
 // One window the model reads: `frames` source frames from `start` (negative before the piece),
 // zero-padded by `left` / `right`.
-export type SpectChunk = { start: number; left: number; frames: number; right: number };
+type SpectChunk = { start: number; left: number; frames: number; right: number };
 
 /**
  * `split_piece`: chunks of `chunk` frames overlapping by `border`, the first padded by `border` at

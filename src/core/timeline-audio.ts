@@ -185,7 +185,7 @@ export function shouldAutoLoop(usableSource: number, span: number): boolean {
 }
 
 /** One lap of a bed: where on its span it starts, where in the source, and how long it plays. */
-export interface BedPass {
+interface BedPass {
   at: number;
   mediaStart: number;
   duration: number;

@@ -1,7 +1,7 @@
 import type { ErrorResponseBody, KonteErrorCode } from "../../core/errors.js";
 
 /** A page server's non-2xx answer: its status, and the code and message its body carried. */
-export class PageRequestError extends Error {
+class PageRequestError extends Error {
   constructor(
     readonly status: number,
     readonly code: KonteErrorCode | null,

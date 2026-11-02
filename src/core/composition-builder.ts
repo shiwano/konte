@@ -88,7 +88,6 @@ interface BuildShotCompositionOptions {
   manager: StateManager;
   shotId: string;
   assetBaseUrl: string;
-  variantOverride?: { assetName: string; variantId: string };
   // Render from whatever is ready — a not-ready asset stays a raw placeholder, which draws nothing —
   // instead of failing the build. Set by the read surfaces: the live preview, and the capture path
   // behind `probe`/`review record show`. Never set where a partial shot would be PERSISTED —
@@ -653,7 +652,7 @@ export interface StemAudioEntry {
 }
 
 /** What the take resolved for a voice cue tells the duck. */
-export interface VoiceVariant {
+interface VoiceVariant {
   /** The take's duration less the cue's `mediaStart`, in source seconds; null when unmeasured. */
   length: number | null;
   /** The silence the take opens with, from the file's head (see `voiceTriggerSpan`). */
@@ -784,9 +783,9 @@ function previewVoiceVariant(
 }
 
 /** A spoken line's span: the cue that sounds it, what the line is, and whether a clip carries it. */
-export type VoiceSpan = Span & { address: string; kind: CueKind; track: StemAudioEntry["track"] };
+type VoiceSpan = Span & { address: string; kind: CueKind; track: StemAudioEntry["track"] };
 
-export function declaredVoiceSpans(
+function declaredVoiceSpans(
   video: StageDefinition,
   // The take resolved for a cue. Given, an OPEN-ENDED cue spans what it will actually sound for,
   // and every cue ducks from where its sound starts. Omitted (the hash paths) the span falls back
@@ -833,7 +832,7 @@ export function harvestShotAudioStructure(
 
 // One `<Video>` of a shot's composition: the take it plays and the window it plays of it, shot-local.
 // Read by `join-unshown`, which asks whether a take pinned to a seam shows that frame.
-export interface PictureCue {
+interface PictureCue {
   src: string;
   start: number | null;
   duration: number | null;
@@ -1048,8 +1047,7 @@ function previewCueLevels(
 export async function buildShotCompositionHtml(
   options: BuildShotCompositionOptions,
 ): Promise<CompositionBuildResult> {
-  const { video, manager, shotId, assetBaseUrl, variantOverride, allowNotReady, withOverlay } =
-    options;
+  const { video, manager, shotId, assetBaseUrl, allowNotReady, withOverlay } = options;
 
   let plan: RenderPlan;
   try {
@@ -1074,15 +1072,7 @@ export async function buildShotCompositionHtml(
     throw new KonteError("COMPOSITION_BUILD_FAILED", `Shot "${shotId}" not found in render plan`);
   }
 
-  let { resolvedFiles, resolvedVariants } = shotPlan;
-  if (variantOverride) {
-    ({ resolvedFiles, resolvedVariants } = applyVariantOverride(
-      plan.stage,
-      shotPlan,
-      manager,
-      variantOverride,
-    ));
-  }
+  const { resolvedFiles, resolvedVariants } = shotPlan;
 
   const timelineRun = plan.timelineFn
     ? runTimelineInRenderMode(
@@ -1148,14 +1138,9 @@ export async function buildShotCompositionHtml(
   let duckUnder: ClipDuck | undefined;
   if (HAS_CLIP_AUDIO.test(html)) {
     const shotStart = overlayShotStarts(video.shots).get(shotId) ?? 0;
-    const shown = variantOverride
-      ? new Map([
-          [formatAddress(plan.stage, shotId, variantOverride.assetName), variantOverride.variantId],
-        ])
-      : undefined;
     const narration = declaredVoiceSpans(
       video,
-      previewVoiceVariant(manager, allowNotReady ?? false, shown),
+      previewVoiceVariant(manager, allowNotReady ?? false),
     )
       .filter((v) => v.shotId === shotId && isNarrationCue(v))
       .map((v) => ({ start: v.start - shotStart, end: v.end - shotStart }));

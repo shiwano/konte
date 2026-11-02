@@ -26,7 +26,7 @@ export interface AdapterCatalogEntry {
   guides: AdapterGuide[];
 }
 
-export interface AdapterGuide {
+interface AdapterGuide {
   specifier: string;
   path: string | null;
 }
@@ -64,7 +64,7 @@ async function listAdapterFiles(dir: string): Promise<string[]> {
 // `konte/guides/<name>.md` is the konte-managed doc the template syncs into every workspace;
 // anything else is a path beside the adapter file. A prebuilt adapter has no file of its own and
 // takes the managed form only.
-export function resolveGuidePath(
+function resolveGuidePath(
   specifier: string,
   workspaceRoot: string,
   adapterFile: string | null,

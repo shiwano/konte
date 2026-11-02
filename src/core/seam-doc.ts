@@ -178,7 +178,7 @@ const videoCase = (
 const longTake = direction([shot("01", "wide"), shot("02", "wide", { join: "continuous" })]);
 const pushIn = direction([shot("01", "wide"), shot("02", "medium")]);
 
-export const SEAM_SECTIONS: readonly SeamSection[] = [
+const SEAM_SECTIONS: readonly SeamSection[] = [
   {
     title: "Declaring the boundary",
     intro:

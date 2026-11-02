@@ -41,18 +41,18 @@ import type { StateManager } from "./state/index.js";
  */
 
 /** How long before its cut a clip starts playing. Frame-aligned per clip (see `planVideoPreroll`). */
-export const PREROLL_TARGET_SEC = 0.4;
+const PREROLL_TARGET_SEC = 0.4;
 
 /** How far past its window a copy keeps playing, cloning the last frame where the source is out. */
 export const PREROLL_TAIL_SEC = 0.5;
 
 /** How long before a clip's window opens the warm-up seeks it. */
-export const PREROLL_WARMUP_SEC = 2;
+const PREROLL_WARMUP_SEC = 2;
 
 /** URL prefix the preview server serves the padded copies from. */
 export const PREROLL_ASSET_BASE = "/api/preroll-assets";
 
-export interface PrerollClip {
+interface PrerollClip {
   /**
    * Offset of the `<video>` tag this plan belongs to, and the tag as it stood there.
    *
@@ -394,7 +394,7 @@ export function applyVideoPreroll(html: string, ready: readonly PrerollClip[]): 
  * clip the playhead is parked in front of is seeked again after `REWARM_MS`, before the browser's
  * idle timer can suspend it a second time.
  */
-export function prerollWarmupScript(): string {
+function prerollWarmupScript(): string {
   return (
     `<script>(function(){var WARM=${PREROLL_WARMUP_SEC},REWARM_MS=10000,warmed=new WeakMap();` +
     `setInterval(function(){var p=window.__player;if(!p||typeof p.getTime!=="function")return;` +

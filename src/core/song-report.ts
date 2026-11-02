@@ -2,7 +2,7 @@ import { type SongGridSource, songBeatAt, songBeatSec } from "./song-variant.js"
 
 // A song take's bar grid as the reader lays a take against it: where each bar head falls in the
 // take, and how loud the bar is.
-export type SongBar = { index: number; startSec: number; levelDb: number | null };
+type SongBar = { index: number; startSec: number; levelDb: number | null };
 
 // The bar heads from beat 0 on, every `beatsPerBar` beats of the take's grid, each with its mean
 // level over `rms` (buckets of `rate` per second); a bar past the end of the envelope has no level.

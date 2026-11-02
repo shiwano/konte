@@ -69,7 +69,7 @@ export interface AssetRefInfo {
   imageUrl: string | null;
 }
 
-export interface VideoAssetInfo {
+interface VideoAssetInfo {
   assetName: string;
   address: string;
   variantId: string | null;
@@ -105,7 +105,7 @@ export interface ClipInfo {
 // placement in the timeline; `shotId` is the shot whose composition placed it, absent
 // only for a timeline bed. Accept and focus route through the cue's shot, so a reused asset needs
 // no single owning shot.
-export interface AudioCueInfo {
+interface AudioCueInfo {
   start: number;
   end: number;
   cueId: string | null;
@@ -142,7 +142,7 @@ export interface ShotMoveInfo {
   camera: string;
 }
 
-export interface ShotStemStatus {
+interface ShotStemStatus {
   address: string;
   variantId: string | null;
   // The stem's live definition hash, snapshotted like compositionDefinitionHash so an audio-only
@@ -264,7 +264,7 @@ export interface KeepGraphInfo {
   units: Record<string, KeepUnitInfo>;
 }
 
-export interface KeepAddressInfo {
+interface KeepAddressInfo {
   unit: string;
   // A generation or patch output: what Keep keeps and Regenerate rerolls. False for a take konte
   // re-makes itself or a `file`, listed as an upstream an accept can change.
@@ -283,7 +283,7 @@ export interface KeepVariantInfo {
   inputs: Record<string, string[]>;
 }
 
-export interface KeepUnitInfo {
+interface KeepUnitInfo {
   stage: "reference" | "animatic" | "video";
   label: string;
 }
@@ -291,7 +291,7 @@ export interface KeepUnitInfo {
 // The timeline audio stem (soundtrack beds): the beds' one accept, and the one reviewable
 // target in the video review whose feedback is not shot-scoped — a bed spans the timeline, so
 // its comments hang off the stem address and carry a playhead time but no pin.
-export interface TimelineStemInfo {
+interface TimelineStemInfo {
   address: string;
   variantId: string | null;
   // The stem's live definition hash, snapshotted with a soundtrack comment so a bed edit (a
@@ -304,7 +304,7 @@ export interface TimelineStemInfo {
 // The overlay: the picture layer over every shot, at `<stage>:timeline#overlay`. The shot accepts
 // sign it off; `offered` is true once they all stand and it changed after them, and only then does
 // the page show it with an accept of its own.
-export interface OverlayInfo {
+interface OverlayInfo {
   address: string;
   duration: number;
   variantId: string | null;
@@ -328,7 +328,7 @@ export interface FeedbackInfo {
 
 // The take a patched variant corrects. It is not a candidate of its own — a patched take is a
 // "before", not an alternative — so this is the only handle the gallery has on it.
-export interface VariantBeforeInfo {
+interface VariantBeforeInfo {
   variantId: string;
   variantStatus: VariantStatus;
   imageUrl: string | null;
@@ -442,7 +442,7 @@ export interface DirectionPartInfo {
 
 // The feeling a stretch of the piece aims for. The only controlled vocabulary the page prints in
 // full, because it is the only one a reviewer can take a position on.
-export interface DirectionPleasureInfo {
+interface DirectionPleasureInfo {
   name: string;
   gloss: string;
 }

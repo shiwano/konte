@@ -96,7 +96,7 @@ async function cachedReading(src: SourceRef): Promise<ClipReading | null> {
 }
 
 /** The clip's cuts and heard words, read off the file where the cache does not hold them. */
-export async function ensureClipReading(
+async function ensureClipReading(
   src: SourceRef,
   progress: (line: string) => void,
 ): Promise<ClipReading> {

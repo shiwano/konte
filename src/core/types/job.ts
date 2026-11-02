@@ -182,7 +182,7 @@ export const ExportJobSchema = JobRecordBaseSchema.extend({
   planDigest: z.string().nullable().default(null),
 });
 
-export const SongAnalysisJobSchema = JobRecordBaseSchema.extend({
+const SongAnalysisJobSchema = JobRecordBaseSchema.extend({
   kind: z.literal("song-analysis"),
   // The take it reads, where it lives, and the bytes it was queued for: a take whose file was
   // replaced in place is read again.

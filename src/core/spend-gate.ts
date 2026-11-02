@@ -85,7 +85,7 @@ const GATED_UPSTREAM: ReadonlyArray<{ stage: Stage; review: string; generate: st
   { stage: "animatic", review: "konte preview animatic", generate: "konte generate animatic" },
 ];
 
-export type UpstreamBlocker =
+type UpstreamBlocker =
   | { kind: "unaccepted"; hasOutput: boolean }
   | { kind: "undecided"; acceptedVariantId: string; undecidedVariantId: string };
 
@@ -98,7 +98,7 @@ export type UpstreamBlocker =
 // does not re-ask for the sheets under it. `extraRefs` carries addresses consumed by something with
 // no graph node of its own, i.e. a patch definition's refs. `redone` names upstreams this same run
 // makes a fresh take of, which the spend builds on in place of the undecided one.
-export function unacceptedUpstreamDeps(opts: {
+function unacceptedUpstreamDeps(opts: {
   manager: StateManager;
   graph: DependencyGraph;
   assetPaths: Iterable<string>;
@@ -151,7 +151,7 @@ export function unacceptedUpstreamDeps(opts: {
 // The upstream-most blockers alone: accepting a board built on an unaccepted sheet is not the fix,
 // so naming both would send the human at the wrong one. GATED_UPSTREAM is in pipeline order, so the
 // first entry with a blocker is the upstream-most.
-export function upstreamMostBlockers(blocking: Map<string, UpstreamBlocker>): {
+function upstreamMostBlockers(blocking: Map<string, UpstreamBlocker>): {
   upstream: (typeof GATED_UPSTREAM)[number];
   lines: string[];
 } | null {
@@ -198,7 +198,7 @@ export type SpendRequest = {
 // named.
 type Unaccepted = { rank: number; headline: string; lines: string[] };
 
-export type SpendVerdict = {
+type SpendVerdict = {
   // Findings that hold the whole spend.
   findings: Finding[];
   // Findings that hold only their `edge` assets.

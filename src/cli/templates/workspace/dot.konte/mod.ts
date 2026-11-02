@@ -474,7 +474,6 @@ declare const ScriptLineSchema: z.ZodUnion<
   ]
 >;
 export type ScriptLine = z.infer<typeof ScriptLineSchema>;
-declare const SHOT_LINES: unique symbol;
 export type WhoOf<L> = L extends {
   character: infer C extends string;
 }
@@ -509,8 +508,6 @@ export type TextsBy<
  */
 export type ShotScript<S extends readonly ScriptLine[] = readonly ScriptLine[]> = {
   readonly [W in SpeakerOf<S>]: TextsBy<S, W>;
-} & {
-  readonly [SHOT_LINES]: readonly ScriptLine[];
 };
 /**
  * One animatic shot as `video.tsx` reaches it: its takes by name and kind, plus the `stem` konte

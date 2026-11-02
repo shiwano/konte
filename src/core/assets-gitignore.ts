@@ -7,11 +7,11 @@ import { acceptedConsumers, isProtectedVariant } from "./variant-lineage.js";
 
 const ASSETS_PREFIX = `assets${path.sep}`;
 
-export function assetsGitignorePath(videoRoot: string): string {
+function assetsGitignorePath(videoRoot: string): string {
   return path.join(videoRoot, "assets", ".gitignore");
 }
 
-export interface AssetsGitTracking {
+interface AssetsGitTracking {
   // Variant directories git tracks, relative to the video root.
   keptDirs: ReadonlySet<string>;
   // Whether `assets/.gitignore` keeps a variant's file from git.

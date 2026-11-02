@@ -24,7 +24,7 @@ type RunExportJobResult = {
   released?: boolean;
 };
 
-export type ExportRenderDecision = "render" | "release";
+type ExportRenderDecision = "render" | "release";
 
 // Whether the worker's reloaded definition is the one to render. The digest the registering CLI
 // stamped is what the definition said then; a different one now means either the definition

@@ -229,7 +229,7 @@ export type DirectionAcceptanceSummary = {
   changed: DirectionPartTally;
 };
 
-export type DirectionPartTally = { parts: number; sections: DirectionSection[] };
+type DirectionPartTally = { parts: number; sections: DirectionSection[] };
 
 function tally(addresses: readonly string[]): DirectionPartTally {
   const present = new Set(addresses.map(directionSectionOf));

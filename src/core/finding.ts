@@ -59,7 +59,7 @@ export type BuildFinding = {
 
 // How far a spend hold reaches, from the finding's stage: `edge` holds only the subject's assets and
 // what is built on them, on its stage and downstream; the rest still spends.
-export type SpendReach = "stage" | "stage+downstream" | "downstream" | "edge";
+type SpendReach = "stage" | "stage+downstream" | "downstream" | "edge";
 
 export type FindingTraits = {
   reads: "definition" | "take";
@@ -93,7 +93,7 @@ export type Finding = {
   signedOff?: readonly string[];
 };
 
-export function sourceFilePath(file: SourceFile): string {
+function sourceFilePath(file: SourceFile): string {
   return file.patch ? `patches/${file.patch}.ts` : STAGE_ENTRY_FILE[file.stage];
 }
 
@@ -280,7 +280,7 @@ export function spendStages(stage: Stage, reach: SpendReach): readonly AssetStag
 
 // One spend, as a gate asks about it: the stage spent on, and — for a patch application — the take
 // whose patch script is being applied.
-export type SpendOp = { command: SpendCommand; stage: AssetStage; patch?: string };
+type SpendOp = { command: SpendCommand; stage: AssetStage; patch?: string };
 
 // Whether the finding holds the spend, and how: the whole spend, or only its `edge` assets.
 export function spendHold(finding: Finding, op: SpendOp): "whole" | "edge" | null {
@@ -307,7 +307,7 @@ export function reviewHold(finding: Finding, op: ReviewOp): boolean {
 }
 
 // The key a status line and a refusal name a finding by: its waiver key, else its code.
-export function findingLabel(finding: Finding): string {
+function findingLabel(finding: Finding): string {
   return finding.key ?? finding.code;
 }
 

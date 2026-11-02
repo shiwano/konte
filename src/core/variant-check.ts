@@ -9,14 +9,14 @@ import type { StateManager } from "./state/index.js";
 import type { KonteState, VariantState } from "./types/index.js";
 import { variantOwningFile } from "./variant-dir.js";
 
-export type VariantFindingType = "silent" | "line-misheard";
+type VariantFindingType = "silent" | "line-misheard";
 
-export interface VariantFinding {
+interface VariantFinding {
   type: VariantFindingType;
   detail: string;
 }
 
-export interface VariantFindings {
+interface VariantFindings {
   address: string;
   variantId: string;
   findings: VariantFinding[];
@@ -105,8 +105,4 @@ export function unvouchedFindings(opts: {
 
 export function formatFindings(findings: readonly VariantFinding[]): string {
   return findings.map((f) => f.detail).join("; ");
-}
-
-export function formatVariantFindings(v: VariantFindings): string {
-  return `${v.address} ${v.variantId}: ${formatFindings(v.findings)}`;
 }

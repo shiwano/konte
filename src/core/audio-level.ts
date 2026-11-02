@@ -21,7 +21,7 @@ export function isVoiceKind(kind: CueKind | undefined): boolean {
  * A cue kind, the timeline bed a `soundtrack()` places, the song `policy.song` names, or the
  * `ambience` a `<Video hasAudio>` clip carries in a shot with no lines.
  */
-export type LevelKind = CueKind | "bed" | "song" | "ambience";
+type LevelKind = CueKind | "bed" | "song" | "ambience";
 
 // Where each kind sits. `sfx` is levelled by true peak instead: integrated loudness measured over
 // a 200 ms transient is not a number worth trusting.

@@ -84,7 +84,7 @@ async function sherpaBin(name: string, override: string | undefined): Promise<st
  * The directory holding spleeter's two stems (`vocals.fp16.onnx`, `accompaniment.fp16.onnx`),
  * downloading them on first use; `KONTE_SPLEETER_MODEL_DIR` names one instead.
  */
-export async function spleeterModelDir(): Promise<string> {
+async function spleeterModelDir(): Promise<string> {
   if (modelDir) return modelDir;
   const override = process.env.KONTE_SPLEETER_MODEL_DIR;
   if (override) {
@@ -108,7 +108,7 @@ export async function spleeterModelDir(): Promise<string> {
  * The directory holding SenseVoice (`model.int8.onnx`, `tokens.txt`), downloading it on first use;
  * `KONTE_SENSE_VOICE_MODEL_DIR` names one instead.
  */
-export async function senseVoiceModelDir(): Promise<string> {
+async function senseVoiceModelDir(): Promise<string> {
   if (senseVoiceDir) return senseVoiceDir;
   const override = process.env.KONTE_SENSE_VOICE_MODEL_DIR;
   if (override) {

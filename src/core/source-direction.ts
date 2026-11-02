@@ -28,7 +28,7 @@ import type { SourceStudyIndex } from "./types/index.js";
 const moduleCache: Record<string, unknown> = createRequire(import.meta.url).cache;
 
 // A digest file that does not load: a reader's mistake, or a file caught mid-write.
-export type UnreadableDigest = { file: string; message: string };
+type UnreadableDigest = { file: string; message: string };
 
 /** Every digest a reader has written under `digest/`, each read as its file stands now. */
 export async function readDigest(
@@ -146,7 +146,7 @@ export function unreadChunks(sv: SourceView): string[] {
 // counted once; what every line takes to say as written (a text's quotations, a comic's balloons);
 // a clip's run, and a comic's pages. `unread` chunks have no digest yet, so the scenes, and a
 // comic's lines, are a floor.
-export type SpanMeasure = {
+type SpanMeasure = {
   scenes: number;
   unread: number;
   spokenSec: number | null;
@@ -188,7 +188,7 @@ export function spanMeasure(sv: SourceView): SpanMeasure {
   };
 }
 
-export type LocatedScene = { id: string; chunk: string; scene: SourceScene };
+type LocatedScene = { id: string; chunk: string; scene: SourceScene };
 
 export function sourceScenes(chunks: readonly SourceChunk[]): Map<string, LocatedScene> {
   const out = new Map<string, LocatedScene>();
@@ -236,7 +236,7 @@ export function importCommand(sv: Pick<SourceView, "ref" | "index">): string {
   return `konte source import ${sv.index?.kind ?? "<kind>"} ${path.join(SOURCE_DIR, sv.ref.file)}`;
 }
 
-export type DigestProblem = { file: string; chunk: string | null; message: string };
+type DigestProblem = { file: string; chunk: string | null; message: string };
 
 /**
  * What is wrong in the digest against the chunks' index: a file that does not load, a chunk the

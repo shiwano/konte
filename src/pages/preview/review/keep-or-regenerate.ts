@@ -13,7 +13,7 @@ export interface KeepOrigin {
 }
 
 /** One accepted take, as the page saw it. */
-export interface KeepVariant {
+interface KeepVariant {
   address: string;
   variantId: string;
 }
@@ -30,13 +30,13 @@ export interface KeepTarget {
   madeFrom: string[];
 }
 
-export interface KeepFollow {
+interface KeepFollow {
   unit: string;
   variants: KeepVariant[];
 }
 
 /** What a Keep asks the submit to record for one take. */
-export interface KeepEntry extends KeepVariant {
+interface KeepEntry extends KeepVariant {
   // Per upstream, what the take is kept against: the output hash the page read, or `via:<upstream>=
   // <hash>,…` for an input konte re-makes from those upstream takes.
   inputs: Record<string, string>;
@@ -68,7 +68,7 @@ export interface KeepContext {
  * How a page reads an address under its own marks and picks; `undefined` for an address it does not
  * hold, which reads as the graph has it.
  */
-export interface KeepPageView {
+interface KeepPageView {
   accepted: (address: string) => boolean | undefined;
   shown: (address: string) => string | null | undefined;
 }
@@ -144,7 +144,7 @@ function lastTouchByUnit(choices: readonly KeepChoice[]): Map<string, Touch> {
 }
 
 /** One unit standing to be regenerated: its takes, and why. */
-export interface KeepRegenerate {
+interface KeepRegenerate {
   variants: KeepVariant[];
   // The unit whose accept asked.
   origin: string;
@@ -441,7 +441,7 @@ function reachOf(
 const STAGES: readonly KeepStage[] = ["reference", "animatic", "video"];
 
 /** The names a unit's takes go by on screen: the address past the unit, none for the unit itself. */
-export function variantNames(unit: string, variants: readonly KeepVariant[]): string[] {
+function variantNames(unit: string, variants: readonly KeepVariant[]): string[] {
   return variants.flatMap(({ address }) =>
     address.startsWith(`${unit}.`)
       ? [address.slice(unit.length + 1)]
@@ -452,7 +452,7 @@ export function variantNames(unit: string, variants: readonly KeepVariant[]): st
 }
 
 /** A unit named from `from`'s stage: its label, with its stage when that is another one. */
-export function unitLabel(graph: KeepGraphInfo, unit: string, from: KeepStage): string {
+function unitLabel(graph: KeepGraphInfo, unit: string, from: KeepStage): string {
   const info = graph.units[unit];
   if (!info) return unit;
   return info.stage === from ? info.label : `${info.label} (${info.stage})`;
@@ -472,7 +472,7 @@ export interface KeepPromptRow {
   initial: KeepDecision;
 }
 
-export interface KeepPromptStage {
+interface KeepPromptStage {
   stage: KeepStage;
   rows: KeepPromptRow[];
 }

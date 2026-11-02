@@ -6,12 +6,12 @@ import { type ClipPageInfo, ClipPageInfoSchema } from "./types/index.js";
 // one `<lang>.vtt` per subtitle track, an auto-generated one in the clip's own language named
 // `<lang>-orig`.
 
-export interface SubtitleTrack {
+interface SubtitleTrack {
   key: string;
   auto: boolean;
 }
 
-export interface SubtitleCue {
+interface SubtitleCue {
   startSec: number;
   text: string;
 }

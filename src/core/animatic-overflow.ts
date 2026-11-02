@@ -32,7 +32,7 @@ export interface AnimaticOverflow {
   retime: AnimaticRetime | null;
 }
 
-export interface AnimaticRetime {
+interface AnimaticRetime {
   /** The cue's address — the `source` of the retime. */
   src: string;
   /** The room the cue has from its `start` to the shot's end: the retime's `duration`. */

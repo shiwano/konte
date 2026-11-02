@@ -934,7 +934,7 @@ function formatVideoNoteItem(
 }
 
 /** What one note's frame needs to be rendered and captioned. */
-export interface ReviewNoteFrameTarget {
+interface ReviewNoteFrameTarget {
   /** The feedback id — a pinned note's frame is named after it, and it keys the caller's result. */
   id: string;
   shotId: string;

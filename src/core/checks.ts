@@ -116,7 +116,7 @@ function stageDefinitions(ctx: CheckContext): Array<[AssetStage, DefinitionLike]
 
 // The markup the class check reads on a stage: each `jsxImage`'s, and on a composition stage each
 // developed shot's composition and the overlay — which a review renders too.
-export function stageClassSubjects(
+function stageClassSubjects(
   definition: DefinitionLike,
   stage: AssetStage,
 ): { images: ClassSubject[]; compositions: ClassSubject[] } {

@@ -49,7 +49,7 @@ interface ShotContext {
   format?: BuildFormat;
 }
 
-export interface TimelineContext {
+interface TimelineContext {
   mode: "discovery" | "render";
   stage: ShotStage;
   assets: Map<string, AssetDefinition>;
@@ -77,7 +77,7 @@ export interface ReferenceContext {
 // The animatic's `plates` callback, running to collect its pool. A flat pool like the reference
 // stage's, but keyed by setup id and addressed `animatic:plate.<id>`. Discovery only: nothing re-runs
 // it in render mode.
-export interface PlatePoolContext {
+interface PlatePoolContext {
   assets: Map<string, AssetDefinition>;
   format?: BuildFormat;
 }
@@ -86,7 +86,7 @@ export interface PlatePoolContext {
 // a flat named pool with no shot/timeline axis, but it carries the stage and source variant its
 // addresses are formed from, and a `format` so a step resolves format-derived inputs against the
 // same canvas a stage asset would.
-export interface PatchDiscoveryContext {
+interface PatchDiscoveryContext {
   assets: Map<string, AssetDefinition>;
   stage: AssetStage;
   sourceVariantId: string;
@@ -237,7 +237,7 @@ export interface DiscoveryResult {
   element: React.ReactElement;
 }
 
-export interface TimelineDiscoveryResult {
+interface TimelineDiscoveryResult {
   assets: Record<string, AssetDefinition>;
   result: unknown;
 }

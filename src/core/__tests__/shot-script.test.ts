@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shotScriptLines, makeShotScript } from "../dsl/shot-script.js";
+import { makeShotScript } from "../dsl/shot-script.js";
 
 describe("makeShotScript", () => {
   it("keys a line's words by who says them, whichever variant carries them", () => {
@@ -43,16 +43,5 @@ describe("makeShotScript", () => {
   it("a roster id named after an array method is just a key here", () => {
     const script = makeShotScript([{ character: "map", text: "ぶつからない" }]);
     expect(script.map).toEqual(["ぶつからない"]);
-  });
-
-  it("carries the shot's lines in order", () => {
-    const lines = [{ character: "cat", text: "にゃあ" }, { narration: "朝が来た" }] as const;
-
-    expect(shotScriptLines(makeShotScript(lines))).toEqual(lines);
-  });
-
-  it("passes a hand-built line list through unchanged", () => {
-    const subset = [{ narration: "朝が来た" }] as const;
-    expect(shotScriptLines(subset)).toBe(subset);
   });
 });

@@ -15,7 +15,6 @@ import {
 import {
   buildFullCompositionHtml,
   buildShotClips,
-  buildShotCompositionHtml,
   type CompositionClip,
 } from "../../../core/composition-builder.js";
 import { resolveCompositionRef } from "../../../core/composition-refs.js";
@@ -819,34 +818,6 @@ export async function handleGetFullComposition(
   } catch (err) {
     if (err instanceof KonteError) {
       console.error(`[preview] GET /api/compositions/full → ${err.code}: ${err.message}`);
-      return errorResponse(err.message, err.code, 400);
-    }
-    throw err;
-  }
-}
-
-export async function handleGetShotComposition(
-  video: StageDefinition,
-  videoRoot: string,
-  shotId: string,
-  assetBaseUrl: string,
-  variantOverride?: { assetName: string; variantId: string },
-): Promise<Response> {
-  const manager = await StateManager.load(videoRoot);
-
-  try {
-    const result = await buildShotCompositionHtml({
-      video,
-      manager,
-      shotId,
-      assetBaseUrl,
-      variantOverride,
-      allowNotReady: true,
-    });
-    return htmlResponse(result.html);
-  } catch (err) {
-    if (err instanceof KonteError) {
-      console.error(`[preview] GET shot composition (${shotId}) → ${err.code}: ${err.message}`);
       return errorResponse(err.message, err.code, 400);
     }
     throw err;

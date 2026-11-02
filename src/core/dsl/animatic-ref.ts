@@ -44,7 +44,7 @@ export interface AnimaticRef {
 // The declared media kind of every asset of every shot, captured as the stage was discovered — an
 // AssetDefinition does not carry one (a comfy definition names only its workflow), so the accessors'
 // kind check reads this instead.
-export type AssetKindsByShot = ReadonlyMap<string, ReadonlyMap<string, MediaKind>>;
+type AssetKindsByShot = ReadonlyMap<string, ReadonlyMap<string, MediaKind>>;
 
 function pendingShotRef(id: string): AnimaticShotRef {
   const get = <T extends MediaKind>(assetName: string): MediaAsset<T> =>

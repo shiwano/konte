@@ -70,7 +70,7 @@ export class JobIndex {
   }
 }
 
-export type PrerequisiteVerdict =
+type PrerequisiteVerdict =
   | { verdict: "settled" | "wait" }
   | { verdict: "doomed"; depId: string; dep: JobRecord | null };
 

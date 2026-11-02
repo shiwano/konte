@@ -25,7 +25,7 @@ type DirectionFindingDoc = {
   typeLevel?: true;
 };
 
-export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindingDoc> = {
+const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindingDoc> = {
   "missing-role": { flags: "A role its lens requires has no item.", subject: "role" },
   "no-payoff": { flags: "No item takes the lens's payoff role.", subject: null },
   "role-out-of-order": {
@@ -274,7 +274,7 @@ export const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindi
   },
 };
 
-export const DIRECTION_ERROR_DOCS: Record<DirectionErrorCode, string> = {
+const DIRECTION_ERROR_DOCS: Record<DirectionErrorCode, string> = {
   "direction-missing": "The video has no `direction.ts`.",
   "empty-direction": "The direction declares no shot.",
   "duplicate-id": "An id is declared more than once.",
@@ -346,7 +346,7 @@ type OtherCode = Exclude<FindingCode, DirectionFindingCode | DirectionErrorCode>
 
 // Where each is fixed, where the code alone does not say: a narration overflow one retime fits is
 // fixed in `animatic.tsx`, the rest in `direction.ts`.
-export const STAGE_FINDING_DOCS: Record<OtherCode, { flags: string; fixIn: string }> = {
+const STAGE_FINDING_DOCS: Record<OtherCode, { flags: string; fixIn: string }> = {
   "prompt-negation": {
     flags: "A prompt names something to leave out.",
     fixIn: "the stage file or patch writing it",

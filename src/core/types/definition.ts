@@ -360,22 +360,22 @@ export const PinsSchema = z.custom<readonly PinOccurrence[]>().optional();
 
 // `panel-unlinked`'s and `plate-unnested`'s half — every wired image input the stage declared. Not
 // hashed either: what each slot was passed already lives in `inputs`.
-export const ImageInputsSchema = z.custom<readonly ImageInputOccurrence[]>().optional();
+const ImageInputsSchema = z.custom<readonly ImageInputOccurrence[]>().optional();
 
 // Every address the stage declared with a `readsPrevPanel` adapter. Not hashed.
-export const PrevPanelReadersSchema = z.custom<readonly string[]>().optional();
+const PrevPanelReadersSchema = z.custom<readonly string[]>().optional();
 
 // One line spelled as one model needs it — what `respell()` declared while the stage built, filed
 // by the shot the call was made inside (absent for a cue declared on the timeline). Read by the
 // voiced check and the cue classifier and printed beside the prompts; never hashed, since which
 // spelling a model needs is not a change to the take.
-export const RespellingSchema = z.object({
+const RespellingSchema = z.object({
   shot: z.string().optional(),
   line: z.string(),
   as: z.string(),
 });
 export type Respelling = z.infer<typeof RespellingSchema>;
-export const RespellingsSchema = z.array(RespellingSchema).optional();
+const RespellingsSchema = z.array(RespellingSchema).optional();
 
 // What the two composition stages have in common — everything the render, staleness, graph and
 // review machinery reads. `animatic` and `video` are the same shape because they are the same

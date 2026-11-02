@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 const FalQueueStatusSchema = z.enum(["IN_QUEUE", "IN_PROGRESS", "COMPLETED"]);
-export type FalQueueStatus = z.infer<typeof FalQueueStatusSchema>;
 
 export const FalSubmitResponseSchema = z.object({
   request_id: z.string(),

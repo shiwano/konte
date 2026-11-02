@@ -54,7 +54,7 @@ export function chunkPositionPrefix(chunk: string): string {
 }
 
 // `m:ss(.s)` or `h:mm:ss(.s)`, in seconds.
-export function parseClock(text: string): number {
+function parseClock(text: string): number {
   const parts = text.split(":").map(Number);
   return parts.reduce((sum, n) => sum * 60 + n, 0);
 }
@@ -99,7 +99,7 @@ export function sceneChunk(sceneId: string): string | null {
 
 // A span as written: one selector (a chunk, a chapter, a story, a volume) or two joined by `-`, the
 // second of which may drop the leading segments it shares with the first (`v1.b3-b5`).
-export type ParsedSpan = { from: string; to: string };
+type ParsedSpan = { from: string; to: string };
 
 function isSelector(text: string): boolean {
   return (
@@ -125,7 +125,7 @@ export function parseSpan(span: string): ParsedSpan | null {
 }
 
 /** Whether chunk `chunk` is, or lies under, `selector`. */
-export function chunkUnder(chunk: string, selector: string): boolean {
+function chunkUnder(chunk: string, selector: string): boolean {
   return chunk === selector || chunk.startsWith(`${selector}.`);
 }
 

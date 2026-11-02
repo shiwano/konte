@@ -17,7 +17,7 @@ export interface JsxStillInputs extends JsxDocumentInputs {
 }
 
 /** The inputs a `jsxVideo` definition carries (see `dsl/adapters/jsx-video.tsx`). */
-export interface JsxClipInputs extends JsxStillInputs {
+interface JsxClipInputs extends JsxStillInputs {
   duration: number;
   fps: number;
 }

@@ -4,7 +4,7 @@ import type { FeedbackInfo } from "../types.js";
 import { PinMarker } from "./pin-marker.js";
 
 // A draft comment as the layer needs it: pinned ones are drawn, the rest skipped.
-export interface PendingPinNote {
+interface PendingPinNote {
   id: string;
   text: string;
   annotation: { kind: "pin"; x: number; y: number } | null;

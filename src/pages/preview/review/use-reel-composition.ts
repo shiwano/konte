@@ -46,13 +46,7 @@ export function useReelComposition({
       // and the comment written over it names another. A gallery pick still wins.
       const pinned = { ...compositionRefVariants, ...effectiveVariants };
       const overrides = Object.keys(pinned).length > 0 ? pinned : undefined;
-      fetchCompositionHtml(
-        undefined,
-        undefined,
-        overrides,
-        signal,
-        standInShotKey ? standInShotKey.split(",") : [],
-      )
+      fetchCompositionHtml(overrides, signal, standInShotKey ? standInShotKey.split(",") : [])
         .then(setCompositionHtml)
         .catch((err) => {
           if (signal.aborted) return;

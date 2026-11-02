@@ -556,7 +556,7 @@ function jobBackendKind(assetDef: AssetDefinition, target: ComfyTarget | null): 
   return getBackendKind(assetDef);
 }
 
-export interface JobRegistration {
+interface JobRegistration {
   address: string;
   assetDef: AssetDefinition;
   variantCount: number;
@@ -657,7 +657,7 @@ export type PlanEntry = {
   deps: string[];
 };
 
-export type GeneratePlan = {
+type GeneratePlan = {
   levels: Array<{ level: number; entries: PlanEntry[] }>;
   summary: { start: number; wait: number; skip: number; synced: number };
 };

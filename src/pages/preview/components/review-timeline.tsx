@@ -138,7 +138,7 @@ export interface ReviewTimelineRef {
   resetZoom: () => void;
 }
 
-export interface ReviewTimelineProps {
+interface ReviewTimelineProps {
   timelineRef?: React.Ref<ReviewTimelineRef>;
   shots: ShotInfo[];
   audioAssets: AudioTrackAssetInfo[];

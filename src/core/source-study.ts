@@ -23,7 +23,7 @@ import {
 } from "./types/index.js";
 
 export const SOURCE_DIR = "source";
-export const CHUNKS_DIR = "chunks";
+const CHUNKS_DIR = "chunks";
 export const DIGEST_DIR = "digest";
 // A digest file under `digest/`, named after its chunk.
 export const DIGEST_FILE_PATTERN = /^[a-z0-9.]+\.ts$/;
@@ -74,7 +74,7 @@ export function sourceRefIn(videoRoot: string): SourceRef | null {
   return { dir, file: originals[0]! };
 }
 
-export function sourceKindOf(src: SourceRef): SourceKind {
+function sourceKindOf(src: SourceRef): SourceKind {
   const abs = path.join(src.dir, src.file);
   if (!existsSync(abs)) throw new KonteError("SOURCE_UNREADABLE", `No such file: ${abs}`);
   const kind = sourceKindOfFile(abs, statSync(abs).isDirectory());
@@ -114,7 +114,7 @@ function readdirSorted(dir: string) {
 
 const HASH_CONCURRENCY = 8;
 
-export async function fingerprintOf(src: SourceRef): Promise<SourceFileFingerprint[]> {
+async function fingerprintOf(src: SourceRef): Promise<SourceFileFingerprint[]> {
   return mapConcurrent(originalFiles(src), HASH_CONCURRENCY, async (rel) => {
     const abs = path.join(src.dir, rel);
     const st = statSync(abs);
@@ -127,7 +127,7 @@ export async function fingerprintOf(src: SourceRef): Promise<SourceFileFingerpri
  * files, each the same size and mtime — or, where only the mtime moved, the same sha256, with that
  * mtime taken in. Null where the original changed.
  */
-export async function fingerprintHolds(
+async function fingerprintHolds(
   src: SourceRef,
   known: readonly SourceFileFingerprint[],
 ): Promise<SourceFileFingerprint[] | null> {
@@ -204,7 +204,7 @@ const KINDS = new Map<SourceKind, () => Promise<SourceStudyKind>>([
   ["clip", async () => (await import("./source-study-clip.js")).CLIP_STUDY],
 ]);
 
-export async function studyKind(kind: SourceKind): Promise<SourceStudyKind> {
+async function studyKind(kind: SourceKind): Promise<SourceStudyKind> {
   return KINDS.get(kind)!();
 }
 
@@ -267,7 +267,7 @@ export async function refreshStudyIndex(
   return { index, recounted: true };
 }
 
-export function chunkWritten(
+function chunkWritten(
   src: SourceRef,
   index: SourceStudyIndex,
   impl: SourceStudyKind,
@@ -316,7 +316,7 @@ export async function studySource(
   return { index, recounted };
 }
 
-export function studyIndexMarkdown(index: SourceStudyIndex, impl: SourceStudyKind): string {
+function studyIndexMarkdown(index: SourceStudyIndex, impl: SourceStudyKind): string {
   const stems = chunkStems(index);
   const lines = [`# ${index.file}`, "", index.summary, ""];
   for (const note of index.notes) lines.push(`- ${note}`);

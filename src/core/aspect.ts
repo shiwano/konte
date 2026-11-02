@@ -8,10 +8,3 @@ export function ratioOf(size: { width: number; height: number }): string {
   const g = gcd(size.width, size.height) || 1;
   return `${size.width / g}:${size.height / g}`;
 }
-
-export function sameAspect(
-  a: { width: number; height: number },
-  b: { width: number; height: number },
-): boolean {
-  return ratioOf(a) === ratioOf(b);
-}

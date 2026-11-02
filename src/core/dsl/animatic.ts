@@ -10,7 +10,7 @@ import { beginPanelCollection, endPanelCollection, type PanelOccurrence } from "
 // materialized from the same cues on accept (`materializeShotStem`); discovery only checks that each
 // cue can be mixed.
 
-export interface AnimaticShotDiscovery {
+interface AnimaticShotDiscovery {
   panels: PanelDefinition[];
   // The keyframes inside the shot's `<Cutin>`, windowed on the shot's clock the same way.
   cutinPanels: PanelDefinition[];

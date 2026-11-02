@@ -14,15 +14,9 @@ import {
   mediaTransferTimeoutMs,
   TransientHttpError,
 } from "../core/http-retry.js";
-import {
-  type ComfyApiAuth,
-  ComfyApiHttpError,
-  sendIdempotent,
-  sendOnce,
-  toHttpError,
-} from "./http.js";
+import { type ComfyApiAuth, sendIdempotent, sendOnce, toHttpError } from "./http.js";
 
-export const ComfyApiJobStatusSchema = z.enum([
+const ComfyApiJobStatusSchema = z.enum([
   "queued",
   "running",
   "succeeded",
@@ -31,7 +25,6 @@ export const ComfyApiJobStatusSchema = z.enum([
   "failed",
   "expired",
 ]);
-export type ComfyApiJobStatus = z.infer<typeof ComfyApiJobStatusSchema>;
 
 const NodeErrorSchema = z
   .object({
@@ -68,7 +61,7 @@ const OutputSchema = z
   .passthrough();
 export type ComfyApiOutput = z.infer<typeof OutputSchema>;
 
-export const ComfyApiJobSchema = z
+const ComfyApiJobSchema = z
   .object({
     id: z.string(),
     status: ComfyApiJobStatusSchema,
@@ -100,7 +93,7 @@ const JobListSchema = z.union([
 const LogsSchema = z.object({ text: z.string() }).passthrough().nullable().catch(null);
 
 // The surfaces differ (cloud vs. deployment); `tags` is the one an upload depends on.
-export type ComfyApiSurface = "cloud" | "deployment";
+type ComfyApiSurface = "cloud" | "deployment";
 
 export async function blake3File(filePath: string): Promise<string> {
   const hasher = blake3.create();
@@ -266,8 +259,4 @@ export class ComfyApiRuntimeClient {
     if (!res.ok) throw await toHttpError(res, `Comfy API download of ${output.name}`);
     await saveDownloadResponse(res, outputPath);
   }
-}
-
-export function isComfyApiNotFound(err: unknown): boolean {
-  return err instanceof ComfyApiHttpError && err.status === 404;
 }

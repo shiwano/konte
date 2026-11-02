@@ -54,7 +54,7 @@ export function shotFrameDir(
   return isWithinRoot(dir, root) ? dir : null;
 }
 
-export interface FeedbackFrameOptions {
+interface FeedbackFrameOptions {
   video: import("./types/index.js").StageDefinition;
   manager: import("./state/index.js").StateManager;
   videoRoot: string;
@@ -99,13 +99,13 @@ export async function feedbackFramePath(options: FeedbackFrameOptions): Promise<
  * simply older than the piece. `failed` is the rendering machinery breaking (no Chromium, no disk,
  * a capture session dying), which a reader must be told about rather than read as the first.
  */
-export type FeedbackFrameResult =
+type FeedbackFrameResult =
   | { kind: "frame"; file: string }
   | { kind: "unavailable" }
   | { kind: "failed"; message: string };
 
 /** One shot's notes, as `resolveShotFeedbackFrames` takes them. */
-export interface FeedbackFrameNote {
+interface FeedbackFrameNote {
   feedbackId: string;
   /** Offset within the shot, which is what a composition capture takes. */
   localTime: number;

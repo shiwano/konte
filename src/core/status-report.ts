@@ -685,7 +685,7 @@ export async function loadNeedsReviewTargets(videoRoot: string, scope?: string) 
   return { definitions, manager, items };
 }
 
-export type ProjectStatus = {
+type ProjectStatus = {
   report: StatusReport;
   suggestedActions: SuggestedAction[];
   directionAcceptance: DirectionAcceptanceSummary | null;

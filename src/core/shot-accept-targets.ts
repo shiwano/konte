@@ -38,7 +38,7 @@ import { isPendingShot, type AssetDefinition, type StageDefinition } from "./typ
  * against it. An address that earns no entry here is one no toggle reaches — which is a konte bug,
  * and is reported as one rather than sitting under "Needs review" forever.
  */
-export interface ShotAcceptTargets {
+interface ShotAcceptTargets {
   /** Per-asset picture takes — accepted from the review's `displayed` snapshot. */
   pictureAssets: string[];
   /** The audio takes the shot's stems are mixed from — accepted before a stem materializes. */

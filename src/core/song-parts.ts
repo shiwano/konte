@@ -4,9 +4,9 @@ import { sha256Hex } from "./content-hash.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
 import { separateSong } from "./sherpa-binary.js";
 
-export type SongPart = "vocals" | "instrumental";
+type SongPart = "vocals" | "instrumental";
 
-export type SongParts = Record<SongPart, string>;
+type SongParts = Record<SongPart, string>;
 
 // A take of the song separated into its voice and the rest, each a WAV on the take's own clock.
 // Kept under the video's cache by the take's output hash, so each take is separated once.

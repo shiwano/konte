@@ -11,12 +11,12 @@ export function readingOutdated(record: SongRecord, basis: { lang: string }): bo
 }
 
 // What a reading of the song is taken against under `direction`, or null where it names no song.
-export function readingBasis(direction: Direction | null): { lang: string } | null {
+function readingBasis(direction: Direction | null): { lang: string } | null {
   if (!direction?.policy?.song) return null;
   return { lang: direction.policy.lang };
 }
 
-export type UnreadSongVariant = { address: string; variantId: string; outputHash: string | null };
+type UnreadSongVariant = { address: string; variantId: string; outputHash: string | null };
 
 // Every take of the song that has landed and holds no reading of it in the declared language.
 export function unreadSongVariants(

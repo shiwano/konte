@@ -18,7 +18,7 @@ export interface PendingFeedback {
   shotId?: string;
 }
 
-export type FeedbackPatch = FeedbackPatchBody;
+type FeedbackPatch = FeedbackPatchBody;
 
 /** One address's comment thread: its drafts, what hides its saved comments, and the edits to both. */
 export interface CommentThreadBinding extends LiveFeedbackFilter {

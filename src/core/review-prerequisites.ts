@@ -33,22 +33,12 @@ type Collector = (
 
 // A stage absent here has no prerequisites — `reference` and `video` today. Giving one to another
 // stage means writing its collector and widening `PrerequisiteDefinitions` (plus what the gates
-// pass into it); the gates' own logic stays put, since they only ever ask by stage.
+// pass into it).
 const COLLECTORS: Partial<Record<Stage, Collector>> = {
   animatic: collectPanelMovement,
 };
 
-export function findUnmetPrerequisites(
-  stage: Stage,
-  defs: PrerequisiteDefinitions,
-  state: KonteState,
-  addresses?: ReadonlySet<string>,
-): UnmetPrerequisite[] {
-  return COLLECTORS[stage]?.(defs, state, addresses) ?? [];
-}
-
-// Every stage's collectors at once. This — not the per-stage form — is what an accept must ask:
-// which stage REVIEWS a target is not the stage that owns its address. A `reference:` asset used as
+// Every stage's collectors at once — what an accept must ask: which stage REVIEWS a target is not the stage that owns its address. A `reference:` asset used as
 // an animatic panel is reviewed on the board, so its accept is the board's to answer for, and the
 // reference stage alone would wave it through.
 export function findAllUnmetPrerequisites(

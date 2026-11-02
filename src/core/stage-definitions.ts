@@ -19,7 +19,7 @@ export type LoadOptions = { reload?: boolean };
 
 // The stage entries as far as they load. A stage that did not load is null, with its error under
 // `errors` — an absent file included. The video is not read when the board did not load.
-export type TolerantStageDefinitions = {
+type TolerantStageDefinitions = {
   reference: ReferenceDefinition | null;
   animatic: AnimaticDefinition | null;
   video: VideoDefinition | null;

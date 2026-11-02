@@ -40,7 +40,7 @@ type UnconfiguredBackendAsset = { address: string; kind: VendorBackendKind };
  * Never a connectivity probe. This answers the same way offline, and a ComfyUI that is merely down
  * is one konte's jobs already wait out (see `unreachableTimeoutMinutes`).
  */
-export function isBackendConfigured(kind: VendorBackendKind, config: KonteConfig): boolean {
+function isBackendConfigured(kind: VendorBackendKind, config: KonteConfig): boolean {
   if (kind === "comfy") return (config.comfy?.comfyui?.url ?? "") !== "" || comfyApiKey() !== null;
   const credential = backendCredential(kind);
   return credential ? (process.env[credential.key] ?? "") !== "" : true;
@@ -236,12 +236,4 @@ function assertNoAuthenticatedModel(label: string, def: AssetDefinition & { kind
       `Build definition would keep: ${secret.map((m) => m.filename).join(", ")}. Route this ` +
       `adapter to comfyui or comfyapi:cloud in comfy.adapters.`,
   );
-}
-
-/** Everything a stage declares, as spend items — definition-level, so the gate is deterministic. */
-export function stageSpendItems(def: DefinitionLike, stage: AssetStage): SpendItem[] {
-  return listAssetPaths(def, stage).map((address) => ({
-    label: address,
-    def: getAssetEntry(def, address),
-  }));
 }

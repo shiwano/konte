@@ -23,7 +23,7 @@ export function toolCacheDir(name: string): string {
   return path.join(toolCacheRoot(), name);
 }
 
-export function toolCacheRoot(): string {
+function toolCacheRoot(): string {
   const override = process.env.KONTE_CACHE_DIR;
   if (override) return path.resolve(override);
 
@@ -88,7 +88,7 @@ export function markToolCacheReady(dir: string, pin: string): Promise<void> {
   return writeFileAtomic(path.join(dir, READY_MARKER), pin);
 }
 
-export interface ToolCacheProvision {
+interface ToolCacheProvision {
   dir: string;
   pin: string;
   files: readonly string[];

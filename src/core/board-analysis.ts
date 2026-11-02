@@ -43,7 +43,7 @@ import { StateManager } from "./state/index.js";
 /**
  * One camera frame the direction places on a board shot: which lane of which shot, on which setup.
  */
-export type BoardFrame = { shotId: string; lane: PanelLane; setup: string };
+type BoardFrame = { shotId: string; lane: PanelLane; setup: string };
 
 // Where a keyframe stands on nothing. Two gaps over one walk, since both ask the same question of
 // the same chain — what a picture was built FROM:
@@ -74,7 +74,7 @@ export type BoardFrame = { shotId: string; lane: PanelLane; setup: string };
 // A view image of the location counts as the location. Where the setup's `view` is known, a picture
 // that reaches the location but not its own view's image (`front`: the master itself) is a gap of
 // its own: a plate, or a shot on a setup with no plate.
-export type SetupAnchorGaps = {
+type SetupAnchorGaps = {
   // Setup ids whose plate stands on no location reference — bar one built from no reference at all.
   unanchoredPlates: string[];
   // Shot ids that reach neither anchor, keyed by the setup they sit on.
@@ -420,7 +420,7 @@ export function listPlateRecrops(
  * The conditioning text one keyframe stands on — the panel's own positive prompts and those of every
  * step behind it. Panels come out in panel order.
  */
-export type PanelPromptText = {
+type PanelPromptText = {
   shotId: string;
   lane: PanelLane;
   panel: string;
@@ -520,7 +520,7 @@ export type PanelConditioning = {
 };
 
 // Structural so a listing can pass the definition it already loaded.
-export type PanelConditioningSource = AnimaticPictureSource & {
+type PanelConditioningSource = AnimaticPictureSource & {
   prompts?: readonly { address: string; negative?: boolean; spoken?: boolean }[];
 };
 
@@ -732,7 +732,7 @@ export function listVideoShotPins(
   return [...byFrame.values()];
 }
 
-export type PictureCueLike = {
+type PictureCueLike = {
   src: string;
   start: number | null;
   duration: number | null;
@@ -798,7 +798,7 @@ function videoEntryResolver(
  * How each developed board shot meets the shot before it: the two keyframes that answer for a seam,
  * and what the opening one was handed of the frame it cuts from.
  */
-export type ShotContinuity = {
+type ShotContinuity = {
   shotId: string;
   lane: PanelLane;
   // The keyframe answering for the cut INTO this shot, and the one the next shot cuts from — the
@@ -898,7 +898,7 @@ function keyframeLineage(
 }
 
 /** One keyframe's `reference:<id>` slots, in the order that panel's own inputs declare them. */
-export type PanelReferenceSlots = {
+type PanelReferenceSlots = {
   shotId: string;
   lane: PanelLane;
   panel: string;
@@ -941,7 +941,7 @@ export function listPanelReferenceSlots(animatic: AnimaticDefinition): PanelRefe
  * One keyframe's reference REACH — every `reference:<id>` the chain behind that panel stands on.
  * Panels come out in panel order.
  */
-export type PanelReferenceReach = {
+type PanelReferenceReach = {
   shotId: string;
   lane: PanelLane;
   panel: string;
@@ -1002,7 +1002,7 @@ function walkReferenceReach(
 
 // What a walk over the animatic's pictures reads: where each address's declaration lives, and the
 // keyframes each shot declares.
-export type AnimaticPictureSource = {
+type AnimaticPictureSource = {
   shots: readonly {
     id: string;
     assets: Record<string, AssetDefinition>;
@@ -1202,7 +1202,7 @@ function isSignedOff(
   return accepted.variantId !== null && !accepted.definitionStale;
 }
 
-export type DirectionStageInputs = {
+type DirectionStageInputs = {
   animaticSetups: AnimaticSetupState | undefined;
   stagingStage: StagingStageState | undefined;
   songVariant: SongVariantState | undefined;

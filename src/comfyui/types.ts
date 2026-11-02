@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export type ComfyUINodeInput = Record<string, unknown>;
+type ComfyUINodeInput = Record<string, unknown>;
 
 export type ComfyUINode = {
   class_type: string;
@@ -9,11 +9,6 @@ export type ComfyUINode = {
 };
 
 export type ComfyUIWorkflow = Record<string, ComfyUINode>;
-
-export type ComfyUIPromptRequest = {
-  prompt: ComfyUIWorkflow;
-  client_id?: string;
-};
 
 const ComfyUIErrorDetailSchema = z.object({
   type: z.string(),

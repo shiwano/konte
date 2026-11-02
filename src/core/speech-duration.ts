@@ -24,7 +24,7 @@ import { isLanguageTag, scriptOf } from "./typography.js";
  * not the seconds.
  */
 
-export const BASE_SEC = 0.93;
+const BASE_SEC = 0.93;
 
 // Seconds per unit, by ISO 15924. The unit differs with the script — a mora for kana, a syllable
 // for han and hangul, a character for an alphabet — so these are not comparable across rows; each

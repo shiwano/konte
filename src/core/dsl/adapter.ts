@@ -130,7 +130,7 @@ export interface AssetAdapter<TInputs extends Record<string, unknown>, TOutput e
 // See `AdapterInputDef.pin`.
 export type DeclaredPin = "start" | "end" | { end: { nodeId: string; field: string } };
 
-export function pinnedEnd(pin: DeclaredPin | undefined): "start" | "end" | undefined {
+function pinnedEnd(pin: DeclaredPin | undefined): "start" | "end" | undefined {
   return typeof pin === "object" ? "end" : pin;
 }
 

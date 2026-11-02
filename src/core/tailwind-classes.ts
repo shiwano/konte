@@ -17,7 +17,7 @@ export interface ClassSubject {
   html: string;
 }
 
-export interface ClassFindings {
+interface ClassFindings {
   label: string;
   fontFamily: string[];
 }

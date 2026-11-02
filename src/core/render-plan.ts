@@ -148,10 +148,7 @@ export function shotSpans(
 
 // Everything a shot's composition consumes from outside the shot, the overlay laid over it
 // included — it renders with the shot.
-export function outsideShotRefs(
-  video: StageDefinition,
-  shot: StageDefinition["shots"][number],
-): string[] {
+function outsideShotRefs(video: StageDefinition, shot: StageDefinition["shots"][number]): string[] {
   if (!shot.shotFn || isPendingShot(shot)) return [];
   const ownPaths = new Set(
     Object.keys(shot.assets).map((name) => formatAssetPath(video.stage, shot.id, name)),
@@ -512,7 +509,7 @@ export function buildStageReviewPlan(
 }
 
 /** One bed's resolved level: the gain that places it, and the loudness a duck aims off. */
-export interface BedLevel {
+interface BedLevel {
   gain: number;
   adjustment: AudioLevelling;
   loudness: AudioLoudness | undefined;

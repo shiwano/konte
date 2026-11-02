@@ -86,7 +86,7 @@ const SUBMISSION_ATTEMPT_KEY = "submissionAttempt";
  * What one submission sends that is drawn at submit time: its seed, its inputs' files, and where it
  * goes when the backend picks among several.
  */
-export type SubmissionAttempt = {
+type SubmissionAttempt = {
   seed: number;
   resolvedDependencies: Record<string, string>;
   site: string | null;

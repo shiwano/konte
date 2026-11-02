@@ -113,7 +113,7 @@ function memoizedInput(video: StageDefinition, key: string, compute: () => unkno
 }
 
 /** Rewrites what a definition hash hashes, before it is hashed. */
-export type HashInputRewrite = (input: unknown) => unknown;
+type HashInputRewrite = (input: unknown) => unknown;
 
 function hashInput(input: unknown, rewrite?: HashInputRewrite): string {
   if (input === null) return "";
@@ -623,7 +623,7 @@ export function listRemovedShotStemAddresses(state: KonteState, video: StageDefi
   return video.shots.flatMap((shot) => removedShotStemAddresses(state, video, shot.id));
 }
 
-export interface StemIdentity {
+interface StemIdentity {
   definitionHash: string;
   inputFingerprints: Record<string, string>;
 }
@@ -1369,7 +1369,7 @@ function unresolvedRefCause(manager: StateManager, address: string): string | nu
  * A leaf readied for its accept. Only a board shot's stem has work worth doing outside the lock
  * (its ffmpeg mix); every other leaf is materialized at commit.
  */
-export type PreparedLeaf = { kind: "inline" } | { kind: "shot-stem"; prepared: PreparedShotStem };
+type PreparedLeaf = { kind: "inline" } | { kind: "shot-stem"; prepared: PreparedShotStem };
 
 // Ready the composition/stem leaf an address names for its accept, without touching state. Null
 // when the address is not a leaf or the leaf has nothing to materialize (pending shot, no audio).
@@ -1419,18 +1419,6 @@ export async function commitLeafForAddress(
     return materializeTimelineStem({ manager, video });
   }
   return null;
-}
-
-// Materialize the composition/stem leaf an address names, prepare and commit in one go, and return
-// its variant id. The on-accept entry point for a caller holding the lock over one leaf.
-export async function materializeLeafForAddress(
-  manager: StateManager,
-  video: StageDefinition,
-  address: string,
-): Promise<string | null> {
-  const prepared = await prepareLeafForAddress(manager, video, address);
-  if (!prepared) return null;
-  return commitLeafForAddress(manager, video, address, prepared);
 }
 
 // Dead stem and overlay variants — the counterpart of collectDeadCompositionVariants for the other

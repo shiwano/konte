@@ -22,7 +22,7 @@ export function comfyApiKey(): string | null {
 }
 
 /** The name `comfy.adapters` keys an adapter by: its workflow file without `.json`. */
-export function comfyAdapterName(workflow: string): string {
+function comfyAdapterName(workflow: string): string {
   return workflow.replace(/\.json$/, "");
 }
 
@@ -52,7 +52,7 @@ export function assertComfyAdapterKeys(workspaceRoot: string, config: KonteConfi
   }
 }
 
-export type ComfyRoute =
+type ComfyRoute =
   | { kind: "routed"; target: ComfyTarget }
   // No candidate can run it; one reason per candidate tried.
   | { kind: "unroutable"; reasons: string[] };

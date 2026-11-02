@@ -5,7 +5,7 @@ import type { NoteDraft } from "../components/target-panel.js";
 import type { ShotInfo } from "../types.js";
 import { Playhead } from "./playhead.js";
 
-export type LoopMode = "off" | "all" | "shot";
+type LoopMode = "off" | "all" | "shot";
 
 export function findShotIdxAtTime(shots: ShotInfo[], time: number): number {
   for (let i = 0; i < shots.length; i++) {

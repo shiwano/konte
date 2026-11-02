@@ -45,7 +45,7 @@ export interface DependencyGraph {
   pendingReferences: readonly PendingReference[];
 }
 
-export type PendingReference = { from: string; ref: string };
+type PendingReference = { from: string; ref: string };
 
 function collectRefs(value: unknown, refs: string[]): void {
   if (value === null || value === undefined) {
@@ -535,7 +535,7 @@ function boardNodesOf(shot: AnimaticDefinition["shots"][number]): Set<string> {
   return nodes;
 }
 
-export interface BoardlessVideoShot {
+interface BoardlessVideoShot {
   shotId: string;
   // Whether the shot reaches a vendor backend (`isVendorBackendAsset`). Only these are refused: a
   // `file` or `local` asset takes a path or another take, never a board, so no edit would satisfy a

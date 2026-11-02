@@ -83,7 +83,7 @@ const COMFY_TARGET_RE = /^(?:comfyui|comfyapi:[A-Za-z0-9_-]+)$/;
 // A deployment name becomes part of a Build name and a job id.
 const DEPLOYMENT_NAME_RE = /^[A-Za-z0-9_-]+$/;
 /** The reserved Comfy API deployment name for Comfy Cloud, the managed deployment. */
-export const COMFY_CLOUD_DEPLOYMENT = "cloud";
+const COMFY_CLOUD_DEPLOYMENT = "cloud";
 export const COMFY_CLOUD_TARGET = `comfyapi:${COMFY_CLOUD_DEPLOYMENT}` as const;
 
 /** Where a comfy adapter runs: `comfyui`, `comfyapi:cloud`, or `comfyapi:<deployment>`. */
@@ -92,7 +92,7 @@ export const ComfyTargetSchema = z
   .regex(COMFY_TARGET_RE, "must be comfyui, comfyapi:cloud or comfyapi:<deployment>");
 export type ComfyTarget = "comfyui" | typeof COMFY_CLOUD_TARGET | `comfyapi:${string}`;
 
-export const ComfyApiDeploymentConfigSchema = z
+const ComfyApiDeploymentConfigSchema = z
   .object({
     // The ComfyUI release tag the Build runs (its `baseComfyVersion`).
     comfyVersion: z.string().min(1),
@@ -152,7 +152,6 @@ const ComfyConfigSchema = z
       }
     }
   });
-export type ComfyConfig = z.infer<typeof ComfyConfigSchema>;
 
 export const KonteConfigSchema = z.object({
   comfy: ComfyConfigSchema.optional(),
@@ -186,4 +185,3 @@ export const KonteConfigSchema = z.object({
 });
 
 export type KonteConfig = z.infer<typeof KonteConfigSchema>;
-export type ComfyUIHeaders = Record<string, string>;

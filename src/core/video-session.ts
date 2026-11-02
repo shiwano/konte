@@ -6,13 +6,13 @@ import type { LoadedDefinitions } from "./select-definition.js";
 import { type LoadOptions, loadStageDefinitions } from "./stage-definitions.js";
 import { StateManager } from "./state/index.js";
 
-export type VideoSession = {
+type VideoSession = {
   definitions: LoadedDefinitions;
   graph: DependencyGraph;
   manager: StateManager;
 };
 
-export type VideoSessionOptions = LoadOptions & {
+type VideoSessionOptions = LoadOptions & {
   // `locked` persists the file-asset sync under the state lock, `memory` applies it to this
   // session's manager alone.
   sync?: "locked" | "memory" | "none";

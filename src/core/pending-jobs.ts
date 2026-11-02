@@ -38,7 +38,7 @@ type ResolveBackendFn = (kind: BackendKind, roots: VideoRoots) => Promise<Genera
 // reverse order — load, then list — judged a job created moments after the load (an agent's
 // edit → reroll landing while a slow submit held the pass open) against definitions from before
 // its edit, and failed it as "definition changed" when nothing had.
-export type LoadDefinitionsFn = () => Promise<LoadedDefinitions>;
+type LoadDefinitionsFn = () => Promise<LoadedDefinitions>;
 
 // A judge that released a job because its own definitions were stale, for the caller to report.
 export interface StaleJudgeRelease {
@@ -48,7 +48,7 @@ export interface StaleJudgeRelease {
   currentHash: string;
 }
 
-export interface SubmitReadyPendingJobsResult {
+interface SubmitReadyPendingJobsResult {
   submitted: string[];
   failed: string[];
   // Jobs handed back to the queue by this process because its loaded definitions proved older

@@ -115,12 +115,6 @@ export function isAsideShotInput(input: AnyShotInput): input is AsideShotInput {
   return "__asideShot" in input && input.__asideShot === true;
 }
 
-// The shots that carry a composition to discover — a developed shot, or a video's aside (which has a
-// picture to build). An animatic aside and a pending shot both have none.
-export function isBuiltShotInput(input: AnyShotInput): input is ShotInput | AsideShotInput {
-  return !isPendingShotInput(input) && typeof (input as ShotInput).fn === "function";
-}
-
 export interface ShotAnchor<TId extends string = string> {
   /** The shot this anchor is relative to. */
   shot: TId;

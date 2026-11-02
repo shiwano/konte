@@ -10,7 +10,7 @@ export function quoteLines(lines: readonly string[]): string {
 }
 
 // A selection inside one field: the field's index and the selected [start, end).
-export interface FieldSelection {
+interface FieldSelection {
   field: number;
   start: number;
   end: number;

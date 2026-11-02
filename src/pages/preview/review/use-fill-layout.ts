@@ -11,9 +11,9 @@ const FILL_QUERY = "(max-width: 640px), (max-height: 540px)";
  * bottom (the room is beside it) — decided by the two aspects, not by orientation: a 9:16 reel on
  * a portrait phone still leaves its room below, and a 16:9 one on a landscape phone beside.
  */
-export type BandSide = "bottom" | "side";
+type BandSide = "bottom" | "side";
 
-export interface FillLayout {
+interface FillLayout {
   fill: boolean;
   bandSide: BandSide;
 }

@@ -36,7 +36,7 @@ const PUPPETEER_PLATFORMS: Record<string, BrowserPlatform> = {
  * launching the shell can suppress. Chrome for Testing's `chrome.exe` is a GUI binary and runs the
  * same build headless.
  */
-export function chromiumBrowser(platform: NodeJS.Platform): Browser {
+function chromiumBrowser(platform: NodeJS.Platform): Browser {
   return platform === "win32" ? Browser.CHROME : Browser.CHROMEHEADLESSSHELL;
 }
 

@@ -29,7 +29,7 @@ function statePath(workspaceRoot: string): string {
   return path.join(workspaceRoot, STATE_FILE);
 }
 
-export function emptyDeploymentState(): DeploymentState {
+function emptyDeploymentState(): DeploymentState {
   return DeploymentStateSchema.parse({});
 }
 

@@ -69,7 +69,7 @@ export class McpLog {
   }
 }
 
-export interface McpLogEntry {
+interface McpLogEntry {
   level: McpLogLevel;
   data: Record<string, unknown>;
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ShotInfo } from "../types.js";
 
-export type ShotFrames = { first: string | null; last: string | null };
+type ShotFrames = { first: string | null; last: string | null };
 
 // At most this many frame captures run at once. Each capture loads the whole clip into a
 // hidden <video>, so the unbounded startup sweep decoded every clip on the timeline

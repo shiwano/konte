@@ -7,10 +7,8 @@ import {
 } from "../../../core/accept-cascade.js";
 import {
   addressToUrlPath,
-  formatAddress,
   formatShotAddress,
   patchSourceVariantIdOf,
-  shownShotAssetNames,
   type Stage,
 } from "../../../core/address.js";
 import {
@@ -108,7 +106,7 @@ type VariantCandidate = {
   song?: SongReadingInfo;
 };
 
-export type AddressFeedback = {
+type AddressFeedback = {
   id: string;
   address: string;
   displayedVariants: Record<string, string>;
@@ -967,21 +965,4 @@ export function addressReviewTouchesNothing(body: AddressReviewSubmitBody): bool
     (body.songLines ?? []).length === 0 &&
     !body.overallComment
   );
-}
-
-export function buildAnimaticReviewContext(
-  animatic: AnimaticDefinition,
-  manager: StateManager,
-): Array<{ shotId: string; duration: number; variants: Record<string, string> }> {
-  return animatic.shots.map((shot) => {
-    const variants: Record<string, string> = {};
-    for (const assetName of shownShotAssetNames("animatic", animatic.shots, shot)) {
-      const addr = formatAddress("animatic", shot.id, assetName);
-      const displayed = manager.selectVariant(addr, { includeStale: true });
-      if (displayed) {
-        variants[assetName] = displayed.variantId;
-      }
-    }
-    return { shotId: shot.id, duration: shot.duration, variants };
-  });
 }

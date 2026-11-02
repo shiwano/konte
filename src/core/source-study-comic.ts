@@ -30,7 +30,7 @@ import { Pdf, type PdfDict, type PdfPageImage, PdfParseError } from "./pdf.js";
 import { pdfInfo, renderPdfPage } from "./pdf-render.js";
 import type { SourceStudyIndex } from "./types/index.js";
 
-export const BUNDLE_PAGES = 12;
+const BUNDLE_PAGES = 12;
 // The page images a reader reads are scaled to this short side.
 const ANALYSIS_SHORT_SIDE = 720;
 const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"]);

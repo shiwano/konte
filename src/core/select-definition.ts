@@ -16,7 +16,7 @@ export type LoadedDefinitions = { reference: ReferenceDefinition } & (
   | { video: null; animatic: null; songUnread: KonteError; direction: Direction }
 );
 
-export type ShotStageDefinitions = Extract<LoadedDefinitions, { video: VideoDefinition }>;
+type ShotStageDefinitions = Extract<LoadedDefinitions, { video: VideoDefinition }>;
 
 // The `reference:<id>` of the song the piece is cut to, where it is.
 export function songOfDefinitions(defs: LoadedDefinitions): string | undefined {

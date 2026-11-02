@@ -20,7 +20,7 @@ export function tickLabel(seconds: number, step: number): string {
   return step < 1 ? formatPlayerTime(seconds) : formatTimecode(seconds);
 }
 
-export interface TimelineZoom {
+interface TimelineZoom {
   scrollRef: React.RefObject<HTMLDivElement | null>;
   // null = auto-fit to the viewport; a number = a manual zoom that survives viewport resizes.
   pxPerSec: number | null;

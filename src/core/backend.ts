@@ -74,7 +74,7 @@ export interface GenerationBackend {
   cancel(jobId: string): Promise<void>;
 }
 
-export type BackendCaps = {
+type BackendCaps = {
   // A repeated submission cannot start a second backend job: local regenerates in place, and a
   // comfy-api submission carries the variant id as its Idempotency-Key.
   resubmitSafe: boolean;

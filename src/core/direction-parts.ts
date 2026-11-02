@@ -45,7 +45,7 @@ import type { ScriptLine } from "./types/script.js";
 // stays the authority on the set; a caller iterating live parts looks its content up here.
 
 // One thing only a place has, shown under the location that declares it.
-export type DirectionLandmarkContent = {
+type DirectionLandmarkContent = {
   id: string;
   name: string;
   promptDepiction: string;
@@ -183,7 +183,7 @@ export type DirectionPartContent =
   | { kind: "waiver"; key: string; reason: string };
 
 // The second camera frame over a shot, as the direction declares it.
-export type DirectionCutinContent = {
+type DirectionCutinContent = {
   setup: string;
   lineup: readonly string[];
   lineupTo: readonly string[];

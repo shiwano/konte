@@ -78,7 +78,7 @@ export interface LoadedPatch extends PatchBuild {
 }
 
 /** The step whose take becomes the patched one — what the variant at the source's address points at. */
-export function patchOutputDef(patch: PatchBuild): AssetDefinition {
+function patchOutputDef(patch: PatchBuild): AssetDefinition {
   const def = patch.assets[patch.outputName];
   if (!def) {
     throw new KonteError(

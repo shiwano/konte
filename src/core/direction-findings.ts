@@ -95,7 +95,7 @@ export function isDirectionFindingCode(code: string): code is DirectionFindingCo
 // Where what a waiver of the code lets through plays, read off its subject: inside one shot (the
 // shot, one of its frames, or a subject in one), across the boundary `<from>-<to>` between two, in
 // every shot with a frame on the setup it names, or in no one shot (null).
-export type WaiverShotScope = "shot" | "boundary" | "setup" | null;
+type WaiverShotScope = "shot" | "boundary" | "setup" | null;
 
 const WAIVER_ON_SHOT: Record<DirectionFindingCode, WaiverShotScope> = {
   "missing-role": null,
@@ -188,7 +188,7 @@ const FIX_STAGE: Partial<Record<DirectionFindingCode, FindingFixStage>> = {
   "opening-key": "video",
 };
 
-export type FindingFixStage = "direction" | "reference" | "animatic" | "video";
+type FindingFixStage = "direction" | "reference" | "animatic" | "video";
 
 export function findingFixStage(code: DirectionFindingCode): FindingFixStage {
   return FIX_STAGE[code] ?? "direction";

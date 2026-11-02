@@ -16,7 +16,7 @@ const secFrame = (sec: number): number => (sec - FRAME_CENTER_SEC) * FRAME_RATE;
 // The meter a take is read in when it has too few bar heads to count one.
 const DEFAULT_BEATS_PER_BAR = 4;
 
-export type SongBeatReading = {
+type SongBeatReading = {
   // Take-seconds of every beat, ascending.
   beats: number[];
   // The index in `beats` of beat 0, the first bar head at or after the first sound.
@@ -27,7 +27,7 @@ export type SongBeatReading = {
   durationSec: number;
 };
 
-export type SungPhrase = { startSec: number; endSec: number };
+type SungPhrase = { startSec: number; endSec: number };
 
 // ── FFT ──────────────────────────────────────────────────────────────────────────────────────────
 

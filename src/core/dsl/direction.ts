@@ -1460,7 +1460,7 @@ const shotScriptOf = (index: DirectionIndex, shotId: string): ShotScript =>
 
 // A shot's span in seconds, for a build to read. A piece cut to its song has none until a take of it
 // is read.
-export function shotDurationOf(index: DirectionIndex, shotId: string): number {
+function shotDurationOf(index: DirectionIndex, shotId: string): number {
   const duration = index.durationById.get(shotId);
   if (duration === null) throw songUnread(index.timeline.song!);
   return duration!;
@@ -1885,7 +1885,7 @@ function onFrames(sec: number, fps: number): number {
 
 // The timeline second of beat `beat`, counted from the song's beat 0, on the frame grid; 0 with no
 // read take.
-export function beatTime(
+function beatTime(
   timeline: Pick<DirectionTimeline, "songGrid" | "fps" | "leadFrames">,
   beat: number,
 ): number {
@@ -2036,7 +2036,7 @@ export function placeDirectionLyrics(
 
 // The lines a span of the timeline hears, from its head: every placed line sounding inside
 // [from, from + duration), cut to it at its head.
-export type SpanLyric = { text: string; singer: readonly string[]; start: number; end: number };
+type SpanLyric = { text: string; singer: readonly string[]; start: number; end: number };
 
 function lyricsInSpan(
   placed: readonly LyricPlacementEntry[],
@@ -2120,7 +2120,7 @@ export function shotSongStem(
 }
 
 // Runs before the direction is reviewed, beside `assertCanvasFormat`.
-export function assertDirectionSong(song: string | undefined): void {
+function assertDirectionSong(song: string | undefined): void {
   if (song === undefined) return;
   if (typeof song !== "string" || !isIdentifier(song)) {
     throw new Error(

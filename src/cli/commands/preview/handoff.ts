@@ -374,7 +374,7 @@ export async function resolveAuthoredNotes(
   return notes;
 }
 
-export type HandoffSubject =
+type HandoffSubject =
   | { stage: "direction"; direction: Direction }
   | { stage: "reference"; reference: ReferenceDefinition }
   | { stage: "animatic" | "video"; animatic: AnimaticDefinition; video: VideoDefinition };

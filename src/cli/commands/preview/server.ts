@@ -48,7 +48,6 @@ import {
   assertReelBuilds,
   handleGetReelState,
   handleGetFullComposition,
-  handleGetShotComposition,
   warmReelPreroll,
   type ReelReviewContext,
 } from "./reel-review.js";
@@ -283,26 +282,6 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
               // See fetchCompositionHtml: only a request carrying a page snapshot pins the
               // stand-ins.
               url.searchParams.has("pinned") ? url.searchParams.getAll("standIn") : undefined,
-            );
-          }
-
-          const shotCompMatch = pathname.match(/^\/api\/compositions\/([^/]+)$/);
-          if (shotCompMatch && req.method === "GET") {
-            const shotId = decodeURIComponent(shotCompMatch[1]!);
-            const variantParam = url.searchParams.get("variant");
-            let variantOverride: { assetName: string; variantId: string } | undefined;
-            if (variantParam) {
-              const [assetName, variantId] = variantParam.split(":");
-              if (assetName && variantId) {
-                variantOverride = { assetName, variantId };
-              }
-            }
-            return await handleGetShotComposition(
-              currentReel(),
-              videoRoot,
-              shotId,
-              assetBaseUrl,
-              variantOverride,
             );
           }
 

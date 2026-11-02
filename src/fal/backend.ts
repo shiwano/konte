@@ -18,7 +18,7 @@ export function encodeBackendJobId(endpointId: string, requestId: string): strin
   return `${endpointId}|${requestId}`;
 }
 
-export function decodeBackendJobId(backendJobId: string): {
+function decodeBackendJobId(backendJobId: string): {
   endpointId: string;
   requestId: string;
 } {

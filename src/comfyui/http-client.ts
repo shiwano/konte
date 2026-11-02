@@ -27,7 +27,7 @@ import {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
-export type ComfyUIClientOptions = {
+type ComfyUIClientOptions = {
   clientId?: string;
   // Unresolved header templates from `comfy.comfyui.headers` (`Bearer ${COMFYUI_TOKEN}`).
   headers?: Readonly<Record<string, string>>;

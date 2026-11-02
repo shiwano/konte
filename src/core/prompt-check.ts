@@ -186,10 +186,6 @@ function formatAddresses(addresses: readonly string[]): string {
   return `${shown}${hidden > 0 ? `, +${hidden} more` : ""}`;
 }
 
-export function formatPromptFinding(finding: PromptFinding): string {
-  return `"${displayPhrase(finding.phrase)}" — ${formatAddresses(finding.addresses)}`;
-}
-
 // What a stage or a patch declares for the check to read: the prompt values it built.
 export type PromptCheckSubject = {
   prompts?: readonly PromptOccurrence[];

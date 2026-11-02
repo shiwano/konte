@@ -2,7 +2,7 @@ import { requireWorkspaceRoot } from "./context.js";
 import { exitWithError } from "./error-output.js";
 import { applyCwdOption, enterScope } from "./startup.js";
 
-export interface McpProgram {
+interface McpProgram {
   command: "serve" | "worker";
   cwd: string | undefined;
 }

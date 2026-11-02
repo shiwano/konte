@@ -40,7 +40,7 @@ function openerFor(url: string): [string, string[]] {
   return ["xdg-open", [url]];
 }
 
-export function isWSL(): boolean {
+function isWSL(): boolean {
   if (process.platform !== "linux") return false;
   try {
     return /microsoft/i.test(readFileSync("/proc/version", "utf8"));

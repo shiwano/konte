@@ -36,16 +36,16 @@ const RECOVERY_LIST_LIMIT = 100;
 const MEDIA_OUTPUT_TYPES = new Set(["image", "video", "audio"]);
 
 /** Where a submitted job runs: Comfy Cloud, or one deployment by id. */
-export type ComfyApiSite = { target: ComfyTarget; deploymentId: string | null };
+type ComfyApiSite = { target: ComfyTarget; deploymentId: string | null };
 
 /** `<target>|<jobId>` on Cloud, `<target>|<deploymentId>|<jobId>` on a deployment. */
-export function encodeComfyApiJobId(site: ComfyApiSite, jobId: string): string {
+function encodeComfyApiJobId(site: ComfyApiSite, jobId: string): string {
   return site.deploymentId === null
     ? `${site.target}|${jobId}`
     : `${site.target}|${site.deploymentId}|${jobId}`;
 }
 
-export function decodeComfyApiJobId(backendJobId: string): ComfyApiSite & { jobId: string } {
+function decodeComfyApiJobId(backendJobId: string): ComfyApiSite & { jobId: string } {
   const parts = backendJobId.split("|");
   if (parts.length === 2) {
     return { target: parts[0] as ComfyTarget, deploymentId: null, jobId: parts[1]! };

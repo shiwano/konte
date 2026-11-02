@@ -12,7 +12,7 @@ import {
 const BuildSchema = z
   .object({ id: z.string(), updatedAt: z.string().nullable().optional() })
   .passthrough();
-export type PlatformBuild = z.infer<typeof BuildSchema>;
+type PlatformBuild = z.infer<typeof BuildSchema>;
 
 const CreateReleaseSchema = z
   .object({ releaseId: z.string().optional(), buildVersionId: z.string().optional() })
@@ -28,7 +28,7 @@ const ReleaseSchema = z
       .optional(),
   })
   .passthrough();
-export type PlatformRelease = z.infer<typeof ReleaseSchema>;
+type PlatformRelease = z.infer<typeof ReleaseSchema>;
 
 const DeploymentSchema = z
   .object({

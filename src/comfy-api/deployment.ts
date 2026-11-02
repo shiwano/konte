@@ -43,7 +43,7 @@ const DEFAULT_TIMING: BuildTiming = {
   lockTimeoutMs: 120 * 60_000,
 };
 
-export type DeploymentContext = {
+type DeploymentContext = {
   workspaceRoot: string;
   config: KonteConfig;
   apiKey: string;
@@ -127,7 +127,7 @@ export function usableDeployment(
 const COMING_UP = new Set(["queued", "provisioning", "starting"]);
 
 /** A deployment of `releaseId` the human deployed that is not ready yet. */
-export function comingUpDeployment(
+function comingUpDeployment(
   deployments: readonly PlatformDeployment[],
   releaseId: string,
 ): PlatformDeployment | null {

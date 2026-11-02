@@ -397,7 +397,7 @@ export function summarizeAudioSilence(
 }
 
 /** One stretch of audible sound inside a file, in seconds from its start. */
-export interface AudibleSpan {
+interface AudibleSpan {
   start: number;
   end: number;
 }
@@ -553,7 +553,7 @@ export function endsOnShotCut(
 }
 
 /** One track's sound on the timeline. `rms` null: unmeasured, so taken as sounding throughout. */
-export interface MixLayer {
+interface MixLayer {
   start: number;
   duration: number;
   /** The played region at `rate` — or, looped, the whole source it repeats. */

@@ -90,7 +90,7 @@ export function isLoopbackAddress(address: string): boolean {
   return false;
 }
 
-export function isLoopbackBind(host: string): boolean {
+function isLoopbackBind(host: string): boolean {
   const h = host.trim();
   // A bind address is written bare (`::1`), an authority bracketed.
   const name = canonicalHostName(h.includes(":") && !h.startsWith("[") ? `[${h}]` : h);
@@ -144,7 +144,7 @@ function portMatches(port: string | null, listening: number): boolean {
 }
 
 /** An address reachable only from the local network — the range a `0.0.0.0` bind means to serve. */
-export function isPrivateAddress(name: string): boolean {
+function isPrivateAddress(name: string): boolean {
   const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(name);
   if (v4) {
     const [a, b] = [Number(v4[1]), Number(v4[2])];
@@ -178,7 +178,7 @@ export function isPrivateAddress(name: string): boolean {
  * `*.trycloudflare.com` admits the subdomain a quick tunnel names and nothing deeper; the bare
  * `*` is the escape hatch and admits everything.
  */
-export function hostMatchesPattern(name: string, pattern: string): boolean {
+function hostMatchesPattern(name: string, pattern: string): boolean {
   const p = pattern.trim().toLowerCase();
   if (p === "*") return true;
   const re = new RegExp(
@@ -205,7 +205,7 @@ type Admission = null | { via: RequestVia; scheme: "http" | "http-or-https" };
 type RequestHost = { name: string; port: string | null };
 
 /** An admitted request carries the route it came in by; a refused one carries the 403 to send. */
-export type OriginCheck = { ok: true; via: RequestVia } | { ok: false; response: Response };
+type OriginCheck = { ok: true; via: RequestVia } | { ok: false; response: Response };
 
 function admitHost(host: RequestHost, port: number, policy: AccessPolicy): Admission {
   // Checked before the port: a tunnel fronts the server on 443 and sends no port at all.
@@ -338,7 +338,7 @@ function addressUrl(address: string, port: number): string {
  * The URLs another machine reaches this bind at — only the private ones, since a public address the
  * wildcard also listens on is not one the policy admits.
  */
-export function localNetworkUrls(bindHost: string, port: number): string[] {
+function localNetworkUrls(bindHost: string, port: number): string[] {
   const bind = bindHost.trim().toLowerCase();
   if (!WILDCARD_BINDS.has(bind)) {
     const bare = bind.startsWith("[") && bind.endsWith("]") ? bind.slice(1, -1) : bind;

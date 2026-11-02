@@ -15,19 +15,14 @@ export function fetchState(signal?: AbortSignal): Promise<PreviewState> {
 }
 
 export async function fetchCompositionHtml(
-  shotId?: string,
-  variantOverride?: string,
   overrides?: Record<string, string>,
   signal?: AbortSignal,
   // The shots this page was told are standing in with the board, so the reel renders what the shot
   // list and the accept toggle mean — see handleGetFullComposition.
   standInShotIds?: readonly string[],
 ): Promise<string> {
-  const path = shotId
-    ? `/api/compositions/${encodeURIComponent(shotId)}`
-    : "/api/compositions/full";
+  const path = "/api/compositions/full";
   const search = new URLSearchParams();
-  if (variantOverride) search.set("variant", variantOverride);
   if (overrides) {
     for (const [address, variantId] of Object.entries(overrides)) {
       search.append("override", `${address}:${variantId}`);
@@ -79,9 +74,9 @@ export class ReviewSkippedError extends Error {
 
 // Thrown so the session never treats a success state does not back as a clean one — the failure
 // mode that made a whole video review disappear silently.
-export function rejectSkippedDecisions<
-  T extends { saved: boolean; skippedDecisions?: SkippedDecision[] },
->(res: T): T {
+function rejectSkippedDecisions<T extends { saved: boolean; skippedDecisions?: SkippedDecision[] }>(
+  res: T,
+): T {
   if (res.skippedDecisions?.length) throw new ReviewSkippedError(res.saved, res.skippedDecisions);
   return res;
 }

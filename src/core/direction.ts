@@ -285,7 +285,7 @@ export type StaleWaiver = {
   fixOnly?: true;
 };
 
-export type DirectionCheckResult = {
+type DirectionCheckResult = {
   structureErrors: DirectionStructureError[];
   active: DirectionFinding[];
   waived: DirectionFinding[];
@@ -329,7 +329,7 @@ export function collectArcShots(direction: Direction): ArcShot[] {
 }
 
 // The shots a camera takes — the narrative ones, the readers of `setup` / `lineup` / `join`.
-export function collectCameraShots(direction: Direction): NarrativeShot[] {
+function collectCameraShots(direction: Direction): NarrativeShot[] {
   return collectArcShots(direction).filter((s): s is NarrativeShot => !isGraphicShot(s));
 }
 
@@ -1248,10 +1248,7 @@ function withinCandidates(setups: Record<string, Setup>, id: string, setup: Setu
 // The root of a setup's `within` chain — the widest frame it is a window of, and the id of the camera
 // axis it stands on. A setup declaring `within: null` is its own root, and so is one whose chain
 // leaves the roster. Guarded against a ring (`within-cyclic` reports it; this must still answer).
-export function withinRoot(
-  setups: Readonly<Record<string, Setup>>,
-  id: string,
-): string | undefined {
+function withinRoot(setups: Readonly<Record<string, Setup>>, id: string): string | undefined {
   const seen = new Set<string>();
   let at = id;
   while (setups[at] !== undefined && !seen.has(at)) {
@@ -1406,7 +1403,7 @@ export function lyricLines(
 }
 
 // Every `characters` id the lyrics name, on a section or a line.
-export function lyricSingerIds(direction: Direction): Set<string> {
+function lyricSingerIds(direction: Direction): Set<string> {
   const ids = new Set<string>();
   for (const section of direction.lyrics ?? []) {
     for (const id of singersOf(section.singer)) ids.add(id);

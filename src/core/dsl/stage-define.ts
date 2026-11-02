@@ -41,7 +41,7 @@ import {
 // A shot's discovery-mode element is the raw `jsx(Composition, …)` result (Composition itself runs
 // later, at renderToHtml), so its `type` is the Composition function reference — the signal that
 // the shot's build returned a `<Composition>` at its top.
-export function isCompositionElement(element: React.ReactElement): boolean {
+function isCompositionElement(element: React.ReactElement): boolean {
   return (
     element != null &&
     typeof element === "object" &&
@@ -52,7 +52,7 @@ export function isCompositionElement(element: React.ReactElement): boolean {
 // What a stage's `timeline` returns: the completed shot chain under `shots` (a bare `[]` for an
 // empty or not-yet-authored stage), plus optional timeline-spanning `soundtracks` whose anchors are
 // checked against the shots' ids.
-export function normalizeStageTimeline(result: unknown): {
+function normalizeStageTimeline(result: unknown): {
   shots: Array<AnyShotInput>;
   soundtracks: SoundtrackEntry[];
   overlay: OverlayBuild | undefined;
@@ -73,7 +73,7 @@ export function normalizeStageTimeline(result: unknown): {
 
 // The stage's per-shot work, run after the shared discovery of one developed shot. Returns the
 // fields to merge onto the shot definition.
-export type PerShotHook = (args: {
+type PerShotHook = (args: {
   input: { id: string };
   element: React.ReactElement;
   context: RenderContext;
@@ -83,14 +83,14 @@ export type PerShotHook = (args: {
   cutin: ShotDefinition["cutin"];
 }) => Partial<ShotDefinition>;
 
-export interface DefineStageArgs {
+interface DefineStageArgs {
   stage: ShotStage;
   index: DirectionIndex;
   runTimeline: (format: VideoFormat) => unknown;
   perShot?: PerShotHook;
 }
 
-export interface StageBuild {
+interface StageBuild {
   definition: StageDefinition;
   // Each shot's declared asset kinds, captured as it was discovered. An AssetDefinition carries no
   // media kind, so the cross-stage ref handle's kind check reads this.

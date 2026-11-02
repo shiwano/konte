@@ -77,7 +77,7 @@ export async function clipSha256(file: string): Promise<string> {
   return sha256;
 }
 
-export function readClipStudy(dir: string): ClipStudy | null {
+function readClipStudy(dir: string): ClipStudy | null {
   try {
     const parsed = ClipStudySchema.safeParse(
       JSON.parse(readFileSync(path.join(dir, STUDY_FILE), "utf-8")),

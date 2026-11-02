@@ -8,7 +8,7 @@
 // A line is placed only where its opening is heard: one with fewer than `MIN_OPENING_HEARD` of its
 // first `OPENING_LETTERS` letters heard (all of a shorter line's) is left for a person to place.
 
-export type LyricPlacementInput = {
+type LyricPlacementInput = {
   // In declaration order. `set` is where a person placed the line on the take's own clock; such a
   // line is not looked for, and a line looked for is placed only between the set lines either side.
   lines: readonly { text: string; set?: { startSec: number; endSec: number } }[];
@@ -17,7 +17,7 @@ export type LyricPlacementInput = {
 };
 
 // A line's place on the take's clock, or null where it is not heard. `set` is a line a person placed.
-export type LyricPlacement = { startSec: number; endSec: number; set: boolean } | null;
+type LyricPlacement = { startSec: number; endSec: number; set: boolean } | null;
 
 const OPENING_LETTERS = 10;
 const MIN_OPENING_HEARD = 2;
