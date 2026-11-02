@@ -18,7 +18,7 @@ import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "../../../core
 import { cropWindowOf } from "../../../core/board-analysis.js";
 import { inferMediaType } from "../../../core/media-type.js";
 import type { StateManager } from "../../../core/state/index.js";
-import { probeMediaInfo } from "../../../core/video-probe.js";
+import { imageFileSize } from "../../../core/image-size.js";
 import { openProbeTargets } from "./resolve-arg.js";
 
 const BOX_COLORS = ["red", "lime", "cyan", "yellow", "magenta", "orange", "white", "dodgerblue"];
@@ -79,11 +79,9 @@ async function imageSize(
 ): Promise<{ width: number; height: number }> {
   const media = manager.getAssetState(address).variants?.[variantId]?.media;
   if (media?.kind === "image") return media;
-  const probed = await probeMediaInfo(file).catch(() => null);
-  if (probed?.kind !== "image") {
-    throw new KonteError("FFMPEG_ERROR", `Could not measure ${address} (${variantId})`);
-  }
-  return probed;
+  const size = await imageFileSize(file);
+  if (!size) throw new KonteError("FFMPEG_ERROR", `Could not measure ${address} (${variantId})`);
+  return size;
 }
 
 function describeWindow(w: Window): string {

@@ -6,14 +6,9 @@ import { deflateSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { KonteError } from "../errors.js";
 import { pdfInfo, renderPdfPage } from "../pdf-render.js";
-import {
-  Pdf,
-  comicInfoBinding,
-  comicPage,
-  contentOperators,
-  imageSize,
-  sheetOrder,
-} from "../source-study-comic.js";
+import { imageHeaderSize } from "../image-size.js";
+import { Pdf, contentOperators } from "../pdf.js";
+import { comicInfoBinding, comicPage, sheetOrder } from "../source-study-comic.js";
 import { type SourceRef, refreshStudyIndex, sourceExcerpt, studySource } from "../source-study.js";
 
 // pdf.js draws in Chromium; here a drawn page is the fixture's JPEG.
@@ -335,9 +330,9 @@ describe("sheetOrder", () => {
   });
 });
 
-describe("imageSize", () => {
+describe("imageHeaderSize", () => {
   it("reads a JPEG's size off its frame header", () => {
-    expect(imageSize(jpeg)).toEqual({ width: 40, height: 60 });
+    expect(imageHeaderSize(jpeg)).toEqual({ width: 40, height: 60 });
   });
 });
 
