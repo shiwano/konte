@@ -1244,15 +1244,16 @@ export async function buildOverlayCompositionHtml(options: {
   );
 }
 
-export async function buildFullCompositionHtml(
-  options: BuildFullCompositionOptions,
-): Promise<CompositionBuildResult> {
-  const { video, manager, assetBaseUrl, variantOverrides, allowNotReady } = options;
+type ParsedOverride = { parsed: ParsedAddress; variantId: string };
 
-  // Overrides are addressed; classify each by kind at its resolution point below. Parse once
-  // and keep the full map for the placeholder pass (cross-shot refs), which needs every kind.
+// Overrides are addressed; each is classified by kind at its resolution point. The full map serves
+// the placeholder pass (cross-shot refs), which needs every kind.
+function parseVariantOverrides(variantOverrides: BuildFullCompositionOptions["variantOverrides"]): {
+  overrideByAddress: Map<string, string>;
+  parsedOverrides: ParsedOverride[];
+} {
   const overrideByAddress = new Map<string, string>();
-  const parsedOverrides: Array<{ parsed: ParsedAddress; variantId: string }> = [];
+  const parsedOverrides: ParsedOverride[] = [];
   for (const ov of variantOverrides ?? []) {
     let parsed: ParsedAddress;
     try {
@@ -1263,13 +1264,258 @@ export async function buildFullCompositionHtml(
     overrideByAddress.set(ov.address, ov.variantId);
     parsedOverrides.push({ parsed, variantId: ov.variantId });
   }
+  return { overrideByAddress, parsedOverrides };
+}
+
+interface ReelClipHost {
+  html: string;
+  start: number;
+  shotEnd: number;
+  loudnessBySrc: Record<string, AudioLoudness> | undefined;
+}
+
+interface ReelShots {
+  shotInfos: ShotCompositionInfo[];
+  hosts: string[];
+  templates: string[];
+  liftedAudio: string[];
+  clipHosts: ReelClipHost[];
+  classSubjects: ClassSubject[];
+}
+
+function renderReelShots(
+  plan: RenderPlan,
+  manager: StateManager,
+  assetBaseUrl: string,
+  allowNotReady: boolean,
+  parsedOverrides: ParsedOverride[],
+  overrideByAddress: Map<string, string>,
+  renderShotInputs: RenderShotInput[] | null,
+  timing: ReturnType<typeof shotSpans>,
+): ReelShots {
+  const out: ReelShots = {
+    shotInfos: [],
+    hosts: [],
+    templates: [],
+    liftedAudio: [],
+    clipHosts: [],
+    classSubjects: [],
+  };
+
+  for (const [shotIdx, shotPlan] of plan.shots.entries()) {
+    const span = timing.spans[shotIdx]!;
+    let resolvedFiles = shotPlan.resolvedFiles;
+    let resolvedVariants = shotPlan.resolvedVariants;
+    for (const { parsed, variantId } of parsedOverrides) {
+      if (parsed.kind !== "shot" || parsed.shotId !== shotPlan.shotId) continue;
+      ({ resolvedFiles, resolvedVariants } = applyVariantOverride(
+        plan.stage,
+        { ...shotPlan, resolvedFiles, resolvedVariants },
+        manager,
+        { assetName: parsed.assetName, variantId },
+      ));
+    }
+
+    // Likewise for the shot's cues: a candidate take shown in review is levelled as itself.
+    const levelled: ShotRenderPlan = {
+      ...shotPlan,
+      cueLevels: previewCueLevels(
+        plan,
+        shotPlan,
+        resolvedVariants,
+        manager,
+        allowNotReady,
+        overrideByAddress,
+      ),
+    };
+
+    const templateBody = renderShotHtml(
+      plan,
+      levelled,
+      resolvedFiles,
+      resolvedVariants,
+      assetBaseUrl,
+      renderShotInputs,
+      true,
+    );
+
+    if (templateBody) {
+      out.classSubjects.push({
+        label: shownCompositionAddress(plan, shotPlan),
+        html: templateBody,
+      });
+      // Embed the shot as a nested composition: its content lives in a <template> that the
+      // runtime hydrates into the empty [data-composition-id] host below. The mount scopes
+      // selectors and getElementById per composition (duplicate ids across shots stay isolated)
+      // and re-bases each shot's gsap timeline and clip windows onto the host's data-start —
+      // replacing the hand-rolled selector scoping and master-timeline merge.
+      const lifted = liftShotAudio(templateBody, span.start);
+      out.liftedAudio.push(...lifted.tags);
+      out.clipHosts.push({
+        html: lifted.html,
+        start: span.start,
+        shotEnd: span.start + span.duration,
+        loudnessBySrc: clipLoudnessBySrc(
+          plan,
+          levelled,
+          resolvedFiles,
+          resolvedVariants,
+          assetBaseUrl,
+        ),
+      });
+      const body = injectBaseTimeline(lifted.html, shotPlan.shotId, shotPlan.duration);
+      out.templates.push(`<template id="shot-${shotPlan.shotId}-template">${body}</template>`);
+      out.hosts.push(
+        nestedCompositionHost(`shot-${shotPlan.shotId}`, span.start, span.duration, plan.size),
+      );
+    }
+
+    out.shotInfos.push({
+      shotId: shotPlan.shotId,
+      startTime: span.start,
+      duration: shotPlan.duration,
+      resolvedVariants,
+      unacceptedAssets: shotPlan.unacceptedAssets,
+    });
+  }
+  return out;
+}
+
+function nestedCompositionHost(
+  id: string,
+  start: number,
+  duration: number,
+  size: { width: number; height: number },
+): string {
+  return `<div data-composition-id="${id}" data-start="${start}" data-duration="${duration}" data-width="${size.width}" data-height="${size.height}" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>`;
+}
+
+// Audio outside the shot templates sits in one full-span group, so its playback isn't gated to a
+// single shot's window.
+function fullSpanAudioGroup(id: string, totalDuration: number, tags: string[]): string {
+  return `<div id="${id}" class="shot-group" data-start="0" data-duration="${totalDuration}" style="position:absolute;top:0;left:0;width:100%;height:100%;visibility:hidden;">${tags.join("")}</div>`;
+}
+
+// The spans the MUX will duck under, read off each take's measured media — no probe. Every shot's
+// lines are rendered to find them, so only for a reel with something to duck.
+function reelVoiceSpans(
+  video: StageDefinition,
+  plan: RenderPlan,
+  manager: StateManager,
+  allowNotReady: boolean,
+  overrideByAddress: Map<string, string>,
+  ducks: boolean,
+): VoiceSpan[] {
+  if (!ducks) return [];
+  const voiceVariant = previewVoiceVariant(manager, allowNotReady, overrideByAddress);
+  // The video shot a stand-in replaces contributes no lines of its own.
+  const standInIds = new Set(plan.shots.filter((s) => s.showStandIn).map((s) => s.shotId));
+  return [
+    ...declaredVoiceSpans(video, voiceVariant).filter((v) => !standInIds.has(v.shotId)),
+    ...standInVoiceSpans(plan, voiceVariant),
+  ];
+}
+
+// Timeline-level soundtracks (beds/music) as <audio> elements placed at absolute time, so
+// HyperFrames mixes them live — matching the final mux. Same element shape as a per-shot <Audio>.
+// Spans resolve from from/until anchors against the declared shot durations (the preview uses
+// declared, not ffprobed, durations).
+function soundtrackAudioTags(
+  plan: RenderPlan,
+  soundtracks: ReturnType<typeof mixedSoundtracks>,
+  bedLevels: ReturnType<typeof computeBedLevels>,
+  voiceSpans: VoiceSpan[],
+  shotInfos: ShotCompositionInfo[],
+  totalDuration: number,
+): string[] {
+  const offsets = new Map(shotInfos.map((s) => [s.shotId, s.startTime]));
+  const durations = new Map(plan.shots.map((s) => [s.shotId, s.duration]));
+  const els: string[] = [];
+  for (const st of soundtracks) {
+    const { start, end } = resolveSoundtrackSpan(st.options, offsets, durations, totalDuration);
+    const span = end - start;
+    if (span <= 0) continue;
+    const mediaStart = st.options.mediaStart ?? 0;
+    // The same computation the mux uses, so the bed is at one level in both.
+    const level = bedLevels[st.id];
+    const volume = clampEffectiveGain((st.options.volume ?? 1) * (level?.gain ?? 1));
+    const settings = duckSettings(st.options.duck, { volume, loudness: level?.loudness });
+    const steps = settings
+      ? buildDuckEnvelope({ bed: { start, end }, triggers: voiceSpans, settings })
+      : [];
+    const passes = bedPasses({
+      span,
+      mediaStart,
+      sourceSec: level?.durationSec,
+      loop: st.options.loop,
+    });
+    for (const pass of passes) {
+      // The lane carries the duck and the declared fades (see bedVolumeLane).
+      const automation = bedVolumeLane({
+        span,
+        volume,
+        steps,
+        depth: settings?.depth ?? 1,
+        fadeIn: st.options.fadeIn,
+        fadeOut: st.options.fadeOut,
+        window: { from: pass.at, to: pass.at + pass.duration },
+      });
+      const attrs = [
+        `data-konte-track="soundtrack"`,
+        `src="${escapeAttr(st.src.src)}"`,
+        `data-start="${start + pass.at}"`,
+        // data-duration bounds both the clip's contribution to the composition duration and the
+        // preview transport's playback of it; without it the clip counts as infinite and stretches
+        // the timeline.
+        `data-duration="${pass.duration}"`,
+        `data-media-start="${pass.mediaStart}"`,
+        `data-volume="${volume}"`,
+        automation ? `data-automation="${escapeAttr(JSON.stringify(automation))}"` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      els.push(`<audio ${attrs}></audio>`);
+    }
+  }
+  return els;
+}
+
+// The overlay is one nested composition over the whole timeline — on the master clock the runtime
+// re-bases its layers and seeks its timeline from the host's own start, so it needs no shifting.
+async function reelOverlayComposition(
+  plan: RenderPlan,
+  overlay: NonNullable<StageDefinition["overlay"]>,
+  fn: typeof overlay.fn,
+): Promise<{ template: string; host: string }> {
+  const id = `shot-${OVERLAY_COMPOSITION_ID}`;
+  const body = renderOverlayBody({
+    stage: plan.stage,
+    overlay,
+    fn,
+    size: plan.size,
+    typography: plan.typography,
+    resolvedFiles: {},
+  });
+  await assertTailwindClasses([{ label: formatTimelineOverlayAddress(plan.stage), html: body }]);
+  return {
+    template: `<template id="${id}-template">${body}</template>`,
+    host: nestedCompositionHost(id, 0, overlay.duration, plan.size),
+  };
+}
+
+export async function buildFullCompositionHtml(
+  options: BuildFullCompositionOptions,
+): Promise<CompositionBuildResult> {
+  const { video, manager, assetBaseUrl } = options;
+  const allowNotReady = options.allowNotReady ?? false;
+  const { overrideByAddress, parsedOverrides } = parseVariantOverrides(options.variantOverrides);
 
   let plan: RenderPlan;
   try {
     plan = buildRenderPlan(video, manager, {
       outputDir: "",
       allowUnaccepted: true,
-      allowNotReady,
+      allowNotReady: options.allowNotReady,
       ...(options.standIn ? { standIn: options.standIn } : {}),
       ...(options.pinnedStandInShotIds
         ? { pinnedStandInShotIds: options.pinnedStandInShotIds }
@@ -1324,213 +1570,67 @@ export async function buildFullCompositionHtml(
         ),
       )
     : null;
-  const renderShotInputs = timelineRun?.shots ?? null;
   const timelineSoundtracks = mixedSoundtracks(video, timelineRun?.soundtracks);
-
-  const shotInfos: ShotCompositionInfo[] = [];
-  const stageFragments: string[] = [];
-  const shotTemplates: string[] = [];
-  const liftedAudio: string[] = [];
-  const clipHosts: Array<{
-    html: string;
-    start: number;
-    shotEnd: number;
-    loudnessBySrc: Record<string, AudioLoudness> | undefined;
-  }> = [];
-  const classSubjects: ClassSubject[] = [];
   const timing = shotSpans(plan.shots, plan.fps);
 
-  for (const [shotIdx, shotPlan] of plan.shots.entries()) {
-    const span = timing.spans[shotIdx]!;
-    let resolvedFiles = shotPlan.resolvedFiles;
-    let resolvedVariants = shotPlan.resolvedVariants;
-    for (const { parsed, variantId } of parsedOverrides) {
-      if (parsed.kind !== "shot" || parsed.shotId !== shotPlan.shotId) continue;
-      ({ resolvedFiles, resolvedVariants } = applyVariantOverride(
-        plan.stage,
-        { ...shotPlan, resolvedFiles, resolvedVariants },
-        manager,
-        { assetName: parsed.assetName, variantId },
-      ));
-    }
-
-    // Likewise for the shot's cues: a candidate take shown in review is levelled as itself.
-    const levelled: ShotRenderPlan = {
-      ...shotPlan,
-      cueLevels: previewCueLevels(
-        plan,
-        shotPlan,
-        resolvedVariants,
-        manager,
-        allowNotReady ?? false,
-        overrideByAddress,
-      ),
-    };
-
-    const templateBody = renderShotHtml(
-      plan,
-      levelled,
-      resolvedFiles,
-      resolvedVariants,
-      assetBaseUrl,
-      renderShotInputs,
-      true,
-    );
-
-    if (templateBody) {
-      classSubjects.push({ label: shownCompositionAddress(plan, shotPlan), html: templateBody });
-      // Embed the shot as a nested composition: its content lives in a <template> that the
-      // runtime hydrates into the empty [data-composition-id] host below. The mount scopes
-      // selectors and getElementById per composition (duplicate ids across shots stay isolated)
-      // and re-bases each shot's gsap timeline and clip windows onto the host's data-start —
-      // replacing the hand-rolled selector scoping and master-timeline merge.
-      const lifted = liftShotAudio(templateBody, span.start);
-      liftedAudio.push(...lifted.tags);
-      clipHosts.push({
-        html: lifted.html,
-        start: span.start,
-        shotEnd: span.start + span.duration,
-        loudnessBySrc: clipLoudnessBySrc(
-          plan,
-          levelled,
-          resolvedFiles,
-          resolvedVariants,
-          assetBaseUrl,
-        ),
-      });
-      const body = injectBaseTimeline(lifted.html, shotPlan.shotId, shotPlan.duration);
-      shotTemplates.push(`<template id="shot-${shotPlan.shotId}-template">${body}</template>`);
-      stageFragments.push(
-        `<div data-composition-id="shot-${shotPlan.shotId}" data-start="${span.start}" data-duration="${span.duration}" data-width="${plan.size.width}" data-height="${plan.size.height}" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>`,
-      );
-    }
-
-    shotInfos.push({
-      shotId: shotPlan.shotId,
-      startTime: span.start,
-      duration: shotPlan.duration,
-      resolvedVariants,
-      unacceptedAssets: shotPlan.unacceptedAssets,
-    });
-  }
-
-  await assertTailwindClasses(classSubjects);
+  const shots = renderReelShots(
+    plan,
+    manager,
+    assetBaseUrl,
+    allowNotReady,
+    parsedOverrides,
+    overrideByAddress,
+    timelineRun?.shots ?? null,
+    timing,
+  );
+  await assertTailwindClasses(shots.classSubjects);
 
   const { width, height } = plan.size;
   const totalDuration = timing.total;
 
-  // The spans the MUX will duck under, read off each take's measured media — no probe. Every shot's
-  // lines are rendered to find them, so only for a reel with something to duck.
   const ducks =
-    timelineSoundtracks.length > 0 || clipHosts.some((host) => HAS_CLIP_AUDIO.test(host.html));
-  const voiceVariant = previewVoiceVariant(manager, allowNotReady ?? false, overrideByAddress);
-  // The video shot a stand-in replaces contributes no lines of its own.
-  const standInIds = new Set(plan.shots.filter((s) => s.showStandIn).map((s) => s.shotId));
-  const voiceSpans = ducks
-    ? [
-        ...declaredVoiceSpans(video, voiceVariant).filter((v) => !standInIds.has(v.shotId)),
-        ...standInVoiceSpans(plan, voiceVariant),
-      ]
-    : [];
+    timelineSoundtracks.length > 0 ||
+    shots.clipHosts.some((host) => HAS_CLIP_AUDIO.test(host.html));
+  const voiceSpans = reelVoiceSpans(video, plan, manager, allowNotReady, overrideByAddress, ducks);
   const narration = voiceSpans.filter(isNarrationCue);
-  for (const host of clipHosts) {
-    liftedAudio.push(
-      ...buildEmbeddedAudioTags(
+  const liftedAudio = [
+    ...shots.liftedAudio,
+    ...shots.clipHosts.flatMap((host) =>
+      buildEmbeddedAudioTags(
         host.html,
         host.start,
         clipDuckUnder(narration, host.loudnessBySrc, host.shotEnd),
       ),
-    );
+    ),
+  ];
+
+  const stageFragments = [...shots.hosts];
+  const templates = [...shots.templates];
+
+  const soundtrackTags = soundtrackAudioTags(
+    plan,
+    timelineSoundtracks,
+    bedLevels,
+    voiceSpans,
+    shots.shotInfos,
+    totalDuration,
+  );
+  if (soundtrackTags.length > 0) {
+    stageFragments.push(fullSpanAudioGroup("timeline-audio", totalDuration, soundtrackTags));
   }
 
-  // Inject timeline-level soundtracks (beds/music) as <audio> elements that span the whole
-  // composition, so HyperFrames mixes them live — matching the final mux. Same element shape as a
-  // per-shot <Audio>, placed at absolute time, inside one full-span group (so playback isn't gated
-  // to a single shot's window). Spans resolve from from/until anchors against the declared shot
-  // durations (the preview uses declared, not ffprobed, durations).
-  if (timelineSoundtracks.length > 0) {
-    const offsets = new Map(shotInfos.map((s) => [s.shotId, s.startTime]));
-    const durations = new Map(plan.shots.map((s) => [s.shotId, s.duration]));
-    const els: string[] = [];
-    for (const st of timelineSoundtracks) {
-      const { start, end } = resolveSoundtrackSpan(st.options, offsets, durations, totalDuration);
-      const span = end - start;
-      if (span <= 0) continue;
-      const mediaStart = st.options.mediaStart ?? 0;
-      // The same computation the mux uses, so the bed is at one level in both.
-      const level = bedLevels[st.id];
-      const volume = clampEffectiveGain((st.options.volume ?? 1) * (level?.gain ?? 1));
-      const settings = duckSettings(st.options.duck, { volume, loudness: level?.loudness });
-      const steps = settings
-        ? buildDuckEnvelope({ bed: { start, end }, triggers: voiceSpans, settings })
-        : [];
-      const passes = bedPasses({
-        span,
-        mediaStart,
-        sourceSec: level?.durationSec,
-        loop: st.options.loop,
-      });
-      for (const pass of passes) {
-        // The lane carries the duck and the declared fades (see bedVolumeLane).
-        const automation = bedVolumeLane({
-          span,
-          volume,
-          steps,
-          depth: settings?.depth ?? 1,
-          fadeIn: st.options.fadeIn,
-          fadeOut: st.options.fadeOut,
-          window: { from: pass.at, to: pass.at + pass.duration },
-        });
-        const attrs = [
-          `data-konte-track="soundtrack"`,
-          `src="${escapeAttr(st.src.src)}"`,
-          `data-start="${start + pass.at}"`,
-          // data-duration bounds both the clip's contribution to the composition duration and the
-          // preview transport's playback of it; without it the clip counts as infinite and stretches
-          // the timeline.
-          `data-duration="${pass.duration}"`,
-          `data-media-start="${pass.mediaStart}"`,
-          `data-volume="${volume}"`,
-          automation ? `data-automation="${escapeAttr(JSON.stringify(automation))}"` : "",
-        ]
-          .filter(Boolean)
-          .join(" ");
-        els.push(`<audio ${attrs}></audio>`);
-      }
-    }
-    if (els.length > 0) {
-      stageFragments.push(
-        `<div id="timeline-audio" class="shot-group" data-start="0" data-duration="${totalDuration}" style="position:absolute;top:0;left:0;width:100%;height:100%;visibility:hidden;">${els.join("")}</div>`,
-      );
-    }
-  }
-
-  // The overlay is one nested composition over the whole timeline — on the master clock the runtime
-  // re-bases its layers and seeks its timeline from the host's own start, so it needs no shifting.
   if (video.overlay) {
-    const overlay = video.overlay;
-    const id = `shot-${OVERLAY_COMPOSITION_ID}`;
-    const body = renderOverlayBody({
-      stage: plan.stage,
-      overlay,
-      fn: timelineRun?.overlay ?? overlay.fn,
-      size: plan.size,
-      typography: plan.typography,
-      resolvedFiles: {},
-    });
-    await assertTailwindClasses([{ label: formatTimelineOverlayAddress(plan.stage), html: body }]);
-    shotTemplates.push(`<template id="${id}-template">${body}</template>`);
-    stageFragments.push(
-      `<div data-composition-id="${id}" data-start="0" data-duration="${overlay.duration}" data-width="${plan.size.width}" data-height="${plan.size.height}" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>`,
+    const overlay = await reelOverlayComposition(
+      plan,
+      video.overlay,
+      timelineRun?.overlay ?? video.overlay.fn,
     );
+    templates.push(overlay.template);
+    stageFragments.push(overlay.host);
   }
 
-  // A shot's own and mirrored clip audio sit outside the shot templates, in one full-span group, for
-  // the same reason the beds do.
   if (liftedAudio.length > 0) {
-    stageFragments.push(
-      `<div id="embedded-audio" class="shot-group" data-start="0" data-duration="${totalDuration}" style="position:absolute;top:0;left:0;width:100%;height:100%;visibility:hidden;">${liftedAudio.join("")}</div>`,
-    );
+    stageFragments.push(fullSpanAudioGroup("embedded-audio", totalDuration, liftedAudio));
   }
 
   const head = renderToHtml(
@@ -1552,7 +1652,7 @@ ${head}
 <div id="stage">
 ${stageFragments.join("\n")}
 </div>
-${shotTemplates.join("\n")}
+${templates.join("\n")}
 <script>${HYPERFRAME_RUNTIME}</script>
 </body>
 </html>`;
@@ -1563,14 +1663,14 @@ ${shotTemplates.join("\n")}
         mergedHtml,
         manager,
         assetBaseUrl,
-        allowNotReady ?? false,
+        allowNotReady,
         overrideByAddress,
       ),
       manager,
       assetBaseUrl,
     ),
     fps: plan.fps,
-    shots: shotInfos,
+    shots: shots.shotInfos,
     totalDuration,
     size: plan.size,
   };
