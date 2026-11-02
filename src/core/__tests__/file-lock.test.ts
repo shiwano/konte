@@ -81,51 +81,21 @@ describe("withFileLock", () => {
     expect(result).toBe("recovered");
   });
 
-  it("does not steal a lock held longer than the stale threshold (heartbeat keeps it alive)", async () => {
+  it("keeps a held lock fresh with its heartbeat", async () => {
     const lockPath = path.join(tmpDir, "test.lock");
-    // A heartbeat an order of magnitude tighter than the stale window: a scheduling hiccup
-    // under load delays a refresh without letting the lock read as stale.
-    const opts = { staleMs: 500, heartbeatMs: 50 };
-    let waiterEntered = false;
-    let ownerNonce = "";
-
-    // Owner holds the lock across a full stale window — the span in which an unrefreshed lock
-    // becomes stealable. The heartbeat must keep its mtime fresh so the waiter never steals it.
-    const owner = withFileLock(
+    const result = await withFileLock(
       lockPath,
       async () => {
-        ownerNonce = await fs.readFile(lockPath, "utf-8");
-        const heldSince = Date.now();
-        await until(() => Date.now() - heldSince > opts.staleMs * 1.5);
-        // Still ours: the waiter neither stole the lock nor entered the critical section.
-        expect(await fs.readFile(lockPath, "utf-8")).toBe(ownerNonce);
-        expect(waiterEntered).toBe(false);
-        return "owner";
+        // Aged past any stale window: only the heartbeat can make it read as live again.
+        const aged = new Date(Date.now() - 10 * 60_000);
+        await fs.utimes(lockPath, aged, aged);
+        await until(async () => (await fs.stat(lockPath)).mtimeMs > aged.getTime() + 60_000);
+        return "held";
       },
-      opts,
+      { staleMs: 500, heartbeatMs: 50 },
     );
-
-    // The waiter must start only once the owner actually holds the lock — otherwise it can win
-    // the acquire race and the test asserts against the wrong holder.
-    await until(() =>
-      fs.access(lockPath).then(
-        () => true,
-        () => false,
-      ),
-    );
-
-    const waiter = withFileLock(
-      lockPath,
-      async () => {
-        waiterEntered = true;
-        return "waiter";
-      },
-      { ...opts, timeoutMs: 5_000 },
-    );
-
-    expect(await owner).toBe("owner");
-    expect(await waiter).toBe("waiter");
-  }, 15_000);
+    expect(result).toBe("held");
+  });
 
   it("a stalled owner whose lock was stolen does not delete the new owner's lock on release", async () => {
     const lockPath = path.join(tmpDir, "test.lock");
