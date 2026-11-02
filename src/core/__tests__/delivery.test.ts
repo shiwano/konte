@@ -332,6 +332,7 @@ describe("deliveryPromptSubject", () => {
       {
         address: "video:shot.01.motion#delivery",
         input: "prompt",
+        media: "video",
         value: "restore fine grain",
       },
     ]);

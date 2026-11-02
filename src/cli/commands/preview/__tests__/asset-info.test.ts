@@ -28,8 +28,8 @@ const MOTION: AssetDefinition = {
 
 // The stage's prompt collection as it is now: read only to say which inputs are prompt text.
 const PROMPTS: PromptOccurrence[] = [
-  { address: ADDR, input: "prompt", value: "rewritten since" },
-  { address: ADDR, input: "negativePrompt", value: NEGATIVE, negative: true },
+  { address: ADDR, input: "prompt", media: "video", value: "rewritten since" },
+  { address: ADDR, input: "negativePrompt", media: "video", value: NEGATIVE, negative: true },
 ];
 
 // A builder over one snapshotted take per address.
@@ -131,7 +131,7 @@ describe("createAssetInfoBuilder", () => {
           inputLabels: { "136.prompt": "prompt", "140.style": "style" },
         },
       },
-      [{ address: ADDR, input: "prompt", value: "cinematic" }],
+      [{ address: ADDR, input: "prompt", media: "video", value: "cinematic" }],
     )(ADDR, "v-1");
     expect(info?.prompts.map((p) => p.input)).toEqual(["prompt"]);
     expect(info?.inputs.map((i) => i.name)).toEqual(["style"]);
@@ -203,8 +203,8 @@ describe("createAssetInfoBuilder", () => {
       },
       [
         ...PROMPTS,
-        { address: CARD, input: "prompt", value: "fix the card" },
-        { address: CLEAN, input: "prompt", value: "remove the stickers" },
+        { address: CARD, input: "prompt", media: "video", value: "fix the card" },
+        { address: CLEAN, input: "prompt", media: "video", value: "remove the stickers" },
       ],
       (_addr, vid) =>
         vid === "v-2"

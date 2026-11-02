@@ -223,7 +223,13 @@ describe("passing", () => {
     ).toEqual([]);
     const v = video(["reference:crow"], []);
     v.prompts = [
-      { address: "video:shot.01.motion", value: "black crow", input: "negative", negative: true },
+      {
+        address: "video:shot.01.motion",
+        value: "black crow",
+        input: "negative",
+        media: "video",
+        negative: true,
+      },
     ];
     expect(passers(v).map((f) => f.code)).toEqual(["passer-unnamed"]);
   });

@@ -63,12 +63,14 @@ describe("prompt collection", () => {
       {
         address: "video:shot.01.motion",
         input: "prompt",
+        media: "image",
         value: "a lit desk",
         exemptions: [FREEZE],
       },
       {
         address: "video:shot.01.motion",
         input: "negativePrompt",
+        media: "image",
         value: "blur, watermark",
         negative: true,
         exemptions: [FREEZE],
@@ -76,6 +78,7 @@ describe("prompt collection", () => {
       {
         address: "video:shot.01.motion",
         input: "styleNote",
+        media: "image",
         value: "no gradients",
         exemptions: [FREEZE],
       },
@@ -211,12 +214,14 @@ describe("prompt collection", () => {
       {
         address: "reference:hero",
         input: "prompt",
+        media: "image",
         value: "a woman in a red coat",
         exemptions: [FREEZE],
       },
       {
         address: "reference:hero",
         input: "styleNote",
+        media: "image",
         value: "ink wash",
         exemptions: [FREEZE],
       },

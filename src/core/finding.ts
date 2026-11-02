@@ -18,6 +18,8 @@ export type FindingCode =
   | DirectionErrorCode
   | PromptFindingCode
   | PinFindingCode
+  // A shot's prompt naming a landmark its frame does not hold.
+  | "landmark-unheld"
   // A class setting a font family the export cannot embed, in a `jsxImage`'s markup — and in a
   // composition's or the overlay's, which a review renders too.
   | "class-font-family"
@@ -209,6 +211,7 @@ const OTHER_TRAITS: Record<
   "prompt-negation": fixPrompt,
   "prompt-not-yet": fixPrompt,
   "prompt-double-negative": fixPrompt,
+  "landmark-unheld": fixPrompt,
   "pin-unanchored": fixStage,
   "class-font-family": fixStage,
   "composition-class-font-family": {

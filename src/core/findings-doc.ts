@@ -360,6 +360,11 @@ const STAGE_FINDING_DOCS: Record<OtherCode, { flags: string; fixIn: string }> = 
     flags: "A `negativePrompt` names an exclusion negatively, which cancels it.",
     fixIn: "the stage file or patch writing it",
   },
+  "landmark-unheld": {
+    flags:
+      "A shot's prompt contains the `promptDepiction` of a landmark of its location that the shot's setups do not hold, verbatim (case-insensitive). A coverage shot and a shot with a `lineupTo` are not read.",
+    fixIn: "the stage file writing it",
+  },
   "pin-unanchored": {
     flags: "A pin input takes a reference sheet or a plate instead of a frame of the picture.",
     fixIn: "the stage file or patch wiring it",

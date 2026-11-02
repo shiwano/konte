@@ -33,6 +33,8 @@ export type PromptOccurrence = {
   address: string;
   input: string;
   value: string;
+  // What the declaring adapter outputs.
+  media: "image" | "video" | "audio";
   negative?: true;
   spoken?: true;
   spokenWithin?: readonly string[];

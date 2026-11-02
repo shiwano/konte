@@ -357,6 +357,7 @@ export type PromptOccurrence = {
   address: string;
   input: string;
   value: string;
+  media: "image" | "video" | "audio";
   negative?: true;
   spoken?: true;
   spokenWithin?: readonly string[];

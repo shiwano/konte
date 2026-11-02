@@ -7,11 +7,11 @@ import {
 } from "../prompt-check.js";
 
 function at(address: string, value: string, exemptions?: readonly RegExp[]): PromptOccurrence {
-  return { address, input: "prompt", value, ...(exemptions ? { exemptions } : {}) };
+  return { address, input: "prompt", media: "image", value, ...(exemptions ? { exemptions } : {}) };
 }
 
 function negative(address: string, value: string): PromptOccurrence {
-  return { address, input: "negativePrompt", value, negative: true };
+  return { address, input: "negativePrompt", media: "image", value, negative: true };
 }
 
 function phrases(occurrences: readonly PromptOccurrence[]): string[] {
@@ -185,6 +185,7 @@ describe("checkPrompts script", () => {
   const spoken = (value: string, script: readonly string[] = [line]): PromptOccurrence => ({
     address: "video:shot.01.motion",
     input: "prompt",
+    media: "image",
     value,
     script,
     spokenWithin: marked(value).words,
@@ -259,7 +260,12 @@ describe("checkPrompts grouping", () => {
   it("names one address once, however many of its prompts carry the phrase", () => {
     const active = checkPrompts([
       at("video:shot.01.motion", "no outlines"),
-      { address: "video:shot.01.motion", input: "stylePrompt", value: "no outlines" },
+      {
+        address: "video:shot.01.motion",
+        input: "stylePrompt",
+        media: "image",
+        value: "no outlines",
+      },
     ]);
     expect(active[0]!.addresses).toEqual(["video:shot.01.motion"]);
   });
@@ -367,14 +373,15 @@ describe("promptFindings", () => {
 
 describe("spokenLinesAt", () => {
   const at = (address: string): PromptOccurrence[] => [
-    { address, input: "script", value: "全部これがせりふです。", spoken: true },
+    { address, input: "script", media: "audio", value: "全部これがせりふです。", spoken: true },
     {
       address,
       input: "prompt",
+      media: "image",
       value: "She turns and asks, <d>[Japanese] かあちゃん、あたしにも。</d>",
       spokenWithin: ["かあちゃん、あたしにも。"],
     },
-    { address, input: "prompt", value: "a clean studio read" },
+    { address, input: "prompt", media: "image", value: "a clean studio read" },
   ];
 
   it("takes a spokenText input whole and a prompt only where its lines were marked", () => {
@@ -390,7 +397,10 @@ describe("spokenLinesAt", () => {
 
   it("returns nothing where no input carries words", () => {
     expect(
-      spokenLinesAt([{ address: "a", input: "prompt", value: "a clean studio read" }], "a"),
+      spokenLinesAt(
+        [{ address: "a", input: "prompt", media: "image", value: "a clean studio read" }],
+        "a",
+      ),
     ).toEqual([]);
   });
 });

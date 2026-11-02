@@ -37,6 +37,7 @@ import {
   listBoardlessVideoShots,
 } from "./graph.js";
 import { listViewAnchorGaps } from "./board-analysis.js";
+import { findUnheldLandmarks } from "./landmark-held-check.js";
 import { type PinOccurrence, pinFindings } from "./pin-check.js";
 import { type PromptOccurrence, promptFindings } from "./prompt-check.js";
 import { findAllUnmetPrerequisites, prerequisiteShot } from "./review-prerequisites.js";
@@ -219,6 +220,37 @@ const PROMPT_CHECK: Check = {
       promptFindings(p, { stage: getStage(p.sourceAddress), patch: p.sourceVariantId }),
     ),
   ],
+};
+
+const LANDMARK_HELD_CHECK: Check = {
+  codes: ["landmark-unheld"],
+  run: (ctx) => {
+    const { direction } = ctx;
+    if (!direction) return [];
+    return (["animatic", "video"] as const).flatMap((stage) => {
+      const def = ctx[stage];
+      if (!def) return [];
+      return findUnheldLandmarks(direction, def.prompts ?? [], def.imageInputs ?? []).map(
+        (u): Finding => {
+          const accepted = acceptedAsDefined(ctx, def as DefinitionLike, u.address);
+          const remedy =
+            `describe only what the frame holds, or add "${u.landmarkId}" to the \`holds\` of ` +
+            `${u.setups.map((s) => `"${s}"`).join(" / ")} where the frame carries it`;
+          return {
+            code: "landmark-unheld",
+            subject: `${u.address} "${u.promptDepiction}"`,
+            fixIn: { stage },
+            message:
+              `shot "${u.shotId}" frames a setup whose \`holds\` leaves out ` +
+              `"${u.landmarkId}", yet the prompt names it — the model widens the frame to take it in; ` +
+              (accepted ? `accepted as drawn; ${remedy} before drawing it again` : remedy),
+            targets: accepted ? [] : [u.address],
+            ...(accepted ? { signedOff: [u.address] } : {}),
+          };
+        },
+      );
+    });
+  },
 };
 
 const PIN_CHECK: Check = {
@@ -418,6 +450,7 @@ const CHECKS: readonly Check[] = [
   SOURCE_LOCATOR_CHECK,
   VIEW_ANCHOR_CHECK,
   PROMPT_CHECK,
+  LANDMARK_HELD_CHECK,
   PIN_CHECK,
   CLASS_CHECK,
   MOVEMENT_CHECK,

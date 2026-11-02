@@ -97,6 +97,7 @@ export function recordPromptInputs(
       address,
       input: name,
       value,
+      media: meta.mediaType,
       ...(def.type === "negativePrompt" ? { negative: true as const } : {}),
       ...(def.type === "spokenText" ? { spoken: true as const } : {}),
       ...(within.words.length > 0 ? { spokenWithin: within.words, spokenMarks: within.marks } : {}),
