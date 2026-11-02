@@ -5,6 +5,7 @@
 // own roles and each carries the dramatic `fn` the theory checks read, so there is no global role
 // vocabulary or function map; the engine reads `fn` off the matched role.
 
+import { formatShotAddress } from "./address.js";
 import { formatSeconds, formatSecondsRange } from "./format-duration.js";
 import type { PanelLane, ShotJoin } from "./types/definition.js";
 import { parseViewName } from "./view.js";
@@ -1445,7 +1446,7 @@ export function checkJoinPins(
       subject: frameSubject(shot),
       message:
         `${frameName(previous)} and ${frameName(shot)} are declared one take, so the frame between ` +
-        `them is \`${seam}\` — and the ${takes} of video:shot.${previous.shotId} ` +
+        `them is \`${seam}\` — and the ${takes} of ${formatShotAddress("video", previous.shotId)} ` +
         (pinnedFrame === undefined
           ? `pins nothing at its end`
           : `pins its end to another frame (${pinnedFrame})`) +
@@ -1480,7 +1481,7 @@ export function checkKeyPins(
       code: "opening-key",
       subject: frameSubject(shot),
       message:
-        `the ${takes} of video:shot.${shot.shotId} opens on ${frameName(shot)}'s key \`${key}\`` +
+        `the ${takes} of ${formatShotAddress("video", shot.shotId)} opens on ${frameName(shot)}'s key \`${key}\`` +
         `${pinned.input ? ` (\`${pinned.input}\`)` : ""} and moves past the moment it holds — ` +
         `pass the key to a reference input alone`,
       ...(pinned.signedOff ? { signedOff: true as const } : {}),

@@ -1,6 +1,7 @@
 import {
   formatAssetPath,
   formatNarrationStemAddress,
+  formatShotAddress,
   formatShotStemAddress,
   formatSongStemAddress,
 } from "../address.js";
@@ -95,7 +96,7 @@ export function createAnimaticRef(
       // recorded where it really lives, so the accessor resolves it there.
       const panelPaths = new Map(
         [...(shot.panels ?? []), ...(shot.cutin?.panels ?? [])]
-          .filter((p) => !p.assetPath.startsWith(`animatic:shot.${id}.`))
+          .filter((p) => !p.assetPath.startsWith(`${formatShotAddress("animatic", id)}.`))
           .map((p) => [p.assetName, p.assetPath] as const),
       );
       const ownPanels = new Set(

@@ -18,6 +18,7 @@ import {
 import {
   type DefinitionLike,
   directionSectionOf,
+  formatShotAddress,
   formatTimelineStemAddress,
   getAssetStage,
   listCompositionAddresses,
@@ -486,7 +487,7 @@ function stageUnits(
   for (const shot of reelShotAcceptability(manager, def, plan)) {
     const decision = shotDecision(manager, def, shot.shotId);
     if (decision.leaves.length === 0 && decision.released.length === 0) continue;
-    const label = `${stage}:shot.${shot.shotId}`;
+    const label = formatShotAddress(stage, shot.shotId);
     if (shotAcceptable(shot)) {
       units.push(leafUnit(label, decision, null));
     } else if (shot.showingStandIn || shot.notReady) {

@@ -2911,13 +2911,13 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   {
                     path: string;
                     kind: "file";
-                    type?: "image" | "video" | "audio" | undefined;
+                    type?: "video" | "image" | "audio" | undefined;
                     deterministic?: boolean | undefined;
                   },
                   {
                     path: string;
                     kind: "file";
-                    type?: "image" | "video" | "audio" | undefined;
+                    type?: "video" | "image" | "audio" | undefined;
                     deterministic?: boolean | undefined;
                   }
                 >,
@@ -2936,7 +2936,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     kind: "fal";
                     inputs: Record<string, unknown>;
                     endpointId: string;
-                    mediaType: "image" | "video" | "audio";
+                    mediaType: "video" | "image" | "audio";
                     inputLabels?: Record<string, string> | undefined;
                     deterministic?: boolean | undefined;
                   },
@@ -2944,7 +2944,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     kind: "fal";
                     inputs: Record<string, unknown>;
                     endpointId: string;
-                    mediaType: "image" | "video" | "audio";
+                    mediaType: "video" | "image" | "audio";
                     inputLabels?: Record<string, string> | undefined;
                     deterministic?: boolean | undefined;
                   }
@@ -2964,7 +2964,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   {
                     kind: "local";
                     inputs: Record<string, unknown>;
-                    mediaType: "image" | "video" | "audio";
+                    mediaType: "video" | "image" | "audio";
                     operation:
                       | "concat"
                       | "trim"
@@ -2979,7 +2979,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   {
                     kind: "local";
                     inputs: Record<string, unknown>;
-                    mediaType: "image" | "video" | "audio";
+                    mediaType: "video" | "image" | "audio";
                     operation:
                       | "concat"
                       | "trim"
@@ -3257,21 +3257,21 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             | {
                 path: string;
                 kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
+                type?: "video" | "image" | "audio" | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
                 kind: "fal";
                 inputs: Record<string, unknown>;
                 endpointId: string;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
                 kind: "local";
                 inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 operation:
                   | "concat"
                   | "trim"
@@ -3390,21 +3390,21 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             | {
                 path: string;
                 kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
+                type?: "video" | "image" | "audio" | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
                 kind: "fal";
                 inputs: Record<string, unknown>;
                 endpointId: string;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
                 kind: "local";
                 inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 operation:
                   | "concat"
                   | "trim"
@@ -3672,13 +3672,13 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               {
                 path: string;
                 kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
+                type?: "video" | "image" | "audio" | undefined;
                 deterministic?: boolean | undefined;
               },
               {
                 path: string;
                 kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
+                type?: "video" | "image" | "audio" | undefined;
                 deterministic?: boolean | undefined;
               }
             >,
@@ -3697,7 +3697,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "fal";
                 inputs: Record<string, unknown>;
                 endpointId: string;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 deterministic?: boolean | undefined;
               },
@@ -3705,7 +3705,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "fal";
                 inputs: Record<string, unknown>;
                 endpointId: string;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 deterministic?: boolean | undefined;
               }
@@ -3725,7 +3725,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               {
                 kind: "local";
                 inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 operation:
                   | "concat"
                   | "trim"
@@ -3740,7 +3740,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               {
                 kind: "local";
                 inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 operation:
                   | "concat"
                   | "trim"
@@ -3997,13 +3997,13 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               {
                 path: string;
                 kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
+                type?: "video" | "image" | "audio" | undefined;
                 deterministic?: boolean | undefined;
               },
               {
                 path: string;
                 kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
+                type?: "video" | "image" | "audio" | undefined;
                 deterministic?: boolean | undefined;
               }
             >,
@@ -4022,7 +4022,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "fal";
                 inputs: Record<string, unknown>;
                 endpointId: string;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 deterministic?: boolean | undefined;
               },
@@ -4030,7 +4030,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "fal";
                 inputs: Record<string, unknown>;
                 endpointId: string;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 deterministic?: boolean | undefined;
               }
@@ -4050,7 +4050,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               {
                 kind: "local";
                 inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 operation:
                   | "concat"
                   | "trim"
@@ -4065,7 +4065,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               {
                 kind: "local";
                 inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 operation:
                   | "concat"
                   | "trim"
@@ -4132,21 +4132,21 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
         | {
             path: string;
             kind: "file";
-            type?: "image" | "video" | "audio" | undefined;
+            type?: "video" | "image" | "audio" | undefined;
             deterministic?: boolean | undefined;
           }
         | {
             kind: "fal";
             inputs: Record<string, unknown>;
             endpointId: string;
-            mediaType: "image" | "video" | "audio";
+            mediaType: "video" | "image" | "audio";
             inputLabels?: Record<string, string> | undefined;
             deterministic?: boolean | undefined;
           }
         | {
             kind: "local";
             inputs: Record<string, unknown>;
-            mediaType: "image" | "video" | "audio";
+            mediaType: "video" | "image" | "audio";
             operation:
               | "concat"
               | "trim"
@@ -4274,21 +4274,21 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
           | {
               path: string;
               kind: "file";
-              type?: "image" | "video" | "audio" | undefined;
+              type?: "video" | "image" | "audio" | undefined;
               deterministic?: boolean | undefined;
             }
           | {
               kind: "fal";
               inputs: Record<string, unknown>;
               endpointId: string;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               deterministic?: boolean | undefined;
             }
           | {
               kind: "local";
               inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               operation:
                 | "concat"
                 | "trim"
@@ -4360,21 +4360,21 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
           | {
               path: string;
               kind: "file";
-              type?: "image" | "video" | "audio" | undefined;
+              type?: "video" | "image" | "audio" | undefined;
               deterministic?: boolean | undefined;
             }
           | {
               kind: "fal";
               inputs: Record<string, unknown>;
               endpointId: string;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               deterministic?: boolean | undefined;
             }
           | {
               kind: "local";
               inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               operation:
                 | "concat"
                 | "trim"
@@ -4436,21 +4436,21 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
         | {
             path: string;
             kind: "file";
-            type?: "image" | "video" | "audio" | undefined;
+            type?: "video" | "image" | "audio" | undefined;
             deterministic?: boolean | undefined;
           }
         | {
             kind: "fal";
             inputs: Record<string, unknown>;
             endpointId: string;
-            mediaType: "image" | "video" | "audio";
+            mediaType: "video" | "image" | "audio";
             inputLabels?: Record<string, string> | undefined;
             deterministic?: boolean | undefined;
           }
         | {
             kind: "local";
             inputs: Record<string, unknown>;
-            mediaType: "image" | "video" | "audio";
+            mediaType: "video" | "image" | "audio";
             operation:
               | "concat"
               | "trim"
@@ -4578,21 +4578,21 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
           | {
               path: string;
               kind: "file";
-              type?: "image" | "video" | "audio" | undefined;
+              type?: "video" | "image" | "audio" | undefined;
               deterministic?: boolean | undefined;
             }
           | {
               kind: "fal";
               inputs: Record<string, unknown>;
               endpointId: string;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               deterministic?: boolean | undefined;
             }
           | {
               kind: "local";
               inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               operation:
                 | "concat"
                 | "trim"
@@ -4664,21 +4664,21 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
           | {
               path: string;
               kind: "file";
-              type?: "image" | "video" | "audio" | undefined;
+              type?: "video" | "image" | "audio" | undefined;
               deterministic?: boolean | undefined;
             }
           | {
               kind: "fal";
               inputs: Record<string, unknown>;
               endpointId: string;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               deterministic?: boolean | undefined;
             }
           | {
               kind: "local";
               inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               operation:
                 | "concat"
                 | "trim"
@@ -5021,13 +5021,13 @@ declare const FileAssetDefinitionSchema: z.ZodObject<
   {
     path: string;
     kind: "file";
-    type?: "image" | "video" | "audio" | undefined;
+    type?: "video" | "image" | "audio" | undefined;
     deterministic?: boolean | undefined;
   },
   {
     path: string;
     kind: "file";
-    type?: "image" | "video" | "audio" | undefined;
+    type?: "video" | "image" | "audio" | undefined;
     deterministic?: boolean | undefined;
   }
 >;
@@ -5047,7 +5047,7 @@ declare const FalAssetDefinitionSchema: z.ZodObject<
     kind: "fal";
     inputs: Record<string, unknown>;
     endpointId: string;
-    mediaType: "image" | "video" | "audio";
+    mediaType: "video" | "image" | "audio";
     inputLabels?: Record<string, string> | undefined;
     deterministic?: boolean | undefined;
   },
@@ -5055,7 +5055,7 @@ declare const FalAssetDefinitionSchema: z.ZodObject<
     kind: "fal";
     inputs: Record<string, unknown>;
     endpointId: string;
-    mediaType: "image" | "video" | "audio";
+    mediaType: "video" | "image" | "audio";
     inputLabels?: Record<string, string> | undefined;
     deterministic?: boolean | undefined;
   }
@@ -5076,14 +5076,14 @@ declare const LocalAssetDefinitionSchema: z.ZodObject<
   {
     kind: "local";
     inputs: Record<string, unknown>;
-    mediaType: "image" | "video" | "audio";
+    mediaType: "video" | "image" | "audio";
     operation: "concat" | "trim" | "resize" | "crop" | "blank" | "retime" | "frame" | "render";
     deterministic?: boolean | undefined;
   },
   {
     kind: "local";
     inputs: Record<string, unknown>;
-    mediaType: "image" | "video" | "audio";
+    mediaType: "video" | "image" | "audio";
     operation: "concat" | "trim" | "resize" | "crop" | "blank" | "retime" | "frame" | "render";
     deterministic?: boolean | undefined;
   }
@@ -5277,13 +5277,13 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
       {
         path: string;
         kind: "file";
-        type?: "image" | "video" | "audio" | undefined;
+        type?: "video" | "image" | "audio" | undefined;
         deterministic?: boolean | undefined;
       },
       {
         path: string;
         kind: "file";
-        type?: "image" | "video" | "audio" | undefined;
+        type?: "video" | "image" | "audio" | undefined;
         deterministic?: boolean | undefined;
       }
     >,
@@ -5302,7 +5302,7 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
         kind: "fal";
         inputs: Record<string, unknown>;
         endpointId: string;
-        mediaType: "image" | "video" | "audio";
+        mediaType: "video" | "image" | "audio";
         inputLabels?: Record<string, string> | undefined;
         deterministic?: boolean | undefined;
       },
@@ -5310,7 +5310,7 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
         kind: "fal";
         inputs: Record<string, unknown>;
         endpointId: string;
-        mediaType: "image" | "video" | "audio";
+        mediaType: "video" | "image" | "audio";
         inputLabels?: Record<string, string> | undefined;
         deterministic?: boolean | undefined;
       }
@@ -5330,14 +5330,14 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
       {
         kind: "local";
         inputs: Record<string, unknown>;
-        mediaType: "image" | "video" | "audio";
+        mediaType: "video" | "image" | "audio";
         operation: "concat" | "trim" | "resize" | "crop" | "blank" | "retime" | "frame" | "render";
         deterministic?: boolean | undefined;
       },
       {
         kind: "local";
         inputs: Record<string, unknown>;
-        mediaType: "image" | "video" | "audio";
+        mediaType: "video" | "image" | "audio";
         operation: "concat" | "trim" | "resize" | "crop" | "blank" | "retime" | "frame" | "render";
         deterministic?: boolean | undefined;
       }
@@ -5570,13 +5570,13 @@ declare const ShotDefinitionSchema: z.ZodObject<
             {
               path: string;
               kind: "file";
-              type?: "image" | "video" | "audio" | undefined;
+              type?: "video" | "image" | "audio" | undefined;
               deterministic?: boolean | undefined;
             },
             {
               path: string;
               kind: "file";
-              type?: "image" | "video" | "audio" | undefined;
+              type?: "video" | "image" | "audio" | undefined;
               deterministic?: boolean | undefined;
             }
           >,
@@ -5595,7 +5595,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
               kind: "fal";
               inputs: Record<string, unknown>;
               endpointId: string;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               deterministic?: boolean | undefined;
             },
@@ -5603,7 +5603,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
               kind: "fal";
               inputs: Record<string, unknown>;
               endpointId: string;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               deterministic?: boolean | undefined;
             }
@@ -5623,7 +5623,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
             {
               kind: "local";
               inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               operation:
                 | "concat"
                 | "trim"
@@ -5638,7 +5638,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
             {
               kind: "local";
               inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               operation:
                 | "concat"
                 | "trim"
@@ -5916,21 +5916,21 @@ declare const ShotDefinitionSchema: z.ZodObject<
       | {
           path: string;
           kind: "file";
-          type?: "image" | "video" | "audio" | undefined;
+          type?: "video" | "image" | "audio" | undefined;
           deterministic?: boolean | undefined;
         }
       | {
           kind: "fal";
           inputs: Record<string, unknown>;
           endpointId: string;
-          mediaType: "image" | "video" | "audio";
+          mediaType: "video" | "image" | "audio";
           inputLabels?: Record<string, string> | undefined;
           deterministic?: boolean | undefined;
         }
       | {
           kind: "local";
           inputs: Record<string, unknown>;
-          mediaType: "image" | "video" | "audio";
+          mediaType: "video" | "image" | "audio";
           operation:
             | "concat"
             | "trim"
@@ -6049,21 +6049,21 @@ declare const ShotDefinitionSchema: z.ZodObject<
       | {
           path: string;
           kind: "file";
-          type?: "image" | "video" | "audio" | undefined;
+          type?: "video" | "image" | "audio" | undefined;
           deterministic?: boolean | undefined;
         }
       | {
           kind: "fal";
           inputs: Record<string, unknown>;
           endpointId: string;
-          mediaType: "image" | "video" | "audio";
+          mediaType: "video" | "image" | "audio";
           inputLabels?: Record<string, string> | undefined;
           deterministic?: boolean | undefined;
         }
       | {
           kind: "local";
           inputs: Record<string, unknown>;
-          mediaType: "image" | "video" | "audio";
+          mediaType: "video" | "image" | "audio";
           operation:
             | "concat"
             | "trim"
@@ -6673,13 +6673,13 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   {
                     path: string;
                     kind: "file";
-                    type?: "image" | "video" | "audio" | undefined;
+                    type?: "video" | "image" | "audio" | undefined;
                     deterministic?: boolean | undefined;
                   },
                   {
                     path: string;
                     kind: "file";
-                    type?: "image" | "video" | "audio" | undefined;
+                    type?: "video" | "image" | "audio" | undefined;
                     deterministic?: boolean | undefined;
                   }
                 >,
@@ -6698,7 +6698,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     kind: "fal";
                     inputs: Record<string, unknown>;
                     endpointId: string;
-                    mediaType: "image" | "video" | "audio";
+                    mediaType: "video" | "image" | "audio";
                     inputLabels?: Record<string, string> | undefined;
                     deterministic?: boolean | undefined;
                   },
@@ -6706,7 +6706,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     kind: "fal";
                     inputs: Record<string, unknown>;
                     endpointId: string;
-                    mediaType: "image" | "video" | "audio";
+                    mediaType: "video" | "image" | "audio";
                     inputLabels?: Record<string, string> | undefined;
                     deterministic?: boolean | undefined;
                   }
@@ -6726,7 +6726,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   {
                     kind: "local";
                     inputs: Record<string, unknown>;
-                    mediaType: "image" | "video" | "audio";
+                    mediaType: "video" | "image" | "audio";
                     operation:
                       | "concat"
                       | "trim"
@@ -6741,7 +6741,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   {
                     kind: "local";
                     inputs: Record<string, unknown>;
-                    mediaType: "image" | "video" | "audio";
+                    mediaType: "video" | "image" | "audio";
                     operation:
                       | "concat"
                       | "trim"
@@ -7019,21 +7019,21 @@ declare const VideoDefinitionSchema: z.ZodObject<
             | {
                 path: string;
                 kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
+                type?: "video" | "image" | "audio" | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
                 kind: "fal";
                 inputs: Record<string, unknown>;
                 endpointId: string;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
                 kind: "local";
                 inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 operation:
                   | "concat"
                   | "trim"
@@ -7152,21 +7152,21 @@ declare const VideoDefinitionSchema: z.ZodObject<
             | {
                 path: string;
                 kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
+                type?: "video" | "image" | "audio" | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
                 kind: "fal";
                 inputs: Record<string, unknown>;
                 endpointId: string;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
                 kind: "local";
                 inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 operation:
                   | "concat"
                   | "trim"
@@ -7434,13 +7434,13 @@ declare const VideoDefinitionSchema: z.ZodObject<
               {
                 path: string;
                 kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
+                type?: "video" | "image" | "audio" | undefined;
                 deterministic?: boolean | undefined;
               },
               {
                 path: string;
                 kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
+                type?: "video" | "image" | "audio" | undefined;
                 deterministic?: boolean | undefined;
               }
             >,
@@ -7459,7 +7459,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 kind: "fal";
                 inputs: Record<string, unknown>;
                 endpointId: string;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 deterministic?: boolean | undefined;
               },
@@ -7467,7 +7467,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 kind: "fal";
                 inputs: Record<string, unknown>;
                 endpointId: string;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 deterministic?: boolean | undefined;
               }
@@ -7487,7 +7487,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
               {
                 kind: "local";
                 inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 operation:
                   | "concat"
                   | "trim"
@@ -7502,7 +7502,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
               {
                 kind: "local";
                 inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
+                mediaType: "video" | "image" | "audio";
                 operation:
                   | "concat"
                   | "trim"
@@ -7737,21 +7737,21 @@ declare const VideoDefinitionSchema: z.ZodObject<
         | {
             path: string;
             kind: "file";
-            type?: "image" | "video" | "audio" | undefined;
+            type?: "video" | "image" | "audio" | undefined;
             deterministic?: boolean | undefined;
           }
         | {
             kind: "fal";
             inputs: Record<string, unknown>;
             endpointId: string;
-            mediaType: "image" | "video" | "audio";
+            mediaType: "video" | "image" | "audio";
             inputLabels?: Record<string, string> | undefined;
             deterministic?: boolean | undefined;
           }
         | {
             kind: "local";
             inputs: Record<string, unknown>;
-            mediaType: "image" | "video" | "audio";
+            mediaType: "video" | "image" | "audio";
             operation:
               | "concat"
               | "trim"
@@ -7879,21 +7879,21 @@ declare const VideoDefinitionSchema: z.ZodObject<
           | {
               path: string;
               kind: "file";
-              type?: "image" | "video" | "audio" | undefined;
+              type?: "video" | "image" | "audio" | undefined;
               deterministic?: boolean | undefined;
             }
           | {
               kind: "fal";
               inputs: Record<string, unknown>;
               endpointId: string;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               deterministic?: boolean | undefined;
             }
           | {
               kind: "local";
               inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               operation:
                 | "concat"
                 | "trim"
@@ -7990,21 +7990,21 @@ declare const VideoDefinitionSchema: z.ZodObject<
         | {
             path: string;
             kind: "file";
-            type?: "image" | "video" | "audio" | undefined;
+            type?: "video" | "image" | "audio" | undefined;
             deterministic?: boolean | undefined;
           }
         | {
             kind: "fal";
             inputs: Record<string, unknown>;
             endpointId: string;
-            mediaType: "image" | "video" | "audio";
+            mediaType: "video" | "image" | "audio";
             inputLabels?: Record<string, string> | undefined;
             deterministic?: boolean | undefined;
           }
         | {
             kind: "local";
             inputs: Record<string, unknown>;
-            mediaType: "image" | "video" | "audio";
+            mediaType: "video" | "image" | "audio";
             operation:
               | "concat"
               | "trim"
@@ -8132,21 +8132,21 @@ declare const VideoDefinitionSchema: z.ZodObject<
           | {
               path: string;
               kind: "file";
-              type?: "image" | "video" | "audio" | undefined;
+              type?: "video" | "image" | "audio" | undefined;
               deterministic?: boolean | undefined;
             }
           | {
               kind: "fal";
               inputs: Record<string, unknown>;
               endpointId: string;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               deterministic?: boolean | undefined;
             }
           | {
               kind: "local";
               inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
+              mediaType: "video" | "image" | "audio";
               operation:
                 | "concat"
                 | "trim"

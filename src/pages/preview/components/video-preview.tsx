@@ -1,5 +1,6 @@
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { formatShotAddress } from "../../../core/address.js";
 import { submitReview } from "../api.js";
 import { formatPlayerTime } from "../format-time.js";
 import { type Playhead, usePlayheadTime } from "../review/playhead.js";
@@ -21,7 +22,6 @@ import { useReelComposition } from "../review/use-reel-composition.js";
 import {
   hasReelMarks,
   NO_REEL_MARKS,
-  reelShotAddress,
   useReelDecisions,
   type ReelMarks,
 } from "../review/use-reel-decisions.js";
@@ -158,7 +158,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   const reelStage = state.mode === "animatic-preview" ? "animatic" : "video";
 
   const shotFeedbackAddress = useCallback(
-    (shotId: string) => reelShotAddress(reelStage, shotId),
+    (shotId: string) => formatShotAddress(reelStage, shotId),
     [reelStage],
   );
 

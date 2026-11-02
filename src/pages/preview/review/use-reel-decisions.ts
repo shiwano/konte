@@ -1,5 +1,6 @@
 import type React from "react";
 import { useCallback, useMemo } from "react";
+import { formatShotAddress } from "../../../core/address.js";
 import { shotAcceptable } from "../../../core/shot-acceptable.js";
 import type { ShotInfo, VideoPreviewState } from "../types.js";
 import { bulkAcceptState } from "./bulk-accept.js";
@@ -32,13 +33,6 @@ export function hasReelMarks(marks: ReelMarks): boolean {
   return (
     Object.keys(marks.shots).length > 0 || marks.stem !== undefined || marks.overlay !== undefined
   );
-}
-
-// Composite feedback attaches to the bare shot target (feedback-only, no variant), so a pin reads
-// as an observation on the shot rather than a "reroll the composition" instruction. Staleness still
-// tracks the composition via the variant snapshot recorded when the comment is saved.
-export function reelShotAddress(stage: "animatic" | "video", shotId: string): string {
-  return `${stage}:shot.${shotId}`;
 }
 
 /**
@@ -162,7 +156,7 @@ export function useReelDecisions({
   );
   const shotOfUnit = useMemo(
     () =>
-      new Map(state.shots.map((s) => [reelShotAddress(reelStage, s.shotId), s.shotId] as const)),
+      new Map(state.shots.map((s) => [formatShotAddress(reelStage, s.shotId), s.shotId] as const)),
     [state.shots, reelStage],
   );
 
@@ -185,7 +179,7 @@ export function useReelDecisions({
 
   const keepOriginOf = useCallback(
     (shot: ShotInfo): KeepOrigin => ({
-      unit: reelShotAddress(reelStage, shot.shotId),
+      unit: formatShotAddress(reelStage, shot.shotId),
       chosen: Object.fromEntries(
         shot.verdictAddresses.flatMap((address) => {
           const variantId = effectiveVariants[address] ?? resolvedByAddress.get(address);
@@ -212,7 +206,7 @@ export function useReelDecisions({
     (shotId: string, accepted: boolean) => {
       // Guards the A shortcut too, which reaches no disabled button.
       if (unacceptableShotIds.has(shotId)) return;
-      const unit = reelShotAddress(reelStage, shotId);
+      const unit = formatShotAddress(reelStage, shotId);
       const shot = state.shots.find((s) => s.shotId === shotId);
       if (!accepted || !shot) {
         dropKeepUnits([unit]);
@@ -352,14 +346,14 @@ export function useReelDecisions({
     () =>
       Object.fromEntries(
         state.shots.flatMap((s) => {
-          const mark = regenerateUnits.get(reelShotAddress(reelStage, s.shotId));
+          const mark = regenerateUnits.get(formatShotAddress(reelStage, s.shotId));
           return mark ? [[s.shotId, mark]] : [];
         }),
       ),
     [state.shots, regenerateUnits, reelStage],
   );
   const keepShotAfterAll = useCallback(
-    (shotId: string) => keepUnitAfterAll(reelShotAddress(reelStage, shotId)),
+    (shotId: string) => keepUnitAfterAll(formatShotAddress(reelStage, shotId)),
     [keepUnitAfterAll, reelStage],
   );
 

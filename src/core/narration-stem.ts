@@ -1,4 +1,9 @@
-import { formatNarrationStemAddress, isNarrationStemAddress } from "./address.js";
+import {
+  formatAssetPath,
+  formatNarrationStemAddress,
+  formatShotAddress,
+  isNarrationStemAddress,
+} from "./address.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import { KonteError } from "./errors.js";
 import { extractRefs } from "./graph.js";
@@ -21,9 +26,9 @@ export function assertNarrationStemsHeard(video: VideoDefinition): void {
   };
   for (const shot of video.shots) {
     for (const [name, entry] of Object.entries(shot.assets)) {
-      check(extractRefs(entry), `input of video:shot.${shot.id}.${name}`);
+      check(extractRefs(entry), `input of ${formatAssetPath("video", shot.id, name)}`);
     }
-    check(shot.pictureRefs ?? [], `picture of video:shot.${shot.id}`);
+    check(shot.pictureRefs ?? [], `picture of ${formatShotAddress("video", shot.id)}`);
   }
   for (const [name, entry] of Object.entries(video.topLevelAssets ?? {})) {
     check(extractRefs(entry), `input of video:timeline.${name}`);
@@ -64,6 +69,8 @@ export function assertNarrationStemsPlaced(
     `video.tsx never places the narration of ${unplaced.length} board shot(s) — place each ` +
       `with <Audio src={animatic.shot("<id>").narrationStem} /> in a video shot's composition, ` +
       "usually that shot's own; its start and volume are yours there",
-    unplaced.map((shot) => `  ${formatNarrationStemAddress(shot.id)} — video:shot.${shot.id}`),
+    unplaced.map(
+      (shot) => `  ${formatNarrationStemAddress(shot.id)} — ${formatShotAddress("video", shot.id)}`,
+    ),
   );
 }

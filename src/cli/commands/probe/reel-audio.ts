@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { parseReelScope } from "../../../core/address.js";
+import { formatShotAddress, parseReelScope } from "../../../core/address.js";
 import { findAnimaticOverflows, formatAnimaticOverflow } from "../../../core/animatic-overflow.js";
 import {
   type AudioInspectModel,
@@ -163,7 +163,7 @@ Examples:
         (o) => `${o.shotId} animatic: ${formatAnimaticOverflow(o)}`,
       );
 
-      const scopeLabel = shotId ? `${stage}:shot.${shotId}` : stage;
+      const scopeLabel = shotId ? formatShotAddress(stage, shotId) : stage;
       console.log(
         `${scopeLabel}   total ${formatSeconds(model.totalDuration)}   ${model.tracks.length} track${model.tracks.length === 1 ? "" : "s"}   (nominal)`,
       );

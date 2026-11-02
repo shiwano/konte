@@ -3,6 +3,7 @@ import type { Command } from "commander";
 import {
   listCompositionAddresses,
   listOverlayAddresses,
+  formatShotAddress,
   listStemAddresses,
   parseStageScope,
 } from "../../core/address.js";
@@ -87,7 +88,7 @@ async function registerVideoExport(opts: {
       "PENDING_SHOTS",
       `Cannot export: ${pendingShots.length} shot(s) are still undeveloped (pendingShot) — ` +
         "develop them (swap the injected pendingShot for shot in video.tsx) before exporting",
-      pendingShots.map((id) => `  video:shot.${id}`),
+      pendingShots.map((id) => `  ${formatShotAddress("video", id)}`),
     );
   }
 
