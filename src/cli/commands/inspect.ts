@@ -1,4 +1,3 @@
-import { type Direction, type View, deriveShotHinges } from "../../core/dsl/direction.js";
 import type { Command } from "commander";
 import {
   isOverlayAddress,
@@ -24,7 +23,6 @@ import {
   assetNameOf,
 } from "../../core/address.js";
 import { acceptedVariant, acceptedVariantId } from "../../core/accepted-variant.js";
-import { assertNever } from "../../core/assert.js";
 import { definitionHashForAddress } from "../../core/composition-resource.js";
 import { shotById } from "../../core/shot-index.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
@@ -34,25 +32,12 @@ import {
   formatDefinitionValue,
   readDefinitionSnapshot,
 } from "../../core/definition-snapshot.js";
-import {
-  collectShots,
-  continuousFrameKeys,
-  panelRole,
-  setupHolds,
-  setupView,
-} from "../../core/direction.js";
+import { collectShots } from "../../core/direction.js";
 import { isAsideShot, isGraphicShot, resolveDirectionTimeline } from "../../core/dsl/direction.js";
 import { formatShotSpan } from "../../core/format-duration.js";
 import { directionShotCascadeTargets } from "../../core/direction-acceptance.js";
 import { KonteError } from "../../core/errors.js";
-import type { PromptOccurrence } from "../../core/prompt-check.js";
 import { buildDependencyGraph, extractRefs } from "../../core/graph.js";
-import {
-  listPanelConditioning,
-  type PanelConditioning,
-  shotLaneChains,
-} from "../../core/board-analysis.js";
-import { loadAnimatic } from "../../core/loader.js";
 import { loadPatch, patchStepDependents } from "../../core/patch.js";
 import {
   collectStaleVariants,
@@ -72,21 +57,14 @@ import type {
   AssetDefinition,
   AssetState,
   KonteState,
-  ShotDefinition,
   VariantState,
 } from "../../core/types/index.js";
 import { type ScriptLine, scriptLinesToView } from "../../core/types/script.js";
-import type { PanelDefinition, PanelLane, Respelling } from "../../core/types/definition.js";
-import type { AnimaticDefinition } from "../../core/types/animatic.js";
-import { spellingsOf } from "../../core/dsl/respell.js";
 import {
   loadDefinitionForAddress,
   loadDirectionIfPresent,
   loadStageDefinitions,
-  loadVideoAndAnimatic,
 } from "../../core/stage-definitions.js";
-import { openVideoSession } from "../../core/video-session.js";
-import { loadReference } from "../../core/loader.js";
 import { requireVideoRoot } from "../context.js";
 import { inspectDirection } from "./inspect-direction.js";
 import {
@@ -101,22 +79,16 @@ import {
   definitionForAddress,
   type StageDefinitions,
 } from "../../core/definition-hashes.js";
-import { selectGenerationAssets } from "../../core/generation-selection.js";
-import { spendHeldAssets } from "../finding-gates.js";
-import { loadCheckContext } from "../../core/check-context.js";
 import { staleRefreshStep } from "../stale-refresh-step.js";
+import {
+  type DefinitionWithDuration,
+  type ShotLike,
+  loadDefinitionWithDuration,
+} from "./inspect-definition.js";
+import { inspectPrompts, type PromptScope } from "./inspect-prompts.js";
+import { type PlateFrame, plateFrameOf } from "../../core/prompt-shots.js";
 
-type InspectScope =
-  | { level: "asset"; stage: AssetStage; address: string }
-  | { level: "shot"; stage: ShotStage; shotId: string }
-  | { level: "stage"; stage: AssetStage }
-  // Every plate the animatic returned (`animatic:plate`).
-  | { level: "plates"; stage: "animatic" }
-  // The direction: the whole stage, or one of its parts (`address` null / set).
-  | { level: "direction"; address: string | null }
-  | { level: "variant"; variantId: string };
-
-type PromptScope = Exclude<InspectScope, { level: "variant" }>;
+type InspectScope = PromptScope | { level: "variant"; variantId: string };
 
 // Canonical bare forms shared with clean/prune/status — a trailing ":" or "." matches
 // none of these and falls through to the error below.
@@ -156,31 +128,6 @@ function parseInspectScope(input: string): InspectScope {
     "INVALID_ADDRESS",
     `Invalid address-scope format: "${input}" (expected an address, shot scope, stage scope, or variant id — no trailing ":" or ".")`,
   );
-}
-
-interface ShotLike {
-  id: string;
-  duration: number;
-  assets: Record<string, AssetDefinition>;
-  pending?: boolean;
-  // What makes the shot carry a composition / an audio stem. Both are declared here so a listing
-  // can offer those no-job leaves without casting to VideoDefinition per call.
-  shotFn?: unknown;
-  stemRefs?: readonly string[];
-  narrationStemRefs?: readonly string[];
-  compositionRefs?: string[];
-  panels?: ShotDefinition["panels"];
-  cutin?: ShotDefinition["cutin"];
-}
-
-interface DefinitionWithDuration {
-  shots: ShotLike[];
-  topLevelAssets?: Record<string, AssetDefinition>;
-  timelineSoundtracks?: readonly unknown[];
-  prompts?: readonly PromptOccurrence[];
-  respellings?: readonly Respelling[];
-  // Animatic only: the returned plates, in return order.
-  exposedPlateIds?: string[];
 }
 
 // A materialized leaf (composition / stem) as a listing row. It has no AssetDefinition — it is
@@ -228,24 +175,6 @@ function tryGetAssetState(manager: StateManager, address: string): AssetState | 
     return manager.getAssetState(address);
   } catch {
     return null;
-  }
-}
-
-async function loadDefinitionWithDuration(
-  videoRoot: string,
-  stage: AssetStage,
-): Promise<DefinitionWithDuration> {
-  switch (stage) {
-    case "reference":
-      return loadReference(videoRoot);
-    case "video": {
-      const { video } = await loadVideoAndAnimatic(videoRoot);
-      return video;
-    }
-    case "animatic":
-      return await loadAnimatic(videoRoot);
-    default:
-      return assertNever(stage, "loadDefinitionWithDuration");
   }
 }
 
@@ -947,274 +876,6 @@ async function inspectStage(videoRoot: string, stage: AssetStage): Promise<void>
   }
 }
 
-// The text every model under a scope will read: the `"prompt"` / `"negativePrompt"` conditioning
-// and the `"spokenText"` a speech or music model voices, each at the address that declares it.
-// Collected as `asset()` ran, so a value assembled from shared constants is listed expanded. A
-// patch script's steps declare their own and are not listed here.
-async function inspectPrompts(
-  videoRoot: string,
-  scope: PromptScope,
-  pendingGeneration = false,
-): Promise<void> {
-  const stage = scope.level === "direction" ? null : scope.stage;
-  const shotStages = stage === "video" ? await loadVideoAndAnimatic(videoRoot) : null;
-  const definition = shotStages
-    ? shotStages.video
-    : stage
-      ? await loadDefinitionWithDuration(videoRoot, stage)
-      : null;
-  const boardMoves = panelMovesByShot(shotStages?.animatic);
-  const prompts = definition?.prompts ?? [];
-  const respellings = definition?.respellings;
-  const promptShots = await loadPromptShots(videoRoot);
-
-  const prefix =
-    scope.level === "shot"
-      ? `${formatShotAddress(scope.stage, scope.shotId)}.`
-      : scope.level === "plates"
-        ? "animatic:plate."
-        : undefined;
-  const matches = prompts.filter((p) =>
-    scope.level === "asset"
-      ? p.address === scope.address
-      : prefix !== undefined
-        ? p.address.startsWith(prefix)
-        : true,
-  );
-  const plates = platesUnderScope(definition, scope, promptShots);
-  const cutinAddresses =
-    definition && stage ? cutinLaneAddresses(stage, definition) : new Set<string>();
-  const keyframes = keyframesUnderScope(definition, stage, matches);
-
-  let pending: Set<string> | undefined;
-  if (pendingGeneration && stage) {
-    const { definitions, manager, graph } = await openVideoSession(videoRoot, {
-      sync: "memory",
-      through: stage,
-    });
-    const { spending } = selectGenerationAssets({ definitions, stage, manager, graph });
-    const held = await spendHeldAssets(
-      await loadCheckContext({ videoRoot, definitions, manager, graph }),
-      { command: "generate", stage, assetPaths: spending, targeted: false },
-    );
-    pending = new Set(spending.filter((address) => !held.has(address)));
-    const addresses = new Set([
-      ...matches.map((p) => p.address),
-      ...plates.map((p) => p.address),
-      ...keyframes.map((k) => k.panel),
-    ]);
-    const targets = [...pending].filter((address) => addresses.has(address));
-    if (targets.length === 0) {
-      console.log("No pending generation under this scope.");
-      return;
-    }
-    console.log(
-      `Pending generation: ${targets.length} asset(s). Other entries are comparison only.`,
-    );
-    console.log("");
-  }
-  const printGeneration = (address: string) => {
-    if (pending)
-      console.log(`  generation: ${pending.has(address) ? "pending" : "comparison only"}`);
-  };
-
-  const kindOf = (p: PromptOccurrence): string =>
-    p.spoken ? "spokenText" : p.negative ? "negativePrompt" : "prompt";
-
-  // The address's occurrences grouped, so the shot's declarations are stated once above them.
-  const byAddress = new Map<string, PromptOccurrence[]>();
-  for (const p of matches) {
-    const bucket = byAddress.get(p.address) ?? [];
-    bucket.push(p);
-    byAddress.set(p.address, bucket);
-  }
-
-  if (matches.length === 0 && plates.length === 0) {
-    console.log("No prompts declared under this scope.");
-    return;
-  }
-
-  const printOccurrences = (occurrences: readonly PromptOccurrence[]) => {
-    for (const p of occurrences) {
-      const body = p.value.split("\n").join("\n      ");
-      console.log(`  ${p.input} (${kindOf(p)})`);
-      console.log(`      ${body}`);
-    }
-  };
-
-  // Which prompts make each keyframe, ahead of the text they carry.
-  if (keyframes.length > 0) {
-    console.log("Keyframes:");
-    for (const k of keyframes) {
-      const role = panelRole(
-        k.index,
-        k.of,
-        promptShots?.continuous.has(`${k.shotId}/${k.lane}`) ?? false,
-      );
-      console.log(
-        `  shot ${k.shotId} · panel ${k.index} of ${k.of} · ${k.lane} · ${role}   ${k.panel}`,
-      );
-      console.log(`    conditioning: ${k.conditioning.join(", ") || "(none)"}`);
-      if (pending) {
-        console.log(`    generation: ${pending.has(k.panel) ? "pending" : "comparison only"}`);
-      }
-      const plate = panelPlate(k, promptShots);
-      if (plate) console.log(`    plate: ${plate}`);
-    }
-    console.log("");
-  }
-
-  // A plate is listed first, in return order, whether or not a model read a prompt to make it.
-  let first = true;
-  for (const plate of plates) {
-    if (!first) console.log("");
-    first = false;
-    console.log(plate.address);
-    printGeneration(plate.address);
-    if (plate.frame) {
-      console.log(`  within: ${plate.frame.within ?? "root"}`);
-      console.log(`  framing: ${plate.frame.framing}`);
-      if (plate.frame.view) console.log(`  view: ${plate.frame.view}`);
-      if (plate.frame.set.length > 0) {
-        console.log(`  set: ${plate.frame.set.map((l) => l.label).join(" | ")}`);
-      }
-    }
-    printOccurrences(byAddress.get(plate.address) ?? []);
-  }
-
-  const plateAddresses = new Set(plates.map((p) => p.address));
-  for (const [address, occurrences] of byAddress) {
-    if (plateAddresses.has(address)) continue;
-    if (!first) console.log("");
-    first = false;
-    console.log(address);
-    printGeneration(address);
-    for (const line of promptShotLines(
-      promptShots,
-      respellings,
-      address,
-      occurrences,
-      cutinAddresses.has(address),
-    )) {
-      console.log(`  ${line}`);
-    }
-    if (occurrences.some((p) => !p.spoken)) {
-      for (const line of panelMoveLines(boardMoves, address, cutinAddresses.has(address))) {
-        console.log(`  ${line}`);
-      }
-    }
-    printOccurrences(occurrences);
-  }
-}
-
-type PanelMove = { index: number; of: number; blocking?: string; camera?: string };
-
-function panelMovesByShot(
-  animatic: AnimaticDefinition | null | undefined,
-): Map<string, Record<PanelLane, PanelMove[]>> {
-  const out = new Map<string, Record<PanelLane, PanelMove[]>>();
-  for (const shot of animatic?.shots ?? []) {
-    const moves = (panels: readonly PanelDefinition[] | undefined): PanelMove[] =>
-      (panels ?? []).map((p, i, all) => ({
-        index: i + 1,
-        of: all.length,
-        blocking: p.blocking,
-        camera: p.camera,
-      }));
-    out.set(shot.id, { main: moves(shot.panels), cutin: moves(shot.cutin?.panels) });
-  }
-  return out;
-}
-
-function panelMoveLines(
-  boardMoves: Map<string, Record<PanelLane, PanelMove[]>>,
-  address: string,
-  inCutin: boolean,
-): string[] {
-  const shotId = shotIdOfAddress(address);
-  const moves = shotId ? boardMoves.get(shotId)?.[inCutin ? "cutin" : "main"] : undefined;
-  const out: string[] = [];
-  for (const m of moves ?? []) {
-    const place = `panel ${m.index} of ${m.of}`;
-    if (m.blocking) out.push(`blocking (${place}): ${m.blocking}`);
-    if (m.camera) out.push(`camera (${place}): ${m.camera}`);
-  }
-  return out;
-}
-
-// The plate of the setup the panel's lane is shot from. `conditioning` can reach another setup's
-// plate through the frame before the cut, so the order there does not say which one this is.
-function panelPlate(k: PanelConditioning, promptShots: PromptShots | null): string | null {
-  const setupId =
-    k.lane === "cutin" ? promptShots?.cutin.get(k.shotId)?.setup : promptShots?.setup.get(k.shotId);
-  if (!setupId) return null;
-  const plate = formatPlateAssetPath(setupId);
-  return k.conditioning.includes(plate) ? plate : `(none — ${plate} is not in its conditioning)`;
-}
-
-// The keyframes whose conditioning the listing carries: a panel fed by a prompt under this scope.
-// Every address behind the panel stays in `conditioning`, this scope's or not — a narrower scope
-// cuts the listing, never the frame.
-function keyframesUnderScope(
-  definition: DefinitionWithDuration | null,
-  stage: AssetStage | null,
-  matches: readonly PromptOccurrence[],
-): PanelConditioning[] {
-  if (!definition || stage !== "animatic") return [];
-  const listed = new Set(matches.map((p) => p.address));
-  return listPanelConditioning(definition).filter((k) =>
-    k.conditioning.some((address) => listed.has(address)),
-  );
-}
-
-// The addresses only a shot's `<Cutin>` reaches. One the main frame reaches too keeps the shot's
-// lines.
-function cutinLaneAddresses(stage: AssetStage, definition: DefinitionWithDuration): Set<string> {
-  const out = new Set<string>();
-  if (stage !== "animatic" && stage !== "video") return out;
-  for (const shot of definition.shots) {
-    if (!shot.cutin) continue;
-    const { main, cutin } = shotLaneChains(stage, shot);
-    for (const address of cutin) if (!main.has(address)) out.add(address);
-  }
-  return out;
-}
-
-// The landmarks a setup's frame carries, left to right, labelled `<name> (<id>)`; an id the place
-// does not declare stands as itself.
-function holdsLabels(
-  direction: Direction,
-  setupId: string,
-): { id: string; label: string }[] | null {
-  return (
-    setupHolds(direction, setupId)?.map(({ id, landmark }) => ({
-      id,
-      label: landmark ? `${landmark.name} (${id})` : id,
-    })) ?? null
-  );
-}
-
-// What a plate's setup declares of its frame — the wider frame it is a window of (null at the root
-// of its own camera axis), its size, and what it holds.
-type PlateFrame = {
-  within: string | null;
-  framing: string;
-  view: View | undefined;
-  set: { id: string; label: string }[];
-};
-
-function plateFrameOf(direction: Direction, setupId: string): PlateFrame | null {
-  const setup = direction.setups?.[setupId];
-  const set = holdsLabels(direction, setupId);
-  if (!setup || !set) return null;
-  return {
-    within: setup.within ?? null,
-    framing: setup.framing,
-    view: setupView(direction.setups ?? {}, setupId),
-    set,
-  };
-}
-
 // Null for any address that is not a returned plate.
 async function plateFrameOfAddress(
   videoRoot: string,
@@ -1241,259 +902,6 @@ async function inspectPlates(videoRoot: string): Promise<void> {
     first = false;
     await inspectAsset(videoRoot, formatPlateAssetPath(id));
   }
-}
-
-function platesUnderScope(
-  definition: DefinitionWithDuration | null,
-  scope: PromptScope,
-  promptShots: PromptShots | null,
-): { address: string; frame: PlateFrame | null }[] {
-  if (!definition?.exposedPlateIds) return [];
-  if (scope.level === "shot" || scope.level === "direction") return [];
-  const out: { address: string; frame: PlateFrame | null }[] = [];
-  for (const id of definition.exposedPlateIds) {
-    const address = formatPlateAssetPath(id);
-    if (scope.level === "asset" && scope.address !== address) continue;
-    out.push({ address, frame: promptShots?.plateFrame.get(id) ?? null });
-  }
-  return out;
-}
-
-// The direction facts printed beside a stage's prompts: what each shot lands, who its frame holds
-// left to right, and the lines it speaks with the acting they are to be said with. Best-effort: a
-// video with no direction.ts prints prompts alone.
-interface PromptShots {
-  action: Map<string, string>;
-  hinge: Map<string, ReturnType<typeof deriveShotHinges>>;
-  passing: Map<string, readonly string[]>;
-  span: Map<string, string>;
-  lineup: Map<string, { lineup: readonly string[]; lineupTo: readonly string[] | null }>;
-  // What the shot's frame carries of its set, left to right — the setup's `holds`, resolved to the
-  // landmarks of the place it is set in. Empty on an insert, which holds nothing; absent only for a
-  // shot whose setup the roster does not declare, so a reader can tell the two apart.
-  set: Map<string, { id: string; label: string }[]>;
-  // The shot's own camera; a graphic shot has none.
-  setup: Map<string, string>;
-  // The declared boundary into the shot's own frame; an ordinary one has no entry.
-  join: Map<string, string>;
-  // The coverage shots — one take the model cuts inside, its lineup the opening frame.
-  coverage: Set<string>;
-  // The frames a `continuous` seam runs into, keyed `<shotId>/<lane>`.
-  continuous: Set<string>;
-  // Per SETUP id, not per shot: what each plate's frame declares.
-  plateFrame: Map<string, PlateFrame>;
-  // Printed above the addresses only the `<Cutin>` reaches, in place of the shot's own frame.
-  cutin: Map<
-    string,
-    {
-      setup: string;
-      lineup: readonly string[];
-      lineupTo: readonly string[] | null;
-      set: { id: string; label: string }[] | null;
-      join: string | null;
-    }
-  >;
-  script: Map<string, { speaker: string; text: string; acting: string | null }[]>;
-  // `<name> (<id>)`, the form the script line's speaker uses: the prompt names a subject by its
-  // roster NAME, and a reader barred from `direction.ts` has no roster to map an id through. The
-  label: (id: string) => string;
-}
-
-async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
-  const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
-  if (!direction) return null;
-  const nameById = new Map(
-    Object.entries(direction.characters ?? {}).map(([id, c]) => [id, c.name]),
-  );
-  // An id the character roster does not hold is a structural error, so it is labelled as itself.
-  const label = (id: string): string => {
-    const name = nameById.get(id);
-    return name ? `${name} (${id})` : id;
-  };
-  const lineup = new Map<
-    string,
-    { lineup: readonly string[]; lineupTo: readonly string[] | null }
-  >();
-  const set = new Map<string, { id: string; label: string }[]>();
-  const setup = new Map<string, string>();
-  const join = new Map<string, string>();
-  const coverage = new Set<string>();
-  const plateFrame = new Map<string, PlateFrame>(
-    Object.keys(direction.setups ?? {}).flatMap((id) => {
-      const frame = plateFrameOf(direction, id);
-      return frame ? [[id, frame] as const] : [];
-    }),
-  );
-  const script = new Map<string, { speaker: string; text: string; acting: string | null }[]>();
-  const cutin: PromptShots["cutin"] = new Map();
-  const action = new Map<string, string>();
-  const hinge: PromptShots["hinge"] = new Map();
-  const passing: PromptShots["passing"] = new Map();
-  const span = new Map<string, string>();
-  const timeline = resolveDirectionTimeline(direction);
-  const timings = timeline.timings;
-  for (const shot of collectShots(direction)) {
-    if (isAsideShot(shot)) continue;
-    action.set(shot.id, shot.action);
-    span.set(
-      shot.id,
-      formatShotSpan(
-        timings.get(shot.id)?.duration ?? 0,
-        timeline.song ? (shot.beats ?? null) : null,
-        timeline.songGrid?.beatsPerBar,
-      ),
-    );
-    if (shot.cutin) {
-      hinge.set(`${shot.id}.cutin`, deriveShotHinges(direction, shot.action, shot.cutin.setup));
-      passing.set(`${shot.id}.cutin`, shot.cutin.passing ?? []);
-      cutin.set(shot.id, {
-        setup: shot.cutin.setup,
-        lineup: shot.cutin.lineup ?? [],
-        lineupTo: shot.cutin.lineupTo ?? null,
-        set: holdsLabels(direction, shot.cutin.setup),
-        join: shot.cutin.join ?? null,
-      });
-    }
-    if (!isGraphicShot(shot)) {
-      setup.set(shot.id, shot.setup);
-      hinge.set(shot.id, deriveShotHinges(direction, shot.action, shot.setup));
-      passing.set(shot.id, shot.passing ?? []);
-      if (shot.join) join.set(shot.id, shot.join);
-      if (shot.coverage) coverage.add(shot.id);
-      if (shot.lineup) {
-        lineup.set(shot.id, { lineup: shot.lineup, lineupTo: shot.lineupTo ?? null });
-      }
-      const held = holdsLabels(direction, shot.setup);
-      if (held) set.set(shot.id, held);
-    }
-    const lines = (shot.script ?? []).map((line) => ({
-      speaker:
-        "character" in line
-          ? `${nameById.get(line.character) ?? line.character} (${line.character})`
-          : "speaker" in line
-            ? line.speaker
-            : "narration",
-      text: "narration" in line ? line.narration : line.text,
-      acting: line.acting ?? null,
-    }));
-    if (lines.length > 0) script.set(shot.id, lines);
-  }
-  return {
-    action,
-    hinge,
-    passing,
-    span,
-    lineup,
-    set,
-    setup,
-    join,
-    coverage,
-    continuous: continuousFrameKeys(direction),
-    plateFrame,
-    cutin,
-    script,
-    label,
-  };
-}
-
-function shotIdOfAddress(address: string): string | null {
-  const parsed = tryParseAddress(address);
-  return parsed && parsed.kind === "shot" ? parsed.shotId : null;
-}
-
-// The shot's lines THIS address voices: the ones it quotes verbatim. A take that declares a
-// `spokenText` input and quotes none carries words konte cannot match to a line, so it gets the
-// whole shot's script rather than nothing. Every other address gets none — printing a shot's second
-// line above the take that carries only its first tells the critic to expect words nobody asked for.
-function voicedLines<L extends { text: string }>(
-  occurrences: readonly PromptOccurrence[],
-  lines: readonly L[],
-  respellings: Respellings,
-  shotId: string,
-): L[] {
-  const quoted = lines.filter((l) =>
-    spellingsOf(respellings, shotId, l.text).some((spelling) =>
-      occurrences.some((p) => p.value.includes(spelling)),
-    ),
-  );
-  if (quoted.length > 0) return quoted;
-  return occurrences.some((p) => p.spoken) ? [...lines] : [];
-}
-
-type Respellings = readonly Respelling[] | undefined;
-
-// The spellings THIS address quotes, for the critic reading a prompt against the line.
-function quotedSpellings(
-  occurrences: readonly PromptOccurrence[],
-  respellings: Respellings,
-  shotId: string,
-  line: string,
-): string[] {
-  return spellingsOf(respellings, shotId, line)
-    .slice(1)
-    .filter((spelling) => occurrences.some((p) => p.value.includes(spelling)));
-}
-
-function promptShotLines(
-  promptShots: PromptShots | null,
-  respellings: Respellings,
-  address: string,
-  occurrences: readonly PromptOccurrence[],
-  inCutin: boolean,
-): string[] {
-  const shotId = promptShots && shotIdOfAddress(address);
-  if (!promptShots || !shotId) return [];
-  const out: string[] = [];
-  const order = (ids: readonly string[]) => ids.map(promptShots.label).join(" | ");
-  const action = promptShots.action.get(shotId);
-  if (action) out.push(`action: ${action}`);
-  const span = promptShots.span.get(shotId);
-  if (span) out.push(`span: ${span}`);
-  const cutin = inCutin ? promptShots.cutin.get(shotId) : undefined;
-  if (cutin) {
-    const to = cutin.lineupTo ? ` → ${order(cutin.lineupTo)}` : "";
-    const set =
-      cutin.set && cutin.set.length > 0
-        ? ` · set: ${cutin.set.map((l) => l.label).join(" | ")}`
-        : "";
-    const join = cutin.join ? ` · join: ${cutin.join}` : "";
-    out.push(`cutin: ${cutin.setup}${join} · lineup: ${order(cutin.lineup)}${to}${set}`);
-  }
-  const join = cutin ? undefined : promptShots.join.get(shotId);
-  if (join) out.push(`join: ${join}`);
-  if (!cutin && promptShots.coverage.has(shotId)) {
-    out.push("coverage: one take the model cuts inside — the lineup is its opening frame");
-  }
-  const declared = cutin ? undefined : promptShots.lineup.get(shotId);
-  if (declared) {
-    const to = declared.lineupTo ? ` → ${order(declared.lineupTo)}` : "";
-    out.push(`lineup: ${order(declared.lineup)}${to}`);
-  }
-  const frameId = cutin ? `${shotId}.cutin` : shotId;
-  const passers = promptShots.passing.get(frameId);
-  if (passers?.length) out.push(`passing: ${order(passers)}`);
-  // An insert holds nothing, so there is no line to print — the
-  // empty list, which says "this frame holds nothing" rather than "no set was read".
-  const held = cutin ? undefined : promptShots.set.get(shotId);
-  if (held && held.length > 0) out.push(`set: ${held.map((l) => l.label).join(" | ")}`);
-  const hinges = promptShots.hinge.get(frameId);
-  if (hinges?.length)
-    out.push(
-      `hinge: ${hinges.map((h) => `${h.name}${h.notInSet ? " (not in set)" : ""}`).join(" | ")}`,
-    );
-  for (const line of voicedLines(
-    occurrences,
-    promptShots.script.get(shotId) ?? [],
-    respellings,
-    shotId,
-  )) {
-    out.push(`script (${line.speaker}): ${line.text}`);
-    for (const spelling of quotedSpellings(occurrences, respellings, shotId, line.text)) {
-      out.push(`  spelled: ${spelling}`);
-    }
-    if (line.acting) out.push(`  acting: ${line.acting}`);
-  }
-  return out;
 }
 
 export function registerInspectCommand(program: Command): void {
