@@ -23,7 +23,7 @@ import { $ } from "bun";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { writeFixtureVideo } from "../../../src/cli/__tests__/fixture-video.js";
-import { loadStageDefinitions } from "../../../src/cli/load-definition.js";
+import { loadStageDefinitions } from "../../../src/core/stage-definitions.js";
 import { syncFileAssets } from "../../../src/core/file-sync.js";
 import { requireShotStages } from "../../../src/core/select-definition.js";
 import { StateManager } from "../../../src/core/state/index.js";
