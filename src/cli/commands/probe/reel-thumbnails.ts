@@ -28,6 +28,7 @@ import {
 } from "./shared.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { formatSeconds } from "../../../core/format-duration.js";
+import { printNextSteps } from "../../next-steps.js";
 
 async function shotAnimates(
   video: StageDefinition,
@@ -136,10 +137,12 @@ Examples:
 
       // Sampled frames are too far apart to show how an <Animate> move travels.
       if (await shotAnimates(video, manager, shotId)) {
-        console.log("\nNext steps:");
-        console.log(
-          `  konte probe motion ${address} --at <sec> --window <sec>   Read its <Animate> move frame by frame`,
-        );
+        printNextSteps([
+          {
+            command: `konte probe motion ${address} --at <sec> --window <sec>`,
+            details: ["Read its <Animate> move frame by frame"],
+          },
+        ]);
       }
     });
 }

@@ -63,7 +63,7 @@ import { collectFindings } from "../../../core/checks.js";
 import { readyUndecidedVariants } from "../../../core/staleness.js";
 import { StateManager } from "../../../core/state/index.js";
 import { variantDir } from "../../../core/variant-dir.js";
-import { confirmAction, printAborted } from "../../confirm.js";
+import { confirmAction, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
 import { loadDirectionIfPresent } from "../../../core/stage-definitions.js";
 import { openVideoSession } from "../../../core/video-session.js";
 import { formatDirectionRemainder } from "../../print-status.js";
@@ -96,8 +96,7 @@ export function registerAcceptCommand(program: Command): void {
     .command("accept <targets...>")
     .description("Accept variants, or a part of the direction (--off to clear)")
     .option("--off", "Clear acceptance instead of accepting")
-    .option("-y, --yes", "Skip confirmation prompt")
-    .option("--no", "Abort without prompting (treat confirmation as 'no')")
+    .option("--no", NO_FLAG_DESCRIPTION)
     .option("-v, --verbose", "List cascaded/stale assets instead of just counting them")
     .addHelpText(
       "after",

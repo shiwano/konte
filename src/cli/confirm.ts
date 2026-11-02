@@ -32,6 +32,8 @@ function oneLine(text: string): string {
   return /[.!?]$/.test(flat) ? flat : `${flat}.`;
 }
 
+export const NO_FLAG_DESCRIPTION = "Abort without prompting (treat confirmation as 'no')";
+
 // `consequence` states what proceeding does; the question is asked here.
 export async function confirmAction(
   consequence: string,

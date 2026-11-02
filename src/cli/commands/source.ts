@@ -42,11 +42,12 @@ import { ffprobeBin } from "../../core/ffmpeg-binary.js";
 import { parseTimecode } from "../../core/timecode.js";
 import type { SourceStudyIndex } from "../../core/types/index.js";
 import { getPathSize } from "./clean-utils.js";
-import { confirmDeletion, printAborted } from "../confirm.js";
+import { confirmDeletion, printAborted, NO_FLAG_DESCRIPTION } from "../confirm.js";
 import { typeCheckWorkspace } from "../../core/tsc.js";
 import { requireVideoRoot, requireWorkspaceRoot } from "../context.js";
 import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { declareScope } from "../scope.js";
+import { printNextSteps } from "../next-steps.js";
 
 const progress = (line: string) => console.error(`konte: ${line}…`);
 
@@ -62,16 +63,21 @@ async function printImported(src: SourceRef, index: SourceStudyIndex): Promise<v
   for (const note of index.notes) console.log(`  ${note}`);
   console.log(`  index: ${rel(path.join(sourceChunksDir(src), INDEX_MD))}`);
   const read = new Set((await readDigest(src)).chunks.map((c) => c.chunk));
-  console.log("");
-  console.log("Next steps:");
   if (index.chunks.every((c) => read.has(c.id))) {
-    console.log("  konte source show   Read the scenes and looks the digest holds");
+    printNextSteps([
+      { command: "konte source show", details: ["Read the scenes and looks the digest holds"] },
+    ]);
     return;
   }
-  console.log(
-    `  Spawn one konte-source-reader with ${sourceDirLabel(src)} and the part the human named ` +
-      '(their words; "the whole work" when none) — it answers the span',
-  );
+  printNextSteps([
+    {
+      command: null,
+      label: "spawn one konte-source-reader with the source and the part the human named",
+      details: [
+        `${sourceDirLabel(src)}; the part in their words, "the whole work" when none — it answers the span`,
+      ],
+    },
+  ]);
 }
 
 function requireKind(abs: string, file: string, kind: SourceKind): void {
@@ -276,9 +282,6 @@ async function printAt(sv: SourceView, at: string): Promise<void> {
   );
 }
 
-const CONFIRM_YES = "Skip the confirmation prompt";
-const CONFIRM_NO = "Abort without prompting (treat confirmation as 'no')";
-
 function registerImport(source: Command): void {
   const importCmd = source
     .command("import")
@@ -288,8 +291,7 @@ function registerImport(source: Command): void {
     importCmd
       .command("text <file>")
       .description("A novel or a script: .txt, .md or .epub")
-      .option("-y, --yes", CONFIRM_YES)
-      .option("--no", CONFIRM_NO)
+      .option("--no", NO_FLAG_DESCRIPTION)
       .addHelpText(
         "after",
         `
@@ -316,8 +318,7 @@ Examples:
       .command("comic <file>")
       .description("A comic: a directory of page images, .cbz, .pdf, or a .zip of them")
       .option("--binding <rtl|ltr>", "Which way its pages turn, where its file does not say")
-      .option("-y, --yes", CONFIRM_YES)
-      .option("--no", CONFIRM_NO)
+      .option("--no", NO_FLAG_DESCRIPTION)
       .addHelpText(
         "after",
         `
@@ -347,8 +348,7 @@ Examples:
     importCmd
       .command("clip <file>")
       .description("A film or an episode: a video file")
-      .option("-y, --yes", CONFIRM_YES)
-      .option("--no", CONFIRM_NO)
+      .option("--no", NO_FLAG_DESCRIPTION)
       .addHelpText(
         "after",
         `
@@ -446,8 +446,7 @@ Examples:
     source
       .command("remove")
       .description("Delete the video's source: the original's copy, its chunks and its digest")
-      .option("-y, --yes", CONFIRM_YES)
-      .option("--no", CONFIRM_NO)
+      .option("--no", NO_FLAG_DESCRIPTION)
       .action(async (opts: ImportOptions) => {
         const videoRoot = requireVideoRoot();
         const src = sourceRefIn(videoRoot);
@@ -459,11 +458,13 @@ Examples:
         await fs.rm(sourceDirOf(videoRoot), { recursive: true, force: true });
         console.log(`Removed ${SOURCE_DIR}/`);
         if ((await loadDirectionIfPresent(videoRoot))?.brief.source) {
-          console.log("");
-          console.log("Next steps:");
-          console.log(
-            "  Drop brief.source from direction.ts, or konte source import the original again",
-          );
+          printNextSteps([
+            {
+              command: null,
+              label: "edit direction.ts",
+              details: ["Drop brief.source, or `konte source import` the original again"],
+            },
+          ]);
         }
       }),
     { scope: "video", skipTypeCheck: true },

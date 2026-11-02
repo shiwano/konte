@@ -1,15 +1,14 @@
 import type { Command } from "commander";
 import { KonteError } from "../../../core/errors.js";
 import { FeedbackManager, findFeedback } from "../../../core/feedback/index.js";
-import { confirmAction, printAborted } from "../../confirm.js";
+import { confirmAction, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
 import { requireVideoRoot } from "../../context.js";
 
 export function registerFeedbackDeleteCommand(program: Command): void {
   program
     .command("delete <feedbackId>")
     .description("Delete a feedback entry")
-    .option("-y, --yes", "Skip confirmation prompt")
-    .option("--no", "Abort without prompting (treat confirmation as 'no')")
+    .option("--no", NO_FLAG_DESCRIPTION)
     .action(async (feedbackId: string, opts: { yes?: boolean; no?: boolean }) => {
       const videoRoot = requireVideoRoot();
 

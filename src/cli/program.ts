@@ -190,9 +190,13 @@ function applyUniversalYesFlag(cmd: Command): void {
       applyUniversalYesFlag(sub);
       continue;
     }
-    if (!sub.options.some((o) => o.short === "-y" || o.long === "--yes")) {
-      sub.option("-y, --yes", "Skip confirmation prompt (ignored when the command has no prompt)");
-    }
+    const confirms = sub.options.some((o) => o.long === "--no");
+    sub.option(
+      "-y, --yes",
+      confirms
+        ? "Skip the confirmation prompt"
+        : "Skip confirmation prompt (ignored when the command has no prompt)",
+    );
   }
 }
 

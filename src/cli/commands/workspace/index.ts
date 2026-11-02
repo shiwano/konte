@@ -11,10 +11,11 @@ import {
 import { listVideos, resolveRoots } from "../../../core/roots.js";
 import { syncWorkspace } from "../../../core/template-sync.js";
 import { setWorkspaceRoot } from "../../../core/workspace-context.js";
-import { confirmAction, printAborted } from "../../confirm.js";
+import { confirmAction, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
 import { declareScope } from "../../scope.js";
 import { pathExists, writeTemplateFiles } from "../../template-files.js";
 import { prefetchManagedRuntimes } from "./prefetch.js";
+import { printNextSteps } from "../../next-steps.js";
 
 const FRESH_REPO_ENTRIES = new Set([
   ".git",
@@ -65,13 +66,23 @@ async function scaffold(root: string, existing: boolean): Promise<void> {
 async function finish(root: string, message: string, checkVideos: boolean): Promise<void> {
   setWorkspaceRoot(root);
   await prefetchManagedRuntimes();
-  console.log(`${message}\n`);
-  console.log("Next steps:");
-  if (checkVideos && (await listVideos(root)).length > 0) {
-    console.log("  Run `konte doctor --all-videos` to check every video against this konte.");
-  }
-  console.log(`  Restart your coding agent in ${root}; agent settings and MCP load at startup.`);
-  console.log("  Run the konte-checkin skill.");
+  console.log(message);
+  printNextSteps([
+    ...(checkVideos && (await listVideos(root)).length > 0
+      ? [
+          {
+            command: "konte doctor --all-videos",
+            details: ["Check every video against this konte"],
+          },
+        ]
+      : []),
+    {
+      command: null,
+      label: `restart your coding agent in ${root}`,
+      details: ["Agent settings and MCP load at startup"],
+    },
+    { command: null, label: "run the konte-checkin skill", details: [] },
+  ]);
 }
 
 export function registerWorkspaceCommand(program: Command): void {
@@ -80,7 +91,7 @@ export function registerWorkspaceCommand(program: Command): void {
     workspace
       .command("new")
       .description("Create a workspace in the current directory")
-      .option("--no", "Abort without prompting")
+      .option("--no", NO_FLAG_DESCRIPTION)
       .addHelpText(
         "after",
         `

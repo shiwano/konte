@@ -3,7 +3,7 @@ import { KonteError, errorMessage } from "../../../core/errors.js";
 import { isJobTerminal, JobManager } from "../../../core/job-manager.js";
 import { StateManager } from "../../../core/state/index.js";
 import { getBackendKindFromJob, resolveBackend } from "../../../backends/resolve-backend.js";
-import { confirmAction, printAborted } from "../../confirm.js";
+import { confirmAction, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
 import { requireVideoRoots } from "../../context.js";
 import type { VideoRoots } from "../../../core/roots.js";
 
@@ -179,8 +179,7 @@ export function registerJobCancelCommand(program: Command): void {
   program
     .command("cancel <jobId...>")
     .description("Cancel one or more running jobs")
-    .option("-y, --yes", "Skip confirmation prompt")
-    .option("--no", "Abort without prompting (treat confirmation as 'no')")
+    .option("--no", NO_FLAG_DESCRIPTION)
     .action(async (jobIds: string[], opts: { yes?: boolean; no?: boolean }) => {
       const roots = requireVideoRoots();
       const videoRoot = roots.video;

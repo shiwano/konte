@@ -25,10 +25,10 @@ import { spendGate } from "../finding-gates.js";
 import { loadCheckContext } from "../../core/check-context.js";
 import { requireShotStages } from "../../core/select-definition.js";
 import { planDelivery } from "./render-delivery.js";
-import { formatSuggestedActions } from "../../core/suggested-actions.js";
 import { requireVideoRoots } from "../context.js";
 import type { VideoRoots } from "../../core/roots.js";
 import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
+import { printNextSteps } from "../next-steps.js";
 
 // Registered, not rendered — nothing pushes the render's outcome, so both paths name the wait.
 const EXPORT_NEXT_ACTIONS = [{ command: "konte job wait" }, { command: "konte probe export" }];
@@ -187,7 +187,7 @@ async function registerVideoExport(opts: {
       `Delivery upscales: ${deliverySubmitted} submitted, ${deliveryInProgress} already running.`,
     );
   }
-  console.log(`\n${formatSuggestedActions(EXPORT_NEXT_ACTIONS)}`);
+  printNextSteps(EXPORT_NEXT_ACTIONS);
 }
 
 export function registerExportCommand(program: Command): void {

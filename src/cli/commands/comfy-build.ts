@@ -14,6 +14,7 @@ import { KonteError } from "../../core/errors.js";
 import { requireWorkspaceRoot } from "../context.js";
 import { launchBrowser } from "../page-host/launch-browser.js";
 import { declareScope } from "../scope.js";
+import { printNextSteps } from "../next-steps.js";
 
 // In the Build page's own labels.
 function describeCompute(d: PlatformDeployment): string {
@@ -111,15 +112,17 @@ Examples:
         launchBrowser(buildPageUrl(result.buildId), { silent: true });
       }
       process.exitCode = 1;
-      console.log("\nNext steps:");
-      for (const { name, result } of undeployed) {
-        const what =
-          result.unready.length > 0
-            ? `Read why ${result.unready.map((d) => d.id).join(", ")} is not ready on its Build ` +
-              `page and deploy release ${result.releaseId} again`
-            : `Deploy release ${result.releaseId} on its Build page`;
-        console.log(`  ${what}, then: konte adapter comfy build ${name}`);
-      }
+      printNextSteps(
+        undeployed.map(({ name, result }) => ({
+          command: `konte adapter comfy build ${name}`,
+          details: [
+            result.unready.length > 0
+              ? `First read why ${result.unready.map((d) => d.id).join(", ")} is not ready on its ` +
+                `Build page and deploy release ${result.releaseId} again`
+              : `First deploy release ${result.releaseId} on its Build page`,
+          ],
+        })),
+      );
     });
 
   // Adapters and the deployment state are workspace-wide.

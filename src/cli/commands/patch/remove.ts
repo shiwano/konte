@@ -12,7 +12,7 @@ import { StateManager } from "../../../core/state/index.js";
 import { patchChainDir, variantDir } from "../../../core/variant-dir.js";
 import { addressToCacheSegments, getAssetStage } from "../../../core/address.js";
 import { collectDescendants } from "../../../core/variant-lineage.js";
-import { confirmDeletion, printAborted } from "../../confirm.js";
+import { confirmDeletion, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
 import { requireVideoRoots } from "../../context.js";
 import { getPathSize, removePathSafely } from "../clean-utils.js";
 import { prerollVariantDir } from "../../../core/preview-preroll.js";
@@ -36,8 +36,7 @@ export function registerPatchRemoveCommand(parent: Command): void {
   parent
     .command("remove <variantId>")
     .description("Delete a patch script and every variant it produced")
-    .option("-y, --yes", "Skip the confirmation prompt")
-    .option("--no", "Abort without prompting (treat confirmation as 'no')")
+    .option("--no", NO_FLAG_DESCRIPTION)
     .addHelpText(
       "after",
       `

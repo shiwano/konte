@@ -467,7 +467,7 @@ export function dedupeCommands(actions: SuggestedAction[]): SuggestedAction[] {
   return out;
 }
 
-export function formatSuggestedActions(actions: SuggestedAction[]): string {
+export function formatSuggestedActions(actions: readonly SuggestedAction[]): string {
   if (actions.length === 0) return "";
 
   // A step per line, its details indented under it — the nesting is what says which step they are

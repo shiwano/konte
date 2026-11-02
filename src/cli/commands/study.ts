@@ -18,6 +18,7 @@ import type { ClipStudy } from "../../core/types/index.js";
 import { requireWorkspaceRoot } from "../context.js";
 import { declareScope } from "../scope.js";
 import { formatSeconds, formatSecondsRange } from "../../core/format-duration.js";
+import { printNextSteps } from "../next-steps.js";
 
 function fmtFps(fps: number): string {
   return `${Number.isInteger(fps) ? fps : fps.toFixed(2)}fps`;
@@ -134,15 +135,23 @@ Examples:
           progress,
         });
         printStudy(file, url, dir, result);
-        console.log("");
-        console.log("Next steps:");
-        console.log(`  konte study clip ${file} --at <m:ss>   See one moment's frame at full size`);
-        if (url) {
-          console.log(
-            `  Copy it to the video's studies/ and name it in brief.references: ` +
-              `{ clip: "studies/${path.basename(abs)}", link: "${url}", take, avoid }`,
-          );
-        }
+        printNextSteps([
+          {
+            command: `konte study clip ${file} --at <m:ss>`,
+            details: ["See one moment's frame at full size"],
+          },
+          ...(url
+            ? [
+                {
+                  command: null,
+                  label: "copy it to the video's studies/ and name it in brief.references",
+                  details: [
+                    `{ clip: "studies/${path.basename(abs)}", link: "${url}", take, avoid }`,
+                  ],
+                },
+              ]
+            : []),
+        ]);
       }),
     { scope: "workspace" },
   );

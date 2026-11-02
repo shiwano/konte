@@ -39,7 +39,7 @@ import { openVideoSession } from "../../../core/video-session.js";
 import { spendGate } from "../../finding-gates.js";
 import { loadCheckContext } from "../../../core/check-context.js";
 import { capList, printCapped } from "../../format-list.js";
-import { confirmAction, printAborted } from "../../confirm.js";
+import { confirmAction, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
 import { parsePositiveInt } from "../../parse-option.js";
 import {
   formatUndecidedUpstreamVariantsNotice,
@@ -63,8 +63,7 @@ export function registerRerollCommand(program: Command): void {
       "--with-dependents",
       "Also rebuild every same-stage asset that depends on each one, stopping at an accepted take",
     )
-    .option("-y, --yes", "Skip the spend confirmation prompt of a sweep")
-    .option("--no", "Abort without prompting (treat confirmation as 'no')")
+    .option("--no", NO_FLAG_DESCRIPTION)
     .option("-v, --verbose", "List every affected asset instead of capping")
     .addHelpText(
       "after",

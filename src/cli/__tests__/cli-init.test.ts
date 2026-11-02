@@ -297,7 +297,7 @@ describe("workspace setup", () => {
     );
     await run(["video", "new", "main", "--template", "blank"], workspace);
     expect((await run(["workspace", "setup"], workspace)).stdout).toContain(
-      "Run `konte doctor --all-videos`",
+      "konte doctor --all-videos",
     );
   });
 

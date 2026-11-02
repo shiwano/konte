@@ -3,7 +3,7 @@ import type { StageDefinitions } from "../../../core/definition-hashes.js";
 import { KonteError } from "../../../core/errors.js";
 import { StateManager } from "../../../core/state/index.js";
 import { isReviewLeaf } from "../../../core/variant-lineage.js";
-import { printAborted } from "../../confirm.js";
+import { printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
 import { requireVideoRoot } from "../../context.js";
 import { openVideoSession } from "../../../core/video-session.js";
 import { resolveVariantArg } from "./resolve-variant-arg.js";
@@ -32,8 +32,7 @@ export function registerDismissCommand(program: Command): void {
       "--except <targets...>",
       "Dismiss every other landed undecided take at each named take's address",
     )
-    .option("-y, --yes", "Skip confirmation prompt")
-    .option("--no", "Abort without prompting (treat confirmation as 'no')")
+    .option("--no", NO_FLAG_DESCRIPTION)
     .option("-v, --verbose", "List the assets this makes stale instead of counting them")
     .addHelpText(
       "after",

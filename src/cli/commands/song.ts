@@ -21,6 +21,7 @@ import { requireVideoRoot, requireVideoRoots } from "../context.js";
 import { JobRunnerGuard } from "../job-runner.js";
 import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { loadReference } from "../../core/loader.js";
+import { printNextSteps } from "../next-steps.js";
 
 function readSongVariant(
   manager: StateManager,
@@ -124,7 +125,7 @@ Examples:
               ? `Line ${key} of ${address} ${variantId}: ${span.startSec}s–${span.endSec}s`
               : `Line ${key} of ${address} ${variantId}: left to the reading`,
           );
-          console.log(`\nNext steps:\n  konte probe audio ${variantId}`);
+          printNextSteps([{ command: `konte probe audio ${variantId}` }]);
           return;
         }
         const unset = opts.unset === true;
@@ -154,7 +155,7 @@ Examples:
           `Beat 0 of ${address} ${variantId}: ${sec(before)} → ${sec(after)}` +
             (at === null ? ", as read" : ""),
         );
-        console.log(`\nNext steps:\n  konte probe audio ${variantId}`);
+        printNextSteps([{ command: `konte probe audio ${variantId}` }]);
       },
     );
 
@@ -259,6 +260,9 @@ Examples:
         await runner.stop();
       }
       if (failed) process.exitCode = 1;
-      console.log(`\nNext steps:\n  konte preview reference\n  konte probe audio ${songAddress}`);
+      printNextSteps([
+        { command: "konte preview reference" },
+        { command: `konte probe audio ${songAddress}` },
+      ]);
     });
 }

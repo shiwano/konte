@@ -21,7 +21,7 @@ import {
 import { JobManager } from "../../core/job-manager.js";
 import { StateManager } from "../../core/state/index.js";
 import type { AnimaticDefinition, VideoDefinition } from "../../core/types/index.js";
-import { confirmDeletion, formatBreakdown, printAborted } from "../confirm.js";
+import { confirmDeletion, formatBreakdown, printAborted, NO_FLAG_DESCRIPTION } from "../confirm.js";
 import { loadVideoAndAnimatic } from "../../core/stage-definitions.js";
 import { getPathSize, removePathSafely } from "./clean-utils.js";
 import { type CascadeFailedJob, cascadeFailPendingJobs } from "../../core/job-cascade.js";
@@ -464,8 +464,7 @@ export function registerCleanCommand(program: Command): void {
     .description("Remove failed and cancelled variants")
     .option("--delete-unaccepted", "Also delete unaccepted variants that hold generated media")
     .option("--dry-run", "Preview what would be deleted without actually deleting")
-    .option("-y, --yes", "Proceed without prompting (the deletion summary is still printed)")
-    .option("--no", "Abort without prompting (treat confirmation as 'no')")
+    .option("--no", NO_FLAG_DESCRIPTION)
     .addHelpText(
       "after",
       `

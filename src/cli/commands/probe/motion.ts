@@ -28,6 +28,7 @@ import { createMotionIntentLoader, formatMotionIntent } from "./motion-intent.js
 import { openProbeTargets, resolveProbeTargets } from "./resolve-arg.js";
 import { compositionStage, requireCompositionShot } from "./shared.js";
 import { formatSeconds } from "../../../core/format-duration.js";
+import { printNextSteps } from "../../next-steps.js";
 
 function parseFps(raw: string | undefined): number | "native" | undefined {
   if (raw == null) return undefined;
@@ -365,10 +366,12 @@ Examples:
         const scopes = [...sweptShots].map(([stage, shots]) =>
           shots.size === 1 ? formatShotAddress(stage, [...shots][0]!) : stage,
         );
-        console.log("\nNext steps:");
-        console.log(
-          `  konte probe contact-sheet ${scopes.join(" ")} --frames-per-shot 6   Compare the shots side by side on one sheet`,
-        );
+        printNextSteps([
+          {
+            command: `konte probe contact-sheet ${scopes.join(" ")} --frames-per-shot 6`,
+            details: ["Compare the shots side by side on one sheet"],
+          },
+        ]);
       }
     });
 }

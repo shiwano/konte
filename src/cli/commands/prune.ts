@@ -29,7 +29,7 @@ import {
   variantsHostedBy,
 } from "../../core/variant-dir.js";
 import { collectDescendants } from "../../core/variant-lineage.js";
-import { confirmDeletion, printAborted } from "../confirm.js";
+import { confirmDeletion, printAborted, NO_FLAG_DESCRIPTION } from "../confirm.js";
 import { loadDirectionIfPresent, loadStageDefinitions } from "../../core/stage-definitions.js";
 import { directionPartHashes } from "../../core/direction-hash.js";
 import { getPathSize, removePathSafely } from "./clean-utils.js";
@@ -819,8 +819,7 @@ export function registerPruneCommand(program: Command): void {
     .command("prune [address-scope]")
     .description("Purge orphaned targets and jobs no longer present in the definition or state")
     .option("--dry-run", "Preview what would be deleted without actually deleting")
-    .option("-y, --yes", "Skip confirmation prompt")
-    .option("--no", "Abort without prompting (treat confirmation as 'no')")
+    .option("--no", NO_FLAG_DESCRIPTION)
     .addHelpText(
       "after",
       `
