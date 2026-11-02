@@ -5,7 +5,7 @@ import { hashFile } from "./content-hash.js";
 import { KonteError, errorMessage } from "./errors.js";
 import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
-import { variantThumbnailDir } from "./thumbnail.js";
+import { variantThumbnailDir } from "./variant-thumbnails.js";
 
 const MAX_EDGE = 1280;
 const MAX_BYTES = 512 * 1024;

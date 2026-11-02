@@ -27,8 +27,8 @@ const STILL = "assets/files/kf.png";
 const requested: number[][] = [];
 // Set, every capture rejects with it.
 const capture: { failure: Error | null } = { failure: null };
-vi.mock("../../core/thumbnail.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../core/thumbnail.js")>();
+vi.mock("../../core/composition-capture.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../core/composition-capture.js")>();
   return {
     ...actual,
     captureCompositionFrames: async (options: { captureOptions: { timestamps: number[] } }) => {

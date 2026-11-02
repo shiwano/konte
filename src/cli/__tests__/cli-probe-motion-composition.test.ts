@@ -23,8 +23,8 @@ import {
 const captured: number[][] = [];
 
 // A real frame per requested time, in a content-hash dir, so the strip tiles without Chromium.
-vi.mock("../../core/thumbnail.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../core/thumbnail.js")>();
+vi.mock("../../core/composition-capture.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../core/composition-capture.js")>();
   return {
     ...actual,
     captureCompositionFrames: async (options: {

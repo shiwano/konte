@@ -27,7 +27,7 @@ import {
   definitionDriftFields,
 } from "../../../core/definition-hashes.js";
 import { StateManager } from "../../../core/state/manager.js";
-import { resolveShotFeedbackFrames } from "../../../core/thumbnail.js";
+import { resolveShotFeedbackFrames } from "../../../core/feedback-frames.js";
 import { requireVideoRoot } from "../../context.js";
 import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 import { parseNumberOption } from "../../parse-option.js";

@@ -65,7 +65,7 @@ import {
   type StalenessCache,
 } from "../../core/staleness.js";
 import { StateManager } from "../../core/state/index.js";
-import { readVariantThumbnails } from "../../core/thumbnail.js";
+import { readVariantThumbnails } from "../../core/variant-thumbnails.js";
 import { generatedOrigin, isReviewLeaf } from "../../core/variant-lineage.js";
 import { variantOwningFile } from "../../core/variant-dir.js";
 import type {

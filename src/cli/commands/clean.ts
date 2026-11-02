@@ -11,7 +11,7 @@ import {
   collectDeadStemVariants,
 } from "../../core/composition-resource.js";
 import { activeGenerationVariantIds, patchChainTargets, patchFilePath } from "../../core/patch.js";
-import { listThumbnailAddressDirs } from "../../core/thumbnail.js";
+import { listThumbnailAddressDirs } from "../../core/variant-thumbnails.js";
 import { variantDir, variantsHostedBy } from "../../core/variant-dir.js";
 import {
   acceptedConsumers,

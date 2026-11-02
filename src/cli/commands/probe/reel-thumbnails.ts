@@ -14,7 +14,7 @@ import {
   COMPOSITION_FRAME_FORMAT,
   COMPOSITION_FRAME_QUALITY,
   type CaptureCompositionOptions,
-} from "../../../core/thumbnail.js";
+} from "../../../core/composition-capture.js";
 import type { StageDefinition } from "../../../core/types/index.js";
 import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 import { requireVideoRoot } from "../../context.js";

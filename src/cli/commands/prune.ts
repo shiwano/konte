@@ -20,7 +20,7 @@ import {
   patchFilePath,
 } from "../../core/patch.js";
 import { prerollVariantDir } from "../../core/preview-preroll.js";
-import { listThumbnailAddressDirs } from "../../core/thumbnail.js";
+import { listThumbnailAddressDirs } from "../../core/variant-thumbnails.js";
 import {
   assetDir,
   patchBucketDir,

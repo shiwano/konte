@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { applyResolutionDefinitions } from "../../../../core/definition-hashes.js";
 import { saveReviewRecord } from "../../../../core/review-record.js";
 import { StateManager } from "../../../../core/state/manager.js";
-import { feedbackFramePath, resolveShotFeedbackFrames } from "../../../../core/thumbnail.js";
+import { feedbackFramePath, resolveShotFeedbackFrames } from "../../../../core/feedback-frames.js";
 import { run } from "../../../__tests__/harness.js";
 import { loadVideoAndAnimatic } from "../../../../core/stage-definitions.js";
 import {

@@ -27,7 +27,8 @@ import {
   speechLangOf,
 } from "../core/select-definition.js";
 import { StateManager } from "../core/state/index.js";
-import { ensureVariantThumbnails, type ThumbnailInfo } from "../core/thumbnail.js";
+import { ensureVariantThumbnails } from "../core/variant-thumbnails.js";
+import { type ThumbnailInfo } from "../core/frame-extract.js";
 import type { GenerationJob, JobKind, JobRecord } from "../core/types/index.js";
 import { variantDir } from "../core/variant-dir.js";
 import { mediaDurationSec, mediaHasAudio } from "../core/variant-media.js";

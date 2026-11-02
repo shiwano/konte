@@ -6,11 +6,10 @@ import { ffprobeBin } from "../../../core/ffmpeg-binary.js";
 import { inferMediaType } from "../../../core/media-type.js";
 import {
   ensureVariantThumbnails,
-  extractFrameAt,
   readVariantThumbnails,
-  type ThumbnailInfo,
   variantThumbnailDir,
-} from "../../../core/thumbnail.js";
+} from "../../../core/variant-thumbnails.js";
+import { extractFrameAt, type ThumbnailInfo } from "../../../core/frame-extract.js";
 import { openProbeTargets } from "./resolve-arg.js";
 import {
   addFrameCaptureOptions,

@@ -59,7 +59,7 @@ import type {
 } from "../../../core/types/index.js";
 import { readDefinitionSnapshot } from "../../../core/definition-snapshot.js";
 import type { PatchChainVariants } from "./asset-info.js";
-import { readVariantThumbnails } from "../../../core/thumbnail.js";
+import { readVariantThumbnails } from "../../../core/variant-thumbnails.js";
 import { inferMediaType } from "../../../core/media-type.js";
 
 // The preview server only ever serves a video's own media, so containment is checked against the

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { useTempWorkspace, run, runCapture, initWithChainedShotsVideo } from "./cli-fixtures.js";
 
-vi.mock("../../core/thumbnail.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../core/thumbnail.js")>();
+vi.mock("../../core/composition-capture.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../core/composition-capture.js")>();
   return {
     ...actual,
     captureCompositionFrames: async (options: { shotId: string }) => [

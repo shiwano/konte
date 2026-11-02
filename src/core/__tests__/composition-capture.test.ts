@@ -64,7 +64,11 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 
 import * as hfProducer from "@hyperframes/producer";
 import type { StateManager } from "../state/index.js";
-import { captureCompositionFrames } from "../thumbnail.js";
+import {
+  captureCompositionFrames,
+  harvestCompositionVideos,
+  withVideoElementIds,
+} from "../composition-capture.js";
 import type { StageDefinition } from "../types/index.js";
 
 const createFileServerMock = hfProducer.createFileServer as unknown as Mock;
@@ -416,5 +420,62 @@ describe("captureCompositionFrames", () => {
       expect.objectContaining({ skipReadinessVideoIds: [expect.any(String)] }),
       undefined,
     );
+  });
+});
+
+describe("withVideoElementIds", () => {
+  it("mints an id for every <video> the author did not name", () => {
+    const html = withVideoElementIds(
+      `<div id="stage"><video src="/a.mp4" data-start="0"></video><video src="/b.mp4"></video></div>`,
+    );
+    expect(html).toContain(`<video id="konte-video-0" src="/a.mp4" data-start="0">`);
+    expect(html).toContain(`<video id="konte-video-1" src="/b.mp4">`);
+  });
+
+  it("keeps an authored id — <Video id> is the handle hasAudio and <Animate> target it by", () => {
+    const html = withVideoElementIds(
+      `<video id="main" src="/a.mp4" data-has-audio="true"></video>`,
+    );
+    expect(html).toContain(`<video id="main"`);
+    expect(html).not.toContain("konte-video-");
+  });
+});
+
+describe("harvestCompositionVideos", () => {
+  it("reads each clip's window off the timeline attributes", () => {
+    const videos = harvestCompositionVideos(
+      `<video id="v0" src="/a.mp4" data-start="1.5" data-duration="2" data-media-start="0.25"></video>`,
+    );
+    expect(videos).toEqual([
+      { id: "v0", src: "/a.mp4", start: 1.5, end: 3.5, mediaStart: 0.25, rate: 1, loop: false },
+    ]);
+  });
+
+  it("reads the clip's playback rate", () => {
+    const [video] = harvestCompositionVideos(
+      `<video id="v0" src="/a.mp4" data-start="0" data-duration="1" data-playback-rate="1.625"></video>`,
+    );
+    expect(video?.rate).toBe(1.625);
+  });
+
+  it("reads the bare `loop` attribute — a looping clip wraps instead of running off its source", () => {
+    const [video] = harvestCompositionVideos(
+      `<video id="v0" src="/a.mp4" data-start="0" data-duration="9" loop=""></video>`,
+    );
+    expect(video?.loop).toBe(true);
+  });
+
+  it("treats a clip with no data-duration as unbounded", () => {
+    const [video] = harvestCompositionVideos(`<video id="v0" src="/a.mp4" data-start="0"></video>`);
+    expect(video?.end).toBe(Infinity);
+  });
+
+  it("ignores <audio> and <img> — only <video> needs a frame injected", () => {
+    const videos = harvestCompositionVideos(
+      `<video id="v0" src="/a.mp4" data-start="0" data-duration="2"></video>` +
+        `<audio id="a0" src="/a.mp3" data-start="0"></audio>` +
+        `<img id="i0" src="/a.png" data-start="0" data-duration="2">`,
+    );
+    expect(videos.map((v) => v.id)).toEqual(["v0"]);
   });
 });

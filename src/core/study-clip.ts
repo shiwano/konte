@@ -16,7 +16,7 @@ import { runFfmpeg } from "./ffmpeg-exec.js";
 import { separateSong } from "./sherpa-binary.js";
 import { type SongTempo, songTempo } from "./song-grid.js";
 import { hearWindows, joinHeardWindows } from "./speech-hearing.js";
-import { detectSceneChanges, extractFrameAt, lastSeekableTime } from "./thumbnail.js";
+import { detectSceneChanges, extractFrameAt, lastSeekableTime } from "./frame-extract.js";
 import { type ClipStudy, ClipStudySchema } from "./types/index.js";
 import { probeHasAudio, probeVideo, type VideoProbeResult } from "./video-probe.js";
 import { formatSeconds } from "./format-duration.js";

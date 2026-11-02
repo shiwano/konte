@@ -13,7 +13,7 @@ import { parsePlaceholder } from "../core/dsl/shot-context.js";
 import { KonteError } from "../core/errors.js";
 import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "../core/ffmpeg-binary.js";
 import { runFfmpeg } from "../core/ffmpeg-exec.js";
-import { extractFrameAt, lastSeekableTime } from "../core/thumbnail.js";
+import { extractFrameAt, lastSeekableTime } from "../core/frame-extract.js";
 import { requireFileWithinRoot } from "../core/path-containment.js";
 import {
   asJsxStillInputs,

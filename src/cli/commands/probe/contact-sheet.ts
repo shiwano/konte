@@ -32,11 +32,13 @@ import {
   captureCompositionFrames,
   COMPOSITION_FRAME_FORMAT,
   COMPOSITION_FRAME_QUALITY,
+} from "../../../core/composition-capture.js";
+import {
   compositionSampleTimes,
   extractFrameAt,
   panelSampleTime,
   subtitleSampleTimes,
-} from "../../../core/thumbnail.js";
+} from "../../../core/frame-extract.js";
 import { buildShotCompositionHtml } from "../../../core/composition-builder.js";
 import type { StageDefinition } from "../../../core/types/index.js";
 import { probeMediaInfo } from "../../../core/video-probe.js";

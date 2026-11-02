@@ -41,7 +41,7 @@ import {
   probeClip,
   shotsBetween,
 } from "./study-clip.js";
-import { detectSceneChanges, extractFrameAt, lastSeekableTime } from "./thumbnail.js";
+import { detectSceneChanges, extractFrameAt, lastSeekableTime } from "./frame-extract.js";
 import { probeHasAudio, type VideoProbeResult } from "./video-probe.js";
 
 const READING_VERSION = 1;

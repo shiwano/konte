@@ -13,10 +13,9 @@ import {
   captureCompositionFrames,
   COMPOSITION_FRAME_FORMAT,
   COMPOSITION_FRAME_QUALITY,
-  frameInterval,
-  lastSeekableTime,
-  shotFrameDir,
-} from "./thumbnail.js";
+} from "./composition-capture.js";
+import { frameInterval, lastSeekableTime } from "./frame-extract.js";
+import { shotFrameDir } from "./feedback-frames.js";
 import { probeVideo, type VideoProbeResult } from "./video-probe.js";
 import type { StageDefinition } from "./types/index.js";
 import { execFileAsync } from "./exec-file.js";
