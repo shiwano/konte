@@ -453,11 +453,14 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   const { setError } = session;
   // The stand-ins this page was told about, as a stable key: the reel is re-fetched when the set
   // moves (a shot whose picture just landed must redraw), and never merely because state was re-read.
-  const standInShotIds = useMemo(
-    () => state.shots.filter((s) => s.showingStandIn).map((s) => s.shotId),
+  const standInShotKey = useMemo(
+    () =>
+      state.shots
+        .filter((s) => s.showingStandIn)
+        .map((s) => s.shotId)
+        .join(","),
     [state.shots],
   );
-  const standInShotKey = standInShotIds.join(",");
   useEffect(() => {
     // Switching takes in quick succession (or a hot-reload landing on top of one) leaves two
     // fetches in flight, and the slower one is not always the older one — abort the previous
@@ -574,6 +577,8 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     return capture;
   }, []);
 
+  const videoOrder = useMemo(() => parseVideoOrder(compositionHtml ?? ""), [compositionHtml]);
+
   useEffect(() => {
     const shots = state.shots;
     if (shots.length === 0) return;
@@ -586,24 +591,8 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
       return Object.keys(live).length === Object.keys(p).length ? p : live;
     });
     (async () => {
-      // Order each shot's videos by data-start (timeline position), then document
-      // order — see parseVideoOrder. Falls back to definition order if no HTML.
-      let html = "";
-      try {
-        html = await fetchCompositionHtml(
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          standInShotIds,
-        );
-      } catch {
-        // fall back to definition order
-      }
-      if (cancelled) return;
-      const order = parseVideoOrder(html);
       const FAR = { start: Number.MAX_SAFE_INTEGER, idx: Number.MAX_SAFE_INTEGER };
-      const sortKey = (url: string) => order.get(url.split("/").pop() ?? "") ?? FAR;
+      const sortKey = (url: string) => videoOrder.get(url.split("/").pop() ?? "") ?? FAR;
       const limit = limitConcurrency(CAPTURE_CONCURRENCY);
       await Promise.allSettled(
         shots.map((shot) =>
@@ -653,7 +642,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     return () => {
       cancelled = true;
     };
-  }, [state.shots, standInShotIds, effectiveVariants, captureCached]);
+  }, [state.shots, videoOrder, effectiveVariants, captureCached]);
 
   const handleTimeUpdate = useCallback(
     (time: number) => {
