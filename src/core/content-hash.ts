@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import * as fs from "node:fs/promises";
+import { createReadStream } from "node:fs";
 import { stableStringify } from "./stable-stringify.js";
 
 export function sha256Hex(...parts: readonly (string | Uint8Array)[]): string {
@@ -19,5 +19,7 @@ export function shortHash(value: unknown, length = 12): string {
 }
 
 export async function hashFile(absPath: string): Promise<string> {
-  return sha256Hex(await fs.readFile(absPath));
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(absPath)) hash.update(chunk as Buffer);
+  return hash.digest("hex");
 }

@@ -1,9 +1,9 @@
-import { createHash } from "node:crypto";
-import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { detectBeats } from "./beat-this.js";
+import { hashFile } from "./content-hash.js";
 import { PAGE_INFO_FILE, readClipPageInfo, readClipSubtitle } from "./clip-sidecars.js";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import {
@@ -58,12 +58,6 @@ export function clipStudyDir(workspaceRoot: string, sha256: string): string {
   return path.join(studiesDir(workspaceRoot), `clip-${sha256}`);
 }
 
-export async function sha256OfFile(file: string): Promise<string> {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
-  return hash.digest("hex");
-}
-
 // One hash per file per process, keyed by its size and mtime: a preview asks on every state load.
 const hashes = new Map<string, { key: string; sha256: string }>();
 
@@ -72,7 +66,7 @@ export async function clipSha256(file: string): Promise<string> {
   const key = `${st.size}:${st.mtimeMs}`;
   const known = hashes.get(file);
   if (known?.key === key) return known.sha256;
-  const sha256 = await sha256OfFile(file);
+  const sha256 = await hashFile(file);
   hashes.set(file, { key, sha256 });
   return sha256;
 }

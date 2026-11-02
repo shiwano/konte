@@ -1,10 +1,10 @@
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
+import { hashFile, sha256Hex } from "./content-hash.js";
 import { KonteError } from "./errors.js";
 import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
@@ -479,9 +479,9 @@ export async function renderContactSheet(opts: {
   const base = pageBase(videoRoot, cacheKey, page);
   const sidecarFile = `${base}.json`;
 
-  const fingerprint = createHash("sha256")
-    .update(JSON.stringify({ layout, cells: cells.map((c) => [c.label, c.file]) }))
-    .digest("hex");
+  const fingerprint = sha256Hex(
+    JSON.stringify({ layout, cells: cells.map((c) => [c.label, c.file]) }),
+  );
   // outputHash is konte's own content key and moves whenever the bytes do; size+mtime is the
   // fallback for a source that has none (a `file` asset whose target is edited outside konte).
   const sources = await Promise.all(
@@ -500,10 +500,7 @@ export async function renderContactSheet(opts: {
         typeof cached.image === "string" &&
         cached.fingerprint === fingerprint &&
         JSON.stringify(cached.sources) === JSON.stringify(sources) &&
-        cached.outputSha ===
-          createHash("sha256")
-            .update(await fs.readFile(outFile))
-            .digest("hex")
+        cached.outputSha === (await hashFile(outFile))
       ) {
         return { path: outFile, layout, labelled: cached.labelled !== false, reused: true };
       }
@@ -513,7 +510,7 @@ export async function renderContactSheet(opts: {
   }
 
   const { bytes, labelled } = await drawContactSheet(cells, layout);
-  const outputSha = createHash("sha256").update(bytes).digest("hex");
+  const outputSha = sha256Hex(bytes);
   const image = `${path.basename(base)}-${outputSha.slice(0, 12)}.jpg`;
   const outFile = path.join(contactSheetDir(videoRoot), image);
   await writeFileAtomic(outFile, bytes);

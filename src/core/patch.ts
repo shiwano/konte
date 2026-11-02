@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
@@ -8,6 +7,7 @@ import {
   patchSourceVariantIdOf,
   assetNameOf,
 } from "./address.js";
+import { sha256Hex } from "./content-hash.js";
 import { computeDefinitionHash } from "./definition-hash.js";
 import {
   endsOnSeam,
@@ -67,7 +67,7 @@ export function computePatchHash(build: PatchBuild): string {
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([name, def]) => `${name}:${computeDefinitionHash(def)}`);
   parts.push(`=${build.outputName}`);
-  return createHash("sha256").update(parts.join("\n")).digest("hex").slice(0, 12);
+  return sha256Hex(parts.join("\n")).slice(0, 12);
 }
 
 export interface LoadedPatch extends PatchBuild {

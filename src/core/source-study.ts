@@ -8,6 +8,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { mapConcurrent } from "./concurrency.js";
+import { hashFile } from "./content-hash.js";
 import { KonteError } from "./errors.js";
 import {
   type ParsedAt,
@@ -15,7 +16,6 @@ import {
   chunkFileStems,
   sourceKindOfFile,
 } from "./source-locator.js";
-import { sha256OfFile } from "./study-clip.js";
 import {
   type SourceFileFingerprint,
   type SourceStudyIndex,
@@ -118,7 +118,7 @@ async function fingerprintOf(src: SourceRef): Promise<SourceFileFingerprint[]> {
   return mapConcurrent(originalFiles(src), HASH_CONCURRENCY, async (rel) => {
     const abs = path.join(src.dir, rel);
     const st = statSync(abs);
-    return { path: rel, size: st.size, mtimeMs: st.mtimeMs, sha256: await sha256OfFile(abs) };
+    return { path: rel, size: st.size, mtimeMs: st.mtimeMs, sha256: await hashFile(abs) };
   });
 }
 
@@ -143,7 +143,7 @@ async function fingerprintHolds(
     const st = statSync(path.join(src.dir, rel));
     if (st.size !== was.size) return null;
     if (st.mtimeMs !== was.mtimeMs) {
-      if ((await sha256OfFile(path.join(src.dir, rel))) !== was.sha256) return null;
+      if ((await hashFile(path.join(src.dir, rel))) !== was.sha256) return null;
       out.push({ ...was, mtimeMs: st.mtimeMs });
     } else {
       out.push(was);
@@ -348,8 +348,7 @@ export async function sameOriginal(a: string, b: string): Promise<boolean> {
   const sa = statSync(a);
   const sb = statSync(b);
   if (sa.isDirectory() !== sb.isDirectory()) return false;
-  if (!sa.isDirectory())
-    return sa.size === sb.size && (await sha256OfFile(a)) === (await sha256OfFile(b));
+  if (!sa.isDirectory()) return sa.size === sb.size && (await hashFile(a)) === (await hashFile(b));
   const ea = readdirSorted(a);
   const eb = readdirSorted(b);
   if (ea.length !== eb.length) return false;
