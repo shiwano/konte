@@ -1,7 +1,12 @@
 import { statSync } from "node:fs";
 import { KonteError, errorMessage } from "./errors.js";
 import { execFileAsync } from "./exec-file.js";
-import { ffmpegBin, ffprobeBin } from "./ffmpeg-binary.js";
+import {
+  ffmpegBin,
+  ffprobeBin,
+  SINGLE_FRAME_INPUT_ARGS,
+  SINGLE_FRAME_OUTPUT_ARGS,
+} from "./ffmpeg-binary.js";
 
 /** Runs ffmpeg, rejecting with `FFMPEG_ERROR` as `<what>: <cause>`. */
 export async function runFfmpeg(
@@ -46,4 +51,38 @@ export function hasBytes(file: string): boolean {
   } catch {
     return false;
   }
+}
+
+let drawTextSupport: Promise<boolean> | undefined;
+
+/**
+ * Whether this ffmpeg can burn text in — the filter being compiled in says nothing about a usable
+ * font being installed, so it draws on a synthetic frame. Settled once per process, before any
+ * labelled frame is rendered: a label is then all-or-nothing across a sheet, and a labelled frame
+ * that fails is the source's fault, not the font's.
+ */
+export function ffmpegCanDrawText(): Promise<boolean> {
+  drawTextSupport ??= runFfmpeg(
+    [
+      "-hide_banner",
+      ...SINGLE_FRAME_INPUT_ARGS,
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=black:s=64x64",
+      ...SINGLE_FRAME_OUTPUT_ARGS,
+      "-vf",
+      "drawtext=text=probe:fontsize=12:fontcolor=white",
+      "-frames:v",
+      "1",
+      "-f",
+      "null",
+      "-",
+    ],
+    "ffmpeg drawtext probe failed",
+  ).then(
+    () => true,
+    () => false,
+  );
+  return drawTextSupport;
 }

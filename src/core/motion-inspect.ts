@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { KonteError, errorMessage } from "./errors.js";
 import { ffmpegBin, SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
-import { hasBytes, runFfmpeg } from "./ffmpeg-exec.js";
+import { ffmpegCanDrawText, hasBytes, runFfmpeg } from "./ffmpeg-exec.js";
 import { inferMediaType } from "./media-type.js";
 import { shotById } from "./shot-index.js";
 import type { StateManager } from "./state/index.js";
@@ -701,20 +701,6 @@ const STRIP_FRAME_WIDTH = 320;
 // that overshot by a frame or two, not one facing an arbitrary gap.
 const MAX_SEEK_STEPBACK = 2;
 
-// The binary is pinned for the process's lifetime, so its filter list is asked for once.
-let drawtextSupport: Promise<boolean> | undefined;
-function ffmpegHasDrawtext(): Promise<boolean> {
-  drawtextSupport ??= (async () => {
-    try {
-      const res = await runFfmpeg(["-hide_banner", "-filters"], "ffmpeg -filters failed");
-      return /\bdrawtext\b/.test(res.stdout);
-    } catch {
-      return false;
-    }
-  })();
-  return drawtextSupport;
-}
-
 // `timestamp` null reads a still image.
 async function extractStripFrame(
   sourcePath: string,
@@ -862,32 +848,13 @@ export async function renderMotionStrip(opts: {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-strip-"));
   const tilePath = path.join(outDir, `.${path.basename(tmpDir)}.jpg`);
   try {
-    let useLabel = await ffmpegHasDrawtext();
+    const useLabel = await ffmpegCanDrawText();
     let lastFailure = "";
 
     // ffmpeg reports "this seek found no frame" two ways — a non-zero exit, and exit 0 with nothing
     // written — and leaves whatever was already at the path untouched when it fails. So an attempt
     // clears its target first and then judges by the bytes that came back, and neither form escapes
     // as a raw ffmpeg dump.
-    const tryFrame = async (
-      t: number,
-      framePath: string,
-      label: string | null,
-    ): Promise<boolean> => {
-      rmSync(framePath, { force: true });
-      try {
-        await extractStripFrame(videoPath, t, framePath, label);
-      } catch (err) {
-        lastFailure = errorMessage(err);
-        return false;
-      }
-      return hasBytes(framePath);
-    };
-
-    // A labeled attempt can fail for either of two unrelated reasons, and they call for opposite
-    // responses: an ffmpeg build with no usable font fails every frame until labels are dropped,
-    // while a seek past the last frame fails at this timestamp whether or not it is labeled. Retry
-    // the same moment unlabeled to tell them apart — only its success convicts drawtext.
     //
     // `seekAt` is where the frame is read from, `labelAt` what gets burned in — they part only when a
     // step-back rescues a tile, and the label follows the *requested* moment so it agrees with the
@@ -897,17 +864,23 @@ export async function renderMotionStrip(opts: {
       labelAt: number,
       framePath: string,
     ): Promise<boolean> => {
-      if (!useLabel) return tryFrame(seekAt, framePath, null);
-      if (await tryFrame(seekAt, framePath, formatSeconds(labelAt, 2))) return true;
-      if (!(await tryFrame(seekAt, framePath, null))) return false;
-      useLabel = false;
-      return true;
+      rmSync(framePath, { force: true });
+      try {
+        await extractStripFrame(
+          videoPath,
+          seekAt,
+          framePath,
+          useLabel ? formatSeconds(labelAt, 2) : null,
+        );
+      } catch (err) {
+        lastFailure = errorMessage(err);
+        return false;
+      }
+      return hasBytes(framePath);
     };
 
     const interval = frameInterval(waveform.nativeFps);
-    // Each tile is its own ffmpeg seek writing its own file, so they run several at a time. The
-    // drawtext verdict is still shared: it only ever flips on a failure, so no tile that flipped it
-    // kept its label and the sheet stays all-or-nothing labelled.
+    // Each tile is its own ffmpeg seek writing its own file, so they run several at a time.
     await mapConcurrent(timestamps, FFMPEG_CONCURRENCY, async (at, i) => {
       const framePath = path.join(tmpDir, `frame-${String(i + 1).padStart(3, "0")}.jpg`);
       // Step back a frame at a time rather than fail the whole strip over one tile. The requested
@@ -1026,26 +999,17 @@ export async function renderCompositionMotionStrip(opts: {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-strip-"));
   const tilePath = path.join(outDir, `.${path.basename(tmpDir)}.jpg`);
   try {
-    let useLabel = await ffmpegHasDrawtext();
+    const useLabel = await ffmpegCanDrawText();
     await mapConcurrent(framePaths, FFMPEG_CONCURRENCY, async (source, i) => {
       const framePath = path.join(tmpDir, `frame-${String(i + 1).padStart(3, "0")}.jpg`);
-      const tryFrame = async (label: string | null): Promise<boolean> => {
-        rmSync(framePath, { force: true });
-        try {
-          await extractStripFrame(source, null, framePath, label);
-        } catch {
-          return false;
-        }
-        return hasBytes(framePath);
-      };
-      if (useLabel && (await tryFrame(formatSeconds(timestamps[i]!, 2)))) return;
-      if (!(await tryFrame(null))) {
-        throw new KonteError(
-          "FFMPEG_ERROR",
-          `ffmpeg could not scale the frame at ${timestamps[i]}s`,
-        );
+      const label = useLabel ? formatSeconds(timestamps[i]!, 2) : null;
+      const what = `ffmpeg could not scale the frame at ${timestamps[i]}s`;
+      try {
+        await extractStripFrame(source, null, framePath, label);
+      } catch (err) {
+        throw new KonteError("FFMPEG_ERROR", `${what}: ${errorMessage(err)}`);
       }
-      useLabel = false;
+      if (!hasBytes(framePath)) throw new KonteError("FFMPEG_ERROR", what);
     });
     await tileStripFrames(tmpDir, framePaths.length, tilePath, outDir);
     await fs.rename(tilePath, outFile);

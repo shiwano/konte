@@ -7,7 +7,7 @@ import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { hashFile, sha256Hex } from "./content-hash.js";
 import { KonteError } from "./errors.js";
 import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
-import { runFfmpeg } from "./ffmpeg-exec.js";
+import { ffmpegCanDrawText, runFfmpeg } from "./ffmpeg-exec.js";
 
 // A sheet exists to be Read by an agent, so its geometry is bounded by what a vision model keeps:
 // past a ~1568px long edge or ~1.15M pixels the image is downscaled on the way in, shrinking every
@@ -297,42 +297,6 @@ export function cellFilters(layout: ContactSheetLayout, labelFile: string | null
   return filters.join(",");
 }
 
-/**
- * Whether this ffmpeg can actually burn a label — the filter being compiled in says nothing about
- * a usable font being installed. Settled once against a synthetic source, before any cell is
- * rendered, so labelling is all-or-nothing: a mid-run discovery would leave a half-labelled sheet,
- * and a failure on a real cell cannot be told apart from that source being unreadable.
- */
-async function canDrawText(layout: ContactSheetLayout, probeDir: string): Promise<boolean> {
-  const labelFile = path.join(probeDir, "probe-label.txt");
-  const outPath = path.join(probeDir, "probe.jpg");
-  try {
-    await fs.writeFile(labelFile, "probe", "utf-8");
-    await runFfmpeg(
-      [
-        "-y",
-        ...SINGLE_FRAME_INPUT_ARGS,
-        "-f",
-        "lavfi",
-        "-i",
-        `color=c=${BACKGROUND}:s=${layout.cellWidth}x${layout.cellHeight}`,
-        ...SINGLE_FRAME_OUTPUT_ARGS,
-        "-vf",
-        cellFilters(layout, labelFile),
-        "-frames:v",
-        "1",
-        outPath,
-      ],
-      "ffmpeg drawtext probe failed",
-    );
-    return existsSync(outPath);
-  } catch {
-    return false;
-  } finally {
-    await fs.rm(outPath, { force: true }).catch(() => {});
-  }
-}
-
 async function renderCell(
   cell: ContactSheetCell,
   outputPath: string,
@@ -529,7 +493,7 @@ export async function drawContactSheet(
 ): Promise<{ bytes: Buffer; labelled: boolean }> {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-sheet-"));
   try {
-    const labelled = await canDrawText(layout, tmpDir);
+    const labelled = await ffmpegCanDrawText();
 
     // Each cell is its own ffmpeg process writing its own file, so they run several at a time
     // rather than one after another — a full-timeline sheet is hundreds of them.
