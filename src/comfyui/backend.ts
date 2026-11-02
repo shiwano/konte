@@ -13,14 +13,6 @@ import { requireFileWithinRoot } from "../core/path-containment.js";
 import type { VideoRoots } from "../core/roots.js";
 import { sleep } from "../core/sleep.js";
 
-// The outcome of installing one model / node pack via ComfyUI-Manager. `timedOut` (the waiter's
-// deadline elapsed) is returned, not thrown, so the async install job can leave itself
-// re-observable; the Manager keeps installing server-side regardless.
-export type ComfyInstallOutcome =
-  | { kind: "alreadyPresent" }
-  | { kind: "installed" }
-  | { kind: "cancelled" }
-  | { kind: "timedOut" };
 import type {
   ComfyModelDeclaration,
   ComfyNodeDeclaration,
@@ -47,6 +39,15 @@ import { ComfyUIWsClient } from "./ws-client.js";
 const REBOOT_PREFLIGHT_TIMEOUT_MS = 5_000;
 // How long ComfyUI-Manager gets to start answering after the core server is back.
 const MANAGER_SETTLE_MS = 60_000;
+
+// The outcome of installing one model / node pack via ComfyUI-Manager. `timedOut` (the waiter's
+// deadline elapsed) is returned, not thrown, so the async install job can leave itself
+// re-observable; the Manager keeps installing server-side regardless.
+export type ComfyInstallOutcome =
+  | { kind: "alreadyPresent" }
+  | { kind: "installed" }
+  | { kind: "cancelled" }
+  | { kind: "timedOut" };
 
 // The one class that holds both roots: its workflows come from the workspace's shared
 // `adapters/comfy/`, while every file it reads or writes belongs to a single video.

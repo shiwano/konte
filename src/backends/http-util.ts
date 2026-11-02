@@ -97,6 +97,21 @@ function describeIssues(error: z.ZodError): string {
     .join("; ");
 }
 
+// basename guards against a third-party output name carrying a traversal; a name already in
+// `taken` gets a numeric prefix.
+export function uniqueOutputPath(
+  outputDir: string,
+  name: string,
+  taken: readonly string[],
+): string {
+  const base = path.basename(name);
+  let candidate = path.join(outputDir, base);
+  for (let n = 1; taken.includes(candidate); n++) {
+    candidate = path.join(outputDir, `${n}-${base}`);
+  }
+  return candidate;
+}
+
 // Download a delivery URL to disk (retried transient failures, per-attempt timeout, atomic
 // write). The URL carries a signed token in its query; on failure log only host+path so the
 // credential isn't persisted when the error reaches the job/log.

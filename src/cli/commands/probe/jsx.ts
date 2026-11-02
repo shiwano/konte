@@ -23,15 +23,11 @@ import { assertTailwindClasses } from "../../../core/tailwind-classes.js";
 import type { AssetDefinition, LocalAssetDefinition } from "../../../core/types/index.js";
 import { requireVideoRoot } from "../../context.js";
 import { loadStageDefinitions } from "../../../core/stage-definitions.js";
+import { compareNatural } from "./shared.js";
 
 // A `render` image is a `jsxImage`; a `render` video is a `jsxVideo`, baked by `generate`.
 function isJsxRender(entry: AssetDefinition): entry is LocalAssetDefinition {
   return entry.kind === "local" && entry.operation === "render" && entry.mediaType === "image";
-}
-
-// Digit runs compared numerically, so an unpadded shot.2 precedes shot.10 (as in `contact-sheet`).
-function compareNatural(a: string, b: string): number {
-  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 }
 
 interface DeclaredAssets {

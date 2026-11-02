@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import { uniqueOutputPath } from "../backends/http-util.js";
 import { loadWorkflow, parameterizeWorkflow } from "../comfyui/workflow.js";
 import type {
   GenerationBackend,
@@ -304,12 +305,8 @@ export class ComfyApiBackend implements GenerationBackend {
     }
     const files: string[] = [];
     for (const output of outputs) {
-      const base = path.basename(output.name || output.id);
-      let outputPath = path.join(outputDir, base);
-      for (let n = 1; files.includes(outputPath); n++) {
-        outputPath = path.join(outputDir, `${n}-${base}`);
-      }
-      log(`Downloading: ${base}`);
+      const outputPath = uniqueOutputPath(outputDir, output.name || output.id, files);
+      log(`Downloading: ${path.basename(outputPath)}`);
       await client.downloadOutput(output, outputPath);
       files.push(outputPath);
     }

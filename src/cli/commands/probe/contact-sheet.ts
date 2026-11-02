@@ -48,6 +48,7 @@ import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 import { parseNumberOption } from "../../parse-option.js";
 import { requireVideoRoot } from "../../context.js";
 import { resolveProbeTargets } from "./resolve-arg.js";
+import { compareNatural } from "./shared.js";
 import { printResolutionNotices, type ResolvedVariant } from "../../resolution-notice.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { formatSeconds } from "../../../core/format-duration.js";
@@ -57,14 +58,6 @@ const DEFAULT_FRAMES_PER_SHOT = 2;
 // Past this a shot's own cells crowd out its neighbours, and the sheet stops being a board of the
 // piece and becomes a strip of one shot.
 const MAX_FRAMES_PER_SHOT = 12;
-
-// A sweep resolves addresses in plain lexical order, which puts shot.10 before shot.2 whenever the
-// author did not zero-pad. A board read out of shot order is worse than no board, so compare digit
-// runs numerically. Ids that carry no number keep lexical order — pass them as separate arguments,
-// which are laid out in the order written, when that is not the reading order.
-function compareNatural(a: string, b: string): number {
-  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
-}
 
 // `<stage>` / `<stage>:shot.<id>` name shots, whose board is their compositions over time;
 // everything else names variants. A variant id is checked first — `parseReelScope` would reject it

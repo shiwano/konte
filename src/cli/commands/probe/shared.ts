@@ -10,6 +10,11 @@ import type {
 import { parseNumberOption } from "../../parse-option.js";
 import type { ProbeTargets } from "./resolve-arg.js";
 
+// Digit runs compared numerically, so an unpadded shot.2 precedes shot.10.
+export function compareNatural(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
 // Run `probe` over each target, separating a sweep's targets with a blank line.
 export async function probeEach(
   targets: ProbeTargets,

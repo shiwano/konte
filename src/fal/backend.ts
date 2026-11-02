@@ -1,4 +1,3 @@
-import * as path from "node:path";
 import type {
   GenerationBackend,
   GenerationRequest,
@@ -6,6 +5,7 @@ import type {
   WaitForCompletionResult,
   WaitOptions,
 } from "../core/backend.js";
+import { uniqueOutputPath } from "../backends/http-util.js";
 import { prepareBackendInputs } from "../backends/prepare-inputs.js";
 import { KonteError } from "../core/errors.js";
 import { pollUntilTerminal } from "../core/poll-until-terminal.js";
@@ -138,22 +138,12 @@ export class FalBackend implements GenerationBackend {
     outputDir: string,
   ): Promise<string[]> {
     const files: string[] = [];
-    const outputPathFor = (name: string): string => {
-      const base = path.basename(name);
-      let candidate = path.join(outputDir, base);
-      for (let suffix = 1; files.includes(candidate); suffix++) {
-        candidate = path.join(outputDir, `${suffix}-${base}`);
-      }
-      return candidate;
-    };
-
     const mediaFields = ["video", "image", "audio", "output"];
     for (const field of mediaFields) {
       const media = asOutputMedia(result[field]);
       if (media) {
         const fileName = media.file_name || `${field}${guessExtension(media.content_type)}`;
-        // basename guards against a third-party app returning a traversal in file_name.
-        const outputPath = outputPathFor(fileName);
+        const outputPath = uniqueOutputPath(outputDir, fileName, files);
         await this.httpClient.downloadFile(media.url, outputPath);
         files.push(outputPath);
       }
@@ -168,8 +158,7 @@ export class FalBackend implements GenerationBackend {
           if (media) {
             const fileName =
               media.file_name || `${field}_${i}${guessExtension(media.content_type)}`;
-            // basename guards against a third-party app returning a traversal in file_name.
-            const outputPath = outputPathFor(fileName);
+            const outputPath = uniqueOutputPath(outputDir, fileName, files);
             await this.httpClient.downloadFile(media.url, outputPath);
             files.push(outputPath);
           }
