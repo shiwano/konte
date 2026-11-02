@@ -2,11 +2,8 @@ import { execSync, spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-  analyzeWorkflow,
-  extractHiddenSubgraphInputs,
-  generateAdapterCode,
-} from "../src/cli/commands/comfy.js";
+import { generateAdapterCode } from "../src/comfyui/adapter-codegen.js";
+import { analyzeWorkflow, extractHiddenSubgraphInputs } from "../src/comfyui/workflow-analyze.js";
 import { ComfyUIHttpClient } from "../src/comfyui/http-client.js";
 import {
   convertLitegraphToApi,

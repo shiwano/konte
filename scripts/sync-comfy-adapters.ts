@@ -2,12 +2,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { generateAdapterCode } from "../src/comfyui/adapter-codegen.js";
 import {
   analyzeWorkflow,
   collectClassTypes,
   extractHiddenSubgraphInputs,
-  generateAdapterCode,
-} from "../src/cli/commands/comfy.js";
+} from "../src/comfyui/workflow-analyze.js";
 import { ComfyUIHttpClient } from "../src/comfyui/http-client.js";
 import { ComfyUIManagerClient } from "../src/comfyui/manager-client.js";
 import { convertLitegraphToApi } from "../src/comfyui/convert.js";
