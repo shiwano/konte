@@ -7,6 +7,7 @@ import {
   DIRECTION_SECTIONS,
   formatAddress,
   formatCompositionAddress,
+  formatShotAddress,
   formatTimelineAddress,
   formatTimelineOverlayAddress,
   formatTimelineStemAddress,
@@ -791,7 +792,7 @@ function collectReviewSections(
       const shot = shotsById.get(shotId);
       let variants: Array<[string, string]>;
       if (status === "accepted" && shot?.sources) {
-        const ownPrefix = `${stage}:shot.${shotId}.`;
+        const ownPrefix = `${formatShotAddress(stage, shotId)}.`;
         variants = [];
         for (const [address, variantId] of Object.entries(shot.sources)) {
           if (address.startsWith(ownPrefix)) {
@@ -816,7 +817,7 @@ function collectReviewSections(
         // one, a bare address reads as a half-recorded accept — so say why it has none.
         pushDecision(
           status,
-          `${stage}:shot.${shotId} (${shotVariantlessReason(record, stage, shotId)})`,
+          `${formatShotAddress(stage, shotId)} (${shotVariantlessReason(record, stage, shotId)})`,
         );
       }
     }
@@ -843,7 +844,8 @@ function collectReviewSections(
 
     const shotStartById = shotStarts(record);
     for (const note of record.notes ?? []) {
-      const address = note.address ?? (note.shotId ? `video:shot.${note.shotId}` : `video`);
+      const address =
+        note.address ?? (note.shotId ? formatShotAddress("video", note.shotId) : "video");
       const shotStart = note.shotId ? shotStartById.get(note.shotId) : undefined;
       const frame = note.id ? noteFrames?.get(note.id) : undefined;
       pushFeedback(address, formatVideoNoteItem(note, note.shotId, shotStart, frame));
@@ -927,7 +929,7 @@ function formatVideoNoteItem(
   const local =
     shotStart !== undefined ? ` (shot.${shotId} +${formatSeconds(note.time - shotStart)})` : "";
   const saw = formatSawVariants(
-    note.address ?? (shotId ? `video:shot.${shotId}` : "video"),
+    note.address ?? (shotId ? formatShotAddress("video", shotId) : "video"),
     note.displayedVariants,
   );
   return `${id}${formatSeconds(note.time)}${local}${pin} ${note.text}${saw}${image}`;

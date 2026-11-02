@@ -1,4 +1,4 @@
-import { isStemAddress } from "./address.js";
+import { type ShotStage, formatShotAddress, isStemAddress } from "./address.js";
 import { MAX_AUDIO_GAIN } from "./audio-gain.js";
 import { makeAddressPlaceholder } from "./dsl/shot-context.js";
 import { getRenderContext } from "./jsx-html.js";
@@ -140,7 +140,7 @@ export interface ShotCueLevels {
  * Unity gains are omitted from `gains`; `adjustments` retains their reasons.
  */
 export function shotCueLevels(opts: {
-  stage: string;
+  stage: ShotStage;
   shotId: string;
   cueKinds: Readonly<Record<string, CueKind>> | undefined;
   // The shot's picture sources. A cue in both these and `cueKinds` is a `<Video hasAudio>` clip's
@@ -154,7 +154,7 @@ export function shotCueLevels(opts: {
   /** The variant any other address resolves to. */
   resolve: (address: string) => string | undefined;
 }): ShotCueLevels {
-  const shotPrefix = `${opts.stage}:shot.${opts.shotId}.`;
+  const shotPrefix = `${formatShotAddress(opts.stage, opts.shotId)}.`;
   const timelinePrefix = `${opts.stage}:timeline.`;
   const out: ShotCueLevels = { gains: {}, leadIns: {}, adjustments: {}, clipLoudness: {} };
   const picture = new Set(opts.pictureRefs ?? []);
@@ -209,7 +209,7 @@ export function applyLevelGain(src: string, declared: unknown): unknown {
 
 /** A shot's `cueKinds` re-keyed to the srcs a render reads (see `cueBySrc`). */
 export function cueKindsBySrc(opts: {
-  stage: string;
+  stage: ShotStage;
   shotId: string;
   cueKinds: Readonly<Record<string, CueKind>> | undefined;
   resolvedFiles: Record<string, string>;
@@ -227,14 +227,14 @@ export function cueKindsBySrc(opts: {
  * every cue rather than the one a caller predicts.
  */
 export function cueBySrc<T>(opts: {
-  stage: string;
+  stage: ShotStage;
   shotId: string;
   byAddress: Readonly<Record<string, T>> | undefined;
   resolvedFiles: Record<string, string>;
   /** The timeline's own resolved assets by name, for a cue the shot's closure captured off it. */
   timelineFiles?: Record<string, string>;
 }): Record<string, T> | undefined {
-  const shotPrefix = `${opts.stage}:shot.${opts.shotId}.`;
+  const shotPrefix = `${formatShotAddress(opts.stage, opts.shotId)}.`;
   const timelinePrefix = `${opts.stage}:timeline.`;
   const out: Record<string, T> = {};
   for (const [address, kind] of Object.entries(opts.byAddress ?? {})) {

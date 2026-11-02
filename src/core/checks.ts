@@ -5,6 +5,7 @@
 import {
   type AssetStage,
   type DefinitionLike,
+  formatShotAddress,
   getAssetEntryByAddress,
   getStage,
   listAssetPaths,
@@ -337,14 +338,14 @@ const ANIMATIC_CONSUMED_CHECK: Check = {
     const boardless = listBoardlessVideoShots(ctx.video, ctx.animatic, ctx.graph);
     const finding = (shotId: string, patch?: string): Finding => ({
       code: "animatic-unconsumed",
-      subject: `video:shot.${shotId}`,
+      subject: formatShotAddress("video", shotId),
       fixIn: { stage: "video", ...(patch ? { patch } : {}) },
       message:
-        `spends without building on animatic:shot.${shotId} — build it from its own board shot ` +
+        `spends without building on ${formatShotAddress("animatic", shotId)} — build it from its own board shot ` +
         "(a panel image, `.stem` — not `.narrationStem`, which builds nothing) in video.tsx, " +
         `developing that board shot first if it is still a pendingShot, or leave it as ` +
         `pendingShot("${shotId}") until it is wired`,
-      targets: [`video:shot.${shotId}`],
+      targets: [formatShotAddress("video", shotId)],
     });
     return [
       ...boardless.filter((s) => s.spends).map((s) => finding(s.shotId)),

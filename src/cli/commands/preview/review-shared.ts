@@ -402,7 +402,9 @@ export function withShotLocalTime<T extends { address: string; time?: number }>(
   const startTime = new Map(shots.map((s) => [s.shotId, s.start]));
   return added.map((fb) => {
     if (fb.time === undefined) return fb;
-    const shotId = [...startTime.keys()].find((id) => fb.address === `video:shot.${id}`);
+    const shotId = [...startTime.keys()].find(
+      (id) => fb.address === formatShotAddress("video", id),
+    );
     if (shotId === undefined) return fb;
     return { ...fb, shotTime: fb.time - startTime.get(shotId)! };
   });
