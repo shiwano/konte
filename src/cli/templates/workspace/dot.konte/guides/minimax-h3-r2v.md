@@ -72,3 +72,5 @@ The camera holds a static shot as the runner exits the frame.
 ## Cost ladder
 
 - `steps` is where the time goes — changing it re-samples the take, so it is picked once and left.
+- A take starts with `useTurbo: true`, unless the shot is coverage, the camera moves fast, more than one figure moves beyond a head or a hand, or anyone touches, runs, falls or strikes.
+- A retake weighs it again — against what the take now has to show, and whether turbo is what failed.

@@ -44,6 +44,8 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - videoMinimaxH3R2v 5,350 → 5,400 (agreed by a human): which shot starts on `useTurbo`, and when
+//   a retake turns it off.
 // - konte-direction-critic 4,100 → 4,200 (agreed by a human): `lost-keep` — a `brief.source.keep`
 //   item the viewer read cannot recover.
 // - konte-source-reader (new, 2,350): the part of a source the human named, found, written down
@@ -401,7 +403,7 @@ const ADAPTER_BUDGETS: Record<string, number> = {
   imageQwenImageEdit21: 800,
   imageQwenImageEdit21Inpaint: 300,
   imageZImageBase: 350,
-  videoMinimaxH3R2v: 5_350,
+  videoMinimaxH3R2v: 5_400,
   videoSeedvr2Upscale: 550,
   falMinimaxH3MaxI2v: 800,
   falMinimaxH3MaxR2v: 800,

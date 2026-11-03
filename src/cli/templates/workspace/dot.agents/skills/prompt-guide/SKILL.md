@@ -42,9 +42,6 @@ Before writing or editing a prompt-like field (`prompt`, `text`, `lyrics`):
 
 - A `coverage: true` shot is one take the model cuts inside — write the exchange beat after beat; the beats are the body.
 - Write the quick detail cuts as a beat (always) — each insert, in order: `quick detail cuts: Rue's narrowed eyes, Mina's tightening glove, the swinging dog tag, then the camera dives under the spin kick`. Unwritten, the model holds one angle.
-- Rehearse first:
-  1. The adapter's turbo switch on (`useTurbo: true`) at the working size, `konte generate video`, `konte-video-critic` on it; the human accepts or comments in `konte preview video`.
-  2. Switch off and `konte reroll` — `generate` skips the accepted rehearsal. `konte-video-critic` on the full take; the human's accept of it replaces the rehearsal.
 
 ## Reference preflight (image & video)
 
