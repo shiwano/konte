@@ -26,6 +26,8 @@ export type KonteErrorCode =
   // A take handed to a command that only takes review candidates (see variant-lineage).
   | "VARIANT_NOT_REVIEWABLE"
   | "VARIANT_AMBIGUOUS"
+  // `konte vouch` was pointed at a shot whose tail is not silent.
+  | "TAIL_NOT_SILENT"
   // Several targets handed to one command that cannot be decided together — two takes of one
   // address, or a target decided only on its own.
   | "TARGETS_CONFLICT"

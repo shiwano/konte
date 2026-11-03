@@ -11,7 +11,12 @@ import {
   listAddresses,
   tryParseAddress,
 } from "./address.js";
-import { findAnimaticOverflows, formatAnimaticOverflow } from "./animatic-overflow.js";
+import {
+  findAnimaticOverflows,
+  findAnimaticSilentTails,
+  formatAnimaticOverflow,
+  formatSilentTail,
+} from "./animatic-overflow.js";
 import { compositionClassSubjects } from "./composition-builder.js";
 import { definitionHashForAddress } from "./composition-resource.js";
 import { type AnimaticSetupState, checkViewAnchors } from "./direction-check.js";
@@ -51,6 +56,7 @@ import type {
   StageDefinition,
   VideoDefinition,
 } from "./types/index.js";
+import { STAGE_ENTRY_FILE } from "./roots.js";
 import { checkSourceLocators } from "./source-direction.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
 import { unvouchedFindings } from "./variant-check.js";
@@ -361,6 +367,27 @@ const OVERFLOW_CHECK: Check = {
   },
 };
 
+const SILENT_TAIL_CHECK: Check = {
+  codes: ["tail-silent"],
+  run: (ctx) => {
+    if (!ctx.manager || !ctx.animatic) return [];
+    return findAnimaticSilentTails(ctx.animatic, ctx.manager)
+      .filter((t) => !t.vouched)
+      .map(
+        (t): Finding => ({
+          code: "tail-silent",
+          subject: t.address,
+          fixIn: { stage: "animatic" },
+          message:
+            `${formatSilentTail(t)} — set its duration to ${t.fitDurationSec} in ` +
+            `${STAGE_ENTRY_FILE.direction}, fill the tail with sound, or ` +
+            `\`konte vouch ${t.address}\` for a hold the picture needs`,
+          targets: [t.address],
+        }),
+      );
+  },
+};
+
 // A shot whose definition spends holds the stage; one that spends only through a patch's own steps
 // holds that patch.
 const ANIMATIC_CONSUMED_CHECK: Check = {
@@ -456,6 +483,7 @@ const CHECKS: readonly Check[] = [
   MOVEMENT_CHECK,
   VARIANT_CHECK,
   OVERFLOW_CHECK,
+  SILENT_TAIL_CHECK,
   ANIMATIC_CONSUMED_CHECK,
   BUILD_CHECK,
   PENDING_REFERENCE_CHECK,

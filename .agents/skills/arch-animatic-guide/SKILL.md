@@ -86,7 +86,7 @@ A truncated stem is exactly as long as the shot, so what the clamp cuts is caugh
 Differences on the board:
 
 - No stand-in.
-- `line-truncated` reads the shot's cues against the clamp.
+- `line-truncated` / `tail-silent` read the cues against the clamp.
 - A leaf the video's accept settles is not board review work (`leafSettledAcross`).
 
 Past the board:

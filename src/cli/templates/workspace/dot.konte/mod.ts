@@ -3136,6 +3136,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               }
             >
           >;
+          coverage: z.ZodOptional<z.ZodLiteral<true>>;
           cutin: z.ZodOptional<
             z.ZodObject<
               {
@@ -3307,6 +3308,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 cutin?: string | undefined;
               }
             | undefined;
+          coverage?: true | undefined;
           shotFn?: ShotFunction | undefined;
           compositionRefs?: string[] | undefined;
           pictureRefs?: string[] | undefined;
@@ -3440,6 +3442,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 cutin?: string | undefined;
               }
             | undefined;
+          coverage?: true | undefined;
           shotFn?: ShotFunction | undefined;
           compositionRefs?: string[] | undefined;
           pictureRefs?: string[] | undefined;
@@ -4182,6 +4185,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             cutin?: string | undefined;
           }
         | undefined;
+      coverage?: true | undefined;
       shotFn?: ShotFunction | undefined;
       compositionRefs?: string[] | undefined;
       pictureRefs?: string[] | undefined;
@@ -4486,6 +4490,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             cutin?: string | undefined;
           }
         | undefined;
+      coverage?: true | undefined;
       shotFn?: ShotFunction | undefined;
       compositionRefs?: string[] | undefined;
       pictureRefs?: string[] | undefined;
@@ -5795,6 +5800,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
         }
       >
     >;
+    coverage: z.ZodOptional<z.ZodLiteral<true>>;
     cutin: z.ZodOptional<
       z.ZodObject<
         {
@@ -5966,6 +5972,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
           cutin?: string | undefined;
         }
       | undefined;
+    coverage?: true | undefined;
     shotFn?: ShotFunction | undefined;
     compositionRefs?: string[] | undefined;
     pictureRefs?: string[] | undefined;
@@ -6099,6 +6106,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
           cutin?: string | undefined;
         }
       | undefined;
+    coverage?: true | undefined;
     shotFn?: ShotFunction | undefined;
     compositionRefs?: string[] | undefined;
     pictureRefs?: string[] | undefined;
@@ -6898,6 +6906,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
               }
             >
           >;
+          coverage: z.ZodOptional<z.ZodLiteral<true>>;
           cutin: z.ZodOptional<
             z.ZodObject<
               {
@@ -7069,6 +7078,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 cutin?: string | undefined;
               }
             | undefined;
+          coverage?: true | undefined;
           shotFn?: ShotFunction | undefined;
           compositionRefs?: string[] | undefined;
           pictureRefs?: string[] | undefined;
@@ -7202,6 +7212,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 cutin?: string | undefined;
               }
             | undefined;
+          coverage?: true | undefined;
           shotFn?: ShotFunction | undefined;
           compositionRefs?: string[] | undefined;
           pictureRefs?: string[] | undefined;
@@ -7787,6 +7798,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             cutin?: string | undefined;
           }
         | undefined;
+      coverage?: true | undefined;
       shotFn?: ShotFunction | undefined;
       compositionRefs?: string[] | undefined;
       pictureRefs?: string[] | undefined;
@@ -8040,6 +8052,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             cutin?: string | undefined;
           }
         | undefined;
+      coverage?: true | undefined;
       shotFn?: ShotFunction | undefined;
       compositionRefs?: string[] | undefined;
       pictureRefs?: string[] | undefined;

@@ -203,8 +203,12 @@ function suggestCompositionReReview(
 
 // The findings, one step per file they are fixed in — the edit, which no command performs. A take
 // found wrong is cleared by hearing it instead: the probe that shows its line beside what was heard.
+// A silent tail is cut in the direction or vouched for on its shot.
 function prependFindings(actions: SuggestedAction[], findings: readonly Finding[]): void {
-  const vouchable = findings.filter((f) => findingTraits(f.code).clears === "vouch");
+  const vouchable = findings.filter(
+    (f) => findingTraits(f.code).clears === "vouch" && f.code !== "tail-silent",
+  );
+  const tails = findings.filter((f) => f.code === "tail-silent");
   const steps: SuggestedAction[] = groupByFixIn(
     findings.filter((f) => findingTraits(f.code).clears !== "vouch"),
   ).map(({ file, findings: group }) => ({
@@ -217,6 +221,16 @@ function prependFindings(actions: SuggestedAction[], findings: readonly Finding[
           : ""),
     ],
   }));
+  if (tails.length > 0) {
+    steps.push({
+      command: null,
+      label: `edit ${STAGE_ENTRY_FILE.direction}`,
+      details: [
+        `Shorten the ${tails.length} shot(s) with a silent tail as each finding says, or ` +
+          "`konte vouch <shot address>` a hold the picture needs",
+      ],
+    });
+  }
   if (vouchable.length > 0) {
     steps.push({
       command: `konte probe audio ${[...new Set(vouchable.map((f) => f.subject))].join(" ")}`,

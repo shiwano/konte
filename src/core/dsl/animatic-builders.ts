@@ -547,6 +547,7 @@ export function defineAnimatic<
         ...(panels.length > 0 || !index.graphicIds.has(input.id) ? { panels } : {}),
         ...(cutin ? { cutin: { ...cutin, panels: cutinPanels } } : {}),
         ...(continuedBy ? { continuedBy } : {}),
+        ...(index.coverageIds.has(input.id) ? { coverage: true as const } : {}),
       };
     },
   });

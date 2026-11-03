@@ -65,6 +65,7 @@ export {
   type KonteState,
   KonteStateSchema,
   SCHEMA_VERSION,
+  type ShotVouch,
   type SongAnalysis,
   type SongReading,
   SongReadingSchema,

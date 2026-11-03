@@ -240,6 +240,16 @@ const DirectionAcceptanceSchema = z.object({
 
 export type DirectionAcceptance = z.infer<typeof DirectionAcceptanceSchema>;
 
+// An agent's vouch for a shot's silent tail as a hold (`konte vouch <shot address>`): the hash of
+// what the tail was measured from (`SilentTail.tailHash`) when vouched. Once it hashes to something else,
+// the vouch is about a tail that no longer exists.
+const ShotVouchSchema = z.object({
+  tailHash: z.string(),
+  vouchedAt: z.string(),
+});
+
+export type ShotVouch = z.infer<typeof ShotVouchSchema>;
+
 export const KonteStateSchema = z.object({
   schemaVersion: z.number(),
   assets: z.record(z.string(), AssetStateSchema),
@@ -248,6 +258,8 @@ export const KonteStateSchema = z.object({
   // accepted and the direction is re-reviewed once, which is the correct outcome for a verdict whose
   // parts were never recorded.
   directionAcceptance: DirectionAcceptanceSchema.nullable().optional(),
+  // Shot address -> its vouch. Variant-less, like `directionAcceptance`: a shot is no asset.
+  shotVouches: z.record(z.string(), ShotVouchSchema).optional(),
 });
 
 export type KonteState = z.infer<typeof KonteStateSchema>;

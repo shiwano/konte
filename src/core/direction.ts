@@ -699,7 +699,7 @@ function checkFusedShots(direction: Direction): DirectionFinding[] {
 // A shot whose span is off its grid, or not positive. A shot's span is a window the render cuts the
 // take to: in seconds the grid is the one every legal `fps` (a multiple of 8) lands a whole frame on;
 // on the song it is the beat, asides included. A waivable finding (`off-grid-duration_<shotId>`).
-const DURATION_GRID = 0.5;
+export const DURATION_GRID = 0.5;
 
 function checkDurations(direction: Direction): DirectionFinding[] {
   const findings: DirectionFinding[] = [];

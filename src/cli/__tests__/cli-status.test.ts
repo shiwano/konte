@@ -901,6 +901,71 @@ describe("status command", () => {
     expect(stdout).not.toContain("ready to export");
   });
 
+  describe("a silent tail", () => {
+    const vo = "animatic:shot.01.vo";
+
+    beforeEach(async () => {
+      await fs.writeFile(
+        path.join(projectDir, "animatic.tsx"),
+        TEST_ANIMATIC_WITH_PENDING_TS.replace("Composition, Panel }", "Composition, Panel, Audio }")
+          .replace(
+            "export default defineAnimatic",
+            `const ttsComfy = defineComfyAsset({
+  workflow: "tts.json",
+  description: "test adapter",
+  inputs: { text: { nodeId: "3", field: "text", type: "string" } },
+  outputs: { result: { nodeId: "9", type: "audio" } },
+});
+
+export default defineAnimatic`,
+          )
+          .replace(
+            `duration: 5 , lineup: [] }`,
+            `duration: 5 , lineup: [], script: [{ character: "cat", text: "meow" }] }`,
+          )
+          .replace(
+            "characters: {},",
+            `characters: { cat: { name: "the cat", description: "a black cat", voice: { id: "catvoice", description: "a small dry voice" }, promptDepiction: "cat" } },`,
+          )
+          .replace(
+            `camera="fixed" />`,
+            `camera="fixed" />\n<Audio src={asset("vo", ttsComfy, { text: "meow" })} />`,
+          ),
+      );
+      await fs.writeFile(path.join(projectDir, "video.tsx"), TEST_VIDEO_WITH_PENDING_TSX);
+      const sm = await StateManager.load(projectDir);
+      const id = sm.reserveVariantId(vo);
+      Object.assign(sm.getAssetState(vo).variants![id]!, {
+        file: "/tmp/vo.mp3",
+        outputHash: "vo-bytes",
+        media: { kind: "audio", durationSec: 1.5, channels: 1, sampleRate: 24000 },
+      });
+      sm.setAccepted(vo, id);
+      await sm.save();
+    });
+
+    it("holds the board's review until the shot is vouched for", async () => {
+      const { stdout } = await run(["status"], projectDir);
+      expect(stdout).toContain(
+        "[tail-silent] animatic:shot.01 — sound ends at 1.5s in a 5s shot — 3.5s of silence after it — set its duration to 2.5 in direction.ts",
+      );
+      await expect(run(["preview", "animatic"], projectDir)).rejects.toMatchObject({
+        stderr: expect.stringContaining("[tail-silent] animatic:shot.01"),
+      });
+
+      const { stdout: vouched } = await run(["vouch", "animatic:shot.01"], projectDir);
+      expect(vouched).toContain("Vouched: animatic:shot.01 — 3.5s silent tail held");
+      const { stdout: after } = await run(["status"], projectDir);
+      expect(after).not.toContain("[tail-silent]");
+    });
+
+    it("refuses a vouch for a shot with no silent tail", async () => {
+      await expect(run(["vouch", "animatic:shot.02"], projectDir)).rejects.toMatchObject({
+        stderr: expect.stringContaining("TAIL_NOT_SILENT"),
+      });
+    });
+  });
+
   it("does not report the animatic ready to export when all its panels are accepted", async () => {
     // WORK.md bug: a fully-accepted animatic read "ready to export" though only the video
     // stage has a deliverable. The animatic is a working stage — it never claims readiness.

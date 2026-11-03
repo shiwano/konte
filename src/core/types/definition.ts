@@ -216,6 +216,8 @@ export const ShotDefinitionSchema = z.object({
   // `join: "continuous"`, where it is possible). This lane's last panel is then no landing frame.
   // Derived from the direction by `defineAnimatic`; no hash reads it.
   continuedBy: z.object({ main: z.string().optional(), cutin: z.string().optional() }).optional(),
+  // ANIMATIC ONLY: the direction's `coverage` — one take the model cuts inside. No hash reads it.
+  coverage: z.literal(true).optional(),
   // The second camera frame the composition lays over the picture with `<Cutin>`, present exactly
   // when it renders one. `refs` are the assets drawn inside it — on the video, what tells a cutin's
   // take from the main frame's — and `sharedRefs` those of them the shot's own picture draws too.

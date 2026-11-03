@@ -32,6 +32,7 @@ import {
   type KonteState,
   KonteStateSchema,
   SCHEMA_VERSION,
+  type ShotVouch,
   type VariantState,
 } from "../types/index.js";
 
@@ -648,6 +649,23 @@ export class StateManager {
     }
     if (variant.vouchedAt) return false;
     variant.vouchedAt = new Date().toISOString();
+    return true;
+  }
+
+  getShotVouch(shotAddress: string): ShotVouch | null {
+    return this.state.shotVouches?.[shotAddress] ?? null;
+  }
+
+  /**
+   * Record that an agent vouched for a shot's silent tail as a hold (`konte vouch`), at the tail it
+   * was measured from. Returns whether it moved: a vouch for the same tail keeps its `vouchedAt`.
+   */
+  setShotVouched(shotAddress: string, tailHash: string): boolean {
+    if (this.state.shotVouches?.[shotAddress]?.tailHash === tailHash) return false;
+    this.state.shotVouches = {
+      ...this.state.shotVouches,
+      [shotAddress]: { tailHash, vouchedAt: new Date().toISOString() },
+    };
     return true;
   }
 

@@ -65,7 +65,9 @@ export function reviewHeldFindings(report: FindingReport, ops: readonly ReviewOp
 
 export function reviewHeldError(blocked: string, findings: readonly Finding[]): KonteError | null {
   if (findings.length === 0) return null;
-  const vouchable = findings.some((f) => findingTraits(f.code).clears === "vouch");
+  const vouchable = findings.some(
+    (f) => findingTraits(f.code).clears === "vouch" && f.code !== "tail-silent",
+  );
   return new KonteError(
     "REVIEW_HELD",
     `${blocked} — fix each finding in the file it is listed under` +

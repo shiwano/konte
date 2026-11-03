@@ -31,6 +31,8 @@ export type FindingCode =
   | "line-misheard"
   // An animatic shot whose lines the stem's clamp to `duration` cuts.
   | "line-truncated"
+  // An animatic shot that runs on long in silence after its last sound.
+  | "tail-silent"
   // A video shot that spends without building on the board it develops.
   | "animatic-unconsumed"
   | BuildFindingCode
@@ -227,6 +229,7 @@ const OTHER_TRAITS: Record<
   "take-silent": { reads: "take", clears: "vouch", holds: { preview: true }, onset: "always" },
   "line-misheard": { reads: "take", clears: "vouch", holds: { preview: true }, onset: "always" },
   "line-truncated": { reads: "take", clears: "fix", holds: {}, onset: "always" },
+  "tail-silent": { reads: "take", clears: "vouch", holds: { preview: true }, onset: "always" },
   "animatic-unconsumed": {
     reads: "definition",
     clears: "fix",

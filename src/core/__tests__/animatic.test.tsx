@@ -11,8 +11,11 @@ import {
 } from "../address.js";
 import {
   type AnimaticOverflow,
+  type SilentTail,
   findAnimaticOverflows,
+  findAnimaticSilentTails,
   formatAnimaticOverflow,
+  formatSilentTail,
 } from "../animatic-overflow.js";
 import { harvestShotAudioStructure } from "../composition-builder.js";
 import {
@@ -65,7 +68,9 @@ const ia2vComfy = defineComfyAsset({
 
 // One shot, 4s, with a spoken line — every rule here turns on that line existing.
 function direction(
-  opts: { script?: boolean; telop?: boolean; duration?: number } = { script: true },
+  opts: { script?: boolean; telop?: boolean; duration?: number; coverage?: boolean } = {
+    script: true,
+  },
 ) {
   return defineDirection({
     ...directionDefaults,
@@ -89,6 +94,7 @@ function direction(
           duration: opts.duration ?? 4,
           ...(opts.script ? { script: [{ character: "cat", text: "meow" }] as const } : {}),
           ...(opts.telop ? { telop: ["第一話"] } : {}),
+          ...(opts.coverage ? { coverage: true as const } : {}),
           lineup: [],
         },
       ],
@@ -681,5 +687,420 @@ describe("animatic overflow", () => {
       }),
     });
     expect((await overflowsWithVo(vo(5), trimmed))[0]?.retime).toBeNull();
+  });
+});
+
+// The other side of the clamp: a shot that goes quiet after its lines long before its cut.
+describe("animatic silent tail", () => {
+  const VO = "animatic:shot.01.vo";
+
+  const vo = (durationSec: number, soundEndSec?: number): VariantMedia => ({
+    kind: "audio",
+    durationSec,
+    channels: 1,
+    sampleRate: 24000,
+    ...(soundEndSec !== undefined
+      ? { loudness: { integratedLufs: -16, truePeakDb: -1, soundEndSec } }
+      : {}),
+  });
+
+  async function withManager<T>(
+    media: VariantMedia | undefined,
+    fn: (manager: StateManager) => T,
+  ): Promise<T> {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "konte-animatic-tail-"));
+    try {
+      const manager = await StateManager.init(tmp);
+      if (media) acceptVo(manager, media);
+      return fn(manager);
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  }
+
+  function acceptVo(manager: StateManager, media: VariantMedia): void {
+    const id = manager.reserveVariantId(VO);
+    Object.assign(manager.getAssetState(VO).variants![id]!, {
+      file: "vo.mp3",
+      outputHash: `vo-${id}`,
+      media,
+    });
+    manager.setAccepted(VO, id);
+  }
+
+  const tailsWithVo = (
+    media: VariantMedia | undefined,
+    animatic = speakingAnimatic(),
+  ): Promise<SilentTail[]> => withManager(media, (m) => findAnimaticSilentTails(animatic, m));
+
+  // The shot is 4s and its line starts at 0.2s.
+  it("reports the silence after the last sound, and the duration that leaves a breath", async () => {
+    const [tail, ...rest] = await tailsWithVo(vo(1.5));
+    expect(rest).toEqual([]);
+    expect(tail).toMatchObject({
+      shotId: "01",
+      address: "animatic:shot.01",
+      durationSec: 4,
+      soundEndSec: 1.7,
+      fitDurationSec: 3,
+      vouched: false,
+    });
+    expect(tail?.tailSec).toBeCloseTo(2.3, 5);
+    expect(formatSilentTail(tail!)).toBe(
+      "sound ends at 1.7s in a 4s shot — 2.3s of silence after it",
+    );
+  });
+
+  it("says nothing about a tail under 2s", async () => {
+    expect(await tailsWithVo(vo(2))).toEqual([]);
+  });
+
+  it("measures to where the take's sound ends, not to the end of its file", async () => {
+    const [tail] = await tailsWithVo(vo(3.5, 1.5));
+    expect(tail?.soundEndSec).toBeCloseTo(1.7, 5);
+  });
+
+  it("holds its peace on a take it cannot measure", async () => {
+    expect(await tailsWithVo(undefined)).toEqual([]);
+  });
+
+  it("says nothing about a tail a bed plays through", async () => {
+    const bedded = defineAnimatic(direction(), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel src={asset("still", stillComfy, { prompt: "a cat" })} />
+            <Audio src={asset("vo", ttsComfy, { text: "meow" })} start={0.2} />
+          </Composition>
+        )),
+        soundtracks: [
+          soundtrack("bed", asset("bgm", ttsComfy, { text: "music" }), { duck: false }),
+        ],
+      }),
+    });
+    expect(await tailsWithVo(vo(1.5), bedded)).toEqual([]);
+  });
+
+  it("measures from where a bed stops inside the shot", async () => {
+    const bedded = defineAnimatic(direction(), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel src={asset("still", stillComfy, { prompt: "a cat" })} />
+            <Audio src={asset("vo", ttsComfy, { text: "meow" })} start={0.2} />
+          </Composition>
+        )),
+        soundtracks: [
+          soundtrack("bed", asset("bgm", ttsComfy, { text: "music" }), {
+            duck: false,
+            until: { shot: "01", at: 1.9 },
+          }),
+        ],
+      }),
+    });
+    const [tail] = await tailsWithVo(vo(1.5), bedded);
+    expect(tail?.soundEndSec).toBe(1.9);
+  });
+
+  describe("a bed played once", () => {
+    const BGM = "animatic:timeline.bgm";
+    const once = defineAnimatic(direction(), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel src={asset("still", stillComfy, { prompt: "a cat" })} />
+            <Audio src={asset("vo", ttsComfy, { text: "meow" })} start={0.2} />
+          </Composition>
+        )),
+        soundtracks: [
+          soundtrack("bgm", asset("bgm", ttsComfy, { text: "music" }), {
+            duck: false,
+            loop: false,
+          }),
+        ],
+      }),
+    });
+
+    function acceptBgm(manager: StateManager, durationSec: number): void {
+      const id = manager.reserveVariantId(BGM);
+      Object.assign(manager.getAssetState(BGM).variants![id]!, {
+        file: "bgm.mp3",
+        outputHash: `bgm-${id}`,
+        media: vo(durationSec),
+      });
+      manager.setAccepted(BGM, id);
+    }
+
+    it("measures to where its sound stops, not to the end of its span", async () => {
+      const [tail] = await withManager(vo(1.5), (manager) => {
+        acceptBgm(manager, 1);
+        return findAnimaticSilentTails(once, manager);
+      });
+      expect(tail?.soundEndSec).toBeCloseTo(1.7, 5);
+    });
+
+    it("measures a looping bed to where its last lap's sound stops", async () => {
+      const looping = defineAnimatic(direction(), {
+        timeline: ({ shot }) => ({
+          shots: shot("01", () => (
+            <Composition>
+              <Panel src={asset("still", stillComfy, { prompt: "a cat" })} />
+              <Audio src={asset("vo", ttsComfy, { text: "meow" })} start={0.2} />
+            </Composition>
+          )),
+          soundtracks: [
+            soundtrack("bgm", asset("bgm", ttsComfy, { text: "music" }), {
+              duck: false,
+              loop: true,
+            }),
+          ],
+        }),
+      });
+      const [tail] = await withManager(vo(1.5), (manager) => {
+        const id = manager.reserveVariantId(BGM);
+        Object.assign(manager.getAssetState(BGM).variants![id]!, {
+          file: "bgm.mp3",
+          outputHash: "bgm-1",
+          media: vo(4, 1),
+        });
+        manager.setAccepted(BGM, id);
+        return findAnimaticSilentTails(looping, manager);
+      });
+      expect(tail?.soundEndSec).toBeCloseTo(1.7, 5);
+    });
+
+    it("measures each shot against the laps that sound in it", async () => {
+      const twoShotDirection = defineDirection({
+        ...directionDefaults,
+        characters: {
+          cat: {
+            name: "the cat",
+            description: "a black cat",
+            voice: { id: "catvoice", description: "a small dry voice" },
+            promptDepiction: "cat",
+          },
+        },
+        sequence: {
+          lens: "mini-drama",
+          pleasure: "cute",
+          shots: [
+            {
+              id: "01",
+              role: "hero",
+              action: "the cat speaks",
+              setup: "front",
+              duration: 4,
+              script: [{ character: "cat", text: "meow" }],
+              lineup: [],
+            },
+            {
+              id: "02",
+              role: "hero",
+              action: "the cat sits",
+              setup: "front",
+              duration: 4,
+              lineup: [],
+            },
+          ],
+        },
+      });
+      const twoShots = defineAnimatic(twoShotDirection, {
+        timeline: ({ shot }) => ({
+          shots: shot("01", () => (
+            <Composition>
+              <Panel src={asset("still", stillComfy, { prompt: "a cat" })} />
+              <Audio src={asset("vo", ttsComfy, { text: "meow" })} start={0.2} />
+            </Composition>
+          )).nextPendingShot("02"),
+          soundtracks: [
+            soundtrack("bgm", asset("bgm", ttsComfy, { text: "music" }), {
+              duck: false,
+              loop: true,
+              until: { shot: "02" },
+            }),
+          ],
+        }),
+      });
+      const [tail] = await withManager(vo(1.5), (manager) => {
+        const id = manager.reserveVariantId(BGM);
+        Object.assign(manager.getAssetState(BGM).variants![id]!, {
+          file: "bgm.mp3",
+          outputHash: "bgm-1",
+          media: vo(4, 1),
+        });
+        manager.setAccepted(BGM, id);
+        return findAnimaticSilentTails(twoShots, manager);
+      });
+      expect(tail?.soundEndSec).toBeCloseTo(1.7, 5);
+    });
+
+    it("hears nothing from a take measured silent", async () => {
+      const [tail] = await withManager(vo(1.5), (manager) => {
+        const id = manager.reserveVariantId(BGM);
+        Object.assign(manager.getAssetState(BGM).variants![id]!, {
+          file: "bgm.mp3",
+          outputHash: "bgm-1",
+          media: { ...vo(4), silent: true },
+        });
+        manager.setAccepted(BGM, id);
+        return findAnimaticSilentTails(once, manager);
+      });
+      expect(tail?.soundEndSec).toBeCloseTo(1.7, 5);
+    });
+
+    it("lapses a vouch when its take changes", async () => {
+      await withManager(vo(1.5), (manager) => {
+        acceptBgm(manager, 1);
+        manager.setShotVouched(
+          "animatic:shot.01",
+          findAnimaticSilentTails(once, manager)[0]!.tailHash,
+        );
+        expect(findAnimaticSilentTails(once, manager)[0]?.vouched).toBe(true);
+        acceptBgm(manager, 1);
+        expect(findAnimaticSilentTails(once, manager)[0]?.vouched).toBe(false);
+      });
+    });
+  });
+
+  it("hears no bed mixed at zero", async () => {
+    const muted = defineAnimatic(direction(), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel src={asset("still", stillComfy, { prompt: "a cat" })} />
+            <Audio src={asset("vo", ttsComfy, { text: "meow" })} start={0.2} />
+          </Composition>
+        )),
+        soundtracks: [
+          soundtrack("bed", asset("bgm", ttsComfy, { text: "music" }), { duck: false, volume: 0 }),
+        ],
+      }),
+    });
+    expect(await tailsWithVo(vo(1.5), muted)).toHaveLength(1);
+  });
+
+  it("says nothing about a coverage shot", async () => {
+    const coverage = defineAnimatic(direction({ script: true, coverage: true }), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel src={asset("still", stillComfy, { prompt: "a cat" })} />
+            <Audio src={asset("vo", ttsComfy, { text: "meow" })} start={0.2} />
+          </Composition>
+        )),
+      }),
+    });
+    expect(await tailsWithVo(vo(1.5), coverage)).toEqual([]);
+  });
+
+  // The line ends at 1.7s, the effect after it at 1.9s.
+  it("measures from the last sound of any kind", async () => {
+    const SFX = "animatic:shot.01.door";
+    const spokenTts = defineComfyAsset({
+      workflow: "tts.json",
+      description: "test adapter",
+      inputs: { text: { nodeId: "3", field: "text", type: "spokenText" } },
+      outputs: { result: { nodeId: "9", type: "audio" } },
+    });
+    const withEffect = defineAnimatic(direction(), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel src={asset("still", stillComfy, { prompt: "a cat" })} />
+            <Audio src={asset("vo", spokenTts, { text: "meow" })} start={0.2} />
+            <Audio src={asset("door", ttsComfy, { text: "a door slams" })} start={1.5} />
+          </Composition>
+        )),
+      }),
+    });
+    expect(withEffect.shots[0]?.cueKinds).toEqual({ [VO]: "voice", [SFX]: "sfx" });
+    const [tail] = await withManager(vo(1.5), (manager) => {
+      const id = manager.reserveVariantId(SFX);
+      Object.assign(manager.getAssetState(SFX).variants![id]!, {
+        file: "door.mp3",
+        outputHash: "door-1",
+        media: vo(0.4),
+      });
+      manager.setAccepted(SFX, id);
+      return findAnimaticSilentTails(withEffect, manager);
+    });
+    expect(tail?.soundEndSec).toBeCloseTo(1.9, 5);
+  });
+
+  it("hears nothing from a cue that plays only its take's closing silence", async () => {
+    const DOOR = "animatic:shot.01.door";
+    const quietCue = defineAnimatic(direction(), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel src={asset("still", stillComfy, { prompt: "a cat" })} />
+            <Audio src={asset("vo", ttsComfy, { text: "meow" })} start={0.2} />
+            <Audio src={asset("door", ttsComfy, { text: "a door" })} start={3} mediaStart={1} />
+          </Composition>
+        )),
+      }),
+    });
+    const [tail] = await withManager(vo(1.5), (manager) => {
+      const id = manager.reserveVariantId(DOOR);
+      Object.assign(manager.getAssetState(DOOR).variants![id]!, {
+        file: "door.mp3",
+        outputHash: "door-1",
+        media: vo(2, 0.5),
+      });
+      manager.setAccepted(DOOR, id);
+      return findAnimaticSilentTails(quietCue, manager);
+    });
+    expect(tail?.soundEndSec).toBeCloseTo(1.7, 5);
+  });
+
+  it("says nothing about a shot of effects alone", async () => {
+    const effectsOnly = defineAnimatic(direction({ script: false }), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel src={asset("still", stillComfy, { prompt: "a cat" })} />
+            <Audio src={asset("vo", ttsComfy, { text: "a door slams" })} start={0.2} />
+          </Composition>
+        )),
+      }),
+    });
+    expect(effectsOnly.shots[0]?.cueKinds).toEqual({ [VO]: "sfx" });
+    expect(await tailsWithVo(vo(1.5), effectsOnly)).toEqual([]);
+  });
+
+  it("says nothing about a shot whose stem is accepted over the take it plays", async () => {
+    const animatic = speakingAnimatic();
+    await withManager(vo(1.5), (manager) => {
+      const stem = "animatic:shot.01#stem";
+      manager.useResolutionDefinitions({
+        definitionHash: () => null,
+        isDeterministic: (address) => address === stem,
+      });
+      const id = manager.reserveVariantId(stem);
+      Object.assign(manager.getAssetState(stem).variants![id]!, {
+        file: "stem.wav",
+        outputHash: "stem-1",
+        inputFingerprints: {
+          [VO]: manager.getAssetState(VO).variants![manager.getAcceptedVariant(VO)!]!.outputHash,
+        },
+      });
+      manager.setAccepted(stem, id);
+      expect(findAnimaticSilentTails(animatic, manager)).toEqual([]);
+      acceptVo(manager, vo(1.4));
+      expect(findAnimaticSilentTails(animatic, manager)).toHaveLength(1);
+    });
+  });
+
+  it("stands a vouch for the tail it was given, until a take it plays moves", async () => {
+    const animatic = speakingAnimatic();
+    await withManager(vo(1.5), (manager) => {
+      manager.setShotVouched(
+        "animatic:shot.01",
+        findAnimaticSilentTails(animatic, manager)[0]!.tailHash,
+      );
+      expect(findAnimaticSilentTails(animatic, manager)[0]?.vouched).toBe(true);
+      acceptVo(manager, vo(1.4));
+      expect(findAnimaticSilentTails(animatic, manager)[0]?.vouched).toBe(false);
+    });
   });
 });
