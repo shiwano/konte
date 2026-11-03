@@ -392,7 +392,7 @@ const STAGE_FINDING_DOCS: Record<OtherCode, { flags: string; fixIn: string }> = 
       "A take awaiting review does not say the line it owes, as heard. Cleared by dismissing it or `konte vouch`.",
     fixIn: "the take's stage",
   },
-  "narration-overflow": {
+  "line-truncated": {
     flags: "An animatic shot's lines run past its `duration`, so its stem's clamp cuts them.",
     fixIn: "`animatic.tsx` where one retime fits, else `direction.ts`",
   },

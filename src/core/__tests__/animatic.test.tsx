@@ -596,7 +596,7 @@ describe("animatic overflow", () => {
     });
     expect(overflow?.overflowSec).toBeCloseTo(1.8, 5);
     expect(formatAnimaticOverflow(overflow!)).toBe(
-      "narration truncated by 1.8s — 5.8s of audio in a 4s shot",
+      "lines truncated by 1.8s — 5.8s of audio in a 4s shot",
     );
   });
 
@@ -655,7 +655,7 @@ describe("animatic overflow", () => {
     const [overflow] = await overflowsWithVo(vo(5.6), twoCueAnimatic());
     expect(overflow).toMatchObject({ overflowSec: expect.closeTo(1.8, 5), unmeasuredCues: 1 });
     expect(formatAnimaticOverflow(overflow!)).toBe(
-      "narration truncated by 1.8s — 5.8s of audio in a 4s shot (1 cue(s) not measured yet)",
+      "lines truncated by 1.8s — 5.8s of audio in a 4s shot (1 cue(s) not measured yet)",
     );
   });
 

@@ -67,7 +67,7 @@ A `<Cutin>` is a second lane:
 A truncated stem is exactly as long as the shot, so what the clamp cuts is caught either side of the spend:
 
 - `assertCuesFitShot` (`core/clip-fit.ts`) throws `CUE_OVERRUNS_SHOT` at load, off the declared length.
-- `findAnimaticOverflows` (`core/animatic-overflow.ts`) measures recorded lengths after, surfacing as the `narration-overflow` finding and a `probe reel-audio` warning, counting an unmeasured cue.
+- `findAnimaticOverflows` (`core/animatic-overflow.ts`) measures recorded lengths after, surfacing as the `line-truncated` finding and a `probe reel-audio` warning, counting an unmeasured cue.
 - `tightenDerivedClipLengths` first holds a `fill: "speech"` count inside the cue's window, re-validating at what it narrowed to; it trips the check only where the grid fits nothing.
 - A derived count left under half its line's estimate, the take's lead-in (`BASE_SEC`) included, throws `CUE_WINDOW_TOO_SHORT` from the same check — the take would come back rushed.
 
@@ -86,7 +86,7 @@ A truncated stem is exactly as long as the shot, so what the clamp cuts is caugh
 Differences on the board:
 
 - No stand-in.
-- `narration-overflow` reads the shot's cues against the clamp.
+- `line-truncated` reads the shot's cues against the clamp.
 - A leaf the video's accept settles is not board review work (`leafSettledAcross`).
 
 Past the board:

@@ -58,8 +58,8 @@ describe("suggestForStatus", () => {
     const actions = suggestForStatus({
       state: { schemaVersion: 2, assets: {} },
       findings: [
-        finding("narration-overflow", "animatic", { subject: "animatic:shot.09#stem" }),
-        finding("narration-overflow", "direction", { subject: "animatic:shot.10#stem" }),
+        finding("line-truncated", "animatic", { subject: "animatic:shot.09#stem" }),
+        finding("line-truncated", "direction", { subject: "animatic:shot.10#stem" }),
       ],
     });
     expect(actions.slice(0, 2)).toEqual([

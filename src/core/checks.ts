@@ -342,7 +342,7 @@ const VARIANT_CHECK: Check = {
 };
 
 const OVERFLOW_CHECK: Check = {
-  codes: ["narration-overflow"],
+  codes: ["line-truncated"],
   run: (ctx) => {
     if (!ctx.manager || !ctx.animatic) return [];
     return findAnimaticOverflows(ctx.animatic, ctx.manager).map((o): Finding => {
@@ -351,7 +351,7 @@ const OVERFLOW_CHECK: Check = {
           `${o.retime.roomSec.toFixed(2)} (${o.retime.rate.toFixed(3)}x) and play that in its place`
         : `lengthen shot ${o.shotId}'s duration or shorten its script`;
       return {
-        code: "narration-overflow",
+        code: "line-truncated",
         subject: o.address,
         fixIn: { stage: o.retime ? "animatic" : "direction" },
         message: `${formatAnimaticOverflow(o)} — ${fix}`,

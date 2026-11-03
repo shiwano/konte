@@ -156,7 +156,7 @@ export function findShotOverflows(
 export function formatAnimaticOverflow(o: AnimaticOverflow): string {
   const partial = o.unmeasuredCues > 0 ? ` (${o.unmeasuredCues} cue(s) not measured yet)` : "";
   return (
-    `narration truncated by ${formatSeconds(o.overflowSec)} — ` +
+    `lines truncated by ${formatSeconds(o.overflowSec)} — ` +
     `${formatSeconds(o.neededSec)} of audio in a ${formatSeconds(o.durationSec)} shot${partial}`
   );
 }
