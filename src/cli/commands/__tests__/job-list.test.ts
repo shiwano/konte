@@ -188,7 +188,10 @@ describe("job list", () => {
 
   it("caps rows at --limit, newest first, and lifts the cap with --all", async () => {
     const ids: string[] = [];
-    for (let i = 0; i < 3; i++) ids.push(await seedJob("running"));
+    for (let i = 0; i < 3; i++) {
+      ids.push(await seedJob("running"));
+      await backdateStart(ids[i]!, (3 - i) * 1000);
+    }
 
     // Newest first: the last job seeded leads.
     expect((await listRows(["--limit", "2"])).map((row) => row.ID)).toEqual([ids[2], ids[1]]);
