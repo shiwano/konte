@@ -152,13 +152,11 @@ export default defineConfig({
     // transpiler cache at the workspace — so a fixture's absolute adapter path would land in the
     // machine-wide cache, keyed by content alone, and the next run's temp dir would load a gone path.
     // A fork reads this at process start, which vitest.setup.ts is too late for.
-    env: { [TRANSPILER_CACHE_ENV]: TRANSPILER_CACHE_DISABLED },
-    // A worker shells out to ffmpeg, which sizes its own thread pool to the machine, so the
-    // suite's process/thread footprint is workers × cores rather than workers. Past ~20 workers a
-    // 32-core box crosses its per-user process limit and ffmpeg starts failing to spawn — a
-    // failure that surfaces as an unrelated assertion in whatever test was running. Measured: the
-    // wall clock is flat from 20 workers up, so the cap costs nothing.
-    maxWorkers: Math.min(availableParallelism(), 20),
+    // Bun sizes its work pool to the core count, and an idle pool thread spins in the kernel: on a
+    // 32-core box one worker burned three cores of sys time, and 32 workers × 32 threads crossed
+    // the per-user process limit until spawns failed. Four threads keep a worker's async fs fed.
+    env: { [TRANSPILER_CACHE_ENV]: TRANSPILER_CACHE_DISABLED, UV_THREADPOOL_SIZE: "4" },
+    maxWorkers: availableParallelism(),
     // Bun marks every ESM namespace `__esModule`, which vite-node's default-export interop reads as
     // CJS and collapses the module onto its `default` — dropping named exports (`zod`'s `z`).
     deps: { interopDefault: false },
