@@ -2,6 +2,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
+  adapterReleasesFile,
   agentsDir,
   DEV_SKILLS,
   DEV_VIDEO_TEMPLATES,
@@ -19,7 +20,8 @@ const outDir = path.resolve(import.meta.dirname, "../src/core/generated");
 // Agent settings are rendered per workspace by the workspace sync instead.
 // User-owned escape hatches: personal Claude Code overrides go in
 // .claude/settings.local.json (gitignored, never shipped/managed), and project
-// content (video.tsx, konte.config.json, HOUSE_RULES.md, adapters/**, .gitignore) stays seed.
+// content (video.tsx, konte.config.json, HOUSE_RULES.md, .gitignore) stays seed.
+// adapters/** is bundled: synced like a managed file while present, never restored once removed.
 const MANAGED_PREFIXES = [
   ".claude/skills/",
   ".agents/skills/",
@@ -261,6 +263,15 @@ managedKeys.sort();
 
 const shippedManagedKeys = managedKeys.filter((key) => !isDevSkillKey(key));
 
+const adapterReleases: Record<string, string> = JSON.parse(
+  fs.readFileSync(adapterReleasesFile, "utf-8"),
+);
+const bundledAdapters: Record<string, string | null> = {};
+for (const [key, { isBinary }] of [...workspaceFiles].sort(([a], [b]) => a.localeCompare(b))) {
+  if (!isBinary && key.startsWith("adapters/")) bundledAdapters[key] = adapterReleases[key] ?? null;
+}
+const bundledAdapterKeys = Object.keys(bundledAdapters);
+
 // syncWorkspace writes every managed key relative to the WORKSPACE root, so a managed key
 // under videos/ would land a video's file at the workspace root on the next upgrade. The
 // partition above already guarantees this; assert it so a future move cannot quietly break it.
@@ -369,10 +380,12 @@ emit(
     `export const MANAGED_TEMPLATES: ReadonlySet<string> = new Set(${COMPILED}`,
     `  ? ${JSON.stringify(shippedManagedKeys)}`,
     `  : ${JSON.stringify(managedKeys)});`,
+    "/** Each bundled adapter file and the konte release that first shipped it; null if none has yet. */",
+    `export const BUNDLED_ADAPTERS: Readonly<Record<string, string | null>> = ${JSON.stringify(bundledAdapters)};`,
     `export const AGENT_SETTINGS_FILES: ReadonlySet<string> = new Set(${JSON.stringify(AGENT_SETTINGS_KEYS)});`,
     `export const TEMPLATE_HASH = ${COMPILED}`,
-    `  ? ${JSON.stringify(templateHashOf([...shippedManagedKeys, ...syncedSeedKeys]))}`,
-    `  : ${JSON.stringify(templateHashOf([...managedKeys, ...syncedSeedKeys]))};`,
+    `  ? ${JSON.stringify(templateHashOf([...shippedManagedKeys, ...bundledAdapterKeys, ...syncedSeedKeys]))}`,
+    `  : ${JSON.stringify(templateHashOf([...managedKeys, ...bundledAdapterKeys, ...syncedSeedKeys]))};`,
     `export const VIDEO_TEMPLATE_NAMES: readonly string[] = ${COMPILED}`,
     `  ? ${JSON.stringify(shippedVideoTemplateNames)}`,
     `  : ${JSON.stringify(videoTemplateNames)};`,

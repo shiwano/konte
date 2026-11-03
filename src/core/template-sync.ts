@@ -4,6 +4,7 @@ import pkg from "../../package.json" with { type: "json" };
 import { linkWorkspaceBinary, prepareAgentSettings, writeAgentSettings } from "./agent-settings.js";
 import {
   AGENT_SETTINGS_FILES,
+  BUNDLED_ADAPTERS,
   loadManagedTemplateContents,
   loadWorkspaceTemplate,
   MANAGED_TEMPLATES,
@@ -83,15 +84,34 @@ async function writeLock(workspaceRoot: string): Promise<void> {
 }
 
 /**
- * Writes the committed version marker: the lock carries the same version, but
- * `.konte/` is gitignored, so nothing in a project's history says which konte
- * wrote the managed files it has under version control.
+ * The committed version marker: the lock carries the same version, but `.konte/` is
+ * gitignored, so nothing in a project's history says which konte wrote the managed files
+ * it has under version control.
  */
-async function writeVersionFile(workspaceRoot: string): Promise<void> {
-  const filePath = path.join(workspaceRoot, VERSION_FILE);
-  const desired = `${pkg.version}\n`;
-  if ((await readFileOrNull(filePath)) === desired) return;
-  await fs.writeFile(filePath, desired, "utf-8");
+async function readVersionFile(workspaceRoot: string): Promise<string | null> {
+  return (await readFileOrNull(path.join(workspaceRoot, VERSION_FILE)))?.trim() || null;
+}
+
+async function writeVersionFile(workspaceRoot: string, previous: string | null): Promise<void> {
+  if (previous === pkg.version) return;
+  await fs.writeFile(path.join(workspaceRoot, VERSION_FILE), `${pkg.version}\n`, "utf-8");
+}
+
+function parseVersion(version: string): number[] | null {
+  const parts = version.split(".").map(Number);
+  return parts.length === 3 && parts.every(Number.isInteger) ? parts : null;
+}
+
+/** Whether a bundled adapter missing from the workspace shipped after the konte that last synced it. */
+function shippedSince(introducedIn: string | null, previous: string | null): boolean {
+  const last = previous === null ? null : parseVersion(previous);
+  if (last === null) return false;
+  const shipped = introducedIn === null ? null : parseVersion(introducedIn);
+  if (shipped === null) return true;
+  for (let i = 0; i < 3; i++) {
+    if (shipped[i] !== last[i]) return shipped[i]! > last[i]!;
+  }
+  return false;
 }
 
 function linksBinary(): boolean {
@@ -121,23 +141,21 @@ async function appendMissingIgnores(workspaceRoot: string, template: string): Pr
 }
 
 /**
- * Brings a workspace up to this konte and this location: overwrites the managed template files,
- * renders the agent settings for the workspace root, appends missing `.gitignore` lines and
- * links `.konte/bin/konte`. Cheap fast-path: returns null when the lock names the current
+ * Brings a workspace up to this konte and this location: overwrites the managed template files
+ * and the bundled adapters it holds, adds a bundled adapter shipped after the konte that last
+ * synced it (`konte.version`), renders the agent settings for the workspace root, appends
+ * missing `.gitignore` lines and links `.konte/bin/konte`. Cheap fast-path: returns null when the lock names the current
  * template hash and this root, every managed file and agent setting is present, and the
  * `.konte/bin` link resolves.
  *
  * A managed file the OS refuses to write is left as it is and listed in `unwritable`;
- * the lock then stays unwritten, so the next run tries again.
+ * the lock and `konte.version` then stay unwritten, so the next run tries again.
  */
 export async function syncWorkspace(
   workspaceRoot: string,
   options: { force?: boolean } = {},
 ): Promise<WorkspaceSyncResult | null> {
-  // Ahead of the fast path: a release that leaves the templates untouched still
-  // moves the version.
-  await writeVersionFile(workspaceRoot);
-
+  const previousVersion = await readVersionFile(workspaceRoot);
   const lock = await readLock(workspaceRoot);
   if (
     !options.force &&
@@ -146,6 +164,7 @@ export async function syncWorkspace(
     (await allPresent(workspaceRoot, [...MANAGED_TEMPLATES, ...AGENT_SETTINGS_FILES])) &&
     (await binaryLinkLive(workspaceRoot))
   ) {
+    await writeVersionFile(workspaceRoot, previousVersion);
     return null;
   }
 
@@ -155,13 +174,20 @@ export async function syncWorkspace(
   const updated: string[] = [];
   const unwritable: string[] = [];
   const contents = await loadManagedTemplateContents();
+  const template = await loadWorkspaceTemplate();
+  for (const key of Object.keys(BUNDLED_ADAPTERS)) contents[key] = template[key]!;
 
-  for (const key of MANAGED_TEMPLATES) {
-    const desired = contents[key];
-    if (desired === undefined) continue;
+  for (const [key, desired] of Object.entries(contents)) {
     const fullPath = path.join(workspaceRoot, key);
     const current = await readFileOrNull(fullPath);
     if (current === desired) continue;
+    if (
+      current === null &&
+      key in BUNDLED_ADAPTERS &&
+      !shippedSince(BUNDLED_ADAPTERS[key] ?? null, previousVersion)
+    ) {
+      continue;
+    }
 
     try {
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
@@ -174,12 +200,15 @@ export async function syncWorkspace(
     (current === null ? created : updated).push(key);
   }
 
-  await appendMissingIgnores(workspaceRoot, (await loadWorkspaceTemplate())[".gitignore"]!);
+  await appendMissingIgnores(workspaceRoot, template[".gitignore"]!);
   const relaunch = await writeAgentSettings(workspaceRoot, settings);
   if (linksBinary() && (await linkWorkspaceBinary(workspaceRoot, process.execPath))) {
     relaunch.push(".konte/bin/konte");
   }
 
-  if (unwritable.length === 0) await writeLock(workspaceRoot);
+  if (unwritable.length === 0) {
+    await writeLock(workspaceRoot);
+    await writeVersionFile(workspaceRoot, previousVersion);
+  }
   return { created, updated, unwritable, relaunch };
 }

@@ -5,6 +5,7 @@ import { prepareAgentSettings } from "../../../core/agent-settings.js";
 import { KonteError } from "../../../core/errors.js";
 import {
   AGENT_SETTINGS_FILES,
+  BUNDLED_ADAPTERS,
   loadWorkspaceTemplate,
   WORKSPACE_BINARY_FILES,
 } from "../../../core/generated/template-assets.js";
@@ -49,6 +50,7 @@ async function scaffold(root: string, existing: boolean): Promise<void> {
   const files: Record<string, string> = {};
   for (const [key, content] of Object.entries(template)) {
     if (AGENT_SETTINGS_FILES.has(key) || key === ".gitignore") continue;
+    if (existing && key in BUNDLED_ADAPTERS) continue;
     if ((existing || key === "README.md") && (await pathExists(path.join(root, key)))) continue;
     files[key] = content;
   }

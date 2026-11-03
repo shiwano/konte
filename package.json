@@ -15,6 +15,7 @@
     "check:module-state": "bun run scripts/check-module-state.ts",
     "check:exports": "knip-bun --no-progress",
     "typecheck": "tsc --noEmit",
+    "release:version": "bun run scripts/release-version.ts",
     "test": "bun --bun vitest",
     "test:run": "bun --bun vitest run",
     "skills:check": "waza --no-update-check tokens count src/cli/templates/workspace/dot.agents/skills/ src/cli/templates/agents/ .agents/skills/ plugin/plugins/konte/skills/ && bun run scripts/check-journeys.ts",

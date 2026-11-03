@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import pkg from "../../../package.json" with { type: "json" };
 import { prepareAgentSettings, writeAgentSettings } from "../agent-settings.js";
 import {
+  BUNDLED_ADAPTERS,
   loadManagedTemplateContents,
   loadWorkspaceTemplate,
   MANAGED_TEMPLATES,
@@ -19,6 +20,8 @@ const VERSION_FILE = "konte.version";
 const SKILL_KEY = ".claude/skills/prompt-guide/SKILL.md";
 const MOD_KEY = ".konte/mod.ts";
 const AGENT_KEY = ".claude/agents/konte-direction-critic.md";
+const ADAPTER_KEY = "adapters/comfy/image_z_image_base.ts";
+const ADAPTER_CONTENT = (await loadWorkspaceTemplate())[ADAPTER_KEY]!;
 
 async function writeFileAt(dir: string, key: string, content: string): Promise<void> {
   const full = path.join(dir, key);
@@ -130,6 +133,47 @@ describe("syncWorkspace", () => {
     await fs.chmod(path.join(tmpDir, AGENT_KEY), 0o644);
     expect((await syncWorkspace(tmpDir))?.updated).toEqual([AGENT_KEY]);
     expect(JSON.parse(await readFileAt(tmpDir, LOCK_FILE)).hash).toBe(TEMPLATE_HASH);
+  });
+
+  it("replaces an edited bundled adapter with the current one", async () => {
+    await writeFileAt(tmpDir, ADAPTER_KEY, "// tuned by hand");
+    const result = await syncWorkspace(tmpDir);
+    expect(result?.updated).toContain(ADAPTER_KEY);
+    expect(await readFileAt(tmpDir, ADAPTER_KEY)).toBe(ADAPTER_CONTENT);
+  });
+
+  it("leaves out a bundled adapter the workspace removed", async () => {
+    await writeFileAt(tmpDir, VERSION_FILE, `${pkg.version}\n`);
+    const result = await syncWorkspace(tmpDir);
+    expect(result?.created.filter((key) => key in BUNDLED_ADAPTERS)).toEqual(
+      Object.keys(BUNDLED_ADAPTERS).filter((key) => BUNDLED_ADAPTERS[key] === null),
+    );
+  });
+
+  it("adds a bundled adapter shipped after the konte that last synced the workspace", async () => {
+    await writeFileAt(tmpDir, VERSION_FILE, "0.0.0\n");
+    const result = await syncWorkspace(tmpDir);
+    expect(result?.created).toEqual(expect.arrayContaining(Object.keys(BUNDLED_ADAPTERS)));
+    expect(await readFileAt(tmpDir, ADAPTER_KEY)).toBe(ADAPTER_CONTENT);
+    expect(await readFileAt(tmpDir, VERSION_FILE)).toBe(`${pkg.version}\n`);
+  });
+
+  it("adds no bundled adapter to a workspace with no version marker", async () => {
+    const result = await syncWorkspace(tmpDir);
+    expect(result?.created.some((key) => key in BUNDLED_ADAPTERS)).toBe(false);
+  });
+
+  it("keeps the version marker until every file is written", async () => {
+    await writeFileAt(tmpDir, VERSION_FILE, "0.0.0\n");
+    await writeFileAt(tmpDir, AGENT_KEY, "old agent");
+    await fs.chmod(path.join(tmpDir, AGENT_KEY), 0o444);
+
+    await syncWorkspace(tmpDir);
+    expect(await readFileAt(tmpDir, VERSION_FILE)).toBe("0.0.0\n");
+
+    await fs.chmod(path.join(tmpDir, AGENT_KEY), 0o644);
+    await syncWorkspace(tmpDir);
+    expect(await readFileAt(tmpDir, VERSION_FILE)).toBe(`${pkg.version}\n`);
   });
 
   it("leaves user-added files (not in the template set) untouched", async () => {

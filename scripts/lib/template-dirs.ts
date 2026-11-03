@@ -13,6 +13,9 @@ export const VIDEOS_DIR = "videos";
 
 export const workspaceDir = path.join(templatesDir, WORKSPACE_DIR);
 
+/** Each bundled adapter file (`adapters/…`) and the konte release that first shipped it. */
+export const adapterReleasesFile = path.join(templatesDir, "adapter-releases.json");
+
 /**
  * Subagent contracts, one markdown file each. Outside `workspace/` because neither shipped form is
  * this file: embed generates a Claude Code and a Codex definition from every source here.

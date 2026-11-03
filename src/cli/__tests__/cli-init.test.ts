@@ -245,6 +245,7 @@ describe("workspace setup", () => {
     const { workspace, video } = await initWorkspace(path.join(ctx.dir, "original"));
     const originalVideo = await fs.readFile(path.join(video, "video.tsx"), "utf8");
     await fs.writeFile(path.join(workspace, "adapters/custom.txt"), "my adapter");
+    await fs.rm(path.join(workspace, "adapters/fal/seedance-2-5.ts"));
     await fs.writeFile(path.join(workspace, "HOUSE_RULES.md"), "my rules");
     await fs.writeFile(path.join(workspace, ".gitignore"), "my-cache/\n");
     await fs.writeFile(
@@ -268,6 +269,7 @@ describe("workspace setup", () => {
     );
     expect(await fs.readFile(path.join(moved, "HOUSE_RULES.md"), "utf8")).toBe("my rules");
     expect(await fs.readFile(path.join(moved, "adapters/custom.txt"), "utf8")).toBe("my adapter");
+    await expect(fs.access(path.join(moved, "adapters/fal/seedance-2-5.ts"))).rejects.toThrow();
     const mcp = JSON.parse(await fs.readFile(path.join(moved, ".mcp.json"), "utf8"));
     expect(mcp.mcpServers.other.command).toBe("keep");
     expect(mcp.mcpServers.konte.command).toBe(path.join(moved, ".konte/bin/konte"));

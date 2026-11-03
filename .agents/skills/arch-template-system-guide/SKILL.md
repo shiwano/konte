@@ -38,12 +38,13 @@ src/cli/templates/workspace/       ← konte workspace new
 ## Managed files and agent settings
 
 - Agent settings are template-authored; the workspace sync renders their environment-specific paths instead of copying them.
-- The sync leaves its fast path when the lock's template hash (managed files, agent settings, `.gitignore`) or its `root` differs, a managed file or agent setting is missing, or the compiled konte's `.konte/bin` link does not resolve.
+- The sync leaves its fast path when the lock's template hash (managed files, bundled adapters, agent settings, `.gitignore`) or its `root` differs, a managed file or agent setting is missing, or the compiled konte's `.konte/bin` link does not resolve.
 - A command whose sync rewrites an agent setting or the link refuses with `AGENT_RESTART_REQUIRED` — the running agent loaded the old ones.
 - `.claude/settings.json` is overwritten — user customizations belong in `.claude/settings.local.json`, left untouched; other agent settings also fill missing defaults. These settings are gitignored.
 - The konte MCP/LSP launch fields and the `.konte/bin` PATH lead are regenerated — Codex through `shell_environment_policy.set.PATH`, Claude Code through a `SessionStart` hook appending an `export PATH` line to `$CLAUDE_ENV_FILE`, since its `env.PATH` never reaches the Bash tool.
 - Launch paths always name `.konte/bin/konte`: a compiled konte running from elsewhere (brew, a copied build) links itself there — to the `PATH` entry resolving to it, if any — except on Windows, and never over a real file `setup.sh` placed.
-- `konte.version` is not a template: `template-sync.ts` writes it at the workspace root on every run, ahead of the fast path. It is committed; the lock's copy of the version is not.
+- `konte.version` is not a template: `template-sync.ts` writes it at the workspace root once every file is written, on the fast path too. It is committed; the lock's copy of the version is not.
+- A bundled adapter (`BUNDLED_ADAPTERS`, every file under `adapters/`) is overwritten while present; a missing one is added only when the release that first shipped it is newer than `konte.version`, so a removed one stays removed. That release is `src/cli/templates/adapter-releases.json`'s, stamped by `release:version`; an unstamped adapter is unreleased and always added. `workspace setup` leaves adapters to the sync.
 - A managed file (`MANAGED_TEMPLATES`) must be a workspace file — `syncWorkspace` writes every managed key relative to the workspace root, so a managed key under `videos/` would land a video's file at the workspace root on the next upgrade. `embed-templates.ts` asserts this.
 
 ## Type-checking
