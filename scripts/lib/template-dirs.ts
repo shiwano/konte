@@ -23,14 +23,14 @@ export const adapterReleasesFile = path.join(templatesDir, "adapter-releases.jso
 export const agentsDir = path.join(templatesDir, "agents");
 
 /**
- * Video templates for konte's own development — scaffoldable from a source checkout, compiled out
- * of the binary.
+ * Video templates for konte's own development — scaffoldable from a source checkout or a
+ * `bun run build` binary, compiled out of a release binary.
  */
 export const DEV_VIDEO_TEMPLATES: ReadonlySet<string> = new Set(["kitchen-sink"]);
 
 /**
- * Skills for konte's own development — scaffolded from a source checkout, compiled out of the
- * binary.
+ * Skills for konte's own development — scaffolded from a source checkout or a `bun run build`
+ * binary, compiled out of a release binary.
  */
 export const DEV_SKILLS: ReadonlySet<string> = new Set(["konte-dev-feedback"]);
 

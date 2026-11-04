@@ -22,6 +22,7 @@ function defaultTarget(): string {
 
 const target = process.env.KONTE_COMPILE_TARGET ?? defaultTarget();
 const outfile = process.env.KONTE_COMPILE_OUTFILE ?? "dist/konte";
+const release = process.argv.includes("--release");
 
 const { exitCode } = Bun.spawnSync(
   [
@@ -36,6 +37,7 @@ const { exitCode } = Bun.spawnSync(
     // from here rather than from sniffing that path.
     "--define",
     "KONTE_COMPILED=true",
+    ...(release ? ["--define", "KONTE_RELEASE=true"] : []),
     `--target=${target}`,
     "--outfile",
     outfile,

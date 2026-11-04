@@ -32,8 +32,8 @@ src/cli/templates/workspace/       ← konte workspace new
 - Shared by every video (agent setup, adapters, config) → `workspace/`.
 - One video template's content → `workspace/videos/<name>/`.
 - A whole new video template → a new directory under `workspace/videos/`.
-- A dev-only video template → also in `DEV_VIDEO_TEMPLATES`. `kitchen-sink` is the DSL surface `check:templates` covers; grow it with the DSL.
-- A dev-only skill → also in `DEV_SKILLS`.
+- A dev-only video template → also in `DEV_VIDEO_TEMPLATES`; only a release binary (`compile-binary.ts --release`) drops it. `kitchen-sink` is the DSL surface `check:templates` covers; grow it with the DSL.
+- A dev-only skill → also in `DEV_SKILLS`; likewise dropped only from a release binary.
 
 ## Managed files and agent settings
 

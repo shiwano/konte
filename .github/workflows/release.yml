@@ -50,7 +50,7 @@ jobs:
           mkdir -p out
           compile() {
             KONTE_COMPILE_TARGET="$1" KONTE_COMPILE_OUTFILE="out/$2" \
-              bun run scripts/compile-binary.ts
+              bun run scripts/compile-binary.ts --release
           }
           compile bun-linux-x64-baseline    konte-linux-x64
           compile bun-linux-arm64           konte-linux-arm64
