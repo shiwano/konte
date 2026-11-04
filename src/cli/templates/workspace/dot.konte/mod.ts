@@ -2623,6 +2623,10 @@ export type ImageInputOccurrence = {
   address: string;
   sources: readonly string[];
 };
+export type StemInputOccurrence = {
+  address: string;
+  source: string;
+};
 declare const AnimaticFormatSchema: z.ZodObject<
   {
     size: z.ZodObject<
@@ -3781,6 +3785,9 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
       z.ZodType<readonly ImageInputOccurrence[], z.ZodTypeDef, readonly ImageInputOccurrence[]>
     >;
     prevPanelReaders: z.ZodOptional<z.ZodType<readonly string[], z.ZodTypeDef, readonly string[]>>;
+    stemInputs: z.ZodOptional<
+      z.ZodType<readonly StemInputOccurrence[], z.ZodTypeDef, readonly StemInputOccurrence[]>
+    >;
     respellings: z.ZodOptional<
       z.ZodArray<
         z.ZodObject<
@@ -4315,6 +4322,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
     pins?: readonly PinOccurrence[] | undefined;
     imageInputs?: readonly ImageInputOccurrence[] | undefined;
     prevPanelReaders?: readonly string[] | undefined;
+    stemInputs?: readonly StemInputOccurrence[] | undefined;
     respellings?:
       | {
           line: string;
@@ -4620,6 +4628,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
     pins?: readonly PinOccurrence[] | undefined;
     imageInputs?: readonly ImageInputOccurrence[] | undefined;
     prevPanelReaders?: readonly string[] | undefined;
+    stemInputs?: readonly StemInputOccurrence[] | undefined;
     respellings?:
       | {
           line: string;
@@ -7551,6 +7560,9 @@ declare const VideoDefinitionSchema: z.ZodObject<
       z.ZodType<readonly ImageInputOccurrence[], z.ZodTypeDef, readonly ImageInputOccurrence[]>
     >;
     prevPanelReaders: z.ZodOptional<z.ZodType<readonly string[], z.ZodTypeDef, readonly string[]>>;
+    stemInputs: z.ZodOptional<
+      z.ZodType<readonly StemInputOccurrence[], z.ZodTypeDef, readonly StemInputOccurrence[]>
+    >;
     respellings: z.ZodOptional<
       z.ZodArray<
         z.ZodObject<
@@ -7928,6 +7940,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
     pins?: readonly PinOccurrence[] | undefined;
     imageInputs?: readonly ImageInputOccurrence[] | undefined;
     prevPanelReaders?: readonly string[] | undefined;
+    stemInputs?: readonly StemInputOccurrence[] | undefined;
     respellings?:
       | {
           line: string;
@@ -8182,6 +8195,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
     pins?: readonly PinOccurrence[] | undefined;
     imageInputs?: readonly ImageInputOccurrence[] | undefined;
     prevPanelReaders?: readonly string[] | undefined;
+    stemInputs?: readonly StemInputOccurrence[] | undefined;
     respellings?:
       | {
           line: string;

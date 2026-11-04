@@ -36,7 +36,7 @@ soundtracks: [
 - Leave a line take's clip length unset — konte sizes it from the words, inside the window the `<Audio>` plays in. Set it by hand only after hearing a take come back rushed or padded.
 - A take that overruns its window is fitted, not cut — `asset("vo", adapters.audioRetime, { source: raw, duration: <the window> })` moves the tempo and leaves the pitch, so the clamp takes nothing off the tail. Past ±10% it needs a `waiver: "<reason>"` — the read itself has moved by then, which is the direction's call.
 - `animatic.shot(id).stem` is konte's, not yours — clamped to the shot's `duration` so a long voice take never decides the shot's length. Never write the mix or the trim yourself.
-- Lines on the delivered stem are a last resort — `<Audio src={animatic.shot("01").stem} />` in the video shot instead of the model's `audio` input, only once no adapter on the backend takes the voice into the take (`production-guide` step 2).
+- Lines on the delivered stem are a last resort — `<Audio src={animatic.shot("01").stem} />` in the video shot instead of the model's `audio` input, only once no adapter on the backend takes the voice into the take (`production-guide` step 2), or when no one the frame holds speaks the shot's lines (`stem-unmouthed`).
 - Narration is delivered from its own stem — `<Audio src={animatic.shot("01").narrationStem} />` in the video shot, `start`/`volume` set there (`NARRATION_UNPLACED` if missing). No model input takes it.
 - Narration beside a wordless recording is refused (`NARRATION_UNATTRIBUTED`) — voice it with an adapter whose spoken-text input carries its words.
 - An SE the motion must hit goes on the board if the motion model takes the stem — the take times its action to it and carries it; `video.tsx` adds none.

@@ -3,6 +3,7 @@ import type { AdapterMeta } from "./adapter.js";
 import { beginClipLengthCollection } from "./clip-length-collect.js";
 import { beginImageInputCollection } from "./image-input-collect.js";
 import { beginPinCollection } from "./pin-collect.js";
+import { beginStemInputCollection } from "./stem-input-collect.js";
 
 // Where a stage's `"prompt"`, `"negativePrompt"` and `"spokenText"` values are gathered while it
 // is being built, read at the spend gate and by `konte inspect --prompts`.
@@ -19,12 +20,13 @@ let script: string[] = [];
 
 // Begins a collection, discarding whatever a previous one leaked (a definition that threw mid-build
 // never ends its scope, and the next build must not inherit its prompts).
-// Also begins the clip-length, pin and image-input collections: each spans exactly this
+// Also begins the clip-length, pin, image-input and stem-input collections: each spans exactly this
 // pass, and every build entry already calls this one.
 export function beginPromptCollection(spokenLines: readonly string[] = []): void {
   beginClipLengthCollection();
   beginPinCollection();
   beginImageInputCollection();
+  beginStemInputCollection();
   sink = [];
   seen = new Set();
   script = [...spokenLines];

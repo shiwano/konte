@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { PinOccurrence } from "../pin-check.js";
 import type { ImageInputOccurrence } from "../image-inputs.js";
 import type { PromptOccurrence } from "../prompt-check.js";
+import type { StemInputOccurrence } from "../stem-mouth-check.js";
 import type { BuildFinding } from "../finding.js";
 import { FONT_FAMILY_PATTERN, isLanguageTag, type LanguageTag } from "../typography.js";
 import type { MediaAsset, SoundtrackEntry } from "../dsl/builders.js";
@@ -367,6 +368,9 @@ const ImageInputsSchema = z.custom<readonly ImageInputOccurrence[]>().optional()
 // Every address the stage declared with a `readsPrevPanel` adapter. Not hashed.
 const PrevPanelReadersSchema = z.custom<readonly string[]>().optional();
 
+// What the stage's `stem` inputs were wired to, read by `stem-unmouthed`. Not hashed.
+const StemInputsSchema = z.custom<readonly StemInputOccurrence[]>().optional();
+
 // One line spelled as one model needs it — what `respell()` declared while the stage built, filed
 // by the shot the call was made inside (absent for a cue declared on the timeline). Read by the
 // voiced check and the cue classifier and printed beside the prompts; never hashed, since which
@@ -400,6 +404,7 @@ export const StageDefinitionSchema = z.object({
   pins: PinsSchema,
   imageInputs: ImageInputsSchema,
   prevPanelReaders: PrevPanelReadersSchema,
+  stemInputs: StemInputsSchema,
   respellings: RespellingsSchema,
   // What the build found of itself instead of refusing to load (see `BuildFinding`).
   buildFindings: z.custom<readonly BuildFinding[]>().optional(),

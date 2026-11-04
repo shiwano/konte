@@ -6,6 +6,7 @@ import {
   type AssetStage,
   type DefinitionLike,
   formatShotAddress,
+  formatShotStemAddress,
   getAssetEntry,
   getStage,
   listAddresses,
@@ -58,6 +59,7 @@ import type {
 } from "./types/index.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
 import { checkSourceLocators } from "./source-direction.js";
+import { findUnmouthedStems } from "./stem-mouth-check.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
 import { unvouchedFindings } from "./variant-check.js";
 
@@ -429,6 +431,26 @@ const ANIMATIC_CONSUMED_CHECK: Check = {
   },
 };
 
+const STEM_MOUTH_CHECK: Check = {
+  codes: ["stem-unmouthed"],
+  run: (ctx) => {
+    if (!ctx.direction || !ctx.animatic || !ctx.video) return [];
+    return findUnmouthedStems(ctx.direction, ctx.animatic, ctx.video).map(
+      (u): Finding => ({
+        code: "stem-unmouthed",
+        subject: u.address,
+        fixIn: { stage: "video" },
+        message:
+          `takes ${formatShotStemAddress("animatic", u.shotId)} into the model, yet ` +
+          `${u.speakers.join(", ")} ${u.speakers.length === 1 ? "is" : "are"} off the frame and no ` +
+          "mouth in it speaks the lines — drive the take without the stem and its lines, and " +
+          `place it with <Audio src={animatic.shot("${u.shotId}").stem} /> in the shot's composition`,
+        targets: [u.address],
+      }),
+    );
+  },
+};
+
 // What a stage build found of itself instead of refusing to load.
 const BUILD_CHECK: Check = {
   codes: [
@@ -485,6 +507,7 @@ const CHECKS: readonly Check[] = [
   OVERFLOW_CHECK,
   SILENT_TAIL_CHECK,
   ANIMATIC_CONSUMED_CHECK,
+  STEM_MOUTH_CHECK,
   BUILD_CHECK,
   PENDING_REFERENCE_CHECK,
 ];

@@ -61,7 +61,7 @@ The camera holds a static shot as the runner exits the frame.
 - A line a mouth has to match is `animatic.stem` passed as `audioStem` — it takes no `audio reuse` / `audio reference` task type and no `retentionAnalysis` line; the words in `<d>` are the recording's own, verbatim, as in a reuse.
 - An effect in the stem times the action that makes it — name it at that action in `detailedDescription` (`her fist landing on her chest exactly on the dull thump in the soundtrack`), and in `overallSoundscape`.
 - The clip arrives with its track baked in — a composition plays it with `<Video hasAudio>` alone; a second `<Audio src={animatic.stem} />` over that take double-tracks the line.
-- Narration goes in neither slot — a shot whose only line is narration leaves `audioStem` and `audio1` unpassed and lets the take carry only its soundscape.
+- Narration, or a line no one in the frame speaks, goes in neither slot nor a `<d>` — the take carries only its soundscape, and `<Audio>` places the line (`stem-unmouthed`).
 
 ## Clip Length
 

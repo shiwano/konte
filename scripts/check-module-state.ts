@@ -28,6 +28,8 @@ const ALLOWED = new Set([
   "shot-context.ts:currentReferenceContext",
   "shot-context.ts:currentTimelineContext",
   "song-context.ts:current",
+  "stem-input-collect.ts:seen",
+  "stem-input-collect.ts:sink",
 ]);
 
 const STATE =

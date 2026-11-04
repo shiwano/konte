@@ -405,6 +405,11 @@ const STAGE_FINDING_DOCS: Record<OtherCode, { flags: string; fixIn: string }> = 
     flags: "A video shot spends without building on the board shot it develops.",
     fixIn: "`video.tsx`",
   },
+  "stem-unmouthed": {
+    flags:
+      "A video take is driven by its board shot's stem, yet no character the shot's frame holds speaks its lines. Read where every line is a cast character's, every cue of the stem a voice, and the frame neither `coverage` nor graphic.",
+    fixIn: "`video.tsx`",
+  },
   "script-unvoiced": {
     flags:
       "A shot the direction gives lines to plays no audio, or no `<Audio>` says one of its lines; on `policy.song` a video shot places none.",

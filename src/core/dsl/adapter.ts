@@ -24,6 +24,7 @@ import { recordImageInputs } from "./image-input-collect.js";
 import type { PinOccurrence } from "../pin-check.js";
 import { clipLengthOf } from "./clip-length-collect.js";
 import { recordPinInputs } from "./pin-collect.js";
+import { recordStemInputs } from "./stem-input-collect.js";
 import { recordPromptInputs } from "./prompt-collect.js";
 import {
   assemblePromptInputs,
@@ -420,6 +421,7 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
     recordPromptInputs(address, adapter.meta, inputs);
     recordPinInputs(address, adapter.meta, inputs, clipOf(def));
     recordImageInputs(address, adapter.meta, inputs);
+    recordStemInputs(address, adapter.meta, inputs);
   };
   let def: AssetDefinition;
   // The name a reference canvas resolves against (see ReferenceContext) has to stand while the
