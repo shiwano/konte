@@ -8,9 +8,9 @@ vi.setConfig({ testTimeout: 60_000 });
 
 // End-to-end smoke tests that spawn the real `bun run src/cli/index.ts` binary. The bulk of the CLI
 // surface is covered fast and in-process by cli.test.ts; that harness deliberately skips the
-// type-check/template-sync preAction and loads project definitions through vitest's module runner.
-// These few tests exist to keep the full stack honest: a cold Bun process, the real tsc type-check
-// plus managed-template sync, and Bun-native definition loading (Bun.plugin, Bun.stringWidth).
+// type-check preAction and loads project definitions through vitest's module runner.
+// These few tests exist to keep the full stack honest: a cold Bun process, the real tsc type-check,
+// and Bun-native definition loading (Bun.plugin, Bun.stringWidth).
 // Keep this set small — each spawn is intentionally slow.
 
 const CLI_PATH = path.resolve(__dirname, "../index.ts");
@@ -53,9 +53,7 @@ describe("CLI end-to-end (real binary)", () => {
     );
     await fs.writeFile(path.join(tmpDir, "adapters", "broken.ts"), 'const x: number = "bad";');
 
-    await expect(run(["video", "current"], tmpDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("AGENT_RESTART_REQUIRED"),
-    });
+    await run(["workspace", "setup"], tmpDir);
     expect(JSON.parse(await fs.readFile(path.join(tmpDir, ".mcp.json"), "utf8"))).toMatchObject({
       mcpServers: { konte: { args: ["--cwd", tmpDir, "mcp", "serve"] } },
     });
@@ -80,7 +78,7 @@ describe("CLI end-to-end (real binary)", () => {
     await expect(fs.access(path.join(ws, "konte.state.json"))).rejects.toThrow();
   });
 
-  it("runs status through the full preAction (type-check + sync) and loads the shipped definition", async () => {
+  it("runs status through the full preAction (type-check) and loads the shipped definition", async () => {
     const { ws } = await initApp();
 
     // From the workspace root: no enclosing video, so this resolves through the current video

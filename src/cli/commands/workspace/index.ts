@@ -10,7 +10,7 @@ import {
   WORKSPACE_BINARY_FILES,
 } from "../../../core/generated/template-assets.js";
 import { resolveRoots } from "../../../core/roots.js";
-import { syncWorkspace } from "../../../core/template-sync.js";
+import { assertKonteCurrent, syncWorkspace } from "../../../core/template-sync.js";
 import { setWorkspaceRoot } from "../../../core/workspace-context.js";
 import { confirmAction, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
 import { declareScope } from "../../scope.js";
@@ -56,9 +56,9 @@ async function scaffold(root: string, existing: boolean): Promise<void> {
     files[key] = content;
   }
   await writeTemplateFiles(root, files, WORKSPACE_BINARY_FILES);
-  const sync = await syncWorkspace(root, { force: true });
-  for (const line of sync ? retirementLines(sync) : []) console.error(line);
-  const unwritable = sync?.unwritable ?? [];
+  const sync = await syncWorkspace(root);
+  for (const line of retirementLines(sync)) console.error(line);
+  const unwritable = sync.unwritable;
   if (unwritable.length > 0) {
     throw new KonteError(
       "TEMPLATE_SYNC_FAILED",
@@ -144,6 +144,7 @@ Examples:
       )
       .action(async () => {
         const { workspace: root } = await resolveRoots(process.cwd());
+        await assertKonteCurrent(root);
         await scaffold(root, true);
         await finish(root, "Workspace setup complete.");
       }),

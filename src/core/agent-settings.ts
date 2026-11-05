@@ -167,15 +167,15 @@ export async function linkWorkspaceBinary(
   workspaceRoot: string,
   executable: string,
   platform: NodeJS.Platform = process.platform,
-): Promise<boolean> {
-  if (platform === "win32") return false;
+): Promise<void> {
+  if (platform === "win32") return;
   const binDir = path.join(workspaceRoot, ".konte", "bin");
   const binary = path.join(binDir, "konte");
   const current = await fs.lstat(binary).catch((err: NodeJS.ErrnoException) => {
     if (err.code === "ENOENT") return null;
     throw err;
   });
-  if (current && !current.isSymbolicLink()) return false;
+  if (current && !current.isSymbolicLink()) return;
   const resolved = await fs.realpath(executable);
   await fs.mkdir(binDir, { recursive: true });
   const realBinDir = await fs.realpath(binDir);
@@ -190,24 +190,20 @@ export async function linkWorkspaceBinary(
     found && (await fs.realpath(found).catch(() => null)) === resolved
       ? path.resolve(found)
       : resolved;
-  if (current && (await fs.readlink(binary)) === target) return false;
+  if (current && (await fs.readlink(binary)) === target) return;
   const staged = path.join(binDir, `.konte-${process.pid}.tmp`);
   await fs.rm(staged, { force: true });
   await fs.symlink(target, staged);
   await fs.rename(staged, binary);
-  return true;
 }
 
 export async function writeAgentSettings(
   workspaceRoot: string,
   settings: Record<string, string>,
-): Promise<string[]> {
-  const written: string[] = [];
+): Promise<void> {
   for (const [key, content] of Object.entries(settings)) {
     const file = path.join(workspaceRoot, key);
     if ((await readOptional(file)) === content) continue;
     await writeFileAtomic(file, content, { mode: 0o600 });
-    written.push(key);
   }
-  return written;
 }

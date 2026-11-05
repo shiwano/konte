@@ -11,7 +11,7 @@ import {
   MANAGED_TEMPLATES,
   TEMPLATE_HASH,
 } from "../generated/template-assets.js";
-import { syncWorkspace } from "../template-sync.js";
+import { assertKonteCurrent, assertWorkspaceSynced, syncWorkspace } from "../template-sync.js";
 
 const MANAGED_TEMPLATE_CONTENTS = await loadManagedTemplateContents();
 
@@ -62,23 +62,6 @@ describe("syncWorkspace", () => {
     await writeAgentSettings(dir, await prepareAgentSettings(dir));
   }
 
-  it("returns null when the lock hash already matches (cheap fast-path)", async () => {
-    await writeAllManaged(tmpDir);
-    await writeFileAt(tmpDir, SKILL_KEY, "MY HAND-EDITED PROMPT GUIDE");
-    await writeLock(tmpDir, { hash: TEMPLATE_HASH });
-    expect(await syncWorkspace(tmpDir)).toBeNull();
-    expect(await readFileAt(tmpDir, SKILL_KEY)).toBe("MY HAND-EDITED PROMPT GUIDE");
-  });
-
-  it("writes the version marker even when the fast path skips the templates", async () => {
-    await writeAllManaged(tmpDir);
-    await writeLock(tmpDir, { hash: TEMPLATE_HASH });
-    await writeFileAt(tmpDir, VERSION_FILE, "0.0.0-old\n");
-
-    expect(await syncWorkspace(tmpDir)).toBeNull();
-    expect(await readFileAt(tmpDir, VERSION_FILE)).toBe(`${pkg.version}\n`);
-  });
-
   it("creates missing managed files and writes a lock with the current hash", async () => {
     const result = await syncWorkspace(tmpDir);
     expect(result?.created).toContain(MOD_KEY);
@@ -105,7 +88,7 @@ describe("syncWorkspace", () => {
     expect(await readFileAt(tmpDir, MOD_KEY)).toBe(MANAGED_TEMPLATE_CONTENTS[MOD_KEY]!);
   });
 
-  it("restores a missing mod.ts even when the lock hash matches (fast path)", async () => {
+  it("restores a missing mod.ts even when the lock hash matches", async () => {
     await writeAllManaged(tmpDir);
     await fs.rm(path.join(tmpDir, MOD_KEY));
     await writeLock(tmpDir, { hash: TEMPLATE_HASH });
@@ -117,7 +100,7 @@ describe("syncWorkspace", () => {
   it("leaves HOUSE_RULES.md to the workspace", async () => {
     expect(MANAGED_TEMPLATES.has("HOUSE_RULES.md")).toBe(false);
     await writeFileAt(tmpDir, "HOUSE_RULES.md", "my rules");
-    await syncWorkspace(tmpDir, { force: true });
+    await syncWorkspace(tmpDir);
     expect(await readFileAt(tmpDir, "HOUSE_RULES.md")).toBe("my rules");
   });
 
@@ -326,26 +309,17 @@ describe("syncWorkspace agent settings", () => {
     for (const [key, content] of Object.entries(await loadWorkspaceTemplate())) {
       await writeFileAt(dir, key, content);
     }
-    await syncWorkspace(dir, { force: true });
+    await syncWorkspace(dir);
   }
 
-  it("leaves a workspace it just synced on the fast path", async () => {
-    await synced(tmpDir);
-    const lock = JSON.parse(await readFileAt(tmpDir, LOCK_FILE));
-    expect(lock).toMatchObject({ hash: TEMPLATE_HASH, root: tmpDir });
-    expect(await syncWorkspace(tmpDir)).toBeNull();
-  });
-
-  it("renders the agent settings for a workspace that moved, naming them to relaunch", async () => {
+  it("renders the agent settings for a workspace that moved", async () => {
     await synced(tmpDir);
     const moved = `${tmpDir}-moved`;
     await fs.rename(tmpDir, moved);
     try {
-      const result = await syncWorkspace(moved);
-      expect(result?.relaunch).toContain(".mcp.json");
+      await syncWorkspace(moved);
       const mcp = JSON.parse(await readFileAt(moved, ".mcp.json"));
       expect(mcp.mcpServers.konte.args).toEqual(["--cwd", moved, "mcp", "serve"]);
-      expect(await syncWorkspace(moved)).toBeNull();
     } finally {
       await fs.rename(moved, tmpDir);
     }
@@ -354,13 +328,8 @@ describe("syncWorkspace agent settings", () => {
   it("restores a missing agent setting even when the lock matches", async () => {
     await synced(tmpDir);
     await fs.rm(path.join(tmpDir, ".mcp.json"));
-    expect((await syncWorkspace(tmpDir))?.relaunch).toEqual([".mcp.json"]);
-  });
-
-  it("names nothing to relaunch when the settings it renders are already on disk", async () => {
-    await synced(tmpDir);
-    await writeLock(tmpDir, { hash: "stale" });
-    expect((await syncWorkspace(tmpDir))?.relaunch).toEqual([]);
+    await syncWorkspace(tmpDir);
+    await fs.access(path.join(tmpDir, ".mcp.json"));
   });
 
   it("appends the template's missing .gitignore lines", async () => {
@@ -376,5 +345,85 @@ describe("syncWorkspace agent settings", () => {
   it("writes the version marker at the workspace root", async () => {
     await synced(tmpDir);
     expect(await readFileAt(tmpDir, VERSION_FILE)).toBe(`${pkg.version}\n`);
+  });
+});
+
+describe("assertWorkspaceSynced", () => {
+  async function synced(dir: string): Promise<void> {
+    for (const [key, content] of Object.entries(await loadWorkspaceTemplate())) {
+      await writeFileAt(dir, key, content);
+    }
+    await syncWorkspace(dir);
+  }
+
+  it("passes a workspace this konte synced and writes nothing", async () => {
+    await synced(tmpDir);
+    await writeFileAt(tmpDir, SKILL_KEY, "MY HAND-EDITED PROMPT GUIDE");
+    await assertWorkspaceSynced(tmpDir);
+    expect(await readFileAt(tmpDir, SKILL_KEY)).toBe("MY HAND-EDITED PROMPT GUIDE");
+  });
+
+  it("refuses a lock naming another template hash", async () => {
+    await synced(tmpDir);
+    await writeLock(tmpDir, { hash: "stale" });
+    await expect(assertWorkspaceSynced(tmpDir)).rejects.toMatchObject({
+      code: "WORKSPACE_SETUP_REQUIRED",
+    });
+  });
+
+  it("refuses a workspace with no lock", async () => {
+    await expect(assertWorkspaceSynced(tmpDir)).rejects.toMatchObject({
+      code: "WORKSPACE_SETUP_REQUIRED",
+    });
+  });
+
+  it("refuses a missing managed file or agent setting", async () => {
+    await synced(tmpDir);
+    await fs.rm(path.join(tmpDir, MOD_KEY));
+    await expect(assertWorkspaceSynced(tmpDir)).rejects.toMatchObject({
+      code: "WORKSPACE_SETUP_REQUIRED",
+    });
+    await syncWorkspace(tmpDir);
+    await fs.rm(path.join(tmpDir, ".mcp.json"));
+    await expect(assertWorkspaceSynced(tmpDir)).rejects.toMatchObject({
+      code: "WORKSPACE_SETUP_REQUIRED",
+    });
+  });
+
+  it("refuses a workspace that moved", async () => {
+    await synced(tmpDir);
+    const moved = `${tmpDir}-moved`;
+    await fs.rename(tmpDir, moved);
+    try {
+      await expect(assertWorkspaceSynced(moved)).rejects.toMatchObject({
+        code: "WORKSPACE_SETUP_REQUIRED",
+      });
+    } finally {
+      await fs.rename(moved, tmpDir);
+    }
+  });
+
+  it("refuses a workspace a newer konte set up, whatever the lock says", async () => {
+    await synced(tmpDir);
+    const [major, minor, patch] = pkg.version.split(".").map(Number);
+    await writeFileAt(tmpDir, VERSION_FILE, `${major}.${minor}.${patch! + 1}\n`);
+    await expect(assertWorkspaceSynced(tmpDir)).rejects.toMatchObject({ code: "KONTE_OUTDATED" });
+    await expect(assertKonteCurrent(tmpDir)).rejects.toMatchObject({ code: "KONTE_OUTDATED" });
+  });
+
+  it("passes a konte.version naming this konte or an older one", async () => {
+    await writeFileAt(tmpDir, VERSION_FILE, `${pkg.version}\n`);
+    await assertKonteCurrent(tmpDir);
+    await writeFileAt(tmpDir, VERSION_FILE, "0.0.1\n");
+    await assertKonteCurrent(tmpDir);
+  });
+
+  it("refuses an older konte.version as a setup, not an upgrade", async () => {
+    await synced(tmpDir);
+    await writeFileAt(tmpDir, VERSION_FILE, "0.0.1\n");
+    await writeLock(tmpDir, { hash: "stale" });
+    await expect(assertWorkspaceSynced(tmpDir)).rejects.toMatchObject({
+      code: "WORKSPACE_SETUP_REQUIRED",
+    });
   });
 });

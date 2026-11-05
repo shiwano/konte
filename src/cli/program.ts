@@ -3,8 +3,7 @@ import * as path from "node:path";
 import { Command } from "commander";
 import pkg from "../../package.json" with { type: "json" };
 import { KonteError } from "../core/errors.js";
-import { syncWorkspace } from "../core/template-sync.js";
-import { retirementLines } from "./sync-report.js";
+import { assertWorkspaceSynced } from "../core/template-sync.js";
 import { typeCheckWorkspace } from "../core/tsc.js";
 import { exitWithError } from "./error-output.js";
 import { scopeOf } from "./scope.js";
@@ -38,10 +37,12 @@ import { registerSongCommand } from "./commands/song.js";
 import { registerStudyCommand } from "./commands/study.js";
 import { registerSourceCommand } from "./commands/source.js";
 
+declare const KONTE_COMPILED: boolean | undefined;
+
 interface BuildProgramOptions {
-  // Skip the per-invocation workspace type-check and managed-template sync in the
+  // Skip the per-invocation workspace type-check and managed-file check in the
   // preAction hook. Off in production; the in-process test harness turns it on so
-  // command tests don't pay tsc/sync on every call (a few subprocess E2E tests
+  // command tests don't pay tsc on every call (a few subprocess E2E tests
   // still exercise the full path). Root resolution always runs — it is what the
   // commands read their roots from.
   skipProjectChecks?: boolean;
@@ -102,7 +103,7 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
   });
 
   program.hook("preAction", async (_thisCommand, actionCommand) => {
-    const { scope, skipSync, skipTypeCheck } = scopeOf(actionCommand);
+    const { scope, skipSyncCheck, skipTypeCheck } = scopeOf(actionCommand);
     const roots = await enterScope(scope);
     if (!roots) return;
 
@@ -111,26 +112,9 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
     const workspaceRoot = roots.workspace;
     const videoRoot = roots.video.kind === "selected" ? roots.video.root : null;
 
-    if (!skipSync) {
-      const sync = await syncWorkspace(workspaceRoot);
-      if (sync) {
-        const changed = sync.created.length + sync.updated.length;
-        if (changed > 0) {
-          console.error(`konte: synced ${changed} file(s) to v${pkg.version}`);
-        }
-        for (const line of retirementLines(sync)) console.error(line);
-        if (sync.unwritable.length > 0) {
-          console.error(
-            `konte: ${sync.unwritable.length} managed file(s) not writable, left behind v${pkg.version}: ${sync.unwritable.join(", ")} — run \`konte workspace setup\` where they are writable`,
-          );
-        }
-        if (sync.relaunch.length > 0) {
-          throw new KonteError(
-            "AGENT_RESTART_REQUIRED",
-            `Rewrote what the coding agent loads at startup for ${workspaceRoot} (${sync.relaunch.join(", ")}); its konte MCP server and settings are stale until it restarts — ask the human to restart the coding agent in ${workspaceRoot}, then run the command again`,
-          );
-        }
-      }
+    // A source run is konte's own development, whose template hash no released konte writes.
+    if (!skipSyncCheck && typeof KONTE_COMPILED !== "undefined" && KONTE_COMPILED) {
+      await assertWorkspaceSynced(workspaceRoot);
     }
 
     if (!skipTypeCheck) {

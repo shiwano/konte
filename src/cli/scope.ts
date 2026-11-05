@@ -13,8 +13,8 @@ export type Scope = "none" | "workspace" | "video";
 
 interface CommandScope {
   scope: Scope;
-  /** Skip the managed-template re-sync (the MCP server must not write on startup). */
-  skipSync?: boolean;
+  /** Skip the managed-file check (an MCP server the agent launches must start to report its status). */
+  skipSyncCheck?: boolean;
   /** Skip the workspace type-check (`doctor` reports type errors; `adapter comfy` predates them). */
   skipTypeCheck?: boolean;
 }

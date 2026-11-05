@@ -10,6 +10,7 @@ import {
   MANAGED_TEMPLATES,
   TEMPLATE_HASH,
 } from "./generated/template-assets.js";
+import { KonteError } from "./errors.js";
 
 declare const KONTE_COMPILED: boolean | undefined;
 
@@ -31,8 +32,6 @@ interface WorkspaceSyncResult {
   /** A bundled adapter or guide the template dropped, left in place because a workspace file names it. */
   retained: string[];
   unwritable: string[];
-  /** What a coding agent reads only at its startup: agent settings and the `.konte/bin` link. */
-  relaunch: string[];
 }
 
 function isUnwritable(err: unknown): boolean {
@@ -107,16 +106,21 @@ function parseVersion(version: string): number[] | null {
   return parts.length === 3 && parts.every(Number.isInteger) ? parts : null;
 }
 
-/** Whether a bundled adapter missing from the workspace shipped after the konte that last synced it. */
-function shippedSince(introducedIn: string | null, previous: string | null): boolean {
-  const last = previous === null ? null : parseVersion(previous);
-  if (last === null) return false;
-  const shipped = introducedIn === null ? null : parseVersion(introducedIn);
-  if (shipped === null) return true;
+function isNewer(version: string, than: string): boolean {
+  const a = parseVersion(version);
+  const b = parseVersion(than);
+  if (a === null || b === null) return false;
   for (let i = 0; i < 3; i++) {
-    if (shipped[i] !== last[i]) return shipped[i]! > last[i]!;
+    if (a[i] !== b[i]) return a[i]! > b[i]!;
   }
   return false;
+}
+
+/** Whether a bundled adapter missing from the workspace shipped after the konte that last synced it. */
+function shippedSince(introducedIn: string | null, previous: string | null): boolean {
+  if (previous === null || parseVersion(previous) === null) return false;
+  if (introducedIn === null || parseVersion(introducedIn) === null) return true;
+  return isNewer(introducedIn, previous);
 }
 
 const RETIRABLE_PREFIXES = ["adapters/", ".konte/guides/"];
@@ -209,34 +213,47 @@ async function appendMissingIgnores(workspaceRoot: string, template: string): Pr
   );
 }
 
-/**
- * Brings a workspace up to this konte and this location: overwrites the managed template files
- * and the bundled adapters it holds, adds a bundled adapter shipped after the konte that last
- * synced it (`konte.version`), deletes a bundled adapter or guide the template dropped that the
- * lock records an earlier sync leaving and no workspace file names, renders the agent settings
- * for the workspace root, appends missing `.gitignore` lines and links `.konte/bin/konte`. Cheap fast-path: returns null when the lock names the current
- * template hash and this root, every managed file and agent setting is present, and the
- * `.konte/bin` link resolves.
- *
- * A managed file the OS refuses to write is left as it is and listed in `unwritable`;
- * the lock and `konte.version` then stay unwritten, so the next run tries again.
- */
-export async function syncWorkspace(
-  workspaceRoot: string,
-  options: { force?: boolean } = {},
-): Promise<WorkspaceSyncResult | null> {
-  const previousVersion = await readVersionFile(workspaceRoot);
+/** Refuses a konte older than the one `konte.version` names. */
+export async function assertKonteCurrent(workspaceRoot: string): Promise<void> {
+  const recorded = await readVersionFile(workspaceRoot);
+  if (recorded === null || !isNewer(recorded, pkg.version)) return;
+  throw new KonteError(
+    "KONTE_OUTDATED",
+    `${workspaceRoot} was set up by konte v${recorded}, newer than this v${pkg.version}; upgrade it with the konte upgrade skill, or to go back to an older konte, write that version into konte.version and run the konte setup skill`,
+  );
+}
+
+/** Refuses a command in a workspace whose managed files this konte did not write. Writes nothing. */
+export async function assertWorkspaceSynced(workspaceRoot: string): Promise<void> {
+  await assertKonteCurrent(workspaceRoot);
   const lock = await readLock(workspaceRoot);
   if (
-    !options.force &&
     lock?.hash === TEMPLATE_HASH &&
     lock.root === workspaceRoot &&
     (await allPresent(workspaceRoot, [...MANAGED_TEMPLATES, ...AGENT_SETTINGS_FILES])) &&
     (await binaryLinkLive(workspaceRoot))
   ) {
-    await writeVersionFile(workspaceRoot, previousVersion);
-    return null;
+    return;
   }
+  throw new KonteError(
+    "WORKSPACE_SETUP_REQUIRED",
+    `The managed files in ${workspaceRoot} do not match konte v${pkg.version}; run \`konte workspace setup\` there, then the command again`,
+  );
+}
+
+/**
+ * Brings a workspace up to this konte and this location: overwrites the managed template files
+ * and the bundled adapters it holds, adds a bundled adapter shipped after the konte that last
+ * synced it (`konte.version`), deletes a bundled adapter or guide the template dropped that the
+ * lock records an earlier sync leaving and no workspace file names, renders the agent settings
+ * for the workspace root, appends missing `.gitignore` lines and links `.konte/bin/konte`.
+ *
+ * A managed file the OS refuses to write is left as it is and listed in `unwritable`;
+ * the lock and `konte.version` then stay unwritten, so the next run tries again.
+ */
+export async function syncWorkspace(workspaceRoot: string): Promise<WorkspaceSyncResult> {
+  const previousVersion = await readVersionFile(workspaceRoot);
+  const lock = await readLock(workspaceRoot);
 
   // Ahead of any write: settings it cannot merge refuse the whole sync.
   const settings = await prepareAgentSettings(workspaceRoot);
@@ -297,14 +314,12 @@ export async function syncWorkspace(
   }
 
   await appendMissingIgnores(workspaceRoot, template[".gitignore"]!);
-  const relaunch = await writeAgentSettings(workspaceRoot, settings);
-  if (linksBinary() && (await linkWorkspaceBinary(workspaceRoot, process.execPath))) {
-    relaunch.push(".konte/bin/konte");
-  }
+  await writeAgentSettings(workspaceRoot, settings);
+  if (linksBinary()) await linkWorkspaceBinary(workspaceRoot, process.execPath);
 
   if (unwritable.length === 0) {
     await writeLock(workspaceRoot, placed.filter(isRetirable));
     await writeVersionFile(workspaceRoot, previousVersion);
   }
-  return { created, updated, removed, retained, unwritable, relaunch };
+  return { created, updated, removed, retained, unwritable };
 }
