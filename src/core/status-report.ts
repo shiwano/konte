@@ -456,6 +456,17 @@ async function buildStatusReport(
     }
   }
 
+  // A human accept whose definition moved only under its adapter stands: the stage file holds
+  // nothing to restore, and a reroll would replace the human's pick for a change they never made.
+  for (const info of infos) {
+    if (info.staleVariants.length === 0 || info.staleAcceptStands) continue;
+    if (!holdsHumanVerdict(manager, info.address)) continue;
+    const accepted = manager.getAcceptedVariant(info.address);
+    const sv = info.staleVariants.find((v) => v.variantId === accepted);
+    if (!sv || sv.patchStale || !sv.definitionStale) continue;
+    info.staleAcceptStands = manager.registeredAdapterDrift(info.address, sv.variantId);
+  }
+
   const orphans = detectOrphans(state, allJobs);
   const sections = computeStatusSections(infos, orphans, jobFailures);
   // Declared but not yet realized — the same status as an ungenerated asset, so it gets its own

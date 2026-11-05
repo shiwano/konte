@@ -67,8 +67,17 @@ export const VERDICT_AXIS_KEYS = Object.keys(VerdictAxes) as ReadonlyArray<
 // name the same set. A local asset declares none — its inputs already carry the adapter's names.
 const InputLabelsSchema = z.record(z.string(), z.string()).optional();
 
+// The `inputs` keys whose value the adapter supplied rather than the call site — a default the call
+// left unset, a fixed value, a derived one. A definition that moved only there moved under the
+// adapter, not under the stage file that calls it.
+const AdapterSuppliedInputsSchema = z.array(z.string()).optional();
+
 // Every definition field no backend reads, stripped before hashing (see `computeDefinitionHash`).
-export const NON_GENERATIVE_KEYS: ReadonlyArray<string> = [...VERDICT_AXIS_KEYS, "inputLabels"];
+export const NON_GENERATIVE_KEYS: ReadonlyArray<string> = [
+  ...VERDICT_AXIS_KEYS,
+  "inputLabels",
+  "adapterSuppliedInputs",
+];
 
 export const ComfyAssetDefinitionSchema = z.object({
   kind: z.literal("comfy"),
@@ -84,6 +93,7 @@ export const ComfyAssetDefinitionSchema = z.object({
   models: z.array(ComfyModelDeclarationSchema).optional(),
   nodes: z.array(ComfyNodeDeclarationSchema).optional(),
   inputLabels: InputLabelsSchema,
+  adapterSuppliedInputs: AdapterSuppliedInputsSchema,
   ...VerdictAxes,
 });
 
@@ -103,6 +113,7 @@ export const FalAssetDefinitionSchema = z.object({
   mediaType: z.enum(["image", "video", "audio"]),
   inputs: z.record(z.string(), z.unknown()),
   inputLabels: InputLabelsSchema,
+  adapterSuppliedInputs: AdapterSuppliedInputsSchema,
   ...VerdictAxes,
 });
 

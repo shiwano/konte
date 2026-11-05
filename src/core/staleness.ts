@@ -135,6 +135,8 @@ export interface ResolutionDefinitions {
   // Whether the address's asset produces the same output for the same inputs — see
   // `isDeterministicAddress`, which is what fills this in.
   isDeterministic: (address: string) => boolean;
+  // Whether a take's definition moved only under its adapter — see `isAdapterDrift`.
+  adapterDrift?: (state: KonteState, address: string, variantId: string) => boolean;
 }
 
 // A patch variant's own definition is its patch script, so editing that script ages out the take

@@ -24,8 +24,8 @@ import type { AnimaticDefinition } from "../core/types/index.js";
  * `review`: a materialized leaf — a composition, a stem — is rendered live and materialized by its
  * accept, so the refresh is the review of the shot it belongs to.
  *
- * `stands`: a human-accepted take whose inputs alone moved — the accept stands; nothing replaces it
- * unless it is cleared.
+ * `stands`: a human-accepted take whose inputs alone moved (`upstream`), or whose definition moved
+ * only under its adapter (`adapter`) — the accept stands; nothing replaces it unless it is cleared.
  *
  * `restore`: a human-accepted take whose own definition moved — the take is the human's pick, so the
  * definition is written back to what made it; a `reroll` would only draw a rival beside it.
@@ -44,7 +44,7 @@ export type StaleRefreshStep =
   | { kind: "prerequisite"; variantId: string; missing: readonly string[]; writeIn: string }
   | { kind: "generate"; stage: Stage }
   | { kind: "review"; stage: Stage }
-  | { kind: "stands" }
+  | { kind: "stands"; cause: "upstream" | "adapter" }
   | { kind: "restore"; file: string }
   | { kind: "reroll" };
 
@@ -94,9 +94,11 @@ export function staleRefreshStep(opts: {
     if (accepted === variantId && holdsHumanVerdict(manager, address)) {
       const staleness = manager.variantStaleness(address, variantId, opts.cache);
       if (staleness?.definitionStale) {
-        return { kind: "restore", file: STAGE_ENTRY_FILE[getStage(address)] };
+        return manager.registeredAdapterDrift(address, variantId)
+          ? { kind: "stands", cause: "adapter" }
+          : { kind: "restore", file: STAGE_ENTRY_FILE[getStage(address)] };
       }
-      if (staleness?.inputStale) return { kind: "stands" };
+      if (staleness?.inputStale) return { kind: "stands", cause: "upstream" };
     }
     return manager.registeredDeterministic(address)
       ? { kind: "generate", stage: getStage(address) }

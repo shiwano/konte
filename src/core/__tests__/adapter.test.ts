@@ -1707,3 +1707,51 @@ describe("allowedIn", () => {
     expect(Object.keys(assets)).toEqual(["bg"]);
   });
 });
+
+describe("adapter-supplied inputs", () => {
+  it("names the comfy inputs a default or derive filled, not the ones the call site set", () => {
+    const comfy = defineComfyAsset({
+      workflow: "w.json",
+      description: "test adapter",
+      inputs: {
+        prompt: { nodeId: "1", field: "text", type: "prompt", required: true },
+        steps: { nodeId: "2", field: "steps", type: "number", default: 8 },
+        cfg: { nodeId: "2", field: "cfg", type: "number", default: 1 },
+        length: { nodeId: "3", field: "length", type: "number" },
+      },
+      outputs: { image: { nodeId: "9", type: "image" } },
+      derive: { length: () => 5 },
+    });
+
+    const def = comfy.createDefinition({ prompt: "a cat", cfg: 2 }) as ComfyAssetDefinition;
+    expect(def.adapterSuppliedInputs?.sort()).toEqual(["2.steps", "3.length"]);
+  });
+
+  it("names the fal inputs a default or fixed value filled", () => {
+    const fal = defineFalAsset({
+      endpointId: "fal-ai/test",
+      description: "test adapter",
+      mediaType: "image",
+      inputs: {
+        prompt: { field: "prompt", type: "prompt", required: true },
+        steps: { field: "num_steps", type: "number", default: 8 },
+        safety: { field: "safety", type: "boolean", default: false, fixed: true },
+      },
+    });
+
+    const def = fal.createDefinition({ prompt: "a cat" }) as FalAssetDefinition;
+    expect(def.adapterSuppliedInputs?.sort()).toEqual(["num_steps", "safety"]);
+  });
+
+  it("names a seconds input its default filled outside a shot", () => {
+    const fal = defineFalAsset({
+      endpointId: "fal-ai/test",
+      description: "test adapter",
+      mediaType: "video",
+      inputs: { duration: { field: "duration", type: "seconds", default: 5 } },
+    });
+
+    const def = fal.createDefinition({}) as FalAssetDefinition;
+    expect(def.adapterSuppliedInputs).toEqual(["duration"]);
+  });
+});

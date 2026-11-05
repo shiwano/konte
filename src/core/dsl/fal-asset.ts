@@ -211,6 +211,7 @@ export function defineFalAsset<
       const inputLabels: Record<string, string> = {};
       // The same values keyed by input name rather than provider field — what `validators` read.
       const resolved: Record<string, unknown> = {};
+      const supplied = new Set<string>();
       const put = (key: string, field: string, value: unknown): void => {
         resolved[key] = value;
         inputLabels[field] = key;
@@ -220,6 +221,7 @@ export function defineFalAsset<
       for (const [key, def] of Object.entries(config.inputs) as [string, FalInputDef][]) {
         if (def.fixed) {
           if (def.default !== undefined) put(key, def.field, def.default);
+          supplied.add(key);
           continue;
         }
 
@@ -228,10 +230,12 @@ export function defineFalAsset<
         if (def.type === "seed") {
           put(key, def.field, userValue !== undefined ? userValue : seed());
         } else if (def.type === "seconds") {
-          const value =
-            userValue !== undefined
-              ? userValue
-              : (shotSeconds(key, def, getActiveFormat()?.duration) ?? def.default);
+          const fromShot =
+            userValue === undefined
+              ? shotSeconds(key, def, getActiveFormat()?.duration)
+              : undefined;
+          const value = userValue !== undefined ? userValue : (fromShot ?? def.default);
+          if (userValue === undefined && fromShot === undefined) supplied.add(key);
           if (value !== undefined) {
             put(key, def.field, value);
           } else if (def.required) {
@@ -253,6 +257,7 @@ export function defineFalAsset<
           }
         } else {
           const value = userValue !== undefined ? userValue : def.default;
+          if (userValue === undefined) supplied.add(key);
           if (value !== undefined) {
             put(key, def.field, value);
           } else if (def.required) {
@@ -267,12 +272,16 @@ export function defineFalAsset<
         panels: panelInputs(userInputs),
       });
 
+      const adapterSuppliedInputs = Object.keys(inputLabels).filter((k) =>
+        supplied.has(inputLabels[k]!),
+      );
       return {
         kind: "fal",
         endpointId: config.endpointId,
         mediaType: config.mediaType,
         inputs,
         inputLabels,
+        adapterSuppliedInputs,
         ...(config.deterministic ? { deterministic: true } : {}),
       };
     },

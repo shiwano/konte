@@ -1,6 +1,7 @@
 import { getAssetEntry, getStage, isDeliveryAddress, isStemAddress } from "./address.js";
 import { definitionHashForAddress } from "./composition-resource.js";
 import { diffDefinitions, readDefinitionSnapshot } from "./definition-snapshot.js";
+import { stableStringify } from "./stable-stringify.js";
 import { loadPatchCatalog, patchHashesOf } from "./patch.js";
 import { StateManager } from "./state/index.js";
 import { registerResolutionDefinitions } from "./state/resolution-definitions.js";
@@ -42,6 +43,34 @@ export function definitionForAddress(definitions: StageDefinitions, address: str
         : null;
 }
 
+function definitionDrift(
+  videoRoot: string,
+  state: KonteState,
+  definitions: StageDefinitions,
+  address: string,
+  variantId: string,
+): {
+  snapshot: Record<string, unknown>;
+  current: Record<string, unknown>;
+  paths: string[];
+} | null {
+  const snapshot = readDefinitionSnapshot(
+    videoRoot,
+    address,
+    generatedOrigin(state, address, variantId),
+  );
+  const definition = definitionForAddress(definitions, address);
+  let current: Record<string, unknown> | null = null;
+  try {
+    current = definition ? (getAssetEntry(definition, address) as Record<string, unknown>) : null;
+  } catch {
+    current = null;
+  }
+  if (!snapshot || !current) return null;
+  const paths = diffDefinitions(snapshot, current).map((c) => c.path);
+  return { snapshot: snapshot as Record<string, unknown>, current, paths };
+}
+
 /**
  * The definition fields the address's live entry has moved away from since `variantId`'s original
  * was made. Empty when either side cannot be read.
@@ -53,19 +82,76 @@ export function definitionDriftFields(
   address: string,
   variantId: string,
 ): string[] {
-  const snapshot = readDefinitionSnapshot(
-    videoRoot,
-    address,
-    generatedOrigin(state, address, variantId),
-  );
-  const definition = definitionForAddress(definitions, address);
-  let current: unknown = null;
-  try {
-    current = definition ? getAssetEntry(definition, address) : null;
-  } catch {
-    current = null;
+  return definitionDrift(videoRoot, state, definitions, address, variantId)?.paths ?? [];
+}
+
+/**
+ * Whether `variantId`'s definition moved only under its model adapter — every input the call site
+ * sets holds the value it held, so what moved is the workflow graph, the models, an input's target,
+ * or an input the call site leaves to the adapter, and the stage file holds nothing to write back.
+ * False when the drift cannot be read, or the call site names another adapter.
+ */
+function isAdapterDrift(
+  videoRoot: string,
+  state: KonteState,
+  definitions: StageDefinitions,
+  address: string,
+  variantId: string,
+): boolean {
+  const drift = definitionDrift(videoRoot, state, definitions, address, variantId);
+  if (!drift || drift.paths.length === 0) return false;
+  const { snapshot, current } = drift;
+  if (current.kind !== "comfy" && current.kind !== "fal") return false;
+  // Another adapter at the call site, not the same adapter moving under it.
+  if (snapshot.kind !== current.kind) return false;
+  if (snapshot.workflow !== current.workflow || snapshot.endpointId !== current.endpointId) {
+    return false;
   }
-  return snapshot && current ? diffDefinitions(snapshot, current).map((c) => c.path) : [];
+  const then = namedInputs(snapshot);
+  const now = namedInputs(current);
+  for (const [name, n] of now) {
+    const t = then.get(name);
+    // A snapshot predating the record is read by the current one.
+    const byCallSiteThen = t !== undefined && (t.byCallSite ?? n.byCallSite);
+    if (!n.byCallSite && !byCallSiteThen) continue;
+    // Set on one side and left to the adapter on the other: the call site added or dropped it.
+    if (!n.byCallSite || !byCallSiteThen) return false;
+    if (stableStringify(t!.value) !== stableStringify(n.value)) return false;
+  }
+  for (const [name, t] of then) {
+    if (!now.has(name) && t.byCallSite !== false) return false;
+  }
+  return true;
+}
+
+/**
+ * Each input a definition holds, by the name its adapter declares — so an input re-pointed at
+ * another node or field is still the same input. `byCallSite` is undefined for a definition that
+ * predates `adapterSuppliedInputs`.
+ */
+function namedInputs(
+  def: Record<string, unknown>,
+): Map<string, { value: unknown; byCallSite: boolean | undefined }> {
+  const labels = (def.inputLabels as Record<string, string> | undefined) ?? {};
+  const supplied = def.adapterSuppliedInputs as string[] | undefined;
+  const out = new Map<string, { value: unknown; byCallSite: boolean | undefined }>();
+  for (const [key, name] of Object.entries(labels)) {
+    if (out.has(name)) continue;
+    out.set(name, {
+      value: inputAt(def.inputs, key),
+      byCallSite: supplied === undefined ? undefined : !supplied.includes(key),
+    });
+  }
+  return out;
+}
+
+// An `inputs` key is a comfy `<nodeId>.<field>` or a fal field path, which nests.
+function inputAt(inputs: unknown, key: string): unknown {
+  if (typeof inputs !== "object" || inputs === null) return undefined;
+  const record = inputs as Record<string, unknown>;
+  if (key in record) return record[key];
+  const dot = key.indexOf(".");
+  return dot > 0 ? inputAt(record[key.slice(0, dot)], key.slice(dot + 1)) : undefined;
 }
 
 function assetFlag(definitions: StageDefinitions, address: string, flag: "deterministic"): boolean {
@@ -100,11 +186,14 @@ export function isDeterministicAddress(definitions: StageDefinitions, address: s
  * `inspect` and `status` already compute per variant.
  */
 function createResolutionDefinitions(
+  videoRoot: string,
   definitions: StageDefinitions,
   patchHashes?: PatchHashes,
 ): ResolutionDefinitions {
   return {
     isDeterministic: (address) => isDeterministicAddress(definitions, address),
+    adapterDrift: (state, address, variantId) =>
+      isAdapterDrift(videoRoot, state, definitions, address, variantId),
     definitionHash(address: string): string | null {
       // A `#delivery` asset is synthesized from the resolved source's real dimensions, ffprobed at
       // export — `definitionHashForAddress` would hash its SOURCE and read every delivery take as
@@ -151,7 +240,10 @@ export async function applyResolutionDefinitions(opts: {
           .then(patchHashesOf)
           .catch(() => undefined)
       : undefined);
-  registerResolutionDefinitions(videoRoot, createResolutionDefinitions(stages, patchHashes));
+  registerResolutionDefinitions(
+    videoRoot,
+    createResolutionDefinitions(videoRoot, stages, patchHashes),
+  );
   // Returned for the caller that needs a stage entry it did not load itself (`path` reads the board).
   return stages;
 }

@@ -396,6 +396,7 @@ export function defineComfyAsset<
       const inputLabels: Record<string, string> = {};
       // The same values keyed by input name rather than workflow target — what `validators` read.
       const resolved: Record<string, unknown> = {};
+      const supplied = new Set<string>(Object.keys(derive));
       const prunedNodes: string[] = [];
       const prunedPassThroughs: Record<string, string> = {};
       const format = getActiveFormat();
@@ -437,19 +438,15 @@ export function defineComfyAsset<
         let value: unknown;
         if (def.type === "seed") {
           value = userValue !== undefined ? userValue : seed();
-        } else if (def.type === "width") {
-          value =
-            userValue !== undefined
-              ? userValue
-              : (format?.size.width ?? resolveDefault(def.default));
-        } else if (def.type === "height") {
-          value =
-            userValue !== undefined
-              ? userValue
-              : (format?.size.height ?? resolveDefault(def.default));
-        } else if (def.type === "fps") {
-          value =
-            userValue !== undefined ? userValue : (format?.fps ?? resolveDefault(def.default));
+        } else if (def.type === "width" || def.type === "height" || def.type === "fps") {
+          const fromFormat =
+            def.type === "width"
+              ? format?.size.width
+              : def.type === "height"
+                ? format?.size.height
+                : format?.fps;
+          value = userValue !== undefined ? userValue : (fromFormat ?? resolveDefault(def.default));
+          if (userValue === undefined && fromFormat === undefined) supplied.add(key);
         } else if (def.type === "frames" || def.type === "seconds") {
           const derived =
             userValue === undefined && def.fill === "speech" && speechWords !== ""
@@ -469,10 +466,14 @@ export function defineComfyAsset<
                   ? fromShot + 1
                   : fromShot) ??
                 resolveDefault(def.default));
+          if (userValue === undefined && derived === undefined && fromShot === undefined) {
+            supplied.add(key);
+          }
         } else if (isMedia) {
           value = userValue !== undefined ? (userValue as MediaAsset).src : undefined;
         } else {
           value = userValue !== undefined ? userValue : resolveDefault(def.default);
+          if (userValue === undefined) supplied.add(key);
         }
 
         if (def.grid && typeof value === "number") {
@@ -614,6 +615,11 @@ export function defineComfyAsset<
         inputs,
         inputLabels,
       };
+
+      const adapterSuppliedInputs = Object.keys(inputLabels).filter((k) =>
+        supplied.has(inputLabels[k]!),
+      );
+      result.adapterSuppliedInputs = adapterSuppliedInputs;
 
       if (prunedNodes.length > 0) {
         result.prunedNodes = [...new Set(prunedNodes)];

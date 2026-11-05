@@ -405,6 +405,14 @@ export class StateManager {
   }
 
   /**
+   * Whether `variantId`'s definition moved only under its adapter (`isAdapterDrift`) — false when no
+   * definitions are registered.
+   */
+  registeredAdapterDrift(address: string, variantId: string): boolean {
+    return this.definitions()?.adapterDrift?.(this.getState(), address, variantId) === true;
+  }
+
+  /**
    * A staleness cache carrying this manager's definitions, for a read-only pass that resolves more
    * than one address. Drop it on any write.
    */

@@ -2,6 +2,10 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { StateManager } from "../../core/state/manager.js";
+import { getAssetEntry } from "../../core/address.js";
+import { writeDefinitionSnapshot } from "../../core/definition-snapshot.js";
+import { loadDefinitionForAddress } from "../../core/stage-definitions.js";
+import type { ComfyAssetDefinition } from "../../core/types/index.js";
 import {
   acceptDirection,
   acceptFileAssets,
@@ -721,6 +725,46 @@ describe("status command", () => {
       `${ADDRESS}: accepted against a changed definition — the human's accept stands; restore its definition in video.tsx to what made it yourself, without raising it with the human`,
     );
     expect(stdout).not.toContain(`  konte reroll ${ADDRESS}\n`);
+  });
+
+  // The adapter moved under the take — its output node here — and the stage file holds nothing that made
+  // the difference, so there is nothing to restore and nothing to count as stale.
+  it("leaves a human accept standing when only its adapter moved", async () => {
+    const sm = await seedStaleAccept(DEFINITION_STALE);
+    const accepted = sm.getAcceptedVariant(ADDRESS)!;
+    const definition = await loadDefinitionForAddress(projectDir, ADDRESS);
+    const current = getAssetEntry(definition, ADDRESS) as ComfyAssetDefinition;
+    writeDefinitionSnapshot(projectDir, ADDRESS, accepted, {
+      ...current,
+      outputNodeId: "older-output",
+    });
+    await run(["accept", "video:shot.01#composition", "--yes"], projectDir);
+    await run(["accept", "video:shot.01#stem", "--yes"], projectDir);
+
+    const { stdout } = await run(["status"], projectDir);
+    expect(stdout).not.toMatch(/\(\d+ stale\)/);
+    expect(stdout).not.toContain(`konte inspect ${accepted}`);
+    expect(stdout).not.toContain(`konte reroll ${ADDRESS}`);
+
+    const inspected = await run(["inspect", ADDRESS], projectDir);
+    expect(inspected.stdout).toContain("Its adapter changed since; the accept stands");
+  });
+
+  it("still offers the restore when the call site's own input moved", async () => {
+    const sm = await seedStaleAccept(DEFINITION_STALE);
+    const accepted = sm.getAcceptedVariant(ADDRESS)!;
+    const definition = await loadDefinitionForAddress(projectDir, ADDRESS);
+    const current = getAssetEntry(definition, ADDRESS) as ComfyAssetDefinition;
+    writeDefinitionSnapshot(projectDir, ADDRESS, accepted, {
+      ...current,
+      outputNodeId: "older-output",
+      inputs: { ...current.inputs, "3.text": "an older prompt" },
+    });
+    await run(["accept", "video:shot.01#composition", "--yes"], projectDir);
+    await run(["accept", "video:shot.01#stem", "--yes"], projectDir);
+
+    const { stdout } = await run(["status"], projectDir);
+    expect(stdout).toContain(`  konte inspect ${accepted}\n`);
   });
 
   // A patch output is refreshed by re-applying its correction. Rerolling the address would make a
