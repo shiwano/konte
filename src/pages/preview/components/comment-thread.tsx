@@ -1,6 +1,7 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatTimecode } from "../format-time.js";
+import type { LineMarks } from "../../../core/line-marks.js";
 import type { DirectionRosterKind, FeedbackInfo, PanelRole, ScriptLineView } from "../types.js";
 import {
   CommentIcon,
@@ -13,13 +14,50 @@ import {
   XIcon,
 } from "./icons.js";
 import { type LiveFeedbackFilter, liveFeedback } from "../review/live-feedback.js";
-import { isQuoteLine } from "../review/quote.js";
+import { type MarkRange, type QuoteKind, isQuoteLine, parseQuoteLine } from "../review/quote.js";
+import { Marked } from "../review/quote-composer.js";
 import type { CommentThreadBinding } from "../review/use-review-session.js";
 import { NoteInput } from "./note-input.js";
 
-// The lines spoken over what is on screen, each `speaker: text` (narration has no speaker).
-// Read-only, pinned above the comments — the words the reel's audio is judged against.
-export function ScriptCard({ script }: { script: ScriptLineView[] }): React.ReactElement {
+// The ranges the quotes on a target mark in its context cards, by kind and field.
+export type QuoteMarks = ReadonlyMap<QuoteKind | null, readonly (readonly MarkRange[])[]>;
+
+function marksAt(
+  marks: QuoteMarks | undefined,
+  kind: QuoteKind,
+  field: number | undefined,
+): readonly MarkRange[] {
+  return (field !== undefined && marks?.get(kind)?.[field]) || [];
+}
+
+// The reel seconds a range of a line is heard over, null where none of it is.
+export function spokenSpan(
+  heard: LineMarks | undefined,
+  [start, end]: MarkRange,
+): [number, number] | null {
+  const times = (heard?.timeAt.slice(start, Math.max(end, start + 1)) ?? []).filter(
+    (t): t is number => t !== null,
+  );
+  return times.length > 0 ? [Math.min(...times), Math.max(...times)] : null;
+}
+
+// The lines spoken over what is on screen, each `speaker: text` (narration has no speaker). Pinned
+// above the comments — the words the reel's audio is judged against. Under a quote scope, a line's
+// words quote as `script` and its acting as `acting`, both indexed by the line's position.
+export function ScriptCard({
+  script,
+  marks,
+  lineMarks = [],
+  onPlay,
+}: {
+  script: ScriptLineView[];
+  marks?: QuoteMarks;
+  // Where the reel is heard to say each line: marked where it says other than the line.
+  lineMarks?: readonly LineMarks[];
+  // Plays a span of the reel.
+  onPlay?: (time: readonly [number, number]) => void;
+}): React.ReactElement {
+  const heardOf = (i: number) => lineMarks.find((m) => m.line === i + 1);
   return (
     <div className="comment-card comment-card--move">
       <span className="comment-card-icon">
@@ -33,10 +71,35 @@ export function ScriptCard({ script }: { script: ScriptLineView[] }): React.Reac
             {line.speaker !== null && (
               <span className="comment-script-speaker">{line.speaker}</span>
             )}
-            <span className="comment-script-text">{line.text}</span>
+            <span className="comment-script-text" data-quote-kind="script" data-quote-field={i}>
+              <Marked
+                text={line.text}
+                ranges={marksAt(marks, "script", i)}
+                heard={
+                  onPlay
+                    ? (heardOf(i)?.marks ?? []).map((m) => ({
+                        range: m.range,
+                        onClick: () => onPlay(m.time),
+                      }))
+                    : []
+                }
+                {...(onPlay
+                  ? {
+                      onPlay: (range: MarkRange) => {
+                        const time = spokenSpan(heardOf(i), range);
+                        if (time) onPlay(time);
+                      },
+                    }
+                  : {})}
+              />
+            </span>
             {/* How the line is said — the direction's own note, so the reviewer judges the take
                 against what was asked for rather than against their own reading of the words. */}
-            {line.acting && <span className="comment-script-acting">{line.acting}</span>}
+            {line.acting && (
+              <span className="comment-script-acting" data-quote-kind="acting" data-quote-field={i}>
+                <Marked text={line.acting} ranges={marksAt(marks, "acting", i)} />
+              </span>
+            )}
           </span>
         ))}
       </span>
@@ -51,14 +114,17 @@ const ROLE_TEXT: Record<PanelRole, string> = {
   mid: "Mid: motion in progress",
 };
 
-// The movement carrying the previous keyframe to this panel, labelled per half. Read-only, pinned
-// above the comments — the claim the reviewer judges the pair of frames against.
+// The movement carrying the previous keyframe to this panel, labelled per half. Pinned above the
+// comments — the claim the reviewer judges the pair of frames against. Under a quote scope, its halves
+// quote as `blocking` and `camera` at index `field`.
 export function MoveCard({
   panel,
   cutin,
   role,
   blocking,
   camera,
+  field,
+  marks,
 }: {
   // Which board panel the movement starts from. Passed only on the board, where a shot has more than
   // one, or the panel is its cutin's.
@@ -69,6 +135,8 @@ export function MoveCard({
   role?: PanelRole;
   blocking: string;
   camera: string;
+  field?: number;
+  marks?: QuoteMarks;
 }): React.ReactElement {
   return (
     <div className="comment-card comment-card--move">
@@ -90,11 +158,15 @@ export function MoveCard({
         )}
         <span className="comment-move-row">
           <span className="comment-move-label">Blocking</span>
-          <span className="comment-move-text">{blocking}</span>
+          <span className="comment-move-text" data-quote-kind="blocking" data-quote-field={field}>
+            <Marked text={blocking} ranges={marksAt(marks, "blocking", field)} />
+          </span>
         </span>
         <span className="comment-move-row">
           <span className="comment-move-label">Camera</span>
-          <span className="comment-move-text">{camera}</span>
+          <span className="comment-move-text" data-quote-kind="camera" data-quote-field={field}>
+            <Marked text={camera} ranges={marksAt(marks, "camera", field)} />
+          </span>
         </span>
       </span>
     </div>
@@ -177,14 +249,30 @@ export function WaiverCard({
   );
 }
 
-// The agent's handoff note (AI -> reviewer): why this asset was revised.
-export function HandoffCard({ text }: { text: string }): React.ReactElement {
+// The agent's handoff note (AI -> reviewer): why this asset was revised. Under a quote scope, it
+// quotes as `handoff` at index `field`.
+export function HandoffCard({
+  text,
+  field,
+  marks,
+}: {
+  text: string;
+  field?: number;
+  marks?: QuoteMarks;
+}): React.ReactElement {
   return (
     <div className="comment-card comment-card--agent">
       <span className="comment-card-icon">
         <SparkleIcon size={12} />
       </span>
-      <span className="comment-card-body">{text}</span>
+      <span
+        className="comment-card-body"
+        {...(field !== undefined
+          ? { "data-quote-kind": "handoff", "data-quote-field": field }
+          : {})}
+      >
+        <Marked text={text} ranges={marksAt(marks, "handoff", field)} />
+      </span>
     </div>
   );
 }
@@ -199,6 +287,7 @@ export function CommentCard({
   stale,
   pending,
   highlighted,
+  quoteKinds = false,
   onJump,
   onEdit,
   onDelete,
@@ -206,6 +295,8 @@ export function CommentCard({
   pinIndex?: number;
   time?: number;
   text: string;
+  // Whether the text's quotes carry a kind (`> script: …`), as a reel's do.
+  quoteKinds?: boolean;
   stale?: boolean;
   pending?: boolean;
   highlighted?: boolean;
@@ -241,7 +332,7 @@ export function CommentCard({
           {time !== undefined && <span className="comment-card-time">{formatTimecode(time)}</span>}
         </span>
         <span className="comment-card-body">
-          <CommentText text={text} />
+          <CommentText text={text} tagged={quoteKinds} />
         </span>
       </button>
       {(onEdit || onDelete) && (
@@ -274,22 +365,24 @@ export function CommentCard({
   );
 }
 
-function CommentText({ text }: { text: string }): React.ReactElement {
+function CommentText({ text, tagged }: { text: string; tagged: boolean }): React.ReactElement {
   const lines = text.split("\n");
   if (!lines.some(isQuoteLine)) return <>{text}</>;
   return (
     <>
-      {lines.map((line, i) =>
-        isQuoteLine(line) ? (
+      {lines.map((line, i) => {
+        const quote = parseQuoteLine(line, tagged);
+        return quote ? (
           <span key={i} className="comment-card-quote">
-            {line.slice(2)}
+            {quote.kind && <span className="comment-card-quote-kind">{quote.kind}</span>}
+            {quote.text}
           </span>
         ) : (
           <span key={i} className="comment-card-line">
             {line}
           </span>
-        ),
-      )}
+        );
+      })}
     </>
   );
 }

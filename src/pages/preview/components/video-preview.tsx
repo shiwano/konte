@@ -4,6 +4,7 @@ import { formatShotAddress } from "../../../core/address.js";
 import { submitReview } from "../api.js";
 import { formatPlayerTime } from "../format-time.js";
 import { type Playhead, usePlayheadTime } from "../review/playhead.js";
+import { shownLineMarks } from "../review/shown-line-marks.js";
 import { ReviewShell, type ShortcutRows } from "../review/review-shell.js";
 import { shotGalleryTabs, soundtrackGalleryTabs } from "../review/gallery-tabs.js";
 import { isNewVariant } from "../review/new-variant.js";
@@ -179,6 +180,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     handleStepFrame,
     handleArrowSeek,
     handlePlayPause,
+    playSpan,
   } = useReelPlayback({
     shots: state.shots,
     totalDuration: state.totalDuration,
@@ -452,6 +454,25 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   }, [pausePlayback, playhead]);
 
   const closeNoteComposer = useCallback(() => setNoteDraft(null), []);
+
+  // Quoted words open the composer, or join the one already open. A quote of script words that
+  // knows when they are spoken files the note at that second, unless the draft is pinned to the
+  // frame in front of the reviewer or the second is past the shot.
+  const handleQuote = useCallback(
+    (text: string, time: number | null) => {
+      pausePlayback();
+      // A note files to the shot at its instant.
+      const inShot =
+        focusedShot !== undefined &&
+        time !== null &&
+        time >= focusedShot.startTime &&
+        time < focusedShot.startTime + focusedShot.duration;
+      if (time !== null && inShot && !noteDraft?.pin) handleSeek(time);
+      const insert = { text, nonce: Date.now() };
+      setNoteDraft((draft) => ({ ...(draft ?? { time: playhead.get(), pin: null }), insert }));
+    },
+    [pausePlayback, handleSeek, playhead, noteDraft, focusedShot],
+  );
 
   const handlePinPlace = useCallback(
     (x: number, y: number) => {
@@ -1024,6 +1045,9 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
           <div className="vp-col vp-col-target">
             <TargetPanel
               subject={spanTarget ? spanTarget.label : focusedShot && `Shot ${focusedShot.shotId}`}
+              address={
+                spanTarget ? undefined : focusedShot && shotFeedbackAddress(focusedShot.shotId)
+              }
               pinnable={!spanTarget}
               script={spanTarget ? undefined : focusedShot?.script}
               moves={spanTarget ? undefined : focusedShot?.moves}
@@ -1052,6 +1076,13 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
               onAddNote={handleAddNote}
               onOpenComposer={openNoteComposer}
               onCloseComposer={closeNoteComposer}
+              onQuote={handleQuote}
+              lineMarks={
+                spanTarget || !focusedShot
+                  ? undefined
+                  : shownLineMarks(focusedShot.heardTakes, effectiveVariants)
+              }
+              onPlay={playSpan}
             />
           </div>
 

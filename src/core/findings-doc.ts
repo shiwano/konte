@@ -389,7 +389,7 @@ const STAGE_FINDING_DOCS: Record<OtherCode, { flags: string; fixIn: string }> = 
   },
   "line-misheard": {
     flags:
-      "A take awaiting review does not say the line it owes, as heard. Cleared by dismissing it or `konte vouch`.",
+      "A take awaiting review does not say the lines it owes, as heard: words lost at an end, other words, or inside a line a word heard as another (3+ kana, Japanese) or dropped or added (English). Cleared by dismissing it or `konte vouch`.",
     fixIn: "the take's stage",
   },
   "line-truncated": {

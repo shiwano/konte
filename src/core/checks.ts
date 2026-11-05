@@ -324,12 +324,13 @@ const MOVEMENT_CHECK: Check = {
 
 const VARIANT_CHECK: Check = {
   codes: ["take-silent", "line-misheard"],
-  run: (ctx) => {
+  run: async (ctx) => {
     if (!ctx.manager || !ctx.lang) return [];
-    const found = unvouchedFindings({
+    const found = await unvouchedFindings({
       videoRoot: ctx.videoRoot,
       manager: ctx.manager,
       definitions: { reference: ctx.reference, animatic: ctx.animatic, video: ctx.video },
+      direction: ctx.direction,
       lang: ctx.lang,
       ...(ctx.variantStage ? { stage: ctx.variantStage } : {}),
     });

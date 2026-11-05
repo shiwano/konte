@@ -47,6 +47,8 @@ export const TOOL_CHECKSUMS: Readonly<Record<string, string>> = {
     "39446be8a2a933308bb0b4b7a77fd21fdffaa68d3d73fc6f1e63634bb42d9cca",
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-v1.13.8-win-x64-shared-MD-Release-no-tts.tar.bz2":
     "876e6b89b8cf84a3a1b375a397507f2cfe9c227c2a945411a11a668475fcb5d3",
+  "https://github.com/lindera/lindera/releases/download/v6.2.0/lindera-ipadic-6.2.0.zip":
+    "5ed4bba6b429030b0387df67d40d5751d35dedef0306f4bac6d957cad5f04b72",
   "https://github.com/shiwano/beat-this-onnx/releases/download/final0/beat-this-final0.onnx":
     "19f9357b4cdc98920affa3d4ac2bb064d035b59d1ff39cec0fcedce8f5a681f6",
   "https://github.com/shiwano/beat-this-onnx/releases/download/final0/frontend.json":

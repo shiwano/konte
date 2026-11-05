@@ -4,7 +4,8 @@
 
 import { type AssetStage, listAddresses } from "./address.js";
 import type { StageDefinitions } from "./definition-hashes.js";
-import { linesOwedAt, variantMishearing } from "./speech-hearing.js";
+import type { Direction } from "./dsl/direction.js";
+import { linesSaidAt, type SaidLines, variantMishearing } from "./speech-hearing.js";
 import type { StateManager } from "./state/index.js";
 import type { KonteState, VariantState } from "./types/index.js";
 import { variantOwningFile } from "./variant-dir.js";
@@ -33,16 +34,17 @@ export function measuredSilent(variant: VariantState): boolean {
  * one that owes a line, as does a video that owes one with no audio track. `lang` is the language
  * the lines are written in.
  */
-export function checkVariant(opts: {
+export async function checkVariant(opts: {
   videoRoot: string;
   state: KonteState;
   address: string;
   variantId: string;
   variant: VariantState;
-  lines: readonly string[];
+  said: SaidLines;
   lang: string;
-}): VariantFinding[] {
-  const { variant, lines } = opts;
+}): Promise<VariantFinding[]> {
+  const { variant, said } = opts;
+  const lines = said.lines;
   if (measuredSilent(variant) && (variant.media?.kind === "audio" || lines.length > 0)) {
     return [{ type: "silent", detail: "is silent" }];
   }
@@ -51,12 +53,12 @@ export function checkVariant(opts: {
   }
   // A patched take points at its chain's returned step, which was heard when it landed.
   const heardAt = (variant.file && variantOwningFile(opts.state, variant.file)) || opts;
-  const wrong = variantMishearing(
+  const wrong = await variantMishearing(
     opts.videoRoot,
     heardAt.address,
     heardAt.variantId,
     variant.outputHash,
-    lines,
+    said,
     opts.lang,
   );
   return wrong ? [{ type: "line-misheard", detail: wrong }] : [];
@@ -68,13 +70,14 @@ const ASSET_STAGES: readonly AssetStage[] = ["reference", "animatic", "video"];
  * The findings on every variant awaiting review that no one vouched for — at the addresses `stage`
  * defines, or every stage. An address the definition no longer holds is nobody's review.
  */
-export function unvouchedFindings(opts: {
+export async function unvouchedFindings(opts: {
   videoRoot: string;
   manager: StateManager;
   definitions: StageDefinitions;
+  direction: Direction | null;
   lang: string;
   stage?: AssetStage;
-}): VariantFindings[] {
+}): Promise<VariantFindings[]> {
   const state = opts.manager.getState();
   const cache = opts.manager.stalenessCache();
   const found: VariantFindings[] = [];
@@ -84,17 +87,17 @@ export function unvouchedFindings(opts: {
   });
   for (const address of addresses) {
     if (!state.assets[address]) continue;
-    const lines = linesOwedAt(opts.definitions, address);
+    const said = linesSaidAt(opts.definitions, opts.direction, address);
     for (const variantId of opts.manager.readyUndecidedVariants(address, cache)) {
       const variant = state.assets[address]!.variants![variantId]!;
       if (variant.vouchedAt) continue;
-      const findings = checkVariant({
+      const findings = await checkVariant({
         videoRoot: opts.videoRoot,
         state,
         address,
         variantId,
         variant,
-        lines,
+        said,
         lang: opts.lang,
       });
       if (findings.length > 0) found.push({ address, variantId, findings });

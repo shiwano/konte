@@ -3,7 +3,8 @@ import { createContext, useContext, useMemo, useRef } from "react";
 
 import { formatSeconds } from "../../../../core/format-duration.js";
 import { formatTimecode } from "../../format-time.js";
-import { type MarkRange, markFragments } from "../../review/quote.js";
+import { type MarkRange, type Quote, markFragments } from "../../review/quote.js";
+import { Marked, QuoteTip, useQuoteComposer } from "../../review/quote-composer.js";
 import type {
   DirectionPartInfo,
   DirectionPreviewState,
@@ -12,7 +13,6 @@ import type {
 } from "../../types.js";
 import { ChevronRightIcon } from "../icons.js";
 import type { NotesRenderer } from "./dir-table.js";
-import { QuoteTip, useQuoteComposer } from "./quote-composer.js";
 
 // The meter a span is read in bars by — null on a piece with no song, whose spans are seconds.
 const SongMeterContext = createContext<{ beatsPerBar: number | null } | null>(null);
@@ -26,7 +26,7 @@ const JOIN_LABEL: Record<NonNullable<DirectionShotInfo["join"]>, string> = {
 interface ScriptContext {
   focusedShotId: string | null;
   renderNotes: NotesRenderer;
-  quotesFor: (part: DirectionPartInfo) => string[];
+  quotesFor: (part: DirectionPartInfo) => Quote[];
   isStagingOpen: (shotId: string) => boolean;
   onToggleStaging: (shotId: string) => void;
   // The shots that open a scene (a camera's location differs from the last camera shot's), and each
@@ -58,7 +58,7 @@ export function ShotScript({
   rootPleasure: string;
   focusedShotId: string | null;
   renderNotes: NotesRenderer;
-  quotesFor: (part: DirectionPartInfo) => string[];
+  quotesFor: (part: DirectionPartInfo) => Quote[];
   isStagingOpen: (shotId: string) => boolean;
   onToggleStaging: (shotId: string) => void;
   onAddComment: (address: string, text: string) => void;
@@ -173,8 +173,8 @@ function ScriptShot({
     ...shot.script.flatMap((line) => [line.acting ?? "", line.text]),
     ...shot.telop,
   ];
-  const marks = markFragments(fields, ctx.quotesFor(shot));
-  const marksAt = (i: number): MarkRange[] => marks[i] ?? [];
+  const marks = markFragments(new Map([[null, fields]]), ctx.quotesFor(shot)).get(null) ?? [];
+  const marksAt = (i: number): readonly MarkRange[] => marks[i] ?? [];
   return (
     <>
       {shot.join && shot.join !== "continuous" && (
@@ -321,29 +321,6 @@ function ShotStaging({ shot }: { shot: DirectionShotInfo }): React.ReactElement 
       )}
     </dl>
   );
-}
-
-function Marked({
-  text,
-  ranges,
-}: {
-  text: string;
-  ranges: readonly MarkRange[];
-}): React.ReactElement {
-  if (ranges.length === 0) return <>{text}</>;
-  const parts: React.ReactNode[] = [];
-  let at = 0;
-  ranges.forEach(([start, end], i) => {
-    if (start > at) parts.push(text.slice(at, start));
-    parts.push(
-      <mark key={i} className="dir-sc-mark">
-        {text.slice(start, end)}
-      </mark>,
-    );
-    at = end;
-  });
-  if (at < text.length) parts.push(text.slice(at));
-  return <>{parts}</>;
 }
 
 // A span as the direction wrote it: seconds, or on the song beats and the bars they make in the read

@@ -25,7 +25,7 @@ const check = (media: VariantState["media"], lines: string[]) =>
     address: "video:shot.01.motion",
     variantId: "v-a",
     variant: variant(media),
-    lines,
+    said: { lines: lines.map((text, i) => ({ text, number: i + 1 })), owed: lines, scripted: true },
     lang: "en",
   });
 
@@ -39,7 +39,7 @@ const video = (audio: Extract<VariantState["media"], { kind: "video" }>["audio"]
 });
 
 describe("checkVariant", () => {
-  it("finds a silent audio take, line or none", () => {
+  it("finds a silent audio take, line or none", async () => {
     const silent = {
       kind: "audio" as const,
       durationSec: 2,
@@ -47,26 +47,26 @@ describe("checkVariant", () => {
       sampleRate: 48000,
       silent: true,
     };
-    expect(check(silent, [])).toEqual([{ type: "silent", detail: "is silent" }]);
+    expect(await check(silent, [])).toEqual([{ type: "silent", detail: "is silent" }]);
   });
 
-  it("finds a video owing a line that is silent or has no track", () => {
-    expect(check(video({ channels: 1, sampleRate: 48000, silent: true }), ["Hello"])).toEqual([
-      { type: "silent", detail: "is silent" },
-    ]);
-    expect(check(video(null), ["Hello"])).toEqual([
+  it("finds a video owing a line that is silent or has no track", async () => {
+    expect(await check(video({ channels: 1, sampleRate: 48000, silent: true }), ["Hello"])).toEqual(
+      [{ type: "silent", detail: "is silent" }],
+    );
+    expect(await check(video(null), ["Hello"])).toEqual([
       { type: "silent", detail: "has no audio track" },
     ]);
   });
 
-  it("passes a video owing no line, whatever its track", () => {
-    expect(check(video({ channels: 1, sampleRate: 48000, silent: true }), [])).toEqual([]);
-    expect(check(video(null), [])).toEqual([]);
+  it("passes a video owing no line, whatever its track", async () => {
+    expect(await check(video({ channels: 1, sampleRate: 48000, silent: true }), [])).toEqual([]);
+    expect(await check(video(null), [])).toEqual([]);
   });
 
-  it("passes a take whose silence was never measured", () => {
+  it("passes a take whose silence was never measured", async () => {
     expect(
-      check({ kind: "audio", durationSec: 2, channels: 1, sampleRate: 48000 }, ["Hello"]),
+      await check({ kind: "audio", durationSec: 2, channels: 1, sampleRate: 48000 }, ["Hello"]),
     ).toEqual([]);
   });
 
@@ -87,19 +87,23 @@ describe("checkVariant", () => {
     } as unknown as KonteState;
 
     expect(
-      checkVariant({
+      await checkVariant({
         videoRoot,
         state,
         address: "animatic:shot.35.line",
         variantId: "v-patched",
         variant: patched,
-        lines: ["Bigger! She should fill the sky!"],
+        said: {
+          lines: [{ text: "Bigger! She should fill the sky!", number: 1 }],
+          owed: ["Bigger! She should fill the sky!"],
+          scripted: true,
+        },
         lang: "en",
       }),
     ).toEqual([
       {
         type: "line-misheard",
-        detail: 'heard "she should fill the sky" — drops the opening "Bigger!"',
+        detail: 'heard "she should fill the sky" — line 1: drops the opening "Bigger!"',
       },
     ]);
     await fs.rm(videoRoot, { recursive: true, force: true });

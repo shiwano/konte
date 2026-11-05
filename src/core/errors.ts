@@ -245,6 +245,8 @@ export type KonteErrorCode =
   | "SHERPA_SETUP_FAILED"
   // The managed Beat This! model could not be provisioned.
   | "BEAT_THIS_SETUP_FAILED"
+  // The managed IPADIC, which reads a Japanese line's pronunciation, could not be provisioned.
+  | "IPADIC_SETUP_FAILED"
   | "TUNNEL_FAILED"
   // A page server's refusal of a request, or its failure to serve one.
   | "INVALID_REQUEST"

@@ -21,6 +21,12 @@ declare module "onnxruntime-web/ort-wasm-simd-threaded.wasm" {
   export default file;
 }
 
+// lindera's WASM build, embedded as a file.
+declare module "*/lindera-wasm/lindera_wasm_bg.wasm" {
+  const file: string;
+  export default file;
+}
+
 // The browser scripts every composition inlines (see core/composition-scripts.ts).
 declare module "@tailwindcss/browser" {
   const content: string;

@@ -185,7 +185,7 @@ describe("job wait command", () => {
       const variantId = await landShortVariant(voice);
       const { stdout } = await run(["job", "wait"], projectDir);
       expect(stdout).toContain(
-        `Job ${voice} (${variantId}): completed, but heard "she should fill the sky" — drops the opening "Bigger!"`,
+        `Job ${voice} (${variantId}): completed, but heard "she should fill the sky" — line 1: drops the opening "Bigger!"`,
       );
       expect(stdout.trimEnd().split("\n").at(-1)).toContain("1 job(s) settled: 1 completed");
     });

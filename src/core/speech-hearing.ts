@@ -3,7 +3,13 @@ import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { definitionForAddress, type StageDefinitions } from "./definition-hashes.js";
-import { lineMishearing } from "./line-hearing.js";
+import { tryParseAddress } from "./address.js";
+import { collectShots } from "./direction.js";
+import type { Direction } from "./dsl/direction.js";
+import { type HearingProfile, loadHearing } from "./hearing/index.js";
+import { lineMishearing, type SaidLine } from "./line-hearing.js";
+import { carriedSpelling } from "./spoken-text.js";
+import { lineText } from "./types/script.js";
 import { spokenLinesAt } from "./prompt-check.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
 import { type HeardTokens, recognizeSpeech } from "./sherpa-binary.js";
@@ -142,25 +148,89 @@ export function heardText(heard: HeardSpeech["heard"]): string {
 }
 
 // The lines a take at `address` owes, read off the stage that defines it.
-export function linesOwedAt(definitions: StageDefinitions, address: string): string[] {
+function linesOwedAt(definitions: StageDefinitions, address: string): string[] {
   const def = definitionForAddress(definitions, address);
   return def ? spokenLinesAt(def.prompts ?? [], address) : [];
 }
 
-// What a take gets wrong of the `lines` it owes, written in `lang`, as `heard "…" — <what>`, or null
+/**
+ * The lines a take owes, as the direction writes them (`lines`, in the order the take says them,
+ * numbered by the shot's script) and as its prompt spells them (`owed`). A take no shot's script
+ * answers for is owed its prompt's words, numbered in order, and is not `scripted`.
+ */
+export type SaidLines = { lines: SaidLine[]; owed: string[]; scripted: boolean };
+
+export function linesSaidAt(
+  definitions: StageDefinitions,
+  direction: Direction | null,
+  address: string,
+): SaidLines {
+  const owed = linesOwedAt(definitions, address);
+  const fallback = {
+    lines: owed.map((text, i) => ({ text, number: i + 1 })),
+    owed,
+    scripted: false,
+  };
+  const def = definitionForAddress(definitions, address);
+  const parsed = tryParseAddress(address);
+  if (!direction || !def || !("stage" in def) || parsed?.kind !== "shot") return fallback;
+  const shot = collectShots(direction).find((s) => s.id === parsed.shotId);
+  const script = shot && "script" in shot ? (shot.script ?? []) : [];
+  const words = owed.join(" ");
+  const matched = script.flatMap((line, i) => {
+    const spelling = carriedSpelling(def, parsed.shotId, owed, line);
+    return spelling === null ? [] : [{ text: lineText(line), number: i + 1, spelling }];
+  });
+  // Each line is said where its words occur and no longer line the take says already stands, the
+  // longest claiming first.
+  const claimed: [number, number][] = [];
+  const free = (at: number, end: number) => claimed.every(([s, e]) => end <= s || e <= at);
+  const lines = [...matched]
+    .sort((x, y) => y.spelling.length - x.spelling.length)
+    .flatMap((m) => {
+      for (let at = words.indexOf(m.spelling); at >= 0; at = words.indexOf(m.spelling, at + 1)) {
+        if (!free(at, at + m.spelling.length)) continue;
+        claimed.push([at, at + m.spelling.length]);
+        return [{ text: m.text, number: m.number, at }];
+      }
+      return [];
+    })
+    .sort((x, y) => x.at - y.at || x.number - y.number)
+    .map(({ text, number }) => ({ text, number }));
+  return lines.length > 0 ? { lines, owed, scripted: true } : fallback;
+}
+
+/**
+ * What a take gets wrong of the lines it owes, heard as `hearing` hears their language, as clauses,
+ * or null where it says them. A respelled line is judged as the direction writes it and as the
+ * prompt spells it, and is wrong only where both are.
+ */
+export function takeMishearing(
+  said: Pick<SaidLines, "lines" | "owed">,
+  heard: HeardSpeech["heard"],
+  hearing: HearingProfile,
+): string | null {
+  const wrong = lineMishearing(said.lines, heard, hearing);
+  if (!wrong) return null;
+  const respelled = said.owed.join(" ") !== said.lines.map((l) => l.text).join(" ");
+  if (!respelled) return wrong;
+  const owedLines = said.owed.map((text, i) => ({ text, number: i + 1 }));
+  return lineMishearing(owedLines, heard, hearing) ? wrong : null;
+}
+
+// What a take gets wrong of the lines it owes, written in `lang`, as `heard "…" — <what>`, or null
 // where it says them or was never heard.
-export function variantMishearing(
+export async function variantMishearing(
   videoRoot: string,
   address: string,
   variantId: string,
   outputHash: string | null | undefined,
-  lines: readonly string[],
+  said: SaidLines,
   lang: string,
-): string | null {
-  if (lines.length === 0) return null;
+): Promise<string | null> {
+  if (said.lines.length === 0) return null;
   const heard = readHeardSpeech(videoRoot, address, variantId, outputHash);
   if (!heard) return null;
-  const words = heardText(heard);
-  const wrong = lineMishearing(lines.join(" "), words, lang);
-  return wrong ? `heard "${words}" — ${wrong}` : null;
+  const wrong = takeMishearing(said, heard, await loadHearing(lang));
+  return wrong ? `heard "${heardText(heard)}" — ${wrong}` : null;
 }

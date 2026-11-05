@@ -50,7 +50,7 @@ export function spokenTextsUnder(definition: StageDefinition, refs: readonly str
 
 // The longest spelling of a line that the words carry, or null for none — a `respell()` may be
 // shorter or longer than the words it stands for.
-function carriedSpelling(
+export function carriedSpelling(
   definition: StageDefinition,
   shotId: string,
   words: readonly string[],

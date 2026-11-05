@@ -134,12 +134,15 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
   // The words the part's live comments quote, for the script to mark where they still stand.
   const quotesFor = useCallback(
     (part: DirectionPartInfo) =>
-      quotedFragments([
-        ...liveFeedback(part.feedback, session).map(
-          (f) => session.editedTextById.get(f.id) ?? f.text,
-        ),
-        ...(session.pendingFeedback[part.address] ?? []).map((p) => p.text),
-      ]),
+      quotedFragments(
+        [
+          ...liveFeedback(part.feedback, session).map(
+            (f) => session.editedTextById.get(f.id) ?? f.text,
+          ),
+          ...(session.pendingFeedback[part.address] ?? []).map((p) => p.text),
+        ],
+        false,
+      ),
     [session],
   );
 

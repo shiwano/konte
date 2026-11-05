@@ -5,6 +5,7 @@ import { cloudflaredDownloadSource } from "../cloudflared-binary.js";
 import { BEAT_THIS_URLS } from "../beat-this.js";
 import { KonteError } from "../errors.js";
 import { ffmpegDownloadSources } from "../ffmpeg-binary.js";
+import { IPADIC_URL } from "../japanese-reading.js";
 import { TOOL_CHECKSUMS, toolChecksum, toolPin } from "../tool-checksums.js";
 import { SENSE_VOICE_URL, SPLEETER_URL, sherpaDownloadUrl } from "../sherpa-binary.js";
 import { tscDownloadUrl } from "../tsc.js";
@@ -50,6 +51,7 @@ const RESOLVERS: Record<string, (platform: NodeJS.Platform, arch: string) => str
   chromium: (platform, arch) => [chromiumDownloadUrl(platform, arch)],
   sherpa: (platform, arch) => [sherpaDownloadUrl(platform, arch), SPLEETER_URL, SENSE_VOICE_URL],
   beatThis: () => BEAT_THIS_URLS,
+  ipadic: () => [IPADIC_URL],
 };
 
 function reachableUrls(): { tool: string; platform: string; url: string }[] {

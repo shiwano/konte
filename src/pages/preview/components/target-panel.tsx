@@ -1,8 +1,18 @@
 import type React from "react";
 import { useState } from "react";
 import { formatTimecode } from "../format-time.js";
+import { type QuoteKind, markFragments, quoteLines, quotedFragments } from "../review/quote.js";
+import { QuoteTip } from "../review/quote-composer.js";
 import type { ScriptLineView, ShotMoveInfo, ShotWaiverInfo } from "../types.js";
-import { CommentCard, HandoffCard, MoveCard, ScriptCard, WaiverCard } from "./comment-thread.js";
+import type { LineMarks } from "../../../core/line-marks.js";
+import {
+  CommentCard,
+  HandoffCard,
+  MoveCard,
+  ScriptCard,
+  WaiverCard,
+  spokenSpan,
+} from "./comment-thread.js";
 import { GridIcon, PlusIcon } from "./icons.js";
 import { NoteInput } from "./note-input.js";
 
@@ -25,15 +35,18 @@ export interface DisplayComment {
 }
 
 // A comment being written: the instant it is about, frozen by the caller, and the pin on that
-// frame if one was placed.
+// frame if one was placed. `insert` is a quote appended to its text, once per nonce.
 export interface NoteDraft {
   time: number;
   pin: { x: number; y: number } | null;
+  insert?: { text: string; nonce: number };
 }
 
 /**
  * The reel review's sidebar for the focused target, titled by it. The shot's spoken lines, the
- * board's declared movement, its waivers and the agent handoff sit on top as read-only context;
+ * board's declared movement, its waivers and the agent handoff sit on top as context; selecting
+ * words in the lines, the movement or the handoff quotes them into the draft, and the words the
+ * target's comments quote are marked where they still stand;
  * under them, the target's comments as they were written, drafts last, each carrying its timecode
  * and — when pinned — the same number as its on-frame marker.
  * Clicking a comment seeks to it. An "Add note" composer sits at the bottom, matching the
@@ -45,6 +58,7 @@ export interface NoteDraft {
  */
 export function TargetPanel({
   subject,
+  address,
   pinnable = true,
   script,
   moves,
@@ -61,9 +75,14 @@ export function TargetPanel({
   onAddNote,
   onOpenComposer,
   onCloseComposer,
+  onQuote,
+  lineMarks,
+  onPlay,
 }: {
   // What the panel is pointed at, shown as its title (e.g. "Shot 03", "Soundtrack").
   subject?: string;
+  // The target's feedback address. With `onQuote`, the context cards are quotable.
+  address?: string;
   pinnable?: boolean;
   script?: ScriptLineView[];
   // One card per board panel that declares a movement.
@@ -85,11 +104,31 @@ export function TargetPanel({
   onAddNote: (text: string) => void;
   onOpenComposer: () => void;
   onCloseComposer: () => void;
+  // Quoted words for the draft, and the reel second the quoted script words are spoken at (null
+  // when none is known).
+  onQuote?: (text: string, time: number | null) => void;
+  // Where the reel is heard to say each script line, by its number (1-based).
+  lineMarks?: readonly LineMarks[];
+  // Plays a span of the reel.
+  onPlay?: (time: readonly [number, number]) => void;
 }): React.ReactElement {
   const scriptLines = script ?? [];
   const moveCards = moves ?? [];
   const waiverCards = waivers ?? [];
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftText, setDraftText] = useState("");
+
+  const quotable = address !== undefined && onQuote !== undefined;
+  const marks = markFragments(
+    new Map<QuoteKind, readonly string[]>([
+      ["script", scriptLines.map((l) => l.text)],
+      ["acting", scriptLines.map((l) => l.acting ?? "")],
+      ["blocking", moveCards.map((m) => m.blocking)],
+      ["camera", moveCards.map((m) => m.camera)],
+      ["handoff", handoffNotes ?? []],
+    ]),
+    quotedFragments([...comments.map((c) => c.text), ...(draft ? [draftText] : [])], true),
+  );
 
   return (
     <div className="target-panel">
@@ -116,9 +155,16 @@ export function TargetPanel({
         moveCards.length > 0 ||
         waiverCards.length > 0 ||
         (handoffNotes && handoffNotes.length > 0)) && (
-        <div className="target-panel-context">
-          {scriptLines.length > 0 && <ScriptCard script={scriptLines} />}
-          {moveCards.map((m) => (
+        <div className="target-panel-context" data-quote-address={quotable ? address : undefined}>
+          {scriptLines.length > 0 && (
+            <ScriptCard
+              script={scriptLines}
+              marks={marks}
+              {...(lineMarks ? { lineMarks } : {})}
+              {...(onPlay ? { onPlay } : {})}
+            />
+          )}
+          {moveCards.map((m, i) => (
             <MoveCard
               key={m.panel}
               panel={board && (moveCards.length > 1 || m.cutin) ? m.panel : undefined}
@@ -126,6 +172,8 @@ export function TargetPanel({
               role={board ? m.role : undefined}
               blocking={m.blocking}
               camera={m.camera}
+              field={i}
+              marks={marks}
             />
           ))}
           {waiverCards.map((w) => (
@@ -138,8 +186,23 @@ export function TargetPanel({
             />
           ))}
           {handoffNotes?.map((text, i) => (
-            <HandoffCard key={`agent-${i}`} text={text} />
+            <HandoffCard key={`agent-${i}`} text={text} field={i} marks={marks} />
           ))}
+          {quotable && (
+            <QuoteTip
+              accepts={(a) => a === address}
+              onQuote={(_, quotes) => {
+                const said = quotes.find((q) => q.kind === "script");
+                const heard = said && lineMarks?.find((m) => m.line === said.field + 1);
+                onQuote(
+                  quoteLines(quotes),
+                  said
+                    ? (spokenSpan(heard ?? undefined, [said.start, said.end])?.[0] ?? null)
+                    : null,
+                );
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -178,6 +241,7 @@ export function TargetPanel({
                 stale={c.stale}
                 pending={c.pending}
                 highlighted={highlightedId === c.id}
+                quoteKinds={quotable}
                 onJump={() => onJump(c)}
                 onEdit={() => setEditingId(c.id)}
                 onDelete={() => onDelete(c)}
@@ -189,6 +253,8 @@ export function TargetPanel({
 
       {draft ? (
         <NoteInput
+          insert={draft.insert}
+          onTextChange={setDraftText}
           placeholder={
             draft.pin
               ? `Describe what you see at this pin (${formatTimecode(draft.time)})…`

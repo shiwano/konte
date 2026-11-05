@@ -3,7 +3,7 @@ import type { Command } from "commander";
 import { formatDuration } from "../../../core/format-duration.js";
 import { isJobTerminal, JobManager } from "../../../core/job-manager.js";
 import { sleep } from "../../../core/sleep.js";
-import { linesOwedAt, readHeardSpeech } from "../../../core/speech-hearing.js";
+import { linesSaidAt, readHeardSpeech } from "../../../core/speech-hearing.js";
 import { checkVariant, formatFindings, measuredSilent } from "../../../core/variant-check.js";
 import { speechLangOf } from "../../../core/select-definition.js";
 import { queueSongAnalyses } from "../../../core/song-queue.js";
@@ -362,15 +362,16 @@ async function findingsOf(
   const definitions = await loadStageDefinitions(videoRoot).catch(() => null);
   if (!definitions) return new Map();
   const lang = speechLangOf(definitions);
+  const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
   const found = new Map<string, string>();
   for (const { r, variant } of checkable) {
-    const findings = checkVariant({
+    const findings = await checkVariant({
       videoRoot,
       state,
       address: r.address,
       variantId: r.id,
       variant,
-      lines: linesOwedAt(definitions, r.patchSourceAddress ?? r.address),
+      said: linesSaidAt(definitions, direction, r.patchSourceAddress ?? r.address),
       lang,
     });
     if (findings.length > 0) found.set(r.id, formatFindings(findings));

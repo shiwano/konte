@@ -53,11 +53,13 @@ import type {
   Handoff,
   ReferenceDefinition,
   StageDefinition,
+  VideoDefinition,
 } from "../../../core/types/index.js";
 import { type RenderPlan, buildStageReviewPlan, shotSpans } from "../../../core/render-plan.js";
 import { resolveSoundtrackSpan } from "../../../core/timeline-audio.js";
 import { FeedbackManager } from "../../../core/feedback/index.js";
 import { StateManager } from "../../../core/state/index.js";
+import { type HeardTake, shotLineMarks } from "../../../core/line-marks.js";
 import {
   consumedVariantPreviewUrl,
   patchChainVariants,
@@ -345,7 +347,11 @@ export async function handleGetReelState(
   // Audio assets declared on a shot belong to the audio track, not the shot (video) accept —
   // collected here so buildAudioAssets can reuse the resolved-variant info without re-resolving.
   const audioBuiltByAddress = new Map<string, ReelAsset>();
-  const shots = reelShotStates(scope, plan, clipsByShot, buildAsset, audioBuiltByAddress);
+  const shots = await withHeardTakes(
+    scope,
+    reelShotStates(scope, plan, clipsByShot, buildAsset, audioBuiltByAddress),
+    clipsByShot,
+  );
   const totalDuration = shotSpans(plan.shots, plan.fps).total;
 
   // The audio track: every audio placement on the timeline, in absolute seconds, grouped by
@@ -388,6 +394,42 @@ export async function handleGetReelState(
       shots.map((s) => s.shotId),
     ),
   } satisfies VideoPreviewState);
+}
+
+// Each shot with where the reel is heard to say its lines. Best-effort, like the clips: a hearing
+// that will not read leaves a shot without marks.
+async function withHeardTakes<S extends { shotId: string; startTime: number }>(
+  scope: ReelStateScope,
+  shots: S[],
+  clipsByShot: Map<string, CompositionClip[]>,
+): Promise<(S & { heardTakes: HeardTake[] })[]> {
+  const { ctx, video, manager } = scope;
+  const definitions = {
+    reference: ctx.reference,
+    animatic: ctx.animatic,
+    video: (video.stage === "video" ? video : ctx.downstreamVideo) as VideoDefinition | null,
+  };
+  return Promise.all(
+    shots.map(async (shot) => {
+      const heardTakes = await shotLineMarks({
+        videoRoot: ctx.videoRoot,
+        manager,
+        definitions,
+        direction: ctx.direction,
+        animatic: ctx.animatic,
+        lang: video.typography.lang,
+        shotId: shot.shotId,
+        shotStart: shot.startTime,
+        clips: clipsByShot.get(shot.shotId) ?? [],
+      }).catch((err: unknown) => {
+        console.error(
+          `Could not place the lines heard in shot ${shot.shotId}: ${errorMessage(err)}`,
+        );
+        return [];
+      });
+      return { ...shot, heardTakes };
+    }),
+  );
 }
 
 // The board stems the video has taken over, re-mixed so a shot that plays one can be drawn.

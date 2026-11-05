@@ -5277,10 +5277,32 @@ body.fill-mode .fab-submit-wrap {
   margin: 0;
 }
 
-.dir-sc-mark {
+.quote-mark {
   background: var(--yellow-soft);
   color: inherit;
   border-bottom: 2px solid var(--yellow);
+}
+
+.quote-mark--plays,
+.heard-mark,
+.heard-insert {
+  cursor: pointer;
+}
+
+/* Where the take is heard to say other than the line. */
+.heard-mark {
+  text-decoration: underline wavy var(--red);
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+
+.heard-insert::before {
+  content: "▾";
+  color: var(--red);
+  font-size: 0.8em;
+  vertical-align: 0.4em;
+  margin: 0 -0.15em;
+  user-select: none;
 }
 
 /* Too narrow for the notes beside the shot: the clock, the shot and its notes stack, and the stripe
@@ -5324,7 +5346,7 @@ body.fill-mode .fab-submit-wrap {
   }
 }
 
-.dir-sc-quote-panel {
+.quote-panel {
   position: absolute;
   z-index: 15;
   max-width: 100%;
@@ -5335,7 +5357,7 @@ body.fill-mode .fab-submit-wrap {
   box-shadow: var(--shadow-pop);
 }
 
-.dir-sc-quote-tip {
+.quote-tip {
   position: fixed;
   z-index: 20;
   transform: translate(-50%, calc(-100% - 6px));
@@ -5362,6 +5384,19 @@ body.fill-mode .fab-submit-wrap {
   padding-left: 0.5rem;
   border-left: 2px solid var(--yellow);
   color: var(--text-secondary);
+}
+.comment-card-quote-kind {
+  margin-right: 0.4rem;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* A context card's labels: a selection skips them, so a quote holds only the card's own words. */
+.target-panel-context .comment-script-speaker,
+.target-panel-context .comment-move-label {
+  user-select: none;
 }
 
 /* The machine contract, demoted: a reader never needs it, a bug report always does. */

@@ -10,8 +10,15 @@ import { openProbeTargets } from "./resolve-arg.js";
 import { loadDirectionIfPresent } from "../../../core/stage-definitions.js";
 import { songAnalysisOf } from "../../../core/song-reading.js";
 import { recognizesSpeechIn } from "../../../core/sherpa-binary.js";
-import { heardText, readHeardSpeech } from "../../../core/speech-hearing.js";
-import { lineMishearing } from "../../../core/line-hearing.js";
+import {
+  heardText,
+  linesSaidAt,
+  readHeardSpeech,
+  type SaidLines,
+  takeMishearing,
+} from "../../../core/speech-hearing.js";
+import { loadHearing } from "../../../core/hearing/index.js";
+import { alignHeard, markedGaps, type SaidLine } from "../../../core/line-hearing.js";
 import { variantOwningFile } from "../../../core/variant-dir.js";
 import {
   formatSongTempo,
@@ -29,6 +36,10 @@ import { formatSeconds, formatSecondsRange } from "../../../core/format-duration
 const MAX_LISTED_SPANS = 6;
 
 const MAX_LINE_CHARS = 80;
+
+function quoteHeard(text: string): string {
+  return text ? quoteLine(text) : "nothing";
+}
 
 function quoteLine(text: string): string {
   const shown = text.length > MAX_LINE_CHARS ? `${text.slice(0, MAX_LINE_CHARS)}…` : text;
@@ -70,15 +81,16 @@ is computed once. A variant with no audio stream prints its info and reports "no
 A ⚠ line flags leading/trailing silence or a wholly silent file — catching an early-ended generation
 (e.g. a 20s BGM whose music stops at 16s) in self-review without eyeballing the sparkline.
 
-The line row names the words the take owes, read from its \`spokenText\` input or from wherever its
-adapter says the model takes dialogue. It sits beside the duration and the spans, so a take's length
-is read against its line's: a 12-character line answered by three seconds of speech across three
-stretches is a model that padded the box it was given.
+The line rows name the lines the take owes, as direction.ts writes them and numbered by the shot's
+script (a take outside a shot: the words of its \`spokenText\` input or wherever its adapter says the
+model takes dialogue). They sit beside the duration and the spans, so a take's length is read
+against its lines': a 12-character line answered by three seconds of speech across three stretches
+is a model that padded the box it was given.
 
-The heard row under it is the speech recognized in the take when it landed, in \`policy.lang\`: a
-line said twice, cut short, misread or followed by words nobody wrote shows there as text. It is a
-machine hearing — a near-homophone or a kanji/kana difference is not a wrong take. A take that
-drops the opening or closing words of its line, or says other words, is named so after the text.
+The heard row under each line is the speech recognized of it when the take landed, in
+\`policy.lang\`, then each place it differs from the line, with the seconds into the take: a word
+heard as another (\`"くつか" for "靴下"\`), dropped, or added. It is a machine hearing — a near-homophone
+is not a wrong take. A misheard row names what makes the take \`line-misheard\`.
 
 The spans line appears when the sound breaks up, listing each audible stretch — a generated take
 padded out past the content it had comes back as several with both its edges short, which the ⚠ line
@@ -120,9 +132,22 @@ Examples:
       const songAddress = songAddressOf(direction);
 
       const lang = direction?.policy.lang;
-      const heardRow = (address: string, variantId: string, lines: string[]): string => {
-        if (lang && !recognizesSpeechIn(lang))
-          return `unknown — speech in ${lang} is not recognized`;
+      // The heard rows of a take: what is heard of each line it says, and the take's verdict.
+      const heardRows = async (
+        address: string,
+        variantId: string,
+        said: SaidLines,
+        durationSec: number | null,
+      ): Promise<string[]> => {
+        const lineRow = (line: SaidLine) =>
+          `line ${String(line.number).padEnd(5)} ${quoteLine(line.text)}`;
+        const unaligned = (heardRow: string) => [
+          ...said.lines.map(lineRow),
+          `heard     ${heardRow}`,
+        ];
+        if (lang && !recognizesSpeechIn(lang)) {
+          return unaligned(`unknown — speech in ${lang} is not recognized`);
+        }
         const state = manager.getState();
         const variant = state.assets[address]?.variants?.[variantId];
         // A patched take points at its chain's returned step, which was heard when it landed.
@@ -136,10 +161,31 @@ Examples:
           owner.variantId,
           variant?.outputHash,
         );
-        if (!heard) return "unknown — the take was not recognized when it landed";
-        const words = heardText(heard);
-        const wrong = lang ? lineMishearing(lines.join(" "), words, lang) : null;
-        return `${words ? quoteLine(words) : "nothing"}${wrong ? ` — ${wrong}` : ""}`;
+        if (!heard) return unaligned("unknown — the take was not recognized when it landed");
+        if (!lang) return unaligned(quoteHeard(heardText(heard)));
+        const hearing = await loadHearing(lang);
+        const aligned = alignHeard(
+          said.lines.map((l) => l.text),
+          heard,
+          hearing,
+          durationSec ?? undefined,
+        );
+        const rows = said.lines.flatMap((line, i) => {
+          const { heard: words, gaps } = aligned[i]!;
+          const marked = markedGaps(gaps, hearing).map((gap) => {
+            const at = line.text.slice(gap.range[0], gap.range[1]);
+            const sec = formatSecondsRange(gap.sec[0], gap.sec[1], 2);
+            if (gap.kind === "subst") return `"${gap.heard}" for "${at}" (${sec})`;
+            if (gap.kind === "drop") return `drops "${at}" (${sec})`;
+            return `adds "${gap.heard}" at ${gap.range[0]} (${sec})`;
+          });
+          return [
+            lineRow(line),
+            `heard     ${quoteHeard(words)}${marked.length > 0 ? ` — ${marked.join(", ")}` : ""}`,
+          ];
+        });
+        const wrong = takeMishearing(said, heard, hearing);
+        return wrong ? [...rows, `misheard  ${wrong}`] : rows;
       };
 
       await probeEach(targets, async (variantId) => {
@@ -150,17 +196,25 @@ Examples:
         const info = wf.hasAudio ? ((await probeMediaDetail(fileAbs))?.audio ?? null) : null;
         const stage = definitions ? definitionForAddress(definitions, wf.address) : null;
         const lines = stage ? spokenLinesAt(stage.prompts ?? [], wf.address) : [];
+        const said = definitions
+          ? linesSaidAt(definitions, direction, wf.address)
+          : {
+              lines: lines.map((text, i) => ({ text, number: i + 1 })),
+              owed: lines,
+              scripted: false,
+            };
 
         console.log(`${wf.variantId}   ${wf.address}   [${wf.status}]`);
         console.log(`  file      ${fileAbs}`);
         const dur = wf.durationSec;
         console.log(`  duration  ${dur != null ? formatSeconds(dur) : "—"}`);
         console.log(`  audio     ${wf.hasAudio ? fmtAudioInfo(info) : "no audio stream"}`);
-        for (const line of lines) {
-          console.log(`  line      ${quoteLine(line)}`);
-        }
         if (lines.length > 0 && wf.address !== songAddress) {
-          console.log(`  heard     ${heardRow(wf.address, variantId, lines)}`);
+          for (const row of await heardRows(wf.address, variantId, said, dur)) {
+            console.log(`  ${row}`);
+          }
+        } else {
+          for (const line of lines) console.log(`  line      ${quoteLine(line)}`);
         }
         if (wf.onset) {
           console.log(

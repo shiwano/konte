@@ -346,7 +346,7 @@ describe("status command", () => {
       const { stdout } = await run(["status", "-v"], projectDir);
       expect(stdout).toContain(`konte probe audio ${short}`);
       expect(stdout).toContain(
-        `[line-misheard] ${short} — ${voice} heard "she should fill the sky" — drops the opening "Bigger!"`,
+        `[line-misheard] ${short} — ${voice} heard "she should fill the sky" — line 1: drops the opening "Bigger!"`,
       );
       expect(stdout).not.toContain("konte preview video");
 

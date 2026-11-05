@@ -1671,8 +1671,16 @@ export interface CompositionClip {
   address: string | null;
   mediaType: "video" | "image" | "audio";
   start: number;
+  // The shot's end where the clip declares no `duration`.
   end: number;
+  // Whether the clip declares its `duration`. An `<Audio>` that does not plays its take out, past
+  // a cut.
+  bounded: boolean;
   mediaStart: number | null;
+  // Source seconds per timeline second; null for 1.
+  playbackRate: number | null;
+  // The take the clip plays, where its src names one.
+  variantId: string | null;
   volume: number | null;
   hasAudio: boolean;
   // Stable cue id from <Audio id=...> (data-konte-cue); null for video/unidentified clips.
@@ -1720,13 +1728,13 @@ function toNum(value: unknown): number | null {
 function clipAddressFromSrc(
   src: unknown,
   assetBaseUrl: string,
-): { address: string | null; assetName: string | null } {
-  const empty = { address: null, assetName: null };
+): { address: string | null; assetName: string | null; variantId: string | null } {
+  const empty = { address: null, assetName: null, variantId: null };
   if (typeof src !== "string") return empty;
   const depPath = parsePlaceholder(src);
   if (depPath) {
     try {
-      return { address: depPath, assetName: assetNameOf(parseAddress(depPath)) };
+      return { address: depPath, assetName: assetNameOf(parseAddress(depPath)), variantId: null };
     } catch {
       return empty;
     }
@@ -1734,7 +1742,11 @@ function clipAddressFromSrc(
   const served = parseServedAssetUrl(src, assetBaseUrl);
   if (!served) return empty;
   try {
-    return { address: served.address, assetName: assetNameOf(parseAddress(served.address)) };
+    return {
+      address: served.address,
+      assetName: assetNameOf(parseAddress(served.address)),
+      variantId: served.variantId,
+    };
   } catch {
     return empty;
   }
@@ -1758,7 +1770,9 @@ function clipFromProps(
     mediaType,
     start,
     end,
+    bounded: dataDuration !== null,
     mediaStart: toNum(props["data-media-start"]),
+    playbackRate: toNum(props["data-playback-rate"]),
     volume: toNum(props["data-volume"]),
     hasAudio: mediaType === "audio" ? true : hasAudioAttr === "true" || hasAudioAttr === true,
     cueId: typeof props["data-konte-cue"] === "string" ? (props["data-konte-cue"] as string) : null,

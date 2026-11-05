@@ -4,6 +4,7 @@ import type { PanelRole } from "../../core/direction.js";
 import type { Framing } from "../../core/dsl/direction.js";
 import type { ShotJoin } from "../../core/types/definition.js";
 import type { SongLineBody } from "../../core/types/review-submit.js";
+import type { HeardTake } from "../../core/line-marks.js";
 import type { ScriptLineView } from "../../core/types/script.js";
 import type { View } from "../../core/view.js";
 import type { DirectionSection } from "../../core/address.js";
@@ -158,6 +159,8 @@ export interface ShotInfo {
   action: string;
   // The shot's spoken/narrated lines, from the direction. Empty when the shot has none.
   script: ScriptLineView[];
+  // Where each take the reel can show is heard to say the shot's lines (see `shownLineMarks`).
+  heardTakes: HeardTake[];
   // The boundary into this shot, from the direction. Null on an ordinary cut.
   join: ShotJoin | null;
   // One take the model cuts inside, so a cut in its picture is the ask.

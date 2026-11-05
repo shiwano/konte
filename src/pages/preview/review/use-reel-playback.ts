@@ -7,6 +7,9 @@ import { Playhead } from "./playhead.js";
 
 type LoopMode = "off" | "all" | "shot";
 
+// How much of the reel either side of a span `playSpan` plays.
+const SPAN_PAD_SEC = 0.5;
+
 export function findShotIdxAtTime(shots: ShotInfo[], time: number): number {
   for (let i = 0; i < shots.length; i++) {
     const s = shots[i]!;
@@ -46,6 +49,8 @@ export function useReelPlayback({
   // Read by the player's frame reports, which must not pull the review into a re-render per frame.
   const noteDraftRef = useRef<NoteDraft | null>(null);
   noteDraftRef.current = noteDraft;
+  // Where a span being played stops.
+  const stopAtRef = useRef<number | null>(null);
 
   // A definition reload can shrink the timeline out from under the focused index.
   useEffect(() => {
@@ -61,6 +66,16 @@ export function useReelPlayback({
       // reload resuming. Both sides then read one time, so a note cannot file off the shot shown.
       const draft = noteDraftRef.current;
       if (draft && draft.time !== time) setNoteDraft({ ...draft, time });
+      // A span being played ends where it ends, whatever the loop says.
+      const stopAt = stopAtRef.current;
+      if (stopAt !== null) {
+        if (time >= stopAt) {
+          stopAtRef.current = null;
+          playerRef.current?.pause();
+          setIsPlaying(false);
+        }
+        return;
+      }
       // A loop restart would undo the pause the composer opened with and carry a half-typed
       // note off its shot, so the reel holds still while one is being written.
       if (draft) return;
@@ -81,12 +96,29 @@ export function useReelPlayback({
   );
 
   const pausePlayback = useCallback(() => {
+    stopAtRef.current = null;
     playerRef.current?.pause();
     setIsPlaying(false);
   }, []);
 
+  // Play the reel over [start, end], a little either side, and stop.
+  const playSpan = useCallback(
+    ([start, end]: readonly [number, number]) => {
+      const from = Math.max(0, start - SPAN_PAD_SEC);
+      playerRef.current?.seek(from);
+      playhead.set(from);
+      setFocusedShotIdx(findShotIdxAtTime(shots, from));
+      // Short of the end, which the player may never report reaching.
+      stopAtRef.current = Math.min(end + SPAN_PAD_SEC, totalDuration - 0.05);
+      playerRef.current?.play();
+      setIsPlaying(true);
+    },
+    [playhead, shots, totalDuration],
+  );
+
   const handleSeek = useCallback(
     (time: number) => {
+      stopAtRef.current = null;
       playerRef.current?.seek(time);
       playhead.set(time);
       setFocusedShotIdx(findShotIdxAtTime(shots, time));
@@ -100,6 +132,7 @@ export function useReelPlayback({
 
   const handleStepFrame = useCallback(
     (delta: number) => {
+      stopAtRef.current = null;
       setIsPlaying(false);
       playerRef.current?.stepFrame(delta);
       // Stepping is a deliberate move off the frame a pin was placed on; the instant follows in
@@ -136,6 +169,7 @@ export function useReelPlayback({
   }, []);
 
   const handlePlayPause = useCallback(() => {
+    stopAtRef.current = null;
     if (isPlaying) {
       playerRef.current?.pause();
       setIsPlaying(false);
@@ -167,5 +201,6 @@ export function useReelPlayback({
     handleStepFrame,
     handleArrowSeek,
     handlePlayPause,
+    playSpan,
   };
 }
