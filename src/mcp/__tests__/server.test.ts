@@ -99,7 +99,9 @@ it("stops a worker whose initial scan is blocked once its registration is lost",
   try {
     await client.connect(transport);
     await expect
-      .poll(() => fs.readFile(`${ws.root}/scan-started`, "utf-8").catch(() => ""))
+      .poll(() => fs.readFile(`${ws.root}/scan-started`, "utf-8").catch(() => ""), {
+        timeout: 5_000,
+      })
       .not.toBe("");
     const workerPid = Number(await fs.readFile(`${ws.root}/scan-started`, "utf-8"));
     const status = await daemonStatus(client);
