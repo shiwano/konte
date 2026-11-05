@@ -233,6 +233,19 @@ describe("passing", () => {
     ];
     expect(passers(v).map((f) => f.code)).toEqual(["passer-unnamed"]);
   });
+  it("is signed off by an accept of every take that misses the passer", () => {
+    const v = video(["animatic:shot.01.first"], ["orange cat"]);
+    const signed = (accepted: readonly string[]) =>
+      checkDirection(direction, {
+        referenceAssetNames: ["cat", "crow"],
+        stagingStage: {
+          ...noStage,
+          videoPassers: listVideoPasserInputs(v, board, cuesOf, (a) => accepted.includes(a)),
+        },
+      }).active.filter((finding) => finding.code.startsWith("passer-"));
+    expect(signed([]).map((f) => f.code)).toEqual(["passer-unconsumed", "passer-unnamed"]);
+    expect(signed(["video:shot.01.motion"])).toEqual([]);
+  });
   it("reads rendered chains, including board references, and ignores pending or deterministic pictures", () => {
     const v = video(["animatic:shot.01.first", "reference:crow"], ["black crow"]);
     expect(listVideoPasserInputs(v, board, cuesOf)[0]?.refs.sort()).toEqual(["cat", "crow"]);

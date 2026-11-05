@@ -61,6 +61,7 @@ import {
   type OffscreenFigure,
   checkPropNaming,
   checkProps,
+  signOff,
   checkSetups,
   placeRefOf,
   usedSetupIds,
@@ -774,6 +775,7 @@ export type StagingStageState = {
     refs: readonly string[];
     texts: readonly string[];
     generative: boolean;
+    signedOff?: true;
   }[];
   // The seam reading: the two keyframes each developed shot answers a boundary with, and what the
   // opening one was handed of the frame before it. `join-unpinned` reads the opening keyframe as
@@ -922,25 +924,28 @@ function checkPassers(
     if (takes.length === 0) continue;
     for (const id of frame.passing ?? []) {
       const subject = `${frameSubject(frame)}.${id}`;
-      if (referenceAssetNames?.includes(id) && takes.some((take) => !take.refs.includes(id))) {
+      const unreached = takes.filter((take) => !take.refs.includes(id));
+      if (referenceAssetNames?.includes(id) && unreached.length > 0) {
         findings.push({
           code: "passer-unconsumed",
           subject,
           message: `${frameLabel(frame)} passes "${id}" but a video take's input chain does not reach reference:${id}`,
+          ...signOff(unreached.every((take) => take.signedOff)),
         });
       }
       const depiction = direction.characters?.[id]?.promptDepiction;
-      if (
-        depiction?.trim() &&
-        takes.some(
-          (take) =>
-            !take.texts.some((text) => text.toLowerCase().includes(depiction.toLowerCase())),
-        )
-      ) {
+      const unnamed = depiction?.trim()
+        ? takes.filter(
+            (take) =>
+              !take.texts.some((text) => text.toLowerCase().includes(depiction.toLowerCase())),
+          )
+        : [];
+      if (unnamed.length > 0) {
         findings.push({
           code: "passer-unnamed",
           subject,
           message: `${frameLabel(frame)} passes "${id}" but a video take's positive prompts do not contain "${depiction}"`,
+          ...signOff(unnamed.every((take) => take.signedOff)),
         });
       }
     }

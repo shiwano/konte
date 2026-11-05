@@ -680,6 +680,36 @@ describe("slot-order-mismatch", () => {
     expect(found).toEqual([]);
   });
 
+  it("is signed off once every mismatched keyframe is accepted as drawn", () => {
+    const moved = direction({
+      shots: [shot("01", "deck", { lineup: ["ane", "imouto"], lineupTo: ["imouto", "ane"] })],
+    });
+    const found = (signed: { first?: true; last?: true }) =>
+      checkDirection(moved, {
+        stagingStage: {
+          ...noStage,
+          panelSlots: [
+            {
+              shotId: "01",
+              lane: "main",
+              panel: "animatic:shot.01.first",
+              slots: ["imouto", "ane"],
+              ...(signed.first ? { signedOff: true as const } : {}),
+            },
+            {
+              shotId: "01",
+              lane: "main",
+              panel: "animatic:shot.01.last",
+              slots: ["ane", "imouto"],
+              ...(signed.last ? { signedOff: true as const } : {}),
+            },
+          ],
+        },
+      }).active.filter((f) => f.code === "slot-order-mismatch");
+    expect(found({ first: true })[0]?.message).toContain("animatic:shot.01.last");
+    expect(found({ first: true, last: true })).toEqual([]);
+  });
+
   it("stays silent with no board to read", () => {
     expect(codes(dir, "slot-order-mismatch")).toEqual([]);
   });
@@ -796,6 +826,21 @@ describe("plate-recropped", () => {
       waivers: { "plate-recropped_01": "the window holds everything the setup does" },
     });
     expect(found(state([{ ...recrop, panel: "animatic:shot.01.first" }]), waived)).toEqual([]);
+  });
+
+  it("is signed off once every keyframe that crops the plate is accepted as drawn", () => {
+    const first = { ...recrop, panel: "animatic:shot.01.first" };
+    const last = { ...recrop, panel: "animatic:shot.01.last" };
+    const signed = { signedOff: true as const };
+    expect(found(state([{ ...first, ...signed }, last]))).toHaveLength(1);
+    expect(
+      found(
+        state([
+          { ...first, ...signed },
+          { ...last, ...signed },
+        ]),
+      ),
+    ).toEqual([]);
   });
 
   it("stays silent with no board to read", () => {
@@ -1943,6 +1988,14 @@ describe("the join", () => {
       expect(found([before({}), after({})])).toEqual([]);
     });
 
+    it("is signed off once both shots across the seam are accepted as drawn", () => {
+      const pins = [before({ clipSec: 73 / 24, landsAt: 72 / 24 }), after({ from: 1.5 })];
+      const signed = (ids: readonly string[]) =>
+        found(pins.map((p) => (ids.includes(p.shotId) ? { ...p, signedOff: true as const } : p)));
+      expect(signed(["01"])).toHaveLength(2);
+      expect(signed(["01", "02"])).toEqual([]);
+    });
+
     it("is waived by the seam's key like the other join findings", () => {
       const waived = direction({
         shots: [shot("01", "deck"), shot("02", "deck", { join: "continuous" })],
@@ -1987,6 +2040,22 @@ describe("the join", () => {
       pins: [{ pin: "start", reaches: [seam] }],
       slots: ["start", "end"],
     };
+
+    it("is signed off once both shots across the seam are accepted as drawn", () => {
+      const unpinned = {
+        shotId: "01",
+        lane: "main" as const,
+        pins: [],
+        slots: ["start", "end"] as ("start" | "end")[],
+      };
+      expect(pinned([{ ...unpinned, signedOff: true }, after])).toHaveLength(1);
+      expect(
+        pinned([
+          { ...unpinned, signedOff: true },
+          { ...after, signedOff: true },
+        ]),
+      ).toEqual([]);
+    });
 
     it("flags a declared long take the take before does not land on", () => {
       const found = pinned([

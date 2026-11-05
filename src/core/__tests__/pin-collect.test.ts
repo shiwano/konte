@@ -194,6 +194,39 @@ describe("listVideoShotPins", () => {
       { shotId: "02", lane: "main", pins: [], slots: ["start", "end"] },
     ]);
   });
+
+  it("signs off a frame once its pinned takes and its composition are accepted as drawn", () => {
+    const signedOf = (accepted: readonly string[]) =>
+      listVideoShotPins(video, undefined, (a) => accepted.includes(a)).map((f) => [
+        f.shotId,
+        f.signedOff ?? false,
+      ]);
+    expect(signedOf(["video:shot.01.motion", "video:shot.02.motion"])).toEqual([
+      ["01", false],
+      ["02", false],
+    ]);
+    expect(
+      signedOf(["video:shot.01.motion", "video:shot.01#composition", "video:shot.02.motion"]),
+    ).toEqual([
+      ["01", true],
+      ["02", false],
+    ]);
+  });
+
+  it("signs off a frame with no pin slot by its composition alone", () => {
+    const still = defineVideo(testDirection(FORMAT), {
+      timeline: () =>
+        videoTimeline([
+          shot("01", {
+            duration: 2,
+            build: () => el(videoLayer(asset("key", imageComfy, { prompt: "a lit desk" }))),
+          }),
+        ]),
+    });
+    const [frame] = listVideoShotPins(still, undefined, (a) => a === "video:shot.01#composition");
+    expect(frame?.slots).toEqual([]);
+    expect(frame?.signedOff).toBe(true);
+  });
 });
 
 // The window half of `join-unshown`: where each shot plays its pinned take, in the take's own seconds.

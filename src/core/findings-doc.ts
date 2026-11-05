@@ -208,11 +208,13 @@ const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindingDoc> 
     subject: "`<frame>.<characterId>`",
   },
   "slot-order-mismatch": {
-    flags: "A keyframe passes its reference images in an order its `lineup` does not declare.",
+    flags:
+      "A keyframe passes its reference images in an order its `lineup` does not declare. Exempt once every such keyframe of the frame is accepted against its current definition.",
     subject: "frame",
   },
   "plate-recropped": {
-    flags: "A keyframe on a plated setup crops the plate, a frame its setup does not declare.",
+    flags:
+      "A keyframe on a plated setup crops the plate, a frame its setup does not declare. Exempt once every keyframe of the frame that crops it is accepted against its current definition.",
     subject: "frame",
   },
   "landmark-flipped": {
@@ -220,12 +222,13 @@ const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindingDoc> 
     subject: "setup id",
   },
   "passer-unconsumed": {
-    flags: "A video take's input chain does not reach a passing character's reference.",
+    flags:
+      "A video take's input chain does not reach a passing character's reference. Exempt once every such take is accepted against its current definition.",
     subject: "`<frame>.<characterId>`",
   },
   "passer-unnamed": {
     flags:
-      "A video take's positive prompts omit a passing character's promptDepiction (case-insensitive).",
+      "A video take's positive prompts omit a passing character's promptDepiction (case-insensitive). Exempt once every such take is accepted against its current definition.",
     subject: "`<frame>.<characterId>`",
   },
   "subject-unnamed": {
@@ -254,12 +257,12 @@ const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindingDoc> 
   },
   "join-unpinned": {
     flags:
-      "The video take before a `continuous` seam does not pin its end to the opening keyframe of the shot after it, where its model has an end slot.",
+      "The video take before a `continuous` seam does not pin its end to the opening keyframe of the shot after it, where its model has an end slot. Exempt once the composition of both shots, and every take of theirs with a pin slot, is accepted against its current definition.",
     subject: "frame",
   },
   "join-unshown": {
     flags:
-      "A take pinned to a `continuous` seam is played off that frame: the take before does not cut on the frame its end image lands on, or the take after does not open its shot on its first (`mediaStart`, `duration`).",
+      "A take pinned to a `continuous` seam is played off that frame: the take before does not cut on the frame its end image lands on, or the take after does not open its shot on its first (`mediaStart`, `duration`). Exempt once the composition of both shots, and every take of theirs with a pin slot, is accepted against its current definition.",
     subject: "frame",
   },
   "opening-key": {

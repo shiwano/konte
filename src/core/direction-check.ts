@@ -157,6 +157,9 @@ export type DirectionFinding = {
   signedOff?: true;
 };
 
+export const signOff = (signed: boolean): { signedOff?: true } =>
+  signed ? { signedOff: true } : {};
+
 export type CheckArcOptions = {
   // The scale's item word woven into messages ("shot" for a run of shots, "sequence" for a run of
   // sequences) so the same engine reads naturally at every scale — the finding *codes* stay identical.
@@ -1032,6 +1035,9 @@ export type VideoShotPins = {
   }[];
   // The ends its adapter declares a slot for, wired or not — what says the take COULD carry a seam.
   slots: readonly ("start" | "end")[];
+  // The shot's composition, and every take of the frame with a pin slot, accepted with its
+  // definition unchanged.
+  signedOff?: true;
 };
 
 /**
@@ -1043,6 +1049,7 @@ export type PanelSlots = {
   lane: PanelLane;
   panel: string;
   slots: readonly string[];
+  signedOff?: true;
 };
 
 /**
@@ -1470,7 +1477,13 @@ export function checkJoinPins(
     const seam = panelsOf.get(`${shot.shotId}/${shot.lane}`)?.firstPanel;
     if (seam === undefined) continue;
     const after = pinsOf.get(`${shot.shotId}/${shot.lane}`);
-    findings.push(...checkSeamWindows(previous, shot, seam, before, after));
+    const signed = before?.signedOff === true && after?.signedOff === true;
+    findings.push(
+      ...checkSeamWindows(previous, shot, seam, before, after).map((f) => ({
+        ...f,
+        ...signOff(signed),
+      })),
+    );
     if (!before) continue;
     if (!before.slots.includes("end")) continue;
     if (before.pins.some((p) => p.pin === "end" && p.reaches.includes(seam))) continue;
@@ -1488,6 +1501,7 @@ export function checkJoinPins(
           ? `pins nothing at its end`
           : `pins its end to another frame (${pinnedFrame})`) +
         ` — pin it to \`${seam}\``,
+      ...signOff(signed),
     });
   }
   return findings;
@@ -1596,8 +1610,6 @@ export type PanelPrompts = {
   generative: boolean;
   signedOff?: true;
 };
-
-const signOff = (signed: boolean): { signedOff?: true } => (signed ? { signedOff: true } : {});
 
 // A declared noun is looked for as itself, case-blind and anywhere in the text: "desk" is named by
 // "the desk" and by "a wooden desk", and a prompt that opens on a subject and goes on with "she" has
@@ -1901,6 +1913,7 @@ export type PlateRecrop = {
   shotId: string;
   lane: PanelLane;
   panel: string;
+  signedOff?: true;
 };
 
 // Reported per frame: the shot is what has to move onto a setup of its own.
@@ -1914,7 +1927,8 @@ function checkPlateRecrops(
     byFrame.set(subject, [...(byFrame.get(subject) ?? []), recrop]);
   }
   return [...byFrame].map(([subject, [first, ...rest]]) => {
-    const panels = [first!, ...rest].map((r) => `\`${r.panel}\``).join(", ");
+    const all = [first!, ...rest];
+    const panels = all.map((r) => `\`${r.panel}\``).join(", ");
     const setupId = first!.setupId;
     return {
       code: "plate-recropped" as const,
@@ -1923,6 +1937,7 @@ function checkPlateRecrops(
         `${frameName(first!)} crops plate "${setupId}" in ` +
         `${panels} — its own setup stands on a crop of ` +
         `\`${placeRefs.get(setupId) ?? "reference.<location>"}\``,
+      ...signOff(all.every((r) => r.signedOff)),
     };
   });
 }
@@ -1950,22 +1965,24 @@ function checkSlotOrder(
     if (shot.lineupTo && panels.length > 1 && shot.continuedBy === undefined) {
       against.push({ panel: panels[panels.length - 1]!, order: shot.lineupTo });
     }
-    for (const { panel, order } of against) {
+    const mismatches = against.flatMap(({ panel, order }) => {
       // Only the subjects the order names: a panel also conditions on the place and on anchors the
       // lineup has no opinion about, and those sit anywhere among the slots.
       const slots = [...new Set(panel.slots)].filter((id) => order.includes(id));
-      if (slots.length < 2) continue;
+      if (slots.length < 2) return [];
       const expected = order.filter((id) => slots.includes(id));
-      if (sameOrder(slots, expected)) continue;
-      findings.push({
-        code: "slot-order-mismatch",
-        subject: frameSubject(shot),
-        message:
-          `${panel.panel} passes its reference images as ${slots.join(", ")}, but ${frameName(shot)} ` +
-          `declares the frame as ${expected.join(", ")} left to right`,
-      });
-      break;
-    }
+      return sameOrder(slots, expected) ? [] : [{ panel, slots, expected }];
+    });
+    const shown = mismatches.find((m) => !m.panel.signedOff) ?? mismatches[0];
+    if (!shown) continue;
+    findings.push({
+      code: "slot-order-mismatch",
+      subject: frameSubject(shot),
+      message:
+        `${shown.panel.panel} passes its reference images as ${shown.slots.join(", ")}, but ` +
+        `${frameName(shot)} declares the frame as ${shown.expected.join(", ")} left to right`,
+      ...signOff(mismatches.every((m) => m.panel.signedOff)),
+    });
   }
   return findings;
 }

@@ -1,6 +1,7 @@
 import { acceptedVariantId } from "./accepted-variant.js";
 import {
   type ShotStage,
+  formatCompositionAddress,
   formatReferenceAddress,
   formatPlateAddress,
   tryParseAddress,
@@ -636,12 +637,14 @@ export function listVideoPasserInputs(
   video: VideoDefinition,
   animatic: AnimaticDefinition,
   cuesOf: (shotId: string) => readonly PictureCueLike[] | null,
+  signedOff?: (address: string) => boolean,
 ): {
   shotId: string;
   lane: PanelLane;
   refs: string[];
   texts: string[];
   generative: boolean;
+  signedOff?: true;
 }[] {
   const videoEntry = videoEntryResolver(video);
   const boardEntry = animaticEntryResolver(animatic);
@@ -669,6 +672,7 @@ export function listVideoPasserInputs(
             positivePromptsAt(video, address),
           ),
           generative: videoReach.generative,
+          ...(signedOff?.(root) ? { signedOff: true as const } : {}),
         });
       }
     }
@@ -693,6 +697,7 @@ export function listVideoShotPins(
     VideoShotPins & { pins: VideoShotPins["pins"][number][]; slots: ("start" | "end")[] }
   >();
   const chains = new Map<string, Record<PanelLane, Set<string>>>();
+  const slotTakes = new Map<string, Set<string>>();
   for (const shot of video.shots) {
     if (isPendingShot(shot)) continue;
     byFrame.set(`${shot.id}/main`, { shotId: shot.id, lane: "main", pins: [], slots: [] });
@@ -709,7 +714,11 @@ export function listVideoShotPins(
     // A slot is evidence about the take a lane RENDERS, so it counts only where that lane's chain
     // reaches its asset: an alternate declared beside the take says nothing about what the take can
     // carry. A wired pin keeps its older credit to `main` when no lane reaches it.
-    for (const lane of reached) byFrame.get(`${parsed.shotId}/${lane}`)?.slots.push(pin.pin);
+    for (const lane of reached) {
+      const key = `${parsed.shotId}/${lane}`;
+      byFrame.get(key)?.slots.push(pin.pin);
+      slotTakes.set(key, (slotTakes.get(key) ?? new Set()).add(pin.address));
+    }
     if (pin.source === undefined) continue;
     const reaches = [...orderedChainAddresses([pin.source], entryOf)];
     const shotSec = video.shots.find((s) => s.id === parsed.shotId)?.duration;
@@ -726,6 +735,12 @@ export function listVideoShotPins(
         ...(signedOff?.(pin.address) ? { signedOff: true as const } : {}),
         ...(window ? { window } : {}),
       });
+    }
+  }
+  if (signedOff) {
+    for (const [key, frame] of byFrame) {
+      const composition = formatCompositionAddress("video", frame.shotId);
+      if ([...(slotTakes.get(key) ?? []), composition].every(signedOff)) frame.signedOff = true;
     }
   }
   return [...byFrame.values()];
@@ -1157,9 +1172,9 @@ export function stagingStageState(
   const mark = (address: string) => (signedOff(address) ? { signedOff: true as const } : {});
   const plateTexts = listPlateTexts(animatic);
   return {
-    panelSlots: listPanelReferenceSlots(animatic),
+    panelSlots: listPanelReferenceSlots(animatic).map((p) => ({ ...p, ...mark(p.panel) })),
     panelReach: listPanelReferenceReach(animatic).map((p) => ({ ...p, ...mark(p.panel) })),
-    plateRecrops: listPlateRecrops(animatic, frames),
+    plateRecrops: listPlateRecrops(animatic, frames).map((r) => ({ ...r, ...mark(r.panel) })),
     panelPrompts: listPanelPromptText(animatic).map((p) => ({ ...p, ...mark(p.panel) })),
     plateTexts,
     signedOffPlateIds: Object.keys(plateTexts).filter((id) => signedOff(formatPlateAddress(id))),
@@ -1173,8 +1188,11 @@ export function stagingStageState(
       : [],
     ...(passers && video
       ? {
-          videoPassers: listVideoPasserInputs(video, animatic, (id) =>
-            harvestShotPictureCues(video, id),
+          videoPassers: listVideoPasserInputs(
+            video,
+            animatic,
+            (id) => harvestShotPictureCues(video, id),
+            manager ? (address) => isSignedOff(manager, video, address) : undefined,
           ),
         }
       : {}),
