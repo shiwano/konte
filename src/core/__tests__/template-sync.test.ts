@@ -33,7 +33,10 @@ async function readFileAt(dir: string, key: string): Promise<string> {
   return fs.readFile(path.join(dir, key), "utf-8");
 }
 
-async function writeLock(dir: string, lock: { hash: string; root?: string }): Promise<void> {
+async function writeLock(
+  dir: string,
+  lock: { hash: string; root?: string; files?: string[] },
+): Promise<void> {
   await writeFileAt(
     dir,
     LOCK_FILE,
@@ -181,6 +184,140 @@ describe("syncWorkspace", () => {
     await writeFileAt(tmpDir, customKey, "my custom skill");
     await syncWorkspace(tmpDir);
     expect(await readFileAt(tmpDir, customKey)).toBe("my custom skill");
+  });
+});
+
+describe("syncWorkspace retired adapters and guides", () => {
+  const OLD_ADAPTER = "adapters/comfy/old_model.ts";
+  const OLD_WORKFLOW = "adapters/comfy/old_model.json";
+  const OLD_GUIDE = ".konte/guides/old-model.md";
+  const RETIRED = [OLD_ADAPTER, OLD_WORKFLOW, OLD_GUIDE];
+
+  async function retiredWorkspace(lockFiles: string[] | undefined): Promise<void> {
+    await writeFileAt(
+      tmpDir,
+      OLD_ADAPTER,
+      'export const oldModel = defineComfyAsset({ workflow: "old_model.json", guide: "konte/guides/old-model.md" });\n',
+    );
+    await writeFileAt(tmpDir, OLD_WORKFLOW, "{}");
+    await writeFileAt(tmpDir, OLD_GUIDE, "# old model");
+    await writeLock(tmpDir, { hash: "stale", ...(lockFiles ? { files: lockFiles } : {}) });
+  }
+
+  async function exists(key: string): Promise<boolean> {
+    return fs.access(path.join(tmpDir, key)).then(
+      () => true,
+      () => false,
+    );
+  }
+
+  async function lockFiles(): Promise<string[]> {
+    return JSON.parse(await readFileAt(tmpDir, LOCK_FILE)).files;
+  }
+
+  it("deletes a retired adapter, its workflow and its guide that nothing names", async () => {
+    await retiredWorkspace(RETIRED);
+    const result = await syncWorkspace(tmpDir);
+    expect(result?.removed.sort()).toEqual([...RETIRED].sort());
+    expect(result?.retained).toEqual([]);
+    for (const key of RETIRED) expect(await exists(key)).toBe(false);
+    expect(await lockFiles()).not.toContain(OLD_ADAPTER);
+  });
+
+  it("keeps a retired adapter a video imports, with the workflow and guide it names", async () => {
+    await retiredWorkspace(RETIRED);
+    await writeFileAt(
+      tmpDir,
+      "videos/a/video.tsx",
+      'import { oldModel } from "konte/workspace/adapters/comfy/old_model.js";\n',
+    );
+    const result = await syncWorkspace(tmpDir);
+    expect(result?.removed).toEqual([]);
+    expect(result?.retained.sort()).toEqual([...RETIRED].sort());
+    for (const key of RETIRED) expect(await exists(key)).toBe(true);
+    expect(await lockFiles()).toEqual(expect.arrayContaining(RETIRED));
+  });
+
+  it("keeps a retired adapter workspace code outside videos imports", async () => {
+    await retiredWorkspace(RETIRED);
+    await writeFileAt(
+      tmpDir,
+      "lib/models.ts",
+      'export { oldModel } from "konte/workspace/adapters/comfy/old_model.js";\n',
+    );
+    await writeFileAt(
+      tmpDir,
+      "node_modules/pkg/index.ts",
+      'import "konte/workspace/adapters/comfy/old_model.js";\n',
+    );
+    expect((await syncWorkspace(tmpDir))?.retained.sort()).toEqual([...RETIRED].sort());
+  });
+
+  it("keeps a retired adapter imported by its .ts path", async () => {
+    await retiredWorkspace(RETIRED);
+    await writeFileAt(
+      tmpDir,
+      "videos/a/video.tsx",
+      'import { oldModel } from "konte/workspace/adapters/comfy/old_model.ts";\n',
+    );
+    expect((await syncWorkspace(tmpDir))?.retained.sort()).toEqual([...RETIRED].sort());
+  });
+
+  it("keeps a retired adapter imported without an extension", async () => {
+    await retiredWorkspace(RETIRED);
+    await writeFileAt(
+      tmpDir,
+      "videos/a/video.tsx",
+      'import { oldModel } from "konte/workspace/adapters/comfy/old_model";\n',
+    );
+    expect((await syncWorkspace(tmpDir))?.retained.sort()).toEqual([...RETIRED].sort());
+  });
+
+  it("deletes nothing a lock entry reaches outside adapters and guides", async () => {
+    await writeFileAt(tmpDir, "keep.txt", "mine");
+    await writeLock(tmpDir, { hash: "stale", files: ["adapters/../keep.txt"] });
+    expect((await syncWorkspace(tmpDir))?.removed).toEqual([]);
+    expect(await exists("keep.txt")).toBe(true);
+  });
+
+  it("deletes a retired adapter only node_modules names", async () => {
+    await retiredWorkspace(RETIRED);
+    await writeFileAt(
+      tmpDir,
+      "node_modules/pkg/index.ts",
+      'import "konte/workspace/adapters/comfy/old_model.js";\n',
+    );
+    expect((await syncWorkspace(tmpDir))?.removed.sort()).toEqual([...RETIRED].sort());
+  });
+
+  it("keeps a retired workflow konte.config.json routes", async () => {
+    await retiredWorkspace([OLD_WORKFLOW]);
+    await writeFileAt(
+      tmpDir,
+      "konte.config.json",
+      JSON.stringify({ comfy: { adapters: { old_model: ["comfyui"] } } }),
+    );
+    const result = await syncWorkspace(tmpDir);
+    expect(result?.retained).toEqual([OLD_WORKFLOW]);
+    expect(await exists(OLD_WORKFLOW)).toBe(true);
+  });
+
+  it("leaves an adapter and guide the lock does not record", async () => {
+    await retiredWorkspace([]);
+    const result = await syncWorkspace(tmpDir);
+    expect(result?.removed).toEqual([]);
+    for (const key of RETIRED) expect(await exists(key)).toBe(true);
+  });
+
+  it("deletes nothing under a lock with no file record, then records what it placed", async () => {
+    await retiredWorkspace(undefined);
+    const result = await syncWorkspace(tmpDir);
+    expect(result?.removed).toEqual([]);
+    for (const key of RETIRED) expect(await exists(key)).toBe(true);
+    const files = await lockFiles();
+    expect(files.length).toBeGreaterThan(0);
+    expect(files.every((key) => /^(adapters|\.konte\/guides)\//.test(key))).toBe(true);
+    expect(files).not.toContain(OLD_ADAPTER);
   });
 });
 

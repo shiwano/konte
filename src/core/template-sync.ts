@@ -21,11 +21,15 @@ interface TemplateLock {
   version: string;
   root: string;
   updatedAt: string;
+  files?: string[];
 }
 
 interface WorkspaceSyncResult {
   created: string[];
   updated: string[];
+  removed: string[];
+  /** A bundled adapter or guide the template dropped, left in place because a workspace file names it. */
+  retained: string[];
   unwritable: string[];
   /** What a coding agent reads only at its startup: agent settings and the `.konte/bin` link. */
   relaunch: string[];
@@ -69,12 +73,13 @@ async function readLock(workspaceRoot: string): Promise<TemplateLock | null> {
   return null;
 }
 
-async function writeLock(workspaceRoot: string): Promise<void> {
+async function writeLock(workspaceRoot: string, files: string[]): Promise<void> {
   const lock: TemplateLock = {
     hash: TEMPLATE_HASH,
     version: pkg.version,
     root: workspaceRoot,
     updatedAt: new Date().toISOString(),
+    files: [...files].sort(),
   };
   const lockPath = path.join(workspaceRoot, LOCK_FILE);
   await fs.mkdir(path.dirname(lockPath), { recursive: true });
@@ -114,6 +119,70 @@ function shippedSince(introducedIn: string | null, previous: string | null): boo
   return false;
 }
 
+const RETIRABLE_PREFIXES = ["adapters/", ".konte/guides/"];
+
+function isRetirable(key: string): boolean {
+  return path.posix.normalize(key) === key && RETIRABLE_PREFIXES.some((p) => key.startsWith(p));
+}
+const CONFIG_FILE = "konte.config.json";
+
+async function listSourceFiles(workspaceRoot: string, dir = ""): Promise<string[]> {
+  let dirents: import("node:fs").Dirent[];
+  try {
+    dirents = await fs.readdir(path.join(workspaceRoot, dir), { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const files: string[] = [];
+  for (const dirent of dirents) {
+    const key = dir === "" ? dirent.name : `${dir}/${dirent.name}`;
+    if (dirent.isDirectory()) {
+      if (dirent.name.startsWith(".") || dirent.name === "node_modules") continue;
+      files.push(...(await listSourceFiles(workspaceRoot, key)));
+    } else if (/\.tsx?$/.test(dirent.name)) {
+      files.push(key);
+    }
+  }
+  return files;
+}
+
+function referenceNeedles(key: string): string[] {
+  if (key.startsWith(".konte/guides/"))
+    return [`konte/guides/${key.slice(".konte/guides/".length)}`];
+  const base = path.posix.basename(key).replace(/\.[^.]+$/, "");
+  if (key.endsWith(".json")) return [`${base}.json`, `"${base}"`];
+  return [".js", ".ts", ".jsx", ".tsx", '"', "'"].map((end) => `/${base}${end}`);
+}
+
+/** A name inside another unused retired file does not count. */
+async function partitionRetired(
+  workspaceRoot: string,
+  retired: string[],
+): Promise<{ unused: string[]; used: string[] }> {
+  if (retired.length === 0) return { unused: [], used: [] };
+  const sources = new Map<string, string>();
+  const keys = [CONFIG_FILE, ...(await listSourceFiles(workspaceRoot))];
+  for (const key of keys) {
+    const content = await readFileOrNull(path.join(workspaceRoot, key));
+    if (content !== null) sources.set(key, content);
+  }
+
+  const unused = new Set(retired);
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const key of unused) {
+      const needles = referenceNeedles(key);
+      for (const [source, content] of sources) {
+        if (unused.has(source) || !needles.some((n) => content.includes(n))) continue;
+        unused.delete(key);
+        changed = true;
+        break;
+      }
+    }
+  }
+  return { unused: [...unused], used: retired.filter((key) => !unused.has(key)) };
+}
+
 function linksBinary(): boolean {
   return typeof KONTE_COMPILED !== "undefined" && KONTE_COMPILED && process.platform !== "win32";
 }
@@ -143,8 +212,9 @@ async function appendMissingIgnores(workspaceRoot: string, template: string): Pr
 /**
  * Brings a workspace up to this konte and this location: overwrites the managed template files
  * and the bundled adapters it holds, adds a bundled adapter shipped after the konte that last
- * synced it (`konte.version`), renders the agent settings for the workspace root, appends
- * missing `.gitignore` lines and links `.konte/bin/konte`. Cheap fast-path: returns null when the lock names the current
+ * synced it (`konte.version`), deletes a bundled adapter or guide the template dropped that the
+ * lock records an earlier sync leaving and no workspace file names, renders the agent settings
+ * for the workspace root, appends missing `.gitignore` lines and links `.konte/bin/konte`. Cheap fast-path: returns null when the lock names the current
  * template hash and this root, every managed file and agent setting is present, and the
  * `.konte/bin` link resolves.
  *
@@ -172,7 +242,9 @@ export async function syncWorkspace(
   const settings = await prepareAgentSettings(workspaceRoot);
   const created: string[] = [];
   const updated: string[] = [];
+  const removed: string[] = [];
   const unwritable: string[] = [];
+  const placed: string[] = [];
   const contents = await loadManagedTemplateContents();
   const template = await loadWorkspaceTemplate();
   for (const key of Object.keys(BUNDLED_ADAPTERS)) contents[key] = template[key]!;
@@ -180,6 +252,7 @@ export async function syncWorkspace(
   for (const [key, desired] of Object.entries(contents)) {
     const fullPath = path.join(workspaceRoot, key);
     const current = await readFileOrNull(fullPath);
+    if (current !== null) placed.push(key);
     if (current === desired) continue;
     if (
       current === null &&
@@ -197,7 +270,30 @@ export async function syncWorkspace(
       unwritable.push(key);
       continue;
     }
-    (current === null ? created : updated).push(key);
+    if (current === null) {
+      created.push(key);
+      placed.push(key);
+    } else {
+      updated.push(key);
+    }
+  }
+
+  const retiredCandidates: string[] = [];
+  for (const key of lock?.files ?? []) {
+    if (key in contents || !isRetirable(key)) continue;
+    if ((await readFileOrNull(path.join(workspaceRoot, key))) !== null) retiredCandidates.push(key);
+  }
+  const { unused, used: retained } = await partitionRetired(workspaceRoot, retiredCandidates);
+  placed.push(...retained);
+  for (const key of unused) {
+    try {
+      await fs.rm(path.join(workspaceRoot, key));
+    } catch (err) {
+      if (!isUnwritable(err)) throw err;
+      unwritable.push(key);
+      continue;
+    }
+    removed.push(key);
   }
 
   await appendMissingIgnores(workspaceRoot, template[".gitignore"]!);
@@ -207,8 +303,8 @@ export async function syncWorkspace(
   }
 
   if (unwritable.length === 0) {
-    await writeLock(workspaceRoot);
+    await writeLock(workspaceRoot, placed.filter(isRetirable));
     await writeVersionFile(workspaceRoot, previousVersion);
   }
-  return { created, updated, unwritable, relaunch };
+  return { created, updated, removed, retained, unwritable, relaunch };
 }

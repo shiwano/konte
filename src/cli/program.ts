@@ -4,6 +4,7 @@ import { Command } from "commander";
 import pkg from "../../package.json" with { type: "json" };
 import { KonteError } from "../core/errors.js";
 import { syncWorkspace } from "../core/template-sync.js";
+import { retirementLines } from "./sync-report.js";
 import { typeCheckWorkspace } from "../core/tsc.js";
 import { exitWithError } from "./error-output.js";
 import { scopeOf } from "./scope.js";
@@ -117,6 +118,7 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
         if (changed > 0) {
           console.error(`konte: synced ${changed} file(s) to v${pkg.version}`);
         }
+        for (const line of retirementLines(sync)) console.error(line);
         if (sync.unwritable.length > 0) {
           console.error(
             `konte: ${sync.unwritable.length} managed file(s) not writable, left behind v${pkg.version}: ${sync.unwritable.join(", ")} — run \`konte workspace setup\` where they are writable`,

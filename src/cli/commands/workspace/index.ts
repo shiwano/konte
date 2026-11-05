@@ -17,6 +17,7 @@ import { declareScope } from "../../scope.js";
 import { pathExists, writeTemplateFiles } from "../../template-files.js";
 import { prefetchManagedRuntimes } from "./prefetch.js";
 import { printNextSteps } from "../../next-steps.js";
+import { retirementLines } from "../../sync-report.js";
 
 const FRESH_REPO_ENTRIES = new Set([
   ".git",
@@ -55,7 +56,9 @@ async function scaffold(root: string, existing: boolean): Promise<void> {
     files[key] = content;
   }
   await writeTemplateFiles(root, files, WORKSPACE_BINARY_FILES);
-  const unwritable = (await syncWorkspace(root, { force: true }))?.unwritable ?? [];
+  const sync = await syncWorkspace(root, { force: true });
+  for (const line of sync ? retirementLines(sync) : []) console.error(line);
+  const unwritable = sync?.unwritable ?? [];
   if (unwritable.length > 0) {
     throw new KonteError(
       "TEMPLATE_SYNC_FAILED",
