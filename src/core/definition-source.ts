@@ -23,6 +23,8 @@ import { STAGE_ENTRY_FILE, WORKSPACE_MARKER } from "./roots.js";
 const PATCHES_DIR = "patches";
 const ADAPTERS_DIR = "adapters";
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
+// A comfy adapter's workflow graph is part of its definition (`workflowHash`).
+const ADAPTER_EXTENSIONS = new Set([...SOURCE_EXTENSIONS, ".json"]);
 
 function findWorkspaceRoot(from: string): string | null {
   let dir = path.resolve(from);
@@ -34,7 +36,10 @@ function findWorkspaceRoot(from: string): string | null {
   }
 }
 
-async function listSources(dir: string): Promise<string[]> {
+async function listSources(
+  dir: string,
+  extensions: ReadonlySet<string> = SOURCE_EXTENSIONS,
+): Promise<string[]> {
   const out: string[] = [];
   let entries: import("node:fs").Dirent[];
   try {
@@ -46,8 +51,8 @@ async function listSources(dir: string): Promise<string[]> {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
-      out.push(...(await listSources(full)));
-    } else if (entry.isFile() && SOURCE_EXTENSIONS.has(path.extname(entry.name))) {
+      out.push(...(await listSources(full, extensions)));
+    } else if (entry.isFile() && extensions.has(path.extname(entry.name))) {
       out.push(full);
     }
   }
@@ -63,7 +68,8 @@ export async function listDefinitionSources(videoRoot: string): Promise<string[]
   }
   files.push(...(await listSources(path.resolve(videoRoot, PATCHES_DIR))));
   const workspaceRoot = findWorkspaceRoot(videoRoot);
-  if (workspaceRoot) files.push(...(await listSources(path.join(workspaceRoot, ADAPTERS_DIR))));
+  if (workspaceRoot)
+    files.push(...(await listSources(path.join(workspaceRoot, ADAPTERS_DIR), ADAPTER_EXTENSIONS)));
   return files.sort();
 }
 

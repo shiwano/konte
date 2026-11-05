@@ -44,6 +44,15 @@ describe("computeDefinitionHash", () => {
     expect(computeDefinitionHash(comfy({ workflow: "other.json" }))).not.toBe(bare);
   });
 
+  it("reads the workflow graph, not its file name, once the graph is hashed", () => {
+    const hashed = computeDefinitionHash(comfy({ workflowHash: "g1" }));
+
+    expect(computeDefinitionHash(comfy({ workflow: "renamed.json", workflowHash: "g1" }))).toBe(
+      hashed,
+    );
+    expect(computeDefinitionHash(comfy({ workflowHash: "g2" }))).not.toBe(hashed);
+  });
+
   it("is stable across key order", () => {
     expect(
       computeDefinitionHash({
@@ -63,6 +72,7 @@ describe("definition fields are classified", () => {
     comfy: [
       "kind",
       "workflow",
+      "workflowHash",
       "inputs",
       "prunedNodes",
       "prunedPassThroughs",

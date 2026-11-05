@@ -4,6 +4,7 @@ import type {
   ComfyNodeDeclaration,
 } from "../types/index.js";
 import { KonteError } from "../errors.js";
+import { workflowContentHash } from "../workflow-content-hash.js";
 import type { MediaKind, MediaAsset } from "./builders.js";
 import { getActiveFormat, getShotContext, seed, type BuildFormat } from "./shot-context.js";
 import { panelInputs } from "./panel-collect.js";
@@ -620,6 +621,9 @@ export function defineComfyAsset<
         supplied.has(inputLabels[k]!),
       );
       result.adapterSuppliedInputs = adapterSuppliedInputs;
+
+      const workflowHash = workflowContentHash(config.workflow);
+      if (workflowHash !== undefined) result.workflowHash = workflowHash;
 
       if (prunedNodes.length > 0) {
         result.prunedNodes = [...new Set(prunedNodes)];

@@ -82,6 +82,7 @@ export const NON_GENERATIVE_KEYS: ReadonlyArray<string> = [
 export const ComfyAssetDefinitionSchema = z.object({
   kind: z.literal("comfy"),
   workflow: z.string(),
+  workflowHash: z.string().optional(),
   inputs: z.record(z.string(), z.unknown()),
   prunedNodes: z.array(z.string()).optional(),
   // Which of `prunedNodes` are pass-throughs, and on which input socket: `<nodeId>` → the input

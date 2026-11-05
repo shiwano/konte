@@ -3,6 +3,15 @@ import { NON_GENERATIVE_KEYS } from "./types/definition.js";
 import type { AssetDefinition } from "./types/index.js";
 
 /**
+ * Deletes, in place, every field no take's bytes depend on: `NON_GENERATIVE_KEYS`, and a comfy
+ * workflow's file name where its graph is hashed as `workflowHash`.
+ */
+export function stripNonGenerative(def: Record<string, unknown>): void {
+  for (const key of NON_GENERATIVE_KEYS) delete def[key];
+  if (def.kind === "comfy" && typeof def.workflowHash === "string") delete def.workflow;
+}
+
+/**
  * The fingerprint a take is compared against to decide whether its definition moved.
  *
  * `NON_GENERATIVE_KEYS` are excluded: none reaches a backend, so no take's bytes can depend on
@@ -17,6 +26,6 @@ import type { AssetDefinition } from "./types/index.js";
  */
 export function computeDefinitionHash(assetDef: AssetDefinition): string {
   const generative: Record<string, unknown> = { ...assetDef };
-  for (const key of NON_GENERATIVE_KEYS) delete generative[key];
+  stripNonGenerative(generative);
   return shortHash(generative);
 }

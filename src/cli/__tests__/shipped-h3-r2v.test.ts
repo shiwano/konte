@@ -3,6 +3,8 @@ import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { loadWorkflow, parameterizeWorkflow } from "../../comfyui/workflow.js";
 import { getAssetEntry } from "../../core/address.js";
+import { workflowContentHash } from "../../core/workflow-content-hash.js";
+import { setWorkspaceRoot } from "../../core/workspace-context.js";
 import type { ComfyAssetDefinition } from "../../core/types/index.js";
 import { loadDefinitionForAddress } from "../../core/stage-definitions.js";
 import { ctx, initWorkspace, run, useTempWorkspace } from "./cli-fixtures.js";
@@ -80,6 +82,19 @@ async function inspectDefinition(videoRoot: string, name: string): Promise<Comfy
 }
 
 describe("shipped MiniMax H3 R2V adapter", () => {
+  it("hashes the workflow graph it runs into the definition", async () => {
+    const { workspace, video } = await initWorkspace(path.join(ctx.dir, "p"));
+    await fs.writeFile(path.join(video, "reference.tsx"), REFERENCE_TSX(""));
+    setWorkspaceRoot(workspace);
+    try {
+      const bare = await inspectDefinition(video, "bare");
+      expect(bare.workflowHash).toBe(workflowContentHash("video_minimax_h3_r2v.json"));
+      expect(bare.workflowHash).toMatch(/^[0-9a-f]{12}$/);
+    } finally {
+      setWorkspaceRoot(null);
+    }
+  });
+
   it("prunes the audio guide by the adapter's own declaration, and keeps it when audioStem is passed", async () => {
     const { workspace, video } = await initWorkspace(path.join(ctx.dir, "p"));
     await fs.writeFile(path.join(video, "reference.tsx"), REFERENCE_TSX("audioStem: bgm,"));

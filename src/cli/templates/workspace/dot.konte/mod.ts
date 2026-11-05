@@ -2736,6 +2736,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     deterministic: z.ZodOptional<z.ZodBoolean>;
                     kind: z.ZodLiteral<"comfy">;
                     workflow: z.ZodString;
+                    workflowHash: z.ZodOptional<z.ZodString>;
                     inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
                     prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
                     prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -2836,6 +2837,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     kind: "comfy";
                     workflow: string;
                     inputs: Record<string, unknown>;
+                    workflowHash?: string | undefined;
                     prunedNodes?: string[] | undefined;
                     prunedPassThroughs?: Record<string, string> | undefined;
                     outputNodeId?: string | undefined;
@@ -2873,6 +2875,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     kind: "comfy";
                     workflow: string;
                     inputs: Record<string, unknown>;
+                    workflowHash?: string | undefined;
                     prunedNodes?: string[] | undefined;
                     prunedPassThroughs?: Record<string, string> | undefined;
                     outputNodeId?: string | undefined;
@@ -3234,6 +3237,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
                 outputNodeId?: string | undefined;
@@ -3370,6 +3374,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
                 outputNodeId?: string | undefined;
@@ -3510,6 +3515,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 deterministic: z.ZodOptional<z.ZodBoolean>;
                 kind: z.ZodLiteral<"comfy">;
                 workflow: z.ZodString;
+                workflowHash: z.ZodOptional<z.ZodString>;
                 inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
                 prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
                 prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -3610,6 +3616,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
                 outputNodeId?: string | undefined;
@@ -3647,6 +3654,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
                 outputNodeId?: string | undefined;
@@ -3844,6 +3852,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 deterministic: z.ZodOptional<z.ZodBoolean>;
                 kind: z.ZodLiteral<"comfy">;
                 workflow: z.ZodString;
+                workflowHash: z.ZodOptional<z.ZodString>;
                 inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
                 prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
                 prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -3944,6 +3953,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
                 outputNodeId?: string | undefined;
@@ -3981,6 +3991,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
                 outputNodeId?: string | undefined;
@@ -4130,6 +4141,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             kind: "comfy";
             workflow: string;
             inputs: Record<string, unknown>;
+            workflowHash?: string | undefined;
             prunedNodes?: string[] | undefined;
             prunedPassThroughs?: Record<string, string> | undefined;
             outputNodeId?: string | undefined;
@@ -4275,6 +4287,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               kind: "comfy";
               workflow: string;
               inputs: Record<string, unknown>;
+              workflowHash?: string | undefined;
               prunedNodes?: string[] | undefined;
               prunedPassThroughs?: Record<string, string> | undefined;
               outputNodeId?: string | undefined;
@@ -4364,6 +4377,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               kind: "comfy";
               workflow: string;
               inputs: Record<string, unknown>;
+              workflowHash?: string | undefined;
               prunedNodes?: string[] | undefined;
               prunedPassThroughs?: Record<string, string> | undefined;
               outputNodeId?: string | undefined;
@@ -4442,6 +4456,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             kind: "comfy";
             workflow: string;
             inputs: Record<string, unknown>;
+            workflowHash?: string | undefined;
             prunedNodes?: string[] | undefined;
             prunedPassThroughs?: Record<string, string> | undefined;
             outputNodeId?: string | undefined;
@@ -4587,6 +4602,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               kind: "comfy";
               workflow: string;
               inputs: Record<string, unknown>;
+              workflowHash?: string | undefined;
               prunedNodes?: string[] | undefined;
               prunedPassThroughs?: Record<string, string> | undefined;
               outputNodeId?: string | undefined;
@@ -4676,6 +4692,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               kind: "comfy";
               workflow: string;
               inputs: Record<string, unknown>;
+              workflowHash?: string | undefined;
               prunedNodes?: string[] | undefined;
               prunedPassThroughs?: Record<string, string> | undefined;
               outputNodeId?: string | undefined;
@@ -4889,6 +4906,7 @@ declare const ComfyAssetDefinitionSchema: z.ZodObject<
     deterministic: z.ZodOptional<z.ZodBoolean>;
     kind: z.ZodLiteral<"comfy">;
     workflow: z.ZodString;
+    workflowHash: z.ZodOptional<z.ZodString>;
     inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
     prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -4989,6 +5007,7 @@ declare const ComfyAssetDefinitionSchema: z.ZodObject<
     kind: "comfy";
     workflow: string;
     inputs: Record<string, unknown>;
+    workflowHash?: string | undefined;
     prunedNodes?: string[] | undefined;
     prunedPassThroughs?: Record<string, string> | undefined;
     outputNodeId?: string | undefined;
@@ -5026,6 +5045,7 @@ declare const ComfyAssetDefinitionSchema: z.ZodObject<
     kind: "comfy";
     workflow: string;
     inputs: Record<string, unknown>;
+    workflowHash?: string | undefined;
     prunedNodes?: string[] | undefined;
     prunedPassThroughs?: Record<string, string> | undefined;
     outputNodeId?: string | undefined;
@@ -5152,6 +5172,7 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
         deterministic: z.ZodOptional<z.ZodBoolean>;
         kind: z.ZodLiteral<"comfy">;
         workflow: z.ZodString;
+        workflowHash: z.ZodOptional<z.ZodString>;
         inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
         prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
         prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -5252,6 +5273,7 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
         kind: "comfy";
         workflow: string;
         inputs: Record<string, unknown>;
+        workflowHash?: string | undefined;
         prunedNodes?: string[] | undefined;
         prunedPassThroughs?: Record<string, string> | undefined;
         outputNodeId?: string | undefined;
@@ -5289,6 +5311,7 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
         kind: "comfy";
         workflow: string;
         inputs: Record<string, unknown>;
+        workflowHash?: string | undefined;
         prunedNodes?: string[] | undefined;
         prunedPassThroughs?: Record<string, string> | undefined;
         outputNodeId?: string | undefined;
@@ -5451,6 +5474,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
               deterministic: z.ZodOptional<z.ZodBoolean>;
               kind: z.ZodLiteral<"comfy">;
               workflow: z.ZodString;
+              workflowHash: z.ZodOptional<z.ZodString>;
               inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
               prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
               prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -5551,6 +5575,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
               kind: "comfy";
               workflow: string;
               inputs: Record<string, unknown>;
+              workflowHash?: string | undefined;
               prunedNodes?: string[] | undefined;
               prunedPassThroughs?: Record<string, string> | undefined;
               outputNodeId?: string | undefined;
@@ -5588,6 +5613,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
               kind: "comfy";
               workflow: string;
               inputs: Record<string, unknown>;
+              workflowHash?: string | undefined;
               prunedNodes?: string[] | undefined;
               prunedPassThroughs?: Record<string, string> | undefined;
               outputNodeId?: string | undefined;
@@ -5949,6 +5975,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
           kind: "comfy";
           workflow: string;
           inputs: Record<string, unknown>;
+          workflowHash?: string | undefined;
           prunedNodes?: string[] | undefined;
           prunedPassThroughs?: Record<string, string> | undefined;
           outputNodeId?: string | undefined;
@@ -6085,6 +6112,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
           kind: "comfy";
           workflow: string;
           inputs: Record<string, unknown>;
+          workflowHash?: string | undefined;
           prunedNodes?: string[] | undefined;
           prunedPassThroughs?: Record<string, string> | undefined;
           outputNodeId?: string | undefined;
@@ -6567,6 +6595,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     deterministic: z.ZodOptional<z.ZodBoolean>;
                     kind: z.ZodLiteral<"comfy">;
                     workflow: z.ZodString;
+                    workflowHash: z.ZodOptional<z.ZodString>;
                     inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
                     prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
                     prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -6667,6 +6696,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     kind: "comfy";
                     workflow: string;
                     inputs: Record<string, unknown>;
+                    workflowHash?: string | undefined;
                     prunedNodes?: string[] | undefined;
                     prunedPassThroughs?: Record<string, string> | undefined;
                     outputNodeId?: string | undefined;
@@ -6704,6 +6734,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     kind: "comfy";
                     workflow: string;
                     inputs: Record<string, unknown>;
+                    workflowHash?: string | undefined;
                     prunedNodes?: string[] | undefined;
                     prunedPassThroughs?: Record<string, string> | undefined;
                     outputNodeId?: string | undefined;
@@ -7065,6 +7096,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
                 outputNodeId?: string | undefined;
@@ -7201,6 +7233,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
                 outputNodeId?: string | undefined;
@@ -7341,6 +7374,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 deterministic: z.ZodOptional<z.ZodBoolean>;
                 kind: z.ZodLiteral<"comfy">;
                 workflow: z.ZodString;
+                workflowHash: z.ZodOptional<z.ZodString>;
                 inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
                 prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
                 prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -7441,6 +7475,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
                 outputNodeId?: string | undefined;
@@ -7478,6 +7513,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
                 outputNodeId?: string | undefined;
@@ -7798,6 +7834,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             kind: "comfy";
             workflow: string;
             inputs: Record<string, unknown>;
+            workflowHash?: string | undefined;
             prunedNodes?: string[] | undefined;
             prunedPassThroughs?: Record<string, string> | undefined;
             outputNodeId?: string | undefined;
@@ -7943,6 +7980,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
               kind: "comfy";
               workflow: string;
               inputs: Record<string, unknown>;
+              workflowHash?: string | undefined;
               prunedNodes?: string[] | undefined;
               prunedPassThroughs?: Record<string, string> | undefined;
               outputNodeId?: string | undefined;
@@ -8057,6 +8095,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             kind: "comfy";
             workflow: string;
             inputs: Record<string, unknown>;
+            workflowHash?: string | undefined;
             prunedNodes?: string[] | undefined;
             prunedPassThroughs?: Record<string, string> | undefined;
             outputNodeId?: string | undefined;
@@ -8202,6 +8241,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
               kind: "comfy";
               workflow: string;
               inputs: Record<string, unknown>;
+              workflowHash?: string | undefined;
               prunedNodes?: string[] | undefined;
               prunedPassThroughs?: Record<string, string> | undefined;
               outputNodeId?: string | undefined;

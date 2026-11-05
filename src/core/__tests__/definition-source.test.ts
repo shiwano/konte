@@ -41,6 +41,7 @@ describe("computeDefinitionSourceFingerprint", () => {
 
     await fs.mkdir(path.join(ws.root, "adapters", "comfy"), { recursive: true });
     await fs.writeFile(path.join(ws.root, "adapters", "comfy", "x.ts"), "export const x = 1;\n");
+    await fs.writeFile(path.join(ws.root, "adapters", "comfy", "x.json"), "{}\n");
     const withAdapter = await computeDefinitionSourceFingerprint(videoRoot);
     expect(withAdapter).not.toBe(base);
 
@@ -50,10 +51,12 @@ describe("computeDefinitionSourceFingerprint", () => {
     expect(withPatch).not.toBe(withAdapter);
 
     await fs.writeFile(path.join(videoRoot, ".konte", "scratch.ts"), "export const y = 2;\n");
+    await fs.writeFile(path.join(videoRoot, "patches", "notes.json"), "{}\n");
     expect(await computeDefinitionSourceFingerprint(videoRoot)).toBe(withPatch);
 
     const sources = await listDefinitionSources(videoRoot);
     expect(sources.map((f) => path.relative(ws.root, f)).sort()).toEqual([
+      "adapters/comfy/x.json",
       "adapters/comfy/x.ts",
       "videos/v1/animatic.tsx",
       "videos/v1/direction.ts",

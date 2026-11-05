@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { stableStringify } from "./stable-stringify.js";
-import { NON_GENERATIVE_KEYS } from "./types/definition.js";
+import { stripNonGenerative } from "./definition-hash.js";
 import type { AssetDefinition } from "./types/index.js";
 import { variantDir } from "./variant-dir.js";
 
@@ -55,9 +55,7 @@ export function diffDefinitions(oldDef: unknown, newDef: unknown): DefinitionCha
 function normalize(value: unknown): unknown {
   if (value === undefined) return null;
   const json: unknown = JSON.parse(JSON.stringify(value));
-  if (isPlainObject(json)) {
-    for (const key of NON_GENERATIVE_KEYS) delete json[key];
-  }
+  if (isPlainObject(json)) stripNonGenerative(json);
   return json;
 }
 
