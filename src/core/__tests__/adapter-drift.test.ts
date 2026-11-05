@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { computeDefinitionHash } from "../definition-hash.js";
 import { applyResolutionDefinitions } from "../definition-hashes.js";
 import { writeDefinitionSnapshot } from "../definition-snapshot.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
@@ -32,12 +33,16 @@ afterEach(async () => {
   await ws.cleanup();
 });
 
-async function driftOf(made: AssetDefinition, current: AssetDefinition): Promise<boolean> {
+async function acceptUnder(
+  made: AssetDefinition,
+  current: AssetDefinition,
+): Promise<{ sm: StateManager; id: string }> {
   const sm = await StateManager.load(root);
   const id = sm.reserveVariantId(ADDRESS);
   Object.assign(sm.getAssetState(ADDRESS).variants![id]!, {
     status: "accepted",
     file: "/tmp/test.png",
+    definitionHash: computeDefinitionHash(made),
   });
   writeDefinitionSnapshot(root, ADDRESS, id, made);
   await applyResolutionDefinitions({
@@ -48,7 +53,17 @@ async function driftOf(made: AssetDefinition, current: AssetDefinition): Promise
       reference: { shots: [], topLevelAssets: { test: current } } as unknown as ReferenceDefinition,
     },
   });
+  return { sm, id };
+}
+
+async function driftOf(made: AssetDefinition, current: AssetDefinition): Promise<boolean> {
+  const { sm, id } = await acceptUnder(made, current);
   return sm.registeredAdapterDrift(ADDRESS, id);
+}
+
+async function signsOff(made: AssetDefinition, current: AssetDefinition): Promise<boolean> {
+  const { sm } = await acceptUnder(made, current);
+  return sm.acceptedAsDefined(ADDRESS, computeDefinitionHash(current));
 }
 
 describe("adapter drift", () => {
@@ -111,5 +126,24 @@ describe("adapter drift", () => {
     const made = adapter(8).createDefinition({ prompt: "a dog" });
     const current = adapter(4).createDefinition({ prompt: "a cat" });
     expect(await driftOf(made, current)).toBe(false);
+  });
+});
+
+describe("acceptedAsDefined", () => {
+  it("signs off an accept whose definition is unchanged", async () => {
+    const def = adapter(8).createDefinition({ prompt: "a cat" });
+    expect(await signsOff(def, def)).toBe(true);
+  });
+
+  it("signs off an accept whose definition moved only under its adapter", async () => {
+    const made = adapter(4).createDefinition({ prompt: "a cat" });
+    const current = adapter(8).createDefinition({ prompt: "a cat" });
+    expect(await signsOff(made, current)).toBe(true);
+  });
+
+  it("does not sign off an accept whose call site moved", async () => {
+    const made = adapter(8).createDefinition({ prompt: "a dog" });
+    const current = adapter(8).createDefinition({ prompt: "a cat" });
+    expect(await signsOff(made, current)).toBe(false);
   });
 });

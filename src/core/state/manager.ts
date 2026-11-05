@@ -11,6 +11,7 @@ import { writeFileAtomic } from "../atomic-write.js";
 import { KonteError, errorMessage } from "../errors.js";
 import { withFileLock } from "../file-lock.js";
 import {
+  computeAcceptedStaleness,
   computeVariantStaleness,
   createStalenessCache,
   keptViaMarker,
@@ -410,6 +411,22 @@ export class StateManager {
    */
   registeredAdapterDrift(address: string, variantId: string): boolean {
     return this.definitions()?.adapterDrift?.(this.getState(), address, variantId) === true;
+  }
+
+  /**
+   * Whether the take accepted at `address` was drawn from `currentDefinitionHash`, or from one that
+   * moved only under its adapter.
+   */
+  acceptedAsDefined(address: string, currentDefinitionHash: string | null): boolean {
+    const accepted = computeAcceptedStaleness(
+      this.getState(),
+      address,
+      currentDefinitionHash,
+      this.stalenessCache(),
+    );
+    if (accepted.variantId === null) return false;
+    if (!accepted.definitionStale) return true;
+    return !accepted.patchStale && this.registeredAdapterDrift(address, accepted.variantId);
   }
 
   /**

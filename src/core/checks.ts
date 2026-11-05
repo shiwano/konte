@@ -47,7 +47,6 @@ import { findUnheldLandmarks } from "./landmark-held-check.js";
 import { type PinOccurrence, pinFindings } from "./pin-check.js";
 import { type PromptOccurrence, promptFindings } from "./prompt-check.js";
 import { findAllUnmetPrerequisites, prerequisiteShot } from "./review-prerequisites.js";
-import { computeAcceptedStaleness } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
 import { type ClassSubject, checkTailwindClasses } from "./tailwind-classes.js";
 import type {
@@ -203,16 +202,8 @@ const VIEW_ANCHOR_CHECK: Check = {
   },
 };
 
-// Whether the take accepted at `address` was drawn from its definition as it stands.
 function acceptedAsDefined(ctx: CheckContext, def: DefinitionLike, address: string): boolean {
-  if (!ctx.manager) return false;
-  const accepted = computeAcceptedStaleness(
-    ctx.manager.getState(),
-    address,
-    definitionHashForAddress(def, address),
-    ctx.manager.stalenessCache(),
-  );
-  return accepted.variantId !== null && !accepted.definitionStale;
+  return ctx.manager?.acceptedAsDefined(address, definitionHashForAddress(def, address)) === true;
 }
 
 const PROMPT_CHECK: Check = {

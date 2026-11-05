@@ -37,7 +37,6 @@ import { extractRefs, exposedPlateIdsOf, LANES, lanePanels, platesOf } from "./g
 import { loadAnimatic, loadVideoDefinition } from "./loader.js";
 import { songVariantState } from "./song-variant.js";
 import { stageEntryPath } from "./roots.js";
-import { computeAcceptedStaleness } from "./staleness.js";
 import { StateManager } from "./state/index.js";
 
 /**
@@ -1189,13 +1188,7 @@ function isSignedOff(
   def: VideoDefinition | AnimaticDefinition,
   address: string,
 ): boolean {
-  const accepted = computeAcceptedStaleness(
-    manager.getState(),
-    address,
-    definitionHashForAddress(def, address),
-    manager.stalenessCache(),
-  );
-  return accepted.variantId !== null && !accepted.definitionStale;
+  return manager.acceptedAsDefined(address, definitionHashForAddress(def, address));
 }
 
 type DirectionStageInputs = {
