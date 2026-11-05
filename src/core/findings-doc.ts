@@ -417,7 +417,7 @@ const STAGE_FINDING_DOCS: Record<OtherCode, { flags: string; fixIn: string }> = 
   },
   "stem-unmouthed": {
     flags:
-      "A video take is driven by its board shot's stem, yet no character the shot's frame holds speaks its lines. Read where every line is a cast character's, every cue of the stem a voice, and the frame neither `coverage` nor graphic.",
+      "A video take is driven by its board shot's stem, yet no character the shot's frame holds speaks its lines. Read where every line is a cast character's, every cue of the stem a voice, and the frame neither `coverage` nor graphic. A take accepted against its current definition is exempt.",
     fixIn: "`video.tsx`",
   },
   "script-unvoiced": {

@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { formatShotStemAddress } from "../address.js";
+import { collectFindings } from "../checks.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { Audio, Composition, Panel, Video } from "../dsl/composition/index.js";
 import { defineDirection, type Direction } from "../dsl/direction.js";
 import { asset, defineAnimatic, defineVideo } from "../dsl/index.js";
+import { findingTraits } from "../finding.js";
+import type { StateManager } from "../state/manager.js";
 import { findUnmouthedStems } from "../stem-mouth-check.js";
 import type { AnimaticDefinition, VideoDefinition } from "../types/index.js";
 import { directionDefaults } from "./helpers/direction.js";
@@ -230,5 +233,43 @@ describe("stem inputs collected from video.tsx", () => {
     expect(findUnmouthedStems(offFrame as unknown as Direction, board, video)).toEqual([
       { address: "video:shot.01.motion", shotId: "01", speakers: ["holmes"] },
     ]);
+  });
+});
+
+describe("stem-unmouthed", () => {
+  const findingsUnder = async (accepted: readonly string[]) => {
+    const manager = {
+      acceptedAsDefined: (address: string) => accepted.includes(address),
+    } as unknown as StateManager;
+    const traits = findingTraits("stem-unmouthed");
+    const { findings } = await collectFindings(
+      {
+        videoRoot: "",
+        direction,
+        directionAccepted: true,
+        reference: null,
+        animatic: animatic(),
+        video: video(),
+        manager,
+        graph: null,
+        patches: [],
+        lang: null,
+      },
+      (t) => t === traits,
+      { signedOff: true },
+    );
+    return findings.filter((f) => f.code === "stem-unmouthed");
+  };
+
+  it("sits on a take not yet accepted", async () => {
+    const [f] = await findingsUnder([]);
+    expect(f?.targets).toEqual(["video:shot.01.motion"]);
+    expect(f?.signedOff).toBeUndefined();
+  });
+
+  it("is signed off by an accept of the take as drawn", async () => {
+    const [f] = await findingsUnder(["video:shot.01.motion"]);
+    expect(f?.targets).toEqual([]);
+    expect(f?.signedOff).toEqual(["video:shot.01.motion"]);
   });
 });

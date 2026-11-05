@@ -409,15 +409,20 @@ const STEM_MOUTH_CHECK: Check = {
   codes: ["stem-unmouthed"],
   run: (ctx) => {
     if (!ctx.direction || !ctx.animatic || !ctx.video) return [];
-    return findUnmouthedStems(ctx.direction, ctx.animatic, ctx.video).map(
-      (u): Finding => ({
+    const video = ctx.video;
+    return findUnmouthedStems(ctx.direction, ctx.animatic, video).map((u): Finding => {
+      const accepted = acceptedAsDefined(ctx, video as DefinitionLike, u.address);
+      return {
         code: "stem-unmouthed",
         subject: u.address,
         fixIn: { stage: "video" },
-        message: `${u.speakers.join(", ")} ${u.speakers.length === 1 ? "is" : "are"} off the frame`,
-        targets: [u.address],
-      }),
-    );
+        message:
+          `${u.speakers.join(", ")} ${u.speakers.length === 1 ? "is" : "are"} off the frame` +
+          (accepted ? " — accepted as drawn; fix it before drawing it again" : ""),
+        targets: accepted ? [] : [u.address],
+        ...(accepted ? { signedOff: [u.address] } : {}),
+      };
+    });
   },
 };
 

@@ -246,7 +246,7 @@ const OTHER_TRAITS: Record<
   },
   "stem-unmouthed": {
     reads: "definition",
-    clears: "fix",
+    clears: "accept",
     holds: { spend: { reach: "edge" } },
     onset: "always",
   },
