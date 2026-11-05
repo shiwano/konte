@@ -18,7 +18,7 @@ Write `prompt` in the shape of what it is:
   heavy wooden door creaking open slowly in a stone hall, distant echo
   ```
 
-A dense comma-list of descriptors, not narrative prose. Name concrete instruments/sources; favor physical detail over evaluative words.
+Name concrete instruments/sources; favor physical detail over evaluative words.
 
 ## Length
 

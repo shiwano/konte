@@ -1,6 +1,7 @@
 # Z Image
 
-Write a reference for legibility — bone and build, hair, skin and eye colour, the cut and material of each garment, the props; a place, its layout and surfaces. One subject per asset, and one further asset per view a later model needs: a neutral full-length, a medium close-up, a profile, a costume detail.
+- Write a reference for legibility — bone and build, hair, skin and eye colour, the cut and material of each garment, the props; a place, its layout and surfaces.
+- One subject per asset, and one further asset per view a later model needs: a neutral full-length, a medium close-up, a profile, a costume detail.
 
 ## Prompt Shape
 
@@ -29,5 +30,4 @@ English and Chinese are the trained prompt languages.
 
 ## Avoid
 
-- Keyword lists — this model reads prose.
 - Evaluative filler ("masterpiece, best quality, 8k").

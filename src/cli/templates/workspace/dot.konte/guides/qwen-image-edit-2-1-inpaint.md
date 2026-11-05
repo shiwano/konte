@@ -26,7 +26,7 @@ Describe the change within the crop. Name what stays by its role, in one blanket
 ## Cost ladder
 
 - The defaults, `cfg: 4` at 25 steps, are the rung to keep.
-- `cfg: 1` takes about two thirds of the time, without `negativePrompt`.
+- `cfg: 1` takes about two thirds of the time.
 - 40 steps buys nothing on a local edit.
 
 ## Avoid

@@ -20,7 +20,7 @@ prompt: {
 }
 ```
 
-- `style` opens on the medium — `Cinematic`, `live-action`, `2D-animated`, `3D CG`, `claymation`, `watercolor`, `vintage film`, derived from the reference image wherever a frame or a sheet is passed, and from the shot's own text where none is — then the piece's motion grammar where it has one: what motion leaves on screen (smears, speed lines, a flash or a background colour change on a hit) and how the camera behaves; a shot's own moves stay in its text.
+- `style` opens on the medium — `Cinematic`, `live-action`, `2D-animated`, `3D CG`, `claymation`, `watercolor`, `vintage film`, derived from the reference image wherever a frame or a sheet is passed, and from the shot's own text where none is — then the piece's motion grammar where it has one; a shot's own moves stay in its text.
 - English is the body language. Only dialogue, lyrics and text visible in frame keep their source language.
 - `shots[0]` is `[Shot 1]`; every later shot is `{ at, text }` — `at` the cut time in seconds, strictly increasing and inside the take's duration.
 - Refer back in words (`the previous shot`), never with `[Shot N]` inside a shot's text. Other fields cite a shot as `[Shot N]`, N its position in `shots`.
@@ -56,4 +56,4 @@ prompt: {
 - Keyword lists — this model reads prose.
 - Evaluative filler ("masterpiece, best quality, 8k").
 - Naming an exclusion — the model takes no negative text.
-- Tagging a reference you did not pass — the tag lands on whichever reference took that ordinal. The adapter rejects it, along with a slot you passed and never tagged.
+- Tagging a reference you did not pass, or passing a slot you never tag — the adapter rejects both.

@@ -24,9 +24,9 @@ Shout it out, I'm alive tonight
 ```
 
 - Common tags: `[Intro]`, `[Verse]`, `[Pre-Chorus]`, `[Chorus]`, `[Hook]`, `[Bridge]`, `[Outro]`. Separate lines with `\n`.
-- Instrumental — leave `lyrics` empty, with no "instrumental" in `tags`.
+- Instrumental, or BGM under narration — leave `lyrics` empty, with no "instrumental" in `tags`.
 
-## Length Heuristic
+## Length
 
 - `tags`: a tight ~6–12 descriptors — density beats length.
 - Lyric lines short and singable (~4–8 words).
@@ -38,7 +38,6 @@ Shout it out, I'm alive tonight
 
 ## Tips
 
-- For BGM under narration, leave `lyrics` empty so vocals don't compete with the voiceover.
 - Iterate by swapping one element in `tags`, not rerolling an identical prompt.
 
 ## Avoid

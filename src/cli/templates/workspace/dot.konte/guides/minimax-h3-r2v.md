@@ -29,7 +29,7 @@ Picture and stereo audio decoded from one take.
 
 - Cut verbs — `the camera cuts to`, `the shot cuts to`, `the shot transitions to`, `the shot changes to`, `the shot switches to`. Cross-dissolve, fade and wipe only when the shot asks for one.
 - A cut has to bring new information — subject, space, state, viewpoint or time. If only the distance or the angle shifts, move the camera instead.
-- A coverage shot is one `[Shot N]` string, its cuts written inside it, never placed with `at` — the model times its own cuts, landing late on a pinned second. Its opening panel goes in as `image1`, no end frame. The 350–1200 words still hold.
+- A coverage shot is one `[Shot N]` string, its cuts written inside it, never placed with `at` — the model times its own cuts, landing late on a pinned second. Its opening panel goes in as `image1`, no end frame.
 
 ## Camera Motion
 
@@ -60,8 +60,8 @@ The camera holds a static shot as the runner exits the frame.
 
 - A line a mouth has to match is `animatic.stem` passed as `audioStem` — it takes no `audio reuse` / `audio reference` task type and no `retentionAnalysis` line; the words in `<d>` are the recording's own, verbatim, as in a reuse.
 - An effect in the stem times the action that makes it — name it at that action in `detailedDescription` (`her fist landing on her chest exactly on the dull thump in the soundtrack`), and in `overallSoundscape`.
-- The clip arrives with its track baked in — a composition plays it with `<Video hasAudio>` alone; a second `<Audio src={animatic.stem} />` over that take double-tracks the line.
-- Narration, or a line no one in the frame speaks, goes in neither slot nor a `<d>` — the take carries only its soundscape, and `<Audio>` places the line (`stem-unmouthed`).
+- The clip arrives with its track baked in — a second `<Audio src={animatic.stem} />` over that take double-tracks the line.
+- Narration, or a line no one in the frame speaks, goes in neither slot nor a `<d>` — the take carries only its soundscape (`stem-unmouthed`).
 
 ## Clip Length
 

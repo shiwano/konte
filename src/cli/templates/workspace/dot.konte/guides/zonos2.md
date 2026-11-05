@@ -38,14 +38,15 @@ She read the last line twice, then closed the book. It was already too late.
 
 ## Conditioning Buckets
 
-`speakingRate`, `loudnessLufs`, `leadingSilence` and `trailingSilence` each take a labelled range (`"3: 0.25-0.5"`) or `"default"`, which leaves that axis unconditioned. They shape pace, level and the silence around the line, never the speaker.
-
+- `speakingRate`, `loudnessLufs`, `leadingSilence` and `trailingSilence` each take a labelled range (`"3: 0.25-0.5"`) or `"default"`, which leaves that axis unconditioned.
+- They shape pace, level and the silence around the line, never the speaker.
 - `speakingRate` is cleaned bytes per second, so a lower bucket reads slower — the one to reach for when a line overruns its shot.
 - `leadingSilence` / `trailingSilence` in seconds. Trim them when the composition already places the line.
 
 ## Emotion
 
-`emotion` moves only the delivery, never the speaker. `"none"` leaves conditioning untouched. A line that acts sets three inputs together:
+- `emotion` moves only the delivery, never the speaker; `"none"` leaves conditioning untouched.
+- A line that acts sets three inputs together:
 
 ```ts
 asset("line1", audioZonos2VoiceClone, {
@@ -57,9 +58,9 @@ asset("line1", audioZonos2VoiceClone, {
 });
 ```
 
-- `emotionStrength` multiplies a strength ZONOS2 already calibrated per direction, so 1.0 is the intended amount.
+- `emotionStrength` 1.0 is the amount ZONOS2 calibrated per direction.
 - `emotionStrength: 0` disables emotion whatever else is set, so konte rejects it against a set emotion — say it with `"none"` and unpushed axes instead. Both scales stay at 1 on an unconditioned line.
-- The directions are not equally strong. `sad` and `surprised` land at 1.0; `angry` barely reads there and wants 2.0–3.0.
+- `sad` and `surprised` land at 1.0; `angry` barely reads there and wants 2.0–3.0.
 - `emotionValence` / `emotionArousal` mix in continuous axes alongside the named emotion, or instead of it. Valence runs unpleasant to pleasant, arousal calm to excited.
 - The axes read more gently than a named emotion at the same strength — the tool for a baseline temperament; a named emotion is a single beat, a line that turns.
 - `emotionCfgScale` is the second lever, off at 1.0; above it a take costs roughly double the generation time. Stay at or below 1.3 — 1.5 drops the level and clips the final mora. Reach for strength first.

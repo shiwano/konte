@@ -35,13 +35,13 @@ prompt: {
 ## Casting
 
 - Raise `width` and `height` to 256 for a line that still breaks at 128, never to the project canvas.
-- A take with no reference comes back a different person on every seed. Make the character's voice sample this way, as `prompt-guide` describes it, rerolling until the voice is right.
+- A take with no reference comes back a different person on every seed. Make the character's voice sample this way, rerolling until the voice is right.
 - Pass the accepted sample as `audio1` — on every line the character speaks, marked `weak_reference`.
 - A line a mouth has to match is made here — accept the R2A take as the shot's `<Audio>` on the board.
 
 ## Clip Length
 
-- Never give a line the shot's `length` — a 1.5s line handed five seconds comes back said two or three times over. One rung long plays whole, cut mid-word by the `<Audio>` window in the composition.
+- Never give a line the shot's `length`. One rung long plays whole, cut mid-word by the `<Audio>` window in the composition.
 - The rungs are `17k + 5` — a value between them rounds up.
 
 ## Cost ladder

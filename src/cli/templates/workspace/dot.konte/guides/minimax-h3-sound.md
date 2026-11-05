@@ -10,7 +10,7 @@ What the decoded track reads from the prompt.
 
 - Every voice gets a stable id — `(S1)`, `(S2)`, in the order they first sound; `(S1,S2)` when they speak together. The id follows the speaker across shots. A character who never vocalizes gets none. Speaker ids never appear in `retentionAnalysis`.
 - A speaking reference keeps both labels — `<Subject 2> (S1) turns toward the woman and says, <d>[English] …</d>`. When an `<Audio N>` is a voice reference, bind it to the same id in its definition (`<Audio 1> is the voice-timbre reference for <Subject 1> (S1).`).
-- Cast the voice on first appearance, outside `<d>` — character type, age, gender, on- or off-screen, pitch, timbre, rate, accent.
+- Cast the voice on first appearance, outside `<d>` — enough of character type, age, gender, on- or off-screen, pitch, timbre, rate and accent to fix who speaks: `the young woman with a quiet, breathy voice (S1)`.
 - A sheet as `<Picture N>` or a voice as `<Audio N>` casts the speaker too — an uncast one comes back male.
 - Carry the delivery on the verb — `snaps at them`, `shouts at them`, `drops her voice to a frightened whisper and says`. The voice itself is two or three adjectives on the speaker. A list of acoustic properties in its place comes back stiff.
 - Reach for a plain `says` unless the shot is about how she says it — a pressed or muttered delivery costs intelligibility.
@@ -67,5 +67,5 @@ retentionAnalysis: ["<Audio 1>: reference - the target speaker follows its timbr
 
 ## Level
 
-- Level is not addressable — there is no volume or mix-balance field, and a dynamic change on `nonDiegeticMusic` ("gradually increasing in volume") is the only loudness the prompt reaches. A reference's `retentionAnalysis` marker is not one either. Write the rest as quality — `a faint crackle`, `low room ambience underneath` — and set the take's own level at playback with the composition's `volume`.
-- The level is written into the performance — a hushed interior comes back far under a studio read. A take too quiet for `volume`'s +12 dB ceiling is re-acted, not amplified.
+- Level is not addressable — there is no volume or mix-balance field, and a dynamic change on `nonDiegeticMusic` ("gradually increasing in volume") is the only loudness the prompt reaches. A reference's `retentionAnalysis` marker is not one either. Write the rest as quality — `a faint crackle`, `low room ambience underneath`.
+- The level is written into the performance — a hushed interior comes back far under a studio read. A take too quiet for the +12 dB gain ceiling, konte's levelling included, is re-acted, not amplified.

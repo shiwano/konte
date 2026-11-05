@@ -27,7 +27,6 @@ Hit the light, hit the light
 
 - Tags: `[Verse]`, `[Chorus]`, `[Bridge]`, `[Outro]`. A blank line between sections.
 - Instrumental → leave `lyrics` empty and name no voice in `style`, not even to exclude one.
-- Musical direction goes in `style`, never in `lyrics`.
 
 ## Length
 

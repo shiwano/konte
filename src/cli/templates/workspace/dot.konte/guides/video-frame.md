@@ -2,7 +2,7 @@
 
 ## Chaining past a model's maximum duration
 
-A motion model caps its clip length (Hailuo H3 tops out near 15s). Generate a longer take in segments, each conditioned on the frame the previous one ends on.
+A motion model caps its clip length (MiniMax H3 tops out near 15s). Generate a longer take in segments, each conditioned on the frame the previous one ends on.
 
 ```tsx
 const CUT_A = 14.5;

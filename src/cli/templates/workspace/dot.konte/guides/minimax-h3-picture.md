@@ -6,7 +6,7 @@ What a decoded frame reads from the prompt.
 
 - A picture used as a frame is defined as one and cited in its shot — in `subjectDefinitions`, `<Picture 1> is the first frame of [Shot 1].`, `<Picture 2> is the last frame of [Shot 1].`; in the shot's text, `the shot begins from <Picture 1>`, `the shot's keyframe corresponds to <Picture 2>`, `the shot ends on <Picture 3>`; and `keyframe completion` in the task type. A panel that plans the shot rather than filling a frame says so instead: `<Picture 3> is an animatic reference for [Shot 1] and [Shot 2], defining their viewpoint, subject placement, and shot order.`
 - A passed frame fixes the camera as well as the content. Its height and axis carry into the take, and prose rarely overrides them — writing "much closer, held level with his face" moves the distance and leaves the borrowed downward angle. Pass the frame whose camera you want: the wide a push-in cuts from hands over its own distance, so the push-in never lands.
-- A populated frame with no slot wins the frame — a neighbouring panel passed as a bare `<Picture N>` brings its own framing and pose over the plate's. The frame anchor is the empty plate; a panel goes in only as a frame the description names by shot.
+- A neighbouring panel passed as a bare `<Picture N>` brings its own framing and pose over the plate's — a panel goes in only as a frame the description names by shot.
 
 ## Retention
 
@@ -20,7 +20,6 @@ What a decoded frame reads from the prompt.
 ## Pose and Placement
 
 - A pose is read joint by joint, and only there — "pitched forward with the momentum of his run" comes back standing still; "the thigh angled backward toward image-right, the knee sharply bent, and the heel kicked up high behind him" comes back mid-leap.
-- A state word renders nothing — "she looks anxious" comes back neutral.
 - The parts run in one fixed order — camera angle, torso, head, arms, legs, framing. One clause a limb: the upper arm's or thigh's direction, the elbow's or knee's bend, where the hand or foot ends up.
 - Angles are coarse words — `nearly vertical`, `nearly horizontal`, `nearly straight`, `sharply bent`, `nearly level`, `angled downward toward image-left`.
 - A prop of several parts is read along its length — what comes first from one end of the frame, what follows it, and which hand closes on which part: the scabbard in one fist at the lower right, the bare blade leaving its mouth, the guard, then the hilt in the other fist. "Drawing his sword" comes back with two swords.

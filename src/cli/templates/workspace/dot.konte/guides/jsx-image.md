@@ -42,21 +42,20 @@ const plate = asset("plate", adapters.jsxImage, {
 });
 ```
 
-`fill` is `position: absolute` at 100% × 100% with `object-fit: cover`, so it fills the nearest positioned ancestor — `#stage` (the whole canvas) at the top level, and a box of your own only when that box is positioned. Inside a plain static `<div>` it escapes to the canvas and covers everything painted before it.
-
-Being positioned, it also paints over anything in normal flow, so put text and layout over a `fill` background in positioned elements too.
-
-Where neither is what you want, size a plain `<Image>` yourself — `className` and `style` pass straight through to the `<img>`, `objectFit` included:
+- `fill` is `position: absolute` at 100% × 100% with `object-fit: cover` — it fills the nearest positioned ancestor: `#stage` (the whole canvas) at the top level, a box of your own only when that box is positioned.
+- Inside a plain static `<div>` it escapes to the canvas and covers everything painted before it.
+- It paints over anything in normal flow — put text and layout over a `fill` background in positioned elements too.
+- Otherwise size a plain `<Image>` yourself — `className` and `style` pass straight through to the `<img>`, `objectFit` included:
 
 ```tsx
 <Image src={reference.logo} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
 ```
 
-Stills only. A `<Video>` or `<Audio>` fails the load. An `<Animate>` loads, and its timeline never runs.
+- A `<Video>` or `<Audio>` fails the load. In `jsxImage` an `<Animate>` loads, and its timeline never runs.
 
 ## Background
 
-Defaults to opaque `#000000`. Pass `background: "transparent"` for an alpha PNG — a lower third or a logo bug layered over a shot:
+`jsxImage` only: `background: "transparent"` for an alpha PNG — a lower third or a logo bug layered over a shot:
 
 ```tsx
 const lowerThird = asset("nameplate", adapters.jsxImage, {
@@ -74,7 +73,7 @@ const lowerThird = asset("nameplate", adapters.jsxImage, {
 
 ## Pinning a generation's output size
 
-Many generators take their output size from an input image rather than from a size parameter. Omit `build` and the image is `background` alone at the resolved canvas size — a solid plate for exactly that.
+Omit `build` for a solid plate at the resolved canvas size — the size input of a generator that takes its output size from an input image.
 
 - A ComfyUI workflow with no width/height knob — wire one in as its sized latent/canvas input. To pin from an existing picture instead, resize that picture with `imageResize`.
 - An image-edit model with no size parameter — pass the plate as the first reference and the real subject as a second, and say which is which in the prompt:
@@ -85,7 +84,8 @@ Many generators take their output size from an input image rather than from a si
 
 ## Composited references
 
-A part this composites is placed, not cropped — size it for its slot in the layout, not by `authoring-guide`'s square-and-tight rule. The composite itself does follow that rule when a model conditions on it; canvas-shaped when a composition shows it.
+- A part this composites is placed, not cropped — size it for its slot in the layout.
+- The composite keeps its default reference canvas when a model conditions on it; `...format.size` when a composition shows it.
 
 ## Iterating
 
