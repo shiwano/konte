@@ -1116,6 +1116,7 @@ body.fill-mode .fab-submit-wrap {
   padding: 6px 0 8px;
   /* Panning is by drag (and wheel/zoom) — hide the scrollbar. */
   scrollbar-width: none;
+  user-select: none;
 }
 
 .rt-scroll::-webkit-scrollbar {
@@ -5754,6 +5755,7 @@ body.fill-mode .fab-submit-wrap {
   overflow-y: hidden;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
+  user-select: none;
   /* Clearance for the floating zoom chip, so it never covers the last shot's comment count. */
   padding-bottom: 26px;
 }
