@@ -18,7 +18,7 @@ import { formatSeconds } from "./format-duration.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import { bedPasses, resolveSoundtrackSpan } from "./timeline-audio.js";
 
-// An animatic shot's stem is clamped to the shot's `duration` (`materializeShotStem`), so a shot
+// An animatic shot's stem is clamped to the shot's `duration` (`prepareShotStem`), so a shot
 // whose spoken lines run longer loses its tail: the truncated stem is exactly as long as the shot, which
 // is what a stem that fits looks like too.
 //

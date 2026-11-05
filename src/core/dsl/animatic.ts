@@ -7,7 +7,7 @@ import { beginPanelCollection, endPanelCollection, type PanelOccurrence } from "
 
 // What konte derives from one animatic shot's composition: the keyframes it declared. The shot's
 // mixed-down `#stem` — an audio-driven motion model's input — and its `#narrationStem` are leaves
-// materialized from the same cues on accept (`materializeShotStem`); discovery only checks that each
+// materialized from the same cues on accept (`prepareShotStem`); discovery only checks that each
 // cue can be mixed.
 
 interface AnimaticShotDiscovery {

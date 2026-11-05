@@ -7,7 +7,7 @@ import type { AnimaticDefinition, AssetDefinition } from "./types/index.js";
 import { formatSeconds } from "./format-duration.js";
 
 /**
- * An animatic shot's stem is clamped to the shot (`materializeShotStem`), so a cue that ends past
+ * An animatic shot's stem is clamped to the shot (`prepareShotStem`), so a cue that ends past
  * it loses its tail — a line cut mid-word, with nothing to show for it until the mix is heard.
  *
  * Both halves here settle that before a job is submitted, from the definition alone: no state, no
