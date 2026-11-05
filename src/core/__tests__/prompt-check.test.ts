@@ -344,28 +344,16 @@ describe("promptFindings", () => {
     expect(finding!.targets).toEqual([]);
   });
 
-  it("takes an address whose accept signed it off out of what the finding sits on", () => {
+  it("is judged by every address the prompt is drawn into", () => {
     const prompts = [
       at("video:shot.01.motion", "no outlines"),
       at("video:shot.02.motion", "no outlines"),
     ];
-    const signedOff = (address: string) => address === "video:shot.01.motion";
-    const [finding] = promptFindings({ prompts }, { stage: "video" }, signedOff);
+    const [finding] = promptFindings({ prompts }, { stage: "video" });
     expect(finding).toMatchObject({
-      targets: ["video:shot.02.motion"],
-      signedOff: ["video:shot.01.motion"],
+      targets: ["video:shot.01.motion", "video:shot.02.motion"],
+      judgedBy: ["video:shot.01.motion", "video:shot.02.motion"],
     });
-    expect(finding!.message).not.toContain("video:shot.01.motion");
-  });
-
-  it("names the accepted addresses when every one is signed off", () => {
-    const [finding] = promptFindings(
-      { prompts: [at("video:shot.01.motion", "no outlines")] },
-      { stage: "video" },
-      () => true,
-    );
-    expect(finding).toMatchObject({ targets: [], signedOff: ["video:shot.01.motion"] });
-    expect(finding!.message).toContain("video:shot.01.motion — accepted as drawn");
   });
 });
 

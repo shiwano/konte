@@ -1608,37 +1608,80 @@ describe("listSetupAnchorGaps", () => {
     expect(gaps.unanchoredShots.size).toBe(0);
   });
 
-  describe("on a frame whose keyframes are signed off", () => {
-    // Main and cutin on one setup, neither built from the location.
-    const twoLanes = board([
-      {
-        id: "01",
-        duration: 5,
-        action: "shot",
-        assets: { first: comfy({}), inset: comfy({}) },
-        panels: [panel("animatic:shot.01.first")],
-        cutin: { panels: [panel("animatic:shot.01.inset")] },
-      },
-    ] as unknown as AnimaticDefinition["shots"]);
-    const frames = [
-      { shotId: "01", lane: "main" as const, setup: "front" },
-      { shotId: "01", lane: "cutin" as const, setup: "front" },
-    ];
-    const gapsWith = (signed: string[]) =>
-      listSetupAnchorGaps(twoLanes, frames, inStudio, new Map(), (a) => signed.includes(a));
-
-    it("keeps the shot unsigned while another of its frames is not", () => {
-      const gaps = gapsWith(["animatic:shot.01.first"]);
-      expect([...gaps.unanchoredShots]).toEqual([["front", ["01"]]]);
-      expect(gaps.signedOffUnanchoredShots.size).toBe(0);
-      expect(gaps.signedOffShots.get("front")).toBe(1);
+  describe("the keyframes each frame is judged by", () => {
+    it("files every lane's keyframes under the shot on its setup", () => {
+      const twoLanes = board([
+        {
+          id: "01",
+          duration: 5,
+          action: "shot",
+          assets: { first: comfy({}), inset: comfy({}) },
+          panels: [panel("animatic:shot.01.first")],
+          cutin: { panels: [panel("animatic:shot.01.inset")] },
+        },
+      ] as unknown as AnimaticDefinition["shots"]);
+      const frames = [
+        { shotId: "01", lane: "main" as const, setup: "front" },
+        { shotId: "01", lane: "cutin" as const, setup: "front" },
+      ];
+      const gaps = listSetupAnchorGaps(twoLanes, frames, inStudio);
+      expect([...gaps.framePanels.get("front")!]).toEqual([
+        ["01", ["animatic:shot.01.first", "animatic:shot.01.inset"]],
+      ]);
     });
 
-    it("files the shot as signed off once every frame is", () => {
-      const gaps = gapsWith(["animatic:shot.01.first", "animatic:shot.01.inset"]);
-      expect(gaps.unanchoredShots.size).toBe(0);
-      expect([...gaps.signedOffUnanchoredShots]).toEqual([["front", ["01"]]]);
-      expect(gaps.signedOffShots.get("front")).toBe(2);
+    it("files the keyframes of only the frame that reaches neither anchor", () => {
+      const twoLanes = board([
+        {
+          id: "01",
+          duration: 5,
+          action: "shot",
+          assets: { first: comfy({}), inset: comfy({ image: "__konte:reference:studio__" }) },
+          panels: [panel("animatic:shot.01.first")],
+          cutin: { panels: [panel("animatic:shot.01.inset")] },
+        },
+      ] as unknown as AnimaticDefinition["shots"]);
+      const gaps = listSetupAnchorGaps(
+        twoLanes,
+        [
+          { shotId: "01", lane: "main", setup: "front" },
+          { shotId: "01", lane: "cutin", setup: "front" },
+        ],
+        inStudio,
+      );
+      expect([...gaps.unanchoredPanels]).toEqual([["front", ["animatic:shot.01.first"]]]);
+    });
+
+    it("files the keyframes of a frame whose setup has no anchor", () => {
+      const lone = board([
+        {
+          id: "01",
+          duration: 5,
+          action: "shot",
+          assets: { first: comfy({}) },
+          panels: [panel("animatic:shot.01.first")],
+        },
+      ] as unknown as AnimaticDefinition["shots"]);
+      const gaps = listSetupAnchorGaps(
+        lone,
+        [{ shotId: "01", lane: "main", setup: "nowhere" }],
+        inStudio,
+      );
+      expect([...gaps.framePanels.get("nowhere")!]).toEqual([["01", ["animatic:shot.01.first"]]]);
+    });
+
+    it("files an undeveloped frame under its composition", () => {
+      const pending = board([
+        { id: "01", duration: 5, action: "shot", pending: true },
+      ] as unknown as AnimaticDefinition["shots"]);
+      const gaps = listSetupAnchorGaps(
+        pending,
+        [{ shotId: "01", lane: "main", setup: "front" }],
+        inStudio,
+      );
+      expect([...gaps.framePanels.get("front")!]).toEqual([
+        ["01", ["animatic:shot.01#composition"]],
+      ]);
     });
   });
 

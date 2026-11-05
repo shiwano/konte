@@ -99,8 +99,9 @@ export type Finding = {
   // The addresses it sits on — what an accept hold and an `edge` hold match. Absent, it sits on its
   // whole stage.
   targets?: readonly string[];
-  // Addresses taken out of `targets` because their accepted take was drawn from the definition as it
-  // stands: a targeted spend naming one is still held.
+  // The addresses whose accept judges it (`signOffFinding`).
+  judgedBy?: readonly string[];
+  // The `judgedBy` addresses accepted as drawn (`signOffFinding`).
   signedOff?: readonly string[];
 };
 

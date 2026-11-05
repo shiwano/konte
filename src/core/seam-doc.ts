@@ -114,7 +114,6 @@ const noStage: StagingStageState = {
   plateRecrops: [],
   panelPrompts: [],
   plateTexts: {},
-  signedOffPlateIds: [],
   shownReferences: {},
   videoPins: [],
   shotPanels: [],
@@ -147,7 +146,10 @@ function taken(
     shotId,
     lane: "main",
     slots: opts.slots ?? ["start", "end"],
-    pins: opts.end ? [{ pin: "end", reaches: [...opts.end] }] : [],
+    pins: opts.end
+      ? [{ pin: "end", reaches: [...opts.end], take: formatAddress("video", shotId, "motion") }]
+      : [],
+    takes: [formatAddress("video", shotId, "motion")],
   };
 }
 

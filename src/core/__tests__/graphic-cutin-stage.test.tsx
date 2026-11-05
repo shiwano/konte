@@ -210,17 +210,33 @@ describe("the graphic starters", () => {
       {
         shotId: "01",
         lane: "main",
-        pins: [{ pin: "start", input: "startImage", reaches: ["animatic:shot.01.first"] }],
+        pins: [
+          {
+            pin: "start",
+            input: "startImage",
+            reaches: ["animatic:shot.01.first"],
+            take: "video:shot.01.motion",
+          },
+        ],
         slots: ["start"],
+        takes: ["video:shot.01.motion"],
       },
-      { shotId: "02", lane: "main", pins: [], slots: [] },
+      { shotId: "02", lane: "main", pins: [], slots: [], takes: [] },
       {
         shotId: "02",
         lane: "cutin",
-        pins: [{ pin: "start", input: "startImage", reaches: ["animatic:shot.02.presenter"] }],
+        pins: [
+          {
+            pin: "start",
+            input: "startImage",
+            reaches: ["animatic:shot.02.presenter"],
+            take: "video:shot.02.presenter",
+          },
+        ],
         slots: ["start"],
+        takes: ["video:shot.02.presenter"],
       },
-      { shotId: "03", lane: "main", pins: [], slots: [] },
+      { shotId: "03", lane: "main", pins: [], slots: [], takes: [] },
     ]);
 
     const graph = buildDependencyGraph(video, board, reference);
@@ -282,10 +298,13 @@ describe("the graphic starters", () => {
           .nextGraphicShot("03", bareBoard),
       }),
     });
-    const pinned = [{ pin: "start", input: "startImage", reaches: ["animatic:shot.02.presenter"] }];
+    const take = "video:shot.02.presenter";
+    const pinned = [
+      { pin: "start", input: "startImage", reaches: ["animatic:shot.02.presenter"], take },
+    ];
     expect(listVideoShotPins(video).filter((p) => p.shotId === "02")).toEqual([
-      { shotId: "02", lane: "main", pins: pinned, slots: ["start"] },
-      { shotId: "02", lane: "cutin", pins: pinned, slots: ["start"] },
+      { shotId: "02", lane: "main", pins: pinned, slots: ["start"], takes: [take] },
+      { shotId: "02", lane: "cutin", pins: pinned, slots: ["start"], takes: [take] },
     ]);
   });
 

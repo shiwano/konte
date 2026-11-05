@@ -2,6 +2,7 @@ import { acceptedVariantId } from "./accepted-variant.js";
 import {
   type ShotStage,
   formatCompositionAddress,
+  isCompositionAddress,
   formatReferenceAddress,
   formatPlateAddress,
   tryParseAddress,
@@ -25,7 +26,6 @@ import {
 } from "./types/index.js";
 
 import { harvestShotPictureCues } from "./composition-builder.js";
-import { definitionHashForAddress } from "./composition-resource.js";
 import type { AnimaticSetupState } from "./direction-check.js";
 import {
   collectShotFrames,
@@ -36,6 +36,8 @@ import {
 import type { Direction } from "./dsl/direction.js";
 import { extractRefs, exposedPlateIdsOf, LANES, lanePanels, platesOf } from "./graph.js";
 import { loadAnimatic, loadVideoDefinition } from "./loader.js";
+import { definitionHashForAddress } from "./composition-resource.js";
+import type { Accepted } from "./sign-off.js";
 import { songVariantState } from "./song-variant.js";
 import { stageEntryPath } from "./roots.js";
 import { StateManager } from "./state/index.js";
@@ -79,9 +81,8 @@ type SetupAnchorGaps = {
   unanchoredPlates: string[];
   // Shot ids that reach neither anchor, keyed by the setup they sit on.
   unanchoredShots: Map<string, string[]>;
-  // The same, where every keyframe of each frame that reaches neither is signed off; a shot with an
-  // unsigned frame is in `unanchoredShots` alone.
-  signedOffUnanchoredShots: Map<string, string[]>;
+  // The keyframes of the frames in `unanchoredShots`, keyed by setup.
+  unanchoredPanels: Map<string, string[]>;
   // Setup ids whose plate reaches its location through another view's image only.
   unviewedPlates: string[];
   // Shot ids on a setup with no plate that reach their location through another view's image only.
@@ -89,8 +90,8 @@ type SetupAnchorGaps = {
   // Developed frames with no generative step, keyed by setup, so the plate demand can drop them too.
   // A `pendingShot` is not among them: it declares nothing yet, so it still counts toward a plate.
   deterministicShots: Map<string, number>;
-  // Generated frames whose every keyframe is signed off, keyed by setup.
-  signedOffShots: Map<string, number>;
+  // See `AnimaticSetupState.framePanels`.
+  framePanels: Map<string, Map<string, string[]>>;
   // Setup ids whose plate has no generative step.
   deterministicPlates: string[];
 };
@@ -100,7 +101,6 @@ export function listSetupAnchorGaps(
   frames: readonly BoardFrame[],
   locationBySetup: ReadonlyMap<string, string>,
   viewBySetup: ReadonlyMap<string, View> = new Map(),
-  signedOff: (address: string) => boolean = () => false,
 ): SetupAnchorGaps {
   const plates = platesOf(animatic);
   const entryOf = animaticEntryResolver(animatic);
@@ -134,14 +134,22 @@ export function listSetupAnchorGaps(
 
   const unviewedShots = new Map<string, string[]>();
   const unanchoredShots = new Map<string, string[]>();
-  const signedOffUnanchoredShots = new Map<string, string[]>();
+  const unanchoredPanels = new Map<string, string[]>();
   const deterministicShots = new Map<string, number>();
-  const signedOffShots = new Map<string, number>();
+  const framePanels = new Map<string, Map<string, string[]>>();
+  const addPanels = (setupId: string, shotId: string, panels: readonly string[]) => {
+    const bySetup = framePanels.get(setupId) ?? new Map<string, string[]>();
+    framePanels.set(setupId, bySetup);
+    bySetup.set(shotId, [...(bySetup.get(shotId) ?? []), ...panels]);
+  };
   const shotById = new Map(animatic.shots.map((shot) => [shot.id, shot]));
   for (const frame of frames) {
     const shot = shotById.get(frame.shotId);
-    if (shot === undefined || isPendingAnimaticShot(shot)) continue;
     const setupId = frame.setup;
+    if (shot === undefined || isPendingAnimaticShot(shot)) {
+      addPanels(setupId, frame.shotId, [formatCompositionAddress("animatic", frame.shotId)]);
+      continue;
+    }
     const location = locationBySetup.get(setupId);
     // The plate supersedes: where one exists it IS the frame, and a shot feeding the raw location
     // instead has taken the unframed anchor for the framed one.
@@ -151,7 +159,14 @@ export function listSetupAnchorGaps(
         : location !== undefined
           ? formatReferenceAddress(location)
           : undefined;
-    if (target === undefined) continue;
+    if (target === undefined) {
+      addPanels(
+        setupId,
+        shot.id,
+        lanePanels(shot, frame.lane).map((panel) => panel.address),
+      );
+      continue;
+    }
 
     // Rooted at the PANELS alone — the keyframes are what these findings are about. Not the shot's
     // declared pool, and not `compositionRefs` either, which carries every layer the shot renders:
@@ -166,12 +181,11 @@ export function listSetupAnchorGaps(
       deterministicShots.set(setupId, (deterministicShots.get(setupId) ?? 0) + 1);
       continue;
     }
-    const signed = panels.every(signedOff);
-    if (signed) signedOffShots.set(setupId, (signedOffShots.get(setupId) ?? 0) + 1);
+    addPanels(setupId, shot.id, panels);
+    if (!walk.reached)
+      unanchoredPanels.set(setupId, [...(unanchoredPanels.get(setupId) ?? []), ...panels]);
     const gaps = !walk.reached
-      ? signed
-        ? signedOffUnanchoredShots
-        : unanchoredShots
+      ? unanchoredShots
       : viewImage !== undefined && !walk.reachedView
         ? unviewedShots
         : undefined;
@@ -181,21 +195,14 @@ export function listSetupAnchorGaps(
     gaps.set(setupId, shots);
   }
 
-  for (const [setupId, shots] of signedOffUnanchoredShots) {
-    const unsigned = unanchoredShots.get(setupId) ?? [];
-    const signed = shots.filter((id) => !unsigned.includes(id));
-    if (signed.length > 0) signedOffUnanchoredShots.set(setupId, signed);
-    else signedOffUnanchoredShots.delete(setupId);
-  }
-
   return {
     unanchoredPlates,
     unanchoredShots,
-    signedOffUnanchoredShots,
+    unanchoredPanels,
     unviewedPlates,
     unviewedShots,
     deterministicShots,
-    signedOffShots,
+    framePanels,
     deterministicPlates,
   };
 }
@@ -637,14 +644,13 @@ export function listVideoPasserInputs(
   video: VideoDefinition,
   animatic: AnimaticDefinition,
   cuesOf: (shotId: string) => readonly PictureCueLike[] | null,
-  signedOff?: (address: string) => boolean,
 ): {
   shotId: string;
   lane: PanelLane;
   refs: string[];
   texts: string[];
   generative: boolean;
-  signedOff?: true;
+  take: string;
 }[] {
   const videoEntry = videoEntryResolver(video);
   const boardEntry = animaticEntryResolver(animatic);
@@ -672,7 +678,7 @@ export function listVideoPasserInputs(
             positivePromptsAt(video, address),
           ),
           generative: videoReach.generative,
-          ...(signedOff?.(root) ? { signedOff: true as const } : {}),
+          take: root,
         });
       }
     }
@@ -690,20 +696,29 @@ export function listVideoPasserInputs(
 export function listVideoShotPins(
   video: VideoDefinition,
   cuesOf?: (shotId: string) => readonly PictureCueLike[] | null,
-  signedOff?: (address: string) => boolean,
 ): VideoShotPins[] {
   const byFrame = new Map<
     string,
-    VideoShotPins & { pins: VideoShotPins["pins"][number][]; slots: ("start" | "end")[] }
+    VideoShotPins & {
+      pins: VideoShotPins["pins"][number][];
+      slots: ("start" | "end")[];
+      takes: string[];
+    }
   >();
   const chains = new Map<string, Record<PanelLane, Set<string>>>();
-  const slotTakes = new Map<string, Set<string>>();
+  const frame = (shotId: string, lane: PanelLane) => ({
+    shotId,
+    lane,
+    pins: [],
+    slots: [],
+    takes: [],
+  });
   for (const shot of video.shots) {
     if (isPendingShot(shot)) continue;
-    byFrame.set(`${shot.id}/main`, { shotId: shot.id, lane: "main", pins: [], slots: [] });
+    byFrame.set(`${shot.id}/main`, frame(shot.id, "main"));
     chains.set(shot.id, shotLaneChains("video", shot));
     if (!shot.cutin) continue;
-    byFrame.set(`${shot.id}/cutin`, { shotId: shot.id, lane: "cutin", pins: [], slots: [] });
+    byFrame.set(`${shot.id}/cutin`, frame(shot.id, "cutin"));
   }
   const entryOf = videoEntryResolver(video);
   for (const pin of video.pins ?? []) {
@@ -715,9 +730,9 @@ export function listVideoShotPins(
     // reaches its asset: an alternate declared beside the take says nothing about what the take can
     // carry. A wired pin keeps its older credit to `main` when no lane reaches it.
     for (const lane of reached) {
-      const key = `${parsed.shotId}/${lane}`;
-      byFrame.get(key)?.slots.push(pin.pin);
-      slotTakes.set(key, (slotTakes.get(key) ?? new Set()).add(pin.address));
+      const entry = byFrame.get(`${parsed.shotId}/${lane}`);
+      entry?.slots.push(pin.pin);
+      if (entry && !entry.takes.includes(pin.address)) entry.takes.push(pin.address);
     }
     if (pin.source === undefined) continue;
     const reaches = [...orderedChainAddresses([pin.source], entryOf)];
@@ -732,15 +747,9 @@ export function listVideoShotPins(
         input: pin.input,
         reaches,
         ...(pin.referable ? { referable: true as const } : {}),
-        ...(signedOff?.(pin.address) ? { signedOff: true as const } : {}),
+        take: pin.address,
         ...(window ? { window } : {}),
       });
-    }
-  }
-  if (signedOff) {
-    for (const [key, frame] of byFrame) {
-      const composition = formatCompositionAddress("video", frame.shotId);
-      if ([...(slotTakes.get(key) ?? []), composition].every(signedOff)) frame.signedOff = true;
     }
   }
   return [...byFrame.values()];
@@ -1129,7 +1138,6 @@ export function animaticSetupState(
     collectShotFrames(direction),
     locationBySetup,
     viewBySetup,
-    (address) => manager !== null && isSignedOff(manager, animatic, address),
   );
   // Only the declared windows: a root (`within: null`) and an undeclared one are cut from whatever
   // they like.
@@ -1144,9 +1152,9 @@ export function animaticSetupState(
     unanchoredPlateIds: gaps.unanchoredPlates,
     unnestedPlateIds: listSetupNestGaps(animatic, withinBySetup),
     unconsumedBy: gaps.unanchoredShots,
-    signedOffUnconsumedBy: gaps.signedOffUnanchoredShots,
+    unconsumedPanels: gaps.unanchoredPanels,
     deterministicShotsPerSetup: gaps.deterministicShots,
-    signedOffShotsPerSetup: gaps.signedOffShots,
+    framePanels: gaps.framePanels,
     deterministicPlateIds: gaps.deterministicPlates,
     unviewedPlateIds: gaps.unviewedPlates,
     unviewedBy: gaps.unviewedShots,
@@ -1163,56 +1171,64 @@ export function stagingStageState(
   direction: Direction,
   animatic: AnimaticDefinition,
   video: VideoDefinition | null,
-  manager: StateManager | null,
 ): StagingStageState {
   const frames = collectShotFrames(direction);
   const passers = frames.some((f) => (f.passing?.length ?? 0) > 0);
-  const signedOff = (address: string) =>
-    manager !== null && isSignedOff(manager, animatic, address);
-  const mark = (address: string) => (signedOff(address) ? { signedOff: true as const } : {});
   const plateTexts = listPlateTexts(animatic);
   return {
-    panelSlots: listPanelReferenceSlots(animatic).map((p) => ({ ...p, ...mark(p.panel) })),
-    panelReach: listPanelReferenceReach(animatic).map((p) => ({ ...p, ...mark(p.panel) })),
-    plateRecrops: listPlateRecrops(animatic, frames).map((r) => ({ ...r, ...mark(r.panel) })),
-    panelPrompts: listPanelPromptText(animatic).map((p) => ({ ...p, ...mark(p.panel) })),
+    panelSlots: listPanelReferenceSlots(animatic),
+    panelReach: listPanelReferenceReach(animatic),
+    plateRecrops: listPlateRecrops(animatic, frames),
+    panelPrompts: listPanelPromptText(animatic),
     plateTexts,
-    signedOffPlateIds: Object.keys(plateTexts).filter((id) => signedOff(formatPlateAddress(id))),
     shownReferences: listShownReferences(animatic),
-    videoPins: video
-      ? listVideoShotPins(
-          video,
-          (id) => harvestShotPictureCues(video, id),
-          manager ? (address) => isSignedOff(manager, video, address) : undefined,
-        )
-      : [],
+    videoPins: video ? listVideoShotPins(video, (id) => harvestShotPictureCues(video, id)) : [],
     ...(passers && video
       ? {
-          videoPassers: listVideoPasserInputs(
-            video,
-            animatic,
-            (id) => harvestShotPictureCues(video, id),
-            manager ? (address) => isSignedOff(manager, video, address) : undefined,
+          videoPassers: listVideoPasserInputs(video, animatic, (id) =>
+            harvestShotPictureCues(video, id),
           ),
         }
       : {}),
-    shotPanels: listShotContinuity(animatic).map((p) => ({ ...p, ...mark(p.firstPanel) })),
+    shotPanels: listShotContinuity(animatic),
   };
 }
 
-// An accept whose inputs alone moved stands.
-function isSignedOff(
-  manager: StateManager,
-  def: VideoDefinition | AnimaticDefinition,
-  address: string,
-): boolean {
-  return manager.acceptedAsDefined(address, definitionHashForAddress(def, address));
+export function acceptedIn(
+  manager: StateManager | null,
+  defs: {
+    reference?: ReferenceDefinition | null;
+    animatic?: AnimaticDefinition | null;
+    video?: VideoDefinition | null;
+  },
+): Accepted {
+  const memo = new Map<string, boolean>();
+  const accepted = (address: string): boolean => {
+    if (!manager) return false;
+    const stage = address.slice(0, address.indexOf(":"));
+    const def =
+      stage === "reference" || stage === "animatic" || stage === "video" ? defs[stage] : null;
+    if (!def) return false;
+    const hash = definitionHashForAddress(def, address);
+    // A composition with no definition is an undeveloped shot.
+    if (hash === null && isCompositionAddress(address)) return false;
+    return manager.acceptedAsDefined(address, hash);
+  };
+  return (address) => {
+    let hit = memo.get(address);
+    if (hit === undefined) {
+      hit = accepted(address);
+      memo.set(address, hit);
+    }
+    return hit;
+  };
 }
 
 type DirectionStageInputs = {
   animaticSetups: AnimaticSetupState | undefined;
   stagingStage: StagingStageState | undefined;
   songVariant: SongVariantState | undefined;
+  accepted: Accepted;
 };
 
 // What `checkDirection` reads off the stages and state, read tolerantly. The setups and staging
@@ -1233,7 +1249,8 @@ export async function loadDirectionStageInputs(
     animaticSetups: animatic
       ? animaticSetupState(direction, animatic, reference, manager)
       : undefined,
-    stagingStage: animatic ? stagingStageState(direction, animatic, video, manager) : undefined,
+    stagingStage: animatic ? stagingStageState(direction, animatic, video) : undefined,
     songVariant: manager ? songVariantState(manager, direction) : undefined,
+    accepted: acceptedIn(manager, { reference, animatic, video }),
   };
 }

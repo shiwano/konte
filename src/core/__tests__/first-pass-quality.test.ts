@@ -45,7 +45,6 @@ const noStage: StagingStageState = {
   plateRecrops: [],
   panelPrompts: [],
   plateTexts: {},
-  signedOffPlateIds: [],
   shownReferences: {},
   videoPins: [],
   shotPanels: [],
@@ -238,10 +237,8 @@ describe("passing", () => {
     const signed = (accepted: readonly string[]) =>
       checkDirection(direction, {
         referenceAssetNames: ["cat", "crow"],
-        stagingStage: {
-          ...noStage,
-          videoPassers: listVideoPasserInputs(v, board, cuesOf, (a) => accepted.includes(a)),
-        },
+        stagingStage: { ...noStage, videoPassers: listVideoPasserInputs(v, board, cuesOf) },
+        accepted: (a) => accepted.includes(a),
       }).active.filter((finding) => finding.code.startsWith("passer-"));
     expect(signed([]).map((f) => f.code)).toEqual(["passer-unconsumed", "passer-unnamed"]);
     expect(signed(["video:shot.01.motion"])).toEqual([]);

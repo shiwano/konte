@@ -51,7 +51,7 @@ export async function loadCheckContext(opts: {
     ...(direction && animatic
       ? {
           animaticSetups: animaticSetupState(direction, animatic, reference, manager),
-          stagingStage: stagingStageState(direction, animatic, video, manager),
+          stagingStage: stagingStageState(direction, animatic, video),
         }
       : {}),
     ...(direction && manager ? { songVariant: songVariantState(manager, direction) } : {}),

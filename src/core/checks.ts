@@ -19,7 +19,6 @@ import {
   formatSilentTail,
 } from "./animatic-overflow.js";
 import { compositionClassSubjects } from "./composition-builder.js";
-import { definitionHashForAddress } from "./composition-resource.js";
 import { type AnimaticSetupState, checkViewAnchors } from "./direction-check.js";
 import {
   type SongVariantState,
@@ -42,7 +41,7 @@ import {
   collectTransitiveDependents,
   listBoardlessVideoShots,
 } from "./graph.js";
-import { listViewAnchorGaps } from "./board-analysis.js";
+import { acceptedIn, listViewAnchorGaps } from "./board-analysis.js";
 import { findUnheldLandmarks } from "./landmark-held-check.js";
 import { type PinOccurrence, pinFindings } from "./pin-check.js";
 import { type PromptOccurrence, promptFindings } from "./prompt-check.js";
@@ -58,6 +57,7 @@ import type {
 } from "./types/index.js";
 import { checkSourceLocators } from "./source-direction.js";
 import { findUnmouthedStems } from "./stem-mouth-check.js";
+import { type Accepted, withAwaitingAccept } from "./sign-off.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
 import { unvouchedFindings } from "./variant-check.js";
 
@@ -140,6 +140,32 @@ function stageClassSubjects(
 }
 
 const directionResult = new WeakMap<CheckContext, ReturnType<typeof checkDirection>>();
+const acceptedByCtx = new WeakMap<CheckContext, Accepted>();
+
+function acceptedOf(ctx: CheckContext): Accepted {
+  let accepted = acceptedByCtx.get(ctx);
+  if (!accepted) {
+    accepted = acceptedIn(ctx.manager, ctx);
+    acceptedByCtx.set(ctx, accepted);
+  }
+  return accepted;
+}
+
+// Each `judgedBy` address accepted as drawn leaves `targets` for `signedOff`, where only a targeted
+// spend naming it is held.
+export function signOffFinding(f: Finding, accepted: Accepted): Finding {
+  const signed = f.judgedBy?.filter(accepted) ?? [];
+  if (signed.length === 0 || f.targets === undefined) return f;
+  const whole = signed.length === f.judgedBy!.length;
+  return {
+    ...f,
+    message: whole
+      ? `${f.message} — accepted as drawn; fix it before drawing it again`
+      : withAwaitingAccept(f.message, f.judgedBy, accepted),
+    targets: f.targets.filter((address) => !signed.includes(address)),
+    signedOff: signed,
+  };
+}
 
 function directionCheckOf(ctx: CheckContext): ReturnType<typeof checkDirection> | null {
   if (!ctx.direction) return null;
@@ -150,6 +176,7 @@ function directionCheckOf(ctx: CheckContext): ReturnType<typeof checkDirection> 
       animaticSetups: ctx.animaticSetups,
       stagingStage: ctx.stagingStage,
       songVariant: ctx.songVariant,
+      accepted: acceptedOf(ctx),
     });
     directionResult.set(ctx, result);
   }
@@ -202,17 +229,11 @@ const VIEW_ANCHOR_CHECK: Check = {
   },
 };
 
-function acceptedAsDefined(ctx: CheckContext, def: DefinitionLike, address: string): boolean {
-  return ctx.manager?.acceptedAsDefined(address, definitionHashForAddress(def, address)) === true;
-}
-
 const PROMPT_CHECK: Check = {
   codes: ["prompt-negation", "prompt-not-yet", "prompt-double-negative"],
   run: (ctx) => [
     ...stageDefinitions(ctx).flatMap(([stage, def]) =>
-      promptFindings(def as { prompts?: readonly PromptOccurrence[] }, { stage }, (address) =>
-        acceptedAsDefined(ctx, def, address),
-      ),
+      promptFindings(def as { prompts?: readonly PromptOccurrence[] }, { stage }),
     ),
     ...ctx.patches.flatMap((p) =>
       promptFindings(p, { stage: getStage(p.sourceAddress), patch: p.sourceVariantId }),
@@ -229,20 +250,16 @@ const LANDMARK_HELD_CHECK: Check = {
       const def = ctx[stage];
       if (!def) return [];
       return findUnheldLandmarks(direction, def.prompts ?? [], def.imageInputs ?? []).map(
-        (u): Finding => {
-          const accepted = acceptedAsDefined(ctx, def as DefinitionLike, u.address);
-          return {
-            code: "landmark-unheld",
-            subject: `${u.address} "${u.promptDepiction}"`,
-            fixIn: { stage },
-            message:
-              `"${u.landmarkId}" is not in the \`holds\` of ` +
-              `${u.setups.map((s) => `"${s}"`).join(" / ")}` +
-              (accepted ? " — accepted as drawn; fix it before drawing it again" : ""),
-            targets: accepted ? [] : [u.address],
-            ...(accepted ? { signedOff: [u.address] } : {}),
-          };
-        },
+        (u): Finding => ({
+          code: "landmark-unheld",
+          subject: `${u.address} "${u.promptDepiction}"`,
+          fixIn: { stage },
+          message:
+            `"${u.landmarkId}" is not in the \`holds\` of ` +
+            `${u.setups.map((s) => `"${s}"`).join(" / ")}`,
+          targets: [u.address],
+          judgedBy: [u.address],
+        }),
       );
     });
   },
@@ -409,20 +426,16 @@ const STEM_MOUTH_CHECK: Check = {
   codes: ["stem-unmouthed"],
   run: (ctx) => {
     if (!ctx.direction || !ctx.animatic || !ctx.video) return [];
-    const video = ctx.video;
-    return findUnmouthedStems(ctx.direction, ctx.animatic, video).map((u): Finding => {
-      const accepted = acceptedAsDefined(ctx, video as DefinitionLike, u.address);
-      return {
+    return findUnmouthedStems(ctx.direction, ctx.animatic, ctx.video).map(
+      (u): Finding => ({
         code: "stem-unmouthed",
         subject: u.address,
         fixIn: { stage: "video" },
-        message:
-          `${u.speakers.join(", ")} ${u.speakers.length === 1 ? "is" : "are"} off the frame` +
-          (accepted ? " — accepted as drawn; fix it before drawing it again" : ""),
-        targets: accepted ? [] : [u.address],
-        ...(accepted ? { signedOff: [u.address] } : {}),
-      };
-    });
+        message: `${u.speakers.join(", ")} ${u.speakers.length === 1 ? "is" : "are"} off the frame`,
+        targets: [u.address],
+        judgedBy: [u.address],
+      }),
+    );
   },
 };
 
@@ -524,10 +537,11 @@ export async function collectFindings(
   const staleWaivers: StaleWaiverLine[] = [];
   for (const check of CHECKS) {
     if (!reportsAny(check, want)) continue;
-    for (const f of await check.run(ctx)) {
-      const traits = findingTraits(f.code);
+    for (const raw of await check.run(ctx)) {
+      const traits = findingTraits(raw.code);
       if (!want(traits)) continue;
       if (traits.onset === "after-direction-accepted" && !ctx.directionAccepted) continue;
+      const f = signOffFinding(raw, acceptedOf(ctx));
       if (f.targets?.length === 0 && f.signedOff && !opts.signedOff) continue;
       findings.push(f);
     }

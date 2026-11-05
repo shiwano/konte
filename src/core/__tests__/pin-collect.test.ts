@@ -155,7 +155,9 @@ describe("listVideoShotPins slots", () => {
         ]),
     });
 
-    expect(listVideoShotPins(v)).toEqual([{ shotId: "01", lane: "main", pins: [], slots: [] }]);
+    expect(listVideoShotPins(v)).toEqual([
+      { shotId: "01", lane: "main", pins: [], slots: [], takes: [] },
+    ]);
   });
 });
 
@@ -188,44 +190,26 @@ describe("listVideoShotPins", () => {
       {
         shotId: "01",
         lane: "main",
-        pins: [{ pin: "end", input: "endImage", reaches: ["video:shot.01.key"], referable: true }],
+        pins: [
+          {
+            pin: "end",
+            input: "endImage",
+            reaches: ["video:shot.01.key"],
+            referable: true,
+            take: "video:shot.01.motion",
+          },
+        ],
         slots: ["start", "end"],
+        takes: ["video:shot.01.motion"],
       },
-      { shotId: "02", lane: "main", pins: [], slots: ["start", "end"] },
+      {
+        shotId: "02",
+        lane: "main",
+        pins: [],
+        slots: ["start", "end"],
+        takes: ["video:shot.02.motion"],
+      },
     ]);
-  });
-
-  it("signs off a frame once its pinned takes and its composition are accepted as drawn", () => {
-    const signedOf = (accepted: readonly string[]) =>
-      listVideoShotPins(video, undefined, (a) => accepted.includes(a)).map((f) => [
-        f.shotId,
-        f.signedOff ?? false,
-      ]);
-    expect(signedOf(["video:shot.01.motion", "video:shot.02.motion"])).toEqual([
-      ["01", false],
-      ["02", false],
-    ]);
-    expect(
-      signedOf(["video:shot.01.motion", "video:shot.01#composition", "video:shot.02.motion"]),
-    ).toEqual([
-      ["01", true],
-      ["02", false],
-    ]);
-  });
-
-  it("signs off a frame with no pin slot by its composition alone", () => {
-    const still = defineVideo(testDirection(FORMAT), {
-      timeline: () =>
-        videoTimeline([
-          shot("01", {
-            duration: 2,
-            build: () => el(videoLayer(asset("key", imageComfy, { prompt: "a lit desk" }))),
-          }),
-        ]),
-    });
-    const [frame] = listVideoShotPins(still, undefined, (a) => a === "video:shot.01#composition");
-    expect(frame?.slots).toEqual([]);
-    expect(frame?.signedOff).toBe(true);
   });
 });
 

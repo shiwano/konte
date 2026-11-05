@@ -1127,15 +1127,20 @@ describe("checkLocations", () => {
 describe("checkDirection setups", () => {
   // The board state the setups class reads. Which pictures reach which anchor is the graph walk's
   // business (listSetupAnchorGaps); these cases state the outcome directly.
+  const keyOf = (shotId: string) => `animatic:shot.${shotId}.key`;
+  const acceptedOf =
+    (...shotIds: string[]) =>
+    (address: string) =>
+      shotIds.map(keyOf).includes(address);
   const plates = (
     ids: readonly string[] = [],
     gaps: {
       unanchored?: readonly string[];
       unnested?: readonly string[];
       ignoring?: Record<string, string[]>;
-      signedOffIgnoring?: Record<string, string[]>;
       deterministic?: Record<string, number>;
-      signedOff?: Record<string, number>;
+      // The shot ids framed on each setup, each drawn on one keyframe (`keyOf`).
+      frames?: Record<string, string[]>;
       deterministicPlates?: readonly string[];
       unviewed?: readonly string[];
       unviewedBy?: Record<string, string[]>;
@@ -1147,9 +1152,16 @@ describe("checkDirection setups", () => {
     unanchoredPlateIds: gaps.unanchored ?? [],
     unnestedPlateIds: gaps.unnested ?? [],
     unconsumedBy: new Map(Object.entries(gaps.ignoring ?? {})),
-    signedOffUnconsumedBy: new Map(Object.entries(gaps.signedOffIgnoring ?? {})),
+    unconsumedPanels: new Map(
+      Object.entries(gaps.ignoring ?? {}).map(([setupId, ids]) => [setupId, ids.map(keyOf)]),
+    ),
     deterministicShotsPerSetup: new Map(Object.entries(gaps.deterministic ?? {})),
-    signedOffShotsPerSetup: new Map(Object.entries(gaps.signedOff ?? {})),
+    framePanels: new Map(
+      Object.entries(gaps.frames ?? {}).map(([setupId, shotIds]) => [
+        setupId,
+        new Map(shotIds.map((id) => [id, [keyOf(id)]])),
+      ]),
+    ),
     deterministicPlateIds: gaps.deterministicPlates ?? [],
     unviewedPlateIds: gaps.unviewed ?? [],
     unviewedBy: new Map(Object.entries(gaps.unviewedBy ?? {})),
@@ -1263,13 +1275,22 @@ describe("checkDirection setups", () => {
   });
 
   it("says nothing once every shot on both ends is signed off", () => {
-    const signed = (counts: Record<string, number>) =>
+    const signed = (...accepted: string[]) =>
       checkDirection(axial, {
         referenceAssetNames: ["here"],
-        animaticSetups: plates([], { signedOff: counts }),
+        animaticSetups: plates([], { frames: { wide: ["01"], medium: ["02"] } }),
+        accepted: acceptedOf(...accepted),
       }).active.filter((f) => f.code === "axis-unrealized");
-    expect(signed({ wide: 1 }).map((f) => f.subject)).toEqual(["medium.wide"]);
-    expect(signed({ wide: 1, medium: 1 })).toEqual([]);
+    expect(signed("01").map((f) => f.subject)).toEqual(["medium.wide"]);
+    expect(signed("01", "02")).toEqual([]);
+  });
+
+  it("says nothing where no shot on either end is generated", () => {
+    const deterministic = checkDirection(axial, {
+      referenceAssetNames: ["here"],
+      animaticSetups: plates([], { deterministic: { wide: 1, medium: 1 } }),
+    }).active.filter((f) => f.code === "axis-unrealized");
+    expect(deterministic).toEqual([]);
   });
 
   it("says nothing of a cut between two cameras", () => {
@@ -1307,13 +1328,14 @@ describe("checkDirection setups", () => {
   });
 
   it("demands no plate once every shot sharing the frame is signed off", () => {
-    const unrealized = (counts: Record<string, number>) =>
+    const unrealized = (...accepted: string[]) =>
       checkDirection(shared, {
         referenceAssetNames: ["here"],
-        animaticSetups: plates([], { signedOff: counts }),
+        animaticSetups: plates([], { frames: { wall: ["01", "02"] } }),
+        accepted: acceptedOf(...accepted),
       }).active.filter((f) => f.code === "setup-unrealized");
-    expect(unrealized({ wall: 1 }).map((f) => f.subject)).toEqual(["wall"]);
-    expect(unrealized({ wall: 2 })).toEqual([]);
+    expect(unrealized("01").map((f) => f.subject)).toEqual(["wall"]);
+    expect(unrealized("01", "02")).toEqual([]);
   });
 
   it("demands no plate for a frame only one shot uses", () => {
@@ -1636,24 +1658,18 @@ describe("checkDirection setups", () => {
     expect(unconsumed[0]?.message).toContain("regenerate `reference.there`");
   });
 
-  it("names only the shots whose keyframes are not signed off", () => {
-    const { active } = checkDirection(shared, {
-      referenceAssetNames: ["here"],
-      animaticSetups: plates(["wall"], {
-        ignoring: { wall: ["02"] },
-        signedOffIgnoring: { wall: ["01"] },
-      }),
-    });
-    const unconsumed = active.filter((f) => f.code === "setup-unconsumed");
-    expect(unconsumed.map((f) => f.message)).toEqual([expect.stringContaining('shot "02" sits')]);
-  });
-
   it("says nothing once every shot ignoring the anchor is signed off", () => {
-    const { active } = checkDirection(shared, {
-      referenceAssetNames: ["here"],
-      animaticSetups: plates(["wall"], { signedOffIgnoring: { wall: ["01", "02"] } }),
-    });
-    expect(active.map((f) => f.code)).not.toContain("setup-unconsumed");
+    const unconsumed = (...accepted: string[]) =>
+      checkDirection(shared, {
+        referenceAssetNames: ["here"],
+        animaticSetups: plates(["wall"], {
+          ignoring: { wall: ["01", "02"] },
+          frames: { wall: ["01", "02"] },
+        }),
+        accepted: acceptedOf(...accepted),
+      }).active.filter((f) => f.code === "setup-unconsumed");
+    expect(unconsumed("01")).toHaveLength(1);
+    expect(unconsumed("01", "02")).toEqual([]);
   });
 
   it("names the plate, not the location, once the setup has one", () => {
@@ -1806,13 +1822,24 @@ describe("checkDirection setups", () => {
   });
 
   it("says nothing once every shot in the place is signed off", () => {
-    const signedOff = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`solo${i}`, 1]));
-    const atomizedWith = (counts: Record<string, number>) =>
+    const ids = Array.from({ length: 8 }, (_, i) => String(i + 1).padStart(2, "0"));
+    const frames = Object.fromEntries(ids.map((id, i) => [`solo${i}`, [id]]));
+    const atomizedWith = (accepted: string[]) =>
       checkDirection(atomized(8, 0), {
-        animaticSetups: plates([], { signedOff: counts }),
+        animaticSetups: plates([], { frames }),
+        accepted: acceptedOf(...accepted),
       }).active.filter((f) => f.code === "setup-atomized");
-    expect(atomizedWith({ ...signedOff, solo7: 0 }).map((f) => f.subject)).toEqual(["here"]);
-    expect(atomizedWith(signedOff)).toEqual([]);
+    expect(atomizedWith(ids.slice(0, 7)).map((f) => f.subject)).toEqual(["here"]);
+    expect(atomizedWith(ids)).toEqual([]);
+  });
+
+  it("says nothing of a place whose every shot is deterministic", () => {
+    const deterministic = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`solo${i}`, 1]));
+    expect(
+      checkDirection(atomized(8, 0), {
+        animaticSetups: plates([], { deterministic }),
+      }).active.filter((f) => f.code === "setup-atomized"),
+    ).toEqual([]);
   });
 
   describe("views", () => {

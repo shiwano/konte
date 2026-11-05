@@ -108,7 +108,6 @@ const noStage: StagingStageState = {
   plateRecrops: [],
   panelPrompts: [],
   plateTexts: {},
-  signedOffPlateIds: [],
   shownReferences: {},
   videoPins: [],
   shotPanels: [],
@@ -460,10 +459,12 @@ describe("character-unconsumed", () => {
       { shotId: "01", lane: "main", panel: "animatic:shot.01.first", refs: refsHeld, generative },
     ],
   });
-  const found = (d: Direction, stagingStage: StagingStageState) =>
-    checkDirection(d, { stagingStage, referenceAssetNames: refs }).active.filter(
-      (f) => f.code === "character-unconsumed",
-    );
+  const found = (d: Direction, stagingStage: StagingStageState, accepted: readonly string[] = []) =>
+    checkDirection(d, {
+      stagingStage,
+      referenceAssetNames: refs,
+      accepted: (a) => accepted.includes(a),
+    }).active.filter((f) => f.code === "character-unconsumed");
 
   it("flags a subject the frame holds that the keyframe is built from no reference to", () => {
     expect(found(dir, reach(["ferryDeck", "ane"])).map((f) => f.subject)).toEqual(["01.imouto"]);
@@ -483,11 +484,7 @@ describe("character-unconsumed", () => {
 
   it("says nothing of a keyframe that is signed off", () => {
     const stage = reach(["ferryDeck", "ane"]);
-    const signed = {
-      ...stage,
-      panelReach: [{ ...stage.panelReach[0]!, signedOff: true as const }],
-    };
-    expect(found(dir, signed)).toEqual([]);
+    expect(found(dir, stage, [stage.panelReach[0]!.panel])).toEqual([]);
   });
 
   it("waits on the reference existing", () => {
@@ -684,7 +681,7 @@ describe("slot-order-mismatch", () => {
     const moved = direction({
       shots: [shot("01", "deck", { lineup: ["ane", "imouto"], lineupTo: ["imouto", "ane"] })],
     });
-    const found = (signed: { first?: true; last?: true }) =>
+    const found = (...accepted: string[]) =>
       checkDirection(moved, {
         stagingStage: {
           ...noStage,
@@ -694,20 +691,23 @@ describe("slot-order-mismatch", () => {
               lane: "main",
               panel: "animatic:shot.01.first",
               slots: ["imouto", "ane"],
-              ...(signed.first ? { signedOff: true as const } : {}),
             },
             {
               shotId: "01",
               lane: "main",
               panel: "animatic:shot.01.last",
               slots: ["ane", "imouto"],
-              ...(signed.last ? { signedOff: true as const } : {}),
             },
           ],
         },
+        accepted: (a) => accepted.includes(a),
       }).active.filter((f) => f.code === "slot-order-mismatch");
-    expect(found({ first: true })[0]?.message).toContain("animatic:shot.01.last");
-    expect(found({ first: true, last: true })).toEqual([]);
+    expect(found("animatic:shot.01.first")[0]?.message).toMatch(
+      / — awaiting accept: animatic:shot\.01\.last$/,
+    );
+    expect(found()[0]?.message).toContain("animatic:shot.01.first passes");
+    expect(found()[0]?.message).toContain("; animatic:shot.01.last passes");
+    expect(found("animatic:shot.01.first", "animatic:shot.01.last")).toEqual([]);
   });
 
   it("stays silent with no board to read", () => {
@@ -798,8 +798,10 @@ describe("plate-recropped", () => {
     ...noStage,
     plateRecrops,
   });
-  const found = (stagingStage: StagingStageState, d = dir) =>
-    checkDirection(d, { stagingStage }).active.filter((f) => f.code === "plate-recropped");
+  const found = (stagingStage: StagingStageState, d = dir, accepted: readonly string[] = []) =>
+    checkDirection(d, { stagingStage, accepted: (a) => accepted.includes(a) }).active.filter(
+      (f) => f.code === "plate-recropped",
+    );
 
   it("flags a frame once, naming every keyframe that crops the plate", () => {
     const findings = found(
@@ -829,18 +831,12 @@ describe("plate-recropped", () => {
   });
 
   it("is signed off once every keyframe that crops the plate is accepted as drawn", () => {
-    const first = { ...recrop, panel: "animatic:shot.01.first" };
-    const last = { ...recrop, panel: "animatic:shot.01.last" };
-    const signed = { signedOff: true as const };
-    expect(found(state([{ ...first, ...signed }, last]))).toHaveLength(1);
-    expect(
-      found(
-        state([
-          { ...first, ...signed },
-          { ...last, ...signed },
-        ]),
-      ),
-    ).toEqual([]);
+    const stage = state([
+      { ...recrop, panel: "animatic:shot.01.first" },
+      { ...recrop, panel: "animatic:shot.01.last" },
+    ]);
+    expect(found(stage, dir, ["animatic:shot.01.first"])).toHaveLength(1);
+    expect(found(stage, dir, ["animatic:shot.01.first", "animatic:shot.01.last"])).toEqual([]);
   });
 
   it("stays silent with no board to read", () => {
@@ -864,22 +860,27 @@ describe("panel-unlinked", () => {
   };
 
   const board = (
-    ...entries: { shotId: string; carries?: boolean; linked?: string[]; signedOff?: true }[]
+    ...entries: { shotId: string; carries?: boolean; linked?: string[] }[]
   ): StagingStageState => ({
     ...noStage,
-    shotPanels: entries.map(({ shotId, carries = true, linked = [], signedOff }) => ({
+    shotPanels: entries.map(({ shotId, carries = true, linked = [] }) => ({
       shotId,
       lane: "main" as const,
       firstPanel: `animatic:shot.${shotId}.first`,
       lastPanel: `animatic:shot.${shotId}.last`,
       carries,
       linked,
-      ...(signedOff ? { signedOff } : {}),
     })),
   });
 
-  const found = (dir: Direction, stagingStage: StagingStageState) =>
-    checkDirection(dir, { stagingStage }).active.filter((f) => f.code === "panel-unlinked");
+  const found = (
+    dir: Direction,
+    stagingStage: StagingStageState,
+    accepted: readonly string[] = [],
+  ) =>
+    checkDirection(dir, { stagingStage, accepted: (a) => accepted.includes(a) }).active.filter(
+      (f) => f.code === "panel-unlinked",
+    );
 
   // The camera has not moved, only the focal length.
   const pushIn = () =>
@@ -975,7 +976,9 @@ describe("panel-unlinked", () => {
   });
 
   it("says nothing of a seam whose opening keyframe is signed off", () => {
-    expect(found(pushIn(), board({ shotId: "01" }, { shotId: "02", signedOff: true }))).toEqual([]);
+    expect(
+      found(pushIn(), board({ shotId: "01" }, { shotId: "02" }), ["animatic:shot.02.first"]),
+    ).toEqual([]);
   });
 
   it("is waived by the seam's key", () => {
@@ -1059,21 +1062,22 @@ describe("return-unlinked", () => {
     frameReturns(d).map(({ frame, from }) => `${from.shotId}-${frame.shotId}`);
 
   const board = (
-    ...entries: { shotId: string; carries?: boolean; linked?: string[]; signedOff?: true }[]
+    ...entries: { shotId: string; carries?: boolean; linked?: string[] }[]
   ): StagingStageState => ({
     ...noStage,
-    shotPanels: entries.map(({ shotId, carries = true, linked = [], signedOff }) => ({
+    shotPanels: entries.map(({ shotId, carries = true, linked = [] }) => ({
       shotId,
       lane: "main" as const,
       firstPanel: `animatic:shot.${shotId}.first`,
       lastPanel: `animatic:shot.${shotId}.last`,
       carries,
       linked,
-      ...(signedOff ? { signedOff } : {}),
     })),
   });
-  const found = (d: Direction, stagingStage: StagingStageState) =>
-    checkDirection(d, { stagingStage }).active.filter((f) => f.code === "return-unlinked");
+  const found = (d: Direction, stagingStage: StagingStageState, accepted: readonly string[] = []) =>
+    checkDirection(d, { stagingStage, accepted: (a) => accepted.includes(a) }).active.filter(
+      (f) => f.code === "return-unlinked",
+    );
 
   it("returns a frame to the latest frame of its setup across a cutaway", () => {
     expect(returnsOf(dir(cutaway()))).toEqual(["01-09"]);
@@ -1225,7 +1229,7 @@ describe("return-unlinked", () => {
 
   it("says nothing of a return whose opening keyframe is signed off", () => {
     expect(
-      found(dir(cutaway()), board({ shotId: "01" }, { shotId: "09", signedOff: true })),
+      found(dir(cutaway()), board({ shotId: "01" }, { shotId: "09" }), ["animatic:shot.09.first"]),
     ).toEqual([]);
   });
 
@@ -1350,8 +1354,10 @@ describe("subject-unnamed", () => {
       { shotId: "01", lane: "main", panel: "animatic:shot.01.first", texts, generative },
     ],
   });
-  const found = (d: Direction, stagingStage: StagingStageState) =>
-    checkDirection(d, { stagingStage }).active.filter((f) => f.code === "subject-unnamed");
+  const found = (d: Direction, stagingStage: StagingStageState, accepted: readonly string[] = []) =>
+    checkDirection(d, { stagingStage, accepted: (a) => accepted.includes(a) }).active.filter(
+      (f) => f.code === "subject-unnamed",
+    );
 
   it("flags a subject the frame holds that no prompt behind the keyframe names", () => {
     const findings = found(dir, prompts(["the elder sister looks up from the bench"]));
@@ -1411,12 +1417,11 @@ describe("subject-unnamed", () => {
       waivers: { "subject-unnamed_01.imouto": "this adapter names its subjects by slot" },
     });
     const stage = prompts(["the elder sister looks up"]);
-    const signed = {
-      ...stage,
-      panelPrompts: [{ ...stage.panelPrompts[0]!, signedOff: true as const }],
-    };
-    expect(found(dir, signed)).toEqual([]);
-    expect(checkDirection(waived, { stagingStage: signed }).staleWaivers).toEqual([]);
+    const panel = stage.panelPrompts[0]!.panel;
+    expect(found(dir, stage, [panel])).toEqual([]);
+    expect(
+      checkDirection(waived, { stagingStage: stage, accepted: (a) => a === panel }).staleWaivers,
+    ).toEqual([]);
   });
 
   it("stays silent with no board to read", () => {
@@ -1448,8 +1453,10 @@ describe("prop-unnamed", () => {
       generative: p.generative ?? true,
     })),
   });
-  const found = (d: Direction, stagingStage: StagingStageState) =>
-    checkDirection(d, { stagingStage }).active.filter((f) => f.code === "prop-unnamed");
+  const found = (d: Direction, stagingStage: StagingStageState, accepted: readonly string[] = []) =>
+    checkDirection(d, { stagingStage, accepted: (a) => accepted.includes(a) }).active.filter(
+      (f) => f.code === "prop-unnamed",
+    );
 
   it("flags a prop the action names that no keyframe prompt calls by its depiction", () => {
     const findings = found(dir, prompts([{ texts: ["the elder sister holds a paper twist"] }]));
@@ -1485,14 +1492,9 @@ describe("prop-unnamed", () => {
 
   it("says nothing once every keyframe of the shot is signed off", () => {
     const stage = prompts([{ texts: ["a paper twist"] }, { texts: ["the bench"] }]);
-    const signed = (n: number) => ({
-      ...stage,
-      panelPrompts: stage.panelPrompts.map((p, i) =>
-        i < n ? { ...p, signedOff: true as const } : p,
-      ),
-    });
-    expect(found(dir, signed(1)).map((f) => f.subject)).toEqual(["01.ame"]);
-    expect(found(dir, signed(2))).toEqual([]);
+    const panels = stage.panelPrompts.map((p) => p.panel);
+    expect(found(dir, stage, panels.slice(0, 1)).map((f) => f.subject)).toEqual(["01.ame"]);
+    expect(found(dir, stage, panels)).toEqual([]);
   });
 
   it("stays silent with no board to read", () => {
@@ -1516,8 +1518,10 @@ describe("landmark-unnamed", () => {
       generative: p.generative ?? true,
     })),
   });
-  const found = (d: Direction, stagingStage: StagingStageState) =>
-    checkDirection(d, { stagingStage }).active.filter((f) => f.code === "landmark-unnamed");
+  const found = (d: Direction, stagingStage: StagingStageState, accepted: readonly string[] = []) =>
+    checkDirection(d, { stagingStage, accepted: (a) => accepted.includes(a) }).active.filter(
+      (f) => f.code === "landmark-unnamed",
+    );
 
   it("flags a keyframe on an unplated setup that does not ask for what its frame holds", () => {
     const findings = found(dir, state([{ texts: ["the boat from the stern, the bench"] }]));
@@ -1551,14 +1555,7 @@ describe("landmark-unnamed", () => {
       { texts: ["the bench and the mast"] },
       { texts: ["she sits on the bench"] },
     ]);
-    const signed = {
-      ...stage,
-      panelPrompts: [
-        stage.panelPrompts[0]!,
-        { ...stage.panelPrompts[1]!, signedOff: true as const },
-      ],
-    };
-    expect(found(dir, signed)).toEqual([]);
+    expect(found(dir, stage, [stage.panelPrompts[1]!.panel])).toEqual([]);
   });
 
   it("stays silent with no board to read", () => {
@@ -1572,8 +1569,10 @@ describe("plate-unnamed", () => {
     ...noStage,
     plateTexts: Object.fromEntries(Object.entries(plateTexts).map(([id, text]) => [id, [text]])),
   });
-  const found = (d: Direction, stagingStage: StagingStageState) =>
-    checkDirection(d, { stagingStage }).active.filter((f) => f.code === "plate-unnamed");
+  const found = (d: Direction, stagingStage: StagingStageState, accepted: readonly string[] = []) =>
+    checkDirection(d, { stagingStage, accepted: (a) => accepted.includes(a) }).active.filter(
+      (f) => f.code === "plate-unnamed",
+    );
 
   it("flags a plate prompt that does not ask for what its frame holds", () => {
     const findings = found(dir, state({ deck: "the boat, empty, from across the water" }));
@@ -1591,7 +1590,12 @@ describe("plate-unnamed", () => {
 
   it("says nothing of a signed-off plate", () => {
     const stage = state({ deck: "the boat, empty, from across the water" });
-    expect(found(dir, { ...stage, signedOffPlateIds: ["deck"] })).toEqual([]);
+    expect(
+      checkDirection(dir, {
+        stagingStage: stage,
+        accepted: (a) => a === "animatic:plate.deck",
+      }).active.filter((f) => f.code === "plate-unnamed"),
+    ).toEqual([]);
   });
 
   it("asks nothing of a setup whose plate reads no prompt", () => {
@@ -1929,8 +1933,9 @@ describe("the join", () => {
     const before = (w: Partial<PinWindow>): StagingStageState["videoPins"][number] => ({
       shotId: "01",
       lane: "main",
-      pins: [{ pin: "end", reaches: [seam], window: window(w) }],
+      pins: [{ pin: "end", take: "video:shot.01.motion", reaches: [seam], window: window(w) }],
       slots: ["start", "end"],
+      takes: ["video:shot.01.motion"],
     });
     const after = (w: Partial<PinWindow>): StagingStageState["videoPins"][number] => ({
       shotId: "02",
@@ -1938,11 +1943,13 @@ describe("the join", () => {
       pins: [
         {
           pin: "start",
+          take: "video:shot.02.motion",
           reaches: [seam],
           window: window({ address: "video:shot.02.motion", shotSec: 2, closesAt: 2, to: 2, ...w }),
         },
       ],
       slots: ["start", "end"],
+      takes: ["video:shot.02.motion"],
     });
 
     // H3 anchors the end image at the frame past the shot, so a 73-frame take played from its head
@@ -1991,7 +1998,13 @@ describe("the join", () => {
     it("is signed off once both shots across the seam are accepted as drawn", () => {
       const pins = [before({ clipSec: 73 / 24, landsAt: 72 / 24 }), after({ from: 1.5 })];
       const signed = (ids: readonly string[]) =>
-        found(pins.map((p) => (ids.includes(p.shotId) ? { ...p, signedOff: true as const } : p)));
+        checkDirection(dir, {
+          stagingStage: { ...noStage, videoPins: pins, shotPanels },
+          accepted: (a) =>
+            ids.some(
+              (id) => a === `video:shot.${id}#composition` || a === `video:shot.${id}.motion`,
+            ),
+        }).active.filter((f) => f.code === "join-unshown");
       expect(signed(["01"])).toHaveLength(2);
       expect(signed(["01", "02"])).toEqual([]);
     });
@@ -2037,8 +2050,9 @@ describe("the join", () => {
     const after: StagingStageState["videoPins"][number] = {
       shotId: "02",
       lane: "main",
-      pins: [{ pin: "start", reaches: [seam] }],
+      pins: [{ pin: "start", take: "video:shot.02.motion", reaches: [seam] }],
       slots: ["start", "end"],
+      takes: ["video:shot.02.motion"],
     };
 
     it("is signed off once both shots across the seam are accepted as drawn", () => {
@@ -2047,19 +2061,27 @@ describe("the join", () => {
         lane: "main" as const,
         pins: [],
         slots: ["start", "end"] as ("start" | "end")[],
+        takes: ["video:shot.01.motion"],
       };
-      expect(pinned([{ ...unpinned, signedOff: true }, after])).toHaveLength(1);
-      expect(
-        pinned([
-          { ...unpinned, signedOff: true },
-          { ...after, signedOff: true },
-        ]),
-      ).toEqual([]);
+      const signed = (accepted: readonly string[]) =>
+        checkDirection(dir, {
+          stagingStage: { ...noStage, videoPins: [unpinned, after], shotPanels },
+          accepted: (a) => accepted.includes(a),
+        }).active.filter((f) => f.code === "join-unpinned");
+      const both = ["video:shot.01#composition", "video:shot.02#composition"];
+      expect(signed(["video:shot.01.motion", ...both])).toHaveLength(1);
+      expect(signed(["video:shot.01.motion", "video:shot.02.motion", ...both])).toEqual([]);
     });
 
     it("flags a declared long take the take before does not land on", () => {
       const found = pinned([
-        { shotId: "01", lane: "main", pins: [], slots: ["start", "end"] },
+        {
+          shotId: "01",
+          lane: "main",
+          pins: [],
+          slots: ["start", "end"],
+          takes: ["video:shot.01.motion"],
+        },
         after,
       ]);
       expect(found).toHaveLength(1);
@@ -2074,8 +2096,9 @@ describe("the join", () => {
           {
             shotId: "01",
             lane: "main",
-            pins: [{ pin: "end", reaches: [seam] }],
+            pins: [{ pin: "end", take: "video:shot.01.motion", reaches: [seam] }],
             slots: ["start", "end"],
+            takes: ["video:shot.01.motion"],
           },
           after,
         ]),
@@ -2089,8 +2112,11 @@ describe("the join", () => {
           {
             shotId: "01",
             lane: "main",
-            pins: [{ pin: "end", reaches: ["video:shot.01.seam", seam] }],
+            pins: [
+              { pin: "end", take: "video:shot.01.motion", reaches: ["video:shot.01.seam", seam] },
+            ],
             slots: ["start", "end"],
+            takes: ["video:shot.01.motion"],
           },
           after,
         ]),
@@ -2104,8 +2130,9 @@ describe("the join", () => {
         {
           shotId: "01",
           lane: "main",
-          pins: [{ pin: "end", reaches: ["animatic:shot.01.last"] }],
+          pins: [{ pin: "end", take: "video:shot.01.motion", reaches: ["animatic:shot.01.last"] }],
           slots: ["start", "end"],
+          takes: ["video:shot.01.motion"],
         },
         after,
       ]);
@@ -2117,27 +2144,64 @@ describe("the join", () => {
     // pin is never the seam's answer.
     it("does not take the next take's start pin for the seam", () => {
       expect(
-        pinned([{ shotId: "01", lane: "main", pins: [], slots: ["start", "end"] }, after]),
+        pinned([
+          {
+            shotId: "01",
+            lane: "main",
+            pins: [],
+            slots: ["start", "end"],
+            takes: ["video:shot.01.motion"],
+          },
+          after,
+        ]),
       ).toHaveLength(1);
     });
 
     // The line `panel-unlinked` already draws: a model with no pin input has no wiring to forget, so
     // the demand is silent rather than a waiver every such piece carries.
     it("is silent where the take before cannot pin its end", () => {
-      expect(pinned([{ shotId: "01", lane: "main", pins: [], slots: ["start"] }, after])).toEqual(
-        [],
-      );
-      expect(pinned([{ shotId: "01", lane: "main", pins: [], slots: [] }, after])).toEqual([]);
+      expect(
+        pinned([
+          {
+            shotId: "01",
+            lane: "main",
+            pins: [],
+            slots: ["start"],
+            takes: ["video:shot.01.motion"],
+          },
+          after,
+        ]),
+      ).toEqual([]);
+      expect(
+        pinned([{ shotId: "01", lane: "main", pins: [], slots: [], takes: [] }, after]),
+      ).toEqual([]);
     });
 
     // The take after need not exist: the demand is on the take before, and lands before it is spent on.
     it("waits on the board holding the seam frame, not on the take after", () => {
       expect(
-        pinned([{ shotId: "01", lane: "main", pins: [], slots: ["start", "end"] }]),
+        pinned([
+          {
+            shotId: "01",
+            lane: "main",
+            pins: [],
+            slots: ["start", "end"],
+            takes: ["video:shot.01.motion"],
+          },
+        ]),
       ).toHaveLength(1);
       expect(
         pinned(
-          [{ shotId: "01", lane: "main", pins: [], slots: ["start", "end"] }, after],
+          [
+            {
+              shotId: "01",
+              lane: "main",
+              pins: [],
+              slots: ["start", "end"],
+              takes: ["video:shot.01.motion"],
+            },
+            after,
+          ],
           shotPanels.filter((p) => p.shotId === "01"),
         ),
       ).toEqual([]);
@@ -2148,8 +2212,15 @@ describe("the join", () => {
         {
           shotId: "01",
           lane: "main",
-          pins: [{ pin: "end", reaches: ["video:shot.01.seam", "animatic:shot.01.last"] }],
+          pins: [
+            {
+              pin: "end",
+              take: "video:shot.01.motion",
+              reaches: ["video:shot.01.seam", "animatic:shot.01.last"],
+            },
+          ],
           slots: ["start", "end"],
+          takes: ["video:shot.01.motion"],
         },
         after,
       ]);
@@ -2392,6 +2463,7 @@ describe("location-backtrack", () => {
       opts: {
         join?: "continuous";
         panels?: [string, string];
+        accepted?: readonly string[];
         waivers?: Record<string, string>;
       } = {},
     ) => {
@@ -2405,9 +2477,18 @@ describe("location-backtrack", () => {
       ];
       return (pins: StagingStageState["videoPins"][number]["pins"]) =>
         checkDirection(dir, {
+          accepted: (a) => opts.accepted?.includes(a) ?? false,
           stagingStage: {
             ...noStage,
-            videoPins: [{ shotId: "02", lane: "main", pins, slots: ["start", "end"] }],
+            videoPins: [
+              {
+                shotId: "02",
+                lane: "main",
+                pins,
+                slots: ["start", "end"],
+                takes: ["video:shot.02.motion"],
+              },
+            ],
             shotPanels: [
               { shotId: "02", lane: "main", firstPanel, lastPanel, carries: false, linked: [] },
             ],
@@ -2422,7 +2503,13 @@ describe("location-backtrack", () => {
 
     it("flags a key pinned as the first frame of a take that has a reference slot", () => {
       const found = keyed()([
-        { pin: "start", input: "startImage", reaches: ["video:shot.02.key", key], referable: true },
+        {
+          pin: "start",
+          take: "video:shot.02.motion",
+          input: "startImage",
+          reaches: ["video:shot.02.key", key],
+          referable: true,
+        },
       ]);
       expect(found).toHaveLength(1);
       expect(found[0]!.subject).toBe("02");
@@ -2431,34 +2518,39 @@ describe("location-backtrack", () => {
     });
 
     it("passes a take accepted against its current definition", () => {
-      expect(keyed()([{ pin: "start", reaches: [key], referable: true, signedOff: true }])).toEqual(
-        [],
-      );
+      expect(
+        keyed({ accepted: ["video:shot.02.motion"] })([
+          { pin: "start", take: "video:shot.02.motion", reaches: [key], referable: true },
+        ]),
+      ).toEqual([]);
     });
 
     // A change to the take's definition brings the finding back; the waiver must still be there.
     it("keeps the waiver of a take accepted against its current definition in use", () => {
-      const result = checked({ waivers: { "opening-key_02": "the key is the opening" } })([
-        { pin: "start", reaches: [key], referable: true, signedOff: true },
-      ]);
+      const result = checked({
+        waivers: { "opening-key_02": "the key is the opening" },
+        accepted: ["video:shot.02.motion"],
+      })([{ pin: "start", take: "video:shot.02.motion", reaches: [key], referable: true }]);
       expect(result.staleWaivers).toEqual([]);
       expect(result.waived).toEqual([]);
     });
 
     // A model that takes no reference takes the key as its first frame.
     it("passes a key pinned on a model with no reference slot", () => {
-      expect(keyed()([{ pin: "start", reaches: [key] }])).toEqual([]);
+      expect(keyed()([{ pin: "start", take: "video:shot.02.motion", reaches: [key] }])).toEqual([]);
     });
 
     it("passes a key pinned only at the end", () => {
-      expect(keyed()([{ pin: "end", reaches: [key], referable: true }])).toEqual([]);
+      expect(
+        keyed()([{ pin: "end", take: "video:shot.02.motion", reaches: [key], referable: true }]),
+      ).toEqual([]);
     });
 
     it("passes the opening panel of a frame boarded on two", () => {
       const first = "animatic:shot.02.first";
       expect(
         keyed({ panels: [first, "animatic:shot.02.last"] })([
-          { pin: "start", reaches: [first], referable: true },
+          { pin: "start", take: "video:shot.02.motion", reaches: [first], referable: true },
         ]),
       ).toEqual([]);
     });
@@ -2466,7 +2558,9 @@ describe("location-backtrack", () => {
     // The one panel of a frame that runs on from the one before is the seam the take opens on.
     it("passes the one panel of a continuous frame", () => {
       expect(
-        keyed({ join: "continuous" })([{ pin: "start", reaches: [key], referable: true }]),
+        keyed({ join: "continuous" })([
+          { pin: "start", take: "video:shot.02.motion", reaches: [key], referable: true },
+        ]),
       ).toEqual([]);
     });
   });

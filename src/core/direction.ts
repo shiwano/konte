@@ -61,7 +61,6 @@ import {
   type OffscreenFigure,
   checkPropNaming,
   checkProps,
-  signOff,
   checkSetups,
   placeRefOf,
   usedSetupIds,
@@ -99,6 +98,7 @@ import { scriptOf } from "./typography.js";
 import { KonteError } from "./errors.js";
 import { formatSeconds } from "./format-duration.js";
 import { type Finding, findingTraits } from "./finding.js";
+import { type Accepted, signedOffBy, withAwaitingAccept } from "./sign-off.js";
 import {
   type DirectionFindingClass,
   classifyDirectionFinding,
@@ -758,8 +758,6 @@ export type StagingStageState = {
   // `plate-unnamed` reads for the landmarks that frame declares it holds. Every returned plate has an
   // entry, so a setup with none is one whose keyframes `landmark-unnamed` reads instead.
   plateTexts: Readonly<Record<string, readonly string[]>>;
-  // The setup ids whose plate is signed off.
-  signedOffPlateIds: readonly string[];
   // The reference ids each developed shot puts on screen as they are, keyed by shot id — what
   // `prop-unnamed` drops.
   shownReferences: Readonly<Record<string, readonly string[]>>;
@@ -775,7 +773,8 @@ export type StagingStageState = {
     refs: readonly string[];
     texts: readonly string[];
     generative: boolean;
-    signedOff?: true;
+    // The take the frame renders.
+    take: string;
   }[];
   // The seam reading: the two keyframes each developed shot answers a boundary with, and what the
   // opening one was handed of the frame before it. `join-unpinned` reads the opening keyframe as
@@ -896,9 +895,7 @@ function checkStaging(
     ...checkRoutes(shots),
     // The setups roster alone: a landmark's place on screen is the camera's, not a shot's.
     ...checkLandmarkOrder(holdsSetupRefs(direction)),
-    ...(stage
-      ? checkPlateNaming(plateNamings(direction, stage.plateTexts, stage.signedOffPlateIds))
-      : []),
+    ...(stage ? checkPlateNaming(plateNamings(direction, stage.plateTexts)) : []),
     ...(stage
       ? checkLandmarkNaming(unplatedFrames(direction, stage.plateTexts), stage.panelPrompts)
       : []),
@@ -930,7 +927,7 @@ function checkPassers(
           code: "passer-unconsumed",
           subject,
           message: `${frameLabel(frame)} passes "${id}" but a video take's input chain does not reach reference:${id}`,
-          ...signOff(unreached.every((take) => take.signedOff)),
+          judgedBy: unreached.map((take) => take.take),
         });
       }
       const depiction = direction.characters?.[id]?.promptDepiction;
@@ -945,7 +942,7 @@ function checkPassers(
           code: "passer-unnamed",
           subject,
           message: `${frameLabel(frame)} passes "${id}" but a video take's positive prompts do not contain "${depiction}"`,
-          ...signOff(unnamed.every((take) => take.signedOff)),
+          judgedBy: unnamed.map((take) => take.take),
         });
       }
     }
@@ -1011,18 +1008,12 @@ function heldLandmarks(direction: Direction, setupId: string): HeldLandmark[] {
 function plateNamings(
   direction: Direction,
   plateTexts: Readonly<Record<string, readonly string[]>>,
-  signedOffPlateIds: readonly string[],
 ): PlateNaming[] {
   const out: PlateNaming[] = [];
   for (const [setupId, texts] of Object.entries(plateTexts)) {
     const holds = heldLandmarks(direction, setupId);
     if (texts.length === 0 || holds.length === 0) continue;
-    out.push({
-      setupId,
-      texts,
-      holds,
-      ...(signedOffPlateIds.includes(setupId) ? { signedOff: true as const } : {}),
-    });
+    out.push({ setupId, texts, holds });
   }
   return out;
 }
@@ -1148,7 +1139,7 @@ function boardSeams(pairs: readonly FramePair[], continuity: readonly ShotPanels
         from: from.shotId,
         fromPanel: before.lastPanel,
         linked: here.linked,
-        ...(here.signedOff ? { signedOff: true as const } : {}),
+        opening: here.firstPanel,
       },
     ];
   });
@@ -2385,6 +2376,7 @@ export function checkDirection(
     // The take of the song the piece is read against. Same contract again: undefined means state
     // could not be read, so the song class is not evaluated.
     songVariant?: SongVariantState;
+    accepted?: Accepted;
   } = {},
 ): DirectionCheckResult {
   const structureErrors = validateDirectionStructure(direction);
@@ -2499,13 +2491,16 @@ export function checkDirection(
   const matched = new Set<string>();
   for (const finding of reported) {
     const key = directionWaiverKey(finding);
-    if (finding.signedOff) {
+    if (signedOffBy(finding.judgedBy, options.accepted)) {
       if (key in waivers) matched.add(key);
     } else if (key in waivers && isWaivableCode(finding.code)) {
       matched.add(key);
       waived.push(finding);
     } else {
-      active.push(finding);
+      active.push({
+        ...finding,
+        message: withAwaitingAccept(finding.message, finding.judgedBy, options.accepted),
+      });
     }
   }
 

@@ -626,7 +626,7 @@ export type DirectionFinding = {
   subject?: string;
   path?: readonly string[];
   message: string;
-  signedOff?: true;
+  judgedBy?: readonly string[];
 };
 export type CheckArcOptions = {
   noun?: string;
@@ -3303,6 +3303,16 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 deterministic?: boolean | undefined;
               }
           >;
+          panels?:
+            | {
+                start: number;
+                duration: number;
+                assetName: string;
+                address: string;
+                blocking?: string | undefined;
+                camera?: string | undefined;
+              }[]
+            | undefined;
           cutin?:
             | {
                 refs: string[];
@@ -3350,16 +3360,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             | {
                 part: "instrumental";
               }
-            | undefined;
-          panels?:
-            | {
-                start: number;
-                duration: number;
-                assetName: string;
-                address: string;
-                blocking?: string | undefined;
-                camera?: string | undefined;
-              }[]
             | undefined;
           graphic?: true | undefined;
           pending?: true | undefined;
@@ -3440,6 +3440,16 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 deterministic?: boolean | undefined;
               }
           >;
+          panels?:
+            | {
+                start: number;
+                duration: number;
+                assetName: string;
+                address: string;
+                blocking?: string | undefined;
+                camera?: string | undefined;
+              }[]
+            | undefined;
           cutin?:
             | {
                 refs: string[];
@@ -3487,16 +3497,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             | {
                 part: "instrumental";
               }
-            | undefined;
-          panels?:
-            | {
-                start: number;
-                duration: number;
-                assetName: string;
-                address: string;
-                blocking?: string | undefined;
-                camera?: string | undefined;
-              }[]
             | undefined;
           graphic?: true | undefined;
           pending?: true | undefined;
@@ -4207,6 +4207,16 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             deterministic?: boolean | undefined;
           }
       >;
+      panels?:
+        | {
+            start: number;
+            duration: number;
+            assetName: string;
+            address: string;
+            blocking?: string | undefined;
+            camera?: string | undefined;
+          }[]
+        | undefined;
       cutin?:
         | {
             refs: string[];
@@ -4254,16 +4264,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
         | {
             part: "instrumental";
           }
-        | undefined;
-      panels?:
-        | {
-            start: number;
-            duration: number;
-            assetName: string;
-            address: string;
-            blocking?: string | undefined;
-            camera?: string | undefined;
-          }[]
         | undefined;
       graphic?: true | undefined;
       pending?: true | undefined;
@@ -4522,6 +4522,16 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             deterministic?: boolean | undefined;
           }
       >;
+      panels?:
+        | {
+            start: number;
+            duration: number;
+            assetName: string;
+            address: string;
+            blocking?: string | undefined;
+            camera?: string | undefined;
+          }[]
+        | undefined;
       cutin?:
         | {
             refs: string[];
@@ -4569,16 +4579,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
         | {
             part: "instrumental";
           }
-        | undefined;
-      panels?:
-        | {
-            start: number;
-            duration: number;
-            assetName: string;
-            address: string;
-            blocking?: string | undefined;
-            camera?: string | undefined;
-          }[]
         | undefined;
       graphic?: true | undefined;
       pending?: true | undefined;
@@ -6041,6 +6041,16 @@ declare const ShotDefinitionSchema: z.ZodObject<
           deterministic?: boolean | undefined;
         }
     >;
+    panels?:
+      | {
+          start: number;
+          duration: number;
+          assetName: string;
+          address: string;
+          blocking?: string | undefined;
+          camera?: string | undefined;
+        }[]
+      | undefined;
     cutin?:
       | {
           refs: string[];
@@ -6088,16 +6098,6 @@ declare const ShotDefinitionSchema: z.ZodObject<
       | {
           part: "instrumental";
         }
-      | undefined;
-    panels?:
-      | {
-          start: number;
-          duration: number;
-          assetName: string;
-          address: string;
-          blocking?: string | undefined;
-          camera?: string | undefined;
-        }[]
       | undefined;
     graphic?: true | undefined;
     pending?: true | undefined;
@@ -6178,6 +6178,16 @@ declare const ShotDefinitionSchema: z.ZodObject<
           deterministic?: boolean | undefined;
         }
     >;
+    panels?:
+      | {
+          start: number;
+          duration: number;
+          assetName: string;
+          address: string;
+          blocking?: string | undefined;
+          camera?: string | undefined;
+        }[]
+      | undefined;
     cutin?:
       | {
           refs: string[];
@@ -6225,16 +6235,6 @@ declare const ShotDefinitionSchema: z.ZodObject<
       | {
           part: "instrumental";
         }
-      | undefined;
-    panels?:
-      | {
-          start: number;
-          duration: number;
-          assetName: string;
-          address: string;
-          blocking?: string | undefined;
-          camera?: string | undefined;
-        }[]
       | undefined;
     graphic?: true | undefined;
     pending?: true | undefined;
@@ -7162,6 +7162,16 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 deterministic?: boolean | undefined;
               }
           >;
+          panels?:
+            | {
+                start: number;
+                duration: number;
+                assetName: string;
+                address: string;
+                blocking?: string | undefined;
+                camera?: string | undefined;
+              }[]
+            | undefined;
           cutin?:
             | {
                 refs: string[];
@@ -7209,16 +7219,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
             | {
                 part: "instrumental";
               }
-            | undefined;
-          panels?:
-            | {
-                start: number;
-                duration: number;
-                assetName: string;
-                address: string;
-                blocking?: string | undefined;
-                camera?: string | undefined;
-              }[]
             | undefined;
           graphic?: true | undefined;
           pending?: true | undefined;
@@ -7299,6 +7299,16 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 deterministic?: boolean | undefined;
               }
           >;
+          panels?:
+            | {
+                start: number;
+                duration: number;
+                assetName: string;
+                address: string;
+                blocking?: string | undefined;
+                camera?: string | undefined;
+              }[]
+            | undefined;
           cutin?:
             | {
                 refs: string[];
@@ -7346,16 +7356,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
             | {
                 part: "instrumental";
               }
-            | undefined;
-          panels?:
-            | {
-                start: number;
-                duration: number;
-                assetName: string;
-                address: string;
-                blocking?: string | undefined;
-                camera?: string | undefined;
-              }[]
             | undefined;
           graphic?: true | undefined;
           pending?: true | undefined;
@@ -7900,6 +7900,16 @@ declare const VideoDefinitionSchema: z.ZodObject<
             deterministic?: boolean | undefined;
           }
       >;
+      panels?:
+        | {
+            start: number;
+            duration: number;
+            assetName: string;
+            address: string;
+            blocking?: string | undefined;
+            camera?: string | undefined;
+          }[]
+        | undefined;
       cutin?:
         | {
             refs: string[];
@@ -7947,16 +7957,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
         | {
             part: "instrumental";
           }
-        | undefined;
-      panels?:
-        | {
-            start: number;
-            duration: number;
-            assetName: string;
-            address: string;
-            blocking?: string | undefined;
-            camera?: string | undefined;
-          }[]
         | undefined;
       graphic?: true | undefined;
       pending?: true | undefined;
@@ -8161,6 +8161,16 @@ declare const VideoDefinitionSchema: z.ZodObject<
             deterministic?: boolean | undefined;
           }
       >;
+      panels?:
+        | {
+            start: number;
+            duration: number;
+            assetName: string;
+            address: string;
+            blocking?: string | undefined;
+            camera?: string | undefined;
+          }[]
+        | undefined;
       cutin?:
         | {
             refs: string[];
@@ -8208,16 +8218,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
         | {
             part: "instrumental";
           }
-        | undefined;
-      panels?:
-        | {
-            start: number;
-            duration: number;
-            assetName: string;
-            address: string;
-            blocking?: string | undefined;
-            camera?: string | undefined;
-          }[]
         | undefined;
       graphic?: true | undefined;
       pending?: true | undefined;

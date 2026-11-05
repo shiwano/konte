@@ -5,7 +5,7 @@
 // own roles and each carries the dramatic `fn` the theory checks read, so there is no global role
 // vocabulary or function map; the engine reads `fn` off the matched role.
 
-import { formatShotAddress } from "./address.js";
+import { formatCompositionAddress, formatPlateAddress, formatShotAddress } from "./address.js";
 import { formatSeconds, formatSecondsRange } from "./format-duration.js";
 import type { PanelLane, ShotJoin } from "./types/definition.js";
 import { parseViewName } from "./view.js";
@@ -153,12 +153,10 @@ export type DirectionFinding = {
   // The engine itself is path-blind; the caller that walks the tree stamps it.
   path?: readonly string[];
   message: string;
-  // An accept of the take it reads settles it: it holds nothing, and its waiver stays in use.
-  signedOff?: true;
+  // The addresses whose accept judges it. Once each is accepted against its current definition it
+  // holds nothing, and its waiver stays in use.
+  judgedBy?: readonly string[];
 };
-
-export const signOff = (signed: boolean): { signedOff?: true } =>
-  signed ? { signedOff: true } : {};
 
 export type CheckArcOptions = {
   // The scale's item word woven into messages ("shot" for a run of shots, "sequence" for a run of
@@ -365,11 +363,12 @@ export type AnimaticSetupState = {
   unanchoredPlateIds: readonly string[];
   unnestedPlateIds: readonly string[];
   unconsumedBy: ReadonlyMap<string, readonly string[]>;
-  // The same shots whose every keyframe is signed off, apart from `unconsumedBy`.
-  signedOffUnconsumedBy: ReadonlyMap<string, readonly string[]>;
+  // The keyframes of the frames in `unconsumedBy`, keyed by setup.
+  unconsumedPanels: ReadonlyMap<string, readonly string[]>;
   deterministicShotsPerSetup: ReadonlyMap<string, number>;
-  // Generated frames whose every keyframe is signed off, keyed by setup.
-  signedOffShotsPerSetup: ReadonlyMap<string, number>;
+  // The keyframes of each generated frame, keyed by setup and then shot. An undeveloped frame holds
+  // its shot's composition, which no accept has signed.
+  framePanels: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
   deterministicPlateIds: readonly string[];
   unviewedPlateIds: readonly string[];
   unviewedBy: ReadonlyMap<string, readonly string[]>;
@@ -625,7 +624,8 @@ export const ATOMIZED_LOCATION_SHOTS = 8;
 function checkAxisCuts(
   cuts: readonly AxisCut[],
   plates: ReadonlySet<string>,
-  unsignedShots: (setupId: string) => number,
+  judgedBy: (setupId: string) => string[],
+  generated: (setupId: string) => number,
 ): DirectionFinding[] {
   const findings: DirectionFinding[] = [];
   const seen = new Set<string>();
@@ -634,6 +634,8 @@ function checkAxisCuts(
     if (seen.has(subject)) continue;
     const missing = cut.chain.filter((id) => !plates.has(id));
     if (missing.length === 0) continue;
+    // No generated shot on either end has a frame to hold.
+    if (cut.pair.every((id) => generated(id) === 0)) continue;
     seen.add(subject);
     const owed = missing.map((id) => `"${id}"`).join(", ");
     findings.push({
@@ -642,7 +644,7 @@ function checkAxisCuts(
       message:
         `${owed} ${missing.length === 1 ? "has" : "have"} no plate on the axis of setups ` +
         `"${cut.pair[0]}" and "${cut.pair[1]}"`,
-      ...signOff(cut.pair.every((id) => unsignedShots(id) === 0)),
+      judgedBy: cut.pair.flatMap(judgedBy),
     });
   }
   return findings;
@@ -697,11 +699,12 @@ function checkUnowedPlates(
 function checkAtomizedSetups(
   setups: readonly SetupRef[],
   shotsPerSetup: ReadonlyMap<string, number>,
-  unsignedShots: ((setupId: string) => number) | undefined,
+  judgedBy: ((setupId: string) => string[]) | undefined,
+  generated: ((setupId: string) => number) | undefined,
 ): DirectionFinding[] {
   const byLocation = new Map<
     string,
-    { shots: number; onShared: number; frames: number; unsigned: number }
+    { shots: number; onShared: number; frames: number; drawn: number; panels: string[] }
   >();
   for (const setup of setups) {
     const shots = shotsPerSetup.get(setup.id) ?? 0;
@@ -710,26 +713,28 @@ function checkAtomizedSetups(
       shots: 0,
       onShared: 0,
       frames: 0,
-      unsigned: 0,
+      drawn: 0,
+      panels: [],
     };
     byLocation.set(setup.location, entry);
     entry.shots += shots;
-    entry.unsigned += unsignedShots ? unsignedShots(setup.id) : shots;
+    entry.drawn += generated ? generated(setup.id) : shots;
+    entry.panels.push(...(judgedBy?.(setup.id) ?? []));
     entry.frames += 1;
     if (shots >= 2) entry.onShared += shots;
   }
   const findings: DirectionFinding[] = [];
-  for (const [location, { shots, onShared, frames, unsigned }] of [...byLocation].sort((a, b) =>
-    a[0].localeCompare(b[0]),
+  for (const [location, { shots, onShared, frames, drawn, panels }] of [...byLocation].sort(
+    (a, b) => a[0].localeCompare(b[0]),
   )) {
-    if (shots < ATOMIZED_LOCATION_SHOTS || onShared * 2 >= shots) continue;
+    if (shots < ATOMIZED_LOCATION_SHOTS || onShared * 2 >= shots || drawn === 0) continue;
     findings.push({
       code: "setup-atomized",
       subject: location,
       message:
         `location "${location}" holds ${shots} shots across ${frames} setups, ${onShared} of them ` +
         `on a shared frame — ${Math.ceil(shots / 2)} needed`,
-      ...signOff(unsigned === 0),
+      ...(judgedBy ? { judgedBy: panels } : {}),
     });
   }
   return findings;
@@ -785,14 +790,17 @@ export function checkSetups(
 ): DirectionFinding[] {
   const findings: DirectionFinding[] = [];
   const plates = animatic === undefined ? undefined : new Set(animatic.plateIds);
-  // A frame not yet developed counts as unsigned.
-  const unsignedShots =
+  const judgedBy =
+    animatic === undefined
+      ? undefined
+      : (setupId: string): string[] =>
+          [...(animatic.framePanels.get(setupId)?.values() ?? [])].flat();
+  const generated =
     animatic === undefined
       ? undefined
       : (setupId: string): number =>
           (shotsPerSetup.get(setupId) ?? 0) -
-          (animatic.deterministicShotsPerSetup.get(setupId) ?? 0) -
-          (animatic.signedOffShotsPerSetup.get(setupId) ?? 0);
+          (animatic.deterministicShotsPerSetup.get(setupId) ?? 0);
   const unanchored = animatic === undefined ? undefined : new Set(animatic.unanchoredPlateIds);
   const unnested = animatic === undefined ? undefined : new Set(animatic.unnestedPlateIds);
   const anchored = referenceAssetNames === undefined ? undefined : new Set(referenceAssetNames);
@@ -829,7 +837,7 @@ export function checkSetups(
         code: "setup-unrealized",
         subject: setup.id,
         message: `setup "${setup.id}" is shared by ${generated} generated shots but has no plate`,
-        ...signOff(unsignedShots!(setup.id) === 0),
+        judgedBy: judgedBy!(setup.id),
       });
       continue;
     }
@@ -872,13 +880,7 @@ export function checkSetups(
           `\`plates.${setup.within}.image\` nor a window inside it`,
       });
     }
-    const unsigned = animatic!.unconsumedBy.get(setup.id) ?? [];
-    const ignoring =
-      plated || hasReference
-        ? unsigned.length > 0
-          ? unsigned
-          : (animatic!.signedOffUnconsumedBy.get(setup.id) ?? [])
-        : [];
+    const ignoring = plated || hasReference ? (animatic!.unconsumedBy.get(setup.id) ?? []) : [];
     if (ignoring.length > 0) {
       const shotList = ignoring.map((id) => `"${id}"`).join(", ");
       findings.push({
@@ -894,13 +896,13 @@ export function checkSetups(
               ? `, or regenerate \`reference.${setup.location}\` to hold what the shot needs and ` +
                 `show it as the keyframe`
               : ""),
-        ...signOff(unsigned.length === 0),
+        judgedBy: [...(animatic!.unconsumedPanels.get(setup.id) ?? [])],
       });
     }
   }
-  findings.push(...checkAtomizedSetups(setups, shotsPerSetup, unsignedShots));
+  findings.push(...checkAtomizedSetups(setups, shotsPerSetup, judgedBy, generated));
   // Board-gated like the three anchor findings: with no plates read there is nothing to be missing.
-  if (plates) findings.push(...checkAxisCuts(axisCuts, plates, unsignedShots!));
+  if (plates) findings.push(...checkAxisCuts(axisCuts, plates, judgedBy!, generated!));
   if (animatic) findings.push(...checkUnowedPlates(setups, shotsPerSetup, animatic, axisCuts));
   if (animatic && referenceAssetNames !== undefined) {
     findings.push(...checkViews(setups, shotsPerSetup, viewImages, anchored!, animatic));
@@ -1030,14 +1032,13 @@ export type VideoShotPins = {
     window?: PinWindow;
     // The take's model also takes an unpinned image (`PinOccurrence.referable`).
     referable?: true;
-    // The take is accepted with its definition unchanged.
-    signedOff?: true;
+    // The take the pin is an input of.
+    take: string;
   }[];
   // The ends its adapter declares a slot for, wired or not — what says the take COULD carry a seam.
   slots: readonly ("start" | "end")[];
-  // The shot's composition, and every take of the frame with a pin slot, accepted with its
-  // definition unchanged.
-  signedOff?: true;
+  // Every take of the frame with a pin slot.
+  takes: readonly string[];
 };
 
 /**
@@ -1049,7 +1050,6 @@ export type PanelSlots = {
   lane: PanelLane;
   panel: string;
   slots: readonly string[];
-  signedOff?: true;
 };
 
 /**
@@ -1063,7 +1063,6 @@ export type PanelReach = {
   panel: string;
   refs: readonly string[];
   generative: boolean;
-  signedOff?: true;
 };
 
 function panelsByFrame<T extends { shotId: string; lane: PanelLane }>(
@@ -1477,12 +1476,14 @@ export function checkJoinPins(
     const seam = panelsOf.get(`${shot.shotId}/${shot.lane}`)?.firstPanel;
     if (seam === undefined) continue;
     const after = pinsOf.get(`${shot.shotId}/${shot.lane}`);
-    const signed = before?.signedOff === true && after?.signedOff === true;
+    const judgedBy = [
+      formatCompositionAddress("video", previous.shotId),
+      formatCompositionAddress("video", shot.shotId),
+      ...(before?.takes ?? []),
+      ...(after?.takes ?? []),
+    ];
     findings.push(
-      ...checkSeamWindows(previous, shot, seam, before, after).map((f) => ({
-        ...f,
-        ...signOff(signed),
-      })),
+      ...checkSeamWindows(previous, shot, seam, before, after).map((f) => ({ ...f, judgedBy })),
     );
     if (!before) continue;
     if (!before.slots.includes("end")) continue;
@@ -1501,7 +1502,7 @@ export function checkJoinPins(
           ? `pins nothing at its end`
           : `pins its end to another frame (${pinnedFrame})`) +
         ` — pin it to \`${seam}\``,
-      ...signOff(signed),
+      judgedBy,
     });
   }
   return findings;
@@ -1524,16 +1525,16 @@ export function checkKeyPins(
     const opening = pinsOf
       .get(`${shot.shotId}/${shot.lane}`)
       ?.pins.filter((p) => p.pin === "start" && p.referable && p.reaches.includes(key));
-    const pinned = opening?.find((p) => !p.signedOff) ?? opening?.[0];
-    if (!pinned) continue;
+    if (!opening || opening.length === 0) continue;
+    const inputs = [...new Set(opening.flatMap((p) => (p.input ? [`\`${p.input}\``] : [])))];
     const takes = shot.lane === "cutin" ? "cutin take" : "take";
     findings.push({
       code: "opening-key",
       subject: frameSubject(shot),
       message:
         `the ${takes} of ${formatShotAddress("video", shot.shotId)} opens on ${frameName(shot)}'s key \`${key}\`` +
-        `${pinned.input ? ` (\`${pinned.input}\`)` : ""}`,
-      ...(pinned.signedOff ? { signedOff: true as const } : {}),
+        `${inputs.length > 0 ? ` (${inputs.join(", ")})` : ""}`,
+      judgedBy: opening.map((p) => p.take),
     });
   }
   return findings;
@@ -1608,7 +1609,6 @@ export type PanelPrompts = {
   texts: readonly string[];
   // False when nothing in the chain generates — a `file` keyframe has no prompt to name anyone in.
   generative: boolean;
-  signedOff?: true;
 };
 
 // A declared noun is looked for as itself, case-blind and anywhere in the text: "desk" is named by
@@ -1651,8 +1651,7 @@ function checkSubjectNaming(
     if (shot.lineupTo && panels.length > 1 && shot.continuedBy === undefined) {
       against.push({ panel: panels[panels.length - 1]!, order: shot.lineupTo });
     }
-    // Per missing id: whether every panel lacking it is signed off.
-    const missing = new Map<string, boolean>();
+    const missing = new Map<string, string[]>();
     for (const { panel, order } of against) {
       if (!panel.generative) continue;
       for (const id of order) {
@@ -1662,17 +1661,17 @@ function checkSubjectNaming(
         // repeat.
         if (promptDepiction === undefined || promptDepiction.trim() === "") continue;
         if (namesIn(panel.texts, promptDepiction)) continue;
-        missing.set(id, (missing.get(id) ?? true) && panel.signedOff === true);
+        missing.set(id, [...(missing.get(id) ?? []), panel.panel]);
       }
     }
-    for (const [id, signed] of missing) {
+    for (const [id, panels] of missing) {
       findings.push({
         code: "subject-unnamed",
         subject: `${frameSubject(shot)}.${id}`,
         message:
           `${frameName(shot)} frames "${id}" but no prompt behind the keyframe holding them contains ` +
           `"${promptDepictions.get(id)}"`,
-        ...signOff(signed),
+        judgedBy: panels,
       });
     }
   }
@@ -1709,7 +1708,7 @@ export function checkPropNaming(
         message:
           `shot ${shot.id}'s action names "${prop.name}" but no prompt behind its keyframes contains ` +
           `"${prop.promptDepiction}"`,
-        ...signOff(panels.every((p) => p.signedOff)),
+        judgedBy: panels.map((p) => p.panel),
       });
     }
   }
@@ -1731,8 +1730,6 @@ export type ShotPanels = {
   carries: boolean;
   // Every address the previous panel it was handed reaches.
   linked: readonly string[];
-  // The opening keyframe is signed off.
-  signedOff?: true;
 };
 
 /**
@@ -1747,7 +1744,8 @@ export type PanelSeam = {
   fromPanel: string;
   // Every address this shot's opening keyframe was handed of the frame it cuts from.
   linked: readonly string[];
-  signedOff?: true;
+  // This shot's opening keyframe.
+  opening: string;
 };
 
 // The frame a seam's opening keyframe was not handed. Only seams whose opening keyframe's model
@@ -1765,7 +1763,7 @@ function checkSeamLinks(
         code,
         subject: `${seam.from}-${seam.id}${seam.lane === "cutin" ? ".cutin" : ""}`,
         message: `${frame}'s opening keyframe ${took} — pass \`${seam.fromPanel}\``,
-        ...signOff(seam.signedOff === true),
+        judgedBy: [seam.opening],
       },
     ];
   });
@@ -1796,7 +1794,6 @@ export type PlateNaming = {
   setupId: string;
   texts: readonly string[];
   holds: readonly HeldLandmark[];
-  signedOff?: true;
 };
 
 // Reported per landmark, keyed `<setupId>.<landmarkId>`.
@@ -1812,7 +1809,7 @@ export function checkPlateNaming(namings: readonly PlateNaming[]): DirectionFind
         message:
           `the prompt plate "${naming.setupId}" is generated with does not say ` +
           `"${landmark.promptDepiction}", which its \`holds\` declares the frame carries`,
-        ...signOff(naming.signedOff === true),
+        judgedBy: [formatPlateAddress(naming.setupId)],
       });
     }
   }
@@ -1854,7 +1851,7 @@ export function checkLandmarkNaming(
         message:
           `${frameName(frame)} holds "${landmark.id}" but a keyframe drawing it has no prompt ` +
           `containing "${landmark.promptDepiction}"`,
-        ...signOff(lacking.every((panel) => panel.signedOff)),
+        judgedBy: lacking.map((panel) => panel.panel),
       });
     }
   }
@@ -1913,7 +1910,6 @@ export type PlateRecrop = {
   shotId: string;
   lane: PanelLane;
   panel: string;
-  signedOff?: true;
 };
 
 // Reported per frame: the shot is what has to move onto a setup of its own.
@@ -1937,7 +1933,7 @@ function checkPlateRecrops(
         `${frameName(first!)} crops plate "${setupId}" in ` +
         `${panels} — its own setup stands on a crop of ` +
         `\`${placeRefs.get(setupId) ?? "reference.<location>"}\``,
-      ...signOff(all.every((r) => r.signedOff)),
+      judgedBy: all.map((r) => r.panel),
     };
   });
 }
@@ -1973,15 +1969,18 @@ function checkSlotOrder(
       const expected = order.filter((id) => slots.includes(id));
       return sameOrder(slots, expected) ? [] : [{ panel, slots, expected }];
     });
-    const shown = mismatches.find((m) => !m.panel.signedOff) ?? mismatches[0];
-    if (!shown) continue;
+    if (mismatches.length === 0) continue;
     findings.push({
       code: "slot-order-mismatch",
       subject: frameSubject(shot),
-      message:
-        `${shown.panel.panel} passes its reference images as ${shown.slots.join(", ")}, but ` +
-        `${frameName(shot)} declares the frame as ${shown.expected.join(", ")} left to right`,
-      ...signOff(mismatches.every((m) => m.panel.signedOff)),
+      message: mismatches
+        .map(
+          (m) =>
+            `${m.panel.panel} passes its reference images as ${m.slots.join(", ")}, but ` +
+            `${frameName(shot)} declares the frame as ${m.expected.join(", ")} left to right`,
+        )
+        .join("; "),
+      judgedBy: mismatches.map((m) => m.panel.panel),
     });
   }
   return findings;
@@ -2015,23 +2014,22 @@ function checkCharacterAnchors(
     if (shot.lineupTo && panels.length > 1 && shot.continuedBy === undefined) {
       against.push({ panel: panels[panels.length - 1]!, order: shot.lineupTo });
     }
-    // Per missing id: whether every panel lacking it is signed off.
-    const missing = new Map<string, boolean>();
+    const missing = new Map<string, string[]>();
     for (const { panel, order } of against) {
       if (!panel.generative) continue;
       for (const id of order) {
         if (!anchored.has(id) || panel.refs.includes(id)) continue;
-        missing.set(id, (missing.get(id) ?? true) && panel.signedOff === true);
+        missing.set(id, [...(missing.get(id) ?? []), panel.panel]);
       }
     }
-    for (const [id, signed] of missing) {
+    for (const [id, panels] of missing) {
       findings.push({
         code: "character-unconsumed",
         subject: `${frameSubject(shot)}.${id}`,
         message:
           `${frameName(shot)} frames "${id}" but the keyframe holding them is built from no reference ` +
           `to them`,
-        ...signOff(signed),
+        judgedBy: panels,
       });
     }
   }

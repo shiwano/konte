@@ -117,7 +117,6 @@ const noStage: StagingStageState = {
   plateRecrops: [],
   panelPrompts: [],
   plateTexts: {},
-  signedOffPlateIds: [],
   shownReferences: {},
   videoPins: [],
   shotPanels: [],
@@ -364,16 +363,24 @@ describe("cutin staging", () => {
         {
           shotId: "01",
           lane: "main",
-          pins: [{ pin: "end", reaches: ["animatic:shot.02.presenter"] }],
+          pins: [
+            { pin: "end", reaches: ["animatic:shot.02.presenter"], take: "video:shot.01.motion" },
+          ],
           slots: ["start", "end"],
+          takes: ["video:shot.01.motion"],
         },
         {
           shotId: "01",
           lane: "cutin",
-          pins: before.map((reach) => ({ pin: "end" as const, reaches: [reach] })),
+          pins: before.map((reach) => ({
+            pin: "end" as const,
+            reaches: [reach],
+            take: "video:shot.01.inset",
+          })),
           slots: ["start", "end"],
+          takes: ["video:shot.01.inset"],
         },
-        { shotId: "02", lane: "cutin", pins: [], slots: ["start", "end"] },
+        { shotId: "02", lane: "cutin", pins: [], slots: ["start", "end"], takes: [] },
       ],
     });
     expect(active(dir, "join-unpinned", { stagingStage: pins([]) }).map((f) => f.subject)).toEqual([
@@ -391,9 +398,9 @@ describe("cutin setups", () => {
     unanchoredPlateIds: [],
     unnestedPlateIds: [],
     unconsumedBy: new Map(),
-    signedOffUnconsumedBy: new Map(),
+    unconsumedPanels: new Map(),
     deterministicShotsPerSetup: new Map(),
-    signedOffShotsPerSetup: new Map(),
+    framePanels: new Map(),
     deterministicPlateIds: [],
     unviewedPlateIds: [],
     unviewedBy: new Map(),
