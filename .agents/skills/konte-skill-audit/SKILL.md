@@ -30,8 +30,9 @@ Write one brief to the scratchpad; every subagent reads it:
 - Read `konte-prose-trim` and `template-skills-guide` in full; apply them to the whole of each assigned file.
 - Priority: restatement within a file, of a sibling, of the matching `AGENTS.md` (root for dev, `src/cli/templates/workspace/AGENTS.md` for template) → route to the owner or delete, after `rg` confirms the owner says it; a `description` whose trigger overlaps a sibling's, or a body doing a sibling's job → narrow it; prose paragraphs → one rule per line; foils, provenance, meta, recap; tables → bullets; stray bold.
 - Keep every command, flag, identifier, path, number and snippet still needed — `rg` it in `src/` before deleting anything that looks like a fact; add no new facts; keep `name:` and the `description` trigger phrases.
+- `rg` every command, flag, finding code and output line a skill names; fix drift only when the fix is mechanical and certain.
 - Edit only assigned files; run no `check`; commit nothing.
-- Report per file: what was cut, what was kept on purpose and why, drift found but not fixed.
+- Report per file: what was cut, what was kept on purpose and why, drift fixed and drift left, each with its source location.
 
 ## 4. Fan out
 

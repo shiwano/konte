@@ -6,7 +6,7 @@ user-invocable: false
 
 ## Job kinds
 
-A job records its backend kind and the addresses it depends on, and auto-submits once each has a ready variant.
+A job records its backend kind and the addresses it depends on.
 
 A `defineComfyAsset` adapter declares the ComfyUI dependencies konte provisions before generating:
 
@@ -28,7 +28,9 @@ Activation:
 
 ## Leader-elected waiting
 
-- When several daemons of the workspace await one running job, a run lease (`job.lease`) makes exactly one the _owner_ — it runs the backend wait, downloads/normalizes the output, and commits the terminal state; the rest only _monitor_ the job record. A crashed owner's lease lapses and a monitor reclaims and re-attaches via the persisted backend job id — every backend job is re-observable by id. The same lease protects export and model-download workers.
+- When several daemons of the workspace await one running job, a run lease (`job.lease`) makes exactly one the owner — it runs the backend wait, downloads/normalizes the output, and commits the terminal state; the rest only monitor the job record.
+- A crashed owner's lease lapses; a monitor reclaims it and re-attaches via the persisted backend job id — every backend job is re-observable by id.
+- The same lease protects export and model-download workers.
 - Waiting is unbounded, except comfy, whose prompt lives in the server process: it fails after `comfy.comfyui.unreachableTimeoutMinutes` of silence (0 = never; default 15 on a loopback URL, 0 on a remote one).
 - `submissionStartedAt` is persisted under the submit lease before calling a backend. A reclaimed external job with that stamp and no backend id fails with `SUBMISSION_UNCONFIRMED` — check the backend before rerolling. A claim that never began submission, and a local operation, may retry.
 - A committed submit keeps the submit lease, and the daemon submits and waits under one `workerId`, so its waiter takes that lease over and the job is never unwatched between submit and wait.
@@ -36,21 +38,26 @@ Activation:
 
 ## One worker, every video
 
-- `mcp serve`, and a `job wait` / `song` finding none up, elect one workspace worker under a file lock. Registrations use instance ids; local liveness uses pid/start time, foreign PID namespaces a 5s heartbeat (30s expiry). The elected process runs the jobs in a child (`mcp worker`, own process group) and loads no definition. Registration and heartbeat survive the worker's submit drain. EOF stops each connection; a lost registration stops only the worker.
+- `mcp serve`, and a `job wait` / `song` finding none up, elect one workspace worker under a file lock.
+- Registrations use instance ids; local liveness uses pid/start time, foreign PID namespaces a 5s heartbeat (30s expiry).
+- The elected process runs the jobs in a child (`mcp worker`, own process group) and loads no definition.
+- Registration and heartbeat survive the worker's submit drain. EOF stops each connection; a lost registration stops only the worker.
 - Only the worker process loads `VideoRegistry`: a `JobWatcher` per video, `fs.watch` plus a 5s poll, credentials refreshed before startup and each tick.
 - `status` includes locally watched videos (empty on standby).
 - `.konte/logs/mcp.log` records lifecycle, worker and job events, tagged by instance id, URLs redacted. It rotates to `mcp.log.1` at 5 MB.
 
 ## What a judge reads
 
-A cascade pass lists jobs, then reloads the definitions (`loadStageDefinitions` with `reload`), per iteration — no job is judged by definitions older than itself. A job records a source fingerprint at creation (`definition-source.ts`). On a hash mismatch:
+- A cascade pass lists jobs, then reloads the definitions (`loadStageDefinitions` with `reload`), per iteration — no job is judged by definitions older than itself.
+- A job records a source fingerprint at creation (`definition-source.ts`). On a hash mismatch:
+  - fingerprint moved → the definition changed; the job fails.
+  - fingerprint unchanged → the judge is stale: it releases the job (`releaseIfOwner`) and the worker exits (`WORKER_RESTART_EXIT_CODE`) and its host starts a fresh one; a second stale judge fails it.
 
-- fingerprint moved → the definition changed; the job fails.
-- fingerprint unchanged → the judge is stale: it releases the job (`releaseIfOwner`) and the worker exits (`WORKER_RESTART_EXIT_CODE`) and its host starts a fresh one; a second stale judge fails it.
-
-Exports do the same via `planDigest` / `decideExportRender`.
+- Exports do the same via `planDigest` / `decideExportRender`.
 
 ## Finalizing a take
 
 - Keyframe normalization — a produced video whose keyframes are sparser than ~2s apart is re-encoded (before hashing) to add a keyframe roughly every second, so HyperFrames seeks reliably. It skips non-videos, already-dense videos, and alpha/HDR sources, logging what it did.
-- Variant check — a take owing a line, bar the song, is heard by SenseVoice into `heard.json`; an audio-bearing one is measured `silent` in its media record. `variant-check.ts` finds a silent audio or line take and one whose heard words miss its line (`line-hearing.ts`). `job wait` names a finding on landing; undecided and unvouched (`konte vouch`), it is a `take-silent` / `line-misheard` finding and `konte preview` refuses.
+- Variant check — a take owing a line, bar the song, is heard by SenseVoice into `heard.json`; an audio-bearing one is measured `silent` in its media record.
+  - `variant-check.ts` finds a silent audio or line take and one whose heard words miss its line (`line-hearing.ts`).
+  - `job wait` names a finding on landing; undecided and unvouched (`konte vouch`), it is a `take-silent` / `line-misheard` finding and `konte preview` refuses.

@@ -4,13 +4,12 @@ description: Write or audit an adapter's craft guide and its input descriptions 
 user-invocable: false
 ---
 
-An adapter's craft guide teaches the agent how to drive one adapter — for a model-backed one, prompt-craft for the model behind it. It lives on the adapter, surfaced by `konte adapter show <adapter>`: a craft-prose `.md` plus the input schema whose per-input notes carry the parameter knowledge. Done = the guide's craft fits the model and the schema/descriptions document every non-obvious control with the right key, values, and mode/backend scope.
+An adapter's craft guide teaches the agent to drive one adapter (for a model, prompt-craft): a craft-prose `.md` plus the input schema's per-input notes, both surfaced by `konte adapter show <adapter>`. Done = the guide's craft fits the model and the schema/descriptions document every non-obvious control with the right key, values, and mode/backend scope.
 
 ## Where things live
 
 - Bundled model adapters: `src/cli/templates/workspace/adapters/{comfy,fal}/`. All bundled craft guides, including local operations: `src/cli/templates/workspace/dot.konte/guides/`, set as `guide: "konte/guides/<name>.md"` (managed, re-synced on upgrade).
 - Share a guide where the prompting rules hold across modes/backends; split where they differ. An adapter's `guide` names one guide, or lists several read in order — the shared grammar first, the mode's own last — so no rule is written twice.
-- FAL — hand-written: add `guide: "konte/guides/<model>.md"` to each export, and a one-line `description` to each non-obvious input.
 - ComfyUI (bundled) — a re-emit drops the hand-edited `guide` field and input descriptions; restore them through `konte-comfy-workflow`.
 - ComfyUI (a user's own import) — `konte adapter comfy import` scaffolds a sibling `adapters/comfy/<name>.md` and emits `guide: "./<name>.md"` in the adapter.
 - Read `inputs`, `promptExemptions`, and `validators` for each adapter the guide covers. For ComfyUI, also trace the conditioning in the workflow `.json`.
@@ -66,8 +65,6 @@ Run `konte adapter show <adapter>` (the guide's path and the input schema with d
 - recommended negative phrasing that `promptExemptions` does not permit, or an exemption unsupported by the guide;
 - recommended input combinations that `validators` reject, or a rejected combination the guide presents as merely ineffective;
 - for comfy, a workflow negative/conditioning node the guide ignores.
-
-Fix in the guide `.md` and the input descriptions.
 
 ## Verify
 

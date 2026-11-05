@@ -8,8 +8,8 @@ Write every CLI output for an agent to act on.
 
 ## Which root
 
-- `konte.config.json` / `konte.credentials.json` / `konte.version` / `adapters/` / `tsconfig.json` / `node_modules/` / `.konte/{mod.ts,template.lock.json,tools,transpiler-cache,current-video}` → `workspaceRoot`.
-- `konte.state.json` / a definition file / `assets/` / `dist/` / `review/` / `patches/` / `.konte/{jobs.db,logs,cache,frame-src}` → `videoRoot`.
+- A workspace file (AGENTS.md's list, plus `konte.version`, `node_modules/`, `.konte/transpiler-cache`) → `workspaceRoot`.
+- A video file (AGENTS.md's list, plus `.konte/frame-src`) → `videoRoot`.
 - Only backend resolution and the ComfyUI backend take both (`VideoRoots`); the other backends take a bare `videoRoot`.
 - With neither a cwd video nor a current video, a video-scope command fails — it never auto-selects the only video.
 - `konte video current` is the session opener: the current video, its logline, runtime, last review scope and last completed export. It never fails — no videos / none selected / current gone each print as a state — and omits the shot list, feedback and Next steps.
@@ -28,11 +28,11 @@ Write every CLI output for an agent to act on.
 - Confirmation — a destructive or stale-propagating action (e.g. `clean`) prompts first and takes `-y, --yes` / `--no`. With no TTY on stdin and neither flag, fail instead of hanging: `CONFIRMATION_REQUIRED` carries the consequence and the invocation re-run with `--yes`. `confirmAction` takes the consequence as a statement and asks the question itself.
 - Selection — a command offering a choice (e.g. `video new`'s template) takes a flag to supply it (`--template`); with no TTY and no flag it fails.
 - List commands (e.g. `job list`) — newest-first, 50 rows by default, `--limit <n>` / `--all`.
-- Help text — `.description()` is one concise line, no trailing period; detail goes in `.addHelpText("after", …)`: a short prose paragraph of what the command does and its argument/scope semantics, then an aligned `Examples:` block (command left, what it does right). See `prune` / `status`.
+- Help text — `.description()` is one concise line, no trailing period; detail goes in `.addHelpText("after", …)`: a short paragraph of what the command does and its argument/scope semantics, then an aligned `Examples:` block (command left, what it does right). See `prune` / `status`.
 
 ## Media inspection (`konte probe`)
 
-- `audio` / `contact-sheet` / `motion` / `thumbnails` — on one or more, in any mix, of a `<variantId>`, an address, or an `<address-scope>` sweeping every matching variant it can read. `motion` also takes a `<stage>:shot.<id>#composition`, drawn live from the definition and never swept.
+- `audio` / `contact-sheet` / `image` / `motion` / `thumbnails` — on one or more, in any mix, of a `<variantId>`, an address, or an `<address-scope>` sweeping every matching variant it can read. `motion` also takes a `<stage>:shot.<id>#composition`, drawn live from the definition and never swept.
 - `crop` — one still, rendering `--rect` windows as `imageCrop` would (an `imageCrop` asset's own window and master derived).
 - `reel-audio` — an `<animatic|video[:shot.<id>]>` scope.
 - `reel-thumbnails` — one `<stage>:shot.<id>`; a whole stage is `contact-sheet`'s.
@@ -47,7 +47,7 @@ Write every CLI output for an agent to act on.
 
 ## Timestamps
 
-Always UTC, in two non-interchangeable forms:
+Always UTC, in two forms:
 
 - ISO 8601 — data fields (any `createdAt`).
 - Compact sortable `YYYYMMDDTHHmmssSSS` — filenames (agent notes, review files, render/export outputs). A review file's id is the compact form of its `createdAt`.

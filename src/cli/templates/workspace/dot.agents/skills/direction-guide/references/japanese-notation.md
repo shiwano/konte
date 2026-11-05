@@ -23,5 +23,4 @@ How a Japanese line must be written down so the model reads it aloud correctly �
 ## Verifying
 
 - You cannot hear the take — only the human confirms a reading, at review. Name every respelled or rare word in the handoff.
-- A misread line is not fixed by a reroll — the reading follows the notation, so change the string.
 - Editing a line leaves its respelling behind — reread every `respell()` on a line whose words you change.

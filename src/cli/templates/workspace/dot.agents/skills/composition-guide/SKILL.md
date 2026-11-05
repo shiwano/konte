@@ -62,7 +62,7 @@ Gotchas:
 
 ## Fonts
 
-- The piece's web fonts are declared on `direction.policy.fonts` — Google Fonts family names, every shipped weight requested, laid on the composition body.
+- The piece's web fonts are declared on `direction.policy.fonts` — every shipped weight requested, laid on the composition body.
 - Never a Tailwind arbitrary-value class (`font-[Inter]`) — the export embeds faces by reading the HTML, and a class's CSS does not exist until the browser has run.
 
 ## Timing model

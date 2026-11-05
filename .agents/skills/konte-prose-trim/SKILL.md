@@ -16,8 +16,6 @@ Delete the explanation an agent adds by reflex, in any doc or comment. Done = ev
 
 ## Cut
 
-Delete each — the surrounding sentence almost always already says the thing.
-
 - Contrastive definitions — "a bad draw, not a bad prompt", "it reads as an X and is not one". Keep the assertion, drop the foil.
 - Rationale clauses — "so that…", "which means…", "because…" hung off a rule that stands without them.
 - Evidence and provenance — measurements, benchmarks, "we found", "testing showed", how the conclusion was reached. The conclusion ships; the investigation does not.
@@ -49,4 +47,4 @@ Delete each — the surrounding sentence almost always already says the thing.
 ## Don't
 
 - Don't rewrite for style, reorder, or reword — this skill only deletes.
-- Don't cut a section for being long. Redundancy is the signal, length is not.
+- Don't cut a section for being long — redundancy is the signal.

@@ -107,4 +107,4 @@ Read when touching one:
 - `arch-template-system-guide` — `konte workspace new` templates (`workspace/` + `workspace/videos/<name>/`); never write scaffold files programmatically
 - `arch-delivery-guide` — delivery resolution, upscale modes, `#delivery`, export job
 - `arch-managed-binaries-guide` — managed ffmpeg/Chromium/tsc/cloudflared, the tool cache + overrides
-- `adapter-authoring` — `define*Asset`, input types, validators, `allowedIn`, the prompt check's exemptions
+- `adapter-authoring` — `defineFalAsset`, input types, validators, `allowedIn`, the prompt check's exemptions

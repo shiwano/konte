@@ -8,7 +8,7 @@ Conventions for the repo's own root `AGENTS.md` (the shipped workspace one is `t
 
 ## Keep vs drop
 
-Keep shared decision rules, terminology, contracts, and editing requirements:
+Keep:
 
 - design principles that guide changes across subsystems
 - non-obvious editing requirements — required companion edits and conventions
@@ -17,19 +17,18 @@ Keep shared decision rules, terminology, contracts, and editing requirements:
 - on-disk layout (`konte.state.json`, `.konte/…`, `review/…/handoffs/`)
 - behavioral rules — a stale deterministic accept re-bakes; secrets never persisted
 
-Drop implementation detail — what the agent can read from the code when it needs it:
+Drop implementation detail the agent can read from the code:
 
-- source paths and symbol names that only explain the implementation
-- error codes — say a command fails; the code itself is grep-able (`KonteErrorCode`)
+- a source path or symbol, unless it names where to edit or which contract to preserve
+- error codes — say a command fails; the code is grep-able (`KonteErrorCode`)
 - "how it works" mechanics (which function computes what, `fs.watch`, libx264, …)
+- task-specific detail — a skill behind a one-line pointer; always-on rules (security) stay
 
-The test — keep a concrete path or symbol only when it names where to edit or which contract to preserve.
-
-Cut in one direction, but edit in both: an editing pass also adds the genuinely-missing concept.
+An editing pass also adds a genuinely missing concept.
 
 ## Concept over enumeration
 
-- State the concept with a few representative items ending in `…` — exhaustive lists rot and bloat; never enumerate every command, file, or error code (`--help` and the code do).
+- State the concept with a few representative items ending in `…` — exhaustive lists rot; never enumerate every command, file, or error code (`--help` and the code do).
 
 ## Prose vs bullets
 
@@ -42,12 +41,8 @@ Cut in one direction, but edit in both: an editing pass also adds the genuinely-
 ## Verify before you write
 
 - Check every fact against the code before adding/changing it — exact command/symbol/path and actual behavior; a wrong fact misleads on every task.
-- Fix stale references you pass on the way — names get renamed, dirs move, rosters and fields get added.
-
-## AGENTS.md vs skills
-
-- Task-specific detail goes in a skill behind a one-line pointer; always-on rules (e.g. security) stay in AGENTS.md.
+- Fix stale references you pass on the way — renamed names, moved dirs, added rosters and fields.
 
 ## Check the cost
 
-`bun run skills:check` charges the root `AGENTS.md` to every `dev-*` journey in `scripts/check-journeys.ts`. When one goes over budget, inspect its per-file counts and cut duplication or task-irrelevant detail across that journey.
+- `bun run skills:check` charges the root `AGENTS.md` to every `dev-*` journey in `scripts/check-journeys.ts` — over budget, read its per-file counts and cut duplication or task-irrelevant detail across that journey.

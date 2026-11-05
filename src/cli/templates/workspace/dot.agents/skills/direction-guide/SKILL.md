@@ -4,7 +4,7 @@ description: Author direction.ts — brief, rosters, camera setups, role structu
 user-invocable: false
 ---
 
-Author the video's direction in `direction.ts` before any stage shot is written. Done = `konte status` reports no unresolved direction finding; not the generated media's review.
+Author the video's direction in `direction.ts` before any stage shot is written. Done = `konte status` reports no unresolved direction finding.
 
 ## Routing
 
@@ -29,7 +29,7 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 
 ### Shape
 
-- One `sequence` node — `lens`, `pleasure`, `shots[]` — the shots in order; the stages mint shots from these ids.
+- One `sequence` node — `lens`, `pleasure`, `shots[]` — the shots in order.
 - Pick each shot's kind:
   - a character in frame → narrative (default)
   - a screen, chart or motion graphic → `kind: "graphic"` — an arc shot with no camera; a character over it enters by `cutin`
@@ -42,7 +42,7 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 
 ### The arc
 
-- The lens fixes the role order (its payoff role is the climax); `pleasure` names the feeling it aims for — pick each from [lenses.md](references/lenses.md).
+- The lens fixes the role order; `pleasure` names the feeling it aims for — pick each from [lenses.md](references/lenses.md).
 - A building role must actually repeat — `rhythm` and `process` each need at least two consecutive, varied shots (a copy is not variation); `comedy`'s optional `escalation` escalates across shots rather than holding one.
 - A hinge's `action` states a change — on a turn (`disruption`/`violation`/`solution`, the inciting incident at this scale) and the payoff, name the two concrete, visible states it moves between ("the calm sill; the ball rolls in").
 
@@ -55,7 +55,7 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 - Hold the take where a cut would spend the moment — a beat living on uncut time (an awkward silence, a wait for an answer, a build), or an event whose real-time run in one frame is the show: one `setup`, `join: "continuous"` on each shot after the first. Anywhere else, cut.
 - Hand the cuts to the model where the exchange is the show — an unbroken run of blows, dodges and counters whose momentum outweighs each angle: one `coverage: true` shot, `action` beat after beat, `setup` / `lineup` its opening frame. Split it by setup only where an angle must land exactly.
 - Keep one ledger of the world's state — where each character is, what they hold, what broke: damage never resets. A state may change in the cut if the next shot's opening makes it read (an aftermath `insert`, a sound, the prop now in hand); only a continuous-space stretch owes each transit a shot of its own.
-- Constructive space is the default — build the space in the viewer's head from fragments (`medium`/`close`/`insert` glued by eyelines, screen direction and recurring anchors): geography never shown whole is never asked to match, which generation holds best.
+- Constructive space is the default — build the space in the viewer's head from fragments (`medium`/`close`/`insert` glued by eyelines, screen direction and recurring anchors): geography never shown whole is never asked to match.
 - Continuity is the marked spend — one connected space, cause and effect crossing frames, every transit on screen; choose it only when the physical path _is_ the content (a chase, the tureen rolling for the rail), since it binds backgrounds and direction across every cut it spans.
 - A montage (`escalation`, `rhythm`, `pressure`) juxtaposes parallel instances of one idea — the juxtaposition is the link (three unconnected shots of havoc read as "chaos grows"); never invent a physical link, the hardest thing to stage. It still varies and ascends to the peak, and the ledger holds through it.
 - The direction check covers structure only — on-screen legibility is yours: a _visible_ `pressure` (a queue, a timer), a payoff you read at a glance, a shot's movement legible on its own.

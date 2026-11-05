@@ -9,7 +9,7 @@ Shipping above the canvas you generate and review at — the delivery size lives
 // direction.ts:
 //   policy.format.size: {
 //     megapixels: 0.9,                          // budget → derives 1248×704, where you review
-//     delivery: { width: 1920, height: 1080 },  // shipped resolution, and the only aspect
+//     delivery: { width: 1920, height: 1080 },
 //   }
 
 // video.tsx

@@ -17,7 +17,7 @@
 
 ## View images
 
-A setup facing anything but `front` costs its location a view image (`view-unrealized`) — returned from `views` in reference.tsx, filed at `reference:view.<location>.<view>` whatever the asset is named and reached as `reference.view.<location>.<view>`.
+- A setup facing anything but `front` costs its location a view image (`view-unrealized`) — returned from `views` in reference.tsx, filed at `reference:view.<location>.<view>` whatever the asset is named and reached as `reference.view.<location>.<view>`.
 
 ```tsx
 views: ({ reference }) => {

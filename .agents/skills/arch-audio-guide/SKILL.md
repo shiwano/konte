@@ -30,16 +30,13 @@ How konte's audio subsystem builds the final mixed track. Not general compositio
   - The shift comes out of `data-media-start`; a clip on its take's first frame gets a cached picture-only copy (`padVideoClip`) holding that frame in front, with a cloned tail keeping EOF clear of the window.
   - A late start stays late past the cut (the runtime never re-syncs a playing `<video>`), so the reel's warm-up seeks each clip to its in-point before its window, waking one the browser suspended.
 - Ducks and a bed's fades reach the preview as a volume lane (`bedVolumeLane`, `data-automation`).
-
-The transport does not loop buffers, so gaps remain:
-
-- A bed that `shouldAutoLoop` loops in the mux does not loop in preview.
-- `volume` is gain up to `MAX_AUDIO_GAIN` (+12 dB, `audio-gain.ts`); `assertAudioGain` refuses more at load (`AUDIO_GAIN_INVALID`).
+- A bed that `shouldAutoLoop` loops in the mux does not loop in preview — the transport does not loop buffers.
 
 ## Mixing & caching
 
 - `audio-level.ts` derives source gains from recorded measurements for preview/render; its adjustment records also explain `probe reel-audio`. The final mix applies a limiter with no further loudness normalization.
 - An sfx cue without `mediaStart` skips its take's lead-in (`cueLeadIn`).
+- `volume` is gain up to `MAX_AUDIO_GAIN` (+12 dB, `audio-gain.ts`); `assertAudioGain` refuses more at load (`AUDIO_GAIN_INVALID`).
 - The picture composition's definition hash is audio-independent: `stripAudioFromHtml` drops the `<audio>` elements and `data-has-audio`/`data-volume` before hashing, so an audio-only edit never re-renders or re-upscales a shot.
 
 ## Stems
@@ -50,4 +47,3 @@ Audio's review/accept identity lives in stems — a per-shot `shot.<id>#stem` (t
 - A stem's definition hash is the resolution-independent audio structure; its input fingerprints track the resolved audio sources — it goes stale (and its accept re-opens) when an audio source changes, independent of the picture.
 - `timeline#stem` covers the beds alone (`timelineStemRefs`); a duck envelope is signed off on the lines' shot stems.
 - A shot whose last cue is removed keeps its accepted stem as review work (`removedShotStemAddresses`) until the shot's accept releases it.
-- With `policy.song` a board `#stem` also mixes, unplayed, the shot's span of the song (`songCue`); a `<Video>` of a take built on it gets a derived `mediaStart` (`song-window.ts`).

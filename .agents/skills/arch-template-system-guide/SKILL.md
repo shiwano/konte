@@ -37,7 +37,6 @@ src/cli/templates/workspace/       ← konte workspace new
 
 ## Managed files and agent settings
 
-- Agent settings are template-authored; the workspace sync renders their environment-specific paths instead of copying them.
 - The sync leaves its fast path when the lock's template hash (managed files, bundled adapters, agent settings, `.gitignore`) or its `root` differs, a managed file or agent setting is missing, or the compiled konte's `.konte/bin` link does not resolve.
 - A command whose sync rewrites an agent setting or the link refuses with `AGENT_RESTART_REQUIRED` — the running agent loaded the old ones.
 - `.claude/settings.json` is overwritten — user customizations belong in `.claude/settings.local.json`, left untouched; other agent settings also fill missing defaults. These settings are gitignored.

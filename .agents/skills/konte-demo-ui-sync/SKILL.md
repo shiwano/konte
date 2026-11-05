@@ -51,7 +51,7 @@ Rebuild part (`settings-ui.tsx`) → real source (`src/pages/settings/`):
 
 ## 3. Edit
 
-- `className` takes only Tailwind or classes in the file's `CSS` constant; anything else stops `generate` with a `class-font-family` finding. Prefix new classes `kr-`.
+- `className` takes Tailwind or classes in the file's `CSS` constant, never a Tailwind class setting a font family — it stops `generate` with a `composition-class-font-family` finding. Prefix new classes `kr-`.
 - Use the real page's wording verbatim.
 - No backward compatibility: rename or drop a prop when the real page did, then fix every call in `screens.tsx`.
 

@@ -20,7 +20,7 @@ Choose each shot's production method; done = its required anchors and duration a
    - A `coverage: true` shot → one panel, its opening frame, passed as a reference; only an adapter whose guide writes cuts inside one take.
    - No panel to open on (an aside, which the board never draws) → text alone, or references by step 3.
 5. Pick the adapter that offers every anchor named, and reaches the shot's length — `konte adapter list --backend <kind>`, then `konte adapter show <adapter>` for its inputs. None on the backend offers them all → change adapter, or drop an anchor deliberately and say which. A shot longer than the model's maximum clip → Past the model's clip cap.
-6. Keep iteration cheap — see Cost ladder.
+6. Open on the cheap pass — the adapter's fast/low-fidelity mode (`konte adapter show` for the ladder). A slow-pass quality guard like a negative prompt is a second-pass tool for a drift you've _seen_, never a first-pass guess.
 
 ## References — carried, not pinned
 
@@ -48,7 +48,7 @@ Pin the last frame only where no plausible landing will do:
 - Two pinned frames are less control, not more — the model must thread a constrained path, and the authored `last` (an image edit plus its review) is paid before any motion.
 - The pair decides the quality — if a viewer couldn't draw the one obvious trajectory between the frames, the model can't either, and the clip morphs.
 - The two ends are one step apart, never independent generations — derive one from the other by an image edit changing only the intended delta; every unintended difference (lighting, lens, a background detail) is spent mid-clip as identity morph. Wire: the animatic shot declares two `<Panel>`s, the adapter takes them as its first/last-frame anchors.
-- A declared long take has one frame at its seam — the shot after declares `join: "continuous"`, so pin this take's end to that shot's first panel (`endImage: animatic.shot("02").image("first")`) and open that shot's take on the same frame (`startImage`).
+- A declared long take (the shot after declares `join: "continuous"`) — pin this take's end to that shot's first panel (`endImage: animatic.shot("02").image("first")`) and open that shot's take on the same frame (`startImage`).
 - Generate the end that holds the detail; derive the other by an edit that need not invent it — a removal: generate the uncovered state as `last`, derive `first` by adding the covering element. A build-up — a drawing finished, a dish plated, a model assembled: generate the finished state as `last`, derive `first` by taking the work back (a sketch, a bare canvas).
 - One axis of change, composition overlapping. Flip test before paying for motion: toggle the two frames rapidly — "the same shot a moment later" interpolates; "a jump cut" morphs.
 - Match clip length to the action's real time — over-long for the delta invents idle drift, too short warps.
@@ -59,10 +59,6 @@ Pin the last frame only where no plausible landing will do:
 
 - Generate the shot in segments, each opening on a frame extracted from the one before — `adapters.videoFrame`; `konte adapter show videoFrame` for where to cut and when not to chain. The seam is a pinned first frame — a reference holds the look but not the seam.
 - Each link inherits the last one's drift — past a few segments the look walks; a longer take is usually several shots.
-
-## Cost ladder — keep generation cheap to iterate
-
-- Open on the cheap pass — the adapter's fast/low-fidelity mode (`konte adapter show` for the ladder). A slow-pass quality guard like a negative prompt is a second-pass tool for a drift you've _seen_, never a first-pass guess.
 
 ## Pitfalls
 

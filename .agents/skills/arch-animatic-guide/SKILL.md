@@ -58,7 +58,8 @@ A `<Cutin>` is a second lane:
 - `animatic:shot.<id>#stem` is the shot's `<Audio>` cues mixed down and clamped to the shot's `duration` — a materialized leaf like `video:*#stem`, over the same `stemRefs` and the same structure hash (`stemDefinitionHash`; the board's folds the clamp in, so a retimed shot is a different stem). `video.tsx` takes it through `animatic.shot("01").stem`.
 - Narration is mixed apart into `#narrationStem`, which only `<Audio>` takes (`NARRATION_UNPLACED` wherever both stages load).
 - On a song, `#songStem` is what a motion model hears (`shotSongStem`): the vocals of the lines a character in frame sings, else the instrumental (`song-parts.ts`). `asset()` fills an adapter's `stem` input with it (`SONG_STEM_OVERRIDDEN`); `.stem` is refused.
-- The materialization is the one difference between the stages' stems: the delivered stem is a manifest (muxed at export), the board's is the real mix — `materializeShotStem` runs `mixAudioTracks` over the cues.
+- With `policy.song` a board `#stem` also mixes, unplayed, the shot's span of the song (`songCue`); a `<Video>` of a take built on it gets a derived `mediaStart` (`song-window.ts`).
+- The delivered stem materializes as a manifest (muxed at export), the board's as the real mix — `prepareShotStem` runs `mixAudioTracks` over the cues.
 - The shot's accept (or `konte accept animatic:shot.<id>#stem`) materializes it over the takes just signed off; an unchanged accept mints nothing.
 - The clamp is konte's — a motion model reads the clip length off its input audio, so an unclamped stem would let a TTS take decide how long the shot runs.
 - A sound that must cross a cut belongs in the video build's `<Audio>` (full length, never clamped).
@@ -81,7 +82,11 @@ A truncated stem is exactly as long as the shot, so what the clamp cuts is caugh
 
 ## Review
 
-`konte preview animatic` is `konte preview video`'s page, handler and submit (`reel-*.ts`, told which stage by the definition it is handed): one reel played through, one verdict per shot folding its `#composition`, its stem and the takes they rest on, takes picked in the variant gallery, comments pinned at the playhead on `animatic:shot.<id>`. Both print the board's `blocking` / `camera` in the selected shot's detail, with each panel's role.
+`konte preview animatic` is `konte preview video`'s page, handler and submit (`reel-*.ts`, told which stage by the definition it is handed):
+
+- One reel played through, one verdict per shot folding its `#composition`, its stem and the takes they rest on.
+- Takes picked in the variant gallery; comments pinned at the playhead on `animatic:shot.<id>`.
+- Both print the board's `blocking` / `camera` in the selected shot's detail, with each panel's role.
 
 Differences on the board:
 
@@ -103,4 +108,4 @@ On the video side the only trace left is the stand-in:
 - Display only — no address, no verdict: a decision on one is dropped at submit.
 - Which shots stood in comes from the client (`displayedStandInShotIds`), never re-derived — a dependency finishing mid-review would otherwise accept a composition nobody watched.
 
-Inside a submit, the audio takes a stem is mixed from are accepted before any composition is materialized — an animatic composition's identity covers its audio, so building it first would fingerprint the take the reviewer replaced and read stale the moment the review saved.
+Inside a submit, the audio takes a stem is mixed from are accepted before any composition is materialized — an animatic composition's identity covers its audio, so building it first would fingerprint the take the reviewer replaced.

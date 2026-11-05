@@ -15,7 +15,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 
 - Stage against the direction's `action` — never restate it; there is no separate audio goal.
 - Every panel declares the movement out of it — `blocking` and `camera`, across the span to the next keyframe; a key, the shot's whole movement. A multi-panel shot's landing frame declares neither, except at a continuous seam.
-- Write it from the take — settle the panel's take first, then write the transit the `action` needs from that frame; if the take can't launch it, the take is wrong, not the shot.
+- Write it from the take — settle the panel's take first, then write the transit the `action` needs from that frame; if the take can't launch it, the take is wrong.
 - Rewriting it after the panel's accept needs no review — the take is untouched.
 - Only the transit — a keyframe fixes a position, never a direction through it; what the pair already shows does not belong in these fields.
 - Write both in the `brief`'s working language, whatever the prompts use.
@@ -33,7 +33,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 - Make the setup's `framing` concrete — within the frame its plate holds, write the subject's crop or share of the image: "waist-up", "her head fills a third of the frame's height".
 - The eye lands on the action's carrier — whatever the shot hinges on must be the frame's most salient element (position, contrast, light, motion); if a stranger's eye goes elsewhere first, the staging failed before the prompt.
 - One strong signifier per idea — pick the element that says it best and cut action-adjacent extras; each one added dilutes the read.
-- Subject & purpose — what the subject wants in this shot decides pose, expression, and gaze. Name a declared character or prop by its exact roster `promptDepiction` and anchor its look on the `reference:<id>` asset (identity prose → `prompt-guide`'s reference preflight).
+- What the subject wants in this shot decides pose, expression, and gaze. Name a declared character or prop by its exact roster `promptDepiction` and anchor its look on the `reference:<id>` asset (identity prose → `prompt-guide`'s reference preflight).
 - Make the performance readable at the shot's scale — a close frame can carry a glance or a tightened mouth; a distant figure needs posture, weight, hands or distance from the other subject to carry the same intention.
 - Name every subject in `ctx.lineup` order — who the frame holds, left to right, is the direction's (`ctx.lineupTo` the order the shot leaves on); one named place lands nothing, all of them always lands. Add who is nearer the lens where they are not side by side.
 - Pass a reference image for every one of them — a subject only a sleeve or a fist of whom is in frame is fed too, never waived. A keyframe drawn from an earlier keyframe inherits what that one stood on.

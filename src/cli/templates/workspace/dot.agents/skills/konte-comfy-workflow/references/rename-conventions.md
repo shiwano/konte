@@ -1,4 +1,4 @@
-# Rename & retype conventions (step 2.2)
+# Rename & retype conventions
 
 ## Names
 
@@ -11,9 +11,6 @@
 
 - `AdapterInputType` — `"string"`, `"number"`, `"boolean"`, `"seed"` (auto-randomized), `"image"` / `"video"` / `"audio"` (a `MediaAsset` of that kind), and the retypings below.
 - A combo keeps its `values: [...]` as generated — the field types as a literal union. An API-format import leaves out choices the server declares; add them from the node's `object_info` or its documentation.
-
-## Types
-
 - Fix LoadAudio inputs: type `"audio"`.
 - The model's conditioning → `"prompt"`: the positive `prompt`, a music model's style `tags`/`caption`, a voice-design `instruct`. It is what the prompt check reads.
 - The exclusion half → `"negativePrompt"`: every exposed negative field; only a negation among its terms is refused.

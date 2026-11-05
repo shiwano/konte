@@ -25,7 +25,7 @@ A patch's callback declares steps with the same `asset()` a stage file uses and 
 - Declaration order is dependency order — a step can only reference a handle that already exists.
 - A current step is reused — `currentPoolVariant` matches the step's definition hash, so editing one step re-runs only it and what follows.
 - The source's address is judged against the pinned take's own content, not what it resolves to — else every step would go input-stale once the patched take was accepted.
-- Reuse and the in-flight join ask one question: same work? A step whose upstream this run rebuilds is rebuilt too — that address resolves to the file being replaced until the job lands. A running job is joined on the same definition, and for the returned step the same `patchHash` on its finalize origin — else the correction lands under the previous script.
+- Reuse and the in-flight join both ask "same work?". A step whose upstream this run rebuilds is rebuilt too — that address resolves to the file being replaced until the job lands. A running job is joined on the same definition, and for the returned step the same `patchHash` on its finalize origin — else the correction lands under the previous script.
 - The returned step runs even when its take is current — applying again asks for another attempt. When its patched variant is missing (a crash, a `clean` that took the variant and left the take), it is re-derived instead of re-rolled.
 - `reroll` of a step rolls from there — `rerollStep` marks it rebuilt, so its consumers follow; the script is unchanged, so the corrections share one `patchHash` and stay rivals.
 - A step this run reserved is pinned for its consumers — unpinned, a regenerated one would be bypassed for an older accepted take.
@@ -47,8 +47,8 @@ A variant with a descendant is not a review candidate — it is the "before" of 
 
 A patched variant inherits its source's `definitionHash` and input fingerprints, and carries its own `patchHash`.
 
-- Inherited definition hash — an edit to the stage asset stales the whole lineage. Hashing the patch's own there would leave every patched take definition-stale from birth.
-- `patchHash` — editing a patch script ages out what it produced, as editing `animatic.tsx` does. It covers every step and hashes the parsed definitions, not the file bytes — reformatting triggers no paid re-apply.
+- Inherited definition hash — an edit to the stage asset stales the whole lineage; hashing the patch's own would leave every patched take definition-stale from birth.
+- `patchHash` — editing a patch script ages out what it produced. It covers every step and hashes the parsed definitions — reformatting triggers no paid re-apply.
 - Self-address fingerprint dropped, source's merged in — the source is pinned at the patched take's own address, so recording it would make the take input-stale against itself. Applied at materialization, to the patched variant alone; a step's source is an ordinary upstream.
 
 "Pending patch" is one predicate: no non-stale patched take.

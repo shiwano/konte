@@ -1,9 +1,10 @@
 ---
 name: konte-codex-session-analysis
 description: Analyze a real Codex video-production session — token usage, tool output, guide loading, compaction, review waits, konte CLI friction, and what the video's reviews say about its quality. Use to investigate a workspace session or validate the skill JOURNEY against production logs.
+user-invocable: true
 ---
 
-Done when measurements name their accounting source and scope, findings cite rollout lines and the implicated command or guide, and the video's quality findings are reported per `quality-analysis-guide`. Analyze existing logs only — never resume generation or change the video. Input: a workspace path or rollout JSONL path.
+Done when measurements name their accounting source and scope, findings cite rollout lines and the implicated command or guide, and the video's quality findings are reported. Analyze existing logs only — never resume generation or change the video. Input: a workspace path or rollout JSONL path.
 
 ## Locate the production session
 
@@ -54,7 +55,7 @@ jq -s '[.[] | select(.type == "token_usage_record") | .payload]
       reduce ($u | keys[]) as $k (. ; .[$k] = ((.[$k] // 0) + $u[$k]))))}' "$T"
 ```
 
-- Check that response IDs exist before deduplicating; across files, deduplicate inherited records too. Never simply add parent/child final cumulative totals.
+- Check that response IDs exist before deduplicating; across files, deduplicate inherited records too. Never add parent/child final cumulative totals.
 - Without per-response records, use the last non-null `token_count.info.total_token_usage` per independent thread, minus verified inherited baselines for forks. Inspect resets, rollback and compaction; label unresolved totals incomplete.
 - `input_tokens` includes cached input; report cached input and the uncached difference separately. `reasoning_output_tokens` is a subset of output when the recorded totals establish that relationship.
 - Cumulative input measures repeated requests over history — neither unique content read nor final context size. `last_token_usage.input_tokens` is one request; `model_context_window` is capacity.

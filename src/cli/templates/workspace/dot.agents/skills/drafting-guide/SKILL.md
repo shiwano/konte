@@ -4,7 +4,7 @@ description: Shape a human's concept, script, or shot plan into an accepted dire
 user-invocable: false
 ---
 
-Translate what a human wants to make into the direction every stage builds on — the signed-off concept captured in `direction.ts` and accepted. Done = every direction part accepted; laying out the stage files is `layout-guide`'s, generation and stage review `generation-loop-guide`'s.
+Translate what a human wants to make into the `direction.ts` every stage builds on. Done = every direction part accepted.
 
 ## 1. Settle which piece
 
@@ -17,13 +17,17 @@ Translate what a human wants to make into the direction every stage builds on �
 Ask which of four inputs they have:
 
 - Concept — a script/shot list (honor it; map onto konte's shape with minimal restructuring) or a vague idea (then you propose).
-- Material — their own media to put _in_ the video (footage, character/product/logo image, BGM/SE). Separate "already have" from "to generate"; `layout-guide` wires the files in.
+- Material — their own media to put _in_ the video (footage, character/product/logo image, BGM/SE). Separate "already have" from "to generate".
 - Source — the story itself comes from an existing work (a novel, a comic, a play or film script, a film to remake); it stands in for the concept. A script written for this video is a concept, a clip shown as "make it like this" a reference. → `konte video new <name> --template blank`, then `scenario-guide`'s adaptation.md.
 - Reference — a link/video/image shown as "make it like this" → direction, not material to include. Pin down _what_ to emulate (form, tone, pacing, palette, framing, motion, subtitles); read what you can (a video or a link: `konte study clip <file|url>`), ask the rest.
 
 ## 3. Hear what they picture — before any pitch
 
-A source → fill every line it settles off the digest and write it back; ask only the adaptation's choices — the range first (the reader finds it), runtime (its options off the span's length in `konte source show`, adaptation.md), fidelity, narration or not, the translation policy across languages, what its medium leaves open. Otherwise, ask in rounds of two or three questions, each shaped by the last answer; stop when every line below is filled — a pitch made before that answers a brief you invented. "Just make something" → fill the rest yourself and say what you assumed.
+- A source → fill every line it settles off the digest and write it back; ask only the adaptation's choices — the range first (the reader finds it), runtime (its options off the span's length in `konte source show`, adaptation.md), fidelity, narration or not, the translation policy across languages, what its medium leaves open.
+- Otherwise → ask in rounds of two or three questions, each shaped by the last answer; stop when every line below is filled — a pitch made before that answers a brief you invented.
+- "Just make something" → fill the rest yourself and say what you assumed.
+
+The lines:
 
 - Why, and where it plays — the purpose (a laugh among friends, a portfolio piece, a product's feed) and the surface (a feed thumbed with the sound off, a screen watched sitting down). The two set the runtime, what the first second must do, and whether on-screen text carries the piece.
 - The form — offer the four, a reference's form as the first guess: a story (someone wants something, events follow), persuasion (a claim and its reasons — a promo, an explainer), a process (one subject made or changed), a mood (a motif).

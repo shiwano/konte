@@ -2,7 +2,7 @@
 
 ## Premise is the engine
 
-- A premise is a collision, not a topic — a specific trait × a situation that punishes it, the fish-out-of-water shape ("a meticulous butler serves on a pirate ship").
+- A premise is a collision — a specific trait × a situation that punishes it, the fish-out-of-water shape ("a meticulous butler serves on a pirate ship").
 - Test: list five events in one breath — if inventing events feels like pulling, fix the premise, never pad the events.
 - State both sides of the collision in the logline.
 - Pitch collisions — each of the eight to ten a different collision, or the same trait fired in a different arena, at a different cost, before a different witness.

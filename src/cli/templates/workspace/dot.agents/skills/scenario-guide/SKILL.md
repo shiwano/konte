@@ -21,7 +21,8 @@ For concept or shot work, open the reference of the form `drafting-guide` step 3
 
 ## Pitch wide, cull hard
 
-- Write the obvious version first, then ban it — inside the agreed form, never the form itself. The pitch anyone would make from the brief is one the viewer has already seen; write it in one line to recognize it in every later pitch, and never ship it unchanged.
+- Write the obvious version first, in one line, then ban it — inside the agreed form, never the form itself; it is the pitch anyone would make from the brief.
+- Recognize the obvious version in every later pitch — never ship it unchanged.
 - Invent eight to ten before choosing three — three invented cold are the obvious one and two variations of it.
 - Cull by five questions, one line each:
   - hook — the brief's `hook`; a pitch opening on calm has none.

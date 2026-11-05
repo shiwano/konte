@@ -4,6 +4,8 @@ description: Read when touching reviews, feedback comments or handoffs — how e
 user-invocable: false
 ---
 
+How reviews, feedback comments and handoffs are stored, snapshotted per stage, and go stale.
+
 ## Reviews
 
 - A review is a snapshot of one `stage` at preview time — the variants shown plus the human's decisions and feedback — stored under `review/<stage>/records/` (its file id elides that segment, e.g. `video/<timestamp>`), read with `konte review record list` / `review record show`.
@@ -33,7 +35,7 @@ user-invocable: false
 - `shotAcceptTargets` (`core/shot-accept-targets.ts`) is the one enumeration of what a shot's decision covers on either reel stage — picture takes, stem sources, materialized leaves, and (on the animatic) its mixed-down stem. The submit accepts from it and its post-condition reads back against it; an address outside `stageReviewDecidableAddresses` is reported under Problems as a konte bug.
 - A cascade walks through an accepted dep instead of stopping at it (`accept-cascade.ts`) — a sign-off never depends on the order takes were accepted in. This holds after the audio, cast, prerequisite and finding exclusions, which mark subtrees another surface owns and an accept on the boundary must not open.
 - A stale deterministic accept is no verdict — the take the root consumed replaces it.
-- A verdict is only offered where it lands: a video shot standing in with the board carries none.
+- A verdict is only offered where it lands (the stand-in: `arch-animatic-guide`).
 - Tested as a loop (`preview/__tests__/review-closure.test.ts`): review everything on offer, generate what that releases, repeat; nothing may be left under "Needs review" and no shot behind the gate.
 
 ## Which take a surface shows
@@ -53,7 +55,9 @@ user-invocable: false
 
 ### When a comment stops standing
 
-`status`, `inspect`, `feedback list` (`--verbose` keeps it) and the review UI all drop a comment `feedbackStaleness` reads `stale`. It answers `fresh`, `stale` or `unknown` (an axis the caller supplied no context for); never collapse `unknown` — into `fresh` it reports a comment standing however far its subject moved, into `stale` it drops what nobody answered.
+- `status`, `inspect`, `feedback list` (`--verbose` keeps it) and the review UI all drop a comment `feedbackStaleness` reads `stale`.
+- It answers `fresh`, `stale` or `unknown` (an axis the caller supplied no context for).
+- Never collapse `unknown` — into `fresh` it reports a comment standing however far its subject moved, into `stale` it drops what nobody answered.
 
 A comment goes stale two ways:
 
@@ -68,7 +72,11 @@ Sign-off details:
 - A `konte accept` from the CLI closes each standing comment it signs off over (`closedAt`) and names it.
 - The record's `stale` is snapshotted before the decisions too (`staleFlagsBeforeDecisions`), so it still shows the comment its accept was made against.
 
-A direction comment snapshots a `subjectHash` (the stage is media-less) — the content hash of the direction part it was written on (`directionPartHashes`, which unlike the acceptance hash covers prose too). It goes stale once that shot / act / roster entry / waiver reads differently or leaves the direction; a reader with no part hashes reads it `unknown`, so every command judging one loads the direction.
+A direction comment (the stage is media-less):
+
+- Snapshots a `subjectHash` — the hash of the direction part it was written on (`directionPartHashes`).
+- Goes stale once that shot / act / roster entry / waiver reads differently or leaves the direction.
+- Reads `unknown` to a reader with no part hashes, so every command judging one loads the direction.
 
 ## Handoff
 

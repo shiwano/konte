@@ -32,7 +32,6 @@ soundtracks: [
 
 - A shot the direction gives `script` lines must sound them there (`script-unvoiced` holds the shot otherwise) — an `<Audio>` per line in that shot's `animatic.tsx` composition.
 - konte mixes the shot's cues, narration apart, into `animatic:shot.<id>#stem` — the one audio file an audio-driven model takes; play its take with `<Video hasAudio>`.
-
 - Leave a line take's clip length unset — konte sizes it from the words, inside the window the `<Audio>` plays in. Set it by hand only after hearing a take come back rushed or padded.
 - A take that overruns its window is fitted, not cut — `asset("vo", adapters.audioRetime, { source: raw, duration: <the window> })` moves the tempo and leaves the pitch, so the clamp takes nothing off the tail. Past ±10% it needs a `waiver: "<reason>"` — the read itself has moved by then, which is the direction's call.
 - `animatic.shot(id).stem` is konte's, not yours — clamped to the shot's `duration` so a long voice take never decides the shot's length. Never write the mix or the trim yourself.

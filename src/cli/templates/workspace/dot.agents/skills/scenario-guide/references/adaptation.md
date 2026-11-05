@@ -10,7 +10,6 @@ The source settles the story; what you pitch and the human decides is the adapta
 - A URL → download the whole work's file yourself (the text, EPUB, PDF, comic archive or video, not a page), even when only a part is wanted; a text that comes zipped → unpack it and import the one file that is the original.
 - None named → the reader reads the whole work; settle the span with the human off `konte source show`.
 - A span read alone misses looks written earlier — a name `konte source show` lists with no look: a reader on the chunks before the span. Still none → yours to fill, marked in the treatment.
-- Who each name is (two names, one person) and what pays off what go in the treatment's "how I read it".
 
 ## Adapt
 
@@ -29,7 +28,7 @@ The source settles the story; what you pitch and the human decides is the adapta
 
 ## Write it back
 
-The treatment carries "how I read it" — who each person is (merged ones included), the span's plot, how the main scenes are read.
+The treatment carries "how I read it" — who each person is (two names, one person; merged ones included), the span's plot, what pays off what, how the main scenes are read.
 
 In `direction.ts`, `brief.source` names the span and the adaptation map's summary:
 

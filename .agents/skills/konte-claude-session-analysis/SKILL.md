@@ -5,7 +5,7 @@ user-invocable: true
 argument-hint: "[workspace-path]"
 ---
 
-Done when every number is attributed to a real consumer from the transcript, each konte design signal and CLI failure names the command it implicates, and the video's quality findings are reported per `quality-analysis-guide`.
+Done when every number is attributed to a real consumer from the transcript, each konte design signal and CLI failure names the command it implicates, and the video's quality findings are reported.
 
 ## 0. First rule — `/context` names sizes, not causes
 

@@ -1,6 +1,6 @@
 ---
 name: authoring-guide
-description: How to author the definition files — defineReference/defineAnimatic/defineVideo, shot/asset/<Panel>, dependencies between assets, cross-stage (animatic → video) references, and export delivery. Read when adding, editing, or wiring shots and assets in a definition file.
+description: How to author the definition files — defineReference/defineAnimatic/defineVideo, shot/asset/<Panel>, dependencies between assets, cross-stage (animatic → video) references, and `export.delivery` wiring. Read when adding, editing, or wiring shots and assets in a definition file.
 user-invocable: false
 ---
 
@@ -36,18 +36,17 @@ export default defineReference(direction, {
       path: "assets/files/character.png",
     });
     const bgm = asset("bgm", adapters.audioFile, { path: "assets/files/bgm.mp3" });
-    return { character, bgm }; // exposed to other stages as reference.character / reference.bgm
+    return { character, bgm };
   },
 });
 ```
 
 - `defineReference(direction, { references, views? })` — `references` receives `{ format }` and declares assets with `asset()` (both `file` and generative adapters); returning one exposes it as `reference.<name>`. Address: `reference:<name>`.
-- `views` receives `{ format, reference }` and returns a location's view images, `{ <locationId>: { back | side | top: asset(…) } }`, each at `reference:view.<locationId>.<view>` and reached as `reference.view.<locationId>.<view>` — authoring → staging-guide.
+- `views` receives `{ format, reference }` and returns a location's view images, `{ <locationId>: { back | side | top: asset(…) } }` — authoring → staging-guide's plates.md.
 - A reference asset may depend only on other reference assets, never on an animatic/video asset.
 - Return only what other stages consume — an asset used solely as an input to another reference asset (a blank `latent` feeding a generated `key`) is left un-returned; it still generates, but is never reviewed.
-- Return each character, prop, location and cast voice under its roster id — a `lineup`'s `cat` needs `reference:cat`; other shared assets (`bgm`) are fine. Setups and landmarks are declared on the animatic.
+- Return each character, prop, location and cast voice under its roster id — a `lineup`'s `cat` needs `reference:cat`; other shared assets (`bgm`) are fine. A setup or landmark takes no reference asset — its plate is on the animatic.
 - Let konte size a generated reference — `width`/`height` derive off the canvas' long edge: portrait for a character, a landscape master at twice it for a location, square for the rest; pass neither. A canvas-shaped overlay takes `...format.size`.
-- Frame the subject filling the frame — margin is pixels the shot never uses.
 
 ### animatic.tsx — defineAnimatic()
 
@@ -128,7 +127,7 @@ export default defineVideo(direction, {
 });
 ```
 
-- `defineVideo(direction, { export?, timeline })` — `{ size, fps }` derive from the direction. `export.delivery.upscale` wires the upscaler.
+- `defineVideo(direction, { export?, timeline })` — `{ size, fps }` derive from the direction.
 - What it takes from the board — `animatic.shot("01").image("<panel>")` for a keyframe, `.stem` for the mixed-down lines, `.narrationStem` for the narration (`<Audio>` only).
 
 ## Adapter inputs

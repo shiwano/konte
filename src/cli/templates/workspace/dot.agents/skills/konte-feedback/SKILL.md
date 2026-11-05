@@ -1,6 +1,6 @@
 ---
 name: konte-feedback
-description: Turn one konte bug, rough edge or unanswered question hit this session into a post for the konte support forum — with reproduction details when available, version and relevant logs, secrets and the piece's content stripped, tagged. Use when the user says "report this", "file a bug", "send feedback", "ask the maintainers", a konte command printed a stack trace, or konte itself misbehaved and they want it reported.
+description: Turn one konte bug, rough edge or unanswered question hit this session into a paste-ready post for the konte support forum. Use when the user says "report this", "file a bug", "send feedback", "ask the maintainers", a konte command printed a stack trace, or konte itself misbehaved and they want it reported.
 user-invocable: true
 argument-hint: [what to report]
 ---

@@ -11,7 +11,7 @@ The payoff role is the climax — the last role before the optional trailing one
 - `transformation` — before → process → reveal → after-glow
 - `product-demo` — problem → solution → demonstration → result → call-to-action; the demonstration is usually `graphic` shots (the UI itself) with the presenter as their `cutin`
 - `kishotenketsu` — ki → sho → ten → ketsu (set up → develop → twist → reconcile); the one shape with no conflict — reach for it when there is no antagonist: the turn comes late and the payoff reframes it
-- `three-act` — setup-act → confrontation-act → climax-act → resolution-act; budgeted for acts (a first act past ~40% is front-loaded, a climax under ~15% is rushed) — the one for a long piece's root ([long-form.md](long-form.md))
+- `three-act` — setup-act → confrontation-act → climax-act → resolution-act; budgeted for acts (a first act past ~40% is front-loaded, a climax under ~15% is rushed) — the one for a long piece's root
 
 ## Pleasure vocabulary — closed, no custom values
 

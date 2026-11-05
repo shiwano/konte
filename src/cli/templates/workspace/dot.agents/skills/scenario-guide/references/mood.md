@@ -2,7 +2,7 @@
 
 ## The skeleton is the lens's roles
 
-- Lens: `mood-piece` — atmosphere → motif → variation → peak → fade.
+- Lens: `mood-piece`.
 - Test: delete a role's shots — if no motif is dropped and no step of the build goes missing, the role has no idea yet.
 
 ## A motif carries it

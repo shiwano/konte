@@ -1,6 +1,6 @@
 ---
 name: generation-loop-guide
-description: Drive one stage — reference pool, animatic, or video — through generate → wait → self-review → human review → iterate until every reviewable asset is accepted. Read when the user wants to build the reference pool, complete the animatic, complete/refine the video shots, run a stage, or whenever you reach a generate/wait/reroll step; developing a pendingShot is layout-guide's.
+description: Drive one stage — reference pool, animatic, or video — through generate → wait → self-review → human review → iterate. Read when the user wants to build the reference pool, complete the animatic, complete/refine the video shots, run a stage, or whenever you reach a generate/wait/reroll step; developing a pendingShot is layout-guide's.
 user-invocable: false
 ---
 
@@ -24,7 +24,7 @@ Substitute your stage's `<scope>` / `<address>` into every step below.
 - Generating what has no accepted variant needs no go-ahead — on a paid vendor backend report batch size and expected cost in one line, then generate. Ask before invalidating accepted work.
 - `konte generate <scope>` — submits all the stage's assets at once, async.
 - `generate` regenerates a stale unaccepted take and skips an accepted generative one, even stale — after an edit, `generate` is the new take; `reroll` draws again on an unchanged definition, `--count N` for N takes at once. Follow the command's `accepted but stale` Next steps. Stale deterministic assets re-bake automatically unless their accepted take is a patch.
-- Open on the cheap pass — `production-guide`'s cost ladder.
+- Open on the cheap pass — `production-guide` step 6.
 
 ## 3. Wait for jobs
 
@@ -96,6 +96,8 @@ Reroll:
 
 ## 6. Iterating on feedback
 
-For each target with open feedback, accepted or not: route the human's words through step 4's fix — read the comment with its pin and `[image: <path>]` frame. A note changing what the shot shows goes into its `action` too. Then wait (step 3), self-check (step 4) — the changes, their adjacent cuts, and agreement with the feedback — and re-review (step 5).
+- Each target with open feedback, accepted or not → step 4's fix — read the comment with its pin and `[image: <path>]` frame.
+- A note changing what the shot shows goes into its `action` too.
+- Then wait (step 3), self-check (step 4) — the changes, their adjacent cuts, and agreement with the feedback — and re-review (step 5).
 
 Loop until the stage matrix's "done =" holds, then report the accepted variant per asset and take that row's exit.

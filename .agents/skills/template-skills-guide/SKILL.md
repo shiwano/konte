@@ -8,7 +8,7 @@ Conventions for the skills `konte workspace new` writes into every user project 
 
 Audience: the agent in a user's konte project, mid-task — never the konte maintainer or the human.
 
-- Ship as managed files (`.claude/skills/` in `MANAGED_PREFIXES`) — re-synced on `konte` upgrade, overwriting a user's local edits. Author here, never in a user project.
+- Ship as managed files (`.agents/skills/` and `.claude/skills/` in `MANAGED_PREFIXES`) — re-synced on `konte` upgrade, overwriting a user's local edits. Author here, never in a user project.
 
 ## Single source, claude mirror
 
@@ -16,7 +16,7 @@ Audience: the agent in a user's konte project, mid-task — never the konte main
 - Never touch `dot.claude/skills/` — embed throws on a hand-written `SKILL.md` there; only its `README.md` (ignored by embed) and the Claude-only `konte-lsp` plugin belong there.
 - Plugin skills live in `plugin/plugins/konte/skills/` — shipped by the marketplace, not `workspace new`; no `konte-` prefix (the namespace supplies it).
 - The plugin ships only `setup` and `upgrade`, which install and update the binary inside one workspace.
-- `.github/workflows/publish-plugin.yml` publishes `plugin/` to the orphan `plugin` branch users add (`shiwano/konte@plugin`), so main carries no marketplace at its root.
+- `.github/workflows/publish-plugin.yml` publishes `plugin/` to the orphan `plugin` branch users add (`shiwano/konte@plugin`).
 
 ## Subagents
 
@@ -73,10 +73,10 @@ Reference skills — organized by topic (`composition-guide`, `authoring-guide`)
 
 Across both:
 
-- A "before every X" rule lives in the skill that owns X — a skill is read once per session, so a recurring directive parked upstream fires wherever the agent happened to be reading and stays silent at the X that mattered.
-- One owner per rule — a sibling that needs it routes there by name (`read the staging-guide skill`), never restates it. Chain-level duplication blows the journey budget even when every file passes its own. Carve a guide out when two skills would repeat the same material.
+- A "before every X" rule lives in the skill that owns X — a skill is read once per session, so a directive parked upstream is silent at the X.
+- One owner per rule — a sibling that needs it routes there by name (`read the staging-guide skill`), never restates it. Carve a guide out when two skills would repeat the same material.
 - Keep the shipped `AGENTS.md` minimal — it loads every turn. Push first-time/conditional knowledge into a `*-guide` behind a one-line pointer; only always-on rules (security) stay.
-- Link a sibling skill once per file, where the agent acts on it, never to justify a cut — the `## Routing` list (or the skill's designated routing bullet) is the router; a later step needing the same destination just states its rule. Cut the attribution (`(per staging-guide)` on a rule already stated in place), the re-route from a `references/` doc back to what its parent SKILL routes, and the back-link to the caller ("this feeds drafting-guide"). A `## Don't` / preflight-bail / Done-step pointer is a guardrail — keep it.
+- Link a sibling skill once per file, where the agent acts on it — the `## Routing` list (or the skill's designated routing bullet) is the router; a later step needing the same destination just states its rule. Cut the attribution (`(per staging-guide)` on a rule already stated in place), the re-route from a `references/` doc back to what its parent SKILL routes, and the back-link to the caller ("this feeds drafting-guide"). A `## Don't` / preflight-bail / Done-step pointer is a guardrail — keep it.
 
 ## Check before you ship
 
