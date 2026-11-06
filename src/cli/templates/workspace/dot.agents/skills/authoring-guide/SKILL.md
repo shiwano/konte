@@ -45,6 +45,7 @@ export default defineReference(direction, {
 - `views` receives `{ format, reference }` and returns a location's view images, `{ <locationId>: { back | side | top: asset(…) } }` — authoring → staging-guide's plates.md.
 - A reference asset may depend only on other reference assets, never on an animatic/video asset.
 - Return only what other stages consume — an asset used solely as an input to another reference asset (a blank `latent` feeding a generated `key`) is left un-returned; it still generates, but is never reviewed.
+- A location's `reference:<id>` is its master; the way it faces is `front` — draw it facing the way the location's `description` declares (`view-unnamed`).
 - Return each character, prop, location and cast voice under its roster id — a `lineup`'s `cat` needs `reference:cat`; other shared assets (`bgm`) are fine. A setup or landmark takes no reference asset — its plate is on the animatic.
 - A reference modeled on something real may start from a found photo or picture — download it to `assets/files/` and redraw it in the piece's look with an image edit adapter.
 - Let konte size a generated reference — `width`/`height` derive off the canvas' long edge: portrait for a character, a landscape master at twice it for a location, square for the rest; pass neither. A canvas-shaped overlay takes `...format.size`.
