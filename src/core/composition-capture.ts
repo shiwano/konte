@@ -274,6 +274,31 @@ export async function resolveCompositionCacheDir(options: {
   return { compositionResult, cacheDir: path.join(outputDir, compHash) };
 }
 
+/**
+ * Refuse a capture of a shot drawing a layer no take resolves: the capture would wait out the
+ * media timeout on its placeholder and frame the shot with that layer missing.
+ */
+export async function assertCompositionLayersResolve(
+  video: import("./types/index.js").StageDefinition,
+  manager: import("./state/index.js").StateManager,
+  shotId: string,
+): Promise<void> {
+  const shot = shotById(video.shots, shotId);
+  if (!shot) return;
+  const { unresolvedPictureRefs } = await import("./composition-resource.js");
+  const unresolved = unresolvedPictureRefs(manager, shot);
+  if (unresolved.length === 0) return;
+  const { distinctScopes } = await import("./suggested-actions.js");
+  const generate = distinctScopes(unresolved)
+    .map((scope) => `\`konte generate ${scope}\``)
+    .join(" and ");
+  throw new KonteError(
+    "DEPENDENCY_NOT_RESOLVED",
+    `Capture refused, ${formatCompositionAddress(video.stage, shotId)} draws ${unresolved.join(", ")}, which no take resolves — ` +
+      `${generate ? `run ${generate}` : "generate them"}, then re-run`,
+  );
+}
+
 type CaptureCompositionFramesOptions = {
   video: import("./types/index.js").StageDefinition;
   manager: import("./state/index.js").StateManager;

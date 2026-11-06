@@ -30,6 +30,7 @@ import { ensureFfmpeg } from "../../../core/ffmpeg.js";
 import { inferMediaType } from "../../../core/media-type.js";
 import { StateManager } from "../../../core/state/index.js";
 import {
+  assertCompositionLayersResolve,
   captureCompositionFrames,
   COMPOSITION_FRAME_FORMAT,
   COMPOSITION_FRAME_QUALITY,
@@ -43,13 +44,11 @@ import {
 import { buildShotCompositionHtml } from "../../../core/composition-builder.js";
 import type { StageDefinition } from "../../../core/types/index.js";
 import { probeMediaInfo } from "../../../core/video-probe.js";
-import { unresolvedPictureRefs } from "../../../core/composition-resource.js";
 import { loadNeedsReviewTargets } from "../../../core/status-report.js";
-import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 import { parseNumberOption } from "../../parse-option.js";
 import { requireVideoRoot } from "../../context.js";
 import { resolveProbeTargets } from "./resolve-arg.js";
-import { compareNatural } from "./shared.js";
+import { compareNatural, openCompositionStages } from "./shared.js";
 import { printResolutionNotices, type ResolvedVariant } from "../../resolution-notice.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { formatSeconds } from "../../../core/format-duration.js";
@@ -125,11 +124,9 @@ async function buildCompositionCells(
   videoRoot: string,
   opts: { framesPerShot: number; framesPerShotExplicit?: boolean; force?: boolean },
 ): Promise<{ cells: ContactSheetCell[]; skipped: string[]; groups: number[] }> {
-  const loaded = await loadVideoAndAnimatic(videoRoot);
+  const { stages: loaded, manager } = await openCompositionStages(videoRoot);
   const stage = parseReelScope(args[0]!).stage;
   const video = stage === "animatic" ? loaded.animatic : loaded.video;
-  const manager = await StateManager.load(videoRoot);
-  await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
 
   const ordered: { id: string; named: boolean }[] = [];
   const seen = new Map<string, { id: string; named: boolean }>();
@@ -198,6 +195,7 @@ async function buildCompositionCells(
   // shot to shot, so pagination packs by these rather than assuming `framesPerShot`.
   const groups: number[] = [];
   let captureFailed = false;
+  let unresolved = false;
   for (const { id: shotId, named } of targets) {
     const shot = video.shots.find((s) => s.id === shotId)!;
     const address = formatCompositionAddress(stage, shotId);
@@ -256,6 +254,7 @@ async function buildCompositionCells(
     }
     let frames: Awaited<ReturnType<typeof captureCompositionFrames>>;
     try {
+      await assertCompositionLayersResolve(video, manager, shotId);
       frames = await captureCompositionFrames({
         video,
         manager,
@@ -282,21 +281,18 @@ async function buildCompositionCells(
       if (
         named ||
         !(err instanceof KonteError) ||
-        (err.code !== "COMPOSITION_BUILD_FAILED" && err.code !== "FRAME_CAPTURE_FAILED")
+        (err.code !== "COMPOSITION_BUILD_FAILED" &&
+          err.code !== "FRAME_CAPTURE_FAILED" &&
+          err.code !== "DEPENDENCY_NOT_RESOLVED")
       )
         throw err;
       if (err.code === "FRAME_CAPTURE_FAILED") {
         process.exitCode = 1;
         captureFailed = true;
       }
+      if (err.code === "DEPENDENCY_NOT_RESOLVED") unresolved = true;
       skipped.push(`${shotAddress} (${err.message})`);
       continue;
-    }
-    // Drawn from whatever resolves, so a layer with no take leaves a hole. Say which, or the cell
-    // reads as the shot composing to that. A shot that drew nothing already said so above.
-    const blank = unresolvedPictureRefs(manager, shot);
-    if (blank.length > 0) {
-      skipped.push(`${shotAddress} (drawn without ${blank.join(", ")} — no take resolves)`);
     }
     for (const [i, frame] of frames.entries()) {
       // The shot's address, not the composition's: `#composition` is the same on every cell of the
@@ -319,8 +315,12 @@ async function buildCompositionCells(
   // Every shot in scope dropped out: the reasons say more than an empty sheet would.
   if (cells.length === 0) {
     throw new KonteError(
-      captureFailed ? "FRAME_CAPTURE_FAILED" : "SHOT_NOT_FOUND",
       captureFailed
+        ? "FRAME_CAPTURE_FAILED"
+        : unresolved
+          ? "DEPENDENCY_NOT_RESOLVED"
+          : "SHOT_NOT_FOUND",
+      captureFailed || unresolved
         ? `No shot in scope was captured — ${skipped.length} dropped out`
         : `No keyframe in scope reaches a frame of the composition — ${skipped.length} dropped out`,
       skipped.map((r) => `  ${r}`),
@@ -381,6 +381,13 @@ async function buildNeedsReviewCells(
         parsed.kind === "shot" ? leafStage?.shots.find((s) => s.id === parsed.shotId) : undefined;
       if (!leafStage || !shot?.shotFn) {
         skipped.push(`${item.address} (no composition)`);
+        continue;
+      }
+      try {
+        await assertCompositionLayersResolve(leafStage, manager, shot.id);
+      } catch (err) {
+        if (!(err instanceof KonteError) || err.code !== "DEPENDENCY_NOT_RESOLVED") throw err;
+        skipped.push(`${item.address} (${err.message})`);
         continue;
       }
       const frames = await captureCompositionFrames({
@@ -732,7 +739,7 @@ each shot contributes ${DEFAULT_FRAMES_PER_SHOT} cells, its in and out frames, p
 overlay's — at the middle of the line, up to ${MAX_FRAMES_PER_SHOT} cells a shot. --frames-per-shot
 (1..${MAX_FRAMES_PER_SHOT}) samples exactly that many instead, evenly spaced, on either stage. The
 out frame sits a few frames short of the shot's end — every cell carries the moment it was taken at, and a tail artifact is judged on the clip itself (probe motion). Shots with no composition are skipped with a note; named
-outright, they error. A shot whose media fails to load is skipped the same way and exits 1. Stills, animatic reel scopes and video reel scopes passed together each tile
+outright, they error. A shot drawing a layer no take resolves yet is skipped the same way. A shot whose media fails to load is skipped the same way and exits 1. Stills, animatic reel scopes and video reel scopes passed together each tile
 on their own sheets, printed in the order each kind first appears.
 
 --needs-review tiles what \`konte status\` reports under "Needs review" — every take that has landed

@@ -25,12 +25,20 @@ const STILL = "assets/files/kf.png";
 
 // Every composition frame is the fixture still, so a reel board renders without Chromium.
 const requested: number[][] = [];
-// Set, every capture rejects with it.
-const capture: { failure: Error | null } = { failure: null };
+// Set, every capture rejects with it. `checkLayers` holds a shot drawing a layer no take resolves.
+const capture: { failure: Error | null; checkLayers: boolean } = {
+  failure: null,
+  checkLayers: false,
+};
 vi.mock("../../core/composition-capture.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../core/composition-capture.js")>();
   return {
     ...actual,
+    assertCompositionLayersResolve: async (
+      ...args: Parameters<typeof actual.assertCompositionLayersResolve>
+    ) => {
+      if (capture.checkLayers) await actual.assertCompositionLayersResolve(...args);
+    },
     captureCompositionFrames: async (options: { captureOptions: { timestamps: number[] } }) => {
       if (capture.failure) throw capture.failure;
       requested.push(options.captureOptions.timestamps);
@@ -73,6 +81,7 @@ async function writeStill(projectDir: string): Promise<void> {
 describe("probe contact-sheet with mixed arguments", () => {
   async function setup(): Promise<{ projectDir: string; keyframeId: string }> {
     capture.failure = null;
+    capture.checkLayers = false;
     const projectDir = await initWithCrossStageVideo();
     await acceptDirection(projectDir);
     await writeStill(projectDir);
@@ -116,6 +125,22 @@ describe("probe contact-sheet with mixed arguments", () => {
         "Error [FRAME_CAPTURE_FAILED]: No shot in scope was captured — 1 dropped out: video:shot.01 (browser launch failed)",
       ),
     });
+  });
+
+  it("captures no shot drawing a layer no take resolves and names the generate", async () => {
+    const { projectDir } = await setup();
+    capture.checkLayers = true;
+    requested.length = 0;
+
+    const board = await runCapture(["probe", "contact-sheet", "animatic"], projectDir);
+    expect(board.stderr).toContain("1 cells, 1 sheet(s)");
+
+    await expect(run(["probe", "contact-sheet", "video"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "Error [DEPENDENCY_NOT_RESOLVED]: No shot in scope was captured — 1 dropped out: video:shot.01 (Capture refused, video:shot.01#composition draws video:shot.01.motion, which no take resolves — run `konte generate video`, then re-run)",
+      ),
+    });
+    expect(requested).toHaveLength(1);
   });
 
   it("prints every sheet path and names each board's summary", async () => {

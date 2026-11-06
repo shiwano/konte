@@ -22,10 +22,9 @@ import {
 } from "../../../core/motion-inspect.js";
 import { buildTimeAxis, cell, normalize, resample } from "../../audio-sparkline.js";
 import { parseNumberOption } from "../../parse-option.js";
-import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 import { createMotionIntentLoader, formatMotionIntent } from "./motion-intent.js";
 import { openProbeTargets, resolveProbeTargets } from "./resolve-arg.js";
-import { compositionStage, requireCompositionShot } from "./shared.js";
+import { compositionStage, openCompositionStages, requireCompositionShot } from "./shared.js";
 import { formatSeconds } from "../../../core/format-duration.js";
 import { printNextSteps } from "../../next-steps.js";
 
@@ -181,6 +180,9 @@ Examples:
       if (compositions.length > 0 && opts.fps != null) {
         throw new KonteError("INVALID_OPTION", "--fps sets a clip's decode rate");
       }
+      // Before the targets open, so their state holds the synced `file` takes.
+      const stages =
+        compositions.length > 0 ? (await openCompositionStages(requireVideoRoot())).stages : null;
       const opened = await openProbeTargets(
         targets.filter((t) => !isCompositionAddress(t)),
         { mediaKinds: ["video"], definitions: compositions.length > 0 },
@@ -188,7 +190,6 @@ Examples:
       const { videoRoot } = opened;
       const manager = reviewManager ?? opened.manager;
       const multi = opts.needsReview || opened.multi || targets.length > 1;
-      const stages = compositions.length > 0 ? await loadVideoAndAnimatic(videoRoot) : null;
 
       const plan: ({ composition: string } | { variantId: string })[] = [];
       const seen = new Set<string>();

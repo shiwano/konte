@@ -50,7 +50,7 @@ function cleanScope(address: string): string | null {
   }
 }
 
-function distinctScopes(addresses: readonly string[]): string[] {
+export function distinctScopes(addresses: readonly string[]): string[] {
   const scopes = new Set<string>();
   for (const addr of addresses) {
     const scope = stageScope(addr);

@@ -1,6 +1,11 @@
 import * as path from "node:path";
 import type { Command } from "commander";
+import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { KonteError } from "../../../core/errors.js";
+import { syncFileAssets } from "../../../core/file-sync.js";
+import { requireShotStages } from "../../../core/select-definition.js";
+import { loadStageDefinitions } from "../../../core/stage-definitions.js";
+import { StateManager } from "../../../core/state/index.js";
 import { parseTimecode } from "../../../core/timecode.js";
 import type {
   AnimaticDefinition,
@@ -60,6 +65,24 @@ export function parseFrameCaptureOptions(opts: FrameCaptureOptions): {
     maxFrames: parseNumberOption("--max-frames", opts.maxFrames, { integer: true, min: 1 })!,
     timestamps: opts.at ? opts.at.split(",").map((t) => parseTimecode(t.trim())) : undefined,
   };
+}
+
+/**
+ * The shot stages and the state a composition capture draws from, the video's `file` assets synced
+ * into it first: a `file` asset resolves with no generate. The sync is persisted, so its take keeps
+ * one variant id and the frame cache its key.
+ */
+export async function openCompositionStages(videoRoot: string): Promise<{
+  stages: { video: VideoDefinition; animatic: AnimaticDefinition };
+  manager: StateManager;
+}> {
+  const definitions = await loadStageDefinitions(videoRoot);
+  const manager = await StateManager.withLock(videoRoot, async (m) => {
+    await syncFileAssets(definitions, m, { measure: true });
+    return m;
+  });
+  await applyResolutionDefinitions({ videoRoot, definitions, state: manager.getState() });
+  return { stages: requireShotStages(definitions), manager };
 }
 
 export function compositionStage(

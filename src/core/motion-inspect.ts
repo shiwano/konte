@@ -10,6 +10,7 @@ import { inferMediaType } from "./media-type.js";
 import { shotById } from "./shot-index.js";
 import type { StateManager } from "./state/index.js";
 import {
+  assertCompositionLayersResolve,
   captureCompositionFrames,
   COMPOSITION_FRAME_FORMAT,
   COMPOSITION_FRAME_QUALITY,
@@ -966,6 +967,7 @@ export async function renderCompositionMotionStrip(opts: {
   if (!shot || !outputDir) {
     throw new KonteError("SHOT_NOT_FOUND", `Shot "${shotId}" has no composition to capture`);
   }
+  await assertCompositionLayersResolve(video, manager, shotId);
   const {
     timestamps,
     frames: requested,

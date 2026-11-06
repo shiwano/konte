@@ -21,12 +21,19 @@ import {
 } from "./cli-fixtures.js";
 
 const captured: number[][] = [];
+// Set, a shot drawing a layer no take resolves is refused before capture.
+const layers = { check: false };
 
 // A real frame per requested time, in a content-hash dir, so the strip tiles without Chromium.
 vi.mock("../../core/composition-capture.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../core/composition-capture.js")>();
   return {
     ...actual,
+    assertCompositionLayersResolve: async (
+      ...args: Parameters<typeof actual.assertCompositionLayersResolve>
+    ) => {
+      if (layers.check) await actual.assertCompositionLayersResolve(...args);
+    },
     captureCompositionFrames: async (options: {
       videoRoot: string;
       outputDir: string;
@@ -81,6 +88,7 @@ const ANIMATED_VIDEO_TSX = TEST_VIDEO_CHAINED_SHOTS_TSX.replace(
 
 async function setup(): Promise<string> {
   captured.length = 0;
+  layers.check = false;
   await ensureFfmpeg();
   const { video: projectDir } = await initWorkspace(path.join(ctx.dir, "testproject"));
   await fs.writeFile(path.join(projectDir, "video.tsx"), ANIMATED_VIDEO_TSX);
@@ -170,6 +178,21 @@ describe("probe motion on a composition", () => {
     expect(stdout).not.toContain("# video:shot.01#composition");
     expect(stdout).toContain("# video:shot.02#composition");
     expect(stderr).toMatch(/video:shot\.02#composition .*\n {2}action {4}\S/);
+  });
+
+  it("refuses a shot drawing a layer no take resolves and names the generate", async () => {
+    const projectDir = await setup();
+    layers.check = true;
+
+    const { stderr } = await runCapture(
+      ["probe", "motion", "video:shot.01#composition", "--at", "1", "--window", "0.5"],
+      projectDir,
+    );
+
+    expect(stderr).toContain("DEPENDENCY_NOT_RESOLVED");
+    expect(stderr).toContain("video:shot.01.motion");
+    expect(stderr).toContain("`konte generate video`");
+    expect(captured).toEqual([]);
   });
 
   it("refuses a window with no --at, and --fps", async () => {

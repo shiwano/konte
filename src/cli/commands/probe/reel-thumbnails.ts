@@ -9,25 +9,25 @@ import {
 import { KonteError } from "../../../core/errors.js";
 import { buildShotCompositionHtml } from "../../../core/composition-builder.js";
 import { compositionAnimates } from "../../../core/dsl/composition/animate.js";
-import { StateManager } from "../../../core/state/index.js";
+import type { StateManager } from "../../../core/state/index.js";
 import {
+  assertCompositionLayersResolve,
   captureCompositionFrames,
   COMPOSITION_FRAME_FORMAT,
   COMPOSITION_FRAME_QUALITY,
   type CaptureCompositionOptions,
 } from "../../../core/composition-capture.js";
 import type { StageDefinition } from "../../../core/types/index.js";
-import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 import { requireVideoRoot } from "../../context.js";
 import {
   addFrameCaptureOptions,
   compositionStage,
   type FrameCaptureOptions,
+  openCompositionStages,
   parseFrameCaptureOptions,
   requireCompositionShot,
   withAbsoluteFiles,
 } from "./shared.js";
-import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { formatSeconds } from "../../../core/format-duration.js";
 import { printNextSteps } from "../../next-steps.js";
 
@@ -68,7 +68,8 @@ timeline's overlay laid over its span as the render lays it, on either compositi
 
 A whole stage is refused: the whole piece is read on \`konte probe contact-sheet <stage>\`, one
 sheet of every shot. A shot without a composition (an undeveloped pendingShot, or an aside on the
-board) is refused, as are asset and timeline addresses.
+board) is refused, as are asset and timeline addresses, and so is a shot drawing a layer no take
+resolves yet.
 
 By default frames are chosen by scene detection (--threshold, capped at --max-frames). Pass
 --at to capture exact moments instead. Timecodes are comma-separated and mixed freely:
@@ -95,11 +96,11 @@ Examples:
       }
 
       const videoRoot = requireVideoRoot();
-      const video = compositionStage(await loadVideoAndAnimatic(videoRoot), stage);
+      const { stages, manager } = await openCompositionStages(videoRoot);
+      const video = compositionStage(stages, stage);
       requireCompositionShot(video, shotId);
 
-      const manager = await StateManager.load(videoRoot);
-      await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
+      await assertCompositionLayersResolve(video, manager, shotId);
 
       const { threshold, maxFrames, timestamps } = parseFrameCaptureOptions(opts);
       const captureOptions: CaptureCompositionOptions = {
