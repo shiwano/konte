@@ -79,7 +79,7 @@ alone to sweep the whole video. A sweep prices itself and asks before spending, 
 non-TTY run needs --yes. A scope that matched no rerollable asset fails; --failed with
 nothing to retry says so and exits 0.
 
-Generates fresh variants for each asset so you can pick among alternatives;
+Generates fresh variants for each asset;
 the new variants are never auto-accepted. A named asset holding an accept keeps it:
 the new take stands undecided beside it, and the accept that picks between them
 dismisses the other. Until then ref/preview/downstream resolve the accepted take. Multiple
@@ -94,10 +94,10 @@ dependent holding an accepted generation or patch take: that take, and whatever 
 reached only through it, is left as it is. Cross-stage dependents are
 not auto-collected — list them explicitly, or regenerate a downstream stage with
 \`konte generate\` after reviewing this one. --with-dependents cannot be combined with
---count > 1 (exploring alternatives is a leaf concern, orthogonal to an upstream cascade).
+--count > 1.
 
 A deterministic asset (a \`local\` op) is refused: the same inputs give the same output,
-so there is no alternative to pick, and \`konte generate <stage>\` re-bakes it once one
+and \`konte generate <stage>\` re-bakes it once one
 moves. A composition or stem is refused too — its accept materializes it.
 
 A patch step (\`<stage>:patch.<variantId>.<step>\`) is rolled again with every step

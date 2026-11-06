@@ -9,7 +9,7 @@ export function registerStatusCommand(program: Command): void {
     .description("Show whole-project status")
     .addHelpText(
       "after",
-      "\nThe single orientation point: every stage, in one whole-project view. To narrow to\n" +
+      "\nEvery stage, in one whole-project view. To narrow to\n" +
         "one asset, use `konte inspect <address>`.\n" +
         "\nSections:\n" +
         "  Progress         The direction's acceptance, then per-stage counts\n" +
@@ -20,8 +20,7 @@ export function registerStatusCommand(program: Command): void {
         "  Problems         A dead variant, a failed job, or a declared file that is not on disk\n" +
         "  Needs regenerate Assets whose every take is stale and unaccepted — `generate` remakes them\n" +
         "  Stale            Accepted variants whose inputs or definition have changed, unless the accept stands\n" +
-        "\nThe sections are `-v` only: every state they report, Next steps names a command or an\n" +
-        "edit for. Progress, Next steps and Findings always print.\n" +
+        "\nThe sections are `-v` only. Progress, Next steps and Findings always print.\n" +
         "\nRunning, queued and pending jobs are not listed — `konte job list` reports them.",
     )
     .option("-v, --verbose", "Print the sections — every address behind the counts and steps above")

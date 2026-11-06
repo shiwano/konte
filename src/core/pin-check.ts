@@ -94,10 +94,8 @@ export type PinCheckSubject = {
 };
 
 const REMEDY: Record<PinSubject, string> = {
-  sheet:
-    "a sheet is conditioning, not a frame — pass it as an ordinary reference input and pin the board panel this shot develops",
-  plate:
-    "a plate holds the frame empty, so pinning one opens the take on a room with nobody in it — pin the panel that stands on that plate",
+  sheet: "pass it as an ordinary reference input and pin the board panel this shot develops",
+  plate: "pin the panel that stands on that plate",
 };
 
 // The findings in the pins `subject` wires, fixed in `fixIn` — the file that wires them.

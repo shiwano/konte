@@ -555,9 +555,8 @@ function checkTypesetting(direction: Direction): DirectionFinding[] {
     {
       code: "fonts-undeclared",
       message:
-        `policy.lang is "${lang}" (${script} script) but policy.fonts names no family. Text in ` +
-        `this script falls to whatever face the rendering machine has installed, and a host ` +
-        `without one draws tofu — declare one (e.g. "Noto Sans JP").`,
+        `policy.lang is "${lang}" (${script} script) but policy.fonts names no family — declare ` +
+        `one (e.g. "Noto Sans JP").`,
     },
   ];
 }
@@ -736,7 +735,7 @@ function checkDurations(direction: Direction): DirectionFinding[] {
       findings.push({
         code: "off-grid-duration",
         subject: s.id,
-        message: `shot ${s.id} runs ${s.duration}s — a shot's span is a multiple of ${DURATION_GRID}s, at least ${DURATION_GRID}s, so it lands a whole frame at every fps; round it to the grid`,
+        message: `shot ${s.id} runs ${s.duration}s — a shot's span is a multiple of ${DURATION_GRID}s, at least ${DURATION_GRID}s; round it to the grid`,
       });
     }
   }
@@ -1379,10 +1378,7 @@ function withinErrors(direction: Direction): DirectionStructureError[] {
         message: `setup "${id}" declares \`within: "${within}"\`, but ${why}`,
       });
     if (setup.framing === "insert") {
-      impossible(
-        "an insert fills the frame with one object and shows no set, so it holds nothing and is no " +
-          "window on another frame — drop the `within`",
-      );
+      impossible("an insert is no window on another frame — drop the `within`");
       continue;
     }
     const target = setups[within];
@@ -1633,7 +1629,7 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: codes.invalidId,
         ...(subject ? { subject } : {}),
-        message: `voice id "${voice.id}" (${label}) must be a valid asset name (a-z, A-Z, 0-9, -, _) so it can map to reference:${voice.id}`,
+        message: `voice id "${voice.id}" (${label}) must be a valid asset name (a-z, A-Z, 0-9, -, _)`,
       });
     }
     if (voice.description.trim() === "") {
@@ -1650,14 +1646,14 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "character-invalid-id",
         subject: id,
-        message: `character id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _) so it can map to reference:${id}`,
+        message: `character id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _)`,
       });
     }
     if (character.name.trim() === "") {
       errors.push({
         code: "character-empty-name",
         subject: id,
-        message: `character "${id}" has an empty name — synopses refer to it by this token`,
+        message: `character "${id}" has an empty name`,
       });
     }
     if (character.description.trim() === "") {
@@ -1671,7 +1667,7 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "character-empty-prompt-depiction",
         subject: id,
-        message: `character "${id}" has no \`promptDepiction\` — a prompt is written in the model's language and \`name\` is not, so declare a noun the model can draw them by (a role or a proper name is one it has no look for)`,
+        message: `character "${id}" has no \`promptDepiction\` — declare a noun the model can draw them by (a role or a proper name is one it has no look for)`,
       });
     }
     checkVoice(
@@ -1702,14 +1698,14 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "prop-invalid-id",
         subject: id,
-        message: `prop id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _) so it can map to reference:${id}`,
+        message: `prop id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _)`,
       });
     }
     if (prop.name.trim() === "") {
       errors.push({
         code: "prop-empty-name",
         subject: id,
-        message: `prop "${id}" has an empty name — synopses refer to it by this token`,
+        message: `prop "${id}" has an empty name`,
       });
     }
     if (prop.description.trim() === "") {
@@ -1739,7 +1735,7 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
         message:
           id === "view"
             ? `location id "view" is reserved — it heads the view images, reference:view.<locationId>.<view>`
-            : `location id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _) so it can map to reference:${id}`,
+            : `location id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _)`,
       });
     }
     if (location.name.trim() === "") {
@@ -1763,7 +1759,7 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "landmarks-empty",
         subject: id,
-        message: `location "${id}" declares no \`landmarks\` — name what only this place has, or every frame taken here comes back as some other room`,
+        message: `location "${id}" declares no \`landmarks\` — name what only this place has`,
       });
     }
     for (const [landmarkId, landmark] of landmarks) {
@@ -1772,7 +1768,7 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
         errors.push({
           code: "landmark-invalid-id",
           subject,
-          message: `landmark id "${landmarkId}" must be a valid identifier (a-z, A-Z, 0-9, -, _) so a setup's \`holds\` can name it`,
+          message: `landmark id "${landmarkId}" must be a valid identifier (a-z, A-Z, 0-9, -, _)`,
         });
       }
       if (landmark.name.trim() === "") {
@@ -1868,7 +1864,7 @@ function validateIdNamespace(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "landmark-id-conflict",
         subject: landmarkId,
-        message: `id "${landmarkId}" is declared as a landmark of ${declaredIn.map((id) => `"${id}"`).join(" and ")} — the direction has one id space, so give each its own`,
+        message: `id "${landmarkId}" is declared as a landmark of ${declaredIn.map((id) => `"${id}"`).join(" and ")} — give each its own`,
       });
     }
     const roster = ids.characters.has(landmarkId)
@@ -1882,7 +1878,7 @@ function validateIdNamespace(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "landmark-id-conflict",
         subject: landmarkId,
-        message: `id "${landmarkId}" is declared as both a landmark and a ${roster} — the direction has one id space`,
+        message: `id "${landmarkId}" is declared as both a landmark and a ${roster}`,
       });
     }
   }
@@ -1947,9 +1943,8 @@ function validatePromptDepictions(direction: Direction): DirectionStructureError
         subject: inner.subject,
         message:
           `${inner.kind} "${inner.subject}" and ${outer.kind} "${outer.subject}" declare ` +
-          `\`promptDepiction\` "${inner.depiction}" and "${outer.depiction}" — a prompt naming the ` +
-          `second names the first too, so no scan can tell them apart. Give each a depiction neither ` +
-          `contains`,
+          `\`promptDepiction\` "${inner.depiction}" and "${outer.depiction}" — give each a ` +
+          `depiction neither contains`,
       });
     }
   }
@@ -1969,7 +1964,7 @@ function validateSetups(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "setup-invalid-id",
         subject: id,
-        message: `setup id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _) so it can map to animatic:plate.${id}`,
+        message: `setup id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _)`,
       });
     }
     if (setup.name.trim() === "") {
@@ -2000,7 +1995,7 @@ function validateSetups(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "holds-empty",
         subject: id,
-        message: `setup "${id}" holds nothing — name the landmarks of "${setup.location}" this ${setup.framing} frame carries, left to right, or the frame has nothing in it that says which place it is`,
+        message: `setup "${id}" holds nothing — name the landmarks of "${setup.location}" this ${setup.framing} frame carries, left to right`,
       });
     }
     // Only against a declared place: an unknown one is `setup-unknown-location`, and reporting every
@@ -2015,7 +2010,7 @@ function validateSetups(direction: Direction): DirectionStructureError[] {
         errors.push({
           code: "holds-unknown-id",
           subject: `${id}:${landmarkId}`,
-          message: `setup "${id}" holds "${landmarkId}", which is not a landmark of "${setup.location}" — a frame carries what its own place has`,
+          message: `setup "${id}" holds "${landmarkId}", which is not a landmark of "${setup.location}"`,
         });
       }
     }
@@ -2031,8 +2026,7 @@ function validateSetups(direction: Direction): DirectionStructureError[] {
     if (frames.length > 0) {
       errors.push({
         code: "setup-empty",
-        message:
-          "direction declares no setups — every camera frame points at one, so declare at least one setup",
+        message: "direction declares no setups — declare at least one setup",
       });
     }
   } else {
@@ -2053,8 +2047,7 @@ function validateSetups(direction: Direction): DirectionStructureError[] {
   if (locationIds.size === 0 && setupIds.size > 0) {
     errors.push({
       code: "location-empty",
-      message:
-        "direction declares no locations — every setup is set in one, so declare at least one location",
+      message: "direction declares no locations — declare at least one location",
     });
   }
   return errors;
@@ -2100,7 +2093,7 @@ function validateFrames(direction: Direction): DirectionStructureError[] {
           errors.push({
             code: "lineup-duplicate",
             subject: `${frameSubject(f)}:${subjectId}`,
-            message: `${where} lists "${subjectId}" twice in \`${field}\` — one subject stands in one place`,
+            message: `${where} lists "${subjectId}" twice in \`${field}\``,
           });
         }
         if (
@@ -2129,9 +2122,7 @@ function validateFrames(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "coverage-overdeclared",
         subject: s.id,
-        message:
-          `shot "${s.id}" is a coverage shot and declares \`${field}\` — its camera after the ` +
-          `opening frame is the model's cut, so only the opening \`setup\` and \`lineup\` are declared`,
+        message: `shot "${s.id}" is a coverage shot and declares \`${field}\` — only the opening \`setup\` and \`lineup\` are declared`,
       });
     }
   }

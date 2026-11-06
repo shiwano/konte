@@ -43,18 +43,16 @@ export function registerPathCommand(program: Command): void {
       `
 Prints one path per line, in the order given. Each argument is either a variant id (v-…), which
 prints that exact take — stale or undecided included — or an address, resolved to its canonical
-variant (accepted, else latest ready non-stale, else the latest stale one). \`:\` is the
-discriminator: a variant id never carries one.
+variant (accepted, else latest ready non-stale, else the latest stale one).
 
 The path is the original file at full size — pass it to a tool, never open it to look. To look at a
 still, run \`konte probe image\` with the same arguments; it prints a compact JPEG per take.
 
 A take that no longer matches its definition or its inputs still prints, with a notice on stderr
 naming the step back — an accept when a matching take is already generated, else a reroll; an
-accepted take whose upstream alone changed is named as standing. It
-is what the review surfaces show, so \`path\` names it too; a spend does not build on it, so read it
-as material to judge, never as a result to report. An accepted take gets the notice as well: an
-accept protects a take from being replaced, not from the definition moving under it. An address
+accepted take whose upstream alone changed is named as standing. A
+spend does not build on it: read it as material to judge, never as a result to report. An accepted
+take gets the notice as well. An address
 with a take still generating prints its earlier take, with a notice naming the job.
 
 Name a variant id to see a take the address does not resolve to — a fresh patch output or reroll

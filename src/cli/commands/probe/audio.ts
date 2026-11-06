@@ -74,12 +74,10 @@ export function registerProbeAudioCommand(program: Command): void {
       "after",
       `
 Renders a variant's whole-file waveform (an amplitude sparkline across the terminal width) plus its
-audio stream info — for inspecting a generated or file-backed source. The waveform shares the
-per-variant cache that \`konte probe reel-audio\` fills (.konte/cache/audio/<variantId>.json), so it
-is computed once. A variant with no audio stream prints its info and reports "no audio".
+audio stream info. A variant with no audio stream prints its info and reports "no audio".
 
 A ⚠ line flags leading/trailing silence or a wholly silent file — catching an early-ended generation
-(e.g. a 20s BGM whose music stops at 16s) in self-review without eyeballing the sparkline.
+(e.g. a 20s BGM whose music stops at 16s).
 
 The line rows name the lines the take owes, as direction.ts writes them and numbered by the shot's
 script (a take outside a shot: the words of its \`spokenText\` input or wherever its adapter says the
@@ -93,12 +91,11 @@ heard as another (\`"くつか" for "靴下"\`), dropped, or added. It is a mach
 is not a wrong take. A misheard row names what makes the take \`line-misheard\`.
 
 The spans line appears when the sound breaks up, listing each audible stretch — a generated take
-padded out past the content it had comes back as several with both its edges short, which the ⚠ line
-cannot see. It reports the shape; the heard row says whether a break is a pause inside one line or a
+padded out past the content it had comes back as several with both its edges short. It reports the shape; the heard row says whether a break is a pause inside one line or a
 model saying that line twice.
 
 The onset line reports where the sound sits inside the file — its first audible sample and its
-loudest one — so a cue lands on a frame without reading the offset off the sparkline: an <Audio>/
+loudest one: an <Audio>/
 <Sound> \`start\` is the target time minus the onset (minus the peak instead when it is a percussive
 hit whose attack must land on the frame).
 
@@ -107,8 +104,7 @@ reel-audio <animatic|video>\`.
 
 Takes a variant id (v-…), an address (the take it resolves to, then every ready take awaiting a
 verdict beside it), or an address-scope. A container scope (stage, shot, timeline) sweeps every
-source under it (stills, which carry no audio, are skipped), so one command replaces looping over
-each address; a patch chain's steps are swept only by a patch scope (<stage>:patch…). Several of any
+source under it (stills are skipped); a patch chain's steps are swept only by a patch scope (<stage>:patch…). Several of any
 of those can be passed at once — they are probed in argument order, each variant once.
 
 Examples:

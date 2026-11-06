@@ -340,9 +340,7 @@ Examples:
         `
 Copies the comic into the video's source/ and writes source/chunks/: index.md, index.json, and per
 bundle of 12 pages a contact sheet and its pages scaled down. Nothing is read off a page; a reader
-transcribes each one, its panels and every piece of text on them, into the digest. A PDF page that
-is more than its one image (typeset lines, drawn shapes), or whose image konte does not decode, is
-drawn by pdf.js in the managed Chromium; a PDF that needs a password to open, or carries DRM, is not
+transcribes each one, its panels and every piece of text on them, into the digest. A PDF that needs a password to open, or carries DRM, is not
 read. The binding comes off ComicInfo.xml or the PDF; --binding
 sets it over what the file states, and importing again with it corrects one read wrong.
 

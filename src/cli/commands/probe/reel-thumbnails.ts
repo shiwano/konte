@@ -61,8 +61,7 @@ export function registerProbeReelThumbnailsCommand(program: Command): void {
       "after",
       `
 Captures sampled frames of one shot's composition (the assembled build output), with the
-timeline's overlay laid over its span as the render lays it — on either composition stage, so
-the same command reads the board and the finished piece. Prints each frame's path.
+timeline's overlay laid over its span as the render lays it, on either composition stage. Prints each frame's path.
 
   <stage>:shot.<id>          The shot to capture (stage: animatic or video)
 

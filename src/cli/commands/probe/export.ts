@@ -139,8 +139,7 @@ export function registerProbeExportCommand(program: Command): void {
     .addHelpText(
       "after",
       `
-Reads the produced MP4 back with ffprobe — the actual bytes, not the render plan — so a delivery
-size or mux length that drifted from what was intended shows up here. With no argument it probes the
+Reads the produced MP4 back with ffprobe. With no argument it probes the
 latest completed export, including a --no-delivery working-size render; when the latest export
 failed, it names that job instead. Pass a project-relative or absolute path to probe a specific
 file. Also reports whether the deliverable is out of date against the current definition, and reads the sibling manifest.json — when it renders,

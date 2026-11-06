@@ -74,7 +74,7 @@ describe("pinFindings", () => {
       targets: ["video:shot.01.motion"],
     });
     expect(finding!.message).toContain("video:shot.01.motion.startImage");
-    expect(finding!.message).toContain("a sheet is conditioning");
+    expect(finding!.message).toContain("pass it as an ordinary reference input");
   });
 
   it("gives a plate its own remedy", () => {
@@ -82,6 +82,6 @@ describe("pinFindings", () => {
       { pins: [pin("video:shot.03.motion", "endImage", "animatic:plate.kitchen", "end")] },
       { stage: "video" },
     );
-    expect(finding!.message).toContain("a plate holds the frame empty");
+    expect(finding!.message).toContain("pin the panel that stands on that plate");
   });
 });

@@ -38,14 +38,12 @@ Opens the review page for one stage and blocks until the browser closes or a rev
 are written to review/<stage>/handoffs/ before the page opens. A note on a shot's asset is filed
 under the shot; a note address the stage does not hold is refused instead, listing the addresses
 changed since the last review. Without them, the
-page shows the newest handoff until a submitted review has shown it, so a closed page reopens with
-its notes.
+page shows the newest handoff until a submitted review has shown it.
 
 The server binds loopback and admits only loopback names. To review on a phone over the same wifi,
 bind the LAN with --host 0.0.0.0 (or set preview.host in konte.config.json). To review from
 anywhere, --tunnel opens a Cloudflare quick tunnel to a public https URL, which lives exactly as
-long as the command does. There is no setting for it: a public URL is opened only on a run that
-asks for one. Neither route needs preview.allowedHosts — that is for a proxy you front the server
+long as the command does. There is no setting for it. Neither route needs preview.allowedHosts — that is for a proxy you front the server
 with yourself, which must pass the original Host through: one that rewrites it to a loopback name
 presents every visitor as local, and local is the one route that is not asked for a PIN.
 

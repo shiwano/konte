@@ -638,9 +638,8 @@ function checkAxisCuts(
       code: "axis-unrealized",
       subject,
       message:
-        `setups "${cut.pair[0]}" and "${cut.pair[1]}" are cut between along one camera axis, so the ` +
-        `two frames have to come off one master — and ${owed} ` +
-        `${missing.length === 1 ? "has" : "have"} no plate, so nothing nests them. Declare ` +
+        `setups "${cut.pair[0]}" and "${cut.pair[1]}" are cut between along one camera axis — and ${owed} ` +
+        `${missing.length === 1 ? "has" : "have"} no plate. Declare ` +
         `${missing.length === 1 ? "it" : "them"} in \`plates\` in animatic.tsx, or waive the pair ` +
         `to cut it as two separate frames`,
       ...signOff(cut.pair.every((id) => unsignedShots(id) === 0)),
@@ -733,9 +732,7 @@ function checkAtomizedSetups(
         `location "${location}" holds ${shots} shots across ${frames} setups, and only ${onShared} of ` +
         `those shots stand on a frame another shot stands on too — a place with ` +
         `${ATOMIZED_LOCATION_SHOTS} or more shots needs at least ${Math.ceil(shots / 2)} of its ` +
-        `${shots} on a shared frame, or almost nothing there earns a plate and nothing holds the ` +
-        `room across ${frames} frames. Put a second shot on a frame the piece returns to, or the ` +
-        `place is only as steady as \`reference.${location}\` and each prompt happen to be`,
+        `${shots} on a shared frame. Put a second shot on a frame the piece returns to`,
       ...signOff(unsigned === 0),
     });
   }
@@ -849,8 +846,7 @@ export function checkSetups(
         subject: setup.id,
         message:
           `the plate for setup "${setup.id}" is built from no location reference — take ` +
-          `\`${placeRef(setup)}\` as an input image, or every shot on this setup is held ` +
-          `to a place the plate invented`,
+          `\`${placeRef(setup)}\` as an input image`,
       });
     }
     if (plated && hasOwnView(setup) && unviewed!.has(setup.id)) {
@@ -860,7 +856,7 @@ export function checkSetups(
         message:
           `the plate for setup "${setup.id}" faces "${setup.view}" but stands on another view of ` +
           `"${setup.location}" — build it from \`${placeRef(setup)}\` (or cut ` +
-          `in from a plate that is), or the side of the place it shows is invented per take`,
+          `in from a plate that is)`,
       });
     }
     const unviewedShots = plated ? [] : (animatic!.unviewedBy.get(setup.id) ?? []);
@@ -871,8 +867,7 @@ export function checkSetups(
         message:
           `shot ${unviewedShots.map((id) => `"${id}"`).join(", ")} sits on setup "${setup.id}", ` +
           `which faces "${setup.view}", but its keyframe stands on another view of ` +
-          `"${setup.location}" — build it from \`${placeRef(setup)}\`, or the ` +
-          `side of the place it shows is invented per take`,
+          `"${setup.location}" — build it from \`${placeRef(setup)}\``,
       });
     }
     if (plated && setup.within && unnested!.has(setup.id)) {
@@ -881,9 +876,7 @@ export function checkSetups(
         subject: setup.id,
         message:
           `setup "${setup.id}" declares itself within "${setup.within}", but its plate is neither a ` +
-          `cut from that one's nor a window inside it — so the two frames disagree about how far ` +
-          `away the set is, and this ${setup.framing} comes back at the distance its plate was drawn ` +
-          `at. Pass \`plates.${setup.within}.image\` as is to a model that reads a previous frame ` +
+          `cut from that one's nor a window inside it. Pass \`plates.${setup.within}.image\` as is to a model that reads a previous frame ` +
           `(\`cut\` in \`konte adapter show\`) and write the step in as a cut from it, or crop inside ` +
           `that plate's window with \`adapters.imageCrop\``,
       });
@@ -902,16 +895,14 @@ export function checkSetups(
         subject: setup.id,
         message: plated
           ? `shot ${shotList} sits on setup "${setup.id}" but no keyframe is built from its plate — ` +
-            `take \`plates.${setup.id}\` as an input image, or the frame is only as steady as the ` +
-            `prompt happens to be`
+            `take \`plates.${setup.id}\` as an input image`
           : `shot ${shotList} sits on setup "${setup.id}", which has no plate, but no keyframe is ` +
             `built from its location — take \`${placeRef(setup)}\` as an input image` +
             // One frame sees the place, so the reference can be that frame.
             (shotsPerLocation.get(setup.location) === 1
               ? `, or regenerate \`reference.${setup.location}\` to hold what the shot needs and ` +
                 `show it as the keyframe`
-              : "") +
-            `; otherwise the place is only as steady as the prompt happens to be`,
+              : ""),
         ...signOff(unsigned.length === 0),
       });
     }
@@ -952,8 +943,7 @@ function checkViews(
         `setup ${ids.map((id) => `"${id}"`).join(", ")} ${ids.length === 1 ? "faces" : "face"} ` +
         `"${view}" in "${location}", which has no image of that view — return \`${location}: ` +
         `{ ${view}: asset(…) }\` from \`views\` in reference.tsx, made from ` +
-        `\`reference.${location}\`, or every plate on ${ids.length === 1 ? "it" : "them"} invents ` +
-        `the side of the place the master does not show`,
+        `\`reference.${location}\``,
     });
   }
   findings.push(...checkViewAnchors(animatic.unanchoredViews, anchored));
@@ -977,8 +967,7 @@ export function checkViewAnchors(
         subject: key,
         message:
           `the view image \`reference.view.${location}.${view}\` is built from no \`reference.${location}\` — ` +
-          `take it as an input image, or the view is a place of its own rather than the other side ` +
-          `of this one`,
+          `take it as an input image`,
       },
     ];
   });
@@ -1345,8 +1334,7 @@ export function checkLineups(
           subject,
           message:
             `${name} runs on from ${frameName(previous)} in one take, but ${previous.shotId} leaves ` +
-            `${formatFrame(seam)} and ${shot.shotId} opens on ${formatFrame(shot.lineup)} — one take has ` +
-            `one frame at the seam. Make the two agree, or the boundary is a cut and \`${joinField}\` ` +
+            `${formatFrame(seam)} and ${shot.shotId} opens on ${formatFrame(shot.lineup)}. Make the two agree, or the boundary is a cut and \`${joinField}\` ` +
             `should say so`,
         });
       }
@@ -1357,8 +1345,7 @@ export function checkLineups(
         code: "lineup-vacuous",
         subject,
         message:
-          `${name} declares a \`lineupTo\` identical to its \`lineup\` — it says the frame ` +
-          `ends where it began, which is what leaving it out already says. Drop it, or write the ` +
+          `${name} declares a \`lineupTo\` identical to its \`lineup\` — drop it, or write the ` +
           `order the shot actually leaves behind`,
       });
     }
@@ -1395,7 +1382,7 @@ export function checkLineups(
         message:
           `${name} frames ${shot.lineup[0]} to ${shot.lineup[shot.lineup.length - 1]}, but ` +
           `"${shot.location}" puts ${skipped.join(", ")} between them and this frame does not hold ` +
-          `them — a frame runs edge to edge, so whoever stands in the middle is in it. Add them to ` +
+          `them. Add them to ` +
           `the \`lineup\`, or, where they walked out of frame, say so in the \`lineupTo\` of the shot ` +
           `they leave in`,
       });
@@ -1408,8 +1395,7 @@ export function checkLineups(
         subject,
         message:
           `after ${name} the order in "${shot.location}" cannot be laid out on a line: ` +
-          `${cycle.join(" → ")} → ${cycle[0]}. Shots that never share a frame can each read right ` +
-          `and still be impossible together — one of them has the place's seating wrong`,
+          `${cycle.join(" → ")} → ${cycle[0]}. One of them has the place's seating wrong`,
       });
     }
     if (shot.coverage) byLocation.delete(shot.location);
@@ -1467,7 +1453,7 @@ export function checkRoutes(shots: readonly LineupShot[]): DirectionFinding[] {
             message:
               `${frameName(shot)} puts ${id} back in "${shot.location}", which they left after ` +
               `shot ${leftAfter}, and no \`join: "jump-back" | "jump-forward"\` since moves story ` +
-              `time — on screen they warp back. Stage the detour in the place they are in, or ` +
+              `time. Stage the detour in the place they are in, or ` +
               `declare the jump where story time moves`,
           });
         }
@@ -1526,8 +1512,7 @@ export function checkJoinPins(
         (pinnedFrame === undefined
           ? `pins nothing at its end`
           : `pins its end to another frame (${pinnedFrame})`) +
-        `. Pin its end to \`${seam}\` in video.tsx; landing anywhere else, the seam is a cut with ` +
-        `no cut in it`,
+        `. Pin its end to \`${seam}\` in video.tsx`,
     });
   }
   return findings;
@@ -1710,8 +1695,7 @@ function checkSubjectNaming(
         message:
           `${frameName(shot)} frames "${id}" but no prompt behind the keyframe holding them contains ` +
           `"${promptDepictions.get(id)}" (verbatim, case-insensitive) — name every subject the frame ` +
-          `holds by its promptDepiction, or the model decides for itself which sheet it was handed is ` +
-          `the one the line is about; to call them by other words, change ` +
+          `holds by its promptDepiction; to call them by other words, change ` +
           `characters.${id}.promptDepiction`,
         ...signOff(signed),
       });
@@ -1750,7 +1734,7 @@ export function checkPropNaming(
         message:
           `shot ${shot.id}'s action names "${prop.name}" but no prompt behind its keyframes contains ` +
           `"${prop.promptDepiction}" (verbatim, case-insensitive) — call the prop by its ` +
-          `promptDepiction, or each shot draws its own; to call it by other words, change ` +
+          `promptDepiction; to call it by other words, change ` +
           `props.${prop.id}.promptDepiction`,
         ...signOff(panels.every((p) => p.signedOff)),
       });
@@ -2005,8 +1989,7 @@ function checkPlateRecrops(
       subject,
       message:
         `${frameName(first!)} crops plate "${setupId}" in ` +
-        `${panels} — a window of the plate is a frame setup "${setupId}" does not declare, so its ` +
-        `\`holds\` no longer say what is in it. Declare a setup for that frame, holding what it ` +
+        `${panels}. Declare a setup for that frame, holding what it ` +
         `shows, and move the shot onto it; one shot alone needs no plate, and stands on a crop of ` +
         `\`${placeRefs.get(setupId) ?? "reference.<location>"}\``,
     };
@@ -2100,8 +2083,7 @@ function checkCharacterAnchors(
         subject: `${frameSubject(shot)}.${id}`,
         message:
           `${frameName(shot)} frames "${id}" but the keyframe holding them is built from no reference ` +
-          `to them — take \`reference.${id}\` as an input image, or the look is only as steady as ` +
-          `the prompt happens to be`,
+          `to them — take \`reference.${id}\` as an input image`,
         ...signOff(signed),
       });
     }

@@ -91,9 +91,8 @@ export function registerVideoCurrentCommand(video: Command): void {
         "after",
         `
 The session opener: which video commands act on, what it is, how long it runs, where its last
-review left off, and whether it has been exported — enough to decide whether to carry it on or
-start a new one. It never fails: an empty workspace or an unset current video is reported as a
-state, not an error. For what to do next on the video itself, run "konte status".
+review left off, and whether it has been exported. It never fails: an empty workspace or an unset current video is
+reported as a state. For what to do next on the video itself, run "konte status".
 
 Examples:
   konte video current          Show the current video and where it stands

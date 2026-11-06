@@ -195,12 +195,11 @@ export function registerReviewShowCommand(program: Command): void {
       "after",
       `
 Prints what one review session decided and every comment it carried, each video note naming the
-frame it stands on ([image: ...]). Frames are rendered on demand from the shot's composition and
-cached, so the first run over a review can take a moment; a note whose shot no longer composes, or
+frame it stands on ([image: ...]). A note whose shot no longer composes, or
 whose takes no longer resolve, is listed without one.
 
---contact-sheet tiles those frames into labelled sheets and prints their paths above the listing,
-for a single Read that says which shots were flagged before drilling into any one frame. Cells are
+--contact-sheet tiles those frames into labelled sheets and prints their paths above the listing.
+Cells are
 captioned with the comment id and its shot-local time, and laid out in timeline order; the comment
 text itself stays in the listing.
 

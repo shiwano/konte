@@ -201,8 +201,7 @@ function linesPlacedOverSong(
         code: "script-unvoiced",
         subject,
         message:
-          "has spoken lines in the direction but places no <Audio> — on a piece cut to its song " +
-          "only the song bed plays under the takes, so place each line where the animatic does: " +
+          "has spoken lines in the direction but places no <Audio> — place each line where the animatic does: " +
           `<Audio src={animatic.shot("${shot.id}").audio("<name>")} start={…}>, or the reference ` +
           "voice it was made from",
         targets: [subject],

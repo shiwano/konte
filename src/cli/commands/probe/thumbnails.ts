@@ -38,8 +38,7 @@ export function registerProbeThumbnailsCommand(program: Command): void {
       `
 Takes a variant id (v-…), an address (the take it resolves to, then every ready take awaiting a
 verdict beside it), or an address-scope. A container scope (stage, shot, timeline) sweeps every
-visual source under it (audio-only sources are skipped), so one command replaces looping over each
-address; a patch chain's steps are swept only by a patch scope (<stage>:patch…). Several of any of
+visual source under it (audio-only sources are skipped); a patch chain's steps are swept only by a patch scope (<stage>:patch…). Several of any of
 those can be passed at once — they are probed in argument order, each variant once.
 
 Examples:

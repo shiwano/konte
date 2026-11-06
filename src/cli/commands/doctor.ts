@@ -92,20 +92,19 @@ export function registerDoctorCommand(program: Command): void {
       `
 Runs a battery of health checks over the project: state, type check, definitions,
 machine findings, orphaned jobs/targets, whether every declared asset's backend is
-configured, the backends the project actually uses, and whether a newer konte release is out
+configured, the backends the project uses, and whether a newer konte release is out
 (checked once a day; KONTE_UPDATE_CHECK=0 turns it off).
 
 By default only the current video is checked. Pass --all-videos to check every video in the
 workspace, each under its own heading; the workspace-level checks run once.
 
 By default only actionable checks (warnings and failures) are printed, followed by a
-summary; passing checks are hidden to keep the output terse. Pass -v to print
+summary; passing checks are hidden. Pass -v to print
 every check.
 
 By default a backend is probed only if an asset uses it. Pass --backends to probe
-every backend (ComfyUI, FAL, local ffmpeg) regardless — useful when
-choosing a backend before any adapter is wired. A backend surfaced only by
---backends reports as WARN when unavailable (a survey, not a project error), so it
+every backend (ComfyUI, FAL, local ffmpeg) regardless. A backend surfaced only by
+--backends reports as WARN when unavailable, so it
 never changes the exit code. --backends also shows passing backend checks (with
 their live GPU/queue diagnostics), which are otherwise hidden.
 

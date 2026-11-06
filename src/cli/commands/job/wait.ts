@@ -28,13 +28,13 @@ export function registerJobWaitCommand(program: Command, pollIntervalMs = POLL_I
       `
 Blocks until the jobs settle, then prints what broke — a failed job, or a variant finding: a
 take silent, or heard to drop or change its line — and, on the last line, the outcome and the
-command that answers it. Generation and export are async, so this is how a run ends.
+command that answers it.
 
 The workspace's konte daemon (\`konte mcp serve\`) runs the jobs. With none running, this wait
 starts one and stops it when the wait ends. With no arguments it waits on every active job of
 the video; naming ids waits on exactly those.
 
---timeout is a deadline on the whole command, not a budget per job. On expiry it stops
+--timeout is a deadline on the whole command. On expiry it stops
 waiting, names everything still in flight and exits 1; nothing is cancelled, and work a daemon
 this wait started had in hand resumes on the next wait.
 

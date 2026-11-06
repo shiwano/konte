@@ -44,7 +44,7 @@ Writes patches/<variantId>.ts, where you declare the steps to run over that exac
 typically one image-edit model fixing a local flaw, but as many chained steps as the fix needs.
 The filename is the variant id, so a take carries at most one patch script. The scaffold returns
 the take unchanged; it fails to apply until you replace that with the adapter to run. Apply it
-with \`konte patch apply\`, or just run \`konte generate <stage>\`, which picks up every patch
+with \`konte patch apply\`, or run \`konte generate <stage>\`, which picks up every patch
 that has no current output.
 
 Every target is checked before any file is written: one rejected target scaffolds nothing.
@@ -54,8 +54,7 @@ A target is a variant id, or an address — which lands on the take that address
 <address>\` lists them.
 
 A take a patch itself produced cannot be patched again — neither its output nor a step of its
-chain. Stack the next fix by appending a step to the script that produced it, which reuses the
-steps it did not touch instead of re-running them.
+chain. Stack the next fix by appending a step to the script that produced it.
 
 Examples:
   konte patch new v-a1b2c3         scaffold a patch for that variant

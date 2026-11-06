@@ -106,7 +106,7 @@ export function registerProbeReelAudioCommand(program: Command): void {
       "after",
       `
 Reconstructs the audio of a reel and shows, per track, where each sound plays and how loud — an
-ASCII timeline with an amplitude sparkline inside each active region, for tuning timing. Tracks come
+ASCII timeline with an amplitude sparkline inside each active region. Tracks come
 from the same three sources the final mux uses: shot \`<Audio>\` one-shots, \`<Video hasAudio>\`
 embedded audio, and timeline \`soundtrack()\` beds.
 

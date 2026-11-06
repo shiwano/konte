@@ -567,13 +567,13 @@ export function registerCleanCommand(program: Command): void {
 Removes failed/cancelled/dismissed variants, undecided takes gone stale beside an accept
 that is not, and dead composition/stem leftovers, freeing their generated files, jobs, logs,
 and caches. Accepted variants are always kept, and so is every take an accepted one was made
-from, and every other undecided take (neither accepted nor dismissed) that holds generated
+from, and every other undecided take that holds generated
 media — those are reported as kept.
 --delete-undecided adds them to the deletion, discarding finished takes — including ones
 whose media is not in this checkout.
 
 What will be deleted is itemized by class, printed under -y too. Deletion is confirmed
-first (-y to proceed, --no to abort); --dry-run previews without deleting.
+first (-y to proceed, --no to abort).
 
 The optional address-scope argument narrows what is cleaned:
   omitted                  Clean across every stage

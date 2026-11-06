@@ -71,7 +71,7 @@ export function registerAdapterListCommand(program: Command): void {
         "INPUTS names the adapter's required inputs; what it can pin or carry beyond them is in\n" +
         "its description and `adapter show`.\n" +
         "\nOnly the backends this workspace has configured are listed (plus file and local, which\n" +
-        "need none) — an adapter generate would refuse is not a choice. A backend is configured by\n" +
+        "need none). A backend is configured by\n" +
         "comfy.comfyui.url in konte.config.json or COMFY_API_KEY (comfy), or by its credential\n" +
         "(fal: FAL_KEY). --all lists the rest too.\n" +
         "\nExamples:\n" +

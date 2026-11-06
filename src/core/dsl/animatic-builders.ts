@@ -1,4 +1,4 @@
-import { formatPlateAddress, formatShotAddress, formatShotStemAddress } from "../address.js";
+import { formatPlateAddress, formatShotAddress } from "../address.js";
 import type { ShotStage } from "../address.js";
 import { KonteError } from "../errors.js";
 import type { BuildFinding } from "../finding.js";
@@ -607,9 +607,7 @@ function scriptFindings(
         subject,
         message:
           `has spoken lines in the direction but plays no audio — place them with ` +
-          `<Audio src={asset("vo", …)}> in its <Composition>: the lines are what the motion is ` +
-          `driven by, so they are recorded and reviewed before the shot is spent on ` +
-          `(${formatShotStemAddress("animatic", shot.id)} is derived from those cues)`,
+          `<Audio src={asset("vo", …)}> in its <Composition>`,
         targets: [subject],
       });
       continue;
@@ -680,9 +678,7 @@ function buildPlates<D>(
       findings.push({
         code: "plate-undeclared-setup",
         subject: formatPlateAddress(id),
-        message:
-          `is filed under "${id}", which is not a setup direction.ts declares — a plate is filed ` +
-          `under the roster id it holds still, so its key must be one of: ${[...declared].join(", ")}`,
+        message: `is filed under "${id}", which is not a setup direction.ts declares — its key must be one of: ${[...declared].join(", ")}`,
         targets: [formatPlateAddress(id)],
       });
     }

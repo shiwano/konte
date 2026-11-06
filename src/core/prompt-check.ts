@@ -197,8 +197,7 @@ export type PromptCheckSubject = {
 const REMEDY: Record<PromptFindingCode, string> = {
   "prompt-negation": "describe what occupies the space instead of naming what to leave out",
   "prompt-not-yet": "describe the state the frame is in instead of what has not happened",
-  "prompt-double-negative":
-    "a negativePrompt is already the exclusion — keep the term, drop the negation",
+  "prompt-double-negative": "keep the term, drop the negation",
 };
 
 // The findings in the prompts `subject` declares, fixed in `fixIn` — the file that writes them.

@@ -203,13 +203,11 @@ export function registerExportCommand(program: Command): void {
     .addHelpText(
       "after",
       `
-Registers an async render job that runs through the job pipeline. When the video has a
+Registers an async render job. When the video has a
 delivery config, the per-shot upscales are submitted first and the render waits on them.
 Pass --no-delivery to skip the upscales and render a quick working-size composite check
-instead; its output lands in a *_no_delivery dir so it is never mistaken for the real
-deliverable. --allow-unaccepted implies it: material nobody has signed off is not what a
-delivery upscale is spent on. Only the video stage is exportable — the animatic is a
-working stage with no deliverable.
+instead; its output lands in a *_no_delivery dir. --allow-unaccepted implies it. Only the
+video stage is exportable.
 
 Examples:
   konte export video                   Render the final deliverable (runs delivery upscales)

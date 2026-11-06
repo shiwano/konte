@@ -109,7 +109,7 @@ A take: a variant id, or an address — which lands on the take that address
 resolves to now (accepted, else the newest ready one), so name the id to sign off
 an older take. An accept made under an older definition resolves instead to the one
 ready take beside it; with several, name its id. Accepting settles the address: every
-other take of it still awaiting a verdict is recorded as dismissed, so nothing asks about them again, and an address left
+other take of it still awaiting a verdict is recorded as dismissed, and an address left
 holding only dismissed takes is generated afresh. Accepting also propagates: dependencies
 the variant consumed are
 accepted, downstream consumers that relied on the previous output become stale, and the
@@ -142,7 +142,7 @@ it stops reading stale, and nothing regenerates it. To replace it instead, run
 from names them; they stay accepted until cleared with --off.
 
 A deterministic asset (a \`file\`, a trim, a mix, a \`jsxImage\`) accepts here like any
-other; only \`dismiss\` refuses it, having no second take to decide for. A composition or stem is accepted by its address,
+other; only \`dismiss\` refuses it. A composition or stem is accepted by its address,
 which materializes it — the board's stem as the mix the motion is driven by.
 
 The direction: "direction" signs off every reviewable part at once, and

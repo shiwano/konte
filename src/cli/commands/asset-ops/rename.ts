@@ -58,7 +58,7 @@ Rename the asset in its stage file first, then move what konte holds under the o
 address to the new one: every take with its files, its accept, its #delivery
 derivative and the comments on it. A take that consumes the asset was made against
 the old name; where the rename is all that changed in its definition, it stays
-current rather than turning definition-stale.
+current.
 
 Both addresses are generated assets of one stage. <to> must be declared and hold no
 takes; no job may still be making a take at <from>, and no export may be running.

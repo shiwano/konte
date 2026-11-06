@@ -14,10 +14,9 @@ export function registerJobStatsCommand(program: Command): void {
     .description("Show job duration per adapter and the total generation time")
     .addHelpText(
       "after",
-      "\nAggregates completed generation jobs by adapter so you — or an agent — can gauge\n" +
-        "how long future generations will take. Durations are execution time\n" +
+      "\nAggregates completed generation jobs by adapter. Durations are execution time\n" +
         "(running → done), excluding queue wait. When one adapter's runs cluster into two\n" +
-        "well-separated groups (two distinct runtime regimes), the row splits into fast/slow\n" +
+        "well-separated groups, the row splits into fast/slow\n" +
         "modes. TOTAL sums each row's runs; a second table sums them per backend, and the\n" +
         "closing line sums every row.\n" +
         "Optionally scope to a stage/shot.\n" +

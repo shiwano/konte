@@ -159,15 +159,14 @@ registered, no job is created, nothing goes stale, and no accept is touched. A j
 deterministic and costs no spend.
 
 Takes one or more (in any mix) of an address naming a jsxImage asset, or an address-scope that
-renders every jsxImage under it. A non-jsxImage address is rejected rather than skipped; a scope
+renders every jsxImage under it. A non-jsxImage address is rejected; a scope
 that holds none errors.
 
 An upstream the tree references (<Image src={…}>) is resolved the way every read surface resolves —
 accepted, else the newest take, stale included. One with nothing to resolve to is drawn as a
 labelled placeholder tile and reported on stderr.
 
-Stills are cached under .konte/cache/jsx/ by definition and resolved inputs, so re-running an
-untouched address costs nothing; --force re-renders anyway.
+Stills are cached by definition and resolved inputs; --force re-renders anyway.
 
 Examples:
   konte probe jsx video:shot.01.card        One asset, rendered now

@@ -831,11 +831,8 @@ Removes the orphaned leftovers \`konte doctor\` surfaces, plus job records nothi
   - orphaned jobs: a job file whose variant is already gone from state, left behind with
     its logs and caches (active jobs are never touched)
   - spent provisioning jobs: settled comfy model-download / node-install / node-activate
-    records nothing pending depends on. They hold no state — the next run that needs the
-    model or pack recreates the job and re-checks the server — so this is history, dropped
-    once it is only clutter in \`job list\`. Unscoped runs only: they have no address.
-  - stray variant directories: a variant directory under assets/ that no state row records —
-    a registration that died before its save, or a variant another checkout deleted.
+    records nothing pending depends on. Unscoped runs only: they have no address.
+  - stray variant directories: a variant directory under assets/ that no state row records.
     Unscoped runs only.
 
 The optional address-scope argument filters which orphaned leftovers are pruned:

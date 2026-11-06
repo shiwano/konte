@@ -730,12 +730,10 @@ stays one cell.
 A reel scope (animatic, video, <stage>:shot.<id>) instead tiles the shots' COMPOSITIONS — rendered
 live from the definition, accepted at <address>#composition. On the ANIMATIC each shot contributes
 one cell per <Panel>, taken just inside its window, so every keyframe is on the sheet. On the VIDEO
-each shot contributes ${DEFAULT_FRAMES_PER_SHOT} cells, its in and out frames, so a cut can be read
-across the boundary, plus one cell per <Subtitle> line on screen in it — the shot's own or the
+each shot contributes ${DEFAULT_FRAMES_PER_SHOT} cells, its in and out frames, plus one cell per <Subtitle> line on screen in it — the shot's own or the
 overlay's — at the middle of the line, up to ${MAX_FRAMES_PER_SHOT} cells a shot. --frames-per-shot
 (1..${MAX_FRAMES_PER_SHOT}) samples exactly that many instead, evenly spaced, on either stage. The
-out frame sits a few frames short of the shot's end, where a generative model has usually degraded
-— so every cell carries the moment it was taken at, and a tail artifact is judged on the clip itself (probe motion), not here. Shots with no composition are skipped with a note; named
+out frame sits a few frames short of the shot's end — every cell carries the moment it was taken at, and a tail artifact is judged on the clip itself (probe motion). Shots with no composition are skipped with a note; named
 outright, they error. A shot whose media fails to load is skipped the same way and exits 1. Stills, animatic reel scopes and video reel scopes passed together each tile
 on their own sheets, printed in the order each kind first appears.
 
@@ -743,21 +741,18 @@ on their own sheets, printed in the order each kind first appears.
 and nobody has judged, across all three stages, plus a fresh take beside an accepted one and a
 patch awaiting a verdict. Takes no argument, or one address-scope to narrow it. Each cell carries
 its VARIANT ID and why it is outstanding. A clip contributes ${DEFAULT_FRAMES_PER_VARIANT} cells
-(--frames-per-take, 1..${MAX_FRAMES_PER_VARIANT}) and a still one, so cells flow rather than aligning
-per take. Audio takes and stems are left off — review those in \`konte preview\`.
+(--frames-per-take, 1..${MAX_FRAMES_PER_VARIANT}) and a still one. Audio takes and stems are left off — review those in \`konte preview\`.
 
 Cells carry their address (plus the variant id where one address contributes several). Each argument
 is laid out in the order written, and sorted within itself by address, digit runs compared
 numerically (so unpadded shot.2 precedes shot.10) — pass separate arguments to order ids that carry
 no number. A video scope keeps shot order and is not re-sorted.
 
-Cells take the aspect most of the pictures share (a 4:1 board gets 4:1 cells), and a sheet stays
-inside what a vision model reads without downscaling. Sheets hold ${DEFAULT_MAX_CELLS} cells (402x226
+Cells take the aspect most of the pictures share (a 4:1 board gets 4:1 cells). Sheets hold ${DEFAULT_MAX_CELLS} cells (402x226
 each at 16:9, 600x150 at 4:1). A longer run paginates, printing one path per sheet. Where the detail
 you are judging does not read (a hand, a small prop), pass --cell-width <px>: each sheet then holds
 only as many cells as fit at that width. --max-cells (1..${MAX_CELLS_LIMIT}) sets the count instead.
-On a video scope both the grid and the pagination round to whole shots, so a shot's cells never
-straddle a row or a sheet.
+On a video scope both the grid and the pagination round to whole shots.
 
 Examples:
   konte probe contact-sheet --needs-review             Every take waiting on a verdict, any stage

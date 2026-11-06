@@ -918,16 +918,16 @@ export function registerInspectCommand(program: Command): void {
     .addHelpText(
       "after",
       `
-One target in depth, where "konte status" is the whole-project view. An asset address reports its
+One target in depth. An asset address reports its
 variants, staleness and feedback; a shot scope reports its place on the timeline, the direction shot
 it realizes (role, framing, location, action, script) and every target under it — its assets plus the
 no-job leaves (composition, stem); a stage scope reports all of them. A video with no direction.ts,
-or a shot the direction does not declare, simply carries no direction shot.
+or a shot the direction does not declare, carries no direction shot.
 
 Every listing line carries its comment count. A stale comment — written against a state the target
 has since left — is counted but not quoted.
 
-The direction stage holds no assets, so it reports what it does have: every reviewable part of the
+The direction stage reports every reviewable part of the
 direction with its acceptance status and feedback, plus the unresolved findings. A part scope
 ("direction:<part>") adds the words being reviewed, for one part or for every part under a prefix.
 
@@ -964,8 +964,7 @@ On the board it opens with "Keyframes": one line per <Panel>, saying which shot 
 in, its place there ("panel 1 of 2"), its role and the addresses behind it that carry a prompt, in
 declaration order. A frame's only panel is its "key" — the moment the shot reads — unless a
 continuous seam runs into the frame; of several, the first is the "opening" and the last the
-"landing". A panel's name is the author's and a wrapper carries no text, so this is what says which
-prompt writes a shot's opening frame.
+"landing".
 
   konte inspect animatic --prompts        Every prompt and spoken line the board declares
   konte inspect animatic:plate --prompts  What each plate holds, and any prompt that made it

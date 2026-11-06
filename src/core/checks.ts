@@ -250,7 +250,7 @@ const LANDMARK_HELD_CHECK: Check = {
             fixIn: { stage },
             message:
               `shot "${u.shotId}" frames a setup whose \`holds\` leaves out ` +
-              `"${u.landmarkId}", yet the prompt names it — the model widens the frame to take it in; ` +
+              `"${u.landmarkId}", yet the prompt names it — ` +
               (accepted ? `accepted as drawn; ${remedy} before drawing it again` : remedy),
             targets: accepted ? [] : [u.address],
             ...(accepted ? { signedOff: [u.address] } : {}),
@@ -288,10 +288,7 @@ const CLASS_CHECK: Check = {
             code,
             subject: f.label,
             fixIn: { stage },
-            message:
-              `font family: ${f.fontFamily.join(", ")} — declare it on direction.policy.fonts; ` +
-              "the export embeds faces by reading the HTML, and a class's CSS does not exist until " +
-              "the browser has run",
+            message: `font family: ${f.fontFamily.join(", ")} — declare it on direction.policy.fonts`,
             targets: [f.label],
           });
         }
@@ -404,7 +401,7 @@ const ANIMATIC_CONSUMED_CHECK: Check = {
       fixIn: { stage: "video", ...(patch ? { patch } : {}) },
       message:
         `spends without building on ${formatShotAddress("animatic", shotId)} — build it from its own board shot ` +
-        "(a panel image, `.stem` — not `.narrationStem`, which builds nothing) in video.tsx, " +
+        "(a panel image, `.stem` — not `.narrationStem`) in video.tsx, " +
         `developing that board shot first if it is still a pendingShot, or leave it as ` +
         `pendingShot("${shotId}") until it is wired`,
       targets: [formatShotAddress("video", shotId)],

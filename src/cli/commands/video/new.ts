@@ -61,8 +61,7 @@ export function registerVideoNewCommand(video: Command): void {
       .addHelpText(
         "after",
         `
-Creates videos/<name>/ from a template and makes it the workspace's current video, so the
-commands that follow act on it without any further selection.
+Creates videos/<name>/ from a template and makes it the workspace's current video.
 
 Examples:
   konte video new opening --template blank    Scaffold an empty video`,

@@ -97,9 +97,7 @@ export function registerProbeMotionCommand(program: Command): void {
       "after",
       `
 Translates a video variant's unseeable time axis into a filmstrip you can Read. By default it tiles
-frames sampled uniformly across the whole clip into one contact sheet (timestamps burned in) — the
-spatial reading (did it move, trajectory, appear/disappear, sustained breakage) that is the reliable
-motion judgment. Pass --at or --window to zoom into a single moment (the motion peak by default) at
+frames sampled uniformly across the whole clip into one contact sheet (timestamps burned in). Pass --at or --window to zoom into a single moment (the motion peak by default) at
 higher temporal density.
 
 The strip path prints to stdout — Read it. By default nothing else prints, except any warnings on
@@ -107,7 +105,7 @@ stderr — the absolute, cross-clip signals ('low_motion' when nothing in frame 
 'dispersed_motion' for flicker). The magnitude behind 'low_motion' is a displacement: the busiest
 tile measured against the frame a second later, so a slow push-in or a small figure walking reads as
 motion. A warning carries the shot's intent under it — the direction's action and the board's
-blocking/camera — since a shot meant to hold still measures the same as one that failed to animate.
+blocking/camera.
 The intent names the boundary into the shot where it breaks time or place: its 'join', and a
 'location' line when its setup stands somewhere else than the shot before. A 'returns' line names
 the shot it cuts back to across a cutaway, and the seconds since it left that setup.
@@ -116,22 +114,19 @@ mean/peak, high/low frame-diff segments, duration/fps, the intent, the reading n
 sparkline (the frame-to-frame diff waveform). Only the magnitude compares across clips; mean and peak
 rank within one clip. Segments describe whole-frame changes between consecutive decoded frames;
 low frame-diff can include small subject movements. Judge the intended motion from the filmstrip.
-The profile is cached per variant (.konte/cache/motion/<variantId>/). An image variant reports "not a
+An image variant reports "not a
 video".
 
 Takes a variant id (v-…), an address (the take it resolves to, then every ready take awaiting a
 verdict beside it), or an address-scope. A container scope (stage, shot, timeline) sweeps every
-video source under it (stills are skipped) and prints one strip path per clip, so one command
-replaces looping over each shot's motion; a patch chain's steps are swept only by a patch scope
+video source under it (stills are skipped) and prints one strip path per clip; a patch chain's steps are swept only by a patch scope
 (<stage>:patch…). Several of any of those can be passed at once — they are probed in argument order,
 each variant once. In sweep mode each strip is preceded by a "# <address>" header line; the
 single-target form still prints only the strip path. A sweep spanning several shots ends with a Next
 steps line: those shots side by side on one sheet is probe contact-sheet.
 
 A composition address (<stage>:shot.<id>#composition) draws that shot as its live definition
-renders it, clips included — the read for an <Animate> move's speed, easing and continuity, which a
-contact sheet samples too sparsely to show. A scope never sweeps one in. Its frames are cached by the
-composition's content, beside probe reel-thumbnails'. A composition has no decoded profile: no
+renders it, clips included — the read for an <Animate> move's speed, easing and continuity. A scope never sweeps one in. A composition has no decoded profile: no
 warnings, no motion peak (a window needs --at), and --fps is rejected.
 
 --needs-review selects the outstanding video takes probe contact-sheet --needs-review tiles,

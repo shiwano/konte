@@ -314,8 +314,7 @@ function cutinAgreement(
       subject: formatShotAddress(stage, shotId),
       message:
         "renders a <Cutin>, but direction.ts declares no `cutin` on this shot — declare it " +
-        "(`cutin: { setup, lineup }`) so its frame is checked like any other, or place the layer as " +
-        "an <Image> instead",
+        "(`cutin: { setup, lineup }`), or place the layer as an <Image> instead",
       targets,
     };
   }

@@ -48,8 +48,7 @@ resolves to now, so naming the address means "throw out what is showing". Only a
 landed take of a reviewable asset can be decided against: never a deterministic one
 (konte's own take, re-baked by \`konte generate\`), not the accepted one (clear the
 accept first),
-not a take a patch was made from (it is its correction's "before" rather than one of
-the choices), and not one whose job has yet to produce a file. Dismissing a take that
+not a take a patch was made from, and not one whose job has yet to produce a file. Dismissing a take that
 already carries the verdict changes nothing, timestamp included.
 
 --except names the take to keep instead: every other landed, undecided take at its

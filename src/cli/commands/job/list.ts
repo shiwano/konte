@@ -52,8 +52,7 @@ export function registerJobListCommand(program: Command): void {
         "\nA ⚠ beside a status marks a job that is not progressing: unconfirmed (the backend\n" +
         "stopped answering), unwatched (no worker holds its run lease), stranded (its submit\n" +
         "died mid-transaction). Run `konte job show <id>` for the full diagnosis.\n" +
-        "\nComfyUI runs one prompt at a time, so a submitted comfy job waits its turn before it\n" +
-        "executes. PROGRESS reports that wait as `N ahead` (or `next`) instead of a percent.\n" +
+        "\nPROGRESS reports a comfy job's queue wait as `N ahead` (or `next`) instead of a percent.\n" +
         "\nExamples:\n" +
         "  konte job list                     Active + failed jobs (completed/cancelled hidden)\n" +
         "  konte job list --verbose           Every job, all statuses\n" +

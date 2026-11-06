@@ -41,7 +41,7 @@ export function registerPatchRemoveCommand(parent: Command): void {
       "after",
       `
 Rejects a patch for good: removes patches/<variantId>.ts along with the variants it produced, which
-makes the original a review candidate again. Its accept, if it had one, simply stands. Accepting the
+makes the original a review candidate again. Its accept, if it had one, stands. Accepting the
 original beside the correction settles the review too — that dismisses the correction — but leaves
 the script on disk, so it only sets the correction aside. This drops it.
 
