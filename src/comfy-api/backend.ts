@@ -235,7 +235,7 @@ export class ComfyApiBackend implements GenerationBackend {
         throw new KonteError(
           "SUBMISSION_UNCONFIRMED",
           `The Comfy API submission's outcome is unknown (${errorMessage(err)}). It may already be ` +
-            `running; ${client.surface === "cloud" ? "Comfy Cloud cannot be searched by key, so " : ""}` +
+            `running; ` +
             `automatic resubmission stopped. Check the jobs on ${client.origin} before rerolling.`,
         );
       }

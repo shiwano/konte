@@ -241,7 +241,7 @@ describe("downloadModelFile", () => {
     } catch (err) {
       message = (err as Error).message;
     }
-    expect(message).toContain("restart it so it picks up the current credentials");
+    expect(message).toContain("If a konte MCP server is running, restart it.");
   });
 
   it("refuses a partial response to a request for the whole file", async () => {

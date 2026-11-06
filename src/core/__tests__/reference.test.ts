@@ -217,7 +217,7 @@ describe("buildDependencyGraph (reference purity)", () => {
         return { bad };
       },
     });
-    // A reference asset reaching a video asset is illegal — references are an upstream root.
+    // A reference asset reaching a video asset is illegal.
     (ref.topLevelAssets!.bad as { inputs: Record<string, unknown> }).inputs.image =
       "__konte:video:timeline.base__";
 

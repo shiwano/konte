@@ -80,7 +80,7 @@ export function requireCompositionShot(video: StageDefinition, shotId: string): 
   throw new KonteError(
     "SHOT_NOT_FOUND",
     shot.aside
-      ? `Shot "${shotId}" is an aside the ${video.stage} does not board — konte fills its span with a slug, so there is no take to read here. Its picture is on the video.`
+      ? `Shot "${shotId}" is an aside the ${video.stage} does not board. Its picture is on the video.`
       : `Shot "${shotId}" has no composition to capture`,
   );
 }

@@ -93,8 +93,7 @@ export function assertRespellings(
         "INVALID_RESPELL",
         `respell() was given “${line}”, which is not a line direction.ts gives ` +
           `${shot === undefined ? "any shot" : `shot "${shot}"`}. Pass the injected words — ` +
-          `respell(script.<who>[n], "…") — so the respelling follows an edit to the line rather ` +
-          `than being left behind by it.`,
+          `respell(script.<who>[n], "…").`,
       );
     }
     if (lines.has(as)) {

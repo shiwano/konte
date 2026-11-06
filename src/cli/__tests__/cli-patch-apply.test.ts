@@ -105,7 +105,6 @@ export default definePatch<"image">(({ source }) => {
       );
     });
 
-    // The returned step is the correction's output, so it has no address a sibling could resolve.
     it("rejects a chain that feeds its returned step into another", async () => {
       const projectDir = await initPatchProject();
       const sourceId = await generateSource(projectDir);
@@ -147,7 +146,6 @@ export default definePatch<"image">(({ source }) => {
       expect(err.stderr).toContain("PATCH_INVALID");
     });
 
-    // A step the returned one never consumes is spend with no output.
     it("rejects a step the returned one never consumes", async () => {
       const projectDir = await initPatchProject();
       const sourceId = await generateSource(projectDir);

@@ -295,8 +295,7 @@ function validateReferencePurity(dependencies: ReadonlyMap<string, readonly stri
       if (getStage(dep) !== "reference") {
         throw new KonteError(
           "INVALID_REFERENCE_DEPENDENCY",
-          `Reference asset "${address}" depends on "${dep}". References are an upstream root and ` +
-            `may depend only on other reference assets — move "${dep}" into defineReference(), or ` +
+          `Reference asset "${address}" depends on "${dep}". References may depend only on other reference assets — move "${dep}" into defineReference(), or ` +
             `consume "${address}" from the animatic/video stage instead.`,
         );
       }
@@ -410,8 +409,7 @@ function assertUpstreamsPlaced(
   throw new KonteError(
     "UPSTREAM_UNPLACED",
     `${lines.length} asset(s) consumed across stages are never shown on their own stage's review — ` +
-      "place each in its shot's composition (on the board, a <Panel> or a layer), so the take " +
-      "built on is one a human sees before accepting it",
+      "place each in its shot's composition (on the board, a <Panel> or a layer)",
     lines,
   );
 }

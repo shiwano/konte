@@ -196,14 +196,14 @@ export function assertPatchableTarget(state: KonteState, address: string, varian
   if (stepOwner) {
     throw new KonteError(
       "PATCH_TARGET_INVALID",
-      `"${address}" is a step of the patch declared in patches/${stepOwner}.ts — correct it by editing that chain, not by patching its intermediate output`,
+      `"${address}" is a step of the patch declared in patches/${stepOwner}.ts — correct it by editing that chain`,
     );
   }
   const derivedFrom = state.assets[address]?.variants?.[variantId]?.derivedFrom;
   if (derivedFrom) {
     throw new KonteError(
       "PATCH_TARGET_INVALID",
-      `Variant "${variantId}" is the output of patches/${derivedFrom}.ts — stack the next fix by appending a step to that chain, not by patching its result`,
+      `Variant "${variantId}" is the output of patches/${derivedFrom}.ts — stack the next fix by appending a step to that chain`,
     );
   }
 }
@@ -529,7 +529,7 @@ export function requirePatch(catalog: PatchCatalog, sourceVariantId: string): Lo
   if (absent) {
     throw new KonteError(
       "PATCH_SOURCE_ABSENT",
-      `The patch ${absent.filePath} names variant "${sourceVariantId}", whose media is not in this checkout — git tracks only accepted takes`,
+      `The patch ${absent.filePath} names variant "${sourceVariantId}", whose media is not in this checkout`,
     );
   }
 

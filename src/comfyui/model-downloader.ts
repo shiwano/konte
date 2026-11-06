@@ -26,8 +26,7 @@ const HF_HOSTS = new Set(["huggingface.co", "hf.co"]);
 // The download runs in whichever process owns the job — the MCP watcher, when one is running — and
 // that process read the workspace's credentials once at startup. A token added or rotated since
 // then is not in its environment, so the file looks right and the request is still refused.
-const STALE_ENV_HINT =
-  "If a konte MCP server is running, restart it so it picks up the current credentials.";
+const STALE_ENV_HINT = "If a konte MCP server is running, restart it.";
 
 export type ModelDownloadProgress = {
   received: number;

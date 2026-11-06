@@ -74,10 +74,7 @@ export function selectDefinition(stage: Stage, defs: LoadedDefinitions): LoadedD
       return { stage, def: requireShotStages(defs).video };
     case "direction":
       // The direction stage is feedback-only — it has no asset definition to select.
-      throw new KonteError(
-        "INVALID_ADDRESS",
-        "The direction stage has no asset definition — it is a feedback-only stage",
-      );
+      throw new KonteError("INVALID_ADDRESS", "The direction stage has no asset definition");
     default:
       return assertNever(stage, "selectDefinition");
   }

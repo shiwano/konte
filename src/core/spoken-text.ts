@@ -203,9 +203,8 @@ export function assertNarrationAttributable(
       throw new KonteError(
         "NARRATION_UNATTRIBUTED",
         `Animatic shot "${shot.id}" plays ${ref}, one take carrying both the narration ` +
-          `\u201c${lineText(narrated)}\u201d and the line \u201c${lineText(spoken)}\u201d. The ` +
-          `narration is mixed into #narrationStem, kept away from the motion model, and the line ` +
-          `into #stem, so one take cannot go to both. Voice them as separate takes.`,
+          `\u201c${lineText(narrated)}\u201d and the line \u201c${lineText(spoken)}\u201d. ` +
+          `Voice them as separate takes.`,
       );
     }
     const opaque = wordsByRef.filter(([, words]) => words.length === 0).map(([ref]) => ref);

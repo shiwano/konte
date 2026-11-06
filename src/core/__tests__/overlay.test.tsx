@@ -198,7 +198,7 @@ describe("an overlay's picture", () => {
           };
         },
       }),
-    ).toThrow(/text, images and animation/);
+    ).toThrow(/plays a <Video> or an <Audio>/);
     expect(() =>
       defineVideo(clocked(), {
         timeline: ({ shot }) => {
@@ -213,7 +213,7 @@ describe("an overlay's picture", () => {
           };
         },
       }),
-    ).toThrow(/text, images and animation/);
+    ).toThrow(/plays a <Video> or an <Audio>/);
   });
 });
 

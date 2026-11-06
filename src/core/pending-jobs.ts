@@ -433,8 +433,7 @@ async function trySubmitJob(
                 `(the last: ${judgeIdentity()}) hold stale definitions. No generation ran. ` +
                 `To queue a fresh job against the current definition, ${rerun}. ${hashes}`
             : `Definition for ${job.address} changed after this job was queued, so it was not ` +
-                `submitted to the backend — no generation ran. The current definition no longer ` +
-                `matches the one captured when the job was created. ` +
+                `submitted to the backend — no generation ran. ` +
                 `To queue a fresh job against the current definition, ${rerun}. ${hashes}`,
         );
       }

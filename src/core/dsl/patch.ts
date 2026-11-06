@@ -92,10 +92,7 @@ export function definePatch<TKind extends MediaKind>(
         (name) => src === makePatchPlaceholder(ctx.stage, ctx.sourceVariantId, name),
       );
       if (!outputName) {
-        throw new Error(
-          "definePatch: the callback must return one of the asset() results — that is the step " +
-            "whose output becomes the patched take",
-        );
+        throw new Error("definePatch: the callback must return one of the asset() results");
       }
 
       return {

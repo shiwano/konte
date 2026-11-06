@@ -203,7 +203,7 @@ export class StateManager {
     if (!this.absentVariantIds().has(variantId)) return;
     throw new KonteError(
       "VARIANT_ABSENT",
-      `Variant "${variantId}" is in state, but its media is not in this checkout — git tracks only accepted takes`,
+      `Variant "${variantId}" is in state, but its media is not in this checkout`,
     );
   }
 

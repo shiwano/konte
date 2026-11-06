@@ -204,7 +204,7 @@ export function assertFixedInputs(inputs: Record<string, DeclaredInput>): void {
   for (const [key, def] of Object.entries(inputs)) {
     if (!def.fixed) continue;
     if (def.default === undefined || typeof def.default === "function") {
-      throw new Error(`Fixed input "${key}" needs a literal default — that value is what it sends`);
+      throw new Error(`Fixed input "${key}" needs a literal default`);
     }
     if (def.type !== "string" && def.type !== "number" && def.type !== "boolean") {
       throw new Error(
@@ -281,8 +281,7 @@ function fillSongStem<T>(adapter: AssetAdapter<any, any>, given: T, name: string
   throw new KonteError(
     "SONG_STEM_OVERRIDDEN",
     `Asset "${name}" in ${assetLocation()}: "${key}" is the take's soundtrack, which on a piece ` +
-      `cut to its song konte fills with the shot's song stem (the vocals a singer in frame ` +
-      `sings, else the instrumental). Leave "${key}" unset.`,
+      `cut to its song konte fills with the shot's song stem. Leave "${key}" unset.`,
   );
 }
 

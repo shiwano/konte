@@ -449,8 +449,8 @@ export function parseReelScope(scope: string): { stage: ShotStage; shotId?: stri
   if (!m) {
     throw new KonteError(
       "INVALID_ADDRESS",
-      `Unsupported address-scope: "${scope}". A reel is read per shot, so target a composition ` +
-        `stage or a single shot of one, not an individual asset ` +
+      `Unsupported address-scope: "${scope}". Target a composition ` +
+        `stage or a single shot of one ` +
         `(expected "animatic", "video", or "<stage>:shot.<id>").`,
     );
   }
@@ -1055,7 +1055,7 @@ export function getAssetEntry(definition: DefinitionLike, address: string): Asse
   if (parsed.kind === "patch") {
     throw new KonteError(
       "ADDRESS_NOT_FOUND",
-      `"${address}" is a patch step — its definition lives in patches/${parsed.sourceVariantId}.ts, not in the stage definition`,
+      `"${address}" is a patch step — its definition lives in patches/${parsed.sourceVariantId}.ts`,
     );
   }
 

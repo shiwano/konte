@@ -155,7 +155,7 @@ export function createAnimaticRef(
               "ANIMATIC_INVALID",
               (shot.narrationStemRefs?.length ?? 0) > 0
                 ? `animatic.shot("${id}").stem: animatic shot "${id}" plays only narration, which ` +
-                    `is not in its stem — nothing on screen speaks it. Drive the motion without a ` +
+                    `is not in its stem. Drive the motion without a ` +
                     `stem, and place .narrationStem with <Audio>.`
                 : `animatic.shot("${id}").stem: animatic shot "${id}" plays no audio, so it has ` +
                     `no stem. Place the shot's lines in animatic.tsx with <Audio>, or drop the ` +

@@ -223,8 +223,8 @@ Examples:
         throw new KonteError(
           "INVALID_ADDRESS",
           stage === "reference"
-            ? "The reference stage is not exportable — it is an upstream pool consumed by animatic/video."
-            : "Only the video stage is exportable — the animatic is a working stage with no deliverable.",
+            ? "The reference stage is not exportable."
+            : "Only the video stage is exportable.",
         );
       }
 

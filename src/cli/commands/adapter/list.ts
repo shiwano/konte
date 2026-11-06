@@ -46,8 +46,7 @@ export function isExemptAdapter(
   return backend === "file" || backend === "local";
 }
 
-// An adapter on a backend this workspace has not configured is not a choice — `generate` refuses
-// it — so the default listing narrows to the configured vendors. Read from konte.config.json and
+// The default listing narrows to the configured vendors. Read from konte.config.json and
 // the credentials already in the environment, never from a connectivity probe. A config that
 // fails to load is reported and stepped over, so a mid-edit config still lists adapters.
 export async function backendPolicy(workspaceRoot: string): Promise<BackendPolicy> {

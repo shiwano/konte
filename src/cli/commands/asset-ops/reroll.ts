@@ -178,8 +178,7 @@ Examples:
         if (opts.withDependents && variantCount > 1) {
           throw new KonteError(
             "INVALID_OPTION",
-            "`--count` cannot be combined with `--with-dependents`: exploring multiple " +
-              "alternatives is a leaf concern, orthogonal to rebuilding a dependency chain",
+            "`--count` cannot be combined with `--with-dependents`",
           );
         }
 

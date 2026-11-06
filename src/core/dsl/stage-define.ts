@@ -425,7 +425,7 @@ function defineOverlay(
   );
   if (media) {
     throw new Error(
-      "the overlay plays a <Video> or an <Audio> — an overlay is text, images and animation. " +
+      "the overlay plays a <Video> or an <Audio>. " +
         "Place the media in a shot, or a sound in the timeline's soundtracks.",
     );
   }

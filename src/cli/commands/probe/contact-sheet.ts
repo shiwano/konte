@@ -170,7 +170,7 @@ async function buildCompositionCells(
       throw new KonteError(
         "SHOT_NOT_FOUND",
         shot.aside
-          ? `Shot "${id}" is an aside the board does not draw — konte fills its span with a slug, so there is no take to read here. Its picture is on the video.`
+          ? `Shot "${id}" is an aside the board does not draw. Its picture is on the video.`
           : `Shot "${id}" has no composition to capture`,
       );
     } else {
@@ -512,10 +512,7 @@ async function buildStillCells(
     // A scope drops non-images on the way in, but a named variant id or address skips that
     // filter — so catch it here rather than handing ffmpeg a clip and tiling its first frame.
     if (inferMediaType(variant.file) !== "image") {
-      throw new KonteError(
-        "INVALID_ASSET_TYPE",
-        `${address} (${variantId}) is not a still image — a contact sheet tiles stills`,
-      );
+      throw new KonteError("INVALID_ASSET_TYPE", `${address} (${variantId}) is not a still image`);
     }
     return {
       label: address,

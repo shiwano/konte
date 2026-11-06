@@ -78,9 +78,8 @@ export function readAnimaticShot(opts: {
   if (rawTag) {
     throw new KonteError(
       "ANIMATIC_INVALID",
-      `Animatic shot "${shotId}" emits a raw <${rawTag}> (via dangerouslySetInnerHTML). konte ` +
-        `cannot see it, so a <video> would sidestep the spend gate and an <audio> would play in ` +
-        `review while being absent from the stem that drives the motion. Use <Panel> / <Audio>.`,
+      `Animatic shot "${shotId}" emits a raw <${rawTag}> (via dangerouslySetInnerHTML). ` +
+        `Use <Panel> / <Audio>.`,
     );
   }
   assertCuesMixable(shotId, harvestAudioStructure(element, context));
@@ -248,8 +247,8 @@ function assertCuesMixable(shotId: string, entries: ReadonlyArray<{ src: string 
     if (isConsumableAddress(e.src)) continue;
     throw new KonteError(
       "ANIMATIC_INVALID",
-      `Animatic shot "${shotId}" plays "${e.src}", which is not a konte asset. The stem that ` +
-        `drives the motion is mixed from the shot's cues, so each must be an asset() take or a ` +
+      `Animatic shot "${shotId}" plays "${e.src}", which is not a konte asset. ` +
+        `Each must be an asset() take or a ` +
         `shared reference — not a literal path or URL.`,
     );
   }

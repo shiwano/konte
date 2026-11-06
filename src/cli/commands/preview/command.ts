@@ -83,10 +83,7 @@ Examples:
         if (stage === "direction") {
           const direction = await loadDirectionIfPresent(videoRoot);
           if (!direction) {
-            throw new KonteError(
-              "ADDRESS_NOT_FOUND",
-              "No direction.ts found in this project — nothing to preview for the direction stage.",
-            );
+            throw new KonteError("ADDRESS_NOT_FOUND", "No direction.ts found in this project.");
           }
           const handoff =
             (await writeHandoff(videoRoot, { stage, direction }, note, summary)) ?? handoffOpt;

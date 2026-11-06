@@ -535,7 +535,7 @@ export default defineReference(direction, { references: () => {
     expect((await StateManager.load(dir)).getAcceptedVariant("reference:card")).toBeNull();
   });
 
-  it("refuses to dismiss one — there is no other take to decide for", async () => {
+  it("refuses to dismiss one", async () => {
     const { dir, cardVid } = await initProject();
 
     await expect(run(["dismiss", cardVid, "--yes"], dir)).rejects.toMatchObject({

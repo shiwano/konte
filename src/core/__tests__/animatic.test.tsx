@@ -361,7 +361,7 @@ describe("animatic definition errors", () => {
     ).not.toThrow();
   });
 
-  it("refuses a developed shot with no <Panel> — a board shot IS its keyframes", () => {
+  it("refuses a developed shot with no <Panel>", () => {
     expect(() =>
       defineAnimatic(direction({ script: false }), {
         timeline: ({ shot }) => ({

@@ -1500,18 +1500,14 @@ const shotClockOf = (
 // of arc shot; `shot` only a narrative one.
 const requireArcShot = (index: DirectionIndex, fnName: string, id: string): void => {
   if (index.asideIds.has(id)) {
-    throw new Error(
-      `${fnName}("${id}") is an aside shot — it has no setup, and nothing acts or speaks in it. Use asideShot("${id}").`,
-    );
+    throw new Error(`${fnName}("${id}") is an aside shot. Use asideShot("${id}").`);
   }
 };
 
 const requireNarrativeShot = (index: DirectionIndex, fnName: string, id: string): void => {
   requireArcShot(index, fnName, id);
   if (index.graphicIds.has(id)) {
-    throw new Error(
-      `${fnName}("${id}") is a graphic shot — it has no camera, so it has no setup or lineup to build a frame from. Use graphicShot("${id}", …).`,
-    );
+    throw new Error(`${fnName}("${id}") is a graphic shot. Use graphicShot("${id}", …).`);
   }
 };
 
@@ -1651,13 +1647,11 @@ const makeAsideInput = (
 ): AsideShotInput => {
   const facts = asideShotContext(index, id);
   if (stage === "video" && !build) {
-    throw new Error(
-      `asideShot("${id}") on the video needs a build — an aside is not boarded, so the video is where its picture comes from.`,
-    );
+    throw new Error(`asideShot("${id}") on the video needs a build.`);
   }
   if (stage === "animatic" && build) {
     throw new Error(
-      `asideShot("${id}") on the animatic takes no build — the board is a drawing of the story, and konte fills an aside's span with a labelled slug.`,
+      `asideShot("${id}") on the animatic takes no build — konte fills an aside's span with a labelled slug.`,
     );
   }
   return {

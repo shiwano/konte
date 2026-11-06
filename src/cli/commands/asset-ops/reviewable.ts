@@ -6,7 +6,7 @@ export function assertDismissable(definitions: StageDefinitions, address: string
   if (!isDeterministicAddress(definitions, address)) return;
   throw new KonteError(
     "DETERMINISTIC_NOT_DISMISSABLE",
-    `Cannot decide against "${address}": a deterministic asset has one outcome, so there is no ` +
-      `other take to decide for — edit its definition and re-run \`konte generate\``,
+    `Cannot decide against "${address}": a deterministic asset has one outcome — ` +
+      `edit its definition and re-run \`konte generate\``,
   );
 }

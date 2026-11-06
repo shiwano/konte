@@ -49,8 +49,7 @@ function assertNoRawMediaTag(adapter: JsxRenderAdapter, html: string, seenAudio:
   if (!raw) return;
   throw new KonteError(
     "VALIDATION_FAILED",
-    `${adapter} emits a raw <${raw}> (via dangerouslySetInnerHTML). konte cannot see it, so it ` +
-      `would reach the capture unchecked. Use <Image>.`,
+    `${adapter} emits a raw <${raw}> (via dangerouslySetInnerHTML). Use <Image>.`,
   );
 }
 
@@ -80,7 +79,7 @@ function assertEveryPlaceholderHarvested(
     "VALIDATION_FAILED",
     `${adapter} found an asset reference it cannot resolve into a file — "${leftover}", embedded in ` +
       "a longer string rather than passed as a `src`. Render it with `<Image src={…}>` (or an " +
-      "`<img>`), which is what the dependency graph and the file substitution both read.",
+      "`<img>`).",
   );
 }
 

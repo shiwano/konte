@@ -41,8 +41,7 @@ export function assertNarrationStemsHeard(video: VideoDefinition): void {
   throw new KonteError(
     "ANIMATIC_INVALID",
     `${misplaced.length} board shot narration stem(s) are used as something other than a ` +
-      "sound — place each only with <Audio> in a video shot's composition; nothing on screen " +
-      "speaks the narration, so it drives no model and draws no picture",
+      "sound — place each only with <Audio> in a video shot's composition",
     misplaced,
   );
 }

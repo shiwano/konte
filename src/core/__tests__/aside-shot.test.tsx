@@ -59,7 +59,6 @@ describe("asideShot", () => {
     const last = chain.__shots[1]!;
     expect(isAsideShotInput(last)).toBe(true);
     expect(isPendingShotInput(last)).toBe(false);
-    // No build: the board is a drawing of the story, and an aside is not story.
     if (!isAsideShotInput(last)) throw new Error("expected an aside");
     expect(last.fn).toBeUndefined();
   });

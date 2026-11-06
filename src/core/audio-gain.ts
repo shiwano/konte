@@ -12,7 +12,6 @@ export function assertAudioGain(value: unknown, where: string): void {
   throw new KonteError(
     "AUDIO_GAIN_INVALID",
     `${where}: volume ${String(value)} is outside 0–${MAX_AUDIO_GAIN.toFixed(2)} ` +
-      `(+${MAX_AUDIO_GAIN_DB} dB). 1 is unity; the preview clamps anything above the ceiling ` +
-      `while the export does not, so a louder take is fixed at the source instead.`,
+      `(+${MAX_AUDIO_GAIN_DB} dB). 1 is unity; a louder take is fixed at the source.`,
   );
 }

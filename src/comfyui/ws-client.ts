@@ -94,8 +94,7 @@ function unreachableError(promptId: string, sinceMs: number, lastError: string):
   return new KonteError(
     "COMFYUI_UNAVAILABLE",
     `ComfyUI has answered nothing for ${Math.round(sinceMs / 60_000)}m (last error: ${lastError}). ` +
-      `Prompt ${promptId} lives in the server process, so it did not survive — failing it rather ` +
-      `than polling a server that is gone. Start ComfyUI, then re-run the command. ` +
+      `Prompt ${promptId} did not survive. Start ComfyUI, then re-run the command. ` +
       `Set comfy.comfyui.unreachableTimeoutMinutes (0 = wait forever) to change this.`,
   );
 }

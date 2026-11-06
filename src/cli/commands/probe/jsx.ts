@@ -62,14 +62,11 @@ function notJsx(address: string, declared: DeclaredAssets): KonteError {
   if (isPatchAddress(address)) {
     return new KonteError(
       "INVALID_ASSET_TYPE",
-      `"${address}" is a patch step — \`probe jsx\` reads the stage definitions, so generate it instead`,
+      `"${address}" is a patch step — generate it instead`,
     );
   }
   if (declared.all.has(address) || address.includes("#")) {
-    return new KonteError(
-      "INVALID_ASSET_TYPE",
-      `"${address}" is not a jsxImage asset — \`probe jsx\` renders jsxImage assets only`,
-    );
+    return new KonteError("INVALID_ASSET_TYPE", `"${address}" is not a jsxImage asset`);
   }
   return new KonteError("ADDRESS_NOT_FOUND", `No asset declared at "${address}"`);
 }

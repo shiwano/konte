@@ -179,10 +179,7 @@ Examples:
       }
       const compositions = targets.filter(isCompositionAddress);
       if (compositions.length > 0 && opts.fps != null) {
-        throw new KonteError(
-          "INVALID_OPTION",
-          "--fps sets a clip's decode rate; a composition is drawn frame by frame, not decoded",
-        );
+        throw new KonteError("INVALID_OPTION", "--fps sets a clip's decode rate");
       }
       const opened = await openProbeTargets(
         targets.filter((t) => !isCompositionAddress(t)),

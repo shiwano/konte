@@ -98,7 +98,7 @@ async function inputsFor(ctx: DeploymentContext, name: string): Promise<BuildInp
   if (adapters.length === 0) {
     throw new KonteError(
       "VALIDATION_FAILED",
-      `No comfy adapter routes to ${target} in comfy.adapters, so there is nothing to build`,
+      `No comfy adapter routes to ${target} in comfy.adapters`,
     );
   }
   return buildInputs(adapters, declared.comfyVersion);

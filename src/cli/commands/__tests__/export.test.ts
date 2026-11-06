@@ -463,7 +463,7 @@ describe("export video", () => {
     });
   });
 
-  it("rejects the animatic stage, a working stage with no deliverable", async () => {
+  it("rejects the animatic stage", async () => {
     projectDir = await initProject({ video: VIDEO_TSX, animatic: ANIMATIC_TS });
     await acceptDirection(projectDir);
 

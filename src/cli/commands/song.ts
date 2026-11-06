@@ -182,10 +182,7 @@ Examples:
       const direction = await loadDirectionIfPresent(videoRoot);
       const songAddress = songAddressOf(direction);
       if (!direction || !songAddress) {
-        throw new KonteError(
-          "VALIDATION_FAILED",
-          "direction.ts declares no policy.song, so there is no song to read",
-        );
+        throw new KonteError("VALIDATION_FAILED", "direction.ts declares no policy.song");
       }
       // The reference alone: the song is one of its assets, and a board or video cut to the song
       // cannot load before a take of it is read.

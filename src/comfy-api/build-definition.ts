@@ -95,7 +95,7 @@ export function buildInputs(
         throw new KonteError(
           "VALIDATION_FAILED",
           `${existing.from} and ${adapter.workflow} both declare ${key} but from different URLs ` +
-            `(${existing.sourceUri} / ${entry.sourceUri}) — one Build can hold only one.`,
+            `(${existing.sourceUri} / ${entry.sourceUri}).`,
         );
       }
       if (!existing) models.set(key, { ...entry, from: adapter.workflow });

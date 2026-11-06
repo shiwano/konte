@@ -474,7 +474,7 @@ export async function loadReference(
   if (!existsSync(filePath)) {
     throw new KonteError(
       "REFERENCE_NOT_FOUND",
-      `No ${STAGE_ENTRY_FILE.reference} found in the video root — every video holds a shared pool. ` +
+      `No ${STAGE_ENTRY_FILE.reference} found in the video root. ` +
         `Create it with \`defineReference(direction, { references: () => ({}) })\`.`,
     );
   }
@@ -510,7 +510,7 @@ export async function loadAnimatic(
   if (!existsSync(filePath)) {
     throw new KonteError(
       "ANIMATIC_NOT_FOUND",
-      `No ${STAGE_ENTRY_FILE.animatic} found in the video root — every video develops a board. ` +
+      `No ${STAGE_ENTRY_FILE.animatic} found in the video root. ` +
         `Create it with \`defineAnimatic(direction, { timeline: () => ({ shots: [] }) })\`.`,
     );
   }
@@ -673,7 +673,7 @@ function parsePatchModule(
     if (extractRefs(def).includes(outputAddress)) {
       throw new KonteError(
         "PATCH_INVALID",
-        `Patch file "${filePath}" feeds its returned step "${built.outputName}" into "${name}" — the returned step is the correction's output, so nothing else may consume it`,
+        `Patch file "${filePath}" feeds its returned step "${built.outputName}" into "${name}" — nothing else may consume it`,
       );
     }
   }
@@ -698,7 +698,7 @@ function parsePatchModule(
   if (unreachable.length > 0) {
     throw new KonteError(
       "PATCH_INVALID",
-      `Patch file "${filePath}" declares ${unreachable.map((n) => `"${n}"`).join(", ")}, which the returned step "${built.outputName}" never consumes — a step nothing builds on is spend with no output`,
+      `Patch file "${filePath}" declares ${unreachable.map((n) => `"${n}"`).join(", ")}, which the returned step "${built.outputName}" never consumes`,
     );
   }
 

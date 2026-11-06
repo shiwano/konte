@@ -85,8 +85,7 @@ Examples:
         if (names.length === 0) {
           throw new KonteError(
             "VALIDATION_FAILED",
-            "No comfy adapter routes to a Comfy API deployment in comfy.adapters, so there is " +
-              "nothing to build",
+            "No comfy adapter routes to a Comfy API deployment in comfy.adapters",
           );
         }
       }

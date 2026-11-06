@@ -140,7 +140,7 @@ Examples:
       if (!variant?.file || inferMediaType(variant.file) !== "image") {
         throw new KonteError(
           "INVALID_ASSET_TYPE",
-          `${address} (${variantId}) is not a still image — probe crop cuts stills`,
+          `${address} (${variantId}) is not a still image`,
         );
       }
 
@@ -174,7 +174,7 @@ Examples:
         if (rects.length === 0) {
           throw new KonteError(
             "INVALID_OPTION",
-            `${address} is not an imageCrop, so it has no window of its own — pass --rect x,y,width,height`,
+            `${address} is not an imageCrop — pass --rect x,y,width,height`,
           );
         }
         source = { address, variantId, file: variant.file };

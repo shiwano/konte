@@ -255,8 +255,7 @@ function fileViews(
       if (filed.has(name)) {
         throw new KonteError(
           "INVALID_VIEW",
-          `defineReference: asset("${name}", …) is returned as two views — each view is its own ` +
-            `image`,
+          `defineReference: asset("${name}", …) is returned as two views`,
         );
       }
       filed.set(name, viewAssetName(locationId, view));
@@ -316,7 +315,7 @@ function assertLyricsSung(
       throw new KonteError(
         "INVALID_RESPELL",
         `respell() was given “${line}”, which is not a lyric line direction.ts declares. Pass the ` +
-          `line itself so the respelling follows an edit to it.`,
+          `line itself.`,
       );
     }
   }

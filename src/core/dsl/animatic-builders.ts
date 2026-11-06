@@ -523,7 +523,7 @@ export function defineAnimatic<
       } else if (panels.length === 0) {
         throw new KonteError(
           "PANEL_REQUIRED",
-          `Animatic shot "${input.id}" declares no <Panel>. A board shot IS its keyframes — mark ` +
+          `Animatic shot "${input.id}" declares no <Panel>. Mark ` +
             `at least one image with <Panel>; a plain <Image> is a layer, not a keyframe.`,
         );
       }
@@ -539,8 +539,8 @@ export function defineAnimatic<
       if (cutin && cutinPanels.length === 0) {
         throw new KonteError(
           "PANEL_REQUIRED",
-          `Animatic shot "${input.id}" renders a <Cutin> with no <Panel> inside it. A cutin is a ` +
-            `camera frame, and a board frame IS its keyframes — mark its image with <Panel>.`,
+          `Animatic shot "${input.id}" renders a <Cutin> with no <Panel> inside it. ` +
+            `Mark its image with <Panel>.`,
         );
       }
       return {
@@ -713,8 +713,7 @@ function buildPlates<D>(
       throw new KonteError(
         "INVALID_PLATE",
         `defineAnimatic: plates."${id}" returns a handle for a different plate. File each ` +
-          `asset("<setupId>", …) under its own id — a swapped pair silently builds every keyframe ` +
-          `on the wrong frame.`,
+          `asset("<setupId>", …) under its own id.`,
       );
     }
     returned[id] = image as MediaAsset<"image">;

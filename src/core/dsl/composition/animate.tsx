@@ -130,9 +130,8 @@ function assertNoOwnClock(shotId: string, source: string): void {
   if (!call) return;
   throw new KonteError(
     "ANIMATE_SCRIPT_INVALID",
-    `Shot "${shotId}"'s <Animate> script calls ${call}, which runs on a clock of its own: the ` +
-      "render restarts it at every parallel range and the preview drifts off the timeline. Drive " +
-      "the motion from `timeline`, or bake the loop to a clip with `adapters.jsxVideo` and place " +
+    `Shot "${shotId}"'s <Animate> script calls ${call}, which runs on a clock of its own. ` +
+      "Drive the motion from `timeline`, or bake the loop to a clip with `adapters.jsxVideo` and place " +
       "it with <Video>.",
   );
 }

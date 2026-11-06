@@ -72,7 +72,7 @@ export async function assertTailwindClasses(
   const count = findings.reduce((n, f) => n + f.fontFamily.length, 0);
   throw new KonteError(
     held,
-    `Rendered markup has ${count} class(es) setting a font family — declare it on direction.policy.fonts; the export embeds faces by reading the HTML, and a class's CSS does not exist until the browser has run`,
+    `Rendered markup has ${count} class(es) setting a font family — declare it on direction.policy.fonts`,
     findings.map((f) => `  ${f.label}: ${f.fontFamily.join(", ")}`),
   );
 }
