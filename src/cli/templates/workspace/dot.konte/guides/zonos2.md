@@ -41,7 +41,7 @@ She read the last line twice, then closed the book. It was already too late.
 - `speakingRate`, `loudnessLufs`, `leadingSilence` and `trailingSilence` each take a labelled range (`"3: 0.25-0.5"`) or `"default"`, which leaves that axis unconditioned.
 - They shape pace, level and the silence around the line, never the speaker.
 - `speakingRate` is cleaned bytes per second, so a lower bucket reads slower — the one to reach for when a line overruns its shot.
-- `leadingSilence` / `trailingSilence` in seconds. Trim them when the composition already places the line.
+- `leadingSilence` / `trailingSilence` in seconds. Trim `leadingSilence` when the composition already places the line.
 
 ## Emotion
 

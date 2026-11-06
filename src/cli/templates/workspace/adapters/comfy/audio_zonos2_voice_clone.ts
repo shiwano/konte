@@ -108,17 +108,7 @@ export const audioZonos2VoiceClone = defineComfyAsset({
       field: "trailing_silence",
       type: "string",
       default: "3: 0.25-0.5",
-      values: [
-        "default",
-        "0: 0-0.05",
-        "1: 0.05-0.1",
-        "2: 0.1-0.25",
-        "3: 0.25-0.5",
-        "4: 0.5-1",
-        "5: 1-2",
-        "6: 2-4",
-        "7: 4+",
-      ],
+      values: ["default", "2: 0.1-0.25", "3: 0.25-0.5", "4: 0.5-1", "5: 1-2", "6: 2-4", "7: 4+"],
     },
     // Zonos2EmotionVoiceClone → SaveAudioAdvanced.audio
     seed: { nodeId: "3", field: "seed", type: "seed", default: 0 },
