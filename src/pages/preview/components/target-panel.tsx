@@ -125,6 +125,7 @@ export function TargetPanel({
       ["acting", scriptLines.map((l) => l.acting ?? "")],
       ["blocking", moveCards.map((m) => m.blocking)],
       ["camera", moveCards.map((m) => m.camera)],
+      ["waiver", waiverCards.map((w) => w.reason)],
       ["handoff", handoffNotes ?? []],
     ]),
     quotedFragments([...comments.map((c) => c.text), ...(draft ? [draftText] : [])], true),
@@ -176,13 +177,15 @@ export function TargetPanel({
               marks={marks}
             />
           ))}
-          {waiverCards.map((w) => (
+          {waiverCards.map((w, i) => (
             <WaiverCard
               key={`${w.code}_${w.subject}`}
               code={w.code}
               subject={w.subject}
               reason={w.reason}
               needsReview={w.needsReview}
+              field={i}
+              marks={marks}
             />
           ))}
           {handoffNotes?.map((text, i) => (

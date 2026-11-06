@@ -216,17 +216,21 @@ export function RosterCard({
 }
 
 // A direction waiver whose subject is this shot: the rule the author broke here and why. Accepting
-// the shot signs it off.
+// the shot signs it off. Under a quote scope, its reason quotes as `waiver` at index `field`.
 export function WaiverCard({
   code,
   subject,
   reason,
   needsReview,
+  field,
+  marks,
 }: {
   code: string;
   subject: string;
   reason: string;
   needsReview?: boolean;
+  field?: number;
+  marks?: QuoteMarks;
 }): React.ReactElement {
   return (
     <div className="comment-card comment-card--move">
@@ -242,7 +246,9 @@ export function WaiverCard({
           {needsReview && <span className="comment-roster-flag">needs review</span>}
         </span>
         <span className="comment-move-row">
-          <span className="comment-move-text">{reason}</span>
+          <span className="comment-move-text" data-quote-kind="waiver" data-quote-field={field}>
+            <Marked text={reason} ranges={marksAt(marks, "waiver", field)} />
+          </span>
         </span>
       </span>
     </div>
