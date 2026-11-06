@@ -167,33 +167,75 @@ export function waiverShotScope(code: DirectionFindingCode): WaiverShotScope {
 
 // The stage entry file a finding's fix is written in. A declared entity — a look or a cast voice —
 // with no reference asset is answered in `reference.tsx`; a setup the board realizes wrongly is
-// answered by its plates and keyframes in `animatic.tsx`. The direction entry naming either is
-// already correct, so it is edited only to waive one. Every other finding is direction-side.
-const FIX_STAGE: Partial<Record<DirectionFindingCode, FindingFixStage>> = {
+// answered by its plates and keyframes in `animatic.tsx`, and a take or composition by `video.tsx`.
+// The direction entry naming any of them is edited only to waive one.
+const FIX_STAGE: Record<DirectionFindingCode, FindingFixStage> = {
+  "missing-role": "direction",
+  "no-payoff": "direction",
+  "role-out-of-order": "direction",
+  "lens-role-mismatch": "direction",
+  "too-few-consecutive": "direction",
+  "empty-synopsis": "direction",
+  "unearned-payoff": "direction",
+  "role-overweight": "direction",
+  "role-underweight": "direction",
   "character-unreferenced": "reference",
+  "unused-character": "direction",
+  "character-voice-missing": "direction",
   "character-voice-unreferenced": "reference",
+  "unused-character-voice": "direction",
+  "narrator-missing": "direction",
   "narrator-unreferenced": "reference",
+  "unused-narrator": "direction",
   "prop-unreferenced": "reference",
+  "unused-prop": "direction",
   "location-unreferenced": "reference",
+  "unused-location": "direction",
   "setup-unrealized": "animatic",
   "plate-unanchored": "animatic",
   "plate-unnested": "animatic",
   "axis-unrealized": "animatic",
   "plate-unowed": "animatic",
   "setup-unconsumed": "animatic",
+  "unused-setup": "direction",
+  "setup-atomized": "direction",
   "view-unrealized": "reference",
   "plate-unviewed": "animatic",
   "view-unanchored": "reference",
-  "song-unreferenced": "reference",
+  "multi-sentence-action": "direction",
+  "off-grid-duration": "direction",
+  "off-beat-cut": "direction",
+  "fonts-undeclared": "direction",
+  "lineup-flipped": "direction",
+  "lineup-gap": "direction",
+  "lineup-vacuous": "direction",
+  "lineup-inconsistent": "direction",
+  "location-backtrack": "direction",
+  "character-unconsumed": "animatic",
+  "slot-order-mismatch": "animatic",
+  "plate-recropped": "direction",
+  "landmark-flipped": "direction",
+  "subject-unnamed": "animatic",
+  "prop-unnamed": "animatic",
   "passer-unconsumed": "video",
   "passer-unnamed": "video",
+  "plate-unnamed": "animatic",
+  "landmark-unnamed": "animatic",
+  "join-lineup-mismatch": "direction",
+  "join-unpinned": "video",
+  "join-unshown": "video",
   "opening-key": "video",
+  "panel-unlinked": "animatic",
+  "return-unlinked": "animatic",
+  "song-unreferenced": "reference",
+  "lyric-unplaced": "direction",
+  "song-overrun": "direction",
 };
 
 type FindingFixStage = "direction" | "reference" | "animatic" | "video";
 
 export function findingFixStage(code: DirectionFindingCode): FindingFixStage {
-  return FIX_STAGE[code] ?? "direction";
+  return FIX_STAGE[code];
 }
 
 // The findings a surface reports or gates on: a finding whose onset is the direction's acceptance
