@@ -3,17 +3,25 @@ import { requireVideoRoot } from "../../context.js";
 import { inferMediaType, variantMediaKind } from "../../../core/media-type.js";
 import { shotById } from "../../../core/shot-index.js";
 import type { StateManager } from "../../../core/state/index.js";
-import type { AnimaticDefinition, VideoDefinition } from "../../../core/types/index.js";
+import type {
+  AnimaticDefinition,
+  StageDefinition,
+  VideoDefinition,
+} from "../../../core/types/index.js";
 import * as path from "node:path";
 import type { Command } from "commander";
 import { KonteError } from "../../../core/errors.js";
 import { ensureFfmpeg, ensureFfprobe } from "../../../core/ffmpeg.js";
 import {
+  formatCompositionAddress,
   formatShotAddress,
+  formatTimelineOverlayAddress,
   isCompositionAddress,
+  isOverlayAddress,
   parseAddress,
   type ShotStage,
 } from "../../../core/address.js";
+import { shotSpans } from "../../../core/render-plan.js";
 import {
   loadMotionWaveform,
   type MotionWaveform,
@@ -64,6 +72,30 @@ function drawsVideo(
   });
 }
 
+// The shot a timeline moment falls in, and the moment on that shot's own clock.
+export function overlayShotAt(stage: StageDefinition, at: number): { address: string; at: number } {
+  if (!stage.overlay) {
+    throw new KonteError(
+      "ADDRESS_NOT_FOUND",
+      `The ${stage.stage} has no overlay (${formatTimelineOverlayAddress(stage.stage)})`,
+    );
+  }
+  const { spans, total } = shotSpans(stage.shots, stage.format.fps);
+  if (at > total) {
+    throw new KonteError(
+      "INVALID_OPTION",
+      `--at ${at} is past the end of the ${stage.stage} timeline (${formatSeconds(total, 2)})`,
+    );
+  }
+  const i = Math.max(
+    0,
+    spans.findLastIndex((span) => span.start <= at),
+  );
+  const shot = stage.shots[i]!;
+  const local = Math.min(shot.duration, Math.round((at - spans[i]!.start) * 1e6) / 1e6);
+  return { address: formatCompositionAddress(stage.stage, shot.id), at: local };
+}
+
 interface MotionOptions {
   fps?: string;
   at?: string;
@@ -84,7 +116,7 @@ export function registerProbeMotionCommand(program: Command): void {
     .option("--fps <fps>", "Override decode fps ('native' or a number; default min(nativeFps, 30))")
     .option(
       "--at <sec>",
-      "Zoom into a window centered here instead of the whole clip (default: the motion peak; required on a composition)",
+      "Zoom into a window centered here instead of the whole clip (default: the motion peak; timeline seconds on an overlay)",
     )
     .option("--window <sec>", "Zoom window span in seconds; implies windowed mode (default 0.6)")
     .option("--frames <n>", "Number of tiled frames (default 16 full-clip, 12 windowed)")
@@ -128,6 +160,11 @@ A composition address (<stage>:shot.<id>#composition) draws that shot as its liv
 renders it, clips included — the read for an <Animate> move's speed, easing and continuity. A scope never sweeps one in. A composition has no decoded profile: no
 warnings, no motion peak (a window needs --at), and --fps is rejected.
 
+The overlay address (<stage>:timeline#overlay) takes --at in timeline seconds: it draws the
+composition of the shot under that moment, overlay laid over it, windowed at the same moment on the
+shot's clock (stderr names the shot and its time). The window stops at the shot's cut. It is probed
+on its own.
+
 --needs-review selects the outstanding video takes probe contact-sheet --needs-review tiles,
 including undecided alternatives beside an accepted take, and each composition awaiting review whose
 picture places no video take — a shot whose motion lives only in its composition. It takes at most
@@ -145,7 +182,8 @@ Examples:
   konte probe motion v-iuQeCrR2 --verbose                       Full advisory (stats, segments, sparkline) to stderr
   konte probe motion v-iuQeCrR2 --fps native                    Re-sample at native fps to catch high-frequency jitter
   konte probe motion video:shot.33#composition --at 3.6 --window 2 --frames 16
-                                                                An <Animate> move, frame by frame`,
+                                                                An <Animate> move, frame by frame
+  konte probe motion video:timeline#overlay --at 265            The overlay over the shot at 4:25`,
     )
     .action(async (targets: string[], opts: MotionOptions) => {
       let reviewManager;
@@ -176,24 +214,50 @@ Examples:
           "Pass a variant id, address or address-scope, or --needs-review",
         );
       }
-      const compositions = targets.filter(isCompositionAddress);
+      const drawn = (t: string) => isCompositionAddress(t) || isOverlayAddress(t);
+      const compositions = targets.filter(drawn);
       if (compositions.length > 0 && opts.fps != null) {
         throw new KonteError("INVALID_OPTION", "--fps sets a clip's decode rate");
+      }
+      if (targets.some(isOverlayAddress)) {
+        if (opts.at == null) {
+          throw new KonteError(
+            "INVALID_OPTION",
+            "An overlay is drawn over the shot under --at <timeline sec>; pass --at",
+          );
+        }
+        if (targets.length > 1) {
+          throw new KonteError(
+            "INVALID_OPTION",
+            "--at reads timeline seconds on an overlay and shot seconds elsewhere; probe the overlay on its own",
+          );
+        }
       }
       // Before the targets open, so their state holds the synced `file` takes.
       const stages =
         compositions.length > 0 ? (await openCompositionStages(requireVideoRoot())).stages : null;
       const opened = await openProbeTargets(
-        targets.filter((t) => !isCompositionAddress(t)),
+        targets.filter((t) => !drawn(t)),
         { mediaKinds: ["video"], definitions: compositions.length > 0 },
       );
       const { videoRoot } = opened;
       const manager = reviewManager ?? opened.manager;
       const multi = opts.needsReview || opened.multi || targets.length > 1;
 
-      const plan: ({ composition: string } | { variantId: string })[] = [];
+      const plan: ({ composition: string; at?: number } | { variantId: string })[] = [];
       const seen = new Set<string>();
       for (const target of targets) {
+        if (isOverlayAddress(target)) {
+          const parsed = parseAddress(target);
+          if (parsed.stage === "reference") continue;
+          const timelineAt = parseNumberOption("--at", opts.at, { min: 0 })!;
+          const shot = overlayShotAt(compositionStage(stages!, parsed.stage), timelineAt);
+          console.error(
+            `${target} @${formatSeconds(timelineAt, 2)} is ${shot.address} @${formatSeconds(shot.at, 2)}`,
+          );
+          plan.push({ composition: shot.address, at: shot.at });
+          continue;
+        }
         const ids = isCompositionAddress(target)
           ? [target]
           : resolveProbeTargets(manager, [target], { mediaKinds: ["video"] }).variantIds;
@@ -218,13 +282,13 @@ Examples:
         sweptShots.set(parsed.stage, shots);
       };
 
-      const probeComposition = async (address: string): Promise<void> => {
+      const probeComposition = async (address: string, atOverride?: number): Promise<void> => {
         const parsed = parseAddress(address);
         if (parsed.stage === "reference" || parsed.kind !== "shot") return;
         const video = compositionStage(stages!, parsed.stage);
         requireCompositionShot(video, parsed.shotId);
         const shot = video.shots.find((s) => s.id === parsed.shotId)!;
-        const at = parseNumberOption("--at", opts.at, { min: 0, max: shot.duration });
+        const at = atOverride ?? parseNumberOption("--at", opts.at, { min: 0, max: shot.duration });
         const window = parseNumberOption("--window", opts.window, { min: 0.001 });
         const frames = parseNumberOption("--frames", opts.frames, { integer: true, min: 2 });
         const windowed = at != null || window != null;
@@ -349,7 +413,7 @@ Examples:
 
       for (const [i, item] of plan.entries()) {
         if (multi && i > 0) console.log("");
-        if ("composition" in item) await probeComposition(item.composition);
+        if ("composition" in item) await probeComposition(item.composition, item.at);
         else await probeVariant(item.variantId);
       }
 
