@@ -2584,14 +2584,23 @@ export function directionFindings(result: DirectionCheckResult, direction: Direc
     ),
     ...result.active.map((f): Finding => {
       const part = findingTraits(f.code).clears === "fix" ? findingPart(f, items) : undefined;
-      return {
-        code: f.code,
+      return registryFinding(f, {
         subject: f.subject ?? "",
         fixIn: { stage: findingFixStage(f.code) },
         message: f.message,
         key: directionWaiverKey(f),
         ...(part ? { targets: [part] } : {}),
-      };
+      });
     }),
   ];
+}
+
+// A direction finding as the registry carries it, with the addresses its accept is judged by.
+export function registryFinding(
+  f: DirectionFinding,
+  fields: Omit<Finding, "code" | "judgedBy">,
+): Finding {
+  return f.judgedBy === undefined
+    ? { ...fields, code: f.code }
+    : { ...fields, code: f.code, judgedBy: f.judgedBy };
 }

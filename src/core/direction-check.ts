@@ -7,6 +7,7 @@
 
 import { formatCompositionAddress, formatPlateAddress, formatShotAddress } from "./address.js";
 import { formatSeconds, formatSecondsRange } from "./format-duration.js";
+import type { AcceptJudgedCode } from "./finding.js";
 import type { PanelLane, ShotJoin } from "./types/definition.js";
 import { parseViewName } from "./view.js";
 
@@ -144,8 +145,7 @@ export type DirectionFindingCode =
   // The timeline runs on past the end of the take of the song.
   | "song-overrun";
 
-export type DirectionFinding = {
-  code: DirectionFindingCode;
+type DirectionFindingFields = {
   // role / shot id / id-range, depending on the code; omitted for no-payoff.
   subject?: string;
   // The field path of the arc node the finding fired on — `["sequence"]` at the root, one
@@ -153,10 +153,19 @@ export type DirectionFinding = {
   // The engine itself is path-blind; the caller that walks the tree stamps it.
   path?: readonly string[];
   message: string;
-  // The addresses whose accept judges it. Once each is accepted against its current definition it
-  // holds nothing, and its waiver stays in use.
-  judgedBy?: readonly string[];
 };
+
+export type DirectionFinding =
+  | (DirectionFindingFields & {
+      code: Extract<DirectionFindingCode, AcceptJudgedCode>;
+      // The addresses whose accept judges it. Once each is accepted against its current definition
+      // it holds nothing, and its waiver stays in use.
+      judgedBy: readonly string[];
+    })
+  | (DirectionFindingFields & {
+      code: Exclude<DirectionFindingCode, AcceptJudgedCode>;
+      judgedBy?: never;
+    });
 
 export type CheckArcOptions = {
   // The scale's item word woven into messages ("shot" for a run of shots, "sequence" for a run of
@@ -392,8 +401,8 @@ function checkAnchoredEntities(
   actions: readonly string[],
   alwaysUsedIds: ReadonlySet<string>,
   codes: {
-    unreferenced: DirectionFindingCode;
-    unused: DirectionFindingCode;
+    unreferenced: Exclude<DirectionFindingCode, AcceptJudgedCode>;
+    unused: Exclude<DirectionFindingCode, AcceptJudgedCode>;
     // How the entity is "used" — woven into the `unused` message so it reads true for each roster:
     // a character/prop is named in a shot action, a location is a shot's `location` field.
     usedBy: string;
@@ -734,7 +743,7 @@ function checkAtomizedSetups(
       message:
         `location "${location}" holds ${shots} shots across ${frames} setups, ${onShared} of them ` +
         `on a shared frame — ${Math.ceil(shots / 2)} needed`,
-      ...(judgedBy ? { judgedBy: panels } : {}),
+      judgedBy: panels,
     });
   }
   return findings;
@@ -1482,9 +1491,7 @@ export function checkJoinPins(
       ...(before?.takes ?? []),
       ...(after?.takes ?? []),
     ];
-    findings.push(
-      ...checkSeamWindows(previous, shot, seam, before, after).map((f) => ({ ...f, judgedBy })),
-    );
+    findings.push(...checkSeamWindows(previous, shot, seam, before, after, judgedBy));
     if (!before) continue;
     if (!before.slots.includes("end")) continue;
     if (before.pins.some((p) => p.pin === "end" && p.reaches.includes(seam))) continue;
@@ -1549,6 +1556,7 @@ function checkSeamWindows(
   seam: string,
   before: VideoShotPins | undefined,
   after: VideoShotPins | undefined,
+  judgedBy: readonly string[],
 ): DirectionFinding[] {
   const findings: DirectionFinding[] = [];
   // The take before cuts on its landing: the next shot opens on the landing frame, or the shot ends
@@ -1566,6 +1574,7 @@ function checkSeamWindows(
       findings.push({
         code: "join-unshown",
         subject: frameSubject(shot),
+        judgedBy,
         message:
           `${frameName(previous)} and ${frameName(shot)} are one take, and ${landing.address} lands ` +
           `on the seam \`${seam}\` ${formatSeconds(landing.landsAt, 2)} in — but ${frameName(previous)} plays ` +
@@ -1586,6 +1595,7 @@ function checkSeamWindows(
       findings.push({
         code: "join-unshown",
         subject: frameSubject(shot),
+        judgedBy,
         message:
           `${frameName(previous)} and ${frameName(shot)} are one take, and ${opening.address} opens on ` +
           `the seam \`${seam}\` at its first frame — but ${frameName(shot)} ` +

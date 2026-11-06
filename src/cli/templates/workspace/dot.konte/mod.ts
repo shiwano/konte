@@ -621,13 +621,20 @@ export type DirectionFindingCode =
   | "song-unreferenced"
   | "lyric-unplaced"
   | "song-overrun";
-export type DirectionFinding = {
-  code: DirectionFindingCode;
+export type DirectionFindingFields = {
   subject?: string;
   path?: readonly string[];
   message: string;
-  judgedBy?: readonly string[];
 };
+export type DirectionFinding =
+  | (DirectionFindingFields & {
+      code: Extract<DirectionFindingCode, AcceptJudgedCode>;
+      judgedBy: readonly string[];
+    })
+  | (DirectionFindingFields & {
+      code: Exclude<DirectionFindingCode, AcceptJudgedCode>;
+      judgedBy?: never;
+    });
 export type CheckArcOptions = {
   noun?: string;
   textLabel?: string;
@@ -4780,6 +4787,32 @@ export type BuildFinding = {
   message: string;
   targets: readonly string[];
 };
+declare const ACCEPT_JUDGED_CODES: readonly [
+  "setup-unrealized",
+  "axis-unrealized",
+  "setup-unconsumed",
+  "setup-atomized",
+  "character-unconsumed",
+  "slot-order-mismatch",
+  "plate-recropped",
+  "subject-unnamed",
+  "prop-unnamed",
+  "passer-unconsumed",
+  "passer-unnamed",
+  "plate-unnamed",
+  "landmark-unnamed",
+  "join-unpinned",
+  "join-unshown",
+  "opening-key",
+  "panel-unlinked",
+  "return-unlinked",
+  "prompt-negation",
+  "prompt-not-yet",
+  "prompt-double-negative",
+  "landmark-unheld",
+  "stem-unmouthed",
+];
+export type AcceptJudgedCode = (typeof ACCEPT_JUDGED_CODES)[number];
 /**
  * The code this check reports.
  *   - pin-unanchored: the pinned image is a reference sheet or a plate.

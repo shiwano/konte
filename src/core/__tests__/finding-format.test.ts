@@ -7,6 +7,7 @@ const unlinked = (from: string, id: string): Finding => ({
   key: `return-unlinked_${from}-${id}`,
   fixIn: { stage: "direction" },
   message: `shot ${id}'s opening keyframe takes no frame — pass \`animatic:shot.${from}.key\``,
+  judgedBy: [`animatic:shot.${id}.key`],
 });
 
 const action: Finding = {

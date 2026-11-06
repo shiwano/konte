@@ -119,6 +119,7 @@ describe("judgeSpend on a prompt finding an accept signed off", () => {
     fixIn: { stage: "animatic" },
     message: "",
     targets: ["animatic:shot.02.first"],
+    judgedBy: ["animatic:shot.01.first", "animatic:shot.02.first"],
     signedOff: ["animatic:shot.01.first"],
   };
   const spend = (command: "generate" | "reroll", addresses: string[]) =>

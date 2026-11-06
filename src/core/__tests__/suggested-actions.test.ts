@@ -6,7 +6,7 @@ import type { Finding, FindingCode } from "../finding.js";
 import type { Stage } from "../address.js";
 
 function finding(code: FindingCode, stage: Stage, extra: Partial<Finding> = {}): Finding {
-  return { code, subject: "", fixIn: { stage }, message: "m", ...extra };
+  return { code, subject: "", fixIn: { stage }, message: "m", ...extra } as Finding;
 }
 
 // The report's per-stage readiness — the only thing that knows an asset was never generated

@@ -83,13 +83,14 @@ export type FindingTraits = {
     preview?: true;
   };
   onset: "always" | "after-direction-accepted" | "after-take";
+  // An accept of the addresses it is judged by (`judgedBy`) signs it off.
+  signsOff: boolean;
 };
 
 // The file a finding is fixed in: a stage's entry file, or the patch script of one take.
 export type SourceFile = { stage: Stage; patch?: string };
 
-export type Finding = {
-  code: FindingCode;
+type FindingFields = {
   // What the finding is about — an address, a shot, a direction part, a variant, a phrase.
   subject: string;
   fixIn: SourceFile;
@@ -99,11 +100,17 @@ export type Finding = {
   // The addresses it sits on — what an accept hold and an `edge` hold match. Absent, it sits on its
   // whole stage.
   targets?: readonly string[];
-  // The addresses whose accept judges it (`signOffFinding`).
-  judgedBy?: readonly string[];
   // The `judgedBy` addresses accepted as drawn (`signOffFinding`).
   signedOff?: readonly string[];
 };
+
+export type Finding =
+  | (FindingFields & {
+      code: AcceptJudgedCode;
+      // The addresses whose accept judges it (`signOffFinding`).
+      judgedBy: readonly string[];
+    })
+  | (FindingFields & { code: Exclude<FindingCode, AcceptJudgedCode>; judgedBy?: never });
 
 function sourceFilePath(file: SourceFile): string {
   return file.patch ? `patches/${file.patch}.ts` : STAGE_ENTRY_FILE[file.stage];
@@ -113,19 +120,62 @@ const waive = (
   reach: SpendReach,
   onset: FindingTraits["onset"] = "always",
   reads: FindingTraits["reads"] = "definition",
-): FindingTraits => ({ reads, clears: "waive", holds: { spend: { reach } }, onset });
+) => ({
+  reads,
+  clears: "waive" as const,
+  holds: { spend: { reach } },
+  onset,
+  signsOff: false as const,
+});
+
+const judged = <T extends FindingTraits>(traits: T) => ({ ...traits, signsOff: true as const });
 
 // A declaration contradicting another, or naming nothing.
-const fixDirection: FindingTraits = {
+const fixDirection = {
   reads: "definition",
   clears: "fix",
   holds: { spend: { reach: "stage+downstream" }, accept: true },
   onset: "always",
-};
+  signsOff: false,
+} as const satisfies FindingTraits;
 
 const ROSTER = "after-direction-accepted" as const;
 
-const DIRECTION_FINDING_TRAITS: Record<DirectionFindingCode, FindingTraits> = {
+// The codes an accept of the addresses a finding names in `judgedBy` signs off.
+const ACCEPT_JUDGED_CODES = [
+  "setup-unrealized",
+  "axis-unrealized",
+  "setup-unconsumed",
+  "setup-atomized",
+  "character-unconsumed",
+  "slot-order-mismatch",
+  "plate-recropped",
+  "subject-unnamed",
+  "prop-unnamed",
+  "passer-unconsumed",
+  "passer-unnamed",
+  "plate-unnamed",
+  "landmark-unnamed",
+  "join-unpinned",
+  "join-unshown",
+  "opening-key",
+  "panel-unlinked",
+  "return-unlinked",
+  "prompt-negation",
+  "prompt-not-yet",
+  "prompt-double-negative",
+  "landmark-unheld",
+  "stem-unmouthed",
+] as const satisfies readonly FindingCode[];
+
+export type AcceptJudgedCode = (typeof ACCEPT_JUDGED_CODES)[number];
+
+// Each code's traits, its `signsOff` agreeing with `ACCEPT_JUDGED_CODES`.
+type TraitsOf<Code extends FindingCode> = {
+  [K in Code]: FindingTraits & { signsOff: K extends AcceptJudgedCode ? true : false };
+};
+
+const DIRECTION_FINDING_TRAITS: TraitsOf<DirectionFindingCode> = {
   "missing-role": waive("stage+downstream"),
   "no-payoff": waive("stage+downstream"),
   "role-out-of-order": waive("stage+downstream"),
@@ -147,14 +197,14 @@ const DIRECTION_FINDING_TRAITS: Record<DirectionFindingCode, FindingTraits> = {
   "unused-prop": fixDirection,
   "location-unreferenced": waive("downstream", ROSTER),
   "unused-location": fixDirection,
-  "setup-unrealized": waive("stage+downstream", ROSTER),
+  "setup-unrealized": judged(waive("stage+downstream", ROSTER)),
   "plate-unanchored": waive("stage+downstream", ROSTER),
   "plate-unnested": waive("stage+downstream", ROSTER),
-  "axis-unrealized": waive("stage+downstream", ROSTER),
+  "axis-unrealized": judged(waive("stage+downstream", ROSTER)),
   "plate-unowed": waive("stage+downstream", ROSTER),
-  "setup-unconsumed": waive("stage+downstream", ROSTER),
+  "setup-unconsumed": judged(waive("stage+downstream", ROSTER)),
   "unused-setup": fixDirection,
-  "setup-atomized": waive("stage+downstream", ROSTER),
+  "setup-atomized": judged(waive("stage+downstream", ROSTER)),
   "view-unrealized": waive("downstream", ROSTER),
   "plate-unviewed": waive("stage+downstream", ROSTER),
   "view-unanchored": waive("stage+downstream"),
@@ -167,22 +217,22 @@ const DIRECTION_FINDING_TRAITS: Record<DirectionFindingCode, FindingTraits> = {
   "lineup-vacuous": fixDirection,
   "lineup-inconsistent": waive("stage+downstream"),
   "location-backtrack": waive("stage+downstream"),
-  "character-unconsumed": waive("stage+downstream"),
-  "slot-order-mismatch": waive("stage+downstream"),
-  "plate-recropped": waive("stage+downstream"),
+  "character-unconsumed": judged(waive("stage+downstream")),
+  "slot-order-mismatch": judged(waive("stage+downstream")),
+  "plate-recropped": judged(waive("stage+downstream")),
   "landmark-flipped": waive("stage+downstream"),
-  "subject-unnamed": waive("stage+downstream"),
-  "prop-unnamed": waive("stage+downstream"),
-  "passer-unconsumed": waive("stage"),
-  "passer-unnamed": waive("stage"),
-  "plate-unnamed": waive("stage+downstream"),
-  "landmark-unnamed": waive("stage+downstream"),
+  "subject-unnamed": judged(waive("stage+downstream")),
+  "prop-unnamed": judged(waive("stage+downstream")),
+  "passer-unconsumed": judged(waive("stage")),
+  "passer-unnamed": judged(waive("stage")),
+  "plate-unnamed": judged(waive("stage+downstream")),
+  "landmark-unnamed": judged(waive("stage+downstream")),
   "join-lineup-mismatch": fixDirection,
-  "join-unpinned": waive("stage+downstream"),
-  "join-unshown": waive("stage+downstream"),
-  "opening-key": waive("stage", "always", "take"),
-  "panel-unlinked": waive("stage+downstream"),
-  "return-unlinked": waive("stage+downstream"),
+  "join-unpinned": judged(waive("stage+downstream")),
+  "join-unshown": judged(waive("stage+downstream")),
+  "opening-key": judged(waive("stage", "always", "take")),
+  "panel-unlinked": judged(waive("stage+downstream")),
+  "return-unlinked": judged(waive("stage+downstream")),
   "song-unreferenced": {
     ...fixDirection,
     holds: { spend: { reach: "downstream" }, accept: true },
@@ -193,32 +243,32 @@ const DIRECTION_FINDING_TRAITS: Record<DirectionFindingCode, FindingTraits> = {
 
 // A stage file behind its direction: it holds that stage's spend, its downstream's, and the accept
 // of what it sits on.
-const fixStageAndDownstream: FindingTraits = {
+const fixStageAndDownstream = {
   reads: "definition",
   clears: "fix",
   holds: { spend: { reach: "stage+downstream" }, accept: true },
   onset: "always",
-};
+  signsOff: false,
+} as const satisfies FindingTraits;
 
-const fixStage: FindingTraits = {
+const fixStage = {
   reads: "definition",
   clears: "fix",
   holds: { spend: { reach: "stage" }, accept: true },
   onset: "always",
-};
+  signsOff: false,
+} as const satisfies FindingTraits;
 
 // A prompt is judged by the picture it draws: an accept of a take drawn from it signs off its address.
-const fixPrompt: FindingTraits = {
+const fixPrompt = judged({
   reads: "definition",
   clears: "accept",
   holds: { spend: { reach: "edge" } },
   onset: "always",
-};
+  signsOff: false,
+});
 
-const OTHER_TRAITS: Record<
-  Exclude<FindingCode, DirectionFindingCode | DirectionErrorCode>,
-  FindingTraits
-> = {
+const OTHER_TRAITS: TraitsOf<Exclude<FindingCode, DirectionFindingCode | DirectionErrorCode>> = {
   "prompt-negation": fixPrompt,
   "prompt-not-yet": fixPrompt,
   "prompt-double-negative": fixPrompt,
@@ -234,28 +284,44 @@ const OTHER_TRAITS: Record<
     clears: "fix",
     holds: { spend: { reach: "downstream" }, accept: true, preview: true },
     onset: "after-take",
+    signsOff: false,
   },
-  "take-silent": { reads: "take", clears: "vouch", holds: { preview: true }, onset: "always" },
-  "line-misheard": { reads: "take", clears: "vouch", holds: { preview: true }, onset: "always" },
-  "line-truncated": { reads: "take", clears: "fix", holds: {}, onset: "always" },
-  "tail-silent": { reads: "take", clears: "vouch", holds: { preview: true }, onset: "always" },
+  "take-silent": {
+    reads: "take",
+    clears: "vouch",
+    holds: { preview: true },
+    onset: "always",
+    signsOff: false,
+  },
+  "line-misheard": {
+    reads: "take",
+    clears: "vouch",
+    holds: { preview: true },
+    onset: "always",
+    signsOff: false,
+  },
+  "line-truncated": { reads: "take", clears: "fix", holds: {}, onset: "always", signsOff: false },
+  "tail-silent": {
+    reads: "take",
+    clears: "vouch",
+    holds: { preview: true },
+    onset: "always",
+    signsOff: false,
+  },
   "animatic-unconsumed": {
     reads: "definition",
     clears: "fix",
     holds: { spend: { reach: "stage", named: true } },
     onset: "always",
+    signsOff: false,
   },
-  "stem-unmouthed": {
-    reads: "definition",
-    clears: "accept",
-    holds: { spend: { reach: "edge" } },
-    onset: "always",
-  },
+  "stem-unmouthed": fixPrompt,
   "subtitle-pauses-stale": {
     reads: "take",
     clears: "fix",
     holds: { spend: { reach: "stage", commands: ["export"] }, preview: true },
     onset: "always",
+    signsOff: false,
   },
   "script-unvoiced": fixStageAndDownstream,
   "cutin-required": fixStageAndDownstream,
@@ -267,6 +333,7 @@ const OTHER_TRAITS: Record<
     clears: "fix",
     holds: { spend: { reach: "edge" }, accept: true },
     onset: "always",
+    signsOff: false,
   },
   "source-locator-out-of-range": fixStageAndDownstream,
 };

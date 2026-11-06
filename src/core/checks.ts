@@ -26,6 +26,7 @@ import {
   type StagingStageState,
   checkDirection,
   directionFindings,
+  registryFinding,
 } from "./direction.js";
 import { directionWaiverKey } from "./direction-findings.js";
 import type { Direction } from "./dsl/direction.js";
@@ -217,13 +218,12 @@ const VIEW_ANCHOR_CHECK: Check = {
       const key = directionWaiverKey(f);
       if (key in waivers) return [];
       return [
-        {
-          code: f.code,
+        registryFinding(f, {
           subject: f.subject ?? "",
           fixIn: { stage: "reference" },
           message: f.message,
           key,
-        },
+        }),
       ];
     });
   },

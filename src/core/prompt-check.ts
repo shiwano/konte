@@ -201,8 +201,7 @@ export function promptFindings(subject: PromptCheckSubject, fixIn: SourceFile): 
     fixIn,
     message: formatAddresses(f.addresses),
     // A patch's prompt is the patch's alone.
-    ...(fixIn.patch === undefined
-      ? { targets: f.addresses, judgedBy: f.addresses }
-      : { targets: [] }),
+    targets: fixIn.patch === undefined ? f.addresses : [],
+    judgedBy: fixIn.patch === undefined ? f.addresses : [],
   }));
 }
