@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import { overlayLineTimer } from "../../../core/line-timing.js";
 import type { Command } from "commander";
 import {
   addressToCacheSegments,
@@ -42,7 +43,7 @@ async function shotAnimates(
       shotId,
       allowNotReady: true,
       assetBaseUrl: "",
-      withOverlay: true,
+      withOverlay: { timeLines: overlayLineTimer(manager) },
     });
     return compositionAnimates(html);
   } catch {

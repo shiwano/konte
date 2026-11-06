@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises";
+import { type LineTimer, type LineTiming, lineTimingKey } from "../subtitle-timing.js";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -27,6 +28,8 @@ import { injectOverlay, shiftTimedElements } from "../overlay-render.js";
 import { StateManager } from "../state/index.js";
 import { checkTailwindClasses } from "../tailwind-classes.js";
 import { directionDefaults } from "./helpers/direction.js";
+
+const NO_LINES: LineTimer = async () => undefined;
 
 const songDirection = () =>
   defineDirection({
@@ -395,13 +398,51 @@ describe("the overlay as a leaf", () => {
         shotId: "02",
         assetBaseUrl: "",
         allowNotReady: true,
-        withOverlay,
+        ...(withOverlay ? { withOverlay: { timeLines: NO_LINES } } : {}),
       });
     const laid = (await build(true)).html;
     expect(laid).toContain("Hello");
     expect(laid).toContain(`data-composition-id="shot-timeline.overlay"`);
     expect(laid).toContain(`data-media-start="2"`);
     expect((await build(false)).html).not.toContain("Hello");
+  });
+
+  it("times a subtitled line where the reel says it, and marks it on a render from the definition alone", async () => {
+    const video = defineVideo(clocked(), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", plain).nextShot("02", plain),
+        overlay: () => (
+          <Composition>
+            <Subtitle entries={[{ shot: "02", line: 1, text: "Hello" }]} />
+          </Composition>
+        ),
+      }),
+    });
+    const timing: LineTiming = {
+      shotId: "02",
+      line: 1,
+      text: "やあ",
+      take: { address: "video:shot.02.vo", variantId: "v-a" },
+      charAt: [2.5, 2.7],
+      clipped: null,
+      onsets: [2.5, 2.7],
+      sound: [2.4, 3.1],
+      pauses: [],
+      takeLines: [{ line: 1, text: "やあ" }],
+    };
+    const timeLines: LineTimer = async () => new Map([[lineTimingKey("02", 1), timing]]);
+    const { html } = await buildShotCompositionHtml({
+      video,
+      manager,
+      shotId: "02",
+      assetBaseUrl: "",
+      allowNotReady: true,
+      withOverlay: { timeLines },
+    });
+    // On the shot's own clock: the overlay's 2.5s is 0.5s into shot 02.
+    expect(html).toMatch(/data-konte-line="02:1"[^>]*data-start="0.5"[^>]*data-duration="0.6"/);
+    const [structure] = compositionClassSubjects(video).filter((s) => s.label.includes("overlay"));
+    expect(structure!.html).toContain(`data-konte-line="02:1"`);
   });
 });
 

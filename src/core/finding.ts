@@ -40,6 +40,8 @@ export type FindingCode =
   | "animatic-unconsumed"
   // A video take driven by a stem whose lines no one in the frame speaks.
   | "stem-unmouthed"
+  // A script-line `<Subtitle>` entry split at the pauses of a take that no longer plays its line.
+  | "subtitle-pauses-stale"
   | BuildFindingCode
   // An asset built on a shot that is still a pendingShot: the edge it would hang on has no take.
   | "pending-reference"
@@ -246,6 +248,12 @@ const OTHER_TRAITS: Record<
     reads: "definition",
     clears: "fix",
     holds: { spend: { reach: "edge" } },
+    onset: "always",
+  },
+  "subtitle-pauses-stale": {
+    reads: "take",
+    clears: "fix",
+    holds: { spend: { reach: "stage", commands: ["export"] }, preview: true },
     onset: "always",
   },
   "script-unvoiced": fixStageAndDownstream,

@@ -1,4 +1,5 @@
 import { sha256Hex } from "./content-hash.js";
+import { overlayLineTimer } from "./line-timing.js";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -248,7 +249,7 @@ export async function resolveCompositionCacheDir(options: {
     // the capture file server. `buildAssetUrl` adds the leading slash; a value of
     // "./" here would produce ".//…" → the browser resolves it to "//…" (404).
     assetBaseUrl: "",
-    withOverlay: true,
+    withOverlay: { timeLines: overlayLineTimer(manager) },
   });
   // What "this shot cannot be captured" means: the built page would draw nothing. Asked of the
   // render, not the refs, so a shot with text or a background over its missing layers still frames.

@@ -1,3 +1,4 @@
+import type { LineTiming } from "./subtitle-timing.js";
 import type { PanelDefinition, PanelLane, Typography } from "./types/definition.js";
 
 export interface RenderContext {
@@ -23,6 +24,9 @@ export interface RenderContext {
   // Each sfx cue source's lead-in (see `cueLeadIn`), keyed the same way; `<Audio>` with no declared
   // `mediaStart` emits it as `data-media-start`. Absent on a discovery/harvest render, like the gains.
   leadIns?: Readonly<Record<string, number>>;
+  // OVERLAY ONLY: where each script line is heard on the reel (`lineTimingKey`), which
+  // a script-line `<Subtitle>` entry is timed off. Absent on a render from the definition alone.
+  lineTimings?: ReadonlyMap<string, LineTiming>;
   // When true, `Composition` emits a bare children fragment (no <html>/<head>/#stage)
   // for embedding as a nested composition's <template> body. Set only by the
   // multi-shot preview assembly (`buildFullCompositionHtml`).

@@ -4,7 +4,7 @@ import { runFfmpeg } from "./ffmpeg-exec.js";
  * What one decode pass measured on an audio-bearing file. `integratedLufs` is the program loudness a
  * dialogue/music cue is levelled by; `truePeakDb` is what a percussive cue is levelled by;
  * `leadInSec` is the silence an sfx cue skips and a line ducks a bed from the end of; `soundEndSec`
- * is where a line stops ducking a bed.
+ * is where a line stops ducking a bed; `pausesSec` are where a subtitle can break a line.
  */
 export interface AudioLoudness {
   /** Integrated loudness in LUFS; null for content too short or too quiet to hold one. */
@@ -15,6 +15,8 @@ export interface AudioLoudness {
   leadInSec?: number;
   /** Seconds from the file's head to where the sound ends; absent on a record measured before it was. */
   soundEndSec?: number;
+  /** Each silence between the sound's start and end, as [start, end) seconds from the file's head. */
+  pausesSec?: [number, number][];
 }
 
 // The `-inf` ffmpeg prints for digital silence parses to NaN and is rejected with it.
@@ -86,6 +88,41 @@ export function parseSoundEnd(stdout: string): number | null {
   return last.at + LEAD_IN_WINDOW / LEAD_IN_RATE;
 }
 
+// The shortest silence inside the sound that counts as a pause.
+const MIN_PAUSE_SEC = 0.2;
+
+/**
+ * Each silence between where the sound begins and ends, from the per-window RMS levels `ametadata`
+ * prints to stdout, as [start, end) seconds.
+ */
+export function parsePauses(stdout: string): [number, number][] {
+  const windows = windowLevels(stdout);
+  const heard = windows.filter((w) => Number.isFinite(w.level));
+  if (heard.length === 0) return [];
+  const floor = Math.max(...heard.map((w) => w.level)) - LEAD_IN_FLOOR_DB;
+  const loud = (w: { level: number }) => w.level >= floor;
+  const first = windows.findIndex(loud);
+  const last = windows.findLastIndex(loud);
+  const pauses: [number, number][] = [];
+  let quietFrom: number | null = null;
+  for (let i = first; i <= last; i++) {
+    const w = windows[i]!;
+    if (!loud(w)) {
+      quietFrom ??= w.at;
+      continue;
+    }
+    if (quietFrom !== null && w.at - quietFrom >= MIN_PAUSE_SEC - 1e-9) {
+      pauses.push([round3(quietFrom), round3(w.at)]);
+    }
+    quietFrom = null;
+  }
+  return pauses;
+}
+
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
+}
+
 // The floor `probe audio` reads digital silence under (`SILENCE_ABS_FLOOR`, -55 dBFS).
 const SILENT_FLOOR_DB = -55;
 
@@ -146,6 +183,7 @@ export async function measureAudio(
             ...loudness,
             leadInSec: parseLeadIn(stdout),
             ...(soundEndSec !== null ? { soundEndSec } : {}),
+            pausesSec: parsePauses(stdout),
           }
         : null,
       silent:

@@ -1,4 +1,5 @@
 import { remakeSettledLeaves } from "../../../core/board-leaves.js";
+import { overlayLineTimer } from "../../../core/line-timing.js";
 import { buildDependencyGraph } from "../../../core/graph.js";
 import { shotById } from "../../../core/shot-index.js";
 import {
@@ -791,6 +792,7 @@ async function prerolledReelHtml(
     // what a shot is showing — and the accept toggle targets what is shown.
     standIn: video.stage === "video" && animatic ? buildStageReviewPlan(animatic, manager) : null,
     ...(standInShotIds ? { pinnedStandInShotIds: new Set(standInShotIds) } : {}),
+    timeLines: overlayLineTimer(manager),
   });
   const clips = planVideoPreroll(result.html, assetBaseUrl, manager);
   const ready = await ensurePrerollClips(videoRoot, clips);
@@ -811,6 +813,7 @@ export async function assertReelBuilds(
     assetBaseUrl: "",
     allowNotReady: true,
     standIn: video.stage === "video" ? buildStageReviewPlan(animatic, manager) : null,
+    timeLines: overlayLineTimer(manager),
   });
 }
 

@@ -10,7 +10,13 @@ import {
   shotCueLevels,
 } from "../audio-level.js";
 import type { KonteState } from "../types/index.js";
-import { parseEbur128Summary, parseLeadIn, parseSilent, parseSoundEnd } from "../audio-loudness.js";
+import {
+  parseEbur128Summary,
+  parseLeadIn,
+  parsePauses,
+  parseSilent,
+  parseSoundEnd,
+} from "../audio-loudness.js";
 
 const SUMMARY = `[Parsed_ebur128_0 @ 0x55f] Summary:
 
@@ -61,6 +67,28 @@ describe("parseLeadIn", () => {
   it("is 0 for digital silence and for output it cannot read", () => {
     expect(parseLeadIn(windows(["-inf", "-inf"]))).toBe(0);
     expect(parseLeadIn("")).toBe(0);
+  });
+});
+
+describe("parsePauses", () => {
+  const level = (loud: boolean, n: number) => Array<string>(n).fill(loud ? "-12" : "-60");
+
+  it("finds each silence of 0.2s or more between the sound's start and end", () => {
+    const stdout = windows([
+      ...level(false, 5),
+      ...level(true, 10),
+      ...level(false, 25),
+      ...level(true, 10),
+      ...level(false, 10),
+      ...level(true, 5),
+      ...level(false, 8),
+    ]);
+    expect(parsePauses(stdout)).toEqual([[0.15, 0.4]]);
+  });
+
+  it("is empty for digital silence and for output it cannot read", () => {
+    expect(parsePauses(windows(["-inf", "-inf"]))).toEqual([]);
+    expect(parsePauses("")).toEqual([]);
   });
 });
 

@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises";
+import { overlayLineTimer } from "./line-timing.js";
 import * as path from "node:path";
 import { acceptedVariantId } from "./accepted-variant.js";
 import {
@@ -28,7 +29,7 @@ import {
   type StemAudioEntry,
 } from "./composition-builder.js";
 import { resolveCompositionRef } from "./composition-refs.js";
-import { renderOverlayBody } from "./overlay-render.js";
+import { overlayShotStarts, renderOverlayBody } from "./overlay-render.js";
 import { computeDefinitionHash } from "./definition-hash.js";
 import {
   clampEffectiveGain,
@@ -267,7 +268,7 @@ export function compositionCacheKey(
             .slice(0, video.shots.indexOf(shot))
             .reduce((sum, s) => sum + s.duration, 0),
           definitionHash: overlayDefinitionHash(video),
-          inputs: compositionInputFingerprints(manager, video.overlay.compositionRefs),
+          inputs: compositionInputFingerprints(manager, overlayFingerprintRefs(video)),
         }
       : null;
     return stableHash({
@@ -886,8 +887,16 @@ export function overlayDefinitionHash(video: StageDefinition, rewrite?: HashInpu
       typography: video.typography,
       resolvedFiles: {},
     });
+    // Where the overlay subtitles lines: where each shot opens, and how each stem places its cues.
+    const stems = overlayLineStems(video);
     return {
       structureHtml,
+      ...(stems.length > 0
+        ? {
+            shotStarts: [...overlayShotStarts(video.shots)],
+            stems: stems.map((stem) => [stem, stemDefinitionHashForAddress(video, stem)]),
+          }
+        : {}),
       typography: video.typography,
       duration: overlay.duration,
       width: video.format.size.width,
@@ -895,6 +904,41 @@ export function overlayDefinitionHash(video: StageDefinition, rewrite?: HashInpu
     };
   });
   return hashInput(input, rewrite);
+}
+
+// The shots whose lines the overlay's script-line `<Subtitle>` entries time, read off its render
+// from the definition alone.
+function overlaySubtitledShots(video: StageDefinition): readonly string[] {
+  const overlay = video.overlay;
+  if (!overlay) return [];
+  return memoizedInput(video, "overlay-subtitled-shots", () => {
+    const html = renderOverlayBody({
+      stage: video.stage,
+      overlay,
+      fn: overlay.fn,
+      size: video.format.size,
+      typography: video.typography,
+      resolvedFiles: {},
+    });
+    return [...new Set([...html.matchAll(/\sdata-konte-line="([^"]+):\d+"/g)].map((m) => m[1]!))];
+  }) as string[];
+}
+
+// Where the overlay subtitles any line, every stem of every shot on the stage — wherever a line
+// plays, its cues' placement and takes time the subtitle.
+function overlayLineStems(video: StageDefinition): readonly string[] {
+  if (overlaySubtitledShots(video).length === 0) return [];
+  return video.shots.flatMap((shot) =>
+    listShotStems(video.stage, shot).map((stem) => stem.address),
+  );
+}
+
+// What the overlay's inputs are fingerprinted on: the refs it draws and the takes its subtitled
+// lines are heard in.
+function overlayFingerprintRefs(video: StageDefinition): readonly string[] {
+  if (!video.overlay) return [];
+  const cues = overlayLineStems(video).flatMap((stem) => shotStemOf(video, stem)?.refs ?? []);
+  return [...new Set([...video.overlay.compositionRefs, ...cues])];
 }
 
 // Whether every shot accept on the stage stands: each developed shot's composition accepted at its
@@ -943,9 +987,8 @@ export async function materializeOverlayVariant(opts: {
 }): Promise<string | null> {
   const { manager, video } = opts;
   if (!video.overlay) return null;
-  const refs = video.overlay.compositionRefs;
   const definitionHash = overlayDefinitionHash(video);
-  const inputFingerprints = compositionInputFingerprints(manager, refs);
+  const inputFingerprints = compositionInputFingerprints(manager, overlayFingerprintRefs(video));
   const address = formatTimelineOverlayAddress(video.stage);
   const existing = manager.tryGetAssetState(address);
   if (existing) {
@@ -957,6 +1000,7 @@ export async function materializeOverlayVariant(opts: {
       video,
       manager,
       assetBaseUrl: CANONICAL_ASSET_BASE,
+      timeLines: overlayLineTimer(manager),
     }),
   );
   const variantId = manager.reserveVariantId(address);
@@ -1048,7 +1092,10 @@ export function materializedLeafContentHash(
   const refs = leafInputRefs(video, address);
   if (refs === null) return null;
   if (!compositionRefsResolvable(manager, refs)) return null;
-  const inputFingerprints = compositionInputFingerprints(manager, refs);
+  const inputFingerprints = compositionInputFingerprints(
+    manager,
+    isOverlayAddress(address) ? overlayFingerprintRefs(video) : refs,
+  );
   return leafContentHash(definitionHash, inputFingerprints);
 }
 
@@ -1458,11 +1505,10 @@ export function collectDeadStemVariants(
   }
 
   if (video.overlay) {
-    const refs = video.overlay.compositionRefs;
-    const live = compositionRefsResolvable(manager, refs)
+    const live = compositionRefsResolvable(manager, video.overlay.compositionRefs)
       ? {
           definitionHash: overlayDefinitionHash(video),
-          inputFingerprints: compositionInputFingerprints(manager, refs),
+          inputFingerprints: compositionInputFingerprints(manager, overlayFingerprintRefs(video)),
         }
       : null;
     collect(formatTimelineOverlayAddress(video.stage), live);

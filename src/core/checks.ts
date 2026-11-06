@@ -6,6 +6,7 @@ import {
   type AssetStage,
   type DefinitionLike,
   formatShotAddress,
+  formatTimelineOverlayAddress,
   getAssetEntry,
   getStage,
   listAddresses,
@@ -429,6 +430,28 @@ const STEM_MOUTH_CHECK: Check = {
   },
 };
 
+const SUBTITLE_PAUSE_CHECK: Check = {
+  codes: ["subtitle-pauses-stale"],
+  run: async (ctx) => {
+    if (!ctx.manager) return [];
+    // Loaded on use: the render it times the lines off imports the loader, which imports this.
+    const { staleSubtitlePauses } = await import("./line-timing.js");
+    const stale = await staleSubtitlePauses([ctx.animatic, ctx.video], ctx.manager);
+    return stale.map((s): Finding => {
+      const overlay = formatTimelineOverlayAddress(s.stage);
+      return {
+        code: "subtitle-pauses-stale",
+        subject: overlay,
+        fixIn: { stage: s.stage },
+        message:
+          `line ${s.line} of shot ${s.shotId} splits at the pauses of take ${s.take}; ` +
+          (s.now ? `take ${s.now} says it now` : "no take says it now"),
+        targets: [overlay],
+      };
+    });
+  },
+};
+
 // What a stage build found of itself instead of refusing to load.
 const BUILD_CHECK: Check = {
   codes: [
@@ -484,6 +507,7 @@ const CHECKS: readonly Check[] = [
   SILENT_TAIL_CHECK,
   ANIMATIC_CONSUMED_CHECK,
   STEM_MOUTH_CHECK,
+  SUBTITLE_PAUSE_CHECK,
   BUILD_CHECK,
   PENDING_REFERENCE_CHECK,
 ];

@@ -9,7 +9,7 @@
 
 ## Text
 
-- `<Subtitle>` for spoken lines; a plain `<div>` + Tailwind for a title, a lower-third or a caption card.
+- `<Subtitle>` entries naming each `line` for spoken lines ([subtitles.md](subtitles.md)); a plain `<div>` + Tailwind for a title, a lower-third or a caption card.
 - One `<Subtitle className>` for the piece, never the default face and size — at most two rows; a line that needs three is broken in the entries.
 - Text stays 5% in from every edge — a 9:16 delivery also keeps the bottom sixth and the right edge clear for the platform's controls.
 - A title never delays the hook — it rides over the first shot or lands after it.

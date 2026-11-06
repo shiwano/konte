@@ -1,4 +1,5 @@
 import { sha256Hex } from "../../../core/content-hash.js";
+import { overlayLineTimer } from "../../../core/line-timing.js";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import type { Command } from "commander";
@@ -102,7 +103,7 @@ async function shotSubtitleTimes(
       shotId,
       allowNotReady: true,
       assetBaseUrl: "",
-      withOverlay: true,
+      withOverlay: { timeLines: overlayLineTimer(manager) },
     });
     return subtitleSampleTimes(html, shot.duration, video.format.fps);
   } catch {

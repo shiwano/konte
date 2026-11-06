@@ -410,6 +410,11 @@ const STAGE_FINDING_DOCS: Record<OtherCode, { flags: string; fixIn: string }> = 
     flags: "A video shot spends without building on the board shot it develops.",
     fixIn: "`video.tsx`",
   },
+  "subtitle-pauses-stale": {
+    flags:
+      "A script-line `<Subtitle>` entry splits its line at the pauses of a take that no longer plays it; until fixed, its texts share the line by length.",
+    fixIn: "the overlay's stage file",
+  },
   "stem-unmouthed": {
     flags:
       "A video take is driven by its board shot's stem, yet no character the shot's frame holds speaks its lines. Read where every line is a cast character's, every cue of the stem a voice, and the frame neither `coverage` nor graphic.",

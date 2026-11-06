@@ -2,6 +2,7 @@ import type { ShotStage } from "./address.js";
 import { injectBaseTimeline } from "./composition-builder.js";
 import { runInRenderMode, type ShotFunction } from "./dsl/shot-context.js";
 import { renderToHtml } from "./jsx-html.js";
+import type { LineTiming } from "./subtitle-timing.js";
 import type { OverlayDefinition, Typography } from "./types/index.js";
 
 // How the overlay reaches the picture. It is a nested composition — its own `<template>`, its own
@@ -26,6 +27,7 @@ export function renderOverlayBody(opts: {
   typography: Typography;
   resolvedFiles: Record<string, string>;
   absolutePaths?: Record<string, string>;
+  lineTimings?: ReadonlyMap<string, LineTiming>;
 }): string {
   const id = OVERLAY_COMPOSITION_ID;
   const jsx = runInRenderMode(opts.stage, id, opts.fn, opts.resolvedFiles, opts.absolutePaths);
@@ -36,6 +38,7 @@ export function renderOverlayBody(opts: {
     duration: opts.overlay.duration,
     typography: opts.typography,
     nested: true,
+    ...(opts.lineTimings ? { lineTimings: opts.lineTimings } : {}),
   });
   return injectBaseTimeline(body, id, opts.overlay.duration);
 }

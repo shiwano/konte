@@ -35,6 +35,7 @@ import type { AudioLoudness } from "./audio-loudness.js";
 import { buildFallbackComposition } from "./composition-fallback.js";
 import { jsx } from "react/jsx-runtime";
 import { Composition, CompositionHead } from "./dsl/composition/composition.js";
+import type { LineTimer, LineTiming } from "./subtitle-timing.js";
 import {
   injectOverlay,
   OVERLAY_COMPOSITION_ID,
@@ -93,9 +94,10 @@ interface BuildShotCompositionOptions {
   // behind `probe`/`review record show`. Never set where a partial shot would be PERSISTED —
   // materializing a leaf bakes what it reads.
   allowNotReady?: boolean;
-  // Lay the timeline's overlay over the shot's span, as the render and the reel review show it.
-  // Never set where the shot's own composition is materialized: the overlay is a leaf of its own.
-  withOverlay?: boolean;
+  // Lay the timeline's overlay over the shot's span, as the render and the reel review show it,
+  // its subtitled lines timed by `timeLines`. Never set where the shot's own composition is
+  // materialized: the overlay is a leaf of its own.
+  withOverlay?: { timeLines: LineTimer };
 }
 
 interface BuildFullCompositionOptions {
@@ -114,6 +116,7 @@ interface BuildFullCompositionOptions {
   standIn?: RenderPlan | null;
   // See BuildRenderPlanOptions.pinnedStandInShotIds — the shots the page was told, exactly.
   pinnedStandInShotIds?: ReadonlySet<string>;
+  timeLines: LineTimer;
 }
 
 function escapeAttr(value: string): string {
@@ -1117,6 +1120,13 @@ export async function buildShotCompositionHtml(
 
   let html = shotHtml;
   if (withOverlay && video.overlay) {
+    const lineTimings = await withOverlay.timeLines(video, () =>
+      buildRenderPlan(video, manager, {
+        outputDir: "",
+        allowUnaccepted: true,
+        allowNotReady: true,
+      }),
+    );
     const body = renderOverlayBody({
       stage: plan.stage,
       overlay: video.overlay,
@@ -1124,6 +1134,7 @@ export async function buildShotCompositionHtml(
       size: plan.size,
       typography: plan.typography,
       resolvedFiles: {},
+      ...(lineTimings ? { lineTimings } : {}),
     });
     await assertTailwindClasses([{ label: formatTimelineOverlayAddress(plan.stage), html: body }]);
     html = injectOverlay(html, {
@@ -1192,6 +1203,7 @@ export async function buildOverlayCompositionHtml(options: {
   manager: StateManager;
   assetBaseUrl: string;
   allowNotReady?: boolean;
+  timeLines: LineTimer;
 }): Promise<string> {
   const { video, manager, assetBaseUrl } = options;
   const overlay = video.overlay;
@@ -1207,6 +1219,9 @@ export async function buildOverlayCompositionHtml(options: {
     duration: overlay.duration,
     typography: video.typography,
   });
+  const lineTimings = await options.timeLines(video, () =>
+    buildRenderPlan(video, manager, { outputDir: "", allowUnaccepted: true, allowNotReady: true }),
+  );
   const body = renderOverlayBody({
     stage: video.stage,
     overlay,
@@ -1214,6 +1229,7 @@ export async function buildOverlayCompositionHtml(options: {
     size,
     typography: video.typography,
     resolvedFiles: {},
+    ...(lineTimings ? { lineTimings } : {}),
   });
   await assertTailwindClasses([{ label: formatTimelineOverlayAddress(video.stage), html: body }]);
   const html = injectBaseTimeline(
@@ -1250,6 +1266,31 @@ function parseVariantOverrides(variantOverrides: BuildFullCompositionOptions["va
     parsedOverrides.push({ parsed, variantId: ov.variantId });
   }
   return { overrideByAddress, parsedOverrides };
+}
+
+// The plan with each shot's own takes swapped for the ones the page auditions.
+function withShotOverrides(
+  plan: RenderPlan,
+  manager: StateManager,
+  parsedOverrides: readonly ParsedOverride[],
+): RenderPlan {
+  return {
+    ...plan,
+    shots: plan.shots.map((shotPlan) => {
+      let resolved = shotPlan;
+      for (const { parsed, variantId } of parsedOverrides) {
+        if (parsed.kind !== "shot" || parsed.shotId !== shotPlan.shotId) continue;
+        resolved = {
+          ...resolved,
+          ...applyVariantOverride(plan.stage, resolved, manager, {
+            assetName: parsed.assetName,
+            variantId,
+          }),
+        };
+      }
+      return resolved;
+    }),
+  };
 }
 
 interface ReelClipHost {
@@ -1471,6 +1512,7 @@ async function reelOverlayComposition(
   plan: RenderPlan,
   overlay: NonNullable<StageDefinition["overlay"]>,
   fn: typeof overlay.fn,
+  lineTimings: ReadonlyMap<string, LineTiming> | undefined,
 ): Promise<{ template: string; host: string }> {
   const id = `shot-${OVERLAY_COMPOSITION_ID}`;
   const body = renderOverlayBody({
@@ -1480,6 +1522,7 @@ async function reelOverlayComposition(
     size: plan.size,
     typography: plan.typography,
     resolvedFiles: {},
+    ...(lineTimings ? { lineTimings } : {}),
   });
   await assertTailwindClasses([{ label: formatTimelineOverlayAddress(plan.stage), html: body }]);
   return {
@@ -1609,6 +1652,7 @@ export async function buildFullCompositionHtml(
       plan,
       video.overlay,
       timelineRun?.overlay ?? video.overlay.fn,
+      await options.timeLines(video, () => withShotOverrides(plan, manager, parsedOverrides)),
     );
     templates.push(overlay.template);
     stageFragments.push(overlay.host);

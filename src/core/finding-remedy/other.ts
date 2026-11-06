@@ -39,6 +39,9 @@ export const OTHER_FINDING_REMEDY: Record<
     "the take is driven by its board shot's stem, yet no mouth in the frame speaks the lines. " +
     "Drive the take without the stem and its lines, and place the stem with " +
     '<Audio src={animatic.shot("<id>").stem} /> in the shot\'s composition',
+  "subtitle-pauses-stale":
+    "read the pauses of the take named with `konte probe reel-lines`, then write its id as the entry's " +
+    "`take` and the pauses its texts break at",
   "script-unvoiced":
     "give every line the direction gives the shot an `<Audio>` carrying it in its " +
     '`<Composition>`: in animatic.tsx `<Audio src={asset("vo", …)}>`, or move the words to ' +

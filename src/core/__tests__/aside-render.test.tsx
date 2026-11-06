@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises";
+import type { LineTimer } from "../subtitle-timing.js";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -8,6 +9,8 @@ import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { testDirection } from "./helpers/direction.js";
 import { animaticTimeline, asideShot, moves, shot } from "./helpers/shot.js";
 import { StateManager } from "../state/index.js";
+
+const NO_LINES: LineTimer = async () => undefined;
 
 const imageComfy = defineComfyAsset({
   workflow: "image.json",
@@ -55,6 +58,7 @@ const board = defineAnimatic(
 describe("an aside on the board", () => {
   it("fills its span with a labelled slug in the reel", async () => {
     const { html } = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
       video: board,
       manager,
       assetBaseUrl: "",

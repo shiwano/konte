@@ -1,16 +1,17 @@
 // Where a reel shot's lines are heard on the reel: each line's marks (what a take gets wrong of it,
 // or what its clip cuts) and the reel second each of its characters is heard at.
 
-import { isNarrationStemAddress } from "./address.js";
+import { isNarrationStemAddress, STEM_ASSET_NAME, tryParseAddress } from "./address.js";
 import { type CompositionClip, harvestShotAudioStructure } from "./composition-builder.js";
-import type { StageDefinitions } from "./definition-hashes.js";
+import { definitionForAddress, type StageDefinitions } from "./definition-hashes.js";
 import type { Direction } from "./dsl/direction.js";
 import { alignHeard, type HeardLine, markedGaps, type SaidLine } from "./line-hearing.js";
+import { definitionHashForAddress } from "./composition-resource.js";
 import { recognizesSpeechIn } from "./sherpa-binary.js";
 import { type HearingProfile, loadHearing } from "./hearing/index.js";
 import { linesSaidAt, readHeardSpeech } from "./speech-hearing.js";
 import type { StateManager } from "./state/index.js";
-import type { AnimaticDefinition } from "./types/index.js";
+import type { AnimaticDefinition, HeardSpeech, KonteState, VariantMedia } from "./types/index.js";
 import { variantOwningFile } from "./variant-dir.js";
 
 export interface LineMarks {
@@ -33,7 +34,7 @@ export interface HeardTake {
 
 // The takes at an address that say lines in a clip, and the clip-local second each of their
 // seconds plays at.
-type SpokenSource = {
+export type SpokenSource = {
   address: string;
   // The take the address resolves to, then every other the page can show in its place.
   variantIds: string[];
@@ -43,36 +44,62 @@ type SpokenSource = {
   toMedia: (t: number) => number;
   // The media seconds the take plays over in the clip's media, where a stem mixed from it trims it.
   mediaWindow?: [number, number];
+  // The lines it says where no definition owes them: a take made from a stem whose cues moved since.
+  lines?: SaidLine[];
 };
 
-function sourcesOf(
-  clip: CompositionClip,
-  shotId: string,
-  manager: StateManager,
-  animatic: AnimaticDefinition | null,
+// The cues a board shot's stem at `stemAddress` mixes, each on the stem's clock: the narration
+// stem's narration, the shot stem's every other cue but the song. Each cue is the take the stem
+// variant `stemVariantId` was mixed from, where that variant mixed the cues the board places now;
+// where it mixed others, the stem is heard as the sound of the take at `own`.
+function stemCueSources(
+  stemAddress: string,
+  stemVariantId: string | null,
+  own: { address: string; variantId: string },
+  opts: SourceOpts,
 ): SpokenSource[] {
-  const address = clip.address;
-  if (!address) return [];
-  if (!isNarrationStemAddress(address)) {
-    const resolved =
-      clip.variantId ?? manager.resolveReference(address, { includeStale: true })?.variantId;
-    const others = Object.entries(manager.getState().assets[address]?.variants ?? {})
-      .filter(([id, v]) => id !== resolved && v.file && v.status !== "dismissed")
-      .map(([id]) => id);
-    return resolved
-      ? [{ address, variantIds: [resolved, ...others], direct: true, toMedia: (t) => t }]
+  const { manager, animatic } = opts;
+  const parsed = tryParseAddress(stemAddress);
+  if (!animatic || parsed?.kind !== "shot") return [];
+  const narrationOnly = isNarrationStemAddress(stemAddress);
+  const shot = animatic.shots.find((s) => s.id === parsed.shotId);
+  const mixes = new Set((narrationOnly ? shot?.narrationStemRefs : shot?.stemRefs) ?? []);
+  const cues = (harvestShotAudioStructure(animatic, parsed.shotId) ?? []).filter(
+    (cue) => cue.track === "sound" && mixes.has(cue.src),
+  );
+  const state = manager.getState();
+  const mixed = stemVariantId ? state.assets[stemAddress]?.variants?.[stemVariantId] : undefined;
+  if (mixed && mixed.definitionHash !== definitionHashForAddress(animatic, stemAddress)) {
+    const lines = cues.flatMap(
+      (cue) => linesSaidAt(opts.definitions, opts.direction, cue.src).lines,
+    );
+    return lines.length > 0
+      ? [
+          {
+            address: own.address,
+            variantIds: [own.variantId],
+            direct: true,
+            toMedia: (t) => t,
+            lines,
+          },
+        ]
       : [];
   }
-  // A board's narration stem mixes the board shot's narration cues on the board shot's clock.
-  const shot = animatic?.shots.find((s) => s.id === shotId);
-  const cues = animatic ? (harvestShotAudioStructure(animatic, shotId) ?? []) : [];
+  const takeOf = (src: string) => {
+    const hash = mixed?.inputFingerprints?.[src];
+    const kept = hash
+      ? Object.entries(state.assets[src]?.variants ?? {}).find(([, v]) => v.outputHash === hash)
+      : undefined;
+    return kept?.[0] ?? manager.resolveReference(src, { includeStale: true })?.variantId;
+  };
   return cues.flatMap((cue) => {
-    if (shot?.cueKinds?.[cue.src] !== "narration") return [];
-    const variantId = manager.resolveReference(cue.src, { includeStale: true })?.variantId;
+    const variantId = takeOf(cue.src);
     if (!variantId) return [];
     const start = cue.start ?? 0;
     const mediaStart = cue.mediaStart ?? 0;
-    const end = cue.duration === null ? Number.POSITIVE_INFINITY : start + cue.duration;
+    const played = cue.duration === null ? Number.POSITIVE_INFINITY : start + cue.duration;
+    // The stem is cut at the board shot's end.
+    const end = Math.min(played, shot?.duration ?? Number.POSITIVE_INFINITY);
     return [
       {
         address: cue.src,
@@ -83,6 +110,64 @@ function sourcesOf(
       },
     ];
   });
+}
+
+function isBoardStemAddress(address: string): boolean {
+  const parsed = tryParseAddress(address);
+  return (
+    isNarrationStemAddress(address) ||
+    (parsed?.stage === "animatic" &&
+      parsed.kind === "shot" &&
+      parsed.assetName === STEM_ASSET_NAME &&
+      !parsed.delivery)
+  );
+}
+
+type SourceOpts = {
+  manager: StateManager;
+  definitions: StageDefinitions;
+  direction: Direction | null;
+  animatic: AnimaticDefinition | null;
+};
+
+/**
+ * The takes that say lines in a clip. A board stem the clip plays is its cues; a take that owes
+ * no line of its own but was made from a board stem (a model's `stem` input) is heard as the cues
+ * of the stem it consumed, on the take's clock.
+ */
+export function spokenSourcesOf(clip: CompositionClip, opts: SourceOpts): SpokenSource[] {
+  const { manager } = opts;
+  const address = clip.address;
+  if (!address) return [];
+  const resolved =
+    clip.variantId ?? manager.resolveReference(address, { includeStale: true })?.variantId;
+  if (isBoardStemAddress(address)) {
+    // A stem not yet mixed plays live, off the cues the board places now.
+    return stemCueSources(address, resolved ?? null, { address, variantId: resolved ?? "" }, opts);
+  }
+  if (resolved && !linesSaidAt(opts.definitions, opts.direction, address).scripted) {
+    const def = definitionForAddress(opts.definitions, address);
+    const stem =
+      def && "stemInputs" in def
+        ? def.stemInputs?.find((s) => s.address === address)?.source
+        : undefined;
+    if (stem && isBoardStemAddress(stem)) {
+      const state = manager.getState();
+      const consumed = state.assets[address]?.variants?.[resolved]?.inputFingerprints?.[stem];
+      const stemVariant = consumed
+        ? Object.entries(state.assets[stem]?.variants ?? {}).find(
+            ([, v]) => v.outputHash === consumed,
+          )?.[0]
+        : manager.resolveReference(stem, { includeStale: true })?.variantId;
+      return stemCueSources(stem, stemVariant ?? null, { address, variantId: resolved }, opts);
+    }
+  }
+  const others = Object.entries(manager.getState().assets[address]?.variants ?? {})
+    .filter(([id, v]) => id !== resolved && v.file && v.status !== "dismissed")
+    .map(([id]) => id);
+  return resolved
+    ? [{ address, variantIds: [resolved, ...others], direct: true, toMedia: (t) => t }]
+    : [];
 }
 
 /**
@@ -162,52 +247,90 @@ export async function shotLineMarks(opts: {
   const out: HeardTake[] = [];
   for (const clip of opts.clips) {
     if (!clip.hasAudio) continue;
-    const clipStart = opts.shotStart + clip.start;
-    const toReel = (media: number) =>
-      clipStart + (media - (clip.mediaStart ?? 0)) / (clip.playbackRate ?? 1);
-    for (const source of sourcesOf(clip, opts.shotId, manager, opts.animatic)) {
-      const said = linesSaidAt(opts.definitions, opts.direction, source.address);
+    const toReel = clipReelClock(clip, opts.shotStart);
+    for (const source of spokenSourcesOf(clip, opts)) {
+      const said = saidBy(source, opts);
       if (!said.scripted) continue;
       const reelAt = (t: number) => toReel(source.toMedia(t));
       for (const [i, variantId] of source.variantIds.entries()) {
         const variant = state.assets[source.address]?.variants?.[variantId];
         if (!variant) continue;
-        const owner = (variant.file && variantOwningFile(state, variant.file)) || {
-          address: source.address,
-          variantId,
-        };
-        const heard = readHeardSpeech(
-          opts.videoRoot,
-          owner.address,
-          owner.variantId,
-          variant.outputHash,
-        );
+        const heard = readTakeHeard(opts.videoRoot, state, source.address, variantId);
         if (!heard) continue;
         const hearing = await loadHearing(lang);
-        const media = variant.media;
-        const durationSec = media && "durationSec" in media ? media.durationSec : undefined;
+        const durationSec = takeDurationSec(variant.media);
         const aligned = alignHeard(
           said.lines.map((l) => l.text),
           heard,
           hearing,
-          durationSec ?? undefined,
+          durationSec,
         );
-        const played = clipWindow(clip, opts.shotStart, source.direct ? durationSec : undefined);
-        // What the stem trims of the take is cut as much as what the clip trims of the stem.
-        const window: [number, number] = source.mediaWindow
-          ? [
-              Math.max(played[0], toReel(source.mediaWindow[0])),
-              Math.min(played[1], toReel(source.mediaWindow[1])),
-            ]
-          : played;
         out.push({
           address: source.address,
           variantId,
           resolved: i === 0,
-          lines: reelLineMarks(said.lines, aligned, hearing, reelAt, window),
+          lines: reelLineMarks(
+            said.lines,
+            aligned,
+            hearing,
+            reelAt,
+            sourceWindow(clip, opts.shotStart, source, durationSec),
+          ),
         });
       }
     }
   }
   return out;
+}
+
+/** Media second → reel second, for a clip in a shot opening at `shotStart`. */
+export function clipReelClock(clip: CompositionClip, shotStart: number): (media: number) => number {
+  const clipStart = shotStart + clip.start;
+  return (media) => clipStart + (media - (clip.mediaStart ?? 0)) / (clip.playbackRate ?? 1);
+}
+
+/**
+ * The reel seconds a source plays over in a clip: what the stem trims of the take is cut as much as
+ * what the clip trims of the stem.
+ */
+export function sourceWindow(
+  clip: CompositionClip,
+  shotStart: number,
+  source: SpokenSource,
+  durationSec: number | undefined,
+): [number, number] {
+  const played = clipWindow(clip, shotStart, source.direct ? durationSec : undefined);
+  if (!source.mediaWindow) return played;
+  const toReel = clipReelClock(clip, shotStart);
+  return [
+    Math.max(played[0], toReel(source.mediaWindow[0])),
+    Math.min(played[1], toReel(source.mediaWindow[1])),
+  ];
+}
+
+export function takeDurationSec(media: VariantMedia | null | undefined): number | undefined {
+  return media && "durationSec" in media ? (media.durationSec ?? undefined) : undefined;
+}
+
+/** What a take is heard to say, read off the take that owns its file; null where never heard. */
+export function readTakeHeard(
+  videoRoot: string,
+  state: KonteState,
+  address: string,
+  variantId: string,
+): HeardSpeech["heard"] | null {
+  const variant = state.assets[address]?.variants?.[variantId];
+  if (!variant) return null;
+  const owner = (variant.file && variantOwningFile(state, variant.file)) || { address, variantId };
+  return readHeardSpeech(videoRoot, owner.address, owner.variantId, variant.outputHash);
+}
+
+/** The lines a source says, numbered by its shot's script. */
+export function saidBy(
+  source: SpokenSource,
+  opts: Pick<SourceOpts, "definitions" | "direction">,
+): { lines: SaidLine[]; scripted: boolean } {
+  return source.lines
+    ? { lines: source.lines, scripted: true }
+    : linesSaidAt(opts.definitions, opts.direction, source.address);
 }

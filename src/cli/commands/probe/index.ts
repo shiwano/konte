@@ -8,6 +8,7 @@ import { registerProbeJsxCommand } from "./jsx.js";
 import { registerProbeMotionCommand } from "./motion.js";
 import { registerProbeThumbnailsCommand } from "./thumbnails.js";
 import { registerProbeReelAudioCommand } from "./reel-audio.js";
+import { registerProbeReelLinesCommand } from "./reel-lines.js";
 import { registerProbeReelThumbnailsCommand } from "./reel-thumbnails.js";
 
 export function registerProbeCommand(program: Command): void {
@@ -23,6 +24,7 @@ export function registerProbeCommand(program: Command): void {
   registerProbeAudioCommand(probe);
   registerProbeThumbnailsCommand(probe);
   registerProbeReelAudioCommand(probe);
+  registerProbeReelLinesCommand(probe);
   registerProbeReelThumbnailsCommand(probe);
   registerProbeExportCommand(probe);
 }

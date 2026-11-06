@@ -162,6 +162,9 @@ export type KonteErrorCode =
   // A `<Video>` of a take cut to the song whose window konte cannot fill: a `mediaStart` or a
   // `playbackRate` written on it, or a place on the song before the take starts.
   | "SONG_WINDOW_INVALID"
+  // A script-line `<Subtitle>` entry naming a line the direction does not give, words the line does not
+  // say, or pauses its take does not hold.
+  | "SUBTITLE_LINE_INVALID"
   | "DUCK_INVALID"
   // A board shot with a narration line no readable take carries, and a recording konte reads no
   // words from beside it: that recording may be the narration or a sound in the frame, and the two

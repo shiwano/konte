@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises";
+import type { LineTimer } from "../subtitle-timing.js";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -24,6 +25,8 @@ import { moves, shot, animaticTimeline, videoTimeline } from "./helpers/shot.js"
 import { KonteError } from "../errors.js";
 import { StateManager } from "../state/index.js";
 import type { VariantMedia } from "../types/index.js";
+
+const NO_LINES: LineTimer = async () => undefined;
 
 const animateComfy = defineComfyAsset({
   workflow: "animate.json",
@@ -545,7 +548,12 @@ describe("buildFullCompositionHtml", () => {
     );
     setupAccepted(manager, "video:shot.01.motion", "assets/shot.01.motion/output.mp4");
 
-    const reel = await buildFullCompositionHtml({ video, manager, assetBaseUrl: ASSET_BASE });
+    const reel = await buildFullCompositionHtml({
+      video,
+      manager,
+      assetBaseUrl: ASSET_BASE,
+      timeLines: NO_LINES,
+    });
     const single = await buildShotCompositionHtml({
       video,
       manager,
@@ -566,6 +574,7 @@ describe("buildFullCompositionHtml", () => {
     const v2 = setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
 
     const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
       video: testVideo,
       manager,
       assetBaseUrl: ASSET_BASE,
@@ -589,6 +598,7 @@ describe("buildFullCompositionHtml", () => {
     const v2 = setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
 
     const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
       video: embeddedAudioVideo,
       manager,
       assetBaseUrl: ASSET_BASE,
@@ -614,6 +624,7 @@ describe("buildFullCompositionHtml", () => {
     setupAccepted(manager, "video:shot.02.narration", "assets/shot.02.narration/output.wav");
 
     const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
       video: narratedVideo,
       manager,
       assetBaseUrl: ASSET_BASE,
@@ -664,6 +675,7 @@ describe("buildFullCompositionHtml", () => {
     setupAccepted(manager, "video:shot.01.motion", "assets/shot.01.motion/m.mp4");
 
     const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
       video,
       manager,
       assetBaseUrl: ASSET_BASE,
@@ -737,6 +749,7 @@ describe("buildFullCompositionHtml", () => {
       setupAccepted(manager, "video:shot.01.motion", "assets/shot.01.motion/m.mp4");
 
       const result = await buildFullCompositionHtml({
+        timeLines: NO_LINES,
         video,
         manager,
         assetBaseUrl: ASSET_BASE,
@@ -792,6 +805,7 @@ describe("buildFullCompositionHtml", () => {
     setupAccepted(manager, "video:shot.01.motion", "assets/shot.01.motion/m.mp4");
 
     const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
       video,
       manager,
       assetBaseUrl: ASSET_BASE,
@@ -847,6 +861,7 @@ describe("buildFullCompositionHtml", () => {
     );
 
     const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
       video,
       manager,
       assetBaseUrl: ASSET_BASE,
@@ -863,6 +878,7 @@ describe("buildFullCompositionHtml", () => {
     setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
 
     const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
       video: testVideo,
       manager,
       assetBaseUrl: ASSET_BASE,
@@ -882,6 +898,7 @@ describe("buildFullCompositionHtml", () => {
     setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
 
     const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
       video: testVideo,
       manager,
       assetBaseUrl: ASSET_BASE,
@@ -901,6 +918,7 @@ describe("buildFullCompositionHtml", () => {
     setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
 
     const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
       video: videoOnlyVideo,
       manager,
       assetBaseUrl: ASSET_BASE,
@@ -920,6 +938,7 @@ describe("buildFullCompositionHtml", () => {
     setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
 
     const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
       video: testVideo,
       manager,
       assetBaseUrl: ASSET_BASE,
@@ -968,6 +987,7 @@ describe("buildFullCompositionHtml", () => {
     setupAccepted(manager, "video:shot.01.motion", "assets/shot.01.motion/output.mp4");
 
     const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
       video: videoWithFallback,
       manager,
       assetBaseUrl: ASSET_BASE,
@@ -1016,6 +1036,7 @@ describe("buildFullCompositionHtml", () => {
     setupAccepted(manager, "video:shot.02.bg", "assets/shot.02.bg/clip.mp4");
 
     const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
       video: videoWithFallback,
       manager,
       assetBaseUrl: ASSET_BASE,
@@ -1249,7 +1270,7 @@ describe("Video/Audio data attributes", () => {
     ));
     await expect(buildSingle(video)).rejects.toThrow(/video:shot\.01#composition: font-\[Inter\]/);
     await expect(
-      buildFullCompositionHtml({ video, manager, assetBaseUrl: ASSET_BASE }),
+      buildFullCompositionHtml({ video, manager, assetBaseUrl: ASSET_BASE, timeLines: NO_LINES }),
     ).rejects.toThrow(/video:shot\.01#composition: font-\[Inter\]/);
   });
 
@@ -1428,6 +1449,7 @@ describe("Video/Audio data attributes", () => {
 
     const html = (
       await buildFullCompositionHtml({
+        timeLines: NO_LINES,
         video,
         manager,
         assetBaseUrl: ASSET_BASE,
@@ -1490,6 +1512,7 @@ describe("Video/Audio data attributes", () => {
 
     const html = (
       await buildFullCompositionHtml({
+        timeLines: NO_LINES,
         video,
         manager,
         assetBaseUrl: ASSET_BASE,
@@ -1552,8 +1575,14 @@ describe("Video/Audio data attributes", () => {
     manager.getAssetState("video:shot.01.line").variants![line]!.media = wav(2);
     manager.getAssetState("video:shot.01.sfx").variants![sfx]!.media = wav(4);
 
-    const reel = (await buildFullCompositionHtml({ video, manager, assetBaseUrl: ASSET_BASE }))
-      .html;
+    const reel = (
+      await buildFullCompositionHtml({
+        video,
+        manager,
+        assetBaseUrl: ASSET_BASE,
+        timeLines: NO_LINES,
+      })
+    ).html;
     const single = (
       await buildShotCompositionHtml({
         video,
@@ -2035,6 +2064,7 @@ describe("the board frame stand-in", () => {
 
     const html = (
       await buildFullCompositionHtml({
+        timeLines: NO_LINES,
         video: silentVideo,
         manager,
         assetBaseUrl: ASSET_BASE,

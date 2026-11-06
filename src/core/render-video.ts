@@ -14,7 +14,9 @@ import {
 } from "./address.js";
 import { asideSlugHtml } from "./aside-slug.js";
 import { injectBaseTimeline } from "./composition-builder.js";
+import { overlayLineTimings } from "./line-timing.js";
 import { injectOverlay, overlayShotStarts, renderOverlayBody } from "./overlay-render.js";
+import type { LineTiming } from "./subtitle-timing.js";
 import { resolveCompositionRef, substituteAssetPlaceholders } from "./composition-refs.js";
 import { planShotById } from "./shot-index.js";
 import { assertTailwindClasses } from "./tailwind-classes.js";
@@ -514,7 +516,7 @@ export async function renderVideoToFile(opts: {
       )
     : null;
   const renderShotInputs = timelineRun?.shots ?? null;
-  const overlay = renderOverlayOf(video, timelineRun);
+  const overlay = await renderOverlayOf(video, timelineRun, manager);
 
   // Shot renders are independent — each writes its own shots/<id>.mp4 from a fresh render
   // workspace — so a small pool keeps a few Chromium captures in flight instead of paying
@@ -786,7 +788,7 @@ export async function renderShotCompositeToFile(opts: {
         plan.timelineResolvedFiles,
       )
     : null;
-  const overlay = renderOverlayOf(video, timelineRun);
+  const overlay = await renderOverlayOf(video, timelineRun, manager);
 
   const fs = await import("node:fs/promises");
   await fs.mkdir(path.dirname(outputFile), { recursive: true });
@@ -961,6 +963,7 @@ function layOverlaysAndStage(
         size,
         typography,
         resolvedFiles: {},
+        ...(overlay.lineTimings ? { lineTimings: overlay.lineTimings } : {}),
       }),
       shotStart: overlay.shotStarts.get(shotPlan.shotId) ?? 0,
       shotDuration: shotPlan.duration,
@@ -1215,16 +1218,31 @@ type RenderOverlay = {
   fn: ShotFunction;
   // Each shot's start on the whole timeline: a plan scoped to one shot does not carry it.
   shotStarts: ReadonlyMap<string, number>;
+  lineTimings?: ReadonlyMap<string, LineTiming>;
 };
 
-function renderOverlayOf(
+// The lines are timed off the whole timeline's own takes, before any delivery derivative stands in
+// for one.
+async function renderOverlayOf(
   video: StageDefinition,
   timelineRun: { overlay?: ShotFunction } | null,
-): RenderOverlay | undefined {
+  manager: StateManager,
+): Promise<RenderOverlay | undefined> {
   if (!video.overlay) return undefined;
+  const lineTimings = await overlayLineTimings({
+    video,
+    manager,
+    plan: () =>
+      buildRenderPlan(video, manager, {
+        outputDir: "",
+        allowUnaccepted: true,
+        allowNotReady: true,
+      }),
+  });
   return {
     definition: video.overlay,
     fn: timelineRun?.overlay ?? video.overlay.fn,
     shotStarts: overlayShotStarts(video.shots),
+    ...(lineTimings ? { lineTimings } : {}),
   };
 }

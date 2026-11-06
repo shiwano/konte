@@ -9376,13 +9376,49 @@ export declare function Panel({
   alt,
   ...rest
 }: PanelProps): React.ReactElement;
+/** A `<Subtitle>` entry naming a script line: what is shown while it is said. */
+export type SubtitleLineEntry = {
+  shot: string;
+  line: number;
+  start?: never;
+  end?: never;
+} & (
+  | {
+      text: string;
+      parts?: never;
+      take?: never;
+      pauses?: never;
+    }
+  | {
+      parts: readonly (readonly [said: string, text: string])[];
+      text?: never;
+      take?: never;
+      pauses?: never;
+    }
+  | {
+      take: string;
+      pauses: readonly number[];
+      text: readonly string[];
+      parts?: never;
+    }
+);
 export type DivElementProps = React.ComponentPropsWithoutRef<"div">;
 export type SpanElementProps = React.ComponentPropsWithoutRef<"span">;
-export interface SubtitleEntry {
+export interface TimedEntry {
   start: number;
   end: number;
   text: string;
 }
+/**
+ * Shown from `start` to `end`, seconds on the composition's clock; or a script line (`shot`,
+ * `line`), timed off where the reel says it.
+ */
+export type SubtitleEntry =
+  | (TimedEntry & {
+      shot?: never;
+      line?: never;
+    })
+  | SubtitleLineEntry;
 export type SubtitleProps = DivElementProps & {
   entries: readonly SubtitleEntry[];
   /** On the `<span>` holding each line's text. */

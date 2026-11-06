@@ -34,7 +34,7 @@ Write every CLI output for an agent to act on.
 
 - `audio` / `contact-sheet` / `image` / `motion` / `thumbnails` — on one or more, in any mix, of a `<variantId>`, an address, or an `<address-scope>` sweeping every matching variant it can read. `motion` also takes a `<stage>:shot.<id>#composition`, drawn live from the definition and never swept.
 - `crop` — one still, rendering `--rect` windows as `imageCrop` would (an `imageCrop` asset's own window and master derived).
-- `reel-audio` — an `<animatic|video[:shot.<id>]>` scope.
+- `reel-audio` / `reel-lines` — an `<animatic|video[:shot.<id>]>` scope.
 - `reel-thumbnails` — one `<stage>:shot.<id>`; a whole stage is `contact-sheet`'s.
 - `jsx` — renders a `jsxImage` from its definition, writing nothing.
 - `export` — an optional `[outputFile]` (default: the last real export), reporting the MP4's real resolution/duration/fps/audio.

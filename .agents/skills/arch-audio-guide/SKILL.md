@@ -39,6 +39,10 @@ How konte's audio subsystem builds the final mixed track. Not general compositio
 - `volume` is gain up to `MAX_AUDIO_GAIN` (+12 dB, `audio-gain.ts`); `assertAudioGain` refuses more at load (`AUDIO_GAIN_INVALID`).
 - The picture composition's definition hash is audio-independent: `stripAudioFromHtml` drops the `<audio>` elements and `data-has-audio`/`data-volume` before hashing, so an audio-only edit never re-renders or re-upscales a shot.
 
+## Lines on the reel
+
+- `line-timing.ts` places a script line by its take's `heard.json`, else its sound and pauses; `<Subtitle>` reads it from `RenderContext.lineTimings`.
+
 ## Stems
 
 Audio's review/accept identity lives in stems — a per-shot `shot.<id>#stem` (the shot's `<Audio>`/`<Video hasAudio>` cues) and one `timeline#stem` (the `soundtrack()` beds). Accept and cascade rules → `arch-review-system-guide`; the board's stem → `arch-animatic-guide`.
