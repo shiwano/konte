@@ -31,6 +31,7 @@ Choose each shot's production method; done = its required anchors and duration a
 ## One panel, passed as a reference — the default
 
 - One `<Panel>` per shot, its key, passed as a reference — the take moves into it and lands there. A model with no reference input takes it as its first frame. A board where most shots carry two panels is over-pinned.
+- A key staging the opening state (a rise and exit, a figure leaving frame) is the take's first frame (`startImage`) — passed as a reference, the take lands on it.
 - Cheapest, and often more stable than pinning both ends — short ambient cuts, generated camera moves, and shots where a natural expression or texture matters more than a precise end pose.
 
 ## Pinning both ends

@@ -30,6 +30,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 
 - The plate fixes the place and the camera; the panel prompt composes — where each figure sits and faces, what fills the frame they leave open, what is nearest the lens, what the edges cut, chosen from what the `action` has to show. Naming only who is left and right leaves the frame to the model.
 - Each panel prompt writes one state of the `action` — the opening frame its starting state, a landing frame its final state, a key the moment the shot reads, a change landed.
+- A key stages the opening state instead where the landing cannot carry the start — a rise and exit, a figure leaving frame. The take moves out of it; its `blocking` writes the move.
 - Make the setup's `framing` concrete — within the frame its plate holds, write the subject's crop or share of the image: "waist-up", "her head fills a third of the frame's height".
 - The eye lands on the action's carrier — whatever the shot hinges on must be the frame's most salient element (position, contrast, light, motion); if a stranger's eye goes elsewhere first, the staging failed before the prompt.
 - One strong signifier per idea — pick the element that says it best and cut action-adjacent extras; each one added dilutes the read.
