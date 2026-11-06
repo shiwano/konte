@@ -22,7 +22,9 @@ import { JobManager } from "../../core/job-manager.js";
 import { StateManager } from "../../core/state/index.js";
 import type { AnimaticDefinition, VideoDefinition } from "../../core/types/index.js";
 import { confirmDeletion, formatBreakdown, printAborted, NO_FLAG_DESCRIPTION } from "../confirm.js";
-import { loadVideoAndAnimatic } from "../../core/stage-definitions.js";
+import { loadStageDefinitions } from "../../core/stage-definitions.js";
+import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
+import type { StalenessCache } from "../../core/staleness.js";
 import { getPathSize, removePathSafely } from "./clean-utils.js";
 import { type CascadeFailedJob, cascadeFailPendingJobs } from "../../core/job-cascade.js";
 import { prerollVariantDir } from "../../core/preview-preroll.js";
@@ -35,14 +37,16 @@ const THUMBNAILS_DIR = "thumbnails";
 const AUDIO_DIR = "audio";
 const MOTION_DIR = "motion";
 
-// Why a variant is deletable. Only `unaccepted` holds generated media, and only it is added by
-// --delete-unaccepted.
+// Why a variant is deletable. The last three hold generated media; only `undecided` is added by
+// --delete-undecided.
 const CLEAN_CATEGORIES = [
   "failed",
   "cancelled",
   "incomplete",
   "dead leftover",
-  "unaccepted",
+  "dismissed",
+  "stale",
+  "undecided",
 ] as const;
 type CleanCategory = (typeof CLEAN_CATEGORIES)[number];
 
@@ -51,7 +55,9 @@ const CATEGORY_LABELS: Record<CleanCategory, string> = {
   cancelled: "cancelled",
   incomplete: "incomplete (no media)",
   "dead leftover": "dead leftover",
-  unaccepted: "unaccepted (has media)",
+  dismissed: "dismissed (has media)",
+  stale: "stale beside a current accept (has media)",
+  undecided: "undecided (has media)",
 };
 
 // Why a variant in scope is kept.
@@ -60,7 +66,7 @@ const KEEP_REASONS = [
   "accepted-patch-source",
   "generating",
   "patch-applying",
-  "unaccepted",
+  "undecided",
   "file-host",
   "kept-patch-source",
 ] as const;
@@ -71,7 +77,7 @@ const KEEP_REASON_LABELS: Record<KeepReason, string> = {
   "accepted-patch-source": "source of an accepted patch",
   generating: "generating",
   "patch-applying": "has a patch applying",
-  unaccepted: "unaccepted take holding generated media",
+  undecided: "undecided take holding generated media",
   "file-host": "holds the file of a kept take",
   "kept-patch-source": "source of a kept patch",
 };
@@ -88,10 +94,54 @@ type CleanResult = {
 
 interface CleanOptions {
   addressScope?: string;
-  deleteUnaccepted?: boolean;
+  deleteUndecided?: boolean;
   dryRun?: boolean;
   yes?: boolean;
   no?: boolean;
+}
+
+function isStale(
+  manager: StateManager,
+  address: string,
+  variantId: string,
+  cache: StalenessCache,
+): boolean | null {
+  const s = manager.variantStaleness(address, variantId, cache);
+  return s ? s.inputStale || s.definitionStale : null;
+}
+
+function isStaleBesideCurrentAccept(
+  manager: StateManager,
+  address: string,
+  variantId: string,
+  cache: StalenessCache,
+): boolean {
+  const accepted = manager.getAcceptedVariant(address);
+  if (!accepted || accepted === variantId) return false;
+  return (
+    isStale(manager, address, accepted, cache) === false &&
+    isStale(manager, address, variantId, cache) === true
+  );
+}
+
+// `complete` only when every stage entry loaded — a missing definition axis reads a stale take as
+// current.
+async function loadDefinitions(
+  videoRoot: string,
+  manager: StateManager,
+  opts: { reload?: boolean } = {},
+): Promise<{
+  video: VideoDefinition | null;
+  animatic: AnimaticDefinition | null;
+  complete: boolean;
+}> {
+  const stages = await loadStageDefinitions(videoRoot, { tolerant: true, reload: opts.reload });
+  await applyResolutionDefinitions({ videoRoot, definitions: stages, state: manager.getState() });
+  return {
+    video: stages.video,
+    animatic: stages.animatic,
+    complete: Object.keys(stages.errors).length === 0,
+  };
 }
 
 function countByCategory(entries: { category: CleanCategory }[]): Record<CleanCategory, number> {
@@ -106,9 +156,11 @@ function countByCategory(entries: { category: CleanCategory }[]): Record<CleanCa
 async function executeClean(opts: CleanOptions): Promise<void> {
   const videoRoot = requireVideoRoot();
   const manager = await StateManager.load(videoRoot);
-  // --delete-unaccepted discards a take whatever its media, so an absent variant goes too — left
-  // out, it would be a state row nothing can ever remove once no checkout holds its media.
-  const state = opts.deleteUnaccepted ? manager.getRecordedState() : manager.getState();
+  // Lineage is judged on the recorded state: an absent child still holds its parent. Only
+  // --delete-undecided makes an absent variant a candidate — left out, it would be a state row
+  // nothing can ever remove once no checkout holds its media.
+  const state = manager.getRecordedState();
+  const absent = opts.deleteUndecided ? new Set<string>() : manager.absentVariantIds();
 
   type CollectedVariant = {
     address: string;
@@ -131,9 +183,14 @@ async function executeClean(opts: CleanOptions): Promise<void> {
   // intact.
   let video: VideoDefinition | null = null;
   let animatic: AnimaticDefinition | null = null;
+  let definitionsComplete = false;
   const deadLeafKeys = new Set<string>();
   try {
-    ({ video, animatic } = await loadVideoAndAnimatic(videoRoot));
+    ({
+      video,
+      animatic,
+      complete: definitionsComplete,
+    } = await loadDefinitions(videoRoot, manager));
     // Both composition stages carry leaves, so both leave leftovers behind.
     for (const def of [video, animatic]) {
       if (!def) continue;
@@ -181,12 +238,14 @@ async function executeClean(opts: CleanOptions): Promise<void> {
   const collected: CollectedVariant[] = [];
   const kept: KeepReason[] = [];
   const consumers = acceptedConsumers(state);
+  const stalenessCache = manager.stalenessCache();
 
   for (const address of filteredAddresses) {
     const target = state.assets[address];
     if (!target) continue;
 
     for (const [variantId, variant] of Object.entries(target.variants ?? {})) {
+      if (absent.has(variantId)) continue;
       // An accepted take's patch source or input is not itself accepted, yet dropping it would
       // leave the accepted take with nothing to re-derive it from.
       if (isProtectedVariant(state, address, variantId, consumers)) {
@@ -214,8 +273,21 @@ async function executeClean(opts: CleanOptions): Promise<void> {
       }
 
       const isDeadLeaf = deadLeafKeys.has(`${address} ${variantId}`);
-      if (!opts.deleteUnaccepted && variant.file && !isDeadLeaf) {
-        kept.push("unaccepted");
+      const isDismissed = variant.status === "dismissed";
+      const isStaleLeftover =
+        definitionsComplete &&
+        !isDeadLeaf &&
+        variant.status === "none" &&
+        !!variant.file &&
+        isStaleBesideCurrentAccept(manager, address, variantId, stalenessCache);
+      if (
+        !opts.deleteUndecided &&
+        variant.file &&
+        !isDeadLeaf &&
+        !isDismissed &&
+        !isStaleLeftover
+      ) {
+        kept.push("undecided");
         continue;
       }
 
@@ -245,9 +317,13 @@ async function executeClean(opts: CleanOptions): Promise<void> {
           ? "cancelled"
           : isDeadLeaf
             ? "dead leftover"
-            : variant.file
-              ? "unaccepted"
-              : "incomplete";
+            : isDismissed
+              ? "dismissed"
+              : isStaleLeftover
+                ? "stale"
+                : variant.file
+                  ? "undecided"
+                  : "incomplete";
 
       collected.push({ address, variantId, category, paths });
     }
@@ -335,15 +411,19 @@ async function executeClean(opts: CleanOptions): Promise<void> {
   } else {
     if (collected.length > 0) {
       const confirmed = await StateManager.withLock(videoRoot, async (mgr) => {
-        const freshState = opts.deleteUnaccepted ? mgr.getRecordedState() : mgr.getState();
+        const freshState = mgr.getRecordedState();
         const freshActive = activeGenerationVariantIds(await jobManager.listJobs());
         // Re-derive dead composition/stem leftovers under the lock so a concurrent accept that
         // re-materialized one between collection and now is not deleted (a TOCTOU window). The
         // DEFINITIONS are re-read too: the confirmation prompt stands for as long as a human takes,
         // and a leaf the collection called dead may be live again under an edit made meanwhile.
-        // Best-effort, like the collection — a file that no longer loads leaves the stale answer in
-        // place rather than failing a clean already agreed to.
-        const fresh = await loadVideoAndAnimatic(videoRoot).catch(() => ({ video, animatic }));
+        // Reloaded, since a cached module would answer with the definition the collection read. A
+        // stage that no longer loads keeps what it would have decided.
+        const fresh = await loadDefinitions(videoRoot, mgr, { reload: true }).catch(() => ({
+          video,
+          animatic,
+          complete: false,
+        }));
         const freshDeadKeys = new Set<string>();
         // Both stages, exactly as the collection above — a stage missing here reads as "no longer
         // dead", so a dry run and the real delete disagree.
@@ -356,6 +436,19 @@ async function executeClean(opts: CleanOptions): Promise<void> {
             freshDeadKeys.add(`${address} ${variantId}`);
           }
         }
+        // Judged before any removal: a write invalidates the staleness memo.
+        const freshCache = mgr.stalenessCache();
+        const freshStaleKeys = new Set(
+          fresh.complete
+            ? collected
+                .filter(
+                  (e) =>
+                    e.category === "stale" &&
+                    isStaleBesideCurrentAccept(mgr, e.address, e.variantId, freshCache),
+                )
+                .map((e) => `${e.address} ${e.variantId}`)
+            : [],
+        );
         const toRemove: CollectedVariant[] = [];
         const freshConsumers = acceptedConsumers(freshState);
         for (const entry of collected) {
@@ -366,13 +459,16 @@ async function executeClean(opts: CleanOptions): Promise<void> {
           if (isProtectedVariant(freshState, entry.address, entry.variantId, freshConsumers)) {
             continue;
           }
-          // A file-bearing variant collected without --delete-unaccepted was collected only
-          // because it was a dead composition/stem leftover; require it to still be dead under
-          // the lock.
+          // A file-bearing variant collected without --delete-undecided was collected only
+          // because it was dismissed, stale beside a current accept, or a dead composition/stem
+          // leftover; require it to still be so under the lock.
+          const key = `${entry.address} ${entry.variantId}`;
           if (
-            !opts.deleteUnaccepted &&
+            !opts.deleteUndecided &&
             v.file &&
-            !freshDeadKeys.has(`${entry.address} ${entry.variantId}`)
+            v.status !== "dismissed" &&
+            !(v.status === "none" && freshStaleKeys.has(key)) &&
+            !freshDeadKeys.has(key)
           ) {
             continue;
           }
@@ -461,18 +557,19 @@ async function executeClean(opts: CleanOptions): Promise<void> {
 export function registerCleanCommand(program: Command): void {
   program
     .command("clean [address-scope]")
-    .description("Remove failed and cancelled variants")
-    .option("--delete-unaccepted", "Also delete unaccepted variants that hold generated media")
+    .description("Remove failed, cancelled and dismissed variants")
+    .option("--delete-undecided", "Also delete undecided variants that hold generated media")
     .option("--dry-run", "Preview what would be deleted without actually deleting")
     .option("--no", NO_FLAG_DESCRIPTION)
     .addHelpText(
       "after",
       `
-Removes failed/cancelled variants and dead composition/stem leftovers, freeing their
-generated files, jobs, logs, and caches. Accepted variants are always kept, and so is
-every take an accepted one was made from, and every unaccepted take that holds generated
+Removes failed/cancelled/dismissed variants, undecided takes gone stale beside an accept
+that is not, and dead composition/stem leftovers, freeing their generated files, jobs, logs,
+and caches. Accepted variants are always kept, and so is every take an accepted one was made
+from, and every other undecided take (neither accepted nor dismissed) that holds generated
 media — those are reported as kept.
---delete-unaccepted adds them to the deletion, discarding finished takes — including ones
+--delete-undecided adds them to the deletion, discarding finished takes — including ones
 whose media is not in this checkout.
 
 What will be deleted is itemized by class, printed under -y too. Deletion is confirmed
@@ -483,10 +580,10 @@ The optional address-scope argument narrows what is cleaned:
   <address-scope>          Clean only variants matching the prefix
 
 Examples:
-  konte clean                            Remove failed/cancelled variants everywhere
+  konte clean                            Remove failed/cancelled/dismissed variants everywhere
   konte clean video:shot.01              Clean only variants under shot 01
   konte clean --dry-run                  Preview what would be deleted
-  konte clean --delete-unaccepted        Also discard unaccepted takes that hold media`,
+  konte clean --delete-undecided         Also discard undecided takes that hold media`,
     )
     .action(async (addressScope: string | undefined, opts) => {
       await executeClean({ addressScope, ...opts });

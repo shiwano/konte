@@ -76,10 +76,10 @@ describe("clean command", () => {
     return { v1, v2, v3 };
   }
 
-  it("removes non-accepted variants with --delete-unaccepted", async () => {
+  it("removes undecided variants with --delete-undecided", async () => {
     const { v1, v2, v3 } = await setupVariants();
 
-    const { stdout } = await run(["clean", "--delete-unaccepted", "--yes"], projectDir);
+    const { stdout } = await run(["clean", "--delete-undecided", "--yes"], projectDir);
 
     expect(stdout).toContain("Removed 2 variant(s).");
 
@@ -101,7 +101,7 @@ describe("clean command", () => {
     await expect(fs.access(path.join(projectDir, `.konte/logs/${v2}.log`))).rejects.toThrow();
   });
 
-  it("keeps an unaccepted take an accepted one was made from, under --delete-unaccepted", async () => {
+  it("keeps an undecided take an accepted one was made from, under --delete-undecided", async () => {
     const { v1 } = await setupVariants();
     const upstream = "reference:cat";
     const sm = await StateManager.load(projectDir);
@@ -110,7 +110,7 @@ describe("clean command", () => {
     sm.getAssetState(address).variants![v1]!.inputFingerprints = { [upstream]: "h-cat" };
     await sm.save();
 
-    const { stdout } = await run(["clean", "--delete-unaccepted", "--yes"], projectDir);
+    const { stdout } = await run(["clean", "--delete-undecided", "--yes"], projectDir);
 
     expect(stdout).toContain("Removed 2 variant(s).");
     expect(stdout).toMatch(/an accepted take was made from it\s+1/);
@@ -118,10 +118,10 @@ describe("clean command", () => {
     expect(after.getAssetState(upstream).variants![source]).toBeDefined();
   });
 
-  it("reclaims a dead composition leftover without --delete-unaccepted", async () => {
+  it("reclaims a dead composition leftover without --delete-undecided", async () => {
     // A ghost: a composition variant whose upstream motion/voice were never generated, so the
     // current definition can no longer materialize it. It is pure garbage, so plain `clean`
-    // (no --delete-unaccepted) reclaims it even though it has a file.
+    // (no --delete-undecided) reclaims it even though it has a file.
     const compAddr = "video:shot.01#composition";
     const compSeg = "shot.01#composition";
     const sm = await StateManager.load(projectDir);
@@ -161,7 +161,7 @@ describe("clean command", () => {
     await fs.mkdir(path.join(thumbCache, "hash"), { recursive: true });
     await fs.writeFile(path.join(thumbCache, "hash/manifest.json"), "[]");
 
-    await run(["clean", "--delete-unaccepted", "--yes"], projectDir);
+    await run(["clean", "--delete-undecided", "--yes"], projectDir);
 
     await expect(fs.access(audioCache)).rejects.toThrow();
     await expect(fs.access(thumbCache)).rejects.toThrow();
@@ -214,17 +214,17 @@ describe("clean command", () => {
       return Object.keys(raw.assets[address].variants);
     }
 
-    it("is discarded with --delete-unaccepted", async () => {
+    it("is discarded with --delete-undecided", async () => {
       const { v1, v2 } = await setupVariants();
       await fs.rm(path.join(projectDir, `assets/video/${bareAddress}/${v2}`), { recursive: true });
 
-      const { stdout } = await run(["clean", "--delete-unaccepted", "--yes"], projectDir);
+      const { stdout } = await run(["clean", "--delete-undecided", "--yes"], projectDir);
 
       expect(stdout).toContain("Removed 2 variant(s).");
       expect(await recordedVariantIds()).toEqual([v1]);
     });
 
-    it("is left alone without --delete-unaccepted", async () => {
+    it("is left alone without --delete-undecided", async () => {
       const { v1, v2, v3 } = await setupVariants();
       await fs.rm(path.join(projectDir, `assets/video/${bareAddress}/${v2}`), { recursive: true });
 
@@ -235,15 +235,87 @@ describe("clean command", () => {
     });
   });
 
-  it("skips non-accepted variants with files without --delete-unaccepted", async () => {
+  it("removes a dismissed take with media without --delete-undecided", async () => {
+    const { v1, v2, v3 } = await setupVariants();
+    const sm = await StateManager.load(projectDir);
+    sm.setAccepted(address, v1, { dismiss: [v2] });
+    await sm.save();
+
+    const { stdout } = await run(["clean", "--yes"], projectDir);
+
+    expect(stdout).toContain("Removed 1 variant(s).");
+    expect(stdout).toMatch(/dismissed \(has media\)\s+1/);
+    expect(stdout).toMatch(/undecided take holding generated media\s+1/);
+    const after = await StateManager.load(projectDir);
+    const target = after.getAssetState(address);
+    expect(target.variants![v1]!).toBeDefined();
+    expect(target.variants![v2]!).toBeUndefined();
+    expect(target.variants![v3]!).toBeDefined();
+    await expect(
+      fs.access(path.join(projectDir, `assets/video/${bareAddress}/${v2}`)),
+    ).rejects.toThrow();
+  });
+
+  it("keeps a dismissed take whose patched child's media is absent", async () => {
+    const { v1, v2 } = await setupVariants();
+    const sm = await StateManager.load(projectDir);
+    sm.setAccepted(address, v1, { dismiss: [v2] });
+    const child = sm.reserveVariantId(address);
+    const childVariant = sm.getAssetState(address).variants![child]!;
+    childVariant.file = `assets/video/${bareAddress}/${child}/output.mp4`;
+    childVariant.derivedFrom = v2;
+    await sm.save();
+
+    const { stdout } = await run(["clean", "--yes"], projectDir);
+
+    expect(stdout).toContain("Nothing to clean.");
+    expect(stdout).toMatch(/source of a kept patch\s+1/);
+    const raw = JSON.parse(await fs.readFile(path.join(projectDir, "konte.state.json"), "utf-8"));
+    expect(Object.keys(raw.assets[address].variants)).toContain(v2);
+  });
+
+  it("removes a stale undecided take beside a current accept", async () => {
+    const { v1, v2, v3 } = await setupVariants();
+    const sm = await StateManager.load(projectDir);
+    sm.getAssetState(address).variants![v2]!.definitionHash = "an-older-definition";
+    await sm.save();
+
+    const { stdout } = await run(["clean", "--yes"], projectDir);
+
+    expect(stdout).toContain("Removed 1 variant(s).");
+    expect(stdout).toMatch(/stale beside a current accept \(has media\)\s+1/);
+    expect(stdout).toMatch(/undecided take holding generated media\s+1/);
+    const after = await StateManager.load(projectDir);
+    const target = after.getAssetState(address);
+    expect(target.variants![v1]!).toBeDefined();
+    expect(target.variants![v2]!).toBeUndefined();
+    expect(target.variants![v3]!).toBeDefined();
+  });
+
+  it("keeps a stale undecided take beside a stale accept", async () => {
+    const { v1, v2 } = await setupVariants();
+    const sm = await StateManager.load(projectDir);
+    sm.getAssetState(address).variants![v1]!.definitionHash = "an-older-definition";
+    sm.getAssetState(address).variants![v2]!.definitionHash = "an-older-definition";
+    await sm.save();
+
+    const { stdout } = await run(["clean", "--yes"], projectDir);
+
+    expect(stdout).toContain("Nothing to clean.");
+    expect(stdout).toMatch(/undecided take holding generated media\s+2/);
+    const after = await StateManager.load(projectDir);
+    expect(after.getAssetState(address).variants![v2]!).toBeDefined();
+  });
+
+  it("skips undecided variants with files without --delete-undecided", async () => {
     const { v1, v2, v3 } = await setupVariants();
 
     const { stdout } = await run(["clean"], projectDir);
 
     expect(stdout).toContain("Nothing to clean.");
     expect(stdout).toContain("Kept 2 variant(s):");
-    expect(stdout).toMatch(/unaccepted take holding generated media\s+2/);
-    expect(stdout).not.toContain("--delete-unaccepted");
+    expect(stdout).toMatch(/undecided take holding generated media\s+2/);
+    expect(stdout).not.toContain("--delete-undecided");
 
     const sm = await StateManager.load(projectDir);
     const target = sm.getAssetState(address);
@@ -255,10 +327,10 @@ describe("clean command", () => {
   it("does not delete in dry-run mode", async () => {
     const { v2, v3 } = await setupVariants();
 
-    const { stdout } = await run(["clean", "--delete-unaccepted", "--dry-run"], projectDir);
+    const { stdout } = await run(["clean", "--delete-undecided", "--dry-run"], projectDir);
 
     expect(stdout).toContain("Would remove 2 variant(s):");
-    expect(stdout).toMatch(/unaccepted \(has media\)\s+2/);
+    expect(stdout).toMatch(/undecided \(has media\)\s+2/);
 
     const sm = await StateManager.load(projectDir);
     const target = sm.getAssetState(address);
@@ -330,9 +402,9 @@ describe("clean command", () => {
     expect(target.variants![vid]!).toBeUndefined();
   });
 
-  it("reclaims a dead stem leftover without --delete-unaccepted", async () => {
+  it("reclaims a dead stem leftover without --delete-undecided", async () => {
     // A stem variant that no longer matches the live definition (an old take left after a re-accept)
-    // is pure garbage — reclaimed like a dead composition, even without --delete-unaccepted.
+    // is pure garbage — reclaimed like a dead composition, even without --delete-undecided.
     const stemAddr = "video:shot.01#stem";
     const rel = `assets/video/shot.01#stem`;
     const sm = await StateManager.load(projectDir);
@@ -378,7 +450,7 @@ describe("clean command", () => {
     const voiceVid = sm.reserveVariantId(voiceAddr);
     await sm.save();
 
-    const { stdout } = await run(["clean", "--delete-unaccepted", address, "--yes"], projectDir);
+    const { stdout } = await run(["clean", "--delete-undecided", address, "--yes"], projectDir);
 
     expect(stdout).toContain("Removed 2 variant(s).");
 
@@ -406,7 +478,7 @@ describe("clean command", () => {
       "data",
     );
 
-    const { stdout } = await run(["clean", "--delete-unaccepted", voiceAddr, "--yes"], projectDir);
+    const { stdout } = await run(["clean", "--delete-undecided", voiceAddr, "--yes"], projectDir);
 
     expect(stdout).toContain("Removed 1 variant(s).");
     const after = await StateManager.load(projectDir);
@@ -438,7 +510,7 @@ describe("clean command", () => {
   it("deletes without prompt when --yes is passed", async () => {
     const { v1, v2, v3 } = await setupVariants();
 
-    const { stdout } = await run(["clean", "--delete-unaccepted", "--yes"], projectDir);
+    const { stdout } = await run(["clean", "--delete-undecided", "--yes"], projectDir);
     expect(stdout).toContain("Removed");
 
     const sm = await StateManager.load(projectDir);
@@ -455,24 +527,24 @@ describe("clean command", () => {
     sm.getAssetState(address).variants![failed]!.metadata = { error: "boom" };
     await sm.save();
 
-    const { stdout } = await run(["clean", "--delete-unaccepted", "--yes"], projectDir);
+    const { stdout } = await run(["clean", "--delete-undecided", "--yes"], projectDir);
 
     expect(stdout).toContain("will be deleted:");
     expect(stdout).toMatch(/failed\s+1/);
-    expect(stdout).toMatch(/unaccepted \(has media\)\s+2/);
+    expect(stdout).toMatch(/undecided \(has media\)\s+2/);
   });
 
   it("does not prompt in --dry-run mode", async () => {
     await setupVariants();
 
-    const { stdout } = await run(["clean", "--delete-unaccepted", "--dry-run"], projectDir);
+    const { stdout } = await run(["clean", "--delete-undecided", "--dry-run"], projectDir);
     expect(stdout).toContain("Would remove");
   });
 
   it("aborts without deleting when --no is passed", async () => {
     const { v1, v2, v3 } = await setupVariants();
 
-    const { stdout } = await run(["clean", "--delete-unaccepted", "--no"], projectDir);
+    const { stdout } = await run(["clean", "--delete-undecided", "--no"], projectDir);
     expect(stdout).toContain("Aborted");
 
     const sm = await StateManager.load(projectDir);
@@ -485,10 +557,10 @@ describe("clean command", () => {
   it("errors instead of hanging when confirmation is needed non-interactively", async () => {
     const { v1, v2, v3 } = await setupVariants();
 
-    await expect(run(["clean", "--delete-unaccepted"], projectDir)).rejects.toMatchObject({
+    await expect(run(["clean", "--delete-undecided"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("CONFIRMATION_REQUIRED"),
     });
-    await expect(run(["clean", "--delete-unaccepted"], projectDir)).rejects.toMatchObject({
+    await expect(run(["clean", "--delete-undecided"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("will be deleted"),
     });
 

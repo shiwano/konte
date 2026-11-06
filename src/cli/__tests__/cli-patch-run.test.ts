@@ -138,7 +138,7 @@ describe("patch command", () => {
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId);
 
-      await run(["clean", "reference", "--delete-unaccepted", "-y"], projectDir);
+      await run(["clean", "reference", "--delete-undecided", "-y"], projectDir);
 
       expect(await variantsOf(projectDir, "reference:latentA")).not.toHaveProperty(sourceId);
       await expect(fs.access(path.join(projectDir, "patches", `${sourceId}.ts`))).rejects.toThrow();
@@ -151,7 +151,7 @@ describe("patch command", () => {
     it("keeps a source whose patch is still applying", async () => {
       const projectDir = await initPatchProject();
       const sourceId = await generateSource(projectDir);
-      // Unaccepted, so `clean --delete-unaccepted` would otherwise take it — acceptance protects it on its own.
+      // Undecided, so `clean --delete-undecided` would otherwise take it — acceptance protects it on its own.
       await StateManager.withLock(projectDir, async (m) => {
         m.getAssetState("reference:latentA").variants![sourceId]!.status = "none";
       });
@@ -159,7 +159,7 @@ describe("patch command", () => {
       await run(["patch", "apply", sourceId], projectDir);
 
       // No `job wait`: the chain is in flight.
-      const { stdout } = await run(["clean", "--delete-unaccepted", "-y"], projectDir);
+      const { stdout } = await run(["clean", "--delete-undecided", "-y"], projectDir);
       expect(stdout).toContain("has a patch applying");
       expect((await variantsOf(projectDir, "reference:latentA"))[sourceId]).toBeDefined();
     });
@@ -197,7 +197,7 @@ describe("patch command", () => {
       const [producedId] = (await patchedVariants(projectDir, sourceId))[0]!;
       await run(["accept", producedId], projectDir);
 
-      await run(["clean", "reference", "--delete-unaccepted", "-y"], projectDir);
+      await run(["clean", "reference", "--delete-undecided", "-y"], projectDir);
 
       const variants = await variantsOf(projectDir, "reference:latentA");
       expect(variants[sourceId]).toBeDefined();
