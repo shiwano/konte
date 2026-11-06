@@ -11,7 +11,7 @@ Conventions for the repo's own root `AGENTS.md` (the shipped workspace one is `t
 Keep:
 
 - design principles that guide changes across subsystems
-- non-obvious editing requirements — required companion edits and conventions
+- non-obvious editing requirements — required companion edits, the commit format, …
 - formats — address `<stage>:…`, `__konte:…__` placeholders, id prefixes (`v-…`)
 - CLI commands and public DSL API (`defineVideo`, `adapters.*`, `define*Asset`)
 - on-disk layout (`konte.state.json`, `.konte/…`, `review/…/handoffs/`)
@@ -23,6 +23,8 @@ Drop implementation detail the agent can read from the code:
 - error codes — say a command fails; the code is grep-able (`KonteErrorCode`)
 - "how it works" mechanics (which function computes what, `fs.watch`, libx264, …)
 - task-specific detail — a skill behind a one-line pointer; always-on rules (security) stay
+- a list of skills or guides — the harness loads every skill's description; point to a guide in one line from the paragraph on its topic
+- rationale outside Design Policy — the reason lives in the commit message
 
 An editing pass also adds a genuinely missing concept.
 
@@ -32,10 +34,10 @@ An editing pass also adds a genuinely missing concept.
 
 ## Prose vs bullets
 
-- Bullet list only for a genuine parallel enumeration — a set of terms, the asset kinds, a short conventions checklist.
+- Bullet list only for a genuine parallel enumeration — a set of terms (`### Terminology`), a short conventions checklist.
 - A single fact or multi-sentence explanation is prose — split a long paragraph at its logical seams.
-- One theme per `###` heading — if naming one needs "&", split it.
-- The skills' terse-first voice does not apply — AGENTS.md keeps conceptual prose; `konte-prose-trim`'s Cut list does.
+- One theme per `###` heading — never two unrelated topics under one.
+- The skills' terse-first voice does not apply — AGENTS.md keeps conceptual prose.
 - Use a structure diagram only when needed — limit it to editing targets and important boundaries.
 
 ## Verify before you write
@@ -43,6 +45,8 @@ An editing pass also adds a genuinely missing concept.
 - Check every fact against the code before adding/changing it — exact command/symbol/path and actual behavior; a wrong fact misleads on every task.
 - Fix stale references you pass on the way — renamed names, moved dirs, added rosters and fields.
 
-## Check the cost
+## Check before you ship
 
 - `bun run skills:check` charges the root `AGENTS.md` to every `dev-*` journey in `scripts/check-journeys.ts` — over budget, read its per-file counts and cut duplication or task-irrelevant detail across that journey.
+- A raise follows the budget rule in `scripts/check-journeys.ts`'s header.
+- Prose — run `konte-prose-trim` on what changed.
