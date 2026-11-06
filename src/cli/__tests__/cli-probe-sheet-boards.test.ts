@@ -108,7 +108,7 @@ describe("probe contact-sheet with mixed arguments", () => {
       .filter((line) => line.includes(" cells, "));
     expect(summaries).toEqual([
       expect.stringContaining("video: 2 cells"),
-      expect.stringContaining("stills: 1 cells"),
+      expect.stringContaining("takes: 1 cells"),
       expect.stringContaining("animatic: 1 cells"),
     ]);
     const sheets = stdout.trim().split("\n");
@@ -151,7 +151,7 @@ describe("probe contact-sheet with mixed arguments", () => {
       projectDir,
     );
     expect(stdout.trim().split("\n")).toHaveLength(2);
-    expect(stderr).toContain("stills: 1 cells");
+    expect(stderr).toContain("takes: 1 cells");
     expect(stderr).toContain("animatic: 1 cells");
   });
 

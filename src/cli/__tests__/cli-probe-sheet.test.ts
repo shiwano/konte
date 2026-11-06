@@ -326,6 +326,28 @@ export default defineVideo(direction, {
       stderr: expect.stringContaining("INVALID_OPTION"),
     });
   });
+
+  it("tiles a named clip take beside a still, sampled at --frames-per-take moments", async () => {
+    const projectDir = await initProject();
+    const { stderr } = await run(
+      ["probe", "contact-sheet", "reference:character", "reference:clip"],
+      projectDir,
+    );
+    expect(stderr).toContain("3 cells, 1 sheet(s)");
+
+    const more = await run(
+      ["probe", "contact-sheet", "reference:character", "reference:clip", "--frames-per-take", "4"],
+      projectDir,
+    );
+    expect(more.stderr).toContain("5 cells, 1 sheet(s)");
+  });
+
+  it("points a named audio take at probe audio", async () => {
+    const projectDir = await initProject();
+    await expect(
+      run(["probe", "contact-sheet", "reference:sfx"], projectDir),
+    ).rejects.toMatchObject({ stderr: expect.stringContaining("konte probe audio") });
+  });
 });
 
 describe("probe contact-sheet (reel scope)", () => {

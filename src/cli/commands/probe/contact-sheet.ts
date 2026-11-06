@@ -42,7 +42,7 @@ import {
   subtitleSampleTimes,
 } from "../../../core/frame-extract.js";
 import { buildShotCompositionHtml } from "../../../core/composition-builder.js";
-import type { StageDefinition } from "../../../core/types/index.js";
+import type { StageDefinition, VariantState } from "../../../core/types/index.js";
 import { probeMediaInfo } from "../../../core/video-probe.js";
 import { loadNeedsReviewTargets } from "../../../core/status-report.js";
 import { parseNumberOption } from "../../parse-option.js";
@@ -72,15 +72,15 @@ function isCompositionScope(arg: string): boolean {
   }
 }
 
-// One board per kind of argument, in the order each kind first appears. Stills, the animatic's
+// One board per kind of argument, in the order each kind first appears. Takes, the animatic's
 // compositions and the video's never share a sheet: a reel groups its cells per shot, and the two
 // stages' shot ids coincide.
-type Board = { kind: "stills" | ShotStage; args: string[] };
+type Board = { kind: "takes" | ShotStage; args: string[] };
 
 function splitBoards(args: readonly string[]): Board[] {
   const boards: Board[] = [];
   for (const arg of args) {
-    const kind = isCompositionScope(arg) ? parseReelScope(arg).stage : "stills";
+    const kind = isCompositionScope(arg) ? parseReelScope(arg).stage : "takes";
     const board = boards.find((b) => b.kind === kind);
     if (board) board.args.push(arg);
     else boards.push({ kind, args: [arg] });
@@ -329,9 +329,56 @@ async function buildCompositionCells(
   return { cells, skipped, groups };
 }
 
-// Cells per clip on the needs-review board — the composition board's in/out pair.
+// Cells per clip take — the composition board's in/out pair.
 const DEFAULT_FRAMES_PER_VARIANT = 2;
 const MAX_FRAMES_PER_VARIANT = 12;
+
+async function clipCells(
+  videoRoot: string,
+  variantId: string,
+  variant: VariantState,
+  absFile: string,
+  label: string,
+  opts: { framesPerVariant: number; force?: boolean },
+): Promise<ContactSheetCell[] | null> {
+  // The clip's own measurements — the stage's format need not match the file.
+  const media =
+    variant.media?.kind === "video"
+      ? variant.media
+      : await probeMediaInfo(absFile).catch(() => null);
+  if (media?.kind !== "video") return null;
+  const timestamps = compositionSampleTimes(media.durationSec, media.fps, opts.framesPerVariant);
+  // Keyed by the variant's own content hash, so a re-take never reads a previous one's frames.
+  const frameDir = path.join(
+    videoRoot,
+    ".konte",
+    "cache",
+    "contact-sheets",
+    "takes",
+    variantId,
+    variant.outputHash ?? "live",
+  );
+  const cells: ContactSheetCell[] = [];
+  for (const ts of timestamps) {
+    const framePath = path.join(
+      frameDir,
+      `at-${String(Math.round(ts * 1000)).padStart(8, "0")}ms.jpg`,
+    );
+    // A hashless variant has nothing to key a cache hit on — its bytes can move under the same
+    // path — so re-extract rather than trust what is there.
+    if (opts.force || !variant.outputHash || !existsSync(framePath)) {
+      await extractFrameAt(absFile, ts, framePath);
+    }
+    cells.push({
+      label: `${label} @${formatSeconds(ts, 2)}`,
+      variantId,
+      file: framePath,
+      outputHash: variant.outputHash,
+      aspect: media.width / media.height,
+    });
+  }
+  return cells;
+}
 
 /**
  * Cells for everything `konte status` reports under "Needs review" — generated and not yet judged.
@@ -453,44 +500,12 @@ async function buildNeedsReviewCells(
       continue;
     }
 
-    // The clip's own measurements — the stage's format need not match the file.
-    const media =
-      variant.media?.kind === "video"
-        ? variant.media
-        : await probeMediaInfo(absFile).catch(() => null);
-    if (media?.kind !== "video") {
+    const clip = await clipCells(videoRoot, item.variantId, variant, absFile, label, opts);
+    if (!clip) {
       skipped.push(`${item.address} (${item.variantId} could not be measured)`);
       continue;
     }
-    const timestamps = compositionSampleTimes(media.durationSec, media.fps, opts.framesPerVariant);
-    // Keyed by the variant's own content hash, so a re-take never reads a previous one's frames.
-    const frameDir = path.join(
-      videoRoot,
-      ".konte",
-      "cache",
-      "contact-sheets",
-      "takes",
-      item.variantId,
-      variant.outputHash ?? "live",
-    );
-    for (const ts of timestamps) {
-      const framePath = path.join(
-        frameDir,
-        `at-${String(Math.round(ts * 1000)).padStart(8, "0")}ms.jpg`,
-      );
-      // A hashless variant has nothing to key a cache hit on — its bytes can move under the same
-      // path — so re-extract rather than trust what is there.
-      if (opts.force || !variant.outputHash || !existsSync(framePath)) {
-        await extractFrameAt(absFile, ts, framePath);
-      }
-      cells.push({
-        label: `${label} @${formatSeconds(ts, 2)}`,
-        variantId: item.variantId,
-        file: framePath,
-        outputHash: variant.outputHash,
-        aspect: media.width / media.height,
-      });
-    }
+    cells.push(...clip);
   }
 
   if (cells.length === 0) {
@@ -504,38 +519,42 @@ async function buildNeedsReviewCells(
   return { cells, skipped };
 }
 
-async function buildStillCells(
+async function buildTakeCells(
   args: readonly string[],
   videoRoot: string,
+  opts: { framesPerVariant: number; force?: boolean },
 ): Promise<ContactSheetCell[]> {
   const manager = await StateManager.load(videoRoot);
   const definitions = await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
 
-  const toCell = (variantId: string): ContactSheetCell => {
+  type Take = { address: string; variantId: string; variant: VariantState; file: string };
+  const toTake = (variantId: string): Take => {
     const address = manager.resolveVariantAddress(variantId);
     const variant = manager.getAssetState(address).variants?.[variantId];
     if (!variant?.file) {
       throw new KonteError("VARIANT_NOT_FOUND", `Variant ${variantId} has no file`);
     }
-    // A scope drops non-images on the way in, but a named variant id or address skips that
-    // filter — so catch it here rather than handing ffmpeg a clip and tiling its first frame.
-    if (inferMediaType(variant.file) !== "image") {
-      throw new KonteError("INVALID_ASSET_TYPE", `${address} (${variantId}) is not a still image`);
+    // A scope drops everything but stills on the way in; a named variant id or address does not.
+    const mediaType = inferMediaType(variant.file);
+    if (mediaType === "audio") {
+      throw new KonteError(
+        "INVALID_ASSET_TYPE",
+        `${address} (${variantId}) is audio — listen with \`konte probe audio ${variantId}\``,
+      );
     }
-    return {
-      label: address,
-      variantId,
-      file: path.resolve(videoRoot, variant.file),
-      outputHash: variant.outputHash,
-      aspect:
-        variant.media?.kind === "image" ? variant.media.width / variant.media.height : undefined,
-    };
+    if (mediaType !== "image" && mediaType !== "video") {
+      throw new KonteError(
+        "INVALID_ASSET_TYPE",
+        `${address} (${variantId}) is neither a still nor a clip`,
+      );
+    }
+    return { address, variantId, variant, file: path.resolve(videoRoot, variant.file) };
   };
 
   // Resolve one argument at a time and sort within it: a scope's own sweep needs the shot
   // order, but the order the arguments were written in is the caller's, and it is the only
   // way to lay out ids that carry no number. Sorting the whole set would discard it.
-  const cells: ContactSheetCell[] = [];
+  const takes: Take[] = [];
   const seen = new Set<string>();
   const resolvedVariants: ResolvedVariant[] = [];
   const onScreen = new Set<string>();
@@ -545,7 +564,7 @@ async function buildStillCells(
     for (const variant of resolved) onScreen.add(variant.variantId);
     const group = variantIds.filter((id) => !seen.has(id));
     for (const id of group) seen.add(id);
-    cells.push(...group.map(toCell).sort((a, b) => compareNatural(a.label, b.label)));
+    takes.push(...group.map(toTake).sort((a, b) => compareNatural(a.address, b.address)));
   }
   await printResolutionNotices({
     videoRoot,
@@ -556,17 +575,39 @@ async function buildStillCells(
 
   // Two variants of one address (comparing rerolls) would otherwise carry the same label and
   // be unattributable in the image.
-  const labelCounts = new Map<string, number>();
-  for (const cell of cells) labelCounts.set(cell.label, (labelCounts.get(cell.label) ?? 0) + 1);
-  for (const cell of cells) {
-    if ((labelCounts.get(cell.label) ?? 0) <= 1) continue;
-    cell.label = `${cell.label} ${cell.variantId}`;
-    const address = manager.resolveVariantAddress(cell.variantId!);
-    if (manager.getAssetState(address).variants?.[cell.variantId!]?.status === "accepted") {
-      cell.label = `${cell.label} (accepted)`;
-    } else if (onScreen.has(cell.variantId!)) {
-      cell.label = `${cell.label} (resolved)`;
+  const addressCounts = new Map<string, number>();
+  for (const take of takes) {
+    addressCounts.set(take.address, (addressCounts.get(take.address) ?? 0) + 1);
+  }
+  const cells: ContactSheetCell[] = [];
+  for (const take of takes) {
+    let label = take.address;
+    if ((addressCounts.get(take.address) ?? 0) > 1) {
+      label = `${label} ${take.variantId}`;
+      if (take.variant.status === "accepted") label = `${label} (accepted)`;
+      else if (onScreen.has(take.variantId)) label = `${label} (resolved)`;
     }
+    if (inferMediaType(take.file) === "image") {
+      cells.push({
+        label,
+        variantId: take.variantId,
+        file: take.file,
+        outputHash: take.variant.outputHash,
+        aspect:
+          take.variant.media?.kind === "image"
+            ? take.variant.media.width / take.variant.media.height
+            : undefined,
+      });
+      continue;
+    }
+    const clip = await clipCells(videoRoot, take.variantId, take.variant, take.file, label, opts);
+    if (!clip) {
+      throw new KonteError(
+        "INVALID_ASSET_TYPE",
+        `${take.address} (${take.variantId}) is a clip ffprobe could not measure`,
+      );
+    }
+    cells.push(...clip);
   }
   return cells;
 }
@@ -714,10 +755,7 @@ export function registerProbeContactSheetCommand(program: Command): void {
       "--frames-per-shot <n>",
       `Cells per shot on a video scope (default ${DEFAULT_FRAMES_PER_SHOT})`,
     )
-    .option(
-      "--frames-per-take <n>",
-      `Cells per clip with --needs-review (default ${DEFAULT_FRAMES_PER_VARIANT})`,
-    )
+    .option("--frames-per-take <n>", `Cells per clip take (default ${DEFAULT_FRAMES_PER_VARIANT})`)
     .option("--force", "Re-render even if a matching sheet is cached")
     .addHelpText(
       "after",
@@ -727,8 +765,9 @@ character consistency, screen direction, palette drift.
 
 Takes one or more (in any mix) of a variant id (v-…), an address (the take it resolves to, then
 every ready take awaiting a verdict beside it), or an address-scope that sweeps every still under
-it. Stills only: a scope skips non-image variants, and a named variant id or address that is not one
-is rejected. A patch chain's steps are swept only by a patch scope (<stage>:patch…). An address
+it. A scope sweeps stills only; a named variant id or address that is a clip contributes
+${DEFAULT_FRAMES_PER_VARIANT} cells (--frames-per-take, 1..${MAX_FRAMES_PER_VARIANT}), each carrying the moment it was taken at. A named
+audio take is rejected. A patch chain's steps are swept only by a patch scope (<stage>:patch…). An address
 contributing several takes marks the one it resolves to (accepted) or (resolved); a named variant id
 stays one cell.
 
@@ -805,7 +844,7 @@ Examples:
         }
 
         const boards = opts.needsReview ? [] : splitBoards(variantOrScopes);
-        const composition = boards.some((board) => board.kind !== "stills");
+        const composition = boards.some((board) => board.kind !== "takes");
 
         if (opts.maxCells !== undefined && opts.cellWidth !== undefined) {
           throw new KonteError(
@@ -841,10 +880,14 @@ Examples:
             "--frames-per-shot applies to a reel scope (animatic, video, <stage>:shot.<id>) only",
           );
         }
-        if (!opts.needsReview && opts.framesPerTake !== undefined) {
+        if (
+          !opts.needsReview &&
+          opts.framesPerTake !== undefined &&
+          !boards.some((board) => board.kind === "takes")
+        ) {
           throw new KonteError(
             "INVALID_OPTION",
-            "--frames-per-take applies to --needs-review only",
+            "--frames-per-take applies to --needs-review or a named take, address or address-scope only",
           );
         }
         // Only the explicit options can be checked up front; the board's panel count is not known
@@ -888,8 +931,11 @@ Examples:
         // fails the call before a sheet is written.
         const built = [];
         for (const board of boards) {
-          if (board.kind === "stills") {
-            const cells = await buildStillCells(board.args, videoRoot);
+          if (board.kind === "takes") {
+            const cells = await buildTakeCells(board.args, videoRoot, {
+              framesPerVariant,
+              force: opts.force,
+            });
             built.push({ board, cells, skipped: [], groups: null });
             continue;
           }
@@ -906,7 +952,7 @@ Examples:
           const plan = await planSheets(entry.cells, {
             args: entry.board.args,
             groups: entry.groups,
-            framesPerVariant: null,
+            framesPerVariant: entry.board.kind === "takes" ? framesPerVariant : null,
             maxCells,
             cellWidth,
           });
