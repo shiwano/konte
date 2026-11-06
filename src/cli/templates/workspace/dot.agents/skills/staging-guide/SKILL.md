@@ -53,6 +53,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 ## Stage the cut
 
 - Eyelines, screen direction and edges bind every cut, shown geography or not — the 180° line, gaze axes, the entrance/exit directions the `action` implies, and wardrobe/props agreeing across adjacent same-space shots. A journey "toward" something holds one direction across every panel and shot.
+- A gaze or turn toward someone out of frame goes to the side the `offscreen:` line names (`konte inspect animatic:shot.<id> --prompts`).
 - The 180° line is checked between two shots in one place — a single subject re-framed from the other side settles no pair, so it is yours to catch.
 - Matching backgrounds is owed only where two frames share geography on screen (a continuous-space stretch, a re-established `wide`) — there, pin the look on a `reference.tsx` asset and compare the adjacent panels at the board before paying for motion.
 - Change two of size / angle / subject on every cut — unless a match cut is the point; a cut that changes only one reads as a jump, and cutting back to one setup without a shot between flattens the sequence.

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { checkDirection, setupView, validateDirectionStructure } from "../direction.js";
+import {
+  checkDirection,
+  offscreenSides,
+  setupView,
+  validateDirectionStructure,
+} from "../direction.js";
 import type { StagingStageState } from "../direction.js";
 import type { PinWindow } from "../direction-check.js";
 import { defineDirection } from "../dsl/direction.js";
@@ -210,6 +215,74 @@ describe("the accumulated order", () => {
       ],
     });
     expect(checkDirection(dir).active.filter((f) => f.code.startsWith("lineup-"))).toEqual([]);
+  });
+});
+
+describe("offscreenSides", () => {
+  const sides = (shots: NarrativeShot[]) => offscreenSides(direction({ shots }));
+
+  it("places a figure the frame does not hold on the side the place's order puts them", () => {
+    const out = sides([
+      shot("01", "stern", { lineup: ["mother", "ane", "imouto"] }),
+      shot("02", "deck", { lineup: ["ane"] }),
+    ]);
+    expect(out.get("02/main")).toEqual([
+      { id: "mother", side: "left" },
+      { id: "imouto", side: "right" },
+    ]);
+  });
+
+  it("holds the order across a cutaway that does not hold them", () => {
+    const out = sides([
+      shot("01", "stern", { lineup: ["mother", "ane"] }),
+      shot("02", "shore", { lineup: [] }),
+      shot("03", "deck", { lineup: ["ane"] }),
+    ]);
+    expect(out.get("03/main")).toEqual([{ id: "mother", side: "left" }]);
+  });
+
+  it("leaves out a figure between two the frame holds, and every figure of a flipped frame", () => {
+    const out = sides([
+      shot("01", "stern", { lineup: ["mother", "ane", "imouto"] }),
+      shot("02", "deck", { lineup: ["mother", "imouto"] }),
+      shot("03", "deck", { lineup: ["imouto", "mother"] }),
+    ]);
+    expect(out.has("02/main")).toBe(false);
+    expect(out.has("03/main")).toBe(false);
+  });
+
+  it("leaves out a figure last seen in another place", () => {
+    const out = sides([
+      shot("01", "stern", { lineup: ["mother", "ane"] }),
+      shot("02", "shore", { lineup: ["mother"] }),
+      shot("03", "deck", { lineup: ["ane"] }),
+    ]);
+    expect(out.has("03/main")).toBe(false);
+  });
+
+  it("opens a cutin beside the main frame's opening, not its lineupTo", () => {
+    const out = sides([
+      shot("01", "stern", { lineup: ["mother", "ane"] }),
+      shot("02", "stern", {
+        lineup: ["mother", "ane"],
+        lineupTo: ["ane", "mother"],
+        cutin: { setup: "deck", lineup: ["mother"] },
+      } as Partial<NarrativeShot>),
+    ]);
+    expect(out.get("02/cutin")).toEqual([{ id: "ane", side: "right" }]);
+  });
+
+  it("forgets a figure who walked out of frame, and every place on a story-time jump", () => {
+    const walked = sides([
+      shot("01", "stern", { lineup: ["mother", "ane"], lineupTo: ["ane"] }),
+      shot("02", "deck", { lineup: ["ane"] }),
+    ]);
+    expect(walked.has("02/main")).toBe(false);
+    const jumped = sides([
+      shot("01", "stern", { lineup: ["mother", "ane"] }),
+      shot("02", "deck", { lineup: ["ane"], join: "jump-forward" }),
+    ]);
+    expect(jumped.has("02/main")).toBe(false);
   });
 });
 

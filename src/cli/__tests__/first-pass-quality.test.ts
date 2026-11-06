@@ -81,8 +81,18 @@ describe("motion intent lanes", () => {
       {} as StateManager,
     )("video:shot.01.motion");
     expect(intent?.frames).toEqual([
-      { lane: "main", passing: [], hinge: [{ name: "the desk", notInSet: false }] },
-      { lane: "cutin", passing: ["crow (crow)"], hinge: [{ name: "the desk", notInSet: true }] },
+      {
+        lane: "main",
+        passing: [],
+        offscreen: null,
+        hinge: [{ name: "the desk", notInSet: false }],
+      },
+      {
+        lane: "cutin",
+        passing: ["crow (crow)"],
+        offscreen: null,
+        hinge: [{ name: "the desk", notInSet: true }],
+      },
     ]);
     expect(formatMotionIntent(intent!)).toEqual([
       "  action    crow crosses the desk",

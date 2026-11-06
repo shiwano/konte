@@ -9,7 +9,7 @@ The caller gives you the path to `animatic.tsx`. Findings land only on panels ma
 
 ## Read only this
 
-- `konte inspect animatic --prompts --pending-generation` — each panel's prompt, and above it the shot's `action:`, `join:`, `lineup:`, `passing:`, `set:` and `hinge:` lines; its `Keyframes:` block names the addresses behind each panel, and its `plate:` line the plate the panel stands on — that line, never the picture, says which plate it is.
+- `konte inspect animatic --prompts --pending-generation` — each panel's prompt, and above it the shot's `action:`, `join:`, `lineup:`, `offscreen:` (the side each figure out of frame stands on), `passing:`, `set:` and `hinge:` lines; its `Keyframes:` block names the addresses behind each panel, and its `plate:` line the plate the panel stands on — that line, never the picture, says which plate it is.
 - `konte probe contact-sheet animatic:plate` — the plates. Look at the one each panel stands on.
 - `konte probe contact-sheet animatic` for shots that already hold a take — the frame the cut comes from or goes to.
 
@@ -50,7 +50,7 @@ Report `No findings.` alone when nothing survives; otherwise every finding kept,
 - Composition left to the model (`lineup-only`) — the prompt says only who is on which side; it decides nothing about facing, what fills the frame they leave open, or what is nearest the lens.
 - Composition against the action (`hides-action`) — a `hinge:` is peripheral, hidden, too small to warrant the action, off-path or implausibly placed.
 - Flat run (`flat-run`) — adjacent panels repeat the same size, camera height, placement and facing with no job and no `join:` between them, or a run of panels uses one formula throughout.
-- Screen direction (`direction-break`) — a figure's side or facing flips across a cut with no move written for it and no `jump-back` / `jump-forward` `join:` into it, or a gaze does not meet what it looks at in the neighbouring shot, or hand side/grip disagrees. The cut out of a shot with a `coverage:` line is never a finding.
+- Screen direction (`direction-break`) — a figure's side or facing flips across a cut with no move written for it and no `jump-back` / `jump-forward` `join:` into it, or a gaze does not meet what it looks at in the neighbouring shot, or a gaze toward a figure out of frame goes to another side than `offscreen:` names, or hand side/grip disagrees. The cut out of a shot with a `coverage:` line is never a finding.
 - Plate clash (`set-clash`) — the prompt puts a figure where the plate's landmark stands, or asks for a part of the place the plate does not show.
 - Turned camera (`view-turned`) — the plate faces another way than the view image its setup stands on (`konte probe contact-sheet reference:view.<location>`, `front` being `reference:<location>`): the desk's far side. Its `smallest-fix` names the plate, regenerated from that view image.
 - Camera the plate lacks (`off-plate-camera`) — the prompt names a size or camera height the plate does not have: a figure from the waist up on a plate at full-figure scale, "from low on the ground" on a plate at eye level.

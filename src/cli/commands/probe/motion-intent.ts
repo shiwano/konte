@@ -1,9 +1,15 @@
 import { parseAddress, patchSourceVariantIdOf } from "../../../core/address.js";
-import { collectArcShots, collectShotFrames, type ShotFrame } from "../../../core/direction.js";
+import {
+  collectArcShots,
+  collectShotFrames,
+  offscreenSides,
+  type ShotFrame,
+} from "../../../core/direction.js";
 import { deriveShotHinges, type Direction } from "../../../core/dsl/direction.js";
 import type { StateManager } from "../../../core/state/index.js";
 import type { AnimaticDefinition } from "../../../core/types/index.js";
 import { loadAnimatic } from "../../../core/loader.js";
+import { formatOffscreen } from "../../../core/prompt-shots.js";
 import { loadDirectionIfPresent } from "../../../core/stage-definitions.js";
 
 /** One panel's declared movement out of its frame. At least one side is present. */
@@ -30,6 +36,7 @@ interface MotionIntent {
     lane: ShotFrame["lane"];
     hinge: ReturnType<typeof deriveShotHinges>;
     passing: string[];
+    offscreen: string | null;
   }[];
 }
 
@@ -72,6 +79,7 @@ export function createMotionIntentLoader(
     actions: Map<string, string>;
     direction: Direction | null;
     boundaries: Map<string, ShotBoundary>;
+    offscreen: ReturnType<typeof offscreenSides>;
     animatic: AnimaticDefinition | null;
   }> | null = null;
 
@@ -79,6 +87,7 @@ export function createMotionIntentLoader(
     actions: Map<string, string>;
     direction: Direction | null;
     boundaries: Map<string, ShotBoundary>;
+    offscreen: ReturnType<typeof offscreenSides>;
     animatic: AnimaticDefinition | null;
   }> => {
     sources ??= (async () => {
@@ -90,7 +99,8 @@ export function createMotionIntentLoader(
         direction ? collectArcShots(direction).map((s) => [s.id, s.action]) : [],
       );
       const boundaries = direction ? shotBoundaries(direction) : new Map<string, ShotBoundary>();
-      return { actions, boundaries, animatic, direction };
+      const offscreen = direction ? offscreenSides(direction) : new Map();
+      return { actions, boundaries, offscreen, animatic, direction };
     })();
     return sources;
   };
@@ -117,7 +127,7 @@ export function createMotionIntentLoader(
       return null;
     }
 
-    const { actions, boundaries, animatic, direction } = await load();
+    const { actions, boundaries, offscreen, animatic, direction } = await load();
     const shot = animatic?.shots.find((s) => s.id === shotId);
     const panels = [...(shot?.panels ?? []), ...(shot?.cutin?.panels ?? [])];
     const moves = panels
@@ -126,14 +136,19 @@ export function createMotionIntentLoader(
     const action = actions.get(shotId) ?? null;
     if (action == null && moves.length === 0) return null;
     const frames = direction ? collectShotFrames(direction).filter((f) => f.shotId === shotId) : [];
-    const frameIntents = frames.map((frame) => ({
-      lane: frame.lane,
-      hinge: deriveShotHinges(direction!, action ?? "", frame.setup),
-      passing: (frame.passing ?? []).map((id) => {
-        const name = direction?.characters?.[id]?.name;
-        return name ? `${name} (${id})` : id;
-      }),
-    }));
+    const label = (id: string): string => {
+      const name = direction?.characters?.[id]?.name;
+      return name ? `${name} (${id})` : id;
+    };
+    const frameIntents = frames.map((frame) => {
+      const figures = offscreen.get(`${frame.shotId}/${frame.lane}`);
+      return {
+        lane: frame.lane,
+        hinge: deriveShotHinges(direction!, action ?? "", frame.setup),
+        passing: (frame.passing ?? []).map(label),
+        offscreen: figures ? formatOffscreen(figures, label) : null,
+      };
+    });
     return {
       shotId,
       action,
@@ -154,6 +169,7 @@ export function formatMotionIntent(intent: MotionIntent): string[] {
     const suffix = intent.frames!.some((f) => f.lane === "cutin") ? ` (${frame.lane})` : "";
     if (frame.passing.length)
       lines.push(`  ${`passing${suffix}`.padEnd(9)} ${frame.passing.join(" | ")}`);
+    if (frame.offscreen) lines.push(`  ${`offscreen${suffix}`.padEnd(9)} ${frame.offscreen}`);
     if (frame.hinge.length)
       lines.push(
         `  ${`hinge${suffix}`.padEnd(9)} ${frame.hinge.map((h) => `${h.name}${h.notInSet ? " (not in set)" : ""}`).join(" | ")}`,

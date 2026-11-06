@@ -56,6 +56,8 @@ import {
   checkPlateNaming,
   checkLandmarkNaming,
   frameSubject,
+  offscreenFigures,
+  type OffscreenFigure,
   checkPropNaming,
   checkProps,
   checkSetups,
@@ -838,6 +840,10 @@ function lineupShots(direction: Direction): LineupShot[] {
     ...(continuedBy.has(frameKey(frame)) ? { continuedBy: continuedBy.get(frameKey(frame)) } : {}),
     ...(frame.coverage ? { coverage: true as const } : {}),
   }));
+}
+
+export function offscreenSides(direction: Direction): Map<string, OffscreenFigure[]> {
+  return offscreenFigures(lineupShots(direction));
 }
 
 const frameKey = (frame: Pick<ShotFrame, "shotId" | "lane">): string =>

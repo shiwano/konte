@@ -60,7 +60,7 @@ describe("shotBoundaries", () => {
 });
 
 describe("formatMotionIntent", () => {
-  it("prints hinges with set membership and passers beside the action", () => {
+  it("prints hinges with set membership, passers and who stands out of frame beside the action", () => {
     expect(
       formatMotionIntent({
         shotId: "01",
@@ -75,12 +75,14 @@ describe("formatMotionIntent", () => {
               { name: "bun", notInSet: false },
             ],
             passing: ["crow (crow)"],
+            offscreen: "fox (fox) screen left",
           },
         ],
       }),
     ).toEqual([
       "  action    cross a gap",
       "  passing   crow (crow)",
+      "  offscreen fox (fox) screen left",
       "  hinge     gap (not in set) | bun",
     ]);
   });

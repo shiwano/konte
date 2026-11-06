@@ -1,4 +1,11 @@
-import { collectShots, continuousFrameKeys, setupHolds, setupView } from "./direction.js";
+import {
+  collectShots,
+  continuousFrameKeys,
+  offscreenSides,
+  setupHolds,
+  setupView,
+} from "./direction.js";
+import type { OffscreenFigure } from "./direction-check.js";
 import {
   type Direction,
   type View,
@@ -52,6 +59,8 @@ export interface PromptShots {
   action: Map<string, string>;
   hinge: Map<string, ReturnType<typeof deriveShotHinges>>;
   passing: Map<string, readonly string[]>;
+  // Keyed as `passing` is: who stands out of the frame at its opening, and on which side.
+  offscreen: Map<string, readonly OffscreenFigure[]>;
   span: Map<string, string>;
   lineup: Map<string, { lineup: readonly string[]; lineupTo: readonly string[] | null }>;
   // What the shot's frame carries of its set, left to right — the setup's `holds`, resolved to the
@@ -85,6 +94,13 @@ export interface PromptShots {
   label: (id: string) => string;
 }
 
+export function formatOffscreen(
+  figures: readonly OffscreenFigure[],
+  label: (id: string) => string,
+): string {
+  return figures.map((f) => `${label(f.id)} screen ${f.side}`).join(" | ");
+}
+
 export async function loadPromptShots(videoRoot: string): Promise<PromptShots | null> {
   const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
   if (!direction) return null;
@@ -116,6 +132,11 @@ export async function loadPromptShots(videoRoot: string): Promise<PromptShots | 
   const hinge: PromptShots["hinge"] = new Map();
   const passing: PromptShots["passing"] = new Map();
   const span = new Map<string, string>();
+  const offscreen: PromptShots["offscreen"] = new Map();
+  for (const [key, figures] of offscreenSides(direction)) {
+    const [shotId, lane] = key.split("/") as [string, string];
+    offscreen.set(lane === "cutin" ? `${shotId}.cutin` : shotId, figures);
+  }
   const timeline = resolveDirectionTimeline(direction);
   const timings = timeline.timings;
   for (const shot of collectShots(direction)) {
@@ -168,6 +189,7 @@ export async function loadPromptShots(videoRoot: string): Promise<PromptShots | 
     action,
     hinge,
     passing,
+    offscreen,
     span,
     lineup,
     set,

@@ -1193,6 +1193,101 @@ const sameOrder = (a: readonly string[], b: readonly string[]): boolean =>
 const formatFrame = (lineup: readonly string[]): string =>
   lineup.length === 0 ? "a frame holding no one" : lineup.join(", ");
 
+// A jump in either frame moves story time for the whole shot, so the places empty before its first
+// frame is read.
+function opensJump(shots: readonly LineupShot[], index: number): boolean {
+  const shot = shots[index]!;
+  if (index > 0 && shots[index - 1]!.shotId === shot.shotId) return false;
+  let end = index;
+  while (end < shots.length && shots[end]!.shotId === shot.shotId) end++;
+  return shots.slice(index, end).some((b) => b.join === "jump-back" || b.join === "jump-forward");
+}
+
+// Returns the cycle the writes closed, after restarting the place from the order this frame leaves,
+// so later shots do not report the same ring again.
+function writeFrame(state: PairState, shot: LineupShot): string[] | null {
+  writePairs(state, shot.lineup, shot.shotId);
+  if (shot.lineupTo) {
+    const exits = shot.lineupTo;
+    dropSubjects(state, new Set(shot.lineup.filter((id) => !exits.includes(id))));
+    writePairs(state, exits, shot.shotId);
+  }
+  const cycle = findCycle(state);
+  if (cycle) {
+    state.clear();
+    writePairs(state, shot.lineupTo ?? shot.lineup, shot.shotId);
+  }
+  return cycle;
+}
+
+export type OffscreenFigure = { id: string; side: "left" | "right" };
+
+/**
+ * Who stands out of each frame and on which side, keyed `<shotId>/<lane>` — read off the same
+ * per-place accumulation as `checkLineups`, at the frame's opening. A subject the place has placed,
+ * last seen in this place, and not held by the frame is off screen on the side every pair it has
+ * with a held subject puts it; one between two held subjects, or with no pair to a held one, is left
+ * out, and so is every subject of a frame that flips the place's order. Both lanes of a shot read
+ * before either writes: a cutin opens beside the main frame's opening, not its `lineupTo`.
+ */
+export function offscreenFigures(shots: readonly LineupShot[]): Map<string, OffscreenFigure[]> {
+  const out = new Map<string, OffscreenFigure[]>();
+  const byLocation = new Map<string, PairState>();
+  const lastSeenIn = new Map<string, string>();
+  const stateOf = (location: string): PairState => {
+    const state = byLocation.get(location) ?? new Map();
+    byLocation.set(location, state);
+    return state;
+  };
+  for (let index = 0; index < shots.length; ) {
+    if (opensJump(shots, index)) byLocation.clear();
+    let end = index;
+    while (end < shots.length && shots[end]!.shotId === shots[index]!.shotId) end++;
+    const frames = shots.slice(index, end);
+    index = end;
+
+    for (const shot of frames) {
+      if (shot.location === undefined) continue;
+      const figures = readOffscreen(
+        stateOf(shot.location),
+        shot.lineup,
+        (id) => lastSeenIn.get(id) === shot.location,
+      );
+      if (figures.length > 0) out.set(`${shot.shotId}/${shot.lane}`, figures);
+    }
+    for (const shot of frames) {
+      if (shot.location === undefined) continue;
+      writeFrame(stateOf(shot.location), shot);
+      for (const id of [...shot.lineup, ...(shot.lineupTo ?? []), ...(shot.passing ?? [])]) {
+        lastSeenIn.set(id, shot.location);
+      }
+      if (shot.coverage) byLocation.delete(shot.location);
+    }
+  }
+  return out;
+}
+
+function readOffscreen(
+  state: PairState,
+  lineup: readonly string[],
+  isHere: (id: string) => boolean,
+): OffscreenFigure[] {
+  const agrees = lineupPairs(lineup).every(({ a, key }) => (state.get(key)?.left ?? a) === a);
+  if (!agrees) return [];
+  return placedSubjects(state)
+    .flatMap((id): OffscreenFigure[] => {
+      if (lineup.includes(id) || !isHere(id)) return [];
+      const sides = new Set(
+        lineup.flatMap((held) => {
+          const pair = state.get(pairKey(id, held));
+          return pair ? [pair.left === id ? "left" : "right"] : [];
+        }),
+      );
+      return sides.size === 1 ? [{ id, side: [...sides][0] as OffscreenFigure["side"] }] : [];
+    })
+    .sort((a, b) => (a.side === b.side ? 0 : a.side === "left" ? -1 : 1));
+}
+
 /**
  * The staging findings that read the direction's declared lineups, plus the two the board feeds when
  * the caller has it. Pure: the caller flattens the arc tree and resolves each shot's location.
@@ -1227,16 +1322,7 @@ export function checkLineups(
   const byLocation = new Map<string, PairState>();
 
   for (const [index, shot] of shots.entries()) {
-    // A jump in either frame moves story time for the whole shot, so the places empty before its
-    // first frame is read.
-    if (index === 0 || shots[index - 1]!.shotId !== shot.shotId) {
-      let end = index;
-      while (end < shots.length && shots[end]!.shotId === shot.shotId) end++;
-      const frames = shots.slice(index, end);
-      if (frames.some((b) => b.join === "jump-back" || b.join === "jump-forward")) {
-        byLocation.clear();
-      }
-    }
+    if (opensJump(shots, index)) byLocation.clear();
 
     const subject = frameSubject(shot);
     const name = frameName(shot);
@@ -1313,14 +1399,7 @@ export function checkLineups(
       });
     }
 
-    writePairs(state, shot.lineup, shot.shotId);
-    if (shot.lineupTo) {
-      const exits = shot.lineupTo;
-      dropSubjects(state, new Set(shot.lineup.filter((id) => !exits.includes(id))));
-      writePairs(state, exits, shot.shotId);
-    }
-
-    const cycle = findCycle(state);
+    const cycle = writeFrame(state, shot);
     if (cycle) {
       findings.push({
         code: "lineup-inconsistent",
@@ -1330,11 +1409,6 @@ export function checkLineups(
           `${cycle.join(" → ")} → ${cycle[0]}. Shots that never share a frame can each read right ` +
           `and still be impossible together — one of them has the place's seating wrong`,
       });
-      // The pairs are unusable now, so the accumulation restarts from the order this frame leaves —
-      // one list, so a total order, so nothing cyclic survives. Without this, every later shot in
-      // the place reports the same ring again.
-      state.clear();
-      writePairs(state, shot.lineupTo ?? shot.lineup, shot.shotId);
     }
     if (shot.coverage) byLocation.delete(shot.location);
   }

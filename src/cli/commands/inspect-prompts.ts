@@ -15,7 +15,12 @@ import { panelRole } from "../../core/direction.js";
 import { spellingsOf } from "../../core/dsl/respell.js";
 import { selectGenerationAssets } from "../../core/generation-selection.js";
 import type { PromptOccurrence } from "../../core/prompt-check.js";
-import { loadPromptShots, type PlateFrame, type PromptShots } from "../../core/prompt-shots.js";
+import {
+  formatOffscreen,
+  loadPromptShots,
+  type PlateFrame,
+  type PromptShots,
+} from "../../core/prompt-shots.js";
 import { loadVideoAndAnimatic } from "../../core/stage-definitions.js";
 import type { AnimaticDefinition } from "../../core/types/animatic.js";
 import type { PanelDefinition, PanelLane, Respelling } from "../../core/types/definition.js";
@@ -357,6 +362,8 @@ function promptShotLines(
   const frameId = cutin ? `${shotId}.cutin` : shotId;
   const passers = promptShots.passing.get(frameId);
   if (passers?.length) out.push(`passing: ${order(passers)}`);
+  const offscreen = promptShots.offscreen.get(frameId);
+  if (offscreen?.length) out.push(`offscreen: ${formatOffscreen(offscreen, promptShots.label)}`);
   // An insert holds nothing, so there is no line to print — the
   // empty list, which says "this frame holds nothing" rather than "no set was read".
   const held = cutin ? undefined : promptShots.set.get(shotId);
