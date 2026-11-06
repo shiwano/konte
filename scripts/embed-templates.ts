@@ -31,6 +31,8 @@ const MANAGED_PREFIXES = [
 ];
 const MANAGED_EXACTS = [
   ".konte/mod.ts",
+  ".konte/react.d.ts",
+  ".konte/react-jsx-runtime.d.ts",
   ".konte/codex.md",
   "AGENTS.md",
   "CLAUDE.md",

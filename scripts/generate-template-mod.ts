@@ -4,10 +4,10 @@ import * as path from "node:path";
 import { generateDtsBundle } from "dts-bundle-generator";
 
 const entryPoint = path.resolve(import.meta.dirname, "../src/core/dsl/template-entry.ts");
-const outFile = path.resolve(
-  import.meta.dirname,
-  "../src/cli/templates/workspace/dot.konte/mod.ts",
-);
+const outDir = path.resolve(import.meta.dirname, "../src/cli/templates/workspace/dot.konte");
+const outFile = path.join(outDir, "mod.ts");
+const reactFile = path.join(outDir, "react.d.ts");
+const jsxRuntimeFile = path.join(outDir, "react-jsx-runtime.d.ts");
 
 // The DSL's dependencies need Node types. Loading Bun's ambient types slows declaration
 // bundling; revisit this config if the DSL starts depending on Bun-specific types or inference.
@@ -99,14 +99,13 @@ const ZOD_STUBS = `declare namespace z {
   > extends ZodType<M[number]["_output"], ZodTypeDef, M[number]["_input"]> {}
 }`;
 
-const REACT_NAMESPACE = `declare namespace React {
+const REACT_NAMESPACE = `namespace React {
   type ReactElement = { type: string | Function; props: Record<string, unknown> };
   type ReactNode = ReactElement | string | number | boolean | null | undefined | ReactNode[];
   type ComponentPropsWithoutRef<T extends keyof JSX.IntrinsicElements> = JSX.IntrinsicElements[T];
 }`;
 
-const JSX_NAMESPACE = `declare global {
-  namespace JSX {
+const JSX_NAMESPACE = `namespace JSX {
     type Element = {
       type: string | Function;
       props: Record<string, unknown>;
@@ -374,28 +373,54 @@ const JSX_NAMESPACE = `declare global {
         patternTransform?: string;
       };
     }
-  }
-}`;
+  }`;
+
+const REACT_EXPORTS = `export type ReactElement = React.ReactElement;
+export type ReactNode = React.ReactNode;
+export type ComponentPropsWithoutRef<T extends keyof JSX.IntrinsicElements> =
+  React.ComponentPropsWithoutRef<T>;`;
+
+const FRAGMENT_EXPORT = `export declare function Fragment(props: { children?: any }): React.ReactElement;`;
 
 const JSX_RUNTIME_EXPORTS = `export declare function jsx(type: any, props: any, key?: string): React.ReactElement;
 export declare function jsxs(type: any, props: any, key?: string): React.ReactElement;
-export declare function Fragment(props: { children?: any }): React.ReactElement;`;
+${FRAGMENT_EXPORT}`;
 
-const output = `/* eslint-disable */
+const reactOutput = `/* eslint-disable */
 
-${REACT_NAMESPACE}
+declare global {
+  ${REACT_NAMESPACE}
 
-${ZOD_STUBS}
+  ${JSX_NAMESPACE}
+}
 
-${JSX_NAMESPACE}
+${REACT_EXPORTS}
 
-${dtsBody}
+${FRAGMENT_EXPORT}
+`;
+
+const jsxRuntimeOutput = `/* eslint-disable */
+/// <reference path="./react.d.ts" />
 
 ${JSX_RUNTIME_EXPORTS}
 `;
 
-fs.mkdirSync(path.dirname(outFile), { recursive: true });
-fs.writeFileSync(outFile, output, "utf-8");
-childProcess.execSync(`oxfmt --write ${outFile}`, { stdio: "ignore" });
+const output = `/* eslint-disable */
+/// <reference path="./react.d.ts" />
 
-console.log(`Generated template mod.ts → ${path.relative(process.cwd(), outFile)}`);
+${ZOD_STUBS}
+
+${dtsBody}
+`;
+
+fs.mkdirSync(outDir, { recursive: true });
+fs.writeFileSync(reactFile, reactOutput, "utf-8");
+fs.writeFileSync(jsxRuntimeFile, jsxRuntimeOutput, "utf-8");
+fs.writeFileSync(outFile, output, "utf-8");
+childProcess.execSync(`oxfmt --write ${reactFile} ${jsxRuntimeFile} ${outFile}`, {
+  stdio: "ignore",
+});
+
+console.log(
+  `Generated template mod.ts, react.d.ts and react-jsx-runtime.d.ts → ${path.relative(process.cwd(), outDir)}`,
+);

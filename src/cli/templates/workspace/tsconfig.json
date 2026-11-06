@@ -10,7 +10,8 @@
     "jsx": "react-jsx",
     "paths": {
       "konte": ["./dot.konte/mod.ts"],
-      "react/jsx-runtime": ["./dot.konte/mod.ts"],
+      "react": ["./dot.konte/react.d.ts"],
+      "react/jsx-runtime": ["./dot.konte/react-jsx-runtime.d.ts"],
       "konte/workspace/*": ["./*"]
     }
   },
