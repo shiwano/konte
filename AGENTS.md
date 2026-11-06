@@ -20,8 +20,6 @@
 
 A commit is one change, and its message is where the reason lives — comments and docs carry none. The subject is an imperative sentence, capitalized, at most 72 characters, with no type prefix, emoji or period, naming what changed in konte's own vocabulary (`Name the refused host and preview.allowedHosts on a Forbidden host`). The body is prose wrapped at 80: what holds after the change, in the present tense, then what made it necessary when that is not evident. It never lists files, narrates the work, or carries an attribution trailer.
 
-A pull request is squash-merged, so its title and description are written as that subject and body.
-
 ## Common Commands
 
 ```sh
@@ -29,15 +27,7 @@ bun run konte    # Run CLI in development
 bun run test:run # Run all tests
 bun run test:run -- src/core/**/*.test.ts  # Run a single test
 bun run check    # lint + format check
-bun run build    # Build binary
 ```
-
-## Non-obvious Conventions
-
-- **Zod schemas** define types in `src/core/types/`
-- **Imports** use `.js` extension for relative paths
-- **DSL exports** — when adding a new DSL function or type, export it from **both** `src/core/dsl/index.ts` (runtime) and `src/core/dsl/template-entry.ts` (type generation for user projects' `.konte/mod.ts`)
-- **Errors** surface as a typed code (`KonteErrorCode`), never a bare string — the codes are the contract, their messages are not
 
 ## Architecture Notes
 
@@ -90,4 +80,4 @@ Every take is review work, bar a `#delivery` upscale, which konte accepts on com
 
 ### Templates
 
-Templates live under `src/cli/templates/`. The workspace sync (`syncWorkspace`, only `workspace new|setup`) overwrites managed files and renders agent settings, preserving user values and replacing konte launch paths; `HOUSE_RULES.md` is seed-only. Skills are authored under `workspace/dot.agents/skills/` (the `dot.claude/` twins are generated), subagents under `agents/<name>.md`; see `template-skills-guide`.
+Templates live under `src/cli/templates/`. The workspace sync (`syncWorkspace`, only `workspace new|setup`) overwrites managed files and renders agent settings, preserving user values and replacing konte launch paths; `HOUSE_RULES.md` is seed-only. Skills are authored under `workspace/dot.agents/skills/` (the `dot.claude/` twins are generated), subagents under `agents/<name>.md`; see `template-skills-guide`. A new DSL function or type is exported from both `src/core/dsl/index.ts` and `src/core/dsl/template-entry.ts`, the source of the generated `workspace/dot.konte/mod.ts`.
