@@ -140,7 +140,7 @@ Examples:
         printNextSteps([
           {
             command: `konte probe motion ${address} --at <sec> --window <sec>`,
-            details: ["Read its <Animate> move frame by frame"],
+            detail: "Read its <Animate> move frame by frame",
           },
         ]);
       }

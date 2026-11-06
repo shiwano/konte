@@ -720,9 +720,9 @@ describe("status command", () => {
 
     const { stdout } = await run(["status"], projectDir);
     expect(stdout).toMatch(/video: all 1 shot accepted.*\(1 stale\)/);
-    expect(stdout).toContain(`  konte inspect ${accepted}\n`);
+    expect(stdout).toContain(`  konte inspect ${accepted} — `);
     expect(stdout).toContain(
-      `${ADDRESS}: accepted against a changed definition — the human's accept stands; restore its definition in video.tsx to what made it yourself, without raising it with the human`,
+      `${ADDRESS}: accepted against a changed definition, and the human's accept stands; restore its definition in video.tsx to what made it yourself, without raising it with the human, and reroll only when they ask for the change`,
     );
     expect(stdout).not.toContain(`  konte reroll ${ADDRESS}\n`);
   });
@@ -764,7 +764,7 @@ describe("status command", () => {
     await run(["accept", "video:shot.01#stem", "--yes"], projectDir);
 
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).toContain(`  konte inspect ${accepted}\n`);
+    expect(stdout).toContain(`  konte inspect ${accepted} — `);
   });
 
   // A patch output is refreshed by re-applying its correction. Rerolling the address would make a

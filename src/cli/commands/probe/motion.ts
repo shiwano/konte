@@ -369,7 +369,7 @@ Examples:
         printNextSteps([
           {
             command: `konte probe contact-sheet ${scopes.join(" ")} --frames-per-shot 6`,
-            details: ["Compare the shots side by side on one sheet"],
+            detail: "Compare the shots side by side on one sheet",
           },
         ]);
       }

@@ -137,16 +137,14 @@ Examples:
         printNextSteps([
           {
             command: `konte study clip ${file} --at <m:ss>`,
-            details: ["See one moment's frame at full size"],
+            detail: "See one moment's frame at full size",
           },
           ...(url
             ? [
                 {
                   command: null,
                   label: "copy it to the video's studies/ and name it in brief.references",
-                  details: [
-                    `{ clip: "studies/${path.basename(abs)}", link: "${url}", take, avoid }`,
-                  ],
+                  detail: `{ clip: "studies/${path.basename(abs)}", link: "${url}", take, avoid }`,
                 },
               ]
             : []),

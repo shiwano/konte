@@ -141,7 +141,7 @@ describe("Next steps before the song", () => {
       songPending: { address: "reference:song", hasVariant: false, directionReviewNeeded: false },
     });
     expect(actions[0]).toMatchObject({ command: "konte generate reference" });
-    expect(actions[1]!.details?.[0]).toMatch(/counted in beats, once reference:song is accepted/);
+    expect(actions[1]!.detail).toMatch(/counted in beats, once reference:song is accepted/);
   });
 
   it("reviews the brief, policy and lyrics before the song is made", () => {

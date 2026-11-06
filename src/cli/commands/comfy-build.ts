@@ -115,12 +115,11 @@ Examples:
       printNextSteps(
         undeployed.map(({ name, result }) => ({
           command: `konte adapter comfy build ${name}`,
-          details: [
+          detail:
             result.unready.length > 0
               ? `First read why ${result.unready.map((d) => d.id).join(", ")} is not ready on its ` +
                 `Build page and deploy release ${result.releaseId} again`
               : `First deploy release ${result.releaseId} on its Build page`,
-          ],
         })),
       );
     });

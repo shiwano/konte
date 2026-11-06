@@ -66,12 +66,12 @@ describe("suggestForStatus", () => {
       {
         command: null,
         label: "edit direction.ts",
-        details: ["Fix the 1 finding(s) listed under it below"],
+        detail: "Fix the 1 finding(s) listed under it below",
       },
       {
         command: null,
         label: "edit animatic.tsx",
-        details: ["Fix the 1 finding(s) listed under it below"],
+        detail: "Fix the 1 finding(s) listed under it below",
       },
     ]);
   });
@@ -109,21 +109,16 @@ describe("suggestForStatus", () => {
     ).not.toContain("konte generate video");
   });
 
-  it("merges the details of every twin of a command, saying a repeated one once", () => {
+  it("merges the detail of every twin of a command, saying a repeated one once", () => {
     const result = formatSuggestedActions(
       dedupeCommands([
-        { command: "konte preview video", details: ["a comment stands", "shared"] },
-        { command: "konte preview video", details: ["shared", "1 shot held"] },
+        { command: "konte preview video", detail: "a comment stands" },
+        { command: "konte preview video", detail: "a comment stands" },
+        { command: "konte preview video", detail: "1 shot held" },
       ]),
     );
     expect(result).toBe(
-      [
-        "Next steps:",
-        "  konte preview video",
-        "    a comment stands",
-        "    shared",
-        "    1 shot held",
-      ].join("\n"),
+      ["Next steps:", "  konte preview video — a comment stands; 1 shot held"].join("\n"),
     );
   });
 
@@ -171,9 +166,8 @@ describe("suggestForStatus", () => {
     expect(actions).toEqual([
       {
         command: "konte probe audio v-a",
-        details: [
+        detail:
           "Dismiss a broken take (reroll for another beside it); `konte vouch <variantId>` one that is fine",
-        ],
       },
     ]);
   });
@@ -502,8 +496,8 @@ describe("suggestForStatus", () => {
     expect(actions).toEqual([
       {
         command: null,
-        label: "edit",
-        details: ["Develop video shots 03, 04 in video.tsx from the accepted animatic"],
+        label: "edit video.tsx",
+        detail: "Develop video shots 03, 04 from the accepted animatic",
       },
     ]);
   });
@@ -516,10 +510,8 @@ describe("suggestForStatus", () => {
     expect(actions).toEqual([
       {
         command: null,
-        label: "edit",
-        details: [
-          "Develop the next sequence: animatic shot 05 in animatic.tsx, video shot 05 in video.tsx",
-        ],
+        label: "edit animatic.tsx and video.tsx",
+        detail: "Develop the next sequence: animatic shot 05, video shot 05",
       },
     ]);
   });
@@ -666,7 +658,7 @@ describe("suggestForStatus", () => {
     expect(refused[0]).toEqual({
       command: null,
       label: "edit video.tsx",
-      details: ["Fix the 1 finding(s) listed under it below"],
+      detail: "Fix the 1 finding(s) listed under it below",
     });
     expect(refused.some((a) => a.command?.includes("generate video"))).toBe(false);
     expect(refused.some((a) => a.command === "konte preview video")).toBe(false);
@@ -771,33 +763,28 @@ describe("formatSuggestedActions", () => {
       {
         command: null,
         label: "async",
-        details: ["Jobs keep running after this command returns"],
+        detail: "Jobs keep running after this command returns",
       },
       { command: "konte job wait" },
     ]);
     expect(result).toBe(
       [
         "Next steps:",
-        "  (async)",
-        "    Jobs keep running after this command returns",
+        "  (async) — Jobs keep running after this command returns",
         "  konte job wait",
       ].join("\n"),
     );
   });
 
-  // Which step a detail is about is the indent, not the line above it — so a detail cannot be read
-  // against the wrong step however the list is ordered or deduped.
-  it("indents every detail under the step that carries it", () => {
+  it("prints each step on one line, its detail after the command", () => {
     const result = formatSuggestedActions([
-      { command: "konte preview video", details: ["1 address carries a comment", "2 shots held"] },
+      { command: "konte preview video", detail: "1 address carries a comment" },
       { command: "konte generate video" },
     ]);
     expect(result).toBe(
       [
         "Next steps:",
-        "  konte preview video",
-        "    1 address carries a comment",
-        "    2 shots held",
+        "  konte preview video — 1 address carries a comment",
         "  konte generate video",
       ].join("\n"),
     );
@@ -817,8 +804,7 @@ describe("a source's digest gaps", () => {
     expect(formatSuggestedActions(actions.slice(0, 2))).toBe(
       [
         "Next steps:",
-        "  (spawn one konte-source-reader with these chunks of the span to read)",
-        "    videos/main/source: c4",
+        "  (spawn one konte-source-reader with these chunks of the span to read) — videos/main/source: c4",
         "  konte preview direction",
       ].join("\n"),
     );
@@ -850,7 +836,7 @@ describe("direction review is surfaced first", () => {
 describe("the finding edit step names the file the fix belongs in", () => {
   const editSteps = (input: Parameters<typeof suggestForStatus>[0]) =>
     suggestForStatus(input).filter(
-      (a): a is { command: null; label: string; details: readonly string[] } =>
+      (a): a is { command: null; label: string; detail?: string } =>
         a.command === null && a.label.startsWith("edit "),
     );
 
@@ -863,7 +849,7 @@ describe("the finding edit step names the file the fix belongs in", () => {
       ],
     });
     expect(step?.label).toBe("edit reference.tsx");
-    expect(step?.details.join("\n")).toContain("waive a waivable one by its key in direction.ts");
+    expect(step?.detail).toContain("waive a waivable one by its key in direction.ts");
   });
 
   // Next steps prints ABOVE the Findings block (print-status), so every step sends the reader down.
@@ -881,7 +867,7 @@ describe("the finding edit step names the file the fix belongs in", () => {
       "edit reference.tsx",
       "edit animatic.tsx",
     ]);
-    for (const step of steps) expect(step.details.join("")).toContain("below");
+    for (const step of steps) expect(step.detail).toContain("below");
   });
 
   it("names no waiver where no finding in the file is waivable", () => {
@@ -889,7 +875,7 @@ describe("the finding edit step names the file the fix belongs in", () => {
       state: makeState({}),
       findings: [finding("duplicate-id", "direction")],
     });
-    expect(step?.details).toEqual(["Fix the 1 finding(s) listed under it below"]);
+    expect(step?.detail).toBe("Fix the 1 finding(s) listed under it below");
   });
 
   it("keeps offering animatic generation while only video findings hold", () => {

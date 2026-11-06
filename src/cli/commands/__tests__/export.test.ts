@@ -504,7 +504,7 @@ describe("export delivery gate", () => {
     const { stdout } = await run(["status"], projectDir);
     expect(stdout).not.toContain("ready to export");
     expect(stdout).toContain("no delivery upscaler");
-    expect(stdout).toContain("Wire export.delivery.upscale.video or .frame in video.tsx");
+    expect(stdout).toContain("(edit video.tsx) — Wire export.delivery.upscale.video or .frame");
     expect(stdout).not.toContain("konte export video");
   });
 

@@ -15,14 +15,17 @@ import type { AssetState, KonteState, VariantState } from "./types/index.js";
 // One step: a runnable command, or — when no command performs it — a `label` naming the edit it
 // takes, parenthesized on the page so it never reads as something to run.
 //
-// `details` is what the step alone does not say, and it belongs to the step structurally rather than
+// `detail` is what the step alone does not say, and it belongs to the step structurally rather than
 // by sitting next to it: a detail written as its own entry would be re-attached by anything that
 // reorders or drops a line (`dedupeCommands` does both). Most commands carry none — `konte reroll
 // <address>` says what it does, and why it is offered is the state printed above it. A command that
 // is offered for a reason the reader cannot see (a gate, a comment someone left) says it here.
+//
+// A step prints as one line, `<command or (label)> — <detail>`, so a detail holds no ` — ` of its
+// own. A command written in a detail is one to run; an action not to take is named in words.
 export type SuggestedAction =
-  | { command: string; details?: readonly string[] }
-  | { command: null; label: string; details: readonly string[] };
+  | { command: string; detail?: string }
+  | { command: null; label: string; detail?: string };
 
 // Suggested commands must be ready-to-run: generate/preview/export take a bare `<stage>` scope.
 // Derive the exact stage scopes from the addresses in play — a set of assets can span both
@@ -102,10 +105,9 @@ function suggestFailedJobDiagnosis(
   actions.push({
     command: null,
     label: "failed",
-    details: [
-      `${n} generation job${n === 1 ? "" : "s"} failed — \`konte job logs ${failedVariantIds[0]}\`` +
-        " reads one; cleaning deletes the log with it",
-    ],
+    detail:
+      `${n} generation job${n === 1 ? "" : "s"} failed; \`konte job logs ${failedVariantIds[0]}\`` +
+      " reads one, and cleaning deletes the log with it",
   });
 }
 
@@ -117,7 +119,7 @@ function suggestMissingFiles(actions: SuggestedAction[], paths: readonly string[
   actions.push({
     command: null,
     label: "add file",
-    details: [`Provide the missing file(s): ${paths.join(", ")}`],
+    detail: `Provide the missing file(s): ${paths.join(", ")}`,
   });
 }
 
@@ -147,7 +149,7 @@ function suggestPatchScriptEdits(
     actions.push({
       command: null,
       label: `edit ${e.filePath}`,
-      details: [truncateSingleLine(e.message, ERROR_GLIMPSE_WIDTH)],
+      detail: truncateSingleLine(e.message, ERROR_GLIMPSE_WIDTH),
     });
   }
 }
@@ -180,11 +182,10 @@ function suggestFeedbackRead(actions: SuggestedAction[], addresses: readonly str
   if (addresses.length === 0) return;
   actions.push({
     command: "konte review feedback list",
-    details: [
+    detail:
       addresses.length === 1
         ? "1 address carries a comment"
         : `${addresses.length} addresses carry comments`,
-    ],
   });
 }
 
@@ -214,29 +215,26 @@ function prependFindings(actions: SuggestedAction[], findings: readonly Finding[
   ).map(({ file, findings: group }) => ({
     command: null,
     label: `edit ${file}`,
-    details: [
+    detail:
       `Fix the ${group.length} finding(s) listed under it below` +
-        (group.some((f) => findingTraits(f.code).clears === "waive")
-          ? `, or waive a waivable one by its key in ${STAGE_ENTRY_FILE.direction}`
-          : ""),
-    ],
+      (group.some((f) => findingTraits(f.code).clears === "waive")
+        ? `, or waive a waivable one by its key in ${STAGE_ENTRY_FILE.direction}`
+        : ""),
   }));
   if (tails.length > 0) {
     steps.push({
       command: null,
       label: `edit ${STAGE_ENTRY_FILE.direction}`,
-      details: [
+      detail:
         `Shorten the ${tails.length} shot(s) with a silent tail as each finding says, or ` +
-          "`konte vouch <shot address>` a hold the picture needs",
-      ],
+        "`konte vouch <shot address>` a hold the picture needs",
     });
   }
   if (vouchable.length > 0) {
     steps.push({
       command: `konte probe audio ${[...new Set(vouchable.map((f) => f.subject))].join(" ")}`,
-      details: [
+      detail:
         "Dismiss a broken take (reroll for another beside it); `konte vouch <variantId>` one that is fine",
-      ],
     });
   }
   actions.unshift(...steps);
@@ -254,11 +252,10 @@ function suggestDefinitionRestores(
     const file = STAGE_ENTRY_FILE[getStage(address)];
     actions.push({
       command: `konte inspect ${variantId}`,
-      details: [
-        `${address}: accepted against a changed definition — the human's accept stands; restore ${what}` +
-          ` in ${file} to what made it yourself, without raising it with the human` +
-          ` (\`konte reroll ${address}\` only when they ask for the change)`,
-      ],
+      detail:
+        `${address}: accepted against a changed definition, and the human's accept stands; restore` +
+        ` ${what} in ${file} to what made it yourself, without raising it with the human, and reroll` +
+        " only when they ask for the change",
     });
   }
 }
@@ -316,12 +313,10 @@ function prependDirectionReview(
   if (empty) {
     actions.unshift({
       command: null,
-      label: "edit",
-      details: [
-        song
-          ? `Write the shots in direction.ts, each counted in beats, once ${song.address} is accepted`
-          : "Write your direction in direction.ts",
-      ],
+      label: `edit ${STAGE_ENTRY_FILE.direction}`,
+      detail: song
+        ? `Write the shots, each counted in beats, once ${song.address} is accepted`
+        : "Write your direction",
     });
     if (song) {
       actions.unshift({
@@ -379,7 +374,7 @@ function prependCastGate(
     steps.push({
       command: null,
       label: "add file",
-      details: [`Provide the missing cast file(s): ${files.map((c) => c.missingFile).join(", ")}`],
+      detail: `Provide the missing cast file(s): ${files.map((c) => c.missingFile).join(", ")}`,
     });
   }
 
@@ -443,10 +438,8 @@ function suggestExport(
   if (video.deliveryUpscalerMissing) {
     actions.push({
       command: null,
-      label: "edit",
-      details: [
-        `Wire export.delivery.upscale.video or .frame in ${STAGE_ENTRY_FILE.video}, or raise policy.format.size.megapixels in ${STAGE_ENTRY_FILE.direction} so the canvas meets the delivery`,
-      ],
+      label: `edit ${STAGE_ENTRY_FILE.video}`,
+      detail: `Wire export.delivery.upscale.video or .frame, or raise policy.format.size.megapixels in ${STAGE_ENTRY_FILE.direction}`,
     });
     return;
   }
@@ -454,42 +447,40 @@ function suggestExport(
 }
 
 // Keeps the first occurrence of each command, so a prepended gate step outranks the plain twin the
-// body emitted — and folds the twin's details into it, since the reason the later copy was offered
+// body emitted — and folds the twin's detail into it, since the reason the later copy was offered
 // holds for the one that survives. Label steps are kept as written: each says something only it says.
 export function dedupeCommands(actions: SuggestedAction[]): SuggestedAction[] {
-  const kept = new Map<string, { command: string; details?: string[] }>();
-  const out: SuggestedAction[] = [];
+  const kept = new Map<string, string[]>();
+  const out: Array<SuggestedAction | { command: string; details: string[] }> = [];
   for (const action of actions) {
     if (action.command === null) {
       out.push(action);
       continue;
     }
-    const first = kept.get(action.command);
-    if (first) {
-      if (action.details?.length) {
-        first.details = [...new Set([...(first.details ?? []), ...action.details])];
-      }
+    const details = kept.get(action.command);
+    if (details) {
+      if (action.detail && !details.includes(action.detail)) details.push(action.detail);
       continue;
     }
-    const entry = {
-      command: action.command,
-      ...(action.details?.length ? { details: [...action.details] } : {}),
-    };
-    kept.set(action.command, entry);
+    const entry = { command: action.command, details: action.detail ? [action.detail] : [] };
+    kept.set(action.command, entry.details);
     out.push(entry);
   }
-  return out;
+  return out.map((a) =>
+    "details" in a
+      ? { command: a.command, ...(a.details.length ? { detail: a.details.join("; ") } : {}) }
+      : a,
+  );
 }
 
 export function formatSuggestedActions(actions: readonly SuggestedAction[]): string {
   if (actions.length === 0) return "";
 
-  // A step per line, its details indented under it — the nesting is what says which step they are
-  // about, so no detail can be read against the line above or below it.
+  // No command contains ` — `, so the first one ends the command.
   const lines = ["Next steps:"];
   for (const action of actions) {
-    lines.push(action.command === null ? `  (${action.label})` : `  ${action.command}`);
-    for (const detail of action.details ?? []) lines.push(`    ${detail}`);
+    const step = action.command === null ? `(${action.label})` : action.command;
+    lines.push(action.detail ? `  ${step} — ${action.detail}` : `  ${step}`);
   }
 
   return lines.join("\n");
@@ -598,7 +589,7 @@ function prependSourceGaps(actions: SuggestedAction[], gaps: SourceGaps | undefi
   actions.unshift({
     command: null,
     label: "spawn one konte-source-reader with these chunks of the span to read",
-    details: [`${gaps.source}: ${gaps.unread.join(", ")}`],
+    detail: `${gaps.source}: ${gaps.unread.join(", ")}`,
   });
 }
 
@@ -720,23 +711,22 @@ function suggestDevelopment(
   if (boarded.length > 0) {
     actions.push({
       command: null,
-      label: "edit",
-      details: [
-        `Develop video ${shotList(boarded)} in ${STAGE_ENTRY_FILE.video} from the accepted animatic`,
-      ],
+      label: `edit ${STAGE_ENTRY_FILE.video}`,
+      detail: `Develop video ${shotList(boarded)} from the accepted animatic`,
     });
     return;
   }
   if (!next || next.video.length === 0 || actions.length > 0) return;
+  const boards = next.animatic.length > 0;
   const parts = [
-    ...(next.animatic.length > 0
-      ? [`animatic ${shotList(next.animatic)} in ${STAGE_ENTRY_FILE.animatic}`]
-      : []),
-    `video ${shotList(next.video)} in ${STAGE_ENTRY_FILE.video}`,
+    ...(boards ? [`animatic ${shotList(next.animatic)}`] : []),
+    `video ${shotList(next.video)}`,
   ];
   actions.push({
     command: null,
-    label: "edit",
-    details: [`Develop the next sequence: ${parts.join(", ")}`],
+    label: boards
+      ? `edit ${STAGE_ENTRY_FILE.animatic} and ${STAGE_ENTRY_FILE.video}`
+      : `edit ${STAGE_ENTRY_FILE.video}`,
+    detail: `Develop the next sequence: ${parts.join(", ")}`,
   });
 }

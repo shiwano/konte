@@ -70,7 +70,7 @@ async function printImported(src: SourceRef, index: SourceIndex): Promise<void> 
   const read = new Set((await readDigest(src)).chunks.map((c) => c.chunk));
   if (index.chunks.every((c) => read.has(c.id))) {
     printNextSteps([
-      { command: "konte source show", details: ["Read the scenes and looks the digest holds"] },
+      { command: "konte source show", detail: "Read the scenes and looks the digest holds" },
     ]);
     return;
   }
@@ -78,9 +78,7 @@ async function printImported(src: SourceRef, index: SourceIndex): Promise<void> 
     {
       command: null,
       label: "spawn one konte-source-reader with the source and the part the human named",
-      details: [
-        `${sourceDirLabel(src)}; the part in their words, "the whole work" when none — it answers the span`,
-      ],
+      detail: `${sourceDirLabel(src)} and the part in their words ("the whole work" when none)`,
     },
   ]);
 }
@@ -481,7 +479,7 @@ Examples:
             {
               command: null,
               label: "edit direction.ts",
-              details: ["Drop brief.source, or `konte source import` the original again"],
+              detail: "Drop brief.source, or `konte source import` the original again",
             },
           ]);
         }
