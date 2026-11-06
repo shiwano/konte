@@ -24,11 +24,11 @@ import { formatClipClock } from "./source-locator.js";
 import {
   INDEX_JSON,
   type SourceRef,
-  type SourceStudyKind,
-  type StudyOptions,
-  readStudyIndex,
+  type SourceChunker,
+  type ChunkOptions,
+  readSourceIndex,
   sourceChunksDir,
-} from "./source-study.js";
+} from "./source-chunker.js";
 import {
   type HeardLine,
   SCENE_THRESHOLD,
@@ -227,25 +227,25 @@ export async function sourceClipFrameAt(
 
 /**
  * Reads the clip's cuts and heard words where the cache lacks them, and drops an `index.json` whose
- * windows were counted off the length alone, so the study that follows snaps them to the cuts.
+ * windows were counted off the length alone, so the chunking that follows snaps them to the cuts.
  */
 export async function prepareClipSource(
   src: SourceRef,
   progress: (line: string) => void,
 ): Promise<void> {
   await ensureClipReading(src, progress);
-  const known = readStudyIndex(src);
+  const known = readSourceIndex(src);
   if (known?.kind === "clip" && known.notes.includes(UNSNAPPED_NOTE)) {
     await fs.rm(path.join(sourceChunksDir(src), INDEX_JSON), { force: true });
   }
 }
 
-export const CLIP_STUDY: SourceStudyKind = {
+export const CLIP_CHUNKER: SourceChunker = {
   excerptReadsChunk: false,
   kind: "clip",
   version: 1,
 
-  async structure(src: SourceRef, _opts: StudyOptions) {
+  async structure(src: SourceRef, _opts: ChunkOptions) {
     const reading = await cachedReading(src);
     const durationSec =
       reading?.durationSec ?? (await probeClip(originalOf(src), { uncapped: true })).duration;
@@ -284,12 +284,12 @@ export const CLIP_STUDY: SourceStudyKind = {
     const entry = index.chunks.find((c) => c.id === chunk)!;
     const reading = await ensureClipReading(src, () => {});
     const probe = await probeClip(originalOf(src), { uncapped: true });
-    const studyDir = sourceChunksDir(src);
-    await fs.mkdir(studyDir, { recursive: true });
+    const chunksDir = sourceChunksDir(src);
+    await fs.mkdir(chunksDir, { recursive: true });
     const lastFrame = lastSeekableTime(probe.videoDuration, probe.fps);
     const times = windowFrameTimes(reading.shots, entry.from, entry.to);
     const aspect = probe.width / probe.height;
-    const workDir = await fs.mkdtemp(path.join(studyDir, `.${stem}-`));
+    const workDir = await fs.mkdtemp(path.join(chunksDir, `.${stem}-`));
     const sheets: string[] = [];
     try {
       const cells: ContactSheetCell[] = await mapConcurrent(
@@ -307,7 +307,7 @@ export const CLIP_STUDY: SourceStudyKind = {
         const layout = planContactSheetLayout(maxCells, page.length, { aspect });
         const { bytes } = await drawContactSheet(page, layout);
         const name = sheetName(stem, sheets.length + 1);
-        await fs.writeFile(path.join(studyDir, name), bytes);
+        await fs.writeFile(path.join(chunksDir, name), bytes);
         sheets.push(`${name}  ${page[0]!.label}-${page.at(-1)!.label}  ${page.length} frame(s)`);
       }
     } finally {
@@ -326,7 +326,7 @@ export const CLIP_STUDY: SourceStudyKind = {
       ...sheets.map((s) => `- ${s}`),
     ];
     // Last: its presence is what says the chunk is whole.
-    await writeFileAtomic(path.join(studyDir, `${stem}.md`), `${lines.join("\n")}\n`);
+    await writeFileAtomic(path.join(chunksDir, `${stem}.md`), `${lines.join("\n")}\n`);
   },
 
   // The sheets are listed inside the md, which is written after them.

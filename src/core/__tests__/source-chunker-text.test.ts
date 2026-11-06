@@ -4,14 +4,14 @@ import * as path from "node:path";
 import { crc32 } from "node:zlib";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseAt } from "../source-locator.js";
-import { type SourceRef, readStudyIndex, studySource } from "../source-study.js";
+import { type SourceRef, readSourceIndex, chunkSource } from "../source-chunker.js";
 import {
-  TEXT_STUDY,
+  TEXT_CHUNKER,
   dialogueShare,
   htmlParagraph,
   nameCandidates,
   stripAozoraRuby,
-} from "../source-study-text.js";
+} from "../source-chunker-text.js";
 
 // A zip of stored entries, enough for an EPUB.
 function storedZip(files: Record<string, string>): Buffer {
@@ -156,10 +156,10 @@ describe("nameCandidates", () => {
   });
 });
 
-describe("TEXT_STUDY", () => {
+describe("TEXT_CHUNKER", () => {
   it("reads an EPUB's two-level TOC as stories and chapters, leaving front matter out", async () => {
     const src = await source("book.epub", storedZip(EPUB));
-    const { index } = await studySource(src, { progress });
+    const { index } = await chunkSource(src, { progress });
     expect(index.units).toEqual([
       { id: "s1", title: "A Scandal in Bohemia" },
       { id: "s2", title: "The Red-Headed League" },
@@ -176,7 +176,7 @@ describe("TEXT_STUDY", () => {
     );
     const league = await fs.readFile(path.join(src.dir, "chunks", "s02.c01.md"), "utf-8");
     expect(league).toContain("s2.c1.p2 澪が来た。\n\n読み: 澪《みお》\n");
-    expect(readStudyIndex(src)?.summary).toMatch(/· 2 stories · 3 chunks · dialogue \d+%$/);
+    expect(readSourceIndex(src)?.summary).toMatch(/· 2 stories · 3 chunks · dialogue \d+%$/);
   });
 
   it("reads the stories a half-title's TOC entry holds as the chapters", async () => {
@@ -204,7 +204,7 @@ describe("TEXT_STUDY", () => {
       ),
     };
     const src = await source("book.epub", storedZip(epub));
-    const { index } = await studySource(src, { progress });
+    const { index } = await chunkSource(src, { progress });
     expect(index.chunks.map((c) => [c.id, c.from, c.to])).toEqual([
       ["c1", 1, 3],
       ["c2", 1, 2],
@@ -231,7 +231,7 @@ describe("TEXT_STUDY", () => {
       "入力：j.utsugi",
     ].join("\r\n");
     const src = await source("rashomon.txt", shiftJis(text));
-    const { index } = await studySource(src, { progress });
+    const { index } = await chunkSource(src, { progress });
     expect(index.units).toEqual([
       { id: "c1", title: "上" },
       { id: "c2", title: "下" },
@@ -249,7 +249,7 @@ describe("TEXT_STUDY", () => {
 
   it("splits a text with no headings by length, as one chunk where it is short", async () => {
     const src = await source("short.md", "一段落目。\n\n二段落目。\n");
-    const { index } = await studySource(src, { progress });
+    const { index } = await chunkSource(src, { progress });
     expect(index.chunks.map((c) => c.id)).toEqual(["c1"]);
     expect(index.notes).toEqual(["no headings: split by length"]);
   });
@@ -259,7 +259,7 @@ describe("TEXT_STUDY", () => {
       "book.md",
       "# 本\n\n## 一\n\n### 朝\n\n雨。\n\n### 夜\n\n月。\n\n## 二\n\n晴れ。\n",
     );
-    const { index } = await studySource(book, { progress });
+    const { index } = await chunkSource(book, { progress });
     expect(index.chunks.map((c) => [c.id, c.title])).toEqual([
       ["c1", "一"],
       ["c2", "二"],
@@ -268,7 +268,7 @@ describe("TEXT_STUDY", () => {
       "parts.md",
       "## 第一部\n\n### 第一章\n\n雨。\n\n## 第二部\n\n### 第一章\n\n月。\n",
     );
-    const { index: parted } = await studySource(parts, { progress });
+    const { index: parted } = await chunkSource(parts, { progress });
     expect(parted.chunks.map((c) => c.id)).toEqual(["s1.c1", "s2.c1"]);
   });
 
@@ -276,7 +276,7 @@ describe("TEXT_STUDY", () => {
     const paragraph = "あ".repeat(1000);
     const body = Array.from({ length: 20 }, () => paragraph).join("\n\n");
     const src = await source("long.md", `# 第一章\n\n${body}\n\n# 第二章\n\n短い。\n`);
-    const { index } = await studySource(src, { progress });
+    const { index } = await chunkSource(src, { progress });
     expect(index.chunks.map((c) => [c.id, c.from, c.to])).toEqual([
       ["c1.1", 1, 7],
       ["c1.2", 8, 14],
@@ -285,7 +285,7 @@ describe("TEXT_STUDY", () => {
     ]);
     const part = await fs.readFile(path.join(src.dir, "chunks", "c01.02.md"), "utf-8");
     expect(part.split("\n")[0]).toMatch(/^c1\.p8 /);
-    const excerpt = await TEXT_STUDY.excerpt(
+    const excerpt = await TEXT_CHUNKER.excerpt(
       src,
       index,
       "c1.2",

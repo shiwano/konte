@@ -234,7 +234,7 @@ The spend gate (`judgeSpend`, `core/spend-gate.ts`) names every reason at once, 
 
 ## Source
 
-`brief.source` (`{ span, keep?, drop? }`) names the original a piece is adapted from: the video's `source/`, one original `konte source import` copies in, whose `digest/<chunk>.ts` (`defineSourceChunk`) readers write and konte reads whole (`readDigest`). `source-locator.ts` holds the locator grammar; `source-study*.ts` the chunks each kind writes under `source/chunks/` (`index.json` the one file a check reads).
+`brief.source` (`{ span, keep?, drop? }`) names the original a piece is adapted from: the video's `source/`, one original `konte source import` copies in, whose `digest/<chunk>.ts` (`defineSourceChunk`) readers write and konte reads whole (`readDigest`). `source-locator.ts` holds the locator grammar; `source-chunker*.ts` the chunks each kind writes under `source/chunks/` (`index.json` the one file a check reads).
 
 - The direction carries no link from a shot or a roster entry back to it, and the review shows no passage: the source is the brief's row alone, its span by the chapter headings.
 - An agent reads the source with `konte source show` (`source-direction.ts`) and the chunk files it names, never the digest's code. While the direction is unaccepted, `konte status` names the span's chunks no reader has read (`unreadChunks`). A reader ends on `konte source check`: the digest's type errors and `digestProblems`, which the locator check reports too.

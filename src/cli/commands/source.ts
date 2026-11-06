@@ -31,7 +31,7 @@ import {
   SOURCE_DIR,
   type SourceExcerpt,
   type SourceRef,
-  type StudyOptions,
+  type ChunkOptions,
   ensureChunk,
   importOriginal,
   sameOriginal,
@@ -39,13 +39,13 @@ import {
   sourceDirLabel,
   sourceDirOf,
   sourceRefIn,
-  studySource,
-} from "../../core/source-study.js";
-import { prepareClipSource, sourceClipFrameAt } from "../../core/source-study-clip.js";
-import { comicPage } from "../../core/source-study-comic.js";
+  chunkSource,
+} from "../../core/source-chunker.js";
+import { prepareClipSource, sourceClipFrameAt } from "../../core/source-chunker-clip.js";
+import { comicPage } from "../../core/source-chunker-comic.js";
 import { ensureFfmpeg, ensureFfprobe } from "../../core/ffmpeg.js";
 import { parseTimecode } from "../../core/timecode.js";
-import type { SourceStudyIndex } from "../../core/types/index.js";
+import type { SourceIndex } from "../../core/types/index.js";
 import { getPathSize } from "./clean-utils.js";
 import { confirmDeletion, printAborted, NO_FLAG_DESCRIPTION } from "../confirm.js";
 import { typeCheckWorkspace } from "../../core/tsc.js";
@@ -62,7 +62,7 @@ function rel(file: string): string {
 
 // The source as an agent acts on it after an import: its size, its index, and a reader per unread
 // chunk.
-async function printImported(src: SourceRef, index: SourceStudyIndex): Promise<void> {
+async function printImported(src: SourceRef, index: SourceIndex): Promise<void> {
   console.log(rel(path.join(src.dir, src.file)));
   console.log(`  ${index.summary}`);
   for (const note of index.notes) console.log(`  ${note}`);
@@ -142,7 +142,7 @@ type ImportOptions = { yes?: boolean; no?: boolean };
 async function runImport(
   file: string,
   kind: SourceKind,
-  opts: ImportOptions & Omit<StudyOptions, "progress">,
+  opts: ImportOptions & Omit<ChunkOptions, "progress">,
 ): Promise<void> {
   const videoRoot = requireVideoRoot();
   const abs = path.resolve(file);
@@ -154,7 +154,7 @@ async function runImport(
     await ensureFfprobe();
     await prepareClipSource(src, progress);
   }
-  const { index } = await studySource(src, { progress, binding: opts.binding });
+  const { index } = await chunkSource(src, { progress, binding: opts.binding });
   await printImported(src, index);
 }
 

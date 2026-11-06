@@ -21,14 +21,14 @@ import { type ParsedAt, parseAt } from "./source-locator.js";
 import {
   type SourceExcerpt,
   type SourceRef,
-  type SourceStudyKind,
-  type StudyOptions,
+  type SourceChunker,
+  type ChunkOptions,
   sourceChunksDir,
-} from "./source-study.js";
+} from "./source-chunker.js";
 import { imageFileSize } from "./image-size.js";
 import { Pdf, type PdfDict, type PdfPageImage, PdfParseError } from "./pdf.js";
 import { pdfInfo, renderPdfPage } from "./pdf-render.js";
-import type { SourceStudyIndex } from "./types/index.js";
+import type { SourceIndex } from "./types/index.js";
 
 const BUNDLE_PAGES = 12;
 // The page images a reader reads are scaled to this short side.
@@ -382,16 +382,16 @@ function volumeId(i: number): string {
   return `v${i + 1}`;
 }
 
-function pagePad(index: SourceStudyIndex, volume: string): number {
+function pagePad(index: SourceIndex, volume: string): number {
   const last = Math.max(
     ...index.chunks.filter((c) => c.id.startsWith(`${volume}.`)).map((c) => c.to),
   );
   return Math.max(3, String(last).length);
 }
 
-function chunkOf(index: SourceStudyIndex, chunk: string) {
+function chunkOf(index: SourceIndex, chunk: string) {
   const c = index.chunks.find((x) => x.id === chunk);
-  if (!c) throw new KonteError("SOURCE_UNREADABLE", `the study holds no chunk ${chunk}`);
+  if (!c) throw new KonteError("SOURCE_UNREADABLE", `the source holds no chunk ${chunk}`);
   return c;
 }
 
@@ -399,14 +399,14 @@ function pageNumbers(from: number, to: number): number[] {
   return Array.from({ length: to - from + 1 }, (_, i) => from + i);
 }
 
-function analysisPage(index: SourceStudyIndex, volume: string, stem: string, page: number): string {
+function analysisPage(index: SourceIndex, volume: string, stem: string, page: number): string {
   return `${stem}/p${String(page).padStart(pagePad(index, volume), "0")}.jpg`;
 }
 
 async function structure(
   src: SourceRef,
-  opts: StudyOptions,
-): ReturnType<SourceStudyKind["structure"]> {
+  opts: ChunkOptions,
+): ReturnType<SourceChunker["structure"]> {
   const book = await openBook(path.join(src.dir, src.file));
   const fileBinding = book.volumes.find((v) => v.binding)?.binding ?? null;
   const binding = opts.binding ?? fileBinding;
@@ -418,8 +418,8 @@ async function structure(
     );
   }
   const multi = book.volumes.length > 1;
-  const chunks: SourceStudyIndex["chunks"] = [];
-  const units: SourceStudyIndex["units"] = [];
+  const chunks: SourceIndex["chunks"] = [];
+  const units: SourceIndex["units"] = [];
   book.volumes.forEach((volume, vi) => {
     const v = volumeId(vi);
     if (multi) units.push({ id: v, title: volume.label });
@@ -482,7 +482,7 @@ export function sheetOrder<T>(
 
 async function writeChunk(
   src: SourceRef,
-  index: SourceStudyIndex,
+  index: SourceIndex,
   chunk: string,
   stem: string,
 ): Promise<void> {
@@ -496,8 +496,8 @@ async function writeChunk(
       `${src.file} no longer holds ${chunk} — konte source import it again`,
     );
   }
-  const studyDir = sourceChunksDir(src);
-  await fs.mkdir(path.join(studyDir, stem), { recursive: true });
+  const chunksDir = sourceChunksDir(src);
+  await fs.mkdir(path.join(chunksDir, stem), { recursive: true });
   const work = await fs.mkdtemp(path.join(os.tmpdir(), "konte-comic-"));
   try {
     const numbers = pageNumbers(c.from, c.to);
@@ -507,8 +507,8 @@ async function writeChunk(
         path.join(work, `p${page}`),
       );
       const rel = analysisPage(index, volume, stem, page);
-      await writeScaled(input, path.join(studyDir, rel));
-      const { width, height } = await sizeOfFile(path.join(studyDir, rel));
+      await writeScaled(input, path.join(chunksDir, rel));
+      const { width, height } = await sizeOfFile(path.join(chunksDir, rel));
       return { page, rel, aspect: width / height };
     });
     const aspect = written[0]!.aspect;
@@ -525,7 +525,11 @@ async function writeChunk(
     const cells = sheetOrder<ContactSheetCell>(
       written.map((w) => ({
         page: w.page,
-        cell: { label: `${volume}.p${w.page}`, file: path.join(studyDir, w.rel), aspect: w.aspect },
+        cell: {
+          label: `${volume}.p${w.page}`,
+          file: path.join(chunksDir, w.rel),
+          aspect: w.aspect,
+        },
       })),
       layout.columns,
       binding,
@@ -535,7 +539,7 @@ async function writeChunk(
       ...layout,
       blanks: layout.columns * layout.rows - cells.length,
     });
-    await fs.writeFile(path.join(studyDir, `${stem}.jpg`), bytes);
+    await fs.writeFile(path.join(chunksDir, `${stem}.jpg`), bytes);
     const lines = [
       `# ${chunk} — ${volume}.p${c.from}-p${c.to} (${binding})`,
       "",
@@ -544,13 +548,13 @@ async function writeChunk(
       ...written.map((w) => `${volume}.p${w.page} ${w.rel}`),
     ];
     // Last: its presence, with the pages, is what says the bundle is whole.
-    await writeFileAtomic(path.join(studyDir, `${stem}.md`), `${lines.join("\n")}\n`);
+    await writeFileAtomic(path.join(chunksDir, `${stem}.md`), `${lines.join("\n")}\n`);
   } finally {
     await fs.rm(work, { recursive: true, force: true });
   }
 }
 
-function chunkFiles(index: SourceStudyIndex, chunk: string, stem: string): string[] {
+function chunkFiles(index: SourceIndex, chunk: string, stem: string): string[] {
   const c = chunkOf(index, chunk);
   const volume = chunk.split(".")[0]!;
   return [
@@ -562,7 +566,7 @@ function chunkFiles(index: SourceStudyIndex, chunk: string, stem: string): strin
 
 async function excerpt(
   src: SourceRef,
-  index: SourceStudyIndex,
+  index: SourceIndex,
   chunk: string,
   stem: string,
   at: ParsedAt,
@@ -581,7 +585,7 @@ async function excerpt(
   };
 }
 
-export const COMIC_STUDY: SourceStudyKind = {
+export const COMIC_CHUNKER: SourceChunker = {
   excerptReadsChunk: true,
   kind: "comic",
   version: 1,
@@ -595,7 +599,7 @@ export const COMIC_STUDY: SourceStudyKind = {
 export async function comicPage(
   src: SourceRef,
   locator: string,
-  _opts: StudyOptions,
+  _opts: ChunkOptions,
 ): Promise<{ path: string; width: number; height: number }> {
   const at = parseAt("comic", locator);
   if (!at || at.from !== at.to) {

@@ -18,11 +18,11 @@ import {
   type SourceExcerpt,
   type SourceRef,
   chunkStems,
-  refreshStudyIndex,
+  refreshSourceIndex,
   sourceExcerpt,
   sourceRefIn,
-} from "./source-study.js";
-import type { SourceStudyIndex } from "./types/index.js";
+} from "./source-chunker.js";
+import type { SourceIndex } from "./types/index.js";
 
 // Evicted per read, so a digest rewritten while the process runs is read again.
 const moduleCache: Record<string, unknown> = createRequire(import.meta.url).cache;
@@ -75,7 +75,7 @@ export async function readDigest(
 // be read), its digest, and the span a direction covers — null before one names it.
 export type SourceView = {
   ref: SourceRef;
-  index: SourceStudyIndex | null;
+  index: SourceIndex | null;
   chunks: SourceChunk[];
   unreadable: UnreadableDigest[];
   span: string | null;
@@ -88,7 +88,7 @@ export async function sourceViewIn(
 ): Promise<SourceView | null> {
   const ref = sourceRefIn(videoRoot);
   if (!ref) return null;
-  const index = await refreshStudyIndex(ref).then(
+  const index = await refreshSourceIndex(ref).then(
     (r) => r.index,
     () => null,
   );
@@ -108,7 +108,7 @@ export async function sourceViewOf(
  * What a person calls a chunk: its heading, else its pages (comic) or its stretch of the clock
  * (clip), else its id.
  */
-export function chunkLabel(index: SourceStudyIndex | null, chunk: string): string {
+export function chunkLabel(index: SourceIndex | null, chunk: string): string {
   const extent = index?.chunks.find((c) => c.id === chunk);
   if (!extent) return chunk;
   if (extent.title) return extent.title;
@@ -244,7 +244,7 @@ export function looksByName(
   return out;
 }
 
-function within(index: SourceStudyIndex, chunk: string, at: string): boolean {
+function within(index: SourceIndex, chunk: string, at: string): boolean {
   const extent = index.chunks.find((c) => c.id === chunk);
   const kind = chunkKind(chunk);
   const parsed = kind && parseAt(kind, at);
@@ -274,7 +274,7 @@ type DigestProblem = { file: string; chunk: string | null; message: string };
  * index does not hold, an `at` outside its chunk. `file` is relative to the video.
  */
 export function digestProblems(
-  index: SourceStudyIndex,
+  index: SourceIndex,
   digest: { chunks: readonly SourceChunk[]; unreadable: readonly UnreadableDigest[] },
 ): DigestProblem[] {
   const out: DigestProblem[] = [];
@@ -314,7 +314,7 @@ export function digestProblems(
 
 /** The pages of each comic digest left out of its `pages`. */
 export function untranscribedPages(
-  index: SourceStudyIndex,
+  index: SourceIndex,
   chunks: readonly SourceChunk[],
 ): DigestProblem[] {
   const stems = chunkStems(index);
@@ -356,7 +356,7 @@ export async function checkSourceLocators(
     message: `${message} — fix it in ${file}`,
   });
   let ref: SourceRef | null;
-  let index: SourceStudyIndex;
+  let index: SourceIndex;
   let recounted: boolean;
   try {
     ref = sourceRefIn(videoRoot);
@@ -369,7 +369,7 @@ export async function checkSourceLocators(
         ),
       ];
     }
-    ({ index, recounted } = await refreshStudyIndex(ref));
+    ({ index, recounted } = await refreshSourceIndex(ref));
   } catch (err) {
     return [
       finding(

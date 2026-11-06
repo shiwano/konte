@@ -90,7 +90,7 @@ import { requireShotStages } from "./select-definition.js";
 import { shotNeedsVerdict, stageReviewDecidableAddresses } from "./shot-accept-targets.js";
 import { unreadSongVariants } from "./song-queue.js";
 import { sourceViewOf, unreadChunks } from "./source-direction.js";
-import { sourceDirLabel } from "./source-study.js";
+import { sourceDirLabel } from "./source-chunker.js";
 import {
   unsatisfiedCharacters,
   unsatisfiedVoices,

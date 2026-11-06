@@ -8,8 +8,13 @@ import { KonteError } from "../errors.js";
 import { pdfInfo, renderPdfPage } from "../pdf-render.js";
 import { imageHeaderSize } from "../image-size.js";
 import { Pdf, contentOperators } from "../pdf.js";
-import { comicInfoBinding, comicPage, sheetOrder } from "../source-study-comic.js";
-import { type SourceRef, refreshStudyIndex, sourceExcerpt, studySource } from "../source-study.js";
+import { comicInfoBinding, comicPage, sheetOrder } from "../source-chunker-comic.js";
+import {
+  type SourceRef,
+  refreshSourceIndex,
+  sourceExcerpt,
+  chunkSource,
+} from "../source-chunker.js";
 
 // pdf.js draws in Chromium; here a drawn page is the fixture's JPEG.
 vi.mock("../pdf-render.js", () => ({
@@ -336,13 +341,13 @@ describe("imageHeaderSize", () => {
   });
 });
 
-describe("study comic", () => {
+describe("COMIC_CHUNKER", () => {
   it("bundles a PDF's pages by twelve and writes each bundle's pages, sheet and list", async () => {
     const pdf = buildPdf([jpegImage(), grayFlate(40, 60)], [...Array(13).fill([3]), [4]], {
       direction: "R2L",
     });
     const src = source("pdf", "book.pdf", pdf);
-    const { index } = await studySource(src, { progress });
+    const { index } = await chunkSource(src, { progress });
     expect(index.kind).toBe("comic");
     expect(index.binding).toBe("rtl");
     expect(index.summary).toBe("14 pages · 2 bundles · rtl");
@@ -354,23 +359,23 @@ describe("study comic", () => {
       ["v1.b2", 13, 14],
     ]);
     expect(index.units.map((u) => u.id)).toEqual(["v1.b1", "v1.b2"]);
-    const study = path.join(src.dir, "chunks");
+    const chunks = path.join(src.dir, "chunks");
     for (const f of ["v1.b1.md", "v1.b1.jpg", "v1.b1/p001.jpg", "v1.b2/p014.jpg", "index.md"]) {
-      expect(existsSync(path.join(study, f.replace("v1.b", "v01.b0")))).toBe(true);
+      expect(existsSync(path.join(chunks, f.replace("v1.b", "v01.b0")))).toBe(true);
     }
-    expect(readFileSync(path.join(study, "v01.b01.md"), "utf-8")).toContain(
+    expect(readFileSync(path.join(chunks, "v01.b01.md"), "utf-8")).toContain(
       "v1.p12 v01.b01/p012.jpg",
     );
     const excerpt = await sourceExcerpt(src, index, "v1.b2", { prefix: "v1", from: 13, to: 14 });
     expect(excerpt).toEqual({
-      images: [path.join(study, "v01.b02/p013.jpg"), path.join(study, "v01.b02/p014.jpg")],
+      images: [path.join(chunks, "v01.b02/p013.jpg"), path.join(chunks, "v01.b02/p014.jpg")],
     });
 
-    const flipped = await studySource(src, { progress, binding: "ltr" });
+    const flipped = await chunkSource(src, { progress, binding: "ltr" });
     expect(flipped.recounted).toBe(true);
     expect(flipped.index.binding).toBe("ltr");
-    expect(readFileSync(path.join(study, "v01.b01.md"), "utf-8")).toContain("(ltr)");
-    expect((await studySource(src, { progress })).index.binding).toBe("ltr");
+    expect(readFileSync(path.join(chunks, "v01.b01.md"), "utf-8")).toContain("(ltr)");
+    expect((await chunkSource(src, { progress })).index.binding).toBe("ltr");
 
     const page = await comicPage(src, "v1.p14", { progress });
     expect(page).toMatchObject({ width: 40, height: 60 });
@@ -385,14 +390,14 @@ describe("study comic", () => {
       contents: "q 40 0 0 60 0 0 cm /Im0 Do Q BT /F1 12 Tf (caption) Tj ET",
     });
     const src = source("drawn", "book.pdf", captioned);
-    await studySource(src, { progress });
+    await chunkSource(src, { progress });
     expect(vi.mocked(renderPdfPage).mock.calls.map(([, n]) => n)).toEqual([1, 2]);
     expect(existsSync(path.join(src.dir, "chunks", "v01.b01", "p002.jpg"))).toBe(true);
 
     vi.mocked(renderPdfPage).mockClear();
     vi.mocked(pdfInfo).mockResolvedValue({ pages: 3, direction: "ltr" });
     const sealed = source("sealed", "sealed.pdf", Buffer.from("%PDF-1.7\nnot readable here\n"));
-    const { index } = await studySource(sealed, { progress });
+    const { index } = await chunkSource(sealed, { progress });
     expect(index.summary).toBe("3 pages · 1 bundle · ltr");
     expect(vi.mocked(renderPdfPage).mock.calls.map(([, n]) => n)).toEqual([1, 2, 3]);
   }, 60_000);
@@ -406,7 +411,7 @@ describe("study comic", () => {
       "__MACOSX/._p1.jpg": "junk",
     });
     const src = source("cbz", "book.cbz", cbz);
-    const { index } = await studySource(src, { progress });
+    const { index } = await chunkSource(src, { progress });
     expect(index.binding).toBe("rtl");
     expect(index.chunks).toHaveLength(1);
     expect(index.chunks[0]).toMatchObject({ id: "v1.b1", from: 1, to: 3 });
@@ -420,7 +425,7 @@ describe("study comic", () => {
       "vol2.pdf": buildPdf([jpegImage()], [[3], [3]], { direction: "R2L" }),
     });
     const src = source("vols", "set.zip", zip);
-    const { index } = await studySource(src, { progress });
+    const { index } = await chunkSource(src, { progress });
     expect(index.units).toEqual([
       { id: "v1", title: "vol2.pdf" },
       { id: "v2", title: "vol10.pdf" },
@@ -437,11 +442,11 @@ describe("study comic", () => {
     mkdirSync(path.join(src.dir, "pages"), { recursive: true });
     writeFileSync(path.join(src.dir, "pages", "001.jpg"), jpeg);
     writeFileSync(path.join(src.dir, "pages", "002.jpg"), jpeg);
-    const refused = await studySource(src, { progress }).catch((err: unknown) => err);
+    const refused = await chunkSource(src, { progress }).catch((err: unknown) => err);
     expect(refused).toBeInstanceOf(KonteError);
     expect((refused as KonteError).code).toBe("COMIC_BINDING_UNKNOWN");
     expect((refused as KonteError).headline).toContain("--binding rtl");
-    const { index } = await studySource(src, { progress, binding: "ltr" });
+    const { index } = await chunkSource(src, { progress, binding: "ltr" });
     expect(index.binding).toBe("ltr");
     expect(index.notes).toEqual(["binding ltr given by --binding"]);
   }, 60_000);
@@ -450,10 +455,10 @@ describe("study comic", () => {
     const src = source("nested", "pages");
     mkdirSync(path.join(src.dir, "pages", "a"), { recursive: true });
     writeFileSync(path.join(src.dir, "pages", "a", "001.jpg"), jpeg);
-    const first = await refreshStudyIndex(src, { progress, binding: "ltr" });
+    const first = await refreshSourceIndex(src, { progress, binding: "ltr" });
     expect(first.index.chunks[0]!.to).toBe(1);
     writeFileSync(path.join(src.dir, "pages", "a", "002.jpg"), jpeg);
-    const second = await refreshStudyIndex(src, { progress });
+    const second = await refreshSourceIndex(src, { progress });
     expect(second.recounted).toBe(true);
     expect(second.index.chunks[0]!.to).toBe(2);
   }, 60_000);

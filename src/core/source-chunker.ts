@@ -16,11 +16,7 @@ import {
   chunkFileStems,
   sourceKindOfFile,
 } from "./source-locator.js";
-import {
-  type SourceFileFingerprint,
-  type SourceStudyIndex,
-  SourceStudyIndexSchema,
-} from "./types/index.js";
+import { type SourceFileFingerprint, type SourceIndex, SourceIndexSchema } from "./types/index.js";
 
 export const SOURCE_DIR = "source";
 const CHUNKS_DIR = "chunks";
@@ -60,7 +56,7 @@ function originalEntries(dir: string): string[] {
 export function sourceRefIn(videoRoot: string): SourceRef | null {
   const dir = sourceDirOf(videoRoot);
   if (!existsSync(dir)) return null;
-  const indexed = readStudyIndex({ dir })?.file;
+  const indexed = readSourceIndex({ dir })?.file;
   if (indexed && existsSync(path.join(dir, indexed))) return { dir, file: indexed };
   const originals = originalEntries(dir);
   if (originals.length === 0) return null;
@@ -152,9 +148,9 @@ async function fingerprintHolds(
   return out;
 }
 
-export function readStudyIndex(src: Pick<SourceRef, "dir">): SourceStudyIndex | null {
+export function readSourceIndex(src: Pick<SourceRef, "dir">): SourceIndex | null {
   try {
-    const parsed = SourceStudyIndexSchema.safeParse(
+    const parsed = SourceIndexSchema.safeParse(
       JSON.parse(readFileSync(path.join(sourceChunksDir(src), INDEX_JSON), "utf-8")),
     );
     return parsed.success ? parsed.data : null;
@@ -164,26 +160,26 @@ export function readStudyIndex(src: Pick<SourceRef, "dir">): SourceStudyIndex | 
 }
 
 // One kind's reading of an original.
-export type SourceStudyKind = {
+export type SourceChunker = {
   kind: SourceKind;
   // Bumped whenever what this kind reads, or how, changes: an index of another version is read again.
   version: number;
   // The original's structure — its chunks and their extents — counted without writing any chunk.
   structure(
     src: SourceRef,
-    opts: StudyOptions,
-  ): Promise<Omit<SourceStudyIndex, "fingerprint" | "version" | "kind" | "file">>;
+    opts: ChunkOptions,
+  ): Promise<Omit<SourceIndex, "fingerprint" | "version" | "kind" | "file">>;
   // Writes one chunk's files under `chunks/` from the original, every one named after `stem`.
-  writeChunk(src: SourceRef, index: SourceStudyIndex, chunk: string, stem: string): Promise<void>;
+  writeChunk(src: SourceRef, index: SourceIndex, chunk: string, stem: string): Promise<void>;
   // The files one chunk is written to, relative to `chunks/`; the first is the one a reader opens.
-  chunkFiles(index: SourceStudyIndex, chunk: string, stem: string): string[];
+  chunkFiles(index: SourceIndex, chunk: string, stem: string): string[];
   // Whether `excerpt` reads the chunk's written files.
   excerptReadsChunk: boolean;
   // What `at`, inside a written chunk, shows: its paragraphs (text), or its page images or frames as
   // absolute paths (comic, clip).
   excerpt(
     src: SourceRef,
-    index: SourceStudyIndex,
+    index: SourceIndex,
     chunk: string,
     stem: string,
     at: ParsedAt,
@@ -192,27 +188,27 @@ export type SourceStudyKind = {
 
 export type SourceExcerpt = { text: string[] } | { images: string[] };
 
-export type StudyOptions = {
+export type ChunkOptions = {
   progress: (line: string) => void;
   // A comic's binding, over what its file states.
   binding?: "rtl" | "ltr";
 };
 
-const KINDS = new Map<SourceKind, () => Promise<SourceStudyKind>>([
-  ["text", async () => (await import("./source-study-text.js")).TEXT_STUDY],
-  ["comic", async () => (await import("./source-study-comic.js")).COMIC_STUDY],
-  ["clip", async () => (await import("./source-study-clip.js")).CLIP_STUDY],
+const KINDS = new Map<SourceKind, () => Promise<SourceChunker>>([
+  ["text", async () => (await import("./source-chunker-text.js")).TEXT_CHUNKER],
+  ["comic", async () => (await import("./source-chunker-comic.js")).COMIC_CHUNKER],
+  ["clip", async () => (await import("./source-chunker-clip.js")).CLIP_CHUNKER],
 ]);
 
-async function studyKind(kind: SourceKind): Promise<SourceStudyKind> {
+async function chunkerOf(kind: SourceKind): Promise<SourceChunker> {
   return KINDS.get(kind)!();
 }
 
-export function chunkStems(index: SourceStudyIndex): Map<string, string> {
+export function chunkStems(index: SourceIndex): Map<string, string> {
   return chunkFileStems(index.chunks.map((c) => c.id));
 }
 
-async function clearStudy(src: SourceRef): Promise<void> {
+async function clearChunks(src: SourceRef): Promise<void> {
   const dir = sourceChunksDir(src);
   if (!existsSync(dir)) return;
   for (const entry of await fs.readdir(dir)) {
@@ -222,15 +218,15 @@ async function clearStudy(src: SourceRef): Promise<void> {
 
 async function countStructure(
   src: SourceRef,
-  impl: SourceStudyKind,
-  opts: StudyOptions,
-): Promise<SourceStudyIndex> {
+  impl: SourceChunker,
+  opts: ChunkOptions,
+): Promise<SourceIndex> {
   const fingerprint = await fingerprintOf(src);
   const structure = await impl.structure(src, opts);
   return { version: impl.version, kind: impl.kind, file: src.file, fingerprint, ...structure };
 }
 
-async function writeIndex(src: SourceRef, index: SourceStudyIndex): Promise<void> {
+async function writeIndex(src: SourceRef, index: SourceIndex): Promise<void> {
   await writeFileAtomic(
     path.join(sourceChunksDir(src), INDEX_JSON),
     `${JSON.stringify(index, null, 2)}\n`,
@@ -241,13 +237,13 @@ async function writeIndex(src: SourceRef, index: SourceStudyIndex): Promise<void
  * `index.json` as the original stands: read back where the fingerprint holds, else counted again
  * from the original, with every chunk file the old one left removed. Writes no chunk.
  */
-export async function refreshStudyIndex(
+export async function refreshSourceIndex(
   src: SourceRef,
-  opts: StudyOptions = { progress: () => {} },
-): Promise<{ index: SourceStudyIndex; recounted: boolean }> {
-  const read = readStudyIndex(src);
+  opts: ChunkOptions = { progress: () => {} },
+): Promise<{ index: SourceIndex; recounted: boolean }> {
+  const read = readSourceIndex(src);
   const known = read?.file === src.file ? read : null;
-  const impl = await studyKind(known?.kind ?? sourceKindOf(src));
+  const impl = await chunkerOf(known?.kind ?? sourceKindOf(src));
   const rebound = opts.binding !== undefined && opts.binding !== known?.binding;
   if (known && known.version === impl.version && !rebound) {
     const fingerprint = await fingerprintHolds(src, known.fingerprint);
@@ -262,15 +258,15 @@ export async function refreshStudyIndex(
     ...opts,
     binding: opts.binding ?? known?.binding,
   });
-  await clearStudy(src);
+  await clearChunks(src);
   await writeIndex(src, index);
   return { index, recounted: true };
 }
 
 function chunkWritten(
   src: SourceRef,
-  index: SourceStudyIndex,
-  impl: SourceStudyKind,
+  index: SourceIndex,
+  impl: SourceChunker,
   chunk: string,
 ): boolean {
   const stem = chunkStems(index).get(chunk)!;
@@ -285,10 +281,10 @@ const chunkWrites = new Map<string, Promise<void>>();
 /** Writes `chunk`'s files where any is missing; returns the one a reader opens, relative to `chunks/`. */
 export async function ensureChunk(
   src: SourceRef,
-  index: SourceStudyIndex,
+  index: SourceIndex,
   chunk: string,
 ): Promise<string> {
-  const impl = await studyKind(index.kind);
+  const impl = await chunkerOf(index.kind);
   const stem = chunkStems(index).get(chunk);
   if (!stem) throw new KonteError("SOURCE_UNREADABLE", `The source has no chunk ${chunk}`);
   const key = path.join(src.dir, chunk);
@@ -301,22 +297,22 @@ export async function ensureChunk(
   return impl.chunkFiles(index, chunk, stem)[0]!;
 }
 
-/** Studies the whole original: `index.json`, `index.md` and every chunk not yet written. */
-export async function studySource(
+/** Chunks the whole original: `index.json`, `index.md` and every chunk not yet written. */
+export async function chunkSource(
   src: SourceRef,
-  opts: StudyOptions,
-): Promise<{ index: SourceStudyIndex; recounted: boolean }> {
-  const { index, recounted } = await refreshStudyIndex(src, opts);
-  const impl = await studyKind(index.kind);
+  opts: ChunkOptions,
+): Promise<{ index: SourceIndex; recounted: boolean }> {
+  const { index, recounted } = await refreshSourceIndex(src, opts);
+  const impl = await chunkerOf(index.kind);
   const missing = index.chunks.filter((c) => !chunkWritten(src, index, impl, c.id));
   if (missing.length > 0) opts.progress(`writing ${missing.length} chunk(s)`);
   for (const c of missing) await ensureChunk(src, index, c.id);
-  await fs.writeFile(path.join(sourceChunksDir(src), INDEX_MD), studyIndexMarkdown(index, impl));
+  await fs.writeFile(path.join(sourceChunksDir(src), INDEX_MD), indexMarkdown(index, impl));
   await fs.mkdir(path.join(src.dir, DIGEST_DIR), { recursive: true });
   return { index, recounted };
 }
 
-function studyIndexMarkdown(index: SourceStudyIndex, impl: SourceStudyKind): string {
+function indexMarkdown(index: SourceIndex, impl: SourceChunker): string {
   const stems = chunkStems(index);
   const lines = [`# ${index.file}`, "", index.summary, ""];
   for (const note of index.notes) lines.push(`- ${note}`);
@@ -335,11 +331,11 @@ function studyIndexMarkdown(index: SourceStudyIndex, impl: SourceStudyKind): str
 /** What `at` in `chunk` shows, writing the chunk first where the excerpt reads it and it is missing. */
 export async function sourceExcerpt(
   src: SourceRef,
-  index: SourceStudyIndex,
+  index: SourceIndex,
   chunk: string,
   at: ParsedAt,
 ): Promise<SourceExcerpt> {
-  const impl = await studyKind(index.kind);
+  const impl = await chunkerOf(index.kind);
   if (impl.excerptReadsChunk) await ensureChunk(src, index, chunk);
   return impl.excerpt(src, index, chunk, chunkStems(index).get(chunk)!, at);
 }

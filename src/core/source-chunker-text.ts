@@ -9,8 +9,8 @@ import * as path from "node:path";
 import yauzl from "yauzl";
 import { writeFileAtomic } from "./atomic-write.js";
 import { KonteError, errorMessage } from "./errors.js";
-import type { SourceRef, SourceStudyKind } from "./source-study.js";
-import { sourceChunksDir } from "./source-study.js";
+import type { SourceRef, SourceChunker } from "./source-chunker.js";
+import { sourceChunksDir } from "./source-chunker.js";
 import { quotedSpans, speechLangOf, spokenSecOf } from "./source-speech.js";
 
 // A chunk holds about this much: characters for a CJK text, words for any other.
@@ -707,7 +707,7 @@ function chunkSize(chunk: TextChunk, cjk: boolean): string {
   return count(n, cjk ? "char" : "word");
 }
 
-export const TEXT_STUDY: SourceStudyKind = {
+export const TEXT_CHUNKER: SourceChunker = {
   excerptReadsChunk: true,
   kind: "text",
   version: 1,

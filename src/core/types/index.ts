@@ -91,7 +91,5 @@ export {
   ClipSourceSchema,
   type ClipStudy,
   ClipStudySchema,
-  type SourceFileFingerprint,
-  type SourceStudyIndex,
-  SourceStudyIndexSchema,
 } from "./study.js";
+export { type SourceFileFingerprint, type SourceIndex, SourceIndexSchema } from "./source.js";

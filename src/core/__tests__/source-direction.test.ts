@@ -20,15 +20,15 @@ import {
   untranscribedPages,
 } from "../source-direction.js";
 import type { SourceChunk } from "../dsl/source.js";
-import type { SourceStudyIndex } from "../types/index.js";
+import type { SourceIndex } from "../types/index.js";
 import {
   type SourceRef,
   importOriginal,
-  readStudyIndex,
-  refreshStudyIndex,
+  readSourceIndex,
+  refreshSourceIndex,
   sourceRefIn,
-  studySource,
-} from "../source-study.js";
+  chunkSource,
+} from "../source-chunker.js";
 import { directionDefaults } from "./helpers/direction.js";
 
 const DSL = pathToFileURL(path.resolve(__dirname, "../dsl/source.ts")).href;
@@ -107,7 +107,7 @@ afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 describe("the source locator check", () => {
   it("passes a digest inside its chunks and a span the chunks hold", async () => {
     writeDigest("c1.p1-p3");
-    await studySource(ref, { progress: () => {} });
+    await chunkSource(ref, { progress: () => {} });
     expect(await checkSourceLocators(direction("c1-c2"), videoRoot)).toEqual([]);
   });
 
@@ -129,7 +129,7 @@ describe("the source locator check", () => {
 
   it("counts a changed original again and drops the chunks of the old count", async () => {
     writeDigest("c1.p1-p3");
-    await studySource(ref, { progress: () => {} });
+    await chunkSource(ref, { progress: () => {} });
     const chunkFile = path.join(ref.dir, "chunks/c01.md");
     expect(fs.existsSync(chunkFile)).toBe(true);
 
@@ -152,20 +152,20 @@ describe("brief.source hashing", () => {
 
 describe("refreshing the chunks' index", () => {
   it("takes a touched original's new mtime without counting it again", async () => {
-    await studySource(ref, { progress: () => {} });
+    await chunkSource(ref, { progress: () => {} });
     const file = path.join(ref.dir, "novel.md");
     const later = new Date(Date.now() + 60_000);
     fs.utimesSync(file, later, later);
-    const first = await refreshStudyIndex(ref);
+    const first = await refreshSourceIndex(ref);
     expect(first.recounted).toBe(false);
-    expect(readStudyIndex(ref)!.fingerprint[0]!.mtimeMs).toBe(fs.statSync(file).mtimeMs);
+    expect(readSourceIndex(ref)!.fingerprint[0]!.mtimeMs).toBe(fs.statSync(file).mtimeMs);
     expect(fs.existsSync(path.join(ref.dir, "chunks/c01.md"))).toBe(true);
   });
 
   it("reads a source that moved to another file as that file's kind", async () => {
-    await studySource(ref, { progress: () => {} });
+    await chunkSource(ref, { progress: () => {} });
     write("videos/main/source/page/001.png", "");
-    await expect(refreshStudyIndex({ ...ref, file: "page" })).rejects.toMatchObject({
+    await expect(refreshSourceIndex({ ...ref, file: "page" })).rejects.toMatchObject({
       code: "COMIC_BINDING_UNKNOWN",
     });
   });
@@ -208,7 +208,7 @@ describe("reading a source", () => {
 describe("a digest that does not load", () => {
   it("is a finding of the check, and the rest of the digest still reads", async () => {
     writeDigest("c1.p1-p3");
-    await studySource(ref, { progress: () => {} });
+    await chunkSource(ref, { progress: () => {} });
     write("videos/main/source/digest/c03.ts", "export default {");
     write("videos/main/source/digest/c04.ts", "export const value = 1;");
     const findings = await checkSourceLocators(direction("c1-c2"), videoRoot);
@@ -247,7 +247,7 @@ describe("importing an original", () => {
 });
 
 function comicView(chunks: SourceChunk[], span: string | null): SourceView {
-  const index: SourceStudyIndex = {
+  const index: SourceIndex = {
     version: 1,
     kind: "comic",
     file: "vol01.zip",
@@ -275,7 +275,7 @@ const scene = (at: string, continues?: boolean) => ({
 describe("spanMeasure", () => {
   it("counts a text's scenes and what its quotations take to say", async () => {
     writeDigest("c1.p1-p3");
-    await studySource(ref, { progress: () => {} });
+    await chunkSource(ref, { progress: () => {} });
     const sv = (await sourceViewIn(videoRoot, "c1-c2"))!;
     const m = spanMeasure(sv);
     expect(m).toMatchObject({ scenes: 2, unread: 0, runSec: null, pages: null });
@@ -352,7 +352,7 @@ describe("spanMeasure", () => {
 describe("sceneMeasure", () => {
   it("measures a text scene by the quotations of its own paragraphs", async () => {
     writeDigest("c1.p2");
-    await studySource(ref, { progress: () => {} });
+    await chunkSource(ref, { progress: () => {} });
     const sv = (await sourceViewIn(videoRoot, "c1-c2"))!;
     const scenes = sourceScenes(sv.chunks);
     const quoted = await sceneMeasure(sv, scenes.get("c1.s1")!);

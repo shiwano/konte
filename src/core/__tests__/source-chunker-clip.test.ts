@@ -6,15 +6,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { execFileAsync } from "../exec-file.js";
 import { ffmpegBin } from "../ffmpeg-binary.js";
 import {
-  CLIP_STUDY,
+  CLIP_CHUNKER,
   UNSNAPPED_NOTE,
   WINDOW_SEC,
   clipWindows,
   prepareClipSource,
   sourceClipFrameAt,
   windowFrameTimes,
-} from "../source-study-clip.js";
-import { readStudyIndex, refreshStudyIndex, studySource } from "../source-study.js";
+} from "../source-chunker-clip.js";
+import { readSourceIndex, refreshSourceIndex, chunkSource } from "../source-chunker.js";
 
 describe("clipWindows", () => {
   it("is one window for a clip under a window and a half", () => {
@@ -103,7 +103,7 @@ describe("a source clip", () => {
   });
 
   it("counts its windows off the length alone before its cuts are read", async () => {
-    const { index } = await refreshStudyIndex(src());
+    const { index } = await refreshSourceIndex(src());
     expect(index.kind).toBe("clip");
     expect(index.chunks.map((c) => c.id)).toEqual(["w1"]);
     expect(index.notes).toEqual([UNSNAPPED_NOTE]);
@@ -111,8 +111,8 @@ describe("a source clip", () => {
 
   it("is studied into windows of every shot once its cuts are read", async () => {
     await prepareClipSource(src(), () => {});
-    expect(readStudyIndex(src())).toBeNull();
-    const { index } = await studySource(src(), { progress: () => {} });
+    expect(readSourceIndex(src())).toBeNull();
+    const { index } = await chunkSource(src(), { progress: () => {} });
     expect(index.notes).toEqual([]);
     expect(index.summary).toBe("0:06 · 1 window · 2 shots");
     expect(index.chunks[0]).toMatchObject({ id: "w1", from: 0, size: "0:06 · 2 shots" });
@@ -120,7 +120,7 @@ describe("a source clip", () => {
     expect(md).toContain("Heard: nothing");
     expect(md).toContain("- w01-1.jpg  00:01.5-00:04.5  2 frame(s)");
     expect(existsSync(path.join(src().dir, "chunks", "w01-1.jpg"))).toBe(true);
-    expect(CLIP_STUDY.chunkFiles(index, "w1", "w01")).toEqual(["w01.md"]);
+    expect(CLIP_CHUNKER.chunkFiles(index, "w1", "w01")).toEqual(["w01.md"]);
   }, 120_000);
 
   it("writes the frame at a moment, and a replaced original's afresh", async () => {
