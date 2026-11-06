@@ -76,7 +76,7 @@ jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_us
 
 - Grep nested paths — `references/video/wan-2-2.md` won't match `references/[a-z-]+\.md`; a too-narrow pattern invents "never loaded" findings.
 - Grep bare filenames after a `cd` — `cd .../direction-guide/references && cat skeleton.md rosters.md` names no `skills/` path; run `grep -oE '[a-z-]+\.md'` over Bash commands that `cd` into a `references` dir.
-- Loaded but not in JOURNEY = a budget hole its tokens escape — unless it is a per-model or per-backend doc, budgeted as headroom, or post-production work. Add it and expect the raise, logged as an accounting fix.
+- Loaded but not in JOURNEY = a budget hole its tokens escape — unless another journey in that file budgets it, or it is post-production work. Add it and expect the raise, logged as an accounting fix.
 - In JOURNEY but never loaded = a routing miss, once the branch's trigger applied and no containing result was truncated. Never trim the list to match observation — that blesses the miss and drops a guide from the chain.
 
 ## 8. Diagnose a routing miss

@@ -30,6 +30,9 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // from the adapter itself; only the budget is written here. Every bundled guide
 // must be named by an adapter.
 //
+// LANGUAGE — one journey per `policy.lang` with a notation reference: the file
+// a piece in that language reads on top of whichever form's chain it follows.
+//
 // DEV — what an agent working *on* konte loads, charged this repo's own
 // `AGENTS.md`. One journey per kind of maintenance task, so the guides a task
 // really opens together are budgeted together. Every dev skill must belong to
@@ -44,6 +47,7 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - lang-ja (new, 650): how a Japanese `script` line is written for a speech model.
 // - adaptation 36,150 → 36,200 (agreed by a human): `<Screen>`, a layer warped onto a surface the
 //   frame shows at an angle.
 // - konte-video-critic 2,850 → 2,900 (agreed by a human): a shot cut back to its setup across a
@@ -442,9 +446,17 @@ const ADAPTER_JOURNEYS = catalog.entries
   }))
   .filter((journey) => journey.files.length > 0);
 
+const LANGUAGE_JOURNEYS = [
+  {
+    name: "lang-ja",
+    budget: 650,
+    files: [`${SKILLS}/direction-guide/references/japanese-notation.md`],
+  },
+];
+
 // Shipped last on purpose: it is the family that reaches users, so it is the
 // block still on screen when the check finishes.
-const JOURNEYS = [...DEV_JOURNEYS, ...ADAPTER_JOURNEYS, ...SHIPPED_JOURNEYS];
+const JOURNEYS = [...DEV_JOURNEYS, ...ADAPTER_JOURNEYS, ...LANGUAGE_JOURNEYS, ...SHIPPED_JOURNEYS];
 
 const out = execFileSync(
   "waza",
