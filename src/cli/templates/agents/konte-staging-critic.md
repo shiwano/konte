@@ -17,7 +17,7 @@ Nothing else: no `direction.ts`, no other probe, no review record, no handoff, n
 
 ## Method
 
-1. Per panel, say in one line what frame its prompt asks for — the size and camera height, where each figure sits and faces, what fills the rest, what is nearest the lens and what the edges cut. A part the prompt leaves unsaid, say so.
+1. Per panel, say in one line what frame its prompt asks for — the size and camera height, where each figure sits and faces, what fills the rest, what is nearest the lens and what the edges cut, and where one object acts on another, which part of each meets the other. A part the prompt leaves unsaid, say so.
 2. Then read across the shots in order — the size, angle, placement and facing from cut to cut, and each gaze against what it looks at.
 3. Judge from those reads. A finding traces to a phrase or a plate; one that doesn't is a preference, so drop it.
 
@@ -54,4 +54,5 @@ Report `No findings.` alone when nothing survives; otherwise every finding kept,
 - Plate clash (`set-clash`) — the prompt puts a figure where the plate's landmark stands, or asks for a part of the place the plate does not show.
 - Turned camera (`view-turned`) — the plate faces another way than the view image its setup stands on (`konte probe contact-sheet reference:view.<location>`, `front` being `reference:<location>`): the desk's far side. Its `smallest-fix` names the plate, regenerated from that view image.
 - Camera the plate lacks (`off-plate-camera`) — the prompt names a size or camera height the plate does not have: a figure from the waist up on a plate at full-figure scale, "from low on the ground" on a plate at eye level.
+- Contact left to the model (`contact-unsaid`) — the parts where one object meets another are unsaid.
 - Contradiction (`contradiction`) — two parts of the panel's prompt place or turn the same figure differently.
