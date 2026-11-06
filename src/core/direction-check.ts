@@ -9,7 +9,7 @@ import { formatCompositionAddress, formatPlateAddress, formatShotAddress } from 
 import { formatSeconds, formatSecondsRange } from "./format-duration.js";
 import type { AcceptJudgedCode } from "./finding.js";
 import type { PanelLane, ShotJoin } from "./types/definition.js";
-import { parseViewName } from "./view.js";
+import { parseViewName, type View } from "./view.js";
 
 /**
  * The dramatic function a role performs — the five-stage skeleton the classical arc schemas share
@@ -90,10 +90,12 @@ export type DirectionFindingCode =
   | "unused-setup"
   | "setup-atomized"
   // The views: a way a setup faces with no image of it, a plate standing on another view's image,
-  // and a view image drawn from nothing of its location.
+  // a view image drawn from nothing of its location, and an image of a view whose prompt does not
+  // ask for a landmark a setup facing that way holds.
   | "view-unrealized"
   | "plate-unviewed"
   | "view-unanchored"
+  | "view-unnamed"
   | "multi-sentence-action"
   | "off-grid-duration"
   | "off-beat-cut"
@@ -382,6 +384,7 @@ export type AnimaticSetupState = {
   unviewedPlateIds: readonly string[];
   unviewedBy: ReadonlyMap<string, readonly string[]>;
   unanchoredViews: readonly string[];
+  referenceImageTexts: Readonly<Record<string, readonly string[]>>;
   // Setup ids whose plate has an accepted take.
   acceptedPlateIds: readonly string[];
 };
@@ -1820,6 +1823,40 @@ export function checkPlateNaming(namings: readonly PlateNaming[]): DirectionFind
           `the prompt plate "${naming.setupId}" is generated with does not say ` +
           `"${landmark.promptDepiction}", which its \`holds\` declares the frame carries`,
         judgedBy: [formatPlateAddress(naming.setupId)],
+      });
+    }
+  }
+  return findings;
+}
+
+/**
+ * The image one view of a location stands on — `reference:<location>` for `front`, its view image
+ * for the rest.
+ */
+export type ViewNaming = {
+  location: string;
+  view: View;
+  image: string;
+  texts: readonly string[];
+  holds: readonly (HeldLandmark & { setups: readonly string[] })[];
+};
+
+// Reported per landmark, keyed `<locationId>.<view>.<landmarkId>`.
+export function checkViewNaming(namings: readonly ViewNaming[]): DirectionFinding[] {
+  const findings: DirectionFinding[] = [];
+  for (const naming of namings) {
+    for (const landmark of naming.holds) {
+      if (landmark.promptDepiction.trim() === "") continue;
+      if (namesIn(naming.texts, landmark.promptDepiction)) continue;
+      const setups = landmark.setups.map((id) => `"${id}"`).join(", ");
+      findings.push({
+        code: "view-unnamed",
+        subject: `${naming.location}.${naming.view}.${landmark.id}`,
+        message:
+          `the prompt \`${naming.image}\` is generated with does not say ` +
+          `"${landmark.promptDepiction}", which setup ${setups} facing "${naming.view}" ` +
+          `${landmark.setups.length === 1 ? "holds" : "hold"}`,
+        judgedBy: [naming.image],
       });
     }
   }

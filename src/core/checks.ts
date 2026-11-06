@@ -25,6 +25,7 @@ import {
   type StaleWaiver,
   type StagingStageState,
   checkDirection,
+  checkViewNamings,
   directionFindings,
   registryFinding,
 } from "./direction.js";
@@ -42,7 +43,7 @@ import {
   collectTransitiveDependents,
   listBoardlessVideoShots,
 } from "./graph.js";
-import { acceptedIn, listViewAnchorGaps } from "./board-analysis.js";
+import { acceptedIn, listReferenceImageTexts, listViewAnchorGaps } from "./board-analysis.js";
 import { findUnheldLandmarks } from "./landmark-held-check.js";
 import { type PinOccurrence, pinFindings } from "./pin-check.js";
 import { type PromptOccurrence, promptFindings } from "./prompt-check.js";
@@ -58,7 +59,7 @@ import type {
 } from "./types/index.js";
 import { checkSourceLocators } from "./source-direction.js";
 import { findUnmouthedStems } from "./stem-mouth-check.js";
-import { type Accepted, withAwaitingAccept } from "./sign-off.js";
+import { type Accepted, signedOffBy, withAwaitingAccept } from "./sign-off.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
 import { unvouchedFindings } from "./variant-check.js";
 
@@ -199,24 +200,28 @@ const DIRECTION_CHECK: Check = {
       ];
     }
     return directionFindings(directionCheckOf(ctx)!, ctx.direction).filter(
-      (f) => f.code !== "view-unanchored",
+      (f) => f.code !== "view-unanchored" && f.code !== "view-unnamed",
     );
   },
   staleWaivers: (ctx) => directionCheckOf(ctx)?.staleWaivers ?? [],
 };
 
 // Off the reference pool alone, so it holds the reference spend before an animatic exists.
-const VIEW_ANCHOR_CHECK: Check = {
-  codes: ["view-unanchored"],
+const VIEW_CHECK: Check = {
+  codes: ["view-unanchored", "view-unnamed"],
   run: (ctx) => {
     if (!ctx.direction || !ctx.reference) return [];
     const waivers = ctx.direction.waivers ?? {};
-    return checkViewAnchors(
-      listViewAnchorGaps(ctx.reference),
-      new Set(ctx.reference.exposedAssetNames ?? []),
-    ).flatMap((f): Finding[] => {
+    const accepted = acceptedOf(ctx);
+    return [
+      ...checkViewAnchors(
+        listViewAnchorGaps(ctx.reference),
+        new Set(ctx.reference.exposedAssetNames ?? []),
+      ),
+      ...checkViewNamings(ctx.direction, listReferenceImageTexts(ctx.reference)),
+    ].flatMap((f): Finding[] => {
       const key = directionWaiverKey(f);
-      if (key in waivers) return [];
+      if (key in waivers || signedOffBy(f.judgedBy, accepted)) return [];
       return [
         registryFinding(f, {
           subject: f.subject ?? "",
@@ -505,7 +510,7 @@ const SOURCE_LOCATOR_CHECK: Check = {
 const CHECKS: readonly Check[] = [
   DIRECTION_CHECK,
   SOURCE_LOCATOR_CHECK,
-  VIEW_ANCHOR_CHECK,
+  VIEW_CHECK,
   PROMPT_CHECK,
   LANDMARK_HELD_CHECK,
   PIN_CHECK,

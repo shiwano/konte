@@ -27,7 +27,8 @@ views: ({ reference }) => {
 ```
 
 - One image per view, made from the master (`view-unanchored`); the adapter's craft guide has the prompt.
+- Ask for each landmark the setups facing that view hold by its `promptDepiction` (`view-unnamed`).
 - Write the camera position, and what is in frame near to far with its share of the frame, in things the master shows. Never restate the room wall by wall — layout written against the master moves furniture.
-- Write the build of what the master does not show (a desk's legs, a chair's back) — left out, it is invented per view.
+- What the master does not show (a desk's legs, the wall behind its camera) takes its build only, never a distance or share — left out, it is invented per view.
 - Draw the room at full distance — no close, insert or change of light; those are plates.
 - Rework a broken view alone, by changing its text.

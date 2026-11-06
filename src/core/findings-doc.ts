@@ -160,6 +160,11 @@ const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindingDoc> 
     flags: "A view image is built from no location master.",
     subject: "`<locationId>.<view>`",
   },
+  "view-unnamed": {
+    flags:
+      "No prompt the image of a view is generated with — `reference:<locationId>` for `front`, its view image for the rest — contains the `promptDepiction` of a landmark a setup facing that way `holds`, verbatim (case-insensitive). An image handed over whole as a file, and one accepted against its current definition, are exempt.",
+    subject: "`<locationId>.<view>.<landmarkId>`",
+  },
   "multi-sentence-action": {
     flags: "A shot's `action` reads as two or more sentences.",
     subject: "shot id",

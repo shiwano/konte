@@ -86,6 +86,11 @@ export const DIRECTION_FINDING_REMEDY: Record<DirectionFindingCode, string> = {
   "view-unanchored":
     "take the location's master named as an input image of the view image, or waive it by its " +
     "key where the view is not drawn from the master",
+  "view-unnamed":
+    "ask for the landmark by that noun in the image's prompt, drawing the image from the way " +
+    "those setups face — `front` is the way the master faces — or take it out of their `holds` " +
+    "where the frame does not carry it; to call it by other words, change " +
+    "`locations.<locationId>.landmarks.<landmarkId>.promptDepiction`; or waive it by its key",
   "multi-sentence-action":
     "land one action per shot: split the shot into two, or waive it by its key where the action " +
     "is meant as more than one sentence",

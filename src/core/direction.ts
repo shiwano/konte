@@ -17,6 +17,7 @@ import {
   formatDirectionSetupAddress,
   formatDirectionShotAddress,
   formatDirectionWaiverAddress,
+  formatReferenceAddress,
 } from "./address.js";
 import { findBuiltinLens } from "./lenses.js";
 import {
@@ -34,6 +35,7 @@ import {
   type VideoShotPins,
   type PanelPrompts,
   type PlateNaming,
+  type ViewNaming,
   type LandmarkFrame,
   type HeldLandmark,
   type PropNamingRef,
@@ -55,6 +57,7 @@ import {
   checkRoutes,
   checkNarrator,
   checkPlateNaming,
+  checkViewNaming,
   checkLandmarkNaming,
   frameSubject,
   offscreenFigures,
@@ -75,7 +78,7 @@ import type {
   Shot,
   View,
 } from "./dsl/direction.js";
-import { isView } from "./view.js";
+import { isView, viewAssetName } from "./view.js";
 import {
   isAsideShot,
   isGraphicShot,
@@ -1016,6 +1019,41 @@ function plateNamings(
     out.push({ setupId, texts, holds });
   }
   return out;
+}
+
+// An image with no prompt — a file, or one not returned — has nothing to read.
+export function checkViewNamings(
+  direction: Direction,
+  imageTexts: Readonly<Record<string, readonly string[]>>,
+): DirectionFinding[] {
+  const setups = direction.setups ?? {};
+  const used = usedSetupIds(setupRefs(setups), countShotsPerSetup(direction));
+  const namings = new Map<string, ViewNaming>();
+  for (const id of Object.keys(setups).sort()) {
+    if (!used.has(id)) continue;
+    const view = setupView(setups, id);
+    const location = setups[id]!.location;
+    if (!view) continue;
+    const name = view === "front" ? location : viewAssetName(location, view);
+    const texts = imageTexts[name] ?? [];
+    if (texts.length === 0) continue;
+    const key = `${location}.${view}`;
+    const naming = namings.get(key) ?? {
+      location,
+      view,
+      image: formatReferenceAddress(name),
+      texts,
+      holds: [],
+    };
+    namings.set(key, naming);
+    const holds = naming.holds as (HeldLandmark & { setups: string[] })[];
+    for (const landmark of heldLandmarks(direction, id)) {
+      const held = holds.find((h) => h.id === landmark.id);
+      if (held) held.setups.push(id);
+      else holds.push({ ...landmark, setups: [id] });
+    }
+  }
+  return checkViewNaming([...namings.values()]);
 }
 
 // The frames whose setup has no returned plate, each with what it holds.
@@ -2471,6 +2509,9 @@ export function checkDirection(
       options.referenceAssetNames,
       axisCuts(direction),
     ),
+    ...(options.animaticSetups && options.referenceAssetNames !== undefined
+      ? checkViewNamings(direction, options.animaticSetups.referenceImageTexts)
+      : []),
     // Who each frame holds, left to right.
     ...checkStaging(direction, options.stagingStage, options.referenceAssetNames),
     // A shot's action should land a single sentence, not an event-plus-reaction pair.

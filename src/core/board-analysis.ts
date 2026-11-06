@@ -1116,6 +1116,32 @@ export function listViewAnchorGaps(reference: {
   return out;
 }
 
+/**
+ * The positive prompts each exposed reference asset is generated with, keyed by asset name, read
+ * down its chain to the next exposed asset.
+ */
+export function listReferenceImageTexts(
+  reference: Pick<ReferenceDefinition, "topLevelAssets" | "exposedAssetNames" | "prompts">,
+): Record<string, string[]> {
+  const assets = reference.topLevelAssets ?? {};
+  const exposed = new Set(
+    (reference.exposedAssetNames ?? []).map((name) => formatReferenceAddress(name)),
+  );
+  const entryOf = (address: string): AssetDefinition | undefined => {
+    const parsed = tryParseAddress(address);
+    return parsed?.stage === "reference" && parsed.kind === "reference"
+      ? assets[parsed.assetName]
+      : undefined;
+  };
+  return Object.fromEntries(
+    (reference.exposedAssetNames ?? []).map((name) => {
+      const root = formatReferenceAddress(name);
+      const chain = orderedChainAddresses([root], entryOf, (a) => a !== root && exposed.has(a));
+      return [name, chain.flatMap((address) => positivePromptsAt(reference, address))];
+    }),
+  );
+}
+
 // What the setups class reads off the board: which setups have a plate, which plates stand on no
 // location reference, and which developed shots reach neither anchor.
 export function animaticSetupState(
@@ -1159,6 +1185,7 @@ export function animaticSetupState(
     unviewedPlateIds: gaps.unviewedPlates,
     unviewedBy: gaps.unviewedShots,
     unanchoredViews: reference ? listViewAnchorGaps(reference) : [],
+    referenceImageTexts: reference ? listReferenceImageTexts(reference) : {},
     acceptedPlateIds: plateIds.filter(
       (id) => state != null && acceptedVariantId(state, formatPlateAddress(id)) !== null,
     ),

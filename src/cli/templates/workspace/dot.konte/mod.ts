@@ -307,6 +307,7 @@ export type DirectionFindingCode =
   | "view-unrealized"
   | "plate-unviewed"
   | "view-unanchored"
+  | "view-unnamed"
   | "multi-sentence-action"
   | "off-grid-duration"
   | "off-beat-cut"
@@ -4515,6 +4516,7 @@ declare const ACCEPT_JUDGED_CODES: readonly [
   "passer-unnamed",
   "plate-unnamed",
   "landmark-unnamed",
+  "view-unnamed",
   "join-unpinned",
   "join-unshown",
   "opening-key",

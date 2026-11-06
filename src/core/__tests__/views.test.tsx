@@ -7,11 +7,12 @@ import {
 } from "../address.js";
 import { parseViewName } from "../view.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
-import { asset, defineReference } from "../dsl/index.js";
+import { adapters, asset, defineReference } from "../dsl/index.js";
 import { type Direction, defineDirection } from "../dsl/direction.js";
 import { checkViewAnchors } from "../direction-check.js";
+import { checkViewNamings } from "../direction.js";
 import { buildDependencyGraph } from "../graph.js";
-import { listViewAnchorGaps } from "../board-analysis.js";
+import { listReferenceImageTexts, listViewAnchorGaps } from "../board-analysis.js";
 import { collectFindings } from "../checks.js";
 import { spendHold } from "../finding.js";
 import { directionDefaults } from "./helpers/direction.js";
@@ -242,5 +243,136 @@ describe("view-unanchored", () => {
     const view = found.filter((f) => f.code === "view-unanchored");
     expect(view.map((f) => f.key)).toEqual(["view-unanchored_studio.top"]);
     expect(spendHold(view[0]!, { command: "generate", stage: "reference" })).toBe("whole");
+  });
+});
+
+describe("view-unnamed", () => {
+  const boarded = defineDirection({
+    ...directionDefaults,
+    locations: {
+      studio: {
+        ...directionDefaults.locations.studio!,
+        landmarks: {
+          ...directionDefaults.locations.studio!.landmarks,
+          lamp: { name: "the lamp", promptDepiction: "floor lamp", description: "behind the desk" },
+        },
+      },
+    },
+    setups: {
+      ...directionDefaults.setups,
+      reverse: {
+        name: "the reverse angle",
+        description: "from behind the desk",
+        location: "studio",
+        framing: "medium",
+        view: "back",
+        holds: ["lamp"],
+      },
+      idle: {
+        name: "a frame no shot takes",
+        description: "unused",
+        location: "studio",
+        framing: "wide",
+        view: "front",
+        holds: ["lamp"],
+      },
+    },
+    sequence: {
+      lens: "mini-drama",
+      pleasure: "cute",
+      shots: [
+        { id: "01", role: "ordinary", action: "a", setup: "front", duration: 3, lineup: [] },
+        { id: "02", role: "disruption", action: "b", setup: "reverse", duration: 3, lineup: [] },
+      ],
+    },
+  });
+  const drawn = (master: string | null, back: string) =>
+    defineReference(boarded, {
+      references: () => ({
+        studio:
+          master === null
+            ? asset("studio", adapters.imageFile, { path: "assets/files/studio.png" })
+            : asset("studio", imageGen, { prompt: master }),
+      }),
+      views: ({ reference }) => ({
+        studio: { back: asset("back", imageEdit, { image1: reference.studio, prompt: back }) },
+      }),
+    });
+  const findings = (ref: ReturnType<typeof drawn>) =>
+    checkViewNamings(boarded as unknown as Direction, listReferenceImageTexts(ref)).map(
+      (f) => `${f.code}_${f.subject}`,
+    );
+
+  it("flags a landmark a setup facing front holds that the master's prompt does not say", () => {
+    expect(findings(drawn("the studio, empty", "the studio from behind, a Floor Lamp"))).toEqual([
+      "view-unnamed_studio.front.desk",
+    ]);
+  });
+
+  it("flags a landmark a setup facing a view holds that its view image's prompt does not say", () => {
+    expect(findings(drawn("the studio and its desk", "the studio from behind"))).toEqual([
+      "view-unnamed_studio.back.lamp",
+    ]);
+  });
+
+  it("reads a view image's own prompt, not the master's", () => {
+    expect(findings(drawn("a desk, a floor lamp", "the studio from behind"))).toEqual([
+      "view-unnamed_studio.back.lamp",
+    ]);
+  });
+
+  it("reads the setup a used window is cut out of", () => {
+    const windowed = {
+      ...boarded,
+      setups: {
+        ...boarded.setups,
+        front: { ...directionDefaults.setups.front!, holds: ["desk", "lamp"] },
+        deskClose: {
+          name: "the desk, close",
+          description: "the desk top",
+          location: "studio",
+          framing: "close",
+          within: "front",
+          holds: ["desk"],
+        },
+      },
+      sequence: {
+        ...boarded.sequence,
+        shots: [
+          { id: "01", role: "ordinary", action: "a", setup: "deskClose", duration: 3, lineup: [] },
+        ],
+      },
+    } as unknown as Direction;
+    expect(
+      checkViewNamings(
+        windowed,
+        listReferenceImageTexts(drawn("the studio and its desk", "from behind")),
+      ).map((f) => f.subject),
+    ).toEqual(["studio.front.lamp"]);
+  });
+
+  it("passes a master handed over as a file", () => {
+    expect(findings(drawn(null, "from behind, the floor lamp"))).toEqual([]);
+  });
+
+  it("holds the reference spend once the direction is accepted", async () => {
+    const run = (directionAccepted: boolean) =>
+      collectFindings({
+        videoRoot: "",
+        direction: boarded as unknown as Direction,
+        directionAccepted,
+        reference: drawn("the studio, empty", "the floor lamp"),
+        animatic: null,
+        video: null,
+        manager: null,
+        graph: null,
+        patches: [],
+        lang: null,
+      }).then((r) => r.findings.filter((f) => f.code === "view-unnamed"));
+    expect(await run(false)).toEqual([]);
+    const held = await run(true);
+    expect(held.map((f) => f.key)).toEqual(["view-unnamed_studio.front.desk"]);
+    expect(held[0]!.judgedBy).toEqual(["reference:studio"]);
+    expect(spendHold(held[0]!, { command: "generate", stage: "reference" })).toBe("whole");
   });
 });

@@ -1145,6 +1145,7 @@ describe("checkDirection setups", () => {
       unviewed?: readonly string[];
       unviewedBy?: Record<string, string[]>;
       unanchoredViews?: readonly string[];
+      referenceImageTexts?: Record<string, string[]>;
       accepted?: readonly string[];
     } = {},
   ): AnimaticSetupState => ({
@@ -1166,6 +1167,7 @@ describe("checkDirection setups", () => {
     unviewedPlateIds: gaps.unviewed ?? [],
     unviewedBy: new Map(Object.entries(gaps.unviewedBy ?? {})),
     unanchoredViews: gaps.unanchoredViews ?? [],
+    referenceImageTexts: gaps.referenceImageTexts ?? {},
     acceptedPlateIds: gaps.accepted ?? [],
   });
 
