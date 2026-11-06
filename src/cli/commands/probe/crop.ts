@@ -84,6 +84,21 @@ async function imageSize(
   return size;
 }
 
+function strayRectHint(extra: string[]): string {
+  const numbers = extra.map(Number);
+  let example = "x,y,width,height";
+  if (extra.length === 4 && numbers.every((n) => Number.isFinite(n) && n >= 0)) {
+    const fractions = numbers.every((n) => n <= 1) && numbers.some((n) => !Number.isInteger(n));
+    example = fractions
+      ? numbers.map((n) => `${Number((n * 100).toFixed(4))}%`).join(",")
+      : extra.join(",");
+  }
+  return (
+    `probe crop takes one <image>; got extra arguments ${extra.join(" ")}. ` +
+    `Pass each window as --rect ${example}`
+  );
+}
+
 function describeWindow(w: Window): string {
   const px = `x=${w.x} y=${w.y} ${w.width}x${w.height}`;
   return w.percent ? `${px} (${w.percent})` : px;
@@ -100,6 +115,7 @@ export function registerProbeCropCommand(program: Command): void {
       [],
     )
     .option("--force", "Re-render even if the crops are cached")
+    .allowExcessArguments()
     .addHelpText(
       "after",
       `
@@ -122,7 +138,9 @@ Examples:
   konte probe crop reference:studio --rect 3160,430,640,160 --rect 2800,300,1280,320
                                                    Two candidate windows on the master`,
     )
-    .action(async (image: string, opts: { rect: string[]; force?: boolean }) => {
+    .action(async (image: string, opts: { rect: string[]; force?: boolean }, command: Command) => {
+      const extra = command.args.slice(1);
+      if (extra.length > 0) throw new KonteError("INVALID_OPTION", strayRectHint(extra));
       const rects = opts.rect.map(parseRect);
       const { videoRoot, manager, definitions, variantIds, resolved } = await openProbeTargets(
         [image],

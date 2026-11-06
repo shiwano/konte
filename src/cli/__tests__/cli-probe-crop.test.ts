@@ -109,6 +109,15 @@ describe("probe crop", () => {
     ).rejects.toMatchObject({ stderr: expect.stringContaining("outside it: 1") });
   });
 
+  it("names --rect when the window is passed as positional arguments", async () => {
+    const projectDir = await initAndGenerate();
+    await expect(
+      run(["probe", "crop", "reference:studio", "0.3", "0.75", "0.75", "1"], projectDir),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining("--rect 30%,75%,75%,100%"),
+    });
+  });
+
   it("asks for a window when the image has none of its own", async () => {
     const projectDir = await initAndGenerate();
     await expect(run(["probe", "crop", "reference:studio"], projectDir)).rejects.toMatchObject({
