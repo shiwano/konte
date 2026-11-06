@@ -301,10 +301,7 @@ function cutinAgreement(
     return {
       code: "cutin-required",
       subject: formatShotAddress(stage, shotId),
-      message:
-        `renders no <Cutin>, but direction.ts declares a \`cutin\` on this shot — place the ` +
-        `wipe's ${stage === "video" ? "<Video>" : "<Panel>"} inside <Cutin>, or drop the \`cutin\` ` +
-        "from the shot",
+      message: "renders no <Cutin>; direction.ts declares a `cutin` on the shot",
       targets,
     };
   }
@@ -312,9 +309,7 @@ function cutinAgreement(
     return {
       code: "cutin-undeclared",
       subject: formatShotAddress(stage, shotId),
-      message:
-        "renders a <Cutin>, but direction.ts declares no `cutin` on this shot — declare it " +
-        "(`cutin: { setup, lineup }`), or place the layer as an <Image> instead",
+      message: "renders a <Cutin>; direction.ts declares no `cutin` on the shot",
       targets,
     };
   }
@@ -352,8 +347,8 @@ function placeableSoundtracks(
           code: "soundtrack-anchor-unknown",
           subject: st.id,
           message:
-            `anchors to shot "${anchor.shot}", which the timeline does not hold, so it is left out ` +
-            `of the mix — anchor it to one of: ${[...shotDurations.keys()].join(", ") || "(none)"}`,
+            `anchors to shot "${anchor.shot}" and is left out of the mix; the timeline holds: ` +
+            `${[...shotDurations.keys()].join(", ") || "(none)"}`,
           targets: [formatTimelineStemAddress(stage)],
         });
         return false;

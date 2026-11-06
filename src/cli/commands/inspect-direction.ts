@@ -23,6 +23,7 @@ import { type DirectionPartContent, directionPartContents } from "../../core/dir
 import { type Direction, resolveDirectionTimeline } from "../../core/dsl/direction.js";
 import { KonteError } from "../../core/errors.js";
 import { formatShotSpan } from "../../core/format-duration.js";
+import { findingRemedy, formatFindingBlockLines, formatFindingBlocks } from "../../core/finding.js";
 import { FeedbackManager, feedbackStaleness } from "../../core/feedback/index.js";
 import { StateManager } from "../../core/state/index.js";
 import { reviewTimes as readReviewTimes } from "../../core/review-record.js";
@@ -125,6 +126,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
     ...(await loadDirectionStageInputs(videoRoot, direction, reference)),
   });
   const findings = reportableDirectionFindings(check.active, view.gateSatisfied).map((f) => ({
+    code: f.code,
     key: directionWaiverKey(f),
     class: classifyDirectionFinding(f.code),
     message: f.message,
@@ -144,12 +146,25 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
   if (check.structureErrors.length > 0) {
     console.log("");
     console.log(`Structural errors: ${check.structureErrors.length}`);
-    for (const e of check.structureErrors) console.log(`  [${e.code}] ${e.message}`);
+    const errors = formatFindingBlocks(
+      check.structureErrors.map((e) => ({
+        code: e.code,
+        subject: e.subject ?? "",
+        fixIn: { stage: "direction" as const },
+        message: e.message,
+      })),
+    );
+    for (const line of formatFindingBlockLines(errors)) console.log(`  ${line}`);
   }
   if (findings.length > 0) {
     console.log("");
     console.log(`Findings: ${findings.length}`);
-    for (const f of findings) console.log(`  [${f.key}] (${f.class}) ${f.message}`);
+    const byCode = Map.groupBy(findings, (f) => f.code);
+    for (const [code, group] of byCode) {
+      const count = group.length > 1 ? ` ×${group.length}` : "";
+      console.log(`  ${code}${count} (${group[0]!.class}) — ${findingRemedy(code)}`);
+      for (const f of group) console.log(`    [${f.key}] ${f.message}`);
+    }
   }
 
   const width = [...parts, ...orphans].reduce((max, p) => Math.max(max, p.address.length), 0);

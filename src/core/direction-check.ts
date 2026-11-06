@@ -198,7 +198,7 @@ export function checkArc<Role extends string>(
   if (!presentRoles.has(lens.payoff)) {
     findings.push({
       code: "no-payoff",
-      message: `${lens.name} needs a "${lens.payoff}" ${noun} but none is marked`,
+      message: `${lens.name} marks no "${lens.payoff}" ${noun}`,
     });
   }
 
@@ -282,7 +282,7 @@ export function checkArc<Role extends string>(
       findings.push({
         code: "unearned-payoff",
         subject: lens.payoff,
-        message: `${noun}.${items[payoffIdx]!.id} lands the "${lens.payoff}" payoff with no ${noun} grounding or building toward it first — waive this if the arc is meant to open on its payoff`,
+        message: `${noun}.${items[payoffIdx]!.id} lands the "${lens.payoff}" payoff with no ${noun} grounding or building toward it first`,
       });
     }
   }
@@ -405,7 +405,7 @@ function checkAnchoredEntities(
       findings.push({
         code: codes.unreferenced,
         subject: e.id,
-        message: `${noun} "${e.id}" has no reference asset — expose reference:${e.id} in reference.tsx`,
+        message: `${noun} "${e.id}" has no reference asset`,
       });
     }
   }
@@ -419,7 +419,7 @@ function checkAnchoredEntities(
       findings.push({
         code: codes.unused,
         subject: e.id,
-        message: `${noun} "${e.name}" is declared but ${codes.usedBy}`,
+        message: `${noun} "${e.name}" is ${codes.usedBy}`,
       });
     }
   }
@@ -442,7 +442,7 @@ export function checkCharacters(
     {
       unreferenced: "character-unreferenced",
       unused: "unused-character",
-      usedBy: "never named in any shot action",
+      usedBy: "named in no shot action",
     },
     "character",
   ).filter((f) => f.code !== "character-unreferenced" || framedCharacterIds.has(f.subject ?? ""));
@@ -463,7 +463,7 @@ export function checkProps(
     {
       unreferenced: "prop-unreferenced",
       unused: "unused-prop",
-      usedBy: "never named in any shot action",
+      usedBy: "named in no shot action",
     },
     "prop",
   );
@@ -496,7 +496,7 @@ export function checkCharacterVoices(
         findings.push({
           code: "character-voice-missing",
           subject: c.id,
-          message: `character "${c.name}" speaks but has no voice — declare \`voice\` on the roster entry, or waive this if the lines are not spoken aloud`,
+          message: `character "${c.name}" speaks but has no voice`,
         });
       }
       continue;
@@ -505,14 +505,14 @@ export function checkCharacterVoices(
       findings.push({
         code: "character-voice-unreferenced",
         subject: c.id,
-        message: `character "${c.id}" casts voice "${c.voiceAssetId}", which has no reference asset — expose reference:${c.voiceAssetId} in reference.tsx`,
+        message: `character "${c.id}" casts voice "${c.voiceAssetId}", which has no reference asset`,
       });
     }
     if (!c.speaks) {
       findings.push({
         code: "unused-character-voice",
         subject: c.id,
-        message: `character "${c.name}" has a voice but no script line names them`,
+        message: `character "${c.name}" has a voice but no script line`,
       });
     }
   }
@@ -531,8 +531,7 @@ export function checkNarrator(
       ? [
           {
             code: "narrator-missing",
-            message:
-              "the direction declares narration lines but casts no narrator — declare `narrator`, or waive this if the narration is not read aloud",
+            message: "the direction declares narration lines but casts no narrator",
           },
         ]
       : [];
@@ -541,7 +540,7 @@ export function checkNarrator(
   if (!referenceAssetNames.includes(voiceAssetId)) {
     findings.push({
       code: "narrator-unreferenced",
-      message: `the narrator's voice "${voiceAssetId}" has no reference asset — expose reference:${voiceAssetId} in reference.tsx`,
+      message: `the narrator's voice "${voiceAssetId}" has no reference asset`,
     });
   }
   if (!hasNarration) {
@@ -571,7 +570,7 @@ export function checkLocations(
     {
       unreferenced: "location-unreferenced",
       unused: "unused-location",
-      usedBy: "no setup is set in it",
+      usedBy: "the location of no setup",
     },
     "location",
   );
@@ -611,7 +610,7 @@ export function checkLocations(
 // How many shots a location must hold before never returning to a frame reads as a choice. Below it
 // there is nothing to share: a four-shot scene covered wide/medium/close/insert has one shot per
 // frame because that IS the coverage.
-const ATOMIZED_LOCATION_SHOTS = 8;
+export const ATOMIZED_LOCATION_SHOTS = 8;
 
 // The axis read as a shared frame. `setup-unrealized` asks for a plate where one CAMERA POSITION is
 // shared; this asks for one where one camera AXIS is cut along — two set-showing sizes of a place
@@ -638,10 +637,8 @@ function checkAxisCuts(
       code: "axis-unrealized",
       subject,
       message:
-        `setups "${cut.pair[0]}" and "${cut.pair[1]}" are cut between along one camera axis — and ${owed} ` +
-        `${missing.length === 1 ? "has" : "have"} no plate. Declare ` +
-        `${missing.length === 1 ? "it" : "them"} in \`plates\` in animatic.tsx, or waive the pair ` +
-        `to cut it as two separate frames`,
+        `${owed} ${missing.length === 1 ? "has" : "have"} no plate on the axis of setups ` +
+        `"${cut.pair[0]}" and "${cut.pair[1]}"`,
       ...signOff(cut.pair.every((id) => unsignedShots(id) === 0)),
     });
   }
@@ -672,10 +669,8 @@ function checkUnowedPlates(
       code: "plate-unowed",
       subject: id,
       message:
-        `setup "${id}" has a plate, but ${generated === 1 ? "only one generated shot" : "no generated shot"} ` +
-        `stands on it and no cut along its \`within\` axis nests it — drop it from \`plates\` in ` +
-        `animatic.tsx and build a keyframe on this setup from \`${placeRefOf(setup)}\`; where ` +
-        `another plate is built from it, keep it as an intermediate under a name that is no setup id`,
+        `setup "${id}" has a plate and ${generated === 1 ? "one generated shot" : "no generated shot"} ` +
+        `— build from \`${placeRefOf(setup)}\``,
     });
   }
   return findings;
@@ -729,10 +724,8 @@ function checkAtomizedSetups(
       code: "setup-atomized",
       subject: location,
       message:
-        `location "${location}" holds ${shots} shots across ${frames} setups, and only ${onShared} of ` +
-        `those shots stand on a frame another shot stands on too — a place with ` +
-        `${ATOMIZED_LOCATION_SHOTS} or more shots needs at least ${Math.ceil(shots / 2)} of its ` +
-        `${shots} on a shared frame. Put a second shot on a frame the piece returns to`,
+        `location "${location}" holds ${shots} shots across ${frames} setups, ${onShared} of them ` +
+        `on a shared frame — ${Math.ceil(shots / 2)} needed`,
       ...signOff(unsigned === 0),
     });
   }
@@ -820,7 +813,7 @@ export function checkSetups(
         findings.push({
           code: "unused-setup",
           subject: setup.id,
-          message: `setup "${setup.id}" is declared but no shot's setup points at it, nor the \`within\` of a setup one does`,
+          message: `setup "${setup.id}" is the setup of no shot, nor the \`within\` of one`,
         });
       }
       continue;
@@ -832,9 +825,7 @@ export function checkSetups(
       findings.push({
         code: "setup-unrealized",
         subject: setup.id,
-        message:
-          `setup "${setup.id}" is shared by ${generated} generated shots but has no plate — declare ` +
-          `it in \`plates\` in animatic.tsx for them to build their frame on`,
+        message: `setup "${setup.id}" is shared by ${generated} generated shots but has no plate`,
         ...signOff(unsignedShots!(setup.id) === 0),
       });
       continue;
@@ -846,7 +837,7 @@ export function checkSetups(
         subject: setup.id,
         message:
           `the plate for setup "${setup.id}" is built from no location reference — take ` +
-          `\`${placeRef(setup)}\` as an input image`,
+          `\`${placeRef(setup)}\``,
       });
     }
     if (plated && hasOwnView(setup) && unviewed!.has(setup.id)) {
@@ -855,8 +846,7 @@ export function checkSetups(
         subject: setup.id,
         message:
           `the plate for setup "${setup.id}" faces "${setup.view}" but stands on another view of ` +
-          `"${setup.location}" — build it from \`${placeRef(setup)}\` (or cut ` +
-          `in from a plate that is)`,
+          `"${setup.location}" — build from \`${placeRef(setup)}\``,
       });
     }
     const unviewedShots = plated ? [] : (animatic!.unviewedBy.get(setup.id) ?? []);
@@ -867,7 +857,7 @@ export function checkSetups(
         message:
           `shot ${unviewedShots.map((id) => `"${id}"`).join(", ")} sits on setup "${setup.id}", ` +
           `which faces "${setup.view}", but its keyframe stands on another view of ` +
-          `"${setup.location}" — build it from \`${placeRef(setup)}\``,
+          `"${setup.location}" — build from \`${placeRef(setup)}\``,
       });
     }
     if (plated && setup.within && unnested!.has(setup.id)) {
@@ -875,10 +865,8 @@ export function checkSetups(
         code: "plate-unnested",
         subject: setup.id,
         message:
-          `setup "${setup.id}" declares itself within "${setup.within}", but its plate is neither a ` +
-          `cut from that one's nor a window inside it. Pass \`plates.${setup.within}.image\` as is to a model that reads a previous frame ` +
-          `(\`cut\` in \`konte adapter show\`) and write the step in as a cut from it, or crop inside ` +
-          `that plate's window with \`adapters.imageCrop\``,
+          `setup "${setup.id}" is within "${setup.within}", but its plate is neither a cut from ` +
+          `\`plates.${setup.within}.image\` nor a window inside it`,
       });
     }
     const unsigned = animatic!.unconsumedBy.get(setup.id) ?? [];
@@ -895,9 +883,9 @@ export function checkSetups(
         subject: setup.id,
         message: plated
           ? `shot ${shotList} sits on setup "${setup.id}" but no keyframe is built from its plate — ` +
-            `take \`plates.${setup.id}\` as an input image`
+            `take \`plates.${setup.id}\``
           : `shot ${shotList} sits on setup "${setup.id}", which has no plate, but no keyframe is ` +
-            `built from its location — take \`${placeRef(setup)}\` as an input image` +
+            `built from its location — take \`${placeRef(setup)}\`` +
             // One frame sees the place, so the reference can be that frame.
             (shotsPerLocation.get(setup.location) === 1
               ? `, or regenerate \`reference.${setup.location}\` to hold what the shot needs and ` +
@@ -941,9 +929,7 @@ function checkViews(
       subject: key,
       message:
         `setup ${ids.map((id) => `"${id}"`).join(", ")} ${ids.length === 1 ? "faces" : "face"} ` +
-        `"${view}" in "${location}", which has no image of that view — return \`${location}: ` +
-        `{ ${view}: asset(…) }\` from \`views\` in reference.tsx, made from ` +
-        `\`reference.${location}\``,
+        `"${view}" in "${location}", which has no image of that view`,
     });
   }
   findings.push(...checkViewAnchors(animatic.unanchoredViews, anchored));
@@ -966,8 +952,8 @@ export function checkViewAnchors(
         code: "view-unanchored" as const,
         subject: key,
         message:
-          `the view image \`reference.view.${location}.${view}\` is built from no \`reference.${location}\` — ` +
-          `take it as an input image`,
+          `the view image \`reference.view.${location}.${view}\` is built from no ` +
+          `\`reference.${location}\``,
       },
     ];
   });
@@ -1317,7 +1303,6 @@ export function checkLineups(
 
     const subject = frameSubject(shot);
     const name = frameName(shot);
-    const joinField = shot.lane === "cutin" ? "cutin.join" : "join";
 
     // Read the previous frame's exit the way every other check does (`lineupTo ?? lineup`), so a
     // frame that ends where it began is not asked to restate it. The frame before it IN ITS OWN
@@ -1334,8 +1319,7 @@ export function checkLineups(
           subject,
           message:
             `${name} runs on from ${frameName(previous)} in one take, but ${previous.shotId} leaves ` +
-            `${formatFrame(seam)} and ${shot.shotId} opens on ${formatFrame(shot.lineup)}. Make the two agree, or the boundary is a cut and \`${joinField}\` ` +
-            `should say so`,
+            `${formatFrame(seam)} and ${shot.shotId} opens on ${formatFrame(shot.lineup)}`,
         });
       }
     }
@@ -1344,9 +1328,7 @@ export function checkLineups(
       findings.push({
         code: "lineup-vacuous",
         subject,
-        message:
-          `${name} declares a \`lineupTo\` identical to its \`lineup\` — drop it, or write the ` +
-          `order the shot actually leaves behind`,
+        message: `${name} declares a \`lineupTo\` identical to its \`lineup\``,
       });
     }
 
@@ -1366,9 +1348,7 @@ export function checkLineups(
         subject,
         message:
           `${name} puts ${flipped.map((f) => `${f.a} left of ${f.b}`).join(", ")} in ` +
-          `"${shot.location}", the other way round from ${[...new Set(flipped.map((f) => `shot ${f.source}`))].join(", ")}, ` +
-          `and no shot between them declares the change. Write the move as the \`lineupTo\` of the ` +
-          `shot it happens in, or \`join: "jump-back" | "jump-forward"\` where story time has moved`,
+          `"${shot.location}", the other way round from ${[...new Set(flipped.map((f) => `shot ${f.source}`))].join(", ")}`,
       });
     }
 
@@ -1381,10 +1361,7 @@ export function checkLineups(
         subject,
         message:
           `${name} frames ${shot.lineup[0]} to ${shot.lineup[shot.lineup.length - 1]}, but ` +
-          `"${shot.location}" puts ${skipped.join(", ")} between them and this frame does not hold ` +
-          `them. Add them to ` +
-          `the \`lineup\`, or, where they walked out of frame, say so in the \`lineupTo\` of the shot ` +
-          `they leave in`,
+          `"${shot.location}" puts ${skipped.join(", ")} between them`,
       });
     }
 
@@ -1395,7 +1372,7 @@ export function checkLineups(
         subject,
         message:
           `after ${name} the order in "${shot.location}" cannot be laid out on a line: ` +
-          `${cycle.join(" → ")} → ${cycle[0]}. One of them has the place's seating wrong`,
+          `${cycle.join(" → ")} → ${cycle[0]}`,
       });
     }
     if (shot.coverage) byLocation.delete(shot.location);
@@ -1452,9 +1429,7 @@ export function checkRoutes(shots: readonly LineupShot[]): DirectionFinding[] {
             subject: `${frameSubject(shot)}.${id}`,
             message:
               `${frameName(shot)} puts ${id} back in "${shot.location}", which they left after ` +
-              `shot ${leftAfter}, and no \`join: "jump-back" | "jump-forward"\` since moves story ` +
-              `time. Stage the detour in the place they are in, or ` +
-              `declare the jump where story time moves`,
+              `shot ${leftAfter}`,
           });
         }
         route.left.set(route.at, route.lastShot);
@@ -1507,12 +1482,12 @@ export function checkJoinPins(
       code: "join-unpinned",
       subject: frameSubject(shot),
       message:
-        `${frameName(previous)} and ${frameName(shot)} are declared one take, so the frame between ` +
-        `them is \`${seam}\` — and the ${takes} of ${formatShotAddress("video", previous.shotId)} ` +
+        `${frameName(previous)} and ${frameName(shot)} are one take, and the ${takes} of ` +
+        `${formatShotAddress("video", previous.shotId)} ` +
         (pinnedFrame === undefined
           ? `pins nothing at its end`
           : `pins its end to another frame (${pinnedFrame})`) +
-        `. Pin its end to \`${seam}\` in video.tsx`,
+        ` — pin it to \`${seam}\``,
     });
   }
   return findings;
@@ -1543,8 +1518,7 @@ export function checkKeyPins(
       subject: frameSubject(shot),
       message:
         `the ${takes} of ${formatShotAddress("video", shot.shotId)} opens on ${frameName(shot)}'s key \`${key}\`` +
-        `${pinned.input ? ` (\`${pinned.input}\`)` : ""} and moves past the moment it holds — ` +
-        `pass the key to a reference input alone`,
+        `${pinned.input ? ` (\`${pinned.input}\`)` : ""}`,
       ...(pinned.signedOff ? { signedOff: true as const } : {}),
     });
   }
@@ -1562,11 +1536,6 @@ function checkSeamWindows(
   after: VideoShotPins | undefined,
 ): DirectionFinding[] {
   const findings: DirectionFinding[] = [];
-  const route =
-    `Where the moment inside the take is what is off, regenerate the take or change the shot's ` +
-    `duration in direction.ts — the seam is not the place to move it. A waiver is the human's call ` +
-    `that the jump is worth it.`;
-
   // The take before cuts on its landing: the next shot opens on the landing frame, or the shot ends
   // showing it. A workflow that anchors the image at the frame past the shot lands it there when the
   // take plays from its head; one pinned to its last frame, when the take plays to its end.
@@ -1589,9 +1558,8 @@ function checkSeamWindows(
           (endsShot
             ? ""
             : `, ending ${formatSeconds(landing.shotSec - landing.closesAt, 2)} before the shot does`) +
-          `, so the cut is not on the landing and jumps. Play it so the shot ends there ` +
-          `(\`mediaStart={${Number(start.toFixed(3))}}\` for the ${formatSeconds(played, 2)} window). ` +
-          route,
+          ` — play it with \`mediaStart={${Number(start.toFixed(3))}}\` for the ` +
+          `${formatSeconds(played, 2)} window`,
       });
     }
   }
@@ -1608,10 +1576,7 @@ function checkSeamWindows(
           `the seam \`${seam}\` at its first frame — but ${frameName(shot)} ` +
           (opening.from > tol
             ? `starts it ${formatSeconds(opening.from, 2)} in (\`mediaStart\`)`
-            : `does not start it until ${formatSeconds(opening.opensAt, 2)}`) +
-          `, so the seam frame is never shown and the cut jumps. Play the take from its first ` +
-          `frame at the shot's start. ` +
-          route,
+            : `does not start it until ${formatSeconds(opening.opensAt, 2)}`),
       });
     }
   }
@@ -1694,9 +1659,7 @@ function checkSubjectNaming(
         subject: `${frameSubject(shot)}.${id}`,
         message:
           `${frameName(shot)} frames "${id}" but no prompt behind the keyframe holding them contains ` +
-          `"${promptDepictions.get(id)}" (verbatim, case-insensitive) — name every subject the frame ` +
-          `holds by its promptDepiction; to call them by other words, change ` +
-          `characters.${id}.promptDepiction`,
+          `"${promptDepictions.get(id)}"`,
         ...signOff(signed),
       });
     }
@@ -1733,9 +1696,7 @@ export function checkPropNaming(
         subject: `${shot.id}.${prop.id}`,
         message:
           `shot ${shot.id}'s action names "${prop.name}" but no prompt behind its keyframes contains ` +
-          `"${prop.promptDepiction}" (verbatim, case-insensitive) — call the prop by its ` +
-          `promptDepiction; to call it by other words, change ` +
-          `props.${prop.id}.promptDepiction`,
+          `"${prop.promptDepiction}"`,
         ...signOff(panels.every((p) => p.signedOff)),
       });
     }
@@ -1782,19 +1743,16 @@ export type PanelSeam = {
 function checkSeamLinks(
   seams: readonly PanelSeam[],
   code: "panel-unlinked" | "return-unlinked",
-  message: (seam: PanelSeam, took: string) => string,
 ): DirectionFinding[] {
   return seams.flatMap((seam) => {
     if (seam.linked.includes(seam.fromPanel)) return [];
-    const took =
-      seam.linked.length === 0
-        ? "its opening keyframe takes no frame to cut from"
-        : "its opening keyframe cuts from another frame instead";
+    const frame = seam.lane === "cutin" ? `the cutin over shot ${seam.id}` : `shot ${seam.id}`;
+    const took = seam.linked.length === 0 ? "takes no frame" : "cuts from another frame";
     return [
       {
         code,
         subject: `${seam.from}-${seam.id}${seam.lane === "cutin" ? ".cutin" : ""}`,
-        message: message(seam, took),
+        message: `${frame}'s opening keyframe ${took} — pass \`${seam.fromPanel}\``,
         ...signOff(seam.signedOff === true),
       },
     ];
@@ -1804,29 +1762,12 @@ function checkSeamLinks(
 // The frame across a cut along one camera axis — a push in or out along `within`: a keyframe drawn
 // without the one before it re-invents the subject's light, size and place in the room.
 export function checkPanelLinks(seams: readonly PanelSeam[]): DirectionFinding[] {
-  return checkSeamLinks(seams, "panel-unlinked", (seam, took) => {
-    const shots = seam.lane === "cutin" ? "the cutins over shots" : "shots";
-    return (
-      `${shots} ${seam.from}–${seam.id} cut along one camera axis, so the frame carries across ` +
-      `the seam — and ${took}. Pass \`${seam.fromPanel}\` to one of the keyframe's image inputs ` +
-      `and name it \`[Shot 1]\` in the prompt, or waive the seam where the cut is meant to re-open ` +
-      `the frame`
-    );
-  });
+  return checkSeamLinks(seams, "panel-unlinked");
 }
 
 // The frame a cutaway cuts back to (see `frameReturns`).
 export function checkReturnLinks(seams: readonly PanelSeam[]): DirectionFinding[] {
-  return checkSeamLinks(seams, "return-unlinked", (seam, took) => {
-    const frame = seam.lane === "cutin" ? `the cutin over shot ${seam.id}` : `shot ${seam.id}`;
-    return (
-      `${frame} returns to the setup of shot ${seam.from} across a cutaway, so it opens where ` +
-      `${seam.from} left the subject — and ${took}. Pass \`${seam.fromPanel}\` to one of the ` +
-      `keyframe's image inputs and name it \`[Shot 1]\` in the prompt, writing in the prompt what ` +
-      `changed while the camera was away; declare \`jump-forward\` or waive the return where ` +
-      `nothing carries across`
-    );
-  });
+  return checkSeamLinks(seams, "return-unlinked");
 }
 
 /**
@@ -1846,9 +1787,6 @@ export type PlateNaming = {
   signedOff?: true;
 };
 
-const landmarkDepictionPath = (landmark: HeldLandmark): string =>
-  `locations.${landmark.location}.landmarks.${landmark.id}.promptDepiction`;
-
 // Reported per landmark, keyed `<setupId>.<landmarkId>`.
 export function checkPlateNaming(namings: readonly PlateNaming[]): DirectionFinding[] {
   const findings: DirectionFinding[] = [];
@@ -1861,9 +1799,7 @@ export function checkPlateNaming(namings: readonly PlateNaming[]): DirectionFind
         subject: `${naming.setupId}.${landmark.id}`,
         message:
           `the prompt plate "${naming.setupId}" is generated with does not say ` +
-          `"${landmark.promptDepiction}", which its \`holds\` declares the frame carries — ask for it ` +
-          `by that noun, or take it out of \`holds\` where the frame does not carry it; to call it ` +
-          `by other words, change ${landmarkDepictionPath(landmark)}`,
+          `"${landmark.promptDepiction}", which its \`holds\` declares the frame carries`,
         ...signOff(naming.signedOff === true),
       });
     }
@@ -1905,9 +1841,7 @@ export function checkLandmarkNaming(
         subject: `${frameSubject(frame)}.${landmark.id}`,
         message:
           `${frameName(frame)} holds "${landmark.id}" but a keyframe drawing it has no prompt ` +
-          `containing "${landmark.promptDepiction}" (verbatim, case-insensitive) — its setup has no ` +
-          `plate, so the keyframe draws the set: ask for it by that noun; to call it by other ` +
-          `words, change ${landmarkDepictionPath(landmark)}`,
+          `containing "${landmark.promptDepiction}"`,
         ...signOff(lacking.every((panel) => panel.signedOff)),
       });
     }
@@ -1944,9 +1878,7 @@ export function checkLandmarkOrder(setups: readonly HoldsSetupRef[]): DirectionF
         subject: setup.id,
         message:
           `setup "${setup.id}" holds ${flipped.map((f) => `${f.a} left of ${f.b}`).join(", ")} in ` +
-          `"${setup.location}", the other way round from ${[...new Set(flipped.map((f) => `setup "${f.source}"`))].join(", ")}. ` +
-          `A landmark does not move, so two frames of one place cannot both be right — unless the ` +
-          `camera crossed the set's line, which is a waiver`,
+          `"${setup.location}", the other way round from ${[...new Set(flipped.map((f) => `setup "${f.source}"`))].join(", ")}`,
       });
     }
     // The first frame to state a pair fixes the place's axis and nothing rewrites it — a landmark
@@ -1989,8 +1921,7 @@ function checkPlateRecrops(
       subject,
       message:
         `${frameName(first!)} crops plate "${setupId}" in ` +
-        `${panels}. Declare a setup for that frame, holding what it ` +
-        `shows, and move the shot onto it; one shot alone needs no plate, and stands on a crop of ` +
+        `${panels} — its own setup stands on a crop of ` +
         `\`${placeRefs.get(setupId) ?? "reference.<location>"}\``,
     };
   });
@@ -2031,8 +1962,7 @@ function checkSlotOrder(
         subject: frameSubject(shot),
         message:
           `${panel.panel} passes its reference images as ${slots.join(", ")}, but ${frameName(shot)} ` +
-          `declares the frame as ${expected.join(", ")} left to right — pass them in that order. A ` +
-          `take that came back with the wrong person on the wrong side is a slot fix, not a waiver`,
+          `declares the frame as ${expected.join(", ")} left to right`,
       });
       break;
     }
@@ -2083,7 +2013,7 @@ function checkCharacterAnchors(
         subject: `${frameSubject(shot)}.${id}`,
         message:
           `${frameName(shot)} frames "${id}" but the keyframe holding them is built from no reference ` +
-          `to them — take \`reference.${id}\` as an input image`,
+          `to them`,
         ...signOff(signed),
       });
     }

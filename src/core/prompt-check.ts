@@ -193,13 +193,6 @@ export type PromptCheckSubject = {
   prompts?: readonly PromptOccurrence[];
 };
 
-// What to do about a finding, by the polarity of the input it was written in.
-const REMEDY: Record<PromptFindingCode, string> = {
-  "prompt-negation": "describe what occupies the space instead of naming what to leave out",
-  "prompt-not-yet": "describe the state the frame is in instead of what has not happened",
-  "prompt-double-negative": "keep the term, drop the negation",
-};
-
 // The findings in the prompts `subject` declares, fixed in `fixIn` — the file that writes them.
 // `signedOff` is whether an address's accepted take was drawn from its definition as it stands.
 export function promptFindings(
@@ -216,8 +209,8 @@ export function promptFindings(
       fixIn,
       message:
         live.length > 0
-          ? `${formatAddresses(live)} — ${REMEDY[f.code]}`
-          : `${formatAddresses(accepted)} — accepted as drawn; ${REMEDY[f.code]} before drawing it again`,
+          ? formatAddresses(live)
+          : `${formatAddresses(accepted)} — accepted as drawn; fix it before drawing it again`,
       // A patch's prompt is the patch's alone.
       targets: fixIn.patch === undefined ? live : [],
       ...(accepted.length > 0 ? { signedOff: accepted } : {}),

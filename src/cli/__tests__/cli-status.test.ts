@@ -350,13 +350,13 @@ describe("status command", () => {
       const { stdout } = await run(["status", "-v"], projectDir);
       expect(stdout).toContain(`konte probe audio ${short}`);
       expect(stdout).toContain(
-        `[line-misheard] ${short} — ${voice} heard "she should fill the sky" — line 1: drops the opening "Bigger!"`,
+        `${short} — ${voice} heard "she should fill the sky" — line 1: drops the opening "Bigger!"`,
       );
       expect(stdout).not.toContain("konte preview video");
 
       await run(["vouch", short], projectDir);
       const { stdout: after } = await run(["status"], projectDir);
-      expect(after).not.toContain("[line-misheard]");
+      expect(after).not.toContain("line-misheard");
       expect(after).toContain("konte preview video");
     });
 
@@ -378,7 +378,7 @@ describe("status command", () => {
       });
       await sm.save();
       const { stdout } = await run(["status"], projectDir);
-      expect(stdout).not.toContain("[take-silent]");
+      expect(stdout).not.toContain("take-silent");
     });
 
     it("finds a silent take", async () => {
@@ -390,7 +390,8 @@ describe("status command", () => {
         silent: true,
       });
       const { stdout } = await run(["status"], projectDir);
-      expect(stdout).toContain(`[take-silent] ${silent} — ${voice} is silent`);
+      expect(stdout).toContain("take-silent — dismiss the take");
+      expect(stdout).toContain(`${silent} — ${voice} is silent`);
     });
   });
 
@@ -991,16 +992,16 @@ export default defineAnimatic`,
     it("holds the board's review until the shot is vouched for", async () => {
       const { stdout } = await run(["status"], projectDir);
       expect(stdout).toContain(
-        "[tail-silent] animatic:shot.01 — sound ends at 1.5s in a 5s shot — 3.5s of silence after it — set its duration to 2.5 in direction.ts",
+        "animatic:shot.01 — sound ends at 1.5s in a 5s shot — 3.5s of silence after it; fit: duration 2.5",
       );
       await expect(run(["preview", "animatic"], projectDir)).rejects.toMatchObject({
-        stderr: expect.stringContaining("[tail-silent] animatic:shot.01"),
+        stderr: expect.stringMatching(/tail-silent — .*; animatic:shot\.01 — /),
       });
 
       const { stdout: vouched } = await run(["vouch", "animatic:shot.01"], projectDir);
       expect(vouched).toContain("Vouched: animatic:shot.01 — 3.5s silent tail held");
       const { stdout: after } = await run(["status"], projectDir);
-      expect(after).not.toContain("[tail-silent]");
+      expect(after).not.toContain("tail-silent");
     });
 
     it("refuses a vouch for a shot with no silent tail", async () => {
@@ -1035,11 +1036,13 @@ export default defineAnimatic`,
 
     const { stdout } = await run(["status"], projectDir);
     expect(stdout).toMatch(
-      /^ {2}direction\.ts\n {4}\[multi-sentence-action_01\] shot 01's action/m,
+      /^ {2}direction\.ts\n {4}multi-sentence-action — .*\n {6}\[multi-sentence-action_01\] shot 01's action/m,
     );
 
     const { stdout: doctorOut } = await runCapture(["doctor"], projectDir);
-    expect(doctorOut).toContain("direction.ts [multi-sentence-action_01] shot 01's action");
+    expect(doctorOut).toMatch(
+      /^ {4}direction\.ts:\n {6}multi-sentence-action — .*\n {8}\[multi-sentence-action_01\] shot 01's action/m,
+    );
   });
 
   it("surfaces a direction structural error and gates Next steps on it", async () => {
@@ -1050,7 +1053,7 @@ export default defineAnimatic`,
     await fs.writeFile(directionPath, source.replace('id: "02"', 'id: "01"'));
 
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).toContain("[duplicate-id]");
+    expect(stdout).toMatch(/^ +duplicate-id — .*\n +01 — the id is declared more than once$/m);
     // Next steps leads with the edit rather than routing past it.
     expect(stdout).toMatch(/^Next steps:\n {2}\(edit direction\.ts\)/m);
   });

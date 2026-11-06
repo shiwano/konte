@@ -62,7 +62,7 @@ describe("pinFindings", () => {
     ).toEqual([]);
   });
 
-  it("names the source, the site and the remedy", () => {
+  it("names the source, what it is, and the site", () => {
     const [finding] = pinFindings(
       { pins: [pin("video:shot.01.motion", "startImage", "reference:hero")] },
       { stage: "video" },
@@ -73,15 +73,14 @@ describe("pinFindings", () => {
       fixIn: { stage: "video" },
       targets: ["video:shot.01.motion"],
     });
-    expect(finding!.message).toContain("video:shot.01.motion.startImage");
-    expect(finding!.message).toContain("pass it as an ordinary reference input");
+    expect(finding!.message).toBe("a reference sheet, pinned at video:shot.01.motion.startImage");
   });
 
-  it("gives a plate its own remedy", () => {
+  it("names a pinned plate as a plate", () => {
     const [finding] = pinFindings(
       { pins: [pin("video:shot.03.motion", "endImage", "animatic:plate.kitchen", "end")] },
       { stage: "video" },
     );
-    expect(finding!.message).toContain("pin the panel that stands on that plate");
+    expect(finding!.message).toBe("a plate, pinned at video:shot.03.motion.endImage");
   });
 });

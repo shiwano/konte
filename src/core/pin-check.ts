@@ -93,9 +93,9 @@ export type PinCheckSubject = {
   pins?: readonly PinOccurrence[];
 };
 
-const REMEDY: Record<PinSubject, string> = {
-  sheet: "pass it as an ordinary reference input and pin the board panel this shot develops",
-  plate: "pin the panel that stands on that plate",
+const SUBJECT_NOUN: Record<PinSubject, string> = {
+  sheet: "a reference sheet",
+  plate: "a plate",
 };
 
 // The findings in the pins `subject` wires, fixed in `fixIn` — the file that wires them.
@@ -104,7 +104,7 @@ export function pinFindings(subject: PinCheckSubject, fixIn: SourceFile): Findin
     code: f.code,
     subject: f.source,
     fixIn,
-    message: `pinned at ${formatSites(f)} — ${REMEDY[f.subject]}`,
+    message: `${SUBJECT_NOUN[f.subject]}, pinned at ${formatSites(f)}`,
     targets: fixIn.patch === undefined ? f.sites.map((site) => site.address) : [],
   }));
 }

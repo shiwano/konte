@@ -989,7 +989,9 @@ describe("pin gate", () => {
   it("refuses a spend that pins a reference sheet", async () => {
     const projectDir = await project(pinSheet);
     await expect(run(["generate", "video"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringMatching(/SPEND_HELD[\s\S]*\[pin-unanchored\] reference:character/),
+      stderr: expect.stringMatching(
+        /SPEND_HELD[\s\S]*pin-unanchored — [\s\S]*reference:character — a reference sheet/,
+      ),
     });
   });
 
@@ -997,7 +999,7 @@ describe("pin gate", () => {
     const projectDir = await project(pinSheet);
     const { stdout } = await run(["status"], projectDir);
     expect(stdout).toMatch(
-      /^Findings: 1\n {2}video\.tsx\n {4}\[pin-unanchored\] reference:character — /m,
+      /^Findings: 1\n {2}video\.tsx\n {4}pin-unanchored — .*\n {6}reference:character — a reference sheet, pinned at /m,
     );
     expect(stdout).toContain("reference:character");
     expect(stdout).toContain("video:shot.01.motion.startImage");
@@ -1070,14 +1072,16 @@ describe("prompt gate", () => {
       (e) => e,
     );
     expect(err.stderr.trimEnd().split("\n").at(-1)).toMatch(
-      /^Error \[SPEND_HELD\]: Cannot reroll video — it is held: .*: video\.tsx: \[prompt-negation\] "no outlines" — video:shot\.01\.motion — /,
+      /^Error \[SPEND_HELD\]: Cannot reroll video — it is held: .*: video\.tsx: prompt-negation — describe what occupies the space .*; "no outlines" — video:shot\.01\.motion;/,
     );
   });
 
   it("reports the finding under its file in status", async () => {
     const projectDir = await project(NEGATED_VIDEO_TSX);
     const { stdout } = await run(["status"], projectDir);
-    expect(stdout).toMatch(/^Findings: 1\n {2}video\.tsx\n {4}\[prompt-negation\] .*no outlines/m);
+    expect(stdout).toMatch(
+      /^Findings: 1\n {2}video\.tsx\n {4}prompt-negation — .*\n {6}"no outlines" — video:shot\.01\.motion$/m,
+    );
   });
 
   describe("on an address whose accepted take was drawn from the prompt", () => {
@@ -1160,7 +1164,7 @@ describe("a reference into a pendingShot", () => {
     const projectDir = await project();
     const { stdout } = await run(["status"], projectDir);
     expect(stdout).toMatch(
-      /^ {2}animatic\.tsx\n(?: {4}.*\n)* {4}\[pending-reference\] animatic:shot\.02\.first — is built on animatic:shot\.01\.first/m,
+      /^ {2}animatic\.tsx\n(?: {4}.*\n)* {4}pending-reference — .*\n {6}animatic:shot\.02\.first — built on animatic:shot\.01\.first/m,
     );
   });
 

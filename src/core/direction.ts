@@ -75,7 +75,7 @@ import type {
   Shot,
   View,
 } from "./dsl/direction.js";
-import { VIEWS, isView } from "./view.js";
+import { isView } from "./view.js";
 import {
   isAsideShot,
   isGraphicShot,
@@ -554,9 +554,7 @@ function checkTypesetting(direction: Direction): DirectionFinding[] {
   return [
     {
       code: "fonts-undeclared",
-      message:
-        `policy.lang is "${lang}" (${script} script) but policy.fonts names no family — declare ` +
-        `one (e.g. "Noto Sans JP").`,
+      message: `policy.lang is "${lang}" (${script} script) but policy.fonts names no family`,
     },
   ];
 }
@@ -580,9 +578,7 @@ function checkSong(
     return [
       {
         code: "song-unreferenced",
-        message:
-          `policy.song is "${id}", but reference.tsx exposes no reference:${id} — declare the ` +
-          "song there",
+        message: `policy.song is "${id}", but reference.tsx exposes no reference:${id}`,
       },
     ];
   }
@@ -596,9 +592,7 @@ function checkSong(
       subject: line.key,
       message:
         `lyric line ${line.key} ("${line.text}") is not clearly sung anywhere in ${variant.address} ` +
-        `${variant.variantId} — a person places it on the song's review page (\`konte preview ` +
-        `reference\`), or \`konte song set ${variant.variantId} --line ${line.key} --start <sec> ` +
-        `--end <sec>\``,
+        `${variant.variantId}`,
     });
   }
   return findings;
@@ -617,7 +611,7 @@ function checkSongOverrun(direction: Direction, song: SongVariantState): Directi
       code: "song-overrun",
       message:
         `the timeline runs ${formatSeconds(end, 2)}, past the end of ${variant.address} ${variant.variantId} ` +
-        `(${formatSeconds(durationSec, 2)}) — shorten the cut, or accept a longer take of the song`,
+        `(${formatSeconds(durationSec, 2)})`,
     },
   ];
 }
@@ -695,7 +689,7 @@ function checkFusedShots(direction: Direction): DirectionFinding[] {
       findings.push({
         code: "multi-sentence-action",
         subject: s.id,
-        message: `shot ${s.id}'s action reads as ${breaks + 1} sentences — a shot should land one action; split it into two shots`,
+        message: `shot ${s.id}'s action reads as ${breaks + 1} sentences`,
       });
     }
   }
@@ -716,13 +710,13 @@ function checkDurations(direction: Direction): DirectionFinding[] {
         findings.push({
           code: "off-grid-duration",
           subject: s.id,
-          message: `shot ${s.id} runs ${s.beats} beats — a shot's span on the song is a positive number of beats`,
+          message: `shot ${s.id} runs ${s.beats} beats`,
         });
       } else if (!Number.isInteger(s.beats)) {
         findings.push({
           code: "off-beat-cut",
           subject: s.id,
-          message: `shot ${s.id} runs ${s.beats} beats, so the cut after it lands off the beat — round it, or waive a deliberate off-beat cut`,
+          message: `shot ${s.id} runs ${s.beats} beats`,
         });
       }
     }
@@ -735,7 +729,7 @@ function checkDurations(direction: Direction): DirectionFinding[] {
       findings.push({
         code: "off-grid-duration",
         subject: s.id,
-        message: `shot ${s.id} runs ${s.duration}s — a shot's span is a multiple of ${DURATION_GRID}s, at least ${DURATION_GRID}s; round it to the grid`,
+        message: `shot ${s.id} runs ${s.duration}s, off its ${DURATION_GRID}s grid`,
       });
     }
   }
@@ -932,7 +926,7 @@ function checkPassers(
         findings.push({
           code: "passer-unconsumed",
           subject,
-          message: `${frameLabel(frame)} passes "${id}" but a video take's input chain does not reach reference:${id} — pass its character reference to the take`,
+          message: `${frameLabel(frame)} passes "${id}" but a video take's input chain does not reach reference:${id}`,
         });
       }
       const depiction = direction.characters?.[id]?.promptDepiction;
@@ -946,7 +940,7 @@ function checkPassers(
         findings.push({
           code: "passer-unnamed",
           subject,
-          message: `${frameLabel(frame)} passes "${id}" but a video take's positive prompts do not contain "${depiction}" (verbatim, case-insensitive) — name the passer by its promptDepiction`,
+          message: `${frameLabel(frame)} passes "${id}" but a video take's positive prompts do not contain "${depiction}"`,
         });
       }
     }
@@ -1229,13 +1223,13 @@ export function frameReturns(direction: Direction): FrameReturn[] {
   return out;
 }
 
-function lensSpecErrors(lens: LensSpec<string>, who: string): DirectionStructureError[] {
+function lensSpecErrors(lens: LensSpec<string>): DirectionStructureError[] {
   const errors: DirectionStructureError[] = [];
   if (lens.roles.length === 0) {
     errors.push({
       code: "empty-roles",
       subject: lens.name,
-      message: `${who} "${lens.name}" declares no roles`,
+      message: "declares no roles",
     });
     return errors;
   }
@@ -1243,7 +1237,7 @@ function lensSpecErrors(lens: LensSpec<string>, who: string): DirectionStructure
     errors.push({
       code: "payoff-not-in-roles",
       subject: lens.name,
-      message: `${who} "${lens.name}" declares payoff "${lens.payoff}", which is not one of its roles`,
+      message: `payoff "${lens.payoff}" is not one of its roles`,
     });
   }
   // A role carries the dramatic function it performs, so a lens whose declared climax is a
@@ -1254,7 +1248,7 @@ function lensSpecErrors(lens: LensSpec<string>, who: string): DirectionStructure
     errors.push({
       code: "payoff-function-mismatch",
       subject: lens.name,
-      message: `${who} "${lens.name}" declares payoff "${lens.payoff}", a ${payoffFunction} role — the climax must be a payoff-function role`,
+      message: `payoff "${lens.payoff}" is a ${payoffFunction} role`,
     });
   }
   // Share bounds are fractions of the total, so an out-of-[0,1] value or an inverted min/max is a
@@ -1269,7 +1263,7 @@ function lensSpecErrors(lens: LensSpec<string>, who: string): DirectionStructure
         errors.push({
           code: "invalid-share",
           subject: `${lens.name}.${decl.role}`,
-          message: `${who} "${lens.name}" role "${decl.role}" has ${field} ${value}, which must be a fraction in [0, 1]`,
+          message: `${field} is ${value}`,
         });
       }
     }
@@ -1281,7 +1275,7 @@ function lensSpecErrors(lens: LensSpec<string>, who: string): DirectionStructure
       errors.push({
         code: "invalid-share",
         subject: `${lens.name}.${decl.role}`,
-        message: `${who} "${lens.name}" role "${decl.role}" has minShare ${decl.minShare} greater than maxShare ${decl.maxShare}`,
+        message: `minShare ${decl.minShare} is greater than maxShare ${decl.maxShare}`,
       });
     }
   }
@@ -1363,10 +1357,7 @@ function withinErrors(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "within-undeclared",
         subject: id,
-        message:
-          `setup "${id}" could be a step in from ${candidates.map((c) => `"${c}"`).join(", ")} — ` +
-          `same place, wider, and holding what this frame holds. Say which: \`within: "<id>"\` for the ` +
-          `frame this one steps in from, or \`within: null\` if it is the root of its own camera axis`,
+        message: `could step in from ${candidates.map((c) => `"${c}"`).join(", ")}`,
       });
       continue;
     }
@@ -1375,31 +1366,25 @@ function withinErrors(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "within-impossible",
         subject: id,
-        message: `setup "${id}" declares \`within: "${within}"\`, but ${why}`,
+        message: `\`within: "${within}"\` — ${why}`,
       });
     if (setup.framing === "insert") {
-      impossible("an insert is no window on another frame — drop the `within`");
+      impossible("the setup is an insert");
       continue;
     }
     const target = setups[within];
     if (target === undefined) {
-      impossible("that is not a declared setup");
+      impossible("not a declared setup");
       continue;
     }
     if (target.location !== setup.location) {
-      impossible(
-        `"${within}" is set in "${target.location}" while this frame is in "${setup.location}" — a ` +
-          `window is cut out of a frame of the same place`,
-      );
+      impossible(`"${within}" is set in "${target.location}", this frame in "${setup.location}"`);
       continue;
     }
     const width = FRAMING_WIDTH[setup.framing];
     const targetWidth = FRAMING_WIDTH[target.framing];
     if (width === undefined || targetWidth === undefined || targetWidth >= width) {
-      impossible(
-        `"${within}" is ${target.framing} and this frame is ${setup.framing} — a window is cut out ` +
-          `of a strictly wider frame (wide, then medium, then close; an insert is off the axis)`,
-      );
+      impossible(`"${within}" is ${target.framing}, this frame ${setup.framing}`);
     }
   }
 
@@ -1416,7 +1401,7 @@ function withinErrors(direction: Direction): DirectionStructureError[] {
     errors.push({
       code: "within-cyclic",
       subject: id,
-      message: `setup "${id}" is cut out of itself — its \`within\` chain leads back to it`,
+      message: "its `within` chain leads back to it",
     });
   }
   return errors;
@@ -1431,9 +1416,7 @@ function viewErrors(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "view-on-window",
         subject: id,
-        message:
-          `setup "${id}" declares \`view\`, but it is a window of "${setup.within}" and faces the ` +
-          `way that frame does — drop the \`view\``,
+        message: `declares \`view\` as a window of "${setup.within}"`,
       });
       continue;
     }
@@ -1441,10 +1424,7 @@ function viewErrors(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "view-missing",
         subject: id,
-        message:
-          `setup "${id}" declares no \`view\` — say which way its camera faces in ` +
-          `"${setup.location}": ${VIEWS.map((v) => `"${v}"`).join(", ")} ("front" is the way ` +
-          `reference.${setup.location} faces)`,
+        message: `declares no \`view\` ("front" is the way reference.${setup.location} faces)`,
       });
       continue;
     }
@@ -1452,7 +1432,7 @@ function viewErrors(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "view-unknown",
         subject: id,
-        message: `setup "${id}" declares view "${String(view)}", which is not one of ${VIEWS.join(", ")}`,
+        message: `declares view "${String(view)}"`,
       });
     }
   }
@@ -1493,7 +1473,7 @@ function validateLyrics(direction: Direction): DirectionStructureError[] {
   if (!direction.policy?.song) {
     errors.push({
       code: "lyrics-without-song",
-      message: "`lyrics` are sung on the song `policy.song` names — declare the song",
+      message: "`lyrics` are declared with no `policy.song`",
     });
   }
   for (const id of lyricSingerIds(direction)) {
@@ -1501,7 +1481,7 @@ function validateLyrics(direction: Direction): DirectionStructureError[] {
     errors.push({
       code: "lyrics-singer-unknown",
       subject: id,
-      message: `lyrics singer "${id}" is not a declared character id`,
+      message: "the lyric singer is not a declared character",
     });
   }
   for (const line of lyricLines(direction)) {
@@ -1509,14 +1489,14 @@ function validateLyrics(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "lyrics-singer-empty",
         subject: line.key,
-        message: `lyric line ${line.key} is sung by nobody — name at least one singer`,
+        message: "the lyric line is sung by nobody",
       });
     }
     if (line.text.trim() === "") {
       errors.push({
         code: "lyrics-empty-line",
         subject: line.key,
-        message: `lyric line ${line.key} has no words — drop it or write what is sung`,
+        message: "the lyric line has no words",
       });
     }
   }
@@ -1555,7 +1535,7 @@ function validateShots(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "aside-empty-label",
         subject: s.id,
-        message: `aside "${s.id}" has an empty label — name what occupies the clock here`,
+        message: "the aside's `label` is empty",
       });
     }
   }
@@ -1571,8 +1551,8 @@ function validateShots(direction: Direction): DirectionStructureError[] {
       code: "shot-span-mismatch",
       subject: s.id,
       message: clocked
-        ? `shot "${s.id}" must declare its span as \`beats\` and nothing else — the direction is cut to policy.song`
-        : `shot "${s.id}" must declare its span as \`duration\` in seconds and nothing else — \`beats\` counts on a policy.song this direction does not declare`,
+        ? "the direction is cut to policy.song: declare `beats` alone"
+        : "the direction declares no policy.song: declare `duration` alone",
     });
   }
   return errors;
@@ -1585,7 +1565,7 @@ function validateShotIds(direction: Direction): DirectionStructureError[] {
   if (shotIds.length === 0) {
     errors.push({
       code: "empty-direction",
-      message: "direction is empty — declare at least one shot",
+      message: "the direction declares no shots",
     });
   }
 
@@ -1601,7 +1581,7 @@ function validateShotIds(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "duplicate-id",
         subject: id,
-        message: `id "${id}" is declared more than once`,
+        message: "the id is declared more than once",
       });
     }
     seen.add(id);
@@ -1620,7 +1600,6 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
   // and their `description`s are two performance briefs on one sample, not a contradiction.
   const checkVoice = (
     voice: { id: string; description: string } | undefined,
-    label: string,
     codes: { invalidId: DirectionErrorCode; emptyDescription: DirectionErrorCode },
     subject: string | undefined,
   ) => {
@@ -1629,14 +1608,14 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: codes.invalidId,
         ...(subject ? { subject } : {}),
-        message: `voice id "${voice.id}" (${label}) must be a valid asset name (a-z, A-Z, 0-9, -, _)`,
+        message: `voice id "${voice.id}" is not a valid asset name`,
       });
     }
     if (voice.description.trim() === "") {
       errors.push({
         code: codes.emptyDescription,
         ...(subject ? { subject } : {}),
-        message: `the voice cast for ${label} has an empty description — say how it sounds (sex, age, timbre, pace), or drop the voice`,
+        message: `voice "${voice.id}" has an empty \`description\``,
       });
     }
   };
@@ -1646,33 +1625,32 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "character-invalid-id",
         subject: id,
-        message: `character id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _)`,
+        message: "the character id is not a valid asset name",
       });
     }
     if (character.name.trim() === "") {
       errors.push({
         code: "character-empty-name",
         subject: id,
-        message: `character "${id}" has an empty name`,
+        message: "the character's `name` is empty",
       });
     }
     if (character.description.trim() === "") {
       errors.push({
         code: "character-empty-description",
         subject: id,
-        message: `character "${id}" has an empty description`,
+        message: "the character's `description` is empty",
       });
     }
     if ((character.promptDepiction ?? "").trim() === "") {
       errors.push({
         code: "character-empty-prompt-depiction",
         subject: id,
-        message: `character "${id}" has no \`promptDepiction\` — declare a noun the model can draw them by (a role or a proper name is one it has no look for)`,
+        message: "the character declares no `promptDepiction`",
       });
     }
     checkVoice(
       character.voice,
-      `character "${id}"`,
       {
         invalidId: "character-voice-invalid-id",
         emptyDescription: "character-voice-empty-description",
@@ -1683,7 +1661,6 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
 
   checkVoice(
     direction.narrator,
-    "the narrator",
     { invalidId: "narrator-invalid-id", emptyDescription: "narrator-empty-description" },
     undefined,
   );
@@ -1698,28 +1675,28 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "prop-invalid-id",
         subject: id,
-        message: `prop id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _)`,
+        message: "the prop id is not a valid asset name",
       });
     }
     if (prop.name.trim() === "") {
       errors.push({
         code: "prop-empty-name",
         subject: id,
-        message: `prop "${id}" has an empty name`,
+        message: "the prop's `name` is empty",
       });
     }
     if (prop.description.trim() === "") {
       errors.push({
         code: "prop-empty-description",
         subject: id,
-        message: `prop "${id}" has an empty description`,
+        message: "the prop's `description` is empty",
       });
     }
     if ((prop.promptDepiction ?? "").trim() === "") {
       errors.push({
         code: "prop-empty-prompt-depiction",
         subject: id,
-        message: `prop "${id}" has no \`promptDepiction\` — declare a noun the model can draw it by`,
+        message: "the prop declares no `promptDepiction`",
       });
     }
   }
@@ -1734,22 +1711,22 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
         subject: id,
         message:
           id === "view"
-            ? `location id "view" is reserved — it heads the view images, reference:view.<locationId>.<view>`
-            : `location id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _)`,
+            ? "the location id `view` is reserved for reference:view.<locationId>.<view>"
+            : "the location id is not a valid asset name",
       });
     }
     if (location.name.trim() === "") {
       errors.push({
         code: "location-empty-name",
         subject: id,
-        message: `location "${id}" has an empty name`,
+        message: "the location's `name` is empty",
       });
     }
     if (location.description.trim() === "") {
       errors.push({
         code: "location-empty-description",
         subject: id,
-        message: `location "${id}" has an empty description`,
+        message: "the location's `description` is empty",
       });
     }
     // A place with nothing only it has in it is a place no frame can be recognized as. Required and
@@ -1759,7 +1736,7 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "landmarks-empty",
         subject: id,
-        message: `location "${id}" declares no \`landmarks\` — name what only this place has`,
+        message: "the location declares no `landmarks`",
       });
     }
     for (const [landmarkId, landmark] of landmarks) {
@@ -1768,28 +1745,28 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
         errors.push({
           code: "landmark-invalid-id",
           subject,
-          message: `landmark id "${landmarkId}" must be a valid identifier (a-z, A-Z, 0-9, -, _)`,
+          message: `landmark id "${landmarkId}" is not a valid identifier`,
         });
       }
       if (landmark.name.trim() === "") {
         errors.push({
           code: "landmark-empty-name",
           subject,
-          message: `landmark "${subject}" has an empty name`,
+          message: "the landmark's `name` is empty",
         });
       }
       if (landmark.description.trim() === "") {
         errors.push({
           code: "landmark-empty-description",
           subject,
-          message: `landmark "${subject}" has an empty description — say where it stands and what it looks like`,
+          message: "the landmark's `description` is empty",
         });
       }
       if ((landmark.promptDepiction ?? "").trim() === "") {
         errors.push({
           code: "landmark-empty-prompt-depiction",
           subject,
-          message: `landmark "${subject}" has no \`promptDepiction\` — declare a noun the model can draw it by`,
+          message: "the landmark declares no `promptDepiction`",
         });
       }
     }
@@ -1817,7 +1794,7 @@ function validateIdNamespace(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "reference-id-conflict",
         subject: id,
-        message: `id "${id}" is declared as both a character and a prop — both map to reference:${id}`,
+        message: "declared as both a character and a prop",
       });
     }
   }
@@ -1826,14 +1803,14 @@ function validateIdNamespace(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "reference-id-conflict",
         subject: id,
-        message: `id "${id}" is declared as both a character and a location — both map to reference:${id}`,
+        message: "declared as both a character and a location",
       });
     }
     if (ids.props.has(id)) {
       errors.push({
         code: "reference-id-conflict",
         subject: id,
-        message: `id "${id}" is declared as both a prop and a location — both map to reference:${id}`,
+        message: "declared as both a prop and a location",
       });
     }
   }
@@ -1851,7 +1828,7 @@ function validateIdNamespace(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "reference-id-conflict",
         subject: id,
-        message: `id "${id}" is cast as a voice and declared as a ${roster} — both map to reference:${id}`,
+        message: `cast as a voice and declared as a ${roster}`,
       });
     }
   }
@@ -1864,7 +1841,7 @@ function validateIdNamespace(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "landmark-id-conflict",
         subject: landmarkId,
-        message: `id "${landmarkId}" is declared as a landmark of ${declaredIn.map((id) => `"${id}"`).join(" and ")} — give each its own`,
+        message: `declared as a landmark of ${declaredIn.map((id) => `"${id}"`).join(" and ")}`,
       });
     }
     const roster = ids.characters.has(landmarkId)
@@ -1878,7 +1855,7 @@ function validateIdNamespace(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "landmark-id-conflict",
         subject: landmarkId,
-        message: `id "${landmarkId}" is declared as both a landmark and a ${roster}`,
+        message: `declared as both a landmark and a ${roster}`,
       });
     }
   }
@@ -1942,9 +1919,8 @@ function validatePromptDepictions(direction: Direction): DirectionStructureError
         code: "prompt-depiction-conflict",
         subject: inner.subject,
         message:
-          `${inner.kind} "${inner.subject}" and ${outer.kind} "${outer.subject}" declare ` +
-          `\`promptDepiction\` "${inner.depiction}" and "${outer.depiction}" — give each a ` +
-          `depiction neither contains`,
+          `${inner.kind} \`promptDepiction\` "${inner.depiction}" is inside ` +
+          `${outer.kind} "${outer.subject}"'s "${outer.depiction}"`,
       });
     }
   }
@@ -1964,28 +1940,28 @@ function validateSetups(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "setup-invalid-id",
         subject: id,
-        message: `setup id "${id}" must be a valid asset name (a-z, A-Z, 0-9, -, _)`,
+        message: "the setup id is not a valid asset name",
       });
     }
     if (setup.name.trim() === "") {
       errors.push({
         code: "setup-empty-name",
         subject: id,
-        message: `setup "${id}" has an empty name`,
+        message: "the setup's `name` is empty",
       });
     }
     if (setup.description.trim() === "") {
       errors.push({
         code: "setup-empty-description",
         subject: id,
-        message: `setup "${id}" has an empty description`,
+        message: "the setup's `description` is empty",
       });
     }
     if (locationIds.size > 0 && !locationIds.has(setup.location)) {
       errors.push({
         code: "setup-unknown-location",
         subject: id,
-        message: `setup "${id}" is set in location "${setup.location}", which is not a declared location`,
+        message: `location "${setup.location}" is not a declared location`,
       });
     }
     // What the frame carries of its set, left to right. An `insert` fills the frame with one object
@@ -1995,7 +1971,7 @@ function validateSetups(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "holds-empty",
         subject: id,
-        message: `setup "${id}" holds nothing — name the landmarks of "${setup.location}" this ${setup.framing} frame carries, left to right`,
+        message: `a ${setup.framing} frame in "${setup.location}" holds nothing`,
       });
     }
     // Only against a declared place: an unknown one is `setup-unknown-location`, and reporting every
@@ -2010,7 +1986,7 @@ function validateSetups(direction: Direction): DirectionStructureError[] {
         errors.push({
           code: "holds-unknown-id",
           subject: `${id}:${landmarkId}`,
-          message: `setup "${id}" holds "${landmarkId}", which is not a landmark of "${setup.location}"`,
+          message: `"${landmarkId}" is not a landmark of "${setup.location}"`,
         });
       }
     }
@@ -2026,7 +2002,7 @@ function validateSetups(direction: Direction): DirectionStructureError[] {
     if (frames.length > 0) {
       errors.push({
         code: "setup-empty",
-        message: "direction declares no setups — declare at least one setup",
+        message: "the direction declares no setups",
       });
     }
   } else {
@@ -2035,7 +2011,7 @@ function validateSetups(direction: Direction): DirectionStructureError[] {
         errors.push({
           code: "setup-unknown",
           subject: frameSubject(f),
-          message: `${frameLabel(f)} has setup "${f.setup}", which is not a declared setup`,
+          message: `\`${f.lane === "cutin" ? "cutin.setup" : "setup"}: "${f.setup}"\` is not a declared setup`,
         });
       }
     }
@@ -2047,7 +2023,7 @@ function validateSetups(direction: Direction): DirectionStructureError[] {
   if (locationIds.size === 0 && setupIds.size > 0) {
     errors.push({
       code: "location-empty",
-      message: "direction declares no locations — declare at least one location",
+      message: "the direction declares setups but no locations",
     });
   }
   return errors;
@@ -2062,14 +2038,11 @@ function validateFrames(direction: Direction): DirectionStructureError[] {
   // none is waivable. The type layer requires the field and blames a bad id at the position it was
   // written; this catches a computed direction, and a roster typed rather than literal.
   for (const f of collectShotFrames(direction)) {
-    const where = frameLabel(f);
     if (!f.lineup) {
       errors.push({
         code: "lineup-missing",
         subject: frameSubject(f),
-        message:
-          `${where} declares no \`lineup\` — every frame states who it holds, left to right; ` +
-          `write \`[]\` where it holds no one`,
+        message: "the frame declares no `lineup`",
       });
     }
     for (const [field, lineup] of [
@@ -2084,16 +2057,14 @@ function validateFrames(direction: Direction): DirectionStructureError[] {
           errors.push({
             code: "lineup-unknown-id",
             subject: `${frameSubject(f)}:${subjectId}`,
-            message:
-              `${where} lines up "${subjectId}", which is not a declared character. A prop is ` +
-              `not lined up — write where it sits relative to whoever holds or set it down`,
+            message: `\`${field}\` names "${subjectId}", which is not a declared character`,
           });
         }
         if (seen.has(subjectId)) {
           errors.push({
             code: "lineup-duplicate",
             subject: `${frameSubject(f)}:${subjectId}`,
-            message: `${where} lists "${subjectId}" twice in \`${field}\``,
+            message: `\`${field}\` lists "${subjectId}" twice`,
           });
         }
         if (
@@ -2103,7 +2074,7 @@ function validateFrames(direction: Direction): DirectionStructureError[] {
           errors.push({
             code: "passing-overlap",
             subject: `${frameSubject(f)}:${subjectId}`,
-            message: `${where} lists "${subjectId}" in passing and an endpoint lineup — a passer is absent at both ends`,
+            message: `"${subjectId}" is in \`passing\` and an endpoint lineup`,
           });
         }
         seen.add(subjectId);
@@ -2122,7 +2093,7 @@ function validateFrames(direction: Direction): DirectionStructureError[] {
       errors.push({
         code: "coverage-overdeclared",
         subject: s.id,
-        message: `shot "${s.id}" is a coverage shot and declares \`${field}\` — only the opening \`setup\` and \`lineup\` are declared`,
+        message: `\`${field}\` on a coverage shot`,
       });
     }
   }
@@ -2133,37 +2104,32 @@ function validateFrames(direction: Direction): DirectionStructureError[] {
     // Asking a frame whose setup is not declared about its join on top of `setup-unknown` names the
     // wrong fix.
     if (direction.setups?.[frame.setup] === undefined) continue;
-    const where = frameLabel(frame);
     const field = frame.lane === "cutin" ? "cutin.join" : "join";
     if (frame.join === "continuous" && !runOn) {
       const why =
         previous === undefined
-          ? "it opens the piece, so there is no take before it to run on from"
+          ? "it opens the piece"
           : isAsideShot(previous)
-            ? `"${previous.id}" before it is an aside, and a take does not run through one`
+            ? `"${previous.id}" before it is an aside`
             : previousFrame === undefined
               ? frame.lane === "cutin"
-                ? `"${previous.id}" before it carries no cutin, so there is no wipe to run on from`
-                : `"${previous.id}" before it is a graphic shot, and a take does not run through one`
+                ? `"${previous.id}" before it carries no cutin`
+                : `"${previous.id}" before it is a graphic shot`
               : previousFrame.coverage
                 ? `"${previous.id}" before it is a coverage shot, whose camera ends wherever the ` +
-                  `model cut to — drop the join, or declare a jump`
+                  "model cut to"
                 : `it sits on setup "${frame.setup}" while ${frameLabel(previousFrame)} before it is ` +
-                  `on "${previousFrame.setup}" — one take is one camera position, so a hold that ` +
-                  `moves is written as two panels inside one shot`;
+                  `on "${previousFrame.setup}"`;
       errors.push({
         code: "join-impossible",
         subject: frameSubject(frame),
-        message: `${where} declares \`${field}: "continuous"\`, but ${why}`,
+        message: `declares \`${field}: "continuous"\`, and ${why}`,
       });
     } else if (runOn && frame.join === undefined) {
       errors.push({
         code: "join-undeclared",
         subject: frameSubject(frame),
-        message:
-          `${where} follows ${frameLabel(runOn)} on the same setup "${frame.setup}", so ` +
-          `\`${field}\` has to say what the boundary is: "continuous" for one unbroken take, ` +
-          `"jump-forward" for a jump cut or a gap in story time, "jump-back" into a flashback`,
+        message: `follows ${frameLabel(runOn)} on setup "${frame.setup}" with no \`${field}\``,
       });
     }
   }
@@ -2185,21 +2151,21 @@ function validateLines(direction: Direction): DirectionStructureError[] {
           errors.push({
             code: "script-empty-text",
             subject: s.id,
-            message: `shot "${s.id}" has a script line with an empty \`acting\` note — say how it is said, or drop the field`,
+            message: `a line for "${line.character}" has an empty \`acting\` note`,
           });
         }
         if (!characterIds.has(line.character)) {
           errors.push({
             code: "script-unknown-character",
             subject: `${s.id}:${line.character}`,
-            message: `shot "${s.id}" has a script line spoken by "${line.character}", which is not a declared character`,
+            message: `a script line is spoken by "${line.character}", not a declared character`,
           });
         }
         if (line.text.trim() === "") {
           errors.push({
             code: "script-empty-text",
             subject: s.id,
-            message: `shot "${s.id}" has a script line for "${line.character}" with empty text`,
+            message: `a line for "${line.character}" has empty text`,
           });
         }
       } else if ("speaker" in line) {
@@ -2207,14 +2173,14 @@ function validateLines(direction: Direction): DirectionStructureError[] {
           errors.push({
             code: "script-empty-text",
             subject: s.id,
-            message: `shot "${s.id}" has a script line for "${line.speaker}" with empty text`,
+            message: `a line for "${line.speaker}" has empty text`,
           });
         }
       } else if (line.narration.trim() === "") {
         errors.push({
           code: "script-empty-text",
           subject: s.id,
-          message: `shot "${s.id}" has a narration line with empty text`,
+          message: "a narration line has empty text",
         });
       }
     }
@@ -2228,7 +2194,7 @@ function validateLines(direction: Direction): DirectionStructureError[] {
         errors.push({
           code: "telop-empty-text",
           subject: s.id,
-          message: `shot "${s.id}" has a telop entry with empty text`,
+          message: "a telop entry has empty text",
         });
       }
     }
@@ -2248,11 +2214,11 @@ function validateLenses(direction: Direction): DirectionStructureError[] {
         code: "unknown-lens",
         subject: node.lens,
         message: node.id
-          ? `sequence "${node.id}" uses unknown lens "${node.lens}"`
-          : `unknown lens "${node.lens}"`,
+          ? `sequence "${node.id}" names an unknown lens`
+          : "the direction names an unknown lens",
       });
     } else {
-      errors.push(...lensSpecErrors(lens, "lens"));
+      errors.push(...lensSpecErrors(lens));
     }
   }
   return errors;

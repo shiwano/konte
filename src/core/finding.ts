@@ -7,6 +7,9 @@ import { type AssetStage, type Stage, matchesAddressScope } from "./address.js";
 import type { DirectionFindingCode } from "./direction-check.js";
 import type { DirectionErrorCode } from "./direction.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
+import { DIRECTION_ERROR_REMEDY } from "./finding-remedy/direction-error.js";
+import { DIRECTION_FINDING_REMEDY } from "./finding-remedy/direction.js";
+import { OTHER_FINDING_REMEDY } from "./finding-remedy/other.js";
 import type { PinFindingCode } from "./pin-check.js";
 import type { PromptFindingCode } from "./prompt-check.js";
 
@@ -326,17 +329,53 @@ function findingLabel(finding: Finding): string {
   return finding.key ?? finding.code;
 }
 
+// What clears every finding of a code, printed once over its findings; a finding carries only what
+// is its own in `message`.
+const FINDING_REMEDY: Record<FindingCode, string> = {
+  ...DIRECTION_FINDING_REMEDY,
+  ...DIRECTION_ERROR_REMEDY,
+  ...OTHER_FINDING_REMEDY,
+};
+
+export function findingRemedy(code: FindingCode): string {
+  return FINDING_REMEDY[code];
+}
+
+// The finding without its code's remedy, as a line under the remedy.
+function formatFindingItem(finding: Finding): string {
+  const subject =
+    finding.subject && !finding.key?.endsWith(finding.subject) ? `${finding.subject} — ` : "";
+  const label = finding.key ? `[${finding.key}] ` : "";
+  return `${label}${subject}${finding.message}`;
+}
+
 export function formatFindingLine(finding: Finding): string {
   const subject =
     finding.subject && !finding.key?.endsWith(finding.subject) ? `${finding.subject} — ` : "";
-  return `[${findingLabel(finding)}] ${subject}${finding.message}`;
+  return `[${findingLabel(finding)}] ${subject}${finding.message} — ${FINDING_REMEDY[finding.code]}`;
+}
+
+// One file's findings as printed: each code's under one `<code> ×<n> — <remedy>` head.
+export type FindingBlock = { head: string; items: string[] };
+
+export function formatFindingBlocks(findings: readonly Finding[]): FindingBlock[] {
+  const byCode = new Map<FindingCode, Finding[]>();
+  for (const f of findings) byCode.set(f.code, [...(byCode.get(f.code) ?? []), f]);
+  return [...byCode].map(([code, group]) => ({
+    head: `${code}${group.length > 1 ? ` ×${group.length}` : ""} — ${FINDING_REMEDY[code]}`,
+    items: group.map(formatFindingItem),
+  }));
+}
+
+export function formatFindingBlockLines(blocks: readonly FindingBlock[]): string[] {
+  return blocks.flatMap((b) => [b.head, ...b.items.map((i) => `  ${i}`)]);
 }
 
 // The findings under the file each is fixed in, as lines of a refusal.
 export function formatFindingGroups(findings: readonly Finding[]): string[] {
   return groupByFixIn(findings).flatMap(({ file, findings: group }) => [
     `  ${file}:`,
-    ...group.map((f) => `    ${formatFindingLine(f)}`),
+    ...formatFindingBlockLines(formatFindingBlocks(group)).map((l) => `    ${l}`),
   ]);
 }
 

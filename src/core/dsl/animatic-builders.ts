@@ -605,9 +605,7 @@ function scriptFindings(
       findings.push({
         code: "script-unvoiced",
         subject,
-        message:
-          `has spoken lines in the direction but plays no audio — place them with ` +
-          `<Audio src={asset("vo", …)}> in its <Composition>`,
+        message: "has spoken lines in the direction but plays no audio",
         targets: [subject],
       });
       continue;
@@ -629,11 +627,7 @@ function scriptFindings(
       findings.push({
         code: "script-unvoiced",
         subject,
-        message:
-          `never voices the line \u201c${lineText(unmatched[0])}\u201d — every line the direction ` +
-          `gives the shot owes an <Audio src={asset(…)}> carrying it: add one, or move the words to ` +
-          `\`telop\` if nobody says them. A model that misreads the words takes ` +
-          `respell(script.<who>[n], "…") in their place`,
+        message: `never voices the line \u201c${lineText(unmatched[0])}\u201d`,
         targets: [subject],
       });
     }
@@ -678,7 +672,7 @@ function buildPlates<D>(
       findings.push({
         code: "plate-undeclared-setup",
         subject: formatPlateAddress(id),
-        message: `is filed under "${id}", which is not a setup direction.ts declares — its key must be one of: ${[...declared].join(", ")}`,
+        message: `"${id}" is not a declared setup; setups: ${[...declared].join(", ") || "(none)"}`,
         targets: [formatPlateAddress(id)],
       });
     }

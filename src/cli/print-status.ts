@@ -1,10 +1,10 @@
 import * as path from "node:path";
 import { formatReferenceAddress } from "../core/address.js";
 import { formatRelativeTime } from "../core/format-timestamp.js";
-import { printCapped } from "./format-list.js";
+import { capList, moreLine } from "./format-list.js";
 import { type SuggestedAction, formatSuggestedActions } from "../core/suggested-actions.js";
 import { formatStaleWaiverLine, type StaleWaiverLine } from "../core/checks.js";
-import { type Finding, formatFindingLine, groupByFixIn } from "../core/finding.js";
+import { type Finding, formatFindingBlocks, groupByFixIn } from "../core/finding.js";
 
 import type { StatusReport } from "../core/status-report.js";
 import type { DirectionAcceptanceSummary } from "../core/direction-acceptance.js";
@@ -50,6 +50,9 @@ export function formatDirectionRemainder(
     })
     .join(", ");
 }
+
+// A finding under its code's remedy is one short line.
+const FINDING_BLOCK_CAP = 30;
 
 export function printStatusReport(
   report: StatusReport,
@@ -179,11 +182,24 @@ export function printStatusReport(
     }
     for (const { file, findings: group } of groups) {
       console.log(`  ${file}`);
-      const lines = [
-        ...group.map(formatFindingLine),
-        ...(file === "direction.ts" ? staleWaivers.map(formatStaleWaiverLine) : []),
-      ];
-      printCapped(lines, (line) => `  ${line}`, { verbose: options?.verbose });
+      for (const block of formatFindingBlocks(group)) {
+        console.log(`    ${block.head}`);
+        const { shown, hidden } = capList(block.items, {
+          verbose: options?.verbose,
+          cap: FINDING_BLOCK_CAP,
+        });
+        for (const line of [...shown, ...(hidden > 0 ? [moreLine(hidden)] : [])]) {
+          console.log(`      ${line}`);
+        }
+      }
+      if (file === "direction.ts") {
+        const { shown, hidden } = capList(staleWaivers.map(formatStaleWaiverLine), {
+          verbose: options?.verbose,
+        });
+        for (const line of [...shown, ...(hidden > 0 ? [moreLine(hidden)] : [])]) {
+          console.log(`    ${line}`);
+        }
+      }
     }
   }
 

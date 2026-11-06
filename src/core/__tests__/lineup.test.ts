@@ -849,7 +849,7 @@ describe("panel-unlinked", () => {
   it("flags a cut along one axis whose opening keyframe takes no frame at all", () => {
     const findings = found(pushIn(), board({ shotId: "01" }, { shotId: "02" }));
     expect(findings.map((f) => f.subject)).toEqual(["01-02"]);
-    expect(findings[0]?.message).toContain("one camera axis");
+    expect(findings[0]?.message).toContain("takes no frame");
     expect(findings[0]?.message).toContain("animatic:shot.01.last");
   });
 

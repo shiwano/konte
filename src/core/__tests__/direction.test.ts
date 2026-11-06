@@ -1786,7 +1786,7 @@ describe("checkDirection setups", () => {
     );
     expect(findings.map((f) => f.subject)).toEqual(["here"]);
     expect(findings[0]?.message).toContain("8 shots");
-    expect(findings[0]?.message).toContain("at least 4 of its 8 on a shared frame");
+    expect(findings[0]?.message).toContain("0 of them on a shared frame — 4 needed");
   });
 
   it("stays silent on a short scene, where varied sizes force one frame per shot", () => {
@@ -1867,7 +1867,7 @@ describe("checkDirection setups", () => {
       const findings = codes(viewed, ["here"]);
       expect(findings.map((f) => [f.code, f.subject])).toEqual([["view-unrealized", "here.top"]]);
       expect(findings[0]?.message).toContain('"top"');
-      expect(findings[0]?.message).toContain("`views`");
+      expect(findings[0]?.message).toContain('in "here"');
     });
 
     it("is satisfied by the view image the reference stage files", () => {

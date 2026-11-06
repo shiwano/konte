@@ -200,10 +200,7 @@ function linesPlacedOverSong(
       {
         code: "script-unvoiced",
         subject,
-        message:
-          "has spoken lines in the direction but places no <Audio> — place each line where the animatic does: " +
-          `<Audio src={animatic.shot("${shot.id}").audio("<name>")} start={…}>, or the reference ` +
-          "voice it was made from",
+        message: "has spoken lines in the direction but places no <Audio> on `policy.song`",
         targets: [subject],
       },
     ];

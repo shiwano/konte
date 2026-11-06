@@ -320,12 +320,11 @@ describe("promptFindings", () => {
       fixIn: { stage: "video" },
       targets: ["video:shot.01.motion"],
     });
-    expect(finding!.message).toContain("video:shot.01.motion");
-    expect(finding!.message).toContain("describe what occupies the space");
+    expect(finding!.message).toBe("video:shot.01.motion");
   });
 
-  it("gives each polarity its own remedy", () => {
-    const messages = promptFindings(
+  it("gives each polarity its own code", () => {
+    const codes = promptFindings(
       {
         prompts: [
           at("video:shot.01.motion", "no outlines"),
@@ -333,9 +332,8 @@ describe("promptFindings", () => {
         ],
       },
       { stage: "video" },
-    ).map((f) => f.message);
-    expect(messages.join("\n")).toContain("describe what occupies the space");
-    expect(messages.join("\n")).toContain("keep the term, drop the negation");
+    ).map((f) => f.code);
+    expect(codes).toEqual(["prompt-negation", "prompt-double-negative"]);
   });
 
   it("sits a patch's finding on nothing an accept could take", () => {

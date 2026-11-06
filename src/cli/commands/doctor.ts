@@ -54,7 +54,7 @@ import { VendorBackendKindSchema } from "../../core/types/index.js";
 import { resolveFalConfig } from "../../fal/config.js";
 import { FalHttpClient } from "../../fal/http-client.js";
 import { collectFindings, formatStaleWaiverLine } from "../../core/checks.js";
-import { formatFindingLine, groupByFixIn } from "../../core/finding.js";
+import { formatFindingBlockLines, formatFindingBlocks, groupByFixIn } from "../../core/finding.js";
 import { loadCheckContext } from "../../core/check-context.js";
 import { currentRoots, requireWorkspaceRoot } from "../context.js";
 import type { VideoRoots, VideoSelection } from "../../core/roots.js";
@@ -1105,9 +1105,10 @@ async function checkFindings(
       name: "findings",
       status: "FAIL",
       message: `${findings.length} unresolved finding(s) — fix each in the file it is listed under, or waive it`,
-      details: groupByFixIn(findings).flatMap(({ file, findings: group }) =>
-        group.map((f) => `${file} ${formatFindingLine(f)}`),
-      ),
+      details: groupByFixIn(findings).flatMap(({ file, findings: group }) => [
+        `${file}:`,
+        ...formatFindingBlockLines(formatFindingBlocks(group)).map((l) => `  ${l}`),
+      ]),
     });
   } else {
     results.push({ name: "findings", status: "PASS", message: "no findings" });

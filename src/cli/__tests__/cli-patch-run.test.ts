@@ -233,7 +233,7 @@ export default definePatch<"image">(({ source }) =>
 
       expect(stdout).toContain(`(edit patches/${sourceId}.ts)`);
       expect(stdout).toMatch(
-        new RegExp(`^ {2}patches/${sourceId}\\.ts\\n {4}\\[prompt-negation\\] "no chip"`, "m"),
+        new RegExp(`^ {2}patches/${sourceId}\\.ts\\n {4}prompt-negation — .*\\n {6}"no chip"`, "m"),
       );
       expect(stdout).not.toContain("konte patch apply");
     });

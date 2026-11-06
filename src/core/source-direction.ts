@@ -353,7 +353,7 @@ export async function checkSourceLocators(
     code: "source-locator-out-of-range",
     subject,
     fixIn: { stage: "direction" },
-    message: `${message} — fix it in ${file}`,
+    message: `${message} — in ${file}`,
   });
   let ref: SourceRef | null;
   let index: SourceIndex;
@@ -364,7 +364,7 @@ export async function checkSourceLocators(
       return [
         finding(
           "brief.source",
-          "brief.source names a source the video does not hold — konte source import <kind> <file>",
+          "brief.source names a source the video does not hold",
           "direction.ts",
         ),
       ];

@@ -45,7 +45,7 @@ describe("review prerequisite gates", () => {
 
       await expect(run(["accept", variantId], projectDir)).rejects.toMatchObject({
         stderr: expect.stringContaining(
-          `[movement-unwritten] ${ADDRESS} — no blocking, no camera — write blocking/camera from the output of ${variantId}`,
+          `movement-unwritten — write the missing \`blocking\` / \`camera\` from the output of the take named; ${ADDRESS} — no blocking, no camera; take ${variantId}`,
         ),
       });
     });
@@ -82,7 +82,7 @@ describe("review prerequisite gates", () => {
       await unbind(projectDir);
 
       await expect(run(["preview", "animatic"], projectDir)).rejects.toMatchObject({
-        stderr: expect.stringMatching(/REVIEW_HELD[\s\S]*\[movement-unwritten\]/),
+        stderr: expect.stringMatching(/REVIEW_HELD[\s\S]*movement-unwritten — /),
       });
     });
   });
@@ -96,8 +96,8 @@ describe("review prerequisite gates", () => {
 
       const { stdout } = await run(["status"], projectDir);
       expect(stdout).toContain("edit animatic.tsx");
-      expect(stdout).toContain(`[movement-unwritten] ${ADDRESS} — no blocking, no camera`);
-      expect(stdout).toContain(`from the output of ${variantId}`);
+      expect(stdout).toContain("movement-unwritten — write the missing");
+      expect(stdout).toContain(`${ADDRESS} — no blocking, no camera; take ${variantId}`);
       expect(stdout).not.toContain("konte preview animatic");
     });
 
@@ -109,7 +109,7 @@ describe("review prerequisite gates", () => {
       await acceptDirection(projectDir);
 
       const { stdout } = await run(["status", "-v"], projectDir);
-      expect(stdout).not.toContain("[movement-unwritten]");
+      expect(stdout).not.toContain("movement-unwritten");
       expect(stdout).toContain("konte preview animatic");
     });
 
@@ -119,7 +119,7 @@ describe("review prerequisite gates", () => {
       await acceptDirection(projectDir);
 
       const { stdout } = await run(["status", "-v"], projectDir);
-      expect(stdout).not.toContain("[movement-unwritten]");
+      expect(stdout).not.toContain("movement-unwritten");
     });
   });
 
@@ -138,7 +138,7 @@ describe("review prerequisite gates", () => {
       await acceptFileAssets(projectDir);
 
       await expect(run(["generate", "video"], projectDir)).rejects.toMatchObject({
-        stderr: expect.stringMatching(/SPEND_HELD[\s\S]*\[movement-unwritten\]/),
+        stderr: expect.stringMatching(/SPEND_HELD[\s\S]*movement-unwritten — /),
       });
     });
   });

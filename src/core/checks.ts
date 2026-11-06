@@ -6,7 +6,6 @@ import {
   type AssetStage,
   type DefinitionLike,
   formatShotAddress,
-  formatShotStemAddress,
   getAssetEntry,
   getStage,
   listAddresses,
@@ -57,7 +56,6 @@ import type {
   StageDefinition,
   VideoDefinition,
 } from "./types/index.js";
-import { STAGE_ENTRY_FILE } from "./roots.js";
 import { checkSourceLocators } from "./source-direction.js";
 import { findUnmouthedStems } from "./stem-mouth-check.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
@@ -168,7 +166,7 @@ const DIRECTION_CHECK: Check = {
           code: "direction-missing",
           subject: "",
           fixIn: { stage: "direction" },
-          message: "No direction.ts found — declare the video's direction (lens + shots)",
+          message: "no `direction.ts` found",
         },
       ];
     }
@@ -241,17 +239,14 @@ const LANDMARK_HELD_CHECK: Check = {
       return findUnheldLandmarks(direction, def.prompts ?? [], def.imageInputs ?? []).map(
         (u): Finding => {
           const accepted = acceptedAsDefined(ctx, def as DefinitionLike, u.address);
-          const remedy =
-            `describe only what the frame holds, or add "${u.landmarkId}" to the \`holds\` of ` +
-            `${u.setups.map((s) => `"${s}"`).join(" / ")} where the frame carries it`;
           return {
             code: "landmark-unheld",
             subject: `${u.address} "${u.promptDepiction}"`,
             fixIn: { stage },
             message:
-              `shot "${u.shotId}" frames a setup whose \`holds\` leaves out ` +
-              `"${u.landmarkId}", yet the prompt names it — ` +
-              (accepted ? `accepted as drawn; ${remedy} before drawing it again` : remedy),
+              `"${u.landmarkId}" is not in the \`holds\` of ` +
+              `${u.setups.map((s) => `"${s}"`).join(" / ")}` +
+              (accepted ? " — accepted as drawn; fix it before drawing it again" : ""),
             targets: accepted ? [] : [u.address],
             ...(accepted ? { signedOff: [u.address] } : {}),
           };
@@ -288,7 +283,7 @@ const CLASS_CHECK: Check = {
             code,
             subject: f.label,
             fixIn: { stage },
-            message: `font family: ${f.fontFamily.join(", ")} — declare it on direction.policy.fonts`,
+            message: `font family: ${f.fontFamily.join(", ")}`,
             targets: [f.label],
           });
         }
@@ -309,9 +304,7 @@ const MOVEMENT_CHECK: Check = {
           code: "movement-unwritten",
           subject: u.address,
           fixIn: { stage: u.stage },
-          message:
-            `${shot ? `${shot}: ` : ""}no ${u.missing.join(", no ")} — write ${u.missing.join("/")} ` +
-            `from the output of ${u.variantId}`,
+          message: `${shot ? `${shot}: ` : ""}no ${u.missing.join(", no ")}; take ${u.variantId}`,
           targets: [u.address],
         };
       },
@@ -337,9 +330,7 @@ const VARIANT_CHECK: Check = {
           code: f.type === "silent" ? "take-silent" : "line-misheard",
           subject: v.variantId,
           fixIn: { stage: getStage(v.address) },
-          message:
-            `${v.address} ${f.detail} — dismiss it (reroll for another beside it), or ` +
-            `\`konte vouch ${v.variantId}\` once you have heard it is fine`,
+          message: `${v.address} ${f.detail}`,
           targets: [v.address],
         }),
       ),
@@ -352,15 +343,15 @@ const OVERFLOW_CHECK: Check = {
   run: (ctx) => {
     if (!ctx.manager || !ctx.animatic) return [];
     return findAnimaticOverflows(ctx.animatic, ctx.manager).map((o): Finding => {
-      const fix = o.retime
-        ? `put ${o.retime.src} through adapters.audioRetime with duration ` +
-          `${o.retime.roomSec.toFixed(2)} (${o.retime.rate.toFixed(3)}x) and play that in its place`
-        : `lengthen shot ${o.shotId}'s duration or shorten its script`;
+      const retime = o.retime
+        ? ` — retime ${o.retime.src} to duration ${o.retime.roomSec.toFixed(2)} ` +
+          `(${o.retime.rate.toFixed(3)}x)`
+        : "";
       return {
         code: "line-truncated",
         subject: o.address,
         fixIn: { stage: o.retime ? "animatic" : "direction" },
-        message: `${formatAnimaticOverflow(o)} — ${fix}`,
+        message: `${formatAnimaticOverflow(o)}${retime}`,
         targets: [o.address],
       };
     });
@@ -378,10 +369,7 @@ const SILENT_TAIL_CHECK: Check = {
           code: "tail-silent",
           subject: t.address,
           fixIn: { stage: "animatic" },
-          message:
-            `${formatSilentTail(t)} — set its duration to ${t.fitDurationSec} in ` +
-            `${STAGE_ENTRY_FILE.direction}, fill the tail with sound, or ` +
-            `\`konte vouch ${t.address}\` for a hold the picture needs`,
+          message: `${formatSilentTail(t)}; fit: duration ${t.fitDurationSec}`,
           targets: [t.address],
         }),
       );
@@ -399,11 +387,7 @@ const ANIMATIC_CONSUMED_CHECK: Check = {
       code: "animatic-unconsumed",
       subject: formatShotAddress("video", shotId),
       fixIn: { stage: "video", ...(patch ? { patch } : {}) },
-      message:
-        `spends without building on ${formatShotAddress("animatic", shotId)} — build it from its own board shot ` +
-        "(a panel image, `.stem` — not `.narrationStem`) in video.tsx, " +
-        `developing that board shot first if it is still a pendingShot, or leave it as ` +
-        `pendingShot("${shotId}") until it is wired`,
+      message: `spends without building on ${formatShotAddress("animatic", shotId)}`,
       targets: [formatShotAddress("video", shotId)],
     });
     return [
@@ -438,11 +422,7 @@ const STEM_MOUTH_CHECK: Check = {
         code: "stem-unmouthed",
         subject: u.address,
         fixIn: { stage: "video" },
-        message:
-          `takes ${formatShotStemAddress("animatic", u.shotId)} into the model, yet ` +
-          `${u.speakers.join(", ")} ${u.speakers.length === 1 ? "is" : "are"} off the frame and no ` +
-          "mouth in it speaks the lines — drive the take without the stem and its lines, and " +
-          `place it with <Audio src={animatic.shot("${u.shotId}").stem} /> in the shot's composition`,
+        message: `${u.speakers.join(", ")} ${u.speakers.length === 1 ? "is" : "are"} off the frame`,
         targets: [u.address],
       }),
     );
@@ -477,9 +457,7 @@ const PENDING_REFERENCE_CHECK: Check = {
         code: "pending-reference",
         subject: from,
         fixIn: { stage: getStage(from) },
-        message:
-          `is built on ${refs.join(", ")}, of a shot still a pendingShot — it and what is built on ` +
-          "it wait until that shot is developed; the rest of the stage spends",
+        message: `built on ${refs.join(", ")}`,
         targets: [from],
       }),
     );
