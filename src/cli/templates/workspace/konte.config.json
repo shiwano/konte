@@ -17,7 +17,7 @@
     "comfyapi": {
       "deployments": {
         "main": {
-          "comfyVersion": "v0.43.0"
+          "comfyVersion": "v0.44.0"
         }
       }
     }
