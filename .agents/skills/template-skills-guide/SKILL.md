@@ -1,10 +1,10 @@
 ---
 name: template-skills-guide
-description: Conventions for authoring the skills konte ships into user projects. Read before adding, editing, or restructuring a template skill.
+description: Conventions for authoring the skills konte ships into user projects and the shipped workspace AGENTS.md. Read before adding, editing, or restructuring a template skill or that AGENTS.md.
 user-invocable: false
 ---
 
-Conventions for the skills `konte workspace new` writes into every user project (`src/cli/templates/workspace/dot.agents/skills/<skill>/`), not this repo's dev skills. Done = single-purpose, terse-first, and passing `skills:check`.
+Conventions for the skills `konte workspace new` writes into every user project (`src/cli/templates/workspace/dot.agents/skills/<skill>/`) and its `AGENTS.md` (`src/cli/templates/workspace/AGENTS.md`), not this repo's dev skills. Done = single-purpose, terse-first, and passing `skills:check`.
 
 Audience: the agent in a user's konte project, mid-task — never the konte maintainer or the human.
 
