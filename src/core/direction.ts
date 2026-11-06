@@ -44,6 +44,7 @@ import {
   checkJoinPins,
   checkKeyPins,
   checkPanelLinks,
+  checkReturnLinks,
   type HoldsSetupRef,
   checkArc,
   checkCharacterVoices,
@@ -118,14 +119,13 @@ export type ShotWaiver = {
   shotIds: string[];
 };
 
-function shotBoundaries(direction: Direction): Map<string, [string, string]> {
-  const out = new Map<string, [string, string]>();
-  for (const { frame, previousFrame } of joinBoundaries(direction)) {
-    if (!previousFrame) continue;
-    const lane = frame.lane === "cutin" ? ".cutin" : "";
-    out.set(`${previousFrame.shotId}-${frame.shotId}${lane}`, [previousFrame.shotId, frame.shotId]);
-  }
-  return out;
+function boundaryShots(pairs: readonly FramePair[]): Map<string, [string, string]> {
+  return new Map(
+    pairs.map(({ frame, from }) => [
+      `${from.shotId}-${frame.shotId}${frame.lane === "cutin" ? ".cutin" : ""}`,
+      [from.shotId, frame.shotId],
+    ]),
+  );
 }
 
 function shotsBySetup(direction: Direction): Map<string, string[]> {
@@ -139,7 +139,12 @@ function shotsBySetup(direction: Direction): Map<string, string[]> {
 
 export function directionShotWaivers(direction: Direction): ShotWaiver[] {
   const shotIds = new Set(collectShots(direction).map((s) => s.id));
-  const boundaries = shotBoundaries(direction);
+  const boundaries = boundaryShots(
+    joinBoundaries(direction).flatMap(({ frame, previousFrame }) =>
+      previousFrame ? [{ frame, from: previousFrame }] : [],
+    ),
+  );
+  const returns = boundaryShots(frameReturns(direction));
   const onSetup = shotsBySetup(direction);
   const out: ShotWaiver[] = [];
   for (const [key, reason] of Object.entries(direction.waivers ?? {})) {
@@ -151,7 +156,7 @@ export function directionShotWaivers(direction: Direction): ShotWaiver[] {
     const head = subject.split(".")[0] ?? "";
     const ids =
       on === "boundary"
-        ? (boundaries.get(subject) ?? [])
+        ? ((code === "return-unlinked" ? returns : boundaries).get(subject) ?? [])
         : on === "setup"
           ? (onSetup.get(subject) ?? [])
           : shotIds.has(head)
@@ -904,7 +909,8 @@ function checkStaging(
       : []),
     ...(stage ? checkJoinPins(shots, stage.videoPins, stage.shotPanels) : []),
     ...(stage ? checkKeyPins(shots, stage.videoPins, stage.shotPanels) : []),
-    ...(stage ? checkPanelLinks(panelSeams(direction, stage.shotPanels)) : []),
+    ...(stage ? checkPanelLinks(boardSeams(axisCutPairs(direction), stage.shotPanels)) : []),
+    ...(stage ? checkReturnLinks(boardSeams(frameReturns(direction), stage.shotPanels)) : []),
     ...checkPassers(direction, stage?.videoPassers, referenceAssetNames),
   ];
 }
@@ -1100,7 +1106,7 @@ function nestingChain(
   return [...new Set([...take(fromPath), ...take(toPath)])];
 }
 
-// The cuts a frame has to carry across, paired with what the board did about them: an omitted join
+// The cuts a frame has to carry across: an omitted join
 // across two setups on ONE `within` axis — story time runs on and the camera has moved only along
 // that axis. The plate nesting already carries the room (`plate-unnested`); what the frame before
 // it carries is the subject — her light, her size against the set, where she stands.
@@ -1115,27 +1121,39 @@ function nestingChain(
 //
 // Each lane is its own camera: a wipe carries across the seam from the wipe before it, and a main
 // frame from the main frame before it.
-function panelSeams(direction: Direction, continuity: readonly ShotPanels[]): PanelSeam[] {
+function axisCutPairs(direction: Direction): FramePair[] {
   const setups = direction.setups ?? {};
-  const byFrame = new Map(continuity.map((entry) => [`${entry.shotId}/${entry.lane}`, entry]));
-  const out: PanelSeam[] = [];
-  for (const { frame, previousFrame } of joinBoundaries(direction)) {
-    if (previousFrame === undefined || previousFrame.coverage) continue;
-    const here = byFrame.get(`${frame.shotId}/${frame.lane}`);
-    const before = byFrame.get(`${previousFrame.shotId}/${previousFrame.lane}`);
-    if (!here?.carries || !before) continue;
-    if (!isAxisCut(setups, frame, previousFrame)) continue;
-    if (!sharesSubject(previousFrame, frame)) continue;
-    out.push({
-      id: frame.shotId,
-      lane: frame.lane,
-      from: previousFrame.shotId,
-      fromPanel: before.lastPanel,
-      linked: here.linked,
-      ...(here.signedOff ? { signedOff: true as const } : {}),
-    });
-  }
-  return out;
+  return joinBoundaries(direction).flatMap(({ frame, previousFrame }) =>
+    previousFrame !== undefined &&
+    !previousFrame.coverage &&
+    isAxisCut(setups, frame, previousFrame) &&
+    sharesSubject(previousFrame, frame)
+      ? [{ frame, from: previousFrame }]
+      : [],
+  );
+}
+
+type FramePair = { frame: ShotFrame; from: ShotFrame };
+
+// The pairs answered on the board: judged where both frames are on the board and the opening
+// keyframe's model reads a previous panel.
+function boardSeams(pairs: readonly FramePair[], continuity: readonly ShotPanels[]): PanelSeam[] {
+  const byFrame = new Map(continuity.map((entry) => [frameKey(entry), entry]));
+  return pairs.flatMap(({ frame, from }) => {
+    const here = byFrame.get(frameKey(frame));
+    const before = byFrame.get(frameKey(from));
+    if (!here?.carries || !before) return [];
+    return [
+      {
+        id: frame.shotId,
+        lane: frame.lane,
+        from: from.shotId,
+        fromPanel: before.lastPanel,
+        linked: here.linked,
+        ...(here.signedOff ? { signedOff: true as const } : {}),
+      },
+    ];
+  });
 }
 
 // An omitted join between two different setups of one `within` axis. Anything the author wrote at the
@@ -1158,6 +1176,58 @@ function sharesSubject(previous: ShotFrame, frame: ShotFrame): boolean {
   const before = previous.lineupTo ?? previous.lineup;
   if (before.length === 0 || frame.lineup.length === 0) return true;
   return frame.lineup.some((id) => before.includes(id));
+}
+
+// A frame showing one of `frame`'s subjects at any point, read strictly: a frame that declares no
+// one shows no one.
+function showsSubjectOf(other: ShotFrame, frame: ShotFrame): boolean {
+  const shown = [...other.lineup, ...(other.lineupTo ?? []), ...(other.passing ?? [])];
+  return frame.lineup.some((id) => shown.includes(id));
+}
+
+/**
+ * A frame cut back to its setup across a cutaway, and the frame of its lane it returns to: the
+ * latest one on that setup, where that one is not the frame just before it (the `join` rules own
+ * that boundary).
+ */
+export type FrameReturn = FramePair;
+
+// None across a story-time jump or an aside, from a coverage shot,
+// between frames holding no subject in common, into a frame an axis cut already carries, across a
+// cutaway of its lane in another place, or across any frame showing the subject.
+export function frameReturns(direction: Direction): FrameReturn[] {
+  const setups = direction.setups ?? {};
+  const carried = new Set(axisCutPairs(direction).map(({ frame }) => frameKey(frame)));
+  const out: FrameReturn[] = [];
+  let run: ShotFrame[] = [];
+  let previousShotId: string | undefined;
+  for (const shot of collectShots(direction)) {
+    if (isAsideShot(shot)) {
+      run = [];
+      previousShotId = undefined;
+      continue;
+    }
+    const frames = shotFrames(shot);
+    if (frames.some((f) => f.join === "jump-back" || f.join === "jump-forward")) run = [];
+    for (const frame of frames) {
+      if (frame.join !== undefined || setups[frame.setup] === undefined) continue;
+      if (carried.has(frameKey(frame))) continue;
+      let at = run.length - 1;
+      while (at >= 0 && !(run[at]!.lane === frame.lane && run[at]!.setup === frame.setup)) at--;
+      const from = run[at];
+      if (from === undefined || from.shotId === previousShotId || from.coverage) continue;
+      const between = run.slice(at + 1).filter((f) => f.shotId !== from.shotId);
+      const place = setups[from.setup]?.location;
+      const away = between.filter((f) => f.lane === frame.lane);
+      if (away.some((f) => setups[f.setup]?.location !== place)) continue;
+      if (!sharesSubject(from, frame)) continue;
+      if (between.some((f) => showsSubjectOf(f, frame))) continue;
+      out.push({ frame, from });
+    }
+    run.push(...frames);
+    previousShotId = shot.id;
+  }
+  return out;
 }
 
 function lensSpecErrors(lens: LensSpec<string>, who: string): DirectionStructureError[] {

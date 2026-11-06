@@ -44,6 +44,8 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - konte-video-critic 2,850 → 2,900 (agreed by a human): a shot cut back to its setup across a
+//   cutaway read against the out frame of the shot it returns to.
 // - videoMinimaxH3R2v 5,350 → 5,400 (agreed by a human): which shot starts on `useTurbo`, and when
 //   a retake turns it off.
 // - konte-direction-critic 4,100 → 4,200 (agreed by a human): `lost-keep` — a `brief.source.keep`
@@ -195,7 +197,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "konte-video-critic",
-    budget: 2_850,
+    budget: 2_900,
     files: [...ALWAYS, `${AGENTS}/konte-video-critic.md`],
   },
   {

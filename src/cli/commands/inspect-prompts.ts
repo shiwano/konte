@@ -351,6 +351,8 @@ function promptShotLines(
   }
   const join = cutin ? undefined : promptShots.join.get(shotId);
   if (join) out.push(`join: ${join}`);
+  const returnsFrom = promptShots.returns.get(cutin ? `${shotId}.cutin` : shotId);
+  if (returnsFrom) out.push(`returns: from ${returnsFrom}`);
   if (!cutin && promptShots.coverage.has(shotId)) {
     out.push("coverage: one take the model cuts inside — the lineup is its opening frame");
   }

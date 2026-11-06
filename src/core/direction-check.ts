@@ -123,6 +123,8 @@ export type DirectionFindingCode =
   | "opening-key"
   // A cut along one camera axis: the camera does not move, so the frame does not restart.
   | "panel-unlinked"
+  // A cut back to a setup across a cutaway.
+  | "return-unlinked"
   // `landmark-flipped` is the `lineup-flipped` of things that do not move, read across the setups
   // of one place. Each `-unnamed` asks whether the text calls a thing by the name the direction
   // declared: a frame's subjects and props in its keyframes' prompts, a passer in the take's, and a
@@ -1791,31 +1793,56 @@ export type PanelSeam = {
   signedOff?: true;
 };
 
-// The frame across a cut along one camera axis — a push in or out along `within`: a keyframe drawn
-// without the one before it re-invents the subject's light, size and place in the room. Only seams whose
-// opening keyframe's model READS a previous panel reach here (see `panelSeams`), so a board drawn with
-// a model that carries no frame is silent.
-export function checkPanelLinks(seams: readonly PanelSeam[]): DirectionFinding[] {
-  const findings: DirectionFinding[] = [];
-  for (const seam of seams) {
-    if (seam.linked.includes(seam.fromPanel)) continue;
-    const shots = seam.lane === "cutin" ? "the cutins over shots" : "shots";
+// The frame a seam's opening keyframe was not handed. Only seams whose opening keyframe's model
+// READS a previous panel reach here.
+function checkSeamLinks(
+  seams: readonly PanelSeam[],
+  code: "panel-unlinked" | "return-unlinked",
+  message: (seam: PanelSeam, took: string) => string,
+): DirectionFinding[] {
+  return seams.flatMap((seam) => {
+    if (seam.linked.includes(seam.fromPanel)) return [];
     const took =
       seam.linked.length === 0
         ? "its opening keyframe takes no frame to cut from"
-        : `its opening keyframe cuts from another frame instead`;
-    findings.push({
-      code: "panel-unlinked",
-      subject: `${seam.from}-${seam.id}${seam.lane === "cutin" ? ".cutin" : ""}`,
-      message:
-        `${shots} ${seam.from}–${seam.id} cut along one camera axis, so the frame carries across ` +
-        `the seam — and ${took}. Pass \`${seam.fromPanel}\` to one of the keyframe's image inputs ` +
-        `and name it \`[Shot 1]\` in the prompt, or waive the seam where the cut is meant to re-open ` +
-        `the frame`,
-      ...signOff(seam.signedOff === true),
-    });
-  }
-  return findings;
+        : "its opening keyframe cuts from another frame instead";
+    return [
+      {
+        code,
+        subject: `${seam.from}-${seam.id}${seam.lane === "cutin" ? ".cutin" : ""}`,
+        message: message(seam, took),
+        ...signOff(seam.signedOff === true),
+      },
+    ];
+  });
+}
+
+// The frame across a cut along one camera axis — a push in or out along `within`: a keyframe drawn
+// without the one before it re-invents the subject's light, size and place in the room.
+export function checkPanelLinks(seams: readonly PanelSeam[]): DirectionFinding[] {
+  return checkSeamLinks(seams, "panel-unlinked", (seam, took) => {
+    const shots = seam.lane === "cutin" ? "the cutins over shots" : "shots";
+    return (
+      `${shots} ${seam.from}–${seam.id} cut along one camera axis, so the frame carries across ` +
+      `the seam — and ${took}. Pass \`${seam.fromPanel}\` to one of the keyframe's image inputs ` +
+      `and name it \`[Shot 1]\` in the prompt, or waive the seam where the cut is meant to re-open ` +
+      `the frame`
+    );
+  });
+}
+
+// The frame a cutaway cuts back to (see `frameReturns`).
+export function checkReturnLinks(seams: readonly PanelSeam[]): DirectionFinding[] {
+  return checkSeamLinks(seams, "return-unlinked", (seam, took) => {
+    const frame = seam.lane === "cutin" ? `the cutin over shot ${seam.id}` : `shot ${seam.id}`;
+    return (
+      `${frame} returns to the setup of shot ${seam.from} across a cutaway, so it opens where ` +
+      `${seam.from} left the subject — and ${took}. Pass \`${seam.fromPanel}\` to one of the ` +
+      `keyframe's image inputs and name it \`[Shot 1]\` in the prompt, writing in the prompt what ` +
+      `changed while the camera was away; declare \`jump-forward\` or waive the return where ` +
+      `nothing carries across`
+    );
+  });
 }
 
 /**

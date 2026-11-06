@@ -176,6 +176,7 @@ const DIRECTION_FINDING_TRAITS: Record<DirectionFindingCode, FindingTraits> = {
   "join-unshown": waive("stage+downstream"),
   "opening-key": waive("stage", "always", "take"),
   "panel-unlinked": waive("stage+downstream"),
+  "return-unlinked": waive("stage+downstream"),
   "song-unreferenced": {
     ...fixDirection,
     holds: { spend: { reach: "downstream" }, accept: true },

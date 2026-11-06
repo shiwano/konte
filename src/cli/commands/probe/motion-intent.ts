@@ -2,13 +2,19 @@ import { parseAddress, patchSourceVariantIdOf } from "../../../core/address.js";
 import {
   collectArcShots,
   collectShotFrames,
+  frameReturns,
   offscreenSides,
   type ShotFrame,
 } from "../../../core/direction.js";
-import { deriveShotHinges, type Direction } from "../../../core/dsl/direction.js";
+import {
+  deriveShotHinges,
+  resolveDirectionTimeline,
+  type Direction,
+} from "../../../core/dsl/direction.js";
 import type { StateManager } from "../../../core/state/index.js";
 import type { AnimaticDefinition } from "../../../core/types/index.js";
 import { loadAnimatic } from "../../../core/loader.js";
+import { formatSeconds } from "../../../core/format-duration.js";
 import { formatOffscreen } from "../../../core/prompt-shots.js";
 import { loadDirectionIfPresent } from "../../../core/stage-definitions.js";
 
@@ -18,10 +24,13 @@ interface MotionMove {
   camera: string | null;
 }
 
-/** The boundary into a shot, where it breaks story time or place. Either side may be absent. */
+/** The boundary into a shot, where it breaks story time or place or returns to a setup. Any part may be absent. */
 interface ShotBoundary {
   join: NonNullable<ShotFrame["join"]> | null;
   location: { from: string; to: string } | null;
+  // Seconds on the clock since the shot it returns to ended; null while the clock is unread (a song
+  // not yet generated).
+  returns: { from: string; setup: string; gap: number | null } | null;
 }
 
 /** What the shot behind a clip was asked to do — the half no measurement supplies. */
@@ -40,8 +49,8 @@ interface MotionIntent {
   }[];
 }
 
-// Keyed by shot id, for the shots whose boundary says anything: a declared `join`, or a setup in
-// another location than the shot just before on the clock.
+// Keyed by shot id, for the shots whose boundary says anything: a declared `join`, a setup in
+// another location than the shot just before on the clock, or a return to a setup across a cutaway.
 export function shotBoundaries(direction: Direction): Map<string, ShotBoundary> {
   const mainFrames = new Map(
     collectShotFrames(direction)
@@ -53,6 +62,18 @@ export function shotBoundaries(direction: Direction): Map<string, ShotBoundary> 
     return frame ? direction.setups?.[frame.setup]?.location : undefined;
   };
 
+  const returns = new Map<string, NonNullable<ShotBoundary["returns"]>>();
+  const mainReturns = frameReturns(direction).filter(({ frame }) => frame.lane === "main");
+  const timings = mainReturns.length > 0 ? resolveDirectionTimeline(direction).timings : null;
+  for (const { frame, from } of mainReturns) {
+    const before = timings?.get(from.shotId);
+    const after = timings?.get(frame.shotId);
+    const gap =
+      before?.start != null && before.duration != null && after?.start != null
+        ? after.start - (before.start + before.duration)
+        : null;
+    returns.set(frame.shotId, { from: from.shotId, setup: from.setup, gap });
+  }
   const out = new Map<string, ShotBoundary>();
   const shots = collectArcShots(direction);
   for (const [i, shot] of shots.entries()) {
@@ -60,7 +81,9 @@ export function shotBoundaries(direction: Direction): Map<string, ShotBoundary> 
     const from = locationOf(shots[i - 1]?.id);
     const to = locationOf(shot.id);
     const location = from !== undefined && to !== undefined && from !== to ? { from, to } : null;
-    if (join != null || location != null) out.set(shot.id, { join, location });
+    const back = returns.get(shot.id) ?? null;
+    if (join != null || location != null || back != null)
+      out.set(shot.id, { join, location, returns: back });
   }
   return out;
 }
@@ -181,6 +204,11 @@ export function formatMotionIntent(intent: MotionIntent): string[] {
   if (intent.boundary?.location) {
     const { from, to } = intent.boundary.location;
     lines.push(`  location  ${from} → ${to}`);
+  }
+  if (intent.boundary?.returns) {
+    const { from, setup, gap } = intent.boundary.returns;
+    const ago = gap === null ? "" : `, ${formatSeconds(gap)} ago`;
+    lines.push(`  returns   from ${from} (${setup}${ago})`);
   }
   for (const [i, move] of intent.moves.entries()) {
     const parts = [

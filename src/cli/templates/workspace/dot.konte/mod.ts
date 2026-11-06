@@ -610,6 +610,7 @@ export type DirectionFindingCode =
   | "join-unshown"
   | "opening-key"
   | "panel-unlinked"
+  | "return-unlinked"
   | "landmark-flipped"
   | "subject-unnamed"
   | "prop-unnamed"

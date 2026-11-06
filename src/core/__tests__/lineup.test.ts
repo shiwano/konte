@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   checkDirection,
+  directionShotWaivers,
+  frameReturns,
   offscreenSides,
   setupView,
   validateDirectionStructure,
@@ -977,6 +979,226 @@ describe("an aside between two same-axis frames", () => {
     expect(
       checkDirection(across, { stagingStage }).active.filter((f) => f.code === "panel-unlinked"),
     ).toEqual([]);
+  });
+});
+
+describe("return-unlinked", () => {
+  const setups: Record<string, Setup> = {
+    stern: { ...stern, within: null },
+    deck: { ...deck, within: "stern", view: undefined },
+    bow: { ...stern, name: "the deck from the bow", framing: "medium", within: null },
+    shore: { ...shore, within: null },
+  };
+  const policy = { format: { fps: 24, size: { megapixels: 0.5 } } };
+  const dir = (shots: NarrativeShot[], waivers?: Record<string, string>): Direction =>
+    ({
+      ...direction({ setups, shots, ...(waivers ? { waivers } : {}) }),
+      policy,
+    }) as unknown as Direction;
+  const graphic = (id: string) =>
+    ({
+      kind: "graphic",
+      id,
+      role: "ordinary",
+      action: "a card",
+      duration: 2,
+    }) as unknown as NarrativeShot;
+
+  // The sister on the stern frame, a cutaway to the little one from the bow, and back.
+  const cutaway = (between: NarrativeShot[] = [shot("02", "bow", { lineup: ["imouto"] })]) => [
+    shot("01", "stern", { lineup: ["ane"] }),
+    ...between,
+    shot("09", "stern", { lineup: ["ane"] }),
+  ];
+  const returnsOf = (d: Direction) =>
+    frameReturns(d).map(({ frame, from }) => `${from.shotId}-${frame.shotId}`);
+
+  const board = (
+    ...entries: { shotId: string; carries?: boolean; linked?: string[]; signedOff?: true }[]
+  ): StagingStageState => ({
+    ...noStage,
+    shotPanels: entries.map(({ shotId, carries = true, linked = [], signedOff }) => ({
+      shotId,
+      lane: "main" as const,
+      firstPanel: `animatic:shot.${shotId}.first`,
+      lastPanel: `animatic:shot.${shotId}.last`,
+      carries,
+      linked,
+      ...(signedOff ? { signedOff } : {}),
+    })),
+  });
+  const found = (d: Direction, stagingStage: StagingStageState) =>
+    checkDirection(d, { stagingStage }).active.filter((f) => f.code === "return-unlinked");
+
+  it("returns a frame to the latest frame of its setup across a cutaway", () => {
+    expect(returnsOf(dir(cutaway()))).toEqual(["01-09"]);
+  });
+
+  it("returns across any number of cutaways and a graphic shot", () => {
+    const between = [
+      shot("02", "bow", { lineup: ["imouto"] }),
+      graphic("03"),
+      shot("04", "deck", { lineup: ["imouto"] }),
+    ];
+    expect(returnsOf(dir(cutaway(between)))).toEqual(["01-09"]);
+  });
+
+  it("returns across a graphic shot alone", () => {
+    expect(returnsOf(dir(cutaway([graphic("02")])))).toEqual(["01-09"]);
+  });
+
+  it("leaves the frame just before to the join rules", () => {
+    expect(
+      returnsOf(dir([shot("01", "stern"), shot("02", "stern", { join: "jump-forward" })])),
+    ).toEqual([]);
+  });
+
+  it("returns nothing across a story-time jump in any frame between", () => {
+    const between = [shot("02", "bow", { lineup: ["imouto"], join: "jump-forward" })];
+    expect(returnsOf(dir(cutaway(between)))).toEqual([]);
+    const jumped = cutaway();
+    jumped[2] = shot("09", "stern", { lineup: ["ane"], join: "jump-back" });
+    expect(returnsOf(dir(jumped))).toEqual([]);
+  });
+
+  it("returns nothing across an aside", () => {
+    const between = [
+      shot("02", "bow", { lineup: ["imouto"] }),
+      { kind: "aside", id: "ec", label: "eyecatch", duration: 2 } as unknown as NarrativeShot,
+    ];
+    expect(returnsOf(dir(cutaway(between)))).toEqual([]);
+  });
+
+  it("returns nothing across a cutaway to another place", () => {
+    expect(returnsOf(dir(cutaway([shot("02", "shore", { lineup: ["imouto"] })])))).toEqual([]);
+  });
+
+  it("returns nothing across a cutaway that holds the subject", () => {
+    expect(returnsOf(dir(cutaway([shot("02", "bow", { lineup: ["imouto", "ane"] })])))).toEqual([]);
+  });
+
+  it("returns nothing from a coverage shot", () => {
+    const shots = cutaway();
+    shots[0] = shot("01", "stern", { lineup: ["ane"], coverage: true });
+    expect(returnsOf(dir(shots))).toEqual([]);
+  });
+
+  it("returns nothing between frames holding no subject in common", () => {
+    const shots = cutaway();
+    shots[2] = shot("09", "stern", { lineup: ["mother"] });
+    expect(returnsOf(dir(shots))).toEqual([]);
+  });
+
+  it("returns nothing across a cutaway the subject leaves or passes through", () => {
+    expect(
+      returnsOf(
+        dir(cutaway([shot("02", "bow", { lineup: ["ane", "imouto"], lineupTo: ["imouto"] })])),
+      ),
+    ).toEqual([]);
+    expect(
+      returnsOf(dir(cutaway([shot("02", "bow", { lineup: ["imouto"], passing: ["ane"] })]))),
+    ).toEqual([]);
+  });
+
+  it("returns nothing where another lane shows the subject during the cutaway", () => {
+    const between = [
+      shot("02", "bow", { lineup: ["imouto"], cutin: { setup: "shore", lineup: ["ane"] } }),
+    ] as NarrativeShot[];
+    expect(returnsOf(dir(cutaway(between)))).toEqual([]);
+    const d = dir([
+      shot("01", "shore", { cutin: { setup: "stern", lineup: ["ane"] } }),
+      shot("02", "stern", { lineup: ["ane"] }),
+      shot("03", "shore", { cutin: { setup: "stern", lineup: ["ane"] } }),
+    ] as NarrativeShot[]);
+    expect(frameReturns(d).filter(({ frame }) => frame.lane === "cutin")).toEqual([]);
+  });
+
+  it("returns across a cutaway when the frame returned to has a cutin showing the subject", () => {
+    const shots = cutaway();
+    shots[0] = shot("01", "stern", {
+      lineup: ["ane"],
+      cutin: { setup: "deck", lineup: ["ane"] },
+    } as Partial<NarrativeShot>);
+    expect(returnsOf(dir(shots))).toEqual(["01-09"]);
+  });
+
+  // The insert shares the subject as `panel-unlinked` reads it, so that seam carries the frame and
+  // a second previous panel would be refused at load.
+  it("leaves a frame an axis cut already carries to panel-unlinked", () => {
+    expect(returnsOf(dir(cutaway([shot("02", "deck", { lineup: [] })])))).toEqual([]);
+  });
+
+  it("leaves a cut along one axis that holds the subject to panel-unlinked", () => {
+    const d = dir(cutaway([shot("02", "deck", { lineup: ["ane"] })]));
+    expect(returnsOf(d)).toEqual([]);
+  });
+
+  it("returns a cutin to the cutin of its setup", () => {
+    const d = dir([
+      shot("01", "shore", { cutin: { setup: "stern", lineup: ["ane"] } }),
+      shot("02", "shore"),
+      shot("03", "shore", { cutin: { setup: "stern", lineup: ["ane"] } }),
+    ] as NarrativeShot[]);
+    expect(frameReturns(d).map(({ frame }) => `${frame.shotId}/${frame.lane}`)).toEqual([
+      "03/cutin",
+    ]);
+  });
+
+  it("passes a return whose opening keyframe was handed the frame returned to", () => {
+    expect(
+      found(
+        dir(cutaway()),
+        board({ shotId: "01" }, { shotId: "09", linked: ["animatic:shot.01.last"] }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags a return whose opening keyframe takes no frame", () => {
+    const findings = found(dir(cutaway()), board({ shotId: "01" }, { shotId: "09" }));
+    expect(findings.map((f) => f.subject)).toEqual(["01-09"]);
+    expect(findings[0]?.message).toContain("animatic:shot.01.last");
+  });
+
+  it("flags a return handed the cutaway's frame instead", () => {
+    const findings = found(
+      dir(cutaway()),
+      board(
+        { shotId: "01" },
+        { shotId: "02" },
+        { shotId: "09", linked: ["animatic:shot.02.last"] },
+      ),
+    );
+    expect(findings[0]?.message).toContain("cuts from another frame");
+  });
+
+  it("says nothing where the frame returned to is not on the board or the model reads no panel", () => {
+    expect(found(dir(cutaway()), board({ shotId: "09" }))).toEqual([]);
+    expect(
+      found(dir(cutaway()), board({ shotId: "01" }, { shotId: "09", carries: false })),
+    ).toEqual([]);
+  });
+
+  it("says nothing of a return whose opening keyframe is signed off", () => {
+    expect(
+      found(dir(cutaway()), board({ shotId: "01" }, { shotId: "09", signedOff: true })),
+    ).toEqual([]);
+  });
+
+  it("binds a waiver only under its own code", () => {
+    const d = dir(cutaway(), {
+      "return-unlinked_01-09": "she sat back while he spoke",
+      "panel-unlinked_01-09": "no axis cut here",
+    });
+    expect(directionShotWaivers(d).map((w) => w.code)).toEqual(["return-unlinked"]);
+  });
+
+  it("is waived by the return's key", () => {
+    const waived = dir(cutaway(), { "return-unlinked_01-09": "she sat back while he spoke" });
+    const stagingStage = board({ shotId: "01" }, { shotId: "09" });
+    expect(found(waived, stagingStage)).toEqual([]);
+    expect(checkDirection(waived, { stagingStage }).waived.map((f) => f.code)).toContain(
+      "return-unlinked",
+    );
   });
 });
 

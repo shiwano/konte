@@ -38,11 +38,17 @@ describe("shotBoundaries", () => {
     expect(boundaries.get("03")).toEqual({
       join: null,
       location: { from: "kitchen", to: "street" },
+      returns: null,
     });
-    expect(boundaries.get("04")).toEqual({ join: "jump-forward", location: null });
+    expect(boundaries.get("04")).toEqual({
+      join: "jump-forward",
+      location: null,
+      returns: null,
+    });
     expect(boundaries.get("05")).toEqual({
       join: "jump-back",
       location: { from: "street", to: "kitchen" },
+      returns: null,
     });
   });
 
@@ -56,6 +62,23 @@ describe("shotBoundaries", () => {
     );
 
     expect(boundaries.size).toBe(0);
+  });
+
+  it("names the shot a frame cuts back to across a cutaway, and the seconds since", () => {
+    const boundaries = shotBoundaries({
+      ...direction([
+        shot("01", "wide", { lineup: ["ann"] }),
+        shot("02", "close", { lineup: ["bo"] }),
+        shot("03", "wide", { lineup: ["ann"] }),
+      ]),
+      policy: { format: { fps: 24 } },
+    } as unknown as Direction);
+
+    expect(boundaries.get("03")).toEqual({
+      join: null,
+      location: null,
+      returns: { from: "01", setup: "wide", gap: 2 },
+    });
   });
 });
 
@@ -85,6 +108,21 @@ describe("formatMotionIntent", () => {
       "  offscreen fox (fox) screen left",
       "  hinge     gap (not in set) | bun",
     ]);
+  });
+
+  it("prints the shot a frame returns to", () => {
+    expect(
+      formatMotionIntent({
+        shotId: "60",
+        action: null,
+        boundary: {
+          join: null,
+          location: null,
+          returns: { from: "56", setup: "watsonMedium", gap: 8.42 },
+        },
+        moves: [],
+      }),
+    ).toEqual(["  returns   from 56 (watsonMedium, 8.4s ago)"]);
   });
 
   it("marks a coverage shot, whose picture cuts by design", () => {

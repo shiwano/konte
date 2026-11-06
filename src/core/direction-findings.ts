@@ -78,6 +78,7 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "join-unshown": "staging",
   "opening-key": "staging",
   "panel-unlinked": "staging",
+  "return-unlinked": "staging",
   // The song the piece is cut to. Never deferred.
   "song-unreferenced": "song",
   "lyric-unplaced": "song",
@@ -154,6 +155,7 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, WaiverShotScope> = {
   "join-unshown": "shot",
   "opening-key": "shot",
   "panel-unlinked": "boundary",
+  "return-unlinked": "boundary",
   "song-unreferenced": null,
   "lyric-unplaced": null,
   "song-overrun": null,

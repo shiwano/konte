@@ -272,6 +272,11 @@ const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindingDoc> 
       "A keyframe opening a cut along one `within` axis, on a model that reads a previous panel (`readsPrevPanel`), takes no previous panel, or another frame, among its image inputs. A cut between two frames whose lineups hold subjects but none in common is exempt. So is an opening keyframe accepted against its current definition.",
     subject: "seam (`<from>-<id>`, `.cutin` for a cutin)",
   },
+  "return-unlinked": {
+    flags:
+      "A keyframe opening a frame that cuts back to a setup across a cutaway, on a model that reads a previous panel (`readsPrevPanel`), takes no previous panel, or another frame, among its image inputs. The frame returned to is the latest one of its lane on that setup, not the frame just before. A return is none where a story-time jump in any lane or an aside lies between, a cutaway of its lane is in another place, a frame of any lane between shows one of the frame's subjects (`lineup`, `lineupTo` or `passing`), an axis cut already carries the frame (`panel-unlinked`), the frame returned to is a coverage shot, or the two frames hold subjects but none in common. An opening keyframe accepted against its current definition is exempt.",
+    subject: "return (`<from>-<id>`, `.cutin` for a cutin)",
+  },
 };
 
 const DIRECTION_ERROR_DOCS: Record<DirectionErrorCode, string> = {

@@ -1,6 +1,7 @@
 import {
   collectShots,
   continuousFrameKeys,
+  frameReturns,
   offscreenSides,
   setupHolds,
   setupView,
@@ -71,6 +72,8 @@ export interface PromptShots {
   setup: Map<string, string>;
   // The declared boundary into the shot's own frame; an ordinary one has no entry.
   join: Map<string, string>;
+  // Keyed as `passing` is: the shot a frame cuts back to across a cutaway.
+  returns: Map<string, string>;
   // The coverage shots — one take the model cuts inside, its lineup the opening frame.
   coverage: Set<string>;
   // The frames a `continuous` seam runs into, keyed `<shotId>/<lane>`.
@@ -137,6 +140,12 @@ export async function loadPromptShots(videoRoot: string): Promise<PromptShots | 
     const [shotId, lane] = key.split("/") as [string, string];
     offscreen.set(lane === "cutin" ? `${shotId}.cutin` : shotId, figures);
   }
+  const returns = new Map(
+    frameReturns(direction).map(({ frame, from }) => [
+      frame.lane === "cutin" ? `${frame.shotId}.cutin` : frame.shotId,
+      from.shotId,
+    ]),
+  );
   const timeline = resolveDirectionTimeline(direction);
   const timings = timeline.timings;
   for (const shot of collectShots(direction)) {
@@ -195,6 +204,7 @@ export async function loadPromptShots(videoRoot: string): Promise<PromptShots | 
     set,
     setup,
     join,
+    returns,
     coverage,
     continuous: continuousFrameKeys(direction),
     plateFrame,

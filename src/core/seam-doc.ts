@@ -18,6 +18,7 @@ const SEAM_CODES = new Set([
   "join-unpinned",
   "join-unshown",
   "panel-unlinked",
+  "return-unlinked",
   "lineup-flipped",
   "character-unconsumed",
 ]);
@@ -178,6 +179,13 @@ const videoCase = (
 
 const longTake = direction([shot("01", "wide"), shot("02", "wide", { join: "continuous" })]);
 const pushIn = direction([shot("01", "wide"), shot("02", "medium")]);
+const cutBack = (between: readonly Shot[], back: Partial<NarrativeShot> = {}) =>
+  direction([shot("01", "wide"), ...between, shot("03", "wide", back)]);
+const cutaway = shot("02", "reverse", { lineup: ["b"] });
+const returned = (linked: readonly string[] = []) => [
+  boarded("01"),
+  boarded("03", { reads: true, linked }),
+];
 
 const SEAM_SECTIONS: readonly SeamSection[] = [
   {
@@ -342,6 +350,49 @@ const SEAM_SECTIONS: readonly SeamSection[] = [
       boardCase("One take, handed no previous panel", longTake, [
         boarded("01"),
         boarded("02", { reads: true }),
+      ]),
+    ],
+  },
+  {
+    title: "The board's frame across a return",
+    intro:
+      "A frame cut back to a setup across a cutaway returns to the latest frame of its lane on that setup, when that is not the frame just before: its opening keyframe takes that frame's last panel in one of its image inputs. No return crosses a story-time jump in any lane or an aside, a cutaway of its lane in another place, or a frame of any lane showing the frame's subject; none starts from a coverage shot or lands where an axis cut already carries the frame, and two frames holding subjects but none in common have none. Judged where both shots are on the board and the keyframe's model reads a previous panel.",
+    cases: [
+      boardCase(
+        "Back after a cutaway, handed the frame returned to",
+        cutBack([cutaway]),
+        returned([panelAddress("01", "last")]),
+      ),
+      boardCase("Back after a cutaway, handed no previous panel", cutBack([cutaway]), returned()),
+      boardCase("Back after a graphic shot", cutBack([graphic("card")]), returned()),
+      boardCase(
+        "Back across a story-time jump",
+        cutBack([cutaway], { join: "jump-forward" }),
+        returned(),
+      ),
+      boardCase(
+        "Back after a cutaway to another place",
+        cutBack([shot("02", "yard", { lineup: ["b"] })]),
+        returned(),
+      ),
+      boardCase(
+        "Back after a cutaway that holds the subject",
+        cutBack([shot("02", "reverse", { lineup: ["b", "a"] })]),
+        returned(),
+      ),
+      boardCase(
+        "Back after an insert along the axis",
+        cutBack([shot("02", "medium", { lineup: [] })]),
+        [
+          boarded("01"),
+          boarded("02", { reads: true, linked: [panelAddress("01", "last")] }),
+          boarded("03", { reads: true }),
+        ],
+      ),
+      boardCase("Back after a push in on the subject", cutBack([shot("02", "medium")]), [
+        boarded("01"),
+        boarded("02", { reads: true, linked: [panelAddress("01", "last")] }),
+        boarded("03", { reads: true }),
       ]),
     ],
   },
