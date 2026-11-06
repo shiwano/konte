@@ -91,20 +91,3 @@ Every take is review work, bar a `#delivery` upscale, which konte accepts on com
 ### Templates
 
 Templates live under `src/cli/templates/`. The workspace sync (`syncWorkspace`, only `workspace new|setup`) overwrites managed files and renders agent settings, preserving user values and replacing konte launch paths; `HOUSE_RULES.md` is seed-only. Skills are authored under `workspace/dot.agents/skills/` (the `dot.claude/` twins are generated), subagents under `agents/<name>.md`; see `template-skills-guide`.
-
-### Subsystem guides
-
-Read when touching one:
-
-- `arch-cli-guide` — command scope and root resolution, output conventions (Next steps, confirmation, selection, lists, help text), settings, timestamps
-- `arch-direction-guide` — the arc checker and finding classes, setups, lineup, join, waivers, voice casting, part hashing, direction acceptance gates
-- `arch-review-system-guide` — reviews, feedback, handoffs, review reachability
-- `arch-comfy-api-guide` — comfy routing, Comfy Cloud, Comfy API deployments
-- `arch-jobs-guide` — standalone job kinds, run lease, keyframe normalization, the MCP daemon, comfy provisioning
-- `arch-patch-guide` — variant lineage and the leaf rule, patch staleness axes, patch lifetime
-- `arch-audio-guide` — muxing, `<Soundtrack>`/`<Sound>`, definition-hash exclusion
-- `arch-animatic-guide` — the animatic stage: `<Panel>` and its windows, asides, the derived stem, the review surfaces
-- `arch-template-system-guide` — `konte workspace new` templates (`workspace/` + `workspace/videos/<name>/`); never write scaffold files programmatically
-- `arch-delivery-guide` — delivery resolution, upscale modes, `#delivery`, export job
-- `arch-managed-binaries-guide` — managed ffmpeg/Chromium/tsc/cloudflared, the tool cache + overrides
-- `adapter-authoring` — `defineFalAsset`, input types, validators, `allowedIn`, the prompt check's exemptions
