@@ -4,25 +4,13 @@ import { KonteError } from "../../../core/errors.js";
 import { probeImage } from "../../../core/image-probe.js";
 import { inferMediaType } from "../../../core/media-type.js";
 import { openProbeTargets } from "./resolve-arg.js";
-
-function parseGrid(value: string | true | undefined): number | undefined {
-  if (value === undefined) return undefined;
-  if (value === true) return 10;
-  const step = Number(value);
-  if (!Number.isFinite(step) || step <= 0 || step > 50) {
-    throw new KonteError(
-      "INVALID_OPTION",
-      `--grid takes a percent step above 0 and up to 50, got "${value}"`,
-    );
-  }
-  return step;
-}
+import { GRID_OPTION, parseGrid, warnUnlabelledGrid } from "./shared.js";
 
 export function registerProbeImageCommand(program: Command): void {
   program
     .command("image <variantOrScope...>")
     .description("Create compact still images for visual inspection")
-    .option("--grid [percent]", "Draw a grid every <percent> of width and height (default 10)")
+    .option(...GRID_OPTION)
     .option("--force", "Rebuild cached inspection images")
     .addHelpText(
       "after",
@@ -65,10 +53,6 @@ Examples:
         if (multi) console.error(`${target.address} (${target.variantId})`);
         console.log(probes[i]!.path);
       });
-      if (probes.some((p) => !p.labelled)) {
-        console.error(
-          `warning: ffmpeg has no usable font — grid lines fall every ${grid}%, unlabelled`,
-        );
-      }
+      if (probes.some((p) => !p.labelled)) warnUnlabelledGrid(grid!);
     });
 }

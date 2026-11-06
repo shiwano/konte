@@ -88,4 +88,4 @@ Gotchas:
 
 - `konte probe contact-sheet video` / `reel-audio video` — captions, transitions, the audio timeline.
 - `konte probe motion video:shot.<id>#composition --at <sec>` — each `<Animate>` move.
-- An element positioned in % over an image (a box around a screenshot row) — `konte probe image <image> --grid` to measure it.
+- An element positioned in % over an image (a box around a screenshot row, a `<Screen>`'s corners) — `konte probe image <image> --grid` / `probe thumbnails <clip> --at <sec> --grid`.

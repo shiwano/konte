@@ -57,19 +57,23 @@ export async function probeImage(options: {
     if (cached && cached.size > 0) return { path: output, labelled: true };
   }
   if (!grid) return { path: await encode(source, variantId, output, []), labelled: true };
+  return encodeWithGrid(source, variantId, output, grid);
+}
+
+// Without a usable font the lines go unlabelled, to a name of their own so a later run with one
+// labels them.
+export async function encodeWithGrid(
+  source: string,
+  label: string,
+  output: string,
+  step: number,
+): Promise<{ path: string; labelled: boolean }> {
   try {
-    return {
-      path: await encode(source, variantId, output, gridFilters(grid, true)),
-      labelled: true,
-    };
+    return { path: await encode(source, label, output, gridFilters(step, true)), labelled: true };
   } catch (err) {
     if (!(err instanceof KonteError && err.code === "FFMPEG_ERROR")) throw err;
-    // Kept apart from the labelled name so a later run with a usable font renders the labels.
-    const plain = path.join(dir, `image-grid${grid}-unlabelled.jpg`);
-    return {
-      path: await encode(source, variantId, plain, gridFilters(grid, false)),
-      labelled: false,
-    };
+    const plain = output.replace(/\.jpg$/, "-unlabelled.jpg");
+    return { path: await encode(source, label, plain, gridFilters(step, false)), labelled: false };
   }
 }
 

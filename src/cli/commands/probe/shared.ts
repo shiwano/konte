@@ -84,3 +84,25 @@ export function requireCompositionShot(video: StageDefinition, shotId: string): 
       : `Shot "${shotId}" has no composition to capture`,
   );
 }
+
+export const GRID_OPTION = [
+  "--grid [percent]",
+  "Draw a grid every <percent> of width and height (default 10)",
+] as const;
+
+export function parseGrid(value: string | true | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  if (value === true) return 10;
+  const step = Number(value);
+  if (!Number.isFinite(step) || step <= 0 || step > 50) {
+    throw new KonteError(
+      "INVALID_OPTION",
+      `--grid takes a percent step above 0 and up to 50, got "${value}"`,
+    );
+  }
+  return step;
+}
+
+export function warnUnlabelledGrid(step: number): void {
+  console.error(`warning: ffmpeg has no usable font — grid lines fall every ${step}%, unlabelled`);
+}
