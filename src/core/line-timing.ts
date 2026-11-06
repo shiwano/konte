@@ -18,7 +18,6 @@ import {
   takeDurationSec,
 } from "./line-marks.js";
 import { recognizesSpeechIn } from "./sherpa-binary.js";
-import { linesSaidAt } from "./speech-hearing.js";
 import type { StateManager } from "./state/index.js";
 import type { AnimaticDefinition, StageDefinition, VideoDefinition } from "./types/index.js";
 import { loadDirectionDefinition } from "./loader.js";
