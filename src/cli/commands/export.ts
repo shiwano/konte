@@ -147,7 +147,7 @@ async function registerVideoExport(opts: {
     if (deliveryUpscalerMissing(video)) {
       throw new KonteError(
         "DELIVERY_UPSCALE_REQUIRED",
-        `The direction delivers ${delivery.size!.width}x${delivery.size!.height} from a ${video.format.size.width}x${video.format.size.height} canvas but video.tsx wires no export.delivery.upscale. Add upscale.video or upscale.frame, or raise policy.format.size.megapixels so the canvas meets the delivery.`,
+        `The direction delivers ${delivery.size!.width}x${delivery.size!.height} from a ${video.format.size.width}x${video.format.size.height} canvas but video.tsx wires no export.delivery.upscale. Add upscale.video or upscale.frame, or raise policy.format.size.megapixels.`,
       );
     }
   }
