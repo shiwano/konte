@@ -15,6 +15,8 @@ export interface RenderContext {
   // Which camera frame the elements rendering now belong to. `<Cutin>` sets it for its children;
   // absent is the shot's own picture.
   lane?: PanelLane;
+  // Set by `<Screen>` for its children.
+  inScreen?: true;
   // The document language and font stack `Composition` renders its <head> from.
   typography: Typography;
   // Each cue source's levelling gain, keyed by the src as it appears in this render (see

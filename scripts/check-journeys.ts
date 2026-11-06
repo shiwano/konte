@@ -44,6 +44,8 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - adaptation 36,150 → 36,200 (agreed by a human): `<Screen>`, a layer warped onto a surface the
+//   frame shows at an angle.
 // - konte-video-critic 2,850 → 2,900 (agreed by a human): a shot cut back to its setup across a
 //   cutaway read against the out frame of the shot it returns to.
 // - videoMinimaxH3R2v 5,350 → 5,400 (agreed by a human): which shot starts on `useTurbo`, and when
@@ -207,7 +209,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "adaptation",
-    budget: 36_150,
+    budget: 36_200,
     files: [...VIDEO_FILES, `${SKILLS}/scenario-guide/references/adaptation.md`],
   },
   {

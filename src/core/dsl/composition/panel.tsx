@@ -40,7 +40,19 @@ export function Panel({
   alt = "",
   ...rest
 }: PanelProps): React.ReactElement {
-  const { duration: shotDuration, panels, cutinPanels, lane = "main" } = getRenderContext();
+  const {
+    duration: shotDuration,
+    panels,
+    cutinPanels,
+    lane = "main",
+    inScreen,
+  } = getRenderContext();
+  if (inScreen) {
+    throw new KonteError(
+      "ANIMATIC_INVALID",
+      `A <Panel> inside a <Screen> would key the shot on a warped layer; place that picture as an <Image>.`,
+    );
+  }
   // The window runs to the NEXT panel's start, which only the resolved panel list knows, and pairs
   // by position because by the real render the `src` is a served URL rather than an address. Absent
   // (the collecting pass that produces that list, or a raw render) the panel spans the shot. A panel

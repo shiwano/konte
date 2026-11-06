@@ -9125,6 +9125,31 @@ export declare function Panel({
   alt,
   ...rest
 }: PanelProps): React.ReactElement;
+/** A point as fractions of the canvas: `[x, y]`, `[0, 0]` the top-left corner, `[1, 1]` the bottom-right. */
+export type ScreenPoint = readonly [x: number, y: number];
+export type ScreenProps = {
+  /** The surface's corners in the frame — top-left, top-right, bottom-right, bottom-left of what it shows — as canvas fractions. */
+  corners: readonly [ScreenPoint, ScreenPoint, ScreenPoint, ScreenPoint];
+  /** The width in px of the box its children lay out in. Defaults to the mean length of the top and bottom edges. */
+  width?: number;
+  /** The height in px of that box. Defaults to the mean length of the left and right edges. */
+  height?: number;
+  className?: string;
+  style?: React.ComponentPropsWithoutRef<"div">["style"];
+  children?: React.ReactNode;
+};
+/**
+ * A flat surface in the frame seen at an angle — a monitor, a phone, a sign. Its children lay out
+ * in an upright `width`×`height` box, which is warped so the box's corners land on `corners`.
+ */
+declare function Screen$1({
+  corners,
+  width,
+  height,
+  className,
+  style,
+  children,
+}: ScreenProps): React.ReactElement;
 /** A `<Subtitle>` entry naming a script line: what is shown while it is said. */
 export type SubtitleLineEntry = {
   shot: string;
@@ -9237,7 +9262,7 @@ export declare function seed(): string & {
   readonly __brand: "KontePlaceholder";
 };
 
-export { Audio$1 as Audio, Image$1 as Image };
+export { Audio$1 as Audio, Image$1 as Image, Screen$1 as Screen };
 
 export type { Location$1 as Location };
 export declare const Cutin: typeof Cutin$1;
