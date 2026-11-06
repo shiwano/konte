@@ -167,17 +167,17 @@ async function observe(
   if (named) {
     for (const id of ids!) {
       const job = jobs.find((j) => j.id === id);
-      if (job) results.push(outcomeOf(job, timedOut.has(id)));
+      if (job) results.push(outcomeOf(job, timedOut.has(id), jobManager.videoRoot));
     }
   } else {
     for (const job of jobs) {
       if (timedOut.has(job.id)) {
-        results.push(outcomeOf(job, true));
+        results.push(outcomeOf(job, true, jobManager.videoRoot));
         continue;
       }
       if (!isJobTerminal(job.status)) continue;
       if (job.reportedAt != null && !observedActive.has(job.id)) continue;
-      results.push(outcomeOf(job, false));
+      results.push(outcomeOf(job, false, jobManager.videoRoot));
     }
   }
   const settledBefore = results.filter((r) => terminalAtStart.has(r.id)).length;
@@ -194,7 +194,7 @@ async function queueSongReadings(jobManager: JobManager): Promise<string[]> {
   });
 }
 
-function outcomeOf(job: JobRecord, timedOut: boolean): Outcome {
+function outcomeOf(job: JobRecord, timedOut: boolean, videoRoot: string): Outcome {
   return {
     id: job.id,
     kind: job.kind,
@@ -206,7 +206,7 @@ function outcomeOf(job: JobRecord, timedOut: boolean): Outcome {
         : job.kind === "generation"
           ? job.outputFiles
           : job.kind === "export" && job.outputFile
-            ? [job.outputFile]
+            ? [path.relative(process.cwd(), path.resolve(videoRoot, job.outputFile))]
             : [],
     error: timedOut ? null : job.error,
     timedOut,

@@ -443,6 +443,23 @@ describe("job wait command", () => {
     expect(stdout).toContain("1 job(s) settled: 1 completed");
   });
 
+  it("names the export path from the cwd when run at the workspace root", async () => {
+    const { jobManager, id } = await createForeignOwnedExport();
+    const settle = settleOnRefusedClaim(jobManager, id, {
+      status: "completed",
+      progress: 100,
+      outputFile: "dist/video/main/out.mp4",
+      completedAt: new Date().toISOString(),
+    });
+
+    const workspaceDir = path.resolve(projectDir, "..", "..");
+    const { stdout } = await run(["job", "wait", id], workspaceDir);
+    await settle;
+
+    const expected = path.join(path.relative(workspaceDir, projectDir), "dist/video/main/out.mp4");
+    expect(stdout).toContain(`Export ${id}: ${expected}`);
+  });
+
   it("waits for a node-activate rendered by another worker (single id)", async () => {
     const jobManager = new JobManager(projectDir);
     const job = await jobManager.ensureComfyNodeActivateJob({ dependsOnJobs: [], cnrIds: [] });

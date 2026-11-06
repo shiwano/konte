@@ -1,3 +1,4 @@
+import * as path from "node:path";
 import type { Command } from "commander";
 import { ADAPTER_KEY_METADATA_KEY } from "../../../core/adapter-key.js";
 import { formatDuration } from "../../../core/format-duration.js";
@@ -43,7 +44,9 @@ function printJob(
   diagnoses: readonly string[],
   queueAhead: number | null,
   now: number,
+  videoRoot: string,
 ): void {
+  const display = (file: string) => path.relative(process.cwd(), path.resolve(videoRoot, file));
   const timing = computeJobTiming(job, now);
 
   console.log(`Job: ${job.id}`);
@@ -106,10 +109,10 @@ function printJob(
 
   if (job.kind === "generation" && job.outputFiles.length > 0) {
     console.log("Outputs:");
-    for (const file of job.outputFiles) console.log(`  ${file}`);
+    for (const file of job.outputFiles) console.log(`  ${display(file)}`);
   }
   if (job.kind === "export" && job.outputFile) {
-    console.log(`Output: ${job.outputFile}`);
+    console.log(`Output: ${display(job.outputFile)}`);
   }
 
   if (diagnoses.length > 0) {
@@ -148,6 +151,6 @@ export function registerJobShowCommand(program: Command): void {
       const diagnoses = diagnoseJob({ job, dependencies, stats, now });
       const queueAhead = comfyQueueAhead(job, allJobs);
 
-      printJob(job, dependencies, stats, diagnoses, queueAhead, now);
+      printJob(job, dependencies, stats, diagnoses, queueAhead, now, videoRoot);
     });
 }
