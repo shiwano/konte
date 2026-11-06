@@ -392,6 +392,12 @@ const DEV_JOURNEYS = [
     budget: 4_400,
     files: [...DEV_ALWAYS, `${DEV}/konte-demo-ui-sync/SKILL.md`],
   },
+  // Surveying konte's source for refactoring candidates into a task list.
+  {
+    name: "dev-refactor-survey",
+    budget: 4_100,
+    files: [...DEV_ALWAYS, `${DEV}/konte-refactor-survey/SKILL.md`],
+  },
 ];
 
 const ADAPTER_BUDGETS: Record<string, number> = {
