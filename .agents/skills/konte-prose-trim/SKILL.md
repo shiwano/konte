@@ -1,16 +1,16 @@
 ---
 name: konte-prose-trim
-description: Cut redundant and meta prose from what a change just touched — skills, guides, docs, AGENTS.md, code comments. Use after writing or editing any of them, or on /konte-prose-trim.
+description: Cut redundant and meta prose from what a change just touched — skills, guides, docs, AGENTS.md, code comments, CLI output strings. Use after writing or editing any of them, or on /konte-prose-trim.
 user-invocable: true
 argument-hint: "[path | git-ref]"
 ---
 
-Delete the explanation an agent adds by reflex, in any doc or comment. Done = every changed `.md` line and comment carries only facts the reader acts on, and `bun run check` passes. A pass over every skill is `konte-skill-audit`'s.
+Delete the explanation an agent adds by reflex, in any doc, comment or output string. Done = every changed `.md` line, comment and output string carries only facts the reader acts on, and `bun run check` passes. A pass over every skill is `konte-skill-audit`'s.
 
 ## Scope
 
 - Default: the working diff — `git diff HEAD` plus untracked files. `$ARGUMENTS` overrides with a path, or a ref to diff against (`main`, `HEAD~3`).
-- In scope: `*.md` (skills, `references/`, `dot.konte/guides/`, `AGENTS.md`, `docs/`) and comments in changed `*.ts` / `*.tsx`.
+- In scope: `*.md` (skills, `references/`, `dot.konte/guides/`, `AGENTS.md`, `docs/`), and in changed `*.ts` / `*.tsx` the comments and printed string literals — a Next steps `detail` / `label`, a finding message, an error message, help text.
 - Only lines the diff touched — untouched prose is out of scope unless `$ARGUMENTS` names the file.
 - Never edit `dot.claude/skills/` — generated twins; fix the `dot.agents/` source.
 
@@ -29,7 +29,7 @@ Delete the explanation an agent adds by reflex, in any doc or comment. Done = ev
 
 ## Keep
 
-- A fact that changes what the reader does.
+- A fact that changes what the reader does — in an output string, the consequence of the command that printed it.
 - A non-obvious constraint, failure mode, or footgun ("from 1.1 up the model drops phonemes").
 - A rule's inline why — `rule — why`, one line.
 - A skill's opening scope/done sentence.
