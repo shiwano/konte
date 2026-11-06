@@ -132,7 +132,50 @@ export async function embedFontFaces(
       `Capture refused, font failed to load: ${families.join(", ")} — check the family's Google Fonts name and the network, then re-run`,
     );
   }
-  return embedded.replace(GOOGLE_FONTS_LINK, "");
+  return pinRangedFontWeights(embedded).replace(GOOGLE_FONTS_LINK, "");
+}
+
+const DETERMINISTIC_FONTS_STYLE =
+  /(<style\b[^>]*\bdata-hyperframes-deterministic-fonts\b[^>]*>)([\s\S]*?)(<\/style>)/i;
+const FONT_FACE_RULE = /@font-face\s*\{[^}]*\}/g;
+const FONT_WEIGHT_DESCRIPTOR = /(font-weight\s*:\s*)[^;}]+/;
+
+function fontFaceDescriptor(rule: string, name: string): string | undefined {
+  return rule.match(new RegExp(`[{;\\s]${name}\\s*:\\s*([^;}]+)`))?.[1]?.trim();
+}
+
+/**
+ * Copy each weight-range face onto every single weight its family declares inside that range.
+ * The producer emits a bundled Latin-only face at an exact weight beside a ranged face holding the
+ * rest of the script; Chromium matches the exact face alone, so every other codepoint at that
+ * weight falls through to a system font.
+ */
+export function pinRangedFontWeights(html: string): string {
+  return html.replace(DETERMINISTIC_FONTS_STYLE, (_, open: string, css: string, close: string) => {
+    const faceKey = (rule: string) =>
+      `${fontFaceDescriptor(rule, "font-family")}\0${fontFaceDescriptor(rule, "font-style") ?? "normal"}`;
+    const exactWeights = new Map<string, Set<number>>();
+    for (const [rule] of css.matchAll(FONT_FACE_RULE)) {
+      const weight = fontFaceDescriptor(rule, "font-weight");
+      if (!weight || !/^\d+$/.test(weight)) continue;
+      const key = faceKey(rule);
+      exactWeights.set(key, (exactWeights.get(key) ?? new Set()).add(Number(weight)));
+    }
+    const pinned = css.replace(FONT_FACE_RULE, (rule) => {
+      const range = fontFaceDescriptor(rule, "font-weight")?.match(/^(\d+)\s+(\d+)$/);
+      if (!range) return rule;
+      const low = Number(range[1]);
+      const high = Number(range[2]);
+      const inside = [...(exactWeights.get(faceKey(rule)) ?? [])]
+        .filter((weight) => weight >= low && weight <= high)
+        .sort((a, b) => a - b);
+      return [
+        rule,
+        ...inside.map((weight) => rule.replace(FONT_WEIGHT_DESCRIPTOR, `$1${weight}`)),
+      ].join("\n");
+    });
+    return `${open}${pinned}${close}`;
+  });
 }
 
 /**

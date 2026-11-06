@@ -34,7 +34,11 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 
 import * as fsPromises from "node:fs/promises";
 import * as hfProducer from "@hyperframes/producer";
-import { compositeWithHyperFrames, ensureHyperFrames } from "../hyperframes.js";
+import {
+  compositeWithHyperFrames,
+  ensureHyperFrames,
+  pinRangedFontWeights,
+} from "../hyperframes.js";
 
 const createRenderJobMock = hfProducer.createRenderJob as unknown as Mock;
 const executeRenderJobMock = hfProducer.executeRenderJob as unknown as Mock;
@@ -489,5 +493,53 @@ describe("compositeWithHyperFrames", () => {
         quality: "draft",
       }),
     ).rejects.toThrow("HyperFrames render failed");
+  });
+});
+
+describe("pinRangedFontWeights", () => {
+  const face = (weight: string, range: string, src = "data:font/woff2;base64,AAA") =>
+    `@font-face {\n  font-family: "Noto Sans JP";\n  src: url("${src}") format("woff2");\n  font-style: normal;\n  font-weight: ${weight};\n  font-display: block;\n  unicode-range: ${range};\n}`;
+  const page = (css: string) =>
+    `<html><head><style data-hyperframes-deterministic-fonts="true">${css}</style></head><body></body></html>`;
+  const weightsOf = (html: string, src: string) =>
+    [...html.matchAll(/@font-face\s*\{[^}]*\}/g)]
+      .map(([rule]) => rule)
+      .filter((rule) => rule.includes(src))
+      .map((rule) => rule.match(/font-weight:\s*([^;]+);/)?.[1]);
+
+  it("copies a ranged face onto each exact weight of its family inside the range", () => {
+    const html = pinRangedFontWeights(
+      page(
+        [
+          face("100 900", "U+3044, U+300C", "data:font/woff2;base64,CJK"),
+          face("400", "U+0000-00FF"),
+          face("700", "U+0000-00FF"),
+        ].join("\n\n"),
+      ),
+    );
+    expect(weightsOf(html, "base64,CJK")).toEqual(["100 900", "400", "700"]);
+    expect(weightsOf(html, "base64,AAA")).toEqual(["400", "700"]);
+  });
+
+  it("leaves a ranged face alone when no exact weight of the family falls inside it", () => {
+    const css = [
+      face("100 300", "U+3044", "data:font/woff2;base64,CJK"),
+      face("700", "U+0000-00FF"),
+    ].join("\n\n");
+    expect(pinRangedFontWeights(page(css))).toBe(page(css));
+  });
+
+  it("does not pin a weight declared by another family", () => {
+    const css = [
+      face("100 900", "U+3044", "data:font/woff2;base64,CJK"),
+      face("700", "U+0000-00FF").replace('"Noto Sans JP"', '"Inter"'),
+    ].join("\n\n");
+    expect(weightsOf(pinRangedFontWeights(page(css)), "base64,CJK")).toEqual(["100 900"]);
+  });
+
+  it("does not touch @font-face rules outside the producer's style element", () => {
+    const authored = `<style>${face("100 900", "U+3044")}\n${face("700", "U+0000-00FF")}</style>`;
+    const html = `<html><head>${authored}</head></html>`;
+    expect(pinRangedFontWeights(html)).toBe(html);
   });
 });
