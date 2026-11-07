@@ -11,6 +11,7 @@ workflows:
     '.github/workflows/pr-message.yml':
         - 'actions/checkout@v7.0.1'
         - 'cachix/install-nix-action@v31.11.1'
+        - 'nix-community/cache-nix-action@v7.0.2'
     '.github/workflows/publish-plugin.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/release.yml':
