@@ -26,9 +26,9 @@ konte takes the opposite approach.
 
 **Instead of teaching an agent to operate a filmmaking tool, we structure filmmaking as a software project that coding agents already know how to work with.**
 
-A konte project makes the production explicit: the creative direction, the shots, the assets and the dependencies between them, every generated take, which takes were selected, and the feedback on each. The agent navigates that structure, runs production tools, inspects results, and makes changes using the same general capabilities it uses for software.
+A konte workspace makes production explicit: the creative direction, the shots, the assets and the dependencies between them, every generated take, which takes were selected, and the feedback on each. The agent navigates that structure, runs production tools, inspects results, and makes changes using the same general capabilities it uses for software.
 
-The media may come from ComfyUI or another backend, but the agent works with the production through one consistent project interface.
+The media may come from ComfyUI or another backend, but the agent works with it through one consistent interface.
 
 We don't rebuild the reasoning, tool execution, or project navigation that coding agents already provide. We build on them. And if you are comfortable directing a coding agent to build software, you already know how to direct one to make a film.
 
@@ -52,7 +52,7 @@ Today's coding agents can already coordinate meaningful production work, and the
 
 konte is designed to benefit from that progress. Because it relies on general-purpose coding agents rather than a fixed, specialized filmmaking intelligence, every improvement in those agents expands what a konte production can accomplish. A more capable agent can manage more shots, coordinate more complicated dependencies, keep consistency across longer sequences, and respond to more sophisticated direction.
 
-With an ad hoc workflow, more clips mean more files, decisions, dependencies, and revisions to keep in your head. A smarter agent helps, but the complexity doesn't go away. A structured project gives that growing intelligence a stable foundation: production state is explicit, decisions are preserved, and the agent always operates in the same environment.
+With an ad hoc workflow, more clips mean more files, decisions, dependencies, and revisions to keep in your head. A smarter agent helps, but the complexity doesn't go away. A structured workspace gives that growing intelligence a stable foundation: production state is explicit, decisions are preserved, and the agent always operates in the same environment.
 
 This is the bet behind konte:
 

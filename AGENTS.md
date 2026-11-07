@@ -33,7 +33,7 @@ bun run check    # lint + format check
 
 ### Workspace and videos
 
-A konte project is a **workspace** (`konte.config.json`, `konte.credentials.json`, `adapters/`, `tsconfig.json`, `.konte/{mod.ts,template.lock.json,tools,current-video}`) holding N **videos** under `videos/<name>/` (`konte.state.json`, `direction.ts` and the stage files, `assets/`, `dist/`, `review/`, `patches/`, `source/`, `.konte/{jobs.db,logs,cache}`).
+A konte **workspace** (`konte.config.json`, `konte.credentials.json`, `adapters/`, `tsconfig.json`, `.konte/{mod.ts,template.lock.json,tools,current-video}`) holds N **videos** under `videos/<name>/` (`konte.state.json`, `direction.ts` and the stage files, `assets/`, `dist/`, `review/`, `patches/`, `source/`, `.konte/{jobs.db,logs,cache}`).
 
 A command acts on the video cwd sits inside, else the workspace's **current video** (`.konte/current-video`, set by `konte video new` / `video use`); there is no `--video` flag — use `--cwd`. A credential is keyed by the environment variable it becomes and loaded at startup; a real env var wins.
 
