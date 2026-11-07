@@ -402,8 +402,21 @@ function suggestGenerate(
     // Same rule as everywhere else: only a stage a command can name. An unbaked depth map is
     // produced by the run of whichever stage consumes it, which this loop suggests on its own.
     if (!isStageScope(r.label)) continue;
-    actions.push({ command: `konte generate ${r.label}` });
+    const detail = remakeDetail(r.label, r.needsRegenerate);
+    actions.push({ command: `konte generate ${r.label}`, ...(detail ? { detail } : {}) });
   }
+}
+
+const REMAKE_LISTED = 5;
+
+function remakeDetail(stage: string, suffixes: readonly string[]): string | null {
+  if (suffixes.length === 0) return null;
+  const listed = suffixes.slice(0, REMAKE_LISTED).map((suffix) => `${stage}:${suffix}`);
+  const more = suffixes.length - listed.length;
+  const takes = `${listed.join(", ")}${more > 0 ? ` and ${more} more` : ""}`;
+  return stage === "video"
+    ? `remakes stale ${takes}; the video review shows the board in their place until then`
+    : `remakes stale ${takes}`;
 }
 
 // The deliverable is the point of the tool, so the moment the video stage can produce one is the

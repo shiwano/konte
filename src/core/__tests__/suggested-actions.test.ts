@@ -550,7 +550,28 @@ describe("suggestForStatus", () => {
       state: makeState({}),
       readiness: [readinessFor("video", [], ["shot.01.motion"])],
     });
-    expect(actions).toEqual([{ command: "konte generate video" }]);
+    expect(actions).toEqual([
+      {
+        command: "konte generate video",
+        detail:
+          "remakes stale video:shot.01.motion; the video review shows the board in their place until then",
+      },
+    ]);
+  });
+
+  it("names the first stale takes and counts the rest", () => {
+    const stale = ["01", "02", "03", "04", "05", "06", "07"].map((id) => `shot.${id}.key`);
+    const actions = suggestForStatus({
+      state: makeState({}),
+      readiness: [readinessFor("animatic", [], stale)],
+    });
+    expect(actions).toEqual([
+      {
+        command: "konte generate animatic",
+        detail:
+          "remakes stale animatic:shot.01.key, animatic:shot.02.key, animatic:shot.03.key, animatic:shot.04.key, animatic:shot.05.key and 2 more",
+      },
+    ]);
   });
 
   it("suggests generate for an asset that has never been generated, so has no state entry", () => {
