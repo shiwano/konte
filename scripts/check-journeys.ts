@@ -47,6 +47,8 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - konte-prompt-critic 3,950 → 4,000, konte-animatic-critic 3,850 → 3,900 (agreed by a human): a
+//   character's size against a recurring object, measured on the body.
 // - lang-ja (new, 650): how a Japanese `script` line is written for a speech model.
 // - adaptation 36,150 → 36,200 (agreed by a human): `<Screen>`, a layer warped onto a surface the
 //   frame shows at an angle.
@@ -183,12 +185,12 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "konte-prompt-critic",
-    budget: 3_950,
+    budget: 4_000,
     files: [...ALWAYS, `${AGENTS}/konte-prompt-critic.md`],
   },
   {
     name: "konte-animatic-critic",
-    budget: 3_850,
+    budget: 3_900,
     files: [...ALWAYS, `${AGENTS}/konte-animatic-critic.md`],
   },
   {
