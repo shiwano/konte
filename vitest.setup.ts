@@ -50,6 +50,9 @@ if (!process.env.KONTE_SHERPA_RECOGNIZER_PATH) {
 if (!process.env.KONTE_SENSE_VOICE_MODEL_DIR) {
   process.env.KONTE_SENSE_VOICE_MODEL_DIR = path.join(os.tmpdir(), "konte-no-sense-voice");
 }
+if (!process.env.KONTE_PARAKEET_MODEL_DIR) {
+  process.env.KONTE_PARAKEET_MODEL_DIR = path.join(os.tmpdir(), "konte-no-parakeet");
+}
 
 // The e2e suite spawns the real CLI, whose preAction type-checks the scaffolded project — on a
 // cold cache that downloads the managed native tsc from npm. The JS `tsc` takes the same

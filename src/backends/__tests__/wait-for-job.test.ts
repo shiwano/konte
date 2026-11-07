@@ -386,7 +386,7 @@ describe("waitForJob line hearing", () => {
 
     const result = await waitForJob(jobManager, variantId, roots, {
       ...definitions(),
-      video: buildVideo("fr"),
+      video: buildVideo("hi"),
     });
 
     expect(result.status).toBe("completed");

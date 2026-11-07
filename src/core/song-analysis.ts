@@ -71,7 +71,7 @@ export async function analyzeSongVariant(opts: {
     phrases = readSungPhrases(voice);
     opts.log(`Singing: ${phrases.length} sung stretch(es)`);
     if (!recognizesSpeechIn(opts.lang)) {
-      opts.log(`Warning: SenseVoice does not recognize ${opts.lang}, so no line is placed`);
+      opts.log(`Warning: speech in ${opts.lang} is not recognized, so no line is placed`);
     } else {
       try {
         heard = await hearSpeech(vocals, voice.length / ANALYSIS_RATE, opts.lang, opts.workDir);

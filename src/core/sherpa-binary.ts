@@ -21,6 +21,38 @@ export const SENSE_VOICE_URL =
 const SENSE_VOICE_FILES = ["model.int8.onnx", "tokens.txt"];
 const SENSE_VOICE_LANGS = new Set(["zh", "en", "ja", "ko", "yue"]);
 
+// Parakeet TDT v3, int8: speech recognition in 25 European languages, with a time on every token.
+// It names no language and is told none.
+export const PARAKEET_URL =
+  "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2";
+const PARAKEET_FILES = ["encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"];
+const PARAKEET_LANGS = new Set([
+  "bg",
+  "cs",
+  "da",
+  "de",
+  "el",
+  "es",
+  "et",
+  "fi",
+  "fr",
+  "hr",
+  "hu",
+  "it",
+  "lt",
+  "lv",
+  "mt",
+  "nl",
+  "pl",
+  "pt",
+  "ro",
+  "ru",
+  "sk",
+  "sl",
+  "sv",
+  "uk",
+]);
+
 /** Where each platform/arch fetches its version-pinned sherpa-onnx build. Pure (for testing). */
 export function sherpaDownloadUrl(platform: NodeJS.Platform, arch: string): string {
   const base = `https://github.com/k2-fsa/sherpa-onnx/releases/download/v${SHERPA_VERSION}/sherpa-onnx-v${SHERPA_VERSION}`;
@@ -45,6 +77,7 @@ function exeName(name: string): string {
 let sherpaDir: string | null = null;
 let modelDir: string | null = null;
 let senseVoiceDir: string | null = null;
+let parakeetDir: string | null = null;
 // The managed sherpa-onnx build, provisioned on first use.
 async function managedSherpaDir(): Promise<string> {
   if (sherpaDir) return sherpaDir;
@@ -129,6 +162,30 @@ async function senseVoiceModelDir(): Promise<string> {
 }
 
 /**
+ * The directory holding Parakeet, downloading it on first use; `KONTE_PARAKEET_MODEL_DIR` names one
+ * instead.
+ */
+async function parakeetModelDir(): Promise<string> {
+  if (parakeetDir) return parakeetDir;
+  const override = process.env.KONTE_PARAKEET_MODEL_DIR;
+  if (override) {
+    parakeetDir = override;
+    return override;
+  }
+  const dir = toolCacheDir("parakeet-tdt-0.6b-v3-int8");
+  await provisionOnce({
+    dir,
+    pin: toolPin([PARAKEET_URL]),
+    files: PARAKEET_FILES,
+    label: "Parakeet model",
+    errorCode: "SHERPA_SETUP_FAILED",
+    fill: () => unpackTarballInto(PARAKEET_URL, dir, "parakeet"),
+  });
+  parakeetDir = dir;
+  return dir;
+}
+
+/**
  * Separate a 44.1 kHz stereo WAV into its voice (`vocalsWav`) and the rest (`instrumentalWav`).
  * spleeter reads 44.1 kHz; the caller converts.
  */
@@ -150,43 +207,60 @@ export async function separateSong(
 }
 
 // What one 16 kHz mono WAV is heard to say: each token and the second it starts at in that WAV, and
-// the language SenseVoice heard it in (`ja`, `en`, …; null where it names none).
+// the language the recognizer heard it in (`ja`, `en`, …; null where it names none).
 export type HeardTokens = { tokens: string[]; timestamps: number[]; lang: string | null };
 
-function senseVoiceLanguage(lang: string): string | null {
+type Recognizer = "sense-voice" | "parakeet";
+
+function recognizerOf(lang: string): Recognizer | null {
   const primary = lang.split("-")[0]!.toLowerCase();
-  return SENSE_VOICE_LANGS.has(primary) ? primary : null;
+  if (SENSE_VOICE_LANGS.has(primary)) return "sense-voice";
+  if (PARAKEET_LANGS.has(primary)) return "parakeet";
+  return null;
 }
 
 /** Whether speech in `lang` (a BCP 47 tag) is recognized. */
 export function recognizesSpeechIn(lang: string): boolean {
-  return senseVoiceLanguage(lang) !== null;
+  return recognizerOf(lang) !== null;
+}
+
+async function recognizerArgs(recognizer: Recognizer, lang: string | null): Promise<string[]> {
+  if (recognizer === "parakeet") {
+    const model = await parakeetModelDir();
+    return [
+      `--encoder=${path.join(model, "encoder.int8.onnx")}`,
+      `--decoder=${path.join(model, "decoder.int8.onnx")}`,
+      `--joiner=${path.join(model, "joiner.int8.onnx")}`,
+      `--tokens=${path.join(model, "tokens.txt")}`,
+      "--model-type=nemo_transducer",
+    ];
+  }
+  const model = await senseVoiceModelDir();
+  return [
+    `--sense-voice-model=${path.join(model, "model.int8.onnx")}`,
+    `--tokens=${path.join(model, "tokens.txt")}`,
+    `--sense-voice-language=${lang === null ? "auto" : lang.split("-")[0]!.toLowerCase()}`,
+  ];
 }
 
 /**
  * Recognize speech in each 16 kHz mono WAV, in order. `lang` is the BCP 47 tag of what is said, one
- * `recognizesSpeechIn` accepts, or null to have SenseVoice tell the language itself.
+ * `recognizesSpeechIn` accepts, or null to have SenseVoice tell the language itself among its own.
  */
 export async function recognizeSpeech(
   wavs: readonly string[],
   lang: string | null,
 ): Promise<HeardTokens[]> {
-  const language = lang === null ? "auto" : senseVoiceLanguage(lang);
-  if (!language) {
+  const recognizer = lang === null ? "sense-voice" : recognizerOf(lang);
+  if (!recognizer) {
     throw new KonteError("VALIDATION_FAILED", `Speech in "${lang}" is not recognized.`);
   }
   if (wavs.length === 0) return [];
-  const [bin, model] = await Promise.all([
+  const [bin, args] = await Promise.all([
     sherpaBin(RECOGNIZER, process.env.KONTE_SHERPA_RECOGNIZER_PATH),
-    senseVoiceModelDir(),
+    recognizerArgs(recognizer, lang),
   ]);
-  const { stdout } = await execFileAsync(bin, [
-    `--sense-voice-model=${path.join(model, "model.int8.onnx")}`,
-    `--tokens=${path.join(model, "tokens.txt")}`,
-    `--sense-voice-language=${language}`,
-    "--num-threads=4",
-    ...wavs,
-  ]);
+  const { stdout } = await execFileAsync(bin, [...args, "--num-threads=4", ...wavs]);
   const results = stdout
     .split("\n")
     .filter((line) => line.startsWith("{"))

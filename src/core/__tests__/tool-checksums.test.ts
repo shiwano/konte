@@ -7,7 +7,12 @@ import { KonteError } from "../errors.js";
 import { ffmpegDownloadSources } from "../ffmpeg-binary.js";
 import { IPADIC_URL } from "../japanese-reading.js";
 import { TOOL_CHECKSUMS, toolChecksum, toolPin } from "../tool-checksums.js";
-import { SENSE_VOICE_URL, SPLEETER_URL, sherpaDownloadUrl } from "../sherpa-binary.js";
+import {
+  PARAKEET_URL,
+  SENSE_VOICE_URL,
+  SPLEETER_URL,
+  sherpaDownloadUrl,
+} from "../sherpa-binary.js";
 import { tscDownloadUrl } from "../tsc.js";
 
 // `toolDownloadUrls()` hand-lists the platform/arch each tool builds for, so an omission there
@@ -49,7 +54,12 @@ const RESOLVERS: Record<string, (platform: NodeJS.Platform, arch: string) => str
   cloudflared: (platform, arch) => [cloudflaredDownloadSource(platform, arch).url],
   tsc: (platform, arch) => [tscDownloadUrl(platform, arch)],
   chromium: (platform, arch) => [chromiumDownloadUrl(platform, arch)],
-  sherpa: (platform, arch) => [sherpaDownloadUrl(platform, arch), SPLEETER_URL, SENSE_VOICE_URL],
+  sherpa: (platform, arch) => [
+    sherpaDownloadUrl(platform, arch),
+    SPLEETER_URL,
+    SENSE_VOICE_URL,
+    PARAKEET_URL,
+  ],
   beatThis: () => BEAT_THIS_URLS,
   ipadic: () => [IPADIC_URL],
 };

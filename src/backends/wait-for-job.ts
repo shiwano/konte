@@ -401,7 +401,7 @@ async function runAsOwner(
     if (owesLine && !recognizesSpeechIn(lang)) {
       jobManager.appendLog(
         variantId,
-        `SenseVoice does not recognize ${lang}; the line is not heard.`,
+        `Speech in ${lang} is not recognized; the line is not heard.`,
       );
     } else if (
       owesLine &&
@@ -420,11 +420,11 @@ async function runAsOwner(
           workDir,
         );
         await writeHeardSpeech(videoRoot, job.address, job.variantId, { outputHash, heard });
-        jobManager.appendLog(variantId, `Heard by SenseVoice: ${heard.length} token(s)`);
+        jobManager.appendLog(variantId, `Heard: ${heard.length} token(s)`);
       } catch (hearErr) {
         jobManager.appendLog(
           variantId,
-          `Warning: SenseVoice could not recognize the take's line: ${errorMessage(hearErr)}`,
+          `Warning: the take's line could not be recognized: ${errorMessage(hearErr)}`,
         );
       } finally {
         await fs.rm(workDir, { recursive: true, force: true });

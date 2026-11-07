@@ -3,7 +3,12 @@ import { chromiumDownloadUrl } from "../../src/core/chromium.js";
 import { cloudflaredDownloadSource } from "../../src/core/cloudflared-binary.js";
 import { ffmpegDownloadSources } from "../../src/core/ffmpeg-binary.js";
 import { IPADIC_URL } from "../../src/core/japanese-reading.js";
-import { SENSE_VOICE_URL, SPLEETER_URL, sherpaDownloadUrl } from "../../src/core/sherpa-binary.js";
+import {
+  PARAKEET_URL,
+  SENSE_VOICE_URL,
+  SPLEETER_URL,
+  sherpaDownloadUrl,
+} from "../../src/core/sherpa-binary.js";
 import { tscDownloadUrl } from "../../src/core/tsc.js";
 
 type Target = { platform: NodeJS.Platform; arch: string };
@@ -67,6 +72,6 @@ export function toolDownloadUrls(): string[] {
   for (const { platform, arch } of TSC_TARGETS) urls.push(tscDownloadUrl(platform, arch));
   for (const { platform, arch } of CHROMIUM_TARGETS) urls.push(chromiumDownloadUrl(platform, arch));
   for (const { platform, arch } of SHERPA_TARGETS) urls.push(sherpaDownloadUrl(platform, arch));
-  urls.push(SPLEETER_URL, SENSE_VOICE_URL, ...BEAT_THIS_URLS, IPADIC_URL);
+  urls.push(SPLEETER_URL, SENSE_VOICE_URL, PARAKEET_URL, ...BEAT_THIS_URLS, IPADIC_URL);
   return [...new Set(urls)];
 }

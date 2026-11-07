@@ -31,6 +31,8 @@ export const TOOL_CHECKSUMS: Readonly<Record<string, string>> = {
     "8923876afa8db5585022d7860ec7e589af192f441c56793971276d450ed3bbfa",
   "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-darwin-arm64.gz":
     "d986a8ec7b030899fe66a8a288ed809a3543338705a3ce178cfb85869c5d80be",
+  "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2":
+    "1495e91b59d7fc53ddca91f3431758ec99f8fa253fdb0e1e851be0f72b14b0f9",
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2":
     "7d1efa2138a65b0b488df37f8b89e3d91a60676e416f515b952358d83dfd347e",
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/sherpa-onnx-spleeter-2stems-fp16.tar.bz2":
