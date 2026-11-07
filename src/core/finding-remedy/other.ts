@@ -33,12 +33,15 @@ export const OTHER_FINDING_REMEDY: Record<
     "`konte vouch <shot address>` for a hold the picture needs",
   "animatic-unconsumed":
     "build the video shot from its own board shot (a panel image, `.stem` — not " +
-    "`.narrationStem`) in video.tsx, developing that board shot first if it is still a " +
+    "`.narrationStem` / `.offFrameStem`) in video.tsx, developing that board shot first if it is still a " +
     'pendingShot, or leave it as `pendingShot("<id>")` until it is wired',
   "stem-unmouthed":
     "the take is driven by its board shot's stem, yet no mouth in the frame speaks the lines. " +
     "Drive the take without the stem and its lines, and place the stem with " +
     '<Audio src={animatic.shot("<id>").stem} /> in the shot\'s composition',
+  "stem-unplaced":
+    "place the stem with the `<Audio>` given in a video shot's composition, usually that shot's " +
+    "own; its start and volume are yours there",
   "subtitle-pauses-stale":
     "read the pauses of the take named with `konte probe reel-lines`, then write its id as the entry's " +
     "`take` and the pauses its texts break at",

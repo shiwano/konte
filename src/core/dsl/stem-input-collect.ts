@@ -1,8 +1,12 @@
-import type { StemInputOccurrence } from "../stem-mouth-check.js";
 import type { AdapterMeta } from "./adapter.js";
 import { parsePlaceholder } from "./shot-context.js";
 
-// Where a stage's wired `stem` inputs are gathered as `asset()` runs, read by `stem-unmouthed`.
+export type StemInputOccurrence = {
+  address: string;
+  source: string;
+};
+
+// Where a stage's wired `stem` inputs are gathered as `asset()` runs, read by `stem-unmouthed` and the line marks.
 let sink: StemInputOccurrence[] | null = null;
 let seen: Set<string> | null = null;
 

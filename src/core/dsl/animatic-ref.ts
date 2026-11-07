@@ -1,6 +1,7 @@
 import {
   formatAddress,
   formatNarrationStemAddress,
+  formatOffFrameStemAddress,
   formatShotAddress,
   formatShotStemAddress,
   formatSongStemAddress,
@@ -8,7 +9,7 @@ import {
 import { KonteError } from "../errors.js";
 import { isRendering } from "../jsx-html.js";
 import type { AnimaticDefinition } from "../types/animatic.js";
-import type { MediaAsset, MediaKind, NarrationStem, ShotHandle } from "./builders.js";
+import type { MediaAsset, MediaKind, HeardStem, ShotHandle } from "./builders.js";
 import { makeMediaAsset } from "./builders.js";
 import { withSongSpan } from "./song-window.js";
 import { markPanel } from "./panel-collect.js";
@@ -21,9 +22,10 @@ import {
 
 /**
  * One animatic shot as `video.tsx` reaches it: its takes by name and kind, plus the `stem` konte
- * mixes from the shot's cues, which an audio-driven motion model takes, the `narrationStem` it
- * mixes from the narration apart, which only `<Audio>` places, and on a song the `songStem` a motion
- * model hears of the shot's span of it.
+ * mixes from the shot's cues, which an audio-driven motion model takes, the `narrationStem` and
+ * `offFrameStem` it mixes apart from the narration and from the lines of a character the frame does
+ * not hold, which only `<Audio>` places, and on a song the `songStem` a motion model hears of the
+ * shot's span of it.
  *
  * The board shot's own rendering is not reachable; a V2V route wants `#composition` rendered to video
  * first.
@@ -34,7 +36,8 @@ import {
  */
 export interface AnimaticShotRef extends ShotHandle {
   readonly stem: MediaAsset<"audio">;
-  readonly narrationStem: NarrationStem;
+  readonly narrationStem: HeardStem;
+  readonly offFrameStem: HeardStem;
   readonly songStem: MediaAsset<"audio">;
 }
 
@@ -56,6 +59,7 @@ function pendingShotRef(id: string): AnimaticShotRef {
     audio: get,
     stem: makeMediaAsset<"audio">(makeAddressPlaceholder(formatShotStemAddress("animatic", id))),
     narrationStem: { src: makeAddressPlaceholder(formatNarrationStemAddress(id)) },
+    offFrameStem: { src: makeAddressPlaceholder(formatOffFrameStemAddress(id)) },
     songStem: makeMediaAsset<"audio">(makeAddressPlaceholder(formatSongStemAddress(id))),
   };
 }
@@ -155,8 +159,8 @@ export function createAnimaticRef(
               "ANIMATIC_INVALID",
               (shot.narrationStemRefs?.length ?? 0) > 0
                 ? `animatic.shot("${id}").stem: animatic shot "${id}" plays only narration, which ` +
-                    `is not in its stem. Drive the motion without a ` +
-                    `stem, and place .narrationStem with <Audio>.`
+                    `is not in its stem. Drive the motion without a stem, and place ` +
+                    `.narrationStem with <Audio>.`
                 : `animatic.shot("${id}").stem: animatic shot "${id}" plays no audio, so it has ` +
                     `no stem. Place the shot's lines in animatic.tsx with <Audio>, or drop the ` +
                     `reference.`,
@@ -175,6 +179,17 @@ export function createAnimaticRef(
             );
           }
           return { src: makeAddressPlaceholder(formatNarrationStemAddress(id)) };
+        },
+        get offFrameStem() {
+          if ((shot.offFrameStemRefs?.length ?? 0) === 0) {
+            throw new KonteError(
+              "ANIMATIC_INVALID",
+              `animatic.shot("${id}").offFrameStem: animatic shot "${id}" plays no line of a ` +
+                `character its frame does not hold, so it has no off-frame stem. Drop the ` +
+                `reference.`,
+            );
+          }
+          return { src: makeAddressPlaceholder(formatOffFrameStemAddress(id)) };
         },
         get songStem() {
           if (!shot.songCue || !shot.songStem) {

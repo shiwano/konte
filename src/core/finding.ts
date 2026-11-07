@@ -38,8 +38,10 @@ export type FindingCode =
   | "tail-silent"
   // A video shot that spends without building on the board it develops.
   | "animatic-unconsumed"
-  // A video take driven by a stem whose lines no one in the frame speaks.
+  // A video take driven by a board stem no mouth in the frame speaks.
   | "stem-unmouthed"
+  // A board shot's `#narrationStem` / `#offFrameStem` that no video shot places.
+  | "stem-unplaced"
   // A script-line `<Subtitle>` entry split at the pauses of a take that no longer plays its line.
   | "subtitle-pauses-stale"
   | BuildFindingCode
@@ -318,6 +320,13 @@ const OTHER_TRAITS: TraitsOf<Exclude<FindingCode, DirectionFindingCode | Directi
     signsOff: false,
   },
   "stem-unmouthed": fixPrompt,
+  "stem-unplaced": {
+    reads: "definition",
+    clears: "fix",
+    holds: { spend: { reach: "stage", commands: ["export"] }, accept: true, preview: true },
+    onset: "always",
+    signsOff: false,
+  },
   "subtitle-pauses-stale": {
     reads: "take",
     clears: "fix",

@@ -12,7 +12,7 @@ import { beginPromptCollection } from "./prompt-collect.js";
 import { assertRespellings, beginRespellCollection } from "./respell.js";
 import { scriptTexts } from "./shot-script.js";
 import { attachCueKinds } from "../spoken-text.js";
-import { assertNarrationStemsHeard } from "../narration-stem.js";
+import { assertHeardStemsHeard } from "../heard-stem.js";
 import type { ShotFunction } from "./shot-context.js";
 import type {
   DirectionEntry,
@@ -36,12 +36,12 @@ export interface MediaAsset<T extends MediaKind = MediaKind> {
 }
 
 /**
- * A board shot's narration mix, `animatic.shot(id).narrationStem`. Only `<Audio>` takes it: nothing
- * on screen speaks narration, so no model input accepts it.
+ * A board shot's mix of lines no mouth in its frame speaks — `animatic.shot(id).narrationStem`, or
+ * `.offFrameStem` for a character the frame does not hold. Only `<Audio>` takes it.
  */
-export interface NarrationStem {
+export interface HeardStem {
   readonly src: string;
-  readonly __kind?: "narrationStem";
+  readonly __kind?: "heardStem";
 }
 
 // `__kind` is a phantom field — never present at runtime — so a caller that knows the media kind
@@ -312,13 +312,13 @@ export function defineVideo<const D, Ids extends string = string>(
       definition.buildFindings = [...(definition.buildFindings ?? []), ...unplaced];
     }
   }
-  attachCueKinds(definition, index.scriptById);
+  attachCueKinds(definition, index);
 
   const video: VideoDefinition = {
     ...definition,
     stage: "video",
     ...(exportDef ? { export: exportDef } : {}),
   };
-  assertNarrationStemsHeard(video);
+  assertHeardStemsHeard(video);
   return video;
 }

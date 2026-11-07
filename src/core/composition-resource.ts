@@ -9,7 +9,7 @@ import {
   formatTimelineStemAddress,
   getAssetEntry,
   isCompositionAddress,
-  isNarrationStemAddress,
+  isHeardStemAddress,
   isSongStemAddress,
   isStemAddress,
   listShotStems,
@@ -451,7 +451,8 @@ export function collectDeadCompositionVariants(
 
 // ── Audio stems ──────────────────────────────────────────────────────────────
 // A stem is a no-job leaf like a composition, but for audio: a shot's <Audio>/<Video hasAudio>
-// cues (`shot.<id>#stem`, and a board shot's narration apart in `shot.<id>#narrationStem`) or the
+// cues (`shot.<id>#stem`, and a board shot's narration and off-frame lines apart in
+// `shot.<id>#narrationStem` / `#offFrameStem`) or the
 // timeline soundtrack beds (`timeline#stem`). Its identity is the
 // resolution-independent audio structure; its input fingerprints track the resolved audio sources.
 // Materialized on accept. What is written differs by stage: a delivered stem is a manifest (the
@@ -499,13 +500,12 @@ function shotStemStructure(video: StageDefinition, address: string): ShotStemStr
   }
   const harvested = harvestShotAudioStructure(video, parsed.shotId);
   if (harvested === null) return null;
-  const narration = new Set(shot?.narrationStemRefs ?? []);
-  const cues = harvested.filter(
-    (cue) => narration.has(cue.src) === isNarrationStemAddress(address),
-  );
-  if (shot?.songCue && !isNarrationStemAddress(address)) cues.push(songStemEntry(shot.songCue));
-  if (cues.length === 0) return null;
   const refs = shotStemOf(video, address)?.refs ?? [];
+  const apart = new Set([...(shot?.narrationStemRefs ?? []), ...(shot?.offFrameStemRefs ?? [])]);
+  const heard = isHeardStemAddress(address);
+  const cues = harvested.filter((cue) => (heard ? refs.includes(cue.src) : !apart.has(cue.src)));
+  if (shot?.songCue && !heard) cues.push(songStemEntry(shot.songCue));
+  if (cues.length === 0) return null;
   const kinds = shot?.cueKinds
     ? Object.fromEntries(Object.entries(shot.cueKinds).filter(([ref]) => refs.includes(ref)))
     : undefined;

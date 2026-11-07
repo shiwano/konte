@@ -425,7 +425,12 @@ const STAGE_FINDING_DOCS: Record<OtherCode, { flags: string; fixIn: string }> = 
   },
   "stem-unmouthed": {
     flags:
-      "A video take is driven by its board shot's stem, yet no character the shot's frame holds speaks its lines. Read where every line is a cast character's, every cue of the stem a voice, and the frame neither `coverage` nor graphic. A take accepted against its current definition is exempt.",
+      "A video take is driven by its board shot's stem, yet no character the shot's frame holds speaks its lines — konte keeps them in `#stem` where splitting them off would leave it empty. Read where every line is a cast character's, every cue of the stem a voice, and the frame neither `coverage` nor graphic. A take accepted against its current definition is exempt.",
+    fixIn: "`video.tsx`",
+  },
+  "stem-unplaced": {
+    flags:
+      "A board shot mixes lines no mouth in its frame speaks apart from its `#stem` — narration into `#narrationStem`, a character the frame does not hold into `#offFrameStem` — and no developed video shot places that stem with `<Audio>`. A graphic or coverage shot, and every shot on `policy.song`, keeps its characters' lines in `#stem`.",
     fixIn: "`video.tsx`",
   },
   "script-unvoiced": {

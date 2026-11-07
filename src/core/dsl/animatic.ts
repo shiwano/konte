@@ -6,9 +6,9 @@ import type { PanelDefinition } from "../types/index.js";
 import { beginPanelCollection, endPanelCollection, type PanelOccurrence } from "./panel-collect.js";
 
 // What konte derives from one animatic shot's composition: the keyframes it declared. The shot's
-// mixed-down `#stem` — an audio-driven motion model's input — and its `#narrationStem` are leaves
-// materialized from the same cues on accept (`prepareShotStem`); discovery only checks that each
-// cue can be mixed.
+// mixed-down `#stem` — an audio-driven motion model's input — and its `#narrationStem` /
+// `#offFrameStem` are leaves materialized from the same cues on accept (`prepareShotStem`);
+// discovery only checks that each cue can be mixed.
 
 interface AnimaticShotDiscovery {
   panels: PanelDefinition[];
@@ -238,7 +238,7 @@ function assertPanelMoves(
 }
 
 // The shot's audio is mixed down — the `audio` input of an audio-driven motion model, and what the
-// video stage reaches through `animatic.shot("01").stem` / `.narrationStem`. `harvestAudioStructure`
+// video stage reaches through `animatic.shot("01").stem` / `.narrationStem` / `.offFrameStem`. `harvestAudioStructure`
 // yields a decoded address when the src was a placeholder and the raw string otherwise. Only the
 // first can be mixed: the stem is what an audio-driven model consumes, so a source konte cannot
 // resolve has no place in it.

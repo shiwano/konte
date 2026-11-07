@@ -73,7 +73,7 @@ const directionWith = (script: readonly ScriptLine[]) =>
           setup: "front",
           duration: 3,
           script,
-          lineup: [],
+          lineup: ["ane"],
         },
       ],
     },

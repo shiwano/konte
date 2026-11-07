@@ -18,7 +18,7 @@ export type { AnimaticDefinition, AnimaticFormat, PanelDefinition } from "../typ
 export type {
   MediaKind,
   MediaAsset,
-  NarrationStem,
+  HeardStem,
   ShotInput,
   PendingShotInput,
   AsideShotInput,

@@ -198,8 +198,8 @@ export interface ShotInfo {
   // shotFn edit (a transition) that mints no variant. null when the shot has no composition.
   compositionDefinitionHash: string | null;
   compositionNeedsReview: boolean;
-  // The shot's audio stems (`#stem`, and a board shot's `#narrationStem`), accepted with the shot.
-  // Empty when the shot has no audio. A stem's `needsReview` re-opens the shot just like
+  // The shot's audio stems (`#stem`, and a board shot's `#narrationStem` / `#offFrameStem`),
+  // accepted with the shot. Empty when the shot has no audio. A stem's `needsReview` re-opens the shot just like
   // `compositionNeedsReview`.
   stems: ShotStemStatus[];
   // Whether this shot is standing in with the board of the same id — its delivered picture is not

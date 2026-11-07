@@ -58,6 +58,7 @@ import type {
   VideoDefinition,
 } from "./types/index.js";
 import { checkSourceLocators } from "./source-direction.js";
+import { findUnplacedStems } from "./heard-stem.js";
 import { findUnmouthedStems } from "./stem-mouth-check.js";
 import { type Accepted, signedOffBy, withAwaitingAccept } from "./sign-off.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
@@ -444,6 +445,22 @@ const STEM_MOUTH_CHECK: Check = {
   },
 };
 
+const STEM_PLACED_CHECK: Check = {
+  codes: ["stem-unplaced"],
+  run: (ctx) => {
+    if (!ctx.animatic || !ctx.video) return [];
+    return findUnplacedStems(ctx.video, ctx.animatic).map(
+      (u): Finding => ({
+        code: "stem-unplaced",
+        subject: u.address,
+        fixIn: { stage: "video" },
+        message: `<Audio src={animatic.shot("${u.shotId}").${u.accessor}} />`,
+        targets: [formatShotAddress("video", u.shotId)],
+      }),
+    );
+  },
+};
+
 const SUBTITLE_PAUSE_CHECK: Check = {
   codes: ["subtitle-pauses-stale"],
   run: async (ctx) => {
@@ -521,6 +538,7 @@ const CHECKS: readonly Check[] = [
   SILENT_TAIL_CHECK,
   ANIMATIC_CONSUMED_CHECK,
   STEM_MOUTH_CHECK,
+  STEM_PLACED_CHECK,
   SUBTITLE_PAUSE_CHECK,
   BUILD_CHECK,
   PENDING_REFERENCE_CHECK,

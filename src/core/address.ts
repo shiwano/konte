@@ -214,6 +214,11 @@ export const STEM_ASSET_NAME = `${RESERVED_NAME_SIGIL}stem`;
 // speaks it, so it never reaches a motion model, and `video.tsx` places it with `<Audio>`.
 export const NARRATION_STEM_ASSET_NAME = `${RESERVED_NAME_SIGIL}narrationStem`;
 
+// Reserved asset name for a board shot's lines spoken by a character its frame does not hold, mixed
+// apart from its `#stem` like the narration: no mouth on screen speaks them, so they never reach a
+// motion model, and `video.tsx` places them with `<Audio>`.
+export const OFF_FRAME_STEM_ASSET_NAME = `${RESERVED_NAME_SIGIL}offFrameStem`;
+
 // Reserved asset name for a board shot's span of the song as a motion model hears it: the vocals
 // where a singer in frame sings, else the instrumental (`ShotDefinition.songStem`).
 export const SONG_STEM_ASSET_NAME = `${RESERVED_NAME_SIGIL}songStem`;
@@ -561,6 +566,10 @@ export function formatNarrationStemAddress(shotId: string): string {
   return formatAddress("animatic", shotId, NARRATION_STEM_ASSET_NAME);
 }
 
+export function formatOffFrameStemAddress(shotId: string): string {
+  return formatAddress("animatic", shotId, OFF_FRAME_STEM_ASSET_NAME);
+}
+
 export function formatSongStemAddress(shotId: string): string {
   return formatAddress("animatic", shotId, SONG_STEM_ASSET_NAME);
 }
@@ -760,34 +769,42 @@ export function isCompositionAddress(address: string): boolean {
 
 // A stem — the audio sign-off for its container (a shot, the timeline), on either composition
 // stage, and so what decides whether a cascade rooted there may sign off audio. A board shot's
-// `#narrationStem` and `#songStem` are ones too.
+// `#narrationStem`, `#offFrameStem` and `#songStem` are ones too.
 export function isStemAddress(address: string): boolean {
   const parsed = tryParseAddress(address);
   if (!parsed || parsed.stage === "reference" || parsed.delivery) return false;
   if (parsed.assetName === STEM_ASSET_NAME) {
     return parsed.kind === "shot" || parsed.kind === "timeline";
   }
-  return isNarrationStemAddress(address) || isSongStemAddress(address);
+  return isHeardStemAddress(address) || isSongStemAddress(address);
+}
+
+function isBoardShotStemNamed(address: string, names: readonly string[]): boolean {
+  const parsed = tryParseAddress(address);
+  return (
+    parsed?.stage === "animatic" &&
+    parsed.kind === "shot" &&
+    names.includes(parsed.assetName) &&
+    !parsed.delivery
+  );
 }
 
 export function isNarrationStemAddress(address: string): boolean {
-  const parsed = tryParseAddress(address);
-  return (
-    parsed?.stage === "animatic" &&
-    parsed.kind === "shot" &&
-    parsed.assetName === NARRATION_STEM_ASSET_NAME &&
-    !parsed.delivery
-  );
+  return isBoardShotStemNamed(address, [NARRATION_STEM_ASSET_NAME]);
+}
+
+export function isOffFrameStemAddress(address: string): boolean {
+  return isBoardShotStemNamed(address, [OFF_FRAME_STEM_ASSET_NAME]);
+}
+
+// A board shot's `#narrationStem` or `#offFrameStem`: lines no mouth in the frame speaks, which the
+// video only hears, placed with `<Audio>`.
+export function isHeardStemAddress(address: string): boolean {
+  return isBoardShotStemNamed(address, [NARRATION_STEM_ASSET_NAME, OFF_FRAME_STEM_ASSET_NAME]);
 }
 
 export function isSongStemAddress(address: string): boolean {
-  const parsed = tryParseAddress(address);
-  return (
-    parsed?.stage === "animatic" &&
-    parsed.kind === "shot" &&
-    parsed.assetName === SONG_STEM_ASSET_NAME &&
-    !parsed.delivery
-  );
+  return isBoardShotStemNamed(address, [SONG_STEM_ASSET_NAME]);
 }
 
 export function isOverlayAddress(address: string): boolean {
@@ -805,6 +822,7 @@ interface StemShotLike {
   id: string;
   stemRefs?: readonly string[];
   narrationStemRefs?: readonly string[];
+  offFrameStemRefs?: readonly string[];
   songCue?: { src: string };
   songStem?: unknown;
 }
@@ -817,7 +835,7 @@ interface StemVideoLike {
 
 /**
  * One shot's stem leaves and the cues each is mixed from: `#stem`, then the board's
- * `#narrationStem` and `#songStem`.
+ * `#narrationStem`, `#offFrameStem` and `#songStem`.
  */
 export function listShotStems(
   stage: ShotStage,
@@ -829,6 +847,9 @@ export function listShotStems(
   if (stage === "animatic" && (shot.narrationStemRefs?.length ?? 0) > 0) {
     stems.push({ address: formatNarrationStemAddress(shot.id), refs: shot.narrationStemRefs! });
   }
+  if (stage === "animatic" && (shot.offFrameStemRefs?.length ?? 0) > 0) {
+    stems.push({ address: formatOffFrameStemAddress(shot.id), refs: shot.offFrameStemRefs! });
+  }
   if (stage === "animatic" && shot.songCue && shot.songStem) {
     stems.push({ address: formatSongStemAddress(shot.id), refs: [shot.songCue.src] });
   }
@@ -838,13 +859,17 @@ export function listShotStems(
 /** The reserved stem names a shot of this stage can carry. */
 export function shotStemAssetNames(stage: ShotStage): string[] {
   return stage === "animatic"
-    ? [STEM_ASSET_NAME, NARRATION_STEM_ASSET_NAME, SONG_STEM_ASSET_NAME]
+    ? [STEM_ASSET_NAME, NARRATION_STEM_ASSET_NAME, OFF_FRAME_STEM_ASSET_NAME, SONG_STEM_ASSET_NAME]
     : [STEM_ASSET_NAME];
 }
 
 /** Every audio cue a shot plays, across its stems. */
 export function shotCueRefs(shot: StemShotLike): string[] {
-  return [...(shot.stemRefs ?? []), ...(shot.narrationStemRefs ?? [])];
+  return [
+    ...(shot.stemRefs ?? []),
+    ...(shot.narrationStemRefs ?? []),
+    ...(shot.offFrameStemRefs ?? []),
+  ];
 }
 
 type ShownShotLike = StemShotLike & {

@@ -130,7 +130,7 @@ export default defineVideo(direction, {
 ```
 
 - `defineVideo(direction, { export?, timeline })` — `{ size, fps }` derive from the direction.
-- What it takes from the board — `animatic.shot("01").image("<panel>")` for a keyframe, `.stem` for the mixed-down lines, `.narrationStem` for the narration (`<Audio>` only).
+- What it takes from the board — `animatic.shot("01").image("<panel>")` for a keyframe, `.stem` for the mixed-down lines, `.narrationStem` / `.offFrameStem` for the narration and the lines of a character the frame does not hold (`<Audio>` only).
 
 ## Adapter inputs
 

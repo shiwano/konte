@@ -8,17 +8,18 @@ import {
   assetNameOf,
   formatAddress,
   formatCompositionAddress,
-  formatNarrationStemAddress,
   formatShotAddress,
   formatShotStemAddress,
   formatTimelineAddress,
   formatTimelineOverlayAddress,
   formatTimelineStemAddress,
+  isHeardStemAddress,
   isMaterializedLeafAddress,
   isOverlayAddress,
   isStemAddress,
   listCompositionAddresses,
   listOverlayAddresses,
+  listShotStems,
   listStemAddresses,
   parseAddress,
   parseAddressStream,
@@ -929,11 +930,11 @@ async function acceptShotStemSources(
       }
       const targets = shotAcceptTargets(mgr, video, shot);
       if (targets.stemSources.length === 0) continue;
-      const narration = shotById(video.shots, shot.shotId)?.narrationStemRefs ?? [];
+      const definition = shotById(video.shots, shot.shotId);
+      const stems = definition ? listShotStems(stage, definition) : [];
       const via = (source: string): string =>
-        narration.includes(source)
-          ? formatNarrationStemAddress(shot.shotId)
-          : formatShotStemAddress(stage, shot.shotId);
+        stems.find((stem) => isHeardStemAddress(stem.address) && stem.refs.includes(source))
+          ?.address ?? formatShotStemAddress(stage, shot.shotId);
       try {
         const sources = await acceptDisplayedStemSources(
           mgr,
@@ -955,11 +956,11 @@ async function acceptShotStemSources(
 }
 
 // Fold the shot's audio into its accept: accepting a shot signs off its picture (composition) and
-// its stems (`shot.<id>#stem`, the board's `#narrationStem`) in one gesture — each leaf is
-// materialized over the sources settled before; on the board `#stem` is the mix the motion is driven
-// by. The mixes run outside the state lock (ffmpeg, one per stem) from the takes those sources
-// settled, and the commit under the lock re-checks that those takes still resolve — a source
-// accepted elsewhere meanwhile is refused, not recorded. Every address comes from
+// its stems (`shot.<id>#stem`, the board's `#narrationStem` / `#offFrameStem`) in one gesture —
+// each leaf is materialized over the sources settled before; on the board `#stem` is the mix the
+// motion is driven by. The mixes run outside the state lock (ffmpeg, one per stem) from the takes
+// those sources settled, and the commit under the lock re-checks that those takes still resolve —
+// a source accepted elsewhere meanwhile is refused, not recorded. Every address comes from
 // `shotAcceptTargets` — the same enumeration the read-back reads, so an accept and its check can
 // never disagree about what a shot covers.
 async function materializeShotStems(

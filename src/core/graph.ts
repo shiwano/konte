@@ -11,6 +11,7 @@ import {
   listReferenceAddresses,
   listShotStems,
   NARRATION_STEM_ASSET_NAME,
+  OFF_FRAME_STEM_ASSET_NAME,
   SONG_STEM_ASSET_NAME,
   parseAddress,
   OVERLAY_ASSET_NAME,
@@ -19,7 +20,7 @@ import {
   type DefinitionLike,
   getAssetEntry,
   isMaterializedLeafAddress,
-  isNarrationStemAddress,
+  isHeardStemAddress,
 } from "./address.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
@@ -242,7 +243,7 @@ export function buildDependencyGraph(
 
     // A stem depends on its audio sources — a per-shot stem on its cues, a timeline stem on the
     // soundtrack srcs. A video build consumes the board's stems (`animatic.shot(id).stem`,
-    // `.narrationStem`), so those are leaves of their stage with dependents on the next.
+    // `.narrationStem`, `.offFrameStem`), so those are leaves of their stage with dependents on the next.
     for (const s of def.shots) {
       for (const stem of listShotStems(stage, s)) {
         addEdges(stem.address, stem.refs, allAddresses, dependencies, dependents, pending);
@@ -430,6 +431,7 @@ export function listUnusedAddresses(
     COMPOSITION_ASSET_NAME,
     STEM_ASSET_NAME,
     NARRATION_STEM_ASSET_NAME,
+    OFF_FRAME_STEM_ASSET_NAME,
     SONG_STEM_ASSET_NAME,
   ]);
   const unused: string[] = [];
@@ -595,13 +597,14 @@ export function listBoardlessVideoShots(
       const node = stack.pop()!;
       if (seen.has(node)) continue;
       seen.add(node);
-      // Every video shot over a narrated shot places its `#narrationStem`, whatever it builds its
-      // picture on — so that builds nothing on the board.
-      if (isNarrationStemAddress(node)) continue;
+      // Every video shot over a board shot with lines no mouth in its frame speaks places their
+      // `#narrationStem` / `#offFrameStem`, whatever it builds its picture on — so that builds
+      // nothing on the board.
+      if (isHeardStemAddress(node)) continue;
       if (
         board.has(node) ||
         graph.pendingReferences.some(
-          (r) => r.from === node && ownBoard.test(r.ref) && !isNarrationStemAddress(r.ref),
+          (r) => r.from === node && ownBoard.test(r.ref) && !isHeardStemAddress(r.ref),
         )
       ) {
         consumesBoard = true;

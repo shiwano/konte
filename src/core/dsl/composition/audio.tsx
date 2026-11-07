@@ -1,4 +1,4 @@
-import type { MediaAsset, NarrationStem } from "../builders.js";
+import type { MediaAsset, HeardStem } from "../builders.js";
 import { assertAudioGain } from "../../audio-gain.js";
 import { applyLevelGain } from "../../audio-level.js";
 import { getRenderContext } from "../../jsx-html.js";
@@ -8,7 +8,7 @@ import { songSpanOf } from "../song-window.js";
 type AudioElementProps = React.ComponentPropsWithoutRef<"audio">;
 
 export type AudioProps = Omit<AudioElementProps, "src" | "id"> & {
-  src: MediaAsset<"audio"> | NarrationStem;
+  src: MediaAsset<"audio"> | HeardStem;
   /**
    * Stable cue id, local to the shot (data-konte-cue) — a display label for the review timeline and
    * `konte probe`. Not an address: `#` is konte's reserved namespace (see address.ts), and a cue id

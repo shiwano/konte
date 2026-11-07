@@ -56,7 +56,7 @@ A `<Cutin>` is a second lane:
 ## The stem
 
 - `animatic:shot.<id>#stem` is the shot's `<Audio>` cues mixed down and clamped to the shot's `duration` — a materialized leaf like `video:*#stem`, over the same `stemRefs` and the same structure hash (`stemDefinitionHash`; the board's folds the clamp in, so a retimed shot is a different stem). `video.tsx` takes it through `animatic.shot("01").stem`.
-- Narration is mixed apart into `#narrationStem`, which only `<Audio>` takes (`NARRATION_UNPLACED` wherever both stages load).
+- Narration and the lines of a character no frame of the shot holds are mixed apart into `#narrationStem` / `#offFrameStem` (`splitHeardStems`), which only `<Audio>` takes (`stem-unplaced`). A graphic, coverage or song shot keeps its characters' lines in `#stem`. A shot nobody in frame speaks in keeps them there, never leaving `#stem` empty; a model it drives is `stem-unmouthed`.
 - On a song, `#songStem` is what a motion model hears (`shotSongStem`): the vocals of the lines a character in frame sings, else the instrumental (`song-parts.ts`). `asset()` fills an adapter's `stem` input with it (`SONG_STEM_OVERRIDDEN`); `.stem` is refused.
 - With `policy.song` a board `#stem` also mixes, unplayed, the shot's span of the song (`songCue`); a `<Video>` of a take built on it gets a derived `mediaStart` (`song-window.ts`).
 - The delivered stem materializes as a manifest (muxed at export), the board's as the real mix — `prepareShotStem` runs `mixAudioTracks` over the cues.

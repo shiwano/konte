@@ -25,7 +25,7 @@ export {
   soundtrack,
   type MediaKind,
   type MediaAsset,
-  type NarrationStem,
+  type HeardStem,
   type ShotOptions,
   type ShotInput,
   type PendingShotInput,

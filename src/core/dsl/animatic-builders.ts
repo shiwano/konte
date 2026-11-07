@@ -33,8 +33,9 @@ import type { ShotFunction } from "./shot-context.js";
 import { defineStage } from "./stage-define.js";
 import { assertCuesFitShot, tightenDerivedClipLengths } from "../clip-fit.js";
 import {
-  assertNarrationAttributable,
+  assertLinesAttributable,
   attachCueKinds,
+  splitHeardStems,
   saysLine,
   spokenTextsUnder,
 } from "../spoken-text.js";
@@ -566,26 +567,15 @@ export function defineAnimatic<
   if (buildFindings.length > 0) definition.buildFindings = buildFindings;
   tightenDerivedClipLengths(definition, built.clipLengths);
   assertCuesFitShot(definition, built.clipLengths);
-  assertNarrationAttributable(definition, index.scriptById);
-  attachCueKinds(definition, index.scriptById);
-  splitNarrationStems(definition);
+  assertLinesAttributable(definition, index);
+  attachCueKinds(definition, index);
+  splitHeardStems(definition, index);
 
   const songShotStarts = index.timeline.song ? shotStartsOf(index.timeline) : undefined;
   return Object.assign(
     definition,
     createAnimaticRef(definition, built.assetKindsByShot, songShotStarts),
   );
-}
-
-// A narration cue feeds `#narrationStem`, never the `#stem` a motion model takes.
-function splitNarrationStems(definition: AnimaticDefinition): void {
-  for (const shot of definition.shots) {
-    const cues = shot.stemRefs ?? [];
-    const narration = cues.filter((ref) => shot.cueKinds?.[ref] === "narration");
-    if (narration.length === 0) continue;
-    shot.stemRefs = cues.filter((ref) => shot.cueKinds?.[ref] !== "narration");
-    shot.narrationStemRefs = narration;
-  }
 }
 
 // A shot the direction gives spoken lines to must sound them. State-independent: it turns only on

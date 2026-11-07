@@ -7,6 +7,7 @@ import {
   isOverlayAddress,
   getStage,
   isNarrationStemAddress,
+  isOffFrameStemAddress,
   isSongStemAddress,
   isStemAddress,
   listShotStems,
@@ -111,9 +112,11 @@ export function shotAcceptTargets(
           address,
           what: isNarrationStemAddress(address)
             ? "the narration stem"
-            : isSongStemAddress(address)
-              ? "the song stem"
-              : "the audio stem",
+            : isOffFrameStemAddress(address)
+              ? "the off-frame stem"
+              : isSongStemAddress(address)
+                ? "the song stem"
+                : "the audio stem",
         })),
     ],
   };

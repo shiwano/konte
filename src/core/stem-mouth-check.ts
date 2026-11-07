@@ -10,11 +10,6 @@ import {
   type VideoDefinition,
 } from "./types/index.js";
 
-export type StemInputOccurrence = {
-  address: string;
-  source: string;
-};
-
 export type UnmouthedStem = {
   address: string;
   shotId: string;

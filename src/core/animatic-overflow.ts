@@ -27,7 +27,7 @@ import { bedPasses, resolveSoundtrackSpan } from "./timeline-audio.js";
 
 export interface AnimaticOverflow {
   shotId: string;
-  /** The stem the clamp cuts — `animatic:shot.<id>#stem` or `#narrationStem`. */
+  /** The stem the clamp cuts — `animatic:shot.<id>#stem`, `#narrationStem` or `#offFrameStem`. */
   address: string;
   /** The shot's `duration`: what the stem is clamped to. */
   durationSec: number;

@@ -13,10 +13,15 @@ import {
   defineAnimatic,
   defineVideo,
   type MediaAsset,
-  type NarrationStem,
+  type HeardStem,
 } from "../dsl/index.js";
+import { collectFindings } from "../checks.js";
+import { findingTraits, reviewHold, spendHold } from "../finding.js";
 import { buildDependencyGraph, listBoardlessVideoShots } from "../graph.js";
-import { assertNarrationStemsPlaced } from "../narration-stem.js";
+import type { CompositionClip } from "../composition-builder.js";
+import type { Direction } from "../dsl/direction.js";
+import { findUnplacedStems } from "../heard-stem.js";
+import { spokenSourcesOf } from "../line-marks.js";
 import { shotAcceptTargets } from "../shot-accept-targets.js";
 import { StateManager } from "../state/index.js";
 import { directionDefaults } from "./helpers/direction.js";
@@ -62,9 +67,12 @@ const t2v = defineComfyAsset({
 });
 
 const LINE = "かあちゃん、飴だまちょうだい。";
+const REPLY = "ひとつだけだよ。";
 const NARRATION = "その夏、姉は八つだった。";
 
-const directionWith = (script: readonly ScriptLine[]) =>
+type ShotShape = { lineup?: readonly string[]; passing?: readonly string[]; coverage?: true };
+
+const directionWith = (script: readonly ScriptLine[], shape: ShotShape = {}) =>
   defineDirection({
     ...directionDefaults,
     characters: {
@@ -73,6 +81,12 @@ const directionWith = (script: readonly ScriptLine[]) =>
         description: "the elder sister",
         voice: { id: "aneVoice", description: "a bright ten-year-old" },
         promptDepiction: "ane",
+      },
+      haha: {
+        name: "the mother",
+        description: "the mother",
+        voice: { id: "hahaVoice", description: "a warm, tired alto" },
+        promptDepiction: "haha",
       },
     },
     narrator: { id: "narratorVoice", description: "a calm, low read" },
@@ -87,7 +101,9 @@ const directionWith = (script: readonly ScriptLine[]) =>
           setup: "front",
           duration: 3,
           script,
-          lineup: [],
+          lineup: shape.lineup ?? ["ane"],
+          ...(shape.passing ? { passing: shape.passing } : {}),
+          ...(shape.coverage ? { coverage: true as const } : {}),
         },
       ],
     },
@@ -96,8 +112,12 @@ const directionWith = (script: readonly ScriptLine[]) =>
 type Board = ReturnType<typeof defineAnimatic>;
 
 // One board shot over the given lines, playing each cue `cues` declares.
-function boardWith(script: readonly ScriptLine[], cues: () => Array<MediaAsset<"audio">>): Board {
-  return defineAnimatic(directionWith(script), {
+function boardWith(
+  script: readonly ScriptLine[],
+  cues: () => Array<MediaAsset<"audio">>,
+  shape: ShotShape = {},
+): Board {
+  return defineAnimatic(directionWith(script, shape), {
     timeline: ({ shot }) => ({
       shots: shot("01", () => (
         <Composition>
@@ -177,7 +197,7 @@ describe("the board mixes its narration apart", () => {
         asset("vo", tts, { script: LINE }),
         asset("take", recording, { prompt: "a calm studio read" }),
       ]),
-    ).toThrow(expect.objectContaining({ code: "NARRATION_UNATTRIBUTED" }));
+    ).toThrow(expect.objectContaining({ code: "CUE_UNATTRIBUTED" }));
   });
 
   it("has no narration stem on a shot nobody narrates", () => {
@@ -190,7 +210,7 @@ describe("the board mixes its narration apart", () => {
   it("refuses one take saying both the narration and a line", () => {
     expect(() =>
       boardWith(BOTH, () => [asset("both", tts, { script: `${LINE}${NARRATION}` })]),
-    ).toThrow(expect.objectContaining({ code: "NARRATION_UNATTRIBUTED" }));
+    ).toThrow(expect.objectContaining({ code: "CUE_UNATTRIBUTED" }));
   });
 
   it("reads a narration quoting a character's words as narration alone", () => {
@@ -232,7 +252,7 @@ describe("the video delivers the board's narration", () => {
     const video = videoOver(board, true);
     expect(video.shots[0]!.stemRefs).toContain("animatic:shot.01#narrationStem");
     expect(video.shots[0]!.cueKinds?.["animatic:shot.01#narrationStem"]).toBe("narration");
-    expect(() => assertNarrationStemsPlaced(video, board)).not.toThrow();
+    expect(findUnplacedStems(video, board)).toEqual([]);
   });
 
   it("reads footage beside the placed narration as the footage's own sound", () => {
@@ -256,15 +276,15 @@ describe("the video delivers the board's narration", () => {
     expect(video.shots[0]!.cueKinds?.["video:shot.01.motion"]).toBe("voice");
   });
 
-  it("refuses a developed shot the direction narrates that never places it", () => {
+  it("finds a developed shot the direction narrates that never places it", () => {
     const board = boardWithBoth();
-    expect(() => assertNarrationStemsPlaced(videoOver(board, false), board)).toThrow(
-      expect.objectContaining({ code: "NARRATION_UNPLACED" }),
-    );
+    expect(findUnplacedStems(videoOver(board, false), board)).toEqual([
+      { address: "animatic:shot.01#narrationStem", shotId: "01", accessor: "narrationStem" },
+    ]);
   });
 
   // Footage alone never reaches the board, and still owes the narration.
-  it("refuses a shot built without the board that never places it", () => {
+  it("finds a shot built without the board that never places it", () => {
     const video = defineVideo(directionWith(BOTH), {
       timeline: ({ shot }) => ({
         shots: shot("01", () => (
@@ -274,16 +294,14 @@ describe("the video delivers the board's narration", () => {
         )),
       }),
     });
-    expect(() => assertNarrationStemsPlaced(video, boardWithBoth())).toThrow(
-      expect.objectContaining({ code: "NARRATION_UNPLACED" }),
-    );
+    expect(findUnplacedStems(video, boardWithBoth())).toHaveLength(1);
   });
 
   it("owes nothing while the shot is still pending", () => {
     const video = defineVideo(directionWith(BOTH), {
       timeline: ({ pendingShot }) => ({ shots: pendingShot("01") }),
     });
-    expect(() => assertNarrationStemsPlaced(video, boardWithBoth())).not.toThrow();
+    expect(findUnplacedStems(video, boardWithBoth())).toEqual([]);
   });
 
   it("refuses it anywhere but an <Audio>", () => {
@@ -325,7 +343,7 @@ describe("the video delivers the board's narration", () => {
   });
 
   it("is refused by every model input's type", () => {
-    const narration = { src: "__konte:animatic:shot.01#narrationStem__" } as NarrationStem;
+    const narration = { src: "__konte:animatic:shot.01#narrationStem__" } as HeardStem;
     // @ts-expect-error — only <Audio> takes a narration stem
     const audio: MediaAsset<"audio"> = narration;
     expect(audio).toBe(narration);
@@ -336,7 +354,7 @@ describe("a board shot's accept signs off both stems", () => {
   const cues = ["animatic:shot.01.vo", "animatic:shot.01.narration", "animatic:shot.01.slam"];
 
   async function recorded(): Promise<StateManager> {
-    const dir = await fs.mkdtemp(path.join(tmpdir(), "konte-narration-stem-"));
+    const dir = await fs.mkdtemp(path.join(tmpdir(), "konte-heard-stem-"));
     const manager = await StateManager.init(dir);
     for (const address of cues) {
       const name = address.split(".").pop()!;
@@ -375,5 +393,236 @@ describe("a board shot's accept signs off both stems", () => {
     const variant = manager.getAssetState(address).variants![variantId!]!;
     expect(variant.file).toMatch(/stem\.wav$/);
     expect(variant.inputFingerprints).toEqual({ "animatic:shot.01.narration": "narration" });
+  });
+});
+
+// The sister is in the frame, her mother answers from off it.
+const EXCHANGE: ScriptLine[] = [
+  { character: "ane", text: LINE },
+  { character: "haha", text: REPLY },
+];
+
+const boardWithExchange = (shape: ShotShape = {}) =>
+  boardWith(
+    EXCHANGE,
+    () => [
+      asset("vo", tts, { script: LINE }),
+      asset("reply", tts, { script: REPLY }),
+      asset("slam", recording, { prompt: "a door slamming" }),
+    ],
+    shape,
+  );
+
+describe("the board mixes the lines of a character off its frame apart", () => {
+  it("keeps them out of the stem a motion model takes", () => {
+    const board = boardWithExchange();
+    const shot = board.shots[0]!;
+    expect(shot.stemRefs).toEqual(["animatic:shot.01.vo", "animatic:shot.01.slam"]);
+    expect(shot.offFrameStemRefs).toEqual(["animatic:shot.01.reply"]);
+    expect(shot.cueKinds?.["animatic:shot.01.reply"]).toBe("voice");
+    expect(listStemAddresses(board)).toEqual([
+      "animatic:shot.01#stem",
+      "animatic:shot.01#offFrameStem",
+    ]);
+    const graph = buildDependencyGraph(board);
+    expect(graph.dependencies.get("animatic:shot.01#offFrameStem")).toEqual([
+      "animatic:shot.01.reply",
+    ]);
+    expect(inBuild(() => board.shot("01").offFrameStem.src)).toBe(
+      "__konte:animatic:shot.01#offFrameStem__",
+    );
+  });
+
+  it("reads every character the lineup holds as in the frame", () => {
+    const board = boardWithExchange({ lineup: ["ane", "haha"] });
+    expect(board.shots[0]!.offFrameStemRefs).toBeUndefined();
+  });
+
+  it("reads a character passing through the frame as in it", () => {
+    const board = boardWithExchange({ passing: ["haha"] });
+    expect(board.shots[0]!.offFrameStemRefs).toBeUndefined();
+  });
+
+  it("keeps every line in the stem of a coverage shot", () => {
+    const board = boardWithExchange({ coverage: true });
+    expect(board.shots[0]!.stemRefs).toContain("animatic:shot.01.reply");
+    expect(board.shots[0]!.offFrameStemRefs).toBeUndefined();
+  });
+
+  it("reads a character passing through the frame as in it", () => {
+    const board = boardWithExchange({ passing: ["haha"] });
+    expect(board.shots[0]!.offFrameStemRefs).toBeUndefined();
+  });
+
+  it("keeps the lines of a shot nobody in the frame speaks in on its stem", () => {
+    const board = boardWith([{ character: "haha", text: REPLY }], () => [
+      asset("reply", tts, { script: REPLY }),
+    ]);
+    expect(board.shots[0]!.stemRefs).toEqual(["animatic:shot.01.reply"]);
+    expect(board.shots[0]!.offFrameStemRefs).toBeUndefined();
+  });
+
+  it("splits them off a stem that keeps a sound of the frame", () => {
+    const board = boardWith([{ character: "haha", text: REPLY }], () => [
+      asset("reply", tts, { script: REPLY }),
+      asset("slam", recording, { prompt: "a door slamming" }),
+    ]);
+    expect(board.shots[0]!.stemRefs).toEqual(["animatic:shot.01.slam"]);
+    expect(board.shots[0]!.offFrameStemRefs).toEqual(["animatic:shot.01.reply"]);
+  });
+
+  it("refuses a recording that could be the off-frame line or a sound in the frame", () => {
+    expect(() =>
+      boardWith(EXCHANGE, () => [
+        asset("vo", tts, { script: LINE }),
+        asset("take", recording, { prompt: "a warm read" }),
+      ]),
+    ).toThrow(expect.objectContaining({ code: "CUE_UNATTRIBUTED" }));
+  });
+
+  it("refuses one take saying a line in the frame and one off it", () => {
+    expect(() =>
+      boardWith(EXCHANGE, () => [asset("both", tts, { script: `${LINE}${REPLY}` })]),
+    ).toThrow(expect.objectContaining({ code: "CUE_UNATTRIBUTED" }));
+  });
+
+  it("keeps a take on the stem where an off-frame line reads like one in the frame", () => {
+    const board = boardWith(
+      [
+        { character: "ane", text: REPLY },
+        { character: "haha", text: REPLY },
+      ],
+      () => [asset("vo", tts, { script: REPLY }), asset("reply", tts, { script: REPLY })],
+    );
+    expect(board.shots[0]!.stemRefs).toEqual(["animatic:shot.01.vo", "animatic:shot.01.reply"]);
+    expect(board.shots[0]!.offFrameStemRefs).toBeUndefined();
+  });
+
+  it("has no off-frame stem on a shot whose speakers are all in the frame", () => {
+    const board = boardWith([{ character: "ane", text: LINE }], () => [
+      asset("vo", tts, { script: LINE }),
+    ]);
+    expect(() => inBuild(() => board.shot("01").offFrameStem)).toThrow(/no off-frame stem/);
+  });
+});
+
+describe("the video delivers the board's off-frame lines", () => {
+  const videoOver = (board: Board, place: boolean) =>
+    defineVideo(directionWith(EXCHANGE), {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Video
+              src={asset("motion", ia2v, {
+                image: board.shot("01").image("first"),
+                audio: board.shot("01").stem,
+              })}
+              hasAudio
+            />
+            {place && <Audio src={board.shot("01").offFrameStem} />}
+          </Composition>
+        )),
+      }),
+    });
+
+  it("places them with <Audio> as a voice", () => {
+    const board = boardWithExchange();
+    const video = videoOver(board, true);
+    expect(video.shots[0]!.cueKinds?.["animatic:shot.01#offFrameStem"]).toBe("voice");
+    expect(video.shots[0]!.cueKinds?.["video:shot.01.motion"]).toBe("voice");
+    expect(findUnplacedStems(video, board)).toEqual([]);
+  });
+
+  it("finds a developed shot that never places them", () => {
+    const board = boardWithExchange();
+    expect(findUnplacedStems(videoOver(board, false), board)).toEqual([
+      { address: "animatic:shot.01#offFrameStem", shotId: "01", accessor: "offFrameStem" },
+    ]);
+  });
+
+  it("refuses them anywhere but an <Audio>", () => {
+    const board = boardWithExchange();
+    expect(() =>
+      defineVideo(directionWith(EXCHANGE), {
+        timeline: ({ shot }) => ({
+          shots: shot("01", () => (
+            <Composition>
+              <Video
+                src={asset("motion", ia2v, {
+                  image: board.shot("01").image("first"),
+                  audio: board.shot("01").offFrameStem as never,
+                })}
+                hasAudio
+              />
+            </Composition>
+          )),
+        }),
+      }),
+    ).toThrow(/place each only with <Audio>/);
+  });
+
+  it("reports the unplaced stem as stem-unplaced, holding the shot", async () => {
+    const board = boardWithExchange();
+    const traits = findingTraits("stem-unplaced");
+    const { findings } = await collectFindings(
+      {
+        videoRoot: "",
+        direction: null,
+        directionAccepted: true,
+        reference: null,
+        animatic: board,
+        video: videoOver(board, false),
+        manager: null,
+        graph: null,
+        patches: [],
+        lang: null,
+      },
+      (t) => t === traits,
+    );
+    const [finding] = findings.filter((f) => f.code === "stem-unplaced");
+    expect(finding).toMatchObject({
+      subject: "animatic:shot.01#offFrameStem",
+      fixIn: { stage: "video" },
+      message: '<Audio src={animatic.shot("01").offFrameStem} />',
+      targets: ["video:shot.01"],
+    });
+    expect(reviewHold(finding!, { op: "accept", address: "video:shot.01#composition" })).toBe(true);
+    expect(reviewHold(finding!, { op: "preview", stage: "video" })).toBe(true);
+    expect(spendHold(finding!, { command: "export", stage: "video" })).toBe("whole");
+    expect(spendHold(finding!, { command: "generate", stage: "video" })).toBeNull();
+  });
+
+  it("hears both lines in a stem mixed before the off-frame one was split out", async () => {
+    const board = boardWithExchange();
+    const dir = await fs.mkdtemp(path.join(tmpdir(), "konte-heard-stem-"));
+    const manager = await StateManager.init(dir);
+    const address = "animatic:shot.01#stem";
+    const vid = manager.reserveVariantId(address);
+    const variant = manager.getAssetState(address).variants![vid]!;
+    variant.file = "assets/mix.wav";
+    variant.outputHash = "mix";
+    variant.definitionHash = "before-the-split";
+    variant.inputFingerprints = { "animatic:shot.01.vo": "vo", "animatic:shot.01.reply": "reply" };
+    const [source] = spokenSourcesOf({ address, variantId: vid } as CompositionClip, {
+      manager,
+      definitions: { animatic: board },
+      direction: directionWith(EXCHANGE) as unknown as Direction,
+      animatic: board,
+    });
+    expect(source?.lines?.map((line) => line.text)).toEqual([LINE, REPLY]);
+  });
+
+  it("folds the off-frame stem into the board shot's leaves", async () => {
+    const dir = await fs.mkdtemp(path.join(tmpdir(), "konte-heard-stem-"));
+    const manager = await StateManager.init(dir);
+    const targets = shotAcceptTargets(manager, boardWithExchange(), {
+      shotId: "01",
+      pending: false,
+      shotFn: () => null,
+    });
+    expect(targets.leaves).toContainEqual({
+      address: "animatic:shot.01#offFrameStem",
+      what: "the off-frame stem",
+    });
   });
 });

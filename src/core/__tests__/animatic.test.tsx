@@ -95,7 +95,7 @@ function direction(
           ...(opts.script ? { script: [{ character: "cat", text: "meow" }] as const } : {}),
           ...(opts.telop ? { telop: ["第一話"] } : {}),
           ...(opts.coverage ? { coverage: true as const } : {}),
-          lineup: [],
+          lineup: ["cat"],
         },
       ],
     },
@@ -891,7 +891,7 @@ describe("animatic silent tail", () => {
               setup: "front",
               duration: 4,
               script: [{ character: "cat", text: "meow" }],
-              lineup: [],
+              lineup: ["cat"],
             },
             {
               id: "02",

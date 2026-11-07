@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { PinOccurrence } from "../pin-check.js";
 import type { ImageInputOccurrence } from "../image-inputs.js";
 import type { PromptOccurrence } from "../prompt-check.js";
-import type { StemInputOccurrence } from "../stem-mouth-check.js";
+import type { StemInputOccurrence } from "../dsl/stem-input-collect.js";
 import type { BuildFinding } from "../finding.js";
 import { FONT_FAMILY_PATTERN, isLanguageTag, type LanguageTag } from "../typography.js";
 import type { MediaAsset, SoundtrackEntry } from "../dsl/builders.js";
@@ -201,7 +201,10 @@ export const ShotDefinitionSchema = z.object({
   // feed `#narrationStem` rather than `#stem`, so a motion model driven by the stem never mouths the
   // narrator's words.
   narrationStemRefs: z.array(z.string()).optional(),
-  // What each `stemRefs` / `narrationStemRefs` cue is to the mix, decided from the direction's
+  // ANIMATIC ONLY: the cues saying lines of a character the shot's frame does not hold, split out of
+  // `stemRefs` the same way into `#offFrameStem`.
+  offFrameStemRefs: z.array(z.string()).optional(),
+  // What each `stemRefs` / `narrationStemRefs` / `offFrameStemRefs` cue is to the mix, decided from the direction's
   // script when the stage was built (see classifyShotCues) — the levels it is brought to, and
   // whether it ducks a bed. Stored here because the direction's lines are not on the stage
   // definition.
@@ -380,7 +383,8 @@ const ImageInputsSchema = z.custom<readonly ImageInputOccurrence[]>().optional()
 // Every address the stage declared with a `readsPrevPanel` adapter. Not hashed.
 const PrevPanelReadersSchema = z.custom<readonly string[]>().optional();
 
-// What the stage's `stem` inputs were wired to, read by `stem-unmouthed`. Not hashed.
+// What the stage's `stem` inputs were wired to, read by `stem-unmouthed` and the line marks. Not
+// hashed.
 const StemInputsSchema = z.custom<readonly StemInputOccurrence[]>().optional();
 
 // One line spelled as one model needs it — what `respell()` declared while the stage built, filed

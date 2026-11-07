@@ -16,6 +16,7 @@ export interface ShotLike {
   shotFn?: unknown;
   stemRefs?: readonly string[];
   narrationStemRefs?: readonly string[];
+  offFrameStemRefs?: readonly string[];
   compositionRefs?: string[];
   panels?: ShotDefinition["panels"];
   cutin?: ShotDefinition["cutin"];

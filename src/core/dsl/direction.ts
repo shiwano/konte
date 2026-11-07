@@ -1214,6 +1214,7 @@ export interface DirectionIndex {
   // on, which is what a build branches on.
   lineupById: Map<string, readonly string[]>;
   lineupToById: Map<string, readonly string[]>;
+  passingById: Map<string, readonly string[]>;
   // Per shot and lane, the shot whose frame runs on from this one in one take — a `join:
   // "continuous"` where the take is possible: the shot just before on the clock, narrative, its
   // frame in the same lane on the same declared setup. The board reads it to know which last panel
@@ -2078,6 +2079,19 @@ export function spanSongContext(
   };
 }
 
+// Every character a shot's frame or cutin holds: its `lineup`, `lineupTo` and `passing`.
+export function framedCharacterIds(index: DirectionIndex, shotId: string): Set<string> {
+  const cutin = index.cutinById.get(shotId);
+  return new Set([
+    ...(index.lineupById.get(shotId) ?? []),
+    ...(index.lineupToById.get(shotId) ?? []),
+    ...(index.passingById.get(shotId) ?? []),
+    ...(cutin?.lineup ?? []),
+    ...(cutin?.lineupTo ?? []),
+    ...(cutin?.passing ?? []),
+  ]);
+}
+
 // What of a board shot's span of the song a motion model hears (`ShotDefinition.songStem`): the
 // vocals over the lines a character in the shot's frame or cutin sings, else the instrumental.
 export function shotSongStem(
@@ -2086,13 +2100,7 @@ export function shotSongStem(
   start: number,
   duration: number,
 ): { part: "vocals"; windows: { start: number; duration: number }[] } | { part: "instrumental" } {
-  const cutin = index.cutinById.get(shotId);
-  const inFrame = new Set([
-    ...(index.lineupById.get(shotId) ?? []),
-    ...(index.lineupToById.get(shotId) ?? []),
-    ...(cutin?.lineup ?? []),
-    ...(cutin?.lineupTo ?? []),
-  ]);
+  const inFrame = framedCharacterIds(index, shotId);
   const sung = index.lyrics
     ? lyricsInSpan(index.lyrics, start, duration, index.timeline.fps)
         .filter((line) => line.singer.some((id) => inFrame.has(id)))
@@ -2188,6 +2196,7 @@ export function defineDirection<const D extends DirectionInput>(
   const scriptById = new Map<string, readonly ScriptLine[]>();
   const lineupById = new Map<string, readonly string[]>();
   const lineupToById = new Map<string, readonly string[]>();
+  const passingById = new Map<string, readonly string[]>();
   const setupById = new Map<string, string>();
   const graphicIds = new Set<string>();
   const coverageIds = new Set<string>();
@@ -2242,6 +2251,7 @@ export function defineDirection<const D extends DirectionInput>(
     }
     if (s.lineup) lineupById.set(s.id, s.lineup);
     if (s.lineupTo) lineupToById.set(s.id, s.lineupTo);
+    if (s.passing) passingById.set(s.id, s.passing);
   };
   // Walk the arc tree depth-first so `durationById` fills in direction order (its key order IS the shot
   // order the chain walks). A leaf indexes its shots; a branch recurses into its child nodes.
@@ -2281,6 +2291,7 @@ export function defineDirection<const D extends DirectionInput>(
     scriptById,
     lineupById,
     lineupToById,
+    passingById,
     continuedById,
     graphicIds,
     coverageIds,

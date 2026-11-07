@@ -151,6 +151,7 @@ export function collectChangedAddresses(
     compositionRefs?: readonly string[];
     stemRefs?: readonly string[];
     narrationStemRefs?: readonly string[];
+    offFrameStemRefs?: readonly string[];
   }>,
   stage: ShotStage,
   manager: StateManager,

@@ -1,7 +1,7 @@
 // Where a reel shot's lines are heard on the reel: each line's marks (what a take gets wrong of it,
 // or what its clip cuts) and the reel second each of its characters is heard at.
 
-import { isNarrationStemAddress, STEM_ASSET_NAME, tryParseAddress } from "./address.js";
+import { isHeardStemAddress, listShotStems, STEM_ASSET_NAME, tryParseAddress } from "./address.js";
 import { type CompositionClip, harvestShotAudioStructure } from "./composition-builder.js";
 import { definitionForAddress, type StageDefinitions } from "./definition-hashes.js";
 import type { Direction } from "./dsl/direction.js";
@@ -48,8 +48,8 @@ export type SpokenSource = {
   lines?: SaidLine[];
 };
 
-// The cues a board shot's stem at `stemAddress` mixes, each on the stem's clock: the narration
-// stem's narration, the shot stem's every other cue but the song. Each cue is the take the stem
+// The cues a board shot's stem at `stemAddress` mixes, each on the stem's clock: the narration and
+// off-frame stems' lines, the shot stem's every other cue but the song. Each cue is the take the stem
 // variant `stemVariantId` was mixed from, where that variant mixed the cues the board places now;
 // where it mixed others, the stem is heard as the sound of the take at `own`.
 function stemCueSources(
@@ -61,14 +61,18 @@ function stemCueSources(
   const { manager, animatic } = opts;
   const parsed = tryParseAddress(stemAddress);
   if (!animatic || parsed?.kind !== "shot") return [];
-  const narrationOnly = isNarrationStemAddress(stemAddress);
   const shot = animatic.shots.find((s) => s.id === parsed.shotId);
-  const mixes = new Set((narrationOnly ? shot?.narrationStemRefs : shot?.stemRefs) ?? []);
+  const state = manager.getState();
+  const mixed = stemVariantId ? state.assets[stemAddress]?.variants?.[stemVariantId] : undefined;
+  // A variant mixed before a cue left the stem (an off-frame line split out) still plays it.
+  const mixes = new Set([
+    ...((shot && listShotStems("animatic", shot).find((s) => s.address === stemAddress)?.refs) ??
+      []),
+    ...Object.keys(mixed?.inputFingerprints ?? {}),
+  ]);
   const cues = (harvestShotAudioStructure(animatic, parsed.shotId) ?? []).filter(
     (cue) => cue.track === "sound" && mixes.has(cue.src),
   );
-  const state = manager.getState();
-  const mixed = stemVariantId ? state.assets[stemAddress]?.variants?.[stemVariantId] : undefined;
   if (mixed && mixed.definitionHash !== definitionHashForAddress(animatic, stemAddress)) {
     const lines = cues.flatMap(
       (cue) => linesSaidAt(opts.definitions, opts.direction, cue.src).lines,
@@ -115,7 +119,7 @@ function stemCueSources(
 function isBoardStemAddress(address: string): boolean {
   const parsed = tryParseAddress(address);
   return (
-    isNarrationStemAddress(address) ||
+    isHeardStemAddress(address) ||
     (parsed?.stage === "animatic" &&
       parsed.kind === "shot" &&
       parsed.assetName === STEM_ASSET_NAME &&

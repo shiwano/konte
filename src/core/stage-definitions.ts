@@ -10,7 +10,6 @@ import {
   loadVideoDefinition,
   reloadVideoDefinition,
 } from "./loader.js";
-import { assertNarrationStemsPlaced } from "./narration-stem.js";
 import { stageEntryPath } from "./roots.js";
 import { type LoadedDefinitions, loadShotStages } from "./select-definition.js";
 import type { AnimaticDefinition, ReferenceDefinition, VideoDefinition } from "./types/index.js";
@@ -35,7 +34,6 @@ export async function loadVideoAndAnimatic(
 ): Promise<{ video: VideoDefinition; animatic: AnimaticDefinition }> {
   const animatic = await loadAnimatic(videoRoot, opts);
   const video = await readVideo(videoRoot, opts);
-  assertNarrationStemsPlaced(video, animatic);
   return { video, animatic };
 }
 
@@ -78,13 +76,7 @@ async function loadTolerant(
   };
   const reference = await attempt("reference", () => loadReference(videoRoot, opts));
   const animatic = await attempt("animatic", () => loadAnimatic(videoRoot, opts));
-  const video = animatic
-    ? await attempt("video", async () => {
-        const video = await readVideo(videoRoot, opts);
-        assertNarrationStemsPlaced(video, animatic);
-        return video;
-      })
-    : null;
+  const video = animatic ? await attempt("video", () => readVideo(videoRoot, opts)) : null;
   return { reference, animatic, video, errors };
 }
 

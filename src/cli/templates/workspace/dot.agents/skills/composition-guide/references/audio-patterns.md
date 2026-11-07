@@ -31,13 +31,13 @@ soundtracks: [
 ## The spoken lines live on the animatic
 
 - A shot the direction gives `script` lines must sound them there (`script-unvoiced` holds the shot otherwise) — an `<Audio>` per line in that shot's `animatic.tsx` composition.
-- konte mixes the shot's cues, narration apart, into `animatic:shot.<id>#stem` — the one audio file an audio-driven model takes; play its take with `<Video hasAudio>`.
+- konte mixes the shot's cues into `animatic:shot.<id>#stem` — the one audio file an audio-driven model takes; play its take with `<Video hasAudio>`.
 - Leave a line take's clip length unset — konte sizes it from the words, inside the window the `<Audio>` plays in. Set it by hand only after hearing a take come back rushed or padded.
 - A take that overruns its window is fitted, not cut — `asset("vo", adapters.audioRetime, { source: raw, duration: <the window> })` moves the tempo and leaves the pitch, so the clamp takes nothing off the tail. Past ±10% it needs a `waiver: "<reason>"` — the read itself has moved by then, which is the direction's call.
 - `animatic.shot(id).stem` is konte's, not yours — clamped to the shot's `duration` so a long voice take never decides the shot's length. Never write the mix or the trim yourself.
-- Lines on the delivered stem are a last resort — `<Audio src={animatic.shot("01").stem} />` in the video shot instead of the model's `audio` input, only once no adapter on the backend takes the voice into the take (`production-guide` step 2), or when no one the frame holds speaks the shot's lines (`stem-unmouthed`).
-- Narration is delivered from its own stem — `<Audio src={animatic.shot("01").narrationStem} />` in the video shot, `start`/`volume` set there (`NARRATION_UNPLACED` if missing). No model input takes it.
-- Narration beside a wordless recording is refused (`NARRATION_UNATTRIBUTED`) — voice it with an adapter whose spoken-text input carries its words.
+- Lines on the delivered stem are a last resort — `<Audio src={animatic.shot("01").stem} />` in the video shot instead of the model's `audio` input, only once no adapter on the backend takes the voice into the take (`production-guide` step 2), or when no one in frame speaks (`stem-unmouthed`).
+- Narration and off-frame lines have their own stems — `<Audio src={animatic.shot("01").narrationStem} />` / `.offFrameStem` in the video shot, `start`/`volume` set there (`stem-unplaced` if missing).
+- One beside a wordless recording is refused (`CUE_UNATTRIBUTED`) — voice it with an adapter whose spoken-text input carries its words.
 - An SE the motion must hit goes on the board if the motion model takes the stem — the take times its action to it and carries it; `video.tsx` adds none.
 - A sound that must cross the cut belongs in `video.tsx`, not the board — it drives neither shot's motion, and the board's `#stem` is cut to the shot.
 - Editing the board re-closes the gate — its composition's identity covers its audio, so retiming a line ages the accept out and holds the video until it is re-reviewed.

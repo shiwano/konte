@@ -226,9 +226,10 @@ export type ShotScript<S extends readonly ScriptLine[] = readonly ScriptLine[]> 
 };
 /**
  * One animatic shot as `video.tsx` reaches it: its takes by name and kind, plus the `stem` konte
- * mixes from the shot's cues, which an audio-driven motion model takes, the `narrationStem` it
- * mixes from the narration apart, which only `<Audio>` places, and on a song the `songStem` a motion
- * model hears of the shot's span of it.
+ * mixes from the shot's cues, which an audio-driven motion model takes, the `narrationStem` and
+ * `offFrameStem` it mixes apart from the narration and from the lines of a character the frame does
+ * not hold, which only `<Audio>` places, and on a song the `songStem` a motion model hears of the
+ * shot's span of it.
  *
  * The board shot's own rendering is not reachable; a V2V route wants `#composition` rendered to video
  * first.
@@ -239,7 +240,8 @@ export type ShotScript<S extends readonly ScriptLine[] = readonly ScriptLine[]> 
  */
 export interface AnimaticShotRef extends ShotHandle {
   readonly stem: MediaAsset<"audio">;
-  readonly narrationStem: NarrationStem;
+  readonly narrationStem: HeardStem;
+  readonly offFrameStem: HeardStem;
   readonly songStem: MediaAsset<"audio">;
 }
 export interface AnimaticRef {
@@ -1627,6 +1629,7 @@ export interface DirectionIndex {
   scriptById: Map<string, readonly ScriptLine[]>;
   lineupById: Map<string, readonly string[]>;
   lineupToById: Map<string, readonly string[]>;
+  passingById: Map<string, readonly string[]>;
   continuedById: Map<
     string,
     {
@@ -2161,12 +2164,12 @@ export interface MediaAsset<T extends MediaKind = MediaKind> {
   readonly __kind?: T;
 }
 /**
- * A board shot's narration mix, `animatic.shot(id).narrationStem`. Only `<Audio>` takes it: nothing
- * on screen speaks narration, so no model input accepts it.
+ * A board shot's mix of lines no mouth in its frame speaks — `animatic.shot(id).narrationStem`, or
+ * `.offFrameStem` for a character the frame does not hold. Only `<Audio>` takes it.
  */
-export interface NarrationStem {
+export interface HeardStem {
   readonly src: string;
-  readonly __kind?: "narrationStem";
+  readonly __kind?: "heardStem";
 }
 export interface ShotOptions {
   duration: number;
@@ -2346,6 +2349,131 @@ export type ImageInputOccurrence = {
   address: string;
   sources: readonly string[];
 };
+/**
+ * One field of a structured `"prompt"` input. `render` turns the caller's value into its section;
+ * its parameter type is the type the caller passes. A `render` taking no argument is a constant
+ * section: always written, never passed.
+ */
+export interface PromptStructureField {
+  render: (value: never) => string;
+  required?: boolean;
+  description?: string;
+}
+/**
+ * How a `"prompt"` input is assembled from fields: each field that has a value, rendered, in
+ * declaration order, joined by `join`.
+ */
+export interface PromptStructure {
+  join: string;
+  fields: Record<string, PromptStructureField>;
+}
+export type Fields<S extends PromptStructure> = S["fields"];
+export type ValuedFieldKey<S extends PromptStructure> = {
+  [K in keyof Fields<S>]: Parameters<Fields<S>[K]["render"]> extends [] ? never : K;
+}[keyof Fields<S>];
+export type RequiredFieldKey<S extends PromptStructure> = {
+  [K in ValuedFieldKey<S>]: Fields<S>[K] extends {
+    required: true;
+  }
+    ? K
+    : never;
+}[ValuedFieldKey<S>];
+export type FieldValue<F extends PromptStructureField> = Parameters<F["render"]>[0];
+export type PromptStructureValue<S extends PromptStructure> = {
+  [K in RequiredFieldKey<S>]: FieldValue<Fields<S>[K]>;
+} & {
+  [K in Exclude<ValuedFieldKey<S>, RequiredFieldKey<S>>]?: FieldValue<Fields<S>[K]>;
+};
+/** A structured prompt on the meta: the fields a caller passes, and the assembly `asset()` runs. */
+export interface PromptStructureMeta {
+  fields: Record<
+    string,
+    {
+      required: boolean;
+      description?: string;
+    }
+  >;
+  assemble: (value: unknown) => string;
+}
+/** `seconds` as `mm:ss.mmm`, rounded to the millisecond first (`59.9996` is `01:00.000`). */
+export declare function formatCutTime(seconds: number): string;
+export type AdapterBackendKind = "comfy" | "fal" | "local" | "file";
+/**
+ * The six places `asset()` can be called from. A stage build reaches exactly one — a shot build
+ * clears the timeline context. `view` is `defineReference`'s `views`.
+ */
+export type AssetDeclarationSite = "patch" | "plate" | "reference" | "view" | "timeline" | "shot";
+export interface AdapterMetaInput {
+  type: string;
+  required: boolean;
+  default?: string | number | boolean;
+  computed?: boolean;
+  grid?: {
+    step: number;
+    offset?: number;
+  };
+  min?: number;
+  max?: number;
+  clock?: number;
+  pin?: "start" | "end";
+  stem?: true;
+  values?: readonly string[];
+  array?: boolean;
+  description?: string;
+  structure?: PromptStructureMeta;
+}
+/**
+ * What `konte adapter list`/`show` reports about an adapter without calling it: enough
+ * to pick one (backend, media kind, required inputs, prose) and to write the asset()
+ * call. `ref` is the backend's own identifier — a workflow filename, an endpoint id,
+ * a model slug, an ffmpeg operation.
+ */
+export interface AdapterMeta {
+  backend: AdapterBackendKind;
+  mediaType: MediaKind;
+  description: string;
+  ref: string;
+  inputs: Record<string, AdapterMetaInput>;
+  guide?: string | readonly string[];
+  allowedIn?: readonly AssetDeclarationSite[];
+  promptExemptions?: readonly RegExp[];
+  spokenTextPattern?: RegExp;
+  readsPrevPanel?: true;
+  models?: readonly ComfyModelDeclaration[];
+  nodes?: readonly ComfyNodeDeclaration[];
+}
+export interface AssetAdapter<TInputs extends Record<string, unknown>, TOutput extends MediaKind> {
+  type: TOutput;
+  meta: AdapterMeta;
+  createDefinition(inputs: TInputs): AssetDefinition;
+  timeOffset?(inputs: TInputs): number | null;
+}
+export type DeclaredPin =
+  | "start"
+  | "end"
+  | {
+      end: {
+        nodeId: string;
+        field: string;
+      };
+    };
+export type AdapterInputs<T> = T extends AssetAdapter<infer I, any> ? I : never;
+export type AdapterOutput<T> = T extends AssetAdapter<any, infer O> ? O : never;
+export type BrandedMediaAsset<
+  TName extends string,
+  TAdapter extends AssetAdapter<any, any>,
+> = MediaAsset<AdapterOutput<TAdapter>> & {
+  readonly __partName: TName;
+};
+/**
+ * Declares an asset in the active context: a stage asset inside a `timeline()`/`shot()`, or a
+ * shared asset inside `defineReference()` (addressed `reference:<name>`).
+ */
+export declare function asset<TName extends string, TAdapter extends AssetAdapter<any, any>>(
+  name: TName & Identifier<TName>,
+  adapter: TAdapter,
+  inputs: AdapterInputs<TAdapter>,
+): BrandedMediaAsset<TName, TAdapter>;
 export type StemInputOccurrence = {
   address: string;
   source: string;
@@ -2737,6 +2865,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
           pictureRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
           stemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
           narrationStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+          offFrameStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
           cueKinds: z.ZodOptional<
             z.ZodRecord<z.ZodString, z.ZodEnum<["voice", "narration", "mob", "sfx"]>>
           >;
@@ -3063,6 +3192,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
           pictureRefs?: string[] | undefined;
           stemRefs?: string[] | undefined;
           narrationStemRefs?: string[] | undefined;
+          offFrameStemRefs?: string[] | undefined;
           cueKinds?: Record<string, "narration" | "voice" | "mob" | "sfx"> | undefined;
           songCue?:
             | {
@@ -3200,6 +3330,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
           pictureRefs?: string[] | undefined;
           stemRefs?: string[] | undefined;
           narrationStemRefs?: string[] | undefined;
+          offFrameStemRefs?: string[] | undefined;
           cueKinds?: Record<string, "narration" | "voice" | "mob" | "sfx"> | undefined;
           songCue?:
             | {
@@ -3967,6 +4098,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
       pictureRefs?: string[] | undefined;
       stemRefs?: string[] | undefined;
       narrationStemRefs?: string[] | undefined;
+      offFrameStemRefs?: string[] | undefined;
       cueKinds?: Record<string, "narration" | "voice" | "mob" | "sfx"> | undefined;
       songCue?:
         | {
@@ -4282,6 +4414,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
       pictureRefs?: string[] | undefined;
       stemRefs?: string[] | undefined;
       narrationStemRefs?: string[] | undefined;
+      offFrameStemRefs?: string[] | undefined;
       cueKinds?: Record<string, "narration" | "voice" | "mob" | "sfx"> | undefined;
       songCue?:
         | {
@@ -5502,6 +5635,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
     pictureRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     stemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     narrationStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    offFrameStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     cueKinds: z.ZodOptional<
       z.ZodRecord<z.ZodString, z.ZodEnum<["voice", "narration", "mob", "sfx"]>>
     >;
@@ -5828,6 +5962,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
     pictureRefs?: string[] | undefined;
     stemRefs?: string[] | undefined;
     narrationStemRefs?: string[] | undefined;
+    offFrameStemRefs?: string[] | undefined;
     cueKinds?: Record<string, "narration" | "voice" | "mob" | "sfx"> | undefined;
     songCue?:
       | {
@@ -5965,6 +6100,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
     pictureRefs?: string[] | undefined;
     stemRefs?: string[] | undefined;
     narrationStemRefs?: string[] | undefined;
+    offFrameStemRefs?: string[] | undefined;
     cueKinds?: Record<string, "narration" | "voice" | "mob" | "sfx"> | undefined;
     songCue?:
       | {
@@ -6623,6 +6759,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
           pictureRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
           stemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
           narrationStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+          offFrameStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
           cueKinds: z.ZodOptional<
             z.ZodRecord<z.ZodString, z.ZodEnum<["voice", "narration", "mob", "sfx"]>>
           >;
@@ -6949,6 +7086,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
           pictureRefs?: string[] | undefined;
           stemRefs?: string[] | undefined;
           narrationStemRefs?: string[] | undefined;
+          offFrameStemRefs?: string[] | undefined;
           cueKinds?: Record<string, "narration" | "voice" | "mob" | "sfx"> | undefined;
           songCue?:
             | {
@@ -7086,6 +7224,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
           pictureRefs?: string[] | undefined;
           stemRefs?: string[] | undefined;
           narrationStemRefs?: string[] | undefined;
+          offFrameStemRefs?: string[] | undefined;
           cueKinds?: Record<string, "narration" | "voice" | "mob" | "sfx"> | undefined;
           songCue?:
             | {
@@ -7687,6 +7826,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
       pictureRefs?: string[] | undefined;
       stemRefs?: string[] | undefined;
       narrationStemRefs?: string[] | undefined;
+      offFrameStemRefs?: string[] | undefined;
       cueKinds?: Record<string, "narration" | "voice" | "mob" | "sfx"> | undefined;
       songCue?:
         | {
@@ -7948,6 +8088,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
       pictureRefs?: string[] | undefined;
       stemRefs?: string[] | undefined;
       narrationStemRefs?: string[] | undefined;
+      offFrameStemRefs?: string[] | undefined;
       cueKinds?: Record<string, "narration" | "voice" | "mob" | "sfx"> | undefined;
       songCue?:
         | {
@@ -8097,131 +8238,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
   }
 >;
 export type VideoDefinition = z.infer<typeof VideoDefinitionSchema>;
-/**
- * One field of a structured `"prompt"` input. `render` turns the caller's value into its section;
- * its parameter type is the type the caller passes. A `render` taking no argument is a constant
- * section: always written, never passed.
- */
-export interface PromptStructureField {
-  render: (value: never) => string;
-  required?: boolean;
-  description?: string;
-}
-/**
- * How a `"prompt"` input is assembled from fields: each field that has a value, rendered, in
- * declaration order, joined by `join`.
- */
-export interface PromptStructure {
-  join: string;
-  fields: Record<string, PromptStructureField>;
-}
-export type Fields<S extends PromptStructure> = S["fields"];
-export type ValuedFieldKey<S extends PromptStructure> = {
-  [K in keyof Fields<S>]: Parameters<Fields<S>[K]["render"]> extends [] ? never : K;
-}[keyof Fields<S>];
-export type RequiredFieldKey<S extends PromptStructure> = {
-  [K in ValuedFieldKey<S>]: Fields<S>[K] extends {
-    required: true;
-  }
-    ? K
-    : never;
-}[ValuedFieldKey<S>];
-export type FieldValue<F extends PromptStructureField> = Parameters<F["render"]>[0];
-export type PromptStructureValue<S extends PromptStructure> = {
-  [K in RequiredFieldKey<S>]: FieldValue<Fields<S>[K]>;
-} & {
-  [K in Exclude<ValuedFieldKey<S>, RequiredFieldKey<S>>]?: FieldValue<Fields<S>[K]>;
-};
-/** A structured prompt on the meta: the fields a caller passes, and the assembly `asset()` runs. */
-export interface PromptStructureMeta {
-  fields: Record<
-    string,
-    {
-      required: boolean;
-      description?: string;
-    }
-  >;
-  assemble: (value: unknown) => string;
-}
-/** `seconds` as `mm:ss.mmm`, rounded to the millisecond first (`59.9996` is `01:00.000`). */
-export declare function formatCutTime(seconds: number): string;
-export type AdapterBackendKind = "comfy" | "fal" | "local" | "file";
-/**
- * The six places `asset()` can be called from. A stage build reaches exactly one — a shot build
- * clears the timeline context. `view` is `defineReference`'s `views`.
- */
-export type AssetDeclarationSite = "patch" | "plate" | "reference" | "view" | "timeline" | "shot";
-export interface AdapterMetaInput {
-  type: string;
-  required: boolean;
-  default?: string | number | boolean;
-  computed?: boolean;
-  grid?: {
-    step: number;
-    offset?: number;
-  };
-  min?: number;
-  max?: number;
-  clock?: number;
-  pin?: "start" | "end";
-  stem?: true;
-  values?: readonly string[];
-  array?: boolean;
-  description?: string;
-  structure?: PromptStructureMeta;
-}
-/**
- * What `konte adapter list`/`show` reports about an adapter without calling it: enough
- * to pick one (backend, media kind, required inputs, prose) and to write the asset()
- * call. `ref` is the backend's own identifier — a workflow filename, an endpoint id,
- * a model slug, an ffmpeg operation.
- */
-export interface AdapterMeta {
-  backend: AdapterBackendKind;
-  mediaType: MediaKind;
-  description: string;
-  ref: string;
-  inputs: Record<string, AdapterMetaInput>;
-  guide?: string | readonly string[];
-  allowedIn?: readonly AssetDeclarationSite[];
-  promptExemptions?: readonly RegExp[];
-  spokenTextPattern?: RegExp;
-  readsPrevPanel?: true;
-  models?: readonly ComfyModelDeclaration[];
-  nodes?: readonly ComfyNodeDeclaration[];
-}
-export interface AssetAdapter<TInputs extends Record<string, unknown>, TOutput extends MediaKind> {
-  type: TOutput;
-  meta: AdapterMeta;
-  createDefinition(inputs: TInputs): AssetDefinition;
-  timeOffset?(inputs: TInputs): number | null;
-}
-export type DeclaredPin =
-  | "start"
-  | "end"
-  | {
-      end: {
-        nodeId: string;
-        field: string;
-      };
-    };
-export type AdapterInputs<T> = T extends AssetAdapter<infer I, any> ? I : never;
-export type AdapterOutput<T> = T extends AssetAdapter<any, infer O> ? O : never;
-export type BrandedMediaAsset<
-  TName extends string,
-  TAdapter extends AssetAdapter<any, any>,
-> = MediaAsset<AdapterOutput<TAdapter>> & {
-  readonly __partName: TName;
-};
-/**
- * Declares an asset in the active context: a stage asset inside a `timeline()`/`shot()`, or a
- * shared asset inside `defineReference()` (addressed `reference:<name>`).
- */
-export declare function asset<TName extends string, TAdapter extends AssetAdapter<any, any>>(
-  name: TName & Identifier<TName>,
-  adapter: TAdapter,
-  inputs: AdapterInputs<TAdapter>,
-): BrandedMediaAsset<TName, TAdapter>;
 export type FileAdapterInputs = {
   path: `assets/files/${string}`;
 };
@@ -8993,7 +9009,7 @@ export declare function Animate<D extends AnimateData | undefined = undefined>({
 }): React.ReactElement;
 export type AudioElementProps = React.ComponentPropsWithoutRef<"audio">;
 export type AudioProps = Omit<AudioElementProps, "src" | "id"> & {
-  src: MediaAsset<"audio"> | NarrationStem;
+  src: MediaAsset<"audio"> | HeardStem;
   /**
    * Stable cue id, local to the shot (data-konte-cue) — a display label for the review timeline and
    * `konte probe`. Not an address: `#` is konte's reserved namespace (see address.ts), and a cue id

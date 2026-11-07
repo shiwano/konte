@@ -166,16 +166,16 @@ export type KonteErrorCode =
   // say, or pauses its take does not hold.
   | "SUBTITLE_LINE_INVALID"
   | "DUCK_INVALID"
-  // A board shot with a narration line no readable take carries, and a recording konte reads no
-  // words from beside it: that recording may be the narration or a sound in the frame, and the two
-  // go to different stems. Or one take saying both a narration and another line.
-  | "NARRATION_UNATTRIBUTED"
-  // A board shot's `#narrationStem` that no developed `video.tsx` shot places with `<Audio>`.
-  | "NARRATION_UNPLACED"
+  // A board shot with a line mixed apart from its `#stem` (narration, or a character its frame does
+  // not hold) that no readable take carries, and a recording konte reads no words from beside it:
+  // that recording may be the line or a sound in the frame, and the two go to different stems. Or
+  // one take saying lines of two stems.
+  | "CUE_UNATTRIBUTED"
   // An `animatic` that is not one: a `<Video>` inside it (a surface to draw motion on would route
   // around the gate), a top level that is not a `<Composition>`, a name it and the `build` both
-  // declare, a `.stem` / `.narrationStem` reference when there is none, a `.narrationStem` placed
-  // anywhere but an `<Audio>`, or `animatic.shot()` called outside a build.
+  // declare, a `.stem` / `.narrationStem` / `.offFrameStem` reference when there is none, a
+  // `.narrationStem` / `.offFrameStem` placed anywhere but an `<Audio>`, or `animatic.shot()`
+  // called outside a build.
   | "ANIMATIC_INVALID"
   // An `<Animate script>` whose source cannot be embedded. It is serialized and wrapped as
   // `(<source>)(…)`, so a form that is not a standalone expression leaves the whole <script>

@@ -1,5 +1,6 @@
-import { isNarrationStemAddress, tryParseAddress } from "./address.js";
+import { isNarrationStemAddress, isOffFrameStemAddress, tryParseAddress } from "./address.js";
 import type { CueKind } from "./audio-level.js";
+import { type DirectionIndex, framedCharacterIds } from "./dsl/direction.js";
 import { KonteError } from "./errors.js";
 import { extractRefs } from "./graph.js";
 import type { AssetDefinition, StageDefinition } from "./types/index.js";
@@ -83,19 +84,47 @@ export const saysLine = (
 const lineKind = (line: ScriptLine): CueKind =>
   "speaker" in line ? "mob" : "narration" in line ? "narration" : "voice";
 
+// The board stem a line's cue is mixed into: `#stem` for a mouth the frame holds and for the mob,
+// `#narrationStem` for narration, `#offFrameStem` for a character the frame does not hold.
+type LineStem = "stem" | "narration" | "offFrame";
+
+// The characters a shot's frames hold, or null where konte does not split lines by frame: a graphic
+// or coverage shot, an aside, and every shot of a piece cut to its song.
+function framedCharacters(index: DirectionIndex, shotId: string): ReadonlySet<string> | null {
+  if (index.timeline.song || index.graphicIds.has(shotId) || index.coverageIds.has(shotId)) {
+    return null;
+  }
+  return index.lineupById.has(shotId) ? framedCharacterIds(index, shotId) : null;
+}
+
+function lineStemOf(index: DirectionIndex, shotId: string): (line: ScriptLine) => LineStem {
+  const framed = framedCharacters(index, shotId);
+  return (line) =>
+    "narration" in line
+      ? "narration"
+      : "character" in line && framed && !framed.has(line.character)
+        ? "offFrame"
+        : "stem";
+}
+
+// The stem a board stem placed in the video stands for.
+function placedLineStem(ref: string): LineStem | null {
+  return isNarrationStemAddress(ref) ? "narration" : isOffFrameStemAddress(ref) ? "offFrame" : null;
+}
+
 /**
  * Each of a shot's audio cues, as the mix sees it. The direction decides: a cue carrying a
  * `{ speaker }` line is a `mob`, one carrying a `{ narration }` line `narration`, one carrying a
  * `{ character }` line a `voice`, and one with no words an `sfx`. A board's `#narrationStem` placed
- * in the video is `narration`.
+ * in the video is `narration`, its `#offFrameStem` a `voice`.
  *
  * The exception is the OPAQUE cue — a recording, which konte can read no words out of. When a shot
  * has lines and not one of its cues carries words, those cues ARE the recording of them, so they
  * are voices — narration when every line is; the same test `assertScriptVoiced` makes before
- * falling back to its whole-shot rule. Only the lines a placed `#narrationStem` leaves are owed a
- * recording. Mixed with a readable cue the reasoning is gone, and a wordless cue beside a TTS take
- * is far more often a door slam than a second recorded line (`assertNarrationAttributable`
- * refuses the board shot where it could be the narration).
+ * falling back to its whole-shot rule. Only the lines a placed `#narrationStem` / `#offFrameStem`
+ * leaves are owed a recording. Mixed with a readable cue the reasoning is gone, and a wordless cue
+ * beside a TTS take is far more often a door slam than a second recorded line
+ * (`assertLinesAttributable` refuses the board shot where it could be a line mixed apart).
  *
  * Every unresolved case lands on `voice` — the level and the ducking a line already gets, so a
  * misread leaves the mix where it stands today instead of sinking a cue that should carry.
@@ -105,17 +134,18 @@ function classifyShotCues(
   shotId: string,
   stemRefs: readonly string[],
   lines: readonly ScriptLine[],
+  lineStem: (line: ScriptLine) => LineStem,
 ): Map<string, CueKind> {
   const wordsByRef = new Map(stemRefs.map((ref) => [ref, spokenTextsUnder(definition, [ref])]));
   const anyReadable = [...wordsByRef.values()].some((words) => words.length > 0);
-  const owed = stemRefs.some(isNarrationStemAddress)
-    ? lines.filter((line) => !("narration" in line))
-    : lines;
+  const placed = new Set(stemRefs.map(placedLineStem));
+  const owed = lines.filter((line) => !placed.has(lineStem(line)));
   const recordingKind: CueKind = owed.every((line) => "narration" in line) ? "narration" : "voice";
   const out = new Map<string, CueKind>();
   for (const [ref, words] of wordsByRef) {
-    if (isNarrationStemAddress(ref)) {
-      out.set(ref, "narration");
+    const stem = placedLineStem(ref);
+    if (stem) {
+      out.set(ref, stem === "narration" ? "narration" : "voice");
       continue;
     }
     if (words.length === 0) {
@@ -141,15 +171,51 @@ function classifyShotCues(
  * File every shot's cues by kind, in place, once the stage is built and the direction's lines are
  * still at hand. A shot with no cues gets no record.
  */
-export function attachCueKinds(
-  definition: StageDefinition,
-  scriptById: ReadonlyMap<string, readonly ScriptLine[]>,
-): void {
+export function attachCueKinds(definition: StageDefinition, index: DirectionIndex): void {
   for (const shot of definition.shots) {
     const stemRefs = shot.stemRefs ?? [];
     if (stemRefs.length === 0) continue;
-    const kinds = classifyShotCues(definition, shot.id, stemRefs, scriptById.get(shot.id) ?? []);
+    const kinds = classifyShotCues(
+      definition,
+      shot.id,
+      stemRefs,
+      index.scriptById.get(shot.id) ?? [],
+      lineStemOf(index, shot.id),
+    );
     shot.cueKinds = Object.fromEntries(kinds);
+  }
+}
+
+/**
+ * Move each board shot's cues saying lines no mouth in its frame speaks out of `#stem`, the mix a
+ * motion model takes: narration into `#narrationStem`, a character the frame does not hold into
+ * `#offFrameStem` unless nothing else would be left in `#stem`. Runs after `attachCueKinds`, on a
+ * stage `assertLinesAttributable` let through, so a cue saying lines of two stems never reaches
+ * it. A wordless voice is the recording of every line the shot gives.
+ */
+export function splitHeardStems(definition: StageDefinition, index: DirectionIndex): void {
+  for (const shot of definition.shots) {
+    const cues = shot.stemRefs ?? [];
+    if (cues.length === 0) continue;
+    const lines = index.scriptById.get(shot.id) ?? [];
+    const lineStem = lineStemOf(index, shot.id);
+    const stemOf = (ref: string): LineStem => {
+      const kind = shot.cueKinds?.[ref];
+      if (kind === "narration") return "narration";
+      if (kind !== "voice") return "stem";
+      const words = spokenTextsUnder(definition, [ref]);
+      const said = words.length > 0 ? linesSaid(definition, shot.id, words, lines) : lines;
+      return said.length > 0 && said.every((line) => lineStem(line) === "offFrame")
+        ? "offFrame"
+        : "stem";
+    };
+    const byStem = Map.groupBy(cues, stemOf);
+    const narration = byStem.get("narration");
+    const offFrame = byStem.has("stem") ? byStem.get("offFrame") : undefined;
+    if (!narration && !offFrame) continue;
+    shot.stemRefs = cues.filter((ref) => !narration?.includes(ref) && !offFrame?.includes(ref));
+    if (narration) shot.narrationStemRefs = narration;
+    if (offFrame) shot.offFrameStemRefs = offFrame;
   }
 }
 
@@ -177,49 +243,61 @@ function linesSaid(
 }
 
 /**
- * Refuse a board shot whose narration konte cannot find. Its cues split by kind into `#stem` and
- * `#narrationStem`, and a recording beside a narration line no readable take carries may be either
- * that narration or a sound in the frame — a guess that, wrong, hands the narrator's words to the
- * motion model. The shot whose every line is narration and every cue a recording is the recording
- * of them, and stands. One take saying both a narration and another line cannot go to either stem.
+ * Refuse a board shot whose lines mixed apart konte cannot find. Its cues split by the line they say
+ * into `#stem`, `#narrationStem` and `#offFrameStem`, and a recording beside such a line no readable
+ * take carries may be that line or a sound in the frame — a guess that, wrong, hands words no mouth
+ * in the frame speaks to the motion model. The shot whose every line goes to one stem apart and every
+ * cue is a recording is the recording of them, and stands. One take saying lines of two stems cannot
+ * go to either, unless the two read alike.
  */
-export function assertNarrationAttributable(
-  definition: StageDefinition,
-  scriptById: ReadonlyMap<string, readonly ScriptLine[]>,
-): void {
+export function assertLinesAttributable(definition: StageDefinition, index: DirectionIndex): void {
   for (const shot of definition.shots) {
     if (shot.pending) continue;
-    const lines = scriptById.get(shot.id) ?? [];
-    const narration = lines.filter((line) => "narration" in line);
-    if (narration.length === 0) continue;
+    const lines = index.scriptById.get(shot.id) ?? [];
+    const lineStem = lineStemOf(index, shot.id);
+    const apart = lines.filter((line) => lineStem(line) !== "stem");
+    if (apart.length === 0) continue;
     const wordsByRef = (shot.stemRefs ?? []).map(
       (ref) => [ref, spokenTextsUnder(definition, [ref])] as const,
     );
     for (const [ref, words] of wordsByRef) {
-      const said = linesSaid(definition, shot.id, words, lines);
-      const narrated = said.find((line) => "narration" in line);
-      const spoken = said.find((line) => !("narration" in line));
-      if (!narrated || !spoken) continue;
+      // Two lines of one text tie: the take says one of them, and `splitHeardStems` keeps it in
+      // `#stem`.
+      const [first, ...rest] = linesSaid(definition, shot.id, words, lines);
+      const other =
+        first &&
+        rest.find(
+          (line) => lineStem(line) !== lineStem(first) && lineText(line) !== lineText(first),
+        );
+      if (!first || !other) continue;
       throw new KonteError(
-        "NARRATION_UNATTRIBUTED",
-        `Animatic shot "${shot.id}" plays ${ref}, one take carrying both the narration ` +
-          `\u201c${lineText(narrated)}\u201d and the line \u201c${lineText(spoken)}\u201d. ` +
+        "CUE_UNATTRIBUTED",
+        `Animatic shot "${shot.id}" plays ${ref}, one take carrying both ` +
+          `\u201c${lineText(first)}\u201d (${STEM_NAME[lineStem(first)]}) and ` +
+          `\u201c${lineText(other)}\u201d (${STEM_NAME[lineStem(other)]}). ` +
           `Voice them as separate takes.`,
       );
     }
     const opaque = wordsByRef.filter(([, words]) => words.length === 0).map(([ref]) => ref);
     if (opaque.length === 0) continue;
     const readable = wordsByRef.flatMap(([, words]) => words);
-    if (readable.length === 0 && narration.length === lines.length) continue;
-    const unmatched = narration.find((line) => !saysLine(definition, shot.id, readable, line));
+    if (readable.length === 0 && new Set(lines.map(lineStem)).size === 1) continue;
+    const unmatched = apart.find((line) => !saysLine(definition, shot.id, readable, line));
     if (!unmatched) continue;
     throw new KonteError(
-      "NARRATION_UNATTRIBUTED",
+      "CUE_UNATTRIBUTED",
       `Animatic shot "${shot.id}" plays ${opaque.join(", ")}, a recording konte reads no words ` +
-        `from, and no take it can read carries the narration \u201c${lineText(unmatched)}\u201d. ` +
-        `konte cannot tell whether the recording is that narration (mixed into #narrationStem, ` +
-        `kept away from the motion model) or a sound in the frame (mixed into #stem). Voice the ` +
-        `narration with an adapter whose spoken-text input carries its words.`,
+        `from, and no take it can read carries the line \u201c${lineText(unmatched)}\u201d. ` +
+        `konte cannot tell whether the recording is that line (mixed into ` +
+        `${STEM_NAME[lineStem(unmatched)]}, kept away from the motion model) or a sound in the ` +
+        `frame (mixed into #stem). Voice the line with an adapter whose spoken-text input ` +
+        `carries its words.`,
     );
   }
 }
+
+const STEM_NAME: Record<LineStem, string> = {
+  stem: "#stem",
+  narration: "#narrationStem",
+  offFrame: "#offFrameStem",
+};
