@@ -23,8 +23,12 @@ import {
 import { directionDefaults, testDirection } from "./helpers/direction.js";
 import { moves, shot, animaticTimeline, videoTimeline } from "./helpers/shot.js";
 import { KonteError } from "../errors.js";
+import { getAssetEntry } from "../address.js";
+import { computeDefinitionHash } from "../definition-hash.js";
+import { applyResolutionDefinitions } from "../definition-hashes.js";
+import { writeDefinitionSnapshot } from "../definition-snapshot.js";
 import { StateManager } from "../state/index.js";
-import type { VariantMedia } from "../types/index.js";
+import type { AssetDefinition, VariantMedia } from "../types/index.js";
 
 const NO_LINES: LineTimer = async () => undefined;
 
@@ -2083,6 +2087,93 @@ describe("the board frame stand-in", () => {
 
     setupAccepted(manager, "video:shot.01.motion", "assets/shot.01.motion/output.mp4");
     expect(plan(true).shots[0]!.showStandIn).toBe(false);
+  });
+
+  describe("an unaccepted take whose definition moved", () => {
+    const MOTION = "video:shot.01.motion";
+
+    type ComfyDefinition = Extract<AssetDefinition, { kind: "comfy" }>;
+
+    async function takeMadeFrom(made: (current: ComfyDefinition) => AssetDefinition) {
+      setupAccepted(manager, "animatic:shot.01.keyframe", "assets/shot.01.keyframe/frame.png");
+      const current = getAssetEntry(silentVideo, MOTION) as ComfyDefinition;
+      const def = made(current);
+      const id = setupReady(manager, MOTION, "assets/shot.01.motion/output.mp4");
+      manager.getAssetState(MOTION).variants![id]!.definitionHash = computeDefinitionHash(def);
+      writeDefinitionSnapshot(tmpDir, MOTION, id, def);
+      await applyResolutionDefinitions({
+        videoRoot: tmpDir,
+        state: manager.getState(),
+        patchHashes: new Map(),
+        definitions: { animatic, video: silentVideo },
+      });
+    }
+
+    const rekeyed = (record: Record<string, unknown>) =>
+      Object.fromEntries(Object.entries(record).map(([k, v]) => [k.replace(/^1\./, "2."), v]));
+
+    it("is shown when it moved only under its adapter", async () => {
+      await takeMadeFrom((current) => ({
+        ...current,
+        inputs: rekeyed(current.inputs),
+        inputLabels: rekeyed(current.inputLabels ?? {}) as Record<string, string>,
+      }));
+      expect(plan(true).shots[0]!.showStandIn).toBe(false);
+    });
+
+    it("stands in when its call site was edited", async () => {
+      await takeMadeFrom((current) => ({
+        ...current,
+        inputs: { ...current.inputs, "1.image": "an older frame" },
+      }));
+      expect(plan(true).shots[0]!.showStandIn).toBe(true);
+    });
+
+    it("stands in when the take is outside the shot, where the shot's accept does not land", async () => {
+      const SHARED = "video:timeline.shared";
+      const sharedVideo = defineVideo(testDirection(format), {
+        timeline: () => {
+          const shared = asset("shared", animateFromImageComfy, {
+            image: animatic.shot("01").image("keyframe"),
+          });
+          return videoTimeline([
+            shot("01", {
+              duration: 5,
+              build: () => (
+                <Composition>
+                  <Video src={shared} />
+                </Composition>
+              ),
+            }),
+          ]);
+        },
+      });
+      setupAccepted(manager, "animatic:shot.01.keyframe", "assets/shot.01.keyframe/frame.png");
+      const current = getAssetEntry(sharedVideo, SHARED) as ComfyDefinition;
+      const made = {
+        ...current,
+        inputs: rekeyed(current.inputs),
+        inputLabels: rekeyed(current.inputLabels ?? {}) as Record<string, string>,
+      };
+      const id = setupReady(manager, SHARED, "assets/timeline.shared/output.mp4");
+      manager.getAssetState(SHARED).variants![id]!.definitionHash = computeDefinitionHash(made);
+      writeDefinitionSnapshot(tmpDir, SHARED, id, made);
+      await applyResolutionDefinitions({
+        videoRoot: tmpDir,
+        state: manager.getState(),
+        patchHashes: new Map(),
+        definitions: { animatic, video: sharedVideo },
+      });
+      expect(manager.registeredAdapterDrift(SHARED, id)).toBe(true);
+
+      const shown = buildRenderPlan(sharedVideo, manager, {
+        outputDir: "",
+        allowUnaccepted: true,
+        allowNotReady: true,
+        standIn: buildStageReviewPlan(animatic, manager),
+      });
+      expect(shown.shots[0]!.showStandIn).toBe(true);
+    });
   });
 });
 

@@ -25,7 +25,7 @@ import {
 } from "./address.js";
 import { resolveCompositionRef } from "./composition-refs.js";
 import { KonteError } from "./errors.js";
-import { inferMediaType } from "./media-type.js";
+import { inferMediaType, variantMediaKind } from "./media-type.js";
 import { formatStaleReason, variantsNewestFirst } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
 import { type AssetState, type StageDefinition, isPendingShot } from "./types/index.js";
@@ -214,9 +214,30 @@ export function buildRenderPlan(
 
   // Whether this shot's delivered composition can be drawn at all — the same question the review UI
   // answers for the reviewer, so a shot flips from its stand-in to its real picture the moment its
-  // last upstream lands, one shot at a time.
+  // last upstream lands, one shot at a time. A take stale only under its adapter is shown when it is
+  // one of the shot's own pictures, the takes the shot's accept lands on before materializing.
+  const drawsAsWritten = (shot: StageDefinition["shots"][number], ref: string): boolean => {
+    const take = resolveCompositionRef(manager, ref, { includeStale: true });
+    if (!take) return false;
+    const staleness = manager.variantStaleness(ref, take.variantId);
+    if (
+      staleness === null ||
+      staleness.inputStale ||
+      staleness.patchStale ||
+      !manager.registeredAdapterDrift(ref, take.variantId)
+    ) {
+      return false;
+    }
+    return (
+      shownShotAssetNames(stage, video.shots, shot).some(
+        (name) => formatAddress(stage, shot.id, name) === ref,
+      ) && variantMediaKind(manager, ref, take.variantId) !== "audio"
+    );
+  };
   const buildUnready = (shot: StageDefinition["shots"][number]): boolean =>
-    (shot.compositionRefs ?? []).some((ref) => !resolveCompositionRef(manager, ref));
+    (shot.compositionRefs ?? []).some(
+      (ref) => !resolveCompositionRef(manager, ref) && !drawsAsWritten(shot, ref),
+    );
 
   const showsStandIn = (shot: StageDefinition["shots"][number]): boolean => {
     if (!standInPlan) return false;
