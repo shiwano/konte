@@ -20,6 +20,7 @@ Before writing or editing a prompt-like field (`prompt`, `text`, `lyrics`):
 
 - Name what occupies the space, never what to leave out — a model conditions on the words it is given, so `no outlines` draws outlines; write `flat washes meeting edge to edge`.
 - An exclusion belongs in `negativePrompt` — the one field a model reads it in.
+- Revise by rewriting the whole prompt from the shot's `action` and the panel's `blocking`/`camera` — a fix naming the defect ("the pen stays motionless") or stacking it (`perfectly still`, `like a statue`) draws the model to it.
 - Write the scene description as a plain string literal, inline and fully spelled out — only boilerplate that must stay verbatim across shots (a canvas preamble, a character-preservation clause) may be a shared constant.
 
 ## Per kind

@@ -47,6 +47,8 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - adaptation 36,300 → 36,350 (agreed by a human): a prompt revised by a whole rewrite, never naming
+//   the defect it fixes.
 // - konte-prompt-critic 4,000 → 4,050, konte-animatic-critic 3,900 → 4,000, konte-staging-critic
 //   2,500 → 2,600, konte-video-critic 2,900 → 3,000, adaptation 36,200 → 36,300 (agreed by a human):
 //   a guide a skill or a command names for a step, read whole before that step.
@@ -218,7 +220,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "adaptation",
-    budget: 36_300,
+    budget: 36_350,
     files: [...VIDEO_FILES, `${SKILLS}/scenario-guide/references/adaptation.md`],
   },
   {
