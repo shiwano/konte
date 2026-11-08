@@ -2,7 +2,7 @@
 
 ## Design Policy
 
-**No backward compatibility yet.** konte is still pre-release and has no users. Do NOT preserve backward compatibility, add migration paths, or keep deprecated APIs. Always pursue the best possible design, even if it means breaking changes.
+**No backward compatibility yet.** konte is still pre-release and has no users. Do NOT preserve backward compatibility, add migration paths, or keep deprecated APIs. Always pursue the best possible design.
 
 **The human directs; the agent produces.** The human's one job is taste — watching the cut and deciding what changes. Review work that is not a taste decision (re-accepting a shot whose picture did not change, restating a decision an accept already recorded) is a defect. The CLI is the agent's surface and the review UI is the human's; both get the same design density.
 
@@ -24,9 +24,9 @@ A commit is one change, and its message is where the reason lives — comments a
 
 ```sh
 bun run konte    # Run CLI in development
-bun run test:run # Run all tests
-bun run test:run -- src/core/**/*.test.ts  # Run a single test
-bun run check    # lint + format check
+bun run test:run
+bun run test:run -- src/core/**/*.test.ts
+bun run check
 ```
 
 ## Architecture Notes
@@ -50,7 +50,7 @@ A command acts on the video cwd sits inside, else the workspace's **current vide
 
 `direction` (`direction.ts`, `defineDirection`) is the ordered shots, the piece-wide policy and the rosters (`characters`, `props`, `locations`, `setups`); every other stage builds on it, and it is addressable only as feedback-only targets. `reference` (`reference.tsx`, `defineReference`) holds shared assets, generated once and consumed by both creative stages. `animatic` (`animatic.tsx`, `defineAnimatic`) is the board on the direction's clock; `video` (`video.tsx`, `defineVideo`) the final motion picture, built on the one animatic. Each is a standalone entry file the CLI loads directly.
 
-`defineAnimatic(direction, …)` / `defineVideo(direction, …)` derive `size`/`fps` from the direction — the working canvas is never authored (`policy.format.size` is `{ megapixels, delivery }`). Both take `timeline(({ format, shot, graphicShot, pendingShot, asideShot }) => ({ shots, soundtracks?, overlay? }))`; a shot is `shot(id, (ctx) => <Composition>…)` and `.nextShot(…)` walks the direction, with `graphicShot` / `asideShot` per kind and `pendingShot` for an undeveloped one. An animatic shot's keyframes are `<Panel>` and its lines `<Audio>`; a video shot's picture is `<Video>`, reaching the board through `animatic.shot("01").image("first")` / `.stem`. A shot's goal is stated once, on the direction (`action`); a `<Panel>` adds `blocking` / `camera`, prose written from the take and hashed on its own review axis.
+`defineAnimatic(direction, …)` / `defineVideo(direction, …)` derive `size`/`fps` from the direction (`policy.format.size` is `{ megapixels, delivery }`). Both take `timeline(({ format, shot, graphicShot, pendingShot, asideShot }) => ({ shots, soundtracks?, overlay? }))`; a shot is `shot(id, (ctx) => <Composition>…)` and `.nextShot(…)` walks the direction, with `graphicShot` / `asideShot` per kind and `pendingShot` for an undeveloped one. An animatic shot's keyframes are `<Panel>` and its lines `<Audio>`; a video shot's picture is `<Video>`, reaching the board through `animatic.shot("01").image("first")` / `.stem`. A shot's goal is stated once, on the direction (`action`); a `<Panel>` adds `blocking` / `camera`, prose written from the take and hashed on its own review axis.
 
 The direction's vocabulary, each a declaration konte never derives (see `arch-direction-guide`): a shot names a **setup** — one camera position, with `location`, `framing`, `holds` (the landmarks in frame) and `within` (the wider frame it is a window of); its **`lineup`** / **`lineupTo`** name who the frame holds, left to right; **`join`** states the boundary into it (cut, `jump-back`, `jump-forward`, `continuous`); a **`cutin`** is a second camera frame over the shot; `promptDepiction` is the noun a prompt calls a character or landmark by. A setup is realized by a **plate** (`animatic:plate.<setupId>`, from `defineAnimatic`'s `plates` callback), not a `reference:<id>`; a plate stands on the image of its **`view`** (`front`: the master). A shot is narrative (default), `kind: "graphic"` (no camera), or `kind: "aside"` (on the clock, outside the arc; the animatic never boards one).
 
@@ -72,11 +72,11 @@ A variant is **input-stale** when an input it consumed no longer matches what th
 
 ### Generation
 
-`konte generate <stage-scope>` is always async: it registers every dependency level at once, jobs with no dependencies run, dependents pend until their inputs are ready. Inputs reference other assets by address; the graph spans both stages, and a cycle, a missing asset, or a reference to an undeveloped `pendingShot` is an error. `konte reroll <targets>` adds variants to pick among; `konte patch new|apply|remove|list` corrects one take (`patches/<variantId>.ts`, `definePatch`). Nothing pushes a completion; `konte job wait` blocks for one.
+`konte generate <stage-scope>` is always async: it registers every dependency level at once, jobs with no dependencies run, dependents pend until their inputs are ready. Inputs reference other assets by address; the graph spans both stages, and a cycle, a missing asset, or a reference to an undeveloped `pendingShot` is an error. `konte reroll <targets>` adds variants to pick among; `konte patch new|apply|remove|list` corrects one take (`patches/<variantId>.ts`, `definePatch`).
 
 Every take is review work, bar a `#delivery` upscale, which konte accepts on completion; a **deterministic** asset has one outcome — no `reroll` / `dismiss`. A shot **composition**, an audio **stem** and the **overlay** (`<stage>:timeline#overlay`, signed off by shot accepts) are graph leaves with no job: rendered live wherever used, materialized only on accept, by address.
 
-`konte mcp serve` is a per-workspace daemon that watches every video's jobs and cascades submission; `konte job wait` runs the jobs itself when none is up. Its one tool, `status`, reports the daemon itself; every job outcome is learned by blocking on the CLI.
+`konte mcp serve` is a per-workspace daemon that watches every video's jobs and cascades submission; `konte job wait` runs the jobs itself when none is up. Its one tool, `status`, reports the daemon itself; nothing pushes a job outcome — `konte job wait` blocks for one.
 
 ### Templates
 
