@@ -300,6 +300,7 @@ export async function compositeWithHyperFrames(options: {
   // `setTimeout`, which a document that virtualizes its timers holds until the next seek.
   screenshotCapture?: boolean;
   onLog?: (line: string) => void;
+  signal?: AbortSignal;
 }): Promise<string[]> {
   const { compositionHtml, assetFiles, outputFile, fps, quality } = options;
 
@@ -345,10 +346,12 @@ export async function compositeWithHyperFrames(options: {
       }),
     });
 
+    const execute = () =>
+      producer.executeRenderJob(job, workspace, outputFile, undefined, options.signal);
     if (options.onLog) {
-      await captureRenderLogs(onLog, () => producer.executeRenderJob(job, workspace, outputFile));
+      await captureRenderLogs(onLog, execute);
     } else {
-      await producer.executeRenderJob(job, workspace, outputFile);
+      await execute();
     }
 
     return job.warnings.map(

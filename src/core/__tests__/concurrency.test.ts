@@ -36,6 +36,19 @@ describe("mapConcurrent", () => {
     expect(started).toEqual([0, 1, 2]);
   });
 
+  it("aborts the calls in flight on the first failure and settles them before rejecting", async () => {
+    let abortedSettled = false;
+    await expect(
+      mapConcurrent([0, 1], 2, async (n, _i, signal) => {
+        if (n === 1) throw new Error("boom");
+        await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve()));
+        abortedSettled = true;
+        throw new Error("aborted");
+      }),
+    ).rejects.toThrow("boom");
+    expect(abortedSettled).toBe(true);
+  });
+
   it("handles an empty input", async () => {
     expect(await mapConcurrent([], 4, async () => 1)).toEqual([]);
   });

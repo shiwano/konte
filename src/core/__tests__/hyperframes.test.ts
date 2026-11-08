@@ -243,6 +243,8 @@ describe("compositeWithHyperFrames", () => {
       { id: "mock-job", warnings: [] },
       "/tmp/konte-hf-mock",
       "/output/shot.mp4",
+      undefined,
+      undefined,
     );
   });
 

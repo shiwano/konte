@@ -53,6 +53,7 @@ import { escapeHtml, renderToHtml } from "./jsx-html.js";
 import type { OverlayDefinition, StageDefinition, Typography } from "./types/definition.js";
 import { inferMediaType } from "./media-type.js";
 import { buildRenderPlan, type RenderPlan, type ShotRenderPlan } from "./render-plan.js";
+import { mapConcurrent } from "./concurrency.js";
 import { Semaphore } from "./semaphore.js";
 import { clampEffectiveGain, cueKindsBySrc } from "./audio-level.js";
 import { StateManager } from "./state/index.js";
@@ -521,34 +522,34 @@ export async function renderVideoToFile(opts: {
   // Shot renders are independent — each writes its own shots/<id>.mp4 from a fresh render
   // workspace — so a small pool keeps a few Chromium captures in flight instead of paying
   // full serial wall-clock across every shot. Results keep plan order.
-  const renderGate = new Semaphore(SHOT_RENDER_CONCURRENCY);
-  const renderResults = await Promise.all(
-    plan.shots.map((shotPlan) =>
-      renderGate.run(async () => {
-        const shotOutputFile = path.join(
-          outputDir,
-          "shots",
-          `shot-${sanitizeShotId(shotPlan.shotId)}.mp4`,
-        );
+  const renderResults = await mapConcurrent(
+    plan.shots,
+    SHOT_RENDER_CONCURRENCY,
+    async (shotPlan, _i, signal) => {
+      const shotOutputFile = path.join(
+        outputDir,
+        "shots",
+        `shot-${sanitizeShotId(shotPlan.shotId)}.mp4`,
+      );
 
-        const renderWarnings = await renderShotPlan(shotPlan, {
-          onLog: opts.onLog,
-          outputFile: shotOutputFile,
-          fps: plan.fps,
-          size: plan.size,
-          crop: deliveryCrop,
-          typography: plan.typography,
-          videoRoot,
-          renderShotInputs,
-          manager,
-          shots: plan.shots,
-          ...(overlay ? { overlay } : {}),
-          timelineFiles: plan.timelineResolvedFiles,
-        });
+      const renderWarnings = await renderShotPlan(shotPlan, {
+        onLog: opts.onLog,
+        outputFile: shotOutputFile,
+        fps: plan.fps,
+        size: plan.size,
+        crop: deliveryCrop,
+        typography: plan.typography,
+        videoRoot,
+        renderShotInputs,
+        manager,
+        shots: plan.shots,
+        ...(overlay ? { overlay } : {}),
+        timelineFiles: plan.timelineResolvedFiles,
+        signal,
+      });
 
-        return { shotOutputFile, warnings: [...shotPlan.warnings, ...renderWarnings] };
-      }),
-    ),
+      return { shotOutputFile, warnings: [...shotPlan.warnings, ...renderWarnings] };
+    },
   );
   const shotOutputFiles = renderResults.map((r) => r.shotOutputFile);
   const allWarnings = renderResults.flatMap((r) => r.warnings);
@@ -1003,6 +1004,7 @@ async function renderShotPlan(
     shots: readonly ShotRenderPlan[];
     overlay?: RenderOverlay;
     timelineFiles?: Record<string, string>;
+    signal?: AbortSignal;
   },
 ): Promise<string[]> {
   const { outputFile, fps, size, crop, typography, videoRoot, manager, renderShotInputs, shots } =
@@ -1037,6 +1039,7 @@ async function renderShotPlan(
       size,
       duration: shotPlan.duration,
       quality: EXPORT_QUALITY,
+      ...(options.signal ? { signal: options.signal } : {}),
     });
   } else if (shotPlan.fallbackFile) {
     const mediaType = inferMediaType(shotPlan.fallbackFile);
@@ -1090,6 +1093,7 @@ async function renderShotPlan(
       size,
       duration: shotPlan.duration,
       quality: EXPORT_QUALITY,
+      ...(options.signal ? { signal: options.signal } : {}),
     });
   } else {
     throw new KonteError(
