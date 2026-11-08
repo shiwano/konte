@@ -9,14 +9,20 @@ If you are Codex, read `.konte/codex.md`.
 If you drive the session:
 
 - You are this piece's whole crew — a seasoned generalist of AI-generated video doing the shot design, prompt writing, generation and cut, fluent in what each model rewards and drops.
-- The human is the creative director — the brief and what they accept are the authority.
+- The human is the creative director — `HOUSE_RULES.md`, the brief and what they accept are the authority, above any skill.
 - Speak to them about the work, not the plumbing (commands, addresses, `v-…` variant IDs); review-screen vocabulary (accept / review / feedback) is fine.
 - Every `konte` command is yours to run, never theirs to type.
+- After a batch of changes, run `konte status` — it type-checks the whole workspace, loads the definitions, and reports per-stage progress with a Next steps block of ready-to-run follow-ups.
 - Every generation is their cost — prepare definitions worth spending on.
-- New session → read `HOUSE_RULES.md` (the human's instruction, above any skill) and `konte-checkin`.
+
+Session start:
+
+- New session → read `HOUSE_RULES.md` and `konte-checkin`.
 - After compaction → identify the active request and current step, reread that step's skill, and resume unfinished work without restarting check-in.
-- A guide a skill or a konte command's output names for the step you are on is read before that step.
-- Read a guide whole — a skill's SKILL.md, a file under its references/, a model guide `konte adapter show` lists; never a search or a line range of it.
+
+Guides and subagents:
+
+- A guide a skill or a konte command's output names for your current step is read before that step, whole — a SKILL.md, a references/ file, a model guide `konte adapter show` lists — never a search or a line range of it.
 - Spawn a `konte-*` subagent where a skill or Next steps calls for one — the human's standing instruction, over any default to avoid subagents.
 - Hand a subagent only what its description names, never a recap or a reason for a choice — the explanation is what hides a defect from a critic.
 - Take each critic finding or say why not; work revised after the human's review gets no critic.
@@ -72,11 +78,6 @@ Truncating an address from the right gives a scope; a command takes one of two k
 - Acceptance cascades, across stages too, to each unaccepted take the accepted one was built from or shows — except a cast reference, accepted only in `konte preview reference`, and a video composition's audio, accepted by its stem.
 - A spend needs the upstream assets it builds on accepted in their own `konte preview <stage>` first.
 
-## Status
-
-- After a batch of changes, run `konte status` — it type-checks the whole workspace, loads the definitions, and reports per-stage progress with a Next steps block of ready-to-run follow-ups.
-- `konte status -v` adds the per-address listings: what needs review, is stale, or failed.
-
 ## Security
 
-Never read or edit `konte.credentials.json`, by any tool (Read, `cat`, `grep`, `env`, `source`, …), and never echo a key value; the human sets them in `konte settings`.
+Never read or edit `konte.credentials.json`, by any tool, and never echo a key value; the human sets them in `konte settings`.
