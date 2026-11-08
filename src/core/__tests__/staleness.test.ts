@@ -339,7 +339,7 @@ describe("computeVariantStaleness", () => {
       );
     });
 
-    // A script that is simply gone is an orphan for `prune` — not a reason to call its output stale.
+    // A script that is simply gone is an orphan for `clean` — not a reason to call its output stale.
     it("ignores a source with no current script", () => {
       const state = patched();
       expect(

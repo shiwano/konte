@@ -824,7 +824,7 @@ async function checkOrphanedJobs(videoRoot: string, manager: StateManager): Prom
     return {
       name: "orphaned jobs",
       status: "WARN",
-      message: `${orphaned.length} orphaned job(s): ${orphaned.join(", ")} — run \`konte prune\` to remove them`,
+      message: `${orphaned.length} orphaned job(s): ${orphaned.join(", ")} — run \`konte clean\` to remove them`,
     };
   } catch {
     return { name: "orphaned jobs", status: "PASS", message: "no jobs to check" };
@@ -834,7 +834,7 @@ async function checkOrphanedJobs(videoRoot: string, manager: StateManager): Prom
 // Assets defined but consumed by no composition or panel: not part of any deliverable,
 // so they need no review/accept and aren't generated. WARN (not FAIL) — it's a tidiness
 // hint, not a broken project; removing them means editing video.tsx / animatic.tsx, so
-// (unlike orphaned targets) prune is not suggested.
+// (unlike orphaned targets) clean is not suggested.
 function checkUnusedAssets(
   video: VideoDefinition,
   animatic: AnimaticDefinition | null,
@@ -879,8 +879,8 @@ async function checkOrphanedTargets(
   const { video, animatic, reference } = defs;
   const state = manager.getState();
 
-  // Reuse prune's orphan definition so doctor never warns about (and suggests pruning) a live
-  // composition baseline or #delivery target that prune itself would correctly keep.
+  // Reuse clean's orphan definition so doctor never warns about (and suggests cleaning) a live
+  // composition baseline or #delivery target that clean itself would correctly keep.
   const { isOrphan } = buildOrphanContext(
     video,
     animatic,
@@ -900,7 +900,7 @@ async function checkOrphanedTargets(
     status: "WARN",
     message:
       `${orphans.length} orphaned target(s): ${preview}${suffix}` +
-      " — run `konte prune` to remove them, or `konte prune <address-scope>` for some",
+      " — run `konte clean` to remove them, or `konte clean <address-scope>` for some",
   };
 }
 
@@ -917,7 +917,7 @@ async function checkStrayVariantDirs(
   return {
     name: "stray variant directories",
     status: "WARN",
-    message: `${stray.length} not in state: ${preview}${suffix} — run \`konte prune\` to remove them`,
+    message: `${stray.length} not in state: ${preview}${suffix} — run \`konte clean\` to remove them`,
   };
 }
 

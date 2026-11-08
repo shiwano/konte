@@ -401,7 +401,7 @@ export function buildAddressInfo(
       // A stale correction is not review work: an accept beside it cannot dismiss it
       // (`readyUndecidedVariants` skips a stale take), so the item would stand whatever the reviewer
       // decided. Its live script owns it under "Pending patches" — with no script left there is
-      // no other owner, so it stays here, routed to `prune`.
+      // no other owner, so it stays here, routed to `clean`.
       return (
         patchHashes != null && child.derivedFrom != null && !patchHashes.has(child.derivedFrom)
       );
@@ -654,7 +654,7 @@ export function computeStatusSections(
       const patched = info.patchedAwaitingReview;
       const detail = patched.hasScript
         ? `patched — accept it, or konte patch remove ${patched.sourceVariantId} to drop the fix`
-        : "patched — its patch script is gone; accept it, or konte prune to drop it";
+        : "patched — its patch script is gone; accept it, or konte clean to drop it";
       needsReview.push({
         address: info.address,
         detail,

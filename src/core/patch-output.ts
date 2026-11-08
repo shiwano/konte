@@ -90,7 +90,7 @@ export function existingPatchOutput(
  * It points rather than copies. A variant's file need not live under its own directory — a `file`
  * asset's variant already mirrors one anywhere in the video — and duplicating the bytes would buy
  * nothing but a second thing to keep in step. What it does buy is a deletion rule: a variant
- * directory holding another variant's file is not deleted (see `clean`/`prune`).
+ * directory holding another variant's file is not deleted (see `clean`).
  *
  * Idempotent per step take: re-running the finalize for a take that already has its variant returns
  * that one, so a re-applied patch and a crash-recovered one both land a single output.

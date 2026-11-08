@@ -433,9 +433,9 @@ describe("status command", () => {
   });
 
   // The two "Problems" entries with no variant behind them.
-  it("offers a cancel for an orphan job, which prune refuses to touch", async () => {
+  it("offers a cancel for an orphan job, which clean refuses to touch", async () => {
     const jobManager = new JobManager(projectDir);
-    // In flight, and its variant never reached state: exactly what `prune` skips as active.
+    // In flight, and its variant never reached state: exactly what `clean` skips as active.
     await jobManager.createJob({
       address: "video:shot.01.motion",
       variantId: "v-orphan01",
@@ -445,7 +445,7 @@ describe("status command", () => {
 
     const { stdout } = await run(["status"], projectDir);
     expect(stdout).toContain("konte job cancel v-orphan01");
-    expect(stdout).not.toContain("konte prune");
+    expect(stdout).not.toContain("konte clean");
   });
 
   it("points a failed model download at its log", async () => {

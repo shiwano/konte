@@ -326,7 +326,7 @@ describe("materializeCompositionVariant", () => {
   });
 
   // The live variant is the one the current definition + resolved inputs would keep; every other
-  // unaccepted one is a leftover `clean`/`prune` may drop.
+  // unaccepted one is a leftover `clean` may drop.
   it("collects an unaccepted variant the current inputs no longer keep", async () => {
     setupAccepted("video:shot.01.motion", "assets/m/output.mp4", "hash-motion");
     const stale = await materializeCompositionVariant({ manager, video: testVideo, shotId: "01" });

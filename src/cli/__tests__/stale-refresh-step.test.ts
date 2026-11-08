@@ -178,7 +178,7 @@ describe("staleRefreshStep", () => {
     ).toEqual({ kind: "patch-apply", sourceVariantId: "v-old" });
   });
 
-  it("prunes instead once the patch script it was made by is gone", () => {
+  it("routes to clean once the patch script it was made by is gone", () => {
     twoVariants();
     manager.getAssetState(ADDRESS).variants!["v-new"]!.derivedFrom = "v-old";
     expect(
@@ -189,6 +189,6 @@ describe("staleRefreshStep", () => {
         patchHashes: new Map(),
         animatic: boardWithMovement("steps in"),
       }),
-    ).toEqual({ kind: "prune" });
+    ).toEqual({ kind: "clean" });
   });
 });

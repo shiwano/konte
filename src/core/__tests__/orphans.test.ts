@@ -119,7 +119,7 @@ describe("buildOrphanContext", () => {
   });
 
   // The board has leaves of its own. Read against the video definition they match no shot, so
-  // `prune` would delete the composition's accept and its HTML, and `doctor` would warn about both.
+  // `clean` would delete the composition's accept and its HTML, and `doctor` would warn about both.
   it("does not flag the animatic's own materialized leaves", () => {
     const board = {
       stage: "animatic" as const,

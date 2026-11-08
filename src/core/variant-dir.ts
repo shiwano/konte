@@ -24,7 +24,7 @@ export function assetDir(videoRoot: string, address: string): string {
 }
 
 // The directory holding every step of one patch's chain — what `patch remove` deletes, and what
-// `prune` collapses once its last step is gone.
+// `clean` collapses once its last step is gone.
 export function patchChainDir(
   videoRoot: string,
   stage: AssetStage,

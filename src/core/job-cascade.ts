@@ -12,7 +12,7 @@ export type CascadeFailedJob = {
 };
 
 // Marks pending jobs as failed when the dependency they wait on was removed and
-// no other active job can still produce it. Shared by `clean` and `prune`.
+// no other active job can still produce it. Shared by `clean`.
 export async function cascadeFailPendingJobs(
   videoRoot: string,
   removedAddresses: string[],

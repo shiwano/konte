@@ -142,7 +142,7 @@ export interface ResolutionDefinitions {
 // A patch variant's own definition is its patch script, so editing that script ages out the take
 // it produced — exactly as editing animatic.tsx ages out a generated one. Its `definitionHash`
 // meanwhile is inherited from its source, so the address-level axis still stales the whole lineage
-// together. A script that is simply gone is an orphan for `prune`, not a stale variant.
+// together. A script that is simply gone is an orphan for `clean`, not a stale variant.
 function isPatchStale(variant: VariantState, patchHashes: PatchHashes | undefined): boolean {
   if (!patchHashes || variant.derivedFrom == null || variant.patchHash == null) return false;
   const current = patchHashes.get(variant.derivedFrom);

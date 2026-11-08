@@ -218,7 +218,7 @@ function deliveryDefinitionHash(
 
 // Whether a `#delivery` state key is still backed by the definition: its source must be a
 // real video-stage source (a layer, or a shot's composition) and its profile must declare the
-// matching upscale function. Used by `prune` to keep live delivery targets from being orphaned.
+// matching upscale function. Used by `clean` to keep live delivery targets from being orphaned.
 export function deliveryAddressIsValid(
   video: VideoDefinition,
   deliveryAddress: string,

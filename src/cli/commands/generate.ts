@@ -641,8 +641,8 @@ function describeAcceptedStaleStep(
       return { step: null, reroll: true };
     case "patch-apply":
       return { step: `konte patch apply ${step.sourceVariantId}`, reroll: false };
-    case "prune":
-      return { step: "konte prune (its patch script is gone)", reroll: false };
+    case "clean":
+      return { step: "konte clean (its patch script is gone)", reroll: false };
     case "accept":
       return {
         step: `konte accept ${step.variantId} (already generated, matches the current definition)`,

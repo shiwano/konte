@@ -138,7 +138,7 @@ export function prerollCacheDir(videoRoot: string): string {
   return path.join(videoRoot, ".konte", "cache", "preroll");
 }
 
-/** A take's padded copies. Keyed by variant like the audio/motion caches, so `prune` reaches it. */
+/** A take's padded copies. Keyed by variant like the audio/motion caches, so `clean` reaches it. */
 export function prerollVariantDir(videoRoot: string, variantId: string): string {
   return path.join(prerollCacheDir(videoRoot), variantId);
 }

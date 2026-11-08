@@ -9,7 +9,7 @@ import type { AnimaticDefinition } from "../core/types/index.js";
 /**
  * How a take that no longer matches its definition or its inputs is brought back up to date.
  *
- * `patch-apply` / `prune`: a patch output is refreshed by re-applying its correction — a reroll
+ * `patch-apply` / `clean`: a patch output is refreshed by re-applying its correction — a reroll
  * would spend on a fresh original and orphan the correction hung off it — and with the script gone
  * there is nothing left to re-apply.
  *
@@ -39,7 +39,7 @@ import type { AnimaticDefinition } from "../core/types/index.js";
 export type StaleRefreshStep =
   | { kind: "none" }
   | { kind: "patch-apply"; sourceVariantId: string }
-  | { kind: "prune" }
+  | { kind: "clean" }
   | { kind: "accept"; variantId: string }
   | { kind: "prerequisite"; variantId: string; missing: readonly string[]; writeIn: string }
   | { kind: "generate"; stage: Stage }
@@ -72,7 +72,7 @@ export function staleRefreshStep(opts: {
   const derivedFrom = manager.tryGetAssetState(address)?.variants?.[variantId]?.derivedFrom;
   if (derivedFrom != null) {
     return patchHashes != null && !patchHashes.has(derivedFrom)
-      ? { kind: "prune" }
+      ? { kind: "clean" }
       : { kind: "patch-apply", sourceVariantId: derivedFrom };
   }
 

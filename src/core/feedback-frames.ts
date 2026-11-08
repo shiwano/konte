@@ -31,13 +31,13 @@ function annotatedFramePath(file: string, feedbackId: string): string {
 /**
  * Where a shot's note frames cache: the shot composition's own thumbnail dir, the one
  * `probe reel-thumbnails` fills, so a frame is shared by every note standing at that instant and
- * `clean` / `prune` reclaim it as the composition cache it is.
+ * `clean` reclaims it as the composition cache it is.
  *
  * Null when the shot has no composition of its own, or when the shot id would take the dir out of
  * the cache tree — it reaches here off a review record, which is editable text.
  *
  * A shot with no `shotFn` renders a fallback (its board frame), and `probe reel-thumbnails` refuses
- * those for the same reason this does: the address is not a live composition, so `prune` reads its
+ * those for the same reason this does: the address is not a live composition, so `clean` reads its
  * cache as orphaned, and the fallback source is outside what the cache key fingerprints.
  */
 export function shotFrameDir(

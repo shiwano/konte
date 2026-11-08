@@ -119,7 +119,7 @@ export function patchStepDependents(patch: LoadedPatch, address: string): string
 }
 
 /**
- * Every address a patch's chain declares — the live targets `prune` and `doctor` must not read as
+ * Every address a patch's chain declares — the live targets `clean` and `doctor` must not read as
  * orphans. The returned step is one of them: its take lands at its own address like any other, and
  * the patched variant at the source's address points at that file.
  */
@@ -156,7 +156,7 @@ interface PatchLoadError {
 
 export interface PatchCatalog {
   patches: Map<string, LoadedPatch>;
-  /** Patch scripts whose source variant is no longer in state — orphans for `prune` to offer. */
+  /** Patch scripts whose source variant is no longer in state — orphans for `clean` to offer. */
   orphans: Array<{ sourceVariantId: string; filePath: string }>;
   /** Patch scripts whose source is an absent variant (see `StateManager.absentVariantIds`). */
   absent: Array<{ sourceVariantId: string; filePath: string }>;

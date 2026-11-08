@@ -42,7 +42,7 @@ export function registerPatchListCommand(parent: Command): void {
       `
 One row per patches/<variantId>.ts. "pending" means the script has no up-to-date output — it was
 never applied, it was edited since, or an input it consumed moved. "orphaned" means its source
-variant is gone from state; \`konte prune\` offers to clean those up. "absent" means its source variant
+variant is gone from state; \`konte clean\` offers to clean those up. "absent" means its source variant
 is in state but its media is not in this checkout.
 
 Examples:

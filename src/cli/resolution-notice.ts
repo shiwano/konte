@@ -41,8 +41,8 @@ function staleNotice(
       return undefined;
     case "patch-apply":
       return `${lead} — \`konte patch apply ${step.sourceVariantId}\` to re-apply its correction`;
-    case "prune":
-      return `${lead} — \`konte prune\` (its patch script is gone)`;
+    case "clean":
+      return `${lead} — \`konte clean\` (its patch script is gone)`;
     case "accept":
       return `${lead} — \`konte accept ${step.variantId}\` is already generated and matches the current definition`;
     case "prerequisite":

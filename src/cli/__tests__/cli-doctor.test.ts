@@ -36,7 +36,7 @@ describe("doctor command (orphaned targets)", () => {
 
     expect(check?.status).toBe("WARN");
     expect(check?.message).toContain(orphan);
-    expect(check?.message).toContain("konte prune");
+    expect(check?.message).toContain("konte clean");
   });
 
   it("does not flag a live accepted composition as orphaned", async () => {
@@ -234,7 +234,7 @@ describe("doctor command (git tracking)", () => {
     const check = await doctorCheck(projectDir, "stray variant directories");
     expect(check?.status).toBe("WARN");
     expect(check?.message).toContain("assets/video/shot.01.motion/v-stray001");
-    expect(check?.message).toContain("konte prune");
+    expect(check?.message).toContain("konte clean");
   });
 
   it("warns when assets/.gitignore drifts from the state", async () => {

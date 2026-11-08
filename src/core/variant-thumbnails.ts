@@ -15,7 +15,7 @@ import { inferMediaType } from "./media-type.js";
 // manifest is the cache index — state holds nothing, so there is no path that can go stale.
 // The cache is keyed `<stage>/<suffix>/<variantId>/<outputHash>` (the address split at its `:`
 // delimiter into path-safe segments) so a variant whose bytes change (a swapped `file` asset)
-// misses on the new hash; clean/prune still delete by variantId.
+// misses on the new hash; clean still deletes by variantId.
 export function variantThumbnailDir(
   videoRoot: string,
   address: string,
@@ -34,7 +34,7 @@ export function variantThumbnailDir(
 }
 
 // Walk the nested thumbnail cache (`<stage>/<suffix>`) and yield every address-level dir with its
-// reconstructed address. Composition caches carry no state and live only on disk, so clean/prune
+// reconstructed address. Composition caches carry no state and live only on disk, so clean
 // enumerate them from here. Returns [] when no thumbnails dir exists yet.
 export async function listThumbnailAddressDirs(
   thumbnailsRoot: string,
@@ -83,7 +83,7 @@ function variantManifestPath(
 // outputHash), so a re-read — and the per-frame exists checks — is only needed when the file
 // on disk changed; a matching mtime serves the parsed result for one stat call. The preview
 // server calls this once per variant per state request, which was thousands of blocking
-// syscalls on the request path. clean/prune remove the whole variant dir, so the stat fails
+// syscalls on the request path. clean removes the whole variant dir, so the stat fails
 // (ENOENT) and the entry drops.
 const manifestCache = new Map<string, { mtimeMs: number; thumbs: ThumbnailInfo[] }>();
 

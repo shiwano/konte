@@ -168,7 +168,7 @@ describe("JobManager.ensureComfyModelDownloadJob", () => {
     expect(job.model.url).toBe(fixed.url);
   });
 
-  // A confirmed absence retires the record: no clean/prune/cancel path used to touch a standalone
+  // A confirmed absence retires the record: no clean/cancel path used to touch a standalone
   // job, so trusting it left the download unrecoverable short of deleting the file by hand.
   it("resets a completed job when the model's absence was confirmed", async () => {
     const { id } = await jobManager.ensureComfyModelDownloadJob(MODEL);

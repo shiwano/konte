@@ -116,7 +116,7 @@ describe("feedbackFramePath", () => {
     const manager = await StateManager.load(projectDir);
     await applyResolutionDefinitions({ videoRoot: projectDir, state: manager.getState() });
     // What an undeveloped shot looks like: it still renders (its board frame stands in), but its
-    // address is not a live composition, so `prune` would read the cache as orphaned.
+    // address is not a live composition, so `clean` would read the cache as orphaned.
     const fallback = {
       ...video,
       shots: video.shots.map((sh) => (sh.id === "01" ? { ...sh, shotFn: null } : sh)),

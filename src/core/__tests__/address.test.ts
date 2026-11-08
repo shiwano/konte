@@ -586,7 +586,7 @@ describe("stem addresses", () => {
   });
 
   // Leaves only: the board's per-shot mix is a declared asset `listAddresses` already emits, so
-  // listing it here would have `prune`/`status` treat a real take as a materialized leaf.
+  // listing it here would have `clean`/`status` treat a real take as a materialized leaf.
   it("lists the shot stems and the timeline stem for the animatic", () => {
     const animatic = {
       stage: "animatic" as const,

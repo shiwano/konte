@@ -18,7 +18,7 @@ konte export video
 
 - Async — registers a render job and returns; `konte job wait` blocks for it.
 - Output — `video.mp4` + `manifest.json` into `dist/video/<timestamp>/`. When it completes, run `konte probe export` to read the deliverable's real resolution/duration/fps/audio — report those and the path.
-- Then offer `konte clean` and `konte prune`; add `--delete-undecided` only once the human calls the video finished.
+- Then offer `konte clean`; add `--delete-undecided` only once the human calls the video finished.
 - Once the human calls the video finished, tell them the `konte-house-rules` skill can turn this video's review comments into house rules for the next piece.
 - `--allow-unaccepted` renders unaccepted variants — only when the human explicitly asks for a rough-cut file.
 

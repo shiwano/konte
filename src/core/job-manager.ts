@@ -448,7 +448,7 @@ export class JobManager {
    * target the live presence check just reported MISSING (see ensureComfyModelJobs), so a
    * "completed" record is vouching for a file that is no longer on the server — deleted, or lost
    * with a rebuilt ComfyUI. Trusting it makes the model unrecoverable short of deleting the job
-   * by hand, since no `clean`/`prune`/`cancel` path touches a standalone job.
+   * by hand, since no `clean`/`cancel` path touches a standalone job.
    *
    * Reusing a job also refreshes its stored declaration: the id keys the install target only, so
    * an edited declaration — a corrected `url` above all — lands on this same job, and the
@@ -668,7 +668,7 @@ export class JobManager {
 
   /**
    * Remove a job record only if `predicate` holds for it — a compare-and-delete in one write
-   * transaction, for a caller acting on a listing it snapshotted earlier (`prune`, whose
+   * transaction, for a caller acting on a listing it snapshotted earlier (`clean`, whose
    * confirmation prompt sits for as long as a human takes). The predicate reads the record as it
    * is now and, through `active`, every non-terminal record in the same transaction, so a reset or
    * a new dependent landing since the snapshot is seen. Only the active rows, so the write lock is
@@ -877,7 +877,7 @@ export class JobManager {
   }
 
   // Oldest first, ties broken by id. A row that no longer parses as a job record is skipped
-  // rather than crashing every command built on the listing (status/clean/prune/job list).
+  // rather than crashing every command built on the listing (status/clean/job list).
   async listJobs(filter?: { status?: JobRecord["status"] }): Promise<JobRecord[]> {
     return this.listSync(filter);
   }

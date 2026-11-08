@@ -420,7 +420,7 @@ describe("unlandedShotLeaves", () => {
     acceptBothLeaves();
     expect(unlandedShotLeaves(manager, withAudio, planShot)).toEqual([]);
 
-    // The takes go away (a clean, a prune, a definition pointed elsewhere).
+    // The takes go away (a clean, a definition pointed elsewhere).
     manager.getAssetState("video:shot.01.motion").variants = {};
     manager.getAssetState("video:shot.01.vo").variants = {};
 

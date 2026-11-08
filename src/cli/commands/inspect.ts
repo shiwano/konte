@@ -90,7 +90,7 @@ import { type PlateFrame, plateFrameOf } from "../../core/prompt-shots.js";
 
 type InspectScope = PromptScope | { level: "variant"; variantId: string };
 
-// Canonical bare forms shared with clean/prune/status — a trailing ":" or "." matches
+// Canonical bare forms shared with clean/status — a trailing ":" or "." matches
 // none of these and falls through to the error below.
 const STAGE_PATTERN = /^(animatic|video|reference)$/;
 const SHOT_PATTERN = /^(animatic|video):shot\.([a-zA-Z0-9_-]+)$/;
@@ -509,8 +509,8 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
           });
           if (step.kind !== "none") {
             console.log(
-              step.kind === "prune"
-                ? "    Suggested: konte prune (its patch script is gone)"
+              step.kind === "clean"
+                ? "    Suggested: konte clean (its patch script is gone)"
                 : step.kind === "patch-apply"
                   ? `    Suggested: konte patch apply ${step.sourceVariantId}`
                   : step.kind === "accept"

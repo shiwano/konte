@@ -177,7 +177,7 @@ describe("Job CRUD", () => {
     });
 
     // A row whose payload does not parse must be skipped like an invalid record, not surface as
-    // a crash that takes down status/clean/prune/job list.
+    // a crash that takes down status/clean/job list.
     insertRaw("v-gone9999", "not json");
 
     const jobs = await manager.listJobs();

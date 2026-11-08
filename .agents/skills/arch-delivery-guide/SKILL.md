@@ -21,7 +21,7 @@ How a video's optional `export.delivery` turns the working graph into a higher-r
 
 - `konte export video` is async like `generate`: it registers an `export` job (a leaf render job, no address of its own) and returns.
 - Each upscale runs as a normal generation job at a reserved `#delivery` address — `video:shot.01.motion#delivery` (per-layer) or `video:shot.01#composition#delivery` (frame) — with its own staleness cache; the export job depends on those and assembles when ready.
-- `#delivery` targets are ordinary visible assets — `status`/`clean`/`prune` see them; a stale source re-upscales only on the next export.
+- `#delivery` targets are ordinary visible assets — `status`/`clean` see them; a stale source re-upscales only on the next export.
 - The export render runs locally in the worker under the run lease (`arch-jobs-guide`).
 
 ## Manifest

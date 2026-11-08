@@ -18,7 +18,7 @@ vi.setConfig({ testTimeout: 15000 });
 
 useTempWorkspace();
 
-describe("prune command", () => {
+describe("clean command: orphans", () => {
   let projectDir: string;
   const validAddress = "video:shot.01.motion";
   const orphanAddress = "video:shot.99.old";
@@ -67,9 +67,10 @@ describe("prune command", () => {
   it("prunes an orphaned accepted target (state key + files + feedback)", async () => {
     const { validVid } = await setupOrphan();
 
-    const { stdout } = await run(["prune", "--yes"], projectDir);
+    const { stdout } = await run(["clean", "--yes"], projectDir);
 
-    expect(stdout).toContain("Pruned 1 orphaned target(s).");
+    expect(stdout).toContain("including 1 accepted take(s) at addresses no longer declared");
+    expect(stdout).toContain("Removed 1 orphaned target(s).");
 
     const sm = await StateManager.load(projectDir);
     expect(sm.tryGetAssetState(orphanAddress)).toBeUndefined();
@@ -88,9 +89,9 @@ describe("prune command", () => {
     };
     await sm.save();
 
-    const { stdout } = await run(["prune", "--yes"], projectDir);
+    const { stdout } = await run(["clean", "--yes"], projectDir);
 
-    expect(stdout).toContain("Nothing to prune.");
+    expect(stdout).toContain("Nothing to clean.");
     expect(stdout).toContain("Kept 1 orphaned target(s) an accepted take was made from");
     const after = await StateManager.load(projectDir);
     expect(after.getAssetState(orphanAddress).variants![orphanVid]).toBeDefined();
@@ -113,9 +114,9 @@ describe("prune command", () => {
     const logFile = path.join(projectDir, ".konte/logs", `${orphanJobVid}.log`);
     await fs.writeFile(logFile, "log");
 
-    const { stdout } = await run(["prune", "--yes"], projectDir);
+    const { stdout } = await run(["clean", "--yes"], projectDir);
 
-    expect(stdout).toContain("Pruned 1 orphaned job(s).");
+    expect(stdout).toContain("Removed 1 orphaned job(s).");
     await expect(jm.getJob(orphanJobVid)).rejects.toMatchObject({ code: "JOB_NOT_FOUND" });
     await expect(fs.access(logFile)).rejects.toThrow();
   });
@@ -133,9 +134,9 @@ describe("prune command", () => {
       backendKind: "fal",
     });
 
-    const { stdout } = await run(["prune", "--yes"], projectDir);
+    const { stdout } = await run(["clean", "--yes"], projectDir);
 
-    expect(stdout).toContain("Skipped 1 leftover(s) with an active job");
+    expect(stdout).toContain("Skipped 1 orphaned target(s) with an active job");
 
     const sm2 = await StateManager.load(projectDir);
     expect(sm2.tryGetAssetState(orphanAddress)).toBeDefined();
@@ -152,9 +153,9 @@ describe("prune command", () => {
       await jm.updateJob(vid, { status: "failed", completedAt: new Date().toISOString() });
     }
 
-    const { stdout } = await run(["prune", "video:shot.98", "--yes"], projectDir);
+    const { stdout } = await run(["clean", "video:shot.98", "--yes"], projectDir);
 
-    expect(stdout).toContain("Pruned 1 orphaned job(s).");
+    expect(stdout).toContain("Removed 1 orphaned job(s).");
     await expect(jm.getJob("v-scopejob98")).rejects.toMatchObject({ code: "JOB_NOT_FOUND" });
     await jm.getJob("v-scopejob97");
   });
@@ -169,9 +170,9 @@ describe("prune command", () => {
       backendKind: "fal",
     });
 
-    const { stdout } = await run(["prune", "--yes"], projectDir);
+    const { stdout } = await run(["clean", "--yes"], projectDir);
 
-    expect(stdout).toContain("Nothing to prune.");
+    expect(stdout).toContain("Nothing to clean.");
     await jm.getJob(activeJobVid);
   });
 
@@ -181,8 +182,8 @@ describe("prune command", () => {
     sm.setAccepted(validAddress, v);
     await sm.save();
 
-    const { stdout } = await run(["prune"], projectDir);
-    expect(stdout).toContain("Nothing to prune.");
+    const { stdout } = await run(["clean"], projectDir);
+    expect(stdout).toContain("Nothing to clean.");
   });
 
   it("prunes feedback on an orphaned bare-shot target with no state asset", async () => {
@@ -198,8 +199,8 @@ describe("prune command", () => {
       createdBy: "local",
     });
 
-    const { stdout } = await run(["prune", "--yes"], projectDir);
-    expect(stdout).toContain("Pruned 1 orphaned feedback target(s).");
+    const { stdout } = await run(["clean", "--yes"], projectDir);
+    expect(stdout).toContain("Removed 1 orphaned feedback target(s).");
     expect(await readFeedback(projectDir, bareShot)).toHaveLength(0);
   });
 
@@ -215,7 +216,7 @@ describe("prune command", () => {
       createdBy: "local",
     });
 
-    await run(["prune", "--yes"], projectDir);
+    await run(["clean", "--yes"], projectDir);
     expect(await readFeedback(projectDir, bareShot)).toHaveLength(1);
   });
 
@@ -234,15 +235,13 @@ describe("prune command", () => {
       });
     }
 
-    await run(["prune", "--yes"], projectDir);
+    await run(["clean", "--yes"], projectDir);
     expect(await readFeedback(projectDir, livePart!)).toHaveLength(1);
     expect(await readFeedback(projectDir, lostPart)).toHaveLength(0);
   });
 
-  it("prunes orphaned composition caches but keeps live ones", async () => {
-    // shot.01 has a shotFn in the test definition → live composition cache (keep).
+  it("removes an orphaned composition cache with the live ones", async () => {
     const liveCache = path.join(projectDir, ".konte/cache/thumbnails/video/shot.01#composition/h1");
-    // shot.99 is not in the definition → orphaned composition cache (prune).
     const orphanCache = path.join(
       projectDir,
       ".konte/cache/thumbnails/video/shot.99#composition/h2",
@@ -252,13 +251,12 @@ describe("prune command", () => {
     await fs.writeFile(path.join(liveCache, "keyframe-001.jpeg"), "img");
     await fs.writeFile(path.join(orphanCache, "keyframe-001.jpeg"), "img");
 
-    const { stdout } = await run(["prune", "--yes"], projectDir);
+    const { stdout } = await run(["clean", "--yes"], projectDir);
 
-    expect(stdout).toContain("Pruned 1 orphaned composition cache(s).");
+    expect(stdout).toContain("Removed 2 composition cache(s).");
     await expect(
       fs.access(path.join(projectDir, ".konte/cache/thumbnails/video/shot.99#composition")),
     ).rejects.toThrow();
-    await fs.access(path.join(projectDir, ".konte/cache/thumbnails/video/shot.01#composition"));
   });
 
   it("keeps a live accepted composition stored in state", async () => {
@@ -274,8 +272,8 @@ describe("prune command", () => {
     sm.setAccepted(compAddress, compVid);
     await sm.save();
 
-    const { stdout } = await run(["prune"], projectDir);
-    expect(stdout).toContain("Nothing to prune.");
+    const { stdout } = await run(["clean"], projectDir);
+    expect(stdout).toContain("Nothing to clean.");
 
     const after = await StateManager.load(projectDir);
     expect(after.getAcceptedVariant(compAddress)).toBe(compVid);
@@ -284,8 +282,9 @@ describe("prune command", () => {
   it("does not delete in dry-run mode", async () => {
     await setupOrphan();
 
-    const { stdout } = await run(["prune", "--dry-run"], projectDir);
-    expect(stdout).toContain("Would prune 1 orphaned target(s).");
+    const { stdout } = await run(["clean", "--dry-run"], projectDir);
+    expect(stdout).toContain("Would remove 1 orphaned leftover(s):");
+    expect(stdout).toMatch(/orphaned target\s+1/);
 
     const sm = await StateManager.load(projectDir);
     expect(sm.tryGetAssetState(orphanAddress)).toBeDefined();
@@ -295,7 +294,7 @@ describe("prune command", () => {
   it("aborts without deleting when --no is passed", async () => {
     await setupOrphan();
 
-    const { stdout } = await run(["prune", "--no"], projectDir);
+    const { stdout } = await run(["clean", "--no"], projectDir);
     expect(stdout).toContain("Aborted");
 
     const sm = await StateManager.load(projectDir);
@@ -305,7 +304,7 @@ describe("prune command", () => {
   it("errors instead of hanging when confirmation is needed non-interactively", async () => {
     await setupOrphan();
 
-    await expect(run(["prune"], projectDir)).rejects.toMatchObject({
+    await expect(run(["clean"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("CONFIRMATION_REQUIRED"),
     });
 
@@ -321,19 +320,21 @@ describe("prune command", () => {
     sm.setAccepted(otherOrphan, ov);
     await sm.save();
 
-    const { stdout } = await run(["prune", orphanAddress, "--yes"], projectDir);
-    expect(stdout).toContain("Pruned 1 orphaned target(s).");
+    const { stdout } = await run(["clean", orphanAddress, "--yes"], projectDir);
+    expect(stdout).toContain("Removed 1 orphaned target(s).");
 
     const sm2 = await StateManager.load(projectDir);
     expect(sm2.tryGetAssetState(orphanAddress)).toBeUndefined();
     expect(sm2.tryGetAssetState(otherOrphan)).toBeDefined();
   });
 
-  it("aborts (no deletion) when video.tsx cannot be loaded", async () => {
+  it("leaves orphaned targets unchecked, and says so, when video.tsx cannot be loaded", async () => {
     await setupOrphan();
     await fs.writeFile(path.join(projectDir, "video.tsx"), "this is not valid typescript {{{");
 
-    await expect(run(["prune"], projectDir)).rejects.toBeDefined();
+    const { stdout } = await run(["clean", "--yes"], projectDir);
+
+    expect(stdout).toContain("Orphaned targets not checked: video.tsx does not load");
 
     const sm = await StateManager.load(projectDir);
     expect(sm.tryGetAssetState(orphanAddress)).toBeDefined();
@@ -349,9 +350,9 @@ describe("prune command", () => {
       const logFile = path.join(projectDir, ".konte/logs", `${id}.log`);
       await fs.writeFile(logFile, "log");
 
-      const { stdout } = await run(["prune", "--yes"], projectDir);
+      const { stdout } = await run(["clean", "--yes"], projectDir);
 
-      expect(stdout).toContain("Pruned 1 spent provisioning job(s).");
+      expect(stdout).toContain("Removed 1 spent provisioning job(s).");
       await expect(jm.getJob(id)).rejects.toMatchObject({ code: "JOB_NOT_FOUND" });
       await expect(fs.access(logFile)).rejects.toThrow();
     });
@@ -367,7 +368,7 @@ describe("prune command", () => {
       // settled dependency out from under it fails it outright.
       await jm.ensureComfyNodeActivateJob({ dependsOnJobs: [install.id], cnrIds: [NODE.id] });
 
-      await run(["prune", "--yes"], projectDir);
+      await run(["clean", "--yes"], projectDir);
 
       await jm.getJob(install.id);
     });
@@ -377,7 +378,7 @@ describe("prune command", () => {
       const { id } = await jm.ensureComfyNodeInstallJob(NODE);
       await jm.updateJob(id, { status: "running" });
 
-      await run(["prune", "--yes"], projectDir);
+      await run(["clean", "--yes"], projectDir);
 
       await jm.getJob(id);
     });
@@ -394,7 +395,7 @@ describe("prune command", () => {
 
       // A scope that does prune something, so the run succeeds and its silence about the
       // provisioning job is the assertion rather than an early "nothing matched" exit.
-      const { stdout } = await run(["prune", "video", "--yes"], projectDir);
+      const { stdout } = await run(["clean", "video", "--yes"], projectDir);
 
       expect(stdout).not.toContain("spent provisioning job");
       await jm.getJob(id);
@@ -429,9 +430,9 @@ describe("prune command", () => {
     it("prunes a variant directory no state row records, and nothing else", async () => {
       const { absentVid } = await seedDirs();
 
-      const { stdout } = await run(["prune", "--yes"], projectDir);
+      const { stdout } = await run(["clean", "--yes"], projectDir);
 
-      expect(stdout).toContain("Pruned 2 stray variant director(ies).");
+      expect(stdout).toContain("Removed 2 stray variant director(ies).");
       await expect(fs.access(path.join(projectDir, stray))).rejects.toThrow();
       await expect(fs.access(path.join(projectDir, "assets/reference/patch"))).rejects.toThrow();
       await fs.access(path.join(projectDir, `assets/video/shot.01.motion/${absentVid}`));
@@ -442,15 +443,37 @@ describe("prune command", () => {
       await seedDirs();
       await setupOrphan();
 
-      const { stdout } = await run(["prune", "video", "--yes"], projectDir);
+      const { stdout } = await run(["clean", "video", "--yes"], projectDir);
 
       expect(stdout).not.toContain("stray variant director");
       await fs.access(path.join(projectDir, stray));
     });
   });
 
-  it("prints nothing to prune when there are no orphans", async () => {
-    const { stdout } = await run(["prune"], projectDir);
-    expect(stdout).toContain("Nothing to prune");
+  it("takes a dismissed source with the correction whose patch script is gone", async () => {
+    const sm = await StateManager.load(projectDir);
+    const source = sm.reserveVariantId(validAddress);
+    const child = sm.reserveVariantId(validAddress);
+    for (const id of [source, child]) {
+      const v = sm.getAssetState(validAddress).variants![id]!;
+      v.status = "dismissed";
+      v.file = `assets/video/shot.01.motion/${id}/output.mp4`;
+      await fs.mkdir(path.dirname(path.join(projectDir, v.file)), { recursive: true });
+      await fs.writeFile(path.join(projectDir, v.file), "data");
+    }
+    sm.getAssetState(validAddress).variants![child]!.derivedFrom = source;
+    await sm.save();
+
+    const { stdout } = await run(["clean", "--yes"], projectDir);
+
+    expect(stdout).toContain("Removed 1 variant(s), 1 orphaned patch leftover(s).");
+    const after = await StateManager.load(projectDir);
+    expect(after.tryGetAssetState(validAddress)?.variants?.[source]).toBeUndefined();
+    expect(after.tryGetAssetState(validAddress)?.variants?.[child]).toBeUndefined();
+  });
+
+  it("prints nothing to clean when there are no orphans", async () => {
+    const { stdout } = await run(["clean"], projectDir);
+    expect(stdout).toContain("Nothing to clean");
   });
 });

@@ -76,7 +76,7 @@ function formatDeletionSummary(opts: {
   return [`${head}:`, ...lines].join("\n");
 }
 
-// The shared deletion prompt for clean/prune/patch remove: "<subjects> (<size> total) will be
+// The shared deletion prompt for clean/patch remove: "<subjects> (<size> total) will be
 // deleted", optionally itemized.
 export function confirmDeletion(opts: {
   subjects: string[];

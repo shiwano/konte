@@ -40,7 +40,7 @@ A variant with a descendant is not a review candidate — it is the "before" of 
 
 - A correction is a rival take like any other.
 - `patchedAwaitingReview` is tracked apart from the newer-take signal for its wording ("did the fix land?" against "is this better?"). It clears when the correction is accepted, dismissed by an accept of the take beside it, or dropped by `konte patch remove` — the reject route `status` names in its "Needs review" detail.
-- Only a non-stale correction is review work (`isVariantStale`, both axes) — an accept beside it cannot dismiss a stale take. A stale one is listed under "Pending patches"; when its script is gone it stays under "Needs review", routed to `prune`.
+- Only a non-stale correction is review work (`isVariantStale`, both axes) — an accept beside it cannot dismiss a stale take. A stale one is listed under "Pending patches"; when its script is gone it stays under "Needs review", routed to `clean`.
 - Multiple leaves per source are correct — editing a script and re-applying yields two attempts at one fix, both candidates on one "before".
 
 ## Staleness: two axes
@@ -69,15 +69,15 @@ A patch script names one take and dies with it; a lineage is deleted as a unit �
 
 - `clean` removes `patches/<variantId>.ts` with the variant, and keeps a variant whose descendants it is keeping. Protection travels up the lineage, deletion down.
 - An accepted descendant protects its ancestors — the source file is still its input.
-- A variant directory holding another variant's file is kept (`variantsHostedBy`) — the patched take points at the returned step's file. Judged by path, so no field records it; asked of the survivors, so deleting both together still works. `clean` skips and names the take it holds; `prune` likewise for a scope naming one side only.
-- `prune` sweeps both orphan directions (script whose source is gone, output whose script is gone), expanding each stranded output through its descendants.
+- A variant directory holding another variant's file is kept (`variantsHostedBy`) — the patched take points at the returned step's file. Judged by path, so no field records it; asked of the survivors, so deleting both together still works. `clean` skips and names the take it holds, and holds back an orphaned target for a scope naming one side only.
+- `clean` sweeps both orphan directions (script whose source is gone, output whose script is gone), expanding each stranded output through its descendants.
 - Chain steps are found from state (`patchChainTargets` reads the addresses) — a broken or deleted script still answers what the patch generated.
 - `buildOrphanContext` judges the axis by whether `patches/<id>.ts` exists, never by loading the module — a syntax error would read as "declaration gone" and take real variants with it.
 - A renamed step strands its old address until `clean` targets it; `<stage>:patch.<variantId>` is a scope.
 - `patch remove` deletes the script, the patched variants and the chain's own takes, re-derived under the state lock. A step still generating blocks it. It also takes a hand-written `patches/<id>.ts` named after a patched variant.
 - `clean` holds back a take whose patch is applying — the chain is pinned to it and the finalize reads it back.
-- `clean`, `prune` and `patch remove` refuse a lineage or chain with an active job, re-checking on a fresh job listing inside the state lock (`patch remove` aborts, the others skip and report).
-- A run starting in the same moment can slip through — the job list is outside that lock and a job file lands only after the reservation's releases. The materialize tolerates it: a source gone by then is logged and skipped, never failing the step's own commit. `prune` is the recovery.
+- `clean` and `patch remove` refuse a lineage or chain with an active job, re-checking on a fresh job listing inside the state lock (`patch remove` aborts, the others skip and report).
+- A run starting in the same moment can slip through — the job list is outside that lock and a job file lands only after the reservation's releases. The materialize tolerates it: a source gone by then is logged and skipped, never failing the step's own commit. `clean` is the recovery.
 
 ## Applying
 

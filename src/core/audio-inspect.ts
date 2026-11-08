@@ -221,7 +221,7 @@ async function getSourceProfile(
   if (memo.has(absFile)) return memo.get(absFile) ?? null;
 
   // Key the cache on `<variantId>/<outputHash>` so a variant whose bytes change (a swapped
-  // `file` asset) misses on the new hash, while clean/prune still delete by variantId.
+  // `file` asset) misses on the new hash, while clean still deletes by variantId.
   // A null hash (source file missing) can't be keyed, so skip the disk cache entirely.
   const cacheFile = outputHash
     ? path.join(videoRoot, ".konte", "cache", "audio", variantId, `${outputHash}.json`)

@@ -50,7 +50,7 @@ How reviews, feedback comments and handoffs are stored, snapshotted per stage, a
 - The handler derives the subject (`commentSubjectAddresses`): a shot's `compositionRefs` (what it references, not what it declares) plus its composition and stem; `timeline#stem`'s is `timelineStemRefs`, the beds. A video shot showing the board derives from the animatic's shot.
 - A target the stage does not hold fails the submit.
 - A leaf the definition holds that the page reported no hash for records `null` (the definition moved mid-review), read as `unknown`; one the page showed that the definition has since dropped keeps the hash it reported, which finds no current value and reads stale.
-- A timed video shot note carries a composition frame, cached in the shot composition's own thumbnail dir: notes at one instant share a frame, and `clean` / `prune` reclaim them with that cache.
+- A timed video shot note carries a composition frame, cached in the shot composition's own thumbnail dir: notes at one instant share a frame, and `clean` reclaims them with that cache.
 - Nothing records the frame's path — `feedbackFramePath` derives it; the composition hash covers the HTML and its inputs' `outputHash`, so a frame found is of the shot as it stands. Only `review record show` renders a missing one (`resolveShotFeedbackFrames`, a session per shot, tiled by `--contact-sheet`).
 
 ### When a comment stops standing

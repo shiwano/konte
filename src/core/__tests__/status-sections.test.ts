@@ -171,7 +171,7 @@ describe("buildAddressInfo", () => {
 
     // With the script hand-deleted, "Pending patches" cannot see the take at all, so dropping it
     // here too would leave it in no section — invisible work with a file on disk.
-    it("keeps a stale output whose patch script is gone, routed to prune", () => {
+    it("keeps a stale output whose patch script is gone, routed to clean", () => {
       const state = patched("h1");
       state.assets[ADDR]!.variants!["v-fix"]!.inputFingerprints = { "reference:bgm": "old" };
       state.assets["reference:bgm"] = {
@@ -203,7 +203,7 @@ describe("buildAddressInfo", () => {
         hasScript: false,
       });
       const items = computeStatusSections([info]).find((s) => s.title === "Needs review")?.items;
-      expect(items?.[0]?.detail).toContain("konte prune");
+      expect(items?.[0]?.detail).toContain("konte clean");
     });
 
     // An output built by a since-edited script is work to redo, not work to review — it belongs

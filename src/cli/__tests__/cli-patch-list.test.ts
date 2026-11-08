@@ -79,10 +79,10 @@ describe("patch command", () => {
         expect(stdout).toMatch(new RegExp(`absent\\s+${sourceId}`));
       });
 
-      it("is kept by prune", async () => {
+      it("is kept by clean", async () => {
         const { projectDir, sourceId } = await cloneLikeProject();
 
-        await run(["prune", "--yes"], projectDir);
+        await run(["clean", "--yes"], projectDir);
 
         await fs.access(path.join(projectDir, "patches", `${sourceId}.ts`));
       });
@@ -146,7 +146,7 @@ export default definePatch<"image">(({ source }) => {
 
     // The guard refuses to scaffold or load a script named after a produced take, not to write one
     // by hand. It names a take about to stop existing, so it goes with it rather than being left
-    // for `prune`.
+    // for `clean`.
     it("also drops a hand-written script named after a variant it produced", async () => {
       const projectDir = await initPatchProject();
       const sourceId = await generateSource(projectDir);

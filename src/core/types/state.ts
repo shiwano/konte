@@ -135,7 +135,7 @@ export type SongAnalysis = SongReading & Omit<SongRecord, "reading">;
 //
 // A dismissed take is out of resolution (`resolveCore`) and out of generation's skip test
 // (`assetSkipReason`): dismissing every take at an address means the same thing as having none.
-// The file stays on disk until `clean`/`prune` takes it.
+// The file stays on disk until `clean` takes it.
 const VariantStatusSchema = z.enum(["none", "accepted", "dismissed"]);
 
 const VariantStateSchema = z.object({

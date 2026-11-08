@@ -138,7 +138,7 @@ export interface StatusReport {
   readiness: ExportReadiness[];
   lastExports: LastExport[];
   /**
-   * Job ids of jobs still in flight whose variant is gone from state. `prune` refuses an active
+   * Job ids of jobs still in flight whose variant is gone from state. `clean` refuses an active
    * job, so the step is a cancel.
    */
   orphanJobIds: string[];

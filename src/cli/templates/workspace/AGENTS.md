@@ -67,7 +67,7 @@ Everything konte generates, reviews or comments on is addressed `<stage>:<part>`
 
 Truncating an address from the right gives a scope; a command takes one of two kinds:
 
-- address-scope — a prefix filtering targets at any depth: `video` (stage), `video:shot.01` (shot), `animatic:timeline` (timeline), or a full address. Used by `inspect`, `clean`, `prune`, `probe`.
+- address-scope — a prefix filtering targets at any depth: `video` (stage), `video:shot.01` (shot), `animatic:timeline` (timeline), or a full address. Used by `inspect`, `clean`, `probe`.
 - stage-scope — exactly one bare stage, like `video`. Used by `generate`, `preview`, `export`.
 
 ## State model

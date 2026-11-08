@@ -123,9 +123,9 @@ function suggestMissingFiles(actions: SuggestedAction[], paths: readonly string[
   });
 }
 
-// A job still in flight whose variant is gone from state. `konte prune` skips every active job, so
+// A job still in flight whose variant is gone from state. `konte clean` skips every active job, so
 // it never clears one of these. Cancelling makes it terminal; `konte doctor` routes what it leaves
-// behind to `prune`.
+// behind to `clean`.
 function suggestOrphanJobCancel(actions: SuggestedAction[], jobIds: readonly string[]): void {
   if (jobIds.length === 0) return;
   actions.push({ command: `konte job cancel ${jobIds.join(" ")}` });

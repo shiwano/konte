@@ -27,7 +27,7 @@ type OrphanContext = {
   acceptedMadeFrom: (address: string) => VariantRef[];
 };
 
-// Single source of truth for "is this state address an orphan" — shared by `prune`
+// Single source of truth for "is this state address an orphan" — shared by `clean`
 // (which deletes orphans) and `doctor` (which warns about them) so the two can never
 // drift. An orphan is a state address that maps to no in-definition target: not a
 // regular asset, not a live composition baseline, and not a live `#delivery` derivative.
@@ -135,7 +135,7 @@ export function buildOrphanContext(
 /**
  * Variant directories on disk whose variant no state row records — left by a registration that
  * died before its save, or by a variant another checkout deleted. Pass the recorded state
- * (`StateManager.getRecordedState`): an absent variant's directory is not stray. Shared by `prune`
+ * (`StateManager.getRecordedState`): an absent variant's directory is not stray. Shared by `clean`
  * (which deletes them) and `doctor` (which warns about them).
  */
 export async function listStrayVariantDirs(

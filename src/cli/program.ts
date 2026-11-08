@@ -16,7 +16,6 @@ import { registerWorkspaceCommand } from "./commands/workspace/index.js";
 import { registerInspectCommand } from "./commands/inspect.js";
 import { registerLicensesCommand } from "./commands/licenses.js";
 import { registerLspCommand } from "./commands/lsp.js";
-import { registerPruneCommand } from "./commands/prune.js";
 import { registerPathCommand } from "./commands/path.js";
 import { registerJobCommand } from "./commands/job/index.js";
 import { registerReviewCommand } from "./commands/review/index.js";
@@ -67,7 +66,6 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
   registerInspectCommand(program);
   registerPathCommand(program);
   registerCleanCommand(program);
-  registerPruneCommand(program);
 
   registerRerollCommand(program);
   registerGenerateCommand(program);

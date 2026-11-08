@@ -265,6 +265,8 @@ describe("clean command", () => {
     childVariant.file = `assets/video/${bareAddress}/${child}/output.mp4`;
     childVariant.derivedFrom = v2;
     await sm.save();
+    await fs.mkdir(path.join(projectDir, "patches"), { recursive: true });
+    await fs.writeFile(path.join(projectDir, "patches", `${v2}.ts`), "export default 1;\n");
 
     const { stdout } = await run(["clean", "--yes"], projectDir);
 
