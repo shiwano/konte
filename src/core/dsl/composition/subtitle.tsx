@@ -30,9 +30,14 @@ export function Subtitle({
   lineStyle,
   ...rest
 }: SubtitleProps): React.ReactElement | null {
-  const all = entries.flatMap((e) =>
-    e.shot === undefined ? [{ start: e.start, end: e.end, text: e.text, attrs: {} }] : timedLine(e),
-  );
+  const window = getRenderContext().window;
+  const all = entries
+    .flatMap((e) =>
+      e.shot === undefined
+        ? [{ start: e.start, end: e.end, text: e.text, attrs: {} }]
+        : timedLine(e),
+    )
+    .filter((e) => !window || (e.end - window.start > EPSILON && window.end - e.start > EPSILON));
   if (all.length === 0) {
     return null;
   }
@@ -42,6 +47,8 @@ export function Subtitle({
 }
 
 type Attrs = Record<string, string>;
+
+const EPSILON = 1e-6;
 
 // A line's entries timed off the reel, or — on a render from the definition alone — each of its
 // texts at 0. Each is marked with what times it — the line, the words it names, the take and pauses

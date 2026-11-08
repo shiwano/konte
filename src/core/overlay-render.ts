@@ -28,6 +28,7 @@ export function renderOverlayBody(opts: {
   resolvedFiles: Record<string, string>;
   absolutePaths?: Record<string, string>;
   lineTimings?: ReadonlyMap<string, LineTiming>;
+  window?: { start: number; end: number };
 }): string {
   const id = OVERLAY_COMPOSITION_ID;
   const jsx = runInRenderMode(opts.stage, id, opts.fn, opts.resolvedFiles, opts.absolutePaths);
@@ -39,6 +40,7 @@ export function renderOverlayBody(opts: {
     typography: opts.typography,
     nested: true,
     ...(opts.lineTimings ? { lineTimings: opts.lineTimings } : {}),
+    ...(opts.window ? { window: opts.window } : {}),
   });
   return injectBaseTimeline(body, id, opts.overlay.duration);
 }

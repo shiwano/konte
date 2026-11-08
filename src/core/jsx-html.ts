@@ -29,6 +29,9 @@ export interface RenderContext {
   // OVERLAY ONLY: where each script line is heard on the reel (`lineTimingKey`), which
   // a script-line `<Subtitle>` entry is timed off. Absent on a render from the definition alone.
   lineTimings?: ReadonlyMap<string, LineTiming>;
+  // OVERLAY ONLY: the span of the overlay's clock one shot's export shows; a `<Subtitle>` entry
+  // outside it is not rendered.
+  window?: { start: number; end: number };
   // When true, `Composition` emits a bare children fragment (no <html>/<head>/#stage)
   // for embedding as a nested composition's <template> body. Set only by the
   // multi-shot preview assembly (`buildFullCompositionHtml`).

@@ -955,6 +955,7 @@ function layOverlaysAndStage(
   const { size, typography, manager, shots, overlay } = options;
   let html = compositionHtml;
   if (overlay) {
+    const shotStart = overlay.shotStarts.get(shotPlan.shotId) ?? 0;
     html = injectOverlay(html, {
       body: renderOverlayBody({
         stage: shotPlan.stage,
@@ -964,8 +965,9 @@ function layOverlaysAndStage(
         typography,
         resolvedFiles: {},
         ...(overlay.lineTimings ? { lineTimings: overlay.lineTimings } : {}),
+        window: { start: shotStart, end: shotStart + shotPlan.duration },
       }),
-      shotStart: overlay.shotStarts.get(shotPlan.shotId) ?? 0,
+      shotStart,
       shotDuration: shotPlan.duration,
     });
   }

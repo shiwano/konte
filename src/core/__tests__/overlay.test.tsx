@@ -25,6 +25,7 @@ import { buildDependencyGraph, collectRerollCascade } from "../graph.js";
 import { computeDependencyLevels } from "../dependency-levels.js";
 import { withSongVariants } from "../dsl/song-context.js";
 import { injectOverlay, shiftTimedElements } from "../overlay-render.js";
+import { renderToHtml } from "../jsx-html.js";
 import { StateManager } from "../state/index.js";
 import { checkTailwindClasses } from "../tailwind-classes.js";
 import { directionDefaults } from "./helpers/direction.js";
@@ -270,6 +271,31 @@ describe("laying the overlay over a shot", () => {
     expect(shiftTimedElements(html, 64.24999999999999, 1.1666666666666667)).toBe(
       `<div data-start="2.166667" data-duration="0.001"></div>`,
     );
+  });
+
+  it("renders only the subtitle entries the shot's window shows", () => {
+    const html = renderToHtml(
+      <Subtitle
+        entries={[
+          { text: "before", start: 0, end: 3 },
+          { text: "across", start: 2.5, end: 3.5 },
+          { text: "inside", start: 4, end: 4.5 },
+          { text: "after", start: 5, end: 6 },
+        ]}
+      />,
+      {
+        shotId: "timeline.overlay",
+        width: 1280,
+        height: 720,
+        duration: 6,
+        typography: { lang: "en" },
+        window: { start: 3, end: 5 },
+      },
+    );
+    expect(html).not.toContain("before");
+    expect(html).toContain("across");
+    expect(html).toContain("inside");
+    expect(html).not.toContain("after");
   });
 
   it("hosts the overlay inside the shot's stage and carries the clock it missed", () => {
