@@ -47,6 +47,9 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - konte-prompt-critic 4,000 → 4,050, konte-animatic-critic 3,900 → 4,000, konte-staging-critic
+//   2,500 → 2,600, konte-video-critic 2,900 → 3,000, adaptation 36,200 → 36,300 (agreed by a human):
+//   a guide a skill or a command names for a step, read whole before that step.
 // - konte-prompt-critic 3,950 → 4,000, konte-animatic-critic 3,850 → 3,900 (agreed by a human): a
 //   character's size against a recurring object, measured on the body.
 // - lang-ja (new, 650): how a Japanese `script` line is written for a speech model.
@@ -185,17 +188,17 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "konte-prompt-critic",
-    budget: 4_000,
+    budget: 4_050,
     files: [...ALWAYS, `${AGENTS}/konte-prompt-critic.md`],
   },
   {
     name: "konte-animatic-critic",
-    budget: 3_900,
+    budget: 4_000,
     files: [...ALWAYS, `${AGENTS}/konte-animatic-critic.md`],
   },
   {
     name: "konte-staging-critic",
-    budget: 2_500,
+    budget: 2_600,
     files: [...ALWAYS, `${AGENTS}/konte-staging-critic.md`],
   },
   {
@@ -205,7 +208,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "konte-video-critic",
-    budget: 2_900,
+    budget: 3_000,
     files: [...ALWAYS, `${AGENTS}/konte-video-critic.md`],
   },
   {
@@ -215,7 +218,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "adaptation",
-    budget: 36_200,
+    budget: 36_300,
     files: [...VIDEO_FILES, `${SKILLS}/scenario-guide/references/adaptation.md`],
   },
   {

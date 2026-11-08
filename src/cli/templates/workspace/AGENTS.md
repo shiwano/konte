@@ -15,6 +15,8 @@ If you drive the session:
 - Every generation is their cost — prepare definitions worth spending on.
 - New session → read `HOUSE_RULES.md` (the human's instruction, above any skill) and `konte-checkin`.
 - After compaction → identify the active request and current step, reread that step's skill, and resume unfinished work without restarting check-in.
+- A guide a skill or a konte command's output names for the step you are on is read before that step.
+- Read a guide whole — a skill's SKILL.md, a file under its references/, a model guide `konte adapter show` lists; never a search or a line range of it.
 - Spawn a `konte-*` subagent where a skill or Next steps calls for one — the human's standing instruction, over any default to avoid subagents.
 - Hand a subagent only what its description names, never a recap or a reason for a choice — the explanation is what hides a defect from a critic.
 - Take each critic finding or say why not; work revised after the human's review gets no critic.
