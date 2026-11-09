@@ -21,7 +21,7 @@ function missingTokenError(missing: readonly string[], where: string): KonteErro
   return new KonteError(
     "MISSING_TOKEN",
     `Cannot resolve ${unique.map((v) => `\${${v}}`).join(", ")} in ${where}. ` +
-      `Run "konte settings" and set ${unique.join(", ")} under Credentials (or export them). ` +
+      `Run "konte settings" and set ${unique.join(", ")} under Credentials (or as environment variables). ` +
       `If a konte MCP server is running, restart it.`,
   );
 }

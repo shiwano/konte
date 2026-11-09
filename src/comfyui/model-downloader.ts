@@ -393,7 +393,7 @@ function authHint(resolvedUrl: string): string {
     );
   }
   return isHuggingFace(resolvedUrl)
-    ? 'This repo is gated. Set HF_TOKEN in "konte settings" and accept the repo\'s licence at its HuggingFace page.'
+    ? 'This repo is gated. Set HF_TOKEN in "konte settings" (or as an environment variable) and accept the repo\'s licence at its HuggingFace page.'
     : "The server rejected the request; check any token this URL needs.";
 }
 

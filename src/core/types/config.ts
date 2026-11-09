@@ -34,7 +34,7 @@ export function comfyHeaderIssue(name: string, value: string): string | null {
     return (
       `"${name}" carries a credential, so its value must be a \${VAR} placeholder, alone or after ` +
       `an auth scheme (e.g. \${COMFYUI_TOKEN} or Bearer \${COMFYUI_TOKEN}). konte.config.json is ` +
-      `not gitignored; store the value itself under Credentials in \`konte settings\`.`
+      `not gitignored; store the value itself under Credentials in \`konte settings\` or as an environment variable.`
     );
   }
   return null;

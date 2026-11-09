@@ -66,7 +66,7 @@ export function backendSetupHint(kind: VendorBackendKind): string {
   }
   const credential = backendCredential(kind);
   return credential
-    ? `set ${credential.key} (\`konte settings\`, Credentials tab, or export it) — ${credential.obtainUrl}`
+    ? `set ${credential.key} (\`konte settings\`, Credentials tab, or an environment variable) — ${credential.obtainUrl}`
     : `configure ${kind}`;
 }
 

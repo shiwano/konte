@@ -22,12 +22,15 @@ export function credentialsPath(workspaceRoot: string): string {
 export function missingCredentialMessage(key: string): string {
   const known = knownCredential(key);
   const where = known ? ` Get one from ${known.obtainUrl}.` : "";
-  return `${key} is not set. Run "konte settings" and set it under Credentials (or export it in your environment).${where}`;
+  return `${key} is not set. Set it under Credentials in "konte settings", or as an environment variable of the machine konte runs on.${where}`;
 }
 
 export function rejectedCredentialMessage(key: string): string {
   const known = knownCredential(key);
   const from = known ? ` from ${known.obtainUrl}` : "";
+  if (hasEnvironmentOverride(key)) {
+    return `Replace the ${key} environment variable with a valid key${from}, then re-run the command — it overrides \`konte settings\`.`;
+  }
   return `Replace ${key} in \`konte settings\` (Credentials tab) with a valid key${from}, then re-run the command.`;
 }
 

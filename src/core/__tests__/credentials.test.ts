@@ -7,6 +7,7 @@ import {
   hasEnvironmentOverride,
   loadCredentials,
   missingCredentialMessage,
+  rejectedCredentialMessage,
   saveCredentials,
   updateCredentials,
 } from "../credentials.js";
@@ -208,5 +209,26 @@ describe("missingCredentialMessage", () => {
 
   it("still points somewhere for a key it does not know", () => {
     expect(missingCredentialMessage("MY_TOKEN")).toContain("konte settings");
+  });
+
+  it("names the environment variable as a way to set it", () => {
+    expect(missingCredentialMessage("FAL_KEY")).toContain("environment variable");
+  });
+});
+
+describe("rejectedCredentialMessage", () => {
+  it("points at konte settings for a key from the credentials file", async () => {
+    await saveCredentials(ws.root, { KONTE_TEST_CRED: "stored" });
+    await applyCredentials(ws.root);
+    expect(rejectedCredentialMessage("KONTE_TEST_CRED")).toContain("in `konte settings`");
+  });
+
+  it("points at the environment variable when it overrides the file", async () => {
+    await saveCredentials(ws.root, { KONTE_TEST_CRED: "stored" });
+    process.env.KONTE_TEST_CRED = "from-env";
+    await applyCredentials(ws.root);
+    expect(rejectedCredentialMessage("KONTE_TEST_CRED")).toContain(
+      "Replace the KONTE_TEST_CRED environment variable",
+    );
   });
 });
