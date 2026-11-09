@@ -3,6 +3,7 @@
 A konte workspace for AI-generated video.
 
 If you are Codex, read `.konte/codex.md`.
+If you are Muse, read `.konte/muse.md`.
 
 ## Driving the session
 

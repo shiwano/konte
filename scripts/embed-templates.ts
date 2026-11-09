@@ -34,6 +34,7 @@ const MANAGED_EXACTS = [
   ".konte/react.d.ts",
   ".konte/react-jsx-runtime.d.ts",
   ".konte/codex.md",
+  ".konte/muse.md",
   "AGENTS.md",
   "CLAUDE.md",
   "tsconfig.json",
