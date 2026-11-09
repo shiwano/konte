@@ -78,13 +78,13 @@ describe("environment-specific agent settings", () => {
       await fs.mkdir(path.join(root, ".codex"));
       await fs.writeFile(
         path.join(root, ".codex/config.toml"),
-        `[shell_environment_policy]\ninherit = "all"\n[shell_environment_policy.set]\n${configuredKey} = ${JSON.stringify(existingPath)}\nCUSTOM = "keep"\n`,
+        `[shell_environment_policy]\ninherit = "all"\n[shell_environment_policy.set]\n${configuredKey} = ${JSON.stringify(existingPath)}\nCUSTOM = "keep"\nKONTE_AGENT = "user"\n`,
       );
       await fs.mkdir(path.join(root, ".claude"));
       await fs.writeFile(
         path.join(root, ".claude/settings.json"),
         JSON.stringify({
-          env: { [configuredKey]: existingPath, CUSTOM: "keep" },
+          env: { [configuredKey]: existingPath, CUSTOM: "keep", KONTE_AGENT: "user" },
           hooks: { SessionStart: [{ hooks: [{ type: "command", command: "say-hello" }] }] },
         }),
       );
@@ -93,10 +93,11 @@ describe("environment-specific agent settings", () => {
       const expectedPath = [binDir, "custom-tools", "other-tools"].join(paths.delimiter);
       expect(codex(files).shell_environment_policy).toEqual({
         inherit: "all",
-        set: { PATH: expectedPath, CUSTOM: "keep" },
+        set: { PATH: expectedPath, CUSTOM: "keep", KONTE_AGENT: "codex" },
       });
       expect(claude(files).env).toEqual({
         CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP: "1",
+        KONTE_AGENT: "claude",
       });
       expect(pathHooks(files)).toHaveLength(1);
       expect(process.env.PATH).toBe("inherited-tools");

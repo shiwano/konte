@@ -136,11 +136,9 @@ export async function prepareAgentSettings(
           // Codex's sandbox confines the konte its shell runs, which reads the credentials at startup.
           const roots = table(table(table(settings, "permissions"), "konte"), "filesystem");
           delete table(roots, ":workspace_roots")["konte.credentials.json"];
-          leadPathWithBin(
-            table(table(settings, "shell_environment_policy"), "set"),
-            binDir,
-            platform,
-          );
+          const env = table(table(settings, "shell_environment_policy"), "set");
+          leadPathWithBin(env, binDir, platform);
+          env.KONTE_AGENT = "codex";
         }
       }
       rendered[key] = key.endsWith(".toml")

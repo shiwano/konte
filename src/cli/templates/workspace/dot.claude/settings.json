@@ -1,6 +1,7 @@
 {
   "env": {
-    "CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP": "1"
+    "CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP": "1",
+    "KONTE_AGENT": "claude"
   },
   "hooks": {
     "SessionStart": [

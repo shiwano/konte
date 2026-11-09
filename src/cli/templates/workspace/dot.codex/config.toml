@@ -20,6 +20,7 @@ allow_local_binding = true
 unified_exec = true
 
 [shell_environment_policy.set]
+KONTE_AGENT = "codex"
 
 [mcp_servers.konte]
 command = "konte"
