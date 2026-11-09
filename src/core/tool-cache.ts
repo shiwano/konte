@@ -1,5 +1,4 @@
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { downloadFile } from "./download.js";
@@ -16,8 +15,7 @@ import { workspaceRootOrNull } from "./workspace-context.js";
  *
  * Inside a workspace the runtimes live under `<workspace>/.konte/tools/`, so removing the
  * workspace removes everything konte installed. `KONTE_CACHE_DIR` overrides that (CI, Nix, a
- * shared cache). Outside a workspace — `konte lsp` is launched by an editor from anywhere and
- * still needs tsc — fall back to the XDG cache.
+ * shared cache).
  */
 export function toolCacheDir(name: string): string {
   return path.join(toolCacheRoot(), name);
@@ -28,10 +26,8 @@ function toolCacheRoot(): string {
   if (override) return path.resolve(override);
 
   const workspace = workspaceRootOrNull();
-  if (workspace) return path.join(workspace, ".konte", "tools");
-
-  const xdg = process.env.XDG_CACHE_HOME;
-  return xdg ? path.join(xdg, "konte") : path.join(os.homedir(), ".cache", "konte");
+  if (!workspace) throw new Error("The tool cache needs a workspace root");
+  return path.join(workspace, ".konte", "tools");
 }
 
 // Stamped into a runtime directory once everything in it has been verified and unpacked.

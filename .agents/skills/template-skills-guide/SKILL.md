@@ -13,7 +13,7 @@ Audience: the agent in a user's konte project, mid-task — never the konte main
 ## Single source, claude mirror
 
 - Author only under `dot.agents/skills/` — embed (`scripts/embed-templates.ts`) mirrors each skill's `SKILL.md` and `references/` verbatim to a `.claude/skills/` twin; sidecars aren't mirrored. Codex reads `dot.agents/skills/` directly; Claude Code reads the mirror.
-- Never touch `dot.claude/skills/` — embed throws on a hand-written `SKILL.md` there; only its `README.md` (ignored by embed) and the Claude-only `konte-lsp` plugin belong there.
+- Never touch `dot.claude/skills/` — embed throws on a hand-written `SKILL.md` there; only its `README.md` (ignored by embed) belongs there.
 - Plugin skills live in `plugin/plugins/konte/skills/` — shipped by the marketplace, not `workspace new`; no `konte-` prefix (the namespace supplies it).
 - The plugin ships only `setup` and `upgrade`, which install and update the binary inside one workspace.
 - `.github/workflows/publish-plugin.yml` publishes `plugin/` to the orphan `plugin` branch users add (`shiwano/konte@plugin`).

@@ -146,8 +146,7 @@ function isOtherVideo(file: string, workspaceRoot: string, videoRoot: string | n
  * Absolute path to a usable tsc, provisioning the managed native build on first use if needed.
  *
  * `KONTE_TSC_PATH` overrides it with a local binary, skipping the download. The type-check passes
- * `--noEmit --pretty` (which the JS `tsc` also accepts), while `konte lsp` passes `--lsp -stdio`
- * (the native TypeScript 7 build only).
+ * `--noEmit --pretty`, which the JS `tsc` also accepts.
  */
 export async function ensureTsc(): Promise<string> {
   if (tscPath) return tscPath;

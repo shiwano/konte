@@ -43,7 +43,6 @@ const AGENT_SETTINGS_KEYS = [
   ".claude/settings.json",
   ".codex/config.toml",
   ".codex/rules/konte.rules",
-  ".claude/skills/konte-lsp/.claude-plugin/plugin.json",
 ];
 
 function isManaged(key: string): boolean {
@@ -104,11 +103,9 @@ const transforms: Record<string, (content: string) => string> = {
 // .claude/skills/ here at embed time, so agents is the single source of truth
 // (Codex and Claude both read their own dir). AGENTS_SKILL_RE matches a skill's
 // SKILL.md body and its references/ docs (the capture group is the path relative
-// to the skills root, reused verbatim for the claude twin). konte-lsp is a
-// Claude-only plugin (a .claude-plugin/plugin.json, no SKILL.md), so it is
-// authored directly under dot.claude/skills/ and never mirrored. That same
-// dot.claude/skills/ holds the README documenting the arrangement; it is ignored
-// so it never ships to user projects. CLAUDE_SKILL_GUARD_RE rejects a
+// to the skills root, reused verbatim for the claude twin). dot.claude/skills/
+// holds the README documenting the arrangement; it is ignored so it never ships
+// to user projects. CLAUDE_SKILL_GUARD_RE rejects a
 // hand-written SKILL.md on the mirror-target side.
 const AGENTS_SKILL_RE = /^\.agents\/skills\/(.+\/SKILL\.md|.+\/references\/.+)$/;
 const CLAUDE_SKILL_GUARD_RE = /^\.claude\/skills\/.+\/SKILL\.md$/;

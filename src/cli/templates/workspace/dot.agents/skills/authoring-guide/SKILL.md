@@ -13,7 +13,6 @@ Declare shots, assets and dependencies in the stage files; done = `konte status`
 - The `prompt` string → `prompt-guide`
 - Plates, landmarks and a panel's `blocking` / `camera` → `staging-guide`
 - `<Composition>` JSX, audio placement → `composition-guide`
-- A type, field or signature (check, don't guess) → the konte LSP (`konte-lsp` plugin) in your editor
 - A dependency or staleness reason → `konte inspect <address>`
 
 ## The three definition files

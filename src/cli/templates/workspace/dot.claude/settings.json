@@ -40,7 +40,6 @@
     }
   },
   "enabledPlugins": {
-    "konte@konte": true,
-    "typescript-lsp@claude-plugins-official": false
+    "konte@konte": true
   }
 }

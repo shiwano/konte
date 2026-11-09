@@ -1,10 +1,10 @@
 ---
 name: config-guide
-description: Read when a key "is not set", konte doctor reports a backend failure, or a comfy asset routes to the wrong place — API keys, the ComfyUI connection, Comfy Cloud and Comfy API routing, editor type-checking.
+description: Read when a key "is not set", konte doctor reports a backend failure, or a comfy asset routes to the wrong place — API keys, the ComfyUI connection, Comfy Cloud and Comfy API routing.
 user-invocable: false
 ---
 
-Configure the required backends and editor; done = those backends pass `konte doctor --backends`.
+Configure the required backends; done = those backends pass `konte doctor --backends`.
 
 ## API keys
 
@@ -55,14 +55,6 @@ konte builds a deployment's Build and release; only the user creates and deletes
 - A deployment named as not ready → tell the user its status and the Build page URL; they read why on that page and deploy again.
 - A deployment named as running an earlier release → ask the user to delete it on the same page — a deployment bills its models' storage until deleted.
 - Done with Comfy API for now → the user may delete the deployment on the Build page; the next `konte adapter comfy build` asks for a new one.
-
-## Editor type-checking
-
-`konte lsp` is a language server providing TypeScript diagnostics and completion in the definition files.
-
-- Claude Code: automatic — `konte workspace new` ships a `konte-lsp` plugin under `.claude/skills/`. Accept the workspace trust prompt.
-- VSCode: no setup.
-- Neovim: use the workspace binary's absolute path with `lsp` as the language-server command, and `konte.config.json` as its root marker.
 
 ## Done
 

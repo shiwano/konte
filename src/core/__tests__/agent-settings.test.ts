@@ -32,7 +32,7 @@ function pathHooks(files: Record<string, string>): string[] {
 }
 
 describe("environment-specific agent settings", () => {
-  it("uses absolute MCP/LSP paths and PATH-based CLI permissions", async () => {
+  it("uses absolute MCP paths and PATH-based CLI permissions", async () => {
     const files = await prepareAgentSettings(root);
     const binary = path.join(root, ".konte/bin/konte");
     const config = codex(files);
@@ -47,10 +47,6 @@ describe("environment-specific agent settings", () => {
       cwd: root,
     });
     expect(JSON.parse(files[".mcp.json"]!).mcpServers.konte.command).toBe(binary);
-    expect(
-      JSON.parse(files[".claude/skills/konte-lsp/.claude-plugin/plugin.json"]!).lspServers
-        .typescript.command,
-    ).toBe(binary);
     expect(files[".codex/rules/konte.rules"]).toContain('pattern = [["konte", "konte.exe"]]');
     expect(files[".codex/rules/konte.rules"]!.match(/prefix_rule\(/g)).toHaveLength(1);
     expect(files[".codex/rules/konte.rules"]).not.toContain(root);

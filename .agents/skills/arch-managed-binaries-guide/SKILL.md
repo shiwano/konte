@@ -9,7 +9,7 @@ How konte supplies its external tools — each a version-pinned build fetched on
 - ffmpeg/ffprobe (local media ops, rendering, audio muxing) — managed by default; override `KONTE_FFMPEG_PATH` / `KONTE_FFPROBE_PATH` or `local.ffmpegPath` / `local.ffprobePath` in `konte.config.json` (version-checked; no automatic PATH fallback).
   - konte spawns the absolute path, but HyperFrames hardcodes `spawn("ffmpeg")`, so `ensureHyperFrames` calls `leadPathWithFfmpeg()` to put the resolved binaries' directory at the head of `PATH`. It skips an override a PATH lookup cannot honor (a bare name already is one; a renamed `ffmpeg-7` is not), so `vitest.setup.ts`'s bare-name override leaves `PATH` untouched.
 - cloudflared (`konte preview --tunnel`) — managed, fetched on the first tunnel; override `KONTE_CLOUDFLARED_PATH` (not version-checked).
-- tsc (type-checking user workspaces — the native TypeScript build, platform package `@typescript/typescript-<platform>-<arch>`) — managed; override `KONTE_TSC_PATH` (not version-checked). The type-check passes `--noEmit --pretty`, which the JS `tsc` also accepts — the test suite pins the override at the repo's `tsc` to keep a cold cache offline; `konte lsp` passes `--lsp -stdio`, native build only.
+- tsc (type-checking user workspaces — the native TypeScript build, platform package `@typescript/typescript-<platform>-<arch>`) — managed; override `KONTE_TSC_PATH` (not version-checked). The type-check passes `--noEmit --pretty`, which the JS `tsc` also accepts — the test suite pins the override at the repo's `tsc` to keep a cold cache offline.
 - sherpa-onnx + its models (song analysis, line hearing) — models fetched on first use; override `KONTE_SHERPA_SEPARATION_PATH` / `KONTE_SHERPA_RECOGNIZER_PATH` / `KONTE_SPLEETER_MODEL_DIR` / `KONTE_SENSE_VOICE_MODEL_DIR` / `KONTE_PARAKEET_MODEL_DIR`.
 - Beat This! (song beat tracking) — model fetched on first use, `onnxruntime-web` WASM embedded; override `KONTE_BEAT_THIS_MODEL_DIR`.
 - Chromium (HyperFrames rendering; pdf.js drawing a comic PDF page, `pdf-render.ts`) — managed `chrome-headless-shell` (Chrome for Testing's `chrome.exe` on Windows — the shell there opens a console window per child process), installed by `@puppeteer/browsers` into `chromium-<buildId>/`; override `KONTE_CHROMIUM_PATH` (not version-checked). The build id is pinned to puppeteer's `PUPPETEER_REVISIONS` — HyperFrames drives the shell over CDP through its bundled puppeteer.
@@ -34,7 +34,6 @@ How konte supplies its external tools — each a version-pinned build fetched on
 
 1. `KONTE_CACHE_DIR` — a shared cache for CI or Nix; `vitest.setup.ts` points it at a throwaway dir so no test writes the developer's real cache.
 2. `<workspace>/.konte/tools/` — the default.
-3. `$XDG_CACHE_HOME/konte` or `~/.cache/konte` — outside a workspace, since an editor launches `konte lsp` from anywhere and it still needs tsc.
 
 - The workspace root is `workspaceRootOrNull()` (`src/core/workspace-context.ts`), a process global set once in the CLI preAction.
 - Each directory name pins its contents' identity — `ffmpeg-<version>`, `tsc-<version>`, `chromium-<buildId>`, `hyperframes-<contentHash>`. hyperframes (the embedded runtime assets) is written out of the binary — nothing to pin; its resolver still checks the files exist.

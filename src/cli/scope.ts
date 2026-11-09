@@ -3,8 +3,7 @@ import type { Command } from "commander";
 /**
  * What a command needs before it runs.
  *
- * - `none` — no konte roots at all (`workspace new` has no workspace yet; `lsp` is launched by
- *   an editor from anywhere).
+ * - `none` — no konte roots at all (`workspace new` has no workspace yet).
  * - `workspace` — a workspace, but no particular video.
  * - `video` — a workspace and one selected video. The default, and what all ~30 asset-level
  *   commands want; a command opts out explicitly rather than by omission.

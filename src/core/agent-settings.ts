@@ -124,10 +124,6 @@ export async function prepareAgentSettings(
       const settings = withDefaults(defaults, current);
       if (key === ".claude/settings.json") {
         leadHookPathWithBin(settings, platform);
-      } else if (key.endsWith("plugin.json")) {
-        const server = table(table(settings, "lspServers"), "typescript");
-        server.command = binary;
-        server.args = ["--cwd", workspaceRoot, "lsp"];
       } else {
         const servers = table(settings, key === ".mcp.json" ? "mcpServers" : "mcp_servers");
         const server = table(servers, "konte");
