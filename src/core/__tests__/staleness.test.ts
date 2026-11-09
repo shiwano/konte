@@ -16,6 +16,7 @@ import {
   selectResolvedVariant,
 } from "../staleness.js";
 import type { KonteState, VariantState } from "../types/index.js";
+import { variantDir } from "../variant-dir.js";
 
 function variant(overrides: Partial<VariantState> = {}): VariantState {
   return {
@@ -354,6 +355,85 @@ describe("computeVariantStaleness", () => {
       const src = state.assets[ADDR]!.variants!["v-src"]!;
       expect(isVariantStale(state, ADDR, src, "def2", hashes)).toBe(true);
       expect(isVariantStale(state, ADDR, fixOf(state), "def2", hashes)).toBe(true);
+    });
+
+    describe("a correction of the accepted take", () => {
+      const UP = "reference:card";
+      const keptLineage = () => {
+        const state = patched();
+        state.assets[UP] = {
+          variants: {
+            "v-old": variant({ status: "dismissed", file: "old.png", outputHash: "card1" }),
+            "v-new": variant({ status: "accepted", file: "new.png", outputHash: "card2" }),
+          },
+        };
+        const src = state.assets[ADDR]!.variants!["v-src"]!;
+        src.status = "accepted";
+        src.inputFingerprints = { [UP]: "card1" };
+        fixOf(state).inputFingerprints = { [UP]: "card1" };
+        return state;
+      };
+
+      it("is not stale on what it inherited while the source's accept stands", () => {
+        const state = keptLineage();
+        const s = computeVariantStaleness(
+          state,
+          ADDR,
+          fixOf(state),
+          "def2",
+          new Map([["v-src", "patch1"]]),
+        );
+        expect(s.definitionStale).toBe(false);
+        expect(s.inputStale).toBe(false);
+      });
+
+      it("still goes stale when its own script moves", () => {
+        const state = keptLineage();
+        const s = computeVariantStaleness(
+          state,
+          ADDR,
+          fixOf(state),
+          "def2",
+          new Map([["v-src", "patch2"]]),
+        );
+        expect(s.patchStale).toBe(true);
+      });
+
+      it("still goes stale on an upstream its chain consumed on its own", () => {
+        const state = keptLineage();
+        fixOf(state).inputFingerprints = { [UP]: "card1", "reference:sheet": "sheet1" };
+        state.assets["reference:sheet"] = {
+          variants: { "v-s": variant({ status: "accepted", file: "s.png", outputHash: "sheet2" }) },
+        };
+        const s = computeVariantStaleness(state, ADDR, fixOf(state), "def2");
+        expect(s.changedInputs.map((c) => c.address)).toEqual(["reference:sheet"]);
+      });
+
+      it("still goes stale on an upstream its chain consumed at the source's hash", () => {
+        const state = keptLineage();
+        const STEP = "animatic:patch.v-src.patched";
+        const file = `${variantDir("", STEP, "v-step")}/fix.png`;
+        state.assets[STEP] = {
+          variants: {
+            "v-step": variant({
+              file,
+              inputFingerprints: { [ADDR]: "src-hash", [UP]: "card1" },
+            }),
+          },
+        };
+        fixOf(state).file = file;
+        const s = computeVariantStaleness(state, ADDR, fixOf(state), "def2");
+        expect(s.changedInputs.map((c) => c.address)).toEqual([UP]);
+        expect(s.definitionStale).toBe(false);
+      });
+
+      it("goes stale on both axes once the source is no longer accepted", () => {
+        const state = keptLineage();
+        state.assets[ADDR]!.variants!["v-src"]!.status = "none";
+        const s = computeVariantStaleness(state, ADDR, fixOf(state), "def2");
+        expect(s.definitionStale).toBe(true);
+        expect(s.inputStale).toBe(true);
+      });
     });
   });
 });

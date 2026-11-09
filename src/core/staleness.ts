@@ -1,6 +1,7 @@
 import { acceptedVariant, acceptedVariantId } from "./accepted-variant.js";
 import type { StateManager } from "./state/index.js";
 import type { KonteState, VariantState } from "./types/index.js";
+import { variantOwningFile } from "./variant-dir.js";
 import { isReviewLeaf } from "./variant-lineage.js";
 
 interface ChangedInput {
@@ -52,6 +53,7 @@ export function createStalenessCache(definitions?: ResolutionDefinitions) {
     resolved: new Map<string, ResolveCore>(),
     definitions,
     definitionHashes: new Map<string, string | null>(),
+    chainInputs: new Map<string, ReadonlySet<string>>(),
   };
 }
 
@@ -69,6 +71,7 @@ interface ResolveContext {
   sawCutoff: boolean;
   definitions: ResolutionDefinitions | undefined;
   definitionHashes: Map<string, string | null>;
+  chainInputs: Map<string, ReadonlySet<string>>;
 }
 
 function newContext(cache?: StalenessCache): ResolveContext {
@@ -78,6 +81,7 @@ function newContext(cache?: StalenessCache): ResolveContext {
     sawCutoff: false,
     definitions: cache?.definitions,
     definitionHashes: cache?.definitionHashes ?? new Map(),
+    chainInputs: cache?.chainInputs ?? new Map(),
   };
 }
 
@@ -176,9 +180,42 @@ export function computeVariantStaleness(
   );
 }
 
+// The source of a patch output while its accept stands; the output's inherited axes are its.
+function standingAcceptedSource(
+  state: KonteState,
+  address: string,
+  variant: VariantState,
+  ctx: ResolveContext,
+): VariantState | null {
+  if (variant.derivedFrom == null) return null;
+  const source = state.assets[address]?.variants?.[variant.derivedFrom];
+  if (source?.status !== "accepted" || !source.file) return null;
+  if (source.derivedFrom == null && ctx.definitions?.isDeterministic(address) === true) return null;
+  return source;
+}
+
+// The upstreams a patch output's chain consumed itself: its returned step's.
+function chainInputsOf(
+  state: KonteState,
+  address: string,
+  file: string,
+  ctx: ResolveContext,
+): ReadonlySet<string> {
+  const memoized = ctx.chainInputs.get(file);
+  if (memoized) return memoized;
+  const step = variantOwningFile(state, file);
+  const fingerprints = step
+    ? state.assets[step.address]?.variants?.[step.variantId]?.inputFingerprints
+    : undefined;
+  const inputs = new Set(Object.keys(fingerprints ?? {}));
+  inputs.delete(address);
+  ctx.chainInputs.set(file, inputs);
+  return inputs;
+}
+
 function computeVariantStalenessInternal(
   state: KonteState,
-  _address: string,
+  address: string,
   variant: VariantState,
   currentDefinitionHash: string | null,
   patchHashes: PatchHashes | undefined,
@@ -186,8 +223,18 @@ function computeVariantStalenessInternal(
 ): VariantStaleness {
   const changedInputs: ChangedInput[] = [];
   const kept = variant.status === "accepted" ? variant.keptInputs : undefined;
+  const keptSource = standingAcceptedSource(state, address, variant, ctx);
+  const chainInputs =
+    keptSource && variant.file ? chainInputsOf(state, address, variant.file, ctx) : null;
 
   for (const [depPath, made] of Object.entries(variant.inputFingerprints ?? {})) {
+    if (
+      keptSource &&
+      !chainInputs?.has(depPath) &&
+      (made === keptSource.inputFingerprints?.[depPath] ||
+        made === keptSource.keptInputs?.[depPath])
+    )
+      continue;
     const current = resolvedOutputHash(state, depPath, ctx);
     // A kept take is also current against what it was made from: an upstream switched back asks for
     // no second verdict.
@@ -201,6 +248,7 @@ function computeVariantStalenessInternal(
   const patchStale = isPatchStale(variant, patchHashes);
   const definitionStale =
     (currentDefinitionHash !== null &&
+      !keptSource &&
       variant.definitionHash !== null &&
       variant.definitionHash !== currentDefinitionHash) ||
     patchStale;

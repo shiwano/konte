@@ -50,6 +50,7 @@ A patched variant inherits its source's `definitionHash` and input fingerprints,
 - Inherited definition hash — an edit to the stage asset stales the whole lineage; hashing the patch's own would leave every patched take definition-stale from birth.
 - `patchHash` — editing a patch script ages out what it produced. It covers every step and hashes the parsed definitions — reformatting triggers no paid re-apply.
 - Self-address fingerprint dropped, source's merged in — the source is pinned at the patched take's own address, so recording it would make the take input-stale against itself. Applied at materialization, to the patched variant alone; a step's source is an ordinary upstream.
+- While the source's accept stands (`standingAcceptedSource`), the inherited axes are the source's — the definition hash and every input recorded as the source recorded it and not consumed by the returned step (`chainInputsOf`). Its `patchHash` still counts.
 
 "Pending patch" is one predicate: no non-stale patched take.
 
