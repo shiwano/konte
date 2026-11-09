@@ -44,7 +44,7 @@ https://github.com/user-attachments/assets/752ed713-a210-44b8-ba14-74973285ecb7
 
 ## Quick start
 
-**Requirements:** Claude Code or Codex and a [generation backend](#backends). Supports macOS, Linux, and Windows (including WSL). konte needs no Node.js, Python, or other runtime installation.
+**Requirements:** Claude Code, Codex or Muse and a [generation backend](#backends). Supports macOS, Linux, and Windows (including WSL). konte needs no Node.js, Python, or other runtime installation.
 
 Create a workspace directory, then install the plugin, run setup in a chat opened there, and check in (`$` = terminal, `>` = agent chat).
 
@@ -108,9 +108,30 @@ https://github.com/user-attachments/assets/ac615568-6e7f-434a-aa34-e17c6381d57c
 
 <sup>Project files for this video: [konte-demo-video](https://github.com/shiwano/konte-demo-video/tree/main/videos/codex-desktop-setup).</sup>
 
+### Muse (experimental)
+
+**1. Install** in your main chat:
+
+```
+> Make ~/konte-workspace, download
+  https://raw.githubusercontent.com/shiwano/konte/main/setup.sh and run it
+  with sh there. Then add these rules to ~/AGENTS.md:
+  - When my whole message is /konte-checkin in the main chat, open a fresh
+    side chat, hand the work in ~/konte-workspace over to it, and run the
+    konte-checkin skill there.
+  - When working under ~/konte-workspace, read its AGENTS.md and use its
+    .agents/skills as skills.
+```
+
+**2. Check in** in your main chat; Muse opens a side chat for it:
+
+```
+> /konte-checkin
+```
+
 ### Uninstall
 
-Close agent sessions using konte, delete your workspace directories, then remove the **konte** plugin and its marketplace. konte writes nothing outside a workspace.
+Close agent sessions using konte, delete your workspace directories, then remove the **konte** plugin and its marketplace (on Muse, the konte rules in `~/AGENTS.md`). konte writes nothing outside a workspace.
 
 ## Backends
 
