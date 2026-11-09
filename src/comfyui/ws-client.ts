@@ -4,6 +4,7 @@ import { pollUntilTerminal, TransientPollError } from "../core/poll-until-termin
 import { extractHistoryError, historyOutcome, isAuthFailure } from "./error-utils.js";
 import { ComfyUIHttpClient } from "./http-client.js";
 import { resolveHeaderTokens } from "./token-resolver.js";
+import { wsProxyFor } from "./ws-proxy.js";
 import type { ComfyUIWsMessage, ProgressCallback } from "./types.js";
 import { sleep } from "../core/sleep.js";
 
@@ -157,6 +158,19 @@ export function handleComfyWsMessage(
         ),
       );
       break;
+  }
+}
+
+// Bun refuses a proxy it cannot use (an unsupported scheme) when the socket is constructed, and
+// refuses it again on every retry.
+class WsOptionsRefused extends KonteError {
+  constructor(url: string, viaProxy: boolean) {
+    super(
+      "COMFYUI_WS_UNAVAILABLE",
+      viaProxy
+        ? `WebSocket to ${url} refused the proxy HTTP_PROXY / HTTPS_PROXY names`
+        : `WebSocket to ${url} could not be constructed`,
+    );
   }
 }
 
@@ -491,7 +505,8 @@ export class ComfyUIWsClient {
       try {
         this.ws = await this.createWebSocket(wsUrl);
         return;
-      } catch {
+      } catch (err) {
+        if (err instanceof WsOptionsRefused) throw err;
         if (attempt < delays.length - 1) {
           await sleep(delays[attempt]!);
         }
@@ -511,19 +526,29 @@ export class ComfyUIWsClient {
   }
 
   private createWebSocket(url: string): Promise<WebSocket> {
-    // Bun's WebSocket takes handshake headers; the web-standard signature does not, so under a
-    // Node runtime (tests) they are dropped. A server that then rejects the handshake costs
-    // nothing beyond the event stream: `waitForPrompt` falls through to authenticated HTTP polling.
+    // Bun's WebSocket takes handshake headers and a proxy; the web-standard signature does not. A
+    // server that rejects the handshake costs nothing beyond the event stream: `waitForPrompt`
+    // falls through to authenticated HTTP polling.
     const headers = resolveHeaderTokens(this.headerTemplates);
-    const init = Object.keys(headers).length > 0 ? { headers } : undefined;
-    const WebSocketWithHeaders = WebSocket as unknown as new (
+    const hasHeaders = Object.keys(headers).length > 0;
+    const proxy = wsProxyFor(url);
+    const init =
+      hasHeaders || proxy
+        ? { ...(hasHeaders ? { headers } : {}), ...(proxy ? { proxy } : {}) }
+        : undefined;
+    const WebSocketWithOptions = WebSocket as unknown as new (
       url: string,
-      options?: { headers: Record<string, string> },
+      options?: { headers?: Record<string, string>; proxy?: string },
     ) => WebSocket;
 
-    return new Promise((resolve, reject) => {
-      const ws = new WebSocketWithHeaders(url, init);
+    let ws: WebSocket;
+    try {
+      ws = new WebSocketWithOptions(url, init);
+    } catch {
+      throw new WsOptionsRefused(url, proxy !== undefined);
+    }
 
+    return new Promise((resolve, reject) => {
       const settle = () => {
         clearTimeout(timer);
         ws.removeEventListener("open", onOpen);
