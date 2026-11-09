@@ -32,6 +32,7 @@ Configure the required backends; done = those backends pass `konte doctor --back
   }
   ```
 
+- ComfyUI on the user's machine while konte runs on a remote VM → [remote-comfyui.md](references/remote-comfyui.md).
 - WSL2: `127.0.0.1` points at WSL itself, not a ComfyUI running on Windows — either enable WSL mirrored networking (`networkingMode=mirrored` in `%UserProfile%\.wslconfig`, then `wsl --shutdown`; needs Win11 22H2+) so `127.0.0.1` works unchanged, or set `comfy.comfyui.url` to the Windows host IP (can change on reboot).
 
 ## Comfy routing
