@@ -1,5 +1,8 @@
 # Muse
 
+`konte` is not on PATH. Where a skill or konte's output says `konte`, run
+this workspace's `.konte/bin/konte` by its absolute path.
+
 The human cannot open this machine's loopback. Run `konte preview` with
 `--tunnel`, and send its URL and PIN in the chat.
 
