@@ -283,3 +283,14 @@ export async function extractFrameAt(
     await fs.rm(tmpPath, { force: true });
   }
 }
+
+/** The frame `at` seconds into `videoPath`, held to its last frame. */
+export async function extractFrameWithin(
+  videoPath: string,
+  at: number,
+  outputPath: string,
+): Promise<void> {
+  const probe = await probeVideo(videoPath);
+  const last = probe.videoDuration > 0 ? lastSeekableTime(probe.videoDuration, probe.fps) : at;
+  await extractFrameAt(videoPath, Math.min(at, last), outputPath);
+}

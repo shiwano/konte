@@ -136,6 +136,7 @@ export function printStatusReport(
             r.accepted === r.total &&
             !reel?.soundtrackUnsigned &&
             !reel?.overlayUnsigned &&
+            !reel?.thumbnailUnsigned &&
             !r.leavesUnsigned &&
             r.refsUnaccepted === 0 &&
             !r.deliveryUpscalerMissing;
@@ -146,6 +147,7 @@ export function printStatusReport(
       }
       if (reel?.soundtrackUnsigned) parts.push("soundtrack not accepted");
       if (reel?.overlayUnsigned) parts.push("overlay not accepted");
+      if (reel?.thumbnailUnsigned) parts.push("thumbnail not accepted");
       if (r.refsUnaccepted > 0) {
         parts.push(`${r.refsUnaccepted} upstream asset(s) it composites not accepted`);
       }

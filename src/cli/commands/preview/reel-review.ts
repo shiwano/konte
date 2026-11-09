@@ -12,6 +12,9 @@ import {
   parseAddress,
   assetNameOf,
   shownShotAssetNames,
+  formatThumbnailAddress,
+  thumbnailCoverAddress,
+  THUMBNAIL_TARGET,
 } from "../../../core/address.js";
 import {
   buildFullCompositionHtml,
@@ -376,6 +379,7 @@ export async function handleGetReelState(
 
   const timelineStem = timelineStemState(scope);
   const overlay = overlayState(scope);
+  const thumbnail = thumbnailState(scope, buildAsset);
 
   return jsonResponse({
     mode: stage === "animatic" ? "animatic-preview" : "video-preview",
@@ -387,6 +391,7 @@ export async function handleGetReelState(
     compositionRefVariants: compositionRefVariantsOf(manager, video, animatic),
     ...(timelineStem ? { timelineStem } : {}),
     ...(overlay ? { overlay } : {}),
+    ...(thumbnail ? { thumbnail } : {}),
     keep: reelKeepGraph(manager, video, animatic, ctx.reference, ctx.downstreamVideo),
     ...(handoff?.summary ? { handoffSummary: handoff.summary } : {}),
     unroutedHandoffNotes: unroutedReelHandoffNotes(
@@ -741,6 +746,45 @@ function overlayState(scope: ReelStateScope) {
     ...materializedLeafReviewStatus(manager, address, definitionHash),
     offered: overlayAwaitsAccept(manager, video, scope.counterpart),
     feedback: leafFeedback(scope, address, definitionHash),
+  };
+}
+
+// The video's thumbnail, once its cover has a current take: the cover — its still, else its frame —
+// signed off by its own accept, where its frame is cut, and the takes of the assets it declared. A
+// stale cover is one `generate` makes again.
+function thumbnailState(scope: ReelStateScope, buildAsset: ReturnType<typeof reelAssetBuilder>) {
+  const { video, manager } = scope;
+  const thumbnail = (video as Partial<VideoDefinition>).thumbnail;
+  if (!thumbnail) return null;
+  const address = thumbnailCoverAddress(thumbnail);
+  const shown = manager.resolveReference(address, { includeStale: false })?.variantId;
+  if (!shown) return null;
+  const cover = buildAsset(parseAddress(address).assetName, address, shown);
+  const fingerprints =
+    manager.tryGetAssetState(address)?.variants?.[shown]?.inputFingerprints ?? {};
+  const sources: Record<string, string> = {};
+  const assets = Object.keys(thumbnail.assets).map((name) => {
+    const assetAddress = formatThumbnailAddress(name);
+    const variants = Object.entries(manager.tryGetAssetState(assetAddress)?.variants ?? {});
+    const made = variants.find(([, v]) => v.outputHash === fingerprints[assetAddress])?.[0];
+    if (made) sources[assetAddress] = made;
+    const resolved = manager.resolveReference(assetAddress, { includeStale: true })?.variantId;
+    return buildAsset(name, assetAddress, made ?? resolved);
+  });
+  const { frame } = thumbnail;
+  return {
+    target: THUMBNAIL_TARGET,
+    cover,
+    frame: frame ? { at: frame.at, shotId: frame.shotId, shotTime: frame.shotTime } : null,
+    imageUrl: cover.variants.find((v) => v.variantId === shown)?.imageUrl ?? null,
+    sources,
+    needsReview:
+      cover.variantStatus !== "accepted" ||
+      [cover, ...assets].some((a) => a.hasUndecidedBesideAccepted),
+    assets,
+    feedback: buildAddressFeedback(scope.feedbackMgr, manager.getState(), THUMBNAIL_TARGET, {
+      cache: manager.stalenessCache(),
+    }),
   };
 }
 

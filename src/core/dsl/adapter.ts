@@ -10,12 +10,14 @@ import {
   getPatchContext,
   getReferenceContext,
   getPlatePoolContext,
+  getThumbnailContext,
   getTimelineContext,
   getShotContext,
   makePatchPlaceholder,
   makePlaceholder,
   makeReferencePlaceholder,
   makePlatePlaceholder,
+  makeThumbnailPlaceholder,
   makeTimelinePlaceholder,
   parsePlaceholder,
   type BuildFormat,
@@ -42,7 +44,14 @@ export type AdapterBackendKind = "comfy" | "fal" | "local" | "file";
  * The six places `asset()` can be called from. A stage build reaches exactly one — a shot build
  * clears the timeline context. `view` is `defineReference`'s `views`.
  */
-export type AssetDeclarationSite = "patch" | "plate" | "reference" | "view" | "timeline" | "shot";
+export type AssetDeclarationSite =
+  | "patch"
+  | "plate"
+  | "reference"
+  | "view"
+  | "timeline"
+  | "thumbnail"
+  | "shot";
 
 export interface AdapterMetaInput {
   type: string;
@@ -336,6 +345,7 @@ const SITE_REACH: Record<AssetDeclarationSite, string> = {
   reference:
     "upstream of every stage, so it takes no plate, timeline or shot asset: what it is built from moves there with it",
   timeline: "at the top of a stage's timeline, reached by every shot of that stage",
+  thumbnail: "in defineVideo's thumbnail callback, the video's thumbnail",
   shot: 'one shot\'s own, reached by a later shot with shot("<id>")',
   plate: "in defineAnimatic's plates callback, one setup's frame",
   view: "in reference.tsx's views, one location's view",
@@ -348,6 +358,7 @@ function declarationSite(): AssetDeclarationSite | undefined {
   const referenceCtx = getReferenceContext();
   if (referenceCtx) return referenceCtx.site;
   if (getTimelineContext()) return "timeline";
+  if (getThumbnailContext()) return "thumbnail";
   if (getShotContext()) return "shot";
   return undefined;
 }
@@ -363,6 +374,7 @@ function assetLocation(): string {
     return referenceCtx.site === "view" ? "the reference views" : "the reference stage";
   const timelineCtx = getTimelineContext();
   if (timelineCtx) return `the ${timelineCtx.stage} timeline`;
+  if (getThumbnailContext()) return "the video's thumbnail";
   const shotCtx = getShotContext();
   return shotCtx ? `${shotCtx.stage} shot "${shotCtx.shotId}"` : "an unknown context";
 }
@@ -485,6 +497,15 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
     return makeMediaAsset(placeholder) as BrandedMediaAsset<TName, TAdapter>;
   }
 
+  const thumbnailCtx = getThumbnailContext();
+  if (thumbnailCtx) {
+    assertUniqueAsset(thumbnailCtx.assets, name, "the video's thumbnail");
+    thumbnailCtx.assets.set(name, def);
+    const placeholder = makeThumbnailPlaceholder(name);
+    record(placeholder);
+    return makeMediaAsset(placeholder) as BrandedMediaAsset<TName, TAdapter>;
+  }
+
   const ctx = getShotContext();
   if (!ctx) {
     throw new Error("asset() must be called inside a timeline() or shot() function");
@@ -509,6 +530,10 @@ function renderedAsset(
     const ctx = getTimelineContext();
     if (ctx?.mode !== "render") return undefined;
     return makeMediaAsset(ctx.resolvedFiles.get(name) ?? makeTimelinePlaceholder(ctx.stage, name));
+  }
+  if (site === "thumbnail") {
+    if (getThumbnailContext()?.mode !== "render") return undefined;
+    return makeMediaAsset(makeThumbnailPlaceholder(name));
   }
   if (site === "shot") {
     const ctx = getShotContext();

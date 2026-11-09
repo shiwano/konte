@@ -81,6 +81,8 @@ export const ReelSubmitSchema = z.object({
   timelineStemDecision: ReviewAcceptDecisionSchema.optional(),
   // The overlay's accept decision, offered once every shot accept stands (see `overlayOffered`).
   overlayDecision: ReviewAcceptDecisionSchema.optional(),
+  // The video's thumbnail accept decision, at `video:thumbnail#still`.
+  thumbnailDecision: ReviewAcceptDecisionSchema.optional(),
   notes: ReviewRecordSchema.shape.notes,
   addedFeedback: ReelAddedFeedbackSchema.optional(),
   feedbackPatches: z.array(FeedbackPatchSchema).optional(),

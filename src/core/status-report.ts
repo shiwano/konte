@@ -13,6 +13,7 @@ import {
   isOverlayAddress,
   isPatchAddress,
   isStemAddress,
+  isThumbnailAddress,
   formatReferenceAddress,
   formatTimelineOverlayAddress,
   formatTimelineStemAddress,
@@ -84,7 +85,7 @@ import {
   loadPatchCatalog,
   patchHashesOf,
 } from "./patch.js";
-import { unacceptedOutsideRefs } from "./render-plan.js";
+import { unacceptedOutsideRefs, unacceptedThumbnailRefs } from "./render-plan.js";
 import { reviewTimes as readReviewTimes } from "./review-record.js";
 import { requireShotStages } from "./select-definition.js";
 import { shotNeedsVerdict, stageReviewDecidableAddresses } from "./shot-accept-targets.js";
@@ -193,6 +194,7 @@ function reelProgressByStage(
         def.overlay !== undefined &&
         shotAcceptsStand(manager, def, counterpart) &&
         leafNeedsReview(formatTimelineOverlayAddress(def.stage)),
+      thumbnailUnsigned: unacceptedThumbnailRefs(def, manager).some(isThumbnailAddress),
     };
   }
   return out;

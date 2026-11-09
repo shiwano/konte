@@ -6,7 +6,11 @@ import {
   formatReferenceAddress,
   formatPlateAddress,
   formatTimelineAddress,
+  formatThumbnailAddress,
   getStage,
+  THUMBNAIL_FRAME_ADDRESS,
+  THUMBNAIL_STILL_ADDRESS,
+  thumbnailCoverAddress,
   listAddresses,
   listReferenceAddresses,
   listShotStems,
@@ -34,6 +38,7 @@ import {
   type PanelDefinition,
   type PanelLane,
   type StageDefinition,
+  type ThumbnailDefinition,
   type VideoDefinition,
 } from "./types/index.js";
 
@@ -114,6 +119,11 @@ export const LANES: readonly PanelLane[] = ["main", "cutin"];
 // site so a `StageDefinition` reference stays legal.
 export function platesOf(def: object | null | undefined): Record<string, AssetDefinition> {
   return (def as { plates?: Record<string, AssetDefinition> } | null)?.plates ?? {};
+}
+
+// The thumbnail a stage carries. Only the video declares one.
+export function thumbnailOf(def: object | null | undefined): ThumbnailDefinition | undefined {
+  return (def as { thumbnail?: ThumbnailDefinition } | null)?.thumbnail;
 }
 
 // The plates filed under a setup. A definition that never went through `defineAnimatic` filed all.
@@ -203,6 +213,38 @@ export function buildDependencyGraph(
       addDependencyEdges(
         formatPlateAddress(setupId),
         entry,
+        allAddresses,
+        dependencies,
+        dependents,
+        pending,
+      );
+    }
+
+    const thumbnail = thumbnailOf(def);
+    for (const [assetName, entry] of Object.entries(thumbnail?.assets ?? {})) {
+      addDependencyEdges(
+        formatThumbnailAddress(assetName),
+        entry,
+        allAddresses,
+        dependencies,
+        dependents,
+        pending,
+      );
+    }
+    if (thumbnail?.frame) {
+      addDependencyEdges(
+        THUMBNAIL_FRAME_ADDRESS,
+        thumbnail.frame.asset,
+        allAddresses,
+        dependencies,
+        dependents,
+        pending,
+      );
+    }
+    if (thumbnail?.compose) {
+      addDependencyEdges(
+        THUMBNAIL_STILL_ADDRESS,
+        thumbnail.compose.still,
         allAddresses,
         dependencies,
         dependents,
@@ -353,6 +395,8 @@ function reviewRoots(
     }
     // The overlay is a leaf of its own: what it shows is used by it.
     if (def.overlay) roots.push(formatTimelineAddress(def.stage, OVERLAY_ASSET_NAME));
+    const thumbnail = thumbnailOf(def);
+    if (thumbnail) roots.push(thumbnailCoverAddress(thumbnail));
   }
   for (const s of animatic?.shots ?? []) {
     for (const panel of allPanels(s)) {

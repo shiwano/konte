@@ -14,7 +14,7 @@ import { KonteError } from "../../core/errors.js";
 import { computeExportPlanDigest } from "../../core/export-signature.js";
 import { syncFileAssets } from "../../core/file-sync.js";
 import { JobManager } from "../../core/job-manager.js";
-import { buildRenderPlan } from "../../core/render-plan.js";
+import { buildRenderPlan, unacceptedThumbnailRefs } from "../../core/render-plan.js";
 import { StateManager } from "../../core/state/index.js";
 import type {
   ReferenceDefinition,
@@ -121,6 +121,7 @@ async function registerVideoExport(opts: {
       ...plan.shots.flatMap((s) => s.unacceptedAssets),
       ...plan.shots.flatMap((s) => s.unacceptedRefs),
       ...unsignedLeaves,
+      ...unacceptedThumbnailRefs(video, manager),
     ]),
   ];
   if (unaccepted.length > 0 && !allowUnaccepted) {
@@ -179,6 +180,11 @@ async function registerVideoExport(opts: {
   });
 
   console.log(`Export job ${exportJob.id} registered (video).`);
+  if (!video.thumbnail) {
+    console.log(
+      "No thumbnail: video.tsx declares no `thumbnail`, so the MP4 ships with no cover image.",
+    );
+  }
   if (hasDelivery && noDelivery) {
     console.log(
       `Delivery skipped (${allowUnaccepted ? "--allow-unaccepted" : "--no-delivery"}): rendering at working size into a *_no_delivery dir.`,

@@ -7,6 +7,7 @@ import {
   listReferenceAddresses,
   listStemAddresses,
   patchSourceVariantIdOf,
+  THUMBNAIL_TARGET,
 } from "./address.js";
 import { listRemovedShotStemAddresses } from "./composition-resource.js";
 import { deliveryAddressIsValid } from "./delivery.js";
@@ -52,6 +53,7 @@ export function buildOrphanContext(
   // Bare shot-level targets hold whole-shot feedback (no asset name, no variants); listAddresses
   // never emits them, so add them explicitly or existing shots' feedback reads as orphaned.
   for (const s of video.shots) validAddresses.add(formatShotAddress("video", s.id));
+  if (video.thumbnail) validAddresses.add(THUMBNAIL_TARGET);
   // A bare stage holds a review's overall comment.
   for (const stage of ["animatic", "video", "reference", "direction"]) validAddresses.add(stage);
   for (const part of directionParts ?? []) validAddresses.add(part);

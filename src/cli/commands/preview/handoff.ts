@@ -17,7 +17,10 @@ import {
   shownShotAssetNames,
   STEM_ASSET_NAME,
   tryParseAddress,
+  thumbnailOwnAddresses,
+  THUMBNAIL_TARGET,
 } from "../../../core/address.js";
+import { thumbnailOf } from "../../../core/graph.js";
 import {
   definitionHashForAddress,
   materializedLeafContentHash,
@@ -210,6 +213,16 @@ export function collectChangedAddresses(
     if (leafChangedSinceReview(manager, stageDef, address, record)) timelinePaths.push(address);
   }
 
+  // The thumbnail: a fresh take of its frame, its still or one of its assets.
+  const thumbnail = thumbnailOf(stageDef);
+  if (thumbnail) {
+    const freshTake = thumbnailOwnAddresses(thumbnail).some((address) => {
+      const variants = manager.tryGetAssetState(address)?.variants;
+      return !!variants && hasFreshUnreviewedReady(variants, undefined, record.createdAt);
+    });
+    if (freshTake) timelinePaths.push(THUMBNAIL_TARGET);
+  }
+
   const changes = computeChangeInfo(resolveCurrentVariantsByShot(shots, stage, manager), record);
   for (const shot of changes?.changedShots ?? []) {
     if (Object.keys(shot.changedAssets).length > 0) add(shot.shotId);
@@ -266,6 +279,7 @@ export function collectAllAddresses(
   timelineSoundtracks?: readonly unknown[],
   plateIds?: readonly string[],
   hasOverlay?: boolean,
+  hasThumbnail?: boolean,
 ): string[] {
   const ordered: string[] = [];
   for (const setupId of plateIds ?? []) ordered.push(formatPlateAddress(setupId));
@@ -273,6 +287,7 @@ export function collectAllAddresses(
     ordered.push(formatTimelineAddress(stage, assetName));
   }
   if (hasOverlay) ordered.push(formatTimelineOverlayAddress(stage));
+  if (hasThumbnail) ordered.push(THUMBNAIL_TARGET);
   if ((timelineSoundtracks?.length ?? 0) > 0) {
     ordered.push(formatTimelineAddress(stage, STEM_ASSET_NAME));
   }
@@ -421,6 +436,7 @@ export async function writeHandoff(
         ? (subject.animatic.exposedPlateIds ?? Object.keys(subject.animatic.plates ?? {}))
         : undefined,
       !!reel.overlay,
+      !!thumbnailOf(reel),
     );
     changedAddresses = async () => {
       const record = await loadLatestReviewRecord(

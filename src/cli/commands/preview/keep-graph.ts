@@ -7,10 +7,11 @@ import {
   getAssetEntry,
   isMaterializedLeafAddress,
   listExposedReferenceAddresses,
+  THUMBNAIL_TARGET,
   tryParseAddress,
 } from "../../../core/address.js";
 import { getBackendKind } from "../../../backends/resolve-backend.js";
-import type { DependencyGraph } from "../../../core/graph.js";
+import { type DependencyGraph, thumbnailOf } from "../../../core/graph.js";
 import type { StateManager } from "../../../core/state/index.js";
 import { isPendingShot, type StageDefinition } from "../../../core/types/index.js";
 import { isReviewLeaf } from "../../../core/variant-lineage.js";
@@ -54,10 +55,15 @@ export function buildKeepGraph(opts: {
       units[formatPlateAddress(setupId)] = { stage, label: `Plate: ${setupId}` };
     }
   }
+  // The thumbnail's assets are accepted through it.
+  if (thumbnailOf(definitionByStage.get("video"))) {
+    units[THUMBNAIL_TARGET] = { stage: "video", label: "Thumbnail" };
+  }
 
   const unitOf = (address: string): string | null => {
     if (units[address]) return address;
     const parsed = tryParseAddress(address);
+    if (parsed?.kind === "thumbnail") return units[THUMBNAIL_TARGET] ? THUMBNAIL_TARGET : null;
     if (parsed?.kind !== "shot" || parsed.stage === "reference") return null;
     const unit = formatShotAddress(parsed.stage, parsed.shotId);
     return units[unit] ? unit : null;

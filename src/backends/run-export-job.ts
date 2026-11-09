@@ -6,6 +6,7 @@ import { JobIndex, prerequisiteVerdict } from "../core/job-index.js";
 import { isJobTerminal, type JobManager } from "../core/job-manager.js";
 import { loadVideoAndAnimatic } from "../core/stage-definitions.js";
 import { renderVideoToFile } from "../core/render-video.js";
+import { LocalBackend } from "../local/backend.js";
 import { runLeasedJob } from "./run-leased-job.js";
 import { buildTimestamp } from "../core/review-record.js";
 import { StateManager } from "../core/state/index.js";
@@ -192,6 +193,21 @@ export async function runExportJob(
           outputDir,
           exportSignature,
           noDelivery: job.noDelivery,
+          rederiveLocal: async (address, definition, resolvedDependencies, outputDir) => {
+            const backend = new LocalBackend(videoRoot);
+            await backend.submit({
+              address,
+              assetDefinition: definition,
+              variantId: `thumbnail-${id}`,
+              outputDir,
+              resolvedDependencies,
+            });
+            const done = await backend.waitForCompletion("", outputDir);
+            if (done.kind !== "done" || !done.result.files[0]) {
+              throw new KonteError("GENERATION_FAILED", `${address} made no file`);
+            }
+            return done.result.files[0];
+          },
         });
         const outputFileRel = path.relative(videoRoot, result.outputFile);
         const committed = await jobManager.finishIfOwner(id, workerId, {

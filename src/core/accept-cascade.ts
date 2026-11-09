@@ -5,6 +5,7 @@ import {
   isStemAddress,
   listShotStems,
   isOverlayAddress,
+  isThumbnailAddress,
   parseAddress,
 } from "./address.js";
 import { loadCastReferenceAddresses } from "./characters.js";
@@ -214,6 +215,9 @@ export async function cascadeAcceptConsumedDeps(
       if (visited.has(depAddress)) continue;
       visited.add(depAddress);
 
+      // A thumbnail signs off only its own assets: a shot take it draws is the shot's to decide.
+      if (thumbnailRoot && !isThumbnailAddress(depAddress)) continue;
+
       // The three exclusions come FIRST, before the accepted-dep traversal below. Each marks a
       // subtree another surface owns, and an accept sitting on the boundary must not become a way
       // in: recursing through an accepted audio take or cast reference would sign off what it was
@@ -260,6 +264,7 @@ export async function cascadeAcceptConsumedDeps(
     }
   }
 
+  const thumbnailRoot = isThumbnailAddress(address);
   await walk(
     address,
     variantId,

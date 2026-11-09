@@ -1322,7 +1322,7 @@ type StartChain<D, TId extends string, TStage extends ShotStage> = StageChain<
 // The chain's `shot` — the by-name accessors below, resolving against an already-placed shot's
 // build. It cannot be a bare proxy: a stage discovers its shots only after `timeline()` has
 // returned, so the names have to be learned by running the closure.
-const makeStageShots = (stage: ShotStage, placed: readonly AnyShotInput[]): StageShots => {
+export const makeStageShots = (stage: ShotStage, placed: readonly AnyShotInput[]): StageShots => {
   let byId: Map<string, AnyShotInput> | null = null;
   return (shotId: string): ShotHandle => {
     // Lazily, because most builds never reach for another shot and the chain mints one accessor per

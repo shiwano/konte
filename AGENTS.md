@@ -39,10 +39,10 @@ A command acts on the video cwd sits inside, else the workspace's **current vide
 
 ### Terminology
 
-- **address**: `<stage>:shot.<shotId>.<name>` / `<stage>:timeline.<name>` / `reference:<id>` / `reference:view.<locationId>.<view>` / `animatic:plate.<setupId>` — one string is the state key, the graph node, and the body of a DSL placeholder (`__konte:animatic:shot.01.first__`).
+- **address**: `<stage>:shot.<shotId>.<name>` / `<stage>:timeline.<name>` / `reference:<id>` / `reference:view.<locationId>.<view>` / `animatic:plate.<setupId>` / `video:thumbnail.<name>` — one string is the state key, the graph node, and the body of a DSL placeholder (`__konte:animatic:shot.01.first__`).
 - **target**: the entity at an address — `variants` and/or `feedback`. A feedback-only target (`video:shot.01`, `direction:<field path>`) holds comments only.
 - **address-scope**: a prefix filtering many addresses — a stage, a shot, `animatic:plate`, one asset (`inspect`, `clean`, `probe`). **stage-scope**: exactly one `<stage>` (`generate`, `preview`, `export`). Bare forms only.
-- **`#`**: the reserved namespace, not a legal identifier character. A **reserved name** fills the name slot (`video:shot.01#composition`, `animatic:shot.01#stem`, `video:timeline#stem`); the **delivery derivative** `#delivery` appends to any address and is always last.
+- **`#`**: the reserved namespace, not a legal identifier character. A **reserved name** fills the name slot (`video:shot.01#composition`, `animatic:shot.01#stem`, `video:timeline#stem`, `video:thumbnail#frame`, `video:thumbnail#still`); the **delivery derivative** `#delivery` appends to a shot or timeline address and is always last.
 - **variant** (UI: take): one at an address, id `v-…`, globally unique and shared by its generation job (`.konte/jobs.db`, `.konte/logs/<id>.log`). `accept` takes a `<variantId>`; a materialized leaf (composition, stem, overlay) takes its address.
 - **role**: a lens role, spanning the shots naming it; **beat** is only the song's.
 

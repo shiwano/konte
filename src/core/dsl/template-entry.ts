@@ -29,6 +29,8 @@ export type {
   SoundtrackOptions,
   SoundtrackEntry,
   OverlayContext,
+  ThumbnailContext,
+  ThumbnailSpec,
   ShotHandle,
   StageShots,
   DefineVideoOptions,

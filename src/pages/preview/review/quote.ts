@@ -4,7 +4,15 @@
 
 const QUOTE_PREFIX = "> ";
 
-export const QUOTE_KINDS = ["script", "acting", "blocking", "camera", "waiver", "handoff"] as const;
+export const QUOTE_KINDS = [
+  "script",
+  "acting",
+  "blocking",
+  "camera",
+  "waiver",
+  "handoff",
+  "frame",
+] as const;
 export type QuoteKind = (typeof QUOTE_KINDS)[number];
 
 // Quoted words and the kind of text they are from, written `> <kind>: <text>`. The direction's are

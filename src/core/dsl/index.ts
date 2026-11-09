@@ -36,6 +36,8 @@ export {
   type SoundtrackOptions,
   type SoundtrackEntry,
   type OverlayContext,
+  type ThumbnailContext,
+  type ThumbnailSpec,
   type ShotHandle,
   type StageShots,
 } from "./builders.js";

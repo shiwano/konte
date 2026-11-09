@@ -148,6 +148,24 @@ describe("buildShotRenderInputs — out-of-shot refs", () => {
     expect(assetFiles[CROSS_SHOT_STAGED]).toBe(upscaled);
   });
 
+  it("stages the take a job pinned over what the ref resolves to now", () => {
+    setupAccepted("video:shot.01.motion", "assets/shot.01.motion/m.mp4");
+    const plan = buildRenderPlan(crossShotVideo, manager, { outputDir: "" });
+    const pinnedFile = path.resolve(tmpDir, "assets/shot.01.motion/pinned.mp4");
+    const { assetFiles } = buildShotRenderInputs(
+      plan.shots.find((s) => s.shotId === "02")! as never,
+      {
+        size: SIZE,
+        typography: { lang: "en" as const },
+        manager,
+        renderShotInputs: null,
+        shots: plan.shots,
+        pinned: new Map([["video:shot.01.motion", pinnedFile]]),
+      },
+    );
+    expect(Object.values(assetFiles)).toContain(pinnedFile);
+  });
+
   it("stages an animatic panel reached through animatic.shot(id)", () => {
     const animatic = defineAnimatic(
       testDirection({

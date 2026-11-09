@@ -4,6 +4,7 @@ import {
   type ShotStage,
   formatTimelineAddress,
   formatPlateAddress,
+  formatThumbnailAddress,
 } from "../address.js";
 import type { AssetDefinition, Typography } from "../types/index.js";
 import type { MediaAsset, MediaKind } from "./builders.js";
@@ -93,6 +94,15 @@ interface PatchDiscoveryContext {
   format?: BuildFormat;
 }
 
+// The video's `thumbnail` build, collecting the assets it declares (`video:thumbnail.<name>`). Its
+// render pass declares nothing and hands back the same placeholders, which the still's HTML
+// resolves.
+interface ThumbnailContext {
+  mode: "discovery" | "render";
+  assets: Map<string, AssetDefinition>;
+  format?: BuildFormat;
+}
+
 const PLACEHOLDER_PREFIX = "__konte:";
 const PLACEHOLDER_SUFFIX = "__";
 
@@ -105,6 +115,7 @@ let currentTimelineContext: TimelineContext | null = null;
 let currentReferenceContext: ReferenceContext | null = null;
 let currentPatchContext: PatchDiscoveryContext | null = null;
 let currentPlatePoolContext: PlatePoolContext | null = null;
+let currentThumbnailContext: ThumbnailContext | null = null;
 
 export function getShotContext(): ShotContext | null {
   return currentContext;
@@ -126,6 +137,10 @@ export function getPlatePoolContext(): PlatePoolContext | null {
   return currentPlatePoolContext;
 }
 
+export function getThumbnailContext(): ThumbnailContext | null {
+  return currentThumbnailContext;
+}
+
 // The active build canvas, read by adapters resolving format-derived inputs (width/height/fps)
 // inside createDefinition. A shot discovery suppresses its surrounding timeline context, so the
 // shot's format wins there; otherwise the timeline's. A patch build carries its own, so a
@@ -136,6 +151,7 @@ export function getActiveFormat(): BuildFormat | undefined {
   return (
     currentContext?.format ??
     currentTimelineContext?.format ??
+    currentThumbnailContext?.format ??
     currentPatchContext?.format ??
     currentPlatePoolContext?.format ??
     currentReferenceContext?.format(currentReferenceContext.activeAssetName)
@@ -148,6 +164,7 @@ export function getActiveTypography(): Typography | undefined {
   return (
     currentContext?.format?.typography ??
     currentTimelineContext?.format?.typography ??
+    currentThumbnailContext?.format?.typography ??
     currentPatchContext?.format?.typography ??
     currentPlatePoolContext?.format?.typography ??
     currentReferenceContext?.format(currentReferenceContext.activeAssetName).typography
@@ -160,6 +177,10 @@ export function makePlaceholder(stage: ShotStage, shotId: string, assetName: str
 
 export function makeTimelinePlaceholder(stage: ShotStage, assetName: string): string {
   return `${PLACEHOLDER_PREFIX}${formatTimelineAddress(stage, assetName)}${PLACEHOLDER_SUFFIX}`;
+}
+
+export function makeThumbnailPlaceholder(assetName: string): string {
+  return `${PLACEHOLDER_PREFIX}${formatThumbnailAddress(assetName)}${PLACEHOLDER_SUFFIX}`;
 }
 
 export function makePlatePlaceholder(id: string): string {
@@ -350,8 +371,10 @@ export function runInDiscoveryMode(
   // cleared by the time shots are discovered, so this is a no-op there.
   const prev = currentContext;
   const prevTimeline = currentTimelineContext;
+  const prevThumbnail = currentThumbnailContext;
   currentContext = ctx;
   currentTimelineContext = null;
+  currentThumbnailContext = null;
   try {
     const element = fn();
     const assets: Record<string, AssetDefinition> = {};
@@ -362,6 +385,31 @@ export function runInDiscoveryMode(
   } finally {
     currentContext = prev;
     currentTimelineContext = prevTimeline;
+    currentThumbnailContext = prevThumbnail;
+  }
+}
+
+// Runs the thumbnail's build — and the render of what it returns, whose function components may
+// reach a shot — under its context.
+export function runInThumbnailMode<T>(
+  mode: ThumbnailContext["mode"],
+  fn: () => T,
+  format?: BuildFormat,
+): { assets: Record<string, AssetDefinition>; result: T } {
+  const ctx: ThumbnailContext = { mode, assets: new Map(), ...(format ? { format } : {}) };
+  const prev = currentThumbnailContext;
+  const prevTimeline = currentTimelineContext;
+  const prevShot = currentContext;
+  currentThumbnailContext = ctx;
+  currentTimelineContext = null;
+  currentContext = null;
+  try {
+    const result = fn();
+    return { assets: Object.fromEntries(ctx.assets), result };
+  } finally {
+    currentThumbnailContext = prev;
+    currentTimelineContext = prevTimeline;
+    currentContext = prevShot;
   }
 }
 
@@ -446,12 +494,15 @@ export function runInRenderMode(
 
   const prev = currentContext;
   const prevTimeline = currentTimelineContext;
+  const prevThumbnail = currentThumbnailContext;
   currentContext = ctx;
   currentTimelineContext = null;
+  currentThumbnailContext = null;
   try {
     return fn();
   } finally {
     currentContext = prev;
     currentTimelineContext = prevTimeline;
+    currentThumbnailContext = prevThumbnail;
   }
 }

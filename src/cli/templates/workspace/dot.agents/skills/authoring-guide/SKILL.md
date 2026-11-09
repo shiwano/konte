@@ -129,7 +129,7 @@ export default defineVideo(direction, {
 });
 ```
 
-- `defineVideo(direction, { export?, timeline })` — `{ size, fps }` derive from the direction.
+- `defineVideo(direction, { export?, timeline, thumbnail? })` — `{ size, fps }` derive from the direction. `thumbnail: { at, compose? }` — the cover is the cut at `at` seconds; `compose: ({ frame, shot }) => <Composition>…` draws over it, its `asset()`s `video:thumbnail.<name>`.
 - What it takes from the board — `animatic.shot("01").image("<panel>")` for a keyframe, `.stem` for the mixed-down lines, `.narrationStem` / `.offFrameStem` for the narration and the lines of a character the frame does not hold (`<Audio>` only).
 
 ## Adapter inputs

@@ -1322,7 +1322,13 @@ describe("computeExportReadiness", () => {
 
   // A video shot drawn wholly from the board's takes has no address of its own on the video stage.
   it("gives a stage its line from its reel alone", () => {
-    const reel = { shots: 1, acceptedShots: 0, soundtrackUnsigned: false, overlayUnsigned: false };
+    const reel = {
+      shots: 1,
+      acceptedShots: 0,
+      soundtrackUnsigned: false,
+      overlayUnsigned: false,
+      thumbnailUnsigned: false,
+    };
     const video = computeExportReadiness([], undefined, { video: reel }).find(
       (r) => r.label === "video",
     )!;

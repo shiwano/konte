@@ -1,3 +1,4 @@
+import { exportThumbnail, type RederiveLocal } from "./export-thumbnail.js";
 import { mixedSoundtracks } from "./song-bed.js";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
@@ -11,6 +12,7 @@ import {
   formatCompositionAddress,
   formatTimelineAddress,
   parseAddress,
+  tryParseAddress,
 } from "./address.js";
 import { asideSlugHtml } from "./aside-slug.js";
 import { injectBaseTimeline } from "./composition-builder.js";
@@ -52,7 +54,12 @@ import { compositeWithHyperFrames, ensureHyperFrames } from "./hyperframes.js";
 import { escapeHtml, renderToHtml } from "./jsx-html.js";
 import type { OverlayDefinition, StageDefinition, Typography } from "./types/definition.js";
 import { inferMediaType } from "./media-type.js";
-import { buildRenderPlan, type RenderPlan, type ShotRenderPlan } from "./render-plan.js";
+import {
+  buildRenderPlan,
+  type RenderPlan,
+  type ShotRenderPlan,
+  unacceptedThumbnailRefs,
+} from "./render-plan.js";
 import { mapConcurrent } from "./concurrency.js";
 import { Semaphore } from "./semaphore.js";
 import { clampEffectiveGain, cueKindsBySrc } from "./audio-level.js";
@@ -233,6 +240,8 @@ export async function renderVideoToFile(opts: {
   // path is skipped — no substitutions, no cover scale, no crop. Without this the renderer would
   // look for `#delivery` variants that do not exist.
   noDelivery: boolean;
+  // How a thumbnail asset built on an upscaled layer is made again from the upscale.
+  rederiveLocal?: RederiveLocal;
 }): Promise<RenderResult> {
   const { videoRoot, video, animatic, allowUnaccepted, outputDir, exportSignature, noDelivery } =
     opts;
@@ -333,6 +342,7 @@ export async function renderVideoToFile(opts: {
       ...plan.unacceptedTimelineAssets,
       ...plan.shots.flatMap((s) => s.unacceptedAssets),
       ...plan.shots.flatMap((s) => s.unacceptedRefs),
+      ...unacceptedThumbnailRefs(video, manager),
     ]),
   ];
 
@@ -452,6 +462,17 @@ export async function renderVideoToFile(opts: {
       mediaOf,
     });
 
+    const thumbnailFile = await renderThumbnail({
+      video,
+      manager,
+      outputDir,
+      deliverable: finalOutput,
+      noDelivery,
+      delivered: new Map(),
+      allowUnaccepted,
+      warnings: frameWarnings,
+    });
+
     if (allUnacceptedParts.length > 0) {
       frameWarnings.push(`non-accepted: ${allUnacceptedParts.join(", ")}`);
     }
@@ -473,6 +494,7 @@ export async function renderVideoToFile(opts: {
       outputDir,
       finalOutput,
       frameWarnings,
+      thumbnailFile,
     );
 
     return { outputFile: finalOutput, warnings: frameWarnings };
@@ -576,6 +598,24 @@ export async function renderVideoToFile(opts: {
     mediaOf,
   });
 
+  const thumbnailFile = await renderThumbnail({
+    video,
+    manager,
+    outputDir,
+    deliverable: finalOutput,
+    noDelivery,
+    delivered: new Map(
+      [...deliverySubstitutions].flatMap(([shotId, byName]) =>
+        Object.entries(byName).map(
+          ([assetName, sub]) => [formatAddress("video", shotId, assetName), sub.absFile] as const,
+        ),
+      ),
+    ),
+    ...(opts.rederiveLocal ? { rederive: opts.rederiveLocal } : {}),
+    allowUnaccepted,
+    warnings: allWarnings,
+  });
+
   if (allUnacceptedParts.length > 0) {
     allWarnings.push(`non-accepted: ${allUnacceptedParts.join(", ")}`);
   }
@@ -597,6 +637,7 @@ export async function renderVideoToFile(opts: {
     outputDir,
     finalOutput,
     allWarnings,
+    thumbnailFile,
   );
 
   const fs = await import("node:fs/promises");
@@ -752,6 +793,9 @@ export async function renderShotCompositeToFile(opts: {
   shotId: string;
   allowUnaccepted: boolean;
   outputFile: string;
+  // A frame cut's job: the files it resolved its inputs to at submit, address → file, drawn in place
+  // of what those addresses resolve to now. The cut waits only on them, and carries no sound.
+  pinned?: Readonly<Record<string, string>>;
 }): Promise<void> {
   const { videoRoot, video, shotId, allowUnaccepted, outputFile } = opts;
   const { animatic, reference } = await loadUpstreamStages(videoRoot);
@@ -766,6 +810,7 @@ export async function renderShotCompositeToFile(opts: {
     shotId,
     outputDir: path.dirname(outputFile),
     allowUnaccepted: true,
+    ...(opts.pinned ? { requireOnly: new Set(Object.keys(opts.pinned)) } : {}),
   });
   const shotPlan = planShotById(plan.shots, shotId);
   if (!shotPlan) {
@@ -777,6 +822,16 @@ export async function renderShotCompositeToFile(opts: {
       `Cannot upscale shot "${shotId}": not accepted: ${shotPlan.unacceptedAssets.join(", ")}`,
     );
   }
+
+  const pinned =
+    opts.pinned &&
+    new Map(
+      Object.entries(opts.pinned).map(([address, file]) => [
+        address,
+        path.resolve(videoRoot, file),
+      ]),
+    );
+  if (pinned) pinPlanFiles(plan, pinned);
 
   await ensureHyperFrames();
   await ensureFfmpeg();
@@ -804,7 +859,23 @@ export async function renderShotCompositeToFile(opts: {
     shots: plan.shots,
     ...(overlay ? { overlay } : {}),
     timelineFiles: plan.timelineResolvedFiles,
+    ...(pinned ? { pinned } : {}),
   });
+}
+
+// A take a job pinned stands in for what its address resolves to now, in every slot the plan
+// resolved it into.
+export function pinPlanFiles(plan: RenderPlan, pinned: ReadonlyMap<string, string>): void {
+  for (const [address, file] of pinned) {
+    const parsed = tryParseAddress(address);
+    if (parsed?.stage !== plan.stage) continue;
+    if (parsed.kind === "timeline" && plan.timelineResolvedFiles[parsed.assetName]) {
+      plan.timelineResolvedFiles[parsed.assetName] = file;
+    }
+    if (parsed.kind !== "shot") continue;
+    const shot = plan.shots.find((s) => s.shotId === parsed.shotId);
+    if (shot?.resolvedFiles[parsed.assetName]) shot.resolvedFiles[parsed.assetName] = file;
+  }
 }
 
 // Swap each shot's video layers for their upscaled #delivery files before rendering.
@@ -896,6 +967,7 @@ export function buildShotRenderInputs(
     // The timeline's own assets by name. The timeline runs in render mode with their absolute paths,
     // so a layer showing one carries that path until it is staged here.
     timelineFiles?: Record<string, string>;
+    pinned?: ReadonlyMap<string, string>;
   },
 ): ShotRenderInputs {
   const { size, crop, typography, manager, renderShotInputs, shots } = options;
@@ -929,6 +1001,7 @@ export function buildShotRenderInputs(
     shots,
     ...(options.overlay ? { overlay: options.overlay } : {}),
     ...(options.timelineFiles ? { timelineFiles: options.timelineFiles } : {}),
+    ...(options.pinned ? { pinned: options.pinned } : {}),
   });
   // Register a base gsap timeline so the capture engine's sub-composition
   // handshake resolves immediately for compositions without an <Animate>.
@@ -951,6 +1024,8 @@ function layOverlaysAndStage(
     shots: readonly ShotRenderPlan[];
     overlay?: RenderOverlay;
     timelineFiles?: Record<string, string>;
+    // A job's pinned takes, address → file: the render is a frame cut, so it carries no sound.
+    pinned?: ReadonlyMap<string, string>;
   },
 ): string {
   const { size, typography, manager, shots, overlay } = options;
@@ -972,8 +1047,12 @@ function layOverlaysAndStage(
       shotDuration: shotPlan.duration,
     });
   }
+  if (options.pinned) html = html.replace(/<audio\b[^>]*>[\s\S]*?<\/audio>/g, "");
   html = substituteAssetPlaceholders(html, (address) => {
-    const file = siblingShotFile(shots, address) ?? resolveCompositionRef(manager, address)?.file;
+    const file =
+      options.pinned?.get(address) ??
+      siblingShotFile(shots, address) ??
+      resolveCompositionRef(manager, address)?.file;
     if (!file) return null;
     const name = refFileName(address, file);
     assetFiles[name] = file;
@@ -1004,6 +1083,7 @@ async function renderShotPlan(
     shots: readonly ShotRenderPlan[];
     overlay?: RenderOverlay;
     timelineFiles?: Record<string, string>;
+    pinned?: ReadonlyMap<string, string>;
     signal?: AbortSignal;
   },
 ): Promise<string[]> {
@@ -1022,6 +1102,7 @@ async function renderShotPlan(
         shots,
         ...(options.overlay ? { overlay: options.overlay } : {}),
         ...(options.timelineFiles ? { timelineFiles: options.timelineFiles } : {}),
+        ...(options.pinned ? { pinned: options.pinned } : {}),
       },
     );
     await assertTailwindClasses(
@@ -1081,6 +1162,7 @@ async function renderShotPlan(
         shots,
         ...(options.overlay ? { overlay: options.overlay } : {}),
         ...(options.timelineFiles ? { timelineFiles: options.timelineFiles } : {}),
+        ...(options.pinned ? { pinned: options.pinned } : {}),
       },
     );
     return await compositeWithHyperFrames({
@@ -1112,7 +1194,9 @@ async function commitManifest(
   outputDir: string,
   finalOutput: string,
   warnings: string[],
+  thumbnailFile: string | null,
 ): Promise<void> {
+  if (thumbnailFile) manifest.thumbnail = path.basename(thumbnailFile);
   try {
     await tagDeliverable({
       file: finalOutput,
@@ -1208,6 +1292,7 @@ export function buildManifest(
     size: plan.size,
     canvas,
     deliveryUpscale,
+    thumbnail: null,
     variants: Object.fromEntries([...variants].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
     shots: plan.shots.map((shotPlan) => ({
       shotId: shotPlan.shotId,
@@ -1216,6 +1301,42 @@ export function buildManifest(
     })),
     warnings: allWarnings,
   };
+}
+
+// The thumbnail beside the deliverable, its frame cut from it and a still laid out on the delivered
+// frame as the shots are. A rough cut whose thumbnail cannot be captured ships without one, and
+// says so.
+async function renderThumbnail(opts: {
+  video: VideoDefinition;
+  manager: StateManager;
+  outputDir: string;
+  deliverable: string;
+  noDelivery: boolean;
+  delivered: ReadonlyMap<string, string>;
+  rederive?: RederiveLocal;
+  allowUnaccepted: boolean;
+  warnings: string[];
+}): Promise<string | null> {
+  const { video, noDelivery } = opts;
+  const deliverySize = noDelivery ? undefined : getDeliverySize(video);
+  const layout = deliverySize
+    ? { size: deliveryCoverSize(video), crop: deliverySize }
+    : { size: video.format.size };
+  try {
+    return await exportThumbnail({
+      video,
+      manager: opts.manager,
+      outputDir: opts.outputDir,
+      deliverable: opts.deliverable,
+      layout,
+      delivered: opts.delivered,
+      ...(opts.rederive ? { rederive: opts.rederive } : {}),
+    });
+  } catch (err) {
+    if (!opts.allowUnaccepted) throw err;
+    opts.warnings.push(`no thumbnail: ${errorMessage(err)}`);
+    return null;
+  }
 }
 
 // The timeline's overlay and its render-mode build, for the shots it is laid over.

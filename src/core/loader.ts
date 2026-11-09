@@ -436,8 +436,15 @@ function parseVideoModule(mod: Record<string, unknown>, filePath: string): Video
   return video;
 }
 
+// Imported at use: what the frame's definition hashes reaches back into the loader.
+async function withFrameHashes(video: VideoDefinition): Promise<VideoDefinition> {
+  if (!video.thumbnail?.frame) return video;
+  const { withThumbnailFrameHashes } = await import("./thumbnail-frame.js");
+  return withThumbnailFrameHashes(video);
+}
+
 export async function reloadVideoDefinition(filePath: string): Promise<VideoDefinition> {
-  return importDefinition(filePath, "video", true, parseVideoModule);
+  return withFrameHashes(await importDefinition(filePath, "video", true, parseVideoModule));
 }
 
 function parseReferenceModule(mod: Record<string, unknown>, filePath: string): ReferenceDefinition {
@@ -736,5 +743,5 @@ export async function reloadPatchDefinition(
 }
 
 export async function loadVideoDefinition(filePath: string): Promise<VideoDefinition> {
-  return importDefinition(filePath, "video", false, parseVideoModule);
+  return withFrameHashes(await importDefinition(filePath, "video", false, parseVideoModule));
 }

@@ -20,7 +20,9 @@ import type { ShotStage } from "./address.js";
 import {
   formatAddress,
   formatTimelineAddress,
+  isThumbnailAddress,
   shownShotAssetNames,
+  thumbnailCoverAddress,
   tryParseAddress,
 } from "./address.js";
 import { resolveCompositionRef } from "./composition-refs.js";
@@ -28,7 +30,12 @@ import { KonteError } from "./errors.js";
 import { inferMediaType, variantMediaKind } from "./media-type.js";
 import { formatStaleReason, variantsNewestFirst } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
-import { type AssetState, type StageDefinition, isPendingShot } from "./types/index.js";
+import {
+  type AssetState,
+  type StageDefinition,
+  type VideoDefinition,
+  isPendingShot,
+} from "./types/index.js";
 
 export interface ShotRenderPlan {
   // The stage this shot belongs to. Carried per shot, not only on the plan, because a video plan's
@@ -122,6 +129,9 @@ export interface BuildRenderPlanOptions {
   // and this one would otherwise redraw a shot the page no longer means. Only a request carrying a
   // page snapshot passes it; everything else computes it live.
   pinnedStandInShotIds?: ReadonlySet<string>;
+  // The only addresses that must have a take; any other the plan resolves when it has one. A
+  // thumbnail frame's cut waits on what its picture draws, not on the shot's audio.
+  requireOnly?: ReadonlySet<string>;
 }
 
 // Each shot's window on the timeline, counted in frames. A player draws a window while
@@ -160,7 +170,22 @@ function outsideShotRefs(video: StageDefinition, shot: StageDefinition["shots"][
 // The out-of-shot refs export refuses on: each resolves to no take, or to one not accepted.
 export function unacceptedOutsideRefs(video: StageDefinition, manager: StateManager): string[] {
   const refs = new Set(video.shots.flatMap((shot) => outsideShotRefs(video, shot)));
-  return [...refs].filter((ref) => !resolveCompositionRef(manager, ref)?.isAccepted);
+  return [
+    ...new Set([
+      ...[...refs].filter((ref) => !resolveCompositionRef(manager, ref)?.isAccepted),
+      ...unacceptedThumbnailRefs(video, manager).filter((ref) => !isThumbnailAddress(ref)),
+    ]),
+  ];
+}
+
+// The thumbnail's cover and what its still draws that has no accept: its frame and own assets, which
+// its accept signs off, and what it reaches outside them, which is signed off where it is reviewed.
+export function unacceptedThumbnailRefs(video: StageDefinition, manager: StateManager): string[] {
+  const thumbnail = (video as Partial<VideoDefinition>).thumbnail;
+  if (!thumbnail) return [];
+  return [thumbnailCoverAddress(thumbnail), ...(thumbnail.compose?.compositionRefs ?? [])].filter(
+    (ref) => !resolveCompositionRef(manager, ref)?.isAccepted,
+  );
 }
 
 // The strict resolver's verdict, for the reason `hasReadyVariant` is: an accept alone is not what
@@ -267,6 +292,7 @@ export function buildRenderPlan(
     const missingAssets: string[] = [];
 
     const collectMissing = (addr: string): void => {
+      if (options.requireOnly && !options.requireOnly.has(addr)) return;
       const target = manager.getState().assets[addr];
       if (allowUnaccepted) {
         if (!hasReadyVariant(target, addr, manager)) {

@@ -24,6 +24,15 @@ How a video's optional `export.delivery` turns the working graph into a higher-r
 - `#delivery` targets are ordinary visible assets — `status`/`clean` see them; a stale source re-upscales only on the next export.
 - The export render runs locally in the worker under the run lease (`arch-jobs-guide`).
 
+## Thumbnail
+
+- `thumbnail.at` is `video:thumbnail#frame`, a deterministic `cutFrame` op: the shot under it rendered at working size, overlay included, and cut at its shot-local second. Its definition carries that shot's composition hash and the overlay's, added at load (`withThumbnailFrameHashes`).
+- `thumbnail.compose` is `video:thumbnail#still`, a deterministic `render` op at working size. The cover is the still when declared, else the frame; the still's accept accepts the frame it was made from.
+- With no delivery size, the export writes the cover's take as `thumbnail.jpg`; so does a patched cover, filled to the delivered frame. Otherwise it cuts the frame at `at` from the finished `video.mp4`, and with a compose renders the build again on the delivered canvas, as the timeline does at export, laid out like the shots (cover size, cropped), drawing that frame.
+- `cutFrame` draws the takes its job resolved at submit (`pinPlanFiles`), not what they resolve to when it runs.
+- Per-layer mode: an upscaled layer the thumbnail draws is drawn from its `#delivery` file, and a `video:thumbnail.*` `videoFrame` built on one is taken again from it inside the render (`exportThumbnail`, the local backend handed in by the export job); there is no `#delivery` address for it. A patched take, any other op (its geometry is in working pixels), frame mode and other images keep their working take, cover-scaled.
+- Not embedded in the MP4: `use_metadata_tags`, which konte's custom tags need, makes the mp4 muxer drop an `attached_pic`.
+
 ## Manifest
 
 Each render writes `manifest.json` beside its `video.mp4` (`ExportManifestSchema`, `buildManifest` in `render-video.ts`): the variant every address resolved to — state forgets it once one is re-accepted or pruned.

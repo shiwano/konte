@@ -935,7 +935,7 @@ function overlayLineStems(video: StageDefinition): readonly string[] {
 
 // What the overlay's inputs are fingerprinted on: the refs it draws and the takes its subtitled
 // lines are heard in.
-function overlayFingerprintRefs(video: StageDefinition): readonly string[] {
+export function overlayFingerprintRefs(video: StageDefinition): readonly string[] {
   if (!video.overlay) return [];
   const cues = overlayLineStems(video).flatMap((stem) => shotStemOf(video, stem)?.refs ?? []);
   return [...new Set([...video.overlay.compositionRefs, ...cues])];

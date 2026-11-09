@@ -241,6 +241,26 @@ export interface ShotHandle {
 export type StageShots<TIds extends string = string> = (shotId: TIds) => ShotHandle;
 
 /**
+ * What the video's `thumbnail.compose` receives: the working canvas, `shot`, every shot the timeline
+ * placed, by id, and `frame`, the cut at `thumbnail.at`.
+ */
+export interface ThumbnailContext<TIds extends string = string> {
+  format: VideoFormat;
+  shot: StageShots<TIds>;
+  frame: MediaAsset<"image">;
+}
+
+/** The video's thumbnail: `at`, `compose`, or both. */
+export interface ThumbnailSpec<TIds extends string = string> {
+  // Seconds on the whole timeline. The cut's frame there, overlay and subtitles included, is
+  // `video:thumbnail#frame` — the cover unless `compose` draws one over it.
+  at?: number;
+  // A still `<Composition>` (no `<Video>`, no `<Audio>`), reviewed and accepted at
+  // `video:thumbnail#still`. An `asset()` declared here is `video:thumbnail.<name>`.
+  compose?: (ctx: ThumbnailContext<TIds>) => React.ReactElement;
+}
+
+/**
  * The video's export wiring. It carries no delivery `size` — the delivery resolution is
  * `direction.policy.format.size.delivery`; here the author only wires HOW to reach it (the upscaler).
  * Provide `delivery.upscale` iff the direction declares a `size.delivery`.
@@ -268,6 +288,8 @@ export interface DefineVideoOptions<D = unknown, Ids extends string = string> {
     // video is where its picture comes from — usually a `file` asset holding finished media.
     asideShot: VideoAsideShotStarter<D>;
   }) => StageTimelineReturn<Ids, D>;
+  // The cover exported beside the MP4, built once the timeline placed every shot.
+  thumbnail?: ThumbnailSpec<NoInfer<Ids>>;
 }
 
 export function defineVideo<const D, Ids extends string = string>(
@@ -292,7 +314,7 @@ export function defineVideo<const D, Ids extends string = string>(
 
   beginPromptCollection(scriptTexts(index.scriptById));
   beginRespellCollection();
-  const { definition } = defineStage({
+  const { definition, thumbnail } = defineStage({
     stage: "video",
     index,
     runTimeline: (format) =>
@@ -303,6 +325,7 @@ export function defineVideo<const D, Ids extends string = string>(
         pendingShot,
         asideShot,
       }),
+    ...(opts.thumbnail ? { thumbnail: opts.thumbnail as ThumbnailSpec } : {}),
   });
 
   assertRespellings(definition.respellings, index.scriptById);
@@ -318,6 +341,7 @@ export function defineVideo<const D, Ids extends string = string>(
     ...definition,
     stage: "video",
     ...(exportDef ? { export: exportDef } : {}),
+    ...(thumbnail ? { thumbnail } : {}),
   };
   assertHeardStemsHeard(video);
   return video;

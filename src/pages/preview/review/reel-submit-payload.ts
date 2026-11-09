@@ -13,7 +13,7 @@ export function buildReelSubmitPayload({
 }: {
   state: Pick<
     VideoPreviewState,
-    "shots" | "audioAssets" | "timelineStem" | "overlay" | "compositionRefVariants"
+    "shots" | "audioAssets" | "timelineStem" | "overlay" | "thumbnail" | "compositionRefVariants"
   >;
   marks: ReelMarks;
   keepChoices: readonly KeepChoice[];
@@ -48,7 +48,11 @@ export function buildReelSubmitPayload({
   // and only the page knows which were on screen — a reroll that landed mid-review is in state
   // but was never a candidate this reviewer passed over.
   const displayedCandidates: Record<string, string[]> = {};
-  for (const a of [...state.shots.flatMap((s) => s.assets), ...state.audioAssets]) {
+  for (const a of [
+    ...state.shots.flatMap((s) => s.assets),
+    ...state.audioAssets,
+    ...(state.thumbnail ? [state.thumbnail.cover, ...state.thumbnail.assets] : []),
+  ]) {
     const vid = effectiveVariants[a.address] ?? a.variantId;
     if (vid) displayedVariants[a.address] = vid;
     displayedCandidates[a.address] = a.variants.map((v) => v.variantId);
@@ -85,6 +89,7 @@ export function buildReelSubmitPayload({
     notes: notes.length > 0 ? notes : undefined,
     ...(marks.stem ? { timelineStemDecision: marks.stem } : {}),
     ...(marks.overlay ? { overlayDecision: marks.overlay } : {}),
+    ...(marks.thumbnail ? { thumbnailDecision: marks.thumbnail } : {}),
     addedFeedback: added,
     feedbackPatches,
     displayedVariants,

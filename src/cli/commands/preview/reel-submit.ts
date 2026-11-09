@@ -19,6 +19,9 @@ import {
   isStemAddress,
   listCompositionAddresses,
   listOverlayAddresses,
+  formatThumbnailAddress,
+  THUMBNAIL_FRAME_ADDRESS,
+  thumbnailCoverAddress,
   listShotStems,
   listStemAddresses,
   parseAddress,
@@ -582,6 +585,7 @@ export async function handleReelSubmit(
   await cascadeDirectionParts(submit, verdicts, ledger);
   const timelineStemLanded = await applyTimelineStemDecision(submit, ledger);
   const overlayLanded = await applyOverlayDecision(submit, ledger);
+  const thumbnailLanded = await applyThumbnailDecision(submit, ledger);
 
   const { kept, regenerate } = await applyKeepAndRegenerate(submit);
   if (kept.length > 0) record.kept = kept;
@@ -598,6 +602,7 @@ export async function handleReelSubmit(
   if (timelineStemLanded) record.timelineStemDecision = timelineStemLanded;
   else delete record.timelineStemDecision;
   if (overlayLanded) record.overlayDecision = overlayLanded;
+  if (thumbnailLanded) record.thumbnailDecision = thumbnailLanded;
   const { skippedDecisions, acceptedAssets, unacceptedAssets } = ledger;
   if (skippedDecisions.length > 0) record.skippedDecisions = skippedDecisions;
 
@@ -783,6 +788,14 @@ function buildReelRecord(submit: ReelSubmit, reviewedAt: string): ReviewRecord {
         formatTimelineAddress(stage, name),
       ),
       timelineSources: displayedRefVariants(submit, timelineStemSources(video)),
+      ...((video as Partial<VideoDefinition>).thumbnail
+        ? {
+            thumbnailSources: displayedRefVariants(submit, [
+              thumbnailCoverAddress((video as VideoDefinition).thumbnail!),
+              ...((video as VideoDefinition).thumbnail!.compose?.compositionRefs ?? []),
+            ]),
+          }
+        : {}),
       // `contentHashes` (the materialized-leaf baseline) is set after the accepts.
     },
     decisions: body.decisions ?? undefined,
@@ -1371,6 +1384,127 @@ async function applyOverlayDecision(
   );
   if (verdict.skipped) ledger.skippedDecisions.push(verdict.skipped);
   return verdict.landed;
+}
+
+// The output hash of each of `refs` the cover was made from, however deep: each take's inputs
+// lead to the takes they were made from in turn.
+function thumbnailMadeFrom(
+  mgr: StateManager,
+  cover: { inputFingerprints: Record<string, string> },
+  refs: readonly string[],
+): Map<string, string> {
+  const wanted = new Set(refs);
+  const made = new Map<string, string>();
+  const queue = [cover.inputFingerprints];
+  while (queue.length > 0) {
+    for (const [ref, hash] of Object.entries(queue.pop()!)) {
+      if (!wanted.has(ref) || made.has(ref)) continue;
+      made.set(ref, hash);
+      const take = Object.values(mgr.tryGetAssetState(ref)?.variants ?? {}).find(
+        (v) => v.outputHash === hash,
+      );
+      if (take) queue.push(take.inputFingerprints);
+    }
+  }
+  return made;
+}
+
+// The thumbnail is signed off by its own accept: the cover the reviewer saw — its still, else its
+// frame — with the takes of its own assets they picked. A pick the still was not made from, however
+// deep, is accepted alone, and `generate` makes what is built on it again; a cover that went stale while the
+// page was open refuses it. "none" releases it.
+async function applyThumbnailDecision(
+  submit: ReelSubmit,
+  ledger: ReelSubmitLedger,
+): Promise<"accepted" | "none" | undefined> {
+  const { video, body, displayed, candidates } = submit;
+  const decision = body.thumbnailDecision;
+  const thumbnail = (video as Partial<VideoDefinition>).thumbnail;
+  if (!thumbnail || !decision) return undefined;
+  const address = thumbnailCoverAddress(thumbnail);
+  const skip = (reason: string) => {
+    ledger.skippedDecisions.push({ address, reason });
+    return undefined;
+  };
+  const held = decision === "accepted" ? submit.heldFor([address]) : [];
+  if (held.length > 0) return skip(heldReason(held));
+  const videoRoot = submit.ctx.videoRoot;
+  if (decision === "none") {
+    await StateManager.withLock(videoRoot, async (mgr) => {
+      const acceptedId = mgr.getAcceptedVariant(address);
+      if (!acceptedId) return;
+      mgr.setUnaccepted(address, acceptedId);
+      ledger.unacceptedAssets.push(address);
+    });
+    const after = await StateManager.load(videoRoot);
+    if (after.getAcceptedVariant(address) === null) return decision;
+    return skip("the thumbnail is still accepted — the release did not take");
+  }
+  const shown = displayed[address];
+  if (!shown) return skip("the review showed no cover of the thumbnail");
+  const own = Object.keys(thumbnail.assets).map(formatThumbnailAddress);
+  const outcome = await StateManager.withLock(videoRoot, async (mgr) => {
+    const cover = mgr.tryGetAssetState(address)?.variants?.[shown];
+    if (!cover?.file || cover.status === "dismissed") {
+      return { refused: `${shown} was removed since the review — reload the review` };
+    }
+    const staleness = mgr.variantStaleness(address, shown);
+    if (staleness?.inputStale || staleness?.definitionStale) {
+      return {
+        refused: `${shown} went stale since the review — \`konte generate video\` makes it again`,
+      };
+    }
+    const madeFrom = thumbnailMadeFrom(mgr, cover, [...own, THUMBNAIL_FRAME_ADDRESS]);
+    const picks = own.flatMap((ref) => (displayed[ref] ? [[ref, displayed[ref]] as const] : []));
+    const switchedPicks = picks.filter(([ref, sel]) => {
+      const made = madeFrom.get(ref);
+      return made !== undefined && mgr.tryGetAssetState(ref)?.variants?.[sel]?.outputHash !== made;
+    });
+    const switched = switchedPicks.map(([ref, sel]) => `${ref} (${sel})`);
+    for (const [ref, sel] of switched.length > 0 ? switchedPicks : picks) {
+      const previous = mgr.getAcceptedVariant(ref);
+      noteOverturned(mgr, ref, sel, ledger.overturned);
+      mgr.setAccepted(ref, sel, { dismiss: candidates[ref] ?? [] });
+      if (previous === sel) continue;
+      ledger.acceptedAssets.push(ref);
+      ledger.cascadeAccepted.push({ address: ref, via: address });
+    }
+    if (switched.length > 0) return { switched };
+    if (address !== THUMBNAIL_FRAME_ADDRESS && thumbnail.frame) {
+      const made = madeFrom.get(THUMBNAIL_FRAME_ADDRESS);
+      const frame = Object.entries(
+        mgr.tryGetAssetState(THUMBNAIL_FRAME_ADDRESS)?.variants ?? {},
+      ).find(([, v]) => made !== undefined && v.outputHash === made)?.[0];
+      if (frame && mgr.getAcceptedVariant(THUMBNAIL_FRAME_ADDRESS) !== frame) {
+        mgr.setAccepted(THUMBNAIL_FRAME_ADDRESS, frame);
+        ledger.acceptedAssets.push(THUMBNAIL_FRAME_ADDRESS);
+        ledger.cascadeAccepted.push({ address: THUMBNAIL_FRAME_ADDRESS, via: address });
+      }
+    }
+    const previous = mgr.getAcceptedVariant(address);
+    mgr.setAccepted(address, shown, { dismiss: candidates[address] ?? [] });
+    if (previous !== shown) ledger.acceptedAssets.push(address);
+    const cascaded = await cascadeAcceptConsumedDeps(
+      mgr,
+      submit.jobManager,
+      address,
+      shown,
+      submit.cascade,
+    );
+    ledger.acceptedAssets.push(...cascaded);
+    ledger.cascadeAccepted.push(...cascaded.map((dep) => ({ address: dep, via: address })));
+    return {};
+  });
+  if (outcome.refused) return skip(outcome.refused);
+  if (outcome.switched) {
+    return skip(
+      `the still was made from another take than ${outcome.switched.join(", ")}, accepted here — ` +
+        "`konte generate video` makes it again from that take",
+    );
+  }
+  const after = await StateManager.load(videoRoot);
+  if (after.getAcceptedVariant(address) === shown) return decision;
+  return skip(`${shown} is not accepted — the accept did not take`);
 }
 
 // After every accept, so each take is kept against the upstream this review settled.

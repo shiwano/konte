@@ -251,6 +251,8 @@ export interface VideoPreviewState {
   timelineStem?: TimelineStemInfo;
   // Absent when the stage declares no overlay.
   overlay?: OverlayInfo;
+  // Absent unless the video declares a thumbnail and its still has a current take.
+  thumbnail?: ThumbnailInfo;
   keep: KeepGraphInfo;
   handoffSummary?: string;
   // Handoff notes no shot shows (a plate's, the timeline's), carried by the summary banner.
@@ -314,6 +316,24 @@ interface OverlayInfo {
   definitionHash: string | null;
   needsReview: boolean;
   offered: boolean;
+  feedback: FeedbackInfo[];
+}
+
+// The video's thumbnail, once its still (`video:thumbnail#still`) has a current take: the still,
+// signed off by its own accept, and the assets it declared. Its comments hang off `target`
+// (`video:thumbnail`).
+interface ThumbnailInfo {
+  target: string;
+  // Its still when it composes one, else its frame.
+  cover: VideoAssetInfo;
+  // Where its frame is cut: `at` on the timeline, `shotTime` into `shotId`.
+  frame: { at: number; shotId: string; shotTime: number } | null;
+  imageUrl: string | null;
+  // The take of each of its own assets the still was made from, by address.
+  sources: Record<string, string>;
+  // The cover or a take of one of its assets awaits a verdict.
+  needsReview: boolean;
+  assets: VideoAssetInfo[];
   feedback: FeedbackInfo[];
 }
 

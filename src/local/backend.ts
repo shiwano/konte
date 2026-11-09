@@ -153,6 +153,17 @@ export class LocalBackend implements GenerationBackend {
       case "frame":
         await this.extractFrame(def.inputs, outputFile, resolvedDependencies);
         break;
+      case "cutFrame": {
+        const { cutShotFrame } = await import("../core/cut-frame.js");
+        await cutShotFrame({
+          videoRoot: this.videoRoot,
+          shotId: def.inputs.shot as string,
+          at: def.inputs.at as number,
+          outputFile,
+          resolvedDependencies,
+        });
+        break;
+      }
       case "render":
         if (def.mediaType === "video") {
           await this.renderVideo(def.inputs, outputFile, resolvedDependencies, onLog);

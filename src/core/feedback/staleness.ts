@@ -3,6 +3,9 @@ import {
   formatCompositionAddress,
   getStage,
   parseShotAddress,
+  THUMBNAIL_FRAME_ADDRESS,
+  THUMBNAIL_STILL_ADDRESS,
+  THUMBNAIL_TARGET,
   parseStageAddress,
   shotStemAssetNames,
   type ShotStage,
@@ -221,6 +224,9 @@ export function signedOffOver(
 
   const own = acceptedAtOrAfter(address);
   if (own !== null) return own;
+  if (address === THUMBNAIL_TARGET) {
+    return acceptedAtOrAfter(THUMBNAIL_STILL_ADDRESS) ?? acceptedAtOrAfter(THUMBNAIL_FRAME_ADDRESS);
+  }
   const shot = parseShotAddress(address);
   if (shot) {
     // `every`, not `some`: a shot is answered when it is finished, and half of it signed off says

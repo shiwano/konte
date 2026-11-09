@@ -58,7 +58,12 @@ describe("buildReelSubmitPayload", () => {
         audioAssets: [],
         compositionRefVariants: {},
       },
-      marks: { shots: { "02": "accepted" }, stem: "none", overlay: undefined },
+      marks: {
+        shots: { "02": "accepted" },
+        stem: "none",
+        overlay: undefined,
+        thumbnail: undefined,
+      },
       keepChoices: [],
       effectiveVariants: {},
       input: {
@@ -82,5 +87,36 @@ describe("buildReelSubmitPayload", () => {
     expect(body.notes).toEqual([
       { time: 3, shotId: "02", address: "video:shot.02", text: "too dark", x: 0.5, y: 0.25 },
     ]);
+  });
+
+  it("snapshots the cover and the thumbnail's own takes, a gallery pick winning", () => {
+    const body = buildReelSubmitPayload({
+      state: {
+        shots: [shot("01")],
+        audioAssets: [],
+        compositionRefVariants: { "animatic:shot.01.first": "v-p" },
+        thumbnail: {
+          target: "video:thumbnail",
+          cover: asset("video:thumbnail#still", "v-t2", ["v-t2", "v-t1"]),
+          imageUrl: "/api/assets/still.png",
+          sources: { "video:thumbnail.cover": "v-c1" },
+          needsReview: true,
+          assets: [asset("video:thumbnail.cover", "v-c1", ["v-c1", "v-c2"])],
+          feedback: [],
+        } as unknown as NonNullable<VideoPreviewState["thumbnail"]>,
+      },
+      marks: { ...NO_REEL_MARKS, thumbnail: "accepted" },
+      keepChoices: [],
+      effectiveVariants: { "video:thumbnail.cover": "v-c2" },
+      input,
+    });
+    expect(body.thumbnailDecision).toBe("accepted");
+    expect(body.displayedVariants).toMatchObject({
+      "video:thumbnail#still": "v-t2",
+      "video:thumbnail.cover": "v-c2",
+      "animatic:shot.01.first": "v-p",
+    });
+    expect(body.displayedCandidates?.["video:thumbnail#still"]).toEqual(["v-t2", "v-t1"]);
+    expect(body.displayedCandidates?.["video:thumbnail.cover"]).toEqual(["v-c1", "v-c2"]);
   });
 });

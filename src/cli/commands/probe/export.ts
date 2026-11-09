@@ -215,6 +215,7 @@ Examples:
             : "none"
         }`,
       );
+      console.log(`  thumbnail   ${formatThumbnail(manifest, path.dirname(fileAbs))}`);
       console.log(
         `  manifest    ${found?.path ?? "(none)"}${idMismatch ? "   [does not describe this file]" : ""}`,
       );
@@ -237,4 +238,13 @@ Examples:
         console.log(`  id          ${burnedId}  (burned into the file; ${why})`);
       }
     });
+}
+
+// The thumbnail written beside the MP4. `none` says why when the manifest can: the video declares
+// no thumbnail.
+function formatThumbnail(manifest: ExportManifest | null, dir: string): string {
+  if (!manifest) return "—";
+  if (!manifest.thumbnail) return "none — video.tsx declares no `thumbnail`";
+  const file = path.join(dir, manifest.thumbnail);
+  return existsSync(file) ? file : `${file}   [missing]`;
 }

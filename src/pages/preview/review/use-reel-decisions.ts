@@ -16,6 +16,7 @@ import {
   type RegenerateMark,
 } from "./keep-or-regenerate.js";
 import { reelAcceptUnits, type ReelUnit } from "./shot-acceptable.js";
+import { thumbnailShownAccepted } from "./thumbnail-view.js";
 import type { useKeepChoices } from "./use-keep-choices.js";
 
 type Mark = "accepted" | "none";
@@ -25,13 +26,22 @@ export type ReelMarks = {
   shots: Record<string, Mark>;
   stem: Mark | undefined;
   overlay: Mark | undefined;
+  thumbnail: Mark | undefined;
 };
 
-export const NO_REEL_MARKS: ReelMarks = { shots: {}, stem: undefined, overlay: undefined };
+export const NO_REEL_MARKS: ReelMarks = {
+  shots: {},
+  stem: undefined,
+  overlay: undefined,
+  thumbnail: undefined,
+};
 
 export function hasReelMarks(marks: ReelMarks): boolean {
   return (
-    Object.keys(marks.shots).length > 0 || marks.stem !== undefined || marks.overlay !== undefined
+    Object.keys(marks.shots).length > 0 ||
+    marks.stem !== undefined ||
+    marks.overlay !== undefined ||
+    marks.thumbnail !== undefined
   );
 }
 
@@ -110,6 +120,11 @@ export function useReelDecisions({
     return !!o && o.variantId !== null && !o.needsReview;
   }, [state.overlay]);
 
+  const baseThumbnailAccepted = useMemo(
+    () => thumbnailShownAccepted(state.thumbnail, effectiveVariants),
+    [state.thumbnail, effectiveVariants],
+  );
+
   // Where one unit stands under a given set of marks: an explicit mark this session wins over the
   // baseline. The page's ONE reader — every view below is this function.
   const unitAccepted = useCallback(
@@ -118,9 +133,11 @@ export function useReelDecisions({
         ? (m.stem ?? (baseTimelineStemAccepted ? "accepted" : "none")) === "accepted"
         : unit.kind === "overlay"
           ? (m.overlay ?? (baseOverlayAccepted ? "accepted" : "none")) === "accepted"
-          : (m.shots[unit.shotId] ?? (baseShotAccepted[unit.shotId] ? "accepted" : "none")) ===
-            "accepted",
-    [baseShotAccepted, baseTimelineStemAccepted, baseOverlayAccepted],
+          : unit.kind === "thumbnail"
+            ? (m.thumbnail ?? (baseThumbnailAccepted ? "accepted" : "none")) === "accepted"
+            : (m.shots[unit.shotId] ?? (baseShotAccepted[unit.shotId] ? "accepted" : "none")) ===
+              "accepted",
+    [baseShotAccepted, baseTimelineStemAccepted, baseOverlayAccepted, baseThumbnailAccepted],
   );
 
   const shotAccepted = useMemo(() => {
@@ -132,6 +149,7 @@ export function useReelDecisions({
 
   const timelineStemAccepted = unitAccepted({ kind: "stem" }, marks);
   const overlayAccepted = unitAccepted({ kind: "overlay" }, marks);
+  const thumbnailAccepted = unitAccepted({ kind: "thumbnail" }, marks);
 
   // Every shot a review can sign off (see shotAcceptable) — the rest have their accept affordances
   // disabled and are excluded from Accept all, the unreviewed count, and the review filters.
@@ -261,6 +279,15 @@ export function useReelDecisions({
     }));
   }, [setMarks, overlayAccepted, baseOverlayAccepted]);
 
+  const toggleThumbnail = useCallback(() => {
+    if (!state.thumbnail) return;
+    const accepted = !thumbnailAccepted;
+    setMarks((prev) => ({
+      ...prev,
+      thumbnail: accepted === baseThumbnailAccepted ? undefined : accepted ? "accepted" : "none",
+    }));
+  }, [state.thumbnail, setMarks, thumbnailAccepted, baseThumbnailAccepted]);
+
   // Whether an audio asset still needs attention, for the "Needs review" filter. Each of its cues
   // is signed off by the shot that placed it (a shot accept covers that shot's stem); a bed is
   // signed off by the timeline stem. Like the rest of the filter it reads the baseline, not this
@@ -277,9 +304,10 @@ export function useReelDecisions({
   }, [state.audioAssets, baseShotAccepted, baseTimelineStemAccepted]);
 
   const offered = !!state.overlay?.offered;
+  const thumbnailReady = !!state.thumbnail;
   const acceptUnits = useMemo(
-    () => reelAcceptUnits(state.shots, !!state.timelineStem, offered),
-    [state.shots, state.timelineStem, offered],
+    () => reelAcceptUnits(state.shots, !!state.timelineStem, offered, thumbnailReady),
+    [state.shots, state.timelineStem, offered, thumbnailReady],
   );
 
   // Accept one unit. Toggling back to the baseline drops the mark rather than recording a no-op
@@ -290,12 +318,14 @@ export function useReelDecisions({
         return { ...m, stem: baseTimelineStemAccepted ? undefined : "accepted" };
       if (unit.kind === "overlay")
         return { ...m, overlay: baseOverlayAccepted ? undefined : "accepted" };
+      if (unit.kind === "thumbnail")
+        return { ...m, thumbnail: baseThumbnailAccepted ? undefined : "accepted" };
       const shots = { ...m.shots };
       if (baseShotAccepted[unit.shotId]) delete shots[unit.shotId];
       else shots[unit.shotId] = "accepted";
       return { ...m, shots };
     },
-    [baseShotAccepted, baseTimelineStemAccepted, baseOverlayAccepted],
+    [baseShotAccepted, baseTimelineStemAccepted, baseOverlayAccepted, baseThumbnailAccepted],
   );
 
   // What the whole review still has to sign off, and whether "Accept all" would move anything.
@@ -379,9 +409,11 @@ export function useReelDecisions({
     baseShotAccepted,
     baseTimelineStemAccepted,
     baseOverlayAccepted,
+    baseThumbnailAccepted,
     shotAccepted,
     timelineStemAccepted,
     overlayAccepted,
+    thumbnailAccepted,
     timelineStemChanged,
     acceptableShots,
     audioAccepted,
@@ -392,6 +424,7 @@ export function useReelDecisions({
     toggleShotDecision,
     toggleTimelineStem,
     toggleOverlay,
+    toggleThumbnail,
     acceptAll,
     keepShotAfterAll,
     reset,

@@ -7,6 +7,7 @@ import type { ScriptLineView, ShotMoveInfo, ShotWaiverInfo } from "../types.js";
 import type { LineMarks } from "../../../core/line-marks.js";
 import {
   CommentCard,
+  FrameCard,
   HandoffCard,
   MoveCard,
   ScriptCard,
@@ -58,6 +59,7 @@ export interface NoteDraft {
  */
 export function TargetPanel({
   subject,
+  frame,
   address,
   pinnable = true,
   script,
@@ -81,6 +83,8 @@ export function TargetPanel({
 }: {
   // What the panel is pointed at, shown as its title (e.g. "Shot 03", "Soundtrack").
   subject?: string;
+  // Where the thumbnail's frame is cut (`shot 01 at 0:01.5`).
+  frame?: string;
   // The target's feedback address. With `onQuote`, the context cards are quotable.
   address?: string;
   pinnable?: boolean;
@@ -127,6 +131,7 @@ export function TargetPanel({
       ["camera", moveCards.map((m) => m.camera)],
       ["waiver", waiverCards.map((w) => w.reason)],
       ["handoff", handoffNotes ?? []],
+      ["frame", frame ? [frame] : []],
     ]),
     quotedFragments([...comments.map((c) => c.text), ...(draft ? [draftText] : [])], true),
   );
@@ -153,6 +158,7 @@ export function TargetPanel({
       )}
 
       {(scriptLines.length > 0 ||
+        frame ||
         moveCards.length > 0 ||
         waiverCards.length > 0 ||
         (handoffNotes && handoffNotes.length > 0)) && (
@@ -188,6 +194,7 @@ export function TargetPanel({
               marks={marks}
             />
           ))}
+          {frame && <FrameCard text={frame} marks={marks} />}
           {handoffNotes?.map((text, i) => (
             <HandoffCard key={`agent-${i}`} text={text} field={i} marks={marks} />
           ))}

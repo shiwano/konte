@@ -368,6 +368,10 @@ export function renderToHtml(
   context: RenderContext,
   visitor?: HostVisitor,
 ): string {
+  // A render can start another — a function component reaching a shot whose discovery builds a
+  // `jsxImage` — so the outer one's context and visitor are put back.
+  const outerContext = currentContext;
+  const outerVisitor = currentVisitor;
   currentContext = context;
   currentVisitor = visitor ?? null;
   try {
@@ -380,7 +384,7 @@ export function renderToHtml(
     }
     return html;
   } finally {
-    currentContext = null;
-    currentVisitor = null;
+    currentContext = outerContext;
+    currentVisitor = outerVisitor;
   }
 }

@@ -269,6 +269,17 @@ describe("buildRenderPlan", () => {
     }
   });
 
+  it("waits only on the addresses `requireOnly` names, resolving the rest when ready", () => {
+    setupAccepted(manager, "video:shot.01.motion", "output/motion.mp4");
+    const plan = buildRenderPlan(testVideo, manager, {
+      shotId: "01",
+      outputDir: path.join(tmpDir, "dist"),
+      allowUnaccepted: true,
+      requireOnly: new Set(["video:shot.01.motion"]),
+    });
+    expect(Object.keys(plan.shots[0]!.resolvedFiles)).toEqual(["motion"]);
+  });
+
   it("only validates assets of the target shot when shotId is specified", () => {
     setupAccepted(manager, "video:shot.01.motion", "output/motion.mp4");
     setupAccepted(manager, "video:shot.01.voice", "output/voice.wav");

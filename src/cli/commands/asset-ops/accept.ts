@@ -27,6 +27,11 @@ import {
   isStageScope,
   listExposedReferenceAddresses,
   listOverlayAddresses,
+  THUMBNAIL_FRAME_ADDRESS,
+  THUMBNAIL_STILL_ADDRESS,
+  thumbnailCoverAddress,
+  thumbnailOwnAddresses,
+  THUMBNAIL_TARGET,
   matchesAddressScope,
   parseAddress,
   parseDirectionScope,
@@ -47,6 +52,7 @@ import {
 } from "../../../core/composition-resource.js";
 import { type Finding, formatFindingLine } from "../../../core/finding.js";
 import { shotAcceptTargets } from "../../../core/shot-accept-targets.js";
+import { thumbnailOf } from "../../../core/graph.js";
 import { shotById } from "../../../core/shot-index.js";
 import { shotAcceptable } from "../../../core/shot-acceptable.js";
 import {
@@ -82,6 +88,7 @@ import type { StageDefinitions } from "../../../core/definition-hashes.js";
 import {
   isPendingShot,
   type StageDefinition,
+  type ThumbnailDefinition,
   type VariantState,
 } from "../../../core/types/index.js";
 
@@ -427,9 +434,9 @@ function upstreamVariantsBesideAccept(
 }
 
 // What the stage review's Accept all covers, read through the review's own rules: each reference
-// card's displayed take; each shot `shotAcceptable` admits, the timeline stem. The overlay is left
-// to the batch (see `overlayAwaitsAccept`). A pending shot or a board aside is no unit. A unit
-// whose verdict a take beside an accept still awaits is left out.
+// card's displayed take; each shot `shotAcceptable` admits, the timeline stem, the thumbnail. The
+// overlay is left to the batch (see `overlayAwaitsAccept`). A pending shot or a board aside is no
+// unit. A unit whose verdict a take beside an accept still awaits is left out.
 function stageUnits(
   manager: StateManager,
   definitions: StageDefinitions,
@@ -499,7 +506,29 @@ function stageUnits(
     const stem = formatTimelineStemAddress(stage);
     units.push(leafUnit(stem, { leaves: [stem], released: [] }, null));
   }
+  const thumbnail = thumbnailOf(def);
+  if (thumbnail) units.push(thumbnailUnit(manager, thumbnail));
   return units;
+}
+
+// The thumbnail's cover at the take its review shows, with its own assets: a stale cover is one
+// `generate` makes again.
+function thumbnailUnit(manager: StateManager, thumbnail: ThumbnailDefinition): StageUnit {
+  const cover = thumbnailCoverAddress(thumbnail);
+  const variantId = manager.resolveReference(cover, { includeStale: false })?.variantId;
+  const beside = upstreamVariantsBesideAccept(manager, thumbnailOwnAddresses(thumbnail));
+  const leftOut = !variantId
+    ? "no current cover — `konte generate video` makes it"
+    : beside.length > 0
+      ? beside.join("; ")
+      : null;
+  return {
+    label: THUMBNAIL_TARGET,
+    addresses: [cover],
+    targets: variantId && !leftOut ? [variantId] : [],
+    released: [],
+    leftOut,
+  };
 }
 
 function stageOverlay(
@@ -530,6 +559,8 @@ function stageAddresses(
     ...listStemAddresses(def),
     ...listRemovedShotStemAddresses(manager.getState(), def),
     ...listOverlayAddresses(def),
+    ...(thumbnailOf(def)?.frame ? [THUMBNAIL_FRAME_ADDRESS] : []),
+    ...(thumbnailOf(def)?.compose ? [THUMBNAIL_STILL_ADDRESS] : []),
   ];
 }
 

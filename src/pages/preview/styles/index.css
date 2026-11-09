@@ -1541,6 +1541,26 @@ body.fill-mode .fab-submit-wrap {
   gap: 0.5rem;
 }
 
+.vp-thumbnail-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: #000;
+  pointer-events: none;
+}
+
+.vp-thumbnail-overlay img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.vp-thumbnail-note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
 .panel-title {
   font-size: 0.7rem;
   font-weight: 700;

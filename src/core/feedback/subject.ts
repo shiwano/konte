@@ -6,7 +6,10 @@ import {
   formatTimelineStemAddress,
   listShotStems,
   parseShotAddress,
+  thumbnailCoverAddress,
+  THUMBNAIL_TARGET,
 } from "../address.js";
+import { thumbnailOf } from "../graph.js";
 import { timelineStemRefs } from "../composition-resource.js";
 import { shotById } from "../shot-index.js";
 import type { StageDefinition } from "../types/index.js";
@@ -51,6 +54,15 @@ export function commentSubjectAddresses(
   // The overlay stands on what it shows and on its own definition, as a composition does.
   if (isOverlayAddress(address) && def.overlay) {
     return { assets: [...def.overlay.compositionRefs], leaves: [address] };
+  }
+
+  // The thumbnail stands on its cover and what its still draws.
+  const thumbnail = thumbnailOf(def);
+  if (address === THUMBNAIL_TARGET && thumbnail) {
+    return {
+      assets: [thumbnailCoverAddress(thumbnail), ...(thumbnail.compose?.compositionRefs ?? [])],
+      leaves: [],
+    };
   }
 
   const shot = parseShotAddress(address);

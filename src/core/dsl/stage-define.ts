@@ -1,24 +1,37 @@
 import {
   formatReferenceAddress,
   formatShotAddress,
+  formatThumbnailAddress,
   formatTimelineStemAddress,
   type ShotStage,
+  THUMBNAIL_FRAME_ADDRESS,
 } from "../address.js";
 import type { BuildFinding } from "../finding.js";
-import { partitionShotRefs } from "../composition-refs.js";
+import { isConsumableAddress, partitionShotRefs } from "../composition-refs.js";
 import { renderToHtml, type RenderContext } from "../jsx-html.js";
 import type {
+  AssetDefinition,
+  LocalAssetDefinition,
   ShotDefinition,
   StageDefinition,
+  ThumbnailCompose,
+  ThumbnailDefinition,
+  ThumbnailFrame,
   TimelineFunction,
   Typography,
   VideoFormat,
 } from "../types/index.js";
 import { KonteError } from "../errors.js";
-import type { AnyShotInput, MediaKind, SoundtrackEntry } from "./builders.js";
+import type { AnyShotInput, MediaKind, SoundtrackEntry, ThumbnailSpec } from "./builders.js";
 import type { OverlayDefinition } from "../types/index.js";
-import { endsOnSeam, shotSongStem, spanSongContext, timedShot } from "./direction.js";
-import { isAsideShotInput, isPendingShotInput } from "./builders.js";
+import {
+  endsOnSeam,
+  makeStageShots,
+  shotSongStem,
+  spanSongContext,
+  timedShot,
+} from "./direction.js";
+import { isAsideShotInput, isPendingShotInput, makeMediaAsset } from "./builders.js";
 import { Composition } from "./composition/index.js";
 import type { DirectionIndex } from "./direction.js";
 import { endClipLengthCollection, type ClipLength } from "./clip-length-collect.js";
@@ -29,8 +42,10 @@ import { endPromptCollection } from "./prompt-collect.js";
 import { endRespellCollection } from "./respell.js";
 import {
   collectPlaceholderRefs,
+  makeAddressPlaceholder,
   parsePlaceholder,
   runInDiscoveryMode,
+  runInThumbnailMode,
   runTimelineInDiscoveryMode,
 } from "./shot-context.js";
 
@@ -89,6 +104,7 @@ interface DefineStageArgs {
   index: DirectionIndex;
   runTimeline: (format: VideoFormat) => unknown;
   perShot?: PerShotHook;
+  thumbnail?: ThumbnailSpec;
 }
 
 interface StageBuild {
@@ -99,6 +115,7 @@ interface StageBuild {
   // How long a clip each declared asset asks its model for. Read by the animatic's cue-fit check
   // and by the pass that narrows a count konte derived from the words.
   clipLengths: readonly ClipLength[];
+  thumbnail?: ThumbnailDefinition;
 }
 
 export function defineStage(args: DefineStageArgs): StageBuild {
@@ -232,6 +249,9 @@ export function defineStage(args: DefineStageArgs): StageBuild {
   const overlay = normalized.overlay
     ? defineOverlay(stage, index, normalized.overlay, { ...format, typography })
     : undefined;
+  const thumbnail = args.thumbnail
+    ? defineThumbnail(stage, args.thumbnail, shotInputs, shots, overlay, { ...format, typography })
+    : undefined;
 
   const timelineFn: TimelineFunction = ({ format: renderFormat }) => {
     const run = normalizeStageTimeline(runTimeline(renderFormat));
@@ -277,6 +297,7 @@ export function defineStage(args: DefineStageArgs): StageBuild {
     },
     assetKindsByShot,
     clipLengths,
+    ...(thumbnail ? { thumbnail } : {}),
   };
 }
 
@@ -399,30 +420,202 @@ function defineOverlay(
         `or reference assets; declare the asset at the top of the timeline.`,
     );
   }
+  assertStillComposition("the overlay", element, { ...format, duration });
+  return { duration, fn, compositionRefs: collectPlaceholderRefs(element) };
+}
+
+// A build that returns a `<Composition>` of text, images and animation and plays no media. Returns
+// every ref a host element's `src` reaches, a function component's pulled in from a closure among
+// them.
+function assertStillComposition(
+  label: string,
+  element: React.ReactElement,
+  format: VideoFormat & { typography: Typography; duration: number },
+): string[] {
   if (!isCompositionElement(element)) {
-    throw new Error(
-      "the overlay build must return a <Composition>…</Composition> at its top level.",
-    );
+    throw new Error(`${label} build must return a <Composition>…</Composition> at its top level.`);
   }
   let media = false;
+  const refs: string[] = [];
   renderToHtml(
     element,
     {
-      shotId: "overlay",
+      shotId: label.replace(/^the /, ""),
       width: format.size.width,
       height: format.size.height,
-      duration,
+      duration: format.duration,
       typography: format.typography,
     },
-    (tag) => {
+    (tag, props) => {
       if (tag === "audio" || tag === "video") media = true;
+      const ref = typeof props.src === "string" ? parsePlaceholder(props.src) : null;
+      if (ref && isConsumableAddress(ref)) refs.push(ref);
     },
   );
   if (media) {
     throw new Error(
-      "the overlay plays a <Video> or an <Audio>. " +
+      `${label} plays a <Video> or an <Audio>. ` +
         "Place the media in a shot, or a sound in the timeline's soundtracks.",
     );
   }
-  return { duration, fn, compositionRefs: collectPlaceholderRefs(element) };
+  return refs;
+}
+
+// The length a thumbnail's still is laid out on; it is captured at t=0.
+const THUMBNAIL_DURATION = 1;
+
+// The composition id the still's stage and document carry: a jsxImage's, whose `render` op captures it.
+const THUMBNAIL_SHOT_ID = "still";
+
+export type ThumbnailLayout = {
+  size: { width: number; height: number };
+  fps: number;
+  // The frame captured from the centre of `size` (an export's delivery crop).
+  crop?: { width: number; height: number };
+  typography: Typography;
+};
+
+export function thumbnailRenderContext(layout: ThumbnailLayout, nested: boolean): RenderContext {
+  return {
+    shotId: THUMBNAIL_SHOT_ID,
+    width: layout.size.width,
+    height: layout.size.height,
+    duration: THUMBNAIL_DURATION,
+    still: true,
+    nested,
+    typography: layout.typography,
+    ...(layout.crop ? { crop: layout.crop } : {}),
+  };
+}
+
+/** The thumbnail's stage on `layout`, its asset refs left as placeholders. */
+export function renderThumbnailStage(fn: ThumbnailCompose["fn"], layout: ThumbnailLayout): string {
+  // A png capture forces html/body transparent, so the ground is painted on the stage.
+  const stage = runInThumbnailMode("render", () =>
+    renderToHtml(fn({ size: layout.size, fps: layout.fps }), thumbnailRenderContext(layout, true)),
+  ).result;
+  return `<style>#stage { background: #000; }</style>${stage}`;
+}
+
+// The thumbnail's frame at `at` on the timeline: a `cutFrame` of the shot under it, its inputs the
+// takes that shot's picture and the overlay draw. konte adds what its definition moves with — that
+// shot's picture and the overlay — once the entry is loaded.
+function defineThumbnailFrame(
+  at: number,
+  shots: readonly ShotDefinition[],
+  overlay: OverlayDefinition | undefined,
+): ThumbnailFrame {
+  const total = shots.reduce((sum, s) => sum + s.duration, 0);
+  if (!Number.isFinite(at) || at < 0 || at >= total) {
+    throw new KonteError(
+      "VALIDATION_FAILED",
+      `thumbnail.at is ${String(at)}s, outside the timeline's 0–${String(total)}s`,
+    );
+  }
+  let start = 0;
+  const shot = shots.find((s) => {
+    if (at < start + s.duration) return true;
+    start += s.duration;
+    return false;
+  })!;
+  const shotTime = Math.round((at - start) * 1000) / 1000;
+  const refs = [
+    ...new Set([
+      ...(shot.pictureRefs ?? shot.compositionRefs ?? []),
+      ...(overlay?.compositionRefs ?? []),
+    ]),
+  ].filter(isConsumableAddress);
+  return {
+    at,
+    shotId: shot.id,
+    shotTime,
+    asset: {
+      kind: "local",
+      operation: "cutFrame",
+      mediaType: "image",
+      deterministic: true,
+      inputs: { shot: shot.id, at: shotTime, refs: refs.map(makeAddressPlaceholder) },
+    },
+  };
+}
+
+// The thumbnail: its frame, and its compose, the assets it declared and the refs its still draws,
+// found by running its build once after the timeline placed every shot.
+// Whether `refs` reach the thumbnail's frame, directly or through a thumbnail asset built on it.
+function drawsThumbnailFrame(
+  refs: readonly string[],
+  assets: Record<string, AssetDefinition>,
+): boolean {
+  const seen = new Set<string>();
+  const queue = [...refs];
+  while (queue.length > 0) {
+    const ref = queue.pop()!;
+    if (ref === THUMBNAIL_FRAME_ADDRESS) return true;
+    if (seen.has(ref)) continue;
+    seen.add(ref);
+    const name = Object.keys(assets).find((n) => formatThumbnailAddress(n) === ref);
+    if (name !== undefined) queue.push(...collectPlaceholderRefs(assets[name]));
+  }
+  return false;
+}
+
+function defineThumbnail(
+  stage: ShotStage,
+  spec: ThumbnailSpec,
+  shotInputs: readonly AnyShotInput[],
+  shots: readonly ShotDefinition[],
+  overlay: OverlayDefinition | undefined,
+  format: VideoFormat & { typography: Typography },
+): ThumbnailDefinition {
+  const build = spec.compose;
+  if (spec.at === undefined && !build) {
+    throw new KonteError("VALIDATION_FAILED", "the thumbnail declares neither `at` nor `compose`");
+  }
+  const frameDef = spec.at === undefined ? null : defineThumbnailFrame(spec.at, shots, overlay);
+  if (!build) return { frame: frameDef, assets: {}, compose: null };
+  const shot = makeStageShots(stage, shotInputs);
+  const frame = makeMediaAsset<"image">(makeAddressPlaceholder(THUMBNAIL_FRAME_ADDRESS));
+  const fn = (canvas: VideoFormat): React.ReactElement => build({ format: canvas, shot, frame });
+  const { assets, result } = runInThumbnailMode(
+    "discovery",
+    () => {
+      const element = fn({ size: format.size, fps: format.fps });
+      const rendered = assertStillComposition("the thumbnail", element, {
+        ...format,
+        duration: THUMBNAIL_DURATION,
+      });
+      return [...new Set([...collectPlaceholderRefs(element), ...rendered])].filter(
+        isConsumableAddress,
+      );
+    },
+    format,
+  );
+  const { width, height } = format.size;
+  const still: LocalAssetDefinition = {
+    kind: "local",
+    operation: "render",
+    mediaType: "image",
+    deterministic: true,
+    inputs: {
+      stage: renderThumbnailStage(fn, format),
+      width,
+      height,
+      typography: format.typography,
+      refs: result.map(makeAddressPlaceholder),
+    },
+  };
+  const drawsFrame = drawsThumbnailFrame(result, assets);
+  if (drawsFrame && spec.at === undefined) {
+    throw new KonteError(
+      "VALIDATION_FAILED",
+      "thumbnail.compose draws `frame`, and the thumbnail declares no `at`",
+    );
+  }
+  if (!drawsFrame && spec.at !== undefined) {
+    throw new KonteError(
+      "VALIDATION_FAILED",
+      "thumbnail.at names a frame thumbnail.compose never draws — draw `frame`, or drop `at`",
+    );
+  }
+  return { frame: frameDef, assets, compose: { fn, compositionRefs: result, still } };
 }

@@ -443,7 +443,10 @@ function suggestExport(
   const reel = video.reel;
   if (
     reel &&
-    (reel.acceptedShots !== reel.shots || reel.soundtrackUnsigned || reel.overlayUnsigned)
+    (reel.acceptedShots !== reel.shots ||
+      reel.soundtrackUnsigned ||
+      reel.overlayUnsigned ||
+      reel.thumbnailUnsigned)
   ) {
     return;
   }

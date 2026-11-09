@@ -5,6 +5,10 @@ import {
   formatTimelineOverlayAddress,
   formatTimelineStemAddress,
   isOverlayAddress,
+  isThumbnailAddress,
+  THUMBNAIL_FRAME_ADDRESS,
+  THUMBNAIL_STILL_ADDRESS,
+  thumbnailCoverAddress,
   getStage,
   isNarrationStemAddress,
   isOffFrameStemAddress,
@@ -24,7 +28,7 @@ import {
 } from "./composition-resource.js";
 import { newestReadyUndecidedVariant } from "./staleness.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
-import { extractRefs } from "./graph.js";
+import { extractRefs, thumbnailOf } from "./graph.js";
 import { variantMediaKind } from "./media-type.js";
 import { shotById } from "./shot-index.js";
 import type { StateManager } from "./state/index.js";
@@ -239,6 +243,9 @@ export function stageReviewDecidableAddresses(
   }
   // The overlay is signed off by the shot accepts under it, or on its own once they all stand.
   if (video.overlay) add(formatTimelineOverlayAddress(video.stage), false);
+  // The thumbnail is signed off by its own accept, which reaches its own assets alone.
+  const thumbnail = thumbnailOf(video);
+  if (thumbnail) add(thumbnailCoverAddress(thumbnail), false);
   return closeOverRefs(manager, video, roots);
 }
 
@@ -285,6 +292,16 @@ function refsOf(video: StageDefinition, address: string): readonly string[] {
   if (isOverlayAddress(address)) return video.overlay?.compositionRefs ?? [];
   const parsed = tryParseAddress(address);
   if (!parsed || parsed.stage !== video.stage || !parsed.assetName) return [];
+  if (parsed.kind === "thumbnail") {
+    const thumbnail = thumbnailOf(video);
+    const definition =
+      address === THUMBNAIL_STILL_ADDRESS
+        ? thumbnail?.compose?.still
+        : address === THUMBNAIL_FRAME_ADDRESS
+          ? thumbnail?.frame?.asset
+          : thumbnail?.assets[parsed.assetName];
+    return definition ? extractRefs(definition).filter(isThumbnailAddress) : [];
+  }
   const definition =
     parsed.kind === "shot"
       ? shotById(video.shots, parsed.shotId)?.assets?.[parsed.assetName]

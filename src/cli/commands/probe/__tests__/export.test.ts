@@ -75,6 +75,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
     size: { width: 1920, height: 1080 },
     canvas: { width: 1280, height: 720 },
     deliveryUpscale: "video",
+    thumbnail: null,
     variants: {
       "video:shot.01.motion#delivery": { variantId: "v-abc", accepted: true },
     },
@@ -157,6 +158,23 @@ describe("probe export", () => {
       expect(probes.probeMediaDetail.mock.calls).toEqual([[path.join(videoRoot, outputRel)]]);
     },
   );
+
+  it("names the thumbnail written beside the file, and one gone missing", async () => {
+    const outDir = path.join(videoRoot, "dist", "video", "20260716T000000000");
+    await fs.writeFile(
+      path.join(outDir, "manifest.json"),
+      JSON.stringify(manifest({ thumbnail: "thumbnail.jpg" })) + "\n",
+    );
+    expect(await runExport([])).toMatch(/thumbnail +.*thumbnail\.jpg {3}\[missing\]$/m);
+
+    await fs.writeFile(path.join(outDir, "thumbnail.jpg"), "jpg");
+    expect(await runExport([])).toMatch(/thumbnail +.*thumbnail\.jpg$/m);
+  });
+
+  it("says why a deliverable carries no thumbnail", async () => {
+    const stdout = await runExport([]);
+    expect(stdout).toMatch(/thumbnail +none — video\.tsx declares no `thumbnail`$/m);
+  });
 
   it("reports what the manifest records about the render", async () => {
     const stdout = await runExport([]);

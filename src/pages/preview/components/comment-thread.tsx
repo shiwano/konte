@@ -7,6 +7,7 @@ import {
   CommentIcon,
   FilmIcon,
   FlagIcon,
+  ImageIcon,
   PencilIcon,
   PlusIcon,
   SparkleIcon,
@@ -248,6 +249,31 @@ export function WaiverCard({
         <span className="comment-move-row">
           <span className="comment-move-text" data-quote-kind="waiver" data-quote-field={field}>
             <Marked text={reason} ranges={marksAt(marks, "waiver", field)} />
+          </span>
+        </span>
+      </span>
+    </div>
+  );
+}
+
+// Where the thumbnail's frame is cut. Under a quote scope, it quotes as `frame`.
+export function FrameCard({
+  text,
+  marks,
+}: {
+  text: string;
+  marks?: QuoteMarks;
+}): React.ReactElement {
+  return (
+    <div className="comment-card comment-card--move">
+      <span className="comment-card-icon">
+        <ImageIcon size={12} />
+      </span>
+      <span className="comment-card-body">
+        <span className="comment-move-row">
+          <span className="comment-move-label">Frame</span>
+          <span className="comment-move-text" data-quote-kind="frame" data-quote-field={0}>
+            <Marked text={text} ranges={marksAt(marks, "frame", 0)} />
           </span>
         </span>
       </span>

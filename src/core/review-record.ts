@@ -10,6 +10,8 @@ import {
   formatShotAddress,
   formatTimelineAddress,
   formatTimelineOverlayAddress,
+  THUMBNAIL_TARGET,
+  isThumbnailAddress,
   formatTimelineStemAddress,
 } from "./address.js";
 import { writeFileAtomic } from "./atomic-write.js";
@@ -85,6 +87,8 @@ export const ReviewRecordSchema = z.object({
     timeline: z.record(z.string(), z.string()).optional(),
     // The takes `timeline#stem` mixes (address -> variantId), as the reviewer heard them.
     timelineSources: z.record(z.string(), z.string()).optional(),
+    // The takes the video's thumbnail draws (address -> variantId), as the reviewer saw them.
+    thumbnailSources: z.record(z.string(), z.string()).optional(),
     // Direction reviews only: the part hash of every reviewable direction part at submit
     // (full `direction:<part>` address -> hash) — the baseline a refused handoff note diffs
     // against to name the changed parts, playing the role `shots`/`timeline` variant ids play
@@ -106,6 +110,8 @@ export const ReviewRecordSchema = z.object({
   // The overlay's accept decision at `<stage>:timeline#overlay`: signed off with the last shot
   // accept under it, or on its own once every shot accept stands.
   overlayDecision: z.enum(["accepted", "none"]).optional(),
+  // The video's thumbnail accept decision, at `video:thumbnail#still`.
+  thumbnailDecision: z.enum(["accepted", "none"]).optional(),
   // The direction's accept decisions, one per section of the review page the reviewer
   // settled ("none" is an explicit revoke). The direction is variant-less, so unlike every other
   // stage's acceptance these have no `decisions` entry to ride on and are carried here instead. A
@@ -701,6 +707,7 @@ function summarizeReelDecisions(
     }
     if (record.timelineStemDecision === status) parts.push(formatTimelineStemAddress(stage));
     if (record.overlayDecision === status) parts.push(formatTimelineOverlayAddress(stage));
+    if (record.thumbnailDecision === status) parts.push(THUMBNAIL_TARGET);
     return parts.length > 0 ? parts.join(", ") : null;
   };
 
@@ -839,6 +846,13 @@ function collectReviewSections(
         if (listed.has(address)) continue;
         if (address.startsWith(ownPrefix)) pushDecision("accepted", `${address} (${variantId})`);
         else pushUpstream(address, variantId, "timeline#stem");
+      }
+    }
+    if (record.thumbnailDecision === "accepted") {
+      for (const [address, variantId] of Object.entries(record.context.thumbnailSources ?? {})) {
+        if (listed.has(address)) continue;
+        if (isThumbnailAddress(address)) pushDecision("accepted", `${address} (${variantId})`);
+        else pushUpstream(address, variantId, "thumbnail");
       }
     }
 

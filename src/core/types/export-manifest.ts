@@ -47,6 +47,8 @@ export const ExportManifestSchema = z.object({
   // Which upscale model path fed the deliverable: per-layer (`video`), whole-frame (`frame`), or
   // none — the composition alone was scaled to the delivery.
   deliveryUpscale: z.enum(["video", "frame"]).nullable(),
+  // The thumbnail written beside the MP4, by file name; null when the video declares none.
+  thumbnail: z.string().nullable(),
   // Every address this render resolved, across all three stages, plus the `#delivery` derivatives
   // it upscaled through — a resolution snapshot, not a claim about which bytes reached the MP4. A
   // per-layer upscale swaps the picture while the mux keeps the source audio, so "consumed" has no

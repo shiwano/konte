@@ -2297,6 +2297,20 @@ export interface ShotHandle {
  */
 export type StageShots<TIds extends string = string> = (shotId: TIds) => ShotHandle;
 /**
+ * What the video's `thumbnail.compose` receives: the working canvas, `shot`, every shot the timeline
+ * placed, by id, and `frame`, the cut at `thumbnail.at`.
+ */
+export interface ThumbnailContext<TIds extends string = string> {
+  format: VideoFormat;
+  shot: StageShots<TIds>;
+  frame: MediaAsset<"image">;
+}
+/** The video's thumbnail: `at`, `compose`, or both. */
+export interface ThumbnailSpec<TIds extends string = string> {
+  at?: number;
+  compose?: (ctx: ThumbnailContext<TIds>) => React.ReactElement;
+}
+/**
  * The video's export wiring. It carries no delivery `size` — the delivery resolution is
  * `direction.policy.format.size.delivery`; here the author only wires HOW to reach it (the upscaler).
  * Provide `delivery.upscale` iff the direction declares a `size.delivery`.
@@ -2318,6 +2332,7 @@ export interface DefineVideoOptions<D = unknown, Ids extends string = string> {
     pendingShot: StagePendingShotStarter<D, "video">;
     asideShot: VideoAsideShotStarter<D>;
   }) => StageTimelineReturn<Ids, D>;
+  thumbnail?: ThumbnailSpec<NoInfer<Ids>>;
 }
 export declare function defineVideo<const D, Ids extends string = string>(
   direction: DirectionEntry<D>,
@@ -2402,7 +2417,14 @@ export type AdapterBackendKind = "comfy" | "fal" | "local" | "file";
  * The six places `asset()` can be called from. A stage build reaches exactly one — a shot build
  * clears the timeline context. `view` is `defineReference`'s `views`.
  */
-export type AssetDeclarationSite = "patch" | "plate" | "reference" | "view" | "timeline" | "shot";
+export type AssetDeclarationSite =
+  | "patch"
+  | "plate"
+  | "reference"
+  | "view"
+  | "timeline"
+  | "thumbnail"
+  | "shot";
 export interface AdapterMetaInput {
   type: string;
   required: boolean;
@@ -2819,7 +2841,17 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     deterministic: z.ZodOptional<z.ZodBoolean>;
                     kind: z.ZodLiteral<"local">;
                     operation: z.ZodEnum<
-                      ["resize", "crop", "blank", "trim", "retime", "concat", "frame", "render"]
+                      [
+                        "resize",
+                        "crop",
+                        "blank",
+                        "trim",
+                        "retime",
+                        "concat",
+                        "frame",
+                        "render",
+                        "cutFrame",
+                      ]
                     >;
                     mediaType: z.ZodEnum<["image", "video", "audio"]>;
                     inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
@@ -2838,7 +2870,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       | "blank"
                       | "retime"
                       | "frame"
-                      | "render";
+                      | "render"
+                      | "cutFrame";
                     deterministic?: boolean | undefined;
                   },
                   {
@@ -2853,7 +2886,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       | "blank"
                       | "retime"
                       | "frame"
-                      | "render";
+                      | "render"
+                      | "cutFrame";
                     deterministic?: boolean | undefined;
                   }
                 >,
@@ -3150,7 +3184,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   | "blank"
                   | "retime"
                   | "frame"
-                  | "render";
+                  | "render"
+                  | "cutFrame";
                 deterministic?: boolean | undefined;
               }
           >;
@@ -3288,7 +3323,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   | "blank"
                   | "retime"
                   | "frame"
-                  | "render";
+                  | "render"
+                  | "cutFrame";
                 deterministic?: boolean | undefined;
               }
           >;
@@ -3601,7 +3637,17 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 deterministic: z.ZodOptional<z.ZodBoolean>;
                 kind: z.ZodLiteral<"local">;
                 operation: z.ZodEnum<
-                  ["resize", "crop", "blank", "trim", "retime", "concat", "frame", "render"]
+                  [
+                    "resize",
+                    "crop",
+                    "blank",
+                    "trim",
+                    "retime",
+                    "concat",
+                    "frame",
+                    "render",
+                    "cutFrame",
+                  ]
                 >;
                 mediaType: z.ZodEnum<["image", "video", "audio"]>;
                 inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
@@ -3620,7 +3666,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   | "blank"
                   | "retime"
                   | "frame"
-                  | "render";
+                  | "render"
+                  | "cutFrame";
                 deterministic?: boolean | undefined;
               },
               {
@@ -3635,7 +3682,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   | "blank"
                   | "retime"
                   | "frame"
-                  | "render";
+                  | "render"
+                  | "cutFrame";
                 deterministic?: boolean | undefined;
               }
             >,
@@ -3938,7 +3986,17 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 deterministic: z.ZodOptional<z.ZodBoolean>;
                 kind: z.ZodLiteral<"local">;
                 operation: z.ZodEnum<
-                  ["resize", "crop", "blank", "trim", "retime", "concat", "frame", "render"]
+                  [
+                    "resize",
+                    "crop",
+                    "blank",
+                    "trim",
+                    "retime",
+                    "concat",
+                    "frame",
+                    "render",
+                    "cutFrame",
+                  ]
                 >;
                 mediaType: z.ZodEnum<["image", "video", "audio"]>;
                 inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
@@ -3957,7 +4015,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   | "blank"
                   | "retime"
                   | "frame"
-                  | "render";
+                  | "render"
+                  | "cutFrame";
                 deterministic?: boolean | undefined;
               },
               {
@@ -3972,7 +4031,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   | "blank"
                   | "retime"
                   | "frame"
-                  | "render";
+                  | "render"
+                  | "cutFrame";
                 deterministic?: boolean | undefined;
               }
             >,
@@ -4056,7 +4116,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               | "blank"
               | "retime"
               | "frame"
-              | "render";
+              | "render"
+              | "cutFrame";
             deterministic?: boolean | undefined;
           }
       >;
@@ -4203,7 +4264,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 | "blank"
                 | "retime"
                 | "frame"
-                | "render";
+                | "render"
+                | "cutFrame";
               deterministic?: boolean | undefined;
             }
         >
@@ -4293,7 +4355,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 | "blank"
                 | "retime"
                 | "frame"
-                | "render";
+                | "render"
+                | "cutFrame";
               deterministic?: boolean | undefined;
             }
         >
@@ -4372,7 +4435,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               | "blank"
               | "retime"
               | "frame"
-              | "render";
+              | "render"
+              | "cutFrame";
             deterministic?: boolean | undefined;
           }
       >;
@@ -4519,7 +4583,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 | "blank"
                 | "retime"
                 | "frame"
-                | "render";
+                | "render"
+                | "cutFrame";
               deterministic?: boolean | undefined;
             }
         >
@@ -4609,7 +4674,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 | "blank"
                 | "retime"
                 | "frame"
-                | "render";
+                | "render"
+                | "cutFrame";
               deterministic?: boolean | undefined;
             }
         >
@@ -5024,7 +5090,7 @@ declare const LocalAssetDefinitionSchema: z.ZodObject<
     deterministic: z.ZodOptional<z.ZodBoolean>;
     kind: z.ZodLiteral<"local">;
     operation: z.ZodEnum<
-      ["resize", "crop", "blank", "trim", "retime", "concat", "frame", "render"]
+      ["resize", "crop", "blank", "trim", "retime", "concat", "frame", "render", "cutFrame"]
     >;
     mediaType: z.ZodEnum<["image", "video", "audio"]>;
     inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
@@ -5035,14 +5101,32 @@ declare const LocalAssetDefinitionSchema: z.ZodObject<
     kind: "local";
     inputs: Record<string, unknown>;
     mediaType: "video" | "image" | "audio";
-    operation: "concat" | "trim" | "resize" | "crop" | "blank" | "retime" | "frame" | "render";
+    operation:
+      | "concat"
+      | "trim"
+      | "resize"
+      | "crop"
+      | "blank"
+      | "retime"
+      | "frame"
+      | "render"
+      | "cutFrame";
     deterministic?: boolean | undefined;
   },
   {
     kind: "local";
     inputs: Record<string, unknown>;
     mediaType: "video" | "image" | "audio";
-    operation: "concat" | "trim" | "resize" | "crop" | "blank" | "retime" | "frame" | "render";
+    operation:
+      | "concat"
+      | "trim"
+      | "resize"
+      | "crop"
+      | "blank"
+      | "retime"
+      | "frame"
+      | "render"
+      | "cutFrame";
     deterministic?: boolean | undefined;
   }
 >;
@@ -5287,7 +5371,7 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
         deterministic: z.ZodOptional<z.ZodBoolean>;
         kind: z.ZodLiteral<"local">;
         operation: z.ZodEnum<
-          ["resize", "crop", "blank", "trim", "retime", "concat", "frame", "render"]
+          ["resize", "crop", "blank", "trim", "retime", "concat", "frame", "render", "cutFrame"]
         >;
         mediaType: z.ZodEnum<["image", "video", "audio"]>;
         inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
@@ -5298,14 +5382,32 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
         kind: "local";
         inputs: Record<string, unknown>;
         mediaType: "video" | "image" | "audio";
-        operation: "concat" | "trim" | "resize" | "crop" | "blank" | "retime" | "frame" | "render";
+        operation:
+          | "concat"
+          | "trim"
+          | "resize"
+          | "crop"
+          | "blank"
+          | "retime"
+          | "frame"
+          | "render"
+          | "cutFrame";
         deterministic?: boolean | undefined;
       },
       {
         kind: "local";
         inputs: Record<string, unknown>;
         mediaType: "video" | "image" | "audio";
-        operation: "concat" | "trim" | "resize" | "crop" | "blank" | "retime" | "frame" | "render";
+        operation:
+          | "concat"
+          | "trim"
+          | "resize"
+          | "crop"
+          | "blank"
+          | "retime"
+          | "frame"
+          | "render"
+          | "cutFrame";
         deterministic?: boolean | undefined;
       }
     >,
@@ -5589,7 +5691,17 @@ declare const ShotDefinitionSchema: z.ZodObject<
               deterministic: z.ZodOptional<z.ZodBoolean>;
               kind: z.ZodLiteral<"local">;
               operation: z.ZodEnum<
-                ["resize", "crop", "blank", "trim", "retime", "concat", "frame", "render"]
+                [
+                  "resize",
+                  "crop",
+                  "blank",
+                  "trim",
+                  "retime",
+                  "concat",
+                  "frame",
+                  "render",
+                  "cutFrame",
+                ]
               >;
               mediaType: z.ZodEnum<["image", "video", "audio"]>;
               inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
@@ -5608,7 +5720,8 @@ declare const ShotDefinitionSchema: z.ZodObject<
                 | "blank"
                 | "retime"
                 | "frame"
-                | "render";
+                | "render"
+                | "cutFrame";
               deterministic?: boolean | undefined;
             },
             {
@@ -5623,7 +5736,8 @@ declare const ShotDefinitionSchema: z.ZodObject<
                 | "blank"
                 | "retime"
                 | "frame"
-                | "render";
+                | "render"
+                | "cutFrame";
               deterministic?: boolean | undefined;
             }
           >,
@@ -5920,7 +6034,8 @@ declare const ShotDefinitionSchema: z.ZodObject<
             | "blank"
             | "retime"
             | "frame"
-            | "render";
+            | "render"
+            | "cutFrame";
           deterministic?: boolean | undefined;
         }
     >;
@@ -6058,7 +6173,8 @@ declare const ShotDefinitionSchema: z.ZodObject<
             | "blank"
             | "retime"
             | "frame"
-            | "render";
+            | "render"
+            | "cutFrame";
           deterministic?: boolean | undefined;
         }
     >;
@@ -6148,6 +6264,29 @@ export type OverlayDefinition = {
   duration: number;
   fn: ShotFunction;
   compositionRefs: readonly string[];
+};
+/**
+ * The video's thumbnail (`defineVideo`'s `thumbnail`). Its frame (`video:thumbnail#frame`) is the
+ * cut at `at` on the timeline, `shotTime` into `shotId`, a `cutFrame` op. Its compose is the build
+ * its still `<Composition>` comes from — run on the canvas it is laid out on, its `shot` already
+ * bound — the refs that composition draws, and the still (`video:thumbnail#still`), a `render` op
+ * over the working canvas; `assets` are the ones it declared (`video:thumbnail.<name>`).
+ */
+export type ThumbnailDefinition = {
+  frame: ThumbnailFrame | null;
+  assets: Record<string, AssetDefinition>;
+  compose: ThumbnailCompose | null;
+};
+export type ThumbnailFrame = {
+  at: number;
+  shotId: string;
+  shotTime: number;
+  asset: LocalAssetDefinition;
+};
+export type ThumbnailCompose = {
+  fn: (format: VideoFormat) => React.ReactElement;
+  compositionRefs: readonly string[];
+  still: LocalAssetDefinition;
 };
 /**
  * What konte hands a delivery upscale function at export time: the source `video` (a
@@ -6713,7 +6852,17 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     deterministic: z.ZodOptional<z.ZodBoolean>;
                     kind: z.ZodLiteral<"local">;
                     operation: z.ZodEnum<
-                      ["resize", "crop", "blank", "trim", "retime", "concat", "frame", "render"]
+                      [
+                        "resize",
+                        "crop",
+                        "blank",
+                        "trim",
+                        "retime",
+                        "concat",
+                        "frame",
+                        "render",
+                        "cutFrame",
+                      ]
                     >;
                     mediaType: z.ZodEnum<["image", "video", "audio"]>;
                     inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
@@ -6732,7 +6881,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                       | "blank"
                       | "retime"
                       | "frame"
-                      | "render";
+                      | "render"
+                      | "cutFrame";
                     deterministic?: boolean | undefined;
                   },
                   {
@@ -6747,7 +6897,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                       | "blank"
                       | "retime"
                       | "frame"
-                      | "render";
+                      | "render"
+                      | "cutFrame";
                     deterministic?: boolean | undefined;
                   }
                 >,
@@ -7044,7 +7195,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | "blank"
                   | "retime"
                   | "frame"
-                  | "render";
+                  | "render"
+                  | "cutFrame";
                 deterministic?: boolean | undefined;
               }
           >;
@@ -7182,7 +7334,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | "blank"
                   | "retime"
                   | "frame"
-                  | "render";
+                  | "render"
+                  | "cutFrame";
                 deterministic?: boolean | undefined;
               }
           >;
@@ -7495,7 +7648,17 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 deterministic: z.ZodOptional<z.ZodBoolean>;
                 kind: z.ZodLiteral<"local">;
                 operation: z.ZodEnum<
-                  ["resize", "crop", "blank", "trim", "retime", "concat", "frame", "render"]
+                  [
+                    "resize",
+                    "crop",
+                    "blank",
+                    "trim",
+                    "retime",
+                    "concat",
+                    "frame",
+                    "render",
+                    "cutFrame",
+                  ]
                 >;
                 mediaType: z.ZodEnum<["image", "video", "audio"]>;
                 inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
@@ -7514,7 +7677,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | "blank"
                   | "retime"
                   | "frame"
-                  | "render";
+                  | "render"
+                  | "cutFrame";
                 deterministic?: boolean | undefined;
               },
               {
@@ -7529,7 +7693,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | "blank"
                   | "retime"
                   | "frame"
-                  | "render";
+                  | "render"
+                  | "cutFrame";
                 deterministic?: boolean | undefined;
               }
             >,
@@ -7709,6 +7874,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
         }
       >
     >;
+    thumbnail: z.ZodOptional<z.ZodType<ThumbnailDefinition, z.ZodTypeDef, ThumbnailDefinition>>;
   },
   "strip",
   z.ZodTypeAny,
@@ -7784,7 +7950,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
               | "blank"
               | "retime"
               | "frame"
-              | "render";
+              | "render"
+              | "cutFrame";
             deterministic?: boolean | undefined;
           }
       >;
@@ -7931,7 +8098,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 | "blank"
                 | "retime"
                 | "frame"
-                | "render";
+                | "render"
+                | "cutFrame";
               deterministic?: boolean | undefined;
             }
         >
@@ -7973,6 +8141,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             | undefined;
         }
       | undefined;
+    thumbnail?: ThumbnailDefinition | undefined;
   },
   {
     shots: {
@@ -8046,7 +8215,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
               | "blank"
               | "retime"
               | "frame"
-              | "render";
+              | "render"
+              | "cutFrame";
             deterministic?: boolean | undefined;
           }
       >;
@@ -8193,7 +8363,8 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 | "blank"
                 | "retime"
                 | "frame"
-                | "render";
+                | "render"
+                | "cutFrame";
               deterministic?: boolean | undefined;
             }
         >
@@ -8235,6 +8406,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             | undefined;
         }
       | undefined;
+    thumbnail?: ThumbnailDefinition | undefined;
   }
 >;
 export type VideoDefinition = z.infer<typeof VideoDefinitionSchema>;

@@ -1,5 +1,10 @@
 import { mixedSoundtracks } from "./song-bed.js";
-import { listCompositionAddresses, listStemAddresses } from "./address.js";
+import {
+  listCompositionAddresses,
+  listStemAddresses,
+  THUMBNAIL_FRAME_ADDRESS,
+  THUMBNAIL_STILL_ADDRESS,
+} from "./address.js";
 import { definitionHashForAddress, overlayDefinitionHash } from "./composition-resource.js";
 import { shortHash } from "./content-hash.js";
 import type { VideoDefinition } from "./types/index.js";
@@ -14,8 +19,8 @@ import type { VideoDefinition } from "./types/index.js";
 //     (render-video.ts), and fps in particular is in no other staleness hash, so an fps/size edit
 //     would otherwise have no export signal at all.
 //   - leaves: each composition's and stem's definition hash — the rendered picture structure and
-//     the cue mix, the same identities the review signs off. The export re-renders from the
-//     definition, so an edit to either changes the deliverable.
+//     the cue mix, the same identities the review signs off — and the thumbnail still's. The export
+//     re-renders from the definition, so an edit to any changes the deliverable.
 //   - soundtracks: the muxed timeline beds, the song bed among them (normalized, so robust to how
 //     they're authored).
 //   - overlay: the overlay's structural hash.
@@ -33,9 +38,12 @@ import type { VideoDefinition } from "./types/index.js";
 //     composition going input-stale ("needs re-review"), which leads back to a re-export.
 export function computeExportSignature(video: VideoDefinition): string {
   const render = { fps: video.format.fps, size: video.format.size };
-  const leaves = [...listCompositionAddresses(video), ...listStemAddresses(video)].map(
-    (address) => [address, definitionHashForAddress(video, address)] as const,
-  );
+  const leaves = [
+    ...listCompositionAddresses(video),
+    ...listStemAddresses(video),
+    ...(video.thumbnail?.frame ? [THUMBNAIL_FRAME_ADDRESS] : []),
+    ...(video.thumbnail?.compose ? [THUMBNAIL_STILL_ADDRESS] : []),
+  ].map((address) => [address, definitionHashForAddress(video, address)] as const);
   const soundtracks = mixedSoundtracks(video, video.timelineSoundtracks).map((st) => ({
     id: st.id,
     src: st.src.src,

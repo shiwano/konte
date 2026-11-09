@@ -122,7 +122,17 @@ export type FalAssetDefinition = z.infer<typeof FalAssetDefinitionSchema>;
 
 export const LocalAssetDefinitionSchema = z.object({
   kind: z.literal("local"),
-  operation: z.enum(["resize", "crop", "blank", "trim", "retime", "concat", "frame", "render"]),
+  operation: z.enum([
+    "resize",
+    "crop",
+    "blank",
+    "trim",
+    "retime",
+    "concat",
+    "frame",
+    "render",
+    "cutFrame",
+  ]),
   mediaType: z.enum(["image", "video", "audio"]),
   inputs: z.record(z.string(), z.unknown()),
   ...VerdictAxes,
@@ -299,6 +309,32 @@ export type OverlayDefinition = {
 };
 
 /**
+ * The video's thumbnail (`defineVideo`'s `thumbnail`). Its frame (`video:thumbnail#frame`) is the
+ * cut at `at` on the timeline, `shotTime` into `shotId`, a `cutFrame` op. Its compose is the build
+ * its still `<Composition>` comes from — run on the canvas it is laid out on, its `shot` already
+ * bound — the refs that composition draws, and the still (`video:thumbnail#still`), a `render` op
+ * over the working canvas; `assets` are the ones it declared (`video:thumbnail.<name>`).
+ */
+export type ThumbnailDefinition = {
+  frame: ThumbnailFrame | null;
+  assets: Record<string, AssetDefinition>;
+  compose: ThumbnailCompose | null;
+};
+
+export type ThumbnailFrame = {
+  at: number;
+  shotId: string;
+  shotTime: number;
+  asset: LocalAssetDefinition;
+};
+
+export type ThumbnailCompose = {
+  fn: (format: VideoFormat) => React.ReactElement;
+  compositionRefs: readonly string[];
+  still: LocalAssetDefinition;
+};
+
+/**
  * What konte hands a delivery upscale function at export time: the source `video` (a
  * placeholder so the dependency graph wires it up), the `scale` factor (delivery/working),
  * and the absolute target `width`/`height`. The user threads whichever its upscaler needs —
@@ -431,6 +467,7 @@ export type StageDefinition = z.infer<typeof StageDefinitionSchema>;
 export const VideoDefinitionSchema = StageDefinitionSchema.extend({
   stage: z.literal("video"),
   export: ExportSchema.optional(),
+  thumbnail: z.custom<ThumbnailDefinition>().optional(),
 });
 
 export type VideoDefinition = z.infer<typeof VideoDefinitionSchema>;

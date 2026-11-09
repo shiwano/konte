@@ -26,6 +26,7 @@ const ALLOWED = new Set([
   "shot-context.ts:currentPatchContext",
   "shot-context.ts:currentPlatePoolContext",
   "shot-context.ts:currentReferenceContext",
+  "shot-context.ts:currentThumbnailContext",
   "shot-context.ts:currentTimelineContext",
   "song-context.ts:current",
   "stem-input-collect.ts:seen",

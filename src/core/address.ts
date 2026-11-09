@@ -18,6 +18,9 @@ export type ParsedAddress =
   // id. `assetName` IS that id, and there is no second name slot to fill, so no reserved name and
   // no delivery derivative apply.
   | { stage: "animatic"; kind: "plate"; assetName: string; delivery: false }
+  // The video's thumbnail: its own assets (`thumbnail.<name>`), its frame (`thumbnail#frame`) and
+  // its still (`thumbnail#still`).
+  | { stage: "video"; kind: "thumbnail"; assetName: string; delivery: false }
   | { stage: AssetStage; kind: "reference"; assetName: string; delivery: boolean }
   // A step of one patch's chain. Keyed by the source variant, not its address: two variants at the
   // same address can each carry a patch, and both may name a step `patched`.
@@ -38,6 +41,13 @@ export interface DefinitionLike {
   exposedPlateIds?: string[];
   // Reference stage only: the asset names its callback returned (see listExposedReferenceAddresses).
   exposedAssetNames?: string[];
+  // Video stage only: every asset its `thumbnail.compose` declared, keyed by name, its frame and its
+  // still.
+  thumbnail?: {
+    assets: Record<string, AssetDefinition>;
+    frame: { asset: AssetDefinition } | null;
+    compose: { still: AssetDefinition } | null;
+  };
   // What the prompt and pin checks read off a stage entry, whichever one this is (see
   // prompt-check.ts, pin-check.ts).
   prompts?: readonly PromptOccurrence[];
@@ -64,6 +74,9 @@ const TIMELINE_SUFFIX_PATTERN = new RegExp(
 // nor the `#delivery` alternation applies — matched before the delivery strip, so `plate.x#delivery`
 // falls through and is rejected rather than silently read as a derivative.
 const PLATE_SUFFIX_PATTERN = new RegExp(`^plate\\.(${NAME_BODY})$`);
+// Groups: 1 = author name, 2 = its frame or still. No `#delivery` derivative: the export derives the
+// thumbnail's delivery frame itself.
+const THUMBNAIL_SUFFIX_PATTERN = new RegExp(`^thumbnail(?:\\.(${NAME_BODY})|(#frame|#still))$`);
 // A location's view image, `view.<locationId>.<view>`, filed under that key by `defineReference`'s
 // `views`.
 const REFERENCE_SUFFIX_PATTERN = new RegExp(`^(${NAME_BODY}|${VIEW_NAME_BODY})$`);
@@ -228,6 +241,12 @@ export const SONG_STEM_ASSET_NAME = `${RESERVED_NAME_SIGIL}songStem`;
 // leaf like a composition.
 export const OVERLAY_ASSET_NAME = `${RESERVED_NAME_SIGIL}overlay`;
 
+// The video thumbnail's frame (`video:thumbnail#frame`), cut from the shot under `thumbnail.at`.
+const FRAME_ASSET_NAME = `${RESERVED_NAME_SIGIL}frame`;
+
+// The video thumbnail's still (`video:thumbnail#still`), rendered from `thumbnail.compose`.
+const STILL_ASSET_NAME = `${RESERVED_NAME_SIGIL}still`;
+
 // Reserved suffix marking the delivery (납품) derivative of an address. A delivery asset is a
 // normal, independent target — e.g. `video:shot.01.motion#delivery` is the upscaled 1080p output
 // derived from the 720p `video:shot.01.motion`.
@@ -253,6 +272,7 @@ function parseSuffix(
   | { kind: "shot"; shotId: string; assetName: string; delivery: boolean }
   | { kind: "timeline"; assetName: string; delivery: boolean }
   | { kind: "plate"; assetName: string; delivery: false }
+  | { kind: "thumbnail"; assetName: string; delivery: false }
   | { kind: "reference"; assetName: string; delivery: boolean }
   | { kind: "patch"; sourceVariantId: string; assetName: string; delivery: false } {
   // The patch axis is stage-agnostic (a reference asset's take can be patched too) and never a
@@ -272,6 +292,16 @@ function parseSuffix(
     const plateMatch = PLATE_SUFFIX_PATTERN.exec(suffix);
     if (plateMatch) {
       return { kind: "plate", assetName: plateMatch[1]!, delivery: false };
+    }
+  }
+  if (stage === "video") {
+    const thumbnailMatch = THUMBNAIL_SUFFIX_PATTERN.exec(suffix);
+    if (thumbnailMatch) {
+      return {
+        kind: "thumbnail",
+        assetName: (thumbnailMatch[1] ?? thumbnailMatch[2])!,
+        delivery: false,
+      };
     }
   }
   // A reference asset has no shot/timeline axis — its suffix is a bare name.
@@ -314,9 +344,11 @@ export function parseAddress(address: string): ParsedAddress {
   }
   const stage = m[1] as AssetStage;
   const suffix = parseSuffix(m[2]!, address, stage);
-  // `parseSuffix` only ever returns a plate for the animatic; restating it here is what carries that
-  // into the type, so no consumer has to re-check its stage.
-  return suffix.kind === "plate" ? { stage: "animatic", ...suffix } : { stage, ...suffix };
+  // `parseSuffix` only ever returns a plate for the animatic and a thumbnail for the video; restating
+  // it here is what carries that into the type, so no consumer has to re-check its stage.
+  if (suffix.kind === "plate") return { stage: "animatic", ...suffix };
+  if (suffix.kind === "thumbnail") return { stage: "video", ...suffix };
+  return { stage, ...suffix };
 }
 
 // The stage a feedback target belongs to, read from its `<stage>:` prefix only. Unlike
@@ -375,6 +407,10 @@ export function getStage(address: string): Stage {
 //   <stage>:timeline#<name>     the reserved one (video:timeline#stem)
 //   animatic:plate              every plate        (animatic only)
 //   animatic:plate.<id>         one setup's plate  (animatic:plate.deskWide)
+//   video:thumbnail             the thumbnail's assets, frame and still
+//   video:thumbnail.<name>      one thumbnail asset
+//   video:thumbnail#frame       the thumbnail's frame
+//   video:thumbnail#still       the thumbnail's still
 //   <stage>:patch               every patch step in the stage
 //   <stage>:patch.<variantId>   one patch's chain
 //   <stage>:patch.<vid>.<name>  one step of it
@@ -382,7 +418,7 @@ export function getStage(address: string): Stage {
 // that built a malformed scope should fail loud.
 const PATCH_SCOPE_BODY = `patch(\\.${VARIANT_ID_BODY}(\\.[a-zA-Z0-9_-]+)?)?`;
 const ADDRESS_SCOPE_PATTERN = new RegExp(
-  `^(?:(?:animatic|video)(?::(?:shot\\.${NAME_BODY}(?:${NAME_SLOT}(?:#delivery)?)?|timeline(?:${NAME_SLOT}(?:#delivery)?)?|${PATCH_SCOPE_BODY}))?|animatic:plate(?:\\.${NAME_BODY})?)$`,
+  `^(?:(?:animatic|video)(?::(?:shot\\.${NAME_BODY}(?:${NAME_SLOT}(?:#delivery)?)?|timeline(?:${NAME_SLOT}(?:#delivery)?)?|${PATCH_SCOPE_BODY}))?|animatic:plate(?:\\.${NAME_BODY})?|video:thumbnail${NAME_SLOT}?)$`,
 );
 
 // A reference scope: the whole stage `reference`, one asset `reference:<name>`, a location's views
@@ -524,6 +560,39 @@ export function formatTimelineAddress(stage: ShotStage, assetName: string): stri
 // A setup's plate. No stage parameter: only the animatic owns one.
 export function formatPlateAddress(setupId: string): string {
   return `animatic:plate.${setupId}`;
+}
+
+export function formatThumbnailAddress(assetName: string): string {
+  return `video:${joinAssetName("thumbnail", assetName)}`;
+}
+
+// The thumbnail as a feedback-only target, and the scope over its assets, frame and still.
+export const THUMBNAIL_TARGET = "video:thumbnail";
+
+export const THUMBNAIL_FRAME_ADDRESS = formatThumbnailAddress(FRAME_ASSET_NAME);
+
+export const THUMBNAIL_STILL_ADDRESS = formatThumbnailAddress(STILL_ASSET_NAME);
+
+// The addresses the thumbnail is made of: its frame, its still and its own assets.
+export function thumbnailOwnAddresses(thumbnail: {
+  frame: unknown;
+  compose: unknown;
+  assets: Record<string, unknown>;
+}): string[] {
+  return [
+    ...(thumbnail.frame ? [THUMBNAIL_FRAME_ADDRESS] : []),
+    ...(thumbnail.compose ? [THUMBNAIL_STILL_ADDRESS] : []),
+    ...Object.keys(thumbnail.assets).map(formatThumbnailAddress),
+  ];
+}
+
+// The take whose accept signs the thumbnail off: its still when it composes one, else its frame.
+export function thumbnailCoverAddress(thumbnail: { compose: unknown }): string {
+  return thumbnail.compose ? THUMBNAIL_STILL_ADDRESS : THUMBNAIL_FRAME_ADDRESS;
+}
+
+export function isThumbnailAddress(address: string): boolean {
+  return tryParseAddress(address)?.kind === "thumbnail";
 }
 
 // A step of the patch chain declared in `patches/<sourceVariantId>.ts`. The stage is the source
@@ -689,6 +758,8 @@ export function formatAddressSuffix(parsed: ParsedAddress): string {
       return joinAssetName("timeline", parsed.assetName);
     case "plate":
       return `plate.${parsed.assetName}`;
+    case "thumbnail":
+      return joinAssetName("thumbnail", parsed.assetName);
     case "reference":
       return parsed.assetName;
     case "patch":
@@ -997,6 +1068,13 @@ export function listAddresses(definition: DefinitionLike, stage: AssetStage): st
       paths.push(formatPlateAddress(setupId));
     }
   }
+  if (stage === "video") {
+    for (const assetName of Object.keys(definition.thumbnail?.assets ?? {})) {
+      paths.push(formatThumbnailAddress(assetName));
+    }
+    if (definition.thumbnail?.frame) paths.push(THUMBNAIL_FRAME_ADDRESS);
+    if (definition.thumbnail?.compose) paths.push(THUMBNAIL_STILL_ADDRESS);
+  }
   for (const s of definition.shots) {
     for (const assetName of Object.keys(s.assets)) {
       paths.push(formatAddress(stage, s.id, assetName));
@@ -1062,6 +1140,22 @@ export function getAssetEntry(definition: DefinitionLike, address: string): Asse
       );
     }
     return plate;
+  }
+
+  if (parsed.kind === "thumbnail") {
+    const asset =
+      address === THUMBNAIL_STILL_ADDRESS
+        ? definition.thumbnail?.compose?.still
+        : address === THUMBNAIL_FRAME_ADDRESS
+          ? definition.thumbnail?.frame?.asset
+          : definition.thumbnail?.assets[parsed.assetName];
+    if (!asset) {
+      throw new KonteError(
+        "ADDRESS_NOT_FOUND",
+        `Thumbnail asset "${parsed.assetName}" not found in video.tsx's thumbnail`,
+      );
+    }
+    return asset;
   }
 
   if (parsed.kind === "timeline" || parsed.kind === "reference") {

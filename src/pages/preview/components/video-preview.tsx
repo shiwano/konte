@@ -19,6 +19,7 @@ import { useReviewShortcuts } from "../review/use-review-shortcuts.js";
 import { keepPrompt, regenerateSummary } from "../review/keep-or-regenerate.js";
 import { useKeepChoices } from "../review/use-keep-choices.js";
 import { buildReelSubmitPayload } from "../review/reel-submit-payload.js";
+import { thumbnailSwitched } from "../review/thumbnail-view.js";
 import { useReelComposition } from "../review/use-reel-composition.js";
 import {
   hasReelMarks,
@@ -105,12 +106,34 @@ function PlayerTime({
   );
 }
 
+// The thumbnail's cover over the stage while the playhead holds where the thumbnail was picked;
+// moving it hands the stage back to the reel.
+function ThumbnailCoverOverlay({
+  imageUrl,
+  anchor,
+  playhead,
+}: {
+  imageUrl: string;
+  anchor: number;
+  playhead: Playhead;
+}): React.ReactElement | null {
+  const time = usePlayheadTime(playhead);
+  if (Math.abs(time - anchor) > 1e-3) return null;
+  return (
+    <div className="vp-thumbnail-overlay">
+      <img src={imageUrl} alt="The video's thumbnail" />
+    </div>
+  );
+}
+
 export function VideoPreview({ state }: { state: VideoPreviewState }): React.ReactElement {
   // What the feedback panel is pointed at. "shot" follows the playhead; "soundtrack" and an overlay
   // are sticky picks (each spans shots, so seeking to hear or watch one must not snap the panel back
   // to whatever shot the playhead landed in). Only an explicit shot gesture — picking a card, J/K/N,
   // placing a pin — points it back at the shot.
-  const [noteTarget, setNoteTarget] = useState<"shot" | "soundtrack" | "overlay">("shot");
+  const [noteTarget, setNoteTarget] = useState<"shot" | "soundtrack" | "overlay" | "thumbnail">(
+    "shot",
+  );
 
   // The take whose declaration panel is open, stacked over the gallery when opened from there.
   const [infoVariant, setInfoVariant] = useState<InfoVariant | null>(null);
@@ -197,6 +220,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   // The overlay, when it is offered on its own: every shot accept stands and it changed after them.
   const offeredOverlay = state.overlay?.offered ? state.overlay : undefined;
   const focusedOverlay = noteTarget === "overlay" ? offeredOverlay : undefined;
+  const focusedThumbnail = noteTarget === "thumbnail" ? state.thumbnail : undefined;
   // The target the panel shows when it is not a shot.
   const spanTarget = useMemo(
     () =>
@@ -204,15 +228,21 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
         ? { address: state.timelineStem.address, label: "Soundtrack" }
         : focusedOverlay
           ? { address: focusedOverlay.address, label: "Overlay" }
-          : null,
-    [soundtrackFocused, state.timelineStem, focusedOverlay],
+          : focusedThumbnail
+            ? { address: focusedThumbnail.target, label: "Thumbnail" }
+            : null,
+    [soundtrackFocused, state.timelineStem, focusedOverlay, focusedThumbnail],
   );
 
   // Every asset with takes to show — the shots' and the audio beds' — for the player and the
   // submit snapshots.
   const allAssets = useMemo(
-    () => [...state.shots.flatMap((s) => s.assets), ...state.audioAssets],
-    [state.shots, state.audioAssets],
+    () => [
+      ...state.shots.flatMap((s) => s.assets),
+      ...state.audioAssets,
+      ...(state.thumbnail?.assets ?? []),
+    ],
+    [state.shots, state.audioAssets, state.thumbnail],
   );
   const effectiveVariants = useEffectiveVariants(allAssets, session.selectedVariants);
 
@@ -238,8 +268,22 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
         variants: a.variants,
       });
     }
+    for (const a of state.thumbnail?.assets ?? []) {
+      map.set(a.address, {
+        address: a.address,
+        assetName: a.assetName,
+        mediaKind: a.mediaKind,
+        variantId: a.variantId,
+        variants: a.variants,
+      });
+    }
     return map;
-  }, [state.shots, state.audioAssets]);
+  }, [state.shots, state.audioAssets, state.thumbnail]);
+
+  const thumbnailSwitchedTo = useMemo(
+    () => (state.thumbnail ? thumbnailSwitched(state.thumbnail, effectiveVariants) : []),
+    [state.thumbnail, effectiveVariants],
+  );
 
   // Each review target's gallery tabs. The focused target's own come first, so an asset placed in
   // more than one shot opens among the shot the panel is pointed at.
@@ -249,19 +293,26 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
       tabs: shotGalleryTabs(s, state.audioAssets),
     }));
     const soundtrack = { subject: "Soundtrack", tabs: soundtrackGalleryTabs(state.audioAssets) };
+    const thumbnail = state.thumbnail
+      ? { subject: "Thumbnail", tabs: state.thumbnail.assets.map((a) => a.address) }
+      : null;
     const focused = soundtrackFocused
       ? soundtrack
-      : focusedOverlay
-        ? null
-        : focusedShot && shots[focusedShotIdx];
+      : focusedThumbnail
+        ? thumbnail
+        : focusedOverlay
+          ? null
+          : focusedShot && shots[focusedShotIdx];
     return {
       focused: focused ?? null,
-      all: [...(focused ? [focused] : []), ...shots, soundtrack],
+      all: [...(focused ? [focused] : []), ...shots, soundtrack, ...(thumbnail ? [thumbnail] : [])],
     };
   }, [
     state.shots,
     state.audioAssets,
+    state.thumbnail,
     soundtrackFocused,
+    focusedThumbnail,
     focusedOverlay,
     focusedShot,
     focusedShotIdx,
@@ -367,9 +418,11 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     baseShotAccepted,
     baseTimelineStemAccepted,
     baseOverlayAccepted,
+    baseThumbnailAccepted,
     shotAccepted,
     timelineStemAccepted,
     overlayAccepted,
+    thumbnailAccepted,
     timelineStemChanged,
     acceptableShots,
     audioAccepted,
@@ -380,6 +433,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     toggleShotDecision,
     toggleTimelineStem,
     toggleOverlay,
+    toggleThumbnail,
     acceptAll,
     keepShotAfterAll,
     reset: resetDecisions,
@@ -431,6 +485,23 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     setNoteTarget("overlay");
     setNoteDraft((draft) => (draft?.pin ? { ...draft, pin: null } : draft));
   }, [focusedOverlay, state.overlay, frameSpan]);
+
+  // Picking the thumbnail holds the reel at its frame and shows the cover there; a note taken after
+  // moving the playhead names that instant.
+  const [coverAnchor, setCoverAnchor] = useState<number | null>(null);
+  const toggleThumbnailFocus = useCallback(() => {
+    setNoteDraft((draft) => (draft?.pin ? { ...draft, pin: null } : draft));
+    if (focusedThumbnail) {
+      setNoteTarget("shot");
+      setCoverAnchor(null);
+      return;
+    }
+    setNoteTarget("thumbnail");
+    pausePlayback();
+    const at = state.thumbnail?.frame?.at;
+    if (at !== undefined) handleSeek(at);
+    setCoverAnchor(at ?? playhead.get());
+  }, [focusedThumbnail, pausePlayback, handleSeek, playhead, state.thumbnail]);
 
   const handleJumpToUnreviewed = useCallback(() => {
     if (unreviewedShotIds.length === 0) return;
@@ -564,11 +635,13 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     const stem = state.timelineStem;
     if (stem) collect(stem.address, stem.feedback, 0);
     if (state.overlay) collect(state.overlay.address, state.overlay.feedback, 0);
+    if (state.thumbnail) collect(state.thumbnail.target, state.thumbnail.feedback, 0);
     return out;
   }, [
     state.shots,
     state.timelineStem,
     state.overlay,
+    state.thumbnail,
     session.pendingFeedback,
     session.deletedFeedbackIds,
     session.editedTextById,
@@ -620,6 +693,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
         ...state.shots.flatMap((s) => s.feedback),
         ...(state.timelineStem?.feedback ?? []),
         ...(state.overlay?.feedback ?? []),
+        ...(state.thumbnail?.feedback ?? []),
       ],
       session,
     );
@@ -642,11 +716,17 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     if (offeredOverlay && !overlayAccepted && !commented.has(offeredOverlay.address)) {
       out.push("Overlay");
     }
+    const thumbnail = state.thumbnail;
+    if (thumbnail && !thumbnailAccepted && !commented.has(thumbnail.target)) {
+      out.push("Thumbnail");
+    }
     return out;
   }, [
     state.shots,
     state.timelineStem,
     state.overlay,
+    state.thumbnail,
+    thumbnailAccepted,
     offeredOverlay,
     overlayAccepted,
     session,
@@ -718,12 +798,15 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   const acceptFocused = useCallback(() => {
     if (soundtrackFocused) toggleTimelineStem();
     else if (focusedOverlay) toggleOverlay();
+    else if (focusedThumbnail) toggleThumbnail();
     else if (focusedShot) toggleShotDecision(focusedShot.shotId);
   }, [
     soundtrackFocused,
     toggleTimelineStem,
     focusedOverlay,
     toggleOverlay,
+    focusedThumbnail,
+    toggleThumbnail,
     focusedShot,
     toggleShotDecision,
   ]);
@@ -811,17 +894,23 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
                     ? timelineStemAccepted
                     : focusedOverlay
                       ? overlayAccepted
-                      : !!focusedShot && !!shotAccepted[focusedShot.shotId],
+                      : focusedThumbnail
+                        ? thumbnailAccepted
+                        : !!focusedShot && !!shotAccepted[focusedShot.shotId],
                   what: soundtrackFocused
                     ? "soundtrack"
                     : focusedOverlay
                       ? "overlay"
-                      : `shot ${focusedShot?.shotId ?? ""}`,
+                      : focusedThumbnail
+                        ? "thumbnail"
+                        : `shot ${focusedShot?.shotId ?? ""}`,
                   disabled: soundtrackFocused
                     ? !state.timelineStem
                     : focusedOverlay
                       ? false
-                      : !(focusedShot && shotAcceptable(focusedShot)),
+                      : focusedThumbnail
+                        ? false
+                        : !(focusedShot && shotAcceptable(focusedShot)),
                   onClick: acceptFocused,
                 }
               : undefined
@@ -900,6 +989,13 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
                 // The stage twin of the shot list's badge. The board plays like any other shot, so
                 // nothing on screen would otherwise say this picture has not been made.
                 <span className="vp-animatic-label">Animatic: not made yet</span>
+              )}
+              {focusedThumbnail?.imageUrl && coverAnchor !== null && (
+                <ThumbnailCoverOverlay
+                  imageUrl={focusedThumbnail.imageUrl}
+                  anchor={coverAnchor}
+                  playhead={playhead}
+                />
               )}
               <TimedNoteOverlay
                 width={state.size.width}
@@ -1045,8 +1141,17 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
           <div className="vp-col vp-col-target">
             <TargetPanel
               subject={spanTarget ? spanTarget.label : focusedShot && `Shot ${focusedShot.shotId}`}
+              frame={
+                focusedThumbnail?.frame
+                  ? `shot ${focusedThumbnail.frame.shotId} at ${formatPlayerTime(focusedThumbnail.frame.shotTime)}`
+                  : undefined
+              }
               address={
-                spanTarget ? undefined : focusedShot && shotFeedbackAddress(focusedShot.shotId)
+                focusedThumbnail
+                  ? focusedThumbnail.target
+                  : spanTarget
+                    ? undefined
+                    : focusedShot && shotFeedbackAddress(focusedShot.shotId)
               }
               pinnable={!spanTarget}
               script={spanTarget ? undefined : focusedShot?.script}
@@ -1087,6 +1192,51 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
           </div>
 
           <div className="vp-col vp-col-shots">
+            {state.thumbnail && !(session.showChangedOnly && baseThumbnailAccepted) && (
+              /* Selectable like the soundtrack, for its notes, its takes and its accept. */
+              /* oxlint-disable jsx-a11y/prefer-tag-over-role */
+              <div
+                role="button"
+                tabIndex={0}
+                className={`vp-soundtrack-box vp-thumbnail-box${focusedThumbnail ? " vp-soundtrack-box--focused" : ""}`}
+                onClick={toggleThumbnailFocus}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && e.target === e.currentTarget) {
+                    e.preventDefault();
+                    toggleThumbnailFocus();
+                  }
+                }}
+                title={
+                  focusedThumbnail
+                    ? "Click to stop reviewing the thumbnail"
+                    : "Review the thumbnail: its notes, takes and accept"
+                }
+              >
+                <h3 className="panel-title">
+                  Thumbnail
+                  {(addressNoteCounts[state.thumbnail.target] ?? 0) > 0 && (
+                    <span className="vp-shot-item-notes">
+                      <CommentIcon size={12} /> {addressNoteCounts[state.thumbnail.target]}
+                    </span>
+                  )}
+                  {state.thumbnail.cover.hasUndecidedBesideAccepted && (
+                    <StatusBadge status="changed" label="Changed" />
+                  )}
+                </h3>
+                {thumbnailSwitchedTo.length > 0 && (
+                  <p className="vp-thumbnail-note">
+                    The still shows another take of {thumbnailSwitchedTo.join(", ")}. Accepting
+                    takes the one picked, and the still is made again from it.
+                  </p>
+                )}
+                <AcceptButton
+                  accepted={thumbnailAccepted}
+                  title={thumbnailAccepted ? "Click to unaccept" : "Accept the video's thumbnail"}
+                  onClick={toggleThumbnail}
+                />
+              </div>
+              /* oxlint-enable jsx-a11y/prefer-tag-over-role */
+            )}
             {state.timelineStem && !(session.showChangedOnly && baseTimelineStemAccepted) && (
               /* Selectable like a shot card, so the feedback panel can point at the beds — the
                one reviewable target with no shot to hang a comment on. */
