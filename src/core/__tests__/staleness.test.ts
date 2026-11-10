@@ -348,6 +348,15 @@ describe("computeVariantStaleness", () => {
       ).toBe(false);
     });
 
+    it("keeps resolving the correction whose script was edited, not the take it corrected", () => {
+      const cache = createStalenessCache({
+        definitionHash: () => "def1",
+        patchHashes: new Map([["v-src", "patch2"]]),
+        isDeterministic: () => false,
+      });
+      expect(selectResolvedVariant(patched(), ADDR, undefined, cache)?.variantId).toBe("v-fix");
+    });
+
     // The inherited definitionHash is what makes an asset edit stale source and correction alike.
     it("stales the whole lineage when the address's definition changes", () => {
       const state = patched();

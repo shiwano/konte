@@ -94,4 +94,4 @@ The pipeline is generation's, plus the pin.
 - Comfy prerequisites — a comfy step resolves its declared `models`/`nodes` and goes pending behind the install jobs, with the pin carried as `pinnedDeps` to submit time. A step also goes pending behind the earlier steps' jobs, by the same mechanism.
 - `generate` applies pending patches after its dependency levels.
 - The patched take is unaccepted unless the patch's own adapter is deterministic. A step's address has no stage definition, so the waiter reads that off `patchFinalize` on the job, along with a comfy step's output node and, on the returned step alone, the `output` target that materializes the patched variant. The submit replaces job metadata wholesale; `submitToBackend` carries `patchFinalize` across.
-- `selectResolvedVariant` ignores the patch axis, as it ignores definition-staleness. An edited patch's old output stays what render/`path` consume until re-applied; `status` asks for the re-apply.
+- `selectResolvedVariant` ignores the patch axis. An edited patch's old output stays what render/`path` consume until re-applied; `status` asks for the re-apply.

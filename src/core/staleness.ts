@@ -377,7 +377,9 @@ export function variantsNewestFirst(
  *
  * Non-stale on BOTH axes, so an older take whose definition still matches outranks a newer one
  * whose definition has moved. The definition axis needs the loaded definition, so it is live only
- * for a walk given one; see `ResolutionDefinitions`.
+ * for a walk given one; see `ResolutionDefinitions`. The patch axis is not read: a correction whose
+ * script was edited keeps resolving until its re-apply lands, never handing the address back to
+ * the take it corrected.
  *
  * A DETERMINISTIC accepted take only wins while it is non-stale: once its inputs move it is
  * ungenerated work — a `local` op the next `generate` re-bakes over its accept (`assetSkipReason`),
@@ -436,7 +438,7 @@ function resolveCore(state: KonteState, address: string, ctx: ResolveContext): R
         address,
         accepted.variant,
         walkDefinitionHash(address, ctx),
-        ctx.definitions?.patchHashes,
+        undefined,
         ctx,
       )
     ) {
@@ -455,14 +457,7 @@ function resolveCore(state: KonteState, address: string, ctx: ResolveContext): R
       // Resolving one would feed a downstream generate the very picture the reviewer refused.
       if (v.status === "dismissed") continue;
       if (
-        isVariantStaleInternal(
-          state,
-          address,
-          v,
-          walkDefinitionHash(address, ctx),
-          ctx.definitions?.patchHashes,
-          ctx,
-        )
+        isVariantStaleInternal(state, address, v, walkDefinitionHash(address, ctx), undefined, ctx)
       ) {
         newestStaleId ??= variantId;
         continue;
@@ -526,14 +521,7 @@ function selectResolvedVariantInternal(
       const rebakes = v.derivedFrom == null && ctx.definitions?.isDeterministic(address) === true;
       if (
         rebakes &&
-        isVariantStaleInternal(
-          state,
-          address,
-          v,
-          walkDefinitionHash(address, ctx),
-          ctx.definitions?.patchHashes,
-          ctx,
-        )
+        isVariantStaleInternal(state, address, v, walkDefinitionHash(address, ctx), undefined, ctx)
       )
         return null;
       return { variantId, isAccepted: true };

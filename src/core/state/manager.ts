@@ -426,7 +426,7 @@ export class StateManager {
     );
     if (accepted.variantId === null) return false;
     if (!accepted.definitionStale) return true;
-    return !accepted.patchStale && this.registeredAdapterDrift(address, accepted.variantId);
+    return this.registeredAdapterDrift(address, accepted.variantId);
   }
 
   /**
