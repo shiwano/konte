@@ -1,3 +1,4 @@
+import { KonteError } from "./errors.js";
 import type { AssetDefinition, BackendKind, JobRecord } from "./types/index.js";
 
 export type GenerationRequest = {
@@ -9,13 +10,23 @@ export type GenerationRequest = {
   // A line for the job log, emitted during submit. The local backend generates inside submit()
   // (there is no wait phase to observe), so what it has to say cannot ride WaitOptions.onLog.
   onLog?: (line: string) => void;
-  // Whether the job was cancelled while its submit was being prepared. A backend whose submit can
-  // take a while (Comfy API uploads, a 429 backoff) asks before sending anything.
+  // Whether the job was cancelled while its submit was being prepared. A vendor backend asks
+  // right before each send (`assertSubmitNotCancelled`): uploads and a 429 backoff can outlast a
+  // `job cancel`.
   shouldCancel?: () => Promise<boolean>;
   // Where the first attempt of this submission was sent (`chooseSubmissionSite`), recorded before
   // sending: a resubmission goes there, where its Idempotency-Key finds the first one's job.
   submissionSite?: string | null;
 };
+
+export async function assertSubmitNotCancelled(request: GenerationRequest): Promise<void> {
+  if (await request.shouldCancel?.()) {
+    throw new KonteError(
+      "SUBMIT_CANCELLED",
+      `Job ${request.variantId} was cancelled before it was sent`,
+    );
+  }
+}
 
 export type GenerationResult = {
   files: string[];

@@ -33,6 +33,7 @@ Activation:
 - The same lease protects export and model-download workers.
 - Waiting is unbounded, except comfy, whose prompt lives in the server process: it fails after `comfy.comfyui.unreachableTimeoutMinutes` of silence (0 = never; default 15 on a loopback URL, 0 on a remote one).
 - `submissionStartedAt` is persisted under the submit lease before calling a backend. A reclaimed external job with that stamp and no backend id fails with `SUBMISSION_UNCONFIRMED` — check the backend before rerolling. A claim that never began submission, and a local operation, may retry.
+- A vendor submit asks `shouldCancel` right before each send (`SUBMIT_CANCELLED`). A submit whose commit is refused — a `job cancel` or a lost lease — cancels its backend job, unless a reclaimer on a resubmit-safe backend adopts it.
 - A committed submit keeps the submit lease, and the daemon submits and waits under one `workerId`, so its waiter takes that lease over and the job is never unwatched between submit and wait.
 - Transient result-fetch and download-stream failures retry against the existing backend id. A wait timeout releases the run lease; the next waiter resumes retrieval.
 

@@ -5,6 +5,7 @@ import type {
   WaitForCompletionResult,
   WaitOptions,
 } from "../core/backend.js";
+import { assertSubmitNotCancelled } from "../core/backend.js";
 import { uniqueOutputPath } from "../backends/http-util.js";
 import { prepareBackendInputs } from "../backends/prepare-inputs.js";
 import { KonteError } from "../core/errors.js";
@@ -56,6 +57,7 @@ export class FalBackend implements GenerationBackend {
     const falDef = request.assetDefinition as FalAssetDefinition;
     const inputs = await this.prepareInputs(falDef.inputs, request.resolvedDependencies, seed);
 
+    await assertSubmitNotCancelled(request);
     const submitRes = await this.httpClient.submit(falDef.endpointId, inputs);
     return { backendJobId: encodeBackendJobId(falDef.endpointId, submitRes.request_id) };
   }

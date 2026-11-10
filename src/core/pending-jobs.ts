@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { type DefinitionLike, getAssetEntry, getStage, isDeliveryAddress } from "./address.js";
 import { synthesizeDeliveryAssetDefinition } from "./delivery.js";
 import { variantDir } from "./variant-dir.js";
-import type { GenerationBackend } from "./backend.js";
+import { BACKEND_CAPS, type GenerationBackend } from "./backend.js";
 import { submitToBackend } from "./submit-generation.js";
 import { startLeaseHeartbeat } from "./lease-heartbeat.js";
 import { computeDefinitionHash } from "./definition-hash.js";
@@ -462,8 +462,7 @@ async function trySubmitJob(
     );
 
     // Commit the backendJobId and refresh the lease for the waiter that takes it over — but only
-    // if we still own the lease. If a slow submit outran the lease and a reclaimer took over, finishIfOwner returns false: don't clobber its work (this leaves
-    // our backend job orphaned, the rare cost of a submit that outlived RUN_LEASE_TTL_MS).
+    // if we still own the lease and no `job cancel` landed while the submit was in flight.
     const committed = await jobManager.finishIfOwner(job.variantId, workerId, {
       status: "running",
       backendJobId,
@@ -478,10 +477,31 @@ async function trySubmitJob(
       },
     });
     if (!committed) {
+      const current = await jobManager.getJob(job.variantId).catch(() => null);
       jobManager.appendLog(
         job.variantId,
-        `Submit lease lost before committing backendJobId ${backendJobId}; reclaimed by another worker`,
+        current?.status === "cancelled"
+          ? `Cancelled while its submit was in flight (backendJobId ${backendJobId})`
+          : `Submit lease lost before committing backendJobId ${backendJobId}; reclaimed by another worker`,
       );
+      // The record never took this backendJobId, so no waiter and no `job cancel` can reach the
+      // backend job — except a reclaimer on a resubmit-safe backend, whose resubmission lands on
+      // this same job.
+      const adopted =
+        BACKEND_CAPS[job.backendKind].resubmitSafe &&
+        (current?.status === "running" || current?.status === "completed");
+      if (!adopted) {
+        try {
+          await backend.cancel(backendJobId);
+          jobManager.appendLog(job.variantId, `Cancelled backend job ${backendJobId}`);
+        } catch (err) {
+          jobManager.appendLog(
+            job.variantId,
+            `Failed to cancel backend job ${backendJobId}: ${errorMessage(err)}. ` +
+              `${job.backendKind} may still be running it; verify and stop it manually if needed.`,
+          );
+        }
+      }
       return "failed";
     }
 

@@ -274,7 +274,7 @@ describe("submit", () => {
         jobRecord("comfyapi:cloud"),
         7,
       ),
-    ).rejects.toMatchObject({ code: "COMFY_API_SUBMIT_CANCELLED" });
+    ).rejects.toMatchObject({ code: "SUBMIT_CANCELLED" });
     expect(client.submitJob).toHaveBeenCalledTimes(1);
   });
 
@@ -293,7 +293,7 @@ describe("submit", () => {
         jobRecord("comfyapi:cloud"),
         7,
       ),
-    ).rejects.toMatchObject({ code: "COMFY_API_SUBMIT_CANCELLED" });
+    ).rejects.toMatchObject({ code: "SUBMIT_CANCELLED" });
     expect(client.submitJob).not.toHaveBeenCalled();
   });
 

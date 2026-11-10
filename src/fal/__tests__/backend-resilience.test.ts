@@ -125,3 +125,30 @@ describe("FalBackend.waitForCompletion resilience", () => {
     expect(onUnconfirmedChange).toHaveBeenCalledWith({ unconfirmed: false, lastError: null });
   });
 });
+
+describe("FalBackend.submit", () => {
+  it("does not send after a cancel during the uploads", async () => {
+    const backend = makeBackend();
+    const submit = vi.spyOn(backend.httpClient, "submit");
+    await expect(
+      backend.submit(
+        {
+          address: "video:shot.01.motion",
+          variantId: "v-1",
+          outputDir: "/tmp/out",
+          resolvedDependencies: {},
+          assetDefinition: {
+            kind: "fal",
+            endpointId: "fal-ai/some-model",
+            mediaType: "video",
+            inputs: {},
+          },
+          shouldCancel: async () => true,
+        },
+        {} as never,
+        7,
+      ),
+    ).rejects.toMatchObject({ code: "SUBMIT_CANCELLED" });
+    expect(submit).not.toHaveBeenCalled();
+  });
+});

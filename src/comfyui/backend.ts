@@ -8,6 +8,7 @@ import type {
   WaitForCompletionResult,
   WaitOptions,
 } from "../core/backend.js";
+import { assertSubmitNotCancelled } from "../core/backend.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { requireFileWithinRoot } from "../core/path-containment.js";
 import type { VideoRoots } from "../core/roots.js";
@@ -111,6 +112,7 @@ export class ComfyUIBackend implements GenerationBackend {
       request.assetDefinition.prunedPassThroughs,
     );
 
+    await assertSubmitNotCancelled(request);
     const promptRes = await this.httpClient.queuePrompt(parameterized);
 
     // Progress events reach only the websocket of the client that queued the prompt.

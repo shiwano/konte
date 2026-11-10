@@ -282,6 +282,24 @@ describe("ComfyUIBackend", () => {
     });
   });
 
+  it("does not queue a prompt for a job cancelled while it was prepared", async () => {
+    await expect(
+      backend.submit(
+        {
+          address: "video:shot.01.firstFrame",
+          assetDefinition: { kind: "comfy", workflow: "animate.json", inputs: {} },
+          variantId: "v001",
+          outputDir: path.join(tmpDir, "output"),
+          resolvedDependencies: {},
+          shouldCancel: async () => true,
+        },
+        makeJobRecord(),
+        42,
+      ),
+    ).rejects.toMatchObject({ code: "SUBMIT_CANCELLED" });
+    expect(lastQueuedPrompt).toBeNull();
+  });
+
   it("waitForCompletion returns immediately for completed jobs", { timeout: 15_000 }, async () => {
     const outputDir = path.join(tmpDir, "output");
 

@@ -8,6 +8,7 @@ import type {
   WaitForCompletionResult,
   WaitOptions,
 } from "../core/backend.js";
+import { assertSubmitNotCancelled } from "../core/backend.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { TransientHttpError } from "../core/http-retry.js";
 import { requireFileWithinRoot } from "../core/path-containment.js";
@@ -175,7 +176,7 @@ export class ComfyApiBackend implements GenerationBackend {
     log: (line: string) => void,
   ): Promise<string> {
     const def = request.assetDefinition as ComfyAssetDefinition;
-    await assertNotCancelled(request);
+    await assertSubmitNotCancelled(request);
     const workflow = await loadWorkflow(
       path.join(this.roots.workspace, "adapters", "comfy", def.workflow),
     );
@@ -198,7 +199,7 @@ export class ComfyApiBackend implements GenerationBackend {
     );
     return (
       await this.submitWithRecovery(client, graph, request.variantId, log, () =>
-        assertNotCancelled(request),
+        assertSubmitNotCancelled(request),
       )
     ).id;
   }
@@ -349,16 +350,6 @@ export class ComfyApiBackend implements GenerationBackend {
     const { jobId, ...site } = decodeComfyApiJobId(backendJobId);
     const client = await this.clientFor(site);
     await client.cancelJob(jobId);
-  }
-}
-
-// A job cancelled while its submit was still being prepared: nothing is sent.
-async function assertNotCancelled(request: GenerationRequest): Promise<void> {
-  if (await request.shouldCancel?.()) {
-    throw new KonteError(
-      "COMFY_API_SUBMIT_CANCELLED",
-      `Job ${request.variantId} was cancelled before it was sent`,
-    );
   }
 }
 

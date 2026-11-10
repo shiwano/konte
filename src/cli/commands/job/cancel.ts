@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { KonteError, errorMessage } from "../../../core/errors.js";
-import { isJobTerminal, JobManager } from "../../../core/job-manager.js";
+import { isJobTerminal, isStrandedSubmit, JobManager } from "../../../core/job-manager.js";
 import { StateManager } from "../../../core/state/index.js";
 import { getBackendKindFromJob, resolveBackend } from "../../../backends/resolve-backend.js";
 import { confirmAction, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
@@ -140,6 +140,11 @@ async function cancelOne(
     }
   }
 
+  // A submit that began and saved no backendJobId leaves nothing here to cancel by.
+  const midSubmit =
+    !job.backendJobId && job.submissionStartedAt != null && job.backendKind !== "local";
+  const submitterGone = midSubmit && isStrandedSubmit(job);
+
   // Compare-and-set: if the owner committed "completed" between our initial terminal check and
   // now, don't overwrite it with "cancelled" — and, crucially, don't fall through to the state
   // wipe below, which would erase the real output file from state.
@@ -167,11 +172,20 @@ async function cancelOne(
     // state update is best-effort
   }
 
+  const submitNote = !midSubmit
+    ? ""
+    : submitterGone
+      ? ` Its submit to ${job.backendKind} began at ${job.submissionStartedAt} and its submitter ` +
+        `died before saving a backend job id, so nothing was cancelled there — it may be ` +
+        `running; check the backend.`
+      : ` Its submit to ${job.backendKind} is in flight: the submitter stops the backend job as ` +
+        `soon as the submit returns, and \`konte job logs ${jobId}\` records it.`;
+
   return {
     jobId,
     outcome: "cancelled",
     job: cancelledJob,
-    message: `Generation job ${jobId} cancelled.`,
+    message: `Generation job ${jobId} cancelled.${submitNote}`,
   };
 }
 

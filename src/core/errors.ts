@@ -60,9 +60,9 @@ export type KonteErrorCode =
   | "COMFY_API_AUTHENTICATED_MODEL"
   // 402 PAYMENT_REQUIRED from the Comfy API.
   | "COMFY_API_INSUFFICIENT_CREDITS"
-  // A Comfy API submit whose job was cancelled while its inputs were uploading or a 429 was
-  // backing off; nothing was sent.
-  | "COMFY_API_SUBMIT_CANCELLED"
+  // A submit whose job was cancelled while it was being prepared (uploads, a 429 backoff); nothing
+  // was sent.
+  | "SUBMIT_CANCELLED"
   // A Comfy API deployment with no Build of its current adapters, or no ready deployment of that
   // Build's release.
   | "COMFY_API_DEPLOYMENT_NOT_READY"

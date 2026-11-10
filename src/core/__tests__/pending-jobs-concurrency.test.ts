@@ -232,6 +232,69 @@ describe("submitReadyPendingJobs concurrency", () => {
     },
   );
 
+  // What `duringSubmit` does lands while the backend call is in flight.
+  async function submitWith(
+    backendKind: BackendKind,
+    duringSubmit: (variantId: string) => Promise<unknown>,
+  ): Promise<{ variantId: string; cancelled: string[] }> {
+    await StateManager.init(tmpDir);
+    const variantId = "v-midsubmit";
+    await jobManager.createJob({
+      address: "video:timeline.character",
+      variantId,
+      resolvedDeps: {},
+      backendKind,
+    });
+    const cancelled: string[] = [];
+    const backend: GenerationBackend = {
+      submit: async () => {
+        await duringSubmit(variantId);
+        return { backendJobId: "backend-1" };
+      },
+      waitForCompletion: async () => {
+        throw new Error("not used");
+      },
+      cancel: async (id) => {
+        cancelled.push(id);
+      },
+    };
+    await submitReadyPendingJobs(
+      jobManager,
+      roots,
+      new Map(),
+      async () => backend,
+      async () => ({ video: buildVideo(), animatic: emptyAnimatic(), reference: emptyReference() }),
+      { workerId: "w-submitter", onSubmitted: () => {} },
+    );
+    return { variantId, cancelled };
+  }
+
+  it("cancels the backend job of a submit a job cancel landed in", async () => {
+    const { variantId, cancelled } = await submitWith("fal", (id) =>
+      jobManager.updateIfNotTerminal(id, { status: "cancelled" }),
+    );
+    expect(cancelled).toEqual(["backend-1"]);
+    expect(await jobManager.getJob(variantId)).toMatchObject({
+      status: "cancelled",
+      backendJobId: null,
+    });
+  });
+
+  const reclaim = (id: string) =>
+    jobManager.updateJob(id, {
+      lease: { owner: "w-reclaimer", expiresAt: new Date(Date.now() + 60_000).toISOString() },
+    });
+
+  it("cancels the backend job of a submit that lost its lease, which no reclaimer can adopt", async () => {
+    const { cancelled } = await submitWith("fal", reclaim);
+    expect(cancelled).toEqual(["backend-1"]);
+  });
+
+  it("leaves the backend job to the reclaimer whose resubmission lands on it", async () => {
+    const { cancelled } = await submitWith("comfy-api", reclaim);
+    expect(cancelled).toEqual([]);
+  });
+
   it("retries a reclaimed job when submission had not started", async () => {
     await StateManager.init(tmpDir);
     const variantId = "v-before-submit";
