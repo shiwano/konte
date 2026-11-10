@@ -67,6 +67,8 @@ let backend: ComfyUIBackend;
 let currentHistoryEntry: ComfyUIHistoryEntry;
 let currentNodeErrors: Record<string, unknown> = {};
 let lastQueuedPrompt: Record<string, unknown> | null = null;
+let pendingPromptIds: string[] = [];
+let deletedPromptIds: string[] = [];
 // Number of upcoming /history requests the mock should answer with a transient 500
 // before resuming normal responses — used to exercise polling resilience.
 let historyFailuresRemaining = 0;
@@ -151,9 +153,27 @@ function createMockComfyUI(): Promise<http.Server> {
         return;
       }
 
+      if (url.pathname === "/queue" && req.method === "POST") {
+        let body = "";
+        req.on("data", (chunk: Buffer) => {
+          body += chunk.toString();
+        });
+        req.on("end", () => {
+          deletedPromptIds.push(...(JSON.parse(body) as { delete: string[] }).delete);
+          res.writeHead(200);
+          res.end();
+        });
+        return;
+      }
+
       if (url.pathname === "/queue") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ queue_running: [], queue_pending: [] }));
+        res.end(
+          JSON.stringify({
+            queue_running: [],
+            queue_pending: pendingPromptIds.map((id, i) => [i, id, {}, {}, []]),
+          }),
+        );
         return;
       }
 
@@ -193,6 +213,8 @@ beforeEach(async () => {
   currentHistoryEntry = mockHistoryEntry;
   currentNodeErrors = {};
   lastQueuedPrompt = null;
+  pendingPromptIds = [];
+  deletedPromptIds = [];
   historyFailuresRemaining = 0;
   uploadedFiles.length = 0;
 
@@ -662,7 +684,8 @@ describe("ComfyUIBackend", () => {
     }
   });
 
-  it("queuePrompt throws on node_errors", async () => {
+  it("cancels a prompt ComfyUI queued with some outputs rejected", async () => {
+    pendingPromptIds = ["test-prompt-id"];
     currentNodeErrors = {
       "5": {
         errors: [
@@ -692,8 +715,10 @@ describe("ComfyUIBackend", () => {
 
     await expect(backend.submit(request, makeJobRecord(), 42)).rejects.toMatchObject({
       code: "COMFYUI_ERROR",
-      message: expect.stringContaining("Workflow validation failed"),
+      message: expect.stringContaining("konte cancelled it"),
+      items: [expect.stringContaining("node 5 (KSampler): Invalid sampler name")],
     });
+    expect(deletedPromptIds).toEqual(["test-prompt-id"]);
   });
 
   it("uploads resolved dependency files and injects uploaded names into workflow", async () => {

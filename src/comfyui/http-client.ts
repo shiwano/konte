@@ -74,44 +74,57 @@ export class ComfyUIHttpClient {
       headers: { "Content-Type": "application/json" },
       body,
       allowErrorStatus: true,
+      submission: true,
     });
 
-    const text = await res.text();
-    let responseBody: unknown;
-    try {
-      responseBody = text ? JSON.parse(text) : undefined;
-    } catch {
-      responseBody = undefined;
-    }
-
-    if (responseBody !== undefined) {
-      const errors = ComfyUIPromptErrorBodySchema.safeParse(responseBody);
-      const details = errors.success ? formatPromptErrors(errors.data) : null;
+    if (!res.ok) {
+      if (res.status === 502 || res.status === 504) {
+        throw this.unconfirmedSubmission(`a gateway answered ${res.status}`);
+      }
+      const text = await res.text().catch(() => "");
+      const errors = ComfyUIPromptErrorBodySchema.safeParse(parseJsonOrUndefined(text));
+      const details = errors.success ? this.describePromptErrors(errors.data) : null;
       if (details) {
-        // Redacted like every other backend's error body: a validation failure echoes the input
-        // values of the workflow we submitted, so a credentialed input URL would otherwise land
-        // verbatim in the persisted job error.
         throw new KonteError(
           "COMFYUI_ERROR",
           "Workflow validation failed — fix the nodes ComfyUI names",
-          this.redactBody(details).split("\n"),
+          details,
         );
       }
-    }
-
-    if (!res.ok) {
       throw new KonteError(
         "COMFYUI_ERROR",
         `ComfyUI API error (${res.status}): ${this.redactBody(text) || res.statusText}`,
       );
     }
 
-    const parsed = ComfyUIPromptResponseSchema.safeParse(responseBody);
-    if (!parsed.success) {
-      throw new KonteError("COMFYUI_ERROR", "ComfyUI returned an unparseable /prompt response");
+    let text: string;
+    try {
+      text = await res.text();
+    } catch (err) {
+      throw this.unconfirmedSubmission(`its answer was cut off: ${errorMessage(err)}`);
     }
-
+    const parsed = ComfyUIPromptResponseSchema.safeParse(parseJsonOrUndefined(text));
+    if (!parsed.success) {
+      throw this.unconfirmedSubmission(`its ${res.status} answer carries no prompt_id`);
+    }
     return parsed.data;
+  }
+
+  /**
+   * The `/prompt` node errors as job error lines, redacted: a validation failure echoes the input
+   * values of the submitted workflow, credentialed input URLs included.
+   */
+  describePromptErrors(errors: ComfyUIPromptErrorBody): string[] | null {
+    const details = formatPromptErrors(errors);
+    return details ? this.redactBody(details).split("\n") : null;
+  }
+
+  private unconfirmedSubmission(reason: string): KonteError {
+    return new KonteError(
+      "SUBMISSION_UNCONFIRMED",
+      `ComfyUI at ${this.baseUrl} may have queued the prompt (${reason}). Automatic ` +
+        `resubmission stopped. Check ComfyUI's queue and history before rerolling.`,
+    );
   }
 
   async getHistory(promptId: string): Promise<ComfyUIHistoryEntry | null> {
@@ -272,7 +285,7 @@ export class ComfyUIHttpClient {
 
   private async fetch(
     path: string,
-    options?: RequestInit & { timeout?: number; allowErrorStatus?: boolean },
+    options?: RequestInit & { timeout?: number; allowErrorStatus?: boolean; submission?: boolean },
   ): Promise<Response> {
     const url = `${this.baseUrl}${path}`;
     const timeoutMs = options?.timeout ?? DEFAULT_TIMEOUT_MS;
@@ -286,10 +299,14 @@ export class ComfyUIHttpClient {
     try {
       res = await fetch(url, { ...options, headers, signal });
     } catch (err) {
-      if (
-        err instanceof DOMException &&
-        (err.name === "TimeoutError" || err.name === "AbortError")
-      ) {
+      const timedOut =
+        err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError");
+      if (options?.submission && !neverConnected(err)) {
+        throw this.unconfirmedSubmission(
+          timedOut ? `no answer within ${timeoutMs / 1000}s` : errorMessage(err),
+        );
+      }
+      if (timedOut) {
         throw new KonteError("COMFYUI_ERROR", `Request to ${url} timed out`);
       }
       throw new KonteError(
@@ -322,6 +339,29 @@ export class ComfyUIHttpClient {
       ? `ComfyUI at ${this.baseUrl} rejected the request (${status}) and konte sent no credentials. ` +
           `Set "comfy.comfyui.headers" in konte.config.json (or \`konte settings\`, Config tab).`
       : `ComfyUI at ${this.baseUrl} rejected the credentials in ${names.join(", ")} (${status}).`;
+  }
+}
+
+// Bun names the code on the error itself, Node on its cause.
+const NEVER_CONNECTED_CODES = new Set([
+  "ConnectionRefused",
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+]);
+
+function neverConnected(err: unknown): boolean {
+  const code = (e: unknown) =>
+    typeof e === "object" && e !== null && "code" in e ? String(e.code) : undefined;
+  const cause = err instanceof Error ? err.cause : undefined;
+  return NEVER_CONNECTED_CODES.has(code(err) ?? code(cause) ?? "");
+}
+
+function parseJsonOrUndefined(text: string): unknown {
+  try {
+    return text ? JSON.parse(text) : undefined;
+  } catch {
+    return undefined;
   }
 }
 

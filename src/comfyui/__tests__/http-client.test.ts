@@ -212,6 +212,42 @@ describe("ComfyUIHttpClient", () => {
     });
   });
 
+  it("is SUBMISSION_UNCONFIRMED when /prompt may have been queued", async () => {
+    const answers: ((req: http.IncomingMessage, res: http.ServerResponse) => void)[] = [
+      (req) => req.socket.destroy(),
+      (_req, res) => {
+        res.writeHead(200, { "Content-Type": "application/json", "Content-Length": "100" });
+        res.write('{"prompt_id"');
+        setTimeout(() => res.socket?.destroy(), 20);
+      },
+      (_req, res) => {
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end("<html>");
+      },
+      (_req, res) => {
+        res.writeHead(504);
+        res.end("Gateway Timeout");
+      },
+    ];
+    let answer = answers[0]!;
+    const srv = http.createServer((req, res) => {
+      req.resume();
+      req.on("end", () => answer(req, res));
+    });
+    await new Promise<void>((resolve) => srv.listen(0, "127.0.0.1", () => resolve()));
+    const c = new ComfyUIHttpClient(`http://127.0.0.1:${(srv.address() as { port: number }).port}`);
+
+    try {
+      for (const a of answers) {
+        answer = a;
+        await expect(c.queuePrompt({})).rejects.toMatchObject({ code: "SUBMISSION_UNCONFIRMED" });
+      }
+    } finally {
+      srv.closeAllConnections();
+      await new Promise<void>((resolve) => srv.close(() => resolve()));
+    }
+  });
+
   it("throws COMFYUI_ERROR on HTTP error response", async () => {
     const errorServer = http.createServer((_req, res) => {
       res.writeHead(500);

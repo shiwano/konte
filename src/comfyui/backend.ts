@@ -115,6 +115,22 @@ export class ComfyUIBackend implements GenerationBackend {
     await assertSubmitNotCancelled(request);
     const promptRes = await this.httpClient.queuePrompt(parameterized);
 
+    // ComfyUI queues a prompt with some outputs failing validation, minus those outputs.
+    const rejected = this.httpClient.describePromptErrors({ node_errors: promptRes.node_errors });
+    if (rejected) {
+      const id = promptRes.prompt_id;
+      const stopped = await this.cancel(id).then(
+        () => "konte cancelled it",
+        (err: unknown) => `konte could not cancel it (${errorMessage(err)}), so it may still run`,
+      );
+      throw new KonteError(
+        "COMFYUI_ERROR",
+        `ComfyUI queued prompt ${id} without the outputs of the nodes it rejected, and ${stopped} ` +
+          `— fix the nodes ComfyUI names`,
+        rejected,
+      );
+    }
+
     // Progress events reach only the websocket of the client that queued the prompt.
     return {
       backendJobId: promptRes.prompt_id,
