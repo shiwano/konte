@@ -12,6 +12,7 @@ import {
   collectComfyDownloads,
   formatAcceptedStaleNotice,
   formatComfyDownloadNotice,
+  reserveVariantsBatch,
 } from "../generate-orchestrator.js";
 import { assetSkipReason, getActiveVariantIds } from "../../core/generation-selection.js";
 
@@ -124,6 +125,33 @@ describe("assetSkipReason", () => {
     const { manager } = await withReadyVariant();
     manager.reserveVariantId(address);
     expect(assetSkipReason(manager, address, HASH)).toBe("active");
+  });
+});
+
+describe("reserveVariantsBatch", () => {
+  it("leaves out an address a concurrent run already holds an active variant at", async () => {
+    const dir = await fs.mkdtemp(path.join(tmpdir(), "konte-genorch-"));
+    await StateManager.init(dir);
+    const request = (address: string) => ({
+      address,
+      variantCount: 1,
+      definitionHash: HASH,
+      assetDef: comfyDef,
+    });
+
+    const first = await reserveVariantsBatch(dir, [request("video:shot.01.clip")]);
+    const second = await reserveVariantsBatch(dir, [
+      request("video:shot.01.clip"),
+      request("video:shot.02.clip"),
+    ]);
+
+    expect(first.get("video:shot.01.clip")).toHaveLength(1);
+    expect(second.has("video:shot.01.clip")).toBe(false);
+    expect(second.get("video:shot.02.clip")).toHaveLength(1);
+    const manager = await StateManager.load(dir);
+    expect(getActiveVariantIds(manager, "video:shot.01.clip")).toEqual(
+      first.get("video:shot.01.clip"),
+    );
   });
 });
 

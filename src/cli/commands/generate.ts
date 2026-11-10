@@ -370,7 +370,16 @@ export function registerGenerateCommand(program: Command): void {
         const jobbedVariantIds = new Set<string>();
         try {
           for (const w of work) {
-            const reservedIds = reserved.get(w.address) ?? [];
+            const reservedIds = reserved.get(w.address);
+            if (!reservedIds) {
+              assetResults[w.slot] = {
+                address: w.address,
+                status: "skipped",
+                skipReason: "active",
+                jobs: [],
+              };
+              continue;
+            }
             const result = await registerJobs({
               address: w.address,
               assetDef: w.assetDef,

@@ -135,8 +135,9 @@ export interface VariantReservationRequest {
 /**
  * Reserve every requested address's variants under ONE state-lock cycle — the per-asset
  * `reserveVariants` pays a full state load + rewrite each, which is quadratic in bytes across a
- * level of many assets. Same invariant as `reserveVariants` (persist before any job file exists);
- * no rival check, which only the patch path needs. Returns address → reserved variant ids.
+ * level of many assets. Same invariant as `reserveVariants` (persist before any job file exists).
+ * Returns address → reserved variant ids; an address a concurrent run holds an active variant at
+ * is absent — the caller's skip check read an unlocked snapshot.
  */
 export async function reserveVariantsBatch(
   videoRoot: string,
@@ -146,6 +147,7 @@ export async function reserveVariantsBatch(
   return StateManager.withLock(videoRoot, async (manager) => {
     const result = new Map<string, string[]>();
     for (const req of requests) {
+      if (getActiveVariantIds(manager, req.address).length > 0) continue;
       const target = manager.ensureAssetState(req.address);
       const ids: string[] = [];
       for (let i = 0; i < req.variantCount; i++) {
