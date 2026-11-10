@@ -7,7 +7,7 @@ import {
   sendOnce,
 } from "../backends/http-util.js";
 import { rejectedCredentialMessage } from "../core/credentials.js";
-import { KonteError, type KonteErrorCode } from "../core/errors.js";
+import { KonteError, type KonteErrorCode, errorMessage } from "../core/errors.js";
 import { fetchWithRetry, mediaTransferTimeoutMs, TransientHttpError } from "../core/http-retry.js";
 import { redactExternalBody } from "../core/redact.js";
 import { backendCredential } from "../core/types/credentials.js";
@@ -87,7 +87,16 @@ export class FalHttpClient {
       );
     }
     if (!res.ok) throw await failure(res, what, "FAL_ERROR");
-    return parseApiResponse(res, FalSubmitResponseSchema, "FAL_ERROR", what);
+    try {
+      return await parseApiResponse(res, FalSubmitResponseSchema, "FAL_ERROR", what);
+    } catch (err) {
+      throw new KonteError(
+        "SUBMISSION_UNCONFIRMED",
+        `fal accepted the submission (${res.status}) but its request id could not be read ` +
+          `(${errorMessage(err)}). It is probably running; automatic resubmission stopped. ` +
+          `Check the requests on the fal.ai dashboard before rerolling.`,
+      );
+    }
   }
 
   async getStatus(endpointId: string, requestId: string): Promise<FalStatusResponse> {

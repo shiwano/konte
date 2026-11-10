@@ -154,6 +154,20 @@ describe("submitJob", () => {
     expect((err as TransientHttpError).status).toBe(429);
   });
 
+  it("reads an accepted submit with an unreadable answer as transient", async () => {
+    const client = new ComfyApiRuntimeClient("https://dep.example", "key", "deployment");
+
+    for (const answer of [
+      () => json({ status: "queued" }, 201),
+      () => new Response("<html>", { status: 201 }),
+    ]) {
+      mockFetch(answer);
+      const err = await client.submitJob({}, "v-abc").catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(TransientHttpError);
+      expect((err as TransientHttpError).status).toBeNull();
+    }
+  });
+
   it("is COMFY_API_UNAUTHORIZED when the key is rejected", async () => {
     mockFetch(() => json({ error: { code: "unauthorized", message: "bad key" } }, 401));
     const client = new ComfyApiRuntimeClient("https://dep.example", "key", "deployment");

@@ -45,6 +45,30 @@ describe("FalHttpClient errors", () => {
     });
   });
 
+  it("is SUBMISSION_UNCONFIRMED when an accepted submit's answer cannot be read", async () => {
+    const client = new FalHttpClient("key");
+    const interrupted = () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.error(new TypeError("terminated"));
+          },
+        }),
+        { status: 200 },
+      );
+
+    for (const answer of [
+      () => json({ id: "r1" }),
+      () => new Response("<html>", { status: 200 }),
+      interrupted,
+    ]) {
+      mockFetch(answer);
+      await expect(client.submit("a/b", {})).rejects.toMatchObject({
+        code: "SUBMISSION_UNCONFIRMED",
+      });
+    }
+  });
+
   it("types a cancel or upload that cannot be sent", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-fal-errors-"));
     try {

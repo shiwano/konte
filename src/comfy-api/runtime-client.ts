@@ -8,7 +8,7 @@ import {
   parseApiResponse,
   saveDownloadResponse,
 } from "../backends/http-util.js";
-import { KonteError } from "../core/errors.js";
+import { KonteError, errorMessage } from "../core/errors.js";
 import {
   MEDIA_TRANSFER_TIMEOUT_MS,
   mediaTransferTimeoutMs,
@@ -171,7 +171,8 @@ export class ComfyApiRuntimeClient {
 
   /**
    * Submit a workflow. A transient failure means the job may or may not exist — the caller decides
-   * how to find out. A validation failure still answers 201 and goes `failed` right after.
+   * how to find out; an accepted submit whose answer cannot be read is one. A validation failure
+   * still answers 201 and goes `failed` right after.
    */
   async submitJob(workflow: Record<string, unknown>, idempotencyKey: string): Promise<ComfyApiJob> {
     const res = await sendOnce(
@@ -190,7 +191,17 @@ export class ComfyApiRuntimeClient {
       throw new TransientHttpError(err.message, { status: 429 });
     }
     if (!res.ok) throw await toHttpError(res, "Comfy API job submit");
-    return parseApiResponse(res, ComfyApiJobSchema, "COMFY_API_ERROR", "Comfy API job submit");
+    try {
+      return await parseApiResponse(
+        res,
+        ComfyApiJobSchema,
+        "COMFY_API_ERROR",
+        "Comfy API job submit",
+      );
+    } catch (err) {
+      if (err instanceof TransientHttpError) throw err;
+      throw new TransientHttpError(errorMessage(err), { cause: err });
+    }
   }
 
   /** One status read; a transient failure is thrown for the poll loop to ride out. */
