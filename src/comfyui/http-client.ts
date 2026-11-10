@@ -307,7 +307,7 @@ export class ComfyUIHttpClient {
         );
       }
       if (timedOut) {
-        throw new KonteError("COMFYUI_ERROR", `Request to ${url} timed out`);
+        throw new KonteError("COMFYUI_UNAVAILABLE", `Request to ${url} timed out`);
       }
       throw new KonteError(
         "COMFYUI_UNAVAILABLE",
@@ -325,7 +325,7 @@ export class ComfyUIHttpClient {
     if (!res.ok && !options?.allowErrorStatus) {
       const body = this.redactBody(await res.text().catch(() => ""));
       throw new KonteError(
-        "COMFYUI_ERROR",
+        res.status >= 500 ? "COMFYUI_UNAVAILABLE" : "COMFYUI_ERROR",
         `ComfyUI API error (${res.status}): ${body || res.statusText}`,
       );
     }

@@ -1,8 +1,10 @@
 import * as fs from "node:fs/promises";
 import * as http from "node:http";
 import * as path from "node:path";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GenerationRequest } from "../../core/backend.js";
+import { KonteError } from "../../core/errors.js";
+import { TransientPollError } from "../../core/poll-until-terminal.js";
 import type { GenerationJob } from "../../core/types/index.js";
 import { ComfyUIBackend } from "../backend.js";
 import type { ComfyUIHistoryEntry } from "../types.js";
@@ -332,6 +334,22 @@ describe("ComfyUIBackend", () => {
     expect(result.result.files).toHaveLength(1);
     expect(result.result.files[0]).toContain("output_00001_.png");
     expect(result.result.metadata.promptId).toBe("test-prompt-id");
+  });
+
+  it("leaves a finished prompt re-observable when its output cannot be fetched", async () => {
+    const download = vi
+      .spyOn(backend.httpClient, "downloadOutputToFile")
+      .mockRejectedValue(new KonteError("COMFYUI_UNAVAILABLE", "ComfyUI API error (503)"));
+
+    await expect(
+      backend.waitForCompletion("test-prompt-id", path.join(tmpDir, "output")),
+    ).rejects.toBeInstanceOf(TransientPollError);
+
+    download.mockRejectedValue(new KonteError("COMFYUI_ERROR", "ComfyUI API error (404)"));
+    await expect(
+      backend.waitForCompletion("test-prompt-id", path.join(tmpDir, "output")),
+    ).rejects.not.toBeInstanceOf(TransientPollError);
+    download.mockRestore();
   });
 
   it("waitForCompletion calls onLog callback", { timeout: 15_000 }, async () => {

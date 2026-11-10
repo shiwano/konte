@@ -212,6 +212,24 @@ describe("ComfyUIHttpClient", () => {
     });
   });
 
+  it("is COMFYUI_UNAVAILABLE on a 5xx and COMFYUI_ERROR on another refusal", async () => {
+    let status = 503;
+    const srv = http.createServer((_req, res) => {
+      res.writeHead(status);
+      res.end("no");
+    });
+    await new Promise<void>((resolve) => srv.listen(0, "127.0.0.1", resolve));
+    const { port } = srv.address() as { port: number };
+    try {
+      const c = new ComfyUIHttpClient(`http://127.0.0.1:${port}`);
+      await expect(c.getHistory("p")).rejects.toMatchObject({ code: "COMFYUI_UNAVAILABLE" });
+      status = 404;
+      await expect(c.getHistory("p")).rejects.toMatchObject({ code: "COMFYUI_ERROR" });
+    } finally {
+      await new Promise<void>((resolve) => srv.close(() => resolve()));
+    }
+  });
+
   it("is SUBMISSION_UNCONFIRMED when /prompt may have been queued", async () => {
     const answers: ((req: http.IncomingMessage, res: http.ServerResponse) => void)[] = [
       (req) => req.socket.destroy(),

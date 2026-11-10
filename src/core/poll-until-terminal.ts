@@ -1,3 +1,4 @@
+import { KonteError, type KonteErrorCode } from "./errors.js";
 import { sleep } from "./sleep.js";
 
 /**
@@ -10,6 +11,21 @@ export class TransientPollError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options?.cause !== undefined ? { cause: options.cause } : undefined);
     this.name = "TransientPollError";
+  }
+}
+
+/** One read of a submitted job, an error carrying one of `codes` rethrown as a `TransientPollError`. */
+export async function observeOrTransient<T>(
+  codes: readonly KonteErrorCode[],
+  read: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await read();
+  } catch (err) {
+    if (err instanceof KonteError && codes.includes(err.code)) {
+      throw new TransientPollError(err.message, { cause: err });
+    }
+    throw err;
   }
 }
 

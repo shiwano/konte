@@ -11,6 +11,7 @@ import type {
 import { assertSubmitNotCancelled } from "../core/backend.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { requireFileWithinRoot } from "../core/path-containment.js";
+import { observeOrTransient } from "../core/poll-until-terminal.js";
 import type { VideoRoots } from "../core/roots.js";
 import { sleep } from "../core/sleep.js";
 
@@ -170,7 +171,10 @@ export class ComfyUIBackend implements GenerationBackend {
     // The waiter's deadline elapsed — leave the prompt re-observable, don't fetch/commit.
     if (waitOutcome.kind === "timedOut") return { kind: "timedOut" };
 
-    const history = await this.httpClient.getHistory(backendJobId);
+    // Reads of a finished prompt repeat safely; a ComfyUI too long silent ends at the next wait.
+    const history = await observeOrTransient(["COMFYUI_UNAVAILABLE"], () =>
+      this.httpClient.getHistory(backendJobId),
+    );
     if (!history) {
       throw new KonteError("COMFYUI_ERROR", "No history found for completed prompt");
     }
@@ -189,7 +193,9 @@ export class ComfyUIBackend implements GenerationBackend {
       options?.onLog?.(`Downloading: ${file.filename}`);
       // basename guards against a crafted server returning a traversal in filename.
       const outputPath = path.join(outputDir, path.basename(file.filename));
-      await this.httpClient.downloadOutputToFile(file, outputPath);
+      await observeOrTransient(["COMFYUI_UNAVAILABLE"], () =>
+        this.httpClient.downloadOutputToFile(file, outputPath),
+      );
       savedFiles.push(outputPath);
     }
 
