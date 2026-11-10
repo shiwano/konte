@@ -101,7 +101,7 @@ function projectShot(shot: Shot): unknown {
     ? {
         cutinLineup: {
           lineup: shot.cutin.lineup ?? [],
-          lineupTo: shot.cutin.lineupTo ?? [],
+          lineupTo: shot.cutin.lineupTo ?? null,
           passing: [...(shot.cutin.passing ?? [])].sort(),
         },
       }
@@ -124,7 +124,7 @@ function projectShot(shot: Shot): unknown {
     // edit to the performance a reviewer reads, not to the arc's size and space cadence. A line's
     // `acting` needs no line of its own — it is inside `script`.
     lineup: shot.lineup ?? [],
-    lineupTo: shot.lineupTo ?? [],
+    lineupTo: shot.lineupTo ?? null,
     passing: [...(shot.passing ?? [])].sort(),
     ...cutinLineup,
   };

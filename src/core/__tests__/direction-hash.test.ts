@@ -473,6 +473,19 @@ describe("directionPartHashes", () => {
     expect(directionHash(d)).not.toBe(directionHash(flat()));
   });
 
+  it("ages out the shot when an empty lineupTo is declared", () => {
+    const shot = "direction:sequence.shots.01";
+    const withLineupTo = (lineupTo?: string[]) => {
+      const d = flat();
+      Object.assign(d.sequence.shots![0] as object, { lineup: ["cat"], lineupTo });
+      return d;
+    };
+    expect(directionPartHashes(withLineupTo([])).get(shot)).not.toBe(
+      directionPartHashes(withLineupTo()).get(shot),
+    );
+    expect(directionHash(withLineupTo([]))).not.toBe(directionHash(withLineupTo()));
+  });
+
   // A line's acting note is direction on the words, so it rides with the script it annotates.
   it("moves the shot's hash when a line's acting note is rewritten", () => {
     const withActing = (acting: string) => {
