@@ -5,7 +5,6 @@ import type { GenerationBackend } from "../core/backend.js";
 import type { VideoRoots } from "../core/roots.js";
 import type { AssetDefinition, BackendKind, JobRecord } from "../core/types/index.js";
 import { FalBackend } from "../fal/backend.js";
-import { resolveFalConfig } from "../fal/config.js";
 import { LocalBackend } from "../local/backend.js";
 
 export function getBackendKind(assetDef: AssetDefinition): BackendKind | null {
@@ -45,10 +44,8 @@ export async function resolveBackend(
     }
     case "comfy-api":
       return new ComfyApiBackend(roots);
-    case "fal": {
-      const config = await resolveFalConfig();
-      return new FalBackend(config, roots.video);
-    }
+    case "fal":
+      return new FalBackend(roots.video);
     case "local":
       return new LocalBackend(roots.video);
   }

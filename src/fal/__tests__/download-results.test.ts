@@ -6,7 +6,7 @@ import type { FalStatusResponse } from "../types.js";
 // The result-collection half of waitForCompletion: which fields of a model's free-form result
 // body become files, what each is named, and what happens to the shapes that carry no media.
 function makeBackend(): FalBackend {
-  return new FalBackend({ apiKey: "test-key" }, "/tmp");
+  return new FalBackend("/tmp", () => "test-key");
 }
 
 const jobId = encodeBackendJobId("fal-ai/some-model", "req-1");

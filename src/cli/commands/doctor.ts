@@ -51,7 +51,7 @@ import type {
   VideoDefinition,
 } from "../../core/types/index.js";
 import { VendorBackendKindSchema } from "../../core/types/index.js";
-import { resolveFalConfig } from "../../fal/config.js";
+import { falKey } from "../../fal/config.js";
 import { FalHttpClient } from "../../fal/http-client.js";
 import { collectFindings, formatStaleWaiverLine } from "../../core/checks.js";
 import { formatFindingBlockLines, formatFindingBlocks, groupByFixIn } from "../../core/finding.js";
@@ -708,8 +708,8 @@ async function checkComfyApiDeployments(workspaceRoot: string): Promise<CheckRes
 
 async function checkFalConnection(): Promise<CheckResult> {
   try {
-    const config = await resolveFalConfig();
-    const client = new FalHttpClient(config.apiKey);
+    const key = falKey();
+    const client = new FalHttpClient(() => key);
     const ok = await client.ping();
     if (ok) {
       return { name: "FAL connection", status: "PASS", message: "API key configured" };

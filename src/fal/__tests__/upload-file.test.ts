@@ -80,7 +80,7 @@ describe("FalHttpClient.uploadFile", () => {
     await fs.writeFile(filePath, bytes);
 
     redirectTokenEndpoint();
-    const client = new FalHttpClient("test-key");
+    const client = new FalHttpClient(() => "test-key");
     const { accessUrl } = await client.uploadFile(filePath);
 
     expect(accessUrl).toBe("https://cdn.fal.example/uploaded.png");
@@ -91,7 +91,7 @@ describe("FalHttpClient.uploadFile", () => {
 
   it("rejects instead of uploading an empty body when the file is missing", async () => {
     redirectTokenEndpoint();
-    const client = new FalHttpClient("test-key");
+    const client = new FalHttpClient(() => "test-key");
 
     await expect(client.uploadFile(path.join(tmpDir, "missing.png"))).rejects.toThrow();
   });

@@ -2,11 +2,12 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { KonteError } from "../../core/errors.js";
 import { TransientHttpError } from "../../core/http-retry.js";
+import { TransientPollError } from "../../core/poll-until-terminal.js";
 import { FalBackend, encodeBackendJobId } from "../backend.js";
 import type { FalStatusResponse } from "../types.js";
 
 function makeBackend(): FalBackend {
-  return new FalBackend({ apiKey: "test-key" }, "/tmp");
+  return new FalBackend("/tmp", () => "test-key");
 }
 
 const jobId = encodeBackendJobId("fal-ai/some-model", "req-1");
@@ -89,6 +90,21 @@ describe("FalBackend.waitForCompletion resilience", () => {
       code: "FAL_ERROR",
     });
     expect(downloadFile).not.toHaveBeenCalled();
+  });
+
+  it("keeps polling through a refused key, and leaves a refused result re-observable", async () => {
+    const backend = makeBackend();
+    const refused = new KonteError("FAL_UNAUTHORIZED", "FAL status check failed (401)");
+    vi.spyOn(backend.httpClient, "getStatus")
+      .mockRejectedValueOnce(refused)
+      .mockResolvedValue(status("COMPLETED"));
+    vi.spyOn(backend.httpClient, "getResult").mockRejectedValue(refused);
+
+    vi.useFakeTimers();
+    const settled = backend.waitForCompletion(jobId, "/tmp/out").catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(await settled).toBeInstanceOf(TransientPollError);
   });
 
   it("fails fast on a permanent (non-transient) error", async () => {

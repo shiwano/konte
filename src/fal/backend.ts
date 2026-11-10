@@ -9,11 +9,14 @@ import { assertSubmitNotCancelled } from "../core/backend.js";
 import { uniqueOutputPath } from "../backends/http-util.js";
 import { prepareBackendInputs } from "../backends/prepare-inputs.js";
 import { KonteError } from "../core/errors.js";
-import { pollUntilTerminal } from "../core/poll-until-terminal.js";
+import { observeOrTransient, pollUntilTerminal } from "../core/poll-until-terminal.js";
 import type { FalAssetDefinition, JobRecord } from "../core/types/index.js";
-import type { FalConfig } from "./config.js";
+import { falKey } from "./config.js";
 import { FalHttpClient } from "./http-client.js";
 import { type FalOutputMedia, FalOutputMediaSchema } from "./types.js";
+
+// A key fal refuses, or none at all, says nothing of a request already running on fal.
+const UNOBSERVABLE = ["FAL_UNAUTHORIZED", "BACKEND_NOT_CONFIGURED"] as const;
 
 export function encodeBackendJobId(endpointId: string, requestId: string): string {
   return `${endpointId}|${requestId}`;
@@ -37,9 +40,9 @@ export class FalBackend implements GenerationBackend {
   readonly httpClient: FalHttpClient;
   readonly videoRoot: string;
 
-  constructor(config: FalConfig, videoRoot: string) {
+  constructor(videoRoot: string, readKey: () => string = falKey) {
     this.videoRoot = videoRoot;
-    this.httpClient = new FalHttpClient(config.apiKey);
+    this.httpClient = new FalHttpClient(readKey);
   }
 
   async submit(
@@ -77,7 +80,9 @@ export class FalBackend implements GenerationBackend {
     // keeps waiting on that, surfaces a real error, and times out non-terminally.
     const poll = await pollUntilTerminal(
       async () => {
-        const status = await this.httpClient.getStatus(endpointId, requestId);
+        const status = await observeOrTransient(UNOBSERVABLE, () =>
+          this.httpClient.getStatus(endpointId, requestId),
+        );
         if (status.error) {
           throw new KonteError("FAL_ERROR", `FAL job failed: ${status.error}`);
         }
@@ -103,7 +108,9 @@ export class FalBackend implements GenerationBackend {
     );
     if (poll.kind !== "done") return { kind: "timedOut" };
 
-    const result = await this.httpClient.getResult(endpointId, requestId);
+    const result = await observeOrTransient(UNOBSERVABLE, () =>
+      this.httpClient.getResult(endpointId, requestId),
+    );
     const files = await this.downloadResults(result, outputDir);
 
     return {

@@ -63,10 +63,11 @@ async function sendOrFail(
 }
 
 export class FalHttpClient {
-  private readonly apiKey: string;
+  private readonly readKey: () => string;
 
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
+  // Read per request: a key replaced while a job runs reaches its next status check.
+  constructor(readKey: () => string) {
+    this.readKey = readKey;
   }
 
   async submit(endpointId: string, inputs: Record<string, unknown>): Promise<FalSubmitResponse> {
@@ -201,7 +202,7 @@ export class FalHttpClient {
 
   private headers(): Record<string, string> {
     return {
-      Authorization: `Key ${this.apiKey}`,
+      Authorization: `Key ${this.readKey()}`,
       "Content-Type": "application/json",
     };
   }

@@ -24,7 +24,7 @@ describe("FalHttpClient queue URLs", () => {
       });
     });
 
-    const client = new FalHttpClient("key");
+    const client = new FalHttpClient(() => "key");
     const endpointId = "minimax/h3-max/text-to-video";
     await client.submit(endpointId, { prompt: "p" });
     await client.getStatus(endpointId, "r1");

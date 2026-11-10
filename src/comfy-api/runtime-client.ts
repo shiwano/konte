@@ -102,14 +102,19 @@ export class ComfyApiRuntimeClient {
   readonly apiBase: string;
   readonly origin: string;
   readonly surface: ComfyApiSurface;
-  private readonly auth: ComfyApiAuth;
+  private readonly readKey: () => string;
 
-  constructor(endpoint: string, apiKey: string, surface: ComfyApiSurface) {
+  // Read per request: a key replaced while a job runs reaches its next status check.
+  constructor(endpoint: string, readKey: () => string, surface: ComfyApiSurface) {
     const trimmed = endpoint.replace(/\/+$/, "");
     this.apiBase = trimmed.endsWith("/api/v2") ? trimmed : `${trimmed}/api/v2`;
     this.origin = new URL(this.apiBase).origin;
     this.surface = surface;
-    this.auth = { scheme: "bearer", key: apiKey };
+    this.readKey = readKey;
+  }
+
+  private auth(): ComfyApiAuth {
+    return { scheme: "bearer", key: this.readKey() };
   }
 
   /** The asset id a workflow refers this file by, uploading it only when the platform lacks it. */
@@ -120,7 +125,7 @@ export class ComfyApiRuntimeClient {
       `${this.apiBase}/assets/by-hash/${encodeURIComponent(hash)}`,
       {
         method: "HEAD",
-        auth: this.auth,
+        auth: this.auth(),
       },
     );
     if (head.ok) {
@@ -128,7 +133,7 @@ export class ComfyApiRuntimeClient {
         `${this.apiBase}/assets/from-hash`,
         {
           method: "POST",
-          auth: this.auth,
+          auth: this.auth(),
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ hash, file_path: fileName, tags: ["input"] }),
         },
@@ -155,7 +160,7 @@ export class ComfyApiRuntimeClient {
       `${this.apiBase}/assets`,
       {
         method: "POST",
-        auth: this.auth,
+        auth: this.auth(),
         body: form,
         signal: AbortSignal.timeout(mediaTransferTimeoutMs(blob.size)),
       },
@@ -175,7 +180,7 @@ export class ComfyApiRuntimeClient {
       `${this.apiBase}/jobs`,
       {
         method: "POST",
-        auth: this.auth,
+        auth: this.auth(),
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
         body: JSON.stringify({ workflow }),
       },
@@ -204,7 +209,7 @@ export class ComfyApiRuntimeClient {
   async getJob(jobId: string): Promise<ComfyApiJob> {
     const res = await sendIdempotent(
       `${this.apiBase}/jobs/${encodeURIComponent(jobId)}`,
-      { auth: this.auth },
+      { auth: this.auth() },
       { maxRetries: 0 },
     );
     if (!res.ok) throw await toHttpError(res, "Comfy API job status");
@@ -213,7 +218,7 @@ export class ComfyApiRuntimeClient {
 
   /** The newest jobs on a deployment. Cloud answers 405. */
   async listJobs(limit: number): Promise<ComfyApiJob[]> {
-    const res = await sendIdempotent(`${this.apiBase}/jobs?limit=${limit}`, { auth: this.auth });
+    const res = await sendIdempotent(`${this.apiBase}/jobs?limit=${limit}`, { auth: this.auth() });
     if (!res.ok) throw await toHttpError(res, "Comfy API job list");
     const body = await parseApiResponse(
       res,
@@ -227,7 +232,7 @@ export class ComfyApiRuntimeClient {
   /** What the run printed, or null when the surface kept none (204). */
   async getLogs(jobId: string): Promise<string | null> {
     const res = await sendIdempotent(`${this.apiBase}/jobs/${encodeURIComponent(jobId)}/logs`, {
-      auth: this.auth,
+      auth: this.auth(),
     });
     if (res.status === 204) return null;
     if (!res.ok) throw await toHttpError(res, "Comfy API job logs");
@@ -238,7 +243,7 @@ export class ComfyApiRuntimeClient {
   async cancelJob(jobId: string): Promise<void> {
     const res = await sendIdempotent(`${this.apiBase}/jobs/${encodeURIComponent(jobId)}/cancel`, {
       method: "POST",
-      auth: this.auth,
+      auth: this.auth(),
     });
     if (!res.ok) throw await toHttpError(res, "Comfy API job cancel");
   }
@@ -251,7 +256,7 @@ export class ComfyApiRuntimeClient {
     const url = `${this.apiBase}/assets/${encodeURIComponent(output.id)}/content`;
     const res = await sendIdempotent(
       url,
-      { auth: this.auth, redirect: "manual" },
+      { auth: this.auth(), redirect: "manual" },
       { timeoutUntilHeaders: true },
     );
     if (res.status >= 300 && res.status < 400) {

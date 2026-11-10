@@ -12,7 +12,7 @@ import { assertSubmitNotCancelled } from "../core/backend.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { TransientHttpError } from "../core/http-retry.js";
 import { requireFileWithinRoot } from "../core/path-containment.js";
-import { pollUntilTerminal } from "../core/poll-until-terminal.js";
+import { observeOrTransient, pollUntilTerminal } from "../core/poll-until-terminal.js";
 import type { VideoRoots } from "../core/roots.js";
 import { sleep } from "../core/sleep.js";
 import type { ComfyAssetDefinition, ComfyTarget, JobRecord } from "../core/types/index.js";
@@ -36,6 +36,8 @@ const SUBMIT_RETRY_WINDOW_MS = 15 * 60_000;
 // How far back a deployment's job list is read to find a submission whose answer was lost.
 const RECOVERY_LIST_LIMIT = 100;
 const MEDIA_OUTPUT_TYPES = new Set(["image", "video", "audio"]);
+// A key the platform refuses, or none at all, says nothing of a job already running there.
+const UNOBSERVABLE = ["COMFY_API_UNAUTHORIZED", "BACKEND_NOT_CONFIGURED"] as const;
 
 /** Where a submitted job runs: Comfy Cloud, or one deployment by id. */
 type ComfyApiSite = { target: ComfyTarget; deploymentId: string | null };
@@ -90,7 +92,7 @@ export class ComfyApiBackend implements GenerationBackend {
     this.roots = roots;
     this.clientFactory =
       opts.clientFactory ??
-      ((endpoint, surface) => new ComfyApiRuntimeClient(endpoint, requireKey(), surface));
+      ((endpoint, surface) => new ComfyApiRuntimeClient(endpoint, requireKey, surface));
     this.platformFactory = opts.platformFactory ?? (() => new ComfyPlatformClient(requireKey()));
   }
 
@@ -266,12 +268,12 @@ export class ComfyApiBackend implements GenerationBackend {
     const { jobId, ...site } = decodeComfyApiJobId(backendJobId);
     const { target } = site;
     const log = options?.onLog ?? (() => {});
-    const client = await this.clientFor(site);
+    const client = await observeOrTransient(UNOBSERVABLE, () => this.clientFor(site));
 
     let started = false;
     const poll = await pollUntilTerminal(
       async () => {
-        const job = await client.getJob(jobId);
+        const job = await observeOrTransient(UNOBSERVABLE, () => client.getJob(jobId));
         if (!started && job.status === "running" && job.started_at) {
           started = true;
           options?.onExecutionStarted?.();
@@ -308,7 +310,7 @@ export class ComfyApiBackend implements GenerationBackend {
     for (const output of outputs) {
       const outputPath = uniqueOutputPath(outputDir, output.name || output.id, files);
       log(`Downloading: ${path.basename(outputPath)}`);
-      await client.downloadOutput(output, outputPath);
+      await observeOrTransient(UNOBSERVABLE, () => client.downloadOutput(output, outputPath));
       files.push(outputPath);
     }
     log(`Completed (${files.length} file(s))`);

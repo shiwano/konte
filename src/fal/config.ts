@@ -1,14 +1,11 @@
 import { missingCredentialMessage } from "../core/credentials.js";
 import { KonteError } from "../core/errors.js";
 
-export type FalConfig = {
-  apiKey: string;
-};
-
-export async function resolveFalConfig(): Promise<FalConfig> {
+/** FAL_KEY as the environment holds it at this call. */
+export function falKey(): string {
   const apiKey = process.env.FAL_KEY;
   if (!apiKey) {
     throw new KonteError("BACKEND_NOT_CONFIGURED", missingCredentialMessage("FAL_KEY"));
   }
-  return { apiKey };
+  return apiKey;
 }

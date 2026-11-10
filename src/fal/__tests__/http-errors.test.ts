@@ -22,7 +22,7 @@ const unreachable = () => {
 describe("FalHttpClient errors", () => {
   it("is FAL_UNAUTHORIZED when fal rejects the key", async () => {
     mockFetch(() => json({ detail: "bad key" }, 401));
-    const client = new FalHttpClient("key");
+    const client = new FalHttpClient(() => "key");
 
     await expect(client.submit("a/b", {})).rejects.toMatchObject({ code: "FAL_UNAUTHORIZED" });
     await expect(client.getStatus("a/b", "r1")).rejects.toMatchObject({
@@ -31,8 +31,24 @@ describe("FalHttpClient errors", () => {
     await expect(client.cancel("a/b", "r1")).rejects.toMatchObject({ code: "FAL_UNAUTHORIZED" });
   });
 
+  it("sends the key the reader holds at each request", async () => {
+    const sent: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      sent.push(new Headers(init?.headers).get("Authorization") ?? "");
+      return json({ status: "IN_QUEUE" });
+    });
+    let key = "old";
+    const client = new FalHttpClient(() => key);
+
+    await client.getStatus("a/b", "r1");
+    key = "new";
+    await client.getStatus("a/b", "r1");
+
+    expect(sent).toEqual(["Key old", "Key new"]);
+  });
+
   it("is SUBMISSION_UNCONFIRMED when a submit cannot be sent or answers 5xx", async () => {
-    const client = new FalHttpClient("key");
+    const client = new FalHttpClient(() => "key");
 
     mockFetch(unreachable);
     await expect(client.submit("a/b", {})).rejects.toMatchObject({
@@ -46,7 +62,7 @@ describe("FalHttpClient errors", () => {
   });
 
   it("is SUBMISSION_UNCONFIRMED when an accepted submit's answer cannot be read", async () => {
-    const client = new FalHttpClient("key");
+    const client = new FalHttpClient(() => "key");
     const interrupted = () =>
       new Response(
         new ReadableStream({
@@ -75,7 +91,7 @@ describe("FalHttpClient errors", () => {
       const filePath = path.join(tmpDir, "in.png");
       await fs.writeFile(filePath, "png");
       mockFetch(unreachable);
-      const client = new FalHttpClient("key");
+      const client = new FalHttpClient(() => "key");
 
       await expect(client.cancel("a/b", "r1")).rejects.toMatchObject({ code: "FAL_ERROR" });
       await expect(client.uploadFile(filePath)).rejects.toMatchObject({

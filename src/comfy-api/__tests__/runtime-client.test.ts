@@ -53,7 +53,7 @@ describe("uploadInput", () => {
       const calls = mockFetch(({ init }) =>
         init.method === "HEAD" ? new Response(null, { status: 404 }) : json({ id: "asset-1" }),
       );
-      const client = new ComfyApiRuntimeClient("https://example.com", "key", surface);
+      const client = new ComfyApiRuntimeClient("https://example.com", () => "key", surface);
 
       await client.uploadInput(inputPath);
       const upload = calls[1]!;
@@ -70,7 +70,7 @@ describe("uploadInput", () => {
     const calls = mockFetch(({ url }) =>
       url.endsWith("/from-hash") ? json({ id: "asset-1" }) : new Response(null, { status: 200 }),
     );
-    const client = new ComfyApiRuntimeClient("https://cloud.comfy.org", "key", "cloud");
+    const client = new ComfyApiRuntimeClient("https://cloud.comfy.org", () => "key", "cloud");
 
     expect(await client.uploadInput(inputPath)).toBe("asset-1");
     expect(calls.map((c) => `${c.init.method} ${c.url}`)).toEqual([
@@ -89,7 +89,7 @@ describe("uploadInput", () => {
     const calls = mockFetch(({ init }) =>
       init.method === "HEAD" ? new Response(null, { status: 404 }) : json({ id: "asset-2" }),
     );
-    const client = new ComfyApiRuntimeClient("https://cloud.comfy.org/", "key", "cloud");
+    const client = new ComfyApiRuntimeClient("https://cloud.comfy.org/", () => "key", "cloud");
 
     expect(await client.uploadInput(inputPath)).toBe("asset-2");
     const upload = calls[1]!;
@@ -105,7 +105,11 @@ describe("uploadInput", () => {
     const calls = mockFetch(({ init }) =>
       init.method === "HEAD" ? new Response(null, { status: 404 }) : json({ id: "asset-3" }),
     );
-    const client = new ComfyApiRuntimeClient("https://dep.example/api/v2", "key", "deployment");
+    const client = new ComfyApiRuntimeClient(
+      "https://dep.example/api/v2",
+      () => "key",
+      "deployment",
+    );
 
     expect(await client.uploadInput(inputPath)).toBe("asset-3");
     expect(calls[1]!.url).toBe("https://dep.example/api/v2/assets");
@@ -120,7 +124,7 @@ describe("uploadInput", () => {
           ? json({ error: { code: "not_found", message: "gone" } }, 404)
           : json({ id: "asset-4" }),
     );
-    const client = new ComfyApiRuntimeClient("https://cloud.comfy.org", "key", "cloud");
+    const client = new ComfyApiRuntimeClient("https://cloud.comfy.org", () => "key", "cloud");
 
     expect(await client.uploadInput(inputPath)).toBe("asset-4");
     expect(calls.map((c) => c.url.split("/api/v2")[1])).toEqual([
@@ -134,7 +138,7 @@ describe("uploadInput", () => {
 describe("submitJob", () => {
   it("sends the variant id as the Idempotency-Key", async () => {
     const calls = mockFetch(() => json(JOB, 201));
-    const client = new ComfyApiRuntimeClient("https://cloud.comfy.org", "key", "cloud");
+    const client = new ComfyApiRuntimeClient("https://cloud.comfy.org", () => "key", "cloud");
 
     const job = await client.submitJob({ "9": { class_type: "SaveImage", inputs: {} } }, "v-abc");
     expect(job.id).toBe("job-1");
@@ -147,7 +151,7 @@ describe("submitJob", () => {
 
   it("reads a 429 as transient", async () => {
     mockFetch(() => json({ error: { code: "warming_up", message: "not yet" } }, 429));
-    const client = new ComfyApiRuntimeClient("https://dep.example", "key", "deployment");
+    const client = new ComfyApiRuntimeClient("https://dep.example", () => "key", "deployment");
 
     const err = await client.submitJob({}, "v-abc").catch((e: unknown) => e);
     expect(err).toBeInstanceOf(TransientHttpError);
@@ -155,7 +159,7 @@ describe("submitJob", () => {
   });
 
   it("reads an accepted submit with an unreadable answer as transient", async () => {
-    const client = new ComfyApiRuntimeClient("https://dep.example", "key", "deployment");
+    const client = new ComfyApiRuntimeClient("https://dep.example", () => "key", "deployment");
 
     for (const answer of [
       () => json({ status: "queued" }, 201),
@@ -170,7 +174,7 @@ describe("submitJob", () => {
 
   it("is COMFY_API_UNAUTHORIZED when the key is rejected", async () => {
     mockFetch(() => json({ error: { code: "unauthorized", message: "bad key" } }, 401));
-    const client = new ComfyApiRuntimeClient("https://dep.example", "key", "deployment");
+    const client = new ComfyApiRuntimeClient("https://dep.example", () => "key", "deployment");
 
     await expect(client.submitJob({}, "v-abc")).rejects.toMatchObject({
       code: "COMFY_API_UNAUTHORIZED",
@@ -180,7 +184,7 @@ describe("submitJob", () => {
 
   it("keeps the server's code on a refusal", async () => {
     mockFetch(() => json({ error: { code: "idempotency_key_reuse", message: "reused" } }, 409));
-    const client = new ComfyApiRuntimeClient("https://dep.example", "key", "deployment");
+    const client = new ComfyApiRuntimeClient("https://dep.example", () => "key", "deployment");
 
     await expect(client.submitJob({}, "v-abc")).rejects.toMatchObject({
       code: "COMFY_API_ERROR",
@@ -202,7 +206,7 @@ describe("downloadOutput", () => {
             headers: { location: "https://storage.example/out.png?sig=abc" },
           }),
     );
-    const client = new ComfyApiRuntimeClient("https://cloud.comfy.org", "key", "cloud");
+    const client = new ComfyApiRuntimeClient("https://cloud.comfy.org", () => "key", "cloud");
     const outputPath = path.join(tmpDir, "out.png");
 
     await client.downloadOutput(output, outputPath);
@@ -216,7 +220,7 @@ describe("downloadOutput", () => {
 
   it("saves a body served in place", async () => {
     mockFetch(() => new Response("inline bytes", { status: 200 }));
-    const client = new ComfyApiRuntimeClient("https://cloud.comfy.org", "key", "cloud");
+    const client = new ComfyApiRuntimeClient("https://cloud.comfy.org", () => "key", "cloud");
     const outputPath = path.join(tmpDir, "inline.png");
 
     await client.downloadOutput(output, outputPath);

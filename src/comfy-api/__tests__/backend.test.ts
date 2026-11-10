@@ -7,6 +7,7 @@ import type { GenerationJob } from "../../core/types/index.js";
 import { ComfyApiBackend, describeJobError } from "../backend.js";
 import { updateDeploymentState } from "../deploy-state.js";
 import { TransientHttpError } from "../../core/http-retry.js";
+import { TransientPollError } from "../../core/poll-until-terminal.js";
 import { ComfyApiHttpError } from "../http.js";
 import type { ComfyApiJob, ComfyApiOutput, ComfyApiRuntimeClient } from "../runtime-client.js";
 
@@ -405,6 +406,25 @@ describe("waitForCompletion", () => {
 
     await backend.waitForCompletion("comfyapi:main|dep-old|job-1", ws.videos.main!.video);
     expect(endpoints).toEqual(["https://old.example"]);
+  });
+
+  it("keeps polling through a refused key, and leaves a refused download re-observable", async () => {
+    const client = fakeClient("cloud");
+    const refused = new ComfyApiHttpError("COMFY_API_UNAUTHORIZED", "refused", {
+      status: 401,
+      serverCode: null,
+      body: "",
+    });
+    client.getJob
+      .mockRejectedValueOnce(refused)
+      .mockResolvedValue(job({ status: "succeeded", outputs }));
+    client.downloadOutput.mockRejectedValue(refused);
+    const { backend } = backendWith(client);
+
+    await expect(
+      backend.waitForCompletion("comfyapi:cloud|job-1", ws.videos.main!.video),
+    ).rejects.toBeInstanceOf(TransientPollError);
+    expect(client.getJob).toHaveBeenCalledTimes(2);
   });
 
   it("fails a job whose deployment is gone", async () => {
