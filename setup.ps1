@@ -74,7 +74,7 @@ param([switch]$Yes)
       throw "checksum mismatch for $asset"
     }
 
-    # A running konte.exe (an agent's MCP server) cannot be overwritten or deleted,
+    # A running konte.exe (a `job wait` or a preview) cannot be overwritten or deleted,
     # but it can be renamed.
     Get-ChildItem -LiteralPath $binDir -Filter 'konte-*.old' |
       Remove-Item -Force -ErrorAction SilentlyContinue

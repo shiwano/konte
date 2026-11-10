@@ -4,27 +4,27 @@ import * as path from "node:path";
 import { applyCredentials } from "../core/credentials.js";
 import { closeJobDatabase } from "../core/job-manager.js";
 import { listVideos, VIDEOS_DIR } from "../core/roots.js";
-import type { McpLog } from "./mcp-log.js";
-import { type JobNotifier, JobWatcher, type StaleDefinitionsInfo } from "./job-watcher.js";
+import type { WorkerLog } from "./worker-log.js";
+import { JobWatcher, type StaleDefinitionsInfo } from "./job-watcher.js";
 
 // fs.watch misses events under WSL2 (and on some network filesystems), so every watcher in konte
-// pairs it with a slow reconcile poll. Same discipline here: the poll is what makes the daemon
+// pairs it with a slow reconcile poll. Same discipline here: the poll is what makes the worker
 // eventually correct, and fs.watch is what makes it feel instant.
 const RECONCILE_INTERVAL_MS = 5_000;
 
 /**
  * Keeps one job watcher alive per video in the workspace, following videos as they are created and
  * removed — an agent running `konte video new` mid-session is the normal flow, and its jobs must be
- * watched without restarting the daemon.
+ * watched without restarting the worker.
  */
 export class VideoRegistry {
   private readonly workspaceRoot: string;
-  private readonly notify: JobNotifier;
   private readonly onStaleDefinitions: (video: string, info: StaleDefinitionsInfo) => void;
-  private readonly onVideos: (videos: string[]) => void;
   private readonly reconcileIntervalMs: number;
-  private readonly log: McpLog | undefined;
+  private readonly log: WorkerLog | undefined;
   private readonly watchers = new Map<string, JobWatcher>();
+  // Watchers stopped with jobs possibly still in flight.
+  private readonly retiring = new Set<JobWatcher>();
 
   private videosWatcher: FSWatcher | null = null;
   private reconcileTimer: ReturnType<typeof setInterval> | null = null;
@@ -36,17 +36,13 @@ export class VideoRegistry {
   constructor(
     workspaceRoot: string,
     hooks: {
-      notify?: JobNotifier;
       onStaleDefinitions?: (video: string, info: StaleDefinitionsInfo) => void;
-      onVideos?: (videos: string[]) => void;
       reconcileIntervalMs?: number;
-      log?: McpLog;
+      log?: WorkerLog;
     } = {},
   ) {
     this.workspaceRoot = workspaceRoot;
-    this.notify = hooks.notify ?? (() => {});
     this.onStaleDefinitions = hooks.onStaleDefinitions ?? (() => {});
-    this.onVideos = hooks.onVideos ?? (() => {});
     this.reconcileIntervalMs = hooks.reconcileIntervalMs ?? RECONCILE_INTERVAL_MS;
     this.log = hooks.log;
   }
@@ -84,22 +80,30 @@ export class VideoRegistry {
     this.videosWatcher = null;
     if (this.reconcileTimer) clearInterval(this.reconcileTimer);
     this.reconcileTimer = null;
+    for (const watcher of this.watchers.values()) this.retiring.add(watcher);
     const retiring = [...this.watchers.values()].map((watcher) => this.retire(watcher));
     this.watchers.clear();
     this.stopPromise = Promise.all(retiring).then(() => {});
     return this.stopPromise;
   }
 
+  /** Drops every run lease the watchers hold, including those of a registry already stopped. */
+  async releaseLeases(): Promise<void> {
+    const watchers = new Set([...this.watchers.values(), ...this.retiring]);
+    await Promise.allSettled([...watchers].map((watcher) => watcher.releaseLeases()));
+  }
+
   private async retire(watcher: JobWatcher): Promise<void> {
     watcher.stop();
     await watcher.settled();
+    this.retiring.delete(watcher);
     closeJobDatabase(watcher.videoRoot);
   }
 
   /**
    * Re-read the workspace's credentials into the environment. The CLI loads them once at startup,
-   * which is the whole life of a daemon — so a key set, rotated or deleted in `konte settings`
-   * would otherwise never reach the submissions this daemon makes.
+   * which is the whole life of a worker — so a key set, rotated or deleted in `konte settings`
+   * would otherwise never reach the submissions this worker makes.
    *
    * Workspace-level, so it runs here rather than per video: `applyCredentials` reports a change
    * once, and every watcher's backend cache has to hear about it.
@@ -115,7 +119,7 @@ export class VideoRegistry {
         watcher.dropBackendCache();
       }
     } catch {
-      // An unreadable credentials file is the CLI's error to report; the daemon keeps what it has.
+      // An unreadable credentials file is the CLI's error to report; the worker keeps what it has.
     } finally {
       this.refreshing = false;
     }
@@ -136,7 +140,6 @@ export class VideoRegistry {
         if (present.has(name)) continue;
         void this.retire(watcher);
         this.watchers.delete(name);
-        this.onVideos(this.videos());
         this.log?.write("info", { video: name, event: "video_unwatched" });
       }
 
@@ -147,12 +150,11 @@ export class VideoRegistry {
           workspace: this.workspaceRoot,
           video: path.join(this.workspaceRoot, VIDEOS_DIR, name),
         };
-        const jobs = new JobWatcher(this.notify, roots, name, {
+        const jobs = new JobWatcher(roots, name, {
           onStaleDefinitions: (info) => this.onStaleDefinitions(name, info),
           log: this.log,
         });
         this.watchers.set(name, jobs);
-        this.onVideos(this.videos());
         this.log?.write("info", { video: name, event: "video_watched" });
         await jobs.start();
         if (this.stopped) jobs.stop();

@@ -33,10 +33,10 @@ if (import.meta.main) {
   const cache = resolveTranspilerCachePath(process.argv.slice(2));
 
   if (process.env[TRANSPILER_CACHE_ENV] === cache) {
-    const { mcpProgramOf, runMcpProgram } = await import("./program-mcp.js");
-    const mcp = mcpProgramOf(process.argv.slice(2));
-    if (mcp) {
-      await runMcpProgram(mcp);
+    const { workerProgramOf, runWorkerProgram } = await import("./program-worker.js");
+    const worker = workerProgramOf(process.argv.slice(2));
+    if (worker) {
+      await runWorkerProgram(worker);
     } else {
       const { run } = await import("./program.js");
       await run();

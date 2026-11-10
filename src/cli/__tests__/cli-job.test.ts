@@ -120,7 +120,7 @@ describe("job wait command", () => {
     expect(stdout).not.toContain("Job video:shot.01.motion (v-fail0001): failed");
   });
 
-  // The MCP daemon finalizes a take nobody blocks on; a fast one lands before the `job wait` that
+  // The worker finalizes a take nobody blocks on; a fast one lands before the `job wait` that
   // follows its reroll starts. The wait reports it.
   it("reports takes that landed before the wait, once (no ids)", async () => {
     await createSettledJob("v-done0001", { status: "completed", reported: false });
@@ -259,7 +259,7 @@ describe("job wait command", () => {
   });
 
   // A submitter killed mid-transaction leaves a "running" job with no backendJobId and
-  // no lease (a stranded submit), which only the daemon's cascade reclaims.
+  // no lease (a stranded submit), which only the worker's cascade reclaims.
   async function createStrandedSubmit(
     variantId: string,
     dependsOnAssets?: string[],
@@ -276,7 +276,7 @@ describe("job wait command", () => {
     await jobManager.updateJob(variantId, { status: "running" });
   }
 
-  it("settles a stranded submit through the daemon's cascade (single id)", async () => {
+  it("settles a stranded submit through the worker's cascade (single id)", async () => {
     await createStrandedSubmit("v-strand01", ["video:timeline.character"]);
 
     const err = (await run(["job", "wait", "v-strand01"], projectDir).catch((e) => e)) as {
@@ -287,7 +287,7 @@ describe("job wait command", () => {
     expect(err.stdout).toContain("v-strand01): failed");
   });
 
-  // An export rendered by another live worker (the MCP watcher) holds a valid run lease, so
+  // An export rendered by another wait's worker holds a valid run lease, so
   // `job wait` cannot claim it. It must POLL that running export to completion rather than
   // report "nothing to do" — the bug was the wait exiting immediately while the watcher rendered.
   async function createForeignOwnedExport(): Promise<{ jobManager: JobManager; id: string }> {

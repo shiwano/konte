@@ -6,7 +6,7 @@ import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/work
 import { JobWatcher } from "../job-watcher.js";
 import { VideoRegistry } from "../video-registry.js";
 
-// Nothing in the daemon's own surface reports the watcher set.
+// Nothing in the worker's own surface reports the watcher set.
 function watched(registry: VideoRegistry): string[] {
   return [...(registry as unknown as { watchers: Map<string, unknown> }).watchers.keys()];
 }
@@ -88,7 +88,7 @@ describe("VideoRegistry", () => {
     expect(watched(registry)).toEqual(["opening"]);
   });
 
-  it("picks up a video created while the daemon is running", async () => {
+  it("picks up a video created while the worker is running", async () => {
     registry = new VideoRegistry(ws.root);
     await registry.start();
 
@@ -111,7 +111,7 @@ describe("VideoRegistry", () => {
     await waitFor(() => watched(r).length === 0);
   });
 
-  // The CLI loads credentials once at startup, which is the whole life of a daemon. A key set in
+  // The CLI loads credentials once at startup, which is the whole life of a worker. A key set in
   // `konte settings` after it started has to reach the environment it submits from — and every
   // backend already built from the old one has to go.
   it("picks up a credential set after it started, and drops the backends built without it", async () => {

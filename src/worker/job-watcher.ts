@@ -30,7 +30,7 @@ import { waitForJob } from "../backends/wait-for-job.js";
 import type { LoadedDefinitions } from "../core/select-definition.js";
 import type { VideoRoots } from "../core/roots.js";
 import { errorMessage } from "../core/errors.js";
-import type { McpLog, McpLogLevel } from "./mcp-log.js";
+import type { WorkerLog, WorkerLogLevel } from "./worker-log.js";
 
 // fs.watch is a fast path but not a guarantee: it can't attach until .konte exists (so jobs
 // created in the gap before attach are missed), and event delivery is unreliable in some
@@ -38,10 +38,8 @@ import type { McpLog, McpLogLevel } from "./mcp-log.js";
 // timer and is correct even when the database only appears later.
 const POLL_INTERVAL_MS = 5000;
 
-export type JobNotifier = (level: McpLogLevel, data: object) => void;
-
 // What a judge in this process found when it stepped aside: the job it handed back and, for a
-// generation job, the two hashes that disagreed. The worker's answer is to restart (mcp/worker.ts).
+// generation job, the two hashes that disagreed. The worker's answer is to restart (worker.ts).
 export type StaleDefinitionsInfo =
   | ({ kind: "generation" } & StaleJudgeRelease)
   | { kind: "export"; jobId: string };
@@ -73,7 +71,6 @@ function completionOf(job: JobRecord): JobCompletion {
 }
 
 export class JobWatcher {
-  private readonly notify: JobNotifier;
   private readonly roots: VideoRoots;
   readonly videoRoot: string;
   private readonly videoName: string;
@@ -99,15 +96,16 @@ export class JobWatcher {
   private cascadeRerunRequested = false;
 
   private readonly onStaleDefinitions: (info: StaleDefinitionsInfo) => void;
-  private readonly log: McpLog | undefined;
+  private readonly log: Pick<WorkerLog, "write"> | undefined;
 
   constructor(
-    notify: JobNotifier,
     roots: VideoRoots,
     videoName: string,
-    hooks: { onStaleDefinitions?: (info: StaleDefinitionsInfo) => void; log?: McpLog } = {},
+    hooks: {
+      onStaleDefinitions?: (info: StaleDefinitionsInfo) => void;
+      log?: Pick<WorkerLog, "write">;
+    } = {},
   ) {
-    this.notify = notify;
     this.roots = roots;
     this.videoRoot = roots.video;
     this.videoName = videoName;
@@ -132,7 +130,7 @@ export class JobWatcher {
 
   /**
    * Forget the backends built so far, so the next submit resolves them again. Called when the
-   * workspace's credentials changed under the daemon: a cached backend closed over the key it was
+   * workspace's credentials changed under the worker: a cached backend closed over the key it was
    * built with, and would keep submitting on a rotated or deleted one.
    *
    * Replaced, not cleared. A submit already past its cache miss resolves the backend across an
@@ -158,13 +156,18 @@ export class JobWatcher {
     }
   }
 
+  /** Hands the jobs this watcher still holds to the next worker; for a process about to exit. */
+  releaseLeases(): Promise<void> {
+    return this.jobManager.releaseClaimedLeases();
+  }
+
   /** Settles once no job this watcher started is still running, including ones they start. */
   async settled(): Promise<void> {
     while (this.running.size > 0) await Promise.allSettled([...this.running.values()]);
   }
 
   // The entry is released on every exit, a throw included, so a job whose drive failed is driven
-  // again by the next scan rather than skipped until the daemon restarts.
+  // again by the next scan rather than skipped until the worker restarts.
   private drive(id: string, work: () => Promise<void>): void {
     if (this.running.has(id)) return;
     this.running.set(
@@ -177,7 +180,7 @@ export class JobWatcher {
 
   // A job already terminal before this session started is never recorded — nothing here watches a
   // terminal job (only running/queued are waited on below), so a completion that landed while the
-  // daemon was down is left for the agent to read from `konte status` / `konte job list`.
+  // worker was down is left for the agent to read from `konte status` / `konte job list`.
   private async initialScan(): Promise<void> {
     try {
       const jobs = await this.jobManager.listJobs();
@@ -248,7 +251,7 @@ export class JobWatcher {
         this.debouncedScan();
       });
       // Without an error handler a watcher failure (e.g. the OS handle goes bad) throws on
-      // the emitter and takes the whole daemon down — a fault the 5s poll could otherwise
+      // the emitter and takes the whole worker down — a fault the 5s poll could otherwise
       // have ridden out. Close and re-attach on the same retry path as an initial failure.
       this.watcher.on("error", () => this.restartWatching());
     } catch {
@@ -407,7 +410,7 @@ export class JobWatcher {
 
   private async loadDefinitions(): Promise<LoadedDefinitions> {
     // The watcher is long-lived: video.tsx / reference.tsx can be edited (e.g. between `konte
-    // generate` reserving a pending job's definitionHash and this daemon submitting it). A plain
+    // generate` reserving a pending job's definitionHash and this worker submitting it). A plain
     // import() caches the module forever, so every read is a cache-busted reload. A read that
     // still comes back older than the files is caught by the fingerprint a job carries, and the
     // worker restarts rather than judge or render from it (onStaleDefinitions).
@@ -578,12 +581,12 @@ export class JobWatcher {
       // Skip the expensive definition reload+transpile unless some pending job is actually
       // actionable — evaluated from the job list alone. While a multi-GB model (or a node
       // pack) installs, every dependent sits blocked on that in-flight job, so without this
-      // gate the daemon reloads the whole project every 5s for the entire download.
+      // gate the worker reloads the whole project every 5s for the entire download.
       const jobs = await this.jobManager.listJobs();
       if (!this.hasActionablePendingJob(jobs)) return;
 
       // A submit that fails is stamped "failed" on the job itself by submitReadyPendingJobs, so
-      // the CLI reads it off disk and the daemon needs no record of its own.
+      // the CLI reads it off disk and the worker needs no record of its own.
       // Submitting under the watcher's own worker id lets its waiter take over the submit lease;
       // each job is waited on as it commits, not after the whole pass.
       const { released } = await submitReadyPendingJobs(
@@ -634,8 +637,7 @@ export class JobWatcher {
   }
 
   // One process serves every video in the workspace, so each log line names the video it came from.
-  private sendLog(level: McpLogLevel, data: object): void {
+  private sendLog(level: WorkerLogLevel, data: object): void {
     this.log?.write(level, { video: this.videoName, ...data });
-    this.notify(level, { video: this.videoName, ...data });
   }
 }

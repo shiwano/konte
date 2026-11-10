@@ -27,6 +27,7 @@ import { applyPatch, preparePatchSpend } from "../../patch-orchestrator.js";
 import { printSpendNotices, type SpendPlan } from "../../generate-orchestrator.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { errorMessage } from "../../../core/errors.js";
+import { nextAfterSpend, submitRegisteredJobs } from "../../spend-submit.js";
 
 export function registerPatchApplyCommand(parent: Command): void {
   parent
@@ -90,11 +91,13 @@ Examples:
       const applied: Array<{ variantId: string; address: string; source: string; status: string }> =
         [];
 
+      const steps: string[] = [];
       for (const patch of targets) {
         try {
           const spend = spends.get(patch)!;
           printSpendNotices(spend);
           const result = await applyPatch(patch, roots, jobManager, spend);
+          steps.push(...result.steps);
           for (const job of result.jobs) {
             applied.push({
               variantId: job.variantId,
@@ -119,6 +122,10 @@ Examples:
         }
       }
 
+      for (const f of await submitRegisteredJobs(roots, jobManager, applied, steps)) {
+        failures.push({ source: `${f.address} (${f.variantId})`, error: f.error });
+      }
+
       if (applied.length > 0) console.log("");
       for (const row of applied) {
         console.log(`  ${row.address}: ${row.status} → ${row.variantId} (patch of ${row.source})`);
@@ -127,6 +134,11 @@ Examples:
         console.log("\nFailed:");
         for (const f of failures) console.log(`  ${f.source}  ${f.error}`);
       }
+      const parts = [
+        `${applied.length} correction(s) from ${targets.length} patch(es)`,
+        failures.length > 0 ? `${failures.length} failed` : null,
+      ].filter((part) => part !== null);
+      console.log(`\n${parts.join(", ")} — ${nextAfterSpend(applied)}`);
 
       if (failures.length > 0) process.exitCode = 1;
     });

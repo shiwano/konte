@@ -87,9 +87,9 @@ describe("applyCredentials", () => {
     expect(hasEnvironmentOverride("KONTE_TEST_CRED")).toBe(false);
   });
 
-  // The MCP daemon loads credentials once at startup and then lives for the whole session, so a key
+  // The worker loads credentials once at startup and then lives as long as its wait, so a key
   // set, rotated or deleted in `konte settings` has to reach it on a later pass — otherwise the
-  // daemon keeps submitting on a key the workspace no longer has.
+  // worker keeps submitting on a key the workspace no longer has.
   it("picks up a key added after it first ran, and reports the change", async () => {
     expect(await applyCredentials(ws.root)).toBe(false);
 

@@ -1,6 +1,6 @@
 /**
  * A `downloadFile` progress callback that redraws a single stderr line. TTY-only: a piped stderr
- * (a log file, the MCP server's stream) gets nothing rather than a flood of carriage returns.
+ * (a log file, the worker's stream) gets nothing rather than a flood of carriage returns.
  * Pair every reporter with `endProgress()` once the download settles.
  */
 export function progressReporter(label: string): (received: number, total: number | null) => void {

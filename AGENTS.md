@@ -76,8 +76,8 @@ A variant is **input-stale** when an input it consumed no longer matches what th
 
 Every take is review work, bar a `#delivery` upscale, which konte accepts on completion; a **deterministic** asset has one outcome — no `reroll` / `dismiss`. A shot **composition**, an audio **stem** and the **overlay** (`<stage>:timeline#overlay`, signed off by shot accepts) are graph leaves with no job: rendered live wherever used, materialized only on accept, by address.
 
-`konte mcp serve` is a per-workspace daemon that watches every video's jobs and cascades submission; `konte job wait` runs the jobs itself when none is up. Its one tool, `status`, reports the daemon itself; nothing pushes a job outcome — `konte job wait` blocks for one.
+Jobs run in the worker a `konte job wait` elects, for as long as that wait lasts. A spend command submits the ready jobs it registers before returning; everything else, an export included, is the wait's.
 
 ### Templates
 
-Templates live under `src/cli/templates/`. The workspace sync (`syncWorkspace`, only `workspace new|setup`) overwrites managed files and renders agent settings, preserving user values and replacing konte launch paths; `HOUSE_RULES.md` is seed-only. Skills are authored under `workspace/dot.agents/skills/` (the `dot.claude/` twins are generated), subagents under `agents/<name>.md`; see `template-skills-guide`. A new DSL function or type is exported from both `src/core/dsl/index.ts` and `src/core/dsl/template-entry.ts`, the source of the generated `workspace/dot.konte/mod.ts`.
+Templates live under `src/cli/templates/`. The workspace sync (`syncWorkspace`, only `workspace new|setup`) overwrites managed files and renders agent settings, preserving user values and leading `PATH` with `.konte/bin`; `HOUSE_RULES.md` is seed-only. Skills are authored under `workspace/dot.agents/skills/` (the `dot.claude/` twins are generated), subagents under `agents/<name>.md`; see `template-skills-guide`. A new DSL function or type is exported from both `src/core/dsl/index.ts` and `src/core/dsl/template-entry.ts`, the source of the generated `workspace/dot.konte/mod.ts`.

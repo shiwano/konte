@@ -230,18 +230,12 @@ describe("downloadModelFile", () => {
     expect(rejectedClosed).toBe(true);
   });
 
-  // The job may be running in the MCP watcher, which read the credentials when it started. "The
-  // token is in the file" and "the token is in the process doing the download" are different, and the
-  // message has to name the second one or the user re-checks the file that is already correct.
-  it("points at a stale MCP environment when the server refuses the credential", async () => {
+  it("reports a refused credential as a missing token", async () => {
     handler = (_req, res) => res.writeHead(403).end("nope");
-    let message = "";
-    try {
-      await run();
-    } catch (err) {
-      message = (err as Error).message;
-    }
-    expect(message).toContain("If a konte MCP server is running, restart it.");
+    await expect(run()).rejects.toMatchObject({
+      code: "MISSING_TOKEN",
+      message: expect.stringContaining("was denied (403)"),
+    });
   });
 
   it("refuses a partial response to a request for the whole file", async () => {

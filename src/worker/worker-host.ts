@@ -2,38 +2,28 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { resolveTranspilerCachePath, TRANSPILER_CACHE_ENV } from "../cli/transpiler-cache.js";
 import { environmentWithoutCredentials } from "../core/credentials.js";
 import {
-  claimDaemon,
-  DAEMON_INSTANCE_ID,
-  daemonIsAlive,
-  type DaemonRecord,
-  heartbeatDaemon,
-  unregisterDaemonSync,
-} from "../core/daemon-registry.js";
+  claimWorker,
+  WORKER_INSTANCE_ID,
+  workerIsAlive,
+  type WorkerRecord,
+  heartbeatWorker,
+  unregisterWorkerSync,
+} from "../core/worker-registry.js";
 import { selfCommand } from "../core/self-command.js";
-import type { McpLog } from "./mcp-log.js";
+import type { WorkerLog } from "./worker-log.js";
 import {
   WORKER_INSTANCE_ENV,
   WORKER_RESTART_EXIT_CODE,
   WORKER_STOP_GRACE_MS,
-  type WorkerMessage,
 } from "./worker-protocol.js";
 
 const WORKER_CHECK_MS = 5_000;
 const IDENTITY_CHECK_MS = 60_000;
 const STDERR_TAIL_BYTES = 4_096;
 
-type WorkerLogMessage = Extract<WorkerMessage, { type: "log" }>;
-
-interface WorkerHostStatus {
-  workerPid: number | null;
-  workerInstanceId: string | null;
-  videos: string[];
-}
-
 interface WorkerHost {
   /** Settles once the host has stopped: 0 on stop(), else the exit code of the worker it gave up on. */
   readonly exited: Promise<number>;
-  status(): Promise<WorkerHostStatus>;
   /** The end of what the worker printed on stderr, when captured. */
   stderrTail(): string;
   /** Stops the worker, letting its in-flight submits commit, then releases the registration. */
@@ -41,11 +31,7 @@ interface WorkerHost {
 }
 
 interface WorkerHostOptions {
-  log: McpLog;
-  notify?: (message: WorkerLogMessage) => void;
-  // A worker exiting other than to restart stops the host; without it, the host releases the
-  // registration and claims it again on the next check.
-  stopOnWorkerFailure?: boolean;
+  log: WorkerLog;
   captureStderr?: boolean;
   workerCommand?: readonly string[];
   checkIntervalMs?: number;
@@ -68,12 +54,10 @@ function signalWorkerGroup(proc: ChildProcess, signal: NodeJS.Signals): void {
  */
 export function startWorkerHost(workspaceRoot: string, opts: WorkerHostOptions): WorkerHost {
   const { log } = opts;
-  const notify = opts.notify ?? (() => {});
 
-  let worker: DaemonRecord | null = null;
+  let worker: WorkerRecord | null = null;
   let child: ChildProcess | null = null;
   let childExited: Promise<void> = Promise.resolve();
-  let videos: string[] = [];
   let tail = "";
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   let stopping: Promise<void> | null = null;
@@ -81,20 +65,19 @@ export function startWorkerHost(workspaceRoot: string, opts: WorkerHostOptions):
   let resolveExited: (code: number) => void = () => {};
   const exited = new Promise<number>((resolve) => (resolveExited = resolve));
 
-  const onProcessExit = (): void => unregisterDaemonSync(workspaceRoot);
+  const onProcessExit = (): void => unregisterWorkerSync(workspaceRoot);
   process.on("exit", onProcessExit);
 
-  const leading = (): boolean => worker?.instanceId === DAEMON_INSTANCE_ID;
+  const leading = (): boolean => worker?.instanceId === WORKER_INSTANCE_ID;
 
   const relinquish = (): void => {
     worker = null;
-    videos = [];
     clearInterval(heartbeatTimer);
     heartbeatTimer = undefined;
   };
 
   const spawnWorker = (): void => {
-    const workerArgs = ["--cwd", workspaceRoot, "mcp", "worker"];
+    const workerArgs = ["--cwd", workspaceRoot, "job", "worker"];
     const [cmd, ...args] = opts.workerCommand ?? selfCommand(workerArgs);
     const proc = spawn(cmd!, args, {
       cwd: workspaceRoot,
@@ -103,7 +86,7 @@ export function startWorkerHost(workspaceRoot: string, opts: WorkerHostOptions):
       env: {
         ...environmentWithoutCredentials(),
         [TRANSPILER_CACHE_ENV]: resolveTranspilerCachePath(workerArgs),
-        [WORKER_INSTANCE_ENV]: DAEMON_INSTANCE_ID,
+        [WORKER_INSTANCE_ENV]: WORKER_INSTANCE_ID,
       },
       stdio: ["ignore", "ignore", opts.captureStderr ? "pipe" : "inherit", "ipc"],
       detached: process.platform !== "win32",
@@ -112,11 +95,6 @@ export function startWorkerHost(workspaceRoot: string, opts: WorkerHostOptions):
     child = proc;
     proc.stderr?.on("data", (chunk: Buffer) => {
       tail = (tail + chunk.toString("utf-8")).slice(-STDERR_TAIL_BYTES);
-    });
-    proc.on("message", (message: WorkerMessage) => {
-      if (message.type !== "videos") notify(message);
-      // A worker that exited or no longer leads may still have one queued.
-      else if (child === proc && leading()) videos = message.videos;
     });
     childExited = new Promise((resolve) => {
       let done = false;
@@ -141,19 +119,13 @@ export function startWorkerHost(workspaceRoot: string, opts: WorkerHostOptions):
   const onWorkerExit = (proc: ChildProcess, code: number): void => {
     if (child !== proc) return;
     child = null;
-    videos = [];
     if (stopping || !leading()) return;
     if (code === WORKER_RESTART_EXIT_CODE) {
       spawnWorker();
       return;
     }
     log.write("error", { event: "worker_exited", code });
-    if (opts.stopOnWorkerFailure) {
-      void shutdown(code);
-      return;
-    }
-    relinquish();
-    unregisterDaemonSync(workspaceRoot);
+    void shutdown(code);
   };
 
   // Settles once the worker has let its in-flight submits commit and exited.
@@ -168,9 +140,7 @@ export function startWorkerHost(workspaceRoot: string, opts: WorkerHostOptions):
 
   const loseRegistration = (): void => {
     if (stopping || !leading()) return;
-    const data = { event: "worker_registration_lost" };
-    log.write("info", data);
-    notify({ type: "log", level: "info", data: { pid: process.pid, ...data } });
+    log.write("info", { event: "worker_registration_lost" });
     relinquish();
     void stopWorker();
   };
@@ -181,23 +151,23 @@ export function startWorkerHost(workspaceRoot: string, opts: WorkerHostOptions):
       if (
         worker !== null &&
         Date.now() < nextIdentityCheck &&
-        (await daemonIsAlive(workspaceRoot, worker))
+        (await workerIsAlive(workspaceRoot, worker))
       )
         return;
-      const next = await claimDaemon(workspaceRoot);
+      const next = await claimWorker(workspaceRoot);
       nextIdentityCheck = Date.now() + IDENTITY_CHECK_MS;
       if (stopping) return;
       if (next.instanceId !== worker?.instanceId) {
         worker = next;
         log.write("info", {
-          event: next.instanceId === DAEMON_INSTANCE_ID ? "worker_started" : "worker_standby",
+          event: next.instanceId === WORKER_INSTANCE_ID ? "worker_started" : "worker_standby",
           workerPid: next.pid,
           workerInstanceId: next.instanceId,
         });
       }
-      if (next.instanceId !== DAEMON_INSTANCE_ID) return;
+      if (next.instanceId !== WORKER_INSTANCE_ID) return;
       heartbeatTimer = setInterval(() => {
-        void heartbeatDaemon(workspaceRoot)
+        void heartbeatWorker(workspaceRoot)
           .then((owned) => {
             if (!owned) loseRegistration();
           })
@@ -209,7 +179,7 @@ export function startWorkerHost(workspaceRoot: string, opts: WorkerHostOptions):
     } catch (error) {
       if (leading() && !stopping) {
         relinquish();
-        unregisterDaemonSync(workspaceRoot);
+        unregisterWorkerSync(workspaceRoot);
       }
       worker = null;
       throw error;
@@ -240,7 +210,7 @@ export function startWorkerHost(workspaceRoot: string, opts: WorkerHostOptions):
       await check;
       await stopWorker();
       relinquish();
-      unregisterDaemonSync(workspaceRoot);
+      unregisterWorkerSync(workspaceRoot);
       process.off("exit", onProcessExit);
       resolveExited(code);
     })();
@@ -249,15 +219,6 @@ export function startWorkerHost(workspaceRoot: string, opts: WorkerHostOptions):
 
   return {
     exited,
-    async status() {
-      const current = worker;
-      const alive = current !== null && (await daemonIsAlive(workspaceRoot, current));
-      return {
-        workerPid: alive ? current.pid : null,
-        workerInstanceId: alive ? current.instanceId : null,
-        videos,
-      };
-    },
     stderrTail: () => tail.trim(),
     stop: () => shutdown(0),
   };

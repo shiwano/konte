@@ -37,7 +37,7 @@ const EXPORT_NEXT_ACTIONS = [{ command: "konte job wait" }, { command: "konte pr
 // Register an `export` job that renders the video profile to a delivered MP4. The render
 // runs asynchronously through the job pipeline (like `generate`): with delivery config,
 // each video layer's upscale is submitted first and the export job depends on them, so the
-// MCP watcher (or a bare `konte job wait`) runs the upscales then the render. Re-running reuses
+// worker of the next `konte job wait` runs the upscales then the render. Re-running reuses
 // fresh upscales (staleness cache) and registers a fresh render.
 async function registerVideoExport(opts: {
   roots: VideoRoots;

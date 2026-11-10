@@ -2,96 +2,96 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { McpLog, mcpLogEnd, mcpLogPath, readMcpLogSince } from "../mcp-log.js";
+import { WorkerLog, workerLogEnd, workerLogPath, readWorkerLogSince } from "../worker-log.js";
 
 let root: string;
 
 beforeEach(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "konte-mcp-log-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "konte-worker-log-"));
 });
 
 afterEach(async () => {
   await fs.rm(root, { recursive: true, force: true });
 });
 
-it("tags each daemon's lines with its own instance id in one shared file", async () => {
-  const a = new McpLog(root);
-  const b = new McpLog(root);
-  a.write("info", { event: "daemon_started" });
-  b.write("info", { event: "daemon_started" });
+it("tags each worker's lines with its own instance id in one shared file", async () => {
+  const a = new WorkerLog(root);
+  const b = new WorkerLog(root);
+  a.write("info", { event: "runner_started" });
+  b.write("info", { event: "runner_started" });
   await Promise.all([a.flush(), b.flush()]);
 
-  const lines = (await fs.readFile(mcpLogPath(root), "utf-8")).trim().split("\n");
+  const lines = (await fs.readFile(workerLogPath(root), "utf-8")).trim().split("\n");
   expect(lines).toHaveLength(2);
   const ids = lines.map((line) => line.split(" ")[1]);
   expect(new Set(ids).size).toBe(2);
-  expect(lines[0]).toMatch(/ pid=\d+ info \{"event":"daemon_started"\}$/);
+  expect(lines[0]).toMatch(/ pid=\d+ info \{"event":"runner_started"\}$/);
 });
 
 it("leaves debug lines out of the file", async () => {
-  const log = new McpLog(root);
+  const log = new WorkerLog(root);
   log.write("debug", { event: "job_progress" });
   log.write("info", { event: "job_completed" });
   await log.flush();
 
-  const text = await fs.readFile(mcpLogPath(root), "utf-8");
+  const text = await fs.readFile(workerLogPath(root), "utf-8");
   expect(text).toContain("job_completed");
   expect(text).not.toContain("job_progress");
 });
 
 it("strips a URL's query before it reaches disk", async () => {
-  const log = new McpLog(root);
+  const log = new WorkerLog(root);
   log.write("error", { error: "fetch https://cdn.example/out.png?token=secret failed" });
   await log.flush();
 
-  const text = await fs.readFile(mcpLogPath(root), "utf-8");
+  const text = await fs.readFile(workerLogPath(root), "utf-8");
   expect(text).toContain("https://cdn.example/out.png failed");
   expect(text).not.toContain("secret");
 });
 
 it("moves a full log aside before appending", async () => {
-  const log = new McpLog(root, { maxBytes: 10 });
+  const log = new WorkerLog(root, { maxBytes: 10 });
   log.write("info", { event: "first" });
   log.write("info", { event: "second" });
   await log.flush();
 
-  expect(await fs.readFile(`${mcpLogPath(root)}.1`, "utf-8")).toContain("first");
-  const current = await fs.readFile(mcpLogPath(root), "utf-8");
+  expect(await fs.readFile(`${workerLogPath(root)}.1`, "utf-8")).toContain("first");
+  const current = await fs.readFile(workerLogPath(root), "utf-8");
   expect(current).toContain("second");
   expect(current).not.toContain("first");
 });
 
-it("rotates once when several daemons find the log full together", async () => {
-  await fs.mkdir(path.dirname(mcpLogPath(root)), { recursive: true });
-  await fs.writeFile(mcpLogPath(root), "ORIGINAL".repeat(1000));
-  const logs = Array.from({ length: 8 }, () => new McpLog(root, { maxBytes: 7000 }));
+it("rotates once when several workers find the log full together", async () => {
+  await fs.mkdir(path.dirname(workerLogPath(root)), { recursive: true });
+  await fs.writeFile(workerLogPath(root), "ORIGINAL".repeat(1000));
+  const logs = Array.from({ length: 8 }, () => new WorkerLog(root, { maxBytes: 7000 }));
   for (const log of logs) log.write("info", { event: "next" });
   await Promise.all(logs.map((log) => log.flush()));
 
-  expect(await fs.readFile(`${mcpLogPath(root)}.1`, "utf-8")).toContain("ORIGINAL");
-  const current = await fs.readFile(mcpLogPath(root), "utf-8");
+  expect(await fs.readFile(`${workerLogPath(root)}.1`, "utf-8")).toContain("ORIGINAL");
+  const current = await fs.readFile(workerLogPath(root), "utf-8");
   expect(current.trim().split("\n")).toHaveLength(8);
 });
 
 it("reads the whole lines written since an offset, and starts over after a rotation", async () => {
-  const log = new McpLog(root);
-  log.write("info", { event: "daemon_started" });
+  const log = new WorkerLog(root);
+  log.write("info", { event: "runner_started" });
   await log.flush();
-  const start = await mcpLogEnd(root);
+  const start = await workerLogEnd(root);
 
   log.write("warning", { video: "v1", event: "job_watch_failed", error: "boom" });
   await log.flush();
-  await fs.appendFile(mcpLogPath(root), "[2026-01-01T00:00:00.000Z] abc pid=1 info {");
-  const first = await readMcpLogSince(root, start);
+  await fs.appendFile(workerLogPath(root), "[2026-01-01T00:00:00.000Z] abc pid=1 info {");
+  const first = await readWorkerLogSince(root, start);
   expect(first.entries).toEqual([
     { level: "warning", data: { video: "v1", event: "job_watch_failed", error: "boom" } },
   ]);
-  expect((await readMcpLogSince(root, first.offset)).entries).toEqual([]);
+  expect((await readWorkerLogSince(root, first.offset)).entries).toEqual([]);
 
-  await fs.writeFile(mcpLogPath(root), "");
+  await fs.writeFile(workerLogPath(root), "");
   log.write("error", { event: "x" });
   await log.flush();
-  expect((await readMcpLogSince(root, first.offset)).entries).toEqual([
+  expect((await readWorkerLogSince(root, first.offset)).entries).toEqual([
     { level: "error", data: { event: "x" } },
   ]);
 });

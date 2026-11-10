@@ -6,9 +6,9 @@ import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // The reload has to be exercised by the Bun runtime itself: vitest runs modules through its own
-// runner, whose cache is not the one a daemon evicts. The child is the `bun` on PATH — the same one
+// runner, whose cache is not the one a worker evicts. The child is the `bun` on PATH — the same one
 // `bun run build` embeds — so a Bun upgrade that changes how modules are cached fails here, not in
-// a daemon that quietly keeps serving the definitions it loaded first.
+// a worker that quietly keeps serving the definitions it loaded first.
 const loaderPath = new URL("../loader.ts", import.meta.url).pathname;
 
 let root: string;

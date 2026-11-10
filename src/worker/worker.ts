@@ -1,34 +1,25 @@
 import { KonteError } from "../core/errors.js";
 import { drainSubmissions } from "../core/submission-drain.js";
-import { McpLog } from "./mcp-log.js";
+import { WorkerLog } from "./worker-log.js";
 import { VideoRegistry } from "./video-registry.js";
 import {
   SUBMIT_DRAIN_MS,
   WORKER_INSTANCE_ENV,
   WORKER_RESTART_EXIT_CODE,
-  type WorkerMessage,
 } from "./worker-protocol.js";
 
 /**
  * Runs every video's jobs for the process that spawned this one, over its IPC channel. Stops
  * when the channel closes or on SIGINT/SIGTERM, letting a submit already sent commit first.
  */
-export async function runMcpWorker(workspaceRoot: string): Promise<void> {
+export async function runWorker(workspaceRoot: string): Promise<void> {
   if (!process.send) {
     throw new KonteError(
-      "MCP_WORKER_UNSUPERVISED",
-      "`konte mcp worker` runs only under `konte mcp serve` or `konte job wait`",
+      "WORKER_UNSUPERVISED",
+      "`konte job worker` runs only under `konte job wait`",
     );
   }
-  const send = process.send.bind(process);
-  const post = (message: WorkerMessage): void => {
-    try {
-      send(message);
-    } catch {
-      // The daemon is gone; the disconnect stops this process.
-    }
-  };
-  const log = new McpLog(workspaceRoot, { instanceId: process.env[WORKER_INSTANCE_ENV] });
+  const log = new WorkerLog(workspaceRoot, { instanceId: process.env[WORKER_INSTANCE_ENV] });
 
   // The worker leads a process group of its own (worker-host.ts); what it started — an ffmpeg
   // mid-render — ends with it, whether or not its host is still there.
@@ -49,18 +40,15 @@ export async function runMcpWorker(workspaceRoot: string): Promise<void> {
     exiting = true;
     void registry.stop();
     void drainSubmissions(SUBMIT_DRAIN_MS)
+      .then(() => registry.releaseLeases())
       .then(() => log.flush())
       .finally(() => leave(code));
   };
 
   const registry = new VideoRegistry(workspaceRoot, {
     log,
-    notify: (level, data) => post({ type: "log", level, data }),
-    onVideos: (videos) => post({ type: "videos", videos }),
     onStaleDefinitions: (video, info) => {
-      const data = { video, event: "stale_definitions_restart", ...info };
-      log.write("info", data);
-      post({ type: "log", level: "info", data: { pid: process.pid, ...data } });
+      log.write("info", { video, event: "stale_definitions_restart", ...info });
       exit(WORKER_RESTART_EXIT_CODE);
     },
   });

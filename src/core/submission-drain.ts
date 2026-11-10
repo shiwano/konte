@@ -1,4 +1,4 @@
-// A daemon that is stopping sends nothing new, and lets a submit already sent commit its backend
+// A worker that is stopping sends nothing new, and lets a submit already sent commit its backend
 // job id: one cut off between the two is SUBMISSION_UNCONFIRMED, its result unrecoverable.
 let stopped = false;
 const inFlight = new Set<Promise<unknown>>();

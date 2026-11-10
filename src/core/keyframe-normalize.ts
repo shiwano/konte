@@ -138,7 +138,7 @@ export async function normalizeKeyframesIfSparse(
 
   const gop = Math.max(1, Math.round(probe?.fps ?? 30));
 
-  // Unique per process so concurrent normalizers (MCP watcher and `konte job wait`
+  // Unique per process so concurrent normalizers (two workers
   // both waiting the same job) never write the same temp or delete each other's,
   // mirroring writeFileAtomic's temp naming.
   const ext = path.extname(absPath) || ".mp4";

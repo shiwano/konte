@@ -83,7 +83,7 @@
               {
                 "group": [
                   "**/cli/**",
-                  "**/mcp/**",
+                  "**/worker/**",
                   "**/backends/**",
                   "**/comfyui/**",
                   "**/comfy-api/**",
@@ -140,10 +140,10 @@
               {
                 "group": [
                   "**/cli/**",
-                  "**/mcp/**",
+                  "**/worker/**",
                   "**/pages/**"
                 ],
-                "message": "A backend does not import the CLI, the daemon or a page: move what it needs into src/core."
+                "message": "A backend does not import the CLI, the worker or a page: move what it needs into src/core."
               },
               {
                 "group": [
@@ -271,7 +271,7 @@
               {
                 "group": [
                   "**/cli/**",
-                  "**/mcp/**",
+                  "**/worker/**",
                   "**/backends/**",
                   "**/comfyui/**",
                   "**/comfy-api/**",
@@ -300,7 +300,7 @@
               {
                 "group": [
                   "**/cli/**",
-                  "**/mcp/**",
+                  "**/worker/**",
                   "**/backends/**",
                   "**/comfyui/**",
                   "**/comfy-api/**",
@@ -358,7 +358,7 @@
               {
                 "group": [
                   "**/cli/**",
-                  "**/mcp/**",
+                  "**/worker/**",
                   "**/backends/**",
                   "**/comfyui/**",
                   "**/comfy-api/**",

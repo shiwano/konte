@@ -4,7 +4,7 @@ import { ComfyModelDeclarationSchema, ComfyNodeDeclarationSchema } from "./defin
 
 // Job and variant ids become on-disk filenames (`.konte/logs/<variantId>.log`)
 // and a variant-dir path segment, so a crafted job record in a cloned repo could
-// traverse outside the project (the MCP watcher processes these unattended).
+// traverse outside the project (the worker processes these unattended).
 // Constrain them to a single path-safe segment.
 const JobIdSchema = z
   .string()
@@ -108,7 +108,7 @@ const JobRecordBaseSchema = z.object({
   updatedAt: z.string(),
   completedAt: z.string().nullable(),
   // Stamped when a command printed this terminal outcome (`job wait`, `job cancel`, a submit that
-  // failed in the command that made it). A job the MCP daemon finalized stays null until a
+  // failed in the command that made it). A job the worker finalized stays null until a
   // `job wait` reports it. Cleared when the job leaves a terminal status.
   reportedAt: z.string().nullable().default(null),
   // Set (ISO timestamp) while a non-terminal job's status checks have been failing

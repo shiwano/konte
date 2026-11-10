@@ -202,10 +202,21 @@ describe("job list", () => {
     expect(await listRows(["--all"])).toHaveLength(3);
   });
 
-  it("marks a running job no worker is watching, on both output paths", async () => {
+  it("reads a submitted job no wait has claimed as submitted, without a warning", async () => {
     const running = await seedJob("running");
-    // Submitted (a backend id is committed) but unleased — an unwatched job, not a stranded submit.
     await jobManager.updateJob(running, { backendJobId: "prompt-1" });
+
+    const { stdout: text } = await run(["job", "list"], projectDir);
+    expect(text).toMatch(/ submitted /);
+    expect(text).not.toContain("⚠");
+  });
+
+  it("marks a running job whose worker stopped renewing its lease", async () => {
+    const running = await seedJob("running");
+    await jobManager.updateJob(running, {
+      backendJobId: "prompt-1",
+      lease: { owner: "w-dead", expiresAt: new Date(Date.now() - 60_000).toISOString() },
+    });
 
     const { stdout: text } = await run(["job", "list"], projectDir);
     expect(text).toContain("running ⚠ unwatched");

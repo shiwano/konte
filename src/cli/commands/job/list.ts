@@ -1,7 +1,11 @@
 import type { Command } from "commander";
 import { jobElapsed } from "../../../core/format-duration.js";
 import { formatRelativeTime } from "../../../core/format-timestamp.js";
-import { comfyQueueAhead, jobStatusFlags } from "../../../core/job-diagnosis.js";
+import {
+  comfyQueueAhead,
+  isSubmittedUnclaimed,
+  jobStatusFlags,
+} from "../../../core/job-diagnosis.js";
 import { JobManager } from "../../../core/job-manager.js";
 import { indexJobStats, statsForJob } from "../../../core/job-stats.js";
 import { ERROR_GLIMPSE_WIDTH, truncateSingleLine } from "../../../core/truncate.js";
@@ -49,9 +53,11 @@ export function registerJobListCommand(program: Command): void {
       "\nLists jobs newest-first. By default only active jobs (pending, queued, running)\n" +
         "and failures are shown; completed and cancelled jobs are hidden. Pass --verbose to\n" +
         "include them, or --status <status> to show exactly one status.\n" +
+        "\nA running job reads `submitted` while it is with its backend and no `konte job wait`\n" +
+        "has claimed it yet.\n" +
         "\nA ⚠ beside a status marks a job that is not progressing: unconfirmed (the backend\n" +
-        "stopped answering), unwatched (no worker holds its run lease), stranded (its submit\n" +
-        "died mid-transaction). Run `konte job show <id>` for the full diagnosis.\n" +
+        "stopped answering), unwatched (its worker stopped renewing its run lease), stranded\n" +
+        "(its submit died mid-transaction). Run `konte job show <id>` for the full diagnosis.\n" +
         "\nPROGRESS reports a comfy job's queue wait as `N ahead` (or `next`) instead of a percent.\n" +
         "\nExamples:\n" +
         "  konte job list                     Active + failed jobs (completed/cancelled hidden)\n" +
@@ -123,12 +129,13 @@ export function registerJobListCommand(program: Command): void {
           // died mid-transaction — reads as plain "running" here, and only `job show` or
           // `doctor` knows otherwise.
           const flags = flagsOf(job);
+          const status = isSubmittedUnclaimed(job) ? "submitted" : job.status;
           return {
             ID: job.id,
             KIND: job.kind,
             TARGET: jobTarget(job),
             BACKEND: job.backendKind,
-            STATUS: flags.length > 0 ? `${job.status} ⚠ ${flags.join(", ")}` : job.status,
+            STATUS: flags.length > 0 ? `${status} ⚠ ${flags.join(", ")}` : status,
             PROGRESS: progressCell(job),
             ELAPSED: jobElapsed(job, now),
             CREATED: formatRelativeTime(job.createdAt),

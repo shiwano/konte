@@ -152,6 +152,14 @@ describe("diagnoseJob", () => {
     expect(has(found, "4:00:00 ago")).toBe(true);
   });
 
+  it("calls a submitted job no wait has claimed yet submitted, not unattended", () => {
+    const job = generationJob({ lease: null });
+    const found = diagnoseJob({ job, now: NOW });
+    expect(has(found, "`konte job wait` collects the result")).toBe(true);
+    expect(has(found, "No worker holds")).toBe(false);
+    expect(jobStatusFlags({ job, now: NOW })).toEqual([]);
+  });
+
   // A stranded submit is a lapsed lease too; it must not also produce the vaguer line.
   it("reports a stranded submit instead of a bare unattended lease", () => {
     const job = generationJob({ backendJobId: null, lease: null });

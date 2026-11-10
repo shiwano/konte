@@ -249,13 +249,8 @@ describe("workspace setup", () => {
     await fs.writeFile(path.join(workspace, "HOUSE_RULES.md"), "my rules");
     await fs.writeFile(path.join(workspace, ".gitignore"), "my-cache/\n");
     await fs.writeFile(
-      path.join(workspace, ".mcp.json"),
-      JSON.stringify({
-        mcpServers: {
-          other: { command: "keep" },
-          konte: { command: "/old/konte", env: { TOKEN: "${TOKEN}" } },
-        },
-      }),
+      path.join(workspace, ".codex/config.toml"),
+      '[mcp_servers.other]\ncommand = "keep"\n[mcp_servers.other.env]\nTOKEN = "${TOKEN}"\n',
     );
     await fs.rm(path.join(workspace, ".konte"), { recursive: true });
     await fs.writeFile(path.join(workspace, ".claude/settings.json"), "invalid json");
@@ -270,10 +265,14 @@ describe("workspace setup", () => {
     expect(await fs.readFile(path.join(moved, "HOUSE_RULES.md"), "utf8")).toBe("my rules");
     expect(await fs.readFile(path.join(moved, "adapters/custom.txt"), "utf8")).toBe("my adapter");
     await expect(fs.access(path.join(moved, "adapters/fal/seedance-2-5.ts"))).rejects.toThrow();
-    const mcp = JSON.parse(await fs.readFile(path.join(moved, ".mcp.json"), "utf8"));
-    expect(mcp.mcpServers.other.command).toBe("keep");
-    expect(mcp.mcpServers.konte.command).toBe(path.join(moved, ".konte/bin/konte"));
-    expect(mcp.mcpServers.konte.env.TOKEN).toBe("${TOKEN}");
+    const codex = Bun.TOML.parse(
+      await fs.readFile(path.join(moved, ".codex/config.toml"), "utf8"),
+    ) as any;
+    expect(codex.mcp_servers.other.command).toBe("keep");
+    expect(codex.mcp_servers.other.env.TOKEN).toBe("${TOKEN}");
+    expect(codex.shell_environment_policy.set.PATH.split(path.delimiter)[0]).toBe(
+      path.join(moved, ".konte/bin"),
+    );
     const ignore = await fs.readFile(path.join(moved, ".gitignore"), "utf8");
     expect(ignore).toContain("my-cache/\n");
     expect(ignore).toContain(".codex/config.toml\n");
@@ -292,7 +291,8 @@ describe("workspace setup", () => {
   it("writes nothing when an existing agent setting cannot be merged", async () => {
     const root = path.join(ctx.dir, "broken");
     await fs.mkdir(root);
-    await fs.writeFile(path.join(root, ".mcp.json"), "{ invalid");
+    await fs.mkdir(path.join(root, ".codex"));
+    await fs.writeFile(path.join(root, ".codex/config.toml"), "[ invalid");
     await expect(run(["workspace", "new", "-y"], root)).rejects.toMatchObject({
       stderr: expect.stringContaining("INVALID_AGENT_SETTINGS"),
     });

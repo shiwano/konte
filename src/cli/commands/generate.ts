@@ -51,6 +51,7 @@ import {
   registerJobs,
   type VariantReservationRequest,
 } from "../generate-orchestrator.js";
+import { formatSubmitFailure, submitRegisteredJobs } from "../spend-submit.js";
 import { printRemixedBoardStems } from "../generation-selection.js";
 import {
   type SkipReason,
@@ -268,7 +269,7 @@ export function registerGenerateCommand(program: Command): void {
         }
       };
       // Re-read a job the index already holds — a model/node prereq can complete (via the
-      // daemon) while a long registration runs, and the pending summary must not report a
+      // worker) while a long registration runs, and the pending summary must not report a
       // satisfied prereq as still waiting. A job that is gone keeps its stale record.
       const refreshKnownJob = async (jobId: string) => {
         try {
@@ -450,6 +451,7 @@ export function registerGenerateCommand(program: Command): void {
         variantId: string;
         status: string;
       }> = [];
+      const patchSteps: string[] = [];
       const patchFailures: Array<{ source: string; error: string }> = [];
       // Only broken patches belonging to THIS stage are this run's failures. A broken patch
       // elsewhere is real, and `status` reports it, but it must not make `generate reference`
@@ -473,6 +475,7 @@ export function registerGenerateCommand(program: Command): void {
             targeted: true,
           });
           const result = await applyPatch(patch, roots, jobManager, patchSpend);
+          patchSteps.push(...result.steps);
           for (const job of result.jobs) {
             patchApplications.push({
               source: patch.sourceVariantId,
@@ -494,6 +497,13 @@ export function registerGenerateCommand(program: Command): void {
           });
         }
       }
+
+      const submitFailures = await submitRegisteredJobs(
+        roots,
+        jobManager,
+        [...levelResults.flatMap((lr) => lr.assets.flatMap((a) => a.jobs)), ...patchApplications],
+        patchSteps,
+      );
 
       // Heads-up: a same-stage upstream this run consumes has an undecided take (e.g. a reroll)
       // that resolution won't use — it binds the accepted variant, so this run builds on the
@@ -531,7 +541,7 @@ export function registerGenerateCommand(program: Command): void {
           assetCounts[ar.status]++;
           if (ar.skipReason) skipCounts[ar.skipReason]++;
           for (const j of ar.jobs) {
-            if (j.status === "running") {
+            if (j.status === "running" || j.status === "completed") {
               submittedVariantIds.push(j.variantId);
             } else if (j.status === "pending") {
               const reason = pendingReasons.get(j.variantId) ?? {
@@ -553,19 +563,16 @@ export function registerGenerateCommand(program: Command): void {
       const waitingCount = pendingDetails.length - submittableCount;
 
       // "started" merges the two ways a take gets under way: submitted to the backend by this
-      // run, or registered with its deps already met, which the watcher submits on the job
-      // file's very next event. Which path a take takes turns on whether its asset declares deps
-      // at all — not on progress — so splitting the two made the same healthy run read
-      // differently stage to stage. Only an unmet dep ("waiting") is a distinct state.
+      // run, or registered with its deps already met, which the next wait submits. Only an unmet
+      // dep ("waiting") is a distinct state.
       const summary = {
         started: submittedVariantIds.length + submittableCount,
         waiting: waitingCount,
         synced: assetCounts.synced,
-        failed: assetCounts.failed,
+        failed: assetCounts.failed + submitFailures.length,
         skipped: assetCounts.skipped,
       };
 
-      // Generation is async: this command returns as soon as the jobs are registered.
       // A take of the song synced as a file above lands without a job, so its reading is queued here.
       const songReadings = await queueSongAnalyses({
         videoRoot,
@@ -583,11 +590,14 @@ export function registerGenerateCommand(program: Command): void {
       if (staleNotice) console.warn(`\n${staleNotice}`);
       // Started and skipped work folds into the Summary counts below; only what the caller
       // may have to act on needs naming, so surface those (capped).
-      const failed = levelResults.flatMap((lr) =>
-        lr.assets
-          .filter((a) => a.status === "failed")
-          .map((a) => `${a.address}  ${a.error ?? "failed"}`),
-      );
+      const failed = [
+        ...levelResults.flatMap((lr) =>
+          lr.assets
+            .filter((a) => a.status === "failed")
+            .map((a) => `${a.address}  ${a.error ?? "failed"}`),
+        ),
+        ...submitFailures.map(formatSubmitFailure),
+      ];
       if (failed.length > 0) {
         console.log("\nFailed:");
         printCapped(failed, (line) => line, { verbose: opts.verbose });

@@ -23,11 +23,6 @@ const HEADER_TIMEOUT_MS = 60_000;
 
 const HF_HOSTS = new Set(["huggingface.co", "hf.co"]);
 
-// The download runs in whichever process owns the job — the MCP watcher, when one is running — and
-// that process read the workspace's credentials once at startup. A token added or rotated since
-// then is not in its environment, so the file looks right and the request is still refused.
-const STALE_ENV_HINT = "If a konte MCP server is running, restart it.";
-
 export type ModelDownloadProgress = {
   received: number;
   // null when the server sends no length.
@@ -301,8 +296,7 @@ async function runDownload(ctx: {
     if (response.status === 401 || response.status === 403) {
       return new KonteError(
         "MISSING_TOKEN",
-        `Download of ${where} was denied (${response.status}). ${authHint(resolvedUrl)} ` +
-          STALE_ENV_HINT,
+        `Download of ${where} was denied (${response.status}). ${authHint(resolvedUrl)}`,
       );
     }
     return new KonteError(

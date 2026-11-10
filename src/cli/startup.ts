@@ -7,7 +7,7 @@ import { setWorkspaceRoot } from "../core/workspace-context.js";
 import { requireVideoRoots, setRoots } from "./context.js";
 import type { Scope } from "./scope.js";
 
-// What every command does before its action, whether program.ts or program-mcp.ts runs it.
+// What every command does before its action, whether program.ts or program-worker.ts runs it.
 
 export async function applyCwdOption(cwd: string | undefined): Promise<void> {
   if (!cwd) return;

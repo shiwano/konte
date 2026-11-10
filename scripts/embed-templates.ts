@@ -40,7 +40,6 @@ const MANAGED_EXACTS = [
   "tsconfig.json",
 ];
 const AGENT_SETTINGS_KEYS = [
-  ".mcp.json",
   ".claude/settings.json",
   ".codex/config.toml",
   ".codex/rules/konte.rules",

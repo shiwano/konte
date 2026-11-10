@@ -76,7 +76,7 @@ async function finish(root: string, message: string): Promise<void> {
     {
       command: null,
       label: `restart your coding agent in ${root}`,
-      detail: "Agent settings and MCP load at startup",
+      detail: "Agent settings load at startup",
     },
     { command: null, label: "run the konte-checkin skill" },
   ]);

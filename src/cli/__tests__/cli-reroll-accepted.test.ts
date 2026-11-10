@@ -108,7 +108,7 @@ describe("reroll command", () => {
     expect(sm.getAcceptedVariant("reference:derived")).toBe(derived);
   });
 
-  // A take that fails in the daemon (here: ffmpeg choking on a non-image "bad.png") is surfaced by
+  // A take that fails in the worker (here: ffmpeg choking on a non-image "bad.png") is surfaced by
   // the wait with a non-zero exit.
   it("reports a failed reroll take on the wait", async () => {
     const projectDir = await initRerollProject();

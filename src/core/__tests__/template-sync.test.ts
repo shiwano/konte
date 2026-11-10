@@ -318,8 +318,10 @@ describe("syncWorkspace agent settings", () => {
     await fs.rename(tmpDir, moved);
     try {
       await syncWorkspace(moved);
-      const mcp = JSON.parse(await readFileAt(moved, ".mcp.json"));
-      expect(mcp.mcpServers.konte.args).toEqual(["--cwd", moved, "mcp", "serve"]);
+      const codex = Bun.TOML.parse(await readFileAt(moved, ".codex/config.toml")) as any;
+      expect(codex.shell_environment_policy.set.PATH.split(path.delimiter)[0]).toBe(
+        path.join(moved, ".konte/bin"),
+      );
     } finally {
       await fs.rename(moved, tmpDir);
     }
@@ -327,9 +329,9 @@ describe("syncWorkspace agent settings", () => {
 
   it("restores a missing agent setting even when the lock matches", async () => {
     await synced(tmpDir);
-    await fs.rm(path.join(tmpDir, ".mcp.json"));
+    await fs.rm(path.join(tmpDir, ".codex/config.toml"));
     await syncWorkspace(tmpDir);
-    await fs.access(path.join(tmpDir, ".mcp.json"));
+    await fs.access(path.join(tmpDir, ".codex/config.toml"));
   });
 
   it("appends the template's missing .gitignore lines", async () => {
@@ -339,7 +341,7 @@ describe("syncWorkspace agent settings", () => {
     await syncWorkspace(tmpDir);
     const ignore = await readFileAt(tmpDir, ".gitignore");
     expect(ignore.startsWith("my-cache/\n")).toBe(true);
-    expect(ignore).toContain(".mcp.json\n");
+    expect(ignore).toContain(".codex/config.toml\n");
   });
 
   it("writes the version marker at the workspace root", async () => {
@@ -384,7 +386,7 @@ describe("assertWorkspaceSynced", () => {
       code: "WORKSPACE_SETUP_REQUIRED",
     });
     await syncWorkspace(tmpDir);
-    await fs.rm(path.join(tmpDir, ".mcp.json"));
+    await fs.rm(path.join(tmpDir, ".codex/config.toml"));
     await expect(assertWorkspaceSynced(tmpDir)).rejects.toMatchObject({
       code: "WORKSPACE_SETUP_REQUIRED",
     });

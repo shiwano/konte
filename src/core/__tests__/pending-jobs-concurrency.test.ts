@@ -188,6 +188,33 @@ describe("JobManager.claimForSubmission", () => {
   });
 });
 
+describe("JobManager.releaseClaimedLeases", () => {
+  it("frees the leases this process holds, bar a submit with no backend job id yet", async () => {
+    const create = (variantId: string) =>
+      jobManager.createJob({
+        address: `video:shot.01.${variantId}`,
+        variantId,
+        resolvedDeps: {},
+        backendKind: "comfy",
+      });
+    await create("v-waiting1");
+    await create("v-sending1");
+    await create("v-others11");
+    await jobManager.claimForSubmission("v-waiting1", "w-me", 60_000);
+    await jobManager.updateJob("v-waiting1", { backendJobId: "b-1" });
+    await jobManager.claimForSubmission("v-sending1", "w-me", 60_000);
+    await new JobManager(tmpDir).claimForSubmission("v-others11", "w-other", 60_000);
+    await new JobManager(tmpDir).updateJob("v-others11", { backendJobId: "b-2" });
+
+    await jobManager.releaseClaimedLeases();
+
+    expect((await jobManager.getJob("v-waiting1")).lease).toBeNull();
+    expect((await jobManager.getJob("v-sending1")).lease?.owner).toBe("w-me");
+    expect((await jobManager.getJob("v-others11")).lease?.owner).toBe("w-other");
+    expect(await jobManager.claimJobForRun("v-waiting1", "w-next", 60_000)).not.toBeNull();
+  });
+});
+
 describe("submitReadyPendingJobs concurrency", () => {
   it.each(["fal", "comfy"] as const)(
     "does not resubmit a %s request after losing its acknowledgement",
@@ -334,15 +361,91 @@ describe("submitReadyPendingJobs concurrency", () => {
       new Map(),
       async () => new CountingBackend(new Map(), 0),
       async () => ({ video: buildVideo(), animatic: emptyAnimatic(), reference: emptyReference() }),
-      { workerId: "w-daemon", onSubmitted: (vid) => submitted.push(vid) },
+      { workerId: "w-worker", onSubmitted: (vid) => submitted.push(vid) },
     );
     expect(submitted).toEqual([variantId]);
     const job = await jobManager.getJob(variantId);
-    expect(job.lease?.owner).toBe("w-daemon");
+    expect(job.lease?.owner).toBe("w-worker");
     expect(Date.parse(job.lease!.expiresAt)).toBeGreaterThan(Date.now());
     expect(await jobManager.claimJobForRun(variantId, "w-other", 60_000)).toBeNull();
-    expect(await jobManager.claimJobForRun(variantId, "w-daemon", 60_000)).not.toBeNull();
+    expect(await jobManager.claimJobForRun(variantId, "w-worker", 60_000)).not.toBeNull();
   });
+  it("submits only the jobs in scope and leaves them unleased for the first waiter", async () => {
+    await StateManager.init(tmpDir);
+    for (const variantId of ["v-earlier1", "v-mine1111"]) {
+      await jobManager.createJob({
+        address: "video:timeline.character",
+        variantId,
+        resolvedDeps: {},
+        backendKind: "comfy",
+      });
+    }
+    const counts = new Map<string, number>();
+    const result = await submitReadyPendingJobs(
+      jobManager,
+      roots,
+      new Map(),
+      async () => new CountingBackend(counts, 0),
+      async () => ({ video: buildVideo(), animatic: emptyAnimatic(), reference: emptyReference() }),
+      { only: new Set(["v-mine1111"]) },
+    );
+    expect(result.submitted).toEqual(["v-mine1111"]);
+    expect([...counts.keys()]).toEqual(["v-mine1111"]);
+    expect((await jobManager.getJob("v-earlier1")).status).toBe("queued");
+    const mine = await jobManager.getJob("v-mine1111");
+    expect(mine.status).toBe("running");
+    expect(mine.lease).toBeNull();
+    expect(await jobManager.claimJobForRun("v-mine1111", "w-waiter", 60_000)).not.toBeNull();
+  });
+
+  it("fails only the jobs in scope, judging them by every job of the video", async () => {
+    await StateManager.init(tmpDir);
+    // Out of scope and doomed: its prerequisite job is gone.
+    await jobManager.createJob({
+      address: "video:shot.01.motion",
+      variantId: "v-earlier2",
+      resolvedDeps: {},
+      backendKind: "comfy",
+      dependsOnJobs: ["cmd-gone"],
+    });
+    // Out of scope and still producing the upstream the scoped job reads.
+    await jobManager.createJob({
+      address: "video:timeline.character",
+      variantId: "v-upstream",
+      resolvedDeps: {},
+      backendKind: "comfy",
+    });
+    await jobManager.createJob({
+      address: "video:shot.02.motion",
+      variantId: "v-mine2222",
+      resolvedDeps: {},
+      backendKind: "comfy",
+      dependsOnAssets: ["video:timeline.character"],
+    });
+    await jobManager.createJob({
+      address: "video:shot.03.motion",
+      variantId: "v-mine3333",
+      resolvedDeps: {},
+      backendKind: "comfy",
+      dependsOnJobs: ["cmd-gone"],
+    });
+    const counts = new Map<string, number>();
+    const result = await submitReadyPendingJobs(
+      jobManager,
+      roots,
+      new Map(),
+      async () => new CountingBackend(counts, 0),
+      async () => ({ video: buildVideo(), animatic: emptyAnimatic(), reference: emptyReference() }),
+      { only: new Set(["v-mine2222", "v-mine3333"]) },
+    );
+    expect(result.submitted).toEqual([]);
+    expect(result.failed).toEqual(["v-mine3333"]);
+    expect(counts.size).toBe(0);
+    expect((await jobManager.getJob("v-mine2222")).status).toBe("pending");
+    expect((await jobManager.getJob("v-earlier2")).status).toBe("pending");
+    expect((await jobManager.getJob("v-upstream")).status).toBe("queued");
+  });
+
   it("submits each pending job exactly once across concurrent submitters", async () => {
     const video = buildVideo();
 
@@ -368,7 +471,7 @@ describe("submitReadyPendingJobs concurrency", () => {
       });
     }
 
-    // Two independent submitters (mirrors the MCP watcher vs `konte job wait`
+    // Two independent submitters (mirrors a worker vs a spend command
     // two-process race), each with its own backend cache + backend instance,
     // but sharing the submit counter so we can assert the global total.
     const counts = new Map<string, number>();

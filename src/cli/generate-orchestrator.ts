@@ -77,7 +77,7 @@ const SKIP_REASON_TEXT: Record<SkipReason, string> = {
 
 // Reserve `variantCount` variant ids for `address`, persisting them to state under
 // the state lock before any job file is created. Reserving-then-persisting first is
-// the invariant that keeps a completed job from being stranded: the MCP watcher (or
+// the invariant that keeps a completed job from being stranded: the worker (or
 // a crash) must never see a job whose variant is absent from state, because waitForJob
 // only fills a variant that already exists. The lock also prevents this from clobbering
 // concurrent watcher writes to other variants.
@@ -568,7 +568,7 @@ interface JobRegistration {
   variantCount: number;
   videoRoot: string;
   jobManager: JobManager;
-  // Upstream addresses resolved when the daemon submits.
+  // Upstream addresses resolved when the worker submits.
   deps?: readonly string[];
   dependsOnJobs?: readonly string[];
   // Address → variant-id of an upstream this job must consume specifically (not via the
@@ -589,7 +589,7 @@ interface JobRegistration {
   comfyTarget?: ComfyTarget | null;
 }
 
-/** Reserve the variants and register their jobs, which the daemon submits once they are ready. */
+/** Reserve the variants and register their jobs, which the worker submits once they are ready. */
 export async function registerJobs(opts: JobRegistration): Promise<AssetResult> {
   const { address, assetDef, videoRoot, jobManager } = opts;
   const comfyTarget = opts.comfyTarget ?? null;
@@ -764,7 +764,7 @@ export function buildGeneratePlan(params: {
           // registered blocked and submits once those land.
           action = "wait";
         } else {
-          // No deps, or deps already generated: the daemon submits it on its next pass.
+          // No deps, or deps already generated: the worker submits it on its next pass.
           action = "start";
         }
         if (action === "start" || action === "wait") notYetBuilt.add(address);

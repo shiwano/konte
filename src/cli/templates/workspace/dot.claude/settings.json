@@ -28,9 +28,6 @@
       "Bash(* konte.credentials.json *)"
     ]
   },
-  "enabledMcpjsonServers": [
-    "konte"
-  ],
   "extraKnownMarketplaces": {
     "konte": {
       "source": {

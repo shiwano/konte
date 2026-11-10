@@ -90,10 +90,22 @@ export function comfyQueueAhead(job: JobRecord, peers: readonly JobRecord[]): nu
   ).length;
 }
 
-// A running job no worker holds the run lease on: nothing is watching it or will commit its
-// result. Says nothing about the backend — the job may well have finished there.
+// A generation job handed to its backend with its lease let go — by the spend command that
+// submitted it, or by a wait that reached its deadline. The next `konte job wait` collects it.
+export function isSubmittedUnclaimed(job: JobRecord): boolean {
+  return (
+    job.kind === "generation" &&
+    job.status === "running" &&
+    job.backendJobId != null &&
+    job.lease === null
+  );
+}
+
+// A running job whose owner stopped renewing its run lease: nothing is watching it or will commit
+// its result. Says nothing about the backend — the job may well have finished there.
 function isUnwatched(job: JobRecord, now: number): boolean {
-  return job.status === "running" && (job.lease === null || Date.parse(job.lease.expiresAt) <= now);
+  if (job.status !== "running" || isSubmittedUnclaimed(job)) return false;
+  return job.lease === null || Date.parse(job.lease.expiresAt) <= now;
 }
 
 function typicalSuffix(stats: JobStatBucket | null | undefined): string {
@@ -172,13 +184,15 @@ export function diagnoseJob(input: DiagnoseJobInput): string[] {
           ? "Submission may have reached the backend. Automatic resubmission is refused; check the backend before rerolling."
           : "The next worker can retry submission."),
     );
+  } else if (isSubmittedUnclaimed(job)) {
+    out.push("Submitted to its backend; `konte job wait` collects the result.");
   } else if (isUnwatched(job, now)) {
     const since = job.lease
       ? `expired ${formatDuration(now - Date.parse(job.lease.expiresAt))} ago`
       : "never claimed";
     out.push(
       `No worker holds this job's run lease (${since}), so nothing is currently watching it or ` +
-        "committing its result. Start the MCP watcher, or wait on it from the CLI.",
+        "committing its result. Run `konte job wait`.",
     );
   }
 

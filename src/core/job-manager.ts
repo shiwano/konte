@@ -164,8 +164,8 @@ function assertSafeJobId(id: string): void {
 }
 
 // One connection per database file per process. A video root can be deleted and recreated under
-// a long-lived daemon, so a cached handle is trusted only while it still points at the inode on
-// disk; otherwise it is closed and reopened. A daemon that stops following a video closes its
+// a long-lived worker, so a cached handle is trusted only while it still points at the inode on
+// disk; otherwise it is closed and reopened. A worker that stops following a video closes its
 // handle through closeJobDatabase, or the descriptors outlive the video.
 const connections = new Map<string, { db: Database; ino: number }>();
 
@@ -202,7 +202,7 @@ function openDatabase(dbPath: string): Database {
     connections.delete(dbPath);
   }
   try {
-    // .konte only, never its parent: a daemon's in-flight work on a video removed under it must
+    // .konte only, never its parent: a worker's in-flight work on a video removed under it must
     // not bring the video's root back as a bare jobs database.
     try {
       mkdirSync(path.dirname(dbPath));
@@ -242,6 +242,8 @@ export class JobManager {
   // Read once per process: a command creates its jobs from the definitions it loaded at startup,
   // and the files are the same for every job of that batch.
   private sourceFingerprint: Promise<string> | null = null;
+  // Job id → the worker id it was last claimed under through this manager.
+  private readonly claimed = new Map<string, string>();
 
   constructor(videoRoot: string) {
     this.videoRoot = videoRoot;
@@ -711,6 +713,7 @@ export class JobManager {
       if (job.status !== "pending" && job.status !== "queued" && !isStrandedSubmit(job)) {
         return null;
       }
+      this.claimed.set(jobId, workerId);
       return this.apply(job, {
         status: "running",
         lease: { owner: workerId, expiresAt: new Date(Date.now() + leaseTtlMs).toISOString() },
@@ -740,6 +743,7 @@ export class JobManager {
         job.status === "pending" ||
         (job.status === "running" && (!leaseValid || job.lease?.owner === workerId));
       if (!claimable) return null;
+      this.claimed.set(id, workerId);
       return this.apply(job, {
         status: "running",
         lease: { owner: workerId, expiresAt: new Date(now + leaseTtlMs).toISOString() },
@@ -777,6 +781,23 @@ export class JobManager {
         metadata: { ...job.metadata, [SUBMISSION_ATTEMPT_KEY]: sent },
       });
       return sent;
+    });
+  }
+
+  /**
+   * Drop every lease still held through this manager, for a process about to exit. A submit that
+   * has not committed its backend job id keeps its lease — unleased, it would read as stranded.
+   */
+  async releaseClaimedLeases(): Promise<void> {
+    const claimed = [...this.claimed];
+    this.claimed.clear();
+    this.transaction(() => {
+      for (const [id, workerId] of claimed) {
+        const job = this.read(id);
+        if (!job || job.status !== "running" || job.lease?.owner !== workerId) continue;
+        if (job.kind === "generation" && job.backendJobId == null) continue;
+        this.apply(job, { lease: null });
+      }
     });
   }
 

@@ -207,7 +207,7 @@ describe("runComfyNodeActivateJob", () => {
   });
 
   // A record left "running" by a waiter that died says nothing about the server. Trusting it over
-  // the queue is what could block activation forever with the daemon down.
+  // the queue is what could block activation forever with the worker down.
   it("reboots past a stale running record whose prompt is no longer queued", async () => {
     activateNodesMock.mockResolvedValue({ rebooted: true });
     const activateId = await makeReadyActivateJob();

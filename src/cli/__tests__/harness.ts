@@ -7,7 +7,7 @@ import { KonteError } from "../../core/errors.js";
 import { syncFileAssets } from "../../core/file-sync.js";
 import { StateManager } from "../../core/state/index.js";
 import { SCHEMA_VERSION } from "../../core/types/index.js";
-import { VideoRegistry } from "../../mcp/video-registry.js";
+import { VideoRegistry } from "../../worker/video-registry.js";
 import { setInvocation } from "../context.js";
 import { jobRunnerHooks } from "../job-runner.js";
 import { formatKonteError } from "../error-output.js";
@@ -27,7 +27,7 @@ class ExitSignal extends Error {
   }
 }
 
-// The daemon a `job wait` starts runs in this process, where a test's backend stubs reach it.
+// The worker a `job wait` starts runs in this process, where a test's backend stubs reach it.
 jobRunnerHooks.start = (workspaceRoot) => {
   const registry = new VideoRegistry(workspaceRoot);
   const started = registry.start().catch(() => {});

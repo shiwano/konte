@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { afterEach, expect, it, vi } from "vitest";
-import { DAEMON_NAMESPACE, liveDaemons, processStartToken } from "../daemon-registry.js";
+import { WORKER_NAMESPACE, liveWorkers, processStartToken } from "../worker-registry.js";
 import { makeWorkspace } from "./helpers/workspace.js";
 
 vi.mock("node:fs", async () => ({
@@ -49,19 +49,19 @@ it("keeps a live registration when process identity temporarily cannot be read",
   commandResult(new Error("ps unavailable"), "");
   const ws = await makeWorkspace();
   try {
-    await fs.mkdir(`${ws.root}/.konte/daemons`, { recursive: true });
-    const file = `${ws.root}/.konte/daemons/other.json`;
+    await fs.mkdir(`${ws.root}/.konte/workers`, { recursive: true });
+    const file = `${ws.root}/.konte/workers/other.json`;
     await fs.writeFile(
       file,
       JSON.stringify({
         instanceId: "other",
-        namespace: DAEMON_NAMESPACE,
+        namespace: WORKER_NAMESPACE,
         pid: process.ppid,
         startToken: "known",
         startedAt: "2026-01-01",
       }),
     );
-    expect((await liveDaemons(ws.root)).map((record) => record.pid)).toEqual([process.ppid]);
+    expect((await liveWorkers(ws.root)).map((record) => record.pid)).toEqual([process.ppid]);
     expect(await fs.stat(file)).toBeDefined();
   } finally {
     await ws.cleanup();
@@ -73,19 +73,19 @@ it("rejects a reused Windows pid when its creation time changes", async () => {
   commandResult(null, "new-start-time");
   const ws = await makeWorkspace();
   try {
-    await fs.mkdir(`${ws.root}/.konte/daemons`, { recursive: true });
-    const file = `${ws.root}/.konte/daemons/other.json`;
+    await fs.mkdir(`${ws.root}/.konte/workers`, { recursive: true });
+    const file = `${ws.root}/.konte/workers/other.json`;
     await fs.writeFile(
       file,
       JSON.stringify({
         instanceId: "other",
-        namespace: DAEMON_NAMESPACE,
+        namespace: WORKER_NAMESPACE,
         pid: process.ppid,
         startToken: "old-start-time",
         startedAt: "2026-01-01",
       }),
     );
-    expect(await liveDaemons(ws.root)).toEqual([]);
+    expect(await liveWorkers(ws.root)).toEqual([]);
     await expect(fs.stat(file)).rejects.toMatchObject({ code: "ENOENT" });
   } finally {
     await ws.cleanup();

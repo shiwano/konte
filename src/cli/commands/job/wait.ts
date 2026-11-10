@@ -10,7 +10,7 @@ import { queueSongAnalyses } from "../../../core/song-queue.js";
 import { StateManager } from "../../../core/state/index.js";
 import type { PatchFinalize } from "../../../core/patch-output.js";
 import type { JobRecord } from "../../../core/types/index.js";
-import { mcpLogEnd, readMcpLogSince } from "../../../mcp/mcp-log.js";
+import { workerLogEnd, readWorkerLogSince } from "../../../worker/worker-log.js";
 import { parsePositiveInt } from "../../parse-option.js";
 import { requireVideoRoots } from "../../context.js";
 import { JobRunnerGuard } from "../../job-runner.js";
@@ -30,13 +30,13 @@ Blocks until the jobs settle, then prints what broke — a failed job, or a vari
 take silent, or heard to drop or change its line — and, on the last line, the outcome and the
 command that answers it.
 
-The workspace's konte daemon (\`konte mcp serve\`) runs the jobs. With none running, this wait
-starts one and stops it when the wait ends. With no arguments it waits on every active job of
-the video; naming ids waits on exactly those.
+Jobs run only while a wait is running: the first wait in a workspace runs every video's jobs,
+and a later one takes over when it ends. With no arguments it waits on every active job of the
+video; naming ids waits on exactly those.
 
 --timeout is a deadline on the whole command. On expiry it stops
-waiting, names everything still in flight and exits 1; nothing is cancelled, and work a daemon
-this wait started had in hand resumes on the next wait.
+waiting, names everything still in flight and exits 1; nothing is cancelled, and the work in
+hand resumes on the next wait.
 
 Examples:
   konte job wait                    Wait for every active job, then summarize the batch
@@ -54,10 +54,8 @@ Examples:
       for (const id of jobIds) await jobManager.getJob(id);
 
       const live = new LiveProgress({ renderRegion: Boolean(process.stderr.isTTY) });
-      const runner = new JobRunnerGuard(roots.workspace, () =>
-        live.log("No konte daemon is running in the workspace — this wait runs one until it ends."),
-      );
-      const warnings = new DaemonWarnings(roots.workspace, path.basename(roots.video), live);
+      const runner = new JobRunnerGuard(roots.workspace);
+      const warnings = new WorkerWarnings(roots.workspace, path.basename(roots.video), live);
       await warnings.start();
       const startedAt = Date.now();
       let observed: Observed;
@@ -121,7 +119,7 @@ async function observe(
   deadline: Deadline,
   live: LiveProgress,
   runner: JobRunnerGuard,
-  warnings: DaemonWarnings,
+  warnings: WorkerWarnings,
   pollIntervalMs: number,
 ): Promise<Observed> {
   // An outcome already reported is history. One terminal but unreported is this wait's to report,
@@ -137,8 +135,8 @@ async function observe(
 
   let jobs = jobsAtStart;
   while (true) {
-    // A take of the song is read by a job the daemon queues once the take lands; a wait that ended
-    // in between would leave the song unread with nothing active to start a daemon for.
+    // A take of the song is read by a job the worker queues once the take lands; a wait that ended
+    // in between would leave the song unread with nothing active to keep a wait for.
     if (!named && (await queueSongReadings(jobManager)).length > 0) {
       jobs = await jobManager.listJobs();
     }
@@ -245,9 +243,9 @@ class Deadline {
   }
 }
 
-// The daemon's warnings about this video since the wait began — a status check failing, a job it
+// The worker's warnings about this video since the wait began — a status check failing, a job it
 // cannot watch — printed where the agent reads them: in the wait's own output.
-class DaemonWarnings {
+class WorkerWarnings {
   private offset = 0;
   private readonly printed = new Set<string>();
 
@@ -258,16 +256,16 @@ class DaemonWarnings {
   ) {}
 
   async start(): Promise<void> {
-    this.offset = await mcpLogEnd(this.workspaceRoot);
+    this.offset = await workerLogEnd(this.workspaceRoot);
   }
 
   async drain(): Promise<void> {
-    const { entries, offset } = await readMcpLogSince(this.workspaceRoot, this.offset);
+    const { entries, offset } = await readWorkerLogSince(this.workspaceRoot, this.offset);
     this.offset = offset;
     for (const { level, data } of entries) {
       if (level !== "warning" && level !== "error") continue;
       if (data.video !== this.video) continue;
-      const line = formatDaemonWarning(data);
+      const line = formatWorkerWarning(data);
       if (this.printed.has(line)) continue;
       this.printed.add(line);
       this.live.log(line);
@@ -275,19 +273,19 @@ class DaemonWarnings {
   }
 }
 
-const DAEMON_WARNINGS: Record<string, string> = {
-  job_watch_failed: "the daemon cannot watch it; it retries every few seconds",
+const WORKER_WARNINGS: Record<string, string> = {
+  job_watch_failed: "the worker cannot watch it; it retries every few seconds",
   job_status_unconfirmed: "no successful status check for a while; still waiting",
   state_update_failed: "it settled, but its state may be stale — run `konte status`",
   cascade_submit_failed: "pending jobs could not be submitted; retrying",
 };
 
-function formatDaemonWarning(data: Record<string, unknown>): string {
+function formatWorkerWarning(data: Record<string, unknown>): string {
   const event = String(data.event ?? "");
   const subject = [data.address, data.variantId ? `(${String(data.variantId)})` : null]
     .filter((p) => p != null && p !== "")
     .join(" ");
-  const what = DAEMON_WARNINGS[event] ?? event;
+  const what = WORKER_WARNINGS[event] ?? event;
   const error = data.error ? `\n  ${String(data.error)}` : "";
   return `Warning: ${subject ? `${subject} — ` : ""}${what}${error}`;
 }

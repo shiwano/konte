@@ -183,15 +183,15 @@ export function isProjectModule(
 // re-imported video.tsx is served from that cache — so re-importing the entry file alone (even
 // with a fresh `?t=` query) does NOT pick up edits to transitively-imported files (reference.tsx,
 // animatic.tsx, adapters, and shared modules a project imports from outside its own root). In a
-// long-lived process (the MCP watcher) this renders edited definitions against a stale upstream —
+// long-lived process (the worker) this renders edited definitions against a stale upstream —
 // an asset added to reference.tsx "not found in definition", an edited adapter still hashing to
-// the definition it had at daemon start.
+// the definition it had at worker start.
 // Evict every on-disk user module before a reload so the whole graph re-evaluates fresh on the next
 // import; keep konte/react/node_modules so the dsl singleton and resolver stay intact.
 //
 // The cache is `require.cache`: deleting a key evicts the module at that path, ES modules included.
 // Bun 1.4 removed the `Loader.registry` global this used to reach for, and an eviction that quietly
-// found nothing turned every reload into the first load for the life of the daemon;
+// found nothing turned every reload into the first load for the life of the worker;
 // loader-reload.test.ts runs the reload on the real Bun so a change like that fails there.
 //
 // Listing the cache is not enough to find what to delete: it names only modules that finished
@@ -244,7 +244,7 @@ let reloadLock: Promise<unknown> = Promise.resolve();
 
 // Evict the project's stale modules, then re-import `filePath` — serialized process-wide.
 // bustProjectModuleCache mutates the shared module registry, so two reloads in flight at once (e.g.
-// the daemon's and an export worker's) let one's eviction delete modules the
+// a job watcher's and an export render's) let one's eviction delete modules the
 // other is mid-instantiation, and Bun throws "Requested module is not instantiated yet". Chaining
 // keeps each evict+import atomic; a rejection never wedges the chain.
 export function reloadFreshModule(filePath: string): Promise<Record<string, unknown>> {
@@ -320,7 +320,7 @@ const evaluatedReading = new Map<string, string>();
 let definitionLock: Promise<unknown> = Promise.resolve();
 
 // One definition import at a time, process-wide, each under the song takes of its own video: the
-// daemon loads several videos in one process, and a module evaluates against whatever takes are
+// worker loads several videos in one process, and a module evaluates against whatever takes are
 // current while it does.
 function underDefinitionLock<T>(fn: () => Promise<T>): Promise<T> {
   const run = definitionLock.then(fn);

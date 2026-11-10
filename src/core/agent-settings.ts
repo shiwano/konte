@@ -86,6 +86,38 @@ function leadHookPathWithBin(settings: Settings, platform: NodeJS.Platform): voi
   ];
 }
 
+// The server entry an earlier konte rendered for its MCP daemon; a table it leaves empty goes too.
+function dropKonteServer(settings: Settings, key: "mcpServers" | "mcp_servers"): boolean {
+  const servers = settings[key];
+  if (!isTable(servers) || !("konte" in servers)) return false;
+  delete servers.konte;
+  if (Object.keys(servers).length === 0) delete settings[key];
+  return true;
+}
+
+/**
+ * Takes konte's server out of the `.mcp.json` an earlier konte rendered, and the file with it
+ * when nothing else is in it. A file konte cannot parse is left as it is.
+ */
+export async function retireMcpJson(workspaceRoot: string): Promise<"removed" | "updated" | null> {
+  const file = path.join(workspaceRoot, ".mcp.json");
+  const raw = await readOptional(file);
+  if (raw === null) return null;
+  let settings: unknown;
+  try {
+    settings = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!isTable(settings) || !dropKonteServer(settings, "mcpServers")) return null;
+  if (Object.keys(settings).length === 0) {
+    await fs.rm(file);
+    return "removed";
+  }
+  await writeFileAtomic(file, `${JSON.stringify(settings, null, 2)}\n`, { mode: 0o600 });
+  return "updated";
+}
+
 async function readOptional(file: string): Promise<string | null> {
   try {
     return await fs.readFile(file, "utf8");
@@ -101,13 +133,7 @@ export async function prepareAgentSettings(
 ): Promise<Record<string, string>> {
   const template = await loadWorkspaceTemplate();
   const paths = platform === "win32" ? path.win32 : path;
-  const binary = paths.join(
-    workspaceRoot,
-    ".konte",
-    "bin",
-    platform === "win32" ? "konte.exe" : "konte",
-  );
-  const binDir = paths.dirname(binary);
+  const binDir = paths.join(workspaceRoot, ".konte", "bin");
   const rendered: Record<string, string> = {};
   for (const key of AGENT_SETTINGS_FILES) {
     if (key.endsWith(".rules")) {
@@ -125,21 +151,13 @@ export async function prepareAgentSettings(
       if (key === ".claude/settings.json") {
         leadHookPathWithBin(settings, platform);
       } else {
-        const servers = table(settings, key === ".mcp.json" ? "mcpServers" : "mcp_servers");
-        const server = table(servers, "konte");
-        delete server.url;
-        server.command = binary;
-        server.args = ["--cwd", workspaceRoot, "mcp", "serve"];
-        if (key === ".mcp.json") server.type = "stdio";
-        else {
-          server.cwd = workspaceRoot;
-          // Codex's sandbox confines the konte its shell runs, which reads the credentials at startup.
-          const roots = table(table(table(settings, "permissions"), "konte"), "filesystem");
-          delete table(roots, ":workspace_roots")["konte.credentials.json"];
-          const env = table(table(settings, "shell_environment_policy"), "set");
-          leadPathWithBin(env, binDir, platform);
-          env.KONTE_AGENT = "codex";
-        }
+        dropKonteServer(settings, "mcp_servers");
+        // Codex's sandbox confines the konte its shell runs, which reads the credentials at startup.
+        const roots = table(table(table(settings, "permissions"), "konte"), "filesystem");
+        delete table(roots, ":workspace_roots")["konte.credentials.json"];
+        const env = table(table(settings, "shell_environment_policy"), "set");
+        leadPathWithBin(env, binDir, platform);
+        env.KONTE_AGENT = "codex";
       }
       rendered[key] = key.endsWith(".toml")
         ? toml.stringify(settings)

@@ -31,7 +31,7 @@ async function withAtomicTemp(
 const WINDOWS_RENAME_RETRY_MS = 5000;
 const WINDOWS_TRANSIENT_RENAME_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
 
-// Windows refuses to replace a file another process holds open (a preview or daemon reading it,
+// Windows refuses to replace a file another process holds open (a preview or worker reading it,
 // an antivirus scanning the temp) for as long as that handle lives.
 async function renameOverwriting(from: string, to: string): Promise<void> {
   if (process.platform !== "win32") return fs.rename(from, to);
@@ -49,7 +49,7 @@ async function renameOverwriting(from: string, to: string): Promise<void> {
 
 /**
  * Write a file atomically via a unique temp file + rename, so that concurrent
- * writers (e.g. the MCP watcher and a `konte job wait` process both downloading the
+ * writers (e.g. two workers both downloading the
  * same job output) can never leave a partial/corrupt file, and readers (hashing,
  * thumbnail extraction) always see a complete file.
  */

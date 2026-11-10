@@ -1,5 +1,5 @@
 // Refuses new mutable module state in the DSL: a top-level `let`, or a collection constructed empty.
-// One process evaluates many definitions (the MCP daemon, a test run), so a fact one build leaves
+// One process evaluates many definitions (the worker, a test run), so a fact one build leaves
 // in module state is read by the next. Carry it on the value instead (`markPanel`,
 // `withSongSpan`). State scoped to one build, or keyed by an object one build owns, is listed in
 // ALLOWED.

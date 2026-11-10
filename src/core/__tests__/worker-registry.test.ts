@@ -3,16 +3,16 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  claimDaemon,
-  DAEMON_INSTANCE_ID,
-  DAEMON_NAMESPACE,
-  heartbeatDaemon,
-  ownsDaemon,
-  liveDaemons,
+  claimWorker,
+  WORKER_INSTANCE_ID,
+  WORKER_NAMESPACE,
+  heartbeatWorker,
+  ownsWorker,
+  liveWorkers,
   processStartToken,
-  registerDaemon,
-  unregisterDaemonSync,
-} from "../daemon-registry.js";
+  registerWorker,
+  unregisterWorkerSync,
+} from "../worker-registry.js";
 import { makeWorkspace, type Workspace } from "./helpers/workspace.js";
 
 let ws: Workspace;
@@ -22,21 +22,21 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  unregisterDaemonSync(ws.root);
+  unregisterWorkerSync(ws.root);
   await ws.cleanup();
 });
 
-const daemonsDir = () => path.join(ws.root, ".konte", "daemons");
+const workersDir = () => path.join(ws.root, ".konte", "workers");
 
 async function writeRecord(pid: number, startToken: string | null): Promise<string> {
-  await fs.mkdir(daemonsDir(), { recursive: true });
+  await fs.mkdir(workersDir(), { recursive: true });
   const instanceId = `other-${pid}`;
-  const file = path.join(daemonsDir(), `${instanceId}.json`);
+  const file = path.join(workersDir(), `${instanceId}.json`);
   await fs.writeFile(
     file,
     JSON.stringify({
       instanceId,
-      namespace: DAEMON_NAMESPACE,
+      namespace: WORKER_NAMESPACE,
       pid,
       startToken,
       startedAt: "2026-01-01T00:00:00Z",
@@ -57,12 +57,12 @@ const exists = (file: string) =>
     () => false,
   );
 
-describe("daemon registry", () => {
-  it.each([{}, { instanceId: "other" }, { namespace: DAEMON_NAMESPACE }])(
+describe("worker registry", () => {
+  it.each([{}, { instanceId: "other" }, { namespace: WORKER_NAMESPACE }])(
     "removes records missing identity fields (%j)",
     async (identity) => {
       const valid = await writeRecord(process.ppid, await processStartToken(process.ppid));
-      const old = path.join(daemonsDir(), `${process.pid}.json`);
+      const old = path.join(workersDir(), `${process.pid}.json`);
       await fs.writeFile(
         old,
         JSON.stringify({
@@ -72,52 +72,52 @@ describe("daemon registry", () => {
           ...identity,
         }),
       );
-      expect((await liveDaemons(ws.root)).map((record) => record.pid)).toEqual([process.ppid]);
+      expect((await liveWorkers(ws.root)).map((record) => record.pid)).toEqual([process.ppid]);
       expect(await exists(old)).toBe(false);
       expect(await exists(valid)).toBe(true);
     },
   );
 
-  it("claims the worker when no daemon is alive", async () => {
+  it("claims the worker when no worker is alive", async () => {
     await writeRecord(await exitedPid(), null);
-    expect((await claimDaemon(ws.root)).pid).toBe(process.pid);
-    expect(await exists(path.join(daemonsDir(), `${DAEMON_INSTANCE_ID}.json`))).toBe(true);
+    expect((await claimWorker(ws.root)).pid).toBe(process.pid);
+    expect(await exists(path.join(workersDir(), `${WORKER_INSTANCE_ID}.json`))).toBe(true);
   });
 
   it("leaves an existing worker in charge without registering this process", async () => {
     await writeRecord(process.ppid, await processStartToken(process.ppid));
-    expect((await claimDaemon(ws.root)).pid).toBe(process.ppid);
-    expect(await exists(path.join(daemonsDir(), `${DAEMON_INSTANCE_ID}.json`))).toBe(false);
+    expect((await claimWorker(ws.root)).pid).toBe(process.ppid);
+    expect(await exists(path.join(workersDir(), `${WORKER_INSTANCE_ID}.json`))).toBe(false);
   });
 
   it("registers this process and unregisters it", async () => {
-    await registerDaemon(ws.root);
-    const file = path.join(daemonsDir(), `${DAEMON_INSTANCE_ID}.json`);
+    await registerWorker(ws.root);
+    const file = path.join(workersDir(), `${WORKER_INSTANCE_ID}.json`);
     expect(JSON.parse(await fs.readFile(file, "utf-8"))).toMatchObject({
       pid: process.pid,
       startToken: await processStartToken(process.pid),
     });
 
-    unregisterDaemonSync(ws.root);
+    unregisterWorkerSync(ws.root);
     expect(await exists(file)).toBe(false);
   });
 
   it("recognizes a lost or replaced registration without removing its replacement", async () => {
-    await registerDaemon(ws.root);
-    expect(await ownsDaemon(ws.root)).toBe(true);
-    const file = path.join(daemonsDir(), `${DAEMON_INSTANCE_ID}.json`);
+    await registerWorker(ws.root);
+    expect(await ownsWorker(ws.root)).toBe(true);
+    const file = path.join(workersDir(), `${WORKER_INSTANCE_ID}.json`);
     const record = JSON.parse(await fs.readFile(file, "utf-8"));
     await fs.writeFile(file, JSON.stringify({ ...record, instanceId: "replacement" }));
-    expect(await ownsDaemon(ws.root)).toBe(false);
-    unregisterDaemonSync(ws.root);
+    expect(await ownsWorker(ws.root)).toBe(false);
+    unregisterWorkerSync(ws.root);
     expect(await exists(file)).toBe(true);
     await fs.unlink(file);
-    expect(await ownsDaemon(ws.root)).toBe(false);
+    expect(await ownsWorker(ws.root)).toBe(false);
   });
 
   it("never lists this process", async () => {
-    await registerDaemon(ws.root);
-    expect(await liveDaemons(ws.root)).toEqual([]);
+    await registerWorker(ws.root);
+    expect(await liveWorkers(ws.root)).toEqual([]);
   });
 
   it("keeps a foreign namespace's worker even when its pid matches this process", async () => {
@@ -125,8 +125,8 @@ describe("daemon registry", () => {
     const record = JSON.parse(await fs.readFile(file, "utf-8"));
     record.namespace = "foreign-namespace";
     await fs.writeFile(file, JSON.stringify(record));
-    expect((await claimDaemon(ws.root)).instanceId).toBe(record.instanceId);
-    expect(await ownsDaemon(ws.root)).toBe(false);
+    expect((await claimWorker(ws.root)).instanceId).toBe(record.instanceId);
+    expect(await ownsWorker(ws.root)).toBe(false);
     expect(await exists(file)).toBe(true);
   });
 
@@ -136,19 +136,19 @@ describe("daemon registry", () => {
     await fs.writeFile(file, JSON.stringify({ ...record, namespace: "foreign-namespace" }));
     const old = new Date(Date.now() - 60_000);
     await fs.utimes(file, old, old);
-    expect((await claimDaemon(ws.root)).instanceId).toBe(DAEMON_INSTANCE_ID);
+    expect((await claimWorker(ws.root)).instanceId).toBe(WORKER_INSTANCE_ID);
     expect(await exists(file)).toBe(false);
   });
 
   it("refreshes its heartbeat without recreating a lost registration", async () => {
-    await registerDaemon(ws.root);
-    const file = path.join(daemonsDir(), `${DAEMON_INSTANCE_ID}.json`);
+    await registerWorker(ws.root);
+    const file = path.join(workersDir(), `${WORKER_INSTANCE_ID}.json`);
     const old = new Date(Date.now() - 60_000);
     await fs.utimes(file, old, old);
-    expect(await heartbeatDaemon(ws.root)).toBe(true);
+    expect(await heartbeatWorker(ws.root)).toBe(true);
     expect((await fs.stat(file)).mtimeMs).toBeGreaterThan(old.getTime());
     await fs.unlink(file);
-    expect(await heartbeatDaemon(ws.root)).toBe(false);
+    expect(await heartbeatWorker(ws.root)).toBe(false);
     expect(await exists(file)).toBe(false);
   });
 
@@ -156,24 +156,24 @@ describe("daemon registry", () => {
     const file = await writeRecord(process.ppid, null);
     const old = new Date(Date.now() - 60_000);
     await fs.utimes(file, old, old);
-    expect(await liveDaemons(ws.root)).toEqual([]);
+    expect(await liveWorkers(ws.root)).toEqual([]);
     expect(await exists(file)).toBe(false);
   });
 
-  it("lists another live daemon", async () => {
+  it("lists another live worker", async () => {
     await writeRecord(process.ppid, await processStartToken(process.ppid));
-    expect((await liveDaemons(ws.root)).map((r) => r.pid)).toEqual([process.ppid]);
+    expect((await liveWorkers(ws.root)).map((r) => r.pid)).toEqual([process.ppid]);
   });
 
   it("drops the record of a process that exited", async () => {
     const file = await writeRecord(await exitedPid(), null);
-    expect(await liveDaemons(ws.root)).toEqual([]);
+    expect(await liveWorkers(ws.root)).toEqual([]);
     expect(await exists(file)).toBe(false);
   });
 
   it("drops a record whose pid a later process reuses", async () => {
     const file = await writeRecord(process.ppid, "not-its-start-time");
-    expect(await liveDaemons(ws.root)).toEqual([]);
+    expect(await liveWorkers(ws.root)).toEqual([]);
     expect(await exists(file)).toBe(false);
   });
 });

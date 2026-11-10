@@ -31,27 +31,25 @@ function fakeRunner(exitAtOnce: boolean): AttachedRunner & { stopped: boolean } 
   return runner;
 }
 
-it("starts one daemon, keeps it while it runs, and stops it", async () => {
+it("starts one worker, keeps it while it runs, and stops it", async () => {
   const started: ReturnType<typeof fakeRunner>[] = [];
   jobRunnerHooks.start = () => {
     const r = fakeRunner(false);
     started.push(r);
     return r;
   };
-  let notices = 0;
-  const guard = new JobRunnerGuard(ws.root, () => notices++);
+  const guard = new JobRunnerGuard(ws.root);
   await guard.ensure();
   await guard.ensure();
   expect(started).toHaveLength(1);
-  expect(notices).toBe(1);
 
   await guard.stop();
   expect(started[0]!.stopped).toBe(true);
 });
 
-it("refuses once the daemon it starts keeps exiting", async () => {
+it("refuses once the worker it starts keeps exiting", async () => {
   jobRunnerHooks.start = () => fakeRunner(true);
-  const guard = new JobRunnerGuard(ws.root, () => {});
+  const guard = new JobRunnerGuard(ws.root);
   const settle = () => new Promise((r) => setTimeout(r, 0));
   for (let i = 0; i < 3; i++) {
     await guard.ensure();
@@ -81,7 +79,7 @@ it.skipIf(process.platform === "win32")(
         await Bun.write("stopped", "");
       },
     });
-    await new JobRunnerGuard(process.cwd(), () => {}).ensure();
+    await new JobRunnerGuard(process.cwd()).ensure();
     await Bun.write("started", "");
     setInterval(() => {}, 1000);
   `,
@@ -127,7 +125,7 @@ it.skipIf(process.platform === "win32")(
         await Bun.write("stopped", "");
       },
     });
-    const guard = new JobRunnerGuard(process.cwd(), () => {});
+    const guard = new JobRunnerGuard(process.cwd());
     await guard.ensure();
     await guard.stop();
     setInterval(() => {}, 1000);

@@ -1,7 +1,12 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import pkg from "../../package.json" with { type: "json" };
-import { linkWorkspaceBinary, prepareAgentSettings, writeAgentSettings } from "./agent-settings.js";
+import {
+  linkWorkspaceBinary,
+  prepareAgentSettings,
+  retireMcpJson,
+  writeAgentSettings,
+} from "./agent-settings.js";
 import {
   AGENT_SETTINGS_FILES,
   BUNDLED_ADAPTERS,
@@ -246,7 +251,8 @@ export async function assertWorkspaceSynced(workspaceRoot: string): Promise<void
  * and the bundled adapters it holds, adds a bundled adapter shipped after the konte that last
  * synced it (`konte.version`), deletes a bundled adapter or guide the template dropped that the
  * lock records an earlier sync leaving and no workspace file names, renders the agent settings
- * for the workspace root, appends missing `.gitignore` lines and links `.konte/bin/konte`.
+ * for the workspace root, takes an earlier konte's MCP server out of them, appends missing
+ * `.gitignore` lines and links `.konte/bin/konte`.
  *
  * A managed file the OS refuses to write is left as it is and listed in `unwritable`;
  * the lock and `konte.version` then stay unwritten, so the next run tries again.
@@ -315,6 +321,8 @@ export async function syncWorkspace(workspaceRoot: string): Promise<WorkspaceSyn
 
   await appendMissingIgnores(workspaceRoot, template[".gitignore"]!);
   await writeAgentSettings(workspaceRoot, settings);
+  const mcpJson = await retireMcpJson(workspaceRoot);
+  if (mcpJson) (mcpJson === "removed" ? removed : updated).push(".mcp.json");
   if (linksBinary()) await linkWorkspaceBinary(workspaceRoot, process.execPath);
 
   if (unwritable.length === 0) {

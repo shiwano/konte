@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   linkWorkspaceBinary,
   prepareAgentSettings,
+  retireMcpJson,
   writeAgentSettings,
 } from "../agent-settings.js";
 
@@ -32,21 +33,16 @@ function pathHooks(files: Record<string, string>): string[] {
 }
 
 describe("environment-specific agent settings", () => {
-  it("uses absolute MCP paths and PATH-based CLI permissions", async () => {
+  it("uses PATH-based CLI permissions", async () => {
     const files = await prepareAgentSettings(root);
-    const binary = path.join(root, ".konte/bin/konte");
     const config = codex(files);
     expect(claude(files).permissions.allow).toEqual(["Bash(konte:*)"]);
-    expect(files[".claude/settings.json"]).not.toContain(`Bash(${binary}`);
+    expect(files[".claude/settings.json"]).not.toContain(root);
     expect(config.default_permissions).toBe("konte");
     expect(config.approval_policy).toBe("on-request");
     expect(config.approvals_reviewer).toBe("auto_review");
-    expect(config.mcp_servers.konte).toEqual({
-      command: binary,
-      args: ["--cwd", root, "mcp", "serve"],
-      cwd: root,
-    });
-    expect(JSON.parse(files[".mcp.json"]!).mcpServers.konte.command).toBe(binary);
+    expect(config.mcp_servers).toBeUndefined();
+    expect(files[".mcp.json"]).toBeUndefined();
     expect(files[".codex/rules/konte.rules"]).toContain('pattern = [["konte", "konte.exe"]]');
     expect(files[".codex/rules/konte.rules"]!.match(/prefix_rule\(/g)).toHaveLength(1);
     expect(files[".codex/rules/konte.rules"]).not.toContain(root);
@@ -56,8 +52,6 @@ describe("environment-specific agent settings", () => {
     vi.stubEnv("PATH", "C:\\Windows\\System32;C:\\Program Files\\Git\\cmd");
     const windowsRoot = 'C:\\Films\\日本語 "cut"';
     const files = await prepareAgentSettings(windowsRoot, "win32");
-    expect(codex(files).mcp_servers.konte.command).toBe(`${windowsRoot}\\.konte\\bin\\konte.exe`);
-    expect(codex(files).mcp_servers.konte.cwd).toBe(windowsRoot);
     const expectedPath = `${windowsRoot}\\.konte\\bin;C:\\Windows\\System32;C:\\Program Files\\Git\\cmd`;
     expect(codex(files).shell_environment_policy.set.PATH).toBe(expectedPath);
     expect(pathHooks(files)).toEqual([
@@ -135,7 +129,7 @@ describe("environment-specific agent settings", () => {
     await writeAgentSettings(root, defaults);
     await fs.writeFile(
       path.join(root, ".codex/config.toml"),
-      `model = "custom"\ndeveloper_instructions = "personal"\n[mcp_servers.other]\ncommand = "other"\n[mcp_servers.other.env]\nTOKEN = "\${PRIVATE_TOKEN}"\n[mcp_servers.konte]\ncommand = "old"\nstartup_timeout_sec = 42\n`,
+      `model = "custom"\ndeveloper_instructions = "personal"\n[mcp_servers.other]\ncommand = "other"\n[mcp_servers.other.env]\nTOKEN = "\${PRIVATE_TOKEN}"\n[mcp_servers.konte]\ncommand = "old"\nargs = ["mcp", "serve"]\n`,
     );
     await fs.writeFile(
       path.join(root, ".claude/settings.json"),
@@ -149,14 +143,42 @@ describe("environment-specific agent settings", () => {
     expect(config.model).toBe("custom");
     expect(config.developer_instructions).toBe("personal");
     expect(config.mcp_servers.other.env.TOKEN).toBe("${PRIVATE_TOKEN}");
-    expect(config.mcp_servers.konte.startup_timeout_sec).toBe(42);
-    expect(config.mcp_servers.konte.command).toBe(path.join(root, ".konte/bin/konte"));
+    expect(config.mcp_servers.konte).toBeUndefined();
     const settings = JSON.parse(files[".claude/settings.json"]!);
     expect(settings.env.CUSTOM).toBeUndefined();
     expect(settings.permissions.deny).toEqual(claude(defaults).permissions.deny);
     expect(settings.permissions.allow).toEqual(["Bash(konte:*)"]);
     await writeAgentSettings(root, files);
     expect(await prepareAgentSettings(root)).toEqual(files);
+  });
+
+  it("takes an earlier konte's MCP server out of the settings it rendered", async () => {
+    await fs.mkdir(path.join(root, ".codex"));
+    await fs.writeFile(
+      path.join(root, ".codex/config.toml"),
+      '[mcp_servers.konte]\ncommand = "old"\nargs = ["mcp", "serve"]\n',
+    );
+    expect(codex(await prepareAgentSettings(root)).mcp_servers).toBeUndefined();
+
+    const mcpJson = path.join(root, ".mcp.json");
+    const konte = { command: "old", args: ["mcp", "serve"], type: "stdio" };
+    await fs.writeFile(mcpJson, JSON.stringify({ mcpServers: { konte } }));
+    expect(await retireMcpJson(root)).toBe("removed");
+    await expect(fs.access(mcpJson)).rejects.toThrow();
+
+    await fs.writeFile(
+      mcpJson,
+      JSON.stringify({ mcpServers: { konte, other: { command: "keep" } } }),
+    );
+    expect(await retireMcpJson(root)).toBe("updated");
+    expect(JSON.parse(await fs.readFile(mcpJson, "utf8"))).toEqual({
+      mcpServers: { other: { command: "keep" } },
+    });
+    expect(await retireMcpJson(root)).toBeNull();
+
+    await fs.writeFile(mcpJson, "{ invalid");
+    expect(await retireMcpJson(root)).toBeNull();
+    expect(await fs.readFile(mcpJson, "utf8")).toBe("{ invalid");
   });
 
   it("replaces malformed Claude settings and preserves local settings", async () => {
@@ -176,12 +198,13 @@ describe("environment-specific agent settings", () => {
   });
 
   it("refuses malformed settings without echoing their contents or writing other files", async () => {
-    await fs.writeFile(path.join(root, ".mcp.json"), '{ "secret": "DO-NOT-PRINT",');
+    await fs.mkdir(path.join(root, ".codex"));
+    await fs.writeFile(path.join(root, ".codex/config.toml"), 'secret = "DO-NOT-PRINT');
     await expect(prepareAgentSettings(root)).rejects.toMatchObject({
       code: "INVALID_AGENT_SETTINGS",
       message: expect.not.stringContaining("DO-NOT-PRINT"),
     });
-    await expect(fs.access(path.join(root, ".codex/config.toml"))).rejects.toThrow();
+    await expect(fs.access(path.join(root, ".claude/settings.json"))).rejects.toThrow();
   });
 });
 

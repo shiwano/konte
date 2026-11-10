@@ -47,7 +47,7 @@ export async function makeWorkspace(opts: MakeWorkspaceOptions = {}): Promise<Wo
   return {
     root,
     videos,
-    // maxRetries: a daemon-style test may still be creating a .konte/ dir as the tree is removed.
+    // maxRetries: a worker-style test may still be creating a .konte/ dir as the tree is removed.
     cleanup: () => fs.rm(root, { recursive: true, force: true, maxRetries: 5 }),
   };
 }

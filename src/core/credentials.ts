@@ -114,7 +114,7 @@ const injected = new Map<string, string>();
  * URLs find them where they already look. A real environment variable always wins, so a shell or
  * a CI run overrides the file — but an empty one is not a credential, and does not.
  *
- * Re-runnable, and the long-lived MCP daemon runs it again on its reconcile tick. Only konte's
+ * Re-runnable, and the worker runs it again on its reconcile tick. Only konte's
  * own injections move — a real environment variable keeps winning, whenever
  * it arrived. Returns whether the environment changed, so a caller holding anything built from a
  * credential (a backend instance) can drop it.

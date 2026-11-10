@@ -49,6 +49,7 @@ import {
 } from "../../generate-orchestrator.js";
 import { requireVideoRoots } from "../../context.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
+import { nextAfterSpend, submitRegisteredJobs } from "../../spend-submit.js";
 import { computeDefinitionHash } from "../../../core/definition-hash.js";
 import { applyPatch } from "../../patch-orchestrator.js";
 import { gatePatchApply } from "../patch/apply.js";
@@ -565,6 +566,10 @@ Examples:
           }
         }
 
+        for (const f of await submitRegisteredJobs(roots, jobManager, jobRows)) {
+          failures.push({ address: `${f.address} (${f.variantId})`, error: f.error });
+        }
+
         // Heads-up: an upstream of a rerolled target has an undecided take that this reroll
         // won't use — it resolves the accepted variant. Skip deps that were regenerated in this
         // run (their downstreams pin to the fresh variant), and dedup across targets by address.
@@ -604,8 +609,7 @@ Examples:
             : null,
           failures.length > 0 ? `${failures.length} failed` : null,
         ].filter((part) => part !== null);
-        const next = jobRows.length > 0 ? "run `konte job wait`" : "run `konte status`";
-        console.log(`\n${parts.join(", ")} — ${next}`);
+        console.log(`\n${parts.join(", ")} — ${nextAfterSpend(jobRows)}`);
 
         if (failures.length > 0) process.exitCode = 1;
       },
@@ -687,6 +691,7 @@ async function rerollPatchSteps(
   const jobManager = new JobManager(videoRoot);
   const rows: Array<{ address: string; variantId: string; status: string }> = [];
   const failures: Array<{ address: string; error: string }> = [];
+  const chainSteps: string[] = [];
   for (let i = 0; i < variantCount; i++) {
     for (const step of steps) {
       try {
@@ -697,6 +702,7 @@ async function rerollPatchSteps(
           spends.get(step.patch)!,
           step.stepName,
         );
+        chainSteps.push(...result.steps);
         for (const job of result.jobs) rows.push({ address: result.address, ...job });
         if (result.status === "failed") {
           failures.push({ address: step.address, error: result.error ?? "generation failed" });
@@ -705,6 +711,10 @@ async function rerollPatchSteps(
         failures.push({ address: step.address, error: errorMessage(err) });
       }
     }
+  }
+
+  for (const f of await submitRegisteredJobs(roots, jobManager, rows, chainSteps)) {
+    failures.push({ address: `${f.address} (${f.variantId})`, error: f.error });
   }
 
   if (rows.length > 0) console.log("");
@@ -717,7 +727,6 @@ async function rerollPatchSteps(
     `${rows.length} correction(s) from ${steps.length} patch step(s)`,
     failures.length > 0 ? `${failures.length} failed` : null,
   ].filter((part) => part !== null);
-  const next = rows.length > 0 ? "run `konte job wait`" : "run `konte status`";
-  console.log(`\n${parts.join(", ")} — ${next}`);
+  console.log(`\n${parts.join(", ")} — ${nextAfterSpend(rows)}`);
   if (failures.length > 0) process.exitCode = 1;
 }

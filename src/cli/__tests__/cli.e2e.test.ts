@@ -54,9 +54,9 @@ describe("CLI end-to-end (real binary)", () => {
     await fs.writeFile(path.join(tmpDir, "adapters", "broken.ts"), 'const x: number = "bad";');
 
     await run(["workspace", "setup"], tmpDir);
-    expect(JSON.parse(await fs.readFile(path.join(tmpDir, ".mcp.json"), "utf8"))).toMatchObject({
-      mcpServers: { konte: { args: ["--cwd", tmpDir, "mcp", "serve"] } },
-    });
+    expect(await fs.readFile(path.join(tmpDir, ".codex/config.toml"), "utf8")).toContain(
+      path.join(tmpDir, ".konte/bin"),
+    );
     expect((await run(["video", "current"], tmpDir)).stdout).toContain("no videos");
     expect((await run(["video", "list"], tmpDir)).stdout).toContain("No videos yet");
     await expect(

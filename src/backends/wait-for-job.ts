@@ -364,7 +364,7 @@ async function runAsOwner(
     // Re-encode in place before hashing so the variant konte stores is always
     // seek-safe — AI video models often emit sparse keyframes that break
     // HyperFrames' frame-by-frame capture/render with freezing and A/V desync.
-    // Doing it here covers every backend and both the MCP watcher and `job wait`.
+    // Doing it here covers every backend.
     if (outputFile) {
       try {
         const norm = await normalizeKeyframesIfSparse(path.resolve(videoRoot, outputFile));

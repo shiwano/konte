@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WaitForJobResult } from "../../backends/wait-for-job.js";
 import { JobManager } from "../../core/job-manager.js";
 import type { JobRecord } from "../../core/types/index.js";
-import { type JobNotifier, JobWatcher } from "../job-watcher.js";
+import { JobWatcher } from "../job-watcher.js";
+import type { WorkerLog } from "../worker-log.js";
 import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/workspace.js";
 import type { VideoRoots } from "../../core/roots.js";
 
@@ -31,15 +32,17 @@ vi.mock("../../core/pending-jobs.js", () => ({
 
 type LoggedEvent = { level: string; data: Record<string, unknown> };
 
-function makeNotifier(): { notify: JobNotifier; events: LoggedEvent[] } {
+function makeLog(): { log: Pick<WorkerLog, "write">; events: LoggedEvent[] } {
   const events: LoggedEvent[] = [];
-  const notify: JobNotifier = (level, data) => {
-    events.push({ level, data: data as Record<string, unknown> });
+  const log: Pick<WorkerLog, "write"> = {
+    write: (level, data) => {
+      events.push({ level, data: data as Record<string, unknown> });
+    },
   };
-  return { notify, events };
+  return { log, events };
 }
 
-// The daemon keeps no completion buffer of its own.
+// The worker keeps no completion buffer of its own.
 function completions(events: LoggedEvent[]): Array<Record<string, unknown>> {
   return events.filter((e) => e.data.event === "job_completed").map((e) => e.data);
 }
@@ -83,8 +86,8 @@ const exportCompletion = (variantId: string, outputFile: string) => ({
 
 describe("JobWatcher export-job completion", () => {
   it("emits the export as a first-class completion", async () => {
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
 
     await (watcher as unknown as CompletionEmitter).emitCompleted(
       exportCompletion("exp-abc123", "dist/final/20260101T000000000/video.mp4"),
@@ -102,8 +105,8 @@ describe("JobWatcher export-job completion", () => {
   });
 
   it("dedups a repeated export completion", async () => {
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     const notifier = watcher as unknown as CompletionEmitter;
 
     await notifier.emitCompleted(exportCompletion("exp-dup", "dist/final/x/video.mp4"));
@@ -127,8 +130,8 @@ describe("JobWatcher terminal observation", () => {
       completedAt: new Date().toISOString(),
     });
 
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     const notifier = watcher as unknown as TerminalNotifier;
 
     expect(await notifier.maybeNotifyTerminal("v-term0001")).toBe(true);
@@ -153,8 +156,8 @@ describe("JobWatcher terminal observation", () => {
       completedAt: new Date().toISOString(),
     });
 
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     const notifier = watcher as unknown as TerminalNotifier;
 
     await notifier.maybeNotifyTerminal("v-term0002");
@@ -187,8 +190,8 @@ describe("JobWatcher terminal observation", () => {
       submitPending: true,
     } satisfies WaitForJobResult);
 
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     const internals = watcher as unknown as {
       running: Map<string, Promise<void>>;
       startWaitingForJob(id: string): void;
@@ -215,8 +218,8 @@ describe("JobWatcher terminal observation", () => {
     // 5s poll re-attempts forever — silently, until this warning.
     waitForJobMock.mockRejectedValue(new Error("video.tsx failed to load"));
 
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     const internals = watcher as unknown as {
       running: Map<string, Promise<void>>;
       startWaitingForJob(id: string): void;
@@ -266,8 +269,8 @@ describe("JobWatcher terminal observation", () => {
       } satisfies WaitForJobResult;
     });
 
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     const internals = watcher as unknown as {
       running: Map<string, Promise<void>>;
       startWaitingForJob(id: string): void;
@@ -291,8 +294,8 @@ describe("JobWatcher terminal observation", () => {
     });
     await jobManager.updateJob("v-term0003", { status: "running" });
 
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     const notifier = watcher as unknown as TerminalNotifier;
 
     expect(await notifier.maybeNotifyTerminal("v-term0003")).toBe(false);
@@ -302,7 +305,7 @@ describe("JobWatcher terminal observation", () => {
 
 describe("JobWatcher startup", () => {
   it("does not emit for a job that was already terminal before start", async () => {
-    // A completion that landed while the daemon was down belongs to `konte status`.
+    // A completion that landed while the worker was down belongs to `konte status`.
     await jobManager.createJob({
       address: "video:shot.01.motion",
       variantId: "v-pre00001",
@@ -315,8 +318,8 @@ describe("JobWatcher startup", () => {
       completedAt: "2026-07-12T10:00:00.000Z",
     });
 
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     await watcher.start();
     watcher.stop();
 
@@ -336,8 +339,8 @@ describe("JobWatcher startup", () => {
       completedAt: "2026-07-12T10:00:00.000Z",
     });
 
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     await watcher.start();
     watcher.stop();
 
@@ -351,8 +354,8 @@ describe("JobWatcher live terminal observation", () => {
   it("emits for a job first observed terminal during the session", async () => {
     // Never caught running/queued by this watcher (e.g. finished by a concurrent `konte job wait`
     // before a waiter attached). The scan is the only path that can still emit it, so it must.
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     await watcher.start(); // no jobs yet → empty startup baseline
 
     await jobManager.createJob({
@@ -390,8 +393,8 @@ describe("JobWatcher live terminal observation", () => {
       completedAt: new Date().toISOString(),
     });
 
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     await watcher.start(); // v-base0001 terminal at startup → baselined
     await (watcher as unknown as Scanner).scanForNewJobs();
     watcher.stop();
@@ -402,7 +405,7 @@ describe("JobWatcher live terminal observation", () => {
 
 describe("JobWatcher cascade readiness pre-check", () => {
   function watcher(): { hasActionablePendingJob(jobs: JobRecord[]): boolean } {
-    return new JobWatcher(makeNotifier().notify, roots, "v1") as unknown as {
+    return new JobWatcher(roots, "v1") as unknown as {
       hasActionablePendingJob(jobs: JobRecord[]): boolean;
     };
   }
@@ -470,8 +473,8 @@ describe("JobWatcher dedup pruning", () => {
     });
     await jobManager.updateJob("v-reset001", { status: "pending" });
 
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     const internals = watcher as unknown as {
       handledJobs: Set<string>;
       loggedSubmissions: Set<string>;
@@ -498,8 +501,8 @@ describe("JobWatcher dedup pruning", () => {
       completedAt: new Date().toISOString(),
     });
 
-    const fake = makeNotifier();
-    const watcher = new JobWatcher(fake.notify, roots, "v1");
+    const fake = makeLog();
+    const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     const internals = watcher as unknown as {
       handledJobs: Set<string>;
       pruneDedupState(jobs: JobRecord[]): void;

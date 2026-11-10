@@ -67,6 +67,9 @@ export function preparePatchSpend(
  * `rerollStep` names a step to roll again even when its take is current or in flight; every step
  * consuming it is rebuilt by the rule above, so the attempt it asks for reaches the patched take.
  */
+/** `jobs` is the returned step's; `steps` the jobs this run registered for the steps before it. */
+export type PatchApplication = AssetResult & { steps: string[] };
+
 export async function applyPatch(
   patch: LoadedPatch,
   roots: VideoRoots,
@@ -74,8 +77,9 @@ export async function applyPatch(
   // What `preparePatchSpend` answered for this patch.
   spend: SpendPlan,
   rerollStep?: string,
-): Promise<AssetResult> {
+): Promise<PatchApplication> {
   const videoRoot = roots.video;
+  const launched: string[] = [];
   // The job listing is taken BEFORE the state snapshot, and the order matters: a variant is
   // reserved (a state write) before its job file lands, so a state read at least as new as the
   // listing sees the variant behind every job the listing reported. Read the other way round, a
@@ -141,7 +145,12 @@ export async function applyPatch(
       // Joining the returned step's job leaves this run nothing to do: that job carries the
       // finalize target, so the patched variant lands when it does.
       if (isOutput) {
-        return { address, status: "submitted", jobs: [{ variantId: running, status: "running" }] };
+        return {
+          address,
+          status: "submitted",
+          jobs: [{ variantId: running, status: "running" }],
+          steps: launched,
+        };
       }
       pin[address] = running;
       stepJobIds.push(running);
@@ -168,6 +177,7 @@ export async function applyPatch(
           address: patch.sourceAddress,
           status: "submitted",
           jobs: [{ variantId: outputId, status: "materialized" }],
+          steps: launched,
         };
       }
       if (current && !isOutput) {
@@ -186,13 +196,14 @@ export async function applyPatch(
       output: isOutput ? origin : null,
       fresh,
     });
-    if (result.status === "failed" || isOutput) return result;
+    if (result.status === "failed" || isOutput) return { ...result, steps: launched };
     // Pin the variant this run just reserved, not merely its job id. A later step submits from the
     // pending path, where deps resolve by the accepted-then-newest rule. Without the pin, editing an
     // early step would regenerate it and then feed an *old accepted* one to everything downstream.
     const reserved = result.jobs[0]?.variantId;
     if (reserved) pin[address] = reserved;
     stepJobIds.push(...result.jobs.map((j) => j.variantId));
+    launched.push(...result.jobs.map((j) => j.variantId));
     rebuilding.add(address);
   }
 
@@ -322,7 +333,7 @@ async function launchStep(opts: {
     ? new Set<string>()
     : rivalStepVariantIds(await jobManager.listJobs(), opts.output);
 
-  // The pin travels as `pinnedDeps` so the source variant is still the exact take when the daemon
+  // The pin travels as `pinnedDeps` so the source variant is still the exact take when the worker
   // submits, however long the installs and earlier steps take.
   return registerJobs({
     address,

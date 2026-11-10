@@ -96,7 +96,7 @@ afterEach(async () => {
   await fs.rm(videoRoot, { recursive: true, force: true });
 });
 
-// What the daemon does for a video's song-analysis jobs, in one pass.
+// What the worker does for a video's song-analysis jobs, in one pass.
 async function runPendingSongAnalyses(jobManager: JobManager, videoRoot: string) {
   const jobs = (await jobManager.listJobs()).filter(
     (j) => j.kind === "song-analysis" && (j.status === "pending" || j.status === "running"),

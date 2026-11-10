@@ -209,7 +209,7 @@ Examples:
       }
 
       const jobManager = new JobManager(videoRoot);
-      const runner = new JobRunnerGuard(roots.workspace, () => {});
+      const runner = new JobRunnerGuard(roots.workspace);
       let failed = false;
       try {
         for (const target of targets) {

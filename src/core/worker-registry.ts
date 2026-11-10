@@ -7,12 +7,12 @@ import { hostname } from "node:os";
 import { writeFileAtomic } from "./atomic-write.js";
 import { withFileLock } from "./file-lock.js";
 
-const DAEMONS_DIR = path.join(".konte", "daemons");
-export const DAEMON_INSTANCE_ID = randomUUID();
+const WORKERS_DIR = path.join(".konte", "workers");
+export const WORKER_INSTANCE_ID = randomUUID();
 const HEARTBEAT_TTL_MS = 30_000;
-export const DAEMON_NAMESPACE = processNamespace();
+export const WORKER_NAMESPACE = processNamespace();
 
-export type DaemonRecord = {
+export type WorkerRecord = {
   instanceId: string;
   namespace: string;
   pid: number;
@@ -26,12 +26,12 @@ function processNamespace(): string {
   try {
     return `${host}:${readFileSync("/proc/sys/kernel/random/boot_id", "utf-8").trim()}:${readlinkSync("/proc/self/ns/pid")}`;
   } catch {
-    return `${host}:${DAEMON_INSTANCE_ID}`;
+    return `${host}:${WORKER_INSTANCE_ID}`;
   }
 }
 
 function recordPath(workspaceRoot: string, instanceId: string): string {
-  return path.join(workspaceRoot, DAEMONS_DIR, `${instanceId}.json`);
+  return path.join(workspaceRoot, WORKERS_DIR, `${instanceId}.json`);
 }
 
 /**
@@ -66,7 +66,7 @@ export async function processStartToken(pid: number): Promise<string | null> {
   });
 }
 
-export function daemonProcessExists(pid: number): boolean {
+export function processExists(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
@@ -75,7 +75,7 @@ export function daemonProcessExists(pid: number): boolean {
   }
 }
 
-async function heartbeatIsFresh(workspaceRoot: string, record: DaemonRecord): Promise<boolean> {
+async function heartbeatIsFresh(workspaceRoot: string, record: WorkerRecord): Promise<boolean> {
   try {
     const stat = await fs.stat(recordPath(workspaceRoot, record.instanceId));
     return Date.now() - stat.mtimeMs < HEARTBEAT_TTL_MS;
@@ -85,25 +85,25 @@ async function heartbeatIsFresh(workspaceRoot: string, record: DaemonRecord): Pr
   }
 }
 
-export async function daemonIsAlive(
+export async function workerIsAlive(
   workspaceRoot: string,
-  record: DaemonRecord,
+  record: WorkerRecord,
   verifyIdentity = false,
 ): Promise<boolean> {
-  if (record.namespace !== DAEMON_NAMESPACE) return heartbeatIsFresh(workspaceRoot, record);
-  if (!daemonProcessExists(record.pid)) return false;
+  if (record.namespace !== WORKER_NAMESPACE) return heartbeatIsFresh(workspaceRoot, record);
+  if (!processExists(record.pid)) return false;
   if (record.startToken === null) return heartbeatIsFresh(workspaceRoot, record);
   if (!verifyIdentity) return true;
   const token = await processStartToken(record.pid);
   return token === null ? heartbeatIsFresh(workspaceRoot, record) : token === record.startToken;
 }
 
-export async function ownsDaemon(workspaceRoot: string): Promise<boolean> {
+export async function ownsWorker(workspaceRoot: string): Promise<boolean> {
   try {
     const record = JSON.parse(
-      await fs.readFile(recordPath(workspaceRoot, DAEMON_INSTANCE_ID), "utf-8"),
-    ) as DaemonRecord;
-    return record.instanceId === DAEMON_INSTANCE_ID;
+      await fs.readFile(recordPath(workspaceRoot, WORKER_INSTANCE_ID), "utf-8"),
+    ) as WorkerRecord;
+    return record.instanceId === WORKER_INSTANCE_ID;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT" || error instanceof SyntaxError)
       return false;
@@ -111,64 +111,64 @@ export async function ownsDaemon(workspaceRoot: string): Promise<boolean> {
   }
 }
 
-export async function heartbeatDaemon(workspaceRoot: string): Promise<boolean> {
-  if (!(await ownsDaemon(workspaceRoot))) return false;
+export async function heartbeatWorker(workspaceRoot: string): Promise<boolean> {
+  if (!(await ownsWorker(workspaceRoot))) return false;
   const now = new Date();
-  await fs.utimes(recordPath(workspaceRoot, DAEMON_INSTANCE_ID), now, now);
+  await fs.utimes(recordPath(workspaceRoot, WORKER_INSTANCE_ID), now, now);
   return true;
 }
 
-/** Record this process as a live daemon of the workspace. */
-export async function registerDaemon(workspaceRoot: string): Promise<DaemonRecord> {
-  const record: DaemonRecord = {
-    instanceId: DAEMON_INSTANCE_ID,
-    namespace: DAEMON_NAMESPACE,
+/** Record this process as a live worker of the workspace. */
+export async function registerWorker(workspaceRoot: string): Promise<WorkerRecord> {
+  const record: WorkerRecord = {
+    instanceId: WORKER_INSTANCE_ID,
+    namespace: WORKER_NAMESPACE,
     pid: process.pid,
     startToken: await processStartToken(process.pid),
     startedAt: new Date().toISOString(),
   };
-  const file = recordPath(workspaceRoot, DAEMON_INSTANCE_ID);
+  const file = recordPath(workspaceRoot, WORKER_INSTANCE_ID);
   await fs.mkdir(path.dirname(file), { recursive: true });
   await writeFileAtomic(file, `${JSON.stringify(record)}\n`);
   return record;
 }
 
-export async function claimDaemon(workspaceRoot: string): Promise<DaemonRecord> {
-  const dir = path.join(workspaceRoot, DAEMONS_DIR);
+export async function claimWorker(workspaceRoot: string): Promise<WorkerRecord> {
+  const dir = path.join(workspaceRoot, WORKERS_DIR);
   await fs.mkdir(dir, { recursive: true });
   return withFileLock(path.join(dir, "worker.lock"), async () => {
-    const [worker] = await liveDaemons(workspaceRoot);
+    const [worker] = await liveWorkers(workspaceRoot);
     if (worker) return worker;
-    return registerDaemon(workspaceRoot);
+    return registerWorker(workspaceRoot);
   });
 }
 
 /** Synchronous, for a signal handler that has milliseconds left. */
-export function unregisterDaemonSync(workspaceRoot: string): void {
-  const file = recordPath(workspaceRoot, DAEMON_INSTANCE_ID);
+export function unregisterWorkerSync(workspaceRoot: string): void {
+  const file = recordPath(workspaceRoot, WORKER_INSTANCE_ID);
   try {
-    if ((JSON.parse(readFileSync(file, "utf-8")) as DaemonRecord).instanceId !== DAEMON_INSTANCE_ID)
+    if ((JSON.parse(readFileSync(file, "utf-8")) as WorkerRecord).instanceId !== WORKER_INSTANCE_ID)
       return;
     rmSync(file, { force: true });
   } catch {}
 }
 
-/** The workspace's daemons still running, other than this process. Dead records are removed. */
-export async function liveDaemons(workspaceRoot: string): Promise<DaemonRecord[]> {
-  const dir = path.join(workspaceRoot, DAEMONS_DIR);
+/** The workspace's workers still running, other than this process. Dead records are removed. */
+export async function liveWorkers(workspaceRoot: string): Promise<WorkerRecord[]> {
+  const dir = path.join(workspaceRoot, WORKERS_DIR);
   let names: string[];
   try {
     names = await fs.readdir(dir);
   } catch {
     return [];
   }
-  const live: DaemonRecord[] = [];
+  const live: WorkerRecord[] = [];
   for (const name of names) {
     if (!name.endsWith(".json")) continue;
     const file = path.join(dir, name);
-    let record: DaemonRecord;
+    let record: WorkerRecord;
     try {
-      record = JSON.parse(await fs.readFile(file, "utf-8")) as DaemonRecord;
+      record = JSON.parse(await fs.readFile(file, "utf-8")) as WorkerRecord;
     } catch {
       continue;
     }
@@ -176,8 +176,8 @@ export async function liveDaemons(workspaceRoot: string): Promise<DaemonRecord[]
       await fs.rm(file, { force: true }).catch(() => {});
       continue;
     }
-    if (record.instanceId === DAEMON_INSTANCE_ID) continue;
-    if (await daemonIsAlive(workspaceRoot, record, true)) live.push(record);
+    if (record.instanceId === WORKER_INSTANCE_ID) continue;
+    if (await workerIsAlive(workspaceRoot, record, true)) live.push(record);
     else await fs.rm(file, { force: true }).catch(() => {});
   }
   return live;

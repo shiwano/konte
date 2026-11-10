@@ -18,7 +18,7 @@ Done = a task file whose every task names `file:line`, the defect, and the propo
 
 ## 2. Split
 
-- Groups of ~10–30k lines along subsystem lines: `src/core`, `src/cli`, `src/pages` (+ `src/cli/commands/preview`, `src/cli/page-host`), `src/backends` + `src/comfyui` + `src/comfy-api` + `src/fal` + `src/local` + `src/mcp`.
+- Groups of ~10–30k lines along subsystem lines: `src/core`, `src/cli`, `src/pages` (+ `src/cli/commands/preview`, `src/cli/page-host`), `src/backends` + `src/comfyui` + `src/comfy-api` + `src/fal` + `src/local` + `src/worker`.
 - Each brief names its group's largest files.
 
 ## 3. Brief

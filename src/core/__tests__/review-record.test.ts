@@ -747,7 +747,7 @@ describe("loadAllReviewRecords", () => {
     const byTimestamp = await loadReviewRecordFile(tmpDir, "20260515T100000000");
     expect(byTimestamp.createdAt).toBe("2026-05-15T10:00:00.000Z");
 
-    // The videoRoot-relative path the MCP review event carries.
+    // The videoRoot-relative path the review event carries.
     const byRelPath = await loadReviewRecordFile(
       tmpDir,
       "review/video/records/20260517T150000000.json",

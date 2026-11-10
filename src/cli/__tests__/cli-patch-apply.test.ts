@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { JobManager } from "../../core/job-manager.js";
-import { useTempWorkspace, run } from "./cli-fixtures.js";
+import { useTempWorkspace, run, writeWorkspaceConfig } from "./cli-fixtures.js";
 import { initPatchProject, generateSource, writePatch, variantsOf } from "./patch-fixtures.js";
 
 // The record as plain JSON, so a test reads nested metadata without narrowing the union.
@@ -190,6 +190,50 @@ export default definePatch<"image">(({ source }) => {
       const poolAddress = `reference:patch.${sourceId}.wide`;
       expect(job.metadata.pinnedDeps).toMatchObject({ [poolAddress]: expect.any(String) });
       expect(job.metadata.pinnedDeps[poolAddress]).not.toBe(sourceId);
+    });
+
+    it("submits a ready remote step before returning and reports the one whose submit fails", async () => {
+      const projectDir = await initPatchProject();
+      const sourceId = await generateSource(projectDir);
+      await writeWorkspaceConfig(projectDir, {
+        comfy: {
+          comfyui: {
+            url: "http://127.0.0.1:8188",
+            autoInstallModels: false,
+            autoInstallNodes: false,
+          },
+        },
+      });
+      await writePatch(
+        projectDir,
+        sourceId,
+        `import { asset, definePatch, adapters, defineComfyAsset } from "konte";
+
+const fix = defineComfyAsset({
+  workflow: "fix.json",
+  description: "test adapter",
+  inputs: { image: { type: "image", nodeId: "1", field: "image" } },
+  outputs: { result: { nodeId: "9", type: "image" } },
+});
+
+export default definePatch<"image">(({ source }) => {
+  const fixed = asset("fixed", fix, { image: source });
+  return asset("patched", adapters.imageResize, { image: fixed, width: 24, height: 24 });
+});
+`,
+      );
+      const err = (await run(["patch", "apply", sourceId], projectDir).catch((e) => e)) as {
+        code: number;
+        stdout: string;
+        stderr: string;
+      };
+      expect(err.code).toBe(1);
+      expect(err.stdout).toMatch(
+        new RegExp(
+          `^ {2}reference:patch\\.${sourceId}\\.fixed \\(v-\\S+\\) {2}Workflow file not found`,
+          "m",
+        ),
+      );
     });
 
     // A chain step has no node in the stage dependency graph, so reading its edges from there

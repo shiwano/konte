@@ -1,9 +1,9 @@
 import { constants } from "node:os";
 import pkg from "../../package.json" with { type: "json" };
-import { DAEMON_INSTANCE_ID, liveDaemons } from "../core/daemon-registry.js";
+import { WORKER_INSTANCE_ID, liveWorkers } from "../core/worker-registry.js";
 import { KonteError } from "../core/errors.js";
-import { McpLog } from "../mcp/mcp-log.js";
-import { startWorkerHost } from "../mcp/worker-host.js";
+import { WorkerLog } from "../worker/worker-log.js";
+import { startWorkerHost } from "../worker/worker-host.js";
 
 // A worker that dies this many times under one wait is not coming up.
 const MAX_STARTS = 3;
@@ -22,33 +22,28 @@ export const jobRunnerHooks: { start: (workspaceRoot: string) => AttachedRunner 
 };
 
 function startAttachedRunner(workspaceRoot: string): AttachedRunner {
-  const log = new McpLog(workspaceRoot, { instanceId: DAEMON_INSTANCE_ID });
+  const log = new WorkerLog(workspaceRoot, { instanceId: WORKER_INSTANCE_ID });
   log.write("info", {
-    event: "daemon_started",
+    event: "runner_started",
     version: pkg.version,
     workspace: workspaceRoot,
-    jobWait: true,
   });
-  const host = startWorkerHost(workspaceRoot, {
-    log,
-    stopOnWorkerFailure: true,
-    captureStderr: true,
-  });
+  const host = startWorkerHost(workspaceRoot, { log, captureStderr: true });
   return {
     exited: host.exited,
     stderrTail: () => host.stderrTail(),
     async stop() {
       await host.stop();
-      log.write("info", { event: "daemon_stopped", jobWait: true });
+      log.write("info", { event: "runner_stopped" });
       await log.flush();
     },
   };
 }
 
 /**
- * Keeps the workspace's jobs running for as long as a wait lasts: by the workspace's daemon when
- * one is up, else by a worker this wait hosts. Checked on every pass, since a worker another wait
- * hosts goes away with that wait.
+ * Keeps the workspace's jobs running for as long as a wait lasts: by the worker another wait hosts
+ * when one is up, else by a worker this wait hosts. Checked on every pass, since a worker another
+ * wait hosts goes away with that wait.
  */
 export class JobRunnerGuard {
   private runner: AttachedRunner | null = null;
@@ -66,20 +61,17 @@ export class JobRunnerGuard {
     void this.stop().finally(() => process.exit(code));
   };
 
-  constructor(
-    private readonly workspaceRoot: string,
-    private readonly onStart: () => void,
-  ) {}
+  constructor(private readonly workspaceRoot: string) {}
 
   async ensure(): Promise<void> {
     if (this.running || this.interrupted) return;
-    if ((await liveDaemons(this.workspaceRoot)).length > 0) return;
+    if ((await liveWorkers(this.workspaceRoot)).length > 0) return;
     if (this.starts >= MAX_STARTS) {
       const tail = this.runner?.stderrTail();
       throw new KonteError(
         "JOB_RUNNER_EXITED",
         `The konte worker this wait started exited ${this.starts} times — no job is being run. ` +
-          "Run `konte mcp serve` in the workspace to see why, or `konte job wait` again once fixed",
+          "Read `.konte/logs/worker.log` in the workspace to see why, then `konte job wait` again",
         tail ? tail.split("\n").map((l) => `  ${l}`) : [],
       );
     }
@@ -94,7 +86,6 @@ export class JobRunnerGuard {
     void runner.exited.then(() => {
       if (this.runner === runner) this.running = false;
     });
-    this.onStart();
   }
 
   /** A stop while one is in flight joins it. */

@@ -48,7 +48,7 @@ interface SubmitReadyPendingJobsResult {
   failed: string[];
   // Jobs handed back to the queue by this process because its loaded definitions proved older
   // than the files on disk. The process must not judge again from the same definitions — a
-  // daemon's worker restarts, a wait re-reads on its next pass.
+  // worker restarts.
   released: StaleJudgeRelease[];
 }
 
@@ -66,14 +66,23 @@ export type Submitter = {
   onSubmitted: (variantId: string) => void;
 };
 
+// A pass by a process that will not wait on what it submits: it submits and fails only the jobs
+// in `only` — every job of the video still counts when a dependency is judged — and drops each
+// submit lease at the commit.
+export type SpendSubmitter = {
+  only: ReadonlySet<string>;
+};
+
 export async function submitReadyPendingJobs(
   jobManager: JobManager,
   roots: VideoRoots,
   backendCache: Map<BackendKind, GenerationBackend>,
   resolveBackendFn: ResolveBackendFn,
   loadDefinitions: LoadDefinitionsFn,
-  submitter?: Submitter,
+  by?: Submitter | SpendSubmitter,
 ): Promise<SubmitReadyPendingJobsResult> {
+  const submitter = by && "workerId" in by ? by : undefined;
+  const scope = by && "only" in by ? by : undefined;
   const videoRoot = roots.video;
   const submitted: string[] = [];
   const failed: string[] = [];
@@ -94,6 +103,7 @@ export async function submitReadyPendingJobs(
     const pendingJobs = allJobs.filter(
       (j): j is GenerationJob =>
         j.kind === "generation" &&
+        (scope === undefined || scope.only.has(j.id)) &&
         (j.status === "pending" || j.status === "queued" || isStrandedSubmit(j)),
     );
     if (pendingJobs.length === 0) break;
@@ -127,6 +137,7 @@ export async function submitReadyPendingJobs(
             definitions,
             backendCache,
             resolveBackendFn,
+            scope === undefined,
           ),
         );
         if (outcome === "submitted") {
@@ -368,6 +379,7 @@ async function trySubmitJob(
   definitions: LoadedDefinitions,
   backendCache: Map<BackendKind, GenerationBackend>,
   resolveBackendFn: ResolveBackendFn,
+  keepLease: boolean,
 ): Promise<"submitted" | "failed" | StaleJudgeRelease> {
   const videoRoot = roots.video;
   // Hold the submit lease across the slow backend.submit() so a crashed submitter is
@@ -466,10 +478,9 @@ async function trySubmitJob(
     const committed = await jobManager.finishIfOwner(job.variantId, workerId, {
       status: "running",
       backendJobId,
-      lease: {
-        owner: workerId,
-        expiresAt: new Date(Date.now() + RUN_LEASE_TTL_MS).toISOString(),
-      },
+      lease: keepLease
+        ? { owner: workerId, expiresAt: new Date(Date.now() + RUN_LEASE_TTL_MS).toISOString() }
+        : null,
       metadata,
       provenance: {
         ...job.provenance,

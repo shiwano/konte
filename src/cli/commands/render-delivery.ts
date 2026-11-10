@@ -138,7 +138,7 @@ export async function planDelivery(opts: {
         // simply left without a composition fingerprint (never cache-hit) rather than mis-keyed.
         compositionCacheKeys: cacheKey ? { [compAddr]: cacheKey } : undefined,
         // Snapshot the resolved target so the variant's definition hash is re-derived from these
-        // exact dims at export time, never from a fresh probe — and the daemon rebuilds the
+        // exact dims at export time, never from a fresh probe — and the worker rebuilds the
         // definition from it.
         deliveryTarget: target,
         comfyTarget,

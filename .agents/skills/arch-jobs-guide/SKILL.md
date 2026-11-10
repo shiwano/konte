@@ -1,6 +1,6 @@
 ---
 name: arch-jobs-guide
-description: Read when touching the job pipeline — standalone job kinds (comfy model/node provisioning, export), leader-elected run leases, keyframe normalization, and the MCP watcher's job handling.
+description: Read when touching the job pipeline — standalone job kinds (comfy model/node provisioning, export), leader-elected run leases, keyframe normalization, and the worker's job handling.
 user-invocable: false
 ---
 
@@ -28,24 +28,24 @@ Activation:
 
 ## Leader-elected waiting
 
-- When several daemons of the workspace await one running job, a run lease (`job.lease`) makes exactly one the owner — it runs the backend wait, downloads/normalizes the output, and commits the terminal state; the rest only monitor the job record.
+- When several waiters await one running job, a run lease (`job.lease`) makes exactly one the owner — it runs the backend wait, downloads/normalizes the output, and commits the terminal state; the rest only monitor the job record.
 - A crashed owner's lease lapses; a monitor reclaims it and re-attaches via the persisted backend job id — every backend job is re-observable by id.
 - The same lease protects export and model-download workers.
 - Waiting is unbounded, except comfy, whose prompt lives in the server process: it fails after `comfy.comfyui.unreachableTimeoutMinutes` of silence (0 = never; default 15 on a loopback URL, 0 on a remote one).
 - `submissionStartedAt` is persisted under the submit lease before calling a backend. A reclaimed external job with that stamp and no backend id fails with `SUBMISSION_UNCONFIRMED` — check the backend before rerolling. A claim that never began submission, and a local operation, may retry.
 - A vendor submit asks `shouldCancel` right before each send (`SUBMIT_CANCELLED`). A submit whose commit is refused — a `job cancel` or a lost lease — cancels its backend job, unless a reclaimer on a resubmit-safe backend adopts it.
-- A committed submit keeps the submit lease, and the daemon submits and waits under one `workerId`, so its waiter takes that lease over and the job is never unwatched between submit and wait.
-- Transient result-fetch and download-stream failures retry against the existing backend id. A wait timeout releases the run lease; the next waiter resumes retrieval.
+- A committed submit keeps the submit lease, and the worker submits and waits under one `workerId`, so its waiter takes that lease over and the job is never unwatched between submit and wait.
+- A spend command submits the ready jobs it registered before returning (`submitRegisteredJobs`), scoped to those ids and committed with no lease — `job list` shows `submitted`, and `⚠ unwatched` only an expired lease. A `local` job is the wait's. The command reports a failed submit and exits non-zero.
+- Transient result-fetch and download-stream failures retry against the existing backend id. A wait timeout or a stopping worker (`releaseClaimedLeases`) releases the run lease; the next waiter resumes retrieval.
 
 ## One worker, every video
 
-- `mcp serve`, and a `job wait` / `song` finding none up, elect one workspace worker under a file lock.
+- A `job wait` / `song` finding no worker up elects one under a file lock; it ends with that wait, and another wait takes over.
 - Registrations use instance ids; local liveness uses pid/start time, foreign PID namespaces a 5s heartbeat (30s expiry).
-- The elected process runs the jobs in a child (`mcp worker`, own process group) and loads no definition.
-- Registration and heartbeat survive the worker's submit drain. EOF stops each connection; a lost registration stops only the worker.
+- The elected process runs the jobs in a child (`job worker`, own process group) and loads no definition.
+- Registration and heartbeat survive the worker's submit drain; a lost registration stops only the worker.
 - Only the worker process loads `VideoRegistry`: a `JobWatcher` per video, `fs.watch` plus a 5s poll, credentials refreshed before startup and each tick.
-- `status` includes locally watched videos (empty on standby).
-- `.konte/logs/mcp.log` records lifecycle, worker and job events, tagged by instance id, URLs redacted. It rotates to `mcp.log.1` at 5 MB.
+- `.konte/logs/worker.log` records lifecycle, worker and job events, tagged by instance id, URLs redacted. It rotates to `worker.log.1` at 5 MB.
 
 ## What a judge reads
 
