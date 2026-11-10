@@ -109,7 +109,7 @@ export function sendOnce(
 export async function sendIdempotent(
   url: string,
   init: RequestInit & { auth: ComfyApiAuth },
-  options?: { maxRetries?: number; timeoutMs?: number },
+  options?: { maxRetries?: number; timeoutMs?: number; timeoutUntilHeaders?: boolean },
 ): Promise<Response> {
   const { auth, headers, ...rest } = init;
   return fetchWithRetry(

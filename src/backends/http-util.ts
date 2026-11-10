@@ -2,12 +2,7 @@ import * as path from "node:path";
 import { z } from "zod";
 import { streamToFileAtomic, writeFileAtomic } from "../core/atomic-write.js";
 import { KonteError, type KonteErrorCode, errorMessage } from "../core/errors.js";
-import {
-  API_REQUEST_TIMEOUT_MS,
-  MEDIA_TRANSFER_TIMEOUT_MS,
-  fetchWithRetry,
-  TransientHttpError,
-} from "../core/http-retry.js";
+import { API_REQUEST_TIMEOUT_MS, fetchWithRetry, TransientHttpError } from "../core/http-retry.js";
 import { redactUrlSecret } from "../core/redact.js";
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -120,9 +115,10 @@ export async function downloadToFile(
   outputPath: string,
   errorCode: KonteErrorCode,
 ): Promise<void> {
-  // A result video can be hundreds of MB; use the generous media-transfer per-attempt deadline
-  // rather than the default so a slow-but-live download isn't aborted mid-stream.
-  const res = await fetchWithRetry(url, undefined, { timeoutMs: MEDIA_TRANSFER_TIMEOUT_MS });
+  const res = await fetchWithRetry(url, undefined, {
+    timeoutMs: API_REQUEST_TIMEOUT_MS,
+    timeoutUntilHeaders: true,
+  });
   if (!res.ok) {
     throw new KonteError(
       errorCode,
@@ -133,17 +129,34 @@ export async function downloadToFile(
   await saveDownloadResponse(res, outputPath);
 }
 
-export async function saveDownloadResponse(res: Response, outputPath: string): Promise<void> {
+const DOWNLOAD_STALL_MS = 120_000;
+
+// A transfer of any length lands; one that goes `stallMs` without a byte is cut off as transient.
+export async function saveDownloadResponse(
+  res: Response,
+  outputPath: string,
+  stallMs: number = DOWNLOAD_STALL_MS,
+): Promise<void> {
   if (res.body) {
     const reader = res.body.getReader();
     const body = new ReadableStream<Uint8Array>({
       async pull(controller) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const stalled = new Promise<"stalled">((resolve) => {
+          timer = setTimeout(() => resolve("stalled"), stallMs);
+        });
         try {
-          const { value, done } = await reader.read();
-          if (done) controller.close();
-          else controller.enqueue(value);
+          const next = await Promise.race([reader.read(), stalled]);
+          if (next === "stalled") {
+            controller.error(
+              new TransientHttpError(`Result download stalled: no data for ${stallMs / 1000}s`),
+            );
+          } else if (next.done) controller.close();
+          else controller.enqueue(next.value);
         } catch (cause) {
           controller.error(new TransientHttpError("Result download interrupted", { cause }));
+        } finally {
+          clearTimeout(timer);
         }
       },
       cancel: (reason) => reader.cancel(reason),

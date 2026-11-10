@@ -29,6 +29,9 @@ interface FetchRetryOptions {
   // the polling/download data path; a lapsed deadline aborts the attempt and is
   // treated as a transient failure so it retries within budget.
   timeoutMs?: number;
+  // On an OK response the deadline ends with the headers; the body is a transfer whose stalls the
+  // reader bounds. An error response's body stays under it.
+  timeoutUntilHeaders?: boolean;
   onRetry?: (info: { attempt: number; delayMs: number; reason: string }) => void;
 }
 
@@ -86,8 +89,12 @@ export async function fetchWithRetry(
     let status: number | null = null;
     let reason: string;
 
+    const deadline = options?.timeoutUntilHeaders
+      ? headersDeadline(init?.signal, timeoutMs)
+      : { signal: withTimeout(init?.signal, timeoutMs), clear: () => {} };
     try {
-      res = await fetch(url, { ...init, signal: withTimeout(init?.signal, timeoutMs) });
+      res = await fetch(url, { ...init, signal: deadline.signal });
+      if (res.ok) deadline.clear();
       if (res.ok || !TRANSIENT_STATUS.has(res.status)) return res;
       status = res.status;
       reason = `HTTP ${res.status}`;
@@ -116,6 +123,23 @@ export async function fetchWithRetry(
 function withTimeout(signal: AbortSignal | null | undefined, timeoutMs: number): AbortSignal {
   const timeout = AbortSignal.timeout(timeoutMs);
   return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
+/** A deadline the caller clears once an OK response's headers are in hand. */
+export function headersDeadline(
+  signal: AbortSignal | null | undefined,
+  timeoutMs: number,
+): { signal: AbortSignal; clear: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(new DOMException("The operation timed out.", "TimeoutError")),
+    timeoutMs,
+  );
+  timer.unref?.();
+  return {
+    signal: signal ? AbortSignal.any([signal, controller.signal]) : controller.signal,
+    clear: () => clearTimeout(timer),
+  };
 }
 
 function retryAfterMs(res: Response | undefined, maxDelayMs: number): number | null {

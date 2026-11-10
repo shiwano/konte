@@ -9,11 +9,7 @@ import {
   saveDownloadResponse,
 } from "../backends/http-util.js";
 import { KonteError, errorMessage } from "../core/errors.js";
-import {
-  MEDIA_TRANSFER_TIMEOUT_MS,
-  mediaTransferTimeoutMs,
-  TransientHttpError,
-} from "../core/http-retry.js";
+import { mediaTransferTimeoutMs, TransientHttpError } from "../core/http-retry.js";
 import { type ComfyApiAuth, sendIdempotent, sendOnce, toHttpError } from "./http.js";
 
 const ComfyApiJobStatusSchema = z.enum([
@@ -256,7 +252,7 @@ export class ComfyApiRuntimeClient {
     const res = await sendIdempotent(
       url,
       { auth: this.auth, redirect: "manual" },
-      { timeoutMs: MEDIA_TRANSFER_TIMEOUT_MS },
+      { timeoutUntilHeaders: true },
     );
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get("location");

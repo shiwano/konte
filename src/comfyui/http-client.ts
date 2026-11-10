@@ -1,6 +1,6 @@
 import { parseApiResponse, saveDownloadResponse } from "../backends/http-util.js";
 import { KonteError, errorMessage } from "../core/errors.js";
-import { MEDIA_TRANSFER_TIMEOUT_MS, fetchWithRetry } from "../core/http-retry.js";
+import { MEDIA_TRANSFER_TIMEOUT_MS, fetchWithRetry, headersDeadline } from "../core/http-retry.js";
 import { redactExternalBody } from "../core/redact.js";
 import { resolveHeaderTokens } from "./token-resolver.js";
 import {
@@ -196,9 +196,7 @@ export class ComfyUIHttpClient {
       type: file.type,
     });
 
-    const res = await this.fetch(`/view?${params.toString()}`, {
-      timeout: MEDIA_TRANSFER_TIMEOUT_MS,
-    });
+    const res = await this.fetch(`/view?${params.toString()}`, { timeoutUntilHeaders: true });
     await saveDownloadResponse(res, outputPath);
   }
 
@@ -285,11 +283,22 @@ export class ComfyUIHttpClient {
 
   private async fetch(
     path: string,
-    options?: RequestInit & { timeout?: number; allowErrorStatus?: boolean; submission?: boolean },
+    options?: RequestInit & {
+      timeout?: number;
+      timeoutUntilHeaders?: boolean;
+      allowErrorStatus?: boolean;
+      submission?: boolean;
+    },
   ): Promise<Response> {
     const url = `${this.baseUrl}${path}`;
     const timeoutMs = options?.timeout ?? DEFAULT_TIMEOUT_MS;
-    const signal = options?.signal ?? (timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined);
+    const deadline = options?.timeoutUntilHeaders
+      ? headersDeadline(options.signal, timeoutMs)
+      : null;
+    const signal =
+      deadline?.signal ??
+      options?.signal ??
+      (timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined);
 
     // The caller's own headers win: `/upload/image` builds a multipart body whose boundary only
     // fetch knows, and a Content-Type from anywhere else would invalidate it.
@@ -298,6 +307,7 @@ export class ComfyUIHttpClient {
     let res: Response;
     try {
       res = await fetch(url, { ...options, headers, signal });
+      if (res.ok) deadline?.clear();
     } catch (err) {
       const timedOut =
         err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError");

@@ -89,6 +89,29 @@ describe("downloadToFile", () => {
     }
   });
 
+  it("cuts off a transfer that stops sending as transient", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-stalled-"));
+    try {
+      let reads = 0;
+      const response = new Response(
+        new ReadableStream({
+          pull(controller) {
+            if (reads++ === 0) controller.enqueue(new TextEncoder().encode("partial"));
+            else return new Promise<void>(() => {});
+          },
+        }),
+      );
+      const err = await saveDownloadResponse(response, path.join(dir, "out.mp4"), 50).catch(
+        (e: unknown) => e,
+      );
+      expect(err).toBeInstanceOf(TransientHttpError);
+      expect((err as Error).message).toContain("stalled");
+      expect(await fs.readdir(dir)).toEqual([]);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("does not classify a filesystem failure as a transient network error", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-write-failure-"));
     try {

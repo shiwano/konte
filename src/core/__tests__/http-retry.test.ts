@@ -1,3 +1,5 @@
+import * as http from "node:http";
+import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchWithRetry, TransientHttpError } from "../http-retry.js";
 
@@ -138,5 +140,45 @@ describe("fetchWithRetry", () => {
     expect(onRetry).toHaveBeenCalledWith(
       expect.objectContaining({ attempt: 1, reason: "HTTP 429" }),
     );
+  });
+
+  it("lets a body outlast the deadline when it covers only the headers", async () => {
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200);
+      res.write("a");
+      setTimeout(() => res.end("b"), 300);
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await fetchWithRetry(`http://127.0.0.1:${port}`, undefined, {
+        ...noWait,
+        timeoutMs: 100,
+        timeoutUntilHeaders: true,
+      });
+      expect(await res.text()).toBe("ab");
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it("keeps an error response's body under the deadline", async () => {
+    const server = http.createServer((_req, res) => {
+      res.writeHead(404);
+      res.write("a");
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const res = await fetchWithRetry(`http://127.0.0.1:${port}`, undefined, {
+        ...noWait,
+        timeoutMs: 100,
+        timeoutUntilHeaders: true,
+      });
+      await expect(res.text()).rejects.toThrow();
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });
