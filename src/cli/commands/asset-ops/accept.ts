@@ -718,6 +718,12 @@ function orderAcceptBatch(
       seen &&
       !(seen.leaf && seen.conditional) &&
       (seen.leaf || seen.variantId !== hit.variantId)
+    if (manager.getAssetState(hit.address).variants?.[hit.variantId]?.file == null) {
+      throw new KonteError(
+        "VARIANT_NOT_REVIEWABLE",
+        `Variant "${hit.variantId}" has no output to accept — its job is still running, or it failed`,
+      );
+    }
     ) {
       throw new KonteError(
         "TARGETS_CONFLICT",

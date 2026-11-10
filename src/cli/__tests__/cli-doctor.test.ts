@@ -29,6 +29,7 @@ describe("doctor command (orphaned targets)", () => {
     const sm = await StateManager.load(projectDir);
     const orphan = "video:shot.99.old";
     const v = sm.reserveVariantId(orphan);
+    sm.getAssetState(orphan).variants![v]!.file = "/tmp/old.mp4";
     sm.setAccepted(orphan, v);
     await sm.save();
 
@@ -45,6 +46,7 @@ describe("doctor command (orphaned targets)", () => {
     const compAddress = "video:shot.01#composition";
     const sm = await StateManager.load(projectDir);
     const compVid = sm.reserveVariantId(compAddress);
+    sm.getAssetState(compAddress).variants![compVid]!.file = "/tmp/composition.mp4";
     sm.setAccepted(compAddress, compVid);
     await sm.save();
 
@@ -253,6 +255,7 @@ describe("doctor command (text output)", () => {
     const sm = await StateManager.load(projectDir);
     const orphan = "video:shot.99.old";
     const v = sm.reserveVariantId(orphan);
+    sm.getAssetState(orphan).variants![v]!.file = "/tmp/old.mp4";
     sm.setAccepted(orphan, v);
     await sm.save();
     return projectDir;
@@ -286,7 +289,9 @@ describe("doctor command (--all-videos)", () => {
     );
     const sm = await StateManager.load(path.join(workspace, "videos", "second"));
     const orphan = "video:shot.99.old";
-    sm.setAccepted(orphan, sm.reserveVariantId(orphan));
+    const v = sm.reserveVariantId(orphan);
+    sm.getAssetState(orphan).variants![v]!.file = "/tmp/old.mp4";
+    sm.setAccepted(orphan, v);
     await sm.save();
 
     const { stdout } = await runCapture(["doctor", "--all-videos"], projectDir);

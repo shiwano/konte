@@ -502,6 +502,7 @@ describe("clean command", () => {
   it("prints nothing to clean when all variants are accepted", async () => {
     const sm = await StateManager.load(projectDir);
     const v1 = sm.reserveVariantId(address);
+    sm.getAssetState(address).variants![v1]!.file = "/tmp/accepted.mp4";
     sm.setAccepted(address, v1);
     await sm.save();
 

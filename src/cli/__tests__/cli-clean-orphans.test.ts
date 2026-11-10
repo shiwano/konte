@@ -179,6 +179,7 @@ describe("clean command: orphans", () => {
   it("does not prune in-definition addresses", async () => {
     const sm = await StateManager.load(projectDir);
     const v = sm.reserveVariantId(validAddress);
+    sm.getAssetState(validAddress).variants![v]!.file = "/tmp/valid.mp4";
     sm.setAccepted(validAddress, v);
     await sm.save();
 
@@ -317,6 +318,7 @@ describe("clean command: orphans", () => {
     const sm = await StateManager.load(projectDir);
     const otherOrphan = "video:shot.88.gone";
     const ov = sm.reserveVariantId(otherOrphan);
+    sm.getAssetState(otherOrphan).variants![ov]!.file = "/tmp/gone.mp4";
     sm.setAccepted(otherOrphan, ov);
     await sm.save();
 

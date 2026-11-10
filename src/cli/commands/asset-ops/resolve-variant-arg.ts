@@ -15,7 +15,8 @@ import type { StateManager } from "../../../core/state/index.js";
  * still without a take names the path its file is missing from.
  *
  * An address that still resolves to nothing — every take fileless, or every one dismissed — fails
- * with the candidate list: there is no take on screen to mean, so the caller has to name one.
+ * with the candidate list: there is no take on screen to mean, so the caller has to name one. Its
+ * only take is that take, unless it has no file.
  *
  * `:` is the discriminator: variant ids never contain one, so any `:` signals address
  * intent and `parseAddress` owns validation (a malformed address fails as such, not as
@@ -52,7 +53,14 @@ export function resolveVariantArg(
       `Address "${address}" has ${ids.length} variants — pass a variant id instead. Candidates: ${ids.join(", ")}`,
     );
   }
-  return { address, variantId: ids[0]! };
+  const only = ids[0]!;
+  if (variants![only]!.file === null) {
+    throw new KonteError(
+      "VARIANT_NOT_REVIEWABLE",
+      `Address "${address}" has no take with output — ${only}'s job is still running, or it failed`,
+    );
+  }
+  return { address, variantId: only };
 }
 
 function declaredFilePath(definitions: StageDefinitions, address: string): string | null {

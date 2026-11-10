@@ -72,6 +72,7 @@ describe("rename command", () => {
 
     compositionVariantId = sm.reserveVariantId(composition);
     const compositionVariant = sm.getAssetState(composition).variants![compositionVariantId]!;
+    compositionVariant.file = "/tmp/composition.mp4";
     compositionVariant.definitionHash = definitionHashForAddress(video, composition);
     compositionVariant.inputFingerprints = { [from]: "h-take" };
     sm.setAccepted(composition, compositionVariantId);

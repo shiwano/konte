@@ -560,6 +560,12 @@ export class StateManager {
         `Variant "${variantId}" not found for address "${address}"`,
       );
     }
+    if (variant.file === null) {
+      throw new KonteError(
+        "VARIANT_NOT_REVIEWABLE",
+        `Variant "${variantId}" has no output to accept — its job is still running, or it failed`,
+      );
+    }
 
     const decidedAt = new Date().toISOString();
     const dismiss = new Set(opts?.dismiss ?? []);

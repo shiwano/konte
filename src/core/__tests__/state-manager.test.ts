@@ -146,10 +146,16 @@ describe("reserveVariantId", () => {
   });
 });
 
+function reserveReady(manager: StateManager, address: string): string {
+  const variantId = manager.reserveVariantId(address);
+  manager.getAssetState(address).variants![variantId]!.file = `/tmp/${variantId}.mp4`;
+  return variantId;
+}
+
 describe("setAccepted / setUnaccepted", () => {
   it("sets variant as accepted", async () => {
     const manager = await StateManager.init(tmpDir);
-    const variantId = manager.reserveVariantId("video:shot.01.motion");
+    const variantId = reserveReady(manager, "video:shot.01.motion");
 
     manager.setAccepted("video:shot.01.motion", variantId);
 
@@ -159,7 +165,7 @@ describe("setAccepted / setUnaccepted", () => {
 
   it("clears accepted status when unaccepting the accepted variant", async () => {
     const manager = await StateManager.init(tmpDir);
-    const variantId = manager.reserveVariantId("video:shot.01.motion");
+    const variantId = reserveReady(manager, "video:shot.01.motion");
 
     manager.setAccepted("video:shot.01.motion", variantId);
     expect(manager.getAcceptedVariant("video:shot.01.motion")).toBe(variantId);
@@ -171,7 +177,7 @@ describe("setAccepted / setUnaccepted", () => {
 
   it("throws when unaccepting a variant that is not accepted", async () => {
     const manager = await StateManager.init(tmpDir);
-    const variantId = manager.reserveVariantId("video:shot.01.motion");
+    const variantId = reserveReady(manager, "video:shot.01.motion");
 
     expect(() => manager.setUnaccepted("video:shot.01.motion", variantId)).toThrow(/not accepted/);
   });
@@ -180,9 +186,9 @@ describe("setAccepted / setUnaccepted", () => {
   // undecided otherwise.
   it("dismisses the old accepted take only when it was among the candidates", async () => {
     const manager = await StateManager.init(tmpDir);
-    const v1 = manager.reserveVariantId("video:shot.01.motion");
-    const v2 = manager.reserveVariantId("video:shot.01.motion");
-    const v3 = manager.reserveVariantId("video:shot.01.motion");
+    const v1 = reserveReady(manager, "video:shot.01.motion");
+    const v2 = reserveReady(manager, "video:shot.01.motion");
+    const v3 = reserveReady(manager, "video:shot.01.motion");
 
     manager.setAccepted("video:shot.01.motion", v1);
     manager.setAccepted("video:shot.01.motion", v2);
@@ -197,7 +203,7 @@ describe("setAccepted / setUnaccepted", () => {
 
   it("throws VARIANT_NOT_FOUND for non-existent variant", async () => {
     const manager = await StateManager.init(tmpDir);
-    manager.reserveVariantId("video:shot.01.motion");
+    reserveReady(manager, "video:shot.01.motion");
 
     expect(() => manager.setAccepted("video:shot.01.motion", "v999")).toThrow(KonteError);
     expect(() => manager.setAccepted("video:shot.01.motion", "v999")).toThrow("not found");
@@ -205,7 +211,7 @@ describe("setAccepted / setUnaccepted", () => {
 
   it("stamps decidedAt (decision moment) on accept", async () => {
     const manager = await StateManager.init(tmpDir);
-    const vid = manager.reserveVariantId("video:shot.01.motion");
+    const vid = reserveReady(manager, "video:shot.01.motion");
     expect(manager.getAssetState("video:shot.01.motion").variants![vid]!.decidedAt).toBeNull();
 
     manager.setAccepted("video:shot.01.motion", vid);
@@ -217,8 +223,8 @@ describe("setAccepted / setUnaccepted", () => {
 
   it("dismisses the rival takes an accept was made among", async () => {
     const manager = await StateManager.init(tmpDir);
-    const chosen = manager.reserveVariantId("video:shot.01.motion");
-    const passedOver = manager.reserveVariantId("video:shot.01.motion");
+    const chosen = reserveReady(manager, "video:shot.01.motion");
+    const passedOver = reserveReady(manager, "video:shot.01.motion");
 
     manager.setAccepted("video:shot.01.motion", chosen, { dismiss: [chosen, passedOver] });
 
@@ -231,10 +237,10 @@ describe("setAccepted / setUnaccepted", () => {
   // A take something was patched off is the "before" of its correction, not a rival that lost.
   it("leaves a take that has been patched undecided", async () => {
     const manager = await StateManager.init(tmpDir);
-    const source = manager.reserveVariantId("video:shot.01.motion");
-    const patched = manager.reserveVariantId("video:shot.01.motion");
+    const source = reserveReady(manager, "video:shot.01.motion");
+    const patched = reserveReady(manager, "video:shot.01.motion");
     manager.getAssetState("video:shot.01.motion").variants![patched]!.derivedFrom = source;
-    const chosen = manager.reserveVariantId("video:shot.01.motion");
+    const chosen = reserveReady(manager, "video:shot.01.motion");
 
     manager.setAccepted("video:shot.01.motion", chosen, { dismiss: [source, patched] });
 
@@ -248,8 +254,8 @@ describe("setAccepted / setUnaccepted", () => {
   it("leaves the accepted take undecided when the accept moves to its correction", async () => {
     const manager = await StateManager.init(tmpDir);
     const address = "video:shot.01.motion";
-    const source = manager.reserveVariantId(address);
-    const correction = manager.reserveVariantId(address);
+    const source = reserveReady(manager, address);
+    const correction = reserveReady(manager, address);
     manager.getAssetState(address).variants![correction]!.derivedFrom = source;
     manager.setAccepted(address, source);
 
@@ -263,7 +269,7 @@ describe("setAccepted / setUnaccepted", () => {
 
   it("clears decidedAt when an accept is cleared", async () => {
     const manager = await StateManager.init(tmpDir);
-    const vid = manager.reserveVariantId("video:shot.01.motion");
+    const vid = reserveReady(manager, "video:shot.01.motion");
     manager.setAccepted("video:shot.01.motion", vid);
 
     manager.setUnaccepted("video:shot.01.motion", vid);
@@ -275,8 +281,8 @@ describe("setAccepted / setUnaccepted", () => {
 describe("removeVariant", () => {
   it("removes a variant from asset state", async () => {
     const manager = await StateManager.init(tmpDir);
-    const vid1 = manager.reserveVariantId("video:shot.01.motion");
-    const vid2 = manager.reserveVariantId("video:shot.01.motion");
+    const vid1 = reserveReady(manager, "video:shot.01.motion");
+    const vid2 = reserveReady(manager, "video:shot.01.motion");
 
     manager.removeVariant("video:shot.01.motion", vid1);
 
@@ -287,7 +293,7 @@ describe("removeVariant", () => {
 
   it("clears accepted status when removing the accepted variant", async () => {
     const manager = await StateManager.init(tmpDir);
-    const vid = manager.reserveVariantId("video:shot.01.motion");
+    const vid = reserveReady(manager, "video:shot.01.motion");
     manager.setAccepted("video:shot.01.motion", vid);
     expect(manager.getAcceptedVariant("video:shot.01.motion")).toBe(vid);
 
@@ -299,7 +305,7 @@ describe("removeVariant", () => {
 
   it("throws VARIANT_NOT_FOUND for non-existent variant", async () => {
     const manager = await StateManager.init(tmpDir);
-    manager.reserveVariantId("video:shot.01.motion");
+    reserveReady(manager, "video:shot.01.motion");
 
     expect(() => manager.removeVariant("video:shot.01.motion", "v999")).toThrow(KonteError);
     expect(() => manager.removeVariant("video:shot.01.motion", "v999")).toThrow("not found");
@@ -309,7 +315,7 @@ describe("removeVariant", () => {
 describe("getAcceptedVariant", () => {
   it("returns accepted variant for address", async () => {
     const manager = await StateManager.init(tmpDir);
-    const vid = manager.reserveVariantId("video:shot.01.motion");
+    const vid = reserveReady(manager, "video:shot.01.motion");
     manager.setAccepted("video:shot.01.motion", vid);
 
     expect(manager.getAcceptedVariant("video:shot.01.motion")).toBe(vid);
@@ -320,8 +326,8 @@ describe("getAcceptedVariant", () => {
 describe("per-profile acceptance", () => {
   it("accepts different variants for different profiles", async () => {
     const manager = await StateManager.init(tmpDir);
-    const v1 = manager.reserveVariantId("video:shot.01.motion");
-    const v2 = manager.reserveVariantId("video:shot.09.motion");
+    const v1 = reserveReady(manager, "video:shot.01.motion");
+    const v2 = reserveReady(manager, "video:shot.09.motion");
 
     manager.setAccepted("video:shot.01.motion", v1);
     manager.setAccepted("video:shot.09.motion", v2);
@@ -334,8 +340,8 @@ describe("per-profile acceptance", () => {
 
   it("does not reset status when variant is accepted in another profile", async () => {
     const manager = await StateManager.init(tmpDir);
-    const v1 = manager.reserveVariantId("video:shot.01.motion");
-    const v2 = manager.reserveVariantId("video:shot.01.motion");
+    const v1 = reserveReady(manager, "video:shot.01.motion");
+    const v2 = reserveReady(manager, "video:shot.01.motion");
 
     manager.setAccepted("video:shot.01.motion", v1);
     manager.setAccepted("video:shot.01.motion", v2);
@@ -358,7 +364,7 @@ describe("getAssetState", () => {
 describe("save", () => {
   it("persists state and leaves no .tmp file", async () => {
     const manager = await StateManager.init(tmpDir);
-    const vid = manager.reserveVariantId("video:shot.01.motion");
+    const vid = reserveReady(manager, "video:shot.01.motion");
     manager.setAccepted("video:shot.01.motion", vid);
 
     await manager.save();

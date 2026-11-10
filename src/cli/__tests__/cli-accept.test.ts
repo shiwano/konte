@@ -262,6 +262,20 @@ describe("accept command", () => {
     });
   });
 
+  it("refuses a take with no output, by id and by address", async () => {
+    await StateManager.withLock(projectDir, async (m) => {
+      m.getAssetState(address).variants![variantId]!.file = null;
+    });
+
+    for (const target of [variantId, address]) {
+      await expect(run(["accept", target, "--yes"], projectDir)).rejects.toMatchObject({
+        stderr: expect.stringContaining("VARIANT_NOT_REVIEWABLE"),
+      });
+    }
+    const after = await StateManager.load(projectDir);
+    expect(after.getAcceptedVariant(address)).toBeNull();
+  });
+
   it("fails for an address with no variants", async () => {
     await expect(run(["accept", "video:shot.01.other"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("VARIANT_NOT_FOUND"),
