@@ -347,6 +347,7 @@ const VARIANT_CHECK: Check = {
           fixIn: { stage: getStage(v.address) },
           message: `${v.address} ${f.detail}`,
           targets: [v.address],
+          variant: v.variantId,
         }),
       ),
     );

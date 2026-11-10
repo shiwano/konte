@@ -753,8 +753,8 @@ export async function applyAddressReview(
 
       skippedDecisions.push(...(hooks.placeSongLines?.(mgr) ?? []));
       const findings = await hooks.findings(mgr);
-      const isHeld = (address: string) =>
-        reviewHeldFindings(findings, [{ op: "accept", address }]).length > 0;
+      const isHeld = (address: string, variantId?: string) =>
+        reviewHeldFindings(findings, [{ op: "accept", address, variantId }]).length > 0;
 
       for (const override of body.decisions ?? []) {
         try {
@@ -772,7 +772,9 @@ export async function applyAddressReview(
             // it — and every other decision — still commits.
             const held = reviewHeldError(
               `Cannot accept ${override.address}`,
-              reviewHeldFindings(findings, [{ op: "accept", address: override.address }]),
+              reviewHeldFindings(findings, [
+                { op: "accept", address: override.address, variantId: override.variantId },
+              ]),
             );
             if (held) throw held;
             const previousAccepted = mgr.getAcceptedVariant(override.address);

@@ -367,6 +367,20 @@ describe("status command", () => {
       });
     });
 
+    it("refuses the accept of the take it sits on, not of a take beside it", async () => {
+      const short = await addVariant(" she should fill the sky");
+      await expect(run(["accept", short, "--yes"], projectDir)).rejects.toMatchObject({
+        stderr: expect.stringContaining("REVIEW_HELD"),
+      });
+
+      await run(["vouch", short], projectDir);
+      const other = await addVariant(" she should fill the sky");
+      await run(["accept", short, "--yes"], projectDir);
+      const sm = await StateManager.load(projectDir);
+      expect(sm.getAcceptedVariant(voice)).toBe(short);
+      expect(sm.getAssetState(voice).variants![other]!.status).toBe("dismissed");
+    });
+
     it("leaves out an address the definition no longer holds", async () => {
       const sm = await StateManager.load(projectDir);
       const gone = "video:shot.01.removed";

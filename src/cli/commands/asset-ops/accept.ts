@@ -395,9 +395,14 @@ function shotScopeDecision(
 
 // One accept toggle of a stage review: `targets` is what accepting it names (a reference card's
 // displayed take id, a shot's leaves), empty with `leftOut` set when the run cannot accept it.
+// What an accept hold is asked of: an address, and the take named for it.
+type HoldTarget = { address: string; variantId?: string | undefined };
+
 type StageUnit = {
   label: string;
   addresses: string[];
+  // The take a reference card shows.
+  variantId?: string | undefined;
   targets: string[];
   released: string[];
   leftOut: string | null;
@@ -453,6 +458,7 @@ function stageUnits(
       return {
         label: address,
         addresses: [address],
+        variantId,
         targets: variantId && beside.length === 0 ? [variantId] : [],
         released: [],
         leftOut: !variantId
@@ -570,7 +576,7 @@ function stageScopeTargets(
   definitions: StageDefinitions,
   stage: VariantStage,
   dependencies: ReadonlyMap<string, readonly string[]>,
-  heldFor: (addresses: readonly string[]) => Finding[],
+  heldFor: (targets: readonly HoldTarget[]) => Finding[],
 ): { targets: string[]; released: string[]; overlay: string | null; skipped: string[] } {
   const targets: string[] = [];
   const released: string[] = [];
@@ -578,7 +584,7 @@ function stageScopeTargets(
   const heldReason = (held: readonly Finding[]) =>
     `held by a finding to fix — ${held.map(formatFindingLine).join("; ")}`;
   for (const unit of stageUnits(manager, definitions, stage, dependencies)) {
-    const held = heldFor(unit.addresses);
+    const held = heldFor(unit.addresses.map((address) => ({ address, variantId: unit.variantId })));
     if (unit.leftOut) skipped.push(`${unit.label} — ${unit.leftOut}`);
     else if (held.length > 0) skipped.push(`${unit.label} — ${heldReason(held)}`);
     else {
@@ -588,7 +594,7 @@ function stageScopeTargets(
   }
   let overlay = stageOverlay(definitions, stage)[0] ?? null;
   if (overlay) {
-    const held = heldFor([overlay]);
+    const held = heldFor([{ address: overlay }]);
     const beside = upstreamVariantsBesideAccept(manager, dependencies.get(overlay) ?? []);
     const leftOut =
       held.length > 0 ? heldReason(held) : beside.length > 0 ? beside.join("; ") : null;
@@ -712,18 +718,18 @@ function orderAcceptBatch(
   for (const target of targets.filter((t) => !isLeafArg(t))) {
     const named = resolveVariantArg(manager, target, definitions);
     const hit = target.includes(":") ? replacementForStaleAccept(manager, named) : named;
-    const seen = byAddress.get(hit.address);
-    // A stage's overlay was never named: a take named for it stands instead.
-    if (
-      seen &&
-      !(seen.leaf && seen.conditional) &&
-      (seen.leaf || seen.variantId !== hit.variantId)
     if (manager.getAssetState(hit.address).variants?.[hit.variantId]?.file == null) {
       throw new KonteError(
         "VARIANT_NOT_REVIEWABLE",
         `Variant "${hit.variantId}" has no output to accept — its job is still running, or it failed`,
       );
     }
+    const seen = byAddress.get(hit.address);
+    // A stage's overlay was never named: a take named for it stands instead.
+    if (
+      seen &&
+      !(seen.leaf && seen.conditional) &&
+      (seen.leaf || seen.variantId !== hit.variantId)
     ) {
       throw new KonteError(
         "TARGETS_CONFLICT",
@@ -760,10 +766,10 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
     await loadCheckContext({ videoRoot, definitions, direction, manager: loaded, graph }),
     (t) => t.holds.accept === true,
   );
-  const heldFor = (addresses: readonly string[]) =>
+  const heldFor = (targets: readonly HoldTarget[]) =>
     reviewHeldFindings(
       findings,
-      addresses.map((address) => ({ op: "accept", address })),
+      targets.map((target) => ({ op: "accept", ...target })),
     );
   const skipped: string[] = [];
   const overlays: string[] = [];
@@ -801,7 +807,18 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
   const addresses = batch.flatMap((entry) =>
     entry.leaf && entry.conditional ? [] : [entry.address],
   );
-  const held = reviewHeldError(`Cannot accept ${addresses.join(", ")}`, heldFor(addresses));
+  const held = reviewHeldError(
+    `Cannot accept ${addresses.join(", ")}`,
+    heldFor(
+      batch.flatMap((entry) =>
+        entry.leaf
+          ? entry.conditional
+            ? []
+            : [{ address: entry.address }]
+          : [{ address: entry.address, variantId: entry.variantId }],
+      ),
+    ),
+  );
   if (held) throw held;
   for (const entry of batch) {
     if (entry.leaf) continue;
@@ -823,7 +840,8 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
   const cascadeOpts = {
     ...(video ? { video } : {}),
     animatic,
-    held: (address: string) => reviewHeldFindings(findings, [{ op: "accept", address }]).length > 0,
+    held: (address: string, variantId?: string) =>
+      reviewHeldFindings(findings, [{ op: "accept", address, variantId }]).length > 0,
   };
   const jobManager = new JobManager(videoRoot);
 

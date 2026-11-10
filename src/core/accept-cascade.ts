@@ -86,7 +86,7 @@ export async function cascadeAcceptConsumedDeps(
     // accepted too rather than skipped as they would be under a picture/generation root.
     forceAllowAudio?: boolean;
     // A dep whose accept a finding holds; skipped like an unwritten prerequisite.
-    held?: (address: string) => boolean;
+    held?: (address: string, variantId: string) => boolean;
   },
 ): Promise<string[]> {
   const accepted: string[] = [];
@@ -237,7 +237,7 @@ export async function cascadeAcceptConsumedDeps(
       if (findAllUnmetPrerequisites(defs, manager.getState(), new Set([depAddress])).length > 0) {
         continue;
       }
-      if (opts.held?.(depAddress)) continue;
+      if (opts.held?.(depAddress, depVariantId)) continue;
 
       // Respect an existing accept — never overwrite it — but keep walking THROUGH it, at the take
       // that accept names rather than the one this root consumed: that take is what the address

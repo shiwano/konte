@@ -301,7 +301,7 @@ export async function acceptDisplayedStemSources(
   opts: {
     video: StageDefinition;
     animatic?: AnimaticDefinition | null;
-    held?: (address: string) => boolean;
+    held?: (address: string, variantId?: string) => boolean;
   },
   overturned?: NonNullable<ReviewRecord["overturned"]>,
 ): Promise<string[]> {
@@ -310,7 +310,7 @@ export async function acceptDisplayedStemSources(
     // A dep path is the upstream asset's address directly.
     const srcAddr = depPath;
     const sel = displayed[srcAddr];
-    if (!sel || opts.held?.(srcAddr)) continue;
+    if (!sel || opts.held?.(srcAddr, sel)) continue;
     if (manager.getAcceptedVariant(srcAddr) === sel) {
       manager.dismissVariants(srcAddr, candidates[srcAddr] ?? [], sel);
       continue;
@@ -513,7 +513,7 @@ interface ReelSubmit {
   cascade: {
     video: StageDefinition;
     animatic: AnimaticDefinition | null;
-    held: (address: string) => boolean;
+    held: (address: string, variantId?: string) => boolean;
   };
 }
 
@@ -706,10 +706,11 @@ async function prepareReelSubmit(
     }),
     (t) => t.holds.accept === true,
   );
+  const displayed = body.displayedVariants ?? {};
   const heldFor = (addresses: readonly string[]) =>
     reviewHeldFindings(
       report,
-      addresses.map((address) => ({ op: "accept", address })),
+      addresses.map((address) => ({ op: "accept", address, variantId: displayed[address] })),
     );
 
   return {
@@ -721,11 +722,18 @@ async function prepareReelSubmit(
     manager,
     plan,
     subjectOf,
-    displayed: body.displayedVariants ?? {},
+    displayed,
     candidates: body.displayedCandidates ?? {},
     jobManager: new JobManager(videoRoot),
     heldFor,
-    cascade: { video, animatic, held: (address) => heldFor([address]).length > 0 },
+    cascade: {
+      video,
+      animatic,
+      held: (address, variantId) =>
+        reviewHeldFindings(report, [
+          { op: "accept", address, variantId: variantId ?? displayed[address] },
+        ]).length > 0,
+    },
   };
 }
 

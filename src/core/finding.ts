@@ -104,6 +104,8 @@ type FindingFields = {
   targets?: readonly string[];
   // The `judgedBy` addresses accepted as drawn (`signOffFinding`).
   signedOff?: readonly string[];
+  // The one take it sits on: its accept hold matches an accept naming that take.
+  variant?: string;
 };
 
 export type Finding =
@@ -293,14 +295,14 @@ const OTHER_TRAITS: TraitsOf<Exclude<FindingCode, DirectionFindingCode | Directi
   "take-silent": {
     reads: "take",
     clears: "vouch",
-    holds: { preview: true },
+    holds: { accept: true, preview: true },
     onset: "always",
     signsOff: false,
   },
   "line-misheard": {
     reads: "take",
     clears: "vouch",
-    holds: { preview: true },
+    holds: { accept: true, preview: true },
     onset: "always",
     signsOff: false,
   },
@@ -398,12 +400,15 @@ export function spendHold(finding: Finding, op: SpendOp): "whole" | "edge" | nul
   return spend.reach === "edge" ? "edge" : "whole";
 }
 
-export type ReviewOp = { op: "preview"; stage: Stage } | { op: "accept"; address: string };
+export type ReviewOp =
+  | { op: "preview"; stage: Stage }
+  | { op: "accept"; address: string; variantId?: string | undefined };
 
 export function reviewHold(finding: Finding, op: ReviewOp): boolean {
   const holds = findingTraits(finding.code).holds;
   if (op.op === "preview") return holds.preview === true && finding.fixIn.stage === op.stage;
   if (!holds.accept) return false;
+  if (finding.variant !== undefined && finding.variant !== op.variantId) return false;
   const targets = finding.targets;
   if (!targets) return op.address.startsWith(`${finding.fixIn.stage}:`);
   return targets.some(
