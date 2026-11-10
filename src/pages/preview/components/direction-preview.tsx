@@ -75,6 +75,13 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
   // click: a reviewer's Accept on the characters and their note on shot 3 are one act of review, and
   // splitting them would let the sign-off land while the note it was conditioned on is still typed.
   const [decisions, setDecisions] = useState<StagedDecisions>({});
+  // A verdict staged on the direction a reload replaced was on what the reviewer read, not on what
+  // `reviewedHash` would now name.
+  const [decidedHash, setDecidedHash] = useState(state.directionHash);
+  if (decidedHash !== state.directionHash) {
+    setDecidedHash(state.directionHash);
+    setDecisions({});
+  }
   const decisionCount = Object.keys(decisions).length;
   // The box the keyboard acts on. An index into the sections the page actually renders, so J/K walk
   // the boxes the reviewer can see rather than the ones the vocabulary happens to name.

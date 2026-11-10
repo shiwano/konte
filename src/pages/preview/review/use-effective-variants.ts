@@ -1,6 +1,12 @@
 import { useMemo } from "react";
 import type { VariantInfo } from "../types.js";
 
+type ShownAsset = {
+  address: string;
+  variants: VariantInfo[];
+  hasUndecidedBesideAccepted?: boolean;
+};
+
 /**
  * The variant each address shows: a gallery pick (`selectedVariants`) wins; else the undecided
  * variant beside the accepted one, so a reroll is visible without opening the gallery — a
@@ -9,24 +15,29 @@ import type { VariantInfo } from "../types.js";
  * `hasUndecidedBesideAccepted: false` keeps that one.
  */
 export function useEffectiveVariants(
-  assets: ReadonlyArray<{
-    address: string;
-    variants: VariantInfo[];
-    hasUndecidedBesideAccepted?: boolean;
-  }>,
+  assets: ReadonlyArray<ShownAsset>,
   selectedVariants: Record<string, string>,
 ): Record<string, string> {
-  const autoDefaults = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const a of assets) {
-      if (a.hasUndecidedBesideAccepted === false) continue;
-      const beside = a.variants.find((v) => v.undecidedBesideAccepted);
-      if (beside) map[a.address] = beside.variantId;
-    }
-    return map;
-  }, [assets]);
+  const autoDefaults = useMemo(() => autoDefaultVariants(assets), [assets]);
   return useMemo(
     () => ({ ...autoDefaults, ...selectedVariants }),
     [autoDefaults, selectedVariants],
   );
+}
+
+export function effectiveVariantsOf(
+  assets: ReadonlyArray<ShownAsset>,
+  selectedVariants: Record<string, string>,
+): Record<string, string> {
+  return { ...autoDefaultVariants(assets), ...selectedVariants };
+}
+
+function autoDefaultVariants(assets: ReadonlyArray<ShownAsset>): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const a of assets) {
+    if (a.hasUndecidedBesideAccepted === false) continue;
+    const beside = a.variants.find((v) => v.undecidedBesideAccepted);
+    if (beside) map[a.address] = beside.variantId;
+  }
+  return map;
 }

@@ -4,6 +4,7 @@ import { formatShotAddress } from "../../../core/address.js";
 import { submitReview } from "../api.js";
 import { formatPlayerTime } from "../format-time.js";
 import { type Playhead, usePlayheadTime } from "../review/playhead.js";
+import { marksStillShown } from "../review/reel-marks-shown.js";
 import { shownLineMarks } from "../review/shown-line-marks.js";
 import { ReviewShell, type ShortcutRows } from "../review/review-shell.js";
 import { shotGalleryTabs, soundtrackGalleryTabs } from "../review/gallery-tabs.js";
@@ -245,6 +246,16 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     [state.shots, state.audioAssets, state.thumbnail],
   );
   const effectiveVariants = useEffectiveVariants(allAssets, session.selectedVariants);
+
+  const [markedState, setMarkedState] = useState(state);
+  if (markedState !== state) {
+    setMarkedState(state);
+    const still = marksStillShown(marks, markedState, state, session.selectedVariants);
+    if (still.marks !== marks) {
+      setMarks(still.marks);
+      keep.dropUnits(still.movedShots.map((id) => formatShotAddress(reelStage, id)));
+    }
+  }
 
   const assetByAddress = useMemo(() => {
     const map = new Map<string, GalleryAsset>();
