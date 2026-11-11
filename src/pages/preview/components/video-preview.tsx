@@ -61,6 +61,7 @@ import { TheaterScrubber } from "./theater-scrubber.js";
 import { AssetInfoPanel, type InfoVariant, variantInfo } from "./asset-info-panel.js";
 import { type GalleryTab, VariantGallery } from "./variant-gallery.js";
 import { KeepOrRegenerateModal } from "./keep-or-regenerate-modal.js";
+import { standInLabel } from "../review/stand-in-label.js";
 
 // Keyboard shortcuts, surfaced on demand from the header's "?" button.
 const REEL_NOT_CURRENT =
@@ -1018,7 +1019,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
               {focusedShot?.showingStandIn && (
                 // The stage twin of the shot list's badge. The board plays like any other shot, so
                 // nothing on screen would otherwise say this picture has not been made.
-                <span className="vp-animatic-label">Animatic: not made yet</span>
+                <span className="vp-animatic-label">{standInLabel(focusedShot.standInCause)}</span>
               )}
               {focusedThumbnail?.imageUrl && coverAnchor !== null && (
                 <ThumbnailCoverOverlay

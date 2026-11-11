@@ -22,6 +22,7 @@ import {
   type CompositionClip,
 } from "../../../core/composition-builder.js";
 import { resolveCompositionRef } from "../../../core/composition-refs.js";
+import { getActiveVariantIds } from "../../../core/generation-selection.js";
 import {
   leafSettledAcross,
   compositionDefinitionHashForAddress,
@@ -48,6 +49,7 @@ import type {
   ClipInfo,
   ShotMoveInfo,
   ShotWaiverInfo,
+  StandInCause,
   VideoPreviewState,
 } from "../../../pages/preview/types.js";
 import { buildReelReviewPlan, reelShotAcceptability } from "../../../core/review-acceptability.js";
@@ -61,7 +63,12 @@ import type {
   StageDefinition,
   VideoDefinition,
 } from "../../../core/types/index.js";
-import { type RenderPlan, buildStageReviewPlan, shotSpans } from "../../../core/render-plan.js";
+import {
+  type RenderPlan,
+  buildStageReviewPlan,
+  drawsStaleRefAsWritten,
+  shotSpans,
+} from "../../../core/render-plan.js";
 import { resolveSoundtrackSpan } from "../../../core/timeline-audio.js";
 import { FeedbackManager } from "../../../core/feedback/index.js";
 import { StateManager } from "../../../core/state/index.js";
@@ -512,6 +519,22 @@ function reelAssetBuilder(
   };
 }
 
+function standInCause(
+  manager: StateManager,
+  video: StageDefinition,
+  shot: StageDefinition["shots"][number] | undefined,
+): StandInCause {
+  const unresolved = (shot?.compositionRefs ?? []).filter(
+    (ref) =>
+      !resolveCompositionRef(manager, ref) && !drawsStaleRefAsWritten(manager, video, shot!, ref),
+  );
+  const waiting = unresolved.filter((ref) => getActiveVariantIds(manager, ref).length === 0);
+  if (unresolved.length > 0 && waiting.length === 0) return "generating";
+  return waiting.some((ref) => resolveCompositionRef(manager, ref, { includeStale: true }))
+    ? "stale"
+    : "unmade";
+}
+
 function reelShotStates(
   scope: ReelStateScope,
   plan: RenderPlan,
@@ -565,6 +588,7 @@ function reelShotStates(
       pending,
       aside,
       showingStandIn,
+      standInCause: showingStandIn ? standInCause(manager, video, shot) : null,
       notReady,
       handoffNotes: handoffNotesForShot(ctx.handoff, stage, s.shotId),
     };

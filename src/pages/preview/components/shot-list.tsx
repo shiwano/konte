@@ -8,6 +8,7 @@ import { CommentIcon } from "./icons.js";
 import type { RegenerateMark } from "../review/keep-or-regenerate.js";
 import { RegenerateBadge } from "./regenerate-badge.js";
 import { StatusBadge } from "./status-badge.js";
+import { standInLabel, standInTitle } from "../review/stand-in-label.js";
 
 export function ShotList({
   shots,
@@ -131,7 +132,7 @@ export function ShotList({
                 {/* The one thing a reviewer cannot see for themselves: this shot is standing in
                     with the board, not the finished picture — so it reads as done otherwise. */}
                 {shot.showingStandIn && (
-                  <StatusBadge status="animatic" label="Animatic: not made yet" />
+                  <StatusBadge status="animatic" label={standInLabel(shot.standInCause)} />
                 )}
                 {shot.notReady && !shot.showingStandIn && (
                   <StatusBadge status="not-ready" label="Not ready" />
@@ -164,7 +165,7 @@ export function ShotList({
                       : shot.pending
                         ? "An undeveloped shot has nothing to accept. Develop it first"
                         : shot.showingStandIn
-                          ? "Standing in with the board: this shot's picture is not made yet, so there is nothing here to sign off"
+                          ? standInTitle(shot.standInCause)
                           : shot.notReady
                             ? "A track this shot plays is not generated yet. Generate it first"
                             : accepted

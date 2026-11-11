@@ -206,10 +206,16 @@ export interface ShotInfo {
   // made yet. Display only: the shot carries no verdict while it is true, so the accept toggle is
   // closed and a decision on it is dropped at submit.
   showingStandIn: boolean;
+  // Why the board stands in, while it does.
+  standInCause: StandInCause | null;
   // A track of this shot has no take yet (the timeline's dashed "Not ready" clip), so it is drawn
   // over a placeholder and its accept toggle is closed. See `shotNotReady`.
   notReady: boolean;
 }
+
+// `generating`: a job is making the take. `stale`: the take was made from inputs that have since
+// changed and waits on `konte generate`. `unmade`: no take was ever made.
+export type StandInCause = "generating" | "stale" | "unmade";
 
 export interface TimelineNote {
   id: string;
