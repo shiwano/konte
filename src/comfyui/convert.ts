@@ -528,12 +528,20 @@ export function convertLitegraphToApi(
     const widgets = node.widgets_values;
     if (Array.isArray(widgets)) {
       let widgetIdx = 0;
+      let values: Record<string, unknown> = {};
+      let typed = true;
+      let offOptions = 0;
       const assignWidget = (fieldName: string, def: ComfyUIInputSpec, isSub = false): void => {
-        if (widgetIdx >= widgets.length) return;
+        if (widgetIdx >= widgets.length) {
+          widgetIdx++;
+          return;
+        }
         const typeName = def[0];
         const value = widgets[widgetIdx];
         if (!linkedInputNames.has(fieldName)) {
-          inputs[fieldName] = value;
+          values[fieldName] = value;
+          if (!valueFitsWidget(def, value)) typed = false;
+          if (isOffComboOptions(def, value)) offOptions++;
         }
         widgetIdx++;
 
@@ -559,16 +567,74 @@ export function convertLitegraphToApi(
         for (const sub of dynamicSubWidgets.get(fieldName) ?? []) {
           if (widgetIdx >= widgets.length) break;
           if (!linkedInputNames.has(sub)) {
-            inputs[sub] = widgets[widgetIdx];
+            values[sub] = widgets[widgetIdx];
           }
           widgetIdx++;
         }
       };
-      for (const [fieldName, def] of inputDefs) {
-        // An autogrow input appears in `node.inputs` only by its expanded `<name>.<slot>` sockets.
-        if (slotInputNames.has(fieldName) || def[0] === "COMFY_AUTOGROW_V3") continue;
-        assignWidget(fieldName, def);
+      const assignAll = (
+        sockets: ReadonlySet<string>,
+      ): { values: Record<string, unknown>; slots: number; typed: boolean; offOptions: number } => {
+        widgetIdx = 0;
+        values = {};
+        typed = true;
+        offOptions = 0;
+        for (const [fieldName, def] of inputDefs) {
+          // An autogrow input appears in `node.inputs` only by its expanded `<name>.<slot>` sockets.
+          if (slotInputNames.has(fieldName) || def[0] === "COMFY_AUTOGROW_V3") continue;
+          if (sockets.has(fieldName)) continue;
+          assignWidget(fieldName, def);
+        }
+        return { values, slots: widgetIdx, typed, offOptions };
+      };
+
+      // An input the saved node does not list and whose type is no known widget is either a socket
+      // the node pack grew since, holding no slot, or a custom widget an older frontend never
+      // listed, holding one. A reading fits when it leaves no saved value over and puts each on a
+      // widget of its type; two fitting readings that place the values differently are refused.
+      // A core socket type is never a widget, so it is read as a socket outright.
+      const listed = new Set(node.inputs?.map((input) => input.name));
+      const unlistedDefs = [...inputDefs].filter(
+        ([name, def]) =>
+          !listed.has(name) && def[0] !== "COMFY_AUTOGROW_V3" && !holdsWidgetSlot(def),
+      );
+      const coreSockets = unlistedDefs
+        .filter(([, def]) => typeof def[0] === "string" && CORE_SOCKET_TYPES.has(def[0]))
+        .map(([name]) => name);
+      const unlisted = unlistedDefs
+        .map(([name]) => name)
+        .filter((name) => !coreSockets.includes(name));
+      let assigned = assignAll(new Set(coreSockets));
+      if (unlisted.length > 0) {
+        const asWidgets = assigned;
+        const asSockets = assignAll(new Set([...coreSockets, ...unlisted]));
+        const fits = (reading: typeof assigned): boolean =>
+          reading.typed && reading.slots >= widgets.length;
+        const names = unlisted.map((name) => `"${name}"`).join(", ");
+        const refuse = (why: string): never => {
+          throw new KonteError(
+            "WORKFLOW_IMPORT_FAILED",
+            `Node ${node.id} ("${node.type}") saves ${widgets.length} widget value(s), which fit ` +
+              `the ComfyUI server's definition of "${node.type}" ${why} ${names} as a widget. ` +
+              `Re-save the workflow in ComfyUI against the installed node pack.`,
+          );
+        };
+        if (fits(asSockets) && fits(asWidgets)) {
+          // A combo value off its listed options (a model not installed here) is legal, so it
+          // only tips between two readings that otherwise both fit.
+          if (asSockets.offOptions !== asWidgets.offOptions) {
+            assigned = asSockets.offOptions < asWidgets.offOptions ? asSockets : asWidgets;
+          } else {
+            if (!sameValues(asSockets.values, asWidgets.values)) refuse("both with and without");
+            assigned = asSockets;
+          }
+        } else if (fits(asSockets)) {
+          assigned = asSockets;
+        } else if (!fits(asWidgets)) {
+          refuse("neither with nor without");
+        }
       }
+      Object.assign(inputs, assigned.values);
     } else if (widgets) {
       // VideoHelperSuite nodes store widget values keyed by input name.
       for (const fieldName of inputDefs.keys()) {
@@ -686,6 +752,67 @@ function isWidgetSpec(def: ComfyUIInputSpec): boolean {
     if ((config as Record<string, unknown>).forceInput === true) return false;
   }
   return Array.isArray(type) || (typeof type === "string" && WIDGET_TYPES.has(type));
+}
+
+const CORE_SOCKET_TYPES = new Set([
+  "MODEL",
+  "CLIP",
+  "CLIP_VISION",
+  "CLIP_VISION_OUTPUT",
+  "VAE",
+  "CONDITIONING",
+  "LATENT",
+  "IMAGE",
+  "MASK",
+  "AUDIO",
+  "VIDEO",
+  "CONTROL_NET",
+  "STYLE_MODEL",
+  "GLIGEN",
+  "UPSCALE_MODEL",
+  "SAMPLER",
+  "SIGMAS",
+  "NOISE",
+  "GUIDER",
+]);
+
+function valueFitsWidget(def: ComfyUIInputSpec, value: unknown): boolean {
+  if (value == null) return true;
+  // ComfyUI coerces a numeric string on an INT or FLOAT input.
+  const numeric =
+    typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))
+      ? Number(value)
+      : value;
+  switch (def[0]) {
+    case "INT":
+      return Number.isInteger(numeric);
+    case "FLOAT":
+      return typeof numeric === "number";
+    case "STRING":
+      return typeof value === "string";
+    case "BOOLEAN":
+      return typeof value === "boolean";
+    default:
+      return true;
+  }
+}
+
+function isOffComboOptions(def: ComfyUIInputSpec, value: unknown): boolean {
+  const [type, config] = def;
+  const options = Array.isArray(type)
+    ? type
+    : type === "COMBO" && typeof config === "object" && config !== null
+      ? (config as Record<string, unknown>).options
+      : undefined;
+  return Array.isArray(options) && options.length > 0 && !options.includes(value);
+}
+
+function sameValues(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function holdsWidgetSlot(def: ComfyUIInputSpec): boolean {
+  return isWidgetSpec(def) || def[0] === "IMAGEUPLOAD" || def[0] === "VIDEOUPLOAD";
 }
 
 // A widget the node pack has since removed, saved by a frontend that lists every widget in

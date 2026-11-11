@@ -601,6 +601,87 @@ describe("convertLitegraphToApi", () => {
     });
   });
 
+  describe("an input the saved node does not list", () => {
+    const node = (widgets_values: unknown[]): LitegraphWorkflow => ({
+      last_node_id: 1,
+      last_link_id: 0,
+      nodes: [{ id: 1, type: "Sampler", inputs: [], widgets_values }],
+      links: [],
+    });
+
+    it("reads a socket the node pack grew since as holding no widget value", () => {
+      const info = {
+        Sampler: makeNodeDef({ mask: ["MASK"], steps: ["INT"], cfg: ["FLOAT"] }),
+      };
+      const { workflow: result } = convertLitegraphToApi(node([20, 7.5]), info);
+      expect(result["1"]!.inputs).toEqual({ steps: 20, cfg: 7.5 });
+    });
+
+    it("reads a socket of a custom type by the types of the values", () => {
+      const info = {
+        Sampler: makeNodeDef({ pose: ["POSE_KEYPOINT"], steps: ["INT"], cfg: ["FLOAT"] }),
+      };
+      const { workflow: result } = convertLitegraphToApi(node([20, 7.5]), info);
+      expect(result["1"]!.inputs).toEqual({ steps: 20, cfg: 7.5 });
+    });
+
+    it("reads a custom widget type as holding one when the values need it to", () => {
+      const info = { Sampler: makeNodeDef({ curve: ["CURVE_EDITOR"], steps: ["INT"] }) };
+      const { workflow: result } = convertLitegraphToApi(node(["ease", 20]), info);
+      expect(result["1"]!.inputs).toEqual({ curve: "ease", steps: 20 });
+    });
+
+    it("reads a custom widget as one beside a widget the node pack grew since", () => {
+      const info = {
+        Sampler: makeNodeDef({
+          curve: ["CURVE_EDITOR"],
+          steps: ["INT"],
+          cfg: ["FLOAT", { default: 7.5 }],
+        }),
+      };
+      const { workflow: result } = convertLitegraphToApi(node(["ease", 20]), info);
+      expect(result["1"]!.inputs).toEqual({ curve: "ease", steps: 20, cfg: 7.5 });
+    });
+
+    it("takes a numeric string as a number's value", () => {
+      const info = { Sampler: makeNodeDef({ curve: ["CURVE_EDITOR"], steps: ["INT"] }) };
+      const { workflow: result } = convertLitegraphToApi(node(["ease", "20"]), info);
+      expect(result["1"]!.inputs).toEqual({ curve: "ease", steps: "20" });
+    });
+
+    it("tips between two fitting readings by a combo's options", () => {
+      const info = {
+        Sampler: makeNodeDef({
+          curve: ["CURVE_EDITOR"],
+          method: [["linear", "cubic"]],
+          prompt: ["STRING", { default: "" }],
+        }),
+      };
+      const { workflow: result } = convertLitegraphToApi(node(["ease", "linear"]), info);
+      expect(result["1"]!.inputs).toEqual({ curve: "ease", method: "linear", prompt: "" });
+    });
+
+    it("refuses values that fit both readings differently", () => {
+      const info = {
+        Sampler: makeNodeDef({
+          curve: ["CURVE_EDITOR"],
+          steps: ["INT"],
+          cfg: ["FLOAT", { default: 7.5 }],
+        }),
+      };
+      expect(thrown(() => convertLitegraphToApi(node([3, 20]), info))).toMatchObject({
+        code: "WORKFLOW_IMPORT_FAILED",
+      });
+    });
+
+    it("refuses values that fit neither reading", () => {
+      const info = { Sampler: makeNodeDef({ curve: ["CURVE_EDITOR"], steps: ["INT"] }) };
+      expect(thrown(() => convertLitegraphToApi(node(["ease", 20, "extra"]), info))).toMatchObject({
+        code: "WORKFLOW_IMPORT_FAILED",
+      });
+    });
+  });
+
   it("names every unknown node type in one error", () => {
     const workflow: LitegraphWorkflow = {
       last_node_id: 4,
