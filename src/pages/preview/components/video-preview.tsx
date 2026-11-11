@@ -20,6 +20,7 @@ import { useReviewShortcuts } from "../review/use-review-shortcuts.js";
 import { keepPrompt, regenerateSummary } from "../review/keep-or-regenerate.js";
 import { useKeepChoices } from "../review/use-keep-choices.js";
 import { buildReelSubmitPayload } from "../review/reel-submit-payload.js";
+import { reelTakes, servedTakes } from "../review/reel-takes.js";
 import { thumbnailSwitched } from "../review/thumbnail-view.js";
 import { useReelComposition } from "../review/use-reel-composition.js";
 import {
@@ -249,6 +250,8 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     [state.shots, state.audioAssets, state.thumbnail],
   );
   const effectiveVariants = useEffectiveVariants(allAssets, session.selectedVariants);
+  const served = useMemo(() => servedTakes(state), [state]);
+  const takes = useMemo(() => reelTakes(served, effectiveVariants), [served, effectiveVariants]);
 
   const [markedState, setMarkedState] = useState(state);
   if (markedState !== state) {
@@ -364,8 +367,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   // right.
   const { html: compositionHtml, current: compositionCurrent } = useReelComposition({
     shots: state.shots,
-    compositionRefVariants: state.compositionRefVariants,
-    effectiveVariants,
+    displayed: takes.displayed,
     onLoad: pausePlayback,
     onError: session.setError,
   });
@@ -451,7 +453,15 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
     acceptAll,
     keepShotAfterAll,
     reset: resetDecisions,
-  } = useReelDecisions({ state, reelStage, marks, setMarks, keep, effectiveVariants });
+  } = useReelDecisions({
+    state,
+    reelStage,
+    marks,
+    setMarks,
+    keep,
+    effectiveVariants,
+    takes,
+  });
 
   // Picking a shot from the shot list seeks the player AND frames the shot on the timeline
   // (see ReviewTimeline's focusShotRequest). The playhead alone would leave a zoomed-out

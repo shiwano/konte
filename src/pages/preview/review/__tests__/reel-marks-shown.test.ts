@@ -24,7 +24,7 @@ const shot = (shotId: string, variantId: string, variants: string[], o: Partial<
   }) as unknown as ShotInfo;
 
 const reel = (shots: ShotInfo[], o: Partial<VideoPreviewState> = {}) =>
-  ({ shots, audioAssets: [], ...o }) as unknown as VideoPreviewState;
+  ({ shots, audioAssets: [], compositionRefVariants: {}, ...o }) as unknown as VideoPreviewState;
 
 const marked: ReelMarks = { ...NO_REEL_MARKS, shots: { "01": "accepted", "02": "accepted" } };
 
@@ -66,6 +66,8 @@ describe("marksStillShown", () => {
         variantId: null,
         definitionHash,
         needsReview: true,
+        verdictAddresses: [],
+        feedback: [],
       }) as VideoPreviewState["timelineStem"];
     const marks: ReelMarks = { ...NO_REEL_MARKS, stem: "accepted" };
     const before = reel([], { timelineStem: stem("h1") });
@@ -84,6 +86,8 @@ describe("marksStillShown", () => {
         variantId,
         definitionHash: "h1",
         needsReview: false,
+        verdictAddresses: [],
+        feedback: [],
       }) as VideoPreviewState["timelineStem"];
     const marks: ReelMarks = {
       ...NO_REEL_MARKS,
@@ -97,5 +101,23 @@ describe("marksStillShown", () => {
       timelineStem: stem("v-s2"),
     });
     expect(marksStillShown(marks, before, after, {}).marks).toBe(marks);
+  });
+
+  it("drops the overlay mark when a take it shows from its timeline moved", () => {
+    const overlay = {
+      address: "video:timeline#overlay",
+      duration: 10,
+      variantId: null,
+      definitionHash: "h1",
+      needsReview: true,
+      offered: true,
+      verdictAddresses: ["video:timeline.logo"],
+      feedback: [],
+    } as VideoPreviewState["overlay"];
+    const marks: ReelMarks = { ...NO_REEL_MARKS, overlay: "accepted" };
+    const at = (variantId: string) =>
+      reel([], { overlay, compositionRefVariants: { "video:timeline.logo": variantId } });
+    expect(marksStillShown(marks, at("v-a"), at("v-a"), {}).marks).toBe(marks);
+    expect(marksStillShown(marks, at("v-a"), at("v-b"), {}).marks.overlay).toBeUndefined();
   });
 });

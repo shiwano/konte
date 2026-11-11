@@ -28,7 +28,6 @@ import {
   parseAddressStream,
   parseShotAddress,
   shotStemAssetNames,
-  tryParseAddress,
 } from "../../../core/address.js";
 import { resolveCompositionRef } from "../../../core/composition-refs.js";
 import {
@@ -42,8 +41,10 @@ import {
   materializeOverlayVariant,
   materializeTimelineStem,
   overlayAwaitsAccept,
+  overlayTimelineRefs,
   prepareShotStem,
   removedShotStemAddresses,
+  timelineStemRefs,
   unresolvedLeafRefs,
   type PreparedShotStem,
   type UnresolvedLeafRef,
@@ -52,7 +53,6 @@ import { variantMediaKind } from "../../../core/media-type.js";
 import { shotAcceptTargets } from "../../../core/shot-accept-targets.js";
 import { Semaphore } from "../../../core/semaphore.js";
 import { computeAcceptedStaleness, formatStaleCause } from "../../../core/staleness.js";
-import { parsePlaceholder } from "../../../core/dsl/shot-context.js";
 import { errorMessage } from "../../../core/errors.js";
 import { errorResponse, jsonResponse, parseJsonBody } from "../../page-host/http.js";
 import {
@@ -543,11 +543,6 @@ interface ShotVerdicts {
 const heldReason = (findings: readonly Finding[]) =>
   `held — ${findings.map(formatFindingLine).join("; ")}`;
 
-const timelineStemSources = (video: StageDefinition): string[] =>
-  (video.timelineSoundtracks ?? [])
-    .map((st) => parsePlaceholder(st.src.src))
-    .filter((p): p is string => p !== null);
-
 // Handles a reel review's submit (`/api/animatic/submit`, `/api/video/submit`). Both composition
 // stages are reviewed the same way — one verdict per shot over a playing reel — so one handler
 // serves both, told which by the definition it is handed.
@@ -796,7 +791,7 @@ function buildReelRecord(submit: ReelSubmit, reviewedAt: string): ReviewRecord {
       timeline: displayedByAsset(submit, plan.timelineResolvedVariants, (name) =>
         formatTimelineAddress(stage, name),
       ),
-      timelineSources: displayedRefVariants(submit, timelineStemSources(video)),
+      timelineSources: displayedRefVariants(submit, timelineStemRefs(video)),
       ...((video as Partial<VideoDefinition>).thumbnail
         ? {
             thumbnailSources: displayedRefVariants(submit, [
@@ -1213,7 +1208,7 @@ async function applyTimelineStemDecision(
   const timelineStemAddress = formatTimelineStemAddress(stage);
   const held =
     decision === "accepted"
-      ? submit.heldFor([timelineStemAddress, ...timelineStemSources(video)])
+      ? submit.heldFor([timelineStemAddress, ...timelineStemRefs(video)])
       : [];
   if (held.length > 0) {
     ledger.skippedDecisions.push({ address: timelineStemAddress, reason: heldReason(held) });
@@ -1228,7 +1223,7 @@ async function applyTimelineStemDecision(
           const sources = await acceptDisplayedStemSources(
             mgr,
             submit.jobManager,
-            timelineStemSources(video),
+            timelineStemRefs(video),
             submit.displayed,
             submit.candidates,
             submit.cascade,
@@ -1315,15 +1310,7 @@ async function applyOverlayDecision(
         // rather than from a take that landed mid-review. What it shows from another stage is
         // reached by the cascade below, under the exclusions a shot's out-of-shot refs get.
         const refs = overlayDef.compositionRefs;
-        const timelineRefs = refs.filter((ref) => {
-          const parsed = tryParseAddress(ref);
-          return (
-            parsed?.stage === stage &&
-            parsed.kind === "timeline" &&
-            !parsed.delivery &&
-            !isMaterializedLeafAddress(ref)
-          );
-        });
+        const timelineRefs = overlayTimelineRefs(video);
         for (const ref of refs) {
           if (timelineRefs.includes(ref) || !displayed[ref]) continue;
           const now = resolveCompositionRef(mgr, ref, { includeStale: true })?.variantId;

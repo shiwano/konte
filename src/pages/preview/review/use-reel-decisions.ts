@@ -17,6 +17,7 @@ import {
 } from "./keep-or-regenerate.js";
 import { reelAcceptUnits, type ReelUnit } from "./shot-acceptable.js";
 import { thumbnailShownAccepted } from "./thumbnail-view.js";
+import { auditioning, leafShownAccepted, type ReelTakes } from "./reel-takes.js";
 import type { useKeepChoices } from "./use-keep-choices.js";
 
 type Mark = "accepted" | "none";
@@ -56,6 +57,7 @@ export function useReelDecisions({
   setMarks,
   keep,
   effectiveVariants,
+  takes,
 }: {
   state: VideoPreviewState;
   reelStage: "animatic" | "video";
@@ -63,6 +65,7 @@ export function useReelDecisions({
   setMarks: React.Dispatch<React.SetStateAction<ReelMarks>>;
   keep: ReturnType<typeof useKeepChoices>;
   effectiveVariants: Record<string, string>;
+  takes: ReelTakes;
 }) {
   const {
     choices: keepChoices,
@@ -72,53 +75,28 @@ export function useReelDecisions({
     reset: resetKeep,
   } = keep;
 
-  // The take each address resolves to, for telling an audition from what stands.
-  const resolvedByAddress = useMemo(
-    () =>
-      new Map(
-        [...state.shots.flatMap((s) => s.assets), ...state.audioAssets].map((a) => [
-          a.address,
-          a.variantId,
-        ]),
-      ),
-    [state.shots, state.audioAssets],
-  );
-
-  // Where each shot stands before this session touched it. Whether anything it signs off is still
-  // undecided is the SERVER's answer (`needsVerdict`) — one rule for what settles a shot, shared
-  // with the accept it drives. Only the preview override is the page's own: auditioning a
-  // non-accepted take is a state of this session.
+  // Where each unit stands before this session touched it. Whether anything it signs off is still
+  // undecided is the SERVER's answer (`needsVerdict`, `needsReview`). Only the audition is the
+  // page's own: a unit playing a take its accept would change reads unaccepted.
   const baseShotAccepted = useMemo(() => {
     const map: Record<string, boolean> = {};
     for (const s of state.shots) {
       // Standing in with the board: there is no accept to reflect.
-      if (s.showingStandIn) {
-        map[s.shotId] = false;
-        continue;
-      }
-      // Only the addresses this shot's verdict actually lands on (`verdictAddresses`), so
-      // auditioning a take the accept never touches does not read as an unsaved change.
-      const viewingNonAccepted = s.verdictAddresses.some((address) => {
-        const resolved = resolvedByAddress.get(address);
-        if (resolved === undefined) return false;
-        return (effectiveVariants[address] ?? resolved) !== resolved;
-      });
-      map[s.shotId] = !s.needsVerdict && !viewingNonAccepted;
+      map[s.shotId] =
+        !s.showingStandIn && !s.needsVerdict && !auditioning(s.verdictAddresses, takes);
     }
     return map;
-  }, [state.shots, effectiveVariants, resolvedByAddress]);
+  }, [state.shots, takes]);
 
-  // The timeline audio stem (soundtrack beds): the persisted accept unless it is stale/unaccepted.
-  const baseTimelineStemAccepted = useMemo(() => {
-    const ts = state.timelineStem;
-    return !!ts && ts.variantId !== null && !ts.needsReview;
-  }, [state.timelineStem]);
+  const baseTimelineStemAccepted = useMemo(
+    () => leafShownAccepted(state.timelineStem, takes),
+    [state.timelineStem, takes],
+  );
 
-  // The overlay: the persisted accept unless it is stale/unaccepted.
-  const baseOverlayAccepted = useMemo(() => {
-    const o = state.overlay;
-    return !!o && o.variantId !== null && !o.needsReview;
-  }, [state.overlay]);
+  const baseOverlayAccepted = useMemo(
+    () => leafShownAccepted(state.overlay, takes),
+    [state.overlay, takes],
+  );
 
   const baseThumbnailAccepted = useMemo(
     () => thumbnailShownAccepted(state.thumbnail, effectiveVariants),
@@ -187,12 +165,9 @@ export function useReelDecisions({
           const mark = shotId === undefined ? undefined : markOf(shotId);
           return mark === undefined ? undefined : mark === "accepted";
         },
-        shown: (address) =>
-          resolvedByAddress.has(address)
-            ? (effectiveVariants[address] ?? resolvedByAddress.get(address) ?? null)
-            : undefined,
+        shown: (address) => (takes.galleried(address) ? takes.shown(address) : undefined),
       }),
-    [keepGraph, shotOfAddress, resolvedByAddress, effectiveVariants],
+    [keepGraph, shotOfAddress, takes],
   );
 
   const keepOriginOf = useCallback(
@@ -200,12 +175,12 @@ export function useReelDecisions({
       unit: formatShotAddress(reelStage, shot.shotId),
       chosen: Object.fromEntries(
         shot.verdictAddresses.flatMap((address) => {
-          const variantId = effectiveVariants[address] ?? resolvedByAddress.get(address);
+          const variantId = takes.galleried(address) ? takes.shown(address) : null;
           return variantId ? [[address, variantId]] : [];
         }),
       ),
     }),
-    [reelStage, effectiveVariants, resolvedByAddress],
+    [reelStage, takes],
   );
 
   const applyShotMark = useCallback(

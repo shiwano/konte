@@ -18,6 +18,8 @@ import {
   OVERLAY_HTML_FILE,
   formatTimelineOverlayAddress,
   isOverlayAddress,
+  isMaterializedLeafAddress,
+  tryParseAddress,
 } from "./address.js";
 import {
   buildOverlayCompositionHtml,
@@ -960,6 +962,19 @@ export function shotAcceptsStand(
           !isAcceptedStale(manager, address, definitionHashForAddress(video, address)))
       );
     });
+}
+
+/** The overlay's own timeline takes: what its accept signs off beside the overlay itself. */
+export function overlayTimelineRefs(video: StageDefinition): string[] {
+  return (video.overlay?.compositionRefs ?? []).filter((ref) => {
+    const parsed = tryParseAddress(ref);
+    return (
+      parsed?.stage === video.stage &&
+      parsed.kind === "timeline" &&
+      !parsed.delivery &&
+      !isMaterializedLeafAddress(ref)
+    );
+  });
 }
 
 /** Whether the overlay is owed an accept: it needs review, and every shot accept under it stands. */

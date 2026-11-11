@@ -29,6 +29,7 @@ import {
   timelineStemRefs,
   materializedLeafReviewStatus,
   overlayAwaitsAccept,
+  overlayTimelineRefs,
 } from "../../../core/composition-resource.js";
 import { variantMediaKind } from "../../../core/media-type.js";
 import {
@@ -744,6 +745,7 @@ function timelineStemState(scope: ReelStateScope) {
     address,
     definitionHash,
     ...materializedLeafReviewStatus(manager, address, definitionHash),
+    verdictAddresses: timelineStemRefs(video),
     feedback: leafFeedback(scope, address, definitionHash),
   };
 }
@@ -761,6 +763,7 @@ function overlayState(scope: ReelStateScope) {
     definitionHash,
     ...materializedLeafReviewStatus(manager, address, definitionHash),
     offered: overlayAwaitsAccept(manager, video, scope.counterpart),
+    verdictAddresses: overlayTimelineRefs(video),
     feedback: leafFeedback(scope, address, definitionHash),
   };
 }

@@ -1,10 +1,11 @@
 import type { VideoPreviewState } from "../types.js";
+import { reelTakes, servedTakes } from "./reel-takes.js";
 import { effectiveVariantsOf } from "./use-effective-variants.js";
 import type { ReelMarks } from "./use-reel-decisions.js";
 
 type ReelState = Pick<
   VideoPreviewState,
-  "shots" | "audioAssets" | "timelineStem" | "overlay" | "thumbnail"
+  "shots" | "audioAssets" | "timelineStem" | "overlay" | "thumbnail" | "compositionRefVariants"
 >;
 
 type ReelViews = {
@@ -22,9 +23,7 @@ function reelViews(state: ReelState, selectedVariants: Record<string, string>): 
     ...state.audioAssets,
     ...(state.thumbnail ? [state.thumbnail.cover, ...state.thumbnail.assets] : []),
   ];
-  const effective = effectiveVariantsOf(assets, selectedVariants);
-  const resolved = new Map(assets.map((a) => [a.address, a.variantId]));
-  const shown = (address: string) => effective[address] ?? resolved.get(address) ?? null;
+  const { shown } = reelTakes(servedTakes(state), effectiveVariantsOf(assets, selectedVariants));
   const view = (...parts: unknown[]) => JSON.stringify(parts);
 
   return {
@@ -43,12 +42,16 @@ function reelViews(state: ReelState, selectedVariants: Record<string, string>): 
     stem: state.timelineStem
       ? view(
           state.timelineStem.definitionHash,
-          state.audioAssets
-            .filter((a) => a.kind === "soundtrack")
-            .map((a) => [a.address, shown(a.address)]),
+          state.timelineStem.verdictAddresses.map((a) => [a, shown(a)]),
         )
       : undefined,
-    overlay: state.overlay ? view(state.overlay.definitionHash, state.overlay.offered) : undefined,
+    overlay: state.overlay
+      ? view(
+          state.overlay.definitionHash,
+          state.overlay.offered,
+          state.overlay.verdictAddresses.map((a) => [a, shown(a)]),
+        )
+      : undefined,
     thumbnail: state.thumbnail
       ? view(
           [state.thumbnail.cover, ...state.thumbnail.assets].map((a) => [

@@ -303,6 +303,8 @@ interface TimelineStemInfo {
   // retime, an added bed) ages it out even without a take switch. null when it has no definition.
   definitionHash: string | null;
   needsReview: boolean;
+  // The gallery-backed takes the accept lands on (its beds).
+  verdictAddresses: string[];
   feedback: FeedbackInfo[];
 }
 
@@ -316,6 +318,8 @@ interface OverlayInfo {
   definitionHash: string | null;
   needsReview: boolean;
   offered: boolean;
+  // The overlay's own timeline takes the accept lands on.
+  verdictAddresses: string[];
   feedback: FeedbackInfo[];
 }
 

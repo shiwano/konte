@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchCompositionHtml } from "../api.js";
 import type { ShotInfo } from "../types.js";
 
-function reelCompositionKey(pinned: Record<string, string>, standInShotKey: string): string {
+function reelCompositionKey(
+  pinned: Readonly<Record<string, string>>,
+  standInShotKey: string,
+): string {
   return JSON.stringify([
     Object.entries(pinned).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
     standInShotKey,
@@ -16,14 +19,12 @@ function reelCompositionKey(pinned: Record<string, string>, standInShotKey: stri
  */
 export function useReelComposition({
   shots,
-  compositionRefVariants,
-  effectiveVariants,
+  displayed: pinned,
   onLoad,
   onError,
 }: {
   shots: ShotInfo[];
-  compositionRefVariants: Record<string, string>;
-  effectiveVariants: Record<string, string>;
+  displayed: Readonly<Record<string, string>>;
   onLoad: () => void;
   onError: (message: string) => void;
 }): { html: string | null; current: boolean } {
@@ -42,11 +43,7 @@ export function useReelComposition({
 
   // Pinned to the same takes the submit will record, or the composite re-resolves its external
   // refs against state loaded for THIS request — a reroll landing between the two draws one take
-  // and the comment written over it names another. A gallery pick still wins.
-  const pinned = useMemo(
-    () => ({ ...compositionRefVariants, ...effectiveVariants }),
-    [compositionRefVariants, effectiveVariants],
-  );
+  // and the comment written over it names another.
   const key = useMemo(() => reelCompositionKey(pinned, standInShotKey), [pinned, standInShotKey]);
 
   useEffect(() => {

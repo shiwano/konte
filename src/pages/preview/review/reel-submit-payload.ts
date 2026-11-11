@@ -3,6 +3,7 @@ import type { VideoPreviewState } from "../types.js";
 import { keepDecisions, regenerateDecisions, type KeepChoice } from "./keep-or-regenerate.js";
 import type { SubmitInput } from "./use-review-session.js";
 import type { ReelMarks } from "./use-reel-decisions.js";
+import { reelTakes, servedTakes } from "./reel-takes.js";
 
 export function buildReelSubmitPayload({
   state,
@@ -36,14 +37,10 @@ export function buildReelSubmitPayload({
     text: pf.text,
     ...(pf.annotation ? { x: pf.annotation.x, y: pf.annotation.y } : {}),
   }));
-  // Snapshot the variant shown for every reviewable asset (preview override
-  // wins over the resolved/accepted variant), so submit accepts exactly what
-  // the reviewer saw — never a variant a reroll produced mid-review.
-  //
-  // Seeded with what the compositions were rendered from, since a composite draws addresses the
-  // arrays below do not carry (a board panel, a reference sheet). The loops then overwrite every
-  // address this page can switch a take on, so a gallery pick still wins.
-  const displayedVariants: Record<string, string> = { ...state.compositionRefVariants };
+  // The take on screen at every address, so submit accepts exactly what the reviewer saw.
+  const displayedVariants: Record<string, string> = {
+    ...reelTakes(servedTakes(state), effectiveVariants).displayed,
+  };
   // Every take the gallery offered beside it. An accept dismisses the ones it did not choose,
   // and only the page knows which were on screen — a reroll that landed mid-review is in state
   // but was never a candidate this reviewer passed over.
@@ -53,8 +50,6 @@ export function buildReelSubmitPayload({
     ...state.audioAssets,
     ...(state.thumbnail ? [state.thumbnail.cover, ...state.thumbnail.assets] : []),
   ]) {
-    const vid = effectiveVariants[a.address] ?? a.variantId;
-    if (vid) displayedVariants[a.address] = vid;
     displayedCandidates[a.address] = a.variants.map((v) => v.variantId);
   }
   // The materialized leaves the page was served: their live definition, which no take carries,
