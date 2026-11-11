@@ -2,9 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchCompositionHtml } from "../api.js";
 import type { ShotInfo } from "../types.js";
 
+function reelCompositionKey(pinned: Record<string, string>, standInShotKey: string): string {
+  return JSON.stringify([
+    Object.entries(pinned).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    standInShotKey,
+  ]);
+}
+
 /**
- * The reel's composition HTML, pinned to the takes on screen. `onLoad` runs before each fetch;
- * `onError` gets a failure that is not an abort.
+ * The reel's composition HTML, pinned to the takes on screen. `current` is false while `html` is
+ * of other takes than the page now names — a fetch under way, or one that failed. `onLoad` runs
+ * before each fetch; `onError` gets a failure that is not an abort.
  */
 export function useReelComposition({
   shots,
@@ -18,8 +26,8 @@ export function useReelComposition({
   effectiveVariants: Record<string, string>;
   onLoad: () => void;
   onError: (message: string) => void;
-}): string | null {
-  const [compositionHtml, setCompositionHtml] = useState<string | null>(null);
+}): { html: string | null; current: boolean } {
+  const [loaded, setLoaded] = useState<{ html: string; key: string } | null>(null);
 
   // The stand-ins this page was told about, as a stable key: the reel is re-fetched when the set
   // moves (a shot whose picture just landed must redraw), and never merely because state was re-read.
@@ -32,6 +40,15 @@ export function useReelComposition({
     [shots],
   );
 
+  // Pinned to the same takes the submit will record, or the composite re-resolves its external
+  // refs against state loaded for THIS request — a reroll landing between the two draws one take
+  // and the comment written over it names another. A gallery pick still wins.
+  const pinned = useMemo(
+    () => ({ ...compositionRefVariants, ...effectiveVariants }),
+    [compositionRefVariants, effectiveVariants],
+  );
+  const key = useMemo(() => reelCompositionKey(pinned, standInShotKey), [pinned, standInShotKey]);
+
   useEffect(() => {
     // Switching takes in quick succession (or a hot-reload landing on top of one) leaves two
     // fetches in flight, and the slower one is not always the older one — abort the previous
@@ -41,13 +58,9 @@ export function useReelComposition({
       controller?.abort();
       controller = new AbortController();
       const signal = controller.signal;
-      // Pinned to the same takes the submit will record, or the composite re-resolves its external
-      // refs against state loaded for THIS request — a reroll landing between the two draws one take
-      // and the comment written over it names another. A gallery pick still wins.
-      const pinned = { ...compositionRefVariants, ...effectiveVariants };
       const overrides = Object.keys(pinned).length > 0 ? pinned : undefined;
       fetchCompositionHtml(overrides, signal, standInShotKey ? standInShotKey.split(",") : [])
-        .then(setCompositionHtml)
+        .then((html) => setLoaded({ html, key }))
         .catch((err) => {
           if (signal.aborted) return;
           onError(err.message);
@@ -60,7 +73,7 @@ export function useReelComposition({
       controller?.abort();
       window.removeEventListener("konte:reload", load);
     };
-  }, [effectiveVariants, compositionRefVariants, onLoad, onError, standInShotKey]);
+  }, [pinned, key, onLoad, onError, standInShotKey]);
 
-  return compositionHtml;
+  return { html: loaded?.html ?? null, current: loaded?.key === key };
 }

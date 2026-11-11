@@ -25,6 +25,8 @@ export interface HyperFramesPlayerRef {
 
 interface HyperFramesPlayerWrapperProps {
   compositionHtml: string | null;
+  /** The composition is of other takes than the page now names; the one asked for has not landed. */
+  outdated?: boolean;
   // Project fps (accepted for callers); frame<->time conversion uses RUNTIME_FPS, not this.
   fps: number;
   width: number;
@@ -41,6 +43,7 @@ interface HyperFramesPlayerWrapperProps {
 
 export function HyperFramesPlayerWrapper({
   compositionHtml,
+  outdated = false,
   width,
   height,
   scale = 1,
@@ -174,13 +177,16 @@ export function HyperFramesPlayerWrapper({
           width,
           height,
           border: "none",
+          visibility: outdated ? "hidden" : undefined,
           transformOrigin: "top left",
           transform: scale !== 1 ? `scale(${scale})` : undefined,
         }}
         sandbox="allow-scripts allow-same-origin"
         title="Composition Preview"
       />
-      {!isReady && compositionHtml && <div className="player-loading">Loading composition...</div>}
+      {(!isReady || outdated) && compositionHtml && (
+        <div className="player-loading">Loading composition...</div>
+      )}
     </div>
   );
 }

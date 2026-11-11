@@ -62,6 +62,9 @@ import { type GalleryTab, VariantGallery } from "./variant-gallery.js";
 import { KeepOrRegenerateModal } from "./keep-or-regenerate-modal.js";
 
 // Keyboard shortcuts, surfaced on demand from the header's "?" button.
+const REEL_NOT_CURRENT =
+  "The reel has not loaded the takes picked. Wait for it, or pick the take again if it failed.";
+
 const SHORTCUTS: ShortcutRows = [
   [["Space"], "Play / pause"],
   [["←", "→"], "Seek back / forward (hold to scrub smoothly)"],
@@ -359,7 +362,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
   // once the new composition is ready (see the wrapper's getStartTime). A reel that came back
   // shorter reports the frame it actually landed on, which puts the playhead and the focused shot
   // right.
-  const compositionHtml = useReelComposition({
+  const { html: compositionHtml, current: compositionCurrent } = useReelComposition({
     shots: state.shots,
     compositionRefVariants: state.compositionRefVariants,
     effectiveVariants,
@@ -789,12 +792,13 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
 
   const submitVideoReview = useCallback(
     async (input: SubmitInput) => {
+      if (!compositionCurrent) throw new Error(REEL_NOT_CURRENT);
       await submitReview(
         reelStage,
         buildReelSubmitPayload({ state, marks, keepChoices, effectiveVariants, input }),
       );
     },
-    [reelStage, state, marks, keepChoices, effectiveVariants],
+    [reelStage, state, marks, keepChoices, effectiveVariants, compositionCurrent],
   );
   const handleSubmit = session.openSubmit;
 
@@ -943,8 +947,12 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
       submitting={session.submitting}
       submitted={session.submitted}
       submittedTitle="Review Submitted"
-      canSubmit={session.hasPendingChanges}
-      submitHint="Nothing to submit yet. Accept something, leave a note, or write an overall comment above."
+      canSubmit={session.hasPendingChanges && compositionCurrent}
+      submitHint={
+        session.hasPendingChanges
+          ? REEL_NOT_CURRENT
+          : "Nothing to submit yet. Accept something, leave a note, or write an overall comment above."
+      }
       onSubmit={handleSubmit}
       undecided={undecided}
       regenerate={regenerateSummary(keepGraph, keepChoices, reelStage)}
@@ -974,6 +982,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
             <div className="player-stage" style={{ width: dispWidth, height: dispHeight }}>
               <HyperFramesPlayerWrapper
                 compositionHtml={compositionHtml}
+                outdated={!compositionCurrent}
                 fps={state.fps}
                 width={state.size.width}
                 height={state.size.height}
